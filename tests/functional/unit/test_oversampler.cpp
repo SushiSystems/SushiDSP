@@ -21,6 +21,8 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
+#define _USE_MATH_DEFINES
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -29,6 +31,10 @@
 #include <gtest/gtest.h>
 
 #include "SushiDSP/math/Oversampler.hpp"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 TEST(Unit_Dsp, HalfbandUpsamplerDoublesFrameCount)
 {
@@ -263,5 +269,134 @@ TEST(Unit_Dsp, HalfbandDownsamplerResetClearsState)
     for (std::size_t i = 0; i < output_a.size(); ++i)
     {
         EXPECT_NEAR(output_a[i], output_b[i], 1e-6f) << "sample " << i;
+    }
+}
+
+namespace
+{
+    // The shifted-delay-line direct form the polyphase/ring-buffer implementation replaced,
+    // including the same coefficient design, kept here as the reference the new code must
+    // reproduce bit for bit.
+    std::vector<float> reference_halfband(std::uint32_t taps)
+    {
+        std::vector<float> coefficients(taps, 0.0f);
+        const int center = static_cast<int>(taps - 1) / 2;
+        for (int n = 0; n < static_cast<int>(taps); ++n)
+        {
+            const int k = n - center;
+            float sinc_value;
+            if (k == 0)
+            {
+                sinc_value = 0.5f;
+            }
+            else
+            {
+                sinc_value = std::sin(static_cast<float>(M_PI) * static_cast<float>(k) / 2.0f)
+                    / (static_cast<float>(M_PI) * static_cast<float>(k));
+            }
+            const float window = 0.54f
+                - 0.46f * std::cos(2.0f * static_cast<float>(M_PI) * static_cast<float>(n)
+                    / static_cast<float>(taps - 1));
+            coefficients[n] = sinc_value * window;
+        }
+        return coefficients;
+    }
+
+    std::vector<float> reference_upsample(const std::vector<float>& input, std::uint32_t taps)
+    {
+        const std::vector<float> coefficients = reference_halfband(taps);
+        std::vector<float> delay_line(taps, 0.0f);
+        std::vector<float> output(input.size() * 2);
+        for (std::size_t frame = 0; frame < input.size(); ++frame)
+        {
+            for (std::uint32_t sub = 0; sub < 2; ++sub)
+            {
+                for (std::uint32_t i = taps - 1; i > 0; --i)
+                {
+                    delay_line[i] = delay_line[i - 1];
+                }
+                delay_line[0] = (sub == 0) ? input[frame] * 2.0f : 0.0f;
+                float accumulator = 0.0f;
+                for (std::uint32_t i = 0; i < taps; ++i)
+                {
+                    accumulator += coefficients[i] * delay_line[i];
+                }
+                output[frame * 2 + sub] = accumulator;
+            }
+        }
+        return output;
+    }
+
+    std::vector<float> reference_downsample(const std::vector<float>& input, std::uint32_t taps)
+    {
+        const std::vector<float> coefficients = reference_halfband(taps);
+        std::vector<float> delay_line(taps, 0.0f);
+        std::vector<float> output(input.size() / 2);
+        std::size_t output_index = 0;
+        for (std::size_t frame = 0; frame < input.size(); ++frame)
+        {
+            for (std::uint32_t i = taps - 1; i > 0; --i)
+            {
+                delay_line[i] = delay_line[i - 1];
+            }
+            delay_line[0] = input[frame];
+            if (frame % 2 == 0)
+            {
+                float accumulator = 0.0f;
+                for (std::uint32_t i = 0; i < taps; ++i)
+                {
+                    accumulator += coefficients[i] * delay_line[i];
+                }
+                output[output_index++] = accumulator;
+            }
+        }
+        return output;
+    }
+
+    std::vector<float> noisy_signal(std::size_t frames)
+    {
+        std::vector<float> signal(frames);
+        std::uint32_t state = 0x12345678u;
+        for (std::size_t i = 0; i < frames; ++i)
+        {
+            state = state * 1664525u + 1013904223u;
+            signal[i] = static_cast<float>(static_cast<int>(state >> 8) % 20001 - 10000) / 10000.0f;
+        }
+        return signal;
+    }
+}
+
+TEST(Unit_Dsp, HalfbandUpsamplerMatchesDirectFormReferenceBitForBit)
+{
+    for (std::uint32_t taps : { 15u, 31u, 3u })
+    {
+        const std::vector<float> input = noisy_signal(300);
+        const std::vector<float> expected = reference_upsample(input, taps);
+        SushiDSP::HalfbandUpsampler2x upsampler(taps);
+        std::vector<float> output(input.size() * 2, 0.0f);
+        // Two calls of uneven length, so the ring state across calls is exercised too.
+        upsampler.process(input.data(), 113, output.data());
+        upsampler.process(input.data() + 113, 187, output.data() + 226);
+        for (std::size_t i = 0; i < output.size(); ++i)
+        {
+            EXPECT_EQ(output[i], expected[i]) << "taps " << taps << " sample " << i;
+        }
+    }
+}
+
+TEST(Unit_Dsp, HalfbandDownsamplerMatchesDirectFormReferenceBitForBit)
+{
+    for (std::uint32_t taps : { 15u, 31u, 3u })
+    {
+        const std::vector<float> input = noisy_signal(600);
+        const std::vector<float> expected = reference_downsample(input, taps);
+        SushiDSP::HalfbandDownsampler2x downsampler(taps);
+        std::vector<float> output(input.size() / 2, 0.0f);
+        downsampler.process(input.data(), 226, output.data());
+        downsampler.process(input.data() + 226, 374, output.data() + 113);
+        for (std::size_t i = 0; i < output.size(); ++i)
+        {
+            EXPECT_EQ(output[i], expected[i]) << "taps " << taps << " sample " << i;
+        }
     }
 }

@@ -18,7 +18,7 @@
 /* distributed under the License is distributed on an "AS IS" BASIS,      */
 /* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
 /* implied. See the License for the specific language governing           */
-/* permissions and limitations under the License.                         */
+/* permissions and limitations under the License.                        */
 /**************************************************************************/
 
 #pragma once
@@ -31,10 +31,13 @@ namespace SushiDSP
     /// @brief Interpolates by 2x using a windowed-sinc halfband FIR lowpass. Allocation-free
     /// after construction; carries streaming state across process() calls.
     ///
-    /// Correctness-first: the coefficients come from a Hamming-windowed sinc rather than an
-    /// equiripple design, and are applied with a direct-form FIR rather than a polyphase
-    /// structure that would skip the halfband's zero-valued even-offset taps. A later
-    /// optimisation pass can swap in polyphase without changing this interface.
+    /// The coefficients come from a Hamming-windowed sinc rather than an equiripple design.
+    /// They are applied in polyphase form: the two output phases of a zero-stuffed input only
+    /// ever touch the even- and odd-indexed taps respectively, so each phase is a dot product
+    /// over the base-rate history alone, held in a ring buffer instead of a shifted delay
+    /// line. The result is bit-identical to the direct-form FIR over the zero-stuffed signal
+    /// (the skipped products are exact zeros, and the surviving terms are summed in the same
+    /// order); tests pin that equivalence.
     class HalfbandUpsampler2x
     {
     public:
@@ -47,16 +50,23 @@ namespace SushiDSP
         /// @param output 2*frames output samples; must not alias input.
         void process(const float* input, std::uint32_t frames, float* output);
 
-        /// @brief Zeroes the delay line so the next process() starts from silence.
+        /// @brief Zeroes the history so the next process() starts from silence.
         void reset();
 
     private:
-        std::vector<float> coefficients_;
-        std::vector<float> delay_line_;
+        std::vector<float> even_coefficients_;
+        std::vector<float> odd_coefficients_;
+        std::vector<float> history_;
+        std::uint32_t      history_mask_;
+        std::uint32_t      write_index_;
     };
 
     /// @brief Decimates by 2x using a windowed-sinc halfband FIR lowpass. Allocation-free
     /// after construction; carries streaming state across process() calls.
+    ///
+    /// Direct-form over a ring buffer: every tap is applied (the even-offset taps of a
+    /// float-designed windowed sinc are near zero, not exactly zero, so dropping them would
+    /// change the output) and only the retained output samples are computed.
     class HalfbandDownsampler2x
     {
     public:
@@ -69,12 +79,14 @@ namespace SushiDSP
         /// @param output frames_in/2 output samples; must not alias input.
         void process(const float* input, std::uint32_t frames_in, float* output);
 
-        /// @brief Zeroes the delay line so the next process() starts from silence.
+        /// @brief Zeroes the history so the next process() starts from silence.
         void reset();
 
     private:
         std::vector<float> coefficients_;
-        std::vector<float> delay_line_;
+        std::vector<float> history_;
+        std::uint32_t      history_mask_;
+        std::uint32_t      write_index_;
     };
 
     /// @brief Cascades three halfband stages each way for 8x oversampling. Allocation-free
@@ -97,7 +109,7 @@ namespace SushiDSP
         /// @param output frames_oversampled/8 base-rate output samples.
         void downsample(const float* oversampled, std::uint32_t frames_oversampled, float* output);
 
-        /// @brief Resets every stage's delay line.
+        /// @brief Resets every stage's history.
         void reset();
 
         /// @brief The base-rate block size this instance was constructed for.
@@ -105,10 +117,8 @@ namespace SushiDSP
 
     private:
         std::uint32_t block_size_;
-
         HalfbandUpsampler2x stage1_up_, stage2_up_, stage3_up_;
         HalfbandDownsampler2x stage1_down_, stage2_down_, stage3_down_;
-
         std::vector<float> buffer_2x_;
         std::vector<float> buffer_4x_;
         std::vector<float> buffer_8x_;

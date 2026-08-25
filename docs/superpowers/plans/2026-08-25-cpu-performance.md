@@ -29,7 +29,7 @@ Deliberately out of scope, written down so it is not silently dropped:
   sites. Regression snapshots must stay within 1e-5.
 - [x] **5. Newton early exit** — stop iterating once the step is below a relative tolerance,
   instead of always running 4 iterations.
-- [ ] **6. Polyphase halfband** — circular delay line, skip the zero-valued even taps. Same
+- [x] **6. Polyphase halfband** — circular delay line, skip the zero-valued even taps. Same
   output to float precision; unit tests pin the equivalence.
 - [ ] **7. SIMD FIR tap sum** — only if the profile after Task 6 still shows the FIR as
   significant and the compiler's autovectorization is not already doing the job.
@@ -109,3 +109,19 @@ bit-identical by construction and the regression snapshots confirm it.
 
 The TubeScreamer's antiparallel-diode solve rarely lands on an exact fixed point (it
 oscillates by an ulp), so it gains little from the exact criterion.
+
+### Task 6: polyphase halfband over a ring buffer
+
+Upsampler: the two output phases of a zero-stuffed input only touch the even- and odd-indexed
+taps, so each phase is now a dot product over the base-rate history alone; the skipped
+products were exact zeros and the surviving terms are summed in the original order, so the
+output is bit-identical (pinned by a unit test against the old direct form, three tap
+counts, split calls). Downsampler: ring buffer replaces the per-sample O(taps) shift; every
+tap is still applied because the even-offset taps of a float-designed windowed sinc are near
+zero, not zero, and dropping them would move the output.
+
+| Case                     | Before | After | Change |
+|--------------------------|-------:|------:|-------:|
+| Oversampler8x round trip | 139    | 82    | -41 %  |
+| Jcm800 (no cabinet)      | 1872   | 1780  | -5 %   |
+| TubeScreamer             | 633    | 577   | -9 %   |
