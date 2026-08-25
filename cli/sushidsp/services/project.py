@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import enum
 import shutil
-import subprocess
 from pathlib import Path
 from typing import Optional
 
+from sushicore.proc import Runner
+
 from .. import console
-from ..config import Config, find_project_root, load_config
+from ..config import Config, PROFILE, find_project_root, load_config
 
 
 class BuildType(str, enum.Enum):
@@ -61,23 +62,15 @@ def _ctest(cfg: Config) -> str:
     return cfg.expand(cfg.ctest_exe) if cfg.ctest_exe else "ctest"
 
 
-def _resolve_exe(name: str) -> str:
-    """Return the full path to *name* from PATH, or *name* itself as fallback."""
-    return shutil.which(name) or name
+_RUNNER = Runner(console, PROFILE.program)
 
 
 def _run(cmd: list[str], cwd: Path) -> int:
-    resolved = list(cmd)
-    resolved[0] = _resolve_exe(cmd[0])
-    console.command(subprocess.list2cmdline(resolved))
-    try:
-        return subprocess.run(resolved, cwd=str(cwd)).returncode
-    except FileNotFoundError:
-        console.error(
-            f"Executable not found: '{cmd[0]}'.\n"
-            f"  - it is not on PATH and no explicit path is configured.\n"
-            f"  - set its path in cli/config.local.toml (cmake_exe / ctest_exe).")
-        return 1
+    return _RUNNER.run(cmd, cwd)
+
+
+def _resolve_exe(name: str) -> str:
+    return _RUNNER.resolve_exe(name)
 
 
 def configure(build_type: BuildType, defines: Optional[list[str]] = None) -> int:
