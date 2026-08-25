@@ -43,16 +43,16 @@ namespace
         void start(SushiDSP::DeviceCallback callback) override
         {
             std::vector<std::vector<float>> channel_storage(
-                format_.channels, std::vector<float>(format_.block_size, 0.0f));
-            std::vector<float*> channel_pointers(format_.channels);
-            for (std::uint32_t channel = 0; channel < format_.channels; ++channel)
+                format_.output_channels, std::vector<float>(format_.block_size, 0.0f));
+            std::vector<float*> channel_pointers(format_.output_channels);
+            for (std::uint32_t channel = 0; channel < format_.output_channels; ++channel)
             {
                 channel_pointers[channel] = channel_storage[channel].data();
             }
 
             for (std::uint32_t block = 0; block < blocks_to_run_; ++block)
             {
-                callback(channel_pointers.data(), format_.block_size);
+                callback(nullptr, channel_pointers.data(), format_.block_size);
             }
         }
 
@@ -66,22 +66,23 @@ namespace
 
 TEST(Unit_Dsp, NullAudioDeviceReportsConfiguredFormat)
 {
-    SushiDSP::DeviceFormat expected{ 48000.0, 256, 1 };
+    SushiDSP::DeviceFormat expected{ 48000.0, 256, 0, 1 };
     NullAudioDevice device(expected, 0);
 
     SushiDSP::DeviceFormat actual = device.format();
 
     EXPECT_EQ(actual.sample_rate, expected.sample_rate);
     EXPECT_EQ(actual.block_size, expected.block_size);
-    EXPECT_EQ(actual.channels, expected.channels);
+    EXPECT_EQ(actual.input_channels, expected.input_channels);
+    EXPECT_EQ(actual.output_channels, expected.output_channels);
 }
 
 TEST(Unit_Dsp, NullAudioDeviceInvokesCallbackOncePerBlock)
 {
-    NullAudioDevice device({ 48000.0, 256, 1 }, 5);
+    NullAudioDevice device({ 48000.0, 256, 0, 1 }, 5);
 
     int call_count = 0;
-    device.start([&call_count](float* const*, std::uint32_t)
+    device.start([&call_count](const float* const*, float* const*, std::uint32_t)
     {
         ++call_count;
     });
@@ -91,11 +92,11 @@ TEST(Unit_Dsp, NullAudioDeviceInvokesCallbackOncePerBlock)
 
 TEST(Unit_Dsp, NullAudioDeviceCallbackReceivesRequestedFrameCount)
 {
-    NullAudioDevice device({ 48000.0, 128, 2 }, 1);
+    NullAudioDevice device({ 48000.0, 128, 0, 2 }, 1);
 
     std::uint32_t received_frames = 0;
     std::uint32_t received_channels_nonnull = 0;
-    device.start([&received_frames, &received_channels_nonnull](float* const* outputs, std::uint32_t frames)
+    device.start([&received_frames, &received_channels_nonnull](const float* const*, float* const* outputs, std::uint32_t frames)
     {
         received_frames = frames;
         received_channels_nonnull = (outputs[0] != nullptr && outputs[1] != nullptr) ? 2 : 0;
