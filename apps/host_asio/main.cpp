@@ -22,9 +22,9 @@
 /**************************************************************************/
 
 #include <cstdio>
-#include <cstdlib>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/device/AsioAudioDevice.hpp"
