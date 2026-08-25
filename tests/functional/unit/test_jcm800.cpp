@@ -72,6 +72,39 @@ TEST(Unit_Dsp, Jcm800ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
     }
 }
 
+TEST(Unit_Dsp, Jcm800OutputNeverExceedsFullScaleUnderHotGainStaging)
+{
+    SushiDSP::Jcm800 node;
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_preamp(1.0f);
+    node.set_master(1.0f);
+    node.set_bass(1.0f);
+    node.set_middle(1.0f);
+    node.set_treble(1.0f);
+    node.set_presence(1.0f);
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    for (int block = 0; block < 40; ++block)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    for (float sample : output)
+    {
+        EXPECT_LE(std::fabs(sample), 1.0f);
+    }
+}
+
 TEST(Unit_Dsp, Jcm800PortsAreMonoInMonoOut)
 {
     SushiDSP::Jcm800 node;
