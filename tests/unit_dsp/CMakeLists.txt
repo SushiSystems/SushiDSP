@@ -12,6 +12,7 @@ add_executable(unit_dsp
     BufferPoolTest.cpp
     FftTest.cpp
     BiquadTest.cpp
+    RtSafetyTest.cpp
 )
 target_link_libraries(unit_dsp PRIVATE SushiDSP::sushi_dsp GTest::gtest_main)
 target_include_directories(unit_dsp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

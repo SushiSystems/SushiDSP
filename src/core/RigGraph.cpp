@@ -16,6 +16,7 @@
 
 #include "SushiDSP/core/RigGraph.hpp"
 
+#include <algorithm>
 #include <queue>
 
 namespace SushiDSP
@@ -73,6 +74,8 @@ namespace SushiDSP
             }
         }
 
+        node_output_scratch_.assign(nodes_.size(), nullptr);
+
         for (auto& node : nodes_)
         {
             node->prepare(info);
@@ -81,7 +84,8 @@ namespace SushiDSP
 
     void RigGraph::process(ProcessContext& context)
     {
-        std::vector<float*> node_output(nodes_.size(), nullptr);
+        auto& node_output = node_output_scratch_;
+        std::fill(node_output.begin(), node_output.end(), nullptr);
 
         for (NodeHandle handle : topological_order_)
         {
