@@ -40,9 +40,16 @@ add_executable(sushidsp_tests
     functional/unit/test_rig_graph.cpp
     functional/unit/test_spsc_ring.cpp
 
+    # --- Circuits ---
+    functional/unit/test_diode_clipper_circuit.cpp
+
     # --- Math ---
     functional/unit/test_biquad.cpp
     functional/unit/test_fft.cpp
+    functional/unit/test_newton_raphson_solver.cpp
+    functional/unit/test_oversampler.cpp
+    functional/unit/test_partitioned_convolution.cpp
+    functional/unit/test_wdf.cpp
 
     # --- Real-time safety ---
     functional/unit/test_rt_safety.cpp
