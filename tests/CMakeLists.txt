@@ -43,6 +43,7 @@ add_executable(sushidsp_tests
     # --- Math ---
     functional/unit/test_biquad.cpp
     functional/unit/test_fft.cpp
+    functional/unit/test_oversampler.cpp
     functional/unit/test_partitioned_convolution.cpp
 
     # --- Real-time safety ---
