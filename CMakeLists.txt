@@ -59,8 +59,6 @@ if(SUSHIDSP_BUILD_SDL2)
     add_subdirectory(apps/host)
 endif()
 
-add_subdirectory(bench)
-
 # The Steinberg ASIO SDK is proprietary (accept-the-license, dual Steinberg/GPLv3) and cannot
 # be committed or fetched automatically - each developer vendors it themselves at
 # third_party/asio/ (gitignored). Absent SDK or non-Windows platform: this target is silently

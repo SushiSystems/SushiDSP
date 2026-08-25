@@ -58,25 +58,12 @@ def test(
         help="Build type: debug | release | relwithdebinfo."),
     suite: Suite = typer.Option(
         Suite.unit, "--suite", "-s", case_sensitive=False,
-        help="Test suite to run: unit | all."),
+        help="Test suite to run: unit | regression | benchmark | all."),
     clean: bool = typer.Option(
         False, "--clean", help="Delete the build tree before configuring."),
 ):
     """Builds (if needed) and runs ctest, optionally filtered by --suite."""
     raise typer.Exit(project_svc.test(type, suite, clean=clean))
-
-
-@app.command("bench")
-def bench(
-    type: BuildType = typer.Option(
-        BuildType.release, "--type", "-t", case_sensitive=False,
-        help="Build type: debug | release | relwithdebinfo. Defaults to release."),
-    filter: Optional[list[str]] = typer.Option(
-        None, "--filter", "-f", metavar="NAME",
-        help="Run only cases whose name contains NAME. Repeatable."),
-):
-    """Builds (if needed) and runs the DSP timing harness (bench/)."""
-    raise typer.Exit(project_svc.bench(type, filter))
 
 
 @app.command("config")

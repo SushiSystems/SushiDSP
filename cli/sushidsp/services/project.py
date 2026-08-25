@@ -19,7 +19,6 @@ import enum
 import os
 import shutil
 import stat
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -42,12 +41,14 @@ class BuildType(str, enum.Enum):
 class Suite(str, enum.Enum):
     unit = "unit"
     regression = "regression"
+    benchmark = "benchmark"
     all = "all"
 
 
 _SUITE_LABEL_REGEX = {
     Suite.unit: "^unit$",
     Suite.regression: "^regression$",
+    Suite.benchmark: "^benchmark$",
 }
 
 _CMAKE_BUILD_TYPE = {
@@ -180,43 +181,15 @@ def test(build_type: BuildType, suite: Suite, clean: bool = False) -> int:
     # output through a pipe, where this call has always inherited stdout directly.
     cmd = [_DRIVER.ctest(cfg), "--test-dir", str(build_dir),
            "-C", _CMAKE_BUILD_TYPE[build_type], "--output-on-failure"]
+    # The benchmark case always "passes" (it has no assertion, only a timing table), so
+    # --output-on-failure alone would hide the very numbers this suite exists to show.
+    if suite == Suite.benchmark:
+        cmd += ["-V"]
     label_regex = _SUITE_LABEL_REGEX.get(suite)
     if label_regex is not None:
         cmd += ["-L", label_regex]
 
     return _RUNNER.run(cmd, root, env=_env(cfg, build_dir))
-
-
-def bench(build_type: BuildType, filters: Optional[list[str]] = None) -> int:
-    """Builds (if needed) then runs the sushidsp_bench timing harness.
-
-    Only the bench target is compiled, so this does not pull in the test binary or SDL2. The
-    harness prints one row per case; *filters* are substrings that select which cases run.
-    """
-    root = find_project_root()
-    build_dir = _build_dir(root)
-    cfg = load_config()
-    config = _CMAKE_BUILD_TYPE[build_type]
-
-    rc = build(build_type)
-    if rc != 0:
-        return rc
-
-    exe = _find_binary(build_dir, "sushidsp_bench", config)
-    if exe is None:
-        console.error(f"sushidsp_bench was built but not found under {build_dir}")
-        return 1
-    return _RUNNER.run([str(exe), *(filters or [])], root, env=_env(cfg, build_dir))
-
-
-def _find_binary(build_dir: Path, name: str, config: str) -> Optional[Path]:
-    """Locates a built executable in either a single- or multi-config tree layout."""
-    suffix = ".exe" if sys.platform == "win32" else ""
-    for candidate in (build_dir / "bench" / config / f"{name}{suffix}",
-                      build_dir / "bench" / f"{name}{suffix}"):
-        if candidate.is_file():
-            return candidate
-    return None
 
 
 def doxygen() -> int:

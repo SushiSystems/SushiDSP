@@ -189,3 +189,10 @@ Contraction had to be pinned: with clang's default `-ffp-contract=on` both regre
 snapshots and one TubeScreamer unit test failed (Jcm800 off by ~1e-4, TubeScreamer level-zero
 output 1.25e-3 against a 1e-3 bound); with `-ffp-contract=off` all 134 tests pass bit-for-bit
 against the MSVC-era snapshots. Measured cost of the pin on clang: within noise.
+
+### Addendum: bench moved into the test tree
+
+`bench/` moved to `tests/benchmark/` and `sd bench` was removed; the harness now runs as
+`sd test -t release -s benchmark` (ctest label `benchmark`, a single case with no assertion
+-- `sd test` passes `-V` for that suite so the timing table still prints on a pass). Every
+`sd bench` reference above this line is historical: read it as `sd test -s benchmark`.

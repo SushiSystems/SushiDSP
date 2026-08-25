@@ -11,8 +11,10 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
   Windows). FMA contraction is pinned off for every compiler so the regression snapshots are
   toolchain-independent. intel/llvm clang++: Jcm800 1780 -> 1430 ns/sample (-20 %).
 
-- `sushidsp_bench` / `sd bench` — the timing harness every optimization is measured with;
-  reports ns per output sample and the share of one core at 48 kHz.
+- `tests/benchmark/` (`sushidsp_bench`, run via `sd test -s benchmark`) — the timing harness
+  every optimization is measured with; reports ns per output sample and the share of one
+  core at 48 kHz. Registered as a single ctest case under the `benchmark` label (no
+  assertion, so `sd test -s benchmark` passes `-V` to ctest to show the table).
 - Release/RelWithDebInfo now build with AVX2 + FMA and link-time optimization (per target,
   `SUSHIDSP_ENABLE_AVX2` / `SUSHIDSP_ENABLE_LTO`). No fast-math.
 - `DenormalGuard` — RAII flush-to-zero for the audio thread, engaged in the SDL2 callback.

@@ -93,10 +93,11 @@ gets sent back before anything else is reviewed.
   output) are preferred over tautological "does it run" tests for anything numerical — see any
   D0–D2 math kernel test for the pattern.
 - Run `sd test` before every commit. `sd test --suite all` once more than `unit` exists.
-- Anything touching the audio path gets measured: `sd bench` (a Release build of `bench/`)
-  before and after, and the numbers go in the commit message or the plan. A change that is
-  meant to be pure cost must keep the regression snapshots bit-identical; one that moves them
-  is a behaviour change and is reviewed as one.
+- Anything touching the audio path gets measured: `sd test -t release -s benchmark` (the
+  `tests/benchmark/` timing harness, registered as a single ctest case under the
+  `benchmark` label) before and after, and the numbers go in the commit message or the
+  plan. A change that is meant to be pure cost must keep the regression snapshots
+  bit-identical; one that moves them is a behaviour change and is reviewed as one.
 
 ## 5. SOLID
 
