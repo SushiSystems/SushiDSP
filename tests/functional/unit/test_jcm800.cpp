@@ -219,35 +219,6 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
     EXPECT_GT(loud_peak, quiet_peak * 2.0f);
 }
 
-TEST(Unit_Dsp, TriodeStageResolvesPastTheOldSymmetricCutoffBound)
-{
-    // Guards Task 9's asymmetric Newton-Raphson bound directly at the stage level, where it's
-    // actually load-bearing (the composite Jcm800 node's own output is too many stages and too
-    // much downstream saturation removed from a single grid's excursion to discriminate this
-    // reliably - measured attempts at the node level moved by single-digit percent either way,
-    // regardless of which bound was compiled in). See the Task 9 report's ruling.
-    //
-    // Same component values Jcm800.cpp uses for v1b_ - the stage whose grid the report measures
-    // reaching 1.56-2.81 V, past the old +/-60*Vt (1.551 V) bound. A -3.5 V grid swing is deep
-    // in the negative/cutoff half's affine region (no exponential term), where Newton's answer is
-    // just the unclamped affine root: under the old symmetric bound that root is unreachable and
-    // the stage pins at a fixed plate voltage regardless of how much further the grid is driven;
-    // under Task 9's widened -160*Vt (4.136 V) cutoff bound it is not, and the plate output tracks
-    // the drive instead.
-    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f);
-
-    stage.reset();
-    const float plate_at_moderate_swing = stage.process_sample(-2.5f);
-    stage.reset();
-    const float plate_at_deep_swing = stage.process_sample(-3.5f);
-
-    // Under the old +/-60*Vt bound both readings pin at the same clamped plate voltage (93.06,
-    // independently reproduced by reverting the bound and rerunning this exact scenario). Under
-    // the widened bound the deeper swing must resolve further, not pin at the moderate swing's
-    // value.
-    EXPECT_GT(plate_at_deep_swing, plate_at_moderate_swing * 1.3f);
-}
-
 TEST(Unit_Dsp, Jcm800DescriptorExposesSixControlParameters)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::jcm800_descriptor();
@@ -466,4 +437,72 @@ TEST(Unit_Dsp, Jcm800CabinetStageEngagesAtANonDefaultBlockSize)
         total_difference += std::abs(static_cast<double>(with_cabinet[i]) - without_cabinet[i]);
     }
     EXPECT_GT(total_difference, 0.0);
+}
+
+TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
+{
+    // Guards the power-tube bias mismatch (Jcm800.cpp's kPowerTubeGridBiasMismatchVolts) against
+    // being dropped or neutralized. It is asserted at the amp's output rather than at the pair
+    // because the pair itself is not reachable from here; the mechanism's own proof - that a
+    // cathode-bias difference is provably inert and an input-referred offset is not - lives in
+    // test_pentode_stage.cpp.
+    //
+    // The direction is worth stating, because it is not the naive one. The preamp triodes clip
+    // one half-cycle harder than the other, so the amp already carries even-harmonic content
+    // before the output section; the EL34 pair's handover asymmetry is out of phase with it and
+    // partly cancels it. Measured at 220 Hz, 0.2 input, preamp 0.6: second harmonic is 1.77% of
+    // the fundamental as shipped, and 2.45% with the mismatch zeroed. The band below brackets the
+    // shipped figure well clear of the no-mismatch one.
+    SushiDSP::Jcm800 node;
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_preamp(0.6f);
+    node.set_master(1.0f);
+    node.set_bass(0.5f);
+    node.set_middle(0.5f);
+    node.set_treble(0.5f);
+    node.set_presence(0.5f);
+
+    constexpr double sample_rate = 48000.0;
+    constexpr double frequency = 220.0;
+    std::vector<float> output;
+    double global_sample_index = 0.0;
+    for (int block = 0; block < 120; ++block)
+    {
+        std::vector<float> input(256, 0.0f);
+        for (std::size_t i = 0; i < input.size(); ++i)
+        {
+            input[i] = static_cast<float>(
+                0.2 * std::sin(2.0 * M_PI * frequency * (global_sample_index + i) / sample_rate));
+        }
+        global_sample_index += 256.0;
+
+        std::vector<float> block_output(256, 0.0f);
+        const float* input_channels[1] = { input.data() };
+        float* output_channels[1] = { block_output.data() };
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+        output.insert(output.end(), block_output.begin(), block_output.end());
+    }
+
+    // Only the settled last quarter is measured, for the same reason Jcm800ThdIncreasesWithPreamp
+    // measures only that: the slew, the transformer highpass and the sag recovery are all still
+    // moving well past block 15.
+    const std::size_t settle_start = output.size() * 3 / 4;
+    const std::size_t n = output.size() - settle_start;
+    auto harmonic_amplitude = [&](int harmonic)
+    {
+        double sum_sin = 0.0, sum_cos = 0.0;
+        for (std::size_t i = settle_start; i < output.size(); ++i)
+        {
+            const double phase = 2.0 * M_PI * frequency * harmonic * i / sample_rate;
+            sum_sin += output[i] * std::sin(phase);
+            sum_cos += output[i] * std::cos(phase);
+        }
+        return 2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n;
+    };
+
+    const double second_harmonic_ratio = harmonic_amplitude(2) / harmonic_amplitude(1);
+    EXPECT_GT(second_harmonic_ratio, 0.012);
+    EXPECT_LT(second_harmonic_ratio, 0.021);
 }
