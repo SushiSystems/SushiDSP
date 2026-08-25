@@ -21,9 +21,12 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <string>
+
 #include <gtest/gtest.h>
 
 #include "RigController.hpp"
+#include "SushiDSP/node_registry/NodeRegistry.hpp"
 
 TEST(Unit_Dsp, RigControllerStartsEmpty)
 {
@@ -104,4 +107,37 @@ TEST(Unit_Dsp, RigControllerPreservesParameterValuesAcrossReorder)
 
     // tube_screamer is now at index 1 after the move.
     EXPECT_FLOAT_EQ(controller.get_parameter(1, "drive"), 0.42f);
+}
+
+TEST(Unit_Dsp, RigControllerGetParameterReturnsDescriptorDefaultBeforeAnySet)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+    controller.append("sushidsp.tubescreamer");
+
+    // Find the "drive" parameter's declared default from the registry, independent of
+    // set_parameter() ever having been called - a freshly-inserted slot's parameter map
+    // must already mirror the node's real defaults (see Task 7 review: insert() used to
+    // leave the map empty, so get_parameter() silently returned 0.0f instead of the
+    // node's actual default).
+    float expected_default = 0.0f;
+    bool found = false;
+    for (const auto& entry : SushiDSP::node_registry())
+    {
+        if (std::string("sushidsp.tubescreamer") == entry.descriptor->id)
+        {
+            for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
+            {
+                if (std::string("drive") == entry.descriptor->parameters[p].id)
+                {
+                    expected_default = entry.descriptor->parameters[p].default_value;
+                    found = true;
+                }
+            }
+        }
+    }
+    ASSERT_TRUE(found);
+    ASSERT_NE(expected_default, 0.0f); // guard against a vacuously-true test if the default is ever 0
+
+    EXPECT_FLOAT_EQ(controller.get_parameter(0, "drive"), expected_default);
 }
