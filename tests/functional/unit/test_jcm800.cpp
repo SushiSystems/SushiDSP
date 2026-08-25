@@ -506,3 +506,28 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     EXPECT_GT(second_harmonic_ratio, 0.012);
     EXPECT_LT(second_harmonic_ratio, 0.021);
 }
+
+TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)
+{
+    SushiDSP::Jcm800 node;
+    node.set_parameter("preamp", 0.2f);
+    node.set_parameter("master", 0.3f);
+    node.set_parameter("bass", 0.4f);
+    node.set_parameter("middle", 0.5f);
+    node.set_parameter("treble", 0.6f);
+    node.set_parameter("presence", 0.7f);
+
+    EXPECT_FLOAT_EQ(node.get_parameter("preamp"), 0.2f);
+    EXPECT_FLOAT_EQ(node.get_parameter("master"), 0.3f);
+    EXPECT_FLOAT_EQ(node.get_parameter("bass"), 0.4f);
+    EXPECT_FLOAT_EQ(node.get_parameter("middle"), 0.5f);
+    EXPECT_FLOAT_EQ(node.get_parameter("treble"), 0.6f);
+    EXPECT_FLOAT_EQ(node.get_parameter("presence"), 0.7f);
+}
+
+TEST(Unit_Dsp, Jcm800UnknownParameterIsSafeNoOp)
+{
+    SushiDSP::Jcm800 node;
+    node.set_parameter("does_not_exist", 1.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
+}

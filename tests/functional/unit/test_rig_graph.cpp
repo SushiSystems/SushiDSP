@@ -51,6 +51,9 @@ namespace
 
         void reset() override {}
 
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+
     private:
         float gain_;
     };
@@ -73,6 +76,9 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 0, 1 }; }
 
         void reset() override {}
+
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
 
     private:
         float value_;

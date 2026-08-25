@@ -64,6 +64,16 @@ namespace SushiDSP
         /// @return The node's PortLayout.
         virtual PortLayout ports() const = 0;
 
+        /// @brief Reads a parameter by its NodeDescriptor::parameters[].id string.
+        /// @param id The parameter's id. An unrecognized id returns 0.0f.
+        /// @return The parameter's current normalized value.
+        virtual float get_parameter(const char* id) const = 0;
+
+        /// @brief Writes a parameter by its NodeDescriptor::parameters[].id string.
+        /// @param id The parameter's id. An unrecognized id is a no-op.
+        /// @param value The value to set, in the parameter's declared [min, max] range.
+        virtual void set_parameter(const char* id, float value) = 0;
+
         /// @brief Clears internal state for a click-free restart.
         virtual void reset() = 0;
     };

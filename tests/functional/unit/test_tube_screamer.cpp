@@ -290,3 +290,22 @@ TEST(Unit_Dsp, TubeScreamerToneControlsHighFrequencyBalance)
 
     EXPECT_GT(bright_high_frequency_rms, dark_high_frequency_rms * 2.0);
 }
+
+TEST(Unit_Dsp, TubeScreamerGenericParameterRoundTrip)
+{
+    SushiDSP::TubeScreamer node;
+    node.set_parameter("drive", 0.25f);
+    node.set_parameter("tone", 0.75f);
+    node.set_parameter("level", 0.9f);
+
+    EXPECT_FLOAT_EQ(node.get_parameter("drive"), 0.25f);
+    EXPECT_FLOAT_EQ(node.get_parameter("tone"), 0.75f);
+    EXPECT_FLOAT_EQ(node.get_parameter("level"), 0.9f);
+}
+
+TEST(Unit_Dsp, TubeScreamerUnknownParameterIsSafeNoOp)
+{
+    SushiDSP::TubeScreamer node;
+    node.set_parameter("does_not_exist", 1.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
+}

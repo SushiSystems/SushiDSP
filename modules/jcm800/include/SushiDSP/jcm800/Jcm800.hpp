@@ -88,6 +88,9 @@ namespace SushiDSP
         /// @param normalized Presence amount in [0, 1]; 0.5 is flat.
         void set_presence(float normalized);
 
+        float get_parameter(const char* id) const override;
+        void set_parameter(const char* id, float value) override;
+
     private:
         static constexpr std::uint32_t kOversamplingFactor = 8;
 

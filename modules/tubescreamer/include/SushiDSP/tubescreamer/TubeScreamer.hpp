@@ -69,6 +69,9 @@ namespace SushiDSP
         /// @param normalized Output level in [0, 1].
         void set_level(float normalized);
 
+        float get_parameter(const char* id) const override;
+        void set_parameter(const char* id, float value) override;
+
         // Public so the free function feedback_resistance_for_drive() in TubeScreamer.cpp's
         // anonymous namespace can reference them without befriending the class.
         static constexpr float kMinFeedbackResistance = 51000.0f;
