@@ -52,6 +52,10 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/modules/jcm800/src/PentodeStage.cpp
     functional/unit/test_jcm_tone_stack.cpp
     ${CMAKE_SOURCE_DIR}/modules/jcm800/src/JcmToneStack.cpp
+    functional/unit/test_output_transformer_stage.cpp
+    ${CMAKE_SOURCE_DIR}/modules/jcm800/src/OutputTransformerStage.cpp
+    functional/unit/test_power_supply_sag_stage.cpp
+    ${CMAKE_SOURCE_DIR}/modules/jcm800/src/PowerSupplySagStage.cpp
 
     # --- Math ---
     functional/unit/test_biquad.cpp
