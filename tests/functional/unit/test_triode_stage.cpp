@@ -107,3 +107,32 @@ TEST(Unit_Dsp, TriodeStageResetReturnsToCathodeBiasWarmStart)
 
     EXPECT_NEAR(from_reset, from_fresh, 1e-4f);
 }
+
+TEST(Unit_Dsp, TriodeStageResolvesPastTheOldSymmetricCutoffBound)
+{
+    // Guards Task 9's asymmetric Newton-Raphson bound directly at the stage level, where it's
+    // actually load-bearing (the composite Jcm800 node's own output is too many stages and too
+    // much downstream saturation removed from a single grid's excursion to discriminate this
+    // reliably - measured attempts at the node level moved by single-digit percent either way,
+    // regardless of which bound was compiled in). See the Task 9 report's ruling.
+    //
+    // Same component values Jcm800.cpp uses for v1b_ - the stage whose grid the report measures
+    // reaching 1.56-2.81 V, past the old +/-60*Vt (1.551 V) bound. A -3.5 V grid swing is deep
+    // in the negative/cutoff half's affine region (no exponential term), where Newton's answer is
+    // just the unclamped affine root: under the old symmetric bound that root is unreachable and
+    // the stage pins at a fixed plate voltage regardless of how much further the grid is driven;
+    // under Task 9's widened -160*Vt (4.136 V) cutoff bound it is not, and the plate output tracks
+    // the drive instead.
+    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f);
+
+    stage.reset();
+    const float plate_at_moderate_swing = stage.process_sample(-2.5f);
+    stage.reset();
+    const float plate_at_deep_swing = stage.process_sample(-3.5f);
+
+    // Under the old +/-60*Vt bound both readings pin at the same clamped plate voltage (93.06,
+    // independently reproduced by reverting the bound and rerunning this exact scenario). Under
+    // the widened bound the deeper swing must resolve further, not pin at the moderate swing's
+    // value.
+    EXPECT_GT(plate_at_deep_swing, plate_at_moderate_swing * 1.3f);
+}

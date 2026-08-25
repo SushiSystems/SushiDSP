@@ -23,6 +23,8 @@
 
 #include "SushiDSP/jcm800/JcmToneStack.hpp"
 
+#include <algorithm>
+
 namespace SushiDSP
 {
     namespace
@@ -48,16 +50,19 @@ namespace SushiDSP
 
     void JcmToneStack::set_bass(float normalized)
     {
+        normalized = std::clamp(normalized, 0.0f, 1.0f);
         bass_.set_low_shelf(sample_rate_, kBassHz, normalized_to_gain_db(normalized), 0.707);
     }
 
     void JcmToneStack::set_middle(float normalized)
     {
+        normalized = std::clamp(normalized, 0.0f, 1.0f);
         middle_.set_peaking(sample_rate_, kMidHz, normalized_to_gain_db(normalized), 0.9);
     }
 
     void JcmToneStack::set_treble(float normalized)
     {
+        normalized = std::clamp(normalized, 0.0f, 1.0f);
         treble_.set_high_shelf(sample_rate_, kTrebleHz, normalized_to_gain_db(normalized), 0.707);
     }
 
