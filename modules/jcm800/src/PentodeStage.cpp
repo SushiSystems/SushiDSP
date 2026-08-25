@@ -91,17 +91,17 @@ namespace SushiDSP
         // f(Vg) = 0 is the node equation; f'(Vg) differentiates it term by term. A pentode's
         // control grid conducts exactly the way a triode's does, so this is TriodeStage's equation
         // verbatim - the pentode character comes from the plate saturation below, not from here.
-        auto residual = [rs, rg, vk, is, vt, source_voltage](float vg)
+        // One exp() serves both: it is the whole cost of the iteration.
+        auto node_equation = [rs, rg, vk, is, vt, source_voltage](float vg)
         {
-            return (vg - source_voltage) / rs + (vg - vk) / rg + is * (std::exp((vg - vk) / vt) - 1.0f);
-        };
-        auto derivative = [rs, rg, vk, is, vt](float vg)
-        {
-            return 1.0f / rs + 1.0f / rg + (is / vt) * std::exp((vg - vk) / vt);
+            const float conduction = std::exp((vg - vk) / vt);
+            return NewtonRaphsonSolver::Evaluation{
+                (vg - source_voltage) / rs + (vg - vk) / rg + is * (conduction - 1.0f),
+                1.0f / rs + 1.0f / rg + (is / vt) * conduction };
         };
 
-        const float grid_voltage = NewtonRaphsonSolver::solve(
-            residual, derivative, previous_grid_voltage_, 4,
+        const float grid_voltage = NewtonRaphsonSolver::solve_joint(
+            node_equation, previous_grid_voltage_, 4,
             vk - cutoff_voltage_limit_, vk + voltage_limit_);
         previous_grid_voltage_ = grid_voltage;
 

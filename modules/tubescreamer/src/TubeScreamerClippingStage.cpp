@@ -61,17 +61,19 @@ namespace SushiDSP
 
         // Virtual-ground KCL at the inverting input: Vin/R1 = -Vout/Rf - Id(Vout), with the
         // antiparallel diode pair contributing Id(v) = Is * (exp(v/Vt) - exp(-v/Vt)).
-        auto residual = [r1, rf, is, vt, vin](float v)
+        // The two exponentials serve both the residual and its derivative; they are the whole
+        // cost of the iteration.
+        auto node_equation = [r1, rf, is, vt, vin](float v)
         {
-            return v / rf + is * (std::exp(v / vt) - std::exp(-v / vt)) + vin / r1;
-        };
-        auto derivative = [rf, is, vt](float v)
-        {
-            return 1.0f / rf + (is / vt) * (std::exp(v / vt) + std::exp(-v / vt));
+            const float forward = std::exp(v / vt);
+            const float reverse = std::exp(-v / vt);
+            return NewtonRaphsonSolver::Evaluation{
+                v / rf + is * (forward - reverse) + vin / r1,
+                1.0f / rf + (is / vt) * (forward + reverse) };
         };
 
-        const float voltage = NewtonRaphsonSolver::solve(
-            residual, derivative, previous_voltage_, 4, -voltage_limit_, voltage_limit_);
+        const float voltage = NewtonRaphsonSolver::solve_joint(
+            node_equation, previous_voltage_, 4, -voltage_limit_, voltage_limit_);
 
         previous_voltage_ = voltage;
         return voltage;

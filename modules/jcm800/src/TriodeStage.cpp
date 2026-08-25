@@ -93,17 +93,17 @@ namespace SushiDSP
         // term is what makes the positive half of the swing clip hard while the negative half,
         // where the term collapses to -Is, stays essentially linear - the asymmetry that gives a
         // driven triode its character.
-        auto residual = [rs, rg, vk, is, vt, source_voltage](float vg)
+        // One exp() serves both: it is the whole cost of the iteration.
+        auto node_equation = [rs, rg, vk, is, vt, source_voltage](float vg)
         {
-            return (vg - source_voltage) / rs + (vg - vk) / rg + is * (std::exp((vg - vk) / vt) - 1.0f);
-        };
-        auto derivative = [rs, rg, vk, is, vt](float vg)
-        {
-            return 1.0f / rs + 1.0f / rg + (is / vt) * std::exp((vg - vk) / vt);
+            const float conduction = std::exp((vg - vk) / vt);
+            return NewtonRaphsonSolver::Evaluation{
+                (vg - source_voltage) / rs + (vg - vk) / rg + is * (conduction - 1.0f),
+                1.0f / rs + 1.0f / rg + (is / vt) * conduction };
         };
 
-        const float grid_voltage = NewtonRaphsonSolver::solve(
-            residual, derivative, previous_grid_voltage_, 4,
+        const float grid_voltage = NewtonRaphsonSolver::solve_joint(
+            node_equation, previous_grid_voltage_, 4,
             vk - cutoff_voltage_limit_, vk + voltage_limit_);
         previous_grid_voltage_ = grid_voltage;
 
