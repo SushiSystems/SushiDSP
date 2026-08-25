@@ -6,10 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(sushi_dsp STATIC
+    src/circuits/DiodeClipperCircuit.cpp
     src/core/BufferPool.cpp
     src/core/RigGraph.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
+    src/math/NewtonRaphsonSolver.cpp
     src/math/Oversampler.cpp
     src/math/PartitionedConvolution.cpp
     src/math/Wdf.cpp
