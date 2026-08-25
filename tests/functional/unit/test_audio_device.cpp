@@ -1,0 +1,106 @@
+/**************************************************************************/
+/* test_audio_device.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                        https://sushisystems.io                         */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the Apache License, Version 2.0 (the "License");        */
+/* you may not use this file except in compliance with the License.       */
+/* You may obtain a copy of the License at                                */
+/*                                                                        */
+/*     http://www.apache.org/licenses/LICENSE-2.0                         */
+/*                                                                        */
+/* Unless required by applicable law or agreed to in writing, software    */
+/* distributed under the License is distributed on an "AS IS" BASIS,      */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
+/* implied. See the License for the specific language governing           */
+/* permissions and limitations under the License.                         */
+/**************************************************************************/
+
+#include <vector>
+
+#include <gtest/gtest.h>
+
+#include "SushiDSP/core/IAudioDevice.hpp"
+
+namespace
+{
+    class NullAudioDevice : public SushiDSP::IAudioDevice
+    {
+    public:
+        NullAudioDevice(SushiDSP::DeviceFormat format, std::uint32_t blocks_to_run)
+            : format_(format)
+            , blocks_to_run_(blocks_to_run)
+        {
+        }
+
+        SushiDSP::DeviceFormat format() const override { return format_; }
+
+        void start(SushiDSP::DeviceCallback callback) override
+        {
+            std::vector<std::vector<float>> channel_storage(
+                format_.channels, std::vector<float>(format_.block_size, 0.0f));
+            std::vector<float*> channel_pointers(format_.channels);
+            for (std::uint32_t channel = 0; channel < format_.channels; ++channel)
+            {
+                channel_pointers[channel] = channel_storage[channel].data();
+            }
+
+            for (std::uint32_t block = 0; block < blocks_to_run_; ++block)
+            {
+                callback(channel_pointers.data(), format_.block_size);
+            }
+        }
+
+        void stop() override {}
+
+    private:
+        SushiDSP::DeviceFormat format_;
+        std::uint32_t          blocks_to_run_;
+    };
+}
+
+TEST(Unit_Dsp, NullAudioDeviceReportsConfiguredFormat)
+{
+    SushiDSP::DeviceFormat expected{ 48000.0, 256, 1 };
+    NullAudioDevice device(expected, 0);
+
+    SushiDSP::DeviceFormat actual = device.format();
+
+    EXPECT_EQ(actual.sample_rate, expected.sample_rate);
+    EXPECT_EQ(actual.block_size, expected.block_size);
+    EXPECT_EQ(actual.channels, expected.channels);
+}
+
+TEST(Unit_Dsp, NullAudioDeviceInvokesCallbackOncePerBlock)
+{
+    NullAudioDevice device({ 48000.0, 256, 1 }, 5);
+
+    int call_count = 0;
+    device.start([&call_count](float* const*, std::uint32_t)
+    {
+        ++call_count;
+    });
+
+    EXPECT_EQ(call_count, 5);
+}
+
+TEST(Unit_Dsp, NullAudioDeviceCallbackReceivesRequestedFrameCount)
+{
+    NullAudioDevice device({ 48000.0, 128, 2 }, 1);
+
+    std::uint32_t received_frames = 0;
+    std::uint32_t received_channels_nonnull = 0;
+    device.start([&received_frames, &received_channels_nonnull](float* const* outputs, std::uint32_t frames)
+    {
+        received_frames = frames;
+        received_channels_nonnull = (outputs[0] != nullptr && outputs[1] != nullptr) ? 2 : 0;
+    });
+
+    EXPECT_EQ(received_frames, 128u);
+    EXPECT_EQ(received_channels_nonnull, 2u);
+}

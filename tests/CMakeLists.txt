@@ -35,6 +35,7 @@ add_executable(sushidsp_tests
     common/test_main.cpp
 
     # --- Core ---
+    functional/unit/test_audio_device.cpp
     functional/unit/test_buffer_pool.cpp
     functional/unit/test_rig_graph.cpp
     functional/unit/test_spsc_ring.cpp
