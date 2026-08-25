@@ -69,3 +69,34 @@ TEST(Unit_Dsp, NewtonRaphsonSolverWarmStartConvergesInFewerIterationsThanColdSta
     const float target = std::sqrt(2.0f);
     EXPECT_LT(std::abs(warm - target), std::abs(cold - target));
 }
+
+TEST(Unit_Dsp, NewtonRaphsonSolverJointOverloadMatchesSplitOverloadBitForBit)
+{
+    // The circuit stages moved to the joint form to share one exp() between residual and
+    // derivative; that must be a pure cost change, so both forms must walk identical iterates.
+    auto function = [](float x) { return std::exp(x) - 3.0f; };
+    auto derivative = [](float x) { return std::exp(x); };
+    auto joint = [](float x)
+    {
+        const float e = std::exp(x);
+        return SushiDSP::NewtonRaphsonSolver::Evaluation{ e - 3.0f, e };
+    };
+    for (float guess = -2.0f; guess <= 4.0f; guess += 0.37f)
+    {
+        const float split = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, guess, 4, -5.0f, 5.0f);
+        const float shared = SushiDSP::NewtonRaphsonSolver::solve_joint(joint, guess, 4, -5.0f, 5.0f);
+        EXPECT_EQ(split, shared);
+    }
+}
+
+TEST(Unit_Dsp, NewtonRaphsonSolverJointOverloadEvaluatesOncePerIteration)
+{
+    int evaluations = 0;
+    auto joint = [&evaluations](float x)
+    {
+        ++evaluations;
+        return SushiDSP::NewtonRaphsonSolver::Evaluation{ x * x - 2.0f, 2.0f * x };
+    };
+    SushiDSP::NewtonRaphsonSolver::solve_joint(joint, 1.0f, 4);
+    EXPECT_EQ(evaluations, 4);
+}
