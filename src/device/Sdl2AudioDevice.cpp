@@ -23,6 +23,8 @@
 
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 
+#include "SushiDSP/core/DenormalGuard.hpp"
+
 #include <cstring>
 #include <stdexcept>
 #include <string>
@@ -98,6 +100,7 @@ namespace SushiDSP
     /// needs real interleave/deinterleave.
     void Sdl2AudioDevice::sdl_callback(void* userdata, unsigned char* stream, int length_bytes)
     {
+        DenormalGuard denormal_guard;
         auto* self = static_cast<Sdl2AudioDevice*>(userdata);
         auto* samples = reinterpret_cast<float*>(stream);
         const std::uint32_t frames = static_cast<std::uint32_t>(length_bytes) / (self->format_.channels * sizeof(float));
