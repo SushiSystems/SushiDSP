@@ -1,8 +1,10 @@
 """Project configure / build / test logic.
 
-The cmake / ctest invocations are issued directly via subprocess, inheriting
-the parent environment unchanged — SushiDSP needs no vcvars snapshot or SYCL
-toolchain setup, so there is nothing to layer on top of ``os.environ``.
+This module holds SushiDSP's own build policy — which cache variables it passes, which
+targets and test suites it has — and drives cmake and ctest through
+``sushicore.cmake_driver.CMakeDriver``, inheriting the parent environment unchanged:
+SushiDSP needs no vcvars snapshot or SYCL toolchain setup, so there is nothing to layer
+on top of ``os.environ``.
 
 ``tests/CMakeLists.txt`` registers every test via ``gtest_discover_tests``
 with the CTest label ``unit`` assigned from the GTest suite-name prefix
@@ -22,7 +24,7 @@ from sushicore.cmake_driver import CMakeDriver
 from sushicore.proc import Runner
 
 from .. import console
-from ..config import Config, PROFILE, find_project_root, load_config
+from ..config import PROFILE, find_project_root, load_config
 
 
 class BuildType(str, enum.Enum):
