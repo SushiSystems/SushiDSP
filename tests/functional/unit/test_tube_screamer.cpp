@@ -25,6 +25,7 @@
 // and <cmath> may otherwise be pulled in transitively before this point.
 #define _USE_MATH_DEFINES
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -145,4 +146,89 @@ TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
     {
         EXPECT_TRUE(std::isfinite(sample));
     }
+}
+
+TEST(Unit_Dsp, TubeScreamerIsDcStableAcrossManyBlocksAtHighDrive)
+{
+    SushiDSP::TubeScreamer node;
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_drive(1.0f);
+    node.set_tone(0.5f);
+    node.set_level(1.0f);
+
+    std::vector<float> input(256, 0.1f);
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    for (int block = 0; block < 200; ++block)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+        for (float sample : output)
+        {
+            ASSERT_TRUE(std::isfinite(sample)) << "block " << block;
+        }
+    }
+}
+
+TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
+{
+    auto measure_thd_proxy = [](float drive) -> float
+    {
+        SushiDSP::TubeScreamer node;
+        SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+        node.prepare(info);
+        node.set_drive(drive);
+        node.set_tone(0.5f);
+        node.set_level(1.0f);
+
+        constexpr float frequency = 220.0f;
+        constexpr double sample_rate = 48000.0;
+        std::vector<float> output;
+        double global_sample_index = 0.0;
+
+        for (int block = 0; block < 30; ++block)
+        {
+            std::vector<float> input(256, 0.0f);
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                input[i] = static_cast<float>(
+                    0.2 * std::sin(2.0 * M_PI * frequency * (global_sample_index + i) / sample_rate));
+            }
+            global_sample_index += 256.0;
+
+            std::vector<float> block_output(256, 0.0f);
+            const float* input_channels[1] = { input.data() };
+            float* output_channels[1] = { block_output.data() };
+            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            node.process(context);
+            output.insert(output.end(), block_output.begin(), block_output.end());
+        }
+
+        // THD proxy: RMS deviation of the (settled, tail-half) output from a best-fit sine at
+        // the fundamental, normalized by the output's own RMS. Not a true THD measurement (that
+        // needs an FFT-based harmonic decomposition), but monotonic with clipping severity for
+        // this purpose, and cheap.
+        const std::size_t settle_start = output.size() / 2;
+        double sum_sq = 0.0, sum_sin = 0.0, sum_cos = 0.0;
+        for (std::size_t i = settle_start; i < output.size(); ++i)
+        {
+            const double phase = 2.0 * M_PI * frequency * i / sample_rate;
+            sum_sq += static_cast<double>(output[i]) * output[i];
+            sum_sin += output[i] * std::sin(phase);
+            sum_cos += output[i] * std::cos(phase);
+        }
+        const std::size_t n = output.size() - settle_start;
+        const double fundamental_amplitude = 2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n;
+        const double fundamental_power = 0.5 * fundamental_amplitude * fundamental_amplitude * n;
+        const double residual_power = std::max(0.0, sum_sq - fundamental_power);
+        return static_cast<float>(std::sqrt(residual_power / std::max(1e-12, sum_sq)));
+    };
+
+    const float thd_low_drive = measure_thd_proxy(0.05f);
+    const float thd_high_drive = measure_thd_proxy(1.0f);
+
+    EXPECT_LT(thd_low_drive, thd_high_drive);
 }

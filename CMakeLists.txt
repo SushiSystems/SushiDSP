@@ -21,6 +21,10 @@ target_include_directories(sushi_dsp PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
+# Products. Added unconditionally: the module has no SDL2 dependency, and the
+# test suite links it regardless of SUSHIDSP_BUILD_SDL2.
+add_subdirectory(modules/tubescreamer)
+
 # Nothing in the test suite links SDL2, so this can be turned off to configure
 # and run the tests without network access or an SDL2 build.
 option(SUSHIDSP_BUILD_SDL2 "Build the SDL2 device backend and the standalone host app" ON)

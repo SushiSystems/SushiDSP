@@ -7,8 +7,8 @@
 # sushiruntime/sushiengine/sushiblas, so `ctest -L unit` selects a sub-suite
 # and new tests are picked up automatically as long as they follow it.
 #
-# D0 ships unit tests only, so only the "unit" discovery call exists here;
-# integration/regression calls arrive with the first such test file.
+# "unit" and "regression" discovery calls exist here; the "integration" call
+# arrives with the first such test file.
 #
 # GoogleTest is sourced via FetchContent rather than vcpkg's
 # find_package(GTest CONFIG REQUIRED) that sushiblas uses: SushiDSP has no
@@ -43,15 +43,9 @@ add_executable(sushidsp_tests
     # --- Circuits ---
     functional/unit/test_diode_clipper_circuit.cpp
 
-    # --- Tube Screamer (D3) ---
-    # The module has no CMake target of its own yet (Task 4 adds
-    # modules/tubescreamer/CMakeLists.txt); until then the source is compiled
-    # into the test binary directly, the same stopgap apps/host/SineToneNode.cpp
-    # used in D1.
+    # --- Products ---
     functional/unit/test_tube_screamer_clipping_stage.cpp
-    ${CMAKE_SOURCE_DIR}/modules/tubescreamer/src/TubeScreamerClippingStage.cpp
     functional/unit/test_tube_screamer.cpp
-    ${CMAKE_SOURCE_DIR}/modules/tubescreamer/src/TubeScreamer.cpp
 
     # --- Math ---
     functional/unit/test_biquad.cpp
@@ -67,14 +61,17 @@ add_executable(sushidsp_tests
     # --- Host diagnostics ---
     functional/unit/test_sine_tone_node.cpp
     ${CMAKE_SOURCE_DIR}/apps/host/SineToneNode.cpp
+
+    # --- Regression ---
+    functional/regression/test_tube_screamer_regression.cpp
 )
 
 target_include_directories(sushidsp_tests PRIVATE ${SD_TEST_COMMON_DIR})
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
-target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/modules/tubescreamer/include)
 
 target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
+    SushiDSP::tubescreamer
     GTest::gtest
 )
 
@@ -86,4 +83,10 @@ gtest_discover_tests(sushidsp_tests
     DISCOVERY_MODE PRE_TEST
     TEST_FILTER "Unit_*"
     PROPERTIES LABELS "unit"
+)
+
+gtest_discover_tests(sushidsp_tests
+    DISCOVERY_MODE PRE_TEST
+    TEST_FILTER "Regression_*"
+    PROPERTIES LABELS "regression"
 )

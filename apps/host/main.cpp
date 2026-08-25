@@ -29,6 +29,7 @@
 #include "SineToneNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
+#include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 int main()
 {
@@ -51,7 +52,18 @@ int main()
         actual.sample_rate, actual.block_size, actual.channels);
 
     SushiDSP::RigGraph rig(actual.block_size, 4);
-    rig.add_node(std::make_unique<SushiDSP::SineToneNode>(440.0f));
+
+    // Hardcoded demo settings: there is no rig-editor UI yet, so the Tube Screamer's controls
+    // are set once here rather than driven live.
+    auto tube_screamer = std::make_unique<SushiDSP::TubeScreamer>();
+    tube_screamer->set_drive(0.7f);
+    tube_screamer->set_tone(0.5f);
+    tube_screamer->set_level(0.8f);
+
+    const SushiDSP::NodeHandle source_handle =
+        rig.add_node(std::make_unique<SushiDSP::SineToneNode>(440.0f));
+    const SushiDSP::NodeHandle tube_screamer_handle = rig.add_node(std::move(tube_screamer));
+    rig.connect(source_handle, tube_screamer_handle);
 
     SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, actual.channels };
     rig.compile(info);
@@ -62,7 +74,7 @@ int main()
         rig.process(context);
     });
 
-    std::printf("Playing a 440 Hz test tone for 3 seconds...\n");
+    std::printf("Playing a 440 Hz test tone through the Tube Screamer for 3 seconds...\n");
     std::this_thread::sleep_for(std::chrono::seconds(3));
 
     device->stop();
