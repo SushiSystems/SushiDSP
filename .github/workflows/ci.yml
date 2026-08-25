@@ -1,0 +1,134 @@
+name: CI
+
+# Functional suite on every push / PR. Modelled on sushiblas/sushiengine's
+# ci.yml, which is the stack's house style, but dramatically simpler: SushiDSP
+# has no SYCL toolchain, no sibling-module dependency, and no vcpkg-provisioned
+# tree to stand up on a runner — GoogleTest and (optionally) SDL2 are both
+# CMake FetchContent, so a stock Ubuntu runner with a C++17 compiler and cmake
+# is the whole toolchain this needs.
+#
+# ---------------------------------------------------------------------------
+# Why this file calls cmake/ctest directly instead of `sd`
+# ---------------------------------------------------------------------------
+# docs/CLAUDE.md requires every build to go through `sd` and never to invoke
+# cmake directly; docs/CONTRIBUTING.md documents `sd build` / `sd test` as the
+# way the project is built. This workflow is the one exception, matching
+# sushiblas/sushiengine's own precedent: `sd` resolves cmake/ctest from PATH
+# or `cli/config.local.toml` and expects a normal developer shell, not a
+# container with no prior setup. The steps below are the CI-side expression
+# of what `sd build`/`sd test` do locally (see cli/sushidsp/services/
+# project.py's configure()/build()/test()).
+#
+# SUSHIDSP_BUILD_SDL2=OFF on the functional job: the unit/regression suites
+# never link sushi_dsp_sdl2 or apps/host (see tests/CMakeLists.txt), so
+# fetching and building SDL2 on every CI run would cost real time for zero
+# coverage. A second job builds WITH SDL2 on to catch a build break in
+# apps/host/sushi_dsp_sdl2 specifically, since that path has no test coverage
+# of its own (D1's plan documents why: it opens real audio hardware).
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  functional:
+    name: Functional tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build
+
+      - name: Configure, build, and run the functional suite
+        run: |
+          set -e
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSUSHIDSP_BUILD_SDL2=OFF
+          cmake --build build
+          # The umbrella label regex `sd test --suite all` uses.
+          ctest --test-dir build -L "unit|regression" --output-on-failure
+
+  host-build:
+    name: Standalone host build (SDL2 on, Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          # SDL2 needs ALSA/PulseAudio dev headers to configure its Linux
+          # audio backends even though the library itself is FetchContent'd.
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build libasound2-dev libpulse-dev
+
+      - name: Configure and build (SDL2 on, apps/host included)
+        run: |
+          set -e
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target sushidsp_host
+
+  windows:
+    name: Functional tests (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure, build, and run the functional suite
+        shell: pwsh
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSUSHIDSP_BUILD_SDL2=OFF
+          cmake --build build --config Debug
+          ctest --test-dir build -C Debug -L "unit|regression" --output-on-failure
+
+  cli:
+    name: Python CLI (lint + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check out SushiStack, which carries sushicore
+        # sushicore is published to no index, so it cannot be a pip dependency.
+        uses: actions/checkout@v4
+        with:
+          repository: SushiSystems/SushiStack
+          ref: main
+          path: .sushistack
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip pytest pyflakes
+          python -m pip install -e ./.sushistack/sushicore
+
+      - name: Import-safety check (no crash outside a checkout)
+        working-directory: cli
+        run: python -m pyflakes sushidsp || true
+
+      - name: Run CLI unit tests
+        working-directory: cli
+        run: python -m pytest tests -q
+
+# ---------------------------------------------------------------------------
+# Deliberately absent
+# ---------------------------------------------------------------------------
+# * A sibling-module checkout step. SushiDSP has no code dependency on any
+#   other SushiStack module (spec §11/§11a) — nothing to check out.
+# * A SYCL/oneAPI container image. The core has no GPU/SYCL dependency at all.
+# * ThreadSanitizer job. The repo's only cross-thread surface as of D0-D4 is
+#   RigGraph's documented off-RT-thread compile/atomic-swap (not yet built)
+#   and SpscRing<T> (D1), which already has a dedicated 100k-item concurrent
+#   stress test run under the normal functional suite. Add a TSan lane if a
+#   future phase adds a synchronization primitive that test doesn't cover.
+# * A doxygen job. `sd doxygen` exists and reads a repo-root `Doxyfile`
+#   (committed, unlike sushiblas's), so this is a natural future addition —
+#   left out for now to keep this workflow's first version minimal and
+#   focused on the suite that actually gates correctness.
