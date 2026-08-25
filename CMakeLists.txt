@@ -12,6 +12,7 @@ add_library(sushi_dsp STATIC
     src/math/Biquad.cpp
     src/math/Oversampler.cpp
     src/math/PartitionedConvolution.cpp
+    src/math/Wdf.cpp
 )
 add_library(SushiDSP::sushi_dsp ALIAS sushi_dsp)
 target_include_directories(sushi_dsp PUBLIC
