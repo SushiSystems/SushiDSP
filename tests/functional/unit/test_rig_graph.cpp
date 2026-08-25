@@ -132,3 +132,50 @@ TEST(Unit_Dsp, RigGraphRecompileAfterAddingNodeProducesUpdatedOutput)
         EXPECT_FLOAT_EQ(sample, 10.0f);
     }
 }
+
+TEST(Unit_Dsp, RigGraphFeedsItsOwnInputToARootNodeWithNoUpstreamEdge)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto gain_handle = graph.add_node(std::make_unique<GainNode>(4.0f));
+    // No connect() call: gain_handle has no upstream edge, so it is a root node.
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> input_buffer(256, 2.0f);
+    std::vector<float> output_buffer(256, 0.0f);
+    const float* input_channels[1] = { input_buffer.data() };
+    float* output_channels[1] = { output_buffer.data() };
+
+    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    graph.process(context);
+
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 8.0f);
+    }
+}
+
+TEST(Unit_Dsp, RigGraphRootNodeStillReceivesNullptrWhenGraphHasNoInput)
+{
+    // Unchanged behavior: a root node must not crash or misbehave when the graph itself has
+    // no live input (e.g. the existing SDL2 output-only path) — GainNode would dereference a
+    // null context.inputs, so this uses ConstantSourceNode (0 input ports) to prove the
+    // *graph* passes nullptr through, without the test node needing to read it.
+    SushiDSP::RigGraph graph(256, 4);
+    auto source_handle = graph.add_node(std::make_unique<ConstantSourceNode>(5.0f));
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> output_buffer(256, 0.0f);
+    float* output_channels[1] = { output_buffer.data() };
+
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 5.0f);
+    }
+}
