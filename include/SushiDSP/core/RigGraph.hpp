@@ -62,5 +62,6 @@ namespace SushiDSP
         std::vector<std::unique_ptr<IAudioNode>>  nodes_;
         std::vector<Edge>                         edges_;
         std::vector<NodeHandle>                   topological_order_;
+        std::vector<float*>                       node_output_scratch_;
     };
 }
