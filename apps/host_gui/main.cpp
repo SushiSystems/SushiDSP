@@ -21,10 +21,12 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -35,6 +37,7 @@
 #include "SushiDSP/core/IAudioDevice.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtGraphSlot.hpp"
+#include "SushiDSP/device/ChannelSelection.hpp"
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 
@@ -68,61 +71,200 @@ int main()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 
-    // rig_controller is declared (as storage) before device so that, by C++'s reverse-
+    enum class AppState { SelectingDevice, Running };
+    AppState app_state = AppState::SelectingDevice;
+
+    const std::vector<std::string> asio_drivers =
+#if defined(SUSHIDSP_HAVE_ASIO)
+        SushiDSP::AsioAudioDevice::enumerate_drivers();
+#else
+        std::vector<std::string>{};
+#endif
+
+    int selected_device_index = 0;  // 0 = "SDL2 (no input)", 1..N = asio_drivers[index-1]
+    SushiDSP::ChannelSelection selected_input = SushiDSP::ChannelSelection::Left;
+    SushiDSP::ChannelSelection selected_output = SushiDSP::ChannelSelection::Stereo;
+    std::string connect_error;
+
+    // Both buffers are captured BY REFERENCE in the device callback (below), and that callback
+    // keeps firing on the audio thread for as long as the device runs - i.e. for every frame
+    // after the one where Connect was clicked. They MUST therefore live in this outer
+    // main()-body scope, not inside the `if (ImGui::Button("Connect"))` block: a
+    // same-scope-as-the-button declaration would be destroyed the instant that block exits,
+    // leaving the callback's captured references dangling on the very next audio callback.
+    // Both start empty and are `.assign()`-ed once, inside the Connect handler, once
+    // `actual.block_size` is known - never resized again afterward, so the callback that
+    // captures them by reference stays allocation-free.
+    std::vector<float> mono_output;
+    std::vector<float> callback_silence;
+
+    // rig_controller_storage is declared (as storage) before device so that, by C++'s reverse-
     // declaration-order destruction rule, `device` is guaranteed to be destroyed BEFORE
-    // rig_controller and the RigGraphs it owns - correct by construction rather than by relying
-    // on the explicit device->stop() call below. RigController's constructor needs `info`,
-    // which is derived from device->format(), so it cannot be constructed until after `device`
-    // exists; std::optional lets us fix the *declaration* order (and hence destruction order)
-    // independently of the *construction* order.
+    // rig_controller_storage and the RigGraphs it owns - correct by construction rather than by
+    // relying on the explicit device->stop() call below. RigController's constructor needs
+    // `info`, which is derived from device->format(), so it cannot be constructed until after
+    // `device` exists; std::optional lets us fix the *declaration* order (and hence destruction
+    // order) independently of the *construction* order. mono_output/callback_silence are
+    // declared even earlier, above, so they are destroyed LAST of all four - i.e. after `device`
+    // is already destroyed, which is exactly correct: nothing may reference them once they're
+    // gone, and `device` (whose callback references them) is already torn down by that point.
     std::optional<RigController> rig_controller_storage;
-
-    SushiDSP::DeviceFormat requested{ 48000.0, 256, 1, 1 };
-    std::unique_ptr<SushiDSP::IAudioDevice> device = std::make_unique<SushiDSP::Sdl2AudioDevice>(requested);
-    const SushiDSP::DeviceFormat actual = device->format();
-
-    SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, actual.output_channels };
-    rig_controller_storage.emplace(info);
-    RigController& rig_controller = *rig_controller_storage;
-
-    // Sdl2AudioDevice is playback-only (format().input_channels == 0) and always hands the
-    // callback a nullptr inputs array - a valid IAudioDevice contract (see IAudioDevice.hpp).
-    // TubeScreamer, like any effect node, unconditionally reads its input channel, so the root
-    // node of a rig with no live capture needs a real (silent) buffer rather than nullptr. This
-    // silence buffer is sized once up front (non-RT) and only ever read on the audio thread, so
-    // feeding it in place of a missing capture device stays allocation-free and RT-safe.
-    std::vector<float> silence(actual.block_size, 0.0f);
-
-    device->start([&rig_controller, &silence](const float* const* inputs, float* const* outputs, std::uint32_t frames)
-    {
-        // Defensive bound check: `silence` is sized to actual.block_size, but nothing enforces
-        // that SDL always reports frames <= block_size. Bail out rather than reading past the
-        // end of `silence` (or writing past the end of `outputs`) - cheap, RT-thread-safe
-        // insurance (a comparison and branch, no allocation).
-        if (frames > silence.size())
-        {
-            return;
-        }
-        SushiDSP::RigGraph* active = rig_controller.graph_slot().acquire_for_audio_thread();
-        const float* silence_channel = silence.data();
-        const float* const* effective_inputs = (inputs != nullptr) ? inputs : &silence_channel;
-        SushiDSP::ProcessContext context{ outputs, effective_inputs, frames, 0.0 };
-        if (active != nullptr)
-        {
-            active->process(context);
-        }
-    });
+    std::unique_ptr<SushiDSP::IAudioDevice> device;
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        rig_controller.graph_slot().reclaim();
+        if (app_state == AppState::Running)
+        {
+            rig_controller_storage->graph_slot().reclaim();
+        }
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        if (app_state == AppState::SelectingDevice)
+        {
+            ImGui::Begin("Connect a Device");
+
+            ImGui::Text("Device");
+            if (ImGui::RadioButton("SDL2 (no input)", selected_device_index == 0))
+            {
+                selected_device_index = 0;
+            }
+            for (std::size_t i = 0; i < asio_drivers.size(); ++i)
+            {
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::RadioButton(asio_drivers[i].c_str(), selected_device_index == static_cast<int>(i) + 1))
+                {
+                    selected_device_index = static_cast<int>(i) + 1;
+                }
+                ImGui::PopID();
+            }
+
+            if (selected_device_index > 0)
+            {
+                ImGui::Separator();
+                ImGui::Text("Input");
+                if (ImGui::RadioButton("L##input", selected_input == SushiDSP::ChannelSelection::Left)) selected_input = SushiDSP::ChannelSelection::Left;
+                ImGui::SameLine();
+                if (ImGui::RadioButton("R##input", selected_input == SushiDSP::ChannelSelection::Right)) selected_input = SushiDSP::ChannelSelection::Right;
+
+                ImGui::Text("Output");
+                if (ImGui::RadioButton("L##output", selected_output == SushiDSP::ChannelSelection::Left)) selected_output = SushiDSP::ChannelSelection::Left;
+                ImGui::SameLine();
+                if (ImGui::RadioButton("R##output", selected_output == SushiDSP::ChannelSelection::Right)) selected_output = SushiDSP::ChannelSelection::Right;
+                ImGui::SameLine();
+                if (ImGui::RadioButton("stereo##output", selected_output == SushiDSP::ChannelSelection::Stereo)) selected_output = SushiDSP::ChannelSelection::Stereo;
+            }
+
+            ImGui::Separator();
+            if (ImGui::Button("Connect"))
+            {
+                try
+                {
+                    if (selected_device_index == 0)
+                    {
+                        SushiDSP::DeviceFormat requested{ 48000.0, 256, 1, 1 };
+                        device = std::make_unique<SushiDSP::Sdl2AudioDevice>(requested);
+                    }
+#if defined(SUSHIDSP_HAVE_ASIO)
+                    else
+                    {
+                        SushiDSP::DeviceFormat requested{ 48000.0, 256, 2, 2 };
+                        device = std::make_unique<SushiDSP::AsioAudioDevice>(
+                            asio_drivers[static_cast<std::size_t>(selected_device_index - 1)], requested);
+                    }
+#endif
+
+                    const SushiDSP::DeviceFormat actual = device->format();
+                    SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, actual.output_channels };
+                    rig_controller_storage.emplace(info);
+
+                    const std::size_t input_index = SushiDSP::channel_selection_input_index(selected_input);
+                    const SushiDSP::ChannelSelection output_selection = selected_output;
+                    const bool is_multi_channel_input = actual.input_channels >= 2;
+                    const bool is_multi_channel_output = actual.output_channels >= 2;
+
+                    // Sized once, here, off the audio thread - the outer-scope vectors declared
+                    // above (mono_output, callback_silence) are never resized again after this,
+                    // so the callback that captures them by reference stays allocation-free
+                    // (mirrors apps/host_asio/main.cpp's own pattern).
+                    mono_output.assign(actual.block_size, 0.0f);
+                    callback_silence.assign(actual.block_size, 0.0f);
+
+                    RigController& rig_controller_ref = *rig_controller_storage;
+                    device->start([&rig_controller_ref, &mono_output, &callback_silence, input_index,
+                                    output_selection, is_multi_channel_input, is_multi_channel_output]
+                        (const float* const* inputs, float* const* outputs, std::uint32_t frames)
+                    {
+                        if (frames > mono_output.size())
+                        {
+                            return;
+                        }
+                        SushiDSP::RigGraph* active = rig_controller_ref.graph_slot().acquire_for_audio_thread();
+
+                        const float* selected_channel[1];
+                        if (inputs == nullptr)
+                        {
+                            const float* silence_channel = callback_silence.data();
+                            selected_channel[0] = silence_channel;
+                        }
+                        else if (is_multi_channel_input)
+                        {
+                            selected_channel[0] = inputs[input_index];
+                        }
+                        else
+                        {
+                            selected_channel[0] = inputs[0];
+                        }
+
+                        float* mono_output_ptr[1] = { mono_output.data() };
+                        SushiDSP::ProcessContext context{ mono_output_ptr, selected_channel, frames, 0.0 };
+                        if (active != nullptr)
+                        {
+                            active->process(context);
+                        }
+                        else
+                        {
+                            std::fill(mono_output.begin(), mono_output.begin() + frames, 0.0f);
+                        }
+
+                        if (is_multi_channel_output)
+                        {
+                            SushiDSP::fan_out_mono_to_stereo(mono_output.data(), outputs, frames, output_selection);
+                        }
+                        else
+                        {
+                            std::memcpy(outputs[0], mono_output.data(), frames * sizeof(float));
+                        }
+                    });
+
+                    app_state = AppState::Running;
+                }
+                catch (const std::exception& error)
+                {
+                    connect_error = error.what();
+                }
+            }
+            if (!connect_error.empty())
+            {
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", connect_error.c_str());
+            }
+
+            ImGui::End();
+        }
+        else
+        {
+        RigController& rig_controller = *rig_controller_storage;
+
         ImGui::Begin("SushiDSP Rig");
+
+        ImGui::Text("Connected: %s (input %s, output %s)",
+            selected_device_index == 0 ? "SDL2" : asio_drivers[static_cast<std::size_t>(selected_device_index - 1)].c_str(),
+            SushiDSP::channel_selection_label(selected_input),
+            SushiDSP::channel_selection_label(selected_output));
+        ImGui::Separator();
 
         static char preset_path[256] = "preset.json";
         ImGui::InputText("Preset path", preset_path, sizeof(preset_path));
@@ -266,6 +408,7 @@ int main()
         }
 
         ImGui::End();
+        }
 
         ImGui::Render();
         int display_w, display_h;
@@ -277,7 +420,10 @@ int main()
         glfwSwapBuffers(window);
     }
 
-    device->stop();
+    if (device)
+    {
+        device->stop();
+    }
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
