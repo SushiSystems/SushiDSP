@@ -130,14 +130,28 @@ void RigController::rebuild_and_publish()
 {
     auto graph = std::make_unique<SushiDSP::RigGraph>(info_.max_block, static_cast<std::uint32_t>(slots_.size() + 1));
 
+    // An unknown descriptor id (e.g. from a corrupt/hand-edited preset file - see Task 7's
+    // load_chain() caller) makes SushiDSP::make_node() return nullptr. Such a slot never
+    // constructed a real node, so it is dropped from the chain entirely: it is not added to
+    // the graph, it does not get a handle, and it does not survive into the rebuilt slots_ -
+    // chain_ids() reports only slots that actually produced a live node.
+    std::vector<Slot> surviving_slots;
+    surviving_slots.reserve(slots_.size());
     std::vector<SushiDSP::NodeHandle> handles;
     handles.reserve(slots_.size());
-    for (const Slot& slot : slots_)
+    for (Slot& slot : slots_)
     {
         auto node = SushiDSP::make_node(slot.descriptor_id.c_str(), info_);
+        if (node == nullptr)
+        {
+            continue;
+        }
         const SushiDSP::NodeHandle handle = graph->add_node(std::move(node));
         handles.push_back(handle);
+        surviving_slots.push_back(std::move(slot));
     }
+    slots_ = std::move(surviving_slots);
+
     for (std::size_t i = 0; i + 1 < handles.size(); ++i)
     {
         graph->connect(handles[i], handles[i + 1]);
@@ -148,6 +162,10 @@ void RigController::rebuild_and_publish()
     for (std::size_t i = 0; i < slots_.size(); ++i)
     {
         SushiDSP::IAudioNode* node = graph->node(handles[i]);
+        if (node == nullptr)
+        {
+            continue;
+        }
         for (const auto& [param_id, value] : slots_[i].parameters)
         {
             node->set_parameter(param_id.c_str(), value);
