@@ -178,7 +178,12 @@ int main()
 #endif
 
                     const SushiDSP::DeviceFormat actual = device->format();
-                    SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, actual.output_channels };
+                    // The rig itself stays mono (1 in, 1 out) - channel selection only decides
+                    // which physical ASIO channel feeds it and which physical channel(s) its
+                    // output reaches (mirrors apps/host_asio/main.cpp's own pattern). The rig
+                    // always renders into the one-element mono_output_ptr array below, so this
+                    // must be 1 regardless of actual.output_channels.
+                    SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, 1 };
                     rig_controller_storage.emplace(info);
 
                     const std::size_t input_index = SushiDSP::channel_selection_input_index(selected_input);
