@@ -19,7 +19,7 @@ Deliberately out of scope, written down so it is not silently dropped:
   dependency), `sd bench` command building Release by default. Cases: JCM800 block,
   TubeScreamer block, Oversampler8x round-trip, TriodeStage, PartitionedConvolution. Reports
   ns/sample and the fraction of a 48 kHz real-time budget each case consumes.
-- [ ] **2. Optimized build flags** — `cmake/SushiDSPCompilerFlags.cmake`: `/O2 /arch:AVX2` or
+- [x] **2. Optimized build flags** — `cmake/SushiDSPCompilerFlags.cmake`: `/O2 /arch:AVX2` or
   `-O3 -mavx2 -mfma` on Release/RelWithDebInfo, IPO/LTO when the toolchain supports it, both
   behind options that default on. Debug untouched.
 - [ ] **3. Denormal guard** — `core/DenormalGuard.hpp` RAII FTZ/DAZ, engaged at the top of every
@@ -52,3 +52,12 @@ Reading the baseline: the oversampler is already cheap, the cost is the Newton s
 their `std::exp` calls (6 solves x 4 iterations x 2 exp x 8 oversampled samples per output
 sample in Jcm800). Tasks 4 and 5 are therefore the ones that matter; Tasks 6 and 7 are
 bounded at under 1 % of a core even if they were free.
+
+### Task 2: build flags (AVX2 + LTO)
+
+Jcm800 2933 ns/sample, TubeScreamer 668, Oversampler 139 — no change beyond run-to-run noise
+(about +-5 %). Verified the flags reached the objects (`/arch:AVX2` and whole-program
+optimization present in the generated projects). The result is expected: the hot loops are
+serial warm-started recurrences with nothing to vectorize, and the per-sample stage calls were
+already inlined within their translation units. Kept anyway, since Tasks 6-7 need the ISA and
+the flags cost nothing; the regression snapshots stayed within 1e-5.

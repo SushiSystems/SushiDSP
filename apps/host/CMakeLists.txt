@@ -3,3 +3,4 @@ add_executable(sushidsp_host
     SineToneNode.cpp
 )
 target_link_libraries(sushidsp_host PRIVATE SushiDSP::sushi_dsp_sdl2 SushiDSP::tubescreamer SushiDSP::jcm800)
+sushidsp_apply_optimization_flags(sushidsp_host)

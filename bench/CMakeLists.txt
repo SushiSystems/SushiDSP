@@ -9,3 +9,4 @@ target_link_libraries(sushidsp_bench PRIVATE
     SushiDSP::tubescreamer
     SushiDSP::jcm800
 )
+sushidsp_apply_optimization_flags(sushidsp_bench)
