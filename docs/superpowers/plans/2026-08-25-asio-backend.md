@@ -867,7 +867,7 @@ if(SUSHIDSP_BUILD_ASIO AND WIN32 AND EXISTS "${ASIO_SDK_DIR}/common/asio.h")
     target_include_directories(sushi_dsp_asio PRIVATE
         ${ASIO_SDK_DIR}/common ${ASIO_SDK_DIR}/host ${ASIO_SDK_DIR}/host/pc)
     target_link_libraries(sushi_dsp_asio PUBLIC SushiDSP::sushi_dsp PRIVATE ole32 oleaut32)
-    add_library(SushiDSP::asio ALIAS sushi_dsp_asio)
+    add_library(SushiDSP::sushi_dsp_asio ALIAS sushi_dsp_asio)
     message(STATUS "ASIO SDK found at ${ASIO_SDK_DIR} - sushi_dsp_asio target enabled")
 else()
     message(STATUS "ASIO SDK not found at ${ASIO_SDK_DIR} (or not on Windows) - sushi_dsp_asio target skipped")
@@ -1036,7 +1036,7 @@ int main(int argc, char** argv)
 add_executable(sushidsp_host_asio
     main.cpp
 )
-target_link_libraries(sushidsp_host_asio PRIVATE SushiDSP::asio SushiDSP::tubescreamer SushiDSP::jcm800)
+target_link_libraries(sushidsp_host_asio PRIVATE SushiDSP::sushi_dsp_asio SushiDSP::tubescreamer SushiDSP::jcm800)
 ```
 
 - [ ] **Step 3: Wire it into the root `CMakeLists.txt`**
