@@ -5,16 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# NOTE: No .cpp sources exist yet (Tasks 2-6 add them). add_library() requires
-# at least one source, so this is temporarily an INTERFACE library. Switch to
-# a STATIC library and add the sources below once they exist:
-#     src/core/BufferPool.cpp   # Task 2
-#     src/core/RigGraph.cpp     # Task 6
-#     src/math/Fft.cpp          # Task 4
-#     src/math/Biquad.cpp       # Task 5
-add_library(sushi_dsp INTERFACE)
+# TODO(Task 5): add src/math/Fft.cpp to the source list below.
+# TODO(Task 6): add src/math/Biquad.cpp to the source list below.
+# TODO(Task 7): add src/core/RigGraph.cpp to the source list below.
+add_library(sushi_dsp STATIC
+    src/core/BufferPool.cpp
+)
 add_library(SushiDSP::sushi_dsp ALIAS sushi_dsp)
-target_include_directories(sushi_dsp INTERFACE
+target_include_directories(sushi_dsp PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
