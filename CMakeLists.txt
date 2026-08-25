@@ -11,6 +11,7 @@ add_library(sushi_dsp STATIC
     src/circuits/DiodeClipperCircuit.cpp
     src/core/BufferPool.cpp
     src/core/RigGraph.cpp
+    src/core/RtGraphSlot.cpp
     src/device/AsioSampleConverter.cpp
     src/io/WavFile.cpp
     src/math/Fft.cpp

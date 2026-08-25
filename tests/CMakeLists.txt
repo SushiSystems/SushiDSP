@@ -39,6 +39,7 @@ add_executable(sushidsp_tests
     functional/unit/test_buffer_pool.cpp
     functional/unit/test_denormal_guard.cpp
     functional/unit/test_rig_graph.cpp
+    functional/unit/test_rt_graph_slot.cpp
     functional/unit/test_spsc_ring.cpp
 
     # --- Circuits ---
