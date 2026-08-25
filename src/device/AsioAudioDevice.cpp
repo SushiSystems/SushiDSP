@@ -23,6 +23,8 @@
 
 #include "SushiDSP/device/AsioAudioDevice.hpp"
 
+#include "SushiDSP/core/DenormalGuard.hpp"
+
 #include <cstring>
 #include <stdexcept>
 #include <utility>
@@ -392,6 +394,7 @@ namespace SushiDSP
 
     void AsioAudioDevice::on_buffer_switch(long buffer_index)
     {
+        DenormalGuard denormal_guard;
         const std::uint32_t frames = format_.block_size;
         const std::size_t   index = static_cast<std::size_t>(buffer_index);
 
