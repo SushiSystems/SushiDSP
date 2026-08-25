@@ -62,6 +62,7 @@ add_executable(sushidsp_tests
     functional/unit/test_wdf.cpp
 
     # --- IO ---
+    functional/unit/test_asio_sample_converter.cpp
     functional/unit/test_wav_file.cpp
 
     # --- Real-time safety ---
