@@ -46,6 +46,8 @@ add_executable(sushidsp_tests
     # --- Products ---
     functional/unit/test_tube_screamer_clipping_stage.cpp
     functional/unit/test_tube_screamer.cpp
+    functional/unit/test_triode_stage.cpp
+    ${CMAKE_SOURCE_DIR}/modules/jcm800/src/TriodeStage.cpp
 
     # --- Math ---
     functional/unit/test_biquad.cpp
@@ -68,6 +70,9 @@ add_executable(sushidsp_tests
 
 target_include_directories(sushidsp_tests PRIVATE ${SD_TEST_COMMON_DIR})
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
+# Stopgap: modules/jcm800 has no CMake target yet (D4 Task 8 adds it); until then its sources
+# are compiled into sushidsp_tests directly by path, the same way D3's module started out.
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/modules/jcm800/include)
 
 target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
