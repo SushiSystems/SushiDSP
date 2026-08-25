@@ -18,13 +18,12 @@
 /* distributed under the License is distributed on an "AS IS" BASIS,      */
 /* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
 /* implied. See the License for the specific language governing           */
-/* permissions and limitations under the License.                         */
+/* permissions and limitations under the License.                        */
 /**************************************************************************/
 
 // _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
 // and it must remain the very first thing in the translation unit.
 #define _USE_MATH_DEFINES
-
 #include <algorithm>
 #include <cmath>
 
@@ -52,7 +51,6 @@ namespace SushiDSP
             {
                 ++taps;
             }
-
             std::vector<float> coefficients(taps, 0.0f);
             const int center = static_cast<int>(taps - 1) / 2;
             for (int n = 0; n < static_cast<int>(taps); ++n)
@@ -75,79 +73,102 @@ namespace SushiDSP
             }
             return coefficients;
         }
+
+        /// @brief Every other coefficient starting at `first`, in ascending tap order.
+        std::vector<float> take_every_other(const std::vector<float>& coefficients, std::size_t first)
+        {
+            std::vector<float> subset;
+            for (std::size_t i = first; i < coefficients.size(); i += 2)
+            {
+                subset.push_back(coefficients[i]);
+            }
+            return subset;
+        }
+
+        /// @brief Smallest power of two that holds at least `minimum` samples, so the ring
+        /// index can wrap with a mask.
+        std::uint32_t ring_capacity(std::size_t minimum)
+        {
+            std::uint32_t capacity = 1;
+            while (capacity < minimum)
+            {
+                capacity *= 2;
+            }
+            return capacity;
+        }
+
+        /// @brief Dot product of `coefficients` against the ring's history, newest sample
+        /// first. Terms are accumulated in ascending tap order, which is what keeps this
+        /// bit-identical to the shifted-delay-line direct form it replaced.
+        float dot_with_history(const std::vector<float>& coefficients, const std::vector<float>& history,
+            std::uint32_t newest_index, std::uint32_t mask)
+        {
+            float accumulator = 0.0f;
+            const std::uint32_t count = static_cast<std::uint32_t>(coefficients.size());
+            for (std::uint32_t i = 0; i < count; ++i)
+            {
+                accumulator += coefficients[i] * history[(newest_index - i) & mask];
+            }
+            return accumulator;
+        }
     }
 
     HalfbandUpsampler2x::HalfbandUpsampler2x(std::uint32_t taps)
-        : coefficients_(design_halfband(taps))
-        , delay_line_(coefficients_.size(), 0.0f)
+        : even_coefficients_(take_every_other(design_halfband(taps), 0))
+        , odd_coefficients_(take_every_other(design_halfband(taps), 1))
+        , history_(ring_capacity(even_coefficients_.size()), 0.0f)
+        , history_mask_(static_cast<std::uint32_t>(history_.size()) - 1)
+        , write_index_(0)
     {
     }
 
     void HalfbandUpsampler2x::process(const float* input, std::uint32_t frames, float* output)
     {
-        const std::uint32_t taps = static_cast<std::uint32_t>(coefficients_.size());
         for (std::uint32_t frame = 0; frame < frames; ++frame)
         {
-            for (std::uint32_t sub = 0; sub < 2; ++sub)
-            {
-                for (std::uint32_t i = taps - 1; i > 0; --i)
-                {
-                    delay_line_[i] = delay_line_[i - 1];
-                }
-                // The 2x factor compensates the energy lost to zero-stuffing, so DC comes
-                // through the unity-DC-gain filter at unity gain.
-                delay_line_[0] = (sub == 0) ? input[frame] * 2.0f : 0.0f;
-
-                float accumulator = 0.0f;
-                for (std::uint32_t i = 0; i < taps; ++i)
-                {
-                    accumulator += coefficients_[i] * delay_line_[i];
-                }
-                output[frame * 2 + sub] = accumulator;
-            }
+            write_index_ = (write_index_ + 1) & history_mask_;
+            // The 2x factor compensates the energy lost to zero-stuffing, so DC comes through
+            // the unity-DC-gain filter at unity gain.
+            history_[write_index_] = input[frame] * 2.0f;
+            output[frame * 2] = dot_with_history(even_coefficients_, history_, write_index_, history_mask_);
+            output[frame * 2 + 1] = dot_with_history(odd_coefficients_, history_, write_index_, history_mask_);
         }
     }
 
     void HalfbandUpsampler2x::reset()
     {
-        std::fill(delay_line_.begin(), delay_line_.end(), 0.0f);
+        std::fill(history_.begin(), history_.end(), 0.0f);
+        write_index_ = 0;
     }
 
     HalfbandDownsampler2x::HalfbandDownsampler2x(std::uint32_t taps)
         : coefficients_(design_halfband(taps))
-        , delay_line_(coefficients_.size(), 0.0f)
+        , history_(ring_capacity(coefficients_.size()), 0.0f)
+        , history_mask_(static_cast<std::uint32_t>(history_.size()) - 1)
+        , write_index_(0)
     {
     }
 
     void HalfbandDownsampler2x::process(const float* input, std::uint32_t frames_in, float* output)
     {
-        const std::uint32_t taps = static_cast<std::uint32_t>(coefficients_.size());
         std::uint32_t output_index = 0;
         for (std::uint32_t frame = 0; frame < frames_in; ++frame)
         {
-            for (std::uint32_t i = taps - 1; i > 0; --i)
-            {
-                delay_line_[i] = delay_line_[i - 1];
-            }
-            delay_line_[0] = input[frame];
-
-            // Only every other filtered sample is kept; the discarded ones still have to be
-            // shifted in so the delay line stays continuous.
+            write_index_ = (write_index_ + 1) & history_mask_;
+            history_[write_index_] = input[frame];
+            // Only every other filtered sample is kept; the discarded ones still enter the
+            // history so it stays continuous.
             if (frame % 2 == 0)
             {
-                float accumulator = 0.0f;
-                for (std::uint32_t i = 0; i < taps; ++i)
-                {
-                    accumulator += coefficients_[i] * delay_line_[i];
-                }
-                output[output_index++] = accumulator;
+                output[output_index++] = dot_with_history(coefficients_, history_, write_index_, history_mask_);
             }
         }
     }
 
     void HalfbandDownsampler2x::reset()
     {
-        std::fill(delay_line_.begin(), delay_line_.end(), 0.0f);
+        std::fill(history_.begin(), history_.end(), 0.0f);
+        write_index_ = 0;
     }
 
     Oversampler8x::Oversampler8x(std::uint32_t block_size)
