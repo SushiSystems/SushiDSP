@@ -6,9 +6,9 @@ toolchain setup, so there is nothing to layer on top of ``os.environ``.
 
 ``tests/CMakeLists.txt`` registers every test via ``gtest_discover_tests``
 with the CTest label ``unit`` assigned from the GTest suite-name prefix
-convention (``Unit_*``), matching sushiblas/sushiengine/sushiruntime — see the
-``Suite`` enum below. Only ``unit`` exists today; ``integration``/
-``regression`` join once D-phase tests need them (see tests/CMakeLists.txt).
+convention (``Unit_*`` / ``Regression_*``), matching
+sushiblas/sushiengine/sushiruntime — see the ``Suite`` enum below.
+``integration`` joins once a D-phase test needs it (see tests/CMakeLists.txt).
 """
 
 from __future__ import annotations
@@ -31,11 +31,13 @@ class BuildType(str, enum.Enum):
 
 class Suite(str, enum.Enum):
     unit = "unit"
+    regression = "regression"
     all = "all"
 
 
 _SUITE_LABEL_REGEX = {
     Suite.unit: "^unit$",
+    Suite.regression: "^regression$",
 }
 
 _CMAKE_BUILD_TYPE = {
