@@ -77,6 +77,74 @@ namespace SushiDSP
         a2_ = static_cast<float>(a2 / a0);
     }
 
+    void Biquad::set_low_shelf(double sample_rate, double cutoff_hz, double gain_db, double q)
+    {
+        const double a = std::pow(10.0, gain_db / 40.0);
+        const double omega = 2.0 * M_PI * cutoff_hz / sample_rate;
+        const double sin_omega = std::sin(omega);
+        const double cos_omega = std::cos(omega);
+        const double alpha = sin_omega / (2.0 * q);
+        const double two_sqrt_a_alpha = 2.0 * std::sqrt(a) * alpha;
+
+        const double b0 = a * ((a + 1.0) - (a - 1.0) * cos_omega + two_sqrt_a_alpha);
+        const double b1 = 2.0 * a * ((a - 1.0) - (a + 1.0) * cos_omega);
+        const double b2 = a * ((a + 1.0) - (a - 1.0) * cos_omega - two_sqrt_a_alpha);
+        const double a0 = (a + 1.0) + (a - 1.0) * cos_omega + two_sqrt_a_alpha;
+        const double a1 = -2.0 * ((a - 1.0) + (a + 1.0) * cos_omega);
+        const double a2 = (a + 1.0) + (a - 1.0) * cos_omega - two_sqrt_a_alpha;
+
+        b0_ = static_cast<float>(b0 / a0);
+        b1_ = static_cast<float>(b1 / a0);
+        b2_ = static_cast<float>(b2 / a0);
+        a1_ = static_cast<float>(a1 / a0);
+        a2_ = static_cast<float>(a2 / a0);
+    }
+
+    void Biquad::set_high_shelf(double sample_rate, double cutoff_hz, double gain_db, double q)
+    {
+        const double a = std::pow(10.0, gain_db / 40.0);
+        const double omega = 2.0 * M_PI * cutoff_hz / sample_rate;
+        const double sin_omega = std::sin(omega);
+        const double cos_omega = std::cos(omega);
+        const double alpha = sin_omega / (2.0 * q);
+        const double two_sqrt_a_alpha = 2.0 * std::sqrt(a) * alpha;
+
+        const double b0 = a * ((a + 1.0) + (a - 1.0) * cos_omega + two_sqrt_a_alpha);
+        const double b1 = -2.0 * a * ((a - 1.0) + (a + 1.0) * cos_omega);
+        const double b2 = a * ((a + 1.0) + (a - 1.0) * cos_omega - two_sqrt_a_alpha);
+        const double a0 = (a + 1.0) - (a - 1.0) * cos_omega + two_sqrt_a_alpha;
+        const double a1 = 2.0 * ((a - 1.0) - (a + 1.0) * cos_omega);
+        const double a2 = (a + 1.0) - (a - 1.0) * cos_omega - two_sqrt_a_alpha;
+
+        b0_ = static_cast<float>(b0 / a0);
+        b1_ = static_cast<float>(b1 / a0);
+        b2_ = static_cast<float>(b2 / a0);
+        a1_ = static_cast<float>(a1 / a0);
+        a2_ = static_cast<float>(a2 / a0);
+    }
+
+    void Biquad::set_peaking(double sample_rate, double center_hz, double gain_db, double q)
+    {
+        const double a = std::pow(10.0, gain_db / 40.0);
+        const double omega = 2.0 * M_PI * center_hz / sample_rate;
+        const double sin_omega = std::sin(omega);
+        const double cos_omega = std::cos(omega);
+        const double alpha = sin_omega / (2.0 * q);
+
+        const double b0 = 1.0 + alpha * a;
+        const double b1 = -2.0 * cos_omega;
+        const double b2 = 1.0 - alpha * a;
+        const double a0 = 1.0 + alpha / a;
+        const double a1 = -2.0 * cos_omega;
+        const double a2 = 1.0 - alpha / a;
+
+        b0_ = static_cast<float>(b0 / a0);
+        b1_ = static_cast<float>(b1 / a0);
+        b2_ = static_cast<float>(b2 / a0);
+        a1_ = static_cast<float>(a1 / a0);
+        a2_ = static_cast<float>(a2 / a0);
+    }
+
     float Biquad::process_sample(float input)
     {
         const float output = b0_ * input + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_;

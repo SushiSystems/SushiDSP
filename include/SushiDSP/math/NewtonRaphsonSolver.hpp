@@ -23,8 +23,8 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
-#include <functional>
 #include <limits>
 
 namespace SushiDSP
@@ -34,6 +34,13 @@ namespace SushiDSP
     {
     public:
         /// @brief Finds x such that function(x) is approximately zero, starting from initial_guess.
+        /// @tparam Residual Any callable float(float). Templated rather than type-erased through
+        /// std::function on purpose: every caller sits on the audio thread and builds a fresh
+        /// capturing lambda per sample, and a capture list wider than the standard library's
+        /// small-buffer optimisation (16 bytes on libstdc++) would make std::function heap-allocate
+        /// inside process(). A template instantiates the callable inline, with no allocation on any
+        /// platform.
+        /// @tparam Derivative Any callable float(float).
         /// @param function The residual function f(x).
         /// @param derivative The derivative f'(x).
         /// @param initial_guess Starting point; warm-starting from the previous sample's
@@ -45,12 +52,63 @@ namespace SushiDSP
         /// inf/nan forever. Defaults to unbounded.
         /// @param maximum_x Upper bound the iterate is clamped to after every step.
         /// @return The converged root estimate. Always finite when the bounds are finite.
+        template <typename Residual, typename Derivative>
         static float solve(
-            const std::function<float(float)>& function,
-            const std::function<float(float)>& derivative,
+            Residual&& function,
+            Derivative&& derivative,
             float initial_guess,
             std::uint32_t max_iterations = 4,
             float minimum_x = -std::numeric_limits<float>::infinity(),
-            float maximum_x = std::numeric_limits<float>::infinity());
+            float maximum_x = std::numeric_limits<float>::infinity())
+        {
+            constexpr float minimum_derivative_magnitude = 1e-6f;
+
+            float x = initial_guess;
+            if (!std::isfinite(x))
+            {
+                x = 0.0f;
+            }
+            if (x < minimum_x)
+            {
+                x = minimum_x;
+            }
+            if (x > maximum_x)
+            {
+                x = maximum_x;
+            }
+
+            for (std::uint32_t iteration = 0; iteration < max_iterations; ++iteration)
+            {
+                const float f_value = function(x);
+                float f_prime_value = derivative(x);
+
+                if (std::abs(f_prime_value) < minimum_derivative_magnitude)
+                {
+                    f_prime_value = (f_prime_value < 0.0f) ? -minimum_derivative_magnitude : minimum_derivative_magnitude;
+                }
+
+                float next = x - f_value / f_prime_value;
+
+                // A non-finite step means the residual blew past the float range; keep the last
+                // good iterate rather than propagating inf/nan into the caller's warm-start state.
+                if (!std::isfinite(next))
+                {
+                    break;
+                }
+
+                if (next < minimum_x)
+                {
+                    next = minimum_x;
+                }
+                if (next > maximum_x)
+                {
+                    next = maximum_x;
+                }
+
+                x = next;
+            }
+
+            return x;
+        }
     };
 }

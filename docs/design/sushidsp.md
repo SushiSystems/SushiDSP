@@ -224,6 +224,34 @@ DI in ─▶ input/bright cap ─▶ [V1a 12AX7] ─▶ coupling cap (tightness 
 - **Power-supply sag:** rectifier + reservoir RC → dynamic B+.
 - **Cabinet:** measured 4×12 IR via §4.2 partitioned convolution, mic-model pre-filter, swappable IR.
 
+### As built in D4
+
+The section above records the intended design. What D4 actually shipped is simpler in five
+places, each a deliberate scope decision rather than an omission:
+
+- **Triode stages** are not a WDF sub-tree with Koren/Norman plate and grid equations. `TriodeStage`
+  solves one grid-node equation — source resistance, grid leak, and a Shockley grid-conduction
+  diode — with the shared Newton–Raphson solver, and takes the plate output as an inverting linear
+  gain on the grid's excursion from its bias point. The distortion character comes from grid
+  conduction, not from a plate-current law.
+- **Tone stack** is three cascaded RBJ biquads (low shelf, peaking, high shelf), not the passive
+  FMV network via DK-method or a 3-port WDF, so the three controls do not interact the way the real
+  passive network's do.
+- **Phase inverter** is a single `TriodeStage` plus a sign flip, not a long-tailed pair.
+- **Power section** is `PentodeStage`: the same grid-conduction model as the triode, followed by an
+  explicit `tanh` plate saturation. There is no screen-grid dependence. Its node equation is
+  bias-invariant by construction, so the class-AB asymmetry between the two tubes is applied as an
+  input-referred grid offset on one half rather than as a difference in their bias points — a
+  cathode-bias difference cancels out of the equation entirely and produces no asymmetry at all.
+- **Output transformer** core saturation is a plain `tanh`, not Jiles-Atherton-lite.
+
+The signal chain otherwise follows the diagram, including where the decimator sits: the output
+transformer and the sag stage run inside the oversampled region, and only the presence shelf and
+the master volume — both linear, so neither generates anything to alias — run after it. Resonance
+and a true global NFB loop are not implemented; presence is a fixed high shelf. Of the advanced
+parameters listed below, only the cabinet IR is settable (a constructor argument); bias, sag
+amount and oversample factor are compile-time constants.
+
 **Parameters (`NodeDescriptor`):** Preamp, Master, Bass, Middle, Treble, Presence; advanced: bias, sag_amount, cabinet_ir, oversample_factor. All smoothed, click-free. **Cost target:** Newton–Raphson × 8× × ~6 nonlinear stages, **< 1.0 ms per 256-block on one core**.
 
 ---

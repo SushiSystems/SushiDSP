@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* NewtonRaphsonSolver.cpp                                                */
+/* JcmToneStack.cpp                                                       */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                                SushiDSP                                */
@@ -21,67 +21,63 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
-#include "SushiDSP/math/NewtonRaphsonSolver.hpp"
+#include "SushiDSP/jcm800/JcmToneStack.hpp"
 
-#include <cmath>
+#include <algorithm>
 
 namespace SushiDSP
 {
-    float NewtonRaphsonSolver::solve(
-        const std::function<float(float)>& function,
-        const std::function<float(float)>& derivative,
-        float initial_guess,
-        std::uint32_t max_iterations,
-        float minimum_x,
-        float maximum_x)
+    namespace
     {
-        constexpr float minimum_derivative_magnitude = 1e-6f;
+        constexpr double kBassHz = 120.0;
+        constexpr double kMidHz = 750.0;
+        constexpr double kTrebleHz = 2500.0;
+        constexpr double kMaxGainDb = 12.0;
 
-        float x = initial_guess;
-        if (!std::isfinite(x))
+        double normalized_to_gain_db(float normalized)
         {
-            x = 0.0f;
+            return (static_cast<double>(normalized) - 0.5) * 2.0 * kMaxGainDb;
         }
-        if (x < minimum_x)
-        {
-            x = minimum_x;
-        }
-        if (x > maximum_x)
-        {
-            x = maximum_x;
-        }
+    }
 
-        for (std::uint32_t iteration = 0; iteration < max_iterations; ++iteration)
-        {
-            const float f_value = function(x);
-            float f_prime_value = derivative(x);
+    JcmToneStack::JcmToneStack(double sample_rate)
+        : sample_rate_(sample_rate)
+    {
+        set_bass(0.5f);
+        set_middle(0.5f);
+        set_treble(0.5f);
+    }
 
-            if (std::abs(f_prime_value) < minimum_derivative_magnitude)
-            {
-                f_prime_value = (f_prime_value < 0.0f) ? -minimum_derivative_magnitude : minimum_derivative_magnitude;
-            }
+    void JcmToneStack::set_bass(float normalized)
+    {
+        normalized = std::clamp(normalized, 0.0f, 1.0f);
+        bass_.set_low_shelf(sample_rate_, kBassHz, normalized_to_gain_db(normalized), 0.707);
+    }
 
-            float next = x - f_value / f_prime_value;
+    void JcmToneStack::set_middle(float normalized)
+    {
+        normalized = std::clamp(normalized, 0.0f, 1.0f);
+        middle_.set_peaking(sample_rate_, kMidHz, normalized_to_gain_db(normalized), 0.9);
+    }
 
-            // A non-finite step means the residual blew past the float range; keep the last
-            // good iterate rather than propagating inf/nan into the caller's warm-start state.
-            if (!std::isfinite(next))
-            {
-                break;
-            }
+    void JcmToneStack::set_treble(float normalized)
+    {
+        normalized = std::clamp(normalized, 0.0f, 1.0f);
+        treble_.set_high_shelf(sample_rate_, kTrebleHz, normalized_to_gain_db(normalized), 0.707);
+    }
 
-            if (next < minimum_x)
-            {
-                next = minimum_x;
-            }
-            if (next > maximum_x)
-            {
-                next = maximum_x;
-            }
-
-            x = next;
-        }
-
+    float JcmToneStack::process_sample(float input)
+    {
+        float x = bass_.process_sample(input);
+        x = middle_.process_sample(x);
+        x = treble_.process_sample(x);
         return x;
+    }
+
+    void JcmToneStack::reset()
+    {
+        bass_.reset();
+        middle_.reset();
+        treble_.reset();
     }
 }
