@@ -160,8 +160,8 @@ namespace SushiDSP
         , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
         , el34_a_(kPentodeSourceResistance, kPentodeGridLeak, kPentodeCathodeBias, kPentodeGain, kPentodeSaturationCurrent, kPentodeThermalVoltage, kPentodePlateSaturationDrive)
         , el34_b_(kPentodeSourceResistance, kPentodeGridLeak, kPentodeCathodeBias, kPentodeGain, kPentodeSaturationCurrent, kPentodeThermalVoltage, kPentodePlateSaturationDrive)
-        , output_transformer_(48000.0, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
-        , sag_(48000.0, kSagAmount, kSagRecoveryTimeSeconds)
+        , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
+        , sag_(48000.0 * kOversamplingFactor, kSagAmount, kSagRecoveryTimeSeconds)
     {
     }
 
@@ -180,8 +180,12 @@ namespace SushiDSP
         tone_stack_.set_middle(middle_normalized_);
         tone_stack_.set_treble(treble_normalized_);
 
-        output_transformer_ = OutputTransformerStage(sample_rate_, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive);
-        sag_ = PowerSupplySagStage(sample_rate_, kSagAmount, kSagRecoveryTimeSeconds);
+        // The output transformer and the sag stage run inside the oversampled region (see
+        // process()), so both are built at the oversampled rate: their filter corners and the
+        // sag recovery time constant are all derived from the rate they are stepped at.
+        const double oversampled_rate = sample_rate_ * kOversamplingFactor;
+        output_transformer_ = OutputTransformerStage(oversampled_rate, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive);
+        sag_ = PowerSupplySagStage(oversampled_rate, kSagAmount, kSagRecoveryTimeSeconds);
 
         oversampler_a_ = std::make_unique<Oversampler8x>(info.max_block);
         oversampler_b_ = std::make_unique<Oversampler8x>(info.max_block);
@@ -253,16 +257,22 @@ namespace SushiDSP
                 phase_inverter_.process_sample(phase_split) * kPhaseInverterToPowerTubeAttenuation;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted - kPowerTubeGridBiasMismatchVolts);
-            scratch_oversampled_b_[i] = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
+            const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
+
+            // Both of these stay inside the oversampled region, as spec section 5's diagram
+            // places them: the transformer's core saturation is a genuine tanh nonlinearity and
+            // the sag stage's gain is signal-dependent, so running either after the decimator
+            // would fold their generated harmonics back below Nyquist.
+            const float transformer_out = output_transformer_.process_sample(power_tube_out);
+            scratch_oversampled_b_[i] = sag_.process_sample(transformer_out);
         }
         oversampler_b_->downsample(scratch_oversampled_b_.data(), oversampled_frames, scratch_base_.data());
 
+        // The presence shelf and the master volume are linear, so they generate nothing to alias
+        // and cost 8x less on this side of the decimator.
         for (std::uint32_t i = 0; i < frames; ++i)
         {
-            float x = output_transformer_.process_sample(scratch_base_[i]);
-            x = sag_.process_sample(x);
-            x = presence_shelf_.process_sample(x);
-            scratch_base_[i] = x * master_current_;
+            scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]) * master_current_;
         }
 
         // PartitionedConvolution::process() is a fixed-block API with no frame-count argument;
