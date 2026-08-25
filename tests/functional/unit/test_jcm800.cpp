@@ -358,22 +358,35 @@ TEST(Unit_Dsp, Jcm800ThdIncreasesWithPreamp)
         return static_cast<float>(std::sqrt(residual_power / std::max(1e-12, sum_sq)));
     };
 
-    // Measured at a moderate input level, chosen so that V1a - which sits ahead of the preamp pot
-    // and therefore distorts regardless of where the knob is - is still inside its linear region.
-    // Above roughly 0.3 input amplitude V1a's own clipping dominates the measurement, and turning
-    // the preamp up then *lowers* relative THD across the middle of the knob's travel (measured
-    // for a 0.7-amplitude input: 0.224 at preamp 0.1, 0.185 at 0.7, 0.219 at 1.0). So what is
-    // pinned here is deliberately the narrow claim that does hold - the amp adds harmonic content
-    // at full preamp that it does not add near the bottom of the knob - and not a monotonic
-    // THD-versus-preamp law, which this chain does not obey.
-    const float thd_low_preamp = measure_thd_proxy(0.05f, 0.2, 120);
-    const float thd_high_preamp = measure_thd_proxy(1.0f, 0.2, 120);
+    // Measured at a moderate input level - 0.2, a normal picked note rather than a hot transient -
+    // because that is where a gain knob has to earn its name. The knob's job is to sweep the
+    // cascade from clean into saturation, so the claim pinned here is the whole upper sweep, not
+    // just its endpoints: from the point where V1b's grid first reaches conduction, every step of
+    // the knob must add harmonic content.
+    const float preamps[] = { 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f };
+    float previous = measure_thd_proxy(0.05f, 0.2, 120);
 
-    EXPECT_LT(thd_low_preamp, thd_high_preamp);
+    // Near the bottom of its travel the amp is genuinely clean at this input level, which is
+    // correct behavior for a 2203 and is what makes the rise below meaningful.
+    EXPECT_LT(previous, 0.01f);
 
-    // Guards against the assertion above being satisfied by two indistinguishable near-zero
-    // readings: full preamp must produce harmonic content that is actually measurable.
-    EXPECT_GT(thd_high_preamp, 0.01f);
+    for (float preamp : preamps)
+    {
+        const float thd = measure_thd_proxy(preamp, 0.2, 120);
+        EXPECT_GT(thd, previous) << "preamp " << preamp;
+        previous = thd;
+    }
+
+    // Guards against the monotonic rise above being satisfied by a sequence of indistinguishable
+    // near-zero readings: full preamp must produce heavy, obviously audible clipping.
+    EXPECT_GT(previous, 0.2f);
+
+    // At a hot input V1a - which sits ahead of the preamp pot and so distorts wherever the knob
+    // is - contributes a floor of its own, and the knob's first third mostly rebalances the
+    // spectrum rather than adding clipping (measured at a 0.7 input: 0.224 at preamp 0.05, 0.196
+    // at 0.3, then rising to 0.340 at 1.0). The upper two thirds still climb, so that is what is
+    // asserted here rather than a monotonic law across the whole knob.
+    EXPECT_GT(measure_thd_proxy(1.0f, 0.7, 120), measure_thd_proxy(0.4f, 0.7, 120));
 }
 
 TEST(Unit_Dsp, Jcm800CabinetStageEngagesAtANonDefaultBlockSize)

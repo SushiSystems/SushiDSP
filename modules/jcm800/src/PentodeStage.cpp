@@ -35,7 +35,16 @@ namespace
     // term still evaluates finitely in float, while 60 * Vt ~ 1.55 V sits far above any physical
     // grid-conduction drop, so the clamp bounds transient overshoot only. The bound is applied
     // *around the cathode-bias voltage Vk*, not around 0, because Vk is this stage's resting point.
+    //
+    // Asymmetric for the same reason TriodeStage's is - see the longer ruling at its definition
+    // site. Below Vk the exponential collapses to -Is and the residual is linear, so the lower
+    // clamp guards nothing and only hard-clips a would-be-linear answer; it is opened to
+    // 160 * Vt ~ 4.14 V so the driven chain reaches its own grid conduction and the pentode's
+    // plate saturation, rather than a solver artifact, on the way to clipping. This stage's own
+    // measured worst case is under 0.5 V, so for the EL34s the widening is headroom, not a
+    // behavior change - the tanh plate saturation was already the binding limit here.
     constexpr float kExponentLimit = 60.0f;
+    constexpr float kNegativeExponentLimit = 160.0f;
 }
 
 namespace SushiDSP
@@ -52,6 +61,7 @@ namespace SushiDSP
         , thermal_voltage_(thermal_voltage_volts)
         , plate_saturation_drive_(plate_saturation_drive)
         , voltage_limit_(kExponentLimit * thermal_voltage_volts)
+        , cutoff_voltage_limit_(kNegativeExponentLimit * thermal_voltage_volts)
         , previous_grid_voltage_(cathode_bias_volts)
     {
     }
@@ -92,7 +102,7 @@ namespace SushiDSP
 
         const float grid_voltage = NewtonRaphsonSolver::solve(
             residual, derivative, previous_grid_voltage_, 4,
-            vk - voltage_limit_, vk + voltage_limit_);
+            vk - cutoff_voltage_limit_, vk + voltage_limit_);
         previous_grid_voltage_ = grid_voltage;
 
         // Inverting plate output: the grid's excursion from its bias point, amplified.

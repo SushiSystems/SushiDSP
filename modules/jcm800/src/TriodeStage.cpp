@@ -37,7 +37,20 @@ namespace
     //
     // Unlike the diode-pair circuits, the bound is applied *around the cathode-bias voltage Vk*
     // rather than around 0, because Vk - not ground - is this stage's resting operating point.
+    //
+    // The bound is deliberately asymmetric, and only the upper half of it is a numerical guard.
+    // Below Vk the exponential term collapses to -Is, so the residual is linear, Newton converges
+    // exactly in one step, and no overshoot is possible - there is nothing there for a clamp to
+    // protect against. What a symmetric bound does on that side is silently hard-clip an otherwise
+    // linear answer, which is why Jcm800's interstage levels previously had to be held so low that
+    // the cascade barely distorted (see Jcm800.cpp's interstage gain-staging comment and the Task
+    // 9 voicing ruling). The lower bound is therefore set at 160 * Vt ~ 4.14 V below Vk, which is
+    // where a 12AX7's plate swing hits the ~250 V B+ rail at this stage's gain of 60 - so it reads
+    // as the stage's cutoff rather than as an arbitrary numerical fence, it sits above the 2.81 V
+    // worst case the driven chain reaches at a 1.0 input, and a genuine runaway is still caught
+    // rather than integrated forever by the warm start.
     constexpr float kExponentLimit = 60.0f;
+    constexpr float kNegativeExponentLimit = 160.0f;
 }
 
 namespace SushiDSP
@@ -52,6 +65,7 @@ namespace SushiDSP
         , saturation_current_(saturation_current_amps)
         , thermal_voltage_(thermal_voltage_volts)
         , voltage_limit_(kExponentLimit * thermal_voltage_volts)
+        , cutoff_voltage_limit_(kNegativeExponentLimit * thermal_voltage_volts)
         , previous_grid_voltage_(cathode_bias_volts)
     {
     }
@@ -90,7 +104,7 @@ namespace SushiDSP
 
         const float grid_voltage = NewtonRaphsonSolver::solve(
             residual, derivative, previous_grid_voltage_, 4,
-            vk - voltage_limit_, vk + voltage_limit_);
+            vk - cutoff_voltage_limit_, vk + voltage_limit_);
         previous_grid_voltage_ = grid_voltage;
 
         // Common-cathode plate output: the grid's excursion from its bias point, amplified and

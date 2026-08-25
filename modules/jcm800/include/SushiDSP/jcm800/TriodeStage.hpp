@@ -59,6 +59,7 @@ namespace SushiDSP
         float saturation_current_;
         float thermal_voltage_;
         float voltage_limit_;
+        float cutoff_voltage_limit_;
         float previous_grid_voltage_;
     };
 }
