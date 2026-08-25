@@ -40,6 +40,7 @@ add_executable(sushidsp_tests
     functional/unit/test_denormal_guard.cpp
     functional/unit/test_rig_graph.cpp
     functional/unit/test_rt_graph_slot.cpp
+    functional/unit/test_node_registry.cpp
     functional/unit/test_spsc_ring.cpp
 
     # --- Circuits ---
@@ -85,6 +86,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
     SushiDSP::jcm800
+    SushiDSP::node_registry
     GTest::gtest
 )
 sushidsp_apply_optimization_flags(sushidsp_tests)
