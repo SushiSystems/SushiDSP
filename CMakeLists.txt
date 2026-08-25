@@ -13,6 +13,7 @@ add_library(sushi_dsp STATIC
     src/core/RigGraph.cpp
     src/core/RtGraphSlot.cpp
     src/device/AsioSampleConverter.cpp
+    src/device/ChannelSelection.cpp
     src/io/WavFile.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
