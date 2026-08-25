@@ -46,9 +46,14 @@ add_executable(sushidsp_tests
 
     # --- Real-time safety ---
     functional/unit/test_rt_safety.cpp
+
+    # --- Host diagnostics ---
+    functional/unit/test_sine_tone_node.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host/SineToneNode.cpp
 )
 
 target_include_directories(sushidsp_tests PRIVATE ${SD_TEST_COMMON_DIR})
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
 
 target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
