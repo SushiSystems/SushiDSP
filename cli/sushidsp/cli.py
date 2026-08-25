@@ -10,6 +10,7 @@ from typing import Optional
 
 import typer
 
+from .services import diag as diag_svc
 from .services import project as project_svc
 from .services.project import BuildType, Suite
 
@@ -63,3 +64,9 @@ def test(
 ):
     """Builds (if needed) and runs ctest, optionally filtered by --suite."""
     raise typer.Exit(project_svc.test(type, suite, clean=clean))
+
+
+@app.command("config")
+def config():
+    """Print the resolved configuration and where each value came from."""
+    raise typer.Exit(diag_svc.config_show())
