@@ -32,7 +32,7 @@
 
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 
-void save_preset(RigController& controller, const std::string& path)
+void save_preset(const RigController& controller, const std::string& path)
 {
     nlohmann::json root;
     root["nodes"] = nlohmann::json::array();

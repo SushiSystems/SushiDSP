@@ -40,14 +40,21 @@ void RigController::insert(std::size_t index, const std::string& descriptor_id)
 {
     Slot slot;
     slot.descriptor_id = descriptor_id;
+    seed_defaults(slot);
 
+    slots_.insert(slots_.begin() + static_cast<std::ptrdiff_t>(index), std::move(slot));
+    rebuild_and_publish();
+}
+
+void RigController::seed_defaults(Slot& slot) const
+{
     // Seed the parameter map with every declared parameter's default value so that
     // get_parameter() mirrors the live node's state from the moment it is added, even
     // for parameters nobody has touched yet (e.g. before the first set_parameter() call,
     // or when saving a preset without ever having moved a slider).
     for (const auto& entry : SushiDSP::node_registry())
     {
-        if (descriptor_id == entry.descriptor->id)
+        if (slot.descriptor_id == entry.descriptor->id)
         {
             for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
             {
@@ -57,9 +64,6 @@ void RigController::insert(std::size_t index, const std::string& descriptor_id)
             break;
         }
     }
-
-    slots_.insert(slots_.begin() + static_cast<std::ptrdiff_t>(index), std::move(slot));
-    rebuild_and_publish();
 }
 
 void RigController::remove(std::size_t index)
@@ -138,7 +142,14 @@ void RigController::load_chain(const std::vector<std::string>& ids, const std::v
     {
         Slot slot;
         slot.descriptor_id = ids[i];
-        slot.parameters = i < params.size() ? params[i] : std::map<std::string, float>{};
+        seed_defaults(slot);
+        if (i < params.size())
+        {
+            for (const auto& [param_id, value] : params[i])
+            {
+                slot.parameters[param_id] = value;
+            }
+        }
         slots_.push_back(std::move(slot));
     }
     rebuild_and_publish();

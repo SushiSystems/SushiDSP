@@ -56,7 +56,12 @@ public:
     void move(std::size_t from, std::size_t to);
 
     /// @brief Sets a parameter on the live node at chain position `index`. Does NOT republish
-    /// (no structural change) - writes directly to the live IAudioNode instance.
+    /// (no structural change) - writes directly to the live IAudioNode instance. This writes a
+    /// plain float from the GUI thread while the audio thread may concurrently read the same
+    /// field in process() - an accepted, documented approximation for this project's current
+    /// scope (not something to fix now), and it is not a data-structure race (RigGraph's and
+    /// RtGraphSlot's structural safety is unaffected). If audible artifacts from a torn read
+    /// are ever observed, the proper fix is a lock-free parameter queue.
     void set_parameter(std::size_t index, const char* param_id, float value);
 
     /// @brief Reads a parameter from the live node at chain position `index`.
@@ -84,6 +89,12 @@ private:
     };
 
     void rebuild_and_publish();
+
+    /// @brief Seeds `slot.parameters` with every declared parameter's default_value from
+    /// node_registry() for slot.descriptor_id, overwriting any value already present -
+    /// callers that need incoming values to win over defaults must call this first and then
+    /// overlay their own values on top.
+    void seed_defaults(Slot& slot) const;
 
     SushiDSP::PrepareInfo   info_;
     std::vector<Slot>       slots_;
