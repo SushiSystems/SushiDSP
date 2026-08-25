@@ -18,6 +18,7 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
+from sushicore.cmake_driver import CMakeDriver
 from sushicore.proc import Runner
 
 from .. import console
@@ -52,25 +53,14 @@ def _build_dir(root: Path) -> Path:
     return root / "build"
 
 
-def _cmake(cfg: Config) -> str:
-    """The cmake executable: the configured path if set, else bare 'cmake'."""
-    return cfg.expand(cfg.cmake_exe) if cfg.cmake_exe else "cmake"
-
-
-def _ctest(cfg: Config) -> str:
-    """The ctest executable: the configured path if set, else bare 'ctest'."""
-    return cfg.expand(cfg.ctest_exe) if cfg.ctest_exe else "ctest"
-
-
 _RUNNER = Runner(console, PROFILE.program)
+_DRIVER = CMakeDriver(console, _RUNNER)
 
-
-def _run(cmd: list[str], cwd: Path) -> int:
-    return _RUNNER.run(cmd, cwd)
-
-
-def _resolve_exe(name: str) -> str:
-    return _RUNNER.resolve_exe(name)
+_DOXYGEN_HINT = (
+    "  - Windows: winget install DimitriVanHeesch.Doxygen\n"
+    "  - Linux:   apt-get install -y doxygen graphviz\n"
+    "  - macOS:   brew install doxygen graphviz\n"
+    "  - or set doxygen_exe in cli/config.local.toml to an existing doxygen binary.")
 
 
 def configure(build_type: BuildType, defines: Optional[list[str]] = None) -> int:
@@ -81,7 +71,7 @@ def configure(build_type: BuildType, defines: Optional[list[str]] = None) -> int
     build_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [
-        _cmake(cfg), "-S", str(root), "-B", str(build_dir),
+        _DRIVER.cmake(cfg), "-S", str(root), "-B", str(build_dir),
         f"-DCMAKE_BUILD_TYPE={_CMAKE_BUILD_TYPE[build_type]}",
     ]
     if cfg.generator:
@@ -89,7 +79,7 @@ def configure(build_type: BuildType, defines: Optional[list[str]] = None) -> int
     for define in defines or []:
         cmd += ["-D", define]
 
-    return _run(cmd, root)
+    return _DRIVER.configure(cmd, cwd=root, env=None)
 
 
 def build(build_type: BuildType, clean: bool = False,
@@ -108,8 +98,8 @@ def build(build_type: BuildType, clean: bool = False,
             return rc
 
     cfg = load_config()
-    cmd = [_cmake(cfg), "--build", str(build_dir), "--config", _CMAKE_BUILD_TYPE[build_type]]
-    return _run(cmd, root)
+    return _DRIVER.compile(cfg, build_dir, cwd=root, env=None,
+                           config=_CMAKE_BUILD_TYPE[build_type])
 
 
 def test(build_type: BuildType, suite: Suite, clean: bool = False) -> int:
@@ -122,13 +112,17 @@ def test(build_type: BuildType, suite: Suite, clean: bool = False) -> int:
     build_dir = _build_dir(root)
     cfg = load_config()
 
-    cmd = [_ctest(cfg), "--test-dir", str(build_dir),
+    # Not CMakeDriver.ctest_run: it has no "-C <config>" knob (this generator can be
+    # multi-config, unlike the other four modules' single-config Ninja/Make trees, so the
+    # flag is load-bearing here and not just belt-and-braces) and it drains the child's
+    # output through a pipe, where this call has always inherited stdout directly.
+    cmd = [_DRIVER.ctest(cfg), "--test-dir", str(build_dir),
            "-C", _CMAKE_BUILD_TYPE[build_type], "--output-on-failure"]
     label_regex = _SUITE_LABEL_REGEX.get(suite)
     if label_regex is not None:
         cmd += ["-L", label_regex]
 
-    return _run(cmd, root)
+    return _RUNNER.run(cmd, root, env=None)
 
 
 def doxygen() -> int:
@@ -142,13 +136,8 @@ def doxygen() -> int:
         return 1
 
     doxy = cfg.expand(cfg.doxygen_exe) if cfg.doxygen_exe else "doxygen"
-    if _resolve_exe(doxy) == doxy and not Path(doxy).is_file():
-        console.error(
-            "Doxygen is not installed or not on PATH.\n"
-            "  - Windows: winget install DimitriVanHeesch.Doxygen\n"
-            "  - Linux:   apt-get install -y doxygen graphviz\n"
-            "  - macOS:   brew install doxygen graphviz\n"
-            "  - or set doxygen_exe in cli/config.local.toml to an existing doxygen binary.")
+    if _RUNNER.resolve_exe(doxy, env=None) == doxy and not Path(doxy).is_file():
+        console.error("Doxygen is not installed or not on PATH.\n" + _DOXYGEN_HINT)
         return 1
 
-    return _run([doxy, "Doxyfile"], root)
+    return _RUNNER.run([doxy, "Doxyfile"], root, env=None)
