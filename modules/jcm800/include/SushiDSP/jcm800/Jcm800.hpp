@@ -122,11 +122,13 @@ namespace SushiDSP
 
         std::unique_ptr<Oversampler8x> oversampler_a_;  // spans V1a -> V1b
         std::unique_ptr<Oversampler8x> oversampler_b_;  // spans V2a -> output transformer
+        std::unique_ptr<Oversampler8x> oversampler_c_;  // spans the final output limiter
         std::unique_ptr<PartitionedConvolution> cabinet_;
 
         std::vector<float> scratch_base_;
         std::vector<float> scratch_oversampled_a_;
         std::vector<float> scratch_oversampled_b_;
+        std::vector<float> scratch_oversampled_c_;
     };
 
     /// @brief The JCM800's product registration entry point.
