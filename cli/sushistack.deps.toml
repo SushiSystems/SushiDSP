@@ -1,0 +1,24 @@
+# SushiDSP dependency fragment — the dependencies SushiDSP owns. `ss`
+# aggregates this with the SushiStack base fragment and provisions everything
+# into the shared dependencies/ tree.
+#
+# SushiDSP has no [module] depends_on entry: unlike sushiblas (which rides on
+# sushiruntime), SushiDSP's core is dependency-free by design (see
+# docs/design/sushidsp.md §0/§11) and links no other SushiStack module.
+#
+# GoogleTest is resolved via CMake FetchContent (see the root CMakeLists.txt),
+# not a system/vcpkg port, so there is nothing to declare for it here.
+#
+# Field reference:
+#   description    Human-readable purpose (shown by `ss doctor`).
+#   required       false => a missing one warns but does not stop the build.
+#   linux_apt      apt package names; empty list = not an apt/vcpkg package.
+#   windows_vcpkg  vcpkg port names; empty list = not an apt/vcpkg package.
+#   check_cmd      Optional command; exit 0 means "already installed".
+
+[[dependency]]
+name = "sdl2"
+description = "Audio device backend for apps/host (D1)."
+required = true
+linux_apt = ["libsdl2-dev"]
+windows_vcpkg = ["sdl2"]
