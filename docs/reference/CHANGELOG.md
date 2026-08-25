@@ -5,6 +5,12 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
 
 ## CPU performance pass (after D4)
 
+- `sd` detects its compiler instead of assuming MSVC: pinned `cxx`, then the SushiStack
+  workspace's intel/llvm clang++, then `clang++` on PATH, then CMake's platform default.
+  `sd config` names the choice; `sd env` shows the build environment (vcvars snapshot on
+  Windows). FMA contraction is pinned off for every compiler so the regression snapshots are
+  toolchain-independent. intel/llvm clang++: Jcm800 1780 -> 1430 ns/sample (-20 %).
+
 - `sushidsp_bench` / `sd bench` — the timing harness every optimization is measured with;
   reports ns per output sample and the share of one core at 48 kHz.
 - Release/RelWithDebInfo now build with AVX2 + FMA and link-time optimization (per target,

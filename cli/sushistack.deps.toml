@@ -17,6 +17,13 @@
 #   check_cmd      Optional command; exit 0 means "already installed".
 
 [[dependency]]
+name = "intel-llvm"
+description = "intel/llvm clang++ (the workspace's shared toolchain). Optional: when present `sd` builds with it, otherwise with the platform compiler."
+required = false
+linux_apt = []
+windows_vcpkg = []
+
+[[dependency]]
 name = "sdl2"
 description = "Audio device backend for apps/host (D1)."
 required = true
