@@ -56,6 +56,8 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/modules/jcm800/src/OutputTransformerStage.cpp
     functional/unit/test_power_supply_sag_stage.cpp
     ${CMAKE_SOURCE_DIR}/modules/jcm800/src/PowerSupplySagStage.cpp
+    functional/unit/test_jcm800.cpp
+    ${CMAKE_SOURCE_DIR}/modules/jcm800/src/Jcm800.cpp
 
     # --- Math ---
     functional/unit/test_biquad.cpp
