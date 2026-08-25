@@ -21,7 +21,10 @@
 
 namespace SushiDSP
 {
-    /// @brief Power-of-two, in-place-capable real FFT. Precomputes twiddle factors and bit-reversal in the constructor.
+    /// @brief Power-of-two real FFT. Precomputes twiddle factors and bit-reversal in the constructor.
+    ///
+    /// Transforms are out-of-place: the three buffers passed to forward() or inverse() must be
+    /// distinct and must not alias each other.
     class Fft
     {
     public:
@@ -33,12 +36,14 @@ namespace SushiDSP
         /// @param time_domain Input, size() samples.
         /// @param real_out Output real part, size() bins.
         /// @param imag_out Output imaginary part, size() bins.
+        /// @note The three buffers must not alias each other.
         void forward(const float* time_domain, float* real_out, float* imag_out) const;
 
         /// @brief Computes the inverse DFT back to a real time-domain signal.
         /// @param real_in Input real part, size() bins.
         /// @param imag_in Input imaginary part, size() bins.
         /// @param time_domain_out Output, size() samples.
+        /// @note The three buffers must not alias each other.
         void inverse(const float* real_in, const float* imag_in, float* time_domain_out) const;
 
         /// @brief The transform size this plan was constructed for.
