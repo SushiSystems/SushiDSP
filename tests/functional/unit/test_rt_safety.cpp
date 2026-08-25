@@ -40,6 +40,7 @@
 #include "SushiDSP/math/Fft.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/PartitionedConvolution.hpp"
+#include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 #ifndef M_PI
@@ -268,6 +269,45 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
     g_trap_allocations.store(true, std::memory_order_relaxed);
 
     for (int block = 0; block < 1000; ++block)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocation)
+{
+    // This is also the trap for Jcm800::process()'s per-block set_high_shelf() call: recomputing
+    // the presence shelf's RBJ coefficients every block looks expensive, but it is pure double
+    // arithmetic (pow/sin/cos/sqrt) with no heap, lock, syscall, or throw behind it, so it must
+    // not register here.
+    SushiDSP::Jcm800 node;
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_preamp(0.8f);
+    node.set_master(0.7f);
+    node.set_bass(0.6f);
+    node.set_middle(0.4f);
+    node.set_treble(0.7f);
+    node.set_presence(0.9f);
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 200; ++block)
     {
         SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
         node.process(context);
