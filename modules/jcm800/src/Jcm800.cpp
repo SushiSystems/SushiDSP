@@ -129,6 +129,32 @@ namespace SushiDSP
             return current + (target - current) * kSlewPerBlock;
         }
 
+        // Every stage up to here saturates against its own solver bound, so a musically hot but
+        // otherwise legitimate drive/preamp/master combination can still land the final sample
+        // outside [-1, 1] - nothing upstream of this point is normalized to the DAC's range, only
+        // to each tube's own conduction window. Left alone, that overshoot is hard-clipped by
+        // whatever sits downstream (the driver, the DAC), which sounds nothing like the amp - it's
+        // a flat-topped digital ceiling, not the transformer/speaker compression a real loud JCM800
+        // exhibits at its output. kOutputLimiterThreshold is chosen well above the entire
+        // regression corpus (largest sample ~0.157, see test_jcm800_regression.cpp) specifically so
+        // this is the identity function - and therefore silent - at every level anyone has actually
+        // measured; it only starts doing anything within the last ~1 dB of full scale.
+        constexpr float kOutputLimiterThreshold = 0.9f;
+
+        // Smooth (C1-continuous at the threshold - tanh'(0) == 1, matching the identity region's
+        // slope) soft-knee limiter: identity below threshold, asymptoting toward +-1 above it.
+        float soft_limit(float sample, float threshold)
+        {
+            const float magnitude = std::fabs(sample);
+            if (magnitude <= threshold)
+            {
+                return sample;
+            }
+            const float sign = sample < 0.0f ? -1.0f : 1.0f;
+            const float headroom = 1.0f - threshold;
+            return sign * (threshold + headroom * std::tanh((magnitude - threshold) / headroom));
+        }
+
         float presence_gain_db(float normalized)
         {
             return (normalized - 0.5f) * 2.0f * kMaxPresenceDb;
@@ -289,6 +315,11 @@ namespace SushiDSP
             {
                 output[i] = scratch_base_[i];
             }
+        }
+
+        for (std::uint32_t i = 0; i < frames; ++i)
+        {
+            output[i] = soft_limit(output[i], kOutputLimiterThreshold);
         }
     }
 
