@@ -103,12 +103,14 @@ namespace SushiDSP
         {
             float* node_buffer = buffer_pool_.acquire(context.frames);
 
+            bool has_upstream_edge = false;
             const float* upstream_input = nullptr;
             for (const Edge& edge : edges_)
             {
                 if (edge.to == handle)
                 {
                     upstream_input = node_output[edge.from];
+                    has_upstream_edge = true;
                     break;
                 }
             }
@@ -116,7 +118,20 @@ namespace SushiDSP
             float* output_ptr[1] = { node_buffer };
             const float* input_ptr[1] = { upstream_input };
 
-            ProcessContext node_context{ output_ptr, upstream_input != nullptr ? input_ptr : nullptr, context.frames, context.time_seconds };
+            // A node with no upstream edge is a root node. Feed it the graph's own live
+            // input (e.g. an ASIO device's captured audio) rather than always nullptr, so a
+            // rig can start directly from live input without a synthetic source node.
+            const float* const* node_inputs = nullptr;
+            if (has_upstream_edge)
+            {
+                node_inputs = input_ptr;
+            }
+            else if (context.inputs != nullptr)
+            {
+                node_inputs = context.inputs;
+            }
+
+            ProcessContext node_context{ output_ptr, node_inputs, context.frames, context.time_seconds };
             nodes_[handle]->process(node_context);
 
             node_output[handle] = node_buffer;

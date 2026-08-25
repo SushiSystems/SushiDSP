@@ -37,6 +37,7 @@
 #include "SushiDSP/circuits/DiodeClipperCircuit.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
+#include "SushiDSP/device/AsioSampleConverter.hpp"
 #include "SushiDSP/math/Fft.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/PartitionedConvolution.hpp"
@@ -353,6 +354,24 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithCabinet)
     {
         SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
         node.process(context);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, AsioSampleConverterPerformsNoHeapAllocation)
+{
+    std::uint8_t bytes[4] = { 0, 0, 0, 0 };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int i = 0; i < 10000; ++i)
+    {
+        const float decoded = SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
+        SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, decoded, bytes);
     }
 
     g_trap_allocations.store(false, std::memory_order_relaxed);

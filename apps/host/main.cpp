@@ -34,7 +34,7 @@
 
 int main()
 {
-    SushiDSP::DeviceFormat requested{ 48000.0, 256, 1 };
+    SushiDSP::DeviceFormat requested{ 48000.0, 256, 0, 1 };
 
     std::unique_ptr<SushiDSP::Sdl2AudioDevice> device;
     try
@@ -49,8 +49,8 @@ int main()
 
     const SushiDSP::DeviceFormat actual = device->format();
     std::printf(
-        "Opened audio device: %.0f Hz, %u frames/block, %u channel(s)\n",
-        actual.sample_rate, actual.block_size, actual.channels);
+        "Opened audio device: %.0f Hz, %u frames/block, %u output channel(s)\n",
+        actual.sample_rate, actual.block_size, actual.output_channels);
 
     SushiDSP::RigGraph rig(actual.block_size, 4);
 
@@ -79,12 +79,12 @@ int main()
     rig.connect(source_handle, tube_screamer_handle);
     rig.connect(tube_screamer_handle, jcm800_handle);
 
-    SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, actual.channels };
+    SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, actual.output_channels };
     rig.compile(info);
 
-    device->start([&rig](float* const* outputs, std::uint32_t frames)
+    device->start([&rig](const float* const* inputs, float* const* outputs, std::uint32_t frames)
     {
-        SushiDSP::ProcessContext context{ outputs, nullptr, frames, 0.0 };
+        SushiDSP::ProcessContext context{ outputs, inputs, frames, 0.0 };
         rig.process(context);
     });
 
