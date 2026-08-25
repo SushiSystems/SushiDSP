@@ -16,6 +16,7 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cstdlib>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -65,6 +66,48 @@ TEST(UnitDsp, FftOfSingleBinSineMatchesKnownBin)
     const float magnitude_at_target =
         std::sqrt(real_out[target_bin] * real_out[target_bin] + imag_out[target_bin] * imag_out[target_bin]);
     EXPECT_NEAR(magnitude_at_target, expected_magnitude, 1e-2f);
+}
+
+TEST(UnitDsp, FftMatchesBruteForceDftAcrossSizes)
+{
+    for (std::uint32_t transform_size : {1u, 2u, 8u, 256u})
+    {
+        SushiDSP::Fft fft(transform_size);
+        EXPECT_EQ(fft.size(), transform_size);
+
+        std::vector<float> input(transform_size);
+        std::vector<float> real_out(transform_size);
+        std::vector<float> imag_out(transform_size);
+        std::vector<float> reconstructed(transform_size);
+        std::srand(transform_size);
+        for (auto& sample : input)
+        {
+            sample = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) - 0.5f;
+        }
+
+        fft.forward(input.data(), real_out.data(), imag_out.data());
+        fft.inverse(real_out.data(), imag_out.data(), reconstructed.data());
+
+        for (std::uint32_t n = 0; n < transform_size; ++n)
+        {
+            EXPECT_NEAR(reconstructed[n], input[n], 1e-4f) << "size=" << transform_size;
+        }
+
+        for (std::uint32_t k = 0; k < transform_size; ++k)
+        {
+            double expected_real = 0.0;
+            double expected_imag = 0.0;
+            for (std::uint32_t n = 0; n < transform_size; ++n)
+            {
+                const double theta = -2.0 * M_PI * static_cast<double>(k) * static_cast<double>(n)
+                                     / static_cast<double>(transform_size);
+                expected_real += input[n] * std::cos(theta);
+                expected_imag += input[n] * std::sin(theta);
+            }
+            EXPECT_NEAR(real_out[k], static_cast<float>(expected_real), 1e-3f) << "size=" << transform_size << " k=" << k;
+            EXPECT_NEAR(imag_out[k], static_cast<float>(expected_imag), 1e-3f) << "size=" << transform_size << " k=" << k;
+        }
+    }
 }
 
 TEST(UnitDsp, ForwardThenInverseFftIsIdentity)
