@@ -22,6 +22,7 @@
 /**************************************************************************/
 
 #include <atomic>
+#include <cmath>
 #include <cstdlib>
 #include <memory>
 #include <new>
@@ -29,10 +30,12 @@
 
 #include <gtest/gtest.h>
 
+#include "SushiDSP/circuits/DiodeClipperCircuit.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/math/Fft.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
+#include "SushiDSP/math/PartitionedConvolution.hpp"
 
 namespace
 {
@@ -178,4 +181,58 @@ TEST(Unit_Dsp, Oversampler8xRoundTripPerformsNoHeapAllocation)
     g_trap_allocations.store(false, std::memory_order_relaxed);
 
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, PartitionedConvolutionProcessPerformsNoHeapAllocation)
+{
+    const std::uint32_t partition_size = 64;
+
+    std::vector<float> impulse_response(160, 0.0f);
+    for (std::size_t i = 0; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 1.0f / (1.0f + static_cast<float>(i));
+    }
+
+    SushiDSP::PartitionedConvolution convolution(
+        partition_size, impulse_response.data(), static_cast<std::uint32_t>(impulse_response.size()));
+
+    std::vector<float> input(partition_size, 0.0f);
+    std::vector<float> output(partition_size, 0.0f);
+    for (std::uint32_t i = 0; i < partition_size; ++i)
+    {
+        input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
+    }
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 1000; ++block)
+    {
+        convolution.process(input.data(), output.data());
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, DiodeClipperCircuitProcessPerformsNoHeapAllocation)
+{
+    SushiDSP::DiodeClipperCircuit circuit(1000.0f, 1e-12f, 0.02585f);
+
+    float output = 0.0f;
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int i = 0; i < 2000; ++i)
+    {
+        const float source_voltage = static_cast<float>((i % 21) - 10) * 0.05f;
+        output = circuit.process_sample(source_voltage);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_TRUE(std::isfinite(output));
 }

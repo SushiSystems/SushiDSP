@@ -208,6 +208,47 @@ TEST(Unit_Dsp, HalfbandDownsamplerPassesALowFrequencySineNearUnity)
     EXPECT_NEAR(peak, 1.0f, 5e-2f);
 }
 
+TEST(Unit_Dsp, Oversampler8xResetClearsState)
+{
+    const std::uint32_t block_size = 32;
+    const int           block_count = 3;
+
+    std::vector<float> input(block_size, 0.0f);
+    for (std::uint32_t i = 0; i < block_size; ++i)
+    {
+        input[i] = std::sin(0.31f * static_cast<float>(i)) * 0.7f;
+    }
+
+    SushiDSP::Oversampler8x oversampler(block_size);
+    SushiDSP::Oversampler8x fresh_oversampler(block_size);
+
+    std::vector<float> output_a(block_size, 0.0f);
+    std::vector<float> output_b(block_size, 0.0f);
+    std::vector<float> output_fresh(block_size, 0.0f);
+
+    for (int block = 0; block < block_count; ++block)
+    {
+        const float* oversampled = oversampler.upsample(input.data(), block_size);
+        oversampler.downsample(oversampled, block_size * 8, output_a.data());
+    }
+
+    oversampler.reset();
+
+    for (int block = 0; block < block_count; ++block)
+    {
+        const float* oversampled = oversampler.upsample(input.data(), block_size);
+        oversampler.downsample(oversampled, block_size * 8, output_b.data());
+
+        const float* fresh_oversampled = fresh_oversampler.upsample(input.data(), block_size);
+        fresh_oversampler.downsample(fresh_oversampled, block_size * 8, output_fresh.data());
+    }
+
+    for (std::size_t i = 0; i < output_b.size(); ++i)
+    {
+        EXPECT_NEAR(output_b[i], output_fresh[i], 1e-6f) << "sample " << i;
+    }
+}
+
 TEST(Unit_Dsp, HalfbandDownsamplerResetClearsState)
 {
     SushiDSP::HalfbandDownsampler2x downsampler;
