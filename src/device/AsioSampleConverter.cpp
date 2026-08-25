@@ -78,7 +78,11 @@ namespace SushiDSP
             }
             case AsioSampleFormat::Int32LSB:
             {
-                const std::int32_t raw = static_cast<std::int32_t>(clamped * (2147483648.0 - 1.0));
+                // Unlike Int16LSB, kInt32FullScale - 1.0f is not exact in float: at 2^31 a
+                // float's ULP is 256, so the subtraction rounds back to kInt32FullScale itself,
+                // and casting that to int32_t overflows. Promoting to double first keeps the
+                // subtraction exact (INT32_MAX), which the cast then truncates correctly.
+                const std::int32_t raw = static_cast<std::int32_t>(clamped * (static_cast<double>(kInt32FullScale) - 1.0));
                 std::memcpy(out_sample_bytes, &raw, sizeof(raw));
                 return;
             }
