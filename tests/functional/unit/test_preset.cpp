@@ -28,6 +28,7 @@
 
 #include "Preset.hpp"
 #include "RigController.hpp"
+#include "SushiDSP/node_registry/NodeRegistry.hpp"
 
 namespace
 {
@@ -64,6 +65,49 @@ TEST(Unit_Dsp, PresetSaveLoadRoundTrip)
     EXPECT_FLOAT_EQ(reader.get_parameter(0, "level"), 0.77f);
     EXPECT_FLOAT_EQ(reader.get_parameter(1, "preamp"), 0.11f);
     EXPECT_FLOAT_EQ(reader.get_parameter(1, "master"), 0.22f);
+
+    std::remove(path.c_str());
+}
+
+TEST(Unit_Dsp, PresetSaveLoadRoundTripPreservesDescriptorDefaultsWhenUntouched)
+{
+    // Regression test for the Task 7 review finding: RigController::insert() used to leave a
+    // freshly-added slot's parameter map empty, so get_parameter() (which save_preset() calls)
+    // returned 0.0f for every parameter nobody had explicitly set - even though the live node,
+    // and the UI sliders reading from it, showed the real descriptor defaults. Saving a preset
+    // without ever touching a slider silently zeroed every parameter.
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController writer(info);
+    writer.append("sushidsp.tubescreamer");
+    writer.append("sushidsp.jcm800");
+    // Deliberately never call set_parameter() here.
+
+    const std::string path = temp_preset_path();
+    save_preset(writer, path);
+
+    RigController reader(info);
+    load_preset(reader, path);
+
+    const auto ids = reader.chain_ids();
+    ASSERT_EQ(ids.size(), 2u);
+
+    for (std::size_t i = 0; i < ids.size(); ++i)
+    {
+        for (const auto& entry : SushiDSP::node_registry())
+        {
+            if (ids[i] != entry.descriptor->id)
+            {
+                continue;
+            }
+            for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
+            {
+                const auto& param = entry.descriptor->parameters[p];
+                EXPECT_FLOAT_EQ(reader.get_parameter(i, param.id), param.default_value)
+                    << "node " << ids[i] << " parameter " << param.id;
+            }
+            break;
+        }
+    }
 
     std::remove(path.c_str());
 }
