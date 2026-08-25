@@ -17,4 +17,4 @@ target_include_directories(sushi_dsp PUBLIC
 )
 
 enable_testing()
-add_subdirectory(tests/unit_dsp)
+add_subdirectory(tests)

@@ -46,7 +46,10 @@ def build() -> None:
 @app.command()
 def test() -> None:
     build()
-    run(["ctest", "--test-dir", str(BUILD_DIR), "--output-on-failure"])
+    # -C is required on multi-config generators (MSVC): gtest_discover_tests
+    # with DISCOVERY_MODE PRE_TEST writes one include file per configuration,
+    # and ctest cannot pick one without being told which config to run.
+    run(["ctest", "--test-dir", str(BUILD_DIR), "-C", "Debug", "--output-on-failure"])
 
 
 if __name__ == "__main__":
