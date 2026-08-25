@@ -33,6 +33,7 @@
 
 #include <gtest/gtest.h>
 
+#include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 #ifndef M_PI
@@ -231,4 +232,61 @@ TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
     const float thd_high_drive = measure_thd_proxy(1.0f);
 
     EXPECT_LT(thd_low_drive, thd_high_drive);
+}
+
+TEST(Unit_Dsp, TubeScreamerToneControlsHighFrequencyBalance)
+{
+    auto measure_high_frequency_rms = [](float tone) -> double
+    {
+        SushiDSP::TubeScreamer node;
+        SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+        node.prepare(info);
+        node.set_drive(0.2f);
+        node.set_tone(tone);
+        node.set_level(0.8f);
+
+        SushiDSP::Biquad reference_highpass;
+        reference_highpass.set_high_pass(48000.0, 2000.0, 0.707);
+
+        constexpr double sample_rate = 48000.0;
+        double global_sample_index = 0.0;
+        double sum_squares = 0.0;
+        std::size_t counted = 0;
+
+        for (int block = 0; block < 40; ++block)
+        {
+            std::vector<float> input(256, 0.0f);
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                const double t = (global_sample_index + i) / sample_rate;
+                input[i] = static_cast<float>(
+                    0.15 * std::sin(2.0 * M_PI * 100.0 * t)
+                    + 0.15 * std::sin(2.0 * M_PI * 5000.0 * t));
+            }
+            global_sample_index += 256.0;
+
+            std::vector<float> block_output(256, 0.0f);
+            const float* input_channels[1] = { input.data() };
+            float* output_channels[1] = { block_output.data() };
+            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            node.process(context);
+
+            for (float sample : block_output)
+            {
+                const float filtered = reference_highpass.process_sample(sample);
+                if (block >= 20)
+                {
+                    sum_squares += static_cast<double>(filtered) * filtered;
+                    ++counted;
+                }
+            }
+        }
+
+        return std::sqrt(sum_squares / static_cast<double>(counted));
+    };
+
+    const double dark_high_frequency_rms = measure_high_frequency_rms(0.0f);
+    const double bright_high_frequency_rms = measure_high_frequency_rms(1.0f);
+
+    EXPECT_GT(bright_high_frequency_rms, dark_high_frequency_rms * 2.0);
 }
