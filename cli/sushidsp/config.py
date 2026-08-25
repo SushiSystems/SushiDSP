@@ -1,60 +1,49 @@
 """Layered configuration loading for the SushiDSP CLI.
 
-Precedence (lowest to highest):
+Precedence (low to high):
+
     built-in defaults -> config.toml -> config.local.toml -> SD_* env vars
 
-SushiDSP builds with plain CMake + a default-detected host compiler (MSVC via
-the Visual Studio generator on Windows, the system compiler elsewhere) — no
-SYCL toolchain, no sibling-runtime checkout, no vcpkg-provisioned dependency
-tree (GoogleTest and SDL2 are both CMake FetchContent). So this config carries
-only the generic host build-tool fields from :class:`ToolConfig`; it does not
-subclass in any SushiDSP-specific fields the way sushiblas/sushiengine do for
-their SYCL/sibling-runtime schemas.
+SushiDSP is the plainest module in the stack: it selects no SYCL toolchain, has
+no sibling checkout to resolve, and takes cmake/ctest and its compiler from
+PATH. So it uses the shared loader for locating the project and layering files
+and nothing else -- no :class:`sushicore.stack_config.StackConfig`, because
+there is no shared dependency tree for it to resolve against.
 """
 
 from __future__ import annotations
 
-import platform
 from dataclasses import dataclass
-from pathlib import Path
 
-# Domain-agnostic config plumbing shared by every Sushi* CLI. The generic
-# build-tool schema (cmake/ninja/vcpkg paths) and the layered-load skeleton
-# live in sushicore; SushiDSP needs nothing beyond that schema.
-from sushicore.config_base import ToolConfig, load_tool_config
-from sushicore.workspace import has_marker, walk_up
+from sushicore.config_base import ToolConfig
+from sushicore.module_config import ModuleConfig
+from sushicore.profile import ModuleProfile
 
+#: How SushiDSP describes itself to the shared machinery.
+PROFILE = ModuleProfile(
+    name="SushiDSP",
+    program="sd",
+    env_prefix="SD",
+    root_marker="CMakeLists.txt",
+    default_target="sushidsp_host",
+    # A deliberate subset: the knobs SushiDSP actually has. It pins no
+    # toolchain and uses no vcpkg, so SD_VCPKG_ROOT and friends would name
+    # nothing.
+    env_fields=("cxx", "generator", "cmake_exe", "ctest_exe", "target_bin"),
+)
 
-def find_project_root(start: Path | None = None) -> Path:
-    """Locate the repo root by walking up from CWD until CMakeLists.txt is found.
+# use_workspace_config=False: SushiDSP resolves everything from PATH, so the
+# workspace-shared config.local.toml that `ss install` writes holds nothing for
+# it to consume.
+_MODULE = ModuleConfig(PROFILE, use_workspace_config=False)
 
-    The CLI is installed (pip/pipx) outside the repo, so the package location
-    tells us nothing about where the project lives — the invocation directory
-    does. Run any `sd` command from anywhere inside the checkout.
-    """
-    root = walk_up(start or Path.cwd(), has_marker("CMakeLists.txt"))
-    if root is None:
-        raise SystemExit(
-            "Not inside a SushiDSP project: no CMakeLists.txt found in the "
-            "current directory or any parent. cd into the repo and try again."
-        )
-    return root
+find_project_root = _MODULE.find_project_root
+config_dir = _MODULE.config_dir
 
-
-def config_dir(root: Path | None = None) -> Path:
-    """Directory holding config.toml / config.local.toml (the repo's cli/)."""
-    root = root or find_project_root()
-    return root / "cli"
-
-
-# Maps a Config field to the SD_* env var that overrides it.
-_ENV_OVERRIDES = {
-    "cxx": "SD_CXX",
-    "generator": "SD_CMAKE_GENERATOR",
-    "cmake_exe": "SD_CMAKE",
-    "ctest_exe": "SD_CTEST",
-    "target_bin": "SD_TARGET_BIN",
-}
+#: Field -> environment variable, derived from the profile's prefix. Exposed as
+#: a module attribute because `sd config` reports which values came from the
+#: environment and needs the reverse map.
+_ENV_OVERRIDES = PROFILE.env_overrides()
 
 
 @dataclass
@@ -78,16 +67,5 @@ class Config(ToolConfig):
 
 
 def load_config() -> Config:
-    """Load and resolve the layered configuration for the current platform.
-
-    Precedence (low to high): repo config.toml -> repo config.local.toml -> env.
-
-    Unlike sushiblas/sushiengine, this does NOT also read the workspace-shared
-    ``<SUSHISTACK_HOME>/cli/config.local.toml`` that `ss install` writes:
-    SushiDSP resolves cmake/ctest/its compiler from PATH with no toolchain of
-    its own to pin, so there is nothing in that shared file for it to consume.
-    """
-    plat = platform.system().lower()  # 'windows' | 'linux' | 'darwin'
-    cfg_dir = config_dir()
-    sources = [cfg_dir / "config.toml", cfg_dir / "config.local.toml"]
-    return load_tool_config(Config, sources, plat, _ENV_OVERRIDES)
+    """Load and resolve the layered configuration for the current platform."""
+    return _MODULE.load(Config)
