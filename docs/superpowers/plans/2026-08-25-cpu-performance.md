@@ -31,9 +31,9 @@ Deliberately out of scope, written down so it is not silently dropped:
   instead of always running 4 iterations.
 - [x] **6. Polyphase halfband** — circular delay line, skip the zero-valued even taps. Same
   output to float precision; unit tests pin the equivalence.
-- [ ] **7. SIMD FIR tap sum** — only if the profile after Task 6 still shows the FIR as
+- [x] **7. SIMD FIR tap sum** — only if the profile after Task 6 still shows the FIR as
   significant and the compiler's autovectorization is not already doing the job.
-- [ ] **8. Record results** — final before/after table in this file and a changelog entry.
+- [x] **8. Record results** — final before/after table in this file and a changelog entry.
 
 ## Results
 
@@ -125,3 +125,45 @@ zero, not zero, and dropping them would move the output.
 | Oversampler8x round trip | 139    | 82    | -41 %  |
 | Jcm800 (no cabinet)      | 1872   | 1780  | -5 %   |
 | TubeScreamer             | 633    | 577   | -9 %   |
+
+### Task 7: SIMD FIR tap sum — deferred
+
+Not done, for two reasons that both have to change before it is worth doing:
+
+- An 8-lane dot product reassociates the sum, so it cannot be bit-identical to the scalar
+  form, and the Jcm800 snapshot (see Task 4) pins the exact float path at 1e-5. Under the
+  current tolerance policy the change would fail regression on arrival.
+- The whole oversampler is now 0.40 % of a core and both of Jcm800's oversamplers together
+  are about 165 ns of its 1780 ns. Even a free tap sum is bounded at roughly 5 % of Jcm800.
+
+Spec section 4.7's SIMD abstraction therefore stays unbuilt. The first real customer for it
+is a stage with independent lanes (a multi-channel rig, or a vectorized `exp` across
+several solves that do not depend on each other), not the FIR.
+
+### Task 8: results
+
+| Case                             | Baseline | Final | Speedup | % core (final) |
+|----------------------------------|---------:|------:|--------:|---------------:|
+| Jcm800 (no cabinet)              | 2819     | 1780  | 1.58x   | 8.5            |
+| TubeScreamer                     | 646      | 577   | 1.12x   | 2.8            |
+| Oversampler8x round trip         | 143      | 82    | 1.74x   | 0.4            |
+| TriodeStage (base rate)          | 58       | 30    | 1.93x   | 0.14           |
+| PartitionedConvolution (4096 IR) | 56       | 57    | 1.0x    | 0.28           |
+
+(ns/sample, best of 200, Windows 10 / MSVC / Release / AVX2 + LTO. Every product's output
+is bit-identical to the baseline; all 126 tests including both regression snapshots pass.)
+
+What is left on the table, and why it was not taken:
+
+- **Regression tolerance policy.** The Jcm800 snapshot amplifies a 1e-7 relative change at
+  V1a into 2e-4 at the output, so any numerically different-but-equivalent implementation
+  (a fast `exp`, a SIMD sum, a fixed exact-zero halfband, a tolerance-based Newton exit)
+  fails it. Relaxing the tolerance, or replacing the five-point snapshot with a whole-block
+  golden comparison at an audio-meaningful tolerance (say 1e-3, about -60 dB), is a decision
+  for the maintainer and would unlock the items below.
+- **Newton exit on a 1-ulp step** (measured: Jcm800 no faster, TubeScreamer -13 %).
+- **`std::tanh`** at three oversampled sites is about 15 % of Jcm800; a rational
+  approximation would be accurate to 1e-7 but is blocked by the same policy.
+- **The remaining cost is structural**: six Newton stages at 8x. The next real lever is
+  design-level (4x oversampling with a sharper halfband, or solving the EL34 pair as one
+  2x2 system), which changes the sound and is a voicing decision, not an optimization.

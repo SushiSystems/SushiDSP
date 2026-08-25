@@ -3,6 +3,22 @@
 Grouped by roadmap phase (spec §9). Each phase's implementation plan lives under
 `docs/superpowers/plans/` with the full task-by-task record.
 
+## CPU performance pass (after D4)
+
+- `sushidsp_bench` / `sd bench` — the timing harness every optimization is measured with;
+  reports ns per output sample and the share of one core at 48 kHz.
+- Release/RelWithDebInfo now build with AVX2 + FMA and link-time optimization (per target,
+  `SUSHIDSP_ENABLE_AVX2` / `SUSHIDSP_ENABLE_LTO`). No fast-math.
+- `DenormalGuard` — RAII flush-to-zero for the audio thread, engaged in the SDL2 callback.
+- `NewtonRaphsonSolver::solve_joint` — one callable returns residual and derivative so the
+  shared `exp` is evaluated once; the solver stops at a float fixed point instead of always
+  running `max_iterations`. Jcm800 2.8 -> 1.8 us per sample, output bit-identical.
+- `HalfbandUpsampler2x` is polyphase over a ring buffer; `HalfbandDownsampler2x` drops the
+  per-sample delay-line shift. Bit-identical to the direct form, pinned by tests.
+- Tried and rejected with numbers in the plan: a polynomial fast `exp` (slower than MSVC's
+  `expf` and moves the Jcm800 snapshot 20x past tolerance), a 1-ulp Newton exit, and a
+  SIMD tap sum (bounded at ~5 % and not bit-identical).
+
 ## D2 — WDF/DK solver core + convolution + oversampling
 
 - `PartitionedConvolution` — uniform-partitioned overlap-add FFT convolution (cabinet IRs).
