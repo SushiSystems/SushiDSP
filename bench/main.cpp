@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "Benchmark.hpp"
+#include "SushiDSP/core/DenormalGuard.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/jcm800/TriodeStage.hpp"
@@ -97,6 +98,8 @@ namespace
 int main(int argc, char** argv)
 {
     using SushiDSP::bench::print;
+    // Same FPU mode the device callbacks run under, so the numbers match the real thread.
+    SushiDSP::DenormalGuard denormal_guard;
     std::printf("SushiDSP benchmark  (%g Hz, %u-frame blocks, best of 200)\n\n", kSampleRate, kBlockSize);
 
     if (selected("Jcm800", argc, argv))

@@ -22,7 +22,7 @@ Deliberately out of scope, written down so it is not silently dropped:
 - [x] **2. Optimized build flags** — `cmake/SushiDSPCompilerFlags.cmake`: `/O2 /arch:AVX2` or
   `-O3 -mavx2 -mfma` on Release/RelWithDebInfo, IPO/LTO when the toolchain supports it, both
   behind options that default on. Debug untouched.
-- [ ] **3. Denormal guard** — `core/DenormalGuard.hpp` RAII FTZ/DAZ, engaged at the top of every
+- [x] **3. Denormal guard** — `core/DenormalGuard.hpp` RAII FTZ/DAZ, engaged at the top of every
   device callback (SDL2 now; the ASIO backend must do the same when it lands) and in the bench.
 - [ ] **4. Fast exp/tanh** — `math/FastMath.hpp`, bounded-range `fast_exp` with a golden test
   against `std::exp`; swapped into the Triode/Pentode/TubeScreamer residuals and the two tanh
@@ -61,3 +61,11 @@ optimization present in the generated projects). The result is expected: the hot
 serial warm-started recurrences with nothing to vectorize, and the per-sample stage calls were
 already inlined within their translation units. Kept anyway, since Tasks 6-7 need the ISA and
 the flags cost nothing; the regression snapshots stayed within 1e-5.
+
+### Task 3: denormal guard
+
+No change on the benchmark signal (a steady 220 Hz tone never reaches the denormal range in
+256 frames), which is the expected result; the guard exists for the silence tail, where a
+biquad or delay line decaying through 1e-38 would otherwise cost a microcode assist per
+operation. Engaged in `Sdl2AudioDevice::sdl_callback` and in the bench. The ASIO backend
+being written in parallel must engage one at the top of its buffer-switch callback too.
