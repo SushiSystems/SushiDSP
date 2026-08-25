@@ -161,6 +161,16 @@ int main()
             ImGui::Separator();
             if (ImGui::Button("Connect"))
             {
+                connect_error.clear();
+
+                // Destroy any previous (possibly partially-set-up) device FIRST, before
+                // constructing a new one. AsioAudioDevice/Sdl2AudioDevice both wrap
+                // process-wide SDK state; std::unique_ptr::operator= would otherwise
+                // evaluate the new construction (ASIOInit/ASIOCreateBuffers etc.) while
+                // the old device is still alive, then tear that old state down only
+                // afterwards - destroying the SDK state the new device just built.
+                device.reset();
+
                 try
                 {
                     if (selected_device_index == 0)
