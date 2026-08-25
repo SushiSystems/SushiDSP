@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import enum
 import shutil
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -125,6 +126,43 @@ def test(build_type: BuildType, suite: Suite, clean: bool = False) -> int:
         cmd += ["-L", label_regex]
 
     return _RUNNER.run(cmd, root, env=None)
+
+
+def bench(build_type: BuildType, filters: Optional[list[str]] = None) -> int:
+    """Builds (if needed) then runs the sushidsp_bench timing harness.
+
+    Only the bench target is compiled, so this does not pull in the test binary or SDL2. The
+    harness prints one row per case; *filters* are substrings that select which cases run.
+    """
+    root = find_project_root()
+    build_dir = _build_dir(root)
+    cfg = load_config()
+    config = _CMAKE_BUILD_TYPE[build_type]
+
+    if not (build_dir / "CMakeCache.txt").is_file():
+        rc = configure(build_type)
+        if rc != 0:
+            return rc
+    rc = _DRIVER.compile(cfg, build_dir, cwd=root, env=None, config=config,
+                         targets=("sushidsp_bench",))
+    if rc != 0:
+        return rc
+
+    exe = _find_binary(build_dir, "sushidsp_bench", config)
+    if exe is None:
+        console.error(f"sushidsp_bench was built but not found under {build_dir}")
+        return 1
+    return _RUNNER.run([str(exe), *(filters or [])], root, env=None)
+
+
+def _find_binary(build_dir: Path, name: str, config: str) -> Optional[Path]:
+    """Locates a built executable in either a single- or multi-config tree layout."""
+    suffix = ".exe" if sys.platform == "win32" else ""
+    for candidate in (build_dir / "bench" / config / f"{name}{suffix}",
+                      build_dir / "bench" / f"{name}{suffix}"):
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def doxygen() -> int:

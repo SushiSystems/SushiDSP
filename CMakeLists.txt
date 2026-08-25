@@ -54,5 +54,7 @@ if(SUSHIDSP_BUILD_SDL2)
     add_subdirectory(apps/host)
 endif()
 
+add_subdirectory(bench)
+
 enable_testing()
 add_subdirectory(tests)
