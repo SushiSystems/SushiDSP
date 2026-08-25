@@ -216,10 +216,12 @@ namespace SushiDSP
 
         oversampler_a_ = std::make_unique<Oversampler8x>(info.max_block);
         oversampler_b_ = std::make_unique<Oversampler8x>(info.max_block);
+        oversampler_c_ = std::make_unique<Oversampler8x>(info.max_block);
 
         scratch_base_.assign(info.max_block, 0.0f);
         scratch_oversampled_a_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
         scratch_oversampled_b_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
+        scratch_oversampled_c_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
 
         // The cabinet's partition size is the host's block size, not a fixed constant:
         // PartitionedConvolution is a fixed-block API, so any mismatch would force process() down
@@ -317,9 +319,41 @@ namespace SushiDSP
             }
         }
 
+        // The limiter is a genuine waveshaping nonlinearity (like the output transformer's core
+        // saturation above), so when it actually engages it must run inside its own oversampled
+        // region rather than at the base rate output writes land at above: applying it
+        // post-decimation would generate harmonics with nothing left to band-limit them, aliasing
+        // straight back down into the audible range - audible as tearing on bright,
+        // high-frequency-heavy signals even though the limiter itself only ever nudges the loudest
+        // ~1 dB of samples.
+        //
+        // Below the threshold, soft_limit() is exactly the identity function - but running every
+        // block through the oversample/downsample round trip regardless would still change it
+        // very slightly (the halfband filters' passband is near-unity, not bit-exact-unity), which
+        // is audible to nothing but is enough to disturb this file's THD/regression measurements
+        // at ordinary playing levels. So the whole oversampled detour is skipped whenever nothing
+        // in this block would actually be touched - the same signal that reaches here untouched
+        // leaves untouched too, and the oversampler's history sits idle rather than drifting out
+        // of sync with a signal it isn't filtering.
+        bool needs_limiting = false;
         for (std::uint32_t i = 0; i < frames; ++i)
         {
-            output[i] = soft_limit(output[i], kOutputLimiterThreshold);
+            if (std::fabs(output[i]) > kOutputLimiterThreshold)
+            {
+                needs_limiting = true;
+                break;
+            }
+        }
+
+        if (needs_limiting)
+        {
+            const float* upsampled_c = oversampler_c_->upsample(output, frames);
+            const std::uint32_t oversampled_frames_c = frames * kOversamplingFactor;
+            for (std::uint32_t i = 0; i < oversampled_frames_c; ++i)
+            {
+                scratch_oversampled_c_[i] = soft_limit(upsampled_c[i], kOutputLimiterThreshold);
+            }
+            oversampler_c_->downsample(scratch_oversampled_c_.data(), oversampled_frames_c, output);
         }
     }
 
@@ -349,6 +383,10 @@ namespace SushiDSP
         if (oversampler_b_)
         {
             oversampler_b_->reset();
+        }
+        if (oversampler_c_)
+        {
+            oversampler_c_->reset();
         }
     }
 
