@@ -66,6 +66,19 @@ def test(
     raise typer.Exit(project_svc.test(type, suite, clean=clean))
 
 
+@app.command("bench")
+def bench(
+    type: BuildType = typer.Option(
+        BuildType.release, "--type", "-t", case_sensitive=False,
+        help="Build type: debug | release | relwithdebinfo. Defaults to release."),
+    filter: Optional[list[str]] = typer.Option(
+        None, "--filter", "-f", metavar="NAME",
+        help="Run only cases whose name contains NAME. Repeatable."),
+):
+    """Builds (if needed) and runs the DSP timing harness (bench/)."""
+    raise typer.Exit(project_svc.bench(type, filter))
+
+
 @app.command("config")
 def config():
     """Print the resolved configuration and where each value came from."""
