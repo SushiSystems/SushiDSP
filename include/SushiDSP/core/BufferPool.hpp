@@ -39,6 +39,10 @@ namespace SushiDSP
         /// @param buffer Pointer previously returned by acquire().
         void release(float* buffer);
 
+        /// @brief The maximum number of buffers that can be live at once.
+        /// @return The pool capacity in buffers.
+        std::uint32_t capacity() const;
+
     private:
         std::uint32_t         block_size_;
         std::vector<float>    storage_;

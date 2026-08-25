@@ -17,6 +17,7 @@
 #include "SushiDSP/core/RigGraph.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <queue>
 
 namespace SushiDSP
@@ -40,6 +41,10 @@ namespace SushiDSP
 
     void RigGraph::compile(const PrepareInfo& info)
     {
+        // process() holds one pool buffer per node for the whole block, so a graph larger than the
+        // pool would hand out nullptr and crash on the RT thread.
+        assert(nodes_.size() <= buffer_pool_.capacity() && "RigGraph: more nodes than BufferPool can hold live simultaneously");
+
         std::vector<std::uint32_t> in_degree(nodes_.size(), 0);
         for (const Edge& edge : edges_)
         {

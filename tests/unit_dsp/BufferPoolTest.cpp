@@ -30,6 +30,19 @@ TEST(UnitDsp, BufferPoolAcquireReturnsDistinctBuffersUpToCapacity)
     EXPECT_NE(a, b);
 }
 
+TEST(UnitDsp, BufferPoolCapacityReportsMaxLiveBuffers)
+{
+    SushiDSP::BufferPool pool(256, 3);
+
+    EXPECT_EQ(pool.capacity(), 3u);
+
+    ASSERT_NE(pool.acquire(256), nullptr);
+    ASSERT_NE(pool.acquire(256), nullptr);
+    ASSERT_NE(pool.acquire(256), nullptr);
+    EXPECT_EQ(pool.acquire(256), nullptr);
+    EXPECT_EQ(pool.capacity(), 3u);
+}
+
 TEST(UnitDsp, BufferPoolReusesReleasedBuffer)
 {
     SushiDSP::BufferPool pool(256, 1);

@@ -24,6 +24,7 @@
 
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
+#include "SushiDSP/math/Fft.hpp"
 
 namespace
 {
@@ -111,4 +112,36 @@ TEST(UnitDsp, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
     g_trap_allocations.store(false, std::memory_order_relaxed);
 
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(UnitDsp, FftForwardAndInverseRoundTripPerformsNoHeapAllocation)
+{
+    const std::uint32_t size = 256;
+    SushiDSP::Fft       fft(size);
+
+    std::vector<float> time_domain(size, 0.0f);
+    std::vector<float> real_bins(size, 0.0f);
+    std::vector<float> imag_bins(size, 0.0f);
+    std::vector<float> reconstructed(size, 0.0f);
+    for (std::uint32_t i = 0; i < size; ++i)
+    {
+        time_domain[i] = static_cast<float>(i % 7) - 3.0f;
+    }
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 1000; ++block)
+    {
+        fft.forward(time_domain.data(), real_bins.data(), imag_bins.data());
+        fft.inverse(real_bins.data(), imag_bins.data(), reconstructed.data());
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    for (std::uint32_t i = 0; i < size; ++i)
+    {
+        EXPECT_NEAR(reconstructed[i], time_domain[i], 1e-3f);
+    }
 }
