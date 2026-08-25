@@ -267,3 +267,161 @@ TEST(Unit_Dsp, Jcm800DescriptorMakeProducesAWorkingNode)
         EXPECT_TRUE(std::isfinite(sample));
     }
 }
+
+TEST(Unit_Dsp, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
+{
+    SushiDSP::Jcm800 node;
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_preamp(1.0f);
+    node.set_master(1.0f);
+    node.set_bass(0.5f);
+    node.set_middle(0.5f);
+    node.set_treble(0.5f);
+    node.set_presence(1.0f);
+
+    std::vector<float> input(256, 0.1f);
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    for (int block = 0; block < 200; ++block)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+        for (float sample : output)
+        {
+            ASSERT_TRUE(std::isfinite(sample)) << "block " << block;
+        }
+    }
+}
+
+TEST(Unit_Dsp, Jcm800ThdIncreasesWithPreamp)
+{
+    auto measure_thd_proxy = [](float preamp, double amplitude, int blocks) -> float
+    {
+        SushiDSP::Jcm800 node;
+        SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+        node.prepare(info);
+        node.set_preamp(preamp);
+        node.set_master(1.0f);
+        node.set_bass(0.5f);
+        node.set_middle(0.5f);
+        node.set_treble(0.5f);
+        node.set_presence(0.5f);
+
+        constexpr float frequency = 220.0f;
+        constexpr double sample_rate = 48000.0;
+        std::vector<float> output;
+        double global_sample_index = 0.0;
+
+        for (int block = 0; block < blocks; ++block)
+        {
+            std::vector<float> input(256, 0.0f);
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                input[i] = static_cast<float>(
+                    amplitude * std::sin(2.0 * M_PI * frequency * (global_sample_index + i) / sample_rate));
+            }
+            global_sample_index += 256.0;
+
+            std::vector<float> block_output(256, 0.0f);
+            const float* input_channels[1] = { input.data() };
+            float* output_channels[1] = { block_output.data() };
+            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            node.process(context);
+            output.insert(output.end(), block_output.begin(), block_output.end());
+        }
+
+        // THD proxy: RMS deviation of the settled output from a best-fit sine at the fundamental,
+        // normalized by the output's own RMS. The same measurement D3's Tube Screamer test uses -
+        // not a true harmonic decomposition, but monotonic with clipping severity.
+        //
+        // Only the last quarter of a 120-block run is measured, not D3's tail half of 30 blocks.
+        // This chain settles far more slowly: the per-block control slew, the output transformer's
+        // 60 Hz highpass, and the power-supply sag stage's 50 ms recovery all still have visible
+        // transients well past block 15, and that ramp registers as residual energy large enough
+        // to swamp the quantity being measured.
+        const std::size_t settle_start = output.size() * 3 / 4;
+        double sum_sq = 0.0, sum_sin = 0.0, sum_cos = 0.0;
+        for (std::size_t i = settle_start; i < output.size(); ++i)
+        {
+            const double phase = 2.0 * M_PI * frequency * i / sample_rate;
+            sum_sq += static_cast<double>(output[i]) * output[i];
+            sum_sin += output[i] * std::sin(phase);
+            sum_cos += output[i] * std::cos(phase);
+        }
+        const std::size_t n = output.size() - settle_start;
+        const double fundamental_amplitude = 2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n;
+        const double fundamental_power = 0.5 * fundamental_amplitude * fundamental_amplitude * n;
+        const double residual_power = std::max(0.0, sum_sq - fundamental_power);
+        return static_cast<float>(std::sqrt(residual_power / std::max(1e-12, sum_sq)));
+    };
+
+    // Measured at a moderate input level, chosen so that V1a - which sits ahead of the preamp pot
+    // and therefore distorts regardless of where the knob is - is still inside its linear region.
+    // Above roughly 0.3 input amplitude V1a's own clipping dominates the measurement, and turning
+    // the preamp up then *lowers* relative THD across the middle of the knob's travel (measured
+    // for a 0.7-amplitude input: 0.224 at preamp 0.1, 0.185 at 0.7, 0.219 at 1.0). So what is
+    // pinned here is deliberately the narrow claim that does hold - the amp adds harmonic content
+    // at full preamp that it does not add near the bottom of the knob - and not a monotonic
+    // THD-versus-preamp law, which this chain does not obey.
+    const float thd_low_preamp = measure_thd_proxy(0.05f, 0.2, 120);
+    const float thd_high_preamp = measure_thd_proxy(1.0f, 0.2, 120);
+
+    EXPECT_LT(thd_low_preamp, thd_high_preamp);
+
+    // Guards against the assertion above being satisfied by two indistinguishable near-zero
+    // readings: full preamp must produce harmonic content that is actually measurable.
+    EXPECT_GT(thd_high_preamp, 0.01f);
+}
+
+TEST(Unit_Dsp, Jcm800CabinetStageEngagesAtANonDefaultBlockSize)
+{
+    // The cabinet's partition size is derived from PrepareInfo::max_block, so a host running any
+    // power-of-two block size gets the cabinet, not only a 256-frame one. This guards against a
+    // regression to a hardcoded partition size, which would silently bypass the cabinet here.
+    constexpr std::uint32_t block_size = 128;
+    std::vector<float> impulse_response(200, 0.0f);
+    impulse_response[0] = 1.0f;
+    for (std::size_t i = 1; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 0.5f * impulse_response[i - 1];
+    }
+
+    auto run = [block_size](std::vector<float> cabinet) -> std::vector<float>
+    {
+        SushiDSP::Jcm800 node(std::move(cabinet));
+        SushiDSP::PrepareInfo info{ 48000.0, block_size, 1 };
+        node.prepare(info);
+        node.set_preamp(0.6f);
+        node.set_master(0.7f);
+
+        std::vector<float> input(block_size);
+        for (std::size_t i = 0; i < input.size(); ++i)
+        {
+            input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+        }
+        std::vector<float> output(block_size, 0.0f);
+        const float* input_channels[1] = { input.data() };
+        float* output_channels[1] = { output.data() };
+
+        for (int block = 0; block < 10; ++block)
+        {
+            SushiDSP::ProcessContext context{ output_channels, input_channels, block_size, 0.0 };
+            node.process(context);
+        }
+        return output;
+    };
+
+    const std::vector<float> without_cabinet = run({});
+    const std::vector<float> with_cabinet = run(impulse_response);
+
+    double total_difference = 0.0;
+    for (std::size_t i = 0; i < without_cabinet.size(); ++i)
+    {
+        ASSERT_TRUE(std::isfinite(with_cabinet[i]));
+        total_difference += std::abs(static_cast<double>(with_cabinet[i]) - without_cabinet[i]);
+    }
+    EXPECT_GT(total_difference, 0.0);
+}

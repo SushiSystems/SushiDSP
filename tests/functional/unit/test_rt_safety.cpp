@@ -279,7 +279,7 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
 }
 
-TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocation)
+TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     // This is also the trap for Jcm800::process()'s per-block set_high_shelf() call: recomputing
     // the presence shelf's RBJ coefficients every block looks expensive, but it is pure double
@@ -307,7 +307,49 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocation)
     g_trapped_allocation_count.store(0, std::memory_order_relaxed);
     g_trap_allocations.store(true, std::memory_order_relaxed);
 
-    for (int block = 0; block < 200; ++block)
+    for (int block = 0; block < 500; ++block)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithCabinet)
+{
+    // The cabinet path is a separate allocation-risk surface from the no-cabinet path: it runs
+    // PartitionedConvolution's FFT, spectrum history, and overlap-add buffers, all of which must
+    // have been sized in prepare(). 500 blocks is more than the impulse response's partition
+    // count, so the circular spectrum history wraps at least once under the trap.
+    std::vector<float> impulse_response(200, 0.0f);
+    impulse_response[0] = 1.0f;
+    for (std::size_t i = 1; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 0.5f * impulse_response[i - 1];
+    }
+
+    SushiDSP::Jcm800 node(impulse_response);
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_preamp(0.6f);
+    node.set_master(0.7f);
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 500; ++block)
     {
         SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
         node.process(context);

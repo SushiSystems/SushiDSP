@@ -25,6 +25,7 @@ target_include_directories(sushi_dsp PUBLIC
 # Products. Added unconditionally: the module has no SDL2 dependency, and the
 # test suite links it regardless of SUSHIDSP_BUILD_SDL2.
 add_subdirectory(modules/tubescreamer)
+add_subdirectory(modules/jcm800)
 
 # Nothing in the test suite links SDL2, so this can be turned off to configure
 # and run the tests without network access or an SDL2 build.
