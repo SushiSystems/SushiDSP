@@ -103,3 +103,9 @@ gtest_discover_tests(sushidsp_tests
     TEST_FILTER "Regression_*"
     PROPERTIES LABELS "regression"
 )
+
+# The timing harness (bench/, see tests/benchmark/CMakeLists.txt for why it is a plain
+# executable rather than a GTest binary): registered here, not from the root CMakeLists.txt,
+# so it lives under the same "tests" umbrella `sd test` builds and ctest discovers everything
+# under.
+add_subdirectory(benchmark)
