@@ -10,6 +10,7 @@ add_library(sushi_dsp STATIC
     src/core/RigGraph.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
+    src/math/PartitionedConvolution.cpp
 )
 add_library(SushiDSP::sushi_dsp ALIAS sushi_dsp)
 target_include_directories(sushi_dsp PUBLIC
