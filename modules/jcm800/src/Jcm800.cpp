@@ -23,6 +23,7 @@
 
 #include "SushiDSP/jcm800/Jcm800.hpp"
 
+#include <algorithm>
 #include <utility>
 
 namespace SushiDSP
@@ -64,9 +65,11 @@ namespace SushiDSP
         // interstage link; without those dividers the four cascaded stages multiply to a gain of
         // 60*60*60*40 ~ 8.6e6 and every stage past V1a sits permanently against its solver bound,
         // which makes the whole amp a fixed-amplitude square-wave generator with a dead gain
-        // knob. These attenuations stand in for those dividers and keep each grid at roughly a
-        // third of the +/-60*Vt (1.551 V) bound at nominal playing levels. See the Task 7 report's
-        // Newton-Raphson ruling.
+        // knob. The first four attenuations below stand in for those dividers and keep each grid
+        // at roughly a third of the +/-60*Vt (1.551 V) bound at nominal playing levels — see the
+        // Task 7 report's Newton-Raphson ruling. kPowerTubeToTransformerAttenuation is different:
+        // it sits after the EL34 plates, so it is an output-level trim into the transformer, not a
+        // grid-bound protection constant, and isn't part of that ruling's headroom argument.
         constexpr float kPreampPotMaxAttenuation = 1.0f / 60.0f;
         constexpr float kV1bToV2aAttenuation = 1.0f / 60.0f;
         constexpr float kV2aToPhaseInverterAttenuation = 1.0f / 60.0f;
@@ -145,7 +148,6 @@ namespace SushiDSP
             cabinet_ = std::make_unique<PartitionedConvolution>(
                 kCabinetPartitionSize, cabinet_impulse_response_.data(),
                 static_cast<std::uint32_t>(cabinet_impulse_response_.size()));
-            scratch_cabinet_.assign(kCabinetPartitionSize, 0.0f);
         }
 
         reset();
@@ -204,6 +206,9 @@ namespace SushiDSP
             scratch_base_[i] = x * master_current_;
         }
 
+        // PartitionedConvolution::process() is a fixed-block API with no frame-count argument;
+        // feeding it a short final block would read/write past the caller's buffer. Bypass rather
+        // than corrupt when the host's block size doesn't match the cabinet's partition size.
         if (cabinet_ && frames == kCabinetPartitionSize)
         {
             cabinet_->process(scratch_base_.data(), output);
@@ -246,12 +251,24 @@ namespace SushiDSP
         }
     }
 
-    void Jcm800::set_preamp(float normalized) { preamp_target_ = normalized; }
-    void Jcm800::set_master(float normalized) { master_target_ = normalized; }
-    void Jcm800::set_bass(float normalized) { bass_normalized_ = normalized; tone_stack_.set_bass(normalized); }
-    void Jcm800::set_middle(float normalized) { middle_normalized_ = normalized; tone_stack_.set_middle(normalized); }
-    void Jcm800::set_treble(float normalized) { treble_normalized_ = normalized; tone_stack_.set_treble(normalized); }
-    void Jcm800::set_presence(float normalized) { presence_target_ = normalized; }
+    void Jcm800::set_preamp(float normalized) { preamp_target_ = std::clamp(normalized, 0.0f, 1.0f); }
+    void Jcm800::set_master(float normalized) { master_target_ = std::clamp(normalized, 0.0f, 1.0f); }
+    void Jcm800::set_bass(float normalized)
+    {
+        bass_normalized_ = std::clamp(normalized, 0.0f, 1.0f);
+        tone_stack_.set_bass(bass_normalized_);
+    }
+    void Jcm800::set_middle(float normalized)
+    {
+        middle_normalized_ = std::clamp(normalized, 0.0f, 1.0f);
+        tone_stack_.set_middle(middle_normalized_);
+    }
+    void Jcm800::set_treble(float normalized)
+    {
+        treble_normalized_ = std::clamp(normalized, 0.0f, 1.0f);
+        tone_stack_.set_treble(treble_normalized_);
+    }
+    void Jcm800::set_presence(float normalized) { presence_target_ = std::clamp(normalized, 0.0f, 1.0f); }
 
     namespace
     {
