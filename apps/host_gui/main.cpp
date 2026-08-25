@@ -37,6 +37,7 @@
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 
+#include "Preset.hpp"
 #include "RigController.hpp"
 
 #if SUSHIDSP_HAVE_ASIO
@@ -103,6 +104,22 @@ int main()
         ImGui::NewFrame();
 
         ImGui::Begin("SushiDSP Rig");
+
+        static char preset_path[256] = "preset.json";
+        ImGui::InputText("Preset path", preset_path, sizeof(preset_path));
+        ImGui::SameLine();
+        if (ImGui::Button("Save"))
+        {
+            try { save_preset(rig_controller, preset_path); }
+            catch (const std::exception& e) { std::fprintf(stderr, "Save failed: %s\n", e.what()); }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load"))
+        {
+            try { load_preset(rig_controller, preset_path); }
+            catch (const std::exception& e) { std::fprintf(stderr, "Load failed: %s\n", e.what()); }
+        }
+        ImGui::Separator();
 
         ImGui::Text("Rack");
         ImGui::Separator();
