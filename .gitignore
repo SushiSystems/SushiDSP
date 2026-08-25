@@ -3,3 +3,8 @@ build/
 *.o
 CMakeCache.txt
 CMakeFiles/
+cli/config.local.toml
+cli/*.egg-info/
+cli/build/
+cli/.pytest_cache/
+__pycache__/

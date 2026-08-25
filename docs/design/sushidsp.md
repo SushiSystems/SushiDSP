@@ -1,6 +1,6 @@
 # SushiDSP — portable real-time amp/pedal DSP framework: block graph, JCM800, Tube Screamer
 
-> **For the implementing agent.** This is the authoritative design specification for the **SushiDSP** repository — a standalone, dependency-free audio-DSP library. Build the repo from this doc. Conventions: **C++17** (no C++20/23), **Allman braces** (opening brace on its own line; trivial one-line accessors may stay compact), types `PascalCase`, functions/variables `snake_case`, members trailing underscore (`impl_`), constants `UPPER_SNAKE`, spelled-out names (no abbreviations), the **Apache 2.0 license header box** on every source file (line 2 carries the file's own name; the literal template is in §0a below — copy it, do not reconstruct it), a Doxygen `@brief`/`@param`/`@return` on every public function, and **no comments unless the *why* is non-obvious**. The developer CLI is **`sd`** (Python Typer). No comments in code beyond that rule.
+> **For the implementing agent.** This is the authoritative design specification for the **SushiDSP** repository — a standalone, dependency-free audio-DSP library. Build the repo from this doc. Conventions: **C++17** (no C++20/23), **Allman braces** (opening brace on its own line; trivial one-line accessors may stay compact), types `PascalCase`, functions/variables `snake_case`, members trailing underscore (`impl_`), constants `UPPER_SNAKE`, spelled-out names (no abbreviations), the **Apache 2.0 license header box** on every source file (line 2 carries the file's own name; the literal template is in §0a below — copy it, do not reconstruct it), a Doxygen `@brief`/`@param`/`@return` on every public function, and **no comments unless the *why* is non-obvious**. The developer CLI is **`sd`** (Python Typer, `cli/sushidsp/`, built on the shared `sushicore` presentation layer — see §11a). No comments in code beyond that rule.
 
 SushiDSP is a **standalone amp/pedal simulation framework**, in the spirit of AmpliTube/Bias FX: a portable C++ DSP core (block graph of `IAudioNode`s), a math library (FFT, convolution, filters, WDF/DK-method circuit solving, oversampling), and a **rig** — a user-editable, freely-connectable chain of pedal/amp/cabinet nodes. It ships as a standalone host app and as a VST3/CLAP plugin. It depends on nothing but the C++ standard library and SIMD intrinsics; there is no game-engine integration, no GPU offload seam, and no spatializer/synthesis/aero-thermo content. The first two products are the **JCM800** amp model and the **Tube Screamer** overdrive pedal, both white-box (WDF/DK-method) circuit models sharing the same solver and oversampling infrastructure.
 
@@ -260,7 +260,7 @@ A **product module** is a self-contained library (its own DSP) that exposes one 
 
 ## §8 Repository, modules & packaging
 
-SushiDSP is a standalone repository with a developer CLI **`sd`** (`sd build` / `sd test` / `sd run` / `sd plugin`). It declares its own third-party dependencies (SDL2, CLAP/VST3 SDK) directly — no SushiStack workspace dependency.
+SushiDSP is a standalone repository with a developer CLI **`sd`** (`sd configure` / `sd build` / `sd test`, growing `sd run` / `sd plugin` as those targets land). It is a registered SushiStack member (`ss add sushidsp` / `ss link sushidsp <path>`, alias `sd`) — this buys the shared CLI presentation layer (`sushicore`, §11a) and dependency-fragment aggregation (`cli/sushistack.deps.toml`), not a code dependency: the `sushi_dsp` core target itself still links nothing beyond the C++17 standard library and SIMD intrinsics (§0/§11), and building/testing this repo standalone (outside any SushiStack workspace) works unchanged.
 
 ### Layout
 
@@ -317,4 +317,13 @@ Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical cor
 ## §11 Dependencies
 
 - **Platform:** SDL2 for the first `IAudioDevice` (PRIVATE, host target only); the CLAP/VST3 SDK for the wrapper (PRIVATE, plugin target only).
-- **Everything else:** C++17 standard library + SIMD intrinsics only. No other SushiStack repository, no GPU runtime, no neural-inference dependency.
+- **Everything else:** C++17 standard library + SIMD intrinsics only. No other SushiStack repository's *code*, no GPU runtime, no neural-inference dependency — see §11a for the CLI-only exception.
+
+## §11a SushiStack CLI membership (developer tooling only, not a code dependency)
+
+SushiDSP is a registered SushiStack module (`sushistack/cli/sushistack/services/modules.py`), linked into a developer's workspace with `ss link sushidsp <path>` or cloned with `ss add sushidsp`, exactly like sushiruntime/sushiengine/sushiai/sushiblas. This buys two things, both developer-tooling-only:
+
+1. **`cli/sushistack.deps.toml`** — SushiDSP's dependency fragment (today: SDL2), aggregated by `ss install` alongside the other modules' fragments into the workspace's shared `dependencies/` tree. SushiDSP has no `[module] depends_on` entry — it needs no other stack module's build output.
+2. **`sushicore`** — the shared CLI presentation layer (themed console output, layered `config.toml`/`config.local.toml` loading, workspace-root discovery) that `sr`/`se`/`sa`/`sb` already build on. `cli/sushidsp/console.py` and `cli/sushidsp/config.py` are thin wrappers over `sushicore.build_console`/`sushicore.config_base.ToolConfig`, matching those CLIs' shape exactly (see any of them for the pattern). `sushicore` is not a resolvable pip dependency (unpublished), so `cli/pyproject.toml` does not list it — `ss install-cli sushidsp` injects it the same way it does for every other module.
+
+None of this touches `sushi_dsp`'s C++ link graph. A checkout of this repo with no SushiStack workspace around it still configures and builds with plain `cmake`/`ctest` — `sd`'s commands (`configure`/`build`/`test`) are POSIX/Windows subprocess wrappers around those, and `sushicore`'s console degrades to an unthemed default (not a crash) when no `cli/config.toml` is reachable (see `console.py`'s lazy-build docstring).
