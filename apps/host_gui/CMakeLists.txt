@@ -1,5 +1,6 @@
 add_executable(sushidsp_host_gui
     main.cpp
+    RigController.cpp
 )
 target_link_libraries(sushidsp_host_gui PRIVATE
     SushiDSP::sushi_dsp

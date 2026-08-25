@@ -74,6 +74,8 @@ add_executable(sushidsp_tests
     # --- Host diagnostics ---
     functional/unit/test_sine_tone_node.cpp
     ${CMAKE_SOURCE_DIR}/apps/host/SineToneNode.cpp
+    functional/unit/test_rig_controller.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/RigController.cpp
 
     # --- Regression ---
     functional/regression/test_tube_screamer_regression.cpp
@@ -82,6 +84,7 @@ add_executable(sushidsp_tests
 
 target_include_directories(sushidsp_tests PRIVATE ${SD_TEST_COMMON_DIR})
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host_gui)
 target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
