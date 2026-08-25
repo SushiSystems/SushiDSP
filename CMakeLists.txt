@@ -19,4 +19,4 @@ target_include_directories(sushi_dsp INTERFACE
 )
 
 enable_testing()
-# add_subdirectory(tests/unit_dsp)  # TODO: re-add once tests/unit_dsp is created (later task)
+add_subdirectory(tests/unit_dsp)
