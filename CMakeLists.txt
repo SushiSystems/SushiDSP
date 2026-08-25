@@ -36,5 +36,7 @@ target_include_directories(sushi_dsp_sdl2 PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
+add_subdirectory(apps/host)
+
 enable_testing()
 add_subdirectory(tests)
