@@ -104,7 +104,6 @@ namespace SushiDSP
     {
         std::vector<ASIOBufferInfo> buffer_infos;  // inputs first, then outputs
         ASIOCallbacks               callbacks{};
-        long                        input_channels = 0;
         bool                        post_output = false;  // driver benefits from ASIOOutputReady
 
         static void buffer_switch(long buffer_index, ASIOBool /*direct_process*/)
@@ -126,7 +125,7 @@ namespace SushiDSP
             switch (selector)
             {
                 case kAsioSelectorSupported:
-                    return (value == kAsioEngineVersion || value == kAsioResetRequest
+                    return (value == kAsioEngineVersion
                             || value == kAsioResyncRequest || value == kAsioLatenciesChanged
                             || value == kAsioOverload) ? 1L : 0L;
 
@@ -135,11 +134,18 @@ namespace SushiDSP
 
                 // Acknowledged so the driver does not keep re-asking; this device does not
                 // act on them, since reopening the driver is the host application's call.
-                case kAsioResetRequest:
                 case kAsioResyncRequest:
                 case kAsioLatenciesChanged:
                 case kAsioOverload:
                     return 1L;
+
+                // Answering 1 here would claim this device tears down and re-creates its
+                // buffers in response, which it does not do - a real reset handler belongs
+                // at the host layer that owns rebuilding format/buffers, which does not
+                // exist yet. 0 is the honest "not handled" answer, and correctly excluded
+                // from kAsioSelectorSupported above.
+                case kAsioResetRequest:
+                    return 0L;
 
                 // Declining time info keeps the driver on the plain bufferSwitch path,
                 // which is all this device needs.
@@ -255,8 +261,6 @@ namespace SushiDSP
             format_.input_channels  = requested_format.input_channels;
             format_.output_channels = requested_format.output_channels;
 
-            impl_->input_channels = static_cast<long>(format_.input_channels);
-
             // Every channel in one direction must share a container format; this device
             // keeps a single per-direction format rather than a per-channel table, so a
             // mixed-format driver is rejected instead of misread.
@@ -280,7 +284,7 @@ namespace SushiDSP
                 return format;
             };
 
-            input_sample_format_  = probe_direction(impl_->input_channels, ASIOTrue, "input");
+            input_sample_format_  = probe_direction(static_cast<long>(format_.input_channels), ASIOTrue, "input");
             output_sample_format_ = probe_direction(static_cast<long>(format_.output_channels), ASIOFalse, "output");
 
             const std::size_t total_channels = format_.input_channels + format_.output_channels;
@@ -419,7 +423,7 @@ namespace SushiDSP
         const std::size_t output_bytes = sample_size_bytes(output_sample_format_);
         for (std::uint32_t channel = 0; channel < format_.output_channels; ++channel)
         {
-            const std::size_t slot = static_cast<std::size_t>(impl_->input_channels) + channel;
+            const std::size_t slot = static_cast<std::size_t>(format_.input_channels) + channel;
             auto* destination = static_cast<unsigned char*>(impl_->buffer_infos[slot].buffers[index]);
             const float* source = output_scratch_[channel].data();
             for (std::uint32_t frame = 0; frame < frames; ++frame)

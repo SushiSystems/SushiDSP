@@ -54,6 +54,7 @@ namespace SushiDSP
         /// @throws std::runtime_error if the driver cannot be loaded or initialized.
         AsioAudioDevice(const std::string& driver_name, const DeviceFormat& requested_format);
 
+        /// @brief Stops the stream if running, releases the driver's buffers, and unloads it.
         ~AsioAudioDevice() override;
 
         AsioAudioDevice(const AsioAudioDevice&) = delete;
