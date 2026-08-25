@@ -156,5 +156,4 @@ def doxygen() -> int:
             "  - or set doxygen_exe in cli/config.local.toml to an existing doxygen binary.")
         return 1
 
-    (root / "docs").mkdir(exist_ok=True)
     return _run([doxy, "Doxyfile"], root)
