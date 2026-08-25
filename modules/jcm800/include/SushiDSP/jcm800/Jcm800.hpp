@@ -89,10 +89,10 @@ namespace SushiDSP
         void set_presence(float normalized);
 
     private:
-        static constexpr std::uint32_t kCabinetPartitionSize = 256;
         static constexpr std::uint32_t kOversamplingFactor = 8;
 
         double sample_rate_ = 48000.0;
+        std::uint32_t cabinet_partition_size_ = 0;
         std::vector<float> cabinet_impulse_response_;
 
         float preamp_target_ = 0.5f, preamp_current_ = 0.5f;
