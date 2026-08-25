@@ -105,8 +105,7 @@ def build(build_type: BuildType, clean: bool = False,
 
     if clean and build_dir.exists():
         console.info(f"Removing {build_dir} ...")
-        import shutil as _shutil
-        _shutil.rmtree(build_dir)
+        shutil.rmtree(build_dir)
 
     if clean or not (build_dir / "CMakeCache.txt").is_file():
         rc = configure(build_type, defines)

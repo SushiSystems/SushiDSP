@@ -61,9 +61,9 @@ _ENV_OVERRIDES = {
 class Config(ToolConfig):
     """Resolved, platform-specific tool configuration for the SushiDSP build.
 
-    Inherits every field (cmake/ninja/vcpkg paths, generator, etc.) from
-    :class:`ToolConfig` unchanged — only the ``target_bin`` default differs,
-    naming the standalone host app this repo actually ships.
+    Inherits every field (cmake/ninja/vcpkg paths, etc.) from :class:`ToolConfig`;
+    only two defaults differ: ``target_bin`` (names the standalone host app this
+    repo actually ships) and ``generator`` (see below).
     """
 
     target_bin: str = "sushidsp_host"
@@ -81,6 +81,11 @@ def load_config() -> Config:
     """Load and resolve the layered configuration for the current platform.
 
     Precedence (low to high): repo config.toml -> repo config.local.toml -> env.
+
+    Unlike sushiblas/sushiengine, this does NOT also read the workspace-shared
+    ``<SUSHISTACK_HOME>/cli/config.local.toml`` that `ss install` writes:
+    SushiDSP resolves cmake/ctest/its compiler from PATH with no toolchain of
+    its own to pin, so there is nothing in that shared file for it to consume.
     """
     plat = platform.system().lower()  # 'windows' | 'linux' | 'darwin'
     cfg_dir = config_dir()
