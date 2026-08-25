@@ -32,6 +32,7 @@
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/math/Fft.hpp"
+#include "SushiDSP/math/Oversampler.hpp"
 
 namespace
 {
@@ -151,4 +152,30 @@ TEST(Unit_Dsp, FftForwardAndInverseRoundTripPerformsNoHeapAllocation)
     {
         EXPECT_NEAR(reconstructed[i], time_domain[i], 1e-3f);
     }
+}
+
+TEST(Unit_Dsp, Oversampler8xRoundTripPerformsNoHeapAllocation)
+{
+    const std::uint32_t block_size = 64;
+    SushiDSP::Oversampler8x oversampler(block_size);
+
+    std::vector<float> input(block_size, 0.0f);
+    std::vector<float> output(block_size, 0.0f);
+    for (std::uint32_t i = 0; i < block_size; ++i)
+    {
+        input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
+    }
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 500; ++block)
+    {
+        const float* oversampled = oversampler.upsample(input.data(), block_size);
+        oversampler.downsample(oversampled, block_size * 8, output.data());
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
 }
