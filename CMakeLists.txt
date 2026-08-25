@@ -16,27 +16,33 @@ target_include_directories(sushi_dsp PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-include(FetchContent)
-FetchContent_Declare(
-    SDL2
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG release-2.30.0
-)
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON CACHE BOOL "" FORCE)
-set(SDL_TEST OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(SDL2)
+# Nothing in the test suite links SDL2, so this can be turned off to configure
+# and run the tests without network access or an SDL2 build.
+option(SUSHIDSP_BUILD_SDL2 "Build the SDL2 device backend and the standalone host app" ON)
 
-add_library(sushi_dsp_sdl2 STATIC
-    src/device/Sdl2AudioDevice.cpp
-)
-add_library(SushiDSP::sushi_dsp_sdl2 ALIAS sushi_dsp_sdl2)
-target_link_libraries(sushi_dsp_sdl2 PUBLIC SushiDSP::sushi_dsp PRIVATE SDL2-static)
-target_include_directories(sushi_dsp_sdl2 PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-)
+if(SUSHIDSP_BUILD_SDL2)
+    include(FetchContent)
+    FetchContent_Declare(
+        SDL2
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG release-2.30.0
+    )
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_TEST OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(SDL2)
 
-add_subdirectory(apps/host)
+    add_library(sushi_dsp_sdl2 STATIC
+        src/device/Sdl2AudioDevice.cpp
+    )
+    add_library(SushiDSP::sushi_dsp_sdl2 ALIAS sushi_dsp_sdl2)
+    target_link_libraries(sushi_dsp_sdl2 PUBLIC SushiDSP::sushi_dsp PRIVATE SDL2-static)
+    target_include_directories(sushi_dsp_sdl2 PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    )
+
+    add_subdirectory(apps/host)
+endif()
 
 enable_testing()
 add_subdirectory(tests)
