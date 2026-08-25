@@ -12,7 +12,6 @@ add_library(sushi_dsp STATIC
     src/io/WavFile.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
-    src/math/NewtonRaphsonSolver.cpp
     src/math/Oversampler.cpp
     src/math/PartitionedConvolution.cpp
     src/math/Wdf.cpp
