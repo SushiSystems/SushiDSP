@@ -65,6 +65,9 @@ add_executable(sushidsp_tests
     functional/unit/test_partitioned_convolution.cpp
     functional/unit/test_wdf.cpp
 
+    # --- IO ---
+    functional/unit/test_wav_file.cpp
+
     # --- Real-time safety ---
     functional/unit/test_rt_safety.cpp
 

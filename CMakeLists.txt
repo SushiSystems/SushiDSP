@@ -9,6 +9,7 @@ add_library(sushi_dsp STATIC
     src/circuits/DiodeClipperCircuit.cpp
     src/core/BufferPool.cpp
     src/core/RigGraph.cpp
+    src/io/WavFile.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
     src/math/NewtonRaphsonSolver.cpp
