@@ -106,10 +106,26 @@ int main()
         }
     });
 
+    // Proves RtGraphSlot's swap path, not just its initial publish(): a few seconds in, build a
+    // second independently-compiled one-node graph and publish() it once. The audio thread picks
+    // it up via acquire_for_audio_thread() on its very next block with no locking and no
+    // glitch; the old graph is freed on this (non-RT) thread only after reclaim() confirms the
+    // audio thread has moved off it.
+    bool swapped = false;
+    constexpr double kSwapAfterSeconds = 3.0;
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         graph_slot.reclaim();
+
+        if (!swapped && ImGui::GetTime() >= kSwapAfterSeconds)
+        {
+            graph_slot.publish(build_starter_rig(info));
+            swapped = true;
+            std::fprintf(stdout, "Swapped to second graph\n");
+            std::fflush(stdout);
+        }
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
