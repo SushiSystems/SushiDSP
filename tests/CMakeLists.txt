@@ -43,6 +43,14 @@ add_executable(sushidsp_tests
     # --- Circuits ---
     functional/unit/test_diode_clipper_circuit.cpp
 
+    # --- Tube Screamer (D3) ---
+    # The module has no CMake target of its own yet (Task 4 adds
+    # modules/tubescreamer/CMakeLists.txt); until then the source is compiled
+    # into the test binary directly, the same stopgap apps/host/SineToneNode.cpp
+    # used in D1.
+    functional/unit/test_tube_screamer_clipping_stage.cpp
+    ${CMAKE_SOURCE_DIR}/modules/tubescreamer/src/TubeScreamerClippingStage.cpp
+
     # --- Math ---
     functional/unit/test_biquad.cpp
     functional/unit/test_fft.cpp
@@ -61,6 +69,7 @@ add_executable(sushidsp_tests
 
 target_include_directories(sushidsp_tests PRIVATE ${SD_TEST_COMMON_DIR})
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/modules/tubescreamer/include)
 
 target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
