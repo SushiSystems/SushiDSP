@@ -75,6 +75,23 @@ TEST(Unit_Dsp, RigControllerRemoveDropsFromChain)
     EXPECT_EQ(ids[0], "sushidsp.jcm800");
 }
 
+TEST(Unit_Dsp, RigControllerAppendWithUnknownDescriptorIdIsSafeNoOp)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+    controller.append("sushidsp.tubescreamer");
+
+    // An unknown id (e.g. from a corrupt preset file) makes SushiDSP::make_node() return
+    // nullptr. rebuild_and_publish() must not crash, and the slot that failed to construct
+    // must not linger as a phantom entry in the reported chain.
+    controller.append("sushidsp.does_not_exist");
+
+    const auto ids = controller.chain_ids();
+    ASSERT_EQ(ids.size(), 1u);
+    EXPECT_EQ(ids[0], "sushidsp.tubescreamer");
+    ASSERT_NE(controller.active_graph(), nullptr);
+}
+
 TEST(Unit_Dsp, RigControllerPreservesParameterValuesAcrossReorder)
 {
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };

@@ -114,6 +114,28 @@ TEST(Unit_Dsp, RigGraphProcessesTwoNodeChainInOrder)
     }
 }
 
+TEST(Unit_Dsp, RigGraphProcessZeroesOutputWhenGraphIsEmpty)
+{
+    SushiDSP::RigGraph graph(256, 4);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    // Pre-fill with a sentinel to prove process() actively writes zero rather than merely
+    // leaving whatever the caller's buffer already held (e.g. SDL's raw stream buffer replaying
+    // stale audio from a previous block).
+    std::vector<float> output_buffer(256, 12345.0f);
+    float* output_channels[1] = { output_buffer.data() };
+
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 0.0f);
+    }
+}
+
 TEST(Unit_Dsp, RigGraphRecompileAfterAddingNodeProducesUpdatedOutput)
 {
     SushiDSP::RigGraph graph(256, 4);

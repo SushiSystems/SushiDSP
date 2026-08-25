@@ -195,6 +195,16 @@ namespace SushiDSP
                 context.outputs[0][frame] = node_output[last][frame];
             }
         }
+        else
+        {
+            // An empty graph must still fully define its output: leaving the caller's buffer
+            // untouched would replay whatever was previously in it (e.g. SDL's raw stream
+            // buffer), which is audible garbage looping at block rate.
+            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            {
+                context.outputs[0][frame] = 0.0f;
+            }
+        }
 
         for (float* buffer : node_output)
         {
