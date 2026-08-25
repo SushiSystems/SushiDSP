@@ -35,6 +35,12 @@ namespace SushiDSP
         /// @param q Quality factor (0.707 = Butterworth).
         void set_low_pass(double sample_rate, double cutoff_hz, double q);
 
+        /// @brief Configures this filter as a high-pass with the given cutoff and Q.
+        /// @param sample_rate Sample rate in Hz.
+        /// @param cutoff_hz Cutoff frequency in Hz.
+        /// @param q Quality factor (0.707 = Butterworth).
+        void set_high_pass(double sample_rate, double cutoff_hz, double q);
+
         /// @brief Processes one sample through the filter.
         /// @param input The input sample.
         /// @return The filtered output sample.

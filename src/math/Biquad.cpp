@@ -56,6 +56,27 @@ namespace SushiDSP
         a2_ = static_cast<float>(a2 / a0);
     }
 
+    void Biquad::set_high_pass(double sample_rate, double cutoff_hz, double q)
+    {
+        const double omega = 2.0 * M_PI * cutoff_hz / sample_rate;
+        const double sin_omega = std::sin(omega);
+        const double cos_omega = std::cos(omega);
+        const double alpha = sin_omega / (2.0 * q);
+
+        const double b0 = (1.0 + cos_omega) / 2.0;
+        const double b1 = -(1.0 + cos_omega);
+        const double b2 = (1.0 + cos_omega) / 2.0;
+        const double a0 = 1.0 + alpha;
+        const double a1 = -2.0 * cos_omega;
+        const double a2 = 1.0 - alpha;
+
+        b0_ = static_cast<float>(b0 / a0);
+        b1_ = static_cast<float>(b1 / a0);
+        b2_ = static_cast<float>(b2 / a0);
+        a1_ = static_cast<float>(a1 / a0);
+        a2_ = static_cast<float>(a2 / a0);
+    }
+
     float Biquad::process_sample(float input)
     {
         const float output = b0_ * input + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_;
