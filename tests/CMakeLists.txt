@@ -37,6 +37,7 @@ add_executable(sushidsp_tests
     # --- Core ---
     functional/unit/test_buffer_pool.cpp
     functional/unit/test_rig_graph.cpp
+    functional/unit/test_spsc_ring.cpp
 
     # --- Math ---
     functional/unit/test_biquad.cpp
