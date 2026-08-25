@@ -41,6 +41,27 @@ namespace SushiDSP
         /// @param q Quality factor (0.707 = Butterworth).
         void set_high_pass(double sample_rate, double cutoff_hz, double q);
 
+        /// @brief Configures this filter as a low-shelf with the given corner, gain, and Q.
+        /// @param sample_rate Sample rate in Hz.
+        /// @param cutoff_hz Shelf corner frequency in Hz.
+        /// @param gain_db Shelf gain in decibels (positive boosts, negative cuts).
+        /// @param q Shelf slope parameter (RBJ cookbook S=1 equivalent at q=1.0).
+        void set_low_shelf(double sample_rate, double cutoff_hz, double gain_db, double q);
+
+        /// @brief Configures this filter as a high-shelf with the given corner, gain, and Q.
+        /// @param sample_rate Sample rate in Hz.
+        /// @param cutoff_hz Shelf corner frequency in Hz.
+        /// @param gain_db Shelf gain in decibels.
+        /// @param q Shelf slope parameter.
+        void set_high_shelf(double sample_rate, double cutoff_hz, double gain_db, double q);
+
+        /// @brief Configures this filter as a peaking EQ with the given center, gain, and Q.
+        /// @param sample_rate Sample rate in Hz.
+        /// @param center_hz Center frequency in Hz.
+        /// @param gain_db Peak gain in decibels (positive boosts, negative cuts).
+        /// @param q Bandwidth parameter (higher Q = narrower peak).
+        void set_peaking(double sample_rate, double center_hz, double gain_db, double q);
+
         /// @brief Processes one sample through the filter.
         /// @param input The input sample.
         /// @return The filtered output sample.

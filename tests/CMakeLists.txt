@@ -46,6 +46,12 @@ add_executable(sushidsp_tests
     # --- Products ---
     functional/unit/test_tube_screamer_clipping_stage.cpp
     functional/unit/test_tube_screamer.cpp
+    functional/unit/test_triode_stage.cpp
+    functional/unit/test_pentode_stage.cpp
+    functional/unit/test_jcm_tone_stack.cpp
+    functional/unit/test_output_transformer_stage.cpp
+    functional/unit/test_power_supply_sag_stage.cpp
+    functional/unit/test_jcm800.cpp
 
     # --- Math ---
     functional/unit/test_biquad.cpp
@@ -54,6 +60,9 @@ add_executable(sushidsp_tests
     functional/unit/test_oversampler.cpp
     functional/unit/test_partitioned_convolution.cpp
     functional/unit/test_wdf.cpp
+
+    # --- IO ---
+    functional/unit/test_wav_file.cpp
 
     # --- Real-time safety ---
     functional/unit/test_rt_safety.cpp
@@ -64,14 +73,15 @@ add_executable(sushidsp_tests
 
     # --- Regression ---
     functional/regression/test_tube_screamer_regression.cpp
+    functional/regression/test_jcm800_regression.cpp
 )
 
 target_include_directories(sushidsp_tests PRIVATE ${SD_TEST_COMMON_DIR})
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
-
 target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
+    SushiDSP::jcm800
     GTest::gtest
 )
 
