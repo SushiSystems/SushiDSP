@@ -86,6 +86,11 @@ namespace SushiDSP
     void Sdl2AudioDevice::stop()
     {
         SDL_PauseAudioDevice(device_id_, 1);
+
+        // Once stopped, the device must not keep a reference to whatever the
+        // caller's callback captured; SDL_PauseAudioDevice waits for any
+        // in-flight callback to finish, so clearing here is safe.
+        callback_ = {};
     }
 
     /// @brief SDL2's audio thread entry point. Only mono is deinterleaved in D1; a
@@ -96,6 +101,12 @@ namespace SushiDSP
         auto* self = static_cast<Sdl2AudioDevice*>(userdata);
         auto* samples = reinterpret_cast<float*>(stream);
         const std::uint32_t frames = static_cast<std::uint32_t>(length_bytes) / (self->format_.channels * sizeof(float));
+
+        if (!self->callback_)
+        {
+            std::memset(stream, 0, static_cast<std::size_t>(length_bytes));
+            return;
+        }
 
         if (self->format_.channels == 1)
         {
