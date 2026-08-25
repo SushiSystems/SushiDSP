@@ -6,7 +6,7 @@ once you're in the tree and need a specific document.
 ## Where to go
 
 - **[Design](design/sushidsp.md)** — the architecture, the math, the SOLID rationale, and the
-  product roadmap (D0–D12). This is the authoritative spec an implementer builds from; it
+  product roadmap (D0–D7). This is the authoritative spec an implementer builds from; it
   describes intent and may describe work that does not exist in the tree yet.
 - **[Contributing](CONTRIBUTING.md)** — the conventions every change is held to: C++17, Allman
   braces, the license header format, the test/CTest-label layout, and how to build (`sd`, never

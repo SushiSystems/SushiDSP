@@ -37,7 +37,10 @@ parameter/rig-edit commands from the control thread to the audio callback.
 
 **Determinism and safety.** `IAudioNode::process()` — and everything called from it — must be
 allocation-free, lock-free, syscall-free, and throw-free. That bar is enforced by an
-`operator new`-trapping regression test on every real-time-path class, not left to code review.
+`operator new`-trapping regression test, not left to code review — today that covers `RigGraph`,
+`Fft`, `Oversampler8x`, `PartitionedConvolution`, and `DiodeClipperCircuit`
+(`tests/functional/unit/test_rt_safety.cpp`); every class destined for the real-time path gets a
+case there before it's trusted (see `docs/CONTRIBUTING.md`).
 
 ## Where it is today
 
@@ -50,8 +53,8 @@ into an arbitrary circuit topology — is deliberately not built either: nothing
 needs it, and inventing one without a real circuit to validate it against risks getting the
 math wrong with no way to catch it.
 
-None of that is hidden — it is the next two roadmap phases (D3, D4) in
-[the design spec's §9](docs/design/sushidsp.md).
+None of that is hidden — the two products are the next two roadmap phases (D3, D4), and the
+plugin wrapper is D6, all in [the design spec's §9](docs/design/sushidsp.md).
 
 ## Getting started
 
@@ -115,12 +118,8 @@ tests/
   common/     the GTest entry point
   functional/unit/   golden-vector + RT-safety tests (Unit_Dsp.*)
 cli/          the `sd` command line tool
-docs/         the design spec, contribution rules, and the agent record
+docs/         the design spec, contribution rules, and reference docs
 ```
-
-Every dotfile in the root is one a tool refuses to find anywhere else. clang-format, clangd, and
-EditorConfig search upward from the file being edited; git and CMake each resolve their own by
-name from here.
 
 ## Documentation
 
@@ -132,9 +131,8 @@ name from here.
 - [Changelog](docs/reference/CHANGELOG.md) — what changed and when.
 - [Code of Conduct](docs/CODE_OF_CONDUCT.md) · [Security Policy](docs/SECURITY.md).
 
-`docs/superpowers/` holds the implementation plans and per-phase execution ledgers an agent
-produced while building this tree; `docs/agent/` (once it exists) will hold audits and reports
-the way the rest of it does today.
+`docs/superpowers/plans/` holds the implementation plan for each roadmap phase, a historical
+record once that phase merges — see `docs/README.md` for how to read one.
 
 ## License
 
