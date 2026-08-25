@@ -84,6 +84,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::jcm800
     GTest::gtest
 )
+sushidsp_apply_optimization_flags(sushidsp_tests)
 
 # One label per group; the "functional" umbrella is expressed by the consumer
 # as a label regex (`ctest -L 'unit|integration|regression'`) rather than a

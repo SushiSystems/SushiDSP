@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include(cmake/SushiDSPCompilerFlags.cmake)
+
 add_library(sushi_dsp STATIC
     src/circuits/DiodeClipperCircuit.cpp
     src/core/BufferPool.cpp
@@ -17,6 +19,7 @@ add_library(sushi_dsp STATIC
     src/math/Wdf.cpp
 )
 add_library(SushiDSP::sushi_dsp ALIAS sushi_dsp)
+sushidsp_apply_optimization_flags(sushi_dsp)
 target_include_directories(sushi_dsp PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
@@ -46,6 +49,7 @@ if(SUSHIDSP_BUILD_SDL2)
         src/device/Sdl2AudioDevice.cpp
     )
     add_library(SushiDSP::sushi_dsp_sdl2 ALIAS sushi_dsp_sdl2)
+    sushidsp_apply_optimization_flags(sushi_dsp_sdl2)
     target_link_libraries(sushi_dsp_sdl2 PUBLIC SushiDSP::sushi_dsp PRIVATE SDL2-static)
     target_include_directories(sushi_dsp_sdl2 PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
