@@ -21,6 +21,7 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <algorithm>
 #include <cmath>
 
 #include <gtest/gtest.h>
@@ -102,4 +103,56 @@ TEST(Unit_Dsp, PentodeStageResetClearsWarmStartState)
     const float from_fresh = stage_b.process_sample(0.5f);
 
     EXPECT_NEAR(from_reset, from_fresh, 1e-4f);
+}
+
+TEST(Unit_Dsp, PentodePairAsymmetryNeedsAnInputReferredOffsetNotACathodeBiasDifference)
+{
+    // The push-pull pair's composite is el34_a(u) - el34_b(-u). This pins the ruling behind
+    // Jcm800's kPowerTubeGridBiasMismatchVolts: PentodeStage's node equation is bias-invariant,
+    // so giving the two halves different cathode-bias constants buys exactly nothing:
+    // substituting Vg - Vk removes Vk from the source term, the grid leak, the solver bounds, the warm start
+    // and the plate output alike, leaving the composite exactly odd in u. Only an offset applied
+    // to the input, outside the stage's Vk-relative coordinate system, produces a real handover
+    // asymmetry.
+    auto composite = [](float bias_a, float bias_b, float input_offset, float u)
+    {
+        SushiDSP::PentodeStage a(
+            kSourceResistance, kGridLeakResistance, bias_a, kGain,
+            kSaturationCurrent, kThermalVoltage, kPlateSaturationDrive);
+        SushiDSP::PentodeStage b(
+            kSourceResistance, kGridLeakResistance, bias_b, kGain,
+            kSaturationCurrent, kThermalVoltage, kPlateSaturationDrive);
+
+        float a_out = 0.0f;
+        float b_out = 0.0f;
+        for (int i = 0; i < 64; ++i)
+        {
+            a_out = a.process_sample(u);
+            b_out = b.process_sample(-u - input_offset);
+        }
+        return a_out - b_out;
+    };
+
+    // The even part of the composite over the +/-0.38 V drive range the phase inverter actually
+    // delivers. Zero even part means zero even harmonics, i.e. no crossover character at all.
+    auto peak_even_part = [&](float bias_a, float bias_b, float input_offset)
+    {
+        float peak = 0.0f;
+        for (int step = 1; step <= 20; ++step)
+        {
+            const float u = 0.019f * step;
+            const float even = 0.5f * (composite(bias_a, bias_b, input_offset, u)
+                                     + composite(bias_a, bias_b, input_offset, -u));
+            peak = std::max(peak, std::abs(even));
+        }
+        return peak;
+    };
+
+    const float odd_reference = std::abs(composite(-20.0f, -20.0f, 0.0f, 0.38f));
+    ASSERT_GT(odd_reference, 0.1f);
+
+    // Measured: the cathode-bias difference gives an even part of exactly 0.0, the input-referred
+    // offset gives 0.229 against an odd reference of 4.83 (4.7%).
+    EXPECT_LT(peak_even_part(-20.0f, -20.5f, 0.0f), 1e-6f * odd_reference);
+    EXPECT_GT(peak_even_part(-20.0f, -20.0f, 0.03f), 0.01f * odd_reference);
 }

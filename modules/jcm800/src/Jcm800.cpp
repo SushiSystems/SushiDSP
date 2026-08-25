@@ -45,12 +45,33 @@ namespace SushiDSP
 
         constexpr float kPentodeSourceResistance = 10000.0f;
         constexpr float kPentodeGridLeak = 220000.0f;
-        constexpr float kPentodeCathodeBiasA = -20.0f;
-        constexpr float kPentodeCathodeBiasB = -20.5f;  // small asymmetry: the class-AB bias offset
+        constexpr float kPentodeCathodeBias = -20.0f;
         constexpr float kPentodeGain = 8.0f;
         constexpr float kPentodeSaturationCurrent = 1e-9f;
         constexpr float kPentodeThermalVoltage = 0.02585f;
         constexpr float kPentodePlateSaturationDrive = 0.05f;
+
+        // The class-AB bias mismatch between the two output tubes, expressed where the model can
+        // actually see it: as an input-referred grid offset on the B side, applied before the
+        // stage.
+        //
+        // It cannot be expressed as a difference in the two stages' cathode-bias constants, which
+        // is what this used to be. PentodeStage's node equation is bias-invariant by construction
+        // (deliberately - it is what keeps a -20 V EL34 from clipping at silence): substituting
+        // u = Vg - Vk cancels Vk out of the source term, the grid leak, the solver bounds, the
+        // warm start and the plate output alike, so two instances differing only in Vk are the
+        // same function of their input and the pair stays exactly odd-symmetric - no even
+        // harmonics, no crossover character at all.
+        //
+        // An offset added to the input sits outside that Vk-relative coordinate system, so it
+        // survives. It shifts B's conduction window relative to A's, which is what a real bias
+        // mismatch does: the two tubes hand over at slightly different points in the cycle. The
+        // magnitude is ~8% of the 0.38 V peak grid drive the phase inverter delivers here, in the
+        // range of an ordinary unmatched pair, and comparable to the 0.203 V conduction knee, so
+        // it moves the handover without turning the pair into a single-ended stage. The DC term
+        // it introduces is blocked downstream by the output transformer's 60 Hz high-pass, as a
+        // real transformer blocks it.
+        constexpr float kPowerTubeGridBiasMismatchVolts = 0.03f;
 
         constexpr float kOutputTransformerRolloffHz = 60.0f;
         constexpr float kOutputTransformerLeakageHz = 8000.0f;
@@ -66,10 +87,10 @@ namespace SushiDSP
         // gain knob.
         //
         // What sets these values is the *operating level* each grid ends up at, not the ratio
-        // itself. A 12AX7 grid conducts from about 0.26 V above its bias point (Is/Vt against the
-        // 10k source resistance) and its plate reaches cutoff around 4.14 V below it, so a stage
-        // distorts only while its grid is driven inside roughly that 24 dB window - and each stage
-        // inverts, so consecutive stages clip on opposite half-cycles. Because a stage's own gain
+        // itself. A 12AX7 grid conducts from about 0.203 V above its bias point (Vt*ln(Vt/(Is*Rs))
+        // against the 10k source resistance) and its plate reaches cutoff around 4.14 V below it,
+        // so a stage distorts only while its grid is driven inside roughly that 26 dB window - and
+        // each stage inverts, so consecutive stages clip on opposite half-cycles. Because a stage's own gain
         // is 60, a divider near 1/60 is what carries that operating level forward unchanged; the
         // slightly looser 1/50 links add about 1.2x per stage to make up for the amplitude the
         // preceding stage's grid conduction removed, so the drive does not decay down the cascade.
@@ -118,8 +139,8 @@ namespace SushiDSP
         // louder clean signal.
         //
         // The exponent approximates an audio-taper pot. It is 1.5 rather than a plain square
-        // because the cascade's clean-to-saturated transition spans about 24 dB of interstage
-        // level (grid conduction sets in around 0.26 V; the cutoff bound is at 4.14 V), so a
+        // because the cascade's clean-to-saturated transition spans about 26 dB of interstage
+        // level (grid conduction sets in around 0.203 V; the cutoff bound is at 4.14 V), so a
         // steeper taper compresses too much of that transition into the top third of the knob's
         // travel.
         // Measured at a 0.2 input: with a square taper the THD proxy is zero below preamp 0.5,
@@ -137,8 +158,8 @@ namespace SushiDSP
         , tone_stack_(48000.0)
         , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
         , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , el34_a_(kPentodeSourceResistance, kPentodeGridLeak, kPentodeCathodeBiasA, kPentodeGain, kPentodeSaturationCurrent, kPentodeThermalVoltage, kPentodePlateSaturationDrive)
-        , el34_b_(kPentodeSourceResistance, kPentodeGridLeak, kPentodeCathodeBiasB, kPentodeGain, kPentodeSaturationCurrent, kPentodeThermalVoltage, kPentodePlateSaturationDrive)
+        , el34_a_(kPentodeSourceResistance, kPentodeGridLeak, kPentodeCathodeBias, kPentodeGain, kPentodeSaturationCurrent, kPentodeThermalVoltage, kPentodePlateSaturationDrive)
+        , el34_b_(kPentodeSourceResistance, kPentodeGridLeak, kPentodeCathodeBias, kPentodeGain, kPentodeSaturationCurrent, kPentodeThermalVoltage, kPentodePlateSaturationDrive)
         , output_transformer_(48000.0, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
         , sag_(48000.0, kSagAmount, kSagRecoveryTimeSeconds)
     {
@@ -231,7 +252,7 @@ namespace SushiDSP
             const float phase_inverted =
                 phase_inverter_.process_sample(phase_split) * kPhaseInverterToPowerTubeAttenuation;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
-            const float el34_b_out = el34_b_.process_sample(-phase_inverted);
+            const float el34_b_out = el34_b_.process_sample(-phase_inverted - kPowerTubeGridBiasMismatchVolts);
             scratch_oversampled_b_[i] = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
         }
         oversampler_b_->downsample(scratch_oversampled_b_.data(), oversampled_frames, scratch_base_.data());
