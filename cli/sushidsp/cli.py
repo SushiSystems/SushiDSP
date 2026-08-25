@@ -70,3 +70,9 @@ def test(
 def config():
     """Print the resolved configuration and where each value came from."""
     raise typer.Exit(diag_svc.config_show())
+
+
+@app.command("doxygen")
+def doxygen():
+    """Generates the API reference (docs/api-site/html) from the headers."""
+    raise typer.Exit(project_svc.doxygen())
