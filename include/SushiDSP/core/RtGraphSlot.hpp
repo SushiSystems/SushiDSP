@@ -55,7 +55,7 @@ namespace SushiDSP
         /// @brief Returns the current active graph and records that this generation is now in
         /// use. Real-time safe: one atomic load, one atomic store, no allocation.
         /// @return The active graph, or nullptr if publish() was never called.
-        RigGraph* acquire_for_audio_thread();
+        RigGraph* acquire_for_audio_thread() noexcept;
 
         /// @brief Frees every retired graph the audio thread has moved past. Not real-time
         /// safe; call periodically off the audio thread (e.g. once per GUI frame).

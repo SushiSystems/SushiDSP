@@ -33,19 +33,24 @@ namespace SushiDSP
     {
         // active_ is a non-owning view of whichever entry in retired_ is newest; ownership of
         // every graph ever published lives in retired_ from the moment it's inserted here,
-        // keyed by the generation it was published at. exchange()'s old value needs no
-        // explicit handling: its owning unique_ptr is already sitting in retired_ from ITS
+        // keyed by the generation it was published at. store()'s previous value needs no
+        // explicit handling: the graph it pointed at is already sitting in retired_ from ITS
         // OWN publish() call, and reclaim() is what eventually frees it.
         active_.store(new_graph.get(), std::memory_order_release);
         const std::uint64_t generation = publish_generation_.fetch_add(1, std::memory_order_acq_rel) + 1;
         retired_.emplace_back(generation, std::move(new_graph));
     }
 
-    RigGraph* RtGraphSlot::acquire_for_audio_thread()
+    RigGraph* RtGraphSlot::acquire_for_audio_thread() noexcept
     {
-        RigGraph* graph = active_.load(std::memory_order_acquire);
-        audio_thread_generation_.store(publish_generation_.load(std::memory_order_acquire), std::memory_order_release);
-        return graph;
+        // Read generation BEFORE active_. publish() stores active_ strictly before bumping
+        // publish_generation_, so any graph published at generation <= k (the value read here)
+        // has already had its active_ store land. Reading active_ second therefore always
+        // observes a graph whose generation is >= k, which means reclaim() -- bounded to
+        // generation < k -- can never free the graph this call is about to return.
+        const std::uint64_t generation = publish_generation_.load(std::memory_order_acquire);
+        audio_thread_generation_.store(generation, std::memory_order_release);
+        return active_.load(std::memory_order_acquire);
     }
 
     void RtGraphSlot::reclaim()

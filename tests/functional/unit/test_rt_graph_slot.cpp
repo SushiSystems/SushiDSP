@@ -27,8 +27,35 @@
 
 #include <gtest/gtest.h>
 
+#include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtGraphSlot.hpp"
+
+namespace
+{
+    // A minimal node whose ports() is a virtual call returning a fixed, checkable value. Poking
+    // it after the owning RigGraph has (incorrectly) been freed exercises the object's vtable
+    // pointer -- freed memory that's since been reused for something else will very likely make
+    // this crash outright (invalid/foreign vtable) rather than just quietly return stale data,
+    // which is a much stronger use-after-free signal than a bare null-check on the RigGraph*.
+    class CanaryNode : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+        void process(SushiDSP::ProcessContext&) override {}
+        SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
+        void reset() override {}
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+    };
+
+    std::unique_ptr<SushiDSP::RigGraph> make_canary_graph()
+    {
+        auto graph = std::make_unique<SushiDSP::RigGraph>(256, 4);
+        graph->add_node(std::make_unique<CanaryNode>());
+        return graph;
+    }
+}
 
 TEST(Unit_Dsp, RtGraphSlotStartsWithNoActiveGraph)
 {
@@ -66,7 +93,7 @@ TEST(Unit_Dsp, RtGraphSlotReclaimFreesOldGraphAfterAudioThreadMovesOn)
 TEST(Unit_Dsp, RtGraphSlotConcurrentPublishAndAcquireDoesNotRace)
 {
     SushiDSP::RtGraphSlot slot;
-    slot.publish(std::make_unique<SushiDSP::RigGraph>(256, 4));
+    slot.publish(make_canary_graph());
 
     std::atomic<bool> stop{ false };
 
@@ -75,15 +102,30 @@ TEST(Unit_Dsp, RtGraphSlotConcurrentPublishAndAcquireDoesNotRace)
         while (!stop.load(std::memory_order_relaxed))
         {
             SushiDSP::RigGraph* graph = slot.acquire_for_audio_thread();
-            EXPECT_NE(graph, nullptr);
+            ASSERT_NE(graph, nullptr);
+
+            // Actually dereference the returned graph, through a virtual call, rather than just
+            // null-checking the pointer -- a dangling-but-non-null RigGraph* sails straight
+            // through a null-check. Every published graph here carries exactly one CanaryNode,
+            // so nodes() must come back with exactly one handle, and that node's ports() (a
+            // virtual call) must always report { 1, 1 }. If acquire_for_audio_thread() ever
+            // hands back a pointer to a graph reclaim() already freed, this either crashes
+            // outright (the vtable slot now belongs to whatever reused the memory) or the
+            // checks below fail.
+            auto handles = graph->nodes();
+            ASSERT_EQ(handles.size(), 1u);
+            SushiDSP::IAudioNode* node = graph->node(handles[0]);
+            ASSERT_NE(node, nullptr);
+            const SushiDSP::PortLayout layout = node->ports();
+            EXPECT_EQ(layout.input_channels, 1u);
+            EXPECT_EQ(layout.output_channels, 1u);
         }
     });
 
-    for (int i = 0; i < 200; ++i)
+    for (int i = 0; i < 20000; ++i)
     {
-        slot.publish(std::make_unique<SushiDSP::RigGraph>(256, 4));
+        slot.publish(make_canary_graph());
         slot.reclaim();
-        std::this_thread::yield();
     }
 
     stop.store(true, std::memory_order_relaxed);
