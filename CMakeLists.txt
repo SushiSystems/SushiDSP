@@ -5,9 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# TODO(Task 7): add src/core/RigGraph.cpp to the source list below.
 add_library(sushi_dsp STATIC
     src/core/BufferPool.cpp
+    src/core/RigGraph.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
 )
