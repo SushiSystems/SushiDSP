@@ -57,6 +57,25 @@ namespace SushiDSP
         /// @param info Sample rate, block size, and channel count for every node.
         void compile(const PrepareInfo& info);
 
+        /// @brief Removes a node and every edge touching it. Not real-time safe; call only off
+        /// the processing thread. The handle becomes invalid; other handles are unaffected.
+        /// @param handle The node to remove.
+        void remove_node(NodeHandle handle);
+
+        /// @brief Removes a single edge, if present. Not real-time safe.
+        /// @param from The upstream node.
+        /// @param to The downstream node.
+        void disconnect(NodeHandle from, NodeHandle to);
+
+        /// @brief Looks up a live node by handle.
+        /// @param handle The node's handle.
+        /// @return The node, or nullptr if handle is out of range or was removed.
+        IAudioNode* node(NodeHandle handle) const;
+
+        /// @brief Lists every live (non-removed) node handle, in add_node() order.
+        /// @return The live handles.
+        std::vector<NodeHandle> nodes() const;
+
         /// @brief Processes one block through every node in topological order. Real-time safe.
         /// @param context The block's output buffers and frame count.
         void process(ProcessContext& context);

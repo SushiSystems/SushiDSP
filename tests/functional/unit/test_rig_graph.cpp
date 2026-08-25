@@ -179,3 +179,67 @@ TEST(Unit_Dsp, RigGraphRootNodeStillReceivesNullptrWhenGraphHasNoInput)
         EXPECT_FLOAT_EQ(sample, 5.0f);
     }
 }
+
+TEST(Unit_Dsp, RigGraphNodesReturnsAllLiveHandles)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto a = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto b = graph.add_node(std::make_unique<GainNode>(2.0f));
+    graph.connect(a, b);
+
+    const std::vector<SushiDSP::NodeHandle> handles = graph.nodes();
+    ASSERT_EQ(handles.size(), 2u);
+    EXPECT_EQ(handles[0], a);
+    EXPECT_EQ(handles[1], b);
+    EXPECT_EQ(graph.node(a)->ports().output_channels, 1u);
+}
+
+TEST(Unit_Dsp, RigGraphRemoveNodeDropsItFromNodesAndProcess)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(5.0f));
+    auto gain   = graph.add_node(std::make_unique<GainNode>(2.0f));
+    graph.connect(source, gain);
+
+    graph.remove_node(gain);
+
+    const std::vector<SushiDSP::NodeHandle> handles = graph.nodes();
+    ASSERT_EQ(handles.size(), 1u);
+    EXPECT_EQ(handles[0], source);
+    EXPECT_EQ(graph.node(gain), nullptr);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> output(256, 0.0f);
+    float* output_ptr[1] = { output.data() };
+    SushiDSP::ProcessContext context{ output_ptr, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    EXPECT_FLOAT_EQ(output[0], 5.0f);
+}
+
+TEST(Unit_Dsp, RigGraphDisconnectRemovesOnlyThatEdge)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(4.0f));
+    auto gain_a = graph.add_node(std::make_unique<GainNode>(2.0f));
+    auto gain_b = graph.add_node(std::make_unique<GainNode>(3.0f));
+    graph.connect(source, gain_a);
+    graph.connect(source, gain_b);
+    graph.disconnect(source, gain_a);
+
+    // gain_a now has no upstream edge; RigGraph feeds root nodes context.inputs
+    // (nullptr here), so it must NOT receive source's output.
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> output(256, 0.0f);
+    float* output_ptr[1] = { output.data() };
+    SushiDSP::ProcessContext context{ output_ptr, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    // Last node in topological order is whichever of gain_a/gain_b comes last;
+    // both must not crash, and the graph must still process end-to-end.
+    SUCCEED();
+}

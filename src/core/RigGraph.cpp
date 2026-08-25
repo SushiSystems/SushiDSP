@@ -46,6 +46,48 @@ namespace SushiDSP
         edges_.push_back({ from, to });
     }
 
+    void RigGraph::remove_node(NodeHandle handle)
+    {
+        if (handle < nodes_.size())
+        {
+            nodes_[handle].reset();
+        }
+        edges_.erase(
+            std::remove_if(edges_.begin(), edges_.end(),
+                [handle](const Edge& edge) { return edge.from == handle || edge.to == handle; }),
+            edges_.end());
+    }
+
+    void RigGraph::disconnect(NodeHandle from, NodeHandle to)
+    {
+        edges_.erase(
+            std::remove_if(edges_.begin(), edges_.end(),
+                [from, to](const Edge& edge) { return edge.from == from && edge.to == to; }),
+            edges_.end());
+    }
+
+    IAudioNode* RigGraph::node(NodeHandle handle) const
+    {
+        if (handle >= nodes_.size())
+        {
+            return nullptr;
+        }
+        return nodes_[handle].get();
+    }
+
+    std::vector<NodeHandle> RigGraph::nodes() const
+    {
+        std::vector<NodeHandle> result;
+        for (NodeHandle handle = 0; handle < nodes_.size(); ++handle)
+        {
+            if (nodes_[handle] != nullptr)
+            {
+                result.push_back(handle);
+            }
+        }
+        return result;
+    }
+
     void RigGraph::compile(const PrepareInfo& info)
     {
         // process() holds one pool buffer per node for the whole block, so a graph larger than the
@@ -61,7 +103,7 @@ namespace SushiDSP
         std::queue<NodeHandle> ready;
         for (NodeHandle handle = 0; handle < nodes_.size(); ++handle)
         {
-            if (in_degree[handle] == 0)
+            if (nodes_[handle] != nullptr && in_degree[handle] == 0)
             {
                 ready.push(handle);
             }
@@ -78,7 +120,7 @@ namespace SushiDSP
             {
                 if (edge.from == current)
                 {
-                    if (--in_degree[edge.to] == 0)
+                    if (--in_degree[edge.to] == 0 && nodes_[edge.to] != nullptr)
                     {
                         ready.push(edge.to);
                     }
@@ -90,7 +132,10 @@ namespace SushiDSP
 
         for (auto& node : nodes_)
         {
-            node->prepare(info);
+            if (node != nullptr)
+            {
+                node->prepare(info);
+            }
         }
     }
 
@@ -101,6 +146,11 @@ namespace SushiDSP
 
         for (NodeHandle handle : topological_order_)
         {
+            if (nodes_[handle] == nullptr)
+            {
+                continue;
+            }
+
             float* node_buffer = buffer_pool_.acquire(context.frames);
 
             bool has_upstream_edge = false;
