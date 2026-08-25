@@ -13,3 +13,8 @@ __pycache__/
 # without it. Only the generated output is ignored.
 docs/api-site/html/
 docs/api-site/doxygen-warnings.log
+
+# The Steinberg ASIO SDK is proprietary (accept-the-license, not
+# redistributable) - each developer/CI runner fetches it themselves; it must
+# never be committed. CMake finds it via ASIO_SDK_DIR, defaulting to this path.
+third_party/asio/
