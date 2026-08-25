@@ -14,12 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "SushiDSP/math/Fft.hpp"
-
+// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
+// and any earlier include could pull <cmath> in first and latch the definition out.
 #define _USE_MATH_DEFINES
 #include <cassert>
 #include <cmath>
 #include <utility>
+
+#include "SushiDSP/math/Fft.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
