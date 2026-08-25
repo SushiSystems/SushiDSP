@@ -24,6 +24,7 @@
 #include "SushiDSP/jcm800/Jcm800.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace SushiDSP
@@ -58,23 +59,40 @@ namespace SushiDSP
         constexpr float kSagAmount = 0.3f;
         constexpr float kSagRecoveryTimeSeconds = 0.05f;
 
-        // Interstage gain staging. Each triode's plate swings +/- gain * Vgrid, i.e. tens of
-        // volts, while the next grid can only accept a fraction of a volt before it either
-        // conducts (positive half) or hits the Newton-Raphson bound (negative half). A real amp
-        // resolves this with the plate-load/grid-leak divider and coupling network at every
-        // interstage link; without those dividers the four cascaded stages multiply to a gain of
-        // 60*60*60*40 ~ 8.6e6 and every stage past V1a sits permanently against its solver bound,
-        // which makes the whole amp a fixed-amplitude square-wave generator with a dead gain
-        // knob. The first four attenuations below stand in for those dividers and keep each grid
-        // at roughly a third of the +/-60*Vt (1.551 V) bound at nominal playing levels — see the
-        // Task 7 report's Newton-Raphson ruling. kPowerTubeToTransformerAttenuation is different:
-        // it sits after the EL34 plates, so it is an output-level trim into the transformer, not a
-        // grid-bound protection constant, and isn't part of that ruling's headroom argument.
-        constexpr float kPreampPotMaxAttenuation = 1.0f / 60.0f;
-        constexpr float kV1bToV2aAttenuation = 1.0f / 60.0f;
-        constexpr float kV2aToPhaseInverterAttenuation = 1.0f / 60.0f;
-        constexpr float kPhaseInverterToPowerTubeAttenuation = 1.0f / 20.0f;
-        constexpr float kPowerTubeToTransformerAttenuation = 0.1f;
+        // Interstage gain staging - the plate-load/grid-leak dividers and coupling networks that
+        // sit at every interstage link in a real amp. Without them the four cascaded stages
+        // multiply to a gain of 60*60*60*40 ~ 8.6e6 and every stage past V1a pins against its
+        // solver bound, which makes the amp a fixed-amplitude square-wave generator with a dead
+        // gain knob.
+        //
+        // What sets these values is the *operating level* each grid ends up at, not the ratio
+        // itself. A 12AX7 grid conducts from about 0.26 V above its bias point (Is/Vt against the
+        // 10k source resistance) and its plate reaches cutoff around 4.14 V below it, so a stage
+        // distorts only while its grid is driven inside roughly that 15 dB window - and each stage
+        // inverts, so consecutive stages clip on opposite half-cycles. Because a stage's own gain
+        // is 60, a divider near 1/60 is what carries that operating level forward unchanged; the
+        // slightly looser 1/50 links add about 1.2x per stage to make up for the amplitude the
+        // preceding stage's grid conduction removed, so the drive does not decay down the cascade.
+        //
+        // The preamp pot's ceiling is what puts the cascade into that window at all: at 1/16 it
+        // lifts V1b's grid from V1a's plate swing to about 0.7 V at a 0.2 input with the knob full
+        // up, i.e. well past conduction, where the earlier 1/60 left it at 0.19 V and the whole
+        // chain measured as a single clipping input tube (see the Task 8 report's THD sweep).
+        // Worst-case measured grid excursion across a preamp x input-amplitude sweep is V1b's
+        // 1.56 V at a 0.5 input (38% of the 4.14 V cutoff bound) and 2.81 V at a 1.0 input (68%);
+        // every other stage stays under 0.47 V because it is the conducting half that faces it.
+        // See the Task 9 report's ruling, and the bound's own comment in TriodeStage.cpp.
+        //
+        // kPowerTubeToTransformerAttenuation is different: it sits after the EL34 plates, so it is
+        // an output-level trim into the transformer, not a grid-bound constant. It was halved
+        // alongside the drive increase so the added preamp saturation shows up as harmonic content
+        // rather than as 6 dB of extra output, keeping the master knob's useful range and the
+        // output transformer's own saturation point where they were.
+        constexpr float kPreampPotMaxAttenuation = 1.0f / 16.0f;
+        constexpr float kV1bToV2aAttenuation = 1.0f / 50.0f;
+        constexpr float kV2aToPhaseInverterAttenuation = 1.0f / 50.0f;
+        constexpr float kPhaseInverterToPowerTubeAttenuation = 1.0f / 32.0f;
+        constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
 
         constexpr float kBrightCapHz = 60.0f;
         constexpr float kCouplingCapHz = 120.0f;
@@ -97,10 +115,17 @@ namespace SushiDSP
         // The 2203's preamp volume is a pot between V1a's plate and V1b's grid, so the knob is an
         // attenuator, not an input multiplier: turning it up feeds V1b (and everything after it)
         // harder, which is what produces the cascaded-gain-stage distortion rather than just a
-        // louder clean signal. The square approximates the audio taper such a pot is made with.
+        // louder clean signal.
+        //
+        // The exponent approximates an audio-taper pot. It is 1.5 rather than a plain square
+        // because the cascade's clean-to-saturated transition spans only about 15 dB of interstage
+        // level (grid conduction sets in around 0.26 V; the cutoff bound is at 4.14 V), so a
+        // steeper taper compresses that whole transition into the top third of the knob's travel.
+        // Measured at a 0.2 input: with a square taper the THD proxy is zero below preamp 0.5,
+        // with this one it starts moving at 0.4 and climbs monotonically to 1.0.
         float preamp_attenuation(float normalized)
         {
-            return normalized * normalized * kPreampPotMaxAttenuation;
+            return normalized * std::sqrt(normalized) * kPreampPotMaxAttenuation;
         }
     }
 
