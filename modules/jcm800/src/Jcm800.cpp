@@ -143,10 +143,22 @@ namespace SushiDSP
         scratch_oversampled_a_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
         scratch_oversampled_b_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
 
-        if (!cabinet_impulse_response_.empty())
+        // The cabinet's partition size is the host's block size, not a fixed constant:
+        // PartitionedConvolution is a fixed-block API, so any mismatch would force process() down
+        // its bypass path and silently drop the cabinet on every host that isn't running the one
+        // hardcoded size. PartitionedConvolution requires a power-of-two partition (its FFT is
+        // sized 2*partition_size), so a host with a non-power-of-two block size still gets no
+        // cabinet — an accepted limitation, flagged rather than papered over, since resolving it
+        // needs an input-side ring buffer to re-block the stream and the latency that implies.
+        cabinet_.reset();
+        cabinet_partition_size_ = 0;
+        const bool block_is_power_of_two =
+            info.max_block > 0 && (info.max_block & (info.max_block - 1)) == 0;
+        if (!cabinet_impulse_response_.empty() && block_is_power_of_two)
         {
+            cabinet_partition_size_ = info.max_block;
             cabinet_ = std::make_unique<PartitionedConvolution>(
-                kCabinetPartitionSize, cabinet_impulse_response_.data(),
+                cabinet_partition_size_, cabinet_impulse_response_.data(),
                 static_cast<std::uint32_t>(cabinet_impulse_response_.size()));
         }
 
@@ -209,7 +221,7 @@ namespace SushiDSP
         // PartitionedConvolution::process() is a fixed-block API with no frame-count argument;
         // feeding it a short final block would read/write past the caller's buffer. Bypass rather
         // than corrupt when the host's block size doesn't match the cabinet's partition size.
-        if (cabinet_ && frames == kCabinetPartitionSize)
+        if (cabinet_ && frames == cabinet_partition_size_)
         {
             cabinet_->process(scratch_base_.data(), output);
         }
