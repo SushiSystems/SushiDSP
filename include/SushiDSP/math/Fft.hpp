@@ -44,6 +44,7 @@ namespace SushiDSP
         /// @param imag_in Input imaginary part, size() bins.
         /// @param time_domain_out Output, size() samples.
         /// @note The three buffers must not alias each other.
+        /// @note Uses internal scratch buffers, so concurrent calls on one plan are not supported.
         void inverse(const float* real_in, const float* imag_in, float* time_domain_out) const;
 
         /// @brief The transform size this plan was constructed for.
@@ -55,5 +56,9 @@ namespace SushiDSP
         std::vector<std::uint32_t> bit_reversal_;
         std::vector<float>         twiddle_real_;
         std::vector<float>         twiddle_imag_;
+
+        // Sized once in the constructor so inverse() can stay const and allocation-free.
+        mutable std::vector<float> real_scratch_;
+        mutable std::vector<float> imag_scratch_;
     };
 }

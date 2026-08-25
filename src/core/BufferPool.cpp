@@ -50,4 +50,9 @@ namespace SushiDSP
         const std::size_t slot   = offset / block_size_;
         slot_live_[slot] = false;
     }
+
+    std::uint32_t BufferPool::capacity() const
+    {
+        return static_cast<std::uint32_t>(slot_live_.size());
+    }
 }

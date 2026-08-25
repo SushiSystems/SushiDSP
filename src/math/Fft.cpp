@@ -119,6 +119,8 @@ namespace SushiDSP
         , bit_reversal_(size)
         , twiddle_real_(size / 2u)
         , twiddle_imag_(size / 2u)
+        , real_scratch_(size)
+        , imag_scratch_(size)
     {
         assert(size > 0 && (size & (size - 1)) == 0 && "Fft size must be a power of two");
         const std::uint32_t bit_count = log2_of_power_of_two(size);
@@ -146,12 +148,15 @@ namespace SushiDSP
 
     void Fft::inverse(const float* real_in, const float* imag_in, float* time_domain_out) const
     {
-        std::vector<float> real_scratch(real_in, real_in + size_);
-        std::vector<float> imag_scratch(imag_in, imag_in + size_);
-        transform(real_scratch.data(), imag_scratch.data(), size_, bit_reversal_, twiddle_real_, twiddle_imag_, true);
         for (std::uint32_t i = 0; i < size_; ++i)
         {
-            time_domain_out[i] = real_scratch[i];
+            real_scratch_[i] = real_in[i];
+            imag_scratch_[i] = imag_in[i];
+        }
+        transform(real_scratch_.data(), imag_scratch_.data(), size_, bit_reversal_, twiddle_real_, twiddle_imag_, true);
+        for (std::uint32_t i = 0; i < size_; ++i)
+        {
+            time_domain_out[i] = real_scratch_[i];
         }
     }
 
