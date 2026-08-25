@@ -230,13 +230,17 @@ TEST(Unit_Dsp, RigGraphDisconnectRemovesOnlyThatEdge)
     graph.disconnect(source, gain_a);
 
     // gain_a now has no upstream edge; RigGraph feeds root nodes context.inputs
-    // (nullptr here), so it must NOT receive source's output.
+    // directly, so it must NOT receive source's output. Use a real live-input
+    // buffer here (rather than nullptr) since GainNode unconditionally reads
+    // context.inputs[0] and a null root input would crash the fixture, not RigGraph.
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     graph.compile(info);
 
     std::vector<float> output(256, 0.0f);
     float* output_ptr[1] = { output.data() };
-    SushiDSP::ProcessContext context{ output_ptr, nullptr, 256, 0.0 };
+    std::vector<float> device_input(256, 1.0f);
+    const float* device_input_ptr[1] = { device_input.data() };
+    SushiDSP::ProcessContext context{ output_ptr, device_input_ptr, 256, 0.0 };
     graph.process(context);
 
     // Last node in topological order is whichever of gain_a/gain_b comes last;
