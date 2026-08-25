@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sushidsp-cli"
+version = "0.1.0"
+description = "SushiDSP developer CLI (build / test)"
+authors = [{ name = "Mustafa Garip", email = "mustafagarip@sushisystems.io" }]
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.0",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+# sushicore (shared CLI presentation layer, see D:/Projects/sushistack/sushicore)
+# is intentionally NOT listed above: it isn't published to any index, so a bare
+# "sushicore>=0.1.0" dependency can't be resolved by pip/pipx from a clean
+# environment. `pip install -e cli` expects it already installed once in the
+# same environment (`pip install -e ../../sushistack/sushicore`); `ss install-cli
+# sushidsp` injects it automatically.
+
+[project.scripts]
+sd = "sushidsp.cli:app"
+sushidsp = "sushidsp.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sushidsp*"]
+
+[tool.setuptools.package-data]
+sushidsp = ["py.typed"]

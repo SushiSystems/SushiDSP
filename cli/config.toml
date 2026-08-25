@@ -1,0 +1,17 @@
+# SushiDSP CLI configuration.
+#
+# Layering (lowest -> highest precedence):
+#   built-in defaults  ->  this file  ->  config.local.toml  ->  SD_* env vars  ->  CLI flags
+#
+# This file is committed and holds shared / portable defaults. Machine-specific
+# absolute paths (a pinned compiler, cmake, or ctest) belong in a gitignored
+# `config.local.toml` next to this file, using the SAME section layout.
+#
+# SushiDSP needs no toolchain provisioning of its own: GoogleTest and SDL2 are
+# both CMake FetchContent, and the default host compiler (MSVC on Windows via
+# the Visual Studio generator, the system compiler elsewhere) is enough. A
+# normal checkout needs no local config at all.
+
+[tool]
+# Default executable this CLI's future `sd run` targets (host app, D1+).
+target_bin = "sushidsp_host"
