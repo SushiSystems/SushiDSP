@@ -38,6 +38,16 @@ namespace SushiDSP
     /// the audio thread reads the active graph with one atomic load per callback. Retired
     /// graphs are freed only once the audio thread has provably moved past them, checked by
     /// reclaim() on the non-RT thread.
+    ///
+    /// Threading contract:
+    ///  - publish() and reclaim() must both be called from a single, consistent non-RT thread.
+    ///    If callers ever need to call either from more than one thread, they must externally
+    ///    synchronize those calls themselves - this class provides no such synchronization on
+    ///    its own.
+    ///  - acquire_for_audio_thread() must be called from a single, consistent RT (audio)
+    ///    thread. The pointer it returns is only valid until that SAME thread's NEXT call to
+    ///    acquire_for_audio_thread(); it must not be retained across calls (a subsequent
+    ///    reclaim() may free the graph it pointed at once this thread has moved past it).
     class RtGraphSlot
     {
     public:
@@ -48,17 +58,25 @@ namespace SushiDSP
         RtGraphSlot& operator=(const RtGraphSlot&) = delete;
 
         /// @brief Makes new_graph the active graph for subsequent acquire_for_audio_thread()
-        /// calls. Not real-time safe; call only off the audio thread.
+        /// calls. Not real-time safe; call only off the audio thread. Must be called from a
+        /// single, consistent non-RT thread (or externally synchronized if called from more
+        /// than one) - see the class-level threading contract.
         /// @param new_graph The fully compiled graph to publish. Must not be null.
         void publish(std::unique_ptr<RigGraph> new_graph);
 
         /// @brief Returns the current active graph and records that this generation is now in
-        /// use. Real-time safe: one atomic load, one atomic store, no allocation.
-        /// @return The active graph, or nullptr if publish() was never called.
+        /// use. Real-time safe: one atomic load, one atomic store, no allocation. Must be
+        /// called from a single, consistent audio thread - see the class-level threading
+        /// contract.
+        /// @return The active graph, or nullptr if publish() was never called. The returned
+        /// pointer is valid only until this same thread's NEXT call to
+        /// acquire_for_audio_thread(); do not retain it across calls.
         RigGraph* acquire_for_audio_thread() noexcept;
 
         /// @brief Frees every retired graph the audio thread has moved past. Not real-time
-        /// safe; call periodically off the audio thread (e.g. once per GUI frame).
+        /// safe; call periodically off the audio thread (e.g. once per GUI frame). Must be
+        /// called from the same single, consistent non-RT thread as publish() (or externally
+        /// synchronized if called from more than one) - see the class-level threading contract.
         void reclaim();
 
     private:

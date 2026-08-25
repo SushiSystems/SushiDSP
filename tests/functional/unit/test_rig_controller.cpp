@@ -21,7 +21,9 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <map>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -140,4 +142,24 @@ TEST(Unit_Dsp, RigControllerGetParameterReturnsDescriptorDefaultBeforeAnySet)
     ASSERT_NE(expected_default, 0.0f); // guard against a vacuously-true test if the default is ever 0
 
     EXPECT_FLOAT_EQ(controller.get_parameter(0, "drive"), expected_default);
+}
+
+TEST(Unit_Dsp, RigControllerLoadChainSeedsDefaultsForParametersMissingFromPreset)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+
+    // A preset that only specifies "drive", omitting "tone" and "level". Before this fix,
+    // load_chain() assigned the incoming map wholesale, so get_parameter() would return 0.0f
+    // for "tone"/"level" instead of TubeScreamer's declared defaults (0.5f/0.7f) - and a
+    // subsequent save_preset() would then permanently write 0.0 for a parameter that was
+    // never actually touched.
+    std::vector<std::string> ids{ "sushidsp.tubescreamer" };
+    std::vector<std::map<std::string, float>> params{ { { "drive", 0.9f } } };
+
+    controller.load_chain(ids, params);
+
+    EXPECT_FLOAT_EQ(controller.get_parameter(0, "drive"), 0.9f);
+    EXPECT_FLOAT_EQ(controller.get_parameter(0, "tone"), 0.5f);
+    EXPECT_FLOAT_EQ(controller.get_parameter(0, "level"), 0.7f);
 }

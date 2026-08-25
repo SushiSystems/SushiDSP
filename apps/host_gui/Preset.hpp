@@ -29,7 +29,7 @@
 
 /// @brief Writes the controller's chain (node ids in order) and every declared parameter's
 /// current value to a JSON file at path. Throws std::runtime_error if the file can't be opened.
-void save_preset(RigController& controller, const std::string& path);
+void save_preset(const RigController& controller, const std::string& path);
 
 /// @brief Reads a JSON preset from path and replaces controller's entire chain via
 /// RigController::load_chain(). Throws std::runtime_error if the file can't be opened or parsed.

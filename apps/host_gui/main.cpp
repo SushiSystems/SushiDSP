@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -40,7 +41,7 @@
 #include "Preset.hpp"
 #include "RigController.hpp"
 
-#if SUSHIDSP_HAVE_ASIO
+#if defined(SUSHIDSP_HAVE_ASIO)
 #include "SushiDSP/device/AsioAudioDevice.hpp"
 #endif
 
@@ -67,12 +68,22 @@ int main()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 
+    // rig_controller is declared (as storage) before device so that, by C++'s reverse-
+    // declaration-order destruction rule, `device` is guaranteed to be destroyed BEFORE
+    // rig_controller and the RigGraphs it owns - correct by construction rather than by relying
+    // on the explicit device->stop() call below. RigController's constructor needs `info`,
+    // which is derived from device->format(), so it cannot be constructed until after `device`
+    // exists; std::optional lets us fix the *declaration* order (and hence destruction order)
+    // independently of the *construction* order.
+    std::optional<RigController> rig_controller_storage;
+
     SushiDSP::DeviceFormat requested{ 48000.0, 256, 1, 1 };
     std::unique_ptr<SushiDSP::IAudioDevice> device = std::make_unique<SushiDSP::Sdl2AudioDevice>(requested);
     const SushiDSP::DeviceFormat actual = device->format();
 
     SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, actual.output_channels };
-    RigController rig_controller(info);
+    rig_controller_storage.emplace(info);
+    RigController& rig_controller = *rig_controller_storage;
 
     // Sdl2AudioDevice is playback-only (format().input_channels == 0) and always hands the
     // callback a nullptr inputs array - a valid IAudioDevice contract (see IAudioDevice.hpp).
@@ -84,6 +95,14 @@ int main()
 
     device->start([&rig_controller, &silence](const float* const* inputs, float* const* outputs, std::uint32_t frames)
     {
+        // Defensive bound check: `silence` is sized to actual.block_size, but nothing enforces
+        // that SDL always reports frames <= block_size. Bail out rather than reading past the
+        // end of `silence` (or writing past the end of `outputs`) - cheap, RT-thread-safe
+        // insurance (a comparison and branch, no allocation).
+        if (frames > silence.size())
+        {
+            return;
+        }
         SushiDSP::RigGraph* active = rig_controller.graph_slot().acquire_for_audio_thread();
         const float* silence_channel = silence.data();
         const float* const* effective_inputs = (inputs != nullptr) ? inputs : &silence_channel;
@@ -145,6 +164,22 @@ int main()
                     {
                         const std::size_t from = *static_cast<const std::size_t*>(payload->Data);
                         rig_controller.move(from, i);
+                        // Remap selected_slot the same way RigController::move() remaps a slot
+                        // (erase at `from`, then insert at `i`): the moved element itself lands
+                        // at `i`; everything strictly between the old and new position shifts by
+                        // one to close/open the gap; anything else is unaffected.
+                        if (selected_slot == static_cast<int>(from))
+                        {
+                            selected_slot = static_cast<int>(i);
+                        }
+                        else if (static_cast<int>(from) < selected_slot && selected_slot <= static_cast<int>(i))
+                        {
+                            --selected_slot;
+                        }
+                        else if (static_cast<int>(i) <= selected_slot && selected_slot < static_cast<int>(from))
+                        {
+                            ++selected_slot;
+                        }
                     }
                     if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
                     {
@@ -160,6 +195,10 @@ int main()
                     if (selected_slot == static_cast<int>(i))
                     {
                         selected_slot = -1;
+                    }
+                    else if (selected_slot > static_cast<int>(i))
+                    {
+                        --selected_slot;
                     }
                 }
                 ImGui::PopID();

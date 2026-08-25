@@ -94,14 +94,24 @@ else()
     message(STATUS "ASIO SDK not found at ${ASIO_SDK_DIR} (or not on Windows) - sushi_dsp_asio target skipped")
 endif()
 
-# ImGui/GLFW/nlohmann::json are fetched only when the GUI is built; CI can
-# disable this exactly like SUSHIDSP_BUILD_SDL2/SUSHIDSP_BUILD_ASIO to skip
-# the extra network fetch and build time when the GUI isn't needed.
+# nlohmann::json is a test dependency (tests/CMakeLists.txt links it and compiles
+# apps/host_gui/{RigController,Preset}.cpp unconditionally), so it is fetched regardless of
+# SUSHIDSP_BUILD_GUI - only glfw/imgui, which nothing outside the GUI needs, stay gated below.
+include(FetchContent)
+FetchContent_Declare(
+    json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.11.3
+)
+set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(json)
+
+# ImGui/GLFW are fetched only when the GUI is built; CI can disable this exactly like
+# SUSHIDSP_BUILD_SDL2/SUSHIDSP_BUILD_ASIO to skip the extra network fetch and build time when
+# the GUI isn't needed.
 option(SUSHIDSP_BUILD_GUI "Build the ImGui rig GUI (apps/host_gui)" ON)
 
 if(SUSHIDSP_BUILD_GUI)
-    include(FetchContent)
-
     FetchContent_Declare(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw.git
@@ -133,14 +143,6 @@ if(SUSHIDSP_BUILD_GUI)
         ${imgui_SOURCE_DIR}/backends
     )
     target_link_libraries(imgui PUBLIC glfw)
-
-    FetchContent_Declare(
-        json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG        v3.11.3
-    )
-    set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(json)
 
     add_subdirectory(apps/host_gui)
 endif()
