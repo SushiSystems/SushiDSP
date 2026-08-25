@@ -1,18 +1,25 @@
-// FftTest.cpp
-//
-// Copyright 2026 SushiDSP Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**************************************************************************/
+/* test_fft.cpp                                                           */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                        https://sushisystems.io                         */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the Apache License, Version 2.0 (the "License");        */
+/* you may not use this file except in compliance with the License.       */
+/* You may obtain a copy of the License at                                */
+/*                                                                        */
+/*     http://www.apache.org/licenses/LICENSE-2.0                         */
+/*                                                                        */
+/* Unless required by applicable law or agreed to in writing, software    */
+/* distributed under the License is distributed on an "AS IS" BASIS,      */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
+/* implied. See the License for the specific language governing           */
+/* permissions and limitations under the License.                         */
+/**************************************************************************/
 
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -27,7 +34,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(UnitDsp, FftOfDcSignalHasEnergyOnlyInBinZero)
+TEST(Unit_Dsp, FftOfDcSignalHasEnergyOnlyInBinZero)
 {
     constexpr std::uint32_t size = 64;
     SushiDSP::Fft fft(size);
@@ -46,7 +53,7 @@ TEST(UnitDsp, FftOfDcSignalHasEnergyOnlyInBinZero)
     }
 }
 
-TEST(UnitDsp, FftOfSingleBinSineMatchesKnownBin)
+TEST(Unit_Dsp, FftOfSingleBinSineMatchesKnownBin)
 {
     constexpr std::uint32_t size       = 64;
     constexpr std::uint32_t target_bin = 4;
@@ -68,7 +75,7 @@ TEST(UnitDsp, FftOfSingleBinSineMatchesKnownBin)
     EXPECT_NEAR(magnitude_at_target, expected_magnitude, 1e-2f);
 }
 
-TEST(UnitDsp, FftMatchesBruteForceDftAcrossSizes)
+TEST(Unit_Dsp, FftMatchesBruteForceDftAcrossSizes)
 {
     for (std::uint32_t transform_size : {1u, 2u, 8u, 256u})
     {
@@ -110,7 +117,7 @@ TEST(UnitDsp, FftMatchesBruteForceDftAcrossSizes)
     }
 }
 
-TEST(UnitDsp, ForwardThenInverseFftIsIdentity)
+TEST(Unit_Dsp, ForwardThenInverseFftIsIdentity)
 {
     constexpr std::uint32_t size = 64;
     SushiDSP::Fft fft(size);
