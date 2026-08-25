@@ -12,8 +12,14 @@
 #     so the per-sample stage calls across translation units can inline.
 #
 # Deliberately absent: -ffast-math / /fp:fast. Reassociation would move the regression
-# snapshots and make the Newton residuals depend on the compiler. FMA contraction is likewise
-# not forced (-ffp-contract stays at the compiler default); AVX2 merely makes it available.
+# snapshots and make the Newton residuals depend on the compiler.
+#
+# FMA contraction is pinned OFF in every configuration, for every compiler. Clang (and
+# clang-cl) contract a*b+c into one fused multiply-add by default and MSVC does not, and the
+# fused rounding is enough to move the Jcm800/TubeScreamer snapshots past their 1e-5
+# tolerance -- the same float path has to come out of every toolchain, or a regression
+# failure means "which compiler?" instead of "what changed?". Measured cost on Jcm800 with
+# intel/llvm clang: none outside noise.
 
 include(CheckIPOSupported)
 
@@ -28,6 +34,15 @@ endif()
 set(_sushidsp_optimized "$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>")
 
 function(sushidsp_apply_optimization_flags target)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+            target_compile_options(${target} PRIVATE /clang:-ffp-contract=off)
+        else()
+            target_compile_options(${target} PRIVATE -ffp-contract=off)
+        endif()
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(${target} PRIVATE -ffp-contract=off)
+    endif()
     if(SUSHIDSP_ENABLE_AVX2)
         if(MSVC)
             target_compile_options(${target} PRIVATE "$<${_sushidsp_optimized}:/arch:AVX2>")

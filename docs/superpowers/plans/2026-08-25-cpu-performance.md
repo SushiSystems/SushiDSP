@@ -167,3 +167,25 @@ What is left on the table, and why it was not taken:
 - **The remaining cost is structural**: six Newton stages at 8x. The next real lever is
   design-level (4x oversampling with a sharper halfband, or solving the EL34 pair as one
   2x2 system), which changes the sound and is a voicing decision, not an optimization.
+
+### Addendum: intel/llvm clang++ (workspace-detected, not pinned)
+
+`sd` now builds with the SushiStack workspace's intel/llvm clang++ when it is installed
+(search order: pinned `cxx`, workspace bundle, `clang++` on PATH, platform default). On this
+machine that alone gave, with FMA contraction pinned off for cross-compiler determinism:
+
+| Case                             | MSVC | intel/llvm clang++ | Change |
+|----------------------------------|-----:|-------------------:|-------:|
+| Jcm800 (no cabinet)              | 1780 | 1430               | -20 %  |
+| TubeScreamer                     | 577  | 546                | -5 %   |
+| Oversampler8x round trip         | 82   | 64                 | -22 %  |
+| TriodeStage (base rate)          | 30   | 27                 | -10 %  |
+| PartitionedConvolution (4096 IR) | 57   | 76                 | +33 %  |
+
+Jcm800 is now 6.9 % of one core. The convolution's FFT got slower under clang; it is 0.36 %
+of a core and left alone.
+
+Contraction had to be pinned: with clang's default `-ffp-contract=on` both regression
+snapshots and one TubeScreamer unit test failed (Jcm800 off by ~1e-4, TubeScreamer level-zero
+output 1.25e-3 against a 1e-3 bound); with `-ffp-contract=off` all 134 tests pass bit-for-bit
+against the MSVC-era snapshots. Measured cost of the pin on clang: within noise.

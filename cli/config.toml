@@ -7,10 +7,16 @@
 # absolute paths (a pinned compiler, cmake, or ctest) belong in a gitignored
 # `config.local.toml` next to this file, using the SAME section layout.
 #
-# SushiDSP needs no toolchain provisioning of its own: GoogleTest and SDL2 are
-# both CMake FetchContent, and the default host compiler (MSVC on Windows via
-# the Visual Studio generator, the system compiler elsewhere) is enough. A
-# normal checkout needs no local config at all.
+# SushiDSP pins no toolchain. `sd` looks for a C++17 compiler in this order and
+# `sd config` says which one it found: an explicit `cxx` here, the intel/llvm
+# clang++ a SushiStack workspace provisions (`ss install`), a clang++ on PATH,
+# else CMake's platform default (MSVC via the Visual Studio generator on
+# Windows, the system compiler elsewhere). A standalone checkout therefore
+# needs no local config at all; a workspace upgrades the compiler by itself.
+#
+# [tool]
+# cxx = "C:/path/to/clang++.exe"     # pin a compiler; also SD_CXX
+# generator = "Ninja"                # pin a generator; also SD_CMAKE_GENERATOR
 
 [tool]
 # Default executable this CLI's future `sd run` targets (host app, D1+).

@@ -31,9 +31,12 @@ sd build
 sd test
 ```
 
-SushiDSP needs no SushiStack-provisioned toolchain — no SYCL, no vcpkg — so it also builds
-standalone: clone it anywhere, `sd build`/`sd test` work unchanged. `ss` buys shared CLI tooling
-(§11a of the spec), not a code dependency.
+SushiDSP pins no toolchain, so it also builds standalone: clone it anywhere, `sd build`/`sd test`
+work unchanged with the platform compiler. Inside a SushiStack workspace `sd` picks up the
+intel/llvm clang++ that `ss install` provisions (then a `clang++` on PATH, then the platform
+default); `sd config` reports which one it chose and `sd env` the environment it builds in. The
+regression snapshots hold across compilers because FMA contraction is pinned off for every
+toolchain (`cmake/SushiDSPCompilerFlags.cmake`).
 
 ## 2. Before you start coding
 

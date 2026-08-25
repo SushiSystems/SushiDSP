@@ -85,6 +85,14 @@ def config():
     raise typer.Exit(diag_svc.config_show())
 
 
+@app.command("env")
+def env(
+    all: bool = typer.Option(False, "--all", "-a", help="Show every variable, not just the build-relevant ones."),
+):
+    """Print the environment the build subprocesses run with."""
+    raise typer.Exit(diag_svc.env_dump(show_all=all))
+
+
 @app.command("doxygen")
 def doxygen():
     """Generates the API reference (docs/api-site/html) from the headers."""
