@@ -124,7 +124,6 @@ namespace SushiDSP
         std::vector<float> scratch_base_;
         std::vector<float> scratch_oversampled_a_;
         std::vector<float> scratch_oversampled_b_;
-        std::vector<float> scratch_cabinet_;
     };
 
     /// @brief The JCM800's product registration entry point.
