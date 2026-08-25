@@ -50,6 +50,8 @@ add_executable(sushidsp_tests
     # used in D1.
     functional/unit/test_tube_screamer_clipping_stage.cpp
     ${CMAKE_SOURCE_DIR}/modules/tubescreamer/src/TubeScreamerClippingStage.cpp
+    functional/unit/test_tube_screamer.cpp
+    ${CMAKE_SOURCE_DIR}/modules/tubescreamer/src/TubeScreamer.cpp
 
     # --- Math ---
     functional/unit/test_biquad.cpp
