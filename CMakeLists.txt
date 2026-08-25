@@ -1,3 +1,109 @@
+﻿  cmake_minimum_required(VERSION 3.20)
+  project(SushiDSP LANGUAGES CXX)
+
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+
+  include(cmake/SushiDSPCompilerFlags.cmake)
+
+  add_library(sushi_dsp STATIC
+      src/circuits/DiodeClipperCircuit.cpp
+      src/core/BufferPool.cpp
+      src/core/RigGraph.cpp
+      src/device/AsioSampleConverter.cpp
+      src/io/WavFile.cpp
+      src/math/Fft.cpp
+      src/math/Biquad.cpp
+      src/math/Oversampler.cpp
+      src/math/PartitionedConvolution.cpp
+      src/math/Wdf.cpp
+  )
+  add_library(SushiDSP::sushi_dsp ALIAS sushi_dsp)
+  sushidsp_apply_optimization_flags(sushi_dsp)
+  target_include_directories(sushi_dsp PUBLIC
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  )
+
+  # Products. Added unconditionally: the module has no SDL2 dependency, and the
+  # test suite links it regardless of SUSHIDSP_BUILD_SDL2.
+  add_subdirectory(modules/tubescreamer)
+  add_subdirectory(modules/jcm800)
+
+  # Nothing in the test suite links SDL2, so this can be turned off to configure
+  # and run the tests without network access or an SDL2 build.
+  option(SUSHIDSP_BUILD_SDL2 "Build the SDL2 device backend and the standalone host app" ON)
+
+  if(SUSHIDSP_BUILD_SDL2)
+      include(FetchContent)
+      FetchContent_Declare(
+          SDL2
+          GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+          GIT_TAG release-2.30.0
+      )
+      set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+      set(SDL_STATIC ON CACHE BOOL "" FORCE)
+      set(SDL_TEST OFF CACHE BOOL "" FORCE)
+      FetchContent_MakeAvailable(SDL2)
+
+      add_library(sushi_dsp_sdl2 STATIC
+          src/device/Sdl2AudioDevice.cpp
+      )
+      add_library(SushiDSP::sushi_dsp_sdl2 ALIAS sushi_dsp_sdl2)
+      sushidsp_apply_optimization_flags(sushi_dsp_sdl2)
+      target_link_libraries(sushi_dsp_sdl2 PUBLIC SushiDSP::sushi_dsp PRIVATE SDL2-static)
+      target_include_directories(sushi_dsp_sdl2 PUBLIC
+          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      )
+
+      add_subdirectory(apps/host)
+  endif()
+
+  add_subdirectory(bench)
+
+  # The Steinberg ASIO SDK is proprietary (accept-the-license, dual Steinberg/GPLv3) and cannot
+  # be committed or fetched automatically - each developer vendors it themselves at
+  # third_party/asio/ (gitignored). Absent SDK or non-Windows platform: this target is silently
+  # skipped, exactly like a missing SUSHIDSP_BUILD_SDL2 dependency - CI never sets
+  # ASIO_SDK_DIR, so it is always skipped there, which is correct (Windows-only, no SDK in CI).
+  set(ASIO_SDK_DIR "${CMAKE_SOURCE_DIR}/third_party/asio" CACHE PATH "Path to the Steinberg ASIO SDK")
+  option(SUSHIDSP_BUILD_ASIO "Build the ASIO device backend" ON)
+
+  if(SUSHIDSP_BUILD_ASIO AND WIN32 AND EXISTS "${ASIO_SDK_DIR}/common/asio.h")
+      # Only the SDK's host-side files belong here: common/asiodrvr.cpp, common/combase.cpp,
+      # common/register.cpp and common/dllentry.cpp implement the *driver* side of ASIO (they
+      # define DllMain and COM class-factory plumbing), and host/ASIOConvertSamples.cpp is
+      # superseded by SushiDSP's own AsioSampleConverter.
+      add_library(sushi_dsp_asio STATIC
+          src/device/AsioAudioDevice.cpp
+          ${ASIO_SDK_DIR}/common/asio.cpp
+          ${ASIO_SDK_DIR}/host/asiodrivers.cpp
+          ${ASIO_SDK_DIR}/host/pc/asiolist.cpp
+      )
+      add_library(SushiDSP::sushi_dsp_asio ALIAS sushi_dsp_asio)
+      sushidsp_apply_optimization_flags(sushi_dsp_asio)
+      target_include_directories(sushi_dsp_asio PUBLIC
+          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      )
+      target_include_directories(sushi_dsp_asio PRIVATE
+          ${ASIO_SDK_DIR}/common ${ASIO_SDK_DIR}/host ${ASIO_SDK_DIR}/host/pc)
+      target_link_libraries(sushi_dsp_asio PUBLIC SushiDSP::sushi_dsp PRIVATE ole32 oleaut32)
+      message(STATUS "ASIO SDK found at ${ASIO_SDK_DIR} - sushi_dsp_asio target enabled")
+      add_subdirectory(apps/host_asio)
+  else()
+      message(STATUS "ASIO SDK not found at ${ASIO_SDK_DIR} (or not on Windows) - sushi_dsp_asio target skipped")
+  endif()
+
+  enable_testing()
+  add_subdirectory(tests)
+  '@ | Set-Content -Encoding utf8 D:\Projects\sushidsp\CMakeLists.txt
+
+  git add CMakeLists.txt
+  git status
+  PS_SCRIPT)
+Ana checkout'ta (D:\Projects\sushidsp) su PowerShell komutunu calistirin - CMakeLists.txt'i tamamen dogru, cakismasiz icerikle yeniden yazar:
+
+@'
 cmake_minimum_required(VERSION 3.20)
 project(SushiDSP LANGUAGES CXX)
 
@@ -11,6 +117,7 @@ add_library(sushi_dsp STATIC
     src/circuits/DiodeClipperCircuit.cpp
     src/core/BufferPool.cpp
     src/core/RigGraph.cpp
+    src/device/AsioSampleConverter.cpp
     src/io/WavFile.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
@@ -59,6 +166,35 @@ if(SUSHIDSP_BUILD_SDL2)
 endif()
 
 add_subdirectory(bench)
+
+# The Steinberg ASIO SDK is proprietary (accept-the-license, dual Steinberg/GPLv3) and cannot
+# be committed or fetched automatically - each developer vendors it themselves at
+# third_party/asio/ (gitignored). Absent SDK or non-Windows platform: this target is silently
+# skipped, exactly like a missing SUSHIDSP_BUILD_SDL2 dependency - CI never sets
+# ASIO_SDK_DIR, so it is always skipped there, which is correct (Windows-only, no SDK in CI).
+set(ASIO_SDK_DIR "${CMAKE_SOURCE_DIR}/third_party/asio" CACHE PATH "Path to the Steinberg ASIO SDK")
+option(SUSHIDSP_BUILD_ASIO "Build the ASIO device backend" ON)
+
+if(SUSHIDSP_BUILD_ASIO AND WIN32 AND
+    add_library(sushi_dsp_asio STATIC
+        src/device/AsioAudioDevice.cpp
+        ${ASIO_SDK_DIR}/common/asio.cpp
+        ${ASIO_SDK_DIR}/host/asiodrivers.cpp
+        ${ASIO_SDK_DIR}/host/pc/asiolist.cpp
+    )
+    add_library(SushiDSP::sushi_dsp_asio ALIAS sushi_dsp_asio)
+    sushidsp_apply_optimization_flags(sushi_dsp_asio)
+    target_include_directories(sushi_dsp_asio PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    )
+    target_include_directories(sushi_dsp_asio PRIVATE
+        ${ASIO_SDK_DIR}/common ${ASIO_SDK_DIR}/host ${ASIO_SDK_DIR}/host/pc)
+    target_link_libraries(sushi_dsp_asio PUBLIC SushiDSP::sushi_dsp PRIVATE ole32 oleaut32)
+    message(STATUS "ASIO SDK found at ${ASIO_SDK_DIR} - sushi_dsp_asio target enabled")
+    add_subdirectory(apps/host_asio)
+else()
+    message(STATUS "ASIO SDK not found at ${ASIO_SDK_DIR} (or not on Windows) - sushi_dsp_asio target skipped")
+endif()
 
 enable_testing()
 add_subdirectory(tests)

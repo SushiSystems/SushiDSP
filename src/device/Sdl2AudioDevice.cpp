@@ -47,7 +47,7 @@ namespace SushiDSP
         SDL_zero(desired);
         desired.freq = static_cast<int>(requested_format.sample_rate);
         desired.format = AUDIO_F32SYS;
-        desired.channels = static_cast<Uint8>(requested_format.channels);
+        desired.channels = static_cast<Uint8>(requested_format.output_channels);
         desired.samples = static_cast<Uint16>(requested_format.block_size);
         desired.callback = &Sdl2AudioDevice::sdl_callback;
         desired.userdata = this;
@@ -62,7 +62,8 @@ namespace SushiDSP
 
         format_.sample_rate = obtained.freq;
         format_.block_size = obtained.samples;
-        format_.channels = obtained.channels;
+        format_.input_channels = 0;
+        format_.output_channels = obtained.channels;
     }
 
     Sdl2AudioDevice::~Sdl2AudioDevice()
@@ -103,7 +104,7 @@ namespace SushiDSP
         DenormalGuard denormal_guard;
         auto* self = static_cast<Sdl2AudioDevice*>(userdata);
         auto* samples = reinterpret_cast<float*>(stream);
-        const std::uint32_t frames = static_cast<std::uint32_t>(length_bytes) / (self->format_.channels * sizeof(float));
+        const std::uint32_t frames = static_cast<std::uint32_t>(length_bytes) / (self->format_.output_channels * sizeof(float));
 
         if (!self->callback_)
         {
@@ -111,10 +112,10 @@ namespace SushiDSP
             return;
         }
 
-        if (self->format_.channels == 1)
+        if (self->format_.output_channels == 1)
         {
             float* channel_pointers[1] = { samples };
-            self->callback_(channel_pointers, frames);
+            self->callback_(nullptr, channel_pointers, frames);
             return;
         }
 

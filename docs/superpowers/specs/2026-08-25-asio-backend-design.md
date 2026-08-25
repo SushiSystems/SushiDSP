@@ -52,9 +52,16 @@ using DeviceCallback = std::function<void(const float* const* inputs, float* con
 device such as `Sdl2AudioDevice`. `input_channels == 0` signals "this device has no capture
 path" to callers.
 
-`ProcessContext` (`IAudioNode.hpp`) already has both `inputs` and `outputs`, so `RigGraph`
-and every `IAudioNode` need no change — the device callback simply forwards its own
-`inputs`/`outputs`/`frames` straight into a `ProcessContext` each block.
+`ProcessContext` (`IAudioNode.hpp`) already has both `inputs` and `outputs`, so every
+`IAudioNode` needs no change and the device callback simply forwards its own
+`inputs`/`outputs`/`frames` straight into a `ProcessContext` each block. `RigGraph` itself
+did need a fix, found while writing the implementation plan: it only ever gave a node its own
+`context.inputs` when that node had an upstream edge, so a root node (no upstream edge — e.g.
+a `TubeScreamer` placed first in the chain with no synthetic source ahead of it) always
+received `nullptr`, regardless of what the graph's own caller passed as its live input. Fixed
+as Task 1 of the implementation plan: a root node now receives the graph's own
+`context.inputs` (when non-null) instead of always `nullptr`, which is what lets
+`apps/host_asio` chain live device input straight into `TubeScreamer` with no source node.
 
 `Sdl2AudioDevice` is updated only enough to satisfy the new signature (constructs with
 `input_channels = 0`, passes `nullptr` for `inputs`). It stays output-only; SDL2 capture
@@ -130,7 +137,7 @@ if(SUSHIDSP_BUILD_ASIO AND WIN32 AND EXISTS "${ASIO_SDK_DIR}/common/asio.h")
     target_include_directories(sushi_dsp_asio PRIVATE
         ${ASIO_SDK_DIR}/common ${ASIO_SDK_DIR}/host ${ASIO_SDK_DIR}/host/pc)
     target_link_libraries(sushi_dsp_asio PUBLIC SushiDSP::sushi_dsp PRIVATE ole32 oleaut32)
-    add_library(SushiDSP::asio ALIAS sushi_dsp_asio)
+    add_library(SushiDSP::sushi_dsp_asio ALIAS sushi_dsp_asio)
 else()
     message(STATUS "ASIO SDK not found at ${ASIO_SDK_DIR} (or not on Windows) - sushi_dsp_asio target skipped")
 endif()
