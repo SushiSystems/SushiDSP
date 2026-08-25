@@ -71,9 +71,11 @@ TEST(Regression_Dsp, TubeScreamerFixedInputProducesStableSnapshot)
     // absorb float reassociation within one toolchain. If a second compiler/platform is ever
     // added to CI and these drift by more than that, relax the tolerance rather than re-baking
     // the numbers — a re-bake would silently accept whatever the new code produces.
-    EXPECT_NEAR(last_block[0],   -0.0687865838f, 1e-5f);
-    EXPECT_NEAR(last_block[64],   0.0421370007f, 1e-5f);
-    EXPECT_NEAR(last_block[128],  0.0500065237f, 1e-5f);
-    EXPECT_NEAR(last_block[192], -0.00385547732f, 1e-5f);
-    EXPECT_NEAR(last_block[255], -0.0584016219f, 1e-5f);
+    // Re-captured after fixing kMinFeedbackResistance/kMaxFeedbackResistance from a
+    // 1000x-too-small value.
+    EXPECT_NEAR(last_block[0],   -0.0688199401f, 1e-5f);
+    EXPECT_NEAR(last_block[64],   0.0454455949f, 1e-5f);
+    EXPECT_NEAR(last_block[128],  0.0500506572f, 1e-5f);
+    EXPECT_NEAR(last_block[192], -0.00388173456f, 1e-5f);
+    EXPECT_NEAR(last_block[255], -0.0584274791f, 1e-5f);
 }

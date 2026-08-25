@@ -71,8 +71,8 @@ namespace SushiDSP
 
         // Public so the free function feedback_resistance_for_drive() in TubeScreamer.cpp's
         // anonymous namespace can reference them without befriending the class.
-        static constexpr float kMinFeedbackResistance = 51.0f;
-        static constexpr float kMaxFeedbackResistance = 500051.0f;
+        static constexpr float kMinFeedbackResistance = 51000.0f;
+        static constexpr float kMaxFeedbackResistance = 551000.0f;
 
     private:
         double sample_rate_ = 48000.0;
