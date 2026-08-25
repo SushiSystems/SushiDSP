@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <utility>
 
 namespace SushiDSP
@@ -338,6 +339,27 @@ namespace SushiDSP
         tone_stack_.set_treble(treble_normalized_);
     }
     void Jcm800::set_presence(float normalized) { presence_target_ = std::clamp(normalized, 0.0f, 1.0f); }
+
+    float Jcm800::get_parameter(const char* id) const
+    {
+        if (std::strcmp(id, "preamp") == 0) return preamp_target_;
+        if (std::strcmp(id, "master") == 0) return master_target_;
+        if (std::strcmp(id, "bass") == 0) return bass_normalized_;
+        if (std::strcmp(id, "middle") == 0) return middle_normalized_;
+        if (std::strcmp(id, "treble") == 0) return treble_normalized_;
+        if (std::strcmp(id, "presence") == 0) return presence_target_;
+        return 0.0f;
+    }
+
+    void Jcm800::set_parameter(const char* id, float value)
+    {
+        if (std::strcmp(id, "preamp") == 0) { set_preamp(value); return; }
+        if (std::strcmp(id, "master") == 0) { set_master(value); return; }
+        if (std::strcmp(id, "bass") == 0) { set_bass(value); return; }
+        if (std::strcmp(id, "middle") == 0) { set_middle(value); return; }
+        if (std::strcmp(id, "treble") == 0) { set_treble(value); return; }
+        if (std::strcmp(id, "presence") == 0) { set_presence(value); return; }
+    }
 
     namespace
     {

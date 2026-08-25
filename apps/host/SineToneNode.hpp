@@ -44,6 +44,9 @@ namespace SushiDSP
 
         void reset() override;
 
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+
     private:
         float  frequency_hz_;
         double sample_rate_ = 48000.0;

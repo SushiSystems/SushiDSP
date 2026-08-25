@@ -23,6 +23,8 @@
 
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
+#include <cstring>
+
 namespace SushiDSP
 {
     namespace
@@ -128,6 +130,21 @@ namespace SushiDSP
     void TubeScreamer::set_drive(float normalized) { drive_target_ = normalized; }
     void TubeScreamer::set_tone(float normalized) { tone_target_ = normalized; }
     void TubeScreamer::set_level(float normalized) { level_target_ = normalized; }
+
+    float TubeScreamer::get_parameter(const char* id) const
+    {
+        if (std::strcmp(id, "drive") == 0) return drive_target_;
+        if (std::strcmp(id, "tone") == 0) return tone_target_;
+        if (std::strcmp(id, "level") == 0) return level_target_;
+        return 0.0f;
+    }
+
+    void TubeScreamer::set_parameter(const char* id, float value)
+    {
+        if (std::strcmp(id, "drive") == 0) { set_drive(value); return; }
+        if (std::strcmp(id, "tone") == 0) { set_tone(value); return; }
+        if (std::strcmp(id, "level") == 0) { set_level(value); return; }
+    }
 
     namespace
     {
