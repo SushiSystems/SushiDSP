@@ -227,9 +227,9 @@ TEST(Unit_Dsp, RigGraphDisconnectRemovesOnlyThatEdge)
     auto gain_b = graph.add_node(std::make_unique<GainNode>(3.0f));
     graph.connect(source, gain_a);
     graph.connect(source, gain_b);
-    graph.disconnect(source, gain_a);
+    graph.disconnect(source, gain_b);
 
-    // gain_a now has no upstream edge; RigGraph feeds root nodes context.inputs
+    // gain_b now has no upstream edge; RigGraph feeds root nodes context.inputs
     // directly, so it must NOT receive source's output. Use a real live-input
     // buffer here (rather than nullptr) since GainNode unconditionally reads
     // context.inputs[0] and a null root input would crash the fixture, not RigGraph.
@@ -243,7 +243,15 @@ TEST(Unit_Dsp, RigGraphDisconnectRemovesOnlyThatEdge)
     SushiDSP::ProcessContext context{ output_ptr, device_input_ptr, 256, 0.0 };
     graph.process(context);
 
-    // Last node in topological order is whichever of gain_a/gain_b comes last;
-    // both must not crash, and the graph must still process end-to-end.
-    SUCCEED();
+    // gain_b lost its edge from source, so it becomes a root fed by device_input
+    // (1.0) directly; with the source->gain_a edge intact, gain_a still becomes
+    // last in topological order (unblocked only once source is processed) and is
+    // what gets copied to the graph's output. Its value, 8.0 (source's 4.0 *
+    // gain_a's gain of 2.0), only comes out right if BOTH held: disconnect()
+    // actually removed source->gain_b (else gain_a would still be sandwiched
+    // between source and gain_b in a different topological order, and the last
+    // node copied to output would be gain_b at 4.0*3.0=12.0), and the untouched
+    // source->gain_a edge survived (else gain_a would be a root fed by
+    // device_input directly, giving 1.0*2.0=2.0 instead of 8.0).
+    EXPECT_FLOAT_EQ(output[0], 8.0f);
 }
