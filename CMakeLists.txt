@@ -55,5 +55,36 @@ if(SUSHIDSP_BUILD_SDL2)
     add_subdirectory(apps/host)
 endif()
 
+# The Steinberg ASIO SDK is proprietary (accept-the-license, dual Steinberg/GPLv3) and cannot
+# be committed or fetched automatically - each developer vendors it themselves at
+# third_party/asio/ (gitignored). Absent SDK or non-Windows platform: this target is silently
+# skipped, exactly like a missing SUSHIDSP_BUILD_SDL2 dependency - CI never sets
+# ASIO_SDK_DIR, so it is always skipped there, which is correct (Windows-only, no SDK in CI).
+set(ASIO_SDK_DIR "${CMAKE_SOURCE_DIR}/third_party/asio" CACHE PATH "Path to the Steinberg ASIO SDK")
+option(SUSHIDSP_BUILD_ASIO "Build the ASIO device backend" ON)
+
+if(SUSHIDSP_BUILD_ASIO AND WIN32 AND EXISTS "${ASIO_SDK_DIR}/common/asio.h")
+    # Only the SDK's host-side files belong here: common/asiodrvr.cpp, common/combase.cpp,
+    # common/register.cpp and common/dllentry.cpp implement the *driver* side of ASIO (they
+    # define DllMain and COM class-factory plumbing), and host/ASIOConvertSamples.cpp is
+    # superseded by SushiDSP's own AsioSampleConverter.
+    add_library(sushi_dsp_asio STATIC
+        src/device/AsioAudioDevice.cpp
+        ${ASIO_SDK_DIR}/common/asio.cpp
+        ${ASIO_SDK_DIR}/host/asiodrivers.cpp
+        ${ASIO_SDK_DIR}/host/pc/asiolist.cpp
+    )
+    add_library(SushiDSP::sushi_dsp_asio ALIAS sushi_dsp_asio)
+    target_include_directories(sushi_dsp_asio PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    )
+    target_include_directories(sushi_dsp_asio PRIVATE
+        ${ASIO_SDK_DIR}/common ${ASIO_SDK_DIR}/host ${ASIO_SDK_DIR}/host/pc)
+    target_link_libraries(sushi_dsp_asio PUBLIC SushiDSP::sushi_dsp PRIVATE ole32 oleaut32)
+    message(STATUS "ASIO SDK found at ${ASIO_SDK_DIR} - sushi_dsp_asio target enabled")
+else()
+    message(STATUS "ASIO SDK not found at ${ASIO_SDK_DIR} (or not on Windows) - sushi_dsp_asio target skipped")
+endif()
+
 enable_testing()
 add_subdirectory(tests)
