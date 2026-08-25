@@ -22,6 +22,7 @@
 /**************************************************************************/
 
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -36,24 +37,11 @@
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 
+#include "RigController.hpp"
+
 #if SUSHIDSP_HAVE_ASIO
 #include "SushiDSP/device/AsioAudioDevice.hpp"
 #endif
-
-namespace
-{
-    /// @brief Builds a one-node starter rig (TubeScreamer only) fully compiled and ready to
-    /// hand to RtGraphSlot::publish(). Task 6 replaces the hardcoded catalog id with whatever
-    /// the rack strip actually contains.
-    std::unique_ptr<SushiDSP::RigGraph> build_starter_rig(const SushiDSP::PrepareInfo& info)
-    {
-        auto graph = std::make_unique<SushiDSP::RigGraph>(info.max_block, 4);
-        auto node = SushiDSP::make_node("sushidsp.tubescreamer", info);
-        graph->add_node(std::move(node));
-        graph->compile(info);
-        return graph;
-    }
-}
 
 int main()
 {
@@ -82,9 +70,8 @@ int main()
     std::unique_ptr<SushiDSP::IAudioDevice> device = std::make_unique<SushiDSP::Sdl2AudioDevice>(requested);
     const SushiDSP::DeviceFormat actual = device->format();
 
-    SushiDSP::RtGraphSlot graph_slot;
     SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, actual.output_channels };
-    graph_slot.publish(build_starter_rig(info));
+    RigController rig_controller(info);
 
     // Sdl2AudioDevice is playback-only (format().input_channels == 0) and always hands the
     // callback a nullptr inputs array - a valid IAudioDevice contract (see IAudioDevice.hpp).
@@ -94,9 +81,9 @@ int main()
     // feeding it in place of a missing capture device stays allocation-free and RT-safe.
     std::vector<float> silence(actual.block_size, 0.0f);
 
-    device->start([&graph_slot, &silence](const float* const* inputs, float* const* outputs, std::uint32_t frames)
+    device->start([&rig_controller, &silence](const float* const* inputs, float* const* outputs, std::uint32_t frames)
     {
-        SushiDSP::RigGraph* active = graph_slot.acquire_for_audio_thread();
+        SushiDSP::RigGraph* active = rig_controller.graph_slot().acquire_for_audio_thread();
         const float* silence_channel = silence.data();
         const float* const* effective_inputs = (inputs != nullptr) ? inputs : &silence_channel;
         SushiDSP::ProcessContext context{ outputs, effective_inputs, frames, 0.0 };
@@ -106,33 +93,122 @@ int main()
         }
     });
 
-    // Proves RtGraphSlot's swap path, not just its initial publish(): a few seconds in, build a
-    // second independently-compiled one-node graph and publish() it once. The audio thread picks
-    // it up via acquire_for_audio_thread() on its very next block with no locking and no
-    // glitch; the old graph is freed on this (non-RT) thread only after reclaim() confirms the
-    // audio thread has moved off it.
-    bool swapped = false;
-    constexpr double kSwapAfterSeconds = 3.0;
-
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        graph_slot.reclaim();
-
-        if (!swapped && ImGui::GetTime() >= kSwapAfterSeconds)
-        {
-            graph_slot.publish(build_starter_rig(info));
-            swapped = true;
-            std::fprintf(stdout, "Swapped to second graph\n");
-            std::fflush(stdout);
-        }
+        rig_controller.graph_slot().reclaim();
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
         ImGui::Begin("SushiDSP Rig");
-        ImGui::Text("Skeleton window - rack strip and gear panel land in Task 6.");
+
+        ImGui::Text("Rack");
+        ImGui::Separator();
+        {
+            const auto ids = rig_controller.chain_ids();
+            static int selected_slot = -1;
+            for (std::size_t i = 0; i < ids.size(); ++i)
+            {
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::Selectable(ids[i].c_str(), selected_slot == static_cast<int>(i), 0, ImVec2(150, 0)))
+                {
+                    selected_slot = static_cast<int>(i);
+                }
+                if (ImGui::BeginDragDropSource())
+                {
+                    ImGui::SetDragDropPayload("RACK_SLOT_INDEX", &i, sizeof(std::size_t));
+                    ImGui::Text("%s", ids[i].c_str());
+                    ImGui::EndDragDropSource();
+                }
+                if (ImGui::BeginDragDropTarget())
+                {
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RACK_SLOT_INDEX"))
+                    {
+                        const std::size_t from = *static_cast<const std::size_t*>(payload->Data);
+                        rig_controller.move(from, i);
+                    }
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
+                    {
+                        const char* descriptor_id = static_cast<const char*>(payload->Data);
+                        rig_controller.insert(i, std::string(descriptor_id));
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("x"))
+                {
+                    rig_controller.remove(i);
+                    if (selected_slot == static_cast<int>(i))
+                    {
+                        selected_slot = -1;
+                    }
+                }
+                ImGui::PopID();
+            }
+
+            // A drop target at the end of the list, for appending.
+            ImGui::Dummy(ImVec2(150, 20));
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
+                {
+                    const char* descriptor_id = static_cast<const char*>(payload->Data);
+                    rig_controller.append(std::string(descriptor_id));
+                }
+                ImGui::EndDragDropTarget();
+            }
+
+            ImGui::Separator();
+            ImGui::Text("Parameters");
+            if (selected_slot >= 0 && selected_slot < static_cast<int>(ids.size()))
+            {
+                SushiDSP::RigGraph* active = rig_controller.active_graph();
+                if (active != nullptr)
+                {
+                    SushiDSP::IAudioNode* node = active->node(static_cast<SushiDSP::NodeHandle>(selected_slot));
+                    for (const auto& entry : SushiDSP::node_registry())
+                    {
+                        if (ids[static_cast<std::size_t>(selected_slot)] == entry.descriptor->id)
+                        {
+                            for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
+                            {
+                                const SushiDSP::ParameterDescriptor& param = entry.descriptor->parameters[p];
+                                float value = node != nullptr ? node->get_parameter(param.id) : param.default_value;
+                                if (ImGui::SliderFloat(param.label, &value, param.min, param.max))
+                                {
+                                    rig_controller.set_parameter(static_cast<std::size_t>(selected_slot), param.id, value);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Gear");
+        {
+            const char* current_category = nullptr;
+            for (const auto& entry : SushiDSP::node_registry())
+            {
+                if (current_category == nullptr || std::strcmp(current_category, entry.category.name) != 0)
+                {
+                    current_category = entry.category.name;
+                    ImGui::Text("%s", current_category);
+                }
+                ImGui::Button(entry.descriptor->name);
+                if (ImGui::BeginDragDropSource())
+                {
+                    ImGui::SetDragDropPayload("GEAR_DESCRIPTOR_ID", entry.descriptor->id, std::strlen(entry.descriptor->id) + 1);
+                    ImGui::Text("%s", entry.descriptor->name);
+                    ImGui::EndDragDropSource();
+                }
+            }
+        }
+
         ImGui::End();
 
         ImGui::Render();
