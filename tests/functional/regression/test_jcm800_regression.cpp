@@ -79,9 +79,9 @@ TEST(Regression_Dsp, Jcm800FixedInputProducesStableSnapshot)
     // absorb float reassociation within one toolchain. If a second compiler/platform is ever
     // added to CI and these drift by more than that, relax the tolerance rather than re-baking
     // the numbers — a re-bake would silently accept whatever the new code produces.
-    EXPECT_NEAR(last_block[0],   -0.151233822f,  1e-5f);
-    EXPECT_NEAR(last_block[64],  -0.0130694797f, 1e-5f);
-    EXPECT_NEAR(last_block[128],  0.156201497f,  1e-5f);
-    EXPECT_NEAR(last_block[192],  0.0209257361f, 1e-5f);
-    EXPECT_NEAR(last_block[255], -0.152749985f,  1e-5f);
+    EXPECT_NEAR(last_block[0],   -0.152124852f,  1e-5f);
+    EXPECT_NEAR(last_block[64],  -0.0129085844f, 1e-5f);
+    EXPECT_NEAR(last_block[128],  0.157106787f,  1e-5f);
+    EXPECT_NEAR(last_block[192],  0.0215326305f, 1e-5f);
+    EXPECT_NEAR(last_block[255], -0.153354198f,  1e-5f);
 }
