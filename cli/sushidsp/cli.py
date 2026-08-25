@@ -63,3 +63,9 @@ def test(
 ):
     """Builds (if needed) and runs ctest, optionally filtered by --suite."""
     raise typer.Exit(project_svc.test(type, suite, clean=clean))
+
+
+@app.command("doxygen")
+def doxygen():
+    """Generates the API reference (docs/api-site/html) from the headers."""
+    raise typer.Exit(project_svc.doxygen())

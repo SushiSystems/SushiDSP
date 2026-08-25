@@ -134,3 +134,27 @@ def test(build_type: BuildType, suite: Suite, clean: bool = False) -> int:
         cmd += ["-L", label_regex]
 
     return _run(cmd, root)
+
+
+def doxygen() -> int:
+    """Generates the API reference from the headers via the repo-root Doxyfile."""
+    console.header("Doxygen Generation")
+    root = find_project_root()
+    cfg = load_config()
+    doxyfile = root / "Doxyfile"
+    if not doxyfile.is_file():
+        console.error("Doxyfile not found at repo root.")
+        return 1
+
+    doxy = cfg.expand(cfg.doxygen_exe) if cfg.doxygen_exe else "doxygen"
+    if _resolve_exe(doxy) == doxy and not Path(doxy).is_file():
+        console.error(
+            "Doxygen is not installed or not on PATH.\n"
+            "  - Windows: winget install DimitriVanHeesch.Doxygen\n"
+            "  - Linux:   apt-get install -y doxygen graphviz\n"
+            "  - macOS:   brew install doxygen graphviz\n"
+            "  - or set doxygen_exe in cli/config.local.toml to an existing doxygen binary.")
+        return 1
+
+    (root / "docs").mkdir(exist_ok=True)
+    return _run([doxy, "Doxyfile"], root)
