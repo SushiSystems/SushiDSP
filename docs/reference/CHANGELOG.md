@@ -42,7 +42,9 @@ Infrastructure only: the solver and the device models exist, and **no product mo
     steps back to sample 0 once per repetition, driving the grid into conduction at a
     discontinuity) — 0 non-converged in 450 560, **0.0000 %**. With the three-state netlist this
     case missed the target at 219 in 450 560 (**0.0486 %**, one per repetition); the interelectrode
-    capacitances damp the buffer restart and close the miss that was previously handed to D6c.
+    capacitances damp the buffer restart; on this one stimulus the count is now zero, so the miss
+    previously handed to D6c is closed as measured — a zero on one stimulus is an upper bound, not a
+    guarantee, and the counter stays printed so D6c can re-check on its own material.
 - The LTspice null and AC-sweep cases against `jcm_v1a` are written and **skip**, because the
   reference CSVs do not exist yet — LTspice is a user-side install. Generate with
   `python tools/spice/export.py --block jcm_v1a` and they start asserting with no code change.
@@ -78,7 +80,7 @@ Infrastructure only: the solver and the device models exist, and **no product mo
   One run quoted throughout. The plan's binding budget line is "2-nonlinearity / 4-state at 8×,
   0.12 ms"; the block is now seven states because the reference topology has the triode's
   interelectrode capacitances, and the row is renamed to match. The same case measured 0.873 ms at
-  four states (spread 0.859–0.890 ms over eight release runs), so the four extra states cost about
+  four states (spread 0.859–0.890 ms over eight release runs), so the three extra states cost about
   10 %. The original spec target is kept as the number of record and this is the deviation from it.
 
   **The 0.12 ms budget is missed by 8.0×** and the number is reported rather than the test

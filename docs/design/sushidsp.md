@@ -276,8 +276,8 @@ and both figures matter:
 - *Looped block* — the benchmark harness replays one 256-frame buffer, so the tone steps back to
   sample 0 once per repetition: **0 in 450 560, 0.0000 %**. Before the interelectrode capacitances
   were added this case missed the target at 219 in 450 560 (0.0486 %) — one per repetition, the
-  harness's own discontinuity. The extra states damp that step, and the miss handed to D6c is
-  closed.
+  harness's own discontinuity. The extra states damp that step; on this stimulus the count is zero, so the miss handed to D6c
+  is closed as measured (one stimulus — an upper bound, not a guarantee; the counter stays printed).
 
 Both cases produced zero non-finite samples and never exceeded 4 iterations.
 
