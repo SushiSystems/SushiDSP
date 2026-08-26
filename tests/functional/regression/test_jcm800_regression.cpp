@@ -75,21 +75,29 @@ TEST(Regression_Dsp, Jcm800FixedInputProducesStableSnapshot)
     // Snapshot: these five values are this implementation's own output at these indices of the
     // 10th block, pinned here to catch future drift.
     //
-    // They were re-baked once, in D5b, and this is the reason. Before D5b the tone controls were
-    // applied to the filters the instant the setter was called while preamp and master crawled
-    // toward their targets by a fixed 10% of the remaining distance per block; the pinned numbers
-    // therefore encoded where that block-rate ramp happened to be at block 10. D5b made every
-    // control a uniformly smoothed target applied on the audio thread, which moves any output
-    // captured mid-ramp - there is no version of this test that both keeps the old numbers and
-    // exercises the new parameter path. Verified against a build of the pre-D5b implementation
-    // that the rest of the chain is untouched: with no ramp in flight the two agree, and the
-    // deltas here are the ramp alone.
+    // They have been re-baked twice in D5b, for two separate reasons.
+    //
+    // The first re-bake was the parameter slew law, and specifically the preamp's: before D5b
+    // preamp and master crawled toward their targets by a fixed 10% of the remaining distance
+    // per block, so the pinned numbers encoded where that block-rate ramp happened to be at
+    // block 10 rather than what the circuit does. (The tone controls were not the cause - they
+    // were applied to the filters the instant the setter was called, and at block 10 they were
+    // already exactly where they are now.) D5b made every control a uniformly smoothed target
+    // applied on the audio thread, which moves any output captured mid-ramp. Verified against a
+    // build of the pre-D5b implementation that the rest of the chain is untouched: with no ramp
+    // in flight the two agree, and the deltas were the ramp alone.
+    //
+    // The second re-bake is the master calibration change (spec D5b.5): kMasterUnityGain moved
+    // from 0.7 to 3.5825659 so an untouched amp lands near -6 dBFS. That constant is a plain
+    // multiplier sitting after the last nonlinearity, so every stage before it is bit-identical
+    // and each number below is exactly the old one times 3.5825659 / 0.7 - checked to better
+    // than 1e-7 relative on all five.
     //
     // The setters now run before prepare() (see above) so what is pinned no longer depends on the
     // smoothing law at all: a future change to the time constant will not move these numbers,
-    // which is what the earlier baseline could not promise. They are not derived analytically — a change to any stage (bright cap, V1a/
-    // V1b, coupling cap, tone stack, V2a, phase inverter, EL34 pair, output transformer, sag,
-    // presence, master) will move them, which is the point.
+    // which is what the earlier baseline could not promise. They are not derived analytically —
+    // a change to any stage (bright cap, V1a/V1b, coupling cap, tone stack, V2a, phase inverter,
+    // EL34 pair, output transformer, sag, presence, master) will move them, which is the point.
     //
     // No cabinet IR is loaded, deliberately: it keeps the snapshot independent of any file on
     // disk, and it also keeps the pinned numbers independent of PartitionedConvolution's lack of
@@ -99,9 +107,9 @@ TEST(Regression_Dsp, Jcm800FixedInputProducesStableSnapshot)
     // absorb float reassociation within one toolchain. If a second compiler/platform is ever
     // added to CI and these drift by more than that, relax the tolerance rather than re-baking
     // the numbers — a re-bake would silently accept whatever the new code produces.
-    EXPECT_NEAR(last_block[0],   -0.152692571f,  1e-5f);
-    EXPECT_NEAR(last_block[64],  -0.0171861369f, 1e-5f);
-    EXPECT_NEAR(last_block[128],  0.159566551f,  1e-5f);
-    EXPECT_NEAR(last_block[192],  0.0254031960f, 1e-5f);
-    EXPECT_NEAR(last_block[255], -0.154103413f,  1e-5f);
+    EXPECT_NEAR(last_block[0],   -0.781473160f,  1e-5f);
+    EXPECT_NEAR(last_block[64],  -0.0879578069f, 1e-5f);
+    EXPECT_NEAR(last_block[128],  0.816653788f,  1e-5f);
+    EXPECT_NEAR(last_block[192],  0.130012318f,  1e-5f);
+    EXPECT_NEAR(last_block[255], -0.788693726f,  1e-5f);
 }

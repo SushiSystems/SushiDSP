@@ -99,6 +99,13 @@ namespace SushiDSP
         /// @param normalized Preamp amount in [0, 1]; smoothed toward on the audio thread.
         void set_preamp(float normalized);
 
+        /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
+        /// Calibrated in D5b so an untouched amp turns a -12 dBFS low-E sine into roughly
+        /// -6 dBFS out. It multiplies the signal after the last nonlinearity, so it scales the
+        /// output and nothing else; with the Tube Screamer's kLevelUnityGain it is the only
+        /// tone-affecting number this phase changes.
+        static constexpr float kMasterUnityGain = 3.5825659f;
+
         /// @brief Sets the master volume.
         /// @param decibels Master level in [-60, +12] dB; 0 dB is the amp's reference loudness.
         void set_master(float decibels);

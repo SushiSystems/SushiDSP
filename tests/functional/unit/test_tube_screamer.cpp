@@ -457,3 +457,41 @@ TEST(Unit_Dsp, TubeScreamerUnknownParameterIsSafeNoOp)
     node.set_parameter("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
+
+TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelveDbfsInput)
+{
+    // At default drive the pedal is close to unity at 82 Hz, so the shipped calibration leaves a
+    // -12 dBFS low-E sine within a couple of dB of where it came in.
+    SushiDSP::TubeScreamer node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    std::vector<float> input(256, 0.0f);
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    float peak = 0.0f;
+    for (int block = 0; block < 188; ++block)
+    {
+        for (int i = 0; i < 256; ++i)
+        {
+            const float sample_index = static_cast<float>(block * 256 + i);
+            input[static_cast<std::size_t>(i)] =
+                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 82.0f * sample_index / 48000.0f);
+        }
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+
+        if (block > 20)
+        {
+            for (float sample : output)
+            {
+                peak = std::max(peak, std::fabs(sample));
+            }
+        }
+    }
+
+    const float peak_decibels = 20.0f * std::log10(peak);
+    EXPECT_GT(peak_decibels, -14.0f);
+    EXPECT_LT(peak_decibels, -10.0f);
+}
