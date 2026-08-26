@@ -223,6 +223,10 @@ namespace
         }
 
         /// @brief Clears the circuit state and re-settles the bias point.
+        ///
+        /// Prepare-class, not real-time safe: the 200 ms settle is hundreds of thousands of
+        /// Newton solves. IAudioNode::reset() is documented control-thread-only, so that is
+        /// legal, but a product node copying this template must keep it off the audio thread.
         void reset() override
         {
             circuit_.reset();
@@ -451,25 +455,38 @@ TEST(Unit_Dsp, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
         circuit.update_matrices_if_dirty();
         settle(circuit, port, reference.sample_rate, 0.2);
 
-        const std::size_t settling_samples
-            = static_cast<std::size_t>(0.005 * reference.sample_rate);
-        std::size_t             row_in_setting = 0;
-        std::array<double, 1>   outputs{};
+        // The exporter saves one 20 ms steady-state block per setting. The output high-pass
+        // formed by Cc (0.022 uF) into the ~1 MOhm pot has tau ~ 22 ms, so driving that block
+        // once from the quiescent bias leaves a turn-on DC transient around -43 dB that the
+        // plan's 5 ms discard nowhere near removes. The block is 20 whole cycles of the 1 kHz
+        // stimulus, so it repeats seamlessly: it is run kPreRollPasses times to give over 160 ms
+        // (more than seven time constants, decaying the transient past -100 dB) and only the
+        // final pass is compared, which is why no leading samples are discarded from it.
+        constexpr std::size_t kPreRollPasses = 8;
+
+        std::vector<double> stimulus;
         for (std::size_t row = 0; row < reference.input.size(); ++row)
         {
-            if (reference.setting[row] != static_cast<int>(setting))
+            if (reference.setting[row] == static_cast<int>(setting))
             {
-                continue;
-            }
-            const std::array<double, 2> inputs{ static_cast<double>(reference.input[row]),
-                                                kSupplyVolts };
-            circuit.process_sample(port, inputs, outputs);
-            if (row_in_setting >= settling_samples)
-            {
+                stimulus.push_back(static_cast<double>(reference.input[row]));
                 reference_output.push_back(reference.output[row]);
-                circuit_output.push_back(static_cast<float>(outputs[0]));
             }
-            ++row_in_setting;
+        }
+
+        std::array<double, 1> outputs{};
+        for (std::size_t pass = 0; pass <= kPreRollPasses; ++pass)
+        {
+            const bool final_pass = pass == kPreRollPasses;
+            for (std::size_t index = 0; index < stimulus.size(); ++index)
+            {
+                const std::array<double, 2> inputs{ stimulus[index], kSupplyVolts };
+                circuit.process_sample(port, inputs, outputs);
+                if (final_pass)
+                {
+                    circuit_output.push_back(static_cast<float>(outputs[0]));
+                }
+            }
         }
 
         ASSERT_FALSE(reference_output.empty()) << "setting " << setting;
@@ -507,11 +524,12 @@ TEST(Unit_Dsp, DkTriodeStageMatchesTheLtspiceAcSweepWithinHalfADecibel)
     {
         JcmV1aStageNode node;
         node.set_preamp(kSteppedPreamp[setting]);
-        node.prepare(SushiDSP::PrepareInfo{ kRunRate, 512u, 1u });
-        ASSERT_TRUE(node.prepared());
 
+        // measure::render calls node.prepare() itself, so the derivation and the bias settle
+        // happen there; prepared() is checked afterwards rather than preparing twice.
         const auto measured
             = SushiDSP::measure::frequency_response(node, kRunRate, frequencies);
+        ASSERT_TRUE(node.prepared());
         ASSERT_EQ(measured.size(), frequencies.size());
 
         for (const auto& point : measured)
