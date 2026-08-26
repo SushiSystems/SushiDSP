@@ -305,6 +305,27 @@ namespace
     private:
         std::uint32_t latency_;
     };
+
+    class SumTwoInputsNode : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            {
+                const float a = context.inputs[0] != nullptr ? context.inputs[0][frame] : 0.0f;
+                const float b = context.inputs[1] != nullptr ? context.inputs[1][frame] : 0.0f;
+                context.outputs[0][frame] = a + b;
+            }
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 2, 1 }; }
+        void reset() override {}
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+    };
 }
 
 TEST(Unit_Dsp, RigGraphLatencyIsSumOfChainedNodeLatencies)
@@ -315,6 +336,24 @@ TEST(Unit_Dsp, RigGraphLatencyIsSumOfChainedNodeLatencies)
     graph.connect(a, b);
     graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
     EXPECT_EQ(graph.latency_samples(), 135u);
+}
+
+TEST(Unit_Dsp, RigGraphLatencyIsMaxOverParallelBranchesNotSum)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto short_branch = graph.add_node(std::make_unique<LatencyNode>(10));
+    auto long_branch = graph.add_node(std::make_unique<LatencyNode>(200));
+    auto sum = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    graph.connect(source, short_branch);
+    graph.connect(source, long_branch);
+    graph.connect(short_branch, sum);
+    graph.connect(long_branch, sum);
+
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    // sum itself has 0 latency; the graph's total is max(10, 200) + 0 = 200, not 10 + 200 = 210.
+    EXPECT_EQ(graph.latency_samples(), 200u);
 }
 
 namespace
@@ -481,30 +520,6 @@ TEST(Unit_Dsp, RigGraphConnectThrowsWhenFanInExceedsLimit)
 
     auto one_too_many = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
     EXPECT_THROW(graph.connect(one_too_many, sink), std::runtime_error);
-}
-
-namespace
-{
-    class SumTwoInputsNode : public SushiDSP::IAudioNode
-    {
-    public:
-        void prepare(const SushiDSP::PrepareInfo&) override {}
-
-        void process(SushiDSP::ProcessContext& context) override
-        {
-            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-            {
-                const float a = context.inputs[0] != nullptr ? context.inputs[0][frame] : 0.0f;
-                const float b = context.inputs[1] != nullptr ? context.inputs[1][frame] : 0.0f;
-                context.outputs[0][frame] = a + b;
-            }
-        }
-
-        SushiDSP::PortLayout ports() const override { return { 2, 1 }; }
-        void reset() override {}
-        float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
-    };
 }
 
 TEST(Unit_Dsp, RigGraphProcessGathersAllUpstreamInputsInConnectOrder)
