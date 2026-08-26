@@ -63,6 +63,8 @@ add_executable(sushidsp_tests
     functional/unit/test_fft.cpp
     functional/unit/test_newton_raphson_solver.cpp
     functional/unit/test_oversampler.cpp
+    functional/unit/test_measure.cpp
+    functional/unit/test_spice_csv.cpp
     functional/unit/test_partitioned_convolution.cpp
     functional/unit/test_streaming_convolution.cpp
     functional/unit/test_sinc_resampler.cpp
@@ -91,6 +93,12 @@ add_executable(sushidsp_tests
 )
 
 target_include_directories(sushidsp_tests PRIVATE ${SD_TEST_COMMON_DIR})
+# tests/measure/ and tests/golden/ are header-only and test-side only: never linked into a product.
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(sushidsp_tests PRIVATE
+    SUSHIDSP_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden"
+    SUSHIDSP_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host_gui)
 target_link_libraries(sushidsp_tests PRIVATE
