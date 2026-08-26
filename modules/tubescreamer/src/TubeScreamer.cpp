@@ -99,7 +99,6 @@ namespace SushiDSP
         const float drive = drive_.skip(context.frames);
         const float tone = tone_.skip(context.frames);
         const float input_gain = input_trim_gain_.skip(context.frames);
-        const float level = level_gain_.skip(context.frames) * kLevelUnityGain;
         clipping_stage_.set_feedback_resistance(feedback_resistance_for_drive(drive));
 
         const float* input = context.inputs[0];
@@ -127,7 +126,10 @@ namespace SushiDSP
             const float low = tone_lowpass_.process_sample(oversampled_scratch_[i]);
             const float high = tone_highpass_.process_sample(oversampled_scratch_[i]);
             const float toned = (1.0f - tone) * low + tone * high;
-            output[i] = toned * level;
+            // Level alone ramps per sample: it is a single multiply outside the oversampled
+            // loop, and stepping it once per block would make the audible smoothing time a
+            // function of the host's block size.
+            output[i] = toned * level_gain_.next() * kLevelUnityGain;
         }
     }
 
@@ -146,6 +148,11 @@ namespace SushiDSP
         {
             oversampler_->reset();
         }
+    }
+
+    std::uint32_t TubeScreamer::latency_samples() const
+    {
+        return oversampler_ ? oversampler_->latency_samples() : 0u;
     }
 
     void TubeScreamer::set_drive(float normalized) { drive_.set_target(normalized); }
@@ -197,8 +204,10 @@ namespace SushiDSP
         constexpr ParameterDescriptor kTubeScreamerParameters[] = {
             { "drive",      "Drive",        0.0f,  1.0f, 0.5f, ParamKind::Linear,  "" },
             { "tone",       "Tone",         0.0f,  1.0f, 0.5f, ParamKind::Linear,  "" },
-            { "level",      "Level",      -60.0f, 12.0f, 0.0f, ParamKind::Decibel, "dB" },
-            { "input_trim", "Input Trim", -24.0f, 24.0f, 0.0f, ParamKind::Decibel, "dB" },
+            { "level",      "Level",      kMinLevelDecibels, kMaxLevelDecibels, 0.0f,
+              ParamKind::Decibel, "dB" },
+            { "input_trim", "Input Trim", kMinInputTrimDecibels, kMaxInputTrimDecibels, 0.0f,
+              ParamKind::Decibel, "dB" },
         };
 
         std::unique_ptr<IAudioNode> make_tube_screamer(const PrepareInfo&)

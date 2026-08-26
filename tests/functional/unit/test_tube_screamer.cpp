@@ -191,26 +191,32 @@ TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
 
 TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
 {
-    // Step the level from -60 dB to 0 dB and find when the output peak crosses half of its
-    // final settled peak. Expressed in milliseconds, that crossing must not depend on the
-    // block size. Half is the point that discriminates: under the old fixed-fraction-per-block
-    // slew the same number of blocks elapses either way, so the crossing would land near 14 ms
-    // at 64 frames and near 75 ms at 512 - far outside the tolerance below.
-    auto crossing_ms = [](std::uint32_t block)
+    // Step the level from -60 dB to 0 dB and find, to the sample, when the output envelope first
+    // reaches 63 % of its final settled peak - one time constant. Expressed in milliseconds that
+    // crossing must not depend on the block size: 64 and 4096 frames must agree within 5 %.
+    // A 4 kHz probe keeps the peak-detection granularity (half a period, 6 samples) far below
+    // the 1 ms that 5 % of the 20 ms time constant allows.
+    constexpr double sample_rate = 48000.0;
+    constexpr double probe_hz = 4000.0;
+    constexpr double probe_amplitude = 0.02;
+
+    auto crossing_ms = [&](std::uint32_t block)
     {
         std::vector<float> input(block, 0.0f), output(block, 0.0f);
         const float* input_channels[1] = { input.data() };
         float* output_channels[1] = { output.data() };
         double index = 0.0;
 
-        auto fill_next_block = [&]()
+        auto run_block = [&](SushiDSP::TubeScreamer& node)
         {
             for (std::size_t i = 0; i < input.size(); ++i)
             {
                 input[i] = static_cast<float>(
-                    0.1 * std::sin(2.0 * M_PI * 1000.0 * (index + i) / 48000.0));
+                    probe_amplitude * std::sin(2.0 * M_PI * probe_hz * (index + i) / sample_rate));
             }
             index += block;
+            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+            node.process(context);
         };
         auto block_peak = [&]()
         {
@@ -221,53 +227,79 @@ TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
             }
             return peak;
         };
-        auto run_blocks = [&](SushiDSP::TubeScreamer& node, std::uint32_t count)
-        {
-            for (std::uint32_t i = 0; i < count; ++i)
-            {
-                fill_next_block();
-                SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
-                node.process(context);
-            }
-        };
 
         const std::uint32_t one_second_of_blocks = (48000u + block - 1u) / block;
 
         SushiDSP::TubeScreamer settled;
-        settled.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
-        settled.set_parameter("level", -60.0f);
-        run_blocks(settled, one_second_of_blocks);
+        settled.prepare(SushiDSP::PrepareInfo{ sample_rate, block, 1 });
         settled.set_parameter("level", 0.0f);
-        run_blocks(settled, one_second_of_blocks);
+        for (std::uint32_t i = 0; i < one_second_of_blocks; ++i) { run_block(settled); }
         const double final_peak = block_peak();
 
         SushiDSP::TubeScreamer stepping;
-        stepping.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+        stepping.prepare(SushiDSP::PrepareInfo{ sample_rate, block, 1 });
         stepping.set_parameter("level", -60.0f);
         index = 0.0;
-        run_blocks(stepping, one_second_of_blocks);
+        for (std::uint32_t i = 0; i < one_second_of_blocks; ++i) { run_block(stepping); }
 
         stepping.set_parameter("level", 0.0f);
         double elapsed_samples = 0.0;
         for (std::uint32_t i = 0; i < one_second_of_blocks; ++i)
         {
-            fill_next_block();
-            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
-            stepping.process(context);
-            elapsed_samples += block;
-            if (block_peak() > 0.5 * final_peak)
+            run_block(stepping);
+            for (std::uint32_t sample = 0; sample < block; ++sample)
             {
-                return elapsed_samples / 48.0;
+                if (std::fabs(static_cast<double>(output[sample])) > 0.63 * final_peak)
+                {
+                    return (elapsed_samples + sample) / (sample_rate / 1000.0);
+                }
             }
+            elapsed_samples += block;
         }
         return -1.0;
     };
 
     const double at_64 = crossing_ms(64);
-    const double at_512 = crossing_ms(512);
+    const double at_4096 = crossing_ms(4096);
     ASSERT_GT(at_64, 0.0);
-    ASSERT_GT(at_512, 0.0);
-    EXPECT_NEAR(at_64, at_512, 512.0 / 48.0);
+    ASSERT_GT(at_4096, 0.0);
+    EXPECT_NEAR(at_64, at_4096, 0.05 * at_64);
+}
+
+TEST(Unit_Dsp, TubeScreamerReportsMeasuredImpulseLatency)
+{
+    // Drive 0 and a -60 dBFS impulse keep the clipper in its small-signal region, so the pedal is
+    // linear and the output peak lands exactly where the oversampler's group delay puts it.
+    constexpr std::uint32_t block = 64;
+    SushiDSP::TubeScreamer node;
+    EXPECT_EQ(node.latency_samples(), 0u);
+
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+    node.set_drive(0.0f);
+    node.set_tone(0.5f);
+    node.set_level(0.0f);
+
+    std::vector<float> input(block, 0.0f), output(block, 0.0f);
+    input[0] = 0.001f;
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    // Two blocks so a delay longer than one block would still be observed.
+    std::vector<float> observed;
+    for (int b = 0; b < 2; ++b)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+        node.process(context);
+        observed.insert(observed.end(), output.begin(), output.end());
+        std::fill(input.begin(), input.end(), 0.0f);
+    }
+
+    std::size_t peak_index = 0;
+    for (std::size_t i = 1; i < observed.size(); ++i)
+    {
+        if (std::fabs(observed[i]) > std::fabs(observed[peak_index])) { peak_index = i; }
+    }
+    EXPECT_EQ(static_cast<std::uint32_t>(peak_index), node.latency_samples());
 }
 
 TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
