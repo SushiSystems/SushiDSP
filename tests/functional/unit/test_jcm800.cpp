@@ -612,72 +612,86 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     // cathode-bias difference is provably inert and an input-referred offset is not - lives in
     // test_pentode_stage.cpp.
     //
+    // The claim is self-checking: the same stimulus is rendered twice, once as shipped and once
+    // with set_power_tube_grid_bias_mismatch_volts(0), so the gate is the comparison between the
+    // two rather than a hand-copied number a later change could silently invalidate.
+    //
     // The direction is worth stating, because it is not the naive one. The preamp triodes clip
     // one half-cycle harder than the other, so the amp already carries even-harmonic content
     // before the output section; the EL34 pair's handover asymmetry is out of phase with it and
-    // partly cancels it. The band below brackets the shipped figure well clear of the
-    // no-mismatch one.
+    // partly cancels it - the mismatch LOWERS the second harmonic.
     //
-    // Re-measured at 220 Hz, 0.2 input, preamp 0.6 after D6a Task 5 moved the tone stack inside
-    // the single 8x region and gave the triode grids their Miller input capacitance: second
-    // harmonic is 2.17% of the fundamental as shipped and 2.93% with
-    // kPowerTubeGridBiasMismatchVolts set to zero. Both figures moved up by about 0.45 pp from
-    // the two-region measurement (1.77% / 2.45%) because the drive reaching the power stage is
-    // no longer shaped by the old region-A decimator, but the mismatch's effect is unchanged in
-    // both sign and size: it still removes about 0.76 pp of second harmonic.
-    SushiDSP::Jcm800 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
-    node.prepare(info);
-    node.set_preamp(0.6f);
-    node.set_master(kUnityMasterDb);
-    node.set_bass(0.5f);
-    node.set_middle(0.5f);
-    node.set_treble(0.5f);
-    node.set_presence(0.5f);
-
+    // Measured at 220 Hz, 0.2 input, preamp 0.6: 2.17% of the fundamental as shipped against
+    // 2.93% with the mismatch zeroed. Both figures moved up by about 0.4 pp from the pre-D6a
+    // two-region measurement (1.77% / 2.45%), because the drive reaching the power stage is no
+    // longer shaped by the old region-A decimator - but the effect itself, ~0.76 pp of second
+    // harmonic removed, is unchanged in sign and size.
     constexpr double sample_rate = 48000.0;
     constexpr double frequency = 220.0;
-    std::vector<float> output;
-    double global_sample_index = 0.0;
-    for (int block = 0; block < 120; ++block)
-    {
-        std::vector<float> input(256, 0.0f);
-        for (std::size_t i = 0; i < input.size(); ++i)
-        {
-            input[i] = static_cast<float>(
-                0.2 * std::sin(2.0 * M_PI * frequency * (global_sample_index + i) / sample_rate));
-        }
-        global_sample_index += 256.0;
 
-        std::vector<float> block_output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { block_output.data() };
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
-        node.process(context);
-        output.insert(output.end(), block_output.begin(), block_output.end());
-    }
-
-    // Only the settled last quarter is measured, for the same reason Jcm800ThdIncreasesWithPreamp
-    // measures only that: the slew, the transformer highpass and the sag recovery are all still
-    // moving well past block 15.
-    const std::size_t settle_start = output.size() * 3 / 4;
-    const std::size_t n = output.size() - settle_start;
-    auto harmonic_amplitude = [&](int harmonic)
+    auto second_harmonic_ratio_for = [&](bool mismatch_active)
     {
-        double sum_sin = 0.0, sum_cos = 0.0;
-        for (std::size_t i = settle_start; i < output.size(); ++i)
+        SushiDSP::Jcm800 node;
+        SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+        node.prepare(info);
+        if (!mismatch_active)
         {
-            const double phase = 2.0 * M_PI * frequency * harmonic * i / sample_rate;
-            sum_sin += output[i] * std::sin(phase);
-            sum_cos += output[i] * std::cos(phase);
+            node.set_power_tube_grid_bias_mismatch_volts(0.0f);
         }
-        return 2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n;
+        node.set_preamp(0.6f);
+        node.set_master(kUnityMasterDb);
+        node.set_bass(0.5f);
+        node.set_middle(0.5f);
+        node.set_treble(0.5f);
+        node.set_presence(0.5f);
+
+        std::vector<float> output;
+        double global_sample_index = 0.0;
+        for (int block = 0; block < 120; ++block)
+        {
+            std::vector<float> input(256, 0.0f);
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                input[i] = static_cast<float>(
+                    0.2 * std::sin(2.0 * M_PI * frequency * (global_sample_index + i) / sample_rate));
+            }
+            global_sample_index += 256.0;
+
+            std::vector<float> block_output(256, 0.0f);
+            const float* input_channels[1] = { input.data() };
+            float* output_channels[1] = { block_output.data() };
+            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            node.process(context);
+            output.insert(output.end(), block_output.begin(), block_output.end());
+        }
+
+        // Only the settled last quarter is measured, for the same reason
+        // Jcm800ThdIncreasesWithPreamp measures only that: the slew, the transformer highpass and
+        // the sag recovery are all still moving well past block 15.
+        const std::size_t settle_start = output.size() * 3 / 4;
+        const std::size_t n = output.size() - settle_start;
+        auto harmonic_amplitude = [&](int harmonic)
+        {
+            double sum_sin = 0.0, sum_cos = 0.0;
+            for (std::size_t i = settle_start; i < output.size(); ++i)
+            {
+                const double phase = 2.0 * M_PI * frequency * harmonic * i / sample_rate;
+                sum_sin += output[i] * std::sin(phase);
+                sum_cos += output[i] * std::cos(phase);
+            }
+            return 2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n;
+        };
+        return harmonic_amplitude(2) / harmonic_amplitude(1);
     };
 
-    const double second_harmonic_ratio = harmonic_amplitude(2) / harmonic_amplitude(1);
-    std::printf("[ measure ] second harmonic %.4f\n", second_harmonic_ratio);
-    EXPECT_GT(second_harmonic_ratio, 0.017);
-    EXPECT_LT(second_harmonic_ratio, 0.025);
+    const double active_ratio = second_harmonic_ratio_for(true);
+    const double zeroed_ratio = second_harmonic_ratio_for(false);
+    std::printf("[ measure ] second harmonic %.4f active, %.4f zeroed\n", active_ratio, zeroed_ratio);
+
+    EXPECT_LT(active_ratio, zeroed_ratio);
+    EXPECT_GT(zeroed_ratio - active_ratio, 0.003);
+    EXPECT_GT(active_ratio, 0.010);
+    EXPECT_LT(active_ratio, 0.035);
 }
 
 TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)

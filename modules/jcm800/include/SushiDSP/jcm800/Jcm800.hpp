@@ -136,6 +136,13 @@ namespace SushiDSP
         /// @param normalized Presence amount in [0, 1]; 0.5 is flat.
         void set_presence(float normalized);
 
+        /// @brief Overrides the EL34 pair's grid bias mismatch. A test/advanced hook, not a
+        /// user control and not in the descriptor: it exists so a test can zero the mismatch and
+        /// measure what it contributes. The default is the shipped constant in Jcm800.cpp, so
+        /// leaving it alone leaves the amp's output unchanged. Audio-thread safe.
+        /// @param volts Input-referred grid offset applied to the second EL34, in volts.
+        void set_power_tube_grid_bias_mismatch_volts(float volts);
+
         /// @brief Whether a tone or presence target is still waiting for the audio thread to
         /// rebuild its coefficients. A diagnostic hook: it is what makes "the control thread only
         /// stores a target" observable from a test.
@@ -163,6 +170,7 @@ namespace SushiDSP
         SmoothedParameter bass_{ 0.5f }, middle_{ 0.5f }, treble_{ 0.5f };
         SmoothedParameter master_gain_{ 1.0f }, input_trim_gain_{ 1.0f }, output_gain_{ 1.0f };
         float master_db_ = 0.0f, input_trim_db_ = 0.0f, output_db_ = 0.0f;
+        float power_tube_grid_bias_mismatch_volts_ = 0.0f;
         float applied_bass_ = -1.0f, applied_middle_ = -1.0f, applied_treble_ = -1.0f, applied_presence_ = -1.0f;
 
         Biquad bright_cap_;
