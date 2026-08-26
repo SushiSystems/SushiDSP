@@ -259,15 +259,27 @@ mean the default fixed-bias point in spec §D6d wants moving rather than the mod
 refitting. D6b did not decide it; D6d has to.
 
 **Measured.** The `jcm_v1a` stage (three capacitors, two triode branches, one preamp pot) settles
-to `Vk = 2.310 V`, `Vp = 274.4 V`. Over 1 056 000 samples at 384 kHz, one sample failed to
-converge (0.0001 %), the worst case took 8 Newton iterations, and no sample produced a non-finite
-value. Cost, release build, 256-frame block at 48 kHz: the four-state two-nonlinearity block at 8×
-oversampling costs **0.879 ms/block against the plan's 0.12 ms budget** — 7.3× over. About 90 % of
+to `Vk = 2.310 V`, `Vp = 274.4 V`. Newton convergence depends on the stimulus, and both figures
+matter:
+
+- *Continuous* — a 2 s 20 Hz→20 kHz sweep plus 1 kHz bursts at 0.05 V, 0.5 V and 5 V (past grid
+  conduction), 1 056 000 samples at 384 kHz: **1 non-converged solve, 0.0001 %**, inside the plan's
+  0.01 % target.
+- *Looped block* — the benchmark harness replays one 256-frame buffer, so the tone steps back to
+  sample 0 once per repetition: **219 in 450 560, 0.0486 %, 4.9× the 0.01 % target**. That is about
+  one per repetition, and the same tone run continuously for the same sample count gives 1, so the
+  miss is the harness's discontinuity rather than the circuit. It is **handed to D6c**: a real
+  stream has no such step, but a block boundary after a hard parameter jump might.
+
+Both cases produced zero non-finite samples and never exceeded 8 iterations.
+
+Cost, release build, 256-frame block at 48 kHz: the four-state two-nonlinearity block at 8×
+oversampling costs **0.873 ms/block against the plan's 0.12 ms budget** — 7.3× over. About 90 % of
 that is `Triode12AX7::current` and `::jacobian`, called separately by the solver at 63.8 ns per
 pair; the levers, in order of size, are a joint `current_and_jacobian` on the models,
 `process_sample`'s redundant post-solve `currents()` call, and a `DenseLu<2>` specialisation. D6c
-decides. A potentiometer re-derivation, by contrast, costs 1.6 µs and confirms plan Ruling 3 (pot
-moves re-derive on the audio thread at block cadence, allocation-free).
+decides. A potentiometer re-derivation, timed on its own, costs 1.55 µs and confirms plan Ruling 3
+(pot moves re-derive on the audio thread at block cadence, allocation-free).
 
 ### Fixed capacities
 

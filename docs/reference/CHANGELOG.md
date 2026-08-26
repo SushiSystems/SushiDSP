@@ -21,9 +21,20 @@ Infrastructure only: the solver and the device models exist, and **no product mo
 - Validation: RC and RLC blocks against their analytic pole (`+0.811320754717` at
   `R = 1 kΩ, C = 100 nF, 48 kHz`) and magnitude peak (4905.485 Hz at `R = 100 Ω, L = 10 mH,
   C = 100 nF`); a diode clipper against the true root of its own equation; the JCM800 `jcm_v1a`
-  stage against its hand-solved operating point, `Vk = 2.310 V` / `Vp = 274.4 V`. Over 1 056 000
-  samples at 384 kHz the Newton iteration failed to converge on **one** sample (0.0001 %, against
-  a 0.01 % target), needed at most **8** iterations, and produced **zero** non-finite samples.
+  stage against its hand-solved operating point, `Vk = 2.310 V` / `Vp = 274.4 V`.
+- Newton convergence, by stimulus, both at 384 kHz, both with **zero** non-finite samples and at
+  most **8** iterations:
+  - *Continuous stimulus* (`test_dk_triode_stage.cpp`: a 2 s 20 Hz→20 kHz sweep plus 1 kHz bursts
+    at 0.05 V, 0.5 V and 5 V, the last well past grid conduction) — 1 non-converged solve in
+    1 056 000, **0.0001 %**, inside the 0.01 % target.
+  - *Looped-block stimulus* (the benchmark: `measure()` replays one 256-frame buffer, so the tone
+    steps back to sample 0 once per repetition, driving the grid into conduction at a
+    discontinuity) — 219 non-converged in 450 560, **0.0486 %, 4.9× the 0.01 % target**. About one
+    per repetition: driven with the same tone run continuously for the same 450 560 samples the
+    count is 1, so the miss is dominated by the harness's buffer restart rather than by the
+    circuit. It is reported rather than filtered out, and **handed to D6c** — a real stream has no
+    such discontinuity, but a block boundary after a hard parameter jump might, and the solver's
+    behaviour there is worth deciding deliberately.
 - The LTspice null and AC-sweep cases against `jcm_v1a` are written and **skip**, because the
   reference CSVs do not exist yet — LTspice is a user-side install. Generate with
   `python tools/spice/export.py --block jcm_v1a` and they start asserting with no code change.
@@ -40,6 +51,10 @@ Infrastructure only: the solver and the device models exist, and **no product mo
 - **Open question for D6d:** the `PentodeEL34` Koren fit draws 33.4 mA at `Vg1k = −37 V`, at the
   high end of a real 2203's idle. That may mean the spec's default fixed-bias point wants moving
   rather than the model wanting refitting; D6b did not decide it.
+- `tests/circuits/JcmV1aNetlist.hpp` — the V1a block described once, with named component
+  constants, and built by all three test-side consumers (the stage test, the RT-safety traps, the
+  benchmark). Its `with_rc_tail` flag appends the series RC that makes the same circuit a
+  four-state block for the benchmark.
 - RT-safety traps added for `DkCircuit::process_sample`, for `set_potentiometer` +
   `update_matrices_if_dirty` (the one audio-thread path that re-runs a derivation, which is what
   plan Ruling 3 rests on), and for `DampedNewtonSolver::solve`. All three allocate nothing.
@@ -47,19 +62,25 @@ Infrastructure only: the solver and the device models exist, and **no product mo
 
   | Case | ns/sample | ms/block | Budget |
   | --- | --- | --- | --- |
-  | `DkCircuit 2-nonlin 4-state @8x` | 3434.8 | **0.879** | 0.12 |
-  | `DkCircuit pot update (1x)` | 549.6 | 0.141 | — |
+  | `DkCircuit 2-nonlin 4-state @8x` | 3409.8 | **0.873** | 0.12 |
+  | `DkCircuit pot update (1x)` | 539.8 | 0.138 | — |
+  | `DkCircuit pot re-derivation` | 1545.3 | — | — |
+
+  One run quoted throughout; the `@8x` case's run-to-run spread over eight release runs was
+  0.859–0.890 ms, which changes nothing below.
 
   **The 0.12 ms budget is missed by 7.3×** and the number is reported rather than the test
-  loosened. Profile: one block is 2048 solver calls; a solve averages 429 ns, of which about
+  loosened. Profile: one block is 2048 solver calls; a solve averages 426 ns, of which about
   90 % is `Triode12AX7::current` and `::jacobian` — 63.8 ns for the pair, called roughly 6.5
   times per solve by the Newton iteration and its line search. The levers, largest first, are a
   joint `current_and_jacobian` on the models (the two calls recompute the same exponentials), the
   redundant post-solve `currents()` call in `process_sample`, and a `DenseLu<2>` specialisation.
-  Together they will not close a 7.4× gap on their own, so D6c/D6d also has to decide whether a
-  two-nonlinearity block runs at 8× or lower. The pot case backs Ruling 3 outright: a full
-  re-derivation measures **1.6 µs**, 1.2 % of the block it happens in and 0.03 % of a 5.33 ms
-  block period.
+  Together they will not close a 7.3× gap on their own, so D6c/D6d also has to decide whether a
+  two-nonlinearity block runs at 8× or lower. The third case backs Ruling 3 outright: its
+  ns/sample column is nanoseconds per re-derivation, so a full re-derivation measures **1.55 µs**
+  — 1.1 % of the block it happens in and 0.03 % of a 5.33 ms block period. The `@8x` case also
+  prints the solver's own counters (solves, non-converged, worst-case iterations, NaN fallbacks),
+  so the convergence figures above are reproducible from the harness.
 - Test count: 311 (304 unit, 6 regression, 1 benchmark).
 
 ## D6a — Measurement infrastructure and oversampler alias floor

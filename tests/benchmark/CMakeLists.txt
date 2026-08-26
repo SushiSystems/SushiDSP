@@ -9,6 +9,9 @@
 add_executable(sushidsp_bench
     main.cpp
 )
+# tests/circuits/ is header-only and test-side only, never linked into a product: the benchmark
+# builds the same jcm_v1a block the unit tests do, from the one description of it.
+target_include_directories(sushidsp_bench PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
 target_link_libraries(sushidsp_bench PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer

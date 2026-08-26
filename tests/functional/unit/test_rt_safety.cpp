@@ -36,7 +36,6 @@
 #include <gtest/gtest.h>
 
 #include "SushiDSP/circuits/DiodeClipperCircuit.hpp"
-#include "SushiDSP/circuits/models/Triode12AX7.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
@@ -53,6 +52,8 @@
 #include "SushiDSP/routing/MixerNode.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
+
+#include "circuits/JcmV1aNetlist.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -546,72 +547,12 @@ TEST(Unit_Dsp, Jcm800SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 
 namespace
 {
-    /// @brief Node numbering of the JCM800 2203 V1a stage, matching docs/reference/spice/jcm_v1a.
-    enum DkNodeIndex : std::size_t
-    {
-        kDkNodeSource = 1,
-        kDkNodeGrid = 2,
-        kDkNodePlate = 3,
-        kDkNodeCathode = 4,
-        kDkNodePotTop = 5,
-        kDkNodeOut = 6,
-        kDkNodeSupply = 7
-    };
-
-    inline constexpr double kDkSupplyVolts = 360.0;
+    // The netlist, its component constants and the triode glue live in
+    // tests/circuits/JcmV1aNetlist.hpp, shared with the D6b stage test and the benchmark.
+    using namespace SushiDSP::test_circuits;
 
     using DkStageCircuit = SushiDSP::dk::DkCircuit<3, 2, 2, 1>;
     using DkStageNetlist = SushiDSP::dk::DkNetlist<3, 2, 2, 1>;
-
-    /// @brief Hands DkCircuit the 12AX7's two branch currents and their Jacobian.
-    struct DkTriodePort
-    {
-        SushiDSP::Triode12AX7 triode{};
-
-        /// @brief Evaluates both branch currents at one port voltage.
-        /// @param v Port voltages: v[0] = Vgk, v[1] = Vpk.
-        /// @param i Receives the branch currents in amperes.
-        void currents(const std::array<double, 2>& v, std::array<double, 2>& i) const
-        {
-            triode.current(v, i);
-        }
-
-        /// @brief Evaluates the branch-current Jacobian at one port voltage.
-        /// @param v Port voltages: v[0] = Vgk, v[1] = Vpk.
-        /// @param j Receives the 2x2 Jacobian in siemens.
-        void jacobian(const std::array<double, 2>& v, std::array<std::array<double, 2>, 2>& j) const
-        {
-            triode.jacobian(v, j);
-        }
-    };
-
-    /// @brief Builds the jcm_v1a netlist: three capacitors, two triode branches, one pot.
-    /// @param netlist Receives the description; any previous contents are overwritten.
-    /// @return The preamp potentiometer's index, for DkCircuit::set_potentiometer.
-    std::size_t build_dk_stage(DkStageNetlist& netlist)
-    {
-        netlist = DkStageNetlist{};
-        netlist.node_count = 7;
-
-        netlist.resistor(kDkNodeSource, 0, 1.0e6);
-        netlist.resistor(kDkNodeSource, kDkNodeGrid, 68.0e3);
-        netlist.resistor(kDkNodeSupply, kDkNodePlate, 100.0e3);
-        netlist.resistor(kDkNodeCathode, 0, 2.7e3);
-
-        netlist.capacitor(kDkNodeCathode, 0, 0.68e-6);
-        netlist.capacitor(kDkNodePlate, kDkNodePotTop, 0.022e-6);
-        netlist.capacitor(kDkNodePotTop, kDkNodeOut, 470.0e-12);
-
-        netlist.nonlinear(kDkNodeGrid, kDkNodeCathode);
-        netlist.nonlinear(kDkNodePlate, kDkNodeCathode);
-
-        netlist.voltage_source(kDkNodeSource, 0);
-        netlist.voltage_source(kDkNodeSupply, 0);
-
-        netlist.output(kDkNodeOut, 0);
-
-        return netlist.potentiometer(kDkNodePotTop, kDkNodeOut, 0, 1.0e6);
-    }
 
     /// @brief A two-variable nonlinear system with a known root, for the solver trap.
     ///
@@ -643,13 +584,13 @@ namespace
 TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
 {
     DkStageNetlist netlist;
-    build_dk_stage(netlist);
+    build_jcm_v1a(netlist);
 
     DkStageCircuit circuit;
-    DkTriodePort   port;
+    TriodeStagePort   port;
     ASSERT_TRUE(circuit.prepare(netlist, 48000.0));
 
-    const std::array<double, 2> silence{ 0.0, kDkSupplyVolts };
+    const std::array<double, 2> silence{ 0.0, kSupplyVolts };
     std::array<double, 1>       outputs{};
     for (int sample = 0; sample < 4800; ++sample)
     {
@@ -663,7 +604,7 @@ TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
     {
         const double drive = 0.2
             * std::sin(2.0 * M_PI * 220.0 * static_cast<double>(sample) / 48000.0);
-        const std::array<double, 2> inputs{ drive, kDkSupplyVolts };
+        const std::array<double, 2> inputs{ drive, kSupplyVolts };
         circuit.process_sample(port, inputs, outputs);
     }
 
@@ -680,13 +621,13 @@ TEST(Unit_Dsp, DkCircuitPotentiometerUpdatePerformsNoHeapAllocation)
     // If anything in that rebuild allocated, Ruling 3 would have to be replaced by a control-
     // thread rebuild plus an RtSwapSlot hand-off, so this case is the one that decides it.
     DkStageNetlist netlist;
-    const std::size_t pot_index = build_dk_stage(netlist);
+    const std::size_t pot_index = build_jcm_v1a(netlist);
 
     DkStageCircuit circuit;
-    DkTriodePort   port;
+    TriodeStagePort   port;
     ASSERT_TRUE(circuit.prepare(netlist, 48000.0));
 
-    const std::array<double, 2> silence{ 0.0, kDkSupplyVolts };
+    const std::array<double, 2> silence{ 0.0, kSupplyVolts };
     std::array<double, 1>       outputs{};
 
     g_trapped_allocation_count.store(0, std::memory_order_relaxed);

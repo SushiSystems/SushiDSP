@@ -30,111 +30,27 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/circuits/models/Triode12AX7.hpp"
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/dk/DkCircuit.hpp"
 #include "SushiDSP/math/dk/DkNetlist.hpp"
 
+#include "circuits/JcmV1aNetlist.hpp"
 #include "measure/FrequencyResponse.hpp"
 #include "measure/NullTest.hpp"
 #include "measure/SpiceCsv.hpp"
 
 namespace
 {
-    /// @brief Node numbering of docs/reference/spice/jcm_v1a, node for node; 0 is ground.
-    enum NodeIndex : std::size_t
-    {
-        kNodeSource = 1,
-        kNodeGrid = 2,
-        kNodePlate = 3,
-        kNodeCathode = 4,
-        kNodePotTop = 5,
-        kNodeOut = 6,
-        kNodeSupply = 7
-    };
-
-    /// @brief Component values of the JCM800 2203 V1a stage, transcribed from the SPICE block.
-    inline constexpr double kGridLeakOhms = 1.0e6;
-    inline constexpr double kGridStopperOhms = 68.0e3;
-    inline constexpr double kPlateOhms = 100.0e3;
-    inline constexpr double kCathodeOhms = 2.7e3;
-    inline constexpr double kCathodeBypassFarads = 0.68e-6;
-    inline constexpr double kCouplingFarads = 0.022e-6;
-    inline constexpr double kBrightFarads = 470.0e-12;
-    inline constexpr double kPreampPotOhms = 1.0e6;
-    inline constexpr double kSupplyVolts = 360.0;
+    // The netlist, its component constants and the triode glue live in
+    // tests/circuits/JcmV1aNetlist.hpp: the RT-safety traps and the benchmark build the same
+    // block, and one description of it is the only way the three stay the same circuit.
+    using namespace SushiDSP::test_circuits;
 
     /// @brief The stage's DK shape: three capacitors, two triode branches, two sources, one probe.
     using StageCircuit = SushiDSP::dk::DkCircuit<3, 2, 2, 1>;
     using StageNetlist = SushiDSP::dk::DkNetlist<3, 2, 2, 1>;
-
-    /// @brief Model glue handing DkCircuit the triode's two-branch current and Jacobian.
-    ///
-    /// Branch 0 is the grid branch (g to k) and branch 1 the plate branch (p to k), so the branch
-    /// voltage vector is exactly the model's (Vgk, Vpk) and the current vector exactly its
-    /// (Ig, Ip). The Jacobian is dense in its first column - dIp/dVgk is the stage's whole gain -
-    /// which is what makes this the first exercise of DkCircuit's general `F * Jf` contraction.
-    struct TriodeStagePort
-    {
-        SushiDSP::Triode12AX7 triode{};
-
-        /// @brief Evaluates both branch currents at one port voltage.
-        /// @param v Port voltages: v[0] = Vgk, v[1] = Vpk.
-        /// @param i Receives the branch currents in amperes.
-        void currents(const std::array<double, 2>& v, std::array<double, 2>& i) const
-        {
-            triode.current(v, i);
-        }
-
-        /// @brief Evaluates the branch-current Jacobian at one port voltage.
-        /// @param v Port voltages: v[0] = Vgk, v[1] = Vpk.
-        /// @param j Receives the 2x2 Jacobian in siemens.
-        void jacobian(const std::array<double, 2>& v, std::array<std::array<double, 2>, 2>& j) const
-        {
-            triode.jacobian(v, j);
-        }
-    };
-
-    /// @brief Builds the jcm_v1a netlist, node for node against the SPICE block's component table.
-    /// @param netlist Receives the description; any previous contents are overwritten.
-    /// @return The preamp potentiometer's index, for DkCircuit::set_potentiometer.
-    std::size_t build_jcm_v1a(StageNetlist& netlist)
-    {
-        netlist = StageNetlist{};
-        netlist.node_count = 7;
-
-        netlist.resistor(kNodeSource, 0, kGridLeakOhms);
-        netlist.resistor(kNodeSource, kNodeGrid, kGridStopperOhms);
-        netlist.resistor(kNodeSupply, kNodePlate, kPlateOhms);
-        netlist.resistor(kNodeCathode, 0, kCathodeOhms);
-
-        netlist.capacitor(kNodeCathode, 0, kCathodeBypassFarads);
-        netlist.capacitor(kNodePlate, kNodePotTop, kCouplingFarads);
-        netlist.capacitor(kNodePotTop, kNodeOut, kBrightFarads);
-
-        netlist.nonlinear(kNodeGrid, kNodeCathode);
-        netlist.nonlinear(kNodePlate, kNodeCathode);
-
-        netlist.voltage_source(kNodeSource, 0);
-        netlist.voltage_source(kNodeSupply, 0);
-
-        netlist.output(kNodeOut, 0);
-
-        return netlist.potentiometer(kNodePotTop, kNodeOut, 0, kPreampPotOhms);
-    }
-
-    /// @brief Converts the SPICE block's PREAMP fraction to a DkNetlist wiper position.
-    ///
-    /// The block writes the upper (pin to wiper) section as `1Meg*(1-PREAMP)`, while
-    /// DkNetlist::potentiometer makes the a-to-wiper section `ohms * position`.
-    /// @param preamp Normalised preamp-pot fraction; 0 is fully down.
-    /// @return The equivalent wiper position.
-    double preamp_to_position(double preamp)
-    {
-        return 1.0 - preamp;
-    }
 
     /// @brief Runs the stage with both sources held constant until the bias point settles.
     /// @param circuit The prepared circuit; its state is advanced in place.
