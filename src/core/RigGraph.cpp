@@ -160,6 +160,7 @@ namespace SushiDSP
             has_outgoing_edge[edge.from] = true;
             has_incoming_edge[edge.to] = true;
         }
+        sink_handle_ = 0;
         std::size_t sink_count = 0;
         for (NodeHandle handle : topological_order_)
         {
@@ -174,6 +175,10 @@ namespace SushiDSP
         if (sink_count > 1)
         {
             throw std::runtime_error("RigGraph::compile: multiple sink nodes (ambiguous graph output)");
+        }
+        if (sink_count == 0 && !topological_order_.empty())
+        {
+            throw std::runtime_error("RigGraph::compile: no sink node found");
         }
 
         node_output_scratch_.assign(nodes_.size(), nullptr);
@@ -227,7 +232,7 @@ namespace SushiDSP
 
             float* node_buffer = buffer_pool_.acquire(context.frames);
 
-            const float* gathered_inputs[kMaxFanInOut];
+            const float* gathered_inputs[kMaxFanInOut] = {};
             std::size_t input_count = 0;
             for (const Edge& edge : edges_)
             {
