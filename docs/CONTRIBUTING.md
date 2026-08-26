@@ -99,6 +99,9 @@ gets sent back before anything else is reviewed.
 - Golden-vector tests (an independently-derived expected value, not the implementation's own
   output) are preferred over tautological "does it run" tests for anything numerical — see any
   D0–D2 math kernel test for the pattern.
+- The alias-floor acceptance cases (`tests/functional/unit/test_measure.cpp`) carry the
+  `Regression_Dsp` prefix rather than `Unit_Dsp`: each renders several seconds of audio, and
+  keeping them under the regression label leaves `sd test -s unit` a fast edit loop.
 - Run `sd test` before every commit. `sd test --suite all` once more than `unit` exists.
 - Anything touching the audio path gets measured: `sd test -t release -s benchmark` (the
   `tests/benchmark/` timing harness, registered as a single ctest case under the
