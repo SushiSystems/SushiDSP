@@ -104,6 +104,8 @@ namespace SushiDSP
         }
     }
 
+    const char* MixerNode::type_id() const { return "sushidsp.mixer"; }
+
     namespace
     {
         constexpr ParameterDescriptor kMixerParameters[] = {

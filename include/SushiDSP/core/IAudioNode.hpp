@@ -93,5 +93,10 @@ namespace SushiDSP
         /// which swaps a latency-bearing stage); hosts should re-read it after any such call.
         /// @return Latency in base-rate samples; 0 for a memoryless or IIR-only node.
         virtual std::uint32_t latency_samples() const { return 0; }
+
+        /// @brief This node's NodeDescriptor::id, for a node registered in a node_registry.
+        /// @return The registered type id, or "" for a node with no registry entry (e.g. a
+        /// test fixture).
+        virtual const char* type_id() const { return ""; }
     };
 }

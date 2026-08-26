@@ -46,6 +46,8 @@ namespace SushiDSP
     float SplitterNode::get_parameter(const char*) const { return 0.0f; }
     void SplitterNode::set_parameter(const char*, float) {}
 
+    const char* SplitterNode::type_id() const { return "sushidsp.splitter"; }
+
     namespace
     {
         std::unique_ptr<IAudioNode> make_splitter(const PrepareInfo&)

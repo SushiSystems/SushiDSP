@@ -42,6 +42,10 @@ namespace SushiDSP
         void reset() override;
         float get_parameter(const char* id) const override;
         void set_parameter(const char* id, float value) override;
+
+        /// @brief This splitter's registered type id.
+        /// @return "sushidsp.splitter".
+        const char* type_id() const override;
     };
 
     /// @brief The splitter's product registration entry point.
