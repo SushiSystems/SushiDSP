@@ -62,7 +62,8 @@ gets sent back before anything else is reviewed.
 - **Allman braces** — the opening brace on its own line. Trivial one-line accessors may stay
   compact.
 - **Naming** — types `PascalCase`; functions and variables `snake_case`; class members carry a
-  trailing underscore (`impl_`); constants `UPPER_SNAKE`; spelled-out names, no abbreviations.
+  trailing underscore (`impl_`); constants `kPascalCase` (`kMaximumNodes`); spelled-out names,
+  no abbreviations.
 - **License header** — the exact 76-column boxed `/* ... */` template pinned in
   [`docs/design/sushidsp.md` §0a](design/sushidsp.md), on every `.hpp`/`.cpp` file. Copy an
   existing file's header verbatim (e.g. `include/SushiDSP/core/PortLayout.hpp`) and only change

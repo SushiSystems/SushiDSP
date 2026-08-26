@@ -189,7 +189,7 @@ All numeric building blocks the amp/pedal circuit models need.
 - **§4.2 Partitioned convolution** — uniform-partitioned (256-frame) overlap-add FFT convolution for the cabinet IR. CPU only.
 - **§4.3 Filters** — TPT/zero-delay-feedback state-variable filter (SVF), biquad cascade (RBJ cookbook coefficients), one-pole/one-zero, all-pass; per-block-smoothed parameters, click-free. Used inside the WDF/DK circuit models and for cabinet mic-model pre-filtering.
 - **§4.4 Resamplers** — polyphase FIR halfband cascade for the amp/pedal oversampler (§7/§8).
-- **§4.5 WDF/DK circuit-solving core** — the shared nonlinear-circuit infrastructure both JCM800 and Tube Screamer build on: Wave Digital Filter adaptor primitives (series/parallel/resistive/reactive), a DK-method (discrete Kirchhoff state-space) formulation for tightly-coupled blocks, and a Newton–Raphson nonlinear-root solver (2–4 iterations, warm-started from the previous sample) shared by every nonlinear stage (triode, op-amp clipper, diode pair). **Amendment (D5b, user-confirmed 2026-08-26):** the WDF adaptor tree is deferred indefinitely — DK covers everything the roadmap needs and `Wdf.hpp` stays as the two linear one-ports it already has; see the decision table in `docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`.
+- **§4.5 WDF/DK circuit-solving core** — the shared nonlinear-circuit infrastructure both JCM800 and Tube Screamer build on: Wave Digital Filter adaptor primitives (series/parallel/resistive/reactive), a DK-method (discrete Kirchhoff state-space) formulation for tightly-coupled blocks, and a Newton–Raphson nonlinear-root solver (2–4 iterations, warm-started from the previous sample) shared by every nonlinear stage (triode, op-amp clipper, diode pair). **Amendment (D5b, user-confirmed 2026-08-26):** the WDF adaptor tree is deferred indefinitely — DK covers everything the roadmap needs and `Wdf.hpp` stays as the two linear one-ports it already has; see the decision table in `docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`. **As built (D6b):** see the "As built in D6b" section below for the headers that exist, the corrected nonlinear-branch counts D6d must size against, and the measured solver cost.
 - **§4.6 Complex + windowing** — a POD complex type, Hann/Blackman-Harris/Kaiser windows.
 - **§4.7 Portability** — a thin SIMD abstraction (SSE/AVX/NEON with a scalar fallback) so the core builds on any target; no intrinsics leak into public headers.
 
@@ -213,6 +213,61 @@ even though the wider filters needed for the deeper stopbands above raise the ro
 `Oversampler8x` reports from 12 to 65 base-rate samples — the per-sample cost still falls because
 the polyphase evaluation touches only the non-zero taps, regardless of how many taps a stage
 carries.
+
+### As built in D6b — the DK circuit core
+
+D6b built §4.5's circuit solver and nothing else: no product module changed, and the JCM800 and
+Tube Screamer still run their D6a stages. What exists now is the layer the D6c/D6d rebuilds sit
+on.
+
+**Layering.** `include/SushiDSP/math/dk/` holds four headers, each header-only and each depending
+only on the standard library:
+
+- `DenseLu.hpp` — fixed-size LU with partial pivoting, `DenseLu<N>`, with a size-aware overload so
+  a circuit derived at less than its maximum node count factorises only the live block.
+- `DampedNewtonSolver.hpp` — `DampedNewtonSolver<N>`, damped multivariate Newton with a halving
+  line search, warm-started from the previous sample, carrying call/non-convergence/worst-case
+  iteration counters.
+- `DkNetlist.hpp` — the control-thread description: `resistor`, `capacitor`, `inductor`,
+  `voltage_source`, `nonlinear`, `output`, `potentiometer`, over fixed-size arrays
+  (`kMaximumNodes = 16`).
+- `DkCircuit.hpp` — `DkCircuit<S, N, I, O>`: `prepare(netlist, sample_rate)` discretises by the
+  trapezoidal rule and derives the DK matrices; `process_sample` is the per-sample solve;
+  `set_potentiometer` / `update_matrices_if_dirty` re-derive at block cadence;
+  `nonlinear_currents()` is the hand-off a supply-sag model reads.
+
+Above it, `include/SushiDSP/circuits/models/` holds the device laws the solver calls back into —
+`SiliconDiode.hpp`, `Triode12AX7.hpp`, `PentodeEL34.hpp` and the `SoftTransition.hpp` softplus and
+logistic helpers shared by them. Everything evaluates in `double`; `float` appears only at the
+`IAudioNode` boundary. The dependency runs one way: `circuits/` includes `math/`, and nothing in
+`math/` names a circuit model — the models reach `DkCircuit` as a template parameter, never as an
+`#include`.
+
+**WDF.** The adaptor tree stays deferred, as the D5b amendment above says. `Wdf.hpp` remains the
+two linear one-ports it has always been. DK is the circuit solver.
+
+**Branch counts for D6d (Ruling 6 of the D6b plan).** The spec's D6d block table is wrong about
+this and the numbers below supersede it. A nonlinear branch is a *port* of the device law, not a
+device: a 12AX7 is **two** branches (grid-to-cathode and plate-to-cathode) and an EL34 is
+**three** (grid, screen, plate). So D6d block 1, one 12AX7 gain stage, is `DkCircuit<3, 2, 2, 1>`,
+and block 5, the push-pull EL34 output stage, needs `N = 10`, not the smaller counts the spec
+implies. Anyone sizing a D6d template from the spec alone will size it too small.
+
+**Open question carried into D6d.** The Koren fit in `PentodeEL34.hpp` draws 33.4 mA at
+`Vg1k = −37 V`, `Vg2k = Vpk = 400 V`. That is at the high end of a real 2203's idle, which may
+mean the default fixed-bias point in spec §D6d wants moving rather than the model wanting
+refitting. D6b did not decide it; D6d has to.
+
+**Measured.** The `jcm_v1a` stage (three capacitors, two triode branches, one preamp pot) settles
+to `Vk = 2.310 V`, `Vp = 274.4 V`. Over 1 056 000 samples at 384 kHz, one sample failed to
+converge (0.0001 %), the worst case took 8 Newton iterations, and no sample produced a non-finite
+value. Cost, release build, 256-frame block at 48 kHz: the four-state two-nonlinearity block at 8×
+oversampling costs **0.879 ms/block against the plan's 0.12 ms budget** — 7.3× over. About 90 % of
+that is `Triode12AX7::current` and `::jacobian`, called separately by the solver at 63.8 ns per
+pair; the levers, in order of size, are a joint `current_and_jacobian` on the models,
+`process_sample`'s redundant post-solve `currents()` call, and a `DenseLu<2>` specialisation. D6c
+decides. A potentiometer re-derivation, by contrast, costs 1.6 µs and confirms plan Ruling 3 (pot
+moves re-derive on the audio thread at block cadence, allocation-free).
 
 ### Fixed capacities
 

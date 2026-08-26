@@ -17,6 +17,15 @@ once you're in the tree and need a specific document.
   `.asc` files and Koren/Norman `.sub` models for each circuit block, exported to CSV by
   `tools/spice/export.py` and read back by `tests/measure/SpiceCsv.hpp`. Populating it needs
   LTspice, which is a user-side step — see the changelog's D6a entry.
+- **[`include/SushiDSP/math/dk/`](../include/SushiDSP/math/dk/)** — the DK-method circuit core:
+  `DenseLu` (fixed-size LU), `DampedNewtonSolver`, `DkNetlist` (the control-thread netlist
+  builder) and `DkCircuit<S, N, I, O>` (trapezoidal discretisation and the per-sample solve).
+  Header-only, standard library only, and it never names a circuit model — the models arrive as a
+  template parameter. Design spec §4.5, "As built in D6b".
+- **[`include/SushiDSP/circuits/models/`](../include/SushiDSP/circuits/models/)** — the device
+  laws the solver calls back into: `SiliconDiode`, `Triode12AX7`, `PentodeEL34`, and the shared
+  `SoftTransition` softplus/logistic helpers. Each exposes `current` and `jacobian` in `double`
+  against its `.sub` file's exact constants, and is C¹ everywhere.
 - **[`tools/`](../tools/)** — developer-side scripts that are not part of the shipped library:
   `tools/dsp/design_halfband.py` (regenerates `include/SushiDSP/math/HalfbandCoefficients.hpp`
   from a scipy `remez` design) and `tools/spice/export.py` (runs the SPICE corpus above through
