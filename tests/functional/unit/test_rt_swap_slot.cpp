@@ -156,3 +156,45 @@ TEST(Unit_Dsp, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
 
     EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
 }
+
+TEST(Unit_Dsp, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
+{
+    // active_for_publisher() exists so the publishing thread can look at the active object
+    // without claiming the audio thread reached it. Reading it must therefore leave reclaim()'s
+    // "provably moved past" bound exactly where it was - if it forged the watermark instead,
+    // reclaim() would free the object an audio thread is still using.
+    Counted::live_count.store(0, std::memory_order_relaxed);
+    {
+        SushiDSP::RtSwapSlot<Counted> slot;
+
+        slot.publish(std::make_unique<Counted>(1));
+        Counted* const first = slot.acquire_for_audio_thread();
+        ASSERT_NE(first, nullptr);
+        EXPECT_EQ(first->value(), 1);
+
+        slot.publish(std::make_unique<Counted>(2));
+
+        EXPECT_EQ(slot.active_for_publisher(), slot.acquire_for_audio_thread());
+
+        // The audio thread's last recorded generation is still the second acquire above, so the
+        // first object is genuinely retired here. Re-read it through the publisher accessor and
+        // confirm that read alone did not move anything.
+        EXPECT_EQ(slot.active_for_publisher()->value(), 2);
+
+        slot.publish(std::make_unique<Counted>(3));
+        EXPECT_EQ(slot.active_for_publisher()->value(), 3);
+
+        // The audio thread has not acquired since generation 2 was published, so reclaim() may
+        // free nothing published at or after it: object 2 (still the generation the audio thread
+        // last recorded) and object 3 (active) must both survive. Only object 1 may go.
+        slot.reclaim();
+        EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 2);
+
+        // Once the audio thread does acquire, the earlier object becomes reclaimable - proving
+        // the watermark was still being driven by acquire_for_audio_thread() alone.
+        ASSERT_EQ(slot.acquire_for_audio_thread()->value(), 3);
+        slot.reclaim();
+        EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 1);
+    }
+    EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
+}

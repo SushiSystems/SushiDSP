@@ -82,8 +82,9 @@ namespace SushiDSP
         /// equal the rate this node was prepared at. The samples are retained so a later
         /// prepare() rebuilds this cabinet; like the constructor's IR they are reused as-is,
         /// never resampled, so a prepare() at a different rate needs a fresh set_cabinet().
-        /// @return True if the cabinet was installed; false if the rates disagree, in which case
-        /// the previously active cabinet (if any) stays in place.
+        /// @return True if the cabinet was installed; false if the IR is empty, if the rates
+        /// disagree, or if prepare() has not run yet - in every failing case nothing is installed
+        /// and nothing is retained, and the previously active cabinet (if any) stays in place.
         bool set_cabinet(Ir impulse_response);
 
         /// @brief Frees every cabinet the audio thread has provably moved past. Control thread
@@ -146,7 +147,6 @@ namespace SushiDSP
         static constexpr std::uint32_t kOversamplingFactor = 8;
 
         double sample_rate_ = 48000.0;
-        std::uint32_t max_block_ = 0;
         std::uint32_t cabinet_partition_ = 0;
         std::vector<float> cabinet_impulse_response_;
 

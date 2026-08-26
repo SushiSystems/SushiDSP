@@ -224,8 +224,6 @@ namespace SushiDSP
         scratch_oversampled_a_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
         scratch_oversampled_b_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
 
-        max_block_ = info.max_block;
-
         // StreamingConvolution re-blocks the stream internally, so the partition is a property of
         // the sample rate alone rather than of the host's block size: every block size, power of
         // two or not, gets the same cabinet and the same one-partition latency.
@@ -234,7 +232,7 @@ namespace SushiDSP
         {
             cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
                 cabinet_partition_, cabinet_impulse_response_.data(),
-                static_cast<std::uint32_t>(cabinet_impulse_response_.size()), max_block_));
+                static_cast<std::uint32_t>(cabinet_impulse_response_.size()), info.max_block));
         }
 
         reset();
@@ -365,7 +363,13 @@ namespace SushiDSP
 
     bool Jcm800::set_cabinet(Ir impulse_response)
     {
-        if (impulse_response.samples.empty() || impulse_response.sample_rate != sample_rate_)
+        // cabinet_partition_ is 0 until prepare() has run, and a zero-partition
+        // StreamingConvolution has empty FIFOs that process() would index out of bounds. The rate
+        // check alone does not catch this: sample_rate_ defaults to 48000, so a 48 kHz IR handed
+        // to an unprepared node would otherwise sail past it. Rejected outright rather than
+        // stashed - a false return means nothing was installed and nothing was armed.
+        if (impulse_response.samples.empty() || cabinet_partition_ == 0
+            || impulse_response.sample_rate != sample_rate_)
         {
             return false;
         }
@@ -375,7 +379,8 @@ namespace SushiDSP
         cabinet_impulse_response_ = std::move(impulse_response.samples);
         cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
             cabinet_partition_, cabinet_impulse_response_.data(),
-            static_cast<std::uint32_t>(cabinet_impulse_response_.size()), max_block_));
+            static_cast<std::uint32_t>(cabinet_impulse_response_.size()),
+            static_cast<std::uint32_t>(scratch_base_.size())));
         return true;
     }
 
@@ -416,10 +421,7 @@ namespace SushiDSP
         {
             oversampler_b_->reset();
         }
-        // reset() mutates every stage's state, so it is already mutually exclusive with
-        // process(); acquiring the slot here therefore cannot race a live audio thread, and the
-        // generation it records is the same one the next process() would record anyway.
-        if (StreamingConvolution* const cabinet = cabinet_slot_.acquire_for_audio_thread())
+        if (StreamingConvolution* const cabinet = cabinet_slot_.active_for_publisher())
         {
             cabinet->reset();
         }
