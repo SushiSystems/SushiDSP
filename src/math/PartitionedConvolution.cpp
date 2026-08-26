@@ -135,4 +135,18 @@ namespace SushiDSP
     {
         return partition_count_;
     }
+
+    void PartitionedConvolution::reset()
+    {
+        for (auto& slot : history_real_)
+        {
+            std::fill(slot.begin(), slot.end(), 0.0f);
+        }
+        for (auto& slot : history_imag_)
+        {
+            std::fill(slot.begin(), slot.end(), 0.0f);
+        }
+        std::fill(overlap_.begin(), overlap_.end(), 0.0f);
+        write_index_ = 0;
+    }
 }
