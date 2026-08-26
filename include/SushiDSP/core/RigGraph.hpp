@@ -109,6 +109,7 @@ namespace SushiDSP
         std::vector<Edge>                         edges_;
         std::vector<NodeHandle>                   topological_order_;
         NodeHandle                                sink_handle_ = 0;
+        std::uint32_t                             cached_latency_samples_ = 0;
         std::vector<float*>                       node_output_scratch_;
         SpscRing<ParameterChange>                 parameter_ring_{ kParameterRingCapacity };
     };

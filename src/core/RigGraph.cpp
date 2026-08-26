@@ -190,16 +190,26 @@ namespace SushiDSP
                 node->prepare(info);
             }
         }
+
+        std::vector<std::uint32_t> latency_at(nodes_.size(), 0);
+        for (NodeHandle handle : topological_order_)
+        {
+            std::uint32_t upstream_max = 0;
+            for (const Edge& edge : edges_)
+            {
+                if (edge.to == handle)
+                {
+                    upstream_max = std::max(upstream_max, latency_at[edge.from]);
+                }
+            }
+            latency_at[handle] = upstream_max + nodes_[handle]->latency_samples();
+        }
+        cached_latency_samples_ = topological_order_.empty() ? 0u : latency_at[sink_handle_];
     }
 
     std::uint32_t RigGraph::latency_samples() const
     {
-        std::uint32_t total = 0;
-        for (NodeHandle handle : topological_order_)
-        {
-            if (nodes_[handle] != nullptr) { total += nodes_[handle]->latency_samples(); }
-        }
-        return total;
+        return cached_latency_samples_;
     }
 
     bool RigGraph::push_parameter_change(const ParameterChange& change)
