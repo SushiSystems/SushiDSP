@@ -1,0 +1,11 @@
+* Koren EL34 pentode with Norman grid current - identical parameters to SushiDSP D6b PentodeEL34.
+* Pins: P (plate) G2 (screen) G1 (control grid) K (cathode).
+.subckt EL34_KOREN P G2 G1 K
+.param MU=11 KP=60 KVB=24 KG1=650 KG2=4500 KX=1.35 IG0=1u VGAMMA=0.5 VTG=0.15
+.func E1_EL34(vg2k,vg1k) {(vg2k/KP)*ln(1+exp(KP*(1/MU+vg1k/vg2k)))}
+B1 P K I=(pwr(E1_EL34(V(G2,K),V(G1,K)),KX)/KG1)*(1+sgn(E1_EL34(V(G2,K),V(G1,K))))*atan(V(P,K)/KVB)
+B2 G2 K I=pwr(max(0,V(G2,K)/MU+V(G1,K)),KX)/KG2
+B3 G1 K I=IG0*ln(1+exp((V(G1,K)-VGAMMA)/VTG))
+Cg1k G1 K 15p
+Cg1p G1 P 1p
+.ends EL34_KOREN

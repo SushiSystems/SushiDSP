@@ -1,0 +1,4 @@
+* 1N914 small-signal silicon diode - identical parameters to SushiDSP D6b SiliconDiode
+* (Is = 2.52 nA, n = 1.752). Rs and Cjo are SPICE-side extras with no D6b counterpart;
+* they matter only for the LTspice reference, not for the C++ model comparison.
+.model D1N914 D(Is=2.52n N=1.752 Rs=0.568 Cjo=4p)

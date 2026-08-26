@@ -1,0 +1,11 @@
+* Koren 12AX7 with Norman grid current - identical parameters to SushiDSP D6b Triode12AX7.
+* Pins: P (plate) G (grid) K (cathode).
+.subckt 12AX7_KOREN P G K
+.param MU=100 KP=600 KVB=300 KG1=1060 KX=1.4 IG0=1u VGAMMA=0.5 VTG=0.15
+.func E1(vpk,vgk) {(vpk/KP)*ln(1+exp(KP*(1/MU+vgk/sqrt(KVB+vpk*vpk))))}
+B1 P K I=(pwr(E1(V(P,K),V(G,K)),KX)/KG1)*(1+sgn(E1(V(P,K),V(G,K))))
+B2 G K I=IG0*ln(1+exp((V(G,K)-VGAMMA)/VTG))
+Cgk G K 1.6p
+Cgp G P 1.7p
+Cpk P K 0.46p
+.ends 12AX7_KOREN

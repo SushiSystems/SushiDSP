@@ -1,0 +1,107 @@
+# LTspice reference corpus
+
+This directory holds the LTspice schematics that later phases null the DK-method circuit
+solver against. Nothing in it is required to build or test SushiDSP: CI reads the committed
+CSVs and never runs LTspice.
+
+**Nothing here has been simulated yet.** LTspice is not installed on the machine that
+authored these files, so no CSVs are committed and no block README carries a real "LTspice
+version" line. The netlists were checked by re-tracing node connectivity by hand; that is
+not the same as having run them. Each block README lists the judgment calls and the
+specific things that need checking before its CSVs can be treated as ground truth.
+
+## Layout
+
+```
+docs/reference/spice/
+  README.md              this file
+  models/
+    12ax7_koren.sub      Koren triode + Norman grid current (D6b Triode12AX7)
+    el34_koren.sub       Koren pentode + Norman grid current (D6b PentodeEL34)
+    d1n914.sub           .model D1N914 (D6b SiliconDiode)
+  <block>/
+    <block>.asc          the schematic
+    README.md            components, values, probe, stepped control, judgment calls
+    <block>_ac.csv       generated - not committed yet
+    <block>_tran.csv     generated - not committed yet
+```
+
+Blocks: `ts_clip`, `ts_tone` (Tube Screamer, spec D6c) and `jcm_v1a`, `jcm_v1b_cold`,
+`jcm_cf`, `jcm_fmv`, `jcm_ltp`, `jcm_pp_ot_nfb` (JCM800 2203, spec D6d blocks 1-5).
+
+## Device models
+
+The `.sub` files use the same equations and the same parameter values as the C++ models in
+D6b, so a null test measures the *solver*, not model disagreement. Parameters are spec
+D6b.3 verbatim:
+
+| Model | Parameters |
+|-------|------------|
+| `12AX7_KOREN` | mu = 100, kp = 600, kvb = 300, kg1 = 1060, kx = 1.4 |
+| `EL34_KOREN` | mu = 11, kp = 60, kvb = 24, kg1 = 650, kg2 = 4500, kx = 1.35 |
+| `D1N914` | Is = 2.52 nA, N = 1.752, Rs = 0.568 O, Cjo = 4 pF |
+
+Both tubes use Norman's soft grid-current law
+`Ig = Ig0 * ln(1 + exp((Vgk - 0.5) / 0.15))` with **`Ig0 = 1 uA`**. D6b's C++ models must use
+that same scale factor; a different `Ig0` shifts every grid-conduction knee and the null
+tests will blame the solver for it.
+
+Pin order, which the schematics' `X` lines depend on:
+
+- `12AX7_KOREN`: `P G K`
+- `EL34_KOREN`: `P G2 G1 K`
+
+## How the schematics are written
+
+Each `.asc` carries its whole circuit as SPICE directive text on the sheet (a `TEXT ... !`
+block) rather than as placed symbols joined by wires. LTspice netlists those lines verbatim,
+so node names are explicit and the netlist cannot silently depend on symbol pin geometry --
+which could not have been checked without running LTspice. The sheets open and simulate
+normally; they are just not pretty.
+
+Every schematic carries both analyses as comment lines, and `tools/spice/export.py` enables
+exactly one per run:
+
+- `;ac dec 40 10 20k`
+- `;tran 0 40m 20m 1u` (a 40 ms run whose last 20 ms is saved as steady state)
+
+`.options plotwinsize=0` keeps the raw file uncompressed so the ASCII parse is exact. Every
+block probes a node named `out`, and the stimulus is always
+`V1 <node> 0 SINE(0 {AMP} 1k) AC 1`.
+
+Blocks with a control (Drive, Tone, Preamp, Middle, Presence) step that control over the pot
+fractions 0.1, 0.5 and 0.9. Blocks without one step `AMP` over 10 mV, 100 mV and 1 V. Either
+way the CSV's `setting` column is 0, 1 or 2 in that order.
+
+## CSV contracts
+
+`<block>_ac.csv` -- 200 log-spaced points from 10 Hz to 20 kHz per setting, interpolated from
+the raw sweep:
+
+```
+frequency_hz,setting,magnitude_db,phase_degrees
+```
+
+`<block>_tran.csv` -- the final 20 ms resampled onto a uniform 192 kHz grid (3840 rows per
+setting):
+
+```
+time_s,setting,input_v,output_v
+```
+
+`tests/measure/SpiceCsv.hpp` reads both. A missing file yields an empty result rather than an
+error, so a test can skip cleanly while the corpus is still ungenerated.
+
+## Checklist for generating the CSVs
+
+1. Install LTspice:
+   <https://www.analog.com/en/resources/design-tools-and-calculators/ltspice-simulator.html>
+2. Run `python tools/spice/export.py --all` (add `--ltspice <path>` if it is not at the
+   default location).
+3. Sanity-check the results against each block README's open questions before trusting them
+   -- in particular the `ts_tone` and `jcm_fmv` topologies and the `jcm_pp_ot_nfb` feedback
+   polarity.
+4. Commit the generated `<block>_ac.csv` and `<block>_tran.csv` files.
+5. Replace "not yet generated" in every block README's **LTspice version** line with the
+   version actually used, and drop the "not yet simulated" banner from that README and from
+   this one.
