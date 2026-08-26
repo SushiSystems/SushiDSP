@@ -59,6 +59,11 @@ namespace SushiDSP
         /// @brief Clears every filter and solver state for a click-free restart.
         void reset() override;
 
+        /// @brief The pedal's only latency-bearing stage is its 8x oversampler.
+        /// @return The oversampler's round-trip group delay in base-rate samples; 0 before
+        /// prepare(), when no oversampler exists yet.
+        std::uint32_t latency_samples() const override;
+
         /// @brief Sets the drive control, smoothed toward this value over subsequent samples.
         /// @param normalized Drive amount in [0, 1].
         void set_drive(float normalized);

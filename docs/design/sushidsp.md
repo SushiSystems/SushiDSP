@@ -299,7 +299,8 @@ DI in ─▶ input buffer (JFET/op-amp, unity gain) ─▶ high-pass (input cap)
 block. Level and Input trim are calibrated in decibels the same way as the JCM800's Master/Input
 trim/Output; defaults land the pedal's output around −12 dBFS for a −12 dBFS input. `drive` still
 sets the clipper's feedback resistance directly. No cabinet stage; `latency_samples()` reports
-only the oversampler's latency.
+only the oversampler's latency. Level is the one knob applied per sample rather than once per
+block, so its smoothing time does not depend on the host's block size.
 
 ---
 
