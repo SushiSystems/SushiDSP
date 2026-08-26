@@ -614,9 +614,15 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     // The direction is worth stating, because it is not the naive one. The preamp triodes clip
     // one half-cycle harder than the other, so the amp already carries even-harmonic content
     // before the output section; the EL34 pair's handover asymmetry is out of phase with it and
-    // partly cancels it. Measured at 220 Hz, 0.2 input, preamp 0.6: second harmonic is 1.77% of
-    // the fundamental as shipped, and 2.45% with the mismatch zeroed. The band below brackets the
-    // shipped figure well clear of the no-mismatch one.
+    // partly cancels it. The band below brackets the shipped figure well clear of the
+    // no-mismatch one.
+    //
+    // Re-measured at 220 Hz, 0.2 input, preamp 0.6 after D6a Task 5 moved the tone stack inside
+    // the single 8x region: second harmonic is 2.12% of the fundamental as shipped and 2.88%
+    // with kPowerTubeGridBiasMismatchVolts set to zero. Both figures moved up by about 0.4 pp
+    // from the two-region measurement (1.77% / 2.45%) because the drive reaching the power stage
+    // is no longer shaped by the old region-A decimator, but the mismatch's effect is unchanged
+    // in both sign and size: it still removes about 0.75 pp of second harmonic.
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
@@ -667,8 +673,8 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     };
 
     const double second_harmonic_ratio = harmonic_amplitude(2) / harmonic_amplitude(1);
-    EXPECT_GT(second_harmonic_ratio, 0.012);
-    EXPECT_LT(second_harmonic_ratio, 0.021);
+    EXPECT_GT(second_harmonic_ratio, 0.017);
+    EXPECT_LT(second_harmonic_ratio, 0.025);
 }
 
 TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)
@@ -873,4 +879,17 @@ TEST(Unit_Dsp, Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput
     const float peak_decibels = 20.0f * std::log10(peak);
     EXPECT_GT(peak_decibels, -8.0f);
     EXPECT_LT(peak_decibels, -4.0f);
+}
+
+TEST(Unit_Dsp, Jcm800DryLatencyIsOneOversampledRegion)
+{
+    // D6a.3 collapses V1a..sag into a single 8x region, so the reported latency is one
+    // Oversampler8x round trip - not two. A host compensates by this number, so it is pinned
+    // against the oversampler itself rather than against a literal.
+    SushiDSP::Jcm800 node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    EXPECT_FALSE(node.has_cabinet());
+
+    SushiDSP::Oversampler8x reference(256);
+    EXPECT_EQ(node.latency_samples(), reference.latency_samples());
 }

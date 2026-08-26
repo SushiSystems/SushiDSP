@@ -123,3 +123,35 @@ TEST(Unit_Dsp, JcmToneStackResetClearsState)
 
     EXPECT_NEAR(from_reset, from_fresh, 1e-5f);
 }
+
+TEST(Unit_Dsp, JcmToneStackAtEightTimesRateMatchesBaseRateWithinFifthOfADecibel)
+{
+    // The stack moves inside the 8x region in D6a; at fs/f0 ~ 3840 the float biquads'
+    // coefficient quantisation must not shift the response by more than 0.2 dB.
+    for (const double frequency : { 80.0, 250.0, 1000.0, 4000.0, 10000.0 })
+    {
+        double gain[2] = { 0.0, 0.0 };
+        int index = 0;
+        for (const double rate : { 48000.0, 384000.0 })
+        {
+            SushiDSP::JcmToneStack stack(rate);
+            stack.set_bass(0.6f);
+            stack.set_middle(0.4f);
+            stack.set_treble(0.7f);
+            const std::size_t length = static_cast<std::size_t>(rate);
+            double input_power = 0.0, output_power = 0.0;
+            for (std::size_t i = 0; i < length; ++i)
+            {
+                const float x = 0.1f * static_cast<float>(std::sin(2.0 * M_PI * frequency * static_cast<double>(i) / rate));
+                const float y = stack.process_sample(x);
+                if (i >= length / 2)
+                {
+                    input_power += static_cast<double>(x) * x;
+                    output_power += static_cast<double>(y) * y;
+                }
+            }
+            gain[index++] = 10.0 * std::log10(output_power / input_power);
+        }
+        EXPECT_NEAR(gain[0], gain[1], 0.2) << frequency << " Hz";
+    }
+}

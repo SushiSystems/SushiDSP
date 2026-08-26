@@ -164,7 +164,7 @@ namespace SushiDSP
         : cabinet_impulse_response_(std::move(cabinet_impulse_response))
         , v1a_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
         , v1b_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , tone_stack_(48000.0)
+        , tone_stack_(48000.0 * kOversamplingFactor)
         , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
         , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
         , el34_a_(kPentodeSourceResistance, kPentodeGridLeak, kPentodeCathodeBias, kPentodeGain, kPentodeSaturationCurrent, kPentodeThermalVoltage, kPentodePlateSaturationDrive)
@@ -184,7 +184,12 @@ namespace SushiDSP
         coupling_cap_.set_high_pass(sample_rate_ * kOversamplingFactor, kCouplingCapHz, kFilterQ);
         presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_.target()), kFilterQ);
 
-        tone_stack_ = JcmToneStack(sample_rate_);
+        // The tone stack sits inside the single oversampled region (spec D6a.3: one region per
+        // node), so its coefficients are derived at the oversampled rate. It is passive and
+        // linear today and gains nothing from the higher rate; it is inside because collapsing
+        // the two regions into one halves the node's latency, and because D6d turns it into a
+        // DK-method block whose solver does belong at 8x.
+        tone_stack_ = JcmToneStack(sample_rate_ * kOversamplingFactor);
 
         // Every knob is smoothed at the base rate, since every one of them is read once per block
         // in process() via skip(frames). prepare() is a discontinuity anyway (buffers resized,
@@ -212,12 +217,10 @@ namespace SushiDSP
         output_transformer_ = OutputTransformerStage(oversampled_rate, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive);
         sag_ = PowerSupplySagStage(oversampled_rate, kSagAmount, kSagRecoveryTimeSeconds);
 
-        oversampler_a_ = std::make_unique<Oversampler8x>(info.max_block);
-        oversampler_b_ = std::make_unique<Oversampler8x>(info.max_block);
+        oversampler_ = std::make_unique<Oversampler8x>(info.max_block);
 
         scratch_base_.assign(info.max_block, 0.0f);
-        scratch_oversampled_a_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
-        scratch_oversampled_b_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
+        scratch_oversampled_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
 
         // StreamingConvolution re-blocks the stream internally, so the partition is a property of
         // the sample rate alone rather than of the host's block size: every block size, power of
@@ -281,38 +284,28 @@ namespace SushiDSP
             scratch_base_[i] = bright_cap_.process_sample(input[i] * input_gain);
         }
 
-        const float* upsampled_a = oversampler_a_->upsample(scratch_base_.data(), frames);
+        const float* upsampled = oversampler_->upsample(scratch_base_.data(), frames);
         for (std::uint32_t i = 0; i < oversampled_frames; ++i)
         {
-            const float v1a_out = v1a_.process_sample(upsampled_a[i]);
+            const float v1a_out = v1a_.process_sample(upsampled[i]);
             const float v1b_in = coupling_cap_.process_sample(v1a_out) * preamp_gain;
-            scratch_oversampled_a_[i] = v1b_.process_sample(v1b_in) * kV1bToV2aAttenuation;
-        }
-        oversampler_a_->downsample(scratch_oversampled_a_.data(), oversampled_frames, scratch_base_.data());
-
-        for (std::uint32_t i = 0; i < frames; ++i)
-        {
-            scratch_base_[i] = tone_stack_.process_sample(scratch_base_[i]);
-        }
-
-        const float* upsampled_b = oversampler_b_->upsample(scratch_base_.data(), frames);
-        for (std::uint32_t i = 0; i < oversampled_frames; ++i)
-        {
-            const float phase_split = v2a_.process_sample(upsampled_b[i]) * kV2aToPhaseInverterAttenuation;
+            const float v1b_out = v1b_.process_sample(v1b_in) * kV1bToV2aAttenuation;
+            const float toned = tone_stack_.process_sample(v1b_out);
+            const float phase_split = v2a_.process_sample(toned) * kV2aToPhaseInverterAttenuation;
             const float phase_inverted =
                 phase_inverter_.process_sample(phase_split) * kPhaseInverterToPowerTubeAttenuation;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted - kPowerTubeGridBiasMismatchVolts);
             const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
 
-            // Both of these stay inside the oversampled region, as spec section 5's diagram
-            // places them: the transformer's core saturation is a genuine tanh nonlinearity and
-            // the sag stage's gain is signal-dependent, so running either after the decimator
-            // would fold their generated harmonics back below Nyquist.
+            // The transformer and the sag stage stay inside the oversampled region, as spec
+            // section 5's diagram places them: the transformer's core saturation is a genuine
+            // tanh nonlinearity and the sag stage's gain is signal-dependent, so running either
+            // after the decimator would fold their generated harmonics back below Nyquist.
             const float transformer_out = output_transformer_.process_sample(power_tube_out);
-            scratch_oversampled_b_[i] = sag_.process_sample(transformer_out);
+            scratch_oversampled_[i] = sag_.process_sample(transformer_out);
         }
-        oversampler_b_->downsample(scratch_oversampled_b_.data(), oversampled_frames, scratch_base_.data());
+        oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames, scratch_base_.data());
 
         // The presence shelf and the master volume are linear, so they generate nothing to alias
         // and cost 8x less on this side of the decimator.
@@ -350,9 +343,7 @@ namespace SushiDSP
 
     std::uint32_t Jcm800::latency_samples() const
     {
-        const std::uint32_t oversampling_latency =
-            (oversampler_a_ ? oversampler_a_->latency_samples() : 0)
-            + (oversampler_b_ ? oversampler_b_->latency_samples() : 0);
+        const std::uint32_t oversampling_latency = oversampler_ ? oversampler_->latency_samples() : 0;
         return oversampling_latency + (has_cabinet() ? cabinet_partition_ : 0);
     }
 
@@ -408,13 +399,9 @@ namespace SushiDSP
         el34_b_.reset();
         output_transformer_.reset();
         sag_.reset();
-        if (oversampler_a_)
+        if (oversampler_)
         {
-            oversampler_a_->reset();
-        }
-        if (oversampler_b_)
-        {
-            oversampler_b_->reset();
+            oversampler_->reset();
         }
         if (StreamingConvolution* const cabinet = cabinet_slot_.active_for_publisher())
         {

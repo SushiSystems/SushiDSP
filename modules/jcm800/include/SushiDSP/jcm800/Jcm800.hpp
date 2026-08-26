@@ -72,7 +72,7 @@ namespace SushiDSP
 
         /// @brief Reports the delay this node adds from input to output, so the host can
         /// compensate it.
-        /// @return The two oversamplers' combined latency plus, when a cabinet is loaded, its
+        /// @return The single oversampled region's latency plus, when a cabinet is loaded, its
         /// one-partition convolution latency. Loading or removing a cabinet is the one thing that
         /// moves it after prepare(), so a host should re-read it after set_cabinet().
         std::uint32_t latency_samples() const override;
@@ -179,13 +179,11 @@ namespace SushiDSP
         OutputTransformerStage output_transformer_;
         PowerSupplySagStage sag_;
 
-        std::unique_ptr<Oversampler8x> oversampler_a_;  // spans V1a -> V1b
-        std::unique_ptr<Oversampler8x> oversampler_b_;  // spans V2a -> output transformer
+        std::unique_ptr<Oversampler8x> oversampler_;  // spans V1a -> sag
         RtSwapSlot<StreamingConvolution> cabinet_slot_;
 
         std::vector<float> scratch_base_;
-        std::vector<float> scratch_oversampled_a_;
-        std::vector<float> scratch_oversampled_b_;
+        std::vector<float> scratch_oversampled_;
     };
 
     /// @brief The JCM800's product registration entry point.
