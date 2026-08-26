@@ -3,6 +3,50 @@
 Grouped by roadmap phase (spec §9). Each phase's implementation plan lives under
 `docs/superpowers/plans/` with the full task-by-task record.
 
+## D5b — Plugin-readiness foundations
+
+- `latency_samples()` on `IAudioNode`, `RigGraph` and `Oversampler8x` — every node (and the graph
+  as a whole) reports the delay it adds from input to output, so a host can compensate.
+- `RtSwapSlot<T>` — a generic deferred-reclaim swap for handing an owned object from the control
+  thread to the audio thread without locking; `RigGraph` engages a `DenormalGuard` for the whole
+  block inside `RigGraph::process`, and `host_asio` loads cabinet IRs through `IrLoader` and
+  prints the rig's reported latency.
+- `SmoothedParameter` — a millisecond-time-constant (20 ms) smoother so knob feel is independent
+  of block size; nodes recompute derived coefficients only when the smoothed value actually moved
+  that block.
+- `IrLoader` / `Ir` — resamples a cabinet impulse response to the host rate (`SincResampler`,
+  64-tap windowed sinc, Kaiser β 8.6), trims it to a bounded length (200 ms) with a 5 ms
+  raised-cosine fade-out, and normalises the 100 Hz–5 kHz band average to 0 dB so swapping IRs
+  does not change perceived loudness. Control-thread only.
+- `RigGraph` drains a lock-free `SpscRing<ParameterChange>` at the top of every block, before any
+  node runs, and dispatches each change to the target node's RT-safe indexed
+  `set_parameter(std::uint16_t, float)`. `TubeScreamer` (bench 544.1 -> 543.0 ns/sample) and
+  `Jcm800` (bench 1433.2 -> 1419.9 ns/sample) move onto this path with ms-based smoothing,
+  indexed parameters, and dB-calibrated level/trim controls. **Deviation from the design spec:**
+  per-sample ramping of preamp/drive inside the 8x-oversampled loop is deferred to D6c/D6d, where
+  those nonlinear stages are rewritten anyway; today every parameter, including the ones fed into
+  the oversampled loop, uses a per-block `skip(frames)` step. At 20 ms and blocks up to 4096
+  frames that step is at most ~8 % of the remaining distance to target, below the −40 dBFS click
+  criterion the spec sets for D7.
+- `Jcm800`'s cabinet runs on `StreamingConvolution` (one partition of latency, any host block
+  size; 128-frame partition at or below 50 kHz, 256 above) behind an `RtSwapSlot`, so
+  `set_cabinet(Ir)` can swap the loaded impulse response at runtime and `reclaim_cabinets()`
+  frees the previous one once the audio thread has moved past it. The output limiter added in
+  the CPU performance pass is removed in favour of a plain clamp.
+- Calibration: `Calibration::kFullScaleVolts = 2.0f` (0 dBFS is defined as a 2 V peak at the
+  amp's input). `Jcm800` gains two new parameters, Input trim and Output (both dB), for eight
+  total; `TubeScreamer` gains Input trim (dB) alongside a dB-calibrated Level, for four total.
+  Defaults are re-pinned so a −12 dBFS input lands JCM800's output around −6 dBFS and
+  TubeScreamer's around −12 dBFS (Task 9 numbers unchanged; the re-pin commit notes a
+  5.117951 gain ratio with every other stage bit-identical).
+- `host_gui` routes every knob through the parameter ring instead of calling setters directly,
+  loads cabinet IRs at runtime through a device-selection/cabinet-chooser flow, and stores the
+  chosen cabinet IR path in saved presets. The bundled cabinet IR at `assets/ir/default_4x12.wav`
+  is user-supplied, not committed; the loader falls back with a printed warning when it is
+  missing.
+- WDF adaptor tree deferred indefinitely (§4.5 amendment) — see the decision table in
+  `docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`.
+
 ## CPU performance pass (after D4)
 
 - `sd` detects its compiler instead of assuming MSVC: pinned `cxx`, then the SushiStack
