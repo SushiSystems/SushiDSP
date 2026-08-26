@@ -271,26 +271,49 @@ TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
     EXPECT_NEAR(SushiDSP::measure::null_test(a, b, 64), -40.0, 0.5);
 }
 
-// Prints the pre-D6a alias floors so the D6a oversampler acceptance (>= 30 dB better) has a
-// measured baseline. Assertions are deliberately loose: this case documents, it does not gate.
-TEST(Unit_Dsp, MeasureAliasFloorBaselineIsPrinted)
+// D5b baseline, measured by Task 2 of the D6a plan at commit eec6499 with the 15-tap Hamming
+// halfbands: TubeScreamer drive=1 -8.3 dB, Jcm800 preamp=10 -3.8 dB. Spec D6a requires the
+// pre-DK chain to improve by >= 30 dB once the oversampler is replaced.
+//
+// Measured after D6a Task 4 replaced the halfbands with the >= 90 dB Parks-McClellan designs:
+// TubeScreamer -9.6 dB (1.3 dB better), Jcm800 -32.0 dB (28.2 dB better). Both assertions
+// therefore still fail, and deliberately so - the bar is the spec's and is not to be lowered
+// here. What the redesign fixed is resampling aliasing; what remains is the nonlinearities'
+// own aliasing, which no anti-imaging filter can touch:
+//   - Jcm800 came within 1.8 dB of the target, so its floor was filter-dominated. The rest is
+//     expected to fall to the post-cab clamp (deferred to D6d) and the two-region topology
+//     with the tone stack between them (Task 5).
+//   - TubeScreamer barely moved, so its floor was never filter-dominated. A per-tone sweep at
+//     48 kHz puts the worst alias at 6.0 kHz for an 18 kHz tone: that is the 21st harmonic of
+//     18 kHz (378 kHz) folding about the 8x Nyquist of 192 kHz, inside the oversampled domain
+//     where the halfbands cannot see it. A hard diode clipper's harmonics decay as 1/n, so the
+//     floor sits near -20 dB whatever the filters do, and it barely tracks the drive knob
+//     (-18.1 dB at drive 0, -6.1 dB at drive 0.5, -9.6 dB at drive 1). Closing this needs an
+//     antialiased nonlinearity (ADAA) or a higher oversampling factor, neither in Task 4.
+constexpr double kD5bTubeScreamerAliasFloorDb = -8.3;
+constexpr double kD5bJcm800AliasFloorDb = -3.8;
+
+TEST(Unit_Dsp, TubeScreamerAliasFloorImprovedAtLeast30dBOverD5b)
 {
-    SushiDSP::TubeScreamer tube_screamer;
-    tube_screamer.set_drive(1.0f);
-    tube_screamer.set_tone(0.5f);
-    const double tube_screamer_floor = SushiDSP::measure::alias_floor(tube_screamer, 48000.0);
+    SushiDSP::TubeScreamer node;
+    node.set_drive(1.0f);
+    node.set_tone(0.5f);
+    const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
+    std::printf("[ measure ] TubeScreamer alias floor %.1f dB\n", floor);
+    EXPECT_LE(floor, kD5bTubeScreamerAliasFloorDb - 30.0);
+}
 
-    SushiDSP::Jcm800 jcm800;
-    jcm800.set_preamp(1.0f);
-    jcm800.set_master(0.0f);
-    jcm800.set_bass(0.5f);
-    jcm800.set_middle(0.5f);
-    jcm800.set_treble(0.5f);
-    jcm800.set_presence(0.5f);
-    const double jcm800_floor = SushiDSP::measure::alias_floor(jcm800, 48000.0);
-
-    std::printf("[ measure ] alias_floor @48k: TubeScreamer drive=1 %.1f dB, Jcm800 preamp=10 %.1f dB\n", tube_screamer_floor, jcm800_floor);
-    EXPECT_LT(tube_screamer_floor, 0.0);
-    EXPECT_LT(jcm800_floor, 0.0);
+TEST(Unit_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
+{
+    SushiDSP::Jcm800 node;
+    node.set_preamp(1.0f);
+    node.set_master(0.0f);
+    node.set_bass(0.5f);
+    node.set_middle(0.5f);
+    node.set_treble(0.5f);
+    node.set_presence(0.5f);
+    const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
+    std::printf("[ measure ] Jcm800 alias floor %.1f dB\n", floor);
+    EXPECT_LE(floor, kD5bJcm800AliasFloorDb - 30.0);
 }
 
