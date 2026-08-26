@@ -414,6 +414,10 @@ std::string RigController::save_to_json() const
                         params_json[param_id] = value;
                     }
                     node_json["params"] = params_json;
+                    if (!slots_.at(slot).cabinet_path.empty())
+                    {
+                        node_json["cabinet_ir"] = slots_.at(slot).cabinet_path;
+                    }
                     return;
                 }
             }
@@ -423,7 +427,15 @@ std::string RigController::save_to_json() const
 void RigController::load_from_json(const std::string& json_text)
 {
     SushiDSP::RigGraph scratch(info_.max_block, 64);
-    SushiDSP::deserialize_rig_from_json(scratch, json_text, info_);
+    std::unordered_map<SushiDSP::NodeHandle, std::string> cabinet_paths_by_handle;
+    SushiDSP::deserialize_rig_from_json(scratch, json_text, info_,
+        [&cabinet_paths_by_handle](SushiDSP::NodeHandle handle, const nlohmann::json& node_json)
+        {
+            if (node_json.contains("cabinet_ir"))
+            {
+                cabinet_paths_by_handle[handle] = node_json.at("cabinet_ir").get<std::string>();
+            }
+        });
     scratch.compile(info_);
 
     slots_.clear();
@@ -450,6 +462,11 @@ void RigController::load_from_json(const std::string& json_text)
                 }
                 break;
             }
+        }
+        const auto cabinet_it = cabinet_paths_by_handle.find(handle);
+        if (cabinet_it != cabinet_paths_by_handle.end())
+        {
+            slot.cabinet_path = cabinet_it->second;
         }
         slots_[id] = std::move(slot);
         slot_order_.push_back(id);

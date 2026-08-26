@@ -21,6 +21,8 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <cstdint>
+#include <fstream>
 #include <map>
 #include <optional>
 #include <string>
@@ -32,6 +34,60 @@
 #include "RigController.hpp"
 #include "SlotSelection.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
+
+namespace
+{
+    void append_u32_le(std::vector<std::uint8_t>& buffer, std::uint32_t value)
+    {
+        for (int byte = 0; byte < 4; ++byte)
+        {
+            buffer.push_back(static_cast<std::uint8_t>((value >> (8 * byte)) & 0xFF));
+        }
+    }
+
+    void append_u16_le(std::vector<std::uint8_t>& buffer, std::uint16_t value)
+    {
+        buffer.push_back(static_cast<std::uint8_t>(value & 0xFF));
+        buffer.push_back(static_cast<std::uint8_t>((value >> 8) & 0xFF));
+    }
+
+    void append_tag(std::vector<std::uint8_t>& buffer, const char* tag)
+    {
+        buffer.insert(buffer.end(), tag, tag + 4);
+    }
+
+    std::string write_temp_impulse_wav()
+    {
+        const std::uint32_t sample_rate = 48000;
+        std::vector<std::int16_t> samples(64, 0);
+        samples[0] = 16384;
+
+        const std::uint32_t data_bytes = static_cast<std::uint32_t>(samples.size() * sizeof(std::int16_t));
+        std::vector<std::uint8_t> bytes;
+        append_tag(bytes, "RIFF");
+        append_u32_le(bytes, 36 + data_bytes);
+        append_tag(bytes, "WAVE");
+        append_tag(bytes, "fmt ");
+        append_u32_le(bytes, 16);
+        append_u16_le(bytes, 1);
+        append_u16_le(bytes, 1);
+        append_u32_le(bytes, sample_rate);
+        append_u32_le(bytes, sample_rate * 2);
+        append_u16_le(bytes, 2);
+        append_u16_le(bytes, 16);
+        append_tag(bytes, "data");
+        append_u32_le(bytes, data_bytes);
+        for (std::int16_t sample : samples)
+        {
+            append_u16_le(bytes, static_cast<std::uint16_t>(sample));
+        }
+
+        const std::string path = std::string(::testing::TempDir()) + "sushidsp_test_cabinet.wav";
+        std::ofstream out(path, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        return path;
+    }
+}
 
 TEST(Unit_Dsp, RigControllerStartsEmpty)
 {
@@ -258,6 +314,27 @@ TEST(Unit_Dsp, RigControllerSaveToJsonUsesOwnStoredValueNotLiveNodeState)
     const nlohmann::json root = nlohmann::json::parse(json_text);
     ASSERT_EQ(root.at("nodes").size(), 1u);
     EXPECT_FLOAT_EQ(root.at("nodes")[0].at("params").at("drive").get<float>(), 0.9f);
+}
+
+TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsCabinetIr)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    const std::string ir_path = write_temp_impulse_wav();
+
+    RigController original(info);
+    const RigController::SlotId amp = original.append("sushidsp.jcm800");
+    ASSERT_TRUE(original.set_cabinet(amp, ir_path));
+
+    const std::string json_text = original.save_to_json();
+
+    RigController reloaded(info);
+    reloaded.load_from_json(json_text);
+
+    const auto order = reloaded.slot_order();
+    ASSERT_EQ(order.size(), 1u);
+    EXPECT_EQ(reloaded.cabinet_path(order[0]), ir_path);
+
+    std::remove(ir_path.c_str());
 }
 
 // --- Rack-list selection tracking (apps/host_gui/SlotSelection.hpp) ---
