@@ -52,19 +52,51 @@ public:
 
     /// @brief Adds a new, unconnected slot and republishes.
     /// @param descriptor_id The NodeDescriptor id to construct.
+    /// @param publish_now Pass false to batch several structural edits (e.g. building a
+    /// multi-node shape where every individual add_node()/connect() call would otherwise leave
+    /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
+    /// when done. Every existing single-call use is unaffected — the default republishes
+    /// immediately, exactly as before.
     /// @return The new slot's id.
-    SlotId add_node(const std::string& descriptor_id);
+    SlotId add_node(const std::string& descriptor_id, bool publish_now = true);
 
     /// @brief Connects one slot's output to another's input and republishes.
-    void connect(SlotId from, SlotId to);
+    /// @param publish_now Pass false to batch several structural edits (e.g. building a
+    /// multi-node shape where every individual add_node()/connect() call would otherwise leave
+    /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
+    /// when done. Every existing single-call use is unaffected — the default republishes
+    /// immediately, exactly as before.
+    void connect(SlotId from, SlotId to, bool publish_now = true);
 
     /// @brief Removes a single edge, if present, and republishes.
-    void disconnect(SlotId from, SlotId to);
+    /// @param publish_now Pass false to batch several structural edits (e.g. building a
+    /// multi-node shape where every individual add_node()/connect() call would otherwise leave
+    /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
+    /// when done. Every existing single-call use is unaffected — the default republishes
+    /// immediately, exactly as before.
+    void disconnect(SlotId from, SlotId to, bool publish_now = true);
 
-    /// @brief Removes a slot and every edge touching it, then republishes. If the removed slot
-    /// sat in the middle of a linear run (one upstream edge, one downstream edge), its neighbors
-    /// are reconnected directly to each other, preserving a working chain around the gap.
-    void remove(SlotId slot);
+    /// @brief Removes a live slot and every edge touching it, then republishes. If the removed
+    /// slot sat in the middle of a linear run (one upstream edge, one downstream edge), its
+    /// neighbors are reconnected directly to each other, preserving a working chain around the
+    /// gap. This bridging is specific to removing a live slot through this method: publish() may
+    /// separately drop an unrelated slot whose descriptor_id is unknown to the node registry,
+    /// and such a slot's edges are erased without bridging around it (unreachable in practice —
+    /// registry-driven edits and rig_preset's own validation both keep an unknown type from ever
+    /// reaching this controller).
+    /// @param publish_now Pass false to batch several structural edits (e.g. building a
+    /// multi-node shape where every individual add_node()/connect() call would otherwise leave
+    /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
+    /// when done. Every existing single-call use is unaffected — the default republishes
+    /// immediately, exactly as before.
+    void remove(SlotId slot, bool publish_now = true);
+
+    /// @brief Rebuilds a fresh RigGraph from the current slots and edges, compiles it, and
+    /// publishes it through the RtGraphSlot. Called automatically by every edit that publishes;
+    /// call it explicitly after a batch of add_node()/connect()/disconnect()/remove() calls made
+    /// with publish_now = false.
+    /// @throws std::runtime_error if the resulting graph does not compile (e.g. it has no sink).
+    void publish();
 
     /// @brief Adds a new slot connected after the chain's current tail (or as the sole slot, if
     /// the rig is empty) and republishes. Convenience for the common linear-append case.
@@ -127,7 +159,7 @@ public:
     SushiDSP::RtGraphSlot& graph_slot();
 
     /// @brief Serializes the current rig to JSON via SushiDSP::serialize_rig_to_json(). Cabinet
-    /// IR is included (see Task 3 of this plan) once wired.
+    /// IR is included via the `"cabinet_ir"` JSON field.
     std::string save_to_json() const;
 
     /// @brief Replaces the entire rig from JSON via SushiDSP::deserialize_rig_from_json() and
@@ -147,7 +179,6 @@ private:
     };
     struct Edge { SlotId from; SlotId to; };
 
-    void rebuild_and_publish();
     void apply_cabinet_to_live_node(SlotId slot);
     void seed_defaults(Slot& slot) const;
 
