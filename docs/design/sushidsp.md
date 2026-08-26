@@ -189,7 +189,7 @@ All numeric building blocks the amp/pedal circuit models need.
 - **§4.2 Partitioned convolution** — uniform-partitioned (256-frame) overlap-add FFT convolution for the cabinet IR. CPU only.
 - **§4.3 Filters** — TPT/zero-delay-feedback state-variable filter (SVF), biquad cascade (RBJ cookbook coefficients), one-pole/one-zero, all-pass; per-block-smoothed parameters, click-free. Used inside the WDF/DK circuit models and for cabinet mic-model pre-filtering.
 - **§4.4 Resamplers** — polyphase FIR halfband cascade for the amp/pedal oversampler (§7/§8).
-- **§4.5 WDF/DK circuit-solving core** — the shared nonlinear-circuit infrastructure both JCM800 and Tube Screamer build on: Wave Digital Filter adaptor primitives (series/parallel/resistive/reactive), a DK-method (discrete Kirchhoff state-space) formulation for tightly-coupled blocks, and a Newton–Raphson nonlinear-root solver (2–4 iterations, warm-started from the previous sample) shared by every nonlinear stage (triode, op-amp clipper, diode pair).
+- **§4.5 WDF/DK circuit-solving core** — the shared nonlinear-circuit infrastructure both JCM800 and Tube Screamer build on: Wave Digital Filter adaptor primitives (series/parallel/resistive/reactive), a DK-method (discrete Kirchhoff state-space) formulation for tightly-coupled blocks, and a Newton–Raphson nonlinear-root solver (2–4 iterations, warm-started from the previous sample) shared by every nonlinear stage (triode, op-amp clipper, diode pair). **Amendment (D5b, user-confirmed 2026-08-26):** the WDF adaptor tree is deferred indefinitely — DK covers everything the roadmap needs and `Wdf.hpp` stays as the two linear one-ports it already has; see the decision table in `docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`.
 - **§4.6 Complex + windowing** — a POD complex type, Hann/Blackman-Harris/Kaiser windows.
 - **§4.7 Portability** — a thin SIMD abstraction (SSE/AVX/NEON with a scalar fallback) so the core builds on any target; no intrinsics leak into public headers.
 
@@ -199,7 +199,7 @@ All numeric building blocks the amp/pedal circuit models need.
 |---|---|---|
 | Sample rate (base) | 48 000 Hz | `DeviceFormat`, configurable 44.1/48/96 |
 | Block size | 256 frames (5.33 ms) | configurable 64–1024 |
-| Convolution partition | 256 frames | uniform-partitioned FFT (cabinet IR) |
+| Convolution partition | 128 frames at or below 50 kHz, 256 above | `StreamingConvolution::partition_size_for`, cabinet IR |
 | Amp/pedal oversample factor | 8× (→ 384 kHz) | `Jcm800`/`TubeScreamer` nodes |
 
 ---
@@ -254,6 +254,25 @@ amount and oversample factor are compile-time constants.
 
 **Parameters (`NodeDescriptor`):** Preamp, Master, Bass, Middle, Treble, Presence; advanced: bias, sag_amount, cabinet_ir, oversample_factor. All smoothed, click-free. **Cost target:** Newton–Raphson × 8× × ~6 nonlinear stages, **< 1.0 ms per 256-block on one core**.
 
+### As built in D5b
+
+- **Parameters** are eight, not six: Preamp, Master (dB), Bass, Middle, Treble, Presence,
+  Input trim (dB), Output (dB). Master, Input trim and Output are calibrated in decibels via
+  `Calibration::decibels_to_gain`; the rest stay normalized `[0, 1]`. Every parameter is a
+  `SmoothedParameter` target set by `Jcm800::set_parameter(std::uint16_t, float)` — index-based,
+  RT-safe — and applied with a per-block `skip(frames)` step rather than per-sample ramping.
+  Defaults are calibrated so a −12 dBFS input lands the amp's output at roughly −6 dBFS.
+- **Cabinet** runs on `StreamingConvolution` (§4.2/§4.4's partition, chosen by
+  `StreamingConvolution::partition_size_for` — 128 frames at or below 50 kHz, 256 above) behind
+  an `RtSwapSlot<StreamingConvolution>`, so `set_cabinet(Ir)` can install a new impulse response
+  from the control thread at any time, at any host block size, with `reclaim_cabinets()` freeing
+  the previous engine once the audio thread has moved past it. `latency_samples()` reports the
+  oversampler's latency plus the active cabinet's partition size, and moves after `set_cabinet()`
+  — a host should re-read it whenever the cabinet changes.
+- **Output limiter removed.** The soft-knee limiter added after D4 is gone; the output stage is
+  a plain clamp to full scale. Calibration (input trim + the −6 dBFS default operating point)
+  is what keeps normal playing levels off the clamp, not a limiter.
+
 ---
 
 ## §6 Tube Screamer overdrive (white-box) — product module `tubescreamer`
@@ -273,6 +292,15 @@ DI in ─▶ input buffer (JFET/op-amp, unity gain) ─▶ high-pass (input cap)
 
 **Parameters (`NodeDescriptor`):** Drive, Tone, Level. All smoothed, click-free. **Cost target:** one Newton–Raphson nonlinear stage × 8×, **< 0.2 ms per 256-block on one core** (far cheaper than JCM800 — one nonlinear stage vs. ~6).
 
+### As built in D5b
+
+**Parameters** are four, not three: Drive, Tone, Level (dB), Input trim (dB) — indexed via
+`TubeScreamer::set_parameter(std::uint16_t, float)`, each a `SmoothedParameter` stepped once per
+block. Level and Input trim are calibrated in decibels the same way as the JCM800's Master/Input
+trim/Output; defaults land the pedal's output around −12 dBFS for a −12 dBFS input. `drive` still
+sets the clipper's feedback resistance directly. No cabinet stage; `latency_samples()` reports
+only the oversampler's latency.
+
 ---
 
 ## §7 Products, device backend & wrappers
@@ -282,7 +310,7 @@ A **product module** is a self-contained library (its own DSP) that exposes one 
 - **§7.1 `IAudioDevice`** — injected output backend. First implementation SDL2; WASAPI-exclusive/ASIO/CoreAudio/ALSA/PipeWire later, each behind the same seam.
 - **§7.2 Standalone host** — a generic app that opens an `IAudioDevice`, lets the user build/edit a rig from the registered `NodeDescriptor`s, and runs it with a simple parameter UI. Rig presets save/load as portable `{descriptor.id, {param_id → value}}` lists.
 - **§7.3 VST3 / CLAP wrapper** — one generic adapter: maps host process-block → rig graph `process()`; the rig itself (not a single product) is what the plugin hosts, so the plugin's own UI is the rig editor. Built with the CLAP/VST3 SDK (or iPlug2). Depends on **SushiDSP only** — zero external runtime dependency.
-- **§7.4 Command/param plumbing** — a lock-free SPSC ring carries parameter changes, rig-edit commands, and events from the control/UI thread to the RT thread; SushiDSP provides its own generic `SpscRing<T>`.
+- **§7.4 Command/param plumbing** — a lock-free SPSC ring carries parameter changes, rig-edit commands, and events from the control/UI thread to the RT thread; SushiDSP provides its own generic `SpscRing<T>`. **As built in D5b:** `RigGraph` owns an `SpscRing<ParameterChange>`; `RigGraph::push_parameter_change` is the control-thread-facing producer (used by `RigController` in `apps/host_gui`), and `RigGraph::process` drains the ring at the top of every block before running any node, dispatching each change to the target node's `IAudioNode::set_parameter(std::uint16_t, float)`. Nodes recompute derived coefficients on the audio thread only when their `SmoothedParameter` actually moved that block, so an idle knob costs nothing.
 
 ---
 
