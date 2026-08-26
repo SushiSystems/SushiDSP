@@ -21,70 +21,15 @@
 /* permissions and limitations under the License.                        */
 /**************************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and it must remain the very first thing in the translation unit.
-#define _USE_MATH_DEFINES
 #include <algorithm>
-#include <cmath>
+#include <vector>
 
 #include "SushiDSP/math/Oversampler.hpp"
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 namespace SushiDSP
 {
     namespace
     {
-        /// @brief Hamming-windowed sinc halfband lowpass, cutoff at half the current Nyquist.
-        ///
-        /// The taps sum to 1, so the filter's DC gain is unity; the ideal response is 0.5 at the
-        /// cutoff and near zero at Nyquist. taps is forced odd so a single centre tap exists.
-        std::vector<float> design_halfband(std::uint32_t taps)
-        {
-            if (taps < 3)
-            {
-                taps = 3;
-            }
-            if (taps % 2 == 0)
-            {
-                ++taps;
-            }
-            std::vector<float> coefficients(taps, 0.0f);
-            const int center = static_cast<int>(taps - 1) / 2;
-            for (int n = 0; n < static_cast<int>(taps); ++n)
-            {
-                const int k = n - center;
-                float sinc_value;
-                if (k == 0)
-                {
-                    sinc_value = 0.5f;
-                }
-                else
-                {
-                    sinc_value = std::sin(static_cast<float>(M_PI) * static_cast<float>(k) / 2.0f)
-                        / (static_cast<float>(M_PI) * static_cast<float>(k));
-                }
-                const float window = 0.54f
-                    - 0.46f * std::cos(2.0f * static_cast<float>(M_PI) * static_cast<float>(n)
-                        / static_cast<float>(taps - 1));
-                coefficients[n] = sinc_value * window;
-            }
-            return coefficients;
-        }
-
-        /// @brief Every other coefficient starting at `first`, in ascending tap order.
-        std::vector<float> take_every_other(const std::vector<float>& coefficients, std::size_t first)
-        {
-            std::vector<float> subset;
-            for (std::size_t i = first; i < coefficients.size(); i += 2)
-            {
-                subset.push_back(coefficients[i]);
-            }
-            return subset;
-        }
-
         /// @brief Smallest power of two that holds at least `minimum` samples, so the ring
         /// index can wrap with a mask.
         std::uint32_t ring_capacity(std::size_t minimum)
@@ -97,42 +42,62 @@ namespace SushiDSP
             return capacity;
         }
 
-        /// @brief Dot product of `coefficients` against the ring's history, newest sample
-        /// first. Terms are accumulated in ascending tap order, which is what keeps this
-        /// bit-identical to the shifted-delay-line direct form it replaced.
-        float dot_with_history(const std::vector<float>& coefficients, const std::vector<float>& history,
-            std::uint32_t newest_index, std::uint32_t mask)
+        /// @brief The non-zero taps on one side of the centre, nearest the centre first.
+        ///
+        /// A halfband of tap_count = 4M-1 has its centre at index 2M-1 and exact zeros at every
+        /// even distance from it, so the surviving off-centre taps sit at distances 1, 3, ...,
+        /// 2M-1. Symmetry makes the two sides equal, so one side is enough.
+        std::vector<float> one_sided_pairs(const HalfbandDesign& design, float scale)
         {
-            float accumulator = 0.0f;
-            const std::uint32_t count = static_cast<std::uint32_t>(coefficients.size());
-            for (std::uint32_t i = 0; i < count; ++i)
+            const std::uint32_t centre = (design.tap_count - 1) / 2;
+            std::vector<float> pairs;
+            for (std::uint32_t offset = 1; offset <= centre; offset += 2)
             {
-                accumulator += coefficients[i] * history[(newest_index - i) & mask];
+                pairs.push_back(design.taps[centre - offset] * scale);
             }
-            return accumulator;
+            return pairs;
         }
     }
 
-    HalfbandUpsampler2x::HalfbandUpsampler2x(std::uint32_t taps)
-        : even_coefficients_(take_every_other(design_halfband(taps), 0))
-        , odd_coefficients_(take_every_other(design_halfband(taps), 1))
-        , history_(ring_capacity(even_coefficients_.size()), 0.0f)
+    HalfbandUpsampler2x::HalfbandUpsampler2x(const HalfbandDesign& design)
+        : pair_coefficients_(one_sided_pairs(design, 2.0f))
+        , centre_delay_((design.tap_count - 1) / 4)
+        , history_(ring_capacity(design.tap_count / 2 + 2), 0.0f)
         , history_mask_(static_cast<std::uint32_t>(history_.size()) - 1)
         , write_index_(0)
-        , taps_(static_cast<std::uint32_t>(even_coefficients_.size() + odd_coefficients_.size()))
+        , taps_(design.tap_count)
     {
     }
 
     void HalfbandUpsampler2x::process(const float* input, std::uint32_t frames, float* output)
     {
+        // tap_count = 4M-1, centre index c = 2M-1, and the zero-stuffed input has x_s[2n] = 2x[n]
+        // with x_s odd samples zero. Output sample m only sees taps h[k] with k congruent to m
+        // modulo 2.
+        //
+        // Output 2n+1 (odd) needs odd k, i.e. an even distance k-c, and every one of those is an
+        // exact zero except the centre itself: y[2n+1] = 0.5 * x_s[2n+1-c] = x[n - (M-1)], a pure
+        // delay of centre_delay_ = (tap_count-1)/4 = M-1 base-rate samples.
+        //
+        // Output 2n (even) needs even k, i.e. an odd distance d = 2k+1 from the centre, which is
+        // exactly the non-zero pair set. The tap at k = c-d reads x[n - (centre_delay_ - k)] and
+        // its mirror at k = c+d reads x[n - (centre_delay_ + k + 1)], so one coefficient serves
+        // both and is multiplied once.
+        const std::uint32_t pair_count = static_cast<std::uint32_t>(pair_coefficients_.size());
         for (std::uint32_t frame = 0; frame < frames; ++frame)
         {
             write_index_ = (write_index_ + 1) & history_mask_;
-            // The 2x factor compensates the energy lost to zero-stuffing, so DC comes through
-            // the unity-DC-gain filter at unity gain.
-            history_[write_index_] = input[frame] * 2.0f;
-            output[frame * 2] = dot_with_history(even_coefficients_, history_, write_index_, history_mask_);
-            output[frame * 2 + 1] = dot_with_history(odd_coefficients_, history_, write_index_, history_mask_);
+            history_[write_index_] = input[frame];
+
+            float accumulator = 0.0f;
+            for (std::uint32_t k = 0; k < pair_count; ++k)
+            {
+                const float newer = history_[(write_index_ - (centre_delay_ - k)) & history_mask_];
+                const float older = history_[(write_index_ - (centre_delay_ + k + 1)) & history_mask_];
+                accumulator += pair_coefficients_[k] * (newer + older);
+            }
+            output[frame * 2] = accumulator;
+            output[frame * 2 + 1] = history_[(write_index_ - centre_delay_) & history_mask_];
         }
     }
 
@@ -142,27 +107,40 @@ namespace SushiDSP
         write_index_ = 0;
     }
 
-    HalfbandDownsampler2x::HalfbandDownsampler2x(std::uint32_t taps)
-        : coefficients_(design_halfband(taps))
-        , history_(ring_capacity(coefficients_.size()), 0.0f)
+    HalfbandDownsampler2x::HalfbandDownsampler2x(const HalfbandDesign& design)
+        : pair_coefficients_(one_sided_pairs(design, 1.0f))
+        , centre_coefficient_(design.taps[(design.tap_count - 1) / 2])
+        , centre_offset_((design.tap_count - 1) / 2)
+        , history_(ring_capacity(design.tap_count + 1), 0.0f)
         , history_mask_(static_cast<std::uint32_t>(history_.size()) - 1)
         , write_index_(0)
-        , taps_(static_cast<std::uint32_t>(coefficients_.size()))
+        , taps_(design.tap_count)
     {
     }
 
     void HalfbandDownsampler2x::process(const float* input, std::uint32_t frames_in, float* output)
     {
+        // Only the retained outputs y[m] = sum_k h[k] u[2m-k] are computed; the discarded input
+        // samples still enter the history so it stays continuous. Within a retained output only
+        // the non-zero taps are touched: the centre, at history offset centre_offset_, and the
+        // symmetric pairs at odd distances 1, 3, 5, ... either side of it.
+        const std::uint32_t pair_count = static_cast<std::uint32_t>(pair_coefficients_.size());
         std::uint32_t output_index = 0;
         for (std::uint32_t frame = 0; frame < frames_in; ++frame)
         {
             write_index_ = (write_index_ + 1) & history_mask_;
             history_[write_index_] = input[frame];
-            // Only every other filtered sample is kept; the discarded ones still enter the
-            // history so it stays continuous.
             if (frame % 2 == 0)
             {
-                output[output_index++] = dot_with_history(coefficients_, history_, write_index_, history_mask_);
+                float accumulator = centre_coefficient_ * history_[(write_index_ - centre_offset_) & history_mask_];
+                for (std::uint32_t k = 0; k < pair_count; ++k)
+                {
+                    const std::uint32_t offset = 2 * k + 1;
+                    const float newer = history_[(write_index_ - (centre_offset_ - offset)) & history_mask_];
+                    const float older = history_[(write_index_ - (centre_offset_ + offset)) & history_mask_];
+                    accumulator += pair_coefficients_[k] * (newer + older);
+                }
+                output[output_index++] = accumulator;
             }
         }
     }
@@ -175,6 +153,12 @@ namespace SushiDSP
 
     Oversampler8x::Oversampler8x(std::uint32_t block_size)
         : block_size_(block_size)
+        , stage1_up_(kHalfbandStage1)
+        , stage2_up_(kHalfbandStage2)
+        , stage3_up_(kHalfbandStage3)
+        , stage1_down_(kHalfbandStage1)
+        , stage2_down_(kHalfbandStage2)
+        , stage3_down_(kHalfbandStage3)
         , buffer_2x_(static_cast<std::size_t>(block_size) * 2, 0.0f)
         , buffer_4x_(static_cast<std::size_t>(block_size) * 4, 0.0f)
         , buffer_8x_(static_cast<std::size_t>(block_size) * 8, 0.0f)

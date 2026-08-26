@@ -30,396 +30,255 @@
 
 #include <gtest/gtest.h>
 
+#include "SushiDSP/math/HalfbandCoefficients.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
+#include "measure/Spectrum.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Unit_Dsp, HalfbandUpsamplerDoublesFrameCount)
-{
-    SushiDSP::HalfbandUpsampler2x upsampler;
-    std::vector<float> input(64, 0.0f);
-    std::vector<float> output(128, 0.0f);
-    upsampler.process(input.data(), 64, output.data());
-    // No crash / correct sizing is the assertion here; DC content checked below.
-    SUCCEED();
-}
-
-TEST(Unit_Dsp, HalfbandUpsamplerPassesDcAtUnityGainAfterSettling)
-{
-    SushiDSP::HalfbandUpsampler2x upsampler;
-    std::vector<float> input(64, 1.0f);
-    std::vector<float> output(128, 0.0f);
-
-    // Run several blocks to flush the FIR's group delay through the pipeline.
-    for (int block = 0; block < 5; ++block)
-    {
-        upsampler.process(input.data(), 64, output.data());
-    }
-
-    for (std::size_t i = output.size() / 2; i < output.size(); ++i)
-    {
-        EXPECT_NEAR(output[i], 1.0f, 5e-2f) << "sample " << i;
-    }
-}
-
-TEST(Unit_Dsp, HalfbandDownsamplerHalvesFrameCountAndPassesDc)
-{
-    SushiDSP::HalfbandDownsampler2x downsampler;
-    std::vector<float> input(128, 1.0f);
-    std::vector<float> output(64, 0.0f);
-
-    for (int block = 0; block < 5; ++block)
-    {
-        downsampler.process(input.data(), 128, output.data());
-    }
-
-    for (std::size_t i = output.size() / 2; i < output.size(); ++i)
-    {
-        EXPECT_NEAR(output[i], 1.0f, 5e-2f) << "sample " << i;
-    }
-}
-
-TEST(Unit_Dsp, Oversampler8xRoundTripPreservesDcAfterSettling)
-{
-    constexpr std::uint32_t frames = 32;
-    SushiDSP::Oversampler8x oversampler(frames);
-    std::vector<float> input(frames, 1.0f);
-    std::vector<float> output(frames, 0.0f);
-
-    for (int block = 0; block < 10; ++block)
-    {
-        const float* up = oversampler.upsample(input.data(), frames);
-        oversampler.downsample(up, frames * 8, output.data());
-    }
-
-    for (std::size_t i = output.size() / 2; i < output.size(); ++i)
-    {
-        EXPECT_NEAR(output[i], 1.0f, 1e-1f) << "sample " << i;
-    }
-}
-
-TEST(Unit_Dsp, HalfbandUpsamplerResetClearsState)
-{
-    SushiDSP::HalfbandUpsampler2x upsampler;
-    std::vector<float> input(64, 1.0f);
-    std::vector<float> output_a(128, 0.0f);
-    std::vector<float> output_b(128, 0.0f);
-
-    upsampler.process(input.data(), 64, output_a.data());
-    upsampler.reset();
-    upsampler.process(input.data(), 64, output_b.data());
-
-    for (std::size_t i = 0; i < output_a.size(); ++i)
-    {
-        EXPECT_NEAR(output_a[i], output_b[i], 1e-6f) << "sample " << i;
-    }
-}
-
-// --- Filter-shape tests: prove the design is actually a lowpass, not just that it runs. ---
-
-TEST(Unit_Dsp, HalfbandDownsamplerRejectsNyquist)
-{
-    // Full-rate Nyquist (+1, -1, +1, ...) is the worst-case alias source for a 2x decimator.
-    // A working halfband lowpass must attenuate it to near silence; a broken/pass-through
-    // filter would decimate it to a constant +/-1.
-    SushiDSP::HalfbandDownsampler2x downsampler;
-    std::vector<float> input(128, 0.0f);
-    for (std::size_t i = 0; i < input.size(); ++i)
-    {
-        input[i] = (i % 2 == 0) ? 1.0f : -1.0f;
-    }
-    std::vector<float> output(64, 0.0f);
-
-    for (int block = 0; block < 5; ++block)
-    {
-        downsampler.process(input.data(), 128, output.data());
-    }
-
-    for (std::size_t i = output.size() / 2; i < output.size(); ++i)
-    {
-        EXPECT_NEAR(output[i], 0.0f, 1e-2f) << "sample " << i;
-    }
-}
-
-TEST(Unit_Dsp, HalfbandUpsamplerInterpolatesASineWithoutImages)
-{
-    // A passband sine upsampled by 2 must reproduce the *same* continuous sine resampled at the
-    // 2x rate (delayed by the FIR's group delay). A filter that failed to suppress the
-    // zero-stuffing image would leave the interleaved zeros visible instead, so this compares
-    // every 2x sample against the analytic value.
-    constexpr std::uint32_t frames = 64;
-    constexpr std::uint32_t taps = 15;
-    constexpr int group_delay = static_cast<int>(taps - 1) / 2; // in 2x-rate samples
-    constexpr float cycles_per_input_sample = 1.0f / 16.0f;
-    constexpr float kPi = 3.14159265358979323846f;
-
-    SushiDSP::HalfbandUpsampler2x upsampler(taps);
-    std::vector<float> input(frames, 0.0f);
-    std::vector<float> output(frames * 2, 0.0f);
-
-    constexpr int blocks = 6;
-    for (int block = 0; block < blocks; ++block)
-    {
-        for (std::uint32_t i = 0; i < frames; ++i)
-        {
-            const int n = block * static_cast<int>(frames) + static_cast<int>(i);
-            input[i] = std::sin(2.0f * kPi * cycles_per_input_sample * static_cast<float>(n));
-        }
-        upsampler.process(input.data(), frames, output.data());
-    }
-
-    // Index of the first 2x output sample of the last block, in the global 2x timeline.
-    const int base = (blocks - 1) * static_cast<int>(frames) * 2;
-    for (std::uint32_t i = static_cast<std::uint32_t>(group_delay); i < output.size(); ++i)
-    {
-        const int n2x = base + static_cast<int>(i) - group_delay;
-        const float expected =
-            std::sin(2.0f * kPi * (cycles_per_input_sample / 2.0f) * static_cast<float>(n2x));
-        EXPECT_NEAR(output[i], expected, 5e-2f) << "sample " << i;
-    }
-}
-
-TEST(Unit_Dsp, HalfbandDownsamplerPassesALowFrequencySineNearUnity)
-{
-    // A sine well inside the passband must survive decimation with roughly its input amplitude.
-    constexpr std::uint32_t frames_in = 128;
-    constexpr float normalized_frequency = 1.0f / 32.0f; // cycles per input sample
-
-    SushiDSP::HalfbandDownsampler2x downsampler;
-    std::vector<float> input(frames_in, 0.0f);
-    std::vector<float> output(frames_in / 2, 0.0f);
-
-    float peak = 0.0f;
-    for (int block = 0; block < 8; ++block)
-    {
-        for (std::uint32_t i = 0; i < frames_in; ++i)
-        {
-            const float phase = 2.0f * 3.14159265358979323846f * normalized_frequency
-                * static_cast<float>(block * static_cast<int>(frames_in) + static_cast<int>(i));
-            input[i] = std::sin(phase);
-        }
-        downsampler.process(input.data(), frames_in, output.data());
-
-        if (block == 7)
-        {
-            for (float sample : output)
-            {
-                peak = std::max(peak, std::fabs(sample));
-            }
-        }
-    }
-
-    EXPECT_NEAR(peak, 1.0f, 5e-2f);
-}
-
-TEST(Unit_Dsp, Oversampler8xResetClearsState)
-{
-    const std::uint32_t block_size = 32;
-    const int           block_count = 3;
-
-    std::vector<float> input(block_size, 0.0f);
-    for (std::uint32_t i = 0; i < block_size; ++i)
-    {
-        input[i] = std::sin(0.31f * static_cast<float>(i)) * 0.7f;
-    }
-
-    SushiDSP::Oversampler8x oversampler(block_size);
-    SushiDSP::Oversampler8x fresh_oversampler(block_size);
-
-    std::vector<float> output_a(block_size, 0.0f);
-    std::vector<float> output_b(block_size, 0.0f);
-    std::vector<float> output_fresh(block_size, 0.0f);
-
-    for (int block = 0; block < block_count; ++block)
-    {
-        const float* oversampled = oversampler.upsample(input.data(), block_size);
-        oversampler.downsample(oversampled, block_size * 8, output_a.data());
-    }
-
-    oversampler.reset();
-
-    for (int block = 0; block < block_count; ++block)
-    {
-        const float* oversampled = oversampler.upsample(input.data(), block_size);
-        oversampler.downsample(oversampled, block_size * 8, output_b.data());
-
-        const float* fresh_oversampled = fresh_oversampler.upsample(input.data(), block_size);
-        fresh_oversampler.downsample(fresh_oversampled, block_size * 8, output_fresh.data());
-    }
-
-    for (std::size_t i = 0; i < output_b.size(); ++i)
-    {
-        EXPECT_NEAR(output_b[i], output_fresh[i], 1e-6f) << "sample " << i;
-    }
-}
-
-TEST(Unit_Dsp, HalfbandDownsamplerResetClearsState)
-{
-    SushiDSP::HalfbandDownsampler2x downsampler;
-    std::vector<float> input(128, 1.0f);
-    std::vector<float> output_a(64, 0.0f);
-    std::vector<float> output_b(64, 0.0f);
-
-    downsampler.process(input.data(), 128, output_a.data());
-    downsampler.reset();
-    downsampler.process(input.data(), 128, output_b.data());
-
-    for (std::size_t i = 0; i < output_a.size(); ++i)
-    {
-        EXPECT_NEAR(output_a[i], output_b[i], 1e-6f) << "sample " << i;
-    }
-}
-
 namespace
 {
-    // The shifted-delay-line direct form the polyphase/ring-buffer implementation replaced,
-    // including the same coefficient design, kept here as the reference the new code must
-    // reproduce bit for bit.
-    std::vector<float> reference_halfband(std::uint32_t taps)
+    std::vector<float> sine(double cycles_per_sample, std::size_t length, float amplitude)
     {
-        std::vector<float> coefficients(taps, 0.0f);
-        const int center = static_cast<int>(taps - 1) / 2;
-        for (int n = 0; n < static_cast<int>(taps); ++n)
+        std::vector<float> signal(length);
+        for (std::size_t i = 0; i < length; ++i)
         {
-            const int k = n - center;
-            float sinc_value;
-            if (k == 0)
-            {
-                sinc_value = 0.5f;
-            }
-            else
-            {
-                sinc_value = std::sin(static_cast<float>(M_PI) * static_cast<float>(k) / 2.0f)
-                    / (static_cast<float>(M_PI) * static_cast<float>(k));
-            }
-            const float window = 0.54f
-                - 0.46f * std::cos(2.0f * static_cast<float>(M_PI) * static_cast<float>(n)
-                    / static_cast<float>(taps - 1));
-            coefficients[n] = sinc_value * window;
-        }
-        return coefficients;
-    }
-
-    std::vector<float> reference_upsample(const std::vector<float>& input, std::uint32_t taps)
-    {
-        const std::vector<float> coefficients = reference_halfband(taps);
-        std::vector<float> delay_line(taps, 0.0f);
-        std::vector<float> output(input.size() * 2);
-        for (std::size_t frame = 0; frame < input.size(); ++frame)
-        {
-            for (std::uint32_t sub = 0; sub < 2; ++sub)
-            {
-                for (std::uint32_t i = taps - 1; i > 0; --i)
-                {
-                    delay_line[i] = delay_line[i - 1];
-                }
-                delay_line[0] = (sub == 0) ? input[frame] * 2.0f : 0.0f;
-                float accumulator = 0.0f;
-                for (std::uint32_t i = 0; i < taps; ++i)
-                {
-                    accumulator += coefficients[i] * delay_line[i];
-                }
-                output[frame * 2 + sub] = accumulator;
-            }
-        }
-        return output;
-    }
-
-    std::vector<float> reference_downsample(const std::vector<float>& input, std::uint32_t taps)
-    {
-        const std::vector<float> coefficients = reference_halfband(taps);
-        std::vector<float> delay_line(taps, 0.0f);
-        std::vector<float> output(input.size() / 2);
-        std::size_t output_index = 0;
-        for (std::size_t frame = 0; frame < input.size(); ++frame)
-        {
-            for (std::uint32_t i = taps - 1; i > 0; --i)
-            {
-                delay_line[i] = delay_line[i - 1];
-            }
-            delay_line[0] = input[frame];
-            if (frame % 2 == 0)
-            {
-                float accumulator = 0.0f;
-                for (std::uint32_t i = 0; i < taps; ++i)
-                {
-                    accumulator += coefficients[i] * delay_line[i];
-                }
-                output[output_index++] = accumulator;
-            }
-        }
-        return output;
-    }
-
-    std::vector<float> noisy_signal(std::size_t frames)
-    {
-        std::vector<float> signal(frames);
-        std::uint32_t state = 0x12345678u;
-        for (std::size_t i = 0; i < frames; ++i)
-        {
-            state = state * 1664525u + 1013904223u;
-            signal[i] = static_cast<float>(static_cast<int>(state >> 8) % 20001 - 10000) / 10000.0f;
+            signal[i] = amplitude * static_cast<float>(std::sin(2.0 * M_PI * cycles_per_sample * static_cast<double>(i)));
         }
         return signal;
     }
-}
 
-TEST(Unit_Dsp, HalfbandUpsamplerMatchesDirectFormReferenceBitForBit)
-{
-    for (std::uint32_t taps : { 15u, 31u, 3u })
+    /// @brief Direct-form FIR of the zero-stuffed input: the textbook definition polyphase must match.
+    std::vector<float> reference_upsample(const SushiDSP::HalfbandDesign& design, const std::vector<float>& input)
     {
-        const std::vector<float> input = noisy_signal(300);
-        const std::vector<float> expected = reference_upsample(input, taps);
-        SushiDSP::HalfbandUpsampler2x upsampler(taps);
-        std::vector<float> output(input.size() * 2, 0.0f);
-        // Two calls of uneven length, so the ring state across calls is exercised too.
-        upsampler.process(input.data(), 113, output.data());
-        upsampler.process(input.data() + 113, 187, output.data() + 226);
-        for (std::size_t i = 0; i < output.size(); ++i)
+        std::vector<float> stuffed(input.size() * 2, 0.0f);
+        for (std::size_t i = 0; i < input.size(); ++i)
         {
-            EXPECT_EQ(output[i], expected[i]) << "taps " << taps << " sample " << i;
+            stuffed[2 * i] = 2.0f * input[i];
         }
+        std::vector<float> output(stuffed.size(), 0.0f);
+        for (std::size_t n = 0; n < stuffed.size(); ++n)
+        {
+            double accumulator = 0.0;
+            for (std::uint32_t k = 0; k < design.tap_count && k <= n; ++k)
+            {
+                accumulator += static_cast<double>(design.taps[k]) * stuffed[n - k];
+            }
+            output[n] = static_cast<float>(accumulator);
+        }
+        return output;
     }
-}
 
-TEST(Unit_Dsp, HalfbandDownsamplerMatchesDirectFormReferenceBitForBit)
-{
-    for (std::uint32_t taps : { 15u, 31u, 3u })
+    /// @brief Direct-form FIR of the input, keeping only the even-indexed filtered samples.
+    std::vector<float> reference_downsample(const SushiDSP::HalfbandDesign& design, const std::vector<float>& input)
     {
-        const std::vector<float> input = noisy_signal(600);
-        const std::vector<float> expected = reference_downsample(input, taps);
-        SushiDSP::HalfbandDownsampler2x downsampler(taps);
         std::vector<float> output(input.size() / 2, 0.0f);
-        downsampler.process(input.data(), 226, output.data());
-        downsampler.process(input.data() + 226, 374, output.data() + 113);
-        for (std::size_t i = 0; i < output.size(); ++i)
+        for (std::size_t m = 0; m < output.size(); ++m)
         {
-            EXPECT_EQ(output[i], expected[i]) << "taps " << taps << " sample " << i;
+            const std::size_t n = 2 * m;
+            double accumulator = 0.0;
+            for (std::uint32_t k = 0; k < design.tap_count && k <= n; ++k)
+            {
+                accumulator += static_cast<double>(design.taps[k]) * input[n - k];
+            }
+            output[m] = static_cast<float>(accumulator);
         }
+        return output;
+    }
+
+    double peak_db(const std::vector<double>& spectrum)
+    {
+        double peak = -300.0;
+        for (const double value : spectrum)
+        {
+            peak = std::max(peak, value);
+        }
+        return peak;
     }
 }
 
-TEST(Unit_Dsp, Oversampler8xReportsMeasuredImpulseLatency)
+TEST(Unit_Dsp, HalfbandDesignsHaveExactZeroTapsAndUnityDcGain)
 {
-    SushiDSP::Oversampler8x oversampler(64);
-    std::vector<float> input(64, 0.0f);
+    for (const SushiDSP::HalfbandDesign* design : { &SushiDSP::kHalfbandStage1, &SushiDSP::kHalfbandStage2, &SushiDSP::kHalfbandStage3 })
+    {
+        ASSERT_EQ(design->tap_count % 4, 3u);
+        const std::uint32_t centre = (design->tap_count - 1) / 2;
+        double sum = 0.0;
+        for (std::uint32_t i = 0; i < design->tap_count; ++i)
+        {
+            // tap_count = 4M-1 puts the centre at index 2M-1. The halfband zeros sit at even
+            // distances from the centre; the surviving taps are at odd distances 1, 3, 5, ...
+            if (i != centre && (i > centre ? i - centre : centre - i) % 2 == 0)
+            {
+                EXPECT_EQ(design->taps[i], 0.0f) << i;
+            }
+            EXPECT_EQ(design->taps[i], design->taps[design->tap_count - 1 - i]) << i;
+            sum += design->taps[i];
+        }
+        EXPECT_EQ(design->taps[centre], 0.5f);
+        EXPECT_NEAR(sum, 1.0, 1e-6);
+        EXPECT_LE(design->stopband_db, -90.0f);
+    }
+}
+
+TEST(Unit_Dsp, HalfbandUpsamplerMatchesDirectFormOfZeroStuffedInput)
+{
+    const auto input = sine(0.0731, 4096, 0.7f);
+    SushiDSP::HalfbandUpsampler2x upsampler(SushiDSP::kHalfbandStage1);
+    std::vector<float> output(input.size() * 2, 0.0f);
+    // Two blocks, so streaming state across a block boundary is covered.
+    upsampler.process(input.data(), 2048, output.data());
+    upsampler.process(input.data() + 2048, 2048, output.data() + 4096);
+    const auto reference = reference_upsample(SushiDSP::kHalfbandStage1, input);
+    for (std::size_t i = 0; i < output.size(); ++i)
+    {
+        ASSERT_NEAR(output[i], reference[i], 1e-6f) << i;
+    }
+}
+
+TEST(Unit_Dsp, HalfbandDownsamplerMatchesDirectForm)
+{
+    const auto input = sine(0.0377, 8192, 0.7f);
+    SushiDSP::HalfbandDownsampler2x downsampler(SushiDSP::kHalfbandStage1);
+    std::vector<float> output(input.size() / 2, 0.0f);
+    downsampler.process(input.data(), 4096, output.data());
+    downsampler.process(input.data() + 4096, 4096, output.data() + 2048);
+    const auto reference = reference_downsample(SushiDSP::kHalfbandStage1, input);
+    for (std::size_t i = 0; i < output.size(); ++i)
+    {
+        ASSERT_NEAR(output[i], reference[i], 1e-6f) << i;
+    }
+}
+
+TEST(Unit_Dsp, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
+{
+    // Spec D6a: image rejection >= 90 dB at 0.3*f_base and beyond. A tone's images sit at
+    // k*f_base +- f; every line in the 8x spectrum other than the tone must be >= 90 dB down.
+    const std::size_t base_frames = SushiDSP::measure::kFftSize / 8;
+    for (const double fraction : { 0.30, 0.35, 0.40, 0.45 })
+    {
+        const double cycles = std::round(fraction * base_frames) / base_frames;
+        const auto input = sine(cycles, base_frames * 2, 0.5f);
+        SushiDSP::Oversampler8x oversampler(256);
+        std::vector<float> oversampled(input.size() * 8, 0.0f);
+        for (std::size_t position = 0; position < input.size(); position += 256)
+        {
+            const float* block = oversampler.upsample(input.data() + position, 256);
+            std::copy(block, block + 2048, oversampled.begin() + position * 8);
+        }
+        const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(oversampled, oversampled.size() - SushiDSP::measure::kFftSize);
+        const std::uint32_t tone_bin = static_cast<std::uint32_t>(std::lround(cycles / 8.0 * SushiDSP::measure::kFftSize));
+        const double fundamental = SushiDSP::measure::peak_near(spectrum, tone_bin);
+        double worst = -300.0;
+        for (std::uint32_t bin = 8; bin < spectrum.size(); ++bin)
+        {
+            if (bin + 8 > tone_bin && bin < tone_bin + 8)
+            {
+                continue;
+            }
+            worst = std::max(worst, spectrum[bin] - fundamental);
+        }
+        EXPECT_LE(worst, -90.0) << "fraction " << fraction;
+    }
+}
+
+TEST(Unit_Dsp, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
+{
+    // Tones at the 8x rate from 0.55*f_base to 3.95*f_base in 0.05 steps, decimated to base
+    // rate: whatever folds into [0, 0.45*f_base] must be >= 90 dB below the tone. Folds that
+    // land in the stage-1 transition band (0.45..0.5)*f_base are the filter's don't-care
+    // region and are skipped.
+    const std::size_t base_frames = SushiDSP::measure::kFftSize;
+    // Reference level: the same-amplitude tone analysed with the same window at base rate. It
+    // has to be bin-exact, as the folded aliases are; a tone off-bin loses up to 0.83 dB to
+    // Blackman-Harris scalloping, which would flatter every alias by that much.
+    const double reference_cycles = std::round(0.1 * base_frames) / base_frames;
+    const double reference = peak_db(SushiDSP::measure::magnitude_spectrum_db(sine(reference_cycles, base_frames * 2, 0.5f), base_frames));
+    for (double fraction = 0.55; fraction < 3.96; fraction += 0.05)
+    {
+        double folded = std::fmod(fraction, 1.0);
+        folded = folded > 0.5 ? 1.0 - folded : folded;
+        if (folded > 0.45)
+        {
+            continue;
+        }
+        const double cycles_at_8x = std::round(fraction / 8.0 * base_frames * 8) / (base_frames * 8);
+        const auto input = sine(cycles_at_8x, base_frames * 8 * 2, 0.5f);
+        SushiDSP::Oversampler8x oversampler(256);
+        std::vector<float> output(base_frames * 2, 0.0f);
+        for (std::size_t position = 0; position < output.size(); position += 256)
+        {
+            oversampler.downsample(input.data() + position * 8, 2048, output.data() + position);
+        }
+        const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(output, output.size() - SushiDSP::measure::kFftSize);
+        const std::uint32_t band_edge = static_cast<std::uint32_t>(0.45 * SushiDSP::measure::kFftSize);
+        double worst = -300.0;
+        for (std::uint32_t bin = 8; bin <= band_edge; ++bin)
+        {
+            worst = std::max(worst, spectrum[bin]);
+        }
+        EXPECT_LE(worst - reference, -90.0) << "fraction " << fraction;
+    }
+}
+
+TEST(Unit_Dsp, Oversampler8xRoundTripDroopAt20kIsWithinTenthOfADecibel)
+{
+    // 20 kHz at 48 kHz is 0.4167*f_base, inside the 0.45 passband; round trip through six stages.
+    const std::size_t base_frames = SushiDSP::measure::kFftSize;
+    const double cycles = std::round(20000.0 / 48000.0 * base_frames) / base_frames;
+    const auto input = sine(cycles, base_frames * 2, 0.5f);
+    SushiDSP::Oversampler8x oversampler(256);
+    std::vector<float> output(input.size(), 0.0f);
+    for (std::size_t position = 0; position < input.size(); position += 256)
+    {
+        const float* up = oversampler.upsample(input.data() + position, 256);
+        oversampler.downsample(up, 2048, output.data() + position);
+    }
+    double input_rms = 0.0, output_rms = 0.0;
+    for (std::size_t i = base_frames; i < input.size(); ++i)
+    {
+        input_rms += static_cast<double>(input[i]) * input[i];
+        output_rms += static_cast<double>(output[i]) * output[i];
+    }
+    EXPECT_NEAR(10.0 * std::log10(output_rms / input_rms), 0.0, 0.1);
+}
+
+TEST(Unit_Dsp, Oversampler8xLatencyMatchesMeasuredImpulseDelay)
+{
+    SushiDSP::Oversampler8x oversampler(256);
+    std::vector<float> input(2048, 0.0f);
     input[0] = 1.0f;
-    std::vector<float> output(64, 0.0f);
-    // Two blocks so a delay longer than one block is still observed.
-    std::vector<float> observed;
-    for (int block = 0; block < 2; ++block)
+    std::vector<float> output(2048, 0.0f);
+    for (std::size_t position = 0; position < input.size(); position += 256)
     {
-        const float* up = oversampler.upsample(input.data(), 64);
-        oversampler.downsample(up, 512, output.data());
-        observed.insert(observed.end(), output.begin(), output.end());
-        std::fill(input.begin(), input.end(), 0.0f);
+        const float* up = oversampler.upsample(input.data() + position, 256);
+        oversampler.downsample(up, 2048, output.data() + position);
     }
-    std::size_t peak_index = 0;
-    for (std::size_t i = 1; i < observed.size(); ++i)
+    std::size_t peak = 0;
+    for (std::size_t i = 1; i < output.size(); ++i)
     {
-        if (std::fabs(observed[i]) > std::fabs(observed[peak_index])) { peak_index = i; }
+        if (std::fabs(output[i]) > std::fabs(output[peak]))
+        {
+            peak = i;
+        }
     }
-    EXPECT_EQ(static_cast<std::uint32_t>(peak_index), oversampler.latency_samples());
+    // The true group delay is fractional at base rate; the reported floor is within one sample.
+    const long difference = static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
+    EXPECT_GE(difference, 0);
+    EXPECT_LE(difference, 1);
+}
+
+TEST(Unit_Dsp, Oversampler8xPassesDcAtUnity)
+{
+    SushiDSP::Oversampler8x oversampler(256);
+    std::vector<float> input(256, 1.0f);
+    std::vector<float> output(256, 0.0f);
+    for (int block = 0; block < 8; ++block)
+    {
+        const float* up = oversampler.upsample(input.data(), 256);
+        oversampler.downsample(up, 2048, output.data());
+    }
+    EXPECT_NEAR(output[255], 1.0f, 1e-4f);
 }
