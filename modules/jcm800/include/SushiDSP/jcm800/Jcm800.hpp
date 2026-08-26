@@ -169,6 +169,12 @@ namespace SushiDSP
         Biquad coupling_cap_;
         Biquad presence_shelf_;
 
+        // One-pole grid-input-capacitance rolloffs, one per driven triode grid; see the Miller
+        // constants in Jcm800.cpp for what sets their corners.
+        Biquad v1b_grid_miller_;
+        Biquad v2a_grid_miller_;
+        Biquad phase_inverter_grid_miller_;
+
         TriodeStage v1a_;
         TriodeStage v1b_;
         JcmToneStack tone_stack_;

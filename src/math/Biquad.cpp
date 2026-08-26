@@ -56,6 +56,18 @@ namespace SushiDSP
         a2_ = static_cast<float>(a2 / a0);
     }
 
+    void Biquad::set_one_pole_low_pass(double sample_rate, double cutoff_hz)
+    {
+        const double k = std::tan(M_PI * cutoff_hz / sample_rate);
+        const double norm = 1.0 / (1.0 + k);
+
+        b0_ = static_cast<float>(k * norm);
+        b1_ = b0_;
+        b2_ = 0.0f;
+        a1_ = static_cast<float>((k - 1.0) * norm);
+        a2_ = 0.0f;
+    }
+
     void Biquad::set_high_pass(double sample_rate, double cutoff_hz, double q)
     {
         const double omega = 2.0 * M_PI * cutoff_hz / sample_rate;

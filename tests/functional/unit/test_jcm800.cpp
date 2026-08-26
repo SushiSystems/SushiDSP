@@ -618,11 +618,12 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     // no-mismatch one.
     //
     // Re-measured at 220 Hz, 0.2 input, preamp 0.6 after D6a Task 5 moved the tone stack inside
-    // the single 8x region: second harmonic is 2.12% of the fundamental as shipped and 2.88%
-    // with kPowerTubeGridBiasMismatchVolts set to zero. Both figures moved up by about 0.4 pp
-    // from the two-region measurement (1.77% / 2.45%) because the drive reaching the power stage
-    // is no longer shaped by the old region-A decimator, but the mismatch's effect is unchanged
-    // in both sign and size: it still removes about 0.75 pp of second harmonic.
+    // the single 8x region and gave the triode grids their Miller input capacitance: second
+    // harmonic is 2.17% of the fundamental as shipped and 2.93% with
+    // kPowerTubeGridBiasMismatchVolts set to zero. Both figures moved up by about 0.45 pp from
+    // the two-region measurement (1.77% / 2.45%) because the drive reaching the power stage is
+    // no longer shaped by the old region-A decimator, but the mismatch's effect is unchanged in
+    // both sign and size: it still removes about 0.76 pp of second harmonic.
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
@@ -673,6 +674,7 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     };
 
     const double second_harmonic_ratio = harmonic_amplitude(2) / harmonic_amplitude(1);
+    std::printf("[ measure ] second harmonic %.4f\n", second_harmonic_ratio);
     EXPECT_GT(second_harmonic_ratio, 0.017);
     EXPECT_LT(second_harmonic_ratio, 0.025);
 }
