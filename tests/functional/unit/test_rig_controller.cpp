@@ -27,6 +27,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 
 #include "RigController.hpp"
 #include "SlotSelection.hpp"
@@ -241,6 +242,22 @@ TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsChainAndParameters)
     EXPECT_EQ(reloaded.descriptor_id(order[0]), "sushidsp.tubescreamer");
     EXPECT_EQ(reloaded.descriptor_id(order[1]), "sushidsp.jcm800");
     EXPECT_FLOAT_EQ(reloaded.get_parameter(order[0], "drive"), 0.77f);
+}
+
+TEST(Unit_Dsp, RigControllerSaveToJsonUsesOwnStoredValueNotLiveNodeState)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+    const RigController::SlotId ts = controller.append("sushidsp.tubescreamer");
+    controller.set_parameter(ts, "drive", 0.9f);
+    // Deliberately no process() call and no further structural edit here — the live node still
+    // reads the pre-edit default (0.5), but save_to_json() must report the controller's own
+    // authoritative 0.9f, matching what get_parameter() and the GUI slider both already show.
+
+    const std::string json_text = controller.save_to_json();
+    const nlohmann::json root = nlohmann::json::parse(json_text);
+    ASSERT_EQ(root.at("nodes").size(), 1u);
+    EXPECT_FLOAT_EQ(root.at("nodes")[0].at("params").at("drive").get<float>(), 0.9f);
 }
 
 // --- Rack-list selection tracking (apps/host_gui/SlotSelection.hpp) ---
