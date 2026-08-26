@@ -79,6 +79,9 @@ namespace SushiDSP
         // it moves the handover without turning the pair into a single-ended stage. The DC term
         // it introduces is blocked downstream by the output transformer's 60 Hz high-pass, as a
         // real transformer blocks it.
+        // Held in a member rather than read here directly, so that
+        // set_power_tube_grid_bias_mismatch_volts() can zero it and let a test measure what it
+        // contributes; this value is the default the constructor installs.
         constexpr float kPowerTubeGridBiasMismatchVolts = 0.03f;
 
         // 12AX7 Miller input capacitance - the interstage bandwidth limit the model was missing.
@@ -227,6 +230,8 @@ namespace SushiDSP
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
         , sag_(48000.0 * kOversamplingFactor, kSagAmount, kSagRecoveryTimeSeconds)
     {
+        power_tube_grid_bias_mismatch_volts_ = kPowerTubeGridBiasMismatchVolts;
+
         const double initial_oversampled_rate_hz = 48000.0 * kOversamplingFactor;
         v1b_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kTriodeGain));
         v2a_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kTriodeGain));
@@ -369,7 +374,7 @@ namespace SushiDSP
             const float phase_inverted = phase_inverter_.process_sample(
                 phase_inverter_grid_miller_.process_sample(phase_split)) * kPhaseInverterToPowerTubeAttenuation;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
-            const float el34_b_out = el34_b_.process_sample(-phase_inverted - kPowerTubeGridBiasMismatchVolts);
+            const float el34_b_out = el34_b_.process_sample(-phase_inverted - power_tube_grid_bias_mismatch_volts_);
             const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
 
             // The transformer and the sag stage stay inside the oversampled region, as spec
@@ -491,6 +496,11 @@ namespace SushiDSP
     void Jcm800::set_middle(float normalized) { middle_.set_target(std::clamp(normalized, 0.0f, 1.0f)); }
     void Jcm800::set_treble(float normalized) { treble_.set_target(std::clamp(normalized, 0.0f, 1.0f)); }
     void Jcm800::set_presence(float normalized) { presence_.set_target(std::clamp(normalized, 0.0f, 1.0f)); }
+
+    void Jcm800::set_power_tube_grid_bias_mismatch_volts(float volts)
+    {
+        power_tube_grid_bias_mismatch_volts_ = volts;
+    }
 
     void Jcm800::set_master(float decibels)
     {
