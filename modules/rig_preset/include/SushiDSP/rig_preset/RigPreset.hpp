@@ -46,6 +46,7 @@ namespace SushiDSP
     /// @param graph An empty or existing RigGraph to add the parsed nodes/edges into.
     /// @param json_text The JSON text to parse.
     /// @throws std::runtime_error if the JSON is malformed, or references a `type` not found in
-    /// node_registry().
+    /// node_registry(). Every entry's `type` is validated against node_registry() in a first pass
+    /// before any node is added to graph, so an unknown-`type` throw leaves graph unmodified.
     void deserialize_rig_from_json(RigGraph& graph, const std::string& json_text);
 }

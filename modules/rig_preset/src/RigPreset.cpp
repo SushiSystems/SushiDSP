@@ -97,20 +97,31 @@ namespace SushiDSP
     {
         const nlohmann::json root = nlohmann::json::parse(json_text);
 
-        std::map<int, NodeHandle> preset_id_to_handle;
-        std::map<NodeHandle, std::vector<int>> pending_inputs;
-        std::map<NodeHandle, std::map<std::string, float>> pending_params;
-
+        // First pass: validate every entry's type resolves to a registered descriptor before
+        // mutating graph at all, so a corrupt/edited-by-hand preset never leaves the caller's
+        // live graph half-populated with orphan nodes.
+        std::vector<const NodeDescriptor*> descriptors;
+        descriptors.reserve(root.at("nodes").size());
         for (const auto& node_json : root.at("nodes"))
         {
-            const int preset_id = node_json.at("id").get<int>();
             const std::string type = node_json.at("type").get<std::string>();
-
             const NodeDescriptor* descriptor = descriptor_for_type(type.c_str());
             if (descriptor == nullptr)
             {
                 throw std::runtime_error("deserialize_rig_from_json: unknown node type '" + type + "'");
             }
+            descriptors.push_back(descriptor);
+        }
+
+        std::map<int, NodeHandle> preset_id_to_handle;
+        std::map<NodeHandle, std::vector<int>> pending_inputs;
+        std::map<NodeHandle, std::map<std::string, float>> pending_params;
+
+        std::size_t entry_index = 0;
+        for (const auto& node_json : root.at("nodes"))
+        {
+            const int preset_id = node_json.at("id").get<int>();
+            const NodeDescriptor* descriptor = descriptors[entry_index++];
 
             const PrepareInfo dummy_info{ 48000.0, 256, 1 };
             NodeHandle handle = graph.add_node(descriptor->make(dummy_info));

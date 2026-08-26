@@ -21,7 +21,9 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <cmath>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -30,6 +32,22 @@
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 #include "SushiDSP/rig_preset/RigPreset.hpp"
+
+namespace
+{
+    /// @brief A minimal IAudioNode with no node_registry() entry, so its type_id() can never
+    /// resolve to a NodeDescriptor — used to exercise serialize_rig_to_json()'s throw path.
+    struct UnregisteredNode : SushiDSP::IAudioNode
+    {
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+        void process(SushiDSP::ProcessContext&) override {}
+        SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+        void reset() override {}
+        const char* type_id() const override { return "not.registered"; }
+    };
+}
 
 TEST(Unit_Dsp, SerializeRigToJsonProducesOneEntryPerNodeWithInputs)
 {
@@ -88,6 +106,14 @@ TEST(Unit_Dsp, DeserializeRigFromJsonRebuildsBranchingTopologyAndParameters)
     }
     EXPECT_TRUE(found_drive_075);
     EXPECT_TRUE(found_drive_010);
+
+    // Topology: the mixer (preset id 4, handle 4 since deserialize preserves JSON-array add
+    // order) must have exactly the two upstream nodes the JSON's "inputs": [2, 3] declares —
+    // the amp (handle 2) and the dry tubescreamer (handle 3), in that order.
+    const std::vector<SushiDSP::NodeHandle> mixer_inputs = graph.upstream_of(4);
+    ASSERT_EQ(mixer_inputs.size(), 2u);
+    EXPECT_EQ(mixer_inputs[0], 2u);
+    EXPECT_EQ(mixer_inputs[1], 3u);
 }
 
 TEST(Unit_Dsp, SerializeThenDeserializeRoundTripsABranchingGraph)
@@ -127,4 +153,37 @@ TEST(Unit_Dsp, SerializeThenDeserializeRoundTripsABranchingGraph)
         }
     }
     EXPECT_TRUE(found_mixer_with_gains);
+
+    // Topology: deserialize_rig_from_json adds nodes into an empty graph in the same
+    // JSON-array order that serialize_rig_to_json wrote them (which itself follows
+    // original.nodes()'s add_node() order), so rebuilt's handles line up 1:1 with original's.
+    // Compare upstream_of() as ordered vectors for every handle to catch a dropped connect()
+    // or a reversed fan-in that a "does some node have the right value" check would miss.
+    for (SushiDSP::NodeHandle handle : original.nodes())
+    {
+        EXPECT_EQ(rebuilt.upstream_of(handle), original.upstream_of(handle))
+            << "upstream_of mismatch for handle " << handle;
+    }
+}
+
+TEST(Unit_Dsp, DeserializeRigFromJsonThrowsOnUnknownNodeType)
+{
+    const std::string json_text = R"({
+        "nodes": [
+            { "id": 0, "type": "sushidsp.nonexistent", "params": {}, "inputs": [] }
+        ]
+    })";
+
+    SushiDSP::RigGraph graph(256, 4);
+    EXPECT_THROW(SushiDSP::deserialize_rig_from_json(graph, json_text), std::runtime_error);
+}
+
+TEST(Unit_Dsp, SerializeRigToJsonThrowsWhenNodeTypeIsNotRegistered)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::RigGraph graph(256, 4);
+    graph.add_node(std::make_unique<UnregisteredNode>());
+    graph.compile(info);
+
+    EXPECT_THROW(SushiDSP::serialize_rig_to_json(graph), std::runtime_error);
 }
