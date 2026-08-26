@@ -89,7 +89,7 @@ TEST(Unit_Dsp, DeserializeRigFromJsonRebuildsBranchingTopologyAndParameters)
     })";
 
     SushiDSP::RigGraph graph(256, 8);
-    SushiDSP::deserialize_rig_from_json(graph, json_text);
+    SushiDSP::deserialize_rig_from_json(graph, json_text, info);
     graph.compile(info);
 
     const auto handles = graph.nodes();
@@ -138,7 +138,7 @@ TEST(Unit_Dsp, SerializeThenDeserializeRoundTripsABranchingGraph)
     const std::string json_text = SushiDSP::serialize_rig_to_json(original);
 
     SushiDSP::RigGraph rebuilt(256, 6);
-    SushiDSP::deserialize_rig_from_json(rebuilt, json_text);
+    SushiDSP::deserialize_rig_from_json(rebuilt, json_text, info);
     rebuilt.compile(info);
 
     ASSERT_EQ(rebuilt.nodes().size(), original.nodes().size());
@@ -174,8 +174,47 @@ TEST(Unit_Dsp, DeserializeRigFromJsonThrowsOnUnknownNodeType)
         ]
     })";
 
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     SushiDSP::RigGraph graph(256, 4);
-    EXPECT_THROW(SushiDSP::deserialize_rig_from_json(graph, json_text), std::runtime_error);
+    EXPECT_THROW(SushiDSP::deserialize_rig_from_json(graph, json_text, info), std::runtime_error);
+}
+
+TEST(Unit_Dsp, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheGraph)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+
+    // Each of these is rejected in the first validation pass, so the caller's graph must come
+    // back completely unmodified — never half-populated with orphan nodes that would then make
+    // the caller's next compile() throw "no sink node found".
+    const std::vector<std::string> malformed = {
+        // Missing "id" — the shape of a host_gui-format preset, the likeliest wrong file.
+        R"({"nodes":[{"type":"sushidsp.tubescreamer","params":{},"inputs":[]}]})",
+        // Missing "params".
+        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","inputs":[]}]})",
+        // Missing "inputs".
+        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{}}]})",
+        // "inputs" is not an array.
+        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":3}]})",
+        // Duplicate id.
+        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+                    {"id":0,"type":"sushidsp.jcm800","params":{},"inputs":[]}]})",
+        // Dangling "inputs" reference: id 7 is declared by no entry. Previously this escaped as
+        // std::out_of_range from std::map::at(), which does not derive from std::runtime_error.
+        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+                    {"id":1,"type":"sushidsp.jcm800","params":{},"inputs":[7]}]})",
+        // A valid first entry followed by a broken one: the first must NOT be added.
+        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+                    {"type":"sushidsp.jcm800","params":{},"inputs":[]}]})",
+    };
+
+    for (const std::string& json_text : malformed)
+    {
+        SushiDSP::RigGraph graph(256, 4);
+        EXPECT_THROW(SushiDSP::deserialize_rig_from_json(graph, json_text, info), std::runtime_error)
+            << "should have thrown std::runtime_error for: " << json_text;
+        EXPECT_TRUE(graph.nodes().empty())
+            << "graph must be left unmodified for: " << json_text;
+    }
 }
 
 TEST(Unit_Dsp, SerializeRigToJsonThrowsWhenNodeTypeIsNotRegistered)

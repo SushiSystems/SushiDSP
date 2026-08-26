@@ -38,6 +38,10 @@ namespace SushiDSP
     /// @throws std::runtime_error if a live node's type is not found in node_registry() (should
     /// not happen for any node constructed via make_node(), but a hand-built RigGraph using a
     /// non-registered IAudioNode subclass cannot be serialized).
+    /// @note Known limitation: only NodeDescriptor-declared parameters are serialized, so a
+    /// Jcm800 node's cabinet IR (set via set_cabinet(), which is not a parameter) is dropped —
+    /// a round-tripped rig loses its cabinet. Fixing this needs a new schema field plus an
+    /// IR-path handling design, deferred to a future spec.
     std::string serialize_rig_to_json(const RigGraph& graph);
 
     /// @brief Parses a JSON string produced by serialize_rig_to_json() (or hand-written to the
@@ -45,8 +49,14 @@ namespace SushiDSP
     /// compile(); the caller compiles afterward once, the same as any other graph edit.
     /// @param graph An empty or existing RigGraph to add the parsed nodes/edges into.
     /// @param json_text The JSON text to parse.
-    /// @throws std::runtime_error if the JSON is malformed, or references a `type` not found in
-    /// node_registry(). Every entry's `type` is validated against node_registry() in a first pass
-    /// before any node is added to graph, so an unknown-`type` throw leaves graph unmodified.
-    void deserialize_rig_from_json(RigGraph& graph, const std::string& json_text);
+    /// @param info The PrepareInfo each node is constructed with. RigGraph::compile() re-prepares
+    /// every node afterward, but passing the caller's real info keeps construction-time state
+    /// (buffer sizing, sample-rate-dependent tables) correct from the start.
+    /// @throws std::runtime_error if the JSON is malformed: a missing or wrong-shaped `id`,
+    /// `type`, `params` or `inputs` key, a `type` not found in node_registry(), a duplicate `id`,
+    /// or an `inputs` entry referencing an id no entry declares. Every entry is fully validated
+    /// in a first pass before any node is added, so graph is left unmodified for any malformed
+    /// entry. (nlohmann::json::parse_error still escapes for text that is not valid JSON.)
+    void deserialize_rig_from_json(RigGraph& graph, const std::string& json_text,
+        const PrepareInfo& info);
 }

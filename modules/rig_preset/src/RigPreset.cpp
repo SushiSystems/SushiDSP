@@ -25,6 +25,7 @@
 
 #include <cstring>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -93,24 +94,82 @@ namespace SushiDSP
         return root.dump(2);
     }
 
-    void deserialize_rig_from_json(RigGraph& graph, const std::string& json_text)
+    void deserialize_rig_from_json(RigGraph& graph, const std::string& json_text,
+        const PrepareInfo& info)
     {
         const nlohmann::json root = nlohmann::json::parse(json_text);
 
-        // First pass: validate every entry's type resolves to a registered descriptor before
-        // mutating graph at all, so a corrupt/edited-by-hand preset never leaves the caller's
-        // live graph half-populated with orphan nodes.
+        // First pass: fully validate every entry — key presence, key shape, type resolution,
+        // duplicate ids and dangling input references — before mutating graph at all, so a
+        // corrupt/edited-by-hand preset (or a wrong file entirely, e.g. a host_gui preset,
+        // which has "type" but no "id") never leaves the caller's live graph half-populated
+        // with orphan nodes that would then break its next compile().
         std::vector<const NodeDescriptor*> descriptors;
         descriptors.reserve(root.at("nodes").size());
+        std::set<int> declared_ids;
+        std::size_t validate_index = 0;
         for (const auto& node_json : root.at("nodes"))
         {
+            const std::string where = " (entry " + std::to_string(validate_index++) + ")";
+
+            if (!node_json.contains("type") || !node_json.at("type").is_string())
+            {
+                throw std::runtime_error(
+                    "deserialize_rig_from_json: missing or non-string 'type'" + where);
+            }
+            if (!node_json.contains("id") || !node_json.at("id").is_number_integer())
+            {
+                throw std::runtime_error(
+                    "deserialize_rig_from_json: missing or non-integer 'id'" + where);
+            }
+            if (!node_json.contains("params") || !node_json.at("params").is_object())
+            {
+                throw std::runtime_error(
+                    "deserialize_rig_from_json: missing or non-object 'params'" + where);
+            }
+            if (!node_json.contains("inputs") || !node_json.at("inputs").is_array())
+            {
+                throw std::runtime_error(
+                    "deserialize_rig_from_json: missing or non-array 'inputs'" + where);
+            }
+
             const std::string type = node_json.at("type").get<std::string>();
             const NodeDescriptor* descriptor = descriptor_for_type(type.c_str());
             if (descriptor == nullptr)
             {
-                throw std::runtime_error("deserialize_rig_from_json: unknown node type '" + type + "'");
+                throw std::runtime_error("deserialize_rig_from_json: unknown node type '" + type + "'" + where);
             }
             descriptors.push_back(descriptor);
+
+            const int preset_id = node_json.at("id").get<int>();
+            if (!declared_ids.insert(preset_id).second)
+            {
+                throw std::runtime_error("deserialize_rig_from_json: duplicate node id "
+                    + std::to_string(preset_id) + where);
+            }
+        }
+
+        // Dangling-reference check needs the complete id set, so it runs as its own sweep.
+        // Doing it here (rather than letting a map .at() throw during the build pass) keeps
+        // the documented std::runtime_error contract and the graph-untouched guarantee.
+        validate_index = 0;
+        for (const auto& node_json : root.at("nodes"))
+        {
+            const std::string where = " (entry " + std::to_string(validate_index++) + ")";
+            for (const auto& input_id : node_json.at("inputs"))
+            {
+                if (!input_id.is_number_integer())
+                {
+                    throw std::runtime_error(
+                        "deserialize_rig_from_json: non-integer value in 'inputs'" + where);
+                }
+                const int referenced = input_id.get<int>();
+                if (declared_ids.count(referenced) == 0)
+                {
+                    throw std::runtime_error("deserialize_rig_from_json: 'inputs' references unknown node id "
+                        + std::to_string(referenced) + where);
+                }
+            }
         }
 
         std::map<int, NodeHandle> preset_id_to_handle;
@@ -123,8 +182,7 @@ namespace SushiDSP
             const int preset_id = node_json.at("id").get<int>();
             const NodeDescriptor* descriptor = descriptors[entry_index++];
 
-            const PrepareInfo dummy_info{ 48000.0, 256, 1 };
-            NodeHandle handle = graph.add_node(descriptor->make(dummy_info));
+            NodeHandle handle = graph.add_node(descriptor->make(info));
             preset_id_to_handle[preset_id] = handle;
 
             std::map<std::string, float> params;
@@ -142,6 +200,10 @@ namespace SushiDSP
             pending_inputs[handle] = std::move(inputs);
         }
 
+        // Parameters are applied in std::map order, i.e. alphabetical by parameter id — that
+        // ordering is incidental, not designed. Every set_parameter() implementation today is
+        // order-independent; if one ever becomes order-dependent, this must switch to
+        // preserving descriptor (or JSON-file) order instead.
         for (const auto& [handle, params] : pending_params)
         {
             IAudioNode* node = graph.node(handle);
