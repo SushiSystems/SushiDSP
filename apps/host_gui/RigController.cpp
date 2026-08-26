@@ -68,7 +68,7 @@ namespace
 RigController::RigController(const SushiDSP::PrepareInfo& info)
     : info_(info)
 {
-    rebuild_and_publish();
+    publish();
 }
 
 void RigController::seed_defaults(Slot& slot) const
@@ -87,7 +87,7 @@ void RigController::seed_defaults(Slot& slot) const
     }
 }
 
-RigController::SlotId RigController::add_node(const std::string& descriptor_id)
+RigController::SlotId RigController::add_node(const std::string& descriptor_id, bool publish_now)
 {
     const SlotId id = next_slot_id_++;
     Slot slot;
@@ -95,26 +95,35 @@ RigController::SlotId RigController::add_node(const std::string& descriptor_id)
     seed_defaults(slot);
     slots_[id] = std::move(slot);
     slot_order_.push_back(id);
-    rebuild_and_publish();
+    if (publish_now)
+    {
+        publish();
+    }
     return id;
 }
 
-void RigController::connect(SlotId from, SlotId to)
+void RigController::connect(SlotId from, SlotId to, bool publish_now)
 {
     edges_.push_back({ from, to });
-    rebuild_and_publish();
+    if (publish_now)
+    {
+        publish();
+    }
 }
 
-void RigController::disconnect(SlotId from, SlotId to)
+void RigController::disconnect(SlotId from, SlotId to, bool publish_now)
 {
     edges_.erase(
         std::remove_if(edges_.begin(), edges_.end(),
             [from, to](const Edge& edge) { return edge.from == from && edge.to == to; }),
         edges_.end());
-    rebuild_and_publish();
+    if (publish_now)
+    {
+        publish();
+    }
 }
 
-void RigController::remove(SlotId slot)
+void RigController::remove(SlotId slot, bool publish_now)
 {
     // Find slot's one upstream and one downstream neighbor (if any) before erasing its edges,
     // so a middle-of-chain removal can reconnect around the gap — matches today's behavior of
@@ -139,7 +148,10 @@ void RigController::remove(SlotId slot)
 
     slots_.erase(slot);
     slot_order_.erase(std::remove(slot_order_.begin(), slot_order_.end(), slot), slot_order_.end());
-    rebuild_and_publish();
+    if (publish_now)
+    {
+        publish();
+    }
 }
 
 RigController::SlotId RigController::append(const std::string& descriptor_id)
@@ -155,7 +167,7 @@ RigController::SlotId RigController::append(const std::string& descriptor_id)
         edges_.push_back({ slot_order_.back(), id });
     }
     slot_order_.push_back(id);
-    rebuild_and_publish();
+    publish();
     return id;
 }
 
@@ -193,7 +205,7 @@ RigController::SlotId RigController::insert_before(std::optional<SlotId> followi
         slot_order_.push_back(id);
     }
 
-    rebuild_and_publish();
+    publish();
     return id;
 }
 
@@ -246,7 +258,7 @@ void RigController::move_before(SlotId moved, std::optional<SlotId> following)
         slot_order_.push_back(moved);
     }
 
-    rebuild_and_publish();
+    publish();
 }
 
 void RigController::set_parameter(SlotId slot, const char* param_id, float value)
@@ -426,7 +438,11 @@ std::string RigController::save_to_json() const
 
 void RigController::load_from_json(const std::string& json_text)
 {
-    SushiDSP::RigGraph scratch(info_.max_block, 64);
+    // Size the scratch graph's buffer pool from the preset's own node count (plus the same +1
+    // headroom publish() uses). RigGraph::compile() only assert()s the pool's capacity, so a
+    // fixed guess would hand the audio thread null buffers on any preset larger than that guess.
+    const std::size_t node_count = nlohmann::json::parse(json_text).at("nodes").size();
+    SushiDSP::RigGraph scratch(info_.max_block, static_cast<std::uint32_t>(node_count + 1));
     std::unordered_map<SushiDSP::NodeHandle, std::string> cabinet_paths_by_handle;
     SushiDSP::deserialize_rig_from_json(scratch, json_text, info_,
         [&cabinet_paths_by_handle](SushiDSP::NodeHandle handle, const nlohmann::json& node_json)
@@ -480,10 +496,10 @@ void RigController::load_from_json(const std::string& json_text)
         }
     }
 
-    rebuild_and_publish();
+    publish();
 }
 
-void RigController::rebuild_and_publish()
+void RigController::publish()
 {
     auto graph = std::make_unique<SushiDSP::RigGraph>(info_.max_block, static_cast<std::uint32_t>(slot_order_.size() + 1));
 

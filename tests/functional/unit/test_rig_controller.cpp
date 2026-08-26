@@ -179,6 +179,39 @@ TEST(Unit_Dsp, RigControllerRemoveDropsFromChainAndReconnectsSurvivors)
     ASSERT_EQ(handles.size(), 2u);
 }
 
+TEST(Unit_Dsp, RigControllerBuildsSplitterTwoBranchMixerShapeAndProcessesCorrectly)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+
+    const RigController::SlotId source = controller.add_node("sushidsp.tubescreamer", false);
+    const RigController::SlotId splitter = controller.add_node("sushidsp.splitter", false);
+    const RigController::SlotId branch_a = controller.add_node("sushidsp.jcm800", false);
+    const RigController::SlotId branch_b = controller.add_node("sushidsp.tubescreamer", false);
+    const RigController::SlotId mixer = controller.add_node("sushidsp.mixer", false);
+    controller.connect(source, splitter, false);
+    controller.connect(splitter, branch_a, false);
+    controller.connect(splitter, branch_b, false);
+    controller.connect(branch_a, mixer, false);
+    controller.connect(branch_b, mixer, false);
+    controller.publish();
+
+    // Every node exists and the graph compiled/published without throwing — the split/mix shape
+    // this test builds was, before the publish-batching parameter, impossible to construct
+    // through the public API at all (the second add_node() would have republished a two-node,
+    // zero-edge graph, which RigGraph::compile() rejects for having no sink). Confirm the rig
+    // actually processes a block without crashing or throwing.
+    ASSERT_NE(controller.active_graph(), nullptr);
+    ASSERT_EQ(controller.active_graph()->nodes().size(), 5u);
+
+    std::vector<float> in(256, 0.0f);
+    std::vector<float> out(256, 0.0f);
+    const float* ins[1] = { in.data() };
+    float* outs[1] = { out.data() };
+    SushiDSP::ProcessContext context{ outs, ins, 256, 0.0 };
+    EXPECT_NO_THROW(controller.active_graph()->process(context));
+}
+
 TEST(Unit_Dsp, RigControllerAppendWithUnknownDescriptorIdIsSafeNoOp)
 {
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
