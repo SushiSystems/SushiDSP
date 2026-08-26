@@ -76,5 +76,10 @@ namespace SushiDSP
 
         /// @brief Clears internal state for a click-free restart.
         virtual void reset() = 0;
+
+        /// @brief Samples of delay this node adds between its input and output (FIR group
+        /// delay, convolution partition, look-ahead). Constant after prepare().
+        /// @return Latency in base-rate samples; 0 for a memoryless or IIR-only node.
+        virtual std::uint32_t latency_samples() const { return 0; }
     };
 }
