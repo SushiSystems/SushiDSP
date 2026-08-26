@@ -149,11 +149,12 @@ TEST(Unit_Dsp, RigControllerLoadChainSeedsDefaultsForParametersMissingFromPreset
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     RigController controller(info);
 
-    // A preset that only specifies "drive", omitting "tone" and "level". Before this fix,
+    // A preset that only specifies "drive", omitting every other parameter. Before this fix,
     // load_chain() assigned the incoming map wholesale, so get_parameter() would return 0.0f
-    // for "tone"/"level" instead of TubeScreamer's declared defaults (0.5f/0.7f) - and a
-    // subsequent save_preset() would then permanently write 0.0 for a parameter that was
-    // never actually touched.
+    // for them instead of TubeScreamer's declared defaults - and a subsequent save_preset()
+    // would then permanently write 0.0 for a parameter that was never actually touched. Level
+    // and input trim are in decibels, so their default of 0.0f is the meaningful one here; the
+    // non-vacuous coverage comes from "tone".
     std::vector<std::string> ids{ "sushidsp.tubescreamer" };
     std::vector<std::map<std::string, float>> params{ { { "drive", 0.9f } } };
 
@@ -161,5 +162,6 @@ TEST(Unit_Dsp, RigControllerLoadChainSeedsDefaultsForParametersMissingFromPreset
 
     EXPECT_FLOAT_EQ(controller.get_parameter(0, "drive"), 0.9f);
     EXPECT_FLOAT_EQ(controller.get_parameter(0, "tone"), 0.5f);
-    EXPECT_FLOAT_EQ(controller.get_parameter(0, "level"), 0.7f);
+    EXPECT_FLOAT_EQ(controller.get_parameter(0, "level"), 0.0f);
+    EXPECT_FLOAT_EQ(controller.get_parameter(0, "input_trim"), 0.0f);
 }

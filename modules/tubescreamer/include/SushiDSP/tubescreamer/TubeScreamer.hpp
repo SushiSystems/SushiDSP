@@ -27,10 +27,12 @@
 #include <memory>
 #include <vector>
 
+#include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
+#include "SushiDSP/math/SmoothedParameter.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamerClippingStage.hpp"
 
 namespace SushiDSP
@@ -57,20 +59,42 @@ namespace SushiDSP
         /// @brief Clears every filter and solver state for a click-free restart.
         void reset() override;
 
-        /// @brief Sets the drive control, slewed toward this value over subsequent blocks.
+        /// @brief Sets the drive control, smoothed toward this value over subsequent samples.
         /// @param normalized Drive amount in [0, 1].
         void set_drive(float normalized);
 
-        /// @brief Sets the tone control, slewed toward this value over subsequent blocks.
+        /// @brief Sets the tone control, smoothed toward this value over subsequent samples.
         /// @param normalized Tone position in [0, 1] (0 = dark, 1 = bright).
         void set_tone(float normalized);
 
-        /// @brief Sets the output level, slewed toward this value over subsequent blocks.
-        /// @param normalized Output level in [0, 1].
-        void set_level(float normalized);
+        /// @brief Sets the output level, smoothed toward this value in the gain domain.
+        /// @param db Output level in [-60, +12] dB; 0 dB is the pedal's unity-ish output.
+        void set_level(float db);
 
+        /// @brief Sets the trim applied to the input before the pedal's own highpass.
+        /// @param db Input trim in [-24, +24] dB.
+        void set_input_trim(float db);
+
+        using IAudioNode::set_parameter;
+
+        /// @brief Reads a parameter by string id.
+        /// @param id One of "drive", "tone", "level", "input_trim".
+        /// @return The parameter's target value, or 0 for an unknown id.
         float get_parameter(const char* id) const override;
+
+        /// @brief Sets a parameter by string id.
+        /// @param id One of "drive", "tone", "level", "input_trim".
+        /// @param value The new target value, in that parameter's own units.
         void set_parameter(const char* id, float value) override;
+
+        /// @brief Sets a parameter by descriptor index, RT-safe and free of string compares.
+        /// @param index The parameter's index in tube_screamer_descriptor().
+        /// @param value The new target value, in that parameter's own units.
+        void set_parameter(std::uint16_t index, float value) override;
+
+        /// @brief Linear output gain at 0 dB on the Level knob: the real pedal's unity-ish
+        /// output sits around Level 7, which the pre-dB implementation hard-coded as 0.7.
+        static constexpr float kLevelUnityGain = 0.7f;
 
         // Public so the free function feedback_resistance_for_drive() in TubeScreamer.cpp's
         // anonymous namespace can reference them without befriending the class.
@@ -80,9 +104,12 @@ namespace SushiDSP
     private:
         double sample_rate_ = 48000.0;
 
-        float drive_target_ = 0.5f, drive_current_ = 0.5f;
-        float tone_target_ = 0.5f, tone_current_ = 0.5f;
-        float level_target_ = 0.7f, level_current_ = 0.7f;
+        SmoothedParameter drive_{ 0.5f };
+        SmoothedParameter tone_{ 0.5f };
+        SmoothedParameter level_gain_{ 1.0f };
+        SmoothedParameter input_trim_gain_{ 1.0f };
+        float level_db_ = 0.0f;
+        float input_trim_db_ = 0.0f;
 
         Biquad input_highpass_;
         Biquad tone_lowpass_;

@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -47,7 +48,7 @@ TEST(Unit_Dsp, TubeScreamerProcessesABlockWithoutCrashingOrProducingNonFiniteOut
     node.prepare(info);
     node.set_drive(0.5f);
     node.set_tone(0.5f);
-    node.set_level(0.8f);
+    node.set_level(0.0f);
 
     std::vector<float> input(256);
     for (std::size_t i = 0; i < input.size(); ++i)
@@ -78,14 +79,14 @@ TEST(Unit_Dsp, TubeScreamerPortsAreMonoInMonoOut)
     EXPECT_EQ(ports.output_channels, 1u);
 }
 
-TEST(Unit_Dsp, TubeScreamerLevelZeroProducesSilenceAfterSettling)
+TEST(Unit_Dsp, TubeScreamerMinimumLevelProducesNearSilenceAfterSettling)
 {
     SushiDSP::TubeScreamer node;
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
     node.set_drive(0.5f);
     node.set_tone(0.5f);
-    node.set_level(0.0f);
+    node.set_level(-60.0f);
 
     std::vector<float> input(256, 0.2f);
     std::vector<float> output(256, 0.0f);
@@ -104,24 +105,153 @@ TEST(Unit_Dsp, TubeScreamerLevelZeroProducesSilenceAfterSettling)
     }
 }
 
-TEST(Unit_Dsp, TubeScreamerDescriptorExposesDriveToneLevel)
+TEST(Unit_Dsp, TubeScreamerDescriptorExposesFourParametersInContractOrder)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::tube_screamer_descriptor();
 
     EXPECT_STREQ(descriptor.id, "sushidsp.tubescreamer");
-    ASSERT_EQ(descriptor.parameter_count, 3u);
+    ASSERT_EQ(descriptor.parameter_count, 4u);
+    EXPECT_STREQ(descriptor.parameters[0].id, "drive");
+    EXPECT_STREQ(descriptor.parameters[1].id, "tone");
+    EXPECT_STREQ(descriptor.parameters[2].id, "level");
+    EXPECT_EQ(descriptor.parameters[2].kind, SushiDSP::ParamKind::Decibel);
+    EXPECT_STREQ(descriptor.parameters[3].id, "input_trim");
+    EXPECT_EQ(descriptor.parameters[3].kind, SushiDSP::ParamKind::Decibel);
+}
 
-    bool has_drive = false, has_tone = false, has_level = false;
-    for (std::size_t i = 0; i < descriptor.parameter_count; ++i)
+TEST(Unit_Dsp, TubeScreamerIndexSetParameterMatchesStringSetParameter)
+{
+    SushiDSP::TubeScreamer by_name, by_index;
+
+    by_name.set_parameter("tone", 0.8f);
+    by_index.set_parameter(static_cast<std::uint16_t>(1), 0.8f);
+    EXPECT_FLOAT_EQ(by_name.get_parameter("tone"), by_index.get_parameter("tone"));
+
+    by_name.set_parameter("input_trim", -6.0f);
+    by_index.set_parameter(static_cast<std::uint16_t>(3), -6.0f);
+    EXPECT_FLOAT_EQ(by_name.get_parameter("input_trim"), by_index.get_parameter("input_trim"));
+}
+
+TEST(Unit_Dsp, TubeScreamerLevelAndInputTrimClampToTheirDescriptorRange)
+{
+    SushiDSP::TubeScreamer node;
+
+    node.set_level(99.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("level"), 12.0f);
+    node.set_level(-200.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("level"), -60.0f);
+    node.set_input_trim(99.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("input_trim"), 24.0f);
+    node.set_input_trim(-99.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("input_trim"), -24.0f);
+}
+
+TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
+{
+    auto settled_peak_at_trim = [](float trim_decibels)
     {
-        const std::string param_id = descriptor.parameters[i].id;
-        if (param_id == "drive") has_drive = true;
-        if (param_id == "tone") has_tone = true;
-        if (param_id == "level") has_level = true;
-    }
-    EXPECT_TRUE(has_drive);
-    EXPECT_TRUE(has_tone);
-    EXPECT_TRUE(has_level);
+        SushiDSP::TubeScreamer node;
+        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+        node.set_drive(0.0f);
+        node.set_tone(0.5f);
+        node.set_level(0.0f);
+        node.set_input_trim(trim_decibels);
+
+        std::vector<float> input(256, 0.0f), output(256, 0.0f);
+        const float* input_channels[1] = { input.data() };
+        float* output_channels[1] = { output.data() };
+        double index = 0.0;
+        double peak = 0.0;
+
+        for (int block = 0; block < 40; ++block)
+        {
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                input[i] = static_cast<float>(
+                    0.02 * std::sin(2.0 * M_PI * 440.0 * (index + i) / 48000.0));
+            }
+            index += 256.0;
+            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            node.process(context);
+            if (block >= 20)
+            {
+                for (float sample : output)
+                {
+                    peak = std::max(peak, std::fabs(static_cast<double>(sample)));
+                }
+            }
+        }
+        return peak;
+    };
+
+    const double unity = settled_peak_at_trim(0.0f);
+    EXPECT_GT(settled_peak_at_trim(12.0f), unity * 2.0);
+    EXPECT_LT(settled_peak_at_trim(-12.0f), unity * 0.5);
+}
+
+TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
+{
+    // Step the level from -60 dB to 0 dB and find when the output crosses half of its final
+    // amplitude. Expressed in milliseconds, that crossing must not depend on the block size.
+    auto crossing_ms = [](std::uint32_t block)
+    {
+        std::vector<float> input(block, 0.0f), output(block, 0.0f);
+        const float* input_channels[1] = { input.data() };
+        float* output_channels[1] = { output.data() };
+        double index = 0.0;
+
+        auto fill_next_block = [&]()
+        {
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                input[i] = static_cast<float>(
+                    0.1 * std::sin(2.0 * M_PI * 1000.0 * (index + i) / 48000.0));
+            }
+            index += block;
+        };
+        auto block_peak = [&]()
+        {
+            double peak = 0.0;
+            for (float sample : output)
+            {
+                peak = std::max(peak, std::fabs(static_cast<double>(sample)));
+            }
+            return peak;
+        };
+
+        SushiDSP::TubeScreamer node;
+        node.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+        node.set_parameter("level", -60.0f);
+        for (int i = 0; i < 200; ++i)
+        {
+            fill_next_block();
+            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+            node.process(context);
+        }
+        const double quiet_peak = block_peak();
+
+        node.set_parameter("level", 0.0f);
+        const double start_index = index;
+        double crossing_samples = -1.0;
+        for (int i = 0; i < 100000; ++i)
+        {
+            fill_next_block();
+            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+            node.process(context);
+            if (crossing_samples < 0.0 && block_peak() > 50.0 * quiet_peak)
+            {
+                crossing_samples = index - start_index;
+            }
+            if (i == 400) { break; }
+        }
+        return crossing_samples / 48.0;
+    };
+
+    const double at_64 = crossing_ms(64);
+    const double at_2048 = crossing_ms(2048);
+    ASSERT_GT(at_64, 0.0);
+    ASSERT_GT(at_2048, 0.0);
+    EXPECT_NEAR(at_64, at_2048, 2048.0 / 48.0);
 }
 
 TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
@@ -156,7 +286,7 @@ TEST(Unit_Dsp, TubeScreamerIsDcStableAcrossManyBlocksAtHighDrive)
     node.prepare(info);
     node.set_drive(1.0f);
     node.set_tone(0.5f);
-    node.set_level(1.0f);
+    node.set_level(0.0f);
 
     std::vector<float> input(256, 0.1f);
     std::vector<float> output(256, 0.0f);
@@ -183,7 +313,7 @@ TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
         node.prepare(info);
         node.set_drive(drive);
         node.set_tone(0.5f);
-        node.set_level(1.0f);
+        node.set_level(0.0f);
 
         constexpr float frequency = 220.0f;
         constexpr double sample_rate = 48000.0;
@@ -243,7 +373,7 @@ TEST(Unit_Dsp, TubeScreamerToneControlsHighFrequencyBalance)
         node.prepare(info);
         node.set_drive(0.2f);
         node.set_tone(tone);
-        node.set_level(0.8f);
+        node.set_level(0.0f);
 
         SushiDSP::Biquad reference_highpass;
         reference_highpass.set_high_pass(48000.0, 2000.0, 0.707);
@@ -296,11 +426,13 @@ TEST(Unit_Dsp, TubeScreamerGenericParameterRoundTrip)
     SushiDSP::TubeScreamer node;
     node.set_parameter("drive", 0.25f);
     node.set_parameter("tone", 0.75f);
-    node.set_parameter("level", 0.9f);
+    node.set_parameter("level", -3.0f);
+    node.set_parameter("input_trim", 6.0f);
 
     EXPECT_FLOAT_EQ(node.get_parameter("drive"), 0.25f);
     EXPECT_FLOAT_EQ(node.get_parameter("tone"), 0.75f);
-    EXPECT_FLOAT_EQ(node.get_parameter("level"), 0.9f);
+    EXPECT_FLOAT_EQ(node.get_parameter("level"), -3.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("input_trim"), 6.0f);
 }
 
 TEST(Unit_Dsp, TubeScreamerUnknownParameterIsSafeNoOp)
