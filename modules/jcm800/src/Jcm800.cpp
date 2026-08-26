@@ -21,12 +21,19 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
+#define _USE_MATH_DEFINES
+
 #include "SushiDSP/jcm800/Jcm800.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <utility>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace SushiDSP
 {
@@ -73,6 +80,30 @@ namespace SushiDSP
         // it introduces is blocked downstream by the output transformer's 60 Hz high-pass, as a
         // real transformer blocks it.
         constexpr float kPowerTubeGridBiasMismatchVolts = 0.03f;
+
+        // 12AX7 Miller input capacitance - the interstage bandwidth limit the model was missing.
+        //
+        // Every grid in the amp is driven through a real source impedance into a real input
+        // capacitance, and for a high-mu triode that capacitance is dominated by the Miller
+        // multiplication of the grid-plate capacitance: C_in = Cgk + Cgp * (1 + |A|). The two
+        // capacitances are the 12AX7 model's own (docs/reference/spice/models/12ax7_koren.sub,
+        // Cgk 1.6 pF and Cgp 1.7 pF), and |A| is the stage's mid-band voltage gain, so nothing
+        // here is free-tuned; the only assumption is the stray wiring capacitance, taken as a
+        // conventional 10 pF for point-to-point turret board wiring.
+        //
+        // The driving impedance is the preceding stage's 100 kOhm plate load. V1b's grid also
+        // sits behind the 2203's 470k/470p treble peaker, but the 470 pF shunts the 470 kOhm from
+        // about 720 Hz upward, so what the grid sees at the frequencies this pole governs is the
+        // plate load alone; the peaker does not move the corner and is not folded into it.
+        //
+        // Without this, the D6a single 8x region let V1a/V1b's full 192 kHz-wide harmonic
+        // spectrum reach V2a, the phase inverter and the EL34 pair, whose own clipping turned it
+        // into content past the 8x Nyquist that folded back into the audio band. A real 2203 has
+        // never had that bandwidth to give away.
+        constexpr float kMillerCgkPicofarads = 1.6f;
+        constexpr float kMillerCgpPicofarads = 1.7f;
+        constexpr float kStrayWiringPicofarads = 10.0f;
+        constexpr float kPlateLoadOhms = 100000.0f;
 
         constexpr float kOutputTransformerRolloffHz = 60.0f;
         constexpr float kOutputTransformerLeakageHz = 8000.0f;
@@ -142,6 +173,17 @@ namespace SushiDSP
             return (normalized - 0.5f) * 2.0f * kMaxPresenceDb;
         }
 
+        // @param stage_voltage_gain The driven stage's mid-band gain, which is what the
+        // grid-plate capacitance is multiplied by.
+        // @return The -3 dB corner of the grid's RC pole, in Hz.
+        double miller_corner_hz(double stage_voltage_gain)
+        {
+            const double input_capacitance_farads =
+                (kMillerCgkPicofarads + kMillerCgpPicofarads * (1.0 + stage_voltage_gain)
+                 + kStrayWiringPicofarads) * 1e-12;
+            return 1.0 / (2.0 * M_PI * kPlateLoadOhms * input_capacitance_farads);
+        }
+
         // The 2203's preamp volume is a pot between V1a's plate and V1b's grid, so the knob is an
         // attenuator, not an input multiplier: turning it up feeds V1b (and everything after it)
         // harder, which is what produces the cascaded-gain-stage distortion rather than just a
@@ -183,6 +225,14 @@ namespace SushiDSP
         // real corner 8x higher (960 Hz instead of 120 Hz) and gut the low end.
         coupling_cap_.set_high_pass(sample_rate_ * kOversamplingFactor, kCouplingCapHz, kFilterQ);
         presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_.target()), kFilterQ);
+
+        // The Miller poles are part of the oversampled chain, so like the coupling capacitor they
+        // are derived at the oversampled rate. Their corners land near 13.8 kHz for the three
+        // gain-of-60 triodes and near 19.6 kHz for the lower-gain phase inverter.
+        const double oversampled_rate_hz = sample_rate_ * kOversamplingFactor;
+        v1b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kTriodeGain));
+        v2a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kTriodeGain));
+        phase_inverter_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kPhaseInverterGain));
 
         // The tone stack sits inside the single oversampled region (spec D6a.3: one region per
         // node), so its coefficients are derived at the oversampled rate. It is passive and
@@ -288,12 +338,13 @@ namespace SushiDSP
         for (std::uint32_t i = 0; i < oversampled_frames; ++i)
         {
             const float v1a_out = v1a_.process_sample(upsampled[i]);
-            const float v1b_in = coupling_cap_.process_sample(v1a_out) * preamp_gain;
+            const float v1b_in = v1b_grid_miller_.process_sample(
+                coupling_cap_.process_sample(v1a_out) * preamp_gain);
             const float v1b_out = v1b_.process_sample(v1b_in) * kV1bToV2aAttenuation;
-            const float toned = tone_stack_.process_sample(v1b_out);
+            const float toned = v2a_grid_miller_.process_sample(tone_stack_.process_sample(v1b_out));
             const float phase_split = v2a_.process_sample(toned) * kV2aToPhaseInverterAttenuation;
-            const float phase_inverted =
-                phase_inverter_.process_sample(phase_split) * kPhaseInverterToPowerTubeAttenuation;
+            const float phase_inverted = phase_inverter_.process_sample(
+                phase_inverter_grid_miller_.process_sample(phase_split)) * kPhaseInverterToPowerTubeAttenuation;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted - kPowerTubeGridBiasMismatchVolts);
             const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
@@ -390,6 +441,9 @@ namespace SushiDSP
         bright_cap_.reset();
         coupling_cap_.reset();
         presence_shelf_.reset();
+        v1b_grid_miller_.reset();
+        v2a_grid_miller_.reset();
+        phase_inverter_grid_miller_.reset();
         v1a_.reset();
         v1b_.reset();
         tone_stack_.reset();

@@ -35,6 +35,15 @@ namespace SushiDSP
         /// @param q Quality factor (0.707 = Butterworth).
         void set_low_pass(double sample_rate, double cutoff_hz, double q);
 
+        /// @brief Configures this filter as a first-order (one-pole) low-pass.
+        ///
+        /// A single RC section, bilinear-transformed with the corner prewarped, so the second
+        /// numerator and denominator taps are zero. This is the right shape for a physical RC
+        /// pole - a Butterworth biquad would roll off at twice the rate a real one does.
+        /// @param sample_rate Sample rate in Hz.
+        /// @param cutoff_hz Corner frequency in Hz, where the response is -3 dB.
+        void set_one_pole_low_pass(double sample_rate, double cutoff_hz);
+
         /// @brief Configures this filter as a high-pass with the given cutoff and Q.
         /// @param sample_rate Sample rate in Hz.
         /// @param cutoff_hz Cutoff frequency in Hz.

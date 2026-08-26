@@ -222,3 +222,49 @@ TEST(Unit_Dsp, BiquadResetClearsState)
     const float output = filter.process_sample(0.0f);
     EXPECT_NEAR(output, 0.0f, 1e-3f);
 }
+
+TEST(Unit_Dsp, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
+{
+    // Golden values from the analytic single-RC magnitude 1/sqrt(1+(f/fc)^2), which the
+    // prewarped bilinear form reproduces exactly at the corner and closely below fs/8.
+    // The point of the case is the slope: a one-pole must lose 6 dB per octave, not the 12 dB
+    // a Butterworth biquad loses, or it would darken a Miller-limited stage twice as fast as
+    // the physics does.
+    constexpr double sample_rate = 384000.0;
+    constexpr double corner = 13800.0;
+    SushiDSP::Biquad filter;
+    filter.set_one_pole_low_pass(sample_rate, corner);
+
+    auto gain_db_at = [&](double frequency)
+    {
+        filter.reset();
+        const std::size_t length = 200000;
+        double input_power = 0.0, output_power = 0.0;
+        for (std::size_t i = 0; i < length; ++i)
+        {
+            const float x = static_cast<float>(std::sin(2.0 * M_PI * frequency * static_cast<double>(i) / sample_rate));
+            const float y = filter.process_sample(x);
+            if (i >= length / 2)
+            {
+                input_power += static_cast<double>(x) * x;
+                output_power += static_cast<double>(y) * y;
+            }
+        }
+        return 10.0 * std::log10(output_power / input_power);
+    };
+
+    auto analytic_db = [&](double frequency)
+    {
+        return -10.0 * std::log10(1.0 + (frequency / corner) * (frequency / corner));
+    };
+
+    // Compared only up to fs/8; above that the bilinear map's frequency warping pulls the
+    // discrete response below the analytic one by design (0.55 dB at 55 kHz here), which is the
+    // usual and desirable direction for an anti-aliasing role.
+    for (const double frequency : { 1000.0, 13800.0, 27600.0 })
+    {
+        EXPECT_NEAR(gain_db_at(frequency), analytic_db(frequency), 0.15) << frequency << " Hz";
+    }
+    EXPECT_NEAR(gain_db_at(13800.0), -3.0, 0.1);
+    EXPECT_NEAR(gain_db_at(27600.0) - gain_db_at(13800.0), -4.1, 0.3);
+}

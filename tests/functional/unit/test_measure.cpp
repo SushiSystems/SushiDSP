@@ -291,10 +291,14 @@ TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
 //     (-18.1 dB at drive 0, -6.1 dB at drive 0.5, -9.6 dB at drive 1). Closing this needs an
 //     antialiased nonlinearity (ADAA) or a higher oversampling factor, neither in Task 4.
 //
-// Measured again after D6a Task 5 collapsed the JCM800 into a single 8x region: Jcm800 -20.4 dB,
-// i.e. 11.6 dB worse than Task 4, because region A's decimator had been band-limiting V1b's
-// output before the later clipping stages saw it. Neither assertion is now a spec target; both
-// are regression floors pinning the measured value, with the diagnosis on each test.
+// Measured again after D6a Task 5 collapsed the JCM800 into a single 8x region. Collapsing it
+// alone made the floor worse, not better - -20.4 dB - because region A's decimator had silently
+// been band-limiting V1b's output before the later clipping stages saw it. Restoring the
+// interstage bandwidth the model was actually missing (the 12AX7's Miller input capacitance, in
+// Jcm800.cpp) takes it to -43.4 dB, 39.6 dB better than D5b and clear of the spec bar, so the
+// JCM800 assertion below is the spec's again. The TubeScreamer's is not: its floor is aliasing
+// generated inside the 8x domain, and it stays a regression floor until D6c.
+constexpr double kD5bJcm800AliasFloorDb = -3.8;
 
 TEST(Unit_Dsp, TubeScreamerAliasFloorDoesNotRegress)
 {
@@ -319,23 +323,17 @@ TEST(Unit_Dsp, TubeScreamerAliasFloorDoesNotRegress)
     EXPECT_LE(floor, -9.0);
 }
 
-TEST(Unit_Dsp, Jcm800AliasFloorDoesNotRegress)
+TEST(Unit_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
 {
-    // A regression floor pinning the measured -20.4 dB, not the spec's 30 dB improvement target
-    // of -33.8 dB. The D6a Task 5 single 8x region measures -20.4 dB, against the -32.0 dB the
-    // two-region topology of Task 4 reached.
+    // -43.4 dB as measured, against the -33.8 dB the spec asks for.
     //
-    // The source is understood, and it is not the decimator. Collapsing the two regions removed
-    // an interstage band-limit that region A's decimator had been performing for free: V2a, the
-    // phase inverter and the EL34 pair now see V1a/V1b's full 192 kHz-wide harmonic spectrum
-    // instead of a 24 kHz-limited one, and their own clipping turns that ultrasonic content into
-    // harmonics past the 8x Nyquist, which fold. Verified directly: inserting a 20 kHz
-    // fourth-order lowpass on V1b's output inside the 8x loop restores the floor to -32.7 dB.
-    //
-    // The physical fix is an interstage bandwidth limit the model is simply missing - a real
-    // 12AX7 plate is loaded by Miller and stray capacitance and rolls off long before 192 kHz -
-    // but adding one moves the amp's tone, so it belongs with the stage rebuild. D6d owns it;
-    // see the Task 5 report.
+    // Two D6a changes got it there, and they pull in opposite directions. Task 4's >= 90 dB
+    // halfbands took the resampling aliasing out (-3.8 -> -32.0 dB). Task 5's single 8x region
+    // then cost 11.6 dB of that back, because region A's decimator had been acting as an
+    // unplanned interstage band-limit: V2a, the phase inverter and the EL34 pair suddenly saw
+    // V1a/V1b's full 192 kHz-wide harmonic spectrum and re-clipped it. Giving those grids the
+    // Miller input capacitance a real 12AX7 has (see Jcm800.cpp) takes that bandwidth away again
+    // for a physical reason rather than a filtering one, and lands at -43.4 dB.
     SushiDSP::Jcm800 node;
     node.set_preamp(1.0f);
     node.set_master(0.0f);
@@ -345,6 +343,5 @@ TEST(Unit_Dsp, Jcm800AliasFloorDoesNotRegress)
     node.set_presence(0.5f);
     const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
     std::printf("[ measure ] Jcm800 alias floor %.1f dB\n", floor);
-    EXPECT_LE(floor, -20.0);
+    EXPECT_LE(floor, kD5bJcm800AliasFloorDb - 30.0);
 }
-
