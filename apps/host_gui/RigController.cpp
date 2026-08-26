@@ -27,6 +27,8 @@
 #include <cstring>
 #include <exception>
 
+#include <nlohmann/json.hpp>
+
 #include "SushiDSP/io/IrLoader.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
@@ -395,7 +397,27 @@ SushiDSP::RtGraphSlot& RigController::graph_slot()
 
 std::string RigController::save_to_json() const
 {
-    return active_graph_ != nullptr ? SushiDSP::serialize_rig_to_json(*active_graph_) : std::string("{\"nodes\":[]}");
+    if (active_graph_ == nullptr)
+    {
+        return "{\"nodes\":[]}";
+    }
+    return SushiDSP::serialize_rig_to_json(*active_graph_,
+        [this](SushiDSP::NodeHandle handle, nlohmann::json& node_json)
+        {
+            for (const auto& [slot, mapped_handle] : slot_to_handle_)
+            {
+                if (mapped_handle == handle)
+                {
+                    nlohmann::json params_json = nlohmann::json::object();
+                    for (const auto& [param_id, value] : slots_.at(slot).parameters)
+                    {
+                        params_json[param_id] = value;
+                    }
+                    node_json["params"] = params_json;
+                    return;
+                }
+            }
+        });
 }
 
 void RigController::load_from_json(const std::string& json_text)
