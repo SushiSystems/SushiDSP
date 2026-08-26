@@ -50,7 +50,7 @@ namespace SushiDSP
         }
     }
 
-    std::string serialize_rig_to_json(const RigGraph& graph)
+    std::string serialize_rig_to_json(const RigGraph& graph, AnnotateNodeFn annotate_node)
     {
         nlohmann::json root;
         root["nodes"] = nlohmann::json::array();
@@ -88,6 +88,11 @@ namespace SushiDSP
             }
             node_json["inputs"] = inputs_json;
 
+            if (annotate_node)
+            {
+                annotate_node(handle, node_json);
+            }
+
             root["nodes"].push_back(node_json);
         }
 
@@ -95,7 +100,7 @@ namespace SushiDSP
     }
 
     void deserialize_rig_from_json(RigGraph& graph, const std::string& json_text,
-        const PrepareInfo& info)
+        const PrepareInfo& info, OnNodeLoadedFn on_node_loaded)
     {
         const nlohmann::json root = nlohmann::json::parse(json_text);
 
@@ -184,6 +189,11 @@ namespace SushiDSP
 
             NodeHandle handle = graph.add_node(descriptor->make(info));
             preset_id_to_handle[preset_id] = handle;
+
+            if (on_node_loaded)
+            {
+                on_node_loaded(handle, node_json);
+            }
 
             std::map<std::string, float> params;
             for (const auto& [key, value] : node_json.at("params").items())
