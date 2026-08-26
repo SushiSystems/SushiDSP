@@ -36,7 +36,7 @@ namespace SushiDSP::dk
     ///
     /// The caller supplies a system object exposing
     /// `void residual_and_jacobian(const std::array<double, N>& v, std::array<double, N>& r,
-    /// std::array<std::array<double, N>, N>& jacobian)`, which must evaluate both together — the
+    /// std::array<std::array<double, N>, N>& jacobian)`, which must evaluate both together: the
     /// solver never asks for one alone, so a system may share the exponentials between them.
     /// Every buffer is a member std::array and no step allocates, locks, or throws, so solve()
     /// is safe on the audio thread. Statistics are counters the host can poll to see how hard
@@ -50,23 +50,34 @@ namespace SushiDSP::dk
         /// @param system The residual/Jacobian evaluator.
         /// @param v In: the starting iterate (warm-starting from the previous sample is the
         /// intended use). Out: the best finite iterate found, converged or not.
-        /// @return True on convergence; false when the iteration budget ran out, the Jacobian
-        /// stayed singular, or the system produced a non-finite value.
+        /// @return True on convergence, meaning either a residual below the absolute tolerance or
+        /// a norm-reducing step that no longer moves the iterate. A step that stopped moving
+        /// without reducing the residual is a stall, not convergence, and keeps iterating; that
+        /// distinction is what stops a Jacobian underflowing far from the root from being
+        /// reported as a solution. False when the iteration budget ran out, the Jacobian stayed
+        /// singular, or the system produced a non-finite value.
         template <typename System>
         bool solve(System&& system, std::array<double, N>& v)
         {
             ++call_count_;
 
+            bool   residual_is_current = false;
+            double residual_norm = 0.0;
+
             for (std::uint32_t iteration = 0; iteration < maximum_iterations_; ++iteration)
             {
-                system.residual_and_jacobian(v, residual_, jacobian_);
-                if (!is_finite(residual_) || !is_finite(jacobian_))
+                if (!residual_is_current)
                 {
-                    return fail(iteration);
+                    system.residual_and_jacobian(v, residual_, jacobian_);
+                    if (!is_finite(residual_) || !is_finite(jacobian_))
+                    {
+                        return fail(iteration);
+                    }
+                    residual_norm = infinity_norm(residual_);
+                    residual_is_current = true;
                 }
 
-                const double residual_norm = infinity_norm(residual_);
-                if (residual_norm <= ABSOLUTE_TOLERANCE)
+                if (residual_norm <= kAbsoluteTolerance)
                 {
                     note_iterations(iteration);
                     return true;
@@ -87,15 +98,20 @@ namespace SushiDSP::dk
                     return fail(iteration);
                 }
 
-                const double damping = line_search(system, v, residual_norm);
-                if (!is_finite(trial_v_))
+                double damping = 1.0;
+                bool   residual_decreased = false;
+                if (!line_search(system, v, residual_norm, damping, residual_decreased))
                 {
                     return fail(iteration);
                 }
+
                 v = trial_v_;
+                residual_.swap(trial_residual_);
+                jacobian_.swap(trial_jacobian_);
+                residual_norm = infinity_norm(residual_);
 
                 const double step_norm = damping * infinity_norm(step_);
-                if (step_norm <= relative_tolerance_ * (1.0 + infinity_norm(v)))
+                if (residual_decreased && step_norm <= relative_tolerance_ * (1.0 + infinity_norm(v)))
                 {
                     note_iterations(iteration + 1);
                     return true;
@@ -114,23 +130,38 @@ namespace SushiDSP::dk
 
         /// @brief Sets how many times the step may be halved while looking for a norm reduction.
         /// @param halvings Maximum halvings per iteration.
-        void set_maximum_halvings(std::uint32_t halvings) { maximum_halvings_ = halvings; }
+        void set_maximum_halvings(std::uint32_t halvings)
+        {
+            maximum_halvings_ = halvings;
+        }
 
         /// @brief Sets the step-size convergence tolerance, relative to the iterate magnitude.
         /// @param tolerance Relative tolerance.
-        void set_relative_tolerance(double tolerance) { relative_tolerance_ = tolerance; }
+        void set_relative_tolerance(double tolerance)
+        {
+            relative_tolerance_ = tolerance;
+        }
 
         /// @brief Number of solve() calls that failed to converge since the last reset.
         /// @return The non-convergence count.
-        std::uint64_t non_converged_count() const { return non_converged_count_; }
+        std::uint64_t non_converged_count() const
+        {
+            return non_converged_count_;
+        }
 
         /// @brief Number of solve() calls since the last reset.
         /// @return The call count.
-        std::uint64_t call_count() const { return call_count_; }
+        std::uint64_t call_count() const
+        {
+            return call_count_;
+        }
 
         /// @brief Largest iteration count any single solve() call needed since the last reset.
         /// @return The worst-case iteration count.
-        std::uint32_t maximum_iterations_seen() const { return maximum_iterations_seen_; }
+        std::uint32_t maximum_iterations_seen() const
+        {
+            return maximum_iterations_seen_;
+        }
 
         /// @brief Clears the call, non-convergence, and worst-case iteration counters.
         void reset_statistics()
@@ -141,11 +172,11 @@ namespace SushiDSP::dk
         }
 
     private:
-        static constexpr double        ABSOLUTE_TOLERANCE = 1e-12;
-        static constexpr double        DIAGONAL_PERTURBATION = 1e-12;
-        static constexpr std::uint32_t DEFAULT_MAXIMUM_ITERATIONS = 8;
-        static constexpr std::uint32_t DEFAULT_MAXIMUM_HALVINGS = 4;
-        static constexpr double        DEFAULT_RELATIVE_TOLERANCE = 1e-9;
+        static constexpr double        kAbsoluteTolerance = 1e-12;
+        static constexpr double        kDiagonalPerturbation = 1e-12;
+        static constexpr std::uint32_t kDefaultMaximumIterations = 8;
+        static constexpr std::uint32_t kDefaultMaximumHalvings = 4;
+        static constexpr double        kDefaultRelativeTolerance = 1e-9;
 
         static bool is_finite(const std::array<double, N>& vector)
         {
@@ -195,32 +226,65 @@ namespace SushiDSP::dk
             for (std::size_t index = 0; index < N; ++index)
             {
                 perturbed_jacobian_[index][index]
-                    += DIAGONAL_PERTURBATION * (1.0 + std::fabs(jacobian_[index][index]));
+                    += kDiagonalPerturbation * (1.0 + std::fabs(jacobian_[index][index]));
             }
             return lu_.factorise(perturbed_jacobian_);
         }
 
         template <typename System>
-        double line_search(System&& system, const std::array<double, N>& v, double residual_norm)
+        bool evaluate_trial(System&& system, const std::array<double, N>& v, double damping)
         {
+            for (std::size_t index = 0; index < N; ++index)
+            {
+                trial_v_[index] = v[index] + damping * step_[index];
+            }
+            if (!is_finite(trial_v_))
+            {
+                return false;
+            }
+            system.residual_and_jacobian(trial_v_, trial_residual_, trial_jacobian_);
+            return is_finite(trial_residual_) && is_finite(trial_jacobian_);
+        }
+
+        template <typename System>
+        bool line_search(System&& system, const std::array<double, N>& v, double residual_norm,
+                         double& accepted_damping, bool& residual_decreased)
+        {
+            residual_decreased = false;
             double damping = 1.0;
+            double smallest_finite_damping = 0.0;
+            bool   any_finite = false;
+
             for (std::uint32_t halving = 0;; ++halving)
             {
-                for (std::size_t index = 0; index < N; ++index)
+                if (evaluate_trial(system, v, damping))
                 {
-                    trial_v_[index] = v[index] + damping * step_[index];
-                }
-                system.residual_and_jacobian(trial_v_, trial_residual_, trial_jacobian_);
-                if (is_finite(trial_residual_) && infinity_norm(trial_residual_) < residual_norm)
-                {
-                    return damping;
+                    any_finite = true;
+                    smallest_finite_damping = damping;
+                    if (infinity_norm(trial_residual_) < residual_norm)
+                    {
+                        accepted_damping = damping;
+                        residual_decreased = true;
+                        return true;
+                    }
                 }
                 if (halving >= maximum_halvings_)
                 {
-                    return damping;
+                    break;
                 }
                 damping *= 0.5;
             }
+
+            if (!any_finite)
+            {
+                return false;
+            }
+            if (smallest_finite_damping != damping)
+            {
+                evaluate_trial(system, v, smallest_finite_damping);
+            }
+            accepted_damping = smallest_finite_damping;
+            return true;
         }
 
         bool fail(std::uint32_t iterations)
@@ -248,9 +312,9 @@ namespace SushiDSP::dk
         std::array<double, N>                step_{};
         std::array<double, N>                trial_v_{};
 
-        std::uint32_t maximum_iterations_{ DEFAULT_MAXIMUM_ITERATIONS };
-        std::uint32_t maximum_halvings_{ DEFAULT_MAXIMUM_HALVINGS };
-        double        relative_tolerance_{ DEFAULT_RELATIVE_TOLERANCE };
+        std::uint32_t maximum_iterations_{ kDefaultMaximumIterations };
+        std::uint32_t maximum_halvings_{ kDefaultMaximumHalvings };
+        double        relative_tolerance_{ kDefaultRelativeTolerance };
 
         std::uint64_t call_count_{ 0 };
         std::uint64_t non_converged_count_{ 0 };

@@ -29,9 +29,6 @@
 
 namespace SushiDSP::dk
 {
-    /// @brief Smallest pivot magnitude an LU factorisation accepts as non-singular.
-    constexpr double DENSE_LU_MINIMUM_PIVOT = 1e-300;
-
     /// @brief Fixed-size LU factorisation with partial pivoting for a dense N x N system.
     ///
     /// All storage is member std::array, so factorise() and solve() are allocation-free and
@@ -45,6 +42,9 @@ namespace SushiDSP::dk
     class DenseLu
     {
     public:
+        /// @brief Smallest pivot magnitude accepted as non-singular.
+        static constexpr double kMinimumPivot = 1e-300;
+
         /// @brief Factorises the matrix into the internal L/U storage.
         /// @param matrix The system matrix; not modified.
         /// @return False when a pivot is numerically zero; solve() must not be called after that.
@@ -81,7 +81,7 @@ namespace SushiDSP::dk
                     }
                 }
 
-                if (!(pivot_magnitude >= DENSE_LU_MINIMUM_PIVOT))
+                if (!(pivot_magnitude >= kMinimumPivot))
                 {
                     return false;
                 }
@@ -174,27 +174,33 @@ namespace SushiDSP::dk
     class DenseLu<1>
     {
     public:
-        /// @brief Stores the reciprocal of the single matrix entry.
+        /// @brief Smallest pivot magnitude accepted as non-singular.
+        static constexpr double kMinimumPivot = 1e-300;
+
+        /// @brief Stores the single matrix entry as the pivot.
         /// @param matrix The 1x1 system matrix.
         /// @return False when the entry is numerically zero.
         bool factorise(const std::array<std::array<double, 1>, 1>& matrix)
         {
-            if (!(std::fabs(matrix[0][0]) >= DENSE_LU_MINIMUM_PIVOT))
+            if (!(std::fabs(matrix[0][0]) >= kMinimumPivot))
             {
                 return false;
             }
-            reciprocal_ = 1.0 / matrix[0][0];
+            pivot_ = matrix[0][0];
             return true;
         }
 
-        /// @brief Stores the reciprocal of the single matrix entry, or succeeds trivially at
-        /// order zero.
+        /// @brief Stores the single matrix entry, or succeeds trivially at order zero.
         /// @param matrix The 1x1 system matrix.
         /// @param order Active dimension, either zero or one.
         /// @return False when the entry is numerically zero at order one.
         bool factorise(const std::array<std::array<double, 1>, 1>& matrix, std::size_t order)
         {
-            return order == 0 ? true : factorise(matrix);
+            if (order == 0)
+            {
+                return true;
+            }
+            return factorise(matrix);
         }
 
         /// @brief Divides by the factorised entry.
@@ -202,7 +208,7 @@ namespace SushiDSP::dk
         /// @param solution x, overwritten.
         void solve(const std::array<double, 1>& right_hand_side, std::array<double, 1>& solution) const
         {
-            solution[0] = right_hand_side[0] * reciprocal_;
+            solution[0] = right_hand_side[0] / pivot_;
         }
 
         /// @brief Divides by the factorised entry, or leaves the solution alone at order zero.
@@ -219,6 +225,6 @@ namespace SushiDSP::dk
         }
 
     private:
-        double reciprocal_{ 0.0 };
+        double pivot_{ 0.0 };
     };
 }
