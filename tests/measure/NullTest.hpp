@@ -32,8 +32,12 @@ namespace SushiDSP::measure
 {
     /// @brief Residual of b against a after integer-delay and least-squares gain alignment.
     ///
-    /// The lag is the integer in [-max_lag, max_lag] maximising the cross-correlation; the
-    /// gain is the least-squares scalar over the overlapping region. The residual is
+    /// The lag is the integer in [-max_lag, max_lag] maximising the magnitude of the
+    /// cross-correlation, so a b that is inverted relative to a (an odd number of inverting
+    /// stages in the path under test) still aligns on its true lag rather than on whatever
+    /// lag happens to make the signed correlation least negative; the least-squares gain then
+    /// comes out negative on its own. The gain is that least-squares scalar over the
+    /// overlapping region. The residual is
     /// 20*log10(rms(a - g*b_shifted) / rms(a)), measured over that same overlapping region:
     /// the samples the shift leaves without a partner in b carry no information about how
     /// well the two signals match, and counting them would floor the result at the ratio of
@@ -47,7 +51,7 @@ namespace SushiDSP::measure
     {
         const std::size_t length = std::min(a.size(), b.size());
         long best_lag = 0;
-        double best_correlation = -1e300;
+        double best_correlation = -1.0;
         for (long lag = -static_cast<long>(max_lag); lag <= static_cast<long>(max_lag); ++lag)
         {
             double correlation = 0.0;
@@ -59,9 +63,9 @@ namespace SushiDSP::measure
                     correlation += static_cast<double>(a[i]) * b[static_cast<std::size_t>(j)];
                 }
             }
-            if (correlation > best_correlation)
+            if (std::fabs(correlation) > best_correlation)
             {
-                best_correlation = correlation;
+                best_correlation = std::fabs(correlation);
                 best_lag = lag;
             }
         }
