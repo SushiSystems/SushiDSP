@@ -25,91 +25,60 @@
 // and <cmath> may otherwise be pulled in transitively before this point.
 #define _USE_MATH_DEFINES
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "SushiDSP/jcm800/Jcm800.hpp"
+#include "golden/GoldenFile.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Regression_Dsp, Jcm800FixedInputProducesStableSnapshot)
+namespace
 {
-    SushiDSP::Jcm800 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
-
-    // The knobs are set before prepare() deliberately. Every control is a smoothed target now, and
-    // prepare() snaps the smoothers, so setting them first puts the amp in its settled
-    // configuration from the first sample. What is snapshotted is then the amp's steady-state
-    // response to this input - not a slice of whatever ramp the smoother happened to be on at
-    // block 10, which is what the pre-D5b numbers captured and what made them hostage to the
-    // smoothing law rather than to the circuit.
-    node.set_preamp(0.6f);
-    node.set_master(0.0f);
-    node.set_bass(0.6f);
-    node.set_middle(0.4f);
-    node.set_treble(0.7f);
-    node.set_presence(0.5f);
-    node.prepare(info);
-
-    std::vector<float> input(256);
-    for (std::size_t i = 0; i < input.size(); ++i)
+    std::vector<float> render_jcm800(double sample_rate)
     {
-        input[i] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+        SushiDSP::Jcm800 node;
+        // Knobs before prepare(): the smoothers snap, so the file holds the settled amp.
+        node.set_preamp(0.6f);
+        node.set_master(0.0f);
+        node.set_bass(0.6f);
+        node.set_middle(0.4f);
+        node.set_treble(0.7f);
+        node.set_presence(0.5f);
+        node.prepare({ sample_rate, 256, 1 });
+        const auto input = SushiDSP::golden::stimulus(sample_rate);
+        std::vector<float> output(input.size(), 0.0f);
+        for (std::size_t position = 0; position < input.size(); position += 256)
+        {
+            const std::uint32_t frames = static_cast<std::uint32_t>(std::min<std::size_t>(256, input.size() - position));
+            const float* inputs[1] = { input.data() + position };
+            float* outputs[1] = { output.data() + position };
+            SushiDSP::ProcessContext context{ outputs, inputs, frames, 0.0 };
+            node.process(context);
+        }
+        return output;
     }
-    std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+}
 
-    std::vector<float> last_block(256, 0.0f);
-    for (int block = 0; block < 10; ++block)
-    {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
-        node.process(context);
-        last_block = output;
-    }
+// One second of the amp's output is pinned as tests/golden/jcm800_<rate>.f32 and compared by RMS
+// residual. -80 dB catches any real behaviour change and absorbs float reassociation between
+// toolchains. No cabinet is loaded so the file is independent of anything on disk.
+//
+// Regenerate deliberately, never to make a red test green:
+//   SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression
+// and say why in the commit message and in tests/golden/README.md.
+TEST(Regression_Dsp, Jcm800GoldenFile48k)
+{
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("jcm800_48k", render_jcm800(48000.0)), -80.0);
+}
 
-    // Snapshot: these five values are this implementation's own output at these indices of the
-    // 10th block, pinned here to catch future drift.
-    //
-    // They have been re-baked twice in D5b, for two separate reasons.
-    //
-    // The first re-bake was the parameter slew law, and specifically the preamp's: before D5b
-    // preamp and master crawled toward their targets by a fixed 10% of the remaining distance
-    // per block, so the pinned numbers encoded where that block-rate ramp happened to be at
-    // block 10 rather than what the circuit does. (The tone controls were not the cause - they
-    // were applied to the filters the instant the setter was called, and at block 10 they were
-    // already exactly where they are now.) D5b made every control a uniformly smoothed target
-    // applied on the audio thread, which moves any output captured mid-ramp. Verified against a
-    // build of the pre-D5b implementation that the rest of the chain is untouched: with no ramp
-    // in flight the two agree, and the deltas were the ramp alone.
-    //
-    // The second re-bake is the master calibration change (spec D5b.5): kMasterUnityGain moved
-    // from 0.7 to 3.5825659 so an untouched amp lands near -6 dBFS. That constant is a plain
-    // multiplier sitting after the last nonlinearity, so every stage before it is bit-identical
-    // and each number below is exactly the old one times 3.5825659 / 0.7 - checked to better
-    // than 1e-7 relative on all five.
-    //
-    // The setters now run before prepare() (see above) so what is pinned no longer depends on the
-    // smoothing law at all: a future change to the time constant will not move these numbers,
-    // which is what the earlier baseline could not promise. They are not derived analytically —
-    // a change to any stage (bright cap, V1a/V1b, coupling cap, tone stack, V2a, phase inverter,
-    // EL34 pair, output transformer, sag, presence, master) will move them, which is the point.
-    //
-    // No cabinet IR is loaded, deliberately: it keeps the snapshot independent of any file on
-    // disk, and it also keeps the pinned numbers independent of PartitionedConvolution's lack of
-    // a reset(), which would otherwise leave convolution tail state outside this test's control.
-    //
-    // The 1e-5 tolerance is tight enough to catch a real behavioural change and loose enough to
-    // absorb float reassociation within one toolchain. If a second compiler/platform is ever
-    // added to CI and these drift by more than that, relax the tolerance rather than re-baking
-    // the numbers — a re-bake would silently accept whatever the new code produces.
-    EXPECT_NEAR(last_block[0],   -0.781473160f,  1e-5f);
-    EXPECT_NEAR(last_block[64],  -0.0879578069f, 1e-5f);
-    EXPECT_NEAR(last_block[128],  0.816653788f,  1e-5f);
-    EXPECT_NEAR(last_block[192],  0.130012318f,  1e-5f);
-    EXPECT_NEAR(last_block[255], -0.788693726f,  1e-5f);
+TEST(Regression_Dsp, Jcm800GoldenFile96k)
+{
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("jcm800_96k", render_jcm800(96000.0)), -80.0);
 }

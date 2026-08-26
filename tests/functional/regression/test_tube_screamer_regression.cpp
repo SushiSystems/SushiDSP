@@ -25,67 +25,57 @@
 // and <cmath> may otherwise be pulled in transitively before this point.
 #define _USE_MATH_DEFINES
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
+#include "golden/GoldenFile.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Regression_Dsp, TubeScreamerFixedInputProducesStableSnapshot)
+namespace
 {
-    SushiDSP::TubeScreamer node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
-    // Set before prepare() so its snap() puts every smoother straight on target: the snapshot
-    // then pins the settled signal path alone, and retuning the smoothing time cannot move it.
-    node.set_drive(0.6f);
-    node.set_tone(0.4f);
-    node.set_level(SushiDSP::gain_to_decibels(0.8f / SushiDSP::TubeScreamer::kLevelUnityGain));
-    node.prepare(info);
-
-    std::vector<float> input(256);
-    for (std::size_t i = 0; i < input.size(); ++i)
+    std::vector<float> render_tube_screamer(double sample_rate)
     {
-        input[i] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 440.0f * i / 48000.0f);
+        SushiDSP::TubeScreamer node;
+        // Knobs before prepare(): the smoothers snap, so the file holds the settled pedal.
+        node.set_drive(0.6f);
+        node.set_tone(0.4f);
+        node.set_level(SushiDSP::gain_to_decibels(0.8f / SushiDSP::TubeScreamer::kLevelUnityGain));
+        node.prepare({ sample_rate, 256, 1 });
+        const auto input = SushiDSP::golden::stimulus(sample_rate);
+        std::vector<float> output(input.size(), 0.0f);
+        for (std::size_t position = 0; position < input.size(); position += 256)
+        {
+            const std::uint32_t frames = static_cast<std::uint32_t>(std::min<std::size_t>(256, input.size() - position));
+            const float* inputs[1] = { input.data() + position };
+            float* outputs[1] = { output.data() + position };
+            SushiDSP::ProcessContext context{ outputs, inputs, frames, 0.0 };
+            node.process(context);
+        }
+        return output;
     }
-    std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+}
 
-    std::vector<float> last_block(256, 0.0f);
-    for (int block = 0; block < 10; ++block)
-    {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
-        node.process(context);
-        last_block = output;
-    }
+// One second of the pedal's output is pinned as tests/golden/tube_screamer_<rate>.f32 and
+// compared by RMS residual. -80 dB catches any real behaviour change and absorbs float
+// reassociation between toolchains.
+//
+// Regenerate deliberately, never to make a red test green:
+//   SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression
+// and say why in the commit message and in tests/golden/README.md.
+TEST(Regression_Dsp, TubeScreamerGoldenFile48k)
+{
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("tube_screamer_48k", render_tube_screamer(48000.0)), -80.0);
+}
 
-    // Snapshot: these five values are this implementation's own output at these indices of the
-    // 10th block, captured from the settled signal path and pinned here to catch future drift.
-    // They are not derived analytically — a change to any stage (input highpass, clipper solve,
-    // oversampler, tone crossfade, level) will move them, which is the point.
-    //
-    // The 1e-5 tolerance is tight enough to catch a real behavioural change and loose enough to
-    // absorb float reassociation within one toolchain. If a second compiler/platform is ever
-    // added to CI and these drift by more than that, relax the tolerance rather than re-baking
-    // the numbers — a re-bake would silently accept whatever the new code produces.
-    //
-    // Re-captured twice so far. First after fixing kMinFeedbackResistance/kMaxFeedbackResistance
-    // from a 1000x-too-small value. Second when D5b replaced the per-block 0.1 slew with a 20 ms
-    // SmoothedParameter: the previous numbers were taken 10 blocks into a knob ramp, so they
-    // encoded the old ramp's shape, not the pedal's response. That the signal path itself did
-    // not change was verified before re-capturing — with the smoother's time constant set to
-    // 50.6193 ms, which reproduces the old per-block 0.1 slew exactly at 256 frames, the
-    // previous numbers still passed at 1e-5. The knobs are now set before prepare(), whose
-    // snap() puts every smoother on target, so this snapshot no longer moves when the smoothing
-    // time is retuned.
-    EXPECT_NEAR(last_block[0],   -0.0854371116f, 1e-5f);
-    EXPECT_NEAR(last_block[64],   0.0166975502f, 1e-5f);
-    EXPECT_NEAR(last_block[128],  0.0708896816f, 1e-5f);
-    EXPECT_NEAR(last_block[192],  0.00355677609f, 1e-5f);
-    EXPECT_NEAR(last_block[255], -0.0739688128f, 1e-5f);
+TEST(Regression_Dsp, TubeScreamerGoldenFile96k)
+{
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("tube_screamer_96k", render_tube_screamer(96000.0)), -80.0);
 }
