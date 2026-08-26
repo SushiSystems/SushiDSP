@@ -50,6 +50,11 @@ add_executable(sushidsp_tests
 
     # --- Circuits ---
     functional/unit/test_diode_clipper_circuit.cpp
+    functional/unit/test_silicon_diode.cpp
+    functional/unit/test_triode_12ax7.cpp
+    functional/unit/test_pentode_el34.cpp
+    functional/unit/test_dk_circuit.cpp
+    functional/unit/test_dk_triode_stage.cpp
 
     # --- Products ---
     functional/unit/test_tube_screamer_clipping_stage.cpp
@@ -65,6 +70,7 @@ add_executable(sushidsp_tests
     functional/unit/test_biquad.cpp
     functional/unit/test_fft.cpp
     functional/unit/test_newton_raphson_solver.cpp
+    functional/unit/test_damped_newton_solver.cpp
     functional/unit/test_oversampler.cpp
     functional/unit/test_measure.cpp
     functional/unit/test_spice_csv.cpp
@@ -101,6 +107,7 @@ target_include_directories(sushidsp_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(sushidsp_tests PRIVATE
     SUSHIDSP_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden"
     SUSHIDSP_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+    SUSHIDSP_SPICE_DIR="${CMAKE_SOURCE_DIR}/docs/reference/spice"
 )
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host_gui)
