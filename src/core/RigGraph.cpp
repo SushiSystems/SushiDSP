@@ -23,6 +23,8 @@
 
 #include "SushiDSP/core/RigGraph.hpp"
 
+#include "SushiDSP/core/DenormalGuard.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <queue>
@@ -156,6 +158,8 @@ namespace SushiDSP
 
     void RigGraph::process(ProcessContext& context)
     {
+        DenormalGuard guard;
+
         ParameterChange change;
         while (parameter_ring_.pop(change))
         {
