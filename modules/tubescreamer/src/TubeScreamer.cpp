@@ -23,6 +23,7 @@
 
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
+#include <algorithm>
 #include <cstring>
 
 namespace SushiDSP
@@ -37,13 +38,24 @@ namespace SushiDSP
         constexpr double kFilterQ = 0.707;
         constexpr std::uint32_t kOversamplingFactor = 8;
 
-        // Reaches the target in ~10 blocks (~53 ms at 256 frames / 48 kHz), which keeps a
-        // parameter jump from stepping the clipper's operating point within one block.
-        constexpr float kSlewPerBlock = 0.1f;
+        // Time constant of every knob's smoother: slow enough that a jump cannot step the
+        // clipper's operating point audibly, fast enough to feel immediate under a hand.
+        constexpr float kSmoothingMs = 20.0f;
 
-        float slew_toward(float current, float target)
+        constexpr float kMinLevelDecibels = -60.0f;
+        constexpr float kMaxLevelDecibels = 12.0f;
+        constexpr float kMinInputTrimDecibels = -24.0f;
+        constexpr float kMaxInputTrimDecibels = 24.0f;
+
+        constexpr std::uint16_t kUnknownParameterIndex = 0xFFFF;
+
+        std::uint16_t parameter_index_for(const char* id)
         {
-            return current + (target - current) * kSlewPerBlock;
+            if (std::strcmp(id, "drive") == 0) return 0;
+            if (std::strcmp(id, "tone") == 0) return 1;
+            if (std::strcmp(id, "level") == 0) return 2;
+            if (std::strcmp(id, "input_trim") == 0) return 3;
+            return kUnknownParameterIndex;
         }
 
         float feedback_resistance_for_drive(float drive)
@@ -68,6 +80,14 @@ namespace SushiDSP
         input_highpass_.set_high_pass(sample_rate_, kInputHighpassCutoffHz, kFilterQ);
         tone_lowpass_.set_low_pass(sample_rate_, kToneCrossoverHz, kFilterQ);
         tone_highpass_.set_high_pass(sample_rate_, kToneCrossoverHz, kFilterQ);
+        drive_.prepare(sample_rate_, kSmoothingMs);
+        tone_.prepare(sample_rate_, kSmoothingMs);
+        level_gain_.prepare(sample_rate_, kSmoothingMs);
+        input_trim_gain_.prepare(sample_rate_, kSmoothingMs);
+        drive_.snap(drive_.target());
+        tone_.snap(tone_.target());
+        level_gain_.snap(level_gain_.target());
+        input_trim_gain_.snap(input_trim_gain_.target());
         oversampler_ = std::make_unique<Oversampler8x>(info.max_block);
         oversampled_scratch_.assign(info.max_block, 0.0f);
         clipped_scratch_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
@@ -76,17 +96,18 @@ namespace SushiDSP
 
     void TubeScreamer::process(ProcessContext& context)
     {
-        drive_current_ = slew_toward(drive_current_, drive_target_);
-        tone_current_ = slew_toward(tone_current_, tone_target_);
-        level_current_ = slew_toward(level_current_, level_target_);
-        clipping_stage_.set_feedback_resistance(feedback_resistance_for_drive(drive_current_));
+        const float drive = drive_.skip(context.frames);
+        const float tone = tone_.skip(context.frames);
+        const float input_gain = input_trim_gain_.skip(context.frames);
+        const float level = level_gain_.skip(context.frames) * kLevelUnityGain;
+        clipping_stage_.set_feedback_resistance(feedback_resistance_for_drive(drive));
 
         const float* input = context.inputs[0];
         float* output = context.outputs[0];
 
         for (std::uint32_t i = 0; i < context.frames; ++i)
         {
-            oversampled_scratch_[i] = input_highpass_.process_sample(input[i]);
+            oversampled_scratch_[i] = input_highpass_.process_sample(input[i] * input_gain);
         }
 
         const float* upsampled = oversampler_->upsample(oversampled_scratch_.data(), context.frames);
@@ -105,8 +126,8 @@ namespace SushiDSP
         {
             const float low = tone_lowpass_.process_sample(oversampled_scratch_[i]);
             const float high = tone_highpass_.process_sample(oversampled_scratch_[i]);
-            const float toned = (1.0f - tone_current_) * low + tone_current_ * high;
-            output[i] = toned * level_current_;
+            const float toned = (1.0f - tone) * low + tone * high;
+            output[i] = toned * level;
         }
     }
 
@@ -127,31 +148,57 @@ namespace SushiDSP
         }
     }
 
-    void TubeScreamer::set_drive(float normalized) { drive_target_ = normalized; }
-    void TubeScreamer::set_tone(float normalized) { tone_target_ = normalized; }
-    void TubeScreamer::set_level(float normalized) { level_target_ = normalized; }
+    void TubeScreamer::set_drive(float normalized) { drive_.set_target(normalized); }
+    void TubeScreamer::set_tone(float normalized) { tone_.set_target(normalized); }
+
+    void TubeScreamer::set_level(float db)
+    {
+        level_db_ = std::clamp(db, kMinLevelDecibels, kMaxLevelDecibels);
+        level_gain_.set_target(decibels_to_gain(level_db_));
+    }
+
+    void TubeScreamer::set_input_trim(float db)
+    {
+        input_trim_db_ = std::clamp(db, kMinInputTrimDecibels, kMaxInputTrimDecibels);
+        input_trim_gain_.set_target(decibels_to_gain(input_trim_db_));
+    }
 
     float TubeScreamer::get_parameter(const char* id) const
     {
-        if (std::strcmp(id, "drive") == 0) return drive_target_;
-        if (std::strcmp(id, "tone") == 0) return tone_target_;
-        if (std::strcmp(id, "level") == 0) return level_target_;
-        return 0.0f;
+        switch (parameter_index_for(id))
+        {
+            case 0: return drive_.target();
+            case 1: return tone_.target();
+            case 2: return level_db_;
+            case 3: return input_trim_db_;
+            default: return 0.0f;
+        }
     }
 
     void TubeScreamer::set_parameter(const char* id, float value)
     {
-        if (std::strcmp(id, "drive") == 0) { set_drive(value); return; }
-        if (std::strcmp(id, "tone") == 0) { set_tone(value); return; }
-        if (std::strcmp(id, "level") == 0) { set_level(value); return; }
+        set_parameter(parameter_index_for(id), value);
+    }
+
+    void TubeScreamer::set_parameter(std::uint16_t index, float value)
+    {
+        switch (index)
+        {
+            case 0: set_drive(value); return;
+            case 1: set_tone(value); return;
+            case 2: set_level(value); return;
+            case 3: set_input_trim(value); return;
+            default: return;
+        }
     }
 
     namespace
     {
         constexpr ParameterDescriptor kTubeScreamerParameters[] = {
-            { "drive", "Drive", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
-            { "tone",  "Tone",  0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
-            { "level", "Level", 0.0f, 1.0f, 0.7f, ParamKind::Linear, "" },
+            { "drive",      "Drive",        0.0f,  1.0f, 0.5f, ParamKind::Linear,  "" },
+            { "tone",       "Tone",         0.0f,  1.0f, 0.5f, ParamKind::Linear,  "" },
+            { "level",      "Level",      -60.0f, 12.0f, 0.0f, ParamKind::Decibel, "dB" },
+            { "input_trim", "Input Trim", -24.0f, 24.0f, 0.0f, ParamKind::Decibel, "dB" },
         };
 
         std::unique_ptr<IAudioNode> make_tube_screamer(const PrepareInfo&)
@@ -166,7 +213,7 @@ namespace SushiDSP
             "sushidsp.tubescreamer",
             "Tube Screamer",
             kTubeScreamerParameters,
-            3,
+            4,
             PortLayout{ 1, 1 },
             &make_tube_screamer,
         };
