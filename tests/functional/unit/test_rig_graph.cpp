@@ -314,3 +314,53 @@ TEST(Unit_Dsp, RigGraphLatencyIsSumOfChainedNodeLatencies)
     graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
     EXPECT_EQ(graph.latency_samples(), 135u);
 }
+
+namespace
+{
+    class RecordingNode : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t i = 0; i < context.frames; ++i) { context.outputs[0][i] = last_value_; }
+        }
+        SushiDSP::PortLayout ports() const override { return { 0, 1 }; }
+        float get_parameter(const char*) const override { return last_value_; }
+        void set_parameter(const char*, float) override {}
+        void set_parameter(std::uint16_t index, float value) override { last_index_ = index; last_value_ = value; }
+        void reset() override {}
+        std::uint16_t last_index_ = 0xFFFF;
+        float last_value_ = 0.0f;
+    };
+}
+
+TEST(Unit_Dsp, RigGraphAppliesQueuedParameterChangesBeforeProcessing)
+{
+    SushiDSP::RigGraph graph(64, 4);
+    auto node = std::make_unique<RecordingNode>();
+    RecordingNode* raw = node.get();
+    const auto handle = graph.add_node(std::move(node));
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    EXPECT_TRUE(graph.push_parameter_change(SushiDSP::ParameterChange{ handle, 3, 0.25f }));
+    std::vector<float> out(64);
+    float* outs[1] = { out.data() };
+    SushiDSP::ProcessContext context{ outs, nullptr, 64, 0.0 };
+    graph.process(context);
+    EXPECT_EQ(raw->last_index_, 3);
+    EXPECT_FLOAT_EQ(out[0], 0.25f);
+}
+
+TEST(Unit_Dsp, RigGraphIgnoresParameterChangeForRemovedNode)
+{
+    SushiDSP::RigGraph graph(64, 4);
+    const auto a = graph.add_node(std::make_unique<RecordingNode>());
+    graph.remove_node(a);
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    graph.push_parameter_change(SushiDSP::ParameterChange{ a, 0, 1.0f });
+    std::vector<float> out(64);
+    float* outs[1] = { out.data() };
+    SushiDSP::ProcessContext context{ outs, nullptr, 64, 0.0 };
+    graph.process(context);   // must not crash
+    EXPECT_FLOAT_EQ(out[0], 0.0f);
+}

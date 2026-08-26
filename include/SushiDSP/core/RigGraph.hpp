@@ -29,15 +29,18 @@
 
 #include "SushiDSP/core/BufferPool.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
+#include "SushiDSP/core/ParameterChange.hpp"
+#include "SushiDSP/core/SpscRing.hpp"
 
 namespace SushiDSP
 {
-    using NodeHandle = std::uint32_t;
-
     /// @brief A user-editable directed graph of IAudioNode instances, compiled to a topological order and replayed per block.
     class RigGraph
     {
     public:
+        /// @brief Maximum parameter changes that may be pending between two process() calls.
+        static constexpr std::size_t kParameterRingCapacity = 1024;
+
         /// @brief Constructs an empty rig graph.
         /// @param block_size Frames per process() call.
         /// @param max_live_buffers Maximum transient buffers live at once during a block.
@@ -76,6 +79,12 @@ namespace SushiDSP
         /// @return The live handles.
         std::vector<NodeHandle> nodes() const;
 
+        /// @brief Queues a parameter write for the next process() call. Control thread only;
+        /// lock-free and allocation-free.
+        /// @param change The node, parameter index, and value to apply.
+        /// @return true if queued, false if the ring is full and the change was dropped.
+        bool push_parameter_change(const ParameterChange& change);
+
         /// @brief Processes one block through every node in topological order. Real-time safe.
         /// @param context The block's output buffers and frame count.
         void process(ProcessContext& context);
@@ -94,5 +103,6 @@ namespace SushiDSP
         std::vector<Edge>                         edges_;
         std::vector<NodeHandle>                   topological_order_;
         std::vector<float*>                       node_output_scratch_;
+        SpscRing<ParameterChange>                 parameter_ring_{ kParameterRingCapacity };
     };
 }

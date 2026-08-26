@@ -69,10 +69,18 @@ namespace SushiDSP
         /// @return The parameter's current normalized value.
         virtual float get_parameter(const char* id) const = 0;
 
-        /// @brief Writes a parameter by its NodeDescriptor::parameters[].id string.
+        /// @brief Writes a parameter by its NodeDescriptor::parameters[].id string. Control
+        /// thread only: the string lookup is not real-time safe.
         /// @param id The parameter's id. An unrecognized id is a no-op.
         /// @param value The value to set, in the parameter's declared [min, max] range.
         virtual void set_parameter(const char* id, float value) = 0;
+
+        /// @brief Writes a parameter by its NodeDescriptor::parameters[] index. Called on the
+        /// processing thread as RigGraph drains its ParameterChange ring, so an override must
+        /// only store a target value; the default is a no-op for nodes with no parameters.
+        /// @param index Index into the node's NodeDescriptor::parameters[]. Out of range is a no-op.
+        /// @param value The value to set, in the parameter's declared [min, max] range.
+        virtual void set_parameter(std::uint16_t index, float value) { (void)index; (void)value; }
 
         /// @brief Clears internal state for a click-free restart.
         virtual void reset() = 0;

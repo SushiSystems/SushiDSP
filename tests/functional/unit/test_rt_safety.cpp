@@ -128,15 +128,21 @@ TEST(Unit_Dsp, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
     float* output_channels[1] = { output_buffer.data() };
 
     g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
 
     for (int block = 0; block < 7000; ++block)
     {
+        for (std::uint16_t index = 0; index < 100; ++index)
+        {
+            graph.push_parameter_change(SushiDSP::ParameterChange{ 0, index, 0.5f });
+        }
+
+        g_trap_allocations.store(true, std::memory_order_relaxed);
+
         SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
         graph.process(context);
-    }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+        g_trap_allocations.store(false, std::memory_order_relaxed);
+    }
 
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
 }

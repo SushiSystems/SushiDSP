@@ -149,8 +149,22 @@ namespace SushiDSP
         return total;
     }
 
+    bool RigGraph::push_parameter_change(const ParameterChange& change)
+    {
+        return parameter_ring_.push(change);
+    }
+
     void RigGraph::process(ProcessContext& context)
     {
+        ParameterChange change;
+        while (parameter_ring_.pop(change))
+        {
+            if (change.node < nodes_.size() && nodes_[change.node] != nullptr)
+            {
+                nodes_[change.node]->set_parameter(change.parameter_index, change.value);
+            }
+        }
+
         auto& node_output = node_output_scratch_;
         std::fill(node_output.begin(), node_output.end(), nullptr);
 
