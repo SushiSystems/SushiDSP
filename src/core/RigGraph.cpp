@@ -45,6 +45,21 @@ namespace SushiDSP
 
     void RigGraph::connect(NodeHandle from, NodeHandle to)
     {
+        std::size_t fan_out = 0;
+        std::size_t fan_in = 0;
+        for (const Edge& edge : edges_)
+        {
+            if (edge.from == from) { ++fan_out; }
+            if (edge.to == to) { ++fan_in; }
+        }
+        if (fan_out >= kMaxFanInOut)
+        {
+            throw std::runtime_error("RigGraph::connect: fan-out limit exceeded");
+        }
+        if (fan_in >= kMaxFanInOut)
+        {
+            throw std::runtime_error("RigGraph::connect: fan-in limit exceeded");
+        }
         edges_.push_back({ from, to });
     }
 

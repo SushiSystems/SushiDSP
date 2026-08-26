@@ -437,3 +437,33 @@ TEST(Unit_Dsp, RigGraphCompileAcceptsSingleSinkGraph)
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     EXPECT_NO_THROW(graph.compile(info));
 }
+
+TEST(Unit_Dsp, RigGraphConnectThrowsWhenFanOutExceedsLimit)
+{
+    SushiDSP::RigGraph graph(256, SushiDSP::RigGraph::kMaxFanInOut + 2);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    std::vector<SushiDSP::NodeHandle> sinks;
+    for (std::size_t i = 0; i < SushiDSP::RigGraph::kMaxFanInOut; ++i)
+    {
+        sinks.push_back(graph.add_node(std::make_unique<GainNode>(1.0f)));
+        graph.connect(source, sinks.back());
+    }
+
+    auto one_too_many = graph.add_node(std::make_unique<GainNode>(1.0f));
+    EXPECT_THROW(graph.connect(source, one_too_many), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigGraphConnectThrowsWhenFanInExceedsLimit)
+{
+    SushiDSP::RigGraph graph(256, SushiDSP::RigGraph::kMaxFanInOut + 2);
+    auto sink = graph.add_node(std::make_unique<GainNode>(1.0f));
+    std::vector<SushiDSP::NodeHandle> sources;
+    for (std::size_t i = 0; i < SushiDSP::RigGraph::kMaxFanInOut; ++i)
+    {
+        sources.push_back(graph.add_node(std::make_unique<ConstantSourceNode>(1.0f)));
+        graph.connect(sources.back(), sink);
+    }
+
+    auto one_too_many = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    EXPECT_THROW(graph.connect(one_too_many, sink), std::runtime_error);
+}

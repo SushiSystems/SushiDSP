@@ -42,6 +42,10 @@ namespace SushiDSP
         /// @brief Maximum parameter changes that may be pending between two process() calls.
         static constexpr std::size_t kParameterRingCapacity = 1024;
 
+        /// @brief Maximum outgoing edges from, or incoming edges into, any single node.
+        /// Bounds the fixed-size input-gather array RigGraph::process() uses per node.
+        static constexpr std::size_t kMaxFanInOut = 8;
+
         /// @brief Constructs an empty rig graph.
         /// @param block_size Frames per process() call.
         /// @param max_live_buffers Maximum transient buffers live at once during a block.
