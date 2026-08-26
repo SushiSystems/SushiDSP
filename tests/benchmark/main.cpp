@@ -26,12 +26,12 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <vector>
 
 #include "Benchmark.hpp"
-#include "SushiDSP/circuits/models/Triode12AX7.hpp"
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/DenormalGuard.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
@@ -42,6 +42,8 @@
 #include "SushiDSP/math/dk/DkCircuit.hpp"
 #include "SushiDSP/math/dk/DkNetlist.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
+
+#include "circuits/JcmV1aNetlist.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -82,92 +84,25 @@ namespace
         });
     }
 
-    /// @brief Node numbering of the benchmarked DK block.
-    ///
-    /// Nodes 1-7 are the JCM800 2203 V1a stage, node for node with
-    /// docs/reference/spice/jcm_v1a; nodes 8 and 9 carry the extra series RC that takes the
-    /// block from three states to the four the D6b budget is written against.
-    enum DkNodeIndex : std::size_t
-    {
-        kDkNodeSource = 1,
-        kDkNodeGrid = 2,
-        kDkNodePlate = 3,
-        kDkNodeCathode = 4,
-        kDkNodePotTop = 5,
-        kDkNodeOut = 6,
-        kDkNodeSupply = 7,
-        kDkNodeTailMiddle = 8,
-        kDkNodeTail = 9
-    };
+    // The netlist, its component constants and the triode glue live in
+    // tests/circuits/JcmV1aNetlist.hpp, shared with the D6b stage test and the RT-safety traps.
+    // build_jcm_v1a(netlist, true) appends the series RC that takes the block from the SPICE
+    // stage's three reactive states to the four the D6b budget is written against.
+    using namespace SushiDSP::test_circuits;
 
-    constexpr double        kDkSupplyVolts = 360.0;
     constexpr std::uint32_t kOversampleFactor = 8;
 
     /// @brief The benchmarked shape: four states, two nonlinear branches, two sources, one probe.
     using DkStageCircuit = SushiDSP::dk::DkCircuit<4, 2, 2, 1>;
     using DkStageNetlist = SushiDSP::dk::DkNetlist<4, 2, 2, 1>;
 
-    /// @brief Hands DkCircuit the 12AX7's two branch currents and their Jacobian.
-    struct DkTriodePort
-    {
-        SushiDSP::Triode12AX7 triode{};
-
-        /// @brief Evaluates both branch currents at one port voltage.
-        /// @param v Port voltages: v[0] = Vgk, v[1] = Vpk.
-        /// @param i Receives the branch currents in amperes.
-        void currents(const std::array<double, 2>& v, std::array<double, 2>& i) const
-        {
-            triode.current(v, i);
-        }
-
-        /// @brief Evaluates the branch-current Jacobian at one port voltage.
-        /// @param v Port voltages: v[0] = Vgk, v[1] = Vpk.
-        /// @param j Receives the 2x2 Jacobian in siemens.
-        void jacobian(const std::array<double, 2>& v, std::array<std::array<double, 2>, 2>& j) const
-        {
-            triode.jacobian(v, j);
-        }
-    };
-
-    /// @brief Builds the benchmarked netlist.
-    /// @param netlist Receives the description; any previous contents are overwritten.
-    /// @return The preamp potentiometer's index, for DkCircuit::set_potentiometer.
-    std::size_t build_dk_stage(DkStageNetlist& netlist)
-    {
-        netlist = DkStageNetlist{};
-        netlist.node_count = 9;
-
-        netlist.resistor(kDkNodeSource, 0, 1.0e6);
-        netlist.resistor(kDkNodeSource, kDkNodeGrid, 68.0e3);
-        netlist.resistor(kDkNodeSupply, kDkNodePlate, 100.0e3);
-        netlist.resistor(kDkNodeCathode, 0, 2.7e3);
-
-        netlist.capacitor(kDkNodeCathode, 0, 0.68e-6);
-        netlist.capacitor(kDkNodePlate, kDkNodePotTop, 0.022e-6);
-        netlist.capacitor(kDkNodePotTop, kDkNodeOut, 470.0e-12);
-
-        netlist.resistor(kDkNodeOut, kDkNodeTailMiddle, 470.0e3);
-        netlist.capacitor(kDkNodeTailMiddle, kDkNodeTail, 0.022e-6);
-        netlist.resistor(kDkNodeTail, 0, 1.0e6);
-
-        netlist.nonlinear(kDkNodeGrid, kDkNodeCathode);
-        netlist.nonlinear(kDkNodePlate, kDkNodeCathode);
-
-        netlist.voltage_source(kDkNodeSource, 0);
-        netlist.voltage_source(kDkNodeSupply, 0);
-
-        netlist.output(kDkNodeTail, 0);
-
-        return netlist.potentiometer(kDkNodePotTop, kDkNodeOut, 0, 1.0e6);
-    }
-
     /// @brief Runs the block on silence until its bias point has settled.
     /// @param circuit The prepared circuit; advanced in place.
     /// @param port The triode glue.
     /// @param run_rate Rate the circuit was prepared at, in hertz.
-    void settle_dk_stage(DkStageCircuit& circuit, DkTriodePort& port, double run_rate)
+    void settle_dk_stage(DkStageCircuit& circuit, TriodeStagePort& port, double run_rate)
     {
-        const std::array<double, 2> silence{ 0.0, kDkSupplyVolts };
+        const std::array<double, 2> silence{ 0.0, kSupplyVolts };
         std::array<double, 1>       outputs{};
         const std::size_t           samples = static_cast<std::size_t>(0.2 * run_rate);
         for (std::size_t index = 0; index < samples; ++index)
@@ -187,20 +122,26 @@ namespace
         const double run_rate = kSampleRate * kOversampleFactor;
 
         DkStageNetlist netlist;
-        build_dk_stage(netlist);
+        build_jcm_v1a(netlist, true);
 
         DkStageCircuit circuit;
-        DkTriodePort   port;
+        TriodeStagePort   port;
         if (!circuit.prepare(netlist, run_rate))
         {
             std::printf("DkCircuit prepare failed; case skipped\n");
             return { "DkCircuit 2-nonlin 4-state @8x", 0.0, 0.0 };
         }
         settle_dk_stage(circuit, port, run_rate);
+        // Cleared after the settle and never again, so the counters below cover exactly the
+        // solves measure() drives: every warm-up repetition and every timed one, 2048 per
+        // repetition. total_samples() is the circuit's own count, so the reported rate cannot
+        // drift from the harness's repetition constants.
+        circuit.reset_statistics();
 
         const std::vector<float>  input = make_test_tone(kBlockSize);
         std::vector<float>        output(kBlockSize, 0.0f);
-        return SushiDSP::bench::measure("DkCircuit 2-nonlin 4-state @8x", kBlockSize, kSampleRate,
+        const SushiDSP::bench::Result result = SushiDSP::bench::measure(
+            "DkCircuit 2-nonlin 4-state @8x", kBlockSize, kSampleRate,
             [&]
         {
             std::array<double, 1> outputs{};
@@ -208,7 +149,7 @@ namespace
             {
                 const double drive = static_cast<double>(input[frame])
                     * static_cast<double>(SushiDSP::kFullScaleVolts);
-                const std::array<double, 2> inputs{ drive, kDkSupplyVolts };
+                const std::array<double, 2> inputs{ drive, kSupplyVolts };
                 for (std::uint32_t step = 0; step < kOversampleFactor; ++step)
                 {
                     circuit.process_sample(port, inputs, outputs);
@@ -216,6 +157,26 @@ namespace
                 output[frame] = static_cast<float>(outputs[0]);
             }
         });
+
+        // Reported because a solver's cost and its convergence are the same measurement: a
+        // block that got fast by giving up early is not faster. Read the non-converged figure
+        // with the harness in mind - measure() replays the same 256-frame buffer, so the tone
+        // jumps back to sample 0 once per repetition, and that step is worth roughly one
+        // non-converged solve each time. Driven with the identical tone run continuously for the
+        // same 450 560 samples the count is 1, not ~220. The rate below is therefore an upper
+        // bound dominated by an artefact of the harness, not the circuit's behaviour on a real
+        // stream; tests/functional/unit/test_dk_triode_stage.cpp measures the honest figure.
+        const std::uint64_t solves = circuit.total_samples();
+        const std::uint64_t non_converged = circuit.non_converged_samples();
+        std::printf("  solver: %llu solves, %llu non-converged (%.4f %%), %u iterations worst "
+                    "case, %llu NaN fallbacks\n",
+            static_cast<unsigned long long>(solves),
+            static_cast<unsigned long long>(non_converged),
+            solves == 0 ? 0.0 : 100.0 * static_cast<double>(non_converged)
+                                    / static_cast<double>(solves),
+            circuit.maximum_iterations_seen(),
+            static_cast<unsigned long long>(circuit.nan_fallback_samples()));
+        return result;
     }
 
     /// @brief Times one block in which the potentiometer moves, forcing a matrix re-derivation.
@@ -227,10 +188,10 @@ namespace
     SushiDSP::bench::Result measure_dk_potentiometer_update()
     {
         DkStageNetlist    netlist;
-        const std::size_t pot_index = build_dk_stage(netlist);
+        const std::size_t pot_index = build_jcm_v1a(netlist, true);
 
         DkStageCircuit circuit;
-        DkTriodePort   port;
+        TriodeStagePort   port;
         if (!circuit.prepare(netlist, kSampleRate))
         {
             std::printf("DkCircuit prepare failed; case skipped\n");
@@ -252,9 +213,45 @@ namespace
             {
                 const double drive = static_cast<double>(input[frame])
                     * static_cast<double>(SushiDSP::kFullScaleVolts);
-                const std::array<double, 2> inputs{ drive, kDkSupplyVolts };
+                const std::array<double, 2> inputs{ drive, kSupplyVolts };
                 circuit.process_sample(port, inputs, outputs);
                 output[frame] = static_cast<float>(outputs[0]);
+            }
+        });
+    }
+
+    /// @brief Times the potentiometer re-derivation on its own, with no solving around it.
+    ///
+    /// Plan Ruling 3 lets a pot move re-derive the DK matrices on the audio thread at block
+    /// cadence, so the cost of one re-derivation is the number the ruling rests on. The case
+    /// above cannot supply it - a re-derivation is under one percent of the block it sits in, so
+    /// subtracting two block timings would report scheduler noise. This one calls
+    /// set_potentiometer + update_matrices_if_dirty 256 times and nothing else, so the harness's
+    /// per-sample column reads directly as nanoseconds per re-derivation.
+    /// @return The measured Result, whose ns/sample column is ns per re-derivation.
+    SushiDSP::bench::Result measure_dk_potentiometer_rederivation()
+    {
+        DkStageNetlist    netlist;
+        const std::size_t pot_index = build_jcm_v1a(netlist, true);
+
+        DkStageCircuit  circuit;
+        TriodeStagePort port;
+        if (!circuit.prepare(netlist, kSampleRate))
+        {
+            std::printf("DkCircuit prepare failed; case skipped\n");
+            return { "DkCircuit pot re-derivation", 0.0, 0.0 };
+        }
+        settle_dk_stage(circuit, port, kSampleRate);
+
+        double position = 0.5;
+        return SushiDSP::bench::measure("DkCircuit pot re-derivation", kBlockSize, kSampleRate,
+            [&]
+        {
+            for (std::uint32_t index = 0; index < kBlockSize; ++index)
+            {
+                position = position > 0.5 ? 0.4 : 0.6;
+                circuit.set_potentiometer(pot_index, position);
+                circuit.update_matrices_if_dirty();
             }
         });
     }
@@ -335,6 +332,7 @@ int main(int argc, char** argv)
     {
         print(measure_dk_circuit(), 0.12);
         print(measure_dk_potentiometer_update());
+        print(measure_dk_potentiometer_rederivation());
     }
     if (selected("PartitionedConvolution", argc, argv))
     {

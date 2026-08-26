@@ -33,6 +33,9 @@ once you're in the tree and need a specific document.
 - **[`tests/measure/`](../tests/measure/)** — the test-side measurement library (`render`,
   `thd`, `alias_floor`, `frequency_response`, `null_test`) every product's plausibility and
   alias-floor test is built on.
+- **[`tests/circuits/`](../tests/circuits/)** — test-side circuit descriptions shared across the
+  unit tests and the benchmark, so the same block is not transcribed twice. Currently
+  `JcmV1aNetlist.hpp`, the JCM800 V1a stage as a `DkNetlist`.
 
 ## Generated API reference
 
