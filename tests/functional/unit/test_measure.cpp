@@ -31,6 +31,8 @@
 #include <gtest/gtest.h>
 
 #include "SushiDSP/core/IAudioNode.hpp"
+#include "SushiDSP/jcm800/Jcm800.hpp"
+#include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 #include "measure/AliasFloor.hpp"
 #include "measure/FrequencyResponse.hpp"
 #include "measure/NullTest.hpp"
@@ -116,7 +118,9 @@ namespace
         void reset() override {}
     };
 
-    /// @brief First-order lowpass at 1 kHz: -3.01 dB at 1 kHz, -20.04 dB at 10 kHz (analytic RC).
+    /// @brief First-order lowpass at 1 kHz. Its response is the difference equation's own,
+    /// not the analogue RC it is derived from: with a = exp(-2*pi*1000/48000),
+    /// |H(w)| = (1 - a) / |1 - a*exp(-jw)| is -3.004 dB at 1 kHz and -19.415 dB at 10 kHz.
     class OnePoleNode : public SushiDSP::IAudioNode
     {
     public:
@@ -239,6 +243,22 @@ TEST(Unit_Dsp, MeasureNullTestAlignsDelayAndGain)
     EXPECT_LT(SushiDSP::measure::null_test(a, b, 64), -120.0);
 }
 
+TEST(Unit_Dsp, MeasureNullTestHandlesPolarityInversion)
+{
+    // b is inverted as well as delayed and scaled, as it would be after an odd number of
+    // inverting stages. The lag search has to match on correlation magnitude to find 37 here;
+    // matching on the signed correlation picks whatever lag is least negative and the residual
+    // never nulls.
+    const double sample_rate = 48000.0;
+    const auto a = SushiDSP::measure::sine_stimulus(440.0, sample_rate, 48000, 0.5f);
+    std::vector<float> b(a.size(), 0.0f);
+    for (std::size_t i = 37; i < b.size(); ++i)
+    {
+        b[i] = -0.25f * a[i - 37];
+    }
+    EXPECT_LT(SushiDSP::measure::null_test(a, b, 64), -120.0);
+}
+
 TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
 {
     const double sample_rate = 48000.0;
@@ -250,9 +270,6 @@ TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
     }
     EXPECT_NEAR(SushiDSP::measure::null_test(a, b, 64), -40.0, 0.5);
 }
-
-#include "SushiDSP/jcm800/Jcm800.hpp"
-#include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 // Prints the pre-D6a alias floors so the D6a oversampler acceptance (>= 30 dB better) has a
 // measured baseline. Assertions are deliberately loose: this case documents, it does not gate.
