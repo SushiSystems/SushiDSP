@@ -34,7 +34,10 @@ namespace SushiDSP
 {
     /// @brief Called once per serialized node, after its "id"/"type"/"params"/"inputs" fields
     /// are written, with the JSON object being built for it — lets a caller add extra fields
-    /// modules/rig_preset itself has no opinion about (e.g. a Jcm800's cabinet IR path).
+    /// modules/rig_preset itself has no opinion about (e.g. a Jcm800's cabinet IR path). The
+    /// object is handed over mutable and unguarded, so a caller may also overwrite fields that
+    /// were already written: apps/host_gui's RigController replaces "params" wholesale with its
+    /// own stored values rather than the live node's.
     using AnnotateNodeFn = std::function<void(NodeHandle, nlohmann::json&)>;
 
     /// @brief Called once per node constructed during deserialize, with its full parsed JSON
@@ -50,7 +53,8 @@ namespace SushiDSP
     /// @param graph The graph to serialize. Must have been compile()'d (uses node_registry() to
     /// look up each live node's declared parameters by matching NodeDescriptor::id).
     /// @param annotate_node Optional; if non-null, called once per node with the JSON object
-    /// being built for it, letting the caller add extra fields. Null means no extra fields.
+    /// being built for it, letting the caller add extra fields or overwrite ones already
+    /// written. Null means no extra fields.
     /// @return The JSON text, pretty-printed.
     /// @throws std::runtime_error if a live node's type is not found in node_registry() (should
     /// not happen for any node constructed via make_node(), but a hand-built RigGraph using a
