@@ -86,7 +86,9 @@ namespace SushiDSP
         virtual void reset() = 0;
 
         /// @brief Samples of delay this node adds between its input and output (FIR group
-        /// delay, convolution partition, look-ahead). Constant after prepare().
+        /// delay, convolution partition, look-ahead). Constant after prepare() unless the node
+        /// documents a control-thread operation that changes it (e.g. Jcm800::set_cabinet(),
+        /// which swaps a latency-bearing stage); hosts should re-read it after any such call.
         /// @return Latency in base-rate samples; 0 for a memoryless or IIR-only node.
         virtual std::uint32_t latency_samples() const { return 0; }
     };

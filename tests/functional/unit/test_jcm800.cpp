@@ -806,3 +806,27 @@ TEST(Unit_Dsp, Jcm800RejectsACabinetImpulseResponseAtTheWrongSampleRate)
     EXPECT_TRUE(node.has_cabinet());
     node.reclaim_cabinets();
 }
+
+TEST(Unit_Dsp, Jcm800RejectsACabinetBeforePrepare)
+{
+    // sample_rate_ defaults to 48000 but the partition is only chosen in prepare(), so the rate
+    // check alone would let a 48 kHz IR through and publish a zero-partition convolver whose
+    // FIFOs process() would index out of bounds. Rejected outright and not retained: a false
+    // return must mean nothing was installed and nothing was armed for later.
+    SushiDSP::Jcm800 node;
+
+    SushiDSP::Ir impulse_response;
+    impulse_response.sample_rate = 48000.0;
+    impulse_response.samples.assign(512, 0.0f);
+    impulse_response.samples[0] = 1.0f;
+
+    EXPECT_FALSE(node.set_cabinet(impulse_response));
+    EXPECT_FALSE(node.has_cabinet());
+
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    EXPECT_FALSE(node.has_cabinet());
+
+    EXPECT_TRUE(node.set_cabinet(impulse_response));
+    EXPECT_TRUE(node.has_cabinet());
+    node.reclaim_cabinets();
+}

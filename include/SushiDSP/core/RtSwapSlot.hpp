@@ -124,6 +124,18 @@ namespace SushiDSP
             return active_.load(std::memory_order_acquire) != nullptr;
         }
 
+        /// @brief Returns the active object without recording a generation. Publisher-thread
+        /// only: call it from the same non-RT thread as publish() and reclaim(). That thread owns
+        /// retired_, so nothing can free the returned object underneath it. Unlike
+        /// acquire_for_audio_thread() it records nothing, so it can neither hold a retired object
+        /// alive nor - the reason it exists - forge the audio thread's progress watermark and let
+        /// a later reclaim() free an object the audio thread is still using.
+        /// @return The active object, or nullptr if publish() was never called.
+        T* active_for_publisher() const noexcept
+        {
+            return active_.load(std::memory_order_acquire);
+        }
+
         /// @brief Frees every retired object the audio thread has moved past. Not real-time
         /// safe; call periodically off the audio thread (e.g. once per GUI frame). Must be
         /// called from the same single, consistent non-RT thread as publish() (or externally

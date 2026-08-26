@@ -449,8 +449,12 @@ TEST(Unit_Dsp, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
 TEST(Unit_Dsp, Jcm800SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 {
     // A cabinet published from the control thread must reach process() through RtSwapSlot's
-    // single atomic acquire - no allocation, no lock. The convolver itself is built entirely
-    // before publish(), so the only thing crossing onto the audio thread is a pointer.
+    // single atomic acquire - no allocation, no lock. Only the audio thread's half of a swap has
+    // to be RT-safe (publish() builds the convolver and is expected to allocate), so the trap is
+    // armed around the processing blocks and disarmed across each set_cabinet(). That way every
+    // trapped block is one that picks up a freshly published cabinet, which is the case the name
+    // promises - a version of this test that published everything up front would only be proving
+    // that convolving allocates nothing.
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
@@ -459,8 +463,6 @@ TEST(Unit_Dsp, Jcm800SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
     impulse_response.sample_rate = 48000.0;
     impulse_response.samples.assign(2048, 0.0f);
     impulse_response.samples[0] = 1.0f;
-    ASSERT_TRUE(node.set_cabinet(impulse_response));
-    ASSERT_TRUE(node.has_cabinet());
 
     std::vector<float> input(256);
     for (std::size_t i = 0; i < input.size(); ++i)
@@ -472,15 +474,18 @@ TEST(Unit_Dsp, Jcm800SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
     float* output_channels[1] = { output.data() };
 
     g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
 
     for (int block = 0; block < 4; ++block)
     {
+        impulse_response.samples[0] = 1.0f - 0.1f * static_cast<float>(block);
+        ASSERT_TRUE(node.set_cabinet(impulse_response));
+        ASSERT_TRUE(node.has_cabinet());
+
+        g_trap_allocations.store(true, std::memory_order_relaxed);
         SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
         node.process(context);
+        g_trap_allocations.store(false, std::memory_order_relaxed);
     }
-
-    g_trap_allocations.store(false, std::memory_order_relaxed);
 
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
 
