@@ -81,16 +81,19 @@ TEST(Unit_Dsp, SiliconDiodeStaysFiniteAndCOneAcrossTheLinearExtrapolation)
     // The extrapolation knee sits at v_max = 40 * n * Vt = 1.81254912 V; the derivative must be
     // continuous across it. knee_jacobian_ itself is ~1.309e10 S (Is/(nVt) * exp(40)), so a fixed
     // absolute tolerance of 1e-3/1e-9 is unsatisfiable at this magnitude for any correct
-    // implementation: the Shockley curve genuinely moves by ~2.2e-6 relative (~28888 absolute) over
-    // a 1e-7 V step this close to exp(40), and the extrapolation identity below only holds to
-    // double's ~1e-16 relative precision (~1e-6 absolute at this magnitude). Both checks below keep
-    // the same intent — continuity and the exact tangent-line identity — scaled to what double
-    // precision can actually resolve at ~1e10.
+    // implementation: measured directly, jacobian(knee - 1e-7) and jacobian(knee + 1e-7) differ by
+    // ~2.89e4 absolute (~2.2e-6 relative) purely from the Shockley curve's real slope this close to
+    // exp(40) — a 1e-4 relative tolerance (~1.31e6 absolute) left over 45x slack versus that
+    // measured gap, so this uses 1e-5 relative (~1.31e5 absolute, ~4.5x the measured gap) instead.
+    // The extrapolation identity below only holds to double's rounding: measured directly, the two
+    // sides differ by ~4e-16 relative (~1 ULP at this magnitude), so this uses 1e-12 relative —
+    // ~2500x the measured gap, still ~1e3x tighter than the 1e-9 absolute tolerance originally in
+    // the brief once rescaled to this ~7e9 magnitude.
     const double knee = 40.0 * 1.752 * 0.025864;
     const double jacobian_at_knee = diode.jacobian(knee);
-    EXPECT_NEAR(diode.jacobian(knee - 1e-7), diode.jacobian(knee + 1e-7), 1e-4 * jacobian_at_knee);
+    EXPECT_NEAR(diode.jacobian(knee - 1e-7), diode.jacobian(knee + 1e-7), 1e-5 * jacobian_at_knee);
     EXPECT_NEAR(diode.current(knee + 0.5), diode.current(knee) + 0.5 * diode.jacobian(knee),
-                1e-9 * diode.current(knee + 0.5));
+                1e-12 * diode.current(knee + 0.5));
 }
 
 TEST(Unit_Dsp, SiliconDiodeHonoursANonDefaultIdealityFactor)
