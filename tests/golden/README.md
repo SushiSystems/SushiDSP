@@ -8,5 +8,6 @@ rule: `GoldenFile.hpp`. Tolerance: RMS residual <= -80 dB.
 | tube_screamer_48k/96k | D6a Task 3, 2026-08-26 | first pin; D5b behaviour |
 | jcm800_48k/96k | D6a Task 3, 2026-08-26 | first pin; D5b behaviour |
 | all four | D6a Task 4, 2026-08-26 | oversampler redesign (spec D6a.3), deliberate behaviour change; alias floors before/after: TubeScreamer -8.3 -> -9.6 dB, Jcm800 -3.8 -> -32.0 dB |
+| jcm800_48k/96k | D6a Task 5, 2026-08-26 | tone stack moved into the single 8x region (spec D6a.3); Jcm800 alias floor -32.0 -> -20.4 dB |
 
 Regenerate with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row here.
