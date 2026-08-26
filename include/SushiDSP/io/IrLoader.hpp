@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* IrLoader.hpp                                                          */
+/* IrLoader.hpp                                                           */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                                SushiDSP                                */
@@ -31,6 +31,9 @@
 namespace SushiDSP
 {
     /// @brief Conditioning applied to an impulse response as it is loaded.
+    ///
+    /// A max_length_ms of zero or less disables truncation, leaving the impulse response at
+    /// whatever length the source file yields after resampling.
     struct IrLoadOptions
     {
         float max_length_ms    = 200.0f;
