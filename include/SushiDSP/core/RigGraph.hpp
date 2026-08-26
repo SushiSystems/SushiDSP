@@ -89,8 +89,9 @@ namespace SushiDSP
         /// @param context The block's output buffers and frame count.
         void process(ProcessContext& context);
 
-        /// @brief Sum of latency_samples() over the compiled chain. Not real-time safe only in the
-        /// sense that it walks the node list; it allocates nothing.
+        /// @brief Sum of latency_samples() over the compiled chain. Allocation-free; call after
+        /// compile(). Sums the chain; a parallel branch-and-rejoin graph would need the max over
+        /// branches instead.
         /// @return Total latency in base-rate samples.
         std::uint32_t latency_samples() const;
 
