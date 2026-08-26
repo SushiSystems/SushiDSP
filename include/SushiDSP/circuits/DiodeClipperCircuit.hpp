@@ -25,13 +25,27 @@
 
 namespace SushiDSP
 {
-    /// @brief A minimal one-stage WDF nonlinear circuit: Vs -> Rs -> antiparallel diode pair ->
-    /// ground. Proves the WDF + Newton-Raphson solver pipeline end to end. Not a product — no
-    /// NodeDescriptor; JCM800/Tube Screamer (D3/D4) reuse this pattern, not this exact class.
+    /// @brief A minimal one-stage nonlinear circuit: Vs -> Rs -> antiparallel diode pair ->
+    /// ground.
+    ///
+    /// Despite what this comment used to claim, there is no wave-digital filter here. The class
+    /// is a scalar Newton-Raphson solve of the nodal equation for a series resistor driving an
+    /// antiparallel diode pair:
+    /// @code
+    /// v = Vs - Rs * Is * (exp(v / Vt) - exp(-v / Vt))
+    /// @endcode
+    /// solved for the diode-pair voltage v each sample, warm-started from the previous sample.
+    /// Not a product — no NodeDescriptor; JCM800/Tube Screamer (D3/D4) reuse this pattern, not
+    /// this exact class.
+    ///
+    /// D6b re-expresses the same circuit as a `DkCircuit<0,2,1,1>`, carrying the pair as two
+    /// antiparallel diode branches; the two implementations are independent and
+    /// `test_dk_circuit.cpp` asserts they agree to 1e-6. Kept as a second oracle; removal is a
+    /// D6c decision once `TubeScreamer` no longer references it.
     class DiodeClipperCircuit
     {
     public:
-        /// @param source_resistance_ohms Rs, the source's series resistance and WDF port resistance.
+        /// @param source_resistance_ohms Rs, the source's series resistance.
         /// @param saturation_current_amps Diode saturation current Is (Shockley model).
         /// @param thermal_voltage_volts Diode thermal voltage Vt (~0.02585 V at room temperature).
         DiodeClipperCircuit(float source_resistance_ohms, float saturation_current_amps, float thermal_voltage_volts);
