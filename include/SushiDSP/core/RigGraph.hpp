@@ -84,6 +84,12 @@ namespace SushiDSP
         /// @return The live handles.
         std::vector<NodeHandle> nodes() const;
 
+        /// @brief Lists the handles of every node with an edge into handle, in connect() call
+        /// order. Not real-time safe; call only off the processing thread.
+        /// @param handle The downstream node to query.
+        /// @return The upstream handles, or an empty vector if handle has no upstream edge.
+        std::vector<NodeHandle> upstream_of(NodeHandle handle) const;
+
         /// @brief Queues a parameter write for the next process() call. Control thread only;
         /// lock-free and allocation-free.
         /// @param change The node, parameter index, and value to apply.

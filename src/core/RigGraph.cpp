@@ -105,6 +105,19 @@ namespace SushiDSP
         return result;
     }
 
+    std::vector<NodeHandle> RigGraph::upstream_of(NodeHandle handle) const
+    {
+        std::vector<NodeHandle> result;
+        for (const Edge& edge : edges_)
+        {
+            if (edge.to == handle)
+            {
+                result.push_back(edge.from);
+            }
+        }
+        return result;
+    }
+
     void RigGraph::compile(const PrepareInfo& info)
     {
         // process() holds one pool buffer per node for the whole block, so a graph larger than the
