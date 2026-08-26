@@ -227,34 +227,31 @@ namespace SushiDSP
 
             float* node_buffer = buffer_pool_.acquire(context.frames);
 
-            bool has_upstream_edge = false;
-            const float* upstream_input = nullptr;
+            const float* gathered_inputs[kMaxFanInOut];
+            std::size_t input_count = 0;
             for (const Edge& edge : edges_)
             {
                 if (edge.to == handle)
                 {
-                    upstream_input = node_output[edge.from];
-                    has_upstream_edge = true;
-                    break;
+                    gathered_inputs[input_count] = node_output[edge.from];
+                    ++input_count;
                 }
             }
-
-            float* output_ptr[1] = { node_buffer };
-            const float* input_ptr[1] = { upstream_input };
 
             // A node with no upstream edge is a root node. Feed it the graph's own live
             // input (e.g. an ASIO device's captured audio) rather than always nullptr, so a
             // rig can start directly from live input without a synthetic source node.
             const float* const* node_inputs = nullptr;
-            if (has_upstream_edge)
+            if (input_count > 0)
             {
-                node_inputs = input_ptr;
+                node_inputs = gathered_inputs;
             }
             else if (context.inputs != nullptr)
             {
                 node_inputs = context.inputs;
             }
 
+            float* output_ptr[1] = { node_buffer };
             ProcessContext node_context{ output_ptr, node_inputs, context.frames, context.time_seconds };
             nodes_[handle]->process(node_context);
 
@@ -263,10 +260,9 @@ namespace SushiDSP
 
         if (!topological_order_.empty())
         {
-            const NodeHandle last = topological_order_.back();
             for (std::uint32_t frame = 0; frame < context.frames; ++frame)
             {
-                context.outputs[0][frame] = node_output[last][frame];
+                context.outputs[0][frame] = node_output[sink_handle_][frame];
             }
         }
         else

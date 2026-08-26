@@ -467,3 +467,77 @@ TEST(Unit_Dsp, RigGraphConnectThrowsWhenFanInExceedsLimit)
     auto one_too_many = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
     EXPECT_THROW(graph.connect(one_too_many, sink), std::runtime_error);
 }
+
+namespace
+{
+    class SumTwoInputsNode : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            {
+                const float a = context.inputs[0] != nullptr ? context.inputs[0][frame] : 0.0f;
+                const float b = context.inputs[1] != nullptr ? context.inputs[1][frame] : 0.0f;
+                context.outputs[0][frame] = a + b;
+            }
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 2, 1 }; }
+        void reset() override {}
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+    };
+}
+
+TEST(Unit_Dsp, RigGraphProcessGathersAllUpstreamInputsInConnectOrder)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source_a = graph.add_node(std::make_unique<ConstantSourceNode>(3.0f));
+    auto source_b = graph.add_node(std::make_unique<ConstantSourceNode>(4.0f));
+    auto sum = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    graph.connect(source_a, sum);
+    graph.connect(source_b, sum);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> output_buffer(256, 0.0f);
+    float* output_channels[1] = { output_buffer.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 7.0f);
+    }
+}
+
+TEST(Unit_Dsp, RigGraphProcessFansOutOneNodeToTwoDownstreamNodes)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
+    auto branch_a = graph.add_node(std::make_unique<GainNode>(3.0f));
+    auto branch_b = graph.add_node(std::make_unique<GainNode>(5.0f));
+    auto sum = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    graph.connect(source, branch_a);
+    graph.connect(source, branch_b);
+    graph.connect(branch_a, sum);
+    graph.connect(branch_b, sum);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> output_buffer(256, 0.0f);
+    float* output_channels[1] = { output_buffer.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    // source(2.0) -> branch_a(*3=6.0), branch_b(*5=10.0) -> sum(6.0+10.0=16.0)
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 16.0f);
+    }
+}
