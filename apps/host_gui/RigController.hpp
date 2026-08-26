@@ -23,74 +23,102 @@
 
 #pragma once
 
-#include <cstddef>
+#include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtGraphSlot.hpp"
 
-/// @brief Owns the authoritative, ordered rig chain (a list of NodeDescriptor ids plus each
-/// slot's current parameter values) and rebuilds + publishes a fresh SushiDSP::RigGraph
-/// through an SushiDSP::RtGraphSlot on every structural edit. Not real-time safe — every
-/// method here runs on the GUI/main thread only. Not part of the SushiDSP:: namespace: this
-/// is app-local glue, not a library product.
+/// @brief Owns the authoritative rig topology (a set of slots, each with a descriptor id and
+/// current parameter values, plus edges between them) and rebuilds + publishes a fresh
+/// SushiDSP::RigGraph through an SushiDSP::RtGraphSlot on every structural edit. Not real-time
+/// safe — every method here runs on the GUI/main thread only. Not part of the SushiDSP::
+/// namespace: this is app-local glue, not a library product.
+///
+/// Slot identity is a SlotId, stable across every edit (insert, move, remove) — unlike a chain
+/// index, which shifts meaning whenever the chain changes shape. A SlotId is unrelated to
+/// SushiDSP::NodeHandle, which RigGraph::add_node() assigns fresh on every rebuild.
 class RigController
 {
 public:
+    using SlotId = std::uint32_t;
+
     explicit RigController(const SushiDSP::PrepareInfo& info);
 
-    /// @brief Appends a new node (by NodeDescriptor::id) to the end of the chain and republishes.
-    void append(const std::string& descriptor_id);
+    /// @brief Adds a new, unconnected slot and republishes.
+    /// @param descriptor_id The NodeDescriptor id to construct.
+    /// @return The new slot's id.
+    SlotId add_node(const std::string& descriptor_id);
 
-    /// @brief Inserts a new node at chain position `index` and republishes.
-    void insert(std::size_t index, const std::string& descriptor_id);
+    /// @brief Connects one slot's output to another's input and republishes.
+    void connect(SlotId from, SlotId to);
 
-    /// @brief Removes the chain slot at `index` and republishes.
-    void remove(std::size_t index);
+    /// @brief Removes a single edge, if present, and republishes.
+    void disconnect(SlotId from, SlotId to);
 
-    /// @brief Moves the chain slot at `from` to just after `to` (or to the front if to == 0 and
-    /// from > 0 moving backward) and republishes. Semantics match std::vector element move:
-    /// the element at `from` is removed, then reinserted at index `to` in the resulting vector.
-    void move(std::size_t from, std::size_t to);
+    /// @brief Removes a slot and every edge touching it, then republishes. If the removed slot
+    /// sat in the middle of a linear run (one upstream edge, one downstream edge), its neighbors
+    /// are reconnected directly to each other, preserving a working chain around the gap.
+    void remove(SlotId slot);
 
-    /// @brief Sets a parameter on the chain slot at `index`. Does NOT republish (no structural
-    /// change) and never touches the live node: the value is stored in this controller's own
-    /// slot state and queued on the active RigGraph's lock-free parameter ring, where the audio
-    /// thread applies it at the top of its next process() call. If the ring is full the change
-    /// is dropped and dropped_parameter_changes() is incremented; the call never blocks.
-    /// @param index Chain position.
-    /// @param param_id The parameter's NodeDescriptor id.
-    /// @param value The new value.
-    void set_parameter(std::size_t index, const char* param_id, float value);
+    /// @brief Adds a new slot connected after the chain's current tail (or as the sole slot, if
+    /// the rig is empty) and republishes. Convenience for the common linear-append case.
+    /// @return The new slot's id.
+    SlotId append(const std::string& descriptor_id);
 
-    /// @brief Reads this controller's stored value for a parameter at chain position `index`.
-    float get_parameter(std::size_t index, const char* param_id) const;
+    /// @brief Adds a new slot immediately before `following` in chain order (rewiring the one
+    /// edge that must move), or at the very front if `following` is std::nullopt, and
+    /// republishes. Convenience for a linear "insert at this rack position" edit.
+    /// @return The new slot's id.
+    SlotId insert_before(std::optional<SlotId> following, const std::string& descriptor_id);
 
-    /// @brief Installs a cabinet impulse response on the JCM800 at chain position `slot`.
-    /// Loads the file at the controller's prepared sample rate, hands it to the live node, and
-    /// remembers the path so a later rebuild (or a preset save) can reproduce it.
-    /// @param slot Chain position.
-    /// @param path Filesystem path to the impulse response WAV file.
-    /// @return True if the slot is a JCM800 and the impulse response was installed.
+    /// @brief Moves `moved` so it sits immediately before `following` in chain order (or at the
+    /// very front if `following` is std::nullopt), and republishes.
+    void move_before(SlotId moved, std::optional<SlotId> following);
+
+    /// @brief Sets a parameter on `slot`. Does NOT republish (no structural change) and never
+    /// touches the live node directly: the value is stored in this controller's own slot state
+    /// and queued on the active RigGraph's lock-free parameter ring, where the audio thread
+    /// applies it at the top of its next process() call. If the ring is full the change is
+    /// dropped and dropped_parameter_changes() is incremented; the call never blocks.
+    void set_parameter(SlotId slot, const char* param_id, float value);
+
+    /// @brief Reads this controller's stored value for a parameter on `slot`.
+    float get_parameter(SlotId slot, const char* param_id) const;
+
+    /// @brief Installs a cabinet impulse response on the JCM800 at `slot`. Loads the file at the
+    /// controller's prepared sample rate, hands it to the live node, and remembers the path so a
+    /// later rebuild (or a preset save) can reproduce it.
+    /// @return True if `slot` is a JCM800 and the impulse response was installed.
     /// @throws std::runtime_error if the file cannot be opened or parsed.
-    bool set_cabinet(std::size_t slot, const std::string& path);
+    bool set_cabinet(SlotId slot, const std::string& path);
 
     /// @brief Reclaims retired graphs and every live JCM800's retired cabinet. Control thread
     /// only; call once per GUI frame.
     void reclaim();
 
     /// @brief Counts parameter changes dropped because the audio thread's ring was full.
-    /// @return The running total since construction.
     std::size_t dropped_parameter_changes() const;
 
-    /// @brief The chain's NodeDescriptor ids, in order.
-    std::vector<std::string> chain_ids() const;
+    /// @brief Every live slot's id, in a stable (insertion-derived) enumeration order — for a
+    /// purely linear chain (the only shape any current GUI edit path constructs), this is also
+    /// the chain's visual left-to-right order.
+    std::vector<SlotId> slot_order() const;
 
-    /// @brief Each slot's cabinet impulse response path, in chain order; empty where none.
-    std::vector<std::string> chain_cabinet_paths() const;
+    /// @brief A slot's NodeDescriptor id.
+    /// @return The id, or "" if slot is not live.
+    std::string descriptor_id(SlotId slot) const;
+
+    /// @brief A slot's cabinet impulse response path, or "" if it has none or isn't a JCM800.
+    std::string cabinet_path(SlotId slot) const;
+
+    /// @brief Lists the ids of every slot with an edge into `slot`, in connect() call order.
+    std::vector<SlotId> upstream_of(SlotId slot) const;
 
     /// @brief The currently active, published RigGraph (for the RT thread to acquire from).
     SushiDSP::RigGraph* active_graph();
@@ -98,39 +126,38 @@ public:
     /// @brief The RtGraphSlot the audio callback should acquire_for_audio_thread() from.
     SushiDSP::RtGraphSlot& graph_slot();
 
-    /// @brief Replaces the entire chain (used by preset load) and republishes.
-    /// @param ids Descriptor ids in chain order.
-    /// @param params Per-slot parameter id/value maps, same length and order as ids.
-    /// @param cabinet_paths Per-slot cabinet impulse response paths, same length and order as
-    /// ids; an empty string means the slot has no cabinet. A shorter vector leaves the
-    /// remaining slots without one.
-    void load_chain(const std::vector<std::string>& ids,
-                    const std::vector<std::map<std::string, float>>& params,
-                    const std::vector<std::string>& cabinet_paths = {});
+    /// @brief Serializes the current rig to JSON via SushiDSP::serialize_rig_to_json(). Cabinet
+    /// IR is included (see Task 3 of this plan) once wired.
+    std::string save_to_json() const;
+
+    /// @brief Replaces the entire rig from JSON via SushiDSP::deserialize_rig_from_json() and
+    /// republishes. Fresh SlotIds are assigned in the parsed graph's node order — preset-local
+    /// continuity across a save/load round trip is not preserved (the JSON schema was never
+    /// designed to carry a GUI-local SlotId, only a preset-local integer id).
+    /// @throws std::runtime_error if json_text is malformed (same contract as
+    /// SushiDSP::deserialize_rig_from_json()).
+    void load_from_json(const std::string& json_text);
 
 private:
     struct Slot
     {
-        std::string descriptor_id;
-        std::map<std::string, float> parameters;
-        std::string cabinet_path;
+        std::string                     descriptor_id;
+        std::map<std::string, float>    parameters;
+        std::string                     cabinet_path;
     };
+    struct Edge { SlotId from; SlotId to; };
 
     void rebuild_and_publish();
-
-    /// @brief Re-applies `slot.cabinet_path` to the freshly-built node, if both exist.
-    /// @param index Chain position of the slot.
-    void apply_cabinet_to_live_node(std::size_t index);
-
-    /// @brief Seeds `slot.parameters` with every declared parameter's default_value from
-    /// node_registry() for slot.descriptor_id, overwriting any value already present -
-    /// callers that need incoming values to win over defaults must call this first and then
-    /// overlay their own values on top.
+    void apply_cabinet_to_live_node(SlotId slot);
     void seed_defaults(Slot& slot) const;
 
-    SushiDSP::PrepareInfo   info_;
-    std::vector<Slot>       slots_;
-    SushiDSP::RtGraphSlot   graph_slot_;
-    SushiDSP::RigGraph*     active_graph_ = nullptr;
-    std::size_t             dropped_parameter_changes_ = 0;
+    SushiDSP::PrepareInfo                          info_;
+    std::unordered_map<SlotId, Slot>               slots_;
+    std::vector<Edge>                              edges_;
+    std::vector<SlotId>                             slot_order_;
+    SlotId                                          next_slot_id_ = 0;
+    std::unordered_map<SlotId, SushiDSP::NodeHandle> slot_to_handle_;
+    SushiDSP::RtGraphSlot                          graph_slot_;
+    SushiDSP::RigGraph*                            active_graph_ = nullptr;
+    std::size_t                                     dropped_parameter_changes_ = 0;
 };

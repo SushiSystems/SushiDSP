@@ -24,69 +24,27 @@
 
 #pragma once
 
-#include <cstddef>
+#include <algorithm>
+#include <optional>
+#include <vector>
 
-/// @brief Pure index arithmetic for the rack list's "currently selected slot", kept out of
-/// main.cpp's ImGui frame so it can be unit tested. A selection is an int because -1 means
-/// "nothing selected"; every function returns the new selection and never touches the rig.
+#include "RigController.hpp"
+
+/// @brief Whether the rack list's "currently selected slot" still names a live slot, kept out of
+/// main.cpp's ImGui frame so it can be unit tested. A SlotId (unlike the old chain-index scheme)
+/// stays valid across insert/move/remove, so the only remaining job after an edit is dropping a
+/// selection that no longer exists — no index-remapping arithmetic is needed anymore.
 namespace slot_selection
 {
-    /// @brief Remaps a selection after a slot was inserted at `inserted_at`.
-    /// @param selected The current selection, or -1 for none.
-    /// @param inserted_at Chain position the new slot now occupies.
-    /// @return The selection, shifted up by one if the insert pushed it along.
-    inline int remap_after_insert(int selected, std::size_t inserted_at)
+    /// @brief Whether `selected` still names a slot present in `order`.
+    /// @param selected The current selection, or std::nullopt for none.
+    /// @param order The rig's current slot_order().
+    inline bool still_valid(std::optional<RigController::SlotId> selected, const std::vector<RigController::SlotId>& order)
     {
-        return selected >= static_cast<int>(inserted_at) ? selected + 1 : selected;
-    }
-
-    /// @brief Remaps a selection after the slot at `from` was moved to `to`.
-    /// @param selected The current selection, or -1 for none.
-    /// @param from The moved slot's old chain position.
-    /// @param to The moved slot's new chain position.
-    /// @return The selection, following the move the same way RigController::move() reorders
-    /// the chain (erase at `from`, then insert at `to`).
-    inline int remap_after_move(int selected, std::size_t from, std::size_t to)
-    {
-        const int from_index = static_cast<int>(from);
-        const int to_index = static_cast<int>(to);
-        if (selected == from_index)
+        if (!selected.has_value())
         {
-            return to_index;
+            return false;
         }
-        if (from_index < selected && selected <= to_index)
-        {
-            return selected - 1;
-        }
-        if (to_index <= selected && selected < from_index)
-        {
-            return selected + 1;
-        }
-        return selected;
-    }
-
-    /// @brief Remaps a selection after the slot at `removed_at` was removed.
-    /// @param selected The current selection, or -1 for none.
-    /// @param removed_at The removed slot's chain position.
-    /// @return -1 if the selected slot was the one removed, otherwise the shifted selection.
-    inline int remap_after_remove(int selected, std::size_t removed_at)
-    {
-        const int removed_index = static_cast<int>(removed_at);
-        if (selected == removed_index)
-        {
-            return -1;
-        }
-        return selected > removed_index ? selected - 1 : selected;
-    }
-
-    /// @brief Drops a selection that no longer addresses a live slot.
-    /// @param selected The current selection, or -1 for none.
-    /// @param chain_size The chain's current length.
-    /// @return The selection, or -1 if it is out of range. An edit that silently fails (an
-    /// unknown descriptor id never constructs a node) leaves the chain shorter than the
-    /// remap functions assumed, so this is the authoritative last word each frame.
-    inline int clamp(int selected, std::size_t chain_size)
-    {
-        return selected >= 0 && selected < static_cast<int>(chain_size) ? selected : -1;
+        return std::find(order.begin(), order.end(), *selected) != order.end();
     }
 }

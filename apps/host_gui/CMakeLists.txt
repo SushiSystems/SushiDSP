@@ -1,7 +1,6 @@
 add_executable(sushidsp_host_gui
     main.cpp
     RigController.cpp
-    Preset.cpp
 )
 target_link_libraries(sushidsp_host_gui PRIVATE
     SushiDSP::sushi_dsp
@@ -9,6 +8,7 @@ target_link_libraries(sushidsp_host_gui PRIVATE
     SushiDSP::tubescreamer
     SushiDSP::jcm800
     SushiDSP::sushi_dsp_sdl2
+    SushiDSP::rig_preset
     imgui
     nlohmann_json::nlohmann_json
     opengl32

@@ -87,8 +87,6 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host/SineToneNode.cpp
     functional/unit/test_rig_controller.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/RigController.cpp
-    functional/unit/test_preset.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/Preset.cpp
 
     # --- Regression ---
     functional/regression/test_tube_screamer_regression.cpp
