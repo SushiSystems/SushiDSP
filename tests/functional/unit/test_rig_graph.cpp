@@ -427,6 +427,21 @@ TEST(Unit_Dsp, RigGraphCompileThrowsOnMultipleSinkNodes)
     EXPECT_THROW(graph.compile(info), std::runtime_error);
 }
 
+TEST(Unit_Dsp, RigGraphCompileThrowsWhenNoSinkNodeExists)
+{
+    // Two live nodes, no edges between them at all: neither node has an outgoing edge, but
+    // neither has an incoming edge either (and live_node_count != 1), so neither qualifies
+    // as a sink candidate. This is a genuine zero-sink, non-empty, acyclic graph shape, and
+    // compile() must reject it rather than leaving sink_handle_ pointing at a stale/default
+    // handle for process() to misuse.
+    SushiDSP::RigGraph graph(256, 4);
+    graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    EXPECT_THROW(graph.compile(info), std::runtime_error);
+}
+
 TEST(Unit_Dsp, RigGraphCompileAcceptsSingleSinkGraph)
 {
     SushiDSP::RigGraph graph(256, 4);
