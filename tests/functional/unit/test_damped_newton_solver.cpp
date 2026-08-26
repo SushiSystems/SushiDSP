@@ -292,3 +292,26 @@ TEST(Unit_Dsp, DampedNewtonWarmStartConvergesInOneIterationOnASmoothTrack)
     }
     EXPECT_LE(solver.maximum_iterations_seen(), 3u);
 }
+
+TEST(Unit_Dsp, DampedNewtonReturnsTheBestIterateWhenItFailsToConverge)
+{
+    // One iteration from the divergent start with halving disabled: the only step available is
+    // the full Newton step, which lands at |atan| larger than where it started. The step is still
+    // taken - that is how the iteration escapes a flat region - but solve() returning false must
+    // hand back the lowest-residual iterate it saw, as its @param v contract says.
+    SushiDSP::dk::DampedNewtonSolver<1> solver;
+    solver.set_maximum_halvings(0);
+    solver.set_maximum_iterations(1);
+
+    const std::array<double, 1> start{ 2.0 };
+    std::array<double, 1>       v = start;
+    EXPECT_FALSE(solver.solve(ArcTangent{}, v));
+
+    std::array<double, 1>                r{};
+    std::array<std::array<double, 1>, 1> jacobian{};
+    ArcTangent                           system;
+    system.residual_and_jacobian(start, r, jacobian);
+    const double starting_norm = std::fabs(r[0]);
+    system.residual_and_jacobian(v, r, jacobian);
+    EXPECT_LE(std::fabs(r[0]), starting_norm);
+}

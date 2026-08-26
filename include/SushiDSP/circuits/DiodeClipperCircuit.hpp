@@ -40,7 +40,8 @@ namespace SushiDSP
     ///
     /// D6b re-expresses the same circuit as a `DkCircuit<0,2,1,1>`, carrying the pair as two
     /// antiparallel diode branches; the two implementations are independent and
-    /// `test_dk_circuit.cpp` asserts they agree to 1e-6. Kept as a second oracle; removal is a
+    /// `test_dk_circuit.cpp` asserts they agree to 1e-6 where the oracle itself converged - the
+    /// assertion is conditional, see the CHANGELOG deviation. Kept as a second oracle; removal is a
     /// D6c decision once `TubeScreamer` no longer references it.
     class DiodeClipperCircuit
     {

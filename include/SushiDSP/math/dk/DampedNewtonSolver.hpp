@@ -49,7 +49,8 @@ namespace SushiDSP::dk
         /// @brief Iterates from the supplied starting point until the residual vanishes.
         /// @param system The residual/Jacobian evaluator.
         /// @param v In: the starting iterate (warm-starting from the previous sample is the
-        /// intended use). Out: the best finite iterate found, converged or not.
+        /// intended use). Out: on success the converged iterate; on failure the lowest-residual
+        /// finite iterate visited, which is never worse than the one passed in.
         /// @return True on convergence, meaning either a residual below the absolute tolerance or
         /// a norm-reducing step that no longer moves the iterate. A step that stopped moving
         /// without reducing the residual is a stall, not convergence, and keeps iterating; that
@@ -64,6 +65,9 @@ namespace SushiDSP::dk
             bool   residual_is_current = false;
             double residual_norm = 0.0;
 
+            best_is_valid_ = false;
+            best_residual_norm_ = 0.0;
+
             for (std::uint32_t iteration = 0; iteration < maximum_iterations_; ++iteration)
             {
                 if (!residual_is_current)
@@ -71,10 +75,11 @@ namespace SushiDSP::dk
                     system.residual_and_jacobian(v, residual_, jacobian_);
                     if (!is_finite(residual_) || !is_finite(jacobian_))
                     {
-                        return fail(iteration);
+                        return fail(iteration, v);
                     }
                     residual_norm = infinity_norm(residual_);
                     residual_is_current = true;
+                    note_best(v, residual_norm);
                 }
 
                 if (residual_norm <= kAbsoluteTolerance)
@@ -85,7 +90,7 @@ namespace SushiDSP::dk
 
                 if (!factorise_with_one_retry())
                 {
-                    return fail(iteration);
+                    return fail(iteration, v);
                 }
 
                 for (std::size_t index = 0; index < N; ++index)
@@ -95,20 +100,21 @@ namespace SushiDSP::dk
                 lu_.solve(negated_residual_, step_);
                 if (!is_finite(step_))
                 {
-                    return fail(iteration);
+                    return fail(iteration, v);
                 }
 
                 double damping = 1.0;
                 bool   residual_decreased = false;
                 if (!line_search(system, v, residual_norm, damping, residual_decreased))
                 {
-                    return fail(iteration);
+                    return fail(iteration, v);
                 }
 
                 v = trial_v_;
                 residual_.swap(trial_residual_);
                 jacobian_.swap(trial_jacobian_);
                 residual_norm = infinity_norm(residual_);
+                note_best(v, residual_norm);
 
                 const double step_norm = damping * infinity_norm(step_);
                 if (residual_decreased && step_norm <= relative_tolerance_ * (1.0 + infinity_norm(v)))
@@ -118,7 +124,7 @@ namespace SushiDSP::dk
                 }
             }
 
-            return fail(maximum_iterations_);
+            return fail(maximum_iterations_, v);
         }
 
         /// @brief Sets the iteration budget of a single solve() call.
@@ -287,8 +293,28 @@ namespace SushiDSP::dk
             return true;
         }
 
-        bool fail(std::uint32_t iterations)
+        void note_best(const std::array<double, N>& v, double residual_norm)
         {
+            if (best_is_valid_ && residual_norm >= best_residual_norm_)
+            {
+                return;
+            }
+            best_residual_norm_ = residual_norm;
+            best_v_ = v;
+            best_is_valid_ = true;
+        }
+
+        /// @brief Reports non-convergence, leaving the caller's iterate at the best one seen.
+        ///
+        /// A line search that found no norm reduction still takes its step, so that the next
+        /// iteration can leave a flat region; without this the iterate handed back on failure
+        /// could be strictly worse than the one the caller started from.
+        bool fail(std::uint32_t iterations, std::array<double, N>& v)
+        {
+            if (best_is_valid_)
+            {
+                v = best_v_;
+            }
             ++non_converged_count_;
             note_iterations(iterations);
             return false;
@@ -311,6 +337,10 @@ namespace SushiDSP::dk
         std::array<double, N>                trial_residual_{};
         std::array<double, N>                step_{};
         std::array<double, N>                trial_v_{};
+        std::array<double, N>                best_v_{};
+
+        double best_residual_norm_{ 0.0 };
+        bool   best_is_valid_{ false };
 
         std::uint32_t maximum_iterations_{ kDefaultMaximumIterations };
         std::uint32_t maximum_halvings_{ kDefaultMaximumHalvings };
