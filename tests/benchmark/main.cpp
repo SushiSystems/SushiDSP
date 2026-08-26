@@ -112,7 +112,7 @@ int main(int argc, char** argv)
             node.set_middle(0.4f);
             node.set_treble(0.7f);
             node.set_presence(0.5f);
-        }));
+        }), 1.5);
     }
     if (selected("TubeScreamer", argc, argv))
     {
@@ -121,7 +121,7 @@ int main(int argc, char** argv)
             node.set_drive(0.7f);
             node.set_tone(0.5f);
             node.set_level(0.8f);
-        }));
+        }), 0.25);
     }
     if (selected("Oversampler8x", argc, argv))
     {

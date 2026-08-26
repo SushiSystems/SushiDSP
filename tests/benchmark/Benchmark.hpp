@@ -36,6 +36,15 @@ namespace SushiDSP::bench
         const char* name;
         double      nanoseconds_per_sample;
         double      realtime_percent;
+
+        /// @brief Converts the per-sample cost to milliseconds for a block of the given size,
+        /// i.e. what one `process()` call on that block actually costs the audio thread.
+        /// @param block Block size in frames.
+        /// @return Milliseconds spent processing one block of that size.
+        double milliseconds_per_block(std::uint32_t block) const
+        {
+            return nanoseconds_per_sample * block / 1e6;
+        }
     };
 
     /// @brief Runs `body` repeatedly and reports the fastest observed cost per sample.
@@ -75,11 +84,20 @@ namespace SushiDSP::bench
         return { name, per_sample, 100.0 * per_sample / budget_nanoseconds };
     }
 
-    /// @brief Prints one table row for a Result.
+    /// @brief Prints one table row for a Result, with its ms/256-frame-block cost and, when
+    /// given, the real-time budget that block is allowed against.
     /// @param result The row to print.
-    inline void print(const Result& result)
+    /// @param budget_milliseconds_per_256 Real-time budget for a 256-frame block, in
+    /// milliseconds; 0.0 (the default) omits the budget from the printed line.
+    inline void print(const Result& result, double budget_milliseconds_per_256 = 0.0)
     {
-        std::printf("%-34s %10.1f ns/sample %8.2f %% of one core\n",
-            result.name, result.nanoseconds_per_sample, result.realtime_percent);
+        std::printf("%-34s %10.1f ns/sample %8.2f %% of one core  %6.3f ms/256",
+            result.name, result.nanoseconds_per_sample, result.realtime_percent,
+            result.milliseconds_per_block(256));
+        if (budget_milliseconds_per_256 > 0.0)
+        {
+            std::printf(" (budget %.2f)", budget_milliseconds_per_256);
+        }
+        std::printf("\n");
     }
 }

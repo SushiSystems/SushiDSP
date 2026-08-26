@@ -13,6 +13,17 @@ once you're in the tree and need a specific document.
   `cmake` directly).
 - **[Changelog](reference/CHANGELOG.md)** — what changed and when, by roadmap phase.
 - **[Code of Conduct](CODE_OF_CONDUCT.md)** and **[Security Policy](SECURITY.md)**.
+- **[`docs/reference/spice/`](reference/spice/)** — the SPICE reference corpus: netlist-directive
+  `.asc` files and Koren/Norman `.sub` models for each circuit block, exported to CSV by
+  `tools/spice/export.py` and read back by `tests/measure/SpiceCsv.hpp`. Populating it needs
+  LTspice, which is a user-side step — see the changelog's D6a entry.
+- **[`tools/`](../tools/)** — developer-side scripts that are not part of the shipped library:
+  `tools/dsp/design_halfband.py` (regenerates `include/SushiDSP/math/HalfbandCoefficients.hpp`
+  from a scipy `remez` design) and `tools/spice/export.py` (runs the SPICE corpus above through
+  LTspice and exports its output to CSV).
+- **[`tests/measure/`](../tests/measure/)** — the test-side measurement library (`render`,
+  `thd`, `alias_floor`, `frequency_response`, `null_test`) every product's plausibility and
+  alias-floor test is built on.
 
 ## Generated API reference
 

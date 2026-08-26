@@ -89,6 +89,13 @@ gets sent back before anything else is reviewed.
   (a snapshot), guarding against an accidental behavior change in a later refactor — distinct
   from a unit test, which exercises one function's contract in isolation. Add one whenever a
   product's end-to-end output (not just a math kernel) first becomes stable enough to snapshot.
+- **Golden files** (`tests/golden/`) are the regression snapshot format: a 1-second render at
+  48 kHz and at 96 kHz, stored as a raw `.f32` file, compared against a fresh render at −80 dB
+  RMS residual — loose enough to survive a toolchain/compiler change, tight enough to catch a
+  real behavior change. A deliberate behavior change regenerates them:
+  `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`, then commit the updated `.f32` files and
+  add a row to `tests/golden/README.md` explaining what changed and why — never regenerate to
+  silence a failure without knowing the reason for it.
 - Golden-vector tests (an independently-derived expected value, not the implementation's own
   output) are preferred over tautological "does it run" tests for anything numerical — see any
   D0–D2 math kernel test for the pattern.
