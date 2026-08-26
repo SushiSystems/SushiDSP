@@ -28,7 +28,8 @@
 #include "RigController.hpp"
 
 /// @brief Writes the controller's chain (node ids in order) and every declared parameter's
-/// current value to a JSON file at path. Throws std::runtime_error if the file can't be opened.
+/// current value - plus, for a slot with one, its cabinet impulse response path as
+/// "cabinet_ir" - to a JSON file at path. Throws std::runtime_error if the file can't be opened.
 void save_preset(const RigController& controller, const std::string& path);
 
 /// @brief Reads a JSON preset from path and replaces controller's entire chain via

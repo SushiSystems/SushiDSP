@@ -21,8 +21,11 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <cstdint>
 #include <cstdio>
+#include <fstream>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -35,6 +38,58 @@ namespace
     std::string temp_preset_path()
     {
         return std::string(::testing::TempDir()) + "sushidsp_test_preset.json";
+    }
+
+    void append_u32_le(std::vector<std::uint8_t>& buffer, std::uint32_t value)
+    {
+        for (int byte = 0; byte < 4; ++byte)
+        {
+            buffer.push_back(static_cast<std::uint8_t>((value >> (8 * byte)) & 0xFF));
+        }
+    }
+
+    void append_u16_le(std::vector<std::uint8_t>& buffer, std::uint16_t value)
+    {
+        buffer.push_back(static_cast<std::uint8_t>(value & 0xFF));
+        buffer.push_back(static_cast<std::uint8_t>((value >> 8) & 0xFF));
+    }
+
+    void append_tag(std::vector<std::uint8_t>& buffer, const char* tag)
+    {
+        buffer.insert(buffer.end(), tag, tag + 4);
+    }
+
+    // A minimal mono 16-bit PCM impulse, just enough for IrLoader to produce a valid Ir.
+    std::string write_temp_impulse_wav()
+    {
+        const std::uint32_t sample_rate = 48000;
+        std::vector<std::int16_t> samples(64, 0);
+        samples[0] = 16384;
+
+        const std::uint32_t data_bytes = static_cast<std::uint32_t>(samples.size() * sizeof(std::int16_t));
+        std::vector<std::uint8_t> bytes;
+        append_tag(bytes, "RIFF");
+        append_u32_le(bytes, 36 + data_bytes);
+        append_tag(bytes, "WAVE");
+        append_tag(bytes, "fmt ");
+        append_u32_le(bytes, 16);
+        append_u16_le(bytes, 1);
+        append_u16_le(bytes, 1);
+        append_u32_le(bytes, sample_rate);
+        append_u32_le(bytes, sample_rate * 2);
+        append_u16_le(bytes, 2);
+        append_u16_le(bytes, 16);
+        append_tag(bytes, "data");
+        append_u32_le(bytes, data_bytes);
+        for (std::int16_t sample : samples)
+        {
+            append_u16_le(bytes, static_cast<std::uint16_t>(sample));
+        }
+
+        const std::string path = std::string(::testing::TempDir()) + "sushidsp_test_cabinet.wav";
+        std::ofstream out(path, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        return path;
     }
 }
 
@@ -108,6 +163,50 @@ TEST(Unit_Dsp, PresetSaveLoadRoundTripPreservesDescriptorDefaultsWhenUntouched)
             break;
         }
     }
+
+    std::remove(path.c_str());
+}
+
+TEST(Unit_Dsp, PresetRoundTripsCabinetPath)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    const std::string ir_path = write_temp_impulse_wav();
+
+    RigController writer(info);
+    writer.append("sushidsp.tubescreamer");
+    writer.append("sushidsp.jcm800");
+    ASSERT_TRUE(writer.set_cabinet(1, ir_path));
+
+    const std::string path = temp_preset_path();
+    save_preset(writer, path);
+
+    RigController reader(info);
+    load_preset(reader, path);
+
+    const auto paths = reader.chain_cabinet_paths();
+    ASSERT_EQ(paths.size(), 2u);
+    EXPECT_TRUE(paths[0].empty());
+    EXPECT_EQ(paths[1], ir_path);
+
+    std::remove(path.c_str());
+    std::remove(ir_path.c_str());
+}
+
+TEST(Unit_Dsp, PresetWithoutCabinetPathLoadsWithNone)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController writer(info);
+    writer.append("sushidsp.jcm800");
+
+    const std::string path = temp_preset_path();
+    save_preset(writer, path);
+
+    RigController reader(info);
+    load_preset(reader, path);
+
+    const auto paths = reader.chain_cabinet_paths();
+    ASSERT_EQ(paths.size(), 1u);
+    EXPECT_TRUE(paths[0].empty());
 
     std::remove(path.c_str());
 }

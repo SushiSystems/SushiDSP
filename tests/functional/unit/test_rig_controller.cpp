@@ -165,3 +165,52 @@ TEST(Unit_Dsp, RigControllerLoadChainSeedsDefaultsForParametersMissingFromPreset
     EXPECT_FLOAT_EQ(controller.get_parameter(0, "level"), 0.0f);
     EXPECT_FLOAT_EQ(controller.get_parameter(0, "input_trim"), 0.0f);
 }
+
+TEST(Unit_Dsp, RigControllerSetParameterReachesNodeOnlyAfterProcess)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 64, 1 };
+    RigController controller(info);
+    controller.append("sushidsp.tubescreamer");
+    controller.set_parameter(0, "tone", 0.9f);
+
+    SushiDSP::IAudioNode* node = controller.active_graph()->node(0);
+    ASSERT_NE(node, nullptr);
+    EXPECT_FLOAT_EQ(node->get_parameter("tone"), 0.5f);
+
+    std::vector<float> in(64, 0.0f);
+    std::vector<float> out(64, 0.0f);
+    const float* ins[1] = { in.data() };
+    float* outs[1] = { out.data() };
+    SushiDSP::ProcessContext context{ outs, ins, 64, 0.0 };
+    controller.active_graph()->process(context);
+
+    EXPECT_FLOAT_EQ(node->get_parameter("tone"), 0.9f);
+    EXPECT_EQ(controller.dropped_parameter_changes(), 0u);
+}
+
+TEST(Unit_Dsp, RigControllerSetParameterStillMirroredByGetParameterImmediately)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 64, 1 };
+    RigController controller(info);
+    controller.append("sushidsp.tubescreamer");
+    controller.set_parameter(0, "tone", 0.9f);
+
+    // The controller's own view is authoritative for the GUI and for preset saving, and must
+    // not wait for the audio thread to drain the ring.
+    EXPECT_FLOAT_EQ(controller.get_parameter(0, "tone"), 0.9f);
+}
+
+TEST(Unit_Dsp, RigControllerRebuildSeedsFreshNodesWithStoredParameters)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 64, 1 };
+    RigController controller(info);
+    controller.append("sushidsp.tubescreamer");
+    controller.set_parameter(0, "tone", 0.9f);
+    controller.append("sushidsp.jcm800");
+
+    // The rebuild triggered by the second append constructs a brand-new TubeScreamer, which
+    // is seeded off the audio thread before publication - no ring drain needed.
+    SushiDSP::IAudioNode* node = controller.active_graph()->node(0);
+    ASSERT_NE(node, nullptr);
+    EXPECT_FLOAT_EQ(node->get_parameter("tone"), 0.9f);
+}
