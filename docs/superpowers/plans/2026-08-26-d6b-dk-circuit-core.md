@@ -187,8 +187,11 @@ method is affordable.
 the source node to the diode node and the diode to ground: `Asys` is 2×2, `F = −R`, `E = 1`, so
 `v = u − R·i(v)` — which is exactly the equation `DiodeClipperCircuit` already solves. For an RC
 lowpass (source → R → node → C → ground, output at the node) with `N = 0`: `A` reduces to the
-scalar `(1 − RGc)/(1 + RGc)` with `Gc = 2C/T`, i.e. the bilinear-transform pole, and
-`H = 1/(1 + R·Gc)`. Task 6 asserts both.
+scalar `(RGc − 1)/(RGc + 1)` with `Gc = 2C/T`, i.e. the bilinear-transform pole, and
+`H = 1/(1 + R·Gc)`. Task 6 asserts both. **Correction (Task 8):** this paragraph first wrote
+the pole as `(1 − RGc)/(1 + RGc)`, which is its negative. With `R = 1 kΩ`, `C = 100 nF` and
+`T = 1/48000`, `RGc = 9.6` and the pole is `+0.8113…`, not `−0.8113…` — a lowpass, as it must be.
+Task 6 asserts the corrected form.
 
 ---
 
@@ -843,7 +846,7 @@ TEST(Unit_Dsp, PentodeEL34MatchesKorenAtThreeOperatingPoints)
     // (1) Vpk = 400, Vg2k = 400, Vg1k = -37  (a JCM800 idle point at -37 V fixed bias)
     //     u_arg = 60*(1/11 - 37/400) = -0.0954545454545
     //     s = ln(1+exp(u_arg)) = 0.646558...   E1 = 400*s/60 = 4.31038947984
-    //     knee = atan(400/24) = 1.510796...
+    //     knee = atan(400/24) = 1.51086817167369   (Task 8 correction: was 1.510796...)
     //     Ip  = 2 * 4.31038947984^1.35 / 650 * knee = 3.34149261301e-2 A   (33.4 mA idle)
     //     dIp/dVg1k = 4.98316907313e-3 S,  dIp/dVg2k = 5.73718514954e-4 S,
     //     dIp/dVpk  = 3.30555615549e-6 S   (a ~300 kOhm plate resistance: pentode, as expected)
@@ -913,7 +916,10 @@ plus, in the same file and following Task 3's shapes exactly:
   `Vg1k = −Vg2k/μ`) and assert `Ig2` and `∂Ig2/∂Vg1k` both approach zero.
 - `PentodeEL34PlateCurrentKneesOverWithPlateVoltage` — golden-vector from `atan`: the ratio
   `Ip(Vpk = 400) / Ip(Vpk = 100)` at fixed grids equals `atan(400/24) / atan(100/24)`
-  `= 1.51079585976 / 1.33705315408 = 1.12994...` to 1e-9. This is the pentode property that
+  `= 1.51086817167369 / 1.33525134607403 = 1.13152342150114` to 1e-9. **Correction (Task 8):**
+  the plan first printed `1.51079585976 / 1.33705315408 = 1.12994...`; both intermediates were
+  slightly off and so was the ratio. The values above are the correct ones and are what the test
+  asserts. This is the pentode property that
   distinguishes it from a triode and it must be exact, not approximate.
 - `PentodeEL34StaysFiniteUnderAbsurdInputs` — including `Vg2k = 0` and `Vg2k < 0`, which the
   1e-3 V floor must survive.
@@ -1217,16 +1223,20 @@ TEST(Unit_Dsp, DkCircuitRcLowpassMatchesTheBilinearTransformExactly)
 ```
 
 - [ ] **Step 3: Series RLC against its analytic resonance.** Source → R → L → C → ground, probe
-across `C`. Assert (a) the measured magnitude peak of the DK block sits at the damped resonance
-`f = (1/2π)·sqrt(1/(LC) − R²/(4L²))` within 0.5 %, using `tests/measure/`'s
+across `C`. Assert (a) the measured magnitude peak of the DK block sits at the peak frequency
+`f = (1/2π)·sqrt(1/(LC) − R²/(2L²))` within 0.5 %, using `tests/measure/`'s
 `frequency_response` on a thin `IAudioNode` adapter, and (b) with `R = 100 Ω`, `L = 10 mH`,
-`C = 100 nF`: `1/(LC) = 1e9`, `R²/(4L²) = 10000/(4·1e-4) = 2.5e7`, so
-`sqrt(9.75e8) = 31224.9900...` rad/s and `f = 4969.6 Hz`; the undamped `f0` is
+`C = 100 nF`: `1/(LC) = 1e9`, `R²/(2L²) = 10000/(2·1e-4) = 5e7`, so
+`sqrt(9.5e8) = 30822.0700...` rad/s and `f = 4905.5 Hz`; the undamped `f0` is
 `1/(2π·sqrt(1e-3·1e-7))` — write both numbers in the comment and assert against the damped one.
 Use a run rate of 384 kHz so the trapezoidal warping at 5 kHz is negligible (the bilinear
 frequency warping at `f/fs = 0.013` is under 0.01 %); state that in the comment, because
 asserting an analogue resonance against a discretised circuit at 48 kHz would fail for a
-legitimate reason and someone would then loosen the tolerance.
+legitimate reason and someone would then loosen the tolerance. **Correction (Task 8):** this step
+first named the *damped natural frequency* `sqrt(1/(LC) − R²/(4L²))`. That is where the impulse
+response rings, not where `|H(jω)|` across the capacitor peaks; the magnitude peak of a
+second-order lowpass is at `sqrt(1/(LC) − R²/(2L²))`. Since the test measures a magnitude
+response, the second form is the one to assert, and it is what Task 6 uses.
 
 - [ ] **Step 4: Diode clipper — DK vs the existing solver.**
 
@@ -1330,6 +1340,10 @@ detail and narrow enough that a sign error in a stamp fails it instantly. **The 
 compute the exact fixed point by hand (two-variable Newton on paper or in a scratch script) and
 put the numbers in the test comment**, then keep the assertion band as stated. A settled
 operating point that lands outside the band is a real bug, not a tolerance problem.
+**Correction (Task 8):** the advisory band above is wrong for `Rk = 2.7 kΩ`. The stage's actual
+settled operating point is `Vk = 2.310 V` with `Vp = 274.4 V` — inside the stated bands, but only
+just, and the "near 1.3–1.5 V / 200–230 V" guess in the sentence before them is not what a 2.7 kΩ
+cathode resistor produces. Task 7's test asserts against the measured 2.310 V / 274.4 V.
 
 - [ ] **Step 1: Write the bias test and the convergence test** (both run with no CSV present, so
 they gate immediately).
