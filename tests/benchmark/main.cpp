@@ -107,7 +107,7 @@ int main(int argc, char** argv)
         print(measure_node<SushiDSP::Jcm800>("Jcm800 (no cabinet)", [](SushiDSP::Jcm800& node)
         {
             node.set_preamp(0.6f);
-            node.set_master(0.7f);
+            node.set_master(0.0f);
             node.set_bass(0.6f);
             node.set_middle(0.4f);
             node.set_treble(0.7f);

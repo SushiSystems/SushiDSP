@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -39,13 +40,21 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+namespace
+{
+    // The master level whose linear multiplier is exactly 1.0. Master is a dB control whose 0 dB
+    // reference is the amp's 0.7 linear multiplier, so the tests that used to ask for "master
+    // fully up at 1.0 linear" ask for this instead and keep measuring the same signal.
+    const float kUnityMasterDb = 20.0f * std::log10(1.0f / 0.7f);
+}
+
 TEST(Unit_Dsp, Jcm800ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
     node.set_preamp(0.6f);
-    node.set_master(0.7f);
+    node.set_master(0.0f);
     node.set_bass(0.5f);
     node.set_middle(0.5f);
     node.set_treble(0.5f);
@@ -78,7 +87,7 @@ TEST(Unit_Dsp, Jcm800OutputNeverExceedsFullScaleUnderHotGainStaging)
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
     node.set_preamp(1.0f);
-    node.set_master(1.0f);
+    node.set_master(12.0f);
     node.set_bass(1.0f);
     node.set_middle(1.0f);
     node.set_treble(1.0f);
@@ -113,13 +122,13 @@ TEST(Unit_Dsp, Jcm800PortsAreMonoInMonoOut)
     EXPECT_EQ(ports.output_channels, 1u);
 }
 
-TEST(Unit_Dsp, Jcm800MasterZeroProducesSilenceAfterSettling)
+TEST(Unit_Dsp, Jcm800MasterAtMinimumProducesSilenceAfterSettling)
 {
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
     node.set_preamp(0.6f);
-    node.set_master(0.0f);
+    node.set_master(-60.0f);
     node.set_bass(0.5f);
     node.set_middle(0.5f);
     node.set_treble(0.5f);
@@ -150,7 +159,7 @@ TEST(Unit_Dsp, Jcm800PreampIncreasesOutputEnergy)
         SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
         node.prepare(info);
         node.set_preamp(preamp);
-        node.set_master(0.7f);
+        node.set_master(0.0f);
         node.set_bass(0.5f);
         node.set_middle(0.5f);
         node.set_treble(0.5f);
@@ -210,7 +219,7 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
         SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
         node.prepare(info);
         node.set_preamp(0.5f);
-        node.set_master(0.7f);
+        node.set_master(0.0f);
         node.set_bass(0.5f);
         node.set_middle(0.5f);
         node.set_treble(0.5f);
@@ -252,31 +261,148 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
     EXPECT_GT(loud_peak, quiet_peak * 2.0f);
 }
 
-TEST(Unit_Dsp, Jcm800DescriptorExposesSixControlParameters)
+TEST(Unit_Dsp, Jcm800DescriptorExposesEightParametersInContractOrder)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::jcm800_descriptor();
 
     EXPECT_STREQ(descriptor.id, "sushidsp.jcm800");
-    ASSERT_EQ(descriptor.parameter_count, 6u);
+    ASSERT_EQ(descriptor.parameter_count, 8u);
 
-    bool has_preamp = false, has_master = false, has_bass = false;
-    bool has_middle = false, has_treble = false, has_presence = false;
-    for (std::size_t i = 0; i < descriptor.parameter_count; ++i)
+    // The index order is the contract a host and a saved preset address these by, so it is pinned
+    // here rather than merely checked for membership.
+    const char* expected_ids[8] = {
+        "preamp", "master", "bass", "middle", "treble", "presence", "input_trim", "output"
+    };
+    for (std::size_t i = 0; i < 8; ++i)
     {
-        const std::string param_id = descriptor.parameters[i].id;
-        if (param_id == "preamp") has_preamp = true;
-        if (param_id == "master") has_master = true;
-        if (param_id == "bass") has_bass = true;
-        if (param_id == "middle") has_middle = true;
-        if (param_id == "treble") has_treble = true;
-        if (param_id == "presence") has_presence = true;
+        EXPECT_STREQ(descriptor.parameters[i].id, expected_ids[i]);
     }
-    EXPECT_TRUE(has_preamp);
-    EXPECT_TRUE(has_master);
-    EXPECT_TRUE(has_bass);
-    EXPECT_TRUE(has_treble);
-    EXPECT_TRUE(has_middle);
-    EXPECT_TRUE(has_presence);
+
+    EXPECT_EQ(descriptor.parameters[1].kind, SushiDSP::ParamKind::Decibel);
+    EXPECT_EQ(descriptor.parameters[6].kind, SushiDSP::ParamKind::Decibel);
+    EXPECT_EQ(descriptor.parameters[7].kind, SushiDSP::ParamKind::Decibel);
+    EXPECT_FLOAT_EQ(descriptor.parameters[1].min, -60.0f);
+    EXPECT_FLOAT_EQ(descriptor.parameters[1].max, 12.0f);
+    EXPECT_FLOAT_EQ(descriptor.parameters[1].default_value, 0.0f);
+    EXPECT_FLOAT_EQ(descriptor.parameters[6].min, -24.0f);
+    EXPECT_FLOAT_EQ(descriptor.parameters[6].max, 24.0f);
+    EXPECT_FLOAT_EQ(descriptor.parameters[7].min, -60.0f);
+    EXPECT_FLOAT_EQ(descriptor.parameters[7].max, 12.0f);
+}
+
+TEST(Unit_Dsp, Jcm800ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
+{
+    SushiDSP::Jcm800 node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    std::vector<float> input(256, 0.0f);
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    node.process(context);
+    ASSERT_FALSE(node.tone_stack_is_dirty());
+
+    // The control-thread call stores a target and nothing else: the coefficients the audio thread
+    // last built are still the old ones, which is exactly what "dirty" reports.
+    node.set_parameter("bass", 1.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("bass"), 1.0f);
+    EXPECT_TRUE(node.tone_stack_is_dirty());
+
+    // One block is not enough: the knob is smoothed over 20 ms, so the audio thread is still
+    // walking the coefficients toward the target. That it converges at all is the audio thread's
+    // doing - the control thread never touched a filter.
+    node.process(context);
+    EXPECT_TRUE(node.tone_stack_is_dirty());
+
+    for (int block = 0; block < 40 && node.tone_stack_is_dirty(); ++block)
+    {
+        node.process(context);
+    }
+    EXPECT_FALSE(node.tone_stack_is_dirty());
+}
+
+TEST(Unit_Dsp, Jcm800IndexedParameterSetMatchesTheDescriptorOrder)
+{
+    SushiDSP::Jcm800 node;
+    const float values[8] = { 0.2f, -6.0f, 0.4f, 0.45f, 0.6f, 0.7f, 12.0f, -3.0f };
+    for (std::uint16_t i = 0; i < 8; ++i)
+    {
+        node.set_parameter(i, values[i]);
+    }
+
+    const SushiDSP::NodeDescriptor& descriptor = SushiDSP::jcm800_descriptor();
+    for (std::uint16_t i = 0; i < 8; ++i)
+    {
+        EXPECT_FLOAT_EQ(node.get_parameter(descriptor.parameters[i].id), values[i]);
+    }
+
+    node.set_parameter(static_cast<std::uint16_t>(99), 1.0f);
+}
+
+TEST(Unit_Dsp, Jcm800DecibelParametersClampToTheirDescriptorRange)
+{
+    SushiDSP::Jcm800 node;
+    node.set_master(100.0f);
+    node.set_input_trim(-100.0f);
+    node.set_output(100.0f);
+
+    EXPECT_FLOAT_EQ(node.get_parameter("master"), 12.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("input_trim"), -24.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("output"), 12.0f);
+}
+
+TEST(Unit_Dsp, Jcm800InputTrimAndOutputScaleTheSignalInDecibels)
+{
+    auto measure_rms = [](float input_trim_db, float output_db) -> double
+    {
+        SushiDSP::Jcm800 node;
+        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+        node.set_preamp(0.6f);
+        node.set_master(0.0f);
+        node.set_input_trim(input_trim_db);
+        node.set_output(output_db);
+
+        std::vector<float> input(256);
+        std::vector<float> output(256, 0.0f);
+        const float* input_channels[1] = { input.data() };
+        float* output_channels[1] = { output.data() };
+
+        double sum_sq = 0.0;
+        std::size_t count = 0;
+        double global_index = 0.0;
+        for (int block = 0; block < 30; ++block)
+        {
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                input[i] = 0.02f * static_cast<float>(std::sin(2.0 * M_PI * 220.0 * (global_index + i) / 48000.0));
+            }
+            global_index += 256.0;
+
+            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            node.process(context);
+
+            if (block >= 20)
+            {
+                for (float sample : output)
+                {
+                    sum_sq += static_cast<double>(sample) * sample;
+                    ++count;
+                }
+            }
+        }
+        return std::sqrt(sum_sq / static_cast<double>(count));
+    };
+
+    // The output control is linear and post-cabinet, so -6 dB there is exactly half the level.
+    const double reference = measure_rms(0.0f, 0.0f);
+    const double halved = measure_rms(0.0f, -6.020599913f);
+    EXPECT_NEAR(halved, reference * 0.5, reference * 0.01);
+
+    // The input trim sits ahead of the whole nonlinear chain, so it drives it harder rather than
+    // scaling it: at this level the amp is still close to linear, so more in means more out.
+    const double trimmed_up = measure_rms(6.0f, 0.0f);
+    EXPECT_GT(trimmed_up, reference);
 }
 
 TEST(Unit_Dsp, Jcm800DescriptorMakeProducesAWorkingNode)
@@ -307,7 +433,7 @@ TEST(Unit_Dsp, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
     node.set_preamp(1.0f);
-    node.set_master(1.0f);
+    node.set_master(kUnityMasterDb);
     node.set_bass(0.5f);
     node.set_middle(0.5f);
     node.set_treble(0.5f);
@@ -337,7 +463,7 @@ TEST(Unit_Dsp, Jcm800ThdIncreasesWithPreamp)
         SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
         node.prepare(info);
         node.set_preamp(preamp);
-        node.set_master(1.0f);
+        node.set_master(kUnityMasterDb);
         node.set_bass(0.5f);
         node.set_middle(0.5f);
         node.set_treble(0.5f);
@@ -441,7 +567,7 @@ TEST(Unit_Dsp, Jcm800CabinetStageEngagesAtANonDefaultBlockSize)
         SushiDSP::PrepareInfo info{ 48000.0, block_size, 1 };
         node.prepare(info);
         node.set_preamp(0.6f);
-        node.set_master(0.7f);
+        node.set_master(0.0f);
 
         std::vector<float> input(block_size);
         for (std::size_t i = 0; i < input.size(); ++i)
@@ -490,7 +616,7 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
     node.set_preamp(0.6f);
-    node.set_master(1.0f);
+    node.set_master(kUnityMasterDb);
     node.set_bass(0.5f);
     node.set_middle(0.5f);
     node.set_treble(0.5f);
@@ -549,6 +675,8 @@ TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)
     node.set_parameter("middle", 0.5f);
     node.set_parameter("treble", 0.6f);
     node.set_parameter("presence", 0.7f);
+    node.set_parameter("input_trim", 6.0f);
+    node.set_parameter("output", -3.0f);
 
     EXPECT_FLOAT_EQ(node.get_parameter("preamp"), 0.2f);
     EXPECT_FLOAT_EQ(node.get_parameter("master"), 0.3f);
@@ -556,6 +684,8 @@ TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)
     EXPECT_FLOAT_EQ(node.get_parameter("middle"), 0.5f);
     EXPECT_FLOAT_EQ(node.get_parameter("treble"), 0.6f);
     EXPECT_FLOAT_EQ(node.get_parameter("presence"), 0.7f);
+    EXPECT_FLOAT_EQ(node.get_parameter("input_trim"), 6.0f);
+    EXPECT_FLOAT_EQ(node.get_parameter("output"), -3.0f);
 }
 
 TEST(Unit_Dsp, Jcm800UnknownParameterIsSafeNoOp)

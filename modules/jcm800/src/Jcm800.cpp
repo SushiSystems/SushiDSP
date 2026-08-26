@@ -122,12 +122,25 @@ namespace SushiDSP
         constexpr float kMaxPresenceDb = 9.0f;
         constexpr double kFilterQ = 0.707;
 
-        constexpr float kSlewPerBlock = 0.1f;
+        constexpr float kSmoothingMs = 20.0f;
 
-        float slew_toward(float current, float target)
-        {
-            return current + (target - current) * kSlewPerBlock;
-        }
+        // Below this, a recomputed tone-stack/presence coefficient set would be numerically
+        // indistinguishable from the one already in place, so the audio thread skips the rebuild.
+        // It is a cost filter, not a quality one: 1e-4 of a knob's 0..1 travel is far finer than
+        // the ~1e-3 step a 7-bit MIDI controller can even express.
+        constexpr float kCoefficientEpsilon = 1e-4f;
+
+        // The master knob's reference point: 0 dB reproduces the linear 0.7 multiplier that was
+        // this amp's default before the control became a dB level, so nothing about the shipped
+        // loudness moved when the units did.
+        constexpr float kMasterUnityGain = 0.7f;
+
+        constexpr float kMinMasterDb = -60.0f;
+        constexpr float kMaxMasterDb = 12.0f;
+        constexpr float kMinInputTrimDb = -24.0f;
+        constexpr float kMaxInputTrimDb = 24.0f;
+        constexpr float kMinOutputDb = -60.0f;
+        constexpr float kMaxOutputDb = 12.0f;
 
         // Every stage up to here saturates against its own solver bound, so a musically hot but
         // otherwise legitimate drive/preamp/master combination can still land the final sample
@@ -200,12 +213,28 @@ namespace SushiDSP
         // must be derived at the oversampled rate; deriving them at the base rate would place the
         // real corner 8x higher (960 Hz instead of 120 Hz) and gut the low end.
         coupling_cap_.set_high_pass(sample_rate_ * kOversamplingFactor, kCouplingCapHz, kFilterQ);
-        presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_current_), kFilterQ);
+        presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_.target()), kFilterQ);
 
         tone_stack_ = JcmToneStack(sample_rate_);
-        tone_stack_.set_bass(bass_normalized_);
-        tone_stack_.set_middle(middle_normalized_);
-        tone_stack_.set_treble(treble_normalized_);
+
+        // Every knob is smoothed at the base rate, since every one of them is read once per block
+        // in process() via skip(frames). prepare() is a discontinuity anyway (buffers resized,
+        // filters rebuilt), so the smoothers snap rather than ramp from a stale value, and the
+        // applied_* markers are invalidated so the first block builds the coefficients that match
+        // those snapped targets.
+        SmoothedParameter* const smoothed[] = {
+            &preamp_, &presence_, &bass_, &middle_, &treble_,
+            &master_gain_, &input_trim_gain_, &output_gain_
+        };
+        for (SmoothedParameter* parameter : smoothed)
+        {
+            parameter->prepare(sample_rate_, kSmoothingMs);
+            parameter->snap(parameter->target());
+        }
+        applied_bass_ = -1.0f;
+        applied_middle_ = -1.0f;
+        applied_treble_ = -1.0f;
+        applied_presence_ = -1.0f;
 
         // The output transformer and the sag stage run inside the oversampled region (see
         // process()), so both are built at the oversampled rate: their filter corners and the
@@ -247,21 +276,50 @@ namespace SushiDSP
 
     void Jcm800::process(ProcessContext& context)
     {
-        preamp_current_ = slew_toward(preamp_current_, preamp_target_);
-        master_current_ = slew_toward(master_current_, master_target_);
-        presence_current_ = slew_toward(presence_current_, presence_target_);
-        presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_current_), kFilterQ);
-
         const float* input = context.inputs[0];
         float* output = context.outputs[0];
         const std::uint32_t frames = context.frames;
         const std::uint32_t oversampled_frames = frames * kOversamplingFactor;
 
-        const float preamp_gain = preamp_attenuation(preamp_current_);
+        // Control changes are only ever targets; the audio thread is where they take effect. The
+        // per-block advance is a single closed-form step, and the coefficient rebuilds below are
+        // plain arithmetic on stack values - no allocation, no lock, no syscall.
+        const float preamp = preamp_.skip(frames);
+        const float bass = bass_.skip(frames);
+        const float middle = middle_.skip(frames);
+        const float treble = treble_.skip(frames);
+        const float presence = presence_.skip(frames);
+        const float input_gain = input_trim_gain_.skip(frames);
+        const float master = master_gain_.skip(frames);
+        const float output_gain = output_gain_.skip(frames);
+
+        if (std::fabs(bass - applied_bass_) > kCoefficientEpsilon)
+        {
+            tone_stack_.set_bass(bass);
+            applied_bass_ = bass;
+        }
+        if (std::fabs(middle - applied_middle_) > kCoefficientEpsilon)
+        {
+            tone_stack_.set_middle(middle);
+            applied_middle_ = middle;
+        }
+        if (std::fabs(treble - applied_treble_) > kCoefficientEpsilon)
+        {
+            tone_stack_.set_treble(treble);
+            applied_treble_ = treble;
+        }
+        if (std::fabs(presence - applied_presence_) > kCoefficientEpsilon)
+        {
+            presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence), kFilterQ);
+            applied_presence_ = presence;
+        }
+
+        const float preamp_gain = preamp_attenuation(preamp);
+        const float master_gain = master * kMasterUnityGain;
 
         for (std::uint32_t i = 0; i < frames; ++i)
         {
-            scratch_base_[i] = bright_cap_.process_sample(input[i]);
+            scratch_base_[i] = bright_cap_.process_sample(input[i] * input_gain);
         }
 
         const float* upsampled_a = oversampler_a_->upsample(scratch_base_.data(), frames);
@@ -301,7 +359,7 @@ namespace SushiDSP
         // and cost 8x less on this side of the decimator.
         for (std::uint32_t i = 0; i < frames; ++i)
         {
-            scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]) * master_current_;
+            scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]) * master_gain;
         }
 
         // PartitionedConvolution::process() is a fixed-block API with no frame-count argument;
@@ -316,6 +374,17 @@ namespace SushiDSP
             for (std::uint32_t i = 0; i < frames; ++i)
             {
                 output[i] = scratch_base_[i];
+            }
+        }
+
+        // The output level sits after the cabinet but ahead of the limiter, so it is a real
+        // output control - turning it up can drive the limiter, as an amp's own output stage does
+        // - rather than a trim that silently bypasses the ceiling below.
+        if (output_gain != 1.0f)
+        {
+            for (std::uint32_t i = 0; i < frames; ++i)
+            {
+                output[i] *= output_gain;
             }
         }
 
@@ -390,33 +459,48 @@ namespace SushiDSP
         }
     }
 
-    void Jcm800::set_preamp(float normalized) { preamp_target_ = std::clamp(normalized, 0.0f, 1.0f); }
-    void Jcm800::set_master(float normalized) { master_target_ = std::clamp(normalized, 0.0f, 1.0f); }
-    void Jcm800::set_bass(float normalized)
+    void Jcm800::set_preamp(float normalized) { preamp_.set_target(std::clamp(normalized, 0.0f, 1.0f)); }
+    void Jcm800::set_bass(float normalized) { bass_.set_target(std::clamp(normalized, 0.0f, 1.0f)); }
+    void Jcm800::set_middle(float normalized) { middle_.set_target(std::clamp(normalized, 0.0f, 1.0f)); }
+    void Jcm800::set_treble(float normalized) { treble_.set_target(std::clamp(normalized, 0.0f, 1.0f)); }
+    void Jcm800::set_presence(float normalized) { presence_.set_target(std::clamp(normalized, 0.0f, 1.0f)); }
+
+    void Jcm800::set_master(float decibels)
     {
-        bass_normalized_ = std::clamp(normalized, 0.0f, 1.0f);
-        tone_stack_.set_bass(bass_normalized_);
+        master_db_ = std::clamp(decibels, kMinMasterDb, kMaxMasterDb);
+        master_gain_.set_target(decibels_to_gain(master_db_));
     }
-    void Jcm800::set_middle(float normalized)
+
+    void Jcm800::set_input_trim(float decibels)
     {
-        middle_normalized_ = std::clamp(normalized, 0.0f, 1.0f);
-        tone_stack_.set_middle(middle_normalized_);
+        input_trim_db_ = std::clamp(decibels, kMinInputTrimDb, kMaxInputTrimDb);
+        input_trim_gain_.set_target(decibels_to_gain(input_trim_db_));
     }
-    void Jcm800::set_treble(float normalized)
+
+    void Jcm800::set_output(float decibels)
     {
-        treble_normalized_ = std::clamp(normalized, 0.0f, 1.0f);
-        tone_stack_.set_treble(treble_normalized_);
+        output_db_ = std::clamp(decibels, kMinOutputDb, kMaxOutputDb);
+        output_gain_.set_target(decibels_to_gain(output_db_));
     }
-    void Jcm800::set_presence(float normalized) { presence_target_ = std::clamp(normalized, 0.0f, 1.0f); }
+
+    bool Jcm800::tone_stack_is_dirty() const
+    {
+        return std::fabs(bass_.target() - applied_bass_) > kCoefficientEpsilon
+            || std::fabs(middle_.target() - applied_middle_) > kCoefficientEpsilon
+            || std::fabs(treble_.target() - applied_treble_) > kCoefficientEpsilon
+            || std::fabs(presence_.target() - applied_presence_) > kCoefficientEpsilon;
+    }
 
     float Jcm800::get_parameter(const char* id) const
     {
-        if (std::strcmp(id, "preamp") == 0) return preamp_target_;
-        if (std::strcmp(id, "master") == 0) return master_target_;
-        if (std::strcmp(id, "bass") == 0) return bass_normalized_;
-        if (std::strcmp(id, "middle") == 0) return middle_normalized_;
-        if (std::strcmp(id, "treble") == 0) return treble_normalized_;
-        if (std::strcmp(id, "presence") == 0) return presence_target_;
+        if (std::strcmp(id, "preamp") == 0) return preamp_.target();
+        if (std::strcmp(id, "master") == 0) return master_db_;
+        if (std::strcmp(id, "bass") == 0) return bass_.target();
+        if (std::strcmp(id, "middle") == 0) return middle_.target();
+        if (std::strcmp(id, "treble") == 0) return treble_.target();
+        if (std::strcmp(id, "presence") == 0) return presence_.target();
+        if (std::strcmp(id, "input_trim") == 0) return input_trim_db_;
+        if (std::strcmp(id, "output") == 0) return output_db_;
         return 0.0f;
     }
 
@@ -428,17 +512,39 @@ namespace SushiDSP
         if (std::strcmp(id, "middle") == 0) { set_middle(value); return; }
         if (std::strcmp(id, "treble") == 0) { set_treble(value); return; }
         if (std::strcmp(id, "presence") == 0) { set_presence(value); return; }
+        if (std::strcmp(id, "input_trim") == 0) { set_input_trim(value); return; }
+        if (std::strcmp(id, "output") == 0) { set_output(value); return; }
+    }
+
+    void Jcm800::set_parameter(std::uint16_t index, float value)
+    {
+        switch (index)
+        {
+        case 0: set_preamp(value); break;
+        case 1: set_master(value); break;
+        case 2: set_bass(value); break;
+        case 3: set_middle(value); break;
+        case 4: set_treble(value); break;
+        case 5: set_presence(value); break;
+        case 6: set_input_trim(value); break;
+        case 7: set_output(value); break;
+        default: break;
+        }
     }
 
     namespace
     {
+        // The order is a contract: a host addresses these by index, and a preset written by one
+        // build is read back by another, so entries are appended - never reordered or removed.
         constexpr ParameterDescriptor kJcm800Parameters[] = {
-            { "preamp",   "Preamp",   0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
-            { "master",   "Master",   0.0f, 1.0f, 0.7f, ParamKind::Linear, "" },
-            { "bass",     "Bass",     0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
-            { "middle",   "Middle",   0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
-            { "treble",   "Treble",   0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
-            { "presence", "Presence", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+            { "preamp",     "Preamp",     0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
+            { "master",     "Master",     kMinMasterDb,     kMaxMasterDb,     0.0f, ParamKind::Decibel, "dB" },
+            { "bass",       "Bass",       0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
+            { "middle",     "Middle",     0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
+            { "treble",     "Treble",     0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
+            { "presence",   "Presence",   0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
+            { "input_trim", "Input Trim", kMinInputTrimDb,  kMaxInputTrimDb,  0.0f, ParamKind::Decibel, "dB" },
+            { "output",     "Output",     kMinOutputDb,     kMaxOutputDb,     0.0f, ParamKind::Decibel, "dB" },
         };
 
         std::unique_ptr<IAudioNode> make_jcm800(const PrepareInfo&)
@@ -453,7 +559,7 @@ namespace SushiDSP
             "sushidsp.jcm800",
             "JCM800",
             kJcm800Parameters,
-            6,
+            8,
             PortLayout{ 1, 1 },
             &make_jcm800,
         };

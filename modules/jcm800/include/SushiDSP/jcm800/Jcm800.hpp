@@ -27,6 +27,7 @@
 #include <memory>
 #include <vector>
 
+#include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/jcm800/JcmToneStack.hpp"
@@ -37,6 +38,7 @@
 #include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/PartitionedConvolution.hpp"
+#include "SushiDSP/math/SmoothedParameter.hpp"
 
 namespace SushiDSP
 {
@@ -65,12 +67,20 @@ namespace SushiDSP
         void reset() override;
 
         /// @brief Sets the preamp (gain) control.
-        /// @param normalized Preamp amount in [0, 1]; slewed toward over subsequent blocks.
+        /// @param normalized Preamp amount in [0, 1]; smoothed toward on the audio thread.
         void set_preamp(float normalized);
 
-        /// @brief Sets the master volume control.
-        /// @param normalized Master amount in [0, 1]; slewed toward over subsequent blocks.
-        void set_master(float normalized);
+        /// @brief Sets the master volume.
+        /// @param decibels Master level in [-60, +12] dB; 0 dB is the amp's reference loudness.
+        void set_master(float decibels);
+
+        /// @brief Sets the input trim applied ahead of the bright cap.
+        /// @param decibels Trim in [-24, +24] dB; 0 dB passes the host's level through unchanged.
+        void set_input_trim(float decibels);
+
+        /// @brief Sets the output level applied after the cabinet stage.
+        /// @param decibels Output level in [-60, +12] dB; 0 dB is unity.
+        void set_output(float decibels);
 
         /// @brief Sets the tone stack's bass control.
         /// @param normalized Bass amount in [0, 1]; 0.5 is flat.
@@ -88,8 +98,21 @@ namespace SushiDSP
         /// @param normalized Presence amount in [0, 1]; 0.5 is flat.
         void set_presence(float normalized);
 
+        /// @brief Whether a tone or presence target is still waiting for the audio thread to
+        /// rebuild its coefficients. A diagnostic hook: it is what makes "the control thread only
+        /// stores a target" observable from a test.
+        /// @return True while any tone-stack or presence coefficient is out of date.
+        bool tone_stack_is_dirty() const;
+
         float get_parameter(const char* id) const override;
         void set_parameter(const char* id, float value) override;
+
+        using IAudioNode::set_parameter;
+
+        /// @brief Sets one parameter by its descriptor index. Audio-thread safe.
+        /// @param index Index into jcm800_descriptor()'s parameter array.
+        /// @param value The new value, in the descriptor's units.
+        void set_parameter(std::uint16_t index, float value) override;
 
     private:
         static constexpr std::uint32_t kOversamplingFactor = 8;
@@ -98,13 +121,11 @@ namespace SushiDSP
         std::uint32_t cabinet_partition_size_ = 0;
         std::vector<float> cabinet_impulse_response_;
 
-        float preamp_target_ = 0.5f, preamp_current_ = 0.5f;
-        float master_target_ = 0.7f, master_current_ = 0.7f;
-        float presence_target_ = 0.5f, presence_current_ = 0.5f;
-
-        float bass_normalized_ = 0.5f;
-        float middle_normalized_ = 0.5f;
-        float treble_normalized_ = 0.5f;
+        SmoothedParameter preamp_{ 0.5f }, presence_{ 0.5f };
+        SmoothedParameter bass_{ 0.5f }, middle_{ 0.5f }, treble_{ 0.5f };
+        SmoothedParameter master_gain_{ 1.0f }, input_trim_gain_{ 1.0f }, output_gain_{ 1.0f };
+        float master_db_ = 0.0f, input_trim_db_ = 0.0f, output_db_ = 0.0f;
+        float applied_bass_ = -1.0f, applied_middle_ = -1.0f, applied_treble_ = -1.0f, applied_presence_ = -1.0f;
 
         Biquad bright_cap_;
         Biquad coupling_cap_;
