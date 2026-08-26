@@ -30,6 +30,8 @@
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
+#include "SushiDSP/core/RtSwapSlot.hpp"
+#include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/jcm800/JcmToneStack.hpp"
 #include "SushiDSP/jcm800/OutputTransformerStage.hpp"
 #include "SushiDSP/jcm800/PentodeStage.hpp"
@@ -37,14 +39,14 @@
 #include "SushiDSP/jcm800/TriodeStage.hpp"
 #include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
-#include "SushiDSP/math/PartitionedConvolution.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
+#include "SushiDSP/math/StreamingConvolution.hpp"
 
 namespace SushiDSP
 {
     /// @brief The Marshall JCM800 2203 amp: bright cap, V1a/V1b/tone-stack/V2a/phase-inverter/
     /// EL34-push-pull, output transformer, power sag, presence, and (optional) cabinet
-    /// convolution. Exposes jcm800_descriptor().
+    /// convolution, followed by a plain full-scale clamp. Exposes jcm800_descriptor().
     class Jcm800 : public IAudioNode
     {
     public:
@@ -65,6 +67,32 @@ namespace SushiDSP
 
         /// @brief Clears every stage's state for a click-free restart.
         void reset() override;
+
+        /// @brief Reports the delay this node adds from input to output, so the host can
+        /// compensate it.
+        /// @return The two oversamplers' combined latency plus, when a cabinet is loaded, its
+        /// one-partition convolution latency. Loading or removing a cabinet is the one thing that
+        /// moves it after prepare(), so a host should re-read it after set_cabinet().
+        std::uint32_t latency_samples() const override;
+
+        /// @brief Installs a new cabinet impulse response. Control thread only: the convolver is
+        /// built here in full and handed to the audio thread as a single atomic pointer swap, so
+        /// process() never sees a partially built cabinet and never blocks.
+        /// @param impulse_response The IR and the rate it was captured at; its sample_rate must
+        /// equal the rate this node was prepared at. The samples are retained so a later
+        /// prepare() rebuilds this cabinet; like the constructor's IR they are reused as-is,
+        /// never resampled, so a prepare() at a different rate needs a fresh set_cabinet().
+        /// @return True if the cabinet was installed; false if the rates disagree, in which case
+        /// the previously active cabinet (if any) stays in place.
+        bool set_cabinet(Ir impulse_response);
+
+        /// @brief Frees every cabinet the audio thread has provably moved past. Control thread
+        /// only; call periodically (e.g. once per GUI frame) after any set_cabinet().
+        void reclaim_cabinets();
+
+        /// @brief Whether a cabinet convolution is currently in the signal path.
+        /// @return True once a cabinet has been installed by the constructor or set_cabinet().
+        bool has_cabinet() const;
 
         /// @brief Sets the preamp (gain) control.
         /// @param normalized Preamp amount in [0, 1]; smoothed toward on the audio thread.
@@ -118,7 +146,8 @@ namespace SushiDSP
         static constexpr std::uint32_t kOversamplingFactor = 8;
 
         double sample_rate_ = 48000.0;
-        std::uint32_t cabinet_partition_size_ = 0;
+        std::uint32_t max_block_ = 0;
+        std::uint32_t cabinet_partition_ = 0;
         std::vector<float> cabinet_impulse_response_;
 
         SmoothedParameter preamp_{ 0.5f }, presence_{ 0.5f };
@@ -143,13 +172,11 @@ namespace SushiDSP
 
         std::unique_ptr<Oversampler8x> oversampler_a_;  // spans V1a -> V1b
         std::unique_ptr<Oversampler8x> oversampler_b_;  // spans V2a -> output transformer
-        std::unique_ptr<Oversampler8x> oversampler_c_;  // spans the final output limiter
-        std::unique_ptr<PartitionedConvolution> cabinet_;
+        RtSwapSlot<StreamingConvolution> cabinet_slot_;
 
         std::vector<float> scratch_base_;
         std::vector<float> scratch_oversampled_a_;
         std::vector<float> scratch_oversampled_b_;
-        std::vector<float> scratch_oversampled_c_;
     };
 
     /// @brief The JCM800's product registration entry point.

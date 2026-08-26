@@ -34,6 +34,7 @@
 
 #include <gtest/gtest.h>
 
+#include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 
 #ifndef M_PI
@@ -550,9 +551,10 @@ TEST(Unit_Dsp, Jcm800ThdIncreasesWithPreamp)
 
 TEST(Unit_Dsp, Jcm800CabinetStageEngagesAtANonDefaultBlockSize)
 {
-    // The cabinet's partition size is derived from PrepareInfo::max_block, so a host running any
-    // power-of-two block size gets the cabinet, not only a 256-frame one. This guards against a
-    // regression to a hardcoded partition size, which would silently bypass the cabinet here.
+    // The cabinet's partition is derived from the sample rate, not from PrepareInfo::max_block,
+    // so a host running any block size gets the cabinet, not only a 256-frame one. This guards
+    // against a regression to a block-size-dependent partition, which used to bypass the cabinet
+    // outright whenever the host's block size did not match it.
     constexpr std::uint32_t block_size = 128;
     std::vector<float> impulse_response(200, 0.0f);
     impulse_response[0] = 1.0f;
@@ -693,4 +695,114 @@ TEST(Unit_Dsp, Jcm800UnknownParameterIsSafeNoOp)
     SushiDSP::Jcm800 node;
     node.set_parameter("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
+}
+
+TEST(Unit_Dsp, Jcm800CabinetSurvivesVariableBlockSizes)
+{
+    // StreamingConvolution re-blocks the stream internally, so the cabinet must survive a host
+    // that hands the node a different frame count every callback - including counts that are not
+    // powers of two and not multiples of the partition. An identity IR makes the whole cabinet
+    // stage a pure delay of exactly one partition, so the with-cabinet stream must reproduce the
+    // no-cabinet stream shifted by latency_samples()'s reported difference, sample for sample.
+    std::vector<float> impulse_response(64, 0.0f);
+    impulse_response[0] = 1.0f;
+
+    SushiDSP::Jcm800 with_cabinet(impulse_response);
+    SushiDSP::Jcm800 without_cabinet;
+    for (SushiDSP::Jcm800* node : { &with_cabinet, &without_cabinet })
+    {
+        node->prepare(SushiDSP::PrepareInfo{ 48000.0, 512, 1 });
+    }
+
+    std::vector<float> input(512), output_with(512, 0.0f), output_without(512, 0.0f);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.2f * std::sin(0.03f * static_cast<float>(i));
+    }
+    const float* input_channels[1] = { input.data() };
+    float* with_channels[1] = { output_with.data() };
+    float* without_channels[1] = { output_without.data() };
+
+    std::vector<float> stream_with, stream_without;
+    const std::uint32_t chunks[] = { 100, 37, 512, 1, 300 };
+    for (std::uint32_t frames : chunks)
+    {
+        SushiDSP::ProcessContext context_with{ with_channels, input_channels, frames, 0.0 };
+        with_cabinet.process(context_with);
+        SushiDSP::ProcessContext context_without{ without_channels, input_channels, frames, 0.0 };
+        without_cabinet.process(context_without);
+        stream_with.insert(stream_with.end(), output_with.begin(), output_with.begin() + frames);
+        stream_without.insert(stream_without.end(), output_without.begin(), output_without.begin() + frames);
+    }
+
+    const std::uint32_t latency = with_cabinet.latency_samples() - without_cabinet.latency_samples();
+    EXPECT_EQ(latency, 128u);
+    for (std::size_t n = latency; n < stream_with.size(); ++n)
+    {
+        EXPECT_NEAR(stream_with[n], stream_without[n - latency], 1e-5f);
+    }
+}
+
+TEST(Unit_Dsp, Jcm800NeverExceedsFullScaleWithoutALimiter)
+{
+    // The soft-knee limiter is gone; a plain clamp is what bounds the output. Driving preamp,
+    // master and output to their ceilings must therefore still leave every sample inside [-1, 1],
+    // and must actually reach the rail - if nothing ever hits 1.0 the test would be proving only
+    // that the amp has headroom, not that the clamp works.
+    SushiDSP::Jcm800 node;
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_parameter("preamp", 1.0f);
+    node.set_parameter("master", 12.0f);
+    node.set_parameter("output", 12.0f);
+
+    std::vector<float> input(256), output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    bool clamped_at_least_once = false;
+    for (int block = 0; block < 50; ++block)
+    {
+        for (int i = 0; i < 256; ++i)
+        {
+            const float t = static_cast<float>(block * 256 + i) / 48000.0f;
+            input[i] = std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * t);
+        }
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+        for (float sample : output)
+        {
+            EXPECT_LE(std::fabs(sample), 1.0f);
+            if (std::fabs(sample) == 1.0f)
+            {
+                clamped_at_least_once = true;
+            }
+        }
+    }
+    EXPECT_TRUE(clamped_at_least_once);
+}
+
+TEST(Unit_Dsp, Jcm800RejectsACabinetImpulseResponseAtTheWrongSampleRate)
+{
+    // StreamingConvolution convolves in samples, not seconds: an IR captured at another rate
+    // would play back at the wrong length and the wrong frequency response. Rejecting it keeps
+    // the previously active cabinet in place rather than silently installing a detuned one.
+    SushiDSP::Jcm800 node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    EXPECT_FALSE(node.has_cabinet());
+    const std::uint32_t dry_latency = node.latency_samples();
+
+    SushiDSP::Ir wrong_rate;
+    wrong_rate.sample_rate = 44100.0;
+    wrong_rate.samples.assign(512, 0.0f);
+    wrong_rate.samples[0] = 1.0f;
+    EXPECT_FALSE(node.set_cabinet(wrong_rate));
+    EXPECT_FALSE(node.has_cabinet());
+    EXPECT_EQ(node.latency_samples(), dry_latency);
+
+    SushiDSP::Ir right_rate = wrong_rate;
+    right_rate.sample_rate = 48000.0;
+    EXPECT_TRUE(node.set_cabinet(right_rate));
+    EXPECT_TRUE(node.has_cabinet());
+    node.reclaim_cabinets();
 }
