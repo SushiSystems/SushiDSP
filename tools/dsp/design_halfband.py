@@ -2,10 +2,10 @@
 
 Usage:  python tools/dsp/design_halfband.py > include/SushiDSP/math/HalfbandCoefficients.hpp
 
-Halfband structure is enforced exactly after the equiripple design: every odd-offset tap is
-set to 0 and the centre tap to 0.5, then the remaining taps are rescaled so the DC gain is
-exactly 1. The response is re-verified after that enforcement, so the numbers printed in the
-header are the committed filter's, not the raw remez output's.
+Halfband structure is enforced exactly after the equiripple design: every even-offset tap
+(other than the centre) is set to 0 and the centre tap to 0.5, then the remaining taps are
+rescaled so the DC gain is exactly 1. The response is re-verified after that enforcement, so
+the numbers printed in the header are the committed filter's, not the raw remez output's.
 """
 import sys
 import numpy as np
