@@ -148,6 +148,10 @@ namespace
     /// v0 = v1 = sqrt(2) = 1.41421356237309504880.
     struct CircleAndLine
     {
+        /// @brief Evaluates the residual and its Jacobian at v.
+        /// @param v The iterate.
+        /// @param r The residual, overwritten.
+        /// @param jacobian The Jacobian, overwritten.
         void residual_and_jacobian(const std::array<double, 2>& v, std::array<double, 2>& r,
                                    std::array<std::array<double, 2>, 2>& jacobian) const
         {
@@ -160,15 +164,38 @@ namespace
         }
     };
 
-    /// @brief r(v) = exp(v) - 1 in one dimension. Undamped Newton from v = 12 overshoots to a
-    /// residual of the same magnitude and stalls; damping is what makes this converge.
+    /// @brief r(v) = exp(v) - 1 in one dimension, whose root is v = 0. From v = 12 the initial
+    /// residual is about 1.6e5 while each Newton step moves v by barely more than one, so this
+    /// is the long-slow-approach case: it needs many iterations, not damping.
     struct SteepExponential
     {
+        /// @brief Evaluates the residual and its Jacobian at v.
+        /// @param v The iterate.
+        /// @param r The residual, overwritten.
+        /// @param jacobian The Jacobian, overwritten.
         void residual_and_jacobian(const std::array<double, 1>& v, std::array<double, 1>& r,
                                    std::array<std::array<double, 1>, 1>& jacobian) const
         {
             r[0] = std::exp(v[0]) - 1.0;
             jacobian[0][0] = std::exp(v[0]);
+        }
+    };
+
+    /// @brief r(v) = atan(v), root v = 0, the textbook Newton divergence case: the undamped step
+    /// -atan(v)*(1 + v^2) overshoots past the root to a strictly larger |atan| for any
+    /// |v| > 1.3917, so from v = 2 undamped Newton runs away to infinity. Halving the first step
+    /// (v = 2 - 5.536 -> 2 - 2.768 = -0.768) lands back inside the basin.
+    struct ArcTangent
+    {
+        /// @brief Evaluates the residual and its Jacobian at v.
+        /// @param v The iterate.
+        /// @param r The residual, overwritten.
+        /// @param jacobian The Jacobian, overwritten.
+        void residual_and_jacobian(const std::array<double, 1>& v, std::array<double, 1>& r,
+                                   std::array<std::array<double, 1>, 1>& jacobian) const
+        {
+            r[0] = std::atan(v[0]);
+            jacobian[0][0] = 1.0 / (1.0 + v[0] * v[0]);
         }
     };
 }
@@ -185,7 +212,34 @@ TEST(Unit_Dsp, DampedNewtonFindsTheIntersectionOfACircleAndALine)
     EXPECT_LE(solver.maximum_iterations_seen(), 8u);
 }
 
-TEST(Unit_Dsp, DampedNewtonSurvivesASteepStartWhereUndampedNewtonWouldStall)
+TEST(Unit_Dsp, DampedNewtonConvergesWhereUndampedNewtonDiverges)
+{
+    SushiDSP::dk::DampedNewtonSolver<1> solver;
+    std::array<double, 1> v{ 2.0 };
+    solver.set_maximum_iterations(20);
+    EXPECT_TRUE(solver.solve(ArcTangent{}, v));
+    EXPECT_NEAR(v[0], 0.0, 1e-9);
+    EXPECT_EQ(solver.non_converged_count(), 0u);
+}
+
+TEST(Unit_Dsp, DampedNewtonWithHalvingDisabledFailsOnTheDivergentStart)
+{
+    // The same start with the halving budget set to zero: every iteration is forced to take the
+    // full Newton step, which is exactly the divergence damping exists to prevent. This pins
+    // set_maximum_halvings() to observable behaviour, and it also pins the stall guard: out at
+    // |v| ~ 1e168 the Jacobian 1/(1 + v^2) underflows, the perturbed solve returns a step that is
+    // negligible next to |v|, and a step-size-only convergence test would report that runaway
+    // point as a solution while the residual is still atan -> pi/2.
+    SushiDSP::dk::DampedNewtonSolver<1> solver;
+    solver.set_maximum_halvings(0);
+    solver.set_maximum_iterations(20);
+    std::array<double, 1> v{ 2.0 };
+    EXPECT_FALSE(solver.solve(ArcTangent{}, v));
+    EXPECT_EQ(solver.non_converged_count(), 1u);
+    EXPECT_TRUE(std::isfinite(v[0]));
+}
+
+TEST(Unit_Dsp, DampedNewtonSurvivesASteepStartWithALargeInitialResidual)
 {
     SushiDSP::dk::DampedNewtonSolver<1> solver;
     std::array<double, 1> v{ 12.0 };
@@ -217,9 +271,15 @@ TEST(Unit_Dsp, DampedNewtonWarmStartConvergesInOneIterationOnASmoothTrack)
     for (int step = 0; step < 100; ++step)
     {
         const double target = 0.001 * static_cast<double>(step);
+        /// @brief r(v) = exp(v) - exp(target), whose root is v = target.
         struct Shifted
         {
             double target;
+
+            /// @brief Evaluates the residual and its Jacobian at value.
+            /// @param value The iterate.
+            /// @param r The residual, overwritten.
+            /// @param jacobian The Jacobian, overwritten.
             void residual_and_jacobian(const std::array<double, 1>& value, std::array<double, 1>& r,
                                        std::array<std::array<double, 1>, 1>& jacobian) const
             {
