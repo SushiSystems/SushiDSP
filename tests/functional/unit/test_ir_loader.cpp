@@ -21,11 +21,98 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <cmath>
+#include <cstdint>
+#include <fstream>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "SushiDSP/io/IrLoader.hpp"
+
+namespace
+{
+    constexpr double PI = 3.14159265358979323846;
+
+    void write_u32_le(std::vector<std::uint8_t>& buffer, std::uint32_t value)
+    {
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            buffer.push_back(static_cast<std::uint8_t>((value >> shift) & 0xFF));
+        }
+    }
+
+    void write_u16_le(std::vector<std::uint8_t>& buffer, std::uint16_t value)
+    {
+        buffer.push_back(static_cast<std::uint8_t>(value & 0xFF));
+        buffer.push_back(static_cast<std::uint8_t>((value >> 8) & 0xFF));
+    }
+
+    void write_tag(std::vector<std::uint8_t>& buffer, const char* tag)
+    {
+        buffer.insert(buffer.end(), tag, tag + 4);
+    }
+
+    // Minimal mono 16-bit PCM WAV, the same layout test_wav_file.cpp builds.
+    std::string write_pcm16_wav(const std::string& name, std::uint32_t sample_rate,
+                                const std::vector<std::int16_t>& samples)
+    {
+        const auto data_bytes = static_cast<std::uint32_t>(samples.size() * sizeof(std::int16_t));
+
+        std::vector<std::uint8_t> buffer;
+        write_tag(buffer, "RIFF");
+        write_u32_le(buffer, 36 + data_bytes);
+        write_tag(buffer, "WAVE");
+        write_tag(buffer, "fmt ");
+        write_u32_le(buffer, 16);
+        write_u16_le(buffer, 1);
+        write_u16_le(buffer, 1);
+        write_u32_le(buffer, sample_rate);
+        write_u32_le(buffer, sample_rate * 2);
+        write_u16_le(buffer, 2);
+        write_u16_le(buffer, 16);
+        write_tag(buffer, "data");
+        write_u32_le(buffer, data_bytes);
+        for (std::int16_t sample : samples)
+        {
+            write_u16_le(buffer, static_cast<std::uint16_t>(sample));
+        }
+
+        const std::string path = std::string(::testing::TempDir()) + name;
+        std::ofstream out(path, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(buffer.data()),
+                  static_cast<std::streamsize>(buffer.size()));
+        out.close();
+        return path;
+    }
+
+    // Mean magnitude in dB over [low_hz, high_hz], measured by a direct DFT of the samples
+    // zero-padded to fft_size - independent of IrLoader's own FFT and bin arithmetic.
+    double band_mean_decibels(const std::vector<float>& samples, double sample_rate,
+                              std::uint32_t fft_size, double low_hz, double high_hz)
+    {
+        const double bin_width = sample_rate / static_cast<double>(fft_size);
+        const auto first_bin = static_cast<std::uint32_t>(std::ceil(low_hz / bin_width));
+        const auto last_bin = static_cast<std::uint32_t>(std::floor(high_hz / bin_width));
+
+        double sum = 0.0;
+        std::uint32_t count = 0;
+        for (std::uint32_t bin = first_bin; bin <= last_bin; ++bin)
+        {
+            double real = 0.0, imaginary = 0.0;
+            for (std::size_t i = 0; i < samples.size(); ++i)
+            {
+                const double phase = 2.0 * PI * bin * static_cast<double>(i) / fft_size;
+                real += samples[i] * std::cos(phase);
+                imaginary -= samples[i] * std::sin(phase);
+            }
+            sum += 20.0 * std::log10(std::sqrt(real * real + imaginary * imaginary));
+            ++count;
+        }
+        return sum / count;
+    }
+}
 
 TEST(Unit_Dsp, IrLoaderTrimsAndFadesToMaxLength)
 {
@@ -46,4 +133,39 @@ TEST(Unit_Dsp, IrLoaderNormalisesBandAverageToZeroDb)
 
     EXPECT_NEAR(ir.samples[0], 1.0f, 1e-3f);
     EXPECT_DOUBLE_EQ(ir.sample_rate, 48000.0);
+}
+
+TEST(Unit_Dsp, IrLoaderNormalisesShapedBandAverageToZeroDb)
+{
+    // A two-tap comb: |1 + 0.9 e^-jwK| ripples between 0.1 and 1.9 across the 100 Hz - 5 kHz
+    // band, so unlike a single-tap IR the band selection and the averaging rule both matter.
+    std::vector<float> samples(4096, 0.0f);
+    samples[0] = 1.0f;
+    samples[64] = 0.9f;
+
+    const auto ir = SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0);
+
+    // IrLoader pads to the next power of two at or above twice the length.
+    const double measured = band_mean_decibels(ir.samples, 48000.0, 8192, 100.0, 5000.0);
+    EXPECT_NEAR(measured, 0.0, 0.1);
+
+    // The conditioning is a single scalar gain: the tap ratio must be untouched.
+    EXPECT_NEAR(ir.samples[64] / ir.samples[0], 0.9f, 1e-5f);
+}
+
+TEST(Unit_Dsp, IrLoaderLoadResamplesAWavFileToTheTargetRate)
+{
+    std::vector<std::int16_t> source(441);
+    for (std::size_t i = 0; i < source.size(); ++i)
+    {
+        source[i] = static_cast<std::int16_t>(
+            16000.0 * std::sin(2.0 * PI * 500.0 * static_cast<double>(i) / 44100.0));
+    }
+    const std::string path = write_pcm16_wav("sushidsp_ir_loader_44k.wav", 44100, source);
+
+    const auto ir = SushiDSP::IrLoader::load(path, 48000.0);
+
+    EXPECT_DOUBLE_EQ(ir.sample_rate, 48000.0);
+    const auto expected_length = static_cast<double>(source.size()) * 48000.0 / 44100.0;
+    EXPECT_NEAR(static_cast<double>(ir.samples.size()), expected_length, 2.0);
 }
