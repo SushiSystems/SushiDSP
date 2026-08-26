@@ -22,6 +22,7 @@
 /**************************************************************************/
 
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -399,4 +400,40 @@ TEST(Unit_Dsp, RigGraphProcessFlushesDenormalsForItsNodes)
     SushiDSP::ProcessContext context{ outs, nullptr, 64, 0.0 };
     graph.process(context);
     EXPECT_EQ(out[0], 0.0f);          // 1e-40 * 0.5 is a non-zero denormal without FTZ/DAZ
+}
+
+TEST(Unit_Dsp, RigGraphCompileThrowsOnCycle)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto a = graph.add_node(std::make_unique<GainNode>(1.0f));
+    auto b = graph.add_node(std::make_unique<GainNode>(1.0f));
+    graph.connect(a, b);
+    graph.connect(b, a);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    EXPECT_THROW(graph.compile(info), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigGraphCompileThrowsOnMultipleSinkNodes)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto sink_a = graph.add_node(std::make_unique<GainNode>(2.0f));
+    auto sink_b = graph.add_node(std::make_unique<GainNode>(3.0f));
+    graph.connect(source, sink_a);
+    graph.connect(source, sink_b);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    EXPECT_THROW(graph.compile(info), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigGraphCompileAcceptsSingleSinkGraph)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto sink = graph.add_node(std::make_unique<GainNode>(2.0f));
+    graph.connect(source, sink);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    EXPECT_NO_THROW(graph.compile(info));
 }
