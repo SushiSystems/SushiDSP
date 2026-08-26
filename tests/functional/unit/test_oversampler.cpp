@@ -196,8 +196,11 @@ TEST(Unit_Dsp, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
     // Blackman-Harris scalloping, which would flatter every alias by that much.
     const double reference_cycles = std::round(0.1 * base_frames) / base_frames;
     const double reference = peak_db(SushiDSP::measure::magnitude_spectrum_db(sine(reference_cycles, base_frames * 2, 0.5f), base_frames));
-    for (double fraction = 0.55; fraction < 3.96; fraction += 0.05)
+    // Integer-stepped: accumulating += 0.05 in double drifts, and near-integer fractions
+    // then fold to ~1e-7 instead of ~0, where the sweep would assert nothing.
+    for (int step = 11; step <= 79; ++step)
     {
+        const double fraction = step * 0.05;
         double folded = std::fmod(fraction, 1.0);
         folded = folded > 0.5 ? 1.0 - folded : folded;
         if (folded > 0.45)
@@ -281,4 +284,60 @@ TEST(Unit_Dsp, Oversampler8xPassesDcAtUnity)
         oversampler.downsample(up, 2048, output.data());
     }
     EXPECT_NEAR(output[255], 1.0f, 1e-4f);
+}
+
+TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
+{
+    // An instance that has processed a burst and then been reset must produce bit-identical
+    // output to a never-used instance, on all three classes.
+    const auto burst = sine(0.1913, 512, 0.9f);
+    const auto probe = sine(0.0611, 128, 0.6f);
+
+    {
+        SushiDSP::HalfbandUpsampler2x used(SushiDSP::kHalfbandStage1);
+        SushiDSP::HalfbandUpsampler2x fresh(SushiDSP::kHalfbandStage1);
+        std::vector<float> scratch(burst.size() * 2, 0.0f);
+        used.process(burst.data(), static_cast<std::uint32_t>(burst.size()), scratch.data());
+        used.reset();
+        std::vector<float> after_reset(probe.size() * 2, 0.0f), never_used(probe.size() * 2, 0.0f);
+        used.process(probe.data(), static_cast<std::uint32_t>(probe.size()), after_reset.data());
+        fresh.process(probe.data(), static_cast<std::uint32_t>(probe.size()), never_used.data());
+        EXPECT_EQ(after_reset, never_used);
+    }
+
+    {
+        SushiDSP::HalfbandDownsampler2x used(SushiDSP::kHalfbandStage1);
+        SushiDSP::HalfbandDownsampler2x fresh(SushiDSP::kHalfbandStage1);
+        std::vector<float> scratch(burst.size() / 2, 0.0f);
+        used.process(burst.data(), static_cast<std::uint32_t>(burst.size()), scratch.data());
+        used.reset();
+        std::vector<float> after_reset(probe.size() / 2, 0.0f), never_used(probe.size() / 2, 0.0f);
+        used.process(probe.data(), static_cast<std::uint32_t>(probe.size()), after_reset.data());
+        fresh.process(probe.data(), static_cast<std::uint32_t>(probe.size()), never_used.data());
+        EXPECT_EQ(after_reset, never_used);
+    }
+
+    {
+        SushiDSP::Oversampler8x used(128);
+        SushiDSP::Oversampler8x fresh(128);
+        std::vector<float> scratch(128, 0.0f);
+        for (std::size_t position = 0; position + 128 <= burst.size(); position += 128)
+        {
+            const float* up = used.upsample(burst.data() + position, 128);
+            used.downsample(up, 1024, scratch.data());
+        }
+        used.reset();
+        // The 8x buffer is internally owned and reused, so each block is copied out before the
+        // next call overwrites it.
+        std::vector<float> after_reset_up(1024, 0.0f), never_used_up(1024, 0.0f);
+        std::vector<float> after_reset(128, 0.0f), never_used(128, 0.0f);
+        const float* used_up = used.upsample(probe.data(), 128);
+        std::copy(used_up, used_up + 1024, after_reset_up.begin());
+        used.downsample(after_reset_up.data(), 1024, after_reset.data());
+        const float* fresh_up = fresh.upsample(probe.data(), 128);
+        std::copy(fresh_up, fresh_up + 1024, never_used_up.begin());
+        fresh.downsample(never_used_up.data(), 1024, never_used.data());
+        EXPECT_EQ(after_reset_up, never_used_up);
+        EXPECT_EQ(after_reset, never_used);
+    }
 }

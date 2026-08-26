@@ -89,6 +89,9 @@ namespace SushiDSP
             write_index_ = (write_index_ + 1) & history_mask_;
             history_[write_index_] = input[frame];
 
+            // Accumulated in float. The 1e-6 direct-form equivalence the tests pin is
+            // empirical - it holds because these designs' taps decay fast, so the pair
+            // sum is dominated by a handful of terms - not a worst-case error bound.
             float accumulator = 0.0f;
             for (std::uint32_t k = 0; k < pair_count; ++k)
             {
