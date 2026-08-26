@@ -27,6 +27,8 @@
 
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
+#include "SushiDSP/routing/MixerNode.hpp"
+#include "SushiDSP/routing/SplitterNode.hpp"
 
 namespace SushiDSP
 {
@@ -35,6 +37,8 @@ namespace SushiDSP
         static const std::vector<NodeEntry> entries{
             { &tube_screamer_descriptor(), NodeCategory{ "Distortion" } },
             { &jcm800_descriptor(), NodeCategory{ "Amp" } },
+            { &splitter_descriptor(), NodeCategory{ "Routing" } },
+            { &mixer_descriptor(), NodeCategory{ "Routing" } },
         };
         return entries;
     }

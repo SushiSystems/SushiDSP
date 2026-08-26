@@ -22,15 +22,17 @@
 /**************************************************************************/
 
 #include <cstring>
+#include <string>
 
 #include <gtest/gtest.h>
 
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
+#include "SushiDSP/routing/MixerNode.hpp"
 
 TEST(Unit_Dsp, NodeRegistryListsTubeScreamerAndJcm800)
 {
     const auto& entries = SushiDSP::node_registry();
-    ASSERT_EQ(entries.size(), 2u);
+    ASSERT_GE(entries.size(), 2u);
 
     bool found_tube_screamer = false, found_jcm800 = false;
     for (const auto& entry : entries)
@@ -74,4 +76,27 @@ TEST(Unit_Dsp, MakeNodeReturnsNullForUnknownId)
 {
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     EXPECT_EQ(SushiDSP::make_node("does.not.exist", info), nullptr);
+}
+
+TEST(Unit_Dsp, NodeRegistryIncludesRoutingNodes)
+{
+    const SushiDSP::PrepareInfo info{ 48000.0, 64, 1 };
+
+    auto splitter = SushiDSP::make_node("sushidsp.splitter", info);
+    ASSERT_NE(splitter, nullptr);
+    EXPECT_EQ(splitter->ports().output_channels, 1u);
+
+    auto mixer = SushiDSP::make_node("sushidsp.mixer", info);
+    ASSERT_NE(mixer, nullptr);
+    EXPECT_EQ(mixer->ports().input_channels, SushiDSP::MixerNode::kMaxFanIn);
+
+    bool found_routing_category = false;
+    for (const auto& entry : SushiDSP::node_registry())
+    {
+        if (std::string(entry.category.name) == "Routing")
+        {
+            found_routing_category = true;
+        }
+    }
+    EXPECT_TRUE(found_routing_category);
 }

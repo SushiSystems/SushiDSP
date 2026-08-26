@@ -31,6 +31,7 @@
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
+#include "SushiDSP/node_registry/NodeRegistry.hpp"
 
 namespace
 {
@@ -569,5 +570,40 @@ TEST(Unit_Dsp, RigGraphProcessFansOutOneNodeToTwoDownstreamNodes)
     for (float sample : output_buffer)
     {
         EXPECT_FLOAT_EQ(sample, 16.0f);
+    }
+}
+
+TEST(Unit_Dsp, RigGraphSplitterAndMixerRoundTripThroughTwoEffectBranches)
+{
+    SushiDSP::RigGraph graph(256, 6);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto splitter = SushiDSP::make_node("sushidsp.splitter", SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    auto splitter_handle = graph.add_node(std::move(splitter));
+    auto branch_a = graph.add_node(std::make_unique<GainNode>(2.0f));
+    auto branch_b = graph.add_node(std::make_unique<GainNode>(3.0f));
+    auto mixer = SushiDSP::make_node("sushidsp.mixer", SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    auto mixer_handle = graph.add_node(std::move(mixer));
+
+    graph.connect(source, splitter_handle);
+    graph.connect(splitter_handle, branch_a);
+    graph.connect(splitter_handle, branch_b);
+    graph.connect(branch_a, mixer_handle);
+    graph.connect(branch_b, mixer_handle);
+
+    graph.node(mixer_handle)->set_parameter("gain_0", 0.5f);
+    graph.node(mixer_handle)->set_parameter("gain_1", 1.0f);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> output_buffer(256, 0.0f);
+    float* output_channels[1] = { output_buffer.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    // source(1.0) -split-> branch_a(*2=2.0), branch_b(*3=3.0) -> mixer(2.0*0.5 + 3.0*1.0 = 4.0)
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 4.0f);
     }
 }
