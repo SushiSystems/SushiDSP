@@ -124,6 +124,13 @@ namespace SushiDSP
         // pool would hand out nullptr and crash on the RT thread.
         assert(nodes_.size() <= buffer_pool_.capacity() && "RigGraph: more nodes than BufferPool can hold live simultaneously");
 
+        // Reset every cached compile() result up front, so a compile() that throws partway
+        // through (cycle, multi-sink, zero-sink) can never leave a stale latency/sink value
+        // behind from a previous successful compile().
+        cached_latency_samples_ = 0;
+        sink_handle_ = 0;
+        topological_order_.clear();
+
         std::vector<std::uint32_t> in_degree(nodes_.size(), 0);
         for (const Edge& edge : edges_)
         {
@@ -139,7 +146,6 @@ namespace SushiDSP
             }
         }
 
-        topological_order_.clear();
         while (!ready.empty())
         {
             const NodeHandle current = ready.front();
@@ -173,7 +179,6 @@ namespace SushiDSP
             has_outgoing_edge[edge.from] = true;
             has_incoming_edge[edge.to] = true;
         }
-        sink_handle_ = 0;
         std::size_t sink_count = 0;
         for (NodeHandle handle : topological_order_)
         {
@@ -248,10 +253,9 @@ namespace SushiDSP
 
         for (NodeHandle handle : topological_order_)
         {
-            if (nodes_[handle] == nullptr)
-            {
-                continue;
-            }
+            // compile()'s cycle check only accepts a topological order covering exactly the
+            // live nodes, so every handle here is guaranteed non-null.
+            assert(nodes_[handle] != nullptr);
 
             float* node_buffer = buffer_pool_.acquire(context.frames);
 
@@ -263,21 +267,25 @@ namespace SushiDSP
                 {
                     gathered_inputs[input_count] = node_output[edge.from];
                     ++input_count;
+                    assert(input_count <= kMaxFanInOut && "RigGraph: fan-in exceeds kMaxFanInOut (connect() enforces this)");
                 }
             }
 
             // A node with no upstream edge is a root node. Feed it the graph's own live
             // input (e.g. an ASIO device's captured audio) rather than always nullptr, so a
             // rig can start directly from live input without a synthetic source node.
-            const float* const* node_inputs = nullptr;
-            if (input_count > 0)
+            //
+            // The host's own inputs array is never handed to a node directly: hosts pass a
+            // 1-element array, while a multi-input node (MixerNode) reads all kMaxFanInOut
+            // slots. Routing external input through slot 0 of the fixed-size gather array
+            // guarantees every node always sees a kMaxFanInOut-sized array whose unused
+            // slots are nullptr, instead of reading past the host's array.
+            if (input_count == 0 && context.inputs != nullptr)
             {
-                node_inputs = gathered_inputs;
+                gathered_inputs[0] = context.inputs[0];
+                input_count = 1;
             }
-            else if (context.inputs != nullptr)
-            {
-                node_inputs = context.inputs;
-            }
+            const float* const* node_inputs = (input_count > 0) ? gathered_inputs : nullptr;
 
             float* output_ptr[1] = { node_buffer };
             ProcessContext node_context{ output_ptr, node_inputs, context.frames, context.time_seconds };

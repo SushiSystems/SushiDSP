@@ -629,3 +629,32 @@ TEST(Unit_Dsp, RigGraphUpstreamOfListsEdgesInConnectOrder)
     EXPECT_EQ(upstream[1], b);
     EXPECT_TRUE(graph.upstream_of(a).empty());
 }
+
+TEST(Unit_Dsp, RigGraphFeedsRootNodeExternalInputThroughAFullWidthGatherArray)
+{
+    // Regression: a multi-input node (MixerNode reads all kMaxFanInOut slots) placed as a ROOT
+    // node — no incoming edges, reachable via a hand-authored or rig_preset-loaded JSON whose
+    // mixer has an empty "inputs" — used to be handed the host's raw context.inputs pointer.
+    // Hosts pass a 1-element array, so the mixer read 7 pointers past the end of it and
+    // dereferenced whatever garbage followed. Every node must now receive a
+    // kMaxFanInOut-sized array whose unused slots are nullptr.
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::RigGraph graph(256, 4);
+    graph.add_node(SushiDSP::make_node("sushidsp.mixer", info));
+    graph.compile(info);
+
+    // A realistic host-shaped call: exactly one input channel, as apps/host* all pass.
+    std::vector<float> input_buffer(256, 0.25f);
+    const float* input_channels[1] = { input_buffer.data() };
+    std::vector<float> output_buffer(256, -1.0f);
+    float* output_channels[1] = { output_buffer.data() };
+    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    graph.process(context);
+
+    // gain_0 defaults to 1.0 and every other slot must be silent (nullptr), never garbage,
+    // so the output is exactly the external input.
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 0.25f);
+    }
+}
