@@ -59,14 +59,14 @@ int main()
     auto tube_screamer = std::make_unique<SushiDSP::TubeScreamer>();
     tube_screamer->set_drive(0.7f);
     tube_screamer->set_tone(0.5f);
-    tube_screamer->set_level(0.8f);
+    tube_screamer->set_level(0.0f);   // Level is now in dB; 0 dB is the pedal's unity-ish output
 
     // No cabinet impulse response: none ships with this repository, so the demo runs the amp
     // without its cabinet stage. Loading one is a user-side step -
     // Jcm800(SushiDSP::WavFile::load_mono("path/to/ir.wav")) - not yet surfaced as a host flag.
     auto jcm800 = std::make_unique<SushiDSP::Jcm800>();
     jcm800->set_preamp(0.7f);
-    jcm800->set_master(0.6f);
+    jcm800->set_master(0.0f);
     jcm800->set_bass(0.5f);
     jcm800->set_middle(0.4f);
     jcm800->set_treble(0.7f);

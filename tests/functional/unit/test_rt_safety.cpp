@@ -335,7 +335,7 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
     node.set_preamp(0.8f);
-    node.set_master(0.7f);
+    node.set_master(0.0f);
     node.set_bass(0.6f);
     node.set_middle(0.4f);
     node.set_treble(0.7f);
@@ -381,7 +381,7 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithCabinet)
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
     node.set_preamp(0.6f);
-    node.set_master(0.7f);
+    node.set_master(0.0f);
 
     std::vector<float> input(256);
     for (std::size_t i = 0; i < input.size(); ++i)

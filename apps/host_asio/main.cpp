@@ -157,11 +157,11 @@ int main(int argc, char** argv)
     auto tube_screamer = std::make_unique<SushiDSP::TubeScreamer>();
     tube_screamer->set_drive(0.5f);
     tube_screamer->set_tone(0.5f);
-    tube_screamer->set_level(0.8f);
+    tube_screamer->set_level(0.0f);   // Level is now in dB; 0 dB is the pedal's unity-ish output
 
     auto jcm800 = std::make_unique<SushiDSP::Jcm800>(cabinet_ir);
     jcm800->set_preamp(0.6f);
-    jcm800->set_master(0.6f);
+    jcm800->set_master(0.0f);
     jcm800->set_bass(0.5f);
     jcm800->set_middle(0.5f);
     jcm800->set_treble(0.6f);
