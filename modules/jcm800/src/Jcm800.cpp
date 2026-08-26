@@ -91,10 +91,22 @@ namespace SushiDSP
         // here is free-tuned; the only assumption is the stray wiring capacitance, taken as a
         // conventional 10 pF for point-to-point turret board wiring.
         //
-        // The driving impedance is the preceding stage's 100 kOhm plate load. V1b's grid also
-        // sits behind the 2203's 470k/470p treble peaker, but the 470 pF shunts the 470 kOhm from
-        // about 720 Hz upward, so what the grid sees at the frequencies this pole governs is the
-        // plate load alone; the peaker does not move the corner and is not folded into it.
+        // The driving impedance is taken as a common 100 kOhm plate load for all three grids.
+        // That is a deliberate simplification, not a per-node fact: V1b's grid is really fed from
+        // the 1 MOhm preamp pot's wiper (a Thevenin source of up to 250 kOhm), V2a's from the
+        // tone stack's output impedance, and the phase inverter's from V2a's plate through the
+        // interstage divider. Every one of those is higher than 100 kOhm over most of its range,
+        // so the errors all run in the same direction - this model is brighter than the amp,
+        // never darker - and none of them is available as a single number until D6d gives each
+        // block a real source impedance.
+        //
+        // V1b's grid also sits behind the 2203's 470k/470p treble peaker, which is not in this
+        // model at all. If it were, it would not simply move the corner: above about 720 Hz the
+        // 470 pF dominates the 470 kOhm and puts itself in series with the ~115 pF grid
+        // capacitance, so the source drives the two in series (~92.6 pF, a corner near 17.2 kHz)
+        // through a capacitive divider that costs about 2 dB flat across the top end. The corner
+        // below is computed from the plate load and the grid capacitance alone, and the real
+        // circuit's would sit higher.
         //
         // Without this, the D6a single 8x region let V1a/V1b's full 192 kHz-wide harmonic
         // spectrum reach V2a, the phase inverter and the EL34 pair, whose own clipping turned it
@@ -173,9 +185,10 @@ namespace SushiDSP
             return (normalized - 0.5f) * 2.0f * kMaxPresenceDb;
         }
 
-        // @param stage_voltage_gain The driven stage's mid-band gain, which is what the
-        // grid-plate capacitance is multiplied by.
-        // @return The -3 dB corner of the grid's RC pole, in Hz.
+        /// @brief The corner of one grid's Miller input-capacitance pole.
+        /// @param stage_voltage_gain The driven stage's mid-band gain, which is what the
+        /// grid-plate capacitance is multiplied by.
+        /// @return The -3 dB corner of the grid's RC pole, in Hz.
         double miller_corner_hz(double stage_voltage_gain)
         {
             const double input_capacitance_farads =
@@ -214,6 +227,10 @@ namespace SushiDSP
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
         , sag_(48000.0 * kOversamplingFactor, kSagAmount, kSagRecoveryTimeSeconds)
     {
+        const double initial_oversampled_rate_hz = 48000.0 * kOversamplingFactor;
+        v1b_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kTriodeGain));
+        v2a_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kTriodeGain));
+        phase_inverter_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kPhaseInverterGain));
     }
 
     void Jcm800::prepare(const PrepareInfo& info)
@@ -227,8 +244,14 @@ namespace SushiDSP
         presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_.target()), kFilterQ);
 
         // The Miller poles are part of the oversampled chain, so like the coupling capacitor they
-        // are derived at the oversampled rate. Their corners land near 13.8 kHz for the three
-        // gain-of-60 triodes and near 19.6 kHz for the lower-gain phase inverter.
+        // are derived at the oversampled rate. Their corners land near 13.8 kHz for the two
+        // gain-of-60 triode grids and near 19.6 kHz for the lower-gain phase inverter.
+        //
+        // The phase inverter's pole is a property of *this* model's inverter, which is a single
+        // gain-of-40 triode. A real 2203's inverter is a long-tailed pair, whose driven grid sees
+        // very little Miller multiplication because that half runs as a grounded-grid stage with
+        // no inverting plate-to-grid path. D6d should not inherit this pole when it replaces the
+        // inverter with the LTP.
         const double oversampled_rate_hz = sample_rate_ * kOversamplingFactor;
         v1b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kTriodeGain));
         v2a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kTriodeGain));
