@@ -130,11 +130,6 @@ namespace SushiDSP
         // the ~1e-3 step a 7-bit MIDI controller can even express.
         constexpr float kCoefficientEpsilon = 1e-4f;
 
-        // The master knob's reference point: 0 dB reproduces the linear 0.7 multiplier that was
-        // this amp's default before the control became a dB level, so nothing about the shipped
-        // loudness moved when the units did.
-        constexpr float kMasterUnityGain = 0.7f;
-
         constexpr float kMinMasterDb = -60.0f;
         constexpr float kMaxMasterDb = 12.0f;
         constexpr float kMinInputTrimDb = -24.0f;
@@ -279,7 +274,7 @@ namespace SushiDSP
         }
 
         const float preamp_gain = preamp_attenuation(preamp);
-        const float master_gain = master * kMasterUnityGain;
+        const float master_gain = master * Jcm800::kMasterUnityGain;
 
         for (std::uint32_t i = 0; i < frames; ++i)
         {

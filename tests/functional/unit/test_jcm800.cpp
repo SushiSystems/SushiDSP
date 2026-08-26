@@ -44,9 +44,11 @@
 namespace
 {
     // The master level whose linear multiplier is exactly 1.0. Master is a dB control whose 0 dB
-    // reference is the amp's 0.7 linear multiplier, so the tests that used to ask for "master
-    // fully up at 1.0 linear" ask for this instead and keep measuring the same signal.
-    const float kUnityMasterDb = 20.0f * std::log10(1.0f / 0.7f);
+    // reference is kMasterUnityGain, so the tests that used to ask for "master fully up at 1.0
+    // linear" ask for this instead and keep measuring the same signal - including across the D5b
+    // recalibration of that reference, which is why it is derived from the constant rather than
+    // written out as a number.
+    const float kUnityMasterDb = -SushiDSP::gain_to_decibels(SushiDSP::Jcm800::kMasterUnityGain);
 }
 
 TEST(Unit_Dsp, Jcm800ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
@@ -829,4 +831,45 @@ TEST(Unit_Dsp, Jcm800RejectsACabinetBeforePrepare)
     EXPECT_TRUE(node.set_cabinet(impulse_response));
     EXPECT_TRUE(node.has_cabinet());
     node.reclaim_cabinets();
+}
+
+TEST(Unit_Dsp, Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
+{
+    // The shipped calibration point: a -12 dBFS low-E sine into an untouched amp comes back out
+    // at about -6 dBFS, leaving headroom for a hotter pickup without the post-cabinet clamp ever
+    // engaging on a normal signal.
+    SushiDSP::Jcm800 node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    std::vector<float> input(256, 0.0f);
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    float peak = 0.0f;
+    for (int block = 0; block < 188; ++block)
+    {
+        for (int i = 0; i < 256; ++i)
+        {
+            const float sample_index = static_cast<float>(block * 256 + i);
+            input[static_cast<std::size_t>(i)] =
+                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 82.0f * sample_index / 48000.0f);
+        }
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+
+        // The first blocks are skipped so the measurement is of the settled amp, not of the
+        // filters' and the sag stage's startup transient.
+        if (block > 20)
+        {
+            for (float sample : output)
+            {
+                peak = std::max(peak, std::fabs(sample));
+            }
+        }
+    }
+
+    const float peak_decibels = 20.0f * std::log10(peak);
+    EXPECT_GT(peak_decibels, -8.0f);
+    EXPECT_LT(peak_decibels, -4.0f);
 }

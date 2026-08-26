@@ -92,9 +92,12 @@ namespace SushiDSP
         /// @param value The new target value, in that parameter's own units.
         void set_parameter(std::uint16_t index, float value) override;
 
-        /// @brief Linear output gain at 0 dB on the Level knob: the real pedal's unity-ish
-        /// output sits around Level 7, which the pre-dB implementation hard-coded as 0.7.
-        static constexpr float kLevelUnityGain = 0.7f;
+        /// @brief Linear output gain at 0 dB on the Level knob. Calibrated in D5b so the pedal
+        /// at its defaults is within a couple of dB of unity - a -12 dBFS low-E sine comes back
+        /// out near -12 dBFS. It multiplies the signal after the last nonlinearity, so it scales
+        /// the output and nothing else; with the JCM800's kMasterUnityGain it is the only
+        /// tone-affecting number this phase changes.
+        static constexpr float kLevelUnityGain = 1.1078783f;
 
         // Public so the free function feedback_resistance_for_drive() in TubeScreamer.cpp's
         // anonymous namespace can reference them without befriending the class.
