@@ -613,3 +613,19 @@ TEST(Unit_Dsp, GainNodeTypeIdDefaultsToEmptyString)
     GainNode node(1.0f);
     EXPECT_STREQ(node.type_id(), "");
 }
+
+TEST(Unit_Dsp, RigGraphUpstreamOfListsEdgesInConnectOrder)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto a = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto b = graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
+    auto sink = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    graph.connect(a, sink);
+    graph.connect(b, sink);
+
+    const std::vector<SushiDSP::NodeHandle> upstream = graph.upstream_of(sink);
+    ASSERT_EQ(upstream.size(), 2u);
+    EXPECT_EQ(upstream[0], a);
+    EXPECT_EQ(upstream[1], b);
+    EXPECT_TRUE(graph.upstream_of(a).empty());
+}
