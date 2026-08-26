@@ -155,6 +155,8 @@ namespace SushiDSP
         return oversampler_ ? oversampler_->latency_samples() : 0u;
     }
 
+    const char* TubeScreamer::type_id() const { return "sushidsp.tubescreamer"; }
+
     void TubeScreamer::set_drive(float normalized) { drive_.set_target(normalized); }
     void TubeScreamer::set_tone(float normalized) { tone_.set_target(normalized); }
 

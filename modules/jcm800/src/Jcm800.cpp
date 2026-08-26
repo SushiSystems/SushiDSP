@@ -426,6 +426,8 @@ namespace SushiDSP
         return oversampling_latency + (has_cabinet() ? cabinet_partition_ : 0);
     }
 
+    const char* Jcm800::type_id() const { return "sushidsp.jcm800"; }
+
     bool Jcm800::set_cabinet(Ir impulse_response)
     {
         // cabinet_partition_ is 0 until prepare() has run, and a zero-partition
