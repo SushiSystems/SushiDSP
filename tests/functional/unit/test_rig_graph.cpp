@@ -283,3 +283,34 @@ TEST(Unit_Dsp, RigGraphDisconnectRemovesOnlyThatEdge)
     // device_input directly, giving 1.0*2.0=2.0 instead of 8.0).
     EXPECT_FLOAT_EQ(output[0], 8.0f);
 }
+
+namespace
+{
+    class LatencyNode : public SushiDSP::IAudioNode
+    {
+    public:
+        explicit LatencyNode(std::uint32_t latency) : latency_(latency) {}
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t i = 0; i < context.frames; ++i) { context.outputs[0][i] = 0.0f; }
+        }
+        SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+        void reset() override {}
+        std::uint32_t latency_samples() const override { return latency_; }
+    private:
+        std::uint32_t latency_;
+    };
+}
+
+TEST(Unit_Dsp, RigGraphLatencyIsSumOfChainedNodeLatencies)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    const auto a = graph.add_node(std::make_unique<LatencyNode>(7));
+    const auto b = graph.add_node(std::make_unique<LatencyNode>(128));
+    graph.connect(a, b);
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    EXPECT_EQ(graph.latency_samples(), 135u);
+}

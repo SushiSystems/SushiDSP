@@ -119,6 +119,7 @@ namespace SushiDSP
         , history_(ring_capacity(even_coefficients_.size()), 0.0f)
         , history_mask_(static_cast<std::uint32_t>(history_.size()) - 1)
         , write_index_(0)
+        , taps_(static_cast<std::uint32_t>(even_coefficients_.size() + odd_coefficients_.size()))
     {
     }
 
@@ -146,6 +147,7 @@ namespace SushiDSP
         , history_(ring_capacity(coefficients_.size()), 0.0f)
         , history_mask_(static_cast<std::uint32_t>(history_.size()) - 1)
         , write_index_(0)
+        , taps_(static_cast<std::uint32_t>(coefficients_.size()))
     {
     }
 
@@ -196,6 +198,19 @@ namespace SushiDSP
         stage3_down_.process(oversampled, frames_oversampled, scratch_4x_.data());
         stage2_down_.process(scratch_4x_.data(), frames_oversampled / 2, scratch_2x_.data());
         stage1_down_.process(scratch_2x_.data(), frames_oversampled / 4, output);
+    }
+
+    std::uint32_t Oversampler8x::latency_samples() const
+    {
+        // A linear-phase FIR of T taps delays by (T-1)/2 samples at its own rate. Up-stages run
+        // at 2x, 4x, 8x of base; down-stages at the same rates. Convert each to base-rate samples.
+        const double up = (stage1_up_.taps() - 1) / 2.0 / 2.0
+                        + (stage2_up_.taps() - 1) / 2.0 / 4.0
+                        + (stage3_up_.taps() - 1) / 2.0 / 8.0;
+        const double down = (stage3_down_.taps() - 1) / 2.0 / 8.0
+                          + (stage2_down_.taps() - 1) / 2.0 / 4.0
+                          + (stage1_down_.taps() - 1) / 2.0 / 2.0;
+        return static_cast<std::uint32_t>(up + down);
     }
 
     void Oversampler8x::reset()

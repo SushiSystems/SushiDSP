@@ -53,12 +53,17 @@ namespace SushiDSP
         /// @brief Zeroes the history so the next process() starts from silence.
         void reset();
 
+        /// @brief The FIR length actually in use, after the requested length was forced odd.
+        /// @return Number of taps.
+        std::uint32_t taps() const { return taps_; }
+
     private:
         std::vector<float> even_coefficients_;
         std::vector<float> odd_coefficients_;
         std::vector<float> history_;
         std::uint32_t      history_mask_;
         std::uint32_t      write_index_;
+        std::uint32_t      taps_;
     };
 
     /// @brief Decimates by 2x using a windowed-sinc halfband FIR lowpass. Allocation-free
@@ -82,11 +87,16 @@ namespace SushiDSP
         /// @brief Zeroes the history so the next process() starts from silence.
         void reset();
 
+        /// @brief The FIR length actually in use, after the requested length was forced odd.
+        /// @return Number of taps.
+        std::uint32_t taps() const { return taps_; }
+
     private:
         std::vector<float> coefficients_;
         std::vector<float> history_;
         std::uint32_t      history_mask_;
         std::uint32_t      write_index_;
+        std::uint32_t      taps_;
     };
 
     /// @brief Cascades three halfband stages each way for 8x oversampling. Allocation-free
@@ -114,6 +124,10 @@ namespace SushiDSP
 
         /// @brief The base-rate block size this instance was constructed for.
         std::uint32_t block_size() const { return block_size_; }
+
+        /// @brief Round-trip group delay of the three up and three down stages.
+        /// @return Delay in base-rate samples (rounded down).
+        std::uint32_t latency_samples() const;
 
     private:
         std::uint32_t block_size_;

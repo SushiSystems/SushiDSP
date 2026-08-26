@@ -139,6 +139,16 @@ namespace SushiDSP
         }
     }
 
+    std::uint32_t RigGraph::latency_samples() const
+    {
+        std::uint32_t total = 0;
+        for (NodeHandle handle : topological_order_)
+        {
+            if (nodes_[handle] != nullptr) { total += nodes_[handle]->latency_samples(); }
+        }
+        return total;
+    }
+
     void RigGraph::process(ProcessContext& context)
     {
         auto& node_output = node_output_scratch_;

@@ -400,3 +400,26 @@ TEST(Unit_Dsp, HalfbandDownsamplerMatchesDirectFormReferenceBitForBit)
         }
     }
 }
+
+TEST(Unit_Dsp, Oversampler8xReportsMeasuredImpulseLatency)
+{
+    SushiDSP::Oversampler8x oversampler(64);
+    std::vector<float> input(64, 0.0f);
+    input[0] = 1.0f;
+    std::vector<float> output(64, 0.0f);
+    // Two blocks so a delay longer than one block is still observed.
+    std::vector<float> observed;
+    for (int block = 0; block < 2; ++block)
+    {
+        const float* up = oversampler.upsample(input.data(), 64);
+        oversampler.downsample(up, 512, output.data());
+        observed.insert(observed.end(), output.begin(), output.end());
+        std::fill(input.begin(), input.end(), 0.0f);
+    }
+    std::size_t peak_index = 0;
+    for (std::size_t i = 1; i < observed.size(); ++i)
+    {
+        if (std::fabs(observed[i]) > std::fabs(observed[peak_index])) { peak_index = i; }
+    }
+    EXPECT_EQ(static_cast<std::uint32_t>(peak_index), oversampler.latency_samples());
+}
