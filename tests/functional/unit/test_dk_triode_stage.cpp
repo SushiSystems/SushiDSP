@@ -48,9 +48,9 @@ namespace
     // block, and one description of it is the only way the three stay the same circuit.
     using namespace SushiDSP::test_circuits;
 
-    /// @brief The stage's DK shape: three capacitors, two triode branches, two sources, one probe.
-    using StageCircuit = SushiDSP::dk::DkCircuit<3, 2, 2, 1>;
-    using StageNetlist = SushiDSP::dk::DkNetlist<3, 2, 2, 1>;
+    /// @brief The stage's DK shape: six capacitors, two triode branches, two sources, one probe.
+    using StageCircuit = SushiDSP::dk::DkCircuit<6, 2, 2, 1>;
+    using StageNetlist = SushiDSP::dk::DkNetlist<6, 2, 2, 1>;
 
     /// @brief Runs the stage with both sources held constant until the bias point settles.
     /// @param circuit The prepared circuit; its state is advanced in place.

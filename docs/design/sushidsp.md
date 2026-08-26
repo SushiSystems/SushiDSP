@@ -251,35 +251,46 @@ this and the numbers below supersede it. A nonlinear branch is a *port* of the d
 device: a 12AX7 is **two** branches (grid-to-cathode and plate-to-cathode) and an EL34 is
 **three** (grid, screen, plate). So D6d block 1, one 12AX7 gain stage, is `DkCircuit<3, 2, 2, 1>`,
 and block 5, the push-pull EL34 output stage, needs `N = 10`, not the smaller counts the spec
-implies. Anyone sizing a D6d template from the spec alone will size it too small.
+implies. Anyone sizing a D6d template from the spec alone will size it too small. `S` grows the
+same way: a 12AX7 carries three interelectrode capacitances of its own (see *Measured* below), so
+block 1's three discrete capacitors make `S = 6`, and the shape is `DkCircuit<6, 2, 2, 1>`.
 
 **Open question carried into D6d.** The Koren fit in `PentodeEL34.hpp` draws 33.4 mA at
 `Vg1k = −37 V`, `Vg2k = Vpk = 400 V`. That is at the high end of a real 2203's idle, which may
 mean the default fixed-bias point in spec §D6d wants moving rather than the model wanting
 refitting. D6b did not decide it; D6d has to.
 
-**Measured.** The `jcm_v1a` stage (three capacitors, two triode branches, one preamp pot) settles
-to `Vk = 2.310 V`, `Vp = 274.4 V`. Newton convergence depends on the stimulus, and both figures
-matter:
+**Measured.** The `jcm_v1a` stage carries **six** reactive states, not three: the three discrete
+capacitors of the SPICE block plus the 12AX7's own Cgk/Cgp/Cpk, which
+`docs/reference/spice/models/12ax7_koren.sub` declares inside the subcircuit and every SPICE run
+therefore has. Miller-multiplied by the stage gain, Cgp with the 68 kΩ grid stopper puts the input
+corner near 22 kHz; a DK build without it is a different filter from the reference and would floor
+the pending SPICE transient null around −27 dB instead of the −60 dB the plan asks for. The stage
+(six capacitors, two triode branches, one preamp pot) settles to `Vk = 2.310 V`, `Vp = 274.4 V` —
+the same bias point, since capacitors do not move DC. Newton convergence depends on the stimulus,
+and both figures matter:
 
 - *Continuous* — a 2 s 20 Hz→20 kHz sweep plus 1 kHz bursts at 0.05 V, 0.5 V and 5 V (past grid
-  conduction), 1 056 000 samples at 384 kHz: **1 non-converged solve, 0.0001 %**, inside the plan's
-  0.01 % target.
+  conduction), 1 056 000 samples at 384 kHz: **0 non-converged solves, 0.0000 %**, inside the
+  plan's 0.01 % target.
 - *Looped block* — the benchmark harness replays one 256-frame buffer, so the tone steps back to
-  sample 0 once per repetition: **219 in 450 560, 0.0486 %, 4.9× the 0.01 % target**. That is about
-  one per repetition, and the same tone run continuously for the same sample count gives 1, so the
-  miss is the harness's discontinuity rather than the circuit. It is **handed to D6c**: a real
-  stream has no such step, but a block boundary after a hard parameter jump might.
+  sample 0 once per repetition: **0 in 450 560, 0.0000 %**. Before the interelectrode capacitances
+  were added this case missed the target at 219 in 450 560 (0.0486 %) — one per repetition, the
+  harness's own discontinuity. The extra states damp that step, and the miss handed to D6c is
+  closed.
 
-Both cases produced zero non-finite samples and never exceeded 8 iterations.
+Both cases produced zero non-finite samples and never exceeded 4 iterations.
 
-Cost, release build, 256-frame block at 48 kHz: the four-state two-nonlinearity block at 8×
-oversampling costs **0.873 ms/block against the plan's 0.12 ms budget** — 7.3× over. About 90 % of
-that is `Triode12AX7::current` and `::jacobian`, called separately by the solver at 63.8 ns per
-pair; the levers, in order of size, are a joint `current_and_jacobian` on the models,
-`process_sample`'s redundant post-solve `currents()` call, and a `DenseLu<2>` specialisation. D6c
-decides. A potentiometer re-derivation, timed on its own, costs 1.55 µs and confirms plan Ruling 3
-(pot moves re-derive on the audio thread at block cadence, allocation-free).
+Cost, release build, 256-frame block at 48 kHz: the seven-state two-nonlinearity block at 8×
+oversampling costs **0.963 ms/block against the plan's 0.12 ms budget** — 8.0× over. The plan's
+binding number was written for a *four-state* block (0.873 ms as first measured); the shape grew to
+seven states for reference-topology parity, and the ~10 % it costs is recorded here rather than
+hidden by keeping the smaller netlist. About 90 % of the time is `Triode12AX7::current` and
+`::jacobian`, called separately by the solver at 63.8 ns per pair; the levers, in order of size,
+are a joint `current_and_jacobian` on the models, `process_sample`'s redundant post-solve
+`currents()` call, and a `DenseLu<2>` specialisation. D6c decides. A potentiometer re-derivation,
+timed on its own, costs 1.56 µs and confirms plan Ruling 3 (pot moves re-derive on the audio
+thread at block cadence, allocation-free).
 
 ### Fixed capacities
 
