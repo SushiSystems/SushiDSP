@@ -28,6 +28,7 @@
 #include <gtest/gtest.h>
 
 #include "RigController.hpp"
+#include "SlotSelection.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 
 TEST(Unit_Dsp, RigControllerStartsEmpty)
@@ -213,4 +214,68 @@ TEST(Unit_Dsp, RigControllerRebuildSeedsFreshNodesWithStoredParameters)
     SushiDSP::IAudioNode* node = controller.active_graph()->node(0);
     ASSERT_NE(node, nullptr);
     EXPECT_FLOAT_EQ(node->get_parameter("tone"), 0.9f);
+}
+
+// --- Rack-list selection remapping (apps/host_gui/SlotSelection.hpp) ---
+//
+// main.cpp's rack list can insert, move or remove a slot in the middle of an ImGui frame, and
+// the parameter panel below it draws whatever `selected_slot` names. No test can drive an ImGui
+// frame here, so the index arithmetic lives in a pure header and is pinned directly.
+
+TEST(Unit_Dsp, SlotSelectionRemapAfterInsertShiftsSelectionAtOrAfterTheInsert)
+{
+    EXPECT_EQ(slot_selection::remap_after_insert(-1, 0), -1);
+    EXPECT_EQ(slot_selection::remap_after_insert(0, 0), 1);
+    EXPECT_EQ(slot_selection::remap_after_insert(2, 2), 3);
+    EXPECT_EQ(slot_selection::remap_after_insert(1, 2), 1);
+}
+
+TEST(Unit_Dsp, SlotSelectionRemapAfterRemoveDropsTheRemovedSlotAndShiftsLaterOnes)
+{
+    EXPECT_EQ(slot_selection::remap_after_remove(1, 1), -1);
+    EXPECT_EQ(slot_selection::remap_after_remove(2, 1), 1);
+    EXPECT_EQ(slot_selection::remap_after_remove(0, 1), 0);
+    EXPECT_EQ(slot_selection::remap_after_remove(-1, 0), -1);
+}
+
+TEST(Unit_Dsp, SlotSelectionRemapAfterMoveFollowsTheChainReorder)
+{
+    // Cross-checked against RigController::move() itself: whatever descriptor id the selection
+    // named before the move, it must still name after it.
+    SushiDSP::PrepareInfo info{ 48000.0, 64, 1 };
+    for (std::size_t from = 0; from < 3; ++from)
+    {
+        for (std::size_t to = 0; to < 3; ++to)
+        {
+            for (int selected = 0; selected < 3; ++selected)
+            {
+                RigController controller(info);
+                controller.append("sushidsp.tubescreamer");
+                controller.append("sushidsp.jcm800");
+                controller.append("sushidsp.tubescreamer");
+                // Tag the selected slot so it is identifiable by value, not by descriptor id.
+                const auto before = controller.chain_ids();
+                controller.set_parameter(static_cast<std::size_t>(selected), "drive", 0.77f);
+                const float marker = controller.get_parameter(static_cast<std::size_t>(selected), "drive");
+
+                controller.move(from, to);
+                const int remapped = slot_selection::remap_after_move(selected, from, to);
+
+                ASSERT_GE(remapped, 0);
+                ASSERT_LT(remapped, 3);
+                EXPECT_EQ(controller.chain_ids()[static_cast<std::size_t>(remapped)], before[static_cast<std::size_t>(selected)])
+                    << "from " << from << " to " << to << " selected " << selected;
+                EXPECT_FLOAT_EQ(controller.get_parameter(static_cast<std::size_t>(remapped), "drive"), marker)
+                    << "from " << from << " to " << to << " selected " << selected;
+            }
+        }
+    }
+}
+
+TEST(Unit_Dsp, SlotSelectionClampDropsAnOutOfRangeSelection)
+{
+    EXPECT_EQ(slot_selection::clamp(2, 3u), 2);
+    EXPECT_EQ(slot_selection::clamp(3, 3u), -1);
+    EXPECT_EQ(slot_selection::clamp(0, 0u), -1);
+    EXPECT_EQ(slot_selection::clamp(-1, 3u), -1);
 }

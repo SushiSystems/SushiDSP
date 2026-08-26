@@ -44,6 +44,7 @@
 
 #include "Preset.hpp"
 #include "RigController.hpp"
+#include "SlotSelection.hpp"
 
 #if defined(SUSHIDSP_HAVE_ASIO)
 #include "SushiDSP/device/AsioAudioDevice.hpp"
@@ -358,19 +359,21 @@ int main(int argc, char** argv)
         ImGui::Text("Rack");
         ImGui::Separator();
         {
-            const auto ids = rig_controller.chain_ids();
+            // Snapshot for THIS list only. Every branch below can edit the chain mid-frame, so
+            // nothing after the list may index with it - the parameter panel re-reads instead.
+            const auto rack_ids = rig_controller.chain_ids();
             static int selected_slot = -1;
-            for (std::size_t i = 0; i < ids.size(); ++i)
+            for (std::size_t i = 0; i < rack_ids.size(); ++i)
             {
                 ImGui::PushID(static_cast<int>(i));
-                if (ImGui::Selectable(ids[i].c_str(), selected_slot == static_cast<int>(i), 0, ImVec2(150, 0)))
+                if (ImGui::Selectable(rack_ids[i].c_str(), selected_slot == static_cast<int>(i), 0, ImVec2(150, 0)))
                 {
                     selected_slot = static_cast<int>(i);
                 }
                 if (ImGui::BeginDragDropSource())
                 {
                     ImGui::SetDragDropPayload("RACK_SLOT_INDEX", &i, sizeof(std::size_t));
-                    ImGui::Text("%s", ids[i].c_str());
+                    ImGui::Text("%s", rack_ids[i].c_str());
                     ImGui::EndDragDropSource();
                 }
                 if (ImGui::BeginDragDropTarget())
@@ -379,28 +382,14 @@ int main(int argc, char** argv)
                     {
                         const std::size_t from = *static_cast<const std::size_t*>(payload->Data);
                         rig_controller.move(from, i);
-                        // Remap selected_slot the same way RigController::move() remaps a slot
-                        // (erase at `from`, then insert at `i`): the moved element itself lands
-                        // at `i`; everything strictly between the old and new position shifts by
-                        // one to close/open the gap; anything else is unaffected.
-                        if (selected_slot == static_cast<int>(from))
-                        {
-                            selected_slot = static_cast<int>(i);
-                        }
-                        else if (static_cast<int>(from) < selected_slot && selected_slot <= static_cast<int>(i))
-                        {
-                            --selected_slot;
-                        }
-                        else if (static_cast<int>(i) <= selected_slot && selected_slot < static_cast<int>(from))
-                        {
-                            ++selected_slot;
-                        }
+                        selected_slot = slot_selection::remap_after_move(selected_slot, from, i);
                     }
                     if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
                     {
                         const char* descriptor_id = static_cast<const char*>(payload->Data);
                         rig_controller.insert(i, std::string(descriptor_id));
                         apply_default_cabinet(rig_controller, i, default_ir_path);
+                        selected_slot = slot_selection::remap_after_insert(selected_slot, i);
                     }
                     ImGui::EndDragDropTarget();
                 }
@@ -408,14 +397,7 @@ int main(int argc, char** argv)
                 if (ImGui::SmallButton("x"))
                 {
                     rig_controller.remove(i);
-                    if (selected_slot == static_cast<int>(i))
-                    {
-                        selected_slot = -1;
-                    }
-                    else if (selected_slot > static_cast<int>(i))
-                    {
-                        --selected_slot;
-                    }
+                    selected_slot = slot_selection::remap_after_remove(selected_slot, i);
                 }
                 ImGui::PopID();
             }
@@ -433,9 +415,15 @@ int main(int argc, char** argv)
                 ImGui::EndDragDropTarget();
             }
 
+            // Re-read: the rack list above may have inserted, moved or removed a slot this
+            // frame, and an edit naming an unknown descriptor id can even leave the chain
+            // shorter than the remaps above assumed.
+            const auto ids = rig_controller.chain_ids();
+            selected_slot = slot_selection::clamp(selected_slot, ids.size());
+
             ImGui::Separator();
             ImGui::Text("Parameters");
-            if (selected_slot >= 0 && selected_slot < static_cast<int>(ids.size()))
+            if (selected_slot >= 0)
             {
                 const std::size_t slot = static_cast<std::size_t>(selected_slot);
                 for (const auto& entry : SushiDSP::node_registry())
