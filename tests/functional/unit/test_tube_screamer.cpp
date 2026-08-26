@@ -191,8 +191,11 @@ TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
 
 TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
 {
-    // Step the level from -60 dB to 0 dB and find when the output crosses half of its final
-    // amplitude. Expressed in milliseconds, that crossing must not depend on the block size.
+    // Step the level from -60 dB to 0 dB and find when the output peak crosses half of its
+    // final settled peak. Expressed in milliseconds, that crossing must not depend on the
+    // block size. Half is the point that discriminates: under the old fixed-fraction-per-block
+    // slew the same number of blocks elapses either way, so the crossing would land near 14 ms
+    // at 64 frames and near 75 ms at 512 - far outside the tolerance below.
     auto crossing_ms = [](std::uint32_t block)
     {
         std::vector<float> input(block, 0.0f), output(block, 0.0f);
@@ -218,40 +221,53 @@ TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
             }
             return peak;
         };
-
-        SushiDSP::TubeScreamer node;
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
-        node.set_parameter("level", -60.0f);
-        for (int i = 0; i < 200; ++i)
+        auto run_blocks = [&](SushiDSP::TubeScreamer& node, std::uint32_t count)
         {
-            fill_next_block();
-            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
-            node.process(context);
-        }
-        const double quiet_peak = block_peak();
-
-        node.set_parameter("level", 0.0f);
-        const double start_index = index;
-        double crossing_samples = -1.0;
-        for (int i = 0; i < 100000; ++i)
-        {
-            fill_next_block();
-            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
-            node.process(context);
-            if (crossing_samples < 0.0 && block_peak() > 50.0 * quiet_peak)
+            for (std::uint32_t i = 0; i < count; ++i)
             {
-                crossing_samples = index - start_index;
+                fill_next_block();
+                SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+                node.process(context);
             }
-            if (i == 400) { break; }
+        };
+
+        const std::uint32_t one_second_of_blocks = (48000u + block - 1u) / block;
+
+        SushiDSP::TubeScreamer settled;
+        settled.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+        settled.set_parameter("level", -60.0f);
+        run_blocks(settled, one_second_of_blocks);
+        settled.set_parameter("level", 0.0f);
+        run_blocks(settled, one_second_of_blocks);
+        const double final_peak = block_peak();
+
+        SushiDSP::TubeScreamer stepping;
+        stepping.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+        stepping.set_parameter("level", -60.0f);
+        index = 0.0;
+        run_blocks(stepping, one_second_of_blocks);
+
+        stepping.set_parameter("level", 0.0f);
+        double elapsed_samples = 0.0;
+        for (std::uint32_t i = 0; i < one_second_of_blocks; ++i)
+        {
+            fill_next_block();
+            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+            stepping.process(context);
+            elapsed_samples += block;
+            if (block_peak() > 0.5 * final_peak)
+            {
+                return elapsed_samples / 48.0;
+            }
         }
-        return crossing_samples / 48.0;
+        return -1.0;
     };
 
     const double at_64 = crossing_ms(64);
-    const double at_2048 = crossing_ms(2048);
+    const double at_512 = crossing_ms(512);
     ASSERT_GT(at_64, 0.0);
-    ASSERT_GT(at_2048, 0.0);
-    EXPECT_NEAR(at_64, at_2048, 2048.0 / 48.0);
+    ASSERT_GT(at_512, 0.0);
+    EXPECT_NEAR(at_64, at_512, 512.0 / 48.0);
 }
 
 TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
