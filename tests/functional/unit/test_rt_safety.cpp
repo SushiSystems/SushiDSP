@@ -551,8 +551,8 @@ namespace
     // tests/circuits/JcmV1aNetlist.hpp, shared with the D6b stage test and the benchmark.
     using namespace SushiDSP::test_circuits;
 
-    using DkStageCircuit = SushiDSP::dk::DkCircuit<3, 2, 2, 1>;
-    using DkStageNetlist = SushiDSP::dk::DkNetlist<3, 2, 2, 1>;
+    using DkStageCircuit = SushiDSP::dk::DkCircuit<6, 2, 2, 1>;
+    using DkStageNetlist = SushiDSP::dk::DkNetlist<6, 2, 2, 1>;
 
     /// @brief A two-variable nonlinear system with a known root, for the solver trap.
     ///

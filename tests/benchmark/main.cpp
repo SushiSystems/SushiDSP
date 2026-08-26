@@ -87,14 +87,14 @@ namespace
     // The netlist, its component constants and the triode glue live in
     // tests/circuits/JcmV1aNetlist.hpp, shared with the D6b stage test and the RT-safety traps.
     // build_jcm_v1a(netlist, true) appends the series RC that takes the block from the SPICE
-    // stage's three reactive states to the four the D6b budget is written against.
+    // stage's six reactive states to the seven the D6b budget is written against.
     using namespace SushiDSP::test_circuits;
 
     constexpr std::uint32_t kOversampleFactor = 8;
 
-    /// @brief The benchmarked shape: four states, two nonlinear branches, two sources, one probe.
-    using DkStageCircuit = SushiDSP::dk::DkCircuit<4, 2, 2, 1>;
-    using DkStageNetlist = SushiDSP::dk::DkNetlist<4, 2, 2, 1>;
+    /// @brief The benchmarked shape: seven states, two nonlinear branches, two sources, one probe.
+    using DkStageCircuit = SushiDSP::dk::DkCircuit<7, 2, 2, 1>;
+    using DkStageNetlist = SushiDSP::dk::DkNetlist<7, 2, 2, 1>;
 
     /// @brief Runs the block on silence until its bias point has settled.
     /// @param circuit The prepared circuit; advanced in place.
@@ -129,7 +129,7 @@ namespace
         if (!circuit.prepare(netlist, run_rate))
         {
             std::printf("DkCircuit prepare failed; case skipped\n");
-            return { "DkCircuit 2-nonlin 4-state @8x", 0.0, 0.0 };
+            return { "DkCircuit 2-nonlin 7-state @8x", 0.0, 0.0 };
         }
         settle_dk_stage(circuit, port, run_rate);
         // Cleared after the settle and never again, so the counters below cover exactly the
@@ -141,7 +141,7 @@ namespace
         const std::vector<float>  input = make_test_tone(kBlockSize);
         std::vector<float>        output(kBlockSize, 0.0f);
         const SushiDSP::bench::Result result = SushiDSP::bench::measure(
-            "DkCircuit 2-nonlin 4-state @8x", kBlockSize, kSampleRate,
+            "DkCircuit 2-nonlin 7-state @8x", kBlockSize, kSampleRate,
             [&]
         {
             std::array<double, 1> outputs{};
@@ -161,11 +161,11 @@ namespace
         // Reported because a solver's cost and its convergence are the same measurement: a
         // block that got fast by giving up early is not faster. Read the non-converged figure
         // with the harness in mind - measure() replays the same 256-frame buffer, so the tone
-        // jumps back to sample 0 once per repetition, and that step is worth roughly one
-        // non-converged solve each time. Driven with the identical tone run continuously for the
-        // same 450 560 samples the count is 1, not ~220. The rate below is therefore an upper
-        // bound dominated by an artefact of the harness, not the circuit's behaviour on a real
-        // stream; tests/functional/unit/test_dk_triode_stage.cpp measures the honest figure.
+        // jumps back to sample 0 once per repetition, and that step is the one thing here a real
+        // stream never does. With the triode's interelectrode capacitances in the netlist the
+        // step no longer costs a solve either, so the count is currently zero; the rate stays an
+        // upper bound on the circuit's behaviour on a real stream, and
+        // tests/functional/unit/test_dk_triode_stage.cpp measures the honest figure.
         const std::uint64_t solves = circuit.total_samples();
         const std::uint64_t non_converged = circuit.non_converged_samples();
         std::printf("  solver: %llu solves, %llu non-converged (%.4f %%), %u iterations worst "

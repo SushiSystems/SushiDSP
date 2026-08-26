@@ -40,7 +40,7 @@ namespace SushiDSP::test_circuits
     /// @brief Node numbering of docs/reference/spice/jcm_v1a, node for node; 0 is ground.
     ///
     /// Nodes 1 to 7 are the SPICE block. Nodes 8 and 9 exist only for the optional RC tail that
-    /// build_jcm_v1a() appends when asked for a four-state block.
+    /// build_jcm_v1a() appends when asked for the seven-state block.
     enum NodeIndex : std::size_t
     {
         kNodeSource = 1,
@@ -65,10 +65,21 @@ namespace SushiDSP::test_circuits
     inline constexpr double kPreampPotOhms = 1.0e6;
     inline constexpr double kSupplyVolts = 360.0;
 
+    /// @brief The 12AX7 interelectrode capacitances carried by the SPICE subcircuit itself.
+    ///
+    /// docs/reference/spice/models/12ax7_koren.sub declares these three inside the subckt, so
+    /// every SPICE run of the block has them. Leaving them out puts the DK stage's input corner
+    /// at a different frequency from the reference, which costs roughly 30 dB of null depth. Cgp
+    /// is the Miller element and dominates: multiplied by the stage gain it, together with the
+    /// grid stopper, sets the input rolloff near 22 kHz.
+    inline constexpr double kGridCathodeFarads = 1.6e-12;
+    inline constexpr double kGridPlateFarads = 1.7e-12;
+    inline constexpr double kPlateCathodeFarads = 0.46e-12;
+
     /// @brief The optional RC tail: a second coupling stage into the next grid's leak resistor.
     ///
-    /// Not part of the SPICE block. It exists so a caller can ask for the same circuit with a
-    /// fourth reactive state, which is the shape the D6b performance budget is written against.
+    /// Not part of the SPICE block. It exists so a caller can ask for the same circuit with one
+    /// more reactive state, which is the shape the D6b performance budget is written against.
     inline constexpr double kTailSeriesOhms = 470.0e3;
     inline constexpr double kTailCouplingFarads = 0.022e-6;
     inline constexpr double kTailLoadOhms = 1.0e6;
@@ -102,13 +113,14 @@ namespace SushiDSP::test_circuits
 
     /// @brief Builds the jcm_v1a netlist, node for node against the SPICE block's component table.
     ///
-    /// Without the tail the block has three reactive states and probes the stage output at
-    /// node 6; with it, four states and the probe moves to the tail's load, node 9. The nonlinear
-    /// branches, the sources and the potentiometer are identical either way, so the two shapes
-    /// differ only in what the plan calls S.
+    /// Without the tail the block has six reactive states - three discrete capacitors plus the
+    /// triode's three interelectrode capacitances - and probes the stage output at node 6; with
+    /// it, seven states and the probe moves to the tail's load, node 9. The nonlinear branches,
+    /// the sources and the potentiometer are identical either way, so the two shapes differ only
+    /// in what the plan calls S.
     /// @tparam Netlist A DkNetlist instantiation whose S matches the requested state count.
     /// @param netlist Receives the description; any previous contents are overwritten.
-    /// @param with_rc_tail True to append the fourth-state RC tail described above.
+    /// @param with_rc_tail True to append the seventh-state RC tail described above.
     /// @return The preamp potentiometer's index, for DkCircuit::set_potentiometer.
     template <typename Netlist>
     std::size_t build_jcm_v1a(Netlist& netlist, bool with_rc_tail = false)
@@ -124,6 +136,10 @@ namespace SushiDSP::test_circuits
         netlist.capacitor(kNodeCathode, 0, kCathodeBypassFarads);
         netlist.capacitor(kNodePlate, kNodePotTop, kCouplingFarads);
         netlist.capacitor(kNodePotTop, kNodeOut, kBrightFarads);
+
+        netlist.capacitor(kNodeGrid, kNodeCathode, kGridCathodeFarads);
+        netlist.capacitor(kNodeGrid, kNodePlate, kGridPlateFarads);
+        netlist.capacitor(kNodePlate, kNodeCathode, kPlateCathodeFarads);
 
         if (with_rc_tail)
         {
