@@ -16,10 +16,7 @@ machine that authored it, so nothing here has been run.
 placed symbols with wires. Directive lines are netlisted verbatim by LTspice, so node names
 are explicit and the netlist cannot depend on symbol pin geometry that could not be checked
 without running the tool. Tube subcircuits are instantiated as `X` lines against
-`../models/*.sub` with the pin order documented there:
-
-- `12AX7_KOREN`: `P G K`
-- `EL34_KOREN`: `P G2 G1 K`
+`../models/12ax7_koren.sub`, whose pin order is `P G K`.
 
 ## Analyses
 
@@ -51,19 +48,19 @@ This block has no control, so the input level is stepped instead. `setting` 0/1/
 | V1 | SINE(0 {AMP} 1k) AC 1 | g1 - 0 | D6d block 5 stimulus |
 | XA | 12AX7_KOREN | P=pa G=g1 K=tail | D6b.3 Triode12AX7 |
 | XB | 12AX7_KOREN | P=pb G=g2 K=tail | D6b.3 Triode12AX7 |
-| Rpa | 82 kO | B - pa | D6d block 5: 82 kO plate |
-| Rpb | 100 kO | B - pb | D6d block 5: 100 kO plate |
-| Rg1 | 1 MO | g1 - 0 | D6d block 5: 1 MO grid reference |
-| Rg2 | 1 MO | g2 - 0 | D6d block 5: 1 MO grid reference |
-| Rtail_a | 470 O | tail - tj | D6d block 5: 470 O tail |
-| Rtail_b | 10 kO | tj - 0 | D6d block 5: 10 kO tail |
+| Rpa | 82 kΩ | B - pa | D6d block 5: 82 kΩ plate |
+| Rpb | 100 kΩ | B - pb | D6d block 5: 100 kΩ plate |
+| Rg1 | 1 MΩ | g1 - 0 | D6d block 5: 1 MΩ grid reference |
+| Rg2 | 1 MΩ | g2 - 0 | D6d block 5: 1 MΩ grid reference |
+| Rtail_a | 470 Ω | tail - tj | D6d block 5: 470 Ω tail |
+| Rtail_b | 10 kΩ | tj - 0 | D6d block 5: 10 kΩ tail |
 | Bout | V = V(pa) - V(pb) | out - 0 | differential probe |
 | Vplate | 360 V | B - 0 | B+ per the D6a brief |
 
 ## Judgment calls
 
-- `tj`, the junction of the 470 O and 10 kO tail resistors, is the node global NFB is
-  injected into in `jcm_pp_ot_nfb`. Here it simply returns to ground through the 10 kO.
+- `tj`, the junction of the 470 Ω and 10 kΩ tail resistors, is the node global NFB is
+  injected into in `jcm_pp_ot_nfb`. Here it simply returns to ground through the 10 kΩ.
 - The pair self-biases: with both grid references at ground the cathodes float up to
   whatever the tail resistance and the tubes agree on. That is the real arrangement, so no
   negative tail supply is added.

@@ -15,11 +15,7 @@ machine that authored it, so nothing here has been run.
 `ts_clip.asc` carries the whole circuit as SPICE directive text on the sheet rather than as
 placed symbols with wires. Directive lines are netlisted verbatim by LTspice, so node names
 are explicit and the netlist cannot depend on symbol pin geometry that could not be checked
-without running the tool. Tube subcircuits are instantiated as `X` lines against
-`../models/*.sub` with the pin order documented there:
-
-- `12AX7_KOREN`: `P G K`
-- `EL34_KOREN`: `P G2 G1 K`
+without running the tool.
 
 ## Analyses
 
@@ -42,7 +38,7 @@ exactly one of them per run:
 
 `.step param DRIVE list 0.1 0.5 0.9`
 
-`DRIVE` is the normalised 500 kO drive-pot fraction, applied linearly. D6c applies an audio-taper law to the normalised parameter *before* the pot enters the circuit; the SPICE reference steps the post-taper fraction directly, so the C++ side must compare at matching post-taper values, not matching knob positions.
+`DRIVE` is the normalised 500 kΩ drive-pot fraction, applied linearly. D6c applies an audio-taper law to the normalised parameter *before* the pot enters the circuit; the SPICE reference steps the post-taper fraction directly, so the C++ side must compare at matching post-taper values, not matching knob positions.
 
 ## Components
 
@@ -50,13 +46,13 @@ exactly one of them per run:
 |-----|-------|-------|----------------|
 | V1 | SINE(0 {AMP} 1k) AC 1 | src - 0 | D6c stimulus |
 | Cin | 1 uF | src - in | D6c 1 uF input cap |
-| Rin | 510 kO | in - 0 | D6c 510 kO (~0.31 Hz corner) |
+| Rin | 510 kΩ | in - 0 | D6c 510 kΩ (~0.31 Hz corner) |
 | Eop | gain 1e6 | out - 0, sense (in, inv) | D6c ideal op-amp |
-| Rf | {51k + DRIVE*500k} | out - inv | D6c Rf = 51 kO + Drive*500 kO |
+| Rf | {51k + DRIVE*500k} | out - inv | D6c Rf = 51 kΩ + Drive*500 kΩ |
 | Cf | 51 pF | out - inv | D6c 51 pF across the feedback |
 | D1 | D1N914 | out -> inv | D6c antiparallel diode pair |
 | D2 | D1N914 | inv -> out | D6c antiparallel diode pair |
-| Rg | 4.7 kO | inv - gnd1 | D6c 4.7 kO to ground leg |
+| Rg | 4.7 kΩ | inv - gnd1 | D6c 4.7 kΩ to ground leg |
 | Cg | 47 nF | gnd1 - 0 | D6c 47 nF to ground leg |
 
 ## Judgment calls

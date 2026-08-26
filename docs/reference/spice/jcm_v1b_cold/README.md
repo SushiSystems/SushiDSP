@@ -2,7 +2,7 @@
 
 # `jcm_v1b_cold`
 
-JCM800 2203 V1b cold clipper: the treble peaker into the grid and the unbypassed 10 kO cathode that produces the 2203's asymmetric clipping and bias shift.
+JCM800 2203 V1b cold clipper: the treble peaker into the grid and the unbypassed 10 kΩ cathode that produces the 2203's asymmetric clipping and bias shift.
 
 **Status: not yet simulated.** No CSVs are committed for this block. The netlist below was
 verified by re-tracing node connectivity by hand only; LTspice is not installed on the
@@ -16,10 +16,7 @@ machine that authored it, so nothing here has been run.
 placed symbols with wires. Directive lines are netlisted verbatim by LTspice, so node names
 are explicit and the netlist cannot depend on symbol pin geometry that could not be checked
 without running the tool. Tube subcircuits are instantiated as `X` lines against
-`../models/*.sub` with the pin order documented there:
-
-- `12AX7_KOREN`: `P G K`
-- `EL34_KOREN`: `P G2 G1 K`
+`../models/12ax7_koren.sub`, whose pin order is `P G K`.
 
 ## Analyses
 
@@ -33,7 +30,7 @@ exactly one of them per run:
 
 ## Probe and stimulus
 
-- Probed node: `out` (after the coupling cap, into the next stage's 1 MO grid leak).
+- Probed node: `out` (after the coupling cap, into the next stage's 1 MΩ grid leak).
 - Input node: `src`
 - Source: `V1 src 0 SINE(0 {AMP} 1k) AC 1`
 - Input level(s): `AMP` is stepped over 10 mV, 100 mV and 1 V.
@@ -49,21 +46,21 @@ This block has no control, so per the D6a brief the input level is stepped inste
 | Ref | Value | Nodes | Spec reference |
 |-----|-------|-------|----------------|
 | V1 | SINE(0 {AMP} 1k) AC 1 | src - 0 | D6d block 2 stimulus |
-| Rtp | 470 kO | src - g | D6d block 2: 470 kO treble peaker |
+| Rtp | 470 kΩ | src - g | D6d block 2: 470 kΩ treble peaker |
 | Ctp | 470 pF | src - g | D6d block 2: 470 pF treble peaker |
 | XV1b | 12AX7_KOREN | P=p G=g K=k | D6b.3 Triode12AX7 |
-| Rp | 100 kO | B - p | D6d block 2: 100 kO plate |
+| Rp | 100 kΩ | B - p | D6d block 2: 100 kΩ plate |
 | Vplate | 360 V | B - 0 | B+ per the D6a brief |
-| Rk | 10 kO | k - 0 | D6d block 2: 10 kO unbypassed cathode |
+| Rk | 10 kΩ | k - 0 | D6d block 2: 10 kΩ unbypassed cathode |
 | Cc | 0.022 uF | p - out | D6d block 2: 0.022 uF coupling |
-| Rload | 1 MO | out - 0 | next stage's grid leak, added as the load |
+| Rload | 1 MΩ | out - 0 | next stage's grid leak, added as the load |
 
 ## Judgment calls
 
-- The grid's DC reference is the 470 kO peaker resistor back to `V1`, whose DC value is 0 V.
+- The grid's DC reference is the 470 kΩ peaker resistor back to `V1`, whose DC value is 0 V.
   That is the same reference the stage sees in the amp (through the preceding pot), so no
   separate grid leak is added.
-- `Rload` stands in for the following stage's 1 MO grid leak. Without it the coupling cap
+- `Rload` stands in for the following stage's 1 MΩ grid leak. Without it the coupling cap
   has no DC return and the `out` node floats.
 
 ## Note on the AC runs

@@ -39,7 +39,7 @@ D6b.3 verbatim:
 |-------|------------|
 | `12AX7_KOREN` | mu = 100, kp = 600, kvb = 300, kg1 = 1060, kx = 1.4 |
 | `EL34_KOREN` | mu = 11, kp = 60, kvb = 24, kg1 = 650, kg2 = 4500, kx = 1.35 |
-| `D1N914` | Is = 2.52 nA, N = 1.752, Rs = 0.568 O, Cjo = 4 pF |
+| `D1N914` | Is = 2.52 nA, N = 1.752, Rs = 0.568 Ω, Cjo = 4 pF |
 
 Both tubes use Norman's soft grid-current law
 `Ig = Ig0 * ln(1 + exp((Vgk - 0.5) / 0.15))` with **`Ig0 = 1 uA`**. D6b's C++ models must use
@@ -92,15 +92,46 @@ time_s,setting,input_v,output_v
 `tests/measure/SpiceCsv.hpp` reads both. A missing file yields an empty result rather than an
 error, so a test can skip cleanly while the corpus is still ungenerated.
 
+**The `setting` column is meaningless in the AC CSVs of `jcm_v1b_cold`, `jcm_cf` and
+`jcm_ltp`.** Those three blocks have no control, so they step `AMP` -- which scales only the
+`SINE()` stimulus, while the `AC 1` magnitude stays fixed. All three of their AC sweeps are
+therefore identical and only `setting = 0` carries information. Their transient CSVs do
+carry three genuinely different runs, and a transient null is the acceptance criterion for
+all three. Every other block steps a real control and its AC `setting` column means what it
+says.
+
+## Things to check on the first run
+
+Nothing here has been simulated, so these are the specific failures to look for rather than
+a general warning:
+
+- **`EL34_KOREN` convergence near `Vg2k = 0`.** The Koren pentode's `E1` divides by `Vg2k`:
+  `E1 = (Vg2k/kp)*ln(1 + exp(kp*(1/mu + Vg1k/Vg2k)))`. At the start of a run, before the
+  screen supply has come up, `Vg2k` passes through zero and that term is singular. If
+  `jcm_pp_ot_nfb` fails to find an operating point or aborts with a timestep-too-small
+  error, this is the first suspect. The usual fixes, in order of preference: give the screen
+  node a `.ic`, add `startup` to the source, or clamp the divisor in the `.sub`
+  (`limit(V(G2,K), 1, 1e6)`) -- but if the divisor is clamped, D6b's C++ `PentodeEL34` must
+  clamp it identically or the null test will measure the clamp instead of the solver.
+- **The `ts_tone` topology**, which is reconstructed from D6c's prose rather than traced
+  from a board. It should be monotonic between 300 Hz and 2 kHz with no notch (D6c's
+  acceptance criterion). `jcm_fmv` was reconstructed the same way but has since been
+  reviewed node-for-node against the 2203 stack and confirmed correct; it should still show
+  the characteristic mid scoop at noon.
+- **`jcm_pp_ot_nfb` feedback polarity**, which depends on transformer dot orientation. If
+  the loop turns out positive (oscillation, or gain rising as `Rnfb` is reduced), swap the
+  secondary: write `Ls 0 sec` instead of `Ls sec 0`.
+- **Zero-valued pot sections** at `LEVEL = 1` (`ts_tone`) and `MASTER = 1` (`jcm_fmv`).
+  LTspice shorts a 0 Ω resistor and warns; that is the intended behaviour, not an error.
+
 ## Checklist for generating the CSVs
 
 1. Install LTspice:
    <https://www.analog.com/en/resources/design-tools-and-calculators/ltspice-simulator.html>
 2. Run `python tools/spice/export.py --all` (add `--ltspice <path>` if it is not at the
    default location).
-3. Sanity-check the results against each block README's open questions before trusting them
-   -- in particular the `ts_tone` and `jcm_fmv` topologies and the `jcm_pp_ot_nfb` feedback
-   polarity.
+3. Sanity-check the results against the watch list above and against each block README's
+   open questions before trusting them.
 4. Commit the generated `<block>_ac.csv` and `<block>_tran.csv` files.
 5. Replace "not yet generated" in every block README's **LTspice version** line with the
    version actually used, and drop the "not yet simulated" banner from that README and from
