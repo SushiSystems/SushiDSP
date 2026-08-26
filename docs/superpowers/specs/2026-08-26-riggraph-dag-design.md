@@ -48,10 +48,18 @@ Three things change:
 2. **New module `modules/routing`** (depends only on `core`): `SplitterNode`
    and `MixerNode`, registered in `modules/node_registry` like any other
    node (category `"Routing"`).
-3. **`apps/host_gui`'s `Preset.hpp`/`.cpp`**: JSON schema changes from an
-   ordered chain to an explicit node-list-with-inputs DAG serialization.
-   (Still GUI-adjacent code, but it is preset I/O, not rendering — grouped
-   here since the schema is defined by this spec, not the later GUI spec.)
+3. **New module `modules/rig_preset`** (depends on `core` and
+   `node_registry`): `serialize_rig_to_json()` /
+   `deserialize_rig_from_json()`, a standalone DAG preset schema —
+   an explicit node-list-with-inputs serialization rather than an ordered
+   chain. `apps/host_gui`'s existing `Preset.hpp`/`.cpp` is untouched and
+   unaffected by this spec; it keeps its own linear-chain schema.
+
+   > **Amendment (post-implementation).** This item originally said the DAG
+   > schema would land as a change to `apps/host_gui`'s `Preset.hpp`/`.cpp`.
+   > During implementation that was superseded by the cleaner non-invasive
+   > approach above: a new standalone module, with the GUI's preset code left
+   > alone. The text here describes what was actually built.
 
 ## Core Changes
 
@@ -161,11 +169,19 @@ caching the result at compile time rather than re-walking on every call).
   `node_registry::make_node` looks up by `type`), then `connect()` every
   edge from `inputs`, `compile()`, publish via `RtGraphSlot` — same publish
   path as today, no change there.
-- This is a breaking format change from the current linear-chain preset
-  schema described in the 2026-08-25 GUI spec. No migration path is
-  provided; existing `.json` presets from before this change do not load
-  and must be recreated. Stated here explicitly per the project's "narrow
-  scope, don't silently drop it" convention.
+- This is a NEW, separate schema, implemented in `modules/rig_preset`. It
+  has no relationship to `apps/host_gui`'s existing linear-chain preset
+  format, which is left exactly as it is — nothing is migrated, and no
+  existing `.json` preset stops loading. Nothing is wired to the new schema
+  yet; `modules/rig_preset` has no consumer. The two schemas coexist
+  independently, and unifying them (or retiring the old one) is future work
+  for the GUI follow-up spec.
+
+  > **Amendment (post-implementation).** This bullet originally framed the
+  > DAG schema as a breaking change to the GUI's preset format, with
+  > existing presets failing to load. That intent was superseded during
+  > implementation by the standalone-module approach; the text above
+  > describes what was actually built.
 
 ## Testing
 

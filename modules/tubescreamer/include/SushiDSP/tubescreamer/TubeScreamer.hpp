@@ -64,6 +64,10 @@ namespace SushiDSP
         /// prepare(), when no oversampler exists yet.
         std::uint32_t latency_samples() const override;
 
+        /// @brief This pedal's registered type id.
+        /// @return "sushidsp.tubescreamer".
+        const char* type_id() const override;
+
         /// @brief Sets the drive control, smoothed toward this value over subsequent samples.
         /// @param normalized Drive amount in [0, 1].
         void set_drive(float normalized);

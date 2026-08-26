@@ -22,6 +22,7 @@
 /**************************************************************************/
 
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -30,6 +31,7 @@
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
+#include "SushiDSP/node_registry/NodeRegistry.hpp"
 
 namespace
 {
@@ -304,6 +306,27 @@ namespace
     private:
         std::uint32_t latency_;
     };
+
+    class SumTwoInputsNode : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            {
+                const float a = context.inputs[0] != nullptr ? context.inputs[0][frame] : 0.0f;
+                const float b = context.inputs[1] != nullptr ? context.inputs[1][frame] : 0.0f;
+                context.outputs[0][frame] = a + b;
+            }
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 2, 1 }; }
+        void reset() override {}
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+    };
 }
 
 TEST(Unit_Dsp, RigGraphLatencyIsSumOfChainedNodeLatencies)
@@ -314,6 +337,24 @@ TEST(Unit_Dsp, RigGraphLatencyIsSumOfChainedNodeLatencies)
     graph.connect(a, b);
     graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
     EXPECT_EQ(graph.latency_samples(), 135u);
+}
+
+TEST(Unit_Dsp, RigGraphLatencyIsMaxOverParallelBranchesNotSum)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto short_branch = graph.add_node(std::make_unique<LatencyNode>(10));
+    auto long_branch = graph.add_node(std::make_unique<LatencyNode>(200));
+    auto sum = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    graph.connect(source, short_branch);
+    graph.connect(source, long_branch);
+    graph.connect(short_branch, sum);
+    graph.connect(long_branch, sum);
+
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    // sum itself has 0 latency; the graph's total is max(10, 200) + 0 = 200, not 10 + 200 = 210.
+    EXPECT_EQ(graph.latency_samples(), 200u);
 }
 
 namespace
@@ -399,4 +440,221 @@ TEST(Unit_Dsp, RigGraphProcessFlushesDenormalsForItsNodes)
     SushiDSP::ProcessContext context{ outs, nullptr, 64, 0.0 };
     graph.process(context);
     EXPECT_EQ(out[0], 0.0f);          // 1e-40 * 0.5 is a non-zero denormal without FTZ/DAZ
+}
+
+TEST(Unit_Dsp, RigGraphCompileThrowsOnCycle)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto a = graph.add_node(std::make_unique<GainNode>(1.0f));
+    auto b = graph.add_node(std::make_unique<GainNode>(1.0f));
+    graph.connect(a, b);
+    graph.connect(b, a);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    EXPECT_THROW(graph.compile(info), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigGraphCompileThrowsOnMultipleSinkNodes)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto sink_a = graph.add_node(std::make_unique<GainNode>(2.0f));
+    auto sink_b = graph.add_node(std::make_unique<GainNode>(3.0f));
+    graph.connect(source, sink_a);
+    graph.connect(source, sink_b);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    EXPECT_THROW(graph.compile(info), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigGraphCompileThrowsWhenNoSinkNodeExists)
+{
+    // Two live nodes, no edges between them at all: neither node has an outgoing edge, but
+    // neither has an incoming edge either (and live_node_count != 1), so neither qualifies
+    // as a sink candidate. This is a genuine zero-sink, non-empty, acyclic graph shape, and
+    // compile() must reject it rather than leaving sink_handle_ pointing at a stale/default
+    // handle for process() to misuse.
+    SushiDSP::RigGraph graph(256, 4);
+    graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    EXPECT_THROW(graph.compile(info), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigGraphCompileAcceptsSingleSinkGraph)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto sink = graph.add_node(std::make_unique<GainNode>(2.0f));
+    graph.connect(source, sink);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    EXPECT_NO_THROW(graph.compile(info));
+}
+
+TEST(Unit_Dsp, RigGraphConnectThrowsWhenFanOutExceedsLimit)
+{
+    SushiDSP::RigGraph graph(256, SushiDSP::RigGraph::kMaxFanInOut + 2);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    std::vector<SushiDSP::NodeHandle> sinks;
+    for (std::size_t i = 0; i < SushiDSP::RigGraph::kMaxFanInOut; ++i)
+    {
+        sinks.push_back(graph.add_node(std::make_unique<GainNode>(1.0f)));
+        graph.connect(source, sinks.back());
+    }
+
+    auto one_too_many = graph.add_node(std::make_unique<GainNode>(1.0f));
+    EXPECT_THROW(graph.connect(source, one_too_many), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigGraphConnectThrowsWhenFanInExceedsLimit)
+{
+    SushiDSP::RigGraph graph(256, SushiDSP::RigGraph::kMaxFanInOut + 2);
+    auto sink = graph.add_node(std::make_unique<GainNode>(1.0f));
+    std::vector<SushiDSP::NodeHandle> sources;
+    for (std::size_t i = 0; i < SushiDSP::RigGraph::kMaxFanInOut; ++i)
+    {
+        sources.push_back(graph.add_node(std::make_unique<ConstantSourceNode>(1.0f)));
+        graph.connect(sources.back(), sink);
+    }
+
+    auto one_too_many = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    EXPECT_THROW(graph.connect(one_too_many, sink), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigGraphProcessGathersAllUpstreamInputsInConnectOrder)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source_a = graph.add_node(std::make_unique<ConstantSourceNode>(3.0f));
+    auto source_b = graph.add_node(std::make_unique<ConstantSourceNode>(4.0f));
+    auto sum = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    graph.connect(source_a, sum);
+    graph.connect(source_b, sum);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> output_buffer(256, 0.0f);
+    float* output_channels[1] = { output_buffer.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 7.0f);
+    }
+}
+
+TEST(Unit_Dsp, RigGraphProcessFansOutOneNodeToTwoDownstreamNodes)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
+    auto branch_a = graph.add_node(std::make_unique<GainNode>(3.0f));
+    auto branch_b = graph.add_node(std::make_unique<GainNode>(5.0f));
+    auto sum = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    graph.connect(source, branch_a);
+    graph.connect(source, branch_b);
+    graph.connect(branch_a, sum);
+    graph.connect(branch_b, sum);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> output_buffer(256, 0.0f);
+    float* output_channels[1] = { output_buffer.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    // source(2.0) -> branch_a(*3=6.0), branch_b(*5=10.0) -> sum(6.0+10.0=16.0)
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 16.0f);
+    }
+}
+
+TEST(Unit_Dsp, RigGraphSplitterAndMixerRoundTripThroughTwoEffectBranches)
+{
+    SushiDSP::RigGraph graph(256, 6);
+    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto splitter = SushiDSP::make_node("sushidsp.splitter", SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    auto splitter_handle = graph.add_node(std::move(splitter));
+    auto branch_a = graph.add_node(std::make_unique<GainNode>(2.0f));
+    auto branch_b = graph.add_node(std::make_unique<GainNode>(3.0f));
+    auto mixer = SushiDSP::make_node("sushidsp.mixer", SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    auto mixer_handle = graph.add_node(std::move(mixer));
+
+    graph.connect(source, splitter_handle);
+    graph.connect(splitter_handle, branch_a);
+    graph.connect(splitter_handle, branch_b);
+    graph.connect(branch_a, mixer_handle);
+    graph.connect(branch_b, mixer_handle);
+
+    graph.node(mixer_handle)->set_parameter("gain_0", 0.5f);
+    graph.node(mixer_handle)->set_parameter("gain_1", 1.0f);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    std::vector<float> output_buffer(256, 0.0f);
+    float* output_channels[1] = { output_buffer.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    // source(1.0) -split-> branch_a(*2=2.0), branch_b(*3=3.0) -> mixer(2.0*0.5 + 3.0*1.0 = 4.0)
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 4.0f);
+    }
+}
+
+TEST(Unit_Dsp, GainNodeTypeIdDefaultsToEmptyString)
+{
+    GainNode node(1.0f);
+    EXPECT_STREQ(node.type_id(), "");
+}
+
+TEST(Unit_Dsp, RigGraphUpstreamOfListsEdgesInConnectOrder)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    auto a = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto b = graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
+    auto sink = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    graph.connect(a, sink);
+    graph.connect(b, sink);
+
+    const std::vector<SushiDSP::NodeHandle> upstream = graph.upstream_of(sink);
+    ASSERT_EQ(upstream.size(), 2u);
+    EXPECT_EQ(upstream[0], a);
+    EXPECT_EQ(upstream[1], b);
+    EXPECT_TRUE(graph.upstream_of(a).empty());
+}
+
+TEST(Unit_Dsp, RigGraphFeedsRootNodeExternalInputThroughAFullWidthGatherArray)
+{
+    // Regression: a multi-input node (MixerNode reads all kMaxFanInOut slots) placed as a ROOT
+    // node — no incoming edges, reachable via a hand-authored or rig_preset-loaded JSON whose
+    // mixer has an empty "inputs" — used to be handed the host's raw context.inputs pointer.
+    // Hosts pass a 1-element array, so the mixer read 7 pointers past the end of it and
+    // dereferenced whatever garbage followed. Every node must now receive a
+    // kMaxFanInOut-sized array whose unused slots are nullptr.
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::RigGraph graph(256, 4);
+    graph.add_node(SushiDSP::make_node("sushidsp.mixer", info));
+    graph.compile(info);
+
+    // A realistic host-shaped call: exactly one input channel, as apps/host* all pass.
+    std::vector<float> input_buffer(256, 0.25f);
+    const float* input_channels[1] = { input_buffer.data() };
+    std::vector<float> output_buffer(256, -1.0f);
+    float* output_channels[1] = { output_buffer.data() };
+    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    graph.process(context);
+
+    // gain_0 defaults to 1.0 and every other slot must be silent (nullptr), never garbage,
+    // so the output is exactly the external input.
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 0.25f);
+    }
 }

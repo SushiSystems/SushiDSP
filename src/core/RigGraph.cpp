@@ -45,6 +45,21 @@ namespace SushiDSP
 
     void RigGraph::connect(NodeHandle from, NodeHandle to)
     {
+        std::size_t fan_out = 0;
+        std::size_t fan_in = 0;
+        for (const Edge& edge : edges_)
+        {
+            if (edge.from == from) { ++fan_out; }
+            if (edge.to == to) { ++fan_in; }
+        }
+        if (fan_out >= kMaxFanInOut)
+        {
+            throw std::runtime_error("RigGraph::connect: fan-out limit exceeded");
+        }
+        if (fan_in >= kMaxFanInOut)
+        {
+            throw std::runtime_error("RigGraph::connect: fan-in limit exceeded");
+        }
         edges_.push_back({ from, to });
     }
 
@@ -90,11 +105,31 @@ namespace SushiDSP
         return result;
     }
 
+    std::vector<NodeHandle> RigGraph::upstream_of(NodeHandle handle) const
+    {
+        std::vector<NodeHandle> result;
+        for (const Edge& edge : edges_)
+        {
+            if (edge.to == handle)
+            {
+                result.push_back(edge.from);
+            }
+        }
+        return result;
+    }
+
     void RigGraph::compile(const PrepareInfo& info)
     {
         // process() holds one pool buffer per node for the whole block, so a graph larger than the
         // pool would hand out nullptr and crash on the RT thread.
         assert(nodes_.size() <= buffer_pool_.capacity() && "RigGraph: more nodes than BufferPool can hold live simultaneously");
+
+        // Reset every cached compile() result up front, so a compile() that throws partway
+        // through (cycle, multi-sink, zero-sink) can never leave a stale latency/sink value
+        // behind from a previous successful compile().
+        cached_latency_samples_ = 0;
+        sink_handle_ = 0;
+        topological_order_.clear();
 
         std::vector<std::uint32_t> in_degree(nodes_.size(), 0);
         for (const Edge& edge : edges_)
@@ -111,7 +146,6 @@ namespace SushiDSP
             }
         }
 
-        topological_order_.clear();
         while (!ready.empty())
         {
             const NodeHandle current = ready.front();
@@ -130,6 +164,41 @@ namespace SushiDSP
             }
         }
 
+        const std::size_t live_node_count =
+            static_cast<std::size_t>(std::count_if(nodes_.begin(), nodes_.end(),
+                [](const std::unique_ptr<IAudioNode>& node) { return node != nullptr; }));
+        if (topological_order_.size() != live_node_count)
+        {
+            throw std::runtime_error("RigGraph::compile: cycle detected");
+        }
+
+        std::vector<bool> has_outgoing_edge(nodes_.size(), false);
+        std::vector<bool> has_incoming_edge(nodes_.size(), false);
+        for (const Edge& edge : edges_)
+        {
+            has_outgoing_edge[edge.from] = true;
+            has_incoming_edge[edge.to] = true;
+        }
+        std::size_t sink_count = 0;
+        for (NodeHandle handle : topological_order_)
+        {
+            const bool is_sink_candidate = !has_outgoing_edge[handle]
+                && (has_incoming_edge[handle] || live_node_count == 1);
+            if (is_sink_candidate)
+            {
+                sink_handle_ = handle;
+                ++sink_count;
+            }
+        }
+        if (sink_count > 1)
+        {
+            throw std::runtime_error("RigGraph::compile: multiple sink nodes (ambiguous graph output)");
+        }
+        if (sink_count == 0 && !topological_order_.empty())
+        {
+            throw std::runtime_error("RigGraph::compile: no sink node found");
+        }
+
         node_output_scratch_.assign(nodes_.size(), nullptr);
 
         for (auto& node : nodes_)
@@ -139,16 +208,26 @@ namespace SushiDSP
                 node->prepare(info);
             }
         }
+
+        std::vector<std::uint32_t> latency_at(nodes_.size(), 0);
+        for (NodeHandle handle : topological_order_)
+        {
+            std::uint32_t upstream_max = 0;
+            for (const Edge& edge : edges_)
+            {
+                if (edge.to == handle)
+                {
+                    upstream_max = std::max(upstream_max, latency_at[edge.from]);
+                }
+            }
+            latency_at[handle] = upstream_max + nodes_[handle]->latency_samples();
+        }
+        cached_latency_samples_ = topological_order_.empty() ? 0u : latency_at[sink_handle_];
     }
 
     std::uint32_t RigGraph::latency_samples() const
     {
-        std::uint32_t total = 0;
-        for (NodeHandle handle : topological_order_)
-        {
-            if (nodes_[handle] != nullptr) { total += nodes_[handle]->latency_samples(); }
-        }
-        return total;
+        return cached_latency_samples_;
     }
 
     bool RigGraph::push_parameter_change(const ParameterChange& change)
@@ -174,41 +253,41 @@ namespace SushiDSP
 
         for (NodeHandle handle : topological_order_)
         {
-            if (nodes_[handle] == nullptr)
-            {
-                continue;
-            }
+            // compile()'s cycle check only accepts a topological order covering exactly the
+            // live nodes, so every handle here is guaranteed non-null.
+            assert(nodes_[handle] != nullptr);
 
             float* node_buffer = buffer_pool_.acquire(context.frames);
 
-            bool has_upstream_edge = false;
-            const float* upstream_input = nullptr;
+            const float* gathered_inputs[kMaxFanInOut] = {};
+            std::size_t input_count = 0;
             for (const Edge& edge : edges_)
             {
                 if (edge.to == handle)
                 {
-                    upstream_input = node_output[edge.from];
-                    has_upstream_edge = true;
-                    break;
+                    gathered_inputs[input_count] = node_output[edge.from];
+                    ++input_count;
+                    assert(input_count <= kMaxFanInOut && "RigGraph: fan-in exceeds kMaxFanInOut (connect() enforces this)");
                 }
             }
-
-            float* output_ptr[1] = { node_buffer };
-            const float* input_ptr[1] = { upstream_input };
 
             // A node with no upstream edge is a root node. Feed it the graph's own live
             // input (e.g. an ASIO device's captured audio) rather than always nullptr, so a
             // rig can start directly from live input without a synthetic source node.
-            const float* const* node_inputs = nullptr;
-            if (has_upstream_edge)
+            //
+            // The host's own inputs array is never handed to a node directly: hosts pass a
+            // 1-element array, while a multi-input node (MixerNode) reads all kMaxFanInOut
+            // slots. Routing external input through slot 0 of the fixed-size gather array
+            // guarantees every node always sees a kMaxFanInOut-sized array whose unused
+            // slots are nullptr, instead of reading past the host's array.
+            if (input_count == 0 && context.inputs != nullptr)
             {
-                node_inputs = input_ptr;
+                gathered_inputs[0] = context.inputs[0];
+                input_count = 1;
             }
-            else if (context.inputs != nullptr)
-            {
-                node_inputs = context.inputs;
-            }
+            const float* const* node_inputs = (input_count > 0) ? gathered_inputs : nullptr;
 
+            float* output_ptr[1] = { node_buffer };
             ProcessContext node_context{ output_ptr, node_inputs, context.frames, context.time_seconds };
             nodes_[handle]->process(node_context);
 
@@ -217,10 +296,9 @@ namespace SushiDSP
 
         if (!topological_order_.empty())
         {
-            const NodeHandle last = topological_order_.back();
             for (std::uint32_t frame = 0; frame < context.frames; ++frame)
             {
-                context.outputs[0][frame] = node_output[last][frame];
+                context.outputs[0][frame] = node_output[sink_handle_][frame];
             }
         }
         else

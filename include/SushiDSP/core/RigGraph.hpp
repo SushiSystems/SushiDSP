@@ -25,6 +25,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "SushiDSP/core/BufferPool.hpp"
@@ -40,6 +41,10 @@ namespace SushiDSP
     public:
         /// @brief Maximum parameter changes that may be pending between two process() calls.
         static constexpr std::size_t kParameterRingCapacity = 1024;
+
+        /// @brief Maximum outgoing edges from, or incoming edges into, any single node.
+        /// Bounds the fixed-size input-gather array RigGraph::process() uses per node.
+        static constexpr std::size_t kMaxFanInOut = 8;
 
         /// @brief Constructs an empty rig graph.
         /// @param block_size Frames per process() call.
@@ -79,6 +84,12 @@ namespace SushiDSP
         /// @return The live handles.
         std::vector<NodeHandle> nodes() const;
 
+        /// @brief Lists the handles of every node with an edge into handle, in connect() call
+        /// order. Not real-time safe; call only off the processing thread.
+        /// @param handle The downstream node to query.
+        /// @return The upstream handles, or an empty vector if handle has no upstream edge.
+        std::vector<NodeHandle> upstream_of(NodeHandle handle) const;
+
         /// @brief Queues a parameter write for the next process() call. Control thread only;
         /// lock-free and allocation-free.
         /// @param change The node, parameter index, and value to apply.
@@ -103,6 +114,8 @@ namespace SushiDSP
         std::vector<std::unique_ptr<IAudioNode>>  nodes_;
         std::vector<Edge>                         edges_;
         std::vector<NodeHandle>                   topological_order_;
+        NodeHandle                                sink_handle_ = 0;
+        std::uint32_t                             cached_latency_samples_ = 0;
         std::vector<float*>                       node_output_scratch_;
         SpscRing<ParameterChange>                 parameter_ring_{ kParameterRingCapacity };
     };

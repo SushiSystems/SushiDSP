@@ -36,6 +36,7 @@ target_include_directories(sushi_dsp PUBLIC
 add_subdirectory(modules/tubescreamer)
 add_subdirectory(modules/jcm800)
 add_subdirectory(modules/node_registry)
+add_subdirectory(modules/routing)
 
 # Nothing in the test suite links SDL2, so this can be turned off to configure
 # and run the tests without network access or an SDL2 build.
@@ -151,6 +152,8 @@ if(SUSHIDSP_BUILD_GUI)
 
     add_subdirectory(apps/host_gui)
 endif()
+
+add_subdirectory(modules/rig_preset)
 
 enable_testing()
 add_subdirectory(tests)

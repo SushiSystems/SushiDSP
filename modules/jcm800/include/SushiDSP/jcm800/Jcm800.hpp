@@ -77,6 +77,10 @@ namespace SushiDSP
         /// moves it after prepare(), so a host should re-read it after set_cabinet().
         std::uint32_t latency_samples() const override;
 
+        /// @brief This amp's registered type id.
+        /// @return "sushidsp.jcm800".
+        const char* type_id() const override;
+
         /// @brief Installs a new cabinet impulse response. Control thread only: the convolver is
         /// built here in full and handed to the audio thread as a single atomic pointer swap, so
         /// process() never sees a partially built cabinet and never blocks.
