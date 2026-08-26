@@ -34,6 +34,7 @@
 
 #include <gtest/gtest.h>
 
+#include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 

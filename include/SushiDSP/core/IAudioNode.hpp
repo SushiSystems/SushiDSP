@@ -82,7 +82,9 @@ namespace SushiDSP
         /// @param value The value to set, in the parameter's declared [min, max] range.
         virtual void set_parameter(std::uint16_t index, float value) { (void)index; (void)value; }
 
-        /// @brief Clears internal state for a click-free restart.
+        /// @brief Clears internal state for a click-free restart. Control thread only, and never
+        /// concurrently with process(): an implementation may reach state it otherwise only
+        /// touches from the publisher side, such as an RtSwapSlot's active_for_publisher().
         virtual void reset() = 0;
 
         /// @brief Samples of delay this node adds between its input and output (FIR group

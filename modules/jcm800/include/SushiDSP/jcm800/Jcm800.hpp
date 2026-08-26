@@ -65,7 +65,9 @@ namespace SushiDSP
         /// @return Mono in, mono out.
         PortLayout ports() const override;
 
-        /// @brief Clears every stage's state for a click-free restart.
+        /// @brief Clears every stage's state for a click-free restart. Control thread only: it
+        /// reaches the cabinet through the slot's publisher-side accessor, so calling it from
+        /// the audio thread would race reclaim().
         void reset() override;
 
         /// @brief Reports the delay this node adds from input to output, so the host can
