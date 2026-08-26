@@ -16,10 +16,7 @@ machine that authored it, so nothing here has been run.
 placed symbols with wires. Directive lines are netlisted verbatim by LTspice, so node names
 are explicit and the netlist cannot depend on symbol pin geometry that could not be checked
 without running the tool. Tube subcircuits are instantiated as `X` lines against
-`../models/*.sub` with the pin order documented there:
-
-- `12AX7_KOREN`: `P G K`
-- `EL34_KOREN`: `P G2 G1 K`
+`../models/12ax7_koren.sub`, whose pin order is `P G K`.
 
 ## Analyses
 
@@ -42,28 +39,28 @@ exactly one of them per run:
 
 `.step param PREAMP list 0.1 0.5 0.9`
 
-`PREAMP` is the normalised 1 MO preamp-pot fraction; 0 is fully down, 1 is fully up. The 470 pF bright cap bridges the pot's upper section, so its effect vanishes as `PREAMP` approaches 1, exactly as in the amp.
+`PREAMP` is the normalised 1 MΩ preamp-pot fraction; 0 is fully down, 1 is fully up. The 470 pF bright cap bridges the pot's upper section, so its effect vanishes as `PREAMP` approaches 1, exactly as in the amp.
 
 ## Components
 
 | Ref | Value | Nodes | Spec reference |
 |-----|-------|-------|----------------|
 | V1 | SINE(0 {AMP} 1k) AC 1 | src - 0 | D6d block 1 stimulus |
-| Rgleak | 1 MO | src - 0 | D6d block 1: 1 MO grid leak |
-| Rgs | 68 kO | src - g | D6d block 1: 68 kO grid stopper |
+| Rgleak | 1 MΩ | src - 0 | D6d block 1: 1 MΩ grid leak |
+| Rgs | 68 kΩ | src - g | D6d block 1: 68 kΩ grid stopper |
 | XV1a | 12AX7_KOREN | P=p G=g K=k | D6b.3 Triode12AX7 |
-| Rp | 100 kO | B - p | D6d block 1: 100 kO plate |
+| Rp | 100 kΩ | B - p | D6d block 1: 100 kΩ plate |
 | Vplate | 360 V | B - 0 | B+ per the D6a brief |
-| Rk | 2.7 kO | k - 0 | D6d block 1: 2.7 kO cathode |
+| Rk | 2.7 kΩ | k - 0 | D6d block 1: 2.7 kΩ cathode |
 | Ck | 0.68 uF | k - 0 | D6d block 1: 0.68 uF cathode bypass |
 | Cc | 0.022 uF | p - pin | D6d block 1: 0.022 uF coupling |
-| Rpa | {1Meg*(1-PREAMP)} | pin - out | 1 MO preamp pot, upper section |
+| Rpa | {1Meg*(1-PREAMP)} | pin - out | 1 MΩ preamp pot, upper section |
 | Cbr | 470 pF | pin - out | D6d block 1: 470 pF bright cap |
-| Rpb | {1Meg*PREAMP} | out - 0 | 1 MO preamp pot, lower section |
+| Rpb | {1Meg*PREAMP} | out - 0 | 1 MΩ preamp pot, lower section |
 
 ## Judgment calls
 
 - The bright cap is placed across the pot's *upper* section (input to wiper), which is what
   makes it level- and setting-dependent as D6d describes.
-- The stepped values never reach 0 or 1, so neither pot section is ever a 0 O resistor.
+- The stepped values never reach 0 or 1, so neither pot section is ever a 0 Ω resistor.
 

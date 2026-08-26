@@ -15,11 +15,7 @@ machine that authored it, so nothing here has been run.
 `ts_tone.asc` carries the whole circuit as SPICE directive text on the sheet rather than as
 placed symbols with wires. Directive lines are netlisted verbatim by LTspice, so node names
 are explicit and the netlist cannot depend on symbol pin geometry that could not be checked
-without running the tool. Tube subcircuits are instantiated as `X` lines against
-`../models/*.sub` with the pin order documented there:
-
-- `12AX7_KOREN`: `P G K`
-- `EL34_KOREN`: `P G2 G1 K`
+without running the tool.
 
 ## Analyses
 
@@ -33,7 +29,7 @@ exactly one of them per run:
 
 ## Probe and stimulus
 
-- Probed node: `out` (after the output cap, into a 100 kO load).
+- Probed node: `out` (after the output cap, into a 100 kΩ load).
 - Input node: `src`
 - Source: `V1 src 0 SINE(0 {AMP} 1k) AC 1`
 - Input level(s): `AMP = 100 mV` fixed (this block steps Tone instead).
@@ -42,7 +38,7 @@ exactly one of them per run:
 
 `.step param TONE list 0.1 0.5 0.9`
 
-`TONE` is the normalised 20 kO tone-pot fraction. `TONE = 0` puts the wiper at the resonant node (bright); `TONE = 1` puts it at the op-amp output (dark). `LEVEL` is held at 1 (full).
+`TONE` is the normalised 20 kΩ tone-pot fraction. `TONE = 0` puts the wiper at the resonant node (bright); `TONE = 1` puts it at the op-amp output (dark). `LEVEL` is held at 1 (full).
 
 ## Components
 
@@ -50,31 +46,33 @@ exactly one of them per run:
 |-----|-------|-------|----------------|
 | V1 | SINE(0 {AMP} 1k) AC 1 | src - 0 | D6c stimulus |
 | C5 | 220 nF | src - tp1 | D6c resonant leg 220 nF |
-| R6 | 1 kO | tp1 - 0 | D6c resonant leg 1 kO |
-| Rta | {20k*TONE} | tp1 - tw | D6c 20 kO tone pot, upper section |
-| Rtb | {20k*(1-TONE)} | tw - tsout | D6c 20 kO tone pot, lower section |
-| R7 | 10 kO | tw - inv | D6c low-pass leg 10 kO |
+| R6 | 1 kΩ | tp1 - 0 | D6c resonant leg 1 kΩ |
+| Rta | {20k*TONE} | tp1 - tw | D6c 20 kΩ tone pot, upper section |
+| Rtb | {20k*(1-TONE)} | tw - tsout | D6c 20 kΩ tone pot, lower section |
+| R7 | 10 kΩ | tw - inv | D6c low-pass leg 10 kΩ |
 | C6 | 220 nF | inv - tsout | D6c low-pass leg 220 nF |
-| Rfb | 10 kO | inv - tsout | added: bounds the integrator at DC |
 | Eop | gain 1e6 | tsout - 0, sense (0, inv) | D6c op-amp |
 | Rla | {100k*(1-LEVEL)} | tsout - lw | level pot, upper section |
 | Rlb | {100k*LEVEL} | lw - 0 | level pot, lower section |
 | Cout | 1 uF | lw - out | D6c output cap |
-| Rload | 100 kO | out - 0 | added: nominal load |
+| Rload | 100 kΩ | out - 0 | added: nominal load |
 
 ## Judgment calls and open questions
 
 - **The topology is the spec's description, not a traced TS808 board.** D6c describes the
-  tone section as "op-amp with `220 nF / 10 kO` low-pass leg and `1 kO / 220 nF` resonant
-  leg blended by the 20 kO tone pot"; the netlist above realises exactly that, with the
+  tone section as "op-amp with `220 nF / 10 kΩ` low-pass leg and `1 kΩ / 220 nF` resonant
+  leg blended by the 20 kΩ tone pot"; the netlist above realises exactly that, with the
   pot bridging the resonant node and the op-amp output and its wiper feeding the summing
   node. This should be checked against a TS808 schematic before the CSVs are trusted as
   ground truth.
-- `Rfb` (10 kO across `C6`) is not in the spec text. Without it the stage is an ideal
-  integrator with infinite DC gain and no defined operating point, so the transient run
-  would drift. It sets the DC gain to unity and is well below the audio band's influence.
-- The level pot value (100 kO), the output cap (1 uF) and the 100 kO load are not given by
+- There is deliberately **no resistor across `C6`**. An earlier draft added a 10 kΩ DC
+  feedback resistor there on the theory that the stage was otherwise an unbounded
+  integrator. That was wrong: `inv` already has a DC path to the op-amp output through
+  `R7` and `Rtb`, for every `TONE` value, exactly as in the real TS808. The added resistor
+  cost -0.5 dB at 200 Hz, -1.7 dB at 100 Hz and -4.9 dB at 50 Hz, which would have failed
+  D6c's +/-0.5 dB acceptance against this very reference.
+- The level pot value (100 kΩ), the output cap (1 uF) and the 100 kΩ load are not given by
   D6c; they are the standard TS808 parts.
-- At the default `LEVEL = 1` the pot's upper section is a 0 O resistor. That is the
+- At the default `LEVEL = 1` the pot's upper section is a 0 Ω resistor. That is the
   electrically correct meaning of a wiper at the top of its travel; LTspice treats a zero
   resistance as a short and reports it as a warning, not an error.

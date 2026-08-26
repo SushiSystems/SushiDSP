@@ -35,9 +35,9 @@ BLOCKS = [
     "jcm_pp_ot_nfb",
 ]
 
-# The node the stimulus is applied to, tried in this order. The first one present in the
-# raw file wins, which resolves every block in BLOCKS unambiguously.
-INPUT_NODE_CANDIDATES = ["V(src)", "V(in)", "V(g1)", "V(g2a)"]
+# The stimulus node is read out of the schematic itself: every block defines its source as
+# "V1 <node> 0 SINE(...) AC 1", so <node> is authoritative and survives any node rename.
+STIMULUS_RE = re.compile(r"(?:^|\\n)\s*V1\s+(\S+)\s+0\s", re.IGNORECASE | re.MULTILINE)
 
 OUTPUT_NODE = "V(out)"
 
@@ -82,6 +82,23 @@ def enable_analysis(asc_text, kind):
     if not found:
         raise RuntimeError("no ';" + kind + "' analysis line in the schematic")
     return "\r\n".join(out_lines) + "\r\n"
+
+
+def find_stimulus_node(asc_text):
+    """Return the node ``V1`` drives, as it is spelled in the schematic.
+
+    Every block in the corpus defines its stimulus as ``V1 <node> 0 SINE(...) AC 1``, so the
+    schematic is the authority on which node carries the input. Reading it here means a node
+    rename can never silently shift the ``input_v`` column onto some other net.
+
+    :param asc_text: Full text of the ``.asc`` file. Directive lines inside a ``TEXT``
+        block are separated by a literal backslash-n, which the pattern accounts for.
+    :return: The node name, e.g. ``"src"``.
+    """
+    match = STIMULUS_RE.search(asc_text)
+    if match is None:
+        raise RuntimeError("no 'V1 <node> 0 ...' stimulus line in the schematic")
+    return match.group(1)
 
 
 def run_ltspice(ltspice_exe, asc_path):
@@ -178,8 +195,13 @@ def find_column(names, candidates):
     raise RuntimeError("none of " + str(candidates) + " in " + str(names))
 
 
-def write_ac_csv(path, names, steps):
-    """Resample every step onto 200 log-spaced points and write the AC CSV."""
+def write_ac_csv(path, names, steps, stimulus_node):
+    """Resample every step onto 200 log-spaced points and write the AC CSV.
+
+    :param stimulus_node: Unused; accepted so both CSV writers share one call shape. The AC
+        response is already relative to the ``AC 1`` source magnitude.
+    """
+    del stimulus_node
     out_column = find_column(names, [OUTPUT_NODE])
     grid = np.logspace(math.log10(AC_F_MIN), math.log10(AC_F_MAX), AC_POINTS)
 
@@ -199,9 +221,13 @@ def write_ac_csv(path, names, steps):
                 )
 
 
-def write_tran_csv(path, names, steps):
-    """Resample every step onto a uniform 192 kHz grid and write the transient CSV."""
-    in_column = find_column(names, INPUT_NODE_CANDIDATES)
+def write_tran_csv(path, names, steps, stimulus_node):
+    """Resample every step onto a uniform 192 kHz grid and write the transient CSV.
+
+    :param stimulus_node: Node name from :func:`find_stimulus_node`; its voltage becomes the
+        ``input_v`` column. A raw file that does not carry it is an error, not a fallback.
+    """
+    in_column = find_column(names, ["V(" + stimulus_node + ")"])
     out_column = find_column(names, [OUTPUT_NODE])
     count = int(round(TRAN_RATE * TRAN_SECONDS))
 
@@ -230,6 +256,8 @@ def export_block(block, ltspice_exe):
     with open(asc_path, "r") as handle:
         asc_text = handle.read()
 
+    stimulus_node = find_stimulus_node(asc_text)
+
     with tempfile.TemporaryDirectory() as work_dir:
         # The schematics .include ../models/*.sub, so the temp tree needs the same shape.
         shutil.copytree(
@@ -247,7 +275,7 @@ def export_block(block, ltspice_exe):
                 handle.write(enable_analysis(asc_text, kind))
             raw_path = run_ltspice(ltspice_exe, run_path)
             names, _, steps = parse_raw(raw_path)
-            writer(os.path.join(block_dir, block + suffix), names, steps)
+            writer(os.path.join(block_dir, block + suffix), names, steps, stimulus_node)
             print("  wrote " + block + suffix + " (" + str(len(steps)) + " steps)")
 
 

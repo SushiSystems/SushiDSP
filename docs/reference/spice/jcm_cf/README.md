@@ -16,10 +16,7 @@ machine that authored it, so nothing here has been run.
 placed symbols with wires. Directive lines are netlisted verbatim by LTspice, so node names
 are explicit and the netlist cannot depend on symbol pin geometry that could not be checked
 without running the tool. Tube subcircuits are instantiated as `X` lines against
-`../models/*.sub` with the pin order documented there:
-
-- `12AX7_KOREN`: `P G K`
-- `EL34_KOREN`: `P G2 G1 K`
+`../models/12ax7_koren.sub`, whose pin order is `P G K`.
 
 ## Analyses
 
@@ -50,11 +47,11 @@ This block has no control, so the input level is stepped instead. `setting` 0/1/
 |-----|-------|-------|----------------|
 | V1 | SINE(0 {AMP} 1k) AC 1 | g2a - 0 | D6d block 3 stimulus |
 | XV2a | 12AX7_KOREN | P=p2a G=g2a K=k2a | D6b.3 Triode12AX7 |
-| Rp2a | 100 kO | B - p2a | D6d block 3: V2a 100 kO plate |
-| Rk2a | 820 O | k2a - 0 | D6d block 3: V2a 820 O cathode |
+| Rp2a | 100 kΩ | B - p2a | D6d block 3: V2a 100 kΩ plate |
+| Rk2a | 820 Ω | k2a - 0 | D6d block 3: V2a 820 Ω cathode |
 | Ck2a | 0.68 uF | k2a - 0 | D6d block 3: V2a 0.68 uF bypass |
 | XV2b | 12AX7_KOREN | P=B G=p2a K=out | D6b.3 Triode12AX7 |
-| Rk2b | 100 kO | out - 0 | D6d block 3: CF 100 kO cathode load |
+| Rk2b | 100 kΩ | out - 0 | D6d block 3: CF 100 kΩ cathode load |
 | Vplate | 360 V | B - 0 | B+ per the D6a brief |
 
 ## Judgment calls

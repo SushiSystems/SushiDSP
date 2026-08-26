@@ -2,7 +2,7 @@
 
 # `jcm_fmv`
 
-JCM800 2203 FMV tone stack followed by the 1 MO master volume.
+JCM800 2203 FMV tone stack followed by the 1 MΩ master volume.
 
 **Status: not yet simulated.** No CSVs are committed for this block. The netlist below was
 verified by re-tracing node connectivity by hand only; LTspice is not installed on the
@@ -15,11 +15,7 @@ machine that authored it, so nothing here has been run.
 `jcm_fmv.asc` carries the whole circuit as SPICE directive text on the sheet rather than as
 placed symbols with wires. Directive lines are netlisted verbatim by LTspice, so node names
 are explicit and the netlist cannot depend on symbol pin geometry that could not be checked
-without running the tool. Tube subcircuits are instantiated as `X` lines against
-`../models/*.sub` with the pin order documented there:
-
-- `12AX7_KOREN`: `P G K`
-- `EL34_KOREN`: `P G2 G1 K`
+without running the tool.
 
 ## Analyses
 
@@ -50,28 +46,29 @@ exactly one of them per run:
 |-----|-------|-------|----------------|
 | V1 | SINE(0 {AMP} 1k) AC 1 | in - 0 | D6d block 4 stimulus |
 | C1 | 470 pF | in - t1 | D6d block 4: 470 pF treble cap |
-| Rtreb_a | {220k*(1-TREBLE)} | t1 - tsout | 220 kO treble pot, upper section |
-| Rtreb_b | {220k*TREBLE} | tsout - n2 | 220 kO treble pot, lower section |
-| R1 | 33 kO | in - n2 | D6d block 4: 33 kO slope resistor |
+| Rtreb_a | {220k*(1-TREBLE)} | t1 - tsout | 220 kΩ treble pot, upper section |
+| Rtreb_b | {220k*TREBLE} | tsout - n2 | 220 kΩ treble pot, lower section |
+| R1 | 33 kΩ | in - n2 | D6d block 4: 33 kΩ slope resistor |
 | C2 | 22 nF | n2 - b1 | D6d block 4: 22 nF bass cap |
-| Rbass | {1Meg*BASS} | b1 - n4 | 1 MO bass pot as a rheostat |
+| Rbass | {1Meg*BASS} | b1 - n4 | 1 MΩ bass pot as a rheostat |
 | C3 | 22 nF | n2 - n4 | D6d block 4: 22 nF mid cap |
-| Rmid | {25k*MID} | n4 - 0 | 25 kO mid pot as a rheostat |
-| Rmv_a | {1Meg*(1-MASTER)} | tsout - out | 1 MO master volume, upper section |
-| Rmv_b | {1Meg*MASTER} | out - 0 | 1 MO master volume, lower section |
+| Rmid | {25k*MID} | n4 - 0 | 25 kΩ mid pot as a rheostat |
+| Rmv_a | {1Meg*(1-MASTER)} | tsout - out | 1 MΩ master volume, upper section |
+| Rmv_b | {1Meg*MASTER} | out - 0 | 1 MΩ master volume, lower section |
 
 ## Judgment calls and open questions
 
-- **The FMV interconnection is the largest unverified item in this corpus.** The values are
-  D6d's verbatim (33 kO, 470 pF, 22 nF, 22 nF, 220 kO / 1 MO / 25 kO pots), but D6d does not
+- **The FMV interconnection was reconstructed, then reviewed and confirmed.** The values are
+  D6d's verbatim (33 kΩ, 470 pF, 22 nF, 22 nF, 220 kΩ / 1 MΩ / 25 kΩ pots), but D6d does not
   give the topology, and the arrangement above -- treble cap into the treble pot whose wiper
   is the output and whose bottom is the slope-resistor node, with the bass branch
   (22 nF + bass pot) and the mid cap (22 nF) both running from that node onto the mid pot to
   ground -- was reconstructed from the standard FMV stack rather than traced from a 2203
-  schematic. Check it against the real schematic before treating the CSVs as ground truth.
+  schematic. It has since been checked node-for-node in review and found correct, so it is no
+  longer an open risk; the provenance is recorded here anyway.
 - The stack is driven from an ideal source. In the amp it is driven by the cathode follower
   (`jcm_cf`), whose output impedance is low but not zero; the two blocks are deliberately
   measured separately so the null test isolates each one.
-- At the default `MASTER = 1` the pot's upper section is a 0 O resistor. That is the
+- At the default `MASTER = 1` the pot's upper section is a 0 Ω resistor. That is the
   electrically correct meaning of a wiper at the top of its travel; LTspice treats a zero
   resistance as a short and reports it as a warning, not an error.

@@ -48,6 +48,8 @@ Block names are `ts_clip`, `ts_tone`, `jcm_v1a`, `jcm_v1b_cold`, `jcm_cf`, `jcm_
 ## Node conventions the script relies on
 
 - The probed output is always `V(out)`.
-- The stimulus node is the first of `V(src)`, `V(in)`, `V(g1)`, `V(g2a)` present in the raw
-  file. That resolves every block in the corpus unambiguously; a new schematic must either
-  use one of those node names for its input or extend `INPUT_NODE_CANDIDATES`.
+- The stimulus node is read out of the schematic, not guessed. Every block defines its
+  source as `V1 <node> 0 SINE(...) AC 1`, and `find_stimulus_node` takes `<node>` from that
+  line and selects `V(<node>)` as the `input_v` column. Renaming a node in a schematic
+  therefore carries the exporter with it, and a raw file that does not contain that node
+  raises rather than silently exporting some other net.
