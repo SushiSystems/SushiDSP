@@ -17,7 +17,10 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
   ns/sample; round-trip latency rises from 12 to 65 base-rate samples (the wider filters behind
   the deeper stopbands cost more delay, not more per-sample work).
 - `Jcm800` collapses to one 8×-oversampled region: sag and `JcmToneStack` move inside it
-  alongside V1a/V1b/V2a/PI, halving the reported latency from 130 to 65 base-rate samples.
+  alongside V1a/V1b/V2a/PI. **Host-visible behaviour change:** this raises the amp's reported
+  latency rather than halving it — at D5b two regions cost 12 base-rate samples each, 24 in
+  total; the single region built from the new halfbands costs 65, so the amp goes 24 → 65
+  base-rate samples, about 0.85 ms more at 48 kHz.
   Three physically-derived 12AX7 Miller-effect one-pole lowpasses
   (`Biquad::set_one_pole_low_pass`, prewarped bilinear) go on the V1b, V2a and phase-inverter
   grid nodes (`C_in = C_gk` 1.6 pF `+ C_gp` 1.7 pF `· (1 + |A|) + 10 pF` stray, a stated
@@ -26,7 +29,10 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
   → −20.4 dB (collapsed to one region) → −43.4 dB (with the Miller poles), meeting the ≥ 30 dB
   improvement target. Audible cost, whole amp (preamp 0.6, knobs centred): −0.06 dB at 1 kHz,
   −1.33 dB at 5 kHz, −4.64 dB at 10 kHz, −8.76 dB at 15 kHz. The bias-mismatch asymmetry test
-  (2.17 % active vs. 2.93 % zeroed) was re-verified unchanged.
+  re-measures at 2.17 % second harmonic active vs. 2.93 % zeroed, up from 1.77 % / 2.45 %
+  before this phase: the absolute figures moved because the drive reaching the power stage
+  changed, while the mismatch's own effect — removing about 0.76 pp of second harmonic — is
+  unchanged.
 - **Spec deviation:** TubeScreamer's alias floor moves −8.3 → −9.6 dB, short of the same ≥ 30 dB
   target. Its worst alias is the 21st harmonic of an 18 kHz tone folding around the 8×
   oversampled Nyquist — aliasing generated inside the oversampled domain itself, which no
@@ -43,7 +49,7 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
   `tests/measure/SpiceCsv.hpp`) but not yet populated — LTspice is not installed here, so the
   golden CSVs are a user-side step (install LTspice, run `python tools/spice/export.py --all`,
   commit the output).
-- Test count: 236 (231 unit, 4 regression, 1 benchmark).
+- Test count: 236 (229 unit, 6 regression, 1 benchmark).
 
 ## D5b — Plugin-readiness foundations
 

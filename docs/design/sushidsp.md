@@ -214,8 +214,6 @@ even though the wider filters needed for the deeper stopbands above raise the ro
 the polyphase evaluation touches only the non-zero taps, regardless of how many taps a stage
 carries.
 
-
-
 ### Fixed capacities
 
 | Cap | Value | Where |
@@ -300,11 +298,17 @@ amount and oversample factor are compile-time constants.
 
 - **One 8× region, not two.** The sag stage and `JcmToneStack` now run inside the same
   oversampled region as V1a/V1b/V2a/PI, instead of the chain being split into two oversampled
-  regions with a base-rate gap between them. This halves the reported latency from 130 to 65
-  base-rate samples, and improves the measured JCM800 alias floor at `preamp = 10` from −32.0 dB
-  (the D5b two-region route) to −20.4 dB for the single-region route alone — the two changes are
-  not independent, since collapsing to one region removes an intermediate decimate/interpolate
-  pair that itself introduced some of the aliasing being measured.
+  regions with a base-rate gap between them. **This raises the reported latency, it does not
+  halve it:** at D5b each `Oversampler8x` round trip cost 12 base-rate samples and the amp ran
+  two regions, for 24 in total; one region built from the new 115/27/15-tap halfbands costs 65,
+  so the amp goes 24 → 65 base-rate samples — about 0.85 ms more latency at 48 kHz, and a
+  host-visible behaviour change.
+- **Where the alias floor actually came from.** The D5b baseline is −3.8 dB at `preamp = 10`
+  (two regions, 15-tap stages). The new halfbands alone, still with two regions, take it to
+  −32.0 dB. Collapsing to a single region then *regresses* it to −20.4 dB: the intermediate
+  decimate/interpolate pair that the collapse removes was itself filtering some of what the
+  measurement sees, so the single-region route on its own is worse than the two-region one.
+  The Miller poles below are what recover it and go past the target, to −43.4 dB.
 - **Three Miller-effect grid poles.** V1b, V2a and the phase inverter each gain a physically
   derived one-pole lowpass (`Biquad::set_one_pole_low_pass`, prewarped bilinear) on their grid
   node, modeling the 12AX7's Miller capacitance seen through a 100 kΩ source: `C_in = C_gk`
@@ -315,8 +319,10 @@ amount and oversample factor are compile-time constants.
   the measured alias floor the rest of the way, from −20.4 dB to −43.4 dB at `preamp = 10` — past
   the D6a acceptance target of ≥ 30 dB improvement over the D5b baseline of −3.8 dB. Their audible
   cost is a whole-amp treble rolloff (preamp 0.6, knobs centred): −0.06 dB at 1 kHz, −1.33 dB at
-  5 kHz, −4.64 dB at 10 kHz, −8.76 dB at 15 kHz. The bias-mismatch asymmetry test (2.17 % active
-  vs. 2.93 % zeroed) was re-verified unchanged by this change.
+  5 kHz, −4.64 dB at 10 kHz, −8.76 dB at 15 kHz. The bias-mismatch asymmetry re-measures at
+  2.17 % second harmonic active vs. 2.93 % zeroed, up from 1.77 % / 2.45 % before D6a: the
+  absolute figures moved because the drive reaching the power stage changed, while the
+  mismatch's own effect — it removes about 0.76 pp of second harmonic — is unchanged.
 
 ---
 

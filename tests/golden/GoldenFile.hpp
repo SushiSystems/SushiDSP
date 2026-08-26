@@ -89,6 +89,7 @@ namespace SushiDSP::golden
             }
             std::fwrite(rendered.data(), sizeof(float), rendered.size(), file);
             std::fclose(file);
+            std::fprintf(stderr, "[golden] regenerated %s\n", path.c_str());
             return -200.0;
         }
         std::FILE* file = std::fopen(path.c_str(), "rb");

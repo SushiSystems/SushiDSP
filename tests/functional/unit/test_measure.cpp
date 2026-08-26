@@ -300,7 +300,7 @@ TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
 // generated inside the 8x domain, and it stays a regression floor until D6c.
 constexpr double kD5bJcm800AliasFloorDb = -3.8;
 
-TEST(Unit_Dsp, TubeScreamerAliasFloorDoesNotRegress)
+TEST(Regression_Dsp, TubeScreamerAliasFloorDoesNotRegress)
 {
     // A regression floor, not the spec's 30 dB improvement target - that target is unreachable
     // by any base-rate halfband, and is deferred to D6c.
@@ -323,7 +323,7 @@ TEST(Unit_Dsp, TubeScreamerAliasFloorDoesNotRegress)
     EXPECT_LE(floor, -9.0);
 }
 
-TEST(Unit_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
+TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
 {
     // -43.4 dB as measured, against the -33.8 dB the spec asks for.
     //

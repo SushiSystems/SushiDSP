@@ -18,7 +18,7 @@
 /* distributed under the License is distributed on an "AS IS" BASIS,      */
 /* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
 /* implied. See the License for the specific language governing           */
-/* permissions and limitations under the License.                        */
+/* permissions and limitations under the License.                         */
 /**************************************************************************/
 
 #pragma once
@@ -110,13 +110,13 @@ namespace SushiDSP
 
         /// @brief Upsamples one base-rate block to 8x. Returns an internally-owned buffer.
         /// @param input block_size base-rate input samples.
-        /// @param frames Must equal the block_size passed to the constructor.
+        /// @param frames Must not exceed the block_size passed to the constructor.
         /// @return Pointer to frames*8 oversampled output samples, valid until the next call.
         const float* upsample(const float* input, std::uint32_t frames);
 
         /// @brief Downsamples an 8x-rate buffer back to the base rate.
         /// @param oversampled frames_oversampled samples at 8x rate.
-        /// @param frames_oversampled Must equal 8 * the block_size passed to the constructor.
+        /// @param frames_oversampled Must not exceed 8 * the block_size passed to the constructor.
         /// @param output frames_oversampled/8 base-rate output samples.
         void downsample(const float* oversampled, std::uint32_t frames_oversampled, float* output);
 
