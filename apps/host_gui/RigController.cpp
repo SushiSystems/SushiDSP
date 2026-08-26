@@ -23,6 +23,7 @@
 
 #include "RigController.hpp"
 
+#include <cstring>
 #include <exception>
 
 #include "SushiDSP/io/IrLoader.hpp"
@@ -48,7 +49,7 @@ namespace
             }
             for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
             {
-                if (std::string(param_id) == entry.descriptor->parameters[p].id)
+                if (std::strcmp(param_id, entry.descriptor->parameters[p].id) == 0)
                 {
                     out_index = static_cast<std::uint16_t>(p);
                     return true;
