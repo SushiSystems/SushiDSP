@@ -142,32 +142,6 @@ namespace SushiDSP
         constexpr float kMinOutputDb = -60.0f;
         constexpr float kMaxOutputDb = 12.0f;
 
-        // Every stage up to here saturates against its own solver bound, so a musically hot but
-        // otherwise legitimate drive/preamp/master combination can still land the final sample
-        // outside [-1, 1] - nothing upstream of this point is normalized to the DAC's range, only
-        // to each tube's own conduction window. Left alone, that overshoot is hard-clipped by
-        // whatever sits downstream (the driver, the DAC), which sounds nothing like the amp - it's
-        // a flat-topped digital ceiling, not the transformer/speaker compression a real loud JCM800
-        // exhibits at its output. kOutputLimiterThreshold is chosen well above the entire
-        // regression corpus (largest sample ~0.157, see test_jcm800_regression.cpp) specifically so
-        // this is the identity function - and therefore silent - at every level anyone has actually
-        // measured; it only starts doing anything within the last ~1 dB of full scale.
-        constexpr float kOutputLimiterThreshold = 0.9f;
-
-        // Smooth (C1-continuous at the threshold - tanh'(0) == 1, matching the identity region's
-        // slope) soft-knee limiter: identity below threshold, asymptoting toward +-1 above it.
-        float soft_limit(float sample, float threshold)
-        {
-            const float magnitude = std::fabs(sample);
-            if (magnitude <= threshold)
-            {
-                return sample;
-            }
-            const float sign = sample < 0.0f ? -1.0f : 1.0f;
-            const float headroom = 1.0f - threshold;
-            return sign * (threshold + headroom * std::tanh((magnitude - threshold) / headroom));
-        }
-
         float presence_gain_db(float normalized)
         {
             return (normalized - 0.5f) * 2.0f * kMaxPresenceDb;
@@ -245,30 +219,22 @@ namespace SushiDSP
 
         oversampler_a_ = std::make_unique<Oversampler8x>(info.max_block);
         oversampler_b_ = std::make_unique<Oversampler8x>(info.max_block);
-        oversampler_c_ = std::make_unique<Oversampler8x>(info.max_block);
 
         scratch_base_.assign(info.max_block, 0.0f);
         scratch_oversampled_a_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
         scratch_oversampled_b_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
-        scratch_oversampled_c_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
 
-        // The cabinet's partition size is the host's block size, not a fixed constant:
-        // PartitionedConvolution is a fixed-block API, so any mismatch would force process() down
-        // its bypass path and silently drop the cabinet on every host that isn't running the one
-        // hardcoded size. PartitionedConvolution requires a power-of-two partition (its FFT is
-        // sized 2*partition_size), so a host with a non-power-of-two block size still gets no
-        // cabinet — an accepted limitation, flagged rather than papered over, since resolving it
-        // needs an input-side ring buffer to re-block the stream and the latency that implies.
-        cabinet_.reset();
-        cabinet_partition_size_ = 0;
-        const bool block_is_power_of_two =
-            info.max_block > 0 && (info.max_block & (info.max_block - 1)) == 0;
-        if (!cabinet_impulse_response_.empty() && block_is_power_of_two)
+        max_block_ = info.max_block;
+
+        // StreamingConvolution re-blocks the stream internally, so the partition is a property of
+        // the sample rate alone rather than of the host's block size: every block size, power of
+        // two or not, gets the same cabinet and the same one-partition latency.
+        cabinet_partition_ = StreamingConvolution::partition_size_for(sample_rate_);
+        if (!cabinet_impulse_response_.empty())
         {
-            cabinet_partition_size_ = info.max_block;
-            cabinet_ = std::make_unique<PartitionedConvolution>(
-                cabinet_partition_size_, cabinet_impulse_response_.data(),
-                static_cast<std::uint32_t>(cabinet_impulse_response_.size()));
+            cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
+                cabinet_partition_, cabinet_impulse_response_.data(),
+                static_cast<std::uint32_t>(cabinet_impulse_response_.size()), max_block_));
         }
 
         reset();
@@ -362,12 +328,12 @@ namespace SushiDSP
             scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]) * master_gain;
         }
 
-        // PartitionedConvolution::process() is a fixed-block API with no frame-count argument;
-        // feeding it a short final block would read/write past the caller's buffer. Bypass rather
-        // than corrupt when the host's block size doesn't match the cabinet's partition size.
-        if (cabinet_ && frames == cabinet_partition_size_)
+        // One atomic acquire is the audio thread's entire share of a cabinet swap; the convolver
+        // it hands back was built in full on the control thread.
+        StreamingConvolution* const cabinet = cabinet_slot_.acquire_for_audio_thread();
+        if (cabinet != nullptr)
         {
-            cabinet_->process(scratch_base_.data(), output);
+            cabinet->process(scratch_base_.data(), output, frames);
         }
         else
         {
@@ -377,53 +343,50 @@ namespace SushiDSP
             }
         }
 
-        // The output level sits after the cabinet but ahead of the limiter, so it is a real
-        // output control - turning it up can drive the limiter, as an amp's own output stage does
-        // - rather than a trim that silently bypasses the ceiling below.
-        if (output_gain != 1.0f)
-        {
-            for (std::uint32_t i = 0; i < frames; ++i)
-            {
-                output[i] *= output_gain;
-            }
-        }
-
-        // The limiter is a genuine waveshaping nonlinearity (like the output transformer's core
-        // saturation above), so when it actually engages it must run inside its own oversampled
-        // region rather than at the base rate output writes land at above: applying it
-        // post-decimation would generate harmonics with nothing left to band-limit them, aliasing
-        // straight back down into the audible range - audible as tearing on bright,
-        // high-frequency-heavy signals even though the limiter itself only ever nudges the loudest
-        // ~1 dB of samples.
-        //
-        // Below the threshold, soft_limit() is exactly the identity function - but running every
-        // block through the oversample/downsample round trip regardless would still change it
-        // very slightly (the halfband filters' passband is near-unity, not bit-exact-unity), which
-        // is audible to nothing but is enough to disturb this file's THD/regression measurements
-        // at ordinary playing levels. So the whole oversampled detour is skipped whenever nothing
-        // in this block would actually be touched - the same signal that reaches here untouched
-        // leaves untouched too, and the oversampler's history sits idle rather than drifting out
-        // of sync with a signal it isn't filtering.
-        bool needs_limiting = false;
+        // Nothing upstream is normalized to the DAC's range - every stage is bounded only by its
+        // own tube's conduction window - so a hot preamp/master/output combination can still land
+        // outside [-1, 1]. The clamp is what makes that safe. It is deliberately not a soft-knee
+        // limiter: a waveshaper here would need its own oversampled region to avoid aliasing its
+        // own harmonics back down, and the amp's saturation character already comes from the tube
+        // and transformer stages that model it. This is a safety rail, not a tone stage.
         for (std::uint32_t i = 0; i < frames; ++i)
         {
-            if (std::fabs(output[i]) > kOutputLimiterThreshold)
-            {
-                needs_limiting = true;
-                break;
-            }
+            output[i] = std::clamp(output[i] * output_gain, -1.0f, 1.0f);
         }
+    }
 
-        if (needs_limiting)
+    std::uint32_t Jcm800::latency_samples() const
+    {
+        const std::uint32_t oversampling_latency =
+            (oversampler_a_ ? oversampler_a_->latency_samples() : 0)
+            + (oversampler_b_ ? oversampler_b_->latency_samples() : 0);
+        return oversampling_latency + (has_cabinet() ? cabinet_partition_ : 0);
+    }
+
+    bool Jcm800::set_cabinet(Ir impulse_response)
+    {
+        if (impulse_response.samples.empty() || impulse_response.sample_rate != sample_rate_)
         {
-            const float* upsampled_c = oversampler_c_->upsample(output, frames);
-            const std::uint32_t oversampled_frames_c = frames * kOversamplingFactor;
-            for (std::uint32_t i = 0; i < oversampled_frames_c; ++i)
-            {
-                scratch_oversampled_c_[i] = soft_limit(upsampled_c[i], kOutputLimiterThreshold);
-            }
-            oversampler_c_->downsample(scratch_oversampled_c_.data(), oversampled_frames_c, output);
+            return false;
         }
+        // Kept so a later prepare() can rebuild this cabinet at the new partition and block size.
+        // RtSwapSlot has no "unpublish", so a cabinet that outlived its prepare() would otherwise
+        // stay active with a stale partition and a latency figure that no longer described it.
+        cabinet_impulse_response_ = std::move(impulse_response.samples);
+        cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
+            cabinet_partition_, cabinet_impulse_response_.data(),
+            static_cast<std::uint32_t>(cabinet_impulse_response_.size()), max_block_));
+        return true;
+    }
+
+    void Jcm800::reclaim_cabinets()
+    {
+        cabinet_slot_.reclaim();
+    }
+
+    bool Jcm800::has_cabinet() const
+    {
+        return cabinet_slot_.has_active();
     }
 
     PortLayout Jcm800::ports() const
@@ -453,9 +416,12 @@ namespace SushiDSP
         {
             oversampler_b_->reset();
         }
-        if (oversampler_c_)
+        // reset() mutates every stage's state, so it is already mutually exclusive with
+        // process(); acquiring the slot here therefore cannot race a live audio thread, and the
+        // generation it records is the same one the next process() would record anyway.
+        if (StreamingConvolution* const cabinet = cabinet_slot_.acquire_for_audio_thread())
         {
-            oversampler_c_->reset();
+            cabinet->reset();
         }
     }
 

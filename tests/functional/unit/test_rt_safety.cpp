@@ -39,6 +39,7 @@
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/device/AsioSampleConverter.hpp"
+#include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/math/Fft.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/PartitionedConvolution.hpp"
@@ -443,4 +444,45 @@ TEST(Unit_Dsp, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
 
     EXPECT_EQ(accumulator, 30000);
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, Jcm800SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
+{
+    // A cabinet published from the control thread must reach process() through RtSwapSlot's
+    // single atomic acquire - no allocation, no lock. The convolver itself is built entirely
+    // before publish(), so the only thing crossing onto the audio thread is a pointer.
+    SushiDSP::Jcm800 node;
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+
+    SushiDSP::Ir impulse_response;
+    impulse_response.sample_rate = 48000.0;
+    impulse_response.samples.assign(2048, 0.0f);
+    impulse_response.samples[0] = 1.0f;
+    ASSERT_TRUE(node.set_cabinet(impulse_response));
+    ASSERT_TRUE(node.has_cabinet());
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 4; ++block)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+
+    node.reclaim_cabinets();
 }
