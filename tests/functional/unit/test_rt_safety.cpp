@@ -37,10 +37,12 @@
 #include "SushiDSP/circuits/DiodeClipperCircuit.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
+#include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/device/AsioSampleConverter.hpp"
 #include "SushiDSP/math/Fft.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/PartitionedConvolution.hpp"
+#include "SushiDSP/math/StreamingConvolution.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
@@ -230,6 +232,40 @@ TEST(Unit_Dsp, PartitionedConvolutionProcessPerformsNoHeapAllocation)
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
 }
 
+TEST(Unit_Dsp, StreamingConvolutionProcessPerformsNoHeapAllocation)
+{
+    const std::uint32_t partition_size = 128;
+
+    std::vector<float> impulse_response(300, 0.0f);
+    for (std::size_t i = 0; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 1.0f / (1.0f + static_cast<float>(i));
+    }
+
+    SushiDSP::StreamingConvolution convolution(
+        partition_size, impulse_response.data(), static_cast<std::uint32_t>(impulse_response.size()), 4096);
+
+    const std::uint32_t frames = 37;
+    std::vector<float> input(frames, 0.0f);
+    std::vector<float> output(frames, 0.0f);
+    for (std::uint32_t i = 0; i < frames; ++i)
+    {
+        input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
+    }
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 200; ++block)
+    {
+        convolution.process(input.data(), output.data(), frames);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
 TEST(Unit_Dsp, DiodeClipperCircuitProcessPerformsNoHeapAllocation)
 {
     SushiDSP::DiodeClipperCircuit circuit(1000.0f, 1e-12f, 0.02585f);
@@ -379,5 +415,26 @@ TEST(Unit_Dsp, AsioSampleConverterPerformsNoHeapAllocation)
 
     g_trap_allocations.store(false, std::memory_order_relaxed);
 
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
+{
+    SushiDSP::RtSwapSlot<int> slot;
+    slot.publish(std::make_unique<int>(3));
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    int accumulator = 0;
+    for (int i = 0; i < 10000; ++i)
+    {
+        const int* object = slot.acquire_for_audio_thread();
+        accumulator += (object != nullptr && slot.has_active()) ? *object : 0;
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(accumulator, 30000);
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
 }

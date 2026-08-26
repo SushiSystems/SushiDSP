@@ -14,11 +14,15 @@ add_library(sushi_dsp STATIC
     src/core/RtGraphSlot.cpp
     src/device/AsioSampleConverter.cpp
     src/device/ChannelSelection.cpp
+    src/io/IrLoader.cpp
     src/io/WavFile.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
     src/math/Oversampler.cpp
+    src/math/SmoothedParameter.cpp
     src/math/PartitionedConvolution.cpp
+    src/math/SincResampler.cpp
+    src/math/StreamingConvolution.cpp
     src/math/Wdf.cpp
 )
 add_library(SushiDSP::sushi_dsp ALIAS sushi_dsp)

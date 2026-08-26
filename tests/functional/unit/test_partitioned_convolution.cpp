@@ -121,3 +121,16 @@ TEST(Unit_Dsp, PartitionedConvolutionMatchesDirectConvolutionForWhiteNoise)
         EXPECT_NEAR(streamed[i], reference[i], 1e-2f) << "sample " << i;
     }
 }
+
+TEST(Unit_Dsp, PartitionedConvolutionResetClearsTail)
+{
+    const float ir[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    SushiDSP::PartitionedConvolution convolution(4, ir, 4);
+    float block[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+    float out[4];
+    convolution.process(block, out);
+    convolution.reset();
+    float silence[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    convolution.process(silence, out);
+    for (float sample : out) { EXPECT_NEAR(sample, 0.0f, 1e-7f); }
+}

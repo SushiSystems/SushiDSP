@@ -40,6 +40,7 @@ add_executable(sushidsp_tests
     functional/unit/test_denormal_guard.cpp
     functional/unit/test_rig_graph.cpp
     functional/unit/test_rt_graph_slot.cpp
+    functional/unit/test_rt_swap_slot.cpp
     functional/unit/test_channel_selection.cpp
     functional/unit/test_node_registry.cpp
     functional/unit/test_spsc_ring.cpp
@@ -63,10 +64,14 @@ add_executable(sushidsp_tests
     functional/unit/test_newton_raphson_solver.cpp
     functional/unit/test_oversampler.cpp
     functional/unit/test_partitioned_convolution.cpp
+    functional/unit/test_streaming_convolution.cpp
+    functional/unit/test_sinc_resampler.cpp
+    functional/unit/test_smoothed_parameter.cpp
     functional/unit/test_wdf.cpp
 
     # --- IO ---
     functional/unit/test_asio_sample_converter.cpp
+    functional/unit/test_ir_loader.cpp
     functional/unit/test_wav_file.cpp
 
     # --- Real-time safety ---

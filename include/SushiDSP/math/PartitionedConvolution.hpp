@@ -61,6 +61,10 @@ namespace SushiDSP
         /// @return The partition count.
         std::uint32_t partition_count() const;
 
+        /// @brief Clears the spectrum history and overlap tail, as if freshly constructed.
+        /// The impulse-response partitions themselves are untouched.
+        void reset();
+
     private:
         std::uint32_t partition_size_;
         std::uint32_t fft_size_;
