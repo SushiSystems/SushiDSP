@@ -22,6 +22,7 @@
 /**************************************************************************/
 
 #include <cmath>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -225,4 +226,68 @@ TEST(Unit_Dsp, SerializeRigToJsonThrowsWhenNodeTypeIsNotRegistered)
     graph.compile(info);
 
     EXPECT_THROW(SushiDSP::serialize_rig_to_json(graph), std::runtime_error);
+}
+
+TEST(Unit_Dsp, SerializeRigToJsonCallsAnnotateNodeOncePerNode)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::RigGraph graph(256, 4);
+    auto ts = graph.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));
+    auto amp = graph.add_node(SushiDSP::make_node("sushidsp.jcm800", info));
+    graph.connect(ts, amp);
+    graph.compile(info);
+
+    int call_count = 0;
+    const std::string json_text = SushiDSP::serialize_rig_to_json(graph,
+        [&call_count](SushiDSP::NodeHandle, nlohmann::json& node_json)
+        {
+            ++call_count;
+            node_json["marker"] = "annotated";
+        });
+
+    EXPECT_EQ(call_count, 2);
+    const nlohmann::json root = nlohmann::json::parse(json_text);
+    for (const auto& node_json : root.at("nodes"))
+    {
+        EXPECT_EQ(node_json.at("marker").get<std::string>(), "annotated");
+    }
+}
+
+TEST(Unit_Dsp, DeserializeRigFromJsonCallsOnNodeLoadedWithFullEntry)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    const std::string json_text = R"({
+        "nodes": [
+            { "id": 0, "type": "sushidsp.tubescreamer", "params": {}, "inputs": [], "marker": "hello" }
+        ]
+    })";
+
+    SushiDSP::RigGraph graph(256, 4);
+    int call_count = 0;
+    std::string seen_marker;
+    SushiDSP::deserialize_rig_from_json(graph, json_text, info,
+        [&call_count, &seen_marker](SushiDSP::NodeHandle, const nlohmann::json& node_json)
+        {
+            ++call_count;
+            seen_marker = node_json.value("marker", std::string());
+        });
+
+    EXPECT_EQ(call_count, 1);
+    EXPECT_EQ(seen_marker, "hello");
+}
+
+TEST(Unit_Dsp, SerializeAndDeserializeStillWorkWithNoCallback)
+{
+    // Regression guard: every existing call site (no callback argument) must keep compiling
+    // and behaving exactly as before this task.
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::RigGraph graph(256, 4);
+    graph.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));
+    graph.compile(info);
+
+    const std::string json_text = SushiDSP::serialize_rig_to_json(graph);
+    SushiDSP::RigGraph rebuilt(256, 4);
+    SushiDSP::deserialize_rig_from_json(rebuilt, json_text, info);
+
+    EXPECT_EQ(rebuilt.nodes().size(), 1u);
 }

@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -41,8 +42,8 @@
 #include "SushiDSP/device/ChannelSelection.hpp"
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
+#include "SushiDSP/rig_preset/RigPreset.hpp"
 
-#include "Preset.hpp"
 #include "RigController.hpp"
 #include "SlotSelection.hpp"
 
@@ -65,12 +66,11 @@ namespace
     /// @brief Installs the bundled cabinet impulse response on a freshly-created JCM800 slot,
     /// if the bundle is present next to the executable. Warns once, on stderr, when it is not.
     /// @param controller The rig to act on.
-    /// @param slot Chain position of the new slot.
+    /// @param slot The new slot's id.
     /// @param default_ir_path Path to the bundled impulse response.
-    void apply_default_cabinet(RigController& controller, std::size_t slot, const std::string& default_ir_path)
+    void apply_default_cabinet(RigController& controller, RigController::SlotId slot, const std::string& default_ir_path)
     {
-        const auto ids = controller.chain_ids();
-        if (slot >= ids.size() || ids[slot] != "sushidsp.jcm800")
+        if (controller.descriptor_id(slot) != "sushidsp.jcm800")
         {
             return;
         }
@@ -345,13 +345,24 @@ int main(int argc, char** argv)
         ImGui::SameLine();
         if (ImGui::Button("Save"))
         {
-            try { save_preset(rig_controller, preset_path); }
+            try
+            {
+                std::ofstream out(preset_path);
+                if (!out) { throw std::runtime_error("could not open '" + std::string(preset_path) + "' for writing"); }
+                out << rig_controller.save_to_json();
+            }
             catch (const std::exception& e) { std::fprintf(stderr, "Save failed: %s\n", e.what()); }
         }
         ImGui::SameLine();
         if (ImGui::Button("Load"))
         {
-            try { load_preset(rig_controller, preset_path); }
+            try
+            {
+                std::ifstream in(preset_path);
+                if (!in) { throw std::runtime_error("could not open '" + std::string(preset_path) + "' for reading"); }
+                std::string json_text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                rig_controller.load_from_json(json_text);
+            }
             catch (const std::exception& e) { std::fprintf(stderr, "Load failed: %s\n", e.what()); }
         }
         ImGui::Separator();
@@ -359,76 +370,75 @@ int main(int argc, char** argv)
         ImGui::Text("Rack");
         ImGui::Separator();
         {
-            // Snapshot for THIS list only. Every branch below can edit the chain mid-frame, so
-            // nothing after the list may index with it - the parameter panel re-reads instead.
-            const auto rack_ids = rig_controller.chain_ids();
-            static int selected_slot = -1;
-            for (std::size_t i = 0; i < rack_ids.size(); ++i)
+            const auto rack_slots = rig_controller.slot_order();
+            static std::optional<RigController::SlotId> selected_slot;
+            for (std::size_t i = 0; i < rack_slots.size(); ++i)
             {
+                const RigController::SlotId slot = rack_slots[i];
+                const std::string label = rig_controller.descriptor_id(slot);
                 ImGui::PushID(static_cast<int>(i));
-                if (ImGui::Selectable(rack_ids[i].c_str(), selected_slot == static_cast<int>(i), 0, ImVec2(150, 0)))
+                if (ImGui::Selectable(label.c_str(), selected_slot == std::optional<RigController::SlotId>(slot), 0, ImVec2(150, 0)))
                 {
-                    selected_slot = static_cast<int>(i);
+                    selected_slot = slot;
                 }
                 if (ImGui::BeginDragDropSource())
                 {
-                    ImGui::SetDragDropPayload("RACK_SLOT_INDEX", &i, sizeof(std::size_t));
-                    ImGui::Text("%s", rack_ids[i].c_str());
+                    ImGui::SetDragDropPayload("RACK_SLOT_ID", &slot, sizeof(RigController::SlotId));
+                    ImGui::Text("%s", label.c_str());
                     ImGui::EndDragDropSource();
                 }
                 if (ImGui::BeginDragDropTarget())
                 {
-                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RACK_SLOT_INDEX"))
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RACK_SLOT_ID"))
                     {
-                        const std::size_t from = *static_cast<const std::size_t*>(payload->Data);
-                        rig_controller.move(from, i);
-                        selected_slot = slot_selection::remap_after_move(selected_slot, from, i);
+                        const RigController::SlotId moved = *static_cast<const RigController::SlotId*>(payload->Data);
+                        rig_controller.move_before(moved, slot);
                     }
                     if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
                     {
                         const char* descriptor_id = static_cast<const char*>(payload->Data);
-                        rig_controller.insert(i, std::string(descriptor_id));
-                        apply_default_cabinet(rig_controller, i, default_ir_path);
-                        selected_slot = slot_selection::remap_after_insert(selected_slot, i);
+                        const RigController::SlotId new_slot = rig_controller.insert_before(slot, std::string(descriptor_id));
+                        apply_default_cabinet(rig_controller, new_slot, default_ir_path);
+                        selected_slot = new_slot;
                     }
                     ImGui::EndDragDropTarget();
                 }
                 ImGui::SameLine();
                 if (ImGui::SmallButton("x"))
                 {
-                    rig_controller.remove(i);
-                    selected_slot = slot_selection::remap_after_remove(selected_slot, i);
+                    rig_controller.remove(slot);
                 }
                 ImGui::PopID();
             }
 
-            // A drop target at the end of the list, for appending.
             ImGui::Dummy(ImVec2(150, 20));
             if (ImGui::BeginDragDropTarget())
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
                 {
                     const char* descriptor_id = static_cast<const char*>(payload->Data);
-                    rig_controller.append(std::string(descriptor_id));
-                    apply_default_cabinet(rig_controller, rig_controller.chain_ids().size() - 1, default_ir_path);
+                    const RigController::SlotId new_slot = rig_controller.append(std::string(descriptor_id));
+                    apply_default_cabinet(rig_controller, new_slot, default_ir_path);
+                    selected_slot = new_slot;
                 }
                 ImGui::EndDragDropTarget();
             }
 
-            // Re-read: the rack list above may have inserted, moved or removed a slot this
-            // frame, and an edit naming an unknown descriptor id can even leave the chain
-            // shorter than the remaps above assumed.
-            const auto ids = rig_controller.chain_ids();
-            selected_slot = slot_selection::clamp(selected_slot, ids.size());
+            const auto current_order = rig_controller.slot_order();
+            if (!slot_selection::still_valid(selected_slot, current_order))
+            {
+                selected_slot = std::nullopt;
+            }
 
             ImGui::Separator();
             ImGui::Text("Parameters");
-            if (selected_slot >= 0)
+            if (selected_slot.has_value())
             {
-                const std::size_t slot = static_cast<std::size_t>(selected_slot);
+                const RigController::SlotId slot = *selected_slot;
+                const std::string slot_descriptor = rig_controller.descriptor_id(slot);
                 for (const auto& entry : SushiDSP::node_registry())
                 {
-                    if (ids[slot] != entry.descriptor->id)
+                    if (slot_descriptor != entry.descriptor->id)
                     {
                         continue;
                     }
@@ -456,19 +466,18 @@ int main(int argc, char** argv)
                     break;
                 }
 
-                if (ids[slot] == "sushidsp.jcm800")
+                if (slot_descriptor == "sushidsp.jcm800")
                 {
                     ImGui::Separator();
-                    const auto cabinet_paths = rig_controller.chain_cabinet_paths();
-                    ImGui::Text("Cabinet: %s",
-                        cabinet_paths[slot].empty() ? "(none)" : cabinet_paths[slot].c_str());
+                    const std::string cabinet = rig_controller.cabinet_path(slot);
+                    ImGui::Text("Cabinet: %s", cabinet.empty() ? "(none)" : cabinet.c_str());
 
                     static char cabinet_input[512] = "";
-                    static int cabinet_input_slot = -1;
+                    static std::optional<RigController::SlotId> cabinet_input_slot;
                     if (cabinet_input_slot != selected_slot)
                     {
                         cabinet_input_slot = selected_slot;
-                        std::snprintf(cabinet_input, sizeof(cabinet_input), "%s", cabinet_paths[slot].c_str());
+                        std::snprintf(cabinet_input, sizeof(cabinet_input), "%s", cabinet.c_str());
                     }
                     ImGui::InputText("Cabinet IR path", cabinet_input, sizeof(cabinet_input));
                     ImGui::SameLine();
