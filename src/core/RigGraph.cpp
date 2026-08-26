@@ -130,6 +130,37 @@ namespace SushiDSP
             }
         }
 
+        const std::size_t live_node_count =
+            static_cast<std::size_t>(std::count_if(nodes_.begin(), nodes_.end(),
+                [](const std::unique_ptr<IAudioNode>& node) { return node != nullptr; }));
+        if (topological_order_.size() != live_node_count)
+        {
+            throw std::runtime_error("RigGraph::compile: cycle detected");
+        }
+
+        std::vector<bool> has_outgoing_edge(nodes_.size(), false);
+        std::vector<bool> has_incoming_edge(nodes_.size(), false);
+        for (const Edge& edge : edges_)
+        {
+            has_outgoing_edge[edge.from] = true;
+            has_incoming_edge[edge.to] = true;
+        }
+        std::size_t sink_count = 0;
+        for (NodeHandle handle : topological_order_)
+        {
+            const bool is_sink_candidate = !has_outgoing_edge[handle]
+                && (has_incoming_edge[handle] || live_node_count == 1);
+            if (is_sink_candidate)
+            {
+                sink_handle_ = handle;
+                ++sink_count;
+            }
+        }
+        if (sink_count > 1)
+        {
+            throw std::runtime_error("RigGraph::compile: multiple sink nodes (ambiguous graph output)");
+        }
+
         node_output_scratch_.assign(nodes_.size(), nullptr);
 
         for (auto& node : nodes_)

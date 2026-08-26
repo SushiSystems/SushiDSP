@@ -25,6 +25,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "SushiDSP/core/BufferPool.hpp"
@@ -103,6 +104,7 @@ namespace SushiDSP
         std::vector<std::unique_ptr<IAudioNode>>  nodes_;
         std::vector<Edge>                         edges_;
         std::vector<NodeHandle>                   topological_order_;
+        NodeHandle                                sink_handle_ = 0;
         std::vector<float*>                       node_output_scratch_;
         SpscRing<ParameterChange>                 parameter_ring_{ kParameterRingCapacity };
     };
