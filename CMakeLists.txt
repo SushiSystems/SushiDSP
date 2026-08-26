@@ -153,5 +153,7 @@ if(SUSHIDSP_BUILD_GUI)
     add_subdirectory(apps/host_gui)
 endif()
 
+add_subdirectory(modules/rig_preset)
+
 enable_testing()
 add_subdirectory(tests)
