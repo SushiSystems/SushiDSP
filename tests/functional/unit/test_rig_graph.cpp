@@ -26,6 +26,7 @@
 
 #include <gtest/gtest.h>
 
+#include "SushiDSP/core/DenormalGuard.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
@@ -363,4 +364,39 @@ TEST(Unit_Dsp, RigGraphIgnoresParameterChangeForRemovedNode)
     SushiDSP::ProcessContext context{ outs, nullptr, 64, 0.0 };
     graph.process(context);   // must not crash
     EXPECT_FLOAT_EQ(out[0], 0.0f);
+}
+
+namespace
+{
+    class DenormalNode : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            volatile float state = 1e-40f;                 // a denormal; volatile defeats constant folding
+            for (std::uint32_t i = 0; i < context.frames; ++i)
+            {
+                state = state * 0.5f;
+                context.outputs[0][i] = state;
+            }
+        }
+        SushiDSP::PortLayout ports() const override { return { 0, 1 }; }
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+        void reset() override {}
+    };
+}
+
+TEST(Unit_Dsp, RigGraphProcessFlushesDenormalsForItsNodes)
+{
+    if (!SushiDSP::DenormalGuard::is_supported()) { GTEST_SKIP(); }
+    SushiDSP::RigGraph graph(64, 4);
+    graph.add_node(std::make_unique<DenormalNode>());
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    std::vector<float> out(64, 1.0f);
+    float* outs[1] = { out.data() };
+    SushiDSP::ProcessContext context{ outs, nullptr, 64, 0.0 };
+    graph.process(context);
+    EXPECT_EQ(out[0], 0.0f);          // 1e-40 * 0.5 is a non-zero denormal without FTZ/DAZ
 }

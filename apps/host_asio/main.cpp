@@ -31,7 +31,7 @@
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/device/AsioAudioDevice.hpp"
 #include "SushiDSP/device/ChannelSelection.hpp"
-#include "SushiDSP/io/WavFile.hpp"
+#include "SushiDSP/io/IrLoader.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
@@ -109,22 +109,7 @@ int main(int argc, char** argv)
     }
 
     const std::string driver_name = positional[0];
-
-    std::vector<float> cabinet_ir;
-    if (positional.size() >= 2)
-    {
-        const std::string ir_path = positional[1];
-        try
-        {
-            cabinet_ir = SushiDSP::WavFile::load_mono(ir_path);
-            std::printf("Loaded cabinet IR '%s' (%zu samples)\n", ir_path.c_str(), cabinet_ir.size());
-        }
-        catch (const std::exception& error)
-        {
-            std::fprintf(stderr, "Failed to load cabinet IR '%s': %s\n", ir_path.c_str(), error.what());
-            return 1;
-        }
-    }
+    const std::string ir_path = positional.size() >= 2 ? positional[1] : std::string();
 
     // Always open both channels, regardless of selection, so --input=R (guitar wired to the
     // right input) and --output=stereo both have a real ASIO channel to read from/write to.
@@ -150,6 +135,23 @@ int main(int argc, char** argv)
         "Reading input %s, writing output %s\n",
         SushiDSP::channel_selection_label(input_selection),
         SushiDSP::channel_selection_label(output_selection));
+
+    std::vector<float> cabinet_ir;
+    if (!ir_path.empty())
+    {
+        try
+        {
+            const SushiDSP::Ir ir = SushiDSP::IrLoader::load(ir_path, actual.sample_rate);
+            cabinet_ir = ir.samples;
+            std::printf("Loaded cabinet IR '%s' (%zu samples @ %.0f Hz)\n",
+                ir_path.c_str(), cabinet_ir.size(), ir.sample_rate);
+        }
+        catch (const std::exception& error)
+        {
+            std::fprintf(stderr, "Failed to load cabinet IR '%s': %s\n", ir_path.c_str(), error.what());
+            return 1;
+        }
+    }
 
     SushiDSP::RigGraph rig(actual.block_size, 4);
 
@@ -177,6 +179,7 @@ int main(int argc, char** argv)
     // ASIO channel feeds it and which physical channel(s) its output reaches.
     SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, 1 };
     rig.compile(info);
+    std::printf("Rig latency: %u sample(s)\n", rig.latency_samples());
 
     const std::size_t input_index = SushiDSP::channel_selection_input_index(input_selection);
 
