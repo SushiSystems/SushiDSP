@@ -45,6 +45,7 @@
 #include "SushiDSP/math/PartitionedConvolution.hpp"
 #include "SushiDSP/math/StreamingConvolution.hpp"
 #include "SushiDSP/routing/SplitterNode.hpp"
+#include "SushiDSP/routing/MixerNode.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
@@ -335,6 +336,29 @@ TEST(Unit_Dsp, SplitterNodeProcessPerformsNoHeapAllocation)
     std::vector<float> input(256, 1.0f);
     std::vector<float> output(256, 0.0f);
     const float* inputs[1] = { input.data() };
+    float* outputs[1] = { output.data() };
+    SushiDSP::ProcessContext context{ outputs, inputs, 256, 0.0 };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+    for (int block = 0; block < 100; ++block)
+    {
+        node.process(context);
+    }
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, MixerNodeProcessPerformsNoHeapAllocation)
+{
+    SushiDSP::MixerNode node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    std::vector<float> a(256, 1.0f);
+    std::vector<float> b(256, 1.0f);
+    std::vector<float> output(256, 0.0f);
+    const float* inputs[SushiDSP::MixerNode::kMaxFanIn] = { a.data(), b.data(), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
     float* outputs[1] = { output.data() };
     SushiDSP::ProcessContext context{ outputs, inputs, 256, 0.0 };
 

@@ -1,5 +1,6 @@
 add_library(routing STATIC
     src/SplitterNode.cpp
+    src/MixerNode.cpp
 )
 add_library(SushiDSP::routing ALIAS routing)
 target_link_libraries(routing PUBLIC SushiDSP::sushi_dsp)
