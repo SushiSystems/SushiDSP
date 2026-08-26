@@ -607,3 +607,9 @@ TEST(Unit_Dsp, RigGraphSplitterAndMixerRoundTripThroughTwoEffectBranches)
         EXPECT_FLOAT_EQ(sample, 4.0f);
     }
 }
+
+TEST(Unit_Dsp, GainNodeTypeIdDefaultsToEmptyString)
+{
+    GainNode node(1.0f);
+    EXPECT_STREQ(node.type_id(), "");
+}

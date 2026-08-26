@@ -51,6 +51,10 @@ namespace SushiDSP
         void set_parameter(const char* id, float value) override;
         void set_parameter(std::uint16_t index, float value) override;
 
+        /// @brief This mixer's registered type id.
+        /// @return "sushidsp.mixer".
+        const char* type_id() const override;
+
     private:
         std::array<float, kMaxFanIn> gains_;
     };
