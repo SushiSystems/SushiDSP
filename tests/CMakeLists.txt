@@ -39,6 +39,7 @@ add_executable(sushidsp_tests
     functional/unit/test_buffer_pool.cpp
     functional/unit/test_denormal_guard.cpp
     functional/unit/test_rig_graph.cpp
+    functional/unit/test_splitter_node.cpp
     functional/unit/test_rt_graph_slot.cpp
     functional/unit/test_rt_swap_slot.cpp
     functional/unit/test_channel_selection.cpp
@@ -106,6 +107,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::tubescreamer
     SushiDSP::jcm800
     SushiDSP::node_registry
+    SushiDSP::routing
     GTest::gtest
     # Known limitation: nlohmann_json::nlohmann_json is only available here because
     # enable_testing()/add_subdirectory(tests) in the root CMakeLists.txt runs after the
