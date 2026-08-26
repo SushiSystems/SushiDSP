@@ -38,6 +38,7 @@ void save_preset(const RigController& controller, const std::string& path)
     root["nodes"] = nlohmann::json::array();
 
     const auto ids = controller.chain_ids();
+    const auto cabinet_paths = controller.chain_cabinet_paths();
     for (std::size_t i = 0; i < ids.size(); ++i)
     {
         nlohmann::json node_json;
@@ -55,6 +56,10 @@ void save_preset(const RigController& controller, const std::string& path)
                 }
                 break;
             }
+        }
+        if (i < cabinet_paths.size() && !cabinet_paths[i].empty())
+        {
+            node_json["cabinet_ir"] = cabinet_paths[i];
         }
         root["nodes"].push_back(node_json);
     }
@@ -80,6 +85,7 @@ void load_preset(RigController& controller, const std::string& path)
 
     std::vector<std::string> ids;
     std::vector<std::map<std::string, float>> params;
+    std::vector<std::string> cabinet_paths;
 
     for (const auto& node_json : root.at("nodes"))
     {
@@ -91,7 +97,9 @@ void load_preset(RigController& controller, const std::string& path)
             node_params[key] = value.get<float>();
         }
         params.push_back(std::move(node_params));
+
+        cabinet_paths.push_back(node_json.value("cabinet_ir", std::string()));
     }
 
-    controller.load_chain(ids, params);
+    controller.load_chain(ids, params, cabinet_paths);
 }

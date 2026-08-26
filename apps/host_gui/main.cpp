@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -48,8 +49,63 @@
 #include "SushiDSP/device/AsioAudioDevice.hpp"
 #endif
 
-int main()
+namespace
 {
+    /// @brief Derives the directory the running executable sits in from argv[0].
+    /// @param argv0 The process' argv[0].
+    /// @return The directory, with a trailing separator, or "" if argv[0] carries no path.
+    std::string executable_directory(const char* argv0)
+    {
+        const std::string path = argv0 != nullptr ? std::string(argv0) : std::string();
+        const std::size_t cut = path.find_last_of("/\\");
+        return cut == std::string::npos ? std::string() : path.substr(0, cut + 1);
+    }
+
+    /// @brief Installs the bundled cabinet impulse response on a freshly-created JCM800 slot,
+    /// if the bundle is present next to the executable. Warns once, on stderr, when it is not.
+    /// @param controller The rig to act on.
+    /// @param slot Chain position of the new slot.
+    /// @param default_ir_path Path to the bundled impulse response.
+    void apply_default_cabinet(RigController& controller, std::size_t slot, const std::string& default_ir_path)
+    {
+        const auto ids = controller.chain_ids();
+        if (slot >= ids.size() || ids[slot] != "sushidsp.jcm800")
+        {
+            return;
+        }
+
+        static bool warned = false;
+        std::ifstream probe(default_ir_path, std::ios::binary);
+        if (!probe)
+        {
+            if (!warned)
+            {
+                warned = true;
+                std::fprintf(stderr,
+                    "No bundled cabinet impulse response at '%s' - JCM800 slots start without a "
+                    "cabinet. Drop a 4x12 IR there, or load one from the Cabinet IR field.\n",
+                    default_ir_path.c_str());
+            }
+            return;
+        }
+        probe.close();
+
+        try
+        {
+            controller.set_cabinet(slot, default_ir_path);
+        }
+        catch (const std::exception& error)
+        {
+            std::fprintf(stderr, "Bundled cabinet impulse response failed to load: %s\n", error.what());
+        }
+    }
+}
+
+int main(int argc, char** argv)
+{
+    const std::string default_ir_path =
+        executable_directory(argc > 0 ? argv[0] : nullptr) + "assets/ir/default_4x12.wav";
+
     if (!glfwInit())
     {
         std::fprintf(stderr, "glfwInit failed\n");
@@ -85,6 +141,8 @@ int main()
     SushiDSP::ChannelSelection selected_input = SushiDSP::ChannelSelection::Left;
     SushiDSP::ChannelSelection selected_output = SushiDSP::ChannelSelection::Stereo;
     std::string connect_error;
+    std::string cabinet_error;
+    double cabinet_error_time = 0.0;
 
     // Both buffers are captured BY REFERENCE in the device callback (below), and that callback
     // keeps firing on the audio thread for as long as the device runs - i.e. for every frame
@@ -116,7 +174,7 @@ int main()
         glfwPollEvents();
         if (app_state == AppState::Running)
         {
-            rig_controller_storage->graph_slot().reclaim();
+            rig_controller_storage->reclaim();
         }
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -342,6 +400,7 @@ int main()
                     {
                         const char* descriptor_id = static_cast<const char*>(payload->Data);
                         rig_controller.insert(i, std::string(descriptor_id));
+                        apply_default_cabinet(rig_controller, i, default_ir_path);
                     }
                     ImGui::EndDragDropTarget();
                 }
@@ -369,6 +428,7 @@ int main()
                 {
                     const char* descriptor_id = static_cast<const char*>(payload->Data);
                     rig_controller.append(std::string(descriptor_id));
+                    apply_default_cabinet(rig_controller, rig_controller.chain_ids().size() - 1, default_ir_path);
                 }
                 ImGui::EndDragDropTarget();
             }
@@ -377,26 +437,86 @@ int main()
             ImGui::Text("Parameters");
             if (selected_slot >= 0 && selected_slot < static_cast<int>(ids.size()))
             {
-                SushiDSP::RigGraph* active = rig_controller.active_graph();
-                if (active != nullptr)
+                const std::size_t slot = static_cast<std::size_t>(selected_slot);
+                for (const auto& entry : SushiDSP::node_registry())
                 {
-                    SushiDSP::IAudioNode* node = active->node(static_cast<SushiDSP::NodeHandle>(selected_slot));
-                    for (const auto& entry : SushiDSP::node_registry())
+                    if (ids[slot] != entry.descriptor->id)
                     {
-                        if (ids[static_cast<std::size_t>(selected_slot)] == entry.descriptor->id)
+                        continue;
+                    }
+                    for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
+                    {
+                        const SushiDSP::ParameterDescriptor& param = entry.descriptor->parameters[p];
+                        // The controller's stored value, not the live node's: a slider write
+                        // only reaches the node on the audio thread's next block, and reading
+                        // the node back from here would race that write.
+                        float value = rig_controller.get_parameter(slot, param.id);
+                        char label[128];
+                        if (param.kind == SushiDSP::ParamKind::Decibel)
                         {
-                            for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
-                            {
-                                const SushiDSP::ParameterDescriptor& param = entry.descriptor->parameters[p];
-                                float value = node != nullptr ? node->get_parameter(param.id) : param.default_value;
-                                if (ImGui::SliderFloat(param.label, &value, param.min, param.max))
-                                {
-                                    rig_controller.set_parameter(static_cast<std::size_t>(selected_slot), param.id, value);
-                                }
-                            }
-                            break;
+                            std::snprintf(label, sizeof(label), "%s (%s)", param.label, param.unit);
+                        }
+                        else
+                        {
+                            std::snprintf(label, sizeof(label), "%s", param.label);
+                        }
+                        if (ImGui::SliderFloat(label, &value, param.min, param.max))
+                        {
+                            rig_controller.set_parameter(slot, param.id, value);
                         }
                     }
+                    break;
+                }
+
+                if (ids[slot] == "sushidsp.jcm800")
+                {
+                    ImGui::Separator();
+                    const auto cabinet_paths = rig_controller.chain_cabinet_paths();
+                    ImGui::Text("Cabinet: %s",
+                        cabinet_paths[slot].empty() ? "(none)" : cabinet_paths[slot].c_str());
+
+                    static char cabinet_input[512] = "";
+                    static int cabinet_input_slot = -1;
+                    if (cabinet_input_slot != selected_slot)
+                    {
+                        cabinet_input_slot = selected_slot;
+                        std::snprintf(cabinet_input, sizeof(cabinet_input), "%s", cabinet_paths[slot].c_str());
+                    }
+                    ImGui::InputText("Cabinet IR path", cabinet_input, sizeof(cabinet_input));
+                    ImGui::SameLine();
+                    if (ImGui::Button("Load##cabinet"))
+                    {
+                        cabinet_error.clear();
+                        try
+                        {
+                            if (!rig_controller.set_cabinet(slot, cabinet_input))
+                            {
+                                cabinet_error = "Cabinet not installed: sample rate mismatch or unprepared amp";
+                            }
+                        }
+                        catch (const std::exception& error)
+                        {
+                            cabinet_error = error.what();
+                        }
+                        cabinet_error_time = ImGui::GetTime();
+                    }
+                    if (!cabinet_error.empty())
+                    {
+                        if (ImGui::GetTime() - cabinet_error_time > 3.0)
+                        {
+                            cabinet_error.clear();
+                        }
+                        else
+                        {
+                            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", cabinet_error.c_str());
+                        }
+                    }
+                }
+
+                if (rig_controller.dropped_parameter_changes() > 0)
+                {
+                    ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), "Dropped parameter changes: %zu",
+                        rig_controller.dropped_parameter_changes());
                 }
             }
         }

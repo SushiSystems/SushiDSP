@@ -23,7 +23,42 @@
 
 #include "RigController.hpp"
 
+#include <exception>
+
+#include "SushiDSP/io/IrLoader.hpp"
+#include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
+
+namespace
+{
+    /// @brief Finds a parameter's position in its descriptor's parameters[] array - which is
+    /// exactly the index SushiDSP::ParameterChange carries and IAudioNode::set_parameter(index)
+    /// expects.
+    /// @param descriptor_id The owning node's NodeDescriptor id.
+    /// @param param_id The parameter's id.
+    /// @param out_index Receives the index on success.
+    /// @return True if the descriptor and the parameter were both found.
+    bool find_parameter_index(const std::string& descriptor_id, const char* param_id, std::uint16_t& out_index)
+    {
+        for (const auto& entry : SushiDSP::node_registry())
+        {
+            if (descriptor_id != entry.descriptor->id)
+            {
+                continue;
+            }
+            for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
+            {
+                if (std::string(param_id) == entry.descriptor->parameters[p].id)
+                {
+                    out_index = static_cast<std::uint16_t>(p);
+                    return true;
+                }
+            }
+            return false;
+        }
+        return false;
+    }
+}
 
 RigController::RigController(const SushiDSP::PrepareInfo& info)
     : info_(info)
@@ -94,14 +129,100 @@ void RigController::set_parameter(std::size_t index, const char* param_id, float
         return;
     }
     slots_[index].parameters[param_id] = value;
+
+    std::uint16_t parameter_index = 0;
+    if (!find_parameter_index(slots_[index].descriptor_id, param_id, parameter_index))
+    {
+        return;
+    }
+
+    // rebuild_and_publish() adds every surviving slot to the fresh graph in chain order and
+    // never removes one, so RigGraph's handles are handed out as 0, 1, 2, ... and a slot's
+    // chain position IS its NodeHandle. Any future change that removes nodes from a live
+    // graph, or adds them out of chain order, must keep a per-slot handle instead.
     if (active_graph_ != nullptr)
     {
-        SushiDSP::IAudioNode* node = active_graph_->node(static_cast<SushiDSP::NodeHandle>(index));
-        if (node != nullptr)
+        const SushiDSP::ParameterChange change{
+            static_cast<SushiDSP::NodeHandle>(index), parameter_index, value };
+        if (!active_graph_->push_parameter_change(change))
         {
-            node->set_parameter(param_id, value);
+            ++dropped_parameter_changes_;
         }
     }
+}
+
+bool RigController::set_cabinet(std::size_t slot, const std::string& path)
+{
+    if (slot >= slots_.size() || active_graph_ == nullptr)
+    {
+        return false;
+    }
+    auto* amp = dynamic_cast<SushiDSP::Jcm800*>(
+        active_graph_->node(static_cast<SushiDSP::NodeHandle>(slot)));
+    if (amp == nullptr)
+    {
+        return false;
+    }
+
+    if (!amp->set_cabinet(SushiDSP::IrLoader::load(path, info_.sample_rate)))
+    {
+        return false;
+    }
+    slots_[slot].cabinet_path = path;
+    return true;
+}
+
+void RigController::apply_cabinet_to_live_node(std::size_t index)
+{
+    if (slots_[index].cabinet_path.empty() || active_graph_ == nullptr)
+    {
+        return;
+    }
+    auto* amp = dynamic_cast<SushiDSP::Jcm800*>(
+        active_graph_->node(static_cast<SushiDSP::NodeHandle>(index)));
+    if (amp == nullptr)
+    {
+        slots_[index].cabinet_path.clear();
+        return;
+    }
+
+    // A rebuild must not be able to throw its way out of a structural edit just because the
+    // impulse response file has since been deleted or corrupted: drop the cabinet instead, so
+    // the chain still comes back with a working (dry) amp.
+    try
+    {
+        if (!amp->set_cabinet(SushiDSP::IrLoader::load(slots_[index].cabinet_path, info_.sample_rate)))
+        {
+            slots_[index].cabinet_path.clear();
+        }
+    }
+    catch (const std::exception&)
+    {
+        slots_[index].cabinet_path.clear();
+    }
+}
+
+void RigController::reclaim()
+{
+    graph_slot_.reclaim();
+    if (active_graph_ == nullptr)
+    {
+        return;
+    }
+    // Handles are chain positions (see set_parameter), so this walks every live node without
+    // nodes()' per-call vector - reclaim() runs once per GUI frame.
+    for (std::size_t i = 0; i < slots_.size(); ++i)
+    {
+        if (auto* amp = dynamic_cast<SushiDSP::Jcm800*>(active_graph_->node(static_cast<SushiDSP::NodeHandle>(i))))
+        {
+            amp->reclaim_cabinets();
+        }
+    }
+}
+
+std::size_t RigController::dropped_parameter_changes() const
+{
+    return dropped_parameter_changes_;
 }
 
 float RigController::get_parameter(std::size_t index, const char* param_id) const
@@ -112,6 +233,17 @@ float RigController::get_parameter(std::size_t index, const char* param_id) cons
     }
     const auto it = slots_[index].parameters.find(param_id);
     return it != slots_[index].parameters.end() ? it->second : 0.0f;
+}
+
+std::vector<std::string> RigController::chain_cabinet_paths() const
+{
+    std::vector<std::string> paths;
+    paths.reserve(slots_.size());
+    for (const Slot& slot : slots_)
+    {
+        paths.push_back(slot.cabinet_path);
+    }
+    return paths;
 }
 
 std::vector<std::string> RigController::chain_ids() const
@@ -135,7 +267,9 @@ SushiDSP::RtGraphSlot& RigController::graph_slot()
     return graph_slot_;
 }
 
-void RigController::load_chain(const std::vector<std::string>& ids, const std::vector<std::map<std::string, float>>& params)
+void RigController::load_chain(const std::vector<std::string>& ids,
+                               const std::vector<std::map<std::string, float>>& params,
+                               const std::vector<std::string>& cabinet_paths)
 {
     slots_.clear();
     for (std::size_t i = 0; i < ids.size(); ++i)
@@ -149,6 +283,10 @@ void RigController::load_chain(const std::vector<std::string>& ids, const std::v
             {
                 slot.parameters[param_id] = value;
             }
+        }
+        if (i < cabinet_paths.size())
+        {
+            slot.cabinet_path = cabinet_paths[i];
         }
         slots_.push_back(std::move(slot));
     }
@@ -202,5 +340,13 @@ void RigController::rebuild_and_publish()
     }
 
     active_graph_ = graph.get();
+
+    // Cabinets are installed before publication, while nothing is reading this graph yet;
+    // Jcm800::set_cabinet()'s own retire/reclaim handshake covers it after that point.
+    for (std::size_t i = 0; i < slots_.size(); ++i)
+    {
+        apply_cabinet_to_live_node(i);
+    }
+
     graph_slot_.publish(std::move(graph));
 }
