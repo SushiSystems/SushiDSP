@@ -29,7 +29,7 @@
 namespace SushiDSP
 {
     /// @brief Shockley-law silicon diode device model with an ideality factor, for use as a
-    /// nonlinear branch in a DK-method (WDF/MNA) circuit solver.
+    /// nonlinear branch in a DK-method circuit solver.
     ///
     /// The default parameters (Is = 2.52 nA, n = 1.752, Vt = 0.025864 V) match the 1N914
     /// small-signal diode as modelled in `docs/reference/spice/models/d1n914.sub`.

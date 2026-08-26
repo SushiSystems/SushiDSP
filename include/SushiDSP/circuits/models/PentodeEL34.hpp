@@ -109,7 +109,11 @@ namespace SushiDSP
             const double vpk = v[2];
 
             // Below the floor the screen voltage the model sees no longer varies with v[1], so the
-            // whole Vg2k column of the Jacobian is genuinely zero there.
+            // whole Vg2k column of the Jacobian is zero there. The clamp makes the column
+            // one-sided at exactly v[1] == kScreenFloorVolts: the derivative reported at that
+            // point is the right-hand one, the unclamped column, while the left-hand one is zero.
+            // A 1 mV screen supply is nonphysical, so no operating point sits on that seam; the
+            // clamp exists only to keep vg1k / vg2k finite for a solver that wanders there.
             const double screen_follows_input = v[1] < kScreenFloorVolts ? 0.0 : 1.0;
 
             const double u = kKp * (1.0 / kMu + vg1k / vg2k);                       // u_arg
