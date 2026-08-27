@@ -102,16 +102,37 @@ def find_stimulus_node(asc_text):
 
 
 def run_ltspice(ltspice_exe, asc_path):
-    """Run LTspice in batch mode with ASCII raw output and return the ``.raw`` path."""
-    subprocess.run(
+    """Run LTspice in batch mode with ASCII raw output and return the ``.raw`` path.
+
+    On failure (nonzero exit, or no ``.raw`` produced), the LTspice ``.log`` sitting next
+    to ``asc_path`` is printed in full along with the work-dir path, so the cause is never
+    silently discarded -- LTspice batch mode reports nothing useful on stdout/stderr, only
+    in the log file.
+    """
+    log_path = os.path.splitext(asc_path)[0] + ".log"
+    result = subprocess.run(
         [ltspice_exe, "-b", "-ascii", asc_path],
-        check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
     raw_path = os.path.splitext(asc_path)[0] + ".raw"
+
+    def dump_log_and_fail(message):
+        print("LTspice failed on " + asc_path + ": " + message)
+        print("work dir: " + os.path.dirname(asc_path))
+        if os.path.exists(log_path):
+            print("----- " + log_path + " -----")
+            with open(log_path, "r", errors="replace") as handle:
+                print(handle.read())
+            print("----- end log -----")
+        else:
+            print("(no .log file was written)")
+        raise RuntimeError(message + " for " + asc_path)
+
+    if result.returncode != 0:
+        dump_log_and_fail("LTspice exited with status " + str(result.returncode))
     if not os.path.exists(raw_path):
-        raise RuntimeError("LTspice produced no raw file for " + asc_path)
+        dump_log_and_fail("LTspice produced no raw file")
     return raw_path
 
 
@@ -258,7 +279,9 @@ def export_block(block, ltspice_exe):
 
     stimulus_node = find_stimulus_node(asc_text)
 
-    with tempfile.TemporaryDirectory() as work_dir:
+    work_dir = tempfile.mkdtemp(prefix="sushidsp_spice_" + block + "_")
+    keep_work_dir = False
+    try:
         # The schematics .include ../models/*.sub, so the temp tree needs the same shape.
         shutil.copytree(
             os.path.join(CORPUS_DIR, "models"), os.path.join(work_dir, "models")
@@ -273,10 +296,17 @@ def export_block(block, ltspice_exe):
             run_path = os.path.join(run_dir, block + "_" + kind + ".asc")
             with open(run_path, "w", newline="") as handle:
                 handle.write(enable_analysis(asc_text, kind))
-            raw_path = run_ltspice(ltspice_exe, run_path)
+            try:
+                raw_path = run_ltspice(ltspice_exe, run_path)
+            except Exception:
+                keep_work_dir = True
+                raise
             names, _, steps = parse_raw(raw_path)
             writer(os.path.join(block_dir, block + suffix), names, steps, stimulus_node)
             print("  wrote " + block + suffix + " (" + str(len(steps)) + " steps)")
+    finally:
+        if not keep_work_dir:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def main(argv):
