@@ -45,9 +45,12 @@ Infrastructure only: the solver and the device models exist, and **no product mo
     capacitances damp the buffer restart; on this one stimulus the count is now zero, so the miss
     previously handed to D6c is closed as measured — a zero on one stimulus is an upper bound, not a
     guarantee, and the counter stays printed so D6c can re-check on its own material.
-- The LTspice null and AC-sweep cases against `jcm_v1a` are written and **skip**, because the
-  reference CSVs do not exist yet — LTspice is a user-side install. Generate with
-  `python tools/spice/export.py --block jcm_v1a` and they start asserting with no code change.
+- The LTspice null and AC-sweep cases against `jcm_v1a` were written to skip until the reference
+  CSVs existed; LTspice 24 was installed on 2026-08-27 and every block's CSVs are now committed
+  (`docs/reference/spice/<block>/`). Results: transient null **-97.8 / -94.6 / -88.7 dB** across the
+  three PREAMP steps against the -60 dB target; AC sweep within 0.5 dB from 20 Hz to 10 kHz. The
+  only failure on first run was in the measurement, not the model: `measure::frequency_response`
+  started its sweep at 20 Hz and misread its own start bin by 1.7-3.4 dB; it now starts at 5 Hz.
 - **Spec deviation:** the spec asked for diode-clipper agreement with `DiodeClipperCircuit`
   within 1e-6 V. That is unattainable, and the fault is the oracle's: `DiodeClipperCircuit` runs
   four fixed `float` Newton iterations with no convergence check, and is off the true root by up
