@@ -118,6 +118,85 @@ namespace
         void reset() override {}
     };
 
+    /// @brief First-order highpass at 87 Hz, the corner of the jcm_v1a cathode bypass.
+    ///
+    /// y[n] = a * (y[n-1] + x[n] - x[n-1]) with a = exp(-2*pi*87/fs), so the exact magnitude
+    /// is |H(w)| = a * |1 - exp(-jw)| / |1 - a * exp(-jw)|. Having the closed form lets the
+    /// low-edge test below compare the sweep against arithmetic rather than another measurement.
+    class OnePoleHighPassNode : public SushiDSP::IAudioNode
+    {
+    public:
+        /// @brief Snaps the coefficient to the run rate.
+        /// @param info Sample rate, block size and channel count.
+        void prepare(const SushiDSP::PrepareInfo& info) override
+        {
+            coefficient_ = static_cast<float>(std::exp(-2.0 * M_PI * kCornerHz / info.sample_rate));
+            reset();
+        }
+
+        /// @brief Runs the difference equation over one block.
+        /// @param context The per-block buffers and frame count.
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t i = 0; i < context.frames; ++i)
+            {
+                const float x = context.inputs[0][i];
+                state_ = coefficient_ * (state_ + x - previous_);
+                previous_ = x;
+                context.outputs[0][i] = state_;
+            }
+        }
+
+        /// @brief Reports the node's fixed channel counts.
+        /// @return One input channel and one output channel.
+        SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
+
+        /// @brief Reads a parameter; this fixture exposes none.
+        /// @param id Ignored.
+        /// @return Always zero.
+        float get_parameter(const char* id) const override
+        {
+            static_cast<void>(id);
+            return 0.0f;
+        }
+
+        /// @brief Writes a parameter; this fixture exposes none.
+        /// @param id Ignored.
+        /// @param value Ignored.
+        void set_parameter(const char* id, float value) override
+        {
+            static_cast<void>(id);
+            static_cast<void>(value);
+        }
+
+        /// @brief Clears the filter memory.
+        void reset() override
+        {
+            state_ = 0.0f;
+            previous_ = 0.0f;
+        }
+
+        /// @brief The exact magnitude of the difference equation above.
+        /// @param frequency_hz Frequency to evaluate at.
+        /// @param sample_rate Sample rate in hertz.
+        /// @return Magnitude in decibels.
+        static double magnitude_db(double frequency_hz, double sample_rate)
+        {
+            const double a = std::exp(-2.0 * M_PI * kCornerHz / sample_rate);
+            const double w = 2.0 * M_PI * frequency_hz / sample_rate;
+            const double numerator = std::hypot(1.0 - std::cos(w), std::sin(w));
+            const double denominator = std::hypot(1.0 - a * std::cos(w), a * std::sin(w));
+            return 20.0 * std::log10(a * numerator / denominator);
+        }
+
+    private:
+        static constexpr double kCornerHz = 87.0;
+
+        float coefficient_{ 0.0f };
+        float state_{ 0.0f };
+        float previous_{ 0.0f };
+    };
+
     /// @brief First-order lowpass at 1 kHz. Its response is the difference equation's own,
     /// not the analogue RC it is derived from: with a = exp(-2*pi*1000/48000),
     /// |H(w)| = (1 - a) / |1 - a*exp(-jw)| is -3.004 dB at 1 kHz and -19.415 dB at 10 kHz.
@@ -344,4 +423,27 @@ TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
     const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
     std::printf("[ measure ] Jcm800 alias floor %.1f dB\n", floor);
     EXPECT_LE(floor, kD5bJcm800AliasFloorDb - 30.0);
+}
+
+TEST(Unit_Dsp, MeasureFrequencyResponseIsAccurateAtTheBottomOfTheAudioBand)
+{
+    // The ESS carries no energy below its own start frequency, and its abrupt onset there
+    // leaves the first bins of the deconvolved response contaminated by that truncation. When
+    // the sweep started at 20 Hz this measurement read a 87 Hz first-order highpass at 20 Hz as
+    // -27.250 dB against an exact -25.552 dB, an error of -1.699 dB, which is more than three
+    // times the half-decibel band the LTspice AC comparisons are held to. Starting the sweep at
+    // 5 Hz instead - two octaves below the lowest frequency any caller asks for - brings that
+    // same point to within 0.068 dB. This pins the fix: it fails if the sweep's low edge is ever
+    // raised back into the reported band.
+    constexpr double kRunRate = 192000.0;
+
+    OnePoleHighPassNode node;
+    const auto          response
+        = SushiDSP::measure::frequency_response(node, kRunRate, { 20.0, 30.0, 50.0, 100.0 });
+    ASSERT_EQ(response.size(), 4u);
+    for (const auto& point : response)
+    {
+        const double exact = OnePoleHighPassNode::magnitude_db(point.frequency_hz, kRunRate);
+        EXPECT_NEAR(point.magnitude_db, exact, 0.2) << point.frequency_hz << " Hz";
+    }
 }
