@@ -16,8 +16,8 @@
 - `RigController`'s methods remain GUI-thread only. Bypass is a structural edit and republishes.
 - No new third-party dependency, no image file, no font file. ImGui stays at v1.90.9, GLFW at 3.4.
 - `apps/host_gui/ui/Geometry.hpp`, `ui/KnobMath.*`, `ui/PanelLibrary.*`, `ui/ChainLayout.*`, and `ui/LevelProbe.hpp` must not include any ImGui header: `sushidsp_tests` compiles them and does not link `imgui`.
-- Every new file carries the project's license header block (copy it verbatim from `apps/host_gui/RigController.hpp`), then a `@file` block with one `@brief` sentence and `@author Mustafa Garip`, and Doxygen `@brief` on every symbol, per `docs/CONTRIBUTING.md`.
-- Comments follow the project rule: `@brief` states what a thing does; no history, no TODO, no separator lines. A `//` line inside a body appears alone and states an invariant.
+- Every new file opens with the project's license header box, copied verbatim from an existing file with only the filename line changed, per `docs/CONTRIBUTING.md` section 3. No `@file` block: no file in the tree carries one, and CONTRIBUTING.md asks for the box alone.
+- Doxygen `@brief`, and `@param`/`@return` where they state a rule the caller must keep, on every public function. Ordinary comments only where the *why* is non-obvious; never a comment restating what the code does.
 - Builds and tests run through `sd` only: `sd build`, `sd test -s unit`. Never `cmake` or `ctest` directly.
 - The preset schema stays backward compatible: a file written before this change loads with every slot active.
 - `sd test` has no name filter. To check one test, run `sd test -s unit 2>&1 | grep <TestName>`.
