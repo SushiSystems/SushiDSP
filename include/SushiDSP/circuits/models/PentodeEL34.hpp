@@ -36,11 +36,10 @@ namespace SushiDSP
     ///
     /// Parameters are transcribed from docs/reference/spice/models/el34_koren.sub. The three branch
     /// voltages are v[0] = Vg1k, v[1] = Vg2k, v[2] = Vpk; the branch currents are i[0] = Ig1,
-    /// i[1] = Ig2, i[2] = Ip. The atan(Vpk / KVB) factor on the plate current is what makes the
-    /// plate curve knee over instead of climbing like a triode's, and is where class-AB crossover
-    /// behaviour ultimately comes from. A DK solver wants the currents and the Jacobian at the same
-    /// operating point, so current_and_jacobian() carries the physics and current()/jacobian()
-    /// forward to it. Every entry point is allocation-free, throw-free and safe on the audio thread.
+    /// i[1] = Ig2, i[2] = Ip. The atan(Vpk / KVB) factor makes the plate curve knee over instead
+    /// of climbing like a triode's, and is where class-AB crossover behaviour comes from.
+    /// current_and_jacobian() carries the physics and current()/jacobian() forward to it. Every
+    /// entry point is allocation-free, throw-free and safe on the audio thread.
     class PentodeEL34
     {
     public:
