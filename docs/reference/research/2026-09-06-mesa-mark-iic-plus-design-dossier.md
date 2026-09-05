@@ -28,7 +28,7 @@ node voltage on this sheet is evidence, not proof.
 | S3 | jrb32, "Mark IIC+ Schematic (correct!)", Boogie Board forum thread 74680, started 2018-02-20. <https://boogieforum.com/threads/mark-iic-schematic-correct.74680/> — accessed 2026-09-06 | A traced RP10A/IIC+ schematic and the RP10A-vs-RP11A board difference; the statement that the factory drawing contains deliberate errors | B |
 | S4 | chipaudette and Boogiebabies, "Differences in IIC(+) compared to IIC+", Boogie Board thread 40649, 2009-10-25. <https://boogieforum.com/threads/differences-in-iic-compared-to-iic.40649/> — accessed 2026-09-06 | Real-unit component deviations from the factory drawing: 180 pF bright cap, 0.1 uF after V1B, the 100 k between treble and Volume 1 | B |
 | S5 | gugabrandao and elvis, "Mesa Boogie Graphic Eq REAL FREQUENCIES!!", Boogie Board thread 69355, 2015-02-27. <https://boogieforum.com/threads/mesa-boogie-graphic-eq-real-frequencies.69355/> — accessed 2026-09-06 | Mark IV/V EQ band R, L and C values and the observation that the pots and source impedance shift the in-circuit Q | C |
-| S6 | Fractal Audio Wiki, "Mesa/Boogie graphic equalizer". <https://wiki.fractalaudio.com/gen1/index.php?title=Mesa%2FBoogie_graphic_equalizer> — accessed 2026-09-06 | Mark IV band centres 87.61 / 371.74 / 723.43 / 1575.87 / 4822.88 Hz, about 18 dB cut and 17 dB boost, log slider taper, non-constant Q | C |
+| S6 | Fractal Audio Wiki, "Mesa/Boogie graphic equalizer". <https://wiki.fractalaudio.com/gen1/index.php?title=Mesa%2FBoogie_graphic_equalizer> — accessed 2026-09-06 | Mark IV band centres 87.61 / 371.74 / 723.43 / 1575.87 / 4822.88 Hz, about 18 dB cut and 17 dB boost, log slider taper, and one overall Q figure (1.414 ideal, 1.3 actual) | C |
 | S7 | bancika, "Mesa Mark IIc+ Pre PtP", DIY Fever. <http://diy-fever.com/amps/mesa-mark-iic-preamp/> — accessed 2026-09-06 | An independent builder's reading of the lead chain, the 15 uF cathode bypass caps and the purpose of the last-stage divider | C |
 
 Not obtained: any Mesa service manual with a voltage chart or a bias procedure, any bench
@@ -61,8 +61,8 @@ INPUT ─ 1M grid leak ─ V1A 12AX7  (Rp 150K → D, Rk 1500 ∥ 15u + 0.47u, V
    ├─ LDR2 ─ 680K ─ LEAD DRIVE 1M  (180 pF bright cap across the top section)
    │
    ├─ V3B 12AX7  (Rp 82K → C, Rk 1500 ∥ 15u)                                  3rd gain, lead
-   │    plate ─ 0.02u ─ 270K ─┬─ V4A grid
-   │                          └─ 68K ∥ 0.047u to ground      interstage divider 68/(270+68)
+   │    plate ─ 0.02u ─ 170K ─┬─ V4A grid
+   │                          └─ 68K ∥ 0.047u to ground      interstage divider 68/(170+68)
    │
    ├─ V4A 12AX7  (Rp 270K → C with 0.001u across it, deleted on Simul-Class;
    │              Rk 3.3K, Vk 1.2 V, bypass 0.22u in series with a switched
@@ -105,10 +105,15 @@ Supply rails, read off S1 sheet 2, "HIGH VOLTAGE SUPPLY":
 | C | 392 V | V2, V3B, V4A, V5 | 5.6K 2W from B |
 | D | 374 V (sheet 2) / 382 V (sheet 1) | V1A, V1B | 1K 2W from C |
 
-**The D node is printed twice and the two printings disagree by 8 V.** Sheet 1 labels it 382 V
-at the V1 plate feed; sheet 2's supply table labels it 374 V. Neither is obviously the typo. The
-model should carry 382 V, because that is the value printed where the stage actually connects,
-and the 8 V difference moves V1A's plate by under 4 %.
+Sheet 2 prints its own tolerance under the driver circuit: **"VOLTAGES MEASURED @ 117 A.C. MAIN —
+D.C. VOLTAGES MAY VARY ±20 V"**. Every printed node voltage in this dossier carries that band, and
+it decides how much weight the two non-closures below can bear.
+
+**The D node is printed twice and the two printings disagree by 8 V.** Sheet 1 labels it 382 V at
+the V1 plate feed; sheet 2's supply table labels it 374 V. The 8 V gap sits well inside Mesa's own
+±20 V, so this is not a contradiction to resolve, only a choice to make. The model should carry
+382 V, because that is the value printed where the stage actually connects, and the difference
+moves V1A's plate by under 4 %.
 
 **The B-to-C-to-D dropper arithmetic does not close as printed.** 415 - 392 = 23 V across 5.6 K
 is 4.1 mA, which is right for the five triode halves on C. 392 - 374 = 18 V across 1 K would be
@@ -187,7 +192,7 @@ controls is audio taper, but the drawing does not say so, so the taper is not es
 
 | Item | Value |
 |---|---|
-| Grid feed | 270 K in series from the V3B coupling cap |
+| Grid feed | 170 K in series from the V3B coupling cap |
 | Divider at the grid | 68 K in parallel with 0.047 uF, to ground |
 | Plate resistor | 270 K to C, with 0.001 uF across it, marked "delete on Simul-Class" |
 | Cathode resistor | 3.3 K (printed glyph reads `3.1k`) |
@@ -200,13 +205,19 @@ and it is the reason to read the glyph as 3.3 K rather than 3.1 K: with 3.1 K th
 0.387 mA and the plate lands at 288 V, still plausible, but 3.3 K is a stock value and 3.1 K is
 not. Take **3.3 K** (B).
 
-Interstage divider: 68 / (270 + 68) = **0.201**, or -13.9 dB, with the 0.047 uF putting the
-divider's corner at 1 / (2 pi x (270K ∥ 68K) x 0.047u) = **62.4 Hz** (derived, B). This is the
-IIC+'s tightness mechanism. Two thirds of the signal is thrown away between the third and fourth
-lead stages, and the low end is thrown away first.
+Interstage divider: 68 / (170 + 68) = **0.286**, or -10.9 dB, with the 0.047 uF putting the
+divider's corner at 1 / (2 pi x (170K ∥ 68K) x 0.047u) = **69.7 Hz** (derived, B). This is the
+IIC+'s tightness mechanism. Seventy-one per cent of the signal is thrown away between the third
+and fourth lead stages, and the low end is thrown away first.
+
+The series resistor is **170 K, not 270 K**, and the distinction matters because V4A's plate
+resistor 300 px away on the same sheet *is* 270 K. Read side by side at 8x, the grid resistor's
+leading glyph is a single thin stroke of the same shape that opens V2B's 170 K plate resistor,
+while the plate resistor's is a filled blob. A first pass through this dossier had 270 K in both
+places and put the divider at 0.201 and the corner at 62.4 Hz, which is 3.0 dB and 7 Hz wrong.
 
 The 0.22 uF partial bypass on a 3.3 K cathode gives a bass-cut shelf rather than a flat lift:
-the corner is 1 / (2 pi x 3.3K x 0.22u) = **219 Hz**. Together with the 62.4 Hz divider corner,
+the corner is 1 / (2 pi x 3.3K x 0.22u) = **219 Hz**. Together with the 69.7 Hz divider corner,
 this is where the Mark's absence of flab is manufactured. The switched resistor in series with
 that cap is the PULL BRIGHT control; its value is the one place on the preamp sheet the ink is
 too heavy to read, and it is not established.
@@ -255,7 +266,7 @@ factor can be checked separately:
 
 ```
 V1A 70.6  x  tone stack (see §4)  x  Vol 1  x  V1B 61.5  x  0.595 (680K/1M)
-    x  V3B 56.7  x  0.201 (270/68)  x  V4A 70  x  0.3125 (220/100)  x  Lead Master  x  V2A 61.5
+    x  V3B 56.7  x  0.286 (170/68)  x  V4A 70  x  0.3125 (220/100)  x  Lead Master  x  V2A 61.5
 ```
 
 With the tone stack at its flat insertion loss and both master controls at unity the product is
@@ -327,7 +338,7 @@ the shared bus, with the pot as the boost/cut element:
 |---|---|---|---|---|---|---|
 | 80 Hz | 50 K | 470 | 1.5 H | 3.3 uF | **71.5 Hz** | 1.434 |
 | 240 Hz | 50 K | 470 | 0.39 H | 0.47 uF | **371.8 Hz** | 1.938 |
-| 750 Hz | 50 K | 470 | 0.12 H | 0.22 uF | **979.6 Hz** | 1.571 |
+| 750 Hz | 50 K | 470 | 0.12 H | 0.22 uF | **979.5 Hz** | 1.571 |
 | 2200 Hz | 50 K | 1000 | 0.068 H | 0.15 uF | **1576 Hz** | 0.673 |
 | 6600 Hz | 50 K | 1000 | 0.033 H | 0.033 uF | **4823 Hz** | 1.000 |
 
@@ -347,11 +358,17 @@ rests on my reading of one hand-drawn glyph on one scan. `[single source]`, and 
 be checked against a board.
 
 Range and taper: S6 states about 18 dB of cut and 17 dB of boost for the Mark IV, "probably
-+/- 15 dB" as the design target, a logarithmic slider taper, and explicitly **not constant Q** —
-the Q falls as the slider approaches centre. S5's elvis adds that the 50 K pots and the source
-and load impedances shift both the frequency and the Q with slider position, so the table above
-gives the trap's own resonance, not the response peak the amplifier produces. Both points are
-`[single source]` for the IIC+ specifically, since neither source measured a IIC+.
++/- 15 dB" as the design target, and a logarithmic slider taper.
+
+S6 also gives a **single** Q for the whole equalizer, 1.414 as the octave-equalizer ideal and
+1.3 as the figure its author attributes to the components actually used. That 1.3 sits below
+three of the five per-band Q values in the table above, and the two numbers are not measuring
+the same thing: mine is each trap's own Q from its own R, L and C, S6's is one figure for the
+finished response. S5's elvis names the reason they differ — the 50 K sliders and the source and
+load impedances shift both the frequency and the Q with slider position, so a trap's resonance is
+not the response peak the amplifier produces. **The table gives the trap, not the curve.** The
+in-circuit Q per band cannot be computed until the EQ's active stage is traced (§8 item 11), and
+no source I found measured a IIC+, so both S5's and S6's figures are `[single source]` here.
 
 Switching: LDR5 lifts the whole slider bus off ground to bypass the EQ. S2 page 19 gives the
 three panel positions — EQ OUT (centre, bypassed), EQ IN (down, always), EQ AUTO (up, engaged
@@ -376,7 +393,10 @@ Cross-check, and it fails. 392 - 286 = 106 V across 82 K is 1.29 mA in V5A. For 
 long-tailed pair both halves draw about the same, so the tail carries near 2.6 mA, and a cathode
 sitting at 18 V would need a tail resistor near 6.9 K. The sheet's tail-resistor glyph reads as
 15 K, which at 2.6 mA would put the cathodes at 39 V, not 18 V. **The phase inverter's DC numbers
-as printed do not close and I could not resolve which of them is wrong.** §8.
+as printed do not close and I could not resolve which of them is wrong.** Sheet 2's own
+"D.C. VOLTAGES MAY VARY ±20 V" does not rescue them: a 21 V gap between the implied 39 V and the
+printed 18 V is right at the edge of the band, and the tolerance is a spread across units rather
+than a licence for two figures on one drawing to disagree with each other. §8.
 
 ### 5.2 Negative feedback and presence
 
@@ -447,14 +467,14 @@ What a test can assert, and where each figure comes from.
 | V1B gain | 61.5 (35.8 dB) | derived, B |
 | V3B gain | 56.7 (35.1 dB) | derived, B |
 | V4A gain, loaded | 70 (36.9 dB) | derived, B |
-| Interstage divider, V3B to V4A | 0.201 (-13.9 dB), corner 62.4 Hz | derived, B |
+| Interstage divider, V3B to V4A | 0.286 (-10.9 dB), corner 69.7 Hz | derived, B |
 | Lead output divider | 0.3125 (-10.1 dB) | derived, B |
 | Lead Drive at maximum | 0.595 (-4.5 dB) from the 680 K | derived, B |
 | V4A cathode shelf corner | 219 Hz | derived, B |
 | PULL DEEP corner, V2B | 339 Hz out, 10.3 Hz in | derived, B |
-| EQ band resonances | 71.5 / 371.8 / 979.6 / 1576 / 4823 Hz | derived, B; three of five confirmed by S6 |
+| EQ band resonances | 71.5 / 371.8 / 979.5 / 1576 / 4823 Hz | derived, B; three of five confirmed by S6 |
 | EQ band Q, trap alone | 1.434 / 1.938 / 1.571 / 0.673 / 1.000 | derived, B |
-| EQ range | about +17 / -18 dB, log taper, non-constant Q | S6, C, measured on a Mark IV rather than a IIC+ |
+| EQ range | about +17 / -18 dB, log slider taper | S6, C, measured on a Mark IV rather than a IIC+ |
 
 **Not available, and worth saying plainly:** input sensitivity, preamp gain at a stated knob
 position measured rather than derived, THD at any stated drive, the tone stack's frequency
@@ -503,7 +523,7 @@ the IIC+ presets have to adopt whichever convention `kEl34` used and I am guessi
 | `source_resistance_ohms` | 2200 | The 2.2 K grid stopper read at every power-tube grid on S1 sheet 2. It is the only series resistance between the coupling cap and the grid. Under the alternative reading of `kEl34`'s 10 000 as stopper-plus-driver, this becomes 2200 + 35 400 = 37 600; §8. |
 | `grid_leak_resistance_ohms` | 220000 | Read at V8. V6 and V7's leaks were not legible and this value is carried across from the other pair. `[single source]` and an assumption; §8. |
 | `cathode_bias_volts` | -45 | The grid voltage printed at V6 in Simul-Class. Under `kEl34`'s apparent convention of running about 0.57 of the physical bias, the preset value would instead be -25.6; §8 asks which. |
-| `gain` | 5.0 | 6L6GC at 473 V plate and 480 V screen: g_m about 6 mA/V, r_p about 22.5 kohm from the RCA datasheet family. A = 6 mA/V x (850 parallel 22500) = 6 mA/V x 819 = 4.9. The 6L6 pentode pair is about 4.5 dB quieter than the 2203's EL34 into the same load, which is the arithmetic behind the Mark's headroom before the power stage contributes. |
+| `gain` | 5.0 | 6L6GC at 473 V plate and 480 V screen: g_m about 6 mA/V, r_p about 22.5 kohm from the RCA datasheet family. A = 6 mA/V x (850 parallel 22500) = 6 mA/V x 819 = 4.9. The 6L6 pentode pair is 20 log10(8 / 4.9) = 4.3 dB quieter than the 2203's EL34 into the same load, which is the arithmetic behind the Mark's headroom before the power stage contributes. |
 | `saturation_current_amps` | 1e-9 | Unchanged from `kEl34`. No datasheet distinguishes 6L6 from EL34 grid-conduction saturation current, and changing it without evidence would be invention. |
 | `thermal_voltage_volts` | 0.02585 | Room temperature, unchanged. |
 | `plate_saturation_drive` | 0.049 | `kEl34`'s 0.05 puts the ceiling at 1/0.05 = 20. The IIC+ runs 473 V where the 2203 runs about 460 V, so the ceiling scales to 20 x 473/460 = 20.6 and the drive to 1/20.6 = 0.0486. |
@@ -525,7 +545,8 @@ the IIC+ presets have to adopt whichever convention `kEl34` used and I am guessi
 | `plate_saturation_drive` | 0.069 | Anchored on Mesa's own power figures rather than on a load line, because the transformer impedance is unknown. S2 p.28 gives the triode pair about 25 W against the pentode pair's roughly 50 W, so the voltage ceiling ratio is sqrt(25/50) = 0.707, the ceiling becomes 20.6 x 0.707 = 14.6, and the drive becomes 1/14.6 = 0.0685. |
 
 The two presets differ in `gain` by 4 %, which is the honest result: in Simul-Class the two pairs
-contribute almost equally in the linear region and then clip at ceilings 3.5 dB apart. That
+contribute almost equally in the linear region and then clip at ceilings 20 log10(20.6 / 14.6) =
+**2.99 dB** apart, which is the 3.01 dB that sqrt(25/50) guarantees by construction. That
 staggered clipping, not any difference in level, is the audible content of "Simul-Class", and a
 model that gets the ceilings right and the gains equal will sound closer than one that does the
 reverse.
