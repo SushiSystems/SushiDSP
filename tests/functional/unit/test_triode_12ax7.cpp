@@ -168,6 +168,49 @@ TEST(Unit_Dsp, Triode12AX7IsCutOffAndCOneAtNonPositivePlateVoltage)
     }
 }
 
+TEST(Unit_Dsp, Triode12AX7JointFormAgreesWithTheSeparateEntryPointsToWithinOneUlpScale)
+{
+    // The joint form computes E1^kx as E1^(kx-1) * E1 rather than calling pow twice, and takes
+    // softplus and logistic from one exp. Both are the same value to a couple of ulp, not
+    // bit-for-bit, so this compares at 1e-13 relative rather than with EXPECT_DOUBLE_EQ; the
+    // exact zeros (the whole grid row's Vpk entry, and plate cutoff) are still exact.
+    const SushiDSP::Triode12AX7 triode;
+    for (const double vgk : { -8.0, -3.0, -1.5, 0.0, 1.0 })
+    {
+        for (const double vpk : { -10.0, 5.0, 100.0, 250.0, 400.0 })
+        {
+            const std::array<double, 2> v{ vgk, vpk };
+            std::array<double, 2> separate_currents{};
+            std::array<std::array<double, 2>, 2> separate_jacobian{};
+            triode.current(v, separate_currents);
+            triode.jacobian(v, separate_jacobian);
+            std::array<double, 2> joint_currents{};
+            std::array<std::array<double, 2>, 2> joint_jacobian{};
+            triode.current_and_jacobian(v, joint_currents, joint_jacobian);
+            for (std::size_t branch = 0; branch < 2; ++branch)
+            {
+                EXPECT_NEAR(joint_currents[branch], separate_currents[branch],
+                            1e-13 * std::abs(separate_currents[branch]) + 1e-300)
+                    << vgk << " " << vpk << " " << branch;
+                for (std::size_t input = 0; input < 2; ++input)
+                {
+                    EXPECT_NEAR(joint_jacobian[branch][input], separate_jacobian[branch][input],
+                                1e-13 * std::abs(separate_jacobian[branch][input]) + 1e-300)
+                        << vgk << " " << vpk << " " << branch << " " << input;
+                }
+            }
+            EXPECT_DOUBLE_EQ(joint_jacobian[0][1], 0.0);
+        }
+    }
+    // The classic quiescent point, straight out of the joint form (D6b Task 3's golden vector).
+    std::array<double, 2> currents{};
+    std::array<std::array<double, 2>, 2> jacobian{};
+    triode.current_and_jacobian({ -1.5, 250.0 }, currents, jacobian);
+    EXPECT_NEAR(currents[1], 1.99187388685e-3, 1e-11);
+    EXPECT_NEAR(jacobian[1][0], 2.45547036171e-3, 1e-11);
+    EXPECT_NEAR(jacobian[1][1], 2.58169362129e-5, 1e-13);
+}
+
 TEST(Unit_Dsp, Triode12AX7StaysFiniteUnderAbsurdInputs)
 {
     const SushiDSP::Triode12AX7 triode;

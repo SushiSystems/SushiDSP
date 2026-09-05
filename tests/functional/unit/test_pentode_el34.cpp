@@ -226,6 +226,54 @@ TEST(Unit_Dsp, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
     EXPECT_DOUBLE_EQ(high[0], low[0]);
 }
 
+TEST(Unit_Dsp, PentodeEL34JointFormAgreesWithTheSeparateEntryPointsToWithinOneUlpScale)
+{
+    // Same shape as the triode case: the joint form forms E1^kx as E1^(kx-1) * E1 and z^kx as
+    // z^(kx-1) * z rather than calling pow a second time, and takes softplus and logistic from
+    // one exp, so the two paths agree to a couple of ulp rather than bit-for-bit. The first
+    // screen voltage sits below kScreenFloorVolts, so the clamped Vg2k column is exercised too.
+    const SushiDSP::PentodeEL34 pentode;
+    for (const double vg1k : { -45.0, -37.0, -20.0, -5.0, 0.0 })
+    {
+        for (const double vg2k : { 1e-4, 50.0, 300.0, 400.0 })
+        {
+            for (const double vpk : { 20.0, 100.0, 250.0, 400.0 })
+            {
+                const std::array<double, 3> v{ vg1k, vg2k, vpk };
+                std::array<double, 3> separate_currents{};
+                std::array<std::array<double, 3>, 3> separate_jacobian{};
+                pentode.current(v, separate_currents);
+                pentode.jacobian(v, separate_jacobian);
+                std::array<double, 3> joint_currents{};
+                std::array<std::array<double, 3>, 3> joint_jacobian{};
+                pentode.current_and_jacobian(v, joint_currents, joint_jacobian);
+                for (std::size_t branch = 0; branch < 3; ++branch)
+                {
+                    EXPECT_NEAR(joint_currents[branch], separate_currents[branch],
+                                1e-13 * std::abs(separate_currents[branch]) + 1e-300)
+                        << vg1k << " " << vg2k << " " << vpk << " " << branch;
+                    for (std::size_t input = 0; input < 3; ++input)
+                    {
+                        EXPECT_NEAR(joint_jacobian[branch][input], separate_jacobian[branch][input],
+                                    1e-13 * std::abs(separate_jacobian[branch][input]) + 1e-300)
+                            << vg1k << " " << vg2k << " " << vpk << " " << branch << " " << input;
+                    }
+                }
+                EXPECT_DOUBLE_EQ(joint_jacobian[0][1], 0.0);
+                EXPECT_DOUBLE_EQ(joint_jacobian[0][2], 0.0);
+                EXPECT_DOUBLE_EQ(joint_jacobian[1][2], 0.0);
+            }
+        }
+    }
+    // The JCM800 idle point, straight out of the joint form (D6b Task 4's golden vector).
+    std::array<double, 3> currents{};
+    std::array<std::array<double, 3>, 3> jacobian{};
+    pentode.current_and_jacobian({ -37.0, 400.0, 400.0 }, currents, jacobian);
+    EXPECT_NEAR(currents[2], 3.34149261301e-2, 1e-11);
+    EXPECT_NEAR(jacobian[2][0], 4.98316907313e-3, 1e-11);
+    EXPECT_DOUBLE_EQ(currents[1], 0.0);
+}
+
 TEST(Unit_Dsp, PentodeEL34StaysFiniteUnderAbsurdInputs)
 {
     const SushiDSP::PentodeEL34 pentode;

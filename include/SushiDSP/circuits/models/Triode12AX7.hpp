@@ -36,7 +36,9 @@ namespace SushiDSP
     ///
     /// Parameters are transcribed from docs/reference/spice/models/12ax7_koren.sub. The two branch
     /// voltages are v[0] = Vgk and v[1] = Vpk; the two branch currents are i[0] = Ig and i[1] = Ip.
-    /// Both entry points are allocation-free, throw-free and safe on the audio thread.
+    /// A DK solver wants the currents and the Jacobian at the same operating point, so
+    /// current_and_jacobian() carries the physics and current()/jacobian() forward to it. Every
+    /// entry point is allocation-free, throw-free and safe on the audio thread.
     class Triode12AX7
     {
     public:
@@ -67,22 +69,57 @@ namespace SushiDSP
         /// Norman grid-conduction transition width VTG, in volts (12ax7_koren.sub).
         static constexpr double kGridTransitionVolts = 0.15;
 
-        /// @brief Evaluates the grid and plate currents at one operating point.
+        /// @brief Evaluates both branch currents and the 2x2 Jacobian at one operating point.
+        ///
+        /// The plate law's root, softplus, logistic and E1^(kx-1) are shared between the current
+        /// and its derivative, and E1^kx is formed as E1^(kx-1) * E1 rather than by a second pow.
+        /// current() and jacobian() forward here.
         /// @param v Branch voltages: v[0] = Vgk, v[1] = Vpk, in volts.
         /// @param i Receives the branch currents: i[0] = Ig, i[1] = Ip, in amperes.
-        void current(const std::array<double, 2>& v, std::array<double, 2>& i) const
+        /// @param j Receives the 2x2 Jacobian j[a][b] = d i_a / d v_b in siemens.
+        void current_and_jacobian(const std::array<double, 2>& v, std::array<double, 2>& i,
+                                  std::array<std::array<double, 2>, 2>& j) const
         {
             const double vgk = v[0];
             const double vpk = v[1];
 
             const double root = std::sqrt(kKvb + vpk * vpk);                        // root
             const double t = kKp * (1.0 / kMu + vgk / root);                        // t
-            const double s = models::softplus(t);                                   // s
+            double s = 0.0;                                                         // s
+            double sigma = 0.0;                                                     // sigma
+            models::softplus_and_logistic(t, s, sigma);
             const double e1 = vpk * s / kKp;                                        // E1
 
-            i[0] = kGridCurrentScale
-                   * models::softplus((vgk - kGridThresholdVolts) / kGridTransitionVolts);  // Ig
-            i[1] = e1 <= 0.0 ? 0.0 : 2.0 * std::pow(e1, kKx) / kKg1;                // Ip
+            double grid_softplus = 0.0;
+            double grid_logistic = 0.0;
+            models::softplus_and_logistic((vgk - kGridThresholdVolts) / kGridTransitionVolts,
+                                          grid_softplus, grid_logistic);
+
+            const double de1_dvgk = vpk * sigma / root;                             // dE1/dVgk
+            const double de1_dvpk = s / kKp
+                                    - vpk * vpk * vgk * sigma / (root * root * root);  // dE1/dVpk
+
+            // kx > 1, so E1^(kx-1) and with it both Ip and its derivatives vanish continuously as
+            // E1 reaches zero; the single guard here covers the whole plate branch.
+            const double e1_power = e1 <= 0.0 ? 0.0 : std::pow(e1, kKx - 1.0);      // E1^(kx-1)
+            const double dip_de1 = 2.0 * kKx * e1_power / kKg1;
+
+            i[0] = kGridCurrentScale * grid_softplus;                               // Ig
+            i[1] = 2.0 * e1_power * e1 / kKg1;                                      // Ip
+
+            j[0][0] = (kGridCurrentScale / kGridTransitionVolts) * grid_logistic;
+            j[0][1] = 0.0;
+            j[1][0] = dip_de1 * de1_dvgk;                                           // dIp/dVgk
+            j[1][1] = dip_de1 * de1_dvpk;                                           // dIp/dVpk
+        }
+
+        /// @brief Evaluates the grid and plate currents at one operating point.
+        /// @param v Branch voltages: v[0] = Vgk, v[1] = Vpk, in volts.
+        /// @param i Receives the branch currents: i[0] = Ig, i[1] = Ip, in amperes.
+        void current(const std::array<double, 2>& v, std::array<double, 2>& i) const
+        {
+            std::array<std::array<double, 2>, 2> discarded_jacobian{};
+            current_and_jacobian(v, i, discarded_jacobian);
         }
 
         /// @brief Evaluates the branch-current Jacobian j[a][b] = d i_a / d v_b at one point.
@@ -91,27 +128,8 @@ namespace SushiDSP
         ///          current depends on Vgk alone.
         void jacobian(const std::array<double, 2>& v, std::array<std::array<double, 2>, 2>& j) const
         {
-            const double vgk = v[0];
-            const double vpk = v[1];
-
-            const double root = std::sqrt(kKvb + vpk * vpk);                        // root
-            const double t = kKp * (1.0 / kMu + vgk / root);                        // t
-            const double s = models::softplus(t);                                   // s
-            const double sigma = models::logistic(t);                               // sigma
-            const double e1 = vpk * s / kKp;                                        // E1
-
-            const double de1_dvgk = vpk * sigma / root;                             // dE1/dVgk
-            const double de1_dvpk = s / kKp
-                                    - vpk * vpk * vgk * sigma / (root * root * root);  // dE1/dVpk
-
-            // kx > 1, so E1^(kx-1) and with it both derivatives vanish continuously as E1 -> 0.
-            const double dip_de1 = e1 <= 0.0 ? 0.0 : 2.0 * kKx * std::pow(e1, kKx - 1.0) / kKg1;
-
-            j[0][0] = (kGridCurrentScale / kGridTransitionVolts)
-                      * models::logistic((vgk - kGridThresholdVolts) / kGridTransitionVolts);
-            j[0][1] = 0.0;
-            j[1][0] = dip_de1 * de1_dvgk;                                           // dIp/dVgk
-            j[1][1] = dip_de1 * de1_dvpk;                                           // dIp/dVpk
+            std::array<double, 2> discarded_currents{};
+            current_and_jacobian(v, discarded_currents, j);
         }
     };
 }
