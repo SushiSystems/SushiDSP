@@ -23,6 +23,27 @@
 
 #pragma once
 
+#include <imgui.h>
+
+#include "SushiDSP/core/NodeDescriptor.hpp"
+
 namespace ui
 {
+    /// @brief Draws a turnable knob for one parameter and applies pointer edits to *value. A
+    /// vertical drag turns it, Shift makes the drag four times finer, and a double click restores
+    /// the parameter's default.
+    /// @param id The ImGui id, unique within the window.
+    /// @param param The parameter, whose range and kind set the taper and the tooltip's unit.
+    /// @param value In/out: the current value.
+    /// @param diameter The knob's diameter in pixels.
+    /// @return True on the frames where *value changed.
+    bool Knob(const char* id, const SushiDSP::ParameterDescriptor& param, float* value, float diameter);
+
+    /// @brief Draws a two-state rocker switch.
+    /// @param id The ImGui id, unique within the window.
+    /// @param on In/out: the current state.
+    /// @param width The switch's width in pixels.
+    /// @param height The switch's height in pixels.
+    /// @return True on the frames where *on changed.
+    bool ToggleSwitch(const char* id, bool* on, float width, float height);
 }
