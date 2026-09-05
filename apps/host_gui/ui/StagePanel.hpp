@@ -23,6 +23,15 @@
 
 #pragma once
 
+#include <optional>
+
+#include "RigController.hpp"
+
 namespace ui
 {
+    /// @brief Draws the selected slot's front panel into the current window and writes knob edits
+    /// back through the controller. Draws a hint and nothing else when no slot is selected.
+    /// @param rig The rig that owns the slot.
+    /// @param selected The slot to draw.
+    void DrawStagePanel(RigController& rig, std::optional<RigController::SlotId> selected);
 }
