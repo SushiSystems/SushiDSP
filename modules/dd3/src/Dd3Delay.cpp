@@ -23,6 +23,302 @@
 
 /**
  * @file Dd3Delay.cpp
- * @brief Placeholder translation unit; the implementation lands with its task.
+ * @brief Closes the DD-3's loop: emphasis, converter, compander and the clock that moves them.
  * @author Mustafa Garip & Sushi Systems
  */
+
+#include "SushiDSP/dd3/Dd3Delay.hpp"
+
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstring>
+#include <memory>
+
+#include "SushiDSP/core/Calibration.hpp"
+
+namespace SushiDSP
+{
+    namespace
+    {
+        /// @brief Time constant of the F.BACK and E.LEVEL smoothers, matching the other pedals.
+        constexpr float kSmoothingMs = 20.0f;
+
+        constexpr float kDefaultTime     = 0.3f;
+        constexpr float kDefaultFeedback = 0.3f;
+        constexpr float kDefaultLevel    = 0.5f;
+
+        constexpr std::uint16_t kUnknownParameterIndex = 0xFFFF;
+
+        std::uint16_t parameter_index_for(const char* id)
+        {
+            if (std::strcmp(id, "time") == 0) return 0;
+            if (std::strcmp(id, "feedback") == 0) return 1;
+            if (std::strcmp(id, "level") == 0) return 2;
+            if (std::strcmp(id, "mode") == 0) return 3;
+            return kUnknownParameterIndex;
+        }
+
+        dd3::Dd3Mode mode_for_index(float value)
+        {
+            const long index = std::lround(static_cast<double>(value));
+            return static_cast<dd3::Dd3Mode>(std::clamp<long>(index, 0, 3));
+        }
+    }
+
+    Dd3Delay::Dd3Delay()
+    {
+        // The clock and the converter start from the members, so no default is written twice.
+        clock_.set_time(time_);
+        converter_.set_mode(mode_);
+    }
+
+    void Dd3Delay::prepare(const PrepareInfo& info)
+    {
+        sample_rate_ = info.sample_rate;
+
+        pre_emphasis_.prepare(sample_rate_);
+        anti_alias_.prepare(sample_rate_);
+        compressor_.prepare(sample_rate_);
+        expander_.prepare(sample_rate_);
+        reconstruction_.prepare(sample_rate_);
+        de_emphasis_.prepare(sample_rate_);
+        converter_.prepare();
+        clock_.prepare(sample_rate_);
+
+        feedback_.prepare(sample_rate_, kSmoothingMs);
+        level_.prepare(sample_rate_, kSmoothingMs);
+        feedback_.snap(feedback_.target());
+        level_.snap(level_.target());
+
+        // Sizing the upward push at kFsScratchCapacity makes up_'s precondition structural.
+        down_.prepare(sample_rate_, dd3::Dd3Clock::kFastRateHz, 1u,
+                      dd3::Dd3Clock::kSlowRateHz / sample_rate_);
+        up_.prepare(dd3::Dd3Clock::kFastRateHz, sample_rate_, kFsScratchCapacity,
+                    sample_rate_ / dd3::Dd3Clock::kFastRateHz);
+
+        prepared_ = true;
+        reset();
+    }
+
+    void Dd3Delay::process(ProcessContext& context)
+    {
+        const float* input = context.inputs[0];
+        float* output = context.outputs[0];
+
+        for (std::uint32_t offset = 0; offset < context.frames; offset += kClockUpdateFrames)
+        {
+            const std::uint32_t frames = std::min(kClockUpdateFrames, context.frames - offset);
+            const double clock_hz = clock_.advance(frames);
+            down_.set_rates(sample_rate_, clock_hz);
+            up_.set_rates(clock_hz, sample_rate_);
+
+            for (std::uint32_t i = 0; i < frames; ++i)
+            {
+                output[offset + i] = process_sample(input[offset + i]);
+            }
+        }
+    }
+
+    float Dd3Delay::process_sample(float input)
+    {
+        const double dry = static_cast<double>(input) * kFullScaleVolts;
+        const double injected = static_cast<double>(feedback_.next())
+                              * kMaximumFeedback * kFeedbackPathGain * wet_previous_;
+        const float summed = static_cast<float>((dry + injected) * kInputPathGainToCheckPointOne);
+
+        float drive = pre_emphasis_.process_sample(summed);
+        drive = anti_alias_.process_sample(drive);
+        drive = compressor_.process_sample(drive);
+
+        const float delayed = convert_sample(drive);
+        const float expanded = static_cast<float>(static_cast<double>(expander_.process_sample(delayed))
+                                                  * kExpanderOutputStageGain);
+        // Dossier 1.6 reading (a): F.BACK and E.LEVEL take off after the reconstruction filter.
+        const float taken_off = reconstruction_.process_sample(expanded);
+        wet_previous_ = static_cast<double>(taken_off);
+
+        const float wet = de_emphasis_.process_sample(taken_off);
+        return static_cast<float>((static_cast<double>(wet) * static_cast<double>(level_.next())
+                                   * static_cast<double>(kLevelUnityGain) + dry) / kFullScaleVolts);
+    }
+
+    float Dd3Delay::convert_sample(float drive)
+    {
+        const std::uint32_t produced =
+            down_.process(&drive, 1u, fs_scratch_.data(), kFsScratchCapacity);
+        for (std::uint32_t i = 0; i < produced; ++i)
+        {
+            fs_scratch_[i] = converter_.process_sample(fs_scratch_[i]);
+        }
+
+        const std::uint32_t returned =
+            up_.process(fs_scratch_.data(), produced, wet_scratch_.data(), kWetScratchCapacity);
+        for (std::uint32_t i = 0; i < returned; ++i)
+        {
+            push_wet(wet_scratch_[i]);
+        }
+        return pop_wet();
+    }
+
+    void Dd3Delay::push_wet(float sample)
+    {
+        if (wet_write_ - wet_read_ >= kWetFifoCapacity)
+        {
+            ++wet_read_;
+        }
+        wet_fifo_[wet_write_ & kWetFifoMask] = sample;
+        ++wet_write_;
+    }
+
+    float Dd3Delay::pop_wet()
+    {
+        if (wet_priming_ && wet_write_ - wet_read_ >= kWetPrimeFrames)
+        {
+            wet_priming_ = false;
+        }
+        if (wet_priming_ || wet_write_ == wet_read_)
+        {
+            return 0.0f;
+        }
+        const float sample = wet_fifo_[wet_read_ & kWetFifoMask];
+        ++wet_read_;
+        return sample;
+    }
+
+    PortLayout Dd3Delay::ports() const
+    {
+        return { 1, 1 };
+    }
+
+    void Dd3Delay::reset()
+    {
+        pre_emphasis_.reset();
+        anti_alias_.reset();
+        compressor_.reset();
+        expander_.reset();
+        reconstruction_.reset();
+        de_emphasis_.reset();
+        converter_.reset();
+        clock_.reset();
+
+        wet_fifo_.fill(0.0f);
+        wet_write_ = 0u;
+        wet_read_ = 0u;
+        wet_priming_ = true;
+        wet_previous_ = 0.0;
+
+        if (prepared_)
+        {
+            down_.reset();
+            up_.reset();
+            const double clock_hz = clock_.sample_rate_hz();
+            down_.set_rates(sample_rate_, clock_hz);
+            up_.set_rates(clock_hz, sample_rate_);
+        }
+    }
+
+    std::uint32_t Dd3Delay::latency_samples() const
+    {
+        return 0u;
+    }
+
+    const char* Dd3Delay::type_id() const { return "sushidsp.dd3"; }
+
+    void Dd3Delay::set_time(float normalized)
+    {
+        time_ = std::clamp(normalized, 0.0f, 1.0f);
+        clock_.set_time(time_);
+    }
+
+    void Dd3Delay::set_feedback(float normalized)
+    {
+        feedback_.set_target(std::clamp(normalized, 0.0f, 1.0f));
+    }
+
+    void Dd3Delay::set_level(float normalized)
+    {
+        level_.set_target(std::clamp(normalized, 0.0f, 1.0f));
+    }
+
+    void Dd3Delay::set_mode(dd3::Dd3Mode mode)
+    {
+        mode_ = mode;
+        converter_.set_mode(mode);
+    }
+
+    double Dd3Delay::wet_delay_seconds() const
+    {
+        assert(prepared_ && "Dd3Delay::wet_delay_seconds requires prepare() first");
+        if (!prepared_)
+        {
+            return 0.0;
+        }
+
+        const double clock_hz = clock_.sample_rate_hz();
+        const double ring = static_cast<double>(converter_.ring_length()) / clock_hz;
+        // Both conversions are zero phase, so what they add to the loop is the half kernel span
+        // each has to wait for; it is read off the instances rather than restated here, because
+        // the prototype's half width is Task 1.1's to choose.
+        const double round_trip = down_.latency_seconds() + up_.latency_seconds();
+        const double prime = static_cast<double>(kWetPrimeFrames) / sample_rate_;
+        return ring + round_trip + prime;
+    }
+
+    float Dd3Delay::get_parameter(const char* id) const
+    {
+        switch (parameter_index_for(id))
+        {
+            case 0: return time_;
+            case 1: return feedback_.target();
+            case 2: return level_.target();
+            case 3: return static_cast<float>(static_cast<int>(mode_));
+            default: return 0.0f;
+        }
+    }
+
+    void Dd3Delay::set_parameter(const char* id, float value)
+    {
+        set_parameter(parameter_index_for(id), value);
+    }
+
+    void Dd3Delay::set_parameter(std::uint16_t index, float value)
+    {
+        switch (index)
+        {
+            case 0: set_time(value); return;
+            case 1: set_feedback(value); return;
+            case 2: set_level(value); return;
+            case 3: set_mode(mode_for_index(value)); return;
+            default: return;
+        }
+    }
+
+    namespace
+    {
+        constexpr ParameterDescriptor kDd3Parameters[] = {
+            { "time",     "D.Time",  0.0f, 1.0f, kDefaultTime,     ParamKind::Linear, "" },
+            { "feedback", "F.Back",  0.0f, 1.0f, kDefaultFeedback, ParamKind::Linear, "" },
+            { "level",    "E.Level", 0.0f, 1.0f, kDefaultLevel,    ParamKind::Linear, "" },
+            { "mode",     "Mode",    0.0f, 3.0f, 1.0f,             ParamKind::Choice, "" },
+        };
+
+        std::unique_ptr<IAudioNode> make_dd3(const PrepareInfo&)
+        {
+            return std::make_unique<Dd3Delay>();
+        }
+    }
+
+    const NodeDescriptor& dd3_descriptor()
+    {
+        static const NodeDescriptor descriptor{
+            "sushidsp.dd3",
+            "DD-3 Digital Delay",
+            kDd3Parameters,
+            4,
+            PortLayout{ 1, 1 },
+            &make_dd3,
+        };
+        return descriptor;
+    }
+}
