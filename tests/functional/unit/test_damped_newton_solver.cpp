@@ -366,9 +366,12 @@ namespace
 TEST(Unit_Dsp, DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturns)
 {
     SushiDSP::dk::DampedNewtonSolver<1> solver;
-    // Each damped step here moves the iterate by roughly 1 (step = -r/r' with r = exp(v) -
-    // exp(0.25)), so the farthest start below needs about six linear steps plus the quadratic
-    // tail to reach the root; the default budget of 8 is too tight for it.
+    // Each damped step moves the iterate by roughly -1 while it is far from the root (step =
+    // -r/r' = -(1 - exp(0.25 - v))), so the true worst case is v = 12.0: about 14-15 iterations
+    // of that near-unit step before the quadratic tail takes over. The v = -5.0 start first
+    // overshoots past the root, since r' = exp(-5) is tiny there, but the line search clips that
+    // step back into the unit-step regime, landing near v = 7 before it needs 10+ more of them.
+    // The default budget of 8 is too tight for either start.
     solver.set_maximum_iterations(32);
     for (const double start : { 0.0, 5.0, -5.0, 12.0, 0.2499999 })
     {
