@@ -71,6 +71,33 @@ TEST(Unit_Dsp, PanelLibraryTableNamesOnlyParametersTheDescriptorDeclares)
     }
 }
 
+TEST(Unit_Dsp, PanelLibraryTablePlacesAControlForEveryParameterTheDescriptorDeclares)
+{
+    for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
+    {
+        const ui::PanelDescriptor* panel = ui::panel_for(entry.descriptor->id);
+        if (panel == nullptr)
+        {
+            continue;
+        }
+        for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
+        {
+            const char* param_id = entry.descriptor->parameters[p].id;
+            bool placed = false;
+            for (std::size_t c = 0; c < panel->control_count; ++c)
+            {
+                if (std::strcmp(panel->controls[c].param_id, param_id) == 0)
+                {
+                    placed = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(placed) << entry.descriptor->id << " has no control for parameter '"
+                                << param_id << "'";
+        }
+    }
+}
+
 TEST(Unit_Dsp, PanelLibraryEveryTableEntryNamesARegisteredNodeType)
 {
     for (const ui::PanelDescriptor& panel : ui::panel_table())

@@ -30,11 +30,18 @@
 namespace
 {
     /// @brief Finds a slot's cell, so a test asserts on identity rather than on cell order.
+    /// @return The cell; when the view has no cell for the slot, this fails the test and returns
+    /// a sentinel at row -1, column -1, which fails the caller's assertion too.
     const ui::ChainCell& cell_for(const ui::ChainView& view, RigController::SlotId slot)
     {
+        static const ui::ChainCell kNoCell{ 0, -1, -1 };
         const auto it = std::find_if(view.cells.begin(), view.cells.end(),
             [slot](const ui::ChainCell& cell) { return cell.slot == slot; });
-        EXPECT_NE(it, view.cells.end());
+        if (it == view.cells.end())
+        {
+            ADD_FAILURE() << "the view has no cell for slot " << slot;
+            return kNoCell;
+        }
         return *it;
     }
 }

@@ -25,6 +25,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <iterator>
 
 namespace ui
 {
@@ -71,16 +72,16 @@ namespace ui
         static const std::vector<PanelDescriptor> table{
             { "sushidsp.jcm800", { 900.0f, 420.0f },
               { rgba(26, 26, 28), rgba(158, 124, 58), rgba(214, 168, 74), rgba(28, 22, 8), nullptr },
-              kJcm800Controls, 8, nullptr },
+              kJcm800Controls, std::size(kJcm800Controls), nullptr },
             { "sushidsp.tubescreamer", { 320.0f, 560.0f },
               { rgba(46, 112, 58), rgba(32, 78, 42), rgba(226, 214, 178), rgba(232, 232, 224), nullptr },
-              kTubeScreamerControls, 4, nullptr },
+              kTubeScreamerControls, std::size(kTubeScreamerControls), nullptr },
             { "sushidsp.splitter", { 320.0f, 200.0f },
               { rgba(38, 38, 44), rgba(28, 28, 32), rgba(214, 168, 74), rgba(228, 228, 232), nullptr },
               nullptr, 0, nullptr },
             { "sushidsp.mixer", { 640.0f, 300.0f },
               { rgba(38, 38, 44), rgba(28, 28, 32), rgba(214, 168, 74), rgba(228, 228, 232), nullptr },
-              kMixerControls, 8, &mixer_control_visible },
+              kMixerControls, std::size(kMixerControls), &mixer_control_visible },
         };
         return table;
     }

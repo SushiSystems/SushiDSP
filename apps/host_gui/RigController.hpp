@@ -62,7 +62,8 @@ public:
     /// @return The new slot's id.
     SlotId add_node(const std::string& descriptor_id, bool publish_now = true);
 
-    /// @brief Connects one slot's output to another's input and republishes.
+    /// @brief Connects one slot's output to another's input and republishes. An edge the rig
+    /// already holds is a no-op: the rig never carries the same edge twice.
     /// @param publish_now Pass false to batch several structural edits (e.g. building a
     /// multi-node shape where every individual add_node()/connect() call would otherwise leave
     /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
@@ -140,9 +141,11 @@ public:
     float get_parameter(SlotId slot, const char* param_id) const;
 
     /// @brief Installs a cabinet impulse response on the JCM800 at `slot`. Loads the file at the
-    /// controller's prepared sample rate, hands it to the live node, and remembers the path so a
-    /// later rebuild (or a preset save) can reproduce it.
-    /// @return True if `slot` is a JCM800 and the impulse response was installed.
+    /// controller's prepared sample rate, hands it to the live node when the slot has one, and
+    /// remembers the path so a later rebuild (or a preset save) can reproduce it. A bypassed
+    /// slot has no live node, so it keeps the path and receives the cabinet on the publish that
+    /// brings it back.
+    /// @return True if `slot` is a JCM800 and the path was stored.
     /// @throws std::runtime_error if the file cannot be opened or parsed.
     bool set_cabinet(SlotId slot, const std::string& path);
 
@@ -177,6 +180,8 @@ public:
     /// @brief Serializes the current rig to JSON via SushiDSP::serialize_rig_to_json(). Cabinet
     /// IR is included via the `"cabinet_ir"` JSON field. Every slot is written, a bypassed one
     /// included, and a bypassed slot carries `"bypassed": true`.
+    /// @throws std::runtime_error if the unbypassed graph does not compile, which is what the
+    /// preset records; a caller writing to a file must serialize before it truncates the file.
     std::string save_to_json() const;
 
     /// @brief Replaces the entire rig from JSON via SushiDSP::deserialize_rig_from_json() and
@@ -212,7 +217,8 @@ private:
     std::unique_ptr<SushiDSP::RigGraph> build_graph(bool apply_bypass,
         std::unordered_map<SlotId, SushiDSP::NodeHandle>& handles_out) const;
 
-    /// @brief Lists every edge whose endpoints both reached the graph, unchanged.
+    /// @brief Lists every edge whose endpoints both reached the graph. Duplicate edges are
+    /// dropped, so a preset that names one twice still builds one edge.
     /// @param live The slot-to-handle mapping for the graph being built.
     /// @return The edges, as (from, to) pairs.
     std::vector<std::pair<SlotId, SlotId>> direct_edges(

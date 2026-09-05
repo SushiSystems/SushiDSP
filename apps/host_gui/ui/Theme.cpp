@@ -88,5 +88,8 @@ namespace ui
         style.Colors[ImGuiCol_HeaderHovered] = to_imvec4(rgba(60, 60, 68));
         style.Colors[ImGuiCol_HeaderActive] = to_imvec4(colors.accent);
         style.Colors[ImGuiCol_Separator] = to_imvec4(rgba(48, 48, 54));
+        style.Colors[ImGuiCol_CheckMark] = to_imvec4(colors.accent);
+        style.Colors[ImGuiCol_TitleBg] = to_imvec4(colors.panel_background);
+        style.Colors[ImGuiCol_TitleBgActive] = to_imvec4(rgba(44, 44, 50));
     }
 }

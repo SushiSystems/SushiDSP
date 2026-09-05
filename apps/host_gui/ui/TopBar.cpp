@@ -46,13 +46,15 @@ namespace ui
         {
             try
             {
+                // Opening the stream truncates the file, and save_to_json() can throw.
+                const std::string json_text = rig.save_to_json();
                 std::ofstream out(preset_path);
                 if (!out)
                 {
                     throw std::runtime_error("could not open '" + std::string(preset_path)
                                              + "' for writing");
                 }
-                out << rig.save_to_json();
+                out << json_text;
                 status = std::string("Saved ") + preset_path;
             }
             catch (const std::exception& error)
@@ -86,16 +88,16 @@ namespace ui
         ImGui::SameLine();
         ImGui::TextColored(to_imvec4(palette().muted_text), "%s", device_label.c_str());
 
-        ImGui::SameLine(ImGui::GetWindowWidth() - 96.0f);
-        if (ImGui::Button("Settings"))
-        {
-            open_device_settings = true;
-        }
-
         if (!status.empty())
         {
             ImGui::SameLine();
             ImGui::TextColored(to_imvec4(palette().muted_text), "%s", status.c_str());
+        }
+
+        ImGui::SameLine(ImGui::GetWindowWidth() - 96.0f);
+        if (ImGui::Button("Settings"))
+        {
+            open_device_settings = true;
         }
     }
 }
