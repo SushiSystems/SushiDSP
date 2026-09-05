@@ -303,10 +303,10 @@ TEST(Unit_Dsp, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
 {
     // DD-3 pre-emphasis (DR1+DR2 plan N4): zero 594.07 Hz, pole 3386.28 Hz, LF gain 33/47.
     //   LF gain  = 0.7021277                     (-3.0745 dB)
-    //   HF gain  = 0.7021277 * (3386.28/594.07)  = 0.7021277 * 5.700063 = 4.0021712
+    //   HF gain  = 0.7021277 * (3386.28/594.07)  = 0.7021277 * 5.7001364 = 4.0022236
     //   at 1 kHz = 0.7021277 * sqrt((1+(1000/594.07)^2)/(1+(1000/3386.28)^2))
-    //            = 0.7021277 * 1.8777630 = 1.3183700
-    // The discretised HF asymptote is tan-warped and is NOT 4.0021712 at Nyquist; 12 kHz is far
+    //            = 0.7021277 * 1.8778100 = 1.31855
+    // The discretised HF asymptote is tan-warped and is NOT 4.0022236 at Nyquist; 12 kHz is far
     // enough below Nyquist that the warping is under 1 %, which is what the tolerance allows.
     SushiDSP::Biquad shelf;
     shelf.set_first_order_shelf(48000.0, 594.07, 3386.28, 33.0 / 47.0);

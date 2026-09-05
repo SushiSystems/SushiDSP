@@ -160,8 +160,7 @@ namespace SushiDSP
     void Biquad::set_first_order_shelf(double sample_rate, double zero_hz, double pole_hz,
                                        double low_frequency_gain)
     {
-        // t = tan(pi*f/fs) prewarps each corner separately, so both land exactly where the component
-        // values put them  (DR1+DR2 plan, N4).
+        // t = tan(pi*f/fs) prewarps each corner separately, so both land exactly where intended.
         const double zero_tangent = std::tan(M_PI * zero_hz / sample_rate);
         const double pole_tangent = std::tan(M_PI * pole_hz / sample_rate);
         const double scale = low_frequency_gain * pole_tangent / zero_tangent;

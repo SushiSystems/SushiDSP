@@ -73,11 +73,8 @@ namespace SushiDSP
 
         /// @brief Configures this filter as a first-order shelf with independent zero and pole.
         ///
-        /// The shape of an op-amp stage whose input or feedback leg carries a series R+C: the gain is
-        /// low_frequency_gain below the zero, low_frequency_gain * pole_hz / zero_hz above the pole, and
-        /// the transition is first order. Both corners are prewarped separately, so each lands exactly
-        /// where the component values put it and a mirrored pair (zero and pole swapped, gain inverted)
-        /// cancels to the last bit. See DR1+DR2 plan N4.
+        /// Both corners are prewarped separately, so a mirrored pair cancels exactly; see
+        /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md for the derivation.
         /// @param sample_rate Sample rate in Hz.
         /// @param zero_hz Frequency of the transfer function's zero, in Hz.
         /// @param pole_hz Frequency of its pole, in Hz.
