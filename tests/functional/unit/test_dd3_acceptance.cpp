@@ -57,6 +57,13 @@ namespace
     constexpr double        kSampleRate = 48000.0;
     constexpr std::uint32_t kBlock      = 256u;
 
+    /// @brief The stimulus the DD-3's own service note measures at, in full-scale units.
+    ///
+    /// Page 2 of the notes takes its whole check-point ladder at 1 kHz and 100 mVp-p in, which
+    /// is 0.05 Vp-p of the core's 2 V full scale, so 0.025 peak (dossier
+    /// docs/reference/research/2026-08-26-boss-dd3-design-dossier.md, check-point levels).
+    constexpr double kServiceNoteStimulus = 0.025;
+
     /// @brief Half the resampler prototype's width, counted in zero crossings, so the two
     /// conversions cost twice this between them (Task 1.1 committed 34, not the plan's 32).
     ///
@@ -298,7 +305,7 @@ TEST(Regression_Dsp, Dd3AcceptancePitchSlursRatherThanJumping)
     constexpr double kRingCycles = 397.0;
     constexpr double kProbeHz = kRingCycles * SushiDSP::dd3::Dd3Clock::kFastRateHz
                               / static_cast<double>(Converter::kLongLength);
-    constexpr double kProbeAmplitude = 0.025;    // the service note's own 100 mVp-p stimulus
+    constexpr double kProbeAmplitude = kServiceNoteStimulus;
     constexpr std::uint32_t kSubBlock = SushiDSP::Dd3Delay::kClockUpdateFrames;
     constexpr double kFillSeconds = 0.6;         // over three passes of the 199 ms ring
     constexpr double kSettleSeconds = 0.02;
@@ -430,13 +437,30 @@ TEST(Regression_Dsp, Dd3AcceptanceAliasFloorIsMeasuredNotAssumed)
     // The assertion is deliberately loose: the DD-3 is a 12-bit converter behind a 7 kHz wall
     // and is not supposed to be clean. The printed figure is the point - if it comes back worse
     // than -60 dB, Ruling 7 is revisited with data.
+    //
+    // The sweep runs at the service note's stimulus, not at alias_floor()'s -12 dBFS default.
+    // -12 dBFS is 20 dB above the level this pedal is specified at, and the compressor puts
+    // 7.26 V peak on a converter whose rails are +-2.4988 V: 78 % of the converter's samples
+    // clip and the sweep then measures that clipping rather than the conversion, reading -20.4
+    // dB where an 8 kHz tone's fifth harmonic folds about the 40620 Hz clock onto 619 Hz.
+    //
+    // Nothing clips at the note's level and the sweep reads -35.9 dB, which still fails this
+    // assertion. That residual is the NE570's rectifier aliasing, not a fold of the test tone:
+    // |sin| carries a harmonic at every 2k*f0, the rectifier runs unoversampled at the host
+    // rate, and 6*8000.24 Hz folds to 1.46 Hz, well inside the rectifier's own 23.4 Hz pole.
+    // Curing it means oversampling the rectifier, which is exactly what Ruling 7 deferred, so
+    // the bound stays where it is and its failure is the data Ruling 7 asked to be revisited
+    // with. Per-stage measurements are in
+    // .superpowers/sdd/2026-09-05-dr1-dr2-resampler-and-dd3/alias-diagnosis-report.md.
     SushiDSP::Dd3Delay node;
     node.set_mode(SushiDSP::dd3::Dd3Mode::Middle);
     node.set_time(0.5f);
     node.set_feedback(0.0f);
     node.set_level(1.0f);
-    const double floor_db = SushiDSP::measure::alias_floor(node, kSampleRate);
-    std::printf("[ measure ] DD-3 alias floor: %.2f dB (Ruling 7 revisit threshold -60 dB)\n",
-                floor_db);
+    const double floor_db = SushiDSP::measure::alias_floor(
+        node, kSampleRate, static_cast<float>(kServiceNoteStimulus));
+    std::printf("[ measure ] DD-3 alias floor at %.3f full scale: %.2f dB "
+                "(Ruling 7 revisit threshold -60 dB)\n",
+                kServiceNoteStimulus, floor_db);
     EXPECT_LE(floor_db, -40.0);
 }

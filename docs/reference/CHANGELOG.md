@@ -44,6 +44,9 @@ than hiding it:
 - 2026-09-05 — Recorded that the anti-alias cascade with an ideal buffer peaks at +6.45 dB at 7 kHz against the published +1/−3 dB delay path; K is fitted to the window, and a real-unit sweep is what settles it (dossier §4.7 item 1).
 - 2026-09-05 — Recorded that N = 1024/4096/16384 and the published 12.5–800 ms delay ranges disagree by +2.40 % at the long end of each; the spec's N stands.
 - 2026-09-05 — Recorded that check point [1] needs an unexplained ×4.70358 to reach its published 620 mVp-p from the transcribed 131.8145 mVp-p, carried as one named constant (`Dd3Delay.hpp`).
+- 2026-09-06 — Gave `measure::alias_floor` an `amplitude` parameter, defaulted to the −12 dBFS it already swept at (`tests/measure/AliasFloor.hpp`).
+- 2026-09-06 — Swept the DD-3's alias floor at the service note's 0.025 full scale, moving the reading from −20.39 to −35.86 dB (`test_dd3_acceptance.cpp`).
+- 2026-09-06 — Recorded that the −35.86 dB residual is the NE570 rectifier folding 6·f₀ to 1.46 Hz at 8 kHz; Ruling 7 decides (`alias-diagnosis-report.md`).
 
 Not yet measured. The build was locked while DR2 was written, so no number in the acceptance
 table and no benchmark figure has been produced yet. `sd test -s all` runs the acceptance battery

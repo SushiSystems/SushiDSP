@@ -36,16 +36,19 @@ namespace SushiDSP::measure
 {
     /// @brief Worst non-harmonic spectral line produced by a node across 1..20 kHz test tones.
     ///
-    /// Each tone is bin-exact, at -12 dBFS, rendered for one second of settling plus one
-    /// analysis frame. Lines within four bins of DC, of the fundamental, or of any harmonic
-    /// below Nyquist are excluded; a harmonic that would fall above Nyquist has folded back and
-    /// is counted as an alias, which is what the number is for.
+    /// Each tone is bin-exact, rendered for one second of settling plus one analysis frame.
+    /// Lines within four bins of DC, of the fundamental, or of any harmonic below Nyquist are
+    /// excluded; a harmonic that would fall above Nyquist has folded back and is counted as an
+    /// alias, which is what the number is for.
     /// @param node The node under test, knobs already set.
     /// @param sample_rate Sample rate.
+    /// @param amplitude Peak stimulus in full-scale units; -12 dBFS by default. A node that
+    /// clips inside its own chain at this level reports that clipping's folded harmonics rather
+    /// than its conversion, so sweep such a node at the operating point its data sheet or
+    /// service note publishes.
     /// @return Worst alias level in dB relative to the fundamental (more negative is better).
-    inline double alias_floor(IAudioNode& node, double sample_rate)
+    inline double alias_floor(IAudioNode& node, double sample_rate, float amplitude = 0.251189f)
     {
-        constexpr float amplitude = 0.251189f;   // -12 dBFS
         const std::size_t settle = static_cast<std::size_t>(sample_rate);
         const std::uint32_t low_bin = bin_of(20.0, sample_rate);
         const std::uint32_t high_bin = bin_of(std::min(20000.0, sample_rate / 2.0 - 1.0), sample_rate);
