@@ -71,7 +71,10 @@ namespace SushiDSP::dk
     {
     public:
         /// @brief Dimension of the augmented nodal system at the maximum supported node count.
-        static constexpr std::size_t kMaximumSystemOrder = kMaximumNodes + I;
+        ///
+        /// One row and one column per node, per input source and per nullor. At the worst shape
+        /// that is 16 + 2 + 4 = 22, so the system and its inverse are under 8 KB together.
+        static constexpr std::size_t kMaximumSystemOrder = kMaximumNodes + I + kMaximumNullors;
 
         /// @brief Validates a netlist, discretises it at the run rate and derives the matrices.
         ///
@@ -94,7 +97,8 @@ namespace SushiDSP::dk
             if (netlist.resistor_count_ > kMaximumResistors || netlist.reactive_count_ != S
                 || netlist.source_count_ != I || netlist.nonlinear_count_ != N
                 || netlist.output_count_ != O
-                || netlist.potentiometer_count_ > kMaximumPotentiometers)
+                || netlist.potentiometer_count_ > kMaximumPotentiometers
+                || netlist.nullor_count_ > kMaximumNullors)
             {
                 return false;
             }
@@ -132,6 +136,14 @@ namespace SushiDSP::dk
             for (std::size_t index = 0; index < O; ++index)
             {
                 if (!in_range(netlist.outputs_[index], netlist.node_count))
+                {
+                    return false;
+                }
+            }
+            for (std::size_t index = 0; index < netlist.nullor_count_; ++index)
+            {
+                if (!in_range(netlist.nullors_[index].nullator, netlist.node_count)
+                    || !in_range(netlist.nullors_[index].norator, netlist.node_count))
                 {
                     return false;
                 }
@@ -518,7 +530,7 @@ namespace SushiDSP::dk
         bool derive()
         {
             const std::size_t nodes = node_count_;
-            const std::size_t order = nodes + I;
+            const std::size_t order = nodes + I + netlist_.nullor_count_;
 
             for (std::size_t row = 0; row < order; ++row)
             {
@@ -572,6 +584,38 @@ namespace SushiDSP::dk
                 }
             }
 
+            // A nullor's row is its nullator (V(p) - V(q) = 0, right-hand side zero) and its
+            // column is its norator (an unknown current into the driven pair). Unlike a source,
+            // the two are different node pairs, which is exactly why an op-amp cannot be spelled
+            // with voltage_source() (D6c plan, ruling 1).
+            for (std::size_t index = 0; index < netlist_.nullor_count_; ++index)
+            {
+                const std::size_t row = nodes + I + index;
+                const Branch&     sense = netlist_.nullors_[index].nullator;
+                const Branch&     drive = netlist_.nullors_[index].norator;
+                if (sense.positive_node != 0)
+                {
+                    system_[row][sense.positive_node - 1] += 1.0;
+                }
+                if (sense.negative_node != 0)
+                {
+                    system_[row][sense.negative_node - 1] -= 1.0;
+                }
+                if (drive.positive_node != 0)
+                {
+                    system_[drive.positive_node - 1][row] += 1.0;
+                }
+                if (drive.negative_node != 0)
+                {
+                    system_[drive.negative_node - 1][row] -= 1.0;
+                }
+            }
+
+            // Every nullor puts a zero on the diagonal: its row touches only the sensed nodes
+            // and its column only the driven ones. DenseLu's partial pivoting takes the largest
+            // magnitude in each column rather than the diagonal entry, so those zeros cost it
+            // nothing. It fails only when a whole column below the diagonal is zero, which is
+            // the rank deficiency an op-amp outside a feedback loop leaves behind.
             if (!lu_.factorise(system_, order))
             {
                 return false;
@@ -590,6 +634,10 @@ namespace SushiDSP::dk
                 }
             }
 
+            // Pleft is still inverse_[0..nodes)[0..nodes) and Pright still
+            // inverse_[0..nodes)[nodes..nodes+I): the nullor rows and columns sit after the
+            // sources, and their right-hand side is zero, so they shape the inverse without ever
+            // being read out of it.
             build_left_and_right(netlist_.reactive_, reactive_left_, reactive_right_, nodes);
             build_left_and_right(netlist_.nonlinear_, nonlinear_left_, nonlinear_right_, nodes);
             build_left_and_right(netlist_.outputs_, output_left_, output_right_, nodes);
