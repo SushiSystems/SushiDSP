@@ -658,3 +658,28 @@ TEST(Unit_Dsp, RigGraphFeedsRootNodeExternalInputThroughAFullWidthGatherArray)
         EXPECT_FLOAT_EQ(sample, 0.25f);
     }
 }
+
+TEST(Unit_Dsp, RigGraphIsEmptyBeforeAnyNodeIsAdded)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    EXPECT_TRUE(graph.is_empty());
+}
+
+TEST(Unit_Dsp, RigGraphStaysEmptyAfterCompilingAGraphWithNoNode)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    const SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    EXPECT_TRUE(graph.is_empty());
+}
+
+TEST(Unit_Dsp, RigGraphIsNotEmptyOnceItHoldsACompiledNode)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    graph.add_node(SushiDSP::make_node("sushidsp.tubescreamer", SushiDSP::PrepareInfo{ 48000.0, 256, 1 }));
+    const SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    graph.compile(info);
+
+    EXPECT_FALSE(graph.is_empty());
+}
