@@ -61,6 +61,9 @@ namespace ui
         }
 
     private:
+        static_assert(std::atomic<float>::is_always_lock_free,
+                      "LevelProbe::report runs on the audio thread, which must never block");
+
         std::atomic<float> peak_{ 0.0f };
     };
 }

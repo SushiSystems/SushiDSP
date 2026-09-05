@@ -107,6 +107,12 @@ RigController::SlotId RigController::add_node(const std::string& descriptor_id, 
 
 void RigController::connect(SlotId from, SlotId to, bool publish_now)
 {
+    const bool present = std::any_of(edges_.begin(), edges_.end(),
+        [from, to](const Edge& edge) { return edge.from == from && edge.to == to; });
+    if (present)
+    {
+        return;
+    }
     edges_.push_back({ from, to });
     if (publish_now)
     {
@@ -146,7 +152,7 @@ void RigController::remove(SlotId slot, bool publish_now)
 
     if (upstream.has_value() && downstream.has_value())
     {
-        edges_.push_back({ *upstream, *downstream });
+        connect(*upstream, *downstream, false);
     }
 
     slots_.erase(slot);
@@ -303,21 +309,26 @@ float RigController::get_parameter(SlotId slot, const char* param_id) const
 
 bool RigController::set_cabinet(SlotId slot, const std::string& path)
 {
+    // A bypassed slot has no live node, so the descriptor id is what says the slot is an amp.
+    const auto it = slots_.find(slot);
+    if (it == slots_.end() || it->second.descriptor_id != SushiDSP::jcm800_descriptor().id)
+    {
+        return false;
+    }
+
+    SushiDSP::Ir impulse_response = SushiDSP::IrLoader::load(path, info_.sample_rate);
+
     const auto handle_it = slot_to_handle_.find(slot);
-    if (handle_it == slot_to_handle_.end() || active_graph_ == nullptr)
+    if (handle_it != slot_to_handle_.end() && active_graph_ != nullptr)
     {
-        return false;
+        auto* amp = dynamic_cast<SushiDSP::Jcm800*>(active_graph_->node(handle_it->second));
+        if (amp != nullptr && !amp->set_cabinet(std::move(impulse_response)))
+        {
+            return false;
+        }
     }
-    auto* amp = dynamic_cast<SushiDSP::Jcm800*>(active_graph_->node(handle_it->second));
-    if (amp == nullptr)
-    {
-        return false;
-    }
-    if (!amp->set_cabinet(SushiDSP::IrLoader::load(path, info_.sample_rate)))
-    {
-        return false;
-    }
-    slots_[slot].cabinet_path = path;
+
+    it->second.cabinet_path = path;
     return true;
 }
 
@@ -580,9 +591,11 @@ std::vector<std::pair<RigController::SlotId, RigController::SlotId>>
 RigController::direct_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const
 {
     std::vector<std::pair<SlotId, SlotId>> result;
+    std::set<std::pair<SlotId, SlotId>> seen;
     for (const Edge& edge : edges_)
     {
-        if (live.count(edge.from) != 0 && live.count(edge.to) != 0)
+        if (live.count(edge.from) != 0 && live.count(edge.to) != 0
+            && seen.insert({ edge.from, edge.to }).second)
         {
             result.push_back({ edge.from, edge.to });
         }

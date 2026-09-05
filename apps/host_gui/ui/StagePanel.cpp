@@ -188,6 +188,10 @@ namespace ui
                 changed = ToggleSwitch(param->id, &on, diameter, diameter * 0.5f);
                 value = on ? 1.0f : 0.0f;
             }
+            else if (placement.kind == ControlKind::Readout)
+            {
+                ValueReadout(param->id, *param, value, diameter, diameter * 0.5f);
+            }
             else
             {
                 changed = Knob(param->id, *param, &value, diameter);

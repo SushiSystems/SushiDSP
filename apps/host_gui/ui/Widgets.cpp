@@ -129,4 +129,33 @@ namespace ui
         ImGui::PopID();
         return changed;
     }
+
+    void ValueReadout(const char* id, const SushiDSP::ParameterDescriptor& param, float value,
+                      float width, float height)
+    {
+        ImGui::PushID(id);
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        ImGui::InvisibleButton("readout", ImVec2(width, height));
+
+        const Palette& colors = palette();
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        const ImVec2 bottom_right(origin.x + width, origin.y + height);
+
+        draw->AddRectFilled(origin, bottom_right, to_imu32(rgba(20, 20, 24)), 3.0f);
+        draw->AddRect(origin, bottom_right, to_imu32(rgba(78, 78, 86)), 3.0f, 0, 1.5f);
+
+        char text[32];
+        std::snprintf(text, sizeof(text), "%.2f", value);
+        const ImVec2 text_size = ImGui::CalcTextSize(text);
+        draw->AddText(ImVec2(origin.x + (width - text_size.x) * 0.5f,
+                             origin.y + (height - text_size.y) * 0.5f),
+                      to_imu32(colors.text), text);
+
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("%s: %.2f %s", param.label, value, param.unit);
+        }
+
+        ImGui::PopID();
+    }
 }

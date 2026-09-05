@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace ui
 {
@@ -56,18 +57,22 @@ namespace ui
             ++upstream_count[edge.second];
         }
 
+        std::unordered_map<RigController::SlotId, int> column;
+        std::unordered_map<RigController::SlotId, int> row;
+
         // Kahn's algorithm, seeded in the caller's slot order so the result is deterministic.
         std::vector<RigController::SlotId> ready;
+        int next_free_row = 0;
         for (RigController::SlotId slot : slots)
         {
             if (in_degree[slot] == 0)
             {
+                // Each root starts its own row, so two rigs sharing the view do not overlap.
+                row[slot] = next_free_row++;
                 ready.push_back(slot);
             }
         }
 
-        std::unordered_map<RigController::SlotId, int> column;
-        std::unordered_map<RigController::SlotId, int> row;
         std::vector<RigController::SlotId> ordered;
         ordered.reserve(slots.size());
         for (std::size_t head = 0; head < ready.size(); ++head)
@@ -93,6 +98,23 @@ namespace ui
                 {
                     ready.push_back(child);
                 }
+            }
+        }
+
+        // A slot in a cycle never reaches in_degree 0, so the walk leaves it out; park it.
+        int deepest_column = 0;
+        for (RigController::SlotId slot : ordered)
+        {
+            deepest_column = std::max(deepest_column, column[slot]);
+        }
+        const std::unordered_set<RigController::SlotId> scheduled(ordered.begin(), ordered.end());
+        for (RigController::SlotId slot : slots)
+        {
+            if (scheduled.count(slot) == 0)
+            {
+                column[slot] = deepest_column;
+                row[slot] = next_free_row++;
+                ordered.push_back(slot);
             }
         }
 

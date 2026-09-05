@@ -46,4 +46,13 @@ namespace ui
     /// @param height The switch's height in pixels.
     /// @return True on the frames where *on changed.
     bool ToggleSwitch(const char* id, bool* on, float width, float height);
+
+    /// @brief Draws one parameter's current value as text the pointer cannot change.
+    /// @param id The ImGui id, unique within the window.
+    /// @param param The parameter, whose label and unit fill the tooltip.
+    /// @param value The value to show.
+    /// @param width The box's width in pixels.
+    /// @param height The box's height in pixels.
+    void ValueReadout(const char* id, const SushiDSP::ParameterDescriptor& param, float value,
+                      float width, float height);
 }

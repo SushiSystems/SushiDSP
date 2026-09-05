@@ -58,11 +58,13 @@ namespace ui
     /// @brief Places every slot on a row and column grid for drawing. A node's column is one past
     /// its deepest upstream, so a rejoin lands right of the longest branch. Row is 0 along a
     /// linear run; a node's second downstream edge starts row 1 and everything after it on that
-    /// branch stays on row 1, and a node with two or more upstream edges rejoins at row 0.
+    /// branch stays on row 1, and a node with two or more upstream edges rejoins at row 0. Every
+    /// root past the first opens a row of its own, so two disconnected chains never overlap.
     /// @param slots Every live slot.
     /// @param edges Every edge, as (from, to) pairs.
     /// @return The grid; cells is empty and both counts are 0 for an empty rig. Cells come out in
-    /// topological order.
+    /// topological order, followed by any slot a cycle kept out of the walk, each parked on its
+    /// own row at the last column.
     ChainView layout_chain(const std::vector<RigController::SlotId>& slots,
                            const std::vector<std::pair<RigController::SlotId, RigController::SlotId>>& edges);
 }

@@ -100,8 +100,20 @@ TEST(Unit_Dsp, KnobMathFineDragTravelsExactlyOneQuarterAsFar)
     EXPECT_NEAR(fine * 4.0f, coarse, 1e-6f);
 }
 
-TEST(Unit_Dsp, KnobMathAngleSpansTheFullSweepAcrossTheNormalizedRange)
+TEST(Unit_Dsp, KnobMathPointsDownLeftAtZeroStraightUpAtHalfAndDownRightAtOne)
 {
-    EXPECT_FLOAT_EQ(ui::normalized_to_angle(0.0f), ui::kKnobStartRadians);
-    EXPECT_FLOAT_EQ(ui::normalized_to_angle(1.0f), ui::kKnobStartRadians + ui::kKnobSweepRadians);
+    // ImGui's y grows downward, so a positive sine points down the screen.
+    constexpr float kDiagonal = 0.70710678f;
+
+    const float low = ui::normalized_to_angle(0.0f);
+    EXPECT_NEAR(std::cos(low), -kDiagonal, 1e-4f);
+    EXPECT_NEAR(std::sin(low), kDiagonal, 1e-4f);
+
+    const float middle = ui::normalized_to_angle(0.5f);
+    EXPECT_NEAR(std::cos(middle), 0.0f, 1e-4f);
+    EXPECT_NEAR(std::sin(middle), -1.0f, 1e-4f);
+
+    const float high = ui::normalized_to_angle(1.0f);
+    EXPECT_NEAR(std::cos(high), kDiagonal, 1e-4f);
+    EXPECT_NEAR(std::sin(high), kDiagonal, 1e-4f);
 }

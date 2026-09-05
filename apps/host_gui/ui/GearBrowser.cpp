@@ -27,6 +27,7 @@
 #include <cctype>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include <imgui.h>
 
@@ -54,6 +55,23 @@ namespace ui
             return lowered.find(wanted) != std::string::npos;
         }
 
+        /// @brief Lists every category the registry names, once each, in registry order.
+        std::vector<const char*> registry_categories()
+        {
+            std::vector<const char*> categories;
+            for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
+            {
+                const bool seen = std::any_of(categories.begin(), categories.end(),
+                    [&entry](const char* name)
+                    { return std::strcmp(name, entry.category.name) == 0; });
+                if (!seen)
+                {
+                    categories.push_back(entry.category.name);
+                }
+            }
+            return categories;
+        }
+
         /// @brief Draws a card's icon: a filled rounded rectangle tinted by category.
         void draw_card_icon(ImVec2 top_left, float size, const char* category)
         {
@@ -65,32 +83,10 @@ namespace ui
             ImGui::GetWindowDrawList()->AddRectFilled(
                 top_left, ImVec2(top_left.x + size, top_left.y + size), tint, 6.0f);
         }
-    }
 
-    void DrawGearBrowser()
-    {
-        static char search[128] = "";
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputTextWithHint("##gear_search", "Search gear", search, sizeof(search));
-        ImGui::Separator();
-
-        const std::string needle(search);
-        const char* current_category = nullptr;
-        bool category_open = false;
-
-        for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
+        /// @brief Draws one product's card and makes it a drag source for the rack.
+        void draw_gear_card(const SushiDSP::NodeEntry& entry)
         {
-            if (current_category == nullptr
-                || std::strcmp(current_category, entry.category.name) != 0)
-            {
-                current_category = entry.category.name;
-                category_open = ImGui::CollapsingHeader(current_category, ImGuiTreeNodeFlags_DefaultOpen);
-            }
-            if (!category_open || !contains_ignoring_case(entry.descriptor->name, needle))
-            {
-                continue;
-            }
-
             ImGui::PushID(entry.descriptor->id);
             const ImVec2 origin = ImGui::GetCursorScreenPos();
             ImGui::InvisibleButton("card", ImVec2(ImGui::GetContentRegionAvail().x, 44.0f));
@@ -112,6 +108,36 @@ namespace ui
                 ImGui::EndDragDropSource();
             }
             ImGui::PopID();
+        }
+    }
+
+    void DrawGearBrowser()
+    {
+        static char search[128] = "";
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##gear_search", "Search gear", search, sizeof(search));
+        ImGui::Separator();
+
+        const std::string needle(search);
+
+        for (const char* category : registry_categories())
+        {
+            // One header per category, so a repeat further down the registry cannot collide ids.
+            if (!ImGui::CollapsingHeader(category, ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                continue;
+            }
+
+            for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
+            {
+                if (std::strcmp(entry.category.name, category) != 0
+                    || !contains_ignoring_case(entry.descriptor->name, needle))
+                {
+                    continue;
+                }
+
+                draw_gear_card(entry);
+            }
         }
     }
 }
