@@ -23,6 +23,18 @@
 
 #pragma once
 
+#include <optional>
+
+#include "RigController.hpp"
+
 namespace ui
 {
+    /// @brief Draws the chain strip into the current window and handles selection, drag-reorder,
+    /// gear drops, bypass toggles and removal.
+    /// @param rig The rig to draw and edit.
+    /// @param selected In/out: the selected slot, cleared when that slot stops existing.
+    /// @param created_slot Out: the slot a gear drop just created, or std::nullopt when this frame
+    /// created none. The caller uses it to run its own post-insert step.
+    void DrawChainStrip(RigController& rig, std::optional<RigController::SlotId>& selected,
+                        std::optional<RigController::SlotId>& created_slot);
 }
