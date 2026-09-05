@@ -84,6 +84,12 @@ namespace SushiDSP
         /// @return The live handles.
         std::vector<NodeHandle> nodes() const;
 
+        /// @brief Reports whether compile() produced an empty schedule, i.e. the graph holds no
+        /// live node and process() would write nothing. Real-time safe: reads one vector's size
+        /// and allocates nothing.
+        /// @return True when process() would write nothing.
+        bool is_empty() const noexcept;
+
         /// @brief Lists the handles of every node with an edge into handle, in connect() call
         /// order. Not real-time safe; call only off the processing thread.
         /// @param handle The downstream node to query.
@@ -100,9 +106,9 @@ namespace SushiDSP
         /// @param context The block's output buffers and frame count.
         void process(ProcessContext& context);
 
-        /// @brief Sum of latency_samples() over the compiled chain. Allocation-free; call after
-        /// compile(). Sums the chain; a parallel branch-and-rejoin graph would need the max over
-        /// branches instead.
+        /// @brief Longest path through the compiled graph, in base-rate samples: a node's latency
+        /// plus the largest latency among its upstream paths, taken at the sink. Allocation-free;
+        /// call after compile(), which caches the value.
         /// @return Total latency in base-rate samples.
         std::uint32_t latency_samples() const;
 

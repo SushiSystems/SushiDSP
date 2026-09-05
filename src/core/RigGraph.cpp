@@ -225,6 +225,11 @@ namespace SushiDSP
         cached_latency_samples_ = topological_order_.empty() ? 0u : latency_at[sink_handle_];
     }
 
+    bool RigGraph::is_empty() const noexcept
+    {
+        return topological_order_.empty();
+    }
+
     std::uint32_t RigGraph::latency_samples() const
     {
         return cached_latency_samples_;
