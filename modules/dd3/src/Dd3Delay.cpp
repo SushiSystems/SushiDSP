@@ -134,11 +134,12 @@ namespace SushiDSP
         const float delayed = convert_sample(drive);
         const float expanded = static_cast<float>(static_cast<double>(expander_.process_sample(delayed))
                                                   * kExpanderOutputStageGain);
-        // Dossier 1.6 reading (a): F.BACK and E.LEVEL take off after the reconstruction filter.
-        const float taken_off = reconstruction_.process_sample(expanded);
-        wet_previous_ = static_cast<double>(taken_off);
+        const float reconstructed = reconstruction_.process_sample(expanded);
 
-        const float wet = de_emphasis_.process_sample(taken_off);
+        // Dossier 1.6 reading (b): F.BACK and E.LEVEL take off at the wet leg's output.
+        const float wet = de_emphasis_.process_sample(reconstructed);
+        wet_previous_ = static_cast<double>(wet);
+
         return static_cast<float>((static_cast<double>(wet) * static_cast<double>(level_.next())
                                    * static_cast<double>(kLevelUnityGain) + dry) / kFullScaleVolts);
     }
