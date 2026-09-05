@@ -38,6 +38,7 @@
 #include "SushiDSP/dd3/Dd3Clock.hpp"
 #include "SushiDSP/dd3/Dd3Converter.hpp"
 #include "SushiDSP/dd3/Ne570Compander.hpp"
+#include "SushiDSP/dd3/WetFifo.hpp"
 #include "SushiDSP/math/Resampler.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
 
@@ -93,7 +94,7 @@ namespace SushiDSP
         /// @param normalized Wet level in [0, 1]; 0 makes the node a wire.
         void set_level(float normalized);
 
-        /// @brief Selects the delay range, or HOLD. Control thread only.
+        /// @brief Selects the delay range, or HOLD, and applies it at once. Control thread only.
         /// @param mode Short, Middle, Long or Hold; Long and Hold share N, so the loop survives
         /// the switch into HOLD.
         void set_mode(dd3::Dd3Mode mode);
@@ -105,12 +106,17 @@ namespace SushiDSP
         /// @return The parameter's target value, or 0 for an unknown id.
         float get_parameter(const char* id) const override;
 
-        /// @brief Sets a parameter by string id.
+        /// @brief Sets a parameter by string id. Control thread only, so "mode" takes effect
+        /// at once rather than at the next block.
         /// @param id One of "time", "feedback", "level", "mode".
         /// @param value The new target value, in that parameter's declared range.
         void set_parameter(const char* id, float value) override;
 
         /// @brief Sets a parameter by descriptor index, RT-safe and free of string compares.
+        ///
+        /// "mode" is only recorded here; @ref process applies it at the start of the next
+        /// block, so a MODE change costs up to one block of latency and its ring clear lands
+        /// at a fixed point instead of inside the host's parameter drain.
         /// @param index The parameter's index in dd3_descriptor().
         /// @param value The new target value, in that parameter's declared range.
         void set_parameter(std::uint16_t index, float value) override;
@@ -126,19 +132,23 @@ namespace SushiDSP
         /// of this length at 48 kHz (plan Ruling 11).
         static constexpr std::uint32_t kClockUpdateFrames = 8u;
 
-        /// @brief Wet samples the FIFO holds back before it starts delivering, so that the 0, 1
-        /// or 2 samples one base-rate push returns never starve the read (plan N2).
+        /// @brief MODE at power-up: Middle, the range with the most use. dd3_descriptor() and
+        /// the node's own member both take their default from here.
+        static constexpr dd3::Dd3Mode kDefaultMode = dd3::Dd3Mode::Middle;
+
+        /// @brief Wet samples the FIFO holds back before it starts delivering, so that the 0 to
+        /// 3 samples one base-rate push returns never starve the read (plan N2).
         ///
-        /// The prime is taken on the first samples the loop actually produces, not written as
-        /// zeros at reset; the measurement behind that is in
-        /// .superpowers/sdd/2026-09-05-dr1-dr2-resampler-and-dd3/task-2.5-report.md.
-        static constexpr std::uint32_t kWetPrimeFrames = 8u;
+        /// dd3::WetFifo owns the mechanism, and
+        /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections, has the
+        /// measurement that chose priming on real samples over zeros written at reset.
+        static constexpr std::uint32_t kWetPrimeFrames = dd3::WetFifo::kPrimeFrames;
 
         /// @brief Gain of the input buffer, fitted to the service note's check point [1].
         ///
         /// A calibration residual, not a value derived from any component: the transcribed
-        /// pre-emphasis stage turns the note's 100 mVp-p into 131.837 mVp-p where the note
-        /// prints 620, and 620 / 131.837 = 4.70358 closes the gap (plan N7). The buffer is
+        /// pre-emphasis stage turns the note's 100 mVp-p into about 131.8 mVp-p where the note
+        /// prints 620, and 620 / 131.8145 = 4.70358 closes the gap (plan N7). The buffer is
         /// upstream of the summing node, so the dry branch carries it and the loop does not.
         static constexpr double kInputPathGainToCheckPointOne = 4.70358;
 
@@ -157,17 +167,21 @@ namespace SushiDSP
         /// over VR2 50 kB at the top of the pot (dossier 1.4 and 1.6).
         static constexpr double kFeedbackMixRatio = 33.0 / 50.0;
 
-        /// @brief What the mix resistors leave unexplained at the F.BACK take-off.
+        /// @brief What the mix resistors leave unexplained at the F.BACK take-off, 1/4.170136.
         ///
-        /// The emphasis pair cancels inside the loop, and the input buffer is outside it, so
-        /// the forward gain is kExpanderOutputStageGain * |anti-alias| * |reconstruction|,
-        /// which peaks at 6.318388 at 3278 Hz and is that same number at 48, 96 and 192 kHz.
-        /// Against kFeedbackMixRatio that leaves 4.170136, which is the expander's output
-        /// stage undone plus the cascades' 1.053 passband bump; dossier 4.7 item 5 measures it.
+        /// The emphasis pair cancels inside the loop and the input buffer is outside it, so the
+        /// forward gain is kExpanderOutputStageGain * |anti-alias| * |reconstruction|, which
+        /// peaks at 6.318388 at 3278 Hz and is that same number at 48, 96 and 192 kHz. The trim
+        /// is defined against kFeedbackMixRatio, so 4.170136 is what a bench measurement of the
+        /// loop gain (dossier 4.7 item 5) would replace.
         static constexpr double kFeedbackTakeoffTrim = 1.0 / 4.170136;
 
         /// @brief Attenuation from the F.BACK take-off node into the summing node, which makes
         /// kMaximumFeedback the loop gain it says it is.
+        ///
+        /// kFeedbackMixRatio cancels out of the product: the trim is fitted against it, so this
+        /// is 1/6.318388 whatever the mix ratio is. The two factors are kept apart so that a
+        /// measurement replaces the trim alone, not because the ratio moves the number.
         static constexpr double kFeedbackPathGain = kFeedbackMixRatio * kFeedbackTakeoffTrim;
 
         /// @brief Wet gain at E.LEVEL fully up, from the service note's check point [5].
@@ -188,13 +202,8 @@ namespace SushiDSP
         /// @return The delayed sample at the host rate, in volts.
         float convert_sample(float drive);
 
-        /// @brief Appends one host-rate wet sample, dropping the oldest if the ring is full.
-        /// @param sample The sample to append.
-        void push_wet(float sample);
-
-        /// @brief Takes the oldest wet sample once the prime has been reached.
-        /// @return The sample, or 0 while priming or starved.
-        float pop_wet();
+        /// @brief Hands a recorded MODE change to the converter, clearing the ring if N moves.
+        void apply_pending_mode();
 
         /// @brief Most fs-rate samples one base-rate push can produce, with headroom.
         static constexpr std::uint32_t kFsScratchCapacity = 16u;
@@ -202,19 +211,14 @@ namespace SushiDSP
         /// @brief Most base-rate samples one fs-rate push can produce, with headroom.
         static constexpr std::uint32_t kWetScratchCapacity = 16u;
 
-        /// @brief Wet FIFO length; a power of two, so free-running indices mask onto it.
-        static constexpr std::uint32_t kWetFifoCapacity = 64u;
-
-        /// @brief Mask that wraps a free-running wet FIFO index onto kWetFifoCapacity.
-        static constexpr std::uint32_t kWetFifoMask = kWetFifoCapacity - 1u;
-
         double sample_rate_ = 48000.0;
         bool   prepared_    = false;
 
         float             time_ = 0.3f;
         SmoothedParameter feedback_{ 0.3f };
         SmoothedParameter level_{ 0.5f };
-        dd3::Dd3Mode      mode_ = dd3::Dd3Mode::Middle;
+        dd3::Dd3Mode      mode_ = kDefaultMode;          // the mode the converter is in
+        dd3::Dd3Mode      pending_mode_ = kDefaultMode;  // the mode last asked for
 
         dd3::Dd3PreEmphasis         pre_emphasis_;
         dd3::Dd3AntiAliasFilter     anti_alias_;
@@ -230,11 +234,10 @@ namespace SushiDSP
 
         std::array<float, kFsScratchCapacity>  fs_scratch_{};
         std::array<float, kWetScratchCapacity> wet_scratch_{};
-        std::array<float, kWetFifoCapacity>    wet_fifo_{};
-        std::uint32_t wet_write_ = 0u;           // free-running; kWetFifoCapacity divides 2^32
-        std::uint32_t wet_read_  = 0u;
-        bool          wet_priming_ = true;       // withholding wet output until the prime is met
+        dd3::WetFifo wet_fifo_;
 
+        std::uint32_t frames_until_clock_ = 0u;  // carried across blocks, so the 8-frame grid
+                                                 // does not restart on a block boundary
         double wet_previous_ = 0.0;              // the wet leg's output, in volts; the take-off
     };
 
