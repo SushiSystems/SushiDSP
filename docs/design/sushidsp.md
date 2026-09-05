@@ -308,10 +308,19 @@ edited by hand.
 | Measured stopband | −100.48 dB worst case over [0.5, 256.0] |
 | Measured passband ripple | 0.0001 dB over [0, 0.4] |
 
+"Zero crossing" in those two rows is the generator's unit for the kernel's argument, and one of
+them is one **input sample**: a half width of 34 spans 34 input samples either side of the output
+instant, and the table holds 512 entries per input sample. At `CUTOFF = 0.45` the sinc's true
+zeros sit 1/0.9 input samples apart, so fewer than 34 of them fall inside that span. Every span
+figure elsewhere — the trap and benchmark comments, the wet-delay arithmetic — counts input
+samples for this reason.
+
 The half width grew from the planned 32 because 32 stopped at −98.45 dB, short of the −100 dB the
 spec binds; 33 clears it by 0.08 dB at the true worst frequency and 34 by about 0.45 dB, so 34 is
-what is committed. The cost of the extra crossings is latency: `latency_seconds()` returns
-`34 / min(source_rate, target_rate)`, which is 0.708 ms per stage at 48 kHz.
+what is committed. The cost of the two extra samples is latency: `latency_seconds()` returns
+`34 / min(source_rate, target_rate)`, which is 0.708 ms per stage at 48 kHz. Decimating widens the
+span by 1/ratio, so at the DD-3's slowest clock the half span is 34 / 0.416667 = 81.6 input
+samples, `taps_per_side_` ceilings to 82, and `interpolate()` touches 164 taps per output.
 
 That number is **availability look-ahead, not an alignment offset**. An output at time *t* reads
 input a half kernel span either side of *t*, so it can only be emitted once the input half a span
@@ -561,3 +570,4 @@ None of this touches `sushi_dsp`'s C++ link graph. A checkout of this repo with 
 Known work with no phase attached. An item leaves this list when it lands, not when it is planned.
 
 - **No mechanical comment-shape check.** `tools/documentation/check_source_comments.py` does not exist in this repo. `docs/CONTRIBUTING.md` §3 states the shape and every reviewer applies it by reading, so the rule holds by attention rather than by a script.
+- **DR2 shipped without a single measured number.** The build was locked while the DD-3 was written, so the 0.15 ms benchmark budget is unjudged, every acceptance row is unrun, and `tests/golden/dd3_48k.f32` and `dd3_96k.f32` do not exist, which fails the two regression cases. The changelog's DR2 "Not yet measured" paragraph names the three commands that close this.

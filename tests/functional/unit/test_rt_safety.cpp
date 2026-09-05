@@ -700,8 +700,9 @@ TEST(Unit_Dsp, DampedNewtonSolverPerformsNoHeapAllocation)
 TEST(Unit_Dsp, ResamplerProcessPerformsNoHeapAllocation)
 {
     // The DD-3's decimating leg at the VCO's slowest clock, which is where the Resampler is
-    // widest: the prototype's 68 zero crossings stretch to 68 / (20000 / 48000) = 163 input
-    // taps per output, and prepare() sizes the history ring for exactly that.
+    // widest: the prototype's half width of 34 (input samples; true crossings are fewer at
+    // fc = 0.45) stretches to 34 / (20000 / 48000) = 81.6, so interpolate() runs two loops of 82
+    // and touches 164 taps per output, and prepare() sizes the history ring for exactly that.
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
 
