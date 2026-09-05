@@ -94,6 +94,17 @@ add_executable(sushidsp_tests
     functional/unit/test_rig_controller.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/RigController.cpp
 
+    # --- host_gui view layer ---
+    # Only the three ImGui-free units are compiled here: sushidsp_tests does not link imgui, and
+    # the imgui target only exists when SUSHIDSP_BUILD_GUI is ON.
+    functional/unit/test_knob_math.cpp
+    functional/unit/test_panel_library.cpp
+    functional/unit/test_chain_layout.cpp
+    functional/unit/test_level_probe.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/KnobMath.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/PanelLibrary.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ChainLayout.cpp
+
     # --- Regression ---
     functional/regression/test_tube_screamer_regression.cpp
     functional/regression/test_jcm800_regression.cpp
