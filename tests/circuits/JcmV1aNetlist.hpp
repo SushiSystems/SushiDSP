@@ -94,20 +94,14 @@ namespace SushiDSP::test_circuits
     {
         SushiDSP::Triode12AX7 triode{};
 
-        /// @brief Evaluates both branch currents at one port voltage.
+        /// @brief Evaluates both branch currents and the 2x2 Jacobian at one port voltage.
         /// @param v Port voltages: v[0] = Vgk, v[1] = Vpk.
         /// @param i Receives the branch currents in amperes.
-        void currents(const std::array<double, 2>& v, std::array<double, 2>& i) const
-        {
-            triode.current(v, i);
-        }
-
-        /// @brief Evaluates the branch-current Jacobian at one port voltage.
-        /// @param v Port voltages: v[0] = Vgk, v[1] = Vpk.
         /// @param j Receives the 2x2 Jacobian in siemens.
-        void jacobian(const std::array<double, 2>& v, std::array<std::array<double, 2>, 2>& j) const
+        void currents_and_jacobian(const std::array<double, 2>& v, std::array<double, 2>& i,
+                                   std::array<std::array<double, 2>, 2>& j) const
         {
-            triode.jacobian(v, j);
+            triode.current_and_jacobian(v, i, j);
         }
     };
 

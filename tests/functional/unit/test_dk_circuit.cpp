@@ -46,19 +46,12 @@ namespace
     {
         double conductance = 1e-6;
 
-        void currents(const std::array<double, N>& v, std::array<double, N>& i) const
+        void currents_and_jacobian(const std::array<double, N>& v, std::array<double, N>& i,
+                                   std::array<std::array<double, N>, N>& j) const
         {
             for (std::size_t index = 0; index < N; ++index)
             {
                 i[index] = conductance * v[index];
-            }
-        }
-
-        void jacobian(const std::array<double, N>& v, std::array<std::array<double, N>, N>& j) const
-        {
-            static_cast<void>(v);
-            for (std::size_t index = 0; index < N; ++index)
-            {
                 j[index][index] = conductance;
             }
         }
@@ -93,22 +86,15 @@ namespace
         /// @param model The device model both branches share.
         explicit AntiparallelDiodePort(const SushiDSP::SiliconDiode& model) : diode(model) {}
 
-        /// @brief Evaluates both branch currents.
+        /// @brief Evaluates both branch currents and the diagonal branch Jacobian.
         /// @param v Branch voltages.
         /// @param i Branch currents, overwritten.
-        void currents(const std::array<double, 2>& v, std::array<double, 2>& i) const
-        {
-            i[0] = diode.current(v[0]);
-            i[1] = diode.current(v[1]);
-        }
-
-        /// @brief Fills the diagonal branch Jacobian.
-        /// @param v Branch voltages.
         /// @param j Jacobian, its off-diagonal entries already zeroed by DkCircuit.
-        void jacobian(const std::array<double, 2>& v, std::array<std::array<double, 2>, 2>& j) const
+        void currents_and_jacobian(const std::array<double, 2>& v, std::array<double, 2>& i,
+                                   std::array<std::array<double, 2>, 2>& j) const
         {
-            j[0][0] = diode.jacobian(v[0]);
-            j[1][1] = diode.jacobian(v[1]);
+            diode.current_and_jacobian(v[0], i[0], j[0][0]);
+            diode.current_and_jacobian(v[1], i[1], j[1][1]);
         }
     };
 
@@ -117,22 +103,16 @@ namespace
     struct PoisonablePort
     {
         double conductance = 1e-4;  ///< Branch conductance while healthy.
-        bool   poisoned = false;    ///< When set, currents() returns infinity.
+        bool   poisoned = false;    ///< When set, the branch current is infinity.
 
-        /// @brief Evaluates the branch current, or infinity while poisoned.
+        /// @brief Evaluates the branch current, or infinity while poisoned, and the 1x1 Jacobian.
         /// @param v Branch voltages.
         /// @param i Branch currents, overwritten.
-        void currents(const std::array<double, 1>& v, std::array<double, 1>& i) const
+        /// @param j Jacobian, overwritten.
+        void currents_and_jacobian(const std::array<double, 1>& v, std::array<double, 1>& i,
+                                   std::array<std::array<double, 1>, 1>& j) const
         {
             i[0] = poisoned ? std::numeric_limits<double>::infinity() : conductance * v[0];
-        }
-
-        /// @brief Fills the 1x1 branch Jacobian.
-        /// @param v Branch voltages.
-        /// @param j Jacobian, overwritten.
-        void jacobian(const std::array<double, 1>& v, std::array<std::array<double, 1>, 1>& j) const
-        {
-            static_cast<void>(v);
             j[0][0] = conductance;
         }
     };
