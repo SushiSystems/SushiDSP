@@ -302,17 +302,25 @@ namespace
 TEST(Unit_Dsp, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
 {
     // DD-3 pre-emphasis (DR1+DR2 plan N4): zero 594.07 Hz, pole 3386.28 Hz, LF gain 33/47.
+    // These are the same corners modules/dd3::Dd3PreEmphasis configures, so the goldens below
+    // are shared with Dd3PreEmphasisHitsItsThreeDerivedGains (test_dd3_analog_filters.cpp).
+    //
+    // The probe sits at fs/16 and fs = 96 kHz, not 48 kHz: at 48 kHz, fs/4 = 12 kHz lands the
+    // sine's own samples on the same four phase points every cycle (48000/12000 = 4 exactly),
+    // so the peak-of-sine estimator below can never see the true peak, whatever the tolerance;
+    // and fs/16 = 3 kHz at 48 kHz sits below the pole, short of the HF asymptote it is meant to
+    // probe. 96 kHz clears both problems, matching the sibling DD-3 test's fix (commit dc8422f).
     //   LF gain  = 0.7021277                     (-3.0745 dB)
     //   HF gain  = 0.7021277 * (3386.28/594.07)  = 0.7021277 * 5.7001364 = 4.0022236
     //   at 1 kHz = 0.7021277 * sqrt((1+(1000/594.07)^2)/(1+(1000/3386.28)^2))
     //            = 0.7021277 * 1.8778100 = 1.31855
-    // The discretised HF asymptote is tan-warped and is NOT 4.0022236 at Nyquist; 12 kHz is far
-    // enough below Nyquist that the warping is under 1 %, which is what the tolerance allows.
+    // The discretised HF asymptote is tan-warped and is NOT 4.0022236 at Nyquist; the goldens
+    // below are the digital (post-warp) readings at 96 kHz, not the analogue ones above.
     SushiDSP::Biquad shelf;
-    shelf.set_first_order_shelf(48000.0, 594.07, 3386.28, 33.0 / 47.0);
-    EXPECT_NEAR(biquad_magnitude(shelf, 20.0, 48000.0), 0.7021277, 2e-3);
-    EXPECT_NEAR(biquad_magnitude(shelf, 1000.0, 48000.0), 1.3183700, 3e-3);
-    EXPECT_NEAR(biquad_magnitude(shelf, 12000.0, 48000.0), 4.0021712, 4.0e-2);
+    shelf.set_first_order_shelf(96000.0, 594.07, 3386.28, 33.0 / 47.0);
+    EXPECT_NEAR(biquad_magnitude(shelf, 20.0, 96000.0), 0.7025132, 2e-3);
+    EXPECT_NEAR(biquad_magnitude(shelf, 1000.0, 96000.0), 1.3184111, 3e-3);
+    EXPECT_NEAR(biquad_magnitude(shelf, 6000.0, 96000.0), 3.5023974, 3e-2);
 }
 
 TEST(Unit_Dsp, BiquadFirstOrderShelfPairCancelsExactly)
