@@ -61,19 +61,22 @@ namespace SushiDSP::dd3
     inline constexpr double kReconstructionSectionQ[2] = { 0.7500000000000000,
                                                            3.3665016461206925 };
 
-    /// @brief Loaded voltage gain of the NPN emitter follower that buffers each section.
+    /// @brief Effective damping factor of each Sallen-Key section's emitter-follower buffer.
     ///
-    /// Q = 0.5*sqrt(C1/C2) holds only for a buffer of gain 1.0. At 1.0 the anti-alias cascade
-    /// peaks +6.45 dB at 7 kHz, against the published delay-path response of 40 Hz-7 kHz
-    /// +1/-3 dB in docs/reference/research/2026-08-26-boss-dd3-design-dossier.md section 3.
-    /// That window admits 0.9431071 to 0.9665162; this is the midpoint of the interval.
+    /// Not the follower's loaded voltage gain, which is around 0.987; it absorbs the
+    /// follower's output impedance and its base-current loading of the shunt cap, and it is
+    /// fitted, because the window is a knife edge in it: 0.98 would put the delay path
+    /// +3.18 dB at 7 kHz. The published window bounds it to 0.9431071-0.9665162 and this is
+    /// the midpoint. Derivation, interval and provenance:
+    /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, DR2 model corrections.
     inline constexpr double kEmitterFollowerGain = 0.9548116;
 
     /// @brief The band edge both schematic legends and the published response name, 7 kHz.
     ///
-    /// Every section prewarps its bilinear corner here instead of at its own f0, so the
-    /// cascade keeps one shape at 48, 96 and 192 kHz. Prewarping each section at its own
-    /// corner costs a further 0.7 dB at 7 kHz at 48 kHz, which leaves the published window.
+    /// Every section prewarps its bilinear corner here instead of at its own f0. That holds
+    /// the delay path's 7 kHz point to a 0.005 dB spread over 48, 96 and 192 kHz, against
+    /// 1.339 dB per-section, and leaves 1.794 dB of margin to the published -3 dB limit at
+    /// 48 kHz against 0.366 dB. See the same DR2 model-corrections section.
     inline constexpr double kPassbandEdgeHz = 7000.0;
 
     /// @brief Emphasis zero, 1/(2*pi*(R7+R8)*C4) with R7 47K, R8 10K, C4 0.0047u.
@@ -96,6 +99,7 @@ namespace SushiDSP::dd3
     /// @brief Digital corner that puts a section on the cascade-wide prewarp.
     /// @param corner_hz The section's analogue f0 in Hz.
     /// @param sample_rate Sample rate in Hz.
+    /// @pre sample_rate > 2 * kPassbandEdgeHz, so the anchor stays below Nyquist.
     /// @return The corner for Biquad::set_low_pass; equals corner_hz at kPassbandEdgeHz.
     double prewarped_corner_hz(double corner_hz, double sample_rate);
 
@@ -156,6 +160,7 @@ namespace SushiDSP::dd3
     public:
         /// @brief Places all three sections at this rate. Control thread only.
         /// @param sample_rate Sample rate in Hz.
+        /// @pre sample_rate > 2 * kPassbandEdgeHz.
         void prepare(double sample_rate);
 
         /// @brief Clears every section's state.
@@ -181,6 +186,7 @@ namespace SushiDSP::dd3
     public:
         /// @brief Places both sections at this rate. Control thread only.
         /// @param sample_rate Sample rate in Hz.
+        /// @pre sample_rate > 2 * kPassbandEdgeHz.
         void prepare(double sample_rate);
 
         /// @brief Clears every section's state.

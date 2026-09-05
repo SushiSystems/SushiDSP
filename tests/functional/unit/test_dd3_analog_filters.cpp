@@ -330,7 +330,8 @@ TEST(Unit_Dsp, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
                                sample_rate);
     };
 
-    // 0.1325 and 4.7e-6 at 48 kHz; 0.2073 and 8.3e-4 at 96 kHz.
+    // 0.1325 and 4.7e-6 at 48 kHz; 0.2073 and 8.3e-4 at 96 kHz. The four thresholds are set
+    // just above those, so they catch a change in the cascade rather than state a requirement.
     filter.prepare(48000.0);
     EXPECT_LT(run(10000.0, 48000.0), 0.15);
     EXPECT_LT(run(20000.0, 48000.0), 1e-4);
@@ -371,8 +372,11 @@ TEST(Unit_Dsp, Dd3EmphasisPairIsTheIdentity)
 
 TEST(Unit_Dsp, Dd3PreEmphasisHitsItsThreeDerivedGains)
 {
-    // 0.7025132 below the zero, 1.3184111 at 1 kHz, 3.9640900 at 24 kHz. The last is the
-    // tan-warped approach to the 4.0021277 asymptote, not the asymptote itself.
+    // 0.7025132 below the zero, 1.3184111 at 1 kHz, 3.5023974 well above the pole. All three
+    // are the analogue shelf; the discretised one sits above it, because the bilinear tangent
+    // stretches the shelf as the probe climbs (3.5234141 at 6 kHz), and the tolerances carry
+    // that gap. The probe stays at fs/16: at fs/4 the peak-of-sine estimator reads 99.58 % of
+    // the digital response, which happens to cancel the stretch and hide both errors.
     SushiDSP::dd3::Dd3PreEmphasis pre;
     pre.prepare(96000.0);
     const auto run = [&](double frequency)
@@ -382,7 +386,7 @@ TEST(Unit_Dsp, Dd3PreEmphasisHitsItsThreeDerivedGains)
     };
     EXPECT_NEAR(run(20.0), 0.7025132, 2e-3);
     EXPECT_NEAR(run(1000.0), 1.3184111, 3e-3);
-    EXPECT_NEAR(run(24000.0), 3.9640900, 4e-2);
+    EXPECT_NEAR(run(6000.0), 3.5023974, 3e-2);
     EXPECT_NEAR(pre_emphasis_prototype(20.0), 0.7025132, 1e-6);
     EXPECT_NEAR(pre_emphasis_prototype(1000.0), 1.3184111, 1e-6);
     EXPECT_NEAR(SushiDSP::dd3::kPreEmphasisLowGain * 5.7, 4.0021277, 1e-6);
@@ -390,6 +394,9 @@ TEST(Unit_Dsp, Dd3PreEmphasisHitsItsThreeDerivedGains)
 
 TEST(Unit_Dsp, Dd3DeEmphasisIsTheReciprocalOfThePreEmphasis)
 {
+    // The tolerance is the bilinear warp, not the estimator: at 5 kHz the discretised shelf
+    // sits 1.61e-3 below the analogue one and the peak-of-sine reading is within 4.6e-5 of
+    // the discretised response. Dd3EmphasisPairIsTheIdentity is what pins the pair exactly.
     SushiDSP::dd3::Dd3DeEmphasis de;
     de.prepare(96000.0);
     for (const double frequency : { 20.0, 1000.0, 5000.0 })
