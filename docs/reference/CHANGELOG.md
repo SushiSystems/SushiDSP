@@ -25,6 +25,9 @@ out of the model instead of being painted on.
 - 2026-09-05 — Deferred a MODE change made by descriptor index to the next block start, so the 16384-sample ring clear lands at a fixed point instead of inside the host's parameter drain (`src/Dd3Delay.cpp`).
 - 2026-09-05 — Measured the wet delay at 13.995 ms in mode S at D.TIME 0 against the pedal's published 12.5 ms: the ring is 12.412 ms and the two conversions plus the FIFO prime add 1.583 ms (`Dd3Delay.hpp`).
 - 2026-09-05 — Calibrated `kLevelUnityGain` to 0.0490307 from service-note check point [5], 140 mVp-p out for 1 kHz at 100 mVp-p in (`Dd3Delay.hpp`).
+- 2026-09-05 — Added acceptance rows 1 and 4 at node level, the clock curve, pitch slur under a knob sweep, NaN battery, latency claim and alias floor, in `tests/functional/unit/test_dd3_acceptance.cpp`.
+- 2026-09-05 — Added the 48 and 96 kHz golden pair in `tests/functional/regression/test_dd3_regression.cpp`, which fails until `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` writes the two `.f32` files.
+- 2026-09-05 — Corrected the wet-delay prediction's resampler round trip from 64 taps to 68, following the committed prototype's half width of 34 zero crossings, and derived it from a named constant (`test_dd3_acceptance.cpp`).
 - 2026-09-05 — Added three RT-safety traps for `Resampler::process`, `Resampler::set_rates` and `Dd3Delay::process` with a MODE change inside the trapped window (`tests/functional/unit/test_rt_safety.cpp`).
 - 2026-09-05 — Added a DD-3 benchmark case against the spec's binding 0.15 ms per 256-frame block and a 48–20–48 kHz resampler round trip against an advisory 0.10 ms (`tests/benchmark/main.cpp`).
 
