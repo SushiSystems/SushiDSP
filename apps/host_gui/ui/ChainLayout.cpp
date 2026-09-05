@@ -23,6 +23,99 @@
 
 #include "ui/ChainLayout.hpp"
 
+#include <algorithm>
+#include <unordered_map>
+
 namespace ui
 {
+    ChainView layout_chain(const std::vector<RigController::SlotId>& slots,
+                           const std::vector<std::pair<RigController::SlotId, RigController::SlotId>>& edges)
+    {
+        ChainView view{ {}, {}, 0, 0 };
+        if (slots.empty())
+        {
+            return view;
+        }
+
+        std::unordered_map<RigController::SlotId, std::vector<RigController::SlotId>> downstream;
+        std::unordered_map<RigController::SlotId, std::size_t> in_degree;
+        std::unordered_map<RigController::SlotId, std::size_t> upstream_count;
+        for (RigController::SlotId slot : slots)
+        {
+            in_degree[slot] = 0;
+            upstream_count[slot] = 0;
+        }
+        for (const auto& edge : edges)
+        {
+            if (in_degree.count(edge.first) == 0 || in_degree.count(edge.second) == 0)
+            {
+                continue;
+            }
+            downstream[edge.first].push_back(edge.second);
+            ++in_degree[edge.second];
+            ++upstream_count[edge.second];
+        }
+
+        // Kahn's algorithm, seeded in the caller's slot order so the result is deterministic.
+        std::vector<RigController::SlotId> ready;
+        for (RigController::SlotId slot : slots)
+        {
+            if (in_degree[slot] == 0)
+            {
+                ready.push_back(slot);
+            }
+        }
+
+        std::unordered_map<RigController::SlotId, int> column;
+        std::unordered_map<RigController::SlotId, int> row;
+        std::vector<RigController::SlotId> ordered;
+        ordered.reserve(slots.size());
+        for (std::size_t head = 0; head < ready.size(); ++head)
+        {
+            const RigController::SlotId current = ready[head];
+            ordered.push_back(current);
+
+            const auto children = downstream.find(current);
+            if (children == downstream.end())
+            {
+                continue;
+            }
+            for (std::size_t branch = 0; branch < children->second.size(); ++branch)
+            {
+                const RigController::SlotId child = children->second[branch];
+                column[child] = std::max(column[child], column[current] + 1);
+                // A rejoin returns to row 0; the first branch inherits, later branches drop to 1.
+                if (upstream_count[child] < 2)
+                {
+                    row[child] = branch == 0 ? row[current] : 1;
+                }
+                if (--in_degree[child] == 0)
+                {
+                    ready.push_back(child);
+                }
+            }
+        }
+
+        view.cells.reserve(ordered.size());
+        std::unordered_map<RigController::SlotId, std::size_t> cell_index;
+        for (RigController::SlotId slot : ordered)
+        {
+            cell_index[slot] = view.cells.size();
+            view.cells.push_back({ slot, row[slot], column[slot] });
+            view.row_count = std::max(view.row_count, row[slot] + 1);
+            view.column_count = std::max(view.column_count, column[slot] + 1);
+        }
+
+        for (const auto& edge : edges)
+        {
+            const auto from = cell_index.find(edge.first);
+            const auto to = cell_index.find(edge.second);
+            if (from != cell_index.end() && to != cell_index.end())
+            {
+                view.links.push_back({ from->second, to->second });
+            }
+        }
+
+        return view;
+    }
 }
