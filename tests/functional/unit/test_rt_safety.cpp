@@ -54,6 +54,7 @@
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 #include "circuits/JcmV1aNetlist.hpp"
+#include "ui/LevelProbe.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -579,6 +580,22 @@ namespace
             jacobian[1][1] = second;
         }
     };
+}
+
+TEST(Unit_Dsp, LevelProbeReportPerformsNoHeapAllocation)
+{
+    ui::LevelProbe probe;
+    std::vector<float> block(256, 0.25f);
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+    for (int i = 0; i < 64; ++i)
+    {
+        probe.report(block.data(), 256);
+    }
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
 }
 
 TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
