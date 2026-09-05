@@ -57,6 +57,18 @@ Four things block a white-box claim.
    therefore built from Diezel's own prose and its biasing procedure, and it carries no component
    values at all.
 
+**A fifth point, for the maintainer rather than for part 2's implementer.** The spec picks the KT77
+as this module's power tube (`docs/superpowers/specs/2026-09-06-high-gain-amps-design.md` §2, the
+amplifier table). No source in this dossier puts a KT77 in a VH4. Diezel's own owner's manual,
+service manual and product page name **no power-tube type at all**; the service manual only rules
+types out ("We do not recommend the 'big bulbs' like KT88, 6550 or KT66", S3). What evidence there
+is points to the EL34: Diezel sells the amplifier under the model name "VH4 EL34 Head" (S15), the
+bias selector is "labelled 'EL34 and 6L6'" (S7), and the factory biasing table lists 5881, 6L6,
+EL34 and 6550/KT66/KT88 without mentioning a KT77 (S7). The KT77 is a drop-in EL34 replacement, so
+the spec's choice is defensible as a voicing decision, but it is a scope decision and not a fact
+about the amplifier. §7 states which of the seven preset fields move if the module is built for the
+EL34 instead. **Revisit the choice before part 2 is planned.**
+
 What that means for part 2: write the four gain stages and the cathode follower from §3 and treat
 them as white-box. Treat the tone stack as an FMV instance whose topology is the reconstruction in
 §4 and whose acceptance test is a sweep, not a null. Treat the power section as a parameterised
@@ -79,6 +91,11 @@ the module's own README.
 | **S8** | Diezel product page for the VH4. <https://www.diezelamplification.com/vh4/> | Manufacturer, marketing. | Presence and Deep centres, output power, control complement. Note it says Deep is centred "around 90 Hz" where the owner's manual (S2) says 80 Hz. |
 | **S9** | Aion FX DZ4 Preamp documentation v1.0.3, 2022-08-15. <https://aionfx.com/app/files/docs/dz4_preamp_documentation.pdf> | Analysis of the *Diezel VH4 pedal* (2016), an op-amp circuit. | Voicing hints only, never values. Its Deep is "an active bass boost/cut centered around 115 Hz". |
 | **S10** | Koren 12AX7 parameters, `docs/reference/spice/models/12ax7_koren.sub` in this repository. | mu 100, kp 600, kvb 300, kg1 1060, kx 1.4. | Used for every DC solve and every small-signal figure in §3. The numbers in §3 are properties of *this model plus S1's resistors*, not measurements of an amp. |
+| **S11** | Rig-Talk, "Phase inverter tube question", 2009-12-29. <https://www.rig-talk.com/forum/viewtopic.php?f=14&t=60070> | `steve_k`: "The phase inverter tube is already a 12AX7". `duesentrieb`: "You can use 12AT7, 5751 and ECC81 w/out any problems." | Corroborates the V7 position in S3. `[single source]` for the substitution list. |
+| **S12** | Genalex KT77 datasheet, New Sensor Corporation (the M-O Valve sheet reissued). PDF: <https://www.thetubestore.com/lib/thetubestore/genalex-kt77.pdf>, linked from <https://www.thetubestore.com/genalex-gold-lion-kt77> | Manufacturer datasheet, undated. Beam tetrode. | The whole of §7's KT77 argument. Pages 1–3 give the maximum ratings, the fixed-bias grid-resistor limits, the tetrode characteristics and the ultra-linear class-AB1 fixed-bias table including a Vb = 500 V column. |
+| **S13** | Philips/Mullard EL34 datasheet, January 1969. <https://frank.pocnet.net/sheets/010/e/EL34.pdf> | Manufacturer datasheet, scanned; the operating tables are on page 3. | Used in §7 as the cross-check on S12's bias figure, and for the EL34 anode-dissipation rating. |
+| **S14** | `escaroda/goya1746`, a KiCad pedal PCB based on VH4 channel 3, MIT, created 2025-10-23. <https://github.com/escaroda/goya1746> | A builder's op-amp adaptation with a full published bill of materials. | Pot tapers only, and cited as the builder's choice rather than as a reading of the amp. Its component values are a 12–18 V op-amp circuit's, not the amplifier's. |
+| **S15** | Diezel VH4 EL34 Head, dealer listing. <https://www.thomannmusic.com/diezel_vh4_el34_head.htm> | Retail listing carrying Diezel's own current model name. | The only reason to say the stock power tube is an EL34, and the reason it is marked `[single source, dealer listing]` in §5. Diezel's own documents name no power-tube type. |
 
 Values marked `[single source]` rest on one uncorroborated statement. Values marked `[derived]`
 are mine, computed from S1's components and S10's tube model.
@@ -161,11 +178,16 @@ low voltages."
 | | |
 |---|---|
 | Grid leak | R1 1 MΩ to ground (Diezel's own spec says "Impedance more than 500 kohm", S3) |
-| Input capacitor | C1 100–200 pF across R1, plus a ferrite bead in series with the grid |
+| Input capacitor | C1, printed as the range `100-200pF`, across R1, plus a ferrite bead in series with the grid |
 | Grid stopper | none drawn |
 | Plate resistor | R3 120 kΩ |
 | Cathode | R2 2k2 with C2 47 µF across it |
 | Coupling to ch3 | C13 1 nF into R14 220 kΩ |
+
+C1's label is a range, not a value: the tracer printed `100-200pF` rather than commit to one
+figure, which is what someone does after seeing both across several units. The rendered glyphs are
+authoritative here — S1's scrambled text layer reads `1001200pF`, because the hyphen maps to `1` in
+the same substitution that turns `470k` into `4V00`. C1 feeds no calculation in this dossier.
 
 | Supply | Ia | Va | Vk | Bias Vgk | gm | rp | A (unloaded) |
 |---|---|---|---|---|---|---|---|
@@ -220,11 +242,20 @@ might overdrive this channel too much and become too compressed ... It is best t
 | Plate resistor | R24 120 kΩ |
 | Cathode | R23 680 Ω with C17 1 µF across it |
 | Coupling out | C18 4.7 nF |
-| Load seen | R24' 1M ∥ R25' 1M = 500 kΩ, then R26 470 kΩ into the next grid |
+| Load seen | **500 kΩ to ground** (R24' 1M ∥ R25' 1M), then R26 470 kΩ in series into V3a's grid |
 
-| Supply | Ia | Va | Vk | Bias Vgk | gm | rp | A (unloaded) | A (loaded) |
+**The load is a shunt, not a divider.** I re-read this corner of S1 at 18× to settle it. C18's
+right-hand plate is node A, which carries R24' 1 MΩ to ground. A relay contact joins node A to
+node B, which carries R25' 1 MΩ to ground and a vertical bus down from the CH1 gain pot. A second
+relay contact joins node B to node C, which carries a vertical bus down from channel 2's V2b
+network and then R26 470 kΩ into V3a's grid. With channel 3 selected, both contacts close, A, B
+and C are one node, and V2a's AC load is R24' ∥ R25' = **500 kΩ**. R26 terminates on a DC-coupled
+grid that draws no current at midband, so it contributes nothing to the load; it is a grid stopper,
+and its only audible effect is the Miller rolloff computed in §3.4.
+
+| Supply | Ia | Va | Vk | Bias Vgk | gm | rp | A (unloaded) | A (into 500 kΩ) |
 |---|---|---|---|---|---|---|---|---|
-| 367 V | 1.507 mA | 186.2 V | 1.02 V | −1.02 V | 2.32 mA/V | 41.4 kΩ | 71.4 (37.1 dB) | 69.2 (36.8 dB) |
+| 367 V | 1.507 mA | 186.2 V | 1.02 V | −1.02 V | 2.32 mA/V | 41.4 kΩ | 71.4 (37.1 dB) | 67.2 (36.6 dB) |
 | 400 V | 1.652 mA | 201.7 V | 1.12 V | −1.12 V | — | — | — | — |
 
 **Closes.** −1.02 V of bias against a 12AX7's grid-conduction knee at about −0.5 V leaves half a
@@ -256,12 +287,12 @@ the following Miller capacitance and stops the stage oscillating at this much ga
 **Closes**, identically to V2a — same resistors. Its cathode network differs: 2.2 µF instead of
 1 µF moves the zero down to 106 Hz and the pole to 274 Hz, same 8.22 dB of shelf. `[derived]`
 
-C18 (4.7 nF) into the 30.8 kΩ plate impedance plus roughly 970 kΩ of grid network gives a −3 dB
-corner at **93.9 Hz** `[derived]`, a third bass cut in series with the first two.
+C18 (4.7 nF) into V2a's 30.8 kΩ plate impedance plus the 500 kΩ shunt of §3.3 gives a −3 dB corner
+at **63.8 Hz** `[derived]`, a third bass cut in series with the first two.
 
 A 470 kΩ grid stopper is very large. At the ~115 pF of Miller capacitance a 12AX7 at this gain
-presents, it rolls the top off at about 2.9 kHz `[derived]`. That, and not the tone stack, is where
-the VH4's smoothness above the presence region comes from in this drawing.
+presents, it rolls the top off at about 2.9 kHz `[derived]`. In this drawing that pole, and not the
+tone stack, is what limits the channel's top end.
 
 ### 3.5 V3b — cathode follower, DC-coupled
 
@@ -391,13 +422,15 @@ show that a power-amp trace exists in private hands; neither is readable.
 | Fact | Source |
 |---|---|
 | 100 W, four power tubes, "four tube power amp section with bias control" | S8 |
-| Stock tubes: EL34 (the current head is sold as "VH4 EL34 Head"); 7 × 12AX7 in the preamp | S8 |
+| **Diezel's own documents name no power-tube type.** The product page (S8), the owner's manual (S2) and the service manual (S3) contain no occurrence of `EL34`, `6L6` or `KT77`. The service manual only excludes types: "We do not recommend the 'big bulbs' like KT88, 6550 or KT66 in our amplifiers. These tubes need a higher bias rating." | S2, S3, S8 |
+| Stock tube is the EL34, on the strength of Diezel's model name "VH4 EL34 Head" and the bias selector switch "labelled 'EL34 and 6L6'" | S15 `[single source, dealer listing]`, S7 |
 | Tube positions: `V6 = return driver serial and parallel`, `V7 = phase inverter` | S3 |
-| Phase inverter is a 12AX7; a 12AT7, 5751 or ECC81 substitutes without trouble | Rig-Talk, <https://www.rig-talk.com/forum/viewtopic.php?f=14&t=60070> `[single source]` |
-| Bias is **fixed**, from one trimmer for all four tubes, with a panel selector switch "labelled 'EL34 and 6L6'" | S7 |
-| ~500 V on the OT primary; a 50 W VH4S owner cites "480VDC or so" on the plates | S7 `[single source]` |
-| Idle current, EL34: **60–70 mA per pair** off one OT primary half, i.e. 30–35 mA per tube. Olaf recommends 30 mA: "the colder you set the tubes, the less often you need to check the bias" | S7 |
-| Idle current, other types: 5881 50 mA/pair, 6L6 60–70 mA/pair, 6550/KT66/KT88 80 mA/pair | S7 |
+| Phase inverter is a 12AX7; a 12AT7, 5751 or ECC81 substitutes without trouble | S11 `[single source]` |
+| Bias is **fixed**, from one trimmer per pair, with a panel selector switch "labelled 'EL34 and 6L6'" | S7 |
+| **~500 V on the OT primary.** Olaf's warning is "keep in mind that there are 500 Volts on the OT". A 50 W VH4S owner separately estimates "480VDC or so"; that is one owner's assumption about a different model, so this dossier uses 500 V throughout and never 480 V. | S7 |
+| Idle current, factory text: **"On our recommended tubes you should have a bias current of 35 milliamps each tube. Most of our amps adjust a pair of output power tubes with one bias trim pot, or 70 milliamps for each pair."** | S3 |
+| Idle current, the published biasing procedure: EL34 **60–70 mA per pair**, i.e. 30–35 mA per tube. Olaf recommends the cold end: "the colder you set the tubes, the less often you need to check the bias" | S7 |
+| Idle current, other types: 5881 50 mA/pair, 6L6 60–70 mA/pair, 6550/KT66/KT88 80 mA/pair. **No KT77 row exists.** | S7 |
 | Each power tube has its own 250 mA slow-blow fuse and a fault LED | S2, S3 |
 | The output transformer has a centre-tapped primary; the biasing procedure reads current in the red, blue and yellow primary leads | S7 |
 | **Negative feedback is taken from the 8 Ω speaker jack through a white wire.** The factory mod for an early VH4 reads: "If you also want to add more low end to the power amp insert a 0,1µF / 250 volt cap in the white feedback wire coming from the 8 ohm speaker out jacks. If the white wire is connected to the 4 ohm jacks rewire it to the 8 ohm speaker outputs." | S3 |
@@ -426,7 +459,7 @@ corner frequency and a depth range, a first pass gets the shelf; §8 records wha
 needs.
 
 **Output transformer primary impedance and turns ratio: not established.** A 100 W quad of EL34s
-at ~480 V plate conventionally wants 3.4–4 kΩ plate-to-plate, but no VH4 measurement supports any
+at ~500 V plate conventionally wants 3.4–4 kΩ plate-to-plate, but no VH4 measurement supports any
 figure and I am not going to write one into a dossier that a module will read.
 
 **Screen resistors: not established.** **Phase-inverter type and values: not established** beyond
@@ -456,7 +489,7 @@ against a real amplifier.
 | Deep centre | 80 Hz (S2) / ~90 Hz (S8) | S2, S8 |
 | Rated output | 100 W | S8 |
 | Master volume clean ceiling | 1 o'clock | S2, S8 |
-| EL34 idle current | 30–35 mA per tube at ~480 V, i.e. 14.4–16.8 W plate dissipation | S7 |
+| Idle current | 35 mA per tube, 70 mA per pair (factory text); the biasing procedure's EL34 range is 30–35 mA per tube. At 500 V that is 15.0–17.5 W of plate dissipation. | S3, S7 |
 
 ### Derived from S1 and S10 — what a correct channel-3 model must hit
 
@@ -468,14 +501,14 @@ against a real amplifier.
 | V3b cathode voltage | 187.1 V, Ia 1.560 mA, Vgk −0.95 V | 202.8 V, 1.690 mA, −1.07 V |
 | V4a operating point | 1.533 mA, Va 183.0 V, Vgk −0.98 V | 1.681 mA, 198.3 V, −1.08 V |
 | V1a midband gain | ×61.4 (35.8 dB) unloaded, ×56.8 into 470 kΩ | — |
-| V2a midband gain | ×71.4 (37.1 dB) unloaded, ×69.2 loaded | — |
+| V2a midband gain | ×71.4 (37.1 dB) unloaded, ×67.2 (36.6 dB) into the 500 kΩ shunt | — |
 | V3a midband gain | ×71.4 (37.1 dB) | — |
 | V4a midband gain | **×28.7 (29.1 dB)** — the 640 Ω cathode is unbypassed, costing 7.95 dB | — |
 | V3b follower gain | 0.986, Zout 420 Ω | — |
 | Channel-3 input high-pass (C13) | 314 Hz at gain max, 618 Hz at gain min | — |
 | V2a cathode shelf | zero 234 Hz, pole 603 Hz, 8.22 dB of LF loss | — |
 | V3a cathode shelf | zero 106 Hz, pole 274 Hz, 8.22 dB of LF loss | — |
-| V3a coupling high-pass (C18) | 93.9 Hz | — |
+| V3a coupling high-pass (C18) | 63.8 Hz (4.7 nF into 30.8 kΩ + 500 kΩ) | — |
 | Follower output high-pass (C20) | 2.26 Hz | — |
 | Mix-bus attenuation, ch3 selected | 680 kΩ into 48.1 kΩ = ×0.0660, **−23.6 dB** | — |
 | Send pad | 4.7 kΩ / (100 kΩ + 4.7 kΩ) = ×0.0449, −27.0 dB; 4.5 kΩ source | — |
@@ -484,7 +517,7 @@ The mix-bus and send figures are the two that can be checked against the factory
 against 4.7 kΩ stated (S2), and 420 Ω derived against ~600 Ω stated (S3).
 
 **Cascade gain, and why it is a warning rather than a target.** With the gain pot at maximum, the
-midband product V1a × pot × V2a × V3a is roughly 56.8 × 1 × 69.2 × 71.4 ≈ 2.8 × 10⁵, or 109 dB,
+midband product V1a × pot × V2a × V3a is roughly 56.8 × 1 × 67.2 × 71.4 ≈ 2.7 × 10⁵, or 108.7 dB,
 before the stack's insertion loss and before the −23.6 dB mix divider. Nothing survives that
 linearly; every stage after the first is in grid conduction on any real input. Do not test against
 a small-signal cascade gain figure. Test against the operating points, the corner frequencies and
@@ -500,7 +533,16 @@ two impedance numbers above.
 
 ---
 
-## 7. Proposed `PowerTubePreset` for the VH4's KT77
+## 7. Proposed `PowerTubePreset`
+
+**Which tube this preset is for, first.** The spec chooses the KT77 for this module
+(`docs/superpowers/specs/2026-09-06-high-gain-amps-design.md` §2). Nothing in §1 or §5 puts a KT77
+in a VH4, and Diezel's own documents name no power-tube type at all; the evidence that exists points
+to the EL34 (§5, and the verdict paragraph). The preset below is therefore **the KT77 in a VH4's
+operating conditions** — the spec's tube, the amplifier's supply voltage and idle current — and not
+a reading of a stock amplifier. The KT77 is a beam tetrode sold as a drop-in EL34 replacement, so
+the substitution is physically sound; it is a voicing decision the maintainer made, and it should be
+revisited before part 2 is planned.
 
 The reference point, from `include/SushiDSP/circuits/stages/PowerTubePresets.hpp` as the spec
 defines it:
@@ -516,62 +558,83 @@ saturation_current_amps, thermal_voltage_volts, plate_saturation_drive`
 **Proposal:**
 
 ```
-kKt77{ 10000, 220000, -38, 7.5, 1e-9, 0.02585, 0.04 }
+kKt77{ 10000, 220000, -43, 8, 1e-9, 0.02585, 0.045 }
 ```
 
-Field by field, with what each rests on.
+The two operating points the argument stands on, both read off datasheet tables:
 
-**`source_resistance_ohms = 10000`, unchanged.** This is the impedance the phase inverter presents
-to the power tube's grid, and it sets how hard the grid-conduction diode loads the driver when the
-stage is pushed past cutoff. The VH4's phase inverter is a 12AX7 in the V7 position (S3) and
-nothing else about it is known — not its plate resistors, not its tail, not the grid stoppers on
-the power tubes. 10 kΩ is the JCM800's value for the same tube in the same role. **Not established;
-a modelling choice inherited from `kEl34`.**
+| Tube | Source | Supply | Anode | Screen | Idle current | Grid bias | Load a-a | Output |
+|---|---|---|---|---|---|---|---|---|
+| KT77, UL 43 %, AB1, fixed bias | S12 page 3 | Vb 500 V | 493 V | 493 V | 2 × 57 mA | **−43 V** (±25 % adjustment range, per the sheet's own footnote) | 5.5 kΩ | 67 W |
+| EL34, push-pull, fixed bias | S13 page 3 | Vba 500 V | 495 V | 400 V | 2 × 30 mA | **−36 V** | 4 kΩ | 70 W |
 
-**`grid_leak_resistance_ohms = 220000`, unchanged.** The EL34 datasheet limit for fixed bias is
-220 kΩ, and the VH4 is fixed-bias from a single trimmer (S7). Every fixed-bias 100 W amp of this
-class sits at or under that limit. **Inference from the tube's rating plus the confirmed bias
-topology, not read from a VH4.**
+The VH4 sits between them: 500 V on the OT primary (S7) and 35 mA per tube (S3), with its screen
+supply unknown.
 
-**`cathode_bias_volts = -38`.** This is the field with real evidence behind it, and it is where the
-VH4 differs most from the JCM800. Diezel's own procedure sets EL34s to 30–35 mA per tube (S7) with
-roughly 480 V on the plate (S7 `[single source]`). An EL34 or KT77 at Va = 480 V and Ia = 33 mA
-sits near Vg1 = −38 V on the published characteristics; the JCM800's −20 V corresponds to a much
-hotter idle at a lower plate voltage. The dissipation check: 480 V × 33 mA = **15.8 W**, which is
-63 % of the EL34's 25 W anode rating and under half the Gold Lion KT77 reissue's claimed 32 W
-(<https://www.thetubestore.com/genalex-gold-lion-kt77>, retailer copy, `[single source]`). Olaf's
-"the colder you set the tubes, the less often you need to check the bias" (S7) is the design intent
-this number encodes. A KT77 substituted for an EL34 at the same idle current sits a volt or two
-more negative than the EL34 does; −38 V covers both within the precision the model can use.
+Field by field.
 
-**`gain = 7.5`.** The stage's linear grid-to-plate gain before the tanh. Two things move it away
-from the EL34's 8 in opposite directions and nearly cancel: the KT77's transconductance at 33 mA is
-below the EL34's at the JCM800's hotter idle, which lowers it, and the VH4's higher plate supply
-raises the load line's slope, which raises it. Neither is quantified from a VH4 measurement, so
-7.5 is a small step off the reference in the direction the colder bias argues for. **A modelling
-choice. Its acceptance test is power-section output level at clipping, not a datasheet number.**
+**`source_resistance_ohms = 10000`, unchanged.** The impedance the phase inverter presents to the
+power tube's grid, which sets how hard the grid-conduction diode loads the driver past cutoff. The
+VH4's phase inverter is a 12AX7 in the V7 position (S3, S11) and nothing else about it is known —
+not its plate resistors, not its tail, not the grid stoppers on the power tubes. 10 kΩ is the
+JCM800's value for the same tube in the same role. **A modelling choice inherited from `kEl34`.**
 
-**`saturation_current_amps = 1e-9`, unchanged.** The grid-conduction diode's saturation current.
-This is a property of a hot grid intercepting electrons, not of the plate structure that
-distinguishes a KT77 from an EL34, and no KT77-specific figure exists. Unchanged deliberately.
+**`grid_leak_resistance_ohms = 220000`, unchanged, and now sourced.** S12 page 1 gives the KT77's
+grid-cathode resistor limit for fixed bias as **0.5 MΩ** when Pa+g2 ≤ 28 W, halving to 0.25 MΩ above
+it. At 500 V × 35 mA the VH4 idles at 17.5 W, so the 0.5 MΩ limit applies and 220 kΩ sits well
+inside it. **Consistent with the tube's rating and the confirmed fixed-bias topology; not read from
+a VH4.**
+
+**`cathode_bias_volts = -43`.** S12's own Vb = 500 V fixed-bias column is the closest published
+KT77 operating point to the VH4's supply, and it gives −43 V. Three caveats, stated rather than
+smoothed:
+
+- That row idles at 57 mA per tube where Diezel specifies 35 mA (S3). A colder idle at the same
+  anode voltage needs a more negative grid, so the true figure is on the more-negative side of −43 V.
+- That row runs the screen at 493 V, ultra-linear. The VH4's screen supply is not established, and
+  a lower screen pulls the bias back toward zero. The two errors work against each other.
+- S12's footnote — "A bias adjustment range of ±25% about these values should be available for each
+  valve" — puts the working window at −32 V to −54 V, which is the bracket the real value sits in.
+
+The EL34 cross-check (S13) lands at −36 V for 500 V anode, 400 V screen and 30 mA, so a VH4 built
+with its stock tube would want roughly −36 V rather than −43 V. **That is the field that moves most
+if the maintainer revisits the KT77 choice.** Dissipation check: 500 V × 35 mA = **17.5 W**, which
+is 70 % of the KT77's 25 W design-maximum anode dissipation and 55 % of its 32 W absolute maximum
+(S12 page 1), and 70 % of the EL34's 25 W (S13). Olaf's "the colder you set the tubes, the less
+often you need to check the bias" (S7) is the design intent this number encodes.
+
+**`gain = 8`, unchanged.** The stage's linear grid-to-plate gain before the tanh. The KT77's
+published tetrode-connection figures are gm 10.5 mA/V, ra 23 kΩ, mu 11.5 at 250 V and 110 mA
+(S12 page 2); the repo's Koren EL34 carries mu 11.0 (`docs/reference/spice/models/el34_koren.sub`).
+A few percent apart is not a reason to move the constant. What would actually set this field is the
+output transformer's primary impedance, which §5 records as not established. **Left at the reference
+value deliberately. Its acceptance test is power-section output level at clipping.**
+
+**`saturation_current_amps = 1e-9`, unchanged.** The grid-conduction diode's saturation current. No
+KT77-specific figure exists in S12 or anywhere else I found, so this is `kEl34`'s number carried
+over. **A modelling choice inherited from `kEl34`, not a measurement.**
 
 **`thermal_voltage_volts = 0.02585`, unchanged.** kT/q at 300 K. Physics, not a tube parameter.
 
-**`plate_saturation_drive = 0.04`.** The plate output ceiling is 1 / drive, so 0.05 gives 20 and
-0.04 gives 25. The KT77 saturates at a higher output than the EL34 at the same drive for two
-reasons that compound: its beam-tetrode plate structure has a lower knee voltage than the EL34's
-true pentode, and the VH4 runs ~480 V where a JCM800 runs nearer 450 V. The supply ratio alone is
-480/450 = 1.067; the knee difference carries the rest to 25/20 = 1.25. **Derived from a ratio
-argument, not from measured curves. Redo it if a KT77 plate-curve family becomes available.**
+**`plate_saturation_drive = 0.045`.** The plate output ceiling is 1 / drive, so 0.05 gives 20 and
+0.045 gives 22. The argument is the supply ratio alone: the VH4 runs 500 V (S7) where the JCM800
+model's EL34 pair runs nearer 450 V, and 500/450 = 1.111, so 0.05 / 1.111 = 0.045. **Derived from
+one ratio, with no VH4 or KT77 measurement behind it.**
 
-**Summary of standing.** Two fields are physics (`thermal_voltage_volts`, and
-`saturation_current_amps` by the argument above). One rests on Diezel's own biasing procedure plus
-published tube characteristics (`cathode_bias_volts`). One rests on the tube's rating plus the
-confirmed fixed-bias topology (`grid_leak_resistance_ohms`). Three are modelling choices with the
-reasoning above and no VH4 measurement behind them (`source_resistance_ohms`, `gain`,
-`plate_saturation_drive`). The module's README must say so.
+**Summary of standing.**
 
----
+| Field | Standing |
+|---|---|
+| `thermal_voltage_volts` | Physics. kT/q at 300 K. |
+| `cathode_bias_volts` | Datasheet row (S12, Vb 500 V) plus Diezel's stated supply and idle current (S3, S7), with the bracket above. The best-sourced field in the preset, and still an interpolation. |
+| `grid_leak_resistance_ohms` | Inside the tube's published fixed-bias limit (S12) given the confirmed fixed-bias topology. Not read from a VH4. |
+| `plate_saturation_drive` | Derived from the 500 V / 450 V supply ratio. |
+| `source_resistance_ohms` | Modelling choice inherited from `kEl34`; the VH4's phase inverter is undocumented. |
+| `gain` | Modelling choice inherited from `kEl34`; the OT primary impedance that would set it is not established. |
+| `saturation_current_amps` | Modelling choice inherited from `kEl34`; no KT77 figure exists. |
+
+Four of the seven are choices or interpolations rather than facts about this amplifier. The
+module's README must say so, and must say which tube the preset is for.
 
 ## 8. Open questions
 
@@ -598,9 +661,8 @@ reasoning above and no VH4 measurement behind them (`source_resistance_ohms`, `g
    (S4). It sets V2a's grid-leak loading and therefore how the stage recovers from blocking
    distortion, which at this gain is audible.
 6. **What tapers do the channel-3 Gain, tone and Volume pots use?** S1 marks none. The goya1746
-   pedal adaptation (<https://github.com/escaroda/goya1746>, MIT, 2025) uses A250K gain, B250K
-   treble, A1M bass, B25K mid, A10K volume, but it is a 12–18 V op-amp circuit and its pot choices
-   are the builder's.
+   pedal adaptation (S14) uses A250K gain, B250K treble, A1M bass, B25K mid, A10K volume, but it is
+   a 12–18 V op-amp circuit and its pot choices are the builder's.
 7. **Which VH4 generation is being modelled?** Diezel documents at least two preamp layouts (S3):
    the current one, and a "very early VH4" whose V2 is the clean channel and whose V3 is channels
    3 and 4. Rig-Talk owners describe a script change in late 1996 or early 1997 and further
@@ -610,20 +672,30 @@ reasoning above and no VH4 measurement behind them (`source_resistance_ohms`, `g
 8. **Does the amp's Deep control really use an inductor?** §5, `[single source, S6]`. It decides
    whether `ResonanceControl` needs a resonant form or a first-order shelf.
 9. **Is Deep centred at 80 Hz or 90 Hz?** Diezel's own two documents disagree (S2 vs S8).
-10. **What is the input sensitivity?** Nobody has published one. Diezel only says a 12 o'clock gain
+10. **What is the VH4's screen-grid supply voltage?** §7's `cathode_bias_volts` is bracketed rather
+    than pinned because of this. S12's 500 V KT77 row runs the screen at 493 V ultra-linear and
+    S13's EL34 row at 400 V, and the bias figures differ by 7 V across that gap. One DMM reading on
+    a power tube's pin 4 settles it. It would also say whether the output stage is ultra-linear or
+    a plain tetrode connection, which S12 warns matters: "For tetrode connection the fixed screen
+    supply must not exceed 300 V."
+
+11. **What power tube does a stock VH4 actually ship with, and does Diezel state it anywhere?**
+    §5 and the verdict. Every source that names EL34 is a dealer listing or a model name; every
+    factory document is silent. The answer decides whether §7's preset should be a KT77 at all.
+12. **What is the input sensitivity?** Nobody has published one. Diezel only says a 12 o'clock gain
     setting is the starting point and that active pickups overdrive the channel (S2).
 
 ### Scope
 
-11. **The mix bus is a four-way summing node, and the model will have one channel.** §2. The
+13. **The mix bus is a four-way summing node, and the model will have one channel.** §2. The
     −23.6 dB divider at V4a's grid depends on all four legs existing and on the SPDT relays
     grounding the unselected three. A single-channel module must hard-code the 48.1 kΩ shunt to
     keep V4a's drive level right, and say why.
-12. **Channels 1, 2 and 4 are out of scope but share silicon with channel 3.** V1a, V3a, V3b, V4a
+14. **Channels 1, 2 and 4 are out of scope but share silicon with channel 3.** V1a, V3a, V3b, V4a
     and V4b are shared; V2a is shared with channel 4. If channels 2 and 4 are ever added, they are
     a different input network and a different tone stack in front of the same chain, not a new
     module.
-13. **No SPICE deck is committed for this amplifier.** The jcm_fmv precedent allows an unsimulated
+15. **No SPICE deck is committed for this amplifier.** The jcm_fmv precedent allows an unsimulated
     netlist with its caveats in the README, but the one block worth a deck here is the tone stack,
     and committing a netlist for a topology that §4 says is reconstructed would harden a guess into
     a file. Write the deck once question 1 is answered.
