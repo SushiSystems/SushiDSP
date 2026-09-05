@@ -3,6 +3,34 @@
 Grouped by roadmap phase (spec §9). Each phase's implementation plan lives under
 `docs/superpowers/plans/` with the full task-by-task record.
 
+## AmpliTube-style GUI
+
+`apps/host_gui` stops being one 567-line `main.cpp` drawing sliders and a vertical list. No new
+third-party dependency, no image file, no font file: every panel, knob and link is drawn with
+`ImDrawList`.
+
+- `apps/host_gui/ui/` — fourteen units, split so the half that computes is testable without an
+  ImGui context. `KnobMath` maps a parameter value onto a 270-degree sweep and back, `PanelLibrary`
+  holds the per-node table of where each control sits (plus a generic grid for a node type with no
+  entry), `ChainLayout` turns slots and edges into a row-and-column grid, and `LevelProbe` carries a
+  block peak from the audio thread. Those four carry unit tests; `Theme`, `Widgets`, `StagePanel`,
+  `ChainStrip`, `GearBrowser`, `MeterBar`, `TopBar` and `DeviceSettings` draw, and are gated on the
+  build plus one visual pass.
+- Per-slot bypass. `RigController::set_bypassed` leaves the node out of the published graph and
+  wires its upstream neighbours straight to its downstream ones, collapsing a run of bypassed slots
+  in one step and refusing to exceed `RigGraph::kMaxFanInOut`. The slot keeps its parameters, its
+  cabinet path and its edges. `publish()` and `save_to_json()` now share one `build_graph()`, called
+  with bypass applied and without it, so a bypassed node still appears in a saved preset behind a
+  `"bypassed"` field. A preset written before this change loads with every slot active.
+- `SushiDSP::RigGraph::is_empty()` — the audio callback's O(1), allocation-free question. A rig with
+  every slot bypassed publishes a graph with no node, and the host copies its input to its output
+  rather than replaying the previous block. The same change corrects the stale comment above
+  `latency_samples()`, which still claimed a sum over the chain after the DAG work made it a
+  longest path.
+- Device selection moved out of a one-time startup screen into a window reachable at any time.
+- `CMAKE_EXPORT_COMPILE_COMMANDS` is on, so a single translation unit can be type-checked without
+  a build.
+
 ## D6b — DK-method circuit core
 
 Infrastructure only: the solver and the device models exist, and **no product module changed**.
