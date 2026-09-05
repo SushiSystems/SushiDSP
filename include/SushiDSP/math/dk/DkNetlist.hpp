@@ -38,6 +38,9 @@ namespace SushiDSP::dk
     /// @brief Largest number of potentiometers a single circuit may carry.
     inline constexpr std::size_t kMaximumPotentiometers = 4;
 
+    /// @brief Largest number of ideal op-amps a single circuit may carry.
+    inline constexpr std::size_t kMaximumNullors = 4;
+
     /// @brief One two-terminal element: its node pair and its value.
     ///
     /// Node 0 is ground. The element's current is defined as flowing from @c positive_node to
@@ -56,6 +59,13 @@ namespace SushiDSP::dk
         std::size_t first_section_index = 0;   ///< Resistor-table index of the a-to-wiper section.
         std::size_t second_section_index = 0;  ///< Resistor-table index of the wiper-to-b section.
         double      total_ohms = 0.0;          ///< End-to-end track resistance.
+    };
+
+    /// @brief One nullor: an ideal op-amp's input constraint and its output current.
+    struct NullorEntry
+    {
+        Branch nullator;  ///< The sensed pair; V(positive) - V(negative) is forced to zero.
+        Branch norator;   ///< The driven pair; an unknown current flows positive to negative.
     };
 
     /// @brief Control-thread description of a circuit: node indices and component values.
@@ -160,6 +170,36 @@ namespace SushiDSP::dk
             return index;
         }
 
+        /// @brief Adds an ideal op-amp, stamped as a nullor.
+        ///
+        /// The sensed pair is a nullator — the derivation forces
+        /// V(sense_positive) - V(sense_negative) to zero and draws no current through it — and the
+        /// driven pair is a norator, carrying whatever current that constraint demands. Together
+        /// they are the infinite-gain limit of a voltage-controlled voltage source, which is what
+        /// the LTspice reference blocks model with an E source of gain 1e6.
+        ///
+        /// A nullor is only well posed inside a negative-feedback loop: if the driven pair cannot
+        /// reach the sensed pair through the rest of the circuit, the augmented nodal system is
+        /// singular and DkCircuit::prepare returns false.
+        /// @param sense_positive The non-inverting input node; 0 is ground.
+        /// @param sense_negative The inverting input node; 0 is ground.
+        /// @param output_positive The node the output current flows out of; 0 is ground.
+        /// @param output_negative The node it returns to; 0 is ground.
+        /// @return The nullor's index, in the order they were added.
+        std::size_t nullor(std::size_t sense_positive, std::size_t sense_negative,
+                           std::size_t output_positive, std::size_t output_negative)
+        {
+            assert(nullor_count_ < kMaximumNullors);
+            assert(sense_positive <= kMaximumNodes && sense_negative <= kMaximumNodes);
+            assert(output_positive <= kMaximumNodes && output_negative <= kMaximumNodes);
+            nullors_[nullor_count_]
+                = NullorEntry{ Branch{ sense_positive, sense_negative, 0.0 },
+                               Branch{ output_positive, output_negative, 0.0 } };
+            const std::size_t index = nullor_count_;
+            ++nullor_count_;
+            return index;
+        }
+
         /// @brief Adds a nonlinear branch.
         ///
         /// The model receives v = V(a) minus V(b) as this branch's entry of the nonlinear
@@ -200,5 +240,8 @@ namespace SushiDSP::dk
 
         std::array<PotentiometerEntry, kMaximumPotentiometers> potentiometers_{}; ///< Potentiometer tracks.
         std::size_t potentiometer_count_ = 0;                                     ///< Populated entries of potentiometers_.
+
+        std::array<NullorEntry, kMaximumNullors> nullors_{};      ///< Ideal op-amps, in the order added.
+        std::size_t nullor_count_ = 0;                            ///< Populated entries of nullors_.
     };
 }
