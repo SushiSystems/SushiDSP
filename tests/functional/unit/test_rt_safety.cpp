@@ -39,11 +39,13 @@
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
+#include "SushiDSP/dd3/Dd3Delay.hpp"
 #include "SushiDSP/device/AsioSampleConverter.hpp"
 #include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/math/Fft.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/PartitionedConvolution.hpp"
+#include "SushiDSP/math/Resampler.hpp"
 #include "SushiDSP/math/StreamingConvolution.hpp"
 #include "SushiDSP/math/dk/DampedNewtonSolver.hpp"
 #include "SushiDSP/math/dk/DkCircuit.hpp"
@@ -693,4 +695,115 @@ TEST(Unit_Dsp, DampedNewtonSolverPerformsNoHeapAllocation)
     EXPECT_NEAR(v[0], 0.0, 1e-9);
     EXPECT_NEAR(v[1], 0.0, 1e-9);
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, ResamplerProcessPerformsNoHeapAllocation)
+{
+    // The DD-3's decimating leg at the VCO's slowest clock, which is where the Resampler is
+    // widest: the prototype's 68 zero crossings stretch to 68 / (20000 / 48000) = 163 input
+    // taps per output, and prepare() sizes the history ring for exactly that.
+    SushiDSP::Resampler resampler;
+    resampler.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 440.0f * i / 48000.0f);
+    }
+    std::vector<float> output(resampler.maximum_output_frames(256u) + 16u, 0.0f);
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 200; ++block)
+    {
+        resampler.process(input.data(), 256u, output.data(),
+                          static_cast<std::uint32_t>(output.size()));
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, ResamplerRateChangePerformsNoHeapAllocation)
+{
+    // The case plan Ruling 3 rests on. The DD-3 re-clocks every 8 frames, so one 256-frame
+    // block calls set_rates 32 times; a ratio change that rebuilt a filter bank would put the
+    // node off the audio thread entirely. The sweep runs the VCO's whole 20-82.5 kHz range, so
+    // the ratio reaches both ends of the clamp prepare() was given.
+    SushiDSP::Resampler resampler;
+    resampler.prepare(48000.0, 82500.0, 8u, 20000.0 / 48000.0);
+
+    std::vector<float> input(8);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 440.0f * i / 48000.0f);
+    }
+    std::array<float, 64> output{};
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 200; ++block)
+    {
+        for (int sub_block = 0; sub_block < 32; ++sub_block)
+        {
+            const double clock_hz = 20000.0
+                + (82500.0 - 20000.0) * static_cast<double>(sub_block) / 31.0;
+            resampler.set_rates(48000.0, clock_hz);
+            resampler.process(input.data(), 8u, output.data(),
+                              static_cast<std::uint32_t>(output.size()));
+        }
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
+{
+    // Two things happen inside this trap window that no other node does. process() drives both
+    // Resamplers' set_rates 32 times per block through the 8-frame clock grid, and a MODE
+    // change clears the ring (plan Ruling 14) - once through set_parameter by index, which only
+    // records the mode so that process() applies it at the next block start, and once through
+    // set_mode, which applies it on the spot. Middle holds 4096 samples and Long 16384, so both
+    // changes below move N and both pay the std::fill.
+    SushiDSP::Dd3Delay node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.set_time(0.4f);
+    node.set_feedback(0.45f);
+    node.set_level(0.5f);
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+
+    const std::uint16_t mode_index = 3u;
+    const float         long_mode_value =
+        static_cast<float>(static_cast<int>(SushiDSP::dd3::Dd3Mode::Long));
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    node.process(context);
+    node.set_parameter(mode_index, long_mode_value);
+    node.process(context);
+    node.set_mode(SushiDSP::dd3::Dd3Mode::Short);
+    node.process(context);
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    for (std::size_t i = 0; i < output.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(output[i]));
+    }
 }

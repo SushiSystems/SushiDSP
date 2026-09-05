@@ -3,6 +3,58 @@
 Grouped by roadmap phase (spec §9). Each phase's implementation plan lives under
 `docs/superpowers/plans/` with the full task-by-task record.
 
+## DR2 — Boss DD-3 delay
+
+The delay/reverb track's second phase, spec
+`docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. The delay-time control moves the sample
+clock rather than the buffer length, so pitch slur under a moving knob and darkening repeats fall
+out of the model instead of being painted on.
+
+- 2026-09-05 — Added `modules/dd3/`, the Boss DD-2 / DD-3 v1 long-chip delay as one mono `IAudioNode`, six headers over five translation units, with `modules/dd3/README.md` beside them.
+- 2026-09-05 — Registered the pedal as `sushidsp.dd3` under the `Delay` category in `modules/node_registry/src/NodeRegistry.cpp`, so the host's gear browser lists it.
+- 2026-09-05 — Built the four linear networks in `modules/dd3/include/SushiDSP/dd3/Dd3AnalogFilters.hpp`: the emphasis shelf pair, the 6th-order anti-alias cascade and the 4th-order reconstruction cascade.
+- 2026-09-05 — Damped every Sallen–Key section by a fitted emitter-follower gain K = 0.9548116, pulling the anti-alias cascade from +6.45 dB at 7 kHz to +0.19/−1.26 dB, inside the published +1/−3 dB window (`Dd3AnalogFilters.hpp`).
+- 2026-09-05 — Anchored every section's bilinear prewarp at the 7 kHz band edge, holding the delay path's 7 kHz point to a 0.005 dB spread across 48, 96 and 192 kHz (`Dd3AnalogFilters.hpp`).
+- 2026-09-05 — Added `Ne570Compander.hpp`, one class for both halves of the NE570 about a 6.6125 V reference derived from check points [2] and [3], tau 6.8 ms, rectifier ripple left in.
+- 2026-09-05 — Added `Dd3Converter.hpp`: a saturating 12-bit mid-tread characteristic over a 16384-sample ring whose live length follows MODE, with HOLD as a write inhibit.
+- 2026-09-05 — Added `Dd3Clock.hpp`, the VCO's 82.5 kHz to 20 kHz exponential law in the D.TIME knob, slewed by the R56/C52 0.594 ms pole sitting on log(fs) rather than on fs.
+- 2026-09-05 — Added `Dd3Delay.hpp`, closing the loop through two `Resampler`s re-clocked every 8 frames, with F.BACK taken from the wet leg's output so the emphasis pair cancels inside the loop.
+- 2026-09-05 — Set the loop's forward gain at 6.318388, its peak at 3278 Hz and the same figure at 48, 96 and 192 kHz, so `kFeedbackPathGain` is its reciprocal (`Dd3Delay.hpp`).
+- 2026-09-05 — Moved `kInputPathGainToCheckPointOne` onto the input buffer, outside the feedback branch: the residual fell by exactly 4.703580, which confirmed the summing-node topology numerically (`src/Dd3Delay.cpp`).
+- 2026-09-05 — Extracted `WetFifo.hpp`, which primes on 8 real samples instead of zeros written at reset, so the 0 to 3 samples one base-rate push returns never starve the read.
+- 2026-09-05 — Deferred a MODE change made by descriptor index to the next block start, so the 16384-sample ring clear lands at a fixed point instead of inside the host's parameter drain (`src/Dd3Delay.cpp`).
+- 2026-09-05 — Measured the wet delay at 13.995 ms in mode S at D.TIME 0 against the pedal's published 12.5 ms: the ring is 12.412 ms and the two conversions plus the FIFO prime add 1.583 ms (`Dd3Delay.hpp`).
+- 2026-09-05 — Calibrated `kLevelUnityGain` to 0.0490307 from service-note check point [5], 140 mVp-p out for 1 kHz at 100 mVp-p in (`Dd3Delay.hpp`).
+- 2026-09-05 — Added three RT-safety traps for `Resampler::process`, `Resampler::set_rates` and `Dd3Delay::process` with a MODE change inside the trapped window (`tests/functional/unit/test_rt_safety.cpp`).
+- 2026-09-05 — Added a DD-3 benchmark case against the spec's binding 0.15 ms per 256-frame block and a 48–20–48 kHz resampler round trip against an advisory 0.10 ms (`tests/benchmark/main.cpp`).
+
+Three readings contradict a published source, and the model carries each contradiction rather
+than hiding it:
+
+- 2026-09-05 — Recorded that the anti-alias cascade with an ideal buffer peaks at +6.45 dB at 7 kHz against the published +1/−3 dB delay path; K is fitted to the window, and a real-unit sweep is what settles it (dossier §4.7 item 1).
+- 2026-09-05 — Recorded that N = 1024/4096/16384 and the published 12.5–800 ms delay ranges disagree by +2.40 % at the long end of each; the spec's N stands, because 16384 × 12 bits fills the three 4164 DRAMs exactly.
+- 2026-09-05 — Recorded that check point [1] needs an unexplained ×4.70358 to reach its published 620 mVp-p from the transcribed 131.8145 mVp-p, carried as one named constant (`Dd3Delay.hpp`).
+
+Not yet measured. The build was locked while DR2 was written, so no number in the acceptance
+table and no benchmark figure has been produced yet. `sd test -s all` runs the acceptance battery
+in `tests/functional/unit/test_dd3_acceptance.cpp`; `sd test -t release -s benchmark` prints the
+`DD-3 Delay` and `Resampler 48k-20k-48k round trip` rows against their budgets. The benchmark
+target does not link `SushiDSP::dd3` yet, so `tests/benchmark/CMakeLists.txt` needs that
+dependency added before the DD-3 row builds.
+
+## DR1 — arbitrary-ratio resampler
+
+The shared brick both delay/reverb products consume, and the first `math/` addition since D6a.
+`math/Oversampler` is untouched: it converts by a fixed integer ratio through halfband cascades,
+while this one takes a ratio that changes per block.
+
+- 2026-09-05 — Added `include/SushiDSP/math/Resampler.hpp` and `src/math/Resampler.cpp`, an arbitrary-ratio polyphase resampler that walks one fixed prototype with a fractional phase accumulator instead of rebuilding a bank per ratio.
+- 2026-09-05 — Committed the prototype in `include/SushiDSP/math/ResamplerCoefficients.hpp`: 34 zero crossings each side, 512 phases per crossing, 17410 entries, Kaiser beta 10.0613.
+- 2026-09-05 — Added the generator `tools/dsp/design_resampler.py`, which rebuilds that header and refuses to write one whose half width no longer clears the −100 dB stopband target.
+- 2026-09-05 — Measured the prototype at −100.48 dB worst-case stopband over [0.5, 256.0] and 0.0001 dB passband ripple over [0, 0.4], which grew the half width from the planned 32 to 34.
+- 2026-09-05 — Fixed the group-delay contract: `Resampler::latency_seconds()` reports availability look-ahead, 34 / min(source, target), and the converter is zero phase, so output time t carries input time t (`Resampler.hpp`).
+- 2026-09-05 — Held the phase floor across a widening rate change by clamping `position_` at the top of `process`, which took the sinusoid-identity residual from 0.18 to 6.77e-8 (`src/math/Resampler.cpp`).
+
 ## AmpliTube-style GUI
 
 `apps/host_gui` stops being one 567-line `main.cpp` drawing sliders and a vertical list. No new
