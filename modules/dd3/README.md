@@ -12,9 +12,10 @@ This file records what the code in this directory does.
 
 ## Which pedal
 
-The DD-2 / DD-3 v1, long chip: the RDD63H101 gate array with three 4164 DRAMs, 1986–89. Boss's
-own parts list says the DD-2 and the DD-3 v1 differ only in the treadle part number, so one model
-is both pedals.
+The DD-2 / DD-3 v1, long chip: the RDD63H101 gate array with three 4164 DRAMs. The DD-2 arrived in
+1983 and the DD-3 v1 in 1986, and the long chip ran until the DD-3A replaced it with the
+MN51010RBA in December 1990. Boss's own parts list says the DD-2 and the DD-3 v1 differ only in
+the treadle part number, so one model is both pedals.
 
 Dossier §2 picks that revision on documentation, not on reputation. It is the only version whose
 schematic is legible at scan magnification and whose LSI has published pin functions, conversion
@@ -38,11 +39,11 @@ DD-3A's MN51010RBA has none of that.
 No block names another. `Dd3Delay` is the only class here that knows the topology, which is why
 a change to the anti-alias cascade touches one file.
 
-## The three constants that are calibrations
+## The five constants that are not component values
 
-Every other number in the module comes from a component value. These three close a gap between
-the transcribed network and a service-note check point, and a bench measurement would replace
-each one.
+Most numbers in the module come straight from a component value. Five do not, and they split into
+two kinds. These three close a gap between the transcribed network and a service-note check point,
+and a bench measurement would replace each one.
 
 - **`kInputPathGainToCheckPointOne = 4.70358`** — check point [1], 620 mVp-p at the pre-emphasis
   output for 1 kHz at 100 mVp-p in. The transcribed stage produces 131.8145 mVp-p, and
@@ -55,9 +56,17 @@ each one.
   leg measures 0.713838 full scale with E.LEVEL at unity, [5] is 0.035 full scale, and
   0.035 / 0.713838 = 0.0490307.
 
-A fourth number is fitted rather than read off the page, and the spec carries its derivation:
-`kFeedbackTakeoffTrim = 1 / 4.170136`, which makes `kFeedbackPathGain` equal to 1 / 6.318388, the
-reciprocal of the loop's forward gain at its 3278 Hz peak.
+The other two are fitted to a published figure rather than read off any page. The spec's model
+corrections carry their derivations.
+
+- **`kEmitterFollowerGain = 0.9548116`** in `Dd3AnalogFilters.hpp` damps every Sallen–Key section.
+  It is not the follower's loaded voltage gain, which is about 0.987; it absorbs the follower's
+  output impedance and its base-current loading of the shunt capacitor. The published +1/−3 dB
+  window bounds it to 0.9431071–0.9665162, and this is the midpoint. The window is a knife edge in
+  it: 0.98 would put the delay path +3.18 dB at 7 kHz.
+- **`kFeedbackTakeoffTrim = 1 / 4.170136`** in `Dd3Delay.hpp` makes `kFeedbackPathGain` equal to
+  1 / 6.318388, the reciprocal of the loop's forward gain at its 3278 Hz peak. A bench measurement
+  of the loop gain, dossier §4.7 item 5, is what would replace it.
 
 ## Wet delay
 
@@ -91,5 +100,6 @@ something a host should compensate.
   (`tests/functional/unit/test_dd3_acceptance.cpp`) prints the alias floor that leaves, so the
   deferral carries a number.
 - **The DD-3A and everything after it.** Deleting Q2, C1 0.027 → 0.047 µF, deleting C18 and
-  dropping the top clock to 80 kHz would cover the DD-3A's component deltas. Its gate array's
-  internal conversion timing is undocumented either way, which is the part that would not follow.
+  dropping the top clock to 80 kHz would cover the DD-3A's deltas that change the sound. Its gate
+  array's internal conversion timing is undocumented either way, which is the part that would not
+  follow.

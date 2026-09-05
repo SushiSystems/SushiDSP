@@ -260,12 +260,15 @@ namespace
 
     /// @brief Times one 256-frame block through the DD-3's two resamplers at the slow clock.
     ///
-    /// 48 kHz down to 20 kHz and back is the pedal's worst case: the decimating stage's kernel
-    /// stretches to 68 / (20000 / 48000) = 163 taps per output sample, and the interpolating
-    /// stage then produces 2.4 outputs per input. Both are prepared outside the timed body,
-    /// since prepare() is where every buffer is allocated. The sub-budget this case is printed
-    /// against is advisory; it exists so the split between the resamplers and the rest of the
-    /// DD-3's block is visible.
+    /// 48 kHz down to 20 kHz and back is the pair's worst case: the decimating stage's half span
+    /// is 34 / (20000 / 48000) = 81.6 input samples, so interpolate() runs two loops of 82 and
+    /// touches 164 taps per output. Both resamplers are prepared outside the timed body, since
+    /// prepare() is where every buffer is allocated.
+    ///
+    /// The case prices the resampler pair in isolation at that clock; it does not decompose the
+    /// DD-3's own number. The node pushes 256 single frames per block where this pushes one block
+    /// of 256, and its clock follows D.TIME instead of sitting at 20 kHz, so the kernel span
+    /// differs as well. That is why the 0.10 ms it prints against is advisory.
     /// @return The measured Result, costed per output sample at the base rate.
     SushiDSP::bench::Result measure_resampler_round_trip()
     {
