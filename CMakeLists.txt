@@ -25,6 +25,7 @@ add_library(sushi_dsp STATIC
     src/math/Oversampler.cpp
     src/math/SmoothedParameter.cpp
     src/math/PartitionedConvolution.cpp
+    src/math/Resampler.cpp
     src/math/SincResampler.cpp
     src/math/StreamingConvolution.cpp
     src/math/Wdf.cpp
@@ -41,6 +42,7 @@ add_subdirectory(modules/tubescreamer)
 add_subdirectory(modules/jcm800)
 add_subdirectory(modules/node_registry)
 add_subdirectory(modules/routing)
+add_subdirectory(modules/dd3)
 
 # Nothing in the test suite links SDL2, so this can be turned off to configure
 # and run the tests without network access or an SDL2 build.
