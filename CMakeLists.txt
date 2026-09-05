@@ -3,6 +3,10 @@ project(SushiDSP LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Lets tooling type-check one file without a build: clang-tidy, editors, and agents running
+# `clang -fsyntax-only` against a single translation unit.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(cmake/SushiDSPCompilerFlags.cmake)
