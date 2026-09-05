@@ -88,7 +88,7 @@ TEST(Unit_Dsp, FmvToneStackMidScoopDeepensAsMiddleCloses)
     SushiDSP::FmvToneStack closed(48000.0, SushiDSP::kJcm2203ToneStack);
     open.set_middle(0.9f);
     closed.set_middle(0.1f);
-    EXPECT_LT(steady_gain_db(closed, 48000.0, 500.0), steady_gain_db(open, 48000.0, 500.0) - 6.0f);
+    EXPECT_LT(steady_gain_db(closed, 48000.0, 1000.0), steady_gain_db(open, 48000.0, 1000.0) - 6.0f);
 }
 
 TEST(Unit_Dsp, FmvToneStackIsStableAtEveryKnobExtreme)
