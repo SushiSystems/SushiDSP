@@ -23,6 +23,95 @@
 
 #include "ui/GearBrowser.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <cstring>
+#include <string>
+
+#include <imgui.h>
+
+#include "SushiDSP/node_registry/NodeRegistry.hpp"
+
+#include "ui/Theme.hpp"
+
 namespace ui
 {
+    namespace
+    {
+        /// @brief Reports whether needle occurs in haystack, ignoring case.
+        bool contains_ignoring_case(const char* haystack, const std::string& needle)
+        {
+            if (needle.empty())
+            {
+                return true;
+            }
+            std::string lowered(haystack);
+            std::transform(lowered.begin(), lowered.end(), lowered.begin(),
+                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            std::string wanted = needle;
+            std::transform(wanted.begin(), wanted.end(), wanted.begin(),
+                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            return lowered.find(wanted) != std::string::npos;
+        }
+
+        /// @brief Draws a card's icon: a filled rounded rectangle tinted by category.
+        void draw_card_icon(ImVec2 top_left, float size, const char* category)
+        {
+            const ImU32 tint = std::strcmp(category, "Amp") == 0
+                ? to_imu32(rgba(158, 124, 58))
+                : std::strcmp(category, "Distortion") == 0
+                    ? to_imu32(rgba(46, 112, 58))
+                    : to_imu32(rgba(70, 84, 120));
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                top_left, ImVec2(top_left.x + size, top_left.y + size), tint, 6.0f);
+        }
+    }
+
+    void DrawGearBrowser()
+    {
+        static char search[128] = "";
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##gear_search", "Search gear", search, sizeof(search));
+        ImGui::Separator();
+
+        const std::string needle(search);
+        const char* current_category = nullptr;
+        bool category_open = false;
+
+        for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
+        {
+            if (current_category == nullptr
+                || std::strcmp(current_category, entry.category.name) != 0)
+            {
+                current_category = entry.category.name;
+                category_open = ImGui::CollapsingHeader(current_category, ImGuiTreeNodeFlags_DefaultOpen);
+            }
+            if (!category_open || !contains_ignoring_case(entry.descriptor->name, needle))
+            {
+                continue;
+            }
+
+            ImGui::PushID(entry.descriptor->id);
+            const ImVec2 origin = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton("card", ImVec2(ImGui::GetContentRegionAvail().x, 44.0f));
+
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            draw->AddRectFilled(origin,
+                                ImVec2(origin.x + ImGui::GetItemRectSize().x, origin.y + 44.0f),
+                                to_imu32(ImGui::IsItemHovered() ? rgba(48, 48, 54) : rgba(34, 34, 39)),
+                                5.0f);
+            draw_card_icon(ImVec2(origin.x + 6.0f, origin.y + 6.0f), 32.0f, entry.category.name);
+            draw->AddText(ImVec2(origin.x + 48.0f, origin.y + 15.0f),
+                          to_imu32(palette().text), entry.descriptor->name);
+
+            if (ImGui::BeginDragDropSource())
+            {
+                ImGui::SetDragDropPayload("GEAR_DESCRIPTOR_ID", entry.descriptor->id,
+                                          std::strlen(entry.descriptor->id) + 1);
+                ImGui::Text("%s", entry.descriptor->name);
+                ImGui::EndDragDropSource();
+            }
+            ImGui::PopID();
+        }
+    }
 }

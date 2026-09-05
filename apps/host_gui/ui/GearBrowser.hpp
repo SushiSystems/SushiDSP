@@ -25,4 +25,8 @@
 
 namespace ui
 {
+    /// @brief Draws the gear browser's search box, category headers and cards into the current
+    /// window. Each card is a drag source carrying the GEAR_DESCRIPTOR_ID payload the chain strip
+    /// accepts.
+    void DrawGearBrowser();
 }
