@@ -240,9 +240,7 @@ TEST(Unit_Dsp, Dd3DelayFillsEveryBlockSizeAndStaysFinite)
 
 TEST(Unit_Dsp, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
 {
-    // The clock runs on a fixed 8-frame grid carried across blocks, so splitting the same input
-    // differently must not move a sample. prepare() snaps the clock to D.TIME 0; the set_time
-    // after it is what makes the clock glide 82.5 kHz to 20 kHz during the run.
+    // Splitting the same input differently must not move a sample while the clock glides.
     const auto input = SushiDSP::measure::sine_stimulus(220.0, kSampleRate, 24000u, 0.8f);
     auto glide = [&](std::uint32_t block)
     {
@@ -252,6 +250,7 @@ TEST(Unit_Dsp, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
         node.set_feedback(0.6f);
         node.set_level(0.7f);
         node.prepare({ kSampleRate, block, 1u });
+        // prepare() snaps the clock to D.TIME 0, so this is what makes it glide during the run.
         node.set_time(1.0f);
         std::vector<float> output(input.size(), 0.0f);
         for (std::size_t offset = 0; offset < input.size(); offset += block)
@@ -434,9 +433,7 @@ TEST(Unit_Dsp, Dd3DelayParametersRoundTripByNameAndByIndex)
 
 TEST(Unit_Dsp, Dd3DelayDefersAModeChangeMadeByIndex)
 {
-    // The index overload runs on the audio thread while the host drains its parameter ring, and
-    // swapping N clears up to 16384 samples. It records the request; process() applies it at the
-    // start of the next block. wet_delay_seconds() reads the ring, so it sees the change land.
+    // Swapping N clears up to 16384 samples, so the index overload only records the request.
     SushiDSP::Dd3Delay node;
     node.set_mode(SushiDSP::dd3::Dd3Mode::Long);
     node.set_time(0.0f);
@@ -454,10 +451,17 @@ TEST(Unit_Dsp, Dd3DelayDefersAModeChangeMadeByIndex)
     float* outputs[1] = { scratch.data() };
     SushiDSP::ProcessContext context{ outputs, inputs, kBlock, 0.0 };
     node.process(context);
-    EXPECT_NEAR(node.wet_delay_seconds(), 0.013995455, 1e-6);
+    EXPECT_NEAR(node.wet_delay_seconds(), 0.013995455, 1e-6);   // block start applied it
 
     // The string overload is the control thread's, so it applies without waiting for a block.
     node.set_parameter("mode", 2.0f);
+    EXPECT_NEAR(node.wet_delay_seconds(), 0.200177273, 1e-6);
+
+    // A control-thread write of any other id must leave the ring exactly where it is.
+    node.set_parameter(static_cast<std::uint16_t>(3), 0.0f);
+    node.set_parameter("time", 0.0f);
+    EXPECT_NEAR(node.wet_delay_seconds(), 0.200177273, 1e-6);
+    node.set_parameter("nonsense", 1.0f);
     EXPECT_NEAR(node.wet_delay_seconds(), 0.200177273, 1e-6);
 }
 

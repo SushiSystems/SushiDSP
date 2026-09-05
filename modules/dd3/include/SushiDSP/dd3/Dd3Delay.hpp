@@ -106,8 +106,11 @@ namespace SushiDSP
         /// @return The parameter's target value, or 0 for an unknown id.
         float get_parameter(const char* id) const override;
 
-        /// @brief Sets a parameter by string id. Control thread only, so "mode" takes effect
-        /// at once rather than at the next block.
+        /// @brief Sets a parameter by string id. Control thread only.
+        ///
+        /// The sibling pedals forward straight to the index overload; this one also applies a
+        /// MODE change on the spot, because the index overload defers it. It applies nothing
+        /// for any other id, since the ring clear must not run beside a live @ref process.
         /// @param id One of "time", "feedback", "level", "mode".
         /// @param value The new target value, in that parameter's declared range.
         void set_parameter(const char* id, float value) override;
@@ -236,8 +239,7 @@ namespace SushiDSP
         std::array<float, kWetScratchCapacity> wet_scratch_{};
         dd3::WetFifo wet_fifo_;
 
-        std::uint32_t frames_until_clock_ = 0u;  // carried across blocks, so the 8-frame grid
-                                                 // does not restart on a block boundary
+        std::uint32_t frames_until_clock_ = 0u;  // the 8-frame clock grid, carried across blocks
         double wet_previous_ = 0.0;              // the wet leg's output, in volts; the take-off
     };
 
