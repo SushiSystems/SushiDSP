@@ -55,6 +55,9 @@ add_executable(sushidsp_tests
     functional/unit/test_pentode_el34.cpp
     functional/unit/test_dk_circuit.cpp
     functional/unit/test_dk_triode_stage.cpp
+    functional/unit/test_dk_op_amp.cpp
+    functional/unit/test_ts_clip_stage.cpp
+    functional/unit/test_ts_tone_stage.cpp
 
     # --- Products ---
     functional/unit/test_tube_screamer_clipping_stage.cpp
@@ -77,6 +80,8 @@ add_executable(sushidsp_tests
     functional/unit/test_partitioned_convolution.cpp
     functional/unit/test_streaming_convolution.cpp
     functional/unit/test_sinc_resampler.cpp
+    functional/unit/test_resampler_coefficients.cpp
+    functional/unit/test_resampler.cpp
     functional/unit/test_smoothed_parameter.cpp
     functional/unit/test_wdf.cpp
 
@@ -105,7 +110,16 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/PanelLibrary.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ChainLayout.cpp
 
+    # --- DD-3 ---
+    functional/unit/test_dd3_analog_filters.cpp
+    functional/unit/test_ne570_compander.cpp
+    functional/unit/test_dd3_converter.cpp
+    functional/unit/test_dd3_clock.cpp
+    functional/unit/test_dd3_delay.cpp
+    functional/unit/test_dd3_acceptance.cpp
+
     # --- Regression ---
+    functional/regression/test_dd3_regression.cpp
     functional/regression/test_tube_screamer_regression.cpp
     functional/regression/test_jcm800_regression.cpp
 )
@@ -124,6 +138,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
     SushiDSP::jcm800
+    SushiDSP::dd3
     SushiDSP::node_registry
     SushiDSP::routing
     SushiDSP::rig_preset
