@@ -66,7 +66,10 @@ namespace SushiDSP
         /// @param input input_frames source-rate samples.
         /// @param input_frames Number of input samples; must not exceed max_input_frames.
         /// @param output Destination, at least output_capacity samples; must not alias input.
-        /// @param output_capacity Room available; use maximum_output_frames() to size it.
+        /// @param output_capacity Room available; use maximum_output_frames() to size it. A
+        /// smaller buffer defers the rest to the next call, and drops the deferred backlog once
+        /// it reaches further back than the history ring holds.
+        /// @pre prepare() has been called.
         /// @return Number of output samples written.
         std::uint32_t process(const float* input, std::uint32_t input_frames,
                               float* output, std::uint32_t output_capacity);
@@ -76,17 +79,21 @@ namespace SushiDSP
         /// @return Output samples to make room for, at the current rates.
         std::uint32_t maximum_output_frames(std::uint32_t input_frames) const;
 
-        /// @brief Algorithmic delay: an output can only be formed once the input half a kernel
-        /// span past it has arrived. Equals kResamplerHalfWidthZeroCrossings (34, Task 1.1) /
-        /// min(source_rate, target_rate) seconds at every ratio.
-        /// @return Delay in seconds.
+        /// @brief Availability latency: an output at time t reads input a kernel half span
+        /// either side of t, so it can only be emitted once the input half a span past it has
+        /// arrived. Report it for plugin delay compensation and size buffers with it. The
+        /// converter is zero phase, so output time t carries input time t and a null against a
+        /// dry path aligns at lag 0; subtracting this value as an offset misaligns it.
+        /// @return Availability latency in seconds, 34 / min(source_rate, target_rate).
         double latency_seconds() const;
 
-        /// @brief The same delay counted in source-rate samples, rounded to nearest.
-        /// @return Delay in input samples.
+        /// @brief The same availability latency counted in source-rate samples, rounded to
+        /// nearest. Look-ahead, never an alignment offset; see latency_seconds().
+        /// @return Look-ahead in input samples.
         std::uint32_t latency_samples() const;
 
         /// @brief Zeroes the history and the phase, so the next process() starts from silence.
+        /// @pre prepare() has been called.
         void reset();
 
     private:
@@ -114,6 +121,7 @@ namespace SushiDSP
         double step_ = 1.0;                      // input samples advanced per output sample
         double scale_ = 1.0;                     // kernel time scale, min(1, ratio_)
         double half_span_ = 0.0;                 // kernel half width in input samples
+        double position_floor_ = 0.0;            // how far position_ may lag before the ring runs out
         std::uint32_t taps_per_side_ = 0u;
         double ratio_ = 1.0;
         double minimum_ratio_ = 1.0;

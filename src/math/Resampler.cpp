@@ -59,11 +59,15 @@ namespace SushiDSP
     void Resampler::prepare(double source_rate, double target_rate, std::uint32_t max_input_frames,
                             double minimum_ratio)
     {
+        assert(minimum_ratio > 0.0 && "prepare() needs a positive minimum ratio");
+
         minimum_ratio_ = minimum_ratio;
         max_input_frames_ = max_input_frames;
 
         // The slowest ratio gives the widest kernel span, so it is what the history is sized on.
-        const double widest_half_span = kHalfWidth / minimum_ratio_;
+        // Interpolating never narrows that span below the prototype's own half width, so a
+        // minimum ratio above 1 sizes the history exactly as a minimum ratio of 1 does.
+        const double widest_half_span = kHalfWidth / std::min(1.0, minimum_ratio_);
         const std::size_t required = 2u * static_cast<std::size_t>(std::ceil(widest_half_span))
                                    + static_cast<std::size_t>(max_input_frames) + 4u;
         history_.assign(ring_capacity(required), 0.0f);
@@ -75,6 +79,8 @@ namespace SushiDSP
 
     void Resampler::set_rates(double source_rate, double target_rate)
     {
+        assert(source_rate > 0.0 && "set_rates() needs a positive source rate");
+
         source_rate_ = source_rate;
         ratio_ = std::min(std::max(target_rate / source_rate, minimum_ratio_), kMaximumRatio);
         target_rate_ = source_rate_ * ratio_;
@@ -82,6 +88,12 @@ namespace SushiDSP
         step_ = 1.0 / ratio_;                                                  // step_
         half_span_ = kHalfWidth / scale_;                                      // half_span_
         taps_per_side_ = static_cast<std::uint32_t>(std::ceil(half_span_));    // taps_per_side_
+
+        // The ring holds history_.size() samples ending at the newest input, and interpolate()
+        // reaches half_span_ + 1 below the phase, so this is how far the phase may lag before an
+        // output would read a slot the ring has already overwritten.
+        position_floor_ = static_cast<double>(max_input_frames_)
+                        - static_cast<double>(history_.size()) + half_span_ + 1.0;
 
         // position_ and the history stay as they are: a mid-stream rate change is the DD-3's
         // pitch glide, and resetting the phase there is the click the design exists to avoid.
@@ -160,8 +172,12 @@ namespace SushiDSP
         }
 
         // An under-sized output buffer stops the loop without moving position_ past what was
-        // written, so the next call resumes on the same output instead of dropping it.
+        // written, so the next call resumes on the same output instead of dropping it. The ring
+        // bounds how much backlog that can carry: below position_floor_ the deferred outputs
+        // read history the ring has overwritten, so they are dropped rather than read wrapped.
+        // The loop leaves position_ above the floor whenever the caller sized its buffer.
         position_ -= static_cast<double>(input_frames);   // rebase into the next call's coordinates
+        position_ = std::max(position_, position_floor_);
         return produced;
     }
 
