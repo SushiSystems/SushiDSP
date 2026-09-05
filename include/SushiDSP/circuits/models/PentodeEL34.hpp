@@ -38,8 +38,9 @@ namespace SushiDSP
     /// voltages are v[0] = Vg1k, v[1] = Vg2k, v[2] = Vpk; the branch currents are i[0] = Ig1,
     /// i[1] = Ig2, i[2] = Ip. The atan(Vpk / KVB) factor on the plate current is what makes the
     /// plate curve knee over instead of climbing like a triode's, and is where class-AB crossover
-    /// behaviour ultimately comes from. Both entry points are allocation-free, throw-free and safe
-    /// on the audio thread.
+    /// behaviour ultimately comes from. A DK solver wants the currents and the Jacobian at the same
+    /// operating point, so current_and_jacobian() carries the physics and current()/jacobian()
+    /// forward to it. Every entry point is allocation-free, throw-free and safe on the audio thread.
     class PentodeEL34
     {
     public:
@@ -76,33 +77,16 @@ namespace SushiDSP
         /// Lower bound applied to Vg2k before it is divided into, in volts.
         static constexpr double kScreenFloorVolts = 1.0e-3;
 
-        /// @brief Evaluates the three branch currents at one operating point.
+        /// @brief Evaluates all three branch currents and the 3x3 Jacobian at one operating point.
+        ///
+        /// The screen clamp, softplus, logistic, E1, the plate knee, z and the two (kx-1) powers
+        /// are shared between the currents and their derivatives; E1^kx and z^kx are formed from
+        /// those powers rather than by a second pow. current() and jacobian() forward here.
         /// @param v Branch voltages: v[0] = Vg1k, v[1] = Vg2k, v[2] = Vpk, in volts.
         /// @param i Receives the branch currents: i[0] = Ig1, i[1] = Ig2, i[2] = Ip, in amperes.
-        void current(const std::array<double, 3>& v, std::array<double, 3>& i) const
-        {
-            const double vg1k = v[0];
-            const double vg2k = v[1] < kScreenFloorVolts ? kScreenFloorVolts : v[1];
-            const double vpk = v[2];
-
-            const double u = kKp * (1.0 / kMu + vg1k / vg2k);                       // u_arg
-            const double s = models::softplus(u);                                   // s
-            const double e1 = vg2k * s / kKp;                                       // E1
-            const double knee = std::atan(vpk / kKvb);                              // knee
-            const double z = vg2k / kMu + vg1k;                                     // z
-
-            i[0] = kGridCurrentScale
-                   * models::softplus((vg1k - kGridThresholdVolts) / kGridTransitionVolts);
-            i[1] = z <= 0.0 ? 0.0 : std::pow(z, kKx) / kKg2;                        // Ig2
-            i[2] = e1 <= 0.0 ? 0.0 : 2.0 * std::pow(e1, kKx) / kKg1 * knee;         // Ip
-        }
-
-        /// @brief Evaluates the branch-current Jacobian j[a][b] = d i_a / d v_b at one point.
-        /// @param v Branch voltages: v[0] = Vg1k, v[1] = Vg2k, v[2] = Vpk, in volts.
-        /// @param j Receives the 3x3 Jacobian in siemens. The control-grid row has only a Vg1k
-        ///          entry, and the screen row has no Vpk entry, because neither current sees the
-        ///          plate voltage at all.
-        void jacobian(const std::array<double, 3>& v, std::array<std::array<double, 3>, 3>& j) const
+        /// @param j Receives the 3x3 Jacobian j[a][b] = d i_a / d v_b in siemens.
+        void current_and_jacobian(const std::array<double, 3>& v, std::array<double, 3>& i,
+                                  std::array<std::array<double, 3>, 3>& j) const
         {
             const double vg1k = v[0];
             const double vg2k = v[1] < kScreenFloorVolts ? kScreenFloorVolts : v[1];
@@ -117,23 +101,36 @@ namespace SushiDSP
             const double screen_follows_input = v[1] < kScreenFloorVolts ? 0.0 : 1.0;
 
             const double u = kKp * (1.0 / kMu + vg1k / vg2k);                       // u_arg
-            const double s = models::softplus(u);                                   // s
-            const double sigma = models::logistic(u);                               // sigma
+            double s = 0.0;                                                         // s
+            double sigma = 0.0;                                                     // sigma
+            models::softplus_and_logistic(u, s, sigma);
             const double e1 = vg2k * s / kKp;                                       // E1
             const double knee = std::atan(vpk / kKvb);                              // knee
             const double z = vg2k / kMu + vg1k;                                     // z
+
+            double grid_softplus = 0.0;
+            double grid_logistic = 0.0;
+            models::softplus_and_logistic((vg1k - kGridThresholdVolts) / kGridTransitionVolts,
+                                          grid_softplus, grid_logistic);
 
             const double de1_dvg1k = sigma;                                         // dE1/dVg1k
             const double de1_dvg2k = s / kKp - sigma * vg1k / vg2k;                 // dE1/dVg2k
 
             // kx > 1, so E1^(kx-1) and z^(kx-1) both vanish continuously as their arguments reach
-            // zero: the two max(0, .) clamps are C1, not slope discontinuities.
-            const double dip_de1 =
-                e1 <= 0.0 ? 0.0 : 2.0 * kKx * std::pow(e1, kKx - 1.0) / kKg1 * knee;
-            const double dig2_dvg1k = z <= 0.0 ? 0.0 : kKx * std::pow(z, kKx - 1.0) / kKg2;
+            // zero: the two max(0, .) clamps are C1, not slope discontinuities, and the single
+            // guard on each power carries its whole branch, current and derivative alike.
+            const double e1_power = e1 <= 0.0 ? 0.0 : std::pow(e1, kKx - 1.0);      // E1^(kx-1)
+            const double z_power = z <= 0.0 ? 0.0 : std::pow(z, kKx - 1.0);         // z^(kx-1)
 
-            j[0][0] = (kGridCurrentScale / kGridTransitionVolts)
-                      * models::logistic((vg1k - kGridThresholdVolts) / kGridTransitionVolts);
+            const double plate_scale = 2.0 * e1_power * e1 / kKg1;                  // 2 E1^kx / kg1
+            const double dip_de1 = 2.0 * kKx * e1_power / kKg1 * knee;
+            const double dig2_dvg1k = kKx * z_power / kKg2;
+
+            i[0] = kGridCurrentScale * grid_softplus;                               // Ig1
+            i[1] = z_power * z / kKg2;                                              // Ig2
+            i[2] = plate_scale * knee;                                              // Ip
+
+            j[0][0] = (kGridCurrentScale / kGridTransitionVolts) * grid_logistic;
             j[0][1] = 0.0;
             j[0][2] = 0.0;
 
@@ -143,10 +140,28 @@ namespace SushiDSP
 
             j[2][0] = dip_de1 * de1_dvg1k;                                          // dIp/dVg1k
             j[2][1] = dip_de1 * de1_dvg2k * screen_follows_input;                   // dIp/dVg2k
-            j[2][2] = e1 <= 0.0
-                          ? 0.0
-                          : (2.0 * std::pow(e1, kKx) / kKg1) * (1.0 / kKvb)
-                                / (1.0 + (vpk / kKvb) * (vpk / kKvb));              // dIp/dVpk
+            j[2][2] = plate_scale * (1.0 / kKvb)
+                      / (1.0 + (vpk / kKvb) * (vpk / kKvb));                        // dIp/dVpk
+        }
+
+        /// @brief Evaluates the three branch currents at one operating point.
+        /// @param v Branch voltages: v[0] = Vg1k, v[1] = Vg2k, v[2] = Vpk, in volts.
+        /// @param i Receives the branch currents: i[0] = Ig1, i[1] = Ig2, i[2] = Ip, in amperes.
+        void current(const std::array<double, 3>& v, std::array<double, 3>& i) const
+        {
+            std::array<std::array<double, 3>, 3> discarded_jacobian{};
+            current_and_jacobian(v, i, discarded_jacobian);
+        }
+
+        /// @brief Evaluates the branch-current Jacobian j[a][b] = d i_a / d v_b at one point.
+        /// @param v Branch voltages: v[0] = Vg1k, v[1] = Vg2k, v[2] = Vpk, in volts.
+        /// @param j Receives the 3x3 Jacobian in siemens. The control-grid row has only a Vg1k
+        ///          entry, and the screen row has no Vpk entry, because neither current sees the
+        ///          plate voltage at all.
+        void jacobian(const std::array<double, 3>& v, std::array<std::array<double, 3>, 3>& j) const
+        {
+            std::array<double, 3> discarded_currents{};
+            current_and_jacobian(v, discarded_currents, j);
         }
     };
 }

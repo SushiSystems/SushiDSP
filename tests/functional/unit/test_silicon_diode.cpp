@@ -96,6 +96,72 @@ TEST(Unit_Dsp, SiliconDiodeStaysFiniteAndCOneAcrossTheLinearExtrapolation)
                 1e-12 * diode.current(knee + 0.5));
 }
 
+TEST(Unit_Dsp, SiliconDiodeJointFormAgreesWithTheSeparateEntryPoints)
+{
+    const SushiDSP::SiliconDiode diode;
+    for (const double voltage : { -60.0, -0.5, 0.0, 0.4, 0.6, 0.7, 1.81254912, 60.0 })
+    {
+        double current = 0.0;
+        double conductance = 0.0;
+        diode.current_and_jacobian(voltage, current, conductance);
+        EXPECT_DOUBLE_EQ(current, diode.current(voltage)) << voltage;
+        EXPECT_DOUBLE_EQ(conductance, diode.jacobian(voltage)) << voltage;
+    }
+    // The same three Shockley points the D6b case pins, read out of the joint form.
+    double current = 0.0;
+    double conductance = 0.0;
+    diode.current_and_jacobian(0.4, current, conductance);
+    EXPECT_NEAR(current, 1.71792785943e-5, 1e-16);
+    EXPECT_NEAR(conductance, 3.79174244818e-4, 1e-15);
+    diode.current_and_jacobian(0.6, current, conductance);
+    EXPECT_NEAR(current, 1.41873699671e-3, 1e-14);
+    EXPECT_NEAR(conductance, 3.13092649696e-2, 1e-13);
+    diode.current_and_jacobian(0.7, current, conductance);
+    EXPECT_NEAR(current, 1.2891979355e-2, 1e-13);
+    EXPECT_NEAR(conductance, 2.84504993167e-1, 1e-12);
+}
+
+TEST(Unit_Dsp, SiliconDiodeAntiparallelPairMatchesTwoTimesSaturationCurrentTimesSinh)
+{
+    // The D6c clip stage's nonlinear port is v[0] = w, v[1] = -w across one pair, so the pair's
+    // total current is Is(e^(w/nVt) - 1) - Is(e^(-w/nVt) - 1) = 2 Is sinh(w / nVt) and its
+    // conductance is jacobian(w) + jacobian(-w). n*Vt = 1.752 * 0.025864 = 0.045313728 V, so
+    // 1/(n*Vt) = 22.068367449. Values computed at double precision in the D6c plan:
+    //   w = 0.2  : i = 2.080515143e-7 A,  di/dw = 4.592704262e-6 S
+    //   w = 0.3  : i = 1.890822805e-6 A,  di/dw = 4.172752069e-5 S
+    //   w = 0.38 : i = 1.105058316e-5 A,  di/dw = 2.438683551e-4 S
+    //   w = 0.4  : i = 1.718179822e-5 A,  di/dw = 3.791742530e-4 S
+    //   w = 0.5  : i = 1.561297429e-4 A,  di/dw = 3.445528538e-3 S
+    const SushiDSP::SiliconDiode diode;
+    struct Point
+    {
+        double w;
+        double current;
+        double conductance;
+    };
+    const Point points[5] = {
+        { 0.2, 2.080515143e-7, 4.592704262e-6 },
+        { 0.3, 1.890822805e-6, 4.172752069e-5 },
+        { 0.38, 1.105058316e-5, 2.438683551e-4 },
+        { 0.4, 1.718179822e-5, 3.791742530e-4 },
+        { 0.5, 1.561297429e-4, 3.445528538e-3 },
+    };
+    for (const Point& point : points)
+    {
+        double forward_current = 0.0;
+        double forward_conductance = 0.0;
+        double reverse_current = 0.0;
+        double reverse_conductance = 0.0;
+        diode.current_and_jacobian(point.w, forward_current, forward_conductance);
+        diode.current_and_jacobian(-point.w, reverse_current, reverse_conductance);
+        EXPECT_NEAR(forward_current - reverse_current, point.current, 1e-9 * point.current)
+            << point.w;
+        EXPECT_NEAR(forward_conductance + reverse_conductance, point.conductance,
+                    1e-9 * point.conductance)
+            << point.w;
+    }
+}
+
 TEST(Unit_Dsp, SiliconDiodeHonoursANonDefaultIdealityFactor)
 {
     // n = 1 makes n*Vt = 0.025864; at v = 0.6 the exponent is 23.1983..., exp = 1.19426e10,

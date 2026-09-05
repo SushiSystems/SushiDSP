@@ -50,6 +50,9 @@ namespace SushiDSP
     /// instead: `i(v) = i(v_max) + jacobian(v_max) * (v - v_max)` and `jacobian(v) = jacobian(v_max)`,
     /// mirrored for `v < -v_max`. This is C^1 everywhere, finite everywhere, and identical to the
     /// Shockley law for |v| <= v_max.
+    ///
+    /// A DK solver wants the current and its derivative at the same voltage, so
+    /// `current_and_jacobian()` carries the law and `current()`/`jacobian()` forward to it.
     class SiliconDiode
     {
     public:
@@ -70,20 +73,44 @@ namespace SushiDSP
         {
         }
 
+        /// @brief Evaluates the diode current and its derivative from a single exponential.
+        ///
+        /// The DK solver always needs both, and current()/jacobian() each cost one exp(); this
+        /// entry point costs one for the pair. current() and jacobian() forward here, so the
+        /// Shockley law and its linear extrapolation exist in exactly one place.
+        /// @param voltage The voltage across the diode (anode minus cathode), in volts.
+        /// @param current_amps Receives the diode current in amperes. Always finite.
+        /// @param conductance_siemens Receives di/dv in siemens. Always finite.
+        void current_and_jacobian(double voltage, double& current_amps,
+                                  double& conductance_siemens) const
+        {
+            if (voltage > knee_voltage_)
+            {
+                current_amps = knee_current_ + knee_jacobian_ * (voltage - knee_voltage_);
+                conductance_siemens = knee_jacobian_;
+                return;
+            }
+            if (voltage < -knee_voltage_)
+            {
+                current_amps = -knee_current_ + knee_jacobian_ * (voltage + knee_voltage_);
+                conductance_siemens = knee_jacobian_;
+                return;
+            }
+
+            const double exponential = std::exp(voltage * inverse_scaled_thermal_voltage_);
+            current_amps = saturation_current_ * (exponential - 1.0);
+            conductance_siemens = saturation_current_ * inverse_scaled_thermal_voltage_ * exponential;
+        }
+
         /// @brief Evaluates the diode current for a given branch voltage.
         /// @param voltage The voltage across the diode (anode minus cathode), in volts.
         /// @return The diode current in amperes. Always finite.
         double current(double voltage) const
         {
-            if (voltage > knee_voltage_)
-            {
-                return knee_current_ + knee_jacobian_ * (voltage - knee_voltage_);
-            }
-            if (voltage < -knee_voltage_)
-            {
-                return -knee_current_ + knee_jacobian_ * (voltage + knee_voltage_);
-            }
-            return saturation_current_ * (std::exp(voltage * inverse_scaled_thermal_voltage_) - 1.0);
+            double current_amps = 0.0;
+            double conductance_siemens = 0.0;
+            current_and_jacobian(voltage, current_amps, conductance_siemens);
+            return current_amps;
         }
 
         /// @brief Evaluates the derivative of the diode current with respect to its voltage.
@@ -91,11 +118,10 @@ namespace SushiDSP
         /// @return di/dv in siemens. Always finite.
         double jacobian(double voltage) const
         {
-            if (voltage > knee_voltage_ || voltage < -knee_voltage_)
-            {
-                return knee_jacobian_;
-            }
-            return saturation_current_ * inverse_scaled_thermal_voltage_ * std::exp(voltage * inverse_scaled_thermal_voltage_);
+            double current_amps = 0.0;
+            double conductance_siemens = 0.0;
+            current_and_jacobian(voltage, current_amps, conductance_siemens);
+            return conductance_siemens;
         }
 
     private:
