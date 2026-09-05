@@ -4,11 +4,9 @@ This directory holds the LTspice schematics that later phases null the DK-method
 solver against. Nothing in it is required to build or test SushiDSP: CI reads the committed
 CSVs and never runs LTspice.
 
-**Nothing here has been simulated yet.** LTspice is not installed on the machine that
-authored these files, so no CSVs are committed and no block README carries a real "LTspice
-version" line. The netlists were checked by re-tracing node connectivity by hand; that is
-not the same as having run them. Each block README lists the judgment calls and the
-specific things that need checking before its CSVs can be treated as ground truth.
+Commit 2bdbf91 simulated all eight blocks and committed their CSVs; `jcm_fmv` was
+regenerated on 2026-09-06 after its treble-pot return node was corrected and its master
+volume removed. Each block README lists the judgment calls behind its netlist.
 
 ## Layout
 

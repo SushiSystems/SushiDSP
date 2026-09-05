@@ -2,13 +2,12 @@
 
 # `jcm_fmv`
 
-JCM800 2203 FMV tone stack followed by the 1 MΩ master volume.
+JCM800 2203 FMV tone stack, unloaded.
 
-**Status: not yet simulated.** No CSVs are committed for this block. The netlist below was
-verified by re-tracing node connectivity by hand only; LTspice is not installed on the
-machine that authored it, so nothing here has been run.
+**Status: simulated.** `jcm_fmv_ac.csv` and `jcm_fmv_tran.csv` are committed and were
+regenerated on 2026-09-06 from the corrected netlist below.
 
-**LTspice version:** not yet generated.
+**LTspice version:** 26.0.2.1.
 
 ## How the schematic is written
 
@@ -29,7 +28,7 @@ exactly one of them per run:
 
 ## Probe and stimulus
 
-- Probed node: `out` (the master-volume wiper, i.e. the phase inverter's input).
+- Probed node: `out` (the treble-pot wiper, i.e. the stack's output).
 - Input node: `in`
 - Source: `V1 in 0 SINE(0 {AMP} 1k) AC 1`
 - Input level(s): `AMP = 1 V` fixed. The stack is passive, so the level only scales the result.
@@ -38,7 +37,7 @@ exactly one of them per run:
 
 `.step param MID list 0.1 0.5 0.9`
 
-`MID` is stepped because the ~-10 dB mid scoop is D6d's acceptance criterion for this block; `BASS` and `TREBLE` are held at 0.5 and `MASTER` at 1. The other two sweeps are produced by editing the `.step` line to name `BASS` or `TREBLE`.
+`MID` is stepped because the ~-10 dB mid scoop is D6d's acceptance criterion for this block; `BASS` and `TREBLE` are held at 0.5. The other two sweeps are produced by editing the `.step` line to name `BASS` or `TREBLE`.
 
 ## Components
 
@@ -46,29 +45,30 @@ exactly one of them per run:
 |-----|-------|-------|----------------|
 | V1 | SINE(0 {AMP} 1k) AC 1 | in - 0 | D6d block 4 stimulus |
 | C1 | 470 pF | in - t1 | D6d block 4: 470 pF treble cap |
-| Rtreb_a | {220k*(1-TREBLE)} | t1 - tsout | 220 kΩ treble pot, upper section |
-| Rtreb_b | {220k*TREBLE} | tsout - n2 | 220 kΩ treble pot, lower section |
+| Rtreb_a | {220k*(1-TREBLE)} | t1 - out | 220 kΩ treble pot, upper section |
+| Rtreb_b | {220k*TREBLE} | out - b1 | 220 kΩ treble pot, lower section |
 | R1 | 33 kΩ | in - n2 | D6d block 4: 33 kΩ slope resistor |
 | C2 | 22 nF | n2 - b1 | D6d block 4: 22 nF bass cap |
 | Rbass | {1Meg*BASS} | b1 - n4 | 1 MΩ bass pot as a rheostat |
 | C3 | 22 nF | n2 - n4 | D6d block 4: 22 nF mid cap |
 | Rmid | {25k*MID} | n4 - 0 | 25 kΩ mid pot as a rheostat |
-| Rmv_a | {1Meg*(1-MASTER)} | tsout - out | 1 MΩ master volume, upper section |
-| Rmv_b | {1Meg*MASTER} | out - 0 | 1 MΩ master volume, lower section |
 
 ## Judgment calls and open questions
 
-- **The FMV interconnection was reconstructed, then reviewed and confirmed.** The values are
-  D6d's verbatim (33 kΩ, 470 pF, 22 nF, 22 nF, 220 kΩ / 1 MΩ / 25 kΩ pots), but D6d does not
-  give the topology, and the arrangement above -- treble cap into the treble pot whose wiper
-  is the output and whose bottom is the slope-resistor node, with the bass branch
-  (22 nF + bass pot) and the mid cap (22 nF) both running from that node onto the mid pot to
-  ground -- was reconstructed from the standard FMV stack rather than traced from a 2203
-  schematic. It has since been checked node-for-node in review and found correct, so it is no
-  longer an open risk; the provenance is recorded here anyway.
+- **The treble pot's return node was wrong until 2026-09-06.** `Rtreb_b` ran from the wiper
+  to `n2`, the slope-resistor node. That left a purely resistive path from `in` through R1 and
+  the treble pot to the probe, so the stack passed DC and the sweep read -1.37 dB at 10 Hz
+  where an FMV stack reads zero. `Rtreb_b` now returns to `b1`, the far side of the bass cap
+  and the top of the bass pot, which is where an FMV stack puts it. The values were always
+  D6d's verbatim (33 kΩ, 470 pF, 22 nF, 22 nF, 220 kΩ / 1 MΩ / 25 kΩ pots); only the
+  connectivity changed.
+- **The 1 MΩ master volume was removed on the same date.** It sat across the probe and cost a
+  flat 1.14 dB, which the `FmvToneStack` closed form does not model. The deck now measures the
+  unloaded stack; the master volume's loading is a recorded simplification, and reinstating it
+  means adding a load term to `FmvComponents`.
 - The stack is driven from an ideal source. In the amp it is driven by the cathode follower
   (`jcm_cf`), whose output impedance is low but not zero; the two blocks are deliberately
   measured separately so the null test isolates each one.
-- At the default `MASTER = 1` the pot's upper section is a 0 Ω resistor. That is the
-  electrically correct meaning of a wiper at the top of its travel; LTspice treats a zero
-  resistance as a short and reports it as a warning, not an error.
+- The mid pot is a rheostat, so its top node is its wiper. Yeh & Smith's closed form taps the
+  mid cap at the wiper of a three-terminal pot instead; the two differ by at most 0.13 dB at
+  MID = 0.1 and less above it.
