@@ -21,6 +21,10 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
+// and it must remain the very first thing in the translation unit.
+#define _USE_MATH_DEFINES
+
 /**
  * @file test_ne570_compander.cpp
  * @brief Tests for the NE570 compander model.
@@ -36,6 +40,10 @@
 #include "SushiDSP/dd3/Ne570Compander.hpp"
 #include "measure/Spectrum.hpp"
 #include "measure/Thd.hpp"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace
 {

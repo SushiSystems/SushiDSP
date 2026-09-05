@@ -77,11 +77,12 @@ namespace SushiDSP
 
     void Dd3Delay::apply_pending_mode()
     {
-        if (pending_mode_ == mode_)
+        const dd3::Dd3Mode pending = pending_mode_.load(std::memory_order_relaxed);
+        if (pending == mode_)
         {
             return;
         }
-        mode_ = pending_mode_;
+        mode_ = pending;
         converter_.set_mode(mode_);
     }
 
@@ -143,7 +144,9 @@ namespace SushiDSP
 
     float Dd3Delay::process_sample(float input)
     {
-        const double dry = static_cast<double>(input) * kFullScaleVolts;
+        // The core's 2.0 V calibration, not dd3::Dd3Converter::kFullScaleVolts (2.5 V), the
+        // converter's own ADC/DAC rail.
+        const double dry = static_cast<double>(input) * SushiDSP::kFullScaleVolts;
         const double injected = static_cast<double>(feedback_.next())
                               * kMaximumFeedback * kFeedbackPathGain * wet_previous_;
         // The input buffer sits ahead of the summing node, so only the dry branch carries it.
@@ -163,7 +166,8 @@ namespace SushiDSP
         wet_previous_ = static_cast<double>(wet);
 
         return static_cast<float>((static_cast<double>(wet) * static_cast<double>(level_.next())
-                                   * static_cast<double>(kLevelUnityGain) + dry) / kFullScaleVolts);
+                                   * static_cast<double>(kLevelUnityGain) + dry)
+                                   / SushiDSP::kFullScaleVolts);
     }
 
     float Dd3Delay::convert_sample(float drive)
@@ -239,7 +243,7 @@ namespace SushiDSP
 
     void Dd3Delay::set_mode(dd3::Dd3Mode mode)
     {
-        pending_mode_ = mode;
+        pending_mode_.store(mode, std::memory_order_relaxed);
         apply_pending_mode();
     }
 
@@ -266,7 +270,8 @@ namespace SushiDSP
             case 0: return time_;
             case 1: return feedback_.target();
             case 2: return level_.target();
-            case 3: return static_cast<float>(static_cast<int>(pending_mode_));
+            case 3: return static_cast<float>(
+                static_cast<int>(pending_mode_.load(std::memory_order_relaxed)));
             default: return 0.0f;
         }
     }
@@ -290,7 +295,9 @@ namespace SushiDSP
             case 1: set_feedback(value); return;
             case 2: set_level(value); return;
             // Recorded only: clearing 16384 samples inside the host's drain is not RT-safe.
-            case kModeParameterIndex: pending_mode_ = mode_for_index(value); return;
+            case kModeParameterIndex:
+                pending_mode_.store(mode_for_index(value), std::memory_order_relaxed);
+                return;
             default: return;
         }
     }

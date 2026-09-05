@@ -36,7 +36,7 @@ Three readings contradict a published source, and the model carries each contrad
 than hiding it:
 
 - 2026-09-05 — Recorded that the anti-alias cascade with an ideal buffer peaks at +6.45 dB at 7 kHz against the published +1/−3 dB delay path; K is fitted to the window, and a real-unit sweep is what settles it (dossier §4.7 item 1).
-- 2026-09-05 — Recorded that N = 1024/4096/16384 and the published 12.5–800 ms delay ranges disagree by +2.40 % at the long end of each; the spec's N stands, because 16384 × 12 bits fills the three 4164 DRAMs exactly.
+- 2026-09-05 — Recorded that N = 1024/4096/16384 and the published 12.5–800 ms delay ranges disagree by +2.40 % at the long end of each; the spec's N stands.
 - 2026-09-05 — Recorded that check point [1] needs an unexplained ×4.70358 to reach its published 620 mVp-p from the transcribed 131.8145 mVp-p, carried as one named constant (`Dd3Delay.hpp`).
 
 Not yet measured. The build was locked while DR2 was written, so no number in the acceptance
