@@ -21,6 +21,12 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+/**
+ * @file Ne570Compander.hpp
+ * @brief One half of an NE570 companding pair, modelled as an open-loop rectifier and gain cell.
+ * @author Mustafa Garip & Sushi Systems
+ */
+
 #pragma once
 
 namespace SushiDSP::dd3

@@ -30,6 +30,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 
 #include "SushiDSP/core/IAudioNode.hpp"
@@ -212,6 +213,10 @@ namespace SushiDSP
         static constexpr std::uint32_t kFsScratchCapacity = 16u;
 
         /// @brief Most base-rate samples one fs-rate push can produce, with headroom.
+        ///
+        /// At high host rates a burst can still exceed 16; the Resampler's documented deferral
+        /// of the overflow to the next call is load-bearing here, since the wet FIFO's cushion
+        /// (kWetPrimeFrames) is what absorbs that one-call lateness.
         static constexpr std::uint32_t kWetScratchCapacity = 16u;
 
         double sample_rate_ = 48000.0;
@@ -221,7 +226,7 @@ namespace SushiDSP
         SmoothedParameter feedback_{ 0.3f };
         SmoothedParameter level_{ 0.5f };
         dd3::Dd3Mode      mode_ = kDefaultMode;          // the mode the converter is in
-        dd3::Dd3Mode      pending_mode_ = kDefaultMode;  // the mode last asked for
+        std::atomic<dd3::Dd3Mode> pending_mode_{ kDefaultMode };  // relaxed: unordered
 
         dd3::Dd3PreEmphasis         pre_emphasis_;
         dd3::Dd3AntiAliasFilter     anti_alias_;
