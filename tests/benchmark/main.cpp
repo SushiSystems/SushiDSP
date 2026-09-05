@@ -35,10 +35,12 @@
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/DenormalGuard.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
+#include "SushiDSP/dd3/Dd3Delay.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/jcm800/TriodeStage.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/PartitionedConvolution.hpp"
+#include "SushiDSP/math/Resampler.hpp"
 #include "SushiDSP/math/dk/DkCircuit.hpp"
 #include "SushiDSP/math/dk/DkNetlist.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
@@ -256,6 +258,39 @@ namespace
         });
     }
 
+    /// @brief Times one 256-frame block through the DD-3's two resamplers at the slow clock.
+    ///
+    /// 48 kHz down to 20 kHz and back is the pedal's worst case: the decimating stage's kernel
+    /// stretches to 68 / (20000 / 48000) = 163 taps per output sample, and the interpolating
+    /// stage then produces 2.4 outputs per input. Both are prepared outside the timed body,
+    /// since prepare() is where every buffer is allocated. The sub-budget this case is printed
+    /// against is advisory; it exists so the split between the resamplers and the rest of the
+    /// DD-3's block is visible.
+    /// @return The measured Result, costed per output sample at the base rate.
+    SushiDSP::bench::Result measure_resampler_round_trip()
+    {
+        constexpr double slow_clock_hz = 20000.0;
+
+        SushiDSP::Resampler down;
+        SushiDSP::Resampler up;
+        down.prepare(kSampleRate, slow_clock_hz, kBlockSize, slow_clock_hz / kSampleRate);
+        const std::uint32_t clock_capacity = down.maximum_output_frames(kBlockSize) + 8u;
+        up.prepare(slow_clock_hz, kSampleRate, clock_capacity, kSampleRate / 82500.0);
+        const std::uint32_t base_capacity = up.maximum_output_frames(clock_capacity) + 8u;
+
+        const std::vector<float> input = make_test_tone(kBlockSize);
+        std::vector<float>       at_clock_rate(clock_capacity, 0.0f);
+        std::vector<float>       back_at_base_rate(base_capacity, 0.0f);
+
+        return SushiDSP::bench::measure("Resampler 48k-20k-48k round trip", kBlockSize,
+            kSampleRate, [&]
+        {
+            const std::uint32_t produced = down.process(input.data(), kBlockSize,
+                at_clock_rate.data(), clock_capacity);
+            up.process(at_clock_rate.data(), produced, back_at_base_rate.data(), base_capacity);
+        });
+    }
+
     /// @brief With no arguments every case runs; otherwise a case runs when any argument is a
     /// substring of its name.
     bool selected(const char* name, int argc, char** argv)
@@ -302,6 +337,20 @@ int main(int argc, char** argv)
             node.set_tone(0.5f);
             node.set_level(0.8f);
         }), 0.25);
+    }
+    if (selected("Dd3", argc, argv))
+    {
+        print(measure_node<SushiDSP::Dd3Delay>("DD-3 Delay", [](SushiDSP::Dd3Delay& node)
+        {
+            node.set_mode(SushiDSP::dd3::Dd3Mode::Middle);
+            node.set_time(0.4f);
+            node.set_feedback(0.45f);
+            node.set_level(0.5f);
+        }), 0.15);
+    }
+    if (selected("Resampler", argc, argv))
+    {
+        print(measure_resampler_round_trip(), 0.10);
     }
     if (selected("Oversampler8x", argc, argv))
     {
