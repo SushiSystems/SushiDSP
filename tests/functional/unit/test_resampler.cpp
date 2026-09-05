@@ -298,6 +298,57 @@ TEST(Unit_Dsp, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
     EXPECT_LE(residual, -60.0);
 }
 
+TEST(Unit_Dsp, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
+{
+    // The one way a phase can start a call below the floor: starve it until it pins on the 1:1
+    // floor, then decimate 16:1. The half span grows from 34 to 544 input samples, which lifts
+    // the floor 510 samples above where the phase sits, and only a clamp on entry keeps the
+    // outermost taps out of slots the ring has overwritten. The check is the identity every
+    // uniformly sampled sinusoid obeys, y[n-1] + y[n+1] = 2*cos(w)*y[n]: it needs neither the
+    // phase nor the amplitude of the output grid, and one overwritten tap breaks it.
+    std::vector<float> input(262144u, 0.0f);
+    for (std::size_t n = 0; n < input.size(); ++n)
+    {
+        input[n] = static_cast<float>(std::sin(2.0 * M_PI * 100.0 * static_cast<double>(n) / 48000.0));
+    }
+    SushiDSP::Resampler resampler;
+    resampler.prepare(48000.0, 48000.0, 256u, 3000.0 / 48000.0);
+    std::vector<float> scratch(1024u, 0.0f);
+    const std::size_t starved_blocks = 64u;
+    for (std::size_t block = 0; block < starved_blocks; ++block)
+    {
+        resampler.process(input.data() + block * 256u, 256u, scratch.data(), 100u);
+    }
+    resampler.set_rates(48000.0, 3000.0);
+
+    std::vector<float> output;
+    for (std::size_t block = starved_blocks; block < input.size() / 256u; ++block)
+    {
+        const std::uint32_t produced = resampler.process(input.data() + block * 256u, 256u,
+                                                         scratch.data(),
+                                                         static_cast<std::uint32_t>(scratch.size()));
+        for (std::uint32_t j = 0; j < produced; ++j)
+        {
+            ASSERT_TRUE(std::isfinite(scratch[j])) << block << " " << j;
+            ASSERT_LE(std::abs(scratch[j]), 1.0f) << block << " " << j;
+        }
+        output.insert(output.end(), scratch.begin(), scratch.begin() + produced);
+    }
+
+    ASSERT_GT(output.size(), 1000u);
+    const double recurrence = 2.0 * std::cos(2.0 * M_PI * 100.0 / 3000.0);
+    double worst = 0.0;
+    for (std::size_t n = 1; n + 1 < output.size(); ++n)
+    {
+        const double residual = std::abs(static_cast<double>(output[n - 1])
+                                         + static_cast<double>(output[n + 1])
+                                         - recurrence * static_cast<double>(output[n]));
+        worst = std::max(worst, residual);
+    }
+    std::printf("[ measure ] resampler phase re-clamp, sinusoid identity residual: %.3e\n", worst);
+    EXPECT_LE(worst, 1e-5);
+}
+
 TEST(Unit_Dsp, ResamplerLatencyIsThirtyFourSamplesOfTheLowerRate)
 {
     // DR1+DR2 plan N1, as the Task 1.1 ruling widened it: the delay is

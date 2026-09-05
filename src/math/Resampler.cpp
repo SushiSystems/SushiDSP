@@ -90,8 +90,10 @@ namespace SushiDSP
         taps_per_side_ = static_cast<std::uint32_t>(std::ceil(half_span_));    // taps_per_side_
 
         // The ring holds history_.size() samples ending at the newest input, and interpolate()
-        // reaches half_span_ + 1 below the phase, so this is how far the phase may lag before an
-        // output would read a slot the ring has already overwritten.
+        // reaches half_span_ + 1 below the phase. Costing that against max_input_frames_ rather
+        // than the push in hand makes the floor conservative by up to max_input_frames_ minus
+        // that push, which errs towards dropping a deferred output the ring could still have
+        // formed and never towards reading a slot it has overwritten.
         position_floor_ = static_cast<double>(max_input_frames_)
                         - static_cast<double>(history_.size()) + half_span_ + 1.0;
 
@@ -154,6 +156,11 @@ namespace SushiDSP
     {
         assert(input_frames <= max_input_frames_ && "process() exceeds the prepared push size");
 
+        // A set_rates() that lowers the ratio widens half_span_ and so raises the floor, which
+        // can leave a phase the previous call pinned sitting below it. Re-clamp before forming
+        // anything: the floor in force is the one the ratio in hand asks for.
+        position_ = std::max(position_, position_floor_);
+
         for (std::uint32_t frame = 0; frame < input_frames; ++frame)  // append input to the history ring
         {
             history_[write_index_ & history_mask_] = input[frame];
@@ -174,8 +181,8 @@ namespace SushiDSP
         // An under-sized output buffer stops the loop without moving position_ past what was
         // written, so the next call resumes on the same output instead of dropping it. The ring
         // bounds how much backlog that can carry: below position_floor_ the deferred outputs
-        // read history the ring has overwritten, so they are dropped rather than read wrapped.
-        // The loop leaves position_ above the floor whenever the caller sized its buffer.
+        // would read history the ring has overwritten, so they are dropped. Clamping here as
+        // well as on entry keeps the phase bounded across a long starved run.
         position_ -= static_cast<double>(input_frames);   // rebase into the next call's coordinates
         position_ = std::max(position_, position_floor_);
         return produced;
