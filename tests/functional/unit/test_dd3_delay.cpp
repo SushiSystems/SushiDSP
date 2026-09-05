@@ -27,8 +27,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// which GCC/Clang's libstdc++/libc++ define unconditionally.
+// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 
 #include <gtest/gtest.h>
@@ -40,6 +39,7 @@
 #include <vector>
 
 #include "SushiDSP/dd3/Dd3Delay.hpp"
+#include "SushiDSP/dd3/WetFifo.hpp"
 #include "measure/Render.hpp"
 
 #ifndef M_PI
@@ -238,6 +238,49 @@ TEST(Unit_Dsp, Dd3DelayFillsEveryBlockSizeAndStaysFinite)
     }
 }
 
+TEST(Unit_Dsp, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
+{
+    // The clock runs on a fixed 8-frame grid carried across blocks, so splitting the same input
+    // differently must not move a sample. prepare() snaps the clock to D.TIME 0; the set_time
+    // after it is what makes the clock glide 82.5 kHz to 20 kHz during the run.
+    const auto input = SushiDSP::measure::sine_stimulus(220.0, kSampleRate, 24000u, 0.8f);
+    auto glide = [&](std::uint32_t block)
+    {
+        SushiDSP::Dd3Delay node;
+        node.set_mode(SushiDSP::dd3::Dd3Mode::Middle);
+        node.set_time(0.0f);
+        node.set_feedback(0.6f);
+        node.set_level(0.7f);
+        node.prepare({ kSampleRate, block, 1u });
+        node.set_time(1.0f);
+        std::vector<float> output(input.size(), 0.0f);
+        for (std::size_t offset = 0; offset < input.size(); offset += block)
+        {
+            const std::uint32_t frames =
+                static_cast<std::uint32_t>(std::min<std::size_t>(block, input.size() - offset));
+            const float* inputs[1] = { input.data() + offset };
+            float* outputs[1] = { output.data() + offset };
+            SushiDSP::ProcessContext context{ outputs, inputs, frames, 0.0 };
+            node.process(context);
+        }
+        return output;
+    };
+
+    const auto reference = glide(kBlock);
+    double worst = 0.0;
+    for (const std::uint32_t block : { 1u, 7u, 8u, 9u, 64u, 255u })
+    {
+        const auto output = glide(block);
+        for (std::size_t n = 0; n < reference.size(); ++n)
+        {
+            worst = std::max(worst, std::abs(static_cast<double>(output[n] - reference[n])));
+            ASSERT_NEAR(output[n], reference[n], 1e-6f) << "block " << block << " sample " << n;
+        }
+    }
+    std::printf("[ measure ] DD-3 block-size invariance during a D.TIME glide: worst |delta| %.3e\n",
+                worst);
+}
+
 TEST(Unit_Dsp, Dd3DelayResetReturnsItToSilence)
 {
     SushiDSP::Dd3Delay node;
@@ -387,4 +430,78 @@ TEST(Unit_Dsp, Dd3DelayParametersRoundTripByNameAndByIndex)
     EXPECT_EQ(descriptor.parameter_count, 4u);
     EXPECT_EQ(descriptor.ports.input_channels, 1u);
     EXPECT_EQ(descriptor.ports.output_channels, 1u);
+}
+
+TEST(Unit_Dsp, Dd3DelayDefersAModeChangeMadeByIndex)
+{
+    // The index overload runs on the audio thread while the host drains its parameter ring, and
+    // swapping N clears up to 16384 samples. It records the request; process() applies it at the
+    // start of the next block. wet_delay_seconds() reads the ring, so it sees the change land.
+    SushiDSP::Dd3Delay node;
+    node.set_mode(SushiDSP::dd3::Dd3Mode::Long);
+    node.set_time(0.0f);
+    node.prepare({ kSampleRate, kBlock, 1u });
+    const double before = node.wet_delay_seconds();
+    EXPECT_NEAR(before, 0.200177273, 1e-6);
+
+    node.set_parameter(static_cast<std::uint16_t>(3), 0.0f);   // Short, by index
+    EXPECT_FLOAT_EQ(node.get_parameter("mode"), 0.0f);          // the target reads back at once
+    EXPECT_NEAR(node.wet_delay_seconds(), before, 1e-12);       // the ring has not moved yet
+
+    const std::vector<float> silence(kBlock, 0.0f);
+    const float* inputs[1] = { silence.data() };
+    std::vector<float> scratch(kBlock, 0.0f);
+    float* outputs[1] = { scratch.data() };
+    SushiDSP::ProcessContext context{ outputs, inputs, kBlock, 0.0 };
+    node.process(context);
+    EXPECT_NEAR(node.wet_delay_seconds(), 0.013995455, 1e-6);
+
+    // The string overload is the control thread's, so it applies without waiting for a block.
+    node.set_parameter("mode", 2.0f);
+    EXPECT_NEAR(node.wet_delay_seconds(), 0.200177273, 1e-6);
+}
+
+TEST(Unit_Dsp, WetFifoPrimesThenDropsTheOldestWhenFull)
+{
+    SushiDSP::dd3::WetFifo fifo;
+    fifo.reset();
+
+    // Nothing comes out until the prime is met, and the prime is taken on real samples.
+    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::kPrimeFrames - 1u; ++n)
+    {
+        fifo.push(static_cast<float>(n));
+        EXPECT_TRUE(fifo.priming()) << n;
+        EXPECT_FLOAT_EQ(fifo.pop(), 0.0f) << n;
+    }
+    fifo.push(7.0f);
+    EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::kPrimeFrames);
+    EXPECT_FLOAT_EQ(fifo.pop(), 0.0f);          // sample 0, the oldest, and the prime is now met
+    EXPECT_FALSE(fifo.priming());
+    EXPECT_FLOAT_EQ(fifo.pop(), 1.0f);
+
+    // Overflow drops the oldest rather than the newest, and the depth never exceeds capacity.
+    fifo.reset();
+    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::kCapacity + 3u; ++n)
+    {
+        fifo.push(static_cast<float>(n));
+    }
+    EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::kCapacity);
+    EXPECT_FLOAT_EQ(fifo.pop(), 3.0f);          // 0, 1 and 2 went to make room
+    EXPECT_FALSE(fifo.priming());               // pop() is where the prime is checked
+    EXPECT_FLOAT_EQ(fifo.pop(), 4.0f);
+
+    // A starved FIFO returns silence without moving its read index.
+    fifo.reset();
+    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::kPrimeFrames; ++n)
+    {
+        fifo.push(1.0f);
+    }
+    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::kPrimeFrames; ++n)
+    {
+        EXPECT_FLOAT_EQ(fifo.pop(), 1.0f) << n;
+    }
+    EXPECT_EQ(fifo.depth(), 0u);
+    EXPECT_FLOAT_EQ(fifo.pop(), 0.0f);
+    fifo.push(2.0f);
+    EXPECT_FLOAT_EQ(fifo.pop(), 2.0f);
 }

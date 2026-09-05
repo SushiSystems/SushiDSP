@@ -47,6 +47,7 @@ namespace SushiDSP
         constexpr float kDefaultTime     = 0.3f;
         constexpr float kDefaultFeedback = 0.3f;
         constexpr float kDefaultLevel    = 0.5f;
+        constexpr float kDefaultModeIndex = static_cast<float>(static_cast<int>(Dd3Delay::kDefaultMode));
 
         constexpr std::uint16_t kUnknownParameterIndex = 0xFFFF;
 
@@ -70,6 +71,16 @@ namespace SushiDSP
     {
         // The clock and the converter start from the members, so no default is written twice.
         clock_.set_time(time_);
+        converter_.set_mode(mode_);
+    }
+
+    void Dd3Delay::apply_pending_mode()
+    {
+        if (pending_mode_ == mode_)
+        {
+            return;
+        }
+        mode_ = pending_mode_;
         converter_.set_mode(mode_);
     }
 
@@ -103,20 +114,29 @@ namespace SushiDSP
 
     void Dd3Delay::process(ProcessContext& context)
     {
+        apply_pending_mode();
+
         const float* input = context.inputs[0];
         float* output = context.outputs[0];
+        std::uint32_t offset = 0u;
 
-        for (std::uint32_t offset = 0; offset < context.frames; offset += kClockUpdateFrames)
+        while (offset < context.frames)
         {
-            const std::uint32_t frames = std::min(kClockUpdateFrames, context.frames - offset);
-            const double clock_hz = clock_.advance(frames);
-            down_.set_rates(sample_rate_, clock_hz);
-            up_.set_rates(clock_hz, sample_rate_);
+            if (frames_until_clock_ == 0u)
+            {
+                const double clock_hz = clock_.advance(kClockUpdateFrames);
+                down_.set_rates(sample_rate_, clock_hz);
+                up_.set_rates(clock_hz, sample_rate_);
+                frames_until_clock_ = kClockUpdateFrames;
+            }
 
+            const std::uint32_t frames = std::min(frames_until_clock_, context.frames - offset);
             for (std::uint32_t i = 0; i < frames; ++i)
             {
                 output[offset + i] = process_sample(input[offset + i]);
             }
+            frames_until_clock_ -= frames;
+            offset += frames;
         }
     }
 
@@ -158,34 +178,9 @@ namespace SushiDSP
             up_.process(fs_scratch_.data(), produced, wet_scratch_.data(), kWetScratchCapacity);
         for (std::uint32_t i = 0; i < returned; ++i)
         {
-            push_wet(wet_scratch_[i]);
+            wet_fifo_.push(wet_scratch_[i]);
         }
-        return pop_wet();
-    }
-
-    void Dd3Delay::push_wet(float sample)
-    {
-        if (wet_write_ - wet_read_ >= kWetFifoCapacity)
-        {
-            ++wet_read_;
-        }
-        wet_fifo_[wet_write_ & kWetFifoMask] = sample;
-        ++wet_write_;
-    }
-
-    float Dd3Delay::pop_wet()
-    {
-        if (wet_priming_ && wet_write_ - wet_read_ >= kWetPrimeFrames)
-        {
-            wet_priming_ = false;
-        }
-        if (wet_priming_ || wet_write_ == wet_read_)
-        {
-            return 0.0f;
-        }
-        const float sample = wet_fifo_[wet_read_ & kWetFifoMask];
-        ++wet_read_;
-        return sample;
+        return wet_fifo_.pop();
     }
 
     PortLayout Dd3Delay::ports() const
@@ -204,10 +199,8 @@ namespace SushiDSP
         converter_.reset();
         clock_.reset();
 
-        wet_fifo_.fill(0.0f);
-        wet_write_ = 0u;
-        wet_read_ = 0u;
-        wet_priming_ = true;
+        wet_fifo_.reset();
+        frames_until_clock_ = 0u;
         wet_previous_ = 0.0;
 
         if (prepared_)
@@ -245,8 +238,8 @@ namespace SushiDSP
 
     void Dd3Delay::set_mode(dd3::Dd3Mode mode)
     {
-        mode_ = mode;
-        converter_.set_mode(mode);
+        pending_mode_ = mode;
+        apply_pending_mode();
     }
 
     double Dd3Delay::wet_delay_seconds() const
@@ -259,9 +252,7 @@ namespace SushiDSP
 
         const double clock_hz = clock_.sample_rate_hz();
         const double ring = static_cast<double>(converter_.ring_length()) / clock_hz;
-        // Both conversions are zero phase, so what they add to the loop is the half kernel span
-        // each has to wait for; it is read off the instances rather than restated here, because
-        // the prototype's half width is Task 1.1's to choose.
+        // Both conversions are zero phase, so each adds only the half kernel span it waits for.
         const double round_trip = down_.latency_seconds() + up_.latency_seconds();
         const double prime = static_cast<double>(kWetPrimeFrames) / sample_rate_;
         return ring + round_trip + prime;
@@ -274,7 +265,7 @@ namespace SushiDSP
             case 0: return time_;
             case 1: return feedback_.target();
             case 2: return level_.target();
-            case 3: return static_cast<float>(static_cast<int>(mode_));
+            case 3: return static_cast<float>(static_cast<int>(pending_mode_));
             default: return 0.0f;
         }
     }
@@ -282,6 +273,8 @@ namespace SushiDSP
     void Dd3Delay::set_parameter(const char* id, float value)
     {
         set_parameter(parameter_index_for(id), value);
+        // This overload is the control thread's, so the ring may be cleared here and now.
+        apply_pending_mode();
     }
 
     void Dd3Delay::set_parameter(std::uint16_t index, float value)
@@ -291,7 +284,8 @@ namespace SushiDSP
             case 0: set_time(value); return;
             case 1: set_feedback(value); return;
             case 2: set_level(value); return;
-            case 3: set_mode(mode_for_index(value)); return;
+            // Recorded only: clearing 16384 samples inside the host's drain is not RT-safe.
+            case 3: pending_mode_ = mode_for_index(value); return;
             default: return;
         }
     }
@@ -302,7 +296,7 @@ namespace SushiDSP
             { "time",     "D.Time",  0.0f, 1.0f, kDefaultTime,     ParamKind::Linear, "" },
             { "feedback", "F.Back",  0.0f, 1.0f, kDefaultFeedback, ParamKind::Linear, "" },
             { "level",    "E.Level", 0.0f, 1.0f, kDefaultLevel,    ParamKind::Linear, "" },
-            { "mode",     "Mode",    0.0f, 3.0f, 1.0f,             ParamKind::Choice, "" },
+            { "mode",     "Mode",    0.0f, 3.0f, kDefaultModeIndex, ParamKind::Choice, "" },
         };
 
         std::unique_ptr<IAudioNode> make_dd3(const PrepareInfo&)
