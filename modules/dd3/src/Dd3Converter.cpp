@@ -30,6 +30,7 @@
 #include "SushiDSP/dd3/Dd3Converter.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 namespace SushiDSP::dd3
@@ -48,12 +49,22 @@ namespace SushiDSP::dd3
 
     void Dd3Converter::prepare()
     {
+        length_ = length_for_mode(mode_);
         ring_.assign(kMaximumRingLength, 0.0f);
         index_ = 0u;
     }
 
     void Dd3Converter::set_mode(Dd3Mode mode)
     {
+        // Before prepare() has allocated ring_, only mode_ is recorded; prepare() resolves
+        // length_ from it. Applying a length here while ring_ is still empty would leave
+        // length_ pointing past an empty ring for process_sample to index into.
+        if (ring_.empty())
+        {
+            mode_ = mode;
+            return;
+        }
+
         const std::uint32_t new_length = length_for_mode(mode);
         if (new_length != length_)
         {
@@ -66,6 +77,12 @@ namespace SushiDSP::dd3
 
     float Dd3Converter::process_sample(float volts)
     {
+        assert(!ring_.empty() && "Dd3Converter::process_sample requires prepare() first");
+        if (ring_.empty())
+        {
+            return 0.0f;
+        }
+
         const float out = ring_[index_];
         if (mode_ != Dd3Mode::Hold)
         {
