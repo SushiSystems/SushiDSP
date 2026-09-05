@@ -315,3 +315,67 @@ TEST(Unit_Dsp, DampedNewtonReturnsTheBestIterateWhenItFailsToConverge)
     system.residual_and_jacobian(v, r, jacobian);
     EXPECT_LE(std::fabs(r[0]), starting_norm);
 }
+
+TEST(Unit_Dsp, DenseLuTwoByTwoSolvesTheSameSystemsAsTheGeneralTemplate)
+{
+    // [[4, 3], [6, 3]] x = [10, 12] has the exact answer x = [1, 2]:
+    //   4*1 + 3*2 = 10,  6*1 + 3*2 = 12.   det = 4*3 - 3*6 = -6.
+    std::array<std::array<double, 2>, 2> matrix{ { { 4.0, 3.0 }, { 6.0, 3.0 } } };
+    SushiDSP::dk::DenseLu<2> lu;
+    ASSERT_TRUE(lu.factorise(matrix));
+    std::array<double, 2> solution{};
+    lu.solve({ 10.0, 12.0 }, solution);
+    EXPECT_NEAR(solution[0], 1.0, 1e-14);
+    EXPECT_NEAR(solution[1], 2.0, 1e-14);
+
+    // The pivoting case the general template is tested on: [[0, 1], [1, 0]] x = [3, 5] -> [5, 3].
+    std::array<std::array<double, 2>, 2> pivoting{ { { 0.0, 1.0 }, { 1.0, 0.0 } } };
+    ASSERT_TRUE(lu.factorise(pivoting));
+    lu.solve({ 3.0, 5.0 }, solution);
+    EXPECT_NEAR(solution[0], 5.0, 1e-14);
+    EXPECT_NEAR(solution[1], 3.0, 1e-14);
+
+    // Singular, and the order-aware overload restricted to the leading 1x1 block.
+    std::array<std::array<double, 2>, 2> singular{ { { 1.0, 2.0 }, { 2.0, 4.0 } } };
+    EXPECT_FALSE(lu.factorise(singular));
+    std::array<std::array<double, 2>, 2> leading{ { { 5.0, 99.0 }, { 99.0, 99.0 } } };
+    ASSERT_TRUE(lu.factorise(leading, 1));
+    lu.solve({ 10.0, 0.0 }, solution, 1);
+    EXPECT_NEAR(solution[0], 2.0, 1e-14);
+}
+
+namespace
+{
+    /// @brief Records the point of the last residual_and_jacobian() call, to pin the contract
+    /// DkCircuit::process_sample relies on: on success the solver's last model evaluation was at
+    /// the iterate it returns, so the caller may reuse whatever that evaluation cached.
+    struct RecordingSystem
+    {
+        mutable std::array<double, 1> last_evaluated{ 0.0 };
+
+        void residual_and_jacobian(const std::array<double, 1>& v, std::array<double, 1>& r,
+                                   std::array<std::array<double, 1>, 1>& jacobian) const
+        {
+            last_evaluated = v;
+            r[0] = std::exp(v[0]) - std::exp(0.25);
+            jacobian[0][0] = std::exp(v[0]);
+        }
+    };
+}
+
+TEST(Unit_Dsp, DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturns)
+{
+    SushiDSP::dk::DampedNewtonSolver<1> solver;
+    // Each damped step here moves the iterate by roughly 1 (step = -r/r' with r = exp(v) -
+    // exp(0.25)), so the farthest start below needs about six linear steps plus the quadratic
+    // tail to reach the root; the default budget of 8 is too tight for it.
+    solver.set_maximum_iterations(32);
+    for (const double start : { 0.0, 5.0, -5.0, 12.0, 0.2499999 })
+    {
+        RecordingSystem system;
+        std::array<double, 1> v{ start };
+        ASSERT_TRUE(solver.solve(system, v)) << start;
+        EXPECT_DOUBLE_EQ(system.last_evaluated[0], v[0]) << start;
+        EXPECT_NEAR(v[0], 0.25, 1e-9) << start;
+    }
+}

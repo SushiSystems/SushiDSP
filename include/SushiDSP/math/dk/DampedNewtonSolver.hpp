@@ -57,6 +57,14 @@ namespace SushiDSP::dk
         /// distinction is what stops a Jacobian underflowing far from the root from being
         /// reported as a solution. False when the iteration budget ran out, the Jacobian stayed
         /// singular, or the system produced a non-finite value.
+        ///
+        /// On success the last call this function made to `System::residual_and_jacobian` was
+        /// made at the iterate it leaves in `v`: the tolerance return happens with the residual
+        /// belonging to the current `v`, and every step return sets `v` to the trial point the
+        /// line search last evaluated. A system that caches per-evaluation quantities may
+        /// therefore reuse them after a `true` return. **On failure it may not** — `fail()`
+        /// restores the lowest-residual iterate seen, which is generally not the last one
+        /// evaluated. `test_damped_newton_solver.cpp` pins this.
         template <typename System>
         bool solve(System&& system, std::array<double, N>& v)
         {
