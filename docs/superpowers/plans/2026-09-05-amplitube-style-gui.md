@@ -721,7 +721,7 @@ namespace ui
             { "sushidsp.jcm800", { 900.0f, 420.0f },
               { rgba(26, 26, 28), rgba(158, 124, 58), rgba(214, 168, 74), rgba(28, 22, 8), nullptr },
               kJcm800Controls, 8, nullptr },
-            { "sushidsp.tube_screamer", { 320.0f, 560.0f },
+            { "sushidsp.tubescreamer", { 320.0f, 560.0f },
               { rgba(46, 112, 58), rgba(32, 78, 42), rgba(226, 214, 178), rgba(232, 232, 224), nullptr },
               kTubeScreamerControls, 4, nullptr },
             { "sushidsp.splitter", { 320.0f, 200.0f },
@@ -1271,7 +1271,7 @@ TEST(Unit_Dsp, RigGraphStaysEmptyAfterCompilingAGraphWithNoNode)
 TEST(Unit_Dsp, RigGraphIsNotEmptyOnceItHoldsACompiledNode)
 {
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(SushiDSP::make_node("sushidsp.tube_screamer", SushiDSP::PrepareInfo{ 48000.0, 256, 1 }));
+    graph.add_node(SushiDSP::make_node("sushidsp.tubescreamer", SushiDSP::PrepareInfo{ 48000.0, 256, 1 }));
     const SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     graph.compile(info);
 
@@ -1354,8 +1354,8 @@ Append to `tests/functional/unit/test_rig_controller.cpp`:
 TEST(Unit_Dsp, RigControllerBypassBridgesTheSlotsNeighbours)
 {
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    const RigController::SlotId first = controller.append("sushidsp.tube_screamer");
-    const RigController::SlotId middle = controller.append("sushidsp.tube_screamer");
+    const RigController::SlotId first = controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId middle = controller.append("sushidsp.tubescreamer");
     const RigController::SlotId last = controller.append("sushidsp.jcm800");
 
     controller.set_bypassed(middle, true);
@@ -1373,8 +1373,8 @@ TEST(Unit_Dsp, RigControllerBypassBridgesTheSlotsNeighbours)
 TEST(Unit_Dsp, RigControllerUnbypassRestoresTheOriginalGraph)
 {
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    controller.append("sushidsp.tube_screamer");
-    const RigController::SlotId middle = controller.append("sushidsp.tube_screamer");
+    controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId middle = controller.append("sushidsp.tubescreamer");
     controller.append("sushidsp.jcm800");
 
     controller.set_bypassed(middle, true);
@@ -1388,9 +1388,9 @@ TEST(Unit_Dsp, RigControllerUnbypassRestoresTheOriginalGraph)
 TEST(Unit_Dsp, RigControllerBridgesTwoBypassedSlotsInARow)
 {
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    controller.append("sushidsp.tube_screamer");
-    const RigController::SlotId second = controller.append("sushidsp.tube_screamer");
-    const RigController::SlotId third = controller.append("sushidsp.tube_screamer");
+    controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId second = controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId third = controller.append("sushidsp.tubescreamer");
     controller.append("sushidsp.jcm800");
 
     controller.set_bypassed(second, true);
@@ -1403,7 +1403,7 @@ TEST(Unit_Dsp, RigControllerBridgesTwoBypassedSlotsInARow)
 TEST(Unit_Dsp, RigControllerBypassingTheHeadSlotLeavesAWorkingGraph)
 {
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    const RigController::SlotId head = controller.append("sushidsp.tube_screamer");
+    const RigController::SlotId head = controller.append("sushidsp.tubescreamer");
     controller.append("sushidsp.jcm800");
 
     controller.set_bypassed(head, true);
@@ -1416,7 +1416,7 @@ TEST(Unit_Dsp, RigControllerBypassingTheHeadSlotLeavesAWorkingGraph)
 TEST(Unit_Dsp, RigControllerBypassingEverySlotLeavesAnEmptyGraph)
 {
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    const RigController::SlotId only = controller.append("sushidsp.tube_screamer");
+    const RigController::SlotId only = controller.append("sushidsp.tubescreamer");
 
     controller.set_bypassed(only, true);
 
@@ -1427,8 +1427,8 @@ TEST(Unit_Dsp, RigControllerBypassingEverySlotLeavesAnEmptyGraph)
 TEST(Unit_Dsp, RigControllerSaveToJsonKeepsABypassedNodeAndFlagsIt)
 {
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    controller.append("sushidsp.tube_screamer");
-    const RigController::SlotId middle = controller.append("sushidsp.tube_screamer");
+    controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId middle = controller.append("sushidsp.tubescreamer");
     controller.append("sushidsp.jcm800");
     controller.set_bypassed(middle, true);
 
@@ -1449,8 +1449,8 @@ TEST(Unit_Dsp, RigControllerSaveToJsonKeepsABypassedNodeAndFlagsIt)
 TEST(Unit_Dsp, RigControllerLoadFromJsonRestoresTheBypassFlag)
 {
     RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    source.append("sushidsp.tube_screamer");
-    const RigController::SlotId middle = source.append("sushidsp.tube_screamer");
+    source.append("sushidsp.tubescreamer");
+    const RigController::SlotId middle = source.append("sushidsp.tubescreamer");
     source.append("sushidsp.jcm800");
     source.set_bypassed(middle, true);
     const std::string preset = source.save_to_json();
@@ -1476,7 +1476,7 @@ TEST(Unit_Dsp, RigControllerLoadFromJsonRestoresTheBypassFlag)
 TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoBypassFieldWithEverySlotActive)
 {
     const std::string preset = R"({"nodes":[
-        {"id":0,"type":"sushidsp.tube_screamer","params":{},"inputs":[]},
+        {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
         {"id":1,"type":"sushidsp.jcm800","params":{},"inputs":[0]}
     ]})";
 

@@ -255,7 +255,7 @@ sensitivity switches: `input_trim` at x 0.13, `output` at x 0.21.
 The reference's Power and Lo Sensitivity switches have no counterpart in our JCM800 model, so
 they are not drawn. A control that does nothing is worse than an absent one.
 
-**TubeScreamer** (`sushidsp.tube_screamer`), aspect 320 by 560. Green enclosure
+**TubeScreamer** (`sushidsp.tubescreamer`), aspect 320 by 560. Green enclosure
 `rgba(46,112,58)`, darker face `rgba(32,78,42)`, cream accent `rgba(226,214,178)`.
 
 | param_id | position | diameter | caption |
