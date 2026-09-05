@@ -25,7 +25,8 @@
 // scipy 1.18.1, numpy 2.5.2, verification grid 524288.
 // Measured: passband ripple 0.0001 dB over [0, 0.4], stopband -100.48 dB over [0.5, 256.0],
 // polyphase DC sum spread 5.62e-06, linear-interpolation bound 1.1471e-06.
-// HALF_WIDTH=34 (grown from the planned 32 to clear -100 dB with margin, DR1+DR2 plan Task 1.1 ruling): latency floor 0.7083 ms/stage at 48.0 kHz.
+// HALF_WIDTH=34 (grown from the planned 32 to clear -100 dB with
+// margin, DR1+DR2 plan Task 1.1 ruling): latency floor 0.7083 ms/stage at 48.0 kHz.
 
 #pragma once
 
@@ -33,7 +34,8 @@
 
 namespace SushiDSP
 {
-    /// @brief Zero crossings stored on each side of the resampler prototype's peak.
+    /// @brief Input samples stored on each side of the resampler prototype's peak
+    /// (not the count of true zero crossings, which is lower since fc < 0.5).
     inline constexpr std::uint32_t kResamplerHalfWidthZeroCrossings = 34u;
 
     /// @brief Table entries stored per zero crossing (the polyphase interpolation density).

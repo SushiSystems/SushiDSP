@@ -2,17 +2,9 @@
 
 Usage:  python tools/dsp/design_resampler.py > include/SushiDSP/math/ResamplerCoefficients.hpp
 
-The kernel is a Kaiser-windowed sinc, table-driven for polyphase interpolation: HALF_WIDTH
-zero crossings each side of the peak, 512 phase entries per zero crossing. It is normalised
-on the mean polyphase DC sum, not on the peak, so every branch of the interpolator has unity
-DC gain (see the DR1+DR2 plan, N1); the peak itself lands near 2*CUTOFF, not near 1.0 - the
-centre tap of a sub-Nyquist lowpass impulse response is 2*fc by construction, and the
-DC-sum normalisation barely moves it (branch sums are already ~1 before that step, by
-Poisson summation, for any cutoff below 0.5). Only the right wing plus one guard entry is
-stored, since the kernel is even. HALF_WIDTH is 34, not the 32 originally planned: 32 zero
-crossings measured -98.45 dB worst-case stopband, short of the -100 dB target; 34 clears it
-with a genuine margin (~0.45 dB at the true worst frequency, not just at the frequencies the
-unit test happens to sample) - see the DR1+DR2 plan, Task 1.1 controller ruling.
+Kaiser-windowed sinc, table-driven for polyphase interpolation, normalised so every
+polyphase branch has unity DC gain rather than the peak; HALF_WIDTH is 34, not the plan's
+32, per docs/superpowers/plans/2026-09-05-dr1-dr2-resampler-and-dd3.md Task 1.1 ruling.
 """
 import sys
 import numpy as np
@@ -30,16 +22,16 @@ GRID = 1 << 19
 BASE_SAMPLE_RATE_KHZ = 48.0  # convention used project-wide for the latency-floor figure
 
 
-def mean_phase_sum(kernel):
-    """Compute the mean polyphase DC sum of the right-wing kernel.
+def phase_sums(kernel):
+    """Compute every polyphase branch's DC sum over the right-wing kernel.
 
     Args:
-        kernel: Right wing of the (not yet normalised) kernel, length
-            HALF_WIDTH * PHASES + 1, sampled at t = 0 .. HALF_WIDTH.
+        kernel: Right wing of the kernel, length HALF_WIDTH * PHASES + 1,
+            sampled at t = 0 .. HALF_WIDTH.
 
     Returns:
-        The mean, over all 512 phases, of that phase's DC gain summed over
-        both wings and all HALF_WIDTH zero crossings.
+        A length-PHASES array; entry p is phase p's DC gain, summed over both
+        wings and all HALF_WIDTH zero crossings.
     """
     sums = np.zeros(PHASES)
     for phase in range(PHASES):
@@ -51,7 +43,7 @@ def mean_phase_sum(kernel):
             if left < len(kernel):
                 total += kernel[left]
         sums[phase] = total
-    return sums.mean()
+    return sums
 
 
 def design():
@@ -70,19 +62,8 @@ def design():
     # already negligible; it is the interpolator's outermost table point, so it is forced to
     # the exact zero the interface promises rather than left at a near-zero float.
     kernel[-1] = 0.0
-    scale = mean_phase_sum(kernel)
-    kernel /= scale
-    dc_sums = np.zeros(PHASES)
-    for phase in range(PHASES):
-        total = 0.0
-        for tap in range(HALF_WIDTH):
-            right = tap * PHASES + phase
-            left = (tap + 1) * PHASES - phase
-            total += kernel[right]
-            if left < len(kernel):
-                total += kernel[left]
-        dc_sums[phase] = total
-    return np.concatenate([kernel, [0.0]]), dc_sums
+    kernel /= phase_sums(kernel).mean()
+    return np.concatenate([kernel, [0.0]]), phase_sums(kernel)
 
 
 def measure_response(kernel):
@@ -114,9 +95,12 @@ def measure_interpolation_bound(kernel):
         kernel: Right wing plus guard entry, as returned by design().
 
     Returns:
-        max |h[i+1] - 2*h[i] + h[i-1]| / 8 over the interior of the table.
+        max |h[i+1] - 2*h[i] + h[i-1]| / 8 over the interior of the table,
+        excluding the guard entry so this covers the same index set as the
+        committed test.
     """
-    second_difference = kernel[2:] - 2.0 * kernel[1:-1] + kernel[:-2]
+    interior = kernel[:-1]
+    second_difference = interior[2:] - 2.0 * interior[1:-1] + interior[:-2]
     return np.abs(second_difference).max() / 8.0
 
 
@@ -138,8 +122,12 @@ def emit(out):
     print(f"linear-interpolation bound {interpolation_bound:.4e} (limit 4.0e-6)", file=sys.stderr)
     print(f"latency floor {latency_floor_ms:.4f} ms/stage at {BASE_SAMPLE_RATE_KHZ} kHz "
           f"({HALF_WIDTH} zero crossings)", file=sys.stderr)
-    assert interpolation_bound < 4.0e-6, "interpolation bound exceeds N1's headroom"
-    assert worst_stopband <= -100.0, "HALF_WIDTH no longer clears the -100 dB stopband target"
+    if interpolation_bound >= 4.0e-6:
+        raise SystemExit("interpolation bound exceeds N1's headroom")
+    if worst_stopband > -100.0:
+        raise SystemExit("HALF_WIDTH no longer clears the -100 dB stopband target")
+    # The brief names no numeric passband-ripple target, so it is measured and printed
+    # above but not gated.
 
     header = open("include/SushiDSP/core/PortLayout.hpp", encoding="utf-8").read().split("\n")
     licence = header[:22]
@@ -152,11 +140,12 @@ def emit(out):
               f"stopband {worst_stopband:.2f} dB over [0.5, {PHASES / 2}],\n")
     out.write(f"// polyphase DC sum spread {dc_spread:.2e}, "
               f"linear-interpolation bound {interpolation_bound:.4e}.\n")
-    out.write(f"// HALF_WIDTH={HALF_WIDTH} (grown from the planned 32 to clear -100 dB with "
-              f"margin, DR1+DR2 plan Task 1.1 ruling): latency floor "
+    out.write(f"// HALF_WIDTH={HALF_WIDTH} (grown from the planned 32 to clear -100 dB with\n")
+    out.write(f"// margin, DR1+DR2 plan Task 1.1 ruling): latency floor "
               f"{latency_floor_ms:.4f} ms/stage at {BASE_SAMPLE_RATE_KHZ} kHz.\n\n")
     out.write("#pragma once\n\n#include <cstdint>\n\nnamespace SushiDSP\n{\n")
-    out.write("    /// @brief Zero crossings stored on each side of the resampler prototype's peak.\n")
+    out.write("    /// @brief Input samples stored on each side of the resampler prototype's peak\n")
+    out.write("    /// (not the count of true zero crossings, which is lower since fc < 0.5).\n")
     out.write(f"    inline constexpr std::uint32_t kResamplerHalfWidthZeroCrossings = {HALF_WIDTH}u;\n\n")
     out.write("    /// @brief Table entries stored per zero crossing (the polyphase interpolation density).\n")
     out.write(f"    inline constexpr std::uint32_t kResamplerPhasesPerZeroCrossing = {PHASES}u;\n\n")
@@ -175,7 +164,7 @@ def emit(out):
     out.write("    /// response), not 1.0 - the kernel is normalised on the polyphase DC sums, which\n")
     out.write("    /// are already ~1 for any cutoff below 0.5 and barely move the peak. The last two\n")
     out.write("    /// entries are the exact-zero endpoint and guard.\n")
-    out.write(f"    inline constexpr float kResamplerKernel[kResamplerKernelLength] =\n    {{\n")
+    out.write("    inline constexpr float kResamplerKernel[kResamplerKernelLength] =\n    {\n")
     for i in range(0, length, 4):
         row = ", ".join(f"{float(np.float32(v)):.9e}f" for v in kernel[i:i + 4])
         out.write(f"        {row},\n")
