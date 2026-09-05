@@ -46,8 +46,8 @@ include/SushiDSP/circuits/stages/OutputTransformerStage.hpp src/circuits/stages/
 include/SushiDSP/circuits/stages/PowerSupplySagStage.hpp    src/circuits/stages/PowerSupplySagStage.cpp
 ```
 
-Namespace changes from `SushiDSP::jcm800` to `SushiDSP::circuits`. Class names, constructor
-signatures and behaviour do not change; this is a move, and the JCM800's regression snapshots
+The namespace stays `SushiDSP`, which is where the four classes already live. Class names,
+constructor signatures and behaviour do not change; this is a move, and the JCM800's regression snapshots
 must pass bit-identically after it. `JcmToneStack` stays in `modules/jcm800`: it is the 2203's
 own network.
 
