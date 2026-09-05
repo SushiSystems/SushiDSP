@@ -561,4 +561,3 @@ None of this touches `sushi_dsp`'s C++ link graph. A checkout of this repo with 
 Known work with no phase attached. An item leaves this list when it lands, not when it is planned.
 
 - **No mechanical comment-shape check.** `tools/documentation/check_source_comments.py` does not exist in this repo. `docs/CONTRIBUTING.md` §3 states the shape and every reviewer applies it by reading, so the rule holds by attention rather than by a script.
-- **The benchmark target does not link the DD-3.** `tests/benchmark/CMakeLists.txt` links `sushi_dsp`, `tubescreamer` and `jcm800` only, so the `DD-3 Delay` case that DR2 added to `tests/benchmark/main.cpp` does not compile until `SushiDSP::dd3` joins that list.

@@ -38,9 +38,7 @@ than hiding it:
 Not yet measured. The build was locked while DR2 was written, so no number in the acceptance
 table and no benchmark figure has been produced yet. `sd test -s all` runs the acceptance battery
 in `tests/functional/unit/test_dd3_acceptance.cpp`; `sd test -t release -s benchmark` prints the
-`DD-3 Delay` and `Resampler 48k-20k-48k round trip` rows against their budgets. The benchmark
-target does not link `SushiDSP::dd3` yet, so `tests/benchmark/CMakeLists.txt` needs that
-dependency added before the DD-3 row builds.
+`DD-3 Delay` and `Resampler 48k-20k-48k round trip` rows against their budgets.
 
 ## DR1 — arbitrary-ratio resampler
 
