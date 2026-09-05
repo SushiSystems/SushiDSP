@@ -48,8 +48,8 @@ namespace SushiDSP
     ///
     /// The host rate reaches the converter through two Resamplers whose ratios follow the
     /// D.TIME clock every @ref kClockUpdateFrames samples. The feedback leaves the wet leg's
-    /// output and is summed one sample at a time ahead of the anti-alias filter, so the
-    /// emphasis pair cancels inside the loop; the ruling behind that take-off is in
+    /// output and joins the dry branch at the pre-emphasis summing node, one sample at a time,
+    /// downstream of the input buffer; the rulings that place both ends of that path are in
     /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections.
     class Dd3Delay : public IAudioNode
     {
@@ -134,17 +134,19 @@ namespace SushiDSP
         /// .superpowers/sdd/2026-09-05-dr1-dr2-resampler-and-dd3/task-2.5-report.md.
         static constexpr std::uint32_t kWetPrimeFrames = 8u;
 
-        /// @brief Input-path gain that reproduces the service note's check point [1].
+        /// @brief Gain of the input buffer, fitted to the service note's check point [1].
         ///
         /// A calibration residual, not a value derived from any component: the transcribed
         /// pre-emphasis stage turns the note's 100 mVp-p into 131.837 mVp-p where the note
-        /// prints 620, and 620 / 131.837 = 4.70358 closes the gap (plan N7).
+        /// prints 620, and 620 / 131.837 = 4.70358 closes the gap (plan N7). The buffer is
+        /// upstream of the summing node, so the dry branch carries it and the loop does not.
         static constexpr double kInputPathGainToCheckPointOne = 4.70358;
 
         /// @brief Fixed gain of the expander's output network, R42 47K with C20 0.0027 || R41 22K.
         ///
         /// Check points [3] 2.3 Vp-p and [4] 2.4 Vp-p: the expander returns 1.15^2 / 6.6125 =
-        /// 0.2 V peak = 0.4 Vp-p, and 2.4 / 0.4 = 6.0 (plan N7).
+        /// 0.2 V peak = 0.4 Vp-p, and 2.4 / 0.4 = 6.0 (plan N7). [4] is the reconstruction
+        /// filter's output, so this stage is upstream of the take-off and does recirculate.
         static constexpr double kExpanderOutputStageGain = 6.0;
 
         /// @brief Loop gain at the top of the F.BACK knob; above 1, so the pedal self-oscillates
@@ -155,19 +157,18 @@ namespace SushiDSP
         /// over VR2 50 kB at the top of the pot (dossier 1.4 and 1.6).
         static constexpr double kFeedbackMixRatio = 33.0 / 50.0;
 
-        /// @brief What the mix resistors leave unexplained in the loop's forward gain.
+        /// @brief What the mix resistors leave unexplained at the F.BACK take-off.
         ///
-        /// The take-off is at the wet leg's output, so the emphasis pair cancels inside the
-        /// loop and the forward gain is kInputPathGainToCheckPointOne *
-        /// kExpanderOutputStageGain * |anti-alias| * |reconstruction|, which peaks at
-        /// 29.719044 at 3278 Hz and is that same number at 48, 96 and 192 kHz. Against
-        /// kFeedbackMixRatio that leaves 19.614569, a residual fit like
-        /// kInputPathGainToCheckPointOne; dossier 4.7 item 5 replaces it.
-        static constexpr double kFeedbackResidualTrim = 1.0 / 19.614569;
+        /// The emphasis pair cancels inside the loop, and the input buffer is outside it, so
+        /// the forward gain is kExpanderOutputStageGain * |anti-alias| * |reconstruction|,
+        /// which peaks at 6.318388 at 3278 Hz and is that same number at 48, 96 and 192 kHz.
+        /// Against kFeedbackMixRatio that leaves 4.170136, which is the expander's output
+        /// stage undone plus the cascades' 1.053 passband bump; dossier 4.7 item 5 measures it.
+        static constexpr double kFeedbackTakeoffTrim = 1.0 / 4.170136;
 
         /// @brief Attenuation from the F.BACK take-off node into the summing node, which makes
         /// kMaximumFeedback the loop gain it says it is.
-        static constexpr double kFeedbackPathGain = kFeedbackMixRatio * kFeedbackResidualTrim;
+        static constexpr double kFeedbackPathGain = kFeedbackMixRatio * kFeedbackTakeoffTrim;
 
         /// @brief Wet gain at E.LEVEL fully up, from the service note's check point [5].
         ///
