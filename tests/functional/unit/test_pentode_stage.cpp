@@ -26,7 +26,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/jcm800/PentodeStage.hpp"
+#include "SushiDSP/circuits/stages/PentodeStage.hpp"
 
 namespace
 {

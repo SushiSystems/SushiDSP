@@ -3,6 +3,12 @@
 Grouped by roadmap phase (spec §9). Each phase's implementation plan lives under
 `docs/superpowers/plans/` with the full task-by-task record.
 
+## DA — High-gain amplifiers
+
+The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-gain-amps-part1/`.
+
+- 2026-09-06 — Moved `TriodeStage`, `PentodeStage`, `OutputTransformerStage`, `PowerSupplySagStage` to `include/SushiDSP/circuits/stages/`; added `PowerTubePresets.hpp` (`kEl34`).
+
 ## DR2 — Boss DD-3 delay
 
 The delay/reverb track's second phase, spec

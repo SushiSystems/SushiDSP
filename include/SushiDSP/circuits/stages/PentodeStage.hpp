@@ -27,7 +27,7 @@ namespace SushiDSP
 {
     /// @brief An EL34 push-pull half-channel: the same grid-conduction Newton-Raphson
     /// nonlinearity TriodeStage uses, followed by an explicit tanh plate-saturation waveshaper.
-    /// Task 7 instantiates two of these, driven from opposite-phase inputs.
+    /// An amplifier module instantiates one per push-pull half.
     class PentodeStage
     {
     public:

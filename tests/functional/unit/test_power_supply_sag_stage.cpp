@@ -26,7 +26,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/jcm800/PowerSupplySagStage.hpp"
+#include "SushiDSP/circuits/stages/PowerSupplySagStage.hpp"
 
 TEST(Unit_Dsp, PowerSupplySagStageReducesGainUnderSustainedLoudInput)
 {

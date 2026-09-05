@@ -25,7 +25,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/jcm800/TriodeStage.hpp"
+#include "SushiDSP/circuits/stages/TriodeStage.hpp"
 
 namespace
 {

@@ -443,6 +443,9 @@ amount and oversample factor are compile-time constants.
   2.17 % second harmonic active vs. 2.93 % zeroed, up from 1.77 % / 2.45 % before D6a: the
   absolute figures moved because the drive reaching the power stage changed, while the
   mismatch's own effect — it removes about 0.76 pp of second harmonic — is unchanged.
+- Since DA0 the four stage classes live in `include/SushiDSP/circuits/stages/`, owned by the
+  core, so any amplifier module can use them; `modules/jcm800` keeps only `JcmToneStack` and
+  `Jcm800`.
 
 ---
 

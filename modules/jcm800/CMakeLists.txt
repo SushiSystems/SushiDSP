@@ -1,9 +1,5 @@
 add_library(jcm800 STATIC
-    src/TriodeStage.cpp
-    src/PentodeStage.cpp
     src/JcmToneStack.cpp
-    src/OutputTransformerStage.cpp
-    src/PowerSupplySagStage.cpp
     src/Jcm800.cpp
 )
 add_library(SushiDSP::jcm800 ALIAS jcm800)
