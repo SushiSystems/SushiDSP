@@ -25,7 +25,10 @@
 // and it must remain the very first thing in the translation unit.
 #define _USE_MATH_DEFINES
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 
 #include <gtest/gtest.h>
 
@@ -267,4 +270,84 @@ TEST(Unit_Dsp, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
     }
     EXPECT_NEAR(gain_db_at(13800.0), -3.0, 0.1);
     EXPECT_NEAR(gain_db_at(27600.0) - gain_db_at(13800.0), -4.1, 0.3);
+}
+
+namespace
+{
+    /// @brief Magnitude response of a configured Biquad at one frequency, by driving it with a
+    /// long sine and reading the settled peak.
+    /// @param filter The filter, already configured; reset before use.
+    /// @param frequency_hz Probe frequency.
+    /// @param sample_rate Sample rate the filter was configured at.
+    /// @return Peak output amplitude for a unit-amplitude input.
+    double biquad_magnitude(SushiDSP::Biquad& filter, double frequency_hz, double sample_rate)
+    {
+        filter.reset();
+        const std::size_t settle = 200000;
+        const std::size_t measure = static_cast<std::size_t>(std::round(20.0 * sample_rate / frequency_hz));
+        double peak = 0.0;
+        for (std::size_t n = 0; n < settle + measure; ++n)
+        {
+            const float y = filter.process_sample(
+                static_cast<float>(std::sin(2.0 * M_PI * frequency_hz * static_cast<double>(n) / sample_rate)));
+            if (n >= settle)
+            {
+                peak = std::max(peak, std::abs(static_cast<double>(y)));
+            }
+        }
+        return peak;
+    }
+}
+
+TEST(Unit_Dsp, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
+{
+    // DD-3 pre-emphasis (DR1+DR2 plan N4): zero 594.07 Hz, pole 3386.28 Hz, LF gain 33/47.
+    //   LF gain  = 0.7021277                     (-3.0745 dB)
+    //   HF gain  = 0.7021277 * (3386.28/594.07)  = 0.7021277 * 5.700063 = 4.0021712
+    //   at 1 kHz = 0.7021277 * sqrt((1+(1000/594.07)^2)/(1+(1000/3386.28)^2))
+    //            = 0.7021277 * 1.8777630 = 1.3183700
+    // The discretised HF asymptote is tan-warped and is NOT 4.0021712 at Nyquist; 12 kHz is far
+    // enough below Nyquist that the warping is under 1 %, which is what the tolerance allows.
+    SushiDSP::Biquad shelf;
+    shelf.set_first_order_shelf(48000.0, 594.07, 3386.28, 33.0 / 47.0);
+    EXPECT_NEAR(biquad_magnitude(shelf, 20.0, 48000.0), 0.7021277, 2e-3);
+    EXPECT_NEAR(biquad_magnitude(shelf, 1000.0, 48000.0), 1.3183700, 3e-3);
+    EXPECT_NEAR(biquad_magnitude(shelf, 12000.0, 48000.0), 4.0021712, 4.0e-2);
+}
+
+TEST(Unit_Dsp, BiquadFirstOrderShelfPairCancelsExactly)
+{
+    // N4: pre-emphasis (zero 594.07, pole 3386.28, gain 33/47) followed by de-emphasis (the same
+    // two corners swapped, gain 47/33) is the identity, because the numerator polynomial of one
+    // is the denominator polynomial of the other and the scalars multiply to 1. Assert a null
+    // below -120 dB on a broadband signal, which no tolerance-based response check would catch.
+    SushiDSP::Biquad pre, de;
+    pre.set_first_order_shelf(48000.0, 594.07, 3386.28, 33.0 / 47.0);
+    de.set_first_order_shelf(48000.0, 3386.28, 594.07, 47.0 / 33.0);
+    double signal_power = 0.0;
+    double error_power = 0.0;
+    std::uint32_t state = 22695477u;
+    for (std::size_t n = 0; n < 200000; ++n)
+    {
+        state = state * 1103515245u + 12345u;
+        const float input = 0.5f * (static_cast<float>(state >> 16) / 32768.0f - 1.0f);
+        const float output = de.process_sample(pre.process_sample(input));
+        if (n >= 4096)
+        {
+            signal_power += static_cast<double>(input) * input;
+            error_power += static_cast<double>(output - input) * (output - input);
+        }
+    }
+    EXPECT_LE(10.0 * std::log10(error_power / signal_power), -120.0);
+}
+
+TEST(Unit_Dsp, BiquadFirstOrderShelfWithEqualCornersIsAFlatGain)
+{
+    // A degenerate but reachable configuration: zero == pole cancels, leaving a plain gain.
+    SushiDSP::Biquad shelf;
+    shelf.set_first_order_shelf(48000.0, 1000.0, 1000.0, 2.0);
+    for (const double frequency : { 30.0, 300.0, 3000.0, 15000.0 })
+    {
+        EXPECT_NEAR(biquad_magnitude(shelf, frequency, 48000.0), 2.0, 1e-3) << frequency;
+    }
 }
