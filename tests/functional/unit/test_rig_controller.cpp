@@ -370,6 +370,157 @@ TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsCabinetIr)
     std::remove(ir_path.c_str());
 }
 
+// --- Per-slot bypass ---
+//
+// A bypassed slot keeps its place in slot_order_, its parameters and its edges; only the
+// published graph leaves it out, wiring its upstream neighbours straight to its downstream ones.
+
+TEST(Unit_Dsp, RigControllerBypassBridgesTheSlotsNeighbours)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    const RigController::SlotId first = controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId middle = controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId last = controller.append("sushidsp.jcm800");
+
+    controller.set_bypassed(middle, true);
+
+    EXPECT_TRUE(controller.is_bypassed(middle));
+    ASSERT_NE(controller.active_graph(), nullptr);
+    EXPECT_EQ(controller.active_graph()->nodes().size(), 2u);
+    // The bypassed slot keeps its place in the rig; only the graph skips it.
+    EXPECT_EQ(controller.slot_order().size(), 3u);
+    EXPECT_EQ(controller.upstream_of(last).size(), 1u);
+    EXPECT_EQ(controller.upstream_of(last)[0], middle);
+    (void)first;
+}
+
+TEST(Unit_Dsp, RigControllerUnbypassRestoresTheOriginalGraph)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId middle = controller.append("sushidsp.tubescreamer");
+    controller.append("sushidsp.jcm800");
+
+    controller.set_bypassed(middle, true);
+    controller.set_bypassed(middle, false);
+
+    EXPECT_FALSE(controller.is_bypassed(middle));
+    ASSERT_NE(controller.active_graph(), nullptr);
+    EXPECT_EQ(controller.active_graph()->nodes().size(), 3u);
+}
+
+TEST(Unit_Dsp, RigControllerBridgesTwoBypassedSlotsInARow)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId second = controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId third = controller.append("sushidsp.tubescreamer");
+    controller.append("sushidsp.jcm800");
+
+    controller.set_bypassed(second, true);
+    controller.set_bypassed(third, true);
+
+    ASSERT_NE(controller.active_graph(), nullptr);
+    EXPECT_EQ(controller.active_graph()->nodes().size(), 2u);
+}
+
+TEST(Unit_Dsp, RigControllerBypassingTheHeadSlotLeavesAWorkingGraph)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    const RigController::SlotId head = controller.append("sushidsp.tubescreamer");
+    controller.append("sushidsp.jcm800");
+
+    controller.set_bypassed(head, true);
+
+    ASSERT_NE(controller.active_graph(), nullptr);
+    EXPECT_EQ(controller.active_graph()->nodes().size(), 1u);
+    EXPECT_FALSE(controller.active_graph()->is_empty());
+}
+
+TEST(Unit_Dsp, RigControllerBypassingEverySlotLeavesAnEmptyGraph)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    const RigController::SlotId only = controller.append("sushidsp.tubescreamer");
+
+    controller.set_bypassed(only, true);
+
+    ASSERT_NE(controller.active_graph(), nullptr);
+    EXPECT_TRUE(controller.active_graph()->is_empty());
+}
+
+TEST(Unit_Dsp, RigControllerSaveToJsonKeepsABypassedNodeAndFlagsIt)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId middle = controller.append("sushidsp.tubescreamer");
+    controller.append("sushidsp.jcm800");
+    controller.set_bypassed(middle, true);
+
+    const nlohmann::json parsed = nlohmann::json::parse(controller.save_to_json());
+
+    ASSERT_EQ(parsed.at("nodes").size(), 3u);
+    int flagged = 0;
+    for (const auto& node : parsed.at("nodes"))
+    {
+        if (node.contains("bypassed") && node.at("bypassed").get<bool>())
+        {
+            ++flagged;
+        }
+    }
+    EXPECT_EQ(flagged, 1);
+}
+
+TEST(Unit_Dsp, RigControllerLoadFromJsonRestoresTheBypassFlag)
+{
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    source.append("sushidsp.tubescreamer");
+    const RigController::SlotId middle = source.append("sushidsp.tubescreamer");
+    source.append("sushidsp.jcm800");
+    source.set_bypassed(middle, true);
+    const std::string preset = source.save_to_json();
+
+    RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    target.load_from_json(preset);
+
+    const std::vector<RigController::SlotId> order = target.slot_order();
+    ASSERT_EQ(order.size(), 3u);
+    int bypassed = 0;
+    for (RigController::SlotId slot : order)
+    {
+        if (target.is_bypassed(slot))
+        {
+            ++bypassed;
+        }
+    }
+    EXPECT_EQ(bypassed, 1);
+    ASSERT_NE(target.active_graph(), nullptr);
+    EXPECT_EQ(target.active_graph()->nodes().size(), 2u);
+}
+
+TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoBypassFieldWithEverySlotActive)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+        {"id":1,"type":"sushidsp.jcm800","params":{},"inputs":[0]}
+    ]})";
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    controller.load_from_json(preset);
+
+    for (RigController::SlotId slot : controller.slot_order())
+    {
+        EXPECT_FALSE(controller.is_bypassed(slot));
+    }
+    ASSERT_NE(controller.active_graph(), nullptr);
+    EXPECT_EQ(controller.active_graph()->nodes().size(), 2u);
+}
+
+TEST(Unit_Dsp, RigControllerIsBypassedIsFalseForASlotThatIsNotLive)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    EXPECT_FALSE(controller.is_bypassed(9999));
+}
+
 // --- Rack-list selection tracking (apps/host_gui/SlotSelection.hpp) ---
 //
 // A SlotId stays valid across insert/move/remove, unlike the old int-index scheme, so the only

@@ -26,6 +26,9 @@
 #include <algorithm>
 #include <cstring>
 #include <exception>
+#include <memory>
+#include <set>
+#include <utility>
 
 #include <nlohmann/json.hpp>
 
@@ -409,29 +412,44 @@ SushiDSP::RtGraphSlot& RigController::graph_slot()
 
 std::string RigController::save_to_json() const
 {
-    if (active_graph_ == nullptr)
+    if (slot_order_.empty())
     {
         return "{\"nodes\":[]}";
     }
-    return SushiDSP::serialize_rig_to_json(*active_graph_,
-        [this](SushiDSP::NodeHandle handle, nlohmann::json& node_json)
+
+    std::unordered_map<SlotId, SushiDSP::NodeHandle> handles;
+    const std::unique_ptr<SushiDSP::RigGraph> graph = build_graph(false, handles);
+
+    std::unordered_map<SushiDSP::NodeHandle, SlotId> slot_by_handle;
+    for (const auto& [slot, handle] : handles)
+    {
+        slot_by_handle[handle] = slot;
+    }
+
+    return SushiDSP::serialize_rig_to_json(*graph,
+        [this, &slot_by_handle](SushiDSP::NodeHandle handle, nlohmann::json& node_json)
         {
-            for (const auto& [slot, mapped_handle] : slot_to_handle_)
+            const auto it = slot_by_handle.find(handle);
+            if (it == slot_by_handle.end())
             {
-                if (mapped_handle == handle)
-                {
-                    nlohmann::json params_json = nlohmann::json::object();
-                    for (const auto& [param_id, value] : slots_.at(slot).parameters)
-                    {
-                        params_json[param_id] = value;
-                    }
-                    node_json["params"] = params_json;
-                    if (!slots_.at(slot).cabinet_path.empty())
-                    {
-                        node_json["cabinet_ir"] = slots_.at(slot).cabinet_path;
-                    }
-                    return;
-                }
+                return;
+            }
+            const Slot& slot = slots_.at(it->second);
+
+            nlohmann::json params_json = nlohmann::json::object();
+            for (const auto& [param_id, value] : slot.parameters)
+            {
+                params_json[param_id] = value;
+            }
+            node_json["params"] = params_json;
+
+            if (!slot.cabinet_path.empty())
+            {
+                node_json["cabinet_ir"] = slot.cabinet_path;
+            }
+            if (slot.bypassed)
+            {
+                node_json["bypassed"] = true;
             }
         });
 }
@@ -444,12 +462,18 @@ void RigController::load_from_json(const std::string& json_text)
     const std::size_t node_count = nlohmann::json::parse(json_text).at("nodes").size();
     SushiDSP::RigGraph scratch(info_.max_block, static_cast<std::uint32_t>(node_count + 1));
     std::unordered_map<SushiDSP::NodeHandle, std::string> cabinet_paths_by_handle;
+    std::unordered_map<SushiDSP::NodeHandle, bool> bypassed_by_handle;
     SushiDSP::deserialize_rig_from_json(scratch, json_text, info_,
-        [&cabinet_paths_by_handle](SushiDSP::NodeHandle handle, const nlohmann::json& node_json)
+        [&cabinet_paths_by_handle, &bypassed_by_handle](
+            SushiDSP::NodeHandle handle, const nlohmann::json& node_json)
         {
             if (node_json.contains("cabinet_ir"))
             {
                 cabinet_paths_by_handle[handle] = node_json.at("cabinet_ir").get<std::string>();
+            }
+            if (node_json.contains("bypassed"))
+            {
+                bypassed_by_handle[handle] = node_json.at("bypassed").get<bool>();
             }
         });
     scratch.compile(info_);
@@ -484,6 +508,11 @@ void RigController::load_from_json(const std::string& json_text)
         {
             slot.cabinet_path = cabinet_it->second;
         }
+        const auto bypass_it = bypassed_by_handle.find(handle);
+        if (bypass_it != bypassed_by_handle.end())
+        {
+            slot.bypassed = bypass_it->second;
+        }
         slots_[id] = std::move(slot);
         slot_order_.push_back(id);
         handle_to_slot[handle] = id;
@@ -499,42 +528,143 @@ void RigController::load_from_json(const std::string& json_text)
     publish();
 }
 
-void RigController::publish()
+std::unique_ptr<SushiDSP::RigGraph> RigController::build_graph(bool apply_bypass,
+    std::unordered_map<SlotId, SushiDSP::NodeHandle>& handles_out) const
 {
-    auto graph = std::make_unique<SushiDSP::RigGraph>(info_.max_block, static_cast<std::uint32_t>(slot_order_.size() + 1));
+    handles_out.clear();
 
-    std::vector<SlotId> surviving_order;
-    surviving_order.reserve(slot_order_.size());
-    std::unordered_map<SlotId, SushiDSP::NodeHandle> fresh_handles;
+    auto graph = std::make_unique<SushiDSP::RigGraph>(
+        info_.max_block, static_cast<std::uint32_t>(slot_order_.size() + 1));
+
     for (SlotId id : slot_order_)
     {
-        auto node = SushiDSP::make_node(slots_.at(id).descriptor_id.c_str(), info_);
-        if (node == nullptr)
+        const Slot& slot = slots_.at(id);
+        if (apply_bypass && slot.bypassed)
         {
-            slots_.erase(id);
             continue;
         }
-        fresh_handles[id] = graph->add_node(std::move(node));
-        surviving_order.push_back(id);
+        auto node = SushiDSP::make_node(slot.descriptor_id.c_str(), info_);
+        if (node == nullptr)
+        {
+            continue;
+        }
+        handles_out[id] = graph->add_node(std::move(node));
     }
-    slot_order_ = std::move(surviving_order);
-    edges_.erase(
-        std::remove_if(edges_.begin(), edges_.end(),
-            [&fresh_handles](const Edge& edge)
-            { return fresh_handles.find(edge.from) == fresh_handles.end()
-                  || fresh_handles.find(edge.to) == fresh_handles.end(); }),
-        edges_.end());
 
-    for (const Edge& edge : edges_)
+    const std::vector<std::pair<SlotId, SlotId>> resolved =
+        apply_bypass ? bridged_edges(handles_out) : direct_edges(handles_out);
+
+    std::unordered_map<SlotId, std::size_t> fan_out;
+    std::unordered_map<SlotId, std::size_t> fan_in;
+    for (const auto& edge : resolved)
     {
-        graph->connect(fresh_handles.at(edge.from), fresh_handles.at(edge.to));
+        if (++fan_out[edge.first] > SushiDSP::RigGraph::kMaxFanInOut
+            || ++fan_in[edge.second] > SushiDSP::RigGraph::kMaxFanInOut)
+        {
+            throw std::runtime_error(
+                "RigController::build_graph: bridging a bypassed slot would exceed the graph's "
+                "fan-in/fan-out limit");
+        }
+    }
+
+    for (const auto& edge : resolved)
+    {
+        graph->connect(handles_out.at(edge.first), handles_out.at(edge.second));
     }
 
     graph->compile(info_);
+    return graph;
+}
 
+std::vector<std::pair<RigController::SlotId, RigController::SlotId>>
+RigController::direct_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const
+{
+    std::vector<std::pair<SlotId, SlotId>> result;
+    for (const Edge& edge : edges_)
+    {
+        if (live.count(edge.from) != 0 && live.count(edge.to) != 0)
+        {
+            result.push_back({ edge.from, edge.to });
+        }
+    }
+    return result;
+}
+
+std::vector<std::pair<RigController::SlotId, RigController::SlotId>>
+RigController::bridged_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const
+{
+    std::vector<std::pair<SlotId, SlotId>> result;
+    std::set<std::pair<SlotId, SlotId>> seen;
+
+    for (const Edge& edge : edges_)
+    {
+        if (live.count(edge.from) == 0)
+        {
+            continue;
+        }
+
+        // Walk forward from edge.to through bypassed slots until every live target is found.
+        std::vector<SlotId> frontier{ edge.to };
+        std::set<SlotId> visited;
+        while (!frontier.empty())
+        {
+            const SlotId current = frontier.back();
+            frontier.pop_back();
+            if (!visited.insert(current).second)
+            {
+                continue;
+            }
+            if (live.count(current) != 0)
+            {
+                if (seen.insert({ edge.from, current }).second)
+                {
+                    result.push_back({ edge.from, current });
+                }
+                continue;
+            }
+            for (const Edge& next : edges_)
+            {
+                if (next.from == current)
+                {
+                    frontier.push_back(next.to);
+                }
+            }
+        }
+    }
+    return result;
+}
+
+void RigController::publish()
+{
+    std::unordered_map<SlotId, SushiDSP::NodeHandle> fresh_handles;
+    auto graph = build_graph(true, fresh_handles);
+
+    // A slot the registry no longer knows is dropped here rather than inside build_graph, which
+    // stays const so save_to_json() can call it too.
+    std::vector<SlotId> surviving_order;
+    surviving_order.reserve(slot_order_.size());
     for (SlotId id : slot_order_)
     {
-        SushiDSP::IAudioNode* node = graph->node(fresh_handles.at(id));
+        if (fresh_handles.count(id) != 0 || slots_.at(id).bypassed)
+        {
+            surviving_order.push_back(id);
+        }
+        else
+        {
+            slots_.erase(id);
+        }
+    }
+    slot_order_ = std::move(surviving_order);
+
+    edges_.erase(
+        std::remove_if(edges_.begin(), edges_.end(),
+            [this](const Edge& edge)
+            { return slots_.count(edge.from) == 0 || slots_.count(edge.to) == 0; }),
+        edges_.end());
+
+    for (const auto& [id, handle] : fresh_handles)
+    {
+        SushiDSP::IAudioNode* node = graph->node(handle);
         if (node == nullptr)
         {
             continue;
@@ -554,4 +684,31 @@ void RigController::publish()
     }
 
     graph_slot_.publish(std::move(graph));
+}
+
+void RigController::set_bypassed(SlotId slot, bool bypassed)
+{
+    const auto it = slots_.find(slot);
+    if (it == slots_.end() || it->second.bypassed == bypassed)
+    {
+        return;
+    }
+
+    const bool previous = it->second.bypassed;
+    it->second.bypassed = bypassed;
+    try
+    {
+        publish();
+    }
+    catch (...)
+    {
+        it->second.bypassed = previous;
+        throw;
+    }
+}
+
+bool RigController::is_bypassed(SlotId slot) const
+{
+    const auto it = slots_.find(slot);
+    return it != slots_.end() && it->second.bypassed;
 }
