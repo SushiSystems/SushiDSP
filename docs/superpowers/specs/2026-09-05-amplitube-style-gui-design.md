@@ -20,6 +20,15 @@ bypassing every slot leaves a graph with no nodes.
   proportions chosen for that device rather than a generic list.
 - The signal chain is drawn as a graph, so a splitter feeding two branches into a mixer reads as
   two rows on screen instead of a flat list.
+
+  > **Amendment (post-implementation).** This goal was written about drawing, and drawing is what
+  > shipped: `ChainLayout` places a splitter's two branches on separate rows and returns the mixer
+  > to row 0, and `ChainStrip` draws the curved links between them. *Building* that shape through
+  > the GUI did not ship. The chain strip's drop targets call `append()` and `insert_before()`,
+  > which are linear by construction, and nothing in `apps/host_gui/` calls
+  > `RigController::connect()`. A branch can therefore only arrive from a hand-written preset, and
+  > the first drag on the strip flattens it. The affordance that would close the gap — dragging a
+  > node onto a splitter's second output — is its own spec.
 - Any slot can be bypassed and un-bypassed, and the bypass state survives a preset round trip.
 - A player can see signal reaching the input and leaving the output.
 - Audio device and channel selection is reachable at any time, not only before the first
