@@ -291,9 +291,9 @@ TEST(Unit_Dsp, Dd3DelayRepeatsDecayAndDarkenWithFeedback)
 TEST(Unit_Dsp, Dd3DelaySelfOscillatesOnlyAtTheTopOfTheKnob)
 {
     // kFeedbackPathGain exists so that kMaximumFeedback is the loop gain it claims to be: the
-    // loop's forward gain peaks at 29.719 at 3278 Hz, and without the trim the node would
-    // regenerate from F.BACK 0.03 upward. Below the top of the knob the tail dies; at the top
-    // it sustains.
+    // loop's forward gain peaks at 6.3184 at 3278 Hz, and on the mix resistors alone the node
+    // would regenerate from F.BACK 0.22 upward. Below the top of the knob the tail dies; at the
+    // top it sustains.
     const auto input = burst_stimulus(static_cast<std::size_t>(2.0 * kSampleRate));
     double tails[2] = { 0.0, 0.0 };
     const float positions[2] = { 0.7f, 1.0f };

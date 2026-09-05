@@ -125,7 +125,8 @@ namespace SushiDSP
         const double dry = static_cast<double>(input) * kFullScaleVolts;
         const double injected = static_cast<double>(feedback_.next())
                               * kMaximumFeedback * kFeedbackPathGain * wet_previous_;
-        const float summed = static_cast<float>((dry + injected) * kInputPathGainToCheckPointOne);
+        // The input buffer sits ahead of the summing node, so only the dry branch carries it.
+        const float summed = static_cast<float>(dry * kInputPathGainToCheckPointOne + injected);
 
         float drive = pre_emphasis_.process_sample(summed);
         drive = anti_alias_.process_sample(drive);
