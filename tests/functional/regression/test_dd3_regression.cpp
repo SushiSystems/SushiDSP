@@ -52,7 +52,8 @@ namespace
 
     /// @brief One second of the pedal at the knob positions the snapshot pins.
     ///
-    /// MODE M at D.TIME 0.4 puts a 91 ms ring inside the stimulus, and F.BACK 0.45 sits well
+    /// MODE M at D.TIME 0.4 clocks the ring at 46804.2 Hz, so 4096 samples of it are 87.5 ms
+    /// and the whole wet path is 89.1 ms, several repeats inside the stimulus. F.BACK 0.45 sits
     /// inside the loop's stable region while still recirculating: a change to either resampler,
     /// to the compander or to the converter moves the file. Every knob is set before prepare()
     /// so the smoothers snap and the file holds the settled pedal rather than its ramp.
