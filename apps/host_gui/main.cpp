@@ -25,7 +25,6 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -41,11 +40,16 @@
 #include "SushiDSP/core/RtGraphSlot.hpp"
 #include "SushiDSP/device/ChannelSelection.hpp"
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
-#include "SushiDSP/node_registry/NodeRegistry.hpp"
-#include "SushiDSP/rig_preset/RigPreset.hpp"
 
 #include "RigController.hpp"
-#include "SlotSelection.hpp"
+#include "ui/ChainStrip.hpp"
+#include "ui/DeviceSettings.hpp"
+#include "ui/GearBrowser.hpp"
+#include "ui/LevelProbe.hpp"
+#include "ui/MeterBar.hpp"
+#include "ui/StagePanel.hpp"
+#include "ui/Theme.hpp"
+#include "ui/TopBar.hpp"
 
 #if defined(SUSHIDSP_HAVE_ASIO)
 #include "SushiDSP/device/AsioAudioDevice.hpp"
@@ -125,11 +129,9 @@ int main(int argc, char** argv)
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ui::apply_theme();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
-
-    enum class AppState { SelectingDevice, Running };
-    AppState app_state = AppState::SelectingDevice;
 
     const std::vector<std::string> asio_drivers =
 #if defined(SUSHIDSP_HAVE_ASIO)
@@ -138,24 +140,28 @@ int main(int argc, char** argv)
         std::vector<std::string>{};
 #endif
 
-    int selected_device_index = 0;  // 0 = "SDL2 (no input)", 1..N = asio_drivers[index-1]
-    SushiDSP::ChannelSelection selected_input = SushiDSP::ChannelSelection::Left;
-    SushiDSP::ChannelSelection selected_output = SushiDSP::ChannelSelection::Stereo;
+    ui::DeviceChoice device_choice{ 0, SushiDSP::ChannelSelection::Left,
+                                    SushiDSP::ChannelSelection::Stereo };
+    std::optional<RigController::SlotId> selected_slot;
+    std::string device_label = "not connected";
+    std::string status;
     std::string connect_error;
-    std::string cabinet_error;
-    double cabinet_error_time = 0.0;
+    bool open_device_settings = true;
 
     // Both buffers are captured BY REFERENCE in the device callback (below), and that callback
     // keeps firing on the audio thread for as long as the device runs - i.e. for every frame
     // after the one where Connect was clicked. They MUST therefore live in this outer
-    // main()-body scope, not inside the `if (ImGui::Button("Connect"))` block: a
-    // same-scope-as-the-button declaration would be destroyed the instant that block exits,
-    // leaving the callback's captured references dangling on the very next audio callback.
-    // Both start empty and are `.assign()`-ed once, inside the Connect handler, once
-    // `actual.block_size` is known - never resized again afterward, so the callback that
-    // captures them by reference stays allocation-free.
+    // main()-body scope, not inside the connect_device lambda: a lambda-body declaration would
+    // be destroyed the instant the connect sequence returns, leaving the callback's captured
+    // references dangling on the very next audio callback. Both start empty and are
+    // `.assign()`-ed once, inside connect_device, once `actual.block_size` is known - never
+    // resized again afterward, so the callback that captures them by reference stays
+    // allocation-free. The two level probes sit here for the same lifetime reason: the callback
+    // reports a peak into each of them on every block.
     std::vector<float> mono_output;
     std::vector<float> callback_silence;
+    ui::LevelProbe input_probe;
+    ui::LevelProbe output_probe;
 
     // rig_controller_storage is declared (as storage) before device so that, by C++'s reverse-
     // declaration-order destruction rule, `device` is guaranteed to be destroyed BEFORE
@@ -163,17 +169,143 @@ int main(int argc, char** argv)
     // relying on the explicit device->stop() call below. RigController's constructor needs
     // `info`, which is derived from device->format(), so it cannot be constructed until after
     // `device` exists; std::optional lets us fix the *declaration* order (and hence destruction
-    // order) independently of the *construction* order. mono_output/callback_silence are
-    // declared even earlier, above, so they are destroyed LAST of all four - i.e. after `device`
-    // is already destroyed, which is exactly correct: nothing may reference them once they're
-    // gone, and `device` (whose callback references them) is already torn down by that point.
+    // order) independently of the *construction* order. mono_output/callback_silence and the two
+    // probes are declared even earlier, above, so they are destroyed LAST of all - i.e. after
+    // `device` is already destroyed, which is exactly correct: nothing may reference them once
+    // they're gone, and `device` (whose callback references them) is already torn down by that
+    // point.
     std::optional<RigController> rig_controller_storage;
     std::unique_ptr<SushiDSP::IAudioDevice> device;
+
+    /// @brief Opens the chosen device, builds a rig for its format and starts the audio callback.
+    /// Records the failure in connect_error and leaves the previous rig gone on any exception.
+    auto connect_device = [&device, &device_choice, &asio_drivers, &connect_error,
+                           &rig_controller_storage, &mono_output, &callback_silence, &input_probe,
+                           &output_probe, &device_label, &selected_slot, &open_device_settings]()
+    {
+        connect_error.clear();
+
+        // Destroy any previous (possibly partially-set-up) device FIRST, before
+        // constructing a new one. AsioAudioDevice/Sdl2AudioDevice both wrap
+        // process-wide SDK state; std::unique_ptr::operator= would otherwise
+        // evaluate the new construction (ASIOInit/ASIOCreateBuffers etc.) while
+        // the old device is still alive, then tear that old state down only
+        // afterwards - destroying the SDK state the new device just built.
+        device.reset();
+
+        try
+        {
+            if (device_choice.device_index == 0)
+            {
+                SushiDSP::DeviceFormat requested{ 48000.0, 256, 1, 1 };
+                device = std::make_unique<SushiDSP::Sdl2AudioDevice>(requested);
+            }
+#if defined(SUSHIDSP_HAVE_ASIO)
+            else
+            {
+                SushiDSP::DeviceFormat requested{ 48000.0, 256, 2, 2 };
+                device = std::make_unique<SushiDSP::AsioAudioDevice>(
+                    asio_drivers[static_cast<std::size_t>(device_choice.device_index - 1)], requested);
+            }
+#endif
+
+            const SushiDSP::DeviceFormat actual = device->format();
+            // The rig itself stays mono (1 in, 1 out) - channel selection only decides
+            // which physical ASIO channel feeds it and which physical channel(s) its
+            // output reaches (mirrors apps/host_asio/main.cpp's own pattern). The rig
+            // always renders into the one-element mono_output_ptr array below, so this
+            // must be 1 regardless of actual.output_channels.
+            SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, 1 };
+            rig_controller_storage.emplace(info);
+
+            const std::size_t input_index = SushiDSP::channel_selection_input_index(device_choice.input);
+            const SushiDSP::ChannelSelection output_selection = device_choice.output;
+            const bool is_multi_channel_input = actual.input_channels >= 2;
+            const bool is_multi_channel_output = actual.output_channels >= 2;
+
+            // Sized once, here, off the audio thread - the outer-scope vectors declared
+            // above (mono_output, callback_silence) are never resized again after this,
+            // so the callback that captures them by reference stays allocation-free
+            // (mirrors apps/host_asio/main.cpp's own pattern).
+            mono_output.assign(actual.block_size, 0.0f);
+            callback_silence.assign(actual.block_size, 0.0f);
+
+            RigController& rig_controller_ref = *rig_controller_storage;
+            device->start([&rig_controller_ref, &mono_output, &callback_silence, &input_probe,
+                            &output_probe, input_index, output_selection, is_multi_channel_input,
+                            is_multi_channel_output]
+                (const float* const* inputs, float* const* outputs, std::uint32_t frames)
+            {
+                if (frames > mono_output.size())
+                {
+                    return;
+                }
+                SushiDSP::RigGraph* active = rig_controller_ref.graph_slot().acquire_for_audio_thread();
+
+                const float* selected_channel[1];
+                if (inputs == nullptr)
+                {
+                    const float* silence_channel = callback_silence.data();
+                    selected_channel[0] = silence_channel;
+                }
+                else if (is_multi_channel_input)
+                {
+                    selected_channel[0] = inputs[input_index];
+                }
+                else
+                {
+                    selected_channel[0] = inputs[0];
+                }
+
+                input_probe.report(selected_channel[0], frames);
+
+                float* mono_output_ptr[1] = { mono_output.data() };
+                SushiDSP::ProcessContext context{ mono_output_ptr, selected_channel, frames, 0.0 };
+                if (active == nullptr)
+                {
+                    std::fill(mono_output.begin(), mono_output.begin() + frames, 0.0f);
+                }
+                else if (active->is_empty())
+                {
+                    // Every slot is bypassed, so the rig is a wire.
+                    std::memcpy(mono_output.data(), selected_channel[0], frames * sizeof(float));
+                }
+                else
+                {
+                    active->process(context);
+                }
+
+                output_probe.report(mono_output.data(), frames);
+
+                if (is_multi_channel_output)
+                {
+                    SushiDSP::fan_out_mono_to_stereo(mono_output.data(), outputs, frames, output_selection);
+                }
+                else
+                {
+                    std::memcpy(outputs[0], mono_output.data(), frames * sizeof(float));
+                }
+            });
+
+            device_label = std::string("Connected: ")
+                + (device_choice.device_index == 0
+                    ? "SDL2"
+                    : asio_drivers[static_cast<std::size_t>(device_choice.device_index - 1)])
+                + " (input " + SushiDSP::channel_selection_label(device_choice.input)
+                + ", output " + SushiDSP::channel_selection_label(device_choice.output) + ")";
+            selected_slot = std::nullopt;
+            open_device_settings = false;
+        }
+        catch (const std::exception& error)
+        {
+            connect_error = error.what();
+        }
+    };
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        if (app_state == AppState::Running)
+        if (rig_controller_storage.has_value())
         {
             rig_controller_storage->reclaim();
         }
@@ -182,369 +314,81 @@ int main(int argc, char** argv)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        if (app_state == AppState::SelectingDevice)
+        const ImGuiWindowFlags kRegionFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove
+            | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse
+            | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+        int display_w = 0;
+        int display_h = 0;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        const float width = static_cast<float>(display_w);
+        const float height = static_cast<float>(display_h);
+        const float top_height = 48.0f;
+        const float meter_height = 40.0f;
+        const float browser_width = 300.0f;
+        const float body_height = height - top_height - meter_height;
+        const float stage_height = body_height * 0.58f;
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+        ImGui::SetNextWindowSize(ImVec2(width, top_height));
+        ImGui::Begin("##top", nullptr, kRegionFlags);
+        if (rig_controller_storage.has_value())
         {
-            ImGui::Begin("Connect a Device");
-
-            ImGui::Text("Device");
-            if (ImGui::RadioButton("SDL2 (no input)", selected_device_index == 0))
-            {
-                selected_device_index = 0;
-            }
-            for (std::size_t i = 0; i < asio_drivers.size(); ++i)
-            {
-                ImGui::PushID(static_cast<int>(i));
-                if (ImGui::RadioButton(asio_drivers[i].c_str(), selected_device_index == static_cast<int>(i) + 1))
-                {
-                    selected_device_index = static_cast<int>(i) + 1;
-                }
-                ImGui::PopID();
-            }
-
-            if (selected_device_index > 0)
-            {
-                ImGui::Separator();
-                ImGui::Text("Input");
-                if (ImGui::RadioButton("L##input", selected_input == SushiDSP::ChannelSelection::Left)) selected_input = SushiDSP::ChannelSelection::Left;
-                ImGui::SameLine();
-                if (ImGui::RadioButton("R##input", selected_input == SushiDSP::ChannelSelection::Right)) selected_input = SushiDSP::ChannelSelection::Right;
-
-                ImGui::Text("Output");
-                if (ImGui::RadioButton("L##output", selected_output == SushiDSP::ChannelSelection::Left)) selected_output = SushiDSP::ChannelSelection::Left;
-                ImGui::SameLine();
-                if (ImGui::RadioButton("R##output", selected_output == SushiDSP::ChannelSelection::Right)) selected_output = SushiDSP::ChannelSelection::Right;
-                ImGui::SameLine();
-                if (ImGui::RadioButton("stereo##output", selected_output == SushiDSP::ChannelSelection::Stereo)) selected_output = SushiDSP::ChannelSelection::Stereo;
-            }
-
-            ImGui::Separator();
-            if (ImGui::Button("Connect"))
-            {
-                connect_error.clear();
-
-                // Destroy any previous (possibly partially-set-up) device FIRST, before
-                // constructing a new one. AsioAudioDevice/Sdl2AudioDevice both wrap
-                // process-wide SDK state; std::unique_ptr::operator= would otherwise
-                // evaluate the new construction (ASIOInit/ASIOCreateBuffers etc.) while
-                // the old device is still alive, then tear that old state down only
-                // afterwards - destroying the SDK state the new device just built.
-                device.reset();
-
-                try
-                {
-                    if (selected_device_index == 0)
-                    {
-                        SushiDSP::DeviceFormat requested{ 48000.0, 256, 1, 1 };
-                        device = std::make_unique<SushiDSP::Sdl2AudioDevice>(requested);
-                    }
-#if defined(SUSHIDSP_HAVE_ASIO)
-                    else
-                    {
-                        SushiDSP::DeviceFormat requested{ 48000.0, 256, 2, 2 };
-                        device = std::make_unique<SushiDSP::AsioAudioDevice>(
-                            asio_drivers[static_cast<std::size_t>(selected_device_index - 1)], requested);
-                    }
-#endif
-
-                    const SushiDSP::DeviceFormat actual = device->format();
-                    // The rig itself stays mono (1 in, 1 out) - channel selection only decides
-                    // which physical ASIO channel feeds it and which physical channel(s) its
-                    // output reaches (mirrors apps/host_asio/main.cpp's own pattern). The rig
-                    // always renders into the one-element mono_output_ptr array below, so this
-                    // must be 1 regardless of actual.output_channels.
-                    SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, 1 };
-                    rig_controller_storage.emplace(info);
-
-                    const std::size_t input_index = SushiDSP::channel_selection_input_index(selected_input);
-                    const SushiDSP::ChannelSelection output_selection = selected_output;
-                    const bool is_multi_channel_input = actual.input_channels >= 2;
-                    const bool is_multi_channel_output = actual.output_channels >= 2;
-
-                    // Sized once, here, off the audio thread - the outer-scope vectors declared
-                    // above (mono_output, callback_silence) are never resized again after this,
-                    // so the callback that captures them by reference stays allocation-free
-                    // (mirrors apps/host_asio/main.cpp's own pattern).
-                    mono_output.assign(actual.block_size, 0.0f);
-                    callback_silence.assign(actual.block_size, 0.0f);
-
-                    RigController& rig_controller_ref = *rig_controller_storage;
-                    device->start([&rig_controller_ref, &mono_output, &callback_silence, input_index,
-                                    output_selection, is_multi_channel_input, is_multi_channel_output]
-                        (const float* const* inputs, float* const* outputs, std::uint32_t frames)
-                    {
-                        if (frames > mono_output.size())
-                        {
-                            return;
-                        }
-                        SushiDSP::RigGraph* active = rig_controller_ref.graph_slot().acquire_for_audio_thread();
-
-                        const float* selected_channel[1];
-                        if (inputs == nullptr)
-                        {
-                            const float* silence_channel = callback_silence.data();
-                            selected_channel[0] = silence_channel;
-                        }
-                        else if (is_multi_channel_input)
-                        {
-                            selected_channel[0] = inputs[input_index];
-                        }
-                        else
-                        {
-                            selected_channel[0] = inputs[0];
-                        }
-
-                        float* mono_output_ptr[1] = { mono_output.data() };
-                        SushiDSP::ProcessContext context{ mono_output_ptr, selected_channel, frames, 0.0 };
-                        if (active != nullptr)
-                        {
-                            active->process(context);
-                        }
-                        else
-                        {
-                            std::fill(mono_output.begin(), mono_output.begin() + frames, 0.0f);
-                        }
-
-                        if (is_multi_channel_output)
-                        {
-                            SushiDSP::fan_out_mono_to_stereo(mono_output.data(), outputs, frames, output_selection);
-                        }
-                        else
-                        {
-                            std::memcpy(outputs[0], mono_output.data(), frames * sizeof(float));
-                        }
-                    });
-
-                    app_state = AppState::Running;
-                }
-                catch (const std::exception& error)
-                {
-                    connect_error = error.what();
-                }
-            }
-            if (!connect_error.empty())
-            {
-                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", connect_error.c_str());
-            }
-
-            ImGui::End();
+            ui::DrawTopBar(*rig_controller_storage, device_label, open_device_settings, status);
         }
         else
         {
-        RigController& rig_controller = *rig_controller_storage;
-
-        ImGui::Begin("SushiDSP Rig");
-
-        ImGui::Text("Connected: %s (input %s, output %s)",
-            selected_device_index == 0 ? "SDL2" : asio_drivers[static_cast<std::size_t>(selected_device_index - 1)].c_str(),
-            SushiDSP::channel_selection_label(selected_input),
-            SushiDSP::channel_selection_label(selected_output));
-        ImGui::Separator();
-
-        static char preset_path[256] = "preset.json";
-        ImGui::InputText("Preset path", preset_path, sizeof(preset_path));
-        ImGui::SameLine();
-        if (ImGui::Button("Save"))
-        {
-            try
+            ImGui::TextColored(ui::to_imvec4(ui::palette().muted_text), "No device connected.");
+            ImGui::SameLine(width - 96.0f);
+            if (ImGui::Button("Settings"))
             {
-                std::ofstream out(preset_path);
-                if (!out) { throw std::runtime_error("could not open '" + std::string(preset_path) + "' for writing"); }
-                out << rig_controller.save_to_json();
-            }
-            catch (const std::exception& e) { std::fprintf(stderr, "Save failed: %s\n", e.what()); }
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Load"))
-        {
-            try
-            {
-                std::ifstream in(preset_path);
-                if (!in) { throw std::runtime_error("could not open '" + std::string(preset_path) + "' for reading"); }
-                std::string json_text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-                rig_controller.load_from_json(json_text);
-            }
-            catch (const std::exception& e) { std::fprintf(stderr, "Load failed: %s\n", e.what()); }
-        }
-        ImGui::Separator();
-
-        ImGui::Text("Rack");
-        ImGui::Separator();
-        {
-            const auto rack_slots = rig_controller.slot_order();
-            static std::optional<RigController::SlotId> selected_slot;
-            for (std::size_t i = 0; i < rack_slots.size(); ++i)
-            {
-                const RigController::SlotId slot = rack_slots[i];
-                const std::string label = rig_controller.descriptor_id(slot);
-                ImGui::PushID(static_cast<int>(i));
-                if (ImGui::Selectable(label.c_str(), selected_slot == std::optional<RigController::SlotId>(slot), 0, ImVec2(150, 0)))
-                {
-                    selected_slot = slot;
-                }
-                if (ImGui::BeginDragDropSource())
-                {
-                    ImGui::SetDragDropPayload("RACK_SLOT_ID", &slot, sizeof(RigController::SlotId));
-                    ImGui::Text("%s", label.c_str());
-                    ImGui::EndDragDropSource();
-                }
-                if (ImGui::BeginDragDropTarget())
-                {
-                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("RACK_SLOT_ID"))
-                    {
-                        const RigController::SlotId moved = *static_cast<const RigController::SlotId*>(payload->Data);
-                        rig_controller.move_before(moved, slot);
-                    }
-                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
-                    {
-                        const char* descriptor_id = static_cast<const char*>(payload->Data);
-                        const RigController::SlotId new_slot = rig_controller.insert_before(slot, std::string(descriptor_id));
-                        apply_default_cabinet(rig_controller, new_slot, default_ir_path);
-                        selected_slot = new_slot;
-                    }
-                    ImGui::EndDragDropTarget();
-                }
-                ImGui::SameLine();
-                if (ImGui::SmallButton("x"))
-                {
-                    rig_controller.remove(slot);
-                }
-                ImGui::PopID();
-            }
-
-            ImGui::Dummy(ImVec2(150, 20));
-            if (ImGui::BeginDragDropTarget())
-            {
-                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
-                {
-                    const char* descriptor_id = static_cast<const char*>(payload->Data);
-                    const RigController::SlotId new_slot = rig_controller.append(std::string(descriptor_id));
-                    apply_default_cabinet(rig_controller, new_slot, default_ir_path);
-                    selected_slot = new_slot;
-                }
-                ImGui::EndDragDropTarget();
-            }
-
-            const auto current_order = rig_controller.slot_order();
-            if (!slot_selection::still_valid(selected_slot, current_order))
-            {
-                selected_slot = std::nullopt;
-            }
-
-            ImGui::Separator();
-            ImGui::Text("Parameters");
-            if (selected_slot.has_value())
-            {
-                const RigController::SlotId slot = *selected_slot;
-                const std::string slot_descriptor = rig_controller.descriptor_id(slot);
-                for (const auto& entry : SushiDSP::node_registry())
-                {
-                    if (slot_descriptor != entry.descriptor->id)
-                    {
-                        continue;
-                    }
-                    for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
-                    {
-                        const SushiDSP::ParameterDescriptor& param = entry.descriptor->parameters[p];
-                        // The controller's stored value, not the live node's: a slider write
-                        // only reaches the node on the audio thread's next block, and reading
-                        // the node back from here would race that write.
-                        float value = rig_controller.get_parameter(slot, param.id);
-                        char label[128];
-                        if (param.kind == SushiDSP::ParamKind::Decibel)
-                        {
-                            std::snprintf(label, sizeof(label), "%s (%s)", param.label, param.unit);
-                        }
-                        else
-                        {
-                            std::snprintf(label, sizeof(label), "%s", param.label);
-                        }
-                        if (ImGui::SliderFloat(label, &value, param.min, param.max))
-                        {
-                            rig_controller.set_parameter(slot, param.id, value);
-                        }
-                    }
-                    break;
-                }
-
-                if (slot_descriptor == "sushidsp.jcm800")
-                {
-                    ImGui::Separator();
-                    const std::string cabinet = rig_controller.cabinet_path(slot);
-                    ImGui::Text("Cabinet: %s", cabinet.empty() ? "(none)" : cabinet.c_str());
-
-                    static char cabinet_input[512] = "";
-                    static std::optional<RigController::SlotId> cabinet_input_slot;
-                    if (cabinet_input_slot != selected_slot)
-                    {
-                        cabinet_input_slot = selected_slot;
-                        std::snprintf(cabinet_input, sizeof(cabinet_input), "%s", cabinet.c_str());
-                    }
-                    ImGui::InputText("Cabinet IR path", cabinet_input, sizeof(cabinet_input));
-                    ImGui::SameLine();
-                    if (ImGui::Button("Load##cabinet"))
-                    {
-                        cabinet_error.clear();
-                        try
-                        {
-                            if (!rig_controller.set_cabinet(slot, cabinet_input))
-                            {
-                                cabinet_error = "Cabinet not installed: sample rate mismatch or unprepared amp";
-                            }
-                        }
-                        catch (const std::exception& error)
-                        {
-                            cabinet_error = error.what();
-                        }
-                        cabinet_error_time = ImGui::GetTime();
-                    }
-                    if (!cabinet_error.empty())
-                    {
-                        if (ImGui::GetTime() - cabinet_error_time > 3.0)
-                        {
-                            cabinet_error.clear();
-                        }
-                        else
-                        {
-                            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", cabinet_error.c_str());
-                        }
-                    }
-                }
-
-                if (rig_controller.dropped_parameter_changes() > 0)
-                {
-                    ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), "Dropped parameter changes: %zu",
-                        rig_controller.dropped_parameter_changes());
-                }
+                open_device_settings = true;
             }
         }
-
-        ImGui::Separator();
-        ImGui::Text("Gear");
-        {
-            const char* current_category = nullptr;
-            for (const auto& entry : SushiDSP::node_registry())
-            {
-                if (current_category == nullptr || std::strcmp(current_category, entry.category.name) != 0)
-                {
-                    current_category = entry.category.name;
-                    ImGui::Text("%s", current_category);
-                }
-                ImGui::Button(entry.descriptor->name);
-                if (ImGui::BeginDragDropSource())
-                {
-                    ImGui::SetDragDropPayload("GEAR_DESCRIPTOR_ID", entry.descriptor->id, std::strlen(entry.descriptor->id) + 1);
-                    ImGui::Text("%s", entry.descriptor->name);
-                    ImGui::EndDragDropSource();
-                }
-            }
-        }
-
         ImGui::End();
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, top_height));
+        ImGui::SetNextWindowSize(ImVec2(width - browser_width, stage_height));
+        ImGui::Begin("##stage", nullptr, kRegionFlags);
+        if (rig_controller_storage.has_value())
+        {
+            ui::DrawStagePanel(*rig_controller_storage, selected_slot);
+        }
+        ImGui::End();
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, top_height + stage_height));
+        ImGui::SetNextWindowSize(ImVec2(width - browser_width, body_height - stage_height));
+        ImGui::Begin("##chain", nullptr, kRegionFlags | ImGuiWindowFlags_HorizontalScrollbar);
+        if (rig_controller_storage.has_value())
+        {
+            std::optional<RigController::SlotId> created_slot;
+            ui::DrawChainStrip(*rig_controller_storage, selected_slot, created_slot);
+            if (created_slot.has_value())
+            {
+                apply_default_cabinet(*rig_controller_storage, *created_slot, default_ir_path);
+            }
+        }
+        ImGui::End();
+
+        ImGui::SetNextWindowPos(ImVec2(width - browser_width, top_height));
+        ImGui::SetNextWindowSize(ImVec2(browser_width, body_height));
+        ImGui::Begin("##gear", nullptr, kRegionFlags);
+        ui::DrawGearBrowser();
+        ImGui::End();
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, height - meter_height));
+        ImGui::SetNextWindowSize(ImVec2(width, meter_height));
+        ImGui::Begin("##meters", nullptr, kRegionFlags);
+        ui::DrawMeterBar(input_probe, output_probe);
+        ImGui::End();
+
+        if (ui::DrawDeviceSettings(asio_drivers, device_choice, rig_controller_storage.has_value(),
+                                   connect_error, open_device_settings))
+        {
+            connect_device();
         }
 
         ImGui::Render();
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
