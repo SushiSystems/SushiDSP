@@ -46,13 +46,22 @@ namespace ui
         std::size_t to_cell;
     };
 
-    /// @brief Where every slot sits and which cells each edge joins.
+    /// @brief One place the strip can offer to start a parallel branch.
+    struct OpenBranch
+    {
+        SlotId source;
+        int    row;
+        int    column;
+    };
+
+    /// @brief Where every slot sits, which cells each edge joins, and where a branch could start.
     struct ChainView
     {
-        std::vector<ChainCell> cells;
-        std::vector<ChainLink> links;
-        int                    row_count;
-        int                    column_count;
+        std::vector<ChainCell>  cells;
+        std::vector<ChainLink>  links;
+        std::vector<OpenBranch> open_branches;
+        int                     row_count;
+        int                     column_count;
     };
 
     /// @brief Places every slot on a row and column grid for drawing. A node's column is one past
@@ -62,9 +71,13 @@ namespace ui
     /// root past the first opens a row of its own, so two disconnected chains never overlap.
     /// @param slots Every live slot.
     /// @param edges Every edge, as (from, to) pairs.
+    /// @param branchable The slots the caller will let a user branch from. Naming them here is
+    /// what keeps this unit free of any notion of what a splitter is.
     /// @return The grid; cells is empty and both counts are 0 for an empty rig. Cells come out in
     /// topological order, followed by any slot a cycle kept out of the walk, each parked on its
-    /// own row at the last column.
+    /// own row at the last column. One open_branches entry is emitted per branchable slot that is
+    /// live and has fewer than two downstream edges, and both counts cover those entries too.
     ChainView layout_chain(const std::vector<SlotId>& slots,
-                           const std::vector<std::pair<SlotId, SlotId>>& edges);
+                           const std::vector<std::pair<SlotId, SlotId>>& edges,
+                           const std::vector<SlotId>& branchable = {});
 }

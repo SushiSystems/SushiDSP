@@ -23,12 +23,16 @@
 
 #include "ui/ChainStrip.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <exception>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <imgui.h>
+
+#include "SushiDSP/routing/SplitterNode.hpp"
 
 #include "SlotSelection.hpp"
 #include "ui/ChainLayout.hpp"
@@ -59,6 +63,21 @@ namespace ui
             return edges;
         }
 
+        /// @brief Collects the slots a user may start a parallel branch from.
+        std::vector<RigController::SlotId> collect_branchable(
+            const RigController& rig, const std::vector<RigController::SlotId>& slots)
+        {
+            std::vector<RigController::SlotId> branchable;
+            for (RigController::SlotId slot : slots)
+            {
+                if (rig.descriptor_id(slot) == SushiDSP::splitter_descriptor().id)
+                {
+                    branchable.push_back(slot);
+                }
+            }
+            return branchable;
+        }
+
         /// @brief Runs one rig edit and keeps the failure inside the strip. Every structural edit
         /// republishes, and a republish throws when the resulting graph will not compile — a
         /// throw let out of here would unwind past ImGui's unmatched End() and terminate the
@@ -77,6 +96,38 @@ namespace ui
             catch (const std::exception& failure)
             {
                 error = failure.what();
+            }
+        }
+
+        /// @brief Outlines a rectangle in dashes, for a card-sized slot that holds no card yet.
+        /// @param draw The window's draw list.
+        /// @param top_left The rectangle's upper-left corner.
+        /// @param bottom_right The rectangle's lower-right corner.
+        /// @param color The dash color.
+        void draw_dashed_rect(ImDrawList* draw, ImVec2 top_left, ImVec2 bottom_right, ImU32 color)
+        {
+            constexpr float kDash = 8.0f;
+            constexpr float kGap = 6.0f;
+            const ImVec2 corners[4] = { top_left, ImVec2(bottom_right.x, top_left.y),
+                                        bottom_right, ImVec2(top_left.x, bottom_right.y) };
+            for (int side = 0; side < 4; ++side)
+            {
+                const ImVec2 from = corners[side];
+                const ImVec2 to = corners[(side + 1) % 4];
+                const float length = std::abs(to.x - from.x) + std::abs(to.y - from.y);
+                if (length <= 0.0f)
+                {
+                    continue;
+                }
+                const float step_x = (to.x - from.x) / length;
+                const float step_y = (to.y - from.y) / length;
+                for (float at = 0.0f; at < length; at += kDash + kGap)
+                {
+                    const float dash_end = std::min(at + kDash, length);
+                    draw->AddLine(ImVec2(from.x + step_x * at, from.y + step_y * at),
+                                  ImVec2(from.x + step_x * dash_end, from.y + step_y * dash_end),
+                                  color, 1.5f);
+                }
             }
         }
 
@@ -106,7 +157,8 @@ namespace ui
         created_slot = std::nullopt;
 
         const std::vector<RigController::SlotId> slots = rig.slot_order();
-        const ChainView view = layout_chain(slots, collect_edges(rig, slots));
+        const ChainView view =
+            layout_chain(slots, collect_edges(rig, slots), collect_branchable(rig, slots));
 
         const Palette& colors = palette();
         const ImVec2 origin = ImGui::GetCursorScreenPos();
@@ -194,6 +246,36 @@ namespace ui
             if (ImGui::SmallButton("x"))
             {
                 run_edit([&] { rig.remove(cell.slot); }, edit_error);
+            }
+            ImGui::PopID();
+        }
+
+        for (const OpenBranch& offer : view.open_branches)
+        {
+            const ImVec2 offer_origin(
+                origin.x + static_cast<float>(offer.column) * (kCardWidth + kColumnGap),
+                origin.y + static_cast<float>(offer.row) * (kCardHeight + kRowGap));
+            const ImVec2 offer_end(offer_origin.x + kCardWidth, offer_origin.y + kCardHeight);
+
+            ImGui::PushID(static_cast<int>(offer.source));
+            ImGui::SetCursorScreenPos(offer_origin);
+            ImGui::InvisibleButton("open_branch", ImVec2(kCardWidth, kCardHeight));
+            draw_dashed_rect(draw, offer_origin, offer_end, to_imu32(colors.muted_text));
+            draw->AddText(ImVec2(offer_origin.x + 10.0f, offer_origin.y + 10.0f),
+                          to_imu32(colors.muted_text), "drop to branch");
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
+                {
+                    const char* descriptor_id = static_cast<const char*>(payload->Data);
+                    run_edit([&] { created_slot = rig.add_branch(offer.source, std::string(descriptor_id)); },
+                             edit_error);
+                    if (created_slot.has_value())
+                    {
+                        selected = created_slot;
+                    }
+                }
+                ImGui::EndDragDropTarget();
             }
             ImGui::PopID();
         }

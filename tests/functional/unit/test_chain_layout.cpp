@@ -114,6 +114,33 @@ TEST(Unit_Dsp, ChainLayoutPlacesAnUnconnectedSlotInTheFirstColumn)
     EXPECT_EQ(view.column_count, 1);
 }
 
+TEST(Unit_Dsp, ChainLayoutOffersAnOpenBranchBelowTheSlotTheCallerNamed)
+{
+    const ui::ChainView view = ui::layout_chain({ 1, 2 }, { { 1, 2 } }, { 1 });
+
+    ASSERT_EQ(view.open_branches.size(), 1u);
+    EXPECT_EQ(view.open_branches[0].source, 1u);
+    EXPECT_EQ(view.open_branches[0].column, cell_for(view, 1).column + 1);
+    EXPECT_EQ(view.open_branches[0].row, 1);
+    EXPECT_EQ(view.row_count, 2);
+}
+
+TEST(Unit_Dsp, ChainLayoutOffersNoOpenBranchForASlotThatAlreadyHasTwo)
+{
+    const ui::ChainView view = ui::layout_chain({ 1, 2, 3 }, { { 1, 2 }, { 1, 3 } }, { 1 });
+
+    EXPECT_TRUE(view.open_branches.empty());
+}
+
+TEST(Unit_Dsp, ChainLayoutOffersNoOpenBranchWhenTheCallerNamesNone)
+{
+    const ui::ChainView view = ui::layout_chain({ 1, 2 }, { { 1, 2 } });
+
+    EXPECT_TRUE(view.open_branches.empty());
+    EXPECT_EQ(view.row_count, 1);
+    EXPECT_EQ(view.column_count, 2);
+}
+
 TEST(Unit_Dsp, ChainLayoutLinksIndexTheCellsTheirEdgeConnects)
 {
     const ui::ChainView view = ui::layout_chain({ 10, 11 }, { { 10, 11 } });

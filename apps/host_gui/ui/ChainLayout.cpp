@@ -30,9 +30,10 @@
 namespace ui
 {
     ChainView layout_chain(const std::vector<SlotId>& slots,
-                           const std::vector<std::pair<SlotId, SlotId>>& edges)
+                           const std::vector<std::pair<SlotId, SlotId>>& edges,
+                           const std::vector<SlotId>& branchable)
     {
-        ChainView view{ {}, {}, 0, 0 };
+        ChainView view{ {}, {}, {}, 0, 0 };
         if (slots.empty())
         {
             return view;
@@ -136,6 +137,33 @@ namespace ui
             {
                 view.links.push_back({ from->second, to->second });
             }
+        }
+
+        std::unordered_map<int, std::unordered_set<int>> occupied;
+        for (const ChainCell& cell : view.cells)
+        {
+            occupied[cell.column].insert(cell.row);
+        }
+        for (SlotId source : branchable)
+        {
+            const auto placed = cell_index.find(source);
+            const auto children = downstream.find(source);
+            if (placed == cell_index.end()
+                || (children != downstream.end() && children->second.size() >= 2))
+            {
+                continue;
+            }
+            const int offer_column = view.cells[placed->second].column + 1;
+            int offer_row = 0;
+            while (occupied[offer_column].count(offer_row) != 0)
+            {
+                ++offer_row;
+            }
+            // Claimed before the next offer looks, so two offers never share one grid square.
+            occupied[offer_column].insert(offer_row);
+            view.open_branches.push_back({ source, offer_row, offer_column });
+            view.row_count = std::max(view.row_count, offer_row + 1);
+            view.column_count = std::max(view.column_count, offer_column + 1);
         }
 
         return view;
