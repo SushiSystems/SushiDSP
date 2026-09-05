@@ -26,6 +26,8 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <exception>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -33,6 +35,7 @@
 
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 
+#include "ui/FileBrowser.hpp"
 #include "ui/PanelLibrary.hpp"
 #include "ui/Theme.hpp"
 #include "ui/Widgets.hpp"
@@ -77,12 +80,41 @@ namespace ui
                           origin.y + (region.y - size_out.y) * 0.5f);
         }
 
+        /// @brief Installs one impulse response and reports what went wrong in the field's own
+        /// error line.
+        /// @param rig The rig that owns the slot.
+        /// @param slot The amp to install the cabinet on.
+        /// @param path The impulse response's full path.
+        /// @param error_out Receives the message, or "" when the cabinet went in.
+        void load_cabinet(RigController& rig, RigController::SlotId slot, const std::string& path,
+                          std::string& error_out)
+        {
+            error_out.clear();
+            try
+            {
+                if (!rig.set_cabinet(slot, path))
+                {
+                    error_out = "Cabinet not installed: sample rate mismatch or unprepared amp";
+                }
+            }
+            catch (const std::exception& error)
+            {
+                error_out = error.what();
+            }
+        }
+
         /// @brief Draws the JCM800 cabinet field below the panel.
-        void draw_cabinet_field(RigController& rig, RigController::SlotId slot)
+        /// @param rig The rig that owns the slot.
+        /// @param slot The amp whose cabinet the field edits.
+        /// @param default_ir_directory Where the browser opens when the rig remembers no folder.
+        void draw_cabinet_field(RigController& rig, RigController::SlotId slot,
+                                const std::string& default_ir_directory)
         {
             static char cabinet_input[512] = "";
             static std::optional<RigController::SlotId> field_slot;
             static std::string cabinet_error;
+            static bool browser_open = false;
+            static std::string browser_directory;
 
             const std::string cabinet = rig.cabinet_path(slot);
             if (field_slot != std::optional<RigController::SlotId>(slot))
@@ -90,6 +122,7 @@ namespace ui
                 field_slot = slot;
                 std::snprintf(cabinet_input, sizeof(cabinet_input), "%s", cabinet.c_str());
                 cabinet_error.clear();
+                browser_open = false;
             }
 
             ImGui::Separator();
@@ -99,19 +132,36 @@ namespace ui
             ImGui::SameLine();
             if (ImGui::Button("Load##cabinet"))
             {
-                cabinet_error.clear();
-                try
+                load_cabinet(rig, slot, cabinet_input, cabinet_error);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Browse##cabinet"))
+            {
+                browser_open = !browser_open;
+                if (browser_open)
                 {
-                    if (!rig.set_cabinet(slot, cabinet_input))
-                    {
-                        cabinet_error = "Cabinet not installed: sample rate mismatch or unprepared amp";
-                    }
-                }
-                catch (const std::exception& error)
-                {
-                    cabinet_error = error.what();
+                    const std::string remembered = rig.ir_folder();
+                    browser_directory = remembered.empty() ? default_ir_directory : remembered;
                 }
             }
+
+            if (browser_open)
+            {
+                const std::string opened_at = browser_directory;
+                const std::optional<std::string> picked =
+                    FileBrowser("cabinet_browser", browser_directory, ".wav");
+                if (browser_directory != opened_at)
+                {
+                    rig.set_ir_folder(browser_directory);
+                }
+                if (picked.has_value())
+                {
+                    std::snprintf(cabinet_input, sizeof(cabinet_input), "%s", picked->c_str());
+                    load_cabinet(rig, slot, *picked, cabinet_error);
+                    browser_open = false;
+                }
+            }
+
             if (!cabinet_error.empty())
             {
                 ImGui::TextColored(to_imvec4(rgba(220, 72, 60)), "%s", cabinet_error.c_str());
@@ -119,7 +169,8 @@ namespace ui
         }
     }
 
-    void DrawStagePanel(RigController& rig, std::optional<RigController::SlotId> selected)
+    void DrawStagePanel(RigController& rig, std::optional<RigController::SlotId> selected,
+                        const std::string& default_ir_directory)
     {
         if (!selected.has_value())
         {
@@ -210,7 +261,7 @@ namespace ui
         ImGui::SetCursorScreenPos(ImVec2(origin.x, origin.y + panel_region.y + 8.0f));
         if (id == "sushidsp.jcm800")
         {
-            draw_cabinet_field(rig, slot);
+            draw_cabinet_field(rig, slot, default_ir_directory);
         }
         if (rig.dropped_parameter_changes() > 0)
         {

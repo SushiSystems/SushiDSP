@@ -108,8 +108,9 @@ namespace
 
 int main(int argc, char** argv)
 {
-    const std::string default_ir_path =
-        executable_directory(argc > 0 ? argv[0] : nullptr) + "assets/ir/default_4x12.wav";
+    const std::string default_ir_directory =
+        executable_directory(argc > 0 ? argv[0] : nullptr) + "assets/ir";
+    const std::string default_ir_path = default_ir_directory + "/default_4x12.wav";
 
     if (!glfwInit())
     {
@@ -365,7 +366,7 @@ int main(int argc, char** argv)
         ImGui::Begin("##stage", nullptr, kRegionFlags);
         if (rig_controller_storage.has_value())
         {
-            ui::DrawStagePanel(*rig_controller_storage, selected_slot);
+            ui::DrawStagePanel(*rig_controller_storage, selected_slot, default_ir_directory);
         }
         ImGui::End();
 

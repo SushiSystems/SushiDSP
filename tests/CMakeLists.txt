@@ -106,9 +106,11 @@ add_executable(sushidsp_tests
     functional/unit/test_panel_library.cpp
     functional/unit/test_chain_layout.cpp
     functional/unit/test_level_probe.cpp
+    functional/unit/test_directory_listing.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/KnobMath.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/PanelLibrary.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ChainLayout.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/DirectoryListing.cpp
 
     # --- DD-3 ---
     functional/unit/test_dd3_analog_filters.cpp

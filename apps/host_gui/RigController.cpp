@@ -532,7 +532,27 @@ SushiDSP::RtGraphSlot& RigController::graph_slot()
     return graph_slot_;
 }
 
+void RigController::set_ir_folder(const std::string& path)
+{
+    ir_folder_ = path;
+}
+
+std::string RigController::ir_folder() const
+{
+    return ir_folder_;
+}
+
 std::string RigController::save_to_json() const
+{
+    nlohmann::json document = nlohmann::json::parse(serialize_nodes());
+    if (!ir_folder_.empty())
+    {
+        document["ir_folder"] = ir_folder_;
+    }
+    return document.dump(2);
+}
+
+std::string RigController::serialize_nodes() const
 {
     if (slot_order_.empty())
     {
@@ -581,7 +601,8 @@ void RigController::load_from_json(const std::string& json_text)
     // Size the scratch graph's buffer pool from the preset's own node count (plus the same +1
     // headroom publish() uses). RigGraph::compile() only assert()s the pool's capacity, so a
     // fixed guess would hand the audio thread null buffers on any preset larger than that guess.
-    const std::size_t node_count = nlohmann::json::parse(json_text).at("nodes").size();
+    const nlohmann::json document = nlohmann::json::parse(json_text);
+    const std::size_t node_count = document.at("nodes").size();
     SushiDSP::RigGraph scratch(info_.max_block, static_cast<std::uint32_t>(node_count + 1));
     std::unordered_map<SushiDSP::NodeHandle, std::string> cabinet_paths_by_handle;
     std::unordered_map<SushiDSP::NodeHandle, bool> bypassed_by_handle;
@@ -604,6 +625,8 @@ void RigController::load_from_json(const std::string& json_text)
     edges_.clear();
     slot_order_.clear();
     next_slot_id_ = 0;
+    ir_folder_ = document.contains("ir_folder") ? document.at("ir_folder").get<std::string>()
+                                                : std::string();
 
     std::unordered_map<SushiDSP::NodeHandle, SlotId> handle_to_slot;
     for (SushiDSP::NodeHandle handle : scratch.nodes())
