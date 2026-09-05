@@ -47,10 +47,10 @@ namespace SushiDSP
     /// with an analog feedback path wrapping the whole chain.
     ///
     /// The host rate reaches the converter through two Resamplers whose ratios follow the
-    /// D.TIME clock every @ref kClockUpdateFrames samples, and the feedback is summed one
-    /// sample at a time ahead of the anti-alias filter, where the board injects it.
-    /// docs/superpowers/plans/2026-09-05-dr1-dr2-resampler-and-dd3.md gives the block order,
-    /// the calibration constants and the readings of the schematic they rest on.
+    /// D.TIME clock every @ref kClockUpdateFrames samples. The feedback leaves the wet leg's
+    /// output and is summed one sample at a time ahead of the anti-alias filter, so the
+    /// emphasis pair cancels inside the loop; the ruling behind that take-off is in
+    /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections.
     class Dd3Delay : public IAudioNode
     {
     public:
@@ -151,14 +151,23 @@ namespace SushiDSP
         /// there, as it does on the bench.
         static constexpr double kMaximumFeedback = 1.1;
 
-        /// @brief Attenuation from the F.BACK take-off node into the pre-emphasis summing node.
+        /// @brief Branch gain of the F.BACK pot into the pre-emphasis summing node: R12 33K
+        /// over VR2 50 kB at the top of the pot (dossier 1.4 and 1.6).
+        static constexpr double kFeedbackMixRatio = 33.0 / 50.0;
+
+        /// @brief What the mix resistors leave unexplained in the loop's forward gain.
         ///
-        /// The compander pair is unity end to end, so the forward gain from that summing node
-        /// back to the take-off is kInputPathGainToCheckPointOne * |pre-emphasis| *
-        /// |anti-alias| * kExpanderOutputStageGain * |reconstruction|, which peaks at
-        /// 100.510989 at 5804 Hz at 48 kHz. This is its reciprocal, so kMaximumFeedback is the
-        /// loop gain it says it is.
-        static constexpr double kFeedbackPathGain = 1.0 / 100.510989;
+        /// The take-off is at the wet leg's output, so the emphasis pair cancels inside the
+        /// loop and the forward gain is kInputPathGainToCheckPointOne *
+        /// kExpanderOutputStageGain * |anti-alias| * |reconstruction|, which peaks at
+        /// 29.719044 at 3278 Hz and is that same number at 48, 96 and 192 kHz. Against
+        /// kFeedbackMixRatio that leaves 19.614569, a residual fit like
+        /// kInputPathGainToCheckPointOne; dossier 4.7 item 5 replaces it.
+        static constexpr double kFeedbackResidualTrim = 1.0 / 19.614569;
+
+        /// @brief Attenuation from the F.BACK take-off node into the summing node, which makes
+        /// kMaximumFeedback the loop gain it says it is.
+        static constexpr double kFeedbackPathGain = kFeedbackMixRatio * kFeedbackResidualTrim;
 
         /// @brief Wet gain at E.LEVEL fully up, from the service note's check point [5].
         ///
@@ -225,7 +234,7 @@ namespace SushiDSP
         std::uint32_t wet_read_  = 0u;
         bool          wet_priming_ = true;       // withholding wet output until the prime is met
 
-        double wet_previous_ = 0.0;              // the F.BACK and E.LEVEL take-off node, in volts
+        double wet_previous_ = 0.0;              // the wet leg's output, in volts; the take-off
     };
 
     /// @brief The DD-3's product registration entry point.

@@ -85,7 +85,7 @@ namespace
         return counted > 0 ? std::sqrt(energy / static_cast<double>(counted)) : 0.0;
     }
 
-    /// @brief A burst of 3 kHz followed by silence, the stimulus every echo test uses.
+    /// @brief A burst of 3 kHz followed by silence, the stimulus the decay tests use.
     /// @param length Total length in samples.
     /// @return The stimulus.
     std::vector<float> burst_stimulus(std::size_t length)
@@ -97,6 +97,58 @@ namespace
                 std::sin(2.0 * M_PI * 3000.0 * static_cast<double>(n) / kSampleRate));
         }
         return input;
+    }
+
+    /// @brief A 10 ms burst of eight equal tones spanning 400 Hz to 8.1 kHz, then silence.
+    ///
+    /// Stationary and broadband, so a window on any repeat sees the same spectrum shaped by
+    /// however many passes it has taken; a chirp would move under the window instead.
+    /// @param length Total length in samples.
+    /// @return The stimulus.
+    std::vector<float> multitone_stimulus(std::size_t length)
+    {
+        const double tones[8] = { 400.0, 900.0, 1600.0, 2500.0, 3600.0, 4900.0, 6400.0, 8100.0 };
+        std::vector<float> input(length, 0.0f);
+        for (std::size_t n = 0; n < 480; ++n)
+        {
+            double sum = 0.0;
+            for (const double frequency : tones)
+            {
+                sum += 0.15 * std::sin(2.0 * M_PI * frequency * static_cast<double>(n) / kSampleRate);
+            }
+            input[n] = static_cast<float>(sum);
+        }
+        return input;
+    }
+
+    /// @brief Energy-weighted mean frequency of a window, over 250 Hz to 12 kHz.
+    /// @param samples The signal.
+    /// @param begin First sample of the window.
+    /// @param length Window length, Hann-tapered before the transform.
+    /// @return The centroid in Hz, or 0 for a silent window.
+    double window_centroid(const std::vector<float>& samples, std::size_t begin, std::size_t length)
+    {
+        double total = 0.0;
+        double weighted = 0.0;
+        for (int bin = 1; bin <= 48; ++bin)
+        {
+            const double frequency = 250.0 * bin;
+            double real = 0.0;
+            double imaginary = 0.0;
+            for (std::size_t n = 0; n < length && begin + n < samples.size(); ++n)
+            {
+                const double taper = 0.5 - 0.5 * std::cos(2.0 * M_PI * static_cast<double>(n)
+                                                          / static_cast<double>(length - 1));
+                const double value = static_cast<double>(samples[begin + n]) * taper;
+                const double angle = 2.0 * M_PI * frequency * static_cast<double>(n) / kSampleRate;
+                real += value * std::cos(angle);
+                imaginary -= value * std::sin(angle);
+            }
+            const double power = real * real + imaginary * imaginary;
+            total += power;
+            weighted += frequency * power;
+        }
+        return total > 0.0 ? weighted / total : 0.0;
     }
 }
 
@@ -210,32 +262,37 @@ TEST(Unit_Dsp, Dd3DelayResetReturnsItToSilence)
     }
 }
 
-TEST(Unit_Dsp, Dd3DelayRepeatsDecayWithFeedback)
+TEST(Unit_Dsp, Dd3DelayRepeatsDecayAndDarkenWithFeedback)
 {
     // Dossier 3, "Self-oscillation": every repeat is re-band-limited by both 7 kHz cascades and
-    // re-quantised. Assert the loop is a decaying one below the top of the knob: the second
-    // echo carries less energy than the first.
+    // re-quantised, so repeats lose level and lose treble together. The take-off sits at the wet
+    // leg's output, so the emphasis pair cancels inside the loop and the tilt is the filters'.
     SushiDSP::Dd3Delay node;
     node.set_mode(SushiDSP::dd3::Dd3Mode::Short);
     node.set_time(0.0f);
     node.set_feedback(0.7f);
     node.set_level(1.0f);
-    const auto input = burst_stimulus(static_cast<std::size_t>(1.0 * kSampleRate));
+    const auto input = multitone_stimulus(static_cast<std::size_t>(1.0 * kSampleRate));
     const auto output = SushiDSP::measure::render(node, input, kSampleRate, kBlock);
-    // Echoes land near 672 and 1344 samples (N2's 13.995 ms, twice).
-    const double first = window_rms(output, 600u, 600u);
-    const double second = window_rms(output, 1272u, 600u);
+
+    // Echoes land near 672, 1344 and 2016 samples (N2's 13.995 ms, three times).
+    const double first = window_rms(output, 660u, 512u);
+    const double third = window_rms(output, 2004u, 512u);
     EXPECT_GT(first, 0.0);
-    EXPECT_LT(second, first);
-    std::printf("[ measure ] DD-3 echo levels: first %.6e, second %.6e (ratio %.3f)\n",
-                first, second, second / first);
+    EXPECT_LT(third, first);
+
+    const double first_centroid = window_centroid(output, 660u, 512u);
+    const double third_centroid = window_centroid(output, 2004u, 512u);
+    std::printf("[ measure ] DD-3 repeats: rms %.6e -> %.6e, centroid %.1f Hz -> %.1f Hz\n",
+                first, third, first_centroid, third_centroid);
+    EXPECT_LT(third_centroid, 0.95 * first_centroid);
 }
 
 TEST(Unit_Dsp, Dd3DelaySelfOscillatesOnlyAtTheTopOfTheKnob)
 {
     // kFeedbackPathGain exists so that kMaximumFeedback is the loop gain it claims to be: the
-    // loop's forward gain peaks at 100.511 at 5804 Hz, and without the trim the node would
-    // regenerate from F.BACK 0.01 upward. Below the top of the knob the tail dies; at the top
+    // loop's forward gain peaks at 29.719 at 3278 Hz, and without the trim the node would
+    // regenerate from F.BACK 0.03 upward. Below the top of the knob the tail dies; at the top
     // it sustains.
     const auto input = burst_stimulus(static_cast<std::size_t>(2.0 * kSampleRate));
     double tails[2] = { 0.0, 0.0 };
