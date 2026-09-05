@@ -59,14 +59,16 @@ add_executable(sushidsp_tests
     functional/unit/test_ts_clip_stage.cpp
     functional/unit/test_ts_tone_stage.cpp
 
+    # --- Circuits: stages ---
+    functional/unit/test_triode_stage.cpp
+    functional/unit/test_pentode_stage.cpp
+    functional/unit/test_output_transformer_stage.cpp
+    functional/unit/test_power_supply_sag_stage.cpp
+
     # --- Products ---
     functional/unit/test_tube_screamer_clipping_stage.cpp
     functional/unit/test_tube_screamer.cpp
-    functional/unit/test_triode_stage.cpp
-    functional/unit/test_pentode_stage.cpp
     functional/unit/test_jcm_tone_stack.cpp
-    functional/unit/test_output_transformer_stage.cpp
-    functional/unit/test_power_supply_sag_stage.cpp
     functional/unit/test_jcm800.cpp
 
     # --- Math ---

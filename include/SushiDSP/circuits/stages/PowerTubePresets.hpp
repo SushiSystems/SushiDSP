@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* OutputTransformerStage.cpp                                             */
+/* PowerTubePresets.hpp                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                                SushiDSP                                */
@@ -21,30 +21,22 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
-#include "SushiDSP/jcm800/OutputTransformerStage.hpp"
-
-#include <cmath>
+#pragma once
 
 namespace SushiDSP
 {
-    OutputTransformerStage::OutputTransformerStage(
-        double sample_rate, float low_rolloff_hz, float leakage_shelf_hz, float saturation_drive)
-        : saturation_drive_(saturation_drive)
+    /// @brief The constructor constants one PentodeStage takes for a named power tube.
+    struct PowerTubePreset
     {
-        rolloff_.set_high_pass(sample_rate, low_rolloff_hz, 0.707);
-        leakage_.set_low_pass(sample_rate, leakage_shelf_hz, 0.707);
-    }
+        float source_resistance_ohms;
+        float grid_leak_resistance_ohms;
+        float cathode_bias_volts;
+        float gain;
+        float saturation_current_amps;
+        float thermal_voltage_volts;
+        float plate_saturation_drive;
+    };
 
-    float OutputTransformerStage::process_sample(float input)
-    {
-        float x = rolloff_.process_sample(input);
-        x = leakage_.process_sample(x);
-        return std::tanh(x * saturation_drive_) / saturation_drive_;
-    }
-
-    void OutputTransformerStage::reset()
-    {
-        rolloff_.reset();
-        leakage_.reset();
-    }
+    /// @brief EL34 as the JCM800 2203 runs it; the values Jcm800.cpp used before DA0, verbatim.
+    inline constexpr PowerTubePreset kEl34{ 10000.0f, 220000.0f, -20.0f, 8.0f, 1e-9f, 0.02585f, 0.05f };
 }

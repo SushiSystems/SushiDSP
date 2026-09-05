@@ -37,7 +37,7 @@
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/dd3/Dd3Delay.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
-#include "SushiDSP/jcm800/TriodeStage.hpp"
+#include "SushiDSP/circuits/stages/TriodeStage.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/PartitionedConvolution.hpp"
 #include "SushiDSP/math/Resampler.hpp"

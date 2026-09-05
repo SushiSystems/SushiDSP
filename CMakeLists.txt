@@ -13,6 +13,10 @@ include(cmake/SushiDSPCompilerFlags.cmake)
 
 add_library(sushi_dsp STATIC
     src/circuits/DiodeClipperCircuit.cpp
+    src/circuits/stages/TriodeStage.cpp
+    src/circuits/stages/PentodeStage.cpp
+    src/circuits/stages/OutputTransformerStage.cpp
+    src/circuits/stages/PowerSupplySagStage.cpp
     src/core/BufferPool.cpp
     src/core/RigGraph.cpp
     src/core/RtGraphSlot.cpp

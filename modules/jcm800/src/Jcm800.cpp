@@ -26,6 +26,8 @@
 
 #include "SushiDSP/jcm800/Jcm800.hpp"
 
+#include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -50,14 +52,6 @@ namespace SushiDSP
         constexpr float kTriodeThermalVoltage = 0.02585f;
 
         constexpr float kPhaseInverterGain = 40.0f;
-
-        constexpr float kPentodeSourceResistance = 10000.0f;
-        constexpr float kPentodeGridLeak = 220000.0f;
-        constexpr float kPentodeCathodeBias = -20.0f;
-        constexpr float kPentodeGain = 8.0f;
-        constexpr float kPentodeSaturationCurrent = 1e-9f;
-        constexpr float kPentodeThermalVoltage = 0.02585f;
-        constexpr float kPentodePlateSaturationDrive = 0.05f;
 
         // The class-AB bias mismatch between the two output tubes, expressed where the model can
         // actually see it: as an input-referred grid offset on the B side, applied before the
@@ -225,8 +219,8 @@ namespace SushiDSP
         , tone_stack_(48000.0 * kOversamplingFactor)
         , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
         , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , el34_a_(kPentodeSourceResistance, kPentodeGridLeak, kPentodeCathodeBias, kPentodeGain, kPentodeSaturationCurrent, kPentodeThermalVoltage, kPentodePlateSaturationDrive)
-        , el34_b_(kPentodeSourceResistance, kPentodeGridLeak, kPentodeCathodeBias, kPentodeGain, kPentodeSaturationCurrent, kPentodeThermalVoltage, kPentodePlateSaturationDrive)
+        , el34_a_(kEl34.source_resistance_ohms, kEl34.grid_leak_resistance_ohms, kEl34.cathode_bias_volts, kEl34.gain, kEl34.saturation_current_amps, kEl34.thermal_voltage_volts, kEl34.plate_saturation_drive)
+        , el34_b_(kEl34.source_resistance_ohms, kEl34.grid_leak_resistance_ohms, kEl34.cathode_bias_volts, kEl34.gain, kEl34.saturation_current_amps, kEl34.thermal_voltage_volts, kEl34.plate_saturation_drive)
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
         , sag_(48000.0 * kOversamplingFactor, kSagAmount, kSagRecoveryTimeSeconds)
     {

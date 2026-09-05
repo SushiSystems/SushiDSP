@@ -21,7 +21,7 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
-#include "SushiDSP/jcm800/PowerSupplySagStage.hpp"
+#include "SushiDSP/circuits/stages/PowerSupplySagStage.hpp"
 
 #include <algorithm>
 #include <cmath>

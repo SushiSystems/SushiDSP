@@ -26,8 +26,8 @@
 namespace SushiDSP
 {
     /// @brief A common-cathode triode gain stage: grid-conduction diode nonlinearity solved by
-    /// Newton-Raphson, followed by a fixed inverting linear plate gain. Used for V1a, V1b, V2a,
-    /// and the phase-inverter triode in the JCM800 model.
+    /// Newton-Raphson, followed by a fixed inverting linear plate gain. Used by the JCM800 and
+    /// by every cascaded-triode amplifier module.
     class TriodeStage
     {
     public:
