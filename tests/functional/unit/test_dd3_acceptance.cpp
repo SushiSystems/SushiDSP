@@ -59,6 +59,10 @@ namespace
 
     /// @brief Half the resampler prototype's width, counted in zero crossings, so the two
     /// conversions cost twice this between them (Task 1.1 committed 34, not the plan's 32).
+    ///
+    /// The literal restates what Resampler::latency_seconds() documents rather than calling it,
+    /// so that a prototype whose half width moves without this file moving fails here instead
+    /// of agreeing with itself. Reading the number off the node would make the row an identity.
     constexpr double kResamplerHalfWidth = 34.0;
 
     /// @brief The wet path's delay from the plan's N2 arithmetic, recomputed here rather than
@@ -138,9 +142,9 @@ namespace
         return periods;
     }
 
-    constexpr double kBatterySweepSeconds  = 2.0;
-    constexpr double kBatteryBurstSeconds  = 0.5;
-    constexpr double kBatteryStepSeconds   = 0.75;
+    constexpr double kBatterySweepSeconds   = 2.0;
+    constexpr double kBatteryBurstSeconds   = 0.5;
+    constexpr double kBatteryStepSeconds    = 0.75;
     constexpr double kBatterySilenceSeconds = 0.75;
     constexpr double kBatterySeconds =
         kBatterySweepSeconds + 3.0 * kBatteryBurstSeconds + kBatteryStepSeconds + kBatterySilenceSeconds;
@@ -258,8 +262,12 @@ TEST(Regression_Dsp, Dd3AcceptanceMeasuredEchoLandsWhereTheClockCurveSaysItWill)
         std::printf("[ measure ] DD-3 mode %s echo at TIME 0.50: %.0f samples, predicted %.2f\n",
                     item.name, measured, predicted_samples);
         // Two 7 kHz cascades spread the echo's peak and land it about 13 samples late, so the
-        // floor is absolute; above 4800 samples the published curve's own 2 % is the looser
-        // bound and 1 % is what stays inside it.
+        // floor is absolute. It is 48 rather than the 32 test_dd3_delay.cpp uses at TIME 0
+        // because the peak is broader here: TIME 0.5 clocks the ring at 40620 Hz, below the
+        // host rate, so each conversion's kernel covers 34/40620 s = 40 host samples where at
+        // TIME 0 it covers 34/48000 s = 34. The centre of that spread is already in the
+        // prediction; what widens is how far the argmax can sit from it. Above 4800 samples the
+        // published curve's own 2 % is the looser bound, and 1 % is what stays inside it.
         EXPECT_NEAR(measured, predicted_samples, std::max(48.0, 0.01 * predicted_samples))
             << item.name;
     }
@@ -273,14 +281,20 @@ TEST(Regression_Dsp, Dd3AcceptancePitchSlursRatherThanJumping)
     // wet signal's upward zero crossings.
     //
     // The pole itself is pinned exactly in test_dd3_clock.cpp: tau = 0.594 ms, 24.4657 % of the
-    // remaining distance per 8-frame sub-block. At 48 kHz that glide is over in about 3 ms,
-    // which is shorter than one period of any tone the 7 kHz walls pass, so a single full-scale
-    // TIME step is not something a zero-crossing trace can resolve. What it can resolve, and
-    // what the row is about, is the knob being turned: the trace must walk the whole 4.125:1
-    // range without a step, where an ungliding clock would move it 4.125x between one period
-    // and the next.
+    // remaining distance per 8-frame sub-block. A single full-scale TIME step is not something
+    // a zero-crossing trace can resolve, because the glide ends before the trace takes its
+    // first reading: at 48 kHz it is over in about 3 ms, while the probe has already arrived at
+    // the destination clock, where a 1 kHz tone reads out at 242.4 Hz and its period is 198
+    // samples, or 4.1 ms. The transcription in the task report puts the first crossing at
+    // sample 148 and every crossing after it on that settled 198-sample grid. What the trace
+    // can resolve, and what the row is about, is the knob being turned: it must walk the whole
+    // 4.125:1 range without a step, where an ungliding clock would move it 4.125x between one
+    // period and the next.
     using Converter = SushiDSP::dd3::Dd3Converter;
     // 397 cycles per ring pass, so the frozen loop joins its own tail without a phase step.
+    // The read pointer does lap the ring during the case - the 20 ms settle spends 1650 ticks
+    // at 82500 Hz and the sweep 15474 more, against a 16384-sample ring - and that continuity
+    // is what makes the lap harmless rather than one anomalous period in the trace.
     constexpr double kRingCycles = 397.0;
     constexpr double kProbeHz = kRingCycles * SushiDSP::dd3::Dd3Clock::kFastRateHz
                               / static_cast<double>(Converter::kLongLength);
@@ -288,7 +302,7 @@ TEST(Regression_Dsp, Dd3AcceptancePitchSlursRatherThanJumping)
     constexpr std::uint32_t kSubBlock = SushiDSP::Dd3Delay::kClockUpdateFrames;
     constexpr double kFillSeconds = 0.6;         // over three passes of the 199 ms ring
     constexpr double kSettleSeconds = 0.02;
-    constexpr double kSweepSeconds = 0.35;       // 15474 clock ticks, inside one ring pass
+    constexpr double kSweepSeconds = 0.35;       // 15474 clock ticks, one ring pass of sweep
 
     SushiDSP::Dd3Delay node;
     node.set_mode(SushiDSP::dd3::Dd3Mode::Long);
@@ -333,7 +347,11 @@ TEST(Regression_Dsp, Dd3AcceptancePitchSlursRatherThanJumping)
     {
         worst_step = std::max(worst_step, periods[i] / periods[i - 1]);
         // Monotone downward in pitch. The trace quantises the period to whole samples and it
-        // starts at 24, so one crossing sample is 4 % and the bound cannot be tighter than that.
+        // starts at 24, so one crossing sample is 4 % and the bound cannot be tighter than
+        // that. It is 0.90 rather than 0.96 because 4 % is the quantum of a single reading and
+        // two adjacent readings can round opposite ways: the transcription's worst dip is
+        // 23/24 = 0.9600, and the extra 6 % is what the resamplers' own smoothing of the trace
+        // is allowed to cost.
         EXPECT_GE(periods[i], periods[i - 1] * 0.90) << i;
         // The glide's own largest step is 1.042, an ungliding clock's would be 4.125.
         EXPECT_LE(periods[i] / periods[i - 1], 1.20) << i;
