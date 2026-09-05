@@ -51,12 +51,14 @@ namespace SushiDSP::dk
     /// Newton branches (D6b plan, ruling 3), which is what makes a knob cost nothing per sample.
     ///
     /// The caller supplies the glue between the branch vector and its device models as a
-    /// NonlinearSystem exposing
-    /// `void currents(const std::array<double, N>& v, std::array<double, N>& i) const` and
-    /// `void jacobian(const std::array<double, N>& v, std::array<std::array<double, N>, N>& j) const`.
-    /// The Jacobian buffer is zeroed before every call, so a glue struct for independent devices
-    /// simply leaves the off-diagonal blocks alone. Nothing here includes a circuit model:
-    /// DkCircuit stays in SushiDSP/math with no dependency on SushiDSP/circuits.
+    /// NonlinearSystem exposing one method,
+    /// `void currents_and_jacobian(const std::array<double, N>& v, std::array<double, N>& i,
+    /// std::array<std::array<double, N>, N>& j) const`, which fills both outputs from a single
+    /// evaluation; Newton never wants one without the other, and the exponentials a model shares
+    /// between them are most of the per-sample cost. The Jacobian buffer is zeroed before every
+    /// call, so a glue struct for independent devices leaves the off-diagonal blocks alone.
+    /// Nothing here includes a circuit model: DkCircuit stays in SushiDSP/math with no
+    /// dependency on SushiDSP/circuits.
     ///
     /// process_sample(), update_matrices_if_dirty() and everything they reach are
     /// allocation-free, lock-free, syscall-free and throw-free. Every state is clamped each
@@ -224,25 +226,13 @@ namespace SushiDSP::dk
                     NonlinearSystem&                             system;
                     const std::array<double, N>&                 open_circuit;
                     const std::array<std::array<double, N>, N>&  f_matrix;
-                    std::array<double, N>&                       current_scratch;
+                    std::array<double, N>&                       branch_current;
                     std::array<std::array<double, N>, N>&        model_jacobian;
 
                     void residual_and_jacobian(const std::array<double, N>&          v,
                                                std::array<double, N>&                residual,
                                                std::array<std::array<double, N>, N>& jacobian)
                     {
-                        // r(v) = v - p - F f(v)  (D6b plan, Newton on the nonlinear port).
-                        system.currents(v, current_scratch);
-                        for (std::size_t row = 0; row < N; ++row)
-                        {
-                            double accumulator = v[row] - open_circuit[row];
-                            for (std::size_t column = 0; column < N; ++column)
-                            {
-                                accumulator -= f_matrix[row][column] * current_scratch[column];
-                            }
-                            residual[row] = accumulator;
-                        }
-
                         for (std::size_t row = 0; row < N; ++row)
                         {
                             for (std::size_t column = 0; column < N; ++column)
@@ -250,7 +240,18 @@ namespace SushiDSP::dk
                                 model_jacobian[row][column] = 0.0;
                             }
                         }
-                        system.jacobian(v, model_jacobian);
+                        system.currents_and_jacobian(v, branch_current, model_jacobian);
+
+                        // r(v) = v - p - F f(v)  (D6b plan, Newton on the nonlinear port).
+                        for (std::size_t row = 0; row < N; ++row)
+                        {
+                            double accumulator = v[row] - open_circuit[row];
+                            for (std::size_t column = 0; column < N; ++column)
+                            {
+                                accumulator -= f_matrix[row][column] * branch_current[column];
+                            }
+                            residual[row] = accumulator;
+                        }
 
                         // J(v) = Identity - F Jf(v).
                         for (std::size_t row = 0; row < N; ++row)
@@ -269,12 +270,19 @@ namespace SushiDSP::dk
                 };
 
                 NewtonAdapter adapter{ nonlinear, open_circuit_voltage_, matrix_f_,
-                                       model_current_, model_jacobian_ };
+                                       nonlinear_current_, model_jacobian_ };
                 if (!solver_.solve(adapter, nonlinear_voltage_))
                 {
+                    // A failed solve restores the lowest-residual iterate, which is generally
+                    // not where the models were last evaluated, so nonlinear_current_ has to be
+                    // brought back into step with nonlinear_voltage_. On a converged solve the
+                    // solver's own contract says the two already agree (DampedNewtonSolver).
+                    // The convergence gate keeps this under 0.01 % of samples, so the extra
+                    // evaluation is off the critical path.
                     ++non_converged_samples_;
+                    adapter.residual_and_jacobian(nonlinear_voltage_, residual_scratch_,
+                                                  jacobian_scratch_);
                 }
-                nonlinear.currents(nonlinear_voltage_, nonlinear_current_);
             }
 
             // y[n] = G x[n-1] + H u[n] + K i[n]  (D6b plan, Per sample).
@@ -758,9 +766,10 @@ namespace SushiDSP::dk
         std::array<double, N> nonlinear_voltage_{};
         std::array<double, N> nonlinear_current_{};
         std::array<double, N> open_circuit_voltage_{};
-        std::array<double, N> model_current_{};
+        std::array<double, N> residual_scratch_{};
 
         std::array<std::array<double, N>, N> model_jacobian_{};
+        std::array<std::array<double, N>, N> jacobian_scratch_{};
 
         DampedNewtonSolver<N> solver_{};
 
