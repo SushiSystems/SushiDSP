@@ -23,6 +23,7 @@
 
 #include "ui/ChainStrip.hpp"
 
+#include <exception>
 #include <string>
 #include <utility>
 #include <vector>
@@ -58,6 +59,27 @@ namespace ui
             return edges;
         }
 
+        /// @brief Runs one rig edit and keeps the failure inside the strip. Every structural edit
+        /// republishes, and a republish throws when the resulting graph will not compile — a
+        /// throw let out of here would unwind past ImGui's unmatched End() and terminate the
+        /// process. RigController::publish() builds and compiles before it swaps, so a rejected
+        /// edit leaves the graph the audio thread is playing exactly as it was.
+        /// @param edit The edit to attempt.
+        /// @param error Out: the failure message, cleared by an edit that succeeds.
+        template <typename Edit>
+        void run_edit(Edit&& edit, std::string& error)
+        {
+            try
+            {
+                edit();
+                error.clear();
+            }
+            catch (const std::exception& failure)
+            {
+                error = failure.what();
+            }
+        }
+
         /// @brief Draws an arrow from one card's right edge to another card's left edge.
         void draw_link(ImDrawList* draw, ImVec2 from, ImVec2 to, ImU32 color)
         {
@@ -78,7 +100,8 @@ namespace ui
     }
 
     void DrawChainStrip(RigController& rig, std::optional<RigController::SlotId>& selected,
-                        std::optional<RigController::SlotId>& created_slot)
+                        std::optional<RigController::SlotId>& created_slot,
+                        std::string& edit_error)
     {
         created_slot = std::nullopt;
 
@@ -113,6 +136,9 @@ namespace ui
 
             ImGui::PushID(static_cast<int>(cell.slot));
             ImGui::SetCursorScreenPos(card_origin);
+            // The bypass switch and the remove button sit inside this rectangle; without the
+            // opt-in the card would hold the hover id and neither of them could ever be clicked.
+            ImGui::SetNextItemAllowOverlap();
             ImGui::InvisibleButton("card", ImVec2(kCardWidth, kCardHeight));
             if (ImGui::IsItemClicked())
             {
@@ -142,13 +168,17 @@ namespace ui
                 {
                     const RigController::SlotId moved =
                         *static_cast<const RigController::SlotId*>(payload->Data);
-                    rig.move_before(moved, cell.slot);
+                    run_edit([&] { rig.move_before(moved, cell.slot); }, edit_error);
                 }
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
                 {
                     const char* descriptor_id = static_cast<const char*>(payload->Data);
-                    created_slot = rig.insert_before(cell.slot, std::string(descriptor_id));
-                    selected = created_slot;
+                    run_edit([&] { created_slot = rig.insert_before(cell.slot, std::string(descriptor_id)); },
+                             edit_error);
+                    if (created_slot.has_value())
+                    {
+                        selected = created_slot;
+                    }
                 }
                 ImGui::EndDragDropTarget();
             }
@@ -157,13 +187,13 @@ namespace ui
             bool active = !bypassed;
             if (ToggleSwitch("bypass", &active, 34.0f, 16.0f))
             {
-                rig.set_bypassed(cell.slot, !active);
+                run_edit([&] { rig.set_bypassed(cell.slot, !active); }, edit_error);
             }
 
             ImGui::SetCursorScreenPos(ImVec2(card_end.x - 26.0f, card_end.y - 26.0f));
             if (ImGui::SmallButton("x"))
             {
-                rig.remove(cell.slot);
+                run_edit([&] { rig.remove(cell.slot); }, edit_error);
             }
             ImGui::PopID();
         }
@@ -180,8 +210,11 @@ namespace ui
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GEAR_DESCRIPTOR_ID"))
             {
                 const char* descriptor_id = static_cast<const char*>(payload->Data);
-                created_slot = rig.append(std::string(descriptor_id));
-                selected = created_slot;
+                run_edit([&] { created_slot = rig.append(std::string(descriptor_id)); }, edit_error);
+                if (created_slot.has_value())
+                {
+                    selected = created_slot;
+                }
             }
             ImGui::EndDragDropTarget();
         }

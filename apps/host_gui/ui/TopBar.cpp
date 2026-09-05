@@ -23,6 +23,7 @@
 
 #include "ui/TopBar.hpp"
 
+#include <cstddef>
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
@@ -33,10 +34,50 @@
 
 namespace ui
 {
+    namespace
+    {
+        /// @brief Width reserved at the bar's right edge for the settings button.
+        constexpr float kSettingsSpan = 96.0f;
+
+        /// @brief Draws one line of muted text, cut short with an ellipsis when it will not fit,
+        /// and offers the whole message as a tooltip whenever it was cut. Keeps a long message off
+        /// the settings button pinned to the bar's right edge.
+        /// @param text The message.
+        /// @param width The space the message may occupy; nothing is drawn when none is left.
+        void draw_elided_text(const std::string& text, float width)
+        {
+            if (width <= 0.0f)
+            {
+                return;
+            }
+
+            const ImVec4 color = to_imvec4(palette().muted_text);
+            if (ImGui::CalcTextSize(text.c_str()).x <= width)
+            {
+                ImGui::TextColored(color, "%s", text.c_str());
+                return;
+            }
+
+            const char* const kEllipsis = "...";
+            const float room = width - ImGui::CalcTextSize(kEllipsis).x;
+            const char* stopped = text.c_str();
+            ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), room, 0.0f, text.c_str(),
+                                            nullptr, &stopped);
+            const std::size_t kept = static_cast<std::size_t>(stopped - text.c_str());
+            ImGui::TextColored(color, "%s%s", text.substr(0, kept).c_str(), kEllipsis);
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("%s", text.c_str());
+            }
+        }
+    }
+
     void DrawTopBar(RigController& rig, const std::string& device_label,
-                    bool& open_device_settings, std::string& status)
+                    bool& open_device_settings, std::string& status, bool& rig_replaced)
     {
         static char preset_path[256] = "preset.json";
+
+        rig_replaced = false;
 
         ImGui::SetNextItemWidth(280.0f);
         ImGui::InputText("##preset_path", preset_path, sizeof(preset_path));
@@ -77,6 +118,7 @@ namespace ui
                 const std::string json_text((std::istreambuf_iterator<char>(in)),
                                             std::istreambuf_iterator<char>());
                 rig.load_from_json(json_text);
+                rig_replaced = true;
                 status = std::string("Loaded ") + preset_path;
             }
             catch (const std::exception& error)
@@ -91,10 +133,11 @@ namespace ui
         if (!status.empty())
         {
             ImGui::SameLine();
-            ImGui::TextColored(to_imvec4(palette().muted_text), "%s", status.c_str());
+            draw_elided_text(status, ImGui::GetWindowWidth() - kSettingsSpan
+                                     - ImGui::GetCursorPosX());
         }
 
-        ImGui::SameLine(ImGui::GetWindowWidth() - 96.0f);
+        ImGui::SameLine(ImGui::GetWindowWidth() - kSettingsSpan);
         if (ImGui::Button("Settings"))
         {
             open_device_settings = true;

@@ -59,6 +59,10 @@ namespace ui
         {
             return param.min * std::pow(param.max / param.min, position);
         }
+        if (param.max <= param.min)
+        {
+            return param.min;
+        }
         return param.min + position * (param.max - param.min);
     }
 

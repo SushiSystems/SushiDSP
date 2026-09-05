@@ -36,6 +36,8 @@
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtGraphSlot.hpp"
 
+#include "ui/Geometry.hpp"
+
 /// @brief Owns the authoritative rig topology (a set of slots, each with a descriptor id and
 /// current parameter values, plus edges between them) and rebuilds + publishes a fresh
 /// SushiDSP::RigGraph through an SushiDSP::RtGraphSlot on every structural edit. Not real-time
@@ -48,7 +50,9 @@
 class RigController
 {
 public:
-    using SlotId = std::uint32_t;
+    /// @brief The slot identity type, owned by ui::Geometry so the layout layer can name it
+    /// without including this header.
+    using SlotId = ui::SlotId;
 
     explicit RigController(const SushiDSP::PrepareInfo& info);
 
@@ -82,11 +86,12 @@ public:
     /// @brief Removes a live slot and every edge touching it, then republishes. If the removed
     /// slot sat in the middle of a linear run (one upstream edge, one downstream edge), its
     /// neighbors are reconnected directly to each other, preserving a working chain around the
-    /// gap. This bridging is specific to removing a live slot through this method: publish() may
-    /// separately drop an unrelated slot whose descriptor_id is unknown to the node registry,
-    /// and such a slot's edges are erased without bridging around it (unreachable in practice —
-    /// registry-driven edits and rig_preset's own validation both keep an unknown type from ever
-    /// reaching this controller).
+    /// gap. This bridging is specific to edges_, the topology this controller keeps: publish()
+    /// may separately drop an unrelated slot whose descriptor_id is unknown to the node registry,
+    /// and that slot's edges are erased from edges_ without bridging, though the graph published
+    /// on that same call does bridge across it, because bridged_edges() cannot tell a slot the
+    /// registry rejected from a bypassed one (unreachable in practice — registry-driven edits and
+    /// rig_preset's own validation both keep an unknown type from ever reaching this controller).
     /// @param publish_now Pass false to batch several structural edits (e.g. building a
     /// multi-node shape where every individual add_node()/connect() call would otherwise leave
     /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
@@ -212,8 +217,8 @@ private:
     /// every live slot and honour every edge, which is the shape a preset records.
     /// @param handles_out Receives the slot-to-handle mapping for the graph that was built.
     /// @return The compiled graph.
-    /// @throws std::runtime_error if bridging would exceed RigGraph::kMaxFanInOut, or if the
-    /// graph does not compile.
+    /// @throws std::runtime_error if the resolved edges would exceed RigGraph::kMaxFanInOut, or
+    /// if the graph does not compile.
     std::unique_ptr<SushiDSP::RigGraph> build_graph(bool apply_bypass,
         std::unordered_map<SlotId, SushiDSP::NodeHandle>& handles_out) const;
 

@@ -27,16 +27,16 @@
 #include <utility>
 #include <vector>
 
-#include "RigController.hpp"
+#include "ui/Geometry.hpp"
 
 namespace ui
 {
     /// @brief One slot's place on the strip's grid.
     struct ChainCell
     {
-        RigController::SlotId slot;
-        int                   row;
-        int                   column;
+        SlotId slot;
+        int    row;
+        int    column;
     };
 
     /// @brief One edge, as a pair of indices into ChainView::cells.
@@ -65,6 +65,6 @@ namespace ui
     /// @return The grid; cells is empty and both counts are 0 for an empty rig. Cells come out in
     /// topological order, followed by any slot a cycle kept out of the walk, each parked on its
     /// own row at the last column.
-    ChainView layout_chain(const std::vector<RigController::SlotId>& slots,
-                           const std::vector<std::pair<RigController::SlotId, RigController::SlotId>>& edges);
+    ChainView layout_chain(const std::vector<SlotId>& slots,
+                           const std::vector<std::pair<SlotId, SlotId>>& edges);
 }

@@ -573,8 +573,11 @@ std::unique_ptr<SushiDSP::RigGraph> RigController::build_graph(bool apply_bypass
             || ++fan_in[edge.second] > SushiDSP::RigGraph::kMaxFanInOut)
         {
             throw std::runtime_error(
-                "RigController::build_graph: bridging a bypassed slot would exceed the graph's "
-                "fan-in/fan-out limit");
+                apply_bypass
+                    ? "RigController::build_graph: bridging a bypassed slot would exceed the "
+                      "graph's fan-in/fan-out limit"
+                    : "RigController::build_graph: the rig's own edges exceed the graph's "
+                      "fan-in/fan-out limit");
         }
     }
 

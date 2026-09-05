@@ -42,13 +42,14 @@ namespace ui
     /// @brief Converts a parameter value to its position along the knob's sweep.
     /// @param param The parameter, whose kind selects the taper.
     /// @param value The value; clamped into the parameter's range first.
-    /// @return The position, in [0, 1].
+    /// @return The position, in [0, 1]; 0 for a range with no width, whose sweep means nothing.
     float value_to_normalized(const SushiDSP::ParameterDescriptor& param, float value);
 
     /// @brief Converts a position along the sweep back to a parameter value.
     /// @param param The parameter, whose kind selects the taper.
     /// @param normalized The position; clamped into [0, 1] first.
-    /// @return The value.
+    /// @return The value; param.min for a range with no width, which is what
+    /// value_to_normalized() maps that range's every value to.
     float normalized_to_value(const SushiDSP::ParameterDescriptor& param, float normalized);
 
     /// @brief Converts a sweep position to the pointer's angle.

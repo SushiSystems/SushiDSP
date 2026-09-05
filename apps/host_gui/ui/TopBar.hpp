@@ -35,6 +35,9 @@ namespace ui
     /// @param device_label Text naming the connected device and its channel selection.
     /// @param open_device_settings Out: set to true on the frame the settings button is clicked.
     /// @param status Out: a message describing the last Save or Load, empty when neither has run.
+    /// @param rig_replaced Out: set to true on the frame a Load succeeded. A load rebuilds the
+    /// slot id space from zero, so ids that survive the load name different gear; every caller
+    /// holding a SlotId must drop it on the frame this reads true.
     void DrawTopBar(RigController& rig, const std::string& device_label,
-                    bool& open_device_settings, std::string& status);
+                    bool& open_device_settings, std::string& status, bool& rig_replaced);
 }
