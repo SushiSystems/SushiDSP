@@ -23,6 +23,118 @@
 
 #include "ui/PanelLibrary.hpp"
 
+#include <cmath>
+#include <cstring>
+
 namespace ui
 {
+    namespace
+    {
+        constexpr ControlPlacement kJcm800Controls[] = {
+            { "presence",   ControlKind::Knob, { 0.34f, 0.78f }, 0.14f, "Presence"   },
+            { "bass",       ControlKind::Knob, { 0.42f, 0.78f }, 0.14f, "Bass"       },
+            { "middle",     ControlKind::Knob, { 0.50f, 0.78f }, 0.14f, "Middle"     },
+            { "treble",     ControlKind::Knob, { 0.58f, 0.78f }, 0.14f, "Treble"     },
+            { "master",     ControlKind::Knob, { 0.66f, 0.78f }, 0.14f, "Master"     },
+            { "preamp",     ControlKind::Knob, { 0.74f, 0.78f }, 0.14f, "Pre Amp"    },
+            { "input_trim", ControlKind::Knob, { 0.13f, 0.78f }, 0.10f, "Input Trim" },
+            { "output",     ControlKind::Knob, { 0.21f, 0.78f }, 0.10f, "Output"     },
+        };
+
+        constexpr ControlPlacement kTubeScreamerControls[] = {
+            { "level",      ControlKind::Knob, { 0.50f, 0.13f }, 0.13f, "Level"      },
+            { "drive",      ControlKind::Knob, { 0.24f, 0.22f }, 0.13f, "Drive"      },
+            { "tone",       ControlKind::Knob, { 0.76f, 0.22f }, 0.13f, "Tone"       },
+            { "input_trim", ControlKind::Knob, { 0.50f, 0.36f }, 0.09f, "Input Trim" },
+        };
+
+        constexpr ControlPlacement kMixerControls[] = {
+            { "gain_0", ControlKind::Knob, { 0.10f, 0.55f }, 0.16f, "1" },
+            { "gain_1", ControlKind::Knob, { 0.21f, 0.55f }, 0.16f, "2" },
+            { "gain_2", ControlKind::Knob, { 0.33f, 0.55f }, 0.16f, "3" },
+            { "gain_3", ControlKind::Knob, { 0.44f, 0.55f }, 0.16f, "4" },
+            { "gain_4", ControlKind::Knob, { 0.56f, 0.55f }, 0.16f, "5" },
+            { "gain_5", ControlKind::Knob, { 0.67f, 0.55f }, 0.16f, "6" },
+            { "gain_6", ControlKind::Knob, { 0.79f, 0.55f }, 0.16f, "7" },
+            { "gain_7", ControlKind::Knob, { 0.90f, 0.55f }, 0.16f, "8" },
+        };
+
+        /// @brief Hides the gain knobs of mixer inputs nothing is connected to.
+        bool mixer_control_visible(std::size_t control_index, std::size_t upstream_count)
+        {
+            return control_index < upstream_count;
+        }
+    }
+
+    const std::vector<PanelDescriptor>& panel_table()
+    {
+        static const std::vector<PanelDescriptor> table{
+            { "sushidsp.jcm800", { 900.0f, 420.0f },
+              { rgba(26, 26, 28), rgba(158, 124, 58), rgba(214, 168, 74), rgba(28, 22, 8), nullptr },
+              kJcm800Controls, 8, nullptr },
+            { "sushidsp.tubescreamer", { 320.0f, 560.0f },
+              { rgba(46, 112, 58), rgba(32, 78, 42), rgba(226, 214, 178), rgba(232, 232, 224), nullptr },
+              kTubeScreamerControls, 4, nullptr },
+            { "sushidsp.splitter", { 320.0f, 200.0f },
+              { rgba(38, 38, 44), rgba(28, 28, 32), rgba(214, 168, 74), rgba(228, 228, 232), nullptr },
+              nullptr, 0, nullptr },
+            { "sushidsp.mixer", { 640.0f, 300.0f },
+              { rgba(38, 38, 44), rgba(28, 28, 32), rgba(214, 168, 74), rgba(228, 228, 232), nullptr },
+              kMixerControls, 8, &mixer_control_visible },
+        };
+        return table;
+    }
+
+    const PanelDescriptor* panel_for(const char* descriptor_id)
+    {
+        for (const PanelDescriptor& panel : panel_table())
+        {
+            if (std::strcmp(panel.descriptor_id, descriptor_id) == 0)
+            {
+                return &panel;
+            }
+        }
+        return nullptr;
+    }
+
+    PanelDescriptor auto_panel(const SushiDSP::NodeDescriptor& node,
+                               std::vector<ControlPlacement>& storage)
+    {
+        const std::size_t count = node.parameter_count;
+        const std::size_t columns = count == 0
+            ? 1
+            : static_cast<std::size_t>(std::ceil(std::sqrt(static_cast<double>(count))));
+        const std::size_t rows = count == 0 ? 1 : (count + columns - 1) / columns;
+
+        storage.clear();
+        storage.reserve(count);
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            const SushiDSP::ParameterDescriptor& param = node.parameters[i];
+            ControlKind kind = ControlKind::Knob;
+            if (param.kind == SushiDSP::ParamKind::Boolean)
+            {
+                kind = ControlKind::Switch;
+            }
+            else if (param.kind == SushiDSP::ParamKind::Choice)
+            {
+                kind = ControlKind::Readout;
+            }
+
+            const std::size_t column = i % columns;
+            const std::size_t row = i / columns;
+            const float x = (static_cast<float>(column) + 0.5f) / static_cast<float>(columns);
+            const float y = (static_cast<float>(row) + 0.5f) / static_cast<float>(rows);
+            storage.push_back({ param.id, kind, { x, y }, 0.55f / static_cast<float>(rows), nullptr });
+        }
+
+        return PanelDescriptor{
+            node.id,
+            { 200.0f * static_cast<float>(columns), 160.0f * static_cast<float>(rows) },
+            { rgba(38, 38, 44), rgba(28, 28, 32), rgba(214, 168, 74), rgba(228, 228, 232), nullptr },
+            storage.data(),
+            storage.size(),
+            nullptr
+        };
+    }
 }
