@@ -146,6 +146,7 @@ int main(int argc, char** argv)
     std::string device_label = "not connected";
     std::string status;
     std::string connect_error;
+    std::string chain_edit_error;
     bool open_device_settings = true;
 
     // Both buffers are captured BY REFERENCE in the device callback (below), and that callback
@@ -181,7 +182,8 @@ int main(int argc, char** argv)
     /// Records the failure in connect_error and leaves the previous rig gone on any exception.
     auto connect_device = [&device, &device_choice, &asio_drivers, &connect_error,
                            &rig_controller_storage, &mono_output, &callback_silence, &input_probe,
-                           &output_probe, &device_label, &selected_slot, &open_device_settings]()
+                           &output_probe, &device_label, &selected_slot, &chain_edit_error,
+                           &open_device_settings]()
     {
         connect_error.clear();
 
@@ -267,7 +269,8 @@ int main(int argc, char** argv)
                 }
                 else if (active->is_empty())
                 {
-                    // Every slot is bypassed, so the rig is a wire.
+                    // A rack holding nothing, or one whose every slot is bypassed: both are a
+                    // cable, so the input reaches the output untouched.
                     std::memcpy(mono_output.data(), selected_channel[0], frames * sizeof(float));
                 }
                 else
@@ -294,6 +297,7 @@ int main(int argc, char** argv)
                 + " (input " + SushiDSP::channel_selection_label(device_choice.input)
                 + ", output " + SushiDSP::channel_selection_label(device_choice.output) + ")";
             selected_slot = std::nullopt;
+            chain_edit_error.clear();
             open_device_settings = false;
         }
         catch (const std::exception& error)
@@ -334,7 +338,16 @@ int main(int argc, char** argv)
         ImGui::Begin("##top", nullptr, kRegionFlags);
         if (rig_controller_storage.has_value())
         {
-            ui::DrawTopBar(*rig_controller_storage, device_label, open_device_settings, status);
+            bool rig_replaced = false;
+            ui::DrawTopBar(*rig_controller_storage, device_label, open_device_settings, status,
+                           rig_replaced);
+            if (rig_replaced)
+            {
+                // A load numbers the new rig's slots from zero, so a surviving id names whatever
+                // gear the preset happened to put there. Nothing may carry across.
+                selected_slot = std::nullopt;
+                chain_edit_error.clear();
+            }
         }
         else
         {
@@ -362,10 +375,23 @@ int main(int argc, char** argv)
         if (rig_controller_storage.has_value())
         {
             std::optional<RigController::SlotId> created_slot;
-            ui::DrawChainStrip(*rig_controller_storage, selected_slot, created_slot);
+            ui::DrawChainStrip(*rig_controller_storage, selected_slot, created_slot,
+                               chain_edit_error);
             if (created_slot.has_value())
             {
                 apply_default_cabinet(*rig_controller_storage, *created_slot, default_ir_path);
+            }
+            if (!chain_edit_error.empty())
+            {
+                // Pinned to the window's own bottom-left rather than to the strip's flow, so the
+                // cards do not jump the frame a message appears or clears.
+                const ImVec2 window_origin = ImGui::GetWindowPos();
+                ImGui::SetCursorScreenPos(
+                    ImVec2(window_origin.x + ImGui::GetStyle().WindowPadding.x,
+                           window_origin.y + ImGui::GetWindowHeight()
+                               - ImGui::GetTextLineHeightWithSpacing()));
+                ImGui::TextColored(ui::to_imvec4(ui::rgba(220, 72, 60)), "Edit refused: %s",
+                                   chain_edit_error.c_str());
             }
         }
         ImGui::End();

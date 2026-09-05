@@ -27,6 +27,11 @@
 
 namespace ui
 {
+    /// @brief A rack slot's stable identity. It lives here, in the layer that owns no ImGui and no
+    /// rig, so a unit that only does arithmetic on slot ids never has to reach up to the
+    /// controller for the type. RigController::SlotId is an alias of this.
+    using SlotId = std::uint32_t;
+
     /// @brief A point or a size, in panel-local units.
     struct Vec2
     {

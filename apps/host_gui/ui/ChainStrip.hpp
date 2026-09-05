@@ -24,6 +24,7 @@
 #pragma once
 
 #include <optional>
+#include <string>
 
 #include "RigController.hpp"
 
@@ -35,6 +36,10 @@ namespace ui
     /// @param selected In/out: the selected slot, cleared when that slot stops existing.
     /// @param created_slot Out: the slot a gear drop just created, or std::nullopt when this frame
     /// created none. The caller uses it to run its own post-insert step.
+    /// @param edit_error In/out: why the last chain edit was refused, cleared by an edit that
+    /// succeeds. An edit whose republish does not compile is reported here instead of throwing,
+    /// and the rig keeps playing the graph it had. The caller draws the message.
     void DrawChainStrip(RigController& rig, std::optional<RigController::SlotId>& selected,
-                        std::optional<RigController::SlotId>& created_slot);
+                        std::optional<RigController::SlotId>& created_slot,
+                        std::string& edit_error);
 }

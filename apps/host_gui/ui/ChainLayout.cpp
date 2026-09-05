@@ -29,8 +29,8 @@
 
 namespace ui
 {
-    ChainView layout_chain(const std::vector<RigController::SlotId>& slots,
-                           const std::vector<std::pair<RigController::SlotId, RigController::SlotId>>& edges)
+    ChainView layout_chain(const std::vector<SlotId>& slots,
+                           const std::vector<std::pair<SlotId, SlotId>>& edges)
     {
         ChainView view{ {}, {}, 0, 0 };
         if (slots.empty())
@@ -38,10 +38,10 @@ namespace ui
             return view;
         }
 
-        std::unordered_map<RigController::SlotId, std::vector<RigController::SlotId>> downstream;
-        std::unordered_map<RigController::SlotId, std::size_t> in_degree;
-        std::unordered_map<RigController::SlotId, std::size_t> upstream_count;
-        for (RigController::SlotId slot : slots)
+        std::unordered_map<SlotId, std::vector<SlotId>> downstream;
+        std::unordered_map<SlotId, std::size_t> in_degree;
+        std::unordered_map<SlotId, std::size_t> upstream_count;
+        for (SlotId slot : slots)
         {
             in_degree[slot] = 0;
             upstream_count[slot] = 0;
@@ -57,13 +57,13 @@ namespace ui
             ++upstream_count[edge.second];
         }
 
-        std::unordered_map<RigController::SlotId, int> column;
-        std::unordered_map<RigController::SlotId, int> row;
+        std::unordered_map<SlotId, int> column;
+        std::unordered_map<SlotId, int> row;
 
         // Kahn's algorithm, seeded in the caller's slot order so the result is deterministic.
-        std::vector<RigController::SlotId> ready;
+        std::vector<SlotId> ready;
         int next_free_row = 0;
-        for (RigController::SlotId slot : slots)
+        for (SlotId slot : slots)
         {
             if (in_degree[slot] == 0)
             {
@@ -73,11 +73,11 @@ namespace ui
             }
         }
 
-        std::vector<RigController::SlotId> ordered;
+        std::vector<SlotId> ordered;
         ordered.reserve(slots.size());
         for (std::size_t head = 0; head < ready.size(); ++head)
         {
-            const RigController::SlotId current = ready[head];
+            const SlotId current = ready[head];
             ordered.push_back(current);
 
             const auto children = downstream.find(current);
@@ -87,7 +87,7 @@ namespace ui
             }
             for (std::size_t branch = 0; branch < children->second.size(); ++branch)
             {
-                const RigController::SlotId child = children->second[branch];
+                const SlotId child = children->second[branch];
                 column[child] = std::max(column[child], column[current] + 1);
                 // A rejoin returns to row 0; the first branch inherits, later branches drop to 1.
                 if (upstream_count[child] < 2)
@@ -103,12 +103,12 @@ namespace ui
 
         // A slot in a cycle never reaches in_degree 0, so the walk leaves it out; park it.
         int deepest_column = 0;
-        for (RigController::SlotId slot : ordered)
+        for (SlotId slot : ordered)
         {
             deepest_column = std::max(deepest_column, column[slot]);
         }
-        const std::unordered_set<RigController::SlotId> scheduled(ordered.begin(), ordered.end());
-        for (RigController::SlotId slot : slots)
+        const std::unordered_set<SlotId> scheduled(ordered.begin(), ordered.end());
+        for (SlotId slot : slots)
         {
             if (scheduled.count(slot) == 0)
             {
@@ -119,8 +119,8 @@ namespace ui
         }
 
         view.cells.reserve(ordered.size());
-        std::unordered_map<RigController::SlotId, std::size_t> cell_index;
-        for (RigController::SlotId slot : ordered)
+        std::unordered_map<SlotId, std::size_t> cell_index;
+        for (SlotId slot : ordered)
         {
             cell_index[slot] = view.cells.size();
             view.cells.push_back({ slot, row[slot], column[slot] });
