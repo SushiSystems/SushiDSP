@@ -173,7 +173,7 @@ RigController::SlotId RigController::append(const std::string& descriptor_id)
 
     if (!slot_order_.empty())
     {
-        edges_.push_back({ slot_order_.back(), id });
+        connect(slot_order_.back(), id, false);
     }
     slot_order_.push_back(id);
     publish();
@@ -199,14 +199,14 @@ RigController::SlotId RigController::insert_before(std::optional<SlotId> followi
                 edge.to = id;
             }
         }
-        edges_.push_back({ id, *following });
+        connect(id, *following, false);
 
         const auto position = std::find(slot_order_.begin(), slot_order_.end(), *following);
         slot_order_.insert(position, id);
     }
     else if (!slot_order_.empty())
     {
-        edges_.push_back({ id, slot_order_.front() });
+        connect(id, slot_order_.front(), false);
         slot_order_.insert(slot_order_.begin(), id);
     }
     else
@@ -240,7 +240,7 @@ void RigController::move_before(SlotId moved, std::optional<SlotId> following)
         edges_.end());
     if (upstream.has_value() && downstream.has_value())
     {
-        edges_.push_back({ *upstream, *downstream });
+        connect(*upstream, *downstream, false);
     }
     slot_order_.erase(std::remove(slot_order_.begin(), slot_order_.end(), moved), slot_order_.end());
 
@@ -253,13 +253,13 @@ void RigController::move_before(SlotId moved, std::optional<SlotId> following)
                 edge.to = moved;
             }
         }
-        edges_.push_back({ moved, *following });
+        connect(moved, *following, false);
         const auto position = std::find(slot_order_.begin(), slot_order_.end(), *following);
         slot_order_.insert(position, moved);
     }
     else if (!slot_order_.empty())
     {
-        edges_.push_back({ moved, slot_order_.front() });
+        connect(moved, slot_order_.front(), false);
         slot_order_.insert(slot_order_.begin(), moved);
     }
     else
@@ -532,7 +532,7 @@ void RigController::load_from_json(const std::string& json_text)
     {
         for (SushiDSP::NodeHandle upstream_handle : scratch.upstream_of(handle))
         {
-            edges_.push_back({ handle_to_slot.at(upstream_handle), handle_to_slot.at(handle) });
+            connect(handle_to_slot.at(upstream_handle), handle_to_slot.at(handle), false);
         }
     }
 
