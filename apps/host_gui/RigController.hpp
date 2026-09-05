@@ -131,6 +131,16 @@ public:
     /// @return The new slot's id.
     SlotId insert_before(std::optional<SlotId> following, const std::string& descriptor_id);
 
+    /// @brief Adds a node as a second parallel branch out of `splitter`, creating the mixer that
+    /// rejoins the branches when the rig does not already have one, and republishes once for the
+    /// whole edit.
+    /// @param splitter The splitter to branch from.
+    /// @param descriptor_id The NodeDescriptor id to construct for the new branch.
+    /// @return The new slot's id, or std::nullopt when `splitter` is not a live splitter or
+    /// `descriptor_id` is not registered.
+    /// @throws std::runtime_error if the resulting graph does not compile.
+    std::optional<SlotId> add_branch(SlotId splitter, const std::string& descriptor_id);
+
     /// @brief Moves `moved` so it sits immediately before `following` in chain order (or at the
     /// very front if `following` is std::nullopt), and republishes.
     void move_before(SlotId moved, std::optional<SlotId> following);
@@ -206,6 +216,24 @@ private:
         bool                            bypassed = false;
     };
     struct Edge { SlotId from; SlotId to; };
+
+    /// @brief The slot a forward walk out of a splitter's branch stopped on.
+    struct BranchEnd
+    {
+        SlotId slot;
+        bool   is_join;
+    };
+
+    /// @brief Lists the ids of every slot `slot` has an edge into, in connect() call order.
+    /// @param slot The upstream slot to query.
+    /// @return The downstream ids.
+    std::vector<SlotId> downstream_of(SlotId slot) const;
+
+    /// @brief Walks forward from `start`, one successor per step, stopping at the first slot two
+    /// or more edges enter or at the first slot that does not have exactly one downstream edge.
+    /// @param start The branch's first slot.
+    /// @return The slot the walk stopped on, flagged as a join when two or more edges enter it.
+    BranchEnd walk_branch(SlotId start) const;
 
     void apply_cabinet_to_live_node(SlotId slot);
     void seed_defaults(Slot& slot) const;

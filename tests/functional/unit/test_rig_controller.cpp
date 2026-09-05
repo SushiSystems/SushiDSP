@@ -21,6 +21,7 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <map>
@@ -86,6 +87,40 @@ namespace
         std::ofstream out(path, std::ios::binary);
         out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
         return path;
+    }
+
+    /// @brief Counts the live slots carrying one descriptor id.
+    std::size_t count_slots_of_type(const RigController& controller, const std::string& descriptor_id)
+    {
+        std::size_t total = 0;
+        for (RigController::SlotId slot : controller.slot_order())
+        {
+            if (controller.descriptor_id(slot) == descriptor_id)
+            {
+                ++total;
+            }
+        }
+        return total;
+    }
+
+    /// @brief Finds the rig's first mixer.
+    /// @return The mixer's slot id, or std::nullopt when the rig has none.
+    std::optional<RigController::SlotId> find_mixer(const RigController& controller)
+    {
+        for (RigController::SlotId slot : controller.slot_order())
+        {
+            if (controller.descriptor_id(slot) == "sushidsp.mixer")
+            {
+                return slot;
+            }
+        }
+        return std::nullopt;
+    }
+
+    /// @brief Reports whether a slot id appears in a list.
+    bool contains(const std::vector<RigController::SlotId>& slots, RigController::SlotId slot)
+    {
+        return std::find(slots.begin(), slots.end(), slot) != slots.end();
     }
 }
 
@@ -210,6 +245,140 @@ TEST(Unit_Dsp, RigControllerBuildsSplitterTwoBranchMixerShapeAndProcessesCorrect
     float* outs[1] = { out.data() };
     SushiDSP::ProcessContext context{ outs, ins, 256, 0.0 };
     EXPECT_NO_THROW(controller.active_graph()->process(context));
+}
+
+TEST(Unit_Dsp, RigControllerAddBranchBuildsTheParallelShapeTheGuiOffers)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+
+    // The whole point of the feature, in the order a user performs it: drag a source, a splitter
+    // and one effect into a straight line, then drop a second effect on the splitter's open row.
+    // add_branch() is what turns that one drop into the four-edge shape RigGraph::compile()
+    // accepts, mixer and all.
+    const RigController::SlotId source = controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId splitter = controller.append("sushidsp.splitter");
+    const RigController::SlotId branch_a = controller.append("sushidsp.jcm800");
+
+    const std::optional<RigController::SlotId> branch_b =
+        controller.add_branch(splitter, "sushidsp.tubescreamer");
+    ASSERT_TRUE(branch_b.has_value());
+
+    // Source, splitter, branch A, branch B, mixer.
+    EXPECT_EQ(controller.slot_order().size(), 5u);
+    ASSERT_NE(controller.active_graph(), nullptr);
+    EXPECT_EQ(controller.active_graph()->nodes().size(), 5u);
+
+    const std::optional<RigController::SlotId> mixer = find_mixer(controller);
+    ASSERT_TRUE(mixer.has_value());
+    EXPECT_EQ(count_slots_of_type(controller, "sushidsp.mixer"), 1u);
+
+    EXPECT_EQ(controller.upstream_of(splitter), std::vector<RigController::SlotId>{ source });
+    EXPECT_EQ(controller.upstream_of(branch_a), std::vector<RigController::SlotId>{ splitter });
+    EXPECT_EQ(controller.upstream_of(*branch_b), std::vector<RigController::SlotId>{ splitter });
+
+    const std::vector<RigController::SlotId> into_mixer = controller.upstream_of(*mixer);
+    EXPECT_EQ(into_mixer.size(), 2u);
+    EXPECT_TRUE(contains(into_mixer, branch_a));
+    EXPECT_TRUE(contains(into_mixer, *branch_b));
+
+    std::vector<float> in(256, 0.0f);
+    std::vector<float> out(256, 0.0f);
+    const float* ins[1] = { in.data() };
+    float* outs[1] = { out.data() };
+    SushiDSP::ProcessContext context{ outs, ins, 256, 0.0 };
+    EXPECT_NO_THROW(controller.active_graph()->process(context));
+}
+
+TEST(Unit_Dsp, RigControllerAddBranchTwiceReusesTheOneMixer)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+    controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId splitter = controller.append("sushidsp.splitter");
+    const RigController::SlotId branch_a = controller.append("sushidsp.jcm800");
+
+    const std::optional<RigController::SlotId> branch_b =
+        controller.add_branch(splitter, "sushidsp.tubescreamer");
+    const std::optional<RigController::SlotId> branch_c =
+        controller.add_branch(splitter, "sushidsp.tubescreamer");
+    ASSERT_TRUE(branch_b.has_value());
+    ASSERT_TRUE(branch_c.has_value());
+
+    EXPECT_EQ(count_slots_of_type(controller, "sushidsp.mixer"), 1u);
+    EXPECT_EQ(controller.slot_order().size(), 6u);
+
+    const std::optional<RigController::SlotId> mixer = find_mixer(controller);
+    ASSERT_TRUE(mixer.has_value());
+    const std::vector<RigController::SlotId> into_mixer = controller.upstream_of(*mixer);
+    EXPECT_EQ(into_mixer.size(), 3u);
+    EXPECT_TRUE(contains(into_mixer, branch_a));
+    EXPECT_TRUE(contains(into_mixer, *branch_b));
+    EXPECT_TRUE(contains(into_mixer, *branch_c));
+}
+
+TEST(Unit_Dsp, RigControllerAddBranchOnADanglingSplitterCreatesNoMixer)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+    const RigController::SlotId splitter = controller.append("sushidsp.splitter");
+
+    const std::optional<RigController::SlotId> branch =
+        controller.add_branch(splitter, "sushidsp.jcm800");
+    ASSERT_TRUE(branch.has_value());
+
+    EXPECT_EQ(controller.slot_order().size(), 2u);
+    EXPECT_EQ(count_slots_of_type(controller, "sushidsp.mixer"), 0u);
+    EXPECT_EQ(controller.upstream_of(*branch), std::vector<RigController::SlotId>{ splitter });
+}
+
+TEST(Unit_Dsp, RigControllerAddBranchOnASlotThatIsNotASplitterIsRefused)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+    const RigController::SlotId screamer = controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId amp = controller.append("sushidsp.jcm800");
+
+    EXPECT_FALSE(controller.add_branch(screamer, "sushidsp.jcm800").has_value());
+
+    EXPECT_EQ(controller.slot_order(), (std::vector<RigController::SlotId>{ screamer, amp }));
+    EXPECT_EQ(controller.upstream_of(amp), std::vector<RigController::SlotId>{ screamer });
+}
+
+TEST(Unit_Dsp, RigControllerAddBranchWithAnUnregisteredDescriptorIdIsRefused)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController controller(info);
+    const RigController::SlotId splitter = controller.append("sushidsp.splitter");
+    const RigController::SlotId amp = controller.append("sushidsp.jcm800");
+
+    EXPECT_FALSE(controller.add_branch(splitter, "sushidsp.does_not_exist").has_value());
+
+    EXPECT_EQ(controller.slot_order(), (std::vector<RigController::SlotId>{ splitter, amp }));
+    EXPECT_EQ(count_slots_of_type(controller, "sushidsp.mixer"), 0u);
+}
+
+TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsAParallelBranch)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    RigController original(info);
+    original.append("sushidsp.tubescreamer");
+    const RigController::SlotId splitter = original.append("sushidsp.splitter");
+    original.append("sushidsp.jcm800");
+    ASSERT_TRUE(original.add_branch(splitter, "sushidsp.tubescreamer").has_value());
+
+    const std::string json_text = original.save_to_json();
+
+    RigController reloaded(info);
+    reloaded.load_from_json(json_text);
+
+    EXPECT_EQ(reloaded.slot_order().size(), 5u);
+    EXPECT_EQ(count_slots_of_type(reloaded, "sushidsp.mixer"), 1u);
+    EXPECT_EQ(count_slots_of_type(reloaded, "sushidsp.splitter"), 1u);
+
+    const std::optional<RigController::SlotId> mixer = find_mixer(reloaded);
+    ASSERT_TRUE(mixer.has_value());
+    EXPECT_EQ(reloaded.upstream_of(*mixer).size(), 2u);
 }
 
 TEST(Unit_Dsp, RigControllerAppendWithUnknownDescriptorIdIsSafeNoOp)

@@ -36,6 +36,8 @@
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 #include "SushiDSP/rig_preset/RigPreset.hpp"
+#include "SushiDSP/routing/MixerNode.hpp"
+#include "SushiDSP/routing/SplitterNode.hpp"
 
 namespace
 {
@@ -63,6 +65,21 @@ namespace
                 }
             }
             return false;
+        }
+        return false;
+    }
+
+    /// @brief Reports whether the node registry can construct a descriptor id.
+    /// @param descriptor_id The id to look for.
+    /// @return True when the registry holds an entry with that id.
+    bool descriptor_is_registered(const std::string& descriptor_id)
+    {
+        for (const auto& entry : SushiDSP::node_registry())
+        {
+            if (descriptor_id == entry.descriptor->id)
+            {
+                return true;
+            }
         }
         return false;
     }
@@ -216,6 +233,100 @@ RigController::SlotId RigController::insert_before(std::optional<SlotId> followi
 
     publish();
     return id;
+}
+
+std::vector<RigController::SlotId> RigController::downstream_of(SlotId slot) const
+{
+    std::vector<SlotId> result;
+    for (const Edge& edge : edges_)
+    {
+        if (edge.from == slot)
+        {
+            result.push_back(edge.to);
+        }
+    }
+    return result;
+}
+
+RigController::BranchEnd RigController::walk_branch(SlotId start) const
+{
+    SlotId current = start;
+    std::set<SlotId> visited;
+    while (visited.insert(current).second)
+    {
+        if (upstream_of(current).size() >= 2)
+        {
+            return { current, true };
+        }
+        const std::vector<SlotId> next = downstream_of(current);
+        if (next.size() != 1)
+        {
+            return { current, false };
+        }
+        current = next.front();
+    }
+    // A cycle walked back onto a slot already left behind; stop rather than circle it forever.
+    return { current, false };
+}
+
+std::optional<RigController::SlotId> RigController::add_branch(SlotId splitter,
+                                                               const std::string& descriptor_id)
+{
+    const auto splitter_slot = slots_.find(splitter);
+    if (splitter_slot == slots_.end()
+        || splitter_slot->second.descriptor_id != SushiDSP::splitter_descriptor().id
+        || !descriptor_is_registered(descriptor_id))
+    {
+        return std::nullopt;
+    }
+
+    const std::vector<SlotId> down = downstream_of(splitter);
+    if (down.empty())
+    {
+        // A dangling splitter's one branch is still the graph's only sink, so it needs no mixer.
+        const SlotId only_branch = add_node(descriptor_id, false);
+        connect(splitter, only_branch, false);
+        publish();
+        return only_branch;
+    }
+
+    const BranchEnd end = walk_branch(down.front());
+    const SlotId branch = add_node(descriptor_id, false);
+
+    const auto end_slot = slots_.find(end.slot);
+    const bool rejoin_exists = end.is_join && end_slot != slots_.end()
+        && end_slot->second.descriptor_id == SushiDSP::mixer_descriptor().id;
+
+    if (rejoin_exists)
+    {
+        connect(splitter, branch, false);
+        connect(branch, end.slot, false);
+
+        // The rejoin stays last in chain order, so append() still lands past every branch.
+        slot_order_.erase(std::remove(slot_order_.begin(), slot_order_.end(), branch),
+                          slot_order_.end());
+        slot_order_.insert(std::find(slot_order_.begin(), slot_order_.end(), end.slot), branch);
+    }
+    else
+    {
+        // A branch nothing rejoins is a second sink, which RigGraph::compile() rejects.
+        const std::vector<SlotId> after = downstream_of(end.slot);
+        const SlotId mixer = add_node(SushiDSP::mixer_descriptor().id, false);
+        if (!after.empty())
+        {
+            disconnect(end.slot, after.front(), false);
+        }
+        connect(end.slot, mixer, false);
+        connect(splitter, branch, false);
+        connect(branch, mixer, false);
+        if (!after.empty())
+        {
+            connect(mixer, after.front(), false);
+        }
+    }
+
+    publish();
+    return branch;
 }
 
 void RigController::move_before(SlotId moved, std::optional<SlotId> following)
