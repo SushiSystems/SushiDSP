@@ -227,4 +227,111 @@ namespace SushiDSP::dk
     private:
         double pivot_{ 0.0 };
     };
+
+    /// @brief Closed-form 2x2 LU with partial pivoting; N = 2 is the shape of every triode block
+    /// and of the D6c clip stage's diode pair, so it is the hot Jacobian size in the tree.
+    template <>
+    class DenseLu<2>
+    {
+    public:
+        /// @brief Smallest pivot magnitude accepted as non-singular.
+        static constexpr double kMinimumPivot = 1e-300;
+
+        /// @brief Factorises the 2x2 matrix into the internal L/U storage.
+        /// @param matrix The system matrix; not modified.
+        /// @return False when a pivot is numerically zero; solve() must not be called after that.
+        bool factorise(const std::array<std::array<double, 2>, 2>& matrix)
+        {
+            return factorise(matrix, 2);
+        }
+
+        /// @brief Factorises the leading order x order block of the 2x2 matrix.
+        /// @param matrix The system matrix; only its leading block is read, and it is not modified.
+        /// @param order Active dimension, 0, 1, or 2. An order of zero always succeeds.
+        /// @return False when a pivot is numerically zero; solve() must not be called after that.
+        bool factorise(const std::array<std::array<double, 2>, 2>& matrix, std::size_t order)
+        {
+            if (order == 0)
+            {
+                return true;
+            }
+            if (order == 1)
+            {
+                if (!(std::fabs(matrix[0][0]) >= kMinimumPivot))
+                {
+                    return false;
+                }
+                pivot_ = matrix[0][0];
+                return true;
+            }
+
+            pivot_row_zero_ = std::fabs(matrix[0][0]) >= std::fabs(matrix[1][0]);
+            const double pivot = pivot_row_zero_ ? matrix[0][0] : matrix[1][0];
+            if (!(std::fabs(pivot) >= kMinimumPivot))
+            {
+                return false;
+            }
+
+            const double other = pivot_row_zero_ ? matrix[1][0] : matrix[0][0];
+            const double pivot_column_1 = pivot_row_zero_ ? matrix[0][1] : matrix[1][1];
+            const double other_column_1 = pivot_row_zero_ ? matrix[1][1] : matrix[0][1];
+
+            const double multiplier = other / pivot;
+            const double schur = other_column_1 - multiplier * pivot_column_1;
+            if (!(std::fabs(schur) >= kMinimumPivot))
+            {
+                return false;
+            }
+
+            pivot_ = pivot;
+            pivot_column_1_ = pivot_column_1;
+            multiplier_ = multiplier;
+            schur_ = schur;
+            return true;
+        }
+
+        /// @brief Solves the 2x2 system A x = b using the factors from the last factorise().
+        /// @param right_hand_side b.
+        /// @param solution x, overwritten.
+        void solve(const std::array<double, 2>& right_hand_side, std::array<double, 2>& solution) const
+        {
+            solve(right_hand_side, solution, 2);
+        }
+
+        /// @brief Solves the leading order x order block using the factors from the last
+        /// factorise() of the same order.
+        /// @param right_hand_side b; only its leading order entries are read.
+        /// @param solution x; only its leading order entries are written.
+        /// @param order Active dimension, 0, 1, or 2, matching the last factorise().
+        void solve(const std::array<double, 2>& right_hand_side, std::array<double, 2>& solution,
+                   std::size_t order) const
+        {
+            if (order == 0)
+            {
+                return;
+            }
+            if (order == 1)
+            {
+                solution[0] = right_hand_side[0] / pivot_;
+                return;
+            }
+
+            const double pivot_entry = pivot_row_zero_ ? right_hand_side[0] : right_hand_side[1];
+            const double other_entry = pivot_row_zero_ ? right_hand_side[1] : right_hand_side[0];
+
+            const double y_1 = other_entry - multiplier_ * pivot_entry;
+            const double x_1 = y_1 / schur_;
+            const double x_0 = (pivot_entry - pivot_column_1_ * x_1) / pivot_;
+
+            solution[0] = x_0;
+            solution[1] = x_1;
+        }
+
+    private:
+        double pivot_{ 0.0 };
+        double pivot_column_1_{ 0.0 };
+        double multiplier_{ 0.0 };
+        double schur_{ 0.0 };
+        bool   pivot_row_zero_{ true };
+    };
 }
