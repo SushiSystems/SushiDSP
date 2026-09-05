@@ -71,6 +71,20 @@ namespace SushiDSP
         /// @param q Bandwidth parameter (higher Q = narrower peak).
         void set_peaking(double sample_rate, double center_hz, double gain_db, double q);
 
+        /// @brief Configures this filter as a first-order shelf with independent zero and pole.
+        ///
+        /// The shape of an op-amp stage whose input or feedback leg carries a series R+C: the gain is
+        /// low_frequency_gain below the zero, low_frequency_gain * pole_hz / zero_hz above the pole, and
+        /// the transition is first order. Both corners are prewarped separately, so each lands exactly
+        /// where the component values put it and a mirrored pair (zero and pole swapped, gain inverted)
+        /// cancels to the last bit. See DR1+DR2 plan N4.
+        /// @param sample_rate Sample rate in Hz.
+        /// @param zero_hz Frequency of the transfer function's zero, in Hz.
+        /// @param pole_hz Frequency of its pole, in Hz.
+        /// @param low_frequency_gain Gain below both corners; 1.0 is unity.
+        void set_first_order_shelf(double sample_rate, double zero_hz, double pole_hz,
+                                   double low_frequency_gain);
+
         /// @brief Processes one sample through the filter.
         /// @param input The input sample.
         /// @return The filtered output sample.

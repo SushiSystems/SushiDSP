@@ -157,6 +157,22 @@ namespace SushiDSP
         a2_ = static_cast<float>(a2 / a0);
     }
 
+    void Biquad::set_first_order_shelf(double sample_rate, double zero_hz, double pole_hz,
+                                       double low_frequency_gain)
+    {
+        // t = tan(pi*f/fs) prewarps each corner separately, so both land exactly where the component
+        // values put them  (DR1+DR2 plan, N4).
+        const double zero_tangent = std::tan(M_PI * zero_hz / sample_rate);
+        const double pole_tangent = std::tan(M_PI * pole_hz / sample_rate);
+        const double scale = low_frequency_gain * pole_tangent / zero_tangent;
+        const double denominator = pole_tangent + 1.0;
+        b0_ = static_cast<float>(scale * (zero_tangent + 1.0) / denominator);
+        b1_ = static_cast<float>(scale * (zero_tangent - 1.0) / denominator);
+        b2_ = 0.0f;
+        a1_ = static_cast<float>((pole_tangent - 1.0) / denominator);
+        a2_ = 0.0f;
+    }
+
     float Biquad::process_sample(float input)
     {
         const float output = b0_ * input + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_;
