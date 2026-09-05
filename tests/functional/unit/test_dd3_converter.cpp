@@ -27,4 +27,128 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
+// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
+// which GCC/Clang's libstdc++/libc++ define unconditionally.
+#define _USE_MATH_DEFINES
+
 #include <gtest/gtest.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+
+#include "SushiDSP/dd3/Dd3Converter.hpp"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+TEST(Unit_Dsp, Dd3ConverterQuantisesOnItsExactCodeBoundaries)
+{
+    // step = 2 * 2.5 / 4096 = 5/4096 = 1.220703125e-3 V exactly  (DR1+DR2 plan, N8).
+    using Converter = SushiDSP::dd3::Dd3Converter;
+    EXPECT_DOUBLE_EQ(Converter::kStepVolts, 1.220703125e-3);
+    EXPECT_DOUBLE_EQ(Converter::quantise(0.0), 0.0);
+    EXPECT_DOUBLE_EQ(Converter::quantise(0.49 * Converter::kStepVolts), 0.0);
+    EXPECT_DOUBLE_EQ(Converter::quantise(0.51 * Converter::kStepVolts), Converter::kStepVolts);
+    EXPECT_DOUBLE_EQ(Converter::quantise(-0.51 * Converter::kStepVolts), -Converter::kStepVolts);
+    EXPECT_DOUBLE_EQ(Converter::quantise(1.0 * Converter::kStepVolts), Converter::kStepVolts);
+}
+
+TEST(Unit_Dsp, Dd3ConverterSaturatesRatherThanWrapping)
+{
+    // Ruling 15. Code 2047 is 2047 * 1.220703125e-3 = 2.4987793 V; code -2048 is exactly -2.5 V.
+    using Converter = SushiDSP::dd3::Dd3Converter;
+    EXPECT_DOUBLE_EQ(Converter::quantise(10.0), 2047.0 * Converter::kStepVolts);
+    EXPECT_DOUBLE_EQ(Converter::quantise(1e6), 2047.0 * Converter::kStepVolts);
+    EXPECT_DOUBLE_EQ(Converter::quantise(-10.0), -2048.0 * Converter::kStepVolts);
+    EXPECT_NEAR(2047.0 * Converter::kStepVolts, 2.4987793, 1e-6);
+}
+
+TEST(Unit_Dsp, Dd3ConverterQuantisationNoiseMatchesTwelveBits)
+{
+    // An ideal N-bit converter gives 6.0206*N + 1.7609 dB of SNR for a full-scale sine:
+    // 6.0206*12 + 1.7609 = 74.008 dB. Measure it directly as the ratio of signal power to
+    // error power, which needs no window and no FFT.
+    using Converter = SushiDSP::dd3::Dd3Converter;
+    double signal_power = 0.0;
+    double error_power = 0.0;
+    for (std::size_t n = 0; n < 480000; ++n)
+    {
+        const double input = Converter::kFullScaleVolts
+                           * std::sin(2.0 * M_PI * 997.0 * static_cast<double>(n) / 48000.0);
+        const double clamped = std::max(-Converter::kFullScaleVolts,
+                                        std::min(input, 2047.0 * Converter::kStepVolts));
+        const double output = Converter::quantise(clamped);
+        signal_power += clamped * clamped;
+        error_power += (output - clamped) * (output - clamped);
+    }
+    const double snr_db = 10.0 * std::log10(signal_power / error_power);
+    std::printf("[ measure ] DD-3 converter SNR: %.3f dB (ideal 12-bit 74.008)\n", snr_db);
+    EXPECT_NEAR(snr_db, 74.008, 1.0);
+}
+
+TEST(Unit_Dsp, Dd3ConverterRingDelaysByExactlyNSamples)
+{
+    using SushiDSP::dd3::Dd3Mode;
+    struct Case { Dd3Mode mode; std::uint32_t length; };
+    const Case cases[3] = { { Dd3Mode::Short, 1024u }, { Dd3Mode::Middle, 4096u },
+                            { Dd3Mode::Long, 16384u } };
+    for (const Case& item : cases)
+    {
+        SushiDSP::dd3::Dd3Converter converter;
+        converter.prepare();
+        converter.set_mode(item.mode);
+        EXPECT_EQ(converter.ring_length(), item.length);
+        std::uint32_t impulse_at = 0;
+        for (std::uint32_t n = 0; n < 3u * item.length; ++n)
+        {
+            const float out = converter.process_sample(n == 0 ? 1.0f : 0.0f);
+            if (out != 0.0f && impulse_at == 0) { impulse_at = n; }
+        }
+        EXPECT_EQ(impulse_at, item.length) << item.length;
+    }
+}
+
+TEST(Unit_Dsp, Dd3ConverterHoldKeepsTheLoopAndInhibitsWrites)
+{
+    // Dossier 1.8: HOLD is a mode bit into the LSI, sharing L's clock range with writes inhibited.
+    // Ruling 14: Long and Hold share N, so the transition between them must not clear the ring -
+    // holding silence is the one thing HOLD must not do.
+    SushiDSP::dd3::Dd3Converter converter;
+    converter.prepare();
+    converter.set_mode(SushiDSP::dd3::Dd3Mode::Long);
+    for (std::uint32_t n = 0; n < 16384u; ++n)
+    {
+        converter.process_sample(n == 100u ? 1.0f : 0.0f);
+    }
+    converter.set_mode(SushiDSP::dd3::Dd3Mode::Hold);
+    // The stored impulse comes back on schedule and keeps coming back, lap after lap, while
+    // everything pushed in is discarded.
+    for (std::uint32_t lap = 0; lap < 3u; ++lap)
+    {
+        for (std::uint32_t n = 0; n < 16384u; ++n)
+        {
+            const float out = converter.process_sample(0.5f);
+            if (n == 100u) { EXPECT_NEAR(out, 1.0f, SushiDSP::dd3::Dd3Converter::kStepVolts); }
+            else           { EXPECT_FLOAT_EQ(out, 0.0f) << lap << " " << n; }
+        }
+    }
+    EXPECT_EQ(converter.ring_length(), 16384u);
+}
+
+TEST(Unit_Dsp, Dd3ConverterModeChangeClearsTheRingWhenNChanges)
+{
+    // Spec: "MODE changes swap N and clear the ring" - which is exactly the S/M/L case.
+    SushiDSP::dd3::Dd3Converter converter;
+    converter.prepare();
+    converter.set_mode(SushiDSP::dd3::Dd3Mode::Short);
+    for (std::uint32_t n = 0; n < 512u; ++n) { converter.process_sample(0.9f); }
+    converter.set_mode(SushiDSP::dd3::Dd3Mode::Middle);
+    EXPECT_EQ(converter.ring_length(), 4096u);
+    for (std::uint32_t n = 0; n < 4096u; ++n)
+    {
+        EXPECT_FLOAT_EQ(converter.process_sample(0.0f), 0.0f) << n;
+    }
+}

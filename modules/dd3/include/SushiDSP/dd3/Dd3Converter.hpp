@@ -1,0 +1,100 @@
+/**************************************************************************/
+/* Dd3Converter.hpp                                                       */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                        https://sushisystems.io                         */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the Apache License, Version 2.0 (the "License");        */
+/* you may not use this file except in compliance with the License.       */
+/* You may obtain a copy of the License at                                */
+/*                                                                        */
+/*     http://www.apache.org/licenses/LICENSE-2.0                         */
+/*                                                                        */
+/* Unless required by applicable law or agreed to in writing, software    */
+/* distributed under the License is distributed on an "AS IS" BASIS,      */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
+/* implied. See the License for the specific language governing           */
+/* permissions and limitations under the License.                         */
+/**************************************************************************/
+
+/**
+ * @file Dd3Converter.hpp
+ * @brief The DD-3's 12-bit A/D-D/A characteristic and fixed-length ring.
+ * @author Mustafa Garip & Sushi Systems
+ */
+
+#pragma once
+
+#include <cstdint>
+#include <vector>
+
+namespace SushiDSP::dd3
+{
+    /// @brief The mode switch's four positions (dossier 1.8, S1 SBM1024 truth table).
+    enum class Dd3Mode
+    {
+        Short,
+        Middle,
+        Long,
+        Hold
+    };
+
+    /// @brief Models the SBM1024's 12-bit quantiser and its S/M/L/H delay ring.
+    ///
+    /// Ruling 13: the SBM1024 is a plain uniform mid-tread quantiser here; the R-2R ladder's
+    /// per-bit DNL has no measured target yet, so it is not modelled — a table would replace
+    /// @ref quantise's linear step if one is ever measured. Ruling 14: MODE changes swap the
+    /// ring length and clear it, except that Long and Hold share one length, so switching
+    /// between them must not clear the loop HOLD is meant to freeze. Ruling 15: the converter
+    /// saturates at both rails rather than wrapping on overflow.
+    class Dd3Converter
+    {
+    public:
+        /// @brief Allocates the ring at its maximum length. Control thread only.
+        void prepare();
+
+        /// @brief Selects the buffer length, clearing the ring only when N changes (Ruling 14).
+        /// @param mode The new mode; Long and Hold share N = 16384, so switching between them
+        /// keeps whatever the loop holds, which is what HOLD is for.
+        void set_mode(Dd3Mode mode);
+
+        /// @brief Quantises, writes (unless HOLD) and reads one sample at the ring's clock.
+        /// @param volts The sample to store, in volts at the converter's own scale.
+        /// @return What the ring held N samples ago, dequantised.
+        float process_sample(float volts);
+
+        /// @brief Zeroes the ring without changing the mode.
+        void reset();
+
+        /// @brief The active buffer length in samples.
+        /// @return 1024, 4096 or 16384.
+        std::uint32_t ring_length() const;
+
+        /// @brief The 12-bit mid-tread characteristic, saturating at both rails (Ruling 15).
+        /// @param volts Input voltage.
+        /// @return The dequantised voltage.
+        static double quantise(double volts);
+
+        static constexpr double        kFullScaleVolts    = 2.5;
+        static constexpr double        kStepVolts         = 5.0 / 4096.0;
+        static constexpr std::int32_t  kMaximumCode       = 2047;
+        static constexpr std::int32_t  kMinimumCode       = -2048;
+        static constexpr std::uint32_t kShortLength       = 1024u;
+        static constexpr std::uint32_t kMiddleLength      = 4096u;
+        static constexpr std::uint32_t kLongLength        = 16384u;
+        static constexpr std::uint32_t kMaximumRingLength = 16384u;
+
+    private:
+        /// @brief Maps a mode to its ring length, Long and Hold sharing kLongLength.
+        static std::uint32_t length_for_mode(Dd3Mode mode);
+
+        std::vector<float> ring_;
+        std::uint32_t      length_ = kLongLength;
+        std::uint32_t      index_  = 0u;
+        Dd3Mode            mode_   = Dd3Mode::Long;
+    };
+}
