@@ -54,6 +54,9 @@ TEST(Unit_Dsp, Dd3ConverterQuantisesOnItsExactCodeBoundaries)
     EXPECT_DOUBLE_EQ(Converter::quantise(0.51 * Converter::kStepVolts), Converter::kStepVolts);
     EXPECT_DOUBLE_EQ(Converter::quantise(-0.51 * Converter::kStepVolts), -Converter::kStepVolts);
     EXPECT_DOUBLE_EQ(Converter::quantise(1.0 * Converter::kStepVolts), Converter::kStepVolts);
+    // The exact tie rounds away from zero, not to even.
+    EXPECT_DOUBLE_EQ(Converter::quantise(0.5 * Converter::kStepVolts), Converter::kStepVolts);
+    EXPECT_DOUBLE_EQ(Converter::quantise(-0.5 * Converter::kStepVolts), -Converter::kStepVolts);
 }
 
 TEST(Unit_Dsp, Dd3ConverterSaturatesRatherThanWrapping)
