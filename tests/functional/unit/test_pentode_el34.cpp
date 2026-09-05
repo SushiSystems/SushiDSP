@@ -226,12 +226,12 @@ TEST(Unit_Dsp, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
     EXPECT_DOUBLE_EQ(high[0], low[0]);
 }
 
-TEST(Unit_Dsp, PentodeEL34JointFormAgreesWithTheSeparateEntryPointsToWithinOneUlpScale)
+TEST(Unit_Dsp, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
 {
-    // Same shape as the triode case: the joint form forms E1^kx as E1^(kx-1) * E1 and z^kx as
-    // z^(kx-1) * z rather than calling pow a second time, and takes softplus and logistic from
-    // one exp, so the two paths agree to a couple of ulp rather than bit-for-bit. The first
-    // screen voltage sits below kScreenFloorVolts, so the clamped Vg2k column is exercised too.
+    // Same shape as the triode case. current() and jacobian() forward to the joint form, so these
+    // agree exactly by construction today, and pinning that keeps the three entry points from
+    // drifting apart later. The first screen voltage sits below kScreenFloorVolts, so the clamped
+    // Vg2k column is exercised too.
     const SushiDSP::PentodeEL34 pentode;
     for (const double vg1k : { -45.0, -37.0, -20.0, -5.0, 0.0 })
     {
@@ -249,13 +249,12 @@ TEST(Unit_Dsp, PentodeEL34JointFormAgreesWithTheSeparateEntryPointsToWithinOneUl
                 pentode.current_and_jacobian(v, joint_currents, joint_jacobian);
                 for (std::size_t branch = 0; branch < 3; ++branch)
                 {
-                    EXPECT_NEAR(joint_currents[branch], separate_currents[branch],
-                                1e-13 * std::abs(separate_currents[branch]) + 1e-300)
+                    EXPECT_DOUBLE_EQ(joint_currents[branch], separate_currents[branch])
                         << vg1k << " " << vg2k << " " << vpk << " " << branch;
                     for (std::size_t input = 0; input < 3; ++input)
                     {
-                        EXPECT_NEAR(joint_jacobian[branch][input], separate_jacobian[branch][input],
-                                    1e-13 * std::abs(separate_jacobian[branch][input]) + 1e-300)
+                        EXPECT_DOUBLE_EQ(joint_jacobian[branch][input],
+                                         separate_jacobian[branch][input])
                             << vg1k << " " << vg2k << " " << vpk << " " << branch << " " << input;
                     }
                 }

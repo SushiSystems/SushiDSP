@@ -168,12 +168,11 @@ TEST(Unit_Dsp, Triode12AX7IsCutOffAndCOneAtNonPositivePlateVoltage)
     }
 }
 
-TEST(Unit_Dsp, Triode12AX7JointFormAgreesWithTheSeparateEntryPointsToWithinOneUlpScale)
+TEST(Unit_Dsp, Triode12AX7JointFormAgreesWithTheSeparateEntryPoints)
 {
-    // The joint form computes E1^kx as E1^(kx-1) * E1 rather than calling pow twice, and takes
-    // softplus and logistic from one exp. Both are the same value to a couple of ulp, not
-    // bit-for-bit, so this compares at 1e-13 relative rather than with EXPECT_DOUBLE_EQ; the
-    // exact zeros (the whole grid row's Vpk entry, and plate cutoff) are still exact.
+    // current() and jacobian() forward to the joint form, so these agree exactly by construction
+    // today. Pinning that is the point: the three entry points cannot drift apart later, and a
+    // current() specialised for speed would have to keep matching the form the solver calls.
     const SushiDSP::Triode12AX7 triode;
     for (const double vgk : { -8.0, -3.0, -1.5, 0.0, 1.0 })
     {
@@ -189,13 +188,12 @@ TEST(Unit_Dsp, Triode12AX7JointFormAgreesWithTheSeparateEntryPointsToWithinOneUl
             triode.current_and_jacobian(v, joint_currents, joint_jacobian);
             for (std::size_t branch = 0; branch < 2; ++branch)
             {
-                EXPECT_NEAR(joint_currents[branch], separate_currents[branch],
-                            1e-13 * std::abs(separate_currents[branch]) + 1e-300)
+                EXPECT_DOUBLE_EQ(joint_currents[branch], separate_currents[branch])
                     << vgk << " " << vpk << " " << branch;
                 for (std::size_t input = 0; input < 2; ++input)
                 {
-                    EXPECT_NEAR(joint_jacobian[branch][input], separate_jacobian[branch][input],
-                                1e-13 * std::abs(separate_jacobian[branch][input]) + 1e-300)
+                    EXPECT_DOUBLE_EQ(joint_jacobian[branch][input],
+                                     separate_jacobian[branch][input])
                         << vgk << " " << vpk << " " << branch << " " << input;
                 }
             }
