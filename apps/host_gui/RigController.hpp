@@ -192,9 +192,20 @@ public:
     /// @brief The RtGraphSlot the audio callback should acquire_for_audio_thread() from.
     SushiDSP::RtGraphSlot& graph_slot();
 
+    /// @brief Remembers the folder the cabinet browser should open in. Saved with the preset, so
+    /// a tone reopens where its impulse responses live. Does not republish: this changes no
+    /// audio. The path is stored raw, machine-local as it is, because the machine owner asked
+    /// for exactly that; a preset carried to another machine finds no such folder and the
+    /// browser falls back.
+    void set_ir_folder(const std::string& path);
+
+    /// @brief The remembered impulse-response folder, or "" when the preset carried none.
+    std::string ir_folder() const;
+
     /// @brief Serializes the current rig to JSON via SushiDSP::serialize_rig_to_json(). Cabinet
     /// IR is included via the `"cabinet_ir"` JSON field. Every slot is written, a bypassed one
-    /// included, and a bypassed slot carries `"bypassed": true`.
+    /// included, and a bypassed slot carries `"bypassed": true`. A non-empty ir_folder() is
+    /// written as the rig-level `"ir_folder"` key beside `"nodes"`.
     /// @throws std::runtime_error if the unbypassed graph does not compile, which is what the
     /// preset records; a caller writing to a file must serialize before it truncates the file.
     std::string save_to_json() const;
@@ -204,7 +215,8 @@ public:
     /// continuity across a save/load round trip is not preserved (the JSON schema was never
     /// designed to carry a GUI-local SlotId, only a preset-local integer id).
     /// @throws std::runtime_error if json_text is malformed (same contract as
-    /// SushiDSP::deserialize_rig_from_json()).
+    /// SushiDSP::deserialize_rig_from_json()). A preset with no `"ir_folder"` key loads with an
+    /// empty folder.
     void load_from_json(const std::string& json_text);
 
 private:
@@ -257,6 +269,12 @@ private:
     std::vector<std::pair<SlotId, SlotId>> direct_edges(
         const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const;
 
+    /// @brief Serializes the slots and edges through SushiDSP::serialize_rig_to_json(), with no
+    /// rig-level key of this controller's own. save_to_json() adds those on top.
+    /// @return The `"nodes"` document.
+    /// @throws std::runtime_error if the unbypassed graph does not compile.
+    std::string serialize_nodes() const;
+
     /// @brief Lists every edge with bypassed slots collapsed away: an edge into a bypassed slot
     /// is followed through to each live slot reachable past it, so a run of bypassed slots
     /// bridges in one step. Duplicate edges are dropped.
@@ -268,6 +286,7 @@ private:
     SushiDSP::PrepareInfo                          info_;
     std::unordered_map<SlotId, Slot>               slots_;
     std::vector<Edge>                              edges_;
+    std::string                                     ir_folder_;
     std::vector<SlotId>                             slot_order_;
     SlotId                                          next_slot_id_ = 0;
     std::unordered_map<SlotId, SushiDSP::NodeHandle> slot_to_handle_;

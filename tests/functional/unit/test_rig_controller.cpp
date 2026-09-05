@@ -690,6 +690,70 @@ TEST(Unit_Dsp, RigControllerIsBypassedIsFalseForASlotThatIsNotLive)
     EXPECT_FALSE(controller.is_bypassed(9999));
 }
 
+// --- Impulse-response folder (preset-level, no audio behind it) ---
+
+TEST(Unit_Dsp, RigControllerRemembersTheIrFolder)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    EXPECT_EQ(controller.ir_folder(), "");
+
+    controller.set_ir_folder("D:/irs/marshall");
+
+    EXPECT_EQ(controller.ir_folder(), "D:/irs/marshall");
+}
+
+TEST(Unit_Dsp, RigControllerSaveToJsonWritesTheIrFolderWhenOneIsSet)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    controller.append("sushidsp.tubescreamer");
+    controller.append("sushidsp.jcm800");
+    controller.set_ir_folder("D:/irs/marshall");
+
+    const nlohmann::json parsed = nlohmann::json::parse(controller.save_to_json());
+
+    ASSERT_TRUE(parsed.contains("ir_folder"));
+    EXPECT_EQ(parsed.at("ir_folder").get<std::string>(), "D:/irs/marshall");
+}
+
+TEST(Unit_Dsp, RigControllerSaveToJsonOmitsTheIrFolderWhenNoneIsSet)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    controller.append("sushidsp.tubescreamer");
+    controller.append("sushidsp.jcm800");
+
+    const nlohmann::json parsed = nlohmann::json::parse(controller.save_to_json());
+
+    EXPECT_FALSE(parsed.contains("ir_folder"));
+}
+
+TEST(Unit_Dsp, RigControllerLoadFromJsonRestoresTheIrFolder)
+{
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    source.append("sushidsp.tubescreamer");
+    source.append("sushidsp.jcm800");
+    source.set_ir_folder("D:/irs/marshall");
+    const std::string preset = source.save_to_json();
+
+    RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    target.load_from_json(preset);
+
+    EXPECT_EQ(target.ir_folder(), "D:/irs/marshall");
+}
+
+TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoIrFolderKeyWithAnEmptyFolder)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+        {"id":1,"type":"sushidsp.jcm800","params":{},"inputs":[0]}
+    ]})";
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    controller.set_ir_folder("D:/irs/left_over");
+    controller.load_from_json(preset);
+
+    EXPECT_EQ(controller.ir_folder(), "");
+}
+
 // --- Rack-list selection tracking (apps/host_gui/SlotSelection.hpp) ---
 //
 // A SlotId stays valid across insert/move/remove, unlike the old int-index scheme, so the only

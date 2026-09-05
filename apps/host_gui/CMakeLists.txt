@@ -12,6 +12,8 @@ add_executable(sushidsp_host_gui
     ui/MeterBar.cpp
     ui/TopBar.cpp
     ui/DeviceSettings.cpp
+    ui/DirectoryListing.cpp
+    ui/FileBrowser.cpp
 )
 # ui/*.cpp include their own headers as "ui/<Name>.hpp" and reach RigController.hpp beside them,
 # so the app directory itself has to be on the include path.

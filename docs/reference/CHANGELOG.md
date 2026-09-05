@@ -27,6 +27,17 @@ third-party dependency, no image file, no font file: every panel, knob and link 
   rather than replaying the previous block. The same change corrects the stale comment above
   `latency_samples()`, which still claimed a sum over the chain after the DAG work made it a
   longest path.
+- Parallel paths are buildable, not only drawable. A splitter with room for another branch offers
+  a dashed slot on the row below; dropping gear on it calls `RigController::add_branch()`, which
+  wires the splitter to the new node and the new node to the mixer, creating that mixer when the
+  rig has none. The mixer is not a convenience: `RigGraph::compile()` allows one sink, so two
+  branches without a rejoin do not compile.
+- Cabinet impulse responses are chosen from a browser rather than typed. `DirectoryListing` reads
+  and sorts a directory (subdirectories first, then `.wav` files, case-insensitive match) and
+  `FileBrowser` draws it. The chosen folder is saved with the preset as a rig-level `"ir_folder"`
+  key, so a tone reopens where its impulse responses live. The path is machine-local by design;
+  a preset carried to another machine finds no folder and the browser falls back to the `assets/ir`
+  directory beside the executable.
 - Device selection moved out of a one-time startup screen into a window reachable at any time.
 - `CMAKE_EXPORT_COMPILE_COMMANDS` is on, so a single translation unit can be type-checked without
   a build.
