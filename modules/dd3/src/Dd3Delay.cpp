@@ -50,13 +50,14 @@ namespace SushiDSP
         constexpr float kDefaultModeIndex = static_cast<float>(static_cast<int>(Dd3Delay::kDefaultMode));
 
         constexpr std::uint16_t kUnknownParameterIndex = 0xFFFF;
+        constexpr std::uint16_t kModeParameterIndex = 3u;
 
         std::uint16_t parameter_index_for(const char* id)
         {
             if (std::strcmp(id, "time") == 0) return 0;
             if (std::strcmp(id, "feedback") == 0) return 1;
             if (std::strcmp(id, "level") == 0) return 2;
-            if (std::strcmp(id, "mode") == 0) return 3;
+            if (std::strcmp(id, "mode") == 0) return kModeParameterIndex;
             return kUnknownParameterIndex;
         }
 
@@ -272,9 +273,13 @@ namespace SushiDSP
 
     void Dd3Delay::set_parameter(const char* id, float value)
     {
-        set_parameter(parameter_index_for(id), value);
-        // This overload is the control thread's, so the ring may be cleared here and now.
-        apply_pending_mode();
+        const std::uint16_t index = parameter_index_for(id);
+        set_parameter(index, value);
+        // Only a MODE write clears the ring here; another id would do it under a live process().
+        if (index == kModeParameterIndex)
+        {
+            apply_pending_mode();
+        }
     }
 
     void Dd3Delay::set_parameter(std::uint16_t index, float value)
@@ -285,7 +290,7 @@ namespace SushiDSP
             case 1: set_feedback(value); return;
             case 2: set_level(value); return;
             // Recorded only: clearing 16384 samples inside the host's drain is not RT-safe.
-            case 3: pending_mode_ = mode_for_index(value); return;
+            case kModeParameterIndex: pending_mode_ = mode_for_index(value); return;
             default: return;
         }
     }
