@@ -127,13 +127,27 @@ Measured 2026-09-07, all at 48 kHz with a 256-frame block:
 - **The output tracks its input.** At preamp 0.02, a 0.01 input peaks at 0.018743 and a 0.251
   input at 0.201132.
 
-The alias floor is not met. `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` asks for
-−33.8 dB and the amp measures −3.0 dB at preamp 1.0 and −12 dBFS, where every stage is a square
-wave generator. The two losses on this page each made it worse rather than better: −11.3 dB with
-neither, −13.6 dB with the peaker alone, −6.8 dB with the stack loss alone, −3.0 dB with both.
+## Known issue: the alias floor
+
+`Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` is skipped, and the measurement still
+runs and still prints its figure. The amp measures −3.0 dB at preamp 1.0 and −12 dBFS, against
+−43.4 dB before DA4 removed the level staging. Every stage now clips at the level its own circuit
+puts it at, and the 8× region folds the harmonics that clipping generates. The −33.8 dB bound
+stands and is not relaxed; `docs/reference/KNOWN_ISSUES.md` carries the item until DA5's
+antialiasing work (ADAA in `TriodeStage`, or 16× oversampling) restores the floor.
+
+The two losses on this page each moved the figure the wrong way:
+
+| Build | Alias floor |
+| --- | --- |
+| Before the first-order coupling | −12.6 dB |
+| First-order coupling only | −11.3 dB |
+| + treble peaker only | −13.6 dB |
+| + stack insertion loss only | −6.8 dB |
+| Both losses (shipped) | −3.0 dB |
+
 Attenuating ahead of V2a moves the later stages out of hard limiting into the region where they
-generate more distinct harmonics to fold, and the fundamental shrinks with them. The bound is
-untouched and the figure is with the controller.
+generate more distinct harmonics to fold, and the fundamental shrinks with them.
 
 ## Calibration
 
