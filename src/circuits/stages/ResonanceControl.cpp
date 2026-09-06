@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* ResonanceControl.cpp                                                  */
+/* ResonanceControl.cpp                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                                SushiDSP                                */
@@ -44,7 +44,18 @@ namespace SushiDSP
         shelf_.set_low_shelf(sample_rate_, corner_hz_, boost_db(), kShelfQ);
     }
 
-    float ResonanceControl::process_sample(float input) { return shelf_.process_sample(input); }
-    void ResonanceControl::reset() { shelf_.reset(); }
-    float ResonanceControl::boost_db() const { return depth_ * maximum_boost_db_; }
+    float ResonanceControl::process_sample(float input)
+    {
+        return shelf_.process_sample(input);
+    }
+
+    void ResonanceControl::reset()
+    {
+        shelf_.reset();
+    }
+
+    float ResonanceControl::boost_db() const
+    {
+        return depth_ * maximum_boost_db_;
+    }
 }
