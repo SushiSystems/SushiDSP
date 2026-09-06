@@ -42,32 +42,33 @@ at 1 kHz runs 31.5 % with Treble at 0 and 39.7 % with Treble at 1.
 
 Read down; everything from V1A to the sag stage runs inside one 8x oversampled region.
 
-| Stage | Constant | Dossier |
-| --- | --- | --- |
-| V1A, Rp 150 k, Rk 1.5 k, Vk 1.6 V | gain 70.6 | §3.1 |
-| Tone stack on the plate | 250 pF / 0.1 µF / 0.047 µF, 100 k slope, 250 k / 10 k / 250 k pots | §4.1 |
-| Volume 1, 1 M | audio taper, no ceiling (see below) | §2 |
-| V1B, Rp 100 k, Vk 1.9 V | gain 61.5 | §3.2 |
-| V1B coupling, 0.1 µF into 100 k | high-pass **15.92 Hz** (computed) | §3.2 |
-| Lead Drive bright cap, 180 pF | high shelf at **1881 Hz** (computed from 470 k) | §3.3 |
-| 680 k into Lead Drive 1 M | attenuation 0.595 at maximum | §3.3 |
-| V3B, Rp 82 k, Vk 1.8 V | gain 56.7 | §3.3 |
-| V3B coupling, 0.02 µF into 170 k + 68 k | high-pass **33.44 Hz** (computed) | §3.4 |
-| Interstage network, 68 k with 0.047 µF across the 170 k | low shelf: 0.286 below, unity above, zero **19.939 Hz**, pole 69.717 Hz | §3.4, open question 18 |
-| V4A, Rp 270 k, Rk 3.3 k, Vk 1.2 V | gain 70 | §3.4 |
-| V4A cathode, 0.22 µF on 3.3 k | zero 219.22 Hz, pole **438.97 Hz**, loss below **0.4994** (−6.03 dB) | §3.4 |
-| V4A coupling, 0.047 µF into 320 k | high-pass **10.58 Hz** (computed) | §3.5 |
-| Lead output divider, 220 k ∥ 250 pF over 100 k ∥ 500 pF | 0.3125 at DC, zero **2893.7 Hz**, pole **3086.6 Hz**, 0.3333 above (+0.58 dB) | §3.5 |
-| Lead Master, 250 k | audio taper | §2 |
-| V2A, Rp 100 k | gain 61.5 | §3.6 |
-| V2B, Rp 170 k, Rk 1 k | gain **73.118** (computed: 100 × 170 / 232.5) | §3.7 |
-| V2B cathode, 0.47 µF on 1 k, PULL DEEP out | zero 338.63 Hz, pole **485.73 Hz**, loss below **0.6972** (−3.13 dB) | §3.7 |
-| V2B coupling, 0.047 µF into 100 k | high-pass **33.86 Hz** (computed) | §3.7 |
-| Graphic EQ | 71.5 / 371.8 / 979.5 / 1576 / 4823 Hz at Q 1.434 / 1.938 / 1.571 / 0.673 / 1.0, ±17 dB | §4.2 |
-| V5A/V5B long-tailed pair, Rp 82 k | gain **28.374** (see below) | §5.1 |
-| Simul-Class output | `kMesaMark2cPower6L6GC` ×2 and `kMesaMark2cPowerEl34Triode` ×2 | §7.2, §7.3 |
-| Presence, 0.022 µF with 6.8 k | high shelf at **1063.9 Hz** (computed), ±9 dB | §5.2 |
-| Master 1, 100 k | dB control, `kMasterUnityGain` 0.8238633 | §2 |
+| Stage | Constant | Plate swing (up / down, V) | Dossier |
+| --- | --- | --- | --- |
+| V1A, Rp 150 k, Rk 1.5 k, Vk 1.6 V | gain 70.6 | 160.0 / 120.961 (D 382 V, Va 222 V, bottom 101.039 V) | §3.1 |
+| Tone stack on the plate | 250 pF / 0.1 µF / 0.047 µF, 100 k slope, 250 k / 10 k / 250 k pots | — | §4.1 |
+| Volume 1, 1 M | audio taper, no ceiling (see below) | — | §2 |
+| V1B, Rp 100 k, Vk 1.9 V | gain 61.5 | 127.0 / 128.851 (D 382 V, Va 255 V, bottom 126.149 V) | §3.2 |
+| V1B coupling, 0.1 µF into 100 k | high-pass **15.92 Hz** (computed) | — | §3.2 |
+| Lead Drive bright cap, 180 pF | high shelf at **1881 Hz** (computed from 470 k) | — | §3.3 |
+| 680 k into Lead Drive 1 M | attenuation 0.595 at maximum | — | §3.3 |
+| V3B, Rp 82 k, Vk 1.8 V | gain 56.7 | 98.0 / 151.554 (C 392 V, Va 294 V, bottom 142.446 V) | §3.3 |
+| V3B coupling, 0.02 µF into 170 k + 68 k | high-pass **33.44 Hz** (computed) | — | §3.4 |
+| Interstage network, 68 k with 0.047 µF across the 170 k | low shelf: 0.286 below, unity above, zero **19.939 Hz**, pole 69.717 Hz | — | §3.4, open question 18 |
+| V4A, Rp 270 k, Rk 3.3 k, Vk 1.2 V | gain 70 | 98.0 / 221.216 (C 392 V, Va 294 V, bottom 72.784 V) | §3.4 |
+| V4A cathode, 0.22 µF on 3.3 k | zero 219.22 Hz, pole **438.97 Hz**, loss below **0.4994** (−6.03 dB) | — | §3.4 |
+| V4A coupling, 0.047 µF into 320 k | high-pass **10.58 Hz** (computed) | — | §3.5 |
+| Lead output divider, 220 k ∥ 250 pF over 100 k ∥ 500 pF | 0.3125 at DC, zero **2893.7 Hz**, pole **3086.6 Hz**, 0.3333 above (+0.58 dB) | — | §3.5 |
+| Lead Master, 250 k | audio taper | — | §2 |
+| V2A, Rp 100 k | gain 61.5 | 100.0 / 163.581 (C 392 V, Va 292 V, bottom 128.419 V) | §3.6 |
+| Loop-return coupling, 0.022 µF into V2B's 1 M grid return | high-pass **7.2343 Hz** (computed); the capacitor's value is a modelling choice, dossier open questions 19 and 20 | — | §2, §3.7 |
+| V2B, Rp 170 k, Rk 1 k | gain **73.118** (computed: 100 × 170 / 232.5) | 204.0 / 92.338 (C 392 V, Va 188 V, bottom 95.662 V) | §3.7 |
+| V2B cathode, 0.47 µF on 1 k, PULL DEEP out | zero 338.63 Hz, pole **485.73 Hz**, loss below **0.6972** (−3.13 dB) | — | §3.7 |
+| V2B coupling, 0.047 µF into 100 k | high-pass **33.86 Hz** (computed) | — | §3.7 |
+| Graphic EQ | 71.5 / 371.8 / 979.5 / 1576 / 4823 Hz at Q 1.434 / 1.938 / 1.571 / 0.673 / 1.0, ±17 dB | — | §4.2 |
+| V5A/V5B long-tailed pair, Rp 82 k | gain **28.374** (see below), tail degeneration **0.0711568** = 1 / (1 + 101 × 15 k / (34.061 k + 82 k)) | 106.0 / 143.768 (C 392 V, Va 286 V, bottom 142.232 V) | §5.1 |
+| Simul-Class output | `kMesaMark2cPower6L6GC` ×2 at grid scale **0.0907030**, `kMesaMark2cPowerEl34Triode` ×2 at **0.0619348** | — | §7.2, §7.3 |
+| Presence, 0.022 µF with 6.8 k | high shelf at **1063.9 Hz** (computed), ±9 dB | — | §5.2 |
+| Master 1, 100 k | dB control, `kMasterUnityGain` 0.7040127 | — | §2 |
 
 The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 5.0 kHz (V2A),
 11.6 kHz (V2B) and 15.2 kHz (the inverter). Each is computed from the JCM800's 12AX7 capacitances
@@ -76,25 +77,58 @@ the inverter's is the brightest.
 
 ## Where the model departs from the dossier
 
-**The interstage drive normalisation.** Dossier §3.8 multiplies the lead chain out to about 1e6
-and says plainly that the product is a headroom statement rather than a gain figure. Fed as
-written, every stage from V3B on sits permanently against `TriodeStage`'s solver bound and the amp
-becomes a square-wave generator with dead knobs. So each triode's output is divided by that
-stage's own dossier gain and multiplied by one figure,
-`kGridDriveNormalisation = 5.0`. The dossier's dividers and pots are then the only things that
-change the drive as it moves down the cascade, which is what §3.4 and §3.5 say those dividers are
-for. The 5.0 is measured, not derived: it is the value at which Lead Drive sweeps THD at 1 kHz
-from 12.5 % to 36.9 % monotonically over its travel.
+**Every coupling capacitor is a first-order section.** One capacitor into one resistance is one
+pole, so the five coupling links use `Biquad::set_first_order_high_pass` rather than the biquad
+`set_high_pass`. That is also the numerically safe path at this module's 384 kHz oversampled rate:
+a conjugate pole pair placed at a corner this far below the rate lands within a float ulp of the
+unit circle, which the 7.2343 Hz loop-return corner does not survive. The corners are unchanged
+and still come from the dossier's R and C.
 
-The JCM800 solves the same problem with a different device: five fixed scalars,
-`kPreampPotMaxAttenuation` 1/16, `kV1bToV2aAttenuation` and `kV2aToPhaseInverterAttenuation` 1/50,
-`kPhaseInverterToPowerTubeAttenuation` 1/32 and `kPowerTubeToTransformerAttenuation` 0.05, each an
-invented per-link number. The Diezel VH4 module's level-staging constants are the third sibling.
-One number here against five there is a divergence, and it survives only because the underlying
-brick is missing: `TriodeStage` has no plate-swing ceiling, so a cascade fed its real gains runs
-into the Newton-Raphson bound instead of into a plate. Giving `TriodeStage` that ceiling is the
-change that retires both devices at once, and every amplifier module could then be fed the
-dossier's own numbers.
+**Known issue: the amp has no clean setting.** `MesaMark2cHasACleanEndAtMinimumGain` is skipped.
+Dossier §2 puts EFFECTS SEND / RETURN between V2A's plate and V2B's grid and §3.7 prints no value
+for any of it, so the model has nothing on that link: V2A's plate, held to 87 V by its own ceiling,
+meets V2B's 4.14 V grid window directly and drives it twenty-one times past it. Every stage ahead
+of that link runs clean at a −40 dBFS input, and the amp still measures 41.4 % THD at Lead Drive
+0.02 against the test's 10 % bar. It closes when the send/return network is read off the
+schematic; dossier open questions 19 and 20.
+
+**Three constants that are not the dossier's.** The long-tailed pair degenerates its own input:
+only `1 / (1 + (µ + 1) · R_tail / (r_a + R_a))` of what arrives reaches the grid-cathode window, which
+is `1 / (1 + 101 × 15000 / (34061 + 82000))` = **0.0711568**, using §5.1's 82 k plate and 15 k tail
+glyph and r_a 34.061 k from the Koren model at the point §5.1's plate voltage puts the stage.
+
+`PentodeStage` is not volt-true: its grid saturates at `1 / (drive × gain)` in its own units, not at
+the preset's −45 V. Two scales bridge the volt-true preamp to it until `PentodeStage` becomes
+volt-true in DA5 — inner 6L6GC `1 / (0.049 × 5.0) / 45` = **0.0907030**, outer EL34 triode
+`1 / (0.069 × 5.2) / 45` = **0.0619348**.
+
+**Where each grid sits.** `grid_excursion_peak_volts()` measured at the default setting, a
+−12 dBFS 1 kHz sine, 200 blocks of 256 at 48 kHz. 4.1360 V is `TriodeStage`'s cutoff fence,
+`160 × Vt`, so the last five stages reach it and stop there.
+
+| Stage | Peak grid excursion |
+| --- | --- |
+| V1A | 0.2485 V |
+| V1B | 0.9684 V |
+| V3B | 4.1360 V |
+| V4A | 4.1360 V |
+| V2A | 4.1360 V |
+| V2B | 4.1360 V |
+| V5A/V5B phase inverter | 4.1360 V |
+
+The dossier says the same thing in words: §3.8 records that from V3B onward the amp is in hard
+grid conduction long before the signal reaches V2A.
+
+**The interstage drive normalisation, removed.** The model used to divide each triode's output
+by that stage's own dossier gain and multiply by one measured figure, `kGridDriveNormalisation`,
+because a cascade fed dossier §3.8's numbers ran into `TriodeStage`'s solver bound instead of into
+a plate. `TriodeStage` now takes a `PlateSwing` and bounds each plate by its own headroom, so the
+spec at docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md deleted
+`kGridDriveNormalisation` and the seven `k*GridDrive` constants along with the JCM800's and the
+VH4's equivalents. The dossier's dividers and pots are now the only things that change the drive
+as it moves down the cascade. `kPhaseInverterToPowerTubeAttenuation` went with them, replaced by
+the two per-pair grid scales below, and `kPowerTubeToTransformerAttenuation` 0.05 is the output
+trim to full scale.
 
 **Volume 1's ceiling.** The taper law is the JCM800's `preamp_attenuation()`, `n·√n`, but without
 that amp's 1/16 ceiling. The 2203's ceiling stands in for a loss the IIC+ already has: its stack
