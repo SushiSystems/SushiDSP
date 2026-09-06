@@ -47,6 +47,8 @@ than hiding it:
 - 2026-09-06 — Gave `measure::alias_floor` an `amplitude` parameter, defaulted to the −12 dBFS it already swept at (`tests/measure/AliasFloor.hpp`).
 - 2026-09-06 — Swept the DD-3's alias floor at the service note's 0.025 full scale, moving the reading from −20.39 to −35.86 dB (`test_dd3_acceptance.cpp`).
 - 2026-09-06 — Recorded that the −35.86 dB residual is the NE570 rectifier folding 6·f₀ to 1.46 Hz at 8 kHz; Ruling 7 decides (`alias-diagnosis-report.md`).
+- 2026-09-06 — Ran the NE570's rectifier and its pole at 8 sub-steps per host sample over a linear reconstruction, taking the DD-3's alias floor from −35.86 to −55.32 dB (`Ne570Compander.hpp`, `Ne570Compander.cpp`).
+- 2026-09-06 — Held the compander's other numbers across that change: τ's 63.2 % crossing on sample 327, the 50 Hz ripple at −23.75 dB, check point [4] +0.018 % (`test_ne570_compander.cpp`).
 
 Not yet measured. The build was locked while DR2 was written, so no number in the acceptance
 table and no benchmark figure has been produced yet. `sd test -s all` runs the acceptance battery

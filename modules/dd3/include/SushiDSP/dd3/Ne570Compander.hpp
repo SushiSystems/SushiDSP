@@ -44,6 +44,12 @@ namespace SushiDSP::dd3
     /// expander rectifies its input (1:2, `volts^2 / kReferenceVolts`). The compressor's gain
     /// therefore lags its own rectifier by one sample: the loop is otherwise algebraic, and at a
     /// 6.8 ms time constant one sample of lag is 0.3 % of one time constant at 48 kHz.
+    ///
+    /// The rectifier and its pole run at @ref kRectifierOversampling times the host rate; the
+    /// gain cell does not. Rectification is the one nonlinearity here whose aliasing is a
+    /// discretisation artefact rather than modelled hardware, and
+    /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections, carries the
+    /// ruling and the measurements.
     class Ne570Compander
     {
     public:
@@ -73,10 +79,31 @@ namespace SushiDSP::dd3
         static constexpr double kReferenceVolts             = 6.6125;    ///< From check points [2],[3].
         static constexpr double kEnvelopeFloor              = 1e-4;      ///< 80 dB maximum gain.
 
+        /// @brief Sub-steps the rectifier and its pole take per host sample.
+        ///
+        /// The board's rectifier is continuous time, so the harmonics `|x|` carries at every
+        /// 2k*f0 never fold. Sampling it at the host rate does fold them, and the fold lands
+        /// where the pole cannot reach: at 48 kHz an 8 kHz tone puts 6*f0 on 48001.5 Hz, which
+        /// aliases to 1.46 Hz and modulates the gain cell at full weight. Eight sub-steps move
+        /// the surviving fold from the 6th harmonic of `|x|` to the 24th, whose Fourier
+        /// coefficient is 1/2303 against 1/35, and take the DD-3's alias floor from -35.86 dB to
+        /// -55.34 dB at the service note's stimulus.
+        static constexpr int kRectifierOversampling = 8;
+
     private:
+        /// @brief Runs the rectifier and its pole across one host sample.
+        ///
+        /// The sub-samples come from a linear reconstruction between this call's signal and the
+        /// last one's. What the pole needs is the area under `|x|`, not its spectrum: replacing
+        /// the line with a 64-tap windowed sinc moves the alias floor by 0.6 dB and a parabola
+        /// through three host samples moves it by 0.9 dB, for four times the arithmetic.
+        /// @param volts The signal this half rectifies, at the end of the host sample.
+        void advance_envelope(double volts);
+
         const CompanderHalf half_;
         double              sample_rate_ = 48000.0;
         double              coefficient_ = 0.0;
         double              envelope_    = 0.0;
+        double              previous_    = 0.0;   // what advance_envelope() last rectified
     };
 }

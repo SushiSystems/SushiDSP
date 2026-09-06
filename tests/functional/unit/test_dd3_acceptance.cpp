@@ -444,14 +444,13 @@ TEST(Regression_Dsp, Dd3AcceptanceAliasFloorIsMeasuredNotAssumed)
     // clip and the sweep then measures that clipping rather than the conversion, reading -20.4
     // dB where an 8 kHz tone's fifth harmonic folds about the 40620 Hz clock onto 619 Hz.
     //
-    // Nothing clips at the note's level and the sweep reads -35.9 dB, which still fails this
-    // assertion. That residual is the NE570's rectifier aliasing, not a fold of the test tone:
-    // |sin| carries a harmonic at every 2k*f0, the rectifier runs unoversampled at the host
-    // rate, and 6*8000.24 Hz folds to 1.46 Hz, well inside the rectifier's own 23.4 Hz pole.
-    // Curing it means oversampling the rectifier, which is exactly what Ruling 7 deferred, so
-    // the bound stays where it is and its failure is the data Ruling 7 asked to be revisited
-    // with. Per-stage measurements are in
-    // .superpowers/sdd/2026-09-05-dr1-dr2-resampler-and-dd3/alias-diagnosis-report.md.
+    // Nothing clips at the note's level, and what was left there was the NE570's rectifier
+    // aliasing rather than a fold of the test tone: |sin| carries a harmonic at every 2k*f0 and
+    // 6*8000.24 Hz folded to 1.46 Hz, inside the rectifier's own 23.4 Hz pole. The Ruling 7
+    // revisit took that reading and bought Ne570Compander::kRectifierOversampling with it, which
+    // moved this row from -35.86 dB to -55.32 dB. The number still misses the -60 dB the printf
+    // names, by 4.7 dB; 16 sub-steps would reach -65.13 dB, and the cost curve that chose 8 is in
+    // docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections.
     SushiDSP::Dd3Delay node;
     node.set_mode(SushiDSP::dd3::Dd3Mode::Middle);
     node.set_time(0.5f);
