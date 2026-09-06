@@ -164,19 +164,42 @@ the rest of that stage — it takes the JCM800 long-tailed pair's swing, compute
 self-biases to `Vk` 3.910 V and `Va` 344.199 V. That leaves only 15.8 V toward the supply, which
 `jcm_ltp_tran.csv` corroborates: its differential probe reaches −20.7 V to +22.5 V at a 1 V drive.
 
-### Two grids still sit on the solver's cutoff clamp
+### Where the grids sit at the default setting
 
-`DiezelVh4NoGridSitsOnItsBoundAtDefaultSettings` does not pass. At the default knobs and a
-−12 dBFS input the five stages read 0.2485 V, 3.7076 V, **4.1360 V**, 1.1024 V and **4.1360 V**,
-and 4.136 V is exactly the `160·Vt` cutoff clamp `TriodeStage`'s solver applies. V3a is driven
-there by V2a's plate, which the ceiling holds at 75.9 V into a ×0.4996 divider; the phase inverter
-is driven there by V4a's, held at 72.7 V. A plate ceiling measured in tens of volts cannot keep the
-grid behind it inside four, so the ceiling does not, on its own, do what the spec's acceptance
-asks of it here. §6 of the dossier says the same thing about the real circuit — "every stage after
-the first is in grid conduction on any real input" — so the excursion is physically right and the
-clamp is what the model reads it against. The spec owner has the ruling; the send pad below is the
-one dossier divider that would move the phase inverter (to 1.31 V, measured), and nothing in the
-dossier moves V3a.
+`triode_stage_count()` and `grid_excursion_peak_volts()` are test hooks that read each stage's
+largest `|Vg − Vk|` since the last `reset()`. After 200 blocks of 256 samples at 48 kHz with the
+knobs untouched and a −12 dBFS 1 kHz sine in, they read (2026-09-07):
+
+| Stage | Peak grid excursion |
+| --- | --- |
+| V1a | 0.2485 V |
+| V2a | 3.7076 V |
+| V3a | 4.1360 V |
+| V4a | 1.1024 V |
+| Phase inverter | 4.1360 V |
+
+4.1360 V is `160·Vt`, the fence `TriodeStage`'s solver holds the grid behind, so V3a and the phase
+inverter are in hard conduction and cutoff at the default setting. That is the circuit rather than
+the model: §6 puts the midband product V1a × pot × V2a × V3a at 2.7 × 10⁵ before the stack's loss
+and the −23.6 dB mix divider, and says in terms that "every stage after the first is in grid
+conduction on any real input". A plate ceiling of 72 to 181 V cannot hold the grid behind it inside
+four, so these are recorded here as measurements and no test asserts them; what the tests assert is
+the clean end of the knob, `DiezelVh4HasACleanEndAtMinimumGain`.
+
+### Silence in, silence out
+
+Each grid carries a small resting offset, `Is·(Rs ∥ Rg)` from the cathode-referenced conduction
+diode, and each plate multiplies it: at silence the five grids sit at 10 µV, 119 µV, 1.35 mV,
+391 µV and 10.97 mV (default knobs, 2 s of all-zero input, 2026-09-07). None of it reaches the
+output. C18 and C20 are in the two places the offset could accumulate — C20, 220 nF at 2.26 Hz, is
+the capacitor the drawing puts on V3b's output, and the module applies it immediately after the
+follower scalar — and the output transformer's 60 Hz rolloff takes what is left. Two seconds of
+digital silence come back at **4.6e-44 peak, −866.7 dBFS**, DC mean 4.6e-44, with the gain knob at
+its default; at gain 0.0 it is 1.3e-43, −857.4 dBFS. Both are denormals.
+
+The one DC-coupled link with no capacitor after it is V4a → V4b → the phase inverter, which is why
+the inverter's grid shows the largest resting offset of the five. §5 establishes nothing past the
+send jack, so there is no capacitor in the drawing to add there.
 
 ### C1 is not modelled
 
@@ -264,6 +287,19 @@ been published** — no frequency response, no THD figure, no input sensitivity,
 node. The dossier searched for one and says so. What the tests assert instead are the operating
 points, the corner frequencies and the two impedance figures §6 lists, which test this module
 against the documented circuit rather than against an amplifier.
+
+`DiezelVh4HasACleanEndAtMinimumGain` is this module's acceptance test since the level staging
+came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **0.5919 %**
+(2026-09-07), well under the spec's 10 %. The knob is read at 0.01 rather than 0.0 because the pot
+is a plain divider to ground: at 0.0 it shorts the signal and the node is silent, which leaves THD
+without a denominator. `DiezelVh4ThdIncreasesWithGain` asks only that the reading not fall as the
+knob rises, within 0.5 percentage points, because once every stage clips the metric saturates.
+
+`DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz` asserts the 80 Hz point alone, 4.665 dB
+against a nominal 5. The 20 Hz point reads 5.280 dB where the shelf is 10 dB deep, and the output
+clamp is not the reason — the same two figures come back with the master 20 dB down. C13's 314 Hz
+high-pass has thrown the fundamental away before the first distorting stage, so at 20 Hz the
+swept-sine estimate is measuring the saturated chain's own product rather than the shelf.
 
 `DiezelVh4MixBusAttenuationIsApplied` no longer asserts a small-signal gain, because since the
 staging came out there is no small signal: at −60 dBFS in, V3a's plate is already on its ceiling
