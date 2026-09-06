@@ -31,7 +31,6 @@ namespace SushiDSP
                                         std::initializer_list<float> centre_frequencies_hz,
                                         float band_q, float maximum_gain_db)
         : sample_rate_(sample_rate)
-        , band_q_(band_q)
         , maximum_gain_db_(maximum_gain_db)
     {
         for (const float centre_hz : centre_frequencies_hz)
@@ -42,7 +41,30 @@ namespace SushiDSP
             }
             centres_hz_[band_count_] = centre_hz;
             positions_[band_count_] = 0.0f;
-            bands_[band_count_].set_peaking(sample_rate_, centre_hz, 0.0f, band_q_);
+            band_q_[band_count_] = band_q;
+            bands_[band_count_].set_peaking(sample_rate_, centre_hz, 0.0f, band_q_[band_count_]);
+            ++band_count_;
+        }
+    }
+
+    GraphicEqualizer::GraphicEqualizer(double sample_rate,
+                                        std::initializer_list<float> centre_frequencies_hz,
+                                        std::initializer_list<float> band_q, float maximum_gain_db)
+        : sample_rate_(sample_rate)
+        , maximum_gain_db_(maximum_gain_db)
+    {
+        auto band_q_iterator = band_q.begin();
+        for (const float centre_hz : centre_frequencies_hz)
+        {
+            if (band_count_ >= kMaximumBands || band_q_iterator == band_q.end())
+            {
+                break;
+            }
+            centres_hz_[band_count_] = centre_hz;
+            positions_[band_count_] = 0.0f;
+            band_q_[band_count_] = *band_q_iterator;
+            bands_[band_count_].set_peaking(sample_rate_, centre_hz, 0.0f, band_q_[band_count_]);
+            ++band_q_iterator;
             ++band_count_;
         }
     }
@@ -56,7 +78,7 @@ namespace SushiDSP
         const float clamped_position = std::clamp(position, -1.0f, 1.0f);
         positions_[band] = clamped_position;
         bands_[band].set_peaking(sample_rate_, centres_hz_[band], clamped_position * maximum_gain_db_,
-                                  band_q_);
+                                  band_q_[band]);
     }
 
     float GraphicEqualizer::process_sample(float input)

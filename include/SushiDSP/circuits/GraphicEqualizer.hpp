@@ -44,6 +44,13 @@ namespace SushiDSP
         GraphicEqualizer(double sample_rate, std::initializer_list<float> centre_frequencies_hz,
                           float band_q, float maximum_gain_db);
 
+        /// @param sample_rate The rate the bank runs at, in hertz.
+        /// @param centre_frequencies_hz Band centres, ascending; at most kMaximumBands, extras are ignored.
+        /// @param band_q One Q per band, same order as the centres; extras are ignored.
+        /// @param maximum_gain_db Gain at slider ±1.
+        GraphicEqualizer(double sample_rate, std::initializer_list<float> centre_frequencies_hz,
+                          std::initializer_list<float> band_q, float maximum_gain_db);
+
         /// @brief Sets one slider.
         /// @param band Band index; out-of-range indices are ignored.
         /// @param position In [-1, 1]; 0 is flat. Values outside are clamped.
@@ -60,7 +67,7 @@ namespace SushiDSP
 
     private:
         double sample_rate_;
-        float band_q_;
+        std::array<float, kMaximumBands> band_q_{};
         float maximum_gain_db_;
         std::size_t band_count_ = 0;
         std::array<float, kMaximumBands> centres_hz_{};
