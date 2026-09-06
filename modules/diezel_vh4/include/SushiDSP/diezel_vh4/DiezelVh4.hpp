@@ -113,13 +113,8 @@ namespace SushiDSP
         /// nothing else. The calibration point is Jcm800::kMasterUnityGain's: with every knob at
         /// its default and a -12 dBFS 1 kHz input, the output peaks near -6 dBFS.
         ///
-        /// This value is one measurement plus one correction, not a direct reading.
-        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput measured -18.969
-        /// dBFS on 2026-09-06 with the constant at 0.71, which puts the amp's own peak at 0.158596
-        /// with the master at unity. The same run's THD sweep then moved kV1aToV2aLevelStaging
-        /// from 1/8 to 5/8, which lifts that peak by x1.471086 - the ratio of two offline runs of
-        /// the chain at 1 kHz and 0.251 in, before and after. 10^(-6/20) / (0.158596 x 1.471086)
-        /// is the figure below. The next run of that test reads it directly.
+        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput read -6.159 dBFS
+        /// at this value on 2026-09-06. modules/diezel_vh4/README.md carries the derivation.
         static constexpr float kMasterUnityGain = 2.148178f;
 
         /// @brief Sets the channel-3 GAIN control, the 250 kOhm pot of dossier section 3.2.
@@ -196,7 +191,6 @@ namespace SushiDSP
         float applied_gain_ = -1.0f, applied_bass_ = -1.0f, applied_middle_ = -1.0f;
         float applied_treble_ = -1.0f, applied_deep_ = -1.0f, applied_presence_ = -1.0f;
 
-        Biquad input_low_pass_;
         Biquad gain_high_pass_;
         Biquad v2a_cathode_shelf_;
         Biquad v2a_grid_miller_;

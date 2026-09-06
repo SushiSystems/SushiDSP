@@ -53,10 +53,8 @@ namespace SushiDSP
         // so on its own line and is listed again in modules/diezel_vh4/README.md.
 
         // Section 3.1: R1 1 MOhm grid leak with C1 printed as the range 100-200 pF across it.
-        // The 100 pF reading against R1 gives 1 / (2*pi*1e6*100e-12) = 1591.5 Hz. Modelling
-        // choice: C1 is a shunt, so the real corner is set by the guitar's source impedance,
-        // which no source states, and R1 is the only resistance the drawing offers.
-        constexpr double kInputLowPassHz = 1591.549;
+        // C1 is not modelled: as a shunt across the input it sets its corner against the guitar's
+        // source impedance, which this node never sees.
 
         // Section 3.1: V1a runs Ra 120 kOhm and Rk 2k2 fully bypassed by C2 47 uF, zero at 1.5 Hz.
         constexpr float kV1aGridLeakOhms = 1000000.0f;
@@ -288,7 +286,6 @@ namespace SushiDSP
         sample_rate_ = info.sample_rate;
         const double oversampled_rate = sample_rate_ * kOversamplingFactor;
 
-        input_low_pass_.set_one_pole_low_pass(sample_rate_, kInputLowPassHz);
         presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_.target()), kFilterQ);
         deep_shelf_ = ResonanceControl(sample_rate_, kDeepHz, kMaxDeepBoostDb);
         deep_shelf_.set_depth(deep_.target());
@@ -403,7 +400,7 @@ namespace SushiDSP
 
         for (std::uint32_t i = 0; i < frames; ++i)
         {
-            scratch_base_[i] = input_low_pass_.process_sample(input[i] * input_gain);
+            scratch_base_[i] = input[i] * input_gain;
         }
 
         const float* upsampled = oversampler_->upsample(scratch_base_.data(), frames);
@@ -503,7 +500,6 @@ namespace SushiDSP
 
     void DiezelVh4::reset()
     {
-        input_low_pass_.reset();
         gain_high_pass_.reset();
         v2a_cathode_shelf_.reset();
         v2a_grid_miller_.reset();
