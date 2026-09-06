@@ -449,7 +449,8 @@ amount and oversample factor are compile-time constants.
 
 ### §5a Amplifier family
 
-The DA phase (plan `.superpowers/sdd/2026-09-06-high-gain-amps-part1/` and `-part2/`) grew the
+The DA phase (plans `docs/superpowers/plans/2026-09-06-high-gain-amps-part1.md` and
+`docs/superpowers/plans/2026-09-06-high-gain-amps-part2.md`) grew the
 single JCM800 into four sibling amplifier modules sharing the stage classes above.
 
 | Module | Channel | Dossier | Module path | Status |
