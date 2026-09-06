@@ -224,10 +224,9 @@ namespace SushiDSP::tube_screamer_circuits
     /// @brief Converts the Tone knob to the tone pot's wiper position.
     ///
     /// The sense is inverted, because ts_tone.asc is bright at TONE = 0 and the shipping knob is
-    /// bright at tone = 1, so a saved preset keeps meaning what it meant. The travel stops at the
-    /// reference's own stepped range: TONE = 1 shorts the wiper to the op-amp output and the
-    /// stage outputs nothing, TONE = 0 shorts away the feedback path and leaves a bare
-    /// integrator (D6c plan, rulings 9 and 14).
+    /// bright at tone = 1. The travel stops at the reference's stepped range: TONE = 1 shorts the
+    /// wiper to the op-amp output and the stage outputs nothing, TONE = 0 shorts away the
+    /// feedback path and leaves a bare integrator (D6c plan, rulings 9 and 14).
     /// @param tone Normalised Tone knob, 0 (dark) to 1 (bright).
     /// @return The wiper position, in [kToneMinimumPosition, kToneMaximumPosition].
     inline double tone_to_position(double tone)

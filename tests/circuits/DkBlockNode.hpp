@@ -70,6 +70,7 @@ namespace SushiDSP::test_circuits
 
         /// @brief Solves one sample per frame, scaling into volts and back.
         /// @param context The per-block buffers and frame count.
+        /// @pre prepare() has returned with prepared() true.
         void process(ProcessContext& context) override
         {
             const float* input = context.inputs == nullptr ? nullptr : context.inputs[0];

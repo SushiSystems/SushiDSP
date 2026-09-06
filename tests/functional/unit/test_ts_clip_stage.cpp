@@ -232,9 +232,11 @@ TEST(Unit_Dsp, DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSam
     // and 5 V, all at 384 kHz with the drive pot wide open, which is the hardest setting.
     //
     // The D6c plan instrumented this block at 2.7 Newton iterations per solve on average and 4
-    // worst case, but it did that on a 0.5 V stimulus. The 5 V burst is harder than anything the
-    // plan measured: it exhausts the eight-iteration budget on 57 of 1 056 000 samples, 0.0054 %,
-    // which is inside the spec's 0.01 % but not the "4 worst case" the plan expected.
+    // worst case, but it did that on a 0.5 V stimulus, and the 5 V burst is harder than anything
+    // the plan measured. One run before the session was interrupted saw the eight-iteration
+    // budget exhausted on 57 of 1 056 000 samples, 0.0054 %, inside the spec's 0.01 % but past
+    // the plan's "4 worst case". That figure is unverified since; the deferred sd test run
+    // confirms or corrects it.
     constexpr double kRunRate = 384000.0;
 
     ClipNetlist       netlist;
@@ -374,10 +376,13 @@ TEST(Unit_Dsp, DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged)
     // and Task 7's product node follows the same rule, so what it owes is exact: the buffer
     // sample times input_scale_volts is what the block solves, and the block's answer divided by
     // the same constant is what lands in the output buffer. A non-unity scale is used so a
-    // dropped multiply on either side shows up.
+    // dropped multiply on either side shows up. The drive is 0.3 rather than the 0.5 the adapter
+    // defaults every wiper to, so prepare()'s set_potentiometer and update_matrices_if_dirty have
+    // to have run for the two blocks to agree.
     constexpr double        kRunRate = 192000.0;
     constexpr std::uint32_t kFrames = 256;
     constexpr double        kScaleVolts = 2.0;
+    constexpr double        kDrive = 0.3;
 
     std::vector<float> input(kFrames, 0.0f);
     for (std::uint32_t frame = 0; frame < kFrames; ++frame)
@@ -389,7 +394,7 @@ TEST(Unit_Dsp, DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged)
 
     ClipNode node;
     build_clip_block(node.netlist);
-    node.pot_positions[0] = drive_to_position(0.5);
+    node.pot_positions[0] = drive_to_position(kDrive);
     node.input_scale_volts = kScaleVolts;
     node.prepare({ kRunRate, kFrames, 1 });
     ASSERT_TRUE(node.prepared());
@@ -405,7 +410,7 @@ TEST(Unit_Dsp, DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged)
     ClipCircuit       circuit;
     DiodePairPort     port;
     ASSERT_TRUE(circuit.prepare(netlist, kRunRate));
-    circuit.set_potentiometer(pot, drive_to_position(0.5));
+    circuit.set_potentiometer(pot, drive_to_position(kDrive));
     circuit.update_matrices_if_dirty();
 
     for (std::uint32_t frame = 0; frame < kFrames; ++frame)
@@ -470,4 +475,6 @@ TEST(Unit_Dsp, DkTsClipBlockLeavesItsCurrentsInStepWithItsVoltagesAfterAFailedSo
                 static_cast<unsigned long long>(seen_failures),
                 static_cast<unsigned long long>(discriminating));
     ASSERT_GT(seen_failures, 0u) << "the stimulus never reached DkCircuit's failure path";
+    ASSERT_GT(discriminating, 0u) << "every failed solve returned the iterate the models were "
+                                     "last evaluated at, so the assertion above is vacuous";
 }
