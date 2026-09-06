@@ -72,6 +72,33 @@ TEST(Unit_Dsp, MakeNodeConstructsJcm800ById)
     EXPECT_FLOAT_EQ(node->get_parameter("preamp"), 0.4f);
 }
 
+TEST(Unit_Dsp, NodeRegistryListsAndBuildsTheThreeHighGainAmplifiers)
+{
+    const SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    static const char* kAmplifierIds[] = {
+        "sushidsp.peavey5150", "sushidsp.mesa_mark2c", "sushidsp.diezel_vh4"
+    };
+
+    for (const char* id : kAmplifierIds)
+    {
+        bool found = false;
+        for (const auto& entry : SushiDSP::node_registry())
+        {
+            if (std::strcmp(entry.descriptor->id, id) == 0)
+            {
+                found = true;
+                EXPECT_STREQ(entry.category.name, "Amp");
+            }
+        }
+        EXPECT_TRUE(found) << id;
+
+        auto node = SushiDSP::make_node(id, info);
+        ASSERT_NE(node, nullptr) << id;
+        EXPECT_EQ(node->ports().input_channels, 1u);
+        EXPECT_EQ(node->ports().output_channels, 1u);
+    }
+}
+
 TEST(Unit_Dsp, MakeNodeReturnsNullForUnknownId)
 {
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };

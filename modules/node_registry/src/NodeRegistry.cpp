@@ -26,7 +26,10 @@
 #include <cstring>
 
 #include "SushiDSP/dd3/Dd3Delay.hpp"
+#include "SushiDSP/diezel_vh4/DiezelVh4.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
+#include "SushiDSP/mesa_mark2c/MesaMark2c.hpp"
+#include "SushiDSP/peavey5150/Peavey5150.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 #include "SushiDSP/routing/MixerNode.hpp"
 #include "SushiDSP/routing/SplitterNode.hpp"
@@ -38,6 +41,9 @@ namespace SushiDSP
         static const std::vector<NodeEntry> entries{
             { &tube_screamer_descriptor(), NodeCategory{ "Distortion" } },
             { &jcm800_descriptor(), NodeCategory{ "Amp" } },
+            { &peavey5150_descriptor(), NodeCategory{ "Amp" } },
+            { &mesa_mark2c_descriptor(), NodeCategory{ "Amp" } },
+            { &diezel_vh4_descriptor(), NodeCategory{ "Amp" } },
             { &dd3_descriptor(), NodeCategory{ "Delay" } },
             { &splitter_descriptor(), NodeCategory{ "Routing" } },
             { &mixer_descriptor(), NodeCategory{ "Routing" } },
