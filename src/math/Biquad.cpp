@@ -68,6 +68,18 @@ namespace SushiDSP
         a2_ = 0.0f;
     }
 
+    void Biquad::set_first_order_high_pass(double sample_rate, double cutoff_hz)
+    {
+        const double pole = std::exp(-2.0 * M_PI * cutoff_hz / sample_rate);
+        const double half_sum = (1.0 + pole) / 2.0;
+
+        b0_ = static_cast<float>(half_sum);
+        b1_ = -b0_;
+        b2_ = 0.0f;
+        a1_ = static_cast<float>(-pole);
+        a2_ = 0.0f;
+    }
+
     void Biquad::set_high_pass(double sample_rate, double cutoff_hz, double q)
     {
         const double omega = 2.0 * M_PI * cutoff_hz / sample_rate;
