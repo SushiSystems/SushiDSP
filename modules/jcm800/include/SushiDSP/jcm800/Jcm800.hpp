@@ -112,7 +112,7 @@ namespace SushiDSP
         /// section. An untouched amp still turns a -12 dBFS low-E sine into roughly -6 dBFS out.
         /// It multiplies the signal after the last nonlinearity, so it scales the output and
         /// nothing else.
-        static constexpr float kMasterUnityGain = 0.3204640f;
+        static constexpr float kMasterUnityGain = 0.3108168f;
 
         /// @brief Sets the master volume.
         /// @param decibels Master level in [-60, +12] dB; 0 dB is the amp's reference loudness.
