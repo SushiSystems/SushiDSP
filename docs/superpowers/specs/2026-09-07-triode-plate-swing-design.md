@@ -1,6 +1,6 @@
 # TriodeStage plate swing and the end of level staging
 
-**Status:** approved 2026-09-07, in execution (plan `docs/superpowers/plans/2026-09-07-triode-plate-swing.md`). Roadmap phase **DA4**.
+**Status:** DA4 shipped 2026-09-07 with two known issues (alias floor, IIC+ loop return); DA5 follows. Plan `docs/superpowers/plans/2026-09-07-triode-plate-swing.md`.
 
 ## 1. Goal
 
@@ -86,7 +86,7 @@ module:
 
 ## 5. Out of scope, stated
 
-The full DK load-line solve (the D6d path) is not this phase; the tanh ceiling is the documented approximation and the D6d rebuild replaces it stage by stage when it lands. The shelf-corner rule, the first-order coupling brick and the transformer's DC pass (final review F2, F5, F7) are separate DA5 items.
+The full DK load-line solve (the D6d path) is not this phase; the tanh ceiling is the documented approximation and the D6d rebuild replaces it stage by stage when it lands. The shelf-corner rule, the first-order coupling brick and the transformer's DC pass (final review F2, F5, F7) are separate DA5 items. DA5 also deletes the six-argument `TriodeStage` path and moves `PlateSwing::apply` to a shared helper `PentodeStage` can call, once `PentodeStage` becomes volt-true and needs the same ceiling.
 
 ## 6. Acceptance
 
