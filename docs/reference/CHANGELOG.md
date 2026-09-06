@@ -20,6 +20,7 @@ The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-ga
 - 2026-09-06 — Added the Peavey 5150 lead-channel amplifier node (`modules/peavey5150/`).
 - 2026-09-06 — Added the Mesa/Boogie Mark IIC+ lead-mode amplifier node (`modules/mesa_mark2c/`).
 - 2026-09-06 — Added the Diezel VH4 channel-3 amplifier node, a documented approximation (`modules/diezel_vh4/`).
+- 2026-09-06 — Removed the VH4's C1 input low-pass, whose corner belongs to the source impedance the node never sees (`DiezelVh4.cpp`, `DiezelVh4.hpp`, `modules/diezel_vh4/README.md`).
 - 2026-09-06 — Registered the 5150, Mark IIC+ and VH4 in the node registry and gave each a front-panel layout (`NodeRegistry.cpp`, `PanelLibrary.cpp`).
 
 ## DR2 — Boss DD-3 delay
