@@ -36,8 +36,11 @@ namespace
     // exp(60) ~ 1.1e26 the term still evaluates finitely in float, while 60 * Vt ~ 1.55 V sits far
     // above any physical grid-conduction drop, so the clamp bounds transient overshoot only.
     //
-    // Unlike the diode-pair circuits, the bound is applied *around the cathode-bias voltage Vk*
-    // rather than around 0, because Vk - not ground - is this stage's resting operating point.
+    // Unlike the diode-pair circuits, neither half of the bound sits around 0. The lower half is
+    // applied around the cathode-bias voltage Vk on both paths, because Vk - not ground - is this
+    // stage's resting operating point. The upper half follows the conduction reference the diode
+    // uses, so it sits at Vk on the six-argument path and at the cathode, 0, on the seven-argument
+    // one; the two references are spec section 3's ruling.
     //
     // The bound is deliberately asymmetric, and only the upper half of it is a numerical guard.
     // Below Vk the exponential term collapses to -Is, so the residual is linear, Newton converges
@@ -119,8 +122,7 @@ namespace SushiDSP
                 1.0f / rs + 1.0f / rg + (is / vt) * conduction };
         };
 
-        // The upper bound guards the exponential, so it follows the conduction reference; the
-        // lower bound is the stage's cutoff and stays on the bias point.
+        // The upper bound tracks the conduction reference, the lower one the bias point (spec 3).
         const float grid_voltage = NewtonRaphsonSolver::solve_joint(
             node_equation, previous_grid_voltage_, 4,
             vk - cutoff_voltage_limit_, vref + voltage_limit_);
@@ -138,10 +140,7 @@ namespace SushiDSP
             return linear_plate;
         }
 
-        // Two-sided plate ceiling. Each side is scaled by its own headroom, so the plate reaches
-        // the supply rail on the cutoff side and the load-line bottom on the conduction side
-        // rather than one symmetric bound; tanh is bounded by 1, so the result can never be inf
-        // or nan for any finite grid solution.
+        // Each side is bounded by its own headroom, so the output stays inside the swing (spec 3).
         if (linear_plate > 0.0f)
         {
             const float up = plate_swing_.headroom_to_supply_volts;

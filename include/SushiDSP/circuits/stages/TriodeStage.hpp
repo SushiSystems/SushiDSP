@@ -56,6 +56,8 @@ namespace SushiDSP
             float source_resistance_ohms, float grid_leak_resistance_ohms, float cathode_bias_volts,
             float gain, float saturation_current_amps, float thermal_voltage_volts);
 
+        /// @brief Builds a stage whose plate is bounded by its swing and whose grid conducts at
+        /// Vgk = 0, referenced to the cathode.
         /// @param source_resistance_ohms Effective source resistance feeding the grid.
         /// @param grid_leak_resistance_ohms The grid-leak resistor to the cathode-bias voltage.
         /// @param cathode_bias_volts The stage's DC operating point (self-bias voltage).
@@ -63,6 +65,9 @@ namespace SushiDSP
         /// @param saturation_current_amps Grid-conduction diode saturation current.
         /// @param thermal_voltage_volts Diode thermal voltage (~0.02585 V at room temperature).
         /// @param plate_swing The two headroom figures that bound the plate output.
+        /// @pre cathode_bias_volts < 0, so the grid rests below the cathode.
+        /// @pre plate_swing.headroom_to_supply_volts > 0 and
+        /// plate_swing.headroom_to_bottom_volts > 0; a zero headroom divides by zero at p = 0.
         TriodeStage(
             float source_resistance_ohms, float grid_leak_resistance_ohms, float cathode_bias_volts,
             float gain, float saturation_current_amps, float thermal_voltage_volts,
