@@ -79,24 +79,20 @@ namespace
         return output;
     }
 
-    /// @brief The residual energy left after subtracting a best-fit sine at the fundamental,
-    /// normalised by the signal's own energy. The same proxy test_jcm800.cpp uses: not a harmonic
-    /// decomposition, but monotonic with clipping severity.
-    double distortion_proxy(const std::vector<float>& signal, double frequency)
+    // measure::thd() windows a 65536-point FFT at the end of the signal, so anything handed to it
+    // must be at least that long or its offset underflows: 300 blocks of 256 frames is 76 800
+    // samples.
+    constexpr int kSpectrumBlocks = 300;
+
+    /// @brief The whole node's harmonic distortion at one pre-gain setting.
+    /// @param pre_gain VR2's position.
+    /// @param amplitude The stimulus amplitude.
+    /// @return What measure::thd() returns for a 220 Hz tone through the settled node.
+    SushiDSP::measure::ThdResult harmonics_at(float pre_gain, float amplitude)
     {
-        const std::size_t start = signal.size() * 3 / 4;
-        double sum_squared = 0.0, sum_sine = 0.0, sum_cosine = 0.0;
-        for (std::size_t i = start; i < signal.size(); ++i)
-        {
-            const double phase = 2.0 * M_PI * frequency * static_cast<double>(i) / 48000.0;
-            sum_squared += static_cast<double>(signal[i]) * signal[i];
-            sum_sine += signal[i] * std::sin(phase);
-            sum_cosine += signal[i] * std::cos(phase);
-        }
-        const double n = static_cast<double>(signal.size() - start);
-        const double fundamental = 2.0 * std::sqrt(sum_sine * sum_sine + sum_cosine * sum_cosine) / n;
-        const double fundamental_power = 0.5 * fundamental * fundamental * n;
-        return std::sqrt(std::max(0.0, sum_squared - fundamental_power) / std::max(1e-12, sum_squared));
+        auto node = prepared_node();
+        node->set_pre_gain(pre_gain);
+        return SushiDSP::measure::thd(render_sine(*node, 220.0, amplitude, kSpectrumBlocks), 220.0, 48000.0, 8);
     }
 
     /// @brief The magnitude one frequency comes back at, in decibels.
@@ -284,26 +280,26 @@ TEST(Unit_Dsp, Peavey5150IsDcStableAcrossManyBlocksAtHighGain)
 TEST(Unit_Dsp, Peavey5150ThdIncreasesWithGain)
 {
     // The pre-gain pot sits between V1A's plate and V1B's grid, so turning it up drives everything
-    // after it harder rather than making a clean signal louder. Measured at a quiet input, where
-    // the cascade still has somewhere to go.
-    auto proxy_at = [](float pre_gain)
+    // after it harder rather than making a clean signal louder. Every step of the knob from 0.2
+    // upward must add harmonic content, which is the claim the interstage level staging in
+    // Peavey5150.cpp exists to make true.
+    //
+    // The sweep starts at 0.2 rather than at the bottom of the knob. Below that the amp is clean
+    // enough at this input that the reading is the spectrum's own floor rather than distortion:
+    // 0.226% at pre gain 0.05 against 0.071% at 0.2, measured 2026-09-06.
+    const float positions[] = { 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
+    double previous = 0.0;
+    for (float position : positions)
     {
-        auto node = prepared_node();
-        node->set_pre_gain(pre_gain);
-        return distortion_proxy(render_sine(*node, 220.0, 0.02f, 120), 220.0);
-    };
+        const double thd_percent = harmonics_at(position, 0.02f).thd_percent;
+        std::printf("[ measure ] thd %.4f%% at pre gain %.2f\n", thd_percent, position);
+        EXPECT_GT(thd_percent, previous) << "pre gain " << position;
+        previous = thd_percent;
+    }
 
-    const double quiet = proxy_at(0.05f);
-    const double half = proxy_at(0.5f);
-    const double full = proxy_at(1.0f);
-    std::printf("[ measure ] distortion proxy %.4f at 0.05, %.4f at 0.5, %.4f at 1.0\n", quiet, half, full);
-
-    EXPECT_GT(half, quiet);
-    EXPECT_GT(full, half);
-
-    // Guards against the rise above being satisfied by three indistinguishable near-zero readings:
-    // a 5150 lead channel at full pre gain is heavily, obviously clipped.
-    EXPECT_GT(full, 0.2);
+    // Guards against the rise above being satisfied by six indistinguishable near-zero readings.
+    // Measured 2026-09-06: 0.071, 0.108, 0.230, 0.700, 2.616, 4.215 percent.
+    EXPECT_GT(previous, 3.0);
 }
 
 TEST(Unit_Dsp, Peavey5150ColdClipperStageClipsAsymmetrically)
@@ -315,11 +311,7 @@ TEST(Unit_Dsp, Peavey5150ColdClipperStageClipsAsymmetrically)
     // that stage further into its asymmetry.
     auto even_harmonic_ratio = [](float pre_gain)
     {
-        auto node = prepared_node();
-        node->set_pre_gain(pre_gain);
-        const std::vector<float> output = render_sine(*node, 220.0, 0.02f, 120);
-        const std::vector<float> tail(output.begin() + static_cast<std::ptrdiff_t>(output.size() / 2), output.end());
-        const SushiDSP::measure::ThdResult result = SushiDSP::measure::thd(tail, 220.0, 48000.0, 8);
+        const SushiDSP::measure::ThdResult result = harmonics_at(pre_gain, 0.02f);
         double even = 0.0;
         for (std::size_t harmonic = 2; harmonic <= 8; harmonic += 2)
         {
@@ -328,15 +320,20 @@ TEST(Unit_Dsp, Peavey5150ColdClipperStageClipsAsymmetrically)
         return std::sqrt(even);
     };
 
-    const double quiet = even_harmonic_ratio(0.05f);
+    const double quiet = even_harmonic_ratio(0.2f);
     const double driven = even_harmonic_ratio(1.0f);
-    std::printf("[ measure ] even harmonics %.4f at pre gain 0.05, %.4f at 1.0\n", quiet, driven);
-    EXPECT_GT(driven, quiet);
+    std::printf("[ measure ] even harmonics %.5f at pre gain 0.2, %.5f at 1.0\n", quiet, driven);
+
+    // Measured 2026-09-06: 0.00070 against 0.01410, a factor of 20. The gate is a factor of 4, so
+    // it survives a toolchain change but not the cold clipper being made symmetric.
+    EXPECT_GT(driven, quiet * 4.0);
 }
 
 TEST(Unit_Dsp, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
 {
     // Dossier section 6, quoting Peavey's own specification table: "Active Presence: +10 dB 2 kHz".
+    // The shelf's corner sits at 600 Hz so its plateau has arrived by 2 kHz; the comment beside
+    // kPresenceHz in Peavey5150.cpp carries why. Measured 2026-09-06: 16.31 dB flat, 26.21 full.
     auto flat = prepared_node();
     flat->set_presence(0.5f);
     const double reference = response_at(*flat, 2000.0);
@@ -351,9 +348,10 @@ TEST(Unit_Dsp, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
 
 TEST(Unit_Dsp, Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels)
 {
-    // Dossier section 6: "Active Resonance: +10 dB at the cabinet resonant frequency". The corner
-    // itself is a modelling choice at 100 Hz - the dossier derives none - so the assertion is made
-    // at that corner. The knob is flat at 0 and full at 1, so the pair compared is those two.
+    // Dossier section 6: "Active Resonance: +10 dB at the cabinet resonant frequency". The cabinet
+    // resonance is a modelling choice at 100 Hz, the dossier derives none, and the shelf's own
+    // corner sits at 330 Hz so its plateau has arrived by then. The knob is flat at 0 and full at
+    // 1, so those two are the pair compared. Measured 2026-09-06: 4.10 dB flat, 14.00 dB full.
     auto flat = prepared_node();
     flat->set_resonance(0.0f);
     const double reference = response_at(*flat, 100.0);
@@ -426,7 +424,7 @@ TEST(Unit_Dsp, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsI
     const float peak_decibels = 20.0f * std::log10(peak);
     std::printf("[ measure ] default peak %.3f dBFS; kPostGainUnityGain would need x%.6f\n",
                 static_cast<double>(peak_decibels),
-                static_cast<double>(0.5f / std::max(peak, 1e-9f)));
+                static_cast<double>(0.5011872f / std::max(peak, 1e-9f)));
     EXPECT_GT(peak_decibels, -7.0f);
     EXPECT_LT(peak_decibels, -5.0f);
 }

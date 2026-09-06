@@ -50,6 +50,8 @@ namespace SushiDSP
         void set_high(float normalized);
 
         /// @brief Processes one sample through the input network and the stack. Audio-thread safe.
+        /// The input network carries R24's loss, so the caller hands over V5A's plate voltage
+        /// unattenuated.
         /// @param input The sample at V5A's plate.
         /// @return The sample at the HIGH wiper, feeding the post-gain pots.
         float process_sample(float input);
@@ -57,12 +59,9 @@ namespace SushiDSP
         /// @brief Clears the input network's and the stack's state.
         void reset();
 
-        /// @brief The frequency-independent loss R24 33 kOhm imposes against V5A's plate.
-        static constexpr float kInputShuntAttenuation = 0.4824525f;
-
     private:
         Biquad coupling_high_pass_;   ///< C58 into V5A's source resistance and R24.
-        Biquad input_shunt_shelf_;    ///< The C59/R94 leg's treble cut on the same node.
+        Biquad input_shunt_shelf_;    ///< R24's loss and the C59/R94 leg's treble cut on it.
         FmvToneStack stack_;
     };
 }

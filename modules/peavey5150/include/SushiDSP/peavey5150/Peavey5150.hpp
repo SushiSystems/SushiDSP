@@ -138,10 +138,18 @@ namespace SushiDSP
         void set_output(float decibels);
 
         /// @brief Linear gain the finished signal is scaled by so an untouched amp turns a
-        /// -12 dBFS 1 kHz input into roughly -6 dBFS out. It multiplies after the last
-        /// nonlinearity, so it scales the output and nothing else; the measurement that pins it is
-        /// Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput.
-        static constexpr float kPostGainUnityGain = 0.32f;
+        /// -12 dBFS 1 kHz input into roughly -6 dBFS out. Measured on 2026-09-06 by
+        /// Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput, which is also the
+        /// test that pins it.
+        ///
+        /// It sits outside the nonlinearity, after the decimator and both feedback shelves, where
+        /// Jcm800.cpp applies its kMasterUnityGain inside the amplifier alongside the master pot.
+        /// A deliberate departure from the sibling: this amplifier's POST GAIN pot is a real
+        /// mid-chain control that drives the driver, the phase inverter and the output tubes, so it
+        /// is applied in the chain where the schematic puts it, and this constant is left outside
+        /// as a pure level trim. Folding the two together would make a calibration change a tone
+        /// change. See modules/peavey5150/README.md.
+        static constexpr float kPostGainUnityGain = 0.6950795f;
 
         /// @brief Overrides the 6L6GC quad's grid bias mismatch. A test hook, not a user control
         /// and not in the descriptor. Audio-thread safe.

@@ -99,7 +99,7 @@ namespace SushiDSP
         constexpr float kV2aSourceResistance = 333700.0f;   // (30.7k + R6 470k) || R9 1M.
         constexpr float kV2bSourceResistance = 281100.0f;   // (75.0k || R11 330k) plus R7 220k.
         constexpr float kV5bSourceResistance = 91200.0f;    // (40.3k + R32 1M) || R101 100k.
-        constexpr float kV5aSourceResistance = 673200.0f;   // (46.3k + R87 1M + R88 1M) || R91 1M.
+        constexpr float kV5aSourceResistance = 671730.0f;   // (46.3k + R87 1M + R88 1M) || R91 1M.
         constexpr float kV3aSourceResistance = 200000.0f;   // The post-gain node's R85 || R81.
         constexpr float kPhaseInverterSourceResistance = 132800.0f;  // 32.8k plus R48 100k.
 
@@ -113,6 +113,34 @@ namespace SushiDSP
         // beside it; folded together the way the same section folds R32 into V2B's divider, the
         // three 1 MOhm resistors give R91 / (R87 + R88 + R91) = 0.3333.
         constexpr float kV5bToV5aAttenuation = 0.3333f;
+
+        // Level staging. Modelling choices, top to bottom, and not dossier values: the dossier's
+        // own dividers above are the real circuit's, and on their own they leave every grid past
+        // V1A driven two to three orders of magnitude beyond its conduction knee, which turns the
+        // cascade into a fixed-amplitude square-wave generator with a dead gain knob. Measured
+        // before these were added: at a -40 dBFS input and PRE GAIN 0.05, V5A's grid sat at 5.63 V
+        // against a knee near 0.10 V.
+        //
+        // One rule sets all seven, so none of them is a free knob. A link's total attenuation is
+        // 1/(the gain of the stage it drives), which is what carries the operating level forward
+        // unchanged - the argument modules/jcm800/src/Jcm800.cpp spells out for its own interstage
+        // constants. Each staging factor below is that target divided by the dossier's own divider
+        // for the same link, so the dossier still sets each link's frequency behaviour and its
+        // relative weight and the staging factor only sets where the cascade sits in level.
+        constexpr float kPreGainPotCeiling = 0.0153374f;               // (1/65.2) / 1.0.
+        constexpr float kV1bToV2aLevelStaging = 0.665425f;             // (1/2.21) / 0.680.
+        constexpr float kV2aToV2bLevelStaging = 0.0158584f;            // (1/77.4) / 0.8147.
+        constexpr float kV2bToV5bLevelStaging = 0.265728f;             // (1/41.4) / 0.0909.
+        constexpr float kV5bToV5aLevelStaging = 0.118589f;             // (1/25.3) / 0.3333.
+        constexpr float kToneStackToV3aLevelStaging = 0.289396f;       // (1/14.0) / (0.4825*0.522*0.98).
+        constexpr float kV3aToPhaseInverterLevelStaging = 0.0336700f;  // (1/29.7) / 1.0.
+
+        // The eighth runs the other way, as the VH4's kFollowerToMixBusLevelStaging does. The seven
+        // above hand the pair's plate a fraction of a volt, and a 6L6GC with this preset's gain of
+        // 6 reaches its 1/0.048 = 20.8 V ceiling only at 3.47 V of grid drive, so without a lift
+        // the power section would never leave its linear region and the amplifier would have no
+        // power-stage character at all. Measured to put the default setting just into saturation.
+        constexpr float kPhaseInverterToPowerTubeLevelStaging = 30.0f;
 
         // Dossier section 5: the pair's plates drive R55/R54 220k through C29/C28 with only the
         // 2.2 kOhm stoppers between the node and the grids, so the loss is the 220 kOhm leak
@@ -207,41 +235,66 @@ namespace SushiDSP
         constexpr double kC48CornerHz = 2603.1;
 
         // The three bypassed cathodes, dossier section 3's V1A paragraph: R 1.02 kOhm with a 1 uF
-        // non-polar across it. Each is a first-order shelf that is unity above its pole - where the
-        // stage runs the gain section 3's table prints - and degenerate below its zero.
+        // non-polar across it. Each is a first-order shelf, unity above its pole - where the stage
+        // runs the gain section 3's table prints - and degenerate below its zero.
         //
-        // V1A and V2B share a 220k/1.02k stage, so they share its numbers: pole
-        // 1/(2*pi*1u*(1.02k || 1/gm)) = 461.45 Hz with gm 1.919 mA/V, and the dossier's own
-        // statement that the gain falls from 77.4 to 56.8 below it puts the shelf at 0.7339. The
-        // zero is placed at pole * 0.7339 = 338.64 Hz so the shelf is exactly that depth; the
-        // dossier gives the corner and the depth but not both corners.
-        constexpr double kV1aCathodePoleHz = 461.45, kV1aCathodeZeroHz = 338.64;
-        constexpr float kV1aCathodeLowGain = 0.73385f;
+        // Both corners come from R, C and the stage's own small-signal figures, not from section
+        // 3's printed 462 Hz. That figure is 1/(2*pi*C*(Rk || 1/gm)), the plate-follower form; a
+        // plate-loaded stage degenerates against (ra + Ra)/(mu + 1) instead, and only that form
+        // reproduces the shelf depth section 3 states in the same paragraph.
+        //   zero = 1/(2*pi*C*Rk)
+        //   pole = 1/(2*pi*C*(Rk || (ra + Ra)/(mu + 1)))
+        //
+        // V1A and V2B share a 220k/1.02k stage at ra 49.4k and mu 94.8, so they share its numbers:
+        // (49.4k + 220k)/95.8 = 2.812 kOhm, 1.02k || 2.812k = 748.7 Ohm, zero 156.03 Hz, pole
+        // 212.60 Hz. The depth that falls out, 156.03/212.60 = 0.7339, is section 3's own figure
+        // (a gain of 77.4 falling to 56.8, 0.7339) to four places.
+        constexpr double kV1aCathodeZeroHz = 156.03, kV1aCathodePoleHz = 212.60;
+        constexpr float kV1aCathodeLowGain = 0.73391f;
 
-        // V1B: gm 2.122 mA/V gives a pole at 493.76 Hz, and section 3's unbypassed-region gain of
-        // 39.0 against the table's 65.2 puts the shelf at 0.5982, so the zero sits at 295.35 Hz.
-        constexpr double kV1bCathodePoleHz = 493.76, kV1bCathodeZeroHz = 295.35;
-        constexpr float kV1bCathodeLowGain = 0.59816f;
+        // V1B: 100k/1.02k at ra 44.4k and mu 94.1, so (44.4k + 100k)/95.1 = 1.5184 kOhm,
+        // 1.02k || 1.5184k = 610.0 Ohm, zero 156.03 Hz, pole 260.90 Hz. Depth 0.5980, against
+        // section 3's 39.0/65.2 = 0.5982.
+        constexpr double kV1bCathodeZeroHz = 156.03, kV1bCathodePoleHz = 260.90;
+        constexpr float kV1bCathodeLowGain = 0.59805f;
 
-        // V3A's C61 4.7 nF, dossier section 3: the pole is the dossier's own "near 56 kHz",
-        // 1/(2*pi*4.7n*(3.3k || 1/gm)) = 56.38 kHz with gm 1.362 mA/V. Fully bypassed the stage
-        // would run mu*Ra/(ra+Ra) = 44.68 against the table's degenerate 14.0, a ratio of 3.191,
-        // so the zero sits at 56.38k/3.191 = 17.67 kHz and the shelf is unity through the audio
-        // band. That is what the dossier means by treating C61 as an oscillation stopper.
-        constexpr double kV3aCathodePoleHz = 56382.5, kV3aCathodeZeroHz = 17667.5;
+        // V3A's C61 4.7 nF, the same construction: 3.3k/68k at ra 63.5k and mu 86.4, so
+        // (63.5k + 68k)/87.4 = 1.5046 kOhm, 3.3k || 1.5046k = 1.0332 kOhm, zero 10.261 kHz, pole
+        // 32.777 kHz. The lift that falls out, 3.194, is the ratio between the stage bypassed
+        // (mu*Ra/(ra+Ra) = 44.68) and as drawn (14.0), which is 3.191. Section 3's "near 56 kHz" is
+        // again the 1/gm form. The shelf is unity below its zero, so the stage runs section 3's
+        // 14.0 through the audio band, which is what section 3 means by calling C61 an oscillation
+        // stopper rather than an audio bypass.
+        constexpr double kV3aCathodeZeroHz = 10261.0, kV3aCathodePoleHz = 32777.0;
         constexpr float kV3aCathodeLowGain = 1.0f;
 
         // Dossier section 6: "Active Presence: +10 dB 2 kHz" and "Active Resonance: +10 dB at the
         // cabinet resonant frequency". Both are frequency-selective reductions of the global
         // feedback rather than active circuits, and the +10 dB is the loop's.
-        constexpr float kPresenceHz = 2000.0f;
         constexpr float kMaxPresenceDb = 10.0f;
         constexpr float kResonanceMaxBoostDb = 10.0f;
 
-        // The dossier derives no corner for the resonance shelf - section 5 gives the feedback
-        // network's components and section 6 names only "the cabinet resonant frequency" - so
-        // 100 Hz is a modelling choice, in the range a 4x12 resonates at.
-        constexpr float kResonanceCornerHz = 100.0f;
+        // Both corners sit below the frequency section 6 names, and the reason is the shelf's own
+        // shape rather than the circuit. An RBJ shelf reaches half its decibel gain at its corner
+        // and the plateau only well past it, so a shelf cornered at 2 kHz is +5 dB at 2 kHz, not
+        // the +10 dB section 6 publishes. Section 6 states the boost measured *at* a frequency, so
+        // each corner is placed where the plateau has arrived by then: 600 Hz reads 9.90 dB at
+        // 2 kHz and 330 Hz reads 9.90 dB at 100 Hz. Both placements are modelling choices.
+        constexpr float kPresenceHz = 600.0f;
+
+        // Section 5 derives no corner for the resonance shelf and section 6 names only "the
+        // cabinet resonant frequency", taken here as 100 Hz, in the range a 4x12 resonates at.
+        // The shelf's own corner sits above it for the reason given above.
+        constexpr float kResonanceCornerHz = 330.0f;
+
+        // The lowest corner a coupling capacitor in this chain can actually be given. Eight of the
+        // eleven compute below 20 Hz, and at 8 x 48 kHz a second-order section at 2 Hz puts its
+        // pole within 5e-6 of z = 1, which a Biquad's float coefficients and float state cannot
+        // hold: the section stops behaving as a filter and its state accumulates instead of
+        // decaying. Realising those eight at 20 Hz costs 0.016 dB each at the low E's 82 Hz,
+        // 0.13 dB across all eight, and 1.9 dB at 41 Hz. A modelling choice forced by the
+        // arithmetic and not by the circuit; each capacitor's computed corner stays in its comment.
+        constexpr double kMinimumCouplingCornerHz = 20.0;
 
         constexpr double kFilterQ = 0.7071;
         constexpr float kSmoothingMs = 20.0f;
@@ -266,6 +319,15 @@ namespace SushiDSP
             return 1.0 / (2.0 * M_PI * resistance_ohms * capacitance_farads);
         }
 
+        /// @brief One coupling capacitor's corner, raised to the lowest a float biquad can hold.
+        /// @param resistance_ohms The resistance the capacitor works into.
+        /// @param capacitance_farads The capacitance.
+        /// @return The corner in hertz, never below kMinimumCouplingCornerHz.
+        double coupling_corner_hz(double resistance_ohms, double capacitance_farads)
+        {
+            return std::max(corner_hz(resistance_ohms, capacitance_farads), kMinimumCouplingCornerHz);
+        }
+
         /// @brief The corner of one grid's Miller input-capacitance pole.
         /// @param stage_voltage_gain The driven stage's mid-band gain, which multiplies Cgp.
         /// @param plate_load_ohms The driving stage's plate load.
@@ -287,13 +349,12 @@ namespace SushiDSP
         }
 
         // VR2 sits from the pot node to ground with the wiper feeding V1B, so wide open it passes
-        // the whole node rather than a fraction of it: the attenuation ceiling is 1.0 and the
-        // network ahead of it - the R29/C17 peaker and its 0.4147 floor - is what sets the level
-        // the cascade starts from. The exponent is the same audio taper
-        // modules/jcm800/src/Jcm800.cpp uses for the same kind of pot.
+        // the whole node; what it passes into is kPreGainPotCeiling, this link's staging factor.
+        // The exponent is the same audio taper modules/jcm800/src/Jcm800.cpp uses for the same kind
+        // of pot.
         float pre_gain_attenuation(float normalized)
         {
-            return normalized * std::sqrt(normalized);
+            return normalized * std::sqrt(normalized) * kPreGainPotCeiling;
         }
     }
 
@@ -328,16 +389,16 @@ namespace SushiDSP
         const double rate = sample_rate_ * kOversamplingFactor;
 
         input_low_pass_.set_one_pole_low_pass(rate, corner_hz(kInputStopperOhms, kInputShuntFarads));
-        c6_coupling_.set_high_pass(rate, corner_hz(kC6LoadOhms, kC6Farads), kFilterQ);
+        c6_coupling_.set_high_pass(rate, coupling_corner_hz(kC6LoadOhms, kC6Farads), kFilterQ);
         pre_gain_peaker_.set_first_order_shelf(rate, kPreGainPeakerZeroHz, kPreGainPeakerPoleHz, kPreGainPeakerLowGain);
-        c2_coupling_.set_high_pass(rate, corner_hz(kC2LoadOhms, kC2Farads), kFilterQ);
-        c1_coupling_.set_high_pass(rate, corner_hz(kC1LoadOhms, kC1Farads), kFilterQ);
+        c2_coupling_.set_high_pass(rate, coupling_corner_hz(kC2LoadOhms, kC2Farads), kFilterQ);
+        c1_coupling_.set_high_pass(rate, coupling_corner_hz(kC1LoadOhms, kC1Farads), kFilterQ);
         c48_low_pass_.set_one_pole_low_pass(rate, kC48CornerHz);
-        c57_coupling_.set_high_pass(rate, corner_hz(kC57LoadOhms, kC57Farads), kFilterQ);
-        c56_coupling_.set_high_pass(rate, corner_hz(kC56LoadOhms, kC56Farads), kFilterQ);
-        c52_coupling_.set_high_pass(rate, corner_hz(kC52LoadOhms, kC52Farads), kFilterQ);
-        c11_coupling_.set_high_pass(rate, corner_hz(kC11LoadOhms, kC11Farads), kFilterQ);
-        c49_coupling_.set_high_pass(rate, corner_hz(kC49LoadOhms, kC49Farads), kFilterQ);
+        c57_coupling_.set_high_pass(rate, coupling_corner_hz(kC57LoadOhms, kC57Farads), kFilterQ);
+        c56_coupling_.set_high_pass(rate, coupling_corner_hz(kC56LoadOhms, kC56Farads), kFilterQ);
+        c52_coupling_.set_high_pass(rate, coupling_corner_hz(kC52LoadOhms, kC52Farads), kFilterQ);
+        c11_coupling_.set_high_pass(rate, coupling_corner_hz(kC11LoadOhms, kC11Farads), kFilterQ);
+        c49_coupling_.set_high_pass(rate, coupling_corner_hz(kC49LoadOhms, kC49Farads), kFilterQ);
 
         v1a_cathode_shelf_.set_first_order_shelf(rate, kV1aCathodeZeroHz, kV1aCathodePoleHz, kV1aCathodeLowGain);
         v1b_cathode_shelf_.set_first_order_shelf(rate, kV1bCathodeZeroHz, kV1bCathodePoleHz, kV1bCathodeLowGain);
@@ -458,36 +519,39 @@ namespace SushiDSP
             const float v1b_out = v1b_cathode_shelf_.process_sample(v1b_.process_sample(v1b_in));
 
             const float v2a_in = v2a_grid_miller_.process_sample(
-                c2_coupling_.process_sample(v1b_out) * kV1bToV2aAttenuation);
+                c2_coupling_.process_sample(v1b_out) * kV1bToV2aAttenuation * kV1bToV2aLevelStaging);
             const float v2a_out = v2a_.process_sample(v2a_in);
 
             const float v2b_in = v2b_grid_miller_.process_sample(
-                c48_low_pass_.process_sample(c1_coupling_.process_sample(v2a_out)) * kV2aToV2bAttenuation);
+                c48_low_pass_.process_sample(c1_coupling_.process_sample(v2a_out))
+                * kV2aToV2bAttenuation * kV2aToV2bLevelStaging);
             const float v2b_out = v2b_cathode_shelf_.process_sample(v2b_.process_sample(v2b_in));
 
             const float v5b_in = v5b_grid_miller_.process_sample(
-                c57_coupling_.process_sample(v2b_out) * kV2bToV5bAttenuation);
+                c57_coupling_.process_sample(v2b_out) * kV2bToV5bAttenuation * kV2bToV5bLevelStaging);
             const float v5b_out = v5b_.process_sample(v5b_in);
 
             const float v5a_in = v5a_grid_miller_.process_sample(
-                c56_coupling_.process_sample(v5b_out) * kV5bToV5aAttenuation);
+                c56_coupling_.process_sample(v5b_out) * kV5bToV5aAttenuation * kV5bToV5aLevelStaging);
             const float v5a_out = v5a_.process_sample(v5a_in);
 
-            // The tone stack's own input network carries the R24 shunt and the C59/R94 leg, so the
-            // only thing between V5A's plate and the deck here is the post-gain pot behind it.
-            const float post_gain_node =
-                tone_stack_.process_sample(v5a_out * Peavey5150ToneStack::kInputShuntAttenuation) * post_gain;
+            // The tone stack's own input network carries R24's loss and the C59/R94 leg, so the
+            // plate voltage goes in unattenuated and the only thing after the deck is the pot.
+            const float post_gain_node = tone_stack_.process_sample(v5a_out) * post_gain;
 
             // V3B is a scalar and its coupling capacitor: the follower's own compression is not
             // modelled, and the dossier reads it as hanging off the post-gain node in parallel
             // with V3A rather than in series ahead of it (see the README).
             const float follower_out = c52_coupling_.process_sample(post_gain_node) * kCathodeFollowerGain;
 
-            const float v3a_in = v3a_grid_miller_.process_sample(c11_coupling_.process_sample(follower_out));
+            const float v3a_in = v3a_grid_miller_.process_sample(
+                c11_coupling_.process_sample(follower_out) * kToneStackToV3aLevelStaging);
             const float v3a_out = v3a_cathode_shelf_.process_sample(v3a_.process_sample(v3a_in));
 
-            const float pair_in = phase_inverter_grid_miller_.process_sample(c49_coupling_.process_sample(v3a_out));
-            const float pair_out = phase_inverter_.process_sample(pair_in) * kPhaseInverterToPowerTubeAttenuation;
+            const float pair_in = phase_inverter_grid_miller_.process_sample(
+                c49_coupling_.process_sample(v3a_out) * kV3aToPhaseInverterLevelStaging);
+            const float pair_out = phase_inverter_.process_sample(pair_in)
+                * kPhaseInverterToPowerTubeAttenuation * kPhaseInverterToPowerTubeLevelStaging;
 
             const float power_a = power_tube_a_.process_sample(pair_out);
             const float power_b = power_tube_b_.process_sample(-pair_out - power_tube_grid_bias_mismatch_volts_);
