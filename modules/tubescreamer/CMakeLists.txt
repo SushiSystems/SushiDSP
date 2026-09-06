@@ -1,5 +1,4 @@
 add_library(tubescreamer STATIC
-    src/TubeScreamerClippingStage.cpp
     src/TubeScreamer.cpp
 )
 add_library(SushiDSP::tubescreamer ALIAS tubescreamer)

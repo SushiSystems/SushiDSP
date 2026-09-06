@@ -69,7 +69,6 @@ add_executable(sushidsp_tests
     functional/unit/test_fmv_tone_stack.cpp
 
     # --- Products ---
-    functional/unit/test_tube_screamer_clipping_stage.cpp
     functional/unit/test_tube_screamer.cpp
     functional/unit/test_jcm_tone_stack.cpp
     functional/unit/test_jcm800.cpp
