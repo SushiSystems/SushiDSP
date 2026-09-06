@@ -1,9 +1,10 @@
 # High-gain amplifiers: Peavey 5150, Mesa/Boogie Mark IIC+, Diezel VH4
 
-**Status:** DA0 and DA1 shipped; DA2 onwards awaiting maintainer review. Roadmap prefix **DA**
-(Dsp Amplifier); phases DA0 through DA3 below. The VH4 dossier's verdict is "documented
-approximation", and its evidence points to the EL34 as the stock power tube; KT77 is this spec's
-scope choice and stands until the maintainer decides.
+**Status:** DA0 and DA1 shipped; DA2 and DA3 planned in
+`docs/superpowers/plans/2026-09-06-high-gain-amps-part2.md`. Roadmap prefix **DA** (Dsp Amplifier).
+Maintainer decisions of 2026-09-06: the VH4 is modelled with the EL34 its evidence points to; the VH4
+module ships as a documented approximation (its dossier's verdict); the Mark IIC+ module reads the
+five-band EQ as the dossier's series R-L-C traps.
 
 ## 1. Goal
 
@@ -24,7 +25,7 @@ In scope, per amplifier, the one channel that carries its high-gain identity:
 | --- | --- | --- | --- |
 | Peavey 5150 (block letter, 1992) | Lead | 4 × 6L6GC | Pre Gain, Low, Mid, High, Post Gain, Resonance, Presence |
 | Mesa/Boogie Mark IIC+ | Lead mode | Simul-Class: 2 × 6L6GC pentode, 2 × EL34 triode-strapped | Volume 1, Treble, Bass, Middle, Lead Drive, Lead Master, Presence, five-band graphic EQ (80, 240, 750, 2200, 6600 Hz) |
-| Diezel VH4 | Channel 3 | 4 × KT77 (6L6 variant deferred) | Gain, Bass, Middle, Treble, Volume, Deep, Presence, Master |
+| Diezel VH4 | Channel 3 | 4 × EL34 (the stock tube by the dossier's evidence; KT77 deferred) | Gain, Bass, Middle, Treble, Volume, Deep, Presence, Master |
 
 Every module also carries the same two calibration controls the JCM800 has today, Input Trim
 (±24 dB) and Output (−60 to +12 dB), until the separate rig-gain-node task removes them from all
@@ -54,15 +55,24 @@ must pass bit-identically after it. `JcmToneStack` stays in `modules/jcm800`: it
 own network.
 
 `PentodeStage` is already parameterised by constructor (saturation current, thermal voltage, plate
-saturation drive), so a 6L6 or KT77 is a different set of constants, not a different class. The
-constants live beside the class as named presets in one header:
+saturation drive), so a different power stage is a different set of constants, not a different
+class. The constants live beside the class as named presets in one header:
 
 ```
-include/SushiDSP/circuits/stages/PowerTubePresets.hpp   kEl34, k6L6GC, kKt77
+include/SushiDSP/circuits/stages/PowerTubePresets.hpp
+    kEl34                        the JCM800 2203's constants, moved verbatim
+    kPeavey5150Power6L6GC        dossier §7
+    kMesaMark2cPower6L6GC        dossier §7.2
+    kMesaMark2cPowerEl34Triode   dossier §7.3
+    kDiezelVh4PowerEl34          dossier §7, EL34 row
 ```
 
-The `kEl34` preset is the JCM800's current constants, moved verbatim, and `Jcm800.cpp` reads them
-from there.
+The three dossiers showed that the constants are per installation, not per tube type:
+`source_resistance_ohms` is the driver's Thevenin impedance plus the grid stopper, and `gain`
+depends on the transformer's primary impedance, so two 6L6GC amplifiers get two presets. The
+presets are therefore named by amplifier and power stage. `cathode_bias_volts` has no effect on
+`PentodeStage`'s output (its node equation is bias-invariant); the field is kept for the record
+and documented as such.
 
 ## 4. New shared bricks (DA1, parallel)
 
@@ -136,8 +146,9 @@ overrides this section where it differs:
   defining ordering), Lead Drive stage into a further triode with heavy cathode bypass, Lead
   Master, the five-band EQ after the preamp, then the Simul-Class power section. The Simul-Class
   half is modelled as two `PentodeStage` pairs with different presets summed at the transformer.
-- **VH4 channel 3.** Four cascaded triode stages with its own stack, Volume, then the shared
-  KT77 power section with Deep and Presence.
+- **VH4 channel 3.** Input stage, channel gain, two shared distorting stages, a DC-coupled cathode
+  follower, its own stack, Volume, then a power section documented only in prose: EL34 quad, Deep
+  and Presence in the feedback loop. Documented approximation per the dossier's verdict.
 
 ## 7. Registration and panels (DA3, serial)
 
