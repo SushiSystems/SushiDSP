@@ -14,6 +14,13 @@ The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-ga
 - 2026-09-06 — Corrected the `jcm_fmv` treble-pot return node and removed its master volume, then regenerated both CSVs (`docs/reference/spice/jcm_fmv/`).
 - 2026-09-06 — Marked all eight SPICE blocks simulated in their status and LTspice-version lines (`docs/reference/spice/*/README.md`).
 - 2026-09-06 — Added design dossiers for the Peavey 5150, Mesa Mark IIC+ and Diezel VH4 (`docs/reference/research/2026-09-06-peavey-5150-design-dossier.md`, `-mesa-mark-iic-plus-`, `-diezel-vh4-`).
+- 2026-09-06 — Wired the FMV stack's middle pot as a rheostat, so its taper follows the real deck (`FmvToneStack.hpp`, `FmvToneStack.cpp`).
+- 2026-09-06 — Added `PentodeStage(const PowerTubePreset&)` and three power-tube presets alongside `kEl34` (`PentodeStage.hpp`, `PowerTubePresets.hpp`).
+- 2026-09-06 — Gave `GraphicEqualizer` a per-band Q overload alongside its shared-Q constructor (`GraphicEqualizer.hpp`, `GraphicEqualizer.cpp`).
+- 2026-09-06 — Added the Peavey 5150 lead-channel amplifier node (`modules/peavey5150/`).
+- 2026-09-06 — Added the Mesa/Boogie Mark IIC+ lead-mode amplifier node (`modules/mesa_mark2c/`).
+- 2026-09-06 — Added the Diezel VH4 channel-3 amplifier node, a documented approximation (`modules/diezel_vh4/`).
+- 2026-09-06 — Registered the 5150, Mark IIC+ and VH4 in the node registry and gave each a front-panel layout (`NodeRegistry.cpp`, `PanelLibrary.cpp`).
 
 ## DR2 — Boss DD-3 delay
 
