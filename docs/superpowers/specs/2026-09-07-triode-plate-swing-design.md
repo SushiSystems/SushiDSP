@@ -68,6 +68,21 @@ circuit stays and the criterion changes. Per module the acceptance is:
 - **Grid probe readings** at the default setting are recorded in the module README as measurements,
   not asserted. The test is named `<Amp>HasACleanEndAtMinimumGain`.
 
+Two circuit facts the first pass also exposed, both derived from dossier values and applied by every
+module:
+
+- **The phase inverter is a long-tailed pair.** Its grid-to-cathode window is the input divided by
+  the tail degeneration `1 + (µ + 1)·R_tail / (r_a + R_a)`, because the cathode follows the grid.
+  Modelling it as a common-cathode `TriodeStage` gives it a 4 V window it does not have. Each module
+  applies that factor at the inverter's input as a derived constant with the arithmetic in its
+  `@brief`; the inverter's stage gain is unchanged.
+- **`PentodeStage` is not volt-true.** Its grid saturates at `1 / (plate_saturation_drive × gain)`
+  model volts (about 2.5 to 3.5) where the real grid needs `|cathode_bias_volts|` (20 to 55 V). The
+  inverter-to-power-grid link therefore carries `kPowerTubeGridScale = (1 / (drive × gain)) /
+  |preset cathode_bias_volts|`, labelled the bridge until `PentodeStage` becomes volt-true (DA5),
+  beside the circuit's own grid-leak divider. It replaces the 1/32 and 1.0 constants the modules
+  carried at that link.
+
 ## 5. Out of scope, stated
 
 The full DK load-line solve (the D6d path) is not this phase; the tanh ceiling is the documented approximation and the D6d rebuild replaces it stage by stage when it lands. The shelf-corner rule, the first-order coupling brick and the transformer's DC pass (final review F2, F5, F7) are separate DA5 items.
