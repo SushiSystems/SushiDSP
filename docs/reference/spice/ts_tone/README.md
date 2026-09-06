@@ -2,9 +2,20 @@
 
 # `ts_tone`
 
-TS808 tone and level stage: the active tone blend around a second op-amp, followed by the level pot and the output cap.
+TS808 tone and level stage: the passive low-pass, the active tone blend around the second
+op-amp, and the level pot with its output cap.
 
-**Status: simulated.** Commit 2bdbf91 ran this block and committed its CSVs.
+**Status: schematic corrected, CSVs stale.** Commit 2bdbf91 ran the previous netlist and
+committed its CSVs. That netlist was a mistranscription (see "The 2026-09-06 correction"
+below), so `ts_tone_ac.csv` and `ts_tone_tran.csv` describe a circuit that is no longer in
+this directory. Regenerate them with:
+
+```
+python tools/spice/export.py ts_tone --ltspice "%LOCALAPPDATA%/Programs/ADI/LTspice/LTspice.exe"
+```
+
+Until that runs, the block tests in `tests/functional/unit/test_ts_tone_stage.cpp` compare
+against the closed form only and skip both SPICE nulls.
 
 **LTspice version:** LTspice 24, the only detail 2bdbf91 records; the exact build is not
 recorded by that commit.
@@ -28,7 +39,7 @@ exactly one of them per run:
 
 ## Probe and stimulus
 
-- Probed node: `out` (after the output cap, into a 100 kΩ load).
+- Probed node: `out` (the level pot's wiper).
 - Input node: `src`
 - Source: `V1 src 0 SINE(0 {AMP} 1k) AC 1`
 - Input level(s): `AMP = 100 mV` fixed (this block steps Tone instead).
@@ -37,41 +48,77 @@ exactly one of them per run:
 
 `.step param TONE list 0.1 0.5 0.9`
 
-`TONE` is the normalised 20 kΩ tone-pot fraction. `TONE = 0` puts the wiper at the resonant node (bright); `TONE = 1` puts it at the op-amp output (dark). `LEVEL` is held at 1 (full).
+`TONE` is the normalised 20 kΩ tone-pot fraction measured from the op-amp's `+` input.
+`TONE = 0` puts the wiper on the `+` input, which hangs the 220 nF / 220 Ω leg on the passive
+low-pass and cuts treble further; `TONE = 1` puts it on the `-` input, where the same leg
+becomes the stage's gain leg and boosts treble instead. So `TONE = 1` is bright, the opposite
+sense to the netlist this file replaces. `LEVEL` is held at 1 (full).
 
 ## Components
 
 | Ref | Value | Nodes | Spec reference |
 |-----|-------|-------|----------------|
 | V1 | SINE(0 {AMP} 1k) AC 1 | src - 0 | D6c stimulus |
-| C5 | 220 nF | src - tp1 | D6c resonant leg 220 nF |
-| R6 | 1 kΩ | tp1 - 0 | D6c resonant leg 1 kΩ |
-| Rta | {20k*TONE} | tp1 - tw | D6c 20 kΩ tone pot, upper section |
-| Rtb | {20k*(1-TONE)} | tw - tsout | D6c 20 kΩ tone pot, lower section |
-| R7 | 10 kΩ | tw - inv | D6c low-pass leg 10 kΩ |
-| C6 | 220 nF | inv - tsout | D6c low-pass leg 220 nF |
-| Eop | gain 1e6 | tsout - 0, sense (0, inv) | D6c op-amp |
-| Rla | {100k*(1-LEVEL)} | tsout - lw | level pot, upper section |
-| Rlb | {100k*LEVEL} | lw - 0 | level pot, lower section |
-| Cout | 1 uF | lw - out | D6c output cap |
-| Rload | 100 kΩ | out - 0 | added: nominal load |
+| R7 | 1 kΩ | src - a | passive low-pass, series leg |
+| C5 | 220 nF | a - 0 | passive low-pass, shunt leg |
+| R9 | 10 kΩ | a - 0 | 4V5 bias return; an AC ground |
+| Rta | {20k*TONE} | a - tw | 20 kΩ tone pot, `+`-side section |
+| Rtb | {20k*(1-TONE)} | tw - inv | 20 kΩ tone pot, `-`-side section |
+| C6 | 220 nF | tw - tm | tone leg, series cap |
+| R8 | 220 Ω | tm - 0 | tone leg, series resistor |
+| R11 | 1 kΩ | inv - tsout | op-amp feedback |
+| Eop | gain 1e6 | tsout - 0, sense (a, inv) | the second op-amp, IC1B |
+| C7 | 1 µF | tsout - lt | output cap |
+| R12 | 1 kΩ | lt - ltop | series resistor into the level pot |
+| Rla | {100k*(1-LEVEL)} | ltop - out | level pot, upper section |
+| Rlb | {100k*LEVEL} | out - 0 | level pot, lower section |
+
+`R12` is called `R11` a second time on the ElectroSmash drawing, which reuses the designator.
+This file renames it so LTspice sees two distinct elements.
+
+## The 2026-09-06 correction
+
+The netlist committed in 2bdbf91 was written from the D6c spec's prose description rather than
+from a schematic, and the prose was wrong. It wired the second op-amp as an inverting
+integrator: the tone pot bridged a `220 nF` series / `1 kΩ` shunt high-pass and the op-amp
+output, the wiper fed a virtual-earth summing junction through `10 kΩ`, and `220 nF` closed
+the feedback. Three measurements said it could not be a tone control:
+
+- Insertion loss at noon was 30.4 dB at 1 kHz, which is why `kLevelUnityGain` had to be about
+  23.13 dB. The stage was an integrator with unity gain at 1 / (2π · 10 kΩ · 220 nF) = 72.3 Hz,
+  falling 20 dB per decade above it.
+- The knob moved level by 19.08 dB while the corner moved 807 Hz to 760 Hz. A tone control
+  moves the corner, not the level.
+- `TONE = 1` shorted the wiper to the op-amp output and muted the stage at −146 dB, so the
+  knob mapping had to stop short of its own end stop.
+
+Against the sources cited on the sheet, four things were wrong:
+
+1. **The passive filter was inverted.** R.G. Keen: "Following the clipping stage there is a 1K
+   resistor leading to a 0.22uF capacitor to ground. This acts like a simple RC lowpass filter,
+   with the rolloff point being 723Hz." The old netlist had the cap in series and the 1 kΩ to
+   ground, giving a high-pass at the same 723 Hz.
+2. **The tone pot bridged the wrong pair of nodes.** Keen: "The control is a 20K potentiometer
+   strung from the (-) to the (+) input of the second opamp section." The old netlist strung it
+   from the filter node to the op-amp output.
+3. **The wiper leg was missing entirely.** Keen: "The wiper of the control is tied to a series
+   RC combination to ground. This RC is a 220 ohm resistor and a 0.22uF capacitor." The old
+   netlist had neither the 220 Ω nor the wiper-to-ground cap, and instead spent its 220 nF as
+   an integrator feedback cap and invented a 10 kΩ that the real stage does not have.
+4. **The op-amp was inverting.** The real stage is non-inverting, with `R11` 1 kΩ from the
+   output back to the `-` input; the tone pot's `-`-side section and the 220 Ω / 220 nF leg are
+   its gain leg. That is what produces treble boost at the bright end, which an integrator
+   cannot do.
+
+The corrected network measures 0.99 dB of insertion loss at 100 Hz at noon and 16.19 dB of
+knob range at 3.2 kHz, which is the frequency Keen names as the leg's turnover.
 
 ## Judgment calls and open questions
 
-- **The topology is the spec's description, not a traced TS808 board.** D6c describes the
-  tone section as "op-amp with `220 nF / 10 kΩ` low-pass leg and `1 kΩ / 220 nF` resonant
-  leg blended by the 20 kΩ tone pot"; the netlist above realises exactly that, with the
-  pot bridging the resonant node and the op-amp output and its wiper feeding the summing
-  node. This should be checked against a TS808 schematic before the CSVs are trusted as
-  ground truth.
-- There is deliberately **no resistor across `C6`**. An earlier draft added a 10 kΩ DC
-  feedback resistor there on the theory that the stage was otherwise an unbounded
-  integrator. That was wrong: `inv` already has a DC path to the op-amp output through
-  `R7` and `Rtb`, for every `TONE` value, exactly as in the real TS808. The added resistor
-  cost -0.5 dB at 200 Hz, -1.7 dB at 100 Hz and -4.9 dB at 50 Hz, which would have failed
-  D6c's +/-0.5 dB acceptance against this very reference.
-- The level pot value (100 kΩ), the output cap (1 uF) and the 100 kΩ load are not given by
-  D6c; they are the standard TS808 parts.
-- At the default `LEVEL = 1` the pot's upper section is a 0 Ω resistor. That is the
-  electrically correct meaning of a wiper at the top of its travel; LTspice treats a zero
-  resistance as a short and reports it as a warning, not an error.
+- The output cap (1 µF), the 1 kΩ after it, the level pot (100 kΩ) and the 10 kΩ bias return
+  are read off the ElectroSmash drawing. D6c's prose does not give them.
+- There is no separate load resistor. The level pot's lower section is the load, which is what
+  the drawing shows; the output buffer that follows it in the pedal is high impedance.
+- At the default `LEVEL = 1` the pot's upper section would be 0 Ω, so the schematic clamps both
+  sections at 1 mΩ. LTspice treats a zero resistance as a short and reports it as a warning
+  rather than an error, but the clamp keeps the two pots written the same way.

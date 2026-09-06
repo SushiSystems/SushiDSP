@@ -76,22 +76,26 @@ namespace SushiDSP::tube_screamer_circuits
     enum ToneNodeIndex : std::size_t
     {
         kToneNodeSource = 1,
-        kToneNodeResonant = 2,
+        kToneNodeFilter = 2,
         kToneNodeWiper = 3,
-        kToneNodeInverting = 4,
-        kToneNodeStageOutput = 5,
-        kToneNodeLevelWiper = 6,
-        kToneNodeOutput = 7
+        kToneNodeLegMiddle = 4,
+        kToneNodeInverting = 5,
+        kToneNodeStageOutput = 6,
+        kToneNodeOutputCap = 7,
+        kToneNodeLevelTop = 8,
+        kToneNodeOutput = 9
     };
 
-    inline constexpr double kResonantFarads = 220.0e-9;       ///< C5 (ts_tone README).
-    inline constexpr double kResonantOhms = 1.0e3;            ///< R6 (ts_tone README).
+    inline constexpr double kInputSeriesOhms = 1.0e3;         ///< R7 (ts_tone README).
+    inline constexpr double kInputShuntFarads = 220.0e-9;     ///< C5 (ts_tone README).
+    inline constexpr double kBiasReturnOhms = 10.0e3;         ///< R9 (ts_tone README).
     inline constexpr double kTonePotOhms = 20.0e3;            ///< Tone pot (ts_tone README).
-    inline constexpr double kLowPassLegOhms = 10.0e3;         ///< R7 (ts_tone README).
-    inline constexpr double kLowPassLegFarads = 220.0e-9;     ///< C6 (ts_tone README).
+    inline constexpr double kToneLegFarads = 220.0e-9;        ///< C6 (ts_tone README).
+    inline constexpr double kToneLegOhms = 220.0;             ///< R8 (ts_tone README).
+    inline constexpr double kFeedbackOhms = 1.0e3;            ///< R11 (ts_tone README).
+    inline constexpr double kOutputFarads = 1.0e-6;           ///< C7 (ts_tone README).
+    inline constexpr double kOutputSeriesOhms = 1.0e3;        ///< R12 (ts_tone README).
     inline constexpr double kLevelPotOhms = 100.0e3;          ///< Level pot (ts_tone README).
-    inline constexpr double kOutputFarads = 1.0e-6;           ///< Cout (ts_tone README).
-    inline constexpr double kLoadOhms = 100.0e3;              ///< Rload (ts_tone README).
 
     /// @brief Wiper position of the level pot, held where the reference holds it.
     ///
@@ -178,6 +182,12 @@ namespace SushiDSP::tube_screamer_circuits
     };
 
     /// @brief Builds the ts_tone netlist, node for node against the block's component table.
+    ///
+    /// The op-amp is non-inverting: the nullor senses the filter node against the inverting
+    /// input and kFeedbackOhms closes the loop, so the tone pot's inverting-side section and
+    /// the 220 nF / 220 Ohm leg together are the stage's gain leg. Wiring it as a virtual-earth
+    /// integrator instead is the error the 2026-09-06 correction removed; ts_tone/README.md
+    /// records it against the schematic.
     /// @param netlist Receives the description; any previous contents are overwritten.
     /// @return Both wiper indices, for DkCircuit::set_potentiometer.
     inline TonePotentiometers build_tone_block(ToneNetlist& netlist)
@@ -186,21 +196,22 @@ namespace SushiDSP::tube_screamer_circuits
         netlist.node_count = kToneNodeOutput;
 
         netlist.voltage_source(kToneNodeSource, 0);
-        netlist.capacitor(kToneNodeSource, kToneNodeResonant, kResonantFarads);
-        netlist.resistor(kToneNodeResonant, 0, kResonantOhms);
+        netlist.resistor(kToneNodeSource, kToneNodeFilter, kInputSeriesOhms);
+        netlist.capacitor(kToneNodeFilter, 0, kInputShuntFarads);
+        netlist.resistor(kToneNodeFilter, 0, kBiasReturnOhms);
 
         TonePotentiometers pots;
-        pots.tone = netlist.potentiometer(kToneNodeResonant, kToneNodeWiper,
-                                          kToneNodeStageOutput, kTonePotOhms);
+        pots.tone = netlist.potentiometer(kToneNodeFilter, kToneNodeWiper, kToneNodeInverting,
+                                          kTonePotOhms);
+        netlist.capacitor(kToneNodeWiper, kToneNodeLegMiddle, kToneLegFarads);
+        netlist.resistor(kToneNodeLegMiddle, 0, kToneLegOhms);
 
-        netlist.resistor(kToneNodeWiper, kToneNodeInverting, kLowPassLegOhms);
-        netlist.capacitor(kToneNodeInverting, kToneNodeStageOutput, kLowPassLegFarads);
-        netlist.nullor(0, kToneNodeInverting, kToneNodeStageOutput, 0);
+        netlist.resistor(kToneNodeInverting, kToneNodeStageOutput, kFeedbackOhms);
+        netlist.nullor(kToneNodeFilter, kToneNodeInverting, kToneNodeStageOutput, 0);
 
-        pots.level = netlist.potentiometer(kToneNodeStageOutput, kToneNodeLevelWiper, 0,
-                                           kLevelPotOhms);
-        netlist.capacitor(kToneNodeLevelWiper, kToneNodeOutput, kOutputFarads);
-        netlist.resistor(kToneNodeOutput, 0, kLoadOhms);
+        netlist.capacitor(kToneNodeStageOutput, kToneNodeOutputCap, kOutputFarads);
+        netlist.resistor(kToneNodeOutputCap, kToneNodeLevelTop, kOutputSeriesOhms);
+        pots.level = netlist.potentiometer(kToneNodeLevelTop, kToneNodeOutput, 0, kLevelPotOhms);
         netlist.output(kToneNodeOutput, 0);
 
         return pots;
@@ -215,22 +226,14 @@ namespace SushiDSP::tube_screamer_circuits
     /// @return The wiper position.
     inline double drive_to_position(double drive) { return drive; }
 
-    /// @brief Lowest wiper position the Tone knob reaches; the reference's brightest step.
-    inline constexpr double kToneMinimumPosition = 0.1;
-
-    /// @brief Highest wiper position the Tone knob reaches; the reference's darkest step.
-    inline constexpr double kToneMaximumPosition = 0.9;
-
     /// @brief Converts the Tone knob to the tone pot's wiper position.
     ///
-    /// The sense is inverted, because ts_tone.asc is bright at TONE = 0 and the shipping knob is
-    /// bright at tone = 1. The travel stops at the reference's stepped range: TONE = 1 shorts the
-    /// wiper to the op-amp output and the stage outputs nothing, TONE = 0 shorts away the
-    /// feedback path and leaves a bare integrator (D6c plan, rulings 9 and 14).
+    /// ts_tone.asc measures TONE from the op-amp's + input, where the wiper leg only cuts
+    /// treble, towards the - input, where it becomes the gain leg and boosts it; so TONE = 1 is
+    /// bright and the mapping is the identity. Both end stops are ordinary settings on the
+    /// corrected network - neither mutes and neither leaves a bare integrator - so the travel is
+    /// the whole track. No audio taper this phase (D6c plan, ruling 9).
     /// @param tone Normalised Tone knob, 0 (dark) to 1 (bright).
-    /// @return The wiper position, in [kToneMinimumPosition, kToneMaximumPosition].
-    inline double tone_to_position(double tone)
-    {
-        return kToneMaximumPosition - tone * (kToneMaximumPosition - kToneMinimumPosition);
-    }
+    /// @return The wiper position.
+    inline double tone_to_position(double tone) { return tone; }
 }
