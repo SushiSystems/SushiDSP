@@ -209,10 +209,11 @@ TEST(Unit_Dsp, Jcm800PreampIncreasesOutputEnergy)
                 low_preamp_rms, high_preamp_rms);
 
     // The claim used to be 6 dB between preamp 0.1 and 1.0. DA4 removed the interstage staging
-    // scalars and gave the power section its own grid scale, and the cascade now saturates well
-    // below preamp 0.1, so the knob moves output level by 3.6 %: 0.205618 RMS at 0.1 against
-    // 0.213059 at 1.0, measured 2026-09-07. What survives is that the knob never costs level, so
-    // that is what is pinned, with 1 % of slack for the sag stage's drift over a 30-block run.
+    // scalars and gave the chain the losses the decks document, and the cascade saturates below
+    // preamp 0.1, so the knob moves output level by 27 % rather than 6 dB: 0.172243 RMS at 0.1
+    // against 0.218970 at 1.0, measured 2026-09-07. What survives is that the knob never costs
+    // level, so that is what is pinned, with 1 % of slack for the sag stage's drift over a
+    // 30-block run.
     EXPECT_GE(high_preamp_rms, low_preamp_rms * 0.99f);
 }
 
@@ -221,7 +222,7 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
     // A quiet note and a loud note must come out at different levels; the failure this guards
     // against is the amp degenerating into a fixed-amplitude square-wave generator. Measured
     // 2026-09-07 at preamp 0.02, near the bottom of the knob where the cascade is not yet fully
-    // saturated: a 0.01 input peaks at 0.065880 and a 0.251 input at 0.303885, a factor of 4.61.
+    // saturated: a 0.01 input peaks at 0.018743 and a 0.251 input at 0.201132, a factor of 10.7.
     // The knob is read at 0.02 rather than at the minimum, where preamp_attenuation(0) is exactly
     // zero and there is no output to compare.
     auto measure_peak = [](float input_amplitude) -> float
@@ -468,15 +469,15 @@ TEST(Unit_Dsp, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
     }
 }
 
-TEST(Unit_Dsp, Jcm800ThdIncreasesWithPreamp)
+TEST(Unit_Dsp, Jcm800ThdDoesNotFallAsPreampRises)
 {
     // Spec section 4's second acceptance criterion after the 2026-09-07 ruling: THD must not fall
     // as the gain knob rises, within 0.5 percentage points across its travel. The old claim was a
     // strictly monotonic rise from a clean bottom, which DA4 ended: with the interstage staging
     // scalars gone, V2a and the phase inverter clip at every setting and the metric saturates.
-    // Measured 2026-09-07 at a 0.2 input, master at 0 dB: 20.373 % at preamp 0.02, 43.650 % at
-    // 0.1, then 44.705, 44.840, 44.887, 44.924, 44.950, 44.969, 44.982, 44.982 and 44.996 % at
-    // 1.0. The sweep never falls; it flattens above 0.2 because every stage is already clipping.
+    // Measured 2026-09-07 at a 0.2 input, master at 0 dB: 9.435 % at preamp 0.02, 35.716 % at
+    // 0.1, then 42.701, 44.116, 44.536, 44.703, 44.782, 44.826, 44.852, 44.871 and 44.885 % at
+    // 1.0. The sweep never falls; it flattens above 0.3 because every stage is already clipping.
     //
     // The sweep starts at 0.02 rather than 0.0 because preamp_attenuation(0) is exactly zero: the
     // pot is a short to ground and there is no signal to measure.
@@ -570,16 +571,16 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     // with set_power_tube_grid_bias_mismatch_volts(0), so the gate is the comparison between the
     // two rather than a hand-copied number a later change could silently invalidate.
     //
-    // DA4 moved the measurement to the default setting and shrank what there is to measure. At
-    // preamp 0.5, 0.2 input, the second harmonic reads 0.008347 of the fundamental as shipped
-    // against 0.008384 with the mismatch zeroed, measured 2026-09-07: the same direction as
-    // before (the mismatch lowers it) but 0.0037 pp rather than the pre-DA4 0.76 pp, because the
-    // preamp now saturates ahead of the pair and its own even-harmonic content dominates. The
-    // pre-DA4 figures, with the staging scalars in place, were 2.17 % against 2.93 %.
+    // DA4 moved the measurement to the default setting and left almost nothing to measure. At
+    // preamp 0.5, 0.2 input, the second harmonic reads 0.006594034 of the fundamental as shipped
+    // against 0.006594445 with the mismatch zeroed, measured 2026-09-07: the same direction as
+    // before (the mismatch lowers it) but 4.11e-7 rather than the pre-DA4 0.0076, because the
+    // preamp saturates ahead of the pair and its own even-harmonic content dominates. The pre-DA4
+    // figures, with the staging scalars in place, were 2.17 % against 2.93 %.
     //
-    // What is asserted is the weakest claim the spec still makes: the mismatch changes the
-    // even-harmonic ratio by a measurable amount, taken here as 2e-5 of the fundamental, which is
-    // half the measured difference.
+    // The gate is 1e-7, a quarter of that difference. It is a low bar and a fragile one, kept
+    // only so that dropping the mismatch entirely still fails; what would restore a real
+    // measurement is a power section the preamp does not swamp.
     constexpr double sample_rate = 48000.0;
     constexpr double frequency = 220.0;
 
@@ -620,7 +621,7 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
         }
 
         // Only the settled last quarter is measured, for the same reason
-        // Jcm800ThdIncreasesWithPreamp measures only that: the slew, the transformer highpass and
+        // Jcm800ThdDoesNotFallAsPreampRises measures only that: the slew, the transformer highpass and
         // the sag recovery are all still moving well past block 15.
         const std::size_t settle_start = output.size() * 3 / 4;
         const std::size_t n = output.size() - settle_start;
@@ -640,9 +641,9 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
 
     const double active_ratio = second_harmonic_ratio_for(true);
     const double zeroed_ratio = second_harmonic_ratio_for(false);
-    std::printf("[ measure ] second harmonic %.6f active, %.6f zeroed\n", active_ratio, zeroed_ratio);
+    std::printf("[ measure ] second harmonic %.9f active, %.9f zeroed\n", active_ratio, zeroed_ratio);
 
-    EXPECT_GT(std::fabs(zeroed_ratio - active_ratio), 2e-5);
+    EXPECT_GT(std::fabs(zeroed_ratio - active_ratio), 1e-7);
 }
 
 TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)

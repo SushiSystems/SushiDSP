@@ -112,7 +112,7 @@ namespace SushiDSP
         /// section. An untouched amp still turns a -12 dBFS low-E sine into roughly -6 dBFS out.
         /// It multiplies the signal after the last nonlinearity, so it scales the output and
         /// nothing else.
-        static constexpr float kMasterUnityGain = 0.3106856f;
+        static constexpr float kMasterUnityGain = 0.3204640f;
 
         /// @brief Sets the master volume.
         /// @param decibels Master level in [-60, +12] dB; 0 dB is the amp's reference loudness.
@@ -193,6 +193,10 @@ namespace SushiDSP
         Biquad bright_cap_;
         Biquad coupling_cap_;
         Biquad presence_shelf_;
+
+        // The 2203's 470 k / 470 pF treble peaker into V1b's grid leak, as the high shelf that
+        // network is; see kV1bTreblePeakerDivider in Jcm800.cpp for the values it comes from.
+        Biquad v1b_treble_peaker_;
 
         // One-pole grid-input-capacitance rolloffs, one per driven triode grid; see the Miller
         // constants in Jcm800.cpp for what sets their corners.
