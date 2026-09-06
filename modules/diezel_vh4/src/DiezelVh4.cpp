@@ -64,6 +64,10 @@ namespace SushiDSP
         // Modelling choice: section 3.1 draws no grid stopper on V1a, so the grid-conduction
         // source resistance is Jcm800.cpp's kTriodeSourceResistance.
         constexpr float kV1aSourceResistanceOhms = 10000.0f;
+        /// @brief V1a's plate swing: 367 - 255.3 = 111.7 V to the supply, and 255.3 - 111.133 =
+        /// 144.167 V to the bottom, the plate solved at Vgk = 0 on the 120 kOhm load line with the
+        /// Koren 12AX7 (2.132 mA) above the 2.05 V cathode.
+        constexpr PlateSwing kV1aPlateSwing{ 111.700f, 144.167f };
 
         // Sections 3.1 and 6: Ra 120 kOhm in parallel with rp 54.6 kOhm is the impedance C13 is
         // driven from, and it is what puts the corners below on the dossier's 314 Hz and 618 Hz.
@@ -78,6 +82,10 @@ namespace SushiDSP
         constexpr float kV2aGridLeakOhms = 3300000.0f;
         constexpr float kV2aCathodeBiasVolts = -1.02f;
         constexpr float kV2aGain = 67.2f;   // Section 6: x67.2 into the 500 kOhm shunt.
+        /// @brief V2a's plate swing: 367 - 186.2 = 180.8 V to the supply, and 186.2 - 110.343 =
+        /// 75.857 V to the bottom, the plate solved at Vgk = 0 on the 120 kOhm load line with the
+        /// Koren 12AX7 (2.139 mA) above the 1.02 V cathode.
+        constexpr PlateSwing kV2aPlateSwing{ 180.800f, 75.857f };
         // Sections 3.3 and 6: Rk 680 Ohm with only C17 1 uF across it, 8.22 dB of loss below the
         // zero.
         constexpr double kV2aCathodeShelfZeroHz = 234.0;
@@ -94,6 +102,10 @@ namespace SushiDSP
         constexpr float kV3aGridLeakOhms = 500000.0f;
         constexpr float kV3aCathodeBiasVolts = -1.02f;
         constexpr float kV3aGain = 71.4f;   // Section 6: x71.4.
+        /// @brief V3a's plate swing, the same point V2a sits at: 367 - 186.2 = 180.8 V to the
+        /// supply, and 186.2 - 110.343 = 75.857 V to the bottom, solved at Vgk = 0 on the 120 kOhm
+        /// load line above the 1.02 V cathode.
+        constexpr PlateSwing kV3aPlateSwing{ 180.800f, 75.857f };
         constexpr double kV3aCathodeShelfZeroHz = 106.0;
         constexpr double kV3aCathodeShelfPoleHz = 274.0;
 
@@ -122,6 +134,11 @@ namespace SushiDSP
         constexpr float kV4aGridLeakOhms = 48100.0f;
         constexpr float kV4aCathodeBiasVolts = -0.98f;
         constexpr float kV4aGain = 28.7f;
+        /// @brief V4a's plate swing: 367 - 183.0 = 184.0 V to the supply, and 183.0 - 110.312 =
+        /// 72.688 V to the bottom, the plate solved at Vgk = 0 on the 120 kOhm load line with the
+        /// Koren 12AX7 (2.139 mA) above the 0.98 V cathode. The 640 Ohm cathode is unbypassed, so
+        /// Vgk = 0 is read as the conduction limit at the idle cathode voltage; the README says so.
+        constexpr PlateSwing kV4aPlateSwing{ 184.000f, 72.688f };
         // Modelling choice: section 2 draws V4b as the same follower topology as V3b on the same
         // 120 kOhm cathode, and the dossier gives a follower gain only for V3b, so V3b's 0.986 is
         // reused. The 100k/4.7k send pad (section 6, x0.0449) is on the jack leg and not in the
@@ -134,36 +151,25 @@ namespace SushiDSP
         constexpr float kPhaseInverterGridLeakOhms = 1000000.0f;
         constexpr float kPhaseInverterCathodeBiasVolts = -1.5f;
         constexpr float kPhaseInverterGain = 40.0f;
+        /// @brief The phase inverter's plate swing, a modelling choice like the rest of this
+        /// stage: the JCM800 long-tailed pair of docs/reference/spice/jcm_ltp/README.md at B+
+        /// 360 V, whose 82 kOhm half self-biases to Vk 3.910 V, Ia 0.193 mA and Va 344.199 V
+        /// against the Koren 12AX7, giving 360 - 344.199 = 15.801 V to the supply and 344.199 -
+        /// 134.665 = 209.534 V to the bottom. jcm_ltp_tran.csv corroborates it: the differential
+        /// probe reaches -20.74 V to +22.45 V at a 1 V drive, about twice one plate's cutoff side.
+        constexpr PlateSwing kPhaseInverterPlateSwing{ 15.801f, 209.534f };
 
         constexpr float kTriodeSaturationCurrentAmps = 1e-9f;
         constexpr float kTriodeThermalVoltageVolts = 0.02585f;
 
-        // Level staging. TriodeStage returns gain x the grid's excursion and models no plate-swing
-        // ceiling, so a stage's output is on a different scale from the plate voltage the drawing's
-        // dividers were computed for: applied literally they would leave every grid past V1a
-        // pinned against the solver's cutoff bound and the amp would be a fixed-amplitude
-        // square-wave generator with dead knobs, the failure Jcm800.cpp's own interstage comment
-        // records. These four factors carry the operating level forward instead, and they are
-        // modelling choices, not dossier values; the dossier's own dividers (kV2aToV3aDivider,
-        // kVolumeSeriesDivider, kMixBusAttenuation) are applied separately and unchanged.
-        //
-        // kFollowerToMixBusLevelStaging is the one that runs the other way. The stack's insertion
-        // loss, the volume divider and the -23.6 dB mix bus are real, and the real V3b drives them
-        // from a swing several times what this model's V3a plate produces, so without it the mixer
-        // triode would sit undriven.
-        //
-        // kV1aToV2aLevelStaging is what sets how hard the gain knob drives the chain, because V1a
-        // sits ahead of the pot and nothing else does. At 1/8 the knob moved V2a's grid only from
-        // 0.023 V to 0.197 V at a 0.2 input, all of it under the 0.203 V conduction knee, so the
-        // amp's whole 4 % of THD came from V1a alone and the knob did not change it: the fix
-        // round's measured sweep read 4.43 % at gain 0.1, 3.73 % at 0.5 and 4.20 % at 1.0. At 5/8
-        // the same knob walks that grid from 0.113 V to 0.985 V and the sweep climbs 4.3 %, 17.0 %,
-        // 24.2 %, with every grid still well inside the solver's -4.14 V cutoff bound.
-        constexpr float kV1aToV2aLevelStaging = 5.0f / 8.0f;
-        constexpr float kV2aToV3aLevelStaging = 1.0f / 32.0f;
-        constexpr float kFollowerToMixBusLevelStaging = 5.0f;
-        constexpr float kV4bToPhaseInverterLevelStaging = 1.0f / 25.0f;
-        // Jcm800.cpp's constants, keeping its names because the names are the citation.
+        // The four level-staging factors this module carried until 2026-09-07 are gone:
+        // docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md replaced them with the
+        // plate-swing ceiling above, so the dossier's own dividers now run at face value in volts
+        // from V1a's grid to the power tubes. The interstage factors left in the chain are all
+        // dossier values: kV2aToV3aDivider, kVolumeSeriesDivider, kMixBusAttenuation and the two
+        // cathode-follower scalars.
+        // Jcm800.cpp's constants, keeping its names because the names are the citation. The
+        // second is this chain's one output trim to full scale.
         constexpr float kPhaseInverterToPowerTubeAttenuation = 1.0f / 32.0f;
         constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
 
@@ -266,12 +272,12 @@ namespace SushiDSP
 
     DiezelVh4::DiezelVh4(std::vector<float> cabinet_impulse_response)
         : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kV1aSourceResistanceOhms, kV1aGridLeakOhms, kV1aCathodeBiasVolts, kV1aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts)
-        , v2a_(kV2aSourceResistanceOhms, kV2aGridLeakOhms, kV2aCathodeBiasVolts, kV2aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts)
-        , v3a_(kV3aSourceResistanceOhms, kV3aGridLeakOhms, kV3aCathodeBiasVolts, kV3aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts)
+        , v1a_(kV1aSourceResistanceOhms, kV1aGridLeakOhms, kV1aCathodeBiasVolts, kV1aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kV1aPlateSwing)
+        , v2a_(kV2aSourceResistanceOhms, kV2aGridLeakOhms, kV2aCathodeBiasVolts, kV2aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kV2aPlateSwing)
+        , v3a_(kV3aSourceResistanceOhms, kV3aGridLeakOhms, kV3aCathodeBiasVolts, kV3aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kV3aPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
-        , v4a_(kV4aSourceResistanceOhms, kV4aGridLeakOhms, kV4aCathodeBiasVolts, kV4aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts)
-        , phase_inverter_(kPhaseInverterSourceResistanceOhms, kPhaseInverterGridLeakOhms, kPhaseInverterCathodeBiasVolts, kPhaseInverterGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts)
+        , v4a_(kV4aSourceResistanceOhms, kV4aGridLeakOhms, kV4aCathodeBiasVolts, kV4aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kV4aPlateSwing)
+        , phase_inverter_(kPhaseInverterSourceResistanceOhms, kPhaseInverterGridLeakOhms, kPhaseInverterCathodeBiasVolts, kPhaseInverterGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kPhaseInverterPlateSwing)
         , el34_a_(kDiezelVh4PowerEl34)
         , el34_b_(kDiezelVh4PowerEl34)
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
@@ -406,19 +412,19 @@ namespace SushiDSP
         const float* upsampled = oversampler_->upsample(scratch_base_.data(), frames);
         for (std::uint32_t i = 0; i < oversampled_frames; ++i)
         {
-            const float v1a_out = v1a_.process_sample(upsampled[i]) * kV1aToV2aLevelStaging;
+            const float v1a_out = v1a_.process_sample(upsampled[i]);
             const float v2a_in = v2a_grid_miller_.process_sample(
                 v2a_cathode_shelf_.process_sample(gain_high_pass_.process_sample(v1a_out) * gain_pot));
             const float v2a_out = v3a_coupling_high_pass_.process_sample(v2a_.process_sample(v2a_in))
-                                * kV2aToV3aDivider * kV2aToV3aLevelStaging;
+                                * kV2aToV3aDivider;
             const float v3a_in = v3a_grid_miller_.process_sample(v3a_cathode_shelf_.process_sample(v2a_out));
             const float follower_out = follower_high_pass_.process_sample(
                 v3a_.process_sample(v3a_in) * kCathodeFollowerGain);
             const float mix_bus = tone_stack_.process_sample(follower_out)
-                                * volume_pot * kMixBusAttenuation * kFollowerToMixBusLevelStaging;
+                                * volume_pot * kMixBusAttenuation;
             const float send_buffer = v4a_.process_sample(mix_bus) * kCathodeFollowerGain;
             const float phase_inverted =
-                phase_inverter_.process_sample(send_buffer * kV4bToPhaseInverterLevelStaging)
+                phase_inverter_.process_sample(send_buffer)
                 * kPhaseInverterToPowerTubeAttenuation;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted);
@@ -491,6 +497,21 @@ namespace SushiDSP
     bool DiezelVh4::has_cabinet() const
     {
         return cabinet_slot_.has_active();
+    }
+
+    std::size_t DiezelVh4::triode_stage_count() const
+    {
+        return 5;
+    }
+
+    float DiezelVh4::grid_excursion_peak_volts(std::size_t stage) const
+    {
+        const TriodeStage* const stages[] = { &v1a_, &v2a_, &v3a_, &v4a_, &phase_inverter_ };
+        if (stage >= triode_stage_count())
+        {
+            return 0.0f;
+        }
+        return stages[stage]->peak_grid_excursion_volts();
     }
 
     PortLayout DiezelVh4::ports() const

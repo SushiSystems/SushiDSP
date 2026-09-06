@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -104,6 +105,17 @@ namespace SushiDSP
         /// only; call periodically after any set_cabinet().
         void reclaim_cabinets();
 
+        /// @brief How many triode stages this amp exposes to grid-excursion probing. A test hook
+        /// like Jcm800::set_power_tube_grid_bias_mismatch_volts(): it exists so a test can prove
+        /// no grid sits on the solver's bound.
+        /// @return 5 - V1a, V2a, V3a, V4a and the phase inverter, in signal order.
+        std::size_t triode_stage_count() const;
+
+        /// @brief Reads one stage's largest grid excursion since the last reset(). A test hook.
+        /// @param stage Index into the signal order triode_stage_count() describes.
+        /// @return The peak |Vg - Vk| in volts, or 0 when the index is out of range.
+        float grid_excursion_peak_volts(std::size_t stage) const;
+
         /// @brief Whether a cabinet convolution is currently in the signal path.
         /// @return True once a cabinet has been installed by the constructor or set_cabinet().
         bool has_cabinet() const;
@@ -113,10 +125,11 @@ namespace SushiDSP
         /// nothing else. The calibration point is Jcm800::kMasterUnityGain's: with every knob at
         /// its default and a -12 dBFS 1 kHz input, the output peaks near -6 dBFS.
         ///
-        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput read -6.044 dBFS
-        /// at this value on 2026-09-06, with C1's input low-pass out of the chain.
+        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput read -5.999 dBFS
+        /// at this value on 2026-09-07, re-measured after the plate-swing ceiling replaced this
+        /// module's level staging; it was 2.148178 before that.
         /// modules/diezel_vh4/README.md carries the derivation.
-        static constexpr float kMasterUnityGain = 2.148178f;
+        static constexpr float kMasterUnityGain = 0.816610f;
 
         /// @brief Sets the channel-3 GAIN control, the 250 kOhm pot of dossier section 3.2.
         /// @param normalized Gain amount in [0, 1]; it moves the input high-pass corner as well as

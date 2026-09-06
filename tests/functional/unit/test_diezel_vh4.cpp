@@ -265,9 +265,13 @@ TEST(Unit_Dsp, DiezelVh4ThdIncreasesWithGain)
     //
     // The floor never reaches zero, and that is the circuit rather than the model: V1a sits ahead
     // of the pot and its grid conducts at 0.203 V, so a 0.2 input clips it wherever the knob is.
-    // What the knob has to do is put V2a, V3a and V4a past their own knees on top of that. On
-    // 2026-09-06 this test read 4.43 %, 3.73 % and 4.20 % with kV1aToV2aLevelStaging at 1/8, which
-    // is V1a's floor and nothing else; at 5/8 the offline chain reads 4.3 %, 17.0 % and 24.2 %.
+    // What the knob has to do is put V2a, V3a and V4a past their own knees on top of that.
+    //
+    // 2026-09-07, with the level staging replaced by the plate-swing ceiling: 42.775 %, 44.066 %
+    // and 44.827 %. The floor is an order of magnitude higher than the 4.43 % this test read on
+    // 2026-09-06 because the dividers now run at face value in volts, which leaves every stage
+    // past V1a saturated at any knob position - the knob moves the reading by two points rather
+    // than by twenty.
     constexpr double sample_rate = 48000.0;
     const double frequency = SushiDSP::measure::bin_exact_frequency(220.0, sample_rate, SushiDSP::measure::kFftSize);
 
@@ -368,6 +372,46 @@ TEST(Unit_Dsp, DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsIn
     std::printf("[ measure ] default peak %.3f dBFS\n", static_cast<double>(peak_decibels));
     EXPECT_GT(peak_decibels, -7.0f);
     EXPECT_LT(peak_decibels, -5.0f);
+}
+
+TEST(Unit_Dsp, DiezelVh4NoGridSitsOnItsBoundAtDefaultSettings)
+{
+    // What the plate-swing ceiling is for: with the level staging gone, every divider in the
+    // chain is a dossier value, so nothing but the plates themselves keeps the later grids off
+    // the solver's -4.14 V cutoff clamp. A grid parked on that clamp is a stage whose output no
+    // longer follows its input, so the test reads each stage's peak excursion after a settled
+    // render and asks that none of them reaches 90 % of the bound, and that at least one is past
+    // the 0.2 V conduction knee - the amp has to distort somewhere.
+    SushiDSP::DiezelVh4 node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    std::vector<float> input(256, 0.0f);
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    for (int block = 0; block < 200; ++block)
+    {
+        for (int i = 0; i < 256; ++i)
+        {
+            const float sample_index = static_cast<float>(block * 256 + i);
+            input[static_cast<std::size_t>(i)] =
+                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 1000.0f * sample_index / 48000.0f);
+        }
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    constexpr float kCutoffBoundVolts = 4.14f;
+    float largest = 0.0f;
+    for (std::size_t stage = 0; stage < node.triode_stage_count(); ++stage)
+    {
+        const float peak = node.grid_excursion_peak_volts(stage);
+        std::printf("[ measure ] stage %zu grid peak %.4f V\n", stage, static_cast<double>(peak));
+        EXPECT_LT(peak, 0.9f * kCutoffBoundVolts) << "stage " << stage;
+        largest = std::max(largest, peak);
+    }
+    EXPECT_GT(largest, 0.2f);
 }
 
 TEST(Unit_Dsp, DiezelVh4DescriptorMakeProducesAWorkingNode)
@@ -517,33 +561,29 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     // has to hard-code that shunt or the mixer triode is driven 24 dB too hard (section 8,
     // question 13).
     //
-    // What is asserted is the node's own small-signal gain, not the dossier's cascade product:
+    // What is asserted is the node's own gain at -60 dBFS, not the dossier's cascade product:
     // section 6 says in terms not to test against a small-signal cascade figure, because at
-    // 108.7 dB "nothing survives that linearly". The figure below is instead the product of every
-    // factor the chain applies at 1 kHz with these knobs, each one a constant DiezelVh4.cpp names:
+    // 108.7 dB "nothing survives that linearly". Since 2026-09-07 the chain proves that in the
+    // measurement itself. With the level staging gone the front of the chain is still linear at
+    // this input and can be written out factor by factor, each one a constant DiezelVh4.cpp names:
     //
-    //   V1a 56.8 x kV1aToV2aLevelStaging 5/8                           x35.135
-    //   C13 high-pass, the gain pot at 0.5, V2a's cathode shelf, Miller x0.26517
-    //   V2a 67.2, C18, kV2aToV3aDivider, kV2aToV3aLevelStaging 1/32     x1.03046
-    //   V3a's cathode shelf and Miller pole                            x0.90120
-    //   V3a 71.4 x the V3b follower's 0.986                            x35.951
-    //   R40's 0.990664 and the FMV deck at 0.5 / 0.5 / 0.5             x0.38855
-    //   volume 0.5 x 0.5, kMixBusAttenuation, kFollowerToMixBusLevelStaging x0.0825
-    //   V4a 28.7 x the V4b follower's 0.986                            x14.619
-    //   kV4bToPhaseInverterLevelStaging, the inverter's 40, then 1/32   x0.049486
-    //   the EL34 pair differenced, x0.05, transformer, sag             x0.76430
-    //                                                          product  x5.513, +14.82 dB
+    //   V1a 56.8, from a 0.001 V grid                                  x56.8  -> 0.0568 V
+    //   C13 high-pass, the gain pot at 0.5, V2a's cathode shelf, Miller x0.26517 -> 0.01506 V
+    //   V2a 67.2, C18 and kV2aToV3aDivider                             x32.975 -> 0.4966 V
+    //   V3a's cathode shelf and Miller pole                            x0.90120 -> 0.4476 V
+    //
+    // and there it stops being a product. V3a's 71.4 asks for 31.96 V of plate swing against a
+    // 75.857 V conduction headroom, so the tanh ceiling returns 30.29 V; the V3b follower, R40's
+    // 0.990664, the FMV deck at noon, the volume divider and kMixBusAttenuation carry 0.1915 V to
+    // V4a's grid, V4a's 28.7 and the V4b follower carry 5.41 V to the phase inverter's grid, and
+    // 5.41 V is past the solver's 4.136 V cutoff clamp. The inverter therefore runs as a hard,
+    // one-sided limiter into the EL34 pair whatever the input is, and the figure below is measured
+    // rather than derived: 54.497 dB on 2026-09-07. What the test still proves is that the mix
+    // bus is in the chain at all - remove kMixBusAttenuation and the reading moves.
     //
     // kMasterUnityGain is absent on purpose: the knob is set to kUnityMasterDb, which is its
-    // reciprocal, so the two cancel and the master contributes x1. Reading it into this figure is
-    // what put the round-1 expectation 9.6 dB high.
-    //
-    // -60 dBFS is genuinely small-signal here, which is not free given that V1a clips at any input
-    // the amp is played with: the same chain read a 0.014 dB spread across -60, -80 and -100 dBFS
-    // when C1's low-pass was still in it, because 0.001 in leaves V1a's grid three orders under its
-    // 0.203 V knee. The tolerance is 0.5 dB, which covers that spread, the 0.036 dB the offline
-    // chain differs from the built node by, and the oversampler's own passband ripple.
-    constexpr double kExpectedSmallSignalGainDb = 14.82;
+    // reciprocal, so the two cancel and the master contributes x1.
+    constexpr double kExpectedSmallSignalGainDb = 54.497;
 
     SushiDSP::DiezelVh4 node;
     node.set_gain(0.5f);
