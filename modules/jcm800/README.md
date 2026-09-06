@@ -43,7 +43,7 @@ module used for all four before DA4; that number matched no block's DC point.
 in that order. Both are test hooks, like `set_power_tube_grid_bias_mismatch_volts()`; neither is
 in the descriptor.
 
-## Two derived factors that are not stage constants
+## Four derived factors that are not stage constants
 
 - **`kPhaseInverterDegeneration`, 1/8.789641.** The inverter is a long-tailed pair, so its shared
   cathode follows the driven grid and the grid-to-cathode window is the input divided by
@@ -55,6 +55,16 @@ in the descriptor.
   |−20|, so the inverter-to-power-grid link carries 2.5/20. The 2203's real bias is nearer −35 V;
   the preset's field is what this scale has to match. It goes away when `PentodeStage` becomes
   volt-true in DA5.
+- **`kV1bTreblePeakerDivider`, 0.680272, with a 3.34635 dB shelf at 873.541 Hz.** The 2203 feeds
+  V1b's grid through a 470 kΩ resistor bypassed by 470 pF, into a 1 MΩ grid leak
+  (`jcm_v1b_cold`). At mid frequencies that is 1 M/(470 k + 1 M); the 470 pF puts a zero at
+  1/(2π·470k·470p) = 720.484 Hz and the network's pole at 1.47 times that, 1059.112 Hz, so the
+  divider returns to unity over the top end. The shelf's corner is the geometric mean of the two.
+- **`kToneStackInsertionLoss`, 0.4030488.** The passive 2203 stack loses 7.8928 dB at 1 kHz with
+  all three controls at 0.5, measured here on `FmvToneStack(kJcm2203ToneStack)` and matching the
+  −7.84 dB `jcm_fmv`'s own sweep reads. The loss belongs to the passive stack; `JcmToneStack`'s
+  three biquads are unity at flat and do not carry it, so it is applied at the stack's output. It
+  goes away when `FmvToneStack` replaces `JcmToneStack`.
 
 ## What is approximated rather than transcribed
 
@@ -65,8 +75,9 @@ in the descriptor.
   applied at its input. A 2203's inverter is the long-tailed pair `jcm_ltp` describes; the plate
   swing above is the driven half's.
 - **The tone stack is three biquads.** `JcmToneStack` shapes with a low shelf, a peak and a high
-  shelf. The FMV network in `jcm_fmv` also loses 7.84 dB at 1 kHz with all three controls at
-  0.5 (`jcm_fmv_ac.csv`, setting 1), and the biquad cascade passes that band at unity.
+  shelf, and its flat insertion loss is carried as the constant above rather than by the network.
+  Its shape through the mids is not the FMV stack's: part 1's Task 4 measured it 6.35 / 8.68 /
+  15.93 dB above `FmvToneStack` at MID 0.1 / 0.5 / 0.9.
 - **The Miller grid poles use a common 100 kΩ source impedance** for all three driven grids. The
   constants' comment in `Jcm800.cpp` gives the real source impedance at each grid and the
   direction of the error.
@@ -94,15 +105,12 @@ measured 2026-09-07. These are measurements, not assertions; no test pins them.
 | Stage | Peak grid excursion |
 | --- | --- |
 | V1a | 0.2239 V |
-| V1b | 0.1211 V |
-| V2a | 4.1360 V |
-| Phase inverter | 4.2892 V |
+| V1b | 0.1112 V |
+| V2a | 2.6627 V |
+| Phase inverter | 4.2830 V |
 
-V1a and V1b stay below their conduction knees. V2a sits exactly on the solver's 160·Vt = 4.136 V
-cutoff fence and the inverter is on its own bound, so both are in hard cutoff for part of every
-cycle at the default setting. That is what the unity V1b → V2a link and V2a's gain of 60 produce,
-and spec section 4 records the maintainer's ruling that the circuit stays and the acceptance
-criterion moves to the clean end.
+V1a and V1b stay below their conduction knees, V2a stays inside the solver's 160·Vt = 4.136 V
+cutoff fence, and the inverter is on its bound, so it is in hard cutoff for part of every cycle.
 
 At silence the amp is silent: 2 s of an all-zero input renders an output whose peak and DC mean
 over the last 0.5 s are both exactly 0, at the default setting and at preamp 0.0 alike.
@@ -112,19 +120,44 @@ over the last 0.5 s are both exactly 0, at the default setting and at preamp 0.0
 Measured 2026-09-07, all at 48 kHz with a 256-frame block:
 
 - **A clean end exists.** Preamp 0.01 (the first position that passes signal;
-  `preamp_attenuation(0)` is exactly zero), −40 dBFS 1 kHz: THD 0.110 %.
-- **THD does not fall as the knob rises.** At a 0.2 input: 20.373 % at preamp 0.02, 43.650 % at
-  0.1, then 44.705, 44.840, 44.887, 44.924, 44.950, 44.969, 44.982, 44.982 and 44.996 % at 1.0.
+  `preamp_attenuation(0)` is exactly zero), −40 dBFS 1 kHz: THD 0.176 %.
+- **THD does not fall as the knob rises.** At a 0.2 input: 9.435 % at preamp 0.02, 35.716 % at
+  0.1, then 42.701, 44.116, 44.536, 44.703, 44.782, 44.826, 44.852, 44.871 and 44.885 % at 1.0.
 - **Default settings peak at −6.0000 dBFS** for a −12 dBFS 82 Hz sine.
-- **The output tracks its input.** At preamp 0.02, a 0.01 input peaks at 0.065880 and a 0.251
-  input at 0.303885.
+- **The output tracks its input.** At preamp 0.02, a 0.01 input peaks at 0.018743 and a 0.251
+  input at 0.201132.
+
+The alias floor is not met. `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` asks for
+−33.8 dB and the amp measures −3.0 dB at preamp 1.0 and −12 dBFS, where every stage is a square
+wave generator. The two losses on this page each made it worse rather than better: −11.3 dB with
+neither, −13.6 dB with the peaker alone, −6.8 dB with the stack loss alone, −3.0 dB with both.
+Attenuating ahead of V2a moves the later stages out of hard limiting into the region where they
+generate more distinct harmonics to fold, and the fundamental shrinks with them. The bound is
+untouched and the figure is with the controller.
 
 ## Calibration
 
-`Jcm800::kMasterUnityGain` is 0.3106856, re-measured on 2026-09-07 after the staging scalars came
-out and the two derived factors went in. It puts a −12 dBFS 82 Hz sine at default knobs out at
-−6.0000 dBFS, which is what `Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`
-pins. The previous value, 3.5825659, was calibrated in D5b against the staged chain.
+`Jcm800::kMasterUnityGain` is 0.3204640, re-measured on 2026-09-07. It puts a −12 dBFS 82 Hz sine
+at default knobs out at −6.0000 dBFS, which is what
+`Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` pins. The previous value,
+3.5825659, was calibrated in D5b against the staged chain.
+
+## Filter shapes and their rates
+
+| Filter | Shape | Corner | Rate |
+| --- | --- | --- | --- |
+| Bright cap | second-order high-pass, Q 0.707 | 60 Hz | host rate |
+| V1a → V1b coupling cap | first-order high-pass | 120 Hz | 8 × host rate |
+| V1b treble peaker | high shelf, Q 0.707 | 873.541 Hz | 8 × host rate |
+| Three Miller grid poles | one-pole low-pass | 13.8 kHz (×2), 19.6 kHz | 8 × host rate |
+| Presence | high shelf, Q 0.707 | 3 kHz | host rate |
+
+The coupling capacitor is first-order because that is what a cap into a grid leak is, and because
+`Biquad::set_high_pass` documents a floor of `cutoff_hz / sample_rate >= 1e-4`: 120 Hz against
+8 × 192 kHz is 7.8e-5, under it. The bright cap is the module's one remaining second-order
+high-pass; at the host rate its ratio is 1.25e-3 at 48 kHz and 1.56e-4 at 384 kHz, both above the
+floor. It is a treble bypass across the pot rather than a coupling cap, so this round left its
+shape alone.
 
 ## Signal path and rates
 

@@ -174,6 +174,24 @@ namespace SushiDSP
         /// grid, so it sets output level rather than any stage's drive.
         constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
 
+        /// @brief The mid-band loss of the 2203's V1b input network: the 470 kOhm treble-peaker
+        /// resistor against V1b's 1 MOhm grid leak, 1e6/(470e3 + 1e6) (jcm_v1b_cold).
+        constexpr float kV1bTreblePeakerDivider = 0.680272f;
+
+        /// @brief The corner of the treble peaker's shelf, the geometric mean of the network's
+        /// zero at 1/(2*pi*470k*470p) = 720.484 Hz and its pole at 1.47 times that, 1059.112 Hz.
+        constexpr float kV1bTreblePeakerHz = 873.541f;
+
+        /// @brief The peaker's shelf height, which returns the divider above to unity over the
+        /// top end: -20*log10(0.680272).
+        constexpr float kV1bTreblePeakerShelfDb = 3.34635f;
+
+        /// @brief The flat insertion loss of the passive 2203 tone stack, measured on
+        /// FmvToneStack(kJcm2203ToneStack) at bass = middle = treble = 0.5 and 1 kHz: 0.4030488,
+        /// -7.8928 dB, against the -7.84 dB jcm_fmv's own sweep reads (docs/reference/spice/
+        /// jcm_fmv). JcmToneStack is unity at flat and does not carry it.
+        constexpr float kToneStackInsertionLoss = 0.4030488f;
+
         constexpr float kBrightCapHz = 60.0f;
         constexpr float kCouplingCapHz = 120.0f;
         constexpr float kPresenceHz = 3000.0f;
@@ -257,7 +275,15 @@ namespace SushiDSP
         // The V1a->V1b coupling capacitor sits inside the oversampled region, so its coefficients
         // must be derived at the oversampled rate; deriving them at the base rate would place the
         // real corner 8x higher (960 Hz instead of 120 Hz) and gut the low end.
-        coupling_cap_.set_high_pass(sample_rate_ * kOversamplingFactor, kCouplingCapHz, kFilterQ);
+        //
+        // It is a first-order high-pass because that is what a coupling capacitor into a grid
+        // leak is; a Butterworth biquad would roll the low end off at twice the rate the RC does.
+        // The first-order pole is also what keeps this stable at the oversampled rate: 120 Hz
+        // against 8 x 192 kHz is a ratio of 7.8e-5, under set_high_pass's 1e-4 floor.
+        coupling_cap_.set_first_order_high_pass(sample_rate_ * kOversamplingFactor, kCouplingCapHz);
+        // The peaker sits inside the oversampled region with the coupling capacitor it follows.
+        v1b_treble_peaker_.set_high_shelf(sample_rate_ * kOversamplingFactor, kV1bTreblePeakerHz,
+                                          kV1bTreblePeakerShelfDb, kFilterQ);
         presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_.target()), kFilterQ);
 
         // The Miller poles are part of the oversampled chain, so like the coupling capacitor they
@@ -378,10 +404,11 @@ namespace SushiDSP
         for (std::uint32_t i = 0; i < oversampled_frames; ++i)
         {
             const float v1a_out = v1a_.process_sample(upsampled[i]);
-            const float v1b_in = v1b_grid_miller_.process_sample(
-                coupling_cap_.process_sample(v1a_out) * preamp_gain);
+            const float v1b_in = v1b_grid_miller_.process_sample(v1b_treble_peaker_.process_sample(
+                coupling_cap_.process_sample(v1a_out) * preamp_gain * kV1bTreblePeakerDivider));
             const float v1b_out = v1b_.process_sample(v1b_in);
-            const float toned = v2a_grid_miller_.process_sample(tone_stack_.process_sample(v1b_out));
+            const float toned = v2a_grid_miller_.process_sample(
+                tone_stack_.process_sample(v1b_out) * kToneStackInsertionLoss);
             const float phase_split = v2a_.process_sample(toned) * kPhaseInverterDegeneration;
             const float phase_inverted = phase_inverter_.process_sample(
                 phase_inverter_grid_miller_.process_sample(phase_split)) * kPowerTubeGridScale;
@@ -482,6 +509,7 @@ namespace SushiDSP
     {
         bright_cap_.reset();
         coupling_cap_.reset();
+        v1b_treble_peaker_.reset();
         presence_shelf_.reset();
         v1b_grid_miller_.reset();
         v2a_grid_miller_.reset();
