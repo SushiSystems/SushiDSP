@@ -27,8 +27,10 @@ text says otherwise.
 | S2 | Peavey *6505 1992 Original* Operating Guide, specification and block-diagram page | <https://assets.peavey.com/literature/manuals/119251_38557.pdf>, accessed 2026-09-06 | Peavey's own literature for the 2021 reissue of the block-letter amplifier, which Peavey sells as an unchanged reissue | Quoted verbatim in §6. It is the only manufacturer-published performance data I found. It describes the reissue, so a 1992 unit is assumed rather than proven to meet it. |
 | S3 | Peavey 5150 II Operating Guide | <https://assets.peavey.com/literature/manuals/80304643.pdf>, accessed 2026-09-06 | 5150 II, later model | Read only to confirm that the II's published specification differs from the block letter's (its hum and noise figure is 63 dB below rated power against the original's 74 dB). Nothing from it is used as a 5150 value. |
 | S4 | Judybox Revival, "Biasing a Peavey 5150" | <http://judyboxamp.blogspot.com/2013/10/biasing-peavey-5150.html>, accessed 2026-09-06 | Blog post, October 2013 | One measured number: "At 481 v on the plates I set it to about 34 ma on the hottest tube." Marked `[single source]` in §5. |
-| S5 | Peavey support answers relayed on forums.peavey.com and ultimatemetal.com, found through web search on 2026-09-06 | <https://forums.peavey.com/viewtopic.php?t=38145>, <https://ultimatemetal.com/threads/peavey-5150-bias-values.701601/> | undated forum threads | Grid bias −55 V, idle 30 mA per tube in a 25–35 mA band. Second-hand relay of a manufacturer answer, not a document. Marked `[single source]` in §5. |
+| S5 | Peavey support answers relayed on forums.peavey.com and ultimatemetal.com, found through web search on 2026-09-06 | <https://forums.peavey.com/viewtopic.php?t=38145>, <https://ultimatemetal.com/threads/peavey-5150-bias-values.701601/> | undated forum threads | Grid bias −55 V, idle 30 mA per tube in a 25–35 mA band. Second-hand relay of a manufacturer answer, not a document. **Both URLs are bot-gated as of 2026-09-06:** the Peavey forum returns HTTP 403 behind a Cloudflare challenge and the Ultimate Metal thread returns a 3893-byte browser check, so neither serves the figure to a reader who follows the citation. §7's `cathode_bias_volts` rests on them. Marked `[single source]` in §5 and §7. |
 | S6 | `docs/reference/spice/models/12ax7_koren.sub` in this repository | — | — | The 12AX7 model used for the operating-point arithmetic in §3, so that the dossier's DC points and the module's triodes come from the same physics. |
+| S7 | RCA 6L6-GC beam power tube data sheet, RCA Electron Tube Division, Harrison N.J. | <https://frank.pocnet.net/sheets/049/6/6L6GC.pdf>, accessed 2026-09-06 | Ten pages, footers "DATA 1" onward with date code 8-60 | The tube datasheet §7 argues from. Raster scan, no text layer; read at 0.7×–1.3× the same way S1 was. Every 6L6GC figure quoted in §5 and §7 is off this document. |
+| S8 | Philips/Mullard EL34 A.F. output pentode data sheet | <https://frank.pocnet.net/sheets/010/e/EL34.pdf>, accessed 2026-09-06 | Dated January 1969 on page 1 | Read only for the EL34's transconductance, so that §7's comparison against `kEl34` has a source on both sides. |
 
 Sources I looked for and could not read: the Peavey factory power-supply sheet. The five sheets
 of S1 stop at the output transformer and carry no rectifier, filter chain, dropping resistors or
@@ -37,9 +39,9 @@ audioservicemanuals.com each hold a longer 5150 set, and each gates the download
 or returns HTTP 403 to a programmatic fetch. This is the single largest gap in the dossier and it
 is what §8 opens with.
 
-No SPICE deck is committed with this dossier. The one block that would most repay simulation is
-the tone stack, and the tone stack is the one block whose interconnection I could not close off
-the scan (§4). Committing a netlist for it would freeze a guess in a file that reads as a fact.
+No SPICE deck is committed with this dossier. The tone stack's topology is now closed off the scan
+(§4) and a `p5150_fmv` netlist is worth writing, but every deck's usefulness turns on the rail
+voltages, which are the gap above.
 
 ---
 
@@ -71,6 +73,8 @@ J39 LOW  ─ R30 22K ─┴─ C15 .1µ/250 ─┬─ R25 1M ─ gnd
                                             │
    V1  ─ R3 100K ── V1B plate ◄─ R82 470K grid leak ◄─ K2A common
                     │              V1B cathode: R17 1.02K 1% ∥ C4 1µ/50 NP
+                    │                           ∥ (C26 22µ/25 ─ R18 47K ─ gnd), R18's
+                    │                             low end also to K1A pin 3
                     C2 .022/400
                     │
                     R6 470K ─┬─ R9 1M ─ gnd            interstage divider, 0.680
@@ -80,7 +84,7 @@ J39 LOW  ─ R30 22K ─┴─ C15 .1µ/250 ─┬─ R25 1M ─ gnd
                     C1 .022/400
                     │
                     ├─ C48 .001 ─ gnd      ├─ R11 330K ─ gnd
-                    ├─ R20 220K ─ K1B ─ gnd when the crunch relay closes
+                    ├─ R20 220K ─ K1B pin 6; pin 7 is gnd, pin 5 unwired
                     └─ R7 220K ── V2B grid
    V2  ─ R4 220K ── V2B plate            V2B cathode: R13 1.02K 1% ∥ C5 1µ/50 NP
                     │
@@ -95,16 +99,18 @@ J39 LOW  ─ R30 22K ─┴─ C15 .1µ/250 ─┬─ R25 1M ─ gnd
                     C58 .022/400
                     │
               ┌─────┴─────────────────────────────────────────────┐
-              │  TONE STACK: R28 47K, R24 33K, C59 .01 + R94 47K,  │
-              │  C16 470p ∥ C60 100p, C18 .022, C21 .022,          │
-              │  VR5 HIGH 250K B, VR3 LOW 1M A (push-pull),        │
-              │  VR4 MID 50K B                                     │
+              │  TONE STACK: R28 47K slope resistor; R24 33K and  │
+              │  C59 .01 + R94 47K both to gnd;                   │
+              │  C16 470p ∥ C60 100p, C18 .022, C21 .022;         │
+              │  VR5 HIGH 250K B, VR3 LOW 1M A (push-pull),       │
+              │  VR4 MID 50K B                                    │
               └─────┬─────────────────────────────────────────────┘
                     │
                     ├─ VR7 1M A  LEAD (ULTRA) POST ─┐
                     ├─ VR6 1M A  RHYTHM POST ───────┴─ K2B ─ R85 220K, R81 2.2M
                     │                                          │
-                    C11 .047/400 ── V3B grid (R79 1M grid leak) │
+                    C11 .047/400 ── V3B grid ─┬─ R26 1M ─ gnd     │
+                                              └─ R79 1M ─ tap     │
    V2  ── V3B plate direct, no plate resistor: CATHODE FOLLOWER
                     cathode ─ R80 1K ─ tap ─ R16 100K 1W ─ gnd
                     │
@@ -129,7 +135,7 @@ J39 LOW  ─ R30 22K ─┴─ C15 .1µ/250 ─┬─ R25 1M ─ gnd
    Screen resistors R207/R203/R209/R205 100 Ω 5 W, all fed from SCREEN.
    PLATE ─ S1 standby ─ R210 400 Ω 10 W ─ SCREEN.
    T2 Peavey 70500207, primary BR/R/BL with R the centre tap, secondary W(8Ω)/GN/BK.
-   FEEDBACK tapped at W. J1 8 Ω, J2 4 Ω, impedance selector 71466024.
+   FEEDBACK tapped at W. J1 8 Ω part 71466001, J2 4 Ω, selector TRANSFER 71466024.
 ```
 
 ---
@@ -169,20 +175,42 @@ Every stage closes. Two results are worth reading before writing any code.
 V1A and V2B run a 220 kΩ plate against a 1.02 kΩ cathode, which puts the plate at 43 % of the
 rail and biases the grid at under a volt. That is a deliberately asymmetric, low-headroom stage:
 it reaches grid conduction on the positive half-cycle long before it reaches cutoff on the
-negative one, and its plate cannot swing far upward. It is the source of the 5150's early,
-compressed, even-harmonic-heavy break-up, and it must not be modelled as a generic 100 k / 1.5 k
-Marshall stage.
+negative one, and its plate cannot swing far upward. It must not be modelled as a generic
+100 k / 1.5 k Marshall stage.
 
-V2A is the opposite. A 39 kΩ unbypassed cathode starves the stage to about 0.1 mA and puts the
-plate within 10 V of the rail. Local degeneration of `1 + gm·Rk` with gm ≈ 0.35 mA/V at that
-current gives a factor of about 14.7, so the stage's gain collapses to roughly 5 and its transfer
-curve is stretched flat and made very linear over a wide input range before it cuts off hard on
-one side. This is the cold clipper. Its job is to survive the huge signal V1B hands it and to
-clip asymmetrically rather than to amplify.
+V2A is the opposite. A 39 kΩ unbypassed cathode starves the stage to 0.102 mA and puts the plate
+within 15 V of the rail. This is the cold clipper. Its job is to survive the signal V1B hands it
+and to clip asymmetrically rather than to amplify.
 
-The three stages after it, V2B (220 k / 1.02 k) then V5B (220 k / 2.2 k) then V5A (100 k / 2.2 k),
-run progressively less starved and progressively more headroom, so the distortion is spread across
-the chain instead of concentrated at one stage.
+### Small-signal gain per stage
+
+The gain figures below are differentiated out of the same Koren model at the same B+ = 340 V
+operating points, so they are confidence **B** on the same footing as the DC table. `gm` and `ra`
+are the numerical partial derivatives of `Ia` at each stage's solved point, `µ = gm·ra`, and the
+gain is `µ·Ra/(ra + Ra)` for a bypassed cathode and `µ·Ra/(ra + Ra + (µ+1)·Rk)` for an unbypassed
+one.
+
+| Stage | gm (mA/V) | ra (kΩ) | µ | Cathode | Gain | dB |
+|---|---|---|---|---|---|---|
+| V1A | 1.919 | 49.4 | 94.8 | bypassed | 77.4 | +37.8 |
+| V1B | 2.122 | 44.4 | 94.1 | bypassed | 65.2 | +36.3 |
+| V2A | 0.236 | 300.7 | 70.9 | 39 k unbypassed | 2.21 | +6.9 |
+| V2B | 1.919 | 49.4 | 94.8 | bypassed | 77.4 | +37.8 |
+| V5B | 1.538 | 58.6 | 90.1 | 2.2 k unbypassed | 41.4 | +32.3 |
+| V5A | 1.630 | 54.8 | 89.4 | 2.2 k unbypassed | 25.3 | +28.1 |
+| V3A | 1.362 | 63.5 | 86.4 | 3.3 k unbypassed | 14.0 | +22.9 |
+
+The `1 + gm·Rk` shorthand does not reproduce these and must not be used on this amplifier. It
+assumes an ideal current source at the plate, and every stage here works into a plate resistor
+comparable with or smaller than `ra`. V2A shows the size of the error: `1 + gm·Rk` is
+`1 + 0.236 mA/V × 39 kΩ = 10.2`, which off `µ = 70.9` would suggest 7.0, and the full expression
+gives `70.9 × 100k / (300.7k + 100k + 71.9 × 39k) = 7090/3204 = 2.21`. The honest way to read the
+degeneration is as the ratio between the same stage bypassed and unbypassed: 8.0× at V2A, 1.7× at
+V5B, 2.3× at V5A, 3.2× at V3A.
+
+The three stages after V2A — V2B (220 k / 1.02 k), V5B (220 k / 2.2 k), V5A (100 k / 2.2 k) — run
+progressively less starved and progressively more headroom, so the distortion is spread across the
+chain instead of concentrated at one stage.
 
 ### Stage detail
 
@@ -193,10 +221,10 @@ is the grid stopper. S2 publishes the high-gain input impedance as 470 kΩ, whic
 from a 1 MΩ grid leak; the discrepancy is in §8.
 
 **V1A.** Plate R2 220 kΩ from V1. Cathode R12 1.02 kΩ 1 %, bypassed by C3 1 µF 50 V non-polar.
-The bypass corner is `1/(2π·1e-6·(1.02k ∥ 1/gm))`; with gm ≈ 1.6 mA/V at 0.88 mA the parallel
-combination is about 385 Ω, giving 413 Hz (**B**). Below that corner the stage degenerates, so
-the very bottom of the guitar's range is attenuated at the first stage — part of why the amp
-stays tight under a low-tuned riff. Coupling out on C6 0.022 µF/400 V.
+The bypass corner is `1/(2π·1e-6·(1.02k ∥ 1/gm))`; with gm = 1.919 mA/V at 0.882 mA the parallel
+combination is 345 Ω, giving 462 Hz (**B**). Below that corner the stage degenerates from a gain
+of 77.4 toward 56.8, a 2.7 dB shelf whose corner sits above the open low E. Coupling out on
+C6 0.022 µF/400 V.
 
 **Lead pre-gain network.** From V1A's coupling node, R29 470 kΩ in parallel with C17 2.2 nF runs
 in series into the pot node; at that node C19 1 nF and R40 1 MΩ go to ground, and VR2 (1 MΩ audio,
@@ -217,10 +245,28 @@ Plate R3 100 kΩ from V1. Cathode R17 1.02 kΩ 1 % bypassed by C4 1 µF 50 V non
 on C2 0.022 µF/400 V into R6 470 kΩ, then R9 1 MΩ to ground: an interstage divider of
 1M/(1M + 470k) = 0.680, or −3.34 dB (**B**).
 
+V1B carries a second, relay-switched cathode bypass that the rest of this section's stages do not.
+From the R17/C4 node, C26 22 µF 25 V electrolytic (positive terminal to the cathode) runs down to
+a node carrying R18 47 kΩ to ground, and that same node goes to K1A pin 3. K1A's pin 2 is ground
+and pin 4 is unwired; K1B is the other half of the same relay and switches R20 220 kΩ at V2A's
+output node the same way, pin 6 common, pin 7 ground, pin 5 unwired. Both halves are drawn in the
+de-energised position, resting on ground, so as S1 draws the amplifier R18 and R20 are both
+grounded and energising K1 lifts both. **S1 does not show K1's coil drive**, so which state the
+lead channel selects is not established off these five sheets; K2A, whose lead position is
+established, is energised for lead, and if K1 shares that coil the lead channel runs with R18 and
+R20 lifted. Confidence **C** on that last step, and §8 says what would settle it.
+
+With R18 grounded the cathode sees 47 kΩ in parallel above C26's corner, `1/(2π·22µ·47k)` =
+0.15 Hz, which is below the audio band by three decades, so C26 is a short everywhere it matters
+and the branch reduces to R18 across R17: 1.02 k ∥ 47 k = 998 Ω, 2.2 % lower. The stage's
+unbypassed-region gain moves from 39.0 to 39.3, under 0.1 dB (**B**). It is recorded because the
+brief asks for each triode's bypass network and because it identifies K1's second contact, not
+because it is audible.
+
 **V2A.** Plate R1 100 kΩ from V1. Cathode R15 39 kΩ, no bypass capacitor. Coupling out on
 C1 0.022 µF/400 V. The output node carries C48 1 nF to ground and R11 330 kΩ to ground, and R20
-220 kΩ to relay K1B, which grounds it when the crunch relay closes. R7 220 kΩ is V2B's grid
-stopper.
+220 kΩ to relay K1B, grounded in the position S1 draws. R7 220 kΩ is V2B's grid stopper. With R20
+grounded the node's shunt is 330 k ∥ 220 k = 132 kΩ instead of 330 kΩ.
 
 The C48 / R11 pair sets a pole at `1/(2π·1n·330k)` = 482 Hz (**B**) once the source impedance is
 taken as small, which it is not; with the 220 kΩ stopper and V2A's plate impedance the real corner
@@ -239,23 +285,30 @@ C56 0.022 µF/400 V, then R88 1 MΩ with R91 1 MΩ to ground at V5A's grid: anot
 **V5A.** Plate R86 100 kΩ from V2. Cathode R93 2.2 kΩ, no bypass capacitor. R89 470 kΩ from the
 plate side down. Coupling out on C58 0.022 µF/400 V into the tone stack.
 
-Two unbypassed 2.2 kΩ cathodes in a row is unusual for a high-gain preamp and is worth stating
-plainly: these two stages contribute local negative feedback, not gain. With gm ≈ 1.35 mA/V the
-degeneration factor is about 4, so each stage runs a gain near 15 instead of near 60, and each
-one's transfer curve is much straighter than an unbypassed-cathode stage's. They keep the last two
-stages from turning the accumulated distortion into mush.
+Both V5B and V5A run 2.2 kΩ unbypassed. The degeneration costs V5B a factor of 1.7 (71.2 bypassed
+against 41.4 as drawn) and V5A a factor of 2.3 (57.7 against 25.3), so the pair contributes 60.4 dB
+where fully bypassed cathodes would give 72.3 dB (**B**, from the small-signal table above).
 
 **V3B, cathode follower.** Plate connected straight to V2, no plate resistor. Grid from the post-
-gain wiper through C11 0.047 µF/400 V, with R79 1 MΩ as the grid leak. Cathode into R80 1 kΩ, then
-R16 100 kΩ 1 W to ground; the output is taken at the R80/R16 junction, so the follower drives the
-effects loop and the preamp-out jack from a low impedance while the 1 kΩ isolates it. R85 220 kΩ
-and R81 2.2 MΩ sit at the post-gain node ahead of it.
+gain wiper through C11 0.047 µF/400 V. Cathode into R80 1 kΩ, then R16 100 kΩ 1 W to ground; the
+output is taken at the R80/R16 junction, so the follower drives the effects loop and the
+preamp-out jack from a low impedance while the 1 kΩ isolates it. R85 220 kΩ and R81 2.2 MΩ sit at
+the post-gain node ahead of it.
+
+Two 1 MΩ resistors return this grid, and they do different jobs. R26 1 MΩ runs from the grid to
+the grounded node in the tone stack that R24 33 kΩ and the C59/R94 leg also land on, traced at 7×
+on S1 page 2 and again on the factory sheet page 4: it is the DC grid leak. R79 1 MΩ runs from the
+grid to the R80/R16 junction, not to ground — the follower's own output bootstraps it, so at audio
+it presents roughly `1M/(1 − 0.98)` ≈ 50 MΩ and R26 sets the load the post-gain pot actually sees.
+The high-pass corner C11 makes into it is `1/(2π·0.047µ·1M)` = 3.4 Hz (**B**); reading R79 as a
+second grid leak to ground would halve the resistance and put the corner at 6.8 Hz, which is why
+the distinction is worth the paragraph.
 
 **V3A, driver.** Plate R5 68 kΩ from V2. Cathode R14 3.3 kΩ, bypassed by C61 4.7 nF only. That
-capacitor is the interesting part: `1/(2π·4.7n·(3.3k ∥ 1/gm))` with gm ≈ 1.5 mA/V gives a corner
-near 68 kHz (**B**), far above the audio band, so C61 is not an audio bypass at all. Below the
-corner the stage is fully degenerated by 3.3 kΩ and runs a gain near 12. Treat R14 as unbypassed
-in the audio band and treat C61 as an oscillation stopper.
+capacitor is the interesting part: `1/(2π·4.7n·(3.3k ∥ 1/gm))` with gm = 1.362 mA/V gives
+3.3k ∥ 734 = 601 Ω and a corner at 56.4 kHz (**B**), far above the audio band, so C61 is not an
+audio bypass at all. Below the corner the stage is fully degenerated by 3.3 kΩ and runs a gain of
+14.0. Treat R14 as unbypassed in the audio band and treat C61 as an oscillation stopper.
 
 ---
 
@@ -269,12 +322,12 @@ pots. S2 calls it "Custom Low, Mid & High passive type EQ".
 | VR5 | 250 kΩ linear (B) | HIGH |
 | VR3 | 1 MΩ audio (A), push-pull switched | LOW; the switch is the panel's BRIGHT, rhythm channel only per S2 |
 | VR4 | 50 kΩ linear (B) | MID |
-| R28 | 47 kΩ | in series from V5A's coupling node into the stack's lower branch |
-| R24 | 33 kΩ | from V5A's coupling node to the grounded node beside VR5 |
-| C16 ∥ C60 | 470 pF ∥ 100 pF = 570 pF | treble capacitor, V5A's coupling node into the HIGH pot |
-| C18 | 0.022 µF | bass capacitor |
-| C21 | 0.022 µF | mid capacitor |
-| C59 + R94 | 0.01 µF in series with 47 kΩ | from V5A's coupling node to the same grounded node as R24 |
+| R28 | 47 kΩ | slope resistor: from V5A's coupling node to the slope node |
+| R24 | 33 kΩ | from V5A's coupling node to ground |
+| C16 ∥ C60 | 470 pF ∥ 100 pF = 570 pF | treble capacitor, V5A's coupling node into VR5's top terminal |
+| C18 | 0.022 µF | bass capacitor, slope node into VR3 |
+| C21 | 0.022 µF | mid capacitor, slope node into VR4 |
+| C59 + R94 | 0.01 µF in series with 47 kΩ | from V5A's coupling node to ground, on the same node as R24 |
 | VR7 | 1 MΩ audio | LEAD (ULTRA) POST GAIN, after the stack |
 | VR6 | 1 MΩ audio | RHYTHM (CLEAN) POST GAIN, after the stack |
 | R85 | 220 kΩ | post-gain node to V3B's grid network |
@@ -282,17 +335,19 @@ pots. S2 calls it "Custom Low, Mid & High passive type EQ".
 | R83 (tone area) | 47 kΩ | between the two post-gain pots' ground legs |
 | C52 | 0.022 µF/400 V | from the stack output onward |
 
-**The topology is not fully established and the component values are.** Every value above was read
-at magnification and is A. The interconnection is a Fender/Marshall FMV stack, which the parts
-list makes certain: a treble capacitor into a treble pot, a slope resistor into a bass capacitor
-and bass pot, a mid capacitor into a mid pot to ground. What I could not settle from the scan is
-which of R28 47 kΩ and R24 33 kΩ is the slope resistor. Traced literally, R24's far end lands on a
-node carrying a ground symbol, which cannot be right for a slope resistor and suggests the symbol
-belongs to the adjacent VR5 terminal rather than to R24's node. R28 sits where a slope resistor
-sits, in series from the input into the bass/mid branch. My reading is that R28 47 kΩ is the slope
-resistor and that R24 33 kΩ with the C59/R94 leg forms a fixed shunt network across the input, but
-I did not close it, and I am not going to write it into a SPICE deck as though I had. §8 says what
-would settle it.
+**The topology is a Fender/Marshall FMV stack and R28 47 kΩ is the slope resistor.** Read at 3.4×
+on S1 page 2 and confirmed against the factory sheet on page 4, the input bus from V5A's coupling
+capacitor carries, top to bottom: C59 0.01 µF in series with R94 47 kΩ to ground, R24 33 kΩ to
+ground, the C16 ∥ C60 treble pair into VR5's top terminal, and then R28 47 kΩ vertically down to a
+second node. That second node — the slope node — carries VR5's bottom terminal, C18 0.022 µF into
+VR3, and C21 0.022 µF into VR4. There is no wire bridging R28, and R24 with the C59/R94 leg lands
+on a node that carries its own ground stub with nothing else on it; VR5's three terminals are
+elsewhere on the sheet and none of them is that node.
+
+That closes the question the earlier revision of this file left open, and it retires the reasoning
+it was left open on. The ground symbol beside R24 belongs to R24's node, not to a VR5 terminal.
+R26 1 MΩ leaves the same grounded node and is V3B's grid leak (§3), which is what the third
+resistor on that horizontal run is doing there.
 
 The push-pull BRIGHT on VR3 is documented by S2 at +6 dB at 2 kHz, rhythm channel only. The
 switched element is not identified on S1.
@@ -334,6 +389,7 @@ pair self-biases.
 | S1 | — | standby, in the plate line |
 | CR200, CR201 | SR2873 | across the primary halves, plate-to-rail clamps |
 | T2 | Peavey 70500207 | output transformer, primary BR/R/BL with R the centre tap, secondary W/GN/BK |
+| J1, J2 | 71466001 (8 Ω), 4 Ω | speaker jacks; the impedance selector is marked TRANSFER 71466024 |
 
 The bias supply is on the missing power-supply sheet. Not established from S1; the numbers below
 are the only ones I have.
@@ -344,9 +400,12 @@ measured by one technician, who then set 34 mA on the hottest tube `[single sour
 second forum figure of 465 V appears in the same searches. Take 470 ± 15 V as the working range
 and treat any of it as unconfirmed.
 
-At 30 mA and 470 V a single 6L6GC dissipates 14.1 W, which is 47 % of the 30 W plate rating: a
-cool, firmly class-AB bias, consistent with the amplifier's tight low end and its reputation for
-staying clean in the power stage until very late.
+At 30 mA and 470 V a single 6L6GC dissipates 14.1 W, which is 47 % of the 30 W plate rating S7
+prints. Two of S7's ratings are exceeded as the amplifier is drawn: the 470 V plate sits under the
+500 V design maximum but the screen, fed from the plate node through R210, sits near it against a
+450 V maximum, and the 220 kΩ grid leaks are more than twice S7's "Grid-No.1-Circuit Resistance,
+for fixed-bias operation, 0.1 max. megohm". Both are worth recording because a model that follows
+the datasheet's safe area will not reproduce what this circuit does.
 
 **Screen supply.** One 400 Ω 10 W resistor feeds all four screens from the plate node, and each
 tube then has its own 100 Ω. At 4 × 6 mA of screen current the common resistor drops about 10 V at
@@ -362,7 +421,7 @@ network, then C30 22 µF/25 V into node N in the phase-inverter tail.
 | VR8 | 1 MΩ audio, Peavey POT0752 `[C, label at the edge of legibility]` | RESONANCE |
 | C12 | 0.0068 µF | across VR8 |
 | VR9 | 10 kΩ audio (A/B legend "10KAVB") | PRESENCE |
-| C8 | 0.1 µF/10 V | presence branch |
+| C8 | 0.1 µF, rating printed `.1P10` `[C]` | presence branch. The `P` prefix marks 100 V parts elsewhere on the same sheet, so 10 V is unlikely for a cap fed from the 8 Ω tap; §8 carries it |
 | C62 | 0.033 µF | presence branch, in parallel with C8's leg |
 | C30 | 22 µF/25 V electrolytic | network output into the PI tail node N |
 
@@ -373,7 +432,9 @@ is the loop's, and it is the number a test should assert.
 
 **Output transformer.** Part 70500207. Primary impedance and turns ratio are **not established**.
 No source I read prints either, and S1 marks only the winding colours and the 8 Ω and 4 Ω
-secondary taps.
+secondary taps. S7 brackets it: RCA asks 6000 Ω plate-to-plate for two 6L6GC making 50 W at 450 V,
+so four tubes making 120 W sit at or below half of that, 2500–3000 Ω. §7 carries the bracket into
+`gain`.
 
 ---
 
@@ -423,8 +484,16 @@ approximations for a 12AX7/EL34 JCM800-style signal path, not measured from a re
 `kEl34` is therefore a plausible starting point, not a calibrated datum, and two of the seven
 fields below are derived from the 5150's own circuit rather than scaled from it.
 
+The tube figures below come from S7, the RCA 6L6-GC sheet, and S8, the Philips EL34 sheet. The
+three rows of S7 this section uses are the general-data column (plate 250 V, screen 250 V, grid
+−14 V, plate current 72 mA, plate resistance 22 500 Ω, transconductance 6000 µmhos) and the
+push-pull class AB₁ fixed-bias pair for two tubes (plate 450 V, screen 350 V, grid −30 V,
+zero-signal plate current 95 mA, plate-to-plate load 6000 Ω, 50 W out; and plate 450 V, screen
+400 V, grid −37 V, 116 mA, 5600 Ω, 55 W out). S8 gives the EL34's quick-reference transconductance
+as 12.5 mA/V at 100 mA anode current.
+
 ```
-k6L6GC{ 39000, 220000, -55, 5, 1e-9, 0.02585, 0.048 }
+k6L6GC{ 39000, 220000, -55, 6, 1e-9, 0.02585, 0.048 }
 ```
 
 **`source_resistance_ohms` = 39000.** Derived, not scaled. The grid is driven from the phase
@@ -436,33 +505,56 @@ average; the two halves differ by 8 %, which is small enough to ignore and large
 This is the field that matters most and the one that departs furthest from `kEl34`. With
 `grid_leak_resistance_ohms` unchanged at 220 kΩ, raising the source resistance from 10 kΩ to 39 kΩ
 raises the voltage the grid-conduction current develops across the source by a factor of 3.9, so
-the modelled stage blocks far harder when it is overdriven. That is the correct direction: a 5150
-driven past the point where the phase inverter clips does audibly block, and the circuit reason is
-exactly this — a 100 kΩ grid stopper on the driven PI half feeding a 2.2 kΩ stopper into a 220 kΩ
-leak.
+the modelled stage blocks harder when it is overdriven. The circuit reason is a 100 kΩ grid
+stopper on the driven PI half feeding a 2.2 kΩ stopper into a 220 kΩ leak, and S7 puts a number on
+how far outside the datasheet that leak is: 220 kΩ against RCA's 0.1 MΩ maximum for fixed bias.
 
 **`grid_leak_resistance_ohms` = 220000.** Read off S1: R54 and R55 are 220 kΩ. Identical to the
 EL34's, so nothing to argue.
 
 **`cathode_bias_volts` = −55.** The 5150's cathodes are grounded and the bias supply sits on the
 grid leaks, so the field's meaning here is the grid's DC operating point relative to the cathode,
-which is the bias-supply voltage. −55 V is S5's figure `[single source]`. It is deep for a 6L6GC
-against the EL34's −20 V, and it should be: 470 V on the plate against the 2203's ~450 V, and a
-6L6GC's lower transconductance, both push the grid further negative for the same idle current. The
-class-AB conduction window that comes out of it is 110 V peak-to-peak of grid drive, against the
-EL34 preset's 40 V.
+which is the bias-supply voltage. −55 V is S5's figure `[single source]`, and S5's two URLs no
+longer serve it to a reader (§1).
+
+S7 does not corroborate it and is worth walking through, because the gap is real. RCA's AB₁ rows
+are −30 V at 450 V plate with a 350 V screen for 47.5 mA per tube, and −37 V at 450 V plate with a
+400 V screen for 58 mA per tube. Bias tracks the screen voltage roughly proportionally, so the
+5150's screen — the plate node less R210's drop, call it 460 V — scales the first row to
+`−30 × 460/350` = −39 V for 47.5 mA. Going from 47.5 mA down to the 5150's 30 mA needs another
+`17.5 mA / 4.5 mA/V` ≈ 3.9 V, giving about −43 V. That is 12 V shallower than S5's −55 V. Either
+the forum figure is wrong, or the screen is running further below the plate than assumed, or the
+bias-supply reading was taken somewhere other than the grid. The field keeps −55 V because it is
+the only figure anyone has published for this amplifier, and it keeps `[single source]`; §8
+carries the discrepancy. The class-AB conduction window that comes out of −55 V is 110 V
+peak-to-peak of grid drive, against the EL34 preset's 40 V.
 
 `PentodeStage`'s node equation is bias-invariant by the argument spelled out in
 `modules/jcm800/src/Jcm800.cpp`, so this field does not by itself change the output; it is
 recorded because the bias mismatch between the two halves is applied against it.
 
-**`gain` = 5.** Scaled, with a caveat. The EL34 preset's 8 is the linear grid-to-plate gain before
-saturation, which for a pentode into a load is `gm · (Zaa/4)`. The 6L6GC's transconductance at
-30 mA and 470 V is about 5.2 mA/V against the EL34's 10–11 mA/V at its own idle, a ratio of 0.5,
-which gives 4. The 5150 runs four tubes rather than two, so `Zaa/4` per half is larger than the
-2203's for the same tube count, which pushes the number back up. 5 is the compromise. **`Zaa` is
-not established** (§5), so this field cannot be derived properly until it is; 5 is the honest
-midpoint of the range the argument allows, not a computed value.
+**`gain` = 6.** A modelling choice inside a bracket the datasheets set, not a computed value. The
+EL34 preset's 8 is the linear grid-to-plate gain before saturation, which for a pentode into a
+load is `gm · (Zaa/4)`, with `gm` the transconductance of everything driven in parallel on one
+half of the primary.
+
+Transconductance first. Neither datasheet prints `gm` at the idle current its amplifier runs, so
+both are scaled from the printed point by `Ia^(1/3)`, which is the pentode's own current law.
+S7: 6.0 mA/V at 72 mA gives `6.0 × (30/72)^(1/3)` = 4.48 mA/V at the 5150's 30 mA. S8: 12.5 mA/V
+at 100 mA gives `12.5 × (45/100)^(1/3)` = 9.58 mA/V at the 2203's ~45 mA. The 5150 puts two 6L6GC
+on each half of the primary and the 2203 puts one EL34, so per half the ratio is
+`2 × 4.48 / 9.58` = 0.94, not the 0.5 a bare tube-for-tube comparison would give.
+
+Load next, and this is where the earlier revision of this file had the sign wrong. Four tubes at
+120 W run a *lower* plate-to-plate impedance than two at 100 W, not a higher one. S7 asks 6000 Ω
+for two 6L6GC making 50 W at 450 V; paralleling a second pair to roughly double the power halves
+that to about 3000 Ω, and the 5150's 120 W at 470 V sits at or below it. Against the 2203's
+3400 Ω, `Zaa/4` therefore falls from 850 Ω to 625–750 Ω, a ratio of 0.74–0.88. The correction
+pushes `gain` down.
+
+`8 × 0.94 × 0.74` = 5.5 at Zaa = 2500 Ω and `8 × 0.94 × 0.88` = 6.6 at Zaa = 3000 Ω. **`Zaa` is
+not established** (§5), so 6 is the midpoint of that bracket and nothing stronger. When the
+transformer's primary impedance is measured, recompute the field from it rather than keeping 6.
 
 **`saturation_current_amps` = 1e-9** and **`thermal_voltage_volts` = 0.02585.** Unchanged. The
 first is the grid-conduction diode's saturation current and the second is `kT/q` at room
@@ -492,15 +584,16 @@ should check that before adopting it.
    programmatic fetch cannot pass. Opening either by hand in a browser is ten minutes of work and
    closes the largest hole in this file.
 
-2. **Which of R28 47 kΩ and R24 33 kΩ is the tone stack's slope resistor.** §4. The values are
-   certain and the arrangement is not. What settles it: the same factory sheet at higher scan
-   resolution, or a continuity check on a real board between V5A's coupling capacitor, the treble
-   pot's lower terminal and the bass capacitor.
+2. **The output transformer's primary impedance and turns ratio.** §5. Nothing published names
+   either for part 70500207. It sets the power stage's load line and therefore `gain` in §7,
+   which is why that field is a bracket midpoint rather than a number. What settles it: measuring
+   the DC resistance and the turns ratio on a real transformer, or a winding-data answer from
+   Peavey.
 
-3. **The output transformer's primary impedance and turns ratio.** §5. Nothing published names
-   either for part 70500207. It sets the power stage's load line and therefore `gain` in §7. What
-   settles it: measuring the DC resistance and the turns ratio on a real transformer, or a
-   winding-data answer from Peavey.
+3. **The output tubes' grid bias.** §7 shows S5's −55 V is about 12 V deeper than S7's AB₁ rows
+   extrapolate to for 30 mA at 470 V, and S5's two URLs no longer resolve. What settles it: a
+   meter on pin 5 of a real 5150 with the amplifier idling, taken at the same time as the plate
+   current.
 
 **Resolvable by measurement on a real amplifier**
 
@@ -510,7 +603,8 @@ should check that before adopting it.
    the PREAMP OUT jack, whose nominal level Peavey does publish as 3 V RMS.
 
 5. The tone stack's frequency response with all three controls at their detent, measured at the
-   post-gain wiper. It would settle question 2 as a side effect.
+   post-gain wiper. §4's topology is now closed off the scan, so this is a confirmation rather
+   than a gap.
 
 6. The screen node's sag under sustained drive. §5 argues the shared 400 Ω matters; nobody has
    plotted it.
@@ -520,12 +614,13 @@ should check that before adopting it.
 
 **Documentation and legibility gaps**
 
-8. **R12, R17 and R13, the three bypassed cathode resistors, read as `1.02K` with a `1 %` suffix
-   at the limit of what the scan carries.** All three render the same glyph sequence, and 1.02 kΩ
-   is an E96 1 % value, which fits Peavey's use of precision parts elsewhere on the board. The
-   leading digit could be a 4. What settles it: a higher-resolution scan, or a meter on a real
-   board. A 4.02 kΩ reading would move V1A's bias from −0.90 V to roughly −2 V and change the
-   stage's character completely, so this is worth ten minutes before any code is written.
+8. **R12, R17 and R13, the three bypassed cathode resistors, read as `1.02K` with a `1 %`
+   suffix.** Re-read at 9× on S1 page 1: the leading glyph is a single stroke with a serif foot,
+   a `1`, not a `4`, so the −0.90 V against −2 V scenario an earlier revision of this file raised
+   is not live. The residual doubt is in the second and third digits, where the scan smears
+   `.02`. 1.02 kΩ is an E96 1 % value and fits the precision parts elsewhere on the board. What
+   settles it: a meter on a real board. Any plausible misreading now moves V1A's bias by tens of
+   millivolts, not volts.
 
 9. **VR8's value.** Read as 1 MΩ audio from a label that is partly illegible; the Peavey part
    number POT0752 is shared with the 1 MΩ audio pots elsewhere on the sheet, which supports it.
@@ -541,7 +636,21 @@ should check that before adopting it.
 12. **The V5 designator collides** between the fifth 12AX7 and the first 6L6GC on S1's sheets. The
     factory set would say which is Peavey's and which is the redraw's.
 
-13. **No SPICE deck is committed.** Once question 2 is answered, `docs/reference/spice/p5150_fmv/`
-    for the tone stack and `p5150_ltp/` for the phase inverter are both worth writing; the phase
-    inverter's values are fully established already and only its deck's usefulness, not its
-    correctness, waits on the rail voltage from question 1.
+13. **C8's voltage rating.** The sheet prints `.1P10` in the presence branch. `P` marks 100 V
+    parts elsewhere on the same sheet, and a 10 V film capacitor fed from the 8 Ω tap would be
+    odd, so 100 V is the likely reading. What settles it: the parts list from the factory set, or
+    the part itself.
+
+14. **Which coil state K1 sits in for the lead channel.** §3. K1A switches R18 47 kΩ under V1B's
+    C26, K1B switches R20 220 kΩ at V2A's output, both drawn grounded in the de-energised
+    position, and S1 carries no coil drive for K1. The effect on V1B is under 0.1 dB, but K1B's
+    is a 330 kΩ-to-132 kΩ change at V2A's output. Against V2A's source impedance of
+    100 k ∥ 301 k = 75 kΩ that moves the divider from 0.815 to 0.638, or 2.1 dB, which does
+    matter. What settles it:
+    the footswitch and relay-logic sheet from the factory set, or continuity across K1A with the
+    amplifier in each channel.
+
+15. **No SPICE deck is committed.** `docs/reference/spice/p5150_fmv/` for the tone stack and
+    `p5150_ltp/` for the phase inverter are both worth writing; the values of both blocks are
+    established, and only the decks' usefulness, not their correctness, waits on the rail voltage
+    from question 1.
