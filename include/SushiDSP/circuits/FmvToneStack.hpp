@@ -23,7 +23,7 @@
 
 /**
  * @file FmvToneStack.hpp
- * @brief The passive Fender/Marshall/Vox tone stack as one third-order section.
+ * @brief The passive Fender/Marshall/Vox tone stack, middle pot wired as a rheostat.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -39,15 +39,15 @@ namespace SushiDSP
         float middle_capacitor_farads;   ///< C3, into the middle pot.
         float slope_resistor_ohms;       ///< The slope resistor from input to the bass/mid node; Yeh's R4.
         float bass_potentiometer_ohms;   ///< R2, bass pot as a rheostat.
-        float middle_potentiometer_ohms; ///< R3, middle pot end to end, tapped by C3 at the wiper.
+        float middle_potentiometer_ohms; ///< R3, middle pot as a rheostat under C3, to ground.
         float treble_potentiometer_ohms; ///< Treble pot end to end; Yeh's R1.
     };
 
     /// @brief The JCM800 2203's values: 470 pF, 22 nF, 22 nF, 33 kOhm, 1 MOhm, 25 kOhm, 220 kOhm.
     inline constexpr FmvComponents kJcm2203ToneStack{ 470e-12f, 22e-9f, 22e-9f, 33e3f, 1e6f, 25e3f, 220e3f };
 
-    /// @brief The passive FMV stack as one third-order section, coefficients from Yeh & Smith
-    /// (DAFx 2006) discretised with the bilinear transform, recomputed on every knob move.
+    /// @brief The passive FMV stack as one third-order section, coefficients from a nodal
+    /// analysis of the rheostat-wired deck, bilinear-discretised and recomputed on every knob move.
     class FmvToneStack
     {
     public:

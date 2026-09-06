@@ -27,6 +27,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <string>
@@ -59,7 +60,7 @@ namespace
     }
 }
 
-TEST(Unit_Dsp, FmvToneStackMatchesSpiceMidSweepWithinHalfDecibel)
+TEST(Unit_Dsp, FmvToneStackMatchesSpiceMidSweepWithinFiveHundredthsOfADecibel)
 {
     const auto sweep = SushiDSP::measure::load_ac_csv(spice_path("jcm_fmv", "ac"));
     const float mid_positions[3] = { 0.1f, 0.5f, 0.9f };
@@ -76,7 +77,7 @@ TEST(Unit_Dsp, FmvToneStackMatchesSpiceMidSweepWithinHalfDecibel)
             const double f = sweep.frequency_hz[row];
             if (f < 20.0 || f > 20000.0) continue;
             stack.reset();
-            EXPECT_NEAR(steady_gain_db(stack, sample_rate, f), sweep.magnitude_db[row], 0.5)
+            EXPECT_NEAR(steady_gain_db(stack, sample_rate, f), sweep.magnitude_db[row], 0.05)
                 << "setting " << setting << " at " << f << " Hz";
         }
     }
@@ -89,6 +90,22 @@ TEST(Unit_Dsp, FmvToneStackMidScoopDeepensAsMiddleCloses)
     open.set_middle(0.9f);
     closed.set_middle(0.1f);
     EXPECT_LT(steady_gain_db(closed, 48000.0, 1000.0), steady_gain_db(open, 48000.0, 1000.0) - 6.0f);
+}
+
+TEST(Unit_Dsp, FmvToneStackAtEveryKnobZeroIsFiniteAndQuiet)
+{
+    SushiDSP::FmvToneStack stack(48000.0, SushiDSP::kJcm2203ToneStack);
+    stack.set_bass(0.0f);
+    stack.set_middle(0.0f);
+    stack.set_treble(0.0f);
+    float peak = 0.0f;
+    for (int i = 0; i < 48000; ++i)
+    {
+        const float y = stack.process_sample(static_cast<float>(std::sin(2.0 * kPi * 500.0 * i / 48000.0)));
+        ASSERT_TRUE(std::isfinite(y));
+        peak = std::max(peak, std::fabs(y));
+    }
+    EXPECT_LT(20.0f * std::log10(std::max(peak, 1e-12f)), -60.0f);
 }
 
 TEST(Unit_Dsp, FmvToneStackIsStableAtEveryKnobExtreme)
