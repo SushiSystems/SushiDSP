@@ -12,7 +12,9 @@ rule: `GoldenFile.hpp`. Tolerance: RMS residual <= -80 dB.
 | jcm800_48k/96k | D6a Task 5 fix, 2026-08-26 | 12AX7 Miller input capacitance on the V1b/V2a/PI grids, the interstage bandwidth the single 8x region exposed as missing; Jcm800 alias floor -20.4 -> -43.4 dB |
 | mesa_mark2c_48k/96k | DA2 Task 5, 2026-09-06 | first pin; Mark IIC+ lead mode after fix round 1 (`8c1ef6b`) |
 | diezel_vh4_48k/96k | DA2 Task 6, 2026-09-06 | first pin; VH4 channel 3 after fix round 2 (`c75f393`) |
+| dd3_48k/96k | DR2 Task 2.6, 2026-09-07 | first pin; DD-3 variable-rate loop with the 8x-substepped NE570 rectifier (`9ba392a`), mode M / TIME 0.4 / F.BACK 0.45 |
 | peavey5150_48k/96k | DA2 Task 4, 2026-09-06 | first pin; 5150 lead after fix round 2 (`d877855`) |
 | diezel_vh4_48k/96k | DA3 final fix, 2026-09-06 | input low-pass removed (`9c7c66d`); default peak -6.159 -> -6.044 dBFS |
+| dd3_48k/96k | DR2 Task 2.6, 2026-09-07 | first pin; DD-3 variable-rate loop with the 8x-substepped NE570 rectifier (`9ba392a`), mode M / TIME 0.4 / F.BACK 0.45 |
 
 Regenerate with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row here.
