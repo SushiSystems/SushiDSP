@@ -84,9 +84,9 @@ integrator: the tone pot bridged a `220 nF` series / `1 kΩ` shunt high-pass and
 output, the wiper fed a virtual-earth summing junction through `10 kΩ`, and `220 nF` closed
 the feedback. Three measurements said it could not be a tone control:
 
-- Insertion loss at noon was 30.4 dB at 1 kHz, which is why `kLevelUnityGain` had to be about
-  23.13 dB. The stage was an integrator with unity gain at 1 / (2π · 10 kΩ · 220 nF) = 72.3 Hz,
-  falling 20 dB per decade above it.
+- Insertion loss at noon was 30.43 dB at 100 Hz and 34.38 dB at 1 kHz. The stage was an
+  integrator with unity gain at 1 / (2π · 10 kΩ · 220 nF) = 72.3 Hz, falling 20 dB per decade
+  above it, so a pedal built on it would have needed about 30 dB of make-up gain somewhere.
 - The knob moved level by 19.08 dB while the corner moved 807 Hz to 760 Hz. A tone control
   moves the corner, not the level.
 - `TONE = 1` shorted the wiper to the op-amp output and muted the stage at −146 dB, so the
@@ -110,8 +110,11 @@ Against the sources cited on the sheet, four things were wrong:
    its gain leg. That is what produces treble boost at the bright end, which an integrator
    cannot do.
 
-The corrected network measures 0.99 dB of insertion loss at 100 Hz at noon and 16.19 dB of
-knob range at 3.2 kHz, which is the frequency Keen names as the leg's turnover.
+The corrected network measures 0.9946 dB of insertion loss at 100 Hz at noon and 16.19 dB of
+knob range at 3.2 kHz, the frequency Keen names as the leg's turnover. That 0.9946 dB is the
+filter's 1.1957 dB, the gain leg's +0.2887 dB and the output network's 0.0875 dB; of the
+filter's share, 0.8279 dB is `R7` against the 10 kΩ bias return and the rest is `C5` and the
+wiper leg loading that node.
 
 ## Judgment calls and open questions
 

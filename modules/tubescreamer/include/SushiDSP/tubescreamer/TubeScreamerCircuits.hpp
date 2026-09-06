@@ -81,7 +81,7 @@ namespace SushiDSP::tube_screamer_circuits
         kToneNodeLegMiddle = 4,
         kToneNodeInverting = 5,
         kToneNodeStageOutput = 6,
-        kToneNodeOutputCap = 7,
+        kToneNodeOutputMiddle = 7,
         kToneNodeLevelTop = 8,
         kToneNodeOutput = 9
     };
@@ -184,10 +184,9 @@ namespace SushiDSP::tube_screamer_circuits
     /// @brief Builds the ts_tone netlist, node for node against the block's component table.
     ///
     /// The op-amp is non-inverting: the nullor senses the filter node against the inverting
-    /// input and kFeedbackOhms closes the loop, so the tone pot's inverting-side section and
-    /// the 220 nF / 220 Ohm leg together are the stage's gain leg. Wiring it as a virtual-earth
-    /// integrator instead is the error the 2026-09-06 correction removed; ts_tone/README.md
-    /// records it against the schematic.
+    /// input and kFeedbackOhms closes the loop, so the tone pot's inverting-side section and the
+    /// 220 nF / 220 Ohm leg are the stage's gain leg. Wiring it as a virtual-earth integrator
+    /// instead is the error the 2026-09-06 correction removed, which ts_tone/README.md records.
     /// @param netlist Receives the description; any previous contents are overwritten.
     /// @return Both wiper indices, for DkCircuit::set_potentiometer.
     inline TonePotentiometers build_tone_block(ToneNetlist& netlist)
@@ -209,8 +208,8 @@ namespace SushiDSP::tube_screamer_circuits
         netlist.resistor(kToneNodeInverting, kToneNodeStageOutput, kFeedbackOhms);
         netlist.nullor(kToneNodeFilter, kToneNodeInverting, kToneNodeStageOutput, 0);
 
-        netlist.capacitor(kToneNodeStageOutput, kToneNodeOutputCap, kOutputFarads);
-        netlist.resistor(kToneNodeOutputCap, kToneNodeLevelTop, kOutputSeriesOhms);
+        netlist.capacitor(kToneNodeStageOutput, kToneNodeOutputMiddle, kOutputFarads);
+        netlist.resistor(kToneNodeOutputMiddle, kToneNodeLevelTop, kOutputSeriesOhms);
         pots.level = netlist.potentiometer(kToneNodeLevelTop, kToneNodeOutput, 0, kLevelPotOhms);
         netlist.output(kToneNodeOutput, 0);
 
@@ -229,10 +228,9 @@ namespace SushiDSP::tube_screamer_circuits
     /// @brief Converts the Tone knob to the tone pot's wiper position.
     ///
     /// ts_tone.asc measures TONE from the op-amp's + input, where the wiper leg only cuts
-    /// treble, towards the - input, where it becomes the gain leg and boosts it; so TONE = 1 is
-    /// bright and the mapping is the identity. Both end stops are ordinary settings on the
-    /// corrected network - neither mutes and neither leaves a bare integrator - so the travel is
-    /// the whole track. No audio taper this phase (D6c plan, ruling 9).
+    /// treble, towards the - input, where it becomes the gain leg and boosts it, so TONE = 1 is
+    /// bright and the mapping is the identity. Neither end stop is degenerate on the corrected
+    /// network, so the travel is the whole track. No audio taper this phase (D6c plan, ruling 9).
     /// @param tone Normalised Tone knob, 0 (dark) to 1 (bright).
     /// @return The wiper position.
     inline double tone_to_position(double tone) { return tone; }

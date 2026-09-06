@@ -76,10 +76,8 @@ namespace
     /// @brief The closed-form response of the corrected tone stage.
     ///
     /// Both pot ends sit on op-amp input nodes that draw no current, so the wiper leg sees one
-    /// Thevenin source and takes `share` of it; the + -side section then loads the passive
-    /// filter by `upper * share` and the - -side section carries `lower * share` into the gain
-    /// leg, which is where the bright end's treble boost comes from. C7 into the 1 kOhm and the
-    /// level pot adds the output high-pass.
+    /// Thevenin source and takes `share` of it: the + -side section loads the passive filter by
+    /// `upper * share` and the - -side section carries `lower * share` into the gain leg.
     /// @param frequency_hz Frequency in hertz.
     /// @param tone The tone pot's position, which is the reference's TONE.
     /// @return Magnitude in decibels.
@@ -123,8 +121,8 @@ TEST(Unit_Dsp, DkTsToneBlockResponseMatchesItsClosedForm)
     //   0.1   -1.3471    -6.2987   -22.5431
     //   0.5   -0.9946    -4.5852   -22.1373
     //   0.9   -0.6948    -2.2872   -19.7318
-    // The old netlist read -30.4 dB at 1 kHz at noon and moved level, not corner, with the
-    // knob; these numbers are the check that the correction is the one in the block.
+    // The old netlist read -30.43 dB at 100 Hz and -34.38 dB at 1 kHz at noon, and moved level
+    // rather than corner with the knob; these numbers check that the correction is in the block.
     //
     // The 0.25 dB tolerance is the sweep measurement's own accuracy - D6a puts its worst error
     // above 20 Hz at 0.17 dB - not the block's. The block is linear, so any drive level
@@ -151,19 +149,20 @@ TEST(Unit_Dsp, DkTsToneBlockResponseMatchesItsClosedForm)
     }
 }
 
-TEST(Unit_Dsp, DkTsToneBlockCostsUnderOneDecibelAtOneHundredHertzAtNoon)
+TEST(Unit_Dsp, DkTsToneBlockClosedFormCostsUnderOneDecibelAtOneHundredHertzAtNoon)
 {
-    // The acceptance the old reference could not have met. Its stage was an integrator with
-    // unity gain at 1 / (2*pi*10k*220n) = 72.3 Hz, so it read -30.4 dB at 1 kHz at noon and
-    // forced kLevelUnityGain to about 23.13 dB of make-up. R.G. Keen on the real stage: "there
-    // is no net signal loss through the tone control stage, a gain of 1". What loss remains is
-    // R7 against the 10 kOhm bias return, 20*log10(1 / (1 + 1k/10k)) = -0.828 dB, plus the
-    // output network's -0.086 dB in its passband.
+    // The acceptance the old reference could not have met: its stage was an integrator with
+    // unity gain at 1 / (2*pi*10k*220n) = 72.3 Hz, so it read -30.43 dB at 100 Hz at noon.
+    // R.G. Keen on the real stage: "there is no net signal loss through the tone control stage,
+    // a gain of 1". The three factors at 100 Hz at noon are the filter -1.1957 dB, the gain leg
+    // +0.2887 dB and the output network -0.0875 dB. Of the filter's loss, 0.8279 dB is R7
+    // against the 10 kOhm bias return, 20*log10(1 / (1 + 1k/10k)); the other 0.3679 dB is C5
+    // and the wiper leg loading that node.
     EXPECT_NEAR(tone_closed_form_db(100.0, 0.5), -0.9946, 0.001);
     EXPECT_GT(tone_closed_form_db(100.0, 0.5), -1.0);
 }
 
-TEST(Unit_Dsp, DkTsToneBlockKnobSweepsSixteenDecibelsAtTheLegsTurnoverFrequency)
+TEST(Unit_Dsp, DkTsToneBlockClosedFormSweepsSixteenDecibelsAtTheLegsTurnoverFrequency)
 {
     // Keen puts the wiper leg's turnover where the 220 nF reaches 220 Ohm, "about 3.2KHz", and
     // that is where the knob has to do its work: at the + end the leg hangs on the passive
@@ -176,7 +175,7 @@ TEST(Unit_Dsp, DkTsToneBlockKnobSweepsSixteenDecibelsAtTheLegsTurnoverFrequency)
 
     // At the bright end the gain leg wins over the passive filter for about an octave around
     // 1.1 kHz and the whole stage passes more than it is given: +0.435 dB at 1 kHz, peaking at
-    // +0.465 dB at 1159 Hz. An integrator with 30 dB of insertion loss cannot do that, so this
+    // +0.465 dB at 1159 Hz. An integrator 30.43 dB down at 100 Hz cannot do that, so this
     // is the single number that separates the corrected netlist from the one it replaced.
     EXPECT_GT(tone_closed_form_db(1000.0, 1.0 - 1.0e-9), 0.0);
 }
