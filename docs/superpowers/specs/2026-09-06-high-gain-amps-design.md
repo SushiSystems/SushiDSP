@@ -1,7 +1,6 @@
 # High-gain amplifiers: Peavey 5150, Mesa/Boogie Mark IIC+, Diezel VH4
 
-**Status:** DA0 and DA1 shipped; DA2 and DA3 planned in
-`docs/superpowers/plans/2026-09-06-high-gain-amps-part2.md`. Roadmap prefix **DA** (Dsp Amplifier).
+**Status:** DA0–DA3 shipped. Roadmap prefix **DA** (Dsp Amplifier).
 Maintainer decisions of 2026-09-06: the VH4 is modelled with the EL34 its evidence points to; the VH4
 module ships as a documented approximation (its dossier's verdict); the Mark IIC+ module reads the
 five-band EQ as the dossier's series R-L-C traps.

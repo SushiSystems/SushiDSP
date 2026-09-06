@@ -447,6 +447,20 @@ amount and oversample factor are compile-time constants.
   core, so any amplifier module can use them; `modules/jcm800` keeps only `JcmToneStack` and
   `Jcm800`.
 
+### §5a Amplifier family
+
+The DA phase (plan `.superpowers/sdd/2026-09-06-high-gain-amps-part1/` and `-part2/`) grew the
+single JCM800 into four sibling amplifier modules sharing the stage classes above.
+
+| Module | Channel | Dossier | Module path | Status |
+| --- | --- | --- | --- | --- |
+| JCM800 | Marshall JCM800 2203, one channel | — | `modules/jcm800/` | White-box, see "As built" above. |
+| Peavey 5150 | Block-letter 1992 5150, lead channel | `docs/reference/research/2026-09-06-peavey-5150-design-dossier.md` | `modules/peavey5150/` | White-box against the dossier's schematic set. |
+| Mesa/Boogie Mark IIC+ | Lead mode | `docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` | `modules/mesa_mark2c/` | White-box against the dossier's schematic set. |
+| Diezel VH4 | Channel 3 ("Mega") | `docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md` | `modules/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. |
+
+Each module's own README lists exactly where its model departs from its dossier.
+
 ---
 
 ## §6 Tube Screamer overdrive (white-box) — product module `tubescreamer`
@@ -507,6 +521,9 @@ sushidsp/
   src/                       core/math impls (portable C++/SIMD)
   modules/                   ← the separable PRODUCTS, each a library exposing a NodeDescriptor
     jcm800/                    §5 amp: WDF/DK stages, tone stack, cabinet — depends only on core+math
+    peavey5150/                §5a amp: lead channel, shared stage classes (its own README)
+    mesa_mark2c/               §5a amp: lead mode, five-band graphic EQ (its own README)
+    diezel_vh4/                §5a amp: channel 3, documented approximation (its own README)
     tubescreamer/              §6 pedal: WDF/DK clipping stage, tone stack — depends only on core+math
     dd3/                       DR2 delay: variable-rate loop, 12-bit ring, NE570 compander (its own README)
   apps/
@@ -520,7 +537,7 @@ sushidsp/
 ### Targets & dependency rules
 
 - **`SushiDSP::sushi_dsp`** — the portable core (`core`+`math`). C++17 stdlib + SIMD only, **zero** external deps.
-- **`SushiDSP::jcm800`, `SushiDSP::tubescreamer`, `SushiDSP::dd3`** — product libs, each depending only on `sushi_dsp`. Fully separable; a product can graduate to its own repo with no code change, because it couples to the core only through headers and to consumers only through its `NodeDescriptor`.
+- **`SushiDSP::jcm800`, `SushiDSP::peavey5150`, `SushiDSP::mesa_mark2c`, `SushiDSP::diezel_vh4`, `SushiDSP::tubescreamer`, `SushiDSP::dd3`** — product libs, each depending only on `sushi_dsp`. Fully separable; a product can graduate to its own repo with no code change, because it couples to the core only through headers and to consumers only through its `NodeDescriptor`.
 - **Exported & namespaced** — SushiDSP ships install/export rules producing `SushiDSP::*` targets and a `SushiDSPConfig.cmake`.
 
 Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical correctness (golden-vector), rig compile/recompile, RT-safety (no-alloc trap); per-product physical-plausibility tests (DC stability, frequency response, THD sweep) in their module. Perceptual A/B validation against real hardware captures is deferred — no reference captures available yet. **As built in D6a:** `tests/measure/` is a test-side-only measurement library (`render`, `thd`, `alias_floor`, `frequency_response`, `null_test`) that every product's plausibility and alias-floor test builds on, so those numbers come from one audited implementation instead of each test computing its own FFT/THD by hand. `tests/golden/` replaces the old five-sample-snapshot regression tests with 1-second rendered `.f32` files at 48 kHz and 96 kHz, compared at −80 dB RMS residual; regenerate them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row to `tests/golden/README.md` recording why. A SPICE reference corpus is staged under `docs/reference/spice/` (netlist-directive `.asc` files, Koren/Norman `.sub` models, `tools/spice/export.py`, `tests/measure/SpiceCsv.hpp`) but nothing has been simulated yet — LTspice is not installed in this environment, so producing the golden CSVs (`python tools/spice/export.py --all`, then commit) is a user-side step, not something this repo's tests currently check against.
@@ -537,6 +554,7 @@ Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical cor
 - **D5 — Rig recompile + presets.** Full free-graph rig editing (add/remove/reorder any product, series/parallel), atomic-swap recompile, portable rig-preset save/load. *Ships: a rig with TS → JCM800 chained, edited live with no dropout.*
 - **D6 — VST3/CLAP wrapper.** `apps/plugin` hosting the rig graph as a DAW plugin with its own rig-editor UI. *Ships: SushiDSP.vst3/.clap loads in a DAW, hosts TS + JCM800.*
 - **D7 — Hardening & packaging.** Namespaced export/Config finalized, perceptual A/B validation once reference captures are available.
+- **DA — High-gain amplifiers.** §5a: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes, registered in the node registry with their own front-panel layouts. *Ships: all four amps selectable in the rig host, RT-safety-trapped, panel- and registry-tested.*
 
 **DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration, which waits on `RigGraph`'s per-node multi-channel support.
 

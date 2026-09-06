@@ -38,6 +38,11 @@ once you're in the tree and need a specific document.
   block, the three constants that are calibrations rather than component values, and what is left
   out; the spec is
   [`docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`](superpowers/specs/2026-09-05-dd3-spx90-design.md).
+- **[`modules/peavey5150/`](../modules/peavey5150/)**,
+  **[`modules/mesa_mark2c/`](../modules/mesa_mark2c/)** and
+  **[`modules/diezel_vh4/`](../modules/diezel_vh4/)** — the three high-gain amplifiers sibling to
+  the JCM800 (design spec §5a). Each module's own README says where its model departs from its
+  design dossier under `docs/reference/research/`.
 - **[`tools/`](../tools/)** — developer-side scripts that are not part of the shipped library:
   `tools/dsp/design_halfband.py` (regenerates `include/SushiDSP/math/HalfbandCoefficients.hpp`
   from a scipy `remez` design), `tools/dsp/design_resampler.py` (regenerates
