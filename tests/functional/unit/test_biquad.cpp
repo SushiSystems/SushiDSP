@@ -359,3 +359,82 @@ TEST(Unit_Dsp, BiquadFirstOrderShelfWithEqualCornersIsAFlatGain)
         EXPECT_NEAR(biquad_magnitude(shelf, frequency, 48000.0), 2.0, 1e-3) << frequency;
     }
 }
+
+namespace
+{
+    /// @brief Measures a filter's steady-state gain by projecting its output onto the drive.
+    /// @param filter The filter, reset before the run and left with its state after it.
+    /// @param frequency_hz The drive frequency in hertz.
+    /// @param sample_rate The rate the filter runs at, in hertz.
+    /// @return The magnitude response at that frequency.
+    double biquad_projected_magnitude(SushiDSP::Biquad& filter, double frequency_hz,
+                                      double sample_rate)
+    {
+        filter.reset();
+        const long long settle = static_cast<long long>(sample_rate);
+        // A whole number of cycles keeps the single-bin projection free of leakage.
+        const double cycles = std::ceil(0.25 * frequency_hz);
+        const long long measure =
+            static_cast<long long>(std::llround(cycles * sample_rate / frequency_hz));
+
+        double real_part = 0.0;
+        double imaginary_part = 0.0;
+        for (long long n = 0; n < settle + measure; ++n)
+        {
+            const double phase = 2.0 * M_PI * frequency_hz * static_cast<double>(n) / sample_rate;
+            const float y = filter.process_sample(static_cast<float>(std::sin(phase)));
+            if (n >= settle)
+            {
+                real_part += y * std::sin(phase);
+                imaginary_part += y * std::cos(phase);
+            }
+        }
+
+        return 2.0 * std::sqrt(real_part * real_part + imaginary_part * imaginary_part)
+             / static_cast<double>(measure);
+    }
+}
+
+TEST(Unit_Dsp, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
+{
+    // A single RC section: -3.01 dB at the corner and -0.04 dB a decade above it, which is what
+    // separates it from the second-order Butterworth (-3.01 dB at fc, but -0.004 dB a decade up).
+    SushiDSP::Biquad filter;
+    filter.set_first_order_high_pass(48000.0, 100.0);
+
+    const double at_corner =
+        20.0 * std::log10(biquad_projected_magnitude(filter, 100.0, 48000.0));
+    const double a_decade_up =
+        20.0 * std::log10(biquad_projected_magnitude(filter, 1000.0, 48000.0));
+
+    EXPECT_NEAR(at_corner, -3.01, 0.1);
+    EXPECT_NEAR(a_decade_up, -0.04, 0.1);
+}
+
+TEST(Unit_Dsp, BiquadFirstOrderHighPassStaysCleanAtLowCornersAtHighRates)
+{
+    // The corner range that makes set_high_pass diverge at the 384 kHz oversampled rate: there the
+    // conjugate pole pair rounds onto the unit circle, while this one-pole's real pole does not.
+    // The passband reading is checked against the analogue RC value, an independent reference.
+    constexpr double sample_rate = 384000.0;
+    for (const double cutoff_hz : { 2.0, 5.0, 7.23, 10.58 })
+    {
+        SushiDSP::Biquad filter;
+        filter.set_first_order_high_pass(sample_rate, cutoff_hz);
+
+        const double measured =
+            20.0 * std::log10(biquad_projected_magnitude(filter, 1000.0, sample_rate));
+        const double analytic =
+            20.0 * std::log10(1.0 / std::sqrt(1.0 + (cutoff_hz / 1000.0) * (cutoff_hz / 1000.0)));
+        EXPECT_NEAR(measured, analytic, 0.01) << cutoff_hz;
+
+        filter.reset();
+        const float first = filter.process_sample(1.0f);
+        float last = first;
+        for (long long n = 1; n < static_cast<long long>(2.0 * sample_rate); ++n)
+        {
+            last = filter.process_sample(1.0f);
+        }
+        EXPECT_LT(std::abs(last), 1e-4f * std::abs(first)) << cutoff_hz;
+    }
+}
