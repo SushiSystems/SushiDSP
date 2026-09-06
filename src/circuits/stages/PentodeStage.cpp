@@ -66,6 +66,14 @@ namespace SushiDSP
     {
     }
 
+    PentodeStage::PentodeStage(const PowerTubePreset& preset)
+        : PentodeStage(
+            preset.source_resistance_ohms, preset.grid_leak_resistance_ohms,
+            preset.cathode_bias_volts, preset.gain, preset.saturation_current_amps,
+            preset.thermal_voltage_volts, preset.plate_saturation_drive)
+    {
+    }
+
     float PentodeStage::process_sample(float input_voltage)
     {
         const float rs = source_resistance_;

@@ -37,6 +37,7 @@ namespace
     constexpr float kSaturationCurrent = 1e-9f;
     constexpr float kThermalVoltage = 0.02585f;
     constexpr float kPlateSaturationDrive = 0.05f;
+    constexpr double kPi = 3.14159265358979323846;
 }
 
 TEST(Unit_Dsp, PentodeStageIsDcStableForConstantInput)
@@ -155,4 +156,15 @@ TEST(Unit_Dsp, PentodePairAsymmetryNeedsAnInputReferredOffsetNotACathodeBiasDiff
     // offset gives 0.229 against an odd reference of 4.83 (4.7%).
     EXPECT_LT(peak_even_part(-20.0f, -20.5f, 0.0f), 1e-6f * odd_reference);
     EXPECT_GT(peak_even_part(-20.0f, -20.0f, 0.03f), 0.01f * odd_reference);
+}
+
+TEST(Unit_Dsp, PentodeStagePresetConstructorMatchesTheSevenArgumentOne)
+{
+    SushiDSP::PentodeStage from_preset(SushiDSP::kEl34);
+    SushiDSP::PentodeStage from_fields(10000.0f, 220000.0f, -20.0f, 8.0f, 1e-9f, 0.02585f, 0.05f);
+    for (int i = 0; i < 2000; ++i)
+    {
+        const float x = 0.5f * static_cast<float>(std::sin(2.0 * kPi * 440.0 * i / 48000.0));
+        EXPECT_FLOAT_EQ(from_preset.process_sample(x), from_fields.process_sample(x));
+    }
 }

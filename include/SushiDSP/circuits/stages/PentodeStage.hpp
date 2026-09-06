@@ -23,6 +23,8 @@
 
 #pragma once
 
+#include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
+
 namespace SushiDSP
 {
     /// @brief An EL34 push-pull half-channel: the same grid-conduction Newton-Raphson
@@ -44,6 +46,9 @@ namespace SushiDSP
             float source_resistance_ohms, float grid_leak_resistance_ohms, float cathode_bias_volts,
             float gain, float saturation_current_amps, float thermal_voltage_volts,
             float plate_saturation_drive);
+
+        /// @brief Builds the stage from a named preset; identical to the seven-argument constructor.
+        explicit PentodeStage(const PowerTubePreset& preset);
 
         /// @brief Processes one sample through the stage.
         /// @param input_voltage The stage's input signal voltage for this sample, referenced to
