@@ -315,6 +315,163 @@ transient null vs `ts_clip.csv` ≤ −55 dB at three drive × three level combi
 shows **no notch** (response monotonic between 300 Hz and 2 kHz); alias floor ≤ −85 dB;
 regression golden re-pinned; cost ≤ 0.25 ms.
 
+### Model corrections (D6c C2, 2026-09-07)
+
+Task 9 measured the rebuilt Tube Screamer's alias floor at −18.6 dB against C1's −38.3 dB, and
+named the mechanism: at the 4× run rate of 192 kHz, the 13th harmonic of a 15 kHz tone lands on
+195 kHz and folds to 3 kHz, in band before any filter can act. A filter cannot reach it and the
+oversampling factor is already spent, so the remaining lever is an antialiased nonlinearity.
+This subsection records what was built, what it measures, and why the shipping node does not yet
+use it.
+
+**Status: built and measured, not wired in.** `AdaaDiodePairPort` exists beside `DiodePairPort`
+in `modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamerCircuits.hpp` and switching
+`TubeScreamer::clip_port_` onto it is a one-declaration change. It buys 12.6 dB of alias floor
+and costs the clip block both the LTspice null and the Newton gate. The trade is the user's to
+make; the numbers are below.
+
+#### The diode pair is one scalar port, and that is what makes the method apply
+
+Antiderivative antialiasing is textbook for a memoryless waveshaper and the diode pair is not
+one: it sits inside `DkCircuit<3,2,1,1>`, solved implicitly by Newton against the feedback
+capacitor and the ground leg. Holters (DAFx-19, *Antiderivative Antialiasing for Stateful
+Systems*, extended in Applied Sciences 10(1):20) covers exactly this case, and his condition is
+that the nonlinearity take scalar input. The clip block meets it.
+
+`build_clip_block()` wires branch 1 as branch 0 reversed, so every row of the port is the
+negative of its partner: `v[1] = -v[0]`, `p[1] = -p[0]`, and `F` is antisymmetric with
+`F[0][1] = F[1][0] = -F[0][0]`. `Unit_Dsp.DkTsClipBlockDiodePairPortIsOneScalarPortInDisguise`
+measures those to 0, 0 and 1e-15 respectively rather than assuming them. The two-branch port is
+therefore one scalar port carrying the pair current
+
+```
+h(v) = i(v) - i(-v) = 2*Is*sinh(v / (n*Vt))
+```
+
+and `DkCircuit`'s residual row reads `v = p + F[0][0]*h(v)`. Because `F[0][0]` is negative and
+`h` is increasing, `p(v)` is strictly increasing, so `v` is a single-valued function of `p`:
+the whole nonlinear port is a memoryless map from the open-circuit voltage to the current the
+linear part is stamped with. Everything else in the block is a linear state update.
+
+#### The antiderivative is closed form, so no lookup table is needed
+
+Holters precomputes his antiderivative into a 1024-point table with cubic interpolation, because
+in general the composed map has no closed solution. Here it does. Substituting
+`dp = (1 - F00*h'(v)) dv`:
+
+```
+Q(p) = integral h dp = integral h(v) * (1 - F00*h'(v)) dv = H(v) - F00*h(v)^2 / 2
+```
+
+with `H(v) = I(v) + I(-v)` the sum of the two diode antiderivatives, which on the Shockley
+branch is `2*Is*n*Vt*cosh(v / (n*Vt))`. `SiliconDiode::current_and_antiderivative()` carries
+`I`, piecewise with the current so the tangent-line extrapolation past either knee integrates to
+the quadratic matched to it. The port then costs one exponential per side per sample and no
+memory. `Unit_Dsp.AdaaDiodePairPortAntiderivativeDividesBackToThePairCurrent` checks
+`dQ/dp = h(v)` across the port's whole operating range at the block's own `F[0][0]`; the worst
+relative error is 2.5e-10.
+
+The stamped current becomes the divided difference `(Q(p[n]) - Q(p[n-1])) / (p[n] - p[n-1])`,
+with the midpoint of the two port voltages standing in below a step of 1 µV. Newton is untouched
+— the residual and its Jacobian stay the block's own physics — so the insertion point is a hook
+after the solve, `DkCircuit`'s `HasCurrentsForUpdate`, which lets a port restate the currents the
+state update and the output stamp without `DkCircuit` learning what a diode is.
+
+A moved Drive pot changes `F[0][0]` between samples and so changes which curve the stored point
+sits on. The port re-anchors the previous port voltage onto the new curve rather than carrying a
+stale one, which costs two exponentials on the sample after a knob moves and nothing otherwise.
+
+#### What it buys
+
+At 192 kHz, Drive 1, a 15 kHz tone at 0.5 V, the folded 13th harmonic at 3 kHz drops from
+−32.35 dB to −55.92 dB — 23.6 dB, measured by
+`Unit_Dsp.AdaaDiodePairPortSinksTheFoldedHarmonicThatSetsTheAliasFloor`. Whole-node
+`alias_floor()` improves by less, because the sweep reports the worst tone and a different one
+becomes worst:
+
+| tone | worst alias, plain | worst alias, ADAA | fold |
+| --- | --- | --- | --- |
+| 9 kHz | −29.5 dB | −59.4 dB | 21st to 3 kHz |
+| 10 kHz | −23.6 dB | −35.9 dB | 19th to 2 kHz |
+| 13 kHz | −20.7 dB | −38.4 dB | 15th to 3 kHz |
+| 15 kHz | −18.6 dB | −42.2 dB | 13th to 3 kHz |
+| 17 kHz | not printed | −31.2 dB | 11th to 5 kHz |
+| 18 kHz | not printed | −39.0 dB | 11th to 6 kHz |
+
+The floor moves from **−18.6 dB to −31.2 dB**, set now by 17 kHz. First-order antialiasing
+suppresses a fold more the higher the harmonic order that reaches it, so halving the order from
+13 to 11 costs most of the remaining gap to −38.3 dB.
+
+#### What it costs, and why the node still holds a `DiodePairPort`
+
+Antiderivative antialiasing replaces the endpoint value of the pair current with its average over
+the sample interval. That is a half-sample delay and a mild high-frequency attenuation, both
+inside the feedback loop, and both are real changes to the modelled circuit rather than artefacts
+of the measurement.
+
+Against ts_clip's LTspice transient the clip block's null falls from −80.3 / −73.7 / −76.0 dB to
+**−36.5 / −32.8 / −31.8 dB**, past the spec's −55 dB and past the case's own −60 dB. Three
+measurements say what that is and what it is not:
+
+- Nulling the antialiased block against the *plain* block through the same pipeline gives
+  −36.2 / −31.9 / −30.2 dB. The gap to LTspice is entirely the difference between the two ports.
+- The departure is first order in the timestep: plain against ADAA on a 1 kHz, 0.5 V stimulus at
+  Drive 0.5 reads −23.6 dB at 192 kHz, −48.6 dB at 1 MHz and −64.6 dB at 4 MHz.
+- Offering the reference delayed by half a sample does not recover it (−34.6 / −35.2 / −35.5 dB),
+  so the error is not a pure delay; the attenuation of the clipped corner is the larger part.
+
+The reference grid is 1 MHz, where a clipped corner has next to no aliasing left to remove. At
+that rate antialiasing can only spend its cost, which is why the null reads as pure loss. The
+number would look different against a reference decimated to 192 kHz, and that comparison does
+not exist yet.
+
+Newton's miss rate rises from 0.0054 % to 0.0105 % of samples, past the spec's 0.01 % gate, with
+zero NaN fallbacks and the same worst-case iteration count. The residual is the same function in
+both runs, so the extra misses are a different state trajectory reaching harder open-circuit
+voltages, not a harder solve.
+
+Cost is not the obstacle. Stepping the clip block four million times at 192 kHz reads 247 ns per
+sample through the plain port and 269 ns through the antialiased one, **+9 %**, which would take
+the node from 0.150 ms per 256-block to roughly 0.162 ms against a 0.25 ms budget. The closed-form
+antiderivative is what keeps it there: two exponentials per sample and no table.
+
+#### Recovering the null needs a decision that is not this task's to make
+
+Holters compensates the half sample by discretising the system at two thirds of the run rate and
+operating it at the full rate, so that a 1.5-sample loop delay reads as one sample. His two
+examples are circuits whose behaviour is the loop; the clip block is not. Retuning its
+discretisation would move every corner of the linear part by 1.5×, including the 0.31 Hz input
+high-pass and the small-signal response that
+`Unit_Dsp.DkTsClipBlockSmallSignalResponseMatchesItsClosedForm` pins to a closed form. That is
+why the compensation was not applied, and why the null is reported rather than accommodated.
+
+The open routes, with what is known about each:
+
+1. **Ship it as it stands.** −31.2 dB alias floor, −32 dB clip-block null, 0.0105 % Newton
+   misses. Buys 12.6 dB of the 19.7 dB C1 asked for.
+2. **Second-order antialiasing.** The second antiderivative of the composed map is also closed
+   form — every term integrates, `integral h^2 h' dv = h^3/3` included — and would plausibly
+   close the remaining 7.1 dB. It costs a full sample of loop delay instead of half, so it makes
+   the null worse, not better, and it needs a two-point history with a much stiffer
+   ill-conditioning guard.
+3. **Build the null the antialiasing deserves.** Decimate the 1 MHz reference to 192 kHz and null
+   both ports against it there. If ADAA is closer to the analogue circuit than the plain port is
+   at the shipping rate, that is the measurement that shows it, and the −32 dB above becomes
+   irrelevant. This is new test infrastructure, not a tuning change.
+4. **8× with the plain port**, C1's decision reverted. Task 9 measured the clip block at
+   1071 ns/sample at 8× against 586.7 ns/sample for the whole node at 4×, so the node would land
+   near 0.28 ms per 256-block against a 0.25 ms budget.
+
+#### A defect found on the way
+
+`SiliconDiode`'s reverse extrapolation mirrors its forward tangent line rather than continuing
+the Shockley law, so at `v = -1.8125 V` the reported current steps from −2.5 nA to −593 MA. The
+class documentation claims C¹ everywhere, and that claim is false at the negative knee. Nothing
+in the tree drives a converged solution there — the pair sits near ±0.7 V — and the antiderivative
+added here integrates the current the model actually reports, so it is consistent with whatever
+the model does. Changing the reverse branch would change the Newton guard behaviour of every DK
+block that uses the part, so it is left alone and recorded here.
+
 ---
 
 ## Phase D6d — JCM800 2203 rebuilt on DK

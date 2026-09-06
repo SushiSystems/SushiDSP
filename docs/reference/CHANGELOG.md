@@ -129,6 +129,10 @@ third-party dependency, no image file, no font file: every panel, knob and link 
 The Tube Screamer's rebuild onto the D6b solver, plan
 `.superpowers/sdd/2026-09-05-d6c-tubescreamer-on-dk/`.
 
+- 2026-09-07 — Added `AdaaDiodePairPort`, first-order antiderivative antialiasing on the clip block's diode pair, measured but not wired in (`modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamerCircuits.hpp`).
+- 2026-09-07 — Added `SiliconDiode::current_and_antiderivative()` and `current_antiderivative()`, piecewise with the current across both knees (`include/SushiDSP/circuits/models/SiliconDiode.hpp`).
+- 2026-09-07 — Added `HasCurrentsForUpdate`, a post-solve hook letting a nonlinear port restate the stamped branch currents (`include/SushiDSP/math/dk/DkCircuit.hpp`).
+- 2026-09-07 — Recorded that antialiasing buys 12.6 dB of alias floor and costs the clip block its LTspice null and its Newton gate (spec `2026-08-26-aaa-audio-quality-design.md`, Model corrections D6c C2).
 - 2026-09-06 — Corrected the TS808 tone reference to the published schematic: passive low-pass, tone pot across the op-amp inputs, 220 Ω / 220 nF wiper leg, non-inverting stage (`docs/reference/spice/ts_tone/ts_tone.asc`).
 - 2026-09-06 — Rebuilt `build_tone_block()` and made `tone_to_position()` the identity on the corrected netlist (`modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamerCircuits.hpp`).
 - 2026-09-06 — Added the tone block's closed-form, insertion-loss, knob-range, monotonicity and end-stop tests (`tests/functional/unit/test_ts_tone_stage.cpp`).

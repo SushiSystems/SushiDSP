@@ -128,13 +128,18 @@ namespace SushiDSP
         float level_db_ = 0.0f;
         float input_trim_db_ = 0.0f;
 
-        tube_screamer_circuits::ClipCircuit   clip_circuit_;
-        tube_screamer_circuits::DiodePairPort clip_port_;
-        tube_screamer_circuits::ToneCircuit   tone_circuit_;
-        tube_screamer_circuits::LinearPort    tone_port_;
-        std::size_t                           drive_pot_ = 0;
-        std::size_t                           tone_pot_ = 0;
-        bool                                  circuits_ready_ = false;
+        // Still the plain port. AdaaDiodePairPort is built, tested and measured, and switching
+        // this one declaration onto it is the whole of the change - but at the shipping 4x rate it
+        // trades 12.6 dB of alias floor for a clip block that misses the spec's LTspice null and
+        // its Newton gate. The decision is the user's and the evidence is in spec
+        // 2026-08-26-aaa-audio-quality-design.md, Model corrections (D6c C2).
+        tube_screamer_circuits::ClipCircuit       clip_circuit_;
+        tube_screamer_circuits::DiodePairPort     clip_port_;
+        tube_screamer_circuits::ToneCircuit       tone_circuit_;
+        tube_screamer_circuits::LinearPort        tone_port_;
+        std::size_t                               drive_pot_ = 0;
+        std::size_t                               tone_pot_ = 0;
+        bool                                      circuits_ready_ = false;
 
         std::unique_ptr<Oversampler4x> oversampler_;
         std::vector<float>             oversampled_scratch_;
