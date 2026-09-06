@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -146,7 +147,6 @@ TEST(Unit_Dsp, TubeScreamerLevelAndInputTrimClampToTheirDescriptorRange)
     EXPECT_FLOAT_EQ(node.get_parameter("input_trim"), -24.0f);
 }
 
-// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
 {
     auto settled_peak_at_trim = [](float trim_decibels)
@@ -267,40 +267,58 @@ TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
     EXPECT_NEAR(at_64, at_4096, 0.05 * at_64);
 }
 
-TEST(Unit_Dsp, TubeScreamerReportsMeasuredImpulseLatency)
+TEST(Unit_Dsp, TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseLag)
 {
-    // Drive 0 and a -60 dBFS impulse keep the clipper in its small-signal region, so the pedal is
-    // linear and the output peak lands exactly where the oversampler's group delay puts it.
+    // latency_samples() reports the one delay a host can compensate: the 4x oversampler's
+    // round-trip. The two DK blocks add group delay of their own, but it is frequency- and
+    // tone-knob-dependent, so it is tone rather than latency and reporting it would over-
+    // compensate at every frequency but one. The impulse peak therefore lands a couple of
+    // samples past the reported figure, and never before it - see the D6c plan, task 8.
     constexpr std::uint32_t block = 64;
-    SushiDSP::TubeScreamer node;
-    EXPECT_EQ(node.latency_samples(), 0u);
+    constexpr std::uint32_t max_block_group_delay = 4;
 
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
-    node.set_drive(0.0f);
-    node.set_tone(0.5f);
-    node.set_level(0.0f);
-
-    std::vector<float> input(block, 0.0f), output(block, 0.0f);
-    input[0] = 0.001f;
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
-
-    // Two blocks so a delay longer than one block would still be observed.
-    std::vector<float> observed;
-    for (int b = 0; b < 2; ++b)
+    auto peak_index_at_tone = [](float tone)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
-        node.process(context);
-        observed.insert(observed.end(), output.begin(), output.end());
-        std::fill(input.begin(), input.end(), 0.0f);
-    }
+        SushiDSP::TubeScreamer node;
+        node.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+        node.set_drive(0.0f);
+        node.set_tone(tone);
+        node.set_level(0.0f);
 
-    std::size_t peak_index = 0;
-    for (std::size_t i = 1; i < observed.size(); ++i)
+        std::vector<float> input(block, 0.0f), output(block, 0.0f);
+        input[0] = 0.001f;
+        const float* input_channels[1] = { input.data() };
+        float* output_channels[1] = { output.data() };
+
+        // Two blocks so a delay longer than one block would still be observed.
+        std::vector<float> observed;
+        for (int b = 0; b < 2; ++b)
+        {
+            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+            node.process(context);
+            observed.insert(observed.end(), output.begin(), output.end());
+            std::fill(input.begin(), input.end(), 0.0f);
+        }
+
+        std::size_t peak_index = 0;
+        for (std::size_t i = 1; i < observed.size(); ++i)
+        {
+            if (std::fabs(observed[i]) > std::fabs(observed[peak_index])) { peak_index = i; }
+        }
+        return std::make_pair(static_cast<std::uint32_t>(peak_index), node.latency_samples());
+    };
+
+    SushiDSP::TubeScreamer unprepared;
+    EXPECT_EQ(unprepared.latency_samples(), 0u);
+
+    for (float tone : { 0.0f, 0.5f, 1.0f })
     {
-        if (std::fabs(observed[i]) > std::fabs(observed[peak_index])) { peak_index = i; }
+        const auto measured = peak_index_at_tone(tone);
+        EXPECT_GE(measured.first, measured.second) << "tone " << tone;
+        EXPECT_LE(measured.first, measured.second + max_block_group_delay)
+            << "tone " << tone << ", peak at " << measured.first
+            << ", latency_samples() " << measured.second;
     }
-    EXPECT_EQ(static_cast<std::uint32_t>(peak_index), node.latency_samples());
 }
 
 TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
@@ -353,7 +371,6 @@ TEST(Unit_Dsp, TubeScreamerIsDcStableAcrossManyBlocksAtHighDrive)
     }
 }
 
-// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
 {
     auto measure_thd_proxy = [](float drive) -> float
@@ -414,7 +431,6 @@ TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
     EXPECT_LT(thd_low_drive, thd_high_drive);
 }
 
-// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Unit_Dsp, TubeScreamerToneControlsHighFrequencyBalance)
 {
     auto measure_high_frequency_rms = [](float tone) -> double
@@ -493,7 +509,6 @@ TEST(Unit_Dsp, TubeScreamerUnknownParameterIsSafeNoOp)
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
-// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelveDbfsInput)
 {
     // At default drive the pedal is close to unity at 82 Hz, so the shipped calibration leaves a
@@ -528,6 +543,112 @@ TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelve
     }
 
     const float peak_decibels = 20.0f * std::log10(peak);
-    EXPECT_GT(peak_decibels, -14.0f);
-    EXPECT_LT(peak_decibels, -10.0f);
+    EXPECT_GT(peak_decibels, -14.0f) << "measured peak " << peak_decibels << " dBFS";
+    EXPECT_LT(peak_decibels, -10.0f) << "measured peak " << peak_decibels << " dBFS";
+}
+
+TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
+{
+    // The D6a chain high-passed at 20 Hz with a biquad. The real pedal's input network is 1 uF
+    // into 510 kOhm - a 0.312069 Hz corner - so the response either side of 20 Hz is flat, and
+    // 30 Hz against 10 Hz is the pair that says so: a 20 Hz high-pass would put them octaves
+    // apart, while the circuit leaves the ratio near 1. The reference is not 300 Hz, which sits
+    // on the clip stage's own 4.7 kOhm / 0.047 uF boost slope and is 12 dB up for that reason.
+    // The chain measures 1.12; a second-order 20 Hz high-pass would put it near 3.9. Small
+    // signal throughout so the clipper does not compress the comparison.
+    auto settled_rms_at = [](double frequency)
+    {
+        SushiDSP::TubeScreamer node;
+        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+        node.set_drive(0.0f);
+        node.set_tone(0.5f);
+        node.set_level(0.0f);
+
+        std::vector<float> input(256, 0.0f), output(256, 0.0f);
+        const float* input_channels[1] = { input.data() };
+        float* output_channels[1] = { output.data() };
+        double index = 0.0, sum_squares = 0.0;
+        std::size_t counted = 0;
+
+        for (int block = 0; block < 200; ++block)
+        {
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                input[i] = static_cast<float>(
+                    0.01 * std::sin(2.0 * M_PI * frequency * (index + i) / 48000.0));
+            }
+            index += 256.0;
+            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            node.process(context);
+            if (block >= 100)
+            {
+                for (float sample : output)
+                {
+                    sum_squares += static_cast<double>(sample) * sample;
+                    ++counted;
+                }
+            }
+        }
+        return std::sqrt(sum_squares / static_cast<double>(counted));
+    };
+
+    const double rms_at_30_hz = settled_rms_at(30.0);
+    const double rms_at_10_hz = settled_rms_at(10.0);
+    EXPECT_LT(rms_at_30_hz / rms_at_10_hz, 1.5)
+        << "30 Hz " << rms_at_30_hz << ", 10 Hz " << rms_at_10_hz;
+}
+
+TEST(Unit_Dsp, TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicking)
+{
+    // The drive pot re-derives the clip block's matrices at block cadence (D6b ruling 3). Sweeping
+    // it across its whole travel over a second must not produce a sample-to-sample step: the
+    // largest first difference stays under the largest one the same render produces with the knob
+    // still at 1.0, its loudest end, times two.
+    constexpr std::uint32_t block = 256;
+    constexpr std::uint32_t blocks_per_second = 48000u / block;
+
+    auto largest_first_difference = [](bool sweeping)
+    {
+        SushiDSP::TubeScreamer node;
+        node.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+        node.set_drive(sweeping ? 0.0f : 1.0f);
+        node.set_tone(0.5f);
+        node.set_level(0.0f);
+
+        std::vector<float> input(block, 0.0f), output(block, 0.0f);
+        const float* input_channels[1] = { input.data() };
+        float* output_channels[1] = { output.data() };
+        double index = 0.0, largest = 0.0;
+        float previous = 0.0f;
+
+        for (std::uint32_t b = 0; b < blocks_per_second; ++b)
+        {
+            if (sweeping)
+            {
+                node.set_drive(static_cast<float>(b) / static_cast<float>(blocks_per_second - 1u));
+            }
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                input[i] = static_cast<float>(
+                    0.1 * std::sin(2.0 * M_PI * 220.0 * (index + i) / 48000.0));
+            }
+            index += block;
+            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+            node.process(context);
+
+            for (float sample : output)
+            {
+                if (b >= 10)
+                {
+                    largest = std::max(largest, std::fabs(static_cast<double>(sample - previous)));
+                }
+                previous = sample;
+            }
+        }
+        return largest;
+    };
+
+    const double still = largest_first_difference(false);
+    const double swept = largest_first_difference(true);
+    EXPECT_LT(swept, still * 2.0) << "swept " << swept << ", still " << still;
 }

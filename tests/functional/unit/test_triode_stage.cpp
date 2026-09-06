@@ -21,6 +21,7 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+#include <algorithm>
 #include <cmath>
 
 #include <gtest/gtest.h>
@@ -35,6 +36,7 @@ namespace
     constexpr float kGain = 60.0f;                       // approximate 12AX7 mu-derived stage gain
     constexpr float kSaturationCurrent = 1e-9f;
     constexpr float kThermalVoltage = 0.02585f;
+    constexpr double kPi = 3.14159265358979323846;
 }
 
 TEST(Unit_Dsp, TriodeStageIsDcStableForConstantInput)
@@ -135,4 +137,60 @@ TEST(Unit_Dsp, TriodeStageResolvesPastTheOldSymmetricCutoffBound)
     // the widened bound the deeper swing must resolve further, not pin at the moderate swing's
     // value.
     EXPECT_GT(plate_at_deep_swing, plate_at_moderate_swing * 1.3f);
+}
+
+TEST(Unit_Dsp, TriodeStageSixArgumentPathIsUnchangedByThePlateSwingOverload)
+{
+    SushiDSP::TriodeStage before(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f);
+    SushiDSP::TriodeStage huge(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 1e9f, 1e9f });
+    for (int i = 0; i < 4000; ++i)
+    {
+        const float x = 3.0f * static_cast<float>(std::sin(2.0 * kPi * 440.0 * i / 48000.0));
+        const float a = before.process_sample(x), b = huge.process_sample(x);
+        EXPECT_NEAR(a, b, 1e-3f * std::max(1.0f, std::fabs(a)));
+    }
+}
+
+TEST(Unit_Dsp, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
+{
+    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 194.0f, 115.0f });
+    float positive_peak = 0.0f, negative_peak = 0.0f;
+    for (int i = 0; i < 48000; ++i)
+    {
+        const float y = stage.process_sample(10.0f * static_cast<float>(std::sin(2.0 * kPi * 100.0 * i / 48000.0)));
+        positive_peak = std::max(positive_peak, y);
+        negative_peak = std::min(negative_peak, y);
+    }
+    // The cutoff side runs into the ceiling: the solver's 160 * Vt grid clamp puts at most
+    // 248 V into the tanh, which 194 V of supply headroom folds back to about 166 V.
+    EXPECT_LT(positive_peak, 194.0f);
+    EXPECT_GT(positive_peak, 0.8f * 194.0f);
+
+    // The conduction side stops well short of its own bound, because grid conduction limits the
+    // grid's rise long before the plate reaches the load-line bottom.
+    EXPECT_GT(negative_peak, -115.0f);
+    EXPECT_LT(negative_peak, -10.0f);
+
+    EXPECT_GT(positive_peak, 3.0f * -negative_peak);
+}
+
+TEST(Unit_Dsp, TriodeStageSmallSignalGainIsUnchangedByThePlateSwing)
+{
+    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 194.0f, 115.0f });
+    float peak = 0.0f;
+    for (int i = 0; i < 4800; ++i)
+    {
+        peak = std::max(peak, std::fabs(stage.process_sample(0.01f * static_cast<float>(std::sin(2.0 * kPi * 1000.0 * i / 48000.0)))));
+    }
+    EXPECT_NEAR(peak, 0.6f, 0.006f);
+}
+
+TEST(Unit_Dsp, TriodeStageReportsThePeakGridExcursionSinceReset)
+{
+    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 194.0f, 115.0f });
+    EXPECT_FLOAT_EQ(stage.peak_grid_excursion_volts(), 0.0f);
+    for (int i = 0; i < 480; ++i) stage.process_sample(-2.0f);
+    EXPECT_NEAR(stage.peak_grid_excursion_volts(), 2.0f, 0.05f);
+    stage.reset();
+    EXPECT_FLOAT_EQ(stage.peak_grid_excursion_volts(), 0.0f);
 }
