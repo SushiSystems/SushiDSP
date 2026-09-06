@@ -13,5 +13,6 @@ rule: `GoldenFile.hpp`. Tolerance: RMS residual <= -80 dB.
 | mesa_mark2c_48k/96k | DA2 Task 5, 2026-09-06 | first pin; Mark IIC+ lead mode after fix round 1 (`8c1ef6b`) |
 | diezel_vh4_48k/96k | DA2 Task 6, 2026-09-06 | first pin; VH4 channel 3 after fix round 2 (`c75f393`) |
 | peavey5150_48k/96k | DA2 Task 4, 2026-09-06 | first pin; 5150 lead after fix round 2 (`d877855`) |
+| diezel_vh4_48k/96k | DA3 final fix, 2026-09-06 | input low-pass removed (`9c7c66d`); default peak -6.159 -> -6.044 dBFS |
 
 Regenerate with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row here.
