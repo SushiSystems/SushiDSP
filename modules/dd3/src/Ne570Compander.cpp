@@ -48,12 +48,28 @@ namespace SushiDSP::dd3
     void Ne570Compander::prepare(double sample_rate)
     {
         sample_rate_ = sample_rate;
-        coefficient_ = 1.0 - std::exp(-1.0 / (sample_rate_ * kTimeConstantSeconds));
+        // Eight sub-steps of this pole are one step of the host-rate pole to the last bit:
+        // exp(-1/(8*fs*tau))^8 is exp(-1/(fs*tau)), so tau does not move with the sub-stepping.
+        coefficient_ = 1.0 - std::exp(-1.0 / (sample_rate_ * kRectifierOversampling
+                                              * kTimeConstantSeconds));
     }
 
     void Ne570Compander::reset()
     {
         envelope_ = 0.0;
+        previous_ = 0.0;
+    }
+
+    void Ne570Compander::advance_envelope(double volts)
+    {
+        const double step = (volts - previous_) / static_cast<double>(kRectifierOversampling);
+        double value = previous_;
+        for (int sub = 0; sub < kRectifierOversampling; ++sub)
+        {
+            value += step;
+            envelope_ += coefficient_ * (std::abs(value) * kFullWaveRectifierGain - envelope_);
+        }
+        previous_ = volts;
     }
 
     float Ne570Compander::process_sample(float volts)
@@ -66,11 +82,11 @@ namespace SushiDSP::dd3
         {
             const double gain = kReferenceVolts / std::max(envelope_, envelope_floor_volts);
             output = input * gain;
-            envelope_ += coefficient_ * (std::abs(output) * kFullWaveRectifierGain - envelope_);
+            advance_envelope(output);
         }
         else
         {
-            envelope_ += coefficient_ * (std::abs(input) * kFullWaveRectifierGain - envelope_);
+            advance_envelope(input);
             const double gain = std::max(envelope_, envelope_floor_volts) / kReferenceVolts;
             output = input * gain;
         }

@@ -33,8 +33,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <cstdio>
 #include <vector>
 
 #include "SushiDSP/dd3/Ne570Compander.hpp"
@@ -178,6 +181,44 @@ TEST(Unit_Dsp, Ne570RectifierRippleReachesTheSignalAtLowFrequencies)
     std::printf("[ measure ] NE570 compressor at 50 Hz / V_ref: THD %.3f %%, H3 %.2f dB\n",
                 result.thd_percent, result.per_harmonic_db[2]);
     EXPECT_GT(result.per_harmonic_db[2], -40.0);
+}
+
+TEST(Unit_Dsp, Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier)
+{
+    // |sin| carries a harmonic at every 2k*f0, so a rectifier sampled at the host rate folds
+    // them, and 48000/6 is the tone that folds one worst: the sixth harmonic lands on 48001.5 Hz
+    // and aliases to 1.46 Hz, two analysis bins off the carrier and far inside the 23.4051 Hz
+    // pole, so it modulates the gain cell at full weight. The board's rectifier is continuous
+    // time and does none of this, which is why kRectifierOversampling exists.
+    //
+    // This is the case that holds it there. The worst line outside the window's own main lobe
+    // reads -76.05 dB with the sub-stepping and -57.67 dB without it, so the -70 dB bound sits
+    // 6 dB below the measurement and 12 dB above what a host-rate rectifier produces.
+    // Ne570RectifierRippleReachesTheSignalAtLowFrequencies guards the opposite direction: the
+    // genuine 100 Hz ripple a 50 Hz tone makes must survive, and it does, unmoved at -23.75 dB.
+    SushiDSP::dd3::Ne570Compander compressor(SushiDSP::dd3::CompanderHalf::Compressor);
+    compressor.prepare(48000.0);
+    const double f0 = SushiDSP::measure::bin_exact_frequency(8000.0, 48000.0, SushiDSP::measure::kFftSize);
+    std::vector<float> output(48000u + SushiDSP::measure::kFftSize, 0.0f);
+    for (std::size_t n = 0; n < output.size(); ++n)
+    {
+        output[n] = compressor.process_sample(static_cast<float>(
+            2.0 * std::sin(2.0 * M_PI * f0 * static_cast<double>(n) / 48000.0)));
+    }
+    const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(output, 48000u);
+    const std::uint32_t centre = SushiDSP::measure::bin_of(f0, 48000.0);
+    const double carrier = SushiDSP::measure::peak_near(spectrum, centre);
+    // A bin-exact tone's Blackman-Harris main lobe ends at +-3 bins, so the search starts at 4.
+    double worst = -300.0;
+    for (int offset = -12; offset <= 12; ++offset)
+    {
+        if (std::abs(offset) < 4) { continue; }
+        worst = std::max(worst, spectrum[static_cast<std::size_t>(
+            static_cast<int>(centre) + offset)] - carrier);
+    }
+    std::printf("[ measure ] NE570 rectifier fold at 48000/6: worst carrier sideband %.2f dB\n",
+                worst);
+    EXPECT_LE(worst, -70.0);
 }
 
 TEST(Unit_Dsp, Ne570HalvesDoNotShareState)
