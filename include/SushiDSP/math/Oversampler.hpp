@@ -140,4 +140,44 @@ namespace SushiDSP
         std::vector<float> scratch_4x_;
         std::vector<float> scratch_2x_;
     };
+
+    /// @brief Cascades the first two committed Parks-McClellan halfband stages (see
+    /// HalfbandCoefficients.hpp) each way for 4x oversampling. Allocation-free after
+    /// construction.
+    class Oversampler4x
+    {
+    public:
+        /// @param block_size The base-rate block size this instance will be called with.
+        explicit Oversampler4x(std::uint32_t block_size);
+
+        /// @brief Upsamples one base-rate block to 4x. Returns an internally-owned buffer.
+        /// @param input block_size base-rate input samples.
+        /// @param frames Must not exceed the block_size passed to the constructor.
+        /// @return Pointer to frames*4 oversampled output samples, valid until the next call.
+        const float* upsample(const float* input, std::uint32_t frames);
+
+        /// @brief Downsamples a 4x-rate buffer back to the base rate.
+        /// @param oversampled frames_oversampled samples at 4x rate.
+        /// @param frames_oversampled Must not exceed 4 * the block_size passed to the constructor.
+        /// @param output frames_oversampled/4 base-rate output samples.
+        void downsample(const float* oversampled, std::uint32_t frames_oversampled, float* output);
+
+        /// @brief Resets every stage's history.
+        void reset();
+
+        /// @brief The base-rate block size this instance was constructed for.
+        std::uint32_t block_size() const { return block_size_; }
+
+        /// @brief Round-trip group delay of the two up and two down stages.
+        /// @return Delay in base-rate samples (rounded down).
+        std::uint32_t latency_samples() const;
+
+    private:
+        std::uint32_t block_size_;
+        HalfbandUpsampler2x stage1_up_, stage2_up_;
+        HalfbandDownsampler2x stage1_down_, stage2_down_;
+        std::vector<float> buffer_2x_;
+        std::vector<float> buffer_4x_;
+        std::vector<float> scratch_2x_;
+    };
 }

@@ -214,4 +214,53 @@ namespace SushiDSP
         std::fill(scratch_4x_.begin(), scratch_4x_.end(), 0.0f);
         std::fill(scratch_2x_.begin(), scratch_2x_.end(), 0.0f);
     }
+
+    Oversampler4x::Oversampler4x(std::uint32_t block_size)
+        : block_size_(block_size)
+        , stage1_up_(kHalfbandStage1)
+        , stage2_up_(kHalfbandStage2)
+        , stage1_down_(kHalfbandStage1)
+        , stage2_down_(kHalfbandStage2)
+        , buffer_2x_(static_cast<std::size_t>(block_size) * 2, 0.0f)
+        , buffer_4x_(static_cast<std::size_t>(block_size) * 4, 0.0f)
+        , scratch_2x_(static_cast<std::size_t>(block_size) * 2, 0.0f)
+    {
+    }
+
+    const float* Oversampler4x::upsample(const float* input, std::uint32_t frames)
+    {
+        stage1_up_.process(input, frames, buffer_2x_.data());
+        stage2_up_.process(buffer_2x_.data(), frames * 2, buffer_4x_.data());
+        return buffer_4x_.data();
+    }
+
+    void Oversampler4x::downsample(const float* oversampled, std::uint32_t frames_oversampled,
+        float* output)
+    {
+        // Reverse of the upsample cascade: stage 2 is the one running at the 4x rate.
+        stage2_down_.process(oversampled, frames_oversampled, scratch_2x_.data());
+        stage1_down_.process(scratch_2x_.data(), frames_oversampled / 2, output);
+    }
+
+    std::uint32_t Oversampler4x::latency_samples() const
+    {
+        // A linear-phase FIR of T taps delays by (T-1)/2 samples at its own rate. Up-stages run
+        // at 2x, 4x of base; down-stages at the same rates. Convert each to base-rate samples.
+        const double up = (stage1_up_.taps() - 1) / 2.0 / 2.0
+                        + (stage2_up_.taps() - 1) / 2.0 / 4.0;
+        const double down = (stage2_down_.taps() - 1) / 2.0 / 4.0
+                          + (stage1_down_.taps() - 1) / 2.0 / 2.0;
+        return static_cast<std::uint32_t>(up + down);
+    }
+
+    void Oversampler4x::reset()
+    {
+        stage1_up_.reset();
+        stage2_up_.reset();
+        stage1_down_.reset();
+        stage2_down_.reset();
+        std::fill(buffer_2x_.begin(), buffer_2x_.end(), 0.0f);
+        std::fill(buffer_4x_.begin(), buffer_4x_.end(), 0.0f);
+        std::fill(scratch_2x_.begin(), scratch_2x_.end(), 0.0f);
+    }
 }
