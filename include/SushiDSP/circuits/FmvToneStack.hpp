@@ -39,7 +39,7 @@ namespace SushiDSP
         float middle_capacitor_farads;   ///< C3, into the middle pot.
         float slope_resistor_ohms;       ///< The slope resistor from input to the bass/mid node; Yeh's R4.
         float bass_potentiometer_ohms;   ///< R2, bass pot as a rheostat.
-        float middle_potentiometer_ohms; ///< R3, middle pot as a rheostat.
+        float middle_potentiometer_ohms; ///< R3, middle pot end to end, tapped by C3 at the wiper.
         float treble_potentiometer_ohms; ///< Treble pot end to end; Yeh's R1.
     };
 
