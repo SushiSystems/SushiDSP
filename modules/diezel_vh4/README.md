@@ -22,27 +22,27 @@ Every stage below cites the dossier section its numbers come from. `TriodeStage`
 `FmvToneStack`, `ResonanceControl`, `OutputTransformerStage`, `PowerSupplySagStage` and `Biquad`
 are the repo's own bricks; `DiezelVh4` owns the order they run in and nothing else knows it.
 
-| Stage | What runs | Numbers from |
-| --- | --- | --- |
-| R1 1 M, C1 100–200 pF | not modelled; C1's corner depends on the source impedance | 3.1 |
-| V1a, Ra 120 k, Rk 2k2 bypassed by 47 µF | `TriodeStage`, gain 56.8, Vgk −2.05 V, grid leak 1 M | 3.1, 6 |
-| C13 1 nF, R14 220 k, GAIN 250 k | first-order high-pass whose corner tracks the knob, plus the pot's own division | 3.1, 3.2, 6 |
-| R21 47 k stopper, R22 3M3 grid leak | Miller low-pass, 26.5 kHz | 3.3 |
-| V2a, Ra 120 k, Rk 680 ∥ 1 µF | `TriodeStage`, gain 67.2, Vgk −1.02 V; cathode shelf, zero 234 Hz, pole 603 Hz, −8.22 dB | 3.3, 6 |
-| C18 4.7 nF into the relay node | first-order high-pass, 63.8 Hz; divider ×0.4996 | 3.4, 6 |
-| R26 470 k stopper | Miller low-pass, 2.51 kHz | 3.4 |
-| V3a, Ra 120 k, Rk 680 ∥ 2.2 µF | `TriodeStage`, gain 71.4, Vgk −1.02 V; cathode shelf, zero 106 Hz, pole 274 Hz, −8.22 dB | 3.4, 6 |
-| V3b cathode follower, Rk 120 k | scalar ×0.986, then a first-order high-pass at 2.26 Hz | 3.5, 6 |
-| Tone stack | `DiezelVh4ToneStack`: 560 pF, 22 nF, 22 nF, 39 k slope, pots 1 M / 22 k / 220 k | 4 |
-| R42 470 k, VOLUME 470 k, R43 680 k into the 48.1 k mix node | knob × 0.5, then ×0.0660 | 2, 6 |
-| V4a, Ra 120 k, Rk 640 unbypassed | `TriodeStage`, gain 28.7, Vgk −0.98 V | 6 |
-| V4b send buffer | scalar ×0.986 | 2 |
-| Loop return driver, phase inverter | one `TriodeStage` at gain 40 | 5 — nothing established |
-| EL34 quad | two `PentodeStage(kDiezelVh4PowerEl34)` | 7 |
-| Output transformer, supply sag | JCM800 constants | 5 — nothing established |
-| Deep | `ResonanceControl` at 80 Hz, 10 dB | 5, 6 |
-| Presence | high shelf at 4 kHz, ±9 dB | 5, 6 |
-| Cabinet, master, clamp | as the JCM800 | — |
+| Stage | What runs | Plate swing, V up / V down | Numbers from |
+| --- | --- | --- | --- |
+| R1 1 M, C1 100–200 pF | not modelled; C1's corner depends on the source impedance | — | 3.1 |
+| V1a, Ra 120 k, Rk 2k2 bypassed by 47 µF | `TriodeStage`, gain 56.8, Vgk −2.05 V, grid leak 1 M | 111.7 / 144.167 | 3.1, 6 |
+| C13 1 nF, R14 220 k, GAIN 250 k | first-order high-pass whose corner tracks the knob, plus the pot's own division | — | 3.1, 3.2, 6 |
+| R21 47 k stopper, R22 3M3 grid leak | Miller low-pass, 26.5 kHz | — | 3.3 |
+| V2a, Ra 120 k, Rk 680 ∥ 1 µF | `TriodeStage`, gain 67.2, Vgk −1.02 V; cathode shelf, zero 234 Hz, pole 603 Hz, −8.22 dB | 180.8 / 75.857 | 3.3, 6 |
+| C18 4.7 nF into the relay node | first-order high-pass, 63.8 Hz; divider ×0.4996 | — | 3.4, 6 |
+| R26 470 k stopper | Miller low-pass, 2.51 kHz | — | 3.4 |
+| V3a, Ra 120 k, Rk 680 ∥ 2.2 µF | `TriodeStage`, gain 71.4, Vgk −1.02 V; cathode shelf, zero 106 Hz, pole 274 Hz, −8.22 dB | 180.8 / 75.857 | 3.4, 6 |
+| V3b cathode follower, Rk 120 k | scalar ×0.986, then a first-order high-pass at 2.26 Hz | — | 3.5, 6 |
+| Tone stack | `DiezelVh4ToneStack`: 560 pF, 22 nF, 22 nF, 39 k slope, pots 1 M / 22 k / 220 k | — | 4 |
+| R42 470 k, VOLUME 470 k, R43 680 k into the 48.1 k mix node | knob × 0.5, then ×0.0660 | — | 2, 6 |
+| V4a, Ra 120 k, Rk 640 unbypassed | `TriodeStage`, gain 28.7, Vgk −0.98 V | 184.0 / 72.688 | 6 |
+| V4b send buffer | scalar ×0.986 | — | 2 |
+| Loop return driver, phase inverter | one `TriodeStage` at gain 40 | 15.801 / 209.534 | 5 — nothing established |
+| EL34 quad | two `PentodeStage(kDiezelVh4PowerEl34)` | — | 7 |
+| Output transformer, supply sag | JCM800 constants | — | 5 — nothing established |
+| Deep | `ResonanceControl` at 80 Hz, 10 dB | — | 5, 6 |
+| Presence | high shelf at 4 kHz, ±9 dB | — | 5, 6 |
+| Cabinet, master, clamp | as the JCM800 | — | — |
 
 V1a through the sag stage runs inside one 8× oversampled region, so every corner in that span is
 derived at the oversampled rate. Presence, Deep, the master volume and the
@@ -139,29 +139,44 @@ make, which is ×0.0660, or −23.6 dB (§6). That shunt exists only because all
 single-channel module has to write the number down or drive the mixer triode 24 dB too hard; the
 dossier's §8 question 13 says so in those terms.
 
-### Level staging is this module's own
+### Level staging is gone
 
-`TriodeStage` returns its gain times the grid's excursion and models no plate-swing ceiling, so a
-stage's output sits on a different scale from the plate voltage the drawing's dividers were computed
-against. Applied literally they leave every grid past V1a pinned to the solver's cutoff bound, and
-the amp becomes a fixed-amplitude square-wave generator with dead knobs — the failure `Jcm800.cpp`'s
-own interstage comment records. Four factors in `DiezelVh4.cpp` carry the operating level forward
-instead: `kV1aToV2aLevelStaging`, `kV2aToV3aLevelStaging`, `kFollowerToMixBusLevelStaging` and
-`kV4bToPhaseInverterLevelStaging`. None of them is a dossier value. The dossier's own dividers
-(×0.4996, the volume divider, ×0.0660) are applied separately and unchanged. The two constants after
-them, `kPhaseInverterToPowerTubeAttenuation` and `kPowerTubeToTransformerAttenuation`, keep
-`Jcm800.cpp`'s names because the name is the citation.
+The four staging factors this module carried until 2026-09-07 —
+`kV1aToV2aLevelStaging`, `kV2aToV3aLevelStaging`, `kFollowerToMixBusLevelStaging` and
+`kV4bToPhaseInverterLevelStaging` — were removed by
+[the plate-swing spec](../../docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md), which
+gave `TriodeStage` the plate ceiling the table above lists and left the dossier's own dividers
+(×0.4996, the volume divider, ×0.0660 and the two follower scalars) as the only interstage factors
+in the chain. `kPhaseInverterToPowerTubeAttenuation` and `kPowerTubeToTransformerAttenuation` stay,
+the second as this chain's one output trim to full scale, and both keep `Jcm800.cpp`'s names
+because the name is the citation.
 
-`kFollowerToMixBusLevelStaging` is the one that multiplies rather than divides. The stack's
-insertion loss, the volume divider and the −23.6 dB mix bus are all real, and the real V3b drives
-them from a swing several times what this model's V3a plate produces.
+### Where the plate swings come from
 
-`kV1aToV2aLevelStaging` is the one that decides whether the gain knob does anything, because V1a
-sits ahead of the pot and no other stage does. Its first value, 1/8, walked V2a's grid from 0.023 V
-to 0.197 V across the knob at a 0.2 input — the whole travel under the 0.203 V conduction knee — so
-the amp's 4 % of THD was V1a's alone and the knob could not move it: 4.43 % at gain 0.1, 3.73 % at
-0.5, 4.20 % at 1.0. At 5/8 the same knob walks that grid from 0.113 V to 0.985 V and the sweep
-climbs to 4.3 %, 17.0 %, 24.2 %, with every grid still well inside the solver's −4.14 V bound.
+Each `PlateSwing` is `{ 367 − Va, Va − Va_bottom }`. `Va` is the dossier's §6 idle plate voltage;
+`Va_bottom` is the plate solved at `Vgk = 0` on the stage's 120 kΩ load line against the Koren
+12AX7 of `include/SushiDSP/circuits/models/Triode12AX7.hpp`, by bisection, with the cathode held at
+its idle voltage. V4a's 640 Ω cathode is unbypassed, so holding its cathode at the idle 0.98 V and
+reading `Vgk = 0` as the conduction limit is a simplification: the real cathode rises as the stage
+conducts, which would put the bottom a little higher. The phase inverter is a modelling choice like
+the rest of that stage — it takes the JCM800 long-tailed pair's swing, computed from
+[`jcm_ltp`](../../docs/reference/spice/jcm_ltp/README.md) at B+ 360 V, where the 82 kΩ half
+self-biases to `Vk` 3.910 V and `Va` 344.199 V. That leaves only 15.8 V toward the supply, which
+`jcm_ltp_tran.csv` corroborates: its differential probe reaches −20.7 V to +22.5 V at a 1 V drive.
+
+### Two grids still sit on the solver's cutoff clamp
+
+`DiezelVh4NoGridSitsOnItsBoundAtDefaultSettings` does not pass. At the default knobs and a
+−12 dBFS input the five stages read 0.2485 V, 3.7076 V, **4.1360 V**, 1.1024 V and **4.1360 V**,
+and 4.136 V is exactly the `160·Vt` cutoff clamp `TriodeStage`'s solver applies. V3a is driven
+there by V2a's plate, which the ceiling holds at 75.9 V into a ×0.4996 divider; the phase inverter
+is driven there by V4a's, held at 72.7 V. A plate ceiling measured in tens of volts cannot keep the
+grid behind it inside four, so the ceiling does not, on its own, do what the spec's acceptance
+asks of it here. §6 of the dossier says the same thing about the real circuit — "every stage after
+the first is in grid conduction on any real input" — so the excursion is physically right and the
+clamp is what the model reads it against. The spec owner has the ruling; the send pad below is the
+one dossier divider that would move the phase inverter (to 1.31 V, measured), and nothing in the
+dossier moves V3a.
 
 ### C1 is not modelled
 
@@ -238,12 +253,11 @@ Three of the preset's seven fields are modelling choices inherited from `kEl34` 
 at its default and a −12 dBFS 1 kHz sine in, the output peaks near −6 dBFS.
 `DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` is the test that reads it.
 
-The shipped value came from one measurement plus one correction. That test read −18.969 dBFS on
-2026-09-06 with the constant at 0.71, which puts the amp's own peak at 0.158596 with the master at
-unity. The same run's THD sweep then moved `kV1aToV2aLevelStaging` from 1/8 to 5/8, and two offline
-runs of the chain at 1 kHz and 0.251 in, before and after, put the lift that gives the output at
-×1.471086. `10^(-6/20) / (0.158596 × 1.471086)` = 2.148178. At that value, with C1's input low-pass out of
-the chain, the test read −6.044 dBFS on 2026-09-06.
+The shipped value is one measurement. With the four staging factors removed on 2026-09-07 the
+chain runs about 40 dB hotter into the power section than it did, so the constant fell from
+2.148178 to **0.816610**, at which the test reads −5.999 dBFS. The measurement is direct: the
+constant multiplies the signal after the last nonlinearity, so it is set, the test run, and the
+constant scaled by the decibels the reading misses.
 
 There is no measured target to calibrate anything else against. **No bench measurement of a VH4 has
 been published** — no frequency response, no THD figure, no input sensitivity, no capture of any
@@ -251,16 +265,12 @@ node. The dossier searched for one and says so. What the tests assert instead ar
 points, the corner frequencies and the two impedance figures §6 lists, which test this module
 against the documented circuit rather than against an amplifier.
 
-`DiezelVh4MixBusAttenuationIsApplied` asserts a small-signal gain, which §6 warns against for the
-raw cascade: at 108.7 dB before the stack's loss and the mix divider, "nothing survives that
-linearly". What the test pins instead is the product of every factor this module applies at 1 kHz
-with the knobs at noon, level-staging constants included — ×4.668, or **+13.38 dB**, with the
-per-factor table in the test's own comment. The master contributes ×1 there, because the test sets
-the knob to the reciprocal of `kMasterUnityGain`.
-
-−60 dBFS is small-signal for this chain, which is worth checking rather than assuming, given that
-V1a clips at any level the amp is actually played at: the gain reads 13.383 dB at −60 dBFS, 13.387
-at −80 and 13.373 at −100, so 0.001 in leaves V1a's grid far enough under its 0.203 V knee.
+`DiezelVh4MixBusAttenuationIsApplied` no longer asserts a small-signal gain, because since the
+staging came out there is no small signal: at −60 dBFS in, V3a's plate is already on its ceiling
+and the phase inverter's grid is already on the solver's cutoff clamp, so the amp is a limiter at
+every input level. The test reads **54.497 dB** at 1 kHz with the knobs at noon (2026-09-07), and
+what it still proves is that `kMixBusAttenuation` is in the chain at all. Its comment writes out
+the linear part of the cascade and names the stage where the arithmetic stops being a product.
 
 ## Not modelled
 
