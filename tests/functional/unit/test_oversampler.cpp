@@ -273,6 +273,55 @@ TEST(Unit_Dsp, Oversampler8xLatencyMatchesMeasuredImpulseDelay)
     EXPECT_LE(difference, 1);
 }
 
+TEST(Unit_Dsp, Oversampler4xRoundTripDroopAt20kIsWithinTenthOfADecibel)
+{
+    // 20 kHz at 48 kHz is 0.4167*f_base, inside the 0.45 passband; round trip through the two
+    // stages shared with Oversampler8x's own stages 1 and 2.
+    const std::size_t base_frames = SushiDSP::measure::kFftSize;
+    const double cycles = std::round(20000.0 / 48000.0 * base_frames) / base_frames;
+    const auto input = sine(cycles, base_frames * 2, 0.5f);
+    SushiDSP::Oversampler4x oversampler(256);
+    std::vector<float> output(input.size(), 0.0f);
+    for (std::size_t position = 0; position < input.size(); position += 256)
+    {
+        const float* up = oversampler.upsample(input.data() + position, 256);
+        oversampler.downsample(up, 1024, output.data() + position);
+    }
+    double input_rms = 0.0, output_rms = 0.0;
+    for (std::size_t i = base_frames; i < input.size(); ++i)
+    {
+        input_rms += static_cast<double>(input[i]) * input[i];
+        output_rms += static_cast<double>(output[i]) * output[i];
+    }
+    EXPECT_NEAR(10.0 * std::log10(output_rms / input_rms), 0.0, 0.1);
+}
+
+TEST(Unit_Dsp, Oversampler4xLatencyMatchesMeasuredImpulseDelay)
+{
+    SushiDSP::Oversampler4x oversampler(256);
+    std::vector<float> input(2048, 0.0f);
+    input[0] = 1.0f;
+    std::vector<float> output(2048, 0.0f);
+    for (std::size_t position = 0; position < input.size(); position += 256)
+    {
+        const float* up = oversampler.upsample(input.data() + position, 256);
+        oversampler.downsample(up, 1024, output.data() + position);
+    }
+    std::size_t peak = 0;
+    for (std::size_t i = 1; i < output.size(); ++i)
+    {
+        if (std::fabs(output[i]) > std::fabs(output[peak]))
+        {
+            peak = i;
+        }
+    }
+    // The true group delay is fractional at base rate (31.75 samples, see the derivation in
+    // Oversampler4x::latency_samples); the reported floor is within one sample.
+    const long difference = static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
+    EXPECT_GE(difference, 0);
+    EXPECT_LE(difference, 1);
+}
+
 TEST(Unit_Dsp, Oversampler8xPassesDcAtUnity)
 {
     SushiDSP::Oversampler8x oversampler(256);
