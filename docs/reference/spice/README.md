@@ -98,10 +98,10 @@ carry three genuinely different runs, and a transient null is the acceptance cri
 all three. Every other block steps a real control and its AC `setting` column means what it
 says.
 
-## Things to check on the first run
+## Things to watch in the results
 
-Nothing here has been simulated, so these are the specific failures to look for rather than
-a general warning:
+All eight blocks have been simulated. These are the specific failures to look for when a
+block is regenerated:
 
 - **`EL34_KOREN` convergence near `Vg2k = 0`.** The Koren pentode's `E1` divides by `Vg2k`:
   `E1 = (Vg2k/kp)*ln(1 + exp(kp*(1/mu + Vg1k/Vg2k)))`. At the start of a run, before the
@@ -113,14 +113,15 @@ a general warning:
   clamp it identically or the null test will measure the clamp instead of the solver.
 - **The `ts_tone` topology**, which is reconstructed from D6c's prose rather than traced
   from a board. It should be monotonic between 300 Hz and 2 kHz with no notch (D6c's
-  acceptance criterion). `jcm_fmv` was reconstructed the same way but has since been
-  reviewed node-for-node against the 2203 stack and confirmed correct; it should still show
-  the characteristic mid scoop at noon.
+  acceptance criterion). `jcm_fmv` was reconstructed the same way and its treble-pot return
+  node was found wrong on 2026-09-06 (commit b3badb1); the corrected deck shows the
+  characteristic mid scoop at noon and reads 0 dB at 10 Hz.
 - **`jcm_pp_ot_nfb` feedback polarity**, which depends on transformer dot orientation. If
   the loop turns out positive (oscillation, or gain rising as `Rnfb` is reduced), swap the
   secondary: write `Ls 0 sec` instead of `Ls sec 0`.
-- **Zero-valued pot sections** at `LEVEL = 1` (`ts_tone`) and `MASTER = 1` (`jcm_fmv`).
-  LTspice shorts a 0 Ω resistor and warns; that is the intended behaviour, not an error.
+- **Zero-valued pot sections** at `LEVEL = 1` (`ts_tone`). LTspice shorts a 0 Ω resistor
+  and warns; that is the intended behaviour, not an error. `jcm_fmv` no longer has a master
+  volume, so it no longer reaches this case.
 
 ## Checklist for generating the CSVs
 
@@ -133,4 +134,4 @@ a general warning:
 4. Commit the generated `<block>_ac.csv` and `<block>_tran.csv` files.
 5. Replace "not yet generated" in every block README's **LTspice version** line with the
    version actually used, and drop the "not yet simulated" banner from that README and from
-   this one.
+   this one. Done for all eight blocks on 2026-09-06.

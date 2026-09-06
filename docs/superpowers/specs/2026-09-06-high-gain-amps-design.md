@@ -1,7 +1,9 @@
 # High-gain amplifiers: Peavey 5150, Mesa/Boogie Mark IIC+, Diezel VH4
 
-**Status:** draft, awaiting maintainer review. Roadmap prefix **DA** (Dsp Amplifier); phases
-DA0 through DA3 below.
+**Status:** DA0 and DA1 shipped; DA2 onwards awaiting maintainer review. Roadmap prefix **DA**
+(Dsp Amplifier); phases DA0 through DA3 below. The VH4 dossier's verdict is "documented
+approximation", and its evidence points to the EL34 as the stock power tube; KT77 is this spec's
+scope choice and stands until the maintainer decides.
 
 ## 1. Goal
 
@@ -76,10 +78,13 @@ unit test, no dependency on any product module.
   so the class is not Mesa-specific. Used by the IIC+ now; usable by a Mark IV later.
 - **`FmvToneStack`** (`circuits/FmvToneStack.hpp`). The Fender/Marshall/Vox passive stack,
   parameterised by its component values. The JCM800's `JcmToneStack` is one instance of this
-  topology with 2203 values. Whether `JcmToneStack` becomes a thin alias of `FmvToneStack` is
-  decided during DA1 from the coefficient derivation; if the two derivations differ in structure,
-  `JcmToneStack` stays untouched and the note here is updated. The 5150 and the IIC+ both use
-  FMV-shaped stacks with their own values.
+  topology with 2203 values. DA1 decided that `JcmToneStack` stays as it is: it is a
+  three-biquad approximation that sits 6 to 16 dB from the passive stack, so delegating to
+  `FmvToneStack` would move the JCM800 goldens. The two implementations coexist and
+  `FmvToneStack` serves the new modules. The 5150 and the IIC+ both use FMV-shaped stacks with
+  their own values. `FmvToneStack` as written implements the three-terminal wiper form of the
+  mid pot; all four amplifiers wire that pot as a rheostat, and deriving the rheostat
+  coefficients is part 2's first task.
 
 ## 5. Research dossiers (DA1, parallel with §4)
 

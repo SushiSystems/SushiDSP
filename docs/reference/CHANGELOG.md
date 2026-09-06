@@ -8,6 +8,12 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
 The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-gain-amps-part1/`.
 
 - 2026-09-06 — Moved `TriodeStage`, `PentodeStage`, `OutputTransformerStage`, `PowerSupplySagStage` to `include/SushiDSP/circuits/stages/`; added `PowerTubePresets.hpp` (`kEl34`).
+- 2026-09-06 — Added `ResonanceControl`, a resonant low-shelf for the presence/resonance feedback path (`include/SushiDSP/circuits/stages/ResonanceControl.hpp`).
+- 2026-09-06 — Added `GraphicEqualizer`, a cascade of peaking biquads on centres given at construction (`GraphicEqualizer.hpp`, `GraphicEqualizer.cpp`).
+- 2026-09-06 — Added `FmvToneStack`, the Fender-Marshall-Vox stack as a closed-form biquad triple, nulled against `jcm_fmv` (`FmvToneStack.hpp`, `FmvToneStack.cpp`).
+- 2026-09-06 — Corrected the `jcm_fmv` treble-pot return node and removed its master volume, then regenerated both CSVs (`docs/reference/spice/jcm_fmv/`).
+- 2026-09-06 — Marked all eight SPICE blocks simulated in their status and LTspice-version lines (`docs/reference/spice/*/README.md`).
+- 2026-09-06 — Added design dossiers for the Peavey 5150, Mesa Mark IIC+ and Diezel VH4 (`docs/reference/research/2026-09-06-peavey-5150-design-dossier.md`, `-mesa-mark-iic-plus-`, `-diezel-vh4-`).
 
 ## DR2 — Boss DD-3 delay
 
