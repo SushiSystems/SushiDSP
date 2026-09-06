@@ -114,19 +114,11 @@ namespace SushiDSP
         // three 1 MOhm resistors give R91 / (R87 + R88 + R91) = 0.3333.
         constexpr float kV5bToV5aAttenuation = 0.3333f;
 
-        // Level staging. Modelling choices, top to bottom, and not dossier values: the dossier's
-        // own dividers above are the real circuit's, and on their own they leave every grid past
-        // V1A driven two to three orders of magnitude beyond its conduction knee, which turns the
-        // cascade into a fixed-amplitude square-wave generator with a dead gain knob. Measured
-        // before these were added: at a -40 dBFS input and PRE GAIN 0.05, V5A's grid sat at 5.63 V
-        // against a knee near 0.10 V.
-        //
-        // One rule sets all seven, so none of them is a free knob. A link's total attenuation is
-        // 1/(the gain of the stage it drives), which is what carries the operating level forward
-        // unchanged - the argument modules/jcm800/src/Jcm800.cpp spells out for its own interstage
-        // constants. Each staging factor below is that target divided by the dossier's own divider
-        // for the same link, so the dossier still sets each link's frequency behaviour and its
-        // relative weight and the staging factor only sets where the cascade sits in level.
+        // Level staging: each link's total attenuation is 1/(the gain of the stage it drives), and
+        // each factor below is that target divided by the dossier's divider for the same link, so
+        // the two multiply to the target and the staging alone sets the level. Modelling choices,
+        // not dossier values; modules/peavey5150/README.md, "Interstage level staging", carries the
+        // measurement that forced them and what the dividers do and do not contribute.
         constexpr float kPreGainPotCeiling = 0.0153374f;               // (1/65.2) / 1.0.
         constexpr float kV1bToV2aLevelStaging = 0.665425f;             // (1/2.21) / 0.680.
         constexpr float kV2aToV2bLevelStaging = 0.0158584f;            // (1/77.4) / 0.8147.
@@ -135,12 +127,15 @@ namespace SushiDSP
         constexpr float kToneStackToV3aLevelStaging = 0.289396f;       // (1/14.0) / (0.4825*0.522*0.98).
         constexpr float kV3aToPhaseInverterLevelStaging = 0.0336700f;  // (1/29.7) / 1.0.
 
-        // The eighth runs the other way, as the VH4's kFollowerToMixBusLevelStaging does. The seven
-        // above hand the pair's plate a fraction of a volt, and a 6L6GC with this preset's gain of
-        // 6 reaches its 1/0.048 = 20.8 V ceiling only at 3.47 V of grid drive, so without a lift
-        // the power section would never leave its linear region and the amplifier would have no
-        // power-stage character at all. Measured to put the default setting just into saturation.
-        constexpr float kPhaseInverterToPowerTubeLevelStaging = 30.0f;
+        // The eighth runs the other way, as the VH4's kFollowerToMixBusLevelStaging does, and it is
+        // derived like the seven above: the target is the grid drive at which the output tubes
+        // begin to saturate, 1/(plate_saturation_drive * gain) = 1/(0.048 * 6) = 3.472 V, and the
+        // factor is that divided by what the pair delivers without it. Probed at the default
+        // setting and a -12 dBFS input, the pair's plate hands the grids 0.1213 V through the
+        // dossier's 0.8617 divider, so 3.472 / 0.1213 = 28.62. The default setting therefore sits
+        // exactly at the onset of power-tube saturation and POST GAIN above 0 dB takes it in, which
+        // is what dossier section 6's 130 W at 5 % THD describes.
+        constexpr float kPhaseInverterToPowerTubeLevelStaging = 28.62f;
 
         // Dossier section 5: the pair's plates drive R55/R54 220k through C29/C28 with only the
         // 2.2 kOhm stoppers between the node and the grids, so the loss is the 220 kOhm leak
@@ -274,12 +269,11 @@ namespace SushiDSP
         constexpr float kMaxPresenceDb = 10.0f;
         constexpr float kResonanceMaxBoostDb = 10.0f;
 
-        // Both corners sit below the frequency section 6 names, and the reason is the shelf's own
-        // shape rather than the circuit. An RBJ shelf reaches half its decibel gain at its corner
-        // and the plateau only well past it, so a shelf cornered at 2 kHz is +5 dB at 2 kHz, not
-        // the +10 dB section 6 publishes. Section 6 states the boost measured *at* a frequency, so
-        // each corner is placed where the plateau has arrived by then: 600 Hz reads 9.90 dB at
-        // 2 kHz and 330 Hz reads 9.90 dB at 100 Hz. Both placements are modelling choices.
+        // Each corner sits on the plateau side of the frequency section 6 names - the presence
+        // shelf below its 2 kHz, the resonance shelf above its 100 Hz - because an RBJ shelf gives
+        // half its decibel gain at its own corner and the full amount only well past it, and
+        // section 6 publishes the boost measured *at* a frequency. 600 Hz reads 9.90 dB at 2 kHz;
+        // 330 Hz reads 9.90 dB at 100 Hz. Both placements are modelling choices.
         constexpr float kPresenceHz = 600.0f;
 
         // Section 5 derives no corner for the resonance shelf and section 6 names only "the
@@ -287,13 +281,11 @@ namespace SushiDSP
         // The shelf's own corner sits above it for the reason given above.
         constexpr float kResonanceCornerHz = 330.0f;
 
-        // The lowest corner a coupling capacitor in this chain can actually be given. Eight of the
-        // eleven compute below 20 Hz, and at 8 x 48 kHz a second-order section at 2 Hz puts its
-        // pole within 5e-6 of z = 1, which a Biquad's float coefficients and float state cannot
-        // hold: the section stops behaving as a filter and its state accumulates instead of
-        // decaying. Realising those eight at 20 Hz costs 0.016 dB each at the low E's 82 Hz,
-        // 0.13 dB across all eight, and 1.9 dB at 41 Hz. A modelling choice forced by the
-        // arithmetic and not by the circuit; each capacitor's computed corner stays in its comment.
+        // The lowest corner a coupling capacitor here can be given: below it a Biquad's float
+        // coefficients cannot hold the pole at 8 x 48 kHz. Eight of the eleven are floored to it.
+        // A modelling choice forced by the arithmetic and not by the circuit; the cost and the
+        // measurement are in modules/peavey5150/README.md, "The coupling capacitors' lowest
+        // realisable corner", and each capacitor's computed corner stays in its own comment.
         constexpr double kMinimumCouplingCornerHz = 20.0;
 
         constexpr double kFilterQ = 0.7071;

@@ -286,7 +286,7 @@ TEST(Unit_Dsp, Peavey5150ThdIncreasesWithGain)
     //
     // The sweep starts at 0.2 rather than at the bottom of the knob. Below that the amp is clean
     // enough at this input that the reading is the spectrum's own floor rather than distortion:
-    // 0.226% at pre gain 0.05 against 0.071% at 0.2, measured 2026-09-06.
+    // 0.225% at pre gain 0.05 against 0.071% at 0.2, measured 2026-09-06.
     const float positions[] = { 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
     double previous = 0.0;
     for (float position : positions)
@@ -298,7 +298,7 @@ TEST(Unit_Dsp, Peavey5150ThdIncreasesWithGain)
     }
 
     // Guards against the rise above being satisfied by six indistinguishable near-zero readings.
-    // Measured 2026-09-06: 0.071, 0.108, 0.230, 0.700, 2.616, 4.215 percent.
+    // Measured 2026-09-06: 0.071, 0.107, 0.208, 0.594, 2.397, 4.107 percent.
     EXPECT_GT(previous, 3.0);
 }
 
@@ -324,7 +324,7 @@ TEST(Unit_Dsp, Peavey5150ColdClipperStageClipsAsymmetrically)
     const double driven = even_harmonic_ratio(1.0f);
     std::printf("[ measure ] even harmonics %.5f at pre gain 0.2, %.5f at 1.0\n", quiet, driven);
 
-    // Measured 2026-09-06: 0.00070 against 0.01410, a factor of 20. The gate is a factor of 4, so
+    // Measured 2026-09-06: 0.00070 against 0.01424, a factor of 20. The gate is a factor of 4, so
     // it survives a toolchain change but not the cold clipper being made symmetric.
     EXPECT_GT(driven, quiet * 4.0);
 }
@@ -333,7 +333,7 @@ TEST(Unit_Dsp, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
 {
     // Dossier section 6, quoting Peavey's own specification table: "Active Presence: +10 dB 2 kHz".
     // The shelf's corner sits at 600 Hz so its plateau has arrived by 2 kHz; the comment beside
-    // kPresenceHz in Peavey5150.cpp carries why. Measured 2026-09-06: 16.31 dB flat, 26.21 full.
+    // kPresenceHz in Peavey5150.cpp carries why. Measured 2026-09-06: 16.04 dB flat, 25.94 full.
     auto flat = prepared_node();
     flat->set_presence(0.5f);
     const double reference = response_at(*flat, 2000.0);
@@ -351,7 +351,7 @@ TEST(Unit_Dsp, Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels)
     // Dossier section 6: "Active Resonance: +10 dB at the cabinet resonant frequency". The cabinet
     // resonance is a modelling choice at 100 Hz, the dossier derives none, and the shelf's own
     // corner sits at 330 Hz so its plateau has arrived by then. The knob is flat at 0 and full at
-    // 1, so those two are the pair compared. Measured 2026-09-06: 4.10 dB flat, 14.00 dB full.
+    // 1, so those two are the pair compared. Measured 2026-09-06: 3.80 dB flat, 13.70 dB full.
     auto flat = prepared_node();
     flat->set_resonance(0.0f);
     const double reference = response_at(*flat, 100.0);

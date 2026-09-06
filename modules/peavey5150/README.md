@@ -25,29 +25,30 @@ if the reading is wrong: R18 moves V1B by under 0.1 dB, but R20 moves V2A's outp
 
 The whole chain from the grid stopper to the sag stage runs inside one 8× oversampled region, so
 every filter in it is built at the oversampled rate. The presence shelf, the resonance shelf, the
-unity-gain trim, the cabinet and the clamp run after the decimator.
+unity-gain trim, the cabinet and the clamp run after the decimator. Corners marked *floored* are
+the ones a float biquad cannot hold at 8 × 48 kHz; the section below says what that costs.
 
 | # | Stage | Bricks | Dossier |
 | --- | --- | --- | --- |
 | 1 | R22 68 kΩ grid stopper against C20 39 pF | `Biquad` one-pole low-pass, **60.01 kHz** | §2 |
 | 2 | V1A, R2 220 kΩ / R12 1.02 kΩ ∥ C3 1 µF | `TriodeStage` gain 77.4 + cathode shelf | §3 |
-| 3 | C6 22 nF into R29 470 kΩ | `Biquad` high-pass, **15.39 Hz** | §2 |
+| 3 | C6 22 nF into R29 470 kΩ | `Biquad` high-pass, **20 Hz** (floored, computes 15.39) | §2 |
 | 4 | R29 470 kΩ ∥ C17 2.2 nF into the pot node's 333 kΩ | `Biquad` first-order shelf, 0.4147 below **153.92 Hz** to unity above **371.17 Hz** | §3 |
 | 5 | VR2 1 MΩ PRE GAIN | `pre_gain` × √`pre_gain` × 0.0153374 | §2 |
 | 6 | V1B, R3 100 kΩ / R17 1.02 kΩ ∥ C4 1 µF | `TriodeStage` gain 65.2 + cathode shelf | §3 |
-| 7 | C2 22 nF, R6 470 kΩ / R9 1 MΩ | high-pass **4.92 Hz**, attenuation 0.680 | §2, §3 |
+| 7 | C2 22 nF, R6 470 kΩ / R9 1 MΩ | high-pass **20 Hz** (floored, computes 4.92), attenuation 0.680 | §2, §3 |
 | 8 | V2A cold clipper, R15 39 kΩ unbypassed | `TriodeStage` gain 2.21 | §3 |
-| 9 | C1 22 nF; C48 1 nF against R11 330 kΩ | high-pass **17.86 Hz**, low-pass **2603 Hz**, attenuation 0.8147 | §2, §3 |
+| 9 | C1 22 nF; C48 1 nF against R11 330 kΩ | high-pass **20 Hz** (floored, computes 17.86), low-pass **2603 Hz**, attenuation 0.8147 | §2, §3 |
 | 10 | V2B, R4 220 kΩ / R13 1.02 kΩ ∥ C5 1 µF | `TriodeStage` gain 77.4 + cathode shelf | §3 |
-| 11 | R32 1 MΩ, C57 22 nF, R101 100 kΩ | high-pass **6.58 Hz**, attenuation 0.0909 | §3 |
+| 11 | R32 1 MΩ, C57 22 nF, R101 100 kΩ | high-pass **20 Hz** (floored, computes 6.58), attenuation 0.0909 | §3 |
 | 12 | V5B, R102 2.2 kΩ unbypassed | `TriodeStage` gain 41.4 | §3 |
-| 13 | R87 1 MΩ, C56 22 nF, R88 1 MΩ / R91 1 MΩ | high-pass **2.41 Hz**, attenuation 0.3333 | §3 |
+| 13 | R87 1 MΩ, C56 22 nF, R88 1 MΩ / R91 1 MΩ | high-pass **20 Hz** (floored, computes 2.41), attenuation 0.3333 | §3 |
 | 14 | V5A, R93 2.2 kΩ unbypassed | `TriodeStage` gain 25.3 | §3 |
-| 15 | C58 22 nF, R24 33 kΩ, C59 10 nF + R94 47 kΩ, the FMV deck | `Peavey5150ToneStack` | §4 |
+| 15 | C58 22 nF (**105.76 Hz**), R24 33 kΩ, C59 10 nF + R94 47 kΩ, the FMV deck | `Peavey5150ToneStack` | §4 |
 | 16 | VR7 1 MΩ POST GAIN into R85 ∥ R81 = 200 kΩ | `post_gain` in dB | §2 |
-| 17 | V3B cathode follower, C52 22 nF | scalar 0.98, high-pass **0.145 Hz** | §3 |
-| 18 | C11 47 nF into R26 1 MΩ, V3A, R14 3.3 kΩ ∥ C61 4.7 nF | high-pass **3.39 Hz**, `TriodeStage` gain 14.0 + cathode shelf | §3 |
-| 19 | C49 22 nF, R48 100 kΩ + R50 1 MΩ | high-pass **6.58 Hz** | §5 |
+| 17 | V3B cathode follower, C52 22 nF | scalar 0.98, high-pass **20 Hz** (floored, computes 0.145) | §3 |
+| 18 | C11 47 nF into R26 1 MΩ, V3A, R14 3.3 kΩ ∥ C61 4.7 nF | high-pass **20 Hz** (floored, computes 3.39), `TriodeStage` gain 14.0 + cathode shelf | §3 |
+| 19 | C49 22 nF, R48 100 kΩ + R50 1 MΩ | high-pass **20 Hz** (floored, computes 6.58) | §5 |
 | 20 | V4A/V4B long-tailed pair, R54/R55 220 kΩ, 2.2 kΩ stoppers | `TriodeStage` gain 29.7, attenuation 0.8617 | §5 |
 | 21 | 6L6GC quad, push-pull | two `PentodeStage(kPeavey5150Power6L6GC)`, opposite phase, 0.03 V bias mismatch | §7 |
 | 22 | Output transformer, screen and rail sag | `OutputTransformerStage`, `PowerSupplySagStage` | §5 |
@@ -138,12 +139,13 @@ JCM800's, adopted for the argument its comment carries.
 
 **The two feedback shelves' corners.** §5 gives the feedback network's components and derives no
 corner from them; §6 names 2 kHz for the presence and "the cabinet resonant frequency", taken here
-as 100 Hz, for the resonance. Both corners are modelling choices, and both sit below the frequency
-§6 names, for a reason that is the shelf's shape rather than the circuit's: an RBJ shelf reaches
-half its decibel gain at its corner and its plateau only well past it, so a shelf cornered at 2 kHz
-is +5 dB at 2 kHz, not the +10 dB §6 publishes. §6 states the boost measured *at* a frequency, so
-each corner is placed where the plateau has arrived by then. Presence corners at 600 Hz and reads
-9.90 dB at 2 kHz; resonance corners at 330 Hz and reads 9.90 dB at 100 Hz.
+as 100 Hz, for the resonance. Both corners are modelling choices, and each sits on the plateau side
+of the frequency §6 names — the presence shelf below its 2 kHz, the resonance shelf above its
+100 Hz — for a reason that is the shelf's shape rather than the circuit's: an RBJ shelf gives half
+its decibel gain at its own corner and the full amount only well past it, so a shelf cornered at
+2 kHz is +5 dB at 2 kHz, not the +10 dB §6 publishes. §6 states the boost measured *at* a
+frequency, so each corner is placed where the plateau has already arrived. Presence corners at
+600 Hz and reads 9.90 dB at 2 kHz; resonance corners at 330 Hz and reads 9.90 dB at 100 Hz.
 
 **Interstage level staging.** Seven scalars, one per link, and every one a modelling choice rather
 than a dossier value. The dossier's own dividers are the real circuit's and they stay, but on their
@@ -153,8 +155,14 @@ knee: measured before the staging was added, a −40 dBFS input at PRE GAIN 0.05
 a dead gain knob. One rule sets all seven, so none is a free knob. A link's total attenuation is
 1/(the gain of the stage it drives), the figure that carries the operating level forward unchanged
 and the argument `modules/jcm800/src/Jcm800.cpp` spells out for its own interstage constants; each
-staging factor is that target divided by the dossier's divider for the same link, so the dossier
-still sets the link's frequency behaviour and its relative weight.
+staging factor is that target divided by the dossier's divider for the same link.
+
+So the two multiply to the target exactly, and the dossier's divider contributes nothing to the
+result: it is applied and then undone, and the staging alone sets the level. Keeping the divider
+written out is bookkeeping, not signal — it is what makes each staging factor readable as a
+departure from the schematic rather than as a number out of the air, and it is what a later
+correction to the dossier's own figure would move. Every divider in this chain is frequency-
+independent, so none of this touches the chain's frequency response either.
 
 | Link | Target | Dossier divider | Staging factor |
 | --- | --- | --- | --- |
@@ -166,10 +174,15 @@ still sets the link's frequency behaviour and its relative weight.
 | The deck into V3A | 1/14.0 | 0.4825 × 0.522 × 0.98 | 0.289396 |
 | V3A into the pair | 1/29.7 | 1.0 | 0.0336700 |
 
-An eighth runs the other way, as the VH4's `kFollowerToMixBusLevelStaging` does: the seven above
-hand the pair's plate a fraction of a volt, and a 6L6GC with this preset's gain of 6 reaches its
-1/0.048 = 20.8 V ceiling only at 3.47 V of grid drive, so `kPhaseInverterToPowerTubeLevelStaging`
-lifts it by 30 to put the default setting just into saturation.
+An eighth runs the other way, as the VH4's `kFollowerToMixBusLevelStaging` does, and it is derived
+the same way as the seven: the target is the grid drive at which the output tubes begin to
+saturate, `1/(plate_saturation_drive × gain)` = 1/(0.048 × 6) = 3.472 V, and the factor is that
+divided by what the pair delivers without it. Probed at the default setting with a −12 dBFS 1 kHz
+input, the pair's plate hands the grids 0.1213 V through the dossier's 0.8617 divider, so
+`kPhaseInverterToPowerTubeLevelStaging` = 3.472 / 0.1213 = **28.62**. Re-probed with it in place,
+the grids see 3.4717 V at the default setting against the 3.4722 V target, and 8.09 V at full PRE
+GAIN. The default therefore sits exactly at the onset of power-tube saturation and POST GAIN above
+0 dB takes it in, which is what §6's 130 W at 5 % THD describes.
 
 **The coupling capacitors' lowest realisable corner.** Eight of the eleven compute below 20 Hz, and
 at 8 × 48 kHz a second-order section at 2 Hz puts its pole within 5·10⁻⁶ of z = 1, which `Biquad`'s
@@ -194,9 +207,9 @@ one of them is wrong. The module uses the drawn R25 1 MΩ.
 
 Two points are measured rather than derived, and each is pinned by the test that measures it.
 
-- **`kPostGainUnityGain = 0.6950795`** — the linear trim on the finished signal. Measured
+- **`kPostGainUnityGain = 0.7038242`** — the linear trim on the finished signal. Measured
   2026-09-06 by `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`, which is
-  also the test that pins it: an untouched amp turns a −12 dBFS 1 kHz sine into a −5.86 dBFS peak.
+  also the test that pins it: an untouched amp turns a −12 dBFS 1 kHz sine into a −5.96 dBFS peak.
 
   It is applied after the decimator and both feedback shelves, outside the nonlinearity, where
   `Jcm800.cpp` applies its `kMasterUnityGain` inside the amplifier alongside the master pot. That
@@ -207,7 +220,7 @@ Two points are measured rather than derived, and each is pinned by the test that
 - **The presence and resonance shelf heights**: §6's +10 dB at 2 kHz and +10 dB at the cabinet
   resonance, asserted by `Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels` and
   `Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels`. Measured 2026-09-06: presence
-  16.31 dB flat against 26.21 dB full at 2 kHz, resonance 4.10 dB flat against 14.00 dB full at
+  16.04 dB flat against 25.94 dB full at 2 kHz, resonance 3.80 dB flat against 13.70 dB full at
   100 Hz.
 
 The three targets §6 lists that a lead-channel test could assert are the presence and resonance
