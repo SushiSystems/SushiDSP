@@ -139,16 +139,32 @@ TEST(Unit_Dsp, TriodeStageResolvesPastTheOldSymmetricCutoffBound)
     EXPECT_GT(plate_at_deep_swing, plate_at_moderate_swing * 1.3f);
 }
 
-TEST(Unit_Dsp, TriodeStageSixArgumentPathIsUnchangedByThePlateSwingOverload)
+TEST(Unit_Dsp, TriodeStagePathsAgreeBelowConductionAndDivergeAboveIt)
 {
-    SushiDSP::TriodeStage before(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f);
-    SushiDSP::TriodeStage huge(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 1e9f, 1e9f });
+    SushiDSP::TriodeStage bias_referenced(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f);
+    SushiDSP::TriodeStage cathode_referenced(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 1e9f, 1e9f });
+
+    // Below the bias point neither diode conducts, so both residuals are linear and the paths
+    // differ only by where the -Is reverse term sits: Is * Rs * gain = 1e-9 * 10k * 60 = 0.6 mV.
+    for (int i = 0; i < 4000; ++i)
+    {
+        const float x = -3.0f * std::fabs(static_cast<float>(std::sin(2.0 * kPi * 440.0 * i / 48000.0)));
+        EXPECT_NEAR(bias_referenced.process_sample(x), cathode_referenced.process_sample(x), 1e-3f);
+    }
+
+    bias_referenced.reset();
+    cathode_referenced.reset();
+
+    // Above it they must not: the bias-referenced diode starts conducting 0.2 V above rest, the
+    // cathode-referenced one 1.5 V above it.
+    float largest_difference = 0.0f;
     for (int i = 0; i < 4000; ++i)
     {
         const float x = 3.0f * static_cast<float>(std::sin(2.0 * kPi * 440.0 * i / 48000.0));
-        const float a = before.process_sample(x), b = huge.process_sample(x);
-        EXPECT_NEAR(a, b, 1e-3f * std::max(1.0f, std::fabs(a)));
+        const float a = bias_referenced.process_sample(x), b = cathode_referenced.process_sample(x);
+        largest_difference = std::max(largest_difference, std::fabs(a - b));
     }
+    EXPECT_GT(largest_difference, 50.0f);
 }
 
 TEST(Unit_Dsp, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
@@ -161,17 +177,20 @@ TEST(Unit_Dsp, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
         positive_peak = std::max(positive_peak, y);
         negative_peak = std::min(negative_peak, y);
     }
-    // The cutoff side runs into the ceiling: the solver's 160 * Vt grid clamp puts at most
-    // 248 V into the tanh, which 194 V of supply headroom folds back to about 166 V.
+
+    // Cutoff side: the solver's 160 * Vt clamp holds the grid 4.136 V below its bias point, so
+    // the linear plate reaches 60 * 4.136 = 248.16 V and 194 * tanh(248.16 / 194) = 166.1 V.
+    EXPECT_NEAR(positive_peak, 166.1f, 16.6f);
     EXPECT_LT(positive_peak, 194.0f);
-    EXPECT_GT(positive_peak, 0.8f * 194.0f);
 
-    // The conduction side stops well short of its own bound, because grid conduction limits the
-    // grid's rise long before the plate reaches the load-line bottom.
+    // Conduction side: the grid rests 1.5 V below the cathode and rises to +0.352 V, the drop a
+    // 10 k source pushes through a 1 nA diode. That is 1.852 V of excursion, a linear plate of
+    // -111.11 V, and -115 * tanh(111.11 / 115) = -85.9 V.
+    EXPECT_NEAR(negative_peak, -85.9f, 8.6f);
     EXPECT_GT(negative_peak, -115.0f);
-    EXPECT_LT(negative_peak, -10.0f);
 
-    EXPECT_GT(positive_peak, 3.0f * -negative_peak);
+    // The two sides stay asymmetric; the measured ratio is 1.93.
+    EXPECT_GT(positive_peak, 1.5f * -negative_peak);
 }
 
 TEST(Unit_Dsp, TriodeStageSmallSignalGainIsUnchangedByThePlateSwing)
@@ -182,7 +201,9 @@ TEST(Unit_Dsp, TriodeStageSmallSignalGainIsUnchangedByThePlateSwing)
     {
         peak = std::max(peak, std::fabs(stage.process_sample(0.01f * static_cast<float>(std::sin(2.0 * kPi * 1000.0 * i / 48000.0)))));
     }
-    EXPECT_NEAR(peak, 0.6f, 0.006f);
+
+    // 0.01 V through a gain of 60 is 0.6 V, less the 1 % the Rs/Rg source divider takes.
+    EXPECT_NEAR(peak, 0.6f, 0.012f);
 }
 
 TEST(Unit_Dsp, TriodeStageReportsThePeakGridExcursionSinceReset)

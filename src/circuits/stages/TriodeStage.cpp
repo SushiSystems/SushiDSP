@@ -68,6 +68,7 @@ namespace SushiDSP
         , voltage_limit_(kExponentLimit * thermal_voltage_volts)
         , cutoff_voltage_limit_(kNegativeExponentLimit * thermal_voltage_volts)
         , previous_grid_voltage_(cathode_bias_volts)
+        , conduction_reference_(cathode_bias_volts)
     {
     }
 
@@ -81,6 +82,7 @@ namespace SushiDSP
     {
         plate_swing_ = plate_swing;
         has_plate_swing_ = true;
+        conduction_reference_ = 0.0f;
     }
 
     float TriodeStage::process_sample(float input_voltage)
@@ -100,24 +102,28 @@ namespace SushiDSP
         //   through Rs to the source:            (Vg - (Vk + Vin)) / Rs
         //   through the grid-leak Rg to Vk:      (Vg - Vk) / Rg
         //   into the grid itself, a one-way
-        //   Shockley conduction path grid->cathode, only significant once Vg rises above Vk:
-        //                                        Is * (exp((Vg - Vk) / Vt) - 1)
+        //   Shockley conduction path grid->cathode, only significant once Vg rises above the
+        //   conduction reference Vref:          Is * (exp((Vg - Vref) / Vt) - 1)
         // f(Vg) = 0 is the node equation; f'(Vg) differentiates it term by term. The exponential
         // term is what makes the positive half of the swing clip hard while the negative half,
         // where the term collapses to -Is, stays essentially linear - the asymmetry that gives a
         // driven triode its character.
         // One exp() serves both: it is the whole cost of the iteration.
-        auto node_equation = [rs, rg, vk, is, vt, source_voltage](float vg)
+        const float vref = conduction_reference_;
+
+        auto node_equation = [rs, rg, vk, vref, is, vt, source_voltage](float vg)
         {
-            const float conduction = std::exp((vg - vk) / vt);
+            const float conduction = std::exp((vg - vref) / vt);
             return NewtonRaphsonSolver::Evaluation{
                 (vg - source_voltage) / rs + (vg - vk) / rg + is * (conduction - 1.0f),
                 1.0f / rs + 1.0f / rg + (is / vt) * conduction };
         };
 
+        // The upper bound guards the exponential, so it follows the conduction reference; the
+        // lower bound is the stage's cutoff and stays on the bias point.
         const float grid_voltage = NewtonRaphsonSolver::solve_joint(
             node_equation, previous_grid_voltage_, 4,
-            vk - cutoff_voltage_limit_, vk + voltage_limit_);
+            vk - cutoff_voltage_limit_, vref + voltage_limit_);
         previous_grid_voltage_ = grid_voltage;
 
         const float grid_excursion = std::fabs(grid_voltage - vk);

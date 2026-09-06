@@ -38,7 +38,10 @@ namespace SushiDSP
 
     /// @brief A common-cathode triode gain stage: grid-conduction diode nonlinearity solved by
     /// Newton-Raphson, followed by a fixed inverting linear plate gain and, when the stage is
-    /// given a PlateSwing, a two-sided tanh plate ceiling. Used by the JCM800 and by every
+    /// given a PlateSwing, a two-sided tanh plate ceiling. On the PlateSwing path the grid
+    /// conduction diode is referenced to the cathode rather than to the bias point, so
+    /// conduction begins at Vgk = 0; see docs/superpowers/specs/
+    /// 2026-09-07-triode-plate-swing-design.md section 3. Used by the JCM800 and by every
     /// cascaded-triode amplifier module.
     class TriodeStage
     {
@@ -90,6 +93,7 @@ namespace SushiDSP
         float voltage_limit_;
         float cutoff_voltage_limit_;
         float previous_grid_voltage_;
+        float conduction_reference_;
         PlateSwing plate_swing_{};
         bool has_plate_swing_ = false;
         float peak_grid_excursion_ = 0.0f;
