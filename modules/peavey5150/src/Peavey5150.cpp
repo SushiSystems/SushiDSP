@@ -317,13 +317,6 @@ namespace SushiDSP
         // The shelf's own corner sits above it for the reason given above.
         constexpr float kResonanceCornerHz = 330.0f;
 
-        // The lowest corner a coupling capacitor here can be given: below it a Biquad's float
-        // coefficients cannot hold the pole at 8 x 48 kHz. Eight of the eleven are floored to it.
-        // A modelling choice forced by the arithmetic and not by the circuit; the cost and the
-        // measurement are in modules/peavey5150/README.md, "The coupling capacitors' lowest
-        // realisable corner", and each capacitor's computed corner stays in its own comment.
-        constexpr double kMinimumCouplingCornerHz = 20.0;
-
         constexpr double kFilterQ = 0.7071;
         constexpr float kSmoothingMs = 20.0f;
 
@@ -345,15 +338,6 @@ namespace SushiDSP
         double corner_hz(double resistance_ohms, double capacitance_farads)
         {
             return 1.0 / (2.0 * M_PI * resistance_ohms * capacitance_farads);
-        }
-
-        /// @brief One coupling capacitor's corner, raised to the lowest a float biquad can hold.
-        /// @param resistance_ohms The resistance the capacitor works into.
-        /// @param capacitance_farads The capacitance.
-        /// @return The corner in hertz, never below kMinimumCouplingCornerHz.
-        double coupling_corner_hz(double resistance_ohms, double capacitance_farads)
-        {
-            return std::max(corner_hz(resistance_ohms, capacitance_farads), kMinimumCouplingCornerHz);
         }
 
         /// @brief The corner of one grid's Miller input-capacitance pole.
@@ -416,16 +400,16 @@ namespace SushiDSP
         const double rate = sample_rate_ * kOversamplingFactor;
 
         input_low_pass_.set_one_pole_low_pass(rate, corner_hz(kInputStopperOhms, kInputShuntFarads));
-        c6_coupling_.set_high_pass(rate, coupling_corner_hz(kC6LoadOhms, kC6Farads), kFilterQ);
+        c6_coupling_.set_first_order_high_pass(rate, corner_hz(kC6LoadOhms, kC6Farads));
         pre_gain_peaker_.set_first_order_shelf(rate, kPreGainPeakerZeroHz, kPreGainPeakerPoleHz, kPreGainPeakerLowGain);
-        c2_coupling_.set_high_pass(rate, coupling_corner_hz(kC2LoadOhms, kC2Farads), kFilterQ);
-        c1_coupling_.set_high_pass(rate, coupling_corner_hz(kC1LoadOhms, kC1Farads), kFilterQ);
+        c2_coupling_.set_first_order_high_pass(rate, corner_hz(kC2LoadOhms, kC2Farads));
+        c1_coupling_.set_first_order_high_pass(rate, corner_hz(kC1LoadOhms, kC1Farads));
         c48_low_pass_.set_one_pole_low_pass(rate, kC48CornerHz);
-        c57_coupling_.set_high_pass(rate, coupling_corner_hz(kC57LoadOhms, kC57Farads), kFilterQ);
-        c56_coupling_.set_high_pass(rate, coupling_corner_hz(kC56LoadOhms, kC56Farads), kFilterQ);
-        c52_coupling_.set_high_pass(rate, coupling_corner_hz(kC52LoadOhms, kC52Farads), kFilterQ);
-        c11_coupling_.set_high_pass(rate, coupling_corner_hz(kC11LoadOhms, kC11Farads), kFilterQ);
-        c49_coupling_.set_high_pass(rate, coupling_corner_hz(kC49LoadOhms, kC49Farads), kFilterQ);
+        c57_coupling_.set_first_order_high_pass(rate, corner_hz(kC57LoadOhms, kC57Farads));
+        c56_coupling_.set_first_order_high_pass(rate, corner_hz(kC56LoadOhms, kC56Farads));
+        c52_coupling_.set_first_order_high_pass(rate, corner_hz(kC52LoadOhms, kC52Farads));
+        c11_coupling_.set_first_order_high_pass(rate, corner_hz(kC11LoadOhms, kC11Farads));
+        c49_coupling_.set_first_order_high_pass(rate, corner_hz(kC49LoadOhms, kC49Farads));
 
         v1a_cathode_shelf_.set_first_order_shelf(rate, kV1aCathodeZeroHz, kV1aCathodePoleHz, kV1aCathodeLowGain);
         v1b_cathode_shelf_.set_first_order_shelf(rate, kV1bCathodeZeroHz, kV1bCathodePoleHz, kV1bCathodeLowGain);

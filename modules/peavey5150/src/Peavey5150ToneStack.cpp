@@ -79,7 +79,7 @@ namespace SushiDSP
     Peavey5150ToneStack::Peavey5150ToneStack(double sample_rate)
         : stack_(sample_rate, kPeavey5150Stack)
     {
-        coupling_high_pass_.set_high_pass(sample_rate, coupling_corner_hz(), 0.7071);
+        coupling_high_pass_.set_first_order_high_pass(sample_rate, coupling_corner_hz());
         input_shunt_shelf_.set_first_order_shelf(sample_rate, input_shelf_zero_hz(), input_shelf_pole_hz(),
                                                  kInputShuntAttenuation);
         set_low(0.5f);

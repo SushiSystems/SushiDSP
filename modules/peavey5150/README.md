@@ -25,30 +25,30 @@ if the reading is wrong: R18 moves V1B by under 0.1 dB, but R20 moves V2A's outp
 
 The whole chain from the grid stopper to the sag stage runs inside one 8× oversampled region, so
 every filter in it is built at the oversampled rate. The presence shelf, the resonance shelf, the
-unity-gain trim, the cabinet and the clamp run after the decimator. Corners marked *floored* are
-the ones a float biquad cannot hold at 8 × 48 kHz; the section below says what that costs.
+unity-gain trim, the cabinet and the clamp run after the decimator. Every coupling capacitor is a
+first-order high-pass at the corner its own R and C give.
 
 | # | Stage | Bricks | Dossier |
 | --- | --- | --- | --- |
 | 1 | R22 68 kΩ grid stopper against C20 39 pF | `Biquad` one-pole low-pass, **60.01 kHz** | §2 |
 | 2 | V1A, R2 220 kΩ / R12 1.02 kΩ ∥ C3 1 µF | `TriodeStage` gain 77.4 + cathode shelf, `PlateSwing` 194.0 / 72.3 V | §3 |
-| 3 | C6 22 nF into R29 470 kΩ | `Biquad` high-pass, **20 Hz** (floored, computes 15.39) | §2 |
+| 3 | C6 22 nF into R29 470 kΩ | `Biquad` first-order high-pass, **15.39 Hz** | §2 |
 | 4 | R29 470 kΩ ∥ C17 2.2 nF into the pot node's 333 kΩ | `Biquad` first-order shelf, 0.4147 below **153.92 Hz** to unity above **371.17 Hz** | §3 |
 | 5 | VR2 1 MΩ PRE GAIN | `pre_gain` × √`pre_gain` | §2 |
 | 6 | V1B, R3 100 kΩ / R17 1.02 kΩ ∥ C4 1 µF | `TriodeStage` gain 65.2 + cathode shelf, `PlateSwing` 131.5 / 93.7 V | §3 |
-| 7 | C2 22 nF, R6 470 kΩ / R9 1 MΩ | high-pass **20 Hz** (floored, computes 4.92), attenuation 0.680 | §2, §3 |
+| 7 | C2 22 nF, R6 470 kΩ / R9 1 MΩ | first-order high-pass **4.92 Hz**, attenuation 0.680 | §2, §3 |
 | 8 | V2A cold clipper, R15 39 kΩ unbypassed | `TriodeStage` gain 2.21, `PlateSwing` 10.3 / 213.0 V | §3 |
-| 9 | C1 22 nF; C48 1 nF against R11 330 kΩ | high-pass **20 Hz** (floored, computes 17.86), low-pass **2603 Hz**, attenuation 0.8147 | §2, §3 |
+| 9 | C1 22 nF; C48 1 nF against R11 330 kΩ | first-order high-pass **17.86 Hz**, low-pass **2603 Hz**, attenuation 0.8147 | §2, §3 |
 | 10 | V2B, R4 220 kΩ / R13 1.02 kΩ ∥ C5 1 µF | `TriodeStage` gain 77.4 + cathode shelf, `PlateSwing` 194.0 / 72.3 V | §3 |
-| 11 | R32 1 MΩ, C57 22 nF, R101 100 kΩ | high-pass **20 Hz** (floored, computes 6.58), attenuation 0.0909 | §3 |
+| 11 | R32 1 MΩ, C57 22 nF, R101 100 kΩ | first-order high-pass **6.58 Hz**, attenuation 0.0909 | §3 |
 | 12 | V5B, R102 2.2 kΩ unbypassed | `TriodeStage` gain 41.4, `PlateSwing` 149.3 / 116.5 V | §3 |
-| 13 | R87 1 MΩ, C56 22 nF, R88 1 MΩ / R91 1 MΩ | high-pass **20 Hz** (floored, computes 2.41), attenuation 0.3333 | §3 |
+| 13 | R87 1 MΩ, C56 22 nF, R88 1 MΩ / R91 1 MΩ | first-order high-pass **2.41 Hz**, attenuation 0.3333 | §3 |
 | 14 | V5A, R93 2.2 kΩ unbypassed | `TriodeStage` gain 25.3, `PlateSwing` 90.7 / 134.0 V | §3 |
 | 15 | C58 22 nF (**105.76 Hz**), R24 33 kΩ, C59 10 nF + R94 47 kΩ, the FMV deck | `Peavey5150ToneStack` | §4 |
 | 16 | VR7 1 MΩ POST GAIN into R85 ∥ R81 = 200 kΩ | `post_gain` in dB | §2 |
-| 17 | V3B cathode follower, C52 22 nF | scalar 0.98, high-pass **20 Hz** (floored, computes 0.145) | §3 |
-| 18 | C11 47 nF into R26 1 MΩ, V3A, R14 3.3 kΩ ∥ C61 4.7 nF | high-pass **20 Hz** (floored, computes 3.39), `TriodeStage` gain 14.0 + cathode shelf, `PlateSwing` 52.0 / 148.1 V | §3 |
-| 19 | C49 22 nF, R48 100 kΩ + R50 1 MΩ; the pair's tail degeneration | high-pass **20 Hz** (floored, computes 6.58), divide by 10.45784 | §5 |
+| 17 | V3B cathode follower, C52 22 nF | scalar 0.98, first-order high-pass **0.145 Hz** | §3 |
+| 18 | C11 47 nF into R26 1 MΩ, V3A, R14 3.3 kΩ ∥ C61 4.7 nF | first-order high-pass **3.39 Hz**, `TriodeStage` gain 14.0 + cathode shelf, `PlateSwing` 52.0 / 148.1 V | §3 |
+| 19 | C49 22 nF, R48 100 kΩ + R50 1 MΩ; the pair's tail degeneration | first-order high-pass **6.58 Hz**, divide by 10.45784 | §5 |
 | 20 | V4A/V4B long-tailed pair, R54/R55 220 kΩ, 2.2 kΩ stoppers | `TriodeStage` gain 29.7, `PlateSwing` 87.5 / 131.6 V, attenuation 0.8617, grid scale 0.0631313 | §5 |
 | 21 | 6L6GC quad, push-pull | two `PentodeStage(kPeavey5150Power6L6GC)`, opposite phase, 0.03 V bias mismatch | §7 |
 | 22 | Output transformer, screen and rail sag | `OutputTransformerStage`, `PowerSupplySagStage` | §5 |
@@ -204,10 +204,10 @@ its descriptor default, measured 2026-09-07:
 
 | V1A | V1B | V2A | V2B | V5B | V5A | V3A | Pair |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0.2303 V | 3.1568 V | 5.4734 V | 3.9835 V | 4.1360 V | 4.1360 V | 4.1360 V | 4.1360 V |
+| 0.2303 V | 3.1279 V | 5.4734 V | 4.0467 V | 4.1360 V | 4.1360 V | 4.1360 V | 4.1360 V |
 
-V2A is in hard grid conduction, and V5B, V5A, V3A and the pair are all on the solver's 4.136 V
-cutoff fence with V2B at 3.98 V within 4 % of it. Five of the eight stages square both half-cycles
+V2A is in hard grid conduction, and V2B, V5B, V5A, V3A and the pair are all on the solver's
+4.136 V cutoff fence. Five of the eight stages square both half-cycles
 at the shipped default, and the tail degeneration does not change that — at the default setting the
 pair is driven ten times past its own window. The circuit says the same in two independent places:
 §3's gain column multiplies to 77.4 × 65.2 × 2.21 × 77.4 × 41.4 × 25.3 × 14.0 before the pair, and
@@ -221,13 +221,13 @@ and the grid-scale bridge are in place. Measured 2026-09-07 at 220 Hz over 300 b
 
 | PRE GAIN | Input | Output peak | THD |
 | --- | --- | --- | --- |
-| 0.00 | −40 dBFS | 6.4e−06 | 67.9 % |
-| 0.02 | −40 dBFS | 0.620 | 7.297 % |
-| 0.02 | −86.0 dBFS | 8.50e−03 | 0.276 % |
+| 0.00 | −40 dBFS | 3.6e−05 | 61.8 % |
+| 0.02 | −40 dBFS | 0.678 | 7.066 % |
+| 0.02 | −86.0 dBFS | 9.02e−03 | 0.381 % |
 
 The readings are taken at 0.02, not at 0.00. `pre_gain_attenuation()` is `n·√n`, exactly zero at
-n = 0, so the bottom of VR2's travel mutes the amplifier and its 67.9 % is the FFT's floor on a
-6.4e−06 tail rather than distortion; 0.02 is the first position that passes signal.
+n = 0, so the bottom of VR2's travel mutes the amplifier and its 61.8 % is the FFT's floor on a
+3.6e−05 tail rather than distortion; 0.02 is the first position that passes signal.
 `Peavey5150HasACleanEndAtMinimumGain` asserts both figures.
 
 **The THD sweep.** Spec §4 asks that THD not fall as the knob rises, within 1.0 percentage point.
@@ -235,12 +235,31 @@ Measured 2026-09-07 at 220 Hz, 0.02 amplitude:
 
 | PRE GAIN | 0.02 | 0.05 | 0.10 | 0.20 | 0.30 | 0.40 | 0.50 | 0.70 | 1.00 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| THD | 15.63 % | 25.48 % | 26.55 % | 25.87 % | 25.33 % | 24.98 % | 24.71 % | 24.61 % | 24.67 % |
+| THD | 15.08 % | 25.60 % | 26.98 % | 27.08 % | 27.28 % | 27.76 % | 28.17 % | 28.14 % | 27.71 % |
 
-The largest fall is 0.675 pp from 0.10 to 0.20, the next 0.541 pp from 0.20 to 0.30, and
-`Peavey5150ThdDoesNotFallAsPreGainRises` passes at 1.0 pp. The metric peaks where the phase
-inverter reaches its own clipping and then eases as the stages ahead of it square into a wave whose
-harmonics fall off faster; that easing is what the 1.0 pp tolerance is for.
+The sweep rises to 0.50 and then eases; the largest fall is 0.432 pp from 0.70 to 1.00, and
+`Peavey5150ThdDoesNotFallAsPreGainRises` passes at 1.0 pp. That easing is what the tolerance is
+for: past the point where the phase inverter clips, the stages ahead of it square into a wave whose
+harmonics fall off faster.
+
+**Measuring the two shelves.** `measure::frequency_response()` sweeps at −40 dBFS, and at the
+default PRE GAIN that already squares every stage from V2A on, so a shelf read there reads the
+amplifier's compression rather than the shelf: 7.44 dB for presence and 6.75 dB for resonance
+against §6's +10 dB. Both shelves are linear sections after the decimator, so
+`Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels` and
+`Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels` read them with the nonlinear path
+small-signal, at PRE GAIN 0.02 and 24 dB of input trim — near Peavey's own nominal input, where the
+module reads 0.38 % THD. There they measure 9.90 dB and 9.90 dB. The shelf constants did not move;
+only the level the sweep is taken at.
+
+**The cold clipper's asymmetry.** `Peavey5150ColdClipperStageClipsAsymmetrically` compares the
+amplifier's even-harmonic content at PRE GAIN 0.2 and 1.0 and reads 0.00983 against 0.10027, a
+factor of 10.2 against a gate of 4. Across the whole knob the measure is not monotonic — 0.0171,
+0.0421, 0.0098, 0.1351, 0.1003 at 0.05, 0.10, 0.20, 0.50 and 1.00 — because at that stimulus every
+stage from V5A on is already on its bound, so the even harmonics leaving the amplifier are the
+push-pull pair's as much as V2A's. V2A's own grid does move from 2.81 V to 4.26 V over the same
+span, past the 4.00 V at which it conducts, so the asymmetry the test names is real; what an
+output-side measure cannot do is attribute it to V2A. A probe on V2A's plate would.
 
 **The PRE GAIN pot law.** `pre_gain_attenuation()` is the audio taper
 `modules/jcm800/src/Jcm800.cpp` uses, `n·√n`: 0 at n = 0, 0.0112 (−39.03 dB) at 0.05 and 0.0316
@@ -248,19 +267,12 @@ harmonics fall off faster; that easing is what the 1.0 pp tolerance is for.
 is about 10 dB generous over the bottom tenth of VR2's travel. The clean end does not depend on
 that: the amplifier reads 0.276 % at Peavey's nominal input two positions above the mute.
 
-**Behaviour at silence.** An all-zero input for 2 s leaves the output at 1.86e−42 peak with the
-same DC mean over the last half second at the default setting, and 1.84e−42 at PRE GAIN 0.0. Both
+**Behaviour at silence.** An all-zero input for 2 s leaves the output at 2.04e−42 peak with the
+same DC mean over the last half second at the default setting, and 2.06e−42 at PRE GAIN 0.0. Both
 are −600 dBFS, so nothing self-sustains and no DC offset reaches the output. The grid probes do
 read non-zero after that silence, 83 µV at V1A rising through the cascade, which is the startup
 transient of the coupling high-passes rather than a standing offset; V1A's 83 µV is exactly
 `Is·(Rs ∥ Rg)` = 1 nA × (90 kΩ ∥ 1 MΩ), and C6 22 nF into R29 470 kΩ strips it before V1B.
-
-**The coupling capacitors' lowest realisable corner.** Eight of the eleven compute below 20 Hz, and
-at 8 × 48 kHz a second-order section at 2 Hz puts its pole within 5·10⁻⁶ of z = 1, which `Biquad`'s
-float coefficients and float state cannot hold: the section stops behaving as a filter and its
-state accumulates instead of decaying. Realising those eight at 20 Hz costs 0.016 dB each at the
-low E's 82 Hz, 0.13 dB across all eight, and 1.9 dB at 41 Hz. Each capacitor's computed corner is
-still in the stage table above and in its comment in the source.
 
 **The Miller rolloffs.** The driving impedance is the previous stage's plate load alone, as
 `Jcm800.cpp` takes it. The real Thevenin at every one of these grids is higher; the module's own
@@ -278,11 +290,12 @@ one of them is wrong. The module uses the drawn R25 1 MΩ.
 
 Two points are measured rather than derived, and each is pinned by the test that measures it.
 
-- **`kPostGainUnityGain = 0.6771799`** — the linear trim on the finished signal. Re-measured
+- **`kPostGainUnityGain = 0.6660669`** — the linear trim on the finished signal. Re-measured
   2026-09-07 by `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`, which is
   also the test that pins it: an untouched amp turns a −12 dBFS 1 kHz sine into a −6.00 dBFS peak.
-  It read 0.7038242 while the level staging was still in the chain, and 0.6020224 between the
-  staging coming out and the tail degeneration going in.
+  It read 0.7038242 with the level staging in the chain, 0.6020224 once that came out, and
+  0.6771799 with the tail degeneration and the grid-scale bridge but the coupling capacitors still
+  floored at 20 Hz.
 
   It is applied after the decimator and both feedback shelves, outside the nonlinearity, where
   `Jcm800.cpp` applies its `kMasterUnityGain` inside the amplifier alongside the master pot. That
@@ -292,9 +305,9 @@ Two points are measured rather than derived, and each is pinned by the test that
   is left outside as a pure level trim. Folded together, a recalibration would be a tone change.
 - **The presence and resonance shelf heights**: §6's +10 dB at 2 kHz and +10 dB at the cabinet
   resonance, asserted by `Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels` and
-  `Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels`. Measured 2026-09-06: presence
-  16.04 dB flat against 25.94 dB full at 2 kHz, resonance 3.80 dB flat against 13.70 dB full at
-  100 Hz.
+  `Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels`, both read on the small-signal path.
+  Measured 2026-09-07: presence 21.34 dB flat against 31.25 dB full at 2 kHz, resonance 11.68 dB
+  flat against 21.57 dB full at 100 Hz.
 
 The three targets §6 lists that a lead-channel test could assert are the presence and resonance
 heights, the power-amp frequency response, and the 3 V RMS preamp-out level. The first two are
