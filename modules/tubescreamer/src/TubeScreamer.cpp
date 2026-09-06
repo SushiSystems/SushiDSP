@@ -24,19 +24,16 @@
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 namespace SushiDSP
 {
     namespace
     {
-        constexpr float kInputHighpassCutoffHz = 20.0f;
-        constexpr float kToneCrossoverHz = 720.0f;
-        constexpr float kInputResistanceOhms = 4700.0f;
-        constexpr float kSaturationCurrentAmps = 1e-12f;
-        constexpr float kThermalVoltageVolts = 0.02585f;
-        constexpr double kFilterQ = 0.707;
-        constexpr std::uint32_t kOversamplingFactor = 8;
+        // Four times is where the diode pair's aliasing products fall below the noise floor of
+        // the committed halfbands; the DK solve costs too much to spend eight (approved C1).
+        constexpr std::uint32_t kOversamplingFactor = 4;
 
         // Time constant of every knob's smoother: slow enough that a jump cannot step the
         // clipper's operating point audibly, fast enough to feel immediate under a hand.
@@ -57,29 +54,36 @@ namespace SushiDSP
             if (std::strcmp(id, "input_trim") == 0) return 3;
             return kUnknownParameterIndex;
         }
-
-        float feedback_resistance_for_drive(float drive)
-        {
-            return TubeScreamer::kMinFeedbackResistance
-                + drive * (TubeScreamer::kMaxFeedbackResistance - TubeScreamer::kMinFeedbackResistance);
-        }
     }
 
-    TubeScreamer::TubeScreamer()
-        : clipping_stage_(
-            kInputResistanceOhms,
-            feedback_resistance_for_drive(0.5f),
-            kSaturationCurrentAmps,
-            kThermalVoltageVolts)
-    {
-    }
+    TubeScreamer::TubeScreamer() = default;
 
     void TubeScreamer::prepare(const PrepareInfo& info)
     {
         sample_rate_ = info.sample_rate;
-        input_highpass_.set_high_pass(sample_rate_, kInputHighpassCutoffHz, kFilterQ);
-        tone_lowpass_.set_low_pass(sample_rate_, kToneCrossoverHz, kFilterQ);
-        tone_highpass_.set_high_pass(sample_rate_, kToneCrossoverHz, kFilterQ);
+
+        tube_screamer_circuits::ClipNetlist clip_netlist;
+        drive_pot_ = tube_screamer_circuits::build_clip_block(clip_netlist);
+        tube_screamer_circuits::ToneNetlist tone_netlist;
+        const tube_screamer_circuits::TonePotentiometers tone_pots
+            = tube_screamer_circuits::build_tone_block(tone_netlist);
+        tone_pot_ = tone_pots.tone;
+
+        // The DK blocks are stepped once per oversampled sample, so they are discretised at the
+        // run rate, not at the host rate.
+        const double run_rate = sample_rate_ * static_cast<double>(kOversamplingFactor);
+        circuits_ready_ = clip_circuit_.prepare(clip_netlist, run_rate)
+                          && tone_circuit_.prepare(tone_netlist, run_rate);
+
+        clip_circuit_.set_potentiometer(
+            drive_pot_, tube_screamer_circuits::drive_to_position(drive_.target()));
+        tone_circuit_.set_potentiometer(
+            tone_pot_, tube_screamer_circuits::tone_to_position(tone_.target()));
+        tone_circuit_.set_potentiometer(tone_pots.level,
+                                        tube_screamer_circuits::kLevelPotPosition);
+        clip_circuit_.update_matrices_if_dirty();
+        tone_circuit_.update_matrices_if_dirty();
+
         drive_.prepare(sample_rate_, kSmoothingMs);
         tone_.prepare(sample_rate_, kSmoothingMs);
         level_gain_.prepare(sample_rate_, kSmoothingMs);
@@ -88,7 +92,7 @@ namespace SushiDSP
         tone_.snap(tone_.target());
         level_gain_.snap(level_gain_.target());
         input_trim_gain_.snap(input_trim_gain_.target());
-        oversampler_ = std::make_unique<Oversampler8x>(info.max_block);
+        oversampler_ = std::make_unique<Oversampler4x>(info.max_block);
         oversampled_scratch_.assign(info.max_block, 0.0f);
         clipped_scratch_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
         reset();
@@ -99,37 +103,64 @@ namespace SushiDSP
         const float drive = drive_.skip(context.frames);
         const float tone = tone_.skip(context.frames);
         const float input_gain = input_trim_gain_.skip(context.frames);
-        clipping_stage_.set_feedback_resistance(feedback_resistance_for_drive(drive));
 
         const float* input = context.inputs[0];
-        float* output = context.outputs[0];
+        float*       output = context.outputs[0];
 
-        for (std::uint32_t i = 0; i < context.frames; ++i)
+        if (!circuits_ready_)
         {
-            oversampled_scratch_[i] = input_highpass_.process_sample(input[i] * input_gain);
+            // A block whose matrices never derived has nothing to step; silence is the only
+            // answer that cannot alias or blow up.
+            std::fill(output, output + context.frames, 0.0f);
+            return;
+        }
+
+        // Wiper positions are a control-rate concern: set_potentiometer marks nothing dirty when
+        // the value has not moved, so a still knob costs nothing and a moved one costs one
+        // re-derivation per block (D6b plan, ruling 3).
+        clip_circuit_.set_potentiometer(
+            drive_pot_, tube_screamer_circuits::drive_to_position(static_cast<double>(drive)));
+        tone_circuit_.set_potentiometer(
+            tone_pot_, tube_screamer_circuits::tone_to_position(static_cast<double>(tone)));
+        clip_circuit_.update_matrices_if_dirty();
+        tone_circuit_.update_matrices_if_dirty();
+
+        // Volts in, volts out: the DK blocks are the real circuit and kFullScaleVolts is what
+        // 0 dBFS means at the instrument jack (spec D5b.5). The D6a 20 Hz input biquad is gone -
+        // the clip block's own 1 uF into 510 kOhm is the pedal's real input high-pass, at 0.31 Hz.
+        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+        {
+            oversampled_scratch_[frame] = input[frame] * input_gain * kFullScaleVolts;
         }
 
         const float* upsampled = oversampler_->upsample(oversampled_scratch_.data(), context.frames);
 
         const std::uint32_t frames_oversampled = context.frames * kOversamplingFactor;
-        for (std::uint32_t i = 0; i < frames_oversampled; ++i)
+        for (std::uint32_t index = 0; index < frames_oversampled; ++index)
         {
-            clipped_scratch_[i] = clipping_stage_.process_sample(upsampled[i]);
+            std::array<double, 1> clipped{};
+            std::array<double, 1> toned{};
+            clip_circuit_.process_sample(clip_port_, { static_cast<double>(upsampled[index]) },
+                                         clipped);
+            // The clip stage's probe is its op-amp's output node, which has zero output
+            // impedance, so the tone block cannot load it: cascading the two within one sample is
+            // exact, not an approximation (D6c plan, ruling 8).
+            tone_circuit_.process_sample(tone_port_, clipped, toned);
+            clipped_scratch_[index] = static_cast<float>(toned[0]);
         }
 
         // oversampled_scratch_ is reused here: every element in [0, frames) is overwritten by
-        // downsample() before the tone stage reads it back.
-        oversampler_->downsample(clipped_scratch_.data(), frames_oversampled, oversampled_scratch_.data());
+        // downsample() before the level loop reads it back.
+        oversampler_->downsample(clipped_scratch_.data(), frames_oversampled,
+                                 oversampled_scratch_.data());
 
-        for (std::uint32_t i = 0; i < context.frames; ++i)
+        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
         {
-            const float low = tone_lowpass_.process_sample(oversampled_scratch_[i]);
-            const float high = tone_highpass_.process_sample(oversampled_scratch_[i]);
-            const float toned = (1.0f - tone) * low + tone * high;
-            // Level alone ramps per sample: it is a single multiply outside the oversampled
-            // loop, and stepping it once per block would make the audible smoothing time a
-            // function of the host's block size.
-            output[i] = toned * level_gain_.next() * kLevelUnityGain;
+            // Level alone ramps per sample: it is a single multiply outside the oversampled loop,
+            // and stepping it once per block would make the audible smoothing time a function of
+            // the host's block size.
+            output[frame] = oversampled_scratch_[frame] / kFullScaleVolts * level_gain_.next()
+                            * kLevelUnityGain;
         }
     }
 
@@ -140,10 +171,10 @@ namespace SushiDSP
 
     void TubeScreamer::reset()
     {
-        input_highpass_.reset();
-        tone_lowpass_.reset();
-        tone_highpass_.reset();
-        clipping_stage_.reset();
+        // Zeroing the state vectors is the whole reset: a pedal has no bias point to settle, so
+        // unlike JcmV1aStageNode::reset() there is no warm-up loop to run here.
+        clip_circuit_.reset();
+        tone_circuit_.reset();
         if (oversampler_)
         {
             oversampler_->reset();

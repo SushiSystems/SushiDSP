@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -30,25 +31,25 @@
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
-#include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
-#include "SushiDSP/tubescreamer/TubeScreamerClippingStage.hpp"
+#include "SushiDSP/tubescreamer/TubeScreamerCircuits.hpp"
 
 namespace SushiDSP
 {
-    /// @brief The Tube Screamer overdrive pedal: input highpass, 8x-oversampled op-amp
-    /// clipping stage, tone crossfade, output level. Exposes tube_screamer_descriptor().
+    /// @brief The Tube Screamer overdrive pedal: the ts_clip and ts_tone DK blocks cascaded
+    /// inside one 4x-oversampled region, then output level. Exposes tube_screamer_descriptor().
     class TubeScreamer : public IAudioNode
     {
     public:
+        /// @brief Constructs the pedal at its default knob positions; prepare() builds the blocks.
         TubeScreamer();
 
-        /// @brief Sizes every scratch buffer and builds the oversampler for this block size.
+        /// @brief Derives both DK blocks at the run rate and sizes the oversampled scratch.
         /// @param info Sample rate, max block size, and channel count for this node's lifetime.
         void prepare(const PrepareInfo& info) override;
 
-        /// @brief Runs one block through highpass, oversampled clipper, tone and level.
+        /// @brief Runs one block through the clip block, the tone block and the level gain.
         /// @param context The per-block input/output buffers and frame count.
         void process(ProcessContext& context) override;
 
@@ -56,10 +57,10 @@ namespace SushiDSP
         /// @return Mono in, mono out.
         PortLayout ports() const override;
 
-        /// @brief Clears every filter and solver state for a click-free restart.
+        /// @brief Clears both DK blocks and the oversampler for a click-free restart.
         void reset() override;
 
-        /// @brief The pedal's only latency-bearing stage is its 8x oversampler.
+        /// @brief The pedal's only latency-bearing stage is its 4x oversampler.
         /// @return The oversampler's round-trip group delay in base-rate samples; 0 before
         /// prepare(), when no oversampler exists yet.
         std::uint32_t latency_samples() const override;
@@ -80,7 +81,7 @@ namespace SushiDSP
         /// @param db Output level in [-60, +12] dB; 0 dB is the pedal's unity-ish output.
         void set_level(float db);
 
-        /// @brief Sets the trim applied to the input before the pedal's own highpass.
+        /// @brief Sets the trim applied to the input before the clip block's coupling capacitor.
         /// @param db Input trim in [-24, +24] dB.
         void set_input_trim(float db);
 
@@ -108,8 +109,9 @@ namespace SushiDSP
         /// tone-affecting number this phase changes.
         static constexpr float kLevelUnityGain = 1.1078783f;
 
-        // Public so the free function feedback_resistance_for_drive() in TubeScreamer.cpp's
-        // anonymous namespace can reference them without befriending the class.
+        /// @brief The endpoints of the drive rheostat in TubeScreamerCircuits.hpp: the feedback
+        /// resistance the clip block presents at Drive 0 and at Drive 1. Public because the
+        /// descriptor's documented drive law is written in terms of them.
         static constexpr float kMinFeedbackResistance = 51000.0f;
         static constexpr float kMaxFeedbackResistance = 551000.0f;
 
@@ -123,14 +125,17 @@ namespace SushiDSP
         float level_db_ = 0.0f;
         float input_trim_db_ = 0.0f;
 
-        Biquad input_highpass_;
-        Biquad tone_lowpass_;
-        Biquad tone_highpass_;
-        TubeScreamerClippingStage clipping_stage_;
-        std::unique_ptr<Oversampler8x> oversampler_;
+        tube_screamer_circuits::ClipCircuit   clip_circuit_;
+        tube_screamer_circuits::DiodePairPort clip_port_;
+        tube_screamer_circuits::ToneCircuit   tone_circuit_;
+        tube_screamer_circuits::LinearPort    tone_port_;
+        std::size_t                           drive_pot_ = 0;
+        std::size_t                           tone_pot_ = 0;
+        bool                                  circuits_ready_ = false;
 
-        std::vector<float> oversampled_scratch_;
-        std::vector<float> clipped_scratch_;
+        std::unique_ptr<Oversampler4x> oversampler_;
+        std::vector<float>             oversampled_scratch_;
+        std::vector<float>             clipped_scratch_;
     };
 
     /// @brief The Tube Screamer's product registration entry point.
