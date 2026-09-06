@@ -124,6 +124,7 @@ The Tube Screamer's rebuild onto the D6b solver, plan
 - 2026-09-06 — Corrected the TS808 tone reference to the published schematic: passive low-pass, tone pot across the op-amp inputs, 220 Ω / 220 nF wiper leg, non-inverting stage (`docs/reference/spice/ts_tone/ts_tone.asc`).
 - 2026-09-06 — Rebuilt `build_tone_block()` and made `tone_to_position()` the identity on the corrected netlist (`modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamerCircuits.hpp`).
 - 2026-09-06 — Added the tone block's closed-form, insertion-loss, knob-range, monotonicity and end-stop tests (`tests/functional/unit/test_ts_tone_stage.cpp`).
+- 2026-09-06 — Rebuilt `TubeScreamer` onto the ts_clip and ts_tone DK blocks in one 4x region and deleted `TubeScreamerClippingStage` (`modules/tubescreamer/src/TubeScreamer.cpp`).
 
 ## D6b — DK-method circuit core
 

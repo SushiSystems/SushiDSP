@@ -146,6 +146,7 @@ TEST(Unit_Dsp, TubeScreamerLevelAndInputTrimClampToTheirDescriptorRange)
     EXPECT_FLOAT_EQ(node.get_parameter("input_trim"), -24.0f);
 }
 
+// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
 {
     auto settled_peak_at_trim = [](float trim_decibels)
@@ -352,6 +353,7 @@ TEST(Unit_Dsp, TubeScreamerIsDcStableAcrossManyBlocksAtHighDrive)
     }
 }
 
+// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
 {
     auto measure_thd_proxy = [](float drive) -> float
@@ -412,6 +414,7 @@ TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
     EXPECT_LT(thd_low_drive, thd_high_drive);
 }
 
+// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Unit_Dsp, TubeScreamerToneControlsHighFrequencyBalance)
 {
     auto measure_high_frequency_rms = [](float tone) -> double
@@ -490,6 +493,7 @@ TEST(Unit_Dsp, TubeScreamerUnknownParameterIsSafeNoOp)
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
+// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelveDbfsInput)
 {
     // At default drive the pedal is close to unity at 82 Hz, so the shipped calibration leaves a

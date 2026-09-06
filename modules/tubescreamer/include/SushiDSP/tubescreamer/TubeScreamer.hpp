@@ -110,8 +110,8 @@ namespace SushiDSP
         static constexpr float kLevelUnityGain = 1.1078783f;
 
         /// @brief The endpoints of the drive rheostat in TubeScreamerCircuits.hpp: the feedback
-        /// resistance the clip block presents at Drive 0 and at Drive 1. Public because the
-        /// descriptor's documented drive law is written in terms of them.
+        /// resistance the clip block presents at Drive 0 and at Drive 1. Public so a host or a
+        /// test can read what the Drive knob's ends mean in ohms without opening the netlist.
         static constexpr float kMinFeedbackResistance = 51000.0f;
         static constexpr float kMaxFeedbackResistance = 551000.0f;
 
