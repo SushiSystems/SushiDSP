@@ -64,6 +64,9 @@ add_executable(sushidsp_tests
     functional/unit/test_pentode_stage.cpp
     functional/unit/test_output_transformer_stage.cpp
     functional/unit/test_power_supply_sag_stage.cpp
+    functional/unit/test_resonance_control.cpp
+    functional/unit/test_graphic_equalizer.cpp
+    functional/unit/test_fmv_tone_stack.cpp
 
     # --- Products ---
     functional/unit/test_tube_screamer_clipping_stage.cpp
