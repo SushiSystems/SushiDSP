@@ -53,7 +53,20 @@ Each amplifier node:
 - exposes, beside the JCM800's existing bias-mismatch test hook, `std::size_t triode_stage_count() const` and `float grid_excursion_peak_volts(std::size_t stage) const`, forwarding to each stage's `peak_grid_excursion_volts()` in signal order;
 - re-measures its master unity constant and re-pins its golden files with a `tests/golden/README.md` row naming this spec.
 
-A new test per module, `<Amp>NoGridSitsOnItsBoundAtDefaultSettings`, renders the default setting at a −12 dBFS input and asserts every stage's peak grid excursion is below 90 % of the 4.14 V cutoff bound and that at least one stage exceeds the 0.2 V conduction knee (the amp distorts somewhere). The IIC+, whose written cascade product is 1e6, is the case that proves the ceiling works: without staging its later grids must land inside the bound because the plate ahead of them can no longer deliver more than its headroom.
+The four modules' first pass (2026-09-07) showed that the dossiers' dividers at face value put
+two to six grids per amplifier on the solver's 4.14 V cutoff fence at the default setting, and that a
+72 to 220 V plate ceiling cannot hold the grid behind it inside 4 V. The dossiers say the same in
+words (the IIC+'s cascade product is 1e6; Peavey's nominal lead input is −80 dBV), so the circuits
+are this hot and a "no grid on its bound" criterion contradicts them. The maintainer ruled that the
+circuit stays and the criterion changes. Per module the acceptance is:
+
+- **A clean end exists.** Gain knob at minimum, −40 dBFS input: THD below 10 %. The 5150 also at
+  Peavey's own nominal point, −80 dBV (0.1 mV) with PRE GAIN at minimum: THD below 5 %.
+- **THD does not fall as the gain knob rises**, within 0.5 percentage points across the knob's
+  travel (the metric saturates once every stage clips; a rising spectrum is not required of it).
+- **Default settings peak at −6 dBFS ± 1 dB** with the re-measured unity constant.
+- **Grid probe readings** at the default setting are recorded in the module README as measurements,
+  not asserted. The test is named `<Amp>HasACleanEndAtMinimumGain`.
 
 ## 5. Out of scope, stated
 
@@ -63,5 +76,5 @@ The full DK load-line solve (the D6d path) is not this phase; the tanh ceiling i
 
 - Six-argument `TriodeStage` bit-identical: the existing `test_triode_stage.cpp` cases and every golden not re-pinned in this phase pass unchanged before the modules switch.
 - Four modules build on the seven-argument path with zero `*LevelStaging*` / `GridDriveNormalisation` symbols left (`grep` clean).
-- The grid-bound test passes on all four; THD sweeps stay monotonic; default settings peak at −6 dBFS ± 1 dB with the re-measured unity constants.
+- The clean-end test passes on all four; THD does not fall across the gain knob within 0.5 pp; default settings peak at −6 dBFS ± 1 dB with the re-measured unity constants; grid probe readings recorded in each README.
 - Goldens re-pinned once, with README rows, in the same commit as each module's switch.
