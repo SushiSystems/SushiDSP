@@ -72,11 +72,17 @@ circuit stays and the criterion changes. Per module the acceptance is:
 Two circuit facts the first pass also exposed, both derived from dossier values and applied by every
 module:
 
-- **The phase inverter is a long-tailed pair.** Its grid-to-cathode window is the input divided by
-  the tail degeneration `1 + (µ + 1)·R_tail / (r_a + R_a)`, because the cathode follows the grid.
-  Modelling it as a common-cathode `TriodeStage` gives it a 4 V window it does not have. Each module
-  applies that factor at the inverter's input as a derived constant with the arithmetic in its
-  `@brief`; the inverter's stage gain is unchanged.
+- **The phase inverter is a long-tailed pair.** Driven single-ended, its cathode follows the grid
+  through the tail, so the driven triode's grid-to-cathode signal is the input divided by
+  `1 + R_tail / (R_tail + (r_a + R_a) / (µ + 1))`, where `(r_a + R_a) / (µ + 1)` is the impedance
+  the other triode's cathode presents in parallel with the tail. For any real tail the factor sits
+  near 2 (the 5150: about 1.9). The first ruling of 2026-09-07 used `1 + (µ + 1)·R_tail / (r_a + R_a)`
+  without the cathode shunt and on top of a "half the common-cathode gain" figure, which counted the
+  pair's split twice and left the power tubes 20 dB low; the four module reviews caught it. Each module
+  therefore applies the corrected factor at the inverter's input as `kPhaseInverterDegeneration` (a
+  number ≥ 1, always used as a divide, in every module) and gives the inverter's `TriodeStage` the
+  **full** single-triode gain from its load line, not half of it. Modules whose inverter is a JCM800
+  stand-in copy the JCM800's constants and cite them.
 - **`PentodeStage` is not volt-true.** Its grid saturates at `1 / (plate_saturation_drive × gain)`
   model volts (about 2.5 to 3.5) where the real grid needs `|cathode_bias_volts|` (20 to 55 V). The
   inverter-to-power-grid link therefore carries `kPowerTubeGridScale = (1 / (drive × gain)) /
@@ -92,5 +98,5 @@ The full DK load-line solve (the D6d path) is not this phase; the tanh ceiling i
 
 - Six-argument `TriodeStage` bit-identical: the existing `test_triode_stage.cpp` cases and every golden not re-pinned in this phase pass unchanged before the modules switch.
 - Four modules build on the seven-argument path with zero `*LevelStaging*` / `GridDriveNormalisation` symbols left (`grep` clean).
-- The clean-end test passes on all four; THD does not fall across the gain knob within 1.0 pp; default settings peak at −6 dBFS ± 1 dB with the re-measured unity constants; grid probe readings recorded in each README.
+- The clean-end test passes on the JCM800, 5150 and VH4 and is skipped on the IIC+ under the loop-return known issue; THD does not fall across the gain knob within 1.0 pp; default settings peak at −6 dBFS ± 1 dB with the re-measured unity constants; grid probe readings recorded in each README.
 - Goldens re-pinned once, with README rows, in the same commit as each module's switch.
