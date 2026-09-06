@@ -154,6 +154,24 @@ namespace SushiDSP
         // three 1 MOhm resistors give R91 / (R87 + R88 + R91) = 0.3333.
         constexpr float kV5bToV5aAttenuation = 0.3333f;
 
+        // Dossier section 5: the pair is a long-tailed pair, so its cathode follows its grid and
+        // the grid-to-cathode window is the input divided by the tail degeneration
+        // 1 + (mu + 1) * R_tail / (ra + Ra). Section 5's tail is R52 470 + R51 10k + R57 4.7k =
+        // 15.17 kOhm and V4A's plate load R58 is 100 kOhm; section 5 prints no gain row for the
+        // pair, so mu = 100 and ra = 62 kOhm come from section 7's phase-inverter arithmetic, the
+        // same two figures kPhaseInverterGain above is built on. 1 + 101 * 15170 / 162000 =
+        // 1 + 9.45784 = 10.45784. Modelling the pair as a common-cathode stage without this gives
+        // it a 4 V grid window it does not have, which is why the real inverter takes 14 V from
+        // V3A without clipping.
+        constexpr float kPhaseInverterDegeneration = 10.45784f;
+
+        // The bridge between the volt-true preamp and PentodeStage's grid units until PentodeStage
+        // becomes volt-true (DA5). PentodeStage's grid saturates at
+        // 1 / (plate_saturation_drive * gain) = 1 / (0.048 * 6) = 3.4722 model volts, where the
+        // real 6L6GC grid needs |cathode_bias_volts| = 55 V: 3.4722 / 55 = 0.0631313. It sits
+        // beside the circuit's own grid-leak divider below, which stays.
+        constexpr float kPowerTubeGridScale = 0.0631313f;
+
         // Dossier section 5: the pair's plates drive R55/R54 220k through C29/C28 with only the
         // 2.2 kOhm stoppers between the node and the grids, so the loss is the 220 kOhm leak
         // against the plate's own 82k || 62k = 35.3 kOhm: 220/(220 + 35.3) = 0.8617.
@@ -558,9 +576,9 @@ namespace SushiDSP
             const float v3a_out = v3a_cathode_shelf_.process_sample(v3a_.process_sample(v3a_in));
 
             const float pair_in = phase_inverter_grid_miller_.process_sample(
-                c49_coupling_.process_sample(v3a_out));
+                c49_coupling_.process_sample(v3a_out) / kPhaseInverterDegeneration);
             const float pair_out = phase_inverter_.process_sample(pair_in)
-                * kPhaseInverterToPowerTubeAttenuation;
+                * kPhaseInverterToPowerTubeAttenuation * kPowerTubeGridScale;
 
             const float power_a = power_tube_a_.process_sample(pair_out);
             const float power_b = power_tube_b_.process_sample(-pair_out - power_tube_grid_bias_mismatch_volts_);
