@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -138,7 +139,8 @@ namespace SushiDSP
         void set_output(float decibels);
 
         /// @brief Linear gain the finished signal is scaled by so an untouched amp turns a
-        /// -12 dBFS 1 kHz input into roughly -6 dBFS out. Measured on 2026-09-06 by
+        /// -12 dBFS 1 kHz input into roughly -6 dBFS out. Re-measured on 2026-09-07 after the
+        /// level staging came out, 0.7038242 before it; measured by
         /// Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput, which is also the
         /// test that pins it.
         ///
@@ -149,12 +151,23 @@ namespace SushiDSP
         /// is applied in the chain where the schematic puts it, and this constant is left outside
         /// as a pure level trim. Folding the two together would make a calibration change a tone
         /// change. See modules/peavey5150/README.md.
-        static constexpr float kPostGainUnityGain = 0.7038242f;
+        static constexpr float kPostGainUnityGain = 0.6020224f;
 
         /// @brief Overrides the 6L6GC quad's grid bias mismatch. A test hook, not a user control
         /// and not in the descriptor. Audio-thread safe.
         /// @param volts Input-referred grid offset applied to the second half, in volts.
         void set_power_tube_grid_bias_mismatch_volts(float volts);
+
+        /// @brief How many TriodeStages this amplifier owns. A test hook, not a user control and
+        /// not in the descriptor.
+        /// @return 8: V1A, V1B, V2A, V2B, V5B, V5A, V3A and the phase inverter, in signal order.
+        std::size_t triode_stage_count() const;
+
+        /// @brief Reads one triode's largest grid excursion since the last reset(). A test hook,
+        /// not a user control and not in the descriptor. Audio-thread safe.
+        /// @param stage Index into the signal order triode_stage_count() describes.
+        /// @return The peak |Vg - Vk| in volts, or 0 when stage is out of range.
+        float grid_excursion_peak_volts(std::size_t stage) const;
 
         /// @brief Whether a tone, resonance or presence target is still waiting for the audio
         /// thread to rebuild its coefficients.

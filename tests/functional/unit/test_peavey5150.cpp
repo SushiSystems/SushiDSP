@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <memory>
@@ -277,28 +278,31 @@ TEST(Unit_Dsp, Peavey5150IsDcStableAcrossManyBlocksAtHighGain)
     }
 }
 
-TEST(Unit_Dsp, Peavey5150ThdIncreasesWithGain)
+TEST(Unit_Dsp, Peavey5150ThdDoesNotFallAsPreGainRises)
 {
-    // The pre-gain pot sits between V1A's plate and V1B's grid, so turning it up drives everything
-    // after it harder rather than making a clean signal louder. Every step of the knob from 0.2
-    // upward must add harmonic content, which is the claim the interstage level staging in
-    // Peavey5150.cpp exists to make true.
+    // Spec section 4: once every stage clips, THD saturates, so the metric is not asked to rise -
+    // it is asked not to fall. The tolerance is 0.5 percentage points across the knob's travel.
     //
-    // The sweep starts at 0.2 rather than at the bottom of the knob. Below that the amp is clean
-    // enough at this input that the reading is the spectrum's own floor rather than distortion:
-    // 0.225% at pre gain 0.05 against 0.071% at 0.2, measured 2026-09-06.
-    const float positions[] = { 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
+    // The sweep starts at 0.05 rather than at 0.0. VR2 at the bottom mutes the amplifier outright
+    // and the reading there is the FFT's floor on denormals, 264.6% on 2026-09-07, not distortion.
+    // Measured 2026-09-07 from 0.05: 26.99, 27.30, 26.99, 27.01, 27.05, 27.06, 27.07, 26.99
+    // percent - flat, because every stage after V2A is square at every position.
+    const float positions[] = { 0.05f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
     double previous = 0.0;
+    bool first = true;
     for (float position : positions)
     {
         const double thd_percent = harmonics_at(position, 0.02f).thd_percent;
         std::printf("[ measure ] thd %.4f%% at pre gain %.2f\n", thd_percent, position);
-        EXPECT_GT(thd_percent, previous) << "pre gain " << position;
+        if (!first)
+        {
+            EXPECT_GT(thd_percent, previous - 0.5) << "pre gain " << position;
+        }
         previous = thd_percent;
+        first = false;
     }
 
-    // Guards against the rise above being satisfied by six indistinguishable near-zero readings.
-    // Measured 2026-09-06: 0.071, 0.107, 0.208, 0.594, 2.397, 4.107 percent.
+    // Guards against the sweep above being satisfied by eight indistinguishable near-zero readings.
     EXPECT_GT(previous, 3.0);
 }
 
@@ -427,6 +431,42 @@ TEST(Unit_Dsp, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsI
                 static_cast<double>(0.5011872f / std::max(peak, 1e-9f)));
     EXPECT_GT(peak_decibels, -7.0f);
     EXPECT_LT(peak_decibels, -5.0f);
+}
+
+TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
+{
+    // Spec section 4's acceptance for the plate-swing phase: a player who turns PRE GAIN down must
+    // reach a setting the amplifier does not square. The second point is Peavey's own nominal lead
+    // input, -80 dBV = 0.1 mV, which against kFullScaleVolts 2.0 is -86.0 dBFS.
+    //
+    // Both readings fail as this module stands, measured 2026-09-07. VR2 at 0.0 mutes the amp
+    // outright - the pot law gives exactly zero, the output tail is 7.2e-43 and the THD figure is
+    // the FFT's own floor on denormals, not distortion. At 0.02, the first position that passes
+    // signal, a -40 dBFS input already comes out at 0.89 full scale and reads 26.97 %. The phase
+    // inverter is the stage that clips first: at -86 dBFS its grid is the only one on the solver's
+    // 4.136 V fence while V3A ahead of it sits at 0.99 V. modules/peavey5150/README.md, "The clean
+    // end", carries the whole table and what it would take to move it.
+    constexpr float kMinusFortyDbfs = 0.01f;
+    constexpr float kNominalMinusEightyDbv = 5.0119e-5f;
+
+    auto quiet = prepared_node();
+    quiet->set_pre_gain(0.0f);
+    const double quiet_thd =
+        SushiDSP::measure::thd(render_sine(*quiet, 220.0, kMinusFortyDbfs, kSpectrumBlocks), 220.0,
+                               48000.0, 8)
+            .thd_percent;
+    std::printf("[ measure ] thd %.4f%% at pre gain 0.00, -40 dBFS\n", quiet_thd);
+    EXPECT_LT(quiet_thd, 10.0);
+
+    auto nominal = prepared_node();
+    nominal->set_pre_gain(0.0f);
+    const double nominal_thd =
+        SushiDSP::measure::thd(render_sine(*nominal, 220.0, kNominalMinusEightyDbv, kSpectrumBlocks),
+                               220.0, 48000.0, 8)
+            .thd_percent;
+    std::printf("[ measure ] thd %.4f%% at pre gain 0.00, -86.0 dBFS (Peavey's -80 dBV)\n",
+                nominal_thd);
+    EXPECT_LT(nominal_thd, 5.0);
 }
 
 TEST(Unit_Dsp, Peavey5150DescriptorMakeProducesAWorkingNode)

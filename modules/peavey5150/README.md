@@ -31,25 +31,25 @@ the ones a float biquad cannot hold at 8 × 48 kHz; the section below says what 
 | # | Stage | Bricks | Dossier |
 | --- | --- | --- | --- |
 | 1 | R22 68 kΩ grid stopper against C20 39 pF | `Biquad` one-pole low-pass, **60.01 kHz** | §2 |
-| 2 | V1A, R2 220 kΩ / R12 1.02 kΩ ∥ C3 1 µF | `TriodeStage` gain 77.4 + cathode shelf | §3 |
+| 2 | V1A, R2 220 kΩ / R12 1.02 kΩ ∥ C3 1 µF | `TriodeStage` gain 77.4 + cathode shelf, `PlateSwing` 194.0 / 72.3 V | §3 |
 | 3 | C6 22 nF into R29 470 kΩ | `Biquad` high-pass, **20 Hz** (floored, computes 15.39) | §2 |
 | 4 | R29 470 kΩ ∥ C17 2.2 nF into the pot node's 333 kΩ | `Biquad` first-order shelf, 0.4147 below **153.92 Hz** to unity above **371.17 Hz** | §3 |
-| 5 | VR2 1 MΩ PRE GAIN | `pre_gain` × √`pre_gain` × 0.0153374 | §2 |
-| 6 | V1B, R3 100 kΩ / R17 1.02 kΩ ∥ C4 1 µF | `TriodeStage` gain 65.2 + cathode shelf | §3 |
+| 5 | VR2 1 MΩ PRE GAIN | `pre_gain` × √`pre_gain` | §2 |
+| 6 | V1B, R3 100 kΩ / R17 1.02 kΩ ∥ C4 1 µF | `TriodeStage` gain 65.2 + cathode shelf, `PlateSwing` 131.5 / 93.7 V | §3 |
 | 7 | C2 22 nF, R6 470 kΩ / R9 1 MΩ | high-pass **20 Hz** (floored, computes 4.92), attenuation 0.680 | §2, §3 |
-| 8 | V2A cold clipper, R15 39 kΩ unbypassed | `TriodeStage` gain 2.21 | §3 |
+| 8 | V2A cold clipper, R15 39 kΩ unbypassed | `TriodeStage` gain 2.21, `PlateSwing` 10.3 / 213.0 V | §3 |
 | 9 | C1 22 nF; C48 1 nF against R11 330 kΩ | high-pass **20 Hz** (floored, computes 17.86), low-pass **2603 Hz**, attenuation 0.8147 | §2, §3 |
-| 10 | V2B, R4 220 kΩ / R13 1.02 kΩ ∥ C5 1 µF | `TriodeStage` gain 77.4 + cathode shelf | §3 |
+| 10 | V2B, R4 220 kΩ / R13 1.02 kΩ ∥ C5 1 µF | `TriodeStage` gain 77.4 + cathode shelf, `PlateSwing` 194.0 / 72.3 V | §3 |
 | 11 | R32 1 MΩ, C57 22 nF, R101 100 kΩ | high-pass **20 Hz** (floored, computes 6.58), attenuation 0.0909 | §3 |
-| 12 | V5B, R102 2.2 kΩ unbypassed | `TriodeStage` gain 41.4 | §3 |
+| 12 | V5B, R102 2.2 kΩ unbypassed | `TriodeStage` gain 41.4, `PlateSwing` 149.3 / 116.5 V | §3 |
 | 13 | R87 1 MΩ, C56 22 nF, R88 1 MΩ / R91 1 MΩ | high-pass **20 Hz** (floored, computes 2.41), attenuation 0.3333 | §3 |
-| 14 | V5A, R93 2.2 kΩ unbypassed | `TriodeStage` gain 25.3 | §3 |
+| 14 | V5A, R93 2.2 kΩ unbypassed | `TriodeStage` gain 25.3, `PlateSwing` 90.7 / 134.0 V | §3 |
 | 15 | C58 22 nF (**105.76 Hz**), R24 33 kΩ, C59 10 nF + R94 47 kΩ, the FMV deck | `Peavey5150ToneStack` | §4 |
 | 16 | VR7 1 MΩ POST GAIN into R85 ∥ R81 = 200 kΩ | `post_gain` in dB | §2 |
 | 17 | V3B cathode follower, C52 22 nF | scalar 0.98, high-pass **20 Hz** (floored, computes 0.145) | §3 |
-| 18 | C11 47 nF into R26 1 MΩ, V3A, R14 3.3 kΩ ∥ C61 4.7 nF | high-pass **20 Hz** (floored, computes 3.39), `TriodeStage` gain 14.0 + cathode shelf | §3 |
+| 18 | C11 47 nF into R26 1 MΩ, V3A, R14 3.3 kΩ ∥ C61 4.7 nF | high-pass **20 Hz** (floored, computes 3.39), `TriodeStage` gain 14.0 + cathode shelf, `PlateSwing` 52.0 / 148.1 V | §3 |
 | 19 | C49 22 nF, R48 100 kΩ + R50 1 MΩ | high-pass **20 Hz** (floored, computes 6.58) | §5 |
-| 20 | V4A/V4B long-tailed pair, R54/R55 220 kΩ, 2.2 kΩ stoppers | `TriodeStage` gain 29.7, attenuation 0.8617 | §5 |
+| 20 | V4A/V4B long-tailed pair, R54/R55 220 kΩ, 2.2 kΩ stoppers | `TriodeStage` gain 29.7, `PlateSwing` 87.5 / 131.6 V, attenuation 0.8617 | §5 |
 | 21 | 6L6GC quad, push-pull | two `PentodeStage(kPeavey5150Power6L6GC)`, opposite phase, 0.03 V bias mismatch | §7 |
 | 22 | Output transformer, screen and rail sag | `OutputTransformerStage`, `PowerSupplySagStage` | §5 |
 | 23 | PRESENCE VR9 10 kΩ with C8 ∥ C62 | `Biquad` high shelf, ±10 dB plateau, corner 600 Hz | §6 |
@@ -147,42 +147,92 @@ its decibel gain at its own corner and the full amount only well past it, so a s
 frequency, so each corner is placed where the plateau has already arrived. Presence corners at
 600 Hz and reads 9.90 dB at 2 kHz; resonance corners at 330 Hz and reads 9.90 dB at 100 Hz.
 
-**Interstage level staging.** Seven scalars, one per link, and every one a modelling choice rather
-than a dossier value. The dossier's own dividers are the real circuit's and they stay, but on their
-own they leave every grid past V1A driven two to three orders of magnitude beyond its conduction
-knee: measured before the staging was added, a −40 dBFS input at PRE GAIN 0.05 put V5A's grid at
-5.63 V against a knee near 0.10 V, and the cascade was a fixed-amplitude square-wave generator with
-a dead gain knob. One rule sets all seven, so none is a free knob. A link's total attenuation is
-1/(the gain of the stage it drives), the figure that carries the operating level forward unchanged
-and the argument `modules/jcm800/src/Jcm800.cpp` spells out for its own interstage constants; each
-staging factor is that target divided by the dossier's divider for the same link.
+**Interstage level staging, removed.** The module carried seven scalars, one per link, plus an
+eighth that lifted the phase inverter's output by 28.62 into the power tubes. All eight are gone,
+deleted by `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. Each `TriodeStage` now
+runs the seven-argument constructor with a `PlateSwing` solved from §3's DC table, so the plate
+saturates where the real plate does instead of running to ±320 V, and the dossier's dividers reach
+the 6L6GC grids at face value in volts. `kPhaseInverterToPowerTubeAttenuation` 0.8617 is the last
+factor before the power tubes, and `kPowerTubeToTransformerAttenuation` 0.05 is the output trim to
+full scale, the one number left in the chain that is a level choice rather than a component.
 
-So the two multiply to the target exactly, and the dossier's divider contributes nothing to the
-result: it is applied and then undone, and the staging alone sets the level. Keeping the divider
-written out is bookkeeping, not signal — it is what makes each staging factor readable as a
-departure from the schematic rather than as a number out of the air, and it is what a later
-correction to the dossier's own figure would move. Every divider in this chain is frequency-
-independent, so none of this touches the chain's frequency response either.
+**The plate swings.** Each is `B+ − Va` on the cutoff side and `Va − Va_bottom` on the conduction
+side. `Va` and the idle current are §3's DC table at the 340 V rail; `Va_bottom` is the plate
+voltage at `Vgk = 0` on the same load line, `Va = 340 − Ra·Ip(0, Va − Vk)` solved by bisection with
+the Koren 12AX7 of `include/SushiDSP/circuits/models/Triode12AX7.hpp`. Solving the idle point the
+same way reproduces §3's three columns to their printed precision, so both sides of every swing
+come from one model. `Vk` is held at the idle cathode voltage through the swing; on the five
+unbypassed cathodes the real `Vk` rises with plate current, so the true bottom sits a few volts
+above the figure below and the conduction side is modelled slightly wider than the stage's. The
+pair has no DC row in §5, so its idle point is solved at the −2.0 V bias the module already carried
+as a modelling choice, against the average of R46 82 kΩ and R58 100 kΩ, the same average
+`kPhaseInverterGain` is taken over.
 
-| Link | Target | Dossier divider | Staging factor |
+| Stage | Ra | Rk | Ia (mA) | Vk (V) | Va (V) | Va_bottom (V) | `PlateSwing` up / down (V) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| V1A | 220 k | 1.02 k | 0.8818 | 0.899 | 145.998 | 73.699 | 194.002 / 72.300 |
+| V1B | 100 k | 1.02 k | 1.3155 | 1.342 | 208.452 | 114.776 | 131.548 / 93.677 |
+| V2A | 100 k | 39 k | 0.1025 | 3.997 | 329.750 | 116.728 | 10.250 / 213.022 |
+| V2B | 220 k | 1.02 k | 0.8818 | 0.899 | 145.998 | 73.699 | 194.002 / 72.300 |
+| V5B | 220 k | 2.2 k | 0.6788 | 1.493 | 190.670 | 74.195 | 149.330 / 116.474 |
+| V5A | 100 k | 2.2 k | 0.9074 | 1.996 | 249.258 | 115.257 | 90.742 / 134.001 |
+| V3A | 68 k | 3.3 k | 0.7654 | 2.526 | 287.955 | 139.854 | 52.045 / 148.101 |
+| Pair | 91 k | — | 0.9614 | 2.000 | 252.514 | 120.952 | 87.486 / 131.561 |
+
+**Grid excursions at the default setting.** `triode_stage_count()` and
+`grid_excursion_peak_volts()` read each stage's largest |Vg − Vk| since the last `reset()`. These
+are measurements, not assertions. A −12 dBFS 1 kHz sine, 200 blocks of 256 at 48 kHz, every knob at
+its descriptor default, measured 2026-09-07:
+
+| V1A | V1B | V2A | V2B | V5B | V5A | V3A | Pair |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.2303 V | 3.1593 V | 5.4734 V | 3.9835 V | 4.1360 V | 4.1360 V | 4.1360 V | 4.1360 V |
+
+V2A is in hard grid conduction, and V5B, V5A, V3A and the pair are all on the solver's 4.136 V
+cutoff fence with V2B at 3.98 V within 4 % of it. Five of the eight stages square both half-cycles
+at the shipped default. The circuit says the same in two independent places: §3's gain column
+multiplies to 77.4 × 65.2 × 2.21 × 77.4 × 41.4 × 25.3 × 14.0 before the pair, and §6 gives Peavey's
+own nominal lead input as −80 dBV, a tenth of a millivolt. An amplifier built to turn 0.1 mV into
+130 W has no operating point at which its later stages stay linear, and a bounded plate does not
+change that: the smallest headroom in the table above is 10.3 V and the widest grid window in front
+of it is 4.14 V.
+
+**The clean end.** Spec §4 asks that a player turning PRE GAIN down reach a setting the amplifier
+does not square: below 10 % THD at a −40 dBFS input, and below 5 % at Peavey's nominal −80 dBV
+(0.1 mV, which against `kFullScaleVolts` 2.0 is −86.0 dBFS). Neither holds, measured 2026-09-07 at
+220 Hz over 300 blocks of 256:
+
+| PRE GAIN | Input | Output peak | THD |
 | --- | --- | --- | --- |
-| PRE GAIN pot into V1B | 1/65.2 | 1.0 | 0.0153374 |
-| V1B into V2A | 1/2.21 | 0.680 | 0.665425 |
-| V2A into V2B | 1/77.4 | 0.8147 | 0.0158584 |
-| V2B into V5B | 1/41.4 | 0.0909 | 0.265728 |
-| V5B into V5A | 1/25.3 | 0.3333 | 0.118589 |
-| The deck into V3A | 1/14.0 | 0.4825 × 0.522 × 0.98 | 0.289396 |
-| V3A into the pair | 1/29.7 | 1.0 | 0.0336700 |
+| 0.00 | −40 dBFS | 7.2e−43 | 264.6 % |
+| 0.00 | −86.0 dBFS | 7.2e−43 | 264.6 % |
+| 0.02 | −40 dBFS | 0.891 | 26.97 % |
+| 0.05 | −40 dBFS | 0.889 | 27.00 % |
+| 0.05 | −86.0 dBFS | 0.898 | 20.10 % |
+| 0.10 | −86.0 dBFS | 0.891 | 25.65 % |
 
-An eighth runs the other way, as the VH4's `kFollowerToMixBusLevelStaging` does, and it is derived
-the same way as the seven: the target is the grid drive at which the output tubes begin to
-saturate, `1/(plate_saturation_drive × gain)` = 1/(0.048 × 6) = 3.472 V, and the factor is that
-divided by what the pair delivers without it. Probed at the default setting with a −12 dBFS 1 kHz
-input, the pair's plate hands the grids 0.1213 V through the dossier's 0.8617 divider, so
-`kPhaseInverterToPowerTubeLevelStaging` = 3.472 / 0.1213 = **28.62**. Re-probed with it in place,
-the grids see 3.4717 V at the default setting against the 3.4722 V target, and 8.09 V at full PRE
-GAIN. The default therefore sits exactly at the onset of power-tube saturation and POST GAIN above
-0 dB takes it in, which is what §6's 130 W at 5 % THD describes.
+`Peavey5150HasACleanEndAtMinimumGain` fails on both of its assertions. The first two rows are not a
+clean end but a mute: `pre_gain_attenuation()` is `n·√n`, exactly zero at n = 0, so the output is a
+denormal and the 264.6 % is the FFT's own floor rather than distortion. At 0.02, the first position
+that passes signal, a −40 dBFS input already reaches 0.89 full scale. The phase inverter is the
+stage that clips first: at −86 dBFS with PRE GAIN 0.05 its grid is the only one on the 4.136 V
+fence, V3A ahead of it sitting at 0.99 V and V5A at 0.25 V. It then hands the 6L6GC grids
+87.5 V × 0.8617 = 75.4 V against the 3.47 V at which they saturate, so the power stage squares too.
+No attenuation was added to move either figure.
+
+**The PRE GAIN pot law.** `pre_gain_attenuation()` is the audio taper
+`modules/jcm800/src/Jcm800.cpp` uses, `n·√n`: 0 at n = 0, 0.0112 (−39.03 dB) at 0.05 and 0.0316
+(−30.00 dB) at 0.10. A 1 MΩ audio-taper pot is nearer −40 dB at 10 % of its rotation, so this law
+is about 10 dB generous over the bottom tenth of VR2's travel. It does not create the clean end
+either way, because the amplifier is already square at −39 dB. The only setting at which this
+module is clean is the one at which it is silent.
+
+**Behaviour at silence.** An all-zero input for 2 s leaves the output at 7.2e−43 peak with a
+−7.2e−43 DC mean over the last half second at the default setting, and 5.1e−42 at PRE GAIN 0.0.
+Both are −600 dBFS, so nothing self-sustains and no DC offset reaches the output. The grid probes
+do read non-zero after that silence — 83 µV at V1A rising to the fence at the pair — which is the
+startup transient of the coupling high-passes amplified down the cascade, not a standing offset;
+V1A's 83 µV is exactly `Is·(Rs ∥ Rg)` = 1 nA × (90 kΩ ∥ 1 MΩ), and C6 strips it before V1B.
 
 **The coupling capacitors' lowest realisable corner.** Eight of the eleven compute below 20 Hz, and
 at 8 × 48 kHz a second-order section at 2 Hz puts its pole within 5·10⁻⁶ of z = 1, which `Biquad`'s
@@ -207,9 +257,10 @@ one of them is wrong. The module uses the drawn R25 1 MΩ.
 
 Two points are measured rather than derived, and each is pinned by the test that measures it.
 
-- **`kPostGainUnityGain = 0.7038242`** — the linear trim on the finished signal. Measured
-  2026-09-06 by `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`, which is
-  also the test that pins it: an untouched amp turns a −12 dBFS 1 kHz sine into a −5.96 dBFS peak.
+- **`kPostGainUnityGain = 0.6020224`** — the linear trim on the finished signal. Re-measured
+  2026-09-07 by `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`, which is
+  also the test that pins it: an untouched amp turns a −12 dBFS 1 kHz sine into a −6.00 dBFS peak.
+  It read 0.7038242 while the level staging was still in the chain.
 
   It is applied after the decimator and both feedback shelves, outside the nonlinearity, where
   `Jcm800.cpp` applies its `kMasterUnityGain` inside the amplifier alongside the master pot. That
