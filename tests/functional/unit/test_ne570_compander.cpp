@@ -191,11 +191,18 @@ TEST(Unit_Dsp, Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier)
     // pole, so it modulates the gain cell at full weight. The board's rectifier is continuous
     // time and does none of this, which is why kRectifierOversampling exists.
     //
-    // This is the case that holds it there. The worst line outside the window's own main lobe
-    // reads -76.05 dB with the sub-stepping and -57.67 dB without it, so the -70 dB bound sits
-    // 6 dB below the measurement and 12 dB above what a host-rate rectifier produces.
-    // Ne570RectifierRippleReachesTheSignalAtLowFrequencies guards the opposite direction: the
+    // The fold itself sits at +-2 bins, inside the Blackman-Harris main lobe (+-3 bins) and so
+    // unmeasurable here; the search below starts at bin 4 and therefore bounds the comb's tail,
+    // not its peak. The worst line outside the main lobe reads -76.05 dB with the sub-stepping
+    // and -57.67 dB without it, so the -70 dB bound sits 6 dB above the measurement (headroom
+    // against run-to-run noise) and 12.3 dB below what a host-rate rectifier produces (still
+    // catching the regression). The tail bound and
+    // Ne570RectifierRippleReachesTheSignalAtLowFrequencies's floor are the invariant pair: the
     // genuine 100 Hz ripple a 50 Hz tone makes must survive, and it does, unmoved at -23.75 dB.
+    // Driven at 2.0 V, the project-wide full-scale peak (SushiDSP::kFullScaleVolts,
+    // include/SushiDSP/core/Calibration.hpp), to catch the fold at the loudest stimulus the
+    // converter passes; the ripple test above drives kReferenceVolts because it is exercising
+    // the 2:1 law's own pivot point instead.
     SushiDSP::dd3::Ne570Compander compressor(SushiDSP::dd3::CompanderHalf::Compressor);
     compressor.prepare(48000.0);
     const double f0 = SushiDSP::measure::bin_exact_frequency(8000.0, 48000.0, SushiDSP::measure::kFftSize);

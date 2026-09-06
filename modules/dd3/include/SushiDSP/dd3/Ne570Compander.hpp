@@ -85,9 +85,9 @@ namespace SushiDSP::dd3
         /// 2k*f0 never fold. Sampling it at the host rate does fold them, and the fold lands
         /// where the pole cannot reach: at 48 kHz an 8 kHz tone puts 6*f0 on 48001.5 Hz, which
         /// aliases to 1.46 Hz and modulates the gain cell at full weight. Eight sub-steps move
-        /// the surviving fold from the 6th harmonic of `|x|` to the 24th, whose Fourier
+        /// the surviving fold from the 6th harmonic of `|x|` to the 48th, whose Fourier
         /// coefficient is 1/2303 against 1/35, and take the DD-3's alias floor from -35.86 dB to
-        /// -55.34 dB at the service note's stimulus.
+        /// -55.32 dB at the service note's stimulus.
         static constexpr int kRectifierOversampling = 8;
 
     private:
