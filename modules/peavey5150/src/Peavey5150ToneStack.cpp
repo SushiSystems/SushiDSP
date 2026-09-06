@@ -35,8 +35,11 @@ namespace SushiDSP
         // plate resistance 54.8 kOhm, which is the impedance driving the stack's input node.
         constexpr double kV5aSourceResistanceOhms = 35400.5;
 
-        // Dossier section 4: R24 33 kOhm from V5A's coupling node to ground.
+        // Dossier section 4: R24 33 kOhm from V5A's coupling node to ground. Against V5A's source
+        // resistance it is a frequency-independent loss of 33k/(35.4k + 33k) = 0.4824525, and it is
+        // applied once, as the shelf below's gain at DC.
         constexpr double kInputShuntOhms = 33000.0;
+        constexpr double kInputShuntAttenuation = 0.4824525;
 
         // Dossier section 4: C59 0.01 uF in series with R94 47 kOhm, on the same node as R24.
         constexpr double kInputShelfCapacitorFarads = 10e-9;
@@ -78,7 +81,7 @@ namespace SushiDSP
     {
         coupling_high_pass_.set_high_pass(sample_rate, coupling_corner_hz(), 0.7071);
         input_shunt_shelf_.set_first_order_shelf(sample_rate, input_shelf_zero_hz(), input_shelf_pole_hz(),
-                                                 static_cast<double>(kInputShuntAttenuation));
+                                                 kInputShuntAttenuation);
         set_low(0.5f);
         set_mid(0.5f);
         set_high(0.5f);
