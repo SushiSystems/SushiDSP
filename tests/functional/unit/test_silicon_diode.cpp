@@ -170,3 +170,57 @@ TEST(Unit_Dsp, SiliconDiodeHonoursANonDefaultIdealityFactor)
     const SushiDSP::SiliconDiode part;
     EXPECT_GT(ideal.current(0.6), 100.0 * part.current(0.6));
 }
+
+TEST(Unit_Dsp, SiliconDiodeAntiderivativeDifferentiatesBackToTheDiodeCurrent)
+{
+    // The whole point of the antiderivative is that its slope is the current, so a centred
+    // difference of it has to return the current the model itself reports. The sweep crosses both
+    // knees (+-1.8125 V for the defaults), so it covers the Shockley branch and both quadratic
+    // extrapolations rather than only the range a Tube Screamer visits.
+    const SushiDSP::SiliconDiode diode;
+    const double                 delta = 1.0e-7;
+    for (double voltage = -2.2; voltage <= 2.2; voltage += 0.01)
+    {
+        const double slope = (diode.current_antiderivative(voltage + delta)
+                              - diode.current_antiderivative(voltage - delta))
+                             / (2.0 * delta);
+        const double expected = diode.current(voltage);
+        EXPECT_NEAR(slope, expected, 1.0e-6 * std::fabs(expected) + 1.0e-14) << voltage;
+    }
+}
+
+TEST(Unit_Dsp, SiliconDiodeAntiderivativeHasNoStepAtEitherKnee)
+{
+    // A step in the antiderivative would put a spike straight into the divided difference
+    // antiderivative antialiasing takes, so neither knee may leave one. The bound is the largest
+    // slope on the interval times its width, which is what differentiability across the knee
+    // means; at the negative knee that slope is the extrapolation's own current, and it is
+    // enormous, because this model mirrors its positive branch there rather than continuing the
+    // Shockley law (see the class documentation).
+    const SushiDSP::SiliconDiode diode;
+    const double                 knee = 40.0 * 1.752 * 0.025864;
+    const double                 delta = 1.0e-9;
+    for (const double edge : { knee, -knee })
+    {
+        const double below = diode.current_antiderivative(edge - delta);
+        const double above = diode.current_antiderivative(edge + delta);
+        const double steepest
+            = std::max(std::fabs(diode.current(edge - delta)), std::fabs(diode.current(edge + delta)));
+        EXPECT_LE(std::fabs(above - below), 2.0 * delta * steepest * 1.000001) << edge;
+    }
+}
+
+TEST(Unit_Dsp, SiliconDiodeJointAntiderivativeFormAgreesWithTheSeparateEntryPoints)
+{
+    // current_and_antiderivative() exists to share one exponential; it must not drift from the
+    // two entry points that forward to it.
+    const SushiDSP::SiliconDiode diode;
+    for (const double voltage : { -2.5, -0.7, -0.05, 0.0, 0.05, 0.7, 2.5 })
+    {
+        double current = 0.0;
+        double antiderivative = 0.0;
+        diode.current_and_antiderivative(voltage, current, antiderivative);
+        EXPECT_DOUBLE_EQ(current, diode.current(voltage)) << voltage;
+        EXPECT_DOUBLE_EQ(antiderivative, diode.current_antiderivative(voltage)) << voltage;
+    }
+}

@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 
 #include "SushiDSP/math/dk/DampedNewtonSolver.hpp"
 #include "SushiDSP/math/dk/DenseLu.hpp"
@@ -41,6 +42,35 @@ namespace SushiDSP::dk
     /// magnitude below any real pot's wiper contact resistance, so the floor is inaudible while
     /// it keeps the derivation well posed.
     inline constexpr double kMinimumPotOhms = 1.0;
+
+    /// @brief Detects a nonlinear port that restates the branch currents the update stamps.
+    ///
+    /// True when the port declares `currents_for_update(p, v, F, i)`, which DkCircuit calls once
+    /// per sample after the solve has converged; false ports keep the plain path, where the
+    /// currents Newton left are the ones stamped. The hook exists so a port can stamp something
+    /// other than f(v) at the converged operating point without DkCircuit knowing what: the port
+    /// is handed the open-circuit voltage p, the solved port voltage v and the port impedance
+    /// matrix F, which together are the whole of the memoryless map p -> i that the block's
+    /// linear part sees. Antiderivative antialiasing is the reason it exists (spec
+    /// 2026-08-26-aaa-audio-quality-design.md, Model corrections D6c C2).
+    /// @tparam System The caller's model glue.
+    /// @tparam N Nonlinear branch count.
+    template <typename System, std::size_t N, typename = void>
+    struct HasCurrentsForUpdate : std::false_type
+    {
+    };
+
+    /// @brief The specialisation that matches when the port declares the hook.
+    template <typename System, std::size_t N>
+    struct HasCurrentsForUpdate<
+        System, N,
+        std::void_t<decltype(std::declval<System&>().currents_for_update(
+            std::declval<const std::array<double, N>&>(),
+            std::declval<const std::array<double, N>&>(),
+            std::declval<const std::array<std::array<double, N>, N>&>(),
+            std::declval<std::array<double, N>&>()))>> : std::true_type
+    {
+    };
 
     /// @brief One discretised nonlinear circuit block, solved by damped Newton per sample.
     ///
@@ -58,7 +88,8 @@ namespace SushiDSP::dk
     /// between them are most of the per-sample cost. The Jacobian buffer is zeroed before every
     /// call, so a glue struct for independent devices leaves the off-diagonal blocks alone.
     /// Nothing here includes a circuit model: DkCircuit stays in SushiDSP/math with no
-    /// dependency on SushiDSP/circuits.
+    /// dependency on SushiDSP/circuits. A glue struct may additionally declare
+    /// `currents_for_update()`; see HasCurrentsForUpdate.
     ///
     /// process_sample(), update_matrices_if_dirty() and everything they reach are
     /// allocation-free, lock-free, syscall-free and throw-free. Every state is clamped each
@@ -282,6 +313,12 @@ namespace SushiDSP::dk
                     ++non_converged_samples_;
                     adapter.residual_and_jacobian(nonlinear_voltage_, residual_scratch_,
                                                   jacobian_scratch_);
+                }
+
+                if constexpr (HasCurrentsForUpdate<NonlinearSystem, N>::value)
+                {
+                    nonlinear.currents_for_update(open_circuit_voltage_, nonlinear_voltage_,
+                                                  matrix_f_, nonlinear_current_);
                 }
             }
 
