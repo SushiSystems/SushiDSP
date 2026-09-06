@@ -84,13 +84,23 @@ a conjugate pole pair placed at a corner this far below the rate lands within a 
 unit circle, which the 7.2343 Hz loop-return corner does not survive. The corners are unchanged
 and still come from the dossier's R and C.
 
-**Known issue: the amp has no clean setting.** `MesaMark2cHasACleanEndAtMinimumGain` is skipped.
-Dossier §2 puts EFFECTS SEND / RETURN between V2A's plate and V2B's grid and §3.7 prints no value
-for any of it, so the model has nothing on that link: V2A's plate, held to 87 V by its own ceiling,
-meets V2B's 4.14 V grid window directly and drives it twenty-one times past it. Every stage ahead
-of that link runs clean at a −40 dBFS input, and the amp still measures 41.4 % THD at Lead Drive
-0.02 against the test's 10 % bar. It closes when the send/return network is read off the
-schematic; dossier open questions 19 and 20.
+**Known issue: the amp has no clean setting.** Dossier §2 puts EFFECTS SEND / RETURN between
+V2A's plate and V2B's grid and §3.7 prints no value for any of it, so the model has nothing on that
+link: V2A's plate, held to 87 V by its own ceiling, meets V2B's 4.14 V grid window directly and
+drives it twenty-one times past it. Every stage ahead of that link runs clean at a −40 dBFS input,
+and the node still limits at every input level, which costs three tests. They are skipped, not
+weakened, and each re-asserts its own figure once the network is read off the schematic; dossier
+open questions 19 and 20.
+
+| Skipped test | What it measures now | What it will re-assert |
+| --- | --- | --- |
+| `MesaMark2cHasACleanEndAtMinimumGain` | 41.4 % THD at Lead Drive 0.02 and −40 dBFS | THD below 10 % somewhere on the knob |
+| `MesaMark2cToneStackSitsBeforeTheLeadStages` | bright minus dark 0.36 pp at −80 dBFS, 0.61 pp at −100 dBFS | a brighter stack drives the lead stages harder, by more than 5 pp |
+| `MesaMark2cEqBandBoostsItsCentre` | the 750 Hz slider lifts 979.5 Hz by 0.052 dB at −80 dBFS, 6.17 dB at −100 dBFS | the bank's full 17 dB lift |
+
+Lowering the test input does not rescue the last two: at −80 dBFS the output still sits on its
+ceiling, and by −100 dBFS, where the EQ boost finally starts to show, the level is 60 dB below
+anything a guitar produces.
 
 **Three constants that are not the dossier's.** The long-tailed pair degenerates its own input:
 only `1 / (1 + (µ + 1) · R_tail / (r_a + R_a))` of what arrives reaches the grid-cathode window, which
