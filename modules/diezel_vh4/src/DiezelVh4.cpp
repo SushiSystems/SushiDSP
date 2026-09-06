@@ -158,6 +158,13 @@ namespace SushiDSP
         /// 134.665 = 209.534 V to the bottom. jcm_ltp_tran.csv corroborates it: the differential
         /// probe reaches -20.74 V to +22.45 V at a 1 V drive, about twice one plate's cutoff side.
         constexpr PlateSwing kPhaseInverterPlateSwing{ 15.801f, 209.534f };
+        /// @brief The tail degeneration a long-tailed pair applies to its own grid-to-cathode
+        /// window, inherited with the stand-in and so a modelling choice like the rest of this
+        /// stage. The cathode follows the grid, so the window is the input divided by
+        /// 1 + (mu + 1)*R_tail/(r_a + Ra). At the JCM800 pair's operating point the Koren 12AX7
+        /// gives mu 75.0428 and r_a 171.5 kOhm, and jcm_ltp's tail is 470 + 10k = 10.47 kOhm
+        /// against the 82 kOhm plate: 1 + 76.0428 * 10470 / (171524 + 82000) = 4.140398.
+        constexpr float kPhaseInverterDegeneration = 4.140398f;
 
         constexpr float kTriodeSaturationCurrentAmps = 1e-9f;
         constexpr float kTriodeThermalVoltageVolts = 0.02585f;
@@ -168,9 +175,13 @@ namespace SushiDSP
         // from V1a's grid to the power tubes. The interstage factors left in the chain are all
         // dossier values: kV2aToV3aDivider, kVolumeSeriesDivider, kMixBusAttenuation and the two
         // cathode-follower scalars.
-        // Jcm800.cpp's constants, keeping its names because the names are the citation. The
-        // second is this chain's one output trim to full scale.
-        constexpr float kPhaseInverterToPowerTubeAttenuation = 1.0f / 32.0f;
+        /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
+        /// PentodeStage becomes volt-true (DA5). Its grid saturates at
+        /// 1 / (plate_saturation_drive * gain) = 1 / (0.045 * 8) = 2.778 model volts, where
+        /// kDiezelVh4PowerEl34's real grid needs |-36 V|: 2.778 / 36 = 0.077160.
+        constexpr float kPowerTubeGridScale = 0.077160f;
+        // Jcm800.cpp's constant, keeping its name because the name is the citation. It is this
+        // chain's one output trim to full scale.
         constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
 
         // Modelling choices: section 5 establishes no output transformer primary impedance, no
@@ -424,8 +435,8 @@ namespace SushiDSP
                                 * volume_pot * kMixBusAttenuation;
             const float send_buffer = v4a_.process_sample(mix_bus) * kCathodeFollowerGain;
             const float phase_inverted =
-                phase_inverter_.process_sample(send_buffer)
-                * kPhaseInverterToPowerTubeAttenuation;
+                phase_inverter_.process_sample(send_buffer * (1.0f / kPhaseInverterDegeneration))
+                * kPowerTubeGridScale;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted);
             const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
