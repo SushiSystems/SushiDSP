@@ -447,6 +447,32 @@ amount and oversample factor are compile-time constants.
   core, so any amplifier module can use them; `modules/jcm800` keeps only `JcmToneStack` and
   `Jcm800`.
 
+### As built in DA4
+
+`TriodeStage` gained a seven-argument constructor that gives its plate a two-sided `tanh` ceiling
+set by how far the real plate can swing toward the supply and toward the bottom of its load line
+(a `PlateSwing`), and on that path the grid-conduction diode references the cathode rather than
+the bias point, so a stage's clean swing matches its bias voltage the way the real grid does. The
+six-argument constructor is unchanged and stays bit-identical. With a physical ceiling in place,
+all four amplifier modules dropped the level-staging devices (JCM800's five scalars, the 5150's
+seven `k*LevelStaging` constants and its derived power-grid lift, the VH4's four staging
+constants, the IIC+'s per-stage normalisation) that used to keep every following grid off its
+solver bound; each dossier's own dividers now run at face value, in volts, from the first grid to
+the power tubes. Two circuit facts came with that change, applied by every module: the phase
+inverter is a long-tailed pair, so its grid-cathode window is the input divided by the tail
+degeneration `1 + (µ + 1)·R_tail / (r_a + R_a)`, not the full swing a common-cathode stage would
+see; and `PentodeStage`'s grid is not volt-true, so the link from a preamp stage's volts into its
+grid carries a derived `kPowerTubeGridScale` bridge until `PentodeStage` is rebuilt in DA5. Every
+coupling capacitor moved to `Biquad::set_first_order_high_pass`, the numerically stable one-pole
+shape for a physical RC link, in place of the second-order `set_high_pass`, which is unsafe below
+a `cutoff_hz / sample_rate` of `1e-4`. Because the dossiers' own dividers run this hot, "no grid on
+its bound" is not achievable at these gain structures; the acceptance criterion each module's
+README documents instead is a clean end at minimum gain, non-decreasing THD across the knob, and
+a −6 dBFS ± 1 dB default peak. The JCM800's alias floor regressed to −3.0 dB against the −33.8 dB
+bound as a result — every stage now clips at the level its own circuit puts it at, feeding more
+harmonics into the 8× fold — and is carried as a known issue (`docs/reference/KNOWN_ISSUES.md`)
+until DA5's antialiasing work.
+
 ### §5a Amplifier family
 
 The DA phase (plans `docs/superpowers/plans/2026-09-06-high-gain-amps-part1.md` and
@@ -455,10 +481,10 @@ single JCM800 into four sibling amplifier modules sharing the stage classes abov
 
 | Module | Channel | Dossier | Module path | Status |
 | --- | --- | --- | --- | --- |
-| JCM800 | Marshall JCM800 2203, one channel | — | `modules/jcm800/` | White-box, see "As built" above. |
-| Peavey 5150 | Block-letter 1992 5150, lead channel | `docs/reference/research/2026-09-06-peavey-5150-design-dossier.md` | `modules/peavey5150/` | White-box against the dossier's schematic set. |
-| Mesa/Boogie Mark IIC+ | Lead mode | `docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` | `modules/mesa_mark2c/` | White-box against the dossier's schematic set. |
-| Diezel VH4 | Channel 3 ("Mega") | `docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md` | `modules/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. |
+| JCM800 | Marshall JCM800 2203, one channel | — | `modules/jcm800/` | White-box, see "As built" above. DA4: plate-swing chain. |
+| Peavey 5150 | Block-letter 1992 5150, lead channel | `docs/reference/research/2026-09-06-peavey-5150-design-dossier.md` | `modules/peavey5150/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
+| Mesa/Boogie Mark IIC+ | Lead mode | `docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` | `modules/mesa_mark2c/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
+| Diezel VH4 | Channel 3 ("Mega") | `docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md` | `modules/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. DA4: plate-swing chain. |
 
 Each module's own README lists exactly where its model departs from its dossier.
 
@@ -556,6 +582,8 @@ Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical cor
 - **D6 — VST3/CLAP wrapper.** `apps/plugin` hosting the rig graph as a DAW plugin with its own rig-editor UI. *Ships: SushiDSP.vst3/.clap loads in a DAW, hosts TS + JCM800.*
 - **D7 — Hardening & packaging.** Namespaced export/Config finalized, perceptual A/B validation once reference captures are available.
 - **DA — High-gain amplifiers.** §5a: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes, registered in the node registry with their own front-panel layouts. *Ships: all four amps selectable in the rig host, RT-safety-trapped, panel- and registry-tested.*
+- **DA4 — Plate-swing `TriodeStage`.** Spec `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. A physical plate ceiling replaces the level-staging devices in all four amplifiers; the phase-inverter tail degeneration and the `PentodeStage` grid bridge become explicit, derived constants. *Ships: all four amps on the seven-argument `TriodeStage`, a clean end and non-decreasing THD on every gain knob, two known issues carried to DA5 (the JCM800's alias floor, the IIC+'s undocumented loop return).*
+- **DA5 — Antialiasing and the volt-true power stage.** Antiderivative antialiasing in `TriodeStage`, or 16× oversampling, to recover the alias floor DA4 cost; `PentodeStage` rebuilt volt-true; the six-argument `TriodeStage` path and `PlateSwing::apply`'s duplication deleted once `PentodeStage` shares it; the shelf-corner rule and the transformer's DC pass (final review F2, F5, F7).
 
 **DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration, which waits on `RigGraph`'s per-node multi-channel support.
 

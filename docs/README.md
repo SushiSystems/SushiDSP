@@ -12,6 +12,8 @@ once you're in the tree and need a specific document.
   braces, the license header format, the test/CTest-label layout, and how to build (`sd`, never
   `cmake` directly).
 - **[Changelog](reference/CHANGELOG.md)** — what changed and when, by roadmap phase.
+- **[Known issues](reference/KNOWN_ISSUES.md)** — measured defects left open on purpose, each
+  with its figure, its mechanism, the skipped test that documents it, and what closes it.
 - **[Code of Conduct](CODE_OF_CONDUCT.md)** and **[Security Policy](SECURITY.md)**.
 - **[`docs/reference/spice/`](reference/spice/)** — the SPICE reference corpus: netlist-directive
   `.asc` files and Koren/Norman `.sub` models for each circuit block, exported to CSV by

@@ -138,9 +138,9 @@ regression snapshot.
 Signal paths, as far as the public schematics establish them; the dossier is authoritative and
 overrides this section where it differs:
 
-- **5150 lead.** Five cascaded 12AX7 triode stages with interstage attenuation and a cold-biased
-  clipper stage, then the FMV stack, then Post Gain, then a long-tailed-pair phase inverter into
-  the 6L6 push-pull, Resonance and Presence in the feedback loop. Fixed bias.
+- **5150 lead.** Five cascaded 12AX7 triode stages with interstage attenuation (removed in DA4)
+  and a cold-biased clipper stage, then the FMV stack, then Post Gain, then a long-tailed-pair
+  phase inverter into the 6L6 push-pull, Resonance and Presence in the feedback loop. Fixed bias.
 - **IIC+ lead.** Input stage, the FMV stack placed before the lead drive (the Mark family's
   defining ordering), Lead Drive stage into a further triode with heavy cathode bypass, Lead
   Master, the five-band EQ after the preamp, then the Simul-Class power section. The Simul-Class

@@ -23,6 +23,18 @@ The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-ga
 - 2026-09-06 — Removed the VH4's C1 input low-pass, whose corner belongs to the source impedance the node never sees (`DiezelVh4.cpp`, `DiezelVh4.hpp`, `modules/diezel_vh4/README.md`).
 - 2026-09-06 — Registered the 5150, Mark IIC+ and VH4 in the node registry and gave each a front-panel layout (`NodeRegistry.cpp`, `PanelLibrary.cpp`).
 
+### DA4 — Plate-swing `TriodeStage`, spec `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`
+
+- 2026-09-07 — Added `TriodeStage`'s seven-argument constructor, a two-sided plate `tanh` ceiling and `peak_grid_excursion_volts()` (`TriodeStage.hpp`, `TriodeStage.cpp`).
+- 2026-09-07 — Referenced the seven-argument path's grid-conduction diode to the cathode instead of the bias point (`TriodeStage.cpp`).
+- 2026-09-07 — Added `Biquad::set_first_order_high_pass` and the `@pre` corner floor on `set_high_pass` (`Biquad.hpp`).
+- 2026-09-07 — Moved the JCM800 onto the plate-swing `TriodeStage`; removed its five level-staging scalars; added the treble-peaker divider and stack insertion loss (`modules/jcm800/`).
+- 2026-09-07 — Moved the 5150 onto the plate-swing `TriodeStage`; removed its seven `k*LevelStaging` constants and the derived power-grid lift; added LTP degeneration and the power-grid scale bridge (`modules/peavey5150/`).
+- 2026-09-07 — Moved the Mark IIC+ onto the plate-swing `TriodeStage`; removed its per-stage gain normalisation; added LTP degeneration, the power-grid scale bridge and the loop-return coupling high-pass (`modules/mesa_mark2c/`).
+- 2026-09-07 — Moved the VH4 onto the plate-swing `TriodeStage`; removed its four staging constants; added LTP degeneration and the power-grid scale bridge (`modules/diezel_vh4/`).
+- 2026-09-07 — Re-pinned all four amplifier goldens for the plate-swing chain (`tests/golden/`).
+- 2026-09-07 — Added `docs/reference/KNOWN_ISSUES.md`, the alias floor, the IIC+ loop return and the VH4's borrowed power section.
+
 ## DR2 — Boss DD-3 delay
 
 The delay/reverb track's second phase, spec
