@@ -106,9 +106,10 @@ namespace SushiDSP
 
         /// @brief Linear output gain at 0 dB on the Level knob, a -3.17 dB trim. Re-calibrated in
         /// D6c against the measured DK chain at 4x, where a -12 dBFS 82 Hz sine came out at
-        /// -7.94 dBFS; D5b's 1.1078783 belonged to the memoryless clipper and the mis-netlisted
-        /// tone stage that this phase replaced. It multiplies the signal after the last
-        /// nonlinearity, so it scales the output and nothing else.
+        /// -7.94 dBFS; D5b's 1.1078783 belonged to the memoryless clipper and the low-pass /
+        /// high-pass crossfade that stood in for the tone control before D6c netlisted it. It
+        /// multiplies the signal after the last nonlinearity, so it scales the output and
+        /// nothing else.
         static constexpr float kLevelUnityGain = 0.6942987f;
 
         /// @brief The endpoints of the drive rheostat in TubeScreamerCircuits.hpp: the feedback

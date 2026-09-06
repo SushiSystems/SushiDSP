@@ -570,6 +570,13 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
         double index = 0.0, sum_squares = 0.0;
         std::size_t counted = 0;
 
+        // The measurement window is truncated to whole cycles of the tone under test. Blocks 100
+        // to 199 hold 25600 samples, which is 16 cycles at 30 Hz but 5.33 at 10 Hz, and the
+        // partial cycle biases that RMS by about 3 % - enough to move a ratio the case reads to
+        // two decimal places.
+        const std::size_t cycle_samples = static_cast<std::size_t>(48000.0 / frequency);
+        const std::size_t window = 25600 / cycle_samples * cycle_samples;
+
         for (int block = 0; block < 200; ++block)
         {
             for (std::size_t i = 0; i < input.size(); ++i)
@@ -584,6 +591,10 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
             {
                 for (float sample : output)
                 {
+                    if (counted == window)
+                    {
+                        break;
+                    }
                     sum_squares += static_cast<double>(sample) * sample;
                     ++counted;
                 }
