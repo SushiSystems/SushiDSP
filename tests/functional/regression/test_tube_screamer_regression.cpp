@@ -70,11 +70,13 @@ namespace
 // Regenerate deliberately, never to make a red test green:
 //   SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression
 // and say why in the commit message and in tests/golden/README.md.
+// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Regression_Dsp, TubeScreamerGoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("tube_screamer_48k", render_tube_screamer(48000.0)), -80.0);
 }
 
+// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
 TEST(Regression_Dsp, TubeScreamerGoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("tube_screamer_96k", render_tube_screamer(96000.0)), -80.0);

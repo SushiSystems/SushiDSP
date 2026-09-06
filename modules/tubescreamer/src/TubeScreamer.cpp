@@ -100,20 +100,22 @@ namespace SushiDSP
 
     void TubeScreamer::process(ProcessContext& context)
     {
-        const float drive = drive_.skip(context.frames);
-        const float tone = tone_.skip(context.frames);
-        const float input_gain = input_trim_gain_.skip(context.frames);
-
         const float* input = context.inputs[0];
         float*       output = context.outputs[0];
 
         if (!circuits_ready_)
         {
-            // A block whose matrices never derived has nothing to step; silence is the only
-            // answer that cannot alias or blow up.
-            std::fill(output, output + context.frames, 0.0f);
+            // A derivation that failed never recovers, so the pedal degrades to what its own
+            // bypass would give: the dry signal, copied. No solver runs and the input is
+            // already bounded, so this path cannot alias or blow up. The guard sits above
+            // every skip() so all four smoothers advance together or not at all.
+            std::copy(input, input + context.frames, output);
             return;
         }
+
+        const float drive = drive_.skip(context.frames);
+        const float tone = tone_.skip(context.frames);
+        const float input_gain = input_trim_gain_.skip(context.frames);
 
         // Wiper positions are a control-rate concern: set_potentiometer marks nothing dirty when
         // the value has not moved, so a still knob costs nothing and a moved one costs one
