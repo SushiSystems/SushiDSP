@@ -44,6 +44,7 @@
 #include "SushiDSP/math/dk/DkCircuit.hpp"
 #include "SushiDSP/math/dk/DkNetlist.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
+#include "SushiDSP/tubescreamer/TubeScreamerCircuits.hpp"
 
 #include "circuits/JcmV1aNetlist.hpp"
 
@@ -92,6 +93,10 @@ namespace
     // stage's six reactive states to the seven the D6b budget is written against.
     using namespace SushiDSP::test_circuits;
 
+    // The Tube Screamer's two blocks come from the product module, because the circuits are the
+    // pedal: the bench prices exactly the description Task 7's node will run.
+    using namespace SushiDSP::tube_screamer_circuits;
+
     constexpr std::uint32_t kOversampleFactor = 8;
 
     /// @brief The benchmarked shape: seven states, two nonlinear branches, two sources, one probe.
@@ -111,6 +116,28 @@ namespace
         {
             circuit.process_sample(port, silence, outputs);
         }
+    }
+
+    /// @brief Prints one DK circuit's solve, non-convergence and worst-iteration counters.
+    ///
+    /// A solver's cost and its convergence are the same measurement: a block that got fast by
+    /// giving up early is not faster. Read the rate with the harness in mind - measure() replays
+    /// the same 256-frame buffer, so the tone jumps back to sample 0 once per repetition, and
+    /// that step is the one thing here a real stream never does.
+    /// @param circuit The circuit whose counters to report.
+    template <typename Circuit>
+    void print_solver_counters(const Circuit& circuit)
+    {
+        const std::uint64_t solves = circuit.total_samples();
+        const std::uint64_t non_converged = circuit.non_converged_samples();
+        std::printf("  solver: %llu solves, %llu non-converged (%.4f %%), %u iterations worst "
+                    "case, %llu NaN fallbacks\n",
+            static_cast<unsigned long long>(solves),
+            static_cast<unsigned long long>(non_converged),
+            solves == 0 ? 0.0 : 100.0 * static_cast<double>(non_converged)
+                                    / static_cast<double>(solves),
+            circuit.maximum_iterations_seen(),
+            static_cast<unsigned long long>(circuit.nan_fallback_samples()));
     }
 
     /// @brief Times one 256-frame block of the DK stage run at 8x oversampling.
@@ -160,24 +187,9 @@ namespace
             }
         });
 
-        // Reported because a solver's cost and its convergence are the same measurement: a
-        // block that got fast by giving up early is not faster. Read the non-converged figure
-        // with the harness in mind - measure() replays the same 256-frame buffer, so the tone
-        // jumps back to sample 0 once per repetition, and that step is the one thing here a real
-        // stream never does. With the triode's interelectrode capacitances in the netlist the
-        // step no longer costs a solve either, so the count is currently zero; the rate stays an
-        // upper bound on the circuit's behaviour on a real stream, and
-        // tests/functional/unit/test_dk_triode_stage.cpp measures the honest figure.
-        const std::uint64_t solves = circuit.total_samples();
-        const std::uint64_t non_converged = circuit.non_converged_samples();
-        std::printf("  solver: %llu solves, %llu non-converged (%.4f %%), %u iterations worst "
-                    "case, %llu NaN fallbacks\n",
-            static_cast<unsigned long long>(solves),
-            static_cast<unsigned long long>(non_converged),
-            solves == 0 ? 0.0 : 100.0 * static_cast<double>(non_converged)
-                                    / static_cast<double>(solves),
-            circuit.maximum_iterations_seen(),
-            static_cast<unsigned long long>(circuit.nan_fallback_samples()));
+        // The interelectrode capacitances make the buffer wrap cost no solve, so this count is
+        // zero; test_dk_triode_stage.cpp measures the honest figure for a real stream.
+        print_solver_counters(circuit);
         return result;
     }
 
@@ -256,6 +268,102 @@ namespace
                 circuit.update_matrices_if_dirty();
             }
         });
+    }
+
+    /// @brief Times one 256-frame block of the TS808 clip block run at 8x oversampling.
+    ///
+    /// There is no bias point to settle: the block sits at zero at DC. The oversampling loop is
+    /// written out inline for the same reason measure_dk_circuit() writes it out - the case
+    /// prices the solver, and Oversampler8x has its own row. One block is 256 * 8 = 2048 solves,
+    /// with the drive pot where the TubeScreamer node case sets it.
+    /// @return The measured Result, costed per output sample at the base rate.
+    SushiDSP::bench::Result measure_ts_clip_block()
+    {
+        const double run_rate = kSampleRate * kOversampleFactor;
+
+        ClipNetlist       netlist;
+        const std::size_t pot = build_clip_block(netlist);
+
+        ClipCircuit   circuit;
+        DiodePairPort port;
+        if (!circuit.prepare(netlist, run_rate))
+        {
+            std::printf("ts_clip prepare failed; case skipped\n");
+            return { "TubeScreamerBlock clip @8x", 0.0, 0.0 };
+        }
+        circuit.set_potentiometer(pot, drive_to_position(0.7));
+        circuit.update_matrices_if_dirty();
+        circuit.reset_statistics();
+
+        const std::vector<float>      input = make_test_tone(kBlockSize);
+        std::vector<float>            output(kBlockSize, 0.0f);
+        const SushiDSP::bench::Result result = SushiDSP::bench::measure(
+            "TubeScreamerBlock clip @8x", kBlockSize, kSampleRate,
+            [&]
+        {
+            std::array<double, 1> outputs{};
+            for (std::uint32_t frame = 0; frame < kBlockSize; ++frame)
+            {
+                const std::array<double, 1> inputs{ static_cast<double>(input[frame])
+                    * static_cast<double>(SushiDSP::kFullScaleVolts) };
+                for (std::uint32_t step = 0; step < kOversampleFactor; ++step)
+                {
+                    circuit.process_sample(port, inputs, outputs);
+                }
+                output[frame] = static_cast<float>(outputs[0]);
+            }
+        });
+
+        print_solver_counters(circuit);
+        return result;
+    }
+
+    /// @brief Times one 256-frame block of the TS808 tone and level block at 8x oversampling.
+    ///
+    /// The block has no nonlinear branch, so LinearPort is what it is stepped with and the cost
+    /// is the state-space update alone. Its counters are printed anyway, because a zero
+    /// non-convergence rate on an N = 0 block is what says the shape really is linear.
+    /// @return The measured Result, costed per output sample at the base rate.
+    SushiDSP::bench::Result measure_ts_tone_block()
+    {
+        const double run_rate = kSampleRate * kOversampleFactor;
+
+        ToneNetlist              netlist;
+        const TonePotentiometers pots = build_tone_block(netlist);
+
+        ToneCircuit circuit;
+        LinearPort  port;
+        if (!circuit.prepare(netlist, run_rate))
+        {
+            std::printf("ts_tone prepare failed; case skipped\n");
+            return { "TubeScreamerBlock tone @8x", 0.0, 0.0 };
+        }
+        circuit.set_potentiometer(pots.tone, tone_to_position(0.5));
+        circuit.set_potentiometer(pots.level, kLevelPotPosition);
+        circuit.update_matrices_if_dirty();
+        circuit.reset_statistics();
+
+        const std::vector<float>      input = make_test_tone(kBlockSize);
+        std::vector<float>            output(kBlockSize, 0.0f);
+        const SushiDSP::bench::Result result = SushiDSP::bench::measure(
+            "TubeScreamerBlock tone @8x", kBlockSize, kSampleRate,
+            [&]
+        {
+            std::array<double, 1> outputs{};
+            for (std::uint32_t frame = 0; frame < kBlockSize; ++frame)
+            {
+                const std::array<double, 1> inputs{ static_cast<double>(input[frame])
+                    * static_cast<double>(SushiDSP::kFullScaleVolts) };
+                for (std::uint32_t step = 0; step < kOversampleFactor; ++step)
+                {
+                    circuit.process_sample(port, inputs, outputs);
+                }
+                output[frame] = static_cast<float>(outputs[0]);
+            }
+        });
+
+        print_solver_counters(circuit);
+        return result;
     }
 
     /// @brief Times one 256-frame block through the DD-3's two resamplers at the slow clock.
@@ -385,6 +493,12 @@ int main(int argc, char** argv)
         print(measure_dk_circuit(), 0.12);
         print(measure_dk_potentiometer_update());
         print(measure_dk_potentiometer_rederivation());
+    }
+    if (selected("TubeScreamerBlock", argc, argv))
+    {
+        // No budget here: the 0.25 ms line belongs to the TubeScreamer node these two feed.
+        print(measure_ts_clip_block());
+        print(measure_ts_tone_block());
     }
     if (selected("PartitionedConvolution", argc, argv))
     {

@@ -32,11 +32,11 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
-#include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/dk/DkCircuit.hpp"
 #include "SushiDSP/math/dk/DkNetlist.hpp"
 
 #include "circuits/JcmV1aNetlist.hpp"
+#include "circuits/SpiceBlockCompare.hpp"
 #include "measure/FrequencyResponse.hpp"
 #include "measure/NullTest.hpp"
 #include "measure/SpiceCsv.hpp"
@@ -45,7 +45,9 @@ namespace
 {
     // The netlist, its component constants and the triode glue live in
     // tests/circuits/JcmV1aNetlist.hpp: the RT-safety traps and the benchmark build the same
-    // block, and one description of it is the only way the three stay the same circuit.
+    // block, and one description of it is the only way the three stay the same circuit. The
+    // same namespace carries tests/circuits/SpiceBlockCompare.hpp's spice_path, band_limit and
+    // interpolate_magnitude, which the Tube Screamer block tests use unchanged.
     using namespace SushiDSP::test_circuits;
 
     /// @brief The stage's DK shape: six capacitors, two triode branches, two sources, one probe.
@@ -163,72 +165,6 @@ namespace
         double          sample_rate_{ 0.0 };
         bool            prepared_{ false };
     };
-
-    /// @brief Path of a generated LTspice CSV; a missing file means "not generated yet".
-    /// @param block The SPICE block directory name.
-    /// @param kind Either "ac" or "tran".
-    /// @return The absolute path the export tool would write.
-    std::string spice_path(const char* block, const char* kind)
-    {
-        return std::string(SUSHIDSP_SPICE_DIR) + "/" + block + "/" + block + "_" + kind + ".csv";
-    }
-
-    /// @brief Applies a 4th-order Butterworth low-pass, as two cascaded Biquad sections.
-    ///
-    /// The same filter object shape and the same cutoff are applied to the reference and to the
-    /// circuit under test, so the band-limiting cannot flatter either signal: it only removes the
-    /// top octave, where LTspice's variable-step integrator and our fixed-step trapezoidal rule
-    /// are known to disagree (D6b plan, Risks).
-    /// @param signal The signal to filter, modified in place.
-    /// @param sample_rate Sample rate in hertz.
-    /// @param cutoff_hz Corner frequency in hertz.
-    void band_limit(std::vector<float>& signal, double sample_rate, double cutoff_hz)
-    {
-        SushiDSP::Biquad first;
-        SushiDSP::Biquad second;
-        first.set_low_pass(sample_rate, cutoff_hz, 0.54119610);
-        second.set_low_pass(sample_rate, cutoff_hz, 1.30656296);
-        for (float& sample : signal)
-        {
-            sample = second.process_sample(first.process_sample(sample));
-        }
-    }
-
-    /// @brief Linearly interpolates one setting's magnitude curve out of a loaded AC sweep.
-    /// @param sweep The parsed sweep.
-    /// @param setting The stepped-control index to read.
-    /// @param frequency_hz The frequency to evaluate at.
-    /// @param magnitude_db Receives the interpolated magnitude when the frequency is in range.
-    /// @return False when the setting has fewer than two rows or the frequency is out of range.
-    bool interpolate_magnitude(const SushiDSP::measure::AcSweep& sweep,
-                               int                               setting,
-                               double                            frequency_hz,
-                               double&                           magnitude_db)
-    {
-        bool        have_previous = false;
-        double      previous_frequency = 0.0;
-        double      previous_magnitude = 0.0;
-        for (std::size_t row = 0; row < sweep.frequency_hz.size(); ++row)
-        {
-            if (sweep.setting[row] != setting)
-            {
-                continue;
-            }
-            const double frequency = sweep.frequency_hz[row];
-            const double magnitude = sweep.magnitude_db[row];
-            if (have_previous && frequency_hz >= previous_frequency && frequency_hz <= frequency)
-            {
-                const double span = frequency - previous_frequency;
-                const double blend = span > 0.0 ? (frequency_hz - previous_frequency) / span : 0.0;
-                magnitude_db = previous_magnitude + blend * (magnitude - previous_magnitude);
-                return true;
-            }
-            previous_frequency = frequency;
-            previous_magnitude = magnitude;
-            have_previous = true;
-        }
-        return false;
-    }
 
     /// @brief The three PREAMP values the SPICE block steps, in setting-index order.
     inline constexpr std::array<double, 3> kSteppedPreamp{ 0.1, 0.5, 0.9 };
