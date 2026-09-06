@@ -231,11 +231,17 @@ TEST(Unit_Dsp, MesaMark2cUnknownParameterIsSafeNoOp)
 TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
 {
     // Every knob is driven to both of its stops and held there for 200 blocks. The output must
-    // stay finite, and the settled DC term the cascade's asymmetric clipping leaves must stay
-    // bounded. The bound is 0.25 rather than the -40 dBFS an ideal transformer would give:
-    // OutputTransformerStage saturates downstream of its own low-frequency rolloff, so the
-    // rectification its tanh introduces at the extreme setting is not blocked. See
+    // stay finite, its settled DC term must stay bounded, and that term must stop moving.
+    //
+    // The bound is 0.25 rather than the -40 dBFS an ideal transformer would give:
+    // OutputTransformerStage runs its tanh after its own low-frequency rolloff, so the
+    // rectification the tanh introduces at the extreme setting is never blocked. Measured DC at
+    // the high stop is -0.0506; a real secondary winding would block it. See
     // modules/mesa_mark2c/README.md.
+    //
+    // At the low stop Master 1 sits at -60 dB, so a bound on the DC alone would pass on
+    // attenuation. The drift check is what makes that extreme mean something: the DC of the
+    // third quarter and of the last must agree, which a slowly diverging state would not.
     for (float extreme : { 0.0f, 1.0f })
     {
         const std::vector<float> rendered = render_mesa_mark2c(
@@ -256,15 +262,24 @@ TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
             },
             0.1, 220.0, 200);
 
-        double sum = 0.0;
-        const std::size_t start = rendered.size() * 3 / 4;
-        for (std::size_t i = start; i < rendered.size(); ++i)
+        const std::size_t third_quarter = rendered.size() / 2;
+        const std::size_t last_quarter = rendered.size() * 3 / 4;
+        double third_sum = 0.0, last_sum = 0.0;
+        for (std::size_t i = third_quarter; i < last_quarter; ++i)
         {
             ASSERT_TRUE(std::isfinite(rendered[i])) << "extreme " << extreme;
-            sum += rendered[i];
+            third_sum += rendered[i];
         }
-        const double dc = sum / static_cast<double>(rendered.size() - start);
-        EXPECT_LT(std::fabs(dc), 0.25) << "extreme " << extreme;
+        for (std::size_t i = last_quarter; i < rendered.size(); ++i)
+        {
+            ASSERT_TRUE(std::isfinite(rendered[i])) << "extreme " << extreme;
+            last_sum += rendered[i];
+        }
+        const double quarter = static_cast<double>(last_quarter - third_quarter);
+        const double third_quarter_dc = third_sum / quarter;
+        const double last_quarter_dc = last_sum / static_cast<double>(rendered.size() - last_quarter);
+        EXPECT_LT(std::fabs(last_quarter_dc), 0.25) << "extreme " << extreme;
+        EXPECT_LT(std::fabs(last_quarter_dc - third_quarter_dc), 0.01) << "extreme " << extreme;
     }
 }
 

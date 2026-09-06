@@ -24,7 +24,7 @@ stages downstream of it distort a signal the tone controls have already shaped, 
 separates a Mark from a Marshall. `MesaMark2cToneStack` is therefore instantiated between `v1a_`
 and the Volume 1 attenuation in `MesaMark2c::process()`, and
 `MesaMark2cToneStackSitsBeforeTheLeadStages` pins the consequence: with Lead Drive wide open, THD
-at 1 kHz runs 19.8 % with Treble at 0 and 34.7 % with Treble at 1.
+at 1 kHz runs 31.5 % with Treble at 0 and 39.7 % with Treble at 1.
 
 ## The blocks and who owns each
 
@@ -53,7 +53,7 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 | 680 k into Lead Drive 1 M | attenuation 0.595 at maximum | §3.3 |
 | V3B, Rp 82 k, Vk 1.8 V | gain 56.7 | §3.3 |
 | V3B coupling, 0.02 µF into 170 k + 68 k | high-pass **33.44 Hz** (computed) | §3.4 |
-| Interstage divider | 0.286, high-pass 69.72 Hz | §3.4 |
+| Interstage network, 68 k with 0.047 µF across the 170 k | low shelf: 0.286 below, unity above, zero **19.939 Hz**, pole 69.717 Hz | §3.4, open question 18 |
 | V4A, Rp 270 k, Rk 3.3 k, Vk 1.2 V | gain 70 | §3.4 |
 | V4A cathode, 0.22 µF on 3.3 k | zero 219.22 Hz, pole **438.97 Hz**, loss below **0.4994** (−6.03 dB) | §3.4 |
 | V4A coupling, 0.047 µF into 320 k | high-pass **10.58 Hz** (computed) | §3.5 |
@@ -67,7 +67,7 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 | V5A/V5B long-tailed pair, Rp 82 k | gain **28.374** (see below) | §5.1 |
 | Simul-Class output | `kMesaMark2cPower6L6GC` ×2 and `kMesaMark2cPowerEl34Triode` ×2 | §7.2, §7.3 |
 | Presence, 0.022 µF with 6.8 k | high shelf at **1063.9 Hz** (computed), ±9 dB | §5.2 |
-| Master 1, 100 k | dB control, `kMasterUnityGain` 1.0041100 | §2 |
+| Master 1, 100 k | dB control, `kMasterUnityGain` 0.8238633 | §2 |
 
 The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 5.0 kHz (V2A),
 11.6 kHz (V2B) and 15.2 kHz (the inverter). Each is computed from the JCM800's 12AX7 capacitances
@@ -84,20 +84,31 @@ stage's own dossier gain and multiplied by one figure,
 `kGridDriveNormalisation = 5.0`. The dossier's dividers and pots are then the only things that
 change the drive as it moves down the cascade, which is what §3.4 and §3.5 say those dividers are
 for. The 5.0 is measured, not derived: it is the value at which Lead Drive sweeps THD at 1 kHz
-from 12.0 % to 27.5 % monotonically over its travel.
+from 12.5 % to 36.9 % monotonically over its travel.
+
+The JCM800 solves the same problem with a different device: five fixed scalars,
+`kPreampPotMaxAttenuation` 1/16, `kV1bToV2aAttenuation` and `kV2aToPhaseInverterAttenuation` 1/50,
+`kPhaseInverterToPowerTubeAttenuation` 1/32 and `kPowerTubeToTransformerAttenuation` 0.05, each an
+invented per-link number. The Diezel VH4 module's level-staging constants are the third sibling.
+One number here against five there is a divergence, and it survives only because the underlying
+brick is missing: `TriodeStage` has no plate-swing ceiling, so a cascade fed its real gains runs
+into the Newton-Raphson bound instead of into a plate. Giving `TriodeStage` that ceiling is the
+change that retires both devices at once, and every amplifier module could then be fed the
+dossier's own numbers.
 
 **Volume 1's ceiling.** The taper law is the JCM800's `preamp_attenuation()`, `n·√n`, but without
 that amp's 1/16 ceiling. The 2203's ceiling stands in for a loss the IIC+ already has: its stack
 sits ahead of the pot, and at every knob centred it measures −11.3 dB at 100 Hz, −14.9 dB at
 1 kHz and −7.9 dB at 3 kHz.
 
-**The 68 k ∥ 0.047 µF divider is modelled as a high-pass, not a low-pass.** The two readings of
-that RC in §3.4 are mutually exclusive. As drawn — 68 k with 0.047 µF shunting the grid to ground,
-fed through 170 k — the network is a one-pole *low-pass* at 69.7 Hz with a DC gain of 0.286, which
-would remove the entire guitar band. The dossier's own prose calls the same corner the amp's
-tightness mechanism and says "the low end is thrown away first", which is a high-pass. The model
-takes the prose: attenuation 0.286 with a high-pass at 69.72 Hz. Dossier §8 does not list this as
-an open question; it should.
+**The 0.047 µF sits across the 170 k, not from the node to ground.** S1 draws 68 k in parallel
+with 0.047 µF to ground, which as drawn is a 69.7 Hz low-pass no lead channel could have: with the
+0.02 µF coupling cap in front it is a band-pass peaking at 0.171 near 48 Hz and sitting 29 dB down
+at 2 kHz. The model places the capacitor across the 170 k, which gives the tightness §3.4's prose
+describes — a low shelf, 0.286 below the corner and unity above it, with the pole at exactly the
+69.717 Hz §3.4 prints and the zero at 19.939 Hz. It is the only reading under which the prose, the
+0.286 and the 69.7 Hz are all true of one circuit, and it replaces both the flat divider and the
+separate high-pass, so the low end is not rolled twice. Dossier §8 open question 18.
 
 **The Lead Drive bright cap is read at 470 k.** §8 question 8 leaves its series resistor as either
 47 k or 470 k. 47 k puts the corner at 18.81 kHz, where the cap does nothing audible; 470 k puts
@@ -149,7 +160,8 @@ scales the output instead, as the JCM800 does, and `kMasterUnityGain` calibrates
 - **The Rhythm channel, the reverb, the effects loop as a real send and return, and the Class A
   and 60 W power switches.**
 - **DC at the extreme setting.** With every knob at its stop the settled output carries a DC term
-  of 0.166 (−15.6 dBFS). `OutputTransformerStage` saturates downstream of its own low-frequency
-  rolloff, so the rectification its tanh introduces is not blocked; a real secondary winding blocks
-  it. `MesaMark2cIsDcStableAcrossManyBlocksAtHighGain` bounds it at 0.25 rather than the −40 dBFS
-  an ideal transformer would give. The JCM800 has the same structure.
+  of −0.0506 (−25.9 dBFS). `OutputTransformerStage` runs its tanh after its own low-frequency
+  rolloff, so the rectification the tanh introduces is never blocked; a real secondary winding
+  blocks it. `MesaMark2cIsDcStableAcrossManyBlocksAtHighGain` bounds it at 0.25 rather than the
+  −40 dBFS an ideal transformer would give, and checks that it has stopped moving. The JCM800 has
+  the same structure, and the fix belongs in the brick.

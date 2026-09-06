@@ -112,7 +112,7 @@ namespace SushiDSP
         /// so an untouched amp turns a -12 dBFS 1 kHz sine into roughly -6 dBFS out, the way the
         /// JCM800's kMasterUnityGain was measured, and pinned by
         /// MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput.
-        static constexpr float kMasterUnityGain = 1.0041100f;
+        static constexpr float kMasterUnityGain = 0.8238633f;
 
         /// @brief Sets the Volume 1 control, the 1 M pot between the tone stack and V1B's grid.
         /// @param normalized Volume 1 amount in [0, 1]; smoothed toward on the audio thread.
@@ -200,7 +200,7 @@ namespace SushiDSP
         Biquad v1b_coupling_;
         Biquad lead_drive_bright_;
         Biquad v3b_coupling_;
-        Biquad v3b_divider_high_pass_;
+        Biquad v4a_interstage_shelf_;
         Biquad v4a_cathode_shelf_;
         Biquad v4a_coupling_;
         Biquad lead_output_divider_;
