@@ -374,8 +374,9 @@ TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
 // alone made the floor worse, not better - -20.4 dB - because region A's decimator had silently
 // been band-limiting V1b's output before the later clipping stages saw it. Restoring the
 // interstage bandwidth the model was actually missing (the 12AX7's Miller input capacitance, in
-// Jcm800.cpp) takes it to -43.4 dB, 39.6 dB better than D5b and clear of the spec bar, so the
-// JCM800 assertion below is the spec's again. The TubeScreamer's is not: its floor is aliasing
+// Jcm800.cpp) took it to -43.4 dB, 39.6 dB better than D5b and clear of the spec bar. DA4 then
+// removed the JCM800's level staging and the floor went to -6.7 dB, so that case is skipped as a
+// known issue and its own comment carries the reason. The TubeScreamer's floor is aliasing
 // generated inside the oversampled domain, and D6c's rebuild moved it to -18.6 dB without
 // reaching the bar, so it stays a regression floor. The case's own comment carries that number.
 constexpr double kD5bJcm800AliasFloorDb = -3.8;
@@ -438,7 +439,7 @@ TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
     node.set_presence(0.5f);
     const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
     std::printf("[ measure ] Jcm800 alias floor %.1f dB\n", floor);
-    GTEST_SKIP() << "Known issue, DA4. The JCM800 measures -3.0 dB at preamp 1.0 and -12 dBFS, "
+    GTEST_SKIP() << "Known issue, DA4. The JCM800 measures -6.7 dB at preamp 1.0 and -12 dBFS, "
                     "against -43.4 dB before DA4 removed the level staging. Every stage now "
                     "clips at the level its own circuit puts it at, and the 8x region folds the "
                     "harmonics that clipping generates. The -33.8 dB bound stands and is not "

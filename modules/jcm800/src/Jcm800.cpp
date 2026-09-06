@@ -50,8 +50,6 @@ namespace SushiDSP
         constexpr float kTriodeSaturationCurrent = 1e-9f;
         constexpr float kTriodeThermalVoltage = 0.02585f;
 
-        constexpr float kPhaseInverterGain = 40.0f;
-
         /// @brief V1a's self-bias voltage: Rk 2.7 kOhm carrying the 0.855584 mA the Koren model
         /// settles at against a 100 kOhm plate load on a 360 V supply (jcm_v1a).
         constexpr float kV1aCathodeBias = -2.310076f;
@@ -76,6 +74,11 @@ namespace SushiDSP
         /// toward the plate bottom at Vgk = 0 on the same load line.
         constexpr PlateSwing kV2aPlateSwing{ 151.934560f, 88.104683f };
 
+        // The long-tailed pair, in one block so that a module whose inverter is a JCM800 stand-in
+        // can copy the four constants and cite them. Every figure comes from jcm_ltp's 82 kOhm
+        // plate, its shared 470 + 10 kOhm tail and the Koren Jacobian at the idle point below:
+        // r_a 189506.723 Ohm, gm 391.832 uS, and so mu = gm*r_a = 74.254859.
+
         /// @brief The phase inverter's self-bias voltage: both halves share the 470 + 10 kOhm
         /// tail, so each sees 20.94 kOhm and settles at 0.187584 mA on 360 V (jcm_ltp).
         constexpr float kPhaseInverterCathodeBias = -3.928014f;
@@ -84,13 +87,18 @@ namespace SushiDSP
         /// supply, 344.618092 - 134.677465 toward the bottom at Vgk = 0.
         constexpr PlateSwing kPhaseInverterPlateSwing{ 15.381908f, 209.940627f };
 
-        /// @brief The long-tailed pair's tail degeneration, applied at the inverter's input
-        /// because the shared cathode follows the driven grid: the grid-to-cathode window is the
-        /// input divided by 1 + (mu + 1)*R_tail/(r_a + R_a). With mu 100, the shared 2 x 10.47
-        /// kOhm tail, R_a 82 kOhm (jcm_ltp) and r_a 189506.723 Ohm from the Koren Jacobian at the
-        /// idle point above, that is 1 + 101*20940/(189506.723 + 82000) = 8.789641, so the factor
-        /// here is 1/8.789641.
-        constexpr float kPhaseInverterDegeneration = 0.113770285f;
+        /// @brief One triode's full load-line gain, mu*R_a/(r_a + R_a) =
+        /// 74.254859*82000/271506.723. It is the whole single-triode gain, not half of it: the
+        /// pair's split is already in the degeneration factor below, and halving it here would
+        /// count that split twice.
+        constexpr float kPhaseInverterGain = 22.426327f;
+
+        /// @brief The tail degeneration, divided into the inverter's input because the shared
+        /// cathode follows the driven grid. The other triode's cathode presents
+        /// (r_a + R_a)/(mu + 1) = 271506.723/75.254859 = 3607.8298 Ohm in parallel with the tail,
+        /// so the grid-to-cathode signal is the input over 1 + R_tail/(R_tail + that), which is
+        /// 1 + 20940/(20940 + 3607.8298).
+        constexpr float kPhaseInverterDegeneration = 1.853029f;
 
         /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
         /// PentodeStage becomes volt-true (DA5). kEl34's grid saturates at 1/(0.05 * 8) = 2.5
@@ -143,13 +151,12 @@ namespace SushiDSP
         // never darker - and none of them is available as a single number until D6d gives each
         // block a real source impedance.
         //
-        // V1b's grid also sits behind the 2203's 470k/470p treble peaker, which is not in this
-        // model at all. If it were, it would not simply move the corner: above about 720 Hz the
-        // 470 pF dominates the 470 kOhm and puts itself in series with the ~115 pF grid
-        // capacitance, so the source drives the two in series (~92.6 pF, a corner near 17.2 kHz)
-        // through a capacitive divider that costs about 2 dB flat across the top end. The corner
-        // below is computed from the plate load and the grid capacitance alone, and the real
-        // circuit's would sit higher.
+        // V1b's grid sits behind the 2203's 470k/470p treble peaker, which this model carries as
+        // kV1bTreblePeakerDivider and its shelf: the network's own loss and its return to unity
+        // above the corner. What it does not carry is the peaker's interaction with the grid
+        // capacitance below, where the 470 pF puts itself in series with the ~115 pF grid and the
+        // source drives the two together. The corner below is computed from the plate load and
+        // the grid capacitance alone, so the real circuit's sits higher than this one's.
         //
         // Without this, the D6a single 8x region let V1a/V1b's full 192 kHz-wide harmonic
         // spectrum reach V2a, the phase inverter and the EL34 pair, whose own clipping turned it
@@ -409,7 +416,7 @@ namespace SushiDSP
             const float v1b_out = v1b_.process_sample(v1b_in);
             const float toned = v2a_grid_miller_.process_sample(
                 tone_stack_.process_sample(v1b_out) * kToneStackInsertionLoss);
-            const float phase_split = v2a_.process_sample(toned) * kPhaseInverterDegeneration;
+            const float phase_split = v2a_.process_sample(toned) / kPhaseInverterDegeneration;
             const float phase_inverted = phase_inverter_.process_sample(
                 phase_inverter_grid_miller_.process_sample(phase_split)) * kPowerTubeGridScale;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
