@@ -581,6 +581,151 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithCabinet)
     EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
 }
 
+TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithCabinet)
+{
+    // Same separate surface as Jcm800ProcessPerformsNoHeapAllocationWithCabinet: the cabinet path
+    // runs PartitionedConvolution's FFT, spectrum history and overlap-add buffers, all sized in
+    // prepare(). 500 blocks wraps the circular spectrum history at least once under the trap.
+    std::vector<float> impulse_response(200, 0.0f);
+    impulse_response[0] = 1.0f;
+    for (std::size_t i = 1; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 0.5f * impulse_response[i - 1];
+    }
+
+    SushiDSP::Peavey5150 node(impulse_response);
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_pre_gain(0.8f);
+    node.set_low(0.6f);
+    node.set_mid(0.4f);
+    node.set_high(0.7f);
+    node.set_post_gain(0.0f);
+    node.set_resonance(0.5f);
+    node.set_presence(0.9f);
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 500; ++block)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithCabinet)
+{
+    // Same separate surface as Jcm800ProcessPerformsNoHeapAllocationWithCabinet: the cabinet path
+    // runs PartitionedConvolution's FFT, spectrum history and overlap-add buffers, all sized in
+    // prepare(). 500 blocks wraps the circular spectrum history at least once under the trap.
+    std::vector<float> impulse_response(200, 0.0f);
+    impulse_response[0] = 1.0f;
+    for (std::size_t i = 1; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 0.5f * impulse_response[i - 1];
+    }
+
+    SushiDSP::MesaMark2c node(impulse_response);
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_volume_1(0.8f);
+    node.set_treble(0.7f);
+    node.set_bass(0.6f);
+    node.set_middle(0.4f);
+    node.set_lead_drive(0.5f);
+    node.set_lead_master(0.5f);
+    node.set_master_1(0.0f);
+    node.set_presence(0.9f);
+    node.set_equalizer_band(0, 0.2f);
+    node.set_equalizer_band(1, -0.2f);
+    node.set_equalizer_band(2, 0.1f);
+    node.set_equalizer_band(3, -0.1f);
+    node.set_equalizer_band(4, 0.0f);
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 500; ++block)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithCabinet)
+{
+    // Same separate surface as Jcm800ProcessPerformsNoHeapAllocationWithCabinet: the cabinet path
+    // runs PartitionedConvolution's FFT, spectrum history and overlap-add buffers, all sized in
+    // prepare(). 500 blocks wraps the circular spectrum history at least once under the trap.
+    std::vector<float> impulse_response(200, 0.0f);
+    impulse_response[0] = 1.0f;
+    for (std::size_t i = 1; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 0.5f * impulse_response[i - 1];
+    }
+
+    SushiDSP::DiezelVh4 node(impulse_response);
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    node.prepare(info);
+    node.set_gain(0.8f);
+    node.set_bass(0.6f);
+    node.set_middle(0.4f);
+    node.set_treble(0.7f);
+    node.set_volume(0.5f);
+    node.set_deep(0.5f);
+    node.set_presence(0.9f);
+    node.set_master(0.0f);
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 500; ++block)
+    {
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
 TEST(Unit_Dsp, AsioSampleConverterPerformsNoHeapAllocation)
 {
     std::uint8_t bytes[4] = { 0, 0, 0, 0 };

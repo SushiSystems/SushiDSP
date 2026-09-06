@@ -44,9 +44,15 @@ namespace SushiDSP::measure
     /// @param sample_rate Sample rate.
     /// @param harmonics Number of harmonics reported, including the fundamental.
     /// @return THD in percent and each harmonic's level relative to the fundamental
-    ///         (-300 for harmonics above Nyquist).
+    ///         (-300 for harmonics above Nyquist), or { 0.0, {} } when the signal is too short.
+    /// @pre signal holds at least kFftSize samples; a shorter one measures nothing.
     inline ThdResult thd(const std::vector<float>& signal, double f0, double sample_rate, std::uint32_t harmonics = 20)
     {
+        if (signal.size() < kFftSize)
+        {
+            return { 0.0, {} };
+        }
+
         const auto spectrum = magnitude_spectrum_db(signal, signal.size() - kFftSize);
         const double fundamental = peak_near(spectrum, bin_of(f0, sample_rate));
         ThdResult result{ 0.0, {} };

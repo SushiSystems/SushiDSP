@@ -37,6 +37,7 @@ namespace SushiDSP
     public:
         static constexpr std::size_t kMaximumBands = 8;
 
+        /// @brief Builds the bank with one peaking Q for every band.
         /// @param sample_rate The rate the bank runs at, in hertz.
         /// @param centre_frequencies_hz Band centres, ascending; at most kMaximumBands, extras are ignored.
         /// @param band_q Peaking Q shared by every band.
@@ -44,6 +45,7 @@ namespace SushiDSP
         GraphicEqualizer(double sample_rate, std::initializer_list<float> centre_frequencies_hz,
                           float band_q, float maximum_gain_db);
 
+        /// @brief Builds the bank with a Q of its own for each band.
         /// @param sample_rate The rate the bank runs at, in hertz.
         /// @param centre_frequencies_hz Band centres, ascending; at most kMaximumBands, extras are ignored.
         /// @param band_q One Q per band, same order as the centres; extras are ignored.
