@@ -108,11 +108,24 @@ namespace SushiDSP
         /// @return True once a cabinet has been installed by the constructor or set_cabinet().
         bool has_cabinet() const;
 
+        /// @brief Reports how many triode stages the grid-excursion probe can be asked about.
+        /// A test hook, like set_bias_mismatch() on the JCM800.
+        /// @return 7: V1A, V1B, V3B, V4A, V2A, V2B and the phase inverter, in signal order.
+        std::size_t triode_stage_count() const;
+
+        /// @brief Reads one triode's largest grid excursion since the last reset(). A test hook.
+        /// @param stage Index in signal order, in [0, triode_stage_count()).
+        /// @return The peak |Vg - Vk| that stage has reached, in volts; 0 when stage is out of range.
+        float grid_excursion_peak_volts(std::size_t stage) const;
+
         /// @brief Linear gain the power section is scaled by when Master 1 reads 0 dB. Measured
         /// so an untouched amp turns a -12 dBFS 1 kHz sine into roughly -6 dBFS out, the way the
         /// JCM800's kMasterUnityGain was measured, and pinned by
-        /// MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput.
-        static constexpr float kMasterUnityGain = 0.8238633f;
+        /// MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput. Re-measured
+        /// 2026-09-07 with the plate-swing stages, the loop-return coupling, the inverter's tail
+        /// degeneration and the two power-grid scales in place: the default peak read -6.4175 dBFS,
+        /// so 0.6709720 x 1.0492430 gives this figure.
+        static constexpr float kMasterUnityGain = 0.7040127f;
 
         /// @brief Sets the Volume 1 control, the 1 M pot between the tone stack and V1B's grid.
         /// @param normalized Volume 1 amount in [0, 1]; smoothed toward on the audio thread.
@@ -204,6 +217,7 @@ namespace SushiDSP
         Biquad v4a_cathode_shelf_;
         Biquad v4a_coupling_;
         Biquad lead_output_divider_;
+        Biquad v2b_loop_return_coupling_;
         Biquad v2b_cathode_shelf_;
         Biquad v2b_coupling_;
         Biquad presence_shelf_;
