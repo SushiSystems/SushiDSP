@@ -1,0 +1,58 @@
+/**************************************************************************/
+/* DiezelVh4ToneStack.cpp                                                 */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                        https://sushisystems.io                         */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the Apache License, Version 2.0 (the "License");        */
+/* you may not use this file except in compliance with the License.       */
+/* You may obtain a copy of the License at                                */
+/*                                                                        */
+/*     http://www.apache.org/licenses/LICENSE-2.0                         */
+/*                                                                        */
+/* Unless required by applicable law or agreed to in writing, software    */
+/* distributed under the License is distributed on an "AS IS" BASIS,      */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
+/* implied. See the License for the specific language governing           */
+/* permissions and limitations under the License.                         */
+/**************************************************************************/
+
+/**
+ * @file DiezelVh4ToneStack.cpp
+ * @brief Builds channel 3's FMV deck from the dossier's five component values.
+ * @author Mustafa Garip & Sushi Systems
+ */
+
+#include "SushiDSP/diezel_vh4/DiezelVh4ToneStack.hpp"
+
+namespace SushiDSP
+{
+    namespace
+    {
+        // Dossier section 4 "Values": C27 560 pF, C28 22 nF, C29 22 nF, R41 39 kOhm slope, bass 1
+        // MOhm,
+        // mid 22 kOhm, treble 220 kOhm. R40 10 kOhm is not a member of the closed form and is
+        // carried by DiezelVh4ToneStack::kInputResistorAttenuation instead.
+        constexpr FmvComponents kDiezelVh4Channel3Stack{ 560e-12f, 22e-9f, 22e-9f, 39e3f, 1e6f, 22e3f, 220e3f };
+    }
+
+    DiezelVh4ToneStack::DiezelVh4ToneStack(double sample_rate)
+        : stack_(sample_rate, kDiezelVh4Channel3Stack)
+    {
+    }
+
+    void DiezelVh4ToneStack::set_bass(float normalized) { stack_.set_bass(normalized); }
+    void DiezelVh4ToneStack::set_middle(float normalized) { stack_.set_middle(normalized); }
+    void DiezelVh4ToneStack::set_treble(float normalized) { stack_.set_treble(normalized); }
+
+    float DiezelVh4ToneStack::process_sample(float input)
+    {
+        return stack_.process_sample(input * kInputResistorAttenuation);
+    }
+
+    void DiezelVh4ToneStack::reset() { stack_.reset(); }
+}
