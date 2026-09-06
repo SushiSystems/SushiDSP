@@ -65,7 +65,7 @@ namespace SushiDSP
 
     void FmvToneStack::recompute()
     {
-        // Yeh & Smith name the treble pot R1 and the slope resistor R4, so the two swap here.
+        // r1 is the treble pot and r4 the slope resistor, as Yeh & Smith's formulas number them.
         const double c1 = components_.treble_capacitor_farads;
         const double c2 = components_.bass_capacitor_farads;
         const double c3 = components_.middle_capacitor_farads;
