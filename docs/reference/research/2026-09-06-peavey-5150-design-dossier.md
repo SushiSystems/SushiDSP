@@ -84,7 +84,7 @@ J39 LOW  ─ R30 22K ─┴─ C15 .1µ/250 ─┬─ R25 1M ─ gnd
                     C1 .022/400
                     │
                     ├─ C48 .001 ─ gnd      ├─ R11 330K ─ gnd
-                    ├─ R20 220K ─ K1B pin 6; pin 7 is gnd, pin 5 unwired
+                    ├─ R20 220K ─ K1B pin 6; pin 7 is gnd, pin 5 marked N/C
                     └─ R7 220K ── V2B grid
    V2  ─ R4 220K ── V2B plate            V2B cathode: R13 1.02K 1% ∥ C5 1µ/50 NP
                     │
@@ -107,19 +107,22 @@ J39 LOW  ─ R30 22K ─┴─ C15 .1µ/250 ─┬─ R25 1M ─ gnd
               └─────┬─────────────────────────────────────────────┘
                     │
                     ├─ VR7 1M A  LEAD (ULTRA) POST ─┐
-                    ├─ VR6 1M A  RHYTHM POST ───────┴─ K2B ─ R85 220K, R81 2.2M
-                    │                                          │
-                    C11 .047/400 ── V3B grid ─┬─ R26 1M ─ gnd     │
-                                              └─ R79 1M ─ tap     │
+                    └─ VR6 1M A  RHYTHM POST ───────┴─ K2B ─┐
+                                                            │  POST-GAIN NODE
+                                                            ├─ R85 220K ─┬─ gnd
+                                                            ├─ R81 2.2M ─┘
+                                                            ├─ C52 .022/400 ─ V3B grid [C]
+                                                            └─ C11 .047/400 ─ V3A grid
+
    V2  ── V3B plate direct, no plate resistor: CATHODE FOLLOWER
+                    V3B grid: one return, R79 1M to the tap, bootstrapped
                     cathode ─ R80 1K ─ tap ─ R16 100K 1W ─ gnd
-                    │
                     tap ─ C53 .33/400 ─ K3A ─ EFFECTS SEND   |   PREAMP OUT via C66 .1/250,
                           EFFECTS RETURN ─ K3B ─ R103 100K,  |   R104 100K, R100 1M
                           C65 .33/400, R33 100K
-                    │
-                    └── V3A grid
-   V2  ─ R5 68K ─── V3A plate            V3A cathode: R14 3.3K ∥ C61 .0047
+
+   V2  ─ R5 68K ─── V3A plate            V3A grid: R26 1M grid leak to gnd
+                    │                    V3A cathode: R14 3.3K ∥ C61 .0047
                     │
                     C49 .022/400 ─ R48 100K ─ V4B grid
                     │
@@ -144,7 +147,8 @@ J39 LOW  ─ R30 22K ─┴─ C15 .1µ/250 ─┬─ R25 1M ─ gnd
 
 Five gain stages sit between the input jack and the tone stack: V1A, V1B, V2A, V2B, V5B, V5A —
 six triodes, of which V2A is a starved unbypassed stage rather than a gain stage in the usual
-sense. After the stack come V3B (cathode follower) and V3A (driver). All are 12AX7.
+sense. After the stack, V3B (cathode follower) and V3A (driver) hang off the post-gain node in
+parallel rather than in series. All are 12AX7.
 
 Supply nodes as drawn: V1 feeds V1A, V1B and V2A; V2 feeds V2B, V5B, V5A, V3B and V3A; V3 feeds
 the phase inverter. **No node voltage is printed anywhere on S1 and the power-supply sheet is
@@ -248,13 +252,14 @@ on C2 0.022 µF/400 V into R6 470 kΩ, then R9 1 MΩ to ground: an interstage di
 V1B carries a second, relay-switched cathode bypass that the rest of this section's stages do not.
 From the R17/C4 node, C26 22 µF 25 V electrolytic (positive terminal to the cathode) runs down to
 a node carrying R18 47 kΩ to ground, and that same node goes to K1A pin 3. K1A's pin 2 is ground
-and pin 4 is unwired; K1B is the other half of the same relay and switches R20 220 kΩ at V2A's
-output node the same way, pin 6 common, pin 7 ground, pin 5 unwired. Both halves are drawn in the
-de-energised position, resting on ground, so as S1 draws the amplifier R18 and R20 are both
-grounded and energising K1 lifts both. **S1 does not show K1's coil drive**, so which state the
-lead channel selects is not established off these five sheets; K2A, whose lead position is
-established, is energised for lead, and if K1 shares that coil the lead channel runs with R18 and
-R20 lifted. Confidence **C** on that last step, and §8 says what would settle it.
+and pin 4 is marked N/C; K1B is the other half of the same relay and switches R20 220 kΩ at V2A's
+output node the same way, pin 6 common, pin 7 ground, pin 5 marked N/C. Both armatures rest on the grounded
+contacts as drawn, so in the position S1 draws, R18 and R20 are both grounded and moving the
+armature lifts both. **S1 does not show K1's coil drive**, so which state the lead channel selects
+is not established off these five sheets; K2A, whose lead position is established, is energised
+for lead, and if K1 shares that coil the lead channel runs with R18 and R20 lifted. Confidence
+**C** on that last step. Whether the drawn position is the de-energised one turns on how Peavey
+meant `N/C` on pins 4 and 5; open question 14 carries both.
 
 With R18 grounded the cathode sees 47 kΩ in parallel above C26's corner, `1/(2π·22µ·47k)` =
 0.15 Hz, which is below the audio band by three decades, so C26 is a short everywhere it matters
@@ -289,26 +294,37 @@ Both V5B and V5A run 2.2 kΩ unbypassed. The degeneration costs V5B a factor of 
 against 41.4 as drawn) and V5A a factor of 2.3 (57.7 against 25.3), so the pair contributes 60.4 dB
 where fully bypassed cathodes would give 72.3 dB (**B**, from the small-signal table above).
 
-**V3B, cathode follower.** Plate connected straight to V2, no plate resistor. Grid from the post-
-gain wiper through C11 0.047 µF/400 V. Cathode into R80 1 kΩ, then R16 100 kΩ 1 W to ground; the
-output is taken at the R80/R16 junction, so the follower drives the effects loop and the
-preamp-out jack from a low impedance while the 1 kΩ isolates it. R85 220 kΩ and R81 2.2 MΩ sit at
-the post-gain node ahead of it.
+**The post-gain node.** Both post-gain pots run from the tone stack's HIGH wiper node into K2B,
+whose common lands on a node carrying R85 220 kΩ and R81 2.2 MΩ, both to ground, so the node's
+shunt is 220 k ∥ 2.2 M = 200 kΩ. Two coupling capacitors leave it: C11 0.047 µF/400 V to V3A's
+grid, and C52 0.022 µF/400 V to V3B's grid. The two triodes of V3 hang off the same node in
+parallel; the follower is not in series ahead of the driver.
 
-Two 1 MΩ resistors return this grid, and they do different jobs. R26 1 MΩ runs from the grid to
-the grounded node in the tone stack that R24 33 kΩ and the C59/R94 leg also land on, traced at 7×
-on S1 page 2 and again on the factory sheet page 4: it is the DC grid leak. R79 1 MΩ runs from the
-grid to the R80/R16 junction, not to ground — the follower's own output bootstraps it, so at audio
-it presents roughly `1M/(1 − 0.98)` ≈ 50 MΩ and R26 sets the load the post-gain pot actually sees.
-The high-pass corner C11 makes into it is `1/(2π·0.047µ·1M)` = 3.4 Hz (**B**); reading R79 as a
-second grid leak to ground would halve the resistance and put the corner at 6.8 Hz, which is why
-the distinction is worth the paragraph.
+**V3B, cathode follower.** Plate connected straight to V2, no plate resistor. Grid from the
+post-gain node through C52 0.022 µF/400 V. Cathode into R80 1 kΩ, then R16 100 kΩ 1 W to ground;
+the output is taken at the R80/R16 junction, so the follower drives the effects loop and the
+preamp-out jack from a low impedance while the 1 kΩ isolates it.
 
-**V3A, driver.** Plate R5 68 kΩ from V2. Cathode R14 3.3 kΩ, bypassed by C61 4.7 nF only. That
-capacitor is the interesting part: `1/(2π·4.7n·(3.3k ∥ 1/gm))` with gm = 1.362 mA/V gives
-3.3k ∥ 734 = 601 Ω and a corner at 56.4 kHz (**B**), far above the audio band, so C61 is not an
-audio bypass at all. Below the corner the stage is fully degenerated by 3.3 kΩ and runs a gain of
-14.0. Treat R14 as unbypassed in the audio band and treat C61 as an oscillation stopper.
+This grid has one return and it is not to ground. R79 1 MΩ runs from the grid down to the R80/R16
+junction, traced at 3.2× on S1 page 2: the follower's own output bootstraps it, so at audio it
+presents roughly `1M/(1 − 0.98)` ≈ 50 MΩ and the grid's load is set by C52 and whatever the DC
+path through R79 leaves, not by a 1 MΩ leak to ground. Model V3B as a bootstrapped follower or
+the input impedance it presents to the post-gain node will be an order of magnitude too low.
+
+**V3A, driver.** Plate R5 68 kΩ from V2. Grid from the post-gain node through C11 0.047 µF/400 V,
+with R26 1 MΩ from the grid to ground as the grid leak. R26's far end is the grounded tone-stack
+node that R24 33 kΩ and the C59/R94 leg also land on, read at 7× on page 2; its near end climbs
+from that horizontal to y ≈ 1295, steps right to x ≈ 851, climbs to y ≈ 628 and runs into V3A's
+grid, which is a separate horizontal from V3B's — the two grid lines were read apart at 2× on
+page 2 and neither carries the other's network. The input high-pass is therefore V3A's:
+`1/(2π·0.047µ·1M)` = 3.4 Hz (**B**).
+
+Cathode R14 3.3 kΩ, bypassed by C61 4.7 nF only. That capacitor is the interesting part:
+`1/(2π·4.7n·(3.3k ∥ 1/gm))` with gm = 1.36 mA/V gives 3.3k ∥ 734 = 601 Ω and a corner near 56 kHz
+(**B**), far above the audio band, so C61 is not an audio bypass at all. The figure moves about
+2 % with the derivative step used to get gm, so two figures is all it carries. Below the corner
+the stage is fully degenerated by 3.3 kΩ and runs a gain of 14.0. Treat R14 as unbypassed in the
+audio band and treat C61 as an oscillation stopper.
 
 ---
 
@@ -330,10 +346,10 @@ pots. S2 calls it "Custom Low, Mid & High passive type EQ".
 | C59 + R94 | 0.01 µF in series with 47 kΩ | from V5A's coupling node to ground, on the same node as R24 |
 | VR7 | 1 MΩ audio | LEAD (ULTRA) POST GAIN, after the stack |
 | VR6 | 1 MΩ audio | RHYTHM (CLEAN) POST GAIN, after the stack |
-| R85 | 220 kΩ | post-gain node to V3B's grid network |
-| R81 | 2.2 MΩ | post-gain node |
+| R85 | 220 kΩ | post-gain node to ground |
+| R81 | 2.2 MΩ | post-gain node to ground, across R85 |
 | R83 (tone area) | 47 kΩ | between the two post-gain pots' ground legs |
-| C52 | 0.022 µF/400 V | from the stack output onward |
+| C52 | 0.022 µF/400 V | post-gain node into V3B's grid `[C]`, §3 and open question 15 |
 
 **The topology is a Fender/Marshall FMV stack and R28 47 kΩ is the slope resistor.** Read at 3.4×
 on S1 page 2 and confirmed against the factory sheet on page 4, the input bus from V5A's coupling
@@ -346,8 +362,8 @@ elsewhere on the sheet and none of them is that node.
 
 That closes the question the earlier revision of this file left open, and it retires the reasoning
 it was left open on. The ground symbol beside R24 belongs to R24's node, not to a VR5 terminal.
-R26 1 MΩ leaves the same grounded node and is V3B's grid leak (§3), which is what the third
-resistor on that horizontal run is doing there.
+R26 1 MΩ leaves the same grounded node and is V3A's grid leak (§3), which is what the third
+resistor on that horizontal run is doing there. It is not part of the stack.
 
 The push-pull BRIGHT on VR3 is documented by S2 at +6 dB at 2 kHz, rhythm channel only. The
 switched element is not identified on S1.
@@ -552,6 +568,15 @@ that to about 3000 Ω, and the 5150's 120 W at 470 V sits at or below it. Agains
 3400 Ω, `Zaa/4` therefore falls from 850 Ω to 625–750 Ω, a ratio of 0.74–0.88. The correction
 pushes `gain` down.
 
+**The 2203's 3400 Ω is an assumption, not a sourced figure.** It is the number
+`docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` §7.1 uses for the same
+purpose, and it is the number that makes `kEl34`'s 8 come out of `gm · Zaa/4` for one EL34, so the
+whole preset family rests on it. No Marshall specification for the 2203's output transformer was
+found. It is at least consistent with S7 — RCA asks 6000 Ω for two 6L6GC making 50 W, and a
+100 W pair scales to roughly half that — but that is a plausibility check, not a source. What
+settles it: a measured turns ratio on a 2203 transformer, or Marshall winding data. Until then
+every ratio in this section is a ratio of two assumptions and `gain` stays a modelling choice.
+
 `8 × 0.94 × 0.74` = 5.5 at Zaa = 2500 Ω and `8 × 0.94 × 0.88` = 6.6 at Zaa = 3000 Ω. **`Zaa` is
 not established** (§5), so 6 is the midpoint of that bracket and nothing stronger. When the
 transformer's primary impedance is measured, recompute the field from it rather than keeping 6.
@@ -650,7 +675,23 @@ should check that before adopting it.
     the footswitch and relay-logic sheet from the factory set, or continuity across K1A with the
     amplifier in each channel.
 
-15. **No SPICE deck is committed.** `docs/reference/spice/p5150_fmv/` for the tone stack and
+    The sheet's own labelling makes this worse rather than better. K1A pin 4 and K1B pin 5 are
+    marked `N/C`. Read as "no connection" the account in §3 holds and the drawn armature is the
+    de-energised position; read as "normally closed" the drawn armature is the *energised*
+    position and the resting state is the opposite of what §3 says. Nothing on the five sheets
+    settles which convention Peavey used, and the same continuity check answers both questions at
+    once.
+
+15. **Where C52's far plate lands.** §3 reads it as the post-gain node, the same node C11 leaves,
+    which makes V3B a buffer hung across the master volume in parallel with the driver rather
+    than a stage in series ahead of it. The trace runs from V3B's grid left to x ≈ 385, down,
+    right to x ≈ 502, down to C52, then right along y ≈ 1446 to the vertical at x ≈ 838 that
+    carries the CLAMP node down to K2B's common. The last leg is the one I would not swear to at
+    this scan resolution, so C52 is marked `[C]` in §2 and §4. What settles it: continuity
+    between C52's far plate and K2B's common terminal on a real board. It matters because it
+    decides whether the effects loop sees the master volume's setting.
+
+16. **No SPICE deck is committed.** `docs/reference/spice/p5150_fmv/` for the tone stack and
     `p5150_ltp/` for the phase inverter are both worth writing; the values of both blocks are
     established, and only the decks' usefulness, not their correctness, waits on the rail voltage
     from question 1.
