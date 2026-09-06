@@ -262,6 +262,12 @@ TEST(Unit_Dsp, DiezelVh4ThdIncreasesWithGain)
     // The gain pot is this channel's only drive control, so it has to sweep the cascade from
     // nearly clean into saturation. Measured with measure::thd() at a bin-exact 220 Hz on the
     // settled tail of a 131072-sample render.
+    //
+    // The floor never reaches zero, and that is the circuit rather than the model: V1a sits ahead
+    // of the pot and its grid conducts at 0.203 V, so a 0.2 input clips it wherever the knob is.
+    // What the knob has to do is put V2a, V3a and V4a past their own knees on top of that. On
+    // 2026-09-06 this test read 4.43 %, 3.73 % and 4.20 % with kV1aToV2aLevelStaging at 1/8, which
+    // is V1a's floor and nothing else; at 5/8 the offline chain reads 4.3 %, 17.0 % and 24.2 %.
     constexpr double sample_rate = 48000.0;
     const double frequency = SushiDSP::measure::bin_exact_frequency(220.0, sample_rate, SushiDSP::measure::kFftSize);
 
@@ -479,7 +485,7 @@ TEST(Unit_Dsp, DiezelVh4GainKnobMovesTheInputHighPassCorner)
     EXPECT_GT(high_knob_tilt - low_knob_tilt, 2.5);
 }
 
-TEST(Unit_Dsp, DiezelVh4DeepAtMaximumLiftsEightyHertzByTenDecibels)
+TEST(Unit_Dsp, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
 {
     // Deep is a 10 dB low shelf at 80 Hz (dossier section 5: 80 Hz from the owner's manual, the
     // depth a modelling choice). A shelf carries half its decibels at its own corner, so the full
@@ -516,8 +522,12 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     // 108.7 dB "nothing survives that linearly". The number below is the module's documented
     // chain - the dossier's stage gains and dividers together with the level-staging constants
     // DiezelVh4.cpp names and explains - measured at -60 dBFS, where every stage is still linear.
-    // It is a pinned measurement in the same sense as kMasterUnityGain.
-    constexpr double kExpectedSmallSignalGainDb = 1.1;
+    //
+    // It is arithmetic on one measurement, in the same sense as kMasterUnityGain. This test read
+    // -0.560 dB on 2026-09-06, before the fix round moved kV1aToV2aLevelStaging from 1/8 to 5/8
+    // (x5, +13.979 dB in a chain this quiet) and kMasterUnityGain from 0.71 to 2.148178
+    // (+9.616 dB): -0.560 + 13.979 + 9.616 = 23.04. The next run reads it directly.
+    constexpr double kExpectedSmallSignalGainDb = 23.04;
 
     SushiDSP::DiezelVh4 node;
     node.set_gain(0.5f);

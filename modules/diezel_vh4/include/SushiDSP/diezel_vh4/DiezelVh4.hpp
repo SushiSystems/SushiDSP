@@ -109,10 +109,18 @@ namespace SushiDSP
         bool has_cabinet() const;
 
         /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
-        /// Measured the way Jcm800::kMasterUnityGain was: with every knob at its default and a
-        /// -12 dBFS 1 kHz input the output peaks near -6 dBFS. It multiplies the signal after the
-        /// last nonlinearity, so it scales the output and nothing else.
-        static constexpr float kMasterUnityGain = 0.71f;
+        /// It multiplies the signal after the last nonlinearity, so it scales the output and
+        /// nothing else. The calibration point is Jcm800::kMasterUnityGain's: with every knob at
+        /// its default and a -12 dBFS 1 kHz input, the output peaks near -6 dBFS.
+        ///
+        /// This value is one measurement plus one correction, not a direct reading.
+        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput measured -18.969
+        /// dBFS on 2026-09-06 with the constant at 0.71, which puts the amp's own peak at 0.158596
+        /// with the master at unity. The same run's THD sweep then moved kV1aToV2aLevelStaging
+        /// from 1/8 to 5/8, which lifts that peak by x1.471086 - the ratio of two offline runs of
+        /// the chain at 1 kHz and 0.251 in, before and after. 10^(-6/20) / (0.158596 x 1.471086)
+        /// is the figure below. The next run of that test reads it directly.
+        static constexpr float kMasterUnityGain = 2.148178f;
 
         /// @brief Sets the channel-3 GAIN control, the 250 kOhm pot of dossier section 3.2.
         /// @param normalized Gain amount in [0, 1]; it moves the input high-pass corner as well as
