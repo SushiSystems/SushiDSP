@@ -85,17 +85,20 @@ namespace SushiDSP
 
         /// @brief Interstage attenuations the dossier states as ratios.
         constexpr float kLeadDriveDivider = 0.595f;      // Dossier 3.3, 1 M / 1.68 M.
-        constexpr float kV3bToV4aDivider = 0.286f;       // Dossier 3.4, 68 / (170 + 68).
         constexpr float kLeadOutputDivider = 0.3125f;    // Dossier 3.5, 100 / 320 at DC.
         constexpr float kLeadOutputDividerZeroHz = 2893.7f;  // Dossier 3.5, computed from 220 k and 250 pF.
-        constexpr float kLeadOutputDividerPoleHz = 3086.6f;  // Dossier 3.5, computed: 16.5 / 320 k in seconds.
+        constexpr float kLeadOutputDividerPoleHz = 3086.6f;  // Dossier 3.5, computed: 1 / (2 pi x (220 k || 100 k) x 750 pF).
 
         /// @brief Coupling-capacitor corners, computed from the dossier's R and C.
         constexpr double kV1bCouplingHz = 15.92;   // Dossier 3.2, 0.1 uF into the 100 k shunt.
         constexpr double kV3bCouplingHz = 33.44;   // Dossier 3.4, 0.02 uF into 170 k + 68 k.
-        constexpr double kV3bDividerHz = 69.72;    // Dossier 3.4, 0.047 uF against 170 k in parallel with 68 k.
         constexpr double kV4aCouplingHz = 10.58;   // Dossier 3.5, 0.047 uF into 220 k + 100 k.
         constexpr double kV2bCouplingHz = 33.86;   // Dossier 3.7, 0.047 uF into the 100 k Master 1 pot.
+
+        /// @brief The V3B-to-V4A interstage network, as a zero, a pole and the loss below the pole.
+        constexpr double kV4aInterstageZeroHz = 19.939;   // Dossier 3.4, computed: 69.717 x 0.286.
+        constexpr double kV4aInterstagePoleHz = 69.717;   // Dossier 3.4, 0.047 uF against 170 k in parallel with 68 k.
+        constexpr double kV4aInterstageLowGain = 0.286;   // Dossier 3.4, 68 / (170 + 68) below the pole, unity above.
 
         /// @brief The partially bypassed cathodes, as a zero, a pole and the loss below the zero.
         constexpr double kV4aCathodeZeroHz = 219.22;   // Dossier 3.4, 3.3 k with 0.22 uF.
@@ -144,11 +147,14 @@ namespace SushiDSP
         constexpr float kV2aPlateLoadOhms = 100000.0f;  // Dossier 3.6, 100 k to node C.
         constexpr float kV2bPlateLoadOhms = 170000.0f;  // Dossier 3.7, 170 k to node C.
 
-        // Each triode's output is divided by its own dossier gain and multiplied by this one
-        // figure, so the dossier's dividers and pots are the only things that set how the drive
-        // moves down the cascade; see modules/mesa_mark2c/README.md for the ruling.
+        /// @brief How hard each grid in the cascade is driven relative to its predecessor's,
+        /// once that stage's own dossier gain has been divided out. A modelling choice: dossier
+        /// 3.8's product is 1e6 and states itself to be a headroom figure rather than a gain, so
+        /// this is measured, and modules/mesa_mark2c/README.md carries the ruling.
         constexpr float kGridDriveNormalisation = 5.0f;
 
+        /// @brief Each triode's output scaling, so that only the dossier's dividers and pots
+        /// change the drive as it moves down the cascade. A modelling choice, as above.
         constexpr float kV1aGridDrive = kGridDriveNormalisation / kV1aGain;
         constexpr float kV1bGridDrive = kGridDriveNormalisation / kV1bGain;
         constexpr float kV3bGridDrive = kGridDriveNormalisation / kV3bGain;
@@ -230,7 +236,10 @@ namespace SushiDSP
     {
         v1b_coupling_.set_high_pass(oversampled_rate_hz, kV1bCouplingHz, kFilterQ);
         v3b_coupling_.set_high_pass(oversampled_rate_hz, kV3bCouplingHz, kFilterQ);
-        v3b_divider_high_pass_.set_high_pass(oversampled_rate_hz, kV3bDividerHz, kFilterQ);
+        // S1 draws 68 k in parallel with 0.047 uF to ground, which as drawn is a 69.7 Hz
+        // low-pass no lead channel could have; the model places the capacitor across the 170 k,
+        // which gives the tightness dossier 3.4's prose describes; open question 18.
+        v4a_interstage_shelf_.set_first_order_shelf(oversampled_rate_hz, kV4aInterstageZeroHz, kV4aInterstagePoleHz, kV4aInterstageLowGain);
         v4a_coupling_.set_high_pass(oversampled_rate_hz, kV4aCouplingHz, kFilterQ);
         v2b_coupling_.set_high_pass(oversampled_rate_hz, kV2bCouplingHz, kFilterQ);
         v4a_cathode_shelf_.set_first_order_shelf(oversampled_rate_hz, kV4aCathodeZeroHz, kV4aCathodePoleHz, kV4aCathodeLowGain);
@@ -242,6 +251,8 @@ namespace SushiDSP
         v1b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV1bGain, kV1aPlateLoadOhms));
         v3b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV3bGain, kV1bPlateLoadOhms));
         v4a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV4aGain, kV3bPlateLoadOhms));
+        // V2A's pole uses V4A's 270 k, the load that drives the grid, while kV2aSourceResistance
+        // is the 62.5 k Lead Master wiper that sets where that grid conducts.
         v2a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV2aGain, kV4aPlateLoadOhms));
         v2b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV2bGain, kV2aPlateLoadOhms));
         phase_inverter_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kPhaseInverterGain, kV2bPlateLoadOhms));
@@ -381,8 +392,8 @@ namespace SushiDSP
                 v1b_coupling_.process_sample(v1b_out * kV1bGridDrive)) * lead_drive_gain;
             const float v3b_out = v3b_.process_sample(v3b_grid_miller_.process_sample(lead_input));
 
-            const float v4a_input = v3b_divider_high_pass_.process_sample(
-                v3b_coupling_.process_sample(v3b_out * kV3bGridDrive)) * kV3bToV4aDivider;
+            const float v4a_input = v4a_interstage_shelf_.process_sample(
+                v3b_coupling_.process_sample(v3b_out * kV3bGridDrive));
             const float v4a_out = v4a_cathode_shelf_.process_sample(
                 v4a_.process_sample(v4a_grid_miller_.process_sample(v4a_input)));
 
@@ -482,7 +493,7 @@ namespace SushiDSP
         v1b_coupling_.reset();
         lead_drive_bright_.reset();
         v3b_coupling_.reset();
-        v3b_divider_high_pass_.reset();
+        v4a_interstage_shelf_.reset();
         v4a_cathode_shelf_.reset();
         v4a_coupling_.reset();
         lead_output_divider_.reset();
