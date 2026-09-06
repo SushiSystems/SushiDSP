@@ -37,10 +37,10 @@ namespace SushiDSP
         float treble_capacitor_farads;   ///< C1, the series cap into the treble pot.
         float bass_capacitor_farads;     ///< C2, into the bass pot.
         float middle_capacitor_farads;   ///< C3, into the middle pot.
-        float slope_resistor_ohms;       ///< The slope resistor from input to the bass/mid node; Yeh's R4.
+        float slope_resistor_ohms;       ///< The slope resistor from the input to the bass/mid node.
         float bass_potentiometer_ohms;   ///< R2, bass pot as a rheostat.
         float middle_potentiometer_ohms; ///< R3, middle pot as a rheostat under C3, to ground.
-        float treble_potentiometer_ohms; ///< Treble pot end to end; Yeh's R1.
+        float treble_potentiometer_ohms; ///< R1, the treble pot end to end.
     };
 
     /// @brief The JCM800 2203's values: 470 pF, 22 nF, 22 nF, 33 kOhm, 1 MOhm, 25 kOhm, 220 kOhm.
