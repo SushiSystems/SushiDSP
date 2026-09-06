@@ -252,8 +252,14 @@ against the documented circuit rather than against an amplifier.
 
 `DiezelVh4MixBusAttenuationIsApplied` asserts a small-signal gain, which §6 warns against for the
 raw cascade: at 108.7 dB before the stack's loss and the mix divider, "nothing survives that
-linearly". The figure the test pins is this module's chain including the level-staging constants
-above, measured at −60 dBFS where every stage is still in its linear region.
+linearly". What the test pins instead is the product of every factor this module applies at 1 kHz
+with the knobs at noon, level-staging constants included — ×4.668, or **+13.38 dB**, with the
+per-factor table in the test's own comment. The master contributes ×1 there, because the test sets
+the knob to the reciprocal of `kMasterUnityGain`.
+
+−60 dBFS is small-signal for this chain, which is worth checking rather than assuming, given that
+V1a clips at any level the amp is actually played at: the gain reads 13.383 dB at −60 dBFS, 13.387
+at −80 and 13.373 at −100, so 0.001 in leaves V1a's grid far enough under its 0.203 V knee.
 
 ## Not modelled
 

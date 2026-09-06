@@ -519,15 +519,32 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     //
     // What is asserted is the node's own small-signal gain, not the dossier's cascade product:
     // section 6 says in terms not to test against a small-signal cascade figure, because at
-    // 108.7 dB "nothing survives that linearly". The number below is the module's documented
-    // chain - the dossier's stage gains and dividers together with the level-staging constants
-    // DiezelVh4.cpp names and explains - measured at -60 dBFS, where every stage is still linear.
+    // 108.7 dB "nothing survives that linearly". The figure below is instead the product of every
+    // factor the chain applies at 1 kHz with these knobs, each one a constant DiezelVh4.cpp names:
     //
-    // It is arithmetic on one measurement, in the same sense as kMasterUnityGain. This test read
-    // -0.560 dB on 2026-09-06, before the fix round moved kV1aToV2aLevelStaging from 1/8 to 5/8
-    // (x5, +13.979 dB in a chain this quiet) and kMasterUnityGain from 0.71 to 2.148178
-    // (+9.616 dB): -0.560 + 13.979 + 9.616 = 23.04. The next run reads it directly.
-    constexpr double kExpectedSmallSignalGainDb = 23.04;
+    //   input low-pass at 1591.5 Hz                                    x0.84674
+    //   V1a 56.8 x kV1aToV2aLevelStaging 5/8                           x35.135
+    //   C13 high-pass, the gain pot at 0.5, V2a's cathode shelf, Miller x0.26517
+    //   V2a 67.2, C18, kV2aToV3aDivider, kV2aToV3aLevelStaging 1/32     x1.03046
+    //   V3a's cathode shelf and Miller pole                            x0.90120
+    //   V3a 71.4 x the V3b follower's 0.986                            x35.951
+    //   R40's 0.990664 and the FMV deck at 0.5 / 0.5 / 0.5             x0.38855
+    //   volume 0.5 x 0.5, kMixBusAttenuation, kFollowerToMixBusLevelStaging x0.0825
+    //   V4a 28.7 x the V4b follower's 0.986                            x14.619
+    //   kV4bToPhaseInverterLevelStaging, the inverter's 40, then 1/32   x0.049486
+    //   the EL34 pair differenced, x0.05, transformer, sag             x0.76430
+    //                                                          product  x4.668, +13.38 dB
+    //
+    // kMasterUnityGain is absent on purpose: the knob is set to kUnityMasterDb, which is its
+    // reciprocal, so the two cancel and the master contributes x1. Reading it into this figure is
+    // what put the round-1 expectation 9.6 dB high.
+    //
+    // -60 dBFS is genuinely small-signal here, which is not free given that V1a clips at any input
+    // the amp is played with: the same chain reads 13.383 dB at -60 dBFS, 13.387 at -80 and 13.373
+    // at -100, a 0.014 dB spread, because 0.001 in leaves V1a's grid three orders under its
+    // 0.203 V knee. The tolerance is 0.5 dB, which covers that spread, the 0.036 dB the offline
+    // chain differs from the built node by, and the oversampler's own passband ripple.
+    constexpr double kExpectedSmallSignalGainDb = 13.38;
 
     SushiDSP::DiezelVh4 node;
     node.set_gain(0.5f);
@@ -554,5 +571,5 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     const double gain_db = 20.0 * std::log10(static_cast<double>(peak) / amplitude);
     std::printf("[ measure ] small-signal gain %.3f dB at 1 kHz\n", gain_db);
 
-    EXPECT_NEAR(gain_db, kExpectedSmallSignalGainDb, 1.0);
+    EXPECT_NEAR(gain_db, kExpectedSmallSignalGainDb, 0.5);
 }
