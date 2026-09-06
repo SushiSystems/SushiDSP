@@ -522,7 +522,6 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     // 108.7 dB "nothing survives that linearly". The figure below is instead the product of every
     // factor the chain applies at 1 kHz with these knobs, each one a constant DiezelVh4.cpp names:
     //
-    //   input low-pass at 1591.5 Hz                                    x0.84674
     //   V1a 56.8 x kV1aToV2aLevelStaging 5/8                           x35.135
     //   C13 high-pass, the gain pot at 0.5, V2a's cathode shelf, Miller x0.26517
     //   V2a 67.2, C18, kV2aToV3aDivider, kV2aToV3aLevelStaging 1/32     x1.03046
@@ -533,18 +532,18 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     //   V4a 28.7 x the V4b follower's 0.986                            x14.619
     //   kV4bToPhaseInverterLevelStaging, the inverter's 40, then 1/32   x0.049486
     //   the EL34 pair differenced, x0.05, transformer, sag             x0.76430
-    //                                                          product  x4.668, +13.38 dB
+    //                                                          product  x5.513, +14.82 dB
     //
     // kMasterUnityGain is absent on purpose: the knob is set to kUnityMasterDb, which is its
     // reciprocal, so the two cancel and the master contributes x1. Reading it into this figure is
     // what put the round-1 expectation 9.6 dB high.
     //
     // -60 dBFS is genuinely small-signal here, which is not free given that V1a clips at any input
-    // the amp is played with: the same chain reads 13.383 dB at -60 dBFS, 13.387 at -80 and 13.373
-    // at -100, a 0.014 dB spread, because 0.001 in leaves V1a's grid three orders under its
+    // the amp is played with: the same chain read a 0.014 dB spread across -60, -80 and -100 dBFS
+    // when C1's low-pass was still in it, because 0.001 in leaves V1a's grid three orders under its
     // 0.203 V knee. The tolerance is 0.5 dB, which covers that spread, the 0.036 dB the offline
     // chain differs from the built node by, and the oversampler's own passband ripple.
-    constexpr double kExpectedSmallSignalGainDb = 13.38;
+    constexpr double kExpectedSmallSignalGainDb = 14.82;
 
     SushiDSP::DiezelVh4 node;
     node.set_gain(0.5f);

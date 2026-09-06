@@ -24,7 +24,7 @@ are the repo's own bricks; `DiezelVh4` owns the order they run in and nothing el
 
 | Stage | What runs | Numbers from |
 | --- | --- | --- |
-| R1 1 M, C1 100–200 pF | one-pole low-pass, 1591.5 Hz | 3.1 |
+| R1 1 M, C1 100–200 pF | not modelled; C1's corner depends on the source impedance | 3.1 |
 | V1a, Ra 120 k, Rk 2k2 bypassed by 47 µF | `TriodeStage`, gain 56.8, Vgk −2.05 V, grid leak 1 M | 3.1, 6 |
 | C13 1 nF, R14 220 k, GAIN 250 k | first-order high-pass whose corner tracks the knob, plus the pot's own division | 3.1, 3.2, 6 |
 | R21 47 k stopper, R22 3M3 grid leak | Miller low-pass, 26.5 kHz | 3.3 |
@@ -45,7 +45,7 @@ are the repo's own bricks; `DiezelVh4` owns the order they run in and nothing el
 | Cabinet, master, clamp | as the JCM800 | — |
 
 V1a through the sag stage runs inside one 8× oversampled region, so every corner in that span is
-derived at the oversampled rate. The input low-pass, Presence, Deep, the master volume and the
+derived at the oversampled rate. Presence, Deep, the master volume and the
 cabinet run at the host rate.
 
 ### The gain knob is a filter
@@ -163,13 +163,13 @@ the amp's 4 % of THD was V1a's alone and the knob could not move it: 4.43 % at g
 0.5, 4.20 % at 1.0. At 5/8 the same knob walks that grid from 0.113 V to 0.985 V and the sweep
 climbs to 4.3 %, 17.0 %, 24.2 %, with every grid still well inside the solver's −4.14 V bound.
 
-### C1 is bracketed, and its corner is a choice
+### C1 is not modelled
 
 The drawing prints C1 as the range `100-200pF` rather than a value, which is what a tracer does
-after seeing both. The module takes the 100 pF reading. The corner is the larger choice: C1 sits
-across R1, so the real one is set by the guitar's source impedance, which no source in the dossier
-states, and R1's 1 M is the only resistance available. `1 / (2*pi * 1e6 * 100e-12)` is 1591.5 Hz.
-A host feeding this node from a low source impedance would see no rolloff at all in the real amp.
+after seeing both. Either reading sits as a shunt across the input, so its corner is set by
+whatever drives the jack, not by R1: a guitar and cable put it above 100 kHz, a low-impedance host
+higher still. The node is handed samples and never sees that impedance, so it models no input
+rolloff at all.
 
 ### Miller poles
 
@@ -238,11 +238,12 @@ Three of the preset's seven fields are modelling choices inherited from `kEl34` 
 at its default and a −12 dBFS 1 kHz sine in, the output peaks near −6 dBFS.
 `DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` is the test that reads it.
 
-The shipped value is one measurement plus one correction. That test read −18.969 dBFS on 2026-09-06
-with the constant at 0.71, which puts the amp's own peak at 0.158596 with the master at unity. The
-same run's THD sweep then moved `kV1aToV2aLevelStaging` from 1/8 to 5/8, and two offline runs of the
-chain at 1 kHz and 0.251 in, before and after, put the lift that gives the output at ×1.471086. So
-`10^(-6/20) / (0.158596 × 1.471086)` = 2.148178, and the next run of the test reads it directly.
+The shipped value came from one measurement plus one correction. That test read −18.969 dBFS on
+2026-09-06 with the constant at 0.71, which puts the amp's own peak at 0.158596 with the master at
+unity. The same run's THD sweep then moved `kV1aToV2aLevelStaging` from 1/8 to 5/8, and two offline
+runs of the chain at 1 kHz and 0.251 in, before and after, put the lift that gives the output at
+×1.471086. `10^(-6/20) / (0.158596 × 1.471086)` = 2.148178. At that value the test read
+−6.159 dBFS.
 
 There is no measured target to calibrate anything else against. **No bench measurement of a VH4 has
 been published** — no frequency response, no THD figure, no input sensitivity, no capture of any
