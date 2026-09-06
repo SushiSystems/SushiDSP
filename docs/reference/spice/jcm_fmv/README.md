@@ -7,7 +7,7 @@ JCM800 2203 FMV tone stack, unloaded.
 **Status: simulated.** `jcm_fmv_ac.csv` and `jcm_fmv_tran.csv` are committed and were
 regenerated on 2026-09-06 from the corrected netlist below.
 
-**LTspice version:** 26.0.2.1.
+**LTspice version:** FileVersion 26.0.2.1, ProductVersion 26.0.1.1.
 
 ## How the schematic is written
 
