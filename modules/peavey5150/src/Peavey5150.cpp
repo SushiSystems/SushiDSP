@@ -29,6 +29,7 @@
 #include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cmath>
 #include <cstring>
 #include <utility>
@@ -45,6 +46,9 @@ namespace SushiDSP
         // docs/reference/research/2026-09-06-peavey-5150-design-dossier.md it is read from or
         // derived from. A value the dossier marks not established, or that is a modelling choice
         // the dossier does not carry, says so here and appears in modules/peavey5150/README.md.
+
+        // The signal order triode_stage_count() and grid_excursion_peak_volts() report in.
+        constexpr std::size_t kTriodeStageCount = 8;
 
         constexpr float kTriodeSaturationCurrent = 1e-9f;   // Dossier section 7, unchanged from kEl34.
         constexpr float kTriodeThermalVoltage = 0.02585f;   // kT/q at room temperature; dossier section 7.
@@ -90,6 +94,42 @@ namespace SushiDSP
         // in the range the table's other 12AX7 rows occupy.
         constexpr float kPhaseInverterCathodeBias = -2.0f;
 
+        // Plate swings, one per triode. The cutoff side is B+ - Va with the 340 V rail and the Va
+        // column of dossier section 3's DC table; the conduction side is Va - Va_bottom, where
+        // Va_bottom is the plate voltage at Vgk = 0 on the same load line, solved by bisection on
+        // Va = 340 - Ra * Ip(0, Va - Vk) with the Koren 12AX7 of
+        // include/SushiDSP/circuits/models/Triode12AX7.hpp. The idle solve reproduces section 3's
+        // table to its printed precision, so the two sides rest on the same physics. Vk is held at
+        // the stage's idle cathode voltage through the swing; modules/peavey5150/README.md,
+        // "The plate swings", carries what that simplification costs on the unbypassed cathodes.
+
+        /// @brief V1A's plate swing: 340 - 145.998 up, 145.998 - 73.699 down.
+        constexpr PlateSwing kV1aPlateSwing{ 194.002f, 72.300f };
+
+        /// @brief V1B's plate swing: 340 - 208.452 up, 208.452 - 114.776 down.
+        constexpr PlateSwing kV1bPlateSwing{ 131.548f, 93.677f };
+
+        /// @brief V2A's plate swing: 340 - 329.750 up, 329.750 - 116.728 down. The cold clipper
+        /// sits 10 V below the rail, so it clips its positive half-cycle almost at once.
+        constexpr PlateSwing kV2aPlateSwing{ 10.250f, 213.022f };
+
+        /// @brief V2B's plate swing: 340 - 145.998 up, 145.998 - 73.699 down.
+        constexpr PlateSwing kV2bPlateSwing{ 194.002f, 72.300f };
+
+        /// @brief V5B's plate swing: 340 - 190.670 up, 190.670 - 74.195 down.
+        constexpr PlateSwing kV5bPlateSwing{ 149.330f, 116.474f };
+
+        /// @brief V5A's plate swing: 340 - 249.258 up, 249.258 - 115.257 down.
+        constexpr PlateSwing kV5aPlateSwing{ 90.742f, 134.001f };
+
+        /// @brief V3A's plate swing: 340 - 287.955 up, 287.955 - 139.854 down.
+        constexpr PlateSwing kV3aPlateSwing{ 52.045f, 148.101f };
+
+        /// @brief The pair's plate swing: 340 - 252.514 up, 252.514 - 120.952 down. Section 5 gives
+        /// the pair no DC row, so its idle point is solved at the -2.0 V bias above against the
+        /// average of R46 82k and R58 100k, the same average kPhaseInverterGain is taken over.
+        constexpr PlateSwing kPhaseInverterPlateSwing{ 87.486f, 131.561f };
+
         // Source resistances: the Thevenin impedance each grid is driven from, built the way
         // dossier section 7 builds the output tubes' - the previous stage's plate load in parallel
         // with its solved plate resistance (section 3's ra column), plus the series elements
@@ -114,35 +154,13 @@ namespace SushiDSP
         // three 1 MOhm resistors give R91 / (R87 + R88 + R91) = 0.3333.
         constexpr float kV5bToV5aAttenuation = 0.3333f;
 
-        // Level staging: each link's total attenuation is 1/(the gain of the stage it drives), and
-        // each factor below is that target divided by the dossier's divider for the same link, so
-        // the two multiply to the target and the staging alone sets the level. Modelling choices,
-        // not dossier values; modules/peavey5150/README.md, "Interstage level staging", carries the
-        // measurement that forced them and what the dividers do and do not contribute.
-        constexpr float kPreGainPotCeiling = 0.0153374f;               // (1/65.2) / 1.0.
-        constexpr float kV1bToV2aLevelStaging = 0.665425f;             // (1/2.21) / 0.680.
-        constexpr float kV2aToV2bLevelStaging = 0.0158584f;            // (1/77.4) / 0.8147.
-        constexpr float kV2bToV5bLevelStaging = 0.265728f;             // (1/41.4) / 0.0909.
-        constexpr float kV5bToV5aLevelStaging = 0.118589f;             // (1/25.3) / 0.3333.
-        constexpr float kToneStackToV3aLevelStaging = 0.289396f;       // (1/14.0) / (0.4825*0.522*0.98).
-        constexpr float kV3aToPhaseInverterLevelStaging = 0.0336700f;  // (1/29.7) / 1.0.
-
-        // The eighth runs the other way, as the VH4's kFollowerToMixBusLevelStaging does, and it is
-        // derived like the seven above: the target is the grid drive at which the output tubes
-        // begin to saturate, 1/(plate_saturation_drive * gain) = 1/(0.048 * 6) = 3.472 V, and the
-        // factor is that divided by what the pair delivers without it. Probed at the default
-        // setting and a -12 dBFS input, the pair's plate hands the grids 0.1213 V through the
-        // dossier's 0.8617 divider, so 3.472 / 0.1213 = 28.62. The default setting therefore sits
-        // exactly at the onset of power-tube saturation and POST GAIN above 0 dB takes it in, which
-        // is what dossier section 6's 130 W at 5 % THD describes.
-        constexpr float kPhaseInverterToPowerTubeLevelStaging = 28.62f;
-
         // Dossier section 5: the pair's plates drive R55/R54 220k through C29/C28 with only the
         // 2.2 kOhm stoppers between the node and the grids, so the loss is the 220 kOhm leak
         // against the plate's own 82k || 62k = 35.3 kOhm: 220/(220 + 35.3) = 0.8617.
         constexpr float kPhaseInverterToPowerTubeAttenuation = 0.8617f;
 
-        // Not a dossier value. The JCM800's output-level trim into the transformer, adopted
+        // Not a dossier value. The output trim to full scale: the JCM800's output-level trim into
+        // the transformer, adopted
         // unchanged from modules/jcm800/src/Jcm800.cpp so the transformer and the sag stage see
         // the level they were calibrated at; a modelling choice.
         constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
@@ -341,26 +359,25 @@ namespace SushiDSP
         }
 
         // VR2 sits from the pot node to ground with the wiper feeding V1B, so wide open it passes
-        // the whole node; what it passes into is kPreGainPotCeiling, this link's staging factor.
-        // The exponent is the same audio taper modules/jcm800/src/Jcm800.cpp uses for the same kind
-        // of pot.
+        // the whole node unattenuated. The exponent is the same audio taper
+        // modules/jcm800/src/Jcm800.cpp uses for the same kind of pot.
         float pre_gain_attenuation(float normalized)
         {
-            return normalized * std::sqrt(normalized) * kPreGainPotCeiling;
+            return normalized * std::sqrt(normalized);
         }
     }
 
     Peavey5150::Peavey5150(std::vector<float> cabinet_impulse_response)
         : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kV1aSourceResistance, kV1aGridLeak, kV1aCathodeBias, kV1aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , v1b_(kV1bSourceResistance, kV1bGridLeak, kV1bCathodeBias, kV1bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , v2a_(kV2aSourceResistance, kV2aGridLeak, kV2aCathodeBias, kV2aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , v2b_(kV2bSourceResistance, kV2bGridLeak, kV2bCathodeBias, kV2bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , v5b_(kV5bSourceResistance, kV5bGridLeak, kV5bCathodeBias, kV5bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , v5a_(kV5aSourceResistance, kV5aGridLeak, kV5aCathodeBias, kV5aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
+        , v1a_(kV1aSourceResistance, kV1aGridLeak, kV1aCathodeBias, kV1aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1aPlateSwing)
+        , v1b_(kV1bSourceResistance, kV1bGridLeak, kV1bCathodeBias, kV1bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1bPlateSwing)
+        , v2a_(kV2aSourceResistance, kV2aGridLeak, kV2aCathodeBias, kV2aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV2aPlateSwing)
+        , v2b_(kV2bSourceResistance, kV2bGridLeak, kV2bCathodeBias, kV2bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV2bPlateSwing)
+        , v5b_(kV5bSourceResistance, kV5bGridLeak, kV5bCathodeBias, kV5bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV5bPlateSwing)
+        , v5a_(kV5aSourceResistance, kV5aGridLeak, kV5aCathodeBias, kV5aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV5aPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
-        , v3a_(kV3aSourceResistance, kV3aGridLeak, kV3aCathodeBias, kV3aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , phase_inverter_(kPhaseInverterSourceResistance, kPhaseInverterGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
+        , v3a_(kV3aSourceResistance, kV3aGridLeak, kV3aCathodeBias, kV3aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV3aPlateSwing)
+        , phase_inverter_(kPhaseInverterSourceResistance, kPhaseInverterGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kPhaseInverterPlateSwing)
         , power_tube_a_(kPeavey5150Power6L6GC)
         , power_tube_b_(kPeavey5150Power6L6GC)
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
@@ -511,20 +528,20 @@ namespace SushiDSP
             const float v1b_out = v1b_cathode_shelf_.process_sample(v1b_.process_sample(v1b_in));
 
             const float v2a_in = v2a_grid_miller_.process_sample(
-                c2_coupling_.process_sample(v1b_out) * kV1bToV2aAttenuation * kV1bToV2aLevelStaging);
+                c2_coupling_.process_sample(v1b_out) * kV1bToV2aAttenuation);
             const float v2a_out = v2a_.process_sample(v2a_in);
 
             const float v2b_in = v2b_grid_miller_.process_sample(
                 c48_low_pass_.process_sample(c1_coupling_.process_sample(v2a_out))
-                * kV2aToV2bAttenuation * kV2aToV2bLevelStaging);
+                * kV2aToV2bAttenuation);
             const float v2b_out = v2b_cathode_shelf_.process_sample(v2b_.process_sample(v2b_in));
 
             const float v5b_in = v5b_grid_miller_.process_sample(
-                c57_coupling_.process_sample(v2b_out) * kV2bToV5bAttenuation * kV2bToV5bLevelStaging);
+                c57_coupling_.process_sample(v2b_out) * kV2bToV5bAttenuation);
             const float v5b_out = v5b_.process_sample(v5b_in);
 
             const float v5a_in = v5a_grid_miller_.process_sample(
-                c56_coupling_.process_sample(v5b_out) * kV5bToV5aAttenuation * kV5bToV5aLevelStaging);
+                c56_coupling_.process_sample(v5b_out) * kV5bToV5aAttenuation);
             const float v5a_out = v5a_.process_sample(v5a_in);
 
             // The tone stack's own input network carries R24's loss and the C59/R94 leg, so the
@@ -537,13 +554,13 @@ namespace SushiDSP
             const float follower_out = c52_coupling_.process_sample(post_gain_node) * kCathodeFollowerGain;
 
             const float v3a_in = v3a_grid_miller_.process_sample(
-                c11_coupling_.process_sample(follower_out) * kToneStackToV3aLevelStaging);
+                c11_coupling_.process_sample(follower_out));
             const float v3a_out = v3a_cathode_shelf_.process_sample(v3a_.process_sample(v3a_in));
 
             const float pair_in = phase_inverter_grid_miller_.process_sample(
-                c49_coupling_.process_sample(v3a_out) * kV3aToPhaseInverterLevelStaging);
+                c49_coupling_.process_sample(v3a_out));
             const float pair_out = phase_inverter_.process_sample(pair_in)
-                * kPhaseInverterToPowerTubeAttenuation * kPhaseInverterToPowerTubeLevelStaging;
+                * kPhaseInverterToPowerTubeAttenuation;
 
             const float power_a = power_tube_a_.process_sample(pair_out);
             const float power_b = power_tube_b_.process_sample(-pair_out - power_tube_grid_bias_mismatch_volts_);
@@ -687,6 +704,19 @@ namespace SushiDSP
     {
         output_db_ = std::clamp(decibels, kMinOutputDb, kMaxOutputDb);
         output_gain_.set_target(decibels_to_gain(output_db_));
+    }
+
+    std::size_t Peavey5150::triode_stage_count() const
+    {
+        return kTriodeStageCount;
+    }
+
+    float Peavey5150::grid_excursion_peak_volts(std::size_t stage) const
+    {
+        const TriodeStage* const stages[kTriodeStageCount] = { &v1a_, &v1b_, &v2a_, &v2b_,
+                                                               &v5b_, &v5a_, &v3a_,
+                                                               &phase_inverter_ };
+        return stage < kTriodeStageCount ? stages[stage]->peak_grid_excursion_volts() : 0.0f;
     }
 
     bool Peavey5150::tone_stack_is_dirty() const
