@@ -23,6 +23,7 @@
 
 #include "SushiDSP/circuits/stages/TriodeStage.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 #include "SushiDSP/math/NewtonRaphsonSolver.hpp"
@@ -70,6 +71,18 @@ namespace SushiDSP
     {
     }
 
+    TriodeStage::TriodeStage(
+        float source_resistance_ohms, float grid_leak_resistance_ohms, float cathode_bias_volts,
+        float gain, float saturation_current_amps, float thermal_voltage_volts,
+        const PlateSwing& plate_swing)
+        : TriodeStage(
+              source_resistance_ohms, grid_leak_resistance_ohms, cathode_bias_volts, gain,
+              saturation_current_amps, thermal_voltage_volts)
+    {
+        plate_swing_ = plate_swing;
+        has_plate_swing_ = true;
+    }
+
     float TriodeStage::process_sample(float input_voltage)
     {
         const float rs = source_resistance_;
@@ -107,13 +120,35 @@ namespace SushiDSP
             vk - cutoff_voltage_limit_, vk + voltage_limit_);
         previous_grid_voltage_ = grid_voltage;
 
+        const float grid_excursion = std::fabs(grid_voltage - vk);
+        peak_grid_excursion_ = std::max(peak_grid_excursion_, grid_excursion);
+
         // Common-cathode plate output: the grid's excursion from its bias point, amplified and
         // inverted.
-        return -gain_ * (grid_voltage - vk);
+        const float linear_plate = -gain_ * (grid_voltage - vk);
+
+        if (!has_plate_swing_)
+        {
+            return linear_plate;
+        }
+
+        // Two-sided plate ceiling. Each side is scaled by its own headroom, so the plate reaches
+        // the supply rail on the cutoff side and the load-line bottom on the conduction side
+        // rather than one symmetric bound; tanh is bounded by 1, so the result can never be inf
+        // or nan for any finite grid solution.
+        if (linear_plate > 0.0f)
+        {
+            const float up = plate_swing_.headroom_to_supply_volts;
+            return up * std::tanh(linear_plate / up);
+        }
+
+        const float down = plate_swing_.headroom_to_bottom_volts;
+        return -down * std::tanh(-linear_plate / down);
     }
 
     void TriodeStage::reset()
     {
         previous_grid_voltage_ = cathode_bias_;
+        peak_grid_excursion_ = 0.0f;
     }
 }

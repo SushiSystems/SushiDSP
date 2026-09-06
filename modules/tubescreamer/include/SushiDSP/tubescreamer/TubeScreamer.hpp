@@ -60,7 +60,9 @@ namespace SushiDSP
         /// @brief Clears both DK blocks and the oversampler for a click-free restart.
         void reset() override;
 
-        /// @brief The pedal's only latency-bearing stage is its 4x oversampler.
+        /// @brief The delay a host can compensate: the 4x oversampler's round-trip. The DK
+        /// blocks' own group delay is frequency- and tone-dependent, so it is tone, not latency,
+        /// and is deliberately left out - the impulse peak sits a couple of samples later.
         /// @return The oversampler's round-trip group delay in base-rate samples; 0 before
         /// prepare(), when no oversampler exists yet.
         std::uint32_t latency_samples() const override;
@@ -102,12 +104,12 @@ namespace SushiDSP
         /// @param value The new target value, in that parameter's own units.
         void set_parameter(std::uint16_t index, float value) override;
 
-        /// @brief Linear output gain at 0 dB on the Level knob. Calibrated in D5b so the pedal
-        /// at its defaults is within a couple of dB of unity - a -12 dBFS low-E sine comes back
-        /// out near -12 dBFS. It multiplies the signal after the last nonlinearity, so it scales
-        /// the output and nothing else; with the JCM800's kMasterUnityGain it is the only
-        /// tone-affecting number this phase changes.
-        static constexpr float kLevelUnityGain = 1.1078783f;
+        /// @brief Linear output gain at 0 dB on the Level knob, a -3.17 dB trim. Re-calibrated in
+        /// D6c against the measured DK chain at 4x, where a -12 dBFS 82 Hz sine came out at
+        /// -7.94 dBFS; D5b's 1.1078783 belonged to the memoryless clipper and the mis-netlisted
+        /// tone stage that this phase replaced. It multiplies the signal after the last
+        /// nonlinearity, so it scales the output and nothing else.
+        static constexpr float kLevelUnityGain = 0.6942987f;
 
         /// @brief The endpoints of the drive rheostat in TubeScreamerCircuits.hpp: the feedback
         /// resistance the clip block presents at Drive 0 and at Drive 1. Public so a host or a

@@ -16,5 +16,6 @@ rule: `GoldenFile.hpp`. Tolerance: RMS residual <= -80 dB.
 | peavey5150_48k/96k | DA2 Task 4, 2026-09-06 | first pin; 5150 lead after fix round 2 (`d877855`) |
 | diezel_vh4_48k/96k | DA3 final fix, 2026-09-06 | input low-pass removed (`9c7c66d`); default peak -6.159 -> -6.044 dBFS |
 | dd3_48k/96k | DR2 Task 2.6, 2026-09-07 | first pin; DD-3 variable-rate loop with the 8x-substepped NE570 rectifier (`9ba392a`), mode M / TIME 0.4 / F.BACK 0.45 |
+| tube_screamer_48k/96k | D6c Task 8, 2026-09-07 | TubeScreamer rebuilt on the ts_clip and ts_tone DK blocks inside one 4x region (spec D6c); the memoryless clipper, the 20 Hz input biquad and the LP/HP tone crossfade are gone, and kLevelUnityGain is re-calibrated 1.1078783 -> 0.6942987 against the measured chain |
 
 Regenerate with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row here.

@@ -25,9 +25,21 @@
 
 namespace SushiDSP
 {
+    /// @brief How far a stage's plate can swing from its idle point before it saturates.
+    struct PlateSwing
+    {
+        /// @brief B+ minus the idle plate voltage; the cutoff side of the swing.
+        float headroom_to_supply_volts;
+
+        /// @brief Idle plate voltage minus the plate at Vgk = 0 on the load line; the
+        /// conduction side of the swing.
+        float headroom_to_bottom_volts;
+    };
+
     /// @brief A common-cathode triode gain stage: grid-conduction diode nonlinearity solved by
-    /// Newton-Raphson, followed by a fixed inverting linear plate gain. Used by the JCM800 and
-    /// by every cascaded-triode amplifier module.
+    /// Newton-Raphson, followed by a fixed inverting linear plate gain and, when the stage is
+    /// given a PlateSwing, a two-sided tanh plate ceiling. Used by the JCM800 and by every
+    /// cascaded-triode amplifier module.
     class TriodeStage
     {
     public:
@@ -41,14 +53,31 @@ namespace SushiDSP
             float source_resistance_ohms, float grid_leak_resistance_ohms, float cathode_bias_volts,
             float gain, float saturation_current_amps, float thermal_voltage_volts);
 
+        /// @param source_resistance_ohms Effective source resistance feeding the grid.
+        /// @param grid_leak_resistance_ohms The grid-leak resistor to the cathode-bias voltage.
+        /// @param cathode_bias_volts The stage's DC operating point (self-bias voltage).
+        /// @param gain The common-cathode stage's inverting linear gain from grid to plate.
+        /// @param saturation_current_amps Grid-conduction diode saturation current.
+        /// @param thermal_voltage_volts Diode thermal voltage (~0.02585 V at room temperature).
+        /// @param plate_swing The two headroom figures that bound the plate output.
+        TriodeStage(
+            float source_resistance_ohms, float grid_leak_resistance_ohms, float cathode_bias_volts,
+            float gain, float saturation_current_amps, float thermal_voltage_volts,
+            const PlateSwing& plate_swing);
+
         /// @brief Processes one sample through the stage.
         /// @param input_voltage The stage's input signal voltage for this sample, referenced to
         /// the stage's own bias point (the coupling capacitor ahead of the grid blocks DC, so a
         /// zero input leaves the grid resting at the cathode-bias voltage).
-        /// @return The inverted, grid-conduction-clipped plate output voltage. Always finite.
+        /// @return The inverted, grid-conduction-clipped plate output voltage, bounded by the
+        /// plate swing when the stage was given one. Always finite.
         float process_sample(float input_voltage);
 
-        /// @brief Resets the Newton-Raphson warm-start state to the cathode bias point.
+        /// @brief Returns the largest |Vg - Vk| the grid has reached since the last reset().
+        float peak_grid_excursion_volts() const { return peak_grid_excursion_; }
+
+        /// @brief Resets the Newton-Raphson warm-start state to the cathode bias point and
+        /// clears the peak grid excursion.
         void reset();
 
     private:
@@ -61,5 +90,8 @@ namespace SushiDSP
         float voltage_limit_;
         float cutoff_voltage_limit_;
         float previous_grid_voltage_;
+        PlateSwing plate_swing_{};
+        bool has_plate_swing_ = false;
+        float peak_grid_excursion_ = 0.0f;
     };
 }
