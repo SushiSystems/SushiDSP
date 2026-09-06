@@ -35,6 +35,13 @@ p > 0:  out =  up · tanh(p / up)      up = headroom_to_supply_volts
 p < 0:  out = -dn · tanh(-p / dn)     dn = headroom_to_bottom_volts
 ```
 
+On the seven-argument path the grid-conduction diode is referenced to the cathode, not to the bias
+point: conduction begins at `Vgk = 0`, which is `|cathode_bias_volts|` above the grid's resting point,
+so a stage biased at −1.5 V has 1.5 V of clean positive swing before the grid draws current and its
+plate reaches the bottom of the load line, as the real stage does. The six-argument path keeps the
+bias-referenced diode it has today (maintainer decision 2026-09-07). The solver's upper bound moves
+with the reference; the lower bound stays `160·Vt` below the resting point.
+
 `tanh` is the same shape `PentodeStage` already uses for its plate. The two bounds come from the dossier's DC table (idle plate voltage `Va` and the stage's supply node) and from the Koren 12AX7 model in `include/SushiDSP/circuits/models/Triode12AX7.hpp` solved on the stage's load line at `Vgk = 0` for the plate bottom. Both are physics from numbers the dossiers already hold; neither is a free knob. `peak_grid_excursion_volts()` is one `std::max` per sample on a member, cleared by `reset()`.
 
 ## 4. The change to the modules
