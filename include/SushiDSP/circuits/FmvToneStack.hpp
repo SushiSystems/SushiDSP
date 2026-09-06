@@ -55,12 +55,15 @@ namespace SushiDSP
         /// @param components The stack's component values.
         FmvToneStack(double sample_rate, const FmvComponents& components);
 
+        /// @brief Sets the bass pot position and recomputes the coefficients.
         /// @param normalized Bass pot position in [0, 1]. Values outside are clamped.
         void set_bass(float normalized);
 
+        /// @brief Sets the middle pot position and recomputes the coefficients.
         /// @param normalized Middle pot position in [0, 1]. Values outside are clamped.
         void set_middle(float normalized);
 
+        /// @brief Sets the treble pot position and recomputes the coefficients.
         /// @param normalized Treble pot position in [0, 1]. Values outside are clamped.
         void set_treble(float normalized);
 
