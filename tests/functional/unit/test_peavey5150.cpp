@@ -58,6 +58,24 @@ namespace
         return node;
     }
 
+    // measure::frequency_response() sweeps at -40 dBFS, and at the default PRE GAIN that already
+    // squares every stage from V2A on, so a shelf measured there reads the amplifier's compression
+    // rather than the shelf: the presence lift reads 7.44 dB and the resonance lift 6.75 dB at
+    // 2026-09-07's chain. Both shelves are linear sections after the decimator, so the honest place
+    // to read them is with the nonlinear path small-signal. PRE GAIN 0.02 with 24 dB of input trim
+    // puts the sweep near Peavey's own nominal input, where the module reads 0.38 % THD.
+    constexpr float kLinearPathPreGain = 0.02f;
+    constexpr float kLinearPathInputTrimDb = -24.0f;
+
+    /// @brief A default node set to a level at which the chain ahead of the shelves stays linear.
+    std::unique_ptr<SushiDSP::Peavey5150> small_signal_node()
+    {
+        auto node = prepared_node();
+        node->set_pre_gain(kLinearPathPreGain);
+        node->set_input_trim(kLinearPathInputTrimDb);
+        return node;
+    }
+
     /// @brief Runs a sine through a node and returns the settled tail of its output.
     std::vector<float> render_sine(SushiDSP::Peavey5150& node, double frequency, float amplitude, int blocks)
     {
@@ -288,8 +306,8 @@ TEST(Unit_Dsp, Peavey5150ThdDoesNotFallAsPreGainRises)
     // The sweep starts at 0.02, the first position that passes signal: VR2 at the bottom mutes the
     // amplifier and the reading there is the FFT's floor on denormals, not distortion.
     //
-    // Measured 2026-09-07: 15.63, 25.48, 26.55, 25.87, 25.33, 24.98, 24.71, 24.61, 24.67 percent.
-    // The largest fall is 0.675 pp from 0.10 to 0.20, next 0.541 pp from 0.20 to 0.30.
+    // Measured 2026-09-07: 15.08, 25.60, 26.98, 27.08, 27.28, 27.76, 28.17, 28.14, 27.71 percent.
+    // The sweep rises to 0.50 and then eases; the largest fall is 0.432 pp from 0.70 to 1.00.
     const float positions[] = { 0.02f, 0.05f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
     double previous = 0.0;
     bool first = true;
@@ -331,8 +349,15 @@ TEST(Unit_Dsp, Peavey5150ColdClipperStageClipsAsymmetrically)
     const double driven = even_harmonic_ratio(1.0f);
     std::printf("[ measure ] even harmonics %.5f at pre gain 0.2, %.5f at 1.0\n", quiet, driven);
 
-    // Measured 2026-09-06: 0.00070 against 0.01424, a factor of 20. The gate is a factor of 4, so
-    // it survives a toolchain change but not the cold clipper being made symmetric.
+    // Measured 2026-09-07: 0.00983 at pre gain 0.2 against 0.10027 at 1.0, a factor of 10.2. The
+    // gate is a factor of 4.
+    //
+    // The measure is noisy across the knob - 0.0171, 0.0421, 0.0098, 0.1351, 0.1003 at pre gain
+    // 0.05, 0.10, 0.20, 0.50 and 1.00 - because at this stimulus every stage from V5A on is already
+    // on its bound, so the amplifier's even harmonics are the push-pull pair's as much as V2A's.
+    // V2A's own grid does move from 2.81 V to 4.26 V across the same span, past the 4.00 V at which
+    // it conducts, so the asymmetry the test names is real; what the output measure cannot do is
+    // attribute it. modules/peavey5150/README.md, "The cold clipper's asymmetry", carries this.
     EXPECT_GT(driven, quiet * 4.0);
 }
 
@@ -340,12 +365,13 @@ TEST(Unit_Dsp, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
 {
     // Dossier section 6, quoting Peavey's own specification table: "Active Presence: +10 dB 2 kHz".
     // The shelf's corner sits at 600 Hz so its plateau has arrived by 2 kHz; the comment beside
-    // kPresenceHz in Peavey5150.cpp carries why. Measured 2026-09-06: 16.04 dB flat, 25.94 full.
-    auto flat = prepared_node();
+    // kPresenceHz in Peavey5150.cpp carries why. Read on the small-signal path for the reason
+    // above small_signal_node(); measured 2026-09-07: 21.34 dB flat, 31.25 dB full, a 9.90 dB lift.
+    auto flat = small_signal_node();
     flat->set_presence(0.5f);
     const double reference = response_at(*flat, 2000.0);
 
-    auto lifted = prepared_node();
+    auto lifted = small_signal_node();
     lifted->set_presence(1.0f);
     const double boosted = response_at(*lifted, 2000.0);
 
@@ -358,12 +384,13 @@ TEST(Unit_Dsp, Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels)
     // Dossier section 6: "Active Resonance: +10 dB at the cabinet resonant frequency". The cabinet
     // resonance is a modelling choice at 100 Hz, the dossier derives none, and the shelf's own
     // corner sits at 330 Hz so its plateau has arrived by then. The knob is flat at 0 and full at
-    // 1, so those two are the pair compared. Measured 2026-09-06: 3.80 dB flat, 13.70 dB full.
-    auto flat = prepared_node();
+    // 1, so those two are the pair compared. Read on the small-signal path for the reason above
+    // small_signal_node(); measured 2026-09-07: 11.68 dB flat, 21.57 dB full, a 9.90 dB lift.
+    auto flat = small_signal_node();
     flat->set_resonance(0.0f);
     const double reference = response_at(*flat, 100.0);
 
-    auto lifted = prepared_node();
+    auto lifted = small_signal_node();
     lifted->set_resonance(1.0f);
     const double boosted = response_at(*lifted, 100.0);
 
@@ -445,8 +472,8 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
     // The knob is read at 0.02 rather than at 0.0. pre_gain_attenuation() is n * sqrt(n), exactly
     // zero at the bottom of VR2's travel, so 0.0 mutes the amplifier and the THD there is the
     // FFT's own floor on denormals rather than distortion; 0.02 is the first position that passes
-    // signal. Measured 2026-09-07: 7.2970 % at -40 dBFS and 0.2759 % at -86.0 dBFS, once the
-    // long-tailed pair's tail degeneration and the power-grid scale bridge were in place.
+    // signal. Measured 2026-09-07 with the tail degeneration, the power-grid scale bridge and the
+    // coupling capacitors at their own corners: 7.0661 % at -40 dBFS, 0.3811 % at -86.0 dBFS.
     constexpr float kFirstAudiblePosition = 0.02f;
     constexpr float kMinusFortyDbfs = 0.01f;
     constexpr float kNominalMinusEightyDbv = 5.0119e-5f;
