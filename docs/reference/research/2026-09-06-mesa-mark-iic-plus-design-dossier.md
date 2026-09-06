@@ -637,3 +637,17 @@ have to be recomputed. This is the highest-leverage open item in the dossier.
     stack's treble-cap interconnection sits at the edge of what the scan resolves. Writing a
     netlist I could not verify would put a guess into the repository wearing the clothes of a
     measurement. The decks belong in a follow-up task, after item 16.
+
+19. **The loop-return coupling capacitor's value.** §2's block diagram puts EFFECTS SEND / RETURN
+    between V2A's plate and V2B's grid, and §3.7 prints no value for the capacitor that must sit
+    there. That the link is capacitor-coupled is not in doubt: V2A's plate rests at 292 V, so
+    direct coupling would put 292 V on the send jack and on V2B's grid. What the value is decides
+    where V2B's low end starts falling away, and V2B is the stage that drives Master 1. The model
+    carries a stock value as a modelling choice until the send/return board is read.
+20. **The whole send/return network between V2A and V2B.** Wider than item 19: the series and
+    shunt resistors around the jacks, whether a level pot sits in the loop, and how much the
+    network attenuates when nothing is plugged in. This is the one link in the lead chain where
+    the model has nothing at all between a plate that swings 87 V and a grid whose window is
+    4.14 V, and it is why the amp as modelled has no clean setting at any knob position
+    (`MesaMark2cHasACleanEndAtMinimumGain` is skipped against this item). A photograph of the jack
+    field on sheet 1, or a trace off a board, closes it and the amp's whole gain structure with it.
