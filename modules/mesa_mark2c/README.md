@@ -23,8 +23,8 @@ Dossier §2: the FMV stack hangs directly on the first triode's plate, so the fo
 stages downstream of it distort a signal the tone controls have already shaped, which is what
 separates a Mark from a Marshall. `MesaMark2cToneStack` is therefore instantiated between `v1a_`
 and the Volume 1 attenuation in `MesaMark2c::process()`, and
-`MesaMark2cToneStackSitsBeforeTheLeadStages` pins the consequence: with Lead Drive wide open, THD
-at 1 kHz runs 31.5 % with Treble at 0 and 39.7 % with Treble at 1.
+`MesaMark2cToneStackSitsBeforeTheLeadStages` is what pins the consequence, and it is skipped today
+under the known issue below.
 
 ## The blocks and who owns each
 
@@ -44,7 +44,7 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 
 | Stage | Constant | Plate swing (up / down, V) | Dossier |
 | --- | --- | --- | --- |
-| V1A, Rp 150 k, Rk 1.5 k, Vk 1.6 V | gain 70.6 | 160.0 / 120.961 (D 382 V, Va 222 V, bottom 101.039 V) | §3.1 |
+| V1A, Rp 150 k, Rk 1.5 k, Vk 1.6 V, source 10 k | gain 70.6; §3.1 draws no grid stopper, so `kV1aSourceResistance` borrows the JCM800's 10 k | 160.0 / 120.961 (D 382 V, Va 222 V, bottom 101.039 V) | §3.1 |
 | Tone stack on the plate | 250 pF / 0.1 µF / 0.047 µF, 100 k slope, 250 k / 10 k / 250 k pots | — | §4.1 |
 | Volume 1, 1 M | audio taper, no ceiling (see below) | — | §2 |
 | V1B, Rp 100 k, Vk 1.9 V | gain 61.5 | 127.0 / 128.851 (D 382 V, Va 255 V, bottom 126.149 V) | §3.2 |
@@ -59,13 +59,13 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 | V4A coupling, 0.047 µF into 320 k | high-pass **10.58 Hz** (computed) | — | §3.5 |
 | Lead output divider, 220 k ∥ 250 pF over 100 k ∥ 500 pF | 0.3125 at DC, zero **2893.7 Hz**, pole **3086.6 Hz**, 0.3333 above (+0.58 dB) | — | §3.5 |
 | Lead Master, 250 k | audio taper | — | §2 |
-| V2A, Rp 100 k | gain 61.5 | 100.0 / 163.581 (C 392 V, Va 292 V, bottom 128.419 V) | §3.6 |
+| V2A, Rp 100 k, Vk 1.5 V | gain 61.5; §3.6's printed cathode voltage was illegible, so `kV2aCathodeBias` is inferred from the 1.5 k cathode at 1 mA | 100.0 / 163.581 (C 392 V, Va 292 V, bottom 128.419 V) | §3.6 |
 | Loop-return coupling, 0.022 µF into V2B's 1 M grid return | high-pass **7.2343 Hz** (computed); the capacitor's value is a modelling choice, dossier open questions 19 and 20 | — | §2, §3.7 |
 | V2B, Rp 170 k, Rk 1 k | gain **73.118** (computed: 100 × 170 / 232.5) | 204.0 / 92.338 (C 392 V, Va 188 V, bottom 95.662 V) | §3.7 |
 | V2B cathode, 0.47 µF on 1 k, PULL DEEP out | zero 338.63 Hz, pole **485.73 Hz**, loss below **0.6972** (−3.13 dB) | — | §3.7 |
 | V2B coupling, 0.047 µF into 100 k | high-pass **33.86 Hz** (computed) | — | §3.7 |
 | Graphic EQ | 71.5 / 371.8 / 979.5 / 1576 / 4823 Hz at Q 1.434 / 1.938 / 1.571 / 0.673 / 1.0, ±17 dB | — | §4.2 |
-| V5A/V5B long-tailed pair, Rp 82 k | gain **28.374** (see below), tail degeneration **0.0711568** = 1 / (1 + 101 × 15 k / (34.061 k + 82 k)) | 106.0 / 143.768 (C 392 V, Va 286 V, bottom 142.232 V) | §5.1 |
+| V5A/V5B long-tailed pair, Rp 82 k | gain **70.652449** = 100 × 82 k / (82 k + 34.061 k), tail degeneration **1.9025749** (see below), divided by | 106.0 / 143.768 (C 392 V, Va 286 V, bottom 142.232 V) | §5.1 |
 | Simul-Class output | `kMesaMark2cPower6L6GC` ×2 at grid scale **0.0907030**, `kMesaMark2cPowerEl34Triode` ×2 at **0.0619348** | — | §7.2, §7.3 |
 | Presence, 0.022 µF with 6.8 k | high shelf at **1063.9 Hz** (computed), ±9 dB | — | §5.2 |
 | Master 1, 100 k | dB control, `kMasterUnityGain` 0.7040127 | — | §2 |
@@ -76,6 +76,14 @@ and the plate load that drives the grid, so V2A's 270 k feed is the darkest link
 the inverter's is the brightest.
 
 ## Where the model departs from the dossier
+
+**What the plate bottoms assume.** Each `PlateSwing`'s conduction side is the plate voltage where
+the load line meets the Koren model at `Vgk = 0`, and two simplifications go into that. Every
+cathode is held at the idle `Vk` the dossier prints, including V4A's partially bypassed 3.3 k and
+V2B's 1 k under PULL DEEP, so a cathode that would rise with signal does not. And `Vgk = 0` stands
+in for the conduction limit rather than the grid being solved into conduction against its own
+source resistance. Both push the bottom slightly low, which makes the conduction-side headroom
+slightly generous; the D6d load-line solve replaces them stage by stage when it lands.
 
 **Every coupling capacitor is a first-order section.** One capacitor into one resistance is one
 pole, so the five coupling links use `Biquad::set_first_order_high_pass` rather than the biquad
@@ -94,18 +102,24 @@ open questions 19 and 20.
 
 | Skipped test | What it measures now | What it will re-assert |
 | --- | --- | --- |
-| `MesaMark2cHasACleanEndAtMinimumGain` | 41.4 % THD at Lead Drive 0.02 and −40 dBFS | THD below 10 % somewhere on the knob |
-| `MesaMark2cToneStackSitsBeforeTheLeadStages` | bright minus dark 0.36 pp at −80 dBFS, 0.61 pp at −100 dBFS | a brighter stack drives the lead stages harder, by more than 5 pp |
-| `MesaMark2cEqBandBoostsItsCentre` | the 750 Hz slider lifts 979.5 Hz by 0.052 dB at −80 dBFS, 6.17 dB at −100 dBFS | the bank's full 17 dB lift |
+| `MesaMark2cHasACleanEndAtMinimumGain` | 41.5 % THD at Lead Drive 0.02 and −40 dBFS | THD below 10 % somewhere on the knob |
+| `MesaMark2cToneStackSitsBeforeTheLeadStages` | bright minus dark −0.40 pp at −80 dBFS, −0.66 pp at −100 dBFS | a brighter stack drives the lead stages harder, by more than 5 pp |
+| `MesaMark2cEqBandBoostsItsCentre` | the 750 Hz slider lifts 979.5 Hz by 0.009 dB at −80 dBFS, −0.011 dB at −100 dBFS | the bank's full 17 dB lift |
 
-Lowering the test input does not rescue the last two: at −80 dBFS the output still sits on its
-ceiling, and by −100 dBFS, where the EQ boost finally starts to show, the level is 60 dB below
-anything a guitar produces.
+Lowering the test input does not rescue the last two: the output sits on its ceiling at −80 and at
+−100 dBFS alike, 60 dB below anything a guitar produces, so neither control reaches it.
 
-**Three constants that are not the dossier's.** The long-tailed pair degenerates its own input:
-only `1 / (1 + (µ + 1) · R_tail / (r_a + R_a))` of what arrives reaches the grid-cathode window, which
-is `1 / (1 + 101 × 15000 / (34061 + 82000))` = **0.0711568**, using §5.1's 82 k plate and 15 k tail
-glyph and r_a 34.061 k from the Koren model at the point §5.1's plate voltage puts the stage.
+**Three constants that are not the dossier's.** Driven single-ended, the long-tailed pair's shared
+cathode follows the driven grid through the tail, so the grid-to-cathode window is the input divided
+by `1 + R_tail / (R_tail + Z_k)`, where `Z_k` is the impedance the other triode's cathode presents:
+`(r_a + R_a) / (µ + 1)` = 1149.120 Ω, in series with §5.1's 470 Ω between the cathodes, which is
+where that resistor sits on the drawing rather than in the tail to ground. That gives
+`1 + 15000 / (15000 + 1619.120)` = **1.9025749**, always divided by. Leaving the 470 Ω out would give
+1.9288432, so it is worth 1.4 % and the placement is recorded rather than argued. The inverter's
+`TriodeStage` then carries the **full** single-triode gain, `100 × 82000 / (82000 + 34061.087)` =
+**70.652449**: the pair's split is the degeneration factor's job, and halving the gain as well
+counted it twice. R_tail is §5.1's 15 k tail glyph and r_a 34061.087 Ω from the Koren model at
+Vgk −1.5 V, Vpk 284.5 V.
 
 `PentodeStage` is not volt-true: its grid saturates at `1 / (drive × gain)` in its own units, not at
 the preset's −45 V. Two scales bridge the volt-true preamp to it until `PentodeStage` becomes
@@ -160,10 +174,11 @@ it at 1881 Hz, where it works as a bright cap. The model takes 470 k. The shelf'
 whatever the taper is throwing away at the current pot position, capped at 18 dB, because the cap
 shorts the pot's top section above the corner.
 
-**The phase inverter's gain is 28.374.** §5.1 gives 82 k plate resistors and nothing else, and its
-printed DC does not close (§8 question 6). A common-cathode 12AX7 with an 82 k load gives 56.75;
-a long-tailed pair splits that between its two plates, so the model uses half. The cathode bias is
-−1.5 V, which no source states.
+**The phase inverter's cathode bias is −1.5 V**, which no source states: §5.1 gives 82 k plate
+resistors and printed DC that does not close (§8 question 6). The gain is the full single-triode
+70.652449 rather than the 56.75 the dossier's own rp figure would give, because it is taken from
+the Koren r_a at that point, and the pair's split is carried by the degeneration factor above
+instead of by halving the gain.
 
 **Presence depth is ±9 dB.** §5.2 gives the network's corner but no depth in decibels. The 9 dB is
 the JCM800's constant.
