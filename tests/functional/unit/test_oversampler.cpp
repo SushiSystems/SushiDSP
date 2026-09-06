@@ -316,8 +316,10 @@ TEST(Unit_Dsp, Oversampler4xLatencyMatchesMeasuredImpulseDelay)
         }
     }
     // The impulse peak is the round trip: 31.75 base-rate samples up and 31.75 back, 63.5 in
-    // all, fractional because the 115-tap stage runs at 2x (see the derivation in
-    // Oversampler4x::latency_samples). The reported floor is within one sample of it.
+    // all. The 27-tap stage is what makes it fractional - it runs at 4x, so its 13 taps of delay
+    // are 3.25 base-rate samples each way and 6.5 together. The 115-tap stage contributes 28.5
+    // each way, a whole 57. See the derivation in Oversampler4x::latency_samples. The reported
+    // floor is within one sample of the peak.
     const long difference = static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
     EXPECT_GE(difference, 0);
     EXPECT_LE(difference, 1);
@@ -379,7 +381,8 @@ TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
         }
         used.reset();
         // The 4x buffer is internally owned and reused, so each block is copied out before the
-        // next call overwrites it.
+        // next call overwrites it. The two halfband blocks above need no such copy because
+        // process() writes to a caller-owned buffer.
         std::vector<float> after_reset_up(512, 0.0f), never_used_up(512, 0.0f);
         std::vector<float> after_reset(128, 0.0f), never_used(128, 0.0f);
         const float* used_up = used.upsample(probe.data(), 128);

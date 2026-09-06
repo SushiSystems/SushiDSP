@@ -554,7 +554,7 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
     // 30 Hz against 10 Hz is the pair that says so: a 20 Hz high-pass would put them octaves
     // apart, while the circuit leaves the ratio near 1. The reference is not 300 Hz, which sits
     // on the clip stage's own 4.7 kOhm / 0.047 uF boost slope and is 12 dB up for that reason.
-    // The chain measures 1.12; a second-order 20 Hz high-pass would put it near 3.9. Small
+    // The chain measures 1.11; a second-order 20 Hz high-pass would put it near 3.9. Small
     // signal throughout so the clipper does not compress the comparison.
     auto settled_rms_at = [](double frequency)
     {
@@ -571,9 +571,9 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
         std::size_t counted = 0;
 
         // The measurement window is truncated to whole cycles of the tone under test. Blocks 100
-        // to 199 hold 25600 samples, which is 16 cycles at 30 Hz but 5.33 at 10 Hz, and the
-        // partial cycle biases that RMS by about 3 % - enough to move a ratio the case reads to
-        // two decimal places.
+        // to 199 hold 25600 samples, which is 16 cycles at 30 Hz but 5.33 at 10 Hz. The partial
+        // cycle biased the 10 Hz RMS low by 1.2 %, and the ratio above with it, from 1.11 to the
+        // 1.1233 this case used to read.
         const std::size_t cycle_samples = static_cast<std::size_t>(48000.0 / frequency);
         const std::size_t window = 25600 / cycle_samples * cycle_samples;
 

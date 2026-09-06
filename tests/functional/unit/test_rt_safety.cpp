@@ -337,8 +337,9 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
     // derivation sees a genuinely new matrix.
     for (int block = 0; block < 1000; ++block)
     {
-        node.set_drive(static_cast<float>(block % 1000) / 999.0f);
-        node.set_tone(1.0f - static_cast<float>(block % 1000) / 999.0f);
+        const float position = static_cast<float>(block) / 999.0f;
+        node.set_drive(position);
+        node.set_tone(1.0f - position);
         SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
         node.process(context);
     }

@@ -136,7 +136,7 @@ The Tube Screamer's rebuild onto the D6b solver, plan
 - 2026-09-07 — Re-calibrated `kLevelUnityGain` 1.1078783 -> 0.6942987 against the measured DK chain and re-pinned both Tube Screamer goldens (`modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamer.hpp`, `tests/golden/`).
 - 2026-09-07 — Documented `TubeScreamer::latency_samples()` as the oversampler's round-trip and added the low-corner and drive-sweep cases (`tests/functional/unit/test_tube_screamer.cpp`).
 - 2026-09-07 — Re-pinned the Tube Screamer alias floor at -18.6 dB on the 4x DK chain, short of C1's -38.3 dB (`tests/functional/unit/test_measure.cpp`).
-- 2026-09-07 — Armed the Tube Screamer allocation trap over a knob-moving block so the matrix re-derivation runs inside it (`tests/functional/unit/test_rt_safety.cpp`).
+- 2026-09-07 — Armed the Tube Screamer allocation trap over a knob-moving block (`tests/functional/unit/test_rt_safety.cpp`).
 - 2026-09-07 — Added the `Oversampler4x` reset case and truncated the low-corner RMS window to whole cycles (`tests/functional/unit/test_oversampler.cpp`, `tests/functional/unit/test_tube_screamer.cpp`).
 
 ## D6b — DK-method circuit core
