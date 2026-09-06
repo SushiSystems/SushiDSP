@@ -98,19 +98,32 @@ decibel at midband and grows toward the top of the band.
 
 ### Follower compression is not modelled
 
-V3b and V4b are a gain scalar of 0.986 and, for V3b, the 2.26 Hz output high-pass through C20 into
-R30 (§3.5, §6). Neither carries a `TriodeStage`: a cathode follower has no plate resistor, so the
+V3b and V4b are a gain scalar of 0.986 and, for V3b, the 2.26 Hz output high-pass of §3.5 and §6.
+Neither carries a `TriodeStage`: a cathode follower has no plate resistor, so the
 common-cathode model would be the wrong circuit, and what that costs is the follower's own
 compression when its grid is driven past the cathode. The dossier gives a gain figure only for V3b;
 V4b reuses it, on the grounds that §2 draws it as the same topology on the same 120 k cathode.
 
-### The §3.6 network is not implemented
+### The §3.6 network is not implemented, but its resistor still loads the follower
 
-The drawing puts a 10 µF in series with 470 k on the follower's output, which computes to a corner
-at 0.034 Hz and does nothing audible. The tech who reads the same sheet says the position is real
-but the values are not, and that a real one is nearer 2n2 into 47–100 k — a treble shunt around
-1.5 kHz, which is a different circuit. The dossier's ruling is quoted here in full: **"Do not
-implement this network from S1."** Its blocking question 3 is what would settle it.
+The drawing puts a 10 µF in series with R31's 470 k on the follower's output. The tech who reads the
+same sheet says the position is real but the values are not, and that a real one is nearer 2n2 into
+47–100 k — a treble shunt around 1.5 kHz, which is a different circuit. The dossier's ruling is
+quoted here in full: **"Do not implement this network from S1."** Its blocking question 3 is what
+would settle it.
+
+What that ruling rejects is the branch as a *voicing* element, and the same dossier paragraph says
+why there is nothing there to voice: 10 µF against 470 k corners at 0.034 Hz, so across the audio
+band the branch is a plain 470 kΩ shunt and "the follower's total AC load becomes 320 kΩ". That
+load is kept. It is what puts C20's coupling corner at 2.26 Hz, which is the figure §6 lists:
+
+```
+1 / (2*pi * 220e-9 * 320e3) = 2.261 Hz     R30 1 M in parallel with R31 470 k
+1 / (2*pi * 220e-9 * 1e6)   = 0.723 Hz     R30 alone, if R31's branch were cut out entirely
+```
+
+The module uses 2.26 Hz. Either corner is far below anything a guitar plays, so the choice matters
+for the arithmetic being consistent rather than for the sound.
 
 ### The send pad is not in the signal path
 
@@ -134,12 +147,21 @@ against. Applied literally they leave every grid past V1a pinned to the solver's
 the amp becomes a fixed-amplitude square-wave generator with dead knobs — the failure `Jcm800.cpp`'s
 own interstage comment records. Four factors in `DiezelVh4.cpp` carry the operating level forward
 instead: `kV1aToV2aLevelStaging`, `kV2aToV3aLevelStaging`, `kFollowerToMixBusLevelStaging` and
-`kV4bToPhaseInverterAttenuation`. None of them is a dossier value. The dossier's own dividers
-(×0.4996, the volume divider, ×0.0660) are applied separately and unchanged.
+`kV4bToPhaseInverterLevelStaging`. None of them is a dossier value. The dossier's own dividers
+(×0.4996, the volume divider, ×0.0660) are applied separately and unchanged. The two constants after
+them, `kPhaseInverterToPowerTubeAttenuation` and `kPowerTubeToTransformerAttenuation`, keep
+`Jcm800.cpp`'s names because the name is the citation.
 
 `kFollowerToMixBusLevelStaging` is the one that multiplies rather than divides. The stack's
 insertion loss, the volume divider and the −23.6 dB mix bus are all real, and the real V3b drives
 them from a swing several times what this model's V3a plate produces.
+
+`kV1aToV2aLevelStaging` is the one that decides whether the gain knob does anything, because V1a
+sits ahead of the pot and no other stage does. Its first value, 1/8, walked V2a's grid from 0.023 V
+to 0.197 V across the knob at a 0.2 input — the whole travel under the 0.203 V conduction knee — so
+the amp's 4 % of THD was V1a's alone and the knob could not move it: 4.43 % at gain 0.1, 3.73 % at
+0.5, 4.20 % at 1.0. At 5/8 the same knob walks that grid from 0.113 V to 0.985 V and the sweep
+climbs to 4.3 %, 17.0 %, 24.2 %, with every grid still well inside the solver's −4.14 V bound.
 
 ### C1 is bracketed, and its corner is a choice
 
@@ -157,6 +179,15 @@ the driving resistance is per grid, because §3.3 and §3.4 draw the two stopper
 §3.4 computes V3a's pole from R26 itself. The dossier reads that pole at about 2.9 kHz from 115 pF;
 this module's 134.7 pF puts it at 2.51 kHz, the difference being the stray capacitance and Cgk that
 the dossier's figure leaves out.
+
+### V1a's source resistance is the JCM800's
+
+`TriodeStage`'s source resistance is what loads the grid-conduction diode, so it sets how hard the
+stage clips once the grid goes positive. V2a and V3a get the stoppers the drawing gives them, R21's
+47 k and R26's 470 k. §3.1 draws none on V1a, and the drawing offers nothing else to use, so V1a
+takes `Jcm800.cpp`'s `kTriodeSourceResistance` of 10 kΩ. That number decides V1a's conduction knee —
+0.02585 × ln(0.02585 / (1e-9 × 1e4)) = 0.203 V — and V1a is the stage the gain knob cannot reach,
+so it is also the amp's THD floor at any knob position.
 
 ## The power section
 
@@ -203,11 +234,15 @@ Three of the preset's seven fields are modelling choices inherited from `kEl34` 
 
 ## Calibration
 
-`DiezelVh4::kMasterUnityGain` is measured the way `Jcm800::kMasterUnityGain` was: with every knob at
-its default and a −12 dBFS 1 kHz sine in, the output peaks near −6 dBFS.
-`DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` is the test that pins it. The
-value the module ships was estimated offline from the cascade above before the module could be
-built, so the first build's reading of that test is what replaces it.
+`DiezelVh4::kMasterUnityGain` uses `Jcm800::kMasterUnityGain`'s calibration point: with every knob
+at its default and a −12 dBFS 1 kHz sine in, the output peaks near −6 dBFS.
+`DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` is the test that reads it.
+
+The shipped value is one measurement plus one correction. That test read −18.969 dBFS on 2026-09-06
+with the constant at 0.71, which puts the amp's own peak at 0.158596 with the master at unity. The
+same run's THD sweep then moved `kV1aToV2aLevelStaging` from 1/8 to 5/8, and two offline runs of the
+chain at 1 kHz and 0.251 in, before and after, put the lift that gives the output at ×1.471086. So
+`10^(-6/20) / (0.158596 × 1.471086)` = 2.148178, and the next run of the test reads it directly.
 
 There is no measured target to calibrate anything else against. **No bench measurement of a VH4 has
 been published** — no frequency response, no THD figure, no input sensitivity, no capture of any

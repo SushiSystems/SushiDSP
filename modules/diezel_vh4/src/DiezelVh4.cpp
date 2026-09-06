@@ -52,91 +52,85 @@ namespace SushiDSP
         // constant the dossier marks "not established" or that this module chose for itself says
         // so on its own line and is listed again in modules/diezel_vh4/README.md.
 
-        // section 3.1: R1 1 MOhm grid leak with C1 printed as the range 100-200 pF across it. The
-        // 100 pF
-        // reading against R1 gives 1 / (2*pi*1e6*100e-12) = 1591.5 Hz. Modelling choice: C1 is a
-        // shunt, so the real corner is set by the guitar's source impedance, which no source
-        // states, and R1 is the only resistance the drawing offers.
+        // Section 3.1: R1 1 MOhm grid leak with C1 printed as the range 100-200 pF across it.
+        // The 100 pF reading against R1 gives 1 / (2*pi*1e6*100e-12) = 1591.5 Hz. Modelling
+        // choice: C1 is a shunt, so the real corner is set by the guitar's source impedance,
+        // which no source states, and R1 is the only resistance the drawing offers.
         constexpr double kInputLowPassHz = 1591.549;
 
-        // section 3.1: V1a runs Ra 120 kOhm and Rk 2k2 fully bypassed by C2 47 uF (zero at 1.5 Hz).
+        // Section 3.1: V1a runs Ra 120 kOhm and Rk 2k2 fully bypassed by C2 47 uF, zero at 1.5 Hz.
         constexpr float kV1aGridLeakOhms = 1000000.0f;
         constexpr float kV1aCathodeBiasVolts = -2.05f;
-        // section 6: x61.4 unloaded, x56.8 into the 470 kOhm the channel-3 leg presents.
+        // Section 6: x61.4 unloaded, x56.8 into the 470 kOhm the channel-3 leg presents.
         constexpr float kV1aGain = 56.8f;
-        // Modelling choice: section 3.1 draws no grid stopper on V1a, so the grid-conduction source
-        // resistance is Jcm800.cpp's kTriodeSourceResistance.
+        // Modelling choice: section 3.1 draws no grid stopper on V1a, so the grid-conduction
+        // source resistance is Jcm800.cpp's kTriodeSourceResistance.
         constexpr float kV1aSourceResistanceOhms = 10000.0f;
 
-        // section 3.1 and section 6: Ra 120 kOhm in parallel with rp 54.6 kOhm is the impedance C13
-        // is driven
-        // from, and it is what makes the corners below land on the dossier's 314 Hz and 618 Hz.
+        // Sections 3.1 and 6: Ra 120 kOhm in parallel with rp 54.6 kOhm is the impedance C13 is
+        // driven from, and it is what puts the corners below on the dossier's 314 Hz and 618 Hz.
         constexpr double kV1aPlateImpedanceOhms = 37530.0;
-        constexpr double kGainCouplingCapacitorFarads = 1e-9;   // section 3.1: C13.
-        constexpr double kGainSeriesResistanceOhms = 220000.0;  // section 3.1: R14.
-        constexpr double kGainPotentiometerOhms = 250000.0;     // section 3.2: the channel-3 GAIN pot.
+        constexpr double kGainCouplingCapacitorFarads = 1e-9;   // Section 3.1: C13.
+        constexpr double kGainSeriesResistanceOhms = 220000.0;  // Section 3.1: R14.
+        constexpr double kGainPotentiometerOhms = 250000.0;     // Section 3.2: the GAIN pot.
 
-        // section 3.3: R21 47 kOhm grid stopper, R22 3M3 grid leak as drawn (section 8 question 5
-        // records that
-        // 1 MOhm and 220 kOhm are what a tech reports on real boards), Vgk -1.02 V at +367 V.
+        // Section 3.3: R21 47 kOhm grid stopper, R22 3M3 grid leak as drawn - section 8 question
+        // 5 records that a tech reports 1 MOhm and 220 kOhm on real boards - Vgk -1.02 V at 367 V.
         constexpr float kV2aSourceResistanceOhms = 47000.0f;
         constexpr float kV2aGridLeakOhms = 3300000.0f;
         constexpr float kV2aCathodeBiasVolts = -1.02f;
-        constexpr float kV2aGain = 67.2f;   // section 6: x67.2 into the 500 kOhm shunt.
-        // section 3.3 and section 6: Rk 680 Ohm with only C17 1 uF across it, 8.22 dB of loss below
-        // the zero.
+        constexpr float kV2aGain = 67.2f;   // Section 6: x67.2 into the 500 kOhm shunt.
+        // Sections 3.3 and 6: Rk 680 Ohm with only C17 1 uF across it, 8.22 dB of loss below the
+        // zero.
         constexpr double kV2aCathodeShelfZeroHz = 234.0;
         constexpr double kV2aCathodeShelfPoleHz = 603.0;
 
-        // section 6: C18 4.7 nF into V2a's 30.8 kOhm plate impedance plus the 500 kOhm shunt.
+        // Section 6: C18 4.7 nF into V2a's 30.8 kOhm plate impedance plus the 500 kOhm shunt.
         constexpr double kV3aCouplingHighPassHz = 63.8;
-        // section 6: the relay node's 500 kOhm against 500 kOhm + 30.8 kOhm + R26 470 kOhm.
+        // Section 6: the relay node's 500 kOhm against 500 kOhm + 30.8 kOhm + R26 470 kOhm.
         constexpr float kV2aToV3aDivider = 0.4996003f;
 
-        // section 3.4: R26 470 kOhm grid stopper, the 500 kOhm R24'/R25' pair as the grid leak,
+        // Section 3.4: R26 470 kOhm grid stopper, the 500 kOhm R24'/R25' pair as the grid leak,
         // Vgk -1.02 V, Rk 680 Ohm with C19 2.2 uF.
         constexpr float kV3aSourceResistanceOhms = 470000.0f;
         constexpr float kV3aGridLeakOhms = 500000.0f;
         constexpr float kV3aCathodeBiasVolts = -1.02f;
-        constexpr float kV3aGain = 71.4f;   // section 6: x71.4.
+        constexpr float kV3aGain = 71.4f;   // Section 6: x71.4.
         constexpr double kV3aCathodeShelfZeroHz = 106.0;
         constexpr double kV3aCathodeShelfPoleHz = 274.0;
 
-        // section 3.5 and section 6: the DC-coupled follower's gain is 0.986 and C20 220 nF into
-        // R30 1 MOhm
-        // puts its output corner at 2.26 Hz. The follower is a scalar and a high-pass here: its
-        // own compression is not modelled, and section 3.6's network is not implemented at all -
-        // the
-        // dossier's ruling on it is "Do not implement this network from S1."
+        // Sections 3.5 and 6: the DC-coupled follower's gain is 0.986, and its output corner is
+        // 2.26 Hz. That corner is C20's 220 nF into the 320 kOhm the follower actually looks into,
+        // R30 1 MOhm in parallel with R31 470 kOhm; C20 into R30 alone would be 0.723 Hz. Section
+        // 3.6 rules out the 10 uF/470 kOhm branch as a voicing element - "Do not implement this
+        // network from S1" - but it also computes that branch as a plain 470 kOhm shunt across the
+        // whole band, because 10 uF puts its corner at 0.034 Hz, so the load stays. The follower
+        // itself is a scalar and this high-pass: its own compression is not modelled.
         constexpr float kCathodeFollowerGain = 0.986f;
         constexpr double kFollowerHighPassHz = 2.26;
 
-        // section 2 and section 4: the stack's output leaves through R42 470 kOhm into the 470 kOhm
-        // channel
-        // volume, so the wiper's own fraction sits on top of a fixed 470/(470+470) divider.
+        // Sections 2 and 4: the stack's output leaves through R42 470 kOhm into the 470 kOhm
+        // channel volume, so the wiper's own fraction sits on a fixed 470/(470+470) divider.
         constexpr float kVolumeSeriesDivider = 0.5f;
-        // section 6: ch3 selected, R43 680 kOhm into the mix node's 48.1 kOhm, x0.0660 or -23.6 dB.
-        // section 8 question 13: a single-channel module hard-codes the shunt the other three legs
-        // make.
+        // Section 6: ch3 selected, R43 680 kOhm into the mix node's 48.1 kOhm, x0.0660, -23.6 dB.
+        // Section 8 question 13: a single-channel module hard-codes the shunt the other three
+        // grounded legs make.
         constexpr float kMixBusAttenuation = 0.0660f;
 
-        // section 2 and section 6: V4a runs Ra 120 kOhm with its 640 Ohm cathode unbypassed, which
-        // is already
-        // folded into the x28.7 gain; its grid is the mix node, so the source resistance is
-        // R43 680 kOhm in parallel with the node's 48.1 kOhm and the grid leak is that node.
+        // Sections 2 and 6: V4a runs Ra 120 kOhm with its 640 Ohm cathode unbypassed, which is
+        // already folded into the x28.7 gain. Its grid is the mix node, so the source resistance
+        // is R43 680 kOhm in parallel with the node's 48.1 kOhm and the grid leak is that node.
         constexpr float kV4aSourceResistanceOhms = 44923.0f;
         constexpr float kV4aGridLeakOhms = 48100.0f;
         constexpr float kV4aCathodeBiasVolts = -0.98f;
         constexpr float kV4aGain = 28.7f;
         // Modelling choice: section 2 draws V4b as the same follower topology as V3b on the same
-        // 120 kOhm
-        // cathode, and the dossier gives a follower gain only for V3b, so V3b's 0.986 is reused.
-        // The 100k/4.7k send pad (section 6, x0.0449) is on the jack leg and not in the path to the
-        // power amp, so it is not applied here.
+        // 120 kOhm cathode, and the dossier gives a follower gain only for V3b, so V3b's 0.986 is
+        // reused. The 100k/4.7k send pad (section 6, x0.0449) is on the jack leg and not in the
+        // path to the power amp, so it is not applied here.
 
-        // section 5: nothing past the send jack is established. The loop return driver and the
-        // phase
-        // inverter are one triode at Jcm800.cpp's kPhaseInverterGain of 40 on its triode
+        // Section 5: nothing past the send jack is established. The loop return driver and the
+        // phase inverter are one triode at Jcm800.cpp's kPhaseInverterGain of 40, on its triode
         // constants. A modelling choice, top to bottom.
         constexpr float kPhaseInverterSourceResistanceOhms = 10000.0f;
         constexpr float kPhaseInverterGridLeakOhms = 1000000.0f;
@@ -159,34 +153,39 @@ namespace SushiDSP
         // loss, the volume divider and the -23.6 dB mix bus are real, and the real V3b drives them
         // from a swing several times what this model's V3a plate produces, so without it the mixer
         // triode would sit undriven.
-        constexpr float kV1aToV2aLevelStaging = 1.0f / 8.0f;
+        //
+        // kV1aToV2aLevelStaging is what sets how hard the gain knob drives the chain, because V1a
+        // sits ahead of the pot and nothing else does. At 1/8 the knob moved V2a's grid only from
+        // 0.023 V to 0.197 V at a 0.2 input, all of it under the 0.203 V conduction knee, so the
+        // amp's whole 4 % of THD came from V1a alone and the knob did not change it: the fix
+        // round's measured sweep read 4.43 % at gain 0.1, 3.73 % at 0.5 and 4.20 % at 1.0. At 5/8
+        // the same knob walks that grid from 0.113 V to 0.985 V and the sweep climbs 4.3 %, 17.0 %,
+        // 24.2 %, with every grid still well inside the solver's -4.14 V cutoff bound.
+        constexpr float kV1aToV2aLevelStaging = 5.0f / 8.0f;
         constexpr float kV2aToV3aLevelStaging = 1.0f / 32.0f;
         constexpr float kFollowerToMixBusLevelStaging = 5.0f;
-        constexpr float kV4bToPhaseInverterAttenuation = 1.0f / 25.0f;
-        // Jcm800.cpp's constants of the same names, for the same reason and in the same place.
+        constexpr float kV4bToPhaseInverterLevelStaging = 1.0f / 25.0f;
+        // Jcm800.cpp's constants, keeping its names because the names are the citation.
         constexpr float kPhaseInverterToPowerTubeAttenuation = 1.0f / 32.0f;
         constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
 
         // Modelling choices: section 5 establishes no output transformer primary impedance, no
-        // turns
-        // ratio and no supply behaviour, so the transformer and the sag stage carry Jcm800.cpp's
-        // constants unchanged.
+        // turns ratio and no supply behaviour, so the transformer and the sag stage carry
+        // Jcm800.cpp's constants unchanged.
         constexpr float kOutputTransformerRolloffHz = 60.0f;
         constexpr float kOutputTransformerLeakageHz = 8000.0f;
         constexpr float kOutputTransformerSaturationDrive = 0.3f;
         constexpr float kSagAmount = 0.3f;
         constexpr float kSagRecoveryTimeSeconds = 0.05f;
 
-        // section 5 and section 6: Presence "frequency centers at about 4kHz" (S2). Its depth is a
-        // modelling
-        // choice - Jcm800.cpp's kMaxPresenceDb - because no VH4 source gives one.
+        // Sections 5 and 6: Presence "frequency centers at about 4kHz" (S2). Its depth is a
+        // modelling choice, Jcm800.cpp's kMaxPresenceDb, because no VH4 source gives one.
         constexpr float kPresenceHz = 4000.0f;
         constexpr float kMaxPresenceDb = 9.0f;
-        // section 5 and section 6: Deep is "centered at 80Hz" (S2); S8 says 90 Hz and section 8
-        // question 9 records the
-        // disagreement. The 10 dB of lift is a modelling choice, and so is the first-order shelf:
-        // section 5 and section 8 question 8 say the real control is an LC section in the feedback
-        // loop.
+        // Sections 5 and 6: Deep is "centered at 80Hz" (S2). S8 says 90 Hz, and section 8
+        // question 9 records the disagreement. The 10 dB of lift is a modelling choice, and so is
+        // the first-order shelf: section 5 and section 8 question 8 say the real control is an LC
+        // section in the feedback loop.
         constexpr float kDeepHz = 80.0f;
         constexpr float kMaxDeepBoostDb = 10.0f;
 
@@ -201,11 +200,9 @@ namespace SushiDSP
 
         // 12AX7 Miller input capacitance, exactly as Jcm800.cpp computes it: Cgk 1.6 pF and
         // Cgp 1.7 pF from docs/reference/spice/models/12ax7_koren.sub, plus 10 pF of stray wiring.
-        // Unlike the JCM800's, the driving resistance here is per grid, because section 3.3 and
-        // section 3.4 draw
-        // the two grid stoppers this channel actually has and section 3.4 computes the V3a pole
-        // from R26
-        // itself.
+        // Unlike the JCM800's, the driving resistance here is per grid, because sections 3.3 and
+        // 3.4 draw the two grid stoppers this channel has and section 3.4 computes the V3a pole
+        // from R26 itself.
         constexpr double kMillerCgkPicofarads = 1.6;
         constexpr double kMillerCgpPicofarads = 1.7;
         constexpr double kStrayWiringPicofarads = 10.0;
@@ -424,7 +421,7 @@ namespace SushiDSP
                                 * volume_pot * kMixBusAttenuation * kFollowerToMixBusLevelStaging;
             const float send_buffer = v4a_.process_sample(mix_bus) * kCathodeFollowerGain;
             const float phase_inverted =
-                phase_inverter_.process_sample(send_buffer * kV4bToPhaseInverterAttenuation)
+                phase_inverter_.process_sample(send_buffer * kV4bToPhaseInverterLevelStaging)
                 * kPhaseInverterToPowerTubeAttenuation;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted);
