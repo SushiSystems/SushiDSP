@@ -15,7 +15,7 @@ The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-ga
 - 2026-09-06 — Marked all eight SPICE blocks simulated in their status and LTspice-version lines (`docs/reference/spice/*/README.md`).
 - 2026-09-06 — Added design dossiers for the Peavey 5150, Mesa Mark IIC+ and Diezel VH4 (`docs/reference/research/2026-09-06-peavey-5150-design-dossier.md`, `-mesa-mark-iic-plus-`, `-diezel-vh4-`).
 - 2026-09-06 — Wired the FMV stack's middle pot as a rheostat, so its taper follows the real deck (`FmvToneStack.hpp`, `FmvToneStack.cpp`).
-- 2026-09-06 — Added `PentodeStage(const PowerTubePreset&)` and three power-tube presets alongside `kEl34` (`PentodeStage.hpp`, `PowerTubePresets.hpp`).
+- 2026-09-06 — Added `PentodeStage(const PowerTubePreset&)` and four power-tube presets alongside `kEl34` (`PentodeStage.hpp`, `PowerTubePresets.hpp`).
 - 2026-09-06 — Gave `GraphicEqualizer` a per-band Q overload alongside its shared-Q constructor (`GraphicEqualizer.hpp`, `GraphicEqualizer.cpp`).
 - 2026-09-06 — Added the Peavey 5150 lead-channel amplifier node (`modules/peavey5150/`).
 - 2026-09-06 — Added the Mesa/Boogie Mark IIC+ lead-mode amplifier node (`modules/mesa_mark2c/`).

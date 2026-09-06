@@ -93,7 +93,7 @@ unit test, no dependency on any product module.
   `FmvToneStack` serves the new modules. The 5150 and the IIC+ both use FMV-shaped stacks with
   their own values. All four amplifiers wire the mid pot as a rheostat, and
   DA2 replaced the three-terminal wiper coefficients with a nodal analysis of that wiring; the
-  stack now nulls the `jcm_fmv` sweep to 0.015 dB.
+  stack now nulls the `jcm_fmv` sweep to 0.014 dB.
 
 ## 5. Research dossiers (DA1, parallel with §4)
 
