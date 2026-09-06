@@ -212,8 +212,9 @@ diode, and each plate multiplies it: at silence the five grids sit at 10 µV, 11
 391 µV and 2.66 mV (default knobs, 2 s of all-zero input, 2026-09-07). None of it reaches the
 output. C18 and C20 are in the two places the offset could accumulate — C20, 220 nF at 2.26 Hz, is
 the capacitor the drawing puts on V3b's output, and the module applies it immediately after the
-follower scalar — and the output transformer's 60 Hz rolloff takes what is left. Two seconds of
-digital silence come back at **3.4e-44 peak, −869.5 dBFS**, DC mean 4.1e-47, with the gain knob at
+follower scalar through `Biquad::set_first_order_high_pass()`, whose real pole stays put at a
+corner that far down — and the output transformer's 60 Hz rolloff takes what is left. Two seconds of
+digital silence come back at **3.4e-44 peak, −869.5 dBFS**, DC mean 1.8e-47, with the gain knob at
 its default, and at the same peak with the knob at 0.0. Both are denormals.
 
 The one DC-coupled link with no capacitor after it is V4a → V4b → the phase inverter, which is why
@@ -298,7 +299,7 @@ at its default and a −12 dBFS 1 kHz sine in, the output peaks near −6 dBFS.
 The shipped value is one measurement. With the four staging factors removed on 2026-09-07 the
 chain runs a great deal hotter into the power section than it did, so the constant fell from
 2.148178 to 0.816610; the phase inverter's tail degeneration and the power tubes' grid scale then
-moved it to **0.624524**, at which the test reads −5.997 dBFS. The measurement is direct: the
+moved it to **0.624524**, at which the test reads −6.001 dBFS. The measurement is direct: the
 constant multiplies the signal after the last nonlinearity, so it is set, the test run, and the
 constant scaled by the decibels the reading misses.
 
@@ -309,14 +310,14 @@ points, the corner frequencies and the two impedance figures §6 lists, which te
 against the documented circuit rather than against an amplifier.
 
 `DiezelVh4HasACleanEndAtMinimumGain` is this module's acceptance test since the level staging
-came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **0.0473 %**
+came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **0.0472 %**
 (2026-09-07), well under the spec's 10 %. The knob is read at 0.01 rather than 0.0 because the pot
 is a plain divider to ground: at 0.0 it shorts the signal and the node is silent, which leaves THD
 without a denominator. `DiezelVh4ThdIncreasesWithGain` asks only that the reading not fall as the
 knob rises, within 0.5 percentage points, because once every stage clips the metric saturates.
 
 `DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz` asserts the 80 Hz point alone, 4.619 dB
-against a nominal 5. The 20 Hz point reads 4.170 dB where the shelf is 10 dB deep, and the output
+against a nominal 5. The 20 Hz point reads 3.799 dB where the shelf is 10 dB deep, and the output
 clamp is not the reason — the same two figures come back with the master 20 dB down. C13's 314 Hz
 high-pass has thrown the fundamental away before the first distorting stage, so at 20 Hz the
 swept-sine estimate is measuring the saturated chain's own product rather than the shelf.
@@ -324,7 +325,7 @@ swept-sine estimate is measuring the saturated chain's own product rather than t
 `DiezelVh4MixBusAttenuationIsApplied` no longer asserts a small-signal gain, because since the
 staging came out there is no small signal: at −60 dBFS in, V3a's plate is already on its ceiling
 and the phase inverter's grid is already on the solver's cutoff clamp, so the amp is a limiter at
-every input level. The test reads **52.997 dB** at 1 kHz with the knobs at noon (2026-09-07), and
+every input level. The test reads **52.990 dB** at 1 kHz with the knobs at noon (2026-09-07), and
 what it still proves is that `kMixBusAttenuation` is in the chain at all. Its comment writes out
 the linear part of the cascade and names the stage where the arithmetic stops being a product.
 

@@ -91,6 +91,12 @@ namespace SushiDSP
         constexpr double kV2aCathodeShelfZeroHz = 234.0;
         constexpr double kV2aCathodeShelfPoleHz = 603.0;
 
+        // Each of this channel's three couplings - C13, C18 and C20 - is one RC section into a
+        // grid leak, so each runs Biquad::set_first_order_high_pass(): 6 dB per octave below the
+        // corner, an exact null at DC, and no conjugate pole pair to go unstable at C20's 2.26 Hz.
+        // At C13's 314 Hz the difference between 6 and 12 dB per octave is most of this channel's
+        // low end.
+
         // Section 6: C18 4.7 nF into V2a's 30.8 kOhm plate impedance plus the 500 kOhm shunt.
         constexpr double kV3aCouplingHighPassHz = 63.8;
         // Section 6: the relay node's 500 kOhm against 500 kOhm + 30.8 kOhm + R26 470 kOhm.
@@ -206,13 +212,6 @@ namespace SushiDSP
 
         constexpr double kFilterQ = 0.707;
 
-        // A coupling capacitor is a first-order high-pass, and at 314 Hz the difference between
-        // 6 and 12 dB per octave below the corner is most of this channel's low end. Biquad has no
-        // first-order high-pass, so one is built from set_first_order_shelf() with its zero far
-        // below its pole: the response is first-order through the audio band and settles at
-        // kHighPassStopbandGain, -80 dB, at DC.
-        constexpr double kHighPassStopbandGain = 1e-4;
-
         // 12AX7 Miller input capacitance, exactly as Jcm800.cpp computes it: Cgk 1.6 pF and
         // Cgp 1.7 pF from docs/reference/spice/models/12ax7_koren.sub, plus 10 pF of stray wiring.
         // Unlike the JCM800's, the driving resistance here is per grid, because sections 3.3 and
@@ -242,16 +241,6 @@ namespace SushiDSP
                 (kMillerCgkPicofarads + kMillerCgpPicofarads * (1.0 + stage_voltage_gain)
                  + kStrayWiringPicofarads) * 1e-12;
             return 1.0 / (2.0 * M_PI * driving_resistance_ohms * input_capacitance_farads);
-        }
-
-        /// @brief Configures one Biquad as a first-order high-pass.
-        /// @param filter The filter to configure.
-        /// @param sample_rate The rate it runs at, in hertz.
-        /// @param corner_hz The -3 dB corner, in hertz.
-        void configure_first_order_high_pass(Biquad& filter, double sample_rate, double corner_hz)
-        {
-            filter.set_first_order_shelf(sample_rate, corner_hz * kHighPassStopbandGain, corner_hz,
-                                         kHighPassStopbandGain);
         }
 
         /// @brief The total resistance C13 works against for one gain-knob position.
@@ -313,11 +302,11 @@ namespace SushiDSP
         v2a_cathode_shelf_.set_first_order_shelf(oversampled_rate, kV2aCathodeShelfZeroHz, kV2aCathodeShelfPoleHz,
                                                  kV2aCathodeShelfZeroHz / kV2aCathodeShelfPoleHz);
         v2a_grid_miller_.set_one_pole_low_pass(oversampled_rate, miller_corner_hz(kV2aGain, kV2aSourceResistanceOhms));
-        configure_first_order_high_pass(v3a_coupling_high_pass_, oversampled_rate, kV3aCouplingHighPassHz);
+        v3a_coupling_high_pass_.set_first_order_high_pass(oversampled_rate, kV3aCouplingHighPassHz);
         v3a_cathode_shelf_.set_first_order_shelf(oversampled_rate, kV3aCathodeShelfZeroHz, kV3aCathodeShelfPoleHz,
                                                  kV3aCathodeShelfZeroHz / kV3aCathodeShelfPoleHz);
         v3a_grid_miller_.set_one_pole_low_pass(oversampled_rate, miller_corner_hz(kV3aGain, kV3aSourceResistanceOhms));
-        configure_first_order_high_pass(follower_high_pass_, oversampled_rate, kFollowerHighPassHz);
+        follower_high_pass_.set_first_order_high_pass(oversampled_rate, kFollowerHighPassHz);
 
         tone_stack_ = DiezelVh4ToneStack(oversampled_rate);
         output_transformer_ = OutputTransformerStage(oversampled_rate, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive);
@@ -359,7 +348,7 @@ namespace SushiDSP
     {
         const double corner_hz = 1.0 / (2.0 * M_PI * kGainCouplingCapacitorFarads
                                         * gain_network_resistance_ohms(normalized));
-        configure_first_order_high_pass(gain_high_pass_, sample_rate_ * kOversamplingFactor, corner_hz);
+        gain_high_pass_.set_first_order_high_pass(sample_rate_ * kOversamplingFactor, corner_hz);
     }
 
     void DiezelVh4::process(ProcessContext& context)
