@@ -315,8 +315,9 @@ TEST(Unit_Dsp, Oversampler4xLatencyMatchesMeasuredImpulseDelay)
             peak = i;
         }
     }
-    // The true group delay is fractional at base rate (31.75 samples, see the derivation in
-    // Oversampler4x::latency_samples); the reported floor is within one sample.
+    // The impulse peak is the round trip: 31.75 base-rate samples up and 31.75 back, 63.5 in
+    // all, fractional because the 115-tap stage runs at 2x (see the derivation in
+    // Oversampler4x::latency_samples). The reported floor is within one sample of it.
     const long difference = static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
     EXPECT_GE(difference, 0);
     EXPECT_LE(difference, 1);
@@ -338,7 +339,8 @@ TEST(Unit_Dsp, Oversampler8xPassesDcAtUnity)
 TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
 {
     // An instance that has processed a burst and then been reset must produce bit-identical
-    // output to a never-used instance, on all three classes.
+    // output to a never-used instance, on all four classes. Oversampler4x is here because it is
+    // what every shipping D6c node runs; TubeScreamer::reset() is only as good as this.
     const auto burst = sine(0.1913, 512, 0.9f);
     const auto probe = sine(0.0611, 128, 0.6f);
 
@@ -363,6 +365,30 @@ TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
         std::vector<float> after_reset(probe.size() / 2, 0.0f), never_used(probe.size() / 2, 0.0f);
         used.process(probe.data(), static_cast<std::uint32_t>(probe.size()), after_reset.data());
         fresh.process(probe.data(), static_cast<std::uint32_t>(probe.size()), never_used.data());
+        EXPECT_EQ(after_reset, never_used);
+    }
+
+    {
+        SushiDSP::Oversampler4x used(128);
+        SushiDSP::Oversampler4x fresh(128);
+        std::vector<float> scratch(128, 0.0f);
+        for (std::size_t position = 0; position + 128 <= burst.size(); position += 128)
+        {
+            const float* up = used.upsample(burst.data() + position, 128);
+            used.downsample(up, 512, scratch.data());
+        }
+        used.reset();
+        // The 4x buffer is internally owned and reused, so each block is copied out before the
+        // next call overwrites it.
+        std::vector<float> after_reset_up(512, 0.0f), never_used_up(512, 0.0f);
+        std::vector<float> after_reset(128, 0.0f), never_used(128, 0.0f);
+        const float* used_up = used.upsample(probe.data(), 128);
+        std::copy(used_up, used_up + 512, after_reset_up.begin());
+        used.downsample(after_reset_up.data(), 512, after_reset.data());
+        const float* fresh_up = fresh.upsample(probe.data(), 128);
+        std::copy(fresh_up, fresh_up + 512, never_used_up.begin());
+        fresh.downsample(never_used_up.data(), 512, never_used.data());
+        EXPECT_EQ(after_reset_up, never_used_up);
         EXPECT_EQ(after_reset, never_used);
     }
 

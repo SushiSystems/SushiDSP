@@ -376,30 +376,46 @@ TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
 // interstage bandwidth the model was actually missing (the 12AX7's Miller input capacitance, in
 // Jcm800.cpp) takes it to -43.4 dB, 39.6 dB better than D5b and clear of the spec bar, so the
 // JCM800 assertion below is the spec's again. The TubeScreamer's is not: its floor is aliasing
-// generated inside the 8x domain, and it stays a regression floor until D6c.
+// generated inside the oversampled domain, and D6c's rebuild moved it to -18.6 dB without
+// reaching the bar, so it stays a regression floor. The case's own comment carries that number.
 constexpr double kD5bJcm800AliasFloorDb = -3.8;
 
 TEST(Regression_Dsp, TubeScreamerAliasFloorDoesNotRegress)
 {
-    // A regression floor, not the spec's 30 dB improvement target - that target is unreachable
-    // by any base-rate halfband, and is deferred to D6c.
+    // A regression floor, not the spec's 30 dB improvement target. -18.6 dB on the D6c DK chain,
+    // 9.0 dB better than D6a's -9.6 dB and 20 dB short of the -38.3 dB C1 asked for. C1 says to
+    // report the number and loosen nothing, so this stays a floor at the measured value with
+    // 1 dB of slack.
     //
-    // Diagnosed and verified in D6a Task 4: the worst alias is the 21st harmonic of the 18 kHz
-    // test tone folding around the 8x domain's own Nyquist. It is generated inside the
-    // oversampled region and already lies below 24 kHz there, so it is in band by the time the
-    // decimator sees it; no decimation filter, however steep, can remove it. Task 4's >=90 dB
-    // halfbands bought 1.3 dB over D5b's -8.3 dB, which is all that side of the problem had left
-    // to give.
+    // D6a Task 4's diagnosis still holds and the rebuild did not change it, only its arithmetic.
+    // The worst line is an odd harmonic of the test tone folding about the oversampled domain's
+    // own Nyquist, generated below 24 kHz there, so it is in band before any decimator sees it.
+    // At D6a's 8x that took the 21st harmonic of 18 kHz; at C1's 4x the fold point is 192 kHz
+    // and the 13th harmonic of a 15 kHz tone reaches it (13 x 15000 = 195000 -> 3000 Hz), which
+    // is the -18.6 dB worst case. Halving the oversampling factor halved the harmonic order the
+    // fold needs, and a diode clipper's harmonics decay as 1/n, so the same mechanism reads
+    // about 6 dB louder.
     //
-    // Reaching -38 dB needs the generator fixed rather than the filter: D6c replaces the diode
-    // pair's shaper with a C1 curve and rebuilds the stage around it, which is what stops those
-    // high-order harmonics from being generated at that level in the first place.
+    // The D6c plan expected the clip block's feedback pole (551 kOhm against Cf + 2 Cd = 59 pF,
+    // 5.4 kHz at Drive 1) to attenuate the fold source by 23-37 dB. It does not, and the drive
+    // sweep says why: -20.9 dB at Drive 0, -18.7 at 0.5, -18.6 at 1, where a pole-dominated
+    // floor would improve by tens of decibels as the pole moves from 5.4 kHz out to 26.7 kHz.
+    // 5.4 kHz is the small-signal pole. While a diode conducts, the feedback impedance is its
+    // dynamic resistance rather than Rf, some hundreds of ohms, and the pole moves three decades
+    // up: the clipped corners stay sharp and the high-order harmonics survive. Closing the last
+    // 20 dB needs an antialiased nonlinearity (ADAA) across the diode pair, not a filter.
+    //
+    // The stimulus is alias_floor()'s -12 dBFS default, which is 0.5 V peak at the core's 2.0 V
+    // calibration - a hot humbucker, and a level the TS808 is meant to clip at. Unlike the DD-3
+    // case there is no mismeasured rail clipping to back off from: 0.05 full scale reads
+    // -21.6 dB and 0.025 reads -25.3 dB, so six decibels separate a strong pick from a weak one
+    // and none of it changes the mechanism.
     SushiDSP::TubeScreamer node;
     node.set_drive(1.0f);
     node.set_tone(0.5f);
     const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
     std::printf("[ measure ] TubeScreamer alias floor %.1f dB\n", floor);
-    EXPECT_LE(floor, -9.0);
+    EXPECT_LE(floor, -17.6);
 }
 
 TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)

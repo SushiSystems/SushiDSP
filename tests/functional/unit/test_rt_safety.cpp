@@ -329,8 +329,16 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
     g_trapped_allocation_count.store(0, std::memory_order_relaxed);
     g_trap_allocations.store(true, std::memory_order_relaxed);
 
+    // Moving a knob before every block is the path the plain loop misses: a wiper that has
+    // changed marks the block dirty and update_matrices_if_dirty() re-derives inside process(),
+    // which is where a solver would allocate if it were going to. This is the D6c instance of
+    // the trap D6b's DkCircuitPotentiometerUpdatePerformsNoHeapAllocation established, now on a
+    // shipping node rather than on a bare circuit. Both knobs sweep their full travel so every
+    // derivation sees a genuinely new matrix.
     for (int block = 0; block < 1000; ++block)
     {
+        node.set_drive(static_cast<float>(block % 1000) / 999.0f);
+        node.set_tone(1.0f - static_cast<float>(block % 1000) / 999.0f);
         SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
         node.process(context);
     }
