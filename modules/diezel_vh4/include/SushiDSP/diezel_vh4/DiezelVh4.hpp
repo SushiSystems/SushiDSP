@@ -125,11 +125,12 @@ namespace SushiDSP
         /// nothing else. The calibration point is Jcm800::kMasterUnityGain's: with every knob at
         /// its default and a -12 dBFS 1 kHz input, the output peaks near -6 dBFS.
         ///
-        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput read -5.999 dBFS
-        /// at this value on 2026-09-07, re-measured after the plate-swing ceiling replaced this
-        /// module's level staging; it was 2.148178 before that.
+        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput read -5.997 dBFS
+        /// at this value on 2026-09-07, re-measured after the phase inverter gained its tail
+        /// degeneration and the power-tube link its grid scale. It was 2.148178 with the level
+        /// staging this module used to carry, and 0.816610 between the two changes.
         /// modules/diezel_vh4/README.md carries the derivation.
-        static constexpr float kMasterUnityGain = 0.816610f;
+        static constexpr float kMasterUnityGain = 0.624524f;
 
         /// @brief Sets the channel-3 GAIN control, the 250 kOhm pot of dossier section 3.2.
         /// @param normalized Gain amount in [0, 1]; it moves the input high-pass corner as well as

@@ -267,10 +267,11 @@ TEST(Unit_Dsp, DiezelVh4ThdIncreasesWithGain)
     // of the pot and its grid conducts at 0.203 V, so a 0.2 input clips it wherever the knob is.
     // What the knob has to do is put V2a, V3a and V4a past their own knees on top of that.
     //
-    // 2026-09-07, with the level staging replaced by the plate-swing ceiling: 42.775 %, 44.066 %
-    // and 44.827 %. The floor is an order of magnitude higher than the 4.43 % this test read on
+    // 2026-09-07, with the level staging replaced by the plate-swing ceiling and the phase
+    // inverter's tail degeneration and power-grid scale in place: 34.687 %, 38.045 % and
+    // 40.987 %. The floor is an order of magnitude higher than the 4.43 % this test read on
     // 2026-09-06 because the dividers now run at face value in volts, which leaves every stage
-    // past V1a saturated at any knob position - the knob moves the reading by two points rather
+    // past V1a saturated at any knob position - the knob moves the reading by six points rather
     // than by twenty.
     //
     // What is asserted is therefore that the reading does not fall as the knob rises, within
@@ -390,7 +391,7 @@ TEST(Unit_Dsp, DiezelVh4HasACleanEndAtMinimumGain)
     //
     // The knob is read at 0.01 rather than 0.0 because the GAIN pot is a plain divider to ground
     // and 0.0 is a short: the node is silent there and THD has no denominator. 0.01 is the first
-    // position that passes signal.
+    // position that passes signal. It read 0.0473 % on 2026-09-07.
     constexpr double sample_rate = 48000.0;
     const double frequency = SushiDSP::measure::bin_exact_frequency(220.0, sample_rate, SushiDSP::measure::kFftSize);
 
@@ -532,7 +533,7 @@ TEST(Unit_Dsp, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
     // figures - but the swept-sine estimate stops isolating the shelf at 20 Hz. C13's 314 Hz input
     // high-pass has thrown the fundamental away before the first distorting stage, so what reaches
     // Deep down there is mostly the saturated chain's own product rather than a 20 Hz tone, and
-    // the lift reads 5.280 dB (2026-09-07) where the shelf itself is 10 dB. 80 Hz reads 4.665 dB
+    // the lift reads 4.170 dB (2026-09-07) where the shelf itself is 10 dB. 80 Hz reads 4.619 dB
     // against a nominal 5, inside the half decibel this test allows.
     auto response_for = [](float deep)
     {
@@ -573,15 +574,17 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     // and there it stops being a product. V3a's 71.4 asks for 31.96 V of plate swing against a
     // 75.857 V conduction headroom, so the tanh ceiling returns 30.29 V; the V3b follower, R40's
     // 0.990664, the FMV deck at noon, the volume divider and kMixBusAttenuation carry 0.1915 V to
-    // V4a's grid, V4a's 28.7 and the V4b follower carry 5.41 V to the phase inverter's grid, and
-    // 5.41 V is past the solver's 4.136 V cutoff clamp. The inverter therefore runs as a hard,
-    // one-sided limiter into the EL34 pair whatever the input is, and the figure below is measured
-    // rather than derived: 54.497 dB on 2026-09-07. What the test still proves is that the mix
-    // bus is in the chain at all - remove kMixBusAttenuation and the reading moves.
+    // V4a's grid, and V4a's 28.7 with the V4b follower carry 5.41 V to the phase inverter. The
+    // pair's tail divides that by kPhaseInverterDegeneration 4.140398, leaving 1.31 V on the grid,
+    // which the inverter's 40 turns into 52 V against a 15.801 V headroom to the supply - so the
+    // inverter still limits on one side, and kPowerTubeGridScale hands the EL34s what is left in
+    // PentodeStage's own grid units. The figure below is therefore measured rather than derived:
+    // 52.997 dB on 2026-09-07. What the test still proves is that the mix bus is in the chain at
+    // all - remove kMixBusAttenuation and the reading moves.
     //
     // kMasterUnityGain is absent on purpose: the knob is set to kUnityMasterDb, which is its
     // reciprocal, so the two cancel and the master contributes x1.
-    constexpr double kExpectedSmallSignalGainDb = 54.497;
+    constexpr double kExpectedSmallSignalGainDb = 52.997;
 
     SushiDSP::DiezelVh4 node;
     node.set_gain(0.5f);

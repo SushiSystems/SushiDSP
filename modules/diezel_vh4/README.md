@@ -37,8 +37,8 @@ are the repo's own bricks; `DiezelVh4` owns the order they run in and nothing el
 | R42 470 k, VOLUME 470 k, R43 680 k into the 48.1 k mix node | knob × 0.5, then ×0.0660 | — | 2, 6 |
 | V4a, Ra 120 k, Rk 640 unbypassed | `TriodeStage`, gain 28.7, Vgk −0.98 V | 184.0 / 72.688 | 6 |
 | V4b send buffer | scalar ×0.986 | — | 2 |
-| Loop return driver, phase inverter | one `TriodeStage` at gain 40 | 15.801 / 209.534 | 5 — nothing established |
-| EL34 quad | two `PentodeStage(kDiezelVh4PowerEl34)` | — | 7 |
+| Loop return driver, phase inverter | one `TriodeStage` at gain 40, input divided by the tail degeneration ×4.140398 | 15.801 / 209.534 | 5 — nothing established |
+| EL34 quad | two `PentodeStage(kDiezelVh4PowerEl34)`, grid fed through ×0.077160 | — | 7 |
 | Output transformer, supply sag | JCM800 constants | — | 5 — nothing established |
 | Deep | `ResonanceControl` at 80 Hz, 10 dB | — | 5, 6 |
 | Presence | high shelf at 4 kHz, ±9 dB | — | 5, 6 |
@@ -147,9 +147,28 @@ The four staging factors this module carried until 2026-09-07 —
 [the plate-swing spec](../../docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md), which
 gave `TriodeStage` the plate ceiling the table above lists and left the dossier's own dividers
 (×0.4996, the volume divider, ×0.0660 and the two follower scalars) as the only interstage factors
-in the chain. `kPhaseInverterToPowerTubeAttenuation` and `kPowerTubeToTransformerAttenuation` stay,
-the second as this chain's one output trim to full scale, and both keep `Jcm800.cpp`'s names
-because the name is the citation.
+in the chain. `kPowerTubeToTransformerAttenuation` stays, this chain's one output trim to full
+scale, and keeps `Jcm800.cpp`'s name because the name is the citation.
+`kPhaseInverterToPowerTubeAttenuation`, the 1/32 it sat beside, was replaced on the same day by the
+two constants below.
+
+### The phase inverter's tail, and the power tubes' grid units
+
+A long-tailed pair's cathode follows its grid, so the grid-to-cathode window is the input divided by
+`1 + (µ + 1)·R_tail / (r_a + Ra)`. Modelling the inverter as a common-cathode `TriodeStage` hands it
+a window it does not have. The VH4's inverter is not established (§5), so it keeps the JCM800
+stand-in and takes that pair's number with it: at the operating point of
+[`jcm_ltp`](../../docs/reference/spice/jcm_ltp/README.md) the Koren 12AX7 gives µ 75.0428 and
+r_a 171.5 kΩ, and the tail is 470 Ω + 10 kΩ against the 82 kΩ plate, so
+`1 + 76.0428 × 10470 / (171524 + 82000)` = **4.140398**. `kPhaseInverterDegeneration` divides the
+inverter's input by it. Like everything else about this stage, it is a modelling choice inherited
+with the stand-in rather than a VH4 figure.
+
+`kPowerTubeGridScale` = **0.077160** is a bridge, not a circuit value. `PentodeStage` is not
+volt-true: its grid saturates at `1 / (plate_saturation_drive × gain)` = `1 / (0.045 × 8)` = 2.778
+model volts, where `kDiezelVh4PowerEl34`'s real grid needs |−36 V|. 2.778 / 36 is the ratio that
+carries the volt-true preamp into those units. It goes away when `PentodeStage` becomes volt-true
+in DA5.
 
 ### Where the plate swings come from
 
@@ -190,12 +209,12 @@ the clean end of the knob, `DiezelVh4HasACleanEndAtMinimumGain`.
 
 Each grid carries a small resting offset, `Is·(Rs ∥ Rg)` from the cathode-referenced conduction
 diode, and each plate multiplies it: at silence the five grids sit at 10 µV, 119 µV, 1.35 mV,
-391 µV and 10.97 mV (default knobs, 2 s of all-zero input, 2026-09-07). None of it reaches the
+391 µV and 2.66 mV (default knobs, 2 s of all-zero input, 2026-09-07). None of it reaches the
 output. C18 and C20 are in the two places the offset could accumulate — C20, 220 nF at 2.26 Hz, is
 the capacitor the drawing puts on V3b's output, and the module applies it immediately after the
 follower scalar — and the output transformer's 60 Hz rolloff takes what is left. Two seconds of
-digital silence come back at **4.6e-44 peak, −866.7 dBFS**, DC mean 4.6e-44, with the gain knob at
-its default; at gain 0.0 it is 1.3e-43, −857.4 dBFS. Both are denormals.
+digital silence come back at **3.4e-44 peak, −869.5 dBFS**, DC mean 4.1e-47, with the gain knob at
+its default, and at the same peak with the knob at 0.0. Both are denormals.
 
 The one DC-coupled link with no capacitor after it is V4a → V4b → the phase inverter, which is why
 the inverter's grid shows the largest resting offset of the five. §5 establishes nothing past the
@@ -277,8 +296,9 @@ at its default and a −12 dBFS 1 kHz sine in, the output peaks near −6 dBFS.
 `DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` is the test that reads it.
 
 The shipped value is one measurement. With the four staging factors removed on 2026-09-07 the
-chain runs about 40 dB hotter into the power section than it did, so the constant fell from
-2.148178 to **0.816610**, at which the test reads −5.999 dBFS. The measurement is direct: the
+chain runs a great deal hotter into the power section than it did, so the constant fell from
+2.148178 to 0.816610; the phase inverter's tail degeneration and the power tubes' grid scale then
+moved it to **0.624524**, at which the test reads −5.997 dBFS. The measurement is direct: the
 constant multiplies the signal after the last nonlinearity, so it is set, the test run, and the
 constant scaled by the decibels the reading misses.
 
@@ -289,14 +309,14 @@ points, the corner frequencies and the two impedance figures §6 lists, which te
 against the documented circuit rather than against an amplifier.
 
 `DiezelVh4HasACleanEndAtMinimumGain` is this module's acceptance test since the level staging
-came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **0.5919 %**
+came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **0.0473 %**
 (2026-09-07), well under the spec's 10 %. The knob is read at 0.01 rather than 0.0 because the pot
 is a plain divider to ground: at 0.0 it shorts the signal and the node is silent, which leaves THD
 without a denominator. `DiezelVh4ThdIncreasesWithGain` asks only that the reading not fall as the
 knob rises, within 0.5 percentage points, because once every stage clips the metric saturates.
 
-`DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz` asserts the 80 Hz point alone, 4.665 dB
-against a nominal 5. The 20 Hz point reads 5.280 dB where the shelf is 10 dB deep, and the output
+`DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz` asserts the 80 Hz point alone, 4.619 dB
+against a nominal 5. The 20 Hz point reads 4.170 dB where the shelf is 10 dB deep, and the output
 clamp is not the reason — the same two figures come back with the master 20 dB down. C13's 314 Hz
 high-pass has thrown the fundamental away before the first distorting stage, so at 20 Hz the
 swept-sine estimate is measuring the saturated chain's own product rather than the shelf.
@@ -304,7 +324,7 @@ swept-sine estimate is measuring the saturated chain's own product rather than t
 `DiezelVh4MixBusAttenuationIsApplied` no longer asserts a small-signal gain, because since the
 staging came out there is no small signal: at −60 dBFS in, V3a's plate is already on its ceiling
 and the phase inverter's grid is already on the solver's cutoff clamp, so the amp is a limiter at
-every input level. The test reads **54.497 dB** at 1 kHz with the knobs at noon (2026-09-07), and
+every input level. The test reads **52.997 dB** at 1 kHz with the knobs at noon (2026-09-07), and
 what it still proves is that `kMixBusAttenuation` is in the chain at all. Its comment writes out
 the linear part of the cascade and names the stage where the arithmetic stops being a product.
 
