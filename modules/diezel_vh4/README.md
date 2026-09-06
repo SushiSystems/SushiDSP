@@ -242,8 +242,8 @@ The shipped value came from one measurement plus one correction. That test read 
 2026-09-06 with the constant at 0.71, which puts the amp's own peak at 0.158596 with the master at
 unity. The same run's THD sweep then moved `kV1aToV2aLevelStaging` from 1/8 to 5/8, and two offline
 runs of the chain at 1 kHz and 0.251 in, before and after, put the lift that gives the output at
-×1.471086. `10^(-6/20) / (0.158596 × 1.471086)` = 2.148178. At that value the test read
-−6.159 dBFS.
+×1.471086. `10^(-6/20) / (0.158596 × 1.471086)` = 2.148178. At that value, with C1's input low-pass out of
+the chain, the test read −6.044 dBFS on 2026-09-06.
 
 There is no measured target to calibrate anything else against. **No bench measurement of a VH4 has
 been published** — no frequency response, no THD figure, no input sensitivity, no capture of any
