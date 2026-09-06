@@ -33,12 +33,6 @@
 
 namespace SushiDSP
 {
-    namespace
-    {
-        /// @brief Smallest middle-pot fraction the coefficients are evaluated at.
-        constexpr double kMinimumMiddleFraction = 1e-4;
-    }
-
     FmvToneStack::FmvToneStack(double sample_rate, const FmvComponents& components)
         : sample_rate_(sample_rate), components_(components)
     {
@@ -65,7 +59,7 @@ namespace SushiDSP
 
     void FmvToneStack::recompute()
     {
-        // r1 is the treble pot and r4 the slope resistor, as Yeh & Smith's formulas number them.
+        // r1 is the treble pot and r4 the slope resistor, as the design document numbers them.
         const double c1 = components_.treble_capacitor_farads;
         const double c2 = components_.bass_capacitor_farads;
         const double c3 = components_.middle_capacitor_farads;
@@ -75,37 +69,23 @@ namespace SushiDSP
         const double r4 = components_.slope_resistor_ohms;
 
         const double l = bass_;
-        const double m = std::max(static_cast<double>(middle_), kMinimumMiddleFraction);
+        const double m = middle_;
         const double t = treble_;
 
-        const double b1 = t * c1 * r1 + m * c3 * r3 + l * (c1 * r2 + c2 * r2) + (c1 * r3 + c2 * r3);
+        const double b1 = t * c1 * r1 + l * (c1 * r2 + c2 * r2) + m * (c1 * r3 + c2 * r3 + c3 * r3);
         const double b2 = t * (c1 * c2 * r1 * r4 + c1 * c3 * r1 * r4)
-                        - m * m * (c1 * c3 * r3 * r3 + c2 * c3 * r3 * r3)
-                        + m * (c1 * c3 * r1 * r3 + c1 * c3 * r3 * r3 + c2 * c3 * r3 * r3)
-                        + l * (c1 * c2 * r1 * r2 + c1 * c2 * r2 * r4 + c1 * c3 * r2 * r4)
-                        + l * m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3)
-                        + (c1 * c2 * r1 * r3 + c1 * c2 * r3 * r4 + c1 * c3 * r3 * r4);
-        const double b3 = l * m * (c1 * c2 * c3 * r1 * r2 * r3 + c1 * c2 * c3 * r2 * r3 * r4)
-                        - m * m * (c1 * c2 * c3 * r1 * r3 * r3 + c1 * c2 * c3 * r3 * r3 * r4)
-                        + m * (c1 * c2 * c3 * r1 * r3 * r3 + c1 * c2 * c3 * r3 * r3 * r4)
-                        + t * c1 * c2 * c3 * r1 * r3 * r4
-                        - t * m * c1 * c2 * c3 * r1 * r3 * r4
-                        + t * l * c1 * c2 * c3 * r1 * r2 * r4;
+                        + l * (c1 * c2 * r1 * r2 + c1 * c2 * r2 * r4 + c1 * c3 * r2 * r4
+                               + m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3))
+                        + m * (c1 * c2 * r1 * r3 + c1 * c2 * r3 * r4 + c1 * c3 * r1 * r3 + c1 * c3 * r3 * r4);
+        const double b3 = l * c1 * c2 * c3 * r2 * (t * r1 * r4 + m * (r1 * r3 + r3 * r4));
 
-        const double a1 = (c1 * r1 + c1 * r3 + c2 * r3 + c2 * r4 + c3 * r4)
-                        + m * c3 * r3 + l * (c1 * r2 + c2 * r2);
-        const double a2 = m * (c1 * c3 * r1 * r3 - c2 * c3 * r3 * r4 + c1 * c3 * r3 * r3 + c2 * c3 * r3 * r3)
-                        + l * m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3)
-                        - m * m * (c1 * c3 * r3 * r3 + c2 * c3 * r3 * r3)
-                        + l * (c1 * c2 * r2 * r4 + c1 * c2 * r1 * r2 + c1 * c3 * r2 * r4 + c2 * c3 * r2 * r4)
-                        + (c1 * c2 * r1 * r4 + c1 * c3 * r1 * r4 + c1 * c2 * r3 * r4
-                           + c1 * c2 * r1 * r3 + c1 * c3 * r3 * r4 + c2 * c3 * r3 * r4);
-        const double a3 = l * m * (c1 * c2 * c3 * r1 * r2 * r3 + c1 * c2 * c3 * r2 * r3 * r4)
-                        - m * m * (c1 * c2 * c3 * r1 * r3 * r3 + c1 * c2 * c3 * r3 * r3 * r4)
-                        + m * (c1 * c2 * c3 * r3 * r3 * r4 + c1 * c2 * c3 * r1 * r3 * r3
-                               - c1 * c2 * c3 * r1 * r3 * r4)
-                        + l * c1 * c2 * c3 * r1 * r2 * r4
-                        + c1 * c2 * c3 * r1 * r3 * r4;
+        const double a1 = c1 * r1 + c2 * r4 + c3 * r4 + l * (c1 * r2 + c2 * r2)
+                        + m * (c1 * r3 + c2 * r3 + c3 * r3);
+        const double a2 = c1 * c2 * r1 * r4 + c1 * c3 * r1 * r4
+                        + l * (c1 * c2 * r1 * r2 + c1 * c2 * r2 * r4 + c1 * c3 * r2 * r4 + c2 * c3 * r2 * r4
+                               + m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3))
+                        + m * (c1 * c2 * r1 * r3 + c1 * c2 * r3 * r4 + c1 * c3 * r1 * r3 + c1 * c3 * r3 * r4);
+        const double a3 = l * c1 * c2 * c3 * r2 * (r1 * r4 + m * (r1 * r3 + r3 * r4));
 
         const double c = 2.0 * sample_rate_;
         const double c_squared = c * c;

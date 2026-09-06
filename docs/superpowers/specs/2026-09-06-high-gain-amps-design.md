@@ -92,9 +92,9 @@ unit test, no dependency on any product module.
   three-biquad approximation that sits 6 to 16 dB from the passive stack, so delegating to
   `FmvToneStack` would move the JCM800 goldens. The two implementations coexist and
   `FmvToneStack` serves the new modules. The 5150 and the IIC+ both use FMV-shaped stacks with
-  their own values. `FmvToneStack` as written implements the three-terminal wiper form of the
-  mid pot; all four amplifiers wire that pot as a rheostat, and deriving the rheostat
-  coefficients is part 2's first task.
+  their own values. All four amplifiers wire the mid pot as a rheostat, and
+  DA2 replaced the three-terminal wiper coefficients with a nodal analysis of that wiring; the
+  stack now nulls the `jcm_fmv` sweep to 0.015 dB.
 
 ## 5. Research dossiers (DA1, parallel with §4)
 
