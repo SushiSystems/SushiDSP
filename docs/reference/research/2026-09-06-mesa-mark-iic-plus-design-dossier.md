@@ -579,6 +579,19 @@ have to be recomputed. This is the highest-leverage open item in the dossier.
 5. **V6 and V7's grid-leak resistors.** Not legible; §7 carries V8's 220 K across to them. A
    higher-resolution scan of sheet 2, or a meter on a chassis, settles it.
 
+18. **Where does V4A's 0.047 uF actually sit?** S1 draws it in parallel with the 68 K to ground,
+    and as drawn that is a one-pole low-pass: with the 170 K in series the divider is
+    0.28571 / (1 + s x 48571 x C), a corner at 69.7 Hz and nothing above it. With the 0.02 uF
+    coupling cap in front the pair becomes a band-pass peaking at 0.171 near 48 Hz and sitting
+    29 dB down at 2 kHz, which no lead channel could have. Section 3.4's prose describes the
+    opposite behaviour - "the low end is thrown away first" - and its own corner formula,
+    1 / (2 pi x (170K || 68K) x 0.047u), is that low-pass pole. Putting the capacitor **across the
+    170 K** instead makes every statement true at once: a low shelf, 0.28571 below and unity
+    above, zero at 1 / (2 pi x 170K x 0.047u) = 19.92 Hz and pole at the same 69.717 Hz. The two
+    readings differ by 10.9 dB across the guitar band, so this decides V4A's grid drive and every
+    calibration on top of it. A photograph of that corner of the board, or an ohmmeter across the
+    170 K, settles it. Numbered 18 rather than 6 so the existing references keep their meaning.
+
 **Structural, resolvable by looking at a real unit**
 
 6. **The phase inverter's DC operating point does not close** (§5.1). The printed plate voltage
