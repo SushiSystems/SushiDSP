@@ -4,11 +4,10 @@
 
 TS808 clipping stage: input coupling, ideal non-inverting op-amp with the drive-dependent feedback network and the antiparallel silicon diode pair.
 
-**Status: not yet simulated.** No CSVs are committed for this block. The netlist below was
-verified by re-tracing node connectivity by hand only; LTspice is not installed on the
-machine that authored it, so nothing here has been run.
+**Status: simulated.** Commit 2bdbf91 ran this block and committed its CSVs.
 
-**LTspice version:** not yet generated.
+**LTspice version:** LTspice 24, the only detail 2bdbf91 records; the exact build is not
+recorded by that commit.
 
 ## How the schematic is written
 
