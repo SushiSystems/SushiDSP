@@ -41,17 +41,33 @@ namespace
 {
     constexpr double kPi = 3.14159265358979323846;
 
+    /// @brief Measures a section's steady-state gain by projecting its output onto the drive.
+    /// @param stack The section, left with its state at the end of the run.
+    /// @param sample_rate The rate the section runs at, in hertz.
+    /// @param frequency_hz The drive frequency.
+    /// @return The gain in decibels.
     float steady_gain_db(SushiDSP::FmvToneStack& stack, double sample_rate, double frequency_hz)
     {
-        const int settle = 48000, measure = 48000;
-        double sum_squares_out = 0.0, sum_squares_in = 0.0;
-        for (int i = 0; i < settle + measure; ++i)
+        // A whole number of cycles keeps the single-bin projection free of leakage.
+        const long long settle = static_cast<long long>(sample_rate);
+        const double cycles = std::ceil(0.25 * frequency_hz);
+        const long long measure = static_cast<long long>(std::llround(cycles * sample_rate / frequency_hz));
+
+        double real_part = 0.0, imaginary_part = 0.0;
+        for (long long i = 0; i < settle + measure; ++i)
         {
-            const float x = static_cast<float>(std::sin(2.0 * kPi * frequency_hz * i / sample_rate));
-            const float y = stack.process_sample(x);
-            if (i >= settle) { sum_squares_out += y * y; sum_squares_in += x * x; }
+            const double phase = 2.0 * kPi * frequency_hz * static_cast<double>(i) / sample_rate;
+            const float y = stack.process_sample(static_cast<float>(std::sin(phase)));
+            if (i >= settle)
+            {
+                real_part += y * std::sin(phase);
+                imaginary_part += y * std::cos(phase);
+            }
         }
-        return static_cast<float>(10.0 * std::log10(sum_squares_out / sum_squares_in));
+
+        const double magnitude = 2.0 * std::sqrt(real_part * real_part + imaginary_part * imaginary_part)
+                               / static_cast<double>(measure);
+        return static_cast<float>(20.0 * std::log10(magnitude));
     }
 
     std::string spice_path(const std::string& block, const std::string& kind)
