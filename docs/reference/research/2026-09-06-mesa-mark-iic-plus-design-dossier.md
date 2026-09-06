@@ -515,12 +515,12 @@ the IIC+ presets have to adopt whichever convention `kEl34` used and I am guessi
 ### 7.2 `6L6GC, pentode` — sockets V6 and V7, Class AB1
 
 ```
-{ 2200, 220000, -45, 5.0, 1e-9, 0.02585, 0.049 }
+{ 37600, 220000, -45, 5.0, 1e-9, 0.02585, 0.049 }
 ```
 
 | Field | Value | Reasoning |
 |---|---|---|
-| `source_resistance_ohms` | 2200 | The 2.2 K grid stopper read at every power-tube grid on S1 sheet 2. It is the only series resistance between the coupling cap and the grid. Under the alternative reading of `kEl34`'s 10 000 as stopper-plus-driver, this becomes 2200 + 35 400 = 37 600; §8. |
+| `source_resistance_ohms` | 37600 | `PentodeStage.hpp` defines the field as the Thevenin source feeding the grid, driver output impedance plus stopper: the phase inverter's 35 400 ohm output impedance plus the 2.2 K grid stopper read at every power-tube grid on S1 sheet 2. The stopper alone, 2200, is the alternative if a later measurement shows the driver impedance is already inside `gain`. |
 | `grid_leak_resistance_ohms` | 220000 | Read at V8. V6 and V7's leaks were not legible and this value is carried across from the other pair. `[single source]` and an assumption; §8. |
 | `cathode_bias_volts` | -45 | The grid voltage printed at V6 in Simul-Class. Under `kEl34`'s apparent convention of running about 0.57 of the physical bias, the preset value would instead be -25.6; §8 asks which. |
 | `gain` | 5.0 | 6L6GC at 473 V plate and 480 V screen: g_m about 6 mA/V, r_p about 22.5 kohm from the RCA datasheet family. A = 6 mA/V x (850 parallel 22500) = 6 mA/V x 819 = 4.9. The 6L6 pentode pair is 20 log10(8 / 4.9) = 4.3 dB quieter than the 2203's EL34 into the same load, which is the arithmetic behind the Mark's headroom before the power stage contributes. |
@@ -531,12 +531,12 @@ the IIC+ presets have to adopt whichever convention `kEl34` used and I am guessi
 ### 7.3 `EL34, triode-strapped` — sockets V8 and V9, "Class A"
 
 ```
-{ 2200, 220000, -45, 5.2, 1e-9, 0.02585, 0.069 }
+{ 37600, 220000, -45, 5.2, 1e-9, 0.02585, 0.069 }
 ```
 
 | Field | Value | Reasoning |
 |---|---|---|
-| `source_resistance_ohms` | 2200 | Same 2.2 K stopper. |
+| `source_resistance_ohms` | 37600 | Same Thevenin source as §7.2: 35 400 ohm phase-inverter output impedance plus the 2.2 K stopper. The stopper alone, 2200, is the alternative. |
 | `grid_leak_resistance_ohms` | 220000 | Read directly at V8. V9's leak reads 560 K on the same sheet, a genuine disagreement between two sockets of the same pair; §8. |
 | `cathode_bias_volts` | -45 | The grid voltage printed at V8. The two pairs share one bias supply, so the physical value is the same as §7.2 even though a triode-strapped EL34 at 473 V would conventionally want -35 to -40 V. |
 | `gain` | 5.2 | Strapping screen to plate leaves g_m at about 11 mA/V but collapses the plate resistance from 15 kohm to about 1.06 kohm at mu 10.5. A = 11 mA/V x (850 parallel 1060) = 11 mA/V x 471 = 5.2. The low plate resistance, not the transconductance, is what makes the Class A pair quiet. |
