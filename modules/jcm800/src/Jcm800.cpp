@@ -46,12 +46,58 @@ namespace SushiDSP
         // available - see spec section 8's "Perceptual A/B validation... deferred").
         constexpr float kTriodeSourceResistance = 10000.0f;
         constexpr float kTriodeGridLeak = 1000000.0f;
-        constexpr float kTriodeCathodeBias = -1.5f;
         constexpr float kTriodeGain = 60.0f;
         constexpr float kTriodeSaturationCurrent = 1e-9f;
         constexpr float kTriodeThermalVoltage = 0.02585f;
 
         constexpr float kPhaseInverterGain = 40.0f;
+
+        /// @brief V1a's self-bias voltage: Rk 2.7 kOhm carrying the 0.855584 mA the Koren model
+        /// settles at against a 100 kOhm plate load on a 360 V supply (jcm_v1a).
+        constexpr float kV1aCathodeBias = -2.310076f;
+
+        /// @brief V1a's plate swing: 360 - 274.441625 toward the supply, 274.441625 - 120.747068
+        /// toward the plate bottom at Vgk = 0 on the same load line.
+        constexpr PlateSwing kV1aPlateSwing{ 85.558375f, 153.694557f };
+
+        /// @brief V1b's self-bias voltage: the cold clipper's unbypassed 10 kOhm cathode carrying
+        /// 0.340132 mA against a 100 kOhm plate load on 360 V (jcm_v1b_cold).
+        constexpr float kV1bCathodeBias = -3.401321f;
+
+        /// @brief V1b's plate swing: 360 - 325.986790 toward the supply, 325.986790 - 121.553151
+        /// toward the plate bottom at Vgk = 0, the cathode held at its idle voltage.
+        constexpr PlateSwing kV1bPlateSwing{ 34.013210f, 204.433638f };
+
+        /// @brief V2a's self-bias voltage: an 820 Ohm bypassed cathode carrying 1.519346 mA
+        /// against a 100 kOhm plate load on 360 V (jcm_cf's V2a half).
+        constexpr float kV2aCathodeBias = -1.245863f;
+
+        /// @brief V2a's plate swing: 360 - 208.065440 toward the supply, 208.065440 - 119.960758
+        /// toward the plate bottom at Vgk = 0 on the same load line.
+        constexpr PlateSwing kV2aPlateSwing{ 151.934560f, 88.104683f };
+
+        /// @brief The phase inverter's self-bias voltage: both halves share the 470 + 10 kOhm
+        /// tail, so each sees 20.94 kOhm and settles at 0.187584 mA on 360 V (jcm_ltp).
+        constexpr float kPhaseInverterCathodeBias = -3.928014f;
+
+        /// @brief The inverter's plate swing on its 82 kOhm plate: 360 - 344.618092 toward the
+        /// supply, 344.618092 - 134.677465 toward the bottom at Vgk = 0.
+        constexpr PlateSwing kPhaseInverterPlateSwing{ 15.381908f, 209.940627f };
+
+        /// @brief The long-tailed pair's tail degeneration, applied at the inverter's input
+        /// because the shared cathode follows the driven grid: the grid-to-cathode window is the
+        /// input divided by 1 + (mu + 1)*R_tail/(r_a + R_a). With mu 100, the shared 2 x 10.47
+        /// kOhm tail, R_a 82 kOhm (jcm_ltp) and r_a 189506.723 Ohm from the Koren Jacobian at the
+        /// idle point above, that is 1 + 101*20940/(189506.723 + 82000) = 8.789641, so the factor
+        /// here is 1/8.789641.
+        constexpr float kPhaseInverterDegeneration = 0.113770285f;
+
+        /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
+        /// PentodeStage becomes volt-true (DA5). kEl34's grid saturates at 1/(0.05 * 8) = 2.5
+        /// model volts where the preset's cathode_bias_volts field asks for |-20|, so the link
+        /// carries 2.5/20. The 2203's own bias is nearer -35 V; the preset's field is what this
+        /// scale has to match.
+        constexpr float kPowerTubeGridScale = 0.125f;
 
         // The class-AB bias mismatch between the two output tubes, expressed where the model can
         // actually see it: as an input-referred grid offset on the B side, applied before the
@@ -91,9 +137,9 @@ namespace SushiDSP
         // The driving impedance is taken as a common 100 kOhm plate load for all three grids.
         // That is a deliberate simplification, not a per-node fact: V1b's grid is really fed from
         // the 1 MOhm preamp pot's wiper (a Thevenin source of up to 250 kOhm), V2a's from the
-        // tone stack's output impedance, and the phase inverter's from V2a's plate through the
-        // interstage divider. Every one of those is higher than 100 kOhm over most of its range,
-        // so the errors all run in the same direction - this model is brighter than the amp,
+        // tone stack's output impedance, and the phase inverter's from V2a's plate through its
+        // coupling cap. Every one of those is higher than 100 kOhm over most of its range, so the
+        // errors all run in the same direction - this model is brighter than the amp,
         // never darker - and none of them is available as a single number until D6d gives each
         // block a real source impedance.
         //
@@ -121,39 +167,11 @@ namespace SushiDSP
         constexpr float kSagAmount = 0.3f;
         constexpr float kSagRecoveryTimeSeconds = 0.05f;
 
-        // Interstage gain staging - the plate-load/grid-leak dividers and coupling networks that
-        // sit at every interstage link in a real amp. Without them the four cascaded stages
-        // multiply to a gain of 60*60*60*40 ~ 8.6e6 and every stage past V1a pins against its
-        // solver bound, which makes the amp a fixed-amplitude square-wave generator with a dead
-        // gain knob.
-        //
-        // What sets these values is the *operating level* each grid ends up at, not the ratio
-        // itself. A 12AX7 grid conducts from about 0.203 V above its bias point (Vt*ln(Vt/(Is*Rs))
-        // against the 10k source resistance) and its plate reaches cutoff around 4.14 V below it,
-        // so a stage distorts only while its grid is driven inside roughly that 26 dB window - and
-        // each stage inverts, so consecutive stages clip on opposite half-cycles. Because a stage's own gain
-        // is 60, a divider near 1/60 is what carries that operating level forward unchanged; the
-        // slightly looser 1/50 links add about 1.2x per stage to make up for the amplitude the
-        // preceding stage's grid conduction removed, so the drive does not decay down the cascade.
-        //
-        // The preamp pot's ceiling is what puts the cascade into that window at all: at 1/16 it
-        // lifts V1b's grid from V1a's plate swing to about 0.7 V at a 0.2 input with the knob full
-        // up, i.e. well past conduction, where the earlier 1/60 left it at 0.19 V and the whole
-        // chain measured as a single clipping input tube (see the Task 8 report's THD sweep).
-        // Worst-case measured grid excursion across a preamp x input-amplitude sweep is V1b's
-        // 1.56 V at a 0.5 input (38% of the 4.14 V cutoff bound) and 2.81 V at a 1.0 input (68%);
-        // every other stage stays under 0.47 V because it is the conducting half that faces it.
-        // See the Task 9 report's ruling, and the bound's own comment in TriodeStage.cpp.
-        //
-        // kPowerTubeToTransformerAttenuation is different: it sits after the EL34 plates, so it is
-        // an output-level trim into the transformer, not a grid-bound constant. It was halved
-        // alongside the drive increase so the added preamp saturation shows up as harmonic content
-        // rather than as 6 dB of extra output, keeping the master knob's useful range and the
-        // output transformer's own saturation point where they were.
+        /// @brief The ceiling of the preamp pot's attenuation, reached with the knob full up.
         constexpr float kPreampPotMaxAttenuation = 1.0f / 16.0f;
-        constexpr float kV1bToV2aAttenuation = 1.0f / 50.0f;
-        constexpr float kV2aToPhaseInverterAttenuation = 1.0f / 50.0f;
-        constexpr float kPhaseInverterToPowerTubeAttenuation = 1.0f / 32.0f;
+
+        /// @brief The output trim from the EL34 plates to full scale, applied after the last
+        /// grid, so it sets output level rather than any stage's drive.
         constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
 
         constexpr float kBrightCapHz = 60.0f;
@@ -200,8 +218,8 @@ namespace SushiDSP
         // louder clean signal.
         //
         // The exponent approximates an audio-taper pot. It is 1.5 rather than a plain square
-        // because the cascade's clean-to-saturated transition spans about 26 dB of interstage
-        // level (grid conduction sets in around 0.203 V; the cutoff bound is at 4.14 V), so a
+        // because the cascade's clean-to-saturated transition spans a wide span of interstage
+        // level (a grid conducts once it reaches its cathode, and cuts off 4.14 V below), so a
         // steeper taper compresses too much of that transition into the top third of the knob's
         // travel.
         // Measured at a 0.2 input: with a square taper the THD proxy is zero below preamp 0.5,
@@ -214,11 +232,11 @@ namespace SushiDSP
 
     Jcm800::Jcm800(std::vector<float> cabinet_impulse_response)
         : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , v1b_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
+        , v1a_(kTriodeSourceResistance, kTriodeGridLeak, kV1aCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1aPlateSwing)
+        , v1b_(kTriodeSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1bPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
-        , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
-        , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kTriodeCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage)
+        , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kV2aCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV2aPlateSwing)
+        , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kPhaseInverterPlateSwing)
         , el34_a_(kEl34)
         , el34_b_(kEl34)
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
@@ -362,11 +380,11 @@ namespace SushiDSP
             const float v1a_out = v1a_.process_sample(upsampled[i]);
             const float v1b_in = v1b_grid_miller_.process_sample(
                 coupling_cap_.process_sample(v1a_out) * preamp_gain);
-            const float v1b_out = v1b_.process_sample(v1b_in) * kV1bToV2aAttenuation;
+            const float v1b_out = v1b_.process_sample(v1b_in);
             const float toned = v2a_grid_miller_.process_sample(tone_stack_.process_sample(v1b_out));
-            const float phase_split = v2a_.process_sample(toned) * kV2aToPhaseInverterAttenuation;
+            const float phase_split = v2a_.process_sample(toned) * kPhaseInverterDegeneration;
             const float phase_inverted = phase_inverter_.process_sample(
-                phase_inverter_grid_miller_.process_sample(phase_split)) * kPhaseInverterToPowerTubeAttenuation;
+                phase_inverter_grid_miller_.process_sample(phase_split)) * kPowerTubeGridScale;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted - power_tube_grid_bias_mismatch_volts_);
             const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
@@ -496,6 +514,21 @@ namespace SushiDSP
     void Jcm800::set_power_tube_grid_bias_mismatch_volts(float volts)
     {
         power_tube_grid_bias_mismatch_volts_ = volts;
+    }
+
+    std::size_t Jcm800::triode_stage_count() const
+    {
+        return 4;
+    }
+
+    float Jcm800::grid_excursion_peak_volts(std::size_t stage) const
+    {
+        const TriodeStage* const stages[] = { &v1a_, &v1b_, &v2a_, &phase_inverter_ };
+        if (stage >= triode_stage_count())
+        {
+            return 0.0f;
+        }
+        return stages[stage]->peak_grid_excursion_volts();
     }
 
     void Jcm800::set_master(float decibels)

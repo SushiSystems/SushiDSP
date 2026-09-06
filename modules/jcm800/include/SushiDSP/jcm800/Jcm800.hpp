@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -106,11 +107,12 @@ namespace SushiDSP
         void set_preamp(float normalized);
 
         /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
-        /// Calibrated in D5b so an untouched amp turns a -12 dBFS low-E sine into roughly
-        /// -6 dBFS out. It multiplies the signal after the last nonlinearity, so it scales the
-        /// output and nothing else; with the Tube Screamer's kLevelUnityGain it is the only
-        /// tone-affecting number this phase changes.
-        static constexpr float kMasterUnityGain = 3.5825659f;
+        /// Re-measured 2026-09-07 for DA4, which put every triode on its plate swing and took the
+        /// interstage staging scalars out, so the preamp now delivers far more into the power
+        /// section. An untouched amp still turns a -12 dBFS low-E sine into roughly -6 dBFS out.
+        /// It multiplies the signal after the last nonlinearity, so it scales the output and
+        /// nothing else.
+        static constexpr float kMasterUnityGain = 0.3106856f;
 
         /// @brief Sets the master volume.
         /// @param decibels Master level in [-60, +12] dB; 0 dB is the amp's reference loudness.
@@ -146,6 +148,17 @@ namespace SushiDSP
         /// leaving it alone leaves the amp's output unchanged. Audio-thread safe.
         /// @param volts Input-referred grid offset applied to the second EL34, in volts.
         void set_power_tube_grid_bias_mismatch_volts(float volts);
+
+        /// @brief How many triode stages this amp exposes to grid-excursion probing.
+        /// @return 4: V1a, V1b, V2a and the phase inverter, in signal order.
+        std::size_t triode_stage_count() const;
+
+        /// @brief Reads one triode stage's largest grid excursion since the last reset(). A test
+        /// hook like set_power_tube_grid_bias_mismatch_volts(): it exists so a test can prove no
+        /// grid sits against TriodeStage's cutoff bound, and it is not in the descriptor.
+        /// @param stage Index in signal order, as triode_stage_count() counts them.
+        /// @return The peak |Vg - Vk| in volts, or 0 for an out-of-range index.
+        float grid_excursion_peak_volts(std::size_t stage) const;
 
         /// @brief Whether a tone or presence target is still waiting for the audio thread to
         /// rebuild its coefficients. A diagnostic hook: it is what makes "the control thread only
