@@ -151,7 +151,7 @@ namespace SushiDSP
         /// is applied in the chain where the schematic puts it, and this constant is left outside
         /// as a pure level trim. Folding the two together would make a calibration change a tone
         /// change. See modules/peavey5150/README.md.
-        static constexpr float kPostGainUnityGain = 0.6020224f;
+        static constexpr float kPostGainUnityGain = 0.6771799f;
 
         /// @brief Overrides the 6L6GC quad's grid bias mismatch. A test hook, not a user control
         /// and not in the descriptor. Audio-thread safe.

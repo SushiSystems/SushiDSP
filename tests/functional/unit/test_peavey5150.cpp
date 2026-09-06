@@ -283,11 +283,15 @@ TEST(Unit_Dsp, Peavey5150ThdDoesNotFallAsPreGainRises)
     // Spec section 4: once every stage clips, THD saturates, so the metric is not asked to rise -
     // it is asked not to fall. The tolerance is 0.5 percentage points across the knob's travel.
     //
-    // The sweep starts at 0.05 rather than at 0.0. VR2 at the bottom mutes the amplifier outright
-    // and the reading there is the FFT's floor on denormals, 264.6% on 2026-09-07, not distortion.
-    // Measured 2026-09-07 from 0.05: 26.99, 27.30, 26.99, 27.01, 27.05, 27.06, 27.07, 26.99
-    // percent - flat, because every stage after V2A is square at every position.
-    const float positions[] = { 0.05f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
+    // The sweep starts at 0.02, the first position that passes signal: VR2 at the bottom mutes the
+    // amplifier and the reading there is the FFT's floor on denormals, not distortion.
+    //
+    // Two steps do not pass, measured 2026-09-07: 15.63, 25.48, 26.55, 25.87, 25.33, 24.98, 24.71,
+    // 24.61, 24.67 percent. THD falls 0.675 pp from 0.10 to 0.20 and 0.541 pp from 0.20 to 0.30,
+    // both past the 0.5 pp tolerance. The metric peaks where the phase inverter reaches its own
+    // clipping and then eases as the earlier stages square into a cleaner-spectrum wave; the
+    // tolerance is spec section 4's and was not widened to fit.
+    const float positions[] = { 0.02f, 0.05f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
     double previous = 0.0;
     bool first = true;
     for (float position : positions)
@@ -439,32 +443,31 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
     // reach a setting the amplifier does not square. The second point is Peavey's own nominal lead
     // input, -80 dBV = 0.1 mV, which against kFullScaleVolts 2.0 is -86.0 dBFS.
     //
-    // Both readings fail as this module stands, measured 2026-09-07. VR2 at 0.0 mutes the amp
-    // outright - the pot law gives exactly zero, the output tail is 7.2e-43 and the THD figure is
-    // the FFT's own floor on denormals, not distortion. At 0.02, the first position that passes
-    // signal, a -40 dBFS input already comes out at 0.89 full scale and reads 26.97 %. The phase
-    // inverter is the stage that clips first: at -86 dBFS its grid is the only one on the solver's
-    // 4.136 V fence while V3A ahead of it sits at 0.99 V. modules/peavey5150/README.md, "The clean
-    // end", carries the whole table and what it would take to move it.
+    // The knob is read at 0.02 rather than at 0.0. pre_gain_attenuation() is n * sqrt(n), exactly
+    // zero at the bottom of VR2's travel, so 0.0 mutes the amplifier and the THD there is the
+    // FFT's own floor on denormals rather than distortion; 0.02 is the first position that passes
+    // signal. Measured 2026-09-07: 7.2970 % at -40 dBFS and 0.2759 % at -86.0 dBFS, once the
+    // long-tailed pair's tail degeneration and the power-grid scale bridge were in place.
+    constexpr float kFirstAudiblePosition = 0.02f;
     constexpr float kMinusFortyDbfs = 0.01f;
     constexpr float kNominalMinusEightyDbv = 5.0119e-5f;
 
     auto quiet = prepared_node();
-    quiet->set_pre_gain(0.0f);
+    quiet->set_pre_gain(kFirstAudiblePosition);
     const double quiet_thd =
         SushiDSP::measure::thd(render_sine(*quiet, 220.0, kMinusFortyDbfs, kSpectrumBlocks), 220.0,
                                48000.0, 8)
             .thd_percent;
-    std::printf("[ measure ] thd %.4f%% at pre gain 0.00, -40 dBFS\n", quiet_thd);
+    std::printf("[ measure ] thd %.4f%% at pre gain 0.02, -40 dBFS\n", quiet_thd);
     EXPECT_LT(quiet_thd, 10.0);
 
     auto nominal = prepared_node();
-    nominal->set_pre_gain(0.0f);
+    nominal->set_pre_gain(kFirstAudiblePosition);
     const double nominal_thd =
         SushiDSP::measure::thd(render_sine(*nominal, 220.0, kNominalMinusEightyDbv, kSpectrumBlocks),
                                220.0, 48000.0, 8)
             .thd_percent;
-    std::printf("[ measure ] thd %.4f%% at pre gain 0.00, -86.0 dBFS (Peavey's -80 dBV)\n",
+    std::printf("[ measure ] thd %.4f%% at pre gain 0.02, -86.0 dBFS (Peavey's -80 dBV)\n",
                 nominal_thd);
     EXPECT_LT(nominal_thd, 5.0);
 }
