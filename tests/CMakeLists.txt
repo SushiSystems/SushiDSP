@@ -72,6 +72,9 @@ add_executable(sushidsp_tests
     functional/unit/test_tube_screamer.cpp
     functional/unit/test_jcm_tone_stack.cpp
     functional/unit/test_jcm800.cpp
+    functional/unit/test_peavey5150.cpp
+    functional/unit/test_diezel_vh4.cpp
+    functional/unit/test_mesa_mark2c.cpp
 
     # --- Math ---
     functional/unit/test_biquad.cpp
@@ -128,6 +131,9 @@ add_executable(sushidsp_tests
     functional/regression/test_dd3_regression.cpp
     functional/regression/test_tube_screamer_regression.cpp
     functional/regression/test_jcm800_regression.cpp
+    functional/regression/test_peavey5150_regression.cpp
+    functional/regression/test_diezel_vh4_regression.cpp
+    functional/regression/test_mesa_mark2c_regression.cpp
 )
 
 target_include_directories(sushidsp_tests PRIVATE ${SD_TEST_COMMON_DIR})
@@ -144,6 +150,9 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
     SushiDSP::jcm800
+    SushiDSP::peavey5150
+    SushiDSP::diezel_vh4
+    SushiDSP::mesa_mark2c
     SushiDSP::dd3
     SushiDSP::node_registry
     SushiDSP::routing
