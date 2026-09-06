@@ -42,6 +42,49 @@ namespace ui
             { "output",     ControlKind::Knob, { 0.21f, 0.78f }, 0.10f, "Output"     },
         };
 
+        constexpr ControlPlacement kPeavey5150Controls[] = {
+            { "input_trim", ControlKind::Knob, { 0.13f, 0.78f }, 0.10f, "Input Trim" },
+            { "output",     ControlKind::Knob, { 0.21f, 0.78f }, 0.10f, "Output"     },
+            { "pre_gain",   ControlKind::Knob, { 0.30f, 0.78f }, 0.14f, "Pre Gain"   },
+            { "low",        ControlKind::Knob, { 0.38f, 0.78f }, 0.14f, "Low"        },
+            { "mid",        ControlKind::Knob, { 0.46f, 0.78f }, 0.14f, "Mid"        },
+            { "high",       ControlKind::Knob, { 0.54f, 0.78f }, 0.14f, "High"       },
+            { "post_gain",  ControlKind::Knob, { 0.62f, 0.78f }, 0.14f, "Post Gain"  },
+            { "resonance",  ControlKind::Knob, { 0.70f, 0.78f }, 0.14f, "Resonance"  },
+            { "presence",   ControlKind::Knob, { 0.78f, 0.78f }, 0.14f, "Presence"   },
+        };
+
+        constexpr ControlPlacement kMesaMark2cControls[] = {
+            { "input_trim",  ControlKind::Knob, { 0.13f, 0.78f }, 0.10f, "Input Trim" },
+            { "output",      ControlKind::Knob, { 0.21f, 0.78f }, 0.10f, "Output"     },
+            { "volume_1",    ControlKind::Knob, { 0.28f, 0.78f }, 0.14f, "Volume 1"   },
+            { "treble",      ControlKind::Knob, { 0.35f, 0.78f }, 0.14f, "Treble"     },
+            { "bass",        ControlKind::Knob, { 0.42f, 0.78f }, 0.14f, "Bass"       },
+            { "middle",      ControlKind::Knob, { 0.49f, 0.78f }, 0.14f, "Middle"     },
+            { "lead_drive",  ControlKind::Knob, { 0.56f, 0.78f }, 0.14f, "Lead Drive" },
+            { "lead_master", ControlKind::Knob, { 0.63f, 0.78f }, 0.14f, "Lead Master"},
+            { "master_1",    ControlKind::Knob, { 0.70f, 0.78f }, 0.14f, "Master 1"   },
+            { "presence",    ControlKind::Knob, { 0.77f, 0.78f }, 0.14f, "Presence"   },
+            { "eq_80",       ControlKind::Knob, { 0.30f, 0.45f }, 0.14f, "80 Hz"      },
+            { "eq_240",      ControlKind::Knob, { 0.40f, 0.45f }, 0.14f, "240 Hz"     },
+            { "eq_750",      ControlKind::Knob, { 0.50f, 0.45f }, 0.14f, "750 Hz"     },
+            { "eq_2200",     ControlKind::Knob, { 0.60f, 0.45f }, 0.14f, "2.2 kHz"    },
+            { "eq_6600",     ControlKind::Knob, { 0.70f, 0.45f }, 0.14f, "6.6 kHz"    },
+        };
+
+        constexpr ControlPlacement kDiezelVh4Controls[] = {
+            { "input_trim", ControlKind::Knob, { 0.13f, 0.78f }, 0.10f, "Input Trim" },
+            { "output",     ControlKind::Knob, { 0.21f, 0.78f }, 0.10f, "Output"     },
+            { "gain",       ControlKind::Knob, { 0.28f, 0.78f }, 0.14f, "Gain"       },
+            { "bass",       ControlKind::Knob, { 0.35f, 0.78f }, 0.14f, "Bass"       },
+            { "middle",     ControlKind::Knob, { 0.42f, 0.78f }, 0.14f, "Middle"     },
+            { "treble",     ControlKind::Knob, { 0.49f, 0.78f }, 0.14f, "Treble"     },
+            { "volume",     ControlKind::Knob, { 0.56f, 0.78f }, 0.14f, "Volume"     },
+            { "deep",       ControlKind::Knob, { 0.63f, 0.78f }, 0.14f, "Deep"       },
+            { "presence",   ControlKind::Knob, { 0.70f, 0.78f }, 0.14f, "Presence"   },
+            { "master",     ControlKind::Knob, { 0.77f, 0.78f }, 0.14f, "Master"     },
+        };
+
         constexpr ControlPlacement kTubeScreamerControls[] = {
             { "level",      ControlKind::Knob, { 0.50f, 0.13f }, 0.13f, "Level"      },
             { "drive",      ControlKind::Knob, { 0.24f, 0.22f }, 0.13f, "Drive"      },
@@ -73,6 +116,15 @@ namespace ui
             { "sushidsp.jcm800", { 900.0f, 420.0f },
               { rgba(26, 26, 28), rgba(158, 124, 58), rgba(214, 168, 74), rgba(28, 22, 8), nullptr },
               kJcm800Controls, std::size(kJcm800Controls), nullptr },
+            { "sushidsp.peavey5150", { 900.0f, 420.0f },
+              { rgba(20, 20, 22), rgba(120, 120, 128), rgba(200, 200, 210), rgba(10, 10, 12), nullptr },
+              kPeavey5150Controls, std::size(kPeavey5150Controls), nullptr },
+            { "sushidsp.mesa_mark2c", { 900.0f, 420.0f },
+              { rgba(24, 22, 20), rgba(110, 96, 70), rgba(226, 214, 178), rgba(14, 12, 10), nullptr },
+              kMesaMark2cControls, std::size(kMesaMark2cControls), nullptr },
+            { "sushidsp.diezel_vh4", { 900.0f, 420.0f },
+              { rgba(18, 20, 26), rgba(50, 70, 120), rgba(120, 160, 230), rgba(8, 10, 16), nullptr },
+              kDiezelVh4Controls, std::size(kDiezelVh4Controls), nullptr },
             { "sushidsp.tubescreamer", { 320.0f, 560.0f },
               { rgba(46, 112, 58), rgba(32, 78, 42), rgba(226, 214, 178), rgba(232, 232, 224), nullptr },
               kTubeScreamerControls, std::size(kTubeScreamerControls), nullptr },

@@ -40,6 +40,20 @@ TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForAKnownNodeType)
     EXPECT_GT(panel->aspect.x, panel->aspect.y);
 }
 
+TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForEachHighGainAmplifier)
+{
+    static const char* kAmplifierIds[] = {
+        "sushidsp.peavey5150", "sushidsp.mesa_mark2c", "sushidsp.diezel_vh4"
+    };
+    for (const char* id : kAmplifierIds)
+    {
+        const ui::PanelDescriptor* panel = ui::panel_for(id);
+        ASSERT_NE(panel, nullptr) << id;
+        EXPECT_GT(panel->control_count, 0u) << id;
+        EXPECT_GT(panel->aspect.x, panel->aspect.y) << id;
+    }
+}
+
 TEST(Unit_Dsp, PanelLibraryReturnsNullForANodeTypeWithNoEntry)
 {
     EXPECT_EQ(ui::panel_for("sushidsp.not_a_real_node"), nullptr);
