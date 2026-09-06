@@ -59,8 +59,8 @@ namespace
 
     /// @brief The stimulus the DD-3's own service note measures at, in full-scale units.
     ///
-    /// Page 2 of the notes takes its whole check-point ladder at 1 kHz and 100 mVp-p in, which
-    /// is 0.05 Vp-p of the core's 2 V full scale, so 0.025 peak (dossier
+    /// Page 2 of the notes takes its whole check-point ladder at 1 kHz and 100 mVp-p in, i.e.
+    /// 0.05 V peak; against the core's 2 V peak full scale that is 0.025 of full scale (dossier
     /// docs/reference/research/2026-08-26-boss-dd3-design-dossier.md, check-point levels).
     constexpr double kServiceNoteStimulus = 0.025;
 
