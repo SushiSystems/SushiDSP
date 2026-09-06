@@ -35,6 +35,7 @@
 #include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <utility>
@@ -55,14 +56,19 @@ namespace SushiDSP
         constexpr float kV2aGain = 61.5f;        // Dossier 3.6, 100 x 100 / 162.5.
         constexpr float kV2bGain = 73.118f;      // Dossier 3.7, computed here: 100 x 170 / 232.5.
 
-        /// @brief The long-tailed pair's gain to one plate; a modelling choice.
-        constexpr float kPhaseInverterGain = 28.374f;  // Dossier 5.1, 100 x 82 / 144.5 split in two.
+        /// @brief One inverter triode's full common-cathode gain on its own load line, the pair's
+        /// split being carried by kPhaseInverterDegeneration instead: mu x Ra / (Ra + ra) is
+        /// 100 x 82000 / (82000 + 34061.087) = 70.652449, with dossier 5.1's 82 k plate and ra from
+        /// the Koren model at the idle point below.
+        constexpr float kPhaseInverterGain = 70.652449f;
 
-        /// @brief How much of the input reaches the inverter's grid-cathode window, the tail
-        /// degenerating the rest: 1 / (1 + (mu + 1) x Rtail / (ra + Ra)), which is
-        /// 1 / (1 + 101 x 15000 / (34061 + 82000)) = 1 / 14.053471. Ra is dossier 5.1's 82 k, Rtail
-        /// its 15 k tail glyph, and ra 34.061 k from the Koren model at Vgk -1.5 V, Vpk 284.5 V.
-        constexpr float kPhaseInverterDegeneration = 0.0711568f;
+        /// @brief How much wider the inverter's input is than the grid-cathode window it opens, the
+        /// shared cathode following the driven grid through the tail: 1 + Rtail / (Rtail + Zk),
+        /// where Zk is the other triode's cathode impedance (ra + Ra) / (mu + 1) = 1149.120 Ohm in
+        /// series with dossier 5.1's 470 Ohm between the cathodes. That is
+        /// 1 + 15000 / (15000 + 1619.120) = 1.9025749, always divided by. Rtail is 5.1's 15 k tail
+        /// glyph, and ra 34061.087 Ohm from the Koren model at Vgk -1.5 V, Vpk 284.5 V.
+        constexpr float kPhaseInverterDegeneration = 1.9025749f;
 
         /// @brief The DC operating point each triode's grid rests at, from the printed cathode volts.
         constexpr float kV1aCathodeBias = -1.6f;   // Dossier 3.1, printed cathode voltage.
@@ -441,7 +447,7 @@ namespace SushiDSP
             const float equalised = equalizer_bank_.process_sample(
                 v2b_coupling_.process_sample(v2b_out));
             const float phase_inverted = phase_inverter_.process_sample(
-                phase_inverter_grid_miller_.process_sample(equalised) * kPhaseInverterDegeneration);
+                phase_inverter_grid_miller_.process_sample(equalised) / kPhaseInverterDegeneration);
 
             // Simul-Class: both pairs hang on the same transformer and see the same phase-inverted
             // grid signal, and they clip 2.99 dB apart because their presets do (dossier 7.3).
@@ -519,17 +525,32 @@ namespace SushiDSP
         return cabinet_slot_.has_active();
     }
 
+    namespace
+    {
+        /// @brief Collects the module's triodes in signal order, so the two probe accessors agree
+        /// on the order and the count by construction.
+        /// @param node The amp whose stages are listed.
+        /// @return Pointers to V1A, V1B, V3B, V4A, V2A, V2B and the phase inverter.
+        std::array<const TriodeStage*, 7> triode_stages_in_signal_order(
+            const TriodeStage& v1a, const TriodeStage& v1b, const TriodeStage& v3b,
+            const TriodeStage& v4a, const TriodeStage& v2a, const TriodeStage& v2b,
+            const TriodeStage& phase_inverter)
+        {
+            return { &v1a, &v1b, &v3b, &v4a, &v2a, &v2b, &phase_inverter };
+        }
+    }
+
     std::size_t MesaMark2c::triode_stage_count() const
     {
-        return 7;
+        return triode_stages_in_signal_order(v1a_, v1b_, v3b_, v4a_, v2a_, v2b_, phase_inverter_)
+            .size();
     }
 
     float MesaMark2c::grid_excursion_peak_volts(std::size_t stage) const
     {
-        const TriodeStage* const stages[] = {
-            &v1a_, &v1b_, &v3b_, &v4a_, &v2a_, &v2b_, &phase_inverter_
-        };
-        if (stage >= triode_stage_count())
+        const std::array<const TriodeStage*, 7> stages =
+            triode_stages_in_signal_order(v1a_, v1b_, v3b_, v4a_, v2a_, v2b_, phase_inverter_);
+        if (stage >= stages.size())
         {
             return 0.0f;
         }

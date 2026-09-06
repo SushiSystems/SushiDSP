@@ -266,16 +266,47 @@ TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
     }
 }
 
+TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
+{
+    // The probe pair is what the README's grid table and the plate-swing work are read through, so
+    // it needs its own cover: seven stages, every one of them reporting a grid that moved, and an
+    // out-of-range index answering 0 rather than reading off the end of the array.
+    SushiDSP::MesaMark2c node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    std::vector<float> input(256), output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+    for (int block = 0; block < 40; ++block)
+    {
+        for (std::size_t i = 0; i < input.size(); ++i)
+        {
+            const double n = block * 256.0 + static_cast<double>(i);
+            input[i] = static_cast<float>(0.251 * std::sin(2.0 * M_PI * 1000.0 * n / 48000.0));
+        }
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    ASSERT_EQ(node.triode_stage_count(), 7u);
+    for (std::size_t stage = 0; stage < node.triode_stage_count(); ++stage)
+    {
+        EXPECT_GT(node.grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
+    }
+    EXPECT_FLOAT_EQ(node.grid_excursion_peak_volts(node.triode_stage_count()), 0.0f);
+}
+
 TEST(Unit_Dsp, MesaMark2cThdDoesNotFallAsLeadDriveRises)
 {
     // Spec section 4: the metric saturates once every stage clips, so a rising spectrum is not
-    // required of Lead Drive; what is required is that turning it up never makes the amp cleaner.
+    // required of Lead Drive; what is required is that turning it up never makes the amp cleaner,
+    // within the 1.0 percentage point that section allows for the wave squaring off.
     // Measured with the shared THD analyser at a bin-exact 1 kHz and a 0.2 input.
     //
     // The sweep starts at 0.05, the first position that passes signal: audio_taper(0) is exactly
     // zero, so the knob's floor is a hard mute and the analyser would read noise against noise.
     const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
-    const double tolerance_percentage_points = 0.5;
+    const double tolerance_percentage_points = 1.0;  // Spec section 4.
     double previous = 0.0;
     for (float lead_drive : { 0.05f, 0.1f, 0.2f, 0.5f, 1.0f })
     {
@@ -335,8 +366,8 @@ TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
                     "send/return network is not in the dossier (section 3.7 prints no value for "
                     "it), so V2A's plate, ceilinged at 87 V, meets V2B's 4.14 V grid window with "
                     "nothing between them. At Lead Drive 0.02 and -40 dBFS the amp measures "
-                    "41.4 % THD against this test's 10 % bar. Closes when the send/return network "
-                    "is read off the schematic; dossier open question 20.";
+                    "41.5 % THD against this test's 10 % bar. Closes when the send/return network "
+                    "is read off the schematic; dossier open questions 19 and 20.";
 }
 
 TEST(Unit_Dsp, MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
@@ -440,11 +471,11 @@ TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
                     "the V2A->V2B loop send/return network is not in the dossier (section 3.7 "
                     "prints no value for it), so V2A's plate, ceilinged at 87 V, meets V2B's "
                     "4.14 V grid window with nothing between them and the node limits at every "
-                    "input level. Treble at 0 against 1 moves THD by 0.36 pp at -80 dBFS and "
-                    "0.61 pp at -100 dBFS, against this test's 5 pp, so there is no input level "
+                    "input level. Treble at 0 against 1 moves THD by -0.40 pp at -80 dBFS and "
+                    "-0.66 pp at -100 dBFS, against this test's 5 pp, so there is no input level "
                     "where the stack's colour reaches the output. Re-asserts that a brighter "
                     "stack drives the lead stages harder once the network is read off the "
-                    "schematic; dossier open question 20.";
+                    "schematic; dossier open questions 19 and 20.";
 }
 
 TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
@@ -453,8 +484,8 @@ TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
                     "the V2A->V2B loop send/return network is not in the dossier (section 3.7 "
                     "prints no value for it), so V2A's plate, ceilinged at 87 V, meets V2B's "
                     "4.14 V grid window with nothing between them and the node limits at every "
-                    "input level. The 750 Hz slider at +1 lifts 979.5 Hz by 0.052 dB at "
-                    "-80 dBFS and 6.17 dB at -100 dBFS, against the bank's 17 dB, because the "
+                    "input level. The 750 Hz slider at +1 lifts 979.5 Hz by 0.009 dB at "
+                    "-80 dBFS and -0.011 dB at -100 dBFS, against the bank's 17 dB, because the "
                     "output sits on its ceiling either way. Re-asserts the full 17 dB lift once "
-                    "the network is read off the schematic; dossier open question 20.";
+                    "the network is read off the schematic; dossier open questions 19 and 20.";
 }
