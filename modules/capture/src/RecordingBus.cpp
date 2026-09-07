@@ -66,17 +66,16 @@ namespace SushiDSP
         }
 
         dropped_blocks_.store(0, std::memory_order_relaxed);
-        block_accepted_.store(false, std::memory_order_relaxed);
         armed_block_index_ = block_index_.load(std::memory_order_relaxed);
         return true;
     }
 
-    bool RecordingBus::write_processed(const float* const* channels, std::uint32_t frames) noexcept
+    bool RecordingBus::write(const float* const* processed_channels, const float* dry_channel,
+                             std::uint32_t frames) noexcept
     {
         const bool armed = processed_.is_recording() && dry_.is_recording();
         const bool accepted = armed && processed_.has_room(frames) && dry_.has_room(frames);
 
-        block_accepted_.store(accepted, std::memory_order_relaxed);
         block_index_.fetch_add(1, std::memory_order_relaxed);
 
         if (!accepted)
@@ -88,16 +87,10 @@ namespace SushiDSP
             return false;
         }
 
-        return processed_.write(channels, frames);
-    }
-
-    bool RecordingBus::write_dry(const float* const* channels, std::uint32_t frames) noexcept
-    {
-        if (!block_accepted_.load(std::memory_order_relaxed))
-        {
-            return false;
-        }
-        return dry_.write(channels, frames);
+        const float* dry_channels[1] = { dry_channel };
+        const bool   processed_queued = processed_.write(processed_channels, frames);
+        const bool   dry_queued = dry_.write(dry_channels, frames);
+        return processed_queued && dry_queued;
     }
 
     void RecordingBus::stop()

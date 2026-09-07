@@ -62,20 +62,15 @@ namespace SushiDSP
         /// @return true if both files opened; on failure neither records.
         bool arm(const std::string& folder, const std::string& take_name);
 
-        /// @brief Decides whether both recorders can take this block, queues the rig's output
-        /// when they can, and advances the block index either way.
-        /// @param channels One pointer per processed channel.
-        /// @param frames Number of frames in the block.
+        /// @brief Queues one block into both files when both recorders have room, into neither
+        /// when one of them does not, and advances the block index either way. Wait-free:
+        /// allocates nothing, takes no lock, throws nothing, touches no file.
+        /// @param processed_channels One pointer per processed channel, the rig's output.
+        /// @param dry_channel One pointer to the device input that drove the rig.
+        /// @param frames Number of frames in the block, the same for both legs.
         /// @return true if the block was queued; false when the bus dropped it from both files.
-        /// @pre Called once per block, on the audio thread, before write_dry() for that block.
-        bool write_processed(const float* const* channels, std::uint32_t frames) noexcept;
-
-        /// @brief Queues one block of the device input if write_processed() accepted this block.
-        /// @param channels One pointer to the dry channel.
-        /// @param frames Number of frames in the block.
-        /// @return true if the block was queued.
-        /// @pre Called after write_processed() for the same block, with the same frame count.
-        bool write_dry(const float* const* channels, std::uint32_t frames) noexcept;
+        bool write(const float* const* processed_channels, const float* dry_channel,
+                   std::uint32_t frames) noexcept;
 
         /// @brief Stops both recorders and closes both files.
         void stop();
@@ -86,7 +81,7 @@ namespace SushiDSP
         /// @brief Returns the block index both files began at.
         std::uint64_t armed_block_index() const { return armed_block_index_; }
 
-        /// @brief Returns how many blocks write_processed() has taken since construction.
+        /// @brief Returns how many blocks write() has taken since construction.
         std::uint64_t block_index() const { return block_index_.load(std::memory_order_relaxed); }
 
         /// @brief Returns the frames written to <take_name>-processed.wav.
@@ -108,14 +103,11 @@ namespace SushiDSP
         /// @brief Records the device input into <take_name>-dry.wav.
         TrackRecorder              dry_;
 
-        /// @brief Counts the blocks write_processed() has taken since construction.
+        /// @brief Counts the blocks write() has taken since construction.
         std::atomic<std::uint64_t> block_index_{ 0 };
 
         /// @brief Counts the blocks the bus refused because one recorder had no room.
         std::atomic<std::uint64_t> dropped_blocks_{ 0 };
-
-        /// @brief Carries write_processed()'s decision for the current block to write_dry().
-        std::atomic<bool>          block_accepted_{ false };
 
         /// @brief Holds the block index both files began at.
         std::uint64_t              armed_block_index_ = 0;

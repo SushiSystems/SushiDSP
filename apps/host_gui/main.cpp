@@ -344,11 +344,8 @@ int main(int argc, char** argv)
                 SushiDSP::RecordingBus& bus = rig_controller_ref.recording_bus();
                 if (bus.is_recording())
                 {
-                    // Both legs are queued in the same block, which is what makes the two files
-                    // line up sample for sample. The dry leg is the buffer that actually drove
-                    // the rig, so a take recorded while re-amping stays its own dry take.
-                    bus.write_processed(rig_output_const_pointers.data(), frames);
-                    bus.write_dry(rig_input_const_pointer, frames);
+                    // The dry leg is the buffer that actually drove the rig, re-amp included.
+                    bus.write(rig_output_const_pointers.data(), rig_input.data(), frames);
                 }
 
                 if (rolling)
