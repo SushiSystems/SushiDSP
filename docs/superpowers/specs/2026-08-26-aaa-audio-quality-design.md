@@ -537,12 +537,35 @@ port is not wired in, the shipping node's rate stays 0.0054 %.
    but it costs a full sample of loop delay instead of half and attenuates the corner harder, and
    the corner attenuation is already what loses the comparison above. On this evidence it would
    lose by more, not less, at 4×. Worth revisiting only at 8× or higher.
-3. **8× with the plain port**, C1's decision reverted. The honest remaining route to the alias
-   floor, and the one the evidence now points at: it costs no modelling accuracy at all. Task 9
-   measured the clip block at 1071 ns/sample at 8× against 586.7 ns/sample for the whole node at
-   4×, so the node would land near 0.28 ms per 256-block against a 0.25 ms budget — over, and
-   whether the budget moves or the block gets cheaper is the user's call, not the implementer's.
-   The user has chosen to measure this; that measurement runs as its own task.
+3. **8× with the plain port**, C1's decision reverted. Measured on 2026-09-07, both columns from
+   the same release build and the same session, the 4× column re-run rather than quoted:
+
+   | | 4× (shipping) | 8× |
+   | --- | --- | --- |
+   | alias floor, `Regression_Dsp.TubeScreamerAliasFloorDoesNotRegress` | −18.6 dB | **−24.7 dB** |
+   | node cost, `Benchmark.AudioPath` | 583.6 ns/sample | **1075.4 ns/sample** |
+   | per 256-frame block, budget 0.25 ms | 0.149 ms | **0.275 ms**, over by 10 % |
+   | clip block Newton misses | not measured | 0.0054 %, 57 of 1 056 000 |
+   | worst-case iterations | not measured | 8 |
+   | NaN fallbacks | not measured | 0 |
+
+   Eight times buys **6.1 dB** and costs **1.84× the node**. The 6.1 dB is the predicted number:
+   doubling the factor doubles the harmonic order the fold needs, from the 13th to the 21st or
+   higher, and a diode clipper's 1/n decay reads that as about 6 dB. It closes a third of the gap
+   to C1's −38.3 dB and leaves 13.6 dB open, so 8× does not reach the acceptance either.
+
+   Convergence is not the gate. `Unit_Dsp.DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples`
+   already runs the clip block at 384 kHz, which is the 8× run rate and not the shipping one, so
+   its 0.0054 % is the 8× figure and the sentence under *The Newton miss rate, diagnosed* calling
+   it "the shipping node's rate" is wrong. At 8× the block stays inside the spec's 0.01 % gate
+   with zero NaN fallbacks; the 4× rate is unmeasured, and changing that constant is the only
+   thing needed to get it.
+
+   **The choice is the user's, and it is a choice between two misses.** Staying at 4× keeps
+   0.149 ms against a 0.25 ms budget and accepts an alias floor 19.7 dB short of C1. Moving to 8×
+   buys 6.1 dB of that back, still misses by 13.6 dB, and puts the node 10 % over its budget, so
+   either the budget moves or the clip block gets cheaper — 1067 ns/sample of the node's 1075 is
+   the clip block alone. The tree is left on 4× pending that decision.
 4. **Antialiasing at 8×**, where the interval average sits on a grid fine enough for its error to
    fall below the fold it removes. The error is first order in the timestep, so halving the step
    halves it while the fold it suppresses drops much faster. Untested, and it inherits route 3's

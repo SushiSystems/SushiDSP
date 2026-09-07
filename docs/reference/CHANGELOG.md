@@ -39,6 +39,7 @@ The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-ga
 - 2026-09-07 — Raised open questions 19 and 20 on the IIC+'s loop send/return network (`docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md`).
 - 2026-09-07 — Moved the 5150's clean-end assertion to Peavey's nominal −80 dBV lead input, recording the −40 dBFS reading (`test_peavey5150.cpp`).
 - 2026-09-07 — Noted five malformed commit messages in the DA4 range (`6c29f209`, `af4f9eb6`, `07ea52de`, `6608a43a`, `8d416140`, `4bbaf7bb`); every commit's content is correct and untouched.
+- 2026-09-07 — Put the four amps' cabinet methods behind `ICabinetHost`, so the GUI loads an IR on any of them (`include/SushiDSP/core/ICabinetHost.hpp`, `apps/host_gui/RigController.cpp`).
 
 ## DR2 — Boss DD-3 delay
 
@@ -146,6 +147,7 @@ third-party dependency, no image file, no font file: every panel, knob and link 
 The Tube Screamer's rebuild onto the D6b solver, plan
 `.superpowers/sdd/2026-09-05-d6c-tubescreamer-on-dk/`.
 
+- 2026-09-07 — Measured the Tube Screamer at 8x, -24.7 dB alias floor for 0.275 ms per 256-block, replacing the route list's estimates (`docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`, Model corrections D6c C2).
 - 2026-09-07 — Retired `DiodeClipperCircuit`; `DkCircuit`'s diode-clipper test now compares against the true root of its own equation instead (`include/SushiDSP/circuits/DiodeClipperCircuit.hpp`, `src/circuits/DiodeClipperCircuit.cpp`, `tests/functional/unit/test_dk_circuit.cpp`).
 - 2026-09-07 — Nulled both clip-block ports at 192 kHz against the LTspice reference decimated by `Resampler` and against the model converged at 1.92 MHz (`tests/functional/unit/test_ts_clip_stage.cpp`).
 - 2026-09-07 — Recorded the verdict against wiring antialiasing in: at 4× it trades a −19 dB aliasing error for a −5 dB band-limiting one (`docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`, Model corrections D6c C2).
