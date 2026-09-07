@@ -9,7 +9,7 @@ Every component value, every gain and every operating point comes from
 [`docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md`](../../docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md).
 A number that is not in that file is marked below as a modelling choice. Nobody has published a
 bench measurement of a Mark IIC+, so the whole module is calibrated against arithmetic on a 1983
-drawing.
+drawing and on jrb32's trace of a real chassis (dossier S8).
 
 ## Which channel
 
@@ -23,8 +23,8 @@ Dossier §2: the FMV stack hangs directly on the first triode's plate, so the fo
 stages downstream of it distort a signal the tone controls have already shaped, which is what
 separates a Mark from a Marshall. `MesaMark2cToneStack` is therefore instantiated between `v1a_`
 and the Volume 1 attenuation in `MesaMark2c::process()`, and
-`MesaMark2cToneStackSitsBeforeTheLeadStages` is what pins the consequence, and it is skipped today
-under the known issue below.
+`MesaMark2cToneStackSitsBeforeTheLeadStages` pins the consequence at Lead Drive 0.05 and a −40 dBFS
+input, where the lead chain is on its knee: treble at 1 against 0 raises THD by 8.50 pp.
 
 ## The blocks and who owns each
 
@@ -57,23 +57,24 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 | V4A, Rp 270 k, Rk 3.3 k, Vk 1.2 V | gain 70 | 98.0 / 221.216 (C 392 V, Va 294 V, bottom 72.784 V) | §3.4 |
 | V4A cathode, 0.22 µF on 3.3 k | zero 219.22 Hz, pole **438.97 Hz**, loss below **0.4994** (−6.03 dB) | — | §3.4 |
 | V4A coupling, 0.047 µF into 320 k | high-pass **10.58 Hz** (computed) | — | §3.5 |
-| Lead output divider, 220 k ∥ 250 pF over 100 k ∥ 500 pF | 0.3125 at DC, zero **2893.7 Hz**, pole **3086.6 Hz**, 0.3333 above (+0.58 dB) | — | §3.5 |
-| Lead Master, 250 k | audio taper | — | §2 |
-| V2A, Rp 100 k, Vk 1.5 V | gain 61.5; §3.6's printed cathode voltage was illegible, so `kV2aCathodeBias` is inferred from the 1.5 k cathode at 1 mA | 100.0 / 163.581 (C 392 V, Va 292 V, bottom 128.419 V) | §3.6 |
-| Loop-return coupling, 0.022 µF into V2B's 1 M grid return | high-pass **7.2343 Hz** (computed); the capacitor's value is a modelling choice, dossier open questions 19 and 20 | — | §2, §3.7 |
-| V2B, Rp 170 k, Rk 1 k | gain **73.118** (computed: 100 × 170 / 232.5) | 204.0 / 92.338 (C 392 V, Va 188 V, bottom 95.662 V) | §3.7 |
+| Lead output divider, 220 k ∥ 250 pF over 3.3 k ∥ 500 pF | 0.014778 at DC (−36.6 dB), zero **2893.7 Hz**, pole **65269.6 Hz**, 0.3333 above; the shunt is S8's traced R30, not S1's `100K` glyph (§8 question 21) | — | §3.5 |
+| V2A, Rp 100 k, Rk 1.5 k unbypassed, Vk 1.935 V, grid 680 k ∥ 47 pF, source 220 k ∥ 3.3 k = 3.25 k | gain **22.005** = 91.561 × 58.746 / (58.746 + 46.848 + 92.561 × 1.5), the Koren model's local µ and r_a at 1.2902 mA into the loop network's 58.746 k AC load | 75.795 / 114.171 (C 392 V, Va 263.0 V, on the 58.746 k AC load line) | §3.6 |
+| Loop network: 47 k (R105) and 0.047 µF (C9) to W; W to ground through the 250 k Lead Master rheostat; W ─ 150 k (R102) ─ P; P ─ 4.7 k (R101) to ground; P ─ 2.2 k (R12) ─ SEND, normalled to RETURN at V2B's grid with its 47 k (R103) | coupling high-pass **16.33 Hz**; at Lead Master maximum 0.6699 × 0.02770 × 0.9533 = **0.01769** (−35.0 dB) from the capacitor's node to V2B's grid; `loop_network_gain()` carries the rheostat's law, Z_W / (47 k + Z_W) with Z_W = pot ∥ 154.27 k | — | §3.6a |
+| V2B, Rp 170 k, Rk 1 k, source 5.909 k | gain **73.118** (computed: 100 × 170 / 232.5) | 204.0 / 92.338 (C 392 V, Va 188 V, bottom 95.662 V) | §3.7 |
 | V2B cathode, 0.47 µF on 1 k, PULL DEEP out | zero 338.63 Hz, pole **485.73 Hz**, loss below **0.6972** (−3.13 dB) | — | §3.7 |
 | V2B coupling, 0.047 µF into 100 k | high-pass **33.86 Hz** (computed) | — | §3.7 |
+| Master 1, 100 k, at node F | dB control, `kMasterUnityGain` 0.0038289 at 0 dB | — | §2 |
 | Graphic EQ | 71.5 / 371.8 / 979.5 / 1576 / 4823 Hz at Q 1.434 / 1.938 / 1.571 / 0.673 / 1.0, ±17 dB | — | §4.2 |
 | V5A/V5B long-tailed pair, Rp 82 k | gain **68.093628** = 96.378299 × 82 k / (82 k + 34.061 k), tail degeneration **2.2552703** (see below), divided by | 106.0 / 143.768 (C 392 V, Va 286 V, bottom 142.232 V) | §5.1 |
 | Simul-Class output | `kMesaMark2cPower6L6GC` ×2 and `kMesaMark2cPowerEl34Triode` ×2, in real volts | inner 81.2 / 311.228 V, outer 132.288 / 132.288 V | §5.3, §7.2, §7.3, RCA 6L6-GC sheet |
 | Presence, 0.022 µF with 6.8 k | high shelf at **1063.9 Hz** (computed), ±9 dB | — | §5.2 |
-| Master 1, 100 k | dB control, `kMasterUnityGain` 0.2349335 | — | §2 |
 
-The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 5.0 kHz (V2A),
+The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 11.6 kHz (V2A),
 11.6 kHz (V2B) and 15.2 kHz (the inverter). Each is computed from the JCM800's 12AX7 capacitances
-and the plate load that drives the grid, so V2A's 270 k feed is the darkest link in the chain and
-the inverter's is the brightest.
+and the plate load that drives the grid. V2B's is the one that no longer describes the circuit:
+its grid is driven from the loop's 5.9 k, which puts the real corner near 196 kHz, above the
+oversampled Nyquist, so the 100 k pole the model keeps there is a placeholder the band does not
+reach; deleting it is the maintainer's call.
 
 ## Where the model departs from the dossier
 
@@ -89,25 +90,35 @@ slightly generous; the D6d load-line solve replaces them stage by stage when it 
 pole, so the five coupling links use `Biquad::set_first_order_high_pass` rather than the biquad
 `set_high_pass`. That is also the numerically safe path at this module's 384 kHz oversampled rate:
 a conjugate pole pair placed at a corner this far below the rate lands within a float ulp of the
-unit circle, which the 7.2343 Hz loop-return corner does not survive. The corners are unchanged
+unit circle, which a loop-return corner at 16.33 Hz does not survive. The corners are unchanged
 and still come from the dossier's R and C.
 
-**Known issue: the amp has no clean setting.** Dossier §2 puts EFFECTS SEND / RETURN between
-V2A's plate and V2B's grid and §3.7 prints no value for any of it, so the model has nothing on that
-link: V2A's plate, held to 87 V by its own ceiling, meets V2B's 4.14 V grid window directly and
-drives it twenty-one times past it. Every stage ahead of that link runs clean at a −40 dBFS input,
-and the node still limits at every input level, which costs three tests. They are skipped, not
-weakened, and each re-asserts its own figure once the network is read off the schematic; dossier
-open questions 19 and 20.
+**The effects loop network and Master 1's place.** Until 2026-09-08 the model connected V2A's
+plate to V2B's grid through a 0.022 µF stand-in and nothing else, and scaled the output by Master 1
+after the power section; V2B's grid took 27.9 V against a 1.26 V window, the inverter's 21.1 V,
+and the amp had no clean setting. The network of §3.6a is now in the chain as the table above
+draws it, read from the factory sheet and jrb32's hardware trace, and Master 1 multiplies node F
+ahead of the equaliser and the inverter, where S1 draws it. Measured at 48 kHz through a probe
+compiled from source, before and after: THD at Lead Drive 0.02 and −40 dBFS 40.70 → 0.20 %; the
+750 Hz slider's lift at 979.5 Hz 0.00 → 16.09 dB at Master 0 dB and 16.93 dB at −20 dB; treble 1
+against 0 at Lead Drive 0.05 and −40 dBFS −0.13 → +8.50 pp of THD; the Lead Master from 1.0 to
+0.05 at Lead Drive 0.5 moves the output −5.7 → −25.4 dBFS where it moved nothing; the alias floor
+at the default and −12 dBFS −14.8 → −19.8 dB and at Lead Drive 0.02 −22.3 → −34.0 dB. The three
+tests this cost are back: `MesaMark2cHasACleanEndAtMinimumGain` at its own point,
+`MesaMark2cToneStackSitsBeforeTheLeadStages` at Lead Drive 0.05 and a 0.01 input, and
+`MesaMark2cEqBandBoostsItsCentre` with Master 1 at −20 dB, where the power section is linear.
+Design: `docs/superpowers/specs/2026-09-08-iicplus-loop-network-design.md`.
 
-| Skipped test | What it measures now | What it will re-assert |
-| --- | --- | --- |
-| `MesaMark2cHasACleanEndAtMinimumGain` | 41.5 % THD at Lead Drive 0.02 and −40 dBFS | THD below 10 % somewhere on the knob |
-| `MesaMark2cToneStackSitsBeforeTheLeadStages` | bright minus dark −0.09 pp at −80 dBFS, −0.40 pp at −100 dBFS | a brighter stack drives the lead stages harder, by more than 5 pp |
-| `MesaMark2cEqBandBoostsItsCentre` | the 750 Hz slider lifts 979.5 Hz by 0.009 dB at −80 dBFS, −0.010 dB at −100 dBFS | the bank's full 17 dB lift |
-
-Lowering the test input does not rescue the last two: the output sits on its ceiling at −80 and at
-−100 dBFS alike, 60 dB below anything a guitar produces, so neither control reaches it.
+Four stand-ins remain in that network, each labelled in the design's section 5. The Lead
+Master's taper: the pot is a rheostat and no source states its law, so it takes the model's
+`audio_taper` (n·√n) like the other pots, and its top half moves the level by 1.9 dB, its bottom
+fifth by 26 dB (§3.6a). The LDR4's on resistance: not read (§8 question 23), so the knob's floor
+is the rheostat's 0 Ω, a hard mute, where a real IIC+ leaks a little signal. V2A's load, held at
+the pot's maximum: the rheostat moves V2A's AC load from 58.75 k to 32.3 k across its travel,
+which would take the gain from 22.0 to 13.6 and the up-swing from 75.8 to 41.7 V; `TriodeStage`
+takes one gain and one `PlateSwing`, so the stage keeps the maximum's and `loop_network_gain()`
+carries the whole law, an error under 4.2 dB of drive at the knob's bottom where the stage is
+26 dB down. And the reverb take-off at W and its return at P are not in the chain.
 
 **Three constants that are not the dossier's.** Driven single-ended, the long-tailed pair's shared
 cathode follows the driven grid through the tail, so the grid-to-cathode window is the input divided
@@ -144,12 +155,14 @@ figures from V3B on are the plate swings divided by the gains, reached through t
 | V1B | 0.9685 V |
 | V3B | 9.6134 V |
 | V4A | 31.6023 V |
-| V2A | 16.2602 V |
-| V2B | 27.9001 V |
-| V5A/V5B phase inverter | 21.1133 V |
+| V2A | 13.0027 V |
+| V2B | 1.1949 V |
+| V5A/V5B phase inverter | 0.1154 V |
 
 The dossier says the same thing in words: §3.8 records that from V3B onward the amp is in hard
-grid conduction long before the signal reaches V2A.
+grid conduction long before the signal reaches V2A. V2B is the one lead-chain stage that does not
+clip, as §3.8 predicts: the network hands it 1.19 V against its 1.26 V window. Before the network
+and Master 1's move (2026-09-08) V2A read 16.2602 V, V2B 27.9001 V and the inverter 21.1133 V.
 
 **The interstage drive normalisation, removed.** The model used to divide each triode's output
 by that stage's own dossier gain and multiply by one measured figure, `kGridDriveNormalisation`,
@@ -224,16 +237,19 @@ rolloff figure at all. `kPowerTubeToTransformerAttenuation` maps the two pairs' 
 weighted by `kSimulClassPairWeight`, onto the 1.7453 the transformer stage received at full clip
 before DA5 part 2, so the transformer and the sag stage see the range they were calibrated for.
 
-**Grid leaks other than V1A's are 1 MΩ.** The sheet draws a grid leak at the input jack and
-nowhere else.
+**Grid leaks other than V1A's and V2A's are 1 MΩ.** The sheet draws a grid leak at the input
+jack and the 680 k shunt at V2A's grid (§3.6); V2B's 47 k (R103) is in the loop network's
+Thevenin but the stage's solver still carries the 1 MΩ.
 
-**Master 1 is applied after the oversampled region.** In the amp it sits at node F, ahead of the
-EQ and the inverter, so turning it down would take drive out of the power section. The model
-scales the output instead, as the JCM800 does, and `kMasterUnityGain` calibrates that scaling:
-0.2349335 puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS, the point all four
-amplifiers pin at (DA5 spec §6). It was 0.2402319 before the transformer's secondary stopped
-carrying a mean (DA5 part 3), 0.3343019 before the power stage became volt-true, and 0.6907759
-when the pin sat at 1 kHz, where the IIC+ read 0.0 dBFS on the low E, on the output clamp.
+**Master 1 is applied at node F, inside the oversampled region.** It multiplies the sample between
+V2B's coupling capacitor and the equaliser, ahead of the phase inverter, so turning it down takes
+drive out of the power section as the amp's does. `kMasterUnityGain` is the pot fraction 0 dB
+stands for: 0.0038289 puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS, the point
+all four amplifiers pin at (DA5 spec §6), and at that fraction the inverter's grid sits at 0.12 V
+and the power section runs clean. While the control scaled the output, after the power section
+(until 2026-09-08), the constant was 0.2349335; it was 0.2402319 before the transformer's
+secondary stopped carrying a mean (DA5 part 3), 0.3343019 before the power stage became volt-true,
+and 0.6907759 when the pin sat at 1 kHz.
 
 ## What is not modelled
 
@@ -250,8 +266,8 @@ when the pin sat at 1 kHz, where the IIC+ read 0.0 dBFS on the low E, on the out
   out position.
 - **The 10 M treble-shift resistor and the optional 100 k between the treble wiper and Volume 1.**
   The 10 M is 4 % of the 250 k pot it sits across; §4.1 says the 100 k defaults to absent.
-- **The Rhythm channel, the reverb, the effects loop as a real send and return, and the Class A
-  and 60 W power switches.**
+- **The Rhythm channel, the reverb with its take-off at W and return at P, the effects loop's
+  jacks as a real insert point, and the Class A and 60 W power switches.**
 - **DC at the extreme setting.** With every knob at its stop the settled output carried a DC term
   of −0.0506 (−25.9 dBFS) while `OutputTransformerStage` ran its tanh after its own low-frequency
   rolloff and the rectification the tanh introduced was never blocked. Since DA5 part 3 the

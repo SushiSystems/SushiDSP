@@ -54,10 +54,10 @@
 namespace SushiDSP
 {
     /// @brief The Mesa/Boogie Mark IIC+ in Lead mode: V1A, the FMV stack on its plate, Volume 1,
-    /// V1B, Lead Drive, V3B, V4A, the lead output divider, Lead Master, V2A, V2B, Master 1, the
-    /// five-band graphic equaliser, the long-tailed pair, the Simul-Class output pairs, output
-    /// transformer, power sag, presence and an optional cabinet convolution, followed by a plain
-    /// full-scale clamp. Exposes mesa_mark2c_descriptor().
+    /// V1B, Lead Drive, V3B, V4A, the lead output divider, V2A, the effects loop network with its
+    /// Lead Master, V2B, Master 1, the five-band graphic equaliser, the long-tailed pair, the
+    /// Simul-Class output pairs, output transformer, power sag, presence and an optional cabinet
+    /// convolution, followed by a plain full-scale clamp. Exposes mesa_mark2c_descriptor().
     class MesaMark2c : public IAudioNode, public ICabinetHost
     {
     public:
@@ -119,15 +119,15 @@ namespace SushiDSP
         /// @return The peak |Vg - Vk| that stage has reached, in volts; 0 when stage is out of range.
         float grid_excursion_peak_volts(std::size_t stage) const;
 
-        /// @brief Linear gain the power section is scaled by when Master 1 reads 0 dB. Measured
-        /// so an untouched amp turns a -12 dBFS 82 Hz sine into a -6.00 dBFS peak, the
-        /// calibration point all four amplifiers share (docs/superpowers/specs/
-        /// 2026-09-07-grid-knee-antialiasing-design.md section 6), and pinned by
-        /// MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput. Re-measured
-        /// 2026-09-07 on the Norman grid law, on the volt-true power stage and on the
-        /// transformer whose secondary carries no mean; 0.2402319, 0.3343019 and 0.6907759 before
-        /// those, the last pinned at 1 kHz.
-        static constexpr float kMasterUnityGain = 0.2349335f;
+        /// @brief Linear gain node F is scaled by when Master 1 reads 0 dB, the pot's fraction
+        /// ahead of the equaliser and the phase inverter. Measured so an untouched amp turns a
+        /// -12 dBFS 82 Hz sine into a -6.00 dBFS peak, the calibration point all four amplifiers
+        /// share (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 6),
+        /// and pinned by MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput.
+        /// Re-measured 2026-09-08 with Master 1 at node F and the loop network in place
+        /// (docs/superpowers/specs/2026-09-08-iicplus-loop-network-design.md); 0.2349335,
+        /// 0.2402319, 0.3343019 and 0.6907759 before, when it scaled the output, the last at 1 kHz.
+        static constexpr float kMasterUnityGain = 0.0038289f;
 
         /// @brief Sets the Volume 1 control, the 1 M pot between the tone stack and V1B's grid.
         /// @param normalized Volume 1 amount in [0, 1]; smoothed toward on the audio thread.
@@ -149,7 +149,7 @@ namespace SushiDSP
         /// @param normalized Lead Drive amount in [0, 1].
         void set_lead_drive(float normalized);
 
-        /// @brief Sets the Lead Master control, the 250 k pot ahead of V2A's grid.
+        /// @brief Sets the Lead Master control, the 250 k rheostat on V2A's coupled plate.
         /// @param normalized Lead Master amount in [0, 1].
         void set_lead_master(float normalized);
 
