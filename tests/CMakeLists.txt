@@ -113,6 +113,7 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host/SineToneNode.cpp
     functional/unit/test_rig_controller.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/RigController.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/FileDropQueue.cpp
 
     # --- host_gui view layer ---
     # Only the three ImGui-free units are compiled here: sushidsp_tests does not link imgui, and
