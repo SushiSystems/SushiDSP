@@ -46,7 +46,20 @@ namespace SushiDSP
         // available - see spec section 8's "Perceptual A/B validation... deferred").
         constexpr float kTriodeSourceResistance = 10000.0f;
         constexpr float kTriodeGridLeak = 1000000.0f;
-        constexpr float kTriodeGain = 60.0f;
+
+        /// @brief V1a's gain, mu*Ra/(ra + Ra) from the Koren Jacobian at its idle point below:
+        /// gm 1.5025 mA/V, ra 58.465 kOhm, mu 87.8412 on the 100 kOhm plate, the cathode bypassed.
+        constexpr float kV1aGain = 55.432497f;
+
+        /// @brief V1b's gain with its 10 kOhm cathode unbypassed, mu*Ra/(ra + Ra + (mu + 1)*Rk) at
+        /// its idle point: gm 0.6812 mA/V, ra 115.768 kOhm, mu 78.8604; jcm_v1b_cold's AC sweep
+        /// reads +16.89 dB (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md
+        /// section 6).
+        constexpr float kV1bGain = 7.774305f;
+
+        /// @brief V2a's gain, mu*Ra/(ra + Ra) at its idle point below: gm 2.2682 mA/V, ra
+        /// 41.923 kOhm, mu 95.0908 on the 100 kOhm plate, the cathode bypassed.
+        constexpr float kV2aGain = 67.001549f;
 
         /// @brief V1a's self-bias voltage: Rk 2.7 kOhm carrying the 0.855584 mA the Koren model
         /// settles at against a 100 kOhm plate load on a 360 V supply (jcm_v1a).
@@ -74,33 +87,35 @@ namespace SushiDSP
 
         // The long-tailed pair, in one block so that a module whose inverter is a JCM800 stand-in
         // can copy the four constants and cite them. Every figure comes from jcm_ltp's 82 kOhm
-        // plate, its shared 470 + 10 kOhm tail and the Koren Jacobian at the idle point below:
-        // r_a 189506.723 Ohm, gm 391.832 uS, and so mu = gm*r_a = 74.254859.
+        // plate and its shared 470 + 10 kOhm tail, with both grid leaks returned to the 470/10k
+        // junction as the 2203 wires them, and the Koren Jacobian at that idle point: gm
+        // 2.193524 mA/V, r_a 43055.615 Ohm, mu 94.443529 (modules/jcm800/README.md).
 
-        /// @brief The phase inverter's self-bias voltage: both halves share the 470 + 10 kOhm
-        /// tail, so each sees 20.94 kOhm and settles at 0.187584 mA on 360 V (jcm_ltp).
-        constexpr float kPhaseInverterCathodeBias = -3.928014f;
+        /// @brief The phase inverter's self-bias voltage: the grid leaks return to the tail
+        /// junction, so Vgk is the drop across the 470 Ohm alone, -2 * 1.431927 mA * 470, with
+        /// the cathodes at 29.984558 V on 360 V.
+        constexpr float kPhaseInverterCathodeBias = -1.346012f;
 
-        /// @brief The inverter's plate swing on its 82 kOhm plate: 360 - 344.618092 toward the
-        /// supply, 344.618092 - 134.677465 toward the bottom at Vgk = 0.
-        constexpr PlateSwing kPhaseInverterPlateSwing{ 15.381908f, 209.940627f };
+        /// @brief The inverter's plate swing on its 82 kOhm plate: 360 - 242.581959 toward the
+        /// supply, and 212.597400 - 123.049256 of plate-to-cathode voltage toward the bottom at
+        /// Vgk = 0 with the cathode held at its idle voltage.
+        constexpr PlateSwing kPhaseInverterPlateSwing{ 117.418041f, 89.548144f };
 
         /// @brief One triode's full load-line gain, mu*R_a/(r_a + R_a) =
-        /// 74.254859*82000/271506.723. It is the whole single-triode gain, not half of it: the
+        /// 94.443529*82000/125055.615. It is the whole single-triode gain, not half of it: the
         /// pair's split is already in the degeneration factor below, and halving it here would
         /// count that split twice.
-        constexpr float kPhaseInverterGain = 22.426327f;
+        constexpr float kPhaseInverterGain = 61.927402f;
 
         /// @brief The tail degeneration, divided into the inverter's input because the shared
         /// cathode follows the driven grid. The other triode's cathode presents
-        /// (r_a + R_a)/(mu + 1) = 271506.723/75.254859 = 3607.8298 Ohm in parallel with the tail,
+        /// (r_a + R_a)/(mu + 1) = 125055.615/95.443529 = 1310.2577 Ohm in parallel with the tail,
         /// so the grid-to-cathode signal is the input over 1 + R_tail/(R_tail + that), which is
-        /// 1 + 10470/(10470 + 3607.8298).
+        /// 1 + 10470/(10470 + 1310.2577).
         /// @pre R_tail here is the 10.47 kOhm both cathodes share, the 470 Ohm and the 10 kOhm in
         /// series to ground (jcm_ltp); both are in the tail, so neither belongs in the shunt
-        /// branch. The bias solve above uses 20.94 kOhm instead, because there the whole pair's
-        /// current crosses that same 10.47 kOhm and each half sees twice it against its own.
-        constexpr float kPhaseInverterDegeneration = 1.743723f;
+        /// branch.
+        constexpr float kPhaseInverterDegeneration = 1.888775f;
 
         /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
         /// PentodeStage becomes volt-true (DA5). kEl34's grid saturates at 1/(0.05 * 8) = 2.5
@@ -259,10 +274,10 @@ namespace SushiDSP
 
     Jcm800::Jcm800(std::vector<float> cabinet_impulse_response)
         : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kTriodeSourceResistance, kTriodeGridLeak, kV1aCathodeBias, kTriodeGain, kTriode12AX7GridConduction, kV1aPlateSwing)
-        , v1b_(kTriodeSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kTriodeGain, kTriode12AX7GridConduction, kV1bPlateSwing)
+        , v1a_(kTriodeSourceResistance, kTriodeGridLeak, kV1aCathodeBias, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
+        , v1b_(kTriodeSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kV1bGain, kTriode12AX7GridConduction, kV1bPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
-        , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kV2aCathodeBias, kTriodeGain, kTriode12AX7GridConduction, kV2aPlateSwing)
+        , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kV2aCathodeBias, kV2aGain, kTriode12AX7GridConduction, kV2aPlateSwing)
         , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriode12AX7GridConduction, kPhaseInverterPlateSwing)
         , el34_a_(kEl34)
         , el34_b_(kEl34)
@@ -272,8 +287,8 @@ namespace SushiDSP
         power_tube_grid_bias_mismatch_volts_ = kPowerTubeGridBiasMismatchVolts;
 
         const double initial_oversampled_rate_hz = 48000.0 * kOversamplingFactor;
-        v1b_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kTriodeGain));
-        v2a_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kTriodeGain));
+        v1b_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kV1bGain));
+        v2a_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kV2aGain));
         phase_inverter_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kPhaseInverterGain));
     }
 
@@ -296,18 +311,17 @@ namespace SushiDSP
         presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_.target()), kFilterQ);
 
         // The Miller poles are part of the oversampled chain, so like the coupling capacitor they
-        // are derived at the oversampled rate. Their corners land near 13.8 kHz for the two
-        // gain-of-60 triode grids and near 31 kHz for the lower-gain phase inverter, both through
-        // miller_corner_hz(), which reads the gain constants and so tracks them.
+        // are derived at the oversampled rate, each from the gain of the stage whose grid it is,
+        // through miller_corner_hz(), which reads the gain constants and so tracks them.
         //
         // The phase inverter's pole is a property of *this* model's inverter, which is a single
-        // triode at kPhaseInverterGain 22.426327. A real 2203's inverter is a long-tailed pair,
-        // whose driven grid sees very little Miller multiplication because that half runs as a
-        // grounded-grid stage with no inverting plate-to-grid path. D6d should not inherit this pole when it replaces the
-        // inverter with the LTP.
+        // triode at kPhaseInverterGain. A real 2203's inverter is a long-tailed pair, whose
+        // driven grid sees very little Miller multiplication because that half runs as a
+        // grounded-grid stage with no inverting plate-to-grid path. D6d should not inherit this
+        // pole when it replaces the inverter with the LTP.
         const double oversampled_rate_hz = sample_rate_ * kOversamplingFactor;
-        v1b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kTriodeGain));
-        v2a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kTriodeGain));
+        v1b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV1bGain));
+        v2a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV2aGain));
         phase_inverter_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kPhaseInverterGain));
 
         // The tone stack sits inside the single oversampled region (spec D6a.3: one region per
