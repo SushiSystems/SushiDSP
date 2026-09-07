@@ -23,8 +23,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -36,10 +38,35 @@ namespace
 {
     constexpr double kPi = 3.14159265358979323846;
 
-    std::string temp_wav_path(const std::string& name)
+    /// @brief Names a file in the test temporary directory and removes it when the case ends,
+    /// so no run leaves its fixtures behind for the next one.
+    class TempWavFile
     {
-        return std::string(::testing::TempDir()) + name;
-    }
+    public:
+        /// @brief Builds the path from the temporary directory and the given name.
+        /// @param name The file's name inside that directory.
+        explicit TempWavFile(const std::string& name)
+            : path_(std::string(::testing::TempDir()) + name)
+        {
+        }
+
+        /// @brief Removes the file, ignoring a file that was never created.
+        ~TempWavFile()
+        {
+            std::error_code ignored;
+            std::filesystem::remove(path_, ignored);
+        }
+
+        TempWavFile(const TempWavFile&) = delete;
+        TempWavFile& operator=(const TempWavFile&) = delete;
+
+        /// @brief Reports the file's full path.
+        const std::string& path() const { return path_; }
+
+    private:
+        /// @brief Holds the file's full path.
+        std::string path_;
+    };
 
     std::vector<float> sine(std::size_t count, double frequency, double sample_rate)
     {
@@ -55,7 +82,8 @@ namespace
 
 TEST(Unit_Io, WavWriterFloat32RoundTripsSampleForSample)
 {
-    const std::string path = temp_wav_path("sushidsp_wav_writer_float32.wav");
+    const TempWavFile   fixture("sushidsp_wav_writer_float32.wav");
+    const std::string&  path = fixture.path();
     const std::vector<float> samples = sine(256, 440.0, 48000.0);
 
     {
@@ -78,9 +106,12 @@ TEST(Unit_Io, WavWriterFloat32RoundTripsSampleForSample)
 
 TEST(Unit_Io, WavWriterPcm16RoundTripsWithinOneQuantisationStep)
 {
-    const std::string path = temp_wav_path("sushidsp_wav_writer_pcm16.wav");
+    const TempWavFile   fixture("sushidsp_wav_writer_pcm16.wav");
+    const std::string&  path = fixture.path();
     const std::vector<float> samples = sine(256, 440.0, 48000.0);
-    const float quantisation_step = 1.0f / 32767.0f;
+    // The writer's 32767 scale and the reader's 32768 divide bound a sample of magnitude a at (0.5 + a) / 32768.
+    const float peak_magnitude = 0.5f;
+    const float tolerance = (0.5f + peak_magnitude) / 32768.0f;
 
     {
         SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Pcm16);
@@ -93,13 +124,14 @@ TEST(Unit_Io, WavWriterPcm16RoundTripsWithinOneQuantisationStep)
     ASSERT_EQ(readback.size(), samples.size());
     for (std::size_t i = 0; i < samples.size(); ++i)
     {
-        EXPECT_NEAR(readback[i], samples[i], quantisation_step);
+        EXPECT_NEAR(readback[i], samples[i], tolerance);
     }
 }
 
 TEST(Unit_Io, WavWriterTwoChannelsDownmixToTheMeanOnReadback)
 {
-    const std::string path = temp_wav_path("sushidsp_wav_writer_stereo.wav");
+    const TempWavFile   fixture("sushidsp_wav_writer_stereo.wav");
+    const std::string&  path = fixture.path();
     const std::vector<float> left = sine(128, 220.0, 48000.0);
     std::vector<float> right(left.size());
     for (std::size_t i = 0; i < left.size(); ++i)
@@ -125,7 +157,8 @@ TEST(Unit_Io, WavWriterTwoChannelsDownmixToTheMeanOnReadback)
 
 TEST(Unit_Io, WavWriterCloseTwiceIsSafeAndLeavesTheFileValid)
 {
-    const std::string path = temp_wav_path("sushidsp_wav_writer_double_close.wav");
+    const TempWavFile   fixture("sushidsp_wav_writer_double_close.wav");
+    const std::string&  path = fixture.path();
     const std::vector<float> samples = sine(64, 220.0, 48000.0);
 
     SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32);
@@ -144,7 +177,8 @@ TEST(Unit_Io, WavWriterCloseTwiceIsSafeAndLeavesTheFileValid)
 
 TEST(Unit_Io, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
 {
-    const std::string path = temp_wav_path("sushidsp_wav_writer_sizes.wav");
+    const TempWavFile   fixture("sushidsp_wav_writer_sizes.wav");
+    const std::string&  path = fixture.path();
     const std::vector<float> first_block = sine(100, 220.0, 48000.0);
     const std::vector<float> second_block = sine(37, 330.0, 48000.0);
 
@@ -178,7 +212,8 @@ TEST(Unit_Io, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
 
 TEST(Unit_Io, WavWriterFloat32HeaderCarriesAnExtensibleFmtChunkAndAFactChunk)
 {
-    const std::string path = temp_wav_path("sushidsp_wav_writer_fact_chunk.wav");
+    const TempWavFile   fixture("sushidsp_wav_writer_fact_chunk.wav");
+    const std::string&  path = fixture.path();
     const std::vector<float> samples = sine(50, 440.0, 48000.0);
 
     {
@@ -231,7 +266,8 @@ TEST(Unit_Io, WavWriterFloat32HeaderCarriesAnExtensibleFmtChunkAndAFactChunk)
 
 TEST(Unit_Io, WavWriterThrowsWhenThePathCannotBeOpened)
 {
-    const std::string path = temp_wav_path("sushidsp_wav_writer_no_such_dir/take.wav");
+    const TempWavFile   fixture("sushidsp_wav_writer_no_such_dir/take.wav");
+    const std::string&  path = fixture.path();
 
     EXPECT_THROW(
         SushiDSP::WavWriter(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32),

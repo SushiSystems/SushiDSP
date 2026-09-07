@@ -23,6 +23,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -867,7 +868,19 @@ TEST(Unit_Dsp, RigGraphCompileRefusesAnEdgeWithNoAdaptationRule)
     const auto stereo = graph.add_node(std::make_unique<StereoGainNode>(1.0f));
     graph.connect(source, stereo);
 
-    EXPECT_THROW(graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 2 }), std::runtime_error);
+    try
+    {
+        graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 2 });
+        FAIL() << "compile() accepted an edge with no adaptation rule";
+    }
+    catch (const std::runtime_error& refusal)
+    {
+        const std::string message = refusal.what();
+        EXPECT_NE(message.find("node " + std::to_string(source)), std::string::npos) << message;
+        EXPECT_NE(message.find("node " + std::to_string(stereo)), std::string::npos) << message;
+        EXPECT_NE(message.find("3 channels"), std::string::npos) << message;
+        EXPECT_NE(message.find("2 channels"), std::string::npos) << message;
+    }
 }
 
 TEST(Unit_Dsp, RigGraphSumsFanInPerChannel)
