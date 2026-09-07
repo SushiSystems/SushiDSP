@@ -43,6 +43,7 @@
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/dd3/Dd3Delay.hpp"
+#include "SushiDSP/capture/Metronome.hpp"
 #include "SushiDSP/capture/TrackRecorder.hpp"
 #include "SushiDSP/capture/TrackPlayer.hpp"
 #include "SushiDSP/capture/VariRateReader.hpp"
@@ -1327,6 +1328,45 @@ TEST(Unit_Dsp, VariRateReaderReadPerformsNoHeapAllocation)
         {
             cursor = reader.read(take, cursor, speed, outputs, 2u, 256u);
         }
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t frame = 0; frame < left.size(); ++frame)
+    {
+        EXPECT_TRUE(std::isfinite(left[frame]));
+        EXPECT_TRUE(std::isfinite(right[frame]));
+    }
+}
+
+TEST(Unit_Dsp, MetronomeProcessPerformsNoHeapAllocation)
+{
+    // The bursts are built before the trap window opens, so what is measured is the block: two
+    // atomic loads, a beat index and a copy out of a vector already sized.
+    SushiDSP::MusicalClock clock;
+    clock.set_tempo(137.4);
+
+    SushiDSP::Metronome metronome(48000.0);
+    metronome.set_enabled(true);
+    metronome.set_level(0.5f);
+
+    SushiDSP::Transport transport;
+    transport.play();
+
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float*             outputs[2] = { left.data(), right.data() };
+
+    AllocationTrap trap;
+    trap.arm();
+
+    for (int block = 0; block < 400; ++block)
+    {
+        std::fill(left.begin(), left.end(), 0.0f);
+        std::fill(right.begin(), right.end(), 0.0f);
+        metronome.process(outputs, 2u, 256u, transport, clock);
+        transport.advance(256u);
     }
 
     trap.disarm();
