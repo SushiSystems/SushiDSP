@@ -47,12 +47,11 @@ namespace SushiDSP
         : source_resistance_(source_resistance_ohms)
         , grid_leak_resistance_(grid_leak_resistance_ohms)
         , cathode_bias_(cathode_bias_volts)
-        , gain_(gain)
         , grid_conduction_(grid_conduction)
-        , plate_swing_(plate_swing)
         , cutoff_grid_limit_(cathode_bias_volts - kPlateReach * plate_swing.headroom_to_supply_volts / gain)
         , conduction_grid_limit_(cathode_bias_volts + kPlateReach * plate_swing.headroom_to_bottom_volts / gain)
         , previous_grid_voltage_(cathode_bias_volts)
+        , antialiaser_(source_resistance_ohms, grid_leak_resistance_ohms, cathode_bias_volts, gain, grid_conduction, plate_swing)
     {
     }
 
@@ -94,12 +93,12 @@ namespace SushiDSP
             cutoff_grid_limit_, conduction_grid_limit_);
         previous_grid_voltage_ = grid_voltage;
 
-        const float linear_plate = -gain_ * (grid_voltage - vk);
-        return plate_swing_.bound(linear_plate);
+        return antialiaser_.process(grid_voltage - vk);
     }
 
     void PentodeStage::reset()
     {
         previous_grid_voltage_ = cathode_bias_;
+        antialiaser_.reset();
     }
 }
