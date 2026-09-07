@@ -226,8 +226,9 @@ Part 2 implements both and section 5, and nothing under section 4.
   third line under −80 and −50 dB. The composite of a pair is odd in the drive to the float
   while both grids are inside their windows, and a cathode-bias difference now moves the handover.
 - Whole amplifiers at −12 dBFS, `measure::alias_floor()`: JCM800 at preamp 0.5 −11.2 to −16.3 dB
-  (−18.4 dB before part 1: part 2 recovers 5.1 of the 7.2 dB and does not close it), at
-  preamp 1.0 −15.1 to −13.4 dB, at preamp 0.02 −24.6 to −48.0 dB; 5150 default −17.2 to −11.4 dB
+  (−18.4 dB before part 1: part 2 recovers 5.1 of the 7.2 dB and does not close it; the inverter
+  and V1b corrections alone, over the bias-referenced power stage, read −8.7 dB there and
+  −18.1 dB at preamp 1.0), at preamp 1.0 −15.1 to −13.4 dB, at preamp 0.02 −24.6 to −48.0 dB; 5150 default −17.2 to −11.4 dB
   and at pre gain 0.02 −6.0 to −35.4 dB; IIC+ default −6.9 to −0.1 dB; VH4 default −11.6 to
   −13.3 dB. With the power stage made linear the 5150 reads −12.0 dB and the IIC+ −0.4 dB, and
   with only its cut-off ceiling removed −11.8 and −0.4 dB, so the fold that now shows at those

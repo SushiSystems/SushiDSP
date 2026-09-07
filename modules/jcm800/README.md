@@ -215,10 +215,12 @@ Measured through `measure::alias_floor()` at −12 dBFS, in the order the chain 
 | Volt-true EL34 pair, cold clipper at 7.77, inverter at its 2203 bias (DA5 part 2) | −16.3 dB | −13.4 dB | −48.0 dB |
 
 Part 1 cost the default setting 7.2 dB because the inverter's 10 kΩ source barely loads the
-Norman slope and the grid struck the deck-biased pair's 15.38 V ceiling; part 2's inverter
-correction recovers 5.1 dB of it and does not close it. Halving the transformer's drive and
-removing the pair's cut-off ceiling each move the figure by under 0.5 dB, so what remains is the
-preamp's own fold at the drive the circuit delivers.
+Norman slope and the grid struck the deck-biased pair's 15.38 V ceiling. The corrected inverter
+and V1b gain on their own, measured over the bias-referenced power stage, read −8.7 dB at the
+default and −18.1 dB at preamp 1.0; the volt-true EL34 pair on top of them gives the −16.3 and
+−13.4 dB shipped. Part 2 recovers 5.1 of the 7.2 dB at the default and does not close it.
+Halving the transformer's drive and removing the pair's cut-off ceiling each move the figure by
+under 0.5 dB, so what remains is the preamp's own fold at the drive the circuit delivers.
 
 The two losses on this page each moved the DA4 figure the wrong way:
 
