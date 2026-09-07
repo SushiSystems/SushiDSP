@@ -27,6 +27,7 @@
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -209,9 +210,7 @@ int main(int argc, char** argv)
         {
             if (device_choice.device_index == 0)
             {
-                // Sdl2AudioDevice::sdl_callback deinterleaves a mono stream only, so the SDL2
-                // path stays one output channel until the device layer grows a stereo writer.
-                SushiDSP::DeviceFormat requested{ 48000.0, 256, 1, 1 };
+                SushiDSP::DeviceFormat requested{ 48000.0, 256, 1, 2 };
                 device = std::make_unique<SushiDSP::Sdl2AudioDevice>(requested);
             }
 #if defined(SUSHIDSP_HAVE_ASIO)
@@ -237,7 +236,13 @@ int main(int argc, char** argv)
             const std::size_t input_index = SushiDSP::channel_selection_input_index(device_choice.input);
             const SushiDSP::ChannelSelection output_selection = device_choice.output;
             const bool is_multi_channel_input = actual.input_channels >= 2;
-            const bool is_multi_channel_output = actual.output_channels >= 2;
+            const std::uint32_t device_output_channels = std::max(1u, actual.output_channels);
+            if (!SushiDSP::rig_output_adapts_to_device(rig_channels, device_output_channels))
+            {
+                throw std::runtime_error(
+                    "no channel adaptation rule from the rig's " + std::to_string(rig_channels)
+                    + " output channels to the device's " + std::to_string(device_output_channels));
+            }
 
             // Sized once, here, off the audio thread - the outer-scope vectors declared
             // above (mono_output, callback_silence) are never resized again after this,
@@ -259,7 +264,7 @@ int main(int argc, char** argv)
             device->start([&rig_controller_ref, &rig_input, &rig_output, &rig_output_pointers,
                             &rig_output_const_pointers, &callback_silence, &input_probe,
                             &output_probe, input_index, output_selection, is_multi_channel_input,
-                            is_multi_channel_output, rig_channels]
+                            device_output_channels, rig_channels]
                 (const float* const* inputs, float* const* outputs, std::uint32_t frames)
             {
                 if (frames > rig_input.size())
@@ -351,36 +356,9 @@ int main(int argc, char** argv)
                     transport.advance(frames);
                 }
 
-                if (!is_multi_channel_output)
-                {
-                    std::memcpy(outputs[0], rig_output_pointers[0], frames * sizeof(float));
-                }
-                else if (rig_channels == 1)
-                {
-                    SushiDSP::fan_out_mono_to_stereo(rig_output_pointers[0], outputs, frames,
+                SushiDSP::write_rig_output_to_device(rig_output_const_pointers.data(), rig_channels,
+                                                     outputs, device_output_channels, frames,
                                                      output_selection);
-                }
-                else
-                {
-                    const bool write_left = output_selection != SushiDSP::ChannelSelection::Right;
-                    const bool write_right = output_selection != SushiDSP::ChannelSelection::Left;
-                    if (write_left)
-                    {
-                        std::memcpy(outputs[0], rig_output_pointers[0], frames * sizeof(float));
-                    }
-                    else
-                    {
-                        std::memset(outputs[0], 0, frames * sizeof(float));
-                    }
-                    if (write_right)
-                    {
-                        std::memcpy(outputs[1], rig_output_pointers[1], frames * sizeof(float));
-                    }
-                    else
-                    {
-                        std::memset(outputs[1], 0, frames * sizeof(float));
-                    }
-                }
             });
 
             device_label = std::string("Connected: ")

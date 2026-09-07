@@ -64,6 +64,20 @@ namespace SushiDSP
         format_.block_size = obtained.samples;
         format_.input_channels = 0;
         format_.output_channels = obtained.channels;
+
+        // A one-channel device hands its own buffer to the callback, so only a wider
+        // device needs somewhere deinterleaved to render into.
+        if (format_.output_channels > 1)
+        {
+            deinterleaved_output_.assign(
+                static_cast<std::size_t>(format_.block_size) * format_.output_channels, 0.0f);
+            output_channel_pointers_.resize(format_.output_channels);
+            for (std::uint32_t channel = 0; channel < format_.output_channels; ++channel)
+            {
+                output_channel_pointers_[channel] =
+                    deinterleaved_output_.data() + static_cast<std::size_t>(channel) * format_.block_size;
+            }
+        }
     }
 
     Sdl2AudioDevice::~Sdl2AudioDevice()
@@ -96,9 +110,18 @@ namespace SushiDSP
         callback_ = {};
     }
 
-    /// @brief SDL2's audio thread entry point. Only mono is deinterleaved in D1; a
-    /// multi-channel device outputs silence rather than crashing until a later task
-    /// needs real interleave/deinterleave.
+    void Sdl2AudioDevice::interleave(const float* const* channels, std::uint32_t channel_count,
+                                     std::uint32_t frames, float* destination)
+    {
+        for (std::uint32_t frame = 0; frame < frames; ++frame)
+        {
+            for (std::uint32_t channel = 0; channel < channel_count; ++channel)
+            {
+                destination[static_cast<std::size_t>(frame) * channel_count + channel] = channels[channel][frame];
+            }
+        }
+    }
+
     void Sdl2AudioDevice::sdl_callback(void* userdata, unsigned char* stream, int length_bytes)
     {
         DenormalGuard denormal_guard;
@@ -119,6 +142,14 @@ namespace SushiDSP
             return;
         }
 
-        std::memset(stream, 0, static_cast<std::size_t>(length_bytes));
+        // The deinterleaved scratch holds exactly one block, so a longer request cannot be served.
+        if (frames > self->format_.block_size)
+        {
+            std::memset(stream, 0, static_cast<std::size_t>(length_bytes));
+            return;
+        }
+
+        self->callback_(nullptr, self->output_channel_pointers_.data(), frames);
+        interleave(self->output_channel_pointers_.data(), self->format_.output_channels, frames, samples);
     }
 }
