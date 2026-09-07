@@ -85,7 +85,7 @@ namespace SushiDSP
 
         for (std::uint32_t channel = 0; channel < channels_; ++channel)
         {
-            rings_[channel].reset(new SpscRing<float>(ring_capacity_frames_));
+            rings_[channel]->clear();
         }
         pushed_frames_.store(0, std::memory_order_relaxed);
         popped_frames_.store(0, std::memory_order_relaxed);
@@ -108,6 +108,19 @@ namespace SushiDSP
         return true;
     }
 
+    bool TrackRecorder::has_room(std::uint32_t frames) const noexcept
+    {
+        if (!recording_.load(std::memory_order_acquire))
+        {
+            return false;
+        }
+
+        const std::uint64_t pushed = pushed_frames_.load(std::memory_order_relaxed);
+        const std::uint64_t popped = popped_frames_.load(std::memory_order_acquire);
+        const std::uint64_t free_frames = ring_capacity_frames_ - (pushed - popped);
+        return frames <= free_frames;
+    }
+
     bool TrackRecorder::write(const float* const* channels, std::uint32_t frames) noexcept
     {
         if (!recording_.load(std::memory_order_acquire) || channels == nullptr)
@@ -119,15 +132,13 @@ namespace SushiDSP
             return true;
         }
 
-        const std::uint64_t pushed = pushed_frames_.load(std::memory_order_relaxed);
-        const std::uint64_t popped = popped_frames_.load(std::memory_order_acquire);
-        const std::uint64_t free_frames = ring_capacity_frames_ - (pushed - popped);
-
-        if (frames > free_frames)
+        if (!has_room(frames))
         {
             dropped_blocks_.fetch_add(1, std::memory_order_relaxed);
             return false;
         }
+
+        const std::uint64_t pushed = pushed_frames_.load(std::memory_order_relaxed);
 
         for (std::uint32_t channel = 0; channel < channels_; ++channel)
         {
@@ -135,6 +146,7 @@ namespace SushiDSP
             SpscRing<float>&  ring   = *rings_[channel];
             for (std::uint32_t frame = 0; frame < frames; ++frame)
             {
+                // The free-space check above guarantees every push fits, so SpscRing never refuses one here.
                 ring.push(source[frame]);
             }
         }

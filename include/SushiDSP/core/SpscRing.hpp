@@ -79,6 +79,14 @@ namespace SushiDSP
             return true;
         }
 
+        /// @brief Empties the ring in place, keeping the storage the constructor allocated.
+        /// @pre Neither the producer nor the consumer is inside push() or pop().
+        void clear()
+        {
+            head_.store(0, std::memory_order_relaxed);
+            tail_.store(0, std::memory_order_release);
+        }
+
         /// @brief The maximum number of elements this ring can hold at once.
         /// @return The capacity passed to the constructor.
         std::size_t capacity() const
