@@ -1,7 +1,8 @@
 # Stereo rig, track recording and playback
 
-**Status:** draft, awaiting maintainer review. Roadmap prefix **DS** (Dsp Studio); phases DS0
-through DS5 below.
+**Status:** approved by the maintainer 2026-09-07. DS0 through DS4 landed the same day; DS5, OGG
+export, stays deferred. Roadmap prefix **DS** (Dsp Studio); phases DS0 through DS5 below, and
+`docs/design/sushidsp.md` §3a describes what they built.
 
 ## 1. Goal
 

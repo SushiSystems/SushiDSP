@@ -45,6 +45,13 @@ once you're in the tree and need a specific document.
   **[`modules/diezel_vh4/`](../modules/diezel_vh4/)** — the three high-gain amplifiers sibling to
   the JCM800 (design spec §5a). Each module's own README says where its model departs from its
   design dossier under `docs/reference/research/`.
+- **[`modules/capture/`](../modules/capture/)** — recording and playing takes back, the DS phase's
+  own module: no circuit, no `NodeDescriptor`, only the core as a dependency. Its
+  [`README.md`](../modules/capture/README.md) says which class owns what, which of its three
+  functions the audio thread calls, how the processed/dry pair stays sample-aligned and how a take
+  is published to a playing track; the spec is
+  [`docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`](superpowers/specs/2026-09-07-stereo-tracks-design.md)
+  and the design section is `docs/design/sushidsp.md` §3a.
 - **[`tools/`](../tools/)** — developer-side scripts that are not part of the shipped library:
   `tools/dsp/design_halfband.py` (regenerates `include/SushiDSP/math/HalfbandCoefficients.hpp`
   from a scipy `remez` design), `tools/dsp/design_resampler.py` (regenerates
