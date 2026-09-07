@@ -16,6 +16,7 @@ target_link_libraries(sushidsp_bench PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
     SushiDSP::jcm800
+    SushiDSP::capture
     SushiDSP::dd3
 )
 sushidsp_apply_optimization_flags(sushidsp_bench)
