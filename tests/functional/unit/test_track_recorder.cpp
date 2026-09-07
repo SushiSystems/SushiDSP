@@ -164,12 +164,10 @@ TEST(Unit_Dsp, RecordingBusWritesTwoFilesOfEqualLength)
     std::vector<float> processed(kBlockFrames, 0.4f);
     std::vector<float> dry(kBlockFrames, -0.2f);
     const float*       processed_channels[1] = { processed.data() };
-    const float*       dry_channels[1] = { dry.data() };
 
     for (std::size_t index = 0; index < kBlocks; ++index)
     {
-        ASSERT_TRUE(bus.write_processed(processed_channels, kBlockFrames));
-        ASSERT_TRUE(bus.write_dry(dry_channels, kBlockFrames));
+        ASSERT_TRUE(bus.write(processed_channels, dry.data(), kBlockFrames));
     }
 
     bus.stop();
@@ -203,12 +201,10 @@ TEST(Unit_Dsp, RecordingBusKeepsBothFilesEqualWhenOneRingFills)
     std::vector<float> processed(kBlockFrames, 0.4f);
     std::vector<float> dry(kBlockFrames, -0.2f);
     const float*       processed_channels[1] = { processed.data() };
-    const float*       dry_channels[1] = { dry.data() };
 
     for (std::size_t index = 0; index < kBlocks; ++index)
     {
-        EXPECT_FALSE(bus.write_processed(processed_channels, kBlockFrames));
-        EXPECT_FALSE(bus.write_dry(dry_channels, kBlockFrames));
+        EXPECT_FALSE(bus.write(processed_channels, dry.data(), kBlockFrames));
     }
 
     bus.stop();
