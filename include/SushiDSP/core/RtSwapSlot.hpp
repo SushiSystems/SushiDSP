@@ -143,11 +143,16 @@ namespace SushiDSP
         void reclaim()
         {
             const std::uint64_t safe_generation = audio_thread_generation_.load(std::memory_order_acquire);
+            // A zero watermark means acquire_for_audio_thread() has never returned a non-null
+            // object, so no retired entry can be held by the audio thread and every one but the
+            // active object is past.
+            const bool nothing_acquired = safe_generation == 0;
             retired_.erase(
                 std::remove_if(retired_.begin(), retired_.end(),
                     [&](const std::pair<std::uint64_t, std::unique_ptr<T>>& entry)
                     {
-                        return entry.first < safe_generation && entry.second.get() != active_.load(std::memory_order_acquire);
+                        const bool past = nothing_acquired || entry.first < safe_generation;
+                        return past && entry.second.get() != active_.load(std::memory_order_acquire);
                     }),
                 retired_.end());
         }

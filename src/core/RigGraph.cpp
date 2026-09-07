@@ -350,7 +350,8 @@ namespace SushiDSP
                 output_ptr[channel] = node_buffer;
             }
 
-            const std::uint32_t width = std::max(channels.input_width, 1u);
+            // slots * width indexes gathered_inputs_, so both are clamped to the bounds that array was sized from.
+            const std::uint32_t width = std::min(std::max(channels.input_width, 1u), kMaxChannels);
             const std::uint32_t slots = std::min(std::max(channels.input_slots, 1u),
                                                  static_cast<std::uint32_t>(kMaxFanInOut));
             for (std::uint32_t slot_channel = 0; slot_channel < slots * width; ++slot_channel)
