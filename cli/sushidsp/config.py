@@ -9,8 +9,8 @@ SushiDSP pins no toolchain. It builds with whatever C++17 compiler it can
 find, in this order, and `sd config` reports which one won:
 
     1. an explicit ``cxx`` (config.local.toml or SD_CXX);
-    2. the intel/llvm clang++ that ``ss install`` provisions into the
-       SushiStack workspace (``llvm_root``, written by ``ss`` into the
+    2. the intel/llvm clang++ that ``hub install`` provisions into the
+       SushiStack workspace (``llvm_root``, written by ``hub`` into the
        workspace-shared config.local.toml);
     3. a ``clang++`` on PATH;
     4. nothing -- CMake's platform default (MSVC through the Visual Studio
@@ -43,7 +43,7 @@ PROFILE = ModuleProfile(
                 "vs_vcvars", "llvm_root", "target_bin"),
 )
 
-# The workspace-shared config.local.toml is where `ss install` records the
+# The workspace-shared config.local.toml is where `hub install` records the
 # bundled intel/llvm root, vcvars, ninja and cmake it found; reading it is how
 # step 2 of the compiler search works without SushiDSP pinning anything itself.
 _MODULE = ModuleConfig(PROFILE, use_workspace_config=True)
@@ -57,7 +57,7 @@ workspace_home = _MODULE.workspace_home
 #: environment and needs the reverse map.
 _ENV_OVERRIDES = PROFILE.env_overrides()
 
-#: Directory names `ss install` has unpacked the intel/llvm bundle under, in
+#: Directory names `hub install` has unpacked the intel/llvm bundle under, in
 #: preference order, probed when llvm_root is not written down.
 _INTEL_LLVM_BUNDLE_DIRS = ("llvm-sycl-nightly", "llvm-sycl")
 
@@ -67,7 +67,7 @@ class Config(ToolConfig):
     """Resolved, platform-specific tool configuration for the SushiDSP build.
 
     Inherits every field (cmake/ninja paths, cxx, generator, vs_vcvars, ...) from
-    :class:`ToolConfig` and adds the intel/llvm bundle root ``ss`` records.
+    :class:`ToolConfig` and adds the intel/llvm bundle root ``hub`` records.
     """
 
     target_bin: str = "sushidsp_host"
@@ -77,7 +77,7 @@ class Config(ToolConfig):
     # found the generator is chosen by resolved_generator() instead.
     generator: str = ""
 
-    # intel/llvm bundle root holding bin/clang++, as written by `ss install`.
+    # intel/llvm bundle root holding bin/clang++, as written by `hub install`.
     llvm_root: str = ""
 
     def _clang_name(self) -> str:
@@ -119,7 +119,7 @@ class Config(ToolConfig):
             return "SushiStack workspace (intel/llvm)"
         if shutil.which("clang++"):
             return "PATH (clang++)"
-        return "platform default (no clang++ found; `ss install` provisions intel/llvm)"
+        return "platform default (no clang++ found; `hub install` provisions intel/llvm)"
 
     def resolved_ninja(self) -> str:
         """The ninja binary to hand CMake, or '' when none is available."""
