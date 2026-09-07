@@ -167,9 +167,12 @@ namespace SushiDSP
         constexpr PlateSwing kPhaseInverterPlateSwing{ 15.381908f, 209.940627f };
         /// @brief Jcm800.cpp's kPhaseInverterDegeneration, divided into the inverter's input
         /// because the shared cathode follows the driven grid. The other triode's cathode presents
-        /// (r_a + Ra)/(mu + 1) = 3607.8298 Ohm in parallel with the 20.94 kOhm tail, so the window
-        /// is the input over 1 + 20940/(20940 + 3607.8298) = 1.853029.
-        constexpr float kPhaseInverterDegeneration = 1.853029f;
+        /// (r_a + Ra)/(mu + 1) = 3607.8298 Ohm in parallel with the tail, so the window is the
+        /// input over 1 + 10470/(10470 + 3607.8298) = 1.743723.
+        /// @pre The tail here is the 10.47 kOhm both cathodes share, jcm_ltp's 470 Ohm and 10 kOhm
+        /// in series to ground. The 20.94 kOhm that reaches the cathode-bias figure above is the
+        /// per-half DC equivalent and belongs only in the idle solve.
+        constexpr float kPhaseInverterDegeneration = 1.743723f;
 
         constexpr float kTriodeSaturationCurrentAmps = 1e-9f;
         constexpr float kTriodeThermalVoltageVolts = 0.02585f;
