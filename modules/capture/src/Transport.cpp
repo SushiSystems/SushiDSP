@@ -23,11 +23,15 @@
 
 #include "SushiDSP/capture/Transport.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 namespace SushiDSP
 {
     namespace
     {
         constexpr std::uint64_t kLoopFieldLimit = 0x1'0000'0000ull;
+        constexpr std::uint64_t kSpeedFractionMask = 0xFFFF'FFFFull;
     }
 
     void Transport::unpack_loop(std::uint64_t packed, std::uint64_t& out_begin,
@@ -40,7 +44,10 @@ namespace SushiDSP
     void Transport::advance(std::uint32_t frames) noexcept
     {
         const std::uint64_t position = position_.load(std::memory_order_relaxed);
-        std::uint64_t       next = position + frames;
+        const std::uint64_t total = static_cast<std::uint64_t>(frames)
+            * speed_q32_.load(std::memory_order_relaxed) + speed_remainder_;
+        speed_remainder_ = total & kSpeedFractionMask;
+        std::uint64_t next = position + (total >> 32);
 
         std::uint64_t begin = 0;
         std::uint64_t length = 0;
@@ -72,6 +79,7 @@ namespace SushiDSP
     void Transport::seek(std::uint64_t frames) noexcept
     {
         position_.store(frames, std::memory_order_release);
+        speed_remainder_ = 0;
     }
 
     void Transport::set_loop(std::uint64_t begin_frames, std::uint64_t end_frames) noexcept
@@ -132,5 +140,23 @@ namespace SushiDSP
             return false;
         }
         return true;
+    }
+
+    void Transport::set_speed(double speed) noexcept
+    {
+        const double clamped = std::clamp(speed, kMinSpeed, kMaxSpeed);
+        const auto   q32 = static_cast<std::uint64_t>(std::llround(clamped * static_cast<double>(1ull << 32)));
+        speed_q32_.store(q32, std::memory_order_relaxed);
+    }
+
+    std::uint64_t Transport::speed_q32() const noexcept
+    {
+        return speed_q32_.load(std::memory_order_relaxed);
+    }
+
+    double Transport::speed() const noexcept
+    {
+        return static_cast<double>(speed_q32_.load(std::memory_order_relaxed))
+            / static_cast<double>(1ull << 32);
     }
 }
