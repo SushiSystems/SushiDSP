@@ -173,6 +173,7 @@ namespace SushiDSP
         const std::uint64_t loop_begin = transport.loop_begin_frames();
         const std::uint64_t loop_end = transport.loop_end_frames();
         const bool          looping = transport.has_loop();
+        const std::uint64_t block_position = transport.position_frames();
 
         for (std::size_t index = 0; index < kMaxTracks; ++index)
         {
@@ -190,12 +191,12 @@ namespace SushiDSP
             const float gain_left = std::cos(theta) * track_gain;
             const float gain_right = std::sin(theta) * track_gain;
 
-            std::uint64_t position = transport.position_frames();
+            std::uint64_t position = block_position;
             std::uint32_t written = 0;
             while (written < frames)
             {
                 std::uint32_t run = frames - written;
-                if (looping && position >= loop_begin && position < loop_end)
+                if (looping && position < loop_end)
                 {
                     run = static_cast<std::uint32_t>(
                         std::min<std::uint64_t>(run, loop_end - position));

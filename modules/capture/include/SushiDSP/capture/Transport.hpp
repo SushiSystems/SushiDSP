@@ -39,12 +39,9 @@ namespace SushiDSP
     /// @brief The sample clock every track shares: a frame position, a state, and an
     /// optional loop range. The audio thread advances the position once per block and the
     /// control thread moves it, all through atomics, so neither side ever waits on the
-    /// other.
-    ///
-    /// The loop range lives in one 64-bit word - the begin frame in the high half, the
-    /// length in the low half - so the audio thread reads both ends in a single atomic load
-    /// and can never see a half-applied range. That packing bounds a loop to the first
-    /// 2^32 frames of the timeline, a little over 24 hours at 48 kHz.
+    /// other. The loop range lives in one 64-bit word, which bounds a loop to the first
+    /// 2^32 frames of the timeline.
+    /// @see docs/superpowers/specs/2026-09-07-stereo-tracks-design.md §6
     class Transport
     {
     public:
@@ -73,6 +70,8 @@ namespace SushiDSP
 
         /// @brief Moves the position to an arbitrary frame. Control thread.
         /// @param frames The frame the transport should read from next.
+        /// @pre A seek concurrent with advance() may be overwritten by that block's store; the
+        /// host serialises them.
         void seek(std::uint64_t frames) noexcept;
 
         /// @brief Sets the loop range the audio thread wraps at. Control thread.
@@ -115,8 +114,13 @@ namespace SushiDSP
         static void unpack_loop(std::uint64_t packed, std::uint64_t& out_begin,
                                 std::uint64_t& out_length) noexcept;
 
+        /// @brief Holds the frame the next block starts at.
         std::atomic<std::uint64_t>  position_{ 0 };
+
+        /// @brief Holds what the transport is doing right now.
         std::atomic<TransportState> state_{ TransportState::Stopped };
+
+        /// @brief Holds the loop begin in the high half and the loop length in the low half.
         std::atomic<std::uint64_t>  loop_{ 0 };
     };
 }
