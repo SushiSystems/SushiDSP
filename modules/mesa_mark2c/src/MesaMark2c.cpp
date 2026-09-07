@@ -149,15 +149,20 @@ namespace SushiDSP
 
         /// @brief The output section's fixed constants.
         constexpr float kSimulClassPairWeight = 0.5f;  // A modelling choice: both pairs sum equally.
-        /// @brief The bridge between the volt-true preamp and PentodeStage's grid units until
-        /// PentodeStage becomes volt-true (DA5): the stage saturates at 1 / (drive x gain) in its
-        /// own units, which this maps onto the preset's 45 V bias. 1 / (0.049 x 5.0) / 45.
-        constexpr float kInnerPairGridScale = 0.0907030f;
+        /// @brief The level the output transformer stage receives at both pairs' full clip: the
+        /// (2 x 20.408 + 2 x 14.493) V x 0.5 x 0.05 this chain delivered before PentodeStage
+        /// became volt-true, a modelling choice adopted from modules/jcm800/src/Jcm800.cpp.
+        constexpr float kTransformerFullClipUnits = 1.745265f;
 
-        /// @brief The same bridge for the outer pair, until PentodeStage becomes volt-true (DA5):
-        /// 1 / (0.069 x 5.2) / 45.
-        constexpr float kOuterPairGridScale = 0.0619348f;
-        constexpr float kPowerTubeToTransformerAttenuation = 0.05f;   // The output trim to full scale.
+        /// @brief The output trim from the power-tube plates to the transformer's units: the two
+        /// pairs' full swings, each preset's two headrooms summed and weighted by
+        /// kSimulClassPairWeight, land at kTransformerFullClipUnits.
+        constexpr float kPowerTubeToTransformerAttenuation = kTransformerFullClipUnits
+            / (kSimulClassPairWeight
+               * (kMesaMark2cPower6L6GC.plate_swing.headroom_to_supply_volts
+                  + kMesaMark2cPower6L6GC.plate_swing.headroom_to_bottom_volts
+                  + kMesaMark2cPowerEl34Triode.plate_swing.headroom_to_supply_volts
+                  + kMesaMark2cPowerEl34Triode.plate_swing.headroom_to_bottom_volts));
         constexpr float kOutputTransformerRolloffHz = 60.0f;   // The JCM800's constant; dossier 8 question 3.
         constexpr float kOutputTransformerLeakageHz = 8000.0f; // The JCM800's constant; dossier 8 question 3.
         constexpr float kOutputTransformerSaturationDrive = 0.3f;  // The JCM800's constant; dossier 8 question 3.
@@ -453,13 +458,11 @@ namespace SushiDSP
                 phase_inverter_grid_miller_.process_sample(equalised) / kPhaseInverterDegeneration);
 
             // Simul-Class: both pairs hang on the same transformer and see the same phase-inverted
-            // grid signal, and they clip 2.99 dB apart because their presets do (dossier 7.3).
-            const float inner_grid = phase_inverted * kInnerPairGridScale;
-            const float outer_grid = phase_inverted * kOuterPairGridScale;
-            const float inner_pair = power_inner_a_.process_sample(inner_grid)
-                - power_inner_b_.process_sample(-inner_grid);
-            const float outer_pair = power_outer_a_.process_sample(outer_grid)
-                - power_outer_b_.process_sample(-outer_grid);
+            // grid signal, and they clip apart because their plate swings do (dossier 7.3).
+            const float inner_pair = power_inner_a_.process_sample(phase_inverted)
+                - power_inner_b_.process_sample(-phase_inverted);
+            const float outer_pair = power_outer_a_.process_sample(phase_inverted)
+                - power_outer_b_.process_sample(-phase_inverted);
             const float power_tube_out = (inner_pair + outer_pair) * kSimulClassPairWeight
                 * kPowerTubeToTransformerAttenuation;
 

@@ -23,41 +23,67 @@
 
 #pragma once
 
+#include "SushiDSP/circuits/models/PentodeEL34.hpp"
+#include "SushiDSP/circuits/stages/GridConductionLaw.hpp"
+#include "SushiDSP/circuits/stages/PlateSwing.hpp"
+
 namespace SushiDSP
 {
-    /// @brief The constructor constants one PentodeStage takes for a named power tube.
+    /// @brief The power tube's grid law, read from PentodeEL34 so the stage and the DK model agree.
+    inline constexpr GridConductionLaw kPentodeEL34GridConduction{
+        static_cast<float>(PentodeEL34::kGridCurrentScale),
+        static_cast<float>(PentodeEL34::kGridThresholdVolts),
+        static_cast<float>(PentodeEL34::kGridTransitionVolts) };
+
+    /// @brief The constructor constants one PentodeStage takes for a named power tube, every
+    /// voltage in real volts; the derivations are in the owning module's README.
     struct PowerTubePreset
     {
-        /// @brief The Thevenin source resistance feeding the grid, driver output impedance plus
-        /// grid stopper, as PentodeStage.hpp defines it.
+        /// @brief The Thevenin source resistance feeding the grid: the driver's output impedance
+        /// plus the grid stopper.
         float source_resistance_ohms;
-        /// @brief The grid-leak resistor from grid to the cathode-bias voltage.
+
+        /// @brief The grid-leak resistor from the grid to the bias supply.
         float grid_leak_resistance_ohms;
-        /// @brief The solver's resting grid-circuit potential; the output is the same function of
-        /// the input for any value of it.
+
+        /// @brief The grid's DC voltage against the cathode; the grid conducts |this| above rest.
         float cathode_bias_volts;
-        /// @brief The inverting linear gain from grid to plate before saturation.
+
+        /// @brief The inverting small-signal gain from grid to plate, gm times the reflected load.
         float gain;
-        /// @brief The saturation current of the grid-conduction diode.
-        float saturation_current_amps;
-        /// @brief The thermal voltage of that diode, 0.02585 V at room temperature.
-        float thermal_voltage_volts;
-        /// @brief How hard the plate-current tanh saturates; the output ceiling is its reciprocal.
-        float plate_saturation_drive;
+
+        /// @brief The grid-current law the stage's node equation carries.
+        GridConductionLaw grid_conduction;
+
+        /// @brief The plate's swing toward cutoff and toward the bottom of its load line.
+        PlateSwing plate_swing;
     };
 
-    /// @brief EL34 as the JCM800 2203 runs it; the values Jcm800.cpp used before DA0, verbatim.
-    /// These are modelling constants calibrated against the 2203's golden files, not the 2203's
-    /// schematic values. No 2203 reference operating point is stated anywhere in the JCM800
-    /// design spec; the constants were fitted to the goldens without one.
-    inline constexpr PowerTubePreset kEl34{ 10000.0f, 220000.0f, -20.0f, 8.0f, 1e-9f, 0.02585f, 0.05f };
+    /// @brief EL34 as the JCM800 2203 runs it: the Philips EL34 datasheet's class B push-pull
+    /// point at Vg1 -38 V, Raa 3.4 kOhm, 2 x 30 mA, 55 W (modules/jcm800/README.md, "The EL34
+    /// pair"); source (82k || 43.056k) + 5.6k from the corrected inverter and jcm_pp_ot_nfb.
+    inline constexpr PowerTubePreset kEl34{
+        33831.9f, 220000.0f, -38.0f, 6.882361f, kPentodeEL34GridConduction, PlateSwing{ 25.5f, 280.2777f } };
 
-    /// @brief Peavey 5150 lead, 6L6GC quad, fixed bias; 5150 dossier §7 (gain and drive are modelling choices).
-    inline constexpr PowerTubePreset kPeavey5150Power6L6GC{ 39000.0f, 220000.0f, -55.0f, 6.0f, 1e-9f, 0.02585f, 0.048f };
-    /// @brief Mesa Mark IIC+ Simul-Class inner pair, 6L6GC pentode; IIC+ dossier §7.2.
-    inline constexpr PowerTubePreset kMesaMark2cPower6L6GC{ 37600.0f, 220000.0f, -45.0f, 5.0f, 1e-9f, 0.02585f, 0.049f };
-    /// @brief Mesa Mark IIC+ Simul-Class outer pair, EL34 triode-strapped; IIC+ dossier §7.3.
-    inline constexpr PowerTubePreset kMesaMark2cPowerEl34Triode{ 37600.0f, 220000.0f, -45.0f, 5.2f, 1e-9f, 0.02585f, 0.069f };
-    /// @brief Diezel VH4, EL34 quad at 500 V; VH4 dossier §7 EL34 row (−36 V) with the 500/450 V drive scaling.
-    inline constexpr PowerTubePreset kDiezelVh4PowerEl34{ 10000.0f, 220000.0f, -36.0f, 8.0f, 1e-9f, 0.02585f, 0.045f };
+    /// @brief Peavey 5150 lead, two 6L6GC per push-pull side: the RCA 6L6GC sheet's class AB1
+    /// point (450 V, 400 V screen, Raa 5600 Ohm, 55 W) doubled, at the dossier's 2 x 30 mA idle
+    /// and -55 V bias (modules/peavey5150/README.md, "The power tubes").
+    inline constexpr PowerTubePreset kPeavey5150Power6L6GC{
+        39000.0f, 220000.0f, -55.0f, 5.995340f, kPentodeEL34GridConduction, PlateSwing{ 42.0f, 350.4283f } };
+
+    /// @brief Mesa Mark IIC+ Simul-Class inner pair, 6L6GC pentode: the RCA class AB1 point at its
+    /// own 58 mA idle, the printed -45 V bias (modules/mesa_mark2c/README.md, "The output section").
+    inline constexpr PowerTubePreset kMesaMark2cPower6L6GC{
+        37600.0f, 220000.0f, -45.0f, 7.388139f, kPentodeEL34GridConduction, PlateSwing{ 81.2f, 311.2283f } };
+
+    /// @brief Mesa Mark IIC+ Simul-Class outer pair, EL34 triode-strapped: Mesa's 25 W on the same
+    /// primary, split evenly as a class A stage (modules/mesa_mark2c/README.md, "The output section").
+    inline constexpr PowerTubePreset kMesaMark2cPowerEl34Triode{
+        37600.0f, 220000.0f, -45.0f, 6.635772f, kPentodeEL34GridConduction, PlateSwing{ 132.2876f, 132.2876f } };
+
+    /// @brief Diezel VH4, EL34 quad at 500 V: the Philips EL34 datasheet's 500 V push-pull point
+    /// (Vg1 -36 V, Raa 4 kOhm, 70 W) at Diezel's 35 mA idle (modules/diezel_vh4/README.md, "The
+    /// power tube is an EL34").
+    inline constexpr PowerTubePreset kDiezelVh4PowerEl34{
+        10000.0f, 220000.0f, -36.0f, 8.458480f, kPentodeEL34GridConduction, PlateSwing{ 35.0f, 339.1657f } };
 }

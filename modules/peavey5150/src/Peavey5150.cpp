@@ -165,13 +165,6 @@ namespace SushiDSP
         /// does not model, so the AC tail is lower.
         constexpr float kPhaseInverterDegeneration = 1.914527f;
 
-        /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
-        /// PentodeStage becomes volt-true (DA5). PentodeStage's grid saturates at
-        /// 1 / (plate_saturation_drive * gain) = 1 / (0.048 * 6) = 3.4722 model volts, where the
-        /// real 6L6GC grid needs |cathode_bias_volts| = 55 V: 3.4722 / 55 = 0.0631313. It sits
-        /// beside the circuit's own grid-leak divider below, which stays.
-        constexpr float kPowerTubeGridScale = 0.0631313f;
-
         // Dossier section 5: the pair's plates drive R55/R54 220k through C29/C28 with only the
         // 2.2 kOhm stoppers between the node and the grids, so the loss is the 220 kOhm leak
         // against the dossier's own 35.3 kOhm plate impedance: 220/(220 + 35.3) = 0.8617. That
@@ -179,11 +172,17 @@ namespace SushiDSP
         // behind kPhaseInverterGain puts at 44.655 kOhm.
         constexpr float kPhaseInverterToPowerTubeAttenuation = 0.8617f;
 
-        // Not a dossier value. The output trim to full scale: the JCM800's output-level trim into
-        // the transformer, adopted
-        // unchanged from modules/jcm800/src/Jcm800.cpp so the transformer and the sag stage see
-        // the level they were calibrated at; a modelling choice.
-        constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
+        /// @brief The level the output transformer stage receives at the pair's full clip: the
+        /// 2 x 20.833 V x 0.05 this chain delivered before PentodeStage became volt-true, a
+        /// modelling choice adopted from modules/jcm800/src/Jcm800.cpp.
+        constexpr float kTransformerFullClipUnits = 2.083333f;
+
+        /// @brief The output trim from the 6L6GC plates to the transformer's units: the pair's
+        /// full swing, kPeavey5150Power6L6GC's two headrooms summed, lands at
+        /// kTransformerFullClipUnits.
+        constexpr float kPowerTubeToTransformerAttenuation = kTransformerFullClipUnits
+            / (kPeavey5150Power6L6GC.plate_swing.headroom_to_supply_volts
+               + kPeavey5150Power6L6GC.plate_swing.headroom_to_bottom_volts);
 
         // Dossier section 3: V3B's plate ties straight to V2 with no plate resistor, and section 3
         // uses 0.98 as the follower's gain when it computes the bootstrapped grid return. The
@@ -191,11 +190,11 @@ namespace SushiDSP
         // modelled.
         constexpr float kCathodeFollowerGain = 0.98f;
 
-        // Grid bias mismatch between the two halves of the output stage, applied input-referred.
-        // Not a dossier value: adopted from modules/jcm800/src/Jcm800.cpp's
-        // kPowerTubeGridBiasMismatchVolts, whose comment carries the argument for why a
-        // cathode-bias difference would be inert and an input-referred offset is not.
-        constexpr float kPowerTubeGridBiasMismatchVolts = 0.03f;
+        /// @brief Grid bias mismatch between the two halves of the output stage, an input-referred
+        /// offset in real volts: the 0.03 model volts adopted from modules/jcm800/src/Jcm800.cpp,
+        /// through the deleted 0.0631313 grid scale (modules/peavey5150/README.md, "The power
+        /// tubes"). Not a dossier value.
+        constexpr float kPowerTubeGridBiasMismatchVolts = 0.475200f;
 
         // Not dossier values. Dossier section 5 leaves the output transformer's primary impedance
         // and turns ratio not established (open question 2), so the JCM800's transformer and sag
@@ -577,7 +576,7 @@ namespace SushiDSP
             const float pair_in = phase_inverter_grid_miller_.process_sample(
                 c49_coupling_.process_sample(v3a_out) / kPhaseInverterDegeneration);
             const float pair_out = phase_inverter_.process_sample(pair_in)
-                * kPhaseInverterToPowerTubeAttenuation * kPowerTubeGridScale;
+                * kPhaseInverterToPowerTubeAttenuation;
 
             const float power_a = power_tube_a_.process_sample(pair_out);
             const float power_b = power_tube_b_.process_sample(-pair_out - power_tube_grid_bias_mismatch_volts_);

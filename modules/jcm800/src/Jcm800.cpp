@@ -117,37 +117,13 @@ namespace SushiDSP
         /// branch.
         constexpr float kPhaseInverterDegeneration = 1.888775f;
 
-        /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
-        /// PentodeStage becomes volt-true (DA5). kEl34's grid saturates at 1/(0.05 * 8) = 2.5
-        /// model volts where the preset's cathode_bias_volts field asks for |-20|, so the link
-        /// carries 2.5/20. The 2203's own bias is nearer -35 V; the preset's field is what this
-        /// scale has to match.
-        constexpr float kPowerTubeGridScale = 0.125f;
-
-        // The class-AB bias mismatch between the two output tubes, expressed where the model can
-        // actually see it: as an input-referred grid offset on the B side, applied before the
-        // stage.
-        //
-        // It cannot be expressed as a difference in the two stages' cathode-bias constants, which
-        // is what this used to be. PentodeStage's node equation is bias-invariant by construction
-        // (deliberately - it is what keeps a -20 V EL34 from clipping at silence): substituting
-        // u = Vg - Vk cancels Vk out of the source term, the grid leak, the solver bounds, the
-        // warm start and the plate output alike, so two instances differing only in Vk are the
-        // same function of their input and the pair stays exactly odd-symmetric - no even
-        // harmonics, no crossover character at all.
-        //
-        // An offset added to the input sits outside that Vk-relative coordinate system, so it
-        // survives. It shifts B's conduction window relative to A's, which is what a real bias
-        // mismatch does: the two tubes hand over at slightly different points in the cycle. The
-        // magnitude is kPowerTubeGridBiasMismatchVolts below, 0.03 V, in the range of an
-        // ordinary unmatched pair and comparable to the 0.203 V conduction knee, so
-        // it moves the handover without turning the pair into a single-ended stage. The DC term
-        // it introduces is blocked downstream by the output transformer's 60 Hz high-pass, as a
-        // real transformer blocks it.
-        // Held in a member rather than read here directly, so that
-        // set_power_tube_grid_bias_mismatch_volts() can zero it and let a test measure what it
-        // contributes; this value is the default the constructor installs.
-        constexpr float kPowerTubeGridBiasMismatchVolts = 0.03f;
+        /// @brief The class-AB bias mismatch between the two output tubes, an input-referred grid
+        /// offset on the B side in real volts: the 0.03 model volts the chain carried before
+        /// PentodeStage became volt-true, through the deleted 0.125 grid scale
+        /// (modules/jcm800/README.md, "The EL34 pair"). The transformer's 60 Hz high-pass blocks
+        /// the DC term it introduces. Held in a member so that
+        /// set_power_tube_grid_bias_mismatch_volts() can zero it.
+        constexpr float kPowerTubeGridBiasMismatchVolts = 0.24f;
 
         // 12AX7 Miller input capacitance - the interstage bandwidth limit the model was missing.
         //
@@ -194,9 +170,15 @@ namespace SushiDSP
         /// @brief The ceiling of the preamp pot's attenuation, reached with the knob full up.
         constexpr float kPreampPotMaxAttenuation = 1.0f / 16.0f;
 
-        /// @brief The output trim from the EL34 plates to full scale, applied after the last
-        /// grid, so it sets output level rather than any stage's drive.
-        constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
+        /// @brief The level the output transformer stage receives at the pair's full clip: the
+        /// 2 x 20 V x 0.05 the chain delivered before PentodeStage became volt-true.
+        constexpr float kTransformerFullClipUnits = 2.0f;
+
+        /// @brief The output trim from the EL34 plates to the transformer's units, applied after
+        /// the last grid, so it sets output level rather than any stage's drive: the pair's
+        /// full swing, kEl34's two headrooms summed, lands at kTransformerFullClipUnits.
+        constexpr float kPowerTubeToTransformerAttenuation = kTransformerFullClipUnits
+            / (kEl34.plate_swing.headroom_to_supply_volts + kEl34.plate_swing.headroom_to_bottom_volts);
 
         /// @brief The mid-band loss of the 2203's V1b input network: the 470 kOhm treble-peaker
         /// resistor against V1b's 1 MOhm grid leak, 1e6/(470e3 + 1e6) (jcm_v1b_cold).
@@ -435,7 +417,7 @@ namespace SushiDSP
                 tone_stack_.process_sample(v1b_out) * kToneStackInsertionLoss);
             const float phase_split = v2a_.process_sample(toned) / kPhaseInverterDegeneration;
             const float phase_inverted = phase_inverter_.process_sample(
-                phase_inverter_grid_miller_.process_sample(phase_split)) * kPowerTubeGridScale;
+                phase_inverter_grid_miller_.process_sample(phase_split));
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted - power_tube_grid_bias_mismatch_volts_);
             const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
