@@ -44,6 +44,9 @@ add_executable(sushidsp_tests
     functional/unit/test_pan_node.cpp
     functional/unit/test_track_recorder.cpp
     functional/unit/test_track_player.cpp
+    functional/unit/test_file_drop_queue.cpp
+    functional/unit/test_transport.cpp
+    functional/unit/test_take_library.cpp
     functional/unit/test_rig_preset.cpp
     functional/unit/test_rt_graph_slot.cpp
     functional/unit/test_rt_swap_slot.cpp

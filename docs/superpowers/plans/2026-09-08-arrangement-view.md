@@ -304,8 +304,8 @@ namespace SushiDSP
     class VariRateReader
     {
     public:
-        static constexpr double kMinSpeed = 0.25;
-        static constexpr double kMaxSpeed = 4.0;
+        static constexpr double kMinSpeed = 0.5;
+        static constexpr double kMaxSpeed = 2.0;
         static constexpr std::uint32_t kMaxChannels = 2u;
 
         void prepare(std::uint32_t channels, std::uint32_t max_output_frames);
@@ -347,10 +347,10 @@ TEST(Unit_Dsp, VariRateReaderAtHalfSpeedDropsAnOctave)
 // 32768-point FFT of the output above; the peak bin is 220 Hz +/- one bin, not 440 Hz.
 
 TEST(Unit_Dsp, VariRateReaderReturnsExactlyTheFramesAsked)
-// every speed in { 0.25, 0.5, 1.0, 1.5, 2.0, 4.0 }: 256 output frames written, 256 read back.
+// every speed in { 0.5, 0.75, 1.0, 1.5, 2.0 }: 256 output frames written, 256 read back.
 
 TEST(Unit_Dsp, VariRateReaderClampsASpeedOutsideItsRange)
-// speed 0.1 behaves as 0.25 and speed 9.0 as 4.0, measured by the returned cursor.
+// speed 0.1 behaves as 0.5 and speed 9.0 as 2.0, measured by the returned cursor.
 
 TEST(Unit_Dsp, VariRateReaderResetStartsFromSilence)
 // read a full-scale take, reset(), read a silent take: the first output block is below -120 dBFS.
@@ -374,7 +374,7 @@ Write each of the four sketched cases out in full, with the same FFT idiom
 TEST(Unit_Dsp, VariRateReaderReadPerformsNoHeapAllocation)
 ```
 
-following the file's existing trap idiom — prepare outside the trap, run 200 blocks at 0.25, 1.0
+following the file's existing trap idiom — prepare outside the trap, run 200 blocks at 0.5, 1.0
 and 4.0 inside it.
 - [ ] **Step 5: Syntax-check**, paste. **Step 6: Commit**
       `DT2: VariRateReader reads a take at a speed, with the pitch following it`.
@@ -411,7 +411,7 @@ as long, and `read` allocates nothing.
 ```
 
 `Transport` must not include `VariRateReader.hpp` — it would invert the dependency. Declare
-`static constexpr double kMinSpeed = 0.25;` and `kMaxSpeed = 4.0;` on `Transport` and add a
+`static constexpr double kMinSpeed = 0.5;` and `kMaxSpeed = 2.0;` on `Transport` and add a
 `static_assert` in `VariRateReader.cpp` that the two pairs agree.
 
 - [ ] **Step 1: Write the failing tests** in the new `test_transport.cpp`:
@@ -971,7 +971,7 @@ browser onto lane 3 at bar 9 with bar snap on, and the clip's `start_frame` read
       seconds.
 - [ ] **Step 3: Add the metronome toggle and its level slider**, side by side, per spec §10's
       eighth ruling — not a ninth lane.
-- [ ] **Step 4: Add the speed slider**, 0.25 to 4.0, double-click back to 1.0, labelled so it
+- [ ] **Step 4: Add the speed slider**, 0.5 to 2.0, double-click back to 1.0, labelled so it
       says the pitch falls with it. Spec §5a.
 - [ ] **Step 5: Type the loop range in bars** instead of seconds, converting through
       `MusicalClock::frame_of`; the stored range stays in frames.
@@ -1080,7 +1080,6 @@ is the wave with room.
   `SnapMode`, `x_of`, `frame_of_x`, `snap`, `FileDropQueue`, `place_clip`, `armed_frame`,
   `DrawArrangementView`, `route_file_drop` — each defined in the task that first produces it and
   spelled the same everywhere it is consumed.
-- **The one number that is a judgement, not a derivation.** `kMinSpeed` 0.25 and `kMaxSpeed` 4.0
-  sit inside what `Resampler` can do (`kMaximumRatio` is 16), but the range itself is a choice
-  about what a guitarist wants. Narrowing it later is a one-line change in two constants and a
-  slider bound.
+- **The one number that is a judgement, not a derivation.** `kMinSpeed` 0.5 and `kMaxSpeed` 2.0
+  sit far inside what `Resampler` can do (`kMaximumRatio` is 16); the range is the maintainer's
+  ruling of 2026-09-08 about what a guitarist reaches for, not a limit of the converter.
