@@ -25,15 +25,15 @@ irm https://sushisystems.io/install.ps1 | iex            # Windows
 ```
 
 ```bash
-ss add sushidsp             # or: ss link sushidsp <path-to-an-existing-checkout>
-ss install-cli sushidsp     # puts `sd` / `sushidsp` on PATH
+hub add sushidsp             # or: hub link sushidsp <path-to-an-existing-checkout>
+hub install-cli sushidsp     # puts `sd` / `sushidsp` on PATH
 sd build
 sd test
 ```
 
 SushiDSP pins no toolchain, so it also builds standalone: clone it anywhere, `sd build`/`sd test`
 work unchanged with the platform compiler. Inside a SushiStack workspace `sd` picks up the
-intel/llvm clang++ that `ss install` provisions (then a `clang++` on PATH, then the platform
+intel/llvm clang++ that `hub install` provisions (then a `clang++` on PATH, then the platform
 default); `sd config` reports which one it chose and `sd env` the environment it builds in. The
 regression snapshots hold across compilers because FMA contraction is pinned off for every
 toolchain (`cmake/SushiDSPCompilerFlags.cmake`).

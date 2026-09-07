@@ -18,7 +18,7 @@ dependencies = [
 # is intentionally NOT listed above: it isn't published to any index, so a bare
 # "sushicore>=0.1.0" dependency can't be resolved by pip/pipx from a clean
 # environment. `pip install -e cli` expects it already installed once in the
-# same environment (`pip install -e ../../sushistack/sushicore`); `ss install-cli
+# same environment (`pip install -e ../../sushistack/sushicore`); `hub install-cli
 # sushidsp` injects it automatically.
 
 [project.scripts]
