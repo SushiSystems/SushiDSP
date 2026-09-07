@@ -257,7 +257,7 @@ TEST(Unit_Dsp, DiezelVh4IsDcStableAcrossManyBlocksAtHighGain)
     }
 }
 
-TEST(Unit_Dsp, DiezelVh4ThdIncreasesWithGain)
+TEST(Unit_Dsp, DiezelVh4ThdDoesNotFallAsGainRises)
 {
     // The gain pot is this channel's only drive control, so it has to sweep the cascade from
     // nearly clean into saturation. Measured with measure::thd() at a bin-exact 220 Hz on the
@@ -274,8 +274,9 @@ TEST(Unit_Dsp, DiezelVh4ThdIncreasesWithGain)
     // past V1a saturated at any knob position - the knob moves the reading by six points rather
     // than by twenty.
     //
-    // What is asserted is therefore that the reading does not fall as the knob rises, within
-    // 0.5 percentage points, which is the spec's criterion: once every stage clips, THD saturates
+    // What is asserted is therefore that the reading does not fall as the knob rises. Spec
+    // section 4 allows 1.0 percentage points of fall; this test holds the tighter 0.5 the
+    // readings support. Once every stage clips, THD saturates
     // as a metric, and a strictly rising spectrum is not a property the circuit has to have.
     // DiezelVh4HasACleanEndAtMinimumGain is what proves the knob's other end still works.
     constexpr double sample_rate = 48000.0;
@@ -417,6 +418,12 @@ TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
 
     ASSERT_EQ(node.triode_stage_count(), std::size_t{ 5 });
 
+    // Before any audio every stage rests at its bias point, so every probe reads zero.
+    for (std::size_t stage = 0; stage < node.triode_stage_count(); ++stage)
+    {
+        EXPECT_EQ(node.grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
+    }
+
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
     const float* input_channels[1] = { input.data() };
@@ -440,6 +447,13 @@ TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
     }
     EXPECT_EQ(node.grid_excursion_peak_volts(node.triode_stage_count()), 0.0f);
     EXPECT_EQ(node.grid_excursion_peak_volts(std::size_t{ 1000 }), 0.0f);
+
+    // reset() clears the peaks with the rest of the state.
+    node.reset();
+    for (std::size_t stage = 0; stage < node.triode_stage_count(); ++stage)
+    {
+        EXPECT_EQ(node.grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
+    }
 }
 
 TEST(Unit_Dsp, DiezelVh4DescriptorMakeProducesAWorkingNode)
