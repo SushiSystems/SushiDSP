@@ -30,6 +30,7 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
+#include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/io/Ir.hpp"
@@ -48,7 +49,7 @@ namespace SushiDSP
     /// @brief The Marshall JCM800 2203 amp: bright cap, V1a/V1b/tone-stack/V2a/phase-inverter/
     /// EL34-push-pull, output transformer, power sag, presence, and (optional) cabinet
     /// convolution, followed by a plain full-scale clamp. Exposes jcm800_descriptor().
-    class Jcm800 : public IAudioNode
+    class Jcm800 : public IAudioNode, public ICabinetHost
     {
     public:
         /// @param cabinet_impulse_response Cabinet IR samples; empty means no cabinet stage.
@@ -92,15 +93,15 @@ namespace SushiDSP
         /// @return True if the cabinet was installed; false if the IR is empty, if the rates
         /// disagree, or if prepare() has not run yet - in every failing case nothing is installed
         /// and nothing is retained, and the previously active cabinet (if any) stays in place.
-        bool set_cabinet(Ir impulse_response);
+        bool set_cabinet(Ir impulse_response) override;
 
         /// @brief Frees every cabinet the audio thread has provably moved past. Control thread
         /// only; call periodically (e.g. once per GUI frame) after any set_cabinet().
-        void reclaim_cabinets();
+        void reclaim_cabinets() override;
 
         /// @brief Whether a cabinet convolution is currently in the signal path.
         /// @return True once a cabinet has been installed by the constructor or set_cabinet().
-        bool has_cabinet() const;
+        bool has_cabinet() const override;
 
         /// @brief Sets the preamp (gain) control.
         /// @param normalized Preamp amount in [0, 1]; smoothed toward on the audio thread.

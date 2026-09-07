@@ -155,17 +155,19 @@ public:
     /// @brief Reads this controller's stored value for a parameter on `slot`.
     float get_parameter(SlotId slot, const char* param_id) const;
 
-    /// @brief Installs a cabinet impulse response on the JCM800 at `slot`. Loads the file at the
-    /// controller's prepared sample rate, hands it to the live node when the slot has one, and
-    /// remembers the path so a later rebuild (or a preset save) can reproduce it. A bypassed
+    /// @brief Installs a cabinet impulse response on the amplifier at `slot`. Loads the file at
+    /// the controller's prepared sample rate, hands it to the live node when the slot has one,
+    /// and remembers the path so a later rebuild (or a preset save) can reproduce it. A bypassed
     /// slot has no live node, so it keeps the path and receives the cabinet on the publish that
-    /// brings it back.
-    /// @return True if `slot` is a JCM800 and the path was stored.
+    /// brings it back - and the node, not the descriptor id, is what refuses it there.
+    /// @return True if `slot`'s node hosts a cabinet (SushiDSP::ICabinetHost) and took the IR, or
+    /// if the slot is bypassed and the path was stored; false for an unknown slot or a live node
+    /// that hosts no cabinet.
     /// @throws std::runtime_error if the file cannot be opened or parsed.
     bool set_cabinet(SlotId slot, const std::string& path);
 
-    /// @brief Reclaims retired graphs and every live JCM800's retired cabinet. Control thread
-    /// only; call once per GUI frame.
+    /// @brief Reclaims retired graphs and the retired cabinets of every live node that hosts
+    /// one. Control thread only; call once per GUI frame.
     void reclaim();
 
     /// @brief Counts parameter changes dropped because the audio thread's ring was full.
@@ -180,7 +182,7 @@ public:
     /// @return The id, or "" if slot is not live.
     std::string descriptor_id(SlotId slot) const;
 
-    /// @brief A slot's cabinet impulse response path, or "" if it has none or isn't a JCM800.
+    /// @brief A slot's cabinet impulse response path, or "" if it has none or hosts no cabinet.
     std::string cabinet_path(SlotId slot) const;
 
     /// @brief Lists the ids of every slot with an edge into `slot`, in connect() call order.

@@ -36,6 +36,7 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
+#include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/diezel_vh4/DiezelVh4ToneStack.hpp"
@@ -61,7 +62,7 @@ namespace SushiDSP
     /// reverse-engineering drawing, the tone stack's interconnection is a reconstruction and the
     /// power section is built from prose alone. modules/diezel_vh4/README.md says which is which.
     /// Exposes diezel_vh4_descriptor().
-    class DiezelVh4 : public IAudioNode
+    class DiezelVh4 : public IAudioNode, public ICabinetHost
     {
     public:
         /// @param cabinet_impulse_response Cabinet IR samples; empty means no cabinet stage.
@@ -99,11 +100,11 @@ namespace SushiDSP
         /// equal the rate this node was prepared at.
         /// @return True if the cabinet was installed; false if the IR is empty, if the rates
         /// disagree, or if prepare() has not run yet.
-        bool set_cabinet(Ir impulse_response);
+        bool set_cabinet(Ir impulse_response) override;
 
         /// @brief Frees every cabinet the audio thread has provably moved past. Control thread
         /// only; call periodically after any set_cabinet().
-        void reclaim_cabinets();
+        void reclaim_cabinets() override;
 
         /// @brief How many triode stages this amp exposes to grid-excursion probing. A test hook
         /// like Jcm800::set_power_tube_grid_bias_mismatch_volts(): it exists so a test can prove
@@ -118,7 +119,7 @@ namespace SushiDSP
 
         /// @brief Whether a cabinet convolution is currently in the signal path.
         /// @return True once a cabinet has been installed by the constructor or set_cabinet().
-        bool has_cabinet() const;
+        bool has_cabinet() const override;
 
         /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
         /// It multiplies the signal after the last nonlinearity, so it scales the output and

@@ -33,7 +33,7 @@
 #include <nlohmann/json.hpp>
 
 #include "SushiDSP/io/IrLoader.hpp"
-#include "SushiDSP/jcm800/Jcm800.hpp"
+#include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 #include "SushiDSP/rig_preset/RigPreset.hpp"
 #include "SushiDSP/routing/MixerNode.hpp"
@@ -420,9 +420,8 @@ float RigController::get_parameter(SlotId slot, const char* param_id) const
 
 bool RigController::set_cabinet(SlotId slot, const std::string& path)
 {
-    // A bypassed slot has no live node, so the descriptor id is what says the slot is an amp.
     const auto it = slots_.find(slot);
-    if (it == slots_.end() || it->second.descriptor_id != SushiDSP::jcm800_descriptor().id)
+    if (it == slots_.end())
     {
         return false;
     }
@@ -432,13 +431,15 @@ bool RigController::set_cabinet(SlotId slot, const std::string& path)
     const auto handle_it = slot_to_handle_.find(slot);
     if (handle_it != slot_to_handle_.end() && active_graph_ != nullptr)
     {
-        auto* amp = dynamic_cast<SushiDSP::Jcm800*>(active_graph_->node(handle_it->second));
-        if (amp != nullptr && !amp->set_cabinet(std::move(impulse_response)))
+        auto* host = dynamic_cast<SushiDSP::ICabinetHost*>(active_graph_->node(handle_it->second));
+        if (host == nullptr || !host->set_cabinet(std::move(impulse_response)))
         {
             return false;
         }
     }
 
+    // A bypassed slot has no live node to ask, so the path is kept and the node decides on the
+    // publish that brings it back; apply_cabinet_to_live_node() drops it if the node refuses.
     it->second.cabinet_path = path;
     return true;
 }
@@ -452,15 +453,15 @@ void RigController::apply_cabinet_to_live_node(SlotId slot)
     {
         return;
     }
-    auto* amp = dynamic_cast<SushiDSP::Jcm800*>(active_graph_->node(handle_it->second));
-    if (amp == nullptr)
+    auto* host = dynamic_cast<SushiDSP::ICabinetHost*>(active_graph_->node(handle_it->second));
+    if (host == nullptr)
     {
         it->second.cabinet_path.clear();
         return;
     }
     try
     {
-        if (!amp->set_cabinet(SushiDSP::IrLoader::load(it->second.cabinet_path, info_.sample_rate)))
+        if (!host->set_cabinet(SushiDSP::IrLoader::load(it->second.cabinet_path, info_.sample_rate)))
         {
             it->second.cabinet_path.clear();
         }
@@ -480,9 +481,9 @@ void RigController::reclaim()
     }
     for (const auto& [slot, handle] : slot_to_handle_)
     {
-        if (auto* amp = dynamic_cast<SushiDSP::Jcm800*>(active_graph_->node(handle)))
+        if (auto* host = dynamic_cast<SushiDSP::ICabinetHost*>(active_graph_->node(handle)))
         {
-            amp->reclaim_cabinets();
+            host->reclaim_cabinets();
         }
     }
 }
