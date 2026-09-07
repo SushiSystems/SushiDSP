@@ -51,29 +51,6 @@ namespace SushiDSP
         return selection == ChannelSelection::Right ? 1u : 0u;
     }
 
-    void fan_out_mono_to_stereo(const float* mono, float* const* outputs, std::uint32_t frames, ChannelSelection output_selection)
-    {
-        const bool write_left = output_selection != ChannelSelection::Right;
-        const bool write_right = output_selection != ChannelSelection::Left;
-
-        if (write_left)
-        {
-            std::memcpy(outputs[0], mono, frames * sizeof(float));
-        }
-        else
-        {
-            std::memset(outputs[0], 0, frames * sizeof(float));
-        }
-        if (write_right)
-        {
-            std::memcpy(outputs[1], mono, frames * sizeof(float));
-        }
-        else
-        {
-            std::memset(outputs[1], 0, frames * sizeof(float));
-        }
-    }
-
     bool rig_output_adapts_to_device(std::uint32_t rig_channels, std::uint32_t device_channels)
     {
         if (rig_channels == 0 || device_channels == 0)

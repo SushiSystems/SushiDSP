@@ -181,22 +181,29 @@ int main(int argc, char** argv)
     rig.compile(info);
     std::printf("Rig latency: %u sample(s)\n", rig.latency_samples());
 
-    const std::size_t input_index = SushiDSP::channel_selection_input_index(input_selection);
+    const std::size_t   input_index = SushiDSP::channel_selection_input_index(input_selection);
+    const std::uint32_t device_output_channels = actual.output_channels;
+    if (!SushiDSP::rig_output_adapts_to_device(1u, device_output_channels))
+    {
+        std::fprintf(stderr, "A mono rig cannot be written to %u device output channel(s).\n",
+            device_output_channels);
+        return 1;
+    }
 
-    // RigGraph::process() only ever writes to outputs[0], so the rig always renders into this
-    // private mono scratch buffer; the callback below then fans it out to whichever physical
-    // output(s) --output selected. Sized once, up front, off the audio thread: the callback
-    // itself must stay allocation-free.
+    // The rig renders into this private mono scratch buffer, sized off the audio thread, so the
+    // callback that maps it onto the device's channels allocates nothing.
     std::vector<float> mono_output(actual.block_size, 0.0f);
 
-    device->start([&rig, &mono_output, input_index, output_selection](const float* const* inputs, float* const* outputs, std::uint32_t frames)
+    device->start([&rig, &mono_output, input_index, output_selection, device_output_channels](const float* const* inputs, float* const* outputs, std::uint32_t frames)
     {
         const float* selected_input[1] = { inputs[input_index] };
         float* mono_output_ptr[1] = { mono_output.data() };
         SushiDSP::ProcessContext context{ mono_output_ptr, selected_input, frames, 0.0 };
         rig.process(context);
 
-        SushiDSP::fan_out_mono_to_stereo(mono_output.data(), outputs, frames, output_selection);
+        const float* rig_output_pointers[1] = { mono_output.data() };
+        SushiDSP::write_rig_output_to_device(rig_output_pointers, 1u, outputs,
+                                             device_output_channels, frames, output_selection);
     });
 
     std::printf("Playing live through TubeScreamer -> JCM800. Press Enter to stop.\n");

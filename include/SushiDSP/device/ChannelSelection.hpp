@@ -53,17 +53,6 @@ namespace SushiDSP
     /// @return 0 for Left, 1 for Right.
     std::size_t channel_selection_input_index(ChannelSelection selection);
 
-    /// @brief Fans a processed mono signal out to up to 2 physical output channels. Real-time
-    /// safe: no allocation, no lock, no syscall, no throw.
-    /// @param mono The mono signal to fan out, `frames` samples.
-    /// @param outputs Pointer to at least 2 output channel buffers (index 0 = left/channel A,
-    /// index 1 = right/channel B). Both are always written (zeroed where not selected), so the
-    /// caller never needs a separate memset.
-    /// @param frames Sample count per channel.
-    /// @param output_selection Left writes only outputs[0]; Right writes only outputs[1];
-    /// Stereo writes both.
-    void fan_out_mono_to_stereo(const float* mono, float* const* outputs, std::uint32_t frames, ChannelSelection output_selection);
-
     /// @brief Reports whether a rig output width can be written to a device output width. The
     /// table is the one RigGraph::channels_adapt carries: n into n, 1 into 2 (copied), and 2
     /// into 1 (summed and halved). See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md.
