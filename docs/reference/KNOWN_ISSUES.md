@@ -6,13 +6,13 @@ here has a figure, a mechanism, and a named exit.
 
 ## Alias floor at 8× after volt-true grid staging
 
-The JCM800 measures −3.0 dB at preamp 1.0 / −12 dBFS, against the −33.8 dB bound
+The JCM800 measures −6.7 dB at preamp 1.0 / −12 dBFS, against the −33.8 dB bound
 (−43.4 dB before DA4). DA4 removed the level-staging devices that used to keep every grid off
 its clipping bound, so each stage now clips at the level its own circuit sets, and the 8×
 oversampled region folds the extra harmonics that clipping produces. The same mechanism applies
 to all four amplifiers, since all four share `TriodeStage` and lost their staging in the same
 phase. Documented by `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b`
-(`tests/functional/unit/test_jcm800.cpp`), skipped with the measured figure printed. Closes with
+(`tests/functional/unit/test_measure.cpp`), skipped with the measured figure printed. Closes with
 DA5's antialiasing work — antiderivative antialiasing in `TriodeStage`, or 16× oversampling.
 
 ## Mesa Mark IIC+ has no clean setting
