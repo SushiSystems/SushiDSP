@@ -155,24 +155,23 @@ namespace SushiDSP
         // not include another, so the values travel by copy. A modelling choice, top to bottom.
         constexpr float kPhaseInverterSourceResistanceOhms = 10000.0f;
         constexpr float kPhaseInverterGridLeakOhms = 1000000.0f;
-        /// @brief Jcm800.cpp's kPhaseInverterCathodeBias: both halves share the 470 + 10 kOhm tail,
-        /// so each sees 20.94 kOhm and settles at 0.187584 mA on jcm_ltp's 360 V.
-        constexpr float kPhaseInverterCathodeBiasVolts = -3.928014f;
+        /// @brief Jcm800.cpp's kPhaseInverterCathodeBias: the grid leaks return to the tail
+        /// junction, so Vgk is the drop across the 470 Ohm alone, -2 * 1.431927 mA * 470.
+        constexpr float kPhaseInverterCathodeBiasVolts = -1.346012f;
         /// @brief Jcm800.cpp's kPhaseInverterGain: one triode's full load-line gain,
-        /// mu*Ra/(r_a + Ra) = 74.254859*82000/271506.723. The pair's split is in the degeneration
+        /// mu*Ra/(r_a + Ra) = 94.443529*82000/125055.615. The pair's split is in the degeneration
         /// factor below, so halving this would count it twice.
-        constexpr float kPhaseInverterGain = 22.426327f;
-        /// @brief Jcm800.cpp's kPhaseInverterPlateSwing on the 82 kOhm plate: 360 - 344.618092
-        /// toward the supply, 344.618092 - 134.677465 toward the bottom at Vgk = 0.
-        constexpr PlateSwing kPhaseInverterPlateSwing{ 15.381908f, 209.940627f };
+        constexpr float kPhaseInverterGain = 61.927402f;
+        /// @brief Jcm800.cpp's kPhaseInverterPlateSwing on the 82 kOhm plate: 360 - 242.581959
+        /// toward the supply, 212.597400 - 123.049256 toward the bottom at Vgk = 0.
+        constexpr PlateSwing kPhaseInverterPlateSwing{ 117.418041f, 89.548144f };
         /// @brief Jcm800.cpp's kPhaseInverterDegeneration, divided into the inverter's input
         /// because the shared cathode follows the driven grid. The other triode's cathode presents
-        /// (r_a + Ra)/(mu + 1) = 3607.8298 Ohm in parallel with the tail, so the window is the
-        /// input over 1 + 10470/(10470 + 3607.8298) = 1.743723.
+        /// (r_a + Ra)/(mu + 1) = 1310.2577 Ohm in parallel with the tail, so the window is the
+        /// input over 1 + 10470/(10470 + 1310.2577) = 1.888775.
         /// @pre The tail here is the 10.47 kOhm both cathodes share, jcm_ltp's 470 Ohm and 10 kOhm
-        /// in series to ground. The 20.94 kOhm that reaches the cathode-bias figure above is the
-        /// per-half DC equivalent and belongs only in the idle solve.
-        constexpr float kPhaseInverterDegeneration = 1.743723f;
+        /// in series to ground.
+        constexpr float kPhaseInverterDegeneration = 1.888775f;
 
         // Every interstage factor below is a dossier value; modules/diezel_vh4/README.md records
         // the level staging this module carried until 2026-09-07 and why it went.
