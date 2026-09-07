@@ -1,6 +1,6 @@
 # The grid knee, antialiasing and the volt-true power stage
 
-**Status:** Parts 1, 2 and 3 built, 2026-09-07: decisions 1, 3, 4, 5, 6 and 7 taken and implemented (sections 12 and 13); the 16x measurement decision 2 asked for is in section 14, and decision 2 itself is open. Evidence in `.superpowers/sdd/amp-gain-staging/diagnosis.md`, `.superpowers/sdd/amp-gain-staging/da5-grid-law-report.md`, `.superpowers/sdd/amp-gain-staging/da5-part2-report.md` and `.superpowers/sdd/amp-gain-staging/da5-part3-report.md`. Succeeds DA4 (`2026-09-07-triode-plate-swing-design.md`) as the DA5 spec.
+**Status:** Parts 1 to 4 built, 2026-09-08: all seven decisions taken and implemented (sections 12 to 15); decision 2 is ADAA at 8x on the composite stage function, with `Biquad` in double, section 15. The −33.8 dB acceptance of section 11 is not met and stays a known issue. Evidence in `.superpowers/sdd/amp-gain-staging/diagnosis.md`, `.superpowers/sdd/amp-gain-staging/da5-grid-law-report.md`, `.superpowers/sdd/amp-gain-staging/da5-part2-report.md`, `.superpowers/sdd/amp-gain-staging/da5-part3-report.md` and `.superpowers/sdd/amp-gain-staging/da5-part4-report.md`. Succeeds DA4 (`2026-09-07-triode-plate-swing-design.md`) as the DA5 spec.
 
 ## 1. Goal
 
@@ -328,3 +328,134 @@ Every figure is from a probe compiled with the build's toolchain and flags
   the region's rate rises: the clean settings' floor is already the float biquads' at 8x, and 16x
   raises it 12 dB.
 - The eight goldens of section 9 move and are not regenerated here.
+
+## 15. What part 4 built: the antiderivative of the composite stage, and the double biquad
+
+The maintainer ruled on 2026-09-07: decision 2 is ADAA at 8x on the composite stage function, and
+`Biquad` carries its state in double, both landed together and each measured on its own. Every
+figure is from a probe compiled with the build's toolchain and flags
+(`.superpowers/sdd/amp-gain-staging/da5-part4-report.md`).
+
+### 15.1 The derivation
+
+One stage, in the grid's own coordinate u = Vg − Vk. The KCL the solver already states is
+
+    (u − x) / Rs + u / Rg + IG0 · softplus((u − c) / w) = 0,    c = VGAMMA − Vk,
+
+so the input that puts the grid at u is explicit:
+
+    x = g(u) = A u + K softplus((u − c) / w),    A = 1 + Rs / Rg,    K = Rs · IG0,
+    g'(u) = A + (K / w) σ((u − c) / w),          σ the logistic.
+
+g is strictly increasing, so u(x) exists and is unique; it has no closed form (the equation is
+linear plus softplus in u, a Lambert-W kind of inverse), which is why the stage solves it by
+Newton. The plate output is f(x) = bound(−gain · u(x)) with bound(L) = H tanh(L / H), H the
+side's headroom.
+
+First-order ADAA wants F with F' = f and reads y[n] = (F(x[n]) − F(x[n−1])) / (x[n] − x[n−1]).
+Change variable to u: F(g(u)) = G(u) with
+
+    G(u) = ∫ f(g(u)) g'(u) du = ∫ bound(−gain u) [A + (K / w) σ((u − c) / w)] du
+         = A · P(u) + (K / w) · R(u),
+
+    P(u) = ∫₀ᵘ bound(−gain t) dt = −(H² / gain) ln cosh(gain u / H),
+    R(u) = ∫ bound(−gain t) σ((t − c) / w) dt.
+
+P is closed-form on each side and C¹ at rest (`PlateSwing::bound_antiderivative`). R is the
+product of a tanh on the plate's scale H / gain and a logistic on the knee's scale w, and **has no
+elementary antiderivative**: with t = e^u the integrand is a rational function of two
+incommensurate powers of t, and the integral is not elementary nor a polylogarithm for a generic
+ratio 2 · gain · w / H (0.057 for the V5A). This is the part section 4 said would be tabulated,
+and it is the only part that is: σ is within 4e-11 of 0 or 1 outside ±24 w, so R is confined to a
+7.2 V window around the knee, tabulated there at w / 16 by eight-point Gauss-Legendre quadrature
+on each interval with the exact slope bound · σ at every knot (cubic Hermite), R ≡ 0 below the
+window and R = R(top) + P(u) − P(top) above it. P is tabulated as well, from its closed form, at
+64 knots per tanh scale over the solver's own ±10 scales, so one sample costs one exp and one
+log1p beyond the Newton solve.
+
+The divided difference divides by g(u1) − g(u0), computed from the same two excursions in double,
+never by the float inputs: y is then the g'-weighted mean of bound over [u0, u1], a smooth
+function of (u0, u1), so the solver's and the float's error in u is not amplified. Nor is the
+table's: the interpolant G̃ is the exact antiderivative of its own derivative G̃', so y is the
+exact mean of G̃' / g' and differs from the mean of f by at most max |G̃' − G'| / g'. Verified
+against the brute force (the KCL bisected to double precision, Simpson's rule on the composite
+transfer): G' = f · g' to 1.3e-7 of H · g' on the V5A, 6e-8 on the JCM800's V1a, 4e-8 on the
+EL34; divided differences across the knee and across both plate ceilings within 3e-6 of H of
+the brute-force mean; `AntiderivativeAntialiaserAntiderivativeDifferentiatesBackToTheTransfer`,
+`...DividedDifferenceIsTheMeanOfTheCompositeTransfer` and `...InputMapInvertsTheGridSolve` pin the
+three identities.
+
+**The ill-conditioned point.** As g(u1) − g(u0) → 0 the quotient loses its precision. Under
+`kMinimumInputDifferenceVolts` = 1e-4 V the antialiaser returns G̃'(u_m) / g'(u_m) at the
+midpoint, from the same tables. The two branches differ by O(Δu² · f'') ≈ 1e-9 V there, the
+quotient's round-off is at most 2 ulp(G) / 1e-4 ≈ 4e-8 V, and the measured largest step while the
+difference sweeps through the threshold is 1.5e-5 to 2.7e-5 V, the float output's own quantisation
+(−134 to −145 dB re H). Two identical samples and two a float ulp apart return the plate bound.
+`AntiderivativeAntialiaserIsContinuousWhereConsecutiveSamplesNearlyCoincide` drives exactly those
+cases. After `reset()` the first sample is the plain transfer, as `AdaaDiodePairPort` does.
+
+### 15.2 What each change bought
+
+`measure::alias_floor()` at 48 kHz and −12 dBFS, four builds of the same tree: as shipped before
+part 4, ADAA alone (the biquads float), the double `Biquad` alone (the stages plain), and both:
+
+| Setting | Shipped | ADAA alone | Double `Biquad` alone | Both (shipped now) |
+| --- | --- | --- | --- | --- |
+| JCM800 default (preamp 0.5) | −16.3 dB | −25.0 dB | −16.3 dB | −24.9 dB |
+| JCM800 preamp 1.0, master 0 dB | −13.4 dB | −23.4 dB | −13.4 dB | −23.4 dB |
+| JCM800 preamp 0.02, master 0 dB | −48.0 dB | −49.4 dB | −78.0 dB | −78.4 dB |
+| 5150 default (pre gain 0.5) | −11.4 dB | −26.8 dB | −11.4 dB | −26.8 dB |
+| 5150 pre gain 0.02 | −35.4 dB | −46.3 dB | −35.4 dB | −51.5 dB |
+| IIC+ default | −0.1 dB | −14.8 dB | −0.0 dB | −14.8 dB |
+| VH4 default | −13.3 dB | −23.0 dB | −13.3 dB | −23.0 dB |
+
+The antialiaser buys 8.7 to 15.4 dB at the hot settings and nothing at the clean ones; the
+double biquad buys 30 dB at the JCM800's preamp 0.02 and nothing at the hot ones, which is what
+section 14 predicted. The 5150 at pre gain 0.02 is the one setting where the two add (−46.3 and
+−35.4 to −51.5 dB). One stage alone in an 8x region: the V5A −81.2 to −102.4 dB at 3x its window
+and −53.7 to −79.8 dB at 12x; the EL34 −88.1 to −101.2 dB at 8 V and −55.1 to −84.4 dB at its
+38 V window.
+
+### 15.3 What still folds, and why
+
+None of the five hot settings reaches −33.8 dB (the JCM800 at preamp 1.0 is 10.4 dB short, the
+5150 3.2 dB short of the spec's −30 dB, the IIC+ 19 dB). Three variants of the shipped build
+locate the remainder: the transformer's tanh made linear, the sag stage made linear, and the
+solver at 16 Newton iterations each leave the IIC+ at −14.7 or −14.8 dB, so none of them is the
+source. At every default the worst line is the 20 kHz tone's 19th harmonic folding about 384 kHz
+to 3995 Hz, and it is made inside the antialiased stages: a first-order antiderivative averages
+f over a straight line between two samples, which is exact for the first stage's sine but not
+for the later stages, whose input is the previous stage's clipped output with content up to the
+oversampled Nyquist; the 26 to 29 dB one stage gains on a clean sine becomes 9 to 15 dB on a
+cascade. What closes the rest is the maintainer's choice among 16x on top of ADAA (section 14
+measured 16x alone at 8.5 to 18.7 dB), a band limit between the stages, or a higher-order
+antiderivative. Measured through probes, 16x on top of both changes reads JCM800 default
+−45.3 dB, preamp 1.0 −32.7 dB (1.1 dB short), 5150 −36.2 dB, IIC+ −36.9 dB, VH4 −35.3 dB: four
+of the five hot settings cross the bound, at 2.0x the cost (5150 and IIC+ 8.92 ms of the 5.33 ms
+block at `-O0`, 5.28 and 5.45 ms at `-O2`), so it closes the bar and does not fit the block.
+
+### 15.4 The cost
+
+`tests/benchmark/Benchmark.hpp`'s harness, 48 kHz, 256 frames, best of three runs of 200,
+`DenormalGuard` on, every column compiled from source with the same flags, against the 5.33 ms
+block:
+
+| Build | JCM800 bench knobs | JCM800 default | 5150 | IIC+ | VH4 |
+| --- | --- | --- | --- | --- | --- |
+| Shipped, `-O0 -g` | 1.310 ms | 1.340 | 2.643 | 2.021 | 1.693 |
+| ADAA alone, `-O0 -g` | 2.286 | 2.265 | 4.123 | 4.144 | 2.724 |
+| Both, `-O0 -g` | 2.317 | 2.301 | 4.227 (79 %) | 4.289 (80 %) | 2.756 |
+| Shipped, `-O2` | 0.776 | 0.793 | 1.571 | 1.153 | 1.029 |
+| ADAA alone, `-O2` | 1.191 | 1.180 | 2.203 | 2.197 | 1.422 |
+| Both, `-O2` | 1.208 | 1.196 | 2.260 | 2.250 | 1.452 |
+
+The antialiaser costs 35 ns per stage-sample at `-O2`, one exp and one log1p; at the build's
+`-O0` it costs 80 ns, the calls and the debug library's checks that no longer inline. The double
+biquad costs 1 to 3 %. 16x on top doubles each row again (measured: 5150 8.916 ms and IIC+
+8.919 ms at `-O0`, 5.280 and 5.447 ms at `-O2`), so neither fits the block at either level.
+
+### 15.5 Golden files
+
+All eight goldens of section 9 move: the four amplifiers through the antialiaser, and, for the
+first time in this phase, `tube_screamer_48k/96k` and `dd3_48k/96k` through `Biquad`'s double
+state. None is regenerated here.
