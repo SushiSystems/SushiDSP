@@ -77,6 +77,36 @@ namespace
     thread_local std::atomic<bool> g_trap_allocations{ false };
     thread_local std::atomic<int>  g_trapped_allocation_count{ 0 };
 
+    /// @brief Counts the calling thread's heap allocations over the window a case opens, and
+    /// closes that window on the way out however the case leaves it.
+    class AllocationTrap
+    {
+    public:
+        /// @brief Zeroes the calling thread's count and leaves the trap closed.
+        AllocationTrap() noexcept
+        {
+            g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+        }
+
+        /// @brief Closes the window, so a case that returns early cannot poison a later one.
+        ~AllocationTrap() { disarm(); }
+
+        AllocationTrap(const AllocationTrap&) = delete;
+        AllocationTrap& operator=(const AllocationTrap&) = delete;
+
+        /// @brief Opens the window, counting every allocation this thread makes from here.
+        void arm() noexcept { g_trap_allocations.store(true, std::memory_order_relaxed); }
+
+        /// @brief Closes the window.
+        void disarm() noexcept { g_trap_allocations.store(false, std::memory_order_relaxed); }
+
+        /// @brief Reports how many allocations this thread made inside the window.
+        int count() const noexcept
+        {
+            return g_trapped_allocation_count.load(std::memory_order_relaxed);
+        }
+    };
+
     class SumNode : public SushiDSP::IAudioNode
     {
     public:
@@ -149,7 +179,7 @@ TEST(Unit_Dsp, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
     std::vector<float> output_buffer(256, 0.0f);
     float* output_channels[1] = { output_buffer.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    AllocationTrap trap;
 
     for (int block = 0; block < 7000; ++block)
     {
@@ -158,15 +188,15 @@ TEST(Unit_Dsp, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
             graph.push_parameter_change(SushiDSP::ParameterChange{ 0, index, 0.5f });
         }
 
-        g_trap_allocations.store(true, std::memory_order_relaxed);
+        trap.arm();
 
         SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
         graph.process(context);
 
-        g_trap_allocations.store(false, std::memory_order_relaxed);
+        trap.disarm();
     }
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 namespace
@@ -233,19 +263,19 @@ TEST(Unit_Dsp, RigGraphStereoProcessPerformsNoHeapAllocation)
     std::vector<float> right(256, 0.0f);
     float* output_channels[2] = { left.data(), right.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    AllocationTrap trap;
 
     for (int block = 0; block < 2000; ++block)
     {
-        g_trap_allocations.store(true, std::memory_order_relaxed);
+        trap.arm();
 
         SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
         graph.process(context);
 
-        g_trap_allocations.store(false, std::memory_order_relaxed);
+        trap.disarm();
     }
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, FftForwardAndInverseRoundTripPerformsNoHeapAllocation)
@@ -262,8 +292,8 @@ TEST(Unit_Dsp, FftForwardAndInverseRoundTripPerformsNoHeapAllocation)
         time_domain[i] = static_cast<float>(i % 7) - 3.0f;
     }
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 1000; ++block)
     {
@@ -271,9 +301,9 @@ TEST(Unit_Dsp, FftForwardAndInverseRoundTripPerformsNoHeapAllocation)
         fft.inverse(real_bins.data(), imag_bins.data(), reconstructed.data());
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
     for (std::uint32_t i = 0; i < size; ++i)
     {
         EXPECT_NEAR(reconstructed[i], time_domain[i], 1e-3f);
@@ -292,8 +322,8 @@ TEST(Unit_Dsp, Oversampler8xRoundTripPerformsNoHeapAllocation)
         input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
     }
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
@@ -301,9 +331,9 @@ TEST(Unit_Dsp, Oversampler8xRoundTripPerformsNoHeapAllocation)
         oversampler.downsample(oversampled, block_size * 8, output.data());
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, PartitionedConvolutionProcessPerformsNoHeapAllocation)
@@ -326,17 +356,17 @@ TEST(Unit_Dsp, PartitionedConvolutionProcessPerformsNoHeapAllocation)
         input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
     }
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 1000; ++block)
     {
         convolution.process(input.data(), output.data());
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, StreamingConvolutionProcessPerformsNoHeapAllocation)
@@ -360,17 +390,17 @@ TEST(Unit_Dsp, StreamingConvolutionProcessPerformsNoHeapAllocation)
         input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
     }
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 200; ++block)
     {
         convolution.process(input.data(), output.data(), frames);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
@@ -391,8 +421,8 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     // Moving a knob before every block is the path the plain loop misses: a wiper that has
     // changed marks the block dirty and update_matrices_if_dirty() re-derives inside process(),
@@ -409,9 +439,9 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
         node.process(context);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, SplitterNodeProcessPerformsNoHeapAllocation)
@@ -425,15 +455,15 @@ TEST(Unit_Dsp, SplitterNodeProcessPerformsNoHeapAllocation)
     float* outputs[1] = { output.data() };
     SushiDSP::ProcessContext context{ outputs, inputs, 256, 0.0 };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
     for (int block = 0; block < 100; ++block)
     {
         node.process(context);
     }
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, MixerNodeProcessPerformsNoHeapAllocation)
@@ -448,15 +478,15 @@ TEST(Unit_Dsp, MixerNodeProcessPerformsNoHeapAllocation)
     float* outputs[1] = { output.data() };
     SushiDSP::ProcessContext context{ outputs, inputs, 256, 0.0 };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
     for (int block = 0; block < 100; ++block)
     {
         node.process(context);
     }
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, PanNodeProcessPerformsNoHeapAllocation)
@@ -473,15 +503,15 @@ TEST(Unit_Dsp, PanNodeProcessPerformsNoHeapAllocation)
     float* outputs[2] = { out_left.data(), out_right.data() };
     SushiDSP::ProcessContext context{ outputs, inputs, 256, 0.0 };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
     for (int block = 0; block < 100; ++block)
     {
         node.process(context);
     }
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
@@ -509,8 +539,8 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
@@ -518,9 +548,9 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
         node.process(context);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithoutCabinet)
@@ -545,8 +575,8 @@ TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithoutCabinet)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
@@ -554,9 +584,9 @@ TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithoutCabinet)
         node.process(context);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithoutCabinet)
@@ -587,8 +617,8 @@ TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithoutCabinet)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
@@ -596,9 +626,9 @@ TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithoutCabinet)
         node.process(context);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithoutCabinet)
@@ -624,8 +654,8 @@ TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithoutCabinet)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
@@ -633,9 +663,9 @@ TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithoutCabinet)
         node.process(context);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithCabinet)
@@ -666,8 +696,8 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithCabinet)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
@@ -675,9 +705,9 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithCabinet)
         node.process(context);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithCabinet)
@@ -712,8 +742,8 @@ TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithCabinet)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
@@ -721,9 +751,9 @@ TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithCabinet)
         node.process(context);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithCabinet)
@@ -764,8 +794,8 @@ TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithCabinet)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
@@ -773,9 +803,9 @@ TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithCabinet)
         node.process(context);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithCabinet)
@@ -811,8 +841,8 @@ TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithCabinet)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
@@ -820,17 +850,17 @@ TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithCabinet)
         node.process(context);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, AsioSampleConverterPerformsNoHeapAllocation)
 {
     std::uint8_t bytes[4] = { 0, 0, 0, 0 };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int i = 0; i < 10000; ++i)
     {
@@ -838,9 +868,9 @@ TEST(Unit_Dsp, AsioSampleConverterPerformsNoHeapAllocation)
         SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, decoded, bytes);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
@@ -848,8 +878,8 @@ TEST(Unit_Dsp, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
     SushiDSP::RtSwapSlot<int> slot;
     slot.publish(std::make_unique<int>(3));
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     int accumulator = 0;
     for (int i = 0; i < 10000; ++i)
@@ -858,10 +888,10 @@ TEST(Unit_Dsp, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
         accumulator += (object != nullptr && slot.has_active()) ? *object : 0;
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
     EXPECT_EQ(accumulator, 30000);
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, Jcm800SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
@@ -891,7 +921,7 @@ TEST(Unit_Dsp, Jcm800SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    AllocationTrap trap;
 
     for (int block = 0; block < 4; ++block)
     {
@@ -899,13 +929,13 @@ TEST(Unit_Dsp, Jcm800SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
         ASSERT_TRUE(node.set_cabinet(impulse_response));
         ASSERT_TRUE(node.has_cabinet());
 
-        g_trap_allocations.store(true, std::memory_order_relaxed);
+        trap.arm();
         SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
         node.process(context);
-        g_trap_allocations.store(false, std::memory_order_relaxed);
+        trap.disarm();
     }
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 
     node.reclaim_cabinets();
 }
@@ -951,15 +981,15 @@ TEST(Unit_Dsp, LevelProbeReportPerformsNoHeapAllocation)
     ui::LevelProbe probe;
     std::vector<float> block(256, 0.25f);
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
     for (int i = 0; i < 64; ++i)
     {
         probe.report(block.data(), 256);
     }
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
@@ -978,8 +1008,8 @@ TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
         circuit.process_sample(port, silence, outputs);
     }
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int sample = 0; sample < 256; ++sample)
     {
@@ -989,9 +1019,9 @@ TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
         circuit.process_sample(port, inputs, outputs);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
     EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
 }
 
@@ -1011,14 +1041,14 @@ TEST(Unit_Dsp, DkCircuitPotentiometerUpdatePerformsNoHeapAllocation)
     const std::array<double, 2> silence{ 0.0, kSupplyVolts };
     std::array<double, 1>       outputs{};
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    AllocationTrap trap;
 
     int rebuilt_blocks = 0;
     for (int block = 0; block < 16; ++block)
     {
         const double position = 0.1 + 0.05 * static_cast<double>(block);
 
-        g_trap_allocations.store(true, std::memory_order_relaxed);
+        trap.arm();
 
         circuit.set_potentiometer(pot_index, position);
         rebuilt_blocks += circuit.update_matrices_if_dirty() ? 1 : 0;
@@ -1027,11 +1057,11 @@ TEST(Unit_Dsp, DkCircuitPotentiometerUpdatePerformsNoHeapAllocation)
             circuit.process_sample(port, silence, outputs);
         }
 
-        g_trap_allocations.store(false, std::memory_order_relaxed);
+        trap.disarm();
     }
 
     EXPECT_EQ(rebuilt_blocks, 16);
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, DampedNewtonSolverPerformsNoHeapAllocation)
@@ -1040,8 +1070,8 @@ TEST(Unit_Dsp, DampedNewtonSolverPerformsNoHeapAllocation)
     ExponentialPairSystem               system;
     std::array<double, 2>               v{ 0.0, 0.0 };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     int converged = 0;
     for (int solve = 0; solve < 256; ++solve)
@@ -1051,12 +1081,12 @@ TEST(Unit_Dsp, DampedNewtonSolverPerformsNoHeapAllocation)
         converged += solver.solve(system, v) ? 1 : 0;
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
     EXPECT_EQ(converged, 256);
     EXPECT_NEAR(v[0], 0.0, 1e-9);
     EXPECT_NEAR(v[1], 0.0, 1e-9);
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, ResamplerProcessPerformsNoHeapAllocation)
@@ -1075,8 +1105,8 @@ TEST(Unit_Dsp, ResamplerProcessPerformsNoHeapAllocation)
     }
     std::vector<float> output(resampler.maximum_output_frames(256u) + 16u, 0.0f);
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 200; ++block)
     {
@@ -1084,9 +1114,9 @@ TEST(Unit_Dsp, ResamplerProcessPerformsNoHeapAllocation)
                           static_cast<std::uint32_t>(output.size()));
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, ResamplerRateChangePerformsNoHeapAllocation)
@@ -1105,8 +1135,8 @@ TEST(Unit_Dsp, ResamplerRateChangePerformsNoHeapAllocation)
     }
     std::array<float, 64> output{};
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 200; ++block)
     {
@@ -1120,9 +1150,9 @@ TEST(Unit_Dsp, ResamplerRateChangePerformsNoHeapAllocation)
         }
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 }
 
 TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
@@ -1153,8 +1183,8 @@ TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
     const float         long_mode_value =
         static_cast<float>(static_cast<int>(SushiDSP::dd3::Dd3Mode::Long));
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     node.process(context);
     node.set_parameter(mode_index, long_mode_value);
@@ -1162,9 +1192,9 @@ TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
     node.set_mode(SushiDSP::dd3::Dd3Mode::Short);
     node.process(context);
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
     for (std::size_t i = 0; i < output.size(); ++i)
     {
         EXPECT_TRUE(std::isfinite(output[i]));
@@ -1190,22 +1220,25 @@ TEST(Unit_Dsp, TrackRecorderWritePerformsNoHeapAllocation)
     const float* channels[2] = { left.data(), right.data() };
 
     ASSERT_TRUE(recorder.write(channels, 256u));
-    while (recorder.frames_written() < 256u)
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (recorder.frames_written() < 256u && std::chrono::steady_clock::now() < deadline)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    ASSERT_GE(recorder.frames_written(), 256u);
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 200; ++block)
     {
         recorder.write(channels, 256u);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
 
     recorder.stop();
     std::filesystem::remove_all(root);
@@ -1239,8 +1272,8 @@ TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
     std::vector<float> right(256, 0.0f);
     float*             outputs[2] = { left.data(), right.data() };
 
-    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-    g_trap_allocations.store(true, std::memory_order_relaxed);
+    AllocationTrap trap;
+    trap.arm();
 
     for (int block = 0; block < 200; ++block)
     {
@@ -1250,9 +1283,9 @@ TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
         transport.advance(256);
     }
 
-    g_trap_allocations.store(false, std::memory_order_relaxed);
+    trap.disarm();
 
-    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(trap.count(), 0);
     for (std::size_t frame = 0; frame < left.size(); ++frame)
     {
         EXPECT_TRUE(std::isfinite(left[frame]));

@@ -23,17 +23,22 @@
 
 // _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 #include "Benchmark.hpp"
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/DenormalGuard.hpp"
+#include "SushiDSP/capture/Take.hpp"
+#include "SushiDSP/capture/TrackPlayer.hpp"
+#include "SushiDSP/capture/Transport.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/dd3/Dd3Delay.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
@@ -419,6 +424,49 @@ namespace
         }
         return false;
     }
+
+    /// @brief Times eight stereo tracks mixed into one stereo block, the load spec section 10 puts
+    /// on the audio thread when a whole session plays back.
+    /// @return The measured Result.
+    SushiDSP::bench::Result measure_eight_track_mix()
+    {
+        constexpr std::size_t kTracks = SushiDSP::TrackPlayer::kMaxTracks;
+        constexpr std::size_t kTakeFrames = 48000;
+
+        static SushiDSP::TrackPlayer player;
+        static SushiDSP::Transport   transport;
+        for (std::size_t track = 0; track < kTracks; ++track)
+        {
+            auto take = std::make_unique<SushiDSP::Take>(2u, kSampleRate, kTakeFrames);
+            for (std::uint32_t channel = 0; channel < 2u; ++channel)
+            {
+                float* samples = take->mutable_channel(channel);
+                for (std::size_t frame = 0; frame < kTakeFrames; ++frame)
+                {
+                    samples[frame] = 0.1f * static_cast<float>(
+                        std::sin(2.0 * M_PI * 220.0 * static_cast<double>(frame) / kSampleRate));
+                }
+            }
+            player.set_take(track, std::move(take));
+            player.set_pan(track, -1.0f + 0.25f * static_cast<float>(track));
+        }
+
+        static std::vector<float> left(kBlockSize, 0.0f);
+        static std::vector<float> right(kBlockSize, 0.0f);
+        float* outputs[2] = { left.data(), right.data() };
+
+        return SushiDSP::bench::measure("TrackPlayer (8 stereo tracks)", kBlockSize, kSampleRate, [&]
+        {
+            std::fill(left.begin(), left.end(), 0.0f);
+            std::fill(right.begin(), right.end(), 0.0f);
+            player.process(outputs, 2u, kBlockSize, transport);
+            transport.advance(kBlockSize);
+            if (transport.position_frames() + kBlockSize >= kTakeFrames)
+            {
+                transport.seek(0);
+            }
+        });
+    }
 }
 
 int main(int argc, char** argv)
@@ -458,6 +506,11 @@ int main(int argc, char** argv)
             node.set_feedback(0.45f);
             node.set_level(0.5f);
         }), 0.15);
+    }
+    if (selected("TrackPlayer", argc, argv))
+    {
+        // 256 frames at 48 kHz leave the audio thread 5.33 ms for everything in the block.
+        print(measure_eight_track_mix(), 5.33);
     }
     if (selected("Resampler", argc, argv))
     {
