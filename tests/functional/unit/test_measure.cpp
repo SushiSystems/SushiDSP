@@ -36,6 +36,7 @@
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
+#include "SushiDSP/peavey5150/Peavey5150.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 #include "measure/AliasFloor.hpp"
 #include "measure/FrequencyResponse.hpp"
@@ -560,24 +561,42 @@ TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
     node.set_presence(0.5f);
     const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
     std::printf("[ measure ] Jcm800 alias floor %.1f dB\n", floor);
-    GTEST_SKIP() << "Known issue, DA4. The JCM800 measures -13.4 dB at preamp 1.0 and -12 dBFS "
-                    "on the volt-true power stage (-15.1 dB on the Norman grid law alone, -6.7 dB "
-                    "on the Shockley knee), against -43.4 dB before DA4 removed the level "
-                    "staging. Every stage clips at the level its own circuit puts it at, and the "
-                    "8x region folds the harmonics that clipping generates. The -33.8 dB bound "
-                    "stands and is not relaxed; docs/reference/KNOWN_ISSUES.md carries the item "
-                    "until DA5's antialiasing work (ADAA in TriodeStage, or 16x oversampling) "
-                    "restores the floor.";
+    GTEST_SKIP() << "Known issue, DA4. The JCM800 measures -23.4 dB at preamp 1.0 and -12 dBFS "
+                    "with every stage antialiased (-13.4 dB before DA5 part 4, -15.1 dB on the "
+                    "Norman grid law alone, -6.7 dB on the Shockley knee), against -43.4 dB "
+                    "before DA4 removed the level staging. One stage alone now folds under "
+                    "-79 dB at 12x its window; what remains is the fold the later stages make of "
+                    "the already-clipped waveform they receive, which first-order ADAA at 8x "
+                    "cannot see. The -33.8 dB bound stands and is not relaxed; "
+                    "docs/reference/KNOWN_ISSUES.md carries the item.";
     EXPECT_LE(floor, kD5bJcm800AliasFloorDb - 30.0);
+}
+
+TEST(Regression_Dsp, Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb)
+{
+    // Skipped as a known issue; the measurement below still runs and still prints its figure.
+    //
+    // DA5 spec section 11's second acceptance for the 5150: pre gain 0.5 at -12 dBFS under
+    // -30 dB. It read +26.0 dB before DA5 part 1, -17.2 dB after it, -11.4 dB after part 2 and
+    // -26.8 dB with every stage antialiased (part 4); the worst line is the 20 kHz tone's 19th
+    // harmonic folding about 384 kHz to 3995 Hz, made by stages fed an already-clipped waveform.
+    SushiDSP::Peavey5150 node;
+    const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
+    std::printf("[ measure ] Peavey5150 alias floor %.1f dB\n", floor);
+    GTEST_SKIP() << "Known issue, DA5. The 5150 measures -26.8 dB at its default and -12 dBFS with "
+                    "every stage antialiased, 3.2 dB short of the spec's -30 dB; "
+                    "docs/reference/KNOWN_ISSUES.md carries the item with the JCM800's.";
+    EXPECT_LT(floor, -30.0);
 }
 
 TEST(Regression_Dsp, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
 {
     // DA5 spec section 11's first acceptance: the 5150's V5A stage alone in an 8x region, its
     // 2.0 V window driven 3x and 12x past, folds under -60 dB and -40 dB. On the Norman grid
-    // law it measured -81.2 dB at 6 V and -53.7 dB at 24 V on 2026-09-07; the room-temperature
-    // Shockley knee read -37.3 dB and -13.7 dB at the same drives (the diagnosis at
-    // .superpowers/sdd/amp-gain-staging/diagnosis.md section 5).
+    // law it measured -81.2 dB at 6 V and -53.7 dB at 24 V on 2026-09-07, and -102.4 and
+    // -79.8 dB once the stage's composite transfer was antialiased (DA5 part 4); the
+    // room-temperature Shockley knee read -37.3 dB and -13.7 dB at the same drives (the
+    // diagnosis at .superpowers/sdd/amp-gain-staging/diagnosis.md section 5).
     auto v5a = []
     {
         return SushiDSP::TriodeStage(671730.0f, 1000000.0f, -2.0f, 25.3f, SushiDSP::kTriode12AX7GridConduction,
@@ -599,8 +618,9 @@ TEST(Regression_Dsp, PentodeStageAliasFloorInsideAndAtItsWindow)
     // DA5 spec section 11's third acceptance, in the real volts the stage now takes: the 2203's
     // EL34 alone in an 8x region, driven to the 8 V that one model volt of the old stage stood
     // for and to its whole 38 V window, folds under -80 dB and -50 dB. Measured 2026-09-07:
-    // -88.1 dB at 8 V and -55.1 dB at 38 V, where the bias-referenced stage read -49.7 dB at one
-    // model volt (.superpowers/sdd/amp-gain-staging/diagnosis.md section 6).
+    // -88.1 dB at 8 V and -55.1 dB at 38 V, and -101.2 and -84.4 dB once antialiased (DA5
+    // part 4), where the bias-referenced stage read -49.7 dB at one model volt
+    // (.superpowers/sdd/amp-gain-staging/diagnosis.md section 6).
     OversampledPentodeStageNode inside(SushiDSP::PentodeStage(SushiDSP::kEl34), 8.0f, 300.0f);
     OversampledPentodeStageNode at_window(SushiDSP::PentodeStage(SushiDSP::kEl34), 38.0f, 300.0f);
 

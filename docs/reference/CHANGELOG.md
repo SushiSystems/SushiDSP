@@ -46,6 +46,16 @@ The studio track, spec `docs/superpowers/specs/2026-09-07-stereo-tracks-design.m
 
 The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-gain-amps-part1/`.
 
+### DA5 part 4 — antiderivative antialiasing and the double biquad, spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` section 15
+
+- 2026-09-08 — Added `AntiderivativeAntialiaser`, first-order ADAA of a stage's composite transfer in the grid's coordinate, its two tables filled at construction (`AntiderivativeAntialiaser.hpp`).
+- 2026-09-08 — Gave `PlateSwing` a double `bound` and `bound_antiderivative`, H² ln cosh(L / H) (`PlateSwing.hpp`).
+- 2026-09-08 — Made `TriodeStage` and `PentodeStage` return their antialiaser's output and drop its history on `reset()` (`TriodeStage.hpp`, `TriodeStage.cpp`, `PentodeStage.hpp`, `PentodeStage.cpp`).
+- 2026-09-08 — Moved `Biquad`'s coefficients and state to double behind its float interface (`Biquad.hpp`, `Biquad.cpp`).
+- 2026-09-08 — Added seven antialiaser cases, the divided difference against Simpson's rule and the ill-conditioned point among them, and one on the EL34's table (`test_triode_stage.cpp`, `test_pentode_stage.cpp`).
+- 2026-09-08 — Added `Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb`, skipped at −26.8 dB, and re-worded the JCM800 skip at −23.4 dB (`test_measure.cpp`).
+- 2026-09-08 — Wrote part 4's derivation, its column measurements and its CPU cost into the spec's section 15 and the known issues (`2026-09-07-grid-knee-antialiasing-design.md`, `KNOWN_ISSUES.md`, `modules/jcm800/README.md`).
+
 ### DA5 part 3 — the transformer's secondary, the Deep measurement and 16x, spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` section 14
 
 - 2026-09-07 — Removed the saturated signal's running mean from `OutputTransformerStage`'s output, tracked in double a decade under the rolloff corner (`OutputTransformerStage.hpp`, `OutputTransformerStage.cpp`).

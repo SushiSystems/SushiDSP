@@ -6,39 +6,29 @@ here has a figure, a mechanism, and a named exit.
 
 ## Alias floor at 8× after volt-true grid staging
 
-The JCM800 measures −13.4 dB through `measure::alias_floor()` at preamp 1.0 and a −12 dBFS input,
+The JCM800 measures −23.4 dB through `measure::alias_floor()` at preamp 1.0 and a −12 dBFS input,
 against the −33.8 dB bound (−43.4 dB before DA4, −6.7 dB before DA5 part 1, −15.1 dB before
-part 2), and −16.3 dB at its default (−18.4 dB before part 1, −11.2 dB before part 2); the 5150
-at its default and the same input measures −11.4 dB (+26.0 dB before DA5 part 1, −17.2 dB before
-part 2), the IIC+ −0.1 dB (−6.9 dB before part 2) and the VH4 −13.3 dB. The diagnosis of
-2026-09-07 (`.superpowers/sdd/amp-gain-staging/diagnosis.md`) located the first source:
-`TriodeStage`'s grid-conduction knee was a room-temperature Shockley law (Vt 25.85 mV), sharper
-than the Norman law of the repository's own `Triode12AX7`. DA5 part 1 put the Norman law in the
-stage: one stage alone now folds at −81.2 dB at 3× past its window and −53.7 dB at 12× (−37.3
-and −13.7 dB before). DA5 part 2 made `PentodeStage` volt-true, which took its own fold out
-(−88.1 dB alone at 8 V, against −49.7 dB at the same drive before) and, at the 5150's and the
-IIC+'s defaults, took away the re-squaring its +0.2 model-volt clamp had done to the output: those
-two figures read the same with the power stage made linear, so what they now show is the
-preamp's fold at the drive the circuit delivers, 10 to 3500× past the windows at guitar level.
-Documented by `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b`
-(`tests/functional/unit/test_measure.cpp`), skipped with the measured figure printed. DA5 part 3
-measured 16× through probes (spec section 14): JCM800 default −16.3 to −35.0 dB, preamp 1.0
-−13.4 to −25.1 dB, 5150 default −11.4 to −19.9 dB, IIC+ −0.1 to −14.3 dB, VH4 −13.3 to −27.3 dB,
-at 1.9 to 2.0× the CPU cost (the 5150 alone 5.19 of the 5.33 ms block). Closes with
-the rest of `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`: antialiasing at
-the stage, decision 2.
-
-## Float biquads put a low-frequency floor under the clean settings
-
-The JCM800 at preamp 0.02 and a −12 dBFS input reads −48.0 dB through `measure::alias_floor()`,
-and every one of its worst bins sits between 20 and 100 Hz: the figure is not a fold but the
-rounding noise of `Biquad`'s float recursion at the oversampled rate, where the JCM800's 120 Hz
-bass shelf sits at 1.56e-4 of 384 kHz and the transformer's 60 Hz rolloff at 7.8e-5 of the
-768 kHz a 96 kHz host or a 16× region runs at, under `set_high_pass`'s own 1e-4 precondition. With
-the biquad's coefficients and state in double the same setting reads −78.0 dB at 8× and −81.2 dB
-at 16×, with its worst bins at kilohertz; at 16× the float floor is −35.9 dB (DA5 part 3, spec
-section 14). The hot defaults do not move. Closes when `Biquad` carries double state behind its
-float interface, a brick change the maintainer owns.
+part 2, −13.4 dB before part 4), and −24.9 dB at its default (−16.3 dB before part 4); the 5150
+at its default and the same input measures −26.8 dB against the spec's −30 dB (−11.4 dB before
+part 4), the IIC+ −14.8 dB (−0.1 dB) and the VH4 −23.0 dB (−13.3 dB). DA5 part 4 antialiased
+every `TriodeStage` and `PentodeStage` with a first-order antiderivative of the composite
+grid-and-plate transfer (`AntiderivativeAntialiaser`, spec section 15): one stage alone now folds
+at −102.4 dB at 3× past its window and −79.8 dB at 12× (−81.2 and −53.7 dB before), and the
+EL34 at −101.2 and −84.4 dB (−88.1 and −55.1 dB). What remains in the amplifiers is not the
+transformer's tanh, the sag envelope or the solver's iteration count, each measured and ruled out
+(`.superpowers/sdd/amp-gain-staging/da5-part4-report.md` section 5): at every default the worst
+line is the 20 kHz tone's 19th harmonic folding about 384 kHz to 3995 Hz, made by the stages
+after the first, which receive an already-clipped waveform whose content reaches the oversampled
+Nyquist and so breaks the linear-between-samples assumption first-order ADAA rests on. Documented
+by `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` and
+`Regression_Dsp.Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb`
+(`tests/functional/unit/test_measure.cpp`), both skipped with the measured figure printed. 16× was
+measured without ADAA in part 3 (JCM800 default −35.0 dB, 5150 −19.9, IIC+ −14.3, VH4 −27.3 at
+1.9 to 2.0× the CPU); 16× on top of the antialiaser, measured in part 4, reads JCM800 default
+−45.3 dB, preamp 1.0 −32.7 dB, 5150 −36.2 dB, IIC+ −36.9 dB and VH4 −35.3 dB at 2.0× the CPU,
+which puts the 5150 and the IIC+ at 167 % of the block at `-O0` and 99 to 102 % at `-O2`. What
+closes the rest is the maintainer's: that 16×, a band limit between the stages that lets 8× stay,
+or a higher-order antiderivative.
 
 ## Mesa Mark IIC+ has no clean setting
 

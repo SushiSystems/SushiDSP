@@ -200,11 +200,12 @@ Measured 2026-09-07, all at 48 kHz with a 256-frame block:
 ## Known issue: the alias floor
 
 `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` is skipped, and the measurement still
-runs and still prints its figure. The amp measures −13.4 dB at preamp 1.0 and −12 dBFS, against
-−43.4 dB before DA4 removed the level staging. Every stage now clips at the level its own circuit
-puts it at, and the 8× region folds the harmonics that clipping generates. The −33.8 dB bound
-stands and is not relaxed; `docs/reference/KNOWN_ISSUES.md` carries the item until DA5's
-antialiasing work (ADAA in `TriodeStage`, or 16× oversampling) restores the floor.
+runs and still prints its figure. The amp measures −23.4 dB at preamp 1.0 and −12 dBFS, against
+−43.4 dB before DA4 removed the level staging. Every stage clips at the level its own circuit
+puts it at, every stage's composite transfer is antialiased (DA5 part 4, `AntiderivativeAntialiaser`),
+and what the 8× region still folds is the 19th harmonic the later stages make of the clipped
+waveform they receive. The −33.8 dB bound stands and is not relaxed; `docs/reference/KNOWN_ISSUES.md`
+carries the item.
 
 Measured through `measure::alias_floor()` at −12 dBFS, in the order the chain changed:
 
@@ -213,6 +214,9 @@ Measured through `measure::alias_floor()` at −12 dBFS, in the order the chain 
 | Shockley knee (DA4) | −18.4 dB | −6.7 dB | −24.4 dB |
 | Norman grid law (DA5 part 1) | −11.2 dB | −15.1 dB | −24.6 dB |
 | Volt-true EL34 pair, cold clipper at 7.77, inverter at its 2203 bias (DA5 part 2) | −16.3 dB | −13.4 dB | −48.0 dB |
+| Every stage antialiased (DA5 part 4, ADAA alone) | −25.0 dB | −23.4 dB | −49.4 dB |
+| `Biquad` in double alone (DA5 part 4) | −16.3 dB | −13.4 dB | −78.0 dB |
+| Both, as shipped (DA5 part 4) | −24.9 dB | −23.4 dB | −78.4 dB |
 
 Part 1 cost the default setting 7.2 dB because the inverter's 10 kΩ source barely loads the
 Norman slope and the grid struck the deck-biased pair's 15.38 V ceiling. The corrected inverter
@@ -221,6 +225,9 @@ default and −18.1 dB at preamp 1.0; the volt-true EL34 pair on top of them giv
 −13.4 dB shipped. Part 2 recovers 5.1 of the 7.2 dB at the default and does not close it.
 Halving the transformer's drive and removing the pair's cut-off ceiling each move the figure by
 under 0.5 dB, so what remains is the preamp's own fold at the drive the circuit delivers.
+Part 4's two columns separate: the antialiaser buys 8.7 and 10.0 dB at the two hot settings and
+nothing at preamp 0.02, the double biquad buys 30 dB at preamp 0.02 and nothing at the hot ones,
+where the −48.0 dB had been the float biquads' rounding at 20 to 100 Hz and not a fold.
 
 The two losses on this page each moved the DA4 figure the wrong way:
 

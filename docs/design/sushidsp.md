@@ -597,6 +597,23 @@ and −13.3 to −27.3 (VH4) at 1.9 to 2.0× the CPU, the 5150 alone taking 5.19
 the clean settings' floor at either rate is `Biquad`'s float rounding (−48.0 dB at 8×, −78.0 with
 double state), not a fold.
 
+### As built in DA5, part 4 — the antiderivative of the composite stage, and the double biquad
+
+`TriodeStage` and `PentodeStage` return the output of an `AntiderivativeAntialiaser`: first-order
+ADAA of the composite grid-and-plate transfer, evaluated in the grid's coordinate as
+(G(u1) − G(u0)) / (g(u1) − g(u0)), with g(u) = A u + K softplus((u − c) / w) the input that puts the
+grid at u and G = A · P + (K / w) · R, P the plate tanh's closed-form ln cosh and R the product of
+tanh and logistic, which has no elementary antiderivative and is tabulated over the knee's ±24
+transition widths (spec §15). `Biquad` carries coefficients and state in double behind its float
+interface. Measured apart and together at −12 dBFS: ADAA alone moves the hot defaults 8.7 to
+15.4 dB (JCM800 −16.3 to −25.0, preamp 1.0 −13.4 to −23.3, 5150 −11.4 to −26.8, IIC+ −0.1 to
+−14.8, VH4 −13.3 to −23.0 dB), the double biquad alone moves the JCM800's preamp 0.02 from
+−48.0 to −78.0 dB and nothing else; one stage alone reaches −102.4 dB at 3x its window. What
+remains is the later stages' fold of an already-clipped input, which a first-order antiderivative
+cannot see, so §11's −33.8 dB stays a known issue. The cost at the build's `-O0` is 1.7 to 2.1x
+(5150 4.23 and IIC+ 4.29 of the 5.33 ms block), at `-O2` 1.4 to 2.0x. All eight goldens move,
+`tube_screamer` and `dd3` for the first time in this phase.
+
 ### §5a Amplifier family
 
 The DA phase (plans `docs/superpowers/plans/2026-09-06-high-gain-amps-part1.md` and
@@ -707,7 +724,7 @@ Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical cor
 - **D7 — Hardening & packaging.** Namespaced export/Config finalized, perceptual A/B validation once reference captures are available.
 - **DA — High-gain amplifiers.** §5a: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes, registered in the node registry with their own front-panel layouts. *Ships: all four amps selectable in the rig host, RT-safety-trapped, panel- and registry-tested.*
 - **DA4 — Plate-swing `TriodeStage`.** Spec `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. A physical plate ceiling replaces the level-staging devices in all four amplifiers; the phase-inverter tail degeneration and the `PentodeStage` grid bridge become explicit, derived constants. *Ships: all four amps on the seven-argument `TriodeStage`, a clean end and non-decreasing THD on every gain knob, two known issues carried to DA5 (the JCM800's alias floor, the IIC+'s undocumented loop return).*
-- **DA5 — The grid knee, antialiasing and the volt-true power stage.** Spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, parts 1 and 2 built. The 2026-09-07 diagnosis (`.superpowers/sdd/amp-gain-staging/diagnosis.md`) measured the alias source as `TriodeStage`'s Shockley grid knee, not the DA4 plate ceiling and not the level the stages sit at: one stage 3× past its window folds at −37 dB, the Norman law of `Triode12AX7` takes it to −81 dB. *Ships (part 1, decisions 1, 5, 6 and 7): the Norman grid law in `TriodeStage` through `GridConductionLaw`, the six-argument path deleted, the 5150's inverter at its solved −1.175 V, all four unity constants pinned at 82 Hz, the 5150's PRE GAIN on an audio taper; see "As built in DA5, part 1". Ships (part 2, decisions 3 and 4): the volt-true `PentodeStage` on `PentodeEL34`'s grid law and a `PlateSwing`, the five power-tube presets from datasheet operating points, `kPowerTubeGridScale` deleted from all four modules, the JCM800's per-stage gains and its inverter with the grid leaks on the tail junction; see "As built in DA5, part 2".* Open: the antialiasing (decision 2, a 16× measurement first); the shelf-corner rule and the transformer's DC pass (final review F2, F5, F7) stay in this phase.
+- **DA5 — The grid knee, antialiasing and the volt-true power stage.** Spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, parts 1 and 2 built. The 2026-09-07 diagnosis (`.superpowers/sdd/amp-gain-staging/diagnosis.md`) measured the alias source as `TriodeStage`'s Shockley grid knee, not the DA4 plate ceiling and not the level the stages sit at: one stage 3× past its window folds at −37 dB, the Norman law of `Triode12AX7` takes it to −81 dB. *Ships (part 1, decisions 1, 5, 6 and 7): the Norman grid law in `TriodeStage` through `GridConductionLaw`, the six-argument path deleted, the 5150's inverter at its solved −1.175 V, all four unity constants pinned at 82 Hz, the 5150's PRE GAIN on an audio taper; see "As built in DA5, part 1". Ships (part 2, decisions 3 and 4): the volt-true `PentodeStage` on `PentodeEL34`'s grid law and a `PlateSwing`, the five power-tube presets from datasheet operating points, `kPowerTubeGridScale` deleted from all four modules, the JCM800's per-stage gains and its inverter with the grid leaks on the tail junction; see "As built in DA5, part 2".* Ships (part 4, decision 2): first-order ADAA of every stage's composite transfer through `AntiderivativeAntialiaser`, and `Biquad` in double; the hot defaults move 8.7 to 15.4 dB and the clean floor 30 dB, the −33.8 dB acceptance stays open as a known issue; see "As built in DA5, part 4".* The shelf-corner rule and the transformer's DC pass (final review F2, F5, F7) stay in this phase.
 
 **DS — stereo, tracks and playback, a parallel track.** Spec
 `docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan
