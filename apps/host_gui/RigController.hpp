@@ -23,6 +23,9 @@
 
 #pragma once
 
+#include <array>
+#include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -32,11 +35,25 @@
 #include <utility>
 #include <vector>
 
+#include "SushiDSP/capture/RecordingBus.hpp"
+#include "SushiDSP/capture/Take.hpp"
+#include "SushiDSP/capture/TrackPlayer.hpp"
+#include "SushiDSP/capture/Transport.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtGraphSlot.hpp"
 
 #include "ui/Geometry.hpp"
+
+/// @brief Names the signal the host assembles into the rig's input buffer. Track and Both are
+/// what re-amping is made of - a dry take driven through the rig instead of, or on top of, the
+/// live instrument. See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md section 6.
+enum class RigInputSource : std::uint32_t
+{
+    LiveInput = 0,
+    Track = 1,
+    Both = 2
+};
 
 /// @brief Owns the authoritative rig topology (a set of slots, each with a descriptor id and
 /// current parameter values, plus edges between them) and rebuilds + publishes a fresh
@@ -210,6 +227,112 @@ public:
     /// @brief The remembered impulse-response folder, or "" when the preset carried none.
     std::string ir_folder() const;
 
+
+    /// @brief Reports the sample rate every take, the transport and the rig were prepared at.
+    /// @return The rate in Hz.
+    double sample_rate() const { return info_.sample_rate; }
+
+    /// @brief Reports how many channels the rig's terminal node is adapted to.
+    /// @return The host output width the published graph writes.
+    std::uint32_t output_channels() const { return info_.channels; }
+
+    /// @brief Chooses the signal the host feeds the rig. Control thread; the audio thread reads
+    /// the choice on its next block.
+    /// @param source The live instrument, the re-amp take, or both summed.
+    void set_input_source(RigInputSource source);
+
+    /// @brief Reports the signal the host feeds the rig. Either thread; real-time safe.
+    /// @return The current choice.
+    RigInputSource input_source() const noexcept
+    {
+        return input_source_.load(std::memory_order_relaxed);
+    }
+
+    /// @brief Reads a WAV file into a playback track and remembers where it came from. Control
+    /// thread only.
+    /// @param index Track index; out of range does nothing and reports failure.
+    /// @param path Filesystem path to the WAV file.
+    /// @param error_out Receives the failure message when the load fails.
+    /// @return True when the track now holds the file's audio.
+    bool load_track(std::size_t index, const std::string& path, std::string& error_out);
+
+    /// @brief Empties a playback track and forgets its file, and drops the re-amp take when that
+    /// track was feeding it. Control thread only.
+    /// @param index Track index; out of range does nothing.
+    void clear_track(std::size_t index);
+
+    /// @brief Reports whether a track holds audio.
+    /// @param index Track index.
+    /// @return True when load_track() has succeeded on it and clear_track() has not run since.
+    bool track_is_loaded(std::size_t index) const;
+
+    /// @brief Reports a track's display name, which defaults to its file's stem.
+    /// @param index Track index.
+    /// @return The name, or "" for an index out of range.
+    std::string track_name(std::size_t index) const;
+
+    /// @brief Renames a track. Control thread only.
+    /// @param index Track index; out of range does nothing.
+    /// @param name The new display name.
+    void set_track_name(std::size_t index, const std::string& name);
+
+    /// @brief Reports the file a track was loaded from.
+    /// @param index Track index.
+    /// @return The path, or "" when the track holds nothing.
+    std::string track_path(std::size_t index) const;
+
+    /// @brief Loads a track's file a second time and publishes it as the take the rig's input is
+    /// assembled from. Control thread only; does not change the input source.
+    /// @param index Track index; an empty or out-of-range track clears the re-amp take instead.
+    /// @param error_out Receives the failure message when the load fails.
+    /// @return True when the re-amp take now holds that track's audio.
+    bool set_reamp_track(std::size_t index, std::string& error_out);
+
+    /// @brief Drops the re-amp take, so the re-amp leg contributes silence. Control thread only.
+    void clear_reamp_track();
+
+    /// @brief Reports which track feeds the re-amp leg.
+    /// @return The track index, or std::nullopt when no take is loaded there.
+    std::optional<std::size_t> reamp_track() const { return reamp_track_; }
+
+    /// @brief Remembers the folder recorded takes are written into. Saved with the preset.
+    /// @param path The folder.
+    void set_take_folder(const std::string& path);
+
+    /// @brief The remembered take folder, or "" when the preset carried none.
+    std::string take_folder() const;
+
+    /// @brief Opens the processed and dry files for a take and puts the transport into Recording.
+    /// Control thread only.
+    /// @param take_name Base name both file names are built from.
+    /// @param error_out Receives the failure message when either file cannot be opened.
+    /// @return True when both files opened.
+    bool arm_recording(const std::string& take_name, std::string& error_out);
+
+    /// @brief Closes both take files and leaves the transport where it is. Control thread only.
+    void stop_recording();
+
+    /// @brief The shared sample clock the audio callback advances once per block.
+    SushiDSP::Transport& transport() noexcept { return transport_; }
+
+    /// @brief The shared sample clock, for a reader.
+    const SushiDSP::Transport& transport() const noexcept { return transport_; }
+
+    /// @brief The playback tracks the callback mixes into the rig's output.
+    SushiDSP::TrackPlayer& player() noexcept { return player_; }
+
+    /// @brief The playback tracks, for a reader.
+    const SushiDSP::TrackPlayer& player() const noexcept { return player_; }
+
+    /// @brief The single-track player the callback adds into the rig's input buffer.
+    SushiDSP::TrackPlayer& reamp_player() noexcept { return reamp_player_; }
+
+    /// @brief The pair of recorders the callback writes both legs of a take into.
+    SushiDSP::RecordingBus& recording_bus() noexcept { return recording_bus_; }
+
+    /// @brief The pair of recorders, for a reader.
+    const SushiDSP::RecordingBus& recording_bus() const noexcept { return recording_bus_; }
+
     /// @brief Serializes the current rig to JSON via SushiDSP::serialize_rig_to_json(). Cabinet
     /// IR is included via the `"cabinet_ir"` JSON field. Every slot is written, a bypassed one
     /// included, and a bypassed slot carries `"bypassed": true`. A non-empty ir_folder() is
@@ -292,6 +415,26 @@ private:
     std::vector<std::pair<SlotId, SlotId>> bridged_edges(
         const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const;
 
+    /// @brief One playback track's control-thread metadata; the audible state lives in player_.
+    struct TrackInfo
+    {
+        std::string name;
+        std::string path;
+        bool        loaded = false;
+    };
+
+    /// @brief Reads a WAV file into a take, or reports why it could not be read.
+    /// @param path Filesystem path to the WAV file.
+    /// @param error_out Receives the failure message when the load fails.
+    /// @return The take, or nullptr on failure.
+    static std::unique_ptr<SushiDSP::Take> load_take(const std::string& path,
+                                                     std::string& error_out);
+
+    /// @brief Strips a path down to its file name without an extension.
+    /// @param path The path to reduce.
+    /// @return The stem, or "" for a path that ends in a separator.
+    static std::string path_stem(const std::string& path);
+
     SushiDSP::PrepareInfo                          info_;
     std::unordered_map<SlotId, Slot>               slots_;
     std::vector<Edge>                              edges_;
@@ -302,4 +445,12 @@ private:
     SushiDSP::RtGraphSlot                          graph_slot_;
     SushiDSP::RigGraph*                            active_graph_ = nullptr;
     std::size_t                                     dropped_parameter_changes_ = 0;
+    SushiDSP::Transport                             transport_;
+    SushiDSP::TrackPlayer                           player_;
+    SushiDSP::TrackPlayer                           reamp_player_;
+    SushiDSP::RecordingBus                          recording_bus_;
+    std::array<TrackInfo, SushiDSP::TrackPlayer::kMaxTracks> tracks_;
+    std::optional<std::size_t>                      reamp_track_;
+    std::string                                     take_folder_;
+    std::atomic<RigInputSource>                     input_source_{ RigInputSource::LiveInput };
 };

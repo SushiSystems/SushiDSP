@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <stdexcept>
 #include <exception>
 #include <memory>
 #include <set>
@@ -87,6 +88,7 @@ namespace
 
 RigController::RigController(const SushiDSP::PrepareInfo& info)
     : info_(info)
+    , recording_bus_(std::max(1u, info.channels), info.sample_rate)
 {
     publish();
 }
@@ -475,6 +477,8 @@ void RigController::apply_cabinet_to_live_node(SlotId slot)
 void RigController::reclaim()
 {
     graph_slot_.reclaim();
+    player_.reclaim();
+    reamp_player_.reclaim();
     if (active_graph_ == nullptr)
     {
         return;
@@ -549,6 +553,155 @@ std::string RigController::ir_folder() const
     return ir_folder_;
 }
 
+
+std::unique_ptr<SushiDSP::Take> RigController::load_take(const std::string& path,
+                                                         std::string& error_out)
+{
+    error_out.clear();
+    try
+    {
+        return std::make_unique<SushiDSP::Take>(SushiDSP::Take::load(path));
+    }
+    catch (const std::exception& error)
+    {
+        error_out = error.what();
+        return nullptr;
+    }
+}
+
+std::string RigController::path_stem(const std::string& path)
+{
+    const std::size_t cut = path.find_last_of("/\\");
+    const std::string name = cut == std::string::npos ? path : path.substr(cut + 1);
+    const std::size_t dot = name.find_last_of('.');
+    return dot == std::string::npos ? name : name.substr(0, dot);
+}
+
+void RigController::set_input_source(RigInputSource source)
+{
+    input_source_.store(source, std::memory_order_relaxed);
+}
+
+bool RigController::load_track(std::size_t index, const std::string& path, std::string& error_out)
+{
+    if (index >= tracks_.size())
+    {
+        error_out = "track index out of range";
+        return false;
+    }
+
+    std::unique_ptr<SushiDSP::Take> take = load_take(path, error_out);
+    if (take == nullptr)
+    {
+        return false;
+    }
+
+    if (tracks_[index].name.empty() || tracks_[index].name == path_stem(tracks_[index].path))
+    {
+        tracks_[index].name = path_stem(path);
+    }
+    tracks_[index].path = path;
+    tracks_[index].loaded = true;
+    player_.set_take(index, std::move(take));
+    return true;
+}
+
+void RigController::clear_track(std::size_t index)
+{
+    if (index >= tracks_.size())
+    {
+        return;
+    }
+    tracks_[index] = TrackInfo{};
+    player_.set_take(index, std::make_unique<SushiDSP::Take>(1u, info_.sample_rate, 0u));
+    if (reamp_track_.has_value() && *reamp_track_ == index)
+    {
+        clear_reamp_track();
+    }
+}
+
+bool RigController::track_is_loaded(std::size_t index) const
+{
+    return index < tracks_.size() && tracks_[index].loaded;
+}
+
+std::string RigController::track_name(std::size_t index) const
+{
+    return index < tracks_.size() ? tracks_[index].name : std::string();
+}
+
+void RigController::set_track_name(std::size_t index, const std::string& name)
+{
+    if (index < tracks_.size())
+    {
+        tracks_[index].name = name;
+    }
+}
+
+std::string RigController::track_path(std::size_t index) const
+{
+    return index < tracks_.size() ? tracks_[index].path : std::string();
+}
+
+bool RigController::set_reamp_track(std::size_t index, std::string& error_out)
+{
+    error_out.clear();
+    if (index >= tracks_.size() || !tracks_[index].loaded)
+    {
+        clear_reamp_track();
+        return false;
+    }
+
+    std::unique_ptr<SushiDSP::Take> take = load_take(tracks_[index].path, error_out);
+    if (take == nullptr)
+    {
+        return false;
+    }
+
+    reamp_player_.set_take(0, std::move(take));
+    reamp_player_.set_mute(0, false);
+    reamp_track_ = index;
+    return true;
+}
+
+void RigController::clear_reamp_track()
+{
+    reamp_player_.set_take(0, std::make_unique<SushiDSP::Take>(1u, info_.sample_rate, 0u));
+    reamp_track_ = std::nullopt;
+}
+
+void RigController::set_take_folder(const std::string& path)
+{
+    take_folder_ = path;
+}
+
+std::string RigController::take_folder() const
+{
+    return take_folder_;
+}
+
+bool RigController::arm_recording(const std::string& take_name, std::string& error_out)
+{
+    error_out.clear();
+    if (take_name.empty())
+    {
+        error_out = "a take needs a name";
+        return false;
+    }
+    if (!recording_bus_.arm(take_folder_, take_name))
+    {
+        error_out = "could not open the take files in '" + take_folder_ + "'";
+        return false;
+    }
+    transport_.record();
+    return true;
+}
+
+void RigController::stop_recording()
+{
+    recording_bus_.stop();
+}
+
 std::string RigController::save_to_json() const
 {
     nlohmann::json document = nlohmann::json::parse(serialize_nodes());
@@ -556,6 +709,41 @@ std::string RigController::save_to_json() const
     {
         document["ir_folder"] = ir_folder_;
     }
+    if (!take_folder_.empty())
+    {
+        document["take_folder"] = take_folder_;
+    }
+
+    nlohmann::json tracks_json = nlohmann::json::array();
+    for (std::size_t index = 0; index < tracks_.size(); ++index)
+    {
+        if (!tracks_[index].loaded)
+        {
+            continue;
+        }
+        nlohmann::json track_json = nlohmann::json::object();
+        track_json["index"] = index;
+        track_json["name"] = tracks_[index].name;
+        track_json["path"] = tracks_[index].path;
+        track_json["gain"] = player_.gain(index);
+        track_json["pan"] = player_.pan(index);
+        track_json["muted"] = player_.muted(index);
+        track_json["soloed"] = player_.soloed(index);
+        tracks_json.push_back(track_json);
+    }
+    if (!tracks_json.empty())
+    {
+        document["tracks"] = tracks_json;
+    }
+
+    if (transport_.has_loop())
+    {
+        nlohmann::json loop_json = nlohmann::json::object();
+        loop_json["begin_frames"] = transport_.loop_begin_frames();
+        loop_json["end_frames"] = transport_.loop_end_frames();
+        document["loop"] = loop_json;
+    }
+
     return document.dump(2);
 }
 
@@ -634,6 +822,45 @@ void RigController::load_from_json(const std::string& json_text)
     next_slot_id_ = 0;
     ir_folder_ = document.contains("ir_folder") ? document.at("ir_folder").get<std::string>()
                                                 : std::string();
+    take_folder_ = document.contains("take_folder")
+        ? document.at("take_folder").get<std::string>()
+        : std::string();
+
+    // A preset carried to another machine finds no such take files, so a track that will not load
+    // is left empty rather than refusing the whole preset.
+    for (std::size_t index = 0; index < tracks_.size(); ++index)
+    {
+        clear_track(index);
+    }
+    if (document.contains("tracks"))
+    {
+        std::string track_error;
+        for (const nlohmann::json& track_json : document.at("tracks"))
+        {
+            const std::size_t index = track_json.value("index", tracks_.size());
+            if (index >= tracks_.size())
+            {
+                continue;
+            }
+            load_track(index, track_json.value("path", std::string()), track_error);
+            if (track_json.contains("name"))
+            {
+                tracks_[index].name = track_json.at("name").get<std::string>();
+            }
+            player_.set_gain(index, track_json.value("gain", 1.0f));
+            player_.set_pan(index, track_json.value("pan", 0.0f));
+            player_.set_mute(index, track_json.value("muted", false));
+            player_.set_solo(index, track_json.value("soloed", false));
+        }
+    }
+
+    transport_.clear_loop();
+    if (document.contains("loop"))
+    {
+        const nlohmann::json& loop_json = document.at("loop");
+        transport_.set_loop(loop_json.value("begin_frames", std::uint64_t{ 0 }),
+                            loop_json.value("end_frames", std::uint64_t{ 0 }));
+    }
 
     std::unordered_map<SushiDSP::NodeHandle, SlotId> handle_to_slot;
     for (SushiDSP::NodeHandle handle : scratch.nodes())
