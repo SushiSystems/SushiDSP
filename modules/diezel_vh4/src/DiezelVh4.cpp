@@ -91,11 +91,8 @@ namespace SushiDSP
         constexpr double kV2aCathodeShelfZeroHz = 234.0;
         constexpr double kV2aCathodeShelfPoleHz = 603.0;
 
-        // Each of this channel's three couplings - C13, C18 and C20 - is one RC section into a
-        // grid leak, so each runs Biquad::set_first_order_high_pass(): 6 dB per octave below the
-        // corner, an exact null at DC, and no conjugate pole pair to go unstable at C20's 2.26 Hz.
-        // At C13's 314 Hz the difference between 6 and 12 dB per octave is most of this channel's
-        // low end.
+        // C13, C18 and C20 each run Biquad::set_first_order_high_pass(); modules/diezel_vh4/README.md
+        // says why.
 
         // Section 6: C18 4.7 nF into V2a's 30.8 kOhm plate impedance plus the 500 kOhm shunt.
         constexpr double kV3aCouplingHighPassHz = 63.8;
@@ -151,36 +148,34 @@ namespace SushiDSP
         // path to the power amp, so it is not applied here.
 
         // Section 5: nothing past the send jack is established. The loop return driver and the
-        // phase inverter are one triode at Jcm800.cpp's kPhaseInverterGain of 40, on its triode
-        // constants. A modelling choice, top to bottom.
+        // phase inverter are one triode standing in for the JCM800's long-tailed pair, so the four
+        // constants that describe that pair are copied from Jcm800.cpp - kPhaseInverterCathodeBias,
+        // kPhaseInverterPlateSwing, kPhaseInverterGain and kPhaseInverterDegeneration - rather than
+        // re-derived here, and the derivation lives beside them in that file. A product module may
+        // not include another, so the values travel by copy. A modelling choice, top to bottom.
         constexpr float kPhaseInverterSourceResistanceOhms = 10000.0f;
         constexpr float kPhaseInverterGridLeakOhms = 1000000.0f;
-        constexpr float kPhaseInverterCathodeBiasVolts = -1.5f;
-        constexpr float kPhaseInverterGain = 40.0f;
-        /// @brief The phase inverter's plate swing, a modelling choice like the rest of this
-        /// stage: the JCM800 long-tailed pair of docs/reference/spice/jcm_ltp/README.md at B+
-        /// 360 V, whose 82 kOhm half self-biases to Vk 3.910 V, Ia 0.193 mA and Va 344.199 V
-        /// against the Koren 12AX7, giving 360 - 344.199 = 15.801 V to the supply and 344.199 -
-        /// 134.665 = 209.534 V to the bottom. jcm_ltp_tran.csv corroborates it: the differential
-        /// probe reaches -20.74 V to +22.45 V at a 1 V drive, about twice one plate's cutoff side.
-        constexpr PlateSwing kPhaseInverterPlateSwing{ 15.801f, 209.534f };
-        /// @brief The tail degeneration a long-tailed pair applies to its own grid-to-cathode
-        /// window, inherited with the stand-in and so a modelling choice like the rest of this
-        /// stage. The cathode follows the grid, so the window is the input divided by
-        /// 1 + (mu + 1)*R_tail/(r_a + Ra). At the JCM800 pair's operating point the Koren 12AX7
-        /// gives mu 75.0428 and r_a 171.5 kOhm, and jcm_ltp's tail is 470 + 10k = 10.47 kOhm
-        /// against the 82 kOhm plate: 1 + 76.0428 * 10470 / (171524 + 82000) = 4.140398.
-        constexpr float kPhaseInverterDegeneration = 4.140398f;
+        /// @brief Jcm800.cpp's kPhaseInverterCathodeBias: both halves share the 470 + 10 kOhm tail,
+        /// so each sees 20.94 kOhm and settles at 0.187584 mA on jcm_ltp's 360 V.
+        constexpr float kPhaseInverterCathodeBiasVolts = -3.928014f;
+        /// @brief Jcm800.cpp's kPhaseInverterGain: one triode's full load-line gain,
+        /// mu*Ra/(r_a + Ra) = 74.254859*82000/271506.723. The pair's split is in the degeneration
+        /// factor below, so halving this would count it twice.
+        constexpr float kPhaseInverterGain = 22.426327f;
+        /// @brief Jcm800.cpp's kPhaseInverterPlateSwing on the 82 kOhm plate: 360 - 344.618092
+        /// toward the supply, 344.618092 - 134.677465 toward the bottom at Vgk = 0.
+        constexpr PlateSwing kPhaseInverterPlateSwing{ 15.381908f, 209.940627f };
+        /// @brief Jcm800.cpp's kPhaseInverterDegeneration, divided into the inverter's input
+        /// because the shared cathode follows the driven grid. The other triode's cathode presents
+        /// (r_a + Ra)/(mu + 1) = 3607.8298 Ohm in parallel with the 20.94 kOhm tail, so the window
+        /// is the input over 1 + 20940/(20940 + 3607.8298) = 1.853029.
+        constexpr float kPhaseInverterDegeneration = 1.853029f;
 
         constexpr float kTriodeSaturationCurrentAmps = 1e-9f;
         constexpr float kTriodeThermalVoltageVolts = 0.02585f;
 
-        // The four level-staging factors this module carried until 2026-09-07 are gone:
-        // docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md replaced them with the
-        // plate-swing ceiling above, so the dossier's own dividers now run at face value in volts
-        // from V1a's grid to the power tubes. The interstage factors left in the chain are all
-        // dossier values: kV2aToV3aDivider, kVolumeSeriesDivider, kMixBusAttenuation and the two
-        // cathode-follower scalars.
+        // Every interstage factor below is a dossier value; modules/diezel_vh4/README.md records
+        // the level staging this module carried until 2026-09-07 and why it went.
         /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
         /// PentodeStage becomes volt-true (DA5). Its grid saturates at
         /// 1 / (plate_saturation_drive * gain) = 1 / (0.045 * 8) = 2.778 model volts, where
@@ -424,7 +419,7 @@ namespace SushiDSP
                                 * volume_pot * kMixBusAttenuation;
             const float send_buffer = v4a_.process_sample(mix_bus) * kCathodeFollowerGain;
             const float phase_inverted =
-                phase_inverter_.process_sample(send_buffer * (1.0f / kPhaseInverterDegeneration))
+                phase_inverter_.process_sample(send_buffer / kPhaseInverterDegeneration)
                 * kPowerTubeGridScale;
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted);
