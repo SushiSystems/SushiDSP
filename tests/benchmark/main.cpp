@@ -529,8 +529,9 @@ int main(int argc, char** argv)
     }
     if (selected("TriodeStage", argc, argv))
     {
-        // The 12AX7 values Jcm800 uses for V1a.
-        SushiDSP::TriodeStage triode(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f);
+        // The 12AX7 values Jcm800 uses for V1a, on a 194 / 115 V plate swing.
+        SushiDSP::TriodeStage triode(10000.0f, 1000000.0f, -1.5f, 60.0f, SushiDSP::kTriode12AX7GridConduction,
+                                     SushiDSP::PlateSwing{ 194.0f, 115.0f });
         const std::vector<float> input = make_test_tone(kBlockSize);
         std::vector<float> output(kBlockSize, 0.0f);
         print(SushiDSP::bench::measure("TriodeStage (base rate)", kBlockSize, kSampleRate, [&]

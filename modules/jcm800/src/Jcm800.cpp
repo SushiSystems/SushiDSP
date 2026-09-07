@@ -47,8 +47,6 @@ namespace SushiDSP
         constexpr float kTriodeSourceResistance = 10000.0f;
         constexpr float kTriodeGridLeak = 1000000.0f;
         constexpr float kTriodeGain = 60.0f;
-        constexpr float kTriodeSaturationCurrent = 1e-9f;
-        constexpr float kTriodeThermalVoltage = 0.02585f;
 
         /// @brief V1a's self-bias voltage: Rk 2.7 kOhm carrying the 0.855584 mA the Koren model
         /// settles at against a 100 kOhm plate load on a 360 V supply (jcm_v1a).
@@ -261,11 +259,11 @@ namespace SushiDSP
 
     Jcm800::Jcm800(std::vector<float> cabinet_impulse_response)
         : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kTriodeSourceResistance, kTriodeGridLeak, kV1aCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1aPlateSwing)
-        , v1b_(kTriodeSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1bPlateSwing)
+        , v1a_(kTriodeSourceResistance, kTriodeGridLeak, kV1aCathodeBias, kTriodeGain, kTriode12AX7GridConduction, kV1aPlateSwing)
+        , v1b_(kTriodeSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kTriodeGain, kTriode12AX7GridConduction, kV1bPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
-        , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kV2aCathodeBias, kTriodeGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV2aPlateSwing)
-        , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kPhaseInverterPlateSwing)
+        , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kV2aCathodeBias, kTriodeGain, kTriode12AX7GridConduction, kV2aPlateSwing)
+        , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriode12AX7GridConduction, kPhaseInverterPlateSwing)
         , el34_a_(kEl34)
         , el34_b_(kEl34)
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)

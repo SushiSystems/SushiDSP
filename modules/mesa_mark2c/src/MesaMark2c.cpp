@@ -98,9 +98,6 @@ namespace SushiDSP
         constexpr float kInputGridLeak = 1000000.0f;  // Dossier 3.1, 1 M at the input jack.
         constexpr float kTriodeGridLeak = 1000000.0f; // A modelling choice: no other grid leak is drawn.
 
-        constexpr float kTriodeSaturationCurrent = 1e-9f;  // Grid-conduction diode, the JCM800's value.
-        constexpr float kTriodeThermalVoltage = 0.02585f;  // Room temperature, dossier 7.
-
         /// @brief Interstage attenuations the dossier states as ratios.
         constexpr float kLeadDriveDivider = 0.595f;      // Dossier 3.3, 1 M / 1.68 M.
         constexpr float kLeadOutputDivider = 0.3125f;    // Dossier 3.5, 100 / 320 at DC.
@@ -252,20 +249,20 @@ namespace SushiDSP
 
     MesaMark2c::MesaMark2c(std::vector<float> cabinet_impulse_response)
         : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kV1aSourceResistance, kInputGridLeak, kV1aCathodeBias, kV1aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1aPlateSwing)
+        , v1a_(kV1aSourceResistance, kInputGridLeak, kV1aCathodeBias, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
-        , v1b_(kV1bSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kV1bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1bPlateSwing)
-        , v3b_(kV3bSourceResistance, kTriodeGridLeak, kV3bCathodeBias, kV3bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV3bPlateSwing)
-        , v4a_(kV4aSourceResistance, kTriodeGridLeak, kV4aCathodeBias, kV4aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV4aPlateSwing)
-        , v2a_(kV2aSourceResistance, kTriodeGridLeak, kV2aCathodeBias, kV2aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV2aPlateSwing)
-        , v2b_(kV2bSourceResistance, kTriodeGridLeak, kV2bCathodeBias, kV2bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV2bPlateSwing)
+        , v1b_(kV1bSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kV1bGain, kTriode12AX7GridConduction, kV1bPlateSwing)
+        , v3b_(kV3bSourceResistance, kTriodeGridLeak, kV3bCathodeBias, kV3bGain, kTriode12AX7GridConduction, kV3bPlateSwing)
+        , v4a_(kV4aSourceResistance, kTriodeGridLeak, kV4aCathodeBias, kV4aGain, kTriode12AX7GridConduction, kV4aPlateSwing)
+        , v2a_(kV2aSourceResistance, kTriodeGridLeak, kV2aCathodeBias, kV2aGain, kTriode12AX7GridConduction, kV2aPlateSwing)
+        , v2b_(kV2bSourceResistance, kTriodeGridLeak, kV2bCathodeBias, kV2bGain, kTriode12AX7GridConduction, kV2bPlateSwing)
         , equalizer_bank_(48000.0 * kOversamplingFactor,
                           { kEqualizerCentresHz[0], kEqualizerCentresHz[1], kEqualizerCentresHz[2],
                             kEqualizerCentresHz[3], kEqualizerCentresHz[4] },
                           { kEqualizerBandQ[0], kEqualizerBandQ[1], kEqualizerBandQ[2],
                             kEqualizerBandQ[3], kEqualizerBandQ[4] },
                           kEqualizerMaxGainDb)
-        , phase_inverter_(kPhaseInverterSourceResistance, kTriodeGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage,
+        , phase_inverter_(kPhaseInverterSourceResistance, kTriodeGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriode12AX7GridConduction,
                           kPhaseInverterPlateSwing)
         , power_inner_a_(kMesaMark2cPower6L6GC)
         , power_inner_b_(kMesaMark2cPower6L6GC)
