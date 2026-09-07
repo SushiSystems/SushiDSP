@@ -238,11 +238,12 @@ generate more distinct harmonics to fold, and the fundamental shrinks with them.
 
 ## Calibration
 
-`Jcm800::kMasterUnityGain` is 0.2534701, re-measured on 2026-09-07 on the volt-true EL34 pair
-and the corrected inverter. It puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS,
-which is what `Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` pins; 82 Hz is
-the frequency all four amplifiers pin at (DA5 spec §6). It read 0.3105599 on the Norman grid law
-alone, 0.3101991 on the Shockley knee and 3.5825659 in D5b against the staged chain.
+`Jcm800::kMasterUnityGain` is 0.2500494, re-measured on 2026-09-07 on the transformer whose
+secondary carries no mean (DA5 part 3). It puts a −12 dBFS 82 Hz sine at default knobs out at
+−6.000 dBFS, which is what `Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`
+pins; 82 Hz is the frequency all four amplifiers pin at (DA5 spec §6). It read 0.2534701 on the
+volt-true EL34 pair and the corrected inverter, 0.3105599 on the Norman grid law alone, 0.3101991
+on the Shockley knee and 3.5825659 in D5b against the staged chain.
 
 ## Filter shapes and their rates
 

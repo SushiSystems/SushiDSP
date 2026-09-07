@@ -112,10 +112,10 @@ namespace SushiDSP
         /// untouched amp turns a -12 dBFS 82 Hz sine into a -6.00 dBFS peak, the calibration
         /// point all four amplifiers share (docs/superpowers/specs/
         /// 2026-09-07-grid-knee-antialiasing-design.md section 6). Re-measured 2026-09-07 on the
-        /// Norman grid law and again on the volt-true power stage; 0.3105599 and 0.3101991 before
-        /// those. It multiplies the signal after the last
-        /// nonlinearity, so it scales the output and nothing else.
-        static constexpr float kMasterUnityGain = 0.2534701f;
+        /// Norman grid law, on the volt-true power stage and on the transformer whose secondary
+        /// carries no mean; 0.2534701, 0.3105599 and 0.3101991 before those. It multiplies the
+        /// signal after the last nonlinearity, so it scales the output and nothing else.
+        static constexpr float kMasterUnityGain = 0.2500494f;
 
         /// @brief Sets the master volume.
         /// @param decibels Master level in [-60, +12] dB; 0 dB is the amp's reference loudness.

@@ -282,6 +282,23 @@ headrooms summed (374.166 V), onto the 2.2222 the transformer stage received at 
 DA5 part 2 (2 × 22.222 model volts × 0.05). All of it is a modelling choice with nothing VH4-specific
 behind it.
 
+### The pair's DC and where it goes
+
+At the default and a 0.2 220 Hz input the inverter's plate carries a mean of +5.5 to +13 V on a
+±117 V swing, and the pair's difference carries a mean of 2.3 to 4.7 % of its full clip (2026-09-07,
+`.superpowers/sdd/amp-gain-staging/da5-part3-report.md`). Both are the circuit's: every stage past
+V1a clips asymmetrically, each coupling corner removes the mean the stage before it made, and the
+square that reaches the power tubes has two halves of unequal length. A real amplifier's coupling
+capacitors and output transformer pass none of it to the speaker. This module has no coupling
+capacitor between the inverter and the EL34 grids (§5 establishes none, and adding the 2203's
+0.022 µF into 230 kΩ moves the pair's mean from 4.5 to 6.4 % without curing it), so the mean
+reaches the grids as a shift of both tubes' operating points; `OutputTransformerStage` removes the
+pair's mean with its rolloff, and since DA5 part 3 its secondary carries no mean either, so the
+saturation's own rectification of the unequal halves — 0.021 of full scale here, the source of the
+0.0152 `DiezelVh4IsDcStableAcrossManyBlocksAtHighGain` read at bass 0 — no longer reaches the
+output. What remains at that setting is 0.0010, made where the ±1 output clamp cuts the unequal
+halves of a 1.06 peak.
+
 Deep is a first-order low shelf at 80 Hz. The 80 Hz is Diezel's owner's manual (S2); the product
 page says 90 Hz, and §8 question 9 records that the two factory documents disagree. The 10 dB of
 depth is a modelling choice — no source gives one. The first-order form is also a choice: §5 and §8
@@ -338,7 +355,8 @@ chain runs a great deal hotter into the power section than it did, so the consta
 moved it to 0.624524; copying the JCM800's four long-tailed-pair constants moved it again to
 0.627263, at which the test read −6.005 dBFS at 1 kHz; DA5's Norman grid law and the move of the
 pin to 82 Hz, where this value read −1.04 dBFS, set it to 0.3543949; the volt-true power stage and
-the corrected inverter set it to **0.2365060**. The measurement is direct: the
+the corrected inverter set it to 0.2365060; the transformer whose secondary carries no mean (DA5
+part 3), at which that value read −5.83 dBFS, set it to **0.2319680**. The measurement is direct: the
 constant multiplies the signal after the last nonlinearity, so it is set, the test run, and the
 constant scaled by the decibels the reading misses.
 
@@ -357,12 +375,16 @@ is a plain divider to ground: at 0.0 it shorts the signal and the node is silent
 without a denominator. `DiezelVh4ThdDoesNotFallAsGainRises` asks only that the reading not fall as the
 knob rises, within 0.5 percentage points, because once every stage clips the metric saturates.
 
-`DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz` asserts the 80 Hz point alone, 4.622 dB
-against a nominal 5. The 20 Hz point reads 3.779 dB where the shelf is 10 dB deep, and the output
-clamp is not the reason — the same two figures come back with the master 20 dB down. C13's input
-high-pass, 314 Hz with the gain knob at its top and 618 Hz at its bottom, has thrown the
-fundamental away before the first distorting stage, so at 20 Hz the swept-sine estimate is
-measuring the saturated chain's own product rather than the shelf.
+`DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz` asserts the 80 Hz point alone, **4.813 dB**
+against a nominal 5, with the master 20 dB under unity. The sweep runs at −40 dBFS, and since the
+volt-true power stage this channel turns that into a full-scale output: at unity the flat response
+at 80 Hz reads +39.8 dB over the sweep, the output sits on the ±1 rail, and the shelf's lift of a
+clamped signal reads 2.18 dB (2026-09-07). The shelf is linear and sits after the amp, so once
+nothing clamps the figure stops depending on the level — 4.813 dB with the master 10, 20 and 40 dB
+down alike. The 20 Hz point reads 6.840 dB where the shelf is 10 dB deep: C13's input high-pass,
+314 Hz with the gain knob at its top and 618 Hz at its bottom, has thrown the fundamental away
+before the first distorting stage, so at 20 Hz the swept-sine estimate is measuring the saturated
+chain's own product rather than the shelf.
 
 `DiezelVh4MixBusAttenuationIsApplied` measures at **−120 dBFS**, which is where this chain is still
 linear end to end: the same reading is 70.853 dB at −80, 72.965 at −100 and 73.114 at −120. At

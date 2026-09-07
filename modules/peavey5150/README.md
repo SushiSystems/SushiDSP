@@ -345,11 +345,12 @@ one of them is wrong. The module uses the drawn R25 1 MΩ.
 
 Two points are measured rather than derived, and each is pinned by the test that measures it.
 
-- **`kPostGainUnityGain = 0.1730211`** — the linear trim on the finished signal. Re-measured
+- **`kPostGainUnityGain = 0.1710120`** — the linear trim on the finished signal. Re-measured
   2026-09-07 by `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`, which is
   also the test that pins it: an untouched amp turns a −12 dBFS 82 Hz sine into a −6.00 dBFS peak,
-  the point all four amplifiers pin at (DA5 spec §6). It read 0.2400876 before the power stage
-  became volt-true. Until DA5 the pin sat at 1 kHz, at 0.6114945; the resonance shelf lifts everything below 330 Hz, so at 82 Hz that value put the low
+  the point all four amplifiers pin at (DA5 spec §6). It read 0.1730211 before the transformer's
+  secondary stopped carrying a mean (DA5 part 3) and 0.2400876 before the power stage became
+  volt-true. Until DA5 the pin sat at 1 kHz, at 0.6114945; the resonance shelf lifts everything below 330 Hz, so at 82 Hz that value put the low
   E on the output clamp, 10 dB RMS louder than the JCM800 at the same default. It read 0.7038242
   with the level staging in the chain, 0.6020224 once that came out, 0.6771799 with the first tail
   degeneration and the grid-scale bridge, and 0.6660669 with the coupling capacitors at their own

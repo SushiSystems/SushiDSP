@@ -127,10 +127,10 @@ namespace SushiDSP
         /// at its default and a -12 dBFS 82 Hz input peaks at -6.00 dBFS (docs/superpowers/specs/
         /// 2026-09-07-grid-knee-antialiasing-design.md section 6), pinned by
         /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput. Re-measured
-        /// 2026-09-07 on the Norman grid law and again on the volt-true power stage; 0.3543949
-        /// and 0.627263 before those, the latter pinned at 1 kHz.
-        /// modules/diezel_vh4/README.md carries the derivation.
-        static constexpr float kMasterUnityGain = 0.2365060f;
+        /// 2026-09-07 on the Norman grid law, on the volt-true power stage and on the
+        /// transformer whose secondary carries no mean; 0.2365060, 0.3543949 and 0.627263 before
+        /// those, the last pinned at 1 kHz. modules/diezel_vh4/README.md carries the derivation.
+        static constexpr float kMasterUnityGain = 0.2319680f;
 
         /// @brief Sets the channel-3 GAIN control, the 250 kOhm pot of dossier section 3.2.
         /// @param normalized Gain amount in [0, 1]; it moves the input high-pass corner as well as

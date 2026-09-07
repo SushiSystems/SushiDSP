@@ -47,6 +47,35 @@ TEST(Unit_Dsp, OutputTransformerStageBlocksDc)
     EXPECT_NEAR(output, 0.0f, 1e-2f);
 }
 
+TEST(Unit_Dsp, OutputTransformerStageSecondaryCarriesNoMean)
+{
+    // A push-pull pair driven through asymmetric clipping delivers a square whose two halves are
+    // not equally long, and a saturating core compresses the taller half more than the shorter, so
+    // the saturated waveform carries a mean even after the rolloff has removed the square's own.
+    // A transformer's secondary sees d(flux)/dt and passes no mean at all (DA5 spec section 14).
+    //
+    // Stimulus: a 220 Hz square of amplitude 2.2 at 40 % duty, two seconds at 48 kHz, the mean
+    // taken over the second second. With the saturation as the last element the stage read
+    // -0.063500 (2026-09-07); with the secondary's mean removed it reads +0.000005.
+    SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);
+
+    double sum = 0.0;
+    std::size_t counted = 0;
+    for (int i = 0; i < 96000; ++i)
+    {
+        const double phase = std::fmod(220.0 * i / 48000.0, 1.0);
+        const float output = stage.process_sample(phase < 0.4 ? 2.2f : -2.2f);
+        ASSERT_TRUE(std::isfinite(output));
+        if (i >= 48000)
+        {
+            sum += output;
+            ++counted;
+        }
+    }
+
+    EXPECT_LT(std::abs(sum / static_cast<double>(counted)), 1e-3);
+}
+
 TEST(Unit_Dsp, OutputTransformerStageSaturatesLargeSignalsToFiniteOutput)
 {
     SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);

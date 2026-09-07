@@ -143,8 +143,9 @@ namespace SushiDSP
         /// -12 dBFS 82 Hz input into a -6.00 dBFS peak, the calibration point all four
         /// amplifiers share (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md
         /// section 6). Re-measured 2026-09-07 on the Norman grid law, the solved inverter bias and
-        /// the audio-taper PRE GAIN, and again on the volt-true power stage; 0.2400876 and 0.6114945
-        /// before those, the latter pinned at 1 kHz. Measured by
+        /// the audio-taper PRE GAIN, on the volt-true power stage and on the transformer whose
+        /// secondary carries no mean; 0.1730211, 0.2400876 and 0.6114945 before those, the last
+        /// pinned at 1 kHz. Measured by
         /// Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput, which pins it.
         ///
         /// It sits outside the nonlinearity, after the decimator and both feedback shelves, where
@@ -154,7 +155,7 @@ namespace SushiDSP
         /// is applied in the chain where the schematic puts it, and this constant is left outside
         /// as a pure level trim. Folding the two together would make a calibration change a tone
         /// change. See modules/peavey5150/README.md.
-        static constexpr float kPostGainUnityGain = 0.1730211f;
+        static constexpr float kPostGainUnityGain = 0.1710120f;
 
         /// @brief Overrides the 6L6GC quad's grid bias mismatch. A test hook, not a user control
         /// and not in the descriptor. Audio-thread safe.
