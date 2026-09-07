@@ -111,7 +111,7 @@ namespace SushiDSP
 
     void TrackPlayer::mix_run(const Take& take, float* const* outputs, std::uint32_t channels,
                               std::uint32_t offset, std::uint32_t count, std::uint64_t position,
-                              float gain_left, float gain_right) noexcept
+                              float gain_left, float gain_right, float mono_gain) noexcept
     {
         const std::uint64_t available = take.frames() > position ? take.frames() - position : 0;
         const std::uint32_t readable =
@@ -128,27 +128,30 @@ namespace SushiDSP
             return;
         }
 
-        const bool          mono_source = take.channels() < 2;
-        const std::size_t   start = static_cast<std::size_t>(position);
-        float* const        out_left = outputs[0];
-        float* const        out_right = channels >= 2 ? outputs[1] : nullptr;
+        const bool        mono_source = take.channels() < 2;
+        const std::size_t start = static_cast<std::size_t>(position);
+        float* const      out_left = outputs[0];
 
+        if (channels < 2)
+        {
+            // A mono output carries no pan, so only the take's own two channels fold together.
+            for (std::uint32_t frame = 0; frame < readable; ++frame)
+            {
+                const float source = mono_source
+                    ? left_source[start + frame]
+                    : 0.5f * (left_source[start + frame] + right_source[start + frame]);
+                out_left[offset + frame] += mono_gain * source;
+            }
+            return;
+        }
+
+        float* const out_right = outputs[1];
         for (std::uint32_t frame = 0; frame < readable; ++frame)
         {
-            const float left = left_source[start + frame] * gain_left;
-            const float right =
+            out_left[offset + frame] += left_source[start + frame] * gain_left;
+            out_right[offset + frame] +=
                 (mono_source ? left_source[start + frame] : right_source[start + frame])
                 * gain_right;
-
-            if (out_right != nullptr)
-            {
-                out_left[offset + frame] += left;
-                out_right[offset + frame] += right;
-            }
-            else
-            {
-                out_left[offset + frame] += 0.5f * (left + right);
-            }
         }
     }
 
@@ -170,9 +173,10 @@ namespace SushiDSP
             any_soloed = any_soloed || tracks_[index].soloed.load(std::memory_order_acquire);
         }
 
-        const std::uint64_t loop_begin = transport.loop_begin_frames();
-        const std::uint64_t loop_end = transport.loop_end_frames();
-        const bool          looping = transport.has_loop();
+        std::uint64_t       loop_begin = 0;
+        std::uint64_t       loop_length = 0;
+        const bool          looping = transport.loop_snapshot(loop_begin, loop_length);
+        const std::uint64_t loop_end = loop_begin + loop_length;
         const std::uint64_t block_position = transport.position_frames();
 
         for (std::size_t index = 0; index < kMaxTracks; ++index)
@@ -203,7 +207,7 @@ namespace SushiDSP
                 }
 
                 mix_run(*takes[index], outputs, channels, written, run, position, gain_left,
-                        gain_right);
+                        gain_right, track_gain);
 
                 position += run;
                 written += run;

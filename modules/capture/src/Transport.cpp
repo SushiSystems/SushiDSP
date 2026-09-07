@@ -122,4 +122,15 @@ namespace SushiDSP
         unpack_loop(loop_.load(std::memory_order_acquire), begin, length);
         return length != 0 ? begin + length : 0;
     }
+
+    bool Transport::loop_snapshot(std::uint64_t& out_begin, std::uint64_t& out_length) const noexcept
+    {
+        unpack_loop(loop_.load(std::memory_order_acquire), out_begin, out_length);
+        if (out_length == 0)
+        {
+            out_begin = 0;
+            return false;
+        }
+        return true;
+    }
 }
