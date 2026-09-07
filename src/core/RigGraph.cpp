@@ -28,13 +28,39 @@
 #include <algorithm>
 #include <cassert>
 #include <queue>
+#include <string>
 
 namespace SushiDSP
 {
     RigGraph::RigGraph(std::uint32_t block_size, std::uint32_t max_live_buffers)
         : block_size_(block_size)
+        , initial_max_live_buffers_(max_live_buffers)
         , buffer_pool_(block_size, max_live_buffers)
     {
+    }
+
+    bool RigGraph::channels_adapt(std::uint32_t from_channels, std::uint32_t to_channels)
+    {
+        if (from_channels == 0 || to_channels == 0)
+        {
+            return from_channels == to_channels;
+        }
+        return from_channels == to_channels
+            || (from_channels == 1 && to_channels == 2)
+            || (from_channels == 2 && to_channels == 1);
+    }
+
+    RigGraph::NodeChannels RigGraph::channels_of(const PortLayout& layout)
+    {
+        // input_channels has always counted a node's input slots, not its channels: MixerNode
+        // declares kMaxFanIn of them and reads one edge from each. A node's channel width is
+        // therefore taken from output_channels, narrowed by input_channels so that a widening
+        // node (1 in, 2 out) is still fed the single channel it consumes.
+        const std::uint32_t input_width = std::min(layout.input_channels, layout.output_channels);
+        const std::uint32_t input_slots = (input_width == 0)
+            ? layout.input_channels
+            : layout.input_channels / input_width;
+        return NodeChannels{ input_width, layout.output_channels, input_slots };
     }
 
     NodeHandle RigGraph::add_node(std::unique_ptr<IAudioNode> node)
@@ -120,10 +146,6 @@ namespace SushiDSP
 
     void RigGraph::compile(const PrepareInfo& info)
     {
-        // process() holds one pool buffer per node for the whole block, so a graph larger than the
-        // pool would hand out nullptr and crash on the RT thread.
-        assert(nodes_.size() <= buffer_pool_.capacity() && "RigGraph: more nodes than BufferPool can hold live simultaneously");
-
         // Reset every cached compile() result up front, so a compile() that throws partway
         // through (cycle, multi-sink, zero-sink) can never leave a stale latency/sink value
         // behind from a previous successful compile().
@@ -199,7 +221,61 @@ namespace SushiDSP
             throw std::runtime_error("RigGraph::compile: no sink node found");
         }
 
-        node_output_scratch_.assign(nodes_.size(), nullptr);
+        node_channels_.assign(nodes_.size(), NodeChannels{ 0, 0, 0 });
+        for (NodeHandle handle : topological_order_)
+        {
+            node_channels_[handle] = channels_of(nodes_[handle]->ports());
+        }
+
+        for (const Edge& edge : edges_)
+        {
+            const std::uint32_t from_channels = node_channels_[edge.from].output_width;
+            const std::uint32_t to_channels   = node_channels_[edge.to].input_width;
+            if (from_channels > kMaxChannels || to_channels > kMaxChannels
+                || !channels_adapt(from_channels, to_channels))
+            {
+                throw std::runtime_error(
+                    "RigGraph::compile: no channel adaptation rule from node "
+                    + std::to_string(edge.from) + " (" + std::to_string(from_channels)
+                    + " channels) to node " + std::to_string(edge.to) + " ("
+                    + std::to_string(to_channels) + " channels)");
+            }
+        }
+
+        host_output_channels_ = std::max(1u, info.channels);
+        if (!topological_order_.empty())
+        {
+            const std::uint32_t sink_channels = node_channels_[sink_handle_].output_width;
+            if (sink_channels > kMaxChannels || !channels_adapt(sink_channels, host_output_channels_))
+            {
+                throw std::runtime_error(
+                    "RigGraph::compile: no channel adaptation rule from sink node "
+                    + std::to_string(sink_handle_) + " (" + std::to_string(sink_channels)
+                    + " channels) to the host output (" + std::to_string(host_output_channels_)
+                    + " channels)");
+            }
+        }
+
+        max_output_channels_ = 1;
+        std::uint32_t total_output_channels = 0;
+        for (NodeHandle handle : topological_order_)
+        {
+            max_output_channels_ = std::max(max_output_channels_, node_channels_[handle].output_width);
+            total_output_channels += node_channels_[handle].output_width;
+        }
+
+        // The adaptation borrows a buffer per input channel only while one node's inputs are
+        // being gathered, so its reserve is the widest gather, not one per edge in the graph.
+        live_buffer_count_ = total_output_channels
+            + static_cast<std::uint32_t>(kMaxFanInOut) * kMaxChannels;
+
+        const std::uint32_t pool_capacity = std::max(live_buffer_count_, initial_max_live_buffers_);
+        if (buffer_pool_.capacity() != pool_capacity)
+        {
+            buffer_pool_ = BufferPool(block_size_, pool_capacity);
+        }
+
+        node_output_scratch_.assign(nodes_.size() * max_output_channels_, nullptr);
 
         for (auto& node : nodes_)
         {
@@ -235,6 +311,11 @@ namespace SushiDSP
         return cached_latency_samples_;
     }
 
+    std::uint32_t RigGraph::live_buffer_count() const
+    {
+        return live_buffer_count_;
+    }
+
     bool RigGraph::push_parameter_change(const ParameterChange& change)
     {
         return parameter_ring_.push(change);
@@ -262,17 +343,120 @@ namespace SushiDSP
             // live nodes, so every handle here is guaranteed non-null.
             assert(nodes_[handle] != nullptr);
 
-            float* node_buffer = buffer_pool_.acquire(context.frames);
+            const NodeChannels channels = node_channels_[handle];
 
-            const float* gathered_inputs[kMaxFanInOut] = {};
-            std::size_t input_count = 0;
+            float* output_ptr[kMaxChannels] = {};
+            for (std::uint32_t channel = 0; channel < channels.output_width; ++channel)
+            {
+                float* node_buffer = buffer_pool_.acquire(context.frames);
+                assert(node_buffer != nullptr && "RigGraph: BufferPool exhausted; compile() sizes it from live_buffer_count()");
+                node_output[handle * max_output_channels_ + channel] = node_buffer;
+                output_ptr[channel] = node_buffer;
+            }
+
+            const std::uint32_t width = std::max(channels.input_width, 1u);
+            const std::uint32_t slots = std::min(std::max(channels.input_slots, 1u),
+                                                 static_cast<std::uint32_t>(kMaxFanInOut));
+            for (std::uint32_t slot_channel = 0; slot_channel < slots * width; ++slot_channel)
+            {
+                gathered_inputs_[slot_channel] = nullptr;
+                gather_scratch_[slot_channel]  = nullptr;
+            }
+
+            std::uint32_t edge_index = 0;
             for (const Edge& edge : edges_)
             {
-                if (edge.to == handle)
+                if (edge.to != handle)
                 {
-                    gathered_inputs[input_count] = node_output[edge.from];
-                    ++input_count;
-                    assert(input_count <= kMaxFanInOut && "RigGraph: fan-in exceeds kMaxFanInOut (connect() enforces this)");
+                    continue;
+                }
+
+                // Edges past the consumer's last slot fold into it, so fan-in beyond what the
+                // node declares is summed per channel rather than dropped.
+                const std::uint32_t slot = std::min(edge_index, slots - 1);
+                ++edge_index;
+
+                const std::uint32_t producer_width = node_channels_[edge.from].output_width;
+                const float* producer[kMaxChannels] = {};
+                for (std::uint32_t channel = 0; channel < producer_width; ++channel)
+                {
+                    producer[channel] = node_output[edge.from * max_output_channels_ + channel];
+                }
+
+                const std::uint32_t base = slot * width;
+                if (gathered_inputs_[base] == nullptr)
+                {
+                    if (producer_width == width)
+                    {
+                        for (std::uint32_t channel = 0; channel < width; ++channel)
+                        {
+                            gathered_inputs_[base + channel] = producer[channel];
+                        }
+                    }
+                    else if (producer_width == 1)
+                    {
+                        for (std::uint32_t channel = 0; channel < width; ++channel)
+                        {
+                            gathered_inputs_[base + channel] = producer[0];
+                        }
+                    }
+                    else
+                    {
+                        float* summed = buffer_pool_.acquire(context.frames);
+                        assert(summed != nullptr && "RigGraph: BufferPool exhausted during input gather");
+                        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                        {
+                            summed[frame] = (producer[0][frame] + producer[1][frame]) * 0.5f;
+                        }
+                        gather_scratch_[base]  = summed;
+                        gathered_inputs_[base] = summed;
+                    }
+                }
+                else
+                {
+                    for (std::uint32_t channel = 0; channel < width; ++channel)
+                    {
+                        if (gather_scratch_[base + channel] == nullptr)
+                        {
+                            float* accumulator = buffer_pool_.acquire(context.frames);
+                            assert(accumulator != nullptr && "RigGraph: BufferPool exhausted during fan-in sum");
+                            const float* existing = gathered_inputs_[base + channel];
+                            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                            {
+                                accumulator[frame] = existing != nullptr ? existing[frame] : 0.0f;
+                            }
+                            gather_scratch_[base + channel]  = accumulator;
+                            gathered_inputs_[base + channel] = accumulator;
+                        }
+                    }
+
+                    if (producer_width == width)
+                    {
+                        for (std::uint32_t channel = 0; channel < width; ++channel)
+                        {
+                            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                            {
+                                gather_scratch_[base + channel][frame] += producer[channel][frame];
+                            }
+                        }
+                    }
+                    else if (producer_width == 1)
+                    {
+                        for (std::uint32_t channel = 0; channel < width; ++channel)
+                        {
+                            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                            {
+                                gather_scratch_[base + channel][frame] += producer[0][frame];
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                        {
+                            gather_scratch_[base][frame] += (producer[0][frame] + producer[1][frame]) * 0.5f;
+                        }
+                    }
                 }
             }
 
@@ -283,27 +467,66 @@ namespace SushiDSP
             // The host's own inputs array is never handed to a node directly: hosts pass a
             // 1-element array, while a multi-input node (MixerNode) reads all kMaxFanInOut
             // slots. Routing external input through slot 0 of the fixed-size gather array
-            // guarantees every node always sees a kMaxFanInOut-sized array whose unused
-            // slots are nullptr, instead of reading past the host's array.
-            if (input_count == 0 && context.inputs != nullptr)
+            // guarantees every node always sees a full-width array whose unused slots are
+            // nullptr, instead of reading past the host's array.
+            if (edge_index == 0 && context.inputs != nullptr)
             {
-                gathered_inputs[0] = context.inputs[0];
-                input_count = 1;
+                for (std::uint32_t channel = 0; channel < width; ++channel)
+                {
+                    gathered_inputs_[channel] = context.inputs[0];
+                }
+                edge_index = 1;
             }
-            const float* const* node_inputs = (input_count > 0) ? gathered_inputs : nullptr;
+            const float* const* node_inputs = (edge_index > 0) ? gathered_inputs_ : nullptr;
 
-            float* output_ptr[1] = { node_buffer };
             ProcessContext node_context{ output_ptr, node_inputs, context.frames, context.time_seconds };
             nodes_[handle]->process(node_context);
 
-            node_output[handle] = node_buffer;
+            for (std::uint32_t slot_channel = 0; slot_channel < slots * width; ++slot_channel)
+            {
+                if (gather_scratch_[slot_channel] != nullptr)
+                {
+                    buffer_pool_.release(gather_scratch_[slot_channel]);
+                    gather_scratch_[slot_channel] = nullptr;
+                }
+            }
         }
 
         if (!topological_order_.empty())
         {
-            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            const std::uint32_t sink_width = node_channels_[sink_handle_].output_width;
+            const float* sink_output[kMaxChannels] = {};
+            for (std::uint32_t channel = 0; channel < sink_width; ++channel)
             {
-                context.outputs[0][frame] = node_output[sink_handle_][frame];
+                sink_output[channel] = node_output[sink_handle_ * max_output_channels_ + channel];
+            }
+
+            if (sink_width == host_output_channels_)
+            {
+                for (std::uint32_t channel = 0; channel < host_output_channels_; ++channel)
+                {
+                    for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                    {
+                        context.outputs[channel][frame] = sink_output[channel][frame];
+                    }
+                }
+            }
+            else if (sink_width == 1)
+            {
+                for (std::uint32_t channel = 0; channel < host_output_channels_; ++channel)
+                {
+                    for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                    {
+                        context.outputs[channel][frame] = sink_output[0][frame];
+                    }
+                }
+            }
+            else
+            {
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    context.outputs[0][frame] = (sink_output[0][frame] + sink_output[1][frame]) * 0.5f;
+                }
             }
         }
         else
@@ -311,9 +534,12 @@ namespace SushiDSP
             // An empty graph must still fully define its output: leaving the caller's buffer
             // untouched would replay whatever was previously in it (e.g. SDL's raw stream
             // buffer), which is audible garbage looping at block rate.
-            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            for (std::uint32_t channel = 0; channel < host_output_channels_; ++channel)
             {
-                context.outputs[0][frame] = 0.0f;
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    context.outputs[channel][frame] = 0.0f;
+                }
             }
         }
 
