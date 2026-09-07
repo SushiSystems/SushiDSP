@@ -284,9 +284,9 @@ A speed change, a `Transport::seek` and a move to the next clip each call `reset
 converter's history holds samples from where the playhead used to be. All three are one atomic
 read and a memset of a sized buffer, so they stay inside the block.
 
-Speed is one control-thread `double` and one control in the transport bar. It is a monitoring
-setting, not a property of the arrangement, so §8 does not save it: a session reopens at 1.0,
-and a file that recorded at unity is never reopened playing at half.
+Speed is one control-thread `double` and one control in the transport bar. The maintainer's
+ruling of 2026-09-08 saves it in the session: it is a practical setting he will want back where
+he left it, and it costs one field in §8.
 
 ## 6. DT3 — the arrangement view
 
