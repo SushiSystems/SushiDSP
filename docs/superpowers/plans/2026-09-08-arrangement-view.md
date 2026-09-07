@@ -733,7 +733,8 @@ namespace SushiDSP::ui
 TEST(Unit_Dsp, TimelineScaleRoundTripsAFrameThroughAPixel)
 TEST(Unit_Dsp, TimelineScalePutsTheScrollOriginAtXZero)
 TEST(Unit_Dsp, TimelineScaleSnapsToTheNearestBar)
-// 120 BPM 4/4 48 kHz: frame 100000 snaps to frame_of(2, 1) = 96000, frame 110000 to 192000.
+// 120 BPM 4/4 48 kHz: a bar is 96000 frames, so 100000 and 110000 both snap back to 96000,
+// and 150000 snaps forward to 192000.
 TEST(Unit_Dsp, TimelineScaleSnapsToTheNearestBeat)
 TEST(Unit_Dsp, TimelineScaleSnapModeNoneReturnsTheFrameUnchanged)
 TEST(Unit_Dsp, TimelineScaleDoesNotUnderflowBeforeFrameZero)
@@ -748,7 +749,7 @@ TEST(Unit_Dsp, TimelineScaleDoesNotUnderflowBeforeFrameZero)
       `DT3: TimelineScale converts frames to pixels and snaps to the grid`.
 
 **Acceptance:** at 120 BPM, 4/4, 48 kHz with bar snap, frame 100000 snaps to 96000 and frame
-110000 to 192000.
+150000 to 192000, which is the case that rounds up.
 
 ---
 

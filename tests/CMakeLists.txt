@@ -49,6 +49,9 @@ add_executable(sushidsp_tests
     functional/unit/test_take_library.cpp
     functional/unit/test_musical_clock.cpp
     functional/unit/test_vari_rate_reader.cpp
+    functional/unit/test_metronome.cpp
+    functional/unit/test_track_timeline.cpp
+    functional/unit/test_timeline_scale.cpp
     functional/unit/test_rig_preset.cpp
     functional/unit/test_rt_graph_slot.cpp
     functional/unit/test_rt_swap_slot.cpp
@@ -127,6 +130,7 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/PanelLibrary.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ChainLayout.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/DirectoryListing.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/TimelineScale.cpp
 
     # --- DD-3 ---
     functional/unit/test_dd3_analog_filters.cpp
