@@ -579,20 +579,24 @@ TEST(Unit_Dsp, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
     // depth a modelling choice). A shelf carries half its decibels at its own corner, so 5 dB at
     // 80 Hz is what pins both the corner and the depth.
     //
-    // Only 80 Hz is asserted. frequency_response() sweeps at -40 dBFS and the shelf sits after the
-    // amp, so nothing here is clamped - a run with the master 20 dB down reads the same two
-    // figures - but the swept-sine estimate stops isolating the shelf at 20 Hz. C13's input
-    // high-pass - 314 Hz with the gain knob at its top, 618 Hz at its bottom, and above 314 at the
-    // default position this test uses - has thrown the fundamental away before the first
+    // The master sits 20 dB under unity. frequency_response() sweeps at -40 dBFS, and since the
+    // volt-true power stage this channel turns that sweep into a full-scale output: at unity the
+    // flat response at 80 Hz reads +39.8 dB over the sweep, the output sits on the +/-1 rail, and
+    // a shelf that lifts a clamped signal reads 2.18 dB where it lifts 5 (2026-09-07). The shelf
+    // is linear and sits after the amp, so once nothing clamps the reading stops depending on the
+    // level: 4.813 dB at 80 Hz with the master 10, 20 and 40 dB under unity alike. Before the
+    // volt-true stage the -40 dBFS sweep never reached the rail and unity read 4.622 dB.
+    //
+    // Only 80 Hz is asserted. The swept-sine estimate stops isolating the shelf at 20 Hz: C13's
+    // input high-pass - 314 Hz with the gain knob at its top, 618 Hz at its bottom, and above 314
+    // at the default position this test uses - has thrown the fundamental away before the first
     // distorting stage, so what reaches Deep down there is mostly the saturated chain's own
-    // product rather than a 20 Hz tone, and
-    // the lift reads 3.779 dB (2026-09-07) where the shelf itself is 10 dB. 80 Hz reads 4.622 dB
-    // against a nominal 5, inside the half decibel this test allows.
+    // product rather than a 20 Hz tone, and the lift reads 6.840 dB where the shelf is 10 dB.
     auto response_for = [](float deep)
     {
         SushiDSP::DiezelVh4 node;
         node.set_deep(deep);
-        node.set_master(kUnityMasterDb);
+        node.set_master(kUnityMasterDb - 20.0f);
         return SushiDSP::measure::frequency_response(node, 48000.0, { 20.0, 80.0 });
     };
 
