@@ -67,6 +67,12 @@ namespace SushiDSP
         void reset();
 
     private:
+        /// @brief Reports whether a warm start sitting on one of the grid bounds is already the
+        /// solve's result, which the residual's sign there decides without the exponential.
+        /// @param grid_voltage The warm start, the previous sample's root.
+        /// @param source_voltage The cathode bias plus this sample's input.
+        bool root_stays_on_bound(float grid_voltage, float source_voltage) const;
+
         /// @brief Effective source resistance feeding the grid, in ohms.
         float source_resistance_;
 

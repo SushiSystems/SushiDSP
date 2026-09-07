@@ -82,15 +82,41 @@ namespace SushiDSP
 
         // The residual is convex and increasing in Vg, so Newton converges from either side;
         // the bounds mark where the plate ceiling has already saturated.
-        const float grid_voltage = NewtonRaphsonSolver::solve_joint(
-            node_equation, previous_grid_voltage_, kNewtonIterations,
-            cutoff_grid_limit_, conduction_grid_limit_);
+        float grid_voltage = previous_grid_voltage_;
+        if (!root_stays_on_bound(grid_voltage, source_voltage))
+        {
+            grid_voltage = NewtonRaphsonSolver::solve_joint(
+                node_equation, previous_grid_voltage_, kNewtonIterations,
+                cutoff_grid_limit_, conduction_grid_limit_);
+        }
         previous_grid_voltage_ = grid_voltage;
 
         const float grid_excursion = std::fabs(grid_voltage - vk);
         peak_grid_excursion_ = std::max(peak_grid_excursion_, grid_excursion);
 
         return antialiaser_.process(grid_voltage - vk);
+    }
+
+    bool TriodeStage::root_stays_on_bound(float grid_voltage, float source_voltage) const
+    {
+        // Newton's first step from a bound leaves the iterate on it whenever the residual there
+        // has the sign that points past the bound; the conduction current is never negative, and
+        // at the conduction bound softplus equals its argument
+        // (.superpowers/sdd/amp-gain-staging/optimisation-round-1.md).
+        const float linear_residual = (grid_voltage - source_voltage) / source_resistance_
+                                      + (grid_voltage - cathode_bias_) / grid_leak_resistance_;
+        if (grid_voltage == cutoff_grid_limit_)
+        {
+            return linear_residual >= 0.0f;
+        }
+        if (grid_voltage == conduction_grid_limit_)
+        {
+            const double argument = (static_cast<double>(grid_voltage) - grid_conduction_.threshold_volts)
+                                    / grid_conduction_.transition_volts;
+            return argument >= 30.0
+                   && linear_residual + static_cast<float>(static_cast<double>(grid_conduction_.scale_amps) * argument) <= 0.0f;
+        }
+        return false;
     }
 
     void TriodeStage::reset()
