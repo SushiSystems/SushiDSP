@@ -92,16 +92,7 @@ namespace SushiDSP
         peak_grid_excursion_ = std::max(peak_grid_excursion_, grid_excursion);
 
         const float linear_plate = -gain_ * (grid_voltage - vk);
-
-        // Each side is bounded by its own headroom, so the output stays inside the swing.
-        if (linear_plate > 0.0f)
-        {
-            const float up = plate_swing_.headroom_to_supply_volts;
-            return up * std::tanh(linear_plate / up);
-        }
-
-        const float down = plate_swing_.headroom_to_bottom_volts;
-        return -down * std::tanh(-linear_plate / down);
+        return plate_swing_.bound(linear_plate);
     }
 
     void TriodeStage::reset()

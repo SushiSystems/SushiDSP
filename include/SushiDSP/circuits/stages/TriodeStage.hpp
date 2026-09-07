@@ -24,34 +24,11 @@
 #pragma once
 
 #include "SushiDSP/circuits/models/Triode12AX7.hpp"
+#include "SushiDSP/circuits/stages/GridConductionLaw.hpp"
+#include "SushiDSP/circuits/stages/PlateSwing.hpp"
 
 namespace SushiDSP
 {
-    /// @brief How far a stage's plate can swing from its idle point before it saturates.
-    struct PlateSwing
-    {
-        /// @brief B+ minus the idle plate voltage; the cutoff side of the swing.
-        float headroom_to_supply_volts;
-
-        /// @brief Idle plate voltage minus the plate at Vgk = 0 on the load line; the
-        /// conduction side of the swing.
-        float headroom_to_bottom_volts;
-    };
-
-    /// @brief The Norman grid-current law Ig = scale * softplus((Vgk - threshold) / transition),
-    /// the law docs/reference/spice/models/12ax7_koren.sub and Triode12AX7 evaluate.
-    struct GridConductionLaw
-    {
-        /// @brief The current scale IG0, in amperes; scale / transition is the conducting slope.
-        float scale_amps;
-
-        /// @brief The knee's centre VGAMMA above the cathode, in volts.
-        float threshold_volts;
-
-        /// @brief The knee's width VTG, in volts.
-        float transition_volts;
-    };
-
     /// @brief The 12AX7's grid law, read from Triode12AX7 so the stage and the DK model agree.
     inline constexpr GridConductionLaw kTriode12AX7GridConduction{
         static_cast<float>(Triode12AX7::kGridCurrentScale),
