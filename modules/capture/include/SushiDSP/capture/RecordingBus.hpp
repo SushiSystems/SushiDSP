@@ -35,8 +35,8 @@ namespace SushiDSP
     /// @brief The pair of recorders the host arms together: the rig's output into
     /// <take_name>-processed.wav and the device input into <take_name>-dry.wav. Arming both in one
     /// call is what makes the two files sample-aligned, because they begin on the same block, and
-    /// the bus keeps the block index they began at so a later re-amp lines up. A block reaches
-    /// both recorders or neither, so the two files hold the same frame count under any drop.
+    /// stopping disarms both before either closes for the same reason. A block reaches both
+    /// recorders or neither, so the two files hold the same frame count under any drop.
     /// @see docs/superpowers/specs/2026-09-07-stereo-tracks-design.md §5
     class RecordingBus
     {
@@ -56,7 +56,7 @@ namespace SushiDSP
         RecordingBus(const RecordingBus&) = delete;
         RecordingBus& operator=(const RecordingBus&) = delete;
 
-        /// @brief Opens both files and records the block index they began at. Control thread only.
+        /// @brief Opens both files. Control thread only.
         /// @param folder Directory the two files are created in.
         /// @param take_name Base name both file names are built from.
         /// @return true if both files opened; on failure neither records.
@@ -72,14 +72,15 @@ namespace SushiDSP
         bool write(const float* const* processed_channels, const float* dry_channel,
                    std::uint32_t frames) noexcept;
 
-        /// @brief Stops both recorders and closes both files.
+        /// @brief Disarms both recorders before either stops, so no block can reach one file
+        /// after the other has closed, then drains and closes both. Control thread only.
         void stop();
 
         /// @brief Returns true between a successful arm() and stop().
         bool is_recording() const { return processed_.is_recording() && dry_.is_recording(); }
 
-        /// @brief Returns the block index both files began at.
-        std::uint64_t armed_block_index() const { return armed_block_index_; }
+        /// @brief Returns true when either recorder's writer thread gave up on its file.
+        bool failed() const { return processed_.failed() || dry_.failed(); }
 
         /// @brief Returns how many blocks write() has taken since construction.
         std::uint64_t block_index() const { return block_index_.load(std::memory_order_relaxed); }
@@ -108,8 +109,5 @@ namespace SushiDSP
 
         /// @brief Counts the blocks the bus refused because one recorder had no room.
         std::atomic<std::uint64_t> dropped_blocks_{ 0 };
-
-        /// @brief Holds the block index both files began at.
-        std::uint64_t              armed_block_index_ = 0;
     };
 }

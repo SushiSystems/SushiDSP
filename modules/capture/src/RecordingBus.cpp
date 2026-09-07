@@ -66,7 +66,6 @@ namespace SushiDSP
         }
 
         dropped_blocks_.store(0, std::memory_order_relaxed);
-        armed_block_index_ = block_index_.load(std::memory_order_relaxed);
         return true;
     }
 
@@ -95,6 +94,9 @@ namespace SushiDSP
 
     void RecordingBus::stop()
     {
+        // Both legs refuse further blocks before either closes, so neither file outlives the other.
+        processed_.disarm();
+        dry_.disarm();
         processed_.stop();
         dry_.stop();
     }
