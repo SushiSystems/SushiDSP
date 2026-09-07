@@ -12,7 +12,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(cmake/SushiDSPCompilerFlags.cmake)
 
 add_library(sushi_dsp STATIC
-    src/circuits/DiodeClipperCircuit.cpp
     src/circuits/stages/TriodeStage.cpp
     src/circuits/stages/PentodeStage.cpp
     src/circuits/stages/OutputTransformerStage.cpp

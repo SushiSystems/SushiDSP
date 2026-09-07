@@ -141,6 +141,7 @@ third-party dependency, no image file, no font file: every panel, knob and link 
 The Tube Screamer's rebuild onto the D6b solver, plan
 `.superpowers/sdd/2026-09-05-d6c-tubescreamer-on-dk/`.
 
+- 2026-09-07 — Retired `DiodeClipperCircuit`; `DkCircuit`'s diode-clipper test now compares against the true root of its own equation instead (`include/SushiDSP/circuits/DiodeClipperCircuit.hpp`, `src/circuits/DiodeClipperCircuit.cpp`, `tests/functional/unit/test_dk_circuit.cpp`).
 - 2026-09-07 — Nulled both clip-block ports at 192 kHz against the LTspice reference decimated by `Resampler` and against the model converged at 1.92 MHz (`tests/functional/unit/test_ts_clip_stage.cpp`).
 - 2026-09-07 — Recorded the verdict against wiring antialiasing in: at 4× it trades a −19 dB aliasing error for a −5 dB band-limiting one (spec `2026-08-26-aaa-audio-quality-design.md`, Model corrections D6c C2).
 - 2026-09-07 — Corrected `SiliconDiode`’s reverse extrapolation to the Shockley law’s own tangent, removing a -2.5 nA to -593 MA step at the lower knee (`include/SushiDSP/circuits/models/SiliconDiode.hpp`).

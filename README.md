@@ -38,7 +38,7 @@ parameter/rig-edit commands from the control thread to the audio callback.
 **Determinism and safety.** `IAudioNode::process()` — and everything called from it — must be
 allocation-free, lock-free, syscall-free, and throw-free. That bar is enforced by an
 `operator new`-trapping regression test, not left to code review — today that covers `RigGraph`,
-`Fft`, `Oversampler8x`, `PartitionedConvolution`, and `DiodeClipperCircuit`
+`Fft`, `Oversampler8x`, `PartitionedConvolution`, and `DkCircuit`
 (`tests/functional/unit/test_rt_safety.cpp`); every class destined for the real-time path gets a
 case there before it's trusted (see `docs/CONTRIBUTING.md`).
 
