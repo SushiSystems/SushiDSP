@@ -101,7 +101,18 @@ namespace SushiDSP
         /// @brief Processes one sample through the filter.
         /// @param input The input sample.
         /// @return The filtered output sample.
-        float process_sample(float input);
+        float process_sample(float input)
+        {
+            const double x = input;
+            const double output = b0_ * x + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_;
+
+            x2_ = x1_;
+            x1_ = x;
+            y2_ = y1_;
+            y1_ = output;
+
+            return static_cast<float>(output);
+        }
 
         /// @brief Clears the filter's internal state.
         void reset();
