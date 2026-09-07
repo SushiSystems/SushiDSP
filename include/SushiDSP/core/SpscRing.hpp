@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <vector>
@@ -62,6 +63,66 @@ namespace SushiDSP
             return true;
         }
 
+        /// @brief Attempts to enqueue a whole run of values, all of them or none of them.
+        /// Producer-thread only. Wait-free: one acquire load, one release store and two copies.
+        /// @param values The values to enqueue.
+        /// @param count How many values to enqueue.
+        /// @return true if every value was enqueued, false if the ring holds too little room.
+        bool push(const T* values, std::size_t count)
+        {
+            if (count == 0)
+            {
+                return true;
+            }
+
+            const std::size_t current_tail = tail_.load(std::memory_order_relaxed);
+            const std::size_t current_head = head_.load(std::memory_order_acquire);
+            const std::size_t used = current_tail >= current_head
+                ? current_tail - current_head
+                : current_tail + storage_.size() - current_head;
+            if (count > capacity() - used)
+            {
+                return false;
+            }
+
+            const std::size_t first = std::min(count, storage_.size() - current_tail);
+            std::copy(values, values + first, storage_.begin() + static_cast<std::ptrdiff_t>(current_tail));
+            std::copy(values + first, values + count, storage_.begin());
+            tail_.store(wrap(current_tail + count), std::memory_order_release);
+            return true;
+        }
+
+        /// @brief Attempts to dequeue a whole run of values, all of them or none of them.
+        /// Consumer-thread only. Wait-free: one acquire load, one release store and two copies.
+        /// @param out Receives the dequeued values; at least count elements long.
+        /// @param count How many values to dequeue.
+        /// @return true if every value was dequeued, false if the ring holds fewer than count.
+        bool pop(T* out, std::size_t count)
+        {
+            if (count == 0)
+            {
+                return true;
+            }
+
+            const std::size_t current_head = head_.load(std::memory_order_relaxed);
+            const std::size_t current_tail = tail_.load(std::memory_order_acquire);
+            const std::size_t available = current_tail >= current_head
+                ? current_tail - current_head
+                : current_tail + storage_.size() - current_head;
+            if (count > available)
+            {
+                return false;
+            }
+
+            const std::size_t first = std::min(count, storage_.size() - current_head);
+            std::copy(storage_.begin() + static_cast<std::ptrdiff_t>(current_head),
+                      storage_.begin() + static_cast<std::ptrdiff_t>(current_head + first), out);
+            std::copy(storage_.begin(), storage_.begin() + static_cast<std::ptrdiff_t>(count - first),
+                      out + first);
+            head_.store(wrap(current_head + count), std::memory_order_release);
+            return true;
+        }
+
         /// @brief Attempts to dequeue a value. Consumer-thread only.
         /// @param out Receives the dequeued value on success.
         /// @return true if a value was dequeued, false if the ring is empty.
@@ -95,9 +156,21 @@ namespace SushiDSP
         }
 
     private:
+        /// @brief Returns the index one step past the given one, wrapping at the storage end.
+        /// @param index The index to step from.
+        /// @return The next index.
         std::size_t advance(std::size_t index) const
         {
-            return (index + 1) % storage_.size();
+            return wrap(index + 1);
+        }
+
+        /// @brief Folds an index at most one storage length past the start back into range.
+        /// @param index The index to fold.
+        /// @return The folded index.
+        /// @pre index is less than twice the storage length.
+        std::size_t wrap(std::size_t index) const
+        {
+            return index >= storage_.size() ? index - storage_.size() : index;
         }
 
         std::vector<T>            storage_;
