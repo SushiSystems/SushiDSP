@@ -82,6 +82,8 @@ namespace ui
         static float loop_begin_seconds = 0.0f;
         static float loop_end_seconds = 0.0f;
 
+        rig.poll_recording(transport_error);
+
         SushiDSP::Transport&    transport = rig.transport();
         SushiDSP::RecordingBus& bus = rig.recording_bus();
         const bool              recording = bus.is_recording();
