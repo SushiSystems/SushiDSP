@@ -683,3 +683,230 @@ TEST(Unit_Dsp, RigGraphIsNotEmptyOnceItHoldsACompiledNode)
 
     EXPECT_FALSE(graph.is_empty());
 }
+
+namespace
+{
+    /// @brief Emits a fixed value on each of its two output channels.
+    class StereoConstantSourceNode : public SushiDSP::IAudioNode
+    {
+    public:
+        StereoConstantSourceNode(float left, float right) : left_(left), right_(right) {}
+
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            {
+                context.outputs[0][frame] = left_;
+                context.outputs[1][frame] = right_;
+            }
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 0, 2 }; }
+
+        void reset() override {}
+
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+
+    private:
+        float left_;
+        float right_;
+    };
+
+    /// @brief Scales both of its input channels and records the first frame of each.
+    class StereoGainNode : public SushiDSP::IAudioNode
+    {
+    public:
+        explicit StereoGainNode(float gain) : gain_(gain) {}
+
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t channel = 0; channel < 2; ++channel)
+            {
+                const float* source = context.inputs != nullptr ? context.inputs[channel] : nullptr;
+                seen_[channel] = source != nullptr ? source[0] : 0.0f;
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    context.outputs[channel][frame] = (source != nullptr ? source[frame] : 0.0f) * gain_;
+                }
+            }
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 2, 2 }; }
+
+        void reset() override {}
+
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+
+        float seen_[2] = { 0.0f, 0.0f };
+
+    private:
+        float gain_;
+    };
+
+    /// @brief Declares three output channels, a width the adaptation table has no rule for.
+    class ThreeChannelSourceNode : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t channel = 0; channel < 3; ++channel)
+            {
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    context.outputs[channel][frame] = 0.0f;
+                }
+            }
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 0, 3 }; }
+
+        void reset() override {}
+
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+    };
+}
+
+TEST(Unit_Dsp, RigGraphCopiesAMonoProducerIntoAStereoConsumer)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    const auto source = graph.add_node(std::make_unique<ConstantSourceNode>(0.5f));
+    auto stereo = std::make_unique<StereoGainNode>(1.0f);
+    StereoGainNode* stereo_raw = stereo.get();
+    const auto stereo_handle = graph.add_node(std::move(stereo));
+    graph.connect(source, stereo_handle);
+
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 2 });
+
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float* output_channels[2] = { left.data(), right.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    EXPECT_FLOAT_EQ(stereo_raw->seen_[0], 0.5f);
+    EXPECT_FLOAT_EQ(stereo_raw->seen_[1], 0.5f);
+    EXPECT_FLOAT_EQ(left[0], 0.5f);
+    EXPECT_FLOAT_EQ(right[0], 0.5f);
+}
+
+TEST(Unit_Dsp, RigGraphSumsAStereoProducerIntoAMonoConsumerAtHalfLevel)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    const auto source = graph.add_node(std::make_unique<StereoConstantSourceNode>(1.0f, 0.0f));
+    const auto mono = graph.add_node(std::make_unique<GainNode>(1.0f));
+    graph.connect(source, mono);
+
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    std::vector<float> output_buffer(256, 0.0f);
+    float* output_channels[1] = { output_buffer.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 0.5f);
+    }
+}
+
+TEST(Unit_Dsp, RigGraphCarriesTwoChannelsThroughAStereoChain)
+{
+    SushiDSP::RigGraph graph(256, 8);
+    const auto source = graph.add_node(std::make_unique<StereoConstantSourceNode>(1.0f, -1.0f));
+    const auto gain = graph.add_node(std::make_unique<StereoGainNode>(2.0f));
+    graph.connect(source, gain);
+
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 2 });
+
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float* output_channels[2] = { left.data(), right.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    for (std::uint32_t frame = 0; frame < 256; ++frame)
+    {
+        EXPECT_FLOAT_EQ(left[frame], 2.0f);
+        EXPECT_FLOAT_EQ(right[frame], -2.0f);
+    }
+}
+
+TEST(Unit_Dsp, RigGraphWritesEveryOutputChannelTheHostAsksFor)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    graph.add_node(std::make_unique<ConstantSourceNode>(0.25f));
+
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 2 });
+
+    std::vector<float> left(256, -1.0f);
+    std::vector<float> right(256, -1.0f);
+    float* output_channels[2] = { left.data(), right.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    for (std::uint32_t frame = 0; frame < 256; ++frame)
+    {
+        EXPECT_FLOAT_EQ(left[frame], 0.25f);
+        EXPECT_FLOAT_EQ(right[frame], 0.25f);
+    }
+}
+
+TEST(Unit_Dsp, RigGraphCompileRefusesAnEdgeWithNoAdaptationRule)
+{
+    SushiDSP::RigGraph graph(256, 8);
+    const auto source = graph.add_node(std::make_unique<ThreeChannelSourceNode>());
+    const auto stereo = graph.add_node(std::make_unique<StereoGainNode>(1.0f));
+    graph.connect(source, stereo);
+
+    EXPECT_THROW(graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 2 }), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigGraphSumsFanInPerChannel)
+{
+    // Two producers reach a consumer that declares one input slot, so the surplus edge is
+    // summed into that slot channel for channel rather than dropped.
+    SushiDSP::RigGraph graph(256, 8);
+    const auto first_source = graph.add_node(std::make_unique<StereoConstantSourceNode>(1.0f, 2.0f));
+    const auto second_source = graph.add_node(std::make_unique<StereoConstantSourceNode>(0.25f, 0.5f));
+    const auto sink = graph.add_node(std::make_unique<StereoGainNode>(1.0f));
+    graph.connect(first_source, sink);
+    graph.connect(second_source, sink);
+
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 2 });
+
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float* output_channels[2] = { left.data(), right.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    EXPECT_FLOAT_EQ(left[0], 1.25f);
+    EXPECT_FLOAT_EQ(right[0], 2.5f);
+}
+
+TEST(Unit_Dsp, RigGraphEmptyGraphZeroesEveryOutputChannel)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    graph.compile(SushiDSP::PrepareInfo{ 48000.0, 256, 2 });
+
+    std::vector<float> left(256, 12345.0f);
+    std::vector<float> right(256, 12345.0f);
+    float* output_channels[2] = { left.data(), right.data() };
+    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    graph.process(context);
+
+    for (std::uint32_t frame = 0; frame < 256; ++frame)
+    {
+        EXPECT_FLOAT_EQ(left[frame], 0.0f);
+        EXPECT_FLOAT_EQ(right[frame], 0.0f);
+    }
+}

@@ -1,0 +1,122 @@
+/**************************************************************************/
+/* Transport.hpp                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                        https://sushisystems.io                         */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the Apache License, Version 2.0 (the "License");        */
+/* you may not use this file except in compliance with the License.       */
+/* You may obtain a copy of the License at                                */
+/*                                                                        */
+/*     http://www.apache.org/licenses/LICENSE-2.0                         */
+/*                                                                        */
+/* Unless required by applicable law or agreed to in writing, software    */
+/* distributed under the License is distributed on an "AS IS" BASIS,      */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
+/* implied. See the License for the specific language governing           */
+/* permissions and limitations under the License.                         */
+/**************************************************************************/
+
+#pragma once
+
+#include <atomic>
+#include <cstdint>
+
+namespace SushiDSP
+{
+    /// @brief What the transport is doing right now.
+    enum class TransportState : std::uint32_t
+    {
+        Stopped = 0,
+        Playing = 1,
+        Recording = 2
+    };
+
+    /// @brief The sample clock every track shares: a frame position, a state, and an
+    /// optional loop range. The audio thread advances the position once per block and the
+    /// control thread moves it, all through atomics, so neither side ever waits on the
+    /// other.
+    ///
+    /// The loop range lives in one 64-bit word - the begin frame in the high half, the
+    /// length in the low half - so the audio thread reads both ends in a single atomic load
+    /// and can never see a half-applied range. That packing bounds a loop to the first
+    /// 2^32 frames of the timeline, a little over 24 hours at 48 kHz.
+    class Transport
+    {
+    public:
+        Transport() = default;
+
+        Transport(const Transport&) = delete;
+        Transport& operator=(const Transport&) = delete;
+
+        /// @brief Moves the position on by one block, wrapping to the loop begin when the
+        /// block crosses the loop end. Audio thread. Real-time safe: three atomic
+        /// operations, no allocation and no lock.
+        /// @param frames How many frames the block covered.
+        void advance(std::uint32_t frames) noexcept;
+
+        /// @brief Puts the transport into the Playing state, leaving the position alone.
+        /// Control thread.
+        void play() noexcept;
+
+        /// @brief Puts the transport into the Stopped state, leaving the position alone.
+        /// Control thread.
+        void stop() noexcept;
+
+        /// @brief Puts the transport into the Recording state, leaving the position alone.
+        /// Control thread.
+        void record() noexcept;
+
+        /// @brief Moves the position to an arbitrary frame. Control thread.
+        /// @param frames The frame the transport should read from next.
+        void seek(std::uint64_t frames) noexcept;
+
+        /// @brief Sets the loop range the audio thread wraps at. Control thread.
+        /// @param begin_frames The frame the loop returns to.
+        /// @param end_frames The first frame past the loop.
+        /// @pre end_frames is greater than begin_frames and both fit in 32 bits; a range
+        /// that fails either clears the loop instead of setting one.
+        void set_loop(std::uint64_t begin_frames, std::uint64_t end_frames) noexcept;
+
+        /// @brief Removes the loop range, so the position runs on without wrapping.
+        /// Control thread.
+        void clear_loop() noexcept;
+
+        /// @brief The frame the next block starts at. Either thread.
+        /// @return The current position in frames.
+        std::uint64_t position_frames() const noexcept;
+
+        /// @brief What the transport is doing. Either thread.
+        /// @return The current state.
+        TransportState state() const noexcept;
+
+        /// @brief Whether a loop range is set. Either thread.
+        /// @return True when set_loop() established a range that clear_loop() has not
+        /// removed.
+        bool has_loop() const noexcept;
+
+        /// @brief The frame a wrap returns to. Either thread.
+        /// @return The loop begin, or 0 when no loop is set.
+        std::uint64_t loop_begin_frames() const noexcept;
+
+        /// @brief The first frame past the loop. Either thread.
+        /// @return The loop end, or 0 when no loop is set.
+        std::uint64_t loop_end_frames() const noexcept;
+
+    private:
+        /// @brief Splits the packed loop word into its begin frame and length.
+        /// @param packed The word loop_ holds.
+        /// @param out_begin Receives the loop begin in frames.
+        /// @param out_length Receives the loop length in frames, 0 when no loop is set.
+        static void unpack_loop(std::uint64_t packed, std::uint64_t& out_begin,
+                                std::uint64_t& out_length) noexcept;
+
+        std::atomic<std::uint64_t>  position_{ 0 };
+        std::atomic<TransportState> state_{ TransportState::Stopped };
+        std::atomic<std::uint64_t>  loop_{ 0 };
+    };
+}

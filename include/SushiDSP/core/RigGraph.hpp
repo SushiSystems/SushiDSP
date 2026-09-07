@@ -46,6 +46,17 @@ namespace SushiDSP
         /// Bounds the fixed-size input-gather array RigGraph::process() uses per node.
         static constexpr std::size_t kMaxFanInOut = 8;
 
+        /// @brief Maximum channels a node may declare on either side of its PortLayout.
+        /// Bounds every fixed-size per-channel array RigGraph::process() uses.
+        static constexpr std::uint32_t kMaxChannels = 2;
+
+        /// @brief Reports whether the adaptation table covers a producer/consumer channel pair.
+        /// The table is 1 into 2 (copied), 2 into 1 (summed and halved), and n into n.
+        /// @param from_channels The producer's channel count.
+        /// @param to_channels The consumer's channel count.
+        /// @return False when the pair has no rule, which compile() turns into a refusal.
+        static bool channels_adapt(std::uint32_t from_channels, std::uint32_t to_channels);
+
         /// @brief Constructs an empty rig graph.
         /// @param block_size Frames per process() call.
         /// @param max_live_buffers Maximum transient buffers live at once during a block.
@@ -112,17 +123,45 @@ namespace SushiDSP
         /// @return Total latency in base-rate samples.
         std::uint32_t latency_samples() const;
 
+        /// @brief Reports the single-channel buffers the compiled graph needs live at once: one
+        /// per node output channel, plus the reserve the edge adaptation borrows while gathering
+        /// one node's inputs. compile() sizes buffer_pool_ from it; a host may read it to size
+        /// its own pool. Valid only after a successful compile().
+        /// @return The buffer count.
+        std::uint32_t live_buffer_count() const;
+
     private:
         struct Edge { NodeHandle from; NodeHandle to; };
 
+        /// @brief The channel widths and input slot count RigGraph derives from a node's PortLayout.
+        struct NodeChannels
+        {
+            std::uint32_t input_width;
+            std::uint32_t output_width;
+            std::uint32_t input_slots;
+        };
+
+        /// @brief Derives the widths and slot count RigGraph routes by from a node's PortLayout.
+        /// @param layout The node's declared layout.
+        /// @return The derived widths; see docs/superpowers/specs/2026-09-07-stereo-tracks-design.md §3.
+        static NodeChannels channels_of(const PortLayout& layout);
+
         std::uint32_t                             block_size_;
+        std::uint32_t                             initial_max_live_buffers_;
         BufferPool                                buffer_pool_;
         std::vector<std::unique_ptr<IAudioNode>>  nodes_;
         std::vector<Edge>                         edges_;
         std::vector<NodeHandle>                   topological_order_;
         NodeHandle                                sink_handle_ = 0;
         std::uint32_t                             cached_latency_samples_ = 0;
+        std::vector<NodeChannels>                 node_channels_;
+        std::uint32_t                             max_output_channels_ = 1;
+        std::uint32_t                             host_output_channels_ = 1;
+        std::uint32_t                             live_buffer_count_ = 0;
+        // One buffer per node output channel, indexed handle * max_output_channels_ + channel.
         std::vector<float*>                       node_output_scratch_;
+        const float*                           gathered_inputs_[kMaxFanInOut * kMaxChannels] = {};
+        float*                                    gather_scratch_[kMaxFanInOut * kMaxChannels] = {};
         SpscRing<ParameterChange>                 parameter_ring_{ kParameterRingCapacity };
     };
 }
