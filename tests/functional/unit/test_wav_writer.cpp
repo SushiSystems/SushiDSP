@@ -1,0 +1,186 @@
+/**************************************************************************/
+/* test_wav_writer.cpp                                                    */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                        https://sushisystems.io                         */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the Apache License, Version 2.0 (the "License");        */
+/* you may not use this file except in compliance with the License.       */
+/* You may obtain a copy of the License at                                */
+/*                                                                        */
+/*     http://www.apache.org/licenses/LICENSE-2.0                         */
+/*                                                                        */
+/* Unless required by applicable law or agreed to in writing, software    */
+/* distributed under the License is distributed on an "AS IS" BASIS,      */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
+/* implied. See the License for the specific language governing           */
+/* permissions and limitations under the License.                         */
+/**************************************************************************/
+
+#include <cmath>
+#include <cstdint>
+#include <fstream>
+#include <string>
+#include <vector>
+
+#include <gtest/gtest.h>
+
+#include "SushiDSP/io/WavFile.hpp"
+#include "SushiDSP/io/WavWriter.hpp"
+
+namespace
+{
+    constexpr double PI = 3.14159265358979323846;
+
+    std::string temp_wav_path(const std::string& name)
+    {
+        return std::string(::testing::TempDir()) + name;
+    }
+
+    std::vector<float> sine(std::size_t count, double frequency, double sample_rate)
+    {
+        std::vector<float> samples(count);
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            samples[i] = static_cast<float>(
+                0.5 * std::sin(2.0 * PI * frequency * static_cast<double>(i) / sample_rate));
+        }
+        return samples;
+    }
+}
+
+TEST(Unit_Io, WavWriterFloat32RoundTripsSampleForSample)
+{
+    const std::string path = temp_wav_path("sushidsp_wav_writer_float32.wav");
+    const std::vector<float> samples = sine(256, 440.0, 48000.0);
+
+    {
+        SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32);
+        const float* channels[1] = { samples.data() };
+        writer.append(channels, static_cast<std::uint32_t>(samples.size()));
+        EXPECT_EQ(writer.frames_written(), samples.size());
+    }
+
+    double sample_rate = 0.0;
+    const auto readback = SushiDSP::WavFile::load_mono(path, &sample_rate);
+
+    ASSERT_EQ(readback.size(), samples.size());
+    EXPECT_DOUBLE_EQ(sample_rate, 48000.0);
+    for (std::size_t i = 0; i < samples.size(); ++i)
+    {
+        EXPECT_FLOAT_EQ(readback[i], samples[i]);
+    }
+}
+
+TEST(Unit_Io, WavWriterPcm16RoundTripsWithinOneQuantisationStep)
+{
+    const std::string path = temp_wav_path("sushidsp_wav_writer_pcm16.wav");
+    const std::vector<float> samples = sine(256, 440.0, 48000.0);
+    const float quantisation_step = 1.0f / 32767.0f;
+
+    {
+        SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Pcm16);
+        const float* channels[1] = { samples.data() };
+        writer.append(channels, static_cast<std::uint32_t>(samples.size()));
+    }
+
+    const auto readback = SushiDSP::WavFile::load_mono(path);
+
+    ASSERT_EQ(readback.size(), samples.size());
+    for (std::size_t i = 0; i < samples.size(); ++i)
+    {
+        EXPECT_NEAR(readback[i], samples[i], quantisation_step);
+    }
+}
+
+TEST(Unit_Io, WavWriterTwoChannelsDownmixToTheMeanOnReadback)
+{
+    const std::string path = temp_wav_path("sushidsp_wav_writer_stereo.wav");
+    const std::vector<float> left = sine(128, 220.0, 48000.0);
+    std::vector<float> right(left.size());
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        right[i] = -0.5f * left[i];
+    }
+
+    {
+        SushiDSP::WavWriter writer(path, 48000.0, 2, SushiDSP::WavWriter::Format::Float32);
+        const float* channels[2] = { left.data(), right.data() };
+        writer.append(channels, static_cast<std::uint32_t>(left.size()));
+    }
+
+    const auto readback = SushiDSP::WavFile::load_mono(path);
+
+    ASSERT_EQ(readback.size(), left.size());
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        const float expected_mean = 0.5f * (left[i] + right[i]);
+        EXPECT_NEAR(readback[i], expected_mean, 1e-6f);
+    }
+}
+
+TEST(Unit_Io, WavWriterCloseTwiceIsSafeAndLeavesTheFileValid)
+{
+    const std::string path = temp_wav_path("sushidsp_wav_writer_double_close.wav");
+    const std::vector<float> samples = sine(64, 220.0, 48000.0);
+
+    SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32);
+    const float* channels[1] = { samples.data() };
+    writer.append(channels, static_cast<std::uint32_t>(samples.size()));
+    writer.close();
+    writer.close();
+
+    const auto readback = SushiDSP::WavFile::load_mono(path);
+    ASSERT_EQ(readback.size(), samples.size());
+    for (std::size_t i = 0; i < samples.size(); ++i)
+    {
+        EXPECT_FLOAT_EQ(readback[i], samples[i]);
+    }
+}
+
+TEST(Unit_Io, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
+{
+    const std::string path = temp_wav_path("sushidsp_wav_writer_sizes.wav");
+    const std::vector<float> first_block = sine(100, 220.0, 48000.0);
+    const std::vector<float> second_block = sine(37, 330.0, 48000.0);
+
+    {
+        SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Pcm16);
+        const float* first_channels[1] = { first_block.data() };
+        const float* second_channels[1] = { second_block.data() };
+        writer.append(first_channels, static_cast<std::uint32_t>(first_block.size()));
+        writer.append(second_channels, static_cast<std::uint32_t>(second_block.size()));
+        EXPECT_EQ(writer.frames_written(), first_block.size() + second_block.size());
+    }
+
+    std::ifstream file(path, std::ios::binary);
+    ASSERT_TRUE(static_cast<bool>(file));
+    std::vector<std::uint8_t> bytes(
+        (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+    const auto read_u32_le = [&bytes](std::size_t offset) {
+        return static_cast<std::uint32_t>(bytes[offset]) |
+               (static_cast<std::uint32_t>(bytes[offset + 1]) << 8) |
+               (static_cast<std::uint32_t>(bytes[offset + 2]) << 16) |
+               (static_cast<std::uint32_t>(bytes[offset + 3]) << 24);
+    };
+
+    const std::uint32_t expected_data_bytes =
+        static_cast<std::uint32_t>((first_block.size() + second_block.size()) * sizeof(std::int16_t));
+    EXPECT_EQ(read_u32_le(4), 36 + expected_data_bytes);
+    EXPECT_EQ(read_u32_le(40), expected_data_bytes);
+    EXPECT_EQ(bytes.size(), 44 + expected_data_bytes);
+}
+
+TEST(Unit_Io, WavWriterThrowsWhenThePathCannotBeOpened)
+{
+    const std::string path = temp_wav_path("sushidsp_wav_writer_no_such_dir/take.wav");
+
+    EXPECT_THROW(
+        SushiDSP::WavWriter(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32),
+        std::runtime_error);
+}
