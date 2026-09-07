@@ -36,6 +36,7 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
+#include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/io/Ir.hpp"
@@ -57,7 +58,7 @@ namespace SushiDSP
     /// five-band graphic equaliser, the long-tailed pair, the Simul-Class output pairs, output
     /// transformer, power sag, presence and an optional cabinet convolution, followed by a plain
     /// full-scale clamp. Exposes mesa_mark2c_descriptor().
-    class MesaMark2c : public IAudioNode
+    class MesaMark2c : public IAudioNode, public ICabinetHost
     {
     public:
         /// @brief The number of graphic-equaliser sliders on the front panel.
@@ -99,14 +100,14 @@ namespace SushiDSP
         /// @return True if the cabinet was installed; false if the IR is empty, if the rates
         /// disagree, or if prepare() has not run yet, in which case nothing is installed and the
         /// previously active cabinet stays in place.
-        bool set_cabinet(Ir impulse_response);
+        bool set_cabinet(Ir impulse_response) override;
 
         /// @brief Frees every cabinet the audio thread has provably moved past. Control thread only.
-        void reclaim_cabinets();
+        void reclaim_cabinets() override;
 
         /// @brief Whether a cabinet convolution is currently in the signal path.
         /// @return True once a cabinet has been installed by the constructor or set_cabinet().
-        bool has_cabinet() const;
+        bool has_cabinet() const override;
 
         /// @brief Reports how many triode stages the grid-excursion probe can be asked about.
         /// A test hook, like set_bias_mismatch() on the JCM800.

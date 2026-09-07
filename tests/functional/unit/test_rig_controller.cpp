@@ -539,6 +539,32 @@ TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsCabinetIr)
     std::remove(ir_path.c_str());
 }
 
+TEST(Unit_Dsp, RigControllerLoadsACabinetOnAnAmplifierThatIsNotTheJcm800)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    const std::string ir_path = write_temp_impulse_wav();
+
+    RigController controller(info);
+    const RigController::SlotId amp = controller.append("sushidsp.peavey5150");
+    ASSERT_TRUE(controller.set_cabinet(amp, ir_path));
+    EXPECT_EQ(controller.cabinet_path(amp), ir_path);
+
+    std::remove(ir_path.c_str());
+}
+
+TEST(Unit_Dsp, RigControllerRefusesACabinetOnANodeThatHostsNone)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    const std::string ir_path = write_temp_impulse_wav();
+
+    RigController controller(info);
+    const RigController::SlotId delay = controller.append("sushidsp.dd3");
+    EXPECT_FALSE(controller.set_cabinet(delay, ir_path));
+    EXPECT_EQ(controller.cabinet_path(delay), "");
+
+    std::remove(ir_path.c_str());
+}
+
 // --- Per-slot bypass ---
 //
 // A bypassed slot keeps its place in slot_order_, its parameters and its edges; only the

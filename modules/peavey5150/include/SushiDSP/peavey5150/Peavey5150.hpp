@@ -30,6 +30,7 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
+#include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/io/Ir.hpp"
@@ -52,7 +53,7 @@ namespace SushiDSP
     /// optional cabinet convolution, followed by a plain full-scale clamp. Component values come
     /// from docs/reference/research/2026-09-06-peavey-5150-design-dossier.md and every departure
     /// from it is listed in modules/peavey5150/README.md. Exposes peavey5150_descriptor().
-    class Peavey5150 : public IAudioNode
+    class Peavey5150 : public IAudioNode, public ICabinetHost
     {
     public:
         /// @param cabinet_impulse_response Cabinet IR samples; empty means no cabinet stage.
@@ -90,15 +91,15 @@ namespace SushiDSP
         /// equal the rate this node was prepared at.
         /// @return True if the cabinet was installed; false if the IR is empty, if the rates
         /// disagree, or if prepare() has not run yet, in which case nothing is installed.
-        bool set_cabinet(Ir impulse_response);
+        bool set_cabinet(Ir impulse_response) override;
 
         /// @brief Frees every cabinet the audio thread has provably moved past. Control thread
         /// only; call periodically after any set_cabinet().
-        void reclaim_cabinets();
+        void reclaim_cabinets() override;
 
         /// @brief Whether a cabinet convolution is currently in the signal path.
         /// @return True once a cabinet has been installed by the constructor or set_cabinet().
-        bool has_cabinet() const;
+        bool has_cabinet() const override;
 
         /// @brief Sets VR2, the lead channel's PRE GAIN.
         /// @param normalized Pot position in [0, 1]; smoothed toward on the audio thread.
