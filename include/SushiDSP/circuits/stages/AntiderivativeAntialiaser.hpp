@@ -26,6 +26,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <vector>
 
 #include "SushiDSP/circuits/models/SoftTransition.hpp"
@@ -38,7 +39,9 @@ namespace SushiDSP
     /// the grid's own coordinate u = Vg - Vk: y = (G(u1) - G(u0)) / (g(u1) - g(u0)), where g(u) is
     /// the input that puts the grid at u and G is the antiderivative of the plate output with
     /// respect to that input. The tables are filled at construction and only read afterwards.
-    /// Derived in docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 15.
+    /// Derived in docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 15;
+    /// the evaluation order is the one .superpowers/sdd/amp-gain-staging/optimisation-round-1.md
+    /// measures.
     class AntiderivativeAntialiaser
     {
     public:
@@ -87,6 +90,7 @@ namespace SushiDSP
             , plate_swing_(plate_swing)
             , window_low_(threshold_excursion_ - kWindowTransitions * transition_)
             , knot_spacing_(transition_ / static_cast<double>(kIntervalsPerTransition))
+            , window_high_(window_low_ + knot_spacing_ * static_cast<double>(kKnotCount - 1))
             , supply_plate_spacing_(plate_swing.headroom_to_supply_volts / gain / static_cast<double>(kIntervalsPerPlateScale))
             , bottom_plate_spacing_(plate_swing.headroom_to_bottom_volts / gain / static_cast<double>(kIntervalsPerPlateScale))
             , remainder_(kKnotCount, 0.0)
@@ -98,6 +102,7 @@ namespace SushiDSP
         {
             tabulate_remainder();
             tabulate_plate_antiderivative();
+            plate_antiderivative_at_window_high_ = plate_antiderivative(window_high_);
         }
 
         /// @brief Returns the antialiased plate output for this sample's grid excursion.
@@ -106,32 +111,37 @@ namespace SushiDSP
         float process(float grid_excursion_volts)
         {
             const double excursion = grid_excursion_volts;
-            double input = 0.0;
-            double antiderivative_value = 0.0;
-            evaluate(excursion, input, antiderivative_value);
-
             double output = 0.0;
             if (!has_history_)
             {
-                output = transfer(excursion);
+                evaluate(excursion, previous_input_, previous_antiderivative_);
+                output = memoised_transfer(excursion);
+                has_history_ = true;
+            }
+            else if (excursion == previous_excursion_)
+            {
+                // g and G depend on the excursion alone, so the previous sample's values stand.
+                output = memoised_transfer(0.5 * (excursion + previous_excursion_));
             }
             else
             {
+                double input = 0.0;
+                double antiderivative_value = 0.0;
+                evaluate(excursion, input, antiderivative_value);
                 const double input_difference = input - previous_input_;
                 if (std::fabs(input_difference) < kMinimumInputDifferenceVolts)
                 {
-                    output = transfer(0.5 * (excursion + previous_excursion_));
+                    output = memoised_transfer(0.5 * (excursion + previous_excursion_));
                 }
                 else
                 {
                     output = (antiderivative_value - previous_antiderivative_) / input_difference;
                 }
+                previous_input_ = input;
+                previous_antiderivative_ = antiderivative_value;
             }
 
-            has_history_ = true;
             previous_excursion_ = excursion;
-            previous_input_ = input;
-            previous_antiderivative_ = antiderivative_value;
             return static_cast<float>(output);
         }
 
@@ -166,32 +176,38 @@ namespace SushiDSP
         /// uses, G'(u) / g'(u).
         double transfer(double excursion) const
         {
-            double softplus_value = 0.0;
-            double logistic_value = 0.0;
-            models::softplus_and_logistic((excursion - threshold_excursion_) / transition_, softplus_value, logistic_value);
-            double remainder_value = 0.0;
-            double remainder_slope = 0.0;
-            remainder(excursion, remainder_value, remainder_slope);
+            const double logistic_value = models::logistic((excursion - threshold_excursion_) / transition_);
+            const double plate_output = plate_swing_.bound(-gain_ * excursion);
             const double conduction_slope = conduction_scale_volts_ / transition_;
-            const double numerator = linear_slope_ * plate_swing_.bound(-gain_ * excursion) + conduction_slope * remainder_slope;
+            const double numerator = linear_slope_ * plate_output + conduction_slope * remainder_slope(excursion, plate_output);
             const double denominator = linear_slope_ + conduction_slope * logistic_value;
             return numerator / denominator;
         }
 
     private:
+        /// @brief Returns transfer() at the excursion, from the last evaluation when the
+        /// excursion is bit for bit the one it was made at.
+        double memoised_transfer(double excursion)
+        {
+            if (has_memo_ && std::memcmp(&excursion, &memo_excursion_, sizeof(double)) == 0)
+            {
+                return memo_output_;
+            }
+            memo_excursion_ = excursion;
+            memo_output_ = transfer(excursion);
+            has_memo_ = true;
+            return memo_output_;
+        }
+
         /// @brief Evaluates g(u) and G(u) from one exponential.
         void evaluate(double excursion, double& input, double& antiderivative_value) const
         {
-            double softplus_value = 0.0;
-            double logistic_value = 0.0;
-            models::softplus_and_logistic((excursion - threshold_excursion_) / transition_, softplus_value, logistic_value);
+            const double softplus_value = models::softplus((excursion - threshold_excursion_) / transition_);
             input = linear_slope_ * excursion + conduction_scale_volts_ * softplus_value;
 
-            double remainder_value = 0.0;
-            double remainder_slope = 0.0;
-            remainder(excursion, remainder_value, remainder_slope);
-            antiderivative_value = linear_slope_ * plate_antiderivative(excursion)
-                                   + conduction_scale_volts_ / transition_ * remainder_value;
+            const double plate_value = plate_antiderivative(excursion);
+            antiderivative_value = linear_slope_ * plate_value
+                                   + conduction_scale_volts_ / transition_ * remainder_value(excursion, plate_value);
         }
 
         /// @brief Integrates the plate output over the excursion from rest, P(u), in closed form.
@@ -232,39 +248,54 @@ namespace SushiDSP
                    * models::logistic((excursion - threshold_excursion_) / transition_);
         }
 
-        /// @brief Evaluates the tabulated remainder R(u) and its slope: zero below the window,
-        /// the cubic Hermite interpolant inside it, and the plate antiderivative above it.
-        void remainder(double excursion, double& value, double& slope) const
+        /// @brief Evaluates the tabulated remainder R(u): zero below the window, the cubic Hermite
+        /// interpolant inside it, and the plate antiderivative above it.
+        /// @param plate_value P(u) at the same excursion.
+        double remainder_value(double excursion, double plate_value) const
         {
             const double position = (excursion - window_low_) / knot_spacing_;
             if (position <= 0.0)
             {
-                value = 0.0;
-                slope = 0.0;
-                return;
+                return 0.0;
             }
             if (position >= static_cast<double>(kKnotCount - 1))
             {
-                const double window_high = window_low_ + knot_spacing_ * static_cast<double>(kKnotCount - 1);
-                value = remainder_.back() + plate_antiderivative(excursion) - plate_antiderivative(window_high);
-                slope = plate_swing_.bound(-gain_ * excursion);
-                return;
+                return remainder_.back() + plate_value - plate_antiderivative_at_window_high_;
             }
 
             const std::size_t interval = static_cast<std::size_t>(position);
             const double t = position - static_cast<double>(interval);
             const double t2 = t * t;
             const double t3 = t2 * t;
-            const double value_low = remainder_[interval];
-            const double value_high = remainder_[interval + 1];
             const double slope_low = integrand_[interval] * knot_spacing_;
             const double slope_high = integrand_[interval + 1] * knot_spacing_;
+            return (2.0 * t3 - 3.0 * t2 + 1.0) * remainder_[interval] + (t3 - 2.0 * t2 + t) * slope_low
+                   + (-2.0 * t3 + 3.0 * t2) * remainder_[interval + 1] + (t3 - t2) * slope_high;
+        }
 
-            value = (2.0 * t3 - 3.0 * t2 + 1.0) * value_low + (t3 - 2.0 * t2 + t) * slope_low
-                    + (-2.0 * t3 + 3.0 * t2) * value_high + (t3 - t2) * slope_high;
-            slope = ((6.0 * t2 - 6.0 * t) * value_low + (3.0 * t2 - 4.0 * t + 1.0) * slope_low
-                     + (-6.0 * t2 + 6.0 * t) * value_high + (3.0 * t2 - 2.0 * t) * slope_high)
-                    / knot_spacing_;
+        /// @brief Evaluates the slope of the tabulated remainder, R'(u): zero below the window,
+        /// the Hermite interpolant's derivative inside it, and the plate output above it.
+        /// @param plate_output The plate output at the same excursion.
+        double remainder_slope(double excursion, double plate_output) const
+        {
+            const double position = (excursion - window_low_) / knot_spacing_;
+            if (position <= 0.0)
+            {
+                return 0.0;
+            }
+            if (position >= static_cast<double>(kKnotCount - 1))
+            {
+                return plate_output;
+            }
+
+            const std::size_t interval = static_cast<std::size_t>(position);
+            const double t = position - static_cast<double>(interval);
+            const double t2 = t * t;
+            const double slope_low = integrand_[interval] * knot_spacing_;
+            const double slope_high = integrand_[interval + 1] * knot_spacing_;
+            return ((6.0 * t2 - 6.0 * t) * remainder_[interval] + (3.0 * t2 - 4.0 * t + 1.0) * slope_low
+                    + (-6.0 * t2 + 6.0 * t) * remainder_[interval + 1] + (3.0 * t2 - 2.0 * t) * slope_high)
+                   / knot_spacing_;
         }
 
         /// @brief Fills the plate tables from the closed form: P and dP/d|u| at every knot on
@@ -333,6 +364,9 @@ namespace SushiDSP
         /// @brief The excursion between neighbouring knee knots.
         double knot_spacing_;
 
+        /// @brief The excursion at the table's last knot.
+        double window_high_;
+
         /// @brief The excursion between neighbouring plate knots on the supply side.
         double supply_plate_spacing_;
 
@@ -357,6 +391,9 @@ namespace SushiDSP
         /// @brief dP/d|u| at every plate knot on the bottom side.
         std::vector<double> bottom_plate_slope_;
 
+        /// @brief P at the table's last knot, the constant the remainder carries above the window.
+        double plate_antiderivative_at_window_high_ = 0.0;
+
         /// @brief Whether a previous sample exists to difference against.
         bool has_history_ = false;
 
@@ -368,5 +405,14 @@ namespace SushiDSP
 
         /// @brief The previous sample's antiderivative, G(previous excursion).
         double previous_antiderivative_ = 0.0;
+
+        /// @brief Whether memo_excursion_ and memo_output_ hold an evaluation of transfer().
+        bool has_memo_ = false;
+
+        /// @brief The excursion transfer() was last evaluated at through memoised_transfer().
+        double memo_excursion_ = 0.0;
+
+        /// @brief transfer() at memo_excursion_.
+        double memo_output_ = 0.0;
     };
 }
