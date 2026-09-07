@@ -25,12 +25,16 @@
 // and <cmath> may otherwise be pulled in transitively before this point.
 #define _USE_MATH_DEFINES
 
+#include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
+#include <filesystem>
 #include <cmath>
 #include <cstdlib>
 #include <memory>
 #include <new>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -39,6 +43,8 @@
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/dd3/Dd3Delay.hpp"
+#include "SushiDSP/capture/TrackRecorder.hpp"
+#include "SushiDSP/capture/TrackPlayer.hpp"
 #include "SushiDSP/device/AsioSampleConverter.hpp"
 #include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/math/Fft.hpp"
@@ -151,6 +157,85 @@ TEST(Unit_Dsp, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
             graph.push_parameter_change(SushiDSP::ParameterChange{ 0, index, 0.5f });
         }
 
+        g_trap_allocations.store(true, std::memory_order_relaxed);
+
+        SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+        graph.process(context);
+
+        g_trap_allocations.store(false, std::memory_order_relaxed);
+    }
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+}
+
+namespace
+{
+    class StereoSourceNode : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            {
+                context.outputs[0][frame] = 1.0f;
+                context.outputs[1][frame] = -1.0f;
+            }
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 0, 2 }; }
+
+        void reset() override {}
+
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+    };
+
+    class MonoPassThroughNode : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo&) override {}
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            {
+                context.outputs[0][frame] = context.inputs[0] != nullptr ? context.inputs[0][frame] : 0.0f;
+            }
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
+
+        void reset() override {}
+
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+    };
+}
+
+TEST(Unit_Dsp, RigGraphStereoProcessPerformsNoHeapAllocation)
+{
+    // Exercises every arithmetic path of the edge adaptation: a stereo producer summed into a
+    // mono consumer, a fan-in summed per channel, and a mono sink widened to a stereo host.
+    SushiDSP::RigGraph graph(256, 4);
+    const auto first_source  = graph.add_node(std::make_unique<StereoSourceNode>());
+    const auto second_source = graph.add_node(std::make_unique<StereoSourceNode>());
+    const auto sink          = graph.add_node(std::make_unique<MonoPassThroughNode>());
+    graph.connect(first_source, sink);
+    graph.connect(second_source, sink);
+
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 2 };
+    graph.compile(info);
+
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float* output_channels[2] = { left.data(), right.data() };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+
+    for (int block = 0; block < 2000; ++block)
+    {
         g_trap_allocations.store(true, std::memory_order_relaxed);
 
         SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
@@ -1083,5 +1168,94 @@ TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
     for (std::size_t i = 0; i < output.size(); ++i)
     {
         EXPECT_TRUE(std::isfinite(output[i]));
+    }
+}
+
+TEST(Unit_Dsp, TrackRecorderWritePerformsNoHeapAllocation)
+{
+    // The one capture path the audio thread touches. arm() allocates the rings and starts the
+    // writer thread before the trap opens, and the first block is written and drained outside it
+    // so that WavWriter's stream buffer already exists: what the trap then sees is the ring copy
+    // and, once the ring fills, the drop counter.
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "sushidsp_rt_safety_recorder";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root);
+
+    SushiDSP::TrackRecorder recorder(2u, 48000.0, 65536);
+    ASSERT_TRUE(recorder.arm((root / "rt_safety.wav").string()));
+
+    std::vector<float> left(256, 0.25f);
+    std::vector<float> right(256, -0.25f);
+    const float* channels[2] = { left.data(), right.data() };
+
+    ASSERT_TRUE(recorder.write(channels, 256u));
+    while (recorder.frames_written() < 256u)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 200; ++block)
+    {
+        recorder.write(channels, 256u);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+
+    recorder.stop();
+    std::filesystem::remove_all(root);
+}
+
+TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
+{
+    // Every take is published before the trap window opens, so what is measured is the mix
+    // itself: eight slot acquisitions, the pan trigonometry, and a loop range that splits each
+    // block into two runs.
+    SushiDSP::TrackPlayer player;
+    SushiDSP::Transport   transport;
+
+    for (std::size_t track = 0; track < SushiDSP::TrackPlayer::kMaxTracks; ++track)
+    {
+        auto   take = std::make_unique<SushiDSP::Take>(track % 2 == 0 ? 1u : 2u, 48000.0, 4096u);
+        float* samples = take->mutable_channel(0);
+        for (std::size_t frame = 0; frame < 4096; ++frame)
+        {
+            samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f
+                                              * static_cast<float>(frame) / 48000.0f);
+        }
+        player.set_take(track, std::move(take));
+        player.set_pan(track, -1.0f + 0.25f * static_cast<float>(track));
+        player.set_gain(track, 0.5f);
+    }
+    player.set_mute(1, true);
+    transport.set_loop(0, 3000);
+
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float*             outputs[2] = { left.data(), right.data() };
+
+    g_trapped_allocation_count.store(0, std::memory_order_relaxed);
+    g_trap_allocations.store(true, std::memory_order_relaxed);
+
+    for (int block = 0; block < 200; ++block)
+    {
+        std::fill(left.begin(), left.end(), 0.0f);
+        std::fill(right.begin(), right.end(), 0.0f);
+        player.process(outputs, 2u, 256u, transport);
+        transport.advance(256);
+    }
+
+    g_trap_allocations.store(false, std::memory_order_relaxed);
+
+    EXPECT_EQ(g_trapped_allocation_count.load(std::memory_order_relaxed), 0);
+    for (std::size_t frame = 0; frame < left.size(); ++frame)
+    {
+        EXPECT_TRUE(std::isfinite(left[frame]));
+        EXPECT_TRUE(std::isfinite(right[frame]));
     }
 }
