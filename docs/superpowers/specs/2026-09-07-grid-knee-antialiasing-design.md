@@ -1,6 +1,6 @@
 # The grid knee, antialiasing and the volt-true power stage
 
-**Status:** Design, 2026-09-07, awaiting the maintainer's decisions in section 8; nothing implemented. Evidence in `.superpowers/sdd/amp-gain-staging/diagnosis.md`. Succeeds DA4 (`2026-09-07-triode-plate-swing-design.md`) as the DA5 spec.
+**Status:** Part 1 built, 2026-09-07: decisions 1, 5, 6 and 7 taken and implemented (section 12); decisions 2, 3 and 4 open. Evidence in `.superpowers/sdd/amp-gain-staging/diagnosis.md` and `.superpowers/sdd/amp-gain-staging/da5-grid-law-report.md`. Succeeds DA4 (`2026-09-07-triode-plate-swing-design.md`) as the DA5 spec.
 
 ## 1. Goal
 
@@ -161,3 +161,29 @@ Koren grid law in place, would share its grid physics with this spec rather than
   within the tanh), alias floor under -80 dB.
 - All four amplifiers peak at -6 dBFS +/- 1 dB for a -12 dBFS input at the one agreed frequency.
 - The four goldens re-pinned with README rows; `KNOWN_ISSUES.md`'s alias-floor entry closed.
+
+## 12. Decisions taken, and what part 1 built
+
+The maintainer ruled on 2026-09-07: decision 1 Norman; decision 5 the solved -1.175 V; decision 6
+82 Hz; decision 7 a real audio-pot taper. Decision 2 waits on a 16x measurement, decisions 3 and
+4 are held. Part 1 implements the four rulings and nothing under sections 4 or 5.
+
+- `TriodeStage` takes a `GridConductionLaw` (scale, threshold, transition) in place of the
+  Shockley pair; the constant `kTriode12AX7GridConduction` is read from `Triode12AX7`'s IG0,
+  VGAMMA and VTG, which are `12ax7_koren.sub`'s `.param` line. The six-argument path is deleted.
+  The solver's bounds sit where each side's tanh has saturated in float (an argument of 10), so
+  the plate ceiling is the cutoff: the V5A transfer reaches 90.73 V at -30 V in.
+- Measured, V5A alone in an 8x region: -81.2 dB at 6 V and -53.7 dB at 24 V of drive, against
+  -37.3 and -13.7 dB; the diagnosis's -46.5 dB at 24 V was taken with the 1.55 V Shockley bound
+  still clamping the grid. `Regression_Dsp.TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow`
+  pins section 11's first line.
+- Whole amplifiers at -12 dBFS, `measure::alias_floor()`: 5150 default +26.0 to -17.2 dB, IIC+
+  +9.1 to -6.9 dB, JCM800 at preamp 1.0 -6.7 to -15.1 dB, at preamp 0.5 -18.4 to -11.2 dB, VH4
+  -10.6 to -11.6 dB. Section 11's second line stays open for the antialiasing part.
+- The 5150's pair: Vgk -1.174528 V, Ia 1.249497 mA, gain 63.512682, degeneration 1.914527,
+  swing 113.704 / 79.597 V, solved with the grid leaks on node X.
+- Unity constants at 82 Hz: JCM800 0.3105599, 5150 0.2400876, IIC+ 0.3343019, VH4 0.3543949;
+  each reads -6.000 dBFS. At 82 Hz the old 5150 and IIC+ values sat on the output clamp.
+- The 5150's PRE GAIN is (b^n - 1) / (b - 1) with b = ((1 - m) / m)^2 = 81 for a midpoint fraction
+  m = 0.10; the JCM800 and the IIC+ keep n * sqrt(n) until the maintainer says otherwise.
+- The eight goldens of section 9 move and are not regenerated here.

@@ -6,21 +6,20 @@ here has a figure, a mechanism, and a named exit.
 
 ## Alias floor at 8× after volt-true grid staging
 
-The JCM800 measures −6.7 dB through `measure::alias_floor()` at preamp 1.0 and a −12 dBFS input,
-against the −33.8 dB bound (−43.4 dB before DA4); the 5150 at its default and the same input
-measures +26.0 dB, its worst alias above the fundamental. The diagnosis of 2026-09-07
-(`.superpowers/sdd/amp-gain-staging/diagnosis.md`) located the source: `TriodeStage`'s
-grid-conduction knee is a room-temperature Shockley law (Vt 25.85 mV), sharper than the Norman
-law of the repository's own `Triode12AX7`, and a grid driven past it folds at 8×. One stage alone
-measures −117.6 dB with its grid inside its window, −37.3 dB at 3× past it and −13.7 dB at 12×;
-the DA4 plate ceiling with the grid inside its window measures −109 dB, so the ceiling is not
-the source, and the level the stages sit at is the circuit's (Peavey's published sensitivity
-falls out of the dossier's dividers). `PentodeStage` adds its own fold: its grid clamps at
-+0.2 model volts, 22 to 25 dB under the real grid's window. Documented by
+The JCM800 measures −15.1 dB through `measure::alias_floor()` at preamp 1.0 and a −12 dBFS input,
+against the −33.8 dB bound (−43.4 dB before DA4, −6.7 dB before DA5 part 1); the 5150 at its
+default and the same input measures −17.2 dB (+26.0 dB before DA5 part 1), the IIC+ −6.9 dB and
+the VH4 −11.6 dB. The diagnosis of 2026-09-07 (`.superpowers/sdd/amp-gain-staging/diagnosis.md`)
+located the first source: `TriodeStage`'s grid-conduction knee was a room-temperature Shockley
+law (Vt 25.85 mV), sharper than the Norman law of the repository's own `Triode12AX7`. DA5 part 1
+put the Norman law in the stage: one stage alone now folds at −81.2 dB at 3× past its window and
+−53.7 dB at 12× (−37.3 and −13.7 dB before). What remains is the drive itself, 10 to 3500× past
+the windows at guitar level, and `PentodeStage`'s own fold: its grid clamps at +0.2 model volts,
+22 to 25 dB under the real grid's window. Documented by
 `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b`
 (`tests/functional/unit/test_measure.cpp`), skipped with the measured figure printed. Closes with
-`docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`: the grid law from the
-12AX7 model, antialiasing at the stage, and a volt-true `PentodeStage`.
+the rest of `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`: antialiasing at
+the stage (after the 16× measurement the maintainer asked for) and a volt-true `PentodeStage`.
 
 ## Mesa Mark IIC+ has no clean setting
 

@@ -121,11 +121,14 @@ measured 2026-09-07. These are measurements, not assertions; no test pins them.
 | --- | --- |
 | V1a | 0.2239 V |
 | V1b | 0.1112 V |
-| V2a | 2.6627 V |
-| Phase inverter | 4.3330 V |
+| V2a | 2.6606 V |
+| Phase inverter | 63.5661 V |
 
-V1a and V1b stay below their conduction knees, V2a stays inside the solver's 160·Vt = 4.136 V
-cutoff fence, and the inverter is on its bound, so it is in hard cutoff for part of every cycle.
+V1a and V1b stay below the 0.5 V knee of the Norman grid law `TriodeStage` carries since DA5
+(`docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` §3). The inverter's grid
+travels 63.6 V: its 10 kΩ source drives the 150 kΩ conducting slope of that law, so the grid
+follows the source and the 15.38 V plate ceiling does the clipping. Nothing holds a grid short of
+its plate ceiling any more; the 4.136 V solver fence went with the Shockley knee.
 
 At silence the amp is silent: 2 s of an all-zero input renders an output whose peak and DC mean
 over the last 0.5 s are both exactly 0, at the default setting and at preamp 0.0 alike.
@@ -167,10 +170,11 @@ generate more distinct harmonics to fold, and the fundamental shrinks with them.
 
 ## Calibration
 
-`Jcm800::kMasterUnityGain` is 0.3101991, re-measured on 2026-09-07. It puts a −12 dBFS 82 Hz sine
-at default knobs out at −6.0000 dBFS, which is what
-`Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` pins. The previous value,
-3.5825659, was calibrated in D5b against the staged chain.
+`Jcm800::kMasterUnityGain` is 0.3105599, re-measured on 2026-09-07 on the Norman grid law. It
+puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS, which is what
+`Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` pins; 82 Hz is the frequency
+all four amplifiers pin at (DA5 spec §6). It read 0.3101991 on the Shockley knee and 3.5825659
+in D5b against the staged chain.
 
 ## Filter shapes and their rates
 
