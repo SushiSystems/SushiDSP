@@ -1,6 +1,7 @@
 add_executable(sushidsp_host_gui
     main.cpp
     RigController.cpp
+    FileDropQueue.cpp
     ui/KnobMath.cpp
     ui/PanelLibrary.cpp
     ui/ChainLayout.cpp

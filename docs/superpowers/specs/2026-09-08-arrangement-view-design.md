@@ -269,10 +269,11 @@ public:
 each output costs `speed` inputs, so it runs at most `output_frames * kMaxSpeed` plus the
 kernel's half span, and it allocates nothing, which is what the RT trap measures.
 
-`kMinSpeed` is 0.25 and `kMaxSpeed` is 4.0. Both come from the converter: `Resampler::prepare`
-takes the smallest ratio the instance will see, and `Resampler::kMaximumRatio` is 16, so 0.25 and
-4.0 sit well inside what the history can hold at either end. Quarter speed is two octaves down,
-which is past useful already.
+`kMinSpeed` is 0.5 and `kMaxSpeed` is 2.0, by the maintainer's ruling of 2026-09-08. The converter
+allows far more — `Resampler::kMaximumRatio` is 16 — so the bound is a choice about what a
+guitarist reaches for, not a limit of the machinery. Half speed drops the take an octave and is
+the classic way to learn a passage; a quarter speed is two octaves down and no longer a usable
+reference, and nobody works a riff out at four times.
 
 **Speed 1.0 is a bypass, not a ratio of one.** At unity `TrackPlayer` copies the take as it does
 today and never enters `VariRateReader`, so every alignment acceptance item in §11 and every
@@ -311,7 +312,7 @@ screenshot shows. It gains a bars-and-beats readout from `MusicalClock::position
 a TAP button (the mean of the last four taps, discarding a gap over two seconds), a meter field
 and a metronome toggle. The loop range, which today is typed in seconds, is typed in bars.
 
-It also gains the §5a speed control: one slider from 0.25 to 4.0 with a click back to 1.0, and a
+It also gains the §5a speed control: one slider from 0.5 to 2.0 with a click back to 1.0, and a
 label that says what the speed does to the pitch, so the control is not mistaken for a
 time-stretcher. Pitch, which the screenshot shows beside it, is refused in §9.
 
@@ -433,7 +434,7 @@ other way round.
 - `TrackPlayer::reclaim()` calls every lane's `RtSwapSlot::reclaim()` before `TakeLibrary::collect()`.
   A test that publishes a timeline, retires it, and calls `collect()` with the audio thread's
   watermark held back asserts the take is still alive.
-- `VariRateReader::read` passes the `operator new` trap at speed 0.25, 1.0 and 4.0.
+- `VariRateReader::read` passes the `operator new` trap at speed 0.5, 1.0 and 2.0.
 - At speed 1.0 `TrackPlayer::process` reproduces its take bit for bit, so the converter is
   bypassed rather than run at ratio one.
 - A 440 Hz sine take played at speed 0.5 reads 220 Hz, measured by the peak bin of a 32768-point
