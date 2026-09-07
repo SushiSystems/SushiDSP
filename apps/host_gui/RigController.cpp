@@ -510,6 +510,12 @@ std::string RigController::cabinet_path(SlotId slot) const
     return it != slots_.end() ? it->second.cabinet_path : std::string();
 }
 
+bool RigController::hosts_cabinet(SlotId slot) const
+{
+    const auto it = slots_.find(slot);
+    return it != slots_.end() && it->second.hosts_cabinet;
+}
+
 std::vector<RigController::SlotId> RigController::upstream_of(SlotId slot) const
 {
     std::vector<SlotId> result;
@@ -820,7 +826,9 @@ void RigController::publish()
         {
             continue;
         }
-        for (const auto& [param_id, value] : slots_.at(id).parameters)
+        Slot& slot = slots_.at(id);
+        slot.hosts_cabinet = dynamic_cast<SushiDSP::ICabinetHost*>(node) != nullptr;
+        for (const auto& [param_id, value] : slot.parameters)
         {
             node->set_parameter(param_id.c_str(), value);
         }
