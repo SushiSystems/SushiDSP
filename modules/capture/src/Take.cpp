@@ -43,11 +43,15 @@ namespace SushiDSP
 
     Take Take::load(const std::string& path)
     {
-        double                   sample_rate = 0.0;
-        const std::vector<float> mono = WavFile::load_mono(path, &sample_rate);
+        double                                sample_rate = 0.0;
+        const std::vector<std::vector<float>> channels = WavFile::load_channels(path, &sample_rate);
 
-        Take take(1u, sample_rate, mono.size());
-        std::copy(mono.begin(), mono.end(), take.samples_[0].begin());
+        Take take(static_cast<std::uint32_t>(channels.size()), sample_rate, channels[0].size());
+        for (std::size_t channel = 0; channel < channels.size(); ++channel)
+        {
+            std::copy(channels[channel].begin(), channels[channel].end(),
+                      take.samples_[channel].begin());
+        }
         return take;
     }
 

@@ -42,9 +42,9 @@ namespace SushiDSP
         /// @param frames Number of frames per channel.
         Take(std::uint32_t channels, double sample_rate, std::size_t frames);
 
-        /// @brief Reads a WAV file into a single-channel Take. Control thread only.
+        /// @brief Reads a WAV file into a Take of the file's own channel count. Control thread only.
         /// @param path Filesystem path to the WAV file.
-        /// @return The loaded recording.
+        /// @return The loaded recording, at the file's sample rate and channel count.
         /// @throws std::runtime_error if the file cannot be opened or parsed.
         static Take load(const std::string& path);
 
@@ -69,9 +69,16 @@ namespace SushiDSP
         double sample_rate() const { return sample_rate_; }
 
     private:
+        /// @brief Holds one contiguous vector of samples per channel.
         std::vector<std::vector<float>> samples_;
+
+        /// @brief Holds the rate the recording was captured at, in Hz.
         double                          sample_rate_;
+
+        /// @brief Holds the number of frames each channel carries.
         std::size_t                     frames_;
+
+        /// @brief Holds the number of channels.
         std::uint32_t                   channels_;
     };
 }

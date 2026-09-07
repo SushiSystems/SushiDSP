@@ -23,6 +23,7 @@
 
 #include "SushiDSP/io/WavFile.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -61,7 +62,7 @@ namespace SushiDSP
         }
     }
 
-    std::vector<float> WavFile::load_mono(const std::string& path, double* out_sample_rate)
+    std::vector<std::vector<float>> WavFile::load_channels(const std::string& path, double* out_sample_rate)
     {
         std::ifstream file(path, std::ios::binary);
         if (!file)
@@ -135,10 +136,9 @@ namespace SushiDSP
         const std::uint32_t frame_bytes = bytes_per_sample * channel_count;
         const std::uint32_t frame_count = frame_bytes > 0 ? data_bytes / frame_bytes : 0;
 
-        std::vector<float> mono(frame_count, 0.0f);
+        std::vector<std::vector<float>> channels(channel_count, std::vector<float>(frame_count, 0.0f));
         for (std::uint32_t frame = 0; frame < frame_count; ++frame)
         {
-            float sum = 0.0f;
             for (std::uint16_t channel = 0; channel < channel_count; ++channel)
             {
                 const uint8_t* sample_ptr = data_start + frame * frame_bytes + channel * bytes_per_sample;
@@ -163,9 +163,8 @@ namespace SushiDSP
                 {
                     throw std::runtime_error("WavFile: '" + path + "' uses an unsupported bit depth for its format tag");
                 }
-                sum += sample_value;
+                channels[channel][frame] = sample_value;
             }
-            mono[frame] = sum / static_cast<float>(channel_count);
         }
 
         if (out_sample_rate != nullptr)
@@ -173,6 +172,24 @@ namespace SushiDSP
             *out_sample_rate = static_cast<double>(sample_rate);
         }
 
+        return channels;
+    }
+
+    std::vector<float> WavFile::load_mono(const std::string& path, double* out_sample_rate)
+    {
+        const std::vector<std::vector<float>> channels = load_channels(path, out_sample_rate);
+        const std::size_t                     frame_count = channels[0].size();
+
+        std::vector<float> mono(frame_count, 0.0f);
+        for (std::size_t frame = 0; frame < frame_count; ++frame)
+        {
+            float sum = 0.0f;
+            for (const std::vector<float>& channel_samples : channels)
+            {
+                sum += channel_samples[frame];
+            }
+            mono[frame] = sum / static_cast<float>(channels.size());
+        }
         return mono;
     }
 }

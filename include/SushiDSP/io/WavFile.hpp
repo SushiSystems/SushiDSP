@@ -40,5 +40,13 @@ namespace SushiDSP
         /// @return The mono sample data.
         /// @throws std::runtime_error if the file cannot be opened or parsed.
         static std::vector<float> load_mono(const std::string& path, double* out_sample_rate = nullptr);
+
+        /// @brief Loads a WAV file, keeping its channels apart and converting to float in [-1, 1].
+        /// @param path Filesystem path to the WAV file.
+        /// @param out_sample_rate If non-null, receives the file's sample rate in Hz.
+        /// @return One vector of samples per channel, in the file's own channel order.
+        /// @throws std::runtime_error if the file cannot be opened or parsed.
+        static std::vector<std::vector<float>> load_channels(const std::string& path,
+                                                             double* out_sample_rate = nullptr);
     };
 }
