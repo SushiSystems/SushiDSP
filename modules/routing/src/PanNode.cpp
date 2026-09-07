@@ -61,15 +61,16 @@ namespace SushiDSP
 
     void PanNode::process(ProcessContext& context)
     {
-        const float pan = pan_.skip(context.frames);
-        if (std::fabs(pan - applied_pan_) > kCoefficientEpsilon)
-        {
-            apply_pan(pan);
-        }
+        float pan = pan_.skip(context.frames);
         if (pan_.is_settled(kCoefficientEpsilon))
         {
             pan_.snap(pan_.target());
-            apply_pan(pan_.target());
+            pan = pan_.target();
+        }
+        // Once the smoother has snapped, pan equals applied_pan_ exactly and the trig pair is skipped.
+        if (pan != applied_pan_)
+        {
+            apply_pan(pan);
         }
 
         const float* input = context.inputs != nullptr ? context.inputs[0] : nullptr;

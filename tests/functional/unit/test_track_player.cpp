@@ -81,13 +81,22 @@ namespace
         float*                   outputs[2] = { out_left.data(), out_right.data() };
         SushiDSP::ProcessContext context{ outputs, inputs, 64, 0.0 };
 
-        for (int block = 0; block < 50; ++block)
+        // PanNode snaps its smoother onto the target, so its output stops changing only once settled.
+        constexpr int kMaxBlocks = 4000;
+        float         previous_left = 0.0f;
+        float         previous_right = 0.0f;
+        for (int block = 0; block < kMaxBlocks; ++block)
         {
             node.process(context);
+            left = out_left.back();
+            right = out_right.back();
+            if (block > 0 && left == previous_left && right == previous_right)
+            {
+                break;
+            }
+            previous_left = left;
+            previous_right = right;
         }
-
-        left = out_left.back();
-        right = out_right.back();
     }
 
     /// @brief Converts a linear gain to decibels, floored so a hard null stays finite.
