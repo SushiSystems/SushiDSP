@@ -45,6 +45,7 @@
 #include "SushiDSP/dd3/Dd3Delay.hpp"
 #include "SushiDSP/capture/TrackRecorder.hpp"
 #include "SushiDSP/capture/TrackPlayer.hpp"
+#include "SushiDSP/capture/VariRateReader.hpp"
 #include "SushiDSP/device/AsioSampleConverter.hpp"
 #include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/math/Fft.hpp"
@@ -1281,6 +1282,51 @@ TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
         std::fill(right.begin(), right.end(), 0.0f);
         player.process(outputs, 2u, 256u, transport);
         transport.advance(256);
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t frame = 0; frame < left.size(); ++frame)
+    {
+        EXPECT_TRUE(std::isfinite(left[frame]));
+        EXPECT_TRUE(std::isfinite(right[frame]));
+    }
+}
+
+TEST(Unit_Dsp, VariRateReaderReadPerformsNoHeapAllocation)
+{
+    // The converters are sized before the trap window opens, so what is measured is the read
+    // itself: a set_rates() on every speed change and one push per take frame consumed.
+    SushiDSP::Take take(2u, 48000.0, 48000u);
+    for (std::uint32_t channel = 0; channel < 2u; ++channel)
+    {
+        float* samples = take.mutable_channel(channel);
+        for (std::size_t frame = 0; frame < 48000u; ++frame)
+        {
+            samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f
+                                              * static_cast<float>(frame) / 48000.0f);
+        }
+    }
+
+    SushiDSP::VariRateReader reader;
+    reader.prepare(2u, 256u);
+
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float*             outputs[2] = { left.data(), right.data() };
+
+    AllocationTrap trap;
+    trap.arm();
+
+    for (double speed : { 0.5, 1.0, 2.0 })
+    {
+        reader.reset();
+        std::uint64_t cursor = 0u;
+        for (int block = 0; block < 200; ++block)
+        {
+            cursor = reader.read(take, cursor, speed, outputs, 2u, 256u);
+        }
     }
 
     trap.disarm();
