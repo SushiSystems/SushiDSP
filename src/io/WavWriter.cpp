@@ -171,7 +171,7 @@ namespace SushiDSP
         const std::uint64_t data_bytes64 = frames_written_ * channels_ * (bits / 8);
         const std::uint32_t data_bytes = clamp_to_u32(data_bytes64);
         const std::uint32_t riff_base = is_float ? kFloatRiffBase : kPcm16RiffBase;
-        const std::uint32_t riff_size = clamp_to_u32(static_cast<std::uint64_t>(riff_base) + data_bytes64);
+        const std::uint32_t riff_size = clamp_to_u32(static_cast<std::uint64_t>(riff_base) + data_bytes);
 
         file_.seekp(4);
         write_u32_le(file_, riff_size);

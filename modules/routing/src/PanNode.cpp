@@ -43,7 +43,7 @@ namespace SushiDSP
 
     void PanNode::prepare(const PrepareInfo& info)
     {
-        // See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md for why prepare() snaps.
+        // After prepare(), the smoother holds its target instead of gliding to it.
         pan_.prepare(info.sample_rate, kSmoothingMs);
         pan_.snap(pan_.target());
         applied_pan_ = -2.0f;
