@@ -37,12 +37,16 @@ namespace ui
     {
         Knob,
         Switch,
-        Readout
+        Readout,
+
+        /// @brief A vertical fader, whose size is its travel as a fraction of panel height.
+        Slider
     };
 
     /// @brief One control's place on a panel. position is the control's center in [0, 1] on both
     /// axes and size is its diameter as a fraction of panel height, so a panel scales with the
-    /// window without being laid out again.
+    /// window without being laid out again. A Slider reads size as its travel rather than its
+    /// diameter and takes its width from that travel.
     struct ControlPlacement
     {
         const char* param_id;

@@ -39,6 +39,19 @@ namespace ui
     /// @return True on the frames where *value changed.
     bool Knob(const char* id, const SushiDSP::ParameterDescriptor& param, float* value, float diameter);
 
+    /// @brief The fader's width as a fraction of its travel.
+    inline constexpr float kSliderWidthRatio = 0.34f;
+
+    /// @brief Draws a vertical fader for one parameter and applies pointer edits to *value. A
+    /// vertical drag moves the cap, Shift makes the drag four times finer, and a double click
+    /// restores the parameter's default.
+    /// @param id The ImGui id, unique within the window.
+    /// @param param The parameter, whose range and kind set the taper and the tooltip's unit.
+    /// @param value In/out: the current value.
+    /// @param travel The cap's travel in pixels, from the slot's bottom to its top.
+    /// @return True on the frames where *value changed.
+    bool Slider(const char* id, const SushiDSP::ParameterDescriptor& param, float* value, float travel);
+
     /// @brief Draws a two-state rocker switch.
     /// @param id The ImGui id, unique within the window.
     /// @param on In/out: the current state.

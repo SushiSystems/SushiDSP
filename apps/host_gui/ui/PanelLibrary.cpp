@@ -54,22 +54,24 @@ namespace ui
             { "presence",   ControlKind::Knob, { 0.78f, 0.78f }, 0.14f, "Presence"   },
         };
 
+        // The Mark IIC+ front panel: the knob row on the left, the graphic equalizer's faders on
+        // the right. Two knob rows, because eight knobs across half of a 900x420 panel crowd.
         constexpr ControlPlacement kMesaMark2cControls[] = {
-            { "input_trim",  ControlKind::Knob, { 0.13f, 0.78f }, 0.10f, "Input Trim" },
-            { "output",      ControlKind::Knob, { 0.21f, 0.78f }, 0.10f, "Output"     },
-            { "volume_1",    ControlKind::Knob, { 0.28f, 0.78f }, 0.14f, "Volume 1"   },
-            { "treble",      ControlKind::Knob, { 0.35f, 0.78f }, 0.14f, "Treble"     },
-            { "bass",        ControlKind::Knob, { 0.42f, 0.78f }, 0.14f, "Bass"       },
-            { "middle",      ControlKind::Knob, { 0.49f, 0.78f }, 0.14f, "Middle"     },
-            { "lead_drive",  ControlKind::Knob, { 0.56f, 0.78f }, 0.14f, "Lead Drive" },
-            { "lead_master", ControlKind::Knob, { 0.63f, 0.78f }, 0.14f, "Lead Master"},
-            { "master_1",    ControlKind::Knob, { 0.70f, 0.78f }, 0.14f, "Master 1"   },
-            { "presence",    ControlKind::Knob, { 0.77f, 0.78f }, 0.14f, "Presence"   },
-            { "eq_80",       ControlKind::Knob, { 0.30f, 0.45f }, 0.14f, "80 Hz"      },
-            { "eq_240",      ControlKind::Knob, { 0.40f, 0.45f }, 0.14f, "240 Hz"     },
-            { "eq_750",      ControlKind::Knob, { 0.50f, 0.45f }, 0.14f, "750 Hz"     },
-            { "eq_2200",     ControlKind::Knob, { 0.60f, 0.45f }, 0.14f, "2.2 kHz"    },
-            { "eq_6600",     ControlKind::Knob, { 0.70f, 0.45f }, 0.14f, "6.6 kHz"    },
+            { "input_trim",  ControlKind::Knob,   { 0.055f, 0.665f }, 0.075f, "Trim"        },
+            { "output",      ControlKind::Knob,   { 0.055f, 0.865f }, 0.075f, "Output"      },
+            { "volume_1",    ControlKind::Knob,   { 0.115f, 0.665f }, 0.105f, "Volume 1"    },
+            { "treble",      ControlKind::Knob,   { 0.205f, 0.665f }, 0.105f, "Treble"      },
+            { "bass",        ControlKind::Knob,   { 0.295f, 0.665f }, 0.105f, "Bass"        },
+            { "middle",      ControlKind::Knob,   { 0.385f, 0.665f }, 0.105f, "Middle"      },
+            { "lead_drive",  ControlKind::Knob,   { 0.115f, 0.865f }, 0.105f, "Lead Drive"  },
+            { "lead_master", ControlKind::Knob,   { 0.205f, 0.865f }, 0.105f, "Lead Master" },
+            { "master_1",    ControlKind::Knob,   { 0.295f, 0.865f }, 0.105f, "Master 1"    },
+            { "presence",    ControlKind::Knob,   { 0.385f, 0.865f }, 0.105f, "Presence"    },
+            { "eq_80",       ControlKind::Slider, { 0.580f, 0.755f }, 0.240f, "80"          },
+            { "eq_240",      ControlKind::Slider, { 0.655f, 0.755f }, 0.240f, "240"         },
+            { "eq_750",      ControlKind::Slider, { 0.730f, 0.755f }, 0.240f, "750"         },
+            { "eq_2200",     ControlKind::Slider, { 0.805f, 0.755f }, 0.240f, "2200"        },
+            { "eq_6600",     ControlKind::Slider, { 0.880f, 0.755f }, 0.240f, "6600"        },
         };
 
         constexpr ControlPlacement kDiezelVh4Controls[] = {
@@ -120,7 +122,7 @@ namespace ui
               { rgba(20, 20, 22), rgba(120, 120, 128), rgba(200, 200, 210), rgba(10, 10, 12), nullptr },
               kPeavey5150Controls, std::size(kPeavey5150Controls), nullptr },
             { "sushidsp.mesa_mark2c", { 900.0f, 420.0f },
-              { rgba(24, 22, 20), rgba(110, 96, 70), rgba(226, 214, 178), rgba(14, 12, 10), nullptr },
+              { rgba(14, 13, 12), rgba(212, 202, 178), rgba(198, 158, 74), rgba(30, 25, 16), nullptr },
               kMesaMark2cControls, std::size(kMesaMark2cControls), nullptr },
             { "sushidsp.diezel_vh4", { 900.0f, 420.0f },
               { rgba(18, 20, 26), rgba(50, 70, 120), rgba(120, 160, 230), rgba(8, 10, 16), nullptr },

@@ -54,6 +54,24 @@ TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForEachHighGainAmplifier)
     }
 }
 
+TEST(Unit_Dsp, PanelLibraryDrawsTheMarkTwoCPlusEqualizerBandsAsFaders)
+{
+    const ui::PanelDescriptor* panel = ui::panel_for("sushidsp.mesa_mark2c");
+    ASSERT_NE(panel, nullptr);
+
+    std::vector<std::string> fader_ids;
+    for (std::size_t c = 0; c < panel->control_count; ++c)
+    {
+        if (panel->controls[c].kind == ui::ControlKind::Slider)
+        {
+            fader_ids.push_back(panel->controls[c].param_id);
+        }
+    }
+
+    const std::vector<std::string> expected{ "eq_80", "eq_240", "eq_750", "eq_2200", "eq_6600" };
+    EXPECT_EQ(fader_ids, expected);
+}
+
 TEST(Unit_Dsp, PanelLibraryReturnsNullForANodeTypeWithNoEntry)
 {
     EXPECT_EQ(ui::panel_for("sushidsp.not_a_real_node"), nullptr);
