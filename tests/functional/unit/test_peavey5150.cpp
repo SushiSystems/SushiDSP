@@ -371,18 +371,33 @@ TEST(Unit_Dsp, Peavey5150EvenHarmonicsRiseFromLowToFullPreGain)
 
 TEST(Unit_Dsp, Peavey5150GridProbesReportEveryStageInSignalOrder)
 {
-    // The two test hooks the plate-swing spec added. Eight stages in signal order - V1A, V1B, V2A,
-    // V2B, V5B, V5A, V3A and the phase inverter - every one of which has seen signal after a
-    // default render, and a zero for anything past the end.
+    // The two test hooks the plate-swing spec added, shaped the way
+    // Jcm800GridProbesReportEveryStageInSignalOrder is: spec section 4 asks for the readings to be
+    // recorded rather than asserted, so this pins the hooks and not the figures. Eight stages in
+    // signal order - V1A, V1B, V2A, V2B, V5B, V5A, V3A and the phase inverter.
     auto node = prepared_node();
     ASSERT_EQ(node->triode_stage_count(), std::size_t{ 8 });
+    EXPECT_EQ(node->grid_excursion_peak_volts(node->triode_stage_count()), 0.0f);
+    EXPECT_EQ(node->grid_excursion_peak_volts(99), 0.0f);
+
+    // Before any audio every stage rests at its bias point, so every probe reads zero.
+    for (std::size_t stage = 0; stage < node->triode_stage_count(); ++stage)
+    {
+        EXPECT_EQ(node->grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
+    }
 
     render_sine(*node, 1000.0, 0.251f, 40);
     for (std::size_t stage = 0; stage < node->triode_stage_count(); ++stage)
     {
         EXPECT_GT(node->grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
     }
-    EXPECT_FLOAT_EQ(node->grid_excursion_peak_volts(node->triode_stage_count()), 0.0f);
+
+    // reset() clears the peaks with the rest of the state.
+    node->reset();
+    for (std::size_t stage = 0; stage < node->triode_stage_count(); ++stage)
+    {
+        EXPECT_EQ(node->grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
+    }
 }
 
 TEST(Unit_Dsp, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
