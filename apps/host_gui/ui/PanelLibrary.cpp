@@ -105,6 +105,10 @@ namespace ui
             { "gain_7", ControlKind::Knob, { 0.90f, 0.55f }, 0.16f, "8" },
         };
 
+        constexpr ControlPlacement kPanControls[] = {
+            { "pan", ControlKind::Knob, { 0.50f, 0.58f }, 0.42f, "Pan" },
+        };
+
         /// @brief Hides the gain knobs of mixer inputs nothing is connected to.
         bool mixer_control_visible(std::size_t control_index, std::size_t upstream_count)
         {
@@ -136,6 +140,9 @@ namespace ui
             { "sushidsp.mixer", { 640.0f, 300.0f },
               { rgba(38, 38, 44), rgba(28, 28, 32), rgba(214, 168, 74), rgba(228, 228, 232), nullptr },
               kMixerControls, std::size(kMixerControls), &mixer_control_visible },
+            { "sushidsp.pan", { 320.0f, 200.0f },
+              { rgba(38, 38, 44), rgba(28, 28, 32), rgba(214, 168, 74), rgba(228, 228, 232), nullptr },
+              kPanControls, std::size(kPanControls), nullptr },
         };
         return table;
     }

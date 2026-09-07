@@ -32,6 +32,7 @@
 #include "SushiDSP/peavey5150/Peavey5150.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 #include "SushiDSP/routing/MixerNode.hpp"
+#include "SushiDSP/routing/PanNode.hpp"
 #include "SushiDSP/routing/SplitterNode.hpp"
 
 namespace SushiDSP
@@ -47,6 +48,7 @@ namespace SushiDSP
             { &dd3_descriptor(), NodeCategory{ "Delay" } },
             { &splitter_descriptor(), NodeCategory{ "Routing" } },
             { &mixer_descriptor(), NodeCategory{ "Routing" } },
+            { &pan_descriptor(), NodeCategory{ "Routing" } },
         };
         return entries;
     }
