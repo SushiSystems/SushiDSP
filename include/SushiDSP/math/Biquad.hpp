@@ -25,7 +25,9 @@
 
 namespace SushiDSP
 {
-    /// @brief Direct Form I biquad filter with RBJ cookbook coefficient derivation.
+    /// @brief Direct Form I biquad filter with RBJ cookbook coefficient derivation, its
+    /// coefficients and state in double behind a float sample interface
+    /// (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 15).
     class Biquad
     {
     public:
@@ -61,9 +63,7 @@ namespace SushiDSP
         /// @param sample_rate Sample rate in Hz.
         /// @param cutoff_hz Cutoff frequency in Hz.
         /// @param q Quality factor (0.707 = Butterworth).
-        /// @pre cutoff_hz / sample_rate >= 1e-4. Below that the conjugate pole pair sits within a
-        /// float ulp of the unit circle, and rounding the coefficients to float pushes the radius
-        /// to 1 or past it; use set_first_order_high_pass for corners that low.
+        /// @pre cutoff_hz / sample_rate >= 1e-4; use set_first_order_high_pass for corners that low.
         void set_high_pass(double sample_rate, double cutoff_hz, double q);
 
         /// @brief Configures this filter as a low-shelf with the given corner, gain, and Q.
@@ -107,9 +107,19 @@ namespace SushiDSP
         void reset();
 
     private:
-        float b0_ = 1.0f, b1_ = 0.0f, b2_ = 0.0f;
-        float a1_ = 0.0f, a2_ = 0.0f;
-        float x1_ = 0.0f, x2_ = 0.0f;
-        float y1_ = 0.0f, y2_ = 0.0f;
+        /// @brief Stores the five normalised coefficients.
+        void set_coefficients(double b0, double b1, double b2, double a1, double a2);
+
+        /// @brief The feed-forward coefficients, normalised by a0.
+        double b0_ = 1.0, b1_ = 0.0, b2_ = 0.0;
+
+        /// @brief The feedback coefficients, normalised by a0.
+        double a1_ = 0.0, a2_ = 0.0;
+
+        /// @brief The two previous inputs.
+        double x1_ = 0.0, x2_ = 0.0;
+
+        /// @brief The two previous outputs.
+        double y1_ = 0.0, y2_ = 0.0;
     };
 }
