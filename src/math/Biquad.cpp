@@ -49,11 +49,7 @@ namespace SushiDSP
         const double a1 = -2.0 * cos_omega;
         const double a2 = 1.0 - alpha;
 
-        b0_ = static_cast<float>(b0 / a0);
-        b1_ = static_cast<float>(b1 / a0);
-        b2_ = static_cast<float>(b2 / a0);
-        a1_ = static_cast<float>(a1 / a0);
-        a2_ = static_cast<float>(a2 / a0);
+        set_coefficients(b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0);
     }
 
     void Biquad::set_one_pole_low_pass(double sample_rate, double cutoff_hz)
@@ -61,11 +57,7 @@ namespace SushiDSP
         const double k = std::tan(M_PI * cutoff_hz / sample_rate);
         const double norm = 1.0 / (1.0 + k);
 
-        b0_ = static_cast<float>(k * norm);
-        b1_ = b0_;
-        b2_ = 0.0f;
-        a1_ = static_cast<float>((k - 1.0) * norm);
-        a2_ = 0.0f;
+        set_coefficients(k * norm, k * norm, 0.0, (k - 1.0) * norm, 0.0);
     }
 
     void Biquad::set_first_order_high_pass(double sample_rate, double cutoff_hz)
@@ -73,11 +65,7 @@ namespace SushiDSP
         const double pole = std::exp(-2.0 * M_PI * cutoff_hz / sample_rate);
         const double half_sum = (1.0 + pole) / 2.0;
 
-        b0_ = static_cast<float>(half_sum);
-        b1_ = -b0_;
-        b2_ = 0.0f;
-        a1_ = static_cast<float>(-pole);
-        a2_ = 0.0f;
+        set_coefficients(half_sum, -half_sum, 0.0, -pole, 0.0);
     }
 
     void Biquad::set_high_pass(double sample_rate, double cutoff_hz, double q)
@@ -94,11 +82,7 @@ namespace SushiDSP
         const double a1 = -2.0 * cos_omega;
         const double a2 = 1.0 - alpha;
 
-        b0_ = static_cast<float>(b0 / a0);
-        b1_ = static_cast<float>(b1 / a0);
-        b2_ = static_cast<float>(b2 / a0);
-        a1_ = static_cast<float>(a1 / a0);
-        a2_ = static_cast<float>(a2 / a0);
+        set_coefficients(b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0);
     }
 
     void Biquad::set_low_shelf(double sample_rate, double cutoff_hz, double gain_db, double q)
@@ -117,11 +101,7 @@ namespace SushiDSP
         const double a1 = -2.0 * ((a - 1.0) + (a + 1.0) * cos_omega);
         const double a2 = (a + 1.0) + (a - 1.0) * cos_omega - two_sqrt_a_alpha;
 
-        b0_ = static_cast<float>(b0 / a0);
-        b1_ = static_cast<float>(b1 / a0);
-        b2_ = static_cast<float>(b2 / a0);
-        a1_ = static_cast<float>(a1 / a0);
-        a2_ = static_cast<float>(a2 / a0);
+        set_coefficients(b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0);
     }
 
     void Biquad::set_high_shelf(double sample_rate, double cutoff_hz, double gain_db, double q)
@@ -140,11 +120,7 @@ namespace SushiDSP
         const double a1 = 2.0 * ((a - 1.0) - (a + 1.0) * cos_omega);
         const double a2 = (a + 1.0) - (a - 1.0) * cos_omega - two_sqrt_a_alpha;
 
-        b0_ = static_cast<float>(b0 / a0);
-        b1_ = static_cast<float>(b1 / a0);
-        b2_ = static_cast<float>(b2 / a0);
-        a1_ = static_cast<float>(a1 / a0);
-        a2_ = static_cast<float>(a2 / a0);
+        set_coefficients(b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0);
     }
 
     void Biquad::set_peaking(double sample_rate, double center_hz, double gain_db, double q)
@@ -162,11 +138,7 @@ namespace SushiDSP
         const double a1 = -2.0 * cos_omega;
         const double a2 = 1.0 - alpha / a;
 
-        b0_ = static_cast<float>(b0 / a0);
-        b1_ = static_cast<float>(b1 / a0);
-        b2_ = static_cast<float>(b2 / a0);
-        a1_ = static_cast<float>(a1 / a0);
-        a2_ = static_cast<float>(a2 / a0);
+        set_coefficients(b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0);
     }
 
     void Biquad::set_first_order_shelf(double sample_rate, double zero_hz, double pole_hz,
@@ -177,27 +149,34 @@ namespace SushiDSP
         const double pole_tangent = std::tan(M_PI * pole_hz / sample_rate);
         const double scale = low_frequency_gain * pole_tangent / zero_tangent;
         const double denominator = pole_tangent + 1.0;
-        b0_ = static_cast<float>(scale * (zero_tangent + 1.0) / denominator);
-        b1_ = static_cast<float>(scale * (zero_tangent - 1.0) / denominator);
-        b2_ = 0.0f;
-        a1_ = static_cast<float>((pole_tangent - 1.0) / denominator);
-        a2_ = 0.0f;
+        set_coefficients(scale * (zero_tangent + 1.0) / denominator, scale * (zero_tangent - 1.0) / denominator,
+                         0.0, (pole_tangent - 1.0) / denominator, 0.0);
     }
 
     float Biquad::process_sample(float input)
     {
-        const float output = b0_ * input + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_;
+        const double x = input;
+        const double output = b0_ * x + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_;
 
         x2_ = x1_;
-        x1_ = input;
+        x1_ = x;
         y2_ = y1_;
         y1_ = output;
 
-        return output;
+        return static_cast<float>(output);
     }
 
     void Biquad::reset()
     {
-        x1_ = x2_ = y1_ = y2_ = 0.0f;
+        x1_ = x2_ = y1_ = y2_ = 0.0;
+    }
+
+    void Biquad::set_coefficients(double b0, double b1, double b2, double a1, double a2)
+    {
+        b0_ = b0;
+        b1_ = b1;
+        b2_ = b2;
+        a1_ = a1;
+        a2_ = a2;
     }
 }
