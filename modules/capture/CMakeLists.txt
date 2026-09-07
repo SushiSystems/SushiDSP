@@ -5,6 +5,7 @@ add_library(capture STATIC
     src/Transport.cpp
     src/TrackPlayer.cpp
     src/TakeLibrary.cpp
+    src/MusicalClock.cpp
 )
 add_library(SushiDSP::capture ALIAS capture)
 target_link_libraries(capture PUBLIC SushiDSP::sushi_dsp)
