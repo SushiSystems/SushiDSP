@@ -46,10 +46,16 @@ namespace SushiDSP
     /// while remaining exactly the Shockley law inside the operating range, the exponent argument
     /// is clamped to +-40 (v_max = 40*n*Vt =~ 1.81 V for the 1N914 defaults) — no silicon diode in
     /// a guitar circuit sits above that voltage. Clamping the exponent alone would break C^1
-    /// continuity at the knee, so beyond +-v_max the model switches to the tangent line at v_max
-    /// instead: `i(v) = i(v_max) + jacobian(v_max) * (v - v_max)` and `jacobian(v) = jacobian(v_max)`,
-    /// mirrored for `v < -v_max`. This is C^1 everywhere, finite everywhere, and identical to the
-    /// Shockley law for |v| <= v_max.
+    /// continuity at the knee, so beyond either knee the model switches to the Shockley law's own
+    /// tangent line there: `i(v) = i(k) + jacobian(k) * (v - k)` with `jacobian(v) = jacobian(k)`,
+    /// taking k = +v_max above the upper knee and k = -v_max below the lower one. This is C^1
+    /// everywhere, finite everywhere, and identical to the Shockley law for |v| <= v_max.
+    ///
+    /// The two tangents are not each other's mirror image, and must not be: the reverse tangent
+    /// continues a diode that is not conducting, so it carries -Is and a conductance of
+    /// (Is/(n*Vt))*exp(-40), while the forward one carries hundreds of megamperes per volt.
+    /// Mirroring the forward tangent instead put a step from -2.5 nA to -593 MA at the lower knee
+    /// (D6c C2).
     ///
     /// A DK solver wants the current and its derivative at the same voltage, so
     /// `current_and_jacobian()` carries the law and `current()`/`jacobian()` forward to it.
@@ -71,6 +77,9 @@ namespace SushiDSP
               knee_voltage_(kMaxExponentArgument * scaled_thermal_voltage_),
               knee_current_(saturation_current_ * (std::exp(kMaxExponentArgument) - 1.0)),
               knee_jacobian_(saturation_current_ * inverse_scaled_thermal_voltage_ * std::exp(kMaxExponentArgument)),
+              reverse_knee_current_(saturation_current_ * (std::exp(-kMaxExponentArgument) - 1.0)),
+              reverse_knee_jacobian_(saturation_current_ * inverse_scaled_thermal_voltage_
+                                     * std::exp(-kMaxExponentArgument)),
               positive_knee_antiderivative_(saturation_current_
                                             * (scaled_thermal_voltage_ * std::exp(kMaxExponentArgument)
                                                - knee_voltage_)),
@@ -99,8 +108,9 @@ namespace SushiDSP
             }
             if (voltage < -knee_voltage_)
             {
-                current_amps = -knee_current_ + knee_jacobian_ * (voltage + knee_voltage_);
-                conductance_siemens = knee_jacobian_;
+                current_amps = reverse_knee_current_
+                               + reverse_knee_jacobian_ * (voltage + knee_voltage_);
+                conductance_siemens = reverse_knee_jacobian_;
                 return;
             }
 
@@ -148,10 +158,10 @@ namespace SushiDSP
             if (voltage < -knee_voltage_)
             {
                 const double excess = voltage + knee_voltage_;
-                current_amps = -knee_current_ + knee_jacobian_ * excess;
+                current_amps = reverse_knee_current_ + reverse_knee_jacobian_ * excess;
                 antiderivative_ampere_volts
                     = negative_knee_antiderivative_
-                      + excess * (-knee_current_ + 0.5 * knee_jacobian_ * excess);
+                      + excess * (reverse_knee_current_ + 0.5 * reverse_knee_jacobian_ * excess);
                 return;
             }
 
@@ -193,6 +203,8 @@ namespace SushiDSP
         double knee_voltage_;
         double knee_current_;
         double knee_jacobian_;
+        double reverse_knee_current_;
+        double reverse_knee_jacobian_;
         double positive_knee_antiderivative_;
         double negative_knee_antiderivative_;
     };
