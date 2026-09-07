@@ -116,12 +116,11 @@ series, which costs only its scalar. **Follower compression is not modelled**: V
 far plate is confidence **[C]** in the dossier (§2, §4 and open question 15), so where it lands
 decides whether the effects loop sees the master volume, which this module does not have.
 
-**The phase inverter's gain.** §5 gives the pair's resistors and no gain figure, so 29.7 is derived
-here and is a modelling choice: µ = 100 from §3's Koren 12AX7, ra = 62 kΩ from §7's own
-phase-inverter arithmetic, per-plate gain of a long-tailed pair being half the common-cathode
-figure, and the two halves' 28.47 and 30.86 averaged the way §7 averages them for
-`source_resistance`. Its cathode bias, −2.0 V, has no row in §3's DC table and is a choice inside
-the range the other 12AX7 rows occupy.
+**The phase inverter's operating point.** §5 gives the pair's resistors and no gain figure, and
+§3's DC table has no row for it, so its cathode bias of −2.0 V is a modelling choice inside the
+range the other 12AX7 rows occupy. Everything else about the pair — its gain 56.5186, its tail
+degeneration 1.90500 and its `PlateSwing` — is solved from that bias on one load line; the
+arithmetic is under "The pair's operating point, its gain and its tail degeneration" below.
 
 **The output transformer and the sag stage.** §5 leaves the primary impedance and turns ratio
 **not established** (open question 2), so `OutputTransformerStage` and `PowerSupplySagStage` carry
@@ -276,14 +275,17 @@ what it measures, because across the whole knob the measure is not monotonic —
 0.0086, 0.1338, 0.0984 at 0.05, 0.10, 0.20, 0.50 and 1.00 — because at that stimulus every
 stage from V5A on is already on its bound, so the even harmonics leaving the amplifier are the
 push-pull pair's as much as V2A's. V2A's own grid does move from 2.81 V to 4.26 V over the same
-span, past the 4.00 V at which it conducts, so the asymmetry the test names is real; what an
-output-side measure cannot do is attribute it to V2A. A probe on V2A's plate would.
+span, past the 4.00 V at which it conducts, so V2A's asymmetry is real; what an output-side
+measure cannot do is attribute it to V2A, which is why the test is named for the two points it
+compares rather than for the stage it was written to prove. A probe on V2A's plate would attribute
+it.
 
 **The PRE GAIN pot law.** `pre_gain_attenuation()` is the audio taper
 `modules/jcm800/src/Jcm800.cpp` uses, `n·√n`: 0 at n = 0, 0.0112 (−39.03 dB) at 0.05 and 0.0316
 (−30.00 dB) at 0.10. A 1 MΩ audio-taper pot is nearer −40 dB at 10 % of its rotation, so this law
 is about 10 dB generous over the bottom tenth of VR2's travel. The clean end does not depend on
-that: the amplifier reads 0.276 % at Peavey's nominal input two positions above the mute.
+that: the amplifier reads 1.340 % at Peavey's nominal −83.01 dBFS input one position above the
+mute.
 
 **Behaviour at silence.** An all-zero input for 2 s leaves the output in the denormals over the
 last half second, peak and DC mean alike: 6.8e−43 at the default setting and 4.7e−41 at PRE GAIN
