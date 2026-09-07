@@ -73,8 +73,9 @@
 
 namespace
 {
-    std::atomic<bool> g_trap_allocations{ false };
-    std::atomic<int>  g_trapped_allocation_count{ 0 };
+    // Each thread carries its own trap, so a case only ever counts the thread that opened its window.
+    thread_local std::atomic<bool> g_trap_allocations{ false };
+    thread_local std::atomic<int>  g_trapped_allocation_count{ 0 };
 
     class SumNode : public SushiDSP::IAudioNode
     {
