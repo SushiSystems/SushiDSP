@@ -136,8 +136,13 @@ namespace SushiDSP
         /// @brief The channel widths and input slot count RigGraph derives from a node's PortLayout.
         struct NodeChannels
         {
+            /// @brief Holds how many channels one input slot carries.
             std::uint32_t input_width;
+
+            /// @brief Holds how many channels the node writes.
             std::uint32_t output_width;
+
+            /// @brief Holds how many separate inputs the node reads.
             std::uint32_t input_slots;
         };
 
@@ -154,13 +159,25 @@ namespace SushiDSP
         std::vector<NodeHandle>                   topological_order_;
         NodeHandle                                sink_handle_ = 0;
         std::uint32_t                             cached_latency_samples_ = 0;
+        /// @brief Holds the widths and slot count derived from each node's PortLayout.
         std::vector<NodeChannels>                 node_channels_;
+
+        /// @brief Holds the widest output_width in the compiled graph.
         std::uint32_t                             max_output_channels_ = 1;
+
+        /// @brief Holds how many channels the host asks process() to fill.
         std::uint32_t                             host_output_channels_ = 1;
+
+        /// @brief Holds the buffer count compile() sized the pool from.
         std::uint32_t                             live_buffer_count_ = 0;
-        // One buffer per node output channel, indexed handle * max_output_channels_ + channel.
+
+        /// @brief Holds one buffer per node output channel, indexed handle * max_output_channels_ + channel.
         std::vector<float*>                       node_output_scratch_;
+
+        /// @brief Holds the input pointers one node's gather hands to process().
         const float*                           gathered_inputs_[kMaxFanInOut * kMaxChannels] = {};
+
+        /// @brief Holds the pool buffers the current gather borrowed, for release after the node runs.
         float*                                    gather_scratch_[kMaxFanInOut * kMaxChannels] = {};
         SpscRing<ParameterChange>                 parameter_ring_{ kParameterRingCapacity };
     };
