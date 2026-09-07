@@ -42,6 +42,7 @@
 #include "SushiDSP/circuits/models/SiliconDiode.hpp"
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
+#include "SushiDSP/math/Resampler.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamerCircuits.hpp"
 
 #include "circuits/DkBlockNode.hpp"
@@ -803,3 +804,276 @@ TEST(Unit_Dsp, AdaaDiodePairPortResetDropsItsSampleIntervalHistory)
     EXPECT_NEAR(currents[0] - currents[1], endpoint_at_five, 1e-12 * std::fabs(endpoint_at_five));
 }
 
+
+namespace
+{
+    /// @brief The shipping run rate of the D6c chain: 48 kHz at the 4x oversampling factor.
+    constexpr double kShippingRunRate = 192000.0;
+
+    /// @brief Samples dropped from the head of each decimated signal before nulling.
+    ///
+    /// The resampler's kernel reaches about 34 output samples either side, so its first outputs
+    /// read a history that is still zero. 256 samples at 192 kHz is 1.3 cycles of the 1 kHz
+    /// stimulus and seven times that reach, and it is dropped from the reference and the circuit
+    /// output alike, so it cannot favour either port.
+    constexpr std::size_t kDecimationSettle = 256;
+
+    /// @brief Converts one signal from the LTspice grid to the shipping run rate.
+    ///
+    /// `Resampler` is the tree's committed arbitrary-ratio converter (DR1), which matters here
+    /// because 1 MHz to 192 kHz is 24/125 and no halfband cascade reaches it. It is zero phase, so
+    /// output time t carries input time t and nothing has to be shifted back afterwards, and its
+    /// kernel time-scales with the ratio, so decimating moves its cutoff to 96 kHz and the
+    /// reference arrives band-limited to what a 4x model could represent in the first place.
+    ///
+    /// The converter touches the reference and the stimulus, never a circuit output: both ports
+    /// are then driven by the same decimated stimulus and nulled against the same decimated
+    /// reference, so whatever colour it leaves below 10 kHz is common to both and cancels in the
+    /// comparison the case exists to make.
+    /// @param input The signal on the reference grid.
+    /// @param source_rate The reference grid's rate in hertz.
+    /// @return The signal at kShippingRunRate.
+    std::vector<float> decimate_to_run_rate(const std::vector<float>& input, double source_rate)
+    {
+        SushiDSP::Resampler resampler;
+        const std::uint32_t frames = static_cast<std::uint32_t>(input.size());
+        resampler.prepare(source_rate, kShippingRunRate, frames, kShippingRunRate / source_rate);
+        resampler.set_rates(source_rate, kShippingRunRate);
+
+        std::vector<float> output(resampler.maximum_output_frames(frames) + 1u, 0.0f);
+        const std::uint32_t written = resampler.process(input.data(), frames, output.data(),
+                                                        static_cast<std::uint32_t>(output.size()));
+        output.resize(written);
+        return output;
+    }
+
+    /// @brief Runs one port at the shipping rate against the decimated reference.
+    /// @tparam Port The nonlinear port type.
+    /// @param stimulus The decimated stimulus in volts.
+    /// @param reference The decimated reference output, already head-trimmed.
+    /// @param drive The drive pot's position.
+    /// @return Null residual in dB.
+    template <typename Port>
+    double clip_run_rate_residual(const std::vector<float>& stimulus,
+                                  const std::vector<float>& reference, double drive)
+    {
+        ClipNetlist       netlist;
+        const std::size_t pot = build_clip_block(netlist);
+        ClipCircuit       circuit;
+        Port              port;
+        EXPECT_TRUE(circuit.prepare(netlist, kShippingRunRate));
+        circuit.set_potentiometer(pot, drive_to_position(drive));
+        circuit.update_matrices_if_dirty();
+
+        // The reference window is the second half of LTspice's 40 ms run, so the block is walked
+        // through the stimulus once and compared on the replay, exactly as the reference-rate case
+        // argues.
+        std::vector<float>    circuit_output;
+        std::array<double, 1> outputs{};
+        for (std::size_t pass = 0; pass < 2; ++pass)
+        {
+            for (std::size_t index = 0; index < stimulus.size(); ++index)
+            {
+                circuit.process_sample(port, { static_cast<double>(stimulus[index]) }, outputs);
+                if (pass == 1 && index >= kDecimationSettle)
+                {
+                    circuit_output.push_back(static_cast<float>(outputs[0]));
+                }
+            }
+        }
+
+        std::vector<float> trimmed_reference = reference;
+        band_limit(trimmed_reference, kShippingRunRate, 10000.0);
+        band_limit(circuit_output, kShippingRunRate, 10000.0);
+        return SushiDSP::measure::null_test(trimmed_reference, circuit_output, 64);
+    }
+}
+
+TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheReferenceDecimatedToTheShippingRunRate)
+{
+    // The decision measurement for D6c C2. The reference-rate case nulls at 1 MHz, where a clipped
+    // corner carries almost no aliasing and antialiasing can only spend its half-sample delay and
+    // its corner attenuation; it therefore says nothing about whether antialiasing helps at the
+    // rate the pedal actually runs. This case asks the question that decides: decimate LTspice's
+    // 1 MHz transient to the shipping 192 kHz, so the reference is the analogue circuit
+    // band-limited to what a 4x model can represent, then null both ports against it there.
+    //
+    // Whichever port comes back closer is the one that models the circuit better at the rate it
+    // ships at. The verdict and its numbers are in spec 2026-08-26-aaa-audio-quality-design.md,
+    // Model corrections (D6c C2).
+    const std::string path = spice_path("ts_clip", "tran");
+    const auto        reference = SushiDSP::measure::load_transient_csv(path);
+    if (reference.input.empty())
+    {
+        GTEST_SKIP() << "No LTspice reference at " << path
+                     << ". Generate it with: python tools/spice/export.py --block ts_clip "
+                     << "(needs LTspice installed; see docs/reference/spice/README.md), "
+                     << "then commit the CSV.";
+    }
+    ASSERT_GT(reference.sample_rate, kShippingRunRate);
+
+    for (std::size_t setting = 0; setting < kSteppedDrive.size(); ++setting)
+    {
+        std::vector<float> stimulus;
+        std::vector<float> reference_output;
+        for (std::size_t row = 0; row < reference.input.size(); ++row)
+        {
+            if (reference.setting[row] == static_cast<int>(setting))
+            {
+                stimulus.push_back(reference.input[row]);
+                reference_output.push_back(reference.output[row]);
+            }
+        }
+        ASSERT_FALSE(reference_output.empty()) << "setting " << setting;
+
+        const std::vector<float> decimated_stimulus
+            = decimate_to_run_rate(stimulus, reference.sample_rate);
+        const std::vector<float> decimated_reference
+            = decimate_to_run_rate(reference_output, reference.sample_rate);
+        ASSERT_GT(decimated_reference.size(), kDecimationSettle * 2u) << "setting " << setting;
+
+        const std::vector<float> trimmed(decimated_reference.begin()
+                                             + static_cast<std::ptrdiff_t>(kDecimationSettle),
+                                         decimated_reference.end());
+
+        const double plain
+            = clip_run_rate_residual<DiodePairPort>(decimated_stimulus, trimmed,
+                                                    kSteppedDrive[setting]);
+        const double antialiased
+            = clip_run_rate_residual<AdaaDiodePairPort>(decimated_stimulus, trimmed,
+                                                        kSteppedDrive[setting]);
+        std::printf("[ measure ] ts_clip at 192 kHz vs decimated reference, setting %zu: "
+                    "plain %.2f dB, adaa %.2f dB\n",
+                    setting, plain, antialiased);
+
+        // Both ports must stay recognisably the same circuit; which one wins is what the printout
+        // reports and the spec records, and it is not asserted here in either direction.
+        EXPECT_LE(plain, -20.0) << "setting " << setting;
+        EXPECT_LE(antialiased, -20.0) << "setting " << setting;
+    }
+}
+
+namespace
+{
+    /// @brief Rate the converged reference run uses: ten times the shipping run rate.
+    ///
+    /// At 1.92 MHz the 13th harmonic of a 15 kHz tone sits at 195 kHz against a Nyquist of
+    /// 960 kHz, so the fold that sets the shipping alias floor needs the 128th harmonic instead of
+    /// the 13th and has fallen far below the noise. The block's own equations at this rate are
+    /// therefore a converged solution of the model, which is what a reference has to be.
+    constexpr double kConvergedRunRate = 1920000.0;
+
+    /// @brief Renders a bin-exact sine through the clip block at an arbitrary rate.
+    /// @tparam Port The nonlinear port type.
+    /// @param run_rate Rate to step the block at, in hertz.
+    /// @param tone_hz Stimulus frequency in hertz.
+    /// @param amplitude_volts Stimulus peak in volts.
+    /// @param frames Analysis frames to keep after settling.
+    /// @return The analysis window.
+    template <typename Port>
+    std::vector<float> render_clip_at_rate(double run_rate, double tone_hz, double amplitude_volts,
+                                           std::size_t frames)
+    {
+        ClipNetlist       netlist;
+        const std::size_t pot = build_clip_block(netlist);
+        ClipCircuit       circuit;
+        Port              port;
+        EXPECT_TRUE(circuit.prepare(netlist, run_rate));
+        circuit.set_potentiometer(pot, drive_to_position(1.0));
+        circuit.update_matrices_if_dirty();
+
+        const double      omega = 2.0 * kPi * tone_hz / run_rate;
+        const std::size_t settle = static_cast<std::size_t>(0.05 * run_rate);
+        std::array<double, 1> outputs{};
+        for (std::size_t index = 0; index < settle; ++index)
+        {
+            const double ramp = static_cast<double>(index) / static_cast<double>(settle);
+            circuit.process_sample(
+                port, { amplitude_volts * ramp * std::sin(omega * static_cast<double>(index)) },
+                outputs);
+        }
+
+        std::vector<float> window;
+        window.reserve(frames);
+        for (std::size_t index = 0; index < frames; ++index)
+        {
+            circuit.process_sample(
+                port,
+                { amplitude_volts * std::sin(omega * static_cast<double>(index + settle)) },
+                outputs);
+            window.push_back(static_cast<float>(outputs[0]));
+        }
+        return window;
+    }
+}
+
+TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases)
+{
+    // The companion to the decimated-LTspice case, and the reason that one cannot decide alone:
+    // ts_clip's stimulus is a 1 kHz sine, and 192000 / 1000 is an integer, so at the shipping rate
+    // every folded harmonic of that tone lands exactly on a harmonic of it. The stimulus is blind
+    // to the aliasing antialiasing exists to remove, and can only charge it for its cost.
+    //
+    // This case puts the question on the tone that does alias. The reference is the same block's
+    // own equations at 1.92 MHz, where the 13th harmonic of 15 kHz is nowhere near Nyquist, then
+    // decimated to 192 kHz by the same converter - a converged solution of the model rather than
+    // of the circuit, which is the right reference for asking which discretisation is closer to
+    // the answer it is trying to compute.
+    constexpr double      kTone = 15000.0;
+    constexpr double      kAmplitudeVolts = 0.5;
+    constexpr std::size_t kFrames = 16384;
+
+    const std::vector<float> converged = render_clip_at_rate<DiodePairPort>(
+        kConvergedRunRate, kTone, kAmplitudeVolts,
+        static_cast<std::size_t>(kFrames * (kConvergedRunRate / kShippingRunRate)));
+    const std::vector<float> reference = decimate_to_run_rate(converged, kConvergedRunRate);
+    ASSERT_GT(reference.size(), kDecimationSettle * 2u);
+
+    const std::vector<float> plain
+        = render_clip_at_rate<DiodePairPort>(kShippingRunRate, kTone, kAmplitudeVolts, kFrames);
+    const std::vector<float> antialiased
+        = render_clip_at_rate<AdaaDiodePairPort>(kShippingRunRate, kTone, kAmplitudeVolts, kFrames);
+
+    // The head of the decimated reference carries the converter's start-up, and both candidates
+    // are trimmed by the same amount, so neither is favoured.
+    auto trim = [](const std::vector<float>& signal)
+    {
+        return std::vector<float>(signal.begin() + static_cast<std::ptrdiff_t>(kDecimationSettle),
+                                  signal.end());
+    };
+
+    std::vector<float> reference_window = trim(reference);
+    std::vector<float> plain_window = trim(plain);
+    std::vector<float> antialiased_window = trim(antialiased);
+    const std::size_t  length
+        = std::min({ reference_window.size(), plain_window.size(), antialiased_window.size() });
+    reference_window.resize(length);
+    plain_window.resize(length);
+    antialiased_window.resize(length);
+
+    // null_test aligns an integer lag and a gain, so antialiasing's half sample survives it. That
+    // half sample is 2.6 us at this rate and a host could compensate it, so the antialiased port
+    // is also offered the reference delayed by half a sample: the pair of numbers separates the
+    // part of its error a delay line could take back from the part nothing can.
+    std::vector<float> delayed_reference = reference_window;
+    for (std::size_t index = delayed_reference.size(); index-- > 1;)
+    {
+        delayed_reference[index]
+            = 0.5f * (delayed_reference[index] + delayed_reference[index - 1]);
+    }
+
+    const double plain_residual
+        = SushiDSP::measure::null_test(reference_window, plain_window, 64);
+    const double antialiased_residual
+        = SushiDSP::measure::null_test(reference_window, antialiased_window, 64);
+    const double antialiased_aligned
+        = SushiDSP::measure::null_test(delayed_reference, antialiased_window, 64);
+    std::printf("[ measure ] ts_clip at 192 kHz vs the converged model, 15 kHz: plain %.2f dB, "
+                "adaa %.2f dB, adaa half-sample aligned %.2f dB\n",
+                plain_residual, antialiased_residual, antialiased_aligned);
+
+    // Regression floors on the measured numbers, not acceptances. Which port is closer is the
+    // decision this case exists to make, and it is recorded in the spec rather than asserted here.
+    EXPECT_LE(plain_residual, -15.0);
+    EXPECT_LE(antialiased_residual, -4.0);
+}
