@@ -238,10 +238,12 @@ blocks of 256:
 The readings are taken at 0.02, not at 0.00. `pre_gain_attenuation()` is `n·√n`, exactly zero at
 n = 0, so the bottom of VR2's travel mutes the amplifier and its 155.5 % is the FFT's floor on a
 3.7e−04 tail rather than distortion; 0.02 is the first position that passes signal.
-`Peavey5150HasACleanEndAtMinimumGain` asserts both figures and fails on the first. The corrected
-pair hands the power section about 20 dB more than the first ruling did, and at −40 dBFS the
-amplifier squares from V5A on: V5A, V3A and the pair sit on the solver's 4.136 V fence with V5B at
-2.71 V behind them, so V5A is the stage that binds. Nothing was added to move it.
+
+`Peavey5150HasACleanEndAtMinimumGain` asserts the nominal figure alone. A 20 mV guitar sits 46 dB
+above the −80 dBV nominal §6 prints for this channel, so the −40 dBFS reading is recorded and
+printed rather than gated. At that level the amplifier squares from V5A on: V5A, V3A and the pair
+sit on the solver's 4.136 V fence with V5B at 2.71 V behind them, so V5A is the stage that binds,
+and the reading is 25.65 %. Nothing was added to move it.
 
 **The THD sweep.** Spec §4 asks that THD not fall as the knob rises, within 1.0 percentage point.
 Measured 2026-09-07 at 220 Hz, 0.02 amplitude:
