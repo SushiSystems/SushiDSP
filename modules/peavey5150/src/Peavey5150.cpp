@@ -62,13 +62,15 @@ namespace SushiDSP
         constexpr float kV5aGain = 25.3f;
         constexpr float kV3aGain = 14.0f;   // R14 3.3k read as unbypassed in the audio band.
 
-        // Dossier section 5 gives the long-tailed pair's resistors but no gain figure, so this one
-        // is derived here and is a modelling choice, not a dossier value: mu = 100 from the Koren
-        // 12AX7 of section 3, ra = 62 kOhm from section 7's own phase-inverter arithmetic, and the
-        // per-plate gain of a long-tailed pair is half the common-cathode figure. The V4B side
-        // gives 100*82/(62+82)/2 = 28.47 and the V4A side 100*100/(62+100)/2 = 30.86; 29.7 is the
-        // pair's average, the same way section 7 averages the two halves for source_resistance.
-        constexpr float kPhaseInverterGain = 29.7f;
+        /// @brief The pair's full single-triode gain, mu * Ra / (ra + Ra). Section 5 gives the
+        /// long-tailed pair's resistors but no gain row, so the operating point is solved on the
+        /// average of R46 82k and R58 100k, 91 kOhm, at the -2.0 V bias below: Ia 0.9614 mA,
+        /// Va 252.514 V. The Koren 12AX7's Jacobian there gives gm 1.6785 mA/V and
+        /// ra 53.448 kOhm, so mu = gm * ra = 89.714 and the gain is
+        /// 89.714 * 91 / (53.448 + 91) = 56.5186. It is the full figure, not half of it: the
+        /// pair's single-ended split is kPhaseInverterDegeneration below, and halving the gain as
+        /// well would count it twice.
+        constexpr float kPhaseInverterGain = 56.5186f;
 
         // Grid-leak resistors, dossier section 2's diagram, one per driven grid.
         constexpr float kV1aGridLeak = 1000000.0f;   // R25 at the input jack.
@@ -127,7 +129,8 @@ namespace SushiDSP
 
         /// @brief The pair's plate swing: 340 - 252.514 up, 252.514 - 120.952 down. Section 5 gives
         /// the pair no DC row, so its idle point is solved at the -2.0 V bias above against the
-        /// average of R46 82k and R58 100k, the same average kPhaseInverterGain is taken over.
+        /// average of R46 82k and R58 100k, the same load line kPhaseInverterGain and
+        /// kPhaseInverterDegeneration are taken from.
         constexpr PlateSwing kPhaseInverterPlateSwing{ 87.486f, 131.561f };
 
         // Source resistances: the Thevenin impedance each grid is driven from, built the way
@@ -154,22 +157,23 @@ namespace SushiDSP
         // three 1 MOhm resistors give R91 / (R87 + R88 + R91) = 0.3333.
         constexpr float kV5bToV5aAttenuation = 0.3333f;
 
-        // Dossier section 5: the pair is a long-tailed pair, so its cathode follows its grid and
-        // the grid-to-cathode window is the input divided by the tail degeneration
-        // 1 + (mu + 1) * R_tail / (ra + Ra). Section 5's tail is R52 470 + R51 10k + R57 4.7k =
-        // 15.17 kOhm and V4A's plate load R58 is 100 kOhm; section 5 prints no gain row for the
-        // pair, so mu = 100 and ra = 62 kOhm come from section 7's phase-inverter arithmetic, the
-        // same two figures kPhaseInverterGain above is built on. 1 + 101 * 15170 / 162000 =
-        // 1 + 9.45784 = 10.45784. Modelling the pair as a common-cathode stage without this gives
-        // it a 4 V grid window it does not have, which is why the real inverter takes 14 V from
-        // V3A without clipping.
-        constexpr float kPhaseInverterDegeneration = 10.45784f;
+        /// @brief The pair's tail degeneration, a divide at the inverter's input. Driven
+        /// single-ended, the shared cathode follows the grid through the tail, so the driven
+        /// triode's grid-to-cathode signal is the input divided by
+        /// 1 + R_tail / (R_tail + (ra + Ra) / (mu + 1)), where (ra + Ra) / (mu + 1) is the
+        /// impedance the other triode's cathode presents in parallel with the tail. Section 5's
+        /// tail is R52 470 + R51 10k + R57 4.7k = 15.17 kOhm, and the solved point behind
+        /// kPhaseInverterGain gives (53.448k + 91k) / 90.714 = 1592.34 Ohm, so the factor is
+        /// 1 + 15170 / (15170 + 1592.34) = 1 + 0.90500 = 1.90500. Without it the pair is modelled
+        /// as a common-cathode stage with a grid window it does not have, which is why the real
+        /// inverter takes V3A's swing without conducting.
+        constexpr float kPhaseInverterDegeneration = 1.90500f;
 
-        // The bridge between the volt-true preamp and PentodeStage's grid units until PentodeStage
-        // becomes volt-true (DA5). PentodeStage's grid saturates at
-        // 1 / (plate_saturation_drive * gain) = 1 / (0.048 * 6) = 3.4722 model volts, where the
-        // real 6L6GC grid needs |cathode_bias_volts| = 55 V: 3.4722 / 55 = 0.0631313. It sits
-        // beside the circuit's own grid-leak divider below, which stays.
+        /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
+        /// PentodeStage becomes volt-true (DA5). PentodeStage's grid saturates at
+        /// 1 / (plate_saturation_drive * gain) = 1 / (0.048 * 6) = 3.4722 model volts, where the
+        /// real 6L6GC grid needs |cathode_bias_volts| = 55 V: 3.4722 / 55 = 0.0631313. It sits
+        /// beside the circuit's own grid-leak divider below, which stays.
         constexpr float kPowerTubeGridScale = 0.0631313f;
 
         // Dossier section 5: the pair's plates drive R55/R54 220k through C29/C28 with only the
