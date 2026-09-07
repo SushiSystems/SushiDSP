@@ -60,8 +60,10 @@ words (the IIC+'s cascade product is 1e6; Peavey's nominal lead input is −80 d
 are this hot and a "no grid on its bound" criterion contradicts them. The maintainer ruled that the
 circuit stays and the criterion changes. Per module the acceptance is:
 
-- **A clean end exists.** Gain knob at minimum, −40 dBFS input: THD below 10 %. The 5150 also at
-  Peavey's own nominal point, −80 dBV (0.1 mV) with PRE GAIN at minimum: THD below 5 %.
+- **A clean end exists.** Gain knob at minimum, −40 dBFS input: THD below 10 %. The 5150 is the
+  exception: Peavey's own nominal lead input is −80 dBV (0.1 mV RMS, −83.0 dBFS peak against
+  `kFullScaleVolts` 2.0), so its clean end is asserted there (THD below 5 %) and the −40 dBFS figure
+  is recorded, not asserted; a 20 mV guitar is 46 dB above the nominal the manufacturer prints.
 - **THD does not fall as the gain knob rises**, within 1.0 percentage point across the knob's
   travel (the metric saturates once every stage clips and eases slightly as earlier stages square
   the wave into faster-falling harmonics; the 5150 measured a 0.68 pp ease at 0.1 to 0.2).
