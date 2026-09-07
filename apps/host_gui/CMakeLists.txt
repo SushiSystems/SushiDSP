@@ -14,6 +14,8 @@ add_executable(sushidsp_host_gui
     ui/DeviceSettings.cpp
     ui/DirectoryListing.cpp
     ui/FileBrowser.cpp
+    ui/TransportBar.cpp
+    ui/TrackPanel.cpp
 )
 # ui/*.cpp include their own headers as "ui/<Name>.hpp" and reach RigController.hpp beside them,
 # so the app directory itself has to be on the include path.
@@ -25,6 +27,7 @@ target_link_libraries(sushidsp_host_gui PRIVATE
     SushiDSP::jcm800
     SushiDSP::sushi_dsp_sdl2
     SushiDSP::rig_preset
+    SushiDSP::capture
     imgui
     nlohmann_json::nlohmann_json
     opengl32
