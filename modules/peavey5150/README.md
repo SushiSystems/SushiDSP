@@ -50,7 +50,7 @@ first-order high-pass at the corner its own R and C give.
 | 18 | C11 47 nF into R26 1 MΩ, V3A, R14 3.3 kΩ ∥ C61 4.7 nF | first-order high-pass **3.39 Hz**, `TriodeStage` gain 14.0 + cathode shelf, `PlateSwing` 52.0 / 148.1 V | §3 |
 | 19 | C49 22 nF, R48 100 kΩ + R50 1 MΩ; the pair's tail degeneration | first-order high-pass **6.58 Hz**, divide by 1.914527 | §5 |
 | 20 | V4A/V4B long-tailed pair, R54/R55 220 kΩ, 2.2 kΩ stoppers | `TriodeStage` gain 63.512682, Vgk −1.174528 V, `PlateSwing` 113.7 / 79.6 V, attenuation 0.8617, grid scale 0.0631313 | §5 |
-| 21 | 6L6GC quad, push-pull | two `PentodeStage(kPeavey5150Power6L6GC)`, opposite phase, 0.03 V bias mismatch | §7 |
+| 21 | 6L6GC quad, push-pull | two `PentodeStage(kPeavey5150Power6L6GC)`, one per side, opposite phase, 0.4752 V bias mismatch | §7 |
 | 22 | Output transformer, screen and rail sag | `OutputTransformerStage`, `PowerSupplySagStage` | §5 |
 | 23 | PRESENCE VR9 10 kΩ with C8 ∥ C62 | `Biquad` high shelf, ±10 dB plateau, corner 600 Hz | §6 |
 | 24 | RESONANCE VR8 1 MΩ with C12 | `ResonanceControl`, +10 dB plateau, corner 330 Hz | §6 |
@@ -127,16 +127,33 @@ operating point, its gain and its tail degeneration" below. Until DA5 the bias w
 **The output transformer and the sag stage.** §5 leaves the primary impedance and turns ratio
 **not established** (open question 2), so `OutputTransformerStage` and `PowerSupplySagStage` carry
 the JCM800's constants unchanged (60 Hz, 8 kHz, 0.3 drive; 0.3 sag over 50 ms), cited to
-`modules/jcm800/src/Jcm800.cpp`. `kPowerTubeToTransformerAttenuation = 0.05` comes from the same
-place for the same reason. The **screen sag** §5 argues for, one shared 400 Ω feeding four screens,
-is not modelled as a shared node; the generic sag stage stands in for it.
+`modules/jcm800/src/Jcm800.cpp`. `kPowerTubeToTransformerAttenuation` is the output trim from the
+6L6GC plates to the transformer's units: the pair's full swing, the preset's two headrooms summed
+(392.428 V), lands at the 2.0833 the transformer stage received at full clip before DA5 part 2
+(2 × 20.833 model volts × 0.05), so the transformer and the sag stage see the range they were
+calibrated for. The **screen sag** §5 argues for, one shared 400 Ω feeding four screens, is not
+modelled as a shared node; the generic sag stage stands in for it.
 
-**The power tubes.** `kPeavey5150Power6L6GC` is §7's preset verbatim. Two of its seven fields are
-flagged there and stay flagged here: `gain = 6` is the midpoint of a 5.5–6.6 bracket that rests on
-**the 2203's 3400 Ω primary impedance, which §7 states is an assumption and not a sourced figure**,
-and `cathode_bias_volts = −55` is a single forum-relayed source whose two URLs no longer resolve
-(§7, open question 3). The 0.03 V grid bias mismatch is not a dossier value at all; it is the
-JCM800's, adopted for the argument its comment carries.
+**The power tubes.** Since DA5 part 2 `PentodeStage` is volt-true, and `kPeavey5150Power6L6GC`
+(`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`) describes one push-pull *side*, the two
+6L6GCs in parallel there, on the RCA 6L6-GC sheet's class AB₁ fixed-bias point (S7: 450 V plate,
+400 V screen, −37 V, 2 × 58 mA at zero signal, Raa 5600 Ω, 55 W) doubled. Four tubes making twice
+the power halve the primary impedance, so each side sees the row's per-tube load, Raa/4 = 1400 Ω
+per tube and 700 Ω for the pair — a 2800 Ω primary, inside the 2500–3000 Ω bracket §5 argues to.
+
+| Field | Value | From |
+| --- | --- | --- |
+| `cathode_bias_volts` | −55 V | S5, single source, unchanged; the grids conduct 55 V above rest |
+| `plate_swing.headroom_to_supply_volts` | 42 V | 2 × 30 mA (S5's idle, single source) × 700 Ω, the cut-off side's travel |
+| `plate_swing.headroom_to_bottom_volts` | 350.4283 V | √(2·55·5600)/2 = 392.4283 V, the row's plate swing at 55 W, less the 42 V idle drop; at Vg1 = 0 with the screen at 400 V, so the 5150's ~460 V screen would carry the tube further |
+| `gain` | 5.995340 | 2 × 6.0 mA/V × (30/72)^⅓ = 8.9628 mA/V for the pair, into 700 Ω ∥ 15.06 kΩ (S7's 22.5 kΩ plate resistance scaled by (72/30)^⅓, halved for the pair); §7's bracket midpoint of 6 falls out of the same arithmetic |
+| `source_resistance_ohms`, `grid_leak_resistance_ohms` | 39 kΩ, 220 kΩ | §7, unchanged |
+| `grid_conduction` | IG0 1 µA, VGAMMA 0.5 V, VTG 0.15 V | `el34_koren.sub` through `PentodeEL34`, the corpus's one grid law; no 6L6GC grid law exists in the corpus |
+
+The row's screen voltage, the idle current and the primary impedance are the three things the
+5150's own sources do not settle, and the table says which is which. The 0.4752 V grid bias
+mismatch is the JCM800's 0.03 model volts through the 0.0631313 grid scale the bias-referenced
+stage needed, carried over rather than re-derived; it is not a dossier value.
 
 **The two feedback shelves' corners.** §5 gives the feedback network's components and derives no
 corner from them; §6 names 2 kHz for the presence and "the cabinet resonant frequency", taken here
@@ -212,17 +229,16 @@ The two are one split, counted once. The first ruling of 2026-09-07 used
 stage gain, which counted the pair's split twice and left the power tubes about 20 dB low; the
 module review caught it.
 
-**The power-grid scale bridge.** `PentodeStage` is not volt-true. Its grid saturates at
-`1 / (plate_saturation_drive × gain)` = 1/(0.048 × 6) = 3.4722 model volts, where the real 6L6GC
-grid needs `|cathode_bias_volts|` = 55 V. `kPowerTubeGridScale` = 3.4722 / 55 = **0.0631313** is
-the bridge between the volt-true preamp and those grid units, and it comes out when `PentodeStage`
-becomes volt-true in DA5. It sits beside the circuit's own grid-leak divider
-`kPhaseInverterToPowerTubeAttenuation` 0.8617, which stays.
+**The power-grid scale bridge, removed.** Until DA5 part 2 `PentodeStage` was not volt-true and
+a `kPowerTubeGridScale` of 3.4722 / 55 = 0.0631313 bridged the volt-true preamp into its grid
+units. The stage now takes real volts and the bridge is gone; the pair is driven by the circuit's
+own grid-leak divider `kPhaseInverterToPowerTubeAttenuation` 0.8617 alone.
 
 **Grid excursions at the default setting.** `triode_stage_count()` and
 `grid_excursion_peak_volts()` read each stage's largest |Vg − Vk| since the last `reset()`. These
 are measurements, not assertions. A −12 dBFS 1 kHz sine, 200 blocks of 256 at 48 kHz, every knob at
-its descriptor default, measured 2026-09-07 on the Norman grid law and the audio-taper PRE GAIN:
+its descriptor default, measured 2026-09-07 on the Norman grid law, the audio-taper PRE GAIN and
+the volt-true power stage:
 
 | V1A | V1B | V2A | V2B | V5B | V5A | V3A | Pair |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -244,8 +260,8 @@ blocks of 256:
 
 | PRE GAIN | Input | THD |
 | --- | --- | --- |
-| 0.02 | −40 dBFS | 21.729 % |
-| 0.02 | −83.01 dBFS | 0.499 % |
+| 0.02 | −40 dBFS | 20.648 % |
+| 0.02 | −83.01 dBFS | 0.498 % |
 
 The readings are taken at 0.02, not at 0.00. `pre_gain_attenuation()` is exactly zero at n = 0,
 so the bottom of VR2's travel mutes the amplifier; 0.02 passes 0.00115 of the pot node. Before
@@ -261,10 +277,10 @@ Measured 2026-09-07 at 220 Hz, 0.02 amplitude:
 
 | PRE GAIN | 0.02 | 0.05 | 0.10 | 0.20 | 0.30 | 0.40 | 0.50 | 0.70 | 1.00 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| THD | 25.24 % | 26.81 % | 27.07 % | 27.32 % | 27.20 % | 27.12 % | 27.16 % | 27.93 % | 28.09 % |
+| THD | 24.20 % | 25.97 % | 26.26 % | 26.51 % | 26.37 % | 26.28 % | 26.32 % | 27.09 % | 27.25 % |
 
-Measured on the Norman grid law and the audio taper; the largest fall is 0.20 pp from 0.20 to
-0.40, and
+Measured on the Norman grid law, the audio taper and the volt-true power stage; the largest fall is
+0.22 pp from 0.30 to 0.40, and
 `Peavey5150ThdDoesNotFallAsPreGainRises` passes at 1.0 pp. That easing is what the tolerance is
 for: past the point where the phase inverter clips, the stages ahead of it square into a wave whose
 harmonics fall off faster.
@@ -282,12 +298,15 @@ There the shelves measure 9.90 dB and 9.90 dB. The shelf constants did not move,
 sweep is taken at.
 
 **The cold clipper's asymmetry.** `Peavey5150EvenHarmonicsRiseFromLowToFullPreGain` compares the
-amplifier's even-harmonic content at PRE GAIN 0.2 and 1.0 and reads 0.00865 against 0.09843, a
-factor of 11.4 against a gate of 4. It was written to assert V2A's asymmetry and is now named for
-what it measures, because across the whole knob the measure is not monotonic — 0.0095, 0.0385,
-0.0086, 0.1338, 0.0984 at 0.05, 0.10, 0.20, 0.50 and 1.00 — because at that stimulus every
-stage from V5A on is already on its bound, so the even harmonics leaving the amplifier are the
-push-pull pair's as much as V2A's. V2A's own grid does move from 2.81 V to 4.26 V over the same
+amplifier's even-harmonic content at two physical drive levels: PRE GAIN 0.4776, which passes the
+0.089443 of the pot the old `n·√n` law passed at 0.2, and 1.0. It reads 0.04113 against 0.13064,
+a factor of 3.18 against a gate of 2; on the Shockley knee the same two drives read 0.00865
+against 0.09843, a factor of 11.4 against a gate of 4. It was written to assert V2A's asymmetry
+and is now named for what it measures, because across the whole knob the measure is not
+monotonic — 0.0421, 0.0460, 0.0724, 0.0535, 0.0385, 0.0411, 0.0454, 0.1203, 0.1306 at 0.05,
+0.10, 0.20, 0.30, 0.40, 0.4776, 0.50, 0.70 and 1.00 — because at that stimulus every stage from
+V5A on is past its window, so the even harmonics leaving the amplifier are the push-pull pair's as
+much as V2A's. V2A's own grid does move from 2.81 V to 4.26 V over the same
 span, past the 4.00 V at which it conducts, so V2A's asymmetry is real; what an output-side
 measure cannot do is attribute it to V2A, which is why the test is named for the two points it
 compares rather than for the stage it was written to prove. A probe on V2A's plate would attribute
@@ -326,11 +345,11 @@ one of them is wrong. The module uses the drawn R25 1 MΩ.
 
 Two points are measured rather than derived, and each is pinned by the test that measures it.
 
-- **`kPostGainUnityGain = 0.2400876`** — the linear trim on the finished signal. Re-measured
+- **`kPostGainUnityGain = 0.1730211`** — the linear trim on the finished signal. Re-measured
   2026-09-07 by `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`, which is
   also the test that pins it: an untouched amp turns a −12 dBFS 82 Hz sine into a −6.00 dBFS peak,
-  the point all four amplifiers pin at (DA5 spec §6). Until DA5 the pin sat at 1 kHz, at
-  0.6114945; the resonance shelf lifts everything below 330 Hz, so at 82 Hz that value put the low
+  the point all four amplifiers pin at (DA5 spec §6). It read 0.2400876 before the power stage
+  became volt-true. Until DA5 the pin sat at 1 kHz, at 0.6114945; the resonance shelf lifts everything below 330 Hz, so at 82 Hz that value put the low
   E on the output clamp, 10 dB RMS louder than the JCM800 at the same default. It read 0.7038242
   with the level staging in the chain, 0.6020224 once that came out, 0.6771799 with the first tail
   degeneration and the grid-scale bridge, and 0.6660669 with the coupling capacitors at their own

@@ -66,9 +66,9 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 | V2B coupling, 0.047 µF into 100 k | high-pass **33.86 Hz** (computed) | — | §3.7 |
 | Graphic EQ | 71.5 / 371.8 / 979.5 / 1576 / 4823 Hz at Q 1.434 / 1.938 / 1.571 / 0.673 / 1.0, ±17 dB | — | §4.2 |
 | V5A/V5B long-tailed pair, Rp 82 k | gain **68.093628** = 96.378299 × 82 k / (82 k + 34.061 k), tail degeneration **2.2552703** (see below), divided by | 106.0 / 143.768 (C 392 V, Va 286 V, bottom 142.232 V) | §5.1 |
-| Simul-Class output | `kMesaMark2cPower6L6GC` ×2 at grid scale **0.0907030**, `kMesaMark2cPowerEl34Triode` ×2 at **0.0619348** | — | §7.2, §7.3 |
+| Simul-Class output | `kMesaMark2cPower6L6GC` ×2 and `kMesaMark2cPowerEl34Triode` ×2, in real volts | inner 81.2 / 311.228 V, outer 132.288 / 132.288 V | §5.3, §7.2, §7.3, RCA 6L6-GC sheet |
 | Presence, 0.022 µF with 6.8 k | high shelf at **1063.9 Hz** (computed), ±9 dB | — | §5.2 |
-| Master 1, 100 k | dB control, `kMasterUnityGain` 0.3343019 | — | §2 |
+| Master 1, 100 k | dB control, `kMasterUnityGain` 0.2402319 | — | §2 |
 
 The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 5.0 kHz (V2A),
 11.6 kHz (V2B) and 15.2 kHz (the inverter). Each is computed from the JCM800's 12AX7 capacitances
@@ -128,13 +128,13 @@ there while the line from 392 V to the printed 286 V carries 1.293 mA, dossier q
 disagreement, and a self-consistent solve would give gain 63.6 or 57.2 with degeneration 2.226 or
 2.183.
 
-`PentodeStage` is not volt-true: its grid saturates at `1 / (drive × gain)` in its own units, not at
-the preset's −45 V. Two scales bridge the volt-true preamp to it until `PentodeStage` becomes
-volt-true in DA5 — inner 6L6GC `1 / (0.049 × 5.0) / 45` = **0.0907030**, outer EL34 triode
-`1 / (0.069 × 5.2) / 45` = **0.0619348**.
+Since DA5 part 2 `PentodeStage` is volt-true and the inverter's plate reaches both pairs' grids
+unscaled; the two grid-scale bridges of 0.0907030 and 0.0619348 are gone. What drives each pair is
+in "The output section" below.
 
 **Where each grid sits.** `grid_excursion_peak_volts()` measured at the default setting, a
-−12 dBFS 1 kHz sine, 200 blocks of 256 at 48 kHz, on the Norman grid law of DA5. No solver
+−12 dBFS 1 kHz sine, 200 blocks of 256 at 48 kHz, on the Norman grid law and the volt-true power
+stage of DA5. No solver
 fence holds a grid any more; each stage runs until its own plate ceiling saturates, so the
 figures from V3B on are the plate swings divided by the gains, reached through the 0.5 V knee.
 
@@ -193,14 +193,36 @@ the JCM800's constant.
 
 **The Simul-Class summing weight is 0.5 each.** Both pairs see the same phase-inverted grid signal
 and are summed at the transformer with equal weight. The 75 W / 25 W split lives in the presets'
-`plate_saturation_drive` — 0.049 against 0.069, which is the 2.99 dB of staggered clipping §7.3
-computes — and not in the summing. §7.3 says as much: the audible content of Simul-Class is the
-ceiling difference, not a level difference.
+plate swing — 392.4 V against 264.6 V, 3.42 dB of staggered clipping where §7.3 computed 2.99 dB
+from the same power figures — and not in the summing. §7.3 says as much: the audible content of
+Simul-Class is the ceiling difference, not a level difference.
+
+**The output section.** §5.3 establishes the tubes, the printed −45 V grid voltage, the 2.2 kΩ
+stoppers and the 220 kΩ leak at V8, and leaves the idle current and the primary impedance
+unprinted. The two presets (`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`) therefore
+stand on the tubes' datasheet operating points and on Mesa's own power figures, and the table
+says which field is the amplifier's and which is the datasheet's:
+
+| Field | Inner pair, 6L6GC pentode | Outer pair, EL34 triode-strapped | From |
+| --- | --- | --- | --- |
+| `cathode_bias_volts` | −45 V | −45 V | printed at V6 and V8 (§5.3) |
+| load per tube | 1400 Ω | 1400 Ω | the RCA sheet's class AB₁ point, Raa 5600 Ω over four; the IIC+'s own primary is not established |
+| `plate_swing.headroom_to_supply_volts` | 81.2 V | 132.2876 V | inner: the row's 58 mA idle × 1400 Ω (the IIC+'s idle is not printed); outer: half its swing, a class A stage's cut-off side equal to its conduction side (§5.3, "Class A") |
+| `plate_swing.headroom_to_bottom_volts` | 311.2283 V | 132.2876 V | inner: √(2·55·5600)/2 = 392.4283 V at the row's 55 W less the idle drop; outer: √(2·25·5600)/2 = 264.5751 V at Mesa's 25 W (S2 p.28) on the same primary, split evenly |
+| `gain` | 7.388139 | 6.635772 | inner: 6.0 mA/V × (58/72)^⅓ into 1400 ∥ 24.18 kΩ; outer: §7.3's 11 mA/V and 1.06 kΩ plate resistance into 1400 Ω |
+| `source_resistance_ohms`, `grid_leak_resistance_ohms` | 37.6 kΩ, 220 kΩ | 37.6 kΩ, 220 kΩ | §7.2, §7.3 |
+| `grid_conduction` | the corpus's Norman law | the same | `el34_koren.sub` through `PentodeEL34` |
+
+The outer pair's even split rests on Mesa's word "Class A": the idle current it implies, 94.5 mA
+into 1400 Ω, is above what a triode-strapped EL34 dissipates at 473 V, so a measured idle current
+would move that split. The two pairs' full swings, 392.4 and 264.6 V, are 3.42 dB apart where §7.3
+computed 2.99 dB from the same 25 and 50 W with the old ceilings.
 
 **The output transformer, sag and the power-tube output trim are the JCM800's constants.** §5 could
 not establish the IIC+'s primary impedance or turns ratio (§8 question 3), and §6 has no sag or
-rolloff figure at all. Every gain in §7 already rests on an assumed 850 Ω per-half load; if that
-assumption falls, both presets and these constants move together.
+rolloff figure at all. `kPowerTubeToTransformerAttenuation` maps the two pairs' full swings,
+weighted by `kSimulClassPairWeight`, onto the 1.7453 the transformer stage received at full clip
+before DA5 part 2, so the transformer and the sag stage see the range they were calibrated for.
 
 **Grid leaks other than V1A's are 1 MΩ.** The sheet draws a grid leak at the input jack and
 nowhere else.
@@ -208,9 +230,10 @@ nowhere else.
 **Master 1 is applied after the oversampled region.** In the amp it sits at node F, ahead of the
 EQ and the inverter, so turning it down would take drive out of the power section. The model
 scales the output instead, as the JCM800 does, and `kMasterUnityGain` calibrates that scaling:
-0.3343019 puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS, the point all four
-amplifiers pin at (DA5 spec §6). It was 0.6907759 when the pin sat at 1 kHz, where the IIC+ read
-0.0 dBFS on the low E, on the output clamp.
+0.2402319 puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS, the point all four
+amplifiers pin at (DA5 spec §6). It was 0.3343019 before the power stage became volt-true, and
+0.6907759 when the pin sat at 1 kHz, where the IIC+ read 0.0 dBFS on the low E, on the output
+clamp.
 
 ## What is not modelled
 

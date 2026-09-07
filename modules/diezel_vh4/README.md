@@ -37,8 +37,8 @@ are the repo's own bricks; `DiezelVh4` owns the order they run in and nothing el
 | R42 470 k, VOLUME 470 k, R43 680 k into the 48.1 k mix node | knob × 0.5, then ×0.0660 | — | 2, 6 |
 | V4a, Ra 120 k, Rk 640 unbypassed | `TriodeStage`, gain 28.7, Vgk −0.98 V | 184.0 / 72.688 | 6 |
 | V4b send buffer | scalar ×0.986 | — | 2 |
-| Loop return driver, phase inverter | one `TriodeStage` at gain 22.426327, input divided by the tail degeneration 1.743723 | 15.381908 / 209.940627 | 5 — nothing established, `Jcm800.cpp` copied |
-| EL34 quad | two `PentodeStage(kDiezelVh4PowerEl34)`, grid fed through ×0.077160 | — | 7 |
+| Loop return driver, phase inverter | one `TriodeStage` at gain 61.927402, input divided by the tail degeneration 1.888775 | 117.418041 / 89.548144 | 5 — nothing established, `Jcm800.cpp` copied |
+| EL34 quad | two `PentodeStage(kDiezelVh4PowerEl34)`, in real volts | 35 / 339.166 V | 5, 7, Philips EL34 sheet |
 | Output transformer, supply sag | JCM800 constants | — | 5 — nothing established |
 | Deep | `ResonanceControl` at 80 Hz, 10 dB | — | 5, 6 |
 | Presence | high shelf at 4 kHz, ±9 dB | — | 5, 6 |
@@ -152,7 +152,7 @@ scale, and keeps `Jcm800.cpp`'s name because the name is the citation.
 `kPhaseInverterToPowerTubeAttenuation`, the 1/32 it sat beside, was replaced on the same day by the
 two constants below.
 
-### The phase inverter's tail, and the power tubes' grid units
+### The phase inverter's tail
 
 A long-tailed pair's cathode follows its driven grid through the tail, so the grid-to-cathode window
 is the input divided by `1 + R_tail / (R_tail + (r_a + Ra) / (µ + 1))`, where `(r_a + Ra) / (µ + 1)`
@@ -161,24 +161,23 @@ as a plain common-cathode `TriodeStage` hands it a window it does not have.
 
 The VH4's inverter is not established (§5), so it stands in for the JCM800's pair, and since
 2026-09-07 it **copies that module's four constants rather than re-deriving them**:
-`Jcm800.cpp`'s `kPhaseInverterCathodeBias` −3.928014 V, `kPhaseInverterPlateSwing`
-{ 15.381908, 209.940627 }, `kPhaseInverterGain` 22.426327 — one triode's full load-line gain, not
+`Jcm800.cpp`'s `kPhaseInverterCathodeBias` −1.346012 V, `kPhaseInverterPlateSwing`
+{ 117.418041, 89.548144 }, `kPhaseInverterGain` 61.927402 — one triode's full load-line gain, not
 half of it, because the pair's split is already in the factor — and `kPhaseInverterDegeneration`
-**1.743723**, which `DiezelVh4.cpp` divides the inverter's input by. Its tail is the 10.47 kΩ both
-cathodes share, `jcm_ltp`'s 470 Ω and 10 kΩ in series to ground; the 20.94 kΩ that reaches the
-cathode-bias figure is the per-half DC equivalent and belongs only in the idle solve. A product module may not
-include another, so the values travel by copy and cite the JCM800's symbol names; the derivation
-lives beside them in `Jcm800.cpp`, from `jcm_ltp`'s 82 kΩ plate, its shared 470 Ω + 10 kΩ tail and
-the Koren Jacobian at that pair's idle point. Before this the module derived its own figure, got
-4.140398 out of a formula with no cathode shunt in it, and disagreed with the JCM800 by 6.5 dB on
-the same stage. Like everything else here, the numbers are a modelling choice inherited with the
-stand-in rather than a VH4 figure.
+**1.888775**, which `DiezelVh4.cpp` divides the inverter's input by. Its tail is the 10.47 kΩ both
+cathodes share, `jcm_ltp`'s 470 Ω and 10 kΩ in series to ground, and its grid leaks return to
+their junction as the 2203's do, which is what puts the pair at 1.432 mA per half with 117.4 V of
+plate headroom where the deck's grounded leaks gave 0.188 mA and 15.4 V (DA5 part 2). A product
+module may not include another, so the values travel by copy and cite the JCM800's symbol names;
+the derivation lives beside them in `Jcm800.cpp`, from `jcm_ltp`'s 82 kΩ plate, its shared
+470 Ω + 10 kΩ tail and the Koren Jacobian at that pair's idle point. Before this the module derived
+its own figure, got 4.140398 out of a formula with no cathode shunt in it, and disagreed with the
+JCM800 by 6.5 dB on the same stage. Like everything else here, the numbers are a modelling choice
+inherited with the stand-in rather than a VH4 figure.
 
-`kPowerTubeGridScale` = **0.077160** is a bridge, not a circuit value. `PentodeStage` is not
-volt-true: its grid saturates at `1 / (plate_saturation_drive × gain)` = `1 / (0.045 × 8)` = 2.778
-model volts, where `kDiezelVh4PowerEl34`'s real grid needs |−36 V|. 2.778 / 36 is the ratio that
-carries the volt-true preamp into those units. It goes away when `PentodeStage` becomes volt-true
-in DA5.
+The `kPowerTubeGridScale` of 0.077160 that bridged the volt-true preamp into the bias-referenced
+`PentodeStage`'s grid units is gone since DA5 part 2; the inverter's plate reaches the EL34 grids
+in volts.
 
 ### Where the plate swings come from
 
@@ -206,13 +205,14 @@ knobs untouched and a −12 dBFS 1 kHz sine in, they read (2026-09-07):
 | V2a | 3.7076 V |
 | V3a | 25.3221 V |
 | V4a | 1.1443 V |
-| Phase inverter | 13.4318 V |
+| Phase inverter | 15.9062 V |
 
 Since DA5 (`docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` §3) no solver
 fence holds a grid: V3a's 25.3 V is 180.8 V of headroom to the supply over its gain of 71.4, the
-point at which its plate ceiling has saturated, and the inverter's 13.4 V is its grid pulled
-through the 470 kΩ source into the 150 kΩ conducting slope of the Norman law, with its 15.38 V
-plate ceiling doing the clipping.
+point at which its plate ceiling has saturated, and the inverter's 15.9 V is its grid pulled
+through the 470 kΩ source into the 150 kΩ conducting slope of the Norman law, with its 117.4 V
+plate ceiling reached at 61.9 of gain. It read 13.4 V against the deck-biased pair's 15.38 V
+ceiling before DA5 part 2.
 
 That is the circuit rather than the model. §6 puts the midband product V1a × pot × V2a × V3a at
 2.7 × 10⁵ before the stack's loss and the −23.6 dB mix divider, and says in terms that "every stage
@@ -275,9 +275,12 @@ and it carries none. What that leaves unpinned, in the dossier's own words:
 - **Phase-inverter type and values: not established** beyond the tube being a 12AX7 in the V7
   position.
 
-So the phase inverter here is one `TriodeStage` at the JCM800's `kPhaseInverterGain` of 40, on the
-JCM800's triode constants, and the output transformer and the sag stage carry the JCM800's constants
-unchanged. All four are modelling choices with nothing behind them.
+So the phase inverter here is one `TriodeStage` on the JCM800's four long-tailed-pair constants,
+and the output transformer and the sag stage carry the JCM800's constants unchanged.
+`kPowerTubeToTransformerAttenuation` maps the pair's full swing, `kDiezelVh4PowerEl34`'s two
+headrooms summed (374.166 V), onto the 2.2222 the transformer stage received at full clip before
+DA5 part 2 (2 × 22.222 model volts × 0.05). All of it is a modelling choice with nothing VH4-specific
+behind it.
 
 Deep is a first-order low shelf at 80 Hz. The 80 Hz is Diezel's owner's manual (S2); the product
 page says 90 Hz, and §8 question 9 records that the two factory documents disagree. The 10 dB of
@@ -288,10 +291,26 @@ is a high shelf at 4 kHz, which is Diezel's figure (S2), at the JCM800's ±9 dB,
 
 ### The power tube is an EL34
 
-`kDiezelVh4PowerEl34` is `{ 10000, 220000, -36, 8, 1e-9, 0.02585, 0.045 }`. The −36 V is the EL34
-row of §7's table: the Philips/Mullard datasheet's push-pull fixed-bias entry at Vba 500 V, 400 V on
-the screen, 30 mA per tube. The VH4 runs ~500 V on the OT primary (S7) and Diezel specifies 35 mA
-per tube (S3), so that row is the closest published operating point to this amplifier.
+`kDiezelVh4PowerEl34` (`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`) is that row of the
+Philips EL34 datasheet in full, since DA5 part 2 made `PentodeStage` volt-true: page 3, "Class B,
+two tubes in push-pull", the Vba 500 V column — Va 495 V, Vg2 400 V, Vg1 −36 V, Ia 2 × 30 mA at
+zero signal, Raa 4 kΩ, Vi 25.8 Vrms, Wo 70 W. The VH4 runs ~500 V on the OT primary (S7) and
+Diezel specifies 35 mA per tube (S3), so that row is the closest published operating point to this
+amplifier, and the idle current is Diezel's.
+
+| Field | Value | From |
+| --- | --- | --- |
+| `cathode_bias_volts` | −36 V | the row's Vg1; its 25.8 Vrms drive (36.5 V peak) reaches full output exactly at conduction |
+| `plate_swing.headroom_to_supply_volts` | 35 V | Diezel's 35 mA × 1000 Ω (Raa/4), the cut-off tube's travel |
+| `plate_swing.headroom_to_bottom_volts` | 339.1657 V | √(2·70·4000)/2 = 374.1657 V at the row's 70 W less the idle drop |
+| `gain` | 8.458480 | 12.5 mA/V × (35/100)^⅓ = 8.8091 mA/V into 1000 ∥ 24.1 kΩ, the sheet's quick-reference transconductance and 17 kΩ internal resistance scaled to 35 mA |
+| `source_resistance_ohms`, `grid_leak_resistance_ohms` | 10 kΩ, 220 kΩ | §7, unchanged: the JCM800's source for an undocumented inverter, and a leak inside the tube's fixed-bias limit |
+| `grid_conduction` | the corpus's Norman law | `el34_koren.sub` through `PentodeEL34` |
+
+The 4 kΩ primary is the datasheet's; the VH4's is not established (§5). The
+`{ 10000, 220000, -36, 8, 1e-9, 0.02585, 0.045 }` preset this module carried before had its gain
+and ceiling scaled from `kEl34`, which had been fitted to golden files with no operating point
+behind it.
 
 The spec's original choice was the KT77, and §7 works that case out in full: −43 V from the Genalex
 sheet's Vb 500 V ultra-linear row, with a ±25 % adjustment window putting the real figure somewhere
@@ -302,11 +321,10 @@ factory biasing table has rows for 5881, 6L6, EL34 and 6550/KT66/KT88 and none f
 KT77 is a drop-in EL34 replacement, so building this module for it would be a voicing decision
 rather than an error, and swapping the preset is a one-line change.
 
-Three of the preset's seven fields are modelling choices inherited from `kEl34` and say so in
-`PowerTubePresets.hpp`: `source_resistance_ohms` (the VH4's phase inverter is undocumented),
-`gain` (the OT primary impedance that would set it is not established) and
-`saturation_current_amps` (no tube-specific figure exists anywhere). `plate_saturation_drive` of
-0.045 comes from one ratio, 500 V against the JCM800 model's ~450 V.
+Two of the preset's fields are inherited rather than the VH4's: `source_resistance_ohms` (the
+VH4's phase inverter is undocumented, so the JCM800's 10 kΩ stands in) and the 4 kΩ primary behind
+`gain` and both headrooms (the datasheet row's, because the VH4's is not established). The grid law
+is the corpus's Norman law, the same for every tube in it.
 
 ## Calibration
 
@@ -319,7 +337,8 @@ chain runs a great deal hotter into the power section than it did, so the consta
 2.148178 to 0.816610; the phase inverter's tail degeneration and the power tubes' grid scale then
 moved it to 0.624524; copying the JCM800's four long-tailed-pair constants moved it again to
 0.627263, at which the test read −6.005 dBFS at 1 kHz; DA5's Norman grid law and the move of the
-pin to 82 Hz, where this value read −1.04 dBFS, set it to **0.3543949**. The measurement is direct: the
+pin to 82 Hz, where this value read −1.04 dBFS, set it to 0.3543949; the volt-true power stage and
+the corrected inverter set it to **0.2365060**. The measurement is direct: the
 constant multiplies the signal after the last nonlinearity, so it is set, the test run, and the
 constant scaled by the decibels the reading misses.
 
@@ -330,8 +349,10 @@ points, the corner frequencies and the two impedance figures §6 lists, which te
 against the documented circuit rather than against an amplifier.
 
 `DiezelVh4HasACleanEndAtMinimumGain` is this module's acceptance test since the level staging
-came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **0.0940 %**
-(2026-09-07), well under the spec's 10 %. The knob is read at 0.01 rather than 0.0 because the pot
+came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **1.843 %**
+(2026-09-07, on the volt-true power stage; 0.0940 % before it, when the power grids' clamp sat
+25 dB too early and a −40 dBFS input never reached the pair's class-AB handover), under the spec's
+10 %. The knob is read at 0.01 rather than 0.0 because the pot
 is a plain divider to ground: at 0.0 it shorts the signal and the node is silent, which leaves THD
 without a denominator. `DiezelVh4ThdDoesNotFallAsGainRises` asks only that the reading not fall as the
 knob rises, within 0.5 percentage points, because once every stage clips the metric saturates.
@@ -343,12 +364,14 @@ high-pass, 314 Hz with the gain knob at its top and 618 Hz at its bottom, has th
 fundamental away before the first distorting stage, so at 20 Hz the swept-sine estimate is
 measuring the saturated chain's own product rather than the shelf.
 
-`DiezelVh4MixBusAttenuationIsApplied` measures at **−80 dBFS**, which is where this chain is still
-linear end to end: the same reading is 60.862 dB at −80, 61.028 at −100 and 61.018 at −120, a
-0.17 dB spread, where −60 dBFS reads 54.365 dB with the inverter's grid already past its conduction
-knee. Its comment writes the cascade out factor by factor to the EL34 grids, ×1484.95, each stage's
-own `Rg / (Rs + Rg)` grid divider on the row with its gain, and leaves one block measured: the EL34
-pair, the ×0.05 trim, the transformer and the sag stage are worth ×0.7437 together.
+`DiezelVh4MixBusAttenuationIsApplied` measures at **−120 dBFS**, which is where this chain is still
+linear end to end: the same reading is 70.853 dB at −80, 72.965 at −100 and 73.114 at −120. At
+−80 dBFS the EL34 grids already carry 4.9 V, past the 4.1 V at which the cut-off tube's 35 V plate
+headroom saturates, so the pair is compressing there by 2.3 dB; before DA5 part 2 the reading was
+60.862 dB at −80 and flat to −120. Its comment writes the cascade out factor by factor to the EL34
+grids, ×49062, each stage's own `Rg / (Rs + Rg)` grid divider on the row with its gain, and leaves
+one block measured: the EL34 pair, the transformer trim, the transformer and the sag stage are
+worth ×0.09225 together.
 
 ## Not modelled
 
