@@ -50,6 +50,8 @@
 #include "ui/StagePanel.hpp"
 #include "ui/Theme.hpp"
 #include "ui/TopBar.hpp"
+#include "ui/TrackPanel.hpp"
+#include "ui/TransportBar.hpp"
 
 #if defined(SUSHIDSP_HAVE_ASIO)
 #include "SushiDSP/device/AsioAudioDevice.hpp"
@@ -149,6 +151,8 @@ int main(int argc, char** argv)
     std::string status;
     std::string connect_error;
     std::string chain_edit_error;
+    std::string transport_error;
+    std::string track_error;
     bool open_device_settings = true;
 
     // Both buffers are captured BY REFERENCE in the device callback (below), and that callback
@@ -161,8 +165,11 @@ int main(int argc, char** argv)
     // resized again afterward, so the callback that captures them by reference stays
     // allocation-free. The two level probes sit here for the same lifetime reason: the callback
     // reports a peak into each of them on every block.
-    std::vector<float> mono_output;
-    std::vector<float> callback_silence;
+    std::vector<float>        rig_input;
+    std::vector<float>        rig_output;
+    std::vector<float*>       rig_output_pointers;
+    std::vector<const float*> rig_output_const_pointers;
+    std::vector<float>        callback_silence;
     ui::LevelProbe input_probe;
     ui::LevelProbe output_probe;
 
@@ -183,7 +190,8 @@ int main(int argc, char** argv)
     /// @brief Opens the chosen device, builds a rig for its format and starts the audio callback.
     /// Records the failure in connect_error and leaves the previous rig gone on any exception.
     auto connect_device = [&device, &device_choice, &asio_drivers, &connect_error,
-                           &rig_controller_storage, &mono_output, &callback_silence, &input_probe,
+                           &rig_controller_storage, &rig_input, &rig_output, &rig_output_pointers,
+                           &rig_output_const_pointers, &callback_silence, &input_probe,
                            &output_probe, &device_label, &selected_slot, &chain_edit_error,
                            &open_device_settings]()
     {
@@ -201,6 +209,8 @@ int main(int argc, char** argv)
         {
             if (device_choice.device_index == 0)
             {
+                // Sdl2AudioDevice::sdl_callback deinterleaves a mono stream only, so the SDL2
+                // path stays one output channel until the device layer grows a stereo writer.
                 SushiDSP::DeviceFormat requested{ 48000.0, 256, 1, 1 };
                 device = std::make_unique<SushiDSP::Sdl2AudioDevice>(requested);
             }
@@ -214,12 +224,14 @@ int main(int argc, char** argv)
 #endif
 
             const SushiDSP::DeviceFormat actual = device->format();
-            // The rig itself stays mono (1 in, 1 out) - channel selection only decides
-            // which physical ASIO channel feeds it and which physical channel(s) its
-            // output reaches (mirrors apps/host_asio/main.cpp's own pattern). The rig
-            // always renders into the one-element mono_output_ptr array below, so this
-            // must be 1 regardless of actual.output_channels.
-            SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, 1 };
+            // The rig's input is always one channel - an amplifier is a mono circuit. Its output
+            // is as wide as the device can take, up to RigGraph::kMaxChannels, and RigGraph
+            // adapts a mono terminal node to that width itself. Channel selection still decides
+            // which physical channel feeds the rig and which receives its output.
+            const std::uint32_t rig_channels =
+                std::min<std::uint32_t>(std::max(1u, actual.output_channels),
+                                        SushiDSP::RigGraph::kMaxChannels);
+            SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, rig_channels };
             rig_controller_storage.emplace(info);
 
             const std::size_t input_index = SushiDSP::channel_selection_input_index(device_choice.input);
@@ -231,16 +243,26 @@ int main(int argc, char** argv)
             // above (mono_output, callback_silence) are never resized again after this,
             // so the callback that captures them by reference stays allocation-free
             // (mirrors apps/host_asio/main.cpp's own pattern).
-            mono_output.assign(actual.block_size, 0.0f);
+            rig_input.assign(actual.block_size, 0.0f);
+            rig_output.assign(static_cast<std::size_t>(actual.block_size) * rig_channels, 0.0f);
+            rig_output_pointers.resize(rig_channels);
+            rig_output_const_pointers.resize(rig_channels);
+            for (std::uint32_t channel = 0; channel < rig_channels; ++channel)
+            {
+                float* start = rig_output.data() + static_cast<std::size_t>(channel) * actual.block_size;
+                rig_output_pointers[channel] = start;
+                rig_output_const_pointers[channel] = start;
+            }
             callback_silence.assign(actual.block_size, 0.0f);
 
             RigController& rig_controller_ref = *rig_controller_storage;
-            device->start([&rig_controller_ref, &mono_output, &callback_silence, &input_probe,
+            device->start([&rig_controller_ref, &rig_input, &rig_output, &rig_output_pointers,
+                            &rig_output_const_pointers, &callback_silence, &input_probe,
                             &output_probe, input_index, output_selection, is_multi_channel_input,
-                            is_multi_channel_output]
+                            is_multi_channel_output, rig_channels]
                 (const float* const* inputs, float* const* outputs, std::uint32_t frames)
             {
-                if (frames > mono_output.size())
+                if (frames > rig_input.size())
                 {
                     return;
                 }
@@ -263,32 +285,101 @@ int main(int argc, char** argv)
 
                 input_probe.report(selected_channel[0], frames);
 
-                float* mono_output_ptr[1] = { mono_output.data() };
-                SushiDSP::ProcessContext context{ mono_output_ptr, selected_channel, frames, 0.0 };
+                SushiDSP::Transport& transport = rig_controller_ref.transport();
+                const bool rolling = transport.state() != SushiDSP::TransportState::Stopped;
+                const RigInputSource source = rig_controller_ref.input_source();
+
+                float* rig_input_pointer[1] = { rig_input.data() };
+                if (source == RigInputSource::Track)
+                {
+                    std::memset(rig_input.data(), 0, frames * sizeof(float));
+                }
+                else
+                {
+                    std::memcpy(rig_input.data(), selected_channel[0], frames * sizeof(float));
+                }
+                if (source != RigInputSource::LiveInput && rolling)
+                {
+                    rig_controller_ref.reamp_player().process(rig_input_pointer, 1, frames, transport);
+                }
+
+                const float* rig_input_const_pointer[1] = { rig_input.data() };
+                SushiDSP::ProcessContext context{ rig_output_pointers.data(),
+                                                  rig_input_const_pointer, frames, 0.0 };
                 if (active == nullptr)
                 {
-                    std::fill(mono_output.begin(), mono_output.begin() + frames, 0.0f);
+                    for (std::uint32_t channel = 0; channel < rig_channels; ++channel)
+                    {
+                        std::memset(rig_output_pointers[channel], 0, frames * sizeof(float));
+                    }
                 }
                 else if (active->is_empty())
                 {
                     // A rack holding nothing, or one whose every slot is bypassed: both are a
-                    // cable, so the input reaches the output untouched.
-                    std::memcpy(mono_output.data(), selected_channel[0], frames * sizeof(float));
+                    // cable, so the input reaches every output channel untouched.
+                    for (std::uint32_t channel = 0; channel < rig_channels; ++channel)
+                    {
+                        std::memcpy(rig_output_pointers[channel], rig_input.data(),
+                                    frames * sizeof(float));
+                    }
                 }
                 else
                 {
                     active->process(context);
                 }
 
-                output_probe.report(mono_output.data(), frames);
-
-                if (is_multi_channel_output)
+                if (rolling)
                 {
-                    SushiDSP::fan_out_mono_to_stereo(mono_output.data(), outputs, frames, output_selection);
+                    rig_controller_ref.player().process(rig_output_pointers.data(), rig_channels,
+                                                       frames, transport);
+                }
+
+                output_probe.report(rig_output_pointers[0], frames);
+
+                SushiDSP::RecordingBus& bus = rig_controller_ref.recording_bus();
+                if (bus.is_recording())
+                {
+                    // Both legs are queued in the same block, which is what makes the two files
+                    // line up sample for sample. The dry leg is the buffer that actually drove
+                    // the rig, so a take recorded while re-amping stays its own dry take.
+                    bus.write_processed(rig_output_const_pointers.data(), frames);
+                    bus.write_dry(rig_input_const_pointer, frames);
+                }
+
+                if (rolling)
+                {
+                    transport.advance(frames);
+                }
+
+                if (!is_multi_channel_output)
+                {
+                    std::memcpy(outputs[0], rig_output_pointers[0], frames * sizeof(float));
+                }
+                else if (rig_channels == 1)
+                {
+                    SushiDSP::fan_out_mono_to_stereo(rig_output_pointers[0], outputs, frames,
+                                                     output_selection);
                 }
                 else
                 {
-                    std::memcpy(outputs[0], mono_output.data(), frames * sizeof(float));
+                    const bool write_left = output_selection != SushiDSP::ChannelSelection::Right;
+                    const bool write_right = output_selection != SushiDSP::ChannelSelection::Left;
+                    if (write_left)
+                    {
+                        std::memcpy(outputs[0], rig_output_pointers[0], frames * sizeof(float));
+                    }
+                    else
+                    {
+                        std::memset(outputs[0], 0, frames * sizeof(float));
+                    }
+                    if (write_right)
+                    {
+                        std::memcpy(outputs[1], rig_output_pointers[1], frames * sizeof(float));
+                    }
+                    else
+                    {
+                        std::memset(outputs[1], 0, frames * sizeof(float));
+                    }
                 }
             });
 
@@ -330,10 +421,13 @@ int main(int argc, char** argv)
         const float width = static_cast<float>(display_w);
         const float height = static_cast<float>(display_h);
         const float top_height = 48.0f;
+        const float transport_height = 44.0f;
         const float meter_height = 40.0f;
         const float browser_width = 300.0f;
-        const float body_height = height - top_height - meter_height;
+        const float body_top = top_height + transport_height;
+        const float body_height = height - body_top - meter_height;
         const float stage_height = body_height * 0.58f;
+        const float gear_height = body_height * 0.50f;
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(width, top_height));
@@ -363,6 +457,15 @@ int main(int argc, char** argv)
         ImGui::End();
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, top_height));
+        ImGui::SetNextWindowSize(ImVec2(width, transport_height));
+        ImGui::Begin("##transport", nullptr, kRegionFlags);
+        if (rig_controller_storage.has_value())
+        {
+            ui::DrawTransportBar(*rig_controller_storage, transport_error);
+        }
+        ImGui::End();
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, body_top));
         ImGui::SetNextWindowSize(ImVec2(width - browser_width, stage_height));
         ImGui::Begin("##stage", nullptr, kRegionFlags);
         if (rig_controller_storage.has_value())
@@ -371,7 +474,7 @@ int main(int argc, char** argv)
         }
         ImGui::End();
 
-        ImGui::SetNextWindowPos(ImVec2(0.0f, top_height + stage_height));
+        ImGui::SetNextWindowPos(ImVec2(0.0f, body_top + stage_height));
         ImGui::SetNextWindowSize(ImVec2(width - browser_width, body_height - stage_height));
         ImGui::Begin("##chain", nullptr, kRegionFlags | ImGuiWindowFlags_HorizontalScrollbar);
         if (rig_controller_storage.has_value())
@@ -398,10 +501,19 @@ int main(int argc, char** argv)
         }
         ImGui::End();
 
-        ImGui::SetNextWindowPos(ImVec2(width - browser_width, top_height));
-        ImGui::SetNextWindowSize(ImVec2(browser_width, body_height));
+        ImGui::SetNextWindowPos(ImVec2(width - browser_width, body_top));
+        ImGui::SetNextWindowSize(ImVec2(browser_width, gear_height));
         ImGui::Begin("##gear", nullptr, kRegionFlags);
         ui::DrawGearBrowser();
+        ImGui::End();
+
+        ImGui::SetNextWindowPos(ImVec2(width - browser_width, body_top + gear_height));
+        ImGui::SetNextWindowSize(ImVec2(browser_width, body_height - gear_height));
+        ImGui::Begin("##tracks", nullptr, kRegionFlags);
+        if (rig_controller_storage.has_value())
+        {
+            ui::DrawTrackPanel(*rig_controller_storage, track_error);
+        }
         ImGui::End();
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, height - meter_height));
