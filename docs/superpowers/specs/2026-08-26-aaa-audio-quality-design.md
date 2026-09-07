@@ -62,7 +62,7 @@ plugin misbehave in a DAW regardless of tone. Concretely:
 | WDF | **Deferred indefinitely** — `Wdf.hpp` stays as the two elements it is; spec §4.5 amended to say so | Everything the roadmap needs is covered by DK; keeping two solver families doubles maintenance |
 | Plugin format | **CLAP first, VST3/AU/Standalone via clap-wrapper** | One API, no Steinberg agreement, ImGui editor embeds; wrapper is Apache-compatible |
 | Validation reference | **LTspice schematics + exported CSV responses committed to the repo** | Reproducible without hardware; each circuit block ships with its `.asc` and its golden data |
-| ADAA | Not used | Proper oversampling filters plus C¹-continuous physical curves make it unnecessary; revisit only if D6d misses the CPU budget |
+| ADAA | Not used. Tried on the TS clip block in D6c C2 and measured worse; see Model corrections (D6c C2), *The verdict* | First-order ADAA at 4× removes a −19 dB aliasing error and introduces a −5 dB band-limiting one. It is built and kept as `AdaaDiodePairPort`, unwired, with its numbers; revisit only at 8× or higher |
 
 ## Architecture overview
 
@@ -324,11 +324,13 @@ oversampling factor is already spent, so the remaining lever is an antialiased n
 This subsection records what was built, what it measures, and why the shipping node does not yet
 use it.
 
-**Status: built and measured, not wired in.** `AdaaDiodePairPort` exists beside `DiodePairPort`
-in `modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamerCircuits.hpp` and switching
-`TubeScreamer::clip_port_` onto it is a one-declaration change. It buys 12.6 dB of alias floor
-and costs the clip block both the LTspice null and the Newton gate. The trade is the user's to
-make; the numbers are below.
+**Status: built, measured, and deliberately not wired in.** `AdaaDiodePairPort` exists beside
+`DiodePairPort` in `modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamerCircuits.hpp`
+and switching `TubeScreamer::clip_port_` onto it is a one-declaration change. Do not make that
+change: measured against the analogue circuit at the rate the pedal actually runs, the
+antialiased port is **14 dB further from it** than the plain one. The measurement that decides
+this, and the reason a smaller alias floor does not mean a better model, are under *The verdict*
+below.
 
 #### The diode pair is one scalar port, and that is what makes the method apply
 
@@ -421,14 +423,12 @@ measurements say what that is and what it is not:
   so the error is not a pure delay; the attenuation of the clipped corner is the larger part.
 
 The reference grid is 1 MHz, where a clipped corner has next to no aliasing left to remove. At
-that rate antialiasing can only spend its cost, which is why the null reads as pure loss. The
-number would look different against a reference decimated to 192 kHz, and that comparison does
-not exist yet.
+that rate antialiasing can only spend its cost, which is why the null reads as pure loss. Whether
+it earns that cost back at the rate the pedal runs is a different question, and *The verdict*
+below answers it.
 
 Newton's miss rate rises from 0.0054 % to 0.0105 % of samples, past the spec's 0.01 % gate, with
-zero NaN fallbacks and the same worst-case iteration count. The residual is the same function in
-both runs, so the extra misses are a different state trajectory reaching harder open-circuit
-voltages, not a harder solve.
+zero NaN fallbacks and the same worst-case iteration count.
 
 Cost is not the obstacle. Stepping the clip block four million times at 192 kHz reads 247 ns per
 sample through the plain port and 269 ns through the antialiased one, **+9 %**, which would take
@@ -443,24 +443,87 @@ examples are circuits whose behaviour is the loop; the clip block is not. Retuni
 discretisation would move every corner of the linear part by 1.5×, including the 0.31 Hz input
 high-pass and the small-signal response that
 `Unit_Dsp.DkTsClipBlockSmallSignalResponseMatchesItsClosedForm` pins to a closed form. That is
-why the compensation was not applied, and why the null is reported rather than accommodated.
+why the compensation was not applied, and why the null is reported rather than accommodated. It
+would not have saved the port in any case: the half sample turns out to be the smaller half of
+its error, as the aligned figures below show.
 
-The open routes, with what is known about each:
+#### The verdict (2026-09-07): the plain port models the circuit better at 192 kHz
 
-1. **Ship it as it stands.** −31.2 dB alias floor, −32 dB clip-block null, 0.0105 % Newton
-   misses. Buys 12.6 dB of the 19.7 dB C1 asked for.
+The reference-rate null charges antialiasing for its cost without crediting it for its benefit,
+so it cannot decide on its own. Two measurements at the shipping rate do, and they agree.
+
+**Against LTspice decimated to 192 kHz.** `Resampler` (DR1) converts the 1 MHz transient to the
+run rate — 24/125, which no halfband cascade reaches, and zero phase, so nothing has to be
+shifted back. It touches the reference and the stimulus only, never a circuit output, so whatever
+it leaves below 10 kHz is common to both ports and cancels in the comparison
+(`Unit_Dsp.DkTsClipBlockBothPortsNullAgainstTheReferenceDecimatedToTheShippingRunRate`):
+
+| Drive | plain at 192 kHz | ADAA at 192 kHz |
+| --- | --- | --- |
+| 0.1 | **−79.32 dB** | −36.44 dB |
+| 0.5 | **−73.47 dB** | −32.79 dB |
+| 0.9 | **−75.63 dB** | −31.78 dB |
+
+The plain port loses almost nothing going from the 1 MHz grid to 192 kHz (−80.3 → −79.3 dB),
+which is itself the finding: on this stimulus, at this rate, aliasing is not a measurable error.
+ts_clip's stimulus is a 1 kHz sine and 192000/1000 is an integer, so every folded harmonic lands
+exactly on a harmonic of the tone. The reference is blind to the thing antialiasing removes.
+
+**Against the converged model, on a tone that does alias.** The same block's equations at
+1.92 MHz — where the 13th harmonic of 15 kHz is nowhere near Nyquist — decimated to 192 kHz by
+the same converter, is a converged solution of the model, which is the right reference for asking
+which discretisation is closer to the answer it is trying to compute
+(`Unit_Dsp.DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases`):
+
+```
+15 kHz, 0.5 V, Drive 1:   plain -19.18 dB    ADAA -5.35 dB    ADAA half-sample aligned -5.58 dB
+```
+
+Plain's −19.18 dB *is* its aliasing: the alias floor at this tone was −18.55 dB relative to the
+fundamental, so essentially the whole of its error against the converged model is the fold. ADAA
+removes that error and puts back one of −5.35 dB — **14 dB worse**. Offering it the reference
+delayed by half a sample makes it slightly worse still, so almost none of that is the removable
+delay; it is the attenuation of the clipped corner, which at 4× is simply too coarse a grid for
+a first-order interval average to sit on.
+
+**So: the plain port stays, and the alias floor stays at −18.6 dB.** A smaller alias floor bought
+by a larger total error is not a better model, and the whole-node figure of −31.2 dB, while real,
+measures only the part of the error that lands on non-harmonic bins. Antialiasing at this
+oversampling factor trades a measured error for an unmeasured one.
+
+#### The Newton miss rate, diagnosed
+
+The antialiased port's 0.0105 % is past the 0.01 % gate, and instrumenting the port says what it
+is not. Across the same 1 056 000-sample stimulus: the solve never once leaves the Shockley range
+(worst |v| = 0.579 V, zero samples past the 1.8125 V knee), the divided difference never loses
+its conditioning (tightest relative difference between the two antiderivative evaluations
+2.1e-07, nine digits intact, zero severely cancelled samples), and the ill-conditioning guard
+fires on 1111 samples, 0.105 %, doing its job. Both ports put every miss in the 20 Hz–20 kHz
+sweep and none in the 0.05 / 0.5 / 5 V bursts.
+
+So neither the guard's 1 µV threshold nor the cancellation the guard exists to prevent explains
+it. The residual Newton solves is character for character the plain port's; what differs is the
+state the antialiased current writes, and the extra 54 misses are that trajectory arriving at
+harder open-circuit voltages. Nothing here would be fixed by re-tuning the guard, and since the
+port is not wired in, the shipping node's rate stays 0.0054 %.
+
+#### What is left, with what is known about each
+
+1. ~~**Build the null the antialiasing deserves.**~~ Done, above. It decided against the port.
 2. **Second-order antialiasing.** The second antiderivative of the composed map is also closed
-   form — every term integrates, `integral h^2 h' dv = h^3/3` included — and would plausibly
-   close the remaining 7.1 dB. It costs a full sample of loop delay instead of half, so it makes
-   the null worse, not better, and it needs a two-point history with a much stiffer
-   ill-conditioning guard.
-3. **Build the null the antialiasing deserves.** Decimate the 1 MHz reference to 192 kHz and null
-   both ports against it there. If ADAA is closer to the analogue circuit than the plain port is
-   at the shipping rate, that is the measurement that shows it, and the −32 dB above becomes
-   irrelevant. This is new test infrastructure, not a tuning change.
-4. **8× with the plain port**, C1's decision reverted. Task 9 measured the clip block at
-   1071 ns/sample at 8× against 586.7 ns/sample for the whole node at 4×, so the node would land
-   near 0.28 ms per 256-block against a 0.25 ms budget.
+   form — every term integrates, `∫h²h' dv = h³/3` included. It would suppress the fold further,
+   but it costs a full sample of loop delay instead of half and attenuates the corner harder, and
+   the corner attenuation is already what loses the comparison above. On this evidence it would
+   lose by more, not less, at 4×. Worth revisiting only at 8× or higher.
+3. **8× with the plain port**, C1's decision reverted. The honest remaining route to the alias
+   floor, and the one the evidence now points at: it costs no modelling accuracy at all. Task 9
+   measured the clip block at 1071 ns/sample at 8× against 586.7 ns/sample for the whole node at
+   4×, so the node would land near 0.28 ms per 256-block against a 0.25 ms budget — over, and the
+   budget or the block would have to give.
+4. **Antialiasing at 8×**, where the interval average sits on a grid fine enough for its error to
+   fall below the fold it removes. The error is first order in the timestep, so halving the step
+   halves it while the fold it suppresses drops much faster. Untested, and it inherits route 3's
+   cost problem before adding its own 9 %.
 
 #### A defect found on the way
 
