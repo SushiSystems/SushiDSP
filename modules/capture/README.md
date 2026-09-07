@@ -17,6 +17,7 @@ Intent and the acceptance list live in
 | The processed/dry pair the host arms together | `RecordingBus` |
 | The sample clock: position, state and the loop range | `Transport` |
 | Mixing up to eight takes into one output at that position | `TrackPlayer` |
+| Reading a take at a playback speed other than 1.0 | `VariRateReader` |
 | Interleaving and the RIFF header | `SushiDSP::WavWriter`, in the core's `io/` |
 | Parsing a WAV file back into samples | `SushiDSP::WavFile`, in the core's `io/` |
 
@@ -95,6 +96,29 @@ needs. `TrackPlayerProcessPerformsNoHeapAllocation` in
 `tests/functional/unit/test_track_player.cpp` covers the mix.
 
 Spec §6 carries the intent behind all of it.
+
+## Playing a take back at another speed
+
+`VariRateReader` reads a take at a speed between 0.5 and 2.0, and the pitch falls with the speed
+the way a tape machine's does. Half speed is an octave down. Nothing here stretches time, and
+[spec §5a](../../docs/superpowers/specs/2026-09-08-arrangement-view-design.md) states that as the
+behaviour the maintainer asked for.
+
+Each channel gets its own `SushiDSP::Resampler`, sized in `prepare()` on the control thread for a
+push of one input frame and a smallest ratio of `1 / kMaxSpeed`. `read()` clamps the speed, calls
+`set_rates(speed, 1.0)` when it moved, then pushes take frames one at a time until it has written
+the exact block the caller asked for, zero-filling past the take's last frame. Every output costs
+`speed` take frames, so the push loop is bounded by `output_frames * kMaxSpeed` plus the kernel's
+half span, and it allocates nothing;
+`VariRateReaderReadPerformsNoHeapAllocation` in `tests/functional/unit/test_rt_safety.cpp` holds
+that bar.
+
+`read()` returns the take frame the next call should start at, so the caller carries the cursor
+and the reader carries the phase. A seek, a speed change or a move to another clip invalidates the
+converter history, and `reset()` is what discards it.
+
+`Transport::kMinSpeed` and `kMaxSpeed` are the same pair, and `VariRateReader.cpp` carries a
+`static_assert` that they stay the same pair.
 
 ## What is not modelled
 
