@@ -663,7 +663,7 @@ in it touches the circuit core: it is the graph's channel routing, a capture mod
 | DS4 | The host: a stereo output, record and play in the callback, a transport bar, a track panel, the re-amp input switch, the preset's track list and loop range | Landed 2026-09-07, commits af6a9ed, da342fc, afa0627 |
 | DS5 | OGG export through `libvorbis`/`libogg`, inside `apps/host_gui` only | Deferred; written up once a user asks for it |
 
-**DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration, which waits on `RigGraph`'s per-node multi-channel support.
+**DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration; DS0 built the per-node multi-channel routing it waited on.
 
 ---
 
