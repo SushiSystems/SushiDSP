@@ -24,6 +24,7 @@
 #pragma once
 
 #include "SushiDSP/circuits/models/Triode12AX7.hpp"
+#include "SushiDSP/circuits/stages/AntiderivativeAntialiaser.hpp"
 #include "SushiDSP/circuits/stages/GridConductionLaw.hpp"
 #include "SushiDSP/circuits/stages/PlateSwing.hpp"
 
@@ -37,9 +38,10 @@ namespace SushiDSP
 
     /// @brief A common-cathode triode gain stage: the grid node solved by Newton-Raphson against
     /// a Norman grid-conduction law referenced to the cathode, an inverting linear plate gain,
-    /// and a two-sided tanh plate ceiling from the stage's PlateSwing. Specified by
+    /// and a two-sided tanh plate ceiling from the stage's PlateSwing, the composite transfer
+    /// antialiased by an AntiderivativeAntialiaser. Specified by
     /// docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md section 3 and
-    /// docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 3.
+    /// docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md sections 3 and 15.
     class TriodeStage
     {
     public:
@@ -60,13 +62,15 @@ namespace SushiDSP
         /// @brief Processes one sample through the stage.
         /// @param input_voltage The stage's input signal voltage for this sample, referenced to
         /// the stage's own bias point; a zero input leaves the grid at the cathode-bias voltage.
-        /// @return The inverted plate output voltage, bounded by the plate swing. Always finite.
+        /// @return The inverted plate output voltage, bounded by the plate swing and antialiased
+        /// over the interval from the previous sample. Always finite.
         float process_sample(float input_voltage);
 
         /// @brief Returns the largest |Vg - Vk| the grid has reached since the last reset().
         float peak_grid_excursion_volts() const { return peak_grid_excursion_; }
 
-        /// @brief Resets the Newton-Raphson warm start to the bias point and clears the peak.
+        /// @brief Resets the Newton-Raphson warm start to the bias point, clears the peak and
+        /// drops the antialiaser's previous sample.
         void reset();
 
     private:
@@ -79,14 +83,8 @@ namespace SushiDSP
         /// @brief The grid's resting voltage relative to the cathode, in volts.
         float cathode_bias_;
 
-        /// @brief The inverting linear gain from grid to plate.
-        float gain_;
-
         /// @brief The grid-current law the node equation carries.
         GridConductionLaw grid_conduction_;
-
-        /// @brief The two headrooms the plate tanh is bounded by.
-        PlateSwing plate_swing_;
 
         /// @brief The grid voltage below which the plate tanh has saturated toward the supply.
         float cutoff_grid_limit_;
@@ -96,6 +94,9 @@ namespace SushiDSP
 
         /// @brief The previous sample's grid voltage, the solver's warm start.
         float previous_grid_voltage_;
+
+        /// @brief The antialiaser of the composite grid-and-plate transfer.
+        AntiderivativeAntialiaser antialiaser_;
 
         /// @brief The largest |Vg - Vk| reached since the last reset().
         float peak_grid_excursion_ = 0.0f;

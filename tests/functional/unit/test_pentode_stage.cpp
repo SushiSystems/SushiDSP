@@ -26,6 +26,7 @@
 
 #include <gtest/gtest.h>
 
+#include "SushiDSP/circuits/stages/AntiderivativeAntialiaser.hpp"
 #include "SushiDSP/circuits/stages/PentodeStage.hpp"
 
 namespace
@@ -161,5 +162,29 @@ TEST(Unit_Dsp, PentodeStagePresetConstructorMatchesTheSixArgumentOne)
     {
         const float x = 40.0f * static_cast<float>(std::sin(2.0 * kPi * 440.0 * i / 48000.0));
         EXPECT_FLOAT_EQ(from_preset.process_sample(x), from_fields.process_sample(x));
+    }
+}
+
+TEST(Unit_Dsp, PentodeStageAntialiaserAntiderivativeDifferentiatesBackToTheTransfer)
+{
+    // The EL34's knee sits 38.5 V above rest and its plate reaches 280 V toward the bottom, so
+    // the identity the triode's antialiaser keeps, dG/du = bound(-gain u) dg/du, is checked on
+    // the power tube's own table.
+    const SushiDSP::PowerTubePreset& preset = SushiDSP::kEl34;
+    const SushiDSP::AntiderivativeAntialiaser antialiaser(
+        preset.source_resistance_ohms, preset.grid_leak_resistance_ohms, preset.cathode_bias_volts, preset.gain,
+        preset.grid_conduction, preset.plate_swing);
+    const double knee = preset.grid_conduction.threshold_volts - static_cast<double>(preset.cathode_bias_volts);
+    const double transition = preset.grid_conduction.transition_volts;
+    constexpr double kDelta = 1e-4;
+    for (double excursion = knee - 40.0 * transition; excursion <= knee + 40.0 * transition; excursion += transition / 37.0)
+    {
+        const double numeric_slope
+            = (antialiaser.antiderivative(excursion + kDelta) - antialiaser.antiderivative(excursion - kDelta)) / (2.0 * kDelta);
+        const double input_slope
+            = (antialiaser.input_for_excursion(excursion + kDelta) - antialiaser.input_for_excursion(excursion - kDelta)) / (2.0 * kDelta);
+        const double plate = preset.plate_swing.bound(-static_cast<double>(preset.gain) * excursion);
+        EXPECT_NEAR(numeric_slope, plate * input_slope, 1e-7 * preset.plate_swing.headroom_to_bottom_volts * input_slope)
+            << "excursion " << excursion;
     }
 }

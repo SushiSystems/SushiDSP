@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include "SushiDSP/circuits/stages/AntiderivativeAntialiaser.hpp"
 #include "SushiDSP/circuits/stages/GridConductionLaw.hpp"
 #include "SushiDSP/circuits/stages/PlateSwing.hpp"
 #include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
@@ -31,8 +32,9 @@ namespace SushiDSP
 {
     /// @brief One push-pull half of a power stage: the grid node solved by Newton-Raphson against
     /// a Norman grid-conduction law referenced to the cathode, an inverting gain from grid to
-    /// plate, and a two-sided tanh plate ceiling from the tube's PlateSwing, all in real volts.
-    /// Specified by docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 5.
+    /// plate, and a two-sided tanh plate ceiling from the tube's PlateSwing, all in real volts,
+    /// the composite transfer antialiased by an AntiderivativeAntialiaser. Specified by
+    /// docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md sections 5 and 15.
     class PentodeStage
     {
     public:
@@ -56,10 +58,12 @@ namespace SushiDSP
         /// @brief Processes one sample through the stage.
         /// @param input_voltage The grid signal in volts, referenced to the bias point; a zero
         /// input leaves the grid at the cathode-bias voltage.
-        /// @return The inverted plate output voltage, bounded by the plate swing. Always finite.
+        /// @return The inverted plate output voltage, bounded by the plate swing and antialiased
+        /// over the interval from the previous sample. Always finite.
         float process_sample(float input_voltage);
 
-        /// @brief Resets the Newton-Raphson warm start to the bias point.
+        /// @brief Resets the Newton-Raphson warm start to the bias point and drops the
+        /// antialiaser's previous sample.
         void reset();
 
     private:
@@ -72,14 +76,8 @@ namespace SushiDSP
         /// @brief The grid's resting voltage relative to the cathode, in volts.
         float cathode_bias_;
 
-        /// @brief The inverting gain from grid to plate.
-        float gain_;
-
         /// @brief The grid-current law the node equation carries.
         GridConductionLaw grid_conduction_;
-
-        /// @brief The two headrooms the plate tanh is bounded by.
-        PlateSwing plate_swing_;
 
         /// @brief The grid voltage below which the plate tanh has saturated toward the supply.
         float cutoff_grid_limit_;
@@ -89,5 +87,8 @@ namespace SushiDSP
 
         /// @brief The previous sample's grid voltage, the solver's warm start.
         float previous_grid_voltage_;
+
+        /// @brief The antialiaser of the composite grid-and-plate transfer.
+        AntiderivativeAntialiaser antialiaser_;
     };
 }

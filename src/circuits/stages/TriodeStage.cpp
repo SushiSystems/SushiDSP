@@ -48,12 +48,11 @@ namespace SushiDSP
         : source_resistance_(source_resistance_ohms)
         , grid_leak_resistance_(grid_leak_resistance_ohms)
         , cathode_bias_(cathode_bias_volts)
-        , gain_(gain)
         , grid_conduction_(grid_conduction)
-        , plate_swing_(plate_swing)
         , cutoff_grid_limit_(cathode_bias_volts - kPlateReach * plate_swing.headroom_to_supply_volts / gain)
         , conduction_grid_limit_(cathode_bias_volts + kPlateReach * plate_swing.headroom_to_bottom_volts / gain)
         , previous_grid_voltage_(cathode_bias_volts)
+        , antialiaser_(source_resistance_ohms, grid_leak_resistance_ohms, cathode_bias_volts, gain, grid_conduction, plate_swing)
     {
     }
 
@@ -91,13 +90,13 @@ namespace SushiDSP
         const float grid_excursion = std::fabs(grid_voltage - vk);
         peak_grid_excursion_ = std::max(peak_grid_excursion_, grid_excursion);
 
-        const float linear_plate = -gain_ * (grid_voltage - vk);
-        return plate_swing_.bound(linear_plate);
+        return antialiaser_.process(grid_voltage - vk);
     }
 
     void TriodeStage::reset()
     {
         previous_grid_voltage_ = cathode_bias_;
         peak_grid_excursion_ = 0.0f;
+        antialiaser_.reset();
     }
 }
