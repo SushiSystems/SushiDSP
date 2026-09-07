@@ -28,7 +28,9 @@
 namespace SushiDSP
 {
     /// @brief Models the output transformer: primary-inductance low-end rolloff, leakage-
-    /// inductance top-end shaping, and an explicit tanh core-saturation waveshaper.
+    /// inductance top-end shaping, an explicit tanh core-saturation waveshaper, and a secondary
+    /// that carries no mean (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md
+    /// section 14).
     class OutputTransformerStage
     {
     public:
@@ -39,17 +41,30 @@ namespace SushiDSP
         /// saturate at a higher output ceiling.
         OutputTransformerStage(double sample_rate, float low_rolloff_hz, float leakage_shelf_hz, float saturation_drive);
 
-        /// @brief Processes one sample: rolloff, then leakage shaping, then core saturation.
+        /// @brief Processes one sample: rolloff, leakage shaping, core saturation, then the
+        /// removal of the saturated signal's running mean.
         /// @param input The input sample.
         /// @return The transformed, saturated output sample. Always finite.
         float process_sample(float input);
 
-        /// @brief Clears both filters' state.
+        /// @brief Clears both filters' state and the secondary's running mean.
         void reset();
 
     private:
+        /// @brief The primary-inductance rolloff, a second-order high-pass.
         Biquad rolloff_;
+
+        /// @brief The leakage-inductance shaping, a second-order low-pass.
         Biquad leakage_;
+
+        /// @brief Scales the tanh argument; the output ceiling is its reciprocal.
         float saturation_drive_;
+
+        /// @brief The one-pole coefficient that tracks the saturated signal's mean, a decade
+        /// under the rolloff's corner.
+        double secondary_mean_coefficient_;
+
+        /// @brief The running mean of the saturated signal, subtracted from the output.
+        double secondary_mean_ = 0.0;
     };
 }

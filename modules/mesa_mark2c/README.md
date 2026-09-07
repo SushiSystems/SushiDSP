@@ -68,7 +68,7 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 | V5A/V5B long-tailed pair, Rp 82 k | gain **68.093628** = 96.378299 × 82 k / (82 k + 34.061 k), tail degeneration **2.2552703** (see below), divided by | 106.0 / 143.768 (C 392 V, Va 286 V, bottom 142.232 V) | §5.1 |
 | Simul-Class output | `kMesaMark2cPower6L6GC` ×2 and `kMesaMark2cPowerEl34Triode` ×2, in real volts | inner 81.2 / 311.228 V, outer 132.288 / 132.288 V | §5.3, §7.2, §7.3, RCA 6L6-GC sheet |
 | Presence, 0.022 µF with 6.8 k | high shelf at **1063.9 Hz** (computed), ±9 dB | — | §5.2 |
-| Master 1, 100 k | dB control, `kMasterUnityGain` 0.2402319 | — | §2 |
+| Master 1, 100 k | dB control, `kMasterUnityGain` 0.2349335 | — | §2 |
 
 The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 5.0 kHz (V2A),
 11.6 kHz (V2B) and 15.2 kHz (the inverter). Each is computed from the JCM800's 12AX7 capacitances
@@ -230,10 +230,10 @@ nowhere else.
 **Master 1 is applied after the oversampled region.** In the amp it sits at node F, ahead of the
 EQ and the inverter, so turning it down would take drive out of the power section. The model
 scales the output instead, as the JCM800 does, and `kMasterUnityGain` calibrates that scaling:
-0.2402319 puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS, the point all four
-amplifiers pin at (DA5 spec §6). It was 0.3343019 before the power stage became volt-true, and
-0.6907759 when the pin sat at 1 kHz, where the IIC+ read 0.0 dBFS on the low E, on the output
-clamp.
+0.2349335 puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS, the point all four
+amplifiers pin at (DA5 spec §6). It was 0.2402319 before the transformer's secondary stopped
+carrying a mean (DA5 part 3), 0.3343019 before the power stage became volt-true, and 0.6907759
+when the pin sat at 1 kHz, where the IIC+ read 0.0 dBFS on the low E, on the output clamp.
 
 ## What is not modelled
 
@@ -252,9 +252,9 @@ clamp.
   The 10 M is 4 % of the 250 k pot it sits across; §4.1 says the 100 k defaults to absent.
 - **The Rhythm channel, the reverb, the effects loop as a real send and return, and the Class A
   and 60 W power switches.**
-- **DC at the extreme setting.** With every knob at its stop the settled output carries a DC term
-  of −0.0506 (−25.9 dBFS). `OutputTransformerStage` runs its tanh after its own low-frequency
-  rolloff, so the rectification the tanh introduces is never blocked; a real secondary winding
-  blocks it. `MesaMark2cIsDcStableAcrossManyBlocksAtHighGain` bounds it at 0.25 rather than the
-  −40 dBFS an ideal transformer would give, and checks that it has stopped moving. The JCM800 has
-  the same structure, and the fix belongs in the brick.
+- **DC at the extreme setting.** With every knob at its stop the settled output carried a DC term
+  of −0.0506 (−25.9 dBFS) while `OutputTransformerStage` ran its tanh after its own low-frequency
+  rolloff and the rectification the tanh introduced was never blocked. Since DA5 part 3 the
+  stage's secondary carries no mean, as a real secondary winding does, and the same setting reads
+  −0.00009 (−80.7 dBFS, 2026-09-07); `MesaMark2cIsDcStableAcrossManyBlocksAtHighGain` bounds it at
+  the −40 dBFS an ideal transformer gives and checks that it has stopped moving.

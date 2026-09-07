@@ -214,12 +214,12 @@ TEST(Unit_Dsp, MesaMark2cUnknownParameterIsSafeNoOp)
 TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
 {
     // Every knob is driven to both of its stops and held there for 200 blocks. The output must
-    // stay finite, its settled DC term must stay bounded, and that term must stop moving.
+    // stay finite, its settled DC term must stay under -40 dBFS, and that term must stop moving.
     //
-    // The bound is 0.25 rather than the -40 dBFS an ideal transformer would give:
-    // OutputTransformerStage runs its tanh after its own low-frequency rolloff, so the
-    // rectification the tanh introduces at the extreme setting is never blocked. Measured DC at
-    // the high stop is -0.0506; a real secondary winding would block it. See
+    // The bound was 0.25 while OutputTransformerStage ran its tanh after its own rolloff and the
+    // rectification the tanh introduced at the extreme setting was never blocked: the high stop
+    // read -0.0506. Since DA5 part 3 the stage's secondary carries no mean, as a real secondary
+    // winding does, and the high stop reads -0.00009 (-80.7 dBFS, 2026-09-07). See
     // modules/mesa_mark2c/README.md.
     //
     // At the low stop Master 1 sits at -60 dB, so a bound on the DC alone would pass on
@@ -261,7 +261,7 @@ TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
         const double quarter = static_cast<double>(last_quarter - third_quarter);
         const double third_quarter_dc = third_sum / quarter;
         const double last_quarter_dc = last_sum / static_cast<double>(rendered.size() - last_quarter);
-        EXPECT_LT(std::fabs(last_quarter_dc), 0.25) << "extreme " << extreme;
+        EXPECT_LT(std::fabs(last_quarter_dc), 0.01) << "extreme " << extreme;
         EXPECT_LT(std::fabs(last_quarter_dc - third_quarter_dc), 0.01) << "extreme " << extreme;
     }
 }

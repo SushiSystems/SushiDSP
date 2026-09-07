@@ -124,9 +124,10 @@ namespace SushiDSP
         /// calibration point all four amplifiers share (docs/superpowers/specs/
         /// 2026-09-07-grid-knee-antialiasing-design.md section 6), and pinned by
         /// MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput. Re-measured
-        /// 2026-09-07 on the Norman grid law and again on the volt-true power stage; 0.3343019
-        /// and 0.6907759 before those, the latter pinned at 1 kHz.
-        static constexpr float kMasterUnityGain = 0.2402319f;
+        /// 2026-09-07 on the Norman grid law, on the volt-true power stage and on the
+        /// transformer whose secondary carries no mean; 0.2402319, 0.3343019 and 0.6907759 before
+        /// those, the last pinned at 1 kHz.
+        static constexpr float kMasterUnityGain = 0.2349335f;
 
         /// @brief Sets the Volume 1 control, the 1 M pot between the tone stack and V1B's grid.
         /// @param normalized Volume 1 amount in [0, 1]; smoothed toward on the audio thread.
