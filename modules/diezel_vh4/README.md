@@ -204,14 +204,15 @@ knobs untouched and a −12 dBFS 1 kHz sine in, they read (2026-09-07):
 | --- | --- |
 | V1a | 0.2485 V |
 | V2a | 3.7076 V |
-| V3a | 4.1360 V |
-| V4a | 1.1023 V |
-| Phase inverter | 5.4015 V |
+| V3a | 25.3221 V |
+| V4a | 1.1443 V |
+| Phase inverter | 13.4318 V |
 
-V3a's 4.1360 V is `160·Vt` exactly, the cutoff fence `TriodeStage`'s solver holds the grid behind,
-so that stage is driven past cutoff on every cycle. The inverter's 5.4015 V is the other side: its
-grid is biased at −3.928014 V and the solver lets it rise to `60·Vt` above the cathode, so 5.479 V
-is where its own fence sits and it is running just inside it, in hard grid conduction.
+Since DA5 (`docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` §3) no solver
+fence holds a grid: V3a's 25.3 V is 180.8 V of headroom to the supply over its gain of 71.4, the
+point at which its plate ceiling has saturated, and the inverter's 13.4 V is its grid pulled
+through the 470 kΩ source into the 150 kΩ conducting slope of the Norman law, with its 15.38 V
+plate ceiling doing the clipping.
 
 That is the circuit rather than the model. §6 puts the midband product V1a × pot × V2a × V3a at
 2.7 × 10⁵ before the stack's loss and the −23.6 dB mix divider, and says in terms that "every stage
@@ -259,8 +260,9 @@ the dossier's figure leaves out.
 `TriodeStage`'s source resistance is what loads the grid-conduction diode, so it sets how hard the
 stage clips once the grid goes positive. V2a and V3a get the stoppers the drawing gives them, R21's
 47 k and R26's 470 k. §3.1 draws none on V1a, and the drawing offers nothing else to use, so V1a
-takes `Jcm800.cpp`'s `kTriodeSourceResistance` of 10 kΩ. That number decides V1a's conduction knee —
-0.02585 × ln(0.02585 / (1e-9 × 1e4)) = 0.203 V — and V1a is the stage the gain knob cannot reach,
+takes `Jcm800.cpp`'s `kTriodeSourceResistance` of 10 kΩ. On the Norman law the grid current is
+1 µA × softplus((Vgk − 0.5) / 0.15), a 150 kΩ slope above the 0.5 V knee, so a 10 kΩ source barely
+loads it and the plate ceiling, not the grid, clips V1a. V1a is the stage the gain knob cannot reach,
 so it is also the amp's THD floor at any knob position.
 
 ## The power section
@@ -308,15 +310,16 @@ Three of the preset's seven fields are modelling choices inherited from `kEl34` 
 
 ## Calibration
 
-`DiezelVh4::kMasterUnityGain` uses `Jcm800::kMasterUnityGain`'s calibration point: with every knob
-at its default and a −12 dBFS 1 kHz sine in, the output peaks near −6 dBFS.
+`DiezelVh4::kMasterUnityGain` uses the calibration point all four amplifiers share (DA5 spec §6):
+with every knob at its default and a −12 dBFS 82 Hz sine in, the output peaks at −6.00 dBFS.
 `DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` is the test that reads it.
 
 The shipped value is one measurement. With the four staging factors removed on 2026-09-07 the
 chain runs a great deal hotter into the power section than it did, so the constant fell from
 2.148178 to 0.816610; the phase inverter's tail degeneration and the power tubes' grid scale then
 moved it to 0.624524; copying the JCM800's four long-tailed-pair constants moved it again to
-**0.627263**, at which the test reads −6.005 dBFS. The measurement is direct: the
+0.627263, at which the test read −6.005 dBFS at 1 kHz; DA5's Norman grid law and the move of the
+pin to 82 Hz, where this value read −1.04 dBFS, set it to **0.3543949**. The measurement is direct: the
 constant multiplies the signal after the last nonlinearity, so it is set, the test run, and the
 constant scaled by the decibels the reading misses.
 

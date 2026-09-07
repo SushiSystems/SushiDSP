@@ -68,7 +68,7 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 | V5A/V5B long-tailed pair, Rp 82 k | gain **68.093628** = 96.378299 × 82 k / (82 k + 34.061 k), tail degeneration **2.2552703** (see below), divided by | 106.0 / 143.768 (C 392 V, Va 286 V, bottom 142.232 V) | §5.1 |
 | Simul-Class output | `kMesaMark2cPower6L6GC` ×2 at grid scale **0.0907030**, `kMesaMark2cPowerEl34Triode` ×2 at **0.0619348** | — | §7.2, §7.3 |
 | Presence, 0.022 µF with 6.8 k | high shelf at **1063.9 Hz** (computed), ±9 dB | — | §5.2 |
-| Master 1, 100 k | dB control, `kMasterUnityGain` 0.6907759 | — | §2 |
+| Master 1, 100 k | dB control, `kMasterUnityGain` 0.3343019 | — | §2 |
 
 The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 5.0 kHz (V2A),
 11.6 kHz (V2B) and 15.2 kHz (the inverter). Each is computed from the JCM800's 12AX7 capacitances
@@ -134,18 +134,19 @@ volt-true in DA5 — inner 6L6GC `1 / (0.049 × 5.0) / 45` = **0.0907030**, oute
 `1 / (0.069 × 5.2) / 45` = **0.0619348**.
 
 **Where each grid sits.** `grid_excursion_peak_volts()` measured at the default setting, a
-−12 dBFS 1 kHz sine, 200 blocks of 256 at 48 kHz. 4.1360 V is `TriodeStage`'s cutoff fence,
-`160 × Vt`, so the last five stages reach it and stop there.
+−12 dBFS 1 kHz sine, 200 blocks of 256 at 48 kHz, on the Norman grid law of DA5. No solver
+fence holds a grid any more; each stage runs until its own plate ceiling saturates, so the
+figures from V3B on are the plate swings divided by the gains, reached through the 0.5 V knee.
 
 | Stage | Peak grid excursion |
 | --- | --- |
 | V1A | 0.2485 V |
-| V1B | 0.9684 V |
-| V3B | 4.1360 V |
-| V4A | 4.1360 V |
-| V2A | 4.1360 V |
-| V2B | 4.1360 V |
-| V5A/V5B phase inverter | 4.1360 V |
+| V1B | 0.9685 V |
+| V3B | 9.6134 V |
+| V4A | 31.6023 V |
+| V2A | 16.2602 V |
+| V2B | 27.9001 V |
+| V5A/V5B phase inverter | 21.1133 V |
 
 The dossier says the same thing in words: §3.8 records that from V3B onward the amp is in hard
 grid conduction long before the signal reaches V2A.
@@ -206,7 +207,10 @@ nowhere else.
 
 **Master 1 is applied after the oversampled region.** In the amp it sits at node F, ahead of the
 EQ and the inverter, so turning it down would take drive out of the power section. The model
-scales the output instead, as the JCM800 does, and `kMasterUnityGain` calibrates that scaling.
+scales the output instead, as the JCM800 does, and `kMasterUnityGain` calibrates that scaling:
+0.3343019 puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS, the point all four
+amplifiers pin at (DA5 spec §6). It was 0.6907759 when the pin sat at 1 kHz, where the IIC+ read
+0.0 dBFS on the low E, on the output clamp.
 
 ## What is not modelled
 
