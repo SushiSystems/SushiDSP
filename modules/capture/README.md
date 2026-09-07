@@ -15,7 +15,11 @@ Intent and the acceptance list live in
 | An in-memory multi-channel recording and its sample rate | `Take` |
 | One recording destination: rings, writer thread, drop counter | `TrackRecorder` |
 | The processed/dry pair the host arms together | `RecordingBus` |
-| The sample clock: position, state and the loop range | `Transport` |
+| The sample clock: position, state, loop range and playback speed | `Transport` |
+| The mapping between frames and bars and beats | `MusicalClock` |
+| Ownership of every loaded take, and the counts clips borrow against | `TakeLibrary` |
+| One lane's clips, sorted and immutable once published | `TrackTimeline` |
+| A click on every beat, on the monitor path only | `Metronome` |
 | Mixing up to eight takes into one output at that position | `TrackPlayer` |
 | Reading a take at a playback speed other than 1.0 | `VariRateReader` |
 | Interleaving and the RIFF header | `SushiDSP::WavWriter`, in the core's `io/` |
@@ -24,20 +28,39 @@ Intent and the acceptance list live in
 `TrackRecorder` knows nothing about takes, folders or naming; `RecordingBus` is the only class
 here that knows a recording comes in two files, which is why renaming them touches one file.
 `TrackPlayer` reads the position out of a `Transport` and never advances it; the host does that
-once per block, so the same clock drives the player, the recorder and the UI.
+once per block, so the same clock drives the player, the recorder and the UI. `Transport` holds a
+position and a speed and nothing musical: bars and beats live in `MusicalClock`, which holds no
+position of its own and is handed a frame instead. Either can be replaced without the other
+noticing.
 
 ## Which thread runs what
 
-The audio thread calls three functions here: `TrackRecorder::write`, `TrackPlayer::process` and
-`Transport::advance`. `write` is `noexcept`, allocates nothing, takes no lock and opens no file —
-it copies the block into one `SpscRing<float>` per channel and returns. `process` mixes the
-audible tracks into the output without allocating, locking or throwing. `advance` is three atomic
-operations. `Transport`'s readers — `position_frames`, `state`, `has_loop`, the two loop ends —
-are safe from either thread.
+The audio thread calls four functions here: `TrackRecorder::write`, `TrackPlayer::process`,
+`Metronome::process` and `Transport::advance`. `write` is `noexcept`, allocates nothing, takes no
+lock and opens no file — it copies the block into one `SpscRing<float>` per channel and returns.
+`process` mixes the audible tracks into the output without allocating, locking or throwing.
+`advance` is three atomic operations and one multiply by the speed word, carrying the fraction a
+block leaves over in 32.32 fixed point, so a hundred thousand blocks of 256 at speed 1.3 land on
+frame 33280000 rather than near it. `Transport`'s readers — `position_frames`, `state`,
+`has_loop`, the two loop ends, `speed_q32` — are safe from either thread.
+
+`Metronome::process` reads the transport position, the clock's beat step and two atomics, then
+copies out of a vector the constructor already sized. It is not an `IAudioNode` and it holds no
+place in the `RigGraph`: the host calls it after `RecordingBus::write`, which is what keeps the
+click on the monitor path and out of both recorded files. There is no second recorder that
+captures it and no click track written beside the take.
+
+`TakeLibrary` runs on the control thread alone. It carries no atomic and the audio thread has no
+route into it: a lane publishes a `TrackTimeline` through an `RtSwapSlot`, a clip inside that
+timeline names a take by a raw `const Take*`, and the count that keeps the take alive moves only
+in `TrackTimeline`'s constructor and destructor. A slot's `reclaim()` destroys a retired timeline
+only once the audio thread's watermark has passed the generation it was published at, so the
+order is fixed: reclaim every lane slot first, then call `collect()` once. The other order would
+free a take a retired timeline still names.
 
 Everything else — `arm`, `stop`, `Take::load`, `Take`'s constructor, `TrackPlayer::set_take` and
-its four control setters, `reclaim` — runs on the control thread and is free to allocate and
-throw.
+its four control setters, `reclaim`, `Metronome::set_sample_rate` — runs on the control thread and
+is free to allocate and throw.
 
 The writer thread that `arm()` starts drains all the channel rings in step, up to 4096 frames per
 append, and sleeps 1 ms when it finds them empty. Draining in step is what keeps the channels
