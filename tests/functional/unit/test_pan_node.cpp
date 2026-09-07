@@ -30,13 +30,13 @@
 
 namespace
 {
-    /// @brief Runs enough blocks of a unit input through node at a fixed pan to settle the
-    /// smoother, then returns the resulting left/right gains (the output value, since the input
-    /// is 1.0).
+    /// @brief Runs a unit input through node at a fixed pan until the smoother settles, then
+    /// returns the resulting left/right gains (the output value, since the input is 1.0).
     void settled_gains(SushiDSP::PanNode& node, float pan, float& left, float& right)
     {
         node.set_parameter("pan", pan);
 
+        constexpr int kMaxBlocks = 10000;
         std::vector<float> input(64, 1.0f);
         std::vector<float> out_left(64, 0.0f);
         std::vector<float> out_right(64, 0.0f);
@@ -44,13 +44,20 @@ namespace
         float* outputs[2] = { out_left.data(), out_right.data() };
         SushiDSP::ProcessContext context{ outputs, inputs, 64, 0.0 };
 
-        for (int block = 0; block < 50; ++block)
+        float previous_left = 0.0f;
+        float previous_right = 0.0f;
+        for (int block = 0; block < kMaxBlocks; ++block)
         {
             node.process(context);
+            left = out_left.back();
+            right = out_right.back();
+            if (block > 0 && left == previous_left && right == previous_right)
+            {
+                break;
+            }
+            previous_left = left;
+            previous_right = right;
         }
-
-        left = out_left.back();
-        right = out_right.back();
     }
 
     float to_db(float gain)
@@ -107,7 +114,7 @@ TEST(Unit_Dsp, PanNodeSumOfSquaredGainsStaysUnityAcrossItsRange)
         settled_gains(node, pan, left, right);
 
         const float power = left * left + right * right;
-        EXPECT_NEAR(to_db(power), 0.0f, 0.01f) << "pan = " << pan;
+        EXPECT_NEAR(power, 1.0f, 0.01f) << "pan = " << pan;
     }
 }
 
