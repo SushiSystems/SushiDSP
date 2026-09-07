@@ -55,15 +55,12 @@ enum class RigInputSource : std::uint32_t
     Both = 2
 };
 
-/// @brief Owns the authoritative rig topology (a set of slots, each with a descriptor id and
-/// current parameter values, plus edges between them) and rebuilds + publishes a fresh
-/// SushiDSP::RigGraph through an SushiDSP::RtGraphSlot on every structural edit. Not real-time
-/// safe — every method here runs on the GUI/main thread only. Not part of the SushiDSP::
-/// namespace: this is app-local glue, not a library product.
-///
-/// Slot identity is a SlotId, stable across every edit (insert, move, remove) — unlike a chain
-/// index, which shifts meaning whenever the chain changes shape. A SlotId is unrelated to
-/// SushiDSP::NodeHandle, which RigGraph::add_node() assigns fresh on every rebuild.
+/// @brief Owns the authoritative rig topology - slots carrying a descriptor id and parameter
+/// values, plus the edges between them - and republishes a freshly compiled SushiDSP::RigGraph
+/// through an SushiDSP::RtGraphSlot on every structural edit. App-local glue, GUI thread only.
+/// A slot is named by a SlotId, stable across every insert, move and remove, and unrelated to
+/// the SushiDSP::NodeHandle RigGraph::add_node() assigns fresh on each rebuild.
+/// @see docs/superpowers/specs/2026-09-07-stereo-tracks-design.md
 class RigController
 {
 public:
@@ -100,20 +97,12 @@ public:
     /// immediately, exactly as before.
     void disconnect(SlotId from, SlotId to, bool publish_now = true);
 
-    /// @brief Removes a live slot and every edge touching it, then republishes. If the removed
-    /// slot sat in the middle of a linear run (one upstream edge, one downstream edge), its
-    /// neighbors are reconnected directly to each other, preserving a working chain around the
-    /// gap. This bridging is specific to edges_, the topology this controller keeps: publish()
-    /// may separately drop an unrelated slot whose descriptor_id is unknown to the node registry,
-    /// and that slot's edges are erased from edges_ without bridging, though the graph published
-    /// on that same call does bridge across it, because bridged_edges() cannot tell a slot the
-    /// registry rejected from a bypassed one (unreachable in practice — registry-driven edits and
-    /// rig_preset's own validation both keep an unknown type from ever reaching this controller).
-    /// @param publish_now Pass false to batch several structural edits (e.g. building a
-    /// multi-node shape where every individual add_node()/connect() call would otherwise leave
-    /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
-    /// when done. Every existing single-call use is unaffected — the default republishes
-    /// immediately, exactly as before.
+    /// @brief Removes a live slot and every edge touching it, then republishes. A slot with one
+    /// upstream and one downstream edge leaves its two neighbours joined, so the chain around the
+    /// gap keeps working.
+    /// @param slot The slot to remove.
+    /// @param publish_now False batches this edit with the ones after it, so a shape
+    /// RigGraph::compile() would reject halfway through is published only once it is whole.
     void remove(SlotId slot, bool publish_now = true);
 
     /// @brief Rebuilds a fresh RigGraph from the current slots and edges, compiles it, and
@@ -172,14 +161,12 @@ public:
     /// @brief Reads this controller's stored value for a parameter on `slot`.
     float get_parameter(SlotId slot, const char* param_id) const;
 
-    /// @brief Installs a cabinet impulse response on the amplifier at `slot`. Loads the file at
-    /// the controller's prepared sample rate, hands it to the live node when the slot has one,
-    /// and remembers the path so a later rebuild (or a preset save) can reproduce it. A bypassed
-    /// slot has no live node, so it keeps the path and receives the cabinet on the publish that
-    /// brings it back - and the node, not the descriptor id, is what refuses it there.
-    /// @return True if `slot`'s node hosts a cabinet (SushiDSP::ICabinetHost) and took the IR, or
-    /// if the slot is bypassed and the path was stored; false for an unknown slot or a live node
-    /// that hosts no cabinet.
+    /// @brief Installs a cabinet impulse response on the amplifier at `slot`, loading it at the
+    /// prepared sample rate and remembering the path so a rebuild or a preset reproduces it. A
+    /// bypassed slot keeps the path and takes the cabinet on the publish that brings it back.
+    /// @param slot The slot to install the cabinet on.
+    /// @param path The impulse-response file.
+    /// @return True when the node took the impulse response, or the bypassed slot stored it.
     /// @throws std::runtime_error if the file cannot be opened or parsed.
     bool set_cabinet(SlotId slot, const std::string& path);
 
@@ -312,6 +299,13 @@ public:
     /// @brief Closes both take files and leaves the transport where it is. Control thread only.
     void stop_recording();
 
+    /// @brief Stops both legs and the transport when either recorder has lost its file, so a
+    /// disk failure never leaves a recording that only appears to continue. Control thread;
+    /// call it once per GUI frame.
+    /// @param error_out Receives the message when a leg failed; left untouched otherwise.
+    /// @return True when this call stopped a failed recording.
+    bool poll_recording(std::string& error_out);
+
     /// @brief The shared sample clock the audio callback advances once per block.
     SushiDSP::Transport& transport() noexcept { return transport_; }
 
@@ -382,15 +376,14 @@ private:
     void apply_cabinet_to_live_node(SlotId slot);
     void seed_defaults(Slot& slot) const;
 
-    /// @brief Builds a fresh RigGraph from the current slots and edges and compiles it. Const: a
-    /// slot whose descriptor_id the node registry does not know is skipped rather than erased,
-    /// so handles_out names exactly the slots that reached the graph.
-    /// @param apply_bypass True to leave bypassed slots out and bridge around them; false to add
-    /// every live slot and honour every edge, which is the shape a preset records.
+    /// @brief Builds a fresh RigGraph from the current slots and edges and compiles it, skipping
+    /// any slot whose descriptor_id the node registry does not know.
+    /// @param apply_bypass True leaves bypassed slots out and bridges around them; false adds
+    /// every live slot and honours every edge, the shape a preset records.
     /// @param handles_out Receives the slot-to-handle mapping for the graph that was built.
     /// @return The compiled graph.
-    /// @throws std::runtime_error if the resolved edges would exceed RigGraph::kMaxFanInOut, or
-    /// if the graph does not compile.
+    /// @throws std::runtime_error if the edges exceed RigGraph::kMaxFanInOut or the graph does
+    /// not compile.
     std::unique_ptr<SushiDSP::RigGraph> build_graph(bool apply_bypass,
         std::unordered_map<SlotId, SushiDSP::NodeHandle>& handles_out) const;
 

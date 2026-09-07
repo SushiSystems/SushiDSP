@@ -614,6 +614,10 @@ void RigController::clear_track(std::size_t index)
     }
     tracks_[index] = TrackInfo{};
     player_.set_take(index, std::make_unique<SushiDSP::Take>(1u, info_.sample_rate, 0u));
+    player_.set_gain(index, 1.0f);
+    player_.set_pan(index, 0.0f);
+    player_.set_mute(index, false);
+    player_.set_solo(index, false);
     if (reamp_track_.has_value() && *reamp_track_ == index)
     {
         clear_reamp_track();
@@ -700,6 +704,19 @@ bool RigController::arm_recording(const std::string& take_name, std::string& err
 void RigController::stop_recording()
 {
     recording_bus_.stop();
+}
+
+bool RigController::poll_recording(std::string& error_out)
+{
+    if (!recording_bus_.failed())
+    {
+        return false;
+    }
+
+    recording_bus_.stop();
+    transport_.stop();
+    error_out = "recording stopped: a take file could not be written";
+    return true;
 }
 
 std::string RigController::save_to_json() const
@@ -826,8 +843,7 @@ void RigController::load_from_json(const std::string& json_text)
         ? document.at("take_folder").get<std::string>()
         : std::string();
 
-    // A preset carried to another machine finds no such take files, so a track that will not load
-    // is left empty rather than refusing the whole preset.
+    // Every track is emptied to its defaults first, so a preset brings its own mixer state.
     for (std::size_t index = 0; index < tracks_.size(); ++index)
     {
         clear_track(index);

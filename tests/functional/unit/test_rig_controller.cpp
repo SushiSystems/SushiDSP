@@ -41,6 +41,17 @@
 
 namespace
 {
+    /// @brief Names a fixture file after the running case, so two cases ctest schedules in
+    /// parallel never write the same path.
+    /// @param name The file's name inside the test temporary directory.
+    /// @return The full path, with the running case's name prefixed.
+    std::string temp_fixture_path(const std::string& name)
+    {
+        const ::testing::TestInfo* info = ::testing::UnitTest::GetInstance()->current_test_info();
+        const std::string          prefix = info != nullptr ? std::string(info->name()) + "_" : "";
+        return std::string(::testing::TempDir()) + "sushidsp_" + prefix + name;
+    }
+
     void append_u32_le(std::vector<std::uint8_t>& buffer, std::uint32_t value)
     {
         for (int byte = 0; byte < 4; ++byte)
@@ -86,7 +97,7 @@ namespace
             append_u16_le(bytes, static_cast<std::uint16_t>(sample));
         }
 
-        const std::string path = std::string(::testing::TempDir()) + "sushidsp_test_cabinet.wav";
+        const std::string path = temp_fixture_path("cabinet.wav");
         std::ofstream out(path, std::ios::binary);
         out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
         return path;
@@ -123,7 +134,7 @@ namespace
             append_u32_le(bytes, word);
         }
 
-        const std::string path = std::string(::testing::TempDir()) + name;
+        const std::string path = temp_fixture_path(name);
         std::ofstream out(path, std::ios::binary);
         out.write(reinterpret_cast<const char*>(bytes.data()),
                   static_cast<std::streamsize>(bytes.size()));
@@ -878,9 +889,6 @@ TEST(Unit_Dsp, SlotSelectionStillValidReturnsFalseForNoSelection)
     EXPECT_FALSE(slot_selection::still_valid(std::nullopt, order));
 }
 
-// --- The rig's input source, the track list and the re-amp leg (DS3/DS4) ---
-//
-// See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md sections 6 and 7.
 
 TEST(Unit_Dsp, RigControllerStartsWithTheLiveInputAsItsSource)
 {
@@ -900,7 +908,7 @@ TEST(Unit_Dsp, RigControllerRemembersTheInputSourceItWasGiven)
 
 TEST(Unit_Dsp, RigControllerNamesALoadedTrackAfterItsFile)
 {
-    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+    const std::string path = write_temp_float_wav("track.wav",
                                                   make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
 
@@ -908,7 +916,8 @@ TEST(Unit_Dsp, RigControllerNamesALoadedTrackAfterItsFile)
     ASSERT_TRUE(controller.load_track(0, path, error)) << error;
 
     EXPECT_TRUE(controller.track_is_loaded(0));
-    EXPECT_EQ(controller.track_name(0), "sushidsp_test_track");
+    const std::size_t stem_start = path.find_last_of("/\\") + 1;
+    EXPECT_EQ(controller.track_name(0), path.substr(stem_start, path.size() - stem_start - 4));
     EXPECT_EQ(controller.track_path(0), path);
 }
 
@@ -924,7 +933,7 @@ TEST(Unit_Dsp, RigControllerRefusesATrackFileItCannotRead)
 
 TEST(Unit_Dsp, RigControllerClearingATrackEmptiesItsNameAndPath)
 {
-    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+    const std::string path = write_temp_float_wav("track.wav",
                                                   make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
     std::string error;
@@ -939,7 +948,7 @@ TEST(Unit_Dsp, RigControllerClearingATrackEmptiesItsNameAndPath)
 
 TEST(Unit_Dsp, RigControllerSendsALoadedTrackToTheReampLeg)
 {
-    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+    const std::string path = write_temp_float_wav("track.wav",
                                                   make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
     std::string error;
@@ -962,7 +971,7 @@ TEST(Unit_Dsp, RigControllerRefusesToReampAnEmptyTrack)
 
 TEST(Unit_Dsp, RigControllerDropsTheReampLegWhenItsTrackIsCleared)
 {
-    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+    const std::string path = write_temp_float_wav("track.wav",
                                                   make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
     std::string error;
@@ -979,7 +988,7 @@ TEST(Unit_Dsp, RigControllerReampLegAddsTheTakeIntoAnEmptyInputBuffer)
     const std::uint32_t     block = 64;
     const std::vector<float> signal = make_test_signal(block);
     const std::string        path =
-        write_temp_float_wav("sushidsp_test_track.wav", signal, 48000);
+        write_temp_float_wav("track.wav", signal, 48000);
 
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, block, 2 });
     std::string error;
@@ -999,7 +1008,7 @@ TEST(Unit_Dsp, RigControllerReampLegAddsTheTakeIntoAnEmptyInputBuffer)
 
 TEST(Unit_Dsp, RigControllerPresetCarriesTheTrackListAndTheLoopRange)
 {
-    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+    const std::string path = write_temp_float_wav("track.wav",
                                                   make_test_signal(256), 48000);
     RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
     source.append("sushidsp.tubescreamer");
@@ -1032,7 +1041,7 @@ TEST(Unit_Dsp, RigControllerPresetWithNoTrackKeyLoadsWithAnEmptyTrackList)
     const std::string preset = R"({"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]}
     ]})";
-    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+    const std::string path = write_temp_float_wav("track.wav",
                                                   make_test_signal(256), 48000);
 
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
@@ -1046,9 +1055,30 @@ TEST(Unit_Dsp, RigControllerPresetWithNoTrackKeyLoadsWithAnEmptyTrackList)
     EXPECT_FALSE(controller.transport().has_loop());
 }
 
-// The spec's section 10 alignment acceptance, proved without a device: the dry signal that drove
-// the rig, written to a take and played back into an identical rig through the re-amp leg,
-// reproduces the rig's output sample for sample.
+TEST(Unit_Dsp, RigControllerPresetBringsItsOwnMixerStateOverASession)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]}
+    ]})";
+    const std::string path = write_temp_float_wav("track.wav",
+                                                  make_test_signal(256), 48000);
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    std::string error;
+    ASSERT_TRUE(controller.load_track(0, path, error)) << error;
+    controller.player().set_gain(0, 0.25f);
+    controller.player().set_pan(0, 0.8f);
+    controller.player().set_mute(0, true);
+    controller.player().set_solo(0, true);
+
+    controller.load_from_json(preset);
+
+    EXPECT_NEAR(controller.player().gain(0), 1.0f, 1e-6f);
+    EXPECT_NEAR(controller.player().pan(0), 0.0f, 1e-6f);
+    EXPECT_FALSE(controller.player().muted(0));
+    EXPECT_FALSE(controller.player().soloed(0));
+}
+
 
 TEST(Unit_Dsp, RigControllerReampingADryTakeReproducesTheRigsOwnOutput)
 {
@@ -1059,7 +1089,7 @@ TEST(Unit_Dsp, RigControllerReampingADryTakeReproducesTheRigsOwnOutput)
     live.append("sushidsp.tubescreamer");
     const std::vector<float> processed = render_through_rig(live, dry, block);
 
-    const std::string take_path = write_temp_float_wav("sushidsp_test_dry.wav", dry, 48000);
+    const std::string take_path = write_temp_float_wav("dry.wav", dry, 48000);
 
     RigController reamp(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
     reamp.append("sushidsp.tubescreamer");
