@@ -58,17 +58,19 @@ namespace SushiDSP
 
         /// @brief One inverter triode's full common-cathode gain on its own load line, the pair's
         /// split being carried by kPhaseInverterDegeneration instead: mu x Ra / (Ra + ra) is
-        /// 100 x 82000 / (82000 + 34061.087) = 70.652449, with dossier 5.1's 82 k plate and ra from
-        /// the Koren model at the idle point below.
-        constexpr float kPhaseInverterGain = 70.652449f;
+        /// 96.378299 x 82000 / (82000 + 34061.086) = 68.093628, with dossier 5.1's 82 k plate. The
+        /// mu is the local gm x ra from the Koren Jacobian at Vgk -1.5 V, Vpk 284.5 V, as
+        /// Jcm800.cpp does, not the model's nominal 100.
+        constexpr float kPhaseInverterGain = 68.093628f;
 
         /// @brief How much wider the inverter's input is than the grid-cathode window it opens, the
-        /// shared cathode following the driven grid through the tail: 1 + Rtail / (Rtail + Zk),
-        /// where Zk is the other triode's cathode impedance (ra + Ra) / (mu + 1) = 1149.120 Ohm in
-        /// series with dossier 5.1's 470 Ohm between the cathodes. That is
-        /// 1 + 15000 / (15000 + 1619.120) = 1.9025749, always divided by. Rtail is 5.1's 15 k tail
-        /// glyph, and ra 34061.087 Ohm from the Koren model at Vgk -1.5 V, Vpk 284.5 V.
-        constexpr float kPhaseInverterDegeneration = 1.9025749f;
+        /// shared cathode following the driven grid through the tail: 1 + (Rtail || Zshunt) / Zk.
+        /// Zk is the driven triode's own cathode impedance (ra + Ra) / (mu + 1) = 1191.858 Ohm,
+        /// Zshunt adds dossier 5.1's 470 Ohm drawn between the cathodes for 1661.858 Ohm, and Rtail
+        /// is 5.1's shared 15 k tail glyph: 15000 || 1661.858 = 1496.104, so the factor is
+        /// 1 + 1496.104 / 1191.858 = 2.2552703, always divided by. ra is 34061.086 Ohm and mu the
+        /// local 96.378299, both from the Koren Jacobian at Vgk -1.5 V, Vpk 284.5 V.
+        constexpr float kPhaseInverterDegeneration = 2.2552703f;
 
         /// @brief The DC operating point each triode's grid rests at, from the printed cathode volts.
         constexpr float kV1aCathodeBias = -1.6f;   // Dossier 3.1, printed cathode voltage.

@@ -368,6 +368,14 @@ TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
                     "nothing between them. At Lead Drive 0.02 and -40 dBFS the amp measures "
                     "41.5 % THD against this test's 10 % bar. Closes when the send/return network "
                     "is read off the schematic; dossier open questions 19 and 20.";
+
+    // Kept below the skip so the assertion comes back with the network, not from memory.
+    const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
+    const std::vector<float> rendered = render_mesa_mark2c(
+        [](SushiDSP::MesaMark2c& node) { node.set_lead_drive(0.02f); }, 0.01, frequency, 640);
+
+    const double thd_percent = SushiDSP::measure::thd(rendered, frequency, 48000.0).thd_percent;
+    EXPECT_LT(thd_percent, 10.0) << "THD " << thd_percent << " %";
 }
 
 TEST(Unit_Dsp, MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
@@ -471,11 +479,31 @@ TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
                     "the V2A->V2B loop send/return network is not in the dossier (section 3.7 "
                     "prints no value for it), so V2A's plate, ceilinged at 87 V, meets V2B's "
                     "4.14 V grid window with nothing between them and the node limits at every "
-                    "input level. Treble at 0 against 1 moves THD by -0.40 pp at -80 dBFS and "
-                    "-0.66 pp at -100 dBFS, against this test's 5 pp, so there is no input level "
+                    "input level. Treble at 0 against 1 moves THD by -0.09 pp at -80 dBFS and "
+                    "-0.40 pp at -100 dBFS, against this test's 5 pp, so there is no input level "
                     "where the stack's colour reaches the output. Re-asserts that a brighter "
                     "stack drives the lead stages harder once the network is read off the "
                     "schematic; dossier open questions 19 and 20.";
+
+    // Kept below the skip so the assertion comes back with the network, not from memory.
+    const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
+    auto thd_at_treble = [frequency](float treble)
+    {
+        return SushiDSP::measure::thd(
+            render_mesa_mark2c(
+                [treble](SushiDSP::MesaMark2c& node)
+                {
+                    node.set_lead_drive(1.0f);
+                    node.set_treble(treble);
+                },
+                0.2, frequency, 640),
+            frequency, 48000.0).thd_percent;
+    };
+
+    const double dark = thd_at_treble(0.0f);
+    const double bright = thd_at_treble(1.0f);
+    EXPECT_LT(dark, bright);
+    EXPECT_GT(bright - dark, 5.0);
 }
 
 TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
@@ -485,7 +513,35 @@ TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
                     "prints no value for it), so V2A's plate, ceilinged at 87 V, meets V2B's "
                     "4.14 V grid window with nothing between them and the node limits at every "
                     "input level. The 750 Hz slider at +1 lifts 979.5 Hz by 0.009 dB at "
-                    "-80 dBFS and -0.011 dB at -100 dBFS, against the bank's 17 dB, because the "
+                    "-80 dBFS and -0.010 dB at -100 dBFS, against the bank's 17 dB, because the "
                     "output sits on its ceiling either way. Re-asserts the full 17 dB lift once "
                     "the network is read off the schematic; dossier open questions 19 and 20.";
+
+    // Kept below the skip so the assertion comes back with the network, not from memory.
+    constexpr double centre_hz = 979.5;
+    auto level_at = [](float slider)
+    {
+        const std::vector<float> rendered = render_mesa_mark2c(
+            [slider](SushiDSP::MesaMark2c& node)
+            {
+                node.set_volume_1(0.2f);
+                node.set_lead_drive(0.2f);
+                node.set_lead_master(0.2f);
+                node.set_equalizer_band(2, slider);
+            },
+            0.005, centre_hz, 120);
+
+        const std::size_t start = rendered.size() * 3 / 4;
+        double sum_sin = 0.0, sum_cos = 0.0;
+        for (std::size_t i = start; i < rendered.size(); ++i)
+        {
+            const double phase = 2.0 * M_PI * centre_hz * i / 48000.0;
+            sum_sin += rendered[i] * std::sin(phase);
+            sum_cos += rendered[i] * std::cos(phase);
+        }
+        const std::size_t n = rendered.size() - start;
+        return 20.0 * std::log10(2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n + 1e-30);
+    };
+
+    EXPECT_NEAR(level_at(1.0f) - level_at(0.0f), 17.0, 1.0);
 }
