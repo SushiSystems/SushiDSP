@@ -56,42 +56,6 @@ TEST(Unit_Dsp, ChannelSelectionLabelsAreHumanReadable)
     EXPECT_STREQ(SushiDSP::channel_selection_label(SushiDSP::ChannelSelection::Stereo), "stereo");
 }
 
-TEST(Unit_Dsp, FanOutMonoToStereoWritesBothChannelsForStereo)
-{
-    std::vector<float> mono{ 1.0f, 2.0f, 3.0f };
-    std::vector<float> left(3, -1.0f), right(3, -1.0f);
-    float* outputs[2] = { left.data(), right.data() };
-
-    SushiDSP::fan_out_mono_to_stereo(mono.data(), outputs, 3, SushiDSP::ChannelSelection::Stereo);
-
-    EXPECT_EQ(left, mono);
-    EXPECT_EQ(right, mono);
-}
-
-TEST(Unit_Dsp, FanOutMonoToStereoWritesOnlyLeftForLeft)
-{
-    std::vector<float> mono{ 1.0f, 2.0f, 3.0f };
-    std::vector<float> left(3, -1.0f), right(3, -1.0f);
-    float* outputs[2] = { left.data(), right.data() };
-
-    SushiDSP::fan_out_mono_to_stereo(mono.data(), outputs, 3, SushiDSP::ChannelSelection::Left);
-
-    EXPECT_EQ(left, mono);
-    for (float sample : right) { EXPECT_FLOAT_EQ(sample, 0.0f); }
-}
-
-TEST(Unit_Dsp, FanOutMonoToStereoWritesOnlyRightForRight)
-{
-    std::vector<float> mono{ 1.0f, 2.0f, 3.0f };
-    std::vector<float> left(3, -1.0f), right(3, -1.0f);
-    float* outputs[2] = { left.data(), right.data() };
-
-    SushiDSP::fan_out_mono_to_stereo(mono.data(), outputs, 3, SushiDSP::ChannelSelection::Right);
-
-    for (float sample : left) { EXPECT_FLOAT_EQ(sample, 0.0f); }
-    EXPECT_EQ(right, mono);
-}
-
 TEST(Unit_Dsp, RigOutputAdaptsToDeviceCoversTheGraphsTable)
 {
     EXPECT_TRUE(SushiDSP::rig_output_adapts_to_device(1u, 1u));
@@ -125,6 +89,26 @@ TEST(Unit_Dsp, WriteRigOutputCopiesOneRigChannelToBothDeviceChannels)
                                          SushiDSP::ChannelSelection::Stereo);
 
     EXPECT_EQ(left, mono);
+    EXPECT_EQ(right, mono);
+}
+
+TEST(Unit_Dsp, WriteRigOutputZeroesTheChannelTheSelectionExcludesForOneRigChannel)
+{
+    std::vector<float> mono{ 1.0f, 2.0f, 3.0f };
+    const float* rig_outputs[1] = { mono.data() };
+    std::vector<float> left(3, 9.0f), right(3, 9.0f);
+    float* device_outputs[2] = { left.data(), right.data() };
+
+    SushiDSP::write_rig_output_to_device(rig_outputs, 1u, device_outputs, 2u, 3u,
+                                         SushiDSP::ChannelSelection::Left);
+    EXPECT_EQ(left, mono);
+    for (float sample : right) { EXPECT_FLOAT_EQ(sample, 0.0f); }
+
+    left.assign(3, 9.0f);
+    right.assign(3, 9.0f);
+    SushiDSP::write_rig_output_to_device(rig_outputs, 1u, device_outputs, 2u, 3u,
+                                         SushiDSP::ChannelSelection::Right);
+    for (float sample : left) { EXPECT_FLOAT_EQ(sample, 0.0f); }
     EXPECT_EQ(right, mono);
 }
 
