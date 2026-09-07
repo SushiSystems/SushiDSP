@@ -20,7 +20,7 @@ Intent and the acceptance list live in
 | Ownership of every loaded take, and the counts clips borrow against | `TakeLibrary` |
 | One lane's clips, sorted and immutable once published | `TrackTimeline` |
 | A click on every beat, on the monitor path only | `Metronome` |
-| Mixing up to eight takes into one output at that position | `TrackPlayer` |
+| Mixing up to eight clip timelines into one output at that position and speed | `TrackPlayer` |
 | Reading a take at a playback speed other than 1.0 | `VariRateReader` |
 | Interleaving and the RIFF header | `SushiDSP::WavWriter`, in the core's `io/` |
 | Parsing a WAV file back into samples | `SushiDSP::WavFile`, in the core's `io/` |
@@ -93,12 +93,18 @@ the RT bar.
 with no syscall: at 48 kHz, stereo float, five minutes is 115 MB. `Take::load(path)` runs on the
 control thread and reads the channels apart, so a stereo file stays stereo.
 
-`TrackPlayer::set_take` publishes a loaded take into a track's `RtSwapSlot<Take>`, which swaps a
-pointer and retires the old object instead of freeing it. `process()` acquires the active take for
-the block and records the generation it read, so the take under a playing track can be replaced
-mid-block without the audio thread ever touching freed memory. The retired takes are freed by
-`TrackPlayer::reclaim()` on the control thread — once per GUI frame is enough — and a host that
-never calls it leaks every take it replaces.
+`TrackPlayer::set_timeline` publishes a lane's clips into its `RtSwapSlot<TrackTimeline>`, which
+swaps a pointer and retires the old object instead of freeing it. `process()` acquires the active
+timeline for the block and records the generation it read, so the clips under a playing lane can be
+replaced mid-block without the audio thread ever touching freed memory. `TrackPlayer::set_take`
+still exists for a host that plays one whole recording: it hands the take to `takes()` and
+publishes a one-clip timeline starting at frame 0. `TrackPlayer::reclaim()` on the control thread
+— once per GUI frame is enough — reclaims all eight lane slots and only then collects the
+library, and a host that never calls it leaks every timeline and every take it replaces.
+
+A clip's de-click ramp is `TrackTimeline::edge_gain`, and `TrackPlayer` asks for it only at an edge
+that cuts into the take. A clip that plays a take from its own frame 0 to its own last frame is
+flat, which is what keeps a whole recording sample for sample against the file it was loaded from.
 
 `process()` adds into the output rather than overwriting it, so the caller fills or clears the
 buffer first. It mixes the soloed tracks when any track is soloed and the unmuted ones otherwise,
@@ -107,6 +113,14 @@ run. It reads the position out of the `Transport` and honours the loop range, so
 the loop end continues from the loop begin exactly where `Transport::advance()` will put the next
 one.
 
+The block walks a lane in timeline frames, not output frames. `Transport::advance` moves the
+position by `speed` frames per output frame, so a clip's `start_frame` and its take frames are the
+same unit and a clip at timeline frame 12345 reads take frame 0 there whatever the speed. The two
+are converted at the run's own base with the 32.32 speed word, which costs at most kMaxClips
+comparisons per run, and a run ends at the loop end or the block end. Speed 1.0 is a bypass:
+the clip is copied straight out of the take and never enters the lane's `VariRateReader`, so a
+golden file compares bits rather than a filter's output.
+
 `Transport` keeps the loop range in a single `std::atomic<std::uint64_t>`: the begin frame in the
 high half, the length in the low. One load gives the audio thread two ends that agree, so no block
 can read a begin from before a `set_loop` and an end from after it, and no seqlock is needed. The
@@ -114,8 +128,9 @@ cost is that a loop must lie inside the first 2^32 frames — 24.8 hours at 48 k
 clears the loop rather than setting a bad one when its arguments do not fit or do not increase.
 `seek()` concurrent with `advance()` can be overwritten by that block's store; the host serialises
 the two, and the header says so as a `@pre` rather than paying for a generation counter no caller
-needs. `TrackPlayerProcessPerformsNoHeapAllocation` in
-`tests/functional/unit/test_rt_safety.cpp` holds the RT bar, and
+needs. `TrackPlayerProcessPerformsNoHeapAllocation` and
+`TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread` in
+`tests/functional/unit/test_rt_safety.cpp` hold the RT bar, and
 `tests/functional/unit/test_track_player.cpp` covers the mix.
 
 Spec §6 carries the intent behind all of it.
