@@ -37,7 +37,7 @@ are the repo's own bricks; `DiezelVh4` owns the order they run in and nothing el
 | R42 470 k, VOLUME 470 k, R43 680 k into the 48.1 k mix node | knob × 0.5, then ×0.0660 | — | 2, 6 |
 | V4a, Ra 120 k, Rk 640 unbypassed | `TriodeStage`, gain 28.7, Vgk −0.98 V | 184.0 / 72.688 | 6 |
 | V4b send buffer | scalar ×0.986 | — | 2 |
-| Loop return driver, phase inverter | one `TriodeStage` at gain 22.426327, input divided by the tail degeneration 1.853029 | 15.381908 / 209.940627 | 5 — nothing established, `Jcm800.cpp` copied |
+| Loop return driver, phase inverter | one `TriodeStage` at gain 22.426327, input divided by the tail degeneration 1.743723 | 15.381908 / 209.940627 | 5 — nothing established, `Jcm800.cpp` copied |
 | EL34 quad | two `PentodeStage(kDiezelVh4PowerEl34)`, grid fed through ×0.077160 | — | 7 |
 | Output transformer, supply sag | JCM800 constants | — | 5 — nothing established |
 | Deep | `ResonanceControl` at 80 Hz, 10 dB | — | 5, 6 |
@@ -164,7 +164,9 @@ The VH4's inverter is not established (§5), so it stands in for the JCM800's pa
 `Jcm800.cpp`'s `kPhaseInverterCathodeBias` −3.928014 V, `kPhaseInverterPlateSwing`
 { 15.381908, 209.940627 }, `kPhaseInverterGain` 22.426327 — one triode's full load-line gain, not
 half of it, because the pair's split is already in the factor — and `kPhaseInverterDegeneration`
-**1.853029**, which `DiezelVh4.cpp` divides the inverter's input by. A product module may not
+**1.743723**, which `DiezelVh4.cpp` divides the inverter's input by. Its tail is the 10.47 kΩ both
+cathodes share, `jcm_ltp`'s 470 Ω and 10 kΩ in series to ground; the 20.94 kΩ that reaches the
+cathode-bias figure is the per-half DC equivalent and belongs only in the idle solve. A product module may not
 include another, so the values travel by copy and cite the JCM800's symbol names; the derivation
 lives beside them in `Jcm800.cpp`, from `jcm_ltp`'s 82 kΩ plate, its shared 470 Ω + 10 kΩ tail and
 the Koren Jacobian at that pair's idle point. Before this the module derived its own figure, got
@@ -222,13 +224,13 @@ one moving after a render, zero outside the range.
 
 Each grid carries a small resting offset, `Is·(Rs ∥ Rg)` from the cathode-referenced conduction
 diode, and each plate multiplies it: at silence the five grids sit at 10 µV, 119 µV, 1.35 mV,
-391 µV and 5.925 mV (default knobs, 2 s of all-zero input, 2026-09-07). None of it reaches the
+391 µV and 6.296 mV (default knobs, 2 s of all-zero input, 2026-09-07). None of it reaches the
 output. C18 and C20 are in the two places the offset could accumulate — C20, 220 nF at 2.26 Hz, is
 the capacitor the drawing puts on V3b's output, and the module applies it immediately after the
 follower scalar through `Biquad::set_first_order_high_pass()`, whose real pole stays put at a
 corner that far down — and the output transformer's 60 Hz rolloff takes what is left. Two seconds of
-digital silence come back at **3.4e-44 peak, −869.5 dBFS**, DC mean 8.7e-49, with the gain knob at
-its default, and at 2.4e-43, −852.4 dBFS with the knob at 0.0. Both are denormals.
+digital silence come back at **3.4e-44 peak, −869.5 dBFS**, DC mean −6.1e-48, with the gain knob at
+its default, and at 3.5e-44, −869.1 dBFS with the knob at 0.0. Both are denormals.
 
 The one DC-coupled link with no capacitor after it is V4a → V4b → the phase inverter, which is why
 the inverter's grid shows the largest resting offset of the five. §5 establishes nothing past the
@@ -313,7 +315,7 @@ The shipped value is one measurement. With the four staging factors removed on 2
 chain runs a great deal hotter into the power section than it did, so the constant fell from
 2.148178 to 0.816610; the phase inverter's tail degeneration and the power tubes' grid scale then
 moved it to 0.624524; copying the JCM800's four long-tailed-pair constants moved it again to
-**0.627263**, at which the test reads −6.000 dBFS. The measurement is direct: the
+**0.627263**, at which the test reads −6.005 dBFS. The measurement is direct: the
 constant multiplies the signal after the last nonlinearity, so it is set, the test run, and the
 constant scaled by the decibels the reading misses.
 
@@ -324,25 +326,25 @@ points, the corner frequencies and the two impedance figures §6 lists, which te
 against the documented circuit rather than against an amplifier.
 
 `DiezelVh4HasACleanEndAtMinimumGain` is this module's acceptance test since the level staging
-came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **0.0813 %**
+came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **0.0940 %**
 (2026-09-07), well under the spec's 10 %. The knob is read at 0.01 rather than 0.0 because the pot
 is a plain divider to ground: at 0.0 it shorts the signal and the node is silent, which leaves THD
 without a denominator. `DiezelVh4ThdIncreasesWithGain` asks only that the reading not fall as the
 knob rises, within 0.5 percentage points, because once every stage clips the metric saturates.
 
-`DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz` asserts the 80 Hz point alone, 4.620 dB
-against a nominal 5. The 20 Hz point reads 3.864 dB where the shelf is 10 dB deep, and the output
+`DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz` asserts the 80 Hz point alone, 4.622 dB
+against a nominal 5. The 20 Hz point reads 3.779 dB where the shelf is 10 dB deep, and the output
 clamp is not the reason — the same two figures come back with the master 20 dB down. C13's input
 high-pass, 314 Hz with the gain knob at its top and 618 Hz at its bottom, has thrown the
 fundamental away before the first distorting stage, so at 20 Hz the swept-sine estimate is
 measuring the saturated chain's own product rather than the shelf.
 
 `DiezelVh4MixBusAttenuationIsApplied` measures at **−80 dBFS**, which is where this chain is still
-linear end to end: the same reading is 60.353 dB at −80, 60.51 at −100 and 60.49 at −120, a 0.15 dB
-spread, where −60 dBFS reads 54.118 dB with the inverter's grid already past its conduction knee.
-Its comment writes the cascade out factor by factor to the EL34 grids, ×1397.35, each stage's own
-`Rg / (Rs + Rg)` grid divider on the row with its gain, and leaves one block measured: the EL34
-pair, the ×0.05 trim, the transformer and the sag stage are worth ×0.7453 together.
+linear end to end: the same reading is 60.862 dB at −80, 61.028 at −100 and 61.018 at −120, a
+0.17 dB spread, where −60 dBFS reads 54.365 dB with the inverter's grid already past its conduction
+knee. Its comment writes the cascade out factor by factor to the EL34 grids, ×1484.95, each stage's
+own `Rg / (Rs + Rg)` grid divider on the row with its gain, and leaves one block measured: the EL34
+pair, the ×0.05 trim, the transformer and the sag stage are worth ×0.7437 together.
 
 ## Not modelled
 
