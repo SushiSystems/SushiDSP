@@ -52,10 +52,6 @@ namespace SushiDSP
 
     RigGraph::NodeChannels RigGraph::channels_of(const PortLayout& layout)
     {
-        // input_channels has always counted a node's input slots, not its channels: MixerNode
-        // declares kMaxFanIn of them and reads one edge from each. A node's channel width is
-        // therefore taken from output_channels, narrowed by input_channels so that a widening
-        // node (1 in, 2 out) is still fed the single channel it consumes.
         const std::uint32_t input_width = std::min(layout.input_channels, layout.output_channels);
         const std::uint32_t input_slots = (input_width == 0)
             ? layout.input_channels
@@ -264,8 +260,7 @@ namespace SushiDSP
             total_output_channels += node_channels_[handle].output_width;
         }
 
-        // The adaptation borrows a buffer per input channel only while one node's inputs are
-        // being gathered, so its reserve is the widest gather, not one per edge in the graph.
+        // The gather reserve is the widest single gather, not one buffer per edge in the graph.
         live_buffer_count_ = total_output_channels
             + static_cast<std::uint32_t>(kMaxFanInOut) * kMaxChannels;
 
@@ -348,6 +343,7 @@ namespace SushiDSP
             float* output_ptr[kMaxChannels] = {};
             for (std::uint32_t channel = 0; channel < channels.output_width; ++channel)
             {
+                // compile() sizes the pool at sum(output channels) + kMaxFanInOut * kMaxChannels, so acquire() cannot fail here.
                 float* node_buffer = buffer_pool_.acquire(context.frames);
                 assert(node_buffer != nullptr && "RigGraph: BufferPool exhausted; compile() sizes it from live_buffer_count()");
                 node_output[handle * max_output_channels_ + channel] = node_buffer;
@@ -371,8 +367,7 @@ namespace SushiDSP
                     continue;
                 }
 
-                // Edges past the consumer's last slot fold into it, so fan-in beyond what the
-                // node declares is summed per channel rather than dropped.
+                // Edges past the consumer's last slot fold into that slot rather than being dropped.
                 const std::uint32_t slot = std::min(edge_index, slots - 1);
                 ++edge_index;
 
