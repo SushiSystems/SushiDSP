@@ -21,9 +21,24 @@ IIC+'s defaults, took away the re-squaring its +0.2 model-volt clamp had done to
 two figures read the same with the power stage made linear, so what they now show is the
 preamp's fold at the drive the circuit delivers, 10 to 3500× past the windows at guitar level.
 Documented by `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b`
-(`tests/functional/unit/test_measure.cpp`), skipped with the measured figure printed. Closes with
+(`tests/functional/unit/test_measure.cpp`), skipped with the measured figure printed. DA5 part 3
+measured 16× through probes (spec section 14): JCM800 default −16.3 to −35.0 dB, preamp 1.0
+−13.4 to −25.1 dB, 5150 default −11.4 to −19.9 dB, IIC+ −0.1 to −14.3 dB, VH4 −13.3 to −27.3 dB,
+at 1.9 to 2.0× the CPU cost (the 5150 alone 5.19 of the 5.33 ms block). Closes with
 the rest of `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`: antialiasing at
-the stage, after the 16× measurement the maintainer asked for.
+the stage, decision 2.
+
+## Float biquads put a low-frequency floor under the clean settings
+
+The JCM800 at preamp 0.02 and a −12 dBFS input reads −48.0 dB through `measure::alias_floor()`,
+and every one of its worst bins sits between 20 and 100 Hz: the figure is not a fold but the
+rounding noise of `Biquad`'s float recursion at the oversampled rate, where the JCM800's 120 Hz
+bass shelf sits at 1.56e-4 of 384 kHz and the transformer's 60 Hz rolloff at 7.8e-5 of the
+768 kHz a 96 kHz host or a 16× region runs at, under `set_high_pass`'s own 1e-4 precondition. With
+the biquad's coefficients and state in double the same setting reads −78.0 dB at 8× and −81.2 dB
+at 16×, with its worst bins at kilohertz; at 16× the float floor is −35.9 dB (DA5 part 3, spec
+section 14). The hot defaults do not move. Closes when `Biquad` carries double state behind its
+float interface, a brick change the maintainer owns.
 
 ## Mesa Mark IIC+ has no clean setting
 

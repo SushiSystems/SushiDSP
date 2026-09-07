@@ -583,6 +583,20 @@ IIC+ defaults read the same with the power stage made linear, so what shows ther
 fold, which the old clamp had masked by re-squaring the output; the antialiasing part (decision 2)
 owns it. Unity constants at 82 Hz: JCM800 0.2534701, 5150 0.1730211, IIC+ 0.2402319, VH4 0.2365060.
 
+### As built in DA5, part 3 — the transformer's secondary and the 16× measurement
+
+`OutputTransformerStage`'s output carries no mean: a one-pole running mean of the saturated signal,
+tracked in double a decade under the rolloff's corner, is subtracted after the tanh, because a
+secondary sees d(flux)/dt and the tanh had been putting back 0.021 of full scale of the DC its own
+rolloff removed whenever the pair delivered a square with unequal halves (the VH4 at bass 0 read
+0.0152 of output DC; it reads 0.0010, the ±1 clamp's own). The four unity constants at 82 Hz are
+re-pinned on it: JCM800 0.2500494, 5150 0.1710120, IIC+ 0.2349335, VH4 0.2319680. 16× was measured
+through probes and not shipped (spec §14): alias floors at −12 dBFS move from −16.3 to −35.0 dB
+(JCM800 default), −13.4 to −25.1 (JCM800 preamp 1.0), −11.4 to −19.9 (5150), −0.1 to −14.3 (IIC+)
+and −13.3 to −27.3 (VH4) at 1.9 to 2.0× the CPU, the 5150 alone taking 5.19 of the 5.33 ms block;
+the clean settings' floor at either rate is `Biquad`'s float rounding (−48.0 dB at 8×, −78.0 with
+double state), not a fold.
+
 ### §5a Amplifier family
 
 The DA phase (plans `docs/superpowers/plans/2026-09-06-high-gain-amps-part1.md` and
