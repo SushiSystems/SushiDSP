@@ -65,10 +65,10 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 | V2B cathode, 0.47 µF on 1 k, PULL DEEP out | zero 338.63 Hz, pole **485.73 Hz**, loss below **0.6972** (−3.13 dB) | — | §3.7 |
 | V2B coupling, 0.047 µF into 100 k | high-pass **33.86 Hz** (computed) | — | §3.7 |
 | Graphic EQ | 71.5 / 371.8 / 979.5 / 1576 / 4823 Hz at Q 1.434 / 1.938 / 1.571 / 0.673 / 1.0, ±17 dB | — | §4.2 |
-| V5A/V5B long-tailed pair, Rp 82 k | gain **70.652449** = 100 × 82 k / (82 k + 34.061 k), tail degeneration **1.9025749** (see below), divided by | 106.0 / 143.768 (C 392 V, Va 286 V, bottom 142.232 V) | §5.1 |
+| V5A/V5B long-tailed pair, Rp 82 k | gain **68.093628** = 96.378299 × 82 k / (82 k + 34.061 k), tail degeneration **2.2552703** (see below), divided by | 106.0 / 143.768 (C 392 V, Va 286 V, bottom 142.232 V) | §5.1 |
 | Simul-Class output | `kMesaMark2cPower6L6GC` ×2 at grid scale **0.0907030**, `kMesaMark2cPowerEl34Triode` ×2 at **0.0619348** | — | §7.2, §7.3 |
 | Presence, 0.022 µF with 6.8 k | high shelf at **1063.9 Hz** (computed), ±9 dB | — | §5.2 |
-| Master 1, 100 k | dB control, `kMasterUnityGain` 0.7040127 | — | §2 |
+| Master 1, 100 k | dB control, `kMasterUnityGain` 0.6907759 | — | §2 |
 
 The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 5.0 kHz (V2A),
 11.6 kHz (V2B) and 15.2 kHz (the inverter). Each is computed from the JCM800's 12AX7 capacitances
@@ -103,23 +103,26 @@ open questions 19 and 20.
 | Skipped test | What it measures now | What it will re-assert |
 | --- | --- | --- |
 | `MesaMark2cHasACleanEndAtMinimumGain` | 41.5 % THD at Lead Drive 0.02 and −40 dBFS | THD below 10 % somewhere on the knob |
-| `MesaMark2cToneStackSitsBeforeTheLeadStages` | bright minus dark −0.40 pp at −80 dBFS, −0.66 pp at −100 dBFS | a brighter stack drives the lead stages harder, by more than 5 pp |
-| `MesaMark2cEqBandBoostsItsCentre` | the 750 Hz slider lifts 979.5 Hz by 0.009 dB at −80 dBFS, −0.011 dB at −100 dBFS | the bank's full 17 dB lift |
+| `MesaMark2cToneStackSitsBeforeTheLeadStages` | bright minus dark −0.09 pp at −80 dBFS, −0.40 pp at −100 dBFS | a brighter stack drives the lead stages harder, by more than 5 pp |
+| `MesaMark2cEqBandBoostsItsCentre` | the 750 Hz slider lifts 979.5 Hz by 0.009 dB at −80 dBFS, −0.010 dB at −100 dBFS | the bank's full 17 dB lift |
 
 Lowering the test input does not rescue the last two: the output sits on its ceiling at −80 and at
 −100 dBFS alike, 60 dB below anything a guitar produces, so neither control reaches it.
 
 **Three constants that are not the dossier's.** Driven single-ended, the long-tailed pair's shared
 cathode follows the driven grid through the tail, so the grid-to-cathode window is the input divided
-by `1 + R_tail / (R_tail + Z_k)`, where `Z_k` is the impedance the other triode's cathode presents:
-`(r_a + R_a) / (µ + 1)` = 1149.120 Ω, in series with §5.1's 470 Ω between the cathodes, which is
-where that resistor sits on the drawing rather than in the tail to ground. That gives
-`1 + 15000 / (15000 + 1619.120)` = **1.9025749**, always divided by. Leaving the 470 Ω out would give
-1.9288432, so it is worth 1.4 % and the placement is recorded rather than argued. The inverter's
-`TriodeStage` then carries the **full** single-triode gain, `100 × 82000 / (82000 + 34061.087)` =
-**70.652449**: the pair's split is the degeneration factor's job, and halving the gain as well
-counted it twice. R_tail is §5.1's 15 k tail glyph and r_a 34061.087 Ω from the Koren model at
-Vgk −1.5 V, Vpk 284.5 V.
+by `1 + (R_tail ∥ Z_shunt) / Z_k`. `Z_k` is the driven triode's *own* cathode impedance,
+`(r_a + R_a) / (µ + 1)` = 1191.858 Ω, and it stays in the denominator; `Z_shunt` is the branch the
+other cathode presents, which is that same `Z_k` plus §5.1's 470 Ω drawn between the cathodes, so
+1661.858 Ω. Then `15000 ∥ 1661.858` = 1496.104 and the factor is
+`1 + 1496.104 / 1191.858` = **2.2552703**, always divided by. Series resistance between the cathodes
+has to *raise* the factor, and it does: without the 470 Ω the same form gives 1.9263915.
+
+µ is the local `gm · r_a` from the Koren Jacobian at the solved point, **96.378299**, not the
+model's nominal 100, and the same µ sets the gain: the inverter's `TriodeStage` carries the **full**
+single-triode `96.378299 × 82000 / (82000 + 34061.086)` = **68.093628**, because the pair's split is
+the degeneration factor's job and halving the gain as well counted it twice. R_tail is §5.1's shared
+15 k tail glyph and r_a 34061.086 Ω, both at Vgk −1.5 V, Vpk 284.5 V.
 
 `PentodeStage` is not volt-true: its grid saturates at `1 / (drive × gain)` in its own units, not at
 the preset's −45 V. Two scales bridge the volt-true preamp to it until `PentodeStage` becomes
@@ -176,9 +179,9 @@ shorts the pot's top section above the corner.
 
 **The phase inverter's cathode bias is −1.5 V**, which no source states: §5.1 gives 82 k plate
 resistors and printed DC that does not close (§8 question 6). The gain is the full single-triode
-70.652449 rather than the 56.75 the dossier's own rp figure would give, because it is taken from
-the Koren r_a at that point, and the pair's split is carried by the degeneration factor above
-instead of by halving the gain.
+68.093628 rather than the 56.75 the dossier's own rp figure would give, because it is taken from the
+Koren r_a and local µ at that point, and the pair's split is carried by the degeneration factor
+above instead of by halving the gain.
 
 **Presence depth is ±9 dB.** §5.2 gives the network's corner but no depth in decibels. The 9 dB is
 the JCM800's constant.
