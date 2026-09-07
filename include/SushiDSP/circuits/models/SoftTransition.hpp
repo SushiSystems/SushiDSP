@@ -61,10 +61,11 @@ namespace SushiDSP
         /// @return ln(1 + exp(t)), computed without overflow for large positive t.
         inline double softplus(double t)
         {
-            double softplus_value = 0.0;
-            double logistic_value = 0.0;
-            softplus_and_logistic(t, softplus_value, logistic_value);
-            return softplus_value;
+            if (t >= 30.0)
+            {
+                return t;
+            }
+            return std::log1p(std::exp(t));
         }
 
         /// @brief Logistic 1 / (1 + exp(-t)), which is the derivative of softplus().
@@ -72,10 +73,12 @@ namespace SushiDSP
         /// @return 1 / (1 + exp(-t)) in [0, 1], computed without overflow for either sign of t.
         inline double logistic(double t)
         {
-            double softplus_value = 0.0;
-            double logistic_value = 0.0;
-            softplus_and_logistic(t, softplus_value, logistic_value);
-            return logistic_value;
+            if (t >= 30.0)
+            {
+                return 1.0 / (1.0 + std::exp(-t));
+            }
+            const double exponential = std::exp(t);
+            return exponential / (1.0 + exponential);
         }
     }
 }
