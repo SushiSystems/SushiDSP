@@ -211,6 +211,30 @@ TEST(Unit_Dsp, TrackPlayerPanLawMatchesPanNodeWithinAHundredthOfADecibel)
     }
 }
 
+TEST(Unit_Dsp, TrackPlayerMonoOutputIgnoresPan)
+{
+    for (int step = 0; step < 9; ++step)
+    {
+        const float pan = -1.0f + 0.25f * static_cast<float>(step);
+
+        SushiDSP::Transport   transport;
+        SushiDSP::TrackPlayer player;
+        player.set_take(0, ramp_take(64));
+        player.set_pan(0, pan);
+        player.set_gain(0, 0.5f);
+
+        std::vector<float> mono(64, 0.0f);
+        float*             outputs[1] = { mono.data() };
+        player.process(outputs, 1u, static_cast<std::uint32_t>(mono.size()), transport);
+
+        for (std::size_t frame = 0; frame < mono.size(); ++frame)
+        {
+            EXPECT_FLOAT_EQ(mono[frame], 0.5f * (1.0f + static_cast<float>(frame)))
+                << "at pan " << pan << ", frame " << frame;
+        }
+    }
+}
+
 TEST(Unit_Dsp, TrackPlayerPlayingPastTheEndYieldsSilence)
 {
     SushiDSP::Transport   transport;

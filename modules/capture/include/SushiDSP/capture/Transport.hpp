@@ -106,6 +106,13 @@ namespace SushiDSP
         /// @return The loop end, or 0 when no loop is set.
         std::uint64_t loop_end_frames() const noexcept;
 
+        /// @brief Reads the whole loop range out of one atomic load, so a block can never mix
+        /// one range's begin with another's end. Either thread. Real-time safe.
+        /// @param out_begin Receives the loop begin in frames, 0 when no loop is set.
+        /// @param out_length Receives the loop length in frames, 0 when no loop is set.
+        /// @return True when a loop range is set.
+        bool loop_snapshot(std::uint64_t& out_begin, std::uint64_t& out_length) const noexcept;
+
     private:
         /// @brief Splits the packed loop word into its begin frame and length.
         /// @param packed The word loop_ holds.

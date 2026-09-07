@@ -81,12 +81,11 @@ namespace SushiDSP
         /// call it periodically, for instance once per GUI frame.
         void reclaim();
 
-        /// @brief Adds every audible track into the output at the transport's position: the
-        /// soloed tracks if any track is soloed, otherwise the unmuted ones. Audio thread. Real
-        /// time safe: allocation-free, lock-free and throw-free. It reads the transport but
-        /// never advances it - the host does that once per block - and it honours the loop
-        /// range, so a block that crosses the loop end continues from the loop begin exactly as
-        /// Transport::advance() will.
+        /// @brief Adds every audible track into the output at the transport's position - the
+        /// soloed tracks if any is soloed, otherwise the unmuted ones - wrapping at the loop end
+        /// exactly as Transport::advance() will, and leaving the transport where it found it. A
+        /// mono output carries no pan, so a track folds into it at its own gain whatever its pan
+        /// position. Audio thread. Real-time safe: allocation-free, lock-free and throw-free.
         /// @param outputs One writable buffer of at least frames samples per output channel.
         /// @param channels How many output channels outputs holds.
         /// @param frames How many frames to mix.
@@ -141,11 +140,12 @@ namespace SushiDSP
         /// @param offset The first output frame this run writes.
         /// @param count How many frames this run covers.
         /// @param position The take frame the run starts at; frames past the end add nothing.
-        /// @param gain_left The left-channel gain, pan and track gain already folded in.
-        /// @param gain_right The right-channel gain, pan and track gain already folded in.
+        /// @param gain_left The left gain, pan and track gain folded in; a stereo output only.
+        /// @param gain_right The right gain, pan and track gain folded in; a stereo output only.
+        /// @param mono_gain The track gain alone, used when the output has no right channel.
         static void mix_run(const Take& take, float* const* outputs, std::uint32_t channels,
                             std::uint32_t offset, std::uint32_t count, std::uint64_t position,
-                            float gain_left, float gain_right) noexcept;
+                            float gain_left, float gain_right, float mono_gain) noexcept;
 
         /// @brief Holds every track's take and mix controls.
         std::array<Track, kMaxTracks> tracks_;
