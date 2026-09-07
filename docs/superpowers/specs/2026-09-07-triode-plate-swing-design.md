@@ -76,9 +76,12 @@ module:
 
 - **The phase inverter is a long-tailed pair.** Driven single-ended, its cathode follows the grid
   through the tail, so the driven triode's grid-to-cathode signal is the input divided by
-  `1 + R_tail / (R_tail + (r_a + R_a) / (µ + 1))`, where `(r_a + R_a) / (µ + 1)` is the impedance
-  the other triode's cathode presents in parallel with the tail. For any real tail the factor sits
-  near 2 (the 5150: about 1.9). The first ruling of 2026-09-07 used `1 + (µ + 1)·R_tail / (r_a + R_a)`
+  `1 + (R_tail ∥ Z_shunt) / Z_k`, where `Z_k = (r_a + R_a) / (µ + 1)` is the driven triode's own
+  cathode impedance, `Z_shunt` is `Z_k` plus any resistance drawn between the two cathodes, and
+  `R_tail` is the small-signal tail both cathodes share (not a per-half DC equivalent). Series
+  resistance between the cathodes raises the factor; a shared tail lowers it. `µ` is `gm · r_a`
+  from the Jacobian at the solved point, never the model's nominal `kMu`. For any real tail the
+  factor sits near 2. The first ruling of 2026-09-07 used `1 + (µ + 1)·R_tail / (r_a + R_a)`
   without the cathode shunt and on top of a "half the common-cathode gain" figure, which counted the
   pair's split twice and left the power tubes 20 dB low; the four module reviews caught it. Each module
   therefore applies the corrected factor at the inverter's input as `kPhaseInverterDegeneration` (a
