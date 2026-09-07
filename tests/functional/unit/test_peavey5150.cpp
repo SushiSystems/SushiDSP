@@ -58,14 +58,18 @@ namespace
         return node;
     }
 
-    // measure::frequency_response() sweeps at -40 dBFS, and at the default PRE GAIN that already
-    // squares every stage from V2A on, so a shelf measured there reads the amplifier's compression
-    // rather than the shelf: the presence lift reads 7.44 dB and the resonance lift 6.75 dB at
-    // 2026-09-07's chain. Both shelves are linear sections after the decimator, so the honest place
-    // to read them is with the nonlinear path small-signal. PRE GAIN 0.02 with 24 dB of input trim
-    // puts the sweep near Peavey's own nominal input, where the module reads 0.38 % THD.
+    // measure::frequency_response() sweeps at -40 dBFS, and at the default setting that squares
+    // every stage from V2A on, so a shelf measured there reads the amplifier's compression rather
+    // than the shelf: 6.74 dB for presence and 5.75 dB for resonance on 2026-09-07's chain. Both
+    // shelves are linear sections after the decimator, so the honest place to read them is with the
+    // path ahead of them small-signal. Turning PRE GAIN and the input trim down is not enough on
+    // its own - the trim floors at -24 dB and the power section is still saturating - so POST GAIN
+    // comes down too: it sits ahead of the driver, the phase inverter and the output tubes, which
+    // is where the remaining compression is. At this setting the two shelves read 9.90 dB and
+    // 9.90 dB against their 10 dB target.
     constexpr float kLinearPathPreGain = 0.02f;
     constexpr float kLinearPathInputTrimDb = -24.0f;
+    constexpr float kLinearPathPostGainDb = -40.0f;
 
     /// @brief A default node set to a level at which the chain ahead of the shelves stays linear.
     std::unique_ptr<SushiDSP::Peavey5150> small_signal_node()
@@ -73,6 +77,7 @@ namespace
         auto node = prepared_node();
         node->set_pre_gain(kLinearPathPreGain);
         node->set_input_trim(kLinearPathInputTrimDb);
+        node->set_post_gain(kLinearPathPostGainDb);
         return node;
     }
 
@@ -306,8 +311,8 @@ TEST(Unit_Dsp, Peavey5150ThdDoesNotFallAsPreGainRises)
     // The sweep starts at 0.02, the first position that passes signal: VR2 at the bottom mutes the
     // amplifier and the reading there is the FFT's floor on denormals, not distortion.
     //
-    // Measured 2026-09-07: 15.08, 25.60, 26.98, 27.08, 27.28, 27.76, 28.17, 28.14, 27.71 percent.
-    // The sweep rises to 0.50 and then eases; the largest fall is 0.432 pp from 0.70 to 1.00.
+    // Measured 2026-09-07: 26.66, 26.97, 27.09, 27.02, 27.20, 27.66, 28.07, 28.02, 27.59 percent.
+    // The sweep rises to 0.50 and then eases; the largest fall is 0.433 pp from 0.70 to 1.00.
     const float positions[] = { 0.02f, 0.05f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
     double previous = 0.0;
     bool first = true;
@@ -327,13 +332,14 @@ TEST(Unit_Dsp, Peavey5150ThdDoesNotFallAsPreGainRises)
     EXPECT_GT(previous, 3.0);
 }
 
-TEST(Unit_Dsp, Peavey5150ColdClipperStageClipsAsymmetrically)
+TEST(Unit_Dsp, Peavey5150EvenHarmonicsRiseFromLowToFullPreGain)
 {
-    // V2A's 39 kOhm unbypassed cathode starves the stage to 0.102 mA and puts its plate within
-    // 15 V of the rail (dossier section 3), so it clips one half-cycle far harder than the other.
-    // The stage is not reachable from outside the node, so the claim is asserted where it is
-    // visible: the even-harmonic content of the whole amplifier must rise as the pre gain drives
-    // that stage further into its asymmetry.
+    // What this proves is its name and no more: the amplifier's even-harmonic content is higher
+    // at full pre gain than at 0.2. It was written to assert V2A's asymmetry - the 39 kOhm
+    // unbypassed cathode starves that stage to 0.102 mA and puts its plate within 15 V of the rail
+    // (dossier section 3), so it clips one half-cycle far harder than the other - but an
+    // output-side measure cannot attribute even harmonics to one stage, and the sweep below is not
+    // monotonic, so the test is named for what it measures.
     auto even_harmonic_ratio = [](float pre_gain)
     {
         const SushiDSP::measure::ThdResult result = harmonics_at(pre_gain, 0.02f);
@@ -349,16 +355,34 @@ TEST(Unit_Dsp, Peavey5150ColdClipperStageClipsAsymmetrically)
     const double driven = even_harmonic_ratio(1.0f);
     std::printf("[ measure ] even harmonics %.5f at pre gain 0.2, %.5f at 1.0\n", quiet, driven);
 
-    // Measured 2026-09-07: 0.00983 at pre gain 0.2 against 0.10027 at 1.0, a factor of 10.2. The
+
+    // Measured 2026-09-07: 0.00865 at pre gain 0.2 against 0.09843 at 1.0, a factor of 11.4. The
     // gate is a factor of 4.
     //
-    // The measure is noisy across the knob - 0.0171, 0.0421, 0.0098, 0.1351, 0.1003 at pre gain
-    // 0.05, 0.10, 0.20, 0.50 and 1.00 - because at this stimulus every stage from V5A on is already
-    // on its bound, so the amplifier's even harmonics are the push-pull pair's as much as V2A's.
-    // V2A's own grid does move from 2.81 V to 4.26 V across the same span, past the 4.00 V at which
-    // it conducts, so the asymmetry the test names is real; what the output measure cannot do is
-    // attribute it. modules/peavey5150/README.md, "The cold clipper's asymmetry", carries this.
+    // The measure is not monotonic across the knob - 0.0095, 0.0385, 0.0086, 0.1338, 0.0984 at pre
+    // gain 0.05, 0.10, 0.20, 0.50 and 1.00 - because at this stimulus every stage from V5A on is
+    // already on its bound, so the amplifier's even harmonics are the push-pull pair's as much as
+    // V2A's. V2A's own grid does move from 2.81 V to 4.26 V across the same span, past the 4.00 V
+    // at which it conducts, so V2A's asymmetry is real; what an output-side measure cannot do is
+    // attribute it, which is why this test is named for the two points it compares.
+    // modules/peavey5150/README.md, "The cold clipper's asymmetry", carries the sweep.
     EXPECT_GT(driven, quiet * 4.0);
+}
+
+TEST(Unit_Dsp, Peavey5150GridProbesReportEveryStageInSignalOrder)
+{
+    // The two test hooks the plate-swing spec added. Eight stages in signal order - V1A, V1B, V2A,
+    // V2B, V5B, V5A, V3A and the phase inverter - every one of which has seen signal after a
+    // default render, and a zero for anything past the end.
+    auto node = prepared_node();
+    ASSERT_EQ(node->triode_stage_count(), std::size_t{ 8 });
+
+    render_sine(*node, 1000.0, 0.251f, 40);
+    for (std::size_t stage = 0; stage < node->triode_stage_count(); ++stage)
+    {
+        EXPECT_GT(node->grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
+    }
+    EXPECT_FLOAT_EQ(node->grid_excursion_peak_volts(node->triode_stage_count()), 0.0f);
 }
 
 TEST(Unit_Dsp, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
@@ -366,7 +390,7 @@ TEST(Unit_Dsp, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
     // Dossier section 6, quoting Peavey's own specification table: "Active Presence: +10 dB 2 kHz".
     // The shelf's corner sits at 600 Hz so its plateau has arrived by 2 kHz; the comment beside
     // kPresenceHz in Peavey5150.cpp carries why. Read on the small-signal path for the reason
-    // above small_signal_node(); measured 2026-09-07: 21.34 dB flat, 31.25 dB full, a 9.90 dB lift.
+    // above small_signal_node(); measured 2026-09-07: 3.32 dB flat, 13.22 dB full, a 9.90 dB lift.
     auto flat = small_signal_node();
     flat->set_presence(0.5f);
     const double reference = response_at(*flat, 2000.0);
@@ -385,7 +409,7 @@ TEST(Unit_Dsp, Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels)
     // resonance is a modelling choice at 100 Hz, the dossier derives none, and the shelf's own
     // corner sits at 330 Hz so its plateau has arrived by then. The knob is flat at 0 and full at
     // 1, so those two are the pair compared. Read on the small-signal path for the reason above
-    // small_signal_node(); measured 2026-09-07: 11.68 dB flat, 21.57 dB full, a 9.90 dB lift.
+    // small_signal_node(); measured 2026-09-07: -7.83 dB flat, 2.07 dB full, a 9.90 dB lift.
     auto flat = small_signal_node();
     flat->set_resonance(0.0f);
     const double reference = response_at(*flat, 100.0);
@@ -467,16 +491,21 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
 {
     // Spec section 4's acceptance for the plate-swing phase: a player who turns PRE GAIN down must
     // reach a setting the amplifier does not square. The second point is Peavey's own nominal lead
-    // input, -80 dBV = 0.1 mV, which against kFullScaleVolts 2.0 is -86.0 dBFS.
+    // input, -80 dBV: 1e-4 V RMS, so 1.4142e-4 V peak, which against kFullScaleVolts 2.0 is an
+    // amplitude of 7.071e-5 full scale, -83.01 dBFS.
     //
     // The knob is read at 0.02 rather than at 0.0. pre_gain_attenuation() is n * sqrt(n), exactly
     // zero at the bottom of VR2's travel, so 0.0 mutes the amplifier and the THD there is the
     // FFT's own floor on denormals rather than distortion; 0.02 is the first position that passes
-    // signal. Measured 2026-09-07 with the tail degeneration, the power-grid scale bridge and the
-    // coupling capacitors at their own corners: 7.0661 % at -40 dBFS, 0.3811 % at -86.0 dBFS.
+    // Only the second assertion holds. Measured 2026-09-07 once the pair's degeneration was
+    // corrected to 1.905 and its stage gain to the full 56.5: 25.652 % at -40 dBFS against the 10 %
+    // gate, and 1.340 % at -83.01 dBFS against the 5 % gate. The corrected pair hands the power
+    // section 20 dB more than the first ruling did, and at -40 dBFS the amplifier squares from V5A
+    // on - V5A, V3A and the pair all sit on the solver's 4.136 V fence with V5B at 2.71 V behind
+    // them. modules/peavey5150/README.md, "The clean end", carries the table.
     constexpr float kFirstAudiblePosition = 0.02f;
     constexpr float kMinusFortyDbfs = 0.01f;
-    constexpr float kNominalMinusEightyDbv = 5.0119e-5f;
+    constexpr float kNominalMinusEightyDbv = 7.071e-5f;
 
     auto quiet = prepared_node();
     quiet->set_pre_gain(kFirstAudiblePosition);
@@ -493,7 +522,7 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
         SushiDSP::measure::thd(render_sine(*nominal, 220.0, kNominalMinusEightyDbv, kSpectrumBlocks),
                                220.0, 48000.0, 8)
             .thd_percent;
-    std::printf("[ measure ] thd %.4f%% at pre gain 0.02, -86.0 dBFS (Peavey's -80 dBV)\n",
+    std::printf("[ measure ] thd %.4f%% at pre gain 0.02, -83.01 dBFS (Peavey's -80 dBV)\n",
                 nominal_thd);
     EXPECT_LT(nominal_thd, 5.0);
 }
