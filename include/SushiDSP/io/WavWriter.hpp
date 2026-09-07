@@ -56,7 +56,7 @@ namespace SushiDSP
         WavWriter(const WavWriter&) = delete;
         WavWriter& operator=(const WavWriter&) = delete;
 
-        /// @brief Appends frames, interleaving the channels.
+        /// @brief Appends frames, interleaving the channels. Does nothing once close() has run.
         /// @param channels One pointer per channel, each with at least `frames` samples.
         /// @param frames Number of frames to append, per channel.
         void append(const float* const* channels, std::uint32_t frames);
@@ -68,10 +68,15 @@ namespace SushiDSP
         std::uint64_t frames_written() const;
 
     private:
-        std::ofstream m_file;
-        std::uint32_t m_channels;
-        Format m_format;
-        std::uint64_t m_frames_written = 0;
-        bool m_closed = false;
+        /// @brief The underlying file stream.
+        std::ofstream file_;
+        /// @brief Number of interleaved channels per frame.
+        std::uint32_t channels_;
+        /// @brief Sample encoding written to the file.
+        Format format_;
+        /// @brief Number of frames appended so far.
+        std::uint64_t frames_written_ = 0;
+        /// @brief Whether close() has already run.
+        bool closed_ = false;
     };
 }

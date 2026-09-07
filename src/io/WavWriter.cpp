@@ -74,32 +74,55 @@ namespace SushiDSP
         }
     }
 
-    WavWriter::WavWriter(const std::string& path, double sample_rate, std::uint32_t channels, Format format)
-        : m_file(path, std::ios::binary | std::ios::trunc), m_channels(channels), m_format(format)
+    namespace
     {
-        if (!m_file)
+        constexpr std::uint32_t kU32Max = 0xFFFFFFFFu;
+        constexpr std::size_t kPcm16DataSizeOffset = 40;
+        constexpr std::size_t kFloatFactSampleCountOffset = 46;
+        constexpr std::size_t kFloatDataSizeOffset = 54;
+        constexpr std::uint32_t kPcm16RiffBase = 36;
+        constexpr std::uint32_t kFloatRiffBase = 50;
+
+        std::uint32_t clamp_to_u32(std::uint64_t value)
+        {
+            return value > kU32Max ? kU32Max : static_cast<std::uint32_t>(value);
+        }
+    }
+
+    WavWriter::WavWriter(const std::string& path, double sample_rate, std::uint32_t channels, Format format)
+        : file_(path, std::ios::binary | std::ios::trunc), channels_(channels), format_(format)
+    {
+        if (!file_)
         {
             throw std::runtime_error("WavWriter: could not open '" + path + "' for writing");
         }
 
-        const std::uint16_t bits = bits_per_sample(m_format);
+        const std::uint16_t bits = bits_per_sample(format_);
         const std::uint32_t byte_rate =
-            static_cast<std::uint32_t>(sample_rate) * m_channels * (bits / 8);
-        const std::uint16_t block_align = static_cast<std::uint16_t>(m_channels * (bits / 8));
+            static_cast<std::uint32_t>(sample_rate) * channels_ * (bits / 8);
+        const std::uint16_t block_align = static_cast<std::uint16_t>(channels_ * (bits / 8));
+        const bool is_float = format_ == Format::Float32;
 
-        write_tag(m_file, "RIFF");
-        write_u32_le(m_file, 0); // Placeholder RIFF size, rewritten in close().
-        write_tag(m_file, "WAVE");
-        write_tag(m_file, "fmt ");
-        write_u32_le(m_file, 16);
-        write_u16_le(m_file, format_tag(m_format));
-        write_u16_le(m_file, static_cast<std::uint16_t>(m_channels));
-        write_u32_le(m_file, static_cast<std::uint32_t>(sample_rate));
-        write_u32_le(m_file, byte_rate);
-        write_u16_le(m_file, block_align);
-        write_u16_le(m_file, bits);
-        write_tag(m_file, "data");
-        write_u32_le(m_file, 0); // Placeholder data size, rewritten in close().
+        write_tag(file_, "RIFF");
+        write_u32_le(file_, 0); // Placeholder RIFF size, rewritten in close().
+        write_tag(file_, "WAVE");
+        write_tag(file_, "fmt ");
+        write_u32_le(file_, is_float ? 18 : 16);
+        write_u16_le(file_, format_tag(format_));
+        write_u16_le(file_, static_cast<std::uint16_t>(channels_));
+        write_u32_le(file_, static_cast<std::uint32_t>(sample_rate));
+        write_u32_le(file_, byte_rate);
+        write_u16_le(file_, block_align);
+        write_u16_le(file_, bits);
+        if (is_float)
+        {
+            write_u16_le(file_, 0); // cbSize: no extra format bytes follow.
+            write_tag(file_, "fact");
+            write_u32_le(file_, 4);
+            write_u32_le(file_, 0); // Placeholder sample count, rewritten in close().
+        }
+        write_tag(file_, "data");
+        write_u32_le(file_, 0); // Placeholder data size, rewritten in close().
     }
 
     WavWriter::~WavWriter()
@@ -109,51 +132,63 @@ namespace SushiDSP
 
     void WavWriter::append(const float* const* channels, std::uint32_t frames)
     {
-        const std::uint16_t bits = bits_per_sample(m_format);
-        for (std::uint32_t frame = 0; frame < frames; ++frame)
-        {
-            for (std::uint32_t channel = 0; channel < m_channels; ++channel)
-            {
-                const float sample = channels[channel][frame];
-                if (m_format == Format::Pcm16)
-                {
-                    const std::int16_t pcm = clamp_to_pcm16(sample);
-                    write_u16_le(m_file, static_cast<std::uint16_t>(pcm));
-                }
-                else
-                {
-                    static_assert(sizeof(float) == 4, "Float32 WAV output assumes a 4-byte float");
-                    m_file.write(reinterpret_cast<const char*>(&sample), sizeof(sample));
-                }
-            }
-        }
-        (void)bits;
-        m_frames_written += frames;
-    }
-
-    void WavWriter::close()
-    {
-        if (m_closed)
+        if (closed_)
         {
             return;
         }
 
-        const std::uint16_t bits = bits_per_sample(m_format);
-        const std::uint32_t data_bytes =
-            static_cast<std::uint32_t>(m_frames_written) * m_channels * (bits / 8);
-        const std::uint32_t riff_size = 36 + data_bytes;
+        for (std::uint32_t frame = 0; frame < frames; ++frame)
+        {
+            for (std::uint32_t channel = 0; channel < channels_; ++channel)
+            {
+                const float sample = channels[channel][frame];
+                if (format_ == Format::Pcm16)
+                {
+                    const std::int16_t pcm = clamp_to_pcm16(sample);
+                    write_u16_le(file_, static_cast<std::uint16_t>(pcm));
+                }
+                else
+                {
+                    static_assert(sizeof(float) == 4, "Float32 WAV output assumes a 4-byte float");
+                    std::uint32_t bits_value = 0;
+                    std::memcpy(&bits_value, &sample, sizeof(bits_value));
+                    write_u32_le(file_, bits_value);
+                }
+            }
+        }
+        frames_written_ += frames;
+    }
 
-        m_file.seekp(4);
-        write_u32_le(m_file, riff_size);
-        m_file.seekp(40);
-        write_u32_le(m_file, data_bytes);
+    void WavWriter::close()
+    {
+        if (closed_)
+        {
+            return;
+        }
 
-        m_file.close();
-        m_closed = true;
+        const bool is_float = format_ == Format::Float32;
+        const std::uint16_t bits = bits_per_sample(format_);
+        const std::uint64_t data_bytes64 = frames_written_ * channels_ * (bits / 8);
+        const std::uint32_t data_bytes = clamp_to_u32(data_bytes64);
+        const std::uint32_t riff_base = is_float ? kFloatRiffBase : kPcm16RiffBase;
+        const std::uint32_t riff_size = clamp_to_u32(static_cast<std::uint64_t>(riff_base) + data_bytes64);
+
+        file_.seekp(4);
+        write_u32_le(file_, riff_size);
+        if (is_float)
+        {
+            file_.seekp(kFloatFactSampleCountOffset);
+            write_u32_le(file_, clamp_to_u32(frames_written_));
+        }
+        file_.seekp(is_float ? kFloatDataSizeOffset : kPcm16DataSizeOffset);
+        write_u32_le(file_, data_bytes);
+
+        file_.close();
+        closed_ = true;
     }
 
     std::uint64_t WavWriter::frames_written() const
     {
-        return m_frames_written;
+        return frames_written_;
     }
 }
