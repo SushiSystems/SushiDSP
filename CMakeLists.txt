@@ -26,6 +26,7 @@ add_library(sushi_dsp STATIC
     src/device/ChannelSelection.cpp
     src/io/IrLoader.cpp
     src/io/WavFile.cpp
+    src/io/WavWriter.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
     src/math/Oversampler.cpp
@@ -52,6 +53,7 @@ add_subdirectory(modules/dd3)
 add_subdirectory(modules/peavey5150)
 add_subdirectory(modules/diezel_vh4)
 add_subdirectory(modules/mesa_mark2c)
+add_subdirectory(modules/capture)
 
 # Nothing in the test suite links SDL2, so this can be turned off to configure
 # and run the tests without network access or an SDL2 build.

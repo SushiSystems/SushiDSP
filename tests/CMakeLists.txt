@@ -41,6 +41,9 @@ add_executable(sushidsp_tests
     functional/unit/test_rig_graph.cpp
     functional/unit/test_splitter_node.cpp
     functional/unit/test_mixer_node.cpp
+    functional/unit/test_pan_node.cpp
+    functional/unit/test_track_recorder.cpp
+    functional/unit/test_track_player.cpp
     functional/unit/test_rig_preset.cpp
     functional/unit/test_rt_graph_slot.cpp
     functional/unit/test_rt_swap_slot.cpp
@@ -95,6 +98,7 @@ add_executable(sushidsp_tests
     functional/unit/test_asio_sample_converter.cpp
     functional/unit/test_ir_loader.cpp
     functional/unit/test_wav_file.cpp
+    functional/unit/test_wav_writer.cpp
 
     # --- Real-time safety ---
     functional/unit/test_rt_safety.cpp
@@ -155,6 +159,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::dd3
     SushiDSP::node_registry
     SushiDSP::routing
+    SushiDSP::capture
     SushiDSP::rig_preset
     GTest::gtest
     # Known limitation: nlohmann_json::nlohmann_json is only available here because
