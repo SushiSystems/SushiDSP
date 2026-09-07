@@ -73,11 +73,11 @@ rig, or a preset that pins the width.
 ## The ASIO host still renders the rig in mono
 
 `apps/host_asio/main.cpp` opens two ASIO output channels but prepares its rig with
-`PrepareInfo{..., 1}` and fans the single output to both with `fan_out_mono_to_stereo`, so a
-`PanNode` at the end of a rig run under that host is summed back to one channel by the graph's own
-output stage. Only `apps/host_gui` went through DS1's device work; the ASIO host was outside that
-task's edit list. Closes by giving it the same `rig_output_adapts_to_device` /
-`write_rig_output_to_device` pair the GUI host uses.
+`PrepareInfo{..., 1}`, so a `PanNode` at the end of a rig run under that host is summed back to one
+channel by the graph's own output stage. It shares the GUI host's `rig_output_adapts_to_device` and
+`write_rig_output_to_device` pair, so the mapping is the same rule; only the rig's own width differs.
+The chain it builds is a fixed mono TubeScreamer into a JCM800 and nothing in it pans, so the limit
+costs nothing today. Closes by preparing the rig at the device's width, as the GUI host does.
 
 ## `Transport::seek` racing `advance` can be lost
 
