@@ -123,15 +123,13 @@ namespace SushiDSP
 
         /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
         /// It multiplies the signal after the last nonlinearity, so it scales the output and
-        /// nothing else. The calibration point is Jcm800::kMasterUnityGain's: with every knob at
-        /// its default and a -12 dBFS 1 kHz input, the output peaks near -6 dBFS.
-        ///
-        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput read -5.997 dBFS
-        /// at this value on 2026-09-07, re-measured after the phase inverter gained its tail
-        /// degeneration and the power-tube link its grid scale. It was 2.148178 with the level
-        /// staging this module used to carry, and 0.816610 between the two changes.
+        /// nothing else. The calibration point is the one all four amplifiers share: every knob
+        /// at its default and a -12 dBFS 82 Hz input peaks at -6.00 dBFS (docs/superpowers/specs/
+        /// 2026-09-07-grid-knee-antialiasing-design.md section 6), pinned by
+        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput. Re-measured
+        /// 2026-09-07 on the Norman grid law; 0.627263 before, pinned at 1 kHz.
         /// modules/diezel_vh4/README.md carries the derivation.
-        static constexpr float kMasterUnityGain = 0.627263f;
+        static constexpr float kMasterUnityGain = 0.3543949f;
 
         /// @brief Sets the channel-3 GAIN control, the 250 kOhm pot of dossier section 3.2.
         /// @param normalized Gain amount in [0, 1]; it moves the input high-pass corner as well as

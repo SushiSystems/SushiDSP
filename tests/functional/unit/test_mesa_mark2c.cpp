@@ -397,8 +397,9 @@ TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
 TEST(Unit_Dsp, MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
 {
     // The shipped calibration point, and what pins MesaMark2c::kMasterUnityGain: a -12 dBFS
-    // 1 kHz sine into an untouched amp comes back out at about -6 dBFS.
-    const std::vector<float> rendered = render_mesa_mark2c([](SushiDSP::MesaMark2c&) {}, 0.251, 1000.0, 188);
+    // 82 Hz sine into an untouched amp comes back out at about -6 dBFS, the frequency all four
+    // amplifiers pin at (DA5 spec section 6).
+    const std::vector<float> rendered = render_mesa_mark2c([](SushiDSP::MesaMark2c&) {}, 0.251, 82.0, 188);
 
     float peak = 0.0f;
     for (std::size_t i = rendered.size() / 4; i < rendered.size(); ++i)

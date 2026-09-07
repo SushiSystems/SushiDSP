@@ -108,12 +108,13 @@ namespace SushiDSP
         void set_preamp(float normalized);
 
         /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
-        /// Re-measured 2026-09-07 for DA4, which put every triode on its plate swing and took the
-        /// interstage staging scalars out, so the preamp now delivers far more into the power
-        /// section. An untouched amp still turns a -12 dBFS low-E sine into roughly -6 dBFS out.
-        /// It multiplies the signal after the last nonlinearity, so it scales the output and
-        /// nothing else.
-        static constexpr float kMasterUnityGain = 0.3101991f;
+        /// Pinned by Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput: an
+        /// untouched amp turns a -12 dBFS 82 Hz sine into a -6.00 dBFS peak, the calibration
+        /// point all four amplifiers share (docs/superpowers/specs/
+        /// 2026-09-07-grid-knee-antialiasing-design.md section 6). Re-measured 2026-09-07 on the
+        /// Norman grid law; 0.3101991 before it. It multiplies the signal after the last
+        /// nonlinearity, so it scales the output and nothing else.
+        static constexpr float kMasterUnityGain = 0.3105599f;
 
         /// @brief Sets the master volume.
         /// @param decibels Master level in [-60, +12] dB; 0 dB is the amp's reference loudness.

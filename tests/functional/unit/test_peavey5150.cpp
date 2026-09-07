@@ -463,8 +463,9 @@ TEST(Unit_Dsp, Peavey5150NeverExceedsFullScaleWithoutALimiter)
 TEST(Unit_Dsp, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
 {
     // The shipped calibration point, and the measurement that pins kPostGainUnityGain: a -12 dBFS
-    // 1 kHz sine into an untouched amp comes back out at about -6 dBFS, leaving headroom for a
-    // hotter pickup without the post-cabinet clamp engaging on a normal signal.
+    // 82 Hz sine into an untouched amp comes back out at about -6 dBFS, the frequency all four
+    // amplifiers pin at (DA5 spec section 6). At 1 kHz, where this constant was pinned before,
+    // the resonance shelf's lift below 330 Hz put the low E on the output clamp.
     auto node = prepared_node();
 
     std::vector<float> input(256, 0.0f), output(256, 0.0f);
@@ -478,7 +479,7 @@ TEST(Unit_Dsp, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsI
         {
             const float sample_index = static_cast<float>(block * 256 + i);
             input[static_cast<std::size_t>(i)] =
-                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 1000.0f * sample_index / 48000.0f);
+                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 82.0f * sample_index / 48000.0f);
         }
         SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
         node->process(context);
@@ -511,16 +512,14 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
     // 46 dB above the nominal the manufacturer prints for this channel, so the -40 dBFS figure is
     // measured and printed but not asserted.
     //
-    // The knob is read at 0.02, the lowest position this test uses. pre_gain_attenuation() is
-    // n * sqrt(n), exactly zero only at the bottom of VR2's travel, so 0.0 mutes the amplifier and
-    // the THD there is the FFT's own floor on denormals rather than distortion. Positions between
-    // pass signal - 0.01 gives 0.001 - so 0.02 is a choice, not a threshold.
+    // The knob is read at 0.02, the lowest position this test uses. pre_gain_attenuation() is an
+    // exponential audio taper, exactly zero only at the bottom of VR2's travel, so 0.0 mutes the
+    // amplifier and the THD there is the FFT's own floor on denormals rather than distortion.
+    // Positions between pass signal - 0.02 gives 0.00115 - so 0.02 is a choice, not a threshold.
     //
-    // Measured 2026-09-07, once the pair's degeneration was corrected to 1.905 and its stage gain
-    // to the full 56.5: 1.340 % at the nominal input, and 25.652 % at -40 dBFS. At -40 dBFS the
-    // amplifier squares from V5A on - V5A, V3A and the pair all sit on the solver's 4.136 V fence,
-    // with V5B at 2.71 V behind them - so V5A is the stage that binds there.
-    // modules/peavey5150/README.md, "The clean end", carries the table.
+    // Measured 2026-09-07 on the Norman grid law, the solved inverter bias and the audio taper:
+    // 0.499 % at the nominal input, and 21.73 % at -40 dBFS. At -40 dBFS the amplifier squares
+    // from V5A on. modules/peavey5150/README.md, "The clean end", carries the table.
     constexpr float kLowestTestedPosition = 0.02f;
     constexpr float kMinusFortyDbfs = 0.01f;
     constexpr float kNominalMinusEightyDbv = 7.071e-5f;
