@@ -194,9 +194,7 @@ TEST(Unit_Dsp, SiliconDiodeAntiderivativeHasNoStepAtEitherKnee)
     // A step in the antiderivative would put a spike straight into the divided difference
     // antiderivative antialiasing takes, so neither knee may leave one. The bound is the largest
     // slope on the interval times its width, which is what differentiability across the knee
-    // means; at the negative knee that slope is the extrapolation's own current, and it is
-    // enormous, because this model mirrors its positive branch there rather than continuing the
-    // Shockley law (see the class documentation).
+    // means.
     const SushiDSP::SiliconDiode diode;
     const double                 knee = 40.0 * 1.752 * 0.025864;
     const double                 delta = 1.0e-9;
@@ -222,5 +220,30 @@ TEST(Unit_Dsp, SiliconDiodeJointAntiderivativeFormAgreesWithTheSeparateEntryPoin
         diode.current_and_antiderivative(voltage, current, antiderivative);
         EXPECT_DOUBLE_EQ(current, diode.current(voltage)) << voltage;
         EXPECT_DOUBLE_EQ(antiderivative, diode.current_antiderivative(voltage)) << voltage;
+    }
+}
+
+TEST(Unit_Dsp, SiliconDiodeReverseExtrapolationContinuesTheShockleyLawRatherThanMirroringForward)
+{
+    // Below the lower knee the model continues the reverse-biased diode it actually is: a current
+    // that stays at -Is and a conductance of (Is/(n*Vt))*exp(-40), some 34 orders of magnitude
+    // under the forward tangent's. The two tangents are not each other's mirror image, and the
+    // earlier code that made them one put a step from -2.5 nA to -593 MA right here (D6c C2).
+    const SushiDSP::SiliconDiode diode;
+    const double                 knee = 40.0 * 1.752 * 0.025864;
+    const double                 saturation = 2.52e-9;
+
+    // C^0 and C^1 across the lower knee, to the same relative tolerance the upper knee is held to.
+    const double inside_current = diode.current(-knee + 1e-7);
+    const double outside_current = diode.current(-knee - 1e-7);
+    EXPECT_NEAR(outside_current, inside_current, 1e-5 * std::fabs(inside_current));
+    EXPECT_NEAR(diode.jacobian(-knee - 1e-7), diode.jacobian(-knee + 1e-7),
+                1e-5 * diode.jacobian(-knee + 1e-7));
+
+    // Far into reverse bias the current is still -Is, not a runaway.
+    for (const double voltage : { -2.0, -10.0, -1000.0 })
+    {
+        EXPECT_NEAR(diode.current(voltage), -saturation, 1e-6 * saturation) << voltage;
+        EXPECT_LT(diode.jacobian(voltage), 1e-20) << voltage;
     }
 }
