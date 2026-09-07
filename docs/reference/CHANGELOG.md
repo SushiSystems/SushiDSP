@@ -46,6 +46,7 @@ The studio track, spec `docs/superpowers/specs/2026-09-07-stereo-tracks-design.m
 
 The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-gain-amps-part1/`.
 
+- 2026-09-07 — Diagnosed the amplifiers' alias floor to `TriodeStage`'s grid knee and wrote the DA5 design (`docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`).
 - 2026-09-06 — Moved `TriodeStage`, `PentodeStage`, `OutputTransformerStage`, `PowerSupplySagStage` to `include/SushiDSP/circuits/stages/`; added `PowerTubePresets.hpp` (`kEl34`).
 - 2026-09-06 — Added `ResonanceControl`, a resonant low-shelf for the presence/resonance feedback path (`include/SushiDSP/circuits/stages/ResonanceControl.hpp`).
 - 2026-09-06 — Added `GraphicEqualizer`, a cascade of peaking biquads on centres given at construction (`GraphicEqualizer.hpp`, `GraphicEqualizer.cpp`).

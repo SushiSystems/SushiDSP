@@ -532,9 +532,9 @@ a `cutoff_hz / sample_rate` of `1e-4`. Because the dossiers' own dividers run th
 its bound" is not achievable at these gain structures; the acceptance criterion each module's
 README documents instead is a clean end at minimum gain, non-decreasing THD across the knob, and
 a −6 dBFS ± 1 dB default peak. The JCM800's alias floor regressed to −6.7 dB against the −33.8 dB
-bound as a result — every stage now clips at the level its own circuit puts it at, feeding more
-harmonics into the 8× fold — and is carried as a known issue (`docs/reference/KNOWN_ISSUES.md`)
-until DA5's antialiasing work.
+bound as a result and is carried as a known issue (`docs/reference/KNOWN_ISSUES.md`). The
+2026-09-07 diagnosis measured the source as the grid-conduction knee rather than the plate
+ceiling or the level; the DA5 spec below carries the repair.
 
 ### §5a Amplifier family
 
@@ -646,7 +646,7 @@ Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical cor
 - **D7 — Hardening & packaging.** Namespaced export/Config finalized, perceptual A/B validation once reference captures are available.
 - **DA — High-gain amplifiers.** §5a: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes, registered in the node registry with their own front-panel layouts. *Ships: all four amps selectable in the rig host, RT-safety-trapped, panel- and registry-tested.*
 - **DA4 — Plate-swing `TriodeStage`.** Spec `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. A physical plate ceiling replaces the level-staging devices in all four amplifiers; the phase-inverter tail degeneration and the `PentodeStage` grid bridge become explicit, derived constants. *Ships: all four amps on the seven-argument `TriodeStage`, a clean end and non-decreasing THD on every gain knob, two known issues carried to DA5 (the JCM800's alias floor, the IIC+'s undocumented loop return).*
-- **DA5 — Antialiasing and the volt-true power stage.** Antiderivative antialiasing in `TriodeStage`, or 16× oversampling, to recover the alias floor DA4 cost; `PentodeStage` rebuilt volt-true; the six-argument `TriodeStage` path and `PlateSwing::apply`'s duplication deleted once `PentodeStage` shares it; the shelf-corner rule and the transformer's DC pass (final review F2, F5, F7).
+- **DA5 — The grid knee, antialiasing and the volt-true power stage.** Spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, in design. The 2026-09-07 diagnosis (`.superpowers/sdd/amp-gain-staging/diagnosis.md`) measured the alias source as `TriodeStage`'s Shockley grid knee, not the DA4 plate ceiling and not the level the stages sit at: one stage 3× past its window folds at −37 dB, the Norman law of `Triode12AX7` takes it to −81 dB. The spec puts the 12AX7 model's grid law in `TriodeStage`, antialiases the stage (ADAA on the composite function, or 16×), rebuilds `PentodeStage` volt-true with its diode at Vgk = 0, deletes the six-argument path and `kPowerTubeGridScale`, and lists the module corrections found on the way (JCM800 V1b gain 60 against a solved 7.77, both inverters' grid returns, one unity-constant frequency). Seven decisions wait on the maintainer; the shelf-corner rule and the transformer's DC pass (final review F2, F5, F7) stay in this phase.
 
 **DS — stereo, tracks and playback, a parallel track.** Spec
 `docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan
