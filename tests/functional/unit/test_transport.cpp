@@ -40,9 +40,29 @@ TEST(Unit_Dsp, TransportCarriesTheSpeedFractionAcrossBlocks)
 {
     SushiDSP::Transport transport;
     transport.play();
-    transport.set_speed(0.3);
+    transport.set_speed(0.6);
     for (std::uint32_t block = 0; block < 1000u; ++block) { transport.advance(64u); }
-    EXPECT_EQ(transport.position_frames(), 19200u);   // exactly 0.3 * 64000, no drift
+    EXPECT_EQ(transport.position_frames(), 38400u);   // exactly 0.6 * 64000, no drift
+}
+
+TEST(Unit_Dsp, TransportHoldsTheSpeedExactlyOverAHundredThousandBlocks)
+{
+    SushiDSP::Transport transport;
+    transport.play();
+    transport.set_speed(1.3);
+    for (std::uint32_t block = 0; block < 100000u; ++block) { transport.advance(256u); }
+    EXPECT_EQ(transport.position_frames(), 33280000u);   // 1.3 * 25600000, to the frame
+}
+
+TEST(Unit_Dsp, TransportWrapsTheLoopOnTheMusicalPositionAtASpeed)
+{
+    SushiDSP::Transport transport;
+    transport.play();
+    transport.set_loop(1000u, 5000u);
+    transport.seek(1000u);
+    transport.set_speed(1.5);
+    for (std::uint32_t block = 0; block < 11u; ++block) { transport.advance(256u); }
+    EXPECT_EQ(transport.position_frames(), 1224u);   // 1000 + (11 * 384) % 4000
 }
 
 TEST(Unit_Dsp, TransportClampsASpeedOutsideItsRange)
