@@ -130,7 +130,7 @@ namespace SushiDSP
         /// degeneration and the power-tube link its grid scale. It was 2.148178 with the level
         /// staging this module used to carry, and 0.816610 between the two changes.
         /// modules/diezel_vh4/README.md carries the derivation.
-        static constexpr float kMasterUnityGain = 0.624524f;
+        static constexpr float kMasterUnityGain = 0.627263f;
 
         /// @brief Sets the channel-3 GAIN control, the 250 kOhm pot of dossier section 3.2.
         /// @param normalized Gain amount in [0, 1]; it moves the input high-pass corner as well as

@@ -268,8 +268,8 @@ TEST(Unit_Dsp, DiezelVh4ThdIncreasesWithGain)
     // What the knob has to do is put V2a, V3a and V4a past their own knees on top of that.
     //
     // 2026-09-07, with the level staging replaced by the plate-swing ceiling and the phase
-    // inverter's tail degeneration and power-grid scale in place: 34.687 %, 38.046 % and
-    // 40.987 %. The floor is an order of magnitude higher than the 4.43 % this test read on
+    // inverter's tail degeneration and power-grid scale in place: 37.255 %, 39.563 % and
+    // 42.481 %. The floor is an order of magnitude higher than the 4.43 % this test read on
     // 2026-09-06 because the dividers now run at face value in volts, which leaves every stage
     // past V1a saturated at any knob position - the knob moves the reading by six points rather
     // than by twenty.
@@ -391,7 +391,7 @@ TEST(Unit_Dsp, DiezelVh4HasACleanEndAtMinimumGain)
     //
     // The knob is read at 0.01 rather than 0.0 because the GAIN pot is a plain divider to ground
     // and 0.0 is a short: the node is silent there and THD has no denominator. 0.01 is the first
-    // position that passes signal. It read 0.0472 % on 2026-09-07.
+    // position that passes signal. It read 0.0813 % on 2026-09-07.
     constexpr double sample_rate = 48000.0;
     const double frequency = SushiDSP::measure::bin_exact_frequency(220.0, sample_rate, SushiDSP::measure::kFftSize);
 
@@ -405,6 +405,41 @@ TEST(Unit_Dsp, DiezelVh4HasACleanEndAtMinimumGain)
 
     std::printf("[ measure ] clean end THD %.4f%%\n", thd_percent);
     EXPECT_LT(thd_percent, 10.0);
+}
+
+TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
+{
+    // The probes are what modules/diezel_vh4/README.md's grid table is measured with, so they have
+    // to cover the chain rather than a prefix of it: five stages, every one of them moving after a
+    // render, and nothing but zero outside the range.
+    SushiDSP::DiezelVh4 node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    ASSERT_EQ(node.triode_stage_count(), std::size_t{ 5 });
+
+    std::vector<float> input(256, 0.0f);
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[1] = { output.data() };
+
+    for (int block = 0; block < 40; ++block)
+    {
+        for (int i = 0; i < 256; ++i)
+        {
+            const float sample_index = static_cast<float>(block * 256 + i);
+            input[static_cast<std::size_t>(i)] =
+                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 1000.0f * sample_index / 48000.0f);
+        }
+        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        node.process(context);
+    }
+
+    for (std::size_t stage = 0; stage < node.triode_stage_count(); ++stage)
+    {
+        EXPECT_GT(node.grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
+    }
+    EXPECT_EQ(node.grid_excursion_peak_volts(node.triode_stage_count()), 0.0f);
+    EXPECT_EQ(node.grid_excursion_peak_volts(std::size_t{ 1000 }), 0.0f);
 }
 
 TEST(Unit_Dsp, DiezelVh4DescriptorMakeProducesAWorkingNode)
@@ -530,10 +565,12 @@ TEST(Unit_Dsp, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
     //
     // Only 80 Hz is asserted. frequency_response() sweeps at -40 dBFS and the shelf sits after the
     // amp, so nothing here is clamped - a run with the master 20 dB down reads the same two
-    // figures - but the swept-sine estimate stops isolating the shelf at 20 Hz. C13's 314 Hz input
-    // high-pass has thrown the fundamental away before the first distorting stage, so what reaches
-    // Deep down there is mostly the saturated chain's own product rather than a 20 Hz tone, and
-    // the lift reads 3.799 dB (2026-09-07) where the shelf itself is 10 dB. 80 Hz reads 4.619 dB
+    // figures - but the swept-sine estimate stops isolating the shelf at 20 Hz. C13's input
+    // high-pass - 314 Hz with the gain knob at its top, 618 Hz at its bottom, and above 314 at the
+    // default position this test uses - has thrown the fundamental away before the first
+    // distorting stage, so what reaches Deep down there is mostly the saturated chain's own
+    // product rather than a 20 Hz tone, and
+    // the lift reads 3.864 dB (2026-09-07) where the shelf itself is 10 dB. 80 Hz reads 4.620 dB
     // against a nominal 5, inside the half decibel this test allows.
     auto response_for = [](float deep)
     {
@@ -560,31 +597,42 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     // has to hard-code that shunt or the mixer triode is driven 24 dB too hard (section 8,
     // question 13).
     //
-    // What is asserted is the node's own gain at -60 dBFS, not the dossier's cascade product:
-    // section 6 says in terms not to test against a small-signal cascade figure, because at
-    // 108.7 dB "nothing survives that linearly". Since 2026-09-07 the chain proves that in the
-    // measurement itself. With the level staging gone the front of the chain is still linear at
-    // this input and can be written out factor by factor, each one a constant DiezelVh4.cpp names:
+    // The level is -80 dBFS because that is where this chain is still linear end to end: the same
+    // measurement reads 60.353 dB at -80, 60.51 at -100 and 60.49 at -120, a 0.15 dB spread,
+    // where -60 dBFS reads 54.118 dB with the inverter's grid already past its conduction knee.
+    // Dossier section 6 warns against testing a cascade gain figure at all, because at 108.7 dB
+    // "nothing survives that linearly" - which is true of the amp as it is played, and is why the
+    // level here is four orders below it.
     //
-    //   V1a 56.8, from a 0.001 V grid                                  x56.8  -> 0.0568 V
-    //   C13 high-pass, the gain pot at 0.5, V2a's cathode shelf, Miller x0.26517 -> 0.01506 V
-    //   V2a 67.2, C18 and kV2aToV3aDivider                             x32.975 -> 0.4966 V
-    //   V3a's cathode shelf and Miller pole                            x0.90120 -> 0.4476 V
+    // Every factor at 1 kHz with the knobs at noon, each one a constant DiezelVh4.cpp names. A
+    // TriodeStage's grid sits on Rg/(Rs + Rg) of its input, so each stage's own divider is on its
+    // row with its gain:
     //
-    // and there it stops being a product. V3a's 71.4 asks for 31.96 V of plate swing against a
-    // 75.857 V conduction headroom, so the tanh ceiling returns 30.29 V; the V3b follower, R40's
-    // 0.990664, the FMV deck at noon, the volume divider and kMixBusAttenuation carry 0.1915 V to
-    // V4a's grid, and V4a's 28.7 with the V4b follower carry 5.41 V to the phase inverter. The
-    // pair's tail divides that by kPhaseInverterDegeneration 4.140398, leaving 1.31 V on the grid,
-    // which the inverter's 40 turns into 52 V against a 15.801 V headroom to the supply - so the
-    // inverter still limits on one side, and kPowerTubeGridScale hands the EL34s what is left in
-    // PentodeStage's own grid units. The figure below is therefore measured rather than derived:
-    // 52.990 dB on 2026-09-07. What the test still proves is that the mix bus is in the chain at
-    // all - remove kMixBusAttenuation and the reading moves.
+    //   V1a, grid divider 1M/(1M+10k), gain 56.8                x56.2376  -> 0.0056238 V
+    //   C13 0.923278, the gain pot at 0.5 giving 0.326772       x0.301701 -> 0.0016967 V
+    //   V2a's cathode shelf 0.879497, its Miller pole 0.999304  x0.878885 -> 0.0014912 V
+    //   V2a, grid divider 3M3/(3M3+47k), gain 67.2              x66.2564  -> 0.0988016 V
+    //   C18 0.997970, kV2aToV3aDivider 0.4996003                x0.498586 -> 0.0492611 V
+    //   V3a's cathode shelf 0.969856, its Miller pole 0.929217  x0.901207 -> 0.0443944 V
+    //   V3a, grid divider 500k/(500k+470k), gain 71.4           x36.8041  -> 1.6339 V
+    //   the V3b follower 0.986, C20 1.000054                    x0.986053 -> 1.61111 V
+    //   the FMV deck at noon, R40 folded into it                x0.388541 -> 0.625983 V
+    //   volume 0.5 x 0.5, kMixBusAttenuation 0.0660             x0.0165   -> 0.0103287 V
+    //   V4a, grid divider 48.1k/(48.1k+44.923k), gain 28.7      x14.8401  -> 0.153279 V
+    //   the V4b follower 0.986, / kPhaseInverterDegeneration    x0.532102 -> 0.08156 V
+    //   the inverter, grid divider 1M/(1M+10k), gain 22.426327  x22.2043  -> 1.81098 V
+    //   kPowerTubeGridScale 0.077160                            x0.07716  -> 0.139735 V
+    //                                                  product to the EL34 grids  x1397.35
+    //
+    // The EL34 pair differenced, kPowerTubeToTransformerAttenuation, the transformer and the sag
+    // stage are the one block left unwritten, and they are worth x0.7453 here: 1397.35 x 0.7453 is
+    // the 1041 the assertion pins, 60.353 dB on 2026-09-07. The grid probes corroborate the table -
+    // it predicts 0.0229 V on V3a's grid against a measured 0.0236, and 0.0808 V on the inverter's
+    // against 0.0819.
     //
     // kMasterUnityGain is absent on purpose: the knob is set to kUnityMasterDb, which is its
     // reciprocal, so the two cancel and the master contributes x1.
-    constexpr double kExpectedSmallSignalGainDb = 52.990;
+    constexpr double kExpectedSmallSignalGainDb = 60.353;
 
     SushiDSP::DiezelVh4 node;
     node.set_gain(0.5f);
@@ -598,7 +646,7 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
 
     constexpr double sample_rate = 48000.0;
     const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, sample_rate, SushiDSP::measure::kFftSize);
-    constexpr float amplitude = 0.001f;   // -60 dBFS
+    constexpr float amplitude = 0.0001f;   // -80 dBFS
     const std::vector<float> stimulus =
         SushiDSP::measure::sine_stimulus(frequency, sample_rate, 131072, amplitude);
     const std::vector<float> rendered = SushiDSP::measure::render(node, stimulus, sample_rate, 256);
