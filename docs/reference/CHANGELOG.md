@@ -148,12 +148,12 @@ The Tube Screamer's rebuild onto the D6b solver, plan
 
 - 2026-09-07 — Retired `DiodeClipperCircuit`; `DkCircuit`'s diode-clipper test now compares against the true root of its own equation instead (`include/SushiDSP/circuits/DiodeClipperCircuit.hpp`, `src/circuits/DiodeClipperCircuit.cpp`, `tests/functional/unit/test_dk_circuit.cpp`).
 - 2026-09-07 — Nulled both clip-block ports at 192 kHz against the LTspice reference decimated by `Resampler` and against the model converged at 1.92 MHz (`tests/functional/unit/test_ts_clip_stage.cpp`).
-- 2026-09-07 — Recorded the verdict against wiring antialiasing in: at 4× it trades a −19 dB aliasing error for a −5 dB band-limiting one (spec `2026-08-26-aaa-audio-quality-design.md`, Model corrections D6c C2).
+- 2026-09-07 — Recorded the verdict against wiring antialiasing in: at 4× it trades a −19 dB aliasing error for a −5 dB band-limiting one (`docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`, Model corrections D6c C2).
 - 2026-09-07 — Corrected `SiliconDiode`’s reverse extrapolation to the Shockley law’s own tangent, removing a -2.5 nA to -593 MA step at the lower knee (`include/SushiDSP/circuits/models/SiliconDiode.hpp`).
 - 2026-09-07 — Added `AdaaDiodePairPort`, first-order antiderivative antialiasing on the clip block's diode pair, measured but not wired in (`modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamerCircuits.hpp`).
 - 2026-09-07 — Added `SiliconDiode::current_and_antiderivative()` and `current_antiderivative()`, piecewise with the current across both knees (`include/SushiDSP/circuits/models/SiliconDiode.hpp`).
 - 2026-09-07 — Added `HasCurrentsForUpdate`, a post-solve hook letting a nonlinear port restate the stamped branch currents (`include/SushiDSP/math/dk/DkCircuit.hpp`).
-- 2026-09-07 — Recorded that antialiasing buys 12.6 dB of alias floor and costs the clip block its LTspice null and its Newton gate (spec `2026-08-26-aaa-audio-quality-design.md`, Model corrections D6c C2).
+- 2026-09-07 — Recorded that antialiasing buys 12.6 dB of alias floor and costs the clip block its LTspice null and its Newton gate (`docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`, Model corrections D6c C2).
 - 2026-09-06 — Corrected the TS808 tone reference to the published schematic: passive low-pass, tone pot across the op-amp inputs, 220 Ω / 220 nF wiper leg, non-inverting stage (`docs/reference/spice/ts_tone/ts_tone.asc`).
 - 2026-09-06 — Rebuilt `build_tone_block()` and made `tone_to_position()` the identity on the corrected netlist (`modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamerCircuits.hpp`).
 - 2026-09-06 — Added the tone block's closed-form, insertion-loss, knob-range, monotonicity and end-stop tests (`tests/functional/unit/test_ts_tone_stage.cpp`).

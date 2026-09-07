@@ -128,11 +128,14 @@ namespace SushiDSP
         float level_db_ = 0.0f;
         float input_trim_db_ = 0.0f;
 
-        // Still the plain port. AdaaDiodePairPort is built, tested and measured, and switching
-        // this one declaration onto it is the whole of the change - but at the shipping 4x rate it
-        // trades 12.6 dB of alias floor for a clip block that misses the spec's LTspice null and
-        // its Newton gate. The decision is the user's and the evidence is in spec
-        // 2026-08-26-aaa-audio-quality-design.md, Model corrections (D6c C2).
+        // Still the plain port, and measured to be the right one: at the shipping 4x rate
+        // AdaaDiodePairPort nulls 14 dB further from the circuit than this does, so its smaller
+        // alias floor costs more total error than it saves (spec
+        // 2026-08-26-aaa-audio-quality-design.md, Model corrections D6c C2, The verdict).
+        //
+        // Wiring it in would be two edits, not one: this declaration, and a clip_port_.reset()
+        // call in reset(). That port keeps a sample interval of history, and DkCircuit is handed
+        // the port per sample rather than owning it, so DkCircuit::reset() cannot clear it.
         tube_screamer_circuits::ClipCircuit       clip_circuit_;
         tube_screamer_circuits::DiodePairPort     clip_port_;
         tube_screamer_circuits::ToneCircuit       tone_circuit_;
