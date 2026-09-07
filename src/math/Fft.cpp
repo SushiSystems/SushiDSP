@@ -63,13 +63,16 @@ namespace SushiDSP
         ///
         /// The split-radix structure this class is eventually intended to carry is a drop-in
         /// replacement for this routine; correctness of the plan interface comes first.
-        void transform(float*                            real,
-                       float*                            imag,
-                       std::uint32_t                     size,
-                       const std::vector<std::uint32_t>& bit_reversal,
-                       const std::vector<float>&         twiddle_real,
-                       const std::vector<float>&         twiddle_imag,
-                       bool                              inverse)
+        /// @tparam Inverse Whether the twiddles are conjugated and the result scaled by 1 / size.
+        /// @param stage_twiddle_real The stages' twiddle cosines, stage span at offset span - 1.
+        /// @param stage_twiddle_imag The stages' twiddle sines, laid out the same way.
+        template <bool Inverse>
+        void transform(float* const __restrict          real,
+                       float* const __restrict          imag,
+                       std::uint32_t                    size,
+                       const std::uint32_t* const __restrict bit_reversal,
+                       const float* const __restrict    stage_twiddle_real,
+                       const float* const __restrict    stage_twiddle_imag)
         {
             for (std::uint32_t i = 0; i < size; ++i)
             {
@@ -83,33 +86,33 @@ namespace SushiDSP
 
             for (std::uint32_t span = 1; span < size; span <<= 1)
             {
-                // Twiddle table holds exp(-i*2*pi*k/size) for k in [0, size/2).
-                // The butterfly at this stage needs exp(-i*pi*k/span), i.e. a stride of size/(2*span).
-                const std::uint32_t stride = size / (2u * span);
+                // The stage's twiddles are exp(-i*pi*k/span) for k in [0, span), contiguous.
+                const float* const __restrict cosines = stage_twiddle_real + (span - 1);
+                const float* const __restrict sines = stage_twiddle_imag + (span - 1);
                 for (std::uint32_t group_start = 0; group_start < size; group_start += span * 2u)
                 {
+                    float* const __restrict even_real = real + group_start;
+                    float* const __restrict even_imag = imag + group_start;
+                    float* const __restrict odd_real_row = real + group_start + span;
+                    float* const __restrict odd_imag_row = imag + group_start + span;
                     for (std::uint32_t k = 0; k < span; ++k)
                     {
-                        const std::uint32_t t     = k * stride;
-                        const float         cos_a = twiddle_real[t];
+                        const float cos_a = cosines[k];
                         // Forward uses exp(-i*theta); inverse conjugates it.
-                        const float sin_a = inverse ? -twiddle_imag[t] : twiddle_imag[t];
+                        const float sin_a = Inverse ? -sines[k] : sines[k];
 
-                        const std::uint32_t even = group_start + k;
-                        const std::uint32_t odd  = even + span;
+                        const float odd_real = odd_real_row[k] * cos_a - odd_imag_row[k] * sin_a;
+                        const float odd_imag = odd_real_row[k] * sin_a + odd_imag_row[k] * cos_a;
 
-                        const float odd_real = real[odd] * cos_a - imag[odd] * sin_a;
-                        const float odd_imag = real[odd] * sin_a + imag[odd] * cos_a;
-
-                        real[odd]  = real[even] - odd_real;
-                        imag[odd]  = imag[even] - odd_imag;
-                        real[even] = real[even] + odd_real;
-                        imag[even] = imag[even] + odd_imag;
+                        odd_real_row[k] = even_real[k] - odd_real;
+                        odd_imag_row[k] = even_imag[k] - odd_imag;
+                        even_real[k]    = even_real[k] + odd_real;
+                        even_imag[k]    = even_imag[k] + odd_imag;
                     }
                 }
             }
 
-            if (inverse)
+            if (Inverse)
             {
                 const float scale = 1.0f / static_cast<float>(size);
                 for (std::uint32_t i = 0; i < size; ++i)
@@ -124,8 +127,8 @@ namespace SushiDSP
     Fft::Fft(std::uint32_t size)
         : size_(size)
         , bit_reversal_(size)
-        , twiddle_real_(size / 2u)
-        , twiddle_imag_(size / 2u)
+        , stage_twiddle_real_(size > 0 ? size - 1u : 0u)
+        , stage_twiddle_imag_(size > 0 ? size - 1u : 0u)
         , real_scratch_(size)
         , imag_scratch_(size)
     {
@@ -135,35 +138,51 @@ namespace SushiDSP
         {
             bit_reversal_[i] = reverse_bits(i, bit_count);
         }
-        for (std::uint32_t k = 0; k < size / 2u; ++k)
+        // Stage span reads exp(-i*2*pi*(k*stride)/size) for k in [0, span), stride = size/(2*span);
+        // the spans' tables sit end to end, span at offset span - 1.
+        for (std::uint32_t span = 1; span < size; span <<= 1)
         {
-            const double angle = -2.0 * M_PI * static_cast<double>(k) / static_cast<double>(size);
-            twiddle_real_[k]   = static_cast<float>(std::cos(angle));
-            twiddle_imag_[k]   = static_cast<float>(std::sin(angle));
+            const std::uint32_t stride = size / (2u * span);
+            for (std::uint32_t k = 0; k < span; ++k)
+            {
+                const double angle = -2.0 * M_PI * static_cast<double>(k * stride) / static_cast<double>(size);
+                stage_twiddle_real_[span - 1u + k] = static_cast<float>(std::cos(angle));
+                stage_twiddle_imag_[span - 1u + k] = static_cast<float>(std::sin(angle));
+            }
         }
     }
 
     void Fft::forward(const float* time_domain, float* real_out, float* imag_out) const
     {
-        for (std::uint32_t i = 0; i < size_; ++i)
+        const std::uint32_t size = size_;
+        const float* const __restrict source = time_domain;
+        float* const __restrict real = real_out;
+        float* const __restrict imag = imag_out;
+        for (std::uint32_t i = 0; i < size; ++i)
         {
-            real_out[i] = time_domain[i];
-            imag_out[i] = 0.0f;
+            real[i] = source[i];
+            imag[i] = 0.0f;
         }
-        transform(real_out, imag_out, size_, bit_reversal_, twiddle_real_, twiddle_imag_, false);
+        transform<false>(real, imag, size, bit_reversal_.data(), stage_twiddle_real_.data(), stage_twiddle_imag_.data());
     }
 
     void Fft::inverse(const float* real_in, const float* imag_in, float* time_domain_out) const
     {
-        for (std::uint32_t i = 0; i < size_; ++i)
+        const std::uint32_t size = size_;
+        const float* const __restrict real_source = real_in;
+        const float* const __restrict imag_source = imag_in;
+        float* const __restrict real = real_scratch_.data();
+        float* const __restrict imag = imag_scratch_.data();
+        for (std::uint32_t i = 0; i < size; ++i)
         {
-            real_scratch_[i] = real_in[i];
-            imag_scratch_[i] = imag_in[i];
+            real[i] = real_source[i];
+            imag[i] = imag_source[i];
         }
-        transform(real_scratch_.data(), imag_scratch_.data(), size_, bit_reversal_, twiddle_real_, twiddle_imag_, true);
-        for (std::uint32_t i = 0; i < size_; ++i)
+        transform<true>(real, imag, size, bit_reversal_.data(), stage_twiddle_real_.data(), stage_twiddle_imag_.data());
+        float* const __restrict destination = time_domain_out;
+        for (std::uint32_t i = 0; i < size; ++i)
         {
-            time_domain_out[i] = real_scratch_[i];
+            destination[i] = real[i];
         }
     }
 

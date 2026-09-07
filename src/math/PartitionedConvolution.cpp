@@ -85,45 +85,55 @@ namespace SushiDSP
 
     void PartitionedConvolution::process(const float* input, float* output)
     {
+        const std::uint32_t partition_size = partition_size_;
+        const std::uint32_t fft_size = fft_size_;
+        const std::uint32_t partition_count = partition_count_;
+
         // Zero-pad the block to 2N. The copy overwrites the whole lower half, so only the upper
         // half needs clearing — and it is already zero every call after the first.
-        std::copy(input, input + partition_size_, zero_padded_scratch_.begin());
-        std::fill(zero_padded_scratch_.begin() + partition_size_, zero_padded_scratch_.end(), 0.0f);
+        float* const __restrict padded = zero_padded_scratch_.data();
+        std::copy(input, input + partition_size, padded);
+        std::fill(padded + partition_size, padded + fft_size, 0.0f);
 
-        fft_.forward(zero_padded_scratch_.data(), history_real_[write_index_].data(), history_imag_[write_index_].data());
+        fft_.forward(padded, history_real_[write_index_].data(), history_imag_[write_index_].data());
 
-        std::fill(freq_real_accum_.begin(), freq_real_accum_.end(), 0.0f);
-        std::fill(freq_imag_accum_.begin(), freq_imag_accum_.end(), 0.0f);
+        float* const __restrict accumulated_real = freq_real_accum_.data();
+        float* const __restrict accumulated_imag = freq_imag_accum_.data();
+        std::fill(accumulated_real, accumulated_real + fft_size, 0.0f);
+        std::fill(accumulated_imag, accumulated_imag + fft_size, 0.0f);
 
         // Y = sum_k X[i-k] * H[k]: impulse-response partition k lines up with the input block
         // received k calls ago, which is the history slot k steps behind the one just written.
-        for (std::uint32_t partition = 0; partition < partition_count_; ++partition)
+        for (std::uint32_t partition = 0; partition < partition_count; ++partition)
         {
-            const std::uint32_t history_slot = (write_index_ + partition_count_ - partition) % partition_count_;
+            const std::uint32_t history_slot = (write_index_ + partition_count - partition) % partition_count;
 
-            const std::vector<float>& x_real = history_real_[history_slot];
-            const std::vector<float>& x_imag = history_imag_[history_slot];
-            const std::vector<float>& h_real = ir_real_[partition];
-            const std::vector<float>& h_imag = ir_imag_[partition];
+            const float* const __restrict x_real = history_real_[history_slot].data();
+            const float* const __restrict x_imag = history_imag_[history_slot].data();
+            const float* const __restrict h_real = ir_real_[partition].data();
+            const float* const __restrict h_imag = ir_imag_[partition].data();
 
-            for (std::uint32_t bin = 0; bin < fft_size_; ++bin)
+            for (std::uint32_t bin = 0; bin < fft_size; ++bin)
             {
-                freq_real_accum_[bin] += x_real[bin] * h_real[bin] - x_imag[bin] * h_imag[bin];
-                freq_imag_accum_[bin] += x_real[bin] * h_imag[bin] + x_imag[bin] * h_real[bin];
+                accumulated_real[bin] += x_real[bin] * h_real[bin] - x_imag[bin] * h_imag[bin];
+                accumulated_imag[bin] += x_real[bin] * h_imag[bin] + x_imag[bin] * h_real[bin];
             }
         }
 
-        fft_.inverse(freq_real_accum_.data(), freq_imag_accum_.data(), time_domain_scratch_.data());
+        fft_.inverse(accumulated_real, accumulated_imag, time_domain_scratch_.data());
 
         // Overlap-add: the first half is this block's output once the tail carried over from the
         // previous call is added in; the second half becomes the tail for the next call.
-        for (std::uint32_t i = 0; i < partition_size_; ++i)
+        const float* const __restrict time_domain = time_domain_scratch_.data();
+        float* const __restrict overlap = overlap_.data();
+        float* const __restrict destination = output;
+        for (std::uint32_t i = 0; i < partition_size; ++i)
         {
-            output[i]  = time_domain_scratch_[i] + overlap_[i];
-            overlap_[i] = time_domain_scratch_[partition_size_ + i];
+            destination[i] = time_domain[i] + overlap[i];
+            overlap[i] = time_domain[partition_size + i];
         }
 
-        write_index_ = (write_index_ + 1) % partition_count_;
+        write_index_ = (write_index_ + 1) % partition_count;
     }
 
     std::uint32_t PartitionedConvolution::partition_size() const

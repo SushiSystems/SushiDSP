@@ -61,8 +61,10 @@ namespace SushiDSP
     private:
         std::uint32_t              size_;
         std::vector<std::uint32_t> bit_reversal_;
-        std::vector<float>         twiddle_real_;
-        std::vector<float>         twiddle_imag_;
+
+        // Every butterfly stage's twiddles laid end to end, stage span at offset span - 1.
+        std::vector<float>         stage_twiddle_real_;
+        std::vector<float>         stage_twiddle_imag_;
 
         // Sized once in the constructor so inverse() can stay const and allocation-free.
         mutable std::vector<float> real_scratch_;
