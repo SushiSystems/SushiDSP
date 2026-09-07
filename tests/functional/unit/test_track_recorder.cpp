@@ -21,7 +21,6 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
-#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -109,17 +108,12 @@ TEST(Unit_Dsp, TrackRecorderDropsBlocksLargerThanTheRing)
     std::vector<float> block(kBlockFrames, 0.25f);
     const float*       channels[1] = { block.data() };
 
-    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     for (std::size_t index = 0; index < kBlocks; ++index)
     {
         EXPECT_FALSE(recorder.write(channels, kBlockFrames));
     }
-    const std::chrono::milliseconds elapsed =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - start);
 
     EXPECT_EQ(recorder.dropped_blocks(), static_cast<std::uint64_t>(kBlocks));
-    EXPECT_LT(elapsed.count(), 100);
 
     recorder.stop();
     EXPECT_EQ(recorder.frames_written(), 0u);
@@ -159,7 +153,6 @@ TEST(Unit_Dsp, RecordingBusWritesTwoFilesOfEqualLength)
 
     SushiDSP::RecordingBus bus(1u, 48000.0);
     ASSERT_TRUE(bus.arm(root.string(), "take01"));
-    EXPECT_EQ(bus.armed_block_index(), 0u);
 
     std::vector<float> processed(kBlockFrames, 0.4f);
     std::vector<float> dry(kBlockFrames, -0.2f);

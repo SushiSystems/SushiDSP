@@ -72,6 +72,8 @@ namespace SushiDSP
         {
             return false;
         }
+        // No producer may be inside push() when the rings are cleared, and none may enter after.
+        wait_for_writers();
 
         try
         {
@@ -91,6 +93,8 @@ namespace SushiDSP
         popped_frames_.store(0, std::memory_order_relaxed);
         frames_written_.store(0, std::memory_order_relaxed);
         dropped_blocks_.store(0, std::memory_order_relaxed);
+        failed_.store(false, std::memory_order_relaxed);
+        draining_.store(true, std::memory_order_relaxed);
         recording_.store(true, std::memory_order_release);
 
         try
@@ -100,6 +104,7 @@ namespace SushiDSP
         catch (...)
         {
             recording_.store(false, std::memory_order_release);
+            draining_.store(false, std::memory_order_release);
             writer_->close();
             writer_.reset();
             return false;
@@ -123,6 +128,18 @@ namespace SushiDSP
 
     bool TrackRecorder::write(const float* const* channels, std::uint32_t frames) noexcept
     {
+        // The in-flight count is raised before recording_ is read, so disarm() can never return
+        // while this call is still touching the rings.
+        writers_in_flight_.fetch_add(1, std::memory_order_acquire);
+
+        const bool queued = write_locked(channels, frames);
+
+        writers_in_flight_.fetch_sub(1, std::memory_order_release);
+        return queued;
+    }
+
+    bool TrackRecorder::write_locked(const float* const* channels, std::uint32_t frames) noexcept
+    {
         if (!recording_.load(std::memory_order_acquire) || channels == nullptr)
         {
             return false;
@@ -142,37 +159,51 @@ namespace SushiDSP
 
         for (std::uint32_t channel = 0; channel < channels_; ++channel)
         {
-            const float*      source = channels[channel];
-            SpscRing<float>&  ring   = *rings_[channel];
-            for (std::uint32_t frame = 0; frame < frames; ++frame)
-            {
-                // The free-space check above guarantees every push fits, so SpscRing never refuses one here.
-                ring.push(source[frame]);
-            }
+            // The free-space check above guarantees the whole run fits, so SpscRing never refuses it.
+            rings_[channel]->push(channels[channel], frames);
         }
 
         pushed_frames_.store(pushed + frames, std::memory_order_release);
         return true;
     }
 
+    void TrackRecorder::wait_for_writers()
+    {
+        while (writers_in_flight_.load(std::memory_order_acquire) != 0)
+        {
+            std::this_thread::yield();
+        }
+    }
+
+    void TrackRecorder::disarm()
+    {
+        recording_.store(false, std::memory_order_release);
+        wait_for_writers();
+    }
+
     void TrackRecorder::stop()
     {
-        const bool was_recording = recording_.exchange(false, std::memory_order_acq_rel);
+        const bool was_armed = writer_ != nullptr;
+
+        disarm();
+        // Every accepted block has landed in the rings by now, so the writer thread's last pass sees all of them.
+        draining_.store(false, std::memory_order_release);
 
         if (writer_thread_.joinable())
         {
             writer_thread_.join();
         }
-        if (was_recording && writer_ != nullptr)
+        if (was_armed && writer_ != nullptr)
         {
             writer_->close();
         }
         writer_.reset();
+        failed_.store(false, std::memory_order_release);
     }
 
     void TrackRecorder::drain_loop()
     {
-        while (recording_.load(std::memory_order_acquire))
+        while (draining_.load(std::memory_order_acquire))
         {
             if (drain_once() == 0)
             {
@@ -186,6 +217,11 @@ namespace SushiDSP
 
     std::size_t TrackRecorder::drain_once()
     {
+        if (failed_.load(std::memory_order_acquire))
+        {
+            return 0;
+        }
+
         const std::uint64_t pushed = pushed_frames_.load(std::memory_order_acquire);
         const std::uint64_t popped = popped_frames_.load(std::memory_order_relaxed);
         const std::size_t   available = static_cast<std::size_t>(pushed - popped);
@@ -198,12 +234,7 @@ namespace SushiDSP
 
         for (std::uint32_t channel = 0; channel < channels_; ++channel)
         {
-            SpscRing<float>&   ring   = *rings_[channel];
-            std::vector<float>& buffer = scratch_[channel];
-            for (std::size_t frame = 0; frame < frames; ++frame)
-            {
-                ring.pop(buffer[frame]);
-            }
+            rings_[channel]->pop(scratch_[channel].data(), frames);
         }
         popped_frames_.store(popped + frames, std::memory_order_release);
 
@@ -214,6 +245,7 @@ namespace SushiDSP
         }
         catch (...)
         {
+            failed_.store(true, std::memory_order_release);
             recording_.store(false, std::memory_order_release);
         }
 

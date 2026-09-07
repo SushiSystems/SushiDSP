@@ -58,8 +58,12 @@ namespace SushiDSP
         /// @brief Opens the file, empties the rings and starts the writer thread. Control thread only.
         /// @param path Filesystem path to create or overwrite.
         /// @return true if the file opened and the thread started, false otherwise.
-        /// @pre The audio thread is not inside write(); arm() empties the rings the writer reads.
         bool arm(const std::string& path);
+
+        /// @brief Refuses every further block and waits until the audio thread has left write().
+        /// Control thread only; it blocks, so it never runs on the audio thread. Calling it twice
+        /// is harmless.
+        void disarm();
 
         /// @brief Reports whether the rings hold a whole block, without queueing anything.
         /// Wait-free: two atomic loads and a comparison.
@@ -74,7 +78,8 @@ namespace SushiDSP
         /// @return true if the whole block was queued, false if it was dropped or nothing is armed.
         bool write(const float* const* channels, std::uint32_t frames) noexcept;
 
-        /// @brief Stops the writer thread, drains what is still queued and closes the file.
+        /// @brief Disarms, drains every frame the last accepted block left in the rings, stops
+        /// the writer thread and closes the file. Control thread only.
         void stop();
 
         /// @brief Returns true between a successful arm() and stop().
@@ -82,6 +87,9 @@ namespace SushiDSP
 
         /// @brief Returns the frames the writer thread has appended to the file.
         std::uint64_t frames_written() const { return frames_written_.load(std::memory_order_relaxed); }
+
+        /// @brief Returns true when the writer thread gave up because the file could not be written.
+        bool failed() const { return failed_.load(std::memory_order_acquire); }
 
         /// @brief Returns the blocks write() dropped because the rings were full.
         std::uint64_t dropped_blocks() const { return dropped_blocks_.load(std::memory_order_relaxed); }
@@ -93,7 +101,16 @@ namespace SushiDSP
         std::uint32_t channels() const { return channels_; }
 
     private:
-        /// @brief Drains the rings until stop() is called and the rings are empty.
+        /// @brief Copies one block into the rings, with the in-flight count already raised.
+        /// @param channels One pointer per recorded channel, each with at least `frames` samples.
+        /// @param frames Number of frames in the block.
+        /// @return true if the whole block was queued, false if it was dropped or nothing is armed.
+        bool write_locked(const float* const* channels, std::uint32_t frames) noexcept;
+
+        /// @brief Blocks the calling thread until no audio-thread call is inside write().
+        void wait_for_writers();
+
+        /// @brief Drains the rings until stop() ends the drain and the rings are empty.
         void drain_loop();
 
         /// @brief Drains up to one scratch buffer of frames from every ring and appends them.
@@ -129,6 +146,15 @@ namespace SushiDSP
 
         /// @brief Marks the span between a successful arm() and stop().
         std::atomic<bool>          recording_{ false };
+
+        /// @brief Counts the audio-thread calls currently inside write().
+        std::atomic<std::uint32_t> writers_in_flight_{ 0 };
+
+        /// @brief Keeps the writer thread draining until stop() has seen the last block.
+        std::atomic<bool>          draining_{ false };
+
+        /// @brief Marks that an append() threw and the file can take nothing more.
+        std::atomic<bool>          failed_{ false };
 
         /// @brief Holds the file's sample rate in Hz.
         double        sample_rate_;
