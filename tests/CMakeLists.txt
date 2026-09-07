@@ -49,7 +49,6 @@ add_executable(sushidsp_tests
     functional/unit/test_spsc_ring.cpp
 
     # --- Circuits ---
-    functional/unit/test_diode_clipper_circuit.cpp
     functional/unit/test_silicon_diode.cpp
     functional/unit/test_triode_12ax7.cpp
     functional/unit/test_pentode_el34.cpp

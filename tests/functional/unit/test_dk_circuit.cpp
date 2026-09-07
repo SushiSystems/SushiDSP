@@ -30,7 +30,6 @@
 #include <limits>
 #include <vector>
 
-#include "SushiDSP/circuits/DiodeClipperCircuit.hpp"
 #include "SushiDSP/circuits/models/SiliconDiode.hpp"
 
 #include "SushiDSP/math/dk/DkCircuit.hpp"
@@ -63,13 +62,6 @@ namespace
     /// comparable between the two solvers. Measured worst case over the test's sweep is
     /// 9.7e-13 V, so this leaves an order of magnitude of margin.
     constexpr double kDiodeSolutionErrorVolts = 1e-11;
-
-    /// Distance from the root, in volts, below which DiodeClipperCircuit counts as converged
-    /// for the purposes of comparing it with the DK block. Its state is float, so its residual
-    /// cannot go below roughly float epsilon times the source voltage; 1e-7 V is just above
-    /// that floor, and it separates the samples where it genuinely converged from the handful
-    /// where its fixed four-iteration budget ran out.
-    constexpr double kOracleConvergedVolts = 1e-7;
 
     /// Pi to double precision, spelled out so the tests do not depend on M_PI being visible.
     constexpr double kPi = 3.14159265358979323846;
@@ -410,14 +402,21 @@ TEST(Unit_Dsp, DkCircuitSeriesRlcResonatesWhereTheAnalogueCircuitDoes)
                 0.005 * kExpectedPeakMagnitude);
 }
 
-TEST(Unit_Dsp, DkCircuitDiodeClipperAgreesWithTheExistingScalarSolver)
+TEST(Unit_Dsp, DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation)
 {
-    // DiodeClipperCircuit(Rs, Is, Vt) solves  v = Vs - Rs*Is*(exp(v/Vt) - exp(-v/Vt)).
-    // The DK version is node 1 = source, node 2 = the diode node, Rs from 1 to 2, and TWO
-    // antiparallel SiliconDiode branches from 2 to ground - a pair, not a single symmetric
-    // element, so D6c can make it asymmetric later. Using SiliconDiode with n = 1 and the same
-    // Vt reproduces the scalar model's law exactly except for its -1 offsets, which cancel
-    // between the two antiparallel branches.
+    // The circuit solves v = Vs - Rs*Is*(exp(v/Vt) - exp(-v/Vt)). Node 1 = source, node 2 = the
+    // diode node, Rs from 1 to 2, and TWO antiparallel SiliconDiode branches from 2 to ground -
+    // a pair, not a single symmetric element, so D6c can make it asymmetric later. Using
+    // SiliconDiode with n = 1 and the same Vt reproduces that law exactly except for its -1
+    // offsets, which cancel between the two antiparallel branches.
+    //
+    // D6b's DiodeClipperCircuit used to sit here too, as a second, independently written
+    // implementation to agree with. D6c's plan (docs/superpowers/plans/2026-09-05-d6c-tubescreamer
+    // -on-dk.md, Task 10) retired it: it ran four fixed float Newton iterations with no
+    // convergence test and drifted up to 2.8 mV from the root at high slew, so agreeing with it
+    // was a weaker claim than agreeing with the equation. Bisecting the scalar equation itself,
+    // in double precision, is an independently written *root* rather than an independently
+    // written approximation, and it is the oracle this case now compares against exclusively.
     constexpr double kSourceResistance = 2200.0;
     constexpr double kSaturationCurrent = 2.52e-9;
     constexpr double kThermalVoltage = 0.025864;
@@ -437,16 +436,10 @@ TEST(Unit_Dsp, DkCircuitDiodeClipperAgreesWithTheExistingScalarSolver)
 
     AntiparallelDiodePort port{ SushiDSP::SiliconDiode(kSaturationCurrent, 1.0, kThermalVoltage) };
 
-    SushiDSP::DiodeClipperCircuit scalar(static_cast<float>(kSourceResistance),
-                                         static_cast<float>(kSaturationCurrent),
-                                         static_cast<float>(kThermalVoltage));
-
-    // The oracle's own equation, evaluated in double precision. The DK solution must be a root
-    // of it; so must the scalar solver's, but DiodeClipperCircuit runs a fixed four float
-    // Newton iterations with no convergence test, so on the samples where the source moves
-    // fastest it stops short. Measuring how far each solution sits from the root - |residual|
-    // over the residual's slope - is what lets this test say WHICH of the two is wrong on those
-    // samples, instead of quietly widening a tolerance until it passes.
+    // The scalar equation, evaluated in double precision, and its slope. |residual| over the
+    // slope is a first-order bound on the distance from a candidate voltage to the equation's
+    // true root, which is the oracle: it compares the DK solution against the equation itself
+    // rather than against another approximation of it.
     auto residual = [&](double v, double source)
     {
         return kSourceResistance * kSaturationCurrent
@@ -460,7 +453,6 @@ TEST(Unit_Dsp, DkCircuitDiodeClipperAgreesWithTheExistingScalarSolver)
                + 1.0;
     };
 
-    int    unconverged_oracle_samples = 0;
     double worst_dk_error = 0.0;
 
     for (int sample = 0; sample < kSampleCount; ++sample)
@@ -473,31 +465,12 @@ TEST(Unit_Dsp, DkCircuitDiodeClipperAgreesWithTheExistingScalarSolver)
         std::array<double, 1> outputs{};
         circuit.process_sample(port, inputs, outputs);
 
-        const double scalar_output = scalar.process_sample(static_cast<float>(source));
-
-        // The DK block must land on the true root of the oracle's equation, every sample.
+        // The DK block must land on the true root of the equation, every sample.
         const double dk_error = std::abs(residual(outputs[0], source)) / slope(outputs[0]);
         ASSERT_LT(dk_error, kDiodeSolutionErrorVolts) << sample;
         worst_dk_error = std::max(worst_dk_error, dk_error);
-
-        const double oracle_error = std::abs(residual(scalar_output, source)) / slope(scalar_output);
-        if (oracle_error < kOracleConvergedVolts)
-        {
-            // The oracle converged here too, so the two independent solvers must agree.
-            EXPECT_NEAR(outputs[0], scalar_output, 1e-6) << sample;
-        }
-        else
-        {
-            ++unconverged_oracle_samples;
-        }
     }
 
-    // 27 of 2048 samples defeat the oracle's four-iteration budget: the steep zero crossings
-    // near the top of the amplitude ramp, roughly one per half period once the drive passes a
-    // couple of volts, where its solution sits up to 2.8 mV from the root. None of them is a DK
-    // error - the DK solution is within 1e-12 V of the root on those same samples. Drift in
-    // this count means one of the two solvers changed and deserves a look, not a bigger bound.
-    EXPECT_LT(unconverged_oracle_samples, kSampleCount / 50);
     EXPECT_LT(worst_dk_error, kDiodeSolutionErrorVolts);
 }
 
