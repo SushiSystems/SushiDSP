@@ -270,9 +270,10 @@ publish, so the node never crossfades more than two sets. The host is asked to p
 times a second while a slider drags; `ImageSourceSolver` for 129 images plus 150 fits is under a
 millisecond of control-thread time, so the rate is bounded by the GUI, not by the solver.
 
-The related open item stays open: `RigController::rebuild_and_publish()` rebuilds the graph on a
-structural edit and discards node state (`docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`,
-"Prerequisites owned by other tracks"). Dragging the room node to another slot will cut its tail
+The related open item stays open: `RigController::publish()` (`apps/host_gui/RigController.hpp`)
+recompiles the graph on a structural edit and the fresh nodes start from empty state
+(`docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`, "Prerequisites owned by other tracks",
+which names the function by its earlier name). Dragging the room node to another slot will cut its tail
 until that lands. Moving the amplifier inside the room is a scene edit, not a graph edit, and does
 not touch it.
 
