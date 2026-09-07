@@ -22,7 +22,9 @@
 /**************************************************************************/
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <map>
 #include <optional>
@@ -34,6 +36,7 @@
 
 #include "RigController.hpp"
 #include "SlotSelection.hpp"
+#include "SushiDSP/capture/Transport.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 
 namespace
@@ -87,6 +90,78 @@ namespace
         std::ofstream out(path, std::ios::binary);
         out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
         return path;
+    }
+
+
+    /// @brief Writes a 32-bit-float mono WAV file, whose round trip through WavFile is exact.
+    /// @param name The file's name inside the test temporary directory.
+    /// @param samples The audio to write.
+    /// @param sample_rate The rate to record in the header.
+    /// @return The file's full path.
+    std::string write_temp_float_wav(const char* name, const std::vector<float>& samples,
+                                     std::uint32_t sample_rate)
+    {
+        const std::uint32_t data_bytes = static_cast<std::uint32_t>(samples.size() * sizeof(float));
+        std::vector<std::uint8_t> bytes;
+        append_tag(bytes, "RIFF");
+        append_u32_le(bytes, 36 + data_bytes);
+        append_tag(bytes, "WAVE");
+        append_tag(bytes, "fmt ");
+        append_u32_le(bytes, 16);
+        append_u16_le(bytes, 3);
+        append_u16_le(bytes, 1);
+        append_u32_le(bytes, sample_rate);
+        append_u32_le(bytes, sample_rate * 4);
+        append_u16_le(bytes, 4);
+        append_u16_le(bytes, 32);
+        append_tag(bytes, "data");
+        append_u32_le(bytes, data_bytes);
+        for (float sample : samples)
+        {
+            std::uint32_t word = 0;
+            std::memcpy(&word, &sample, sizeof(word));
+            append_u32_le(bytes, word);
+        }
+
+        const std::string path = std::string(::testing::TempDir()) + name;
+        std::ofstream out(path, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(bytes.data()),
+                  static_cast<std::streamsize>(bytes.size()));
+        return path;
+    }
+
+    /// @brief Builds a repeatable guitar-shaped test signal.
+    /// @param frames How many samples to produce.
+    /// @return The signal.
+    std::vector<float> make_test_signal(std::size_t frames)
+    {
+        std::vector<float> signal(frames, 0.0f);
+        for (std::size_t frame = 0; frame < frames; ++frame)
+        {
+            const double phase = 2.0 * 3.14159265358979323846 * 220.0
+                * static_cast<double>(frame) / 48000.0;
+            signal[frame] = 0.4f * static_cast<float>(std::sin(phase));
+        }
+        return signal;
+    }
+
+    /// @brief Runs a controller's published graph over a signal, one block at a time.
+    /// @param controller The rig to run.
+    /// @param input The whole signal, a multiple of block long.
+    /// @param block Frames per process() call.
+    /// @return The rig's output, the same length as input.
+    std::vector<float> render_through_rig(RigController& controller,
+                                          const std::vector<float>& input, std::uint32_t block)
+    {
+        std::vector<float> output(input.size(), 0.0f);
+        for (std::size_t offset = 0; offset + block <= input.size(); offset += block)
+        {
+            const float* input_pointer[1] = { input.data() + offset };
+            float*       output_pointer[1] = { output.data() + offset };
+            SushiDSP::ProcessContext context{ output_pointer, input_pointer, block, 0.0 };
+            controller.active_graph()->process(context);
+        }
+        return output;
     }
 
     /// @brief Counts the live slots carrying one descriptor id.
@@ -802,3 +877,218 @@ TEST(Unit_Dsp, SlotSelectionStillValidReturnsFalseForNoSelection)
     std::vector<RigController::SlotId> order{ 3, 7, 9 };
     EXPECT_FALSE(slot_selection::still_valid(std::nullopt, order));
 }
+
+// --- The rig's input source, the track list and the re-amp leg (DS3/DS4) ---
+//
+// See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md sections 6 and 7.
+
+TEST(Unit_Dsp, RigControllerStartsWithTheLiveInputAsItsSource)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    EXPECT_EQ(controller.input_source(), RigInputSource::LiveInput);
+}
+
+TEST(Unit_Dsp, RigControllerRemembersTheInputSourceItWasGiven)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    controller.set_input_source(RigInputSource::Both);
+
+    EXPECT_EQ(controller.input_source(), RigInputSource::Both);
+}
+
+TEST(Unit_Dsp, RigControllerNamesALoadedTrackAfterItsFile)
+{
+    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+                                                  make_test_signal(256), 48000);
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    std::string error;
+    ASSERT_TRUE(controller.load_track(0, path, error)) << error;
+
+    EXPECT_TRUE(controller.track_is_loaded(0));
+    EXPECT_EQ(controller.track_name(0), "sushidsp_test_track");
+    EXPECT_EQ(controller.track_path(0), path);
+}
+
+TEST(Unit_Dsp, RigControllerRefusesATrackFileItCannotRead)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    std::string error;
+    EXPECT_FALSE(controller.load_track(0, "D:/no/such/take.wav", error));
+    EXPECT_FALSE(controller.track_is_loaded(0));
+    EXPECT_FALSE(error.empty());
+}
+
+TEST(Unit_Dsp, RigControllerClearingATrackEmptiesItsNameAndPath)
+{
+    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+                                                  make_test_signal(256), 48000);
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    std::string error;
+    ASSERT_TRUE(controller.load_track(1, path, error)) << error;
+
+    controller.clear_track(1);
+
+    EXPECT_FALSE(controller.track_is_loaded(1));
+    EXPECT_EQ(controller.track_name(1), "");
+    EXPECT_EQ(controller.track_path(1), "");
+}
+
+TEST(Unit_Dsp, RigControllerSendsALoadedTrackToTheReampLeg)
+{
+    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+                                                  make_test_signal(256), 48000);
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    std::string error;
+    ASSERT_TRUE(controller.load_track(2, path, error)) << error;
+
+    ASSERT_TRUE(controller.set_reamp_track(2, error)) << error;
+
+    ASSERT_TRUE(controller.reamp_track().has_value());
+    EXPECT_EQ(*controller.reamp_track(), 2u);
+}
+
+TEST(Unit_Dsp, RigControllerRefusesToReampAnEmptyTrack)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    std::string error;
+    EXPECT_FALSE(controller.set_reamp_track(3, error));
+    EXPECT_FALSE(controller.reamp_track().has_value());
+}
+
+TEST(Unit_Dsp, RigControllerDropsTheReampLegWhenItsTrackIsCleared)
+{
+    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+                                                  make_test_signal(256), 48000);
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    std::string error;
+    ASSERT_TRUE(controller.load_track(0, path, error)) << error;
+    ASSERT_TRUE(controller.set_reamp_track(0, error)) << error;
+
+    controller.clear_track(0);
+
+    EXPECT_FALSE(controller.reamp_track().has_value());
+}
+
+TEST(Unit_Dsp, RigControllerReampLegAddsTheTakeIntoAnEmptyInputBuffer)
+{
+    const std::uint32_t     block = 64;
+    const std::vector<float> signal = make_test_signal(block);
+    const std::string        path =
+        write_temp_float_wav("sushidsp_test_track.wav", signal, 48000);
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, block, 2 });
+    std::string error;
+    ASSERT_TRUE(controller.load_track(0, path, error)) << error;
+    ASSERT_TRUE(controller.set_reamp_track(0, error)) << error;
+
+    std::vector<float> assembled(block, 0.0f);
+    float*             assembled_pointer[1] = { assembled.data() };
+    controller.transport().play();
+    controller.reamp_player().process(assembled_pointer, 1, block, controller.transport());
+
+    for (std::uint32_t frame = 0; frame < block; ++frame)
+    {
+        EXPECT_NEAR(assembled[frame], signal[frame], 1e-6f) << "frame " << frame;
+    }
+}
+
+TEST(Unit_Dsp, RigControllerPresetCarriesTheTrackListAndTheLoopRange)
+{
+    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+                                                  make_test_signal(256), 48000);
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    source.append("sushidsp.tubescreamer");
+    std::string error;
+    ASSERT_TRUE(source.load_track(0, path, error)) << error;
+    source.set_track_name(0, "rhythm");
+    source.player().set_gain(0, 0.5f);
+    source.player().set_pan(0, -0.75f);
+    source.player().set_mute(0, true);
+    source.transport().set_loop(4800, 9600);
+    source.set_take_folder("D:/takes");
+
+    RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    target.load_from_json(source.save_to_json());
+
+    EXPECT_TRUE(target.track_is_loaded(0));
+    EXPECT_EQ(target.track_name(0), "rhythm");
+    EXPECT_EQ(target.track_path(0), path);
+    EXPECT_NEAR(target.player().gain(0), 0.5f, 1e-6f);
+    EXPECT_NEAR(target.player().pan(0), -0.75f, 1e-6f);
+    EXPECT_TRUE(target.player().muted(0));
+    EXPECT_TRUE(target.transport().has_loop());
+    EXPECT_EQ(target.transport().loop_begin_frames(), 4800u);
+    EXPECT_EQ(target.transport().loop_end_frames(), 9600u);
+    EXPECT_EQ(target.take_folder(), "D:/takes");
+}
+
+TEST(Unit_Dsp, RigControllerPresetWithNoTrackKeyLoadsWithAnEmptyTrackList)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]}
+    ]})";
+    const std::string path = write_temp_float_wav("sushidsp_test_track.wav",
+                                                  make_test_signal(256), 48000);
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    std::string error;
+    ASSERT_TRUE(controller.load_track(0, path, error)) << error;
+    controller.transport().set_loop(100, 200);
+
+    controller.load_from_json(preset);
+
+    EXPECT_FALSE(controller.track_is_loaded(0));
+    EXPECT_FALSE(controller.transport().has_loop());
+}
+
+// The spec's section 10 alignment acceptance, proved without a device: the dry signal that drove
+// the rig, written to a take and played back into an identical rig through the re-amp leg,
+// reproduces the rig's output sample for sample.
+
+TEST(Unit_Dsp, RigControllerReampingADryTakeReproducesTheRigsOwnOutput)
+{
+    const std::uint32_t      block = 64;
+    const std::vector<float> dry = make_test_signal(block * 8);
+
+    RigController live(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+    live.append("sushidsp.tubescreamer");
+    const std::vector<float> processed = render_through_rig(live, dry, block);
+
+    const std::string take_path = write_temp_float_wav("sushidsp_test_dry.wav", dry, 48000);
+
+    RigController reamp(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+    reamp.append("sushidsp.tubescreamer");
+    std::string error;
+    ASSERT_TRUE(reamp.load_track(0, take_path, error)) << error;
+    ASSERT_TRUE(reamp.set_reamp_track(0, error)) << error;
+    reamp.set_input_source(RigInputSource::Track);
+    reamp.transport().play();
+
+    // The host's own callback order: assemble the input, run the rig, advance the clock.
+    std::vector<float> reamped(dry.size(), 0.0f);
+    std::vector<float> assembled(block, 0.0f);
+    for (std::size_t offset = 0; offset + block <= dry.size(); offset += block)
+    {
+        std::fill(assembled.begin(), assembled.end(), 0.0f);
+        float* assembled_pointer[1] = { assembled.data() };
+        reamp.reamp_player().process(assembled_pointer, 1, block, reamp.transport());
+
+        const float* input_pointer[1] = { assembled.data() };
+        float*       output_pointer[1] = { reamped.data() + offset };
+        SushiDSP::ProcessContext context{ output_pointer, input_pointer, block, 0.0 };
+        reamp.active_graph()->process(context);
+
+        reamp.transport().advance(block);
+    }
+
+    for (std::size_t frame = 0; frame < dry.size(); ++frame)
+    {
+        EXPECT_NEAR(reamped[frame], processed[frame], 1e-6f) << "frame " << frame;
+    }
+}
+
