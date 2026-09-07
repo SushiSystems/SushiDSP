@@ -68,6 +68,11 @@ circuit stays and the criterion changes. Per module the acceptance is:
   travel (the metric saturates once every stage clips and eases slightly as earlier stages square
   the wave into faster-falling harmonics; the 5150 measured a 0.68 pp ease at 0.1 to 0.2).
 - **Default settings peak at −6 dBFS ± 1 dB** with the re-measured unity constant.
+
+The degeneration each module divides by is the closed form `1 + (R_tail ∥ Z_shunt) / Z_k`, which
+treats the undriven cathode as a fixed `Z_k`; against an exact four-node small-signal solve of the
+pair it runs 0.08 to 0.11 dB high across the four modules (JCM800 1.7437 against 1.7267, 5150
+1.9050 against 1.8862, IIC+ 2.2553 against 2.2266), a uniform bias rather than an error to correct.
 - **Grid probe readings** at the default setting are recorded in the module README as measurements,
   not asserted. The test is named `<Amp>HasACleanEndAtMinimumGain`.
 
@@ -104,4 +109,4 @@ The full DK load-line solve (the D6d path) is not this phase; the tanh ceiling i
 - Six-argument `TriodeStage` bit-identical: the existing `test_triode_stage.cpp` cases and every golden not re-pinned in this phase pass unchanged before the modules switch.
 - Four modules build on the seven-argument path with zero `*LevelStaging*` / `GridDriveNormalisation` symbols left (`grep` clean).
 - The clean-end test passes on the JCM800, 5150 and VH4 and is skipped on the IIC+ under the loop-return known issue; THD does not fall across the gain knob within 1.0 pp; default settings peak at −6 dBFS ± 1 dB with the re-measured unity constants; grid probe readings recorded in each README.
-- Goldens re-pinned once, with README rows, in the same commit as each module's switch.
+- Goldens re-pinned three times, with README rows, in controller commits (`73ed916`, `16b2183`, `10e924e`).

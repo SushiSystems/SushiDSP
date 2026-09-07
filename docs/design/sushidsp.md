@@ -460,15 +460,16 @@ constants, the IIC+'s per-stage normalisation) that used to keep every following
 solver bound; each dossier's own dividers now run at face value, in volts, from the first grid to
 the power tubes. Two circuit facts came with that change, applied by every module: the phase
 inverter is a long-tailed pair, so its grid-cathode window is the input divided by the tail
-degeneration `1 + (µ + 1)·R_tail / (r_a + R_a)`, not the full swing a common-cathode stage would
-see; and `PentodeStage`'s grid is not volt-true, so the link from a preamp stage's volts into its
+degeneration `1 + (R_tail ∥ Z_shunt) / Z_k` of the spec's section 4
+(`docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`), not the full swing a
+common-cathode stage would see; and `PentodeStage`'s grid is not volt-true, so the link from a preamp stage's volts into its
 grid carries a derived `kPowerTubeGridScale` bridge until `PentodeStage` is rebuilt in DA5. Every
 coupling capacitor moved to `Biquad::set_first_order_high_pass`, the numerically stable one-pole
 shape for a physical RC link, in place of the second-order `set_high_pass`, which is unsafe below
 a `cutoff_hz / sample_rate` of `1e-4`. Because the dossiers' own dividers run this hot, "no grid on
 its bound" is not achievable at these gain structures; the acceptance criterion each module's
 README documents instead is a clean end at minimum gain, non-decreasing THD across the knob, and
-a −6 dBFS ± 1 dB default peak. The JCM800's alias floor regressed to −3.0 dB against the −33.8 dB
+a −6 dBFS ± 1 dB default peak. The JCM800's alias floor regressed to −6.7 dB against the −33.8 dB
 bound as a result — every stage now clips at the level its own circuit puts it at, feeding more
 harmonics into the 8× fold — and is carried as a known issue (`docs/reference/KNOWN_ISSUES.md`)
 until DA5's antialiasing work.
