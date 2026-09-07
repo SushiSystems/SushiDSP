@@ -9,6 +9,7 @@ The studio track, spec `docs/superpowers/specs/2026-09-07-stereo-tracks-design.m
 `docs/superpowers/plans/2026-09-07-stereo-tracks.md`, ledger
 `.superpowers/sdd/2026-09-07-stereo-tracks/`.
 
+- 2026-09-07 — Renamed the hub's command from `ss` to `hub` in the manual (`docs/`).
 - 2026-09-07 — Routed as many channels per edge as a graph's two nodes declare, adapting 1 into 2, 2 into 1 and n into n (`RigGraph.hpp`, `RigGraph.cpp`).
 - 2026-09-07 — Added `RigGraph::channels_adapt`, `live_buffer_count` and `kMaxChannels = 2`; `compile()` now sizes the buffer pool (`RigGraph.hpp`, `RigGraph.cpp`).
 - 2026-09-07 — Added `routing::PanNode`, one channel into two on a constant-power law (`modules/routing/`).

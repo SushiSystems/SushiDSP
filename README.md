@@ -70,8 +70,8 @@ curl -fsSL https://sushisystems.io/install.sh | bash   # Linux
 ```
 
 ```bash
-ss add sushidsp             # clone this repository into the workspace
-ss install-cli sushidsp     # install the `sd` command line tool
+hub add sushidsp             # clone this repository into the workspace
+hub install-cli sushidsp     # install the `sd` command line tool
 ```
 
 Then build and run the tests:

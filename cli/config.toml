@@ -9,7 +9,7 @@
 #
 # SushiDSP pins no toolchain. `sd` looks for a C++17 compiler in this order and
 # `sd config` says which one it found: an explicit `cxx` here, the intel/llvm
-# clang++ a SushiStack workspace provisions (`ss install`), a clang++ on PATH,
+# clang++ a SushiStack workspace provisions (`hub install`), a clang++ on PATH,
 # else CMake's platform default (MSVC via the Visual Studio generator on
 # Windows, the system compiler elsewhere). A standalone checkout therefore
 # needs no local config at all; a workspace upgrades the compiler by itself.
