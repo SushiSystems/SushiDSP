@@ -185,6 +185,12 @@ public:
     /// @brief A slot's cabinet impulse response path, or "" if it has none or hosts no cabinet.
     std::string cabinet_path(SlotId slot) const;
 
+    /// @brief Reports whether a slot's node accepts a cabinet impulse response.
+    /// @param slot The slot.
+    /// @return True when the node this slot last published implements SushiDSP::ICabinetHost.
+    /// A slot added while bypassed has never had a node and reads false until it goes live.
+    bool hosts_cabinet(SlotId slot) const;
+
     /// @brief Lists the ids of every slot with an edge into `slot`, in connect() call order.
     std::vector<SlotId> upstream_of(SlotId slot) const;
 
@@ -228,6 +234,7 @@ private:
         std::map<std::string, float>    parameters;
         std::string                     cabinet_path;
         bool                            bypassed = false;
+        bool                            hosts_cabinet = false;
     };
     struct Edge { SlotId from; SlotId to; };
 

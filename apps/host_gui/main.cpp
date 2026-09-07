@@ -67,14 +67,15 @@ namespace
         return cut == std::string::npos ? std::string() : path.substr(0, cut + 1);
     }
 
-    /// @brief Installs the bundled cabinet impulse response on a freshly-created JCM800 slot,
-    /// if the bundle is present next to the executable. Warns once, on stderr, when it is not.
+    /// @brief Installs the bundled cabinet impulse response on a freshly-created slot that hosts
+    /// a cabinet, if the bundle is present next to the executable. Warns once, on stderr, when it
+    /// is not.
     /// @param controller The rig to act on.
     /// @param slot The new slot's id.
     /// @param default_ir_path Path to the bundled impulse response.
     void apply_default_cabinet(RigController& controller, RigController::SlotId slot, const std::string& default_ir_path)
     {
-        if (controller.descriptor_id(slot) != "sushidsp.jcm800")
+        if (!controller.hosts_cabinet(slot))
         {
             return;
         }
@@ -87,8 +88,8 @@ namespace
             {
                 warned = true;
                 std::fprintf(stderr,
-                    "No bundled cabinet impulse response at '%s' - JCM800 slots start without a "
-                    "cabinet. Drop a 4x12 IR there, or load one from the Cabinet IR field.\n",
+                    "No bundled cabinet impulse response at '%s' - amplifier slots start without "
+                    "a cabinet. Drop a 4x12 IR there, or load one from the Cabinet IR field.\n",
                     default_ir_path.c_str());
             }
             return;

@@ -103,7 +103,7 @@ namespace ui
             }
         }
 
-        /// @brief Draws the JCM800 cabinet field below the panel.
+        /// @brief Draws the cabinet field below the panel of an amp that hosts a cabinet.
         /// @param rig The rig that owns the slot.
         /// @param slot The amp whose cabinet the field edits.
         /// @param default_ir_directory Where the browser opens when the rig remembers no folder.
@@ -266,7 +266,7 @@ namespace ui
         }
 
         ImGui::SetCursorScreenPos(ImVec2(origin.x, origin.y + panel_region.y + 8.0f));
-        if (id == "sushidsp.jcm800")
+        if (rig.hosts_cabinet(slot))
         {
             draw_cabinet_field(rig, slot, default_ir_directory);
         }
