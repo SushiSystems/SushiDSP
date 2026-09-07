@@ -122,7 +122,11 @@ has to *raise* the factor, and it does: without the 470 Ω the same form gives 1
 model's nominal 100, and the same µ sets the gain: the inverter's `TriodeStage` carries the **full**
 single-triode `96.378299 × 82000 / (82000 + 34061.086)` = **68.093628**, because the pair's split is
 the degeneration factor's job and halving the gain as well counted it twice. R_tail is §5.1's shared
-15 k tail glyph and r_a 34061.086 Ω, both at Vgk −1.5 V, Vpk 284.5 V.
+15 k tail glyph and r_a 34061.086 Ω, both at Vgk −1.5 V, Vpk 284.5 V. That point is the dossier's
+printed operating point, not a solved point on the 82 kΩ load line: the Koren model draws 2.946 mA
+there while the line from 392 V to the printed 286 V carries 1.293 mA, dossier question 6 holds the
+disagreement, and a self-consistent solve would give gain 63.6 or 57.2 with degeneration 2.226 or
+2.183.
 
 `PentodeStage` is not volt-true: its grid saturates at `1 / (drive × gain)` in its own units, not at
 the preset's −45 V. Two scales bridge the volt-true preamp to it until `PentodeStage` becomes

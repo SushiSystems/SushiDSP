@@ -47,9 +47,10 @@ namespace
     // exactly in one step, and no overshoot is possible - there is nothing there for a clamp to
     // protect against. What a symmetric bound does on that side is silently hard-clip an otherwise
     // linear answer, which is why Jcm800's interstage levels previously had to be held so low that
-    // the cascade barely distorted (see Jcm800.cpp's interstage gain-staging comment and the Task
-    // 9 voicing ruling). The lower bound is therefore set at 160 * Vt ~ 4.14 V below Vk, which is
-    // where a 12AX7's plate swing hits the ~250 V B+ rail at this stage's gain of 60 - so it reads
+    // the cascade barely distorted, until DA4 gave the plate its own ceiling
+    // (docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md section 3). The lower bound
+    // is therefore set at 160 * Vt ~ 4.14 V below Vk, which is where a 12AX7's plate swing hits
+    // the ~250 V B+ rail at a gain of 60 - so it reads
     // as the stage's cutoff rather than as an arbitrary numerical fence, it sits above the 2.81 V
     // worst case the driven chain reaches at a 1.0 input, and a genuine runaway is still caught
     // rather than integrated forever by the warm start.

@@ -191,7 +191,13 @@ divided by `1 + R_tail / (R_tail + (r_a + R_a)/(µ + 1))`, where `(r_a + R_a)/(�
 impedance the other triode's cathode presents in parallel with the tail. §5's tail is R52 470 Ω +
 R51 10 kΩ + R57 4.7 kΩ = 15.17 kΩ and the shunt is (53.448 k + 91 k)/90.714 = 1592.34 Ω, so
 `kPhaseInverterDegeneration` = 1 + 15170/(15170 + 1592.34) = **1.90500**, applied at the inverter's
-input as a divide.
+input as a divide. The tail is the DC path: §5 also returns the feedback loop into node N through
+C30, whose shunt the module does not model, so the AC tail sits below 15.17 kΩ.
+
+Both figures solve the pair on the 91 kΩ average while the driven half, V4B, actually sits on
+R46's 82 kΩ. An exact two-node solve with the real 82 kΩ and 100 kΩ plates gives 1.997 and a
+driven-plate gain of 26.90 against this pair's 29.67, 0.85 dB on the driven plate; the average is
+a modelling choice, not a dossier figure.
 
 The two are one split, counted once. The first ruling of 2026-09-07 used
 `1 + (µ + 1)·R_tail/(r_a + R_a)` = 10.45784 without the cathode shunt, on top of a halved 29.7

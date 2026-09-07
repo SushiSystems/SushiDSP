@@ -190,7 +190,8 @@ reading `Vgk = 0` as the conduction limit is a simplification: the real cathode 
 conducts, which would put the bottom a little higher. The phase inverter is a modelling choice like
 the rest of that stage — it takes the JCM800 long-tailed pair's swing, computed from
 [`jcm_ltp`](../../docs/reference/spice/jcm_ltp/README.md) at B+ 360 V, where the 82 kΩ half
-self-biases to `Vk` 3.910 V and `Va` 344.199 V. That leaves only 15.8 V toward the supply, which
+self-biases to `Vk` 3.928014 V and `Va` 344.618092 V, the matched-pair figures this module
+copies by value. That leaves only 15.8 V toward the supply, which
 `jcm_ltp_tran.csv` corroborates: its differential probe reaches −20.7 V to +22.5 V at a 1 V drive.
 
 ### Where the grids sit at the default setting

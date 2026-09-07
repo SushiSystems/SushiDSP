@@ -166,7 +166,9 @@ namespace SushiDSP
         /// kPhaseInverterGain gives (53.448k + 91k) / 90.714 = 1592.34 Ohm, so the factor is
         /// 1 + 15170 / (15170 + 1592.34) = 1 + 0.90500 = 1.90500. Without it the pair is modelled
         /// as a common-cathode stage with a grid window it does not have, which is why the real
-        /// inverter takes V3A's swing without conducting.
+        /// inverter takes V3A's swing without conducting. 15.17 kOhm is the DC tail; section 5
+        /// also returns the feedback loop into node N through C30, a shunt this module does not
+        /// model, so the AC tail is lower.
         constexpr float kPhaseInverterDegeneration = 1.90500f;
 
         /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
@@ -178,7 +180,9 @@ namespace SushiDSP
 
         // Dossier section 5: the pair's plates drive R55/R54 220k through C29/C28 with only the
         // 2.2 kOhm stoppers between the node and the grids, so the loss is the 220 kOhm leak
-        // against the plate's own 82k || 62k = 35.3 kOhm: 220/(220 + 35.3) = 0.8617.
+        // against the dossier's own 35.3 kOhm plate impedance: 220/(220 + 35.3) = 0.8617. That
+        // 35.3 kOhm is the dossier's arithmetic, not this module's ra, which the solved point
+        // behind kPhaseInverterGain puts at 53.448 kOhm.
         constexpr float kPhaseInverterToPowerTubeAttenuation = 0.8617f;
 
         // Not a dossier value. The output trim to full scale: the JCM800's output-level trim into
