@@ -174,9 +174,6 @@ namespace SushiDSP
         /// per-half DC equivalent and belongs only in the idle solve.
         constexpr float kPhaseInverterDegeneration = 1.743723f;
 
-        constexpr float kTriodeSaturationCurrentAmps = 1e-9f;
-        constexpr float kTriodeThermalVoltageVolts = 0.02585f;
-
         // Every interstage factor below is a dossier value; modules/diezel_vh4/README.md records
         // the level staging this module carried until 2026-09-07 and why it went.
         /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
@@ -270,12 +267,12 @@ namespace SushiDSP
 
     DiezelVh4::DiezelVh4(std::vector<float> cabinet_impulse_response)
         : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kV1aSourceResistanceOhms, kV1aGridLeakOhms, kV1aCathodeBiasVolts, kV1aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kV1aPlateSwing)
-        , v2a_(kV2aSourceResistanceOhms, kV2aGridLeakOhms, kV2aCathodeBiasVolts, kV2aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kV2aPlateSwing)
-        , v3a_(kV3aSourceResistanceOhms, kV3aGridLeakOhms, kV3aCathodeBiasVolts, kV3aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kV3aPlateSwing)
+        , v1a_(kV1aSourceResistanceOhms, kV1aGridLeakOhms, kV1aCathodeBiasVolts, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
+        , v2a_(kV2aSourceResistanceOhms, kV2aGridLeakOhms, kV2aCathodeBiasVolts, kV2aGain, kTriode12AX7GridConduction, kV2aPlateSwing)
+        , v3a_(kV3aSourceResistanceOhms, kV3aGridLeakOhms, kV3aCathodeBiasVolts, kV3aGain, kTriode12AX7GridConduction, kV3aPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
-        , v4a_(kV4aSourceResistanceOhms, kV4aGridLeakOhms, kV4aCathodeBiasVolts, kV4aGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kV4aPlateSwing)
-        , phase_inverter_(kPhaseInverterSourceResistanceOhms, kPhaseInverterGridLeakOhms, kPhaseInverterCathodeBiasVolts, kPhaseInverterGain, kTriodeSaturationCurrentAmps, kTriodeThermalVoltageVolts, kPhaseInverterPlateSwing)
+        , v4a_(kV4aSourceResistanceOhms, kV4aGridLeakOhms, kV4aCathodeBiasVolts, kV4aGain, kTriode12AX7GridConduction, kV4aPlateSwing)
+        , phase_inverter_(kPhaseInverterSourceResistanceOhms, kPhaseInverterGridLeakOhms, kPhaseInverterCathodeBiasVolts, kPhaseInverterGain, kTriode12AX7GridConduction, kPhaseInverterPlateSwing)
         , el34_a_(kDiezelVh4PowerEl34)
         , el34_b_(kDiezelVh4PowerEl34)
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)

@@ -26,12 +26,15 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <memory>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "SushiDSP/circuits/stages/TriodeStage.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
+#include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 #include "measure/AliasFloor.hpp"
 #include "measure/FrequencyResponse.hpp"
@@ -71,6 +74,65 @@ namespace
 
     private:
         float gain_;
+    };
+
+    /// @brief One TriodeStage inside its own 8x region, the input scaled to a peak grid drive in
+    /// volts and the output back to full scale, as the DA5 diagnosis measures a stage.
+    class OversampledTriodeStageNode : public SushiDSP::IAudioNode
+    {
+    public:
+        /// @param stage The stage under test.
+        /// @param drive_volts_peak The grid drive a full-scale -12 dBFS stimulus reaches.
+        /// @param plate_scale The output divisor that brings the plate back inside full scale.
+        OversampledTriodeStageNode(SushiDSP::TriodeStage stage, float drive_volts_peak, float plate_scale)
+            : stage_(stage), drive_(drive_volts_peak / 0.251189f), output_scale_(1.0f / plate_scale) {}
+
+        void prepare(const SushiDSP::PrepareInfo& info) override
+        {
+            oversampler_ = std::make_unique<SushiDSP::Oversampler8x>(info.max_block);
+            scratch_.assign(static_cast<std::size_t>(info.max_block) * 8, 0.0f);
+            reset();
+        }
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            const float* upsampled = oversampler_->upsample(context.inputs[0], context.frames);
+            for (std::uint32_t i = 0; i < context.frames * 8; ++i)
+            {
+                scratch_[i] = stage_.process_sample(upsampled[i] * drive_) * output_scale_;
+            }
+            oversampler_->downsample(scratch_.data(), context.frames * 8, context.outputs[0]);
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
+
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+
+        void reset() override
+        {
+            stage_.reset();
+            if (oversampler_)
+            {
+                oversampler_->reset();
+            }
+        }
+
+    private:
+        /// @brief The stage under test.
+        SushiDSP::TriodeStage stage_;
+
+        /// @brief Volts of grid drive per full-scale unit of stimulus.
+        float drive_;
+
+        /// @brief The factor that brings the plate swing back inside full scale.
+        float output_scale_;
+
+        /// @brief The 8x region the stage runs in.
+        std::unique_ptr<SushiDSP::Oversampler8x> oversampler_;
+
+        /// @brief The oversampled block between the stage and the decimator.
+        std::vector<float> scratch_;
     };
 
     /// @brief y = x: the pass-through reference used to pin the analysis floor.
@@ -439,14 +501,37 @@ TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
     node.set_presence(0.5f);
     const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
     std::printf("[ measure ] Jcm800 alias floor %.1f dB\n", floor);
-    GTEST_SKIP() << "Known issue, DA4. The JCM800 measures -6.7 dB at preamp 1.0 and -12 dBFS, "
-                    "against -43.4 dB before DA4 removed the level staging. Every stage now "
-                    "clips at the level its own circuit puts it at, and the 8x region folds the "
-                    "harmonics that clipping generates. The -33.8 dB bound stands and is not "
-                    "relaxed; docs/reference/KNOWN_ISSUES.md carries the item until DA5's "
-                    "antialiasing work (ADAA in TriodeStage, or 16x oversampling) restores the "
-                    "floor.";
+    GTEST_SKIP() << "Known issue, DA4. The JCM800 measures -15.1 dB at preamp 1.0 and -12 dBFS "
+                    "on the Norman grid law (-6.7 dB on the Shockley knee), against -43.4 dB "
+                    "before DA4 removed the level staging. Every stage clips at the level its "
+                    "own circuit puts it at, and the 8x region folds the harmonics that clipping "
+                    "generates. The -33.8 dB bound stands and is not relaxed; "
+                    "docs/reference/KNOWN_ISSUES.md carries the item until DA5's antialiasing "
+                    "work (ADAA in TriodeStage, or 16x oversampling) restores the floor.";
     EXPECT_LE(floor, kD5bJcm800AliasFloorDb - 30.0);
+}
+
+TEST(Regression_Dsp, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
+{
+    // DA5 spec section 11's first acceptance: the 5150's V5A stage alone in an 8x region, its
+    // 2.0 V window driven 3x and 12x past, folds under -60 dB and -40 dB. On the Norman grid
+    // law it measured -81.2 dB at 6 V and -53.7 dB at 24 V on 2026-09-07; the room-temperature
+    // Shockley knee read -37.3 dB and -13.7 dB at the same drives (the diagnosis at
+    // .superpowers/sdd/amp-gain-staging/diagnosis.md section 5).
+    auto v5a = []
+    {
+        return SushiDSP::TriodeStage(671730.0f, 1000000.0f, -2.0f, 25.3f, SushiDSP::kTriode12AX7GridConduction,
+                                     SushiDSP::PlateSwing{ 90.742f, 134.001f });
+    };
+    OversampledTriodeStageNode three_times(v5a(), 6.0f, 134.0f);
+    OversampledTriodeStageNode twelve_times(v5a(), 24.0f, 134.0f);
+
+    const double at_three_times = SushiDSP::measure::alias_floor(three_times, 48000.0);
+    const double at_twelve_times = SushiDSP::measure::alias_floor(twelve_times, 48000.0);
+    std::printf("[ measure ] TriodeStage V5A alias floor %.1f dB at 3x its window, %.1f dB at 12x\n",
+                at_three_times, at_twelve_times);
+    EXPECT_LT(at_three_times, -60.0);
+    EXPECT_LT(at_twelve_times, -40.0);
 }
 
 TEST(Unit_Dsp, MeasureFrequencyResponseIsAccurateAtTheBottomOfTheAudioBand)

@@ -50,9 +50,6 @@ namespace SushiDSP
         // The signal order triode_stage_count() and grid_excursion_peak_volts() report in.
         constexpr std::size_t kTriodeStageCount = 8;
 
-        constexpr float kTriodeSaturationCurrent = 1e-9f;   // Dossier section 7, unchanged from kEl34.
-        constexpr float kTriodeThermalVoltage = 0.02585f;   // kT/q at room temperature; dossier section 7.
-
         // Small-signal gains, dossier section 3's per-stage table at B+ = 340 V.
         constexpr float kV1aGain = 77.4f;
         constexpr float kV1bGain = 65.2f;
@@ -379,15 +376,15 @@ namespace SushiDSP
 
     Peavey5150::Peavey5150(std::vector<float> cabinet_impulse_response)
         : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kV1aSourceResistance, kV1aGridLeak, kV1aCathodeBias, kV1aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1aPlateSwing)
-        , v1b_(kV1bSourceResistance, kV1bGridLeak, kV1bCathodeBias, kV1bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV1bPlateSwing)
-        , v2a_(kV2aSourceResistance, kV2aGridLeak, kV2aCathodeBias, kV2aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV2aPlateSwing)
-        , v2b_(kV2bSourceResistance, kV2bGridLeak, kV2bCathodeBias, kV2bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV2bPlateSwing)
-        , v5b_(kV5bSourceResistance, kV5bGridLeak, kV5bCathodeBias, kV5bGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV5bPlateSwing)
-        , v5a_(kV5aSourceResistance, kV5aGridLeak, kV5aCathodeBias, kV5aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV5aPlateSwing)
+        , v1a_(kV1aSourceResistance, kV1aGridLeak, kV1aCathodeBias, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
+        , v1b_(kV1bSourceResistance, kV1bGridLeak, kV1bCathodeBias, kV1bGain, kTriode12AX7GridConduction, kV1bPlateSwing)
+        , v2a_(kV2aSourceResistance, kV2aGridLeak, kV2aCathodeBias, kV2aGain, kTriode12AX7GridConduction, kV2aPlateSwing)
+        , v2b_(kV2bSourceResistance, kV2bGridLeak, kV2bCathodeBias, kV2bGain, kTriode12AX7GridConduction, kV2bPlateSwing)
+        , v5b_(kV5bSourceResistance, kV5bGridLeak, kV5bCathodeBias, kV5bGain, kTriode12AX7GridConduction, kV5bPlateSwing)
+        , v5a_(kV5aSourceResistance, kV5aGridLeak, kV5aCathodeBias, kV5aGain, kTriode12AX7GridConduction, kV5aPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
-        , v3a_(kV3aSourceResistance, kV3aGridLeak, kV3aCathodeBias, kV3aGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kV3aPlateSwing)
-        , phase_inverter_(kPhaseInverterSourceResistance, kPhaseInverterGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriodeSaturationCurrent, kTriodeThermalVoltage, kPhaseInverterPlateSwing)
+        , v3a_(kV3aSourceResistance, kV3aGridLeak, kV3aCathodeBias, kV3aGain, kTriode12AX7GridConduction, kV3aPlateSwing)
+        , phase_inverter_(kPhaseInverterSourceResistance, kPhaseInverterGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriode12AX7GridConduction, kPhaseInverterPlateSwing)
         , power_tube_a_(kPeavey5150Power6L6GC)
         , power_tube_b_(kPeavey5150Power6L6GC)
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)

@@ -30,19 +30,60 @@
 
 namespace
 {
+    // The JCM800's V1a-shaped stage: a 10 kOhm source into a 1 MOhm grid leak, biased 1.5 V
+    // below the cathode, gain 60, with a 194 / 115 V plate swing.
     constexpr float kSourceResistance = 10000.0f;
-    constexpr float kGridLeakResistance = 1000000.0f;   // 1M, typical 12AX7 grid-leak
-    constexpr float kCathodeBias = -1.5f;                // typical 12AX7 self-bias point
-    constexpr float kGain = 60.0f;                       // approximate 12AX7 mu-derived stage gain
-    constexpr float kSaturationCurrent = 1e-9f;
-    constexpr float kThermalVoltage = 0.02585f;
+    constexpr float kGridLeakResistance = 1000000.0f;
+    constexpr float kCathodeBias = -1.5f;
+    constexpr float kGain = 60.0f;
+    constexpr SushiDSP::PlateSwing kSwing{ 194.0f, 115.0f };
     constexpr double kPi = 3.14159265358979323846;
+
+    /// @brief Builds the reference stage every case below drives.
+    SushiDSP::TriodeStage make_stage()
+    {
+        return SushiDSP::TriodeStage(kSourceResistance, kGridLeakResistance, kCathodeBias, kGain,
+                                     SushiDSP::kTriode12AX7GridConduction, kSwing);
+    }
+
+    /// @brief Solves the stage's own grid node by bisection, independently of the Newton solver.
+    /// @param input_voltage The DC input, referenced to the bias point.
+    /// @return The grid's excursion |Vg - Vk| at the root of the KCL the header states.
+    double bisected_grid_excursion(double input_voltage)
+    {
+        const auto& law = SushiDSP::kTriode12AX7GridConduction;
+        auto residual = [&](double vg)
+        {
+            return (vg - (kCathodeBias + input_voltage)) / kSourceResistance
+                 + (vg - kCathodeBias) / kGridLeakResistance
+                 + law.scale_amps * std::log1p(std::exp((vg - law.threshold_volts) / law.transition_volts));
+        };
+        double low = -50.0;
+        double high = 50.0;
+        for (int step = 0; step < 200; ++step)
+        {
+            const double middle = 0.5 * (low + high);
+            (residual(middle) > 0.0 ? high : low) = middle;
+        }
+        return std::fabs(0.5 * (low + high) - kCathodeBias);
+    }
+
+    /// @brief Holds a DC input on a fresh stage until the warm start has settled.
+    /// @return The plate output at that input.
+    float settled_plate(SushiDSP::TriodeStage& stage, float input_voltage)
+    {
+        float output = 0.0f;
+        for (int i = 0; i < 64; ++i)
+        {
+            output = stage.process_sample(input_voltage);
+        }
+        return output;
+    }
 }
 
 TEST(Unit_Dsp, TriodeStageIsDcStableForConstantInput)
 {
-    SushiDSP::TriodeStage stage(
-        kSourceResistance, kGridLeakResistance, kCathodeBias, kGain, kSaturationCurrent, kThermalVoltage);
+    SushiDSP::TriodeStage stage = make_stage();
 
     float output = 0.0f;
     for (int i = 0; i < 1000; ++i)
@@ -55,122 +96,50 @@ TEST(Unit_Dsp, TriodeStageIsDcStableForConstantInput)
 
 TEST(Unit_Dsp, TriodeStageIsInvertingForSmallSignal)
 {
-    SushiDSP::TriodeStage stage(
-        kSourceResistance, kGridLeakResistance, kCathodeBias, kGain, kSaturationCurrent, kThermalVoltage);
-
-    float output = 0.0f;
-    for (int i = 0; i < 50; ++i)
-    {
-        output = stage.process_sample(0.05f);
-    }
-
-    EXPECT_LT(output, 0.0f);
+    SushiDSP::TriodeStage stage = make_stage();
+    EXPECT_LT(settled_plate(stage, 0.05f), 0.0f);
 }
 
-TEST(Unit_Dsp, TriodeStageClipsAsymmetrically)
+TEST(Unit_Dsp, TriodeStageGridFollowsTheSourceDividerBelowTheCathode)
 {
-    // Grid conduction only engages on the positive-going half (Vg > Vk); a large enough swing in
-    // both directions should produce a measurably larger deviation from linear gain on one side.
-    SushiDSP::TriodeStage positive_stage(
-        kSourceResistance, kGridLeakResistance, kCathodeBias, kGain, kSaturationCurrent, kThermalVoltage);
-    SushiDSP::TriodeStage negative_stage(
-        kSourceResistance, kGridLeakResistance, kCathodeBias, kGain, kSaturationCurrent, kThermalVoltage);
+    // Below the cathode the Norman law's current is nanoamperes, so the grid sits on the
+    // Rg / (Rs + Rg) divider of the input: 3 V in is 2.9703 V of excursion.
+    SushiDSP::TriodeStage stage = make_stage();
+    settled_plate(stage, -3.0f);
+    EXPECT_NEAR(stage.peak_grid_excursion_volts(), 3.0f * kGridLeakResistance / (kSourceResistance + kGridLeakResistance), 1e-3f);
+}
 
-    constexpr float kSwing = 1.5f;  // large enough to push Vg well past Vk on the positive stage
-    float positive_output = 0.0f;
-    float negative_output = 0.0f;
-    for (int i = 0; i < 100; ++i)
+TEST(Unit_Dsp, TriodeStageGridConductsOnTheNormanLaw)
+{
+    // The solver's root is the root of the KCL the header states, checked against an independent
+    // bisection at three inputs: below the 0.5 V knee, on it, and well past it, where the
+    // conducting slope of 150 kOhm against the 10 kOhm source pulls the grid 0.45 V off the
+    // divider (8 V in: 7.554 V of excursion against 7.921 V linear).
+    for (float input_voltage : { 0.1f, 1.5f, 3.0f, 8.0f })
     {
-        positive_output = positive_stage.process_sample(kSwing);
-        negative_output = negative_stage.process_sample(-kSwing);
+        SushiDSP::TriodeStage stage = make_stage();
+        settled_plate(stage, input_voltage);
+        EXPECT_NEAR(stage.peak_grid_excursion_volts(), bisected_grid_excursion(input_voltage), 2e-3f)
+            << "input " << input_voltage;
     }
-
-    const float linear_prediction_positive = -kGain * kSwing;
-    const float linear_prediction_negative = -kGain * -kSwing;
-
-    const float positive_deviation = std::abs(positive_output - linear_prediction_positive);
-    const float negative_deviation = std::abs(negative_output - linear_prediction_negative);
-
-    EXPECT_GT(positive_deviation, negative_deviation * 2.0f);
 }
 
 TEST(Unit_Dsp, TriodeStageResetReturnsToCathodeBiasWarmStart)
 {
-    SushiDSP::TriodeStage stage_a(
-        kSourceResistance, kGridLeakResistance, kCathodeBias, kGain, kSaturationCurrent, kThermalVoltage);
-    SushiDSP::TriodeStage stage_b(
-        kSourceResistance, kGridLeakResistance, kCathodeBias, kGain, kSaturationCurrent, kThermalVoltage);
+    SushiDSP::TriodeStage stage_a = make_stage();
+    SushiDSP::TriodeStage stage_b = make_stage();
 
     stage_a.process_sample(1.0f);
     stage_a.reset();
 
-    const float from_reset = stage_a.process_sample(0.01f);
-    const float from_fresh = stage_b.process_sample(0.01f);
-
-    EXPECT_NEAR(from_reset, from_fresh, 1e-4f);
-}
-
-TEST(Unit_Dsp, TriodeStageResolvesPastTheOldSymmetricCutoffBound)
-{
-    // Guards Task 9's asymmetric Newton-Raphson bound directly at the stage level, where it's
-    // actually load-bearing (the composite Jcm800 node's own output is too many stages and too
-    // much downstream saturation removed from a single grid's excursion to discriminate this
-    // reliably - measured attempts at the node level moved by single-digit percent either way,
-    // regardless of which bound was compiled in). See the Task 9 report's ruling.
-    //
-    // Same component values Jcm800.cpp uses for v1b_ - the stage whose grid the report measures
-    // reaching 1.56-2.81 V, past the old +/-60*Vt (1.551 V) bound. A -3.5 V grid swing is deep
-    // in the negative/cutoff half's affine region (no exponential term), where Newton's answer is
-    // just the unclamped affine root: under the old symmetric bound that root is unreachable and
-    // the stage pins at a fixed plate voltage regardless of how much further the grid is driven;
-    // under Task 9's widened -160*Vt (4.136 V) cutoff bound it is not, and the plate output tracks
-    // the drive instead.
-    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f);
-
-    stage.reset();
-    const float plate_at_moderate_swing = stage.process_sample(-2.5f);
-    stage.reset();
-    const float plate_at_deep_swing = stage.process_sample(-3.5f);
-
-    // Under the old +/-60*Vt bound both readings pin at the same clamped plate voltage (93.06,
-    // independently reproduced by reverting the bound and rerunning this exact scenario). Under
-    // the widened bound the deeper swing must resolve further, not pin at the moderate swing's
-    // value.
-    EXPECT_GT(plate_at_deep_swing, plate_at_moderate_swing * 1.3f);
-}
-
-TEST(Unit_Dsp, TriodeStagePathsAgreeBelowConductionAndDivergeAboveIt)
-{
-    SushiDSP::TriodeStage bias_referenced(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f);
-    SushiDSP::TriodeStage cathode_referenced(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 1e9f, 1e9f });
-
-    // Below the bias point neither diode conducts, so both residuals are linear and the paths
-    // differ only by where the -Is reverse term sits: Is * Rs * gain = 1e-9 * 10k * 60 = 0.6 mV.
-    for (int i = 0; i < 4000; ++i)
-    {
-        const float x = -3.0f * std::fabs(static_cast<float>(std::sin(2.0 * kPi * 440.0 * i / 48000.0)));
-        EXPECT_NEAR(bias_referenced.process_sample(x), cathode_referenced.process_sample(x), 1e-3f);
-    }
-
-    bias_referenced.reset();
-    cathode_referenced.reset();
-
-    // Above it they must not: the bias-referenced diode starts conducting 0.2 V above rest, the
-    // cathode-referenced one 1.5 V above it.
-    float largest_difference = 0.0f;
-    for (int i = 0; i < 4000; ++i)
-    {
-        const float x = 3.0f * static_cast<float>(std::sin(2.0 * kPi * 440.0 * i / 48000.0));
-        const float a = bias_referenced.process_sample(x), b = cathode_referenced.process_sample(x);
-        largest_difference = std::max(largest_difference, std::fabs(a - b));
-    }
-    EXPECT_GT(largest_difference, 50.0f);
+    EXPECT_NEAR(stage_a.process_sample(0.01f), stage_b.process_sample(0.01f), 1e-4f);
 }
 
 TEST(Unit_Dsp, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
 {
-    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 194.0f, 115.0f });
-    float positive_peak = 0.0f, negative_peak = 0.0f;
+    SushiDSP::TriodeStage stage = make_stage();
+    float positive_peak = 0.0f;
+    float negative_peak = 0.0f;
     for (int i = 0; i < 48000; ++i)
     {
         const float y = stage.process_sample(10.0f * static_cast<float>(std::sin(2.0 * kPi * 100.0 * i / 48000.0)));
@@ -178,24 +147,29 @@ TEST(Unit_Dsp, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
         negative_peak = std::min(negative_peak, y);
     }
 
-    // Cutoff side: the solver's 160 * Vt clamp holds the grid 4.136 V below its bias point, so
-    // the linear plate reaches 60 * 4.136 = 248.16 V and 194 * tanh(248.16 / 194) = 166.1 V.
-    EXPECT_NEAR(positive_peak, 166.1f, 16.6f);
-    EXPECT_LT(positive_peak, 194.0f);
+    // Cutoff side: 9.9 V of excursion is a linear plate of 594 V, and 194 * tanh(594 / 194) is
+    // 193.15 V. Conduction side: the grid rises to 7.55 V of excursion, a linear plate of
+    // -453 V, and -115 * tanh(453 / 115) is -114.99 V. The two sides differ by the swing alone.
+    EXPECT_NEAR(positive_peak, 193.15f, 1.0f);
+    EXPECT_LT(positive_peak, kSwing.headroom_to_supply_volts);
+    EXPECT_NEAR(negative_peak, -114.99f, 0.5f);
+    EXPECT_GT(negative_peak, -kSwing.headroom_to_bottom_volts);
+}
 
-    // Conduction side: the grid rests 1.5 V below the cathode and rises to +0.352 V, the drop a
-    // 10 k source pushes through a 1 nA diode. That is 1.852 V of excursion, a linear plate of
-    // -111.11 V, and -115 * tanh(111.11 / 115) = -85.9 V.
-    EXPECT_NEAR(negative_peak, -85.9f, 8.6f);
-    EXPECT_GT(negative_peak, -115.0f);
-
-    // The two sides stay asymmetric; the measured ratio is 1.93.
-    EXPECT_GT(positive_peak, 1.5f * -negative_peak);
+TEST(Unit_Dsp, TriodeStageCutoffIsThePlateCeiling)
+{
+    // No solver fence holds the grid short of the ceiling: at -30 V in, the 5150's V5A stage
+    // reaches its 90.742 V headroom to the supply, where a 4.136 V fence held it at 74.3 V
+    // (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 3).
+    SushiDSP::TriodeStage v5a(671730.0f, 1000000.0f, -2.0f, 25.3f, SushiDSP::kTriode12AX7GridConduction,
+                              SushiDSP::PlateSwing{ 90.742f, 134.001f });
+    EXPECT_GT(settled_plate(v5a, -30.0f), 90.7f);
+    EXPECT_LE(settled_plate(v5a, -30.0f), 90.742f);
 }
 
 TEST(Unit_Dsp, TriodeStageSmallSignalGainIsUnchangedByThePlateSwing)
 {
-    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 194.0f, 115.0f });
+    SushiDSP::TriodeStage stage = make_stage();
     float peak = 0.0f;
     for (int i = 0; i < 4800; ++i)
     {
@@ -208,10 +182,21 @@ TEST(Unit_Dsp, TriodeStageSmallSignalGainIsUnchangedByThePlateSwing)
 
 TEST(Unit_Dsp, TriodeStageReportsThePeakGridExcursionSinceReset)
 {
-    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, -1.5f, 60.0f, 1e-9f, 0.02585f, SushiDSP::PlateSwing{ 194.0f, 115.0f });
+    SushiDSP::TriodeStage stage = make_stage();
     EXPECT_FLOAT_EQ(stage.peak_grid_excursion_volts(), 0.0f);
-    for (int i = 0; i < 480; ++i) stage.process_sample(-2.0f);
-    EXPECT_NEAR(stage.peak_grid_excursion_volts(), 2.0f, 0.05f);
+    for (int i = 0; i < 480; ++i)
+    {
+        stage.process_sample(-2.0f);
+    }
+    EXPECT_NEAR(stage.peak_grid_excursion_volts(), 1.98f, 0.01f);
     stage.reset();
     EXPECT_FLOAT_EQ(stage.peak_grid_excursion_volts(), 0.0f);
+}
+
+TEST(Unit_Dsp, TriodeStageGridLawIsTheTriode12AX7Model)
+{
+    // The stage's constants are read from Triode12AX7, so the two cannot drift apart.
+    EXPECT_FLOAT_EQ(SushiDSP::kTriode12AX7GridConduction.scale_amps, static_cast<float>(SushiDSP::Triode12AX7::kGridCurrentScale));
+    EXPECT_FLOAT_EQ(SushiDSP::kTriode12AX7GridConduction.threshold_volts, static_cast<float>(SushiDSP::Triode12AX7::kGridThresholdVolts));
+    EXPECT_FLOAT_EQ(SushiDSP::kTriode12AX7GridConduction.transition_volts, static_cast<float>(SushiDSP::Triode12AX7::kGridTransitionVolts));
 }
