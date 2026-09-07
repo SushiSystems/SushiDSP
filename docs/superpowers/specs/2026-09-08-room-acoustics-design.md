@@ -1,10 +1,15 @@
 # Room acoustics: a hybrid image-source and feedback-delay-network room, rendered binaurally
 
-**Status:** draft for the maintainer's review, 2026-09-08. Nothing in it is built. Roadmap prefix
-**DE** (Dsp Environment); phases DE0 through DE7 below. The prefix collides with none of DA, DC,
-DD, DI, DK, DR, DS or DT, which are the ones `docs/design/sushidsp.md` §9 and the specs in this
-directory use. Section 13 lists the judgements this document makes on the maintainer's behalf; each
-one is his to overrule before a plan is written.
+**Status:** approved by the maintainer on 2026-09-08. Nothing in it is built; the implementation
+plan is `docs/superpowers/plans/2026-09-08-room-acoustics.md`. Roadmap prefix **DE** (Dsp
+Environment); phases DE0 through DE8 below. The prefix collides with none of DA, DC, DD, DI, DK,
+DR, DS or DT, which are the ones `docs/design/sushidsp.md` §9 and the specs in this directory use.
+
+Approval settled three of the judgements §13 had left open, and the sections below are written as
+the rulings rather than as the draft. The modal solver runs in the hybrid mode as well as the max
+mode (§9a.1, §10, §14), `direct_delay` defaults to `compensated` (§9.4), and the converted SADIE II
+set ships in the tree under `assets/hrtf/` with its converter in `tools/dsp/` (§9.2). §13 keeps the
+judgements that stay open, each still the maintainer's to overrule.
 
 Five decisions of the maintainer's, taken as given and not argued here: the room is a hybrid of
 image-source early reflections and a feedback delay network tail; the output is binaural over
@@ -50,9 +55,10 @@ In the order they matter for a guitar cabinet in a small room:
    about 260 Hz for a 60 m³ garage with RT60 = 1 s, a small room's response is a sparse set of
    standing waves. The image-source sum with near-unity reflection factors reproduces the modal
    build-up exactly if it runs to a high enough order; at the order this design can afford (§4) it
-   reproduces the first few bounces of it. The FDN's modes are its own, not the room's. In the
-   hybrid mode this is a known gap; the max mode of §9a closes it with a modal solver, because
-   that is the part of the room the maintainer said he wants to feel.
+   reproduces the first few bounces of it. The FDN's modes are its own, not the room's. The modal
+   solver of §9a.2 supplies the room's, and it runs in both quality modes: it is the layer that
+   puts pressure in the corners and swells the bottom end when the cabinet meets a wall, which is
+   the part of the room the maintainer said he wants to feel.
 
 Everything else on the "everything modelled" list, from edge diffraction to the phase of a wall's
 reflection factor to the exact spatial distribution of the diffuse tail, is either inaudible at
@@ -86,14 +92,14 @@ modules/room/include/SushiDSP/room/
                                the Duda-Martens model with no file at all
     IRoomHost.hpp              what a host calls to install a RoomScene and an HrtfSet
     RoomNode.hpp               the IAudioNode: topology, the swap, the wet/dry mix
-    max/ModalSolver.hpp        control thread (DE7): the shoebox's eigenmodes below the Schroeder
+    ModalSolver.hpp            control thread (DE3): the shoebox's eigenmodes below the Schroeder
                                frequency, their damping and their source and ear gains
-    max/ModalBank.hpp          audio thread (DE7): up to kMaxModes second-order resonators
-    max/RayTracer.hpp          control thread (DE7): stochastic rays -> per-band directional
-                               energy histogram of the late field
-    max/LateIrSynthesizer.hpp  control thread (DE7): histogram -> a binaural late impulse response
-    max/CrossoverPair.hpp      audio thread (DE7): the Linkwitz-Riley pair that splits the field
+    ModalBank.hpp              audio thread (DE3): up to kMaxModes second-order resonators
+    CrossoverPair.hpp          audio thread (DE3): the Linkwitz-Riley pair that splits the field
                                at the Schroeder frequency
+    max/RayTracer.hpp          control thread (DE8): stochastic rays -> per-band directional
+                               energy histogram of the late field
+    max/LateIrSynthesizer.hpp  control thread (DE8): histogram -> a binaural late impulse response
 ```
 
 No brick names another except `RoomNode` (which knows the topology), `ImageSourceSolver` and
@@ -189,9 +195,9 @@ Acceptance is 1 dB at every band centre for every row of the materials table rai
 from 1 to 4 (one to four bounces off the same wall), and the test enumerates exactly that.
 
 Air absorption follows ISO 9613-1:1993 at 20 °C and 50 % relative humidity, fixed, no knob. At
-those conditions the attenuation is about 0.02 dB/m at 4 kHz and 0.08 dB/m at 8 kHz, so a 30 m
-early path loses under 1 dB and the early taps barely feel it; a one-second tail travels 343 m and
-loses 7 dB at 4 kHz on top of what the walls take. Air absorption therefore matters to the FDN's
+those conditions the attenuation is 0.0297 dB/m at 4 kHz and 0.105 dB/m at 8 kHz, so a 30 m early
+path loses 0.9 dB and the early taps barely feel it; a one-second tail travels 343 m and loses
+10 dB at 4 kHz on top of what the walls take. Air absorption therefore matters to the FDN's
 per-band decay (§6) and is included in the taps only for consistency.
 
 ### 4.3 Acceptance for DE0
@@ -224,7 +230,7 @@ sample-inner, and the 16 Ambisonic accumulation buffers are written once per tap
 sustaining 1.5 Gflop/s on that loop shape takes about 0.9 ms per block. This is the brick the
 budget (§10) expects to dominate, and it is the one whose loop is eight independent lanes wide
 (sixteen groups of eight taps through identical biquad structures), which is the SIMD opportunity
-DE6 measures before taking.
+DE7 measures before taking.
 
 The Ambisonic choice needs its argument, because the obvious alternative is to run every tap
 through its own HRIR pair. A 128-tap minimum-phase HRIR pair is 256 multiply-adds per tap per
@@ -378,7 +384,7 @@ reverberation echo density", 121st AES Convention, 2006) reaches 1 no later than
 interaural cross-correlation of the tail, measured on the ear outputs, is above 0.8 in the 125 Hz
 band and below 0.3 in the 4 kHz band. `LateReverb::process` passes the allocation trap.
 
-## 7. DE3, part one: cabinet directivity
+## 7. DE4, part one: cabinet directivity
 
 A 4x12 beams treble forward and radiates bass everywhere, and that is the physics that makes
 walking around the cabinet change its tone. The model is four rigid circular pistons in an
@@ -420,7 +426,7 @@ value within 0.5 dB, and the same difference at 125 Hz is under 1 dB; the direct
 band, integrated numerically over the sphere, is within 0.5 dB of the analytic piston value in the
 bands where a rigid piston applies (below f_b).
 
-## 8. DE3, part two: the microphone
+## 8. DE4, part two: the microphone
 
 The microphone is the second kind of listener. It has a position, an orientation, a polar pattern
 and a distance, and the recorded guitar tone the maintainer knows comes from an SM57 at 2 to 10 cm
@@ -433,7 +439,8 @@ A first-order pattern is P(θ) = a + (1 − a)·cos θ: omni (a = 1), cardioid (
 exceeds its plane-wave sensitivity by sqrt(1 + (c / (2π·f·r))²), which is the proximity effect: a
 6 dB per octave rise below f_p = c / (2π·r) (Eargle, *The Microphone Book*, 2nd ed., Focal Press
 2004, ch. 3). For r = 5 cm, f_p = 1.09 kHz and a cardioid gains 15.5 dB at 100 Hz over its
-far-field response; at r = 30 cm, f_p = 182 Hz and the gain at 100 Hz is 6.8 dB. `MicrophoneModel`
+far-field response, the boost applying to the gradient half of the pattern and not to the
+pressure half; at r = 30 cm, f_p = 182 Hz and the same cardioid gains 3.7 dB at 100 Hz. `MicrophoneModel`
 evaluates pattern times proximity at the six bands for the direct path's r and θ, and the pattern
 alone for each reflection (whose r is many times larger, so its proximity term is unity within
 0.1 dB past 1 m); the result is one more `BandResponse` factor folded into each tap's single fitted
@@ -458,7 +465,7 @@ A cardioid at 5 cm on axis measures 15.5 ± 0.5 dB more at 100 Hz than the same 
 figure-eight at 90° rejects the direct path by at least 40 dB; the SM57 preset's six band values
 equal the header's transcription.
 
-## 9. DE4: the HRTF and the binaural path
+## 9. DE5: the HRTF and the binaural path
 
 ### 9.1 Which data, and its licence
 
@@ -503,12 +510,33 @@ This is a third-party dependency question and the answer separates code from dat
   runs on it until the host installs a measured set, and the ITD acceptance (§9.5) is measured
   against it because its answer is known in closed form.
 
-The cost of this arrangement is one file of about 2 MB in the tree and one Python tool with a
-scientific-Python dependency. The alternative of reading SOFA inside `apps/host_gui` would add
-HDF5 to the host's link line for something done once per dataset. The alternative of not shipping
-data and telling the user to download SADIE II himself is what `assets/ir` does today for the
-cabinet, and §13 puts the choice to the maintainer: the licence permits shipping, the IR precedent
-does not.
+The maintainer settled the shipping question on 2026-09-08: the converted set ships. The tree
+carries `assets/hrtf/sadie2_ku100_48k.hrtf`, about 2 MB, and the converter that wrote it lives at
+`tools/dsp/convert_hrtf.py` beside `tools/dsp/design_resampler.py`. The IR precedent stays
+drop-in because no 4x12 capture the project can redistribute has been chosen; SADIE II is Apache
+2.0, the licence this repository already carries, so nothing about it needs a second licence file.
+Reading SOFA inside `apps/host_gui` would have put HDF5 on the host's link line for a job done
+once per dataset, and that is why the reader is Python and the shipped artefact is a flat file.
+
+`assets/hrtf/README.md` records the licence and the citation, the way `assets/ir/README.md` asks a
+contributor to record a cabinet capture's source: the database name and version, the Apache 2.0
+licence with the University of York copyright line, the URL the set came from, the SHA-256 of the
+converted file, the converter's version and the flags it ran with, and the citation the SADIE
+project asks for — Armstrong, Thresh, Murphy and Kearney, "A Perceptual Evaluation of Individual
+and Non-Individual HRTFs: A Case Study of the SADIE II Database", *Applied Sciences* 8(11), 2018.
+`tools/dsp/convert_hrtf.py` writes that block itself, copying the licence and citation text out of
+the downloaded database's own documentation, so the shipped wording is York's rather than a
+transcription.
+
+**With the file absent** the module builds, the tests run and the host makes a sound: the loader
+returns no set, `RoomNode` keeps the `SphericalHeadHrtf` its constructor built, and the room is
+rendered with correct ITD and ILD and no pinna cues, so front and back are not distinguishable.
+The user is told this twice and never has to guess. The host prints one line to stderr naming the
+path it looked for, as it already does for a missing cabinet IR (`assets/ir/README.md`, "Not
+present?"), and the room panel of DE6 shows the source as a word beside the room —
+`HrtfSource::Measured` with the file's name, or `HrtfSource::SphericalHead` with the sentence
+"front and back sound alike". `IRoomHost::hrtf_source()` is what the panel reads, so the state is
+a value the acceptance test can assert and not a log line.
 
 ### 9.3 Storage and interpolation
 
@@ -558,15 +586,20 @@ decoder was designed from, so a reflection crossing from the early set to the ta
 directional colour to the mean of all directional colours and not to a different head. The direct
 path and the decoder carry the same 128-frame partition latency, and the early taps and tail are
 delayed to match, so the node's `latency_samples()` reports one partition plus the direct path's
-propagation delay when the `direct_delay` parameter is `physical` (the default: a player 2 m from
-his cabinet hears it 5.8 ms late in the real room too) and one partition alone when it is
-`compensated`.
+propagation delay when the `direct_delay` parameter is `physical`, and one partition alone when it
+is `compensated`. **`compensated` is the default**, because the maintainer plays live through this
+node: `physical` adds the room's 5.8 ms at 2 m on top of the device's own buffer latency, and a
+player in a real room also hears his strings acoustically at zero delay, which headphones take
+away. `physical` is the honest choice for rendering a take rather than playing one, and the
+parameter is there for it.
 
-### 9.5 Acceptance for DE4
+### 9.5 Acceptance for DE5
 
 On `SphericalHeadHrtf`, the ITD of the node's direct path, measured as the lag of the interaural
 cross-correlation peak at 30°, 60° and 90° azimuth, equals Woodworth's (a / c)·(θ + sin θ), that is
-0.262, 0.479 and 0.655 ms for a = 8.75 cm, within 20 µs (one sample at 48 kHz). On the converted
+0.261, 0.488 and 0.656 ms for a = 8.75 cm and c = 343 m/s, within 20 µs (one sample at 48 kHz).
+The draft printed 0.479 ms at 60°; (a / c)·(θ + sin θ) with θ = π/3 is 0.488 ms, and the corrected
+figure is the one the test asserts. On the converted
 SADIE set, the same measurement matches the ITD the tool recorded for the nearest grid direction
 within 50 µs. The converted file round-trips: the tool's writer and the loader agree on every field
 in a fixture of four directions. The decoder's magnitude response to a single plane wave from each
@@ -576,7 +609,7 @@ discrimination is a listening judgement, which is not a test; the objective prox
 the rendered direct sound for a source at 180° azimuth carries the KU100's rear spectral notch
 between 6 and 10 kHz at least 6 dB deep.
 
-## 9a. DE7: the max mode, and what the bass needs
+## 9a. The wave layer, the max mode, and what the bass needs
 
 ### 9a.1 What was asked for and what it is
 
@@ -593,13 +626,20 @@ harmonics; the 4 m at 42.9 Hz; the 2.5 m at 68.6 Hz; the first tangential modes 
 cabinet pushed against a wall drives every mode whose pressure is high at that wall, which is all of
 them, and that is the swell a player hears when the amp goes into the corner. No number of rays
 converges on this: a ray carries energy, not phase, and modes are a phase phenomenon. Above f_s,
-rays are excellent. So the max mode is three layers and a seam:
+rays are excellent. So the engine is three layers and a seam:
 
 1. **A wave solver below f_s**, the modal decomposition of §9a.2. This is the layer that answers
    the request.
-2. **Geometric acoustics above f_s**: the image-source early set of §4 unchanged, and a stochastic
-   ray tracer replacing the FDN for the late field, §9a.3.
+2. **Geometric acoustics above f_s**: the image-source early set of §4, and a late field that is
+   the FDN of §6 in the hybrid mode or the stochastic ray tracer of §9a.3 in the max mode.
 3. **A crossover at f_s** computed from the configured room, §9a.4.
+
+Layers 1 and 3 run in both quality modes, on the maintainer's ruling of 2026-09-08. The modal
+bank costs 0.32 ms of a 5.33 ms block, six per cent of the hybrid's budget (§10), and it is the
+one brick that produces what he asked for. Locking it behind the mode that also costs a 1.9 Mflop
+convolution would have priced the best part of the engine out of the mode he plays in. What
+`quality` selects is therefore the late field above f_s and nothing else: `hybrid` runs the FDN,
+`max` runs the ray tail. DE3 builds the wave layer; DE8 builds the ray tail.
 
 ### 9a.2 The wave solver: modes, not a grid
 
@@ -733,19 +773,25 @@ acceptance item in this document claims more. What he will hear is the 60 to 180
 swelling and shifting as the cabinet and his head move through the standing waves, which is the
 audible half of the sensation.
 
-### 9a.6 Acceptance for DE7
+### 9a.6 Acceptance for DE3 and DE8
 
-For the garage of §6.5, the modal layer's rendered response has spectral peaks at the analytic
-eigenfrequencies below f_s within 0.5 % (the first six: 28.6, 42.9, 51.5, 57.2, 68.6 and 71.5 Hz for
-6 × 4 × 2.5 m), and each peak's −3 dB width matches the perturbation damping within 20 %. The
-pressure at a corner exceeds the pressure at the room's centre by at least 12 dB for the (1, 0, 0)
-mode, as the cosine shape predicts. The band energy of the full response is continuous across f_s
-within 2 dB. With the absorbent-ceiling garage, the ray tail's Schroeder curve shows two slopes
-whose ratio matches the tracer's own histogram within 10 %, and its late-field arrival directions,
-decoded back from the synthesised IR, weight the hard walls above the soft ceiling. A scene change
-publishes the modal gains and the early set within one GUI frame and the ray tail within 100 ms,
-timed in the test. The modal bank and the two convolvers pass the allocation trap. The steady-state
-and swap-peak rows of §10's max-mode table are measured by `tests/benchmark`.
+**DE3, the wave layer, measured with `quality` at `hybrid` and again at `max`.** For the garage of
+§6.5, the modal layer's rendered response has spectral peaks at the analytic eigenfrequencies below
+f_s within 0.5 % (the first six: 28.6, 42.9, 51.5, 57.2, 68.6 and 71.5 Hz for 6 × 4 × 2.5 m), and
+each peak's −3 dB width matches the perturbation damping within 20 %. The pressure at a corner
+exceeds the pressure at the room's centre by at least 12 dB for the (1, 0, 0) mode, as the cosine
+shape predicts. The band energy of the full response is continuous across f_s within 2 dB, and the
+two renders differ by under 1 dB below f_s, because the same bank produced both. A moved cabinet
+publishes new modal gains within one GUI frame. `ModalBank::process` and `CrossoverPair::process`
+pass the allocation trap, and the modal and crossover rows of §10's hybrid table are measured by
+`tests/benchmark`.
+
+**DE8, the ray tail.** With the absorbent-ceiling garage, the ray tail's Schroeder curve shows two
+slopes whose ratio matches the tracer's own histogram within 10 %, and its late-field arrival
+directions, decoded back from the synthesised IR, weight the hard walls above the soft ceiling. A
+scene change publishes the early set within one GUI frame and the ray tail within 100 ms, timed in
+the test. The two convolvers pass the allocation trap. The steady-state and swap-peak rows of
+§10's max-mode table are measured by `tests/benchmark`.
 
 ## 10. The CPU budget
 
@@ -753,7 +799,7 @@ At 48 kHz and 256 frames one block is 5.333 ms. The figures below are flop count
 sections above, converted at 1.5 Gflop/s for the loops whose recursion is dependent across samples
 (the biquads, the FDN) and 3 Gflop/s for the transforms and the multiply-accumulate loops, on one
 core of a desktop x86 in plain C++ with the Release flags `cmake/SushiDSPCompilerFlags.cmake`
-sets. They are estimates to be replaced by `tests/benchmark` figures in DE1 through DE4, and the
+sets. They are estimates to be replaced by `tests/benchmark` figures in DE1 through DE5, and the
 acceptance in §12 is on the measured numbers.
 
 | Brick | Work per block | Mflop | ms, scalar | Share of 5.33 ms |
@@ -763,15 +809,22 @@ acceptance in §12 is on the measured numbers.
 | Ambisonic binaural decode, 32 unshared FIRs, 2 × 128-frame partitions | 2 × 32 × (FFT₂₅₆ + 2 × 129 × 8 + share of IFFT) | 0.66 | 0.22 | 4.1 % |
 | FDN, 16 lines: 16 × 18 (filters) + 64 (Hadamard) + 64 (in/out vectors) | 256 × 416 | 0.11 | 0.07 | 1.3 % |
 | Tail binauralisation: 2 coherence filters, 2 diffuse-field FIRs of 128 taps | 256 × (36 + 256) | 0.07 | 0.03 | 0.6 % |
+| Modal bank, 143 modes × 13 flops (garage; 512 modes at the cap is 3.6×) | 256 × 143 × 13 | 0.48 | 0.32 | 6.0 % |
+| Crossover pair, LR4 on two ears and the modal input: 6 biquads | 256 × 54 | 0.01 | 0.01 | 0.2 % |
 | Mix, smoothing, bookkeeping | 256 × 10 | 0.003 | 0.01 | 0.2 % |
-| **Steady state** | | **2.30** | **1.30** | **24 %** |
-| Swap block: early reflections rendered twice, for 512 frames | + 1.41 | 3.71 | 2.24 | 42 % |
+| **Steady state** | | **2.79** | **1.63** | **31 %** |
+| Swap block: early reflections rendered twice, for 512 frames | + 1.41 | 4.20 | 2.57 | 48 % |
 
-The early renderer is two thirds of the steady cost and the whole of the swap peak. Its loop is
+The modal bank and its crossover are the two rows the maintainer's ruling of 2026-09-08 moved out
+of the max mode and into this table. They add 0.33 ms, and they take the hybrid steady state from
+1.30 ms to 1.63 ms and its swap peak from 2.24 ms to 2.57 ms; §12 item 10 carries the raised
+ceilings.
+
+The early renderer is 58 % of the steady cost and the whole of the swap peak. Its loop is
 128 independent recurrences of the same shape, which is the textbook SIMD case: eight taps per
 AVX2 register, sixteen groups, the Lagrange read gathered per lane, the Ambisonic accumulation as
 sixteen fused multiply-adds per group. The expectation, to be measured and not assumed, is 5× to
-6× on that brick, taking the steady state to about 0.55 ms and the swap peak to about 0.75 ms. The
+6× on that brick, taking the steady state to about 0.85 ms and the swap peak to about 1.05 ms. The
 decoder's transforms are the second candidate and the core's `Fft` would be where that work
 lands, which is a core change and is not in this spec. Nothing else is worth vectorising.
 
@@ -779,15 +832,16 @@ The maintainer's order is maximum C++ engineering first. The engineering the pla
 before any intrinsic is written: the tap-outer loop with the 16 accumulators in registers,
 coefficients laid out structure-of-arrays so the compiler's auto-vectoriser has a chance at the
 Lagrange and encode steps, `double` state for the biquads as `Biquad` already does, the two-bank
-state so a swap allocates nothing, and the shared input spectra in the decoder. DE6 opens only if
+state so a swap allocates nothing, and the shared input spectra in the decoder. DE7 opens only if
 the DE1 benchmark, with the JCM800 chain running in the same graph, shows the room over its
 2.0 ms ceiling.
 
-The microphone listener is cheaper: no encode (28 flops per tap), no decoder, a mono tail.
-Steady state about 0.75 ms.
+The microphone listener is cheaper: no encode (28 flops per tap), no decoder, a mono tail, and a
+modal bank reading one point instead of two (11 flops per mode, 0.27 ms). Steady state about
+1.05 ms.
 
-**Max mode (§9a)**, same conventions. The FDN and its binauralisation are off; the modal bank and
-the two late convolvers are on; the early renderer, decoder and direct path are unchanged.
+**Max mode (§9a)**, same conventions. The two late convolvers replace the FDN and its
+binauralisation; everything else, the modal bank included, is the hybrid's.
 
 | Brick | Work per block | Mflop | ms, scalar | Share of 5.33 ms |
 | --- | --- | --- | --- | --- |
@@ -805,7 +859,7 @@ never while a position drags, so it is a click-free peak on a rare event rather 
 load. Uniform partitioning is what makes the tail's convolution 1.9 Mflop; a non-uniform scheme
 would cut it by three or four but is a core change to `PartitionedConvolution` and not in this
 spec. If the measured max-mode figure with the amplifier chain exceeds 3.5 ms steady, the first
-remedy is the shared-spectra decoder of §9.4 and the second is DE6.
+remedy is the shared-spectra decoder of §9.4 and the second is DE7.
 
 ## 11. Out of scope, stated and defended
 
@@ -820,12 +874,17 @@ remedy is the shared-spectra decoder of §9.4 and the second is DE6.
   materials table already allows.
 - **Edge diffraction and occlusion.** Nothing stands between the cabinet and the listener.
 - **The phase of a wall's reflection factor.** Real walls are not phase-flat at low frequency, but
-  the effect is a shift of the room's modal frequencies by a few percent, below what the FDN
-  approximation of the modes (item 5 of §2) already loses.
-- **The room's true low-frequency modes in the hybrid mode.** The hybrid mode's FDN has its own
-  modes and not the room's below f_s. The max mode of §9a carries the modal solver; the hybrid mode
-  does not, and §13 item 16 puts to the maintainer whether the 0.3 ms it costs should make it part
-  of both.
+  the effect is a shift of the room's modal frequencies by a few percent, below what the modal
+  layer's own perturbation damping (§9a.2) already loses.
+- **Exact modal damping at a soft low-frequency boundary.** `ModalSolver` damps each mode by the
+  first-order perturbation of §9a.2, which is right to a few percent for concrete, brick and glass
+  (α ≤ 0.1 at 125 Hz) and about 30 % wrong in the decay of a mode bounded by gypsum on studs
+  (α = 0.29 at 125 Hz). The frequency is right in both cases. Solving the damped eigenproblem
+  against a complex wall impedance costs what §9a.2 measures FDTD at, for a decay error inside a
+  layer the hybrid mode did not have at all before 2026-09-08.
+- **The FDN's own modes below f_s.** They are crossed out by the Linkwitz-Riley pair of §9a.4 in
+  both quality modes, so the FDN carries no low end and its line lengths are designed for the
+  band above f_s alone.
 - **FDTD, or any grid solver.** §9a.2 shows it at two hundred times the cost of the modal bank for
   a geometric freedom this design does not use.
 - **Rays for the early field, and rays below the Schroeder frequency.** The image-source method is
@@ -864,7 +923,7 @@ maintainer through `sd test`; none is a listening judgement.
    difference at 125 Hz (§7.1).
 6. **Microphone.** Cardioid proximity 15.5 ± 0.5 dB at 100 Hz for 5 cm against 3 m; figure-eight
    rejection at 90° of at least 40 dB (§8.1).
-7. **Binaural.** ITD 0.262, 0.479 and 0.655 ms within 20 µs at 30°, 60° and 90° on the spherical
+7. **Binaural.** ITD 0.261, 0.488 and 0.656 ms within 20 µs at 30°, 60° and 90° on the spherical
    head; within 50 µs of the recorded value on SADIE; decoder magnitude within 3 dB in third-
    octaves 200 Hz to 8 kHz; rear notch at least 6 dB deep at 180° (§9.5).
 8. **Swap.** A 1 kHz tone through a publish leaves a residual against the reference crossfade under
@@ -872,16 +931,30 @@ maintainer through `sd test`; none is a listening judgement.
 9. **RT safety.** `RoomNode::process`, `EarlyReflectionRenderer::process`, `LateReverb::process`
    and `BinauralDecoder::process` pass the `operator new` trap; `RtSwapSlot::reclaim()` frees a
    retired set after the audio thread acquires the next.
-10. **Budget.** `tests/benchmark` at 48 kHz and 256 frames: steady state at or under 1.5 ms scalar
-    and swap block at or under 2.5 ms; with the JCM800 chain in the same graph the room's share is
-    at or under 2.0 ms, or DE6 opens (§10).
-11. **Latency.** `latency_samples()` equals one partition plus round(d / c · fs) in `physical`
-    mode and one partition in `compensated`, and the rendered direct-path onset confirms it.
-12. **Max mode.** Eigenfrequency peaks within 0.5 % and mode widths within 20 % of the perturbation
-    damping; corner-to-centre pressure difference of at least 12 dB for the (1, 0, 0) mode; band
-    energy continuous across f_s within 2 dB; the double-slope garage's slope ratio within 10 % of
-    the tracer's histogram; modal gains and early set published within one GUI frame and the ray
-    tail within 100 ms; the max-mode budget rows measured (§9a.6, §10).
+10. **Budget.** `tests/benchmark` at 48 kHz and 256 frames: hybrid steady state at or under 1.8 ms
+    scalar and swap block at or under 2.8 ms, both raised from 1.5 and 2.5 by the 0.33 ms the modal
+    layer brought into the mode; max-mode steady state at or under 2.5 ms and its tail-replacing
+    swap at or under 4.0 ms; with the JCM800 chain in the same graph the room's share is at or
+    under 2.0 ms, or DE7 opens (§10).
+11. **Latency.** A freshly constructed `RoomNode` reports `direct_delay` as `compensated`, and
+    `latency_samples()` equals one partition there and one partition plus round(d / c · fs) after
+    the parameter is set to `physical`; at d = 2 m, 48 kHz, c = 343 m/s that difference is 280
+    samples, and the rendered direct-path onset moves by the same 280 (§9.4).
+12. **The wave layer, in both quality modes.** Eigenfrequency peaks within 0.5 % of the analytic
+    values and mode widths within 20 % of the perturbation damping; corner-to-centre pressure
+    difference of at least 12 dB for the (1, 0, 0) mode; band energy continuous across f_s within
+    2 dB; the `hybrid` and `max` renders of the same scene within 1 dB of each other below f_s;
+    modal gains published within one GUI frame; the modal and crossover budget rows measured
+    (§9a.6, §10).
+13. **The ray tail.** The double-slope garage's slope ratio within 10 % of the tracer's histogram;
+    the early set published within one GUI frame and the tail within 100 ms; the max-mode budget
+    rows measured (§9a.6, §10).
+14. **The HRTF asset and its absence.** The loader reads `assets/hrtf/sadie2_ku100_48k.hrtf` and
+    reproduces every field of the converter's four-direction fixture; with the file renamed away
+    the node still renders, `IRoomHost::hrtf_source()` returns `HrtfSource::SphericalHead`, the
+    ITD acceptance of item 7 passes on the fallback, and the host prints one stderr line naming
+    the path it looked for; with the file present `hrtf_source()` returns `HrtfSource::Measured`
+    (§9.2).
 
 ## 13. Judgements made here for the maintainer to overrule
 
@@ -902,11 +975,13 @@ maintainer through `sd test`; none is a listening judgement.
 10. **One listener at a time; the microphone fills both channels.**
 11. **SM57 as the one named microphone preset, from Shure's published curve.**
 12. **SADIE II KU100 as the dataset, converted by a Python tool, shipped as a 2 MB asset in
-    `assets/hrtf/`.** The IR precedent is drop-in rather than shipped; the licence allows shipping;
-    the choice is his.
+    `assets/hrtf/`.** Settled 2026-09-08: it ships. `assets/hrtf/README.md` carries the Apache 2.0
+    licence, the York copyright line and the citation the project asks for, and the module falls
+    back to `SphericalHeadHrtf` when the file is missing (§9.2).
 13. **Magnitude-least-squares decoder computed by the tool, SADIE's own set accepted if it passes.**
-14. **`direct_delay` defaults to `physical`.** A player used to plug-in reverbs may prefer
-    `compensated`.
+14. **`direct_delay` defaults to `compensated`.** Settled 2026-09-08: the maintainer plays live
+    through this node and the 5.8 ms at 2 m stacks on the device's buffer, so `physical` is the
+    option and `compensated` is the default (§9.4).
 15. **Geometry enters through `IRoomHost` in the module, not through the `NodeDescriptor`
     parameter table.** A scene is twenty-odd numbers whose change triggers a control-thread solve;
     pushing them through the RT parameter ring one float at a time would trigger twenty solves per
@@ -914,17 +989,17 @@ maintainer through `sd test`; none is a listening judgement.
     `modules/room/include/SushiDSP/room/`, because the core should not name a room. The parameter
     table carries only what the audio thread can apply itself: wet/dry, output level, listener
     selection and `direct_delay`.
-16. **The modal solver is part of the max mode only.** It costs about 0.3 ms and it is the layer
-    that answers his bass request; making it part of the hybrid mode too would give the cheap mode
-    the bass and leave the max mode to be "the ray tail". His call.
+16. **The modal solver runs in both quality modes.** Settled 2026-09-08: it costs 0.32 ms, six
+    per cent of the hybrid's block, and it is the layer that answers the bass request, so `quality`
+    now selects the late field above f_s and nothing else (§9a.1, §10, §14).
 17. **`BandResponseFit` stays in the module until a second module wants it.**
 18. **Modes, not FDTD, for the wave layer**, on the §9a.2 arithmetic.
 19. **The ray tail is a precomputed binaural IR through two uniform-partition convolvers**, lagging
     a scene change by up to 100 ms while the early set and the modal gains follow at once. The
     alternative, driving the FDN from the ray histogram, keeps everything at 30 Hz and loses the
     double-slope decay the rays were computed for.
-20. **The max mode's Schroeder frequency comes from Eyring at 500 Hz**, and the modal layer
-    switches off under 40 Hz.
+20. **The Schroeder frequency comes from Eyring at 500 Hz**, and the modal layer switches off
+    under 40 Hz.
 21. **20 000 rays and 50 orders** as the tracer's defaults; both are control-thread knobs and the
     audio thread never sees them.
 
@@ -935,15 +1010,18 @@ maintainer through `sd test`; none is a listening judgement.
 | DE0 | `RoomScene`, `Materials`, `BandResponse`, `BandResponseFit`, `AirAbsorption`, `ImageSourceSolver`, `EarlyTapSet` | nothing | §4.3 |
 | DE1 | `EarlyReflectionRenderer`, `RoomRenderSet`, the `RtSwapSlot` publish and crossfade, `RoomNode` with the omni microphone listener, registered as `sushidsp.room` under a new `NodeCategory{ "Room" }` | DE0 | §5.3, items 8 to 10 of §12 |
 | DE2 | `LateReverbDesign`, `LateReverb`, the crossover at t_c, mono and two-ear tail outputs | DE0; parallel with DE1 | §6.5 |
-| DE3 | `CabinetDirectivity`, `MicrophoneModel`, the `listener` parameter and the SM57 preset | DE1 | §7.1, §8.1 |
-| DE4 | `HrtfSet`, `HrtfSetLoader`, `SphericalHeadHrtf`, `AmbisonicEncoder`, `BinauralDecoder`, the direct-path HRIR, tail coherence and diffuse-field filters, `tools/dsp/convert_hrtf.py`, `assets/hrtf/README.md`, `IRoomHost::set_hrtf` | DE1, DE2 | §9.5 |
-| DE5 | Host: a top-down room panel in `apps/host_gui/ui/` (drag the cabinet, the head and the microphone; a material per surface; the HRTF path), `IRoomHost` calls from `RigController`, the scene in the preset | DE3, DE4 | the preset round-trips a scene; a drag publishes at most 30 sets per second |
-| DE6 | AVX2 lanes in `EarlyReflectionRenderer` only, behind the existing `SUSHIDSP_ENABLE_AVX2` gate, with the scalar loop kept as the reference the test compares against | the DE1 benchmark showing the room over 2.0 ms with the JCM800 chain | bit-for-bit within 1e-6 of the scalar loop; the budget row of §12 |
-| DE7a | `max/ModalSolver`, `max/ModalBank`, `max/CrossoverPair`, the `quality` parameter (`hybrid`, `max`), f_s from the scene, the level match at the seam | DE2, DE4 | §9a.6, the modal and crossover items |
-| DE7b | `max/RayTracer`, `max/LateIrSynthesizer`, the two late convolvers in place of the FDN in max mode, the lagging tail publish and its `IRoomHost` progress report | DE7a | §9a.6, the ray-tail items; the max-mode budget rows |
+| DE3 | `ModalSolver`, `ModalBank`, `CrossoverPair`, f_s from the scene, the level match at the seam, the modal layer running in both quality modes | DE2 | §9a.6, the DE3 paragraph; item 12 of §12 |
+| DE4 | `CabinetDirectivity`, `MicrophoneModel`, the `listener` parameter and the SM57 preset | DE1 | §7.1, §8.1 |
+| DE5 | `HrtfSet`, `HrtfSetLoader`, `SphericalHeadHrtf`, `AmbisonicEncoder`, `BinauralDecoder`, the direct-path HRIR, tail coherence and diffuse-field filters, `direct_delay` defaulting to `compensated`, `tools/dsp/convert_hrtf.py`, `assets/hrtf/sadie2_ku100_48k.hrtf` and its `README.md`, `IRoomHost::set_hrtf` and `IRoomHost::hrtf_source` | DE1, DE2 | §9.5, items 11 and 14 of §12 |
+| DE6 | Host: a top-down room panel in `apps/host_gui/ui/` (drag the cabinet, the head and the microphone; a material per surface; the HRTF path and the source word), `IRoomHost` calls from `RigController`, the scene in the preset | DE4, DE5 | the preset round-trips a scene; a drag publishes at most 30 sets per second |
+| DE7 | AVX2 lanes in `EarlyReflectionRenderer` only, behind the existing `SUSHIDSP_ENABLE_AVX2` gate, with the scalar loop kept as the reference the test compares against | the DE1 benchmark showing the room over 2.0 ms with the JCM800 chain | bit-for-bit within 1e-6 of the scalar loop; item 10 of §12 |
+| DE8 | `max/RayTracer`, `max/LateIrSynthesizer`, the `quality` parameter (`hybrid`, `max`), the two late convolvers in place of the FDN in max mode, the lagging tail publish and its `IRoomHost` progress report | DE3, DE5 | §9a.6, the DE8 paragraph; item 13 of §12 |
 
 DE1 and DE2 share `BandResponseFit` and nothing else, so two agents can build them at once with
-disjoint files. DE7a can be built beside DE5 once DE4 has landed; DE7b waits for DE7a because the
-crossover and the level match at the seam are what the ray tail is measured against. Documentation lands with each phase: `modules/room/README.md` from DE1, an
-`assets/hrtf/README.md` from DE4, a §9 roadmap row and a §5-style "As built" section in
-`docs/design/sushidsp.md` when DE4 closes, and a changelog line per landed change.
+disjoint files. DE3 waits only on DE2, because the Schroeder frequency comes from the Eyring
+figure `LateReverbDesign` computes; it can be built beside DE4. DE8 waits on DE3 for the crossover
+and the level match at the seam, which are what the ray tail is measured against, and on DE5 for
+the decoder that turns its histogram into two ears. Documentation lands with each phase:
+`modules/room/README.md` from DE1, `assets/hrtf/README.md` from DE5, a §9 roadmap row and a
+§5-style "As built" section in `docs/design/sushidsp.md` when DE5 closes, and a changelog line per
+landed change.
