@@ -557,6 +557,32 @@ the −33.8 dB bound, which the spec's antialiasing part (decision 2, held for a
 and the volt-true `PentodeStage` (decision 3) still own, with the JCM800's V1b gain and inverter
 bias (decision 4).
 
+### As built in DA5, part 2 — the volt-true power stage and the 2203's corrections
+
+`PentodeStage` takes the six arguments `TriodeStage` takes, in real volts: its grid conducts on
+the Norman law of `PentodeEL34` (`kPentodeEL34GridConduction`), referenced to the cathode, so an
+EL34 biased at −38 V has 38 V of clean grid swing where the bias-referenced stage clamped at
++0.2 model volts; its plate is bounded by a `PlateSwing` of its own through `PlateSwing::bound`,
+the two-sided tanh both stages share. `PowerTubePreset` carries a law and a swing in place of the
+Shockley pair and the saturation drive, and every preset stands on a datasheet row: `kEl34` is the
+Philips EL34 sheet's class B push-pull point at −38 V, 3.4 kΩ and 2 × 30 mA (swing 25.5 / 280.3 V,
+gain 6.88), the VH4's is the same sheet's 500 V row at Diezel's 35 mA, the 5150's and the IIC+'s
+6L6GCs are the RCA sheet's class AB₁ row, and the IIC+'s outer pair is Mesa's 25 W split as a
+class A stage. The bias-invariance the D4 section above records no longer holds: a cathode-bias
+difference between two halves moves their handover, and the modules keep the input-referred offset
+they had, converted through the deleted grid scales (JCM800 0.24 V, 5150 0.4752 V). The JCM800's
+gains are the Koren Jacobian at each idle point (V1a 55.43, V1b 7.774 unbypassed, V2a 67.00), its
+inverter runs with the grid leaks on the 470/10k junction as the 2203 wires them (Vgk −1.346 V,
+gain 61.93, degeneration 1.889, swing 117.4 / 89.5 V; the VH4's stand-in copies the four), and the
+`kPowerTubeGridScale` bridges are gone from all four modules. Alone in an 8× region the EL34 stage
+folds at −88.1 dB at 8 V and −55.1 dB at its window (−49.7 dB at one model volt before). Whole
+amplifiers at −12 dBFS: JCM800 −11.2 to −16.3 dB at preamp 0.5 (−18.4 before part 1), −15.1 to
+−13.4 dB at preamp 1.0, −24.6 to −48.0 dB at preamp 0.02; 5150 −17.2 to −11.4 dB at its default
+and −6.0 to −35.4 dB at pre gain 0.02; IIC+ −6.9 to −0.1 dB; VH4 −11.6 to −13.3 dB. The 5150 and
+IIC+ defaults read the same with the power stage made linear, so what shows there is the preamp's
+fold, which the old clamp had masked by re-squaring the output; the antialiasing part (decision 2)
+owns it. Unity constants at 82 Hz: JCM800 0.2534701, 5150 0.1730211, IIC+ 0.2402319, VH4 0.2365060.
+
 ### §5a Amplifier family
 
 The DA phase (plans `docs/superpowers/plans/2026-09-06-high-gain-amps-part1.md` and
@@ -667,7 +693,7 @@ Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical cor
 - **D7 — Hardening & packaging.** Namespaced export/Config finalized, perceptual A/B validation once reference captures are available.
 - **DA — High-gain amplifiers.** §5a: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes, registered in the node registry with their own front-panel layouts. *Ships: all four amps selectable in the rig host, RT-safety-trapped, panel- and registry-tested.*
 - **DA4 — Plate-swing `TriodeStage`.** Spec `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. A physical plate ceiling replaces the level-staging devices in all four amplifiers; the phase-inverter tail degeneration and the `PentodeStage` grid bridge become explicit, derived constants. *Ships: all four amps on the seven-argument `TriodeStage`, a clean end and non-decreasing THD on every gain knob, two known issues carried to DA5 (the JCM800's alias floor, the IIC+'s undocumented loop return).*
-- **DA5 — The grid knee, antialiasing and the volt-true power stage.** Spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, part 1 built. The 2026-09-07 diagnosis (`.superpowers/sdd/amp-gain-staging/diagnosis.md`) measured the alias source as `TriodeStage`'s Shockley grid knee, not the DA4 plate ceiling and not the level the stages sit at: one stage 3× past its window folds at −37 dB, the Norman law of `Triode12AX7` takes it to −81 dB. *Ships (part 1, decisions 1, 5, 6 and 7): the Norman grid law in `TriodeStage` through `GridConductionLaw`, the six-argument path deleted, the 5150's inverter at its solved −1.175 V, all four unity constants pinned at 82 Hz, the 5150's PRE GAIN on an audio taper; see "As built in DA5, part 1".* Open: the antialiasing (decision 2, a 16× measurement first), the volt-true `PentodeStage` and `kPowerTubeGridScale`'s deletion (decision 3), the JCM800's V1b gain and inverter grid return (decision 4); the shelf-corner rule and the transformer's DC pass (final review F2, F5, F7) stay in this phase.
+- **DA5 — The grid knee, antialiasing and the volt-true power stage.** Spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, parts 1 and 2 built. The 2026-09-07 diagnosis (`.superpowers/sdd/amp-gain-staging/diagnosis.md`) measured the alias source as `TriodeStage`'s Shockley grid knee, not the DA4 plate ceiling and not the level the stages sit at: one stage 3× past its window folds at −37 dB, the Norman law of `Triode12AX7` takes it to −81 dB. *Ships (part 1, decisions 1, 5, 6 and 7): the Norman grid law in `TriodeStage` through `GridConductionLaw`, the six-argument path deleted, the 5150's inverter at its solved −1.175 V, all four unity constants pinned at 82 Hz, the 5150's PRE GAIN on an audio taper; see "As built in DA5, part 1". Ships (part 2, decisions 3 and 4): the volt-true `PentodeStage` on `PentodeEL34`'s grid law and a `PlateSwing`, the five power-tube presets from datasheet operating points, `kPowerTubeGridScale` deleted from all four modules, the JCM800's per-stage gains and its inverter with the grid leaks on the tail junction; see "As built in DA5, part 2".* Open: the antialiasing (decision 2, a 16× measurement first); the shelf-corner rule and the transformer's DC pass (final review F2, F5, F7) stay in this phase.
 
 **DS — stereo, tracks and playback, a parallel track.** Spec
 `docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan

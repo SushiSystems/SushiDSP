@@ -6,20 +6,24 @@ here has a figure, a mechanism, and a named exit.
 
 ## Alias floor at 8× after volt-true grid staging
 
-The JCM800 measures −15.1 dB through `measure::alias_floor()` at preamp 1.0 and a −12 dBFS input,
-against the −33.8 dB bound (−43.4 dB before DA4, −6.7 dB before DA5 part 1); the 5150 at its
-default and the same input measures −17.2 dB (+26.0 dB before DA5 part 1), the IIC+ −6.9 dB and
-the VH4 −11.6 dB. The diagnosis of 2026-09-07 (`.superpowers/sdd/amp-gain-staging/diagnosis.md`)
-located the first source: `TriodeStage`'s grid-conduction knee was a room-temperature Shockley
-law (Vt 25.85 mV), sharper than the Norman law of the repository's own `Triode12AX7`. DA5 part 1
-put the Norman law in the stage: one stage alone now folds at −81.2 dB at 3× past its window and
-−53.7 dB at 12× (−37.3 and −13.7 dB before). What remains is the drive itself, 10 to 3500× past
-the windows at guitar level, and `PentodeStage`'s own fold: its grid clamps at +0.2 model volts,
-22 to 25 dB under the real grid's window. Documented by
-`Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b`
+The JCM800 measures −13.4 dB through `measure::alias_floor()` at preamp 1.0 and a −12 dBFS input,
+against the −33.8 dB bound (−43.4 dB before DA4, −6.7 dB before DA5 part 1, −15.1 dB before
+part 2), and −16.3 dB at its default (−18.4 dB before part 1, −11.2 dB before part 2); the 5150
+at its default and the same input measures −11.4 dB (+26.0 dB before DA5 part 1, −17.2 dB before
+part 2), the IIC+ −0.1 dB (−6.9 dB before part 2) and the VH4 −13.3 dB. The diagnosis of
+2026-09-07 (`.superpowers/sdd/amp-gain-staging/diagnosis.md`) located the first source:
+`TriodeStage`'s grid-conduction knee was a room-temperature Shockley law (Vt 25.85 mV), sharper
+than the Norman law of the repository's own `Triode12AX7`. DA5 part 1 put the Norman law in the
+stage: one stage alone now folds at −81.2 dB at 3× past its window and −53.7 dB at 12× (−37.3
+and −13.7 dB before). DA5 part 2 made `PentodeStage` volt-true, which took its own fold out
+(−88.1 dB alone at 8 V, against −49.7 dB at the same drive before) and, at the 5150's and the
+IIC+'s defaults, took away the re-squaring its +0.2 model-volt clamp had done to the output: those
+two figures read the same with the power stage made linear, so what they now show is the
+preamp's fold at the drive the circuit delivers, 10 to 3500× past the windows at guitar level.
+Documented by `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b`
 (`tests/functional/unit/test_measure.cpp`), skipped with the measured figure printed. Closes with
 the rest of `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`: antialiasing at
-the stage (after the 16× measurement the maintainer asked for) and a volt-true `PentodeStage`.
+the stage, after the 16× measurement the maintainer asked for.
 
 ## Mesa Mark IIC+ has no clean setting
 

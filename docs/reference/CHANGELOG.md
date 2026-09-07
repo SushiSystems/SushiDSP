@@ -46,6 +46,20 @@ The studio track, spec `docs/superpowers/specs/2026-09-07-stereo-tracks-design.m
 
 The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-gain-amps-part1/`.
 
+### DA5 part 2 — the volt-true power stage, spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` section 13
+
+- 2026-09-07 — Moved `PlateSwing` and `GridConductionLaw` into their own headers and gave `PlateSwing` the `bound()` both stages call (`PlateSwing.hpp`, `GridConductionLaw.hpp`, `TriodeStage.hpp`, `TriodeStage.cpp`).
+- 2026-09-07 — Rebuilt `PentodeStage` volt-true on the Norman grid law of `PentodeEL34` and a `PlateSwing`, deleting the Shockley pair, the saturation drive and the 60/160·Vt bounds (`PentodeStage.hpp`, `PentodeStage.cpp`).
+- 2026-09-07 — Rewrote `PowerTubePreset` and its five presets from datasheet operating points; `kEl34` is the Philips EL34 class B point at −38 V, 3.4 kΩ, 2 × 30 mA (`PowerTubePresets.hpp`).
+- 2026-09-07 — Deleted `kPowerTubeGridScale` and the IIC+'s two pair scales, and derived each transformer trim from the pair's full swing (`Jcm800.cpp`, `Peavey5150.cpp`, `MesaMark2c.cpp`, `DiezelVh4.cpp`).
+- 2026-09-07 — Gave the JCM800 one gain per stage from the Koren Jacobian: V1a 55.432497, V1b 7.774305 unbypassed, V2a 67.001549 (`Jcm800.cpp`).
+- 2026-09-07 — Re-solved the JCM800's inverter with its grid leaks on the tail junction: Vgk −1.346012 V, gain 61.927402, degeneration 1.888775, swing 117.418 / 89.548 V; the VH4's stand-in copies it (`Jcm800.cpp`, `DiezelVh4.cpp`).
+- 2026-09-07 — Converted the two bias-mismatch offsets to real volts through the deleted scales, 0.24 V and 0.4752 V (`Jcm800.cpp`, `Peavey5150.cpp`).
+- 2026-09-07 — Re-pinned the four unity constants at 82 Hz: JCM800 0.2534701, 5150 0.1730211, IIC+ 0.2402319, VH4 0.2365060 (`Jcm800.hpp`, `Peavey5150.hpp`, `MesaMark2c.hpp`, `DiezelVh4.hpp`).
+- 2026-09-07 — Rewrote the `PentodeStage` unit tests for the volt-true stage and added `Regression_Dsp.PentodeStageAliasFloorInsideAndAtItsWindow` (`test_pentode_stage.cpp`, `test_measure.cpp`).
+- 2026-09-07 — Re-anchored `Peavey5150EvenHarmonicsRiseFromLowToFullPreGain` to PRE GAIN 0.4776 and 1.0, the drive levels 0.2 and 1.0 stood for on `n·√n`, gating a factor of 2 (`test_peavey5150.cpp`).
+- 2026-09-07 — Moved the VH4 cascade-gain test to −120 dBFS and 73.114 dB, and re-signed the JCM800 bias-mismatch gate at −1e-5 (`test_diezel_vh4.cpp`, `test_jcm800.cpp`).
+
 ### DA5 part 1 — the grid law, spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`
 
 - 2026-09-07 — Replaced `TriodeStage`'s Shockley grid diode with the Norman law of `Triode12AX7` through `GridConductionLaw` and `kTriode12AX7GridConduction`; deleted the six-argument constructor and the 160·Vt fence (`TriodeStage.hpp`, `TriodeStage.cpp`).

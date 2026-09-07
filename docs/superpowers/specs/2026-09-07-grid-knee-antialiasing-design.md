@@ -1,6 +1,6 @@
 # The grid knee, antialiasing and the volt-true power stage
 
-**Status:** Part 1 built, 2026-09-07: decisions 1, 5, 6 and 7 taken and implemented (section 12); decisions 2, 3 and 4 open. Evidence in `.superpowers/sdd/amp-gain-staging/diagnosis.md` and `.superpowers/sdd/amp-gain-staging/da5-grid-law-report.md`. Succeeds DA4 (`2026-09-07-triode-plate-swing-design.md`) as the DA5 spec.
+**Status:** Parts 1 and 2 built, 2026-09-07: decisions 1, 3, 4, 5, 6 and 7 taken and implemented (sections 12 and 13); decision 2 open, waiting on the 16x measurement. Evidence in `.superpowers/sdd/amp-gain-staging/diagnosis.md`, `.superpowers/sdd/amp-gain-staging/da5-grid-law-report.md` and `.superpowers/sdd/amp-gain-staging/da5-part2-report.md`. Succeeds DA4 (`2026-09-07-triode-plate-swing-design.md`) as the DA5 spec.
 
 ## 1. Goal
 
@@ -186,4 +186,58 @@ The maintainer ruled on 2026-09-07: decision 1 Norman; decision 5 the solved -1.
   each reads -6.000 dBFS. At 82 Hz the old 5150 and IIC+ values sat on the output clamp.
 - The 5150's PRE GAIN is (b^n - 1) / (b - 1) with b = ((1 - m) / m)^2 = 81 for a midpoint fraction
   m = 0.10; the JCM800 and the IIC+ keep n * sqrt(n) until the maintainer says otherwise.
+- The eight goldens of section 9 move and are not regenerated here.
+
+## 13. What part 2 built
+
+The maintainer ruled on 2026-09-07: decision 3, the EL34's constants come from the tube's
+datasheet operating point; decision 4, the JCM800's V1b gain and inverter bias are corrected now.
+Part 2 implements both and section 5, and nothing under section 4.
+
+- `PentodeStage` takes the same six arguments `TriodeStage` does: source, grid leak, cathode
+  bias, gain, a `GridConductionLaw` and a `PlateSwing`, all in real volts. Its grid conducts on
+  `el34_koren.sub`'s Norman law through `kPentodeEL34GridConduction`, referenced to the cathode,
+  and its plate is bounded by `PlateSwing::bound`, the two-sided tanh both stages now call from
+  `PlateSwing.hpp`; `GridConductionLaw` lives in its own header. `PowerTubePreset` carries the
+  law and the swing in place of the Shockley pair and the saturation drive. `kPowerTubeGridScale`
+  and the IIC+'s two pair scales are deleted from the four modules; each module's transformer
+  trim maps the pair's full swing onto the level the transformer stage received at full clip
+  before, so the transformer and the sag stage keep their range.
+- The power-tube presets stand on datasheet rows. `kEl34` is the Philips EL34 sheet's class B
+  push-pull point at Vg1 −38 V, Raa 3.4 kOhm, 2 x 30 mA, 55 W, with 1 kOhm screen resistors, the
+  2203's own arrangement: window 38 V, swing 25.5 V toward cutoff and 280.28 V toward the bottom,
+  gain 6.88 from the sheet's transconductance scaled to 30 mA. The VH4's EL34 is the same sheet's
+  500 V row at Diezel's 35 mA; the 5150's side is two RCA 6L6-GC class AB1 tubes in parallel at
+  the dossier's 2 x 30 mA and −55 V; the IIC+'s inner pair is the RCA row at its own 58 mA, its
+  outer pair Mesa's 25 W split evenly as a class A stage. Each module's README lists which field
+  is the amplifier's and which is the datasheet's. The repository's Koren EL34 fit reads 5.6 mA/V
+  and 40.7 mA at the 2203's point against the sheet's 8.4 mA/V and 30 mA, so the presets do not
+  lean on it.
+- The JCM800's three common-cathode gains are the Koren Jacobian at each idle point: V1a 55.43,
+  V1b 7.774 with its 10 kOhm cathode unbypassed, V2a 67.00. Its inverter is re-solved with both
+  grid leaks on the 470/10k junction as the 2203 wires them: Ia 1.431927 mA per half,
+  Vgk −1.346012 V, gain 61.927402, degeneration 1.888775, swing 117.418 / 89.548 V. The 147.4 V
+  of section 6 was B+ − Vpk, which counts the 30 V cathode; the headroom toward the supply is
+  Ia·Ra. The VH4's stand-in inverter copies the four constants. The EL34 grid's source is the
+  corrected inverter's 82k || 43.056k plus the deck's 5.6 kOhm stopper, 33.83 kOhm.
+- Measured, `PentodeStage` with `kEl34` alone in an 8x region: −88.1 dB at 8 V of drive (one
+  model volt of the old stage) and −55.1 dB at its 38 V window, against −49.7 dB at one model
+  volt before; `Regression_Dsp.PentodeStageAliasFloorInsideAndAtItsWindow` pins section 11's
+  third line under −80 and −50 dB. The composite of a pair is odd in the drive to the float
+  while both grids are inside their windows, and a cathode-bias difference now moves the handover.
+- Whole amplifiers at −12 dBFS, `measure::alias_floor()`: JCM800 at preamp 0.5 −11.2 to −16.3 dB
+  (−18.4 dB before part 1: part 2 recovers 5.1 of the 7.2 dB and does not close it), at
+  preamp 1.0 −15.1 to −13.4 dB, at preamp 0.02 −24.6 to −48.0 dB; 5150 default −17.2 to −11.4 dB
+  and at pre gain 0.02 −6.0 to −35.4 dB; IIC+ default −6.9 to −0.1 dB; VH4 default −11.6 to
+  −13.3 dB. With the power stage made linear the 5150 reads −12.0 dB and the IIC+ −0.4 dB, and
+  with only its cut-off ceiling removed −11.8 and −0.4 dB, so the fold that now shows at those
+  two defaults is the preamp's: the bias-referenced stage's +0.2 V clamp had been re-squaring the
+  output and masking it. Section 11's second line stays open for the antialiasing part.
+- The JCM800's THD at a 0.2 input runs 6.1 % at preamp 0.02 to 42.9 % at 1.0, where it ran
+  16.2 to 45.0 %; the cold clipper at 7.77 gives the knob a travel. Its clean end reads 0.174 %.
+- Unity constants at 82 Hz: JCM800 0.2534701, 5150 0.1730211, IIC+ 0.2402319, VH4 0.2365060;
+  each reads −6.000 dBFS.
+- `Peavey5150EvenHarmonicsRiseFromLowToFullPreGain` compares the same two physical drive levels
+  it always did, PRE GAIN 0.4776 on the audio taper standing for 0.2 on `n·√n`, and gates a
+  factor of 2 on a measured 3.18.
 - The eight goldens of section 9 move and are not regenerated here.
