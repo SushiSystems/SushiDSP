@@ -113,6 +113,25 @@ namespace SushiDSP
         /// @return True when a loop range is set.
         bool loop_snapshot(std::uint64_t& out_begin, std::uint64_t& out_length) const noexcept;
 
+        /// @brief Sets how fast the playhead moves, in timeline frames per output frame.
+        /// Clamped to [kMinSpeed, kMaxSpeed]. Control thread.
+        /// @param speed The requested playback speed.
+        void set_speed(double speed) noexcept;
+
+        /// @brief The playback speed in 32.32 fixed point. Audio thread; one relaxed load.
+        /// @return The speed as a 32.32 fixed-point word.
+        std::uint64_t speed_q32() const noexcept;
+
+        /// @brief The playback speed. Control thread; for the UI.
+        /// @return The speed as a double.
+        double speed() const noexcept;
+
+        /// @brief The slowest playback speed set_speed() accepts.
+        static constexpr double kMinSpeed = 0.5;
+
+        /// @brief The fastest playback speed set_speed() accepts.
+        static constexpr double kMaxSpeed = 2.0;
+
     private:
         /// @brief Splits the packed loop word into its begin frame and length.
         /// @param packed The word loop_ holds.
@@ -129,5 +148,11 @@ namespace SushiDSP
 
         /// @brief Holds the loop begin in the high half and the loop length in the low half.
         std::atomic<std::uint64_t>  loop_{ 0 };
+
+        /// @brief Holds the playback speed in 32.32 fixed point; unity is 1ull << 32.
+        std::atomic<std::uint64_t>  speed_q32_{ 1ull << 32 };
+
+        /// @brief Holds the fractional frame carried between blocks. Audio thread only.
+        std::uint64_t               speed_remainder_{ 0 };
     };
 }
