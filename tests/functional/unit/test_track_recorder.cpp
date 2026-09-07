@@ -190,6 +190,37 @@ TEST(Unit_Dsp, RecordingBusWritesTwoFilesOfEqualLength)
     std::filesystem::remove_all(root);
 }
 
+TEST(Unit_Dsp, RecordingBusKeepsBothFilesEqualWhenOneRingFills)
+{
+    const std::filesystem::path root = make_fixture("bus_drop");
+
+    constexpr std::uint32_t kBlockFrames = 256;
+    constexpr std::size_t   kBlocks = 32;
+
+    SushiDSP::RecordingBus bus(1u, 48000.0, 64, SushiDSP::RecordingBus::kRingCapacityFrames);
+    ASSERT_TRUE(bus.arm(root.string(), "take02"));
+
+    std::vector<float> processed(kBlockFrames, 0.4f);
+    std::vector<float> dry(kBlockFrames, -0.2f);
+    const float*       processed_channels[1] = { processed.data() };
+    const float*       dry_channels[1] = { dry.data() };
+
+    for (std::size_t index = 0; index < kBlocks; ++index)
+    {
+        EXPECT_FALSE(bus.write_processed(processed_channels, kBlockFrames));
+        EXPECT_FALSE(bus.write_dry(dry_channels, kBlockFrames));
+    }
+
+    bus.stop();
+
+    EXPECT_EQ(bus.dropped_blocks(), static_cast<std::uint64_t>(kBlocks));
+    EXPECT_EQ(bus.processed_frames_written(), bus.dry_frames_written());
+    EXPECT_EQ(bus.dry_frames_written(), 0u);
+    EXPECT_EQ(bus.block_index(), static_cast<std::uint64_t>(kBlocks));
+
+    std::filesystem::remove_all(root);
+}
+
 TEST(Unit_Dsp, RecordingBusArmOnAnUnwritableFolderReturnsFalse)
 {
     const std::filesystem::path root = make_fixture("unwritable");

@@ -39,6 +39,7 @@ namespace SushiDSP
     /// @brief One recording destination: the audio thread pushes blocks into one SpscRing<float>
     /// per channel and a writer thread drains all of them in step into a WavWriter. A disk that
     /// cannot keep up costs whole blocks, counted by dropped_blocks(), never a wait in write().
+    /// @see docs/superpowers/specs/2026-09-07-stereo-tracks-design.md §5
     class TrackRecorder
     {
     public:
@@ -57,7 +58,14 @@ namespace SushiDSP
         /// @brief Opens the file, empties the rings and starts the writer thread. Control thread only.
         /// @param path Filesystem path to create or overwrite.
         /// @return true if the file opened and the thread started, false otherwise.
+        /// @pre The audio thread is not inside write(); arm() empties the rings the writer reads.
         bool arm(const std::string& path);
+
+        /// @brief Reports whether the rings hold a whole block, without queueing anything.
+        /// Wait-free: two atomic loads and a comparison.
+        /// @param frames Number of frames the caller is about to write.
+        /// @return true if a write() of that many frames would be queued rather than dropped.
+        bool has_room(std::uint32_t frames) const noexcept;
 
         /// @brief Copies one block into the rings. Wait-free: allocates nothing, takes no lock,
         /// throws nothing, touches no file.
@@ -92,20 +100,43 @@ namespace SushiDSP
         /// @return The number of frames appended.
         std::size_t drain_once();
 
+        /// @brief Holds one lock-free ring per recorded channel.
         std::vector<std::unique_ptr<SpscRing<float>>> rings_;
+
+        /// @brief Holds the writer thread's per-channel drain buffer.
         std::vector<std::vector<float>>               scratch_;
+
+        /// @brief Points at each scratch buffer, in the shape WavWriter::append() takes.
         std::vector<const float*>                     scratch_pointers_;
+
+        /// @brief Owns the open file between arm() and stop().
         std::unique_ptr<WavWriter>                    writer_;
+
+        /// @brief Runs drain_loop() while the recorder is armed.
         std::thread                                   writer_thread_;
 
+        /// @brief Counts the frames write() has pushed into every ring.
         std::atomic<std::uint64_t> pushed_frames_{ 0 };
+
+        /// @brief Counts the frames the writer thread has popped from every ring.
         std::atomic<std::uint64_t> popped_frames_{ 0 };
+
+        /// @brief Counts the frames the writer thread has appended to the file.
         std::atomic<std::uint64_t> frames_written_{ 0 };
+
+        /// @brief Counts the blocks write() refused because the rings were full.
         std::atomic<std::uint64_t> dropped_blocks_{ 0 };
+
+        /// @brief Marks the span between a successful arm() and stop().
         std::atomic<bool>          recording_{ false };
 
+        /// @brief Holds the file's sample rate in Hz.
         double        sample_rate_;
+
+        /// @brief Holds the frames each channel's ring accepts before blocks are dropped.
         std::size_t   ring_capacity_frames_;
+
+        /// @brief Holds the number of channels recorded.
         std::uint32_t channels_;
     };
 }
