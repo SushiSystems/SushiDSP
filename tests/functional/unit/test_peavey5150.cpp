@@ -511,22 +511,22 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
     // 46 dB above the nominal the manufacturer prints for this channel, so the -40 dBFS figure is
     // measured and printed but not asserted.
     //
-    // The knob is read at 0.02 rather than at 0.0. pre_gain_attenuation() is n * sqrt(n), exactly
-    // zero at the bottom of VR2's travel, so 0.0 mutes the amplifier and the THD there is the
-    // FFT's own floor on denormals rather than distortion; 0.02 is the first position that passes
-    // signal.
+    // The knob is read at 0.02, the lowest position this test uses. pre_gain_attenuation() is
+    // n * sqrt(n), exactly zero only at the bottom of VR2's travel, so 0.0 mutes the amplifier and
+    // the THD there is the FFT's own floor on denormals rather than distortion. Positions between
+    // pass signal - 0.01 gives 0.001 - so 0.02 is a choice, not a threshold.
     //
     // Measured 2026-09-07, once the pair's degeneration was corrected to 1.905 and its stage gain
     // to the full 56.5: 1.340 % at the nominal input, and 25.652 % at -40 dBFS. At -40 dBFS the
     // amplifier squares from V5A on - V5A, V3A and the pair all sit on the solver's 4.136 V fence,
     // with V5B at 2.71 V behind them - so V5A is the stage that binds there.
     // modules/peavey5150/README.md, "The clean end", carries the table.
-    constexpr float kFirstAudiblePosition = 0.02f;
+    constexpr float kLowestTestedPosition = 0.02f;
     constexpr float kMinusFortyDbfs = 0.01f;
     constexpr float kNominalMinusEightyDbv = 7.071e-5f;
 
     auto nominal = prepared_node();
-    nominal->set_pre_gain(kFirstAudiblePosition);
+    nominal->set_pre_gain(kLowestTestedPosition);
     const double nominal_thd =
         SushiDSP::measure::thd(render_sine(*nominal, 220.0, kNominalMinusEightyDbv, kSpectrumBlocks),
                                220.0, 48000.0, 8)
@@ -537,7 +537,7 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
 
     // Recorded, not asserted: a guitar-level input is 46 dB past what this channel is specified for.
     auto guitar_level = prepared_node();
-    guitar_level->set_pre_gain(kFirstAudiblePosition);
+    guitar_level->set_pre_gain(kLowestTestedPosition);
     const double guitar_level_thd =
         SushiDSP::measure::thd(render_sine(*guitar_level, 220.0, kMinusFortyDbfs, kSpectrumBlocks),
                                220.0, 48000.0, 8)

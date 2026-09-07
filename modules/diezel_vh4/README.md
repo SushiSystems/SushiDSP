@@ -330,7 +330,7 @@ against the documented circuit rather than against an amplifier.
 came out. With the GAIN knob at 0.01 and a −40 dBFS 220 Hz sine in, THD reads **0.0940 %**
 (2026-09-07), well under the spec's 10 %. The knob is read at 0.01 rather than 0.0 because the pot
 is a plain divider to ground: at 0.0 it shorts the signal and the node is silent, which leaves THD
-without a denominator. `DiezelVh4ThdIncreasesWithGain` asks only that the reading not fall as the
+without a denominator. `DiezelVh4ThdDoesNotFallAsGainRises` asks only that the reading not fall as the
 knob rises, within 0.5 percentage points, because once every stage clips the metric saturates.
 
 `DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz` asserts the 80 Hz point alone, 4.622 dB

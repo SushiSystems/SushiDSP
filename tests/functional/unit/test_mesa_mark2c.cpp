@@ -274,6 +274,14 @@ TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
     SushiDSP::MesaMark2c node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
 
+    ASSERT_EQ(node.triode_stage_count(), 7u);
+
+    // Before any audio every stage rests at its bias point, so every probe reads zero.
+    for (std::size_t stage = 0; stage < node.triode_stage_count(); ++stage)
+    {
+        EXPECT_EQ(node.grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
+    }
+
     std::vector<float> input(256), output(256, 0.0f);
     const float* input_channels[1] = { input.data() };
     float* output_channels[1] = { output.data() };
@@ -288,12 +296,18 @@ TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
         node.process(context);
     }
 
-    ASSERT_EQ(node.triode_stage_count(), 7u);
     for (std::size_t stage = 0; stage < node.triode_stage_count(); ++stage)
     {
         EXPECT_GT(node.grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
     }
     EXPECT_FLOAT_EQ(node.grid_excursion_peak_volts(node.triode_stage_count()), 0.0f);
+
+    // reset() clears the peaks with the rest of the state.
+    node.reset();
+    for (std::size_t stage = 0; stage < node.triode_stage_count(); ++stage)
+    {
+        EXPECT_EQ(node.grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
+    }
 }
 
 TEST(Unit_Dsp, MesaMark2cThdDoesNotFallAsLeadDriveRises)
@@ -369,7 +383,9 @@ TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
                     "41.5 % THD against this test's 10 % bar. Closes when the send/return network "
                     "is read off the schematic; dossier open questions 19 and 20.";
 
-    // Kept below the skip so the assertion comes back with the network, not from memory.
+    // Kept below the skip so the assertion comes back with the network, not from memory. Lead
+    // Drive 0.02 is the lowest position this test uses, not a threshold: the control passes signal
+    // below it too.
     const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
     const std::vector<float> rendered = render_mesa_mark2c(
         [](SushiDSP::MesaMark2c& node) { node.set_lead_drive(0.02f); }, 0.01, frequency, 640);
@@ -485,7 +501,9 @@ TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
                     "stack drives the lead stages harder once the network is read off the "
                     "schematic; dossier open questions 19 and 20.";
 
-    // Kept below the skip so the assertion comes back with the network, not from memory.
+    // Kept below the skip so the assertion comes back with the network, not from memory. Lead
+    // Drive 0.02 is the lowest position this test uses, not a threshold: the control passes signal
+    // below it too.
     const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
     auto thd_at_treble = [frequency](float treble)
     {
