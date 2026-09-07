@@ -87,3 +87,21 @@ from where the user put it. The host serialises the two, and `Transport::seek`'s
 rule rather than paying for a generation counter no caller needs today. Raised as finding 9 of
 `.superpowers/sdd/2026-09-07-stereo-tracks/review-tasks-1-4-5.md`. Closes when a caller appears
 that cannot serialise them.
+
+## A stereo branch collapses back to mono at a `MixerNode`
+
+`routing::MixerNode` declares `PortLayout{8, 1}`, so `RigGraph::channels_of` reads its input width
+as 1 and the graph's gather averages any two-channel producer down to one channel before the mixer
+sees it. A `PanNode` inside a parallel branch therefore loses its width the moment the branch
+rejoins. This is what spec §2's adaptation table says should happen — 2 into 1 sums and halves —
+and no test or user asks for anything else, so the behaviour stays. Closes when a mixer that keeps
+its inputs' width exists, which needs a `PortLayout` that can say "eight slots, two channels each".
+
+## Spec §5's timeline alignment is not implemented
+
+`RecordingBus::arm()` used to store the block index both files began at, and nothing read it: the
+re-amp path in `RigController` starts a loaded take at transport position 0 whatever block it was
+recorded at. Wiring it up needs a per-track start offset in `TrackPlayer`, the armed position
+carried through the take file or the preset, and a preset field to hold it — more than the accessor
+implied — so the fix round of 2026-09-07 deleted `armed_block_index()` rather than leave a dead
+accessor that reads as a feature. Closes when a track carries its own start frame.

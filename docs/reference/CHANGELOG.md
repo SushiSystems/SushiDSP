@@ -27,6 +27,19 @@ The studio track, spec `docs/superpowers/specs/2026-09-07-stereo-tracks-design.m
 - 2026-09-07 — Wrote any output width from the SDL2 device through a deinterleaved scratch block (`Sdl2AudioDevice.hpp`, `Sdl2AudioDevice.cpp`).
 - 2026-09-07 — Added `rig_output_adapts_to_device` and `write_rig_output_to_device`, one place for the rig-to-device mapping (`ChannelSelection.hpp`, `ChannelSelection.cpp`).
 - 2026-09-07 — Asked SDL2 for two output channels and prepared the rig at the device's width (`apps/host_gui/main.cpp`).
+- 2026-09-07 — Dropped the pan from a mono output in `TrackPlayer::process()`, so a track folds to unity at any pan position (`TrackPlayer.cpp`).
+- 2026-09-07 — Gave `TrackRecorder` a writer handshake, so `arm()` never clears a ring under a live producer and `stop()` keeps the last accepted block (`TrackRecorder.hpp`, `TrackRecorder.cpp`).
+- 2026-09-07 — Disarmed both legs of a `RecordingBus` before either closes, matching `arm()` and `write()` (`RecordingBus.cpp`).
+- 2026-09-07 — Stopped both recorders and reported the failure to the transport bar when a writer thread loses its file (`RecordingBus.hpp`, `RigController.cpp`, `TransportBar.cpp`).
+- 2026-09-07 — Added `Transport::loop_snapshot()`, so a block reads the packed loop word once (`Transport.hpp`, `Transport.cpp`).
+- 2026-09-07 — Clamped `rig_output_adapts_to_device` to the widths `write_rig_output_to_device` writes (`ChannelSelection.cpp`).
+- 2026-09-07 — Let `RtSwapSlot::reclaim()` free retired objects before the audio thread's first acquire (`RtSwapSlot.hpp`).
+- 2026-09-07 — Reset a track's gain, pan, mute and solo in `clear_track`, so a preset loaded over a session brings its own mixer state (`RigController.cpp`).
+- 2026-09-07 — Clamped the gather array's clear bound to `kMaxChannels` (`RigGraph.cpp`).
+- 2026-09-07 — Deleted `RecordingBus::armed_block_index()`, unread since it was written (`RecordingBus.hpp`, `RecordingBus.cpp`).
+- 2026-09-07 — Added bulk `SpscRing::push` and `pop`, moving `TrackRecorder`'s cost from per-sample to per-block (`SpscRing.hpp`, `TrackRecorder.cpp`).
+- 2026-09-07 — Put the allocation trap behind an RAII arm and disarm object in `test_rt_safety.cpp`.
+- 2026-09-07 — Benchmarked eight stereo tracks at 48 kHz and 256 frames against the 5.33 ms block deadline (`tests/benchmark/main.cpp`).
 
 ## DA — High-gain amplifiers
 
