@@ -59,15 +59,12 @@ namespace SushiDSP
         constexpr float kV5aGain = 25.3f;
         constexpr float kV3aGain = 14.0f;   // R14 3.3k read as unbypassed in the audio band.
 
-        /// @brief The pair's full single-triode gain, mu * Ra / (ra + Ra). Section 5 gives the
-        /// long-tailed pair's resistors but no gain row, so the operating point is solved on the
-        /// average of R46 82k and R58 100k, 91 kOhm, at the -2.0 V bias below: Ia 0.9614 mA,
-        /// Va 252.514 V. The Koren 12AX7's Jacobian there gives gm 1.6785 mA/V and
-        /// ra 53.448 kOhm, so mu = gm * ra = 89.714 and the gain is
-        /// 89.714 * 91 / (53.448 + 91) = 56.5186. It is the full figure, not half of it: the
-        /// pair's single-ended split is kPhaseInverterDegeneration below, and halving the gain as
-        /// well would count it twice.
-        constexpr float kPhaseInverterGain = 56.5186f;
+        /// @brief The pair's full single-triode gain, mu * Ra / (ra + Ra), on the average of R46
+        /// 82k and R58 100k, 91 kOhm, at the solved point below: the Koren 12AX7's Jacobian at
+        /// Vgk -1.174528 V, Vpk 188.386 V gives gm 2.12024 mA/V and ra 44.655 kOhm, so mu is
+        /// 94.6792 and the gain 94.6792 * 91 / (44.655 + 91) = 63.512682. The pair's
+        /// single-ended split is kPhaseInverterDegeneration below, so this figure is not halved.
+        constexpr float kPhaseInverterGain = 63.512682f;
 
         // Grid-leak resistors, dossier section 2's diagram, one per driven grid.
         constexpr float kV1aGridLeak = 1000000.0f;   // R25 at the input jack.
@@ -89,9 +86,11 @@ namespace SushiDSP
         constexpr float kV5aCathodeBias = -2.00f;
         constexpr float kV3aCathodeBias = -2.53f;
 
-        // The long-tailed pair has no row in the dossier's DC table; -2.0 V is a modelling choice
-        // in the range the table's other 12AX7 rows occupy.
-        constexpr float kPhaseInverterCathodeBias = -2.0f;
+        /// @brief The pair's grid-cathode bias, solved rather than chosen: section 5 returns both
+        /// grid leaks (R50, R53) to node X below R52 470 Ohm, so Vgk = -2 * Ia * 470 with the
+        /// pair's 2 * Ia through the 15.17 kOhm tail. The Koren 12AX7 on the 91 kOhm average
+        /// plate at B+ 340 V settles at Ia 1.249497 mA, Vk 37.910 V and Vgk -1.174528 V.
+        constexpr float kPhaseInverterCathodeBias = -1.174528f;
 
         // Plate swings, one per triode. The cutoff side is B+ - Va with the 340 V rail and the Va
         // column of dossier section 3's DC table; the conduction side is Va - Va_bottom, where
@@ -124,11 +123,10 @@ namespace SushiDSP
         /// @brief V3A's plate swing: 340 - 287.955 up, 287.955 - 139.854 down.
         constexpr PlateSwing kV3aPlateSwing{ 52.045f, 148.101f };
 
-        /// @brief The pair's plate swing: 340 - 252.514 up, 252.514 - 120.952 down. Section 5 gives
-        /// the pair no DC row, so its idle point is solved at the -2.0 V bias above against the
-        /// average of R46 82k and R58 100k, the same load line kPhaseInverterGain and
-        /// kPhaseInverterDegeneration are taken from.
-        constexpr PlateSwing kPhaseInverterPlateSwing{ 87.486f, 131.561f };
+        /// @brief The pair's plate swing on the 91 kOhm average plate at the solved point above:
+        /// 340 - 226.296 up, 226.296 - 146.699 down, the bottom solved at Vgk = 0 with the
+        /// cathode held at its 37.910 V idle voltage.
+        constexpr PlateSwing kPhaseInverterPlateSwing{ 113.704f, 79.597f };
 
         // Source resistances: the Thevenin impedance each grid is driven from, built the way
         // dossier section 7 builds the output tubes' - the previous stage's plate load in parallel
@@ -160,13 +158,12 @@ namespace SushiDSP
         /// 1 + R_tail / (R_tail + (ra + Ra) / (mu + 1)), where (ra + Ra) / (mu + 1) is the
         /// impedance the other triode's cathode presents in parallel with the tail. Section 5's
         /// tail is R52 470 + R51 10k + R57 4.7k = 15.17 kOhm, and the solved point behind
-        /// kPhaseInverterGain gives (53.448k + 91k) / 90.714 = 1592.34 Ohm, so the factor is
-        /// 1 + 15170 / (15170 + 1592.34) = 1 + 0.90500 = 1.90500. Without it the pair is modelled
-        /// as a common-cathode stage with a grid window it does not have, which is why the real
-        /// inverter takes V3A's swing without conducting. 15.17 kOhm is the DC tail; section 5
-        /// also returns the feedback loop into node N through C30, a shunt this module does not
-        /// model, so the AC tail is lower.
-        constexpr float kPhaseInverterDegeneration = 1.90500f;
+        /// kPhaseInverterGain gives (44.655k + 91k) / 95.6792 = 1417.81 Ohm, so the factor is
+        /// 1 + 15170 / (15170 + 1417.81) = 1.914527. Without it the pair is modelled as a
+        /// common-cathode stage with a grid window it does not have. 15.17 kOhm is the DC tail;
+        /// section 5 also returns the feedback loop into node N through C30, a shunt this module
+        /// does not model, so the AC tail is lower.
+        constexpr float kPhaseInverterDegeneration = 1.914527f;
 
         /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
         /// PentodeStage becomes volt-true (DA5). PentodeStage's grid saturates at
@@ -179,7 +176,7 @@ namespace SushiDSP
         // 2.2 kOhm stoppers between the node and the grids, so the loss is the 220 kOhm leak
         // against the dossier's own 35.3 kOhm plate impedance: 220/(220 + 35.3) = 0.8617. That
         // 35.3 kOhm is the dossier's arithmetic, not this module's ra, which the solved point
-        // behind kPhaseInverterGain puts at 53.448 kOhm.
+        // behind kPhaseInverterGain puts at 44.655 kOhm.
         constexpr float kPhaseInverterToPowerTubeAttenuation = 0.8617f;
 
         // Not a dossier value. The output trim to full scale: the JCM800's output-level trim into
@@ -365,12 +362,25 @@ namespace SushiDSP
             return (normalized - 0.5f) * 2.0f * kMaxPresenceDb;
         }
 
-        // VR2 sits from the pot node to ground with the wiper feeding V1B, so wide open it passes
-        // the whole node unattenuated. The exponent is the same audio taper
-        // modules/jcm800/src/Jcm800.cpp uses for the same kind of pot.
+        /// @brief The fraction of its travel an audio-taper pot passes at the middle of its
+        /// rotation, the datasheet figure for a 10 % "A" taper
+        /// (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 6).
+        constexpr float kPreGainTaperMidpointFraction = 0.10f;
+
+        /// @brief The base of the exponential taper, ((1 - m) / m)^2, which puts the law exactly
+        /// at m for half rotation: 81 for m = 0.10.
+        constexpr float kPreGainTaperBase =
+            (1.0f - kPreGainTaperMidpointFraction) * (1.0f - kPreGainTaperMidpointFraction)
+            / (kPreGainTaperMidpointFraction * kPreGainTaperMidpointFraction);
+
+        /// @brief VR2's division ratio: an exponential audio taper (b^n - 1) / (b - 1), 0 at the
+        /// bottom of the travel, 0.10 at noon and 1 wide open, where the whole pot node reaches
+        /// V1B's grid.
+        /// @param normalized Pot position in [0, 1].
+        /// @return The fraction of the pot node the wiper passes.
         float pre_gain_attenuation(float normalized)
         {
-            return normalized * std::sqrt(normalized);
+            return (std::pow(kPreGainTaperBase, normalized) - 1.0f) / (kPreGainTaperBase - 1.0f);
         }
     }
 
