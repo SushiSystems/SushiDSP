@@ -153,19 +153,6 @@ namespace SushiDSP
                          0.0, (pole_tangent - 1.0) / denominator, 0.0);
     }
 
-    float Biquad::process_sample(float input)
-    {
-        const double x = input;
-        const double output = b0_ * x + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_;
-
-        x2_ = x1_;
-        x1_ = x;
-        y2_ = y1_;
-        y1_ = output;
-
-        return static_cast<float>(output);
-    }
-
     void Biquad::reset()
     {
         x1_ = x2_ = y1_ = y2_ = 0.0;
