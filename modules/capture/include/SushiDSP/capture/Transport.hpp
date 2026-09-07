@@ -50,10 +50,12 @@ namespace SushiDSP
         Transport(const Transport&) = delete;
         Transport& operator=(const Transport&) = delete;
 
-        /// @brief Moves the position on by one block, wrapping to the loop begin when the
-        /// block crosses the loop end. Audio thread. Real-time safe: three atomic
-        /// operations, no allocation and no lock.
-        /// @param frames How many frames the block covered.
+        /// @brief Moves the position on by the block's frames times the playback speed,
+        /// wrapping to the loop begin when the block crosses the loop end. Audio thread.
+        /// Real-time safe: three atomic operations, no allocation and no lock. The fraction
+        /// a block leaves over is carried in 32.32 fixed point, so the position after any
+        /// number of blocks is the exact floor of frames times speed and never drifts.
+        /// @param frames How many output frames the block covered.
         void advance(std::uint32_t frames) noexcept;
 
         /// @brief Puts the transport into the Playing state, leaving the position alone.
