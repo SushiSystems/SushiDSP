@@ -1,6 +1,7 @@
 # Arrangement view: bars, a metronome, clips and dropped files
 
-**Status:** draft, awaiting the maintainer's decisions on §9. Roadmap prefix **DT** (Dsp
+**Status:** approved by the maintainer 2026-09-08. The four rulings of that date are folded into
+§5, §5a, §6, §8, §9 and §11, and §10 records them. Roadmap prefix **DT** (Dsp
 Timeline); phases DT0 through DT5 below. It builds on
 `docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`, whose §9 refused a metronome — that
 refusal is what this spec overturns, and §9 says what stays refused.
@@ -108,6 +109,12 @@ downbeat is beat index modulo `beats_per_bar` equal to zero, so the accent follo
 The host calls it in `main.cpp`'s audio callback **after** `RecordingBus::write`, which is what
 keeps the click out of both recorded files. That ordering is an acceptance item, not a comment.
 
+The maintainer's ruling of 2026-09-08 settles what follows from it: **the click reaches no
+recorded file, ever.** There is no second recorder that captures it and no click track written
+beside the take. It is heard on the monitor path and nowhere else, which is the whole reason it
+is not an `IAudioNode`. Anyone who later wants a click inside a mix has a metronome to record
+through a loudspeaker or a phase of their own to argue for.
+
 Level is one control-thread `float`; the metronome has no pan and no mute beyond its enable.
 
 ## 5. DT2 — clips, and the end of "everything starts at zero"
@@ -124,10 +131,10 @@ one with the length field left out. DT2 therefore introduces the list once:
 ```cpp
 struct Clip
 {
-    std::shared_ptr<const Take> take;
-    std::uint64_t               start_frame;   ///< Timeline frame the take's frame 0 lands on.
-    std::uint64_t               take_offset;   ///< First take frame the clip plays.
-    std::uint64_t               length_frames; ///< How many frames of the take the clip plays.
+    const Take*   take;          ///< Borrowed; owned by the TakeLibrary this timeline was built from.
+    std::uint64_t start_frame;   ///< Timeline frame the take's frame 0 lands on.
+    std::uint64_t take_offset;   ///< First take frame the clip plays.
+    std::uint64_t length_frames; ///< How many frames of the take the clip plays.
 };
 
 class TrackTimeline  ///< One lane's clips, sorted by start_frame, immutable once published.
@@ -136,6 +143,9 @@ class TrackTimeline  ///< One lane's clips, sorted by start_frame, immutable onc
     ...
 };
 ```
+
+`kMaxClips` is 16, the maintainer's ruling of 2026-09-08. Eight lanes of 16 is 128 clips per
+session, and the cap is what keeps a lane a flat array the audio thread can walk.
 
 A track's `RtSwapSlot<Take>` becomes an `RtSwapSlot<TrackTimeline>`. The whole lane is swapped as
 one immutable object, so the audio thread never reads a list being edited, and the retire-and-
@@ -151,9 +161,51 @@ did; there is no allocation, no lock and no branch on a value the audio thread w
 transport's. `TrackPlayerProcessPerformsNoHeapAllocation` in
 `tests/functional/unit/test_rt_safety.cpp` covers it as it stands and keeps covering it.
 
-`Take` is shared rather than owned per clip: two clips cut from one recording must not hold two
-copies of 115 MB. `std::shared_ptr<const Take>` is copied only on the control thread; the audio
-thread reads through the `TrackTimeline` it acquired and never touches a refcount.
+**Who owns a `Take`.** Two clips cut from one recording must not hold two copies of 115 MB, so a
+take is shared between clips. It is not shared by `std::shared_ptr`. A shared pointer inside a
+struct the audio thread reads is one careless copy away from an atomic increment on the audio
+thread, and the decrement that follows it can be the one that frees 115 MB inside `process()`.
+The maintainer's ruling of 2026-09-08 removes it: nothing the audio thread reads holds a
+refcount.
+
+Ownership goes to a control-thread class instead, `SushiDSP::TakeLibrary`, one per
+`TrackPlayer`:
+
+```cpp
+class TakeLibrary   ///< Owns every loaded Take. Control thread only; no atomics, no RT entry point.
+{
+public:
+    /// @brief Takes ownership of a loaded take and hands back the borrowed pointer clips use.
+    const Take* insert(std::unique_ptr<const Take> take);
+
+    /// @brief Records that one more live TrackTimeline points at this take.
+    void retain(const Take* take);
+
+    /// @brief Records that one fewer does. Called by ~TrackTimeline.
+    void release(const Take* take);
+
+    /// @brief Destroys every take no live timeline points at any more.
+    void collect();
+};
+```
+
+The counts are plain `std::size_t`. They move only on the control thread, because the only
+things that retain and release are `TrackTimeline`'s constructor and destructor, and a
+`TrackTimeline` is built on the control thread and destroyed on the control thread inside
+`RtSwapSlot<TrackTimeline>::reclaim()`.
+
+That is the whole lifetime argument, and it rests on `RtSwapSlot`'s own guarantee. The audio
+thread reaches a `Take*` by exactly one route: `acquire_for_audio_thread()` on a lane's slot,
+then a clip in the timeline it returned. `reclaim()` destroys a retired `TrackTimeline` only
+once the audio thread's generation watermark has passed the generation that timeline was
+published at, so no timeline the audio thread can still be reading is destroyed. A take's count
+therefore cannot fall to zero while any timeline the audio thread might read still names it, and
+`collect()` frees only takes at zero. The order is fixed and is an acceptance item:
+`TrackPlayer::reclaim()` calls `reclaim()` on all eight lane slots first, then `collect()` once.
+Calling them the other way round would free a take that a timeline still in `retired_` names.
+
+`TakeLibrary` also gives the audio thread's `Take*` its stability: a take is heap-allocated once
+and never moves, so a clip's pointer stays good for the take's whole life.
 
 **A clip edge gets a 5 ms fade.** A clip starting mid-waveform steps from silence to a sample and
 clicks. The fade is a per-clip ramp at each end, computed inside `mix_run`. This is not a
@@ -165,6 +217,75 @@ crossfade — two overlapping clips are refused at build time, so nothing is fad
 value. DT2 gives it somewhere to go. Arming stamps the transport position, and stopping creates a
 `Clip` at that `start_frame` on the lane the recording was armed to. The KNOWN_ISSUES entry closes
 when a dry take recorded from bar 5 re-amps from bar 5.
+
+## 5a. DT2 — playback speed, and the pitch that comes with it
+
+The maintainer wants to slow a take down to work a riff out. The ruling of 2026-09-08 grants
+that and grants it in the cheapest honest form: **the whole arrangement plays at a chosen rate,
+and the pitch follows the rate down, the way a tape machine's does.** Half speed is an octave
+below. Nothing here stretches time, and this paragraph exists so that "playback speed" is never
+read later as a licence to build a phase vocoder. Pitch as a control independent of speed stays
+refused in §9.
+
+Speed belongs to `Transport`, because it is how fast the playhead moves and the playhead is
+already `Transport`'s. One 32.32 fixed-point word, `speed_q32`, written by the control thread and
+read once per block. `advance(frames)` multiplies by it and carries the fraction in a member
+accumulator, so the position never drifts against a long render; `position_frames()` keeps
+returning whole timeline frames. Everything downstream of the position follows for free — the
+ruler, the playhead, the loop range and the metronome all read the position and none of them
+learns that a speed exists. A slowed session clicks slowly, which is what a guitarist working a
+riff out wants.
+
+Reading a clip at that rate is `math/Resampler`, which the tree already has: an arbitrary-ratio
+polyphase converter whose `set_rates()` and `process()` are allocation-, lock-, syscall- and
+throw-free, with `prepare()` doing the sizing on the control thread. At speed *s* the clip is
+converted at ratio 1/*s* — half speed pushes half as many take samples per output frame and the
+kernel does the rest.
+
+`Resampler` is push-driven: it takes input and returns however many outputs that produced. A
+block needs an exact count. That gap gets its own brick rather than a loop wedged into
+`TrackPlayer::process`:
+
+```cpp
+class VariRateReader   ///< Reads a Take at a speed, one Resampler per channel, exact output counts.
+{
+public:
+    /// @brief Sizes the converters for the worst case. Control thread; allocates.
+    void prepare(std::uint32_t channels, std::uint32_t max_output_frames);
+
+    /// @brief Discards the converter history, so the next read starts from silence.
+    void reset() noexcept;
+
+    /// @brief Reads exactly output_frames output samples from take, starting at take_frame.
+    /// @param speed Take frames consumed per output frame; clamped to [kMinSpeed, kMaxSpeed].
+    /// @return The take frame the next call should start at.
+    std::uint64_t read(const Take& take, std::uint64_t take_frame, double speed,
+                       float* const* outputs, std::uint32_t channels,
+                       std::uint32_t output_frames) noexcept;
+};
+```
+
+`read` pushes take samples until it has the outputs asked for. The loop is bounded, not open:
+each output costs `speed` inputs, so it runs at most `output_frames * kMaxSpeed` plus the
+kernel's half span, and it allocates nothing, which is what the RT trap measures.
+
+`kMinSpeed` is 0.25 and `kMaxSpeed` is 4.0. Both come from the converter: `Resampler::prepare`
+takes the smallest ratio the instance will see, and `Resampler::kMaximumRatio` is 16, so 0.25 and
+4.0 sit well inside what the history can hold at either end. Quarter speed is two octaves down,
+which is past useful already.
+
+**Speed 1.0 is a bypass, not a ratio of one.** At unity `TrackPlayer` copies the take as it does
+today and never enters `VariRateReader`, so every alignment acceptance item in §11 and every
+golden file compares sample for sample rather than through a filter. A converter at ratio 1 is
+close to transparent and close is not what a golden test measures.
+
+A speed change, a `Transport::seek` and a move to the next clip each call `reset()`, because the
+converter's history holds samples from where the playhead used to be. All three are one atomic
+read and a memset of a sized buffer, so they stay inside the block.
+
+Speed is one control-thread `double` and one control in the transport bar. It is a monitoring
+setting, not a property of the arrangement, so §8 does not save it: a session reopens at 1.0,
+and a file that recorded at unity is never reopened playing at half.
 
 ## 6. DT3 — the arrangement view
 
@@ -190,7 +311,9 @@ screenshot shows. It gains a bars-and-beats readout from `MusicalClock::position
 a TAP button (the mean of the last four taps, discarding a gap over two seconds), a meter field
 and a metronome toggle. The loop range, which today is typed in seconds, is typed in bars.
 
-Playback speed and pitch, which the screenshot also shows, are refused in §9.
+It also gains the §5a speed control: one slider from 0.25 to 4.0 with a click back to 1.0, and a
+label that says what the speed does to the pitch, so the control is not mistaken for a
+time-stretcher. Pitch, which the screenshot shows beside it, is refused in §9.
 
 ## 7. DT4 — dragging a file onto a lane
 
@@ -222,6 +345,9 @@ metronome enabled, metronome level — and each track row gains a `clips` array 
 `start_frame`, `take_offset` and `length_frames`. The loop keeps its frame counts, because a
 session reopened after a tempo change must loop over the same audio, not the same bar numbers.
 
+Playback speed is not written. §5a says why: it is a practice setting, and a session that
+reopened at 0.4 with no visible cause would read as a bug.
+
 A preset written before DT5 has no `tempo` object and no `clips` arrays; it loads with 120 BPM,
 4/4, the metronome off, and each track's file as one clip at frame 0, which is what that file
 meant when it was saved.
@@ -247,8 +373,14 @@ The stereo-tracks spec's §9 refused six things. Taking them one at a time:
 - **Undo of a take** — stays refused for a recording. Moving a clip is undone by dragging it back,
   and the clip's frame is shown numerically so "back" is exact.
 
-Refused as well, from the reference screenshot: playback speed and pitch, which need a
-time-stretcher that does not exist in the tree and would be a phase of its own; the 1–8 pad grid;
+From the reference screenshot, playback speed is **in scope** as of the ruling of 2026-09-08 and
+is specified in §5a: a resampling ratio on the clip read, with the pitch falling as the speed
+does. What stays refused is **pitch as a control of its own** — a semitone shift at constant
+speed, or a speed change that holds the pitch. Either needs a time stretcher that does not exist
+in the tree, and it would be a phase of its own with its own acceptance for artefacts. It
+reopens when someone wants to transpose a take rather than slow one down.
+
+Refused as well, from the same screenshot: the 1–8 pad grid;
 the MASTER DAW and INPUT meters along the bottom, which are `ui::MeterBar` placements and not part
 of this work. A count-in before recording is refused — the metronome clicks while the transport
 rolls, and a count-in is a negative-position state in `Transport`.
@@ -257,19 +389,24 @@ Audio that follows the tempo is out: nothing here time-stretches a clip when the
 clip keeps its frames and moves nowhere. A clip's bar position is read from its frame, never the
 other way round.
 
-## 10. Decisions the maintainer should make
+## 10. Decisions the maintainer made, 2026-09-08
 
-1. **Clips in one step, or a start frame first?** §5 argues for the `TrackTimeline` in one phase.
-   The cheaper path — a per-track `start_frame` in DT2, clips in a later spec — closes the
-   KNOWN_ISSUES entry sooner and leaves the lane holding one recording, which is what AmpliTube's
-   lanes hold in the screenshot.
-2. **`kMaxClips = 16` per lane.** A fixed cap keeps the timeline a flat, RT-readable array. 16 × 8
-   lanes is 128 clips per session.
-3. **The metronome's click is synthesised.** A sampled click would sound better and costs a file,
-   a path in the preset and a load that can fail.
-4. **`kMaxTracks` stays 8**, which the screenshot's eight lanes match.
-5. **Where the metronome's level sits in the UI** — beside its toggle in the transport bar, not as
-   a ninth lane.
+1. **Clips in one step.** The `TrackTimeline` lands in DT2 as §5 argues, not a per-track
+   `start_frame` first. A start frame is a clip list of length one and would be deleted two
+   phases later.
+2. **Playback speed yes, pitch no.** §5a. Slowing a take drops its pitch with it, tape-style;
+   that is accepted, and an independent pitch control stays refused in §9.
+3. **`kMaxClips = 16` per lane**, as §5 proposed. 16 × 8 lanes is 128 clips per session, and the
+   cap is what keeps a lane a flat array.
+4. **The metronome never reaches a recorded file.** §4. It is not an `IAudioNode`, it runs after
+   `RecordingBus::write`, and there is no second recorder and no click track file.
+5. **No `std::shared_ptr<const Take>` in anything the audio thread reads.** §5. A clip borrows a
+   raw `const Take*`; `TakeLibrary` owns the takes on the control thread and `RtSwapSlot`'s
+   `reclaim()` is what makes the borrow safe.
+6. **The metronome's click is synthesised**, not a WAV. A sampled click sounds better and costs a
+   file to find, a path in the preset and a load that can fail.
+7. **`kMaxTracks` stays 8**, which the screenshot's eight lanes match.
+8. **The metronome's level sits beside its toggle** in the transport bar, not as a ninth lane.
 
 ## 11. Acceptance
 
@@ -277,12 +414,33 @@ other way round.
   `position_of` of that frame returns bar 100 beat 1 fraction 0, at all four sample rates of §3.
 - `Metronome::process` passes the `operator new` trap in
   `tests/functional/unit/test_rt_safety.cpp`, alongside `TrackPlayer::process`.
-- A take recorded for ten seconds with the metronome enabled contains no click: the recorded file
-  correlates with the same rig rendered offline within the golden tolerance, which it cannot do if
-  a 1760 Hz burst is in it.
+- A take recorded for ten seconds with the metronome enabled contains no click, in **both** files:
+  `<take>-processed.wav` correlates with the same rig rendered offline within the golden
+  tolerance, `<take>-dry.wav` correlates with the input it was fed, and neither has energy in a
+  1760 Hz or 880 Hz bin above the noise floor at any beat frame. Only one recorder exists, and
+  the test that no click track is written is that the take folder holds two files.
 - The metronome's click onsets land on `frame_of` of each beat to the sample over a five-minute
   render, including across a mid-render `Transport::seek`. This is the drift claim.
-- `TrackPlayer::process` passes the `operator new` trap with 8 lanes of 16 clips each.
+- `TrackPlayer::process` passes the `operator new` trap with 8 lanes of `kMaxClips` = 16 clips
+  each, and building a lane of 17 clips is refused.
+- No type reachable from `TrackPlayer::process` holds a `std::shared_ptr`, checked by a
+  `static_assert` on `Clip` and by grepping `TrackTimeline.hpp` and `Clip`'s definition in the
+  source-comment checker's pass.
+- Two clips built from one `Take*` hold one copy of the samples and free it once: a `TakeLibrary`
+  test inserts a take, publishes two timelines naming it, republishes both lanes empty, and
+  asserts `TakeLibrary::size()` falls to zero on the `collect()` after the last `reclaim()` and
+  not before it.
+- `TrackPlayer::reclaim()` calls every lane's `RtSwapSlot::reclaim()` before `TakeLibrary::collect()`.
+  A test that publishes a timeline, retires it, and calls `collect()` with the audio thread's
+  watermark held back asserts the take is still alive.
+- `VariRateReader::read` passes the `operator new` trap at speed 0.25, 1.0 and 4.0.
+- At speed 1.0 `TrackPlayer::process` reproduces its take bit for bit, so the converter is
+  bypassed rather than run at ratio one.
+- A 440 Hz sine take played at speed 0.5 reads 220 Hz, measured by the peak bin of a 32768-point
+  FFT of the output, and lasts twice as long. This is the ruling that pitch follows speed, stated
+  as a measurement.
+- At speed 0.5 the metronome's click onsets land twice as far apart in output frames, on
+  `frame_of` of each beat, which is the same drift test run through a speed.
 - A clip placed at frame N plays sample 0 of its take at output frame N, measured by rendering a
   unit impulse take placed at three different frames.
 - A dry take recorded from bar 5 and re-amped through the same rig matches the processed file it
