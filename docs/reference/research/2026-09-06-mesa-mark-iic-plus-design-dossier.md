@@ -30,6 +30,9 @@ node voltage on this sheet is evidence, not proof.
 | S5 | gugabrandao and elvis, "Mesa Boogie Graphic Eq REAL FREQUENCIES!!", Boogie Board thread 69355, 2015-02-27. <https://boogieforum.com/threads/mesa-boogie-graphic-eq-real-frequencies.69355/> — accessed 2026-09-06 | Mark IV/V EQ band R, L and C values and the observation that the pots and source impedance shift the in-circuit Q | C |
 | S6 | Fractal Audio Wiki, "Mesa/Boogie graphic equalizer". <https://wiki.fractalaudio.com/gen1/index.php?title=Mesa%2FBoogie_graphic_equalizer> — accessed 2026-09-06 | Mark IV band centres 87.61 / 371.74 / 723.43 / 1575.87 / 4822.88 Hz, about 18 dB cut and 17 dB boost, log slider taper, and one overall Q figure (1.414 ideal, 1.3 actual) | C |
 | S7 | bancika, "Mesa Mark IIc+ Pre PtP", DIY Fever. <http://diy-fever.com/amps/mesa-mark-iic-preamp/> — accessed 2026-09-06 | An independent builder's reading of the lead chain, the 15 uF cathode bypass caps and the purpose of the last-stage divider | C |
+| S8 | jrb32, "Mark IIC+ Schematic FINAL", the traced schematic posted in S3, 2 pp., vector PDF. <https://drive.google.com/uc?export=download&id=1ieTnMLeSiNDoXu_9Or0ky2RIDwbLAcUQ> — downloaded 2026-09-08; the same drawing is mirrored as text at <https://pdfcoffee.com/mark-iic-schematic-final-pdf-free.html> | The whole effects-loop network with reference designators (R105 47K, C9 0.047 uF, R102 150K, R101 4.7K, R12 2.2K, R103 47K, the 120 pF), the Lead Master's wiring, V2A's unbypassed 1.5K cathode and its 680K ∥ 47 pF grid network, and the RP10A/RP11A differences. Traced from an RP10A IIC upgraded to IIC+ and, in the author's words, "100 % confirmed" on that chassis. Its tube labels are the factory sheet's swapped (its V2B is S1's V2A); this dossier keeps S1's names throughout | B |
+| S9 | MESA/Boogie, *Mark III Owner's Manual*, EFFECTS SEND & RETURN. <https://mesa-boogie.imgix.net/media/User%20Manuals/Mark%20III.pdf> — accessed 2026-09-08 | The send level of the sister circuit, "around 0.6 volts RMS", the statement that the Lead Master sets the send level in Lead mode, and the send shunt R230 6.8K that S10 says is 4.7K on a IIC+ | C for the IIC+ |
+| S10 | Boogie Board threads: "BoogieBabies - I think you're my only hope!" (27791, 2008: "R230 ... 4.7K. That is the C+ value. The + also does not have a 10K resistor at the return to the grid/input of V2B"); "MarkIIC+ FX loop trouble" (38164, 2009: V2A drives the send, V2B buffers the return); "Maybe somebody can help me - Mk IIC question" (8760, 2006: the same routing); "Mark IIC+ RI -> Mark IIC++" (88716, 2025: the ++ mod adds a 15 uF bypass to the stage ahead of the loop, so the stock stage is unbypassed). <https://boogieforum.com/threads/boogiebabies-i-think-youre-my-only-hope.27791/>, <https://boogieforum.com/threads/markiic-fx-loop-trouble-help.38164/>, <https://boogieforum.com/threads/maybe-somebody-can-help-me-mk-iic-question.8760/>, <https://boogieforum.com/threads/mark-iic-ri-mark-iic.88716/> — accessed 2026-09-08 | Corroboration of S8's loop topology and of V2A's unbypassed cathode | B when two agree, C alone |
 
 Not obtained: any Mesa service manual with a voltage chart or a bias procedure, any bench
 measurement of a IIC+ (frequency response, THD, output power at clipping), and any statement of
@@ -69,10 +72,15 @@ INPUT ─ 1M grid leak ─ V1A 12AX7  (Rp 150K → D, Rk 1500 ∥ 15u + 0.47u, V
    │              resistor on PULL BRIGHT)                                     4th gain, lead
    │    plate ─ 0.047u ─ (220K ∥ 250 pF) ─ (100K ∥ 500 pF to ground) ─ LDR4 ─ LEAD OUTPUT
    │
-   ├─ LEAD MASTER 250K ─ LDR1 ─ V2A 12AX7 (Rp 100K → C)                       5th gain, lead
+   ├─ V2A 12AX7  (Rp 100K → C, Rk 1.5K unbypassed, grid 680K ∥ 47 pF)       5th gain, lead
+   │    plate ─ 47K ─ 0.047u ─ W                                              (S8: R105, C9)
+   │    W ─ LEAD MASTER 250K rheostat ─ LDR4 ─ ground   (Lead mode only)
+   │    W ─ 150K ─ P ─ 4.7K to ground ─ 2.2K ─ EFFECTS SEND                   (S8: R102, R101, R12)
+   │    EFFECTS RETURN ─ V2B grid, 47K to ground, 120 pF grid-cathode        (S8: R103)
+   │    the jacks normal SEND to RETURN with nothing plugged in;  §3.6a
    │
-   ├─ EFFECTS SEND / RETURN, then V2B 12AX7 (Rp 170K → C, Rk 1K,
-   │    bypass 0.47u with 15u switched in on PULL DEEP)                       loop return
+   ├─ V2B 12AX7  (Rp 170K → C, Rk 1K, bypass 0.47u with 15u switched in
+   │    on PULL DEEP)                                                           loop return
    │
    ├─ MASTER 1  100K   ──►  node F
    │
@@ -236,19 +244,136 @@ toward 250 / (250 + 500) = 0.333, a mild treble tilt of about +0.6 dB rather tha
 in the usual sense. Derived (B). S7 describes this divider's purpose as bringing the lead signal
 down to a level the effects loop can take.
 
+**The shunt's value is disputed (2026-09-08).** S1's glyph reads `100K`; S8 draws the same
+position as R30 = **3.3K** ∥ 500 pF and annotates it "R30 can be lowered for more lead gain. 1K or
+1.5K works well", a note that only makes sense of a resistor in the low kilohms. With 3.3K the
+divider is 3.3 / 223.3 = **0.0148** (−36.6 dB) at DC, still 0.333 at high frequency, so the
+network becomes a treble tilt of +27 dB with its zero at the same 2894 Hz and its pole at
+1 / (2 pi x (220K ∥ 3.3K) x 750 pF) = **65.3 kHz**; S8's "R31/C31 can be replaced with bus wire
+for less lead brightness" describes exactly that tilt. Under 3.3K, V4A's 98 V cutoff-side swing
+reaches V2A's grid as 1.45 V at low frequency instead of 30.6 V, and V2A's source resistance is
+220K ∥ 3.3K = 3.25K instead of 68.75K. §8 question 21. The model carries 100K until it is settled;
+the probe in `.superpowers/sdd/amp-gain-staging/iicplus-loop-network.md` measures both.
+
 ### 3.6 V2A — fifth lead gain stage
 
-Fed from LEAD MASTER 250 K through LDR1, with a 100 K to ground at the switch node. Plate
-resistor 100 K to C. The cathode network glyph on the scan reads as either `1.5K` or `1.5M`;
-1.5 K is the only value that works, and it matches every other gain stage on the sheet. Taking
-1.5 K bypassed and a cathode near 1.5 V: 1 mA, plate at 392 - 100 = **292 V**, gain
-100 x 100 / 162.5 = **61.5** (B). The printed cathode voltage for this stage was not legible.
+Revised 2026-09-08 against S8 and a re-reading of S1 at magnification; the 2026-09-06 text put
+the Lead Master ahead of this grid and the cathode bypassed, and both were wrong.
+
+| Item | Value | Source |
+|---|---|---|
+| Grid feed | LEAD OUTPUT through LDR4, directly; no pot between the divider and the grid | S1, S8 |
+| Grid shunt | 680K ∥ 47 pF to ground (S8 R11, C11); S1's glyph at the same place is the one the 2026-09-06 text read as "100 K" | S8 (B) |
+| Bridge | 3.3M ∥ 10 pF from this grid back to LEAD INPUT (20 pF on later Simul-Class) | S1, S8 (A) |
+| Plate resistor | 100K to C | S1, S8 (A) |
+| Cathode resistor | 1.5K, **unbypassed** | S1 (no capacitor drawn), S8 (R16 1.5K; the 15 uF across it is drawn dashed as "++ MOD"), S10 (the ++ mod "adds a 15uF cathode bypass cap" to the stage ahead of the loop) (B) |
+| Coupling to next | 47K in series with 0.047 uF, in that order on the RP10A and cap-first on the RP11A (S8 R105, C9), into the loop network of §3.6a | S8 (B); S1 draws the same two parts and its `47K` was misread as 4.7K on 2026-09-06 |
+| Printed cathode voltage | not legible | S1 |
+
+Operating point, self-biased through the unbypassed 1.5K on the Koren 12AX7 of
+`docs/reference/spice/models/12ax7_koren.sub` (mu 100, kp 600, kvb 300, kg1 1060, kx 1.4), plate
+supply 392 V and plate load 100K: **1.2902 mA**, cathode **1.935 V**, plate **263.0 V**. The
+local small-signal figures at that point are gm 1.954 mA/V, r_a 46.85K, mu 91.56. Derived (B).
+
+The stage's load is not its 100K. The loop network of §3.6a hangs 47K + 95.4K = 142.4K on the
+plate through the coupling capacitor at Lead Master maximum, so the AC load is
+100K ∥ 142.4K = **58.75K**, and the unbypassed cathode adds (mu + 1) x 1.5K = 138.8K to the
+plate resistance. Gain into that load: 91.56 x 58.75 / (58.75 + 46.85 + 138.8) = **22.0** (B);
+with the ++ mod's bypass it would be 50.9, and the 2026-09-06 figure of 61.5 was that bypassed
+stage into its 100K alone.
+
+Plate swing on the 58.75K AC load line: **75.8 V** toward the supply (1.2902 mA x 58.75K) and
+**114.2 V** down to Vgk = 0 (the line meets the Koren Vgk = 0 curve at 5.69 mA). The grid reaches
+cutoff at −75.8 / 22.0 = −3.44 V from bias and conduction after +1.94 V, so V2A clips softly on
+the conduction side long before its 114 V of bottom headroom is used. Derived (B). The rheostat
+changes the load as it turns; §3.6a tabulates the AC load, gain and swing against the knob.
+
+### 3.6a The effects loop network, V2A plate to V2B grid
+
+Read off S8 and confirmed against S1 at magnification on 2026-09-08. S1 draws every part of it
+except R12; the 2026-09-06 text missed the network because the `47K`, `150K` and `4.7K` glyphs
+were mis-assigned. Factory tube names throughout.
+
+```
+V2A plate ─ 47K (R105) ─ 0.047u (C9) ─ W
+W ─ 250K LEAD MASTER, wired as a rheostat ─ LDR4 (on in Lead mode) ─ ground
+W ─► TO REVERB                                      (V4B's grid; not modelled)
+W ─ 150K (R102) ─ P
+P ─ 4.7K (R101) ─ ground
+P ◄─ FROM REVERB                                    (the reverb returns here; not modelled)
+P ─ 2.2K (R12, "later edition factory mod"; not on S1) ─ SEND tip
+RETURN tip ─ V2B grid ─ 47K (R103) ─ ground; 120 pF grid to cathode (removed after August 1984)
+```
+
+With nothing plugged in the RETURN jack's normalling contact joins its tip to the SEND tip, so
+P and V2B's grid are one node through the 2.2K. There is no level control in the loop; the
+Lead Master is the send level (S9 says the same of the Mark III: "in the Lead mode, it is the
+Lead Master"). Confidence B: S8 traced from hardware, S1 agrees on every value it draws, and S10
+independently places 4.7K at the send and no series resistor at the return.
+
+Arithmetic, loop normalled, Lead Master at maximum, in the order the signal meets it (B):
+
+| Element | Value | How |
+|---|---|---|
+| Shunt at P | 4273 Ω | 4.7K ∥ (2.2K + 47K) |
+| Load on W | 95.40K | 250K ∥ (150K + 4273) |
+| Load the coupling capacitor drives | 142.40K | 47K + 95.40K |
+| Cap node to W | 0.6699 | 95.40 / (47 + 95.40) |
+| W to P | 0.02770 | 4273 / (150K + 4273) |
+| P to V2B grid | 0.9533 | 47 / (2.2 + 47) |
+| **Plate to V2B grid** | **0.01769, −35.0 dB** | product |
+| Plate to SEND | 0.01856, −34.6 dB | first two factors |
+| Coupling corner | **16.33 Hz** | 1 / (2 pi x 0.047 uF x (65.0K + 142.4K)); 65.0K is V2A's output resistance, 100K ∥ (46.85K + 138.8K) |
+| V2B's source resistance | **5.91K** | Thevenin at the grid: 47K ∥ (2.2K + 4.7K ∥ (150K + 250K ∥ (47K + 65.0K))) |
+| 120 pF into 5.91K | 224 kHz | out of band; ignored |
+
+At V2A's full cutoff-side swing the SEND carries 75.8 x 0.01856 = **1.41 V peak, 1.0 V RMS**, and
+V2B's grid 75.8 x 0.01769 = **1.34 V peak** on that side and 22.0 x 1.935 x 0.01769 = 0.75 V on
+the conduction side. S9 gives "around 0.6 volts RMS" for the Mark III's send at its 6.8K shunt;
+the IIC+'s 4.7K sits 4.4 dB above that, and its send drives pedals without clipping them, which
+is the IIC+'s reputation in S4 and S10. V2B's window is +1.26 V and −2.79 V (§3.7), so the
+return stage runs at its knee only when V2A is at full swing; the loop is what keeps V2B a
+recovery stage rather than a sixth clipper.
+
+The Lead Master is a rheostat, not a divider: both S1 and S8 draw the 250K in series between W
+and the LDR with the wiper tied to the arrow and no third wire. It works against the fixed 47K
+ahead of W, so the law is attenuation = Z_W / (47K + Z_W) with Z_W = R_pot ∥ 154.27K, and it also
+changes V2A's AC load. On the model's `audio_taper` (n·√n):
+
+| Knob | Pot | Z_W | V2A AC load | V2A gain | Swing up | Plate to grid | dB |
+|---|---|---|---|---|---|---|---|
+| 1.00 | 250.0K | 95.40K | 58.75K | 22.0 | 75.8 V | 0.01769 | −35.0 |
+| 0.75 | 162.4K | 79.11K | 55.77K | 21.1 | 72.0 V | 0.01657 | −35.6 |
+| 0.50 | 88.4K | 56.19K | 50.79K | 19.7 | 65.5 V | 0.01438 | −36.9 |
+| 0.30 | 41.1K | 32.44K | 44.27K | 17.6 | 57.1 V | 0.01078 | −39.3 |
+| 0.20 | 22.4K | 19.53K | 39.95K | 16.2 | 51.5 V | 0.00775 | −42.2 |
+| 0.10 | 7.9K | 7.52K | 35.28K | 14.6 | 45.5 V | 0.00364 | −48.8 |
+| 0.05 | 2.8K | 2.75K | 33.22K | 13.9 | 42.9 V | 0.00146 | −56.7 |
+| 0.02 | 0.7K | 0.70K | 32.30K | 13.6 | 41.7 V | 0.00039 | −68.2 |
+
+The knob's top half moves the level by 1.9 dB and its bottom fifth by 26 dB; the LDR's on
+resistance, not read, sets the floor. That is the law S1 and S8 draw, and it is stated here so
+the model's choice of taper is a documented one.
 
 ### 3.7 V2B — loop return and Master 1 driver
 
 Plate resistor 170 K to C. Cathode 1 K, bypassed by 0.47 uF with a **15 uF switched in parallel
 by the PULL DEEP function on Master 1**. Output through 0.047 uF to the Master 1 100 K pot and
-then to node F. A 120 pF is drawn across the plate.
+then to node F. The 120 pF the 2026-09-06 text placed across the plate is drawn from grid to
+cathode on both S1 and S8 (S8: "removed after August 1984"); into the 5.91K source of §3.6a it
+corners at 224 kHz and does nothing in band.
+
+The grid is fed from the RETURN jack through the network of §3.6a: source resistance **5.91K**
+with the loop normalled, grid shunt 47K (S8 R103), no series resistor (S10: the IIC+ "does not
+have a 10K resistor at the return"). The stage's drive is therefore bounded by V2A's swing times
+0.01769, at most 1.34 V peak, against a window of 92.338 / 73.118 = **1.26 V** to the plate
+bottom and 204 / 73.118 = **2.79 V** to cutoff.
+
+**S8 disagrees with S1 on two values here (2026-09-08).** S8 draws the plate load as R19 = 120K
+and the Master as 1M with a 15K (R106, "added due to dodgy CTS pots in later models") in series
+after the 0.047 uF; S1 reads 170K and 100K. This dossier keeps S1's 170K and 100K, on which the
+gain 73.1 and the swing 204 / 92.3 V rest; with 120K the gain would be 100 x 120 / 182.5 = 65.8
+and the cutoff-side swing 120K x 1.2 mA = 144 V. §8 question 22.
 
 Cross-check. At 1 K and a cathode near 1.2 V the current is 1.2 mA and the plate lands at
 392 - 204 = **188 V**. That is a deliberately cold, low-headroom stage, which is what a 170 K
@@ -266,13 +391,17 @@ factor can be checked separately:
 
 ```
 V1A 70.6  x  tone stack (see §4)  x  Vol 1  x  V1B 61.5  x  0.595 (680K/1M)
-    x  V3B 56.7  x  0.286 (170/68)  x  V4A 70  x  0.3125 (220/100)  x  Lead Master  x  V2A 61.5
+    x  V3B 56.7  x  0.286 (170/68)  x  V4A 70  x  0.3125 (220/100, or 0.0148 under §8 q.21)
+    x  V2A 22.0  x  0.01769 (the loop network at Lead Master maximum)  x  V2B 73.1
 ```
 
-With the tone stack at its flat insertion loss and both master controls at unity the product is
-of order 1e6, or 120 dB, which is why every stage from V3B onward is in hard grid conduction long
-before the signal reaches V2A. The numbers are only useful as a statement of how much headroom
-each stage has, never as a gain figure.
+Revised 2026-09-08: the Lead Master is inside the loop network's factor, not ahead of V2A, and
+V2A's 61.5 became 22.0 (§3.6). With the tone stack at its flat insertion loss and the Lead
+Master at maximum the product to V2B's plate is of order 3e5, or 110 dB (1e4 with the 3.3K
+reading), which is why every stage from V3B onward is in hard grid conduction long before the
+signal reaches V2A. What the loop network changes is V2B: it receives at most 1.34 V and is the
+one lead-chain stage that does not clip at full drive. The numbers are only useful as a
+statement of how much headroom each stage has, never as a gain figure.
 
 ---
 
@@ -604,8 +733,9 @@ have to be recomputed. This is the highest-leverage open item in the dossier.
    A tenfold difference in where the bright cap starts working.
 9. **V4A's PULL BRIGHT cathode resistor** (§3.4) is illegible. It sets how much of the 219 Hz
    shelf the switch removes.
-10. **V2A's printed cathode voltage** was not legible, so §3.6's operating point is inferred from
-    the stage's twin rather than read.
+10. **V2A's printed cathode voltage** was not legible. Closed 2026-09-08 by derivation rather
+    than reading: the cathode is an unbypassed 1.5K (S1, S8, S10), and the Koren model self-biases
+    it to 1.935 V at 1.2902 mA (§3.6). A voltmeter on pin 3 would confirm it.
 11. **The graphic EQ's active stage.** I read every band network and every printed node voltage,
     but I did not reconstruct how Q1 to Q4 connect to each other. Without that the EQ's gain
     structure, its input and output impedances, and therefore the in-circuit Q of all five bands
@@ -638,16 +768,37 @@ have to be recomputed. This is the highest-leverage open item in the dossier.
     netlist I could not verify would put a guess into the repository wearing the clothes of a
     measurement. The decks belong in a follow-up task, after item 16.
 
-19. **The loop-return coupling capacitor's value.** §2's block diagram puts EFFECTS SEND / RETURN
-    between V2A's plate and V2B's grid, and §3.7 prints no value for the capacitor that must sit
-    there. That the link is capacitor-coupled is not in doubt: V2A's plate rests at 292 V, so
-    direct coupling would put 292 V on the send jack and on V2B's grid. What the value is decides
-    where V2B's low end starts falling away, and V2B is the stage that drives Master 1. The model
-    carries a stock value as a modelling choice until the send/return board is read.
-20. **The whole send/return network between V2A and V2B.** Wider than item 19: the series and
-    shunt resistors around the jacks, whether a level pot sits in the loop, and how much the
-    network attenuates when nothing is plugged in. This is the one link in the lead chain where
-    the model has nothing at all between a plate that swings 87 V and a grid whose window is
-    4.14 V, and it is why the amp as modelled has no clean setting at any knob position
-    (`MesaMark2cHasACleanEndAtMinimumGain` is skipped against this item). A photograph of the jack
-    field on sheet 1, or a trace off a board, closes it and the amp's whole gain structure with it.
+19. **The loop-return coupling capacitor's value.** Closed 2026-09-08. It is C9, 0.047 uF, in
+    series with R105 47K between V2A's plate and node W (S8; S1 draws both), and it corners at
+    16.33 Hz into the 207.4K it sees (§3.6a). The 0.022 uF and 7.23 Hz the model carried were a
+    stand-in and are retired by the design at
+    `docs/superpowers/specs/2026-09-08-iicplus-loop-network-design.md`.
+20. **The whole send/return network between V2A and V2B.** Closed 2026-09-08; §3.6a. 47K + 0.047 uF,
+    the 250K Lead Master as a rheostat to ground through LDR4, 150K into a 4.7K shunt, 2.2K to the
+    send, 47K at the return, jacks normalled: −35.0 dB from V2A's plate to V2B's grid at Lead
+    Master maximum, no level pot in the loop. The probe in
+    `.superpowers/sdd/amp-gain-staging/iicplus-loop-network.md` shows that this network alone does
+    not give the model a clean setting: with V2B relieved, the phase inverter's grid still receives
+    21 V because the model applies Master 1 after the power section rather than at node F where
+    S1 draws it. Both changes are in the design document above; question 24 holds the second.
+
+**Opened 2026-09-08**
+
+21. **The lead output divider's shunt: 100K (S1) or 3.3K (S8)?** §3.5. Decides V2A's drive by
+    26.5 dB and whether the network is a −10 dB pad or a +27 dB treble tilt. S8's own note "R30 can
+    be lowered for more lead gain, 1K or 1.5K works well" reads as a note about a 3.3K. An ohmmeter
+    across R30 on any IIC+ settles it. The probe measures the model both ways: the clean end at
+    Lead Drive 0.02 and −40 dBFS reads 9.6 % THD with 100K and 0.2 % with 3.3K.
+22. **V2B's plate load and the Master pot: 170K and 100K (S1) or 120K and 1M with a 15K (S8)?**
+    §3.7. Moves V2B's gain from 73.1 to 65.8 and its cutoff-side swing from 204 to 144 V. The Master
+    value does not reach the model, which applies Master 1 as a scale. An ohmmeter settles it.
+23. **The LDR4's on resistance.** It is the floor of the Lead Master's law (§3.6a) and sets how
+    far the knob's bottom reaches. Vactec VTL5C4 data puts it in the hundreds of ohms at the
+    drive S1 gives it; not read here.
+24. **Where the model applies Master 1.** Not a fact about the amplifier: S1 draws it at node F,
+    ahead of the EQ and the phase inverter, and the module applies it after the power section.
+    The probe in `.superpowers/sdd/amp-gain-staging/iicplus-loop-network.md` shows the inverter's
+    grid at 21 V with the loop network in place and 0.08 V with Master 1 at node F re-pinned to
+    the same −6 dBFS. This is a design decision recorded in
+    `docs/superpowers/specs/2026-09-08-iicplus-loop-network-design.md`, held here so the dossier's
+    readers know the amp has a clean setting only through it.
