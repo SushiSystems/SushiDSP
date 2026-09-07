@@ -29,21 +29,41 @@
 
 namespace SushiDSP
 {
-    /// @brief Turns one channel into two on a constant-power pan law: with
-    /// theta = (pan + 1) * pi / 4, the left gain is cos(theta) and the right is sin(theta), so
-    /// the centre sits at -3.01 dB on both channels and the sum of the squared gains is 1 at
-    /// every position. The knob is smoothed; the two gains are recomputed only when it moved.
+    /// @brief Turns one channel into two on a constant-power pan law.
     class PanNode : public IAudioNode
     {
     public:
+        /// @brief Constructs the node with its pan smoother at centre.
         PanNode();
 
+        /// @brief Derives the pan smoother's per-sample coefficient and snaps its gains.
+        /// @param info The rate and block size the node will process at.
         void prepare(const PrepareInfo& info) override;
+
+        /// @brief Splits the one input channel into two, weighted by the current pan gains.
+        /// @param context The block's input/output buffers and frame count.
         void process(ProcessContext& context) override;
+
+        /// @brief Returns this node's port layout.
+        /// @return One input channel, two output channels.
         PortLayout ports() const override;
+
+        /// @brief Present to satisfy IAudioNode; this node holds no state reset() must clear.
         void reset() override;
+
+        /// @brief Reads a parameter by string id.
+        /// @param id The parameter's id ("pan").
+        /// @return The pan target, or 0.0f for an unknown id.
         float get_parameter(const char* id) const override;
+
+        /// @brief Sets a parameter by string id.
+        /// @param id The parameter's id ("pan").
+        /// @param value The new target, clamped to [-1, 1].
         void set_parameter(const char* id, float value) override;
+
+        /// @brief Sets a parameter by descriptor index.
+        /// @param index The parameter's index (0 for "pan").
+        /// @param value The new target, clamped to [-1, 1].
         void set_parameter(std::uint16_t index, float value) override;
 
         /// @brief This pan node's registered type id.
@@ -53,12 +73,16 @@ namespace SushiDSP
     private:
         /// @brief Recomputes gain_left_/gain_right_ from a moved pan value and updates the
         /// applied marker.
-        /// @param pan The pan value the gains should now match.
+        /// @param pan The pan value the gains should now match, clamped to [-1, 1].
         void apply_pan(float pan);
 
+        /// @brief The smoothed pan control, -1 (left) to 1 (right).
         SmoothedParameter pan_{ 0.0f };
-        float applied_pan_ = -2.0f;   // outside [-1, 1]: forces the first block to compute
+        /// @brief The pan value gain_left_/gain_right_ were last computed from.
+        float applied_pan_ = -2.0f;
+        /// @brief The current left-channel gain.
         float gain_left_ = 0.0f;
+        /// @brief The current right-channel gain.
         float gain_right_ = 0.0f;
     };
 

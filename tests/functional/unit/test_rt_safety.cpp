@@ -460,8 +460,7 @@ TEST(Unit_Dsp, MixerNodeProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, PanNodeProcessPerformsNoHeapAllocation)
 {
-    // Same trap as the JCM800's presence shelf above: apply_pan()'s cos/sin recompute is pure
-    // double-adjacent arithmetic on stack values, no heap, lock, syscall, or throw behind it.
+    // apply_pan()'s cos/sin recompute runs on stack values only: no heap, lock, syscall, throw.
     SushiDSP::PanNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
     node.set_parameter("pan", 0.5f);

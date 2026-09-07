@@ -21,12 +21,12 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and <cmath> may otherwise be pulled in transitively before this point.
+// M_PI requires _USE_MATH_DEFINES before any <cmath>.
 #define _USE_MATH_DEFINES
 
 #include "SushiDSP/routing/PanNode.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -43,9 +43,7 @@ namespace SushiDSP
 
     void PanNode::prepare(const PrepareInfo& info)
     {
-        // prepare() is a discontinuity anyway, so the smoother snaps rather than ramps from a
-        // stale value, and applied_pan_ is invalidated so the first block builds gains that
-        // match the snapped target (the JCM800's idiom for its own knobs).
+        // See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md for why prepare() snaps.
         pan_.prepare(info.sample_rate, kSmoothingMs);
         pan_.snap(pan_.target());
         applied_pan_ = -2.0f;
@@ -54,10 +52,11 @@ namespace SushiDSP
 
     void PanNode::apply_pan(float pan)
     {
-        const float theta = (pan + 1.0f) * static_cast<float>(M_PI) / 4.0f;
+        const float clamped = std::max(-1.0f, std::min(1.0f, pan));
+        const float theta = (clamped + 1.0f) * static_cast<float>(M_PI) / 4.0f;
         gain_left_ = std::cos(theta);
         gain_right_ = std::sin(theta);
-        applied_pan_ = pan;
+        applied_pan_ = clamped;
     }
 
     void PanNode::process(ProcessContext& context)
@@ -66,6 +65,11 @@ namespace SushiDSP
         if (std::fabs(pan - applied_pan_) > kCoefficientEpsilon)
         {
             apply_pan(pan);
+        }
+        if (pan_.is_settled(kCoefficientEpsilon))
+        {
+            pan_.snap(pan_.target());
+            apply_pan(pan_.target());
         }
 
         const float* input = context.inputs != nullptr ? context.inputs[0] : nullptr;
@@ -92,7 +96,7 @@ namespace SushiDSP
     {
         if (std::strcmp(id, "pan") == 0)
         {
-            pan_.set_target(value);
+            pan_.set_target(std::max(-1.0f, std::min(1.0f, value)));
         }
     }
 
@@ -100,7 +104,7 @@ namespace SushiDSP
     {
         if (index == 0)
         {
-            pan_.set_target(value);
+            pan_.set_target(std::max(-1.0f, std::min(1.0f, value)));
         }
     }
 
