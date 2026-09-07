@@ -46,6 +46,7 @@
 #include "SushiDSP/capture/Metronome.hpp"
 #include "SushiDSP/capture/TrackRecorder.hpp"
 #include "SushiDSP/capture/TrackPlayer.hpp"
+#include "SushiDSP/capture/TrackTimeline.hpp"
 #include "SushiDSP/capture/VariRateReader.hpp"
 #include "SushiDSP/device/AsioSampleConverter.hpp"
 #include "SushiDSP/io/Ir.hpp"
@@ -1248,9 +1249,10 @@ TEST(Unit_Dsp, TrackRecorderWritePerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
 {
-    // Every take is published before the trap window opens, so what is measured is the mix
-    // itself: eight slot acquisitions, the pan trigonometry, and a loop range that splits each
-    // block into two runs.
+    // Every timeline is published and every converter sized before the trap window opens, so
+    // what is measured is the mix itself: eight slot acquisitions, eight lanes of sixteen clips
+    // walked, the pan trigonometry, a loop range that splits each block into two runs, and both
+    // the unity copy path and the converted one.
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport   transport;
 
@@ -1263,11 +1265,23 @@ TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
             samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f
                                               * static_cast<float>(frame) / 48000.0f);
         }
-        player.set_take(track, std::move(take));
+
+        const SushiDSP::Take* borrowed =
+            player.takes().insert(std::unique_ptr<const SushiDSP::Take>(std::move(take)));
+
+        std::vector<SushiDSP::Clip> clips;
+        for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::kMaxClips; ++clip)
+        {
+            clips.push_back(SushiDSP::Clip{ borrowed, clip * 200u, 64u, 150u });
+        }
+
+        player.set_timeline(track, std::unique_ptr<SushiDSP::TrackTimeline>(
+                                       new SushiDSP::TrackTimeline(player.takes(), clips)));
         player.set_pan(track, -1.0f + 0.25f * static_cast<float>(track));
         player.set_gain(track, 0.5f);
     }
     player.set_mute(1, true);
+    player.prepare(256u);
     transport.set_loop(0, 3000);
 
     std::vector<float> left(256, 0.0f);
@@ -1277,15 +1291,84 @@ TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
     AllocationTrap trap;
     trap.arm();
 
-    for (int block = 0; block < 200; ++block)
+    for (double speed : { 1.0, 0.5 })
     {
-        std::fill(left.begin(), left.end(), 0.0f);
-        std::fill(right.begin(), right.end(), 0.0f);
-        player.process(outputs, 2u, 256u, transport);
-        transport.advance(256);
+        transport.set_speed(speed);
+        for (int block = 0; block < 200; ++block)
+        {
+            std::fill(left.begin(), left.end(), 0.0f);
+            std::fill(right.begin(), right.end(), 0.0f);
+            player.process(outputs, 2u, 256u, transport);
+            transport.advance(256);
+        }
     }
 
     trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t frame = 0; frame < left.size(); ++frame)
+    {
+        EXPECT_TRUE(std::isfinite(left[frame]));
+        EXPECT_TRUE(std::isfinite(right[frame]));
+    }
+}
+
+TEST(Unit_Dsp, TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
+{
+    // Every replacement timeline is built before the run, and the window is opened only around
+    // process(), so what is measured is the audio thread picking up a lane that changed under
+    // it: one acquire of a new generation and a converter that has to restart on a clip it was
+    // not inside a block ago.
+    SushiDSP::TrackPlayer player;
+    SushiDSP::Transport   transport;
+
+    auto   take = std::make_unique<SushiDSP::Take>(2u, 48000.0, 4096u);
+    float* samples = take->mutable_channel(0);
+    for (std::size_t frame = 0; frame < 4096; ++frame)
+    {
+        samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f
+                                          * static_cast<float>(frame) / 48000.0f);
+    }
+    const SushiDSP::Take* borrowed =
+        player.takes().insert(std::unique_ptr<const SushiDSP::Take>(std::move(take)));
+
+    constexpr int kSwaps = 64;
+    std::vector<std::unique_ptr<SushiDSP::TrackTimeline>> prepared;
+    for (int swap = 0; swap < kSwaps; ++swap)
+    {
+        std::vector<SushiDSP::Clip> clips;
+        for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::kMaxClips; ++clip)
+        {
+            clips.push_back(SushiDSP::Clip{ borrowed,
+                                            static_cast<std::uint64_t>(swap) + clip * 300u, 32u,
+                                            250u });
+        }
+        prepared.push_back(std::unique_ptr<SushiDSP::TrackTimeline>(
+            new SushiDSP::TrackTimeline(player.takes(), clips)));
+    }
+
+    player.prepare(256u);
+    player.set_pan(0, -0.5f);
+    transport.set_speed(0.75);
+
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float*             outputs[2] = { left.data(), right.data() };
+
+    AllocationTrap trap;
+
+    for (int swap = 0; swap < kSwaps; ++swap)
+    {
+        player.set_timeline(0, std::move(prepared[static_cast<std::size_t>(swap)]));
+
+        trap.arm();
+        std::fill(left.begin(), left.end(), 0.0f);
+        std::fill(right.begin(), right.end(), 0.0f);
+        player.process(outputs, 2u, 256u, transport);
+        trap.disarm();
+
+        transport.advance(256);
+    }
 
     EXPECT_EQ(trap.count(), 0);
     for (std::size_t frame = 0; frame < left.size(); ++frame)
