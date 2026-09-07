@@ -52,6 +52,7 @@ The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-ga
 - 2026-09-07 — Moved all four amplifiers onto `kTriode12AX7GridConduction` and removed their `kTriodeSaturationCurrent` / `kTriodeThermalVoltage` constants (`Jcm800.cpp`, `Peavey5150.cpp`, `MesaMark2c.cpp`, `DiezelVh4.cpp`).
 - 2026-09-07 — Solved the 5150's long-tailed pair with its grid leaks on node X: Vgk −1.174528 V, gain 63.512682, degeneration 1.914527, swing 113.704 / 79.597 V (`Peavey5150.cpp`).
 - 2026-09-07 — Replaced the 5150's `n·√n` PRE GAIN law with an exponential audio taper, 0.10 at noon (`Peavey5150.cpp`).
+- 2026-09-07 — Pinned all four unity constants at 82 Hz: JCM800 0.3105599, 5150 0.2400876, IIC+ 0.3343019, VH4 0.3543949 (`Jcm800.hpp`, `Peavey5150.hpp`, `MesaMark2c.hpp`, `DiezelVh4.hpp`).
 - 2026-09-07 — Added `Regression_Dsp.TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow` and rewrote the `TriodeStage` unit tests for the Norman law (`test_measure.cpp`, `test_triode_stage.cpp`).
 
 - 2026-09-07 — Diagnosed the amplifiers' alias floor to `TriodeStage`'s grid knee and wrote the DA5 design (`docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`).

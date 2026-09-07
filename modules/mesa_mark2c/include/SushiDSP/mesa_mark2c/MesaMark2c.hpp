@@ -120,12 +120,12 @@ namespace SushiDSP
         float grid_excursion_peak_volts(std::size_t stage) const;
 
         /// @brief Linear gain the power section is scaled by when Master 1 reads 0 dB. Measured
-        /// so an untouched amp turns a -12 dBFS 1 kHz sine into roughly -6 dBFS out, the way the
-        /// JCM800's kMasterUnityGain was measured, and pinned by
+        /// so an untouched amp turns a -12 dBFS 82 Hz sine into a -6.00 dBFS peak, the
+        /// calibration point all four amplifiers share (docs/superpowers/specs/
+        /// 2026-09-07-grid-knee-antialiasing-design.md section 6), and pinned by
         /// MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput. Re-measured
-        /// 2026-09-07 after the pair moved to the shunt form and the local mu: the default peak
-        /// read -5.9972 dBFS, so 0.6909959 x 0.9996817 gives this figure.
-        static constexpr float kMasterUnityGain = 0.6907759f;
+        /// 2026-09-07 on the Norman grid law; 0.6907759 before, pinned at 1 kHz.
+        static constexpr float kMasterUnityGain = 0.3343019f;
 
         /// @brief Sets the Volume 1 control, the 1 M pot between the tone stack and V1B's grid.
         /// @param normalized Volume 1 amount in [0, 1]; smoothed toward on the audio thread.

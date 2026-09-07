@@ -344,7 +344,8 @@ TEST(Unit_Dsp, DiezelVh4NeverExceedsFullScaleWithoutALimiter)
 TEST(Unit_Dsp, DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
 {
     // The shipped calibration point, and the test that pins DiezelVh4::kMasterUnityGain: a
-    // -12 dBFS 1 kHz sine into an untouched amp comes back out at about -6 dBFS.
+    // -12 dBFS 82 Hz sine into an untouched amp comes back out at about -6 dBFS, the frequency
+    // all four amplifiers pin at (DA5 spec section 6).
     SushiDSP::DiezelVh4 node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
 
@@ -360,7 +361,7 @@ TEST(Unit_Dsp, DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsIn
         {
             const float sample_index = static_cast<float>(block * 256 + i);
             input[static_cast<std::size_t>(i)] =
-                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 1000.0f * sample_index / 48000.0f);
+                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 82.0f * sample_index / 48000.0f);
         }
         SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
         node.process(context);
