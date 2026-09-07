@@ -25,43 +25,33 @@
 
 #include <cmath>
 
+#include "SushiDSP/circuits/models/SoftTransition.hpp"
 #include "SushiDSP/math/NewtonRaphsonSolver.hpp"
 
 namespace
 {
-    // Identical to TriodeStage's bound, and for the same reason: the residual contains
-    // exp(x / Vt), so an unbounded Newton overshoot would evaluate exp() past the float range,
-    // produce inf, then nan, and the warm start would carry that forever. At exp(60) ~ 1.1e26 the
-    // term still evaluates finitely in float, while 60 * Vt ~ 1.55 V sits far above any physical
-    // grid-conduction drop, so the clamp bounds transient overshoot only. The bound is applied
-    // *around the cathode-bias voltage Vk*, not around 0, because Vk is this stage's resting point.
-    //
-    // Asymmetric for the same reason TriodeStage's is - see the longer ruling at its definition
-    // site. Below Vk the exponential collapses to -Is and the residual is linear, so the lower
-    // clamp guards nothing and only hard-clips a would-be-linear answer; it is opened to
-    // 160 * Vt ~ 4.14 V so the driven chain reaches its own grid conduction and the pentode's
-    // plate saturation, rather than a solver artifact, on the way to clipping. This stage's own
-    // measured worst case is under 0.5 V, so for the EL34s the widening is headroom, not a
-    // behavior change - the tanh plate saturation was already the binding limit here.
-    constexpr float kExponentLimit = 60.0f;
-    constexpr float kNegativeExponentLimit = 160.0f;
+    /// @brief The tanh argument past which the plate ceiling reads 1.0 in float; the solver's
+    /// grid bounds sit where the plate can no longer move
+    /// (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 5).
+    constexpr float kPlateReach = 10.0f;
+
+    /// @brief Newton iterations per sample from the previous sample's root.
+    constexpr std::uint32_t kNewtonIterations = 4;
 }
 
 namespace SushiDSP
 {
     PentodeStage::PentodeStage(
         float source_resistance_ohms, float grid_leak_resistance_ohms, float cathode_bias_volts,
-        float gain, float saturation_current_amps, float thermal_voltage_volts,
-        float plate_saturation_drive)
+        float gain, const GridConductionLaw& grid_conduction, const PlateSwing& plate_swing)
         : source_resistance_(source_resistance_ohms)
         , grid_leak_resistance_(grid_leak_resistance_ohms)
         , cathode_bias_(cathode_bias_volts)
         , gain_(gain)
-        , saturation_current_(saturation_current_amps)
-        , thermal_voltage_(thermal_voltage_volts)
-        , plate_saturation_drive_(plate_saturation_drive)
-        , voltage_limit_(kExponentLimit * thermal_voltage_volts)
-        , cutoff_voltage_limit_(kNegativeExponentLimit * thermal_voltage_volts)
+        , grid_conduction_(grid_conduction)
+        , plate_swing_(plate_swing)
+        , cutoff_grid_limit_(cathode_bias_volts - kPlateReach * plate_swing.headroom_to_supply_volts / gain)
+        , conduction_grid_limit_(cathode_bias_volts + kPlateReach * plate_swing.headroom_to_bottom_volts / gain)
         , previous_grid_voltage_(cathode_bias_volts)
     {
     }
@@ -69,8 +59,7 @@ namespace SushiDSP
     PentodeStage::PentodeStage(const PowerTubePreset& preset)
         : PentodeStage(
             preset.source_resistance_ohms, preset.grid_leak_resistance_ohms,
-            preset.cathode_bias_volts, preset.gain, preset.saturation_current_amps,
-            preset.thermal_voltage_volts, preset.plate_saturation_drive)
+            preset.cathode_bias_volts, preset.gain, preset.grid_conduction, preset.plate_swing)
     {
     }
 
@@ -79,56 +68,34 @@ namespace SushiDSP
         const float rs = source_resistance_;
         const float rg = grid_leak_resistance_;
         const float vk = cathode_bias_;
-        const float is = saturation_current_;
-        const float vt = thermal_voltage_;
+        const double scale = grid_conduction_.scale_amps;
+        const double threshold = grid_conduction_.threshold_volts;
+        const double transition = grid_conduction_.transition_volts;
 
-        // The control grid is driven through a coupling capacitor, so the source contributes
-        // signal only: its DC level is set by the grid-leak return, and the grid node rests at Vk
-        // when the input is silent. The source therefore appears as Vk + Vin behind Rs. Writing it
-        // this way keeps the node equation bias-invariant; referencing the source term to ground
-        // instead would leave the stage clipping at silence for any non-zero Vk (and an EL34's Vk
-        // is large - around -20 V here).
+        // The coupling capacitor passes signal only, so the source sits at Vk + Vin behind Rs.
         const float source_voltage = vk + input_voltage;
 
-        // KCL at the grid node, with all three branch currents taken as leaving the node:
-        //   through Rs to the source:            (Vg - (Vk + Vin)) / Rs
-        //   through the grid-leak Rg to Vk:      (Vg - Vk) / Rg
-        //   into the grid itself, a one-way
-        //   Shockley conduction path grid->cathode, only significant once Vg rises above Vk:
-        //                                        Is * (exp((Vg - Vk) / Vt) - 1)
-        // f(Vg) = 0 is the node equation; f'(Vg) differentiates it term by term. A pentode's
-        // control grid conducts exactly the way a triode's does, so this is TriodeStage's equation
-        // verbatim - the pentode character comes from the plate saturation below, not from here.
-        // One exp() serves both: it is the whole cost of the iteration.
-        auto node_equation = [rs, rg, vk, is, vt, source_voltage](float vg)
+        // KCL at the grid, every branch current leaving the node: (Vg - Vk - Vin) / Rs +
+        // (Vg - Vk) / Rg + IG0 softplus((Vg - VGAMMA) / VTG) = 0, Vg referenced to the cathode.
+        auto node_equation = [rs, rg, vk, source_voltage, scale, threshold, transition](float vg)
         {
-            const float conduction = std::exp((vg - vk) / vt);
+            double softplus = 0.0;
+            double logistic = 0.0;
+            models::softplus_and_logistic((static_cast<double>(vg) - threshold) / transition, softplus, logistic);
             return NewtonRaphsonSolver::Evaluation{
-                (vg - source_voltage) / rs + (vg - vk) / rg + is * (conduction - 1.0f),
-                1.0f / rs + 1.0f / rg + (is / vt) * conduction };
+                (vg - source_voltage) / rs + (vg - vk) / rg + static_cast<float>(scale * softplus),
+                1.0f / rs + 1.0f / rg + static_cast<float>(scale / transition * logistic) };
         };
 
+        // The residual is convex and increasing in Vg, so Newton converges from either side;
+        // the bounds mark where the plate ceiling has already saturated.
         const float grid_voltage = NewtonRaphsonSolver::solve_joint(
-            node_equation, previous_grid_voltage_, 4,
-            vk - cutoff_voltage_limit_, vk + voltage_limit_);
+            node_equation, previous_grid_voltage_, kNewtonIterations,
+            cutoff_grid_limit_, conduction_grid_limit_);
         previous_grid_voltage_ = grid_voltage;
 
-        // Inverting plate output: the grid's excursion from its bias point, amplified.
         const float linear_plate = -gain_ * (grid_voltage - vk);
-
-        // Plate-current saturation. Unlike the grid conduction above this needs no iterative
-        // solve: it is an explicit function of the already-solved grid voltage, so it is a single
-        // tanh evaluation. tanh is bounded by 1, so the output is bounded by
-        // 1 / plate_saturation_drive and can never be inf or nan for any finite grid solution.
-        if (plate_saturation_drive_ > 0.0f)
-        {
-            return std::tanh(linear_plate * plate_saturation_drive_) / plate_saturation_drive_;
-        }
-
-        // A non-positive drive is the degenerate "no saturation" case; tanh(x)/d tends to x as
-        // d tends to 0, so the linear plate output is the consistent answer (and avoids a divide
-        // by zero).
-        return linear_plate;
+        return plate_swing_.bound(linear_plate);
     }
 
     void PentodeStage::reset()

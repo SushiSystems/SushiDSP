@@ -175,14 +175,17 @@ namespace SushiDSP
 
         // Every interstage factor below is a dossier value; modules/diezel_vh4/README.md records
         // the level staging this module carried until 2026-09-07 and why it went.
-        /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
-        /// PentodeStage becomes volt-true (DA5). Its grid saturates at
-        /// 1 / (plate_saturation_drive * gain) = 1 / (0.045 * 8) = 2.778 model volts, where
-        /// kDiezelVh4PowerEl34's real grid needs |-36 V|: 2.778 / 36 = 0.077160.
-        constexpr float kPowerTubeGridScale = 0.077160f;
-        // Jcm800.cpp's constant, keeping its name because the name is the citation. It is this
-        // chain's one output trim to full scale.
-        constexpr float kPowerTubeToTransformerAttenuation = 0.05f;
+        /// @brief The level the output transformer stage receives at the pair's full clip: the
+        /// 2 x 22.222 V x 0.05 this chain delivered before PentodeStage became volt-true, a
+        /// modelling choice adopted from modules/jcm800/src/Jcm800.cpp.
+        constexpr float kTransformerFullClipUnits = 2.222222f;
+
+        /// @brief The output trim from the EL34 plates to the transformer's units, this chain's
+        /// one output trim: the pair's full swing, kDiezelVh4PowerEl34's two headrooms summed,
+        /// lands at kTransformerFullClipUnits.
+        constexpr float kPowerTubeToTransformerAttenuation = kTransformerFullClipUnits
+            / (kDiezelVh4PowerEl34.plate_swing.headroom_to_supply_volts
+               + kDiezelVh4PowerEl34.plate_swing.headroom_to_bottom_volts);
 
         // Modelling choices: section 5 establishes no output transformer primary impedance, no
         // turns ratio and no supply behaviour, so the transformer and the sag stage carry
@@ -418,8 +421,7 @@ namespace SushiDSP
                                 * volume_pot * kMixBusAttenuation;
             const float send_buffer = v4a_.process_sample(mix_bus) * kCathodeFollowerGain;
             const float phase_inverted =
-                phase_inverter_.process_sample(send_buffer / kPhaseInverterDegeneration)
-                * kPowerTubeGridScale;
+                phase_inverter_.process_sample(send_buffer / kPhaseInverterDegeneration);
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted);
             const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;

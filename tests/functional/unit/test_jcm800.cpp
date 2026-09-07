@@ -222,7 +222,8 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
     // A quiet note and a loud note must come out at different levels; the failure this guards
     // against is the amp degenerating into a fixed-amplitude square-wave generator. Measured
     // 2026-09-07 at preamp 0.02, near the bottom of the knob where the cascade is not yet fully
-    // saturated: a 0.01 input peaks at 0.048199 and a 0.251 input at 0.286754, a factor of 5.95.
+    // saturated: a 0.01 input peaks at 0.007612 and a 0.251 input at 0.123296, a factor of 16.2
+    // (5.95 before the cold clipper's gain and the inverter's bias were corrected in DA5 part 2).
     // The knob is read at 0.02 rather than at the minimum, where preamp_attenuation(0) is exactly
     // zero and there is no output to compare.
     auto measure_peak = [](float input_amplitude) -> float
@@ -563,25 +564,23 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
 {
     // Guards the power-tube bias mismatch (Jcm800.cpp's kPowerTubeGridBiasMismatchVolts) against
     // being dropped or neutralized. It is asserted at the amp's output rather than at the pair
-    // because the pair itself is not reachable from here; the mechanism's own proof - that a
-    // cathode-bias difference is provably inert and an input-referred offset is not - lives in
-    // test_pentode_stage.cpp.
+    // because the pair itself is not reachable from here; what an input-referred offset does to
+    // the pair's composite is pinned in test_pentode_stage.cpp.
     //
     // The claim is self-checking: the same stimulus is rendered twice, once as shipped and once
     // with set_power_tube_grid_bias_mismatch_volts(0), so the gate is the comparison between the
     // two rather than a hand-copied number a later change could silently invalidate.
     //
-    // The direction reversed on 2026-09-07, when the corrected long-tailed-pair factor changed
-    // what the inverter delivers to the grids. At preamp 0.5, 0.2 input, the second harmonic now
-    // reads 0.007257050 of the fundamental as shipped against 0.007239286 with the mismatch
-    // zeroed: the mismatch raises it by 1.78e-5, where before the correction it lowered it by
-    // 4.11e-7 and the pre-DA4 chain lowered it by 0.0076 (2.17 % against 2.93 %). Raising it is
-    // the naive direction, and it is what a pair whose handover asymmetry is no longer cancelled
-    // by an out-of-phase preamp asymmetry does.
+    // The direction has reversed twice. The corrected long-tailed-pair factor of 2026-09-07 made
+    // the mismatch raise the second harmonic by 1.78e-5 (0.007257050 against 0.007239286); DA5
+    // part 2, with the offset in real volts on a volt-true pair and the inverter at its 2203
+    // bias, has it lowering the second harmonic again: 0.007392797 as shipped against
+    // 0.007536265 zeroed, a difference of -1.435e-4 at preamp 0.5, 0.2 input, as the pre-DA4
+    // chain did (2.17 % against 2.93 %). Which way the handover asymmetry adds to the preamp's
+    // asymmetry depends on the phase the chain delivers, so the sign is a property of the
+    // shipped chain and is pinned as such.
     //
-    // The gate is signed, so it pins that direction, and set at 1e-6. The difference itself moves
-    // between 1.8e-5 and 5.6e-5 with the compiler's flags, so the gate sits an order of magnitude
-    // under the smallest reading rather than at a fixed fraction of one of them.
+    // The gate is signed and set at 1e-5, an order of magnitude under the reading.
     constexpr double sample_rate = 48000.0;
     constexpr double frequency = 220.0;
 
@@ -644,7 +643,7 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     const double zeroed_ratio = second_harmonic_ratio_for(false);
     std::printf("[ measure ] second harmonic %.9f active, %.9f zeroed\n", active_ratio, zeroed_ratio);
 
-    EXPECT_GT(active_ratio - zeroed_ratio, 1e-6);
+    EXPECT_LT(active_ratio - zeroed_ratio, -1e-5);
 }
 
 TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)

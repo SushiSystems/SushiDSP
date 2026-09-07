@@ -23,53 +23,71 @@
 
 #pragma once
 
+#include "SushiDSP/circuits/stages/GridConductionLaw.hpp"
+#include "SushiDSP/circuits/stages/PlateSwing.hpp"
 #include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
 
 namespace SushiDSP
 {
-    /// @brief An EL34 push-pull half-channel: the same grid-conduction Newton-Raphson
-    /// nonlinearity TriodeStage uses, followed by an explicit tanh plate-saturation waveshaper.
-    /// An amplifier module instantiates one per push-pull half.
+    /// @brief One push-pull half of a power stage: the grid node solved by Newton-Raphson against
+    /// a Norman grid-conduction law referenced to the cathode, an inverting gain from grid to
+    /// plate, and a two-sided tanh plate ceiling from the tube's PlateSwing, all in real volts.
+    /// Specified by docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 5.
     class PentodeStage
     {
     public:
+        /// @brief Builds a stage whose plate is bounded by its swing and whose grid conducts on
+        /// the given law, referenced to the cathode.
         /// @param source_resistance_ohms Effective source resistance feeding the grid.
-        /// @param grid_leak_resistance_ohms The grid-leak resistor to the cathode-bias voltage.
-        /// @param cathode_bias_volts The stage's DC operating point.
-        /// @param gain The stage's inverting linear gain from grid to plate before saturation.
-        /// @param saturation_current_amps Grid-conduction diode saturation current.
-        /// @param thermal_voltage_volts Diode thermal voltage (~0.02585 V at room temperature).
-        /// @param plate_saturation_drive Controls how hard the plate-current tanh saturates;
-        /// smaller values saturate at a higher output ceiling (1 / plate_saturation_drive).
-        /// Non-positive values disable the saturation and leave the plate output linear.
+        /// @param grid_leak_resistance_ohms The grid-leak resistor to the bias supply.
+        /// @param cathode_bias_volts The grid's DC voltage against the cathode at rest.
+        /// @param gain The inverting small-signal gain from grid to plate.
+        /// @param grid_conduction The grid-current law's three constants.
+        /// @param plate_swing The two headroom figures that bound the plate output.
+        /// @pre cathode_bias_volts < 0, so the grid rests below the cathode.
+        /// @pre gain > 0, and both plate_swing headrooms > 0.
         PentodeStage(
             float source_resistance_ohms, float grid_leak_resistance_ohms, float cathode_bias_volts,
-            float gain, float saturation_current_amps, float thermal_voltage_volts,
-            float plate_saturation_drive);
+            float gain, const GridConductionLaw& grid_conduction, const PlateSwing& plate_swing);
 
-        /// @brief Builds the stage from a named preset; identical to the seven-argument constructor.
+        /// @brief Builds the stage from a named preset; identical to the six-argument constructor.
         explicit PentodeStage(const PowerTubePreset& preset);
 
         /// @brief Processes one sample through the stage.
-        /// @param input_voltage The stage's input signal voltage for this sample, referenced to
-        /// the stage's own bias point (the coupling capacitor ahead of the grid blocks DC, so a
-        /// zero input leaves the grid resting at the cathode-bias voltage).
-        /// @return The saturated, inverted plate output voltage. Always finite.
+        /// @param input_voltage The grid signal in volts, referenced to the bias point; a zero
+        /// input leaves the grid at the cathode-bias voltage.
+        /// @return The inverted plate output voltage, bounded by the plate swing. Always finite.
         float process_sample(float input_voltage);
 
-        /// @brief Resets the Newton-Raphson warm-start state to the cathode bias point.
+        /// @brief Resets the Newton-Raphson warm start to the bias point.
         void reset();
 
     private:
+        /// @brief Effective source resistance feeding the grid, in ohms.
         float source_resistance_;
+
+        /// @brief The grid-leak resistance to the bias supply, in ohms.
         float grid_leak_resistance_;
+
+        /// @brief The grid's resting voltage relative to the cathode, in volts.
         float cathode_bias_;
+
+        /// @brief The inverting gain from grid to plate.
         float gain_;
-        float saturation_current_;
-        float thermal_voltage_;
-        float plate_saturation_drive_;
-        float voltage_limit_;
-        float cutoff_voltage_limit_;
+
+        /// @brief The grid-current law the node equation carries.
+        GridConductionLaw grid_conduction_;
+
+        /// @brief The two headrooms the plate tanh is bounded by.
+        PlateSwing plate_swing_;
+
+        /// @brief The grid voltage below which the plate tanh has saturated toward the supply.
+        float cutoff_grid_limit_;
+
+        /// @brief The grid voltage above which the plate tanh has saturated toward the bottom.
+        float conduction_grid_limit_;
+
+        /// @brief The previous sample's grid voltage, the solver's warm start.
         float previous_grid_voltage_;
     };
 }

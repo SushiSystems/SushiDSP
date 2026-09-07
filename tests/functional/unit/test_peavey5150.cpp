@@ -311,8 +311,8 @@ TEST(Unit_Dsp, Peavey5150ThdDoesNotFallAsPreGainRises)
     // The sweep starts at 0.02, the first position that passes signal: VR2 at the bottom mutes the
     // amplifier and the reading there is the FFT's floor on denormals, not distortion.
     //
-    // Measured 2026-09-07: 26.66, 26.97, 27.09, 27.02, 27.20, 27.66, 28.07, 28.02, 27.59 percent.
-    // The sweep rises to 0.50 and then eases; the largest fall is 0.433 pp from 0.70 to 1.00.
+    // Measured 2026-09-07 on the volt-true power stage: 24.20, 25.97, 26.26, 26.51, 26.37, 26.28,
+    // 26.32, 27.09, 27.25 percent; the largest fall is 0.22 pp from 0.30 to 0.40.
     const float positions[] = { 0.02f, 0.05f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
     double previous = 0.0;
     bool first = true;
@@ -335,11 +335,16 @@ TEST(Unit_Dsp, Peavey5150ThdDoesNotFallAsPreGainRises)
 TEST(Unit_Dsp, Peavey5150EvenHarmonicsRiseFromLowToFullPreGain)
 {
     // What this proves is its name and no more: the amplifier's even-harmonic content is higher
-    // at full pre gain than at 0.2. It was written to assert V2A's asymmetry - the 39 kOhm
+    // at full pre gain than at a low one. It was written to assert V2A's asymmetry - the 39 kOhm
     // unbypassed cathode starves that stage to 0.102 mA and puts its plate within 15 V of the rail
     // (dossier section 3), so it clips one half-cycle far harder than the other - but an
     // output-side measure cannot attribute even harmonics to one stage, and the sweep below is not
     // monotonic, so the test is named for what it measures.
+    //
+    // The two points are physical drive levels, not knob positions. The comparison was calibrated
+    // on the n*sqrt(n) taper at pre gain 0.2, which passed 0.089443 of the pot; the exponential
+    // audio taper of DA5 passes that same fraction at (ln(1 + 80 * 0.089443) / ln 81) = 0.4776, so
+    // the quiet point moved with the taper and the drive it stands for did not.
     auto even_harmonic_ratio = [](float pre_gain)
     {
         const SushiDSP::measure::ThdResult result = harmonics_at(pre_gain, 0.02f);
@@ -351,22 +356,25 @@ TEST(Unit_Dsp, Peavey5150EvenHarmonicsRiseFromLowToFullPreGain)
         return std::sqrt(even);
     };
 
-    const double quiet = even_harmonic_ratio(0.2f);
+    constexpr float kQuietPreGain = 0.4776f;
+    const double quiet = even_harmonic_ratio(kQuietPreGain);
     const double driven = even_harmonic_ratio(1.0f);
-    std::printf("[ measure ] even harmonics %.5f at pre gain 0.2, %.5f at 1.0\n", quiet, driven);
+    std::printf("[ measure ] even harmonics %.5f at pre gain %.4f, %.5f at 1.0\n", quiet, kQuietPreGain, driven);
 
-
-    // Measured 2026-09-07: 0.00865 at pre gain 0.2 against 0.09843 at 1.0, a factor of 11.4. The
-    // gate is a factor of 4.
+    // Measured 2026-09-07 on the volt-true power stage: 0.04113 at pre gain 0.4776 against 0.13064
+    // at 1.0, a factor of 3.18. The gate is a factor of 2. On the Shockley-knee chain the same two
+    // drive levels read 0.00865 against 0.09843, a factor of 11.4, and the gate was 4; the Norman
+    // grid law and the real-volt power tubes leave far less of the output square, so the two
+    // points sit closer together.
     //
-    // The measure is not monotonic across the knob - 0.0095, 0.0385, 0.0086, 0.1338, 0.0984 at pre
-    // gain 0.05, 0.10, 0.20, 0.50 and 1.00 - because at this stimulus every stage from V5A on is
-    // already on its bound, so the amplifier's even harmonics are the push-pull pair's as much as
-    // V2A's. V2A's own grid does move from 2.81 V to 4.26 V across the same span, past the 4.00 V
-    // at which it conducts, so V2A's asymmetry is real; what an output-side measure cannot do is
-    // attribute it, which is why this test is named for the two points it compares.
-    // modules/peavey5150/README.md, "The cold clipper's asymmetry", carries the sweep.
-    EXPECT_GT(driven, quiet * 4.0);
+    // The measure is not monotonic across the knob - 0.0421, 0.0460, 0.0724, 0.0535, 0.0385,
+    // 0.0411, 0.0454, 0.1203, 0.1306 at pre gain 0.05, 0.10, 0.20, 0.30, 0.40, 0.4776, 0.50, 0.70
+    // and 1.00 - because at this stimulus every stage from V5A on is past its window, so the
+    // amplifier's even harmonics are the push-pull pair's as much as V2A's. V2A's asymmetry is
+    // real; what an output-side measure cannot do is attribute it, which is why this test is named
+    // for the two points it compares. modules/peavey5150/README.md, "The cold clipper's
+    // asymmetry", carries the sweep.
+    EXPECT_GT(driven, quiet * 2.0);
 }
 
 TEST(Unit_Dsp, Peavey5150GridProbesReportEveryStageInSignalOrder)
