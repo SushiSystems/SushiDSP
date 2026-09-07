@@ -243,6 +243,13 @@ namespace ui
             {
                 ValueReadout(param->id, *param, value, diameter, diameter * 0.5f);
             }
+            else if (placement.kind == ControlKind::Slider)
+            {
+                const float width = diameter * kSliderWidthRatio;
+                ImGui::SetCursorScreenPos(ImVec2(center.x - width * 0.5f,
+                                                 center.y - diameter * 0.5f));
+                changed = Slider(param->id, *param, &value, diameter);
+            }
             else
             {
                 changed = Knob(param->id, *param, &value, diameter);
