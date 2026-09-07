@@ -376,16 +376,10 @@ TEST(Unit_Dsp, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
 
 TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
 {
-    GTEST_SKIP() << "Known issue: the IIC+ has no clean setting to measure. The V2A->V2B loop "
-                    "send/return network is not in the dossier (section 3.7 prints no value for "
-                    "it), so V2A's plate, ceilinged at 87 V, meets V2B's 4.14 V grid window with "
-                    "nothing between them. At Lead Drive 0.02 and -40 dBFS the amp measures "
-                    "41.5 % THD against this test's 10 % bar. Closes when the send/return network "
-                    "is read off the schematic; dossier open questions 19 and 20.";
-
-    // Kept below the skip so the assertion comes back with the network, not from memory. Lead
-    // Drive 0.02 is the lowest position this test uses, not a threshold: the control passes signal
-    // below it too.
+    // The clean end the effects loop network and Master 1 at node F give the amp: at Lead Drive
+    // 0.02 and -40 dBFS the chain reads 0.20 % THD (2026-09-08), where it read 40.7 % with V2A's
+    // plate meeting V2B's grid directly and Master 1 scaling the output. Lead Drive 0.02 is the
+    // lowest position this test uses, not a threshold: the control passes signal below it too.
     const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
     const std::vector<float> rendered = render_mesa_mark2c(
         [](SushiDSP::MesaMark2c& node) { node.set_lead_drive(0.02f); }, 0.01, frequency, 640);
@@ -492,19 +486,11 @@ TEST(Unit_Dsp, MesaMark2cDryLatencyIsOneOversampledRegion)
 
 TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
 {
-    GTEST_SKIP() << "Known issue, the same one that skips MesaMark2cHasACleanEndAtMinimumGain: "
-                    "the V2A->V2B loop send/return network is not in the dossier (section 3.7 "
-                    "prints no value for it), so V2A's plate, ceilinged at 87 V, meets V2B's "
-                    "4.14 V grid window with nothing between them and the node limits at every "
-                    "input level. Treble at 0 against 1 moves THD by -0.09 pp at -80 dBFS and "
-                    "-0.40 pp at -100 dBFS, against this test's 5 pp, so there is no input level "
-                    "where the stack's colour reaches the output. Re-asserts that a brighter "
-                    "stack drives the lead stages harder once the network is read off the "
-                    "schematic; dossier open questions 19 and 20.";
-
-    // Kept below the skip so the assertion comes back with the network, not from memory. Lead
-    // Drive 0.02 is the lowest position this test uses, not a threshold: the control passes signal
-    // below it too.
+    // A brighter stack drives the lead stages harder, which shows as THD only while the chain is
+    // on its knee: at Lead Drive 0.05 and a 0.01 input (-40 dBFS) treble 0 against 1 reads 0.41
+    // against 8.91 %, +8.50 pp (2026-09-08). At Lead Drive 1.0 and 0.2 every stage from V3B on is
+    // a square with or without treble and the same difference is 0.03 pp; that is the amplifier,
+    // 110 dB of gain fed a hot line level, so the operating point is the knee, not the ceiling.
     const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
     auto thd_at_treble = [frequency](float treble)
     {
@@ -512,10 +498,10 @@ TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
             render_mesa_mark2c(
                 [treble](SushiDSP::MesaMark2c& node)
                 {
-                    node.set_lead_drive(1.0f);
+                    node.set_lead_drive(0.05f);
                     node.set_treble(treble);
                 },
-                0.2, frequency, 640),
+                0.01, frequency, 640),
             frequency, 48000.0).thd_percent;
     };
 
@@ -527,16 +513,10 @@ TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
 
 TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
 {
-    GTEST_SKIP() << "Known issue, the same one that skips MesaMark2cHasACleanEndAtMinimumGain: "
-                    "the V2A->V2B loop send/return network is not in the dossier (section 3.7 "
-                    "prints no value for it), so V2A's plate, ceilinged at 87 V, meets V2B's "
-                    "4.14 V grid window with nothing between them and the node limits at every "
-                    "input level. The 750 Hz slider at +1 lifts 979.5 Hz by 0.009 dB at "
-                    "-80 dBFS and -0.010 dB at -100 dBFS, against the bank's 17 dB, because the "
-                    "output sits on its ceiling either way. Re-asserts the full 17 dB lift once "
-                    "the network is read off the schematic; dossier open questions 19 and 20.";
-
-    // Kept below the skip so the assertion comes back with the network, not from memory.
+    // The 750 Hz slider's full lift reaches the output only where the power section is linear,
+    // so Master 1 sits 20 dB down: the lift reads 16.93 dB there against 16.09 dB at 0 dB, where
+    // the inverter's compression takes the rest (2026-09-08). The same repair the VH4's Deep test
+    // needed.
     constexpr double centre_hz = 979.5;
     auto level_at = [](float slider)
     {
@@ -546,6 +526,7 @@ TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
                 node.set_volume_1(0.2f);
                 node.set_lead_drive(0.2f);
                 node.set_lead_master(0.2f);
+                node.set_master_1(-20.0f);
                 node.set_equalizer_band(2, slider);
             },
             0.005, centre_hz, 120);
