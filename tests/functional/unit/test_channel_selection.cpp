@@ -78,6 +78,13 @@ TEST(Unit_Dsp, RigOutputAdaptsToDeviceRefusesWidthsWithNoRule)
     EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(0u, 0u));
 }
 
+TEST(Unit_Dsp, RigOutputAdaptsToDeviceRefusesEqualWidthsTheWriterCannotWrite)
+{
+    EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(4u, 4u));
+    EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(8u, 8u));
+    EXPECT_TRUE(SushiDSP::RigGraph::channels_adapt(4u, 4u));
+}
+
 TEST(Unit_Dsp, WriteRigOutputCopiesOneRigChannelToBothDeviceChannels)
 {
     std::vector<float> mono{ 1.0f, 2.0f, 3.0f };

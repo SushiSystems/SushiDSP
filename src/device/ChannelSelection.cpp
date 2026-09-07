@@ -27,6 +27,12 @@
 
 namespace SushiDSP
 {
+    namespace
+    {
+        /// @brief Caps the widths write_rig_output_to_device knows how to read and write.
+        constexpr std::uint32_t kMaxAdaptableChannels = 2;
+    }
+
     ChannelSelection parse_channel_selection(const std::string& value, const char* flag_name)
     {
         if (value == "L" || value == "l") return ChannelSelection::Left;
@@ -53,13 +59,9 @@ namespace SushiDSP
 
     bool rig_output_adapts_to_device(std::uint32_t rig_channels, std::uint32_t device_channels)
     {
-        if (rig_channels == 0 || device_channels == 0)
-        {
-            return false;
-        }
-        return rig_channels == device_channels
-            || (rig_channels == 1 && device_channels == 2)
-            || (rig_channels == 2 && device_channels == 1);
+        // Every pair this accepts is one write_rig_output_to_device indexes within bounds.
+        return rig_channels != 0 && rig_channels <= kMaxAdaptableChannels
+            && device_channels != 0 && device_channels <= kMaxAdaptableChannels;
     }
 
     void write_rig_output_to_device(const float* const* rig_outputs, std::uint32_t rig_channels,
