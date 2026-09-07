@@ -154,8 +154,9 @@ namespace SushiDSP
         std::size_t triode_stage_count() const;
 
         /// @brief Reads one triode stage's largest grid excursion since the last reset(). A test
-        /// hook like set_power_tube_grid_bias_mismatch_volts(): it exists so a test can prove no
-        /// grid sits against TriodeStage's cutoff bound, and it is not in the descriptor.
+        /// hook like set_power_tube_grid_bias_mismatch_volts(): it exists so a test can read the
+        /// excursions behind the spec's section 4 criterion, a clean end at minimum gain, and it
+        /// is not in the descriptor.
         /// @param stage Index in signal order, as triode_stage_count() counts them.
         /// @return The peak |Vg - Vk| in volts, or 0 for an out-of-range index.
         float grid_excursion_peak_volts(std::size_t stage) const;

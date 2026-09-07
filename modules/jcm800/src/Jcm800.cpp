@@ -126,8 +126,8 @@ namespace SushiDSP
         // An offset added to the input sits outside that Vk-relative coordinate system, so it
         // survives. It shifts B's conduction window relative to A's, which is what a real bias
         // mismatch does: the two tubes hand over at slightly different points in the cycle. The
-        // magnitude is ~8% of the 0.38 V peak grid drive the phase inverter delivers here, in the
-        // range of an ordinary unmatched pair, and comparable to the 0.203 V conduction knee, so
+        // magnitude is kPowerTubeGridBiasMismatchVolts below, 0.03 V, in the range of an
+        // ordinary unmatched pair and comparable to the 0.203 V conduction knee, so
         // it moves the handover without turning the pair into a single-ended stage. The DC term
         // it introduces is blocked downstream by the output transformer's 60 Hz high-pass, as a
         // real transformer blocks it.
@@ -299,12 +299,13 @@ namespace SushiDSP
 
         // The Miller poles are part of the oversampled chain, so like the coupling capacitor they
         // are derived at the oversampled rate. Their corners land near 13.8 kHz for the two
-        // gain-of-60 triode grids and near 19.6 kHz for the lower-gain phase inverter.
+        // gain-of-60 triode grids and near 31 kHz for the lower-gain phase inverter, both through
+        // miller_corner_hz(), which reads the gain constants and so tracks them.
         //
         // The phase inverter's pole is a property of *this* model's inverter, which is a single
-        // gain-of-40 triode. A real 2203's inverter is a long-tailed pair, whose driven grid sees
-        // very little Miller multiplication because that half runs as a grounded-grid stage with
-        // no inverting plate-to-grid path. D6d should not inherit this pole when it replaces the
+        // triode at kPhaseInverterGain 22.426327. A real 2203's inverter is a long-tailed pair,
+        // whose driven grid sees very little Miller multiplication because that half runs as a
+        // grounded-grid stage with no inverting plate-to-grid path. D6d should not inherit this pole when it replaces the
         // inverter with the LTP.
         const double oversampled_rate_hz = sample_rate_ * kOversamplingFactor;
         v1b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kTriodeGain));

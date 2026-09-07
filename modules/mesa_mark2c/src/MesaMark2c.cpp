@@ -61,6 +61,10 @@ namespace SushiDSP
         /// 96.378299 x 82000 / (82000 + 34061.086) = 68.093628, with dossier 5.1's 82 k plate. The
         /// mu is the local gm x ra from the Koren Jacobian at Vgk -1.5 V, Vpk 284.5 V, as
         /// Jcm800.cpp does, not the model's nominal 100.
+        /// That point is dossier 5.1's printed operating point rather than a solve on the 82 k
+        /// load line, where the Koren model draws 2.946 mA against the line's 1.293 mA and
+        /// dossier question 6 carries the disagreement; solving it gives gain 63.6 or 57.2 with
+        /// degeneration 2.226 or 2.183.
         constexpr float kPhaseInverterGain = 68.093628f;
 
         /// @brief How much wider the inverter's input is than the grid-cathode window it opens, the
