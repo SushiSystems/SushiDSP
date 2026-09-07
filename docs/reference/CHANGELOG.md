@@ -3,6 +3,31 @@
 Grouped by roadmap phase (spec §9). Each phase's implementation plan lives under
 `docs/superpowers/plans/` with the full task-by-task record.
 
+## DS — Stereo, tracks and playback
+
+The studio track, spec `docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan
+`docs/superpowers/plans/2026-09-07-stereo-tracks.md`, ledger
+`.superpowers/sdd/2026-09-07-stereo-tracks/`.
+
+- 2026-09-07 — Routed as many channels per edge as a graph's two nodes declare, adapting 1 into 2, 2 into 1 and n into n (`RigGraph.hpp`, `RigGraph.cpp`).
+- 2026-09-07 — Added `RigGraph::channels_adapt`, `live_buffer_count` and `kMaxChannels = 2`; `compile()` now sizes the buffer pool (`RigGraph.hpp`, `RigGraph.cpp`).
+- 2026-09-07 — Added `routing::PanNode`, one channel into two on a constant-power law (`modules/routing/`).
+- 2026-09-07 — Registered `PanNode` under Routing and gave it a front panel (`NodeRegistry.cpp`, `PanelLibrary.cpp`).
+- 2026-09-07 — Added `WavWriter`, streaming 16-bit PCM and 32-bit float output, the float path carrying a `fact` chunk (`WavWriter.hpp`, `WavWriter.cpp`).
+- 2026-09-07 — Added `modules/capture` with `Take`, `TrackRecorder` and `RecordingBus`, the wait-free recording path (`modules/capture/`).
+- 2026-09-07 — Added `Transport` and `TrackPlayer`, eight tracks with gain, pan, mute and solo (`Transport.hpp`, `TrackPlayer.hpp`).
+- 2026-09-07 — Packed the transport's loop range into one 64-bit word, bounding a loop to 2^32 frames (`Transport.hpp`, `Transport.cpp`).
+- 2026-09-07 — Gave `RigController` the transport, the track list, the recording bus and the re-amp input switch (`RigController.hpp`, `RigController.cpp`).
+- 2026-09-07 — Added the host's transport bar and track panel, and the record and play calls in the callback (`apps/host_gui/ui/TransportBar.cpp`, `apps/host_gui/ui/TrackPanel.cpp`, `apps/host_gui/main.cpp`).
+- 2026-09-07 — Added the track list and the loop range to the preset (`RigController.cpp`).
+- 2026-09-07 — Made a `RecordingBus` block reach both files or neither, through `TrackRecorder::has_room` (`RecordingBus.cpp`, `TrackRecorder.hpp`).
+- 2026-09-07 — Read a WAV's channels apart so `Take::load` keeps them (`WavFile.hpp`, `WavFile.cpp`, `Take.cpp`).
+- 2026-09-07 — Added `SpscRing::clear`, so `arm()` stops freeing rings the audio thread may be inside (`SpscRing.hpp`).
+- 2026-09-07 — Made the allocation trap's flags `thread_local`, so a case measures its own thread (`tests/functional/unit/test_rt_safety.cpp`).
+- 2026-09-07 — Wrote any output width from the SDL2 device through a deinterleaved scratch block (`Sdl2AudioDevice.hpp`, `Sdl2AudioDevice.cpp`).
+- 2026-09-07 — Added `rig_output_adapts_to_device` and `write_rig_output_to_device`, one place for the rig-to-device mapping (`ChannelSelection.hpp`, `ChannelSelection.cpp`).
+- 2026-09-07 — Asked SDL2 for two output channels and prepared the rig at the device's width (`apps/host_gui/main.cpp`).
+
 ## DA — High-gain amplifiers
 
 The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-gain-amps-part1/`.

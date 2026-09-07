@@ -179,6 +179,68 @@ namespace SushiDSP
 - **Transient buffer pool** — block-sized float channel buffers with liveness-based reuse; a node's output frees back to the pool once its last consumer reads it.
 - **Recompile off the RT thread** — the user editing the rig (add/remove/reorder a pedal or amp) recompiles the graph on a control thread; the new graph is swapped in via an atomic pointer flip, the old retired after a grace block. This is the **primary** way users interact with SushiDSP, not a rare structural event.
 
+### §3a The studio path — channels, takes and the transport
+
+The DS phase (spec
+[`docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../superpowers/specs/2026-09-07-stereo-tracks-design.md),
+plan [`docs/superpowers/plans/2026-09-07-stereo-tracks.md`](../superpowers/plans/2026-09-07-stereo-tracks.md))
+made the graph channel-aware, added a capture module beside the products, and gave the standalone
+host a transport, a track list and a re-amp path.
+
+The amplifiers stay mono in and mono out. Spec §2 gives the reason: a guitar amplifier is a mono
+circuit, and running its chain twice over the same samples costs twice the CPU for two identical
+channels. Stereo begins where the channels differ — the pan law, a recorded track placed off
+centre, two cabinets — so the graph's job is to carry whatever width its endpoints declare and
+never collapse one by accident.
+
+**The channel rule.** `RigGraph` acquires `PortLayout::output_channels` buffers per node instead
+of one, and adapts at each edge under a table the graph applies and no node ever sees: one channel
+into two is copied to both, two into one is summed and scaled by 0.5, n into n passes channel for
+channel. `RigGraph::channels_adapt(from, to)` is that table as a predicate, and `compile()` refuses
+any edge it rejects, naming the edge, so an unroutable rig fails at build time. `kMaxChannels` is
+2. `kMaxFanInOut` stays 8, now counted in edges. `PortLayout::input_channels` is a slot count in
+this tree — `MixerNode` declares `{8, 1}` and reads one edge per slot — so a node's width is
+`min(input_channels, output_channels)` and its slot count is `input_channels / width`; edges past
+the last slot fold into it, summed per channel. `live_buffer_count()` reports the pool size
+`compile()` needed: every node's channels, plus `kMaxFanInOut * kMaxChannels` = 16 adaptation
+buffers added once, because a gather's buffers go back to the pool before the next node runs.
+
+**Pan and the device edge.** `routing::PanNode` is `PortLayout{1, 2}` with one `pan` parameter in
+[-1, 1] on a constant-power law, smoothed by `SmoothedParameter`, registered under Routing with a
+front panel. `ChannelSelection` carries the same table out to the device:
+`rig_output_adapts_to_device(rig_channels, device_channels)` answers whether a pair is covered and
+`write_rig_output_to_device()` performs the mapping, allocation-free. `apps/host_gui` asks its
+device for two output channels and prepares the rig at
+`min(device output channels, RigGraph::kMaxChannels)`, so a mono rig fills both speakers and a rig
+ending in a `PanNode` moves between them. `Sdl2AudioDevice` writes any output width: its
+constructor sizes one deinterleaved scratch block, and the callback interleaves into SDL2's buffer;
+a one-channel device keeps the older path that writes SDL2's buffer directly.
+
+**Takes, tracks and the transport.** `modules/capture` is product-independent — it models no
+circuit, exposes no `NodeDescriptor` and depends only on `SushiDSP::sushi_dsp`. It holds `Take` (a
+recording in memory with its sample rate), `TrackRecorder` (one destination: a `SpscRing<float>`
+per channel, a writer thread, a dropped-block counter), `RecordingBus` (the processed/dry pair
+armed in one call, which is what makes the two files sample-aligned), `Transport` and
+`TrackPlayer` (up to `kMaxTracks` = 8 tracks, each with a take, gain, pan, mute and solo).
+`SushiDSP::WavWriter`, in the core's `io/`, is the streaming write half of `WavFile`: 16-bit PCM or
+32-bit float, the float path carrying a `fact` chunk and an 18-byte `fmt `. `TrackRecorder::write`
+and `TrackPlayer::process` are the module's two audio-thread entry points and both are trapped in
+`tests/functional/unit/test_rt_safety.cpp`. `Transport` packs the loop range into one 64-bit word,
+begin in the high half and length in the low, so a block reads both ends in one load and cannot see
+a half-applied range; the cost is that a loop must lie inside the first 2^32 frames, 24.8 hours at
+48 kHz. `modules/capture/README.md` carries the rest.
+
+**Re-amping** needs no node. The host chooses what feeds the rig — `RigInputSource::LiveInput`, a
+track, or both summed — and a dry take played into a different amplifier is then an ordinary
+playback with the switch thrown. The dry leg records the buffer that actually drove the rig rather
+than the raw device input, which departs from spec §5's letter so that the dry file matches the
+processed file beside it whatever the input source is.
+`RigControllerReampingADryTakeReproducesTheRigsOwnOutput`
+(`tests/functional/unit/test_rig_controller.cpp`) renders a Tube Screamer rig, writes a float WAV,
+re-amps it through an identical rig in the host's own callback order, and asserts every sample
+within 1e-6. The preset carries the track list and the transport's loop range.
+
+
 ---
 
 ## §4 DSP math library (portable, SIMD)
@@ -585,6 +647,21 @@ Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical cor
 - **DA — High-gain amplifiers.** §5a: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes, registered in the node registry with their own front-panel layouts. *Ships: all four amps selectable in the rig host, RT-safety-trapped, panel- and registry-tested.*
 - **DA4 — Plate-swing `TriodeStage`.** Spec `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. A physical plate ceiling replaces the level-staging devices in all four amplifiers; the phase-inverter tail degeneration and the `PentodeStage` grid bridge become explicit, derived constants. *Ships: all four amps on the seven-argument `TriodeStage`, a clean end and non-decreasing THD on every gain knob, two known issues carried to DA5 (the JCM800's alias floor, the IIC+'s undocumented loop return).*
 - **DA5 — Antialiasing and the volt-true power stage.** Antiderivative antialiasing in `TriodeStage`, or 16× oversampling, to recover the alias floor DA4 cost; `PentodeStage` rebuilt volt-true; the six-argument `TriodeStage` path and `PlateSwing::apply`'s duplication deleted once `PentodeStage` shares it; the shelf-corner rule and the transformer's DC pass (final review F2, F5, F7).
+
+**DS — stereo, tracks and playback, a parallel track.** Spec
+`docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan
+`docs/superpowers/plans/2026-09-07-stereo-tracks.md`. It runs beside the D phases because nothing
+in it touches the circuit core: it is the graph's channel routing, a capture module and the host.
+§3a describes what it built.
+
+| Phase | What it builds | Status |
+| --- | --- | --- |
+| DS0 | `RigGraph` routes as many channels per edge as its two nodes declare; `channels_adapt()`, `live_buffer_count()`, `kMaxChannels = 2` | Landed 2026-09-07, commit 394a605 |
+| DS1 | `routing::PanNode` on a constant-power law, the same table in `ChannelSelection`, two output channels from both hosts' devices | Landed 2026-09-07, commits 99796e6, bc774fa, 02a9a1a |
+| DS2 | `modules/capture`'s recording half — `Take`, `TrackRecorder`, `RecordingBus` — and `io::WavWriter` | Landed 2026-09-07, commits 39c1a02, 18eb040 |
+| DS3 | `Transport` and `TrackPlayer`: eight tracks, gain, pan, mute, solo, and a loop range packed into one 64-bit word | Landed 2026-09-07, commit 394a605 (attribution, see `docs/reference/KNOWN_ISSUES.md`) |
+| DS4 | The host: a stereo output, record and play in the callback, a transport bar, a track panel, the re-amp input switch, the preset's track list and loop range | Landed 2026-09-07, commits af6a9ed, da342fc, afa0627 |
+| DS5 | OGG export through `libvorbis`/`libogg`, inside `apps/host_gui` only | Deferred; written up once a user asks for it |
 
 **DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration, which waits on `RigGraph`'s per-node multi-channel support.
 
