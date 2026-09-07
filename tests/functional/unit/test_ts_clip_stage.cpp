@@ -1051,10 +1051,15 @@ TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAl
     plain_window.resize(length);
     antialiased_window.resize(length);
 
-    // null_test aligns an integer lag and a gain, so antialiasing's half sample survives it. That
-    // half sample is 2.6 us at this rate and a host could compensate it, so the antialiased port
-    // is also offered the reference delayed by half a sample: the pair of numbers separates the
-    // part of its error a delay line could take back from the part nothing can.
+    // null_test aligns an integer lag and a gain, so antialiasing's half sample survives it, and
+    // the antialiased port is also offered the reference delayed by half a sample. Read that
+    // third number carefully: the two-tap mean below is a delay AND a low-pass, cos(pi*f/fs),
+    // which is -0.26 dB at 15 kHz but -2.6 dB at 45 kHz. Antialiasing's error is corner
+    // attenuation, so this filter attenuates the reference's corner too and the confound runs in
+    // antialiasing's favour. It is printed because it still loses under a handicap that helps it,
+    // which strengthens the verdict; it does not separate delay from attenuation, and nothing
+    // here should be read as doing so. That separation would want a Thiran allpass or a
+    // linear-phase term in the frequency domain.
     std::vector<float> delayed_reference = reference_window;
     for (std::size_t index = delayed_reference.size(); index-- > 1;)
     {

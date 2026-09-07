@@ -62,7 +62,7 @@ plugin misbehave in a DAW regardless of tone. Concretely:
 | WDF | **Deferred indefinitely** — `Wdf.hpp` stays as the two elements it is; spec §4.5 amended to say so | Everything the roadmap needs is covered by DK; keeping two solver families doubles maintenance |
 | Plugin format | **CLAP first, VST3/AU/Standalone via clap-wrapper** | One API, no Steinberg agreement, ImGui editor embeds; wrapper is Apache-compatible |
 | Validation reference | **LTspice schematics + exported CSV responses committed to the repo** | Reproducible without hardware; each circuit block ships with its `.asc` and its golden data |
-| ADAA | Not used. Tried on the TS clip block in D6c C2 and measured worse; see Model corrections (D6c C2), *The verdict* | First-order ADAA at 4× removes a −19 dB aliasing error and introduces a −5 dB band-limiting one. It is built and kept as `AdaaDiodePairPort`, unwired, with its numbers; revisit only at 8× or higher |
+| ADAA | Not used. Tried on the TS clip block in D6c C2 and measured worse; see Model corrections (D6c C2), *The verdict* | Nulled at the shipping 192 kHz against the analogue circuit and against the converged model, first-order ADAA lands 43 dB and 14 dB further away than the plain port. It is built and kept as `AdaaDiodePairPort`, unwired, with its numbers; revisit only at 8× or higher |
 
 ## Architecture overview
 
@@ -326,8 +326,11 @@ use it.
 
 **Status: built, measured, and deliberately not wired in.** `AdaaDiodePairPort` exists beside
 `DiodePairPort` in `modules/tubescreamer/include/SushiDSP/tubescreamer/TubeScreamerCircuits.hpp`
-and switching `TubeScreamer::clip_port_` onto it is a one-declaration change. Do not make that
-change: measured against the analogue circuit at the rate the pedal actually runs, the
+and wiring it in is two edits, not one: `TubeScreamer::clip_port_` changes type, **and**
+`TubeScreamer::reset()` gains a `clip_port_.reset()` call. The port holds a sample interval of
+history and `DkCircuit` is handed it per sample rather than owning it, so `DkCircuit::reset()`
+cannot clear it and a node that forgot the call would carry history across a reset. Do not make
+either change: measured against the analogue circuit at the rate the pedal actually runs, the
 antialiased port is **14 dB further from it** than the plain one. The measurement that decides
 this, and the reason a smaller alias floor does not mean a better model, are under *The verdict*
 below.
@@ -391,6 +394,12 @@ At 192 kHz, Drive 1, a 15 kHz tone at 0.5 V, the folded 13th harmonic at 3 kHz d
 `alias_floor()` improves by less, because the sweep reports the worst tone and a different one
 becomes worst:
 
+Only the plain port's worst-case figure below is a committed measurement
+(`Regression_Dsp.TubeScreamerAliasFloorDoesNotRegress` prints −18.6 dB). **The per-tone rows and
+the whole ADAA column come from a scratch harness and are not committed**, so treat them as
+indicative rather than pinned; the committed evidence for antialiasing's effect on a fold is the
+block-level case named below.
+
 | tone | worst alias, plain | worst alias, ADAA | fold |
 | --- | --- | --- | --- |
 | 9 kHz | −29.5 dB | −59.4 dB | 21st to 3 kHz |
@@ -443,9 +452,10 @@ examples are circuits whose behaviour is the loop; the clip block is not. Retuni
 discretisation would move every corner of the linear part by 1.5×, including the 0.31 Hz input
 high-pass and the small-signal response that
 `Unit_Dsp.DkTsClipBlockSmallSignalResponseMatchesItsClosedForm` pins to a closed form. That is
-why the compensation was not applied, and why the null is reported rather than accommodated. It
-would not have saved the port in any case: the half sample turns out to be the smaller half of
-its error, as the aligned figures below show.
+why the compensation was not applied, and why the null is reported rather than accommodated.
+Whether it would have saved the port is not established here: separating the delay from the
+corner attenuation needs a measurement this task did not build, and *The verdict* below says why
+the one it did build cannot settle that split.
 
 #### The verdict (2026-09-07): the plain port models the circuit better at 192 kHz
 
@@ -479,12 +489,24 @@ which discretisation is closer to the answer it is trying to compute
 15 kHz, 0.5 V, Drive 1:   plain -19.18 dB    ADAA -5.35 dB    ADAA half-sample aligned -5.58 dB
 ```
 
-Plain's −19.18 dB *is* its aliasing: the alias floor at this tone was −18.55 dB relative to the
-fundamental, so essentially the whole of its error against the converged model is the fold. ADAA
-removes that error and puts back one of −5.35 dB — **14 dB worse**. Offering it the reference
-delayed by half a sample makes it slightly worse still, so almost none of that is the removable
-delay; it is the attenuation of the clipped corner, which at 4× is simply too coarse a grid for
-a first-order interval average to sit on.
+**The plain port's residual is 14 dB smaller.** That is the whole of what these numbers say, and
+it is enough to decide. What they do not say is how either residual divides up: −19.18 dB is a
+block-level null containing the fold, the trapezoidal rule's own frequency warping at 15 kHz, and
+everything else the coarser grid gets wrong, and no term in it has been separated from the others
+here. The committed block measurement puts the 13th-harmonic fold at −32.35 dB at this tone and
+drive, well under the −19.18 dB total, so the fold is a part of that residual and not the bulk of
+it.
+
+The third figure is offered with a caveat. `null_test` aligns an integer lag and a gain, so
+antialiasing's half sample survives it, and the reference is therefore also offered delayed by
+half a sample. The two-tap mean that realises that delay is not a pure delay: it is a delay *and*
+a low-pass, `cos(pi*f/fs)`, which is −0.26 dB at 15 kHz but −2.6 dB at 45 kHz. Since antialiasing's
+error is corner attenuation, that filter attenuates the reference's corner too, and the confound
+therefore runs **in antialiasing's favour**. It still lost, by 13.6 dB, which strengthens the
+verdict rather than weakening it — but the reading that almost none of its error is removable
+delay does not follow from this instrument, because this instrument cannot separate the two. A
+clean separation needs a Thiran allpass or a linear-phase term applied in the frequency domain;
+it was not built, because the verdict does not turn on it.
 
 **So: the plain port stays, and the alias floor stays at −18.6 dB.** A smaller alias floor bought
 by a larger total error is not a better model, and the whole-node figure of −31.2 dB, while real,
@@ -518,8 +540,9 @@ port is not wired in, the shipping node's rate stays 0.0054 %.
 3. **8× with the plain port**, C1's decision reverted. The honest remaining route to the alias
    floor, and the one the evidence now points at: it costs no modelling accuracy at all. Task 9
    measured the clip block at 1071 ns/sample at 8× against 586.7 ns/sample for the whole node at
-   4×, so the node would land near 0.28 ms per 256-block against a 0.25 ms budget — over, and the
-   budget or the block would have to give.
+   4×, so the node would land near 0.28 ms per 256-block against a 0.25 ms budget — over, and
+   whether the budget moves or the block gets cheaper is the user's call, not the implementer's.
+   The user has chosen to measure this; that measurement runs as its own task.
 4. **Antialiasing at 8×**, where the interval average sits on a grid fine enough for its error to
    fall below the fold it removes. The error is first order in the timestep, so halving the step
    halves it while the fold it suppresses drops much faster. Untested, and it inherits route 3's
