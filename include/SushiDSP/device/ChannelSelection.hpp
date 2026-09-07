@@ -63,4 +63,27 @@ namespace SushiDSP
     /// @param output_selection Left writes only outputs[0]; Right writes only outputs[1];
     /// Stereo writes both.
     void fan_out_mono_to_stereo(const float* mono, float* const* outputs, std::uint32_t frames, ChannelSelection output_selection);
+
+    /// @brief Reports whether a rig output width can be written to a device output width. The
+    /// table is the one RigGraph::channels_adapt carries: n into n, 1 into 2 (copied), and 2
+    /// into 1 (summed and halved). See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md.
+    /// @param rig_channels The rig's output channel count.
+    /// @param device_channels The device's output channel count.
+    /// @return False when the pair has no rule, which the caller turns into a setup-time refusal.
+    bool rig_output_adapts_to_device(std::uint32_t rig_channels, std::uint32_t device_channels);
+
+    /// @brief Writes a rig's output block into a device's output channels, adapting the width by
+    /// the rig_output_adapts_to_device table. Real-time safe: no allocation, no lock, no syscall,
+    /// no throw. Every device channel is written, so the caller never needs a separate memset.
+    /// @param rig_outputs One pointer per rig output channel, each `frames` samples.
+    /// @param rig_channels The rig's output channel count, 1 or 2.
+    /// @param device_outputs One pointer per device output channel, each `frames` samples.
+    /// @param device_channels The device's output channel count, 1 or 2.
+    /// @param frames Sample count per channel.
+    /// @param output_selection Gates a two-channel device: Left writes only device_outputs[0],
+    /// Right only device_outputs[1], Stereo both. A one-channel device ignores it.
+    /// @pre rig_output_adapts_to_device(rig_channels, device_channels) is true.
+    void write_rig_output_to_device(const float* const* rig_outputs, std::uint32_t rig_channels,
+                                    float* const* device_outputs, std::uint32_t device_channels,
+                                    std::uint32_t frames, ChannelSelection output_selection);
 }

@@ -25,6 +25,9 @@
 
 #include "SushiDSP/core/IAudioDevice.hpp"
 
+#include <cstdint>
+#include <vector>
+
 struct SDL_AudioSpec;
 
 namespace SushiDSP
@@ -47,10 +50,34 @@ namespace SushiDSP
         void stop() override;
 
     private:
-        DeviceFormat   format_;
-        unsigned int   device_id_;
+        /// @brief Holds the format the device actually opened at.
+        DeviceFormat format_;
+
+        /// @brief Identifies the open SDL2 device; 0 when none is open.
+        unsigned int device_id_;
+
+        /// @brief Holds the caller's per-block callback, empty while the device is stopped.
         DeviceCallback callback_;
 
+        /// @brief Holds one deinterleaved output channel after another, block_size frames each.
+        /// Empty for a one-channel device, which writes SDL2's buffer directly.
+        std::vector<float> deinterleaved_output_;
+
+        /// @brief Points at each channel's span of deinterleaved_output_, in channel order.
+        std::vector<float*> output_channel_pointers_;
+
+        /// @brief Interleaves one block of channels into a destination frame by frame.
+        /// @param channels One pointer per channel, each holding `frames` samples.
+        /// @param channel_count The number of channels, matching the destination's stride.
+        /// @param frames Sample count per channel.
+        /// @param destination The interleaved buffer, channel_count * frames samples.
+        static void interleave(const float* const* channels, std::uint32_t channel_count,
+                               std::uint32_t frames, float* destination);
+
+        /// @brief Serves SDL2's audio thread by running the caller's callback into `stream`.
+        /// @param userdata The Sdl2AudioDevice that opened the device.
+        /// @param stream SDL2's interleaved output buffer.
+        /// @param length_bytes The buffer's size in bytes.
         static void sdl_callback(void* userdata, unsigned char* stream, int length_bytes);
     };
 }
