@@ -34,7 +34,7 @@
 
 namespace
 {
-    constexpr double PI = 3.14159265358979323846;
+    constexpr double kPi = 3.14159265358979323846;
 
     std::string temp_wav_path(const std::string& name)
     {
@@ -47,7 +47,7 @@ namespace
         for (std::size_t i = 0; i < count; ++i)
         {
             samples[i] = static_cast<float>(
-                0.5 * std::sin(2.0 * PI * frequency * static_cast<double>(i) / sample_rate));
+                0.5 * std::sin(2.0 * kPi * frequency * static_cast<double>(i) / sample_rate));
         }
         return samples;
     }
@@ -174,6 +174,59 @@ TEST(Unit_Io, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
     EXPECT_EQ(read_u32_le(4), 36 + expected_data_bytes);
     EXPECT_EQ(read_u32_le(40), expected_data_bytes);
     EXPECT_EQ(bytes.size(), 44 + expected_data_bytes);
+}
+
+TEST(Unit_Io, WavWriterFloat32HeaderCarriesAnExtensibleFmtChunkAndAFactChunk)
+{
+    const std::string path = temp_wav_path("sushidsp_wav_writer_fact_chunk.wav");
+    const std::vector<float> samples = sine(50, 440.0, 48000.0);
+
+    {
+        SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32);
+        const float* channels[1] = { samples.data() };
+        writer.append(channels, static_cast<std::uint32_t>(samples.size()));
+    }
+
+    std::ifstream file(path, std::ios::binary);
+    ASSERT_TRUE(static_cast<bool>(file));
+    std::vector<std::uint8_t> bytes(
+        (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+    const auto read_u32_le = [&bytes](std::size_t offset) {
+        return static_cast<std::uint32_t>(bytes[offset]) |
+               (static_cast<std::uint32_t>(bytes[offset + 1]) << 8) |
+               (static_cast<std::uint32_t>(bytes[offset + 2]) << 16) |
+               (static_cast<std::uint32_t>(bytes[offset + 3]) << 24);
+    };
+    const auto read_u16_le = [&bytes](std::size_t offset) {
+        return static_cast<std::uint16_t>(bytes[offset] | (bytes[offset + 1] << 8));
+    };
+    const auto read_tag = [&bytes](std::size_t offset) {
+        return std::string(reinterpret_cast<const char*>(bytes.data() + offset), 4);
+    };
+
+    const std::uint32_t data_bytes = static_cast<std::uint32_t>(samples.size() * sizeof(float));
+
+    EXPECT_EQ(read_tag(0), "RIFF");
+    EXPECT_EQ(read_u32_le(4), 50u + data_bytes);
+    EXPECT_EQ(read_tag(8), "WAVE");
+    EXPECT_EQ(read_tag(12), "fmt ");
+    EXPECT_EQ(read_u32_le(16), 18u);
+    EXPECT_EQ(read_u16_le(20), 3u); // IEEE float format tag.
+    EXPECT_EQ(read_u16_le(36), 0u); // cbSize.
+    EXPECT_EQ(read_tag(38), "fact");
+    EXPECT_EQ(read_u32_le(42), 4u);
+    EXPECT_EQ(read_u32_le(46), samples.size());
+    EXPECT_EQ(read_tag(50), "data");
+    EXPECT_EQ(read_u32_le(54), data_bytes);
+    EXPECT_EQ(bytes.size(), 58u + data_bytes);
+
+    const auto readback = SushiDSP::WavFile::load_mono(path);
+    ASSERT_EQ(readback.size(), samples.size());
+    for (std::size_t i = 0; i < samples.size(); ++i)
+    {
+        EXPECT_FLOAT_EQ(readback[i], samples[i]);
+    }
 }
 
 TEST(Unit_Io, WavWriterThrowsWhenThePathCannotBeOpened)
