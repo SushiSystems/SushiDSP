@@ -38,13 +38,13 @@ namespace SushiDSP
     /// @brief Mixes up to kMaxTracks recorded takes into one output at the transport's
     /// position. Each track carries its own take, gain, pan, mute and solo; the control thread
     /// sets all five and the audio thread only reads them, so a take can be swapped under a
-    /// running mix without a lock.
-    ///
-    /// process() adds into the output rather than overwriting it, so the caller clears or fills
-    /// the buffer first and the player layers playback onto whatever is already there.
+    /// running mix without a lock. process() adds into the output rather than overwriting it, so
+    /// the caller clears or fills the buffer first.
+    /// @see docs/superpowers/specs/2026-09-07-stereo-tracks-design.md §6
     class TrackPlayer
     {
     public:
+        /// @brief Caps how many tracks the player mixes.
         static constexpr std::size_t kMaxTracks = 8;
 
         TrackPlayer() = default;
@@ -118,10 +118,19 @@ namespace SushiDSP
         /// @brief One track's take and its four mix controls.
         struct Track
         {
+            /// @brief Holds the take the audio thread reads, swappable under a running mix.
             RtSwapSlot<Take>   take;
+
+            /// @brief Holds the linear gain applied to every sample of the track.
             std::atomic<float> gain{ 1.0f };
+
+            /// @brief Holds the pan position in [-1, 1].
             std::atomic<float> pan{ 0.0f };
+
+            /// @brief Marks the track as dropped from the mix.
             std::atomic<bool>  muted{ false };
+
+            /// @brief Marks the track as one of the only ones heard.
             std::atomic<bool>  soloed{ false };
         };
 
@@ -138,6 +147,7 @@ namespace SushiDSP
                             std::uint32_t offset, std::uint32_t count, std::uint64_t position,
                             float gain_left, float gain_right) noexcept;
 
+        /// @brief Holds every track's take and mix controls.
         std::array<Track, kMaxTracks> tracks_;
     };
 }

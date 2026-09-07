@@ -76,7 +76,7 @@ namespace SushiDSP
 
     void Transport::set_loop(std::uint64_t begin_frames, std::uint64_t end_frames) noexcept
     {
-        if (end_frames <= begin_frames || end_frames > kLoopFieldLimit
+        if (end_frames <= begin_frames || end_frames - begin_frames >= kLoopFieldLimit
             || begin_frames >= kLoopFieldLimit)
         {
             clear_loop();

@@ -52,6 +52,23 @@ reports the figure it needed so the host can size the pool.
 RT safety is unchanged: the gather arrays are fixed-size members sized at `compile()`, and
 `process()` still allocates nothing.
 
+**Why `channels_of` reads `input_channels` as a slot count.** `PortLayout::input_channels` has
+counted a node's input slots since the graph was written: `MixerNode` declares `kMaxFanIn` of them
+and reads one edge from each. A node's channel width therefore comes from `output_channels`,
+narrowed by `input_channels` so that a widening node (1 in, 2 out) is still fed the single channel
+it consumes. Changing the field's meaning would rewrite every node's `ports()`, so the graph reads
+it the way the nodes already write it.
+
+**Why the pool reserve is one gather, not one per edge.** The adaptation buffers live only while
+one node's inputs are being gathered and go back to the pool before the next node runs, so the
+reserve is the widest single gather, `kMaxFanInOut * kMaxChannels` = 16, added once. Sizing it per
+edge would multiply the pool by the graph's edge count for buffers that are never live together.
+
+**Why a fan-in edge past the last slot folds into that slot.** A consumer declaring fewer slots
+than the edges reaching it would otherwise drop the surplus silently. Folding them into the last
+slot sums them per channel instead, which is what §2 says fan-in does, and keeps `compile()` the
+only place a rig is refused.
+
 ## 4. DS1 — pan and the stereo output
 
 - `routing::PanNode`, `PortLayout{1, 2}`, one parameter `pan` in [-1, 1] with a constant-power law
@@ -109,6 +126,13 @@ Same module, because a take is the same object read instead of written.
 - **`Transport`** owns the sample position, the play and record states, and an optional loop range.
   The RT thread advances it; the UI reads it. A single `std::atomic<std::uint64_t>` position and an
   atomic state word are enough — no lock either way.
+
+**Why the loop range is packed into one word.** The audio thread needs both ends of the range to
+agree with each other. Two atomics let a block read a begin from before a `set_loop` and an end
+from after it, and wrap somewhere neither range contains. Packing the begin into the high half and
+the length into the low half makes the pair a single 64-bit load, so a half-applied range cannot be
+observed and no seqlock is needed. The cost is that a loop must lie inside the first 2^32 frames of
+the timeline, a little over 24 hours at 48 kHz, which is longer than any take this host records.
 
 **Re-amping** needs no node. The host already assembles the buffer it hands the graph; DS3 gives it
 a switch: the rig's input is the live device input, a dry take from the player, or both summed. A

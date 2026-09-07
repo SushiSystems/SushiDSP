@@ -311,4 +311,14 @@ TEST(Unit_Dsp, TransportStateAndPositionRoundTrip)
 
     transport.set_loop(200, 200);
     EXPECT_FALSE(transport.has_loop());
+
+    transport.set_loop(0, 0x1'0000'0000ull);
+    EXPECT_FALSE(transport.has_loop());
+    EXPECT_EQ(transport.loop_begin_frames(), 0u);
+    EXPECT_EQ(transport.loop_end_frames(), 0u);
+
+    transport.set_loop(1, 0x1'0000'0000ull);
+    EXPECT_TRUE(transport.has_loop());
+    EXPECT_EQ(transport.loop_begin_frames(), 1u);
+    EXPECT_EQ(transport.loop_end_frames(), 0x1'0000'0000ull);
 }
