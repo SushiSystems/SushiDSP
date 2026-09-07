@@ -48,6 +48,7 @@ add_executable(sushidsp_tests
     functional/unit/test_transport.cpp
     functional/unit/test_take_library.cpp
     functional/unit/test_musical_clock.cpp
+    functional/unit/test_vari_rate_reader.cpp
     functional/unit/test_rig_preset.cpp
     functional/unit/test_rt_graph_slot.cpp
     functional/unit/test_rt_swap_slot.cpp
