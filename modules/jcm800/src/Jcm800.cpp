@@ -97,8 +97,12 @@ namespace SushiDSP
         /// cathode follows the driven grid. The other triode's cathode presents
         /// (r_a + R_a)/(mu + 1) = 271506.723/75.254859 = 3607.8298 Ohm in parallel with the tail,
         /// so the grid-to-cathode signal is the input over 1 + R_tail/(R_tail + that), which is
-        /// 1 + 20940/(20940 + 3607.8298).
-        constexpr float kPhaseInverterDegeneration = 1.853029f;
+        /// 1 + 10470/(10470 + 3607.8298).
+        /// @pre R_tail here is the 10.47 kOhm both cathodes share, the 470 Ohm and the 10 kOhm in
+        /// series to ground (jcm_ltp); both are in the tail, so neither belongs in the shunt
+        /// branch. The bias solve above uses 20.94 kOhm instead, because there the whole pair's
+        /// current crosses that same 10.47 kOhm and each half sees twice it against its own.
+        constexpr float kPhaseInverterDegeneration = 1.743723f;
 
         /// @brief The bridge between the volt-true preamp and PentodeStage's grid units, until
         /// PentodeStage becomes volt-true (DA5). kEl34's grid saturates at 1/(0.05 * 8) = 2.5

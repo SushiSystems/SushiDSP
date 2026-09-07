@@ -45,12 +45,15 @@ in the descriptor.
 
 ## Derived factors that are not stage constants
 
-- **`kPhaseInverterDegeneration`, 1.853029, divided into the inverter's input.** The inverter is
+- **`kPhaseInverterDegeneration`, 1.743723, divided into the inverter's input.** The inverter is
   a long-tailed pair, so its shared cathode follows the driven grid. The other triode's cathode
   presents `(r_a + R_a)/(µ + 1)` = 271506.723/75.254859 = 3607.8298 Ω in parallel with the tail,
   so the grid-to-cathode signal is the input over `1 + R_tail/(R_tail + that)` =
-  1 + 20940/(20940 + 3607.8298). µ is 74.254859 = gm·r_a from the Koren Jacobian at the idle
-  point above, with gm 391.832 µS and r_a 189506.723 Ω.
+  1 + 10470/(10470 + 3607.8298). µ is 74.254859 = gm·r_a from the Koren Jacobian at the idle
+  point above, with gm 391.832 µS and r_a 189506.723 Ω. R_tail is the 10.47 kΩ both cathodes
+  share — `jcm_ltp`'s 470 Ω and 10 kΩ in series to ground, both in the tail, so neither goes in
+  the shunt branch. The bias solve uses 20.94 kΩ, which is the per-half DC equivalent: the whole
+  pair's current crosses that same 10.47 kΩ, so each half sees twice it against its own current.
 - **`kPhaseInverterGain`, 22.426327.** One triode's full load-line gain,
   `µ·R_a/(r_a + R_a)` = 74.254859 × 82000/271506.723. It is the whole single-triode gain: the
   pair's split already lives in the degeneration factor, and halving it here would count that
@@ -73,9 +76,9 @@ in the descriptor.
 
 ## What is approximated rather than transcribed
 
-- **The stage gains, 60 for the three 12AX7 stages and 40 for the inverter.** They are the D6a
-  single-number approximations of each block's mid-band gain, not values read off a load line.
-  D6d replaces them stage by stage with a DK solve.
+- **The stage gains, 60 for the three 12AX7 stages.** They are the D6a single-number
+  approximations of each block's mid-band gain, not values read off a load line. D6d replaces
+  them stage by stage with a DK solve. The inverter's 22.426327 is derived, not approximated.
 - **The phase inverter is one triode**, with the pair's tail degeneration divided into its input.
   A 2203's inverter is the long-tailed pair `jcm_ltp` describes; the plate swing above is the
   driven half's, and the second half's plate is not in the model at all.
@@ -119,7 +122,7 @@ measured 2026-09-07. These are measurements, not assertions; no test pins them.
 | V1a | 0.2239 V |
 | V1b | 0.1112 V |
 | V2a | 2.6627 V |
-| Phase inverter | 4.3314 V |
+| Phase inverter | 4.3330 V |
 
 V1a and V1b stay below their conduction knees, V2a stays inside the solver's 160·Vt = 4.136 V
 cutoff fence, and the inverter is on its bound, so it is in hard cutoff for part of every cycle.
@@ -132,12 +135,12 @@ over the last 0.5 s are both exactly 0, at the default setting and at preamp 0.0
 Measured 2026-09-07, all at 48 kHz with a 256-frame block:
 
 - **A clean end exists.** Preamp 0.01 (the first position that passes signal;
-  `preamp_attenuation(0)` is exactly zero), −40 dBFS 1 kHz: THD 0.190 %.
-- **THD does not fall as the knob rises.** At a 0.2 input: 15.324 % at preamp 0.02, 42.589 % at
-  0.1, then 44.548, 44.790, 44.855, 44.886, 44.915, 44.937, 44.957, 44.972 and 44.982 % at 1.0.
+  `preamp_attenuation(0)` is exactly zero), −40 dBFS 1 kHz: THD 0.191 %.
+- **THD does not fall as the knob rises.** At a 0.2 input: 15.998 % at preamp 0.02, 42.812 % at
+  0.1, then 44.586, 44.803, 44.862, 44.893, 44.920, 44.942, 44.959, 44.974 and 44.986 % at 1.0.
 - **Default settings peak at −6.0000 dBFS** for a −12 dBFS 82 Hz sine.
-- **The output tracks its input.** At preamp 0.02, a 0.01 input peaks at 0.045959 and a 0.251
-  input at 0.283594.
+- **The output tracks its input.** At preamp 0.02, a 0.01 input peaks at 0.048199 and a 0.251
+  input at 0.286754.
 
 ## Known issue: the alias floor
 
@@ -164,7 +167,7 @@ generate more distinct harmonics to fold, and the fundamental shrinks with them.
 
 ## Calibration
 
-`Jcm800::kMasterUnityGain` is 0.3108168, re-measured on 2026-09-07. It puts a −12 dBFS 82 Hz sine
+`Jcm800::kMasterUnityGain` is 0.3101991, re-measured on 2026-09-07. It puts a −12 dBFS 82 Hz sine
 at default knobs out at −6.0000 dBFS, which is what
 `Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` pins. The previous value,
 3.5825659, was calibrated in D5b against the staged chain.

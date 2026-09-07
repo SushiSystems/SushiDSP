@@ -210,8 +210,8 @@ TEST(Unit_Dsp, Jcm800PreampIncreasesOutputEnergy)
 
     // The claim used to be 6 dB between preamp 0.1 and 1.0. DA4 removed the interstage staging
     // scalars and gave the chain the losses the decks document, and the cascade saturates below
-    // preamp 0.1, so the knob moves output level by 5.8 % rather than 6 dB: 0.200733 RMS at 0.1
-    // against 0.212315 at 1.0, measured 2026-09-07. What survives is that the knob never costs
+    // preamp 0.1, so the knob moves output level by 5.3 % rather than 6 dB: 0.201164 RMS at 0.1
+    // against 0.211904 at 1.0, measured 2026-09-07. What survives is that the knob never costs
     // level, so that is what is pinned, with 1 % of slack for the sag stage's drift over a
     // 30-block run.
     EXPECT_GE(high_preamp_rms, low_preamp_rms * 0.99f);
@@ -222,7 +222,7 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
     // A quiet note and a loud note must come out at different levels; the failure this guards
     // against is the amp degenerating into a fixed-amplitude square-wave generator. Measured
     // 2026-09-07 at preamp 0.02, near the bottom of the knob where the cascade is not yet fully
-    // saturated: a 0.01 input peaks at 0.045959 and a 0.251 input at 0.283594, a factor of 6.17.
+    // saturated: a 0.01 input peaks at 0.048199 and a 0.251 input at 0.286754, a factor of 5.95.
     // The knob is read at 0.02 rather than at the minimum, where preamp_attenuation(0) is exactly
     // zero and there is no output to compare.
     auto measure_peak = [](float input_amplitude) -> float
@@ -475,8 +475,8 @@ TEST(Unit_Dsp, Jcm800ThdDoesNotFallAsPreampRises)
     // as the gain knob rises, within 1.0 percentage point across its travel. The old claim was a
     // strictly monotonic rise from a clean bottom, which DA4 ended: with the interstage staging
     // scalars gone, V2a and the phase inverter clip at every setting and the metric saturates.
-    // Measured 2026-09-07 at a 0.2 input, master at 0 dB: 15.324 % at preamp 0.02, 42.589 % at
-    // 0.1, then 44.548, 44.790, 44.855, 44.886, 44.915, 44.937, 44.957, 44.972 and 44.982 % at
+    // Measured 2026-09-07 at a 0.2 input, master at 0 dB: 15.998 % at preamp 0.02, 42.812 % at
+    // 0.1, then 44.586, 44.803, 44.862, 44.893, 44.920, 44.942, 44.959, 44.974 and 44.986 % at
     // 1.0. The sweep never falls; it flattens above 0.2 because every stage is already clipping.
     //
     // The sweep starts at 0.02 rather than 0.0 because preamp_attenuation(0) is exactly zero: the
@@ -573,13 +573,15 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     //
     // The direction reversed on 2026-09-07, when the corrected long-tailed-pair factor changed
     // what the inverter delivers to the grids. At preamp 0.5, 0.2 input, the second harmonic now
-    // reads 0.007098705 of the fundamental as shipped against 0.007087601 with the mismatch
-    // zeroed: the mismatch raises it by 1.11e-5, where before the correction it lowered it by
+    // reads 0.007257050 of the fundamental as shipped against 0.007239286 with the mismatch
+    // zeroed: the mismatch raises it by 1.78e-5, where before the correction it lowered it by
     // 4.11e-7 and the pre-DA4 chain lowered it by 0.0076 (2.17 % against 2.93 %). Raising it is
     // the naive direction, and it is what a pair whose handover asymmetry is no longer cancelled
     // by an out-of-phase preamp asymmetry does.
     //
-    // The gate is signed, so it pins that direction, and set at 1e-6, a tenth of the difference.
+    // The gate is signed, so it pins that direction, and set at 1e-6. The difference itself moves
+    // between 1.8e-5 and 5.6e-5 with the compiler's flags, so the gate sits an order of magnitude
+    // under the smallest reading rather than at a fixed fraction of one of them.
     constexpr double sample_rate = 48000.0;
     constexpr double frequency = 220.0;
 
