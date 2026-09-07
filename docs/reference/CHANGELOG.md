@@ -46,6 +46,16 @@ The studio track, spec `docs/superpowers/specs/2026-09-07-stereo-tracks-design.m
 
 The high-gain-amp track's first phase, plan `.superpowers/sdd/2026-09-06-high-gain-amps-part1/`.
 
+### DA5 part 3 — the transformer's secondary, the Deep measurement and 16x, spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` section 14
+
+- 2026-09-07 — Removed the saturated signal's running mean from `OutputTransformerStage`'s output, tracked in double a decade under the rolloff corner (`OutputTransformerStage.hpp`, `OutputTransformerStage.cpp`).
+- 2026-09-07 — Added `OutputTransformerStageSecondaryCarriesNoMean`, a 40 % duty square reading +0.000005 where the old stage read −0.063500 (`test_output_transformer_stage.cpp`).
+- 2026-09-07 — Tightened the IIC+ DC-stability bound from 0.25 to 0.01, the high stop reading −0.00009 (`test_mesa_mark2c.cpp`).
+- 2026-09-07 — Moved the VH4 Deep measurement to 20 dB under unity master, where the −40 dBFS sweep leaves the rail; 4.813 dB at 80 Hz (`test_diezel_vh4.cpp`).
+- 2026-09-07 — Re-pinned the four unity constants at 82 Hz: JCM800 0.2500494, 5150 0.1710120, IIC+ 0.2349335, VH4 0.2319680 (`Jcm800.hpp`, `Peavey5150.hpp`, `MesaMark2c.hpp`, `DiezelVh4.hpp`).
+- 2026-09-07 — Recorded the VH4's pair DC, the IIC+'s DC and the four calibration histories in the module READMEs (`modules/diezel_vh4/README.md`, `modules/mesa_mark2c/README.md`, `modules/jcm800/README.md`, `modules/peavey5150/README.md`).
+- 2026-09-07 — Wrote the 16x measurement, its CPU cost and the float-biquad floor into the spec's section 14 and `KNOWN_ISSUES.md` (`docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, `docs/reference/KNOWN_ISSUES.md`).
+
 ### DA5 part 2 — the volt-true power stage, spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` section 13
 
 - 2026-09-07 — Moved `PlateSwing` and `GridConductionLaw` into their own headers and gave `PlateSwing` the `bound()` both stages call (`PlateSwing.hpp`, `GridConductionLaw.hpp`, `TriodeStage.hpp`, `TriodeStage.cpp`).

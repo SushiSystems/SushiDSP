@@ -1,6 +1,6 @@
 # The grid knee, antialiasing and the volt-true power stage
 
-**Status:** Parts 1 and 2 built, 2026-09-07: decisions 1, 3, 4, 5, 6 and 7 taken and implemented (sections 12 and 13); decision 2 open, waiting on the 16x measurement. Evidence in `.superpowers/sdd/amp-gain-staging/diagnosis.md`, `.superpowers/sdd/amp-gain-staging/da5-grid-law-report.md` and `.superpowers/sdd/amp-gain-staging/da5-part2-report.md`. Succeeds DA4 (`2026-09-07-triode-plate-swing-design.md`) as the DA5 spec.
+**Status:** Parts 1, 2 and 3 built, 2026-09-07: decisions 1, 3, 4, 5, 6 and 7 taken and implemented (sections 12 and 13); the 16x measurement decision 2 asked for is in section 14, and decision 2 itself is open. Evidence in `.superpowers/sdd/amp-gain-staging/diagnosis.md`, `.superpowers/sdd/amp-gain-staging/da5-grid-law-report.md`, `.superpowers/sdd/amp-gain-staging/da5-part2-report.md` and `.superpowers/sdd/amp-gain-staging/da5-part3-report.md`. Succeeds DA4 (`2026-09-07-triode-plate-swing-design.md`) as the DA5 spec.
 
 ## 1. Goal
 
@@ -241,4 +241,90 @@ Part 2 implements both and section 5, and nothing under section 4.
 - `Peavey5150EvenHarmonicsRiseFromLowToFullPreGain` compares the same two physical drive levels
   it always did, PRE GAIN 0.4776 on the audio taper standing for 0.2 on `n·√n`, and gates a
   factor of 2 on a measured 3.18.
+- The eight goldens of section 9 move and are not regenerated here.
+
+## 14. What part 3 built, and what 16x measures
+
+The first build of parts 1 and 2 failed two VH4 tests, both real. Part 3 fixes them and takes
+the 16x measurement decision 2 waits on; the oversampling factor stays 8x and there is no ADAA.
+Every figure is from a probe compiled with the build's toolchain and flags
+(`.superpowers/sdd/amp-gain-staging/da5-part3-report.md`).
+
+- **The VH4's DC offset was the output transformer's.** Traced stage by stage at bass 0, a 0.2
+  220 Hz input and the master at unity: the inverter's plate carries a mean of +5.5 V on a ±117 V
+  swing (+9.9 V at volume 1, +13.0 V at gain 1), the pair's difference carries +0.1035 on a 2.2222
+  full clip (4.66 %; 2.31 % at volume 1), `OutputTransformerStage`'s 60 Hz rolloff removes that
+  mean to within the window's residual, and its tanh puts +0.0211 back, because the two halves of
+  the square it compresses are not equally long; the sag stage scales that to +0.0096, Deep at its
+  default lifts DC by its 5 dB to +0.0161, and the clamp reads +0.0167 (the test's 220 Hz window
+  reads 0.0152). The pair's mean is the circuit's: every stage past V1a clips asymmetrically and
+  each coupling corner removes the mean the stage before it made, so the square that reaches the
+  power tubes has unequal halves. In the amplifier the coupling capacitors and the transformer
+  pass none of it. The 2203's 0.022 µF into 230 kΩ (31.45 Hz) added between the inverter and the
+  EL34 grids moves the pair's mean from 0.045 to 0.064 at volume 1 and does not cure it, so no
+  capacitor is added; the transformer's float rolloff leaks 0.0006 of a 0.1 DC at 384 kHz, which
+  is negligible. The fix is in the brick: the stage's secondary carries no mean, a one-pole
+  running mean in double subtracted after the tanh, its corner a decade under the rolloff's (6 Hz,
+  `kSecondaryMeanCornerFraction`). The transformer's mean reads +0.00003 at bass 0, the VH4's
+  output 0.0010 on the test's window (0.0023 on a 117-cycle window), the remainder made where the
+  ±1 clamp cuts the unequal halves of a 1.06 peak. The IIC+'s every-knob-at-1 setting reads
+  −0.00009 (−80.7 dBFS; −0.00054 before, −0.0506 when its README was written), and its test's
+  bound returns from 0.25 to the 0.01 an ideal transformer gives.
+  `OutputTransformerStageSecondaryCarriesNoMean` pins the brick: a 220 Hz square of 2.2 at 40 %
+  duty read −0.063500 through the old stage and reads +0.000005.
+- **The reorder was measured and rejected.** Leakage, tanh, then rolloff also takes the mean out
+  of the transformer (−0.0007 at bass 0) but the rolloff's edge overshoot on a clipped square is
+  then uncompressed: the VH4's pre-clamp peak rises from 1.036 to 1.249, the clamp makes 0.0093 of
+  DC on its own, the four default peaks at 82 Hz move to −3.94, −4.85, −3.67 and −3.77 dBFS, and
+  the stage's ceiling test reads 5.18 against its 4.33 bound.
+- **The Deep shelf is intact; the measurement was on the rail.** `frequency_response()` sweeps at
+  −40 dBFS, and since part 2 the VH4 turns that into a full-scale output: at unity the flat
+  response at 80 Hz reads +39.8 dB over the sweep, the output sits on the ±1 clamp, and a shelf
+  lifting a clamped signal reads 2.07 dB at 80 Hz. With the master 10, 20 and 40 dB under unity
+  the lift reads 4.813 dB alike, against the RBJ shelf's exact 5.000 at its corner (the estimator's
+  own error; it read 4.622 before part 2). The test measures 20 dB under unity. 20 Hz reads
+  6.840 dB, where C13 has thrown the fundamental away before the first distorting stage.
+- **Unity constants at 82 Hz**, re-pinned because the DC the transformer no longer carries was
+  part of each peak (readings before the re-pin −5.88, −5.90, −5.81, −5.83 dBFS): JCM800
+  0.2500494, 5150 0.1710120, IIC+ 0.2349335, VH4 0.2319680; each reads −6.000 dBFS. THD sweeps
+  move by under 0.25 percentage points; the alias floors at 8x do not move.
+- **16x, measured.** One more `HalfbandUpsampler2x` / `HalfbandDownsampler2x` pair on
+  `kHalfbandStage3` (at 16x its passband reaches 1.1 f_base and its stopband starts at 6.9, so the
+  8x image at 7.45 f_base is rejected), the region's corners re-derived at 768 kHz.
+  `measure::alias_floor()` at −12 dBFS, 8x as shipped against 16x:
+
+  | Setting | 8x | 16x | Gain | Short of −33.8 dB |
+  | --- | --- | --- | --- | --- |
+  | JCM800 default (preamp 0.5) | −16.3 dB | −35.0 dB | 18.7 dB | inside by 1.2 dB |
+  | JCM800 preamp 1.0, master 0 dB | −13.4 dB | −25.1 dB | 11.7 dB | 8.7 dB |
+  | 5150 default (pre gain 0.5) | −11.4 dB | −19.9 dB | 8.5 dB | 13.9 dB |
+  | IIC+ default | −0.1 dB | −14.3 dB | 14.2 dB | 19.5 dB |
+  | VH4 default | −13.3 dB | −27.3 dB | 14.0 dB | 6.5 dB |
+
+  At every default the worst bin is a fold of a 17 to 20 kHz tone landing between 1 and 8 kHz at
+  both rates, so the figures are aliases. The gains exceed the 6 dB section 4 estimated because the
+  worst products at 8x are the fold's highest-order terms, which 16x moves out of the band rather
+  than attenuating.
+- **The clean settings' floor is float rounding, not aliasing.** The JCM800 at preamp 0.02 reads
+  −48.0 dB at 8x and −35.9 dB at 16x, and at both rates its worst bins sit between 20 and 100 Hz.
+  With `Biquad`'s coefficients and state in double (a probe-only header, interface unchanged) the
+  same setting reads −78.0 dB at 8x and −81.2 dB at 16x with its worst bins at kilohertz, and the
+  hot defaults do not move (JCM800 −16.3 and −34.9 dB). The transformer's rolloff alone in double
+  changes nothing, and the sag envelope in double changes nothing, so the source is the other
+  low-corner second-order biquads at the oversampled rate: the JCM800's 120 Hz bass shelf sits at
+  1.56e-4 of 768 kHz, the transformer's 60 Hz rolloff at 7.8e-5, under `set_high_pass`'s own 1e-4
+  precondition. The shipped part-2 figure of −48.0 dB at preamp 0.02 is this floor, not a fold.
+- **The cost of 16x**, `tests/benchmark/Benchmark.hpp`'s harness at the build's `-O0 -g`, 48 kHz,
+  256 frames, best of 200, against the 5.33 ms block: JCM800 at the bench's knobs 1.310 → 2.519 ms
+  (the shipped bench reads 1.298), JCM800 default 1.337 → 2.583, 5150 default 2.633 → 5.187 (97 %
+  of the block), IIC+ default 2.022 → 3.931, VH4 default 1.687 → 3.274; the oversampler round trip
+  0.207 → 0.335 ms. At `-O2`: 1.220 → 2.349, 1.256 → 2.411, 2.534 → 5.052, 1.948 → 3.826,
+  1.616 → 3.123 ms.
+- **Recommendation.** 16x alone does not bring the amplifiers under −33.8 dB: one of five settings
+  crosses it, the 5150 stays 13.9 dB short and the IIC+ 19.5 dB, and the 5150 alone would take the
+  whole block. What closes the rest is the fold's own remedy, ADAA on the composite stage function
+  (section 4; `ts_clip`'s ADAA measured 23.5 dB on its 13th harmonic), at 8x, with 16x held as the
+  6 to 19 dB it buys if ADAA leaves a gap. Whichever is chosen, `Biquad` wants double state before
+  the region's rate rises: the clean settings' floor is already the float biquads' at 8x, and 16x
+  raises it 12 dB.
 - The eight goldens of section 9 move and are not regenerated here.
