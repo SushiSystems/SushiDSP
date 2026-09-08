@@ -1696,9 +1696,11 @@ TEST(Unit_Dsp, ModalBankRingsAtEachModesFrequency)
     SushiDSP::room::ModalDesign design{};
     design.count = 1u;
     // A resonator at 68.6 Hz, the garage's 2.5 m axial mode, with a 1.0 s 60 dB decay at 48 kHz:
-    // r = 10^(-3 / (1.0 * 48000)) = 0.99985614 and theta = 2 * pi * 68.6 / 48000 = 0.00897917,
-    // so a1 = -2 * r * cos(theta) = -1.99963208 and a2 = r * r = 0.99971230.
-    design.modes[0].section = { 1.0, 0.0, -1.0, -1.99963208, 0.99971230 };
+    // r = 10^(-3 / (1.0 * 48000)) = 0.99985610 and theta = 2 * pi * 68.6 / 48000 = 0.00897972,
+    // so a1 = -2 * r * cos(theta) = -1.99963157 and a2 = r * r = 0.99971222. Derive the section
+    // from the formula in the test rather than pasting the digits: 0.5 % of 68.6 Hz is 0.34 Hz,
+    // finer than the seventh digit of a1 moves the pole.
+    design.modes[0].section = { 1.0, 0.0, -1.0, -1.99963157, 0.99971222 };
     design.modes[0].source_gain = 1.0f;
     design.modes[0].ear_gain = { 1.0f, 1.0f };
     // A unit impulse in, 65536 frames out, a 65536-point FFT: the peak bin is within 0.5 % of
@@ -1741,7 +1743,9 @@ Write the last five out in full.
 - [ ] **Step 4: Syntax-check**, paste. **Step 5: Commit**
       `DE3: ModalBank runs the room's standing waves as second-order resonators`.
 
-**Acceptance:** a single resonator at 68.6 Hz with a 1.0 s decay peaks within 0.5 % of 68.6 Hz in
+**Acceptance:** a single resonator at 68.6 Hz with a 1.0 s decay peaks within 0.5 % of 68.6 Hz,
+read off the parabola through the three bins around the maximum because 0.34 Hz is finer than a
+0.732 Hz bin, in
 a 65536-point FFT and falls 60 dB in 1.00 s within 5 %.
 
 ---
