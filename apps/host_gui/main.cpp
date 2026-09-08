@@ -22,6 +22,8 @@
 /**************************************************************************/
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -42,16 +44,19 @@
 #include "SushiDSP/device/ChannelSelection.hpp"
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 
+#include "FileDropQueue.hpp"
 #include "RigController.hpp"
+#include "ui/ArrangementLayout.hpp"
+#include "ui/ArrangementView.hpp"
 #include "ui/ChainStrip.hpp"
 #include "ui/DeviceSettings.hpp"
+#include "ui/FileBrowser.hpp"
 #include "ui/GearBrowser.hpp"
 #include "ui/LevelProbe.hpp"
 #include "ui/MeterBar.hpp"
 #include "ui/StagePanel.hpp"
 #include "ui/Theme.hpp"
 #include "ui/TopBar.hpp"
-#include "ui/TrackPanel.hpp"
 #include "ui/TransportBar.hpp"
 
 #if defined(SUSHIDSP_HAVE_ASIO)
@@ -68,6 +73,32 @@ namespace
         const std::string path = argv0 != nullptr ? std::string(argv0) : std::string();
         const std::size_t cut = path.find_last_of("/\\");
         return cut == std::string::npos ? std::string() : path.substr(0, cut + 1);
+    }
+
+    /// @brief Queues every path Windows Explorer drops on the window, with the cursor position
+    /// it landed at, for the next GUI frame to route onto a lane. GLFW calls this outside the
+    /// ImGui frame, which is why the queue exists at all.
+    /// @param window The window the files were dropped on; its user pointer is the queue.
+    /// @param count How many paths were dropped.
+    /// @param paths The dropped paths, owned by GLFW for the duration of the call.
+    /// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §7
+    void queue_dropped_files(GLFWwindow* window, int count, const char** paths)
+    {
+        auto* queue =
+            static_cast<SushiDSP::host::FileDropQueue*>(glfwGetWindowUserPointer(window));
+        if (queue == nullptr)
+        {
+            return;
+        }
+
+        double cursor_x = 0.0;
+        double cursor_y = 0.0;
+        glfwGetCursorPos(window, &cursor_x, &cursor_y);
+
+        for (int index = 0; index < count; ++index)
+        {
+            queue->push(paths[index], cursor_x, cursor_y);
+        }
     }
 
     /// @brief Installs the bundled cabinet impulse response on a freshly-created slot that hosts
@@ -132,6 +163,10 @@ int main(int argc, char** argv)
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
+    SushiDSP::host::FileDropQueue file_drops;
+    glfwSetWindowUserPointer(window, &file_drops);
+    glfwSetDropCallback(window, queue_dropped_files);
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ui::apply_theme();
@@ -153,8 +188,18 @@ int main(int argc, char** argv)
     std::string connect_error;
     std::string chain_edit_error;
     std::string transport_error;
-    std::string track_error;
+    std::string arrangement_error;
     bool open_device_settings = true;
+
+    // The zoom, the scroll and the snap belong to the GUI loop rather than to the rig: they are
+    // how the arrangement is being looked at, not what it plays.
+    ui::TimelineScale timeline_scale;
+    ui::SnapMode      snap_mode = ui::SnapMode::Bar;
+    ui::LaneGeometry  lane_geometry;
+    std::string       take_directory;
+
+    // Sized once by the first Explorer drop and reused, so a drop costs no allocation after it.
+    std::vector<SushiDSP::host::FileDrop> drained_drops;
 
     // Both buffers are captured BY REFERENCE in the device callback (below), and that callback
     // keeps firing on the audio thread for as long as the device runs - i.e. for every frame
@@ -348,6 +393,12 @@ int main(int argc, char** argv)
                     bus.write(rig_output_const_pointers.data(), rig_input.data(), frames);
                 }
 
+                // Added after both recorder legs are written, so the click reaches no recorded file.
+                // @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §4
+                rig_controller_ref.metronome().process(rig_output_pointers.data(), rig_channels,
+                                                       frames, transport,
+                                                       rig_controller_ref.musical_clock());
+
                 if (rolling)
                 {
                     transport.advance(frames);
@@ -382,6 +433,34 @@ int main(int argc, char** argv)
             rig_controller_storage->reclaim();
         }
 
+        // Explorer's drops are resolved against the lane rectangles the previous frame recorded,
+        // then routed through the function an ImGui payload drop also calls.
+        file_drops.drain(drained_drops);
+        for (const SushiDSP::host::FileDrop& drop : drained_drops)
+        {
+            if (!rig_controller_storage.has_value())
+            {
+                continue;
+            }
+
+            const float screen_x = static_cast<float>(drop.screen_x);
+            const float screen_y = static_cast<float>(drop.screen_y);
+            const std::optional<std::size_t> lane = ui::lane_at(lane_geometry, screen_x, screen_y);
+            if (!lane.has_value())
+            {
+                arrangement_error = "Dropped file landed outside the lanes: drop it on a lane.";
+                continue;
+            }
+
+            const ImVec2 landed(ui::canvas_x_of(lane_geometry, screen_x), 0.0f);
+            if (ui::route_file_drop(*rig_controller_storage, timeline_scale, snap_mode, drop.path,
+                                    landed, *lane, arrangement_error))
+            {
+                arrangement_error.clear();
+            }
+        }
+        drained_drops.clear();
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -396,13 +475,17 @@ int main(int argc, char** argv)
         const float width = static_cast<float>(display_w);
         const float height = static_cast<float>(display_h);
         const float top_height = 48.0f;
-        const float transport_height = 44.0f;
+        // Two rows: one row cannot hold the transport's controls at the reference window's width.
+        const float transport_height = 76.0f;
         const float meter_height = 40.0f;
         const float browser_width = 300.0f;
         const float body_top = top_height + transport_height;
-        const float body_height = height - body_top - meter_height;
+        const float region_height = std::max(height - body_top - meter_height, 240.0f);
+        const float body_height = region_height * 0.5f;
+        const float arrangement_top = body_top + body_height;
+        const float arrangement_height = region_height - body_height;
         const float stage_height = body_height * 0.58f;
-        const float gear_height = body_height * 0.50f;
+        const float gear_height = body_height * 0.45f;
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(width, top_height));
@@ -484,10 +567,44 @@ int main(int argc, char** argv)
 
         ImGui::SetNextWindowPos(ImVec2(width - browser_width, body_top + gear_height));
         ImGui::SetNextWindowSize(ImVec2(browser_width, body_height - gear_height));
-        ImGui::Begin("##tracks", nullptr, kRegionFlags);
+        ImGui::Begin("##takes", nullptr, kRegionFlags);
         if (rig_controller_storage.has_value())
         {
-            ui::DrawTrackPanel(*rig_controller_storage, track_error);
+            if (take_directory.empty())
+            {
+                take_directory = rig_controller_storage->take_folder();
+            }
+
+            ImGui::TextColored(ui::to_imvec4(ui::palette().muted_text),
+                               "Drag a take onto a lane, or click one to place it at the "
+                               "playhead.");
+
+            const std::optional<std::string> picked =
+                ui::FileBrowser("##takes_browser", take_directory, ".wav");
+            if (picked.has_value())
+            {
+                RigController&      rig = *rig_controller_storage;
+                const std::size_t   lane = rig.record_track().value_or(0u);
+                const std::uint64_t start =
+                    timeline_scale.snap(rig.transport().position_frames(), snap_mode,
+                                        rig.musical_clock());
+                if (rig.place_clip(lane, *picked, start, arrangement_error))
+                {
+                    arrangement_error.clear();
+                }
+            }
+        }
+        ImGui::End();
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, arrangement_top));
+        ImGui::SetNextWindowSize(ImVec2(width, arrangement_height));
+        // The wheel belongs to the timeline's own scroll and zoom, so the window keeps its
+        // scrollbar and gives up the wheel.
+        ImGui::Begin("##arrangement", nullptr, kRegionFlags | ImGuiWindowFlags_NoScrollWithMouse);
+        if (rig_controller_storage.has_value())
+        {
+            ui::DrawArrangementView(*rig_controller_storage, timeline_scale, snap_mode,
+                                    arrangement_error, lane_geometry);
         }
         ImGui::End();
 

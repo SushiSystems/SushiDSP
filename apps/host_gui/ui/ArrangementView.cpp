@@ -300,7 +300,13 @@ namespace ui
                               to_imu32(palette().text), label.c_str());
                 draw->PopClipRect();
 
-                ImGui::PushID(static_cast<int>(clip_index));
+                // A clip is identified by the frame it starts on, which is unique on a lane
+                // because clips may not overlap, so a reorder retires the popup instead of
+                // pointing it at the neighbour that took the index.
+                std::array<char, 32> clip_id{};
+                std::snprintf(clip_id.data(), clip_id.size(), "clip%llu",
+                              static_cast<unsigned long long>(placement.start_frame));
+                ImGui::PushID(clip_id.data());
                 ImGui::SetCursorScreenPos(top_left);
                 ImGui::InvisibleButton("clip",
                                        ImVec2(std::max(bottom_right.x - top_left.x, 2.0f),
@@ -376,7 +382,7 @@ namespace ui
     }
 
     void DrawArrangementView(RigController& rig, TimelineScale& scale, SnapMode& snap,
-                             std::string& arrangement_error)
+                             std::string& arrangement_error, LaneGeometry& geometry_out)
     {
         static std::array<std::array<char, kNameCapacity>, kLaneCount> names{};
         static ClipDrag                                               drag;
@@ -393,6 +399,13 @@ namespace ui
         const float lanes_top = origin.y + kRulerHeight;
         const float lanes_bottom =
             lanes_top + static_cast<float>(kLaneCount) * (kLaneHeight + kLaneGap);
+
+        geometry_out.canvas_left = canvas_x;
+        geometry_out.canvas_top = lanes_top;
+        geometry_out.canvas_width = canvas_width;
+        geometry_out.lane_height = kLaneHeight;
+        geometry_out.lane_stride = kLaneHeight + kLaneGap;
+        geometry_out.lane_count = kLaneCount;
 
         draw->AddRectFilled(ImVec2(canvas_x, origin.y),
                             ImVec2(canvas_x + canvas_width, origin.y + kRulerHeight),
