@@ -6,7 +6,10 @@ A product-independent module: it models no pedal and no amplifier, and depends o
 
 Intent and the acceptance list live in
 [`docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../../docs/superpowers/specs/2026-09-07-stereo-tracks-design.md)
-§5 for recording and §6 for playback. This file records what the code in this directory does.
+§5 for recording and §6 for playback, and in
+[`docs/superpowers/specs/2026-09-08-arrangement-view-design.md`](../../docs/superpowers/specs/2026-09-08-arrangement-view-design.md)
+§3 to §5a for musical time, clips and the playback speed. This file records what the code in this
+directory does.
 
 ## Which class owns what
 
@@ -79,8 +82,9 @@ let the processed and dry files end at different lengths, which is the alignment
 guarantee.
 
 `RecordingBus::arm` opens `<take_name>-processed.wav` and `<take_name>-dry.wav` in one call, which
-is what makes them sample-aligned — they begin on the same block. It also records the block index
-they began at, so a later re-amp lines the dry file back up against the rig's timeline.
+is what makes them sample-aligned: they begin on the same block. Which transport frame they began
+at is the session's fact rather than the recorder's, so `RigController::arm_recording` reads the
+position before the bus opens and `stop_recording` places the dry file as a clip at that frame.
 
 Files are 32-bit IEEE float, so a recorded ramp reads back bit-identical;
 `tests/functional/unit/test_track_recorder.cpp` asserts exactly that, and
@@ -167,5 +171,7 @@ converter history, and `reset()` is what discards it.
   only response to a slow disk is a dropped block.
 - **A shared writer thread.** Each `TrackRecorder` runs its own, so a `RecordingBus` costs two.
   One thread draining both would halve that and is a change confined to `TrackRecorder`.
-- **Sample rate conversion.** A `Take` carries the rate it was captured at and nothing here
-  resamples it; a take loaded at a rate the rig does not run at is the caller's problem.
+- **Sample rate conversion.** A `Take` carries the rate it was captured at and neither
+  `TrackTimeline` nor `TrackPlayer` reads it, so a 44.1 kHz file dropped on a 48 kHz rig plays
+  8.8 % slow. `apps/host_gui` converts an imported mp3 on the way in, which covers songs and not
+  WAV files; `docs/reference/KNOWN_ISSUES.md` carries the entry.

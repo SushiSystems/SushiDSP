@@ -14,6 +14,8 @@ once you're in the tree and need a specific document.
 - **[Changelog](reference/CHANGELOG.md)** — what changed and when, by roadmap phase.
 - **[Known issues](reference/KNOWN_ISSUES.md)** — measured defects left open on purpose, each
   with its figure, its mechanism, the skipped test that documents it, and what closes it.
+- **[Glossary](reference/GLOSSARY.md)** — the words this tree fixes a narrower meaning for: bar,
+  beat, clip, lane, take, timeline frame and playback speed.
 - **[Code of Conduct](CODE_OF_CONDUCT.md)** and **[Security Policy](SECURITY.md)**.
 - **[`docs/reference/spice/`](reference/spice/)** — the SPICE reference corpus: netlist-directive
   `.asc` files and Koren/Norman `.sub` models for each circuit block, exported to CSV by
