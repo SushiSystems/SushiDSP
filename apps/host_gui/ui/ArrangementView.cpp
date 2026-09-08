@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "ui/ArrangementLayout.hpp"
+#include "ui/MusicalTimeText.hpp"
 #include "ui/TextField.hpp"
 #include "ui/Theme.hpp"
 
@@ -92,20 +93,6 @@ namespace ui
         {
             const std::string stem = std::filesystem::path(path).stem().string();
             return stem.empty() ? std::string("clip") : stem;
-        }
-
-        /// @brief Writes a frame as its bar and its beat, for a clip's label.
-        /// @param frame The timeline frame to name.
-        /// @param clock The grid the bar and the beat are read from.
-        /// @return The text, e.g. "9.1".
-        std::string bar_beat_text(std::uint64_t frame, const SushiDSP::MusicalClock& clock)
-        {
-            const SushiDSP::BarBeat placed = clock.position_of(frame);
-            std::array<char, 48>    text{};
-            std::snprintf(text.data(), text.size(), "%llu.%u",
-                          static_cast<unsigned long long>(placed.bar),
-                          static_cast<unsigned>(placed.beat));
-            return std::string(text.data());
         }
 
         /// @brief Moves the scroll so the frame under a canvas x stays under it while the zoom
