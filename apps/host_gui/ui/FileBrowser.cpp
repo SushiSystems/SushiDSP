@@ -66,6 +66,31 @@ namespace ui
             return (std::filesystem::path(directory) / name).string();
         }
 
+        /// @brief The extension whose rows may be dragged onto an arrangement lane.
+        constexpr const char* kTakeExtension = ".wav";
+
+        /// @brief The payload type a dragged take carries, accepted by ui::DrawArrangementView.
+        constexpr const char* kTakePayload = "TAKE_FILE_PATH";
+
+        /// @brief Makes the row the caller has just drawn a drag source carrying a take's path,
+        /// for a listing of takes. The path travels with its terminator, so the target reads it
+        /// as a C string.
+        /// @param path The file's full path.
+        /// @param name The file's own name, shown under the pointer while it is dragged.
+        /// @param extension The listing's extension; anything but a take offers nothing.
+        void offer_as_take(const std::string& path, const std::string& name,
+                           const std::string& extension)
+        {
+            if (extension != kTakeExtension || !ImGui::BeginDragDropSource())
+            {
+                return;
+            }
+
+            ImGui::SetDragDropPayload(kTakePayload, path.c_str(), path.size() + 1u);
+            ImGui::TextColored(to_imvec4(palette().text), "%s", name.c_str());
+            ImGui::EndDragDropSource();
+        }
+
         /// @brief Draws one clickable row in the listing's own color.
         /// @param label The text to show.
         /// @param color The row's color.
@@ -109,9 +134,14 @@ namespace ui
                     next_directory = child_path(current, entry.name);
                 }
             }
-            else if (listing_row(entry.name, palette().text))
+            else
             {
-                picked = child_path(current, entry.name);
+                const std::string full = child_path(current, entry.name);
+                if (listing_row(entry.name, palette().text))
+                {
+                    picked = full;
+                }
+                offer_as_take(full, entry.name, extension);
             }
             ImGui::PopID();
         }
