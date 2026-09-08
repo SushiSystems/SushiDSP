@@ -30,9 +30,12 @@
 namespace ui
 {
     /// @brief Draws the take folder and name boxes, the record, play, stop and rewind buttons,
-    /// the loop switch and its range in seconds, the rig's input source, the transport position
-    /// and the recorder's dropped-block count into the current window.
-    /// @param rig The rig whose transport, recording bus and input source the bar drives.
+    /// the loop switch and its range in bars, the rig's input source, the transport position in
+    /// bars and in seconds, the metronome's switch and level, the tempo, the meter, TAP, the
+    /// playback speed and the recorder's dropped-block count into the current window.
+    /// @param rig The rig whose transport, musical clock, metronome, recording bus and input
+    /// source the bar drives.
     /// @param transport_error In/out: the last refusal, shown until an action succeeds.
+    /// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §5a and §6
     void DrawTransportBar(RigController& rig, std::string& transport_error);
 }
