@@ -4,6 +4,9 @@ add_library(room STATIC
     src/BandResponseFit.cpp
     src/CabinetDirectivity.cpp
     src/MicrophoneModel.cpp
+    src/CrossoverPair.cpp
+    src/HrtfSet.cpp
+    src/AmbisonicEncoder.cpp
 )
 add_library(SushiDSP::room ALIAS room)
 target_link_libraries(room PUBLIC SushiDSP::sushi_dsp)
