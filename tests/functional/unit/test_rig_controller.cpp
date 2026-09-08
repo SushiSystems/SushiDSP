@@ -144,6 +144,18 @@ namespace
     /// @brief Builds a repeatable guitar-shaped test signal.
     /// @param frames How many samples to produce.
     /// @return The signal.
+    /// @brief Strips a path down to its file name without an extension, the way the controller
+    /// names a lane after the file dropped onto it.
+    /// @param path The path to reduce.
+    /// @return The stem.
+    std::string path_stem_of(const std::string& path)
+    {
+        const std::size_t cut = path.find_last_of("/\\");
+        const std::string name = cut == std::string::npos ? path : path.substr(cut + 1);
+        const std::size_t dot = name.find_last_of('.');
+        return dot == std::string::npos ? name : name.substr(0, dot);
+    }
+
     std::vector<float> make_test_signal(std::size_t frames)
     {
         std::vector<float> signal(frames, 0.0f);
@@ -1122,3 +1134,273 @@ TEST(Unit_Dsp, RigControllerReampingADryTakeReproducesTheRigsOwnOutput)
     }
 }
 
+
+TEST(Unit_Dsp, RigControllerPlacesAClipAtTheFrameAsked)
+{
+    const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    std::string error;
+    ASSERT_TRUE(controller.place_clip(1, path, 12345, error)) << error;
+
+    ASSERT_EQ(controller.clip_count(1), 1u);
+    EXPECT_EQ(controller.clip(1, 0).path, path);
+    EXPECT_EQ(controller.clip(1, 0).start_frame, 12345u);
+    EXPECT_EQ(controller.clip(1, 0).take_offset, 0u);
+    EXPECT_EQ(controller.clip(1, 0).length_frames, 256u);
+    EXPECT_TRUE(controller.track_is_loaded(1));
+    EXPECT_EQ(controller.track_name(1), path_stem_of(path));
+}
+
+TEST(Unit_Dsp, RigControllerRefusesAFileThatWillNotParseWithTheBrowsersMessage)
+{
+    const std::string path = temp_fixture_path("not_a_wav.wav");
+    std::ofstream    out(path, std::ios::binary);
+    out << "this is not a RIFF file";
+    out.close();
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    std::string   error;
+    EXPECT_FALSE(controller.place_clip(0, path, 480, error));
+    EXPECT_FALSE(error.empty());
+    EXPECT_EQ(controller.clip_count(0), 0u);
+    EXPECT_FALSE(controller.track_is_loaded(0));
+}
+
+TEST(Unit_Dsp, RigControllerRefusesASeventeenthClipOnALane)
+{
+    const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    std::string error;
+    for (std::size_t index = 0; index < SushiDSP::TrackTimeline::kMaxClips; ++index)
+    {
+        ASSERT_TRUE(controller.place_clip(0, path, index * 512u, error)) << error;
+    }
+    ASSERT_EQ(controller.clip_count(0), SushiDSP::TrackTimeline::kMaxClips);
+
+    EXPECT_FALSE(controller.place_clip(0, path, 16u * 512u, error));
+    EXPECT_FALSE(error.empty());
+    EXPECT_EQ(controller.clip_count(0), SushiDSP::TrackTimeline::kMaxClips);
+}
+
+TEST(Unit_Dsp, RigControllerPlacesTwoClipsFromOneFileWithOneTakeInMemory)
+{
+    const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    std::string error;
+    ASSERT_TRUE(controller.place_clip(0, path, 0, error)) << error;
+    ASSERT_TRUE(controller.place_clip(0, path, 4800, error)) << error;
+
+    EXPECT_EQ(controller.clip_count(0), 2u);
+    EXPECT_EQ(controller.player().takes().size(), 1u);
+}
+
+TEST(Unit_Dsp, RigControllerRefusesAClipThatOverlapsOneTheLaneHolds)
+{
+    const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    std::string error;
+    ASSERT_TRUE(controller.place_clip(0, path, 1000, error)) << error;
+    EXPECT_FALSE(controller.place_clip(0, path, 1100, error));
+    EXPECT_NE(error.find("overlap"), std::string::npos) << error;
+    EXPECT_EQ(controller.clip_count(0), 1u);
+    EXPECT_EQ(controller.clip(0, 0).start_frame, 1000u);
+}
+
+TEST(Unit_Dsp, RigControllerMovesAClipAndKeepsTheLaneSortedByStartFrame)
+{
+    const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+
+    std::string error;
+    ASSERT_TRUE(controller.place_clip(0, path, 0, error)) << error;
+    ASSERT_TRUE(controller.place_clip(0, path, 1000, error)) << error;
+
+    ASSERT_TRUE(controller.move_clip(0, 0, 5000, error)) << error;
+    EXPECT_EQ(controller.clip(0, 0).start_frame, 1000u);
+    EXPECT_EQ(controller.clip(0, 1).start_frame, 5000u);
+
+    EXPECT_FALSE(controller.move_clip(0, 1, 900, error));
+    EXPECT_NE(error.find("overlap"), std::string::npos) << error;
+    EXPECT_EQ(controller.clip(0, 1).start_frame, 5000u);
+
+    ASSERT_TRUE(controller.remove_clip(0, 0, error)) << error;
+    ASSERT_EQ(controller.clip_count(0), 1u);
+    EXPECT_EQ(controller.clip(0, 0).start_frame, 5000u);
+}
+
+TEST(Unit_Dsp, RigControllerStopsARecordingIntoAClipAtTheArmedFrame)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    controller.set_take_folder(::testing::TempDir());
+    controller.set_record_track(2);
+    controller.transport().seek(12345);
+
+    std::string error;
+    ASSERT_TRUE(controller.arm_recording("RigControllerStopsARecording", error)) << error;
+    EXPECT_EQ(controller.armed_frame(), 12345u);
+
+    const std::uint32_t block = 64;
+    std::vector<float>  dry(block, 0.0f);
+    dry[0] = 0.5f;
+    dry[1] = -0.25f;
+    std::vector<float>  left(block, 0.0f);
+    std::vector<float>  right(block, 0.0f);
+    const float*        processed[2] = { left.data(), right.data() };
+    ASSERT_TRUE(controller.recording_bus().write(processed, dry.data(), block));
+
+    controller.stop_recording(&error);
+    EXPECT_TRUE(error.empty()) << error;
+
+    ASSERT_EQ(controller.clip_count(2), 1u);
+    EXPECT_EQ(controller.clip(2, 0).start_frame, 12345u);
+    EXPECT_EQ(controller.clip(2, 0).length_frames, block);
+    EXPECT_NE(controller.clip(2, 0).path.find("-dry.wav"), std::string::npos);
+}
+
+TEST(Unit_Dsp, RigControllerReAmpsARecordedTakeFromTheBarItWasRecordedAt)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    controller.set_take_folder(::testing::TempDir());
+    controller.set_record_track(0);
+
+    const std::uint64_t bar_five = controller.musical_clock().frame_of(5, 1);
+    ASSERT_EQ(bar_five, 384000u);
+    controller.transport().seek(bar_five);
+
+    std::string error;
+    ASSERT_TRUE(controller.arm_recording("RigControllerReAmpsARecordedTake", error)) << error;
+    EXPECT_EQ(controller.armed_frame(), bar_five);
+
+    const std::uint32_t block = 64;
+    std::vector<float>  dry(block, 0.0f);
+    dry[0] = 0.5f;
+    dry[1] = -0.25f;
+    std::vector<float>  left(block, 0.0f);
+    std::vector<float>  right(block, 0.0f);
+    const float*        processed[2] = { left.data(), right.data() };
+    ASSERT_TRUE(controller.recording_bus().write(processed, dry.data(), block));
+    controller.stop_recording(&error);
+    ASSERT_TRUE(error.empty()) << error;
+    ASSERT_EQ(controller.clip_count(0), 1u);
+    ASSERT_EQ(controller.clip(0, 0).start_frame, bar_five);
+
+    ASSERT_TRUE(controller.set_reamp_track(0, error)) << error;
+
+    // The re-amp leg is silent before the bar the take was recorded at, which is the whole point
+    // of the stamp: docs/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
+    std::vector<float> assembled(block, 0.0f);
+    float*             assembled_pointer[1] = { assembled.data() };
+    controller.transport().seek(0);
+    controller.transport().play();
+    controller.reamp_player().process(assembled_pointer, 1, block, controller.transport());
+    for (std::uint32_t frame = 0; frame < block; ++frame)
+    {
+        EXPECT_NEAR(assembled[frame], 0.0f, 1e-9f) << "frame " << frame;
+    }
+
+    std::fill(assembled.begin(), assembled.end(), 0.0f);
+    controller.transport().seek(bar_five);
+    controller.reamp_player().process(assembled_pointer, 1, block, controller.transport());
+    EXPECT_NEAR(assembled[0], 0.5f, 1e-6f);
+    EXPECT_NEAR(assembled[1], -0.25f, 1e-6f);
+}
+
+TEST(Unit_Dsp, RigControllerRoundTripsATempoAndItsClipsThroughJson)
+{
+    const std::string first = write_temp_float_wav("clip_a.wav", make_test_signal(256), 48000);
+    const std::string second = write_temp_float_wav("clip_b.wav", make_test_signal(128), 48000);
+
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    source.append("sushidsp.tubescreamer");
+    source.musical_clock().set_tempo(137.5);
+    source.musical_clock().set_meter(7, 8);
+    source.metronome().set_enabled(true);
+    source.metronome().set_level(0.25f);
+    source.set_take_folder("D:/takes");
+
+    std::string error;
+    ASSERT_TRUE(source.place_clip(0, first, 0, error)) << error;
+    ASSERT_TRUE(source.place_clip(0, second, 96000, error)) << error;
+    ASSERT_TRUE(source.place_clip(3, first, 48000, error)) << error;
+    ASSERT_TRUE(source.place_clip(3, second, 192000, error)) << error;
+    source.set_track_name(3, "lead");
+    source.transport().set_loop(4800, 9600);
+
+    const std::string saved = source.save_to_json();
+
+    RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    target.load_from_json(saved);
+
+    EXPECT_EQ(target.save_to_json(), saved);
+    ASSERT_EQ(target.clip_count(0), 2u);
+    ASSERT_EQ(target.clip_count(3), 2u);
+    EXPECT_EQ(target.clip(0, 0).path, first);
+    EXPECT_EQ(target.clip(0, 1).start_frame, 96000u);
+    EXPECT_EQ(target.clip(0, 1).length_frames, 128u);
+    EXPECT_EQ(target.clip(3, 0).start_frame, 48000u);
+    EXPECT_EQ(target.clip(3, 1).start_frame, 192000u);
+    EXPECT_EQ(target.track_name(3), "lead");
+    EXPECT_NEAR(target.musical_clock().beats_per_minute(), 137.5, 1e-9);
+    EXPECT_EQ(target.musical_clock().beats_per_bar(), 7u);
+    EXPECT_EQ(target.musical_clock().beat_unit(), 8u);
+    EXPECT_TRUE(target.metronome().enabled());
+    EXPECT_NEAR(target.metronome().level(), 0.25f, 1e-6f);
+    EXPECT_EQ(target.transport().loop_begin_frames(), 4800u);
+    EXPECT_EQ(target.transport().loop_end_frames(), 9600u);
+}
+
+TEST(Unit_Dsp, RigControllerLoadsAPreDtPresetAsOneClipAtFrameZeroAtOneTwentyBpm)
+{
+    const std::string path = write_temp_float_wav("legacy.wav", make_test_signal(256), 48000);
+
+    nlohmann::json preset = nlohmann::json::parse(
+        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]}]})");
+    nlohmann::json row = nlohmann::json::object();
+    row["index"] = 2;
+    row["name"] = "rhythm";
+    row["path"] = path;
+    row["gain"] = 0.5f;
+    row["pan"] = -0.25f;
+    row["muted"] = false;
+    row["soloed"] = false;
+    preset["tracks"] = nlohmann::json::array({ row });
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    controller.musical_clock().set_tempo(90.0);
+    controller.musical_clock().set_meter(3, 8);
+    controller.metronome().set_enabled(true);
+
+    controller.load_from_json(preset.dump());
+
+    ASSERT_EQ(controller.clip_count(2), 1u);
+    EXPECT_EQ(controller.clip(2, 0).path, path);
+    EXPECT_EQ(controller.clip(2, 0).start_frame, 0u);
+    EXPECT_EQ(controller.clip(2, 0).take_offset, 0u);
+    EXPECT_EQ(controller.clip(2, 0).length_frames, 256u);
+    EXPECT_EQ(controller.track_name(2), "rhythm");
+    EXPECT_NEAR(controller.player().gain(2), 0.5f, 1e-6f);
+    EXPECT_NEAR(controller.musical_clock().beats_per_minute(), 120.0, 1e-9);
+    EXPECT_EQ(controller.musical_clock().beats_per_bar(), 4u);
+    EXPECT_EQ(controller.musical_clock().beat_unit(), 4u);
+    EXPECT_FALSE(controller.metronome().enabled());
+}
+
+TEST(Unit_Dsp, RigControllerDoesNotSaveThePlaybackSpeed)
+{
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    source.append("sushidsp.tubescreamer");
+    source.transport().set_speed(0.4);
+    EXPECT_NEAR(source.transport().speed(), 0.5, 1e-9);
+
+    const std::string saved = source.save_to_json();
+    EXPECT_EQ(saved.find("speed"), std::string::npos) << saved;
+
+    RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    target.transport().set_speed(2.0);
+    target.load_from_json(saved);
+    EXPECT_NEAR(target.transport().speed(), 1.0, 1e-9);
+}
