@@ -131,6 +131,9 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ChainLayout.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/DirectoryListing.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/TimelineScale.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ArrangementLayout.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/TapTempo.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/MusicalTimeText.cpp
 
     # --- DD-3 ---
     functional/unit/test_dd3_analog_filters.cpp
@@ -139,6 +142,9 @@ add_executable(sushidsp_tests
     functional/unit/test_dd3_clock.cpp
     functional/unit/test_dd3_delay.cpp
     functional/unit/test_band_response.cpp
+    functional/unit/test_arrangement_layout.cpp
+    functional/unit/test_tap_tempo.cpp
+    functional/unit/test_musical_time_text.cpp
     functional/unit/test_dd3_acceptance.cpp
 
     # --- Regression ---

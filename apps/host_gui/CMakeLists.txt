@@ -18,6 +18,10 @@ add_executable(sushidsp_host_gui
     ui/TransportBar.cpp
     ui/TrackPanel.cpp
     ui/TimelineScale.cpp
+    ui/ArrangementView.cpp
+    ui/ArrangementLayout.cpp
+    ui/TapTempo.cpp
+    ui/MusicalTimeText.cpp
 )
 # ui/*.cpp include their own headers as "ui/<Name>.hpp" and reach RigController.hpp beside them,
 # so the app directory itself has to be on the include path.
