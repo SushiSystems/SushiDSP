@@ -149,3 +149,48 @@ TEST(Unit_Dsp, ArrangementLayoutMovesADraggedClipByItsPixels)
     EXPECT_EQ(ui::dragged_start_frame(scale, ui::SnapMode::Bar, clock, 96000u, 0.0f), 96000u);
     EXPECT_EQ(ui::dragged_start_frame(scale, ui::SnapMode::Bar, clock, 96000u, -1000.0f), 0u);
 }
+
+TEST(Unit_Dsp, ArrangementLayoutNamesTheLaneAScreenPositionFallsOn)
+{
+    ui::LaneGeometry geometry;
+    geometry.canvas_left = 200.0f;
+    geometry.canvas_top = 100.0f;
+    geometry.canvas_width = 800.0f;
+    geometry.lane_height = 66.0f;
+    geometry.lane_stride = 68.0f;
+    geometry.lane_count = 8u;
+
+    ASSERT_TRUE(ui::lane_at(geometry, 240.0f, 100.0f).has_value());
+    EXPECT_EQ(*ui::lane_at(geometry, 240.0f, 100.0f), 0u);
+    EXPECT_EQ(*ui::lane_at(geometry, 240.0f, 165.0f), 0u);
+    EXPECT_EQ(*ui::lane_at(geometry, 240.0f, 168.0f), 1u);
+    EXPECT_EQ(*ui::lane_at(geometry, 999.0f, 570.0f), 6u);
+    EXPECT_EQ(*ui::lane_at(geometry, 200.0f, 576.0f), 7u);
+}
+
+TEST(Unit_Dsp, ArrangementLayoutRefusesAPositionOutsideEveryLane)
+{
+    ui::LaneGeometry geometry;
+    geometry.canvas_left = 200.0f;
+    geometry.canvas_top = 100.0f;
+    geometry.canvas_width = 800.0f;
+    geometry.lane_height = 66.0f;
+    geometry.lane_stride = 68.0f;
+    geometry.lane_count = 8u;
+
+    EXPECT_FALSE(ui::lane_at(geometry, 199.0f, 120.0f).has_value());
+    EXPECT_FALSE(ui::lane_at(geometry, 1000.0f, 120.0f).has_value());
+    EXPECT_FALSE(ui::lane_at(geometry, 240.0f, 99.0f).has_value());
+    EXPECT_FALSE(ui::lane_at(geometry, 240.0f, 167.0f).has_value());
+    EXPECT_FALSE(ui::lane_at(geometry, 240.0f, 644.0f).has_value());
+    EXPECT_FALSE(ui::lane_at(ui::LaneGeometry{}, 0.0f, 0.0f).has_value());
+}
+
+TEST(Unit_Dsp, ArrangementLayoutReadsADropXAgainstTheCanvasOrigin)
+{
+    ui::LaneGeometry geometry;
+    geometry.canvas_left = 200.0f;
+
+    EXPECT_FLOAT_EQ(ui::canvas_x_of(geometry, 200.0f), 0.0f);
+    EXPECT_FLOAT_EQ(ui::canvas_x_of(geometry, 1540.0f + 200.0f), 1540.0f);
+}

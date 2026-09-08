@@ -26,6 +26,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "SushiDSP/capture/MusicalClock.hpp"
@@ -51,6 +52,33 @@ namespace ui
         float left = 0.0f;  ///< Holds the canvas x the clip's first sample is drawn at.
         float right = 0.0f; ///< Holds the canvas x one past the clip's last sample.
     };
+
+    /// @brief Names where the lane canvases sat on screen the last time the view was drawn, so a
+    /// drop that arrives outside the ImGui frame can be resolved to a lane and a frame.
+    struct LaneGeometry
+    {
+        float       canvas_left = 0.0f;   ///< Holds the canvas's left edge in screen pixels.
+        float       canvas_top = 0.0f;    ///< Holds the first lane's top in screen pixels.
+        float       canvas_width = 0.0f;  ///< Holds the canvas width in pixels.
+        float       lane_height = 0.0f;   ///< Holds one lane's height in pixels.
+        float       lane_stride = 0.0f;   ///< Holds the distance between two lanes' tops.
+        std::size_t lane_count = 0;       ///< Holds how many lanes were drawn.
+    };
+
+    /// @brief Names the lane a screen position falls on.
+    /// @param geometry Where the lanes were drawn.
+    /// @param screen_x The position's x in screen pixels.
+    /// @param screen_y The position's y in screen pixels.
+    /// @return The lane index, or std::nullopt for a position outside every lane's canvas,
+    /// the gap between two lanes included.
+    std::optional<std::size_t> lane_at(const LaneGeometry& geometry, float screen_x,
+                                       float screen_y);
+
+    /// @brief Converts a screen x to the canvas x route_file_drop reads a frame from.
+    /// @param geometry Where the lanes were drawn.
+    /// @param screen_x The position's x in screen pixels.
+    /// @return The x relative to the canvas's left edge.
+    float canvas_x_of(const LaneGeometry& geometry, float screen_x);
 
     /// @brief How many grid lines one canvas is ever asked for, so a zoom that fits an hour on
     /// screen costs a bounded walk instead of a beat per frame.
