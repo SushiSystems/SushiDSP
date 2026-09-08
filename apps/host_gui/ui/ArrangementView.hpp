@@ -31,6 +31,7 @@
 
 #include "RigController.hpp"
 
+#include "ui/ArrangementLayout.hpp"
 #include "ui/TimelineScale.hpp"
 
 namespace ui
@@ -42,9 +43,11 @@ namespace ui
     /// @param scale In/out: the zoom and the scroll every lane and the ruler share.
     /// @param snap In/out: what a dropped or dragged clip's frame is rounded to.
     /// @param arrangement_error In/out: the last refusal, shown until an action succeeds.
+    /// @param geometry_out Receives where the lane canvases were drawn, so a drop arriving
+    /// outside the ImGui frame can be resolved to a lane on the next one.
     /// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §6
     void DrawArrangementView(RigController& rig, TimelineScale& scale, SnapMode& snap,
-                             std::string& arrangement_error);
+                             std::string& arrangement_error, LaneGeometry& geometry_out);
 
     /// @brief Places a file on a lane as a clip beginning at the frame a canvas position names.
     /// The one route both an ImGui payload drop and an Explorer drop take, so the two land a
