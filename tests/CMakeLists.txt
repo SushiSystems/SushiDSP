@@ -138,6 +138,7 @@ add_executable(sushidsp_tests
     functional/unit/test_dd3_converter.cpp
     functional/unit/test_dd3_clock.cpp
     functional/unit/test_dd3_delay.cpp
+    functional/unit/test_band_response.cpp
     functional/unit/test_dd3_acceptance.cpp
 
     # --- Regression ---
@@ -170,6 +171,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::node_registry
     SushiDSP::routing
     SushiDSP::capture
+    SushiDSP::room
     SushiDSP::rig_preset
     GTest::gtest
     # Known limitation: nlohmann_json::nlohmann_json is only available here because
