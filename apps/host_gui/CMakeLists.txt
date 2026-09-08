@@ -16,7 +16,6 @@ add_executable(sushidsp_host_gui
     ui/DirectoryListing.cpp
     ui/FileBrowser.cpp
     ui/TransportBar.cpp
-    ui/TrackPanel.cpp
     ui/TimelineScale.cpp
     ui/ArrangementView.cpp
     ui/ArrangementLayout.cpp
