@@ -190,7 +190,10 @@ log-magnitudes; its structure is a low shelf, a high shelf and two peaking secti
 freedom folded into two biquads; its method is a weighted least-squares fit of the log-magnitude at
 the six centres, started from a closed-form two-shelf guess and refined by at most eight
 Gauss-Newton steps in `double`. It is control-thread code, so its cost is a few thousand flops per
-fit; 128 taps plus 16 FDN lines is under 150 fits per scene change, well under a millisecond.
+fit; 128 taps plus 16 FDN lines is under 150 fits per scene change, measured at 4.33 ms in a
+Release build. The draft estimated under a millisecond and the measurement disproved it. The
+budget it has to meet is the 30 Hz at which a slider drag republishes, which is 33 ms, so the
+fit costs 13 % of a scene change and the bound the test asserts is 10 ms.
 Acceptance is 1 dB at every band centre for every row of the materials table raised to any power
 from 1 to 4 (one to four bounces off the same wall), and the test enumerates exactly that.
 
