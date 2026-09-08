@@ -1,0 +1,70 @@
+/**************************************************************************/
+/* CrossoverPair.hpp                                                      */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                        https://sushisystems.io                         */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the Apache License, Version 2.0 (the "License");        */
+/* you may not use this file except in compliance with the License.       */
+/* You may obtain a copy of the License at                                */
+/*                                                                        */
+/*     http://www.apache.org/licenses/LICENSE-2.0                         */
+/*                                                                        */
+/* Unless required by applicable law or agreed to in writing, software    */
+/* distributed under the License is distributed on an "AS IS" BASIS,      */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
+/* implied. See the License for the specific language governing           */
+/* permissions and limitations under the License.                         */
+/**************************************************************************/
+
+/**
+ * @file CrossoverPair.hpp
+ * @brief The Linkwitz-Riley pair that splits the field between the wave and geometric layers.
+ * @author Mustafa Garip & Sushi Systems
+ */
+
+#pragma once
+
+#include "SushiDSP/math/Biquad.hpp"
+
+namespace SushiDSP::room
+{
+    /// @brief Splits a signal at fourth order into two halves whose sum is flat in magnitude and
+    /// in phase, so the seam between the wave layer and the geometric layers adds no dip and no
+    /// hump. Spec §9a.4.
+    class CrossoverPair
+    {
+    public:
+        /// @brief Places the crossover; control thread, before or between blocks.
+        /// @param crossover_hz Zero or below routes everything to the high half untouched.
+        /// @pre crossover_hz < sample_rate / 2.
+        void set_crossover(double sample_rate, double crossover_hz) noexcept;
+
+        /// @brief Splits one sample on the audio thread through two cascaded Butterworth pairs
+        /// per half.
+        void process_sample(float input, float& low_out, float& high_out) noexcept;
+
+        /// @brief Clears every section's state.
+        void reset() noexcept;
+
+    private:
+        /// @brief Stores the first Butterworth low-pass of the low half.
+        Biquad low_first_;
+
+        /// @brief Stores the second Butterworth low-pass of the low half.
+        Biquad low_second_;
+
+        /// @brief Stores the first Butterworth high-pass of the high half.
+        Biquad high_first_;
+
+        /// @brief Stores the second Butterworth high-pass of the high half.
+        Biquad high_second_;
+
+        /// @brief Records that the crossover is off and the high half carries everything.
+        bool bypassed_ = true;
+    };
+}
