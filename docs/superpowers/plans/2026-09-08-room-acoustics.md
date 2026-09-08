@@ -1811,8 +1811,11 @@ TEST(Unit_Dsp, SphericalHeadHrtfCannotTellFrontFromBack)
 
 TEST(Unit_Dsp, SphericalHeadHrtfShadowsTheFarEarAboveOneKilohertz)
 {
-    // at 90 degrees the far ear is at least 10 dB below the near ear in the 4 kHz octave and
-    // within 2 dB of it in the 125 Hz octave.
+    // at 90 degrees the far ear is at least 4 dB below the near ear in the 4 kHz octave and
+    // within 2 dB of it in the 125 Hz octave, and the difference rises with every octave in
+    // between. With the ears on the interaural axis the far ear sits at the source's antipode,
+    // the sphere's bright spot, so the measured 4.73 dB is what the model gives and the deeper
+    // shadow of Duda and Martens belongs to their ears at plus and minus 100 degrees.
 }
 
 TEST(Unit_Dsp, SphericalHeadHrtfBuildsAGridThatCoversTheSphere)
