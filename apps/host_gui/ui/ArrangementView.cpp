@@ -31,6 +31,8 @@
 #include <optional>
 #include <vector>
 
+#include "AudioImportCache.hpp"
+
 #include "ui/ArrangementLayout.hpp"
 #include "ui/MusicalTimeText.hpp"
 #include "ui/TextField.hpp"
@@ -160,6 +162,31 @@ namespace ui
 
             ImGui::SameLine();
             ImGui::TextColored(to_imvec4(palette().muted_text), "%zu clips", placed);
+        }
+
+        /// @brief Draws the line naming what the import worker is decoding, so a song that takes
+        /// seconds to convert says so instead of appearing to do nothing.
+        /// @param imports The queue whose progress is reported.
+        void draw_import_notice(const SushiDSP::host::AudioImportQueue& imports)
+        {
+            const std::string decoding = imports.decoding();
+            if (decoding.empty())
+            {
+                return;
+            }
+
+            const std::size_t counted = imports.pending();
+            const std::size_t queued = counted > 0u ? counted - 1u : 0u;
+            const std::string name = std::filesystem::path(decoding).filename().string();
+            if (queued == 0)
+            {
+                ImGui::TextColored(to_imvec4(palette().accent), "Decoding %s...", name.c_str());
+            }
+            else
+            {
+                ImGui::TextColored(to_imvec4(palette().accent), "Decoding %s... (%zu waiting)",
+                                   name.c_str(), queued);
+            }
         }
 
         /// @brief Draws one lane's header strip: the name, the level, the arm, mute and solo
@@ -374,14 +401,21 @@ namespace ui
 
     bool route_file_drop(RigController& rig, const TimelineScale& scale, SnapMode snap,
                          const std::string& path, ImVec2 canvas_position, std::size_t track,
-                         std::string& error_out)
+                         SushiDSP::host::AudioImportQueue& imports, std::string& error_out)
     {
         const std::uint64_t start =
             dropped_frame(scale, snap, rig.musical_clock(), canvas_position.x);
+        if (SushiDSP::host::AudioImportCache::can_import(path))
+        {
+            imports.request(path, track, start, rig.sample_rate());
+            error_out.clear();
+            return true;
+        }
         return rig.place_clip(track, path, start, error_out);
     }
 
     void DrawArrangementView(RigController& rig, TimelineScale& scale, SnapMode& snap,
+                             SushiDSP::host::AudioImportQueue& imports,
                              std::string& arrangement_error, LaneGeometry& geometry_out)
     {
         static std::array<std::array<char, kNameCapacity>, kLaneCount> names{};
@@ -439,7 +473,8 @@ namespace ui
                 {
                     const std::string path(static_cast<const char*>(payload->Data));
                     const ImVec2      landed(ImGui::GetIO().MousePos.x - canvas_x, 0.0f);
-                    if (route_file_drop(rig, scale, snap, path, landed, index, arrangement_error))
+                    if (route_file_drop(rig, scale, snap, path, landed, index, imports,
+                                        arrangement_error))
                     {
                         arrangement_error.clear();
                     }
@@ -482,6 +517,7 @@ namespace ui
         }
 
         ImGui::SetCursorScreenPos(ImVec2(origin.x, lanes_bottom + 4.0f));
+        draw_import_notice(imports);
         if (!arrangement_error.empty())
         {
             ImGui::TextColored(to_imvec4(rgba(220, 72, 60)), "%s", arrangement_error.c_str());

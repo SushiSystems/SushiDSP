@@ -23,6 +23,8 @@
 
 #include "ui/FileBrowser.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <vector>
 
@@ -66,22 +68,16 @@ namespace ui
             return (std::filesystem::path(directory) / name).string();
         }
 
-        /// @brief The extension whose rows may be dragged onto an arrangement lane.
-        constexpr const char* kTakeExtension = ".wav";
-
         /// @brief The payload type a dragged take carries, accepted by ui::DrawArrangementView.
         constexpr const char* kTakePayload = "TAKE_FILE_PATH";
 
-        /// @brief Makes the row the caller has just drawn a drag source carrying a take's path,
-        /// for a listing of takes. The path travels with its terminator, so the target reads it
-        /// as a C string.
+        /// @brief Makes the row the caller has just drawn a drag source carrying a take's path.
+        /// The path travels with its terminator, so the target reads it as a C string.
         /// @param path The file's full path.
         /// @param name The file's own name, shown under the pointer while it is dragged.
-        /// @param extension The listing's extension; anything but a take offers nothing.
-        void offer_as_take(const std::string& path, const std::string& name,
-                           const std::string& extension)
+        void offer_as_take(const std::string& path, const std::string& name)
         {
-            if (extension != kTakeExtension || !ImGui::BeginDragDropSource())
+            if (!is_take_file(path) || !ImGui::BeginDragDropSource())
             {
                 return;
             }
@@ -104,8 +100,22 @@ namespace ui
         }
     }
 
+    bool is_take_file(const std::string& path)
+    {
+        std::string carried = std::filesystem::path(path).extension().string();
+        std::transform(carried.begin(), carried.end(), carried.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return carried == ".wav" || carried == ".mp3";
+    }
+
     std::optional<std::string> FileBrowser(const char* id, std::string& directory,
                                            const std::string& extension)
+    {
+        return FileBrowser(id, directory, std::vector<std::string>{ extension });
+    }
+
+    std::optional<std::string> FileBrowser(const char* id, std::string& directory,
+                                           const std::vector<std::string>& extensions)
     {
         std::optional<std::string> picked;
         std::optional<std::string> next_directory;
@@ -124,7 +134,7 @@ namespace ui
         }
         ImGui::PopID();
 
-        for (const DirectoryEntry& entry : list_directory(current, extension))
+        for (const DirectoryEntry& entry : list_directory(current, extensions))
         {
             ImGui::PushID(row++);
             if (entry.is_directory)
@@ -141,7 +151,7 @@ namespace ui
                 {
                     picked = full;
                 }
-                offer_as_take(full, entry.name, extension);
+                offer_as_take(full, entry.name);
             }
             ImGui::PopID();
         }

@@ -114,6 +114,21 @@ TEST(Unit_Dsp, ListDirectoryWithAnEmptyExtensionKeepsEveryFile)
     std::filesystem::remove_all(root);
 }
 
+TEST(Unit_Dsp, ListDirectoryKeepsEveryExtensionItIsGiven)
+{
+    const std::filesystem::path root = make_fixture("several_extensions");
+    write_file(root / "take.wav");
+    write_file(root / "song.MP3");
+    write_file(root / "sample.flac");
+
+    const std::vector<ui::DirectoryEntry> entries =
+        ui::list_directory(root.string(), std::vector<std::string>{ ".wav", ".mp3" });
+
+    EXPECT_EQ(names_of(entries), (std::vector<std::string>{ "song.MP3", "take.wav" }));
+
+    std::filesystem::remove_all(root);
+}
+
 TEST(Unit_Dsp, ListDirectoryReturnsNothingForADirectoryThatDoesNotExist)
 {
     const std::filesystem::path root = make_fixture("missing");
