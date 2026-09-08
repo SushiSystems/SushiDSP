@@ -121,4 +121,32 @@ namespace ui
 
         return scale.snap(static_cast<std::uint64_t>(std::llround(moved)), snap, clock);
     }
+
+    std::optional<std::size_t> lane_at(const LaneGeometry& geometry, float screen_x,
+                                       float screen_y)
+    {
+        if (geometry.lane_count == 0 || geometry.lane_stride <= 0.0f
+            || screen_x < geometry.canvas_left
+            || screen_x >= geometry.canvas_left + geometry.canvas_width
+            || screen_y < geometry.canvas_top)
+        {
+            return std::nullopt;
+        }
+
+        const float       offset = screen_y - geometry.canvas_top;
+        const std::size_t lane = static_cast<std::size_t>(offset / geometry.lane_stride);
+
+        if (lane >= geometry.lane_count
+            || offset - static_cast<float>(lane) * geometry.lane_stride >= geometry.lane_height)
+        {
+            return std::nullopt;
+        }
+
+        return lane;
+    }
+
+    float canvas_x_of(const LaneGeometry& geometry, float screen_x)
+    {
+        return screen_x - geometry.canvas_left;
+    }
 }
