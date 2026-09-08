@@ -142,6 +142,11 @@ add_executable(sushidsp_tests
     functional/unit/test_dd3_clock.cpp
     functional/unit/test_dd3_delay.cpp
     functional/unit/test_band_response.cpp
+    functional/unit/test_room_materials.cpp
+    functional/unit/test_air_absorption.cpp
+    functional/unit/test_band_response_fit.cpp
+    functional/unit/test_cabinet_directivity.cpp
+    functional/unit/test_microphone_model.cpp
     functional/unit/test_arrangement_layout.cpp
     functional/unit/test_tap_tempo.cpp
     functional/unit/test_musical_time_text.cpp
