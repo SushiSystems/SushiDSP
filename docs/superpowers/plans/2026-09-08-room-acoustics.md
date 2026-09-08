@@ -322,7 +322,8 @@ the decoder block is 32 × 1024 = 32 768 bytes, so the file is about 1.6 MB.
 
 - [ ] **Step 1: Write the tool's `--self-test` first.** With no database present the tool must
       still prove its writer and its reader agree: `convert_hrtf.py --self-test out.hrtf` builds
-      four directions (0°, 90°, 180° and 270° azimuth at 0° elevation) from the Duda-Martens
+      six directions (0°, 90°, 180° and 270° azimuth at 0° elevation, plus the zenith and the
+      nadir) from the Duda-Martens
       spherical-head model, writes the file, reads it back, and exits non-zero unless every field
       is bit-identical. Task 17's fixture is this file.
 - [ ] **Step 2: Implement the conversion.** `--input <SOFA file or WAV directory> --output <path>`
@@ -357,7 +358,7 @@ the decoder block is 32 × 1024 = 32 768 bytes, so the file is about 1.6 MB.
       room loads"`.
 
 **Acceptance:** `python tools/dsp/convert_hrtf.py --self-test build/hrtf_fixture.hrtf` exits 0 and
-writes a file of exactly 32 + 4 × (12 + 1024) + 32 × 1024 + 2 × 512 = 37 968 bytes, whose four
+writes a file of exactly 32 + 6 × (12 + 1024) + 32 × 1024 + 2 × 512 = 40 040 bytes, whose four
 azimuths read back as 0, π/2, π and 3π/2 radians.
 
 ---
@@ -1840,7 +1841,7 @@ Write the last five out in full.
 **Files:**
 - Create: `modules/room/include/SushiDSP/room/HrtfSetLoader.hpp`,
   `modules/room/src/HrtfSetLoader.cpp`
-- Create: `tests/fixtures/hrtf_self_test.hrtf` (the 37 968-byte file Task 2's `--self-test` writes)
+- Create: `tests/fixtures/hrtf_self_test.hrtf` (the 40 040-byte file Task 2's `--self-test` writes)
 - Test: `tests/functional/unit/test_hrtf_set_loader.cpp`
 
 **Interfaces:**
@@ -1865,13 +1866,14 @@ namespace SushiDSP::room
 }
 ```
 
-- [ ] **Step 1: Write the failing tests** against the four-direction fixture:
+- [ ] **Step 1: Write the failing tests** against the six-direction fixture:
 
 ```cpp
 TEST(Unit_Dsp, HrtfSetLoaderReadsEveryFieldOfTheFixture)
 {
-    // direction_count() is 4; the four azimuths read back as 0.0, pi/2, pi and 3*pi/2 within
-    // 1e-6; decoder_order() is 3 and decoder_filters().size() is 32 * 256.
+    // direction_count() is 6; the ring's azimuths read back as 0.0, pi/2, pi and 3*pi/2 within
+    // 1e-6 and the zenith and the nadir carry elevation +pi/2 and -pi/2; decoder_order() is 3
+    // and decoder_filters().size() is 32 * 256.
 }
 
 TEST(Unit_Dsp, HrtfSetLoaderRefusesAMissingFileAndNamesThePath)
@@ -1905,7 +1907,7 @@ Write all five out in full.
 - [ ] **Step 4: Syntax-check**, paste. **Step 5: Commit**
       `DE5: HrtfSetLoader reads the flat asset with the standard library alone`.
 
-**Acceptance:** the four-direction fixture round-trips every field, and each of the four failure
+**Acceptance:** the six-direction fixture round-trips every field, and each of the four failure
 modes returns false with the path named and `set` unchanged.
 
 ---
@@ -2940,7 +2942,7 @@ TEST(Unit_Dsp, RoomNodeReproducesWoodworthsInterauralDelayOnTheFallback)
 TEST(Unit_Dsp, RoomNodeReportsSphericalHeadWithNoAssetAndMeasuredWithOne)
 {
     // hrtf_source() is HrtfSource::SphericalHead after prepare(); after set_hrtf() with the
-    // four-direction fixture it is HrtfSource::Measured; set_hrtf(HrtfSet{}) puts it back.
+    // six-direction fixture it is HrtfSource::Measured; set_hrtf(HrtfSet{}) puts it back.
 }
 
 TEST(Unit_Dsp, RoomNodeTailIsCoherentLowAndIncoherentHigh)
