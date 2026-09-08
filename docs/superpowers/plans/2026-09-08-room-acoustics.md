@@ -357,7 +357,7 @@ the decoder block is 32 × 1024 = 32 768 bytes, so the file is about 1.6 MB.
       room loads"`.
 
 **Acceptance:** `python tools/dsp/convert_hrtf.py --self-test build/hrtf_fixture.hrtf` exits 0 and
-writes a file of exactly 32 + 4 × (12 + 1024) + 32 × 1024 + 2 × 512 = 45 152 bytes, whose four
+writes a file of exactly 32 + 4 × (12 + 1024) + 32 × 1024 + 2 × 512 = 37 968 bytes, whose four
 azimuths read back as 0, π/2, π and 3π/2 radians.
 
 ---
@@ -1840,7 +1840,7 @@ Write the last five out in full.
 **Files:**
 - Create: `modules/room/include/SushiDSP/room/HrtfSetLoader.hpp`,
   `modules/room/src/HrtfSetLoader.cpp`
-- Create: `tests/fixtures/hrtf_self_test.hrtf` (the 45 152-byte file Task 2's `--self-test` writes)
+- Create: `tests/fixtures/hrtf_self_test.hrtf` (the 37 968-byte file Task 2's `--self-test` writes)
 - Test: `tests/functional/unit/test_hrtf_set_loader.cpp`
 
 **Interfaces:**
