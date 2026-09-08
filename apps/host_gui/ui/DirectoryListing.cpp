@@ -42,17 +42,28 @@ namespace ui
             return out;
         }
 
-        /// @brief Reports whether a file carries the wanted extension, ignoring case.
+        /// @brief Reports whether a file carries one of the wanted extensions, ignoring case.
         /// @param file The file's path.
-        /// @param extension The extension, dot included; an empty string matches everything.
+        /// @param extensions The extensions, dot included; an empty list matches everything, and
+        /// so does an empty entry.
         /// @return True when the file should be listed.
-        bool extension_matches(const std::filesystem::path& file, const std::string& extension)
+        bool extension_matches(const std::filesystem::path& file,
+                               const std::vector<std::string>& extensions)
         {
-            if (extension.empty())
+            if (extensions.empty())
             {
                 return true;
             }
-            return lowercased(file.extension().string()) == lowercased(extension);
+
+            const std::string carried = lowercased(file.extension().string());
+            for (const std::string& wanted : extensions)
+            {
+                if (wanted.empty() || carried == lowercased(wanted))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// @brief Orders two entries: directories before files, then by name, ignoring case.
@@ -78,6 +89,12 @@ namespace ui
     std::vector<DirectoryEntry> list_directory(const std::string& directory,
                                                const std::string& extension)
     {
+        return list_directory(directory, std::vector<std::string>{ extension });
+    }
+
+    std::vector<DirectoryEntry> list_directory(const std::string& directory,
+                                               const std::vector<std::string>& extensions)
+    {
         std::vector<DirectoryEntry> entries;
         try
         {
@@ -90,7 +107,7 @@ namespace ui
                  std::filesystem::directory_iterator(root))
             {
                 const bool is_directory = item.is_directory();
-                if (!is_directory && !extension_matches(item.path(), extension))
+                if (!is_directory && !extension_matches(item.path(), extensions))
                 {
                     continue;
                 }

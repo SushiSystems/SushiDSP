@@ -45,4 +45,12 @@ namespace ui
     /// prevent, so this reports emptiness rather than throwing.
     std::vector<DirectoryEntry> list_directory(const std::string& directory,
                                                const std::string& extension);
+
+    /// @brief Lists a directory for the browser, keeping the files of several extensions.
+    /// @param directory The directory to read.
+    /// @param extensions Lowercase extensions to keep, e.g. { ".wav", ".mp3" }. An empty list
+    /// keeps every file.
+    /// @return The entries, ordered as the single-extension listing orders them.
+    std::vector<DirectoryEntry> list_directory(const std::string& directory,
+                                               const std::vector<std::string>& extensions);
 }

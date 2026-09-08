@@ -44,6 +44,8 @@
 #include "SushiDSP/device/ChannelSelection.hpp"
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 
+#include "AudioImportCache.hpp"
+#include "AudioImportQueue.hpp"
 #include "FileDropQueue.hpp"
 #include "RigController.hpp"
 #include "ui/ArrangementLayout.hpp"
@@ -94,6 +96,19 @@ namespace
         double cursor_x = 0.0;
         double cursor_y = 0.0;
         glfwGetCursorPos(window, &cursor_x, &cursor_y);
+
+        // The layout works in framebuffer pixels; glfwGetCursorPos reports window coordinates.
+        int window_width = 0;
+        int window_height = 0;
+        int framebuffer_width = 0;
+        int framebuffer_height = 0;
+        glfwGetWindowSize(window, &window_width, &window_height);
+        glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+        if (window_width > 0 && window_height > 0)
+        {
+            cursor_x *= static_cast<double>(framebuffer_width) / static_cast<double>(window_width);
+            cursor_y *= static_cast<double>(framebuffer_height) / static_cast<double>(window_height);
+        }
 
         for (int index = 0; index < count; ++index)
         {
@@ -200,6 +215,15 @@ int main(int argc, char** argv)
 
     // Sized once by the first Explorer drop and reused, so a drop costs no allocation after it.
     std::vector<SushiDSP::host::FileDrop> drained_drops;
+
+    // A dropped mp3 is decoded to a WAV in a folder of the host's own, beside the impulse
+    // responses it already keeps next to the executable, and the clip points at that WAV: a
+    // session stores a clip as a path, so the decode has to leave a file behind, and it must not
+    // be written into the user's music folder. The decode runs on the queue's worker thread, so
+    // a five-minute song does not stop the window.
+    SushiDSP::host::AudioImportQueue audio_imports{ SushiDSP::host::AudioImportCache(
+        executable_directory(argc > 0 ? argv[0] : nullptr) + "cache/imported_audio") };
+    std::vector<SushiDSP::host::AudioImport> finished_imports;
 
     // Both buffers are captured BY REFERENCE in the device callback (below), and that callback
     // keeps firing on the audio thread for as long as the device runs - i.e. for every frame
@@ -454,12 +478,34 @@ int main(int argc, char** argv)
 
             const ImVec2 landed(ui::canvas_x_of(lane_geometry, screen_x), 0.0f);
             if (ui::route_file_drop(*rig_controller_storage, timeline_scale, snap_mode, drop.path,
-                                    landed, *lane, arrangement_error))
+                                    landed, *lane, audio_imports, arrangement_error))
             {
                 arrangement_error.clear();
             }
         }
         drained_drops.clear();
+
+        // A decode that finished on the worker thread becomes a clip here, on the thread that
+        // owns the rig.
+        audio_imports.drain(finished_imports);
+        for (const SushiDSP::host::AudioImport& import : finished_imports)
+        {
+            if (!rig_controller_storage.has_value())
+            {
+                continue;
+            }
+            if (!import.error.empty())
+            {
+                arrangement_error = import.error;
+                continue;
+            }
+            if (rig_controller_storage->place_clip(import.track, import.wav_path,
+                                                   import.start_frame, arrangement_error))
+            {
+                arrangement_error.clear();
+            }
+        }
+        finished_imports.clear();
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -576,11 +622,11 @@ int main(int argc, char** argv)
             }
 
             ImGui::TextColored(ui::to_imvec4(ui::palette().muted_text),
-                               "Drag a take onto a lane, or click one to place it at the "
-                               "playhead.");
+                               "Drag a take or a song onto a lane, or click one to place it at "
+                               "the playhead.");
 
-            const std::optional<std::string> picked =
-                ui::FileBrowser("##takes_browser", take_directory, ".wav");
+            const std::optional<std::string> picked = ui::FileBrowser(
+                "##takes_browser", take_directory, std::vector<std::string>{ ".wav", ".mp3" });
             if (picked.has_value())
             {
                 RigController&      rig = *rig_controller_storage;
@@ -588,7 +634,12 @@ int main(int argc, char** argv)
                 const std::uint64_t start =
                     timeline_scale.snap(rig.transport().position_frames(), snap_mode,
                                         rig.musical_clock());
-                if (rig.place_clip(lane, *picked, start, arrangement_error))
+                if (SushiDSP::host::AudioImportCache::can_import(*picked))
+                {
+                    audio_imports.request(*picked, lane, start, rig.sample_rate());
+                    arrangement_error.clear();
+                }
+                else if (rig.place_clip(lane, *picked, start, arrangement_error))
                 {
                     arrangement_error.clear();
                 }
@@ -604,7 +655,7 @@ int main(int argc, char** argv)
         if (rig_controller_storage.has_value())
         {
             ui::DrawArrangementView(*rig_controller_storage, timeline_scale, snap_mode,
-                                    arrangement_error, lane_geometry);
+                                    audio_imports, arrangement_error, lane_geometry);
         }
         ImGui::End();
 
