@@ -1389,7 +1389,7 @@ TEST(Unit_Dsp, RigControllerLoadsAPreDtPresetAsOneClipAtFrameZeroAtOneTwentyBpm)
     EXPECT_FALSE(controller.metronome().enabled());
 }
 
-TEST(Unit_Dsp, RigControllerDoesNotSaveThePlaybackSpeed)
+TEST(Unit_Dsp, RigControllerSavesThePlaybackSpeed)
 {
     RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
     source.append("sushidsp.tubescreamer");
@@ -1397,10 +1397,23 @@ TEST(Unit_Dsp, RigControllerDoesNotSaveThePlaybackSpeed)
     EXPECT_NEAR(source.transport().speed(), 0.5, 1e-9);
 
     const std::string saved = source.save_to_json();
-    EXPECT_EQ(saved.find("speed"), std::string::npos) << saved;
+    EXPECT_NE(saved.find("playback_speed"), std::string::npos) << saved;
 
     RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
     target.transport().set_speed(2.0);
     target.load_from_json(saved);
+    EXPECT_NEAR(target.transport().speed(), 0.5, 1e-9);
+}
+
+TEST(Unit_Dsp, RigControllerLoadsAPresetWithoutASpeedAtUnity)
+{
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    source.append("sushidsp.tubescreamer");
+    nlohmann::json document = nlohmann::json::parse(source.save_to_json());
+    document.at("tempo").erase("playback_speed");
+
+    RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    target.transport().set_speed(2.0);
+    target.load_from_json(document.dump());
     EXPECT_NEAR(target.transport().speed(), 1.0, 1e-9);
 }

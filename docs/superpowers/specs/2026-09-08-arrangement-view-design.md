@@ -346,8 +346,10 @@ metronome enabled, metronome level — and each track row gains a `clips` array 
 `start_frame`, `take_offset` and `length_frames`. The loop keeps its frame counts, because a
 session reopened after a tempo change must loop over the same audio, not the same bar numbers.
 
-Playback speed is not written. §5a says why: it is a practice setting, and a session that
-reopened at 0.4 with no visible cause would read as a bug.
+Playback speed is written, by the maintainer's ruling of 2026-09-08. The draft refused it on the
+grounds that a session reopening at 0.4 with no visible cause would read as a bug; the transport
+bar carries the speed on its own slider, so the cause is visible and that objection does not hold.
+A practice setting the player chose is one he expects to find where he left it.
 
 A preset written before DT5 has no `tempo` object and no `clips` arrays; it loads with 120 BPM,
 4/4, the metronome off, and each track's file as one clip at frame 0, which is what that file

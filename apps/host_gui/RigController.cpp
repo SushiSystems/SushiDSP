@@ -1043,6 +1043,7 @@ std::string RigController::save_to_json() const
     tempo_json["beat_unit"] = musical_clock_.beat_unit();
     tempo_json["metronome_enabled"] = metronome_.enabled();
     tempo_json["metronome_level"] = metronome_.level();
+    tempo_json["playback_speed"] = transport_.speed();
     document["tempo"] = tempo_json;
 
     return document.dump(2);
@@ -1200,6 +1201,7 @@ void RigController::load_from_json(const std::string& json_text)
     musical_clock_.set_sample_rate(info_.sample_rate);
     metronome_.set_enabled(tempo_json.value("metronome_enabled", false));
     metronome_.set_level(tempo_json.value("metronome_level", 0.5f));
+    transport_.set_speed(tempo_json.value("playback_speed", 1.0));
 
     std::unordered_map<SushiDSP::NodeHandle, SlotId> handle_to_slot;
     for (SushiDSP::NodeHandle handle : scratch.nodes())

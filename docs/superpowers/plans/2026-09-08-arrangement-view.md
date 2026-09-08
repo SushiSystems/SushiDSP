@@ -880,7 +880,7 @@ TEST(Unit_Dsp, RigControllerStopsARecordingIntoAClipAtTheArmedFrame)
 TEST(Unit_Dsp, RigControllerRoundTripsATempoAndItsClipsThroughJson)
 // save_to_json -> load -> save_to_json, string equality.
 TEST(Unit_Dsp, RigControllerLoadsAPreDtPresetAsOneClipAtFrameZeroAtOneTwentyBpm)
-TEST(Unit_Dsp, RigControllerDoesNotSaveThePlaybackSpeed)
+TEST(Unit_Dsp, RigControllerSavesThePlaybackSpeed)
 // set_speed(0.4), save, load: speed() is 1.0. Spec §8.
 ```
 
@@ -892,7 +892,8 @@ TEST(Unit_Dsp, RigControllerDoesNotSaveThePlaybackSpeed)
       `beat_unit`, `metronome_enabled`, `metronome_level` — and a `clips` array of `path`,
       `start_frame`, `take_offset`, `length_frames` per track row, keeping `loop` in frames. The
       loader defaults a missing `tempo` to 120, 4/4, metronome off, and a missing `clips` to the
-      row's `file` as one clip at frame 0. Playback speed is written nowhere.
+      row's `file` as one clip at frame 0. Playback speed is written, and a preset that lacks it
+      loads at unity.
 - [ ] **Step 4: Syntax-check**, paste. **Step 5: Commit**
       `DT5: RigController places clips, stamps a recording's start frame and saves the tempo`.
 
