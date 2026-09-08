@@ -117,10 +117,16 @@ namespace SushiDSP
         /// @brief Clears the filter's internal state.
         void reset();
 
-    private:
-        /// @brief Stores the five normalised coefficients.
+        /// @brief Loads five coefficients computed elsewhere, leaving the state untouched.
+        /// @param b0 Feed-forward tap on the current input, already divided by a0.
+        /// @param b1 Feed-forward tap on the previous input, already divided by a0.
+        /// @param b2 Feed-forward tap on the input before that, already divided by a0.
+        /// @param a1 Feedback tap on the previous output, already divided by a0.
+        /// @param a2 Feedback tap on the output before that, already divided by a0.
+        /// @pre |a2| < 1 and |a1| < 1 + a2, so the poles lie inside the unit circle.
         void set_coefficients(double b0, double b1, double b2, double a1, double a2);
 
+    private:
         /// @brief The feed-forward coefficients, normalised by a0.
         double b0_ = 1.0, b1_ = 0.0, b2_ = 0.0;
 

@@ -438,3 +438,22 @@ TEST(Unit_Dsp, BiquadFirstOrderHighPassStaysCleanAtLowCornersAtHighRates)
         EXPECT_LT(std::abs(last), 1e-4f * std::abs(first)) << cutoff_hz;
     }
 }
+
+TEST(Unit_Dsp, BiquadSetCoefficientsLoadsThemVerbatim)
+{
+    // b = {0.5, 0.5, 0}, a = {0, 0} is a two-tap average whose impulse response is 0.5, 0.5, 0.
+    SushiDSP::Biquad average;
+    average.set_coefficients(0.5, 0.5, 0.0, 0.0, 0.0);
+    EXPECT_FLOAT_EQ(average.process_sample(1.0f), 0.5f);
+    EXPECT_FLOAT_EQ(average.process_sample(0.0f), 0.5f);
+    EXPECT_FLOAT_EQ(average.process_sample(0.0f), 0.0f);
+
+    // b = {1, 0, 0}, a = {-0.5, 0} is the one-pole y[n] = x[n] + 0.5 y[n-1], whose impulse
+    // response is the geometric sequence 1, 1/2, 1/4, 1/8.
+    SushiDSP::Biquad one_pole;
+    one_pole.set_coefficients(1.0, 0.0, 0.0, -0.5, 0.0);
+    EXPECT_FLOAT_EQ(one_pole.process_sample(1.0f), 1.0f);
+    EXPECT_FLOAT_EQ(one_pole.process_sample(0.0f), 0.5f);
+    EXPECT_FLOAT_EQ(one_pole.process_sample(0.0f), 0.25f);
+    EXPECT_FLOAT_EQ(one_pole.process_sample(0.0f), 0.125f);
+}
