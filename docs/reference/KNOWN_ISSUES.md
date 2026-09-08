@@ -109,11 +109,20 @@ rejoins. This is what spec §2's adaptation table says should happen — 2 into 
 and no test or user asks for anything else, so the behaviour stays. Closes when a mixer that keeps
 its inputs' width exists, which needs a `PortLayout` that can say "eight slots, two channels each".
 
-## Spec §5's timeline alignment is not implemented
+## A take's own sample rate is never read
 
-`RecordingBus::arm()` used to store the block index both files began at, and nothing read it: the
-re-amp path in `RigController` starts a loaded take at transport position 0 whatever block it was
-recorded at. Wiring it up needs a per-track start offset in `TrackPlayer`, the armed position
-carried through the take file or the preset, and a preset field to hold it — more than the accessor
-implied — so the fix round of 2026-09-07 deleted `armed_block_index()` rather than leave a dead
-accessor that reads as a feature. Closes when a track carries its own start frame.
+`Take` carries the rate it was captured at, and neither `TrackPlayer` nor `TrackTimeline` asks
+for it: a clip is read frame for frame against the rig's rate. A 44.1 kHz WAV dropped on a
+48 kHz rig therefore plays 8.8 % slow and a semitone's fifth flat. Imported mp3 files are not
+affected — `AudioImportCache` converts a decoded song to the rig's rate before the clip ever
+points at it, which is why the defect survived the mp3 work. Closes when a clip carries the
+ratio between its take's rate and the rig's into `VariRateReader`, which already reads at an
+arbitrary speed.
+
+## The imported-audio cache is never pruned
+
+Every mp3 dropped on a lane leaves a float32 WAV under the executable's `cache/imported_audio/`
+and nothing ever deletes one; a 3.4-minute song costs about 79 MB. The cache is what makes a
+second drop of the same file cost 0 ms against the first drop's 3128 ms, and what lets a saved
+session find its clip again, so it is kept rather than made optional. Closes when the cache
+carries a size cap and evicts by last use.

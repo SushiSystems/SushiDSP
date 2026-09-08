@@ -3,6 +3,31 @@
 Grouped by roadmap phase (spec §9). Each phase's implementation plan lives under
 `docs/superpowers/plans/` with the full task-by-task record.
 
+## DT — The arrangement view: bars, clips and playback speed
+
+The timeline track, spec `docs/superpowers/specs/2026-09-08-arrangement-view-design.md`, plan
+`docs/superpowers/plans/2026-09-08-arrangement-view.md`, ledger
+`.superpowers/sdd/2026-09-08-arrangement-view/`.
+
+- 2026-09-08 — Added `MusicalClock`, the frame-to-bar-and-beat map in 32.32 fixed point (`modules/capture/include/SushiDSP/capture/MusicalClock.hpp`, `MusicalClock.cpp`).
+- 2026-09-08 — Added `TakeLibrary`, the control-thread owner of every loaded take and the counts clips borrow against (`TakeLibrary.hpp`, `TakeLibrary.cpp`).
+- 2026-09-08 — Added `VariRateReader`, reading a take between 0.5x and 2.0x through `Resampler` with the pitch following the speed (`VariRateReader.hpp`, `VariRateReader.cpp`).
+- 2026-09-08 — Gave `Transport` a playback speed as a 32.32 word, clamped to `kMinSpeed` 0.5 and `kMaxSpeed` 2.0 (`Transport.hpp`, `Transport.cpp`).
+- 2026-09-08 — Added `FileDropQueue`, the control-thread hand-off from a drop callback to the GUI frame (`apps/host_gui/FileDropQueue.hpp`, `FileDropQueue.cpp`).
+- 2026-09-08 — Added `Metronome`, a click on every beat written to the monitor path after `RecordingBus::write` (`Metronome.hpp`, `Metronome.cpp`).
+- 2026-09-08 — Added `TrackTimeline`, up to `kMaxClips` = 16 sorted clips per lane with a 5 ms de-click ramp (`TrackTimeline.hpp`, `TrackTimeline.cpp`).
+- 2026-09-08 — Added `ui::TimelineScale`, the frame-to-pixel map and the bar, beat and free snap modes (`apps/host_gui/ui/TimelineScale.hpp`, `TimelineScale.cpp`).
+- 2026-09-08 — Made `TrackPlayer` mix clip timelines at the transport's speed, copying the take at unity instead of entering the reader (`TrackPlayer.hpp`, `TrackPlayer.cpp`).
+- 2026-09-08 — Gave `RigController` clip placement, the tempo and the frame a recording was armed at, and mirrored a lane's clips into the re-amp leg (`RigController.hpp`, `RigController.cpp`).
+- 2026-09-08 — Closed spec §5's timeline alignment: a take recorded at bar 5 re-amps at bar 5 (`RigController.cpp`, `tests/functional/unit/test_rig_controller.cpp`).
+- 2026-09-08 — Saved the playback speed in the session, a preset without one loading at unity (`RigController.cpp`).
+- 2026-09-08 — Added the arrangement view, its layout arithmetic and the takes browser (`apps/host_gui/ui/ArrangementView.cpp`, `ArrangementLayout.cpp`, `FileBrowser.cpp`, `DirectoryListing.cpp`).
+- 2026-09-08 — Split the transport bar into two rows and gave it bars, a tap tempo and the speed slider (`apps/host_gui/ui/TransportBar.cpp`, `TapTempo.cpp`, `MusicalTimeText.cpp`).
+- 2026-09-08 — Drew the arrangement in the host, drained the Explorer drop in framebuffer pixels and called the metronome; `TrackPanel` left the build (`apps/host_gui/main.cpp`).
+- 2026-09-08 — Vendored dr_mp3 0.7.3 under `third_party/dr_libs` (`third_party/dr_libs/`).
+- 2026-09-08 — Imported a dropped mp3 on a worker thread, resampled to the rig's rate and cached as a float32 WAV in `<exe>/cache/imported_audio/` (`Mp3Decoder.cpp`, `ChannelResampler.cpp`, `AudioImportCache.cpp`, `AudioImportQueue.cpp`).
+- 2026-09-09 — Documented the arrangement view in spec §3b, `modules/capture/README.md` and the new `docs/reference/GLOSSARY.md`.
+
 ## DS — Stereo, tracks and playback
 
 The studio track, spec `docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan

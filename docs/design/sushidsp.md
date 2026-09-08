@@ -241,6 +241,72 @@ re-amps it through an identical rig in the host's own callback order, and assert
 within 1e-6. The preset carries the track list and the transport's loop range.
 
 
+### §3b The timeline path — bars, clips and playback speed
+
+The DT phase (spec
+[`docs/superpowers/specs/2026-09-08-arrangement-view-design.md`](../superpowers/specs/2026-09-08-arrangement-view-design.md),
+plan [`docs/superpowers/plans/2026-09-08-arrangement-view.md`](../superpowers/plans/2026-09-08-arrangement-view.md))
+put musical time under the studio path. Before it, a take started at transport frame 0 and the
+only tempo in the tree was the guitarist's. After it, a lane holds clips at frames, the host
+draws a bar grid, and a recording re-amps at the bar it was played at.
+
+**Musical time is a map, not a clock.** `MusicalClock` holds a tempo, a meter and nothing else:
+`position_of(frame)` gives a `BarBeat` and `frame_of(bar, beat)` gives a frame back, both in
+32.32 fixed point, and the clock is handed a position rather than keeping one. `Transport` stays
+position-and-speed. Either can be replaced without the other noticing, which is the reason the
+tempo does not live on the transport where a first draft would put it. `frame_of` floors, so a
+bar line is at most one sample early and `frame_of(position_of(f)) <= f` holds — a bar's frame
+never lands after the bar it names.
+
+**Clips, and who owns a take.** `TrackTimeline` is one lane's clips: up to `kMaxClips` = 16 of
+them, sorted at construction, immutable once published, each naming a take by a raw
+`const Take*` and carrying its own start frame, take offset and length. `TakeLibrary` owns every
+loaded take on the control thread and counts the borrows; a lane publishes a timeline through an
+`RtSwapSlot<TrackTimeline>`, and the order that keeps the audio thread safe is fixed: reclaim
+every lane slot first, then `collect()` once. No `shared_ptr` reaches the audio thread.
+`TrackTimeline::edge_gain` is the 5 ms de-click ramp, and `TrackPlayer` asks for it only at an
+edge that cuts into the take, so a whole-take clip is still bit-for-bit its file.
+
+**Speed carries pitch.** `Transport` holds a speed as a 32.32 word between `kMinSpeed` 0.5 and
+`kMaxSpeed` 2.0, saved in the session, and `advance()` moves the position by that many frames per
+output frame while carrying the fraction, so 100000 blocks of 256 at 1.3 land on frame 33280000
+rather than near it. `VariRateReader` reads a take at that speed through `Resampler`, one
+converter per channel, and the pitch falls with the speed the way a tape machine's does. Half
+speed is an octave down; nothing here stretches time, which is spec §5a's stated decision.
+Speed 1.0 never enters the reader — `TrackPlayer` copies the take — so the golden files compare
+bits rather than a filter's output. Against sample-domain linear interpolation at half speed the
+sinc measures 112.5 dB of spurious-free dynamic range at 1 kHz against 47.3.
+
+**The click is in no file.** `Metronome` is not an `IAudioNode` and holds no place in the
+`RigGraph`. The host calls it after `RecordingBus::write`, which is what keeps the click on the
+monitor path and out of both recorded files; there is no click track written beside a take.
+
+**The host.** `apps/host_gui` draws the arrangement full width beneath the rig panels:
+`ui::TimelineScale` maps frames to pixels and snaps to a bar, a beat or nothing,
+`ui::ArrangementLayout` holds the grid arithmetic the drawing units then only draw, and
+`ui::TapTempo` and `ui::MusicalTimeText` serve the transport bar's two rows. A file reaches a
+lane by two routes that share one `route_file_drop`: an ImGui drag from the takes browser
+(`ui::FileBrowser`, `ui::DirectoryListing`) and a Windows Explorer drop, queued by
+`FileDropQueue` from the GLFW callback and drained on the next frame in framebuffer pixels.
+`RigController` stamps the transport frame a recording was armed at, places the dry file as a
+clip there, and mirrors a lane's clips into the re-amp leg, which is what closes spec §5's
+alignment: a take recorded at bar 5 drives the rig at bar 5
+(`RigControllerReAmpsARecordedTakeFromTheBarItWasRecordedAt`).
+
+**An mp3 becomes a WAV on the way in.** `dr_mp3` is vendored under `third_party/dr_libs` and
+named only inside `apps/host_gui`: `Mp3Decoder` decodes on a worker thread, `ChannelResampler`
+converts to the rig's rate through the tree's own `Resampler`, and `AudioImportCache` writes the
+result as a float32 WAV under the executable's `cache/imported_audio/` before the clip points at
+it. The session stores a clip as a path, so an in-memory decode would leave an empty clip on the
+next launch. Float32 rather than 16-bit PCM because resampling a real song raised its peak to
+1.0763. A second drop of the same file costs 0 ms against the first's 3128 ms. Nothing prunes
+the cache and nothing reads a plain WAV's own sample rate; both are in
+[`docs/reference/KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md).
+
+`modules/capture/README.md` carries the rest, and
+[`docs/reference/GLOSSARY.md`](../reference/GLOSSARY.md) defines bar, beat, clip, take and
+playback speed as this tree uses them.
+
 ---
 
 ## §4 DSP math library (portable, SIMD)
@@ -740,6 +806,21 @@ in it touches the circuit core: it is the graph's channel routing, a capture mod
 | DS3 | `Transport` and `TrackPlayer`: eight tracks, gain, pan, mute, solo, and a loop range packed into one 64-bit word | Landed 2026-09-07, commit 394a605 (attribution, see `docs/reference/KNOWN_ISSUES.md`) |
 | DS4 | The host: a stereo output, record and play in the callback, a transport bar, a track panel, the re-amp input switch, the preset's track list and loop range | Landed 2026-09-07, commits af6a9ed, da342fc, afa0627 |
 | DS5 | OGG export through `libvorbis`/`libogg`, inside `apps/host_gui` only | Deferred; written up once a user asks for it |
+
+**DT — the arrangement view, a parallel track.** Spec
+`docs/superpowers/specs/2026-09-08-arrangement-view-design.md`, plan
+`docs/superpowers/plans/2026-09-08-arrangement-view.md`. It continues DS with musical time: a
+tempo grid, clips on lanes and a playback speed. §3b describes what it built.
+
+| Phase | What it builds | Status |
+| --- | --- | --- |
+| DT0 | `MusicalClock`, the frame-to-bar-and-beat map in 32.32 | Landed 2026-09-08, commit 247cd35 |
+| DT1 | `Metronome`, a click on every beat on the monitor path only | Landed 2026-09-08, commits a4a696a, 9076224 |
+| DT2 | `TakeLibrary`, `TrackTimeline`, `VariRateReader`, `Transport`'s speed, and `TrackPlayer` mixing clips at that speed | Landed 2026-09-08, commits 2c0d616, 58a2f43, 2e3c789, 87d976c, 6c809f4 |
+| DT3 | `ui::TimelineScale` and the arrangement view: the ruler, the lanes, the clips, the tap tempo | Landed 2026-09-08, commits dbc2706, 32daeaa, f43224b |
+| DT4 | `FileDropQueue` and the two drop routes, both through one `route_file_drop` | Landed 2026-09-08, commits 3d625ca, ce4b638, 8085575 |
+| DT5 | The session: clip placement, the armed frame, the tempo and the playback speed | Landed 2026-09-08, commits 4d36860, f240e98 |
+| DT6 | mp3 import: `dr_mp3`, a worker thread, the rig's rate, a cached float32 WAV | Landed 2026-09-08, commits 3a9faf1, 55503b0, 21cfcf7, 16ac806 |
 
 **DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration; DS0 built the per-node multi-channel routing it waited on.
 
