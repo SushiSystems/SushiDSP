@@ -205,6 +205,9 @@ namespace ui
             if (ImGui::DragFloat("##bpm", &tempo, 0.25f, kMinimumTempo, kMaximumTempo, "%.1f BPM"))
             {
                 clock.set_tempo(static_cast<double>(tempo));
+                // A tempo typed by hand ends whatever tap run was in progress, so the next tap
+                // opens a run of its own rather than averaging across the change.
+                taps.reset();
             }
 
             ImGui::SameLine();
@@ -285,9 +288,13 @@ namespace ui
             if (ImGui::IsItemHovered())
             {
                 ImGui::SetTooltip("Playback speed. The pitch falls with it, as a tape machine's "
-                                  "does: half speed is an octave down. Double-click for 1.00x.");
+                                  "does: half speed is an octave down.");
             }
-            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+
+            // The slider consumes its own clicks, so the way back to unity is a button beside it
+            // rather than a double-click the slider would have swallowed.
+            ImGui::SameLine(0.0f, 4.0f);
+            if (ImGui::SmallButton("1x"))
             {
                 transport.set_speed(1.0);
             }
@@ -321,7 +328,8 @@ namespace ui
         ImGui::TextColored(to_imvec4(palette().muted_text), "%.2f s",
                            static_cast<double>(to_seconds(position, rig.sample_rate())));
 
-        ImGui::SameLine();
+        // The second row exists because the first outgrew the window: the controls below need
+        // about 1250 pixels beside the ones above, against a 1136-wide reference window.
         draw_metronome(rig);
 
         ImGui::SameLine();
