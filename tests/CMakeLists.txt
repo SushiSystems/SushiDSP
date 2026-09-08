@@ -147,6 +147,10 @@ add_executable(sushidsp_tests
     functional/unit/test_band_response_fit.cpp
     functional/unit/test_cabinet_directivity.cpp
     functional/unit/test_microphone_model.cpp
+    functional/unit/test_room_records.cpp
+    functional/unit/test_crossover_pair.cpp
+    functional/unit/test_hrtf_set.cpp
+    functional/unit/test_ambisonic_encoder.cpp
     functional/unit/test_arrangement_layout.cpp
     functional/unit/test_tap_tempo.cpp
     functional/unit/test_musical_time_text.cpp
