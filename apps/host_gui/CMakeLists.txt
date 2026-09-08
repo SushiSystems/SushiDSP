@@ -2,6 +2,10 @@ add_executable(sushidsp_host_gui
     main.cpp
     RigController.cpp
     FileDropQueue.cpp
+    Mp3Decoder.cpp
+    ChannelResampler.cpp
+    AudioImportCache.cpp
+    AudioImportQueue.cpp
     ui/KnobMath.cpp
     ui/PanelLibrary.cpp
     ui/ChainLayout.cpp
@@ -24,7 +28,7 @@ add_executable(sushidsp_host_gui
 )
 # ui/*.cpp include their own headers as "ui/<Name>.hpp" and reach RigController.hpp beside them,
 # so the app directory itself has to be on the include path.
-target_include_directories(sushidsp_host_gui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(sushidsp_host_gui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/third_party)
 target_link_libraries(sushidsp_host_gui PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::node_registry
