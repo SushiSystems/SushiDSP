@@ -89,7 +89,13 @@ namespace
 RigController::RigController(const SushiDSP::PrepareInfo& info)
     : info_(info)
     , recording_bus_(std::max(1u, info.channels), info.sample_rate)
+    , metronome_(info.sample_rate)
 {
+    musical_clock_.set_sample_rate(info.sample_rate);
+    // A lane converts a clip only through a sized reader, so both players are prepared here and
+    // no caller can set a speed on an unprepared one.
+    player_.prepare(info.max_block);
+    reamp_player_.prepare(info.max_block);
     publish();
 }
 
@@ -582,27 +588,215 @@ void RigController::set_input_source(RigInputSource source)
     input_source_.store(source, std::memory_order_relaxed);
 }
 
+std::string RigController::join_take_path(const std::string& folder,
+                                          const std::string& file_name)
+{
+    if (folder.empty())
+    {
+        return file_name;
+    }
+    const char last = folder.back();
+    if (last == '/' || last == '\\')
+    {
+        return folder + file_name;
+    }
+    return folder + '/' + file_name;
+}
+
+const SushiDSP::Take* RigController::take_for_path(const std::string& path,
+                                                   std::string&       error_out)
+{
+    error_out.clear();
+    const auto found = takes_by_path_.find(path);
+    if (found != takes_by_path_.end())
+    {
+        return found->second;
+    }
+
+    std::unique_ptr<SushiDSP::Take> take = load_take(path, error_out);
+    if (take == nullptr)
+    {
+        return nullptr;
+    }
+
+    const SushiDSP::Take* borrowed = player_.takes().insert(std::move(take));
+    takes_by_path_[path] = borrowed;
+    return borrowed;
+}
+
+void RigController::forget_unused_takes()
+{
+    std::set<std::string> named;
+    for (const TrackInfo& track : tracks_)
+    {
+        for (const ClipPlacement& placement : track.clips)
+        {
+            named.insert(placement.path);
+        }
+    }
+
+    for (auto entry = takes_by_path_.begin(); entry != takes_by_path_.end();)
+    {
+        entry = named.count(entry->first) == 0 ? takes_by_path_.erase(entry) : std::next(entry);
+    }
+}
+
+bool RigController::publish_lane(std::size_t track, std::vector<ClipPlacement> clips,
+                                 std::string& error_out)
+{
+    error_out.clear();
+    if (track >= tracks_.size())
+    {
+        error_out = "track index out of range";
+        return false;
+    }
+
+    std::sort(clips.begin(), clips.end(),
+              [](const ClipPlacement& left, const ClipPlacement& right)
+              { return left.start_frame < right.start_frame; });
+
+    std::vector<SushiDSP::Clip> lane;
+    lane.reserve(clips.size());
+    for (ClipPlacement& placement : clips)
+    {
+        const SushiDSP::Take* take = take_for_path(placement.path, error_out);
+        if (take == nullptr)
+        {
+            forget_unused_takes();
+            return false;
+        }
+
+        // A zero length is the take's whole remainder, which is what a preset row naming only a
+        // file means and what a freshly dropped file means.
+        const std::uint64_t frames = static_cast<std::uint64_t>(take->frames());
+        placement.take_offset = std::min(placement.take_offset, frames);
+        const std::uint64_t available = frames - placement.take_offset;
+        placement.length_frames = placement.length_frames == 0
+            ? available
+            : std::min(placement.length_frames, available);
+
+        lane.push_back(SushiDSP::Clip{ take, placement.start_frame, placement.take_offset,
+                                       placement.length_frames });
+    }
+
+    std::unique_ptr<SushiDSP::TrackTimeline> timeline;
+    try
+    {
+        timeline = std::make_unique<SushiDSP::TrackTimeline>(player_.takes(), lane);
+    }
+    catch (const std::exception& error)
+    {
+        error_out = error.what();
+        forget_unused_takes();
+        return false;
+    }
+
+    tracks_[track].clips = std::move(clips);
+    player_.set_timeline(track, std::move(timeline));
+    forget_unused_takes();
+    return true;
+}
+
+bool RigController::place_clip(std::size_t track, const std::string& path,
+                               std::uint64_t start_frame, std::string& error_out)
+{
+    error_out.clear();
+    if (track >= tracks_.size())
+    {
+        error_out = "track index out of range";
+        return false;
+    }
+    if (tracks_[track].clips.size() >= SushiDSP::TrackTimeline::kMaxClips)
+    {
+        error_out = "lane " + std::to_string(track) + " already holds "
+            + std::to_string(SushiDSP::TrackTimeline::kMaxClips) + " clips";
+        return false;
+    }
+
+    std::vector<ClipPlacement> clips = tracks_[track].clips;
+    ClipPlacement              placement;
+    placement.path = path;
+    placement.start_frame = start_frame;
+    clips.push_back(placement);
+
+    if (!publish_lane(track, std::move(clips), error_out))
+    {
+        return false;
+    }
+    if (tracks_[track].name.empty())
+    {
+        tracks_[track].name = path_stem(path);
+    }
+    return true;
+}
+
+bool RigController::remove_clip(std::size_t track, std::size_t clip_index,
+                                std::string& error_out)
+{
+    error_out.clear();
+    if (track >= tracks_.size() || clip_index >= tracks_[track].clips.size())
+    {
+        error_out = "no clip at that index";
+        return false;
+    }
+
+    std::vector<ClipPlacement> clips = tracks_[track].clips;
+    clips.erase(clips.begin() + static_cast<std::ptrdiff_t>(clip_index));
+    return publish_lane(track, std::move(clips), error_out);
+}
+
+bool RigController::move_clip(std::size_t track, std::size_t clip_index,
+                              std::uint64_t start_frame, std::string& error_out)
+{
+    error_out.clear();
+    if (track >= tracks_.size() || clip_index >= tracks_[track].clips.size())
+    {
+        error_out = "no clip at that index";
+        return false;
+    }
+
+    std::vector<ClipPlacement> clips = tracks_[track].clips;
+    clips[clip_index].start_frame = start_frame;
+    return publish_lane(track, std::move(clips), error_out);
+}
+
+std::size_t RigController::clip_count(std::size_t track) const
+{
+    return track < tracks_.size() ? tracks_[track].clips.size() : 0u;
+}
+
+RigController::ClipPlacement RigController::clip(std::size_t track, std::size_t clip_index) const
+{
+    if (track >= tracks_.size() || clip_index >= tracks_[track].clips.size())
+    {
+        return ClipPlacement{};
+    }
+    return tracks_[track].clips[clip_index];
+}
+
 bool RigController::load_track(std::size_t index, const std::string& path, std::string& error_out)
 {
+    error_out.clear();
     if (index >= tracks_.size())
     {
         error_out = "track index out of range";
         return false;
     }
 
-    std::unique_ptr<SushiDSP::Take> take = load_take(path, error_out);
-    if (take == nullptr)
+    const std::string previous_name = tracks_[index].name;
+    const std::string previous_path = track_path(index);
+
+    std::vector<ClipPlacement> single(1);
+    single[0].path = path;
+    if (!publish_lane(index, std::move(single), error_out))
     {
         return false;
     }
 
-    if (tracks_[index].name.empty() || tracks_[index].name == path_stem(tracks_[index].path))
+    if (previous_name.empty() || previous_name == path_stem(previous_path))
     {
         tracks_[index].name = path_stem(path);
     }
-    tracks_[index].path = path;
-    tracks_[index].loaded = true;
-    player_.set_take(index, std::move(take));
     return true;
 }
 
@@ -613,7 +807,8 @@ void RigController::clear_track(std::size_t index)
         return;
     }
     tracks_[index] = TrackInfo{};
-    player_.set_take(index, std::make_unique<SushiDSP::Take>(1u, info_.sample_rate, 0u));
+    std::string error;
+    publish_lane(index, std::vector<ClipPlacement>{}, error);
     player_.set_gain(index, 1.0f);
     player_.set_pan(index, 0.0f);
     player_.set_mute(index, false);
@@ -626,7 +821,7 @@ void RigController::clear_track(std::size_t index)
 
 bool RigController::track_is_loaded(std::size_t index) const
 {
-    return index < tracks_.size() && tracks_[index].loaded;
+    return index < tracks_.size() && !tracks_[index].clips.empty();
 }
 
 std::string RigController::track_name(std::size_t index) const
@@ -644,25 +839,63 @@ void RigController::set_track_name(std::size_t index, const std::string& name)
 
 std::string RigController::track_path(std::size_t index) const
 {
-    return index < tracks_.size() ? tracks_[index].path : std::string();
+    if (index >= tracks_.size() || tracks_[index].clips.empty())
+    {
+        return std::string();
+    }
+    return tracks_[index].clips.front().path;
 }
 
 bool RigController::set_reamp_track(std::size_t index, std::string& error_out)
 {
     error_out.clear();
-    if (index >= tracks_.size() || !tracks_[index].loaded)
+    if (index >= tracks_.size() || tracks_[index].clips.empty())
     {
         clear_reamp_track();
         return false;
     }
 
-    std::unique_ptr<SushiDSP::Take> take = load_take(tracks_[index].path, error_out);
-    if (take == nullptr)
+    // The re-amp leg mirrors the lane's frames, so a take recorded at a bar drives the rig at
+    // that bar. See docs/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
+    reamp_takes_by_path_.clear();
+    std::vector<SushiDSP::Clip> lane;
+    lane.reserve(tracks_[index].clips.size());
+    for (const ClipPlacement& placement : tracks_[index].clips)
     {
+        const SushiDSP::Take* take = nullptr;
+        const auto            found = reamp_takes_by_path_.find(placement.path);
+        if (found != reamp_takes_by_path_.end())
+        {
+            take = found->second;
+        }
+        else
+        {
+            std::unique_ptr<SushiDSP::Take> loaded = load_take(placement.path, error_out);
+            if (loaded == nullptr)
+            {
+                reamp_takes_by_path_.clear();
+                return false;
+            }
+            take = reamp_player_.takes().insert(std::move(loaded));
+            reamp_takes_by_path_[placement.path] = take;
+        }
+        lane.push_back(SushiDSP::Clip{ take, placement.start_frame, placement.take_offset,
+                                       placement.length_frames });
+    }
+
+    std::unique_ptr<SushiDSP::TrackTimeline> timeline;
+    try
+    {
+        timeline = std::make_unique<SushiDSP::TrackTimeline>(reamp_player_.takes(), lane);
+    }
+    catch (const std::exception& error)
+    {
+        error_out = error.what();
+        reamp_takes_by_path_.clear();
         return false;
     }
 
-    reamp_player_.set_take(0, std::move(take));
+    reamp_player_.set_timeline(0, std::move(timeline));
     reamp_player_.set_mute(0, false);
     reamp_track_ = index;
     return true;
@@ -670,7 +903,9 @@ bool RigController::set_reamp_track(std::size_t index, std::string& error_out)
 
 void RigController::clear_reamp_track()
 {
-    reamp_player_.set_take(0, std::make_unique<SushiDSP::Take>(1u, info_.sample_rate, 0u));
+    reamp_takes_by_path_.clear();
+    reamp_player_.set_timeline(0, std::make_unique<SushiDSP::TrackTimeline>(
+        reamp_player_.takes(), std::vector<SushiDSP::Clip>{}));
     reamp_track_ = std::nullopt;
 }
 
@@ -684,6 +919,11 @@ std::string RigController::take_folder() const
     return take_folder_;
 }
 
+void RigController::set_record_track(std::optional<std::size_t> track)
+{
+    record_track_ = track.has_value() && *track < tracks_.size() ? track : std::nullopt;
+}
+
 bool RigController::arm_recording(const std::string& take_name, std::string& error_out)
 {
     error_out.clear();
@@ -692,18 +932,40 @@ bool RigController::arm_recording(const std::string& take_name, std::string& err
         error_out = "a take needs a name";
         return false;
     }
+
+    // The stamp is read before the bus opens, so no block the bus accepts belongs to an earlier
+    // frame than the one a stopped recording's clip begins at.
+    const std::uint64_t armed_at = transport_.position_frames();
     if (!recording_bus_.arm(take_folder_, take_name))
     {
         error_out = "could not open the take files in '" + take_folder_ + "'";
         return false;
     }
+    armed_frame_ = armed_at;
+    record_take_name_ = take_name;
     transport_.record();
     return true;
 }
 
-void RigController::stop_recording()
+void RigController::stop_recording(std::string* error_out)
 {
     recording_bus_.stop();
+
+    const std::string take_name = record_take_name_;
+    record_take_name_.clear();
+    if (!record_track_.has_value() || take_name.empty())
+    {
+        return;
+    }
+
+    std::string error;
+    const bool  placed = place_clip(*record_track_,
+                                    join_take_path(take_folder_, take_name + "-dry.wav"),
+                                    armed_frame_, error);
+    if (!placed && error_out != nullptr)
+    {
+        *error_out = error;
+    }
 }
 
 bool RigController::poll_recording(std::string& error_out)
@@ -734,18 +996,30 @@ std::string RigController::save_to_json() const
     nlohmann::json tracks_json = nlohmann::json::array();
     for (std::size_t index = 0; index < tracks_.size(); ++index)
     {
-        if (!tracks_[index].loaded)
+        if (tracks_[index].clips.empty())
         {
             continue;
         }
         nlohmann::json track_json = nlohmann::json::object();
         track_json["index"] = index;
         track_json["name"] = tracks_[index].name;
-        track_json["path"] = tracks_[index].path;
+        track_json["path"] = track_path(index);
         track_json["gain"] = player_.gain(index);
         track_json["pan"] = player_.pan(index);
         track_json["muted"] = player_.muted(index);
         track_json["soloed"] = player_.soloed(index);
+
+        nlohmann::json clips_json = nlohmann::json::array();
+        for (const ClipPlacement& placement : tracks_[index].clips)
+        {
+            nlohmann::json clip_json = nlohmann::json::object();
+            clip_json["path"] = placement.path;
+            clip_json["start_frame"] = placement.start_frame;
+            clip_json["take_offset"] = placement.take_offset;
+            clip_json["length_frames"] = placement.length_frames;
+            clips_json.push_back(clip_json);
+        }
+        track_json["clips"] = clips_json;
         tracks_json.push_back(track_json);
     }
     if (!tracks_json.empty())
@@ -760,6 +1034,16 @@ std::string RigController::save_to_json() const
         loop_json["end_frames"] = transport_.loop_end_frames();
         document["loop"] = loop_json;
     }
+
+    // The playback speed is a practice setting, not a session's, so it is written nowhere. See
+    // docs/superpowers/specs/2026-09-08-arrangement-view-design.md §8.
+    nlohmann::json tempo_json = nlohmann::json::object();
+    tempo_json["bpm"] = musical_clock_.beats_per_minute();
+    tempo_json["beats_per_bar"] = musical_clock_.beats_per_bar();
+    tempo_json["beat_unit"] = musical_clock_.beat_unit();
+    tempo_json["metronome_enabled"] = metronome_.enabled();
+    tempo_json["metronome_level"] = metronome_.level();
+    document["tempo"] = tempo_json;
 
     return document.dump(2);
 }
@@ -858,11 +1142,35 @@ void RigController::load_from_json(const std::string& json_text)
             {
                 continue;
             }
-            load_track(index, track_json.value("path", std::string()), track_error);
-            if (track_json.contains("name"))
+            const std::string row_path = track_json.value("path", std::string());
+
+            std::vector<ClipPlacement> clips;
+            if (track_json.contains("clips"))
             {
-                tracks_[index].name = track_json.at("name").get<std::string>();
+                for (const nlohmann::json& clip_json : track_json.at("clips"))
+                {
+                    ClipPlacement placement;
+                    placement.path = clip_json.value("path", std::string());
+                    placement.start_frame = clip_json.value("start_frame", std::uint64_t{ 0 });
+                    placement.take_offset = clip_json.value("take_offset", std::uint64_t{ 0 });
+                    placement.length_frames = clip_json.value("length_frames", std::uint64_t{ 0 });
+                    if (!placement.path.empty())
+                    {
+                        clips.push_back(placement);
+                    }
+                }
             }
+            else if (!row_path.empty())
+            {
+                // A preset written before the timeline names one file per row, which is what one
+                // clip at frame 0 means. Spec §8.
+                ClipPlacement placement;
+                placement.path = row_path;
+                clips.push_back(placement);
+            }
+
+            publish_lane(index, std::move(clips), track_error);
+            tracks_[index].name = track_json.value("name", path_stem(track_path(index)));
             player_.set_gain(index, track_json.value("gain", 1.0f));
             player_.set_pan(index, track_json.value("pan", 0.0f));
             player_.set_mute(index, track_json.value("muted", false));
@@ -877,6 +1185,21 @@ void RigController::load_from_json(const std::string& json_text)
         transport_.set_loop(loop_json.value("begin_frames", std::uint64_t{ 0 }),
                             loop_json.value("end_frames", std::uint64_t{ 0 }));
     }
+
+    // A session carries no playback speed, so every session opens at 1.0. Spec §8.
+    transport_.set_speed(1.0);
+
+    // A preset written before the timeline carries no tempo, which meant 120 BPM in 4/4 with the
+    // click off. Spec §8.
+    const nlohmann::json tempo_json = document.contains("tempo")
+        ? document.at("tempo")
+        : nlohmann::json::object();
+    musical_clock_.set_tempo(tempo_json.value("bpm", 120.0));
+    musical_clock_.set_meter(tempo_json.value("beats_per_bar", std::uint32_t{ 4 }),
+                             tempo_json.value("beat_unit", std::uint32_t{ 4 }));
+    musical_clock_.set_sample_rate(info_.sample_rate);
+    metronome_.set_enabled(tempo_json.value("metronome_enabled", false));
+    metronome_.set_level(tempo_json.value("metronome_level", 0.5f));
 
     std::unordered_map<SushiDSP::NodeHandle, SlotId> handle_to_slot;
     for (SushiDSP::NodeHandle handle : scratch.nodes())

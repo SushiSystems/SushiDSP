@@ -35,9 +35,12 @@
 #include <utility>
 #include <vector>
 
+#include "SushiDSP/capture/Metronome.hpp"
+#include "SushiDSP/capture/MusicalClock.hpp"
 #include "SushiDSP/capture/RecordingBus.hpp"
 #include "SushiDSP/capture/Take.hpp"
 #include "SushiDSP/capture/TrackPlayer.hpp"
+#include "SushiDSP/capture/TrackTimeline.hpp"
 #include "SushiDSP/capture/Transport.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
@@ -235,7 +238,17 @@ public:
         return input_source_.load(std::memory_order_relaxed);
     }
 
-    /// @brief Reads a WAV file into a playback track and remembers where it came from. Control
+    /// @brief Names one run of a take on a lane: the file it reads, where on the timeline it
+    /// lands, where in the take it starts and how much of the take it plays.
+    struct ClipPlacement
+    {
+        std::string   path;              ///< Holds the file the clip's take was read from.
+        std::uint64_t start_frame = 0;   ///< Holds the timeline frame the clip's first sample lands on.
+        std::uint64_t take_offset = 0;   ///< Holds the first take frame the clip plays.
+        std::uint64_t length_frames = 0; ///< Holds how many take frames the clip plays.
+    };
+
+    /// @brief Replaces a track's clips with one clip of a WAV file starting at frame 0. Control
     /// thread only.
     /// @param index Track index; out of range does nothing and reports failure.
     /// @param path Filesystem path to the WAV file.
@@ -243,14 +256,67 @@ public:
     /// @return True when the track now holds the file's audio.
     bool load_track(std::size_t index, const std::string& path, std::string& error_out);
 
-    /// @brief Empties a playback track and forgets its file, and drops the re-amp take when that
-    /// track was feeding it. Control thread only.
+    /// @brief Loads a WAV file and adds it to a lane as one clip beginning at a timeline frame,
+    /// sharing the take with every clip already reading the same path. Control thread only.
+    /// @param track Lane index; out of range does nothing and reports failure.
+    /// @param path Filesystem path to the WAV file.
+    /// @param start_frame Timeline frame the clip's first sample lands on.
+    /// @param error_out Receives the failure message when the file will not parse, the lane
+    /// already holds SushiDSP::TrackTimeline::kMaxClips clips, or the clip would overlap one the
+    /// lane already holds.
+    /// @return True when the lane now holds the clip; the lane is left as it was otherwise.
+    bool place_clip(std::size_t track, const std::string& path, std::uint64_t start_frame,
+                    std::string& error_out);
+
+    /// @brief Removes one clip from a lane and republishes the lane. Control thread only.
+    /// @param track Lane index; out of range does nothing and reports failure.
+    /// @param clip_index The clip's index in start_frame order.
+    /// @param error_out Receives the failure message when either index is out of range.
+    /// @return True when the lane no longer holds that clip.
+    bool remove_clip(std::size_t track, std::size_t clip_index, std::string& error_out);
+
+    /// @brief Moves one clip to a new timeline frame and republishes its lane. Control thread
+    /// only.
+    /// @param track Lane index; out of range does nothing and reports failure.
+    /// @param clip_index The clip's index in start_frame order.
+    /// @param start_frame The timeline frame the clip's first sample is to land on.
+    /// @param error_out Receives the failure message when either index is out of range or the
+    /// move would overlap another clip on the lane.
+    /// @return True when the clip now starts there; the lane is left as it was otherwise.
+    bool move_clip(std::size_t track, std::size_t clip_index, std::uint64_t start_frame,
+                   std::string& error_out);
+
+    /// @brief Reports how many clips a lane holds.
+    /// @param track Lane index.
+    /// @return The count, or 0 for an index out of range.
+    std::size_t clip_count(std::size_t track) const;
+
+    /// @brief Reports one of a lane's clips, in start_frame order.
+    /// @param track Lane index.
+    /// @param clip_index The clip's index in start_frame order.
+    /// @return The clip, or a default-built one when either index is out of range.
+    ClipPlacement clip(std::size_t track, std::size_t clip_index) const;
+
+    /// @brief The tempo and the meter every bar line, beat line and click is read from.
+    SushiDSP::MusicalClock& musical_clock() noexcept { return musical_clock_; }
+
+    /// @brief The tempo and the meter, for a reader.
+    const SushiDSP::MusicalClock& musical_clock() const noexcept { return musical_clock_; }
+
+    /// @brief The click the host adds to the monitor path once the recorders have been written.
+    SushiDSP::Metronome& metronome() noexcept { return metronome_; }
+
+    /// @brief The click, for a reader.
+    const SushiDSP::Metronome& metronome() const noexcept { return metronome_; }
+
+    /// @brief Empties a playback track of every clip, and drops the re-amp take when that track
+    /// was feeding it. Control thread only.
     /// @param index Track index; out of range does nothing.
     void clear_track(std::size_t index);
 
     /// @brief Reports whether a track holds audio.
     /// @param index Track index.
-    /// @return True when load_track() has succeeded on it and clear_track() has not run since.
+    /// @return True when the track holds at least one clip.
     bool track_is_loaded(std::size_t index) const;
 
     /// @brief Reports a track's display name, which defaults to its file's stem.
@@ -263,16 +329,17 @@ public:
     /// @param name The new display name.
     void set_track_name(std::size_t index, const std::string& name);
 
-    /// @brief Reports the file a track was loaded from.
+    /// @brief Reports the file a track's first clip was loaded from.
     /// @param index Track index.
-    /// @return The path, or "" when the track holds nothing.
+    /// @return The path, or "" when the track holds no clip.
     std::string track_path(std::size_t index) const;
 
-    /// @brief Loads a track's file a second time and publishes it as the take the rig's input is
-    /// assembled from. Control thread only; does not change the input source.
+    /// @brief Loads a track's clips a second time and publishes them at the same timeline
+    /// frames, so a take recorded at a bar re-amps at that bar rather than at frame 0. Control
+    /// thread only; does not change the input source.
     /// @param index Track index; an empty or out-of-range track clears the re-amp take instead.
-    /// @param error_out Receives the failure message when the load fails.
-    /// @return True when the re-amp take now holds that track's audio.
+    /// @param error_out Receives the failure message when a clip's file will not load.
+    /// @return True when the re-amp leg now holds that track's arrangement.
     bool set_reamp_track(std::size_t index, std::string& error_out);
 
     /// @brief Drops the re-amp take, so the re-amp leg contributes silence. Control thread only.
@@ -289,15 +356,32 @@ public:
     /// @brief The remembered take folder, or "" when the preset carried none.
     std::string take_folder() const;
 
-    /// @brief Opens the processed and dry files for a take and puts the transport into Recording.
-    /// Control thread only.
+    /// @brief Chooses the lane a stopped recording's dry file becomes a clip on. Control thread.
+    /// @param track Lane index, or std::nullopt to have a recording place no clip; an index out
+    /// of range is read as std::nullopt.
+    void set_record_track(std::optional<std::size_t> track);
+
+    /// @brief Reports the lane a stopped recording's dry file becomes a clip on.
+    /// @return The lane index, or std::nullopt when a recording places no clip.
+    std::optional<std::size_t> record_track() const { return record_track_; }
+
+    /// @brief Reports the transport frame the last arm_recording() stamped, which is the frame a
+    /// stopped recording's clip begins at.
+    /// @return The frame, or 0 when nothing has been armed.
+    std::uint64_t armed_frame() const noexcept { return armed_frame_; }
+
+    /// @brief Opens the processed and dry files for a take, stamps the transport frame the take
+    /// begins at, and puts the transport into Recording. Control thread only.
     /// @param take_name Base name both file names are built from.
     /// @param error_out Receives the failure message when either file cannot be opened.
     /// @return True when both files opened.
     bool arm_recording(const std::string& take_name, std::string& error_out);
 
-    /// @brief Closes both take files and leaves the transport where it is. Control thread only.
-    void stop_recording();
+    /// @brief Closes both take files, leaves the transport where it is, and places the dry file
+    /// on record_track() as a clip beginning at armed_frame(). Control thread only.
+    /// @param error_out Receives the message when the dry file will not become a clip; a null
+    /// pointer discards it.
+    void stop_recording(std::string* error_out = nullptr);
 
     /// @brief Stops both legs and the transport when either recorder has lost its file, so a
     /// disk failure never leaves a recording that only appears to continue. Control thread;
@@ -411,10 +495,37 @@ private:
     /// @brief One playback track's control-thread metadata; the audible state lives in player_.
     struct TrackInfo
     {
-        std::string name;
-        std::string path;
-        bool        loaded = false;
+        std::string                name;  ///< Holds the lane's display name.
+        std::vector<ClipPlacement> clips; ///< Holds the lane's clips, in start_frame order.
     };
+
+    /// @brief Returns the take a path was loaded into, loading the file the first time a clip
+    /// names it so two clips of one file hold one copy of its samples.
+    /// @param path Filesystem path to the WAV file.
+    /// @param error_out Receives the failure message when the file will not parse.
+    /// @return The borrowed take, or nullptr when the file will not parse.
+    const SushiDSP::Take* take_for_path(const std::string& path, std::string& error_out);
+
+    /// @brief Builds a lane's timeline from a clip list and publishes it, leaving the lane as it
+    /// was when the list will not build.
+    /// @param track Lane index; out of range does nothing and reports failure.
+    /// @param clips The lane's new clips, in any order.
+    /// @param error_out Receives the failure message when a file will not parse or the timeline
+    /// refuses the list.
+    /// @return True when the lane now holds those clips.
+    bool publish_lane(std::size_t track, std::vector<ClipPlacement> clips,
+                      std::string& error_out);
+
+    /// @brief Drops every path no lane's clip names any more, so takes_by_path_ never hands out
+    /// a take the library is free to collect.
+    void forget_unused_takes();
+
+    /// @brief Joins a take folder and a file name the way RecordingBus does, so a stopped
+    /// recording's clip names the file the recorder actually wrote.
+    /// @param folder Directory the file lives in; may be empty.
+    /// @param file_name Name of the file inside that directory.
+    /// @return The joined path.
+    static std::string join_take_path(const std::string& folder, const std::string& file_name);
 
     /// @brief Reads a WAV file into a take, or reports why it could not be read.
     /// @param path Filesystem path to the WAV file.
@@ -446,4 +557,26 @@ private:
     std::optional<std::size_t>                      reamp_track_;
     std::string                                     take_folder_;
     std::atomic<RigInputSource>                     input_source_{ RigInputSource::LiveInput };
+
+    /// @brief Maps a clip's path to the take player_'s library owns for it, holding only paths
+    /// some lane's clip still names.
+    std::unordered_map<std::string, const SushiDSP::Take*> takes_by_path_;
+
+    /// @brief Maps a re-amped clip's path to the take reamp_player_'s own library owns for it.
+    std::unordered_map<std::string, const SushiDSP::Take*> reamp_takes_by_path_;
+
+    /// @brief Holds the tempo and the meter the ruler and the click read.
+    SushiDSP::MusicalClock                          musical_clock_;
+
+    /// @brief Holds the click the host adds after both recorder legs are written.
+    SushiDSP::Metronome                             metronome_;
+
+    /// @brief Holds the lane a stopped recording's dry file becomes a clip on.
+    std::optional<std::size_t>                      record_track_;
+
+    /// @brief Holds the name the armed take's two files were built from.
+    std::string                                     record_take_name_;
+
+    /// @brief Holds the transport frame arm_recording() stamped.
+    std::uint64_t                                   armed_frame_ = 0;
 };
