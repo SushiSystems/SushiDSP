@@ -605,7 +605,7 @@ The draft printed 0.479 ms at 60°; (a / c)·(θ + sin θ) with θ = π/3 is 0.4
 figure is the one the test asserts. On the converted
 SADIE set, the same measurement matches the ITD the tool recorded for the nearest grid direction
 within 50 µs. The converted file round-trips: the tool's writer and the loader agree on every field
-in a fixture of four directions. The decoder's magnitude response to a single plane wave from each
+in a fixture of six directions. The decoder's magnitude response to a single plane wave from each
 of 24 test directions matches the measured HRTF's magnitude within 3 dB in third-octave bands from
 200 Hz to 8 kHz (the magnitude-least-squares bound at third order in the cited paper). Front-back
 discrimination is a listening judgement, which is not a test; the objective proxy asserted is that
@@ -953,7 +953,7 @@ maintainer through `sd test`; none is a listening judgement.
     the early set published within one GUI frame and the tail within 100 ms; the max-mode budget
     rows measured (§9a.6, §10).
 14. **The HRTF asset and its absence.** The loader reads `assets/hrtf/sadie2_ku100_48k.hrtf` and
-    reproduces every field of the converter's four-direction fixture; with the file renamed away
+    reproduces every field of the converter's six-direction fixture; with the file renamed away
     the node still renders, `IRoomHost::hrtf_source()` returns `HrtfSource::SphericalHead`, the
     ITD acceptance of item 7 passes on the fallback, and the host prints one stderr line naming
     the path it looked for; with the file present `hrtf_source()` returns `HrtfSource::Measured`

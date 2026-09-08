@@ -67,8 +67,8 @@ and run
 
     python tools/dsp/convert_hrtf.py --self-test build/hrtf_fixture.hrtf
 
-which builds four directions from the rigid-sphere model, writes them, reads them back and
-exits non-zero unless every field survives the round trip. It writes 37 968 bytes and prints
+which builds six directions from the rigid-sphere model, writes them, reads them back and
+exits non-zero unless every field survives the round trip. It writes 40 040 bytes and prints
 its four azimuths, which are 0, π/2, π and 3π/2. That fixture is what the loader's unit test
 reads, so a change to the layout fails there before it reaches this file.
 

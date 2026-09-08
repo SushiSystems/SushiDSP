@@ -958,8 +958,12 @@ def write_licence_block(readme_path: str, block: str) -> None:
         handle.write(replaced)
 
 
+EXPECTED_SELF_TEST_AZIMUTHS = (0.0, np.pi / 2.0, np.pi, 3.0 * np.pi / 2.0, 0.0, 0.0)
+"""The azimuths run_self_test writes, the four-point ring followed by the zenith and the nadir."""
+
+
 def run_self_test(output_path: str) -> int:
-    """Build a four-direction fixture from the sphere model and prove the round trip.
+    """Build a six-direction fixture from the sphere model and prove the round trip.
 
     Args:
         output_path: Where the fixture is written.
@@ -969,7 +973,8 @@ def run_self_test(output_path: str) -> int:
     """
     orthonormality = check_harmonic_orthonormality(DECODER_ORDER)
     print(f"spherical harmonic orthonormality error: {orthonormality:.3e}")
-    hrtf = build_spherical_head_set([(0.0, 0.0), (90.0, 0.0), (180.0, 0.0), (270.0, 0.0)], 48000)
+    hrtf = build_spherical_head_set([(0.0, 0.0), (90.0, 0.0), (180.0, 0.0), (270.0, 0.0),
+                                     (0.0, 90.0), (0.0, -90.0)], 48000)
     blob = pack(hrtf)
     directory = os.path.dirname(os.path.abspath(output_path))
     if directory:
@@ -979,22 +984,20 @@ def run_self_test(output_path: str) -> int:
     read_back = unpack(open(output_path, "rb").read())
     problems = round_trip_differences(hrtf, read_back)
     channels = (DECODER_ORDER + 1) ** 2
-    expected_bytes = (HEADER_BYTES + 4 * (12 + 8 * TAP_COUNT)
+    expected_bytes = (HEADER_BYTES + 6 * (12 + 8 * TAP_COUNT)
                       + 2 * channels * DECODER_TAPS * 4 + 2 * TAP_COUNT * 4)
     print(f"wrote {output_path}: {len(blob)} bytes (expected {expected_bytes})")
     print("azimuths read back: "
           + ", ".join(f"{d.azimuth_rad:.7f}" for d in read_back.directions))
     print("expected:           "
-          + ", ".join(f"{float(np.float32(a)):.7f}"
-                      for a in (0.0, np.pi / 2.0, np.pi, 3.0 * np.pi / 2.0)))
+          + ", ".join(f"{float(np.float32(a)):.7f}" for a in EXPECTED_SELF_TEST_AZIMUTHS))
     print("ITD in samples:     "
           + ", ".join(f"{d.itd_frames:+.4f}" for d in read_back.directions))
     if len(blob) != expected_bytes:
         problems.append(f"file is {len(blob)} bytes, expected {expected_bytes}")
     if orthonormality > 1e-6:
         problems.append(f"spherical harmonics are not orthonormal: {orthonormality:.3e}")
-    for direction, expected in zip(read_back.directions,
-                                   (0.0, np.pi / 2.0, np.pi, 3.0 * np.pi / 2.0)):
+    for direction, expected in zip(read_back.directions, EXPECTED_SELF_TEST_AZIMUTHS):
         if direction.azimuth_rad != float(np.float32(expected)):
             problems.append(f"azimuth {direction.azimuth_rad!r} is not {expected!r}")
     for problem in problems:
