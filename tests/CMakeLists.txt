@@ -117,6 +117,10 @@ add_executable(sushidsp_tests
     functional/unit/test_rig_controller.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/RigController.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/FileDropQueue.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/Mp3Decoder.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ChannelResampler.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/AudioImportCache.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/AudioImportQueue.cpp
 
     # --- host_gui view layer ---
     # Only the three ImGui-free units are compiled here: sushidsp_tests does not link imgui, and
@@ -151,6 +155,9 @@ add_executable(sushidsp_tests
     functional/unit/test_crossover_pair.cpp
     functional/unit/test_hrtf_set.cpp
     functional/unit/test_ambisonic_encoder.cpp
+    functional/unit/test_channel_resampler.cpp
+    functional/unit/test_audio_import_cache.cpp
+    functional/unit/test_audio_import_queue.cpp
     functional/unit/test_arrangement_layout.cpp
     functional/unit/test_tap_tempo.cpp
     functional/unit/test_musical_time_text.cpp
@@ -175,6 +182,7 @@ target_compile_definitions(sushidsp_tests PRIVATE
 )
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host_gui)
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
 target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
