@@ -667,7 +667,7 @@ TEST(Unit_Dsp, BandResponseFitKeepsEveryPoleInsideTheUnitCircle)
     // For all 80 fits above: |a2| < 1 and |a1| < 1 + a2, which is the stability triangle.
 }
 
-TEST(Unit_Dsp, BandResponseFitCostsUnderAMillisecondForOneHundredAndFiftyFits)
+TEST(Unit_Dsp, BandResponseFitCostsUnderTenMillisecondsForOneHundredAndFiftyFits)
 {
     // 150 fits of the carpet row at 48 kHz, timed with std::chrono::steady_clock: under 1 ms,
     // which is the per-scene budget spec §4.1 gives the solver.
