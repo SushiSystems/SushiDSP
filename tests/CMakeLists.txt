@@ -155,6 +155,13 @@ add_executable(sushidsp_tests
     functional/unit/test_crossover_pair.cpp
     functional/unit/test_hrtf_set.cpp
     functional/unit/test_ambisonic_encoder.cpp
+    functional/unit/test_room_scene.cpp
+    functional/unit/test_early_reflection_renderer.cpp
+    functional/unit/test_late_reverb.cpp
+    functional/unit/test_modal_bank.cpp
+    functional/unit/test_spherical_head_hrtf.cpp
+    functional/unit/test_hrtf_set_loader.cpp
+    functional/unit/test_binaural_decoder.cpp
     functional/unit/test_channel_resampler.cpp
     functional/unit/test_audio_import_cache.cpp
     functional/unit/test_audio_import_queue.cpp

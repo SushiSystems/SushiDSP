@@ -7,6 +7,13 @@ add_library(room STATIC
     src/CrossoverPair.cpp
     src/HrtfSet.cpp
     src/AmbisonicEncoder.cpp
+    src/RoomScene.cpp
+    src/EarlyReflectionRenderer.cpp
+    src/LateReverb.cpp
+    src/ModalBank.cpp
+    src/SphericalHeadHrtf.cpp
+    src/HrtfSetLoader.cpp
+    src/BinauralDecoder.cpp
 )
 add_library(SushiDSP::room ALIAS room)
 target_link_libraries(room PUBLIC SushiDSP::sushi_dsp)
