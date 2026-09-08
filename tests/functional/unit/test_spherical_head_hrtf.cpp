@@ -142,10 +142,18 @@ TEST(Unit_Dsp, SphericalHeadHrtfCannotTellFrontFromBack)
 TEST(Unit_Dsp, SphericalHeadHrtfShadowsTheFarEarAboveOneKilohertz)
 {
     // With the ears on the axis, the far ear sits at the sphere's bright spot, so the level
-    // difference at 90 degrees is the near ear's own rise: 4.7 dB in the 4 kHz octave.
+    // difference at 90 degrees is the near ear's own rise: 4.7 dB in the 4 kHz octave, and it
+    // grows from octave to octave.
     const SushiDSP::room::HrtfSet::Pair side = set().interpolate(kPi / 2.0, 0.0);
     EXPECT_GE(interaural_level_db(side, 4000.0), 4.0);
     EXPECT_LE(std::fabs(interaural_level_db(side, 125.0)), 2.0);
+    double below = interaural_level_db(side, 125.0);
+    for (const double centre_hz : { 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0 })
+    {
+        const double difference = interaural_level_db(side, centre_hz);
+        EXPECT_GT(difference, below) << "octave at " << centre_hz << " Hz";
+        below = difference;
+    }
 }
 
 TEST(Unit_Dsp, SphericalHeadHrtfBuildsAGridThatCoversTheSphere)
