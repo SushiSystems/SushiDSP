@@ -10,7 +10,10 @@ Intent, the physics behind each solver and the acceptance list live in
 [`docs/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../docs/superpowers/specs/2026-09-08-room-acoustics-design.md);
 the task order is
 [`docs/superpowers/plans/2026-09-08-room-acoustics.md`](../../docs/superpowers/plans/2026-09-08-room-acoustics.md).
-This file records what the code in this directory does.
+This file records what the code in this directory does. `docs/design/sushidsp.md` §3c places the
+module in the tree and §9 carries its roadmap rows;
+[`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) holds what the phase
+knowingly left open.
 
 ## Which class owns what
 
@@ -221,7 +224,8 @@ power per hertz of a white input, relative to the cabinet's on-axis direct sound
 16 pi RT60(f) / (0.161 V) over the cabinet's directivity index, per band and linear in log
 frequency between the centres (spec §6.3). `DiffuseField.hpp` is header-only; it caches the
 directivity index of the last cabinet geometry behind a mutex, since the 2562-direction integral
-costs 18 ms against a 2 ms build and a drag never changes the geometry. Its cases live in
+costs 18 ms against a 2 ms build, both measured on an unoptimised binary, and a drag never
+changes the geometry. Its cases live in
 `tests/functional/unit/test_modal_solver.cpp` (`DiffuseFieldIsEyringOverTheCabinetsDirectivity`)
 until the test list can take a file of its own. The index is the
 directivity of `CabinetDirectivity`, 1.1, 3.0, 7.6, 12.0, 15.7 and 18.8 dB for the 4x12, and it
@@ -380,11 +384,25 @@ choice: the microphone renders at physical timing with no partition in its path 
 whatever the parameter says. A changed choice publishes through the crossfade like a changed
 listener; the index path stores it for the next publish.
 
-Measured cost at 48 kHz and 256 frames, clang `-O2 -mavx2 -mfma`, the garage with the cabinet at
-(0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0), every layer running: the ears take 0.25 ms
-per block in the steady state, 4.7 % of the 5.33 ms the block lasts, and 0.46 ms for a block that
-renders both banks; the microphone 0.12 ms and 0.16 ms. Spec §10 budgeted 1.63 ms and 2.57 ms
-scalar for the ears.
+Measured cost at 48 kHz and 256 frames on a Release build, best of 200, the garage with the
+cabinet at (0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0), every layer running
+(`tests/benchmark/main.cpp`):
+
+| Row | ns/sample | One core | Per 256 frames |
+| --- | --- | --- | --- |
+| `RoomNode`, ears, steady state | 931.6 | 4.47 % | 0.238 ms |
+| `RoomNode`, ears, a scene republished every block | 8495.7 | 40.78 % | 2.175 ms |
+| `RoomNode`, microphone, steady state | 440.2 | 2.11 % | 0.113 ms |
+| `EarlyReflectionRenderer::render` | 207.0 | 0.99 % | 0.053 ms |
+| `ModalBank::process` | 153.5 | 0.74 % | 0.039 ms |
+| `BinauralDecoder::process` | 350.0 | 1.68 % | 0.090 ms |
+| JCM800 into `RoomNode` | 3490.2 | 16.75 % | 0.893 ms |
+| the room's share of that chain | 936.7 | 4.50 % | 0.240 ms |
+
+The swap row is a bound and not a working figure: it republishes a scene on every block, which
+nothing does. A slider drag republishes at 30 Hz, one block in six at this rate and block size,
+and the blocks between it run the steady-state row. Spec §10 budgeted 1.63 ms and 2.57 ms scalar
+for the ears, and the 0.893 ms the whole chain costs is what leaves DE7's AVX2 lanes unopened.
 
 ## Sizes fixed at `prepare()`
 
@@ -447,3 +465,15 @@ fallback at the next `prepare()`.
 - **A fade across listeners.** The modal ramp reads the fade at the lag when the microphone
   takes part, so the ears' delayed presentation shows the ramp one partition late during a
   listener switch; the microphone's tail is its mono tail whichever set arrives.
+
+## What the phase left open
+
+Nine entries in [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) belong to
+this module, each with its figure and its exit: no measured HRTF set ships, so front and back
+sound alike; eight of the spec's fourteen material rows are untranscribed; the SM57 preset has no
+measured curve; modal damping at a gypsum boundary is about 30 % wrong; the FDN's own modes below
+f_s are crossed out rather than corrected; the raw octave step at the seam is recorded and not
+bounded; `BandResponseFit` stops at eight steps on about three fits in five; a structural rig edit
+rebuilds the node and empties its tail; and the room panel cannot edit a patch. Two more, the
+converter's unweighted diffuse-field average and the tail's output filter stepping on its running
+state, were written when the change that caused them landed.

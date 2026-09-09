@@ -1,9 +1,33 @@
 # Room acoustics: a hybrid image-source and feedback-delay-network room, rendered binaurally
 
-**Status:** approved by the maintainer on 2026-09-08. Nothing in it is built; the implementation
-plan is `docs/superpowers/plans/2026-09-08-room-acoustics.md`. Roadmap prefix **DE** (Dsp
-Environment); phases DE0 through DE8 below. The prefix collides with none of DA, DC, DD, DI, DK,
-DR, DS or DT, which are the ones `docs/design/sushidsp.md` §9 and the specs in this directory use.
+**Status:** approved by the maintainer on 2026-09-08 and built between then and 2026-09-10. DE0
+through DE6 are in the tree as `modules/room`, in the node registry as `sushidsp.room` and in the
+host's room panel; DE7 is not opened, because the JCM800 with a room after it measures 0.893 ms
+per 256-frame block against the 2.0 ms gate of §10; DE8 is deferred, and §9a.3 is its design and
+not a description of anything running. The implementation plan is
+`docs/superpowers/plans/2026-09-08-room-acoustics.md`; what the code does, class by class, is
+`modules/room/README.md`, and `docs/design/sushidsp.md` §3c and §9 carry the roadmap rows. Roadmap
+prefix **DE** (Dsp Environment). The prefix collides with none of DA, DC, DD, DI, DK, DR, DS or
+DT, which are the ones `docs/design/sushidsp.md` §9 and the specs in this directory use.
+
+**How far to trust this document.** Building it turned up nineteen arithmetic and physical errors
+in this spec and its plan, and every one of them was a drafting error against an implementation
+that was right: absorption divided by the wrong areas, arrivals rounded to the metre before the
+image was mirrored, a modal pole 68.42 Hz off its own tolerance, a shadow of 10 dB where the
+sphere gives 4.73 dB, a skipped prime in the tail's line lengths, an ITD of 0.479 ms where the
+formula gives 0.488, and a set of wall-clock figures measured on an unoptimised binary. Each was
+corrected in place with its commit in the changelog. Two of them were audible rather than clerical
+and are worth knowing about, because they say what kind of mistake this design is prone to: the
+fallback HRTF left its diffuse-field pair at zero, which silenced the reverb tail for every user
+without a measured asset, and `CabinetDirectivity` sampled each octave at its centre frequency,
+which landed on the 4x12's interference null and read −22 dB at 2 kHz where the octave's energy
+mean is −11.5 dB. Both were single-point evaluations of a quantity that varies inside the interval
+they stood for.
+
+Every number below that a test asserts has been checked against the code that runs. The numbers
+that no test reaches have not been: the worked examples in §4, §6 and §9a, and the cost estimates
+of §10 that `tests/benchmark` has since replaced. A reader who needs one of those should recompute
+it rather than cite it.
 
 Approval settled three of the judgements §13 had left open, and the sections below are written as
 the rulings rather than as the draft. The modal solver runs in the hybrid mode as well as the max
