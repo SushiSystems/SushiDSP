@@ -52,8 +52,9 @@ namespace SushiDSP::room
                                 double sample_rate, ListenerKind listener);
 
         /// @brief Returns sixteen distinct primes spread logarithmically over
-        /// [mean / sqrt(2), mean * sqrt(2)], in frames and in rising order.
+        /// [shortest_seconds, shortest_seconds * spread], in frames and in rising order.
+        /// @pre spread is at least one.
         static std::array<std::uint32_t, FdnDesign::kLineCount>
-            line_frames(double mean_seconds, double sample_rate);
+            line_frames(double shortest_seconds, double spread, double sample_rate);
     };
 }

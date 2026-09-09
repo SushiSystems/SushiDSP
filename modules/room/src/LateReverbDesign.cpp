@@ -59,6 +59,9 @@ namespace SushiDSP::room
         /// @brief Bounds a line from below, in frames; the smallest prime.
         constexpr std::uint32_t kShortestLine = 2;
 
+        /// @brief Bounds the ratio of the longest line to the shortest from below.
+        constexpr double kMinSpread = 2.0;
+
         /// @brief Holds the inter-ear spacing the diffuse-field coherence is evaluated at, in
         /// metres. Spec §6.4.
         constexpr double kEarSpacingMetres = 0.17;
@@ -259,6 +262,31 @@ namespace SushiDSP::room
             return 0.5 * (low + high);
         }
 
+        /// @brief Returns the sum of sixteen lines spread geometrically over [1, spread], in
+        /// units of the shortest line.
+        double spread_sum(double spread) noexcept
+        {
+            double sum = 0.0;
+            for (std::size_t line = 0; line < kLines; ++line)
+            {
+                sum += std::pow(spread, static_cast<double>(line)
+                                            / static_cast<double>(kLines - 1));
+            }
+            return sum;
+        }
+
+        /// @brief Returns the spread whose sixteen lines sum to ratio times the shortest,
+        /// bisected over [low, high].
+        double spread_for(double ratio, double low, double high) noexcept
+        {
+            for (int step = 0; step < 60; ++step)
+            {
+                const double middle = 0.5 * (low + high);
+                (spread_sum(middle) < ratio ? low : high) = middle;
+            }
+            return 0.5 * (low + high);
+        }
+
         /// @brief Returns the RBJ second-order Butterworth section at one corner, a low-pass
         /// when low is true and its power-complementary high-pass otherwise.
         FdnDesign::Section butterworth(double corner_hz, double sample_rate, bool low) noexcept
@@ -274,16 +302,17 @@ namespace SushiDSP::room
 
     }
 
-    std::array<std::uint32_t, kLines> LateReverbDesign::line_frames(double mean_seconds,
+    std::array<std::uint32_t, kLines> LateReverbDesign::line_frames(double shortest_seconds,
+                                                                    double spread,
                                                                     double sample_rate)
     {
-        const double mean_frames = mean_seconds * sample_rate;
+        const double shortest_frames = shortest_seconds * sample_rate;
         std::array<std::uint32_t, kLines> frames{};
         std::uint32_t previous = 0u;
         for (std::size_t line = 0; line < kLines; ++line)
         {
-            const double octave = static_cast<double>(line) / static_cast<double>(kLines - 1) - 0.5;
-            const double target = mean_frames * std::pow(2.0, octave);
+            const double step = static_cast<double>(line) / static_cast<double>(kLines - 1);
+            const double target = shortest_frames * std::pow(spread, step);
             const auto rounded = static_cast<std::uint32_t>(std::max(std::round(target), 0.0));
             // Every line is strictly longer than the one before it, so no two ever coincide.
             frames[line] = next_prime(std::max(rounded, previous + 1u));
@@ -297,10 +326,31 @@ namespace SushiDSP::room
     {
         const std::array<double, kBandCount> rt60 = EyringDecay::rt60_seconds(scene);
         const double rt60_mid = rt60[kMidBand];
-        const double mean_seconds = kOverlapRatio * rt60_mid / static_cast<double>(kLines);
+        const double total_frames = kOverlapRatio * rt60_mid * sample_rate;
+        const double handover_frames =
+            std::round(static_cast<double>(early.crossover_time_s) * sample_rate);
+
+        // The network emits nothing until its shortest line has run, so that line is what the
+        // handover time bounds; the sum of the sixteen stays kOverlapRatio times the mid-band
+        // decay, which is what fixes the tail's modal density (spec §6.2).
+        double shortest_frames = std::max(handover_frames, 1.0);
+        double spread = kMinSpread;
+        const double wanted = total_frames / shortest_frames;
+        if (wanted <= spread_sum(kMinSpread))
+        {
+            // A room whose handover exceeds its whole delay budget cannot start there; the
+            // budget sets the shortest line and the input delay carries what is left.
+            shortest_frames = total_frames / spread_sum(kMinSpread);
+        }
+        else
+        {
+            const double capacity_frames = FdnDesign::kMaxLineSeconds * sample_rate;
+            const double widest = std::max(capacity_frames / shortest_frames, kMinSpread);
+            spread = spread_for(wanted, kMinSpread, widest);
+        }
 
         FdnDesign design{};
-        design.line_frames = line_frames(mean_seconds, sample_rate);
+        design.line_frames = line_frames(shortest_frames / sample_rate, spread, sample_rate);
         for (std::size_t line = 0; line < kLines; ++line)
         {
             const double tau = static_cast<double>(design.line_frames[line]) / sample_rate;
@@ -335,8 +385,10 @@ namespace SushiDSP::room
             design.coherence_b = kUnityCascade;
         }
 
-        design.delay_to_crossover_frames =
-            static_cast<float>(std::round(static_cast<double>(early.crossover_time_s) * sample_rate));
+        // The shortest line is the network's own latency, so the delay ahead of it is what is
+        // left of the handover time.
+        design.delay_to_crossover_frames = static_cast<float>(
+            std::max(handover_frames - static_cast<double>(design.line_frames[0]), 0.0));
         return design;
     }
 }

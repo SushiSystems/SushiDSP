@@ -228,6 +228,9 @@ TEST(Unit_Dsp, LateReverbDesignMeetsTheModalOverlapRule)
     EXPECT_GE(total, 78003u);
     EXPECT_GE(total, 78019u);
     EXPECT_LT(total, 90000u);
+    // The rule is met by spreading the lines, not by holding them all back: the shortest line
+    // is the handover time, so the tail's first output lands where the taps stop.
+    EXPECT_NEAR(static_cast<double>(design.line_frames[0]), 1749.0, 8.0);
 
     // The same rule holds for the other two rooms from their own mid-band decay.
     for (const SushiDSP::room::RoomScene& scene :
@@ -244,19 +247,13 @@ TEST(Unit_Dsp, LateReverbDesignMeetsTheModalOverlapRule)
 
 TEST(Unit_Dsp, LateReverbDesignUsesSixteenDistinctPrimes)
 {
-    // The garage's mean line is 1.4 * 1.160756 / 16 = 0.1015662 s, 4875.18 frames. The targets
-    // 4875.18 * 2^(k / 15 - 1/2), rounded and stepped up to the next prime, land on 3449, 3613,
-    // 3793, 3967, 4153, 4349, 4549, 4783, 4993, 5227, 5477, 5737, 6007, 6287, 6599 and 6899,
-    // totalling 79882. The plan's seventh entry, 4561, skips the prime 4549 that the rounded
-    // target 4549 already is, and its 79894 carries that 12-frame difference; the mean rounded to
-    // 4876 frames gives the same sixteen. Every entry is prime, none repeats, and max/min is 2.00.
-    const std::array<std::uint32_t, kLines> expected = {
-        3449, 3613, 3793, 3967, 4153, 4349, 4549, 4783,
-        4993, 5227, 5477, 5737, 6007, 6287, 6599, 6899
-    };
+    // The garage's shortest line is its handover time, 1749 frames, and the spread that carries
+    // the sixteen to 1.4 * 1.160756 s = 78002.8 frames is 5.836; the targets
+    // 1749 * 5.836^(k / 15), rounded and stepped up to the next prime, run from 1753 to 10211.
     const FdnDesign design = garage_design();
-    EXPECT_EQ(design.line_frames, expected);
-    EXPECT_EQ(total_frames(design.line_frames), 79882u);
+    EXPECT_EQ(design.line_frames[0], 1753u);
+    EXPECT_EQ(design.line_frames[kLines - 1], 10211u);
+    EXPECT_GE(total_frames(design.line_frames), 78003u);
 
     std::set<std::uint32_t> distinct;
     for (const std::uint32_t frames : design.line_frames)
@@ -265,19 +262,22 @@ TEST(Unit_Dsp, LateReverbDesignUsesSixteenDistinctPrimes)
         distinct.insert(frames);
     }
     EXPECT_EQ(distinct.size(), kLines);
-    EXPECT_NEAR(static_cast<double>(design.line_frames[kLines - 1])
-                    / static_cast<double>(design.line_frames[0]),
-                2.0, 0.005);
 
-    // line_frames alone: a 100 ms mean asks for 4800 frames, and the ends are the primes at or
-    // above 4800 / sqrt(2) = 3394.1 and 4800 * sqrt(2) = 6788.2: 3407 and 6791.
-    const std::array<std::uint32_t, kLines> mid = LateReverbDesign::line_frames(0.1, kSampleRate);
-    EXPECT_EQ(mid[0], 3407u);
-    EXPECT_EQ(mid[kLines - 1], 6791u);
+    // No line outruns the storage the renderer is sized for.
+    EXPECT_LE(static_cast<double>(design.line_frames[kLines - 1]),
+              FdnDesign::kMaxLineSeconds * kSampleRate);
 
-    // A zero mean still yields sixteen distinct primes, the first sixteen, so the network never
-    // sees a zero or a repeated length.
-    const std::array<std::uint32_t, kLines> shortest = LateReverbDesign::line_frames(0.0, kSampleRate);
+    // line_frames alone: a 100 ms shortest line spread by four asks for 4800 and 19200 frames,
+    // and the primes at or above them are 4801 and 19207.
+    const std::array<std::uint32_t, kLines> mid =
+        LateReverbDesign::line_frames(0.1, 4.0, kSampleRate);
+    EXPECT_EQ(mid[0], 4801u);
+    EXPECT_EQ(mid[kLines - 1], 19207u);
+
+    // A zero shortest line still yields sixteen distinct primes, the first sixteen, so the
+    // network never sees a zero or a repeated length.
+    const std::array<std::uint32_t, kLines> shortest =
+        LateReverbDesign::line_frames(0.0, 2.0, kSampleRate);
     const std::array<std::uint32_t, kLines> first_primes = {
         2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53
     };
@@ -305,20 +305,37 @@ TEST(Unit_Dsp, LateReverbDesignFitsTheDecayEachBandAsks)
             EXPECT_NEAR(got_db, wanted_db, 1.0) << "line " << line << " band " << band;
         }
     }
-    EXPECT_NEAR(20.0 * std::log10(std::pow(10.0, -3.0 * 3449.0 / kSampleRate / rt60[0])), -3.214,
+    EXPECT_NEAR(20.0 * std::log10(std::pow(10.0, -3.0 * 1753.0 / kSampleRate / rt60[0])), -1.634,
                 0.001);
 }
 
 TEST(Unit_Dsp, LateReverbDesignDelaysTheTailToTheHandoverTime)
 {
-    // t_c = 5 * 2.5 / 343 = 0.0364431 s, 1749.27 frames; delay_to_crossover_frames is its
-    // rounding, 1749, exactly.
+    // t_c = 5 * 2.5 / 343 = 0.0364431 s, 1749.27 frames. The network emits nothing until its
+    // shortest line has run, so the delay ahead of it is the handover time less that line: the
+    // garage's shortest line is 1753 frames, already past t_c, and the delay is zero.
     const EarlyTapSet early = garage_early_taps();
     EXPECT_NEAR(early.crossover_time_s, 5.0 * 2.5 / 343.0, 1e-6);
     const FdnDesign design = garage_design();
-    EXPECT_EQ(design.delay_to_crossover_frames, 1749.0f);
+    EXPECT_EQ(design.delay_to_crossover_frames, 0.0f);
     EXPECT_EQ(design.delay_to_crossover_frames,
-              static_cast<float>(std::round(early.crossover_time_s * kSampleRate)));
+              static_cast<float>(std::max(std::round(early.crossover_time_s * kSampleRate)
+                                              - static_cast<double>(design.line_frames[0]),
+                                          0.0)));
+
+    // Every reference room hands over within a frame of t_c, the tail's first output landing
+    // at the delay plus the shortest line.
+    for (const SushiDSP::room::RoomScene& scene :
+         { SushiDSP::test::garage_scene(), SushiDSP::test::bedroom_scene(),
+           SushiDSP::test::block_room_scene() })
+    {
+        const EarlyTapSet taps = SushiDSP::room::ImageSourceSolver::solve(scene, {});
+        const FdnDesign other =
+            LateReverbDesign::design(scene, taps, kSampleRate, ListenerKind::Ears);
+        const double onset = static_cast<double>(other.delay_to_crossover_frames)
+            + static_cast<double>(other.line_frames[0]);
+        EXPECT_NEAR(onset, taps.crossover_time_s * kSampleRate, 8.0);
+    }
 }
 
 TEST(Unit_Dsp, LateReverbDesignPutsEachBandsRemainderIntoTheTail)

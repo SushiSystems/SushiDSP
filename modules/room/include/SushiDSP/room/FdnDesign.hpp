@@ -44,6 +44,9 @@ namespace SushiDSP::room
         /// @brief Counts the biquad sections each output filter cascades.
         static constexpr std::size_t kOutputSections = 2;
 
+        /// @brief Bounds one line's length, in seconds; the renderer sizes its storage to it.
+        static constexpr double kMaxLineSeconds = 0.525;
+
         /// @brief Holds one biquad section's b0, b1, b2, a1, a2.
         using Section = std::array<double, 5>;
 
