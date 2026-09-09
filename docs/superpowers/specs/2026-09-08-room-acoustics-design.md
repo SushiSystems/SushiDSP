@@ -206,7 +206,7 @@ T = `kMaxDecaySeconds` gives
 
 which is `RoomScene::min_mean_absorption()`. Air only ever shortens a decay, so a scene that
 clears the floor on its surfaces alone clears it with the air as well; the gate refuses a little
-more than Eyring's own figure would, 9.81 s against 9.57 s for the default scene at 125 Hz. Every
+more than Eyring's own figure would, 1.32 s against 1.29 s for the default scene at 500 Hz. Every
 one of the six bands must clear the floor, not the mid band alone: a bare concrete box is dead at
 4 kHz and enormous at 125 Hz, and 125 Hz is the band that made the 12 m cube ring.
 
@@ -216,7 +216,7 @@ an edge of 4.495 m:
 
 | Scene | 125 Hz alpha | floor | worst band | surface decay |
 | --- | --- | --- | --- | --- |
-| `RoomScene{}`, bare concrete | 0.0100 | 0.008181 | 125 Hz | 9.81 s |
+| `RoomScene{}`, gypsum board over a carpeted floor | 0.2239 | 0.008181 | 500 Hz | 1.32 s |
 | garage | 0.0706 | 0.008181 | 125 Hz | 1.35 s |
 | bedroom | 0.2349 | 0.007263 | 500 Hz | 1.18 s |
 | block room | 0.1000 | 0.008144 | 250 Hz | 1.91 s |
@@ -225,9 +225,16 @@ an edge of 4.495 m:
 | 12 m gypsum cube | 0.2900 | 0.026477 | 1 kHz | 7.89 s |
 | 12 m unpainted concrete cube | 0.0100 | 0.026477 | 125 Hz | 32.04 s, refused |
 
-The default scene is the tightest of the ones that pass, at 82 % of the bound. It is bare
-unpainted concrete on all six faces, which no garage is; every room with a door in it, the garage
-included, sits a factor of six or more clear.
+The default scene is gypsum board on studs on the four walls and the ceiling over heavy carpet on
+the floor, at 6.0 x 4.0 x 2.5 m: the room a guitar rig is most often played in, and the room a
+`RoomScene{}` with nothing written into it has to be. Its worst band is 500 Hz at 1.32 s, 11 % of
+the bound, where the gypsum's alpha bottoms out at 0.05 and the carpet has not yet come in. The
+block room is the tightest of the reference rooms at 15.9 %.
+
+It carries no patch, because `RoomPanel` has no patch editor: a doorway in the default would be
+un-removable from the panel, and shrinking the room under the patch's area would make `is_valid`
+refuse a drag the user has no control to undo. The default reaches its decay through its six face
+materials, every one of which the panel can change.
 
 ### 4.2 Materials as filters
 

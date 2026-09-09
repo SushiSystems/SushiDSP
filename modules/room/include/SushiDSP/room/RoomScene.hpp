@@ -99,7 +99,12 @@ namespace SushiDSP::room
         Vec3 dimensions{ 6.0, 4.0, 2.5 };
 
         /// @brief Stores each face's material, ordered as Surface.
-        std::array<MaterialId, kSurfaceCount> surfaces{};
+        std::array<MaterialId, kSurfaceCount> surfaces{ MaterialId::GypsumBoardOnStuds,
+                                                        MaterialId::GypsumBoardOnStuds,
+                                                        MaterialId::GypsumBoardOnStuds,
+                                                        MaterialId::GypsumBoardOnStuds,
+                                                        MaterialId::HeavyCarpetOnConcrete,
+                                                        MaterialId::GypsumBoardOnStuds };
 
         /// @brief Stores each face's scattering, ordered as Surface.
         std::array<Scattering, kSurfaceCount> scattering{};

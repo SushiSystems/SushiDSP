@@ -1462,23 +1462,24 @@ namespace
             && left.microphone_pattern == right.microphone_pattern;
     }
 
-    /// @brief Builds a scene that differs from RoomScene{} in every field a preset writes.
+    /// @brief Builds a scene that differs from RoomScene{} in every field a preset writes,
+    /// every face's material and scattering word included.
     SushiDSP::room::RoomScene non_default_scene()
     {
         SushiDSP::room::RoomScene scene;
         scene.dimensions = { 4.25, 3.5, 2.6 };
-        scene.surfaces = { SushiDSP::room::MaterialId::GypsumBoardOnStuds,
-                           SushiDSP::room::MaterialId::GypsumBoardOnStuds,
+        scene.surfaces = { SushiDSP::room::MaterialId::ConcreteBlockPainted,
+                           SushiDSP::room::MaterialId::ConcreteUnpainted,
                            SushiDSP::room::MaterialId::ConcreteBlockPainted,
-                           SushiDSP::room::MaterialId::GypsumBoardOnStuds,
-                           SushiDSP::room::MaterialId::HeavyCarpetOnConcrete,
-                           SushiDSP::room::MaterialId::GypsumBoardOnStuds };
+                           SushiDSP::room::MaterialId::ConcreteUnpainted,
+                           SushiDSP::room::MaterialId::ConcreteBlockPainted,
+                           SushiDSP::room::MaterialId::ConcreteUnpainted };
         scene.scattering = { SushiDSP::room::Scattering::Textured,
-                             SushiDSP::room::Scattering::Flat,
+                             SushiDSP::room::Scattering::Cluttered,
                              SushiDSP::room::Scattering::Cluttered,
                              SushiDSP::room::Scattering::Textured,
                              SushiDSP::room::Scattering::Cluttered,
-                             SushiDSP::room::Scattering::Flat };
+                             SushiDSP::room::Scattering::Textured };
         scene.patch_count = 2;
         scene.patches[0] = { SushiDSP::room::Surface::PlusX,
                              SushiDSP::room::MaterialId::GlassWindow, 1.2 };
@@ -1522,7 +1523,7 @@ TEST(Unit_Dsp, RigControllerRoundTripsARoomSceneThroughJson)
     EXPECT_FALSE(parsed.at("nodes").at(0).contains("room"));
     ASSERT_TRUE(parsed.at("nodes").at(1).contains("room"));
     const nlohmann::json& written = parsed.at("nodes").at(1).at("room");
-    EXPECT_EQ(written.at("surfaces").at(4).get<std::string>(), "heavy_carpet_on_concrete");
+    EXPECT_EQ(written.at("surfaces").at(4).get<std::string>(), "concrete_block_painted");
     EXPECT_EQ(written.at("scattering").at(2).get<std::string>(), "cluttered");
     EXPECT_EQ(written.at("patches").size(), 2u);
     EXPECT_EQ(written.at("microphone").at("pattern").get<std::string>(), "supercardioid");
