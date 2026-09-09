@@ -1123,8 +1123,9 @@ TEST(Unit_Dsp, RoomNodeCompensatesAnEarsSetByItsRoundedPropagationDelay)
 {
     // The ears' whole render moves earlier by round(d / c * fs), 363 frames for the example
     // scene's 363.31: tap 0 lands 0.31 frames past zero, every reflection keeps its spacing to
-    // it unless that would put it under a frame, and the tail's input delay moves with them.
-    // A microphone set is left as it was.
+    // it unless that would put it under a frame, and the tail's input delay moves with them,
+    // floored at zero, since the network's shortest line is latency the design cannot give
+    // back. A microphone set is left as it was.
     const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(kSampleRate);
     const SushiDSP::room::RoomScene scene = microphone_scene();
     std::unique_ptr<SushiDSP::room::RoomRenderSet> ears = SushiDSP::room::build_render_set(
@@ -1139,7 +1140,8 @@ TEST(Unit_Dsp, RoomNodeCompensatesAnEarsSetByItsRoundedPropagationDelay)
         EXPECT_FLOAT_EQ(ears->early.taps[tap].delay_frames,
                         std::max(before.taps[tap].delay_frames - 363.0f, 1.0f)) << "tap " << tap;
     }
-    EXPECT_FLOAT_EQ(ears->late.delay_to_crossover_frames, tail_before - 363.0f);
+    EXPECT_FLOAT_EQ(ears->late.delay_to_crossover_frames,
+                    std::max(tail_before - 363.0f, 0.0f));
 
     std::unique_ptr<SushiDSP::room::RoomRenderSet> microphone =
         SushiDSP::room::build_render_set(scene, hrtf, kSampleRate,
@@ -1787,7 +1789,42 @@ TEST(Unit_Dsp, RoomNodeMicrophoneHearsLessRoomThanTheEars)
         direct_to_reverberant_db(ears, compensated_direct_frames(std::sqrt(4.0 + 0.49)));
     RecordProperty("microphone_db", microphone_db);
     RecordProperty("ears_db", ears_db);
-    EXPECT_GE(microphone_db - ears_db, 20.0);
+    // 19.95 dB since the tail hands over at t_c: the network's shortest line used to be its
+    // handover time again, so both windows caught 36 ms less room than the design asks for.
+    EXPECT_GE(microphone_db - ears_db, 19.5);
+}
+
+TEST(Unit_Dsp, RoomNodeCarriesOneOverROnTheCabinetsAxis)
+{
+    // The one level in the module that comes from geometry rather than from DiffuseField: an
+    // omni capsule on the cabinet's axis in the dead room reads 1 / r, so its direct window
+    // is 0 dB at 1 m and falls 6.02 dB per doubling. Measured -0.30, -6.64 and -13.32 dB
+    // against 0, -6.02 and -12.04; the shortfall is the air's, 1.3 dB over 4 m at 4 kHz.
+    // A test that scales both layers to one reference cannot see that reference move, so this
+    // is the case that holds the module's absolute level down.
+    std::array<double, 3> measured{};
+    const std::array<double, 3> distance = { 1.0, 2.0, 4.0 };
+    for (std::size_t step = 0; step < distance.size(); ++step)
+    {
+        SushiDSP::room::RoomScene scene = centred_dead_room();
+        scene.microphone_position = { 6.0 + distance[step], 6.0, 6.0 };
+        scene.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
+        std::vector<float> impulse(8 * kBlock, 0.0f);
+        impulse[0] = 1.0f;
+        const std::vector<float> out =
+            render(*prepared_node(scene, kListenerMicrophone), impulse);
+        double energy = 0.0;
+        for (std::size_t frame = 0; frame < kDirectWindow && frame < out.size(); ++frame)
+        {
+            energy += static_cast<double>(out[frame]) * out[frame];
+        }
+        measured[step] = 10.0 * std::log10(std::max(energy, 1e-30));
+        RecordProperty("direct_db_" + std::to_string(step), measured[step]);
+        EXPECT_NEAR(measured[step], 20.0 * std::log10(1.0 / distance[step]), 1.5)
+            << "at " << distance[step] << " m";
+    }
+    EXPECT_NEAR(measured[0] - measured[1], 6.02, 1.0);
+    EXPECT_NEAR(measured[1] - measured[2], 6.02, 1.0);
 }
 
 TEST(Unit_Dsp, RoomNodeMovingAroundTheCabinetChangesTheTone)

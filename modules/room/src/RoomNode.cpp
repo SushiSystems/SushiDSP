@@ -56,9 +56,9 @@ namespace SushiDSP::room
         /// @brief Holds the reflection order every set is solved to, RoomRenderSet's own.
         constexpr std::uint32_t kImageOrder = 4;
 
-        /// @brief Holds the longest line the tail may need, in seconds: an RT60 of 3 s gives a
-        /// mean line of 262.5 ms and a longest of 525 ms. Spec §6.2.
-        constexpr double kMaxLineSeconds = 0.525;
+        /// @brief Holds the longest line the tail may need, in seconds; the designer bounds
+        /// its spread by the same number.
+        constexpr double kMaxLineSeconds = FdnDesign::kMaxLineSeconds;
 
         /// @brief Holds the frames the direct path's ring keeps past the longest tap for the
         /// far ear's ITD, 2.7 ms at 48 kHz against Woodworth's 0.66 ms.

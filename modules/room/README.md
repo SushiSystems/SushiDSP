@@ -247,9 +247,40 @@ is fitted to the square root of each band's share of the mean. Jot's tone correc
 flattened the tail's energy spectrum, is one factor of that cascade; a room's reverberant energy
 is not flat. Rendered alone through `LateReverb`, 131072 frames, each band's energy lands within
 1 dB of its remainder from 250 Hz up and within 2 dB at 125 Hz in all three reference rooms
-(`LateReverbDesignRendersEachBandsRemainder`); the garage's tail carries an input gain of 0.42,
+(`LateReverbDesignRendersEachBandsRemainder`); the garage's tail carries an input gain of 0.38,
 where the trend of the last 5 ms of taps before t_c, 5 taps of the 56 a diffuse shell holds
 there, had set 0.11.
+
+### When the tail takes over
+
+The network emits nothing until its shortest line has run, so that line is the tail's own
+latency and the delay ahead of it is what is left of the handover time:
+`delay_to_crossover_frames` is `round(t_c fs) - line_frames[0]`, floored at zero. Until
+2026-09-10 it was `round(t_c fs)` outright, and the garage's tail arrived at 1749 + 3449 = 5198
+frames, 108 ms, instead of the 36 ms the image set stops at. What the maintainer heard of that
+is in the impulse response: the 5 ms window at 105 ms read -23.3 dB against -38 dB for the
+windows just before it, so the whole tail landed at once, after a 70 ms hole, 15 dB above what
+preceded it. The energy was right and the time was not.
+
+The shortest line is now the handover time itself. `line_frames` takes a shortest line and a
+spread rather than a mean, and `design` picks them from two constraints: the shortest line is
+`round(t_c fs)`, and the sixteen still sum to `kOverlapRatio` times the mid-band RT60, which is
+what fixes the tail's modal density (spec §6.2, three modes per resonance bandwidth). The
+spread that satisfies the second given the first is bisected; the garage's is 5.836, its lines
+run 1753 to 10211 frames and total 78098 against the 78003 the rule asks for. A room whose handover time exceeds a sixteenth of its
+delay budget cannot start there, and then the budget sets the shortest line at the old spread
+of 2 and the input delay carries the rest. `FdnDesign::kMaxLineSeconds` caps the longest line,
+so a room past the design's 3 s RT60 loses density rather than overrunning the renderer's
+storage.
+
+The garage's impulse response now runs -12.4 dB at 5 ms for the direct sound, the reflections
+down to -27 dB by 35 ms, the tail from -22.4 dB at 35 ms and a smooth decay past that; the
+bedroom and the block room hand over at 37.98 and 39.35 ms against their own t_c of 37.90 and
+39.36 ms.
+`LateReverbDesignDelaysTheTailToTheHandoverTime` walks all three and holds the onset within 8
+frames of t_c. A compensated ears set moves the tail's read delay earlier with everything else,
+but the shortest line is latency the design cannot give back, so the delay floors at zero and
+the ears' tail sits up to the propagation delay late, 363 frames for the default scene.
 
 Measured at the microphone, energy-averaged over six poses per room, 65536 frames each: the
 octave under f_s reads +0.5, +0.9 and +0.8 dB against the modal design's own power at those poses
@@ -267,6 +298,16 @@ in the octave under f_s, the standing waves piling up at the walls and corners i
 have no counterpart for it. Before the shared reference the garage's seam stepped by 7.7 dB at one
 pose, -1.64 dB under and -9.37 dB over: the tail was 10 dB under the field and the modal octave
 2 dB over it.
+
+`DiffuseField` is a ratio, so a test that scales both layers to it cannot see it move. One
+case holds the module's absolute level down from outside: `RoomNodeCarriesOneOverROnTheCabinetsAxis`
+reads an omni capsule on the cabinet's axis in the dead room at 1, 2 and 4 m as -0.30, -6.64 and
+-13.32 dB against the 0, -6.02 and -12.04 dB of 1 / r, the shortfall being the air's over 4 m.
+The reference itself agrees with the classical critical distance where the cabinet is close to
+a monopole: the garage's D/R at 2.60 m reads -15.61 and -13.71 dB at 125 and 250 Hz from
+`DiffuseField` against the -16.66 and -16.63 dB of (r_c / r)^2 with r_c = 0.057 sqrt(V / RT60),
+and the two part above 500 Hz by the cabinet's directivity index, which the classical figure
+takes as unity.
 
 The pair is power-complementary, a fourth-order Butterworth low-pass and high-pass at one
 corner with section Q 0.5412 and 1.3066, because the two halves carry uncorrelated fields and
@@ -409,8 +450,8 @@ for the ears, and the 0.893 ms the whole chain costs is what leaves DE7's AVX2 l
 The early renderer's ring holds the longest crossover time the scene bounds allow,
 `(4 + 1) * 12.0 / 343` s, 8397 frames at 48 kHz; the node's own ring, which the direct path and
 the tail read, holds that plus the alignment delay plus 128 frames for the far ear's ITD, rounded
-up to 16384. The tail's lines hold 0.525 s, 25200 frames at 48 kHz, the longest line an RT60 of
-3 s needs. The accumulation buffers are two sets of sixteen channels of one block; the two modal
+up to 16384. The tail's lines hold `FdnDesign::kMaxLineSeconds`, 0.525 s or 25200 frames at
+48 kHz, which is also the ceiling the designer spreads the lines under. The accumulation buffers are two sets of sixteen channels of one block; the two modal
 banks hold `kMaxModes` resonators each and one block of lane partials, and the node keeps four
 copies of `ModalDesign`, two per bank plus the ramp's ends, beside its two tap sets, its two
 direct banks with their four 128-tap histories, the two diffuse filters, the four alignment
@@ -468,12 +509,15 @@ fallback at the next `prepare()`.
 
 ## What the phase left open
 
-Nine entries in [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) belong to
+Eleven entries in [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) belong to
 this module, each with its figure and its exit: no measured HRTF set ships, so front and back
 sound alike; eight of the spec's fourteen material rows are untranscribed; the SM57 preset has no
 measured curve; modal damping at a gypsum boundary is about 30 % wrong; the FDN's own modes below
 f_s are crossed out rather than corrected; the raw octave step at the seam is recorded and not
 bounded; `BandResponseFit` stops at eight steps on about three fits in five; a structural rig edit
-rebuilds the node and empties its tail; and the room panel cannot edit a patch. Two more, the
+rebuilds the node and empties its tail; the room panel cannot edit a patch; a compensated ears
+set's tail floors at zero delay and lands 7.6 ms after its direct sound; and a 12 m concrete
+cube, which the scene validator allows, rings to +36 dB at its 32 Hz mode with nothing between
+the node and the device to bound it. Two more, the
 converter's unweighted diffuse-field average and the tail's output filter stepping on its running
 state, were written when the change that caused them landed.

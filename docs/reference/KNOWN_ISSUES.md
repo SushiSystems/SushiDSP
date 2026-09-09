@@ -182,6 +182,27 @@ tail contributes nothing under f_s that a longer reverberation would fill in. Th
 choice rather than a defect to repair, recorded because a reader measuring the tail alone below
 f_s will find it empty and should not go looking for the bug.
 
+## A compensated ears set's tail lands after its direct sound
+
+`RoomNode::compensate_direct_delay` moves an ears set earlier by the propagation delay, and it
+moves the tail's read delay with everything else. The network's shortest line is the handover
+time, so that delay is already zero for all three reference rooms and the subtraction floors
+there: the tail keeps its physical timing while the rest of the render moves up, 363 frames or
+7.6 ms for the default scene. Below the 20 ms a listener resolves as a separate arrival, and
+inaudible against the 70 ms hole the old timing left, so it is recorded rather than repaired.
+Closes when the designer is told the compensation and shortens its lines to absorb it.
+
+## A hard room the size the bounds allow rings to +36 dB
+
+`RoomScene::is_valid` gates dimensions on [1.5, 12] m and nothing on absorption, so a 12 m
+unpainted-concrete cube is a scene the panel can reach: 1728 m3, an Eyring RT60 of 12.8 s at
+500 Hz, 1068 modes under f_s and a slowest modal decay of 48 s. A sustained sine at its 32 Hz
+mode with the cabinet and the capsule in one corner measures +36 dB of steady gain through the
+node after 20 s and is still rising. The three reference rooms reach +9.7 dB, which is what a
+room booming at a mode does. No stage between `RoomNode` and the device bounds the output;
+`AsioSampleConverter::clamp_unit` clips at full scale for the integer formats and a float
+format passes the value through. Whether a guard belongs there is the maintainer's call.
+
 ## The raw octave step at the seam is not bounded
 
 `RoomNodeIsContinuousAcrossTheSchroederFrequency` measures each layer against the shared
