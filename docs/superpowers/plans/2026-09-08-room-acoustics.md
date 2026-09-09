@@ -2515,7 +2515,7 @@ namespace SushiDSP::room
         ListenerKind listener;
     };
 
-    /// @brief Builds one set. Control thread; under 2 ms for a 129-image scene.
+    /// @brief Builds one set. Control thread; inside the 33 ms republish budget of spec 4.2.
     /// @throw std::runtime_error when the scene is invalid, naming the violation.
     std::unique_ptr<RoomRenderSet> build_render_set(const RoomScene& scene, const HrtfSet& hrtf,
                                                     double sample_rate, ListenerKind listener);
@@ -2554,7 +2554,9 @@ namespace SushiDSP::room
 ```cpp
 TEST(Unit_Dsp, BuildRenderSetFillsEveryLayerForTheGarage)
 {
-    // early.count == 128, late.line_frames[0] > 0, modal.count == 187, and crossover_hz is
+    // early.count equals what ImageSourceSolver::solve returns for the same scene, 96 for the
+    // garage because the handover time drops 33 of the 129 order-4 images, late.line_frames[0]
+    // is above zero, modal.count == 187, and crossover_hz is
     // 278.2 within 0.5.
 }
 
@@ -2576,9 +2578,11 @@ TEST(Unit_Dsp, BuildRenderSetTakesTheDirectPairFromTheHrtfSet)
     // direct_itd_frames = 0.0006558 * 48000 = 31.5 within 0.1.
 }
 
-TEST(Unit_Dsp, BuildRenderSetCostsUnderTwoMilliseconds)
+TEST(Unit_Dsp, BuildRenderSetFitsTheRepublishBudget)
 {
-    // the garage at order 4 with all three layers, timed with std::chrono::steady_clock.
+    // the garage at order 4 with all three layers, timed with std::chrono::steady_clock: inside
+    // the 33 ms a 30 Hz republish allows, spec 4.2. A Debug build measures 8.9 ms, and the band
+    // fit dominates it.
 }
 
 TEST(Unit_Dsp, RoomRenderSetIsTriviallyCopyable)
