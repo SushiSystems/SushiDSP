@@ -23,7 +23,7 @@
 
 /**
  * @file CrossoverPair.hpp
- * @brief The Linkwitz-Riley pair that splits the field between the wave and geometric layers.
+ * @brief The power-complementary pair that splits the field between the wave and geometric layers.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -33,9 +33,10 @@
 
 namespace SushiDSP::room
 {
-    /// @brief Splits a signal at fourth order into two halves whose sum is flat in magnitude and
-    /// in phase, so the seam between the wave layer and the geometric layers adds no dip and no
-    /// hump. Spec §9a.4.
+    /// @brief Splits a signal at fourth order into two halves whose powers sum to one at every
+    /// frequency, so two uncorrelated fields, the wave layer's and the geometric layers', meet
+    /// at the seam with no dip and no hump; the amplitude sum of one correlated signal is not
+    /// flat through this pair. Spec §9a.4.
     class CrossoverPair
     {
     public:
@@ -44,24 +45,24 @@ namespace SushiDSP::room
         /// @pre crossover_hz < sample_rate / 2.
         void set_crossover(double sample_rate, double crossover_hz) noexcept;
 
-        /// @brief Splits one sample on the audio thread through two cascaded Butterworth pairs
-        /// per half.
+        /// @brief Splits one sample on the audio thread through the two sections of a
+        /// fourth-order Butterworth per half.
         void process_sample(float input, float& low_out, float& high_out) noexcept;
 
         /// @brief Clears every section's state.
         void reset() noexcept;
 
     private:
-        /// @brief Stores the first Butterworth low-pass of the low half.
+        /// @brief Stores the low-Q section of the Butterworth low-pass.
         Biquad low_first_;
 
-        /// @brief Stores the second Butterworth low-pass of the low half.
+        /// @brief Stores the high-Q section of the Butterworth low-pass.
         Biquad low_second_;
 
-        /// @brief Stores the first Butterworth high-pass of the high half.
+        /// @brief Stores the low-Q section of the Butterworth high-pass.
         Biquad high_first_;
 
-        /// @brief Stores the second Butterworth high-pass of the high half.
+        /// @brief Stores the high-Q section of the Butterworth high-pass.
         Biquad high_second_;
 
         /// @brief Records that the crossover is off and the high half carries everything.

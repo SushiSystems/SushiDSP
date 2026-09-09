@@ -23,7 +23,7 @@
 
 /**
  * @file CrossoverPair.cpp
- * @brief Two Butterworth pairs per half, cascaded into a Linkwitz-Riley split.
+ * @brief A fourth-order Butterworth low-pass and high-pass at one corner, whose powers sum to one.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -33,9 +33,13 @@ namespace SushiDSP::room
 {
     namespace
     {
-        /// @brief Holds the Butterworth quality factor 1 / sqrt(2), whose squared magnitude pair
-        /// sums to one at every frequency.
-        constexpr double kButterworthQ = 0.70710678118654752440;
+        /// @brief Holds the Q of the fourth-order Butterworth section whose poles sit 22.5
+        /// degrees off the real axis, 1 / (2 cos 22.5 deg).
+        constexpr double kOuterSectionQ = 0.54119610014619698440;
+
+        /// @brief Holds the Q of the fourth-order Butterworth section whose poles sit 67.5
+        /// degrees off the real axis, 1 / (2 cos 67.5 deg).
+        constexpr double kInnerSectionQ = 1.30656296487637652786;
     }
 
     void CrossoverPair::set_crossover(double sample_rate, double crossover_hz) noexcept
@@ -46,10 +50,10 @@ namespace SushiDSP::room
             reset();
             return;
         }
-        low_first_.set_low_pass(sample_rate, crossover_hz, kButterworthQ);
-        low_second_.set_low_pass(sample_rate, crossover_hz, kButterworthQ);
-        high_first_.set_high_pass(sample_rate, crossover_hz, kButterworthQ);
-        high_second_.set_high_pass(sample_rate, crossover_hz, kButterworthQ);
+        low_first_.set_low_pass(sample_rate, crossover_hz, kOuterSectionQ);
+        low_second_.set_low_pass(sample_rate, crossover_hz, kInnerSectionQ);
+        high_first_.set_high_pass(sample_rate, crossover_hz, kOuterSectionQ);
+        high_second_.set_high_pass(sample_rate, crossover_hz, kInnerSectionQ);
     }
 
     void CrossoverPair::process_sample(float input, float& low_out, float& high_out) noexcept
@@ -60,8 +64,7 @@ namespace SushiDSP::room
             high_out = input;
             return;
         }
-        // At fourth order the two halves are in phase at every frequency and add directly, with
-        // no inversion of either half.
+        // |low|^2 + |high|^2 = 1 at every frequency; the halves carry uncorrelated fields.
         low_out = low_second_.process_sample(low_first_.process_sample(input));
         high_out = high_second_.process_sample(high_first_.process_sample(input));
     }
