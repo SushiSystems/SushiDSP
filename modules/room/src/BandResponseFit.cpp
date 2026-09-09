@@ -23,7 +23,7 @@
 
 /**
  * @file BandResponseFit.cpp
- * @brief A two-shelf closed-form guess refined by damped Gauss-Newton steps.
+ * @brief A two-shelf closed-form guess refined by damped Gauss-Newton steps toward a prior.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -43,17 +43,25 @@ namespace SushiDSP::room
         /// @brief Counts the free parameters: a flat gain, then gain, corner and Q of each shelf.
         constexpr std::size_t kParameterCount = 7;
 
-        /// @brief Bounds the refinement at eight steps.
+        /// @brief Bounds the refinement at eight accepted steps.
         constexpr int kMaxSteps = 8;
 
-        /// @brief Stops the refinement once the worst band error is under this, in decibels.
-        constexpr double kGoodEnoughDb = 0.25;
+        /// @brief Stops the refinement once an accepted step moves the parameter vector by less
+        /// than this, in its own units of decibels and natural logarithms.
+        constexpr double kStepTolerance = 1e-3;
+
+        /// @brief Weights the pull of every parameter toward the closed-form guess, in squared
+        /// decibels of cost per squared unit of the parameter.
+        constexpr double kPriorWeight = 0.1;
 
         /// @brief Holds the parameter vector the refinement moves.
         using Parameters = std::array<double, kParameterCount>;
 
         /// @brief Holds one section's five normalised coefficients.
         using Section = std::array<double, 5>;
+
+        /// @brief Holds one value per band centre.
+        using Bands = std::array<double, kBandCount>;
 
         /// @brief Names each slot of the parameter vector.
         enum Slot : std::size_t
@@ -86,23 +94,18 @@ namespace SushiDSP::room
             return { b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0 };
         }
 
-        /// @brief Builds the cascade a parameter vector describes, the flat gain folded into the
-        /// first section's numerator.
-        BandResponseFit::Coefficients realise(const Parameters& parameters, double sample_rate)
+        /// @brief Returns the low shelf the parameter vector describes.
+        Section low_shelf(const Parameters& parameters, double sample_rate)
         {
-            BandResponseFit::Coefficients coefficients{};
-            coefficients.section_a = shelf(sample_rate, std::exp(parameters[kLowLogCorner]),
-                                           parameters[kLowDb], std::exp(parameters[kLowLogQ]),
-                                           true);
-            coefficients.section_b = shelf(sample_rate, std::exp(parameters[kHighLogCorner]),
-                                           parameters[kHighDb], std::exp(parameters[kHighLogQ]),
-                                           false);
-            const double flat = std::pow(10.0, parameters[kFlatDb] / 20.0);
-            for (std::size_t index = 0; index < 3; ++index)
-            {
-                coefficients.section_a[index] *= flat;
-            }
-            return coefficients;
+            return shelf(sample_rate, std::exp(parameters[kLowLogCorner]), parameters[kLowDb],
+                         std::exp(parameters[kLowLogQ]), true);
+        }
+
+        /// @brief Returns the high shelf the parameter vector describes.
+        Section high_shelf(const Parameters& parameters, double sample_rate)
+        {
+            return shelf(sample_rate, std::exp(parameters[kHighLogCorner]), parameters[kHighDb],
+                         std::exp(parameters[kHighLogQ]), false);
         }
 
         /// @brief Returns true when a section's poles lie inside the unit circle.
@@ -113,16 +116,32 @@ namespace SushiDSP::room
             return std::fabs(a2) < 1.0 && std::fabs(a1) < 1.0 + a2;
         }
 
-        /// @brief Returns true when both sections are stable.
-        bool is_stable(const BandResponseFit::Coefficients& coefficients) noexcept
+        /// @brief Returns a section's gain at zero frequency, (b0 + b1 + b2) / (1 + a1 + a2).
+        double dc_gain(const Section& section) noexcept
         {
-            return is_stable(coefficients.section_a) && is_stable(coefficients.section_b);
+            return (section[0] + section[1] + section[2]) / (1.0 + section[3] + section[4]);
+        }
+
+        /// @brief Builds the canonical cascade: the low shelf first, the high shelf second with
+        /// unity gain at zero frequency, the whole gain in the first section's numerator.
+        BandResponseFit::Coefficients realise(const Section& low, const Section& high,
+                                              double flat_db) noexcept
+        {
+            BandResponseFit::Coefficients coefficients{ low, high };
+            const double high_dc = dc_gain(high);
+            const double gain = std::pow(10.0, flat_db / 20.0) * high_dc;
+            for (std::size_t index = 0; index < 3; ++index)
+            {
+                coefficients.section_a[index] *= gain;
+                coefficients.section_b[index] /= high_dc;
+            }
+            return coefficients;
         }
 
         /// @brief Returns the target's six log-magnitudes in decibels, floored at kDecibelFloor.
-        std::array<double, kBandCount> target_db(const BandResponse& target) noexcept
+        Bands target_db(const BandResponse& target) noexcept
         {
-            std::array<double, kBandCount> result{};
+            Bands result{};
             const std::array<float, kBandCount> decibels = target.decibels();
             for (std::size_t band = 0; band < kBandCount; ++band)
             {
@@ -135,10 +154,10 @@ namespace SushiDSP::room
         struct BandGrid
         {
             /// @brief Stores cos(w) per band.
-            std::array<double, kBandCount> cosine;
+            Bands cosine;
 
             /// @brief Stores cos(2w) per band.
-            std::array<double, kBandCount> double_cosine;
+            Bands double_cosine;
         };
 
         /// @brief Evaluates the band grid of one sample rate.
@@ -162,53 +181,135 @@ namespace SushiDSP::room
                 + 2.0 * c0 * c2 * double_cosine;
         }
 
-        /// @brief Returns the cascade's squared magnitude at one grid point.
-        double power_gain(const BandResponseFit::Coefficients& coefficients, double cosine,
-                          double double_cosine) noexcept
+        /// @brief Returns one section's squared magnitude at one grid point.
+        double power_gain(const Section& section, double cosine, double double_cosine) noexcept
         {
-            double power = 1.0;
-            for (const Section* section : { &coefficients.section_a, &coefficients.section_b })
-            {
-                const double numerator = squared_magnitude((*section)[0], (*section)[1],
-                                                           (*section)[2], cosine, double_cosine);
-                const double denominator = squared_magnitude(1.0, (*section)[3], (*section)[4],
-                                                             cosine, double_cosine);
-                power *= numerator / denominator;
-            }
-            return power;
+            const double numerator =
+                squared_magnitude(section[0], section[1], section[2], cosine, double_cosine);
+            const double denominator =
+                squared_magnitude(1.0, section[3], section[4], cosine, double_cosine);
+            return numerator / denominator;
         }
 
-        /// @brief Returns the six residuals, model minus target, in decibels.
-        std::array<double, kBandCount> residuals(const BandResponseFit::Coefficients& coefficients,
-                                                 const std::array<double, kBandCount>& wanted,
-                                                 const BandGrid& grid) noexcept
+        /// @brief Returns one section's magnitude in decibels at every band centre.
+        Bands section_db(const Section& section, const BandGrid& grid) noexcept
         {
-            std::array<double, kBandCount> result{};
+            Bands result{};
             for (std::size_t band = 0; band < kBandCount; ++band)
             {
                 const double power =
-                    power_gain(coefficients, grid.cosine[band], grid.double_cosine[band]);
-                result[band] = 10.0 * std::log10(std::max(power, 1e-20)) - wanted[band];
+                    power_gain(section, grid.cosine[band], grid.double_cosine[band]);
+                result[band] = 10.0 * std::log10(std::max(power, 1e-20));
             }
             return result;
         }
 
-        /// @brief Returns the largest absolute residual.
-        double worst(const std::array<double, kBandCount>& residual) noexcept
+        /// @brief Returns the largest absolute value of six band values.
+        double worst(const Bands& values) noexcept
         {
             double largest = 0.0;
-            for (const double value : residual)
+            for (const double value : values)
             {
                 largest = std::max(largest, std::fabs(value));
             }
             return largest;
         }
 
+        /// @brief Returns the Euclidean distance between two parameter vectors.
+        double distance(const Parameters& a, const Parameters& b) noexcept
+        {
+            double sum = 0.0;
+            for (std::size_t slot = 0; slot < kParameterCount; ++slot)
+            {
+                const double offset = a[slot] - b[slot];
+                sum += offset * offset;
+            }
+            return std::sqrt(sum);
+        }
+
+        /// @brief Holds everything one parameter vector evaluates to.
+        struct Evaluation
+        {
+            /// @brief Stores the low shelf's coefficients.
+            Section low;
+
+            /// @brief Stores the high shelf's coefficients.
+            Section high;
+
+            /// @brief Stores the low shelf's magnitude per band, in decibels.
+            Bands low_db;
+
+            /// @brief Stores the high shelf's magnitude per band, in decibels.
+            Bands high_db;
+
+            /// @brief Stores the cascade's magnitude minus the target per band, in decibels.
+            Bands residual;
+
+            /// @brief Stores the squared residuals plus the weighted squared distance from the
+            /// prior.
+            double cost;
+
+            /// @brief Stores whether both shelves have their poles inside the unit circle.
+            bool stable;
+        };
+
+        /// @brief Evaluates a parameter vector against the target and the prior.
+        Evaluation evaluate(const Parameters& parameters, const Parameters& prior,
+                            const Bands& wanted, const BandGrid& grid, double sample_rate)
+        {
+            Evaluation result{};
+            result.low = low_shelf(parameters, sample_rate);
+            result.high = high_shelf(parameters, sample_rate);
+            result.low_db = section_db(result.low, grid);
+            result.high_db = section_db(result.high, grid);
+            result.cost = 0.0;
+            for (std::size_t band = 0; band < kBandCount; ++band)
+            {
+                result.residual[band] = parameters[kFlatDb] + result.low_db[band]
+                    + result.high_db[band] - wanted[band];
+                result.cost += result.residual[band] * result.residual[band];
+            }
+            for (std::size_t slot = 0; slot < kParameterCount; ++slot)
+            {
+                const double offset = parameters[slot] - prior[slot];
+                result.cost += kPriorWeight * offset * offset;
+            }
+            result.stable = is_stable(result.low) && is_stable(result.high);
+            return result;
+        }
+
+        /// @brief Holds the residuals' derivative with respect to each parameter, one row per
+        /// slot.
+        using Jacobian = std::array<Bands, kParameterCount>;
+
+        /// @brief Returns the Jacobian at an evaluation: the flat gain's row is one, each shelf's
+        /// three rows are forward differences of that shelf alone.
+        Jacobian jacobian(const Parameters& parameters, const Evaluation& at,
+                          const BandGrid& grid, double sample_rate)
+        {
+            constexpr double delta = 1e-4;
+            Jacobian result{};
+            result[kFlatDb].fill(1.0);
+            for (std::size_t slot = kLowDb; slot < kParameterCount; ++slot)
+            {
+                const bool low = slot <= kLowLogQ;
+                Parameters nudged = parameters;
+                nudged[slot] += delta;
+                const Bands shifted = section_db(
+                    low ? low_shelf(nudged, sample_rate) : high_shelf(nudged, sample_rate), grid);
+                const Bands& base = low ? at.low_db : at.high_db;
+                for (std::size_t band = 0; band < kBandCount; ++band)
+                {
+                    result[slot][band] = (shifted[band] - base[band]) / delta;
+                }
+            }
+            return result;
+        }
+
         /// @brief Solves the symmetric positive-definite system normal * step = right_hand_side by
         /// Gaussian elimination with partial pivoting; returns false when it is singular.
-        bool solve(std::array<std::array<double, kParameterCount>, kParameterCount> normal,
-                   std::array<double, kParameterCount> right_hand_side,
-                   std::array<double, kParameterCount>& step) noexcept
+        bool solve(std::array<Parameters, kParameterCount> normal, Parameters right_hand_side,
+                   Parameters& step) noexcept
         {
             for (std::size_t column = 0; column < kParameterCount; ++column)
             {
@@ -248,6 +349,36 @@ namespace SushiDSP::room
             return true;
         }
 
+        /// @brief Solves one damped Gauss-Newton step of the prior-weighted problem; returns
+        /// false when the damped normal matrix is singular.
+        bool damped_step(const Jacobian& slope, const Evaluation& at, const Parameters& parameters,
+                         const Parameters& prior, double damping, Parameters& step) noexcept
+        {
+            std::array<Parameters, kParameterCount> normal{};
+            Parameters gradient{};
+            for (std::size_t row = 0; row < kParameterCount; ++row)
+            {
+                for (std::size_t column = 0; column < kParameterCount; ++column)
+                {
+                    double sum = 0.0;
+                    for (std::size_t band = 0; band < kBandCount; ++band)
+                    {
+                        sum += slope[row][band] * slope[column][band];
+                    }
+                    normal[row][column] = sum;
+                }
+                normal[row][row] += kPriorWeight;
+                normal[row][row] *= 1.0 + damping;
+                double sum = -kPriorWeight * (parameters[row] - prior[row]);
+                for (std::size_t band = 0; band < kBandCount; ++band)
+                {
+                    sum -= slope[row][band] * at.residual[band];
+                }
+                gradient[row] = sum;
+            }
+            return solve(normal, gradient, step);
+        }
+
         /// @brief Keeps every corner inside (20 Hz, 0.45 * sample_rate) and every Q inside
         /// (0.25, 4).
         void clamp(Parameters& parameters, double sample_rate) noexcept
@@ -262,7 +393,7 @@ namespace SushiDSP::room
 
         /// @brief Returns the closed-form two-shelf guess: corners at 250 Hz and 2 kHz, Q 0.7071,
         /// the flat gain at the mean of the two middle bands.
-        Parameters initial_guess(const std::array<double, kBandCount>& wanted) noexcept
+        Parameters initial_guess(const Bands& wanted) noexcept
         {
             Parameters parameters{};
             parameters[kFlatDb] = 0.5 * (wanted[2] + wanted[3]);
@@ -280,62 +411,31 @@ namespace SushiDSP::room
                                          double sample_rate)
     {
         const double omega = 2.0 * kPi * frequency_hz / sample_rate;
-        const double power = power_gain(coefficients, std::cos(omega), std::cos(2.0 * omega));
+        const double cosine = std::cos(omega);
+        const double double_cosine = std::cos(2.0 * omega);
+        const double power = power_gain(coefficients.section_a, cosine, double_cosine)
+            * power_gain(coefficients.section_b, cosine, double_cosine);
         return 10.0 * std::log10(std::max(power, 1e-20));
     }
 
     BandResponseFit::Result BandResponseFit::fit(const BandResponse& target, double sample_rate)
     {
-        const std::array<double, kBandCount> wanted = target_db(target);
-        Parameters parameters = initial_guess(wanted);
-        clamp(parameters, sample_rate);
+        const Bands wanted = target_db(target);
+        Parameters prior = initial_guess(wanted);
+        clamp(prior, sample_rate);
         const BandGrid grid = band_grid(sample_rate);
-        Coefficients best = realise(parameters, sample_rate);
-        std::array<double, kBandCount> residual = residuals(best, wanted, grid);
-        double best_error = worst(residual);
+        Parameters parameters = prior;
+        Evaluation best = evaluate(parameters, prior, wanted, grid, sample_rate);
         double damping = 1e-3;
-        for (int step_index = 0; step_index < kMaxSteps && best_error >= kGoodEnoughDb; ++step_index)
+        for (int step_index = 0; step_index < kMaxSteps; ++step_index)
         {
-            std::array<std::array<double, kBandCount>, kParameterCount> jacobian{};
-            for (std::size_t slot = 0; slot < kParameterCount; ++slot)
-            {
-                const double delta = 1e-4;
-                Parameters nudged = parameters;
-                nudged[slot] += delta;
-                const std::array<double, kBandCount> shifted =
-                    residuals(realise(nudged, sample_rate), wanted, grid);
-                for (std::size_t band = 0; band < kBandCount; ++band)
-                {
-                    jacobian[slot][band] = (shifted[band] - residual[band]) / delta;
-                }
-            }
+            const Jacobian slope = jacobian(parameters, best, grid, sample_rate);
             bool accepted = false;
+            double step_length = 0.0;
             for (int attempt = 0; attempt < 6 && !accepted; ++attempt)
             {
-                std::array<std::array<double, kParameterCount>, kParameterCount> normal{};
-                std::array<double, kParameterCount> gradient{};
-                for (std::size_t row = 0; row < kParameterCount; ++row)
-                {
-                    for (std::size_t column = 0; column < kParameterCount; ++column)
-                    {
-                        double sum = 0.0;
-                        for (std::size_t band = 0; band < kBandCount; ++band)
-                        {
-                            sum += jacobian[row][band] * jacobian[column][band];
-                        }
-                        normal[row][column] = sum;
-                    }
-                    normal[row][row] *= 1.0 + damping;
-                    normal[row][row] += damping;
-                    double sum = 0.0;
-                    for (std::size_t band = 0; band < kBandCount; ++band)
-                    {
-                        sum -= jacobian[row][band] * residual[band];
-                    }
-                    gradient[row] = sum;
-                }
-                std::array<double, kParameterCount> step{};
-                if (!solve(normal, gradient, step))
+                Parameters step{};
+                if (!damped_step(slope, best, parameters, prior, damping, step))
                 {
                     damping *= 10.0;
                     continue;
@@ -346,16 +446,12 @@ namespace SushiDSP::room
                     candidate[slot] += step[slot];
                 }
                 clamp(candidate, sample_rate);
-                const Coefficients trial = realise(candidate, sample_rate);
-                const std::array<double, kBandCount> trial_residual =
-                    residuals(trial, wanted, grid);
-                const double trial_error = worst(trial_residual);
-                if (is_stable(trial) && trial_error < best_error)
+                const Evaluation trial = evaluate(candidate, prior, wanted, grid, sample_rate);
+                if (trial.stable && trial.cost < best.cost)
                 {
+                    step_length = distance(candidate, parameters);
                     parameters = candidate;
                     best = trial;
-                    residual = trial_residual;
-                    best_error = trial_error;
                     damping = std::max(damping * 0.1, 1e-6);
                     accepted = true;
                 }
@@ -364,11 +460,11 @@ namespace SushiDSP::room
                     damping *= 10.0;
                 }
             }
-            if (!accepted)
+            if (!accepted || step_length < kStepTolerance)
             {
                 break;
             }
         }
-        return Result{ best, best_error };
+        return Result{ realise(best.low, best.high, parameters[kFlatDb]), worst(best.residual) };
     }
 }
