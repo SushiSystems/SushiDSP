@@ -118,14 +118,16 @@ TEST(Unit_Dsp, RoomSceneAcceptsEveryReferenceRoom)
     using SushiDSP::room::RoomScene;
     using SushiDSP::room::Surface;
 
-    // The absorption floor is the tightest bound the default scene meets: bare unpainted
-    // concrete at 6.0 x 4.0 x 2.5 m decays in 9.81 s against the 12 s the module renders, so
-    // its 0.010000 at 125 Hz clears a floor of 0.008181 by a factor of 1.22.
+    // The default scene is 6.0 x 4.0 x 2.5 m of gypsum board on studs over a carpeted floor:
+    // 74 m2 of board and 24 m2 of carpet over 98 m2 give (74 * 0.29 + 24 * 0.02) / 98 = 0.223878
+    // at 125 Hz and (74 * 0.05 + 24 * 0.14) / 98 = 0.072041 at 500 Hz, its least absorbent band,
+    // which clears the 0.008181 floor this shoebox needs by a factor of 8.8.
     std::string reason;
     const RoomScene fresh;
     EXPECT_TRUE(fresh.is_valid(reason)) << reason;
     EXPECT_NEAR(fresh.min_mean_absorption(), 0.008181, 1e-6);
-    EXPECT_NEAR(fresh.mean_absorption()[0], 0.010000, 1e-9);
+    EXPECT_NEAR(fresh.mean_absorption()[0], 0.223878, 1e-6);
+    EXPECT_NEAR(fresh.mean_absorption()[2], 0.072041, 1e-6);
 
     EXPECT_TRUE(SushiDSP::test::garage_scene().is_valid(reason)) << reason;
     EXPECT_TRUE(SushiDSP::test::bedroom_scene().is_valid(reason)) << reason;
@@ -195,9 +197,11 @@ TEST(Unit_Dsp, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
     over.surfaces.fill(MaterialId::ConcreteUnpainted);
     EXPECT_FALSE(over.is_valid(reason));
 
-    // Absorption alone does not decide it: the same concrete at the default scene's 6.0 x 4.0 x
-    // 2.5 m passes, since the floor rises with the room's volume over its area.
-    RoomScene fresh;
-    EXPECT_TRUE(fresh.is_valid(reason)) << reason;
-    EXPECT_LT(fresh.min_mean_absorption(), over.min_mean_absorption());
+    // Absorption alone does not decide it: the same concrete at 6.0 x 4.0 x 2.5 m passes, since
+    // the floor rises with the room's volume over its area.
+    RoomScene shoebox;
+    shoebox.dimensions = { 6.0, 4.0, 2.5 };
+    shoebox.surfaces.fill(MaterialId::ConcreteUnpainted);
+    EXPECT_TRUE(shoebox.is_valid(reason)) << reason;
+    EXPECT_LT(shoebox.min_mean_absorption(), over.min_mean_absorption());
 }

@@ -68,15 +68,19 @@ the bound reaches the scene as a floor on the mean absorption that the scene com
 `min_mean_absorption()` returns 1 - exp(-0.161 V / (S * kMaxDecaySeconds)), Eyring inverted for
 alpha with the air term dropped. All six bands are checked against it, because a bare concrete
 box is dead at 4 kHz and enormous at 125 Hz. Dropping the air term makes the gate refuse a little
-more than Eyring's own figure would: the default scene reads 9.81 s at 125 Hz against Eyring's
-9.57 s.
+more than Eyring's own figure would: the default scene reads 1.32 s at 500 Hz against Eyring's
+1.29 s.
 
 The floor rises with V / S, so the same material passes in one room and fails in another. Bare
-unpainted concrete, alpha = 0.01 at 125 Hz, passes at the default scene's 6.0 x 4.0 x 2.5 m, at
-9.81 s, and fails as a cube past an edge of 4.495 m. The default scene is the tightest of the
-rooms in the tree, at 82 % of the bound; the garage, the bedroom, the block room and the dead
-room sit a factor of six or more clear. `RoomSceneAcceptsEveryReferenceRoom` and
+unpainted concrete, alpha = 0.01 at 125 Hz, passes at 6.0 x 4.0 x 2.5 m, at 9.81 s, and fails as
+a cube past an edge of 4.495 m. The block room is the tightest of the rooms in the tree, at 15.9 %
+of the bound; the default scene sits at 11.0 %. `RoomSceneAcceptsEveryReferenceRoom` and
 `RoomSceneRefusesARoomThatRingsPastTheModulesDecay` walk them.
+
+The default scene is that 6.0 x 4.0 x 2.5 m box with gypsum board on studs on the four walls and
+the ceiling and heavy carpet on the floor, and no patch. It is what a fresh room slot and a
+preset with no `"room"` object both load, so it is the room a musician hears first; spec §4.1
+carries why it is furnished rather than bare and why it carries no doorway.
 
 The panel prints the reason `is_valid` writes, so a refused drag says which band, which value and
 which floor without any change to `RoomPanel` or `RigController`.
