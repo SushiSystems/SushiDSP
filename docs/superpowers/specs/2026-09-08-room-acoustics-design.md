@@ -186,6 +186,49 @@ length and hands the six numbers to `BandResponseFit`. One fitted filter per tap
 number of physical factors in it. That is the efficiency the whole design rests on: the audio
 thread never knows what a material is.
 
+**What the validator refuses.** `RoomScene::is_valid` bounds each dimension to [1.5, 12] m,
+holds the three poses inside the box and holds each patch inside its face. Since 2026-09-10 it
+also refuses a room that rings past `kMaxDecaySeconds`, 12 s.
+
+That maximum comes from the slowest rate anyone plays at. One chord change per bar at 60 bpm in
+4/4 is one every four seconds, and for the previous chord to sit 20 dB under the next one when it
+lands the room has to fall 20 dB in four seconds, which is an RT60 of 12 s. Past that a guitarist
+is playing into the last chord rather than after it, and the harmony never separates; the longest
+architectural enclosure anyone has measured, the Hamilton Mausoleum at about 15 s, is already
+beyond it.
+
+The rule reaches the scene as a floor on the mean absorption, because that is what the scene
+knows: `EyringDecay` reads `RoomScene`, so `RoomScene` cannot read `EyringDecay` back. Eyring's
+decay with the air term dropped is T = 0.161 V / (-S ln(1 - alpha)), and inverting it at
+T = `kMaxDecaySeconds` gives
+
+    alpha_min = 1 - exp(-0.161 V / (S * kMaxDecaySeconds))
+
+which is `RoomScene::min_mean_absorption()`. Air only ever shortens a decay, so a scene that
+clears the floor on its surfaces alone clears it with the air as well; the gate refuses a little
+more than Eyring's own figure would, 9.81 s against 9.57 s for the default scene at 125 Hz. Every
+one of the six bands must clear the floor, not the mid band alone: a bare concrete box is dead at
+4 kHz and enormous at 125 Hz, and 125 Hz is the band that made the 12 m cube ring.
+
+The floor rises with V / S, so absorption alone does not decide it. The same unpainted concrete,
+alpha = 0.01 at 125 Hz, passes at the default scene's 6.0 x 4.0 x 2.5 m and fails as a cube past
+an edge of 4.495 m:
+
+| Scene | 125 Hz alpha | floor | worst band | surface decay |
+| --- | --- | --- | --- | --- |
+| `RoomScene{}`, bare concrete | 0.0100 | 0.008181 | 125 Hz | 9.81 s |
+| garage | 0.0706 | 0.008181 | 125 Hz | 1.35 s |
+| bedroom | 0.2349 | 0.007263 | 500 Hz | 1.18 s |
+| block room | 0.1000 | 0.008144 | 250 Hz | 1.91 s |
+| 12 m carpeted room, four faces open | 0.6733 | 0.026477 | 125 Hz | 0.29 s |
+| 3.0 x 2.5 x 2.4 m concrete | 0.0100 | 0.005816 | 125 Hz | 6.96 s |
+| 12 m gypsum cube | 0.2900 | 0.026477 | 1 kHz | 7.89 s |
+| 12 m unpainted concrete cube | 0.0100 | 0.026477 | 125 Hz | 32.04 s, refused |
+
+The default scene is the tightest of the ones that pass, at 82 % of the bound. It is bare
+unpainted concrete on all six faces, which no garage is; every room with a door in it, the garage
+included, sits a factor of six or more clear.
+
 ### 4.2 Materials as filters
 
 A material is six random-incidence absorption coefficients α at the octave centres 125, 250, 500,

@@ -74,6 +74,10 @@ namespace SushiDSP::room
         /// @brief Bounds a shoebox dimension from above, in metres.
         static constexpr double kMaxDimension = 12.0;
 
+        /// @brief Bounds the reverberation time a scene may ask the module to render, in
+        /// seconds. Spec section 4.1.
+        static constexpr double kMaxDecaySeconds = 12.0;
+
         /// @brief Counts the patches a scene may carry.
         static constexpr std::size_t kMaxPatches = 4;
 
@@ -145,7 +149,12 @@ namespace SushiDSP::room
         /// @brief Area-weighted absorption per band over the six faces and their patches.
         std::array<double, kBandCount> mean_absorption() const;
 
-        /// @brief Whether every dimension is inside the bounds and every pose inside the room.
+        /// @brief Returns the absorption one band must reach for this shoebox to decay inside
+        /// kMaxDecaySeconds, taking its surfaces as the only absorber.
+        double min_mean_absorption() const noexcept;
+
+        /// @brief Whether every dimension, every pose, every patch and every band's absorption
+        /// is inside its bound.
         /// @param reason Filled with the first violation when the scene is refused.
         bool is_valid(std::string& reason) const;
     };

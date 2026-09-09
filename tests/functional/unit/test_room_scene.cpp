@@ -111,3 +111,93 @@ TEST(Unit_Dsp, RoomSceneRefusesAPatchLargerThanItsFace)
     EXPECT_NE(reason.find("12"), std::string::npos);
     EXPECT_NE(reason.find("10"), std::string::npos);
 }
+
+TEST(Unit_Dsp, RoomSceneAcceptsEveryReferenceRoom)
+{
+    using SushiDSP::room::MaterialId;
+    using SushiDSP::room::RoomScene;
+    using SushiDSP::room::Surface;
+
+    // The absorption floor is the tightest bound the default scene meets: bare unpainted
+    // concrete at 6.0 x 4.0 x 2.5 m decays in 9.81 s against the 12 s the module renders, so
+    // its 0.010000 at 125 Hz clears a floor of 0.008181 by a factor of 1.22.
+    std::string reason;
+    const RoomScene fresh;
+    EXPECT_TRUE(fresh.is_valid(reason)) << reason;
+    EXPECT_NEAR(fresh.min_mean_absorption(), 0.008181, 1e-6);
+    EXPECT_NEAR(fresh.mean_absorption()[0], 0.010000, 1e-9);
+
+    EXPECT_TRUE(SushiDSP::test::garage_scene().is_valid(reason)) << reason;
+    EXPECT_TRUE(SushiDSP::test::bedroom_scene().is_valid(reason)) << reason;
+    EXPECT_TRUE(SushiDSP::test::block_room_scene().is_valid(reason)) << reason;
+
+    // The 12 m carpeted room with four open faces the node tests render, whose absorption runs
+    // 0.673 at 125 Hz against a floor of 0.026477.
+    RoomScene dead;
+    dead.dimensions = { 12.0, 12.0, 12.0 };
+    dead.surfaces.fill(MaterialId::HeavyCarpetOnConcrete);
+    dead.patches[0] = { Surface::MinusX, MaterialId::OpenDoorway, 144.0 };
+    dead.patches[1] = { Surface::PlusX, MaterialId::OpenDoorway, 144.0 };
+    dead.patches[2] = { Surface::MinusY, MaterialId::OpenDoorway, 144.0 };
+    dead.patches[3] = { Surface::PlusY, MaterialId::OpenDoorway, 144.0 };
+    dead.patch_count = 4;
+    dead.source_position = { 3.0, 4.0, 1.0 };
+    dead.listener_position = { 7.0, 5.0, 1.5 };
+    dead.microphone_position = { 7.0, 5.0, 1.5 };
+    EXPECT_TRUE(dead.is_valid(reason)) << reason;
+    EXPECT_NEAR(dead.min_mean_absorption(), 0.026477, 1e-6);
+
+    // The 3.0 x 2.5 x 2.4 m unpainted concrete room the crossover case walks: 6.96 s at 125 Hz.
+    RoomScene small_concrete;
+    small_concrete.dimensions = { 3.0, 2.5, 2.4 };
+    small_concrete.surfaces.fill(MaterialId::ConcreteUnpainted);
+    small_concrete.source_position = { 0.3, 0.3, 0.3 };
+    small_concrete.listener_position = { 1.5, 1.25, 1.2 };
+    small_concrete.microphone_position = { 1.5, 1.25, 1.2 };
+    EXPECT_TRUE(small_concrete.is_valid(reason)) << reason;
+    EXPECT_NEAR(small_concrete.min_mean_absorption(), 0.005816, 1e-6);
+}
+
+TEST(Unit_Dsp, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
+{
+    using SushiDSP::room::MaterialId;
+    using SushiDSP::room::RoomScene;
+
+    // The 12 m cube of unpainted concrete: 0.010000 at 125 Hz against a floor of 0.026477,
+    // Eyring's 32.04 s from its surfaces alone against the 12 s bound.
+    RoomScene cube;
+    cube.dimensions = { 12.0, 12.0, 12.0 };
+    cube.surfaces.fill(MaterialId::ConcreteUnpainted);
+    std::string reason;
+    EXPECT_FALSE(cube.is_valid(reason));
+    EXPECT_NE(reason.find("0.010000"), std::string::npos) << reason;
+    EXPECT_NE(reason.find("125"), std::string::npos) << reason;
+    EXPECT_NE(reason.find("0.026477"), std::string::npos) << reason;
+    EXPECT_NE(reason.find("12 s"), std::string::npos) << reason;
+
+    // The bound is on every band, not on the mid one: a 10 m cube of gypsum board on studs is
+    // dead at 125 Hz, 0.29, and rings 6.57 s at 1 kHz, so a room whose bass is fine and whose
+    // mid is not stays valid while the same shell in concrete does not.
+    RoomScene gypsum;
+    gypsum.dimensions = { 10.0, 10.0, 10.0 };
+    gypsum.surfaces.fill(MaterialId::GypsumBoardOnStuds);
+    EXPECT_TRUE(gypsum.is_valid(reason)) << reason;
+
+    // A bare unpainted concrete cube crosses the bound at an edge of 4.495 m, where 0.161 L / 6
+    // over -ln(1 - 0.01) reaches 12 s; 4.4 m gives 11.75 s and 4.6 m gives 12.28 s.
+    RoomScene under;
+    under.dimensions = { 4.4, 4.4, 4.4 };
+    under.surfaces.fill(MaterialId::ConcreteUnpainted);
+    EXPECT_TRUE(under.is_valid(reason)) << reason;
+
+    RoomScene over;
+    over.dimensions = { 4.6, 4.6, 4.6 };
+    over.surfaces.fill(MaterialId::ConcreteUnpainted);
+    EXPECT_FALSE(over.is_valid(reason));
+
+    // Absorption alone does not decide it: the same concrete at the default scene's 6.0 x 4.0 x
+    // 2.5 m passes, since the floor rises with the room's volume over its area.
+    RoomScene fresh;
+    EXPECT_TRUE(fresh.is_valid(reason)) << reason;
+    EXPECT_LT(fresh.min_mean_absorption(), over.min_mean_absorption());
+}

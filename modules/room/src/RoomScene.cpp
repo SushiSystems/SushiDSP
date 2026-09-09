@@ -29,10 +29,15 @@
 
 #include "SushiDSP/room/RoomScene.hpp"
 
+#include <cmath>
+
 namespace SushiDSP::room
 {
     namespace
     {
+
+        /// @brief Holds Sabine's constant 24 ln(10) / c at 20 degrees, in seconds per metre.
+        constexpr double kSabineConstant = 0.161;
 
         /// @brief Names an axis for a validation reason.
         const char* axis_name(int axis) noexcept
@@ -150,6 +155,14 @@ namespace SushiDSP::room
         return result;
     }
 
+    double RoomScene::min_mean_absorption() const noexcept
+    {
+        // Eyring inverted for alpha at kMaxDecaySeconds, the air term dropped; spec section 4.1.
+        return 1.0
+            - std::exp(-kSabineConstant * volume_m3()
+                       / (surface_area_m2() * kMaxDecaySeconds));
+    }
+
     bool RoomScene::is_valid(std::string& reason) const
     {
         const std::array<double, 3> length = { dimensions.x, dimensions.y, dimensions.z };
@@ -180,6 +193,21 @@ namespace SushiDSP::room
             {
                 reason = "a patch of " + std::to_string(patch.area_m2) + " m2 exceeds its face's "
                     + std::to_string(face_area) + " m2";
+                return false;
+            }
+        }
+
+        const double floor_absorption = min_mean_absorption();
+        const std::array<double, kBandCount> absorption = mean_absorption();
+        for (std::size_t band = 0; band < kBandCount; ++band)
+        {
+            if (absorption[band] < floor_absorption)
+            {
+                reason = "mean absorption " + std::to_string(absorption[band]) + " at "
+                    + std::to_string(static_cast<int>(kBandCentresHz[band]))
+                    + " Hz is under the " + std::to_string(floor_absorption)
+                    + " this room needs to decay inside "
+                    + std::to_string(static_cast<int>(kMaxDecaySeconds)) + " s";
                 return false;
             }
         }
