@@ -315,6 +315,80 @@ TEST(Unit_Dsp, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
     EXPECT_TRUE(differs);
 }
 
+TEST(Unit_Dsp, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
+{
+    // Two copies of a resonator ring in bank 0 after an impulse. Tap 0's state carried into
+    // bank 1 makes bank 1 ring exactly as bank 0's tap 0 alone does; tap 1, not carried,
+    // stays silent in bank 1 because the ring has gone quiet.
+    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
+    const double radius = 0.999;
+    const double theta = 2.0 * kPi * 1000.0 / 48000.0;
+    SushiDSP::room::EarlyTapSet both = single_tap_set(100.0f);
+    both.taps[0].section_a = { 1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius };
+    both.count = 2u;
+    both.taps[1] = both.taps[0];
+    both.taps[1].delay_frames = 200.0f;
+    SushiDSP::room::EarlyTapSet first_only = both;
+    first_only.count = 1u;
+
+    const std::vector<float> impulse = impulse_block();
+    const std::vector<float> silence(kBlock, 0.0f);
+    renderer.write(impulse.data(), kBlock);
+    OutputBlock scratch;
+    renderer.render(both, 0u, scratch.pointers(), kBlock);
+    for (int block = 1; block < 10; ++block)
+    {
+        renderer.write(silence.data(), kBlock);
+        scratch.clear();
+        renderer.render(both, 0u, scratch.pointers(), kBlock);
+    }
+
+    renderer.carry_tap(0u, 1u, 0u);
+    renderer.write(silence.data(), kBlock);
+    OutputBlock from_bank_zero;
+    renderer.render(first_only, 0u, from_bank_zero.pointers(), kBlock);
+    OutputBlock from_bank_one;
+    renderer.render(both, 1u, from_bank_one.pointers(), kBlock);
+    bool rings = false;
+    for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+    {
+        EXPECT_EQ(from_bank_one.channel(0)[frame], from_bank_zero.channel(0)[frame])
+            << "frame " << frame;
+        rings = rings || from_bank_one.channel(0)[frame] != 0.0f;
+    }
+    EXPECT_TRUE(rings);
+}
+
+TEST(Unit_Dsp, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
+{
+    // The same bank as both ends of a carry is a copy onto itself: a copy of the renderer
+    // that never made the call renders the same block.
+    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
+    const double radius = 0.999;
+    const double theta = 2.0 * kPi * 1000.0 / 48000.0;
+    SushiDSP::room::EarlyTapSet set = single_tap_set(100.0f);
+    set.taps[0].section_a = { 1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius };
+
+    const std::vector<float> impulse = impulse_block();
+    const std::vector<float> silence(kBlock, 0.0f);
+    renderer.write(impulse.data(), kBlock);
+    OutputBlock scratch;
+    renderer.render(set, 0u, scratch.pointers(), kBlock);
+
+    SushiDSP::room::EarlyReflectionRenderer untouched = renderer;
+    renderer.carry_tap(0u, 0u, 0u);
+    renderer.write(silence.data(), kBlock);
+    untouched.write(silence.data(), kBlock);
+    OutputBlock carried;
+    renderer.render(set, 0u, carried.pointers(), kBlock);
+    OutputBlock reference;
+    untouched.render(set, 0u, reference.pointers(), kBlock);
+    for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+    {
+        EXPECT_EQ(carried.channel(0)[frame], reference.channel(0)[frame]) << "frame " << frame;
+    }
+}
+
 TEST(Unit_Dsp, EarlyReflectionRendererCarriesATailAcrossBlockBoundaries)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();

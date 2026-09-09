@@ -260,12 +260,18 @@ does for cabinets through `ICabinetHost::reclaim_cabinets`.
 
 A new set has different tap delays and filters, so switching sets between two blocks would click.
 When `process()` sees a new set it renders the block twice, once from the retiring set into the old
-biquad states and once from the new set into a second bank of states that start at zero, and
-crossfades the two over 512 frames with a raised cosine. For two blocks the early renderer costs
-twice; §10 carries that peak. The new states' zero start is a transient of a few samples of a
-4th-order shelf, under the fade, and inaudible; the test in §5.3 confirms it by measurement, not
-by assertion. The old set's states are then reused as the next spare bank, so the node owns
-exactly two banks and allocates nothing.
+biquad states and once from the new set into a second bank of states, and crossfades the two over
+512 frames with a raised cosine. For two blocks the early renderer costs twice; §10 carries that
+peak. The second bank starts from the retiring bank's state for every tap whose delay moved by at
+most 2 frames and whose coefficients moved by at most 0.2, and from zero for every other tap. The
+old set's states are then reused as the next spare bank, so the node owns exactly two banks and
+allocates nothing.
+
+A tap that starts from zero is not hidden by the fade. The slowest pole among the garage's tap
+filters has radius 0.99918, a time constant of 1 / (1 - 0.99918) = 1220 frames, so its zero-state
+transient is still at exp(-512 / 1220) = 66 per cent when the fade ends. That is why the state is
+carried, and why the carry is conditional: a retiring state run through a different filter is
+further from that filter's steady state than zero is. §5.3 states what each case measures.
 
 The alternative, smoothing each tap's delay toward its new value so a moved amplifier produces a
 Doppler slur the way a real move does, was considered and rejected: taps appear and disappear as
@@ -289,11 +295,30 @@ not touch it.
 ### 5.3 Acceptance for DE1
 
 With the microphone listener set to an omnidirectional pattern and the FDN muted, the node's
-rendered impulse response has its first-order peaks at the DE0 arrival times within half a sample;
-a publish mid-signal produces no sample-to-sample step larger than the signal's own peak
-difference over the fade (the test renders a 1 kHz tone through a swap and asserts the residual
-against a reference crossfade). `RoomNode::process` passes the `operator new` trap in
-`tests/functional/unit/test_rt_safety.cpp` with a publish landing between two blocks.
+rendered impulse response has its first-order peaks at the DE0 arrival times within half a sample.
+`RoomNode::process` passes the `operator new` trap in `tests/functional/unit/test_rt_safety.cpp`
+with a publish landing between two blocks.
+
+A publish mid-signal is measured three ways, each rendering a 1 kHz full-scale tone through a
+swap and taking the residual against the raised-cosine blend of the two steady renders, in
+`tests/functional/unit/test_room_node.cpp`:
+
+- The same scene republished: every tap carries its state and the residual is exactly zero;
+  the test bounds it at -120 dBFS.
+- The microphone moved 1 cm: every delay moves by under 1.4 frames, 52 of the 96 taps carry
+  their state and the residual is -35.9 dBFS; the test bounds it at -35 dBFS.
+- The microphone moved 0.36 m: the taps reorder, none carries and the residual is -32.7 dBFS;
+  the test bounds it at -32 dBFS.
+
+The cases differ by how many taps start from zero. A zero-started tap's transient decays with
+the tap filter's slowest pole, radius 0.99918 in the garage, a time constant of 1220 frames,
+2.4 fades long. The 44 taps that start from zero after a 1 cm move do so because
+`BandResponseFit` lands on a different local minimum for a target its two shelves cannot fit,
+the direct path's 4x12 directivity notch at 2 kHz for one, and moves a coefficient by up to 3.2
+for a 0.03 dB change of the target. The -60 dBFS this section first asked for needs that fit to
+be continuous for notched targets; the carry alone does not reach it. The step bound, no
+sample-to-sample step beyond the steady signal's own, measures a ratio of 1.0051 for the 0.36 m
+move and is bounded at 1.01. `modules/room/README.md` carries the full table.
 
 ## 6. DE2: the late tail
 

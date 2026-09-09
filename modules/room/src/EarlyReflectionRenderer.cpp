@@ -121,25 +121,41 @@ namespace SushiDSP::room
         frames = std::min(frames, max_block_frames_);
         const std::uint32_t count = std::min<std::uint32_t>(
             set.count, static_cast<std::uint32_t>(EarlyTapSet::kMaxEarlyTaps));
-        double* const bank_state = state_.data()
-            + static_cast<std::size_t>(std::min(bank, kBankCount - 1u))
-                  * EarlyTapSet::kMaxEarlyTaps * kStatePerTap;
+        double* const state = bank_state(bank);
         for (std::uint32_t index = 0; index < count; ++index)
         {
             const EarlyTap& tap = set.taps[index];
             read_tap(tap, frames);
-            filter_tap(tap, bank_state + static_cast<std::size_t>(index) * kStatePerTap, frames);
+            filter_tap(tap, state + static_cast<std::size_t>(index) * kStatePerTap, frames);
             encode_tap(tap, outputs, frames);
         }
     }
 
     void EarlyReflectionRenderer::clear_bank(std::uint32_t bank) noexcept
     {
-        const std::size_t bank_size = EarlyTapSet::kMaxEarlyTaps * kStatePerTap;
-        const std::size_t begin = static_cast<std::size_t>(std::min(bank, kBankCount - 1u))
-            * bank_size;
-        std::fill(state_.begin() + static_cast<std::ptrdiff_t>(begin),
-                  state_.begin() + static_cast<std::ptrdiff_t>(begin + bank_size), 0.0);
+        double* const state = bank_state(bank);
+        std::fill(state, state + EarlyTapSet::kMaxEarlyTaps * kStatePerTap, 0.0);
+    }
+
+    void EarlyReflectionRenderer::carry_tap(std::uint32_t from, std::uint32_t to,
+                                            std::uint32_t tap) noexcept
+    {
+        if (tap >= EarlyTapSet::kMaxEarlyTaps)
+        {
+            return;
+        }
+        const std::size_t offset = static_cast<std::size_t>(tap) * kStatePerTap;
+        const double* const source = bank_state(from) + offset;
+        double* const destination = bank_state(to) + offset;
+        // The same bank as both ends is a copy onto itself, which changes nothing.
+        std::copy(source, source + kStatePerTap, destination);
+    }
+
+    double* EarlyReflectionRenderer::bank_state(std::uint32_t bank) noexcept
+    {
+        return state_.data()
+            + static_cast<std::size_t>(std::min(bank, kBankCount - 1u))
+                  * EarlyTapSet::kMaxEarlyTaps * kStatePerTap;
     }
 
     void EarlyReflectionRenderer::read_tap(const EarlyTap& tap, std::uint32_t frames) noexcept

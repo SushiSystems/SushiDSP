@@ -69,22 +69,48 @@ and a reclaim can free a retired set at any time.
 
 `EarlyReflectionRenderer` holds two banks of biquad state and `RoomNode` holds two copies of
 `EarlyTapSet`, one per bank. A set that is not the one adopted last goes into the spare bank: its
-taps are copied in, the bank's state is zeroed, and a 512-frame raised-cosine fade starts. During
-the fade both banks render every block, the retiring bank's sixteen channels are blended into the
-arriving bank's, and when the fade ends the retiring bank is the next spare. A set that arrives
-mid-fade restarts the fade from the bank that was arriving; the node never holds more than two.
-The tail is not crossfaded by the node: `LateReverb` adopts a design's coefficients at the block
-it sees them and runs its own 512-frame fade only when the line lengths move.
+taps are copied in, the bank's state is zeroed, every tap that matches its retiring counterpart
+takes that tap's filter state through `carry_tap`, and a 512-frame raised-cosine fade starts.
+During the fade both banks render every block, the retiring bank's sixteen channels are blended
+into the arriving bank's, and when the fade ends the retiring bank is the next spare. A set that
+arrives mid-fade restarts the fade from the bank that was arriving; the node never holds more than
+two. The tail is not crossfaded by the node: `LateReverb` adopts a design's coefficients at the
+block it sees them and runs its own 512-frame fade only when the line lengths move.
 
-The fade hides the switch of taps, not the arriving bank's start from zero state. Measured in the
-garage with a 1 kHz full-scale tone and the microphone moved 0.36 m, the output during the fade
-differs from a raised-cosine blend of the two steady renders by 0.029 peak, -30.8 dBFS, and by
--36.2 dBFS when the same scene is republished, where the two steady renders are identical and the
-whole residual is the zero-state transient. The slowest pole among the garage's tap filters has
-radius 0.99918, a time constant of 1220 frames, so the transient outlasts the fade by a factor of
-sixteen. `RoomNodeCrossfadesAPublishWithoutAStep` asserts the -60 dBFS figure spec §5.3 asks for
-and fails at these numbers; the same case's step bound, no sample-to-sample step beyond the steady
-signal's own, passes at a ratio of 0.9994.
+Taps pair by index, the arrival order `ImageSourceSolver` returns. An arriving tap past the
+retiring count starts from zero; a retiring tap past the arriving count is dropped. A pair
+matches when the delay moved by at most 2 frames and none of the ten coefficients moved by more
+than 0.2 (`kMatchDelayFrames`, `kMatchCoefficientMove` in `RoomNode.cpp`). A tap that does not
+match starts from zero, because a retiring state run through a different filter is further from
+that filter's steady state than zero is: carrying every tap regardless measured -15.4 dBFS for a
+one-centimetre move against -32.0 dBFS from zero.
+
+The fade hides the switch of taps, not a tap's start from zero. The slowest pole among the
+garage's tap filters has radius 0.99918, a time constant of 1220 frames, so a zero-state
+transient outlasts the 512-frame fade by a factor of 2.4 and is still at 66 per cent when the
+fade ends. Measured in the garage with a 1 kHz full-scale tone, the output during the fade
+differs from a raised-cosine blend of the two steady renders by:
+
+| Publish                          | Taps carried | Residual         | Before the carry |
+| -------------------------------- | ------------ | ---------------- | ---------------- |
+| The same scene republished       | 96 of 96     | 0, exactly       | -36.2 dBFS       |
+| The microphone moved 1 cm        | 52 of 96     | 0.0160, -35.9 dBFS | -37.5 dBFS     |
+| The microphone moved 0.36 m      | 0 of 94      | 0.0233, -32.7 dBFS | -30.8 dBFS     |
+
+The "before" column is the zero-state figure measured with the band fit before `fa95bb5`; with
+the fit as it stands, zero state measures -37.2, -32.0 and -32.2 dBFS for the same three cases.
+A 0.36 m move reorders the taps, so no pair matches and the carry buys nothing there. A 1 cm move
+keeps the order and moves every delay by under 1.4 frames, yet only 52 pairs match: a tap whose
+target has a notch the two-shelf model cannot fit, the direct path's 4x12 directivity at 2 kHz
+for one, lands on a different local minimum of `BandResponseFit` for a target change of 0.03 dB,
+and its coefficients move by up to 3.2. Those taps start from zero and set the floor. The -60
+dBFS of spec §5.3 is out of reach until the fit is continuous for such targets; the carry alone
+cannot get there. The three cases are `RoomNodeCrossfadesAPublishWithoutAStep`,
+`RoomNodeCrossfadesASmallMoveFromTheCarriedState` and
+`RoomNodeRepublishesTheSameSceneWithoutAResidual`, bounded at -32, -35 and -120 dBFS. The step
+bound of the same cases, no sample-to-sample step beyond the steady signal's own, measures a
+ratio of 1.0051 for the 0.36 m move with the fit as it stands, with or without the carry, where
+it measured 0.9994 before `fa95bb5`; the tests bound it at 1.01.
 
 ## What each set renders today
 

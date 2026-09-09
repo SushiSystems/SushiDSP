@@ -97,6 +97,35 @@ namespace SushiDSP::room
             return std::pow(10.0f, decibels / 20.0f);
         }
 
+        /// @brief Bounds how far a tap's delay may move, in frames, for its state to be carried.
+        constexpr float kMatchDelayFrames = 2.0f;
+
+        /// @brief Bounds how far any one of a tap's ten coefficients may move for its state to
+        /// be carried. Measured in modules/room/README.md, "The two-bank crossfade".
+        constexpr double kMatchCoefficientMove = 0.2;
+
+        /// @brief Returns the largest move among the two sections' coefficients.
+        double coefficient_move(const EarlyTap& retiring, const EarlyTap& arriving) noexcept
+        {
+            double move = 0.0;
+            for (std::size_t index = 0; index < retiring.section_a.size(); ++index)
+            {
+                move = std::max(move, std::fabs(retiring.section_a[index]
+                                                - arriving.section_a[index]));
+                move = std::max(move, std::fabs(retiring.section_b[index]
+                                                - arriving.section_b[index]));
+            }
+            return move;
+        }
+
+        /// @brief Returns true when an arriving tap is the retiring tap moved a little, its
+        /// delay within kMatchDelayFrames and every coefficient within kMatchCoefficientMove.
+        bool taps_match(const EarlyTap& retiring, const EarlyTap& arriving) noexcept
+        {
+            return std::fabs(retiring.delay_frames - arriving.delay_frames) <= kMatchDelayFrames
+                && coefficient_move(retiring, arriving) <= kMatchCoefficientMove;
+        }
+
         /// @brief Returns the arriving set's raised-cosine weight at one frame of the fade.
         float fade_weight(std::uint32_t frame, std::uint32_t total) noexcept
         {
@@ -193,8 +222,17 @@ namespace SushiDSP::room
         // A set arriving mid-fade restarts the fade from the bank now active; the host
         // coalesces edits so the node never holds more than two sets (spec §5.2).
         const std::uint32_t arriving = active_bank_ == 0 ? 1u : 0u;
-        bank_taps_[arriving] = set.early;
+        const EarlyTapSet& retiring = bank_taps_[active_bank_];
+        const std::uint32_t paired = std::min(retiring.count, set.early.count);
         early_.clear_bank(arriving);
+        for (std::uint32_t index = 0; index < paired; ++index)
+        {
+            if (taps_match(retiring.taps[index], set.early.taps[index]))
+            {
+                early_.carry_tap(active_bank_, arriving, index);
+            }
+        }
+        bank_taps_[arriving] = set.early;
         active_bank_ = arriving;
         fade_remaining_ = kCrossfadeFrames;
     }

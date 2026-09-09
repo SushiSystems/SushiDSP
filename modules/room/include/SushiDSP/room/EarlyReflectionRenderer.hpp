@@ -73,6 +73,11 @@ namespace SushiDSP::room
         /// @brief Zeroes one state bank, for the set arriving into a crossfade. Audio thread.
         void clear_bank(std::uint32_t bank) noexcept;
 
+        /// @brief Copies one tap's filter state from one bank into the same tap of another, so
+        /// a tap arriving into a crossfade starts from its retiring state. The same bank as both
+        /// ends leaves the tap as it is; a tap at or past kMaxEarlyTaps is ignored. Audio thread.
+        void carry_tap(std::uint32_t from, std::uint32_t to, std::uint32_t tap) noexcept;
+
     private:
         /// @brief Counts the doubles one tap's two biquad histories take in a bank.
         static constexpr std::size_t kStatePerTap = 8;
@@ -80,6 +85,10 @@ namespace SushiDSP::room
         /// @brief Counts the frames the Lagrange kernel reads beyond the block: two behind the
         /// integer delay and one ahead of it.
         static constexpr std::uint32_t kKernelMargin = 4;
+
+        /// @brief Returns the first double of one bank's state; a bank past kBankCount reads
+        /// the last.
+        double* bank_state(std::uint32_t bank) noexcept;
 
         /// @brief Reads one tap's four-point Lagrange interpolation, scaled by its gain, into
         /// the scratch buffer.
