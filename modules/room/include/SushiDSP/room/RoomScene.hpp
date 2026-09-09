@@ -136,6 +136,12 @@ namespace SushiDSP::room
         /// @brief Returns the shoebox's total surface area, in square metres.
         double surface_area_m2() const noexcept;
 
+        /// @brief Returns one face's area, in square metres.
+        double face_area_m2(Surface surface) const noexcept;
+
+        /// @brief Area-weighted absorption per band over one face and the patches on it.
+        std::array<double, kBandCount> face_absorption(Surface surface) const;
+
         /// @brief Area-weighted absorption per band over the six faces and their patches.
         std::array<double, kBandCount> mean_absorption() const;
 
