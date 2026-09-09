@@ -16,6 +16,8 @@ add_library(room STATIC
     src/BinauralDecoder.cpp
     src/EyringDecay.cpp
     src/ImageSourceSolver.cpp
+    src/LateReverbDesign.cpp
+    src/ModalSolver.cpp
 )
 add_library(SushiDSP::room ALIAS room)
 target_link_libraries(room PUBLIC SushiDSP::sushi_dsp)

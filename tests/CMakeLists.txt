@@ -164,6 +164,8 @@ add_executable(sushidsp_tests
     functional/unit/test_binaural_decoder.cpp
     functional/unit/test_eyring_decay.cpp
     functional/unit/test_image_source_solver.cpp
+    functional/unit/test_late_reverb_design.cpp
+    functional/unit/test_modal_solver.cpp
     functional/unit/test_channel_resampler.cpp
     functional/unit/test_audio_import_cache.cpp
     functional/unit/test_audio_import_queue.cpp
