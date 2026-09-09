@@ -1534,10 +1534,12 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
 {
     // Only the audio thread's half of a publish is trapped: set_scene solves and allocates on
     // the control thread, so the trap closes around it and opens around the blocks that pick
-    // the new set up, start the crossfade and run it to its end. The four publishes walk the
-    // modal bank through each of its paths: a moved microphone leaves the design as it was, a
-    // moved listener ramps the gains, a changed dimension blends the spare bank in from zero.
+    // the new set up, start the crossfade and run it to its end. The node renders the
+    // microphone, and the four publishes walk the modal bank through each of its paths: a
+    // moved microphone ramps the gains read at it, a moved listener changes nothing the
+    // microphone hears, a changed dimension blends the spare bank in from zero.
     SushiDSP::room::RoomNode node;
+    node.set_parameter("listener", 1.0f);
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
 
     std::vector<float> input(256);
@@ -1571,6 +1573,46 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
     for (std::size_t i = 0; i < left.size(); ++i)
     {
         EXPECT_TRUE(std::isfinite(left[i]));
+    }
+}
+
+TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationForEitherListener)
+{
+    // The listener parameter's id path publishes on the control thread, outside the trap;
+    // the blocks that adopt each set and fade it in are trapped, first for the ears, then for
+    // the microphone, and the index path inside the trap stores the choice and nothing else.
+    SushiDSP::room::RoomNode node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    std::string reason;
+    ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[2] = { left.data(), right.data() };
+    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+
+    AllocationTrap trap;
+    for (const float listener : { 0.0f, 1.0f, 0.0f })
+    {
+        node.set_parameter("listener", listener);
+        trap.arm();
+        for (int block = 0; block < 3; ++block)
+        {
+            node.set_parameter(std::uint16_t{ 2 }, 1.0f - listener);
+            node.process(context);
+        }
+        trap.disarm();
+        node.reclaim_rooms();
+    }
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+        EXPECT_TRUE(std::isfinite(right[i]));
     }
 }
 
