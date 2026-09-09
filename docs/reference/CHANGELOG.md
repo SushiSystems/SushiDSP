@@ -8,6 +8,7 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
 The room track, spec `docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
 `docs/superpowers/plans/2026-09-08-room-acoustics.md`.
 
+- 2026-09-09 — Rendered the ears through the HRIR pair, the decoder and the diffuse pair, wired `direct_delay`, and gave the spherical head a decoder (`RoomNode`, `SphericalHeadHrtf`, `modules/room/README.md`, spec §9.4).
 - 2026-09-09 — Averaged the cabinet's closed form over each octave band instead of sampling its centre, and built the index grid once instead of per solve (`CabinetDirectivity`, `modules/room/README.md`, spec §7 and §7.1).
 - 2026-09-09 — Gave each section of the band fit a peak as well as a step, seeded from the target, so a tap filter can dip (`BandResponseFit`, `modules/room/README.md`, spec §4.2 and §5.3).
 - 2026-09-09 — Carried each matching tap's filter state into the bank arriving into a crossfade (`EarlyReflectionRenderer::carry_tap`, `RoomNode::adopt`, `modules/room/README.md`, spec §5.2 and §5.3).

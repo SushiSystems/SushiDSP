@@ -45,7 +45,11 @@
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/math/Fft.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
+#include "SushiDSP/room/AmbisonicEncoder.hpp"
+#include "SushiDSP/room/BinauralDecoder.hpp"
 #include "SushiDSP/room/CabinetDirectivity.hpp"
+#include "SushiDSP/room/HrtfSet.hpp"
+#include "SushiDSP/room/HrtfSetLoader.hpp"
 #include "SushiDSP/room/EarlyReflectionRenderer.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
 #include "SushiDSP/room/ImageSourceSolver.hpp"
@@ -79,6 +83,23 @@ namespace
 
     /// @brief Holds the listener parameter's value for the microphone.
     constexpr float kListenerMicrophone = 1.0f;
+
+    /// @brief Holds the direct_delay parameter's value for the compensated choice.
+    constexpr float kDirectCompensated = 0.0f;
+
+    /// @brief Holds the direct_delay parameter's value for the physical choice.
+    constexpr float kDirectPhysical = 1.0f;
+
+    /// @brief Holds the decoder's partition at kSampleRate, the frames every ears path waits.
+    constexpr std::uint32_t kAlignFrames = 128;
+
+    /// @brief Returns the frames the ears' direct sound lands at, compensated: the alignment
+    /// delay plus the fraction the rounded propagation delay leaves of a path of some metres.
+    double compensated_direct_frames(double metres)
+    {
+        const double frames = metres * kFramesPerMetre;
+        return static_cast<double>(kAlignFrames) + frames - std::round(frames);
+    }
 
     /// @brief Names an edit applied to a node between two blocks on the control thread.
     using NodeEdit = std::function<void(SushiDSP::room::RoomNode&)>;
@@ -413,10 +434,13 @@ namespace
 
     /// @brief Renders a tone through three nodes: a and b steady, and a third that starts as
     /// a and takes the edit at block 200; the reference is the raised-cosine blend of the two
-    /// steady renders over the node's fade.
+    /// steady renders over the node's fade, which starts lag frames after the edit: one
+    /// partition when the ears take part, when the decoder's first partition of the arriving
+    /// set comes out, and at once for the microphone alone.
     CrossfadeMeasure measure_crossfade(SushiDSP::room::RoomNode& steady_a,
                                        SushiDSP::room::RoomNode& steady_b,
-                                       SushiDSP::room::RoomNode& moving, const NodeEdit& edit)
+                                       SushiDSP::room::RoomNode& moving, const NodeEdit& edit,
+                                       std::size_t lag)
     {
         constexpr std::uint32_t kSwapBlock = 200;
         constexpr std::size_t kFrames = 400 * kBlock;
@@ -426,7 +450,7 @@ namespace
         const std::vector<float> render_b = render(steady_b, input);
         const std::vector<float> render_x = render(moving, input, { kSwapBlock }, edit);
 
-        const std::size_t swap = static_cast<std::size_t>(kSwapBlock) * kBlock;
+        const std::size_t swap = static_cast<std::size_t>(kSwapBlock) * kBlock + lag;
         const std::size_t fade_end = swap + SushiDSP::room::RoomNode::kCrossfadeFrames;
         std::vector<float> reference(kFrames);
         for (std::size_t frame = 0; frame < kFrames; ++frame)
@@ -473,17 +497,24 @@ namespace
             prepared_node(scene_b, kListenerMicrophone);
         std::unique_ptr<SushiDSP::room::RoomNode> moving =
             prepared_node(scene_a, kListenerMicrophone);
-        return measure_crossfade(*steady_a, *steady_b, *moving, scene_edit(scene_b));
+        return measure_crossfade(*steady_a, *steady_b, *moving, scene_edit(scene_b), 0);
     }
 
-    /// @brief Measures the crossfade of one scene switching from one listener to the other.
+    /// @brief Measures the crossfade of one scene switching from one listener to the other,
+    /// with direct_delay at one choice on all three nodes.
     CrossfadeMeasure measure_listener_switch(const SushiDSP::room::RoomScene& scene, float from,
-                                             float to)
+                                             float to, float direct_delay)
     {
         std::unique_ptr<SushiDSP::room::RoomNode> steady_a = prepared_node(scene, from);
         std::unique_ptr<SushiDSP::room::RoomNode> steady_b = prepared_node(scene, to);
         std::unique_ptr<SushiDSP::room::RoomNode> moving = prepared_node(scene, from);
-        return measure_crossfade(*steady_a, *steady_b, *moving, listener_edit(to));
+        for (SushiDSP::room::RoomNode* node : { steady_a.get(), steady_b.get(), moving.get() })
+        {
+            node->set_parameter("direct_delay", direct_delay);
+            node->reset();
+        }
+        return measure_crossfade(*steady_a, *steady_b, *moving, listener_edit(to),
+                                 kAlignFrames);
     }
 
     /// @brief Holds the transform length of the direct-path spectra.
@@ -539,7 +570,8 @@ namespace
 
     /// @brief Returns the 12 m dead room with the cabinet at its centre facing +x, so the
     /// nearest reflection, off the floor or the ceiling, arrives at least 12 m after the direct
-    /// path and a window of 1600 frames holds the direct path alone.
+    /// path and a window of 1500 frames holds the direct path alone for either listener: the
+    /// ears' floor image lands at 1703 - 280 + 128 = 1551 with the propagation compensated.
     SushiDSP::room::RoomScene centred_dead_room()
     {
         SushiDSP::room::RoomScene scene = dead_room_scene();
@@ -552,7 +584,7 @@ namespace
     }
 
     /// @brief Counts the frames of the direct-path window in centred_dead_room().
-    constexpr std::size_t kDirectWindow = 1600;
+    constexpr std::size_t kDirectWindow = 1500;
 
     /// @brief Returns the direct-path power spectrum of a scene for one listener.
     std::vector<double> direct_power_db(const SushiDSP::room::RoomScene& scene, float listener)
@@ -561,6 +593,254 @@ namespace
         std::vector<float> impulse(8 * kBlock, 0.0f);
         impulse[0] = 1.0f;
         return windowed_power_db(render(*node, impulse), 0, kDirectWindow);
+    }
+
+    /// @brief Returns the first frame of [begin, end) whose magnitude exceeds a fraction of
+    /// the window's peak, or -1 when the window is silent.
+    long onset(const std::vector<float>& signal, std::size_t begin, std::size_t end,
+               double fraction)
+    {
+        double peak = 0.0;
+        for (std::size_t frame = begin; frame < end; ++frame)
+        {
+            peak = std::max(peak, static_cast<double>(std::fabs(signal[frame])));
+        }
+        if (peak <= 0.0)
+        {
+            return -1;
+        }
+        for (std::size_t frame = begin; frame < end; ++frame)
+        {
+            if (std::fabs(signal[frame]) > fraction * peak)
+            {
+                return static_cast<long>(frame);
+            }
+        }
+        return -1;
+    }
+
+    /// @brief Returns the lag of the peak of the cross-correlation of right against left over
+    /// one window, parabolic-interpolated, in frames; positive means the right ear is later.
+    double interaural_lag(const std::vector<float>& left, const std::vector<float>& right,
+                          std::size_t begin, std::size_t end, long max_lag)
+    {
+        std::vector<double> correlation(static_cast<std::size_t>(2 * max_lag + 1), 0.0);
+        for (long lag = -max_lag; lag <= max_lag; ++lag)
+        {
+            double sum = 0.0;
+            for (std::size_t frame = begin; frame < end; ++frame)
+            {
+                const long partner = static_cast<long>(frame) + lag;
+                if (partner >= 0 && partner < static_cast<long>(right.size()))
+                {
+                    sum += static_cast<double>(left[frame])
+                        * right[static_cast<std::size_t>(partner)];
+                }
+            }
+            correlation[static_cast<std::size_t>(lag + max_lag)] = sum;
+        }
+        const std::size_t best = static_cast<std::size_t>(
+            std::max_element(correlation.begin(), correlation.end()) - correlation.begin());
+        if (best == 0 || best + 1 == correlation.size())
+        {
+            return static_cast<double>(static_cast<long>(best) - max_lag);
+        }
+        const double below = correlation[best - 1];
+        const double at = correlation[best];
+        const double above = correlation[best + 1];
+        const double offset = 0.5 * (below - above) / (below - 2.0 * at + above);
+        return static_cast<double>(static_cast<long>(best) - max_lag) + offset;
+    }
+
+    /// @brief Returns a copy of one window of a signal band-limited to one octave, by zeroing
+    /// every bin outside it in a transform twice the window's length.
+    std::vector<float> octave_band(const std::vector<float>& signal, std::size_t begin,
+                                   std::size_t end, double centre_hz)
+    {
+        std::uint32_t size = 1;
+        while (size < 2 * (end - begin))
+        {
+            size *= 2;
+        }
+        SushiDSP::Fft fft(size);
+        std::vector<float> window(size, 0.0f);
+        std::copy(signal.begin() + static_cast<std::ptrdiff_t>(begin),
+                  signal.begin() + static_cast<std::ptrdiff_t>(end), window.begin());
+        std::vector<float> real(size);
+        std::vector<float> imaginary(size);
+        fft.forward(window.data(), real.data(), imaginary.data());
+        const double hz_per_bin = kSampleRate / static_cast<double>(size);
+        const double lower = centre_hz / std::sqrt(2.0);
+        const double upper = centre_hz * std::sqrt(2.0);
+        for (std::uint32_t bin = 0; bin < size; ++bin)
+        {
+            const double hz = hz_per_bin * static_cast<double>(bin <= size / 2 ? bin : size - bin);
+            if (hz < lower || hz > upper)
+            {
+                real[bin] = 0.0f;
+                imaginary[bin] = 0.0f;
+            }
+        }
+        std::vector<float> band(size);
+        fft.inverse(real.data(), imaginary.data(), band.data());
+        band.resize(end - begin);
+        return band;
+    }
+
+    /// @brief Returns the interaural cross-correlation coefficient of two channels over one
+    /// window in one octave: the largest normalised cross-correlation within one millisecond.
+    double band_iacc(const std::vector<float>& left, const std::vector<float>& right,
+                     std::size_t begin, std::size_t end, double centre_hz)
+    {
+        const std::vector<float> band_left = octave_band(left, begin, end, centre_hz);
+        const std::vector<float> band_right = octave_band(right, begin, end, centre_hz);
+        const long max_lag = static_cast<long>(std::lround(0.001 * kSampleRate));
+        const double norm = std::sqrt(energy(band_left, 0, band_left.size())
+                                      * energy(band_right, 0, band_right.size()));
+        double best = 0.0;
+        for (long lag = -max_lag; lag <= max_lag; ++lag)
+        {
+            double sum = 0.0;
+            for (std::size_t frame = 0; frame < band_left.size(); ++frame)
+            {
+                const long partner = static_cast<long>(frame) + lag;
+                if (partner >= 0 && partner < static_cast<long>(band_right.size()))
+                {
+                    sum += static_cast<double>(band_left[frame])
+                        * band_right[static_cast<std::size_t>(partner)];
+                }
+            }
+            best = std::max(best, std::fabs(sum));
+        }
+        return best / norm;
+    }
+
+    /// @brief Returns the third-order Lagrange read of an impulse at one fractional delay: the
+    /// early renderer's kernel, the sample at the integer delay weighted (1 - frac) and so on.
+    std::vector<float> lagrange_impulse(double delay_frames, double gain, std::size_t frames)
+    {
+        std::vector<float> out(frames, 0.0f);
+        const double whole = std::floor(delay_frames);
+        const double frac = delay_frames - whole;
+        const double s = 2.0 - frac;
+        const std::array<double, 4> kernel = { -(s - 1.0) * (s - 2.0) * (s - 3.0) / 6.0,
+                                               s * (s - 2.0) * (s - 3.0) / 2.0,
+                                               -s * (s - 1.0) * (s - 3.0) / 2.0,
+                                               s * (s - 1.0) * (s - 2.0) / 6.0 };
+        // Weight k reads the sample k - 2 frames past the integer delay, so an impulse at 0
+        // lands at whole + 2 - k with that weight.
+        for (std::size_t k = 0; k < kernel.size(); ++k)
+        {
+            const long frame = static_cast<long>(whole) + 2 - static_cast<long>(k);
+            if (frame >= 0 && frame < static_cast<long>(frames))
+            {
+                out[static_cast<std::size_t>(frame)] = static_cast<float>(kernel[k] * gain);
+            }
+        }
+        return out;
+    }
+
+    /// @brief Runs one of a tap's sections over a signal in place, double state.
+    void run_section(const std::array<double, 5>& section, std::vector<float>& signal)
+    {
+        double x1 = 0.0, x2 = 0.0, y1 = 0.0, y2 = 0.0;
+        for (float& sample : signal)
+        {
+            const double x = sample;
+            const double y = section[0] * x + section[1] * x1 + section[2] * x2
+                - section[3] * y1 - section[4] * y2;
+            x2 = x1;
+            x1 = x;
+            y2 = y1;
+            y1 = y;
+            sample = static_cast<float>(y);
+        }
+    }
+
+    /// @brief Returns what the node's direct path must render for an impulse into one ear: tap
+    /// 0 of the ears set, compensated as the node publishes it, read past the alignment delay
+    /// and the far ear's ITD through the renderer's kernel, its two sections, its gain, then
+    /// the ear's minimum-phase HRIR.
+    std::vector<float> reference_direct(const SushiDSP::room::RoomScene& scene, std::uint32_t ear,
+                                        std::size_t frames)
+    {
+        const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(kSampleRate);
+        std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
+            scene, hrtf, kSampleRate, SushiDSP::room::ListenerKind::Ears);
+        SushiDSP::room::RoomNode::compensate_direct_delay(*set);
+        const SushiDSP::room::EarlyTap& tap = set->early.taps[0];
+        const double itd = set->direct_itd_frames;
+        const double extra = ear == 0 ? std::max(-itd, 0.0) : std::max(itd, 0.0);
+        std::vector<float> signal = lagrange_impulse(
+            static_cast<double>(kAlignFrames) + tap.delay_frames + extra, tap.gain, frames);
+        run_section(tap.section_a, signal);
+        run_section(tap.section_b, signal);
+        const std::array<float, SushiDSP::room::HrtfSet::kTapCount>& hrir =
+            ear == 0 ? set->direct_left : set->direct_right;
+        std::vector<float> out(frames, 0.0f);
+        for (std::size_t frame = 0; frame < frames; ++frame)
+        {
+            double sum = 0.0;
+            for (std::size_t k = 0; k < hrir.size() && k <= frame; ++k)
+            {
+                sum += static_cast<double>(hrir[k]) * signal[frame - k];
+            }
+            out[frame] = static_cast<float>(sum);
+        }
+        return out;
+    }
+
+    /// @brief Returns the path of the converted SADIE II set, two directories above the
+    /// fixtures; the cases that need it skip when it is absent.
+    std::string measured_set_path()
+    {
+        return std::string(SUSHIDSP_FIXTURE_DIR) + "/../../assets/hrtf/sadie2_ku100_48k.hrtf";
+    }
+
+    /// @brief Returns the path of the six-direction fixture convert_hrtf.py's self-test writes.
+    std::string fixture_set_path()
+    {
+        return std::string(SUSHIDSP_FIXTURE_DIR) + "/hrtf_self_test.hrtf";
+    }
+
+    /// @brief Holds the third-octave centres the decoder acceptance reads, 200 Hz to 8 kHz.
+    constexpr std::array<double, 17> kDecoderBands = { 200.0,  250.0,  315.0,  400.0,  500.0,
+                                                       630.0,  800.0,  1000.0, 1250.0, 1600.0,
+                                                       2000.0, 2500.0, 3150.0, 4000.0, 5000.0,
+                                                       6300.0, 8000.0 };
+
+    /// @brief Decodes one plane wave from a direction: an impulse encoded to sixteen channels,
+    /// run through the decoder over frames frames, both ears returned.
+    std::array<std::vector<float>, 2> decode_plane_wave(SushiDSP::room::BinauralDecoder& decoder,
+                                                        double azimuth_rad, double elevation_rad,
+                                                        std::size_t frames)
+    {
+        std::array<float, SushiDSP::room::AmbisonicEncoder::kChannels> gains{};
+        SushiDSP::room::AmbisonicEncoder::encode(azimuth_rad, elevation_rad, gains);
+        std::array<std::vector<float>, SushiDSP::room::AmbisonicEncoder::kChannels> channels;
+        std::array<const float*, SushiDSP::room::AmbisonicEncoder::kChannels> pointers{};
+        for (std::size_t channel = 0; channel < channels.size(); ++channel)
+        {
+            channels[channel].assign(kBlock, 0.0f);
+            pointers[channel] = channels[channel].data();
+        }
+        std::array<std::vector<float>, 2> ears = { std::vector<float>(frames, 0.0f),
+                                                   std::vector<float>(frames, 0.0f) };
+        std::vector<float> left(kBlock);
+        std::vector<float> right(kBlock);
+        decoder.reset();
+        for (std::size_t offset = 0; offset + kBlock <= frames; offset += kBlock)
+        {
+            for (std::size_t channel = 0; channel < channels.size(); ++channel)
+            {
+                channels[channel][0] = offset == 0 ? gains[channel] : 0.0f;
+            }
+            decoder.process(pointers.data(), left.data(), right.data(), kBlock);
+            std::copy(left.begin(), left.end(), ears[0].begin() + static_cast<std::ptrdiff_t>(offset));
+            std::copy(right.begin(), right.end(),
+                      ears[1].begin() + static_cast<std::ptrdiff_t>(offset));
+        }
+        return ears;
     }
 }
 
@@ -799,11 +1079,11 @@ TEST(Unit_Dsp, RoomNodeMixesDryAndWet)
     EXPECT_GT(std::fabs(response[14]), 0.0f);
 }
 
-TEST(Unit_Dsp, RoomNodeRemovesTheDirectImageForTheEarsAndKeepsItForTheMicrophone)
+TEST(Unit_Dsp, RoomNodeTakesTheDirectImageOutOfTheEarsBankAndLeavesTheMicrophones)
 {
     // Tap 0 of a solved set is the (0, 0, 0) image, the shortest path. For the ears the HRIR
-    // pair renders that path, so the published taps carry reflections only; the microphone's
-    // direct sound is a tap and stays.
+    // pair renders that path, so the bank the node renders from carries reflections only and
+    // the direct tap goes to the direct path; the microphone's direct sound is a tap and stays.
     const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(kSampleRate);
     const SushiDSP::room::RoomScene scene = microphone_scene();
 
@@ -813,21 +1093,58 @@ TEST(Unit_Dsp, RoomNodeRemovesTheDirectImageForTheEarsAndKeepsItForTheMicrophone
     const float direct = ears->early.taps[0].delay_frames;
     const float first_reflection = ears->early.taps[1].delay_frames;
     EXPECT_NEAR(direct, 363.3098f, 1e-2f);
-    SushiDSP::room::RoomNode::remove_direct_image(*ears);
-    EXPECT_EQ(ears->early.count, solved - 1u);
-    EXPECT_FLOAT_EQ(ears->early.taps[0].delay_frames, first_reflection);
-    for (std::uint32_t tap = 0; tap < ears->early.count; ++tap)
+    SushiDSP::room::EarlyTapSet reflections{};
+    SushiDSP::room::EarlyTap direct_tap{};
+    EXPECT_TRUE(SushiDSP::room::RoomNode::take_direct_image(*ears, reflections, direct_tap));
+    EXPECT_EQ(reflections.count, solved - 1u);
+    EXPECT_FLOAT_EQ(direct_tap.delay_frames, direct);
+    EXPECT_FLOAT_EQ(reflections.taps[0].delay_frames, first_reflection);
+    EXPECT_FLOAT_EQ(reflections.crossover_time_s, ears->early.crossover_time_s);
+    for (std::uint32_t tap = 0; tap < reflections.count; ++tap)
     {
-        EXPECT_GT(ears->early.taps[tap].delay_frames, direct) << "tap " << tap;
+        EXPECT_GT(reflections.taps[tap].delay_frames, direct) << "tap " << tap;
     }
 
     std::unique_ptr<SushiDSP::room::RoomRenderSet> microphone =
         SushiDSP::room::build_render_set(scene, hrtf, kSampleRate,
                                          SushiDSP::room::ListenerKind::Microphone);
-    const std::uint32_t before = microphone->early.count;
-    SushiDSP::room::RoomNode::remove_direct_image(*microphone);
-    EXPECT_EQ(microphone->early.count, before);
-    EXPECT_NEAR(microphone->early.taps[0].delay_frames, 363.3098f, 1e-2f);
+    direct_tap.delay_frames = -1.0f;
+    EXPECT_FALSE(SushiDSP::room::RoomNode::take_direct_image(*microphone, reflections, direct_tap));
+    EXPECT_EQ(reflections.count, microphone->early.count);
+    EXPECT_FLOAT_EQ(direct_tap.delay_frames, -1.0f);
+    EXPECT_NEAR(reflections.taps[0].delay_frames, 363.3098f, 1e-2f);
+}
+
+TEST(Unit_Dsp, RoomNodeCompensatesAnEarsSetByItsRoundedPropagationDelay)
+{
+    // The ears' whole render moves earlier by round(d / c * fs), 363 frames for the example
+    // scene's 363.31: tap 0 lands 0.31 frames past zero, every reflection keeps its spacing to
+    // it unless that would put it under a frame, and the tail's input delay moves with them.
+    // A microphone set is left as it was.
+    const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(kSampleRate);
+    const SushiDSP::room::RoomScene scene = microphone_scene();
+    std::unique_ptr<SushiDSP::room::RoomRenderSet> ears = SushiDSP::room::build_render_set(
+        scene, hrtf, kSampleRate, SushiDSP::room::ListenerKind::Ears);
+    const SushiDSP::room::EarlyTapSet before = ears->early;
+    const float tail_before = ears->late.delay_to_crossover_frames;
+    EXPECT_FLOAT_EQ(ears->direct_delay_frames, 363.0f);
+    SushiDSP::room::RoomNode::compensate_direct_delay(*ears);
+    EXPECT_NEAR(ears->early.taps[0].delay_frames, 363.3098f - 363.0f, 1e-3f);
+    for (std::uint32_t tap = 1; tap < ears->early.count; ++tap)
+    {
+        EXPECT_FLOAT_EQ(ears->early.taps[tap].delay_frames,
+                        std::max(before.taps[tap].delay_frames - 363.0f, 1.0f)) << "tap " << tap;
+    }
+    EXPECT_FLOAT_EQ(ears->late.delay_to_crossover_frames, tail_before - 363.0f);
+
+    std::unique_ptr<SushiDSP::room::RoomRenderSet> microphone =
+        SushiDSP::room::build_render_set(scene, hrtf, kSampleRate,
+                                         SushiDSP::room::ListenerKind::Microphone);
+    const float microphone_direct = microphone->early.taps[0].delay_frames;
+    const float microphone_tail = microphone->late.delay_to_crossover_frames;
+    SushiDSP::room::RoomNode::compensate_direct_delay(*microphone);
+    EXPECT_FLOAT_EQ(microphone->early.taps[0].delay_frames, microphone_direct);
+    EXPECT_FLOAT_EQ(microphone->late.delay_to_crossover_frames, microphone_tail);
 }
 
 TEST(Unit_Dsp, RoomNodeIsRegisteredUnderRoom)
@@ -1101,7 +1418,8 @@ namespace
         const std::vector<float> moving = render(*prepared_node(scene_a, kListenerEars), input,
                                                  { kSwapBlock }, scene_edit(scene_b));
 
-        const std::size_t swap = static_cast<std::size_t>(kSwapBlock) * kBlock;
+        // The ears' fade starts one partition after the edit, with the decoder's output.
+        const std::size_t swap = static_cast<std::size_t>(kSwapBlock) * kBlock + kAlignFrames;
         const std::size_t fade_end = swap + SushiDSP::room::RoomNode::kCrossfadeFrames;
         const auto reference = [&](std::size_t frame)
         {
@@ -1158,16 +1476,20 @@ TEST(Unit_Dsp, RoomNodeRampsTheEarGainsAsTheOutputBlendWould)
     // The listener moves 0.3 m along y. The resonators are the same, so the ear gains ramp,
     // and the bank's output is linear in those gains: ramping them under the raised cosine is
     // the blend of the two steady renders, sample for sample, -144 dB when nothing else moved.
-    // The same listener now carries the taps and the tail with it, and what they pass of a
-    // 68.6 Hz tone through the LR4 pair, two octaves under f_s, crossfades from cleared
-    // banks: measured -95.3 dB, the geometric leakage's own residual, bounded at -90 dB.
+    // The same listener carries the taps, the direct path and the tail with it, and what
+    // they pass of a 68.6 Hz tone through the LR4 pair, two octaves under f_s, crossfades
+    // from cleared banks and rings from their zero state after the fade: the geometric
+    // leakage's own residual. It measured -95.3 dB when the ears heard channel 0 at unity;
+    // through the HRIR pair and the decoder the leakage's reflections carry the head's gain
+    // and it measures -88.3 dB, so the bound moves from -90 to -85 dB for that reason and no
+    // other. The step ratio reads 1 + 6e-8, float rounding of an exact blend.
     const SushiDSP::room::RoomScene scene = wave_scene();
     SushiDSP::room::RoomScene listener_moved = scene;
     listener_moved.listener_position.y -= 0.3;
     const WaveMeasure measure = measure_wave(scene, listener_moved);
     RecordProperty("residual_db", measure.residual_db);
-    EXPECT_LE(measure.step_ratio, 1.0);
-    EXPECT_LT(measure.residual_db, -90.0);
+    EXPECT_LE(measure.step_ratio, 1.0 + 1e-6);
+    EXPECT_LT(measure.residual_db, -85.0);
 }
 
 TEST(Unit_Dsp, RoomNodeRebuildsTheStandingWavesInAChangedRoom)
@@ -1339,8 +1661,9 @@ TEST(Unit_Dsp, RoomNodeMicrophoneHearsLessRoomThanTheEars)
     // The garage with the cabinet at (1.5, 2.0, 0.5). A cardioid 5 cm off the cone hears the
     // direct path at 1 / 0.05 and the nearest reflection, off the floor, at 1 / 1.0 and 140
     // frames later; the ears at (3.5, 2.0, 1.2), 2.12 m away, hear the direct path at 1 / 2.12
-    // and the floor at 1 / 2.63, 71 frames later. The direct-to-reverberant ratios must differ
-    // by at least 20 dB.
+    // through the HRIR pair at the alignment delay, the propagation compensated, and the floor
+    // at 1 / 2.63, 71 frames later. The direct-to-reverberant ratios must differ by at least
+    // 20 dB.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.source_position = { 1.5, 2.0, 0.5 };
     scene.microphone_position = { 1.55, 2.0, 0.5 };
@@ -1356,7 +1679,7 @@ TEST(Unit_Dsp, RoomNodeMicrophoneHearsLessRoomThanTheEars)
 
     const double microphone_db = direct_to_reverberant_db(microphone, 0.05 * kFramesPerMetre);
     const double ears_db =
-        direct_to_reverberant_db(ears, std::sqrt(4.0 + 0.49) * kFramesPerMetre);
+        direct_to_reverberant_db(ears, compensated_direct_frames(std::sqrt(4.0 + 0.49)));
     RecordProperty("microphone_db", microphone_db);
     RecordProperty("ears_db", ears_db);
     EXPECT_GE(microphone_db - ears_db, 20.0);
@@ -1367,10 +1690,15 @@ TEST(Unit_Dsp, RoomNodeMovingAroundTheCabinetChangesTheTone)
     // Spec 7: the 4x12's four pistons beam at 2 kHz and are omnidirectional at 125 Hz. The
     // ears 2 m from the cabinet, on axis and then 60 degrees off it, in the dead room's
     // direct-path window: the 2 kHz third octave drops by more than 6 dB and the 125 Hz third
-    // octave moves by under 1 dB, each within 1 dB of the piston model's own band value.
-    const SushiDSP::room::RoomScene on_axis = centred_dead_room();
+    // octave moves by under 1 dB, each within 1 dB of the piston model's own band value. The
+    // listener faces the cabinet at both spots, so the head's response is its front response
+    // both times and the difference between the two renders is the cabinet's alone.
+    SushiDSP::room::RoomScene on_axis = centred_dead_room();
+    on_axis.listener_yaw_rad = kPi;
     SushiDSP::room::RoomScene off_axis = on_axis;
     off_axis.listener_position = { 7.0, 6.0 + 2.0 * std::sin(kPi / 3.0), 6.0 };
+    off_axis.listener_yaw_rad = std::atan2(6.0 - off_axis.listener_position.y,
+                                           6.0 - off_axis.listener_position.x);
     const std::vector<double> on_db = direct_power_db(on_axis, kListenerEars);
     const std::vector<double> off_db = direct_power_db(off_axis, kListenerEars);
 
@@ -1390,51 +1718,298 @@ TEST(Unit_Dsp, RoomNodeMovingAroundTheCabinetChangesTheTone)
     EXPECT_NEAR(move_125, model_125, 1.0);
 }
 
-TEST(Unit_Dsp, RoomNodeEarsHearTheDirectSoundUntilTheHrirPairLands)
+TEST(Unit_Dsp, RoomNodeEarsHearTheDirectSoundThroughTheHrirPair)
 {
-    // Until the binaural path renders the direct sound through the HRIR pair, an ears set
-    // keeps the (0, 0, 0) image and the ears hear it through the omnidirectional channel. In
-    // the dead room, whose modal layer is off, the ears 2 m from the cabinet hear nothing
-    // before the direct peak at 279.88 frames, and their left channel equals, bit for bit,
-    // an omni microphone's at the same spot: the same taps, encoded to channel 0 either way,
-    // and the same left tail, whose coherence pair touches the right ear alone.
+    // In the dead room, whose modal layer is off, the ears 2 m behind the cabinet hear nothing
+    // before the alignment delay and then, over the direct window, the direct path alone: tap
+    // 0 read at 128 + (279.88 - 280) frames through the renderer's kernel, its fitted filter
+    // and 1 / r, then the spherical head's response for a source in the median plane, the same
+    // in both ears. The floor image, 12.17 m long, follows at 1703 - 280 + 128 = 1551.
     const SushiDSP::room::RoomScene scene = centred_dead_room();
-    SushiDSP::room::RoomScene omni = scene;
-    omni.microphone_position = scene.listener_position;
-    omni.microphone_yaw_rad = kPi;
-    omni.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
+    std::vector<float> impulse(4096, 0.0f);
+    impulse[0] = 1.0f;
+    const std::array<std::vector<float>, 2> ears =
+        render_both(*prepared_node(scene, kListenerEars), impulse);
+    const std::vector<float> reference_left = reference_direct(scene, 0, 1500);
+    const std::vector<float> reference_right = reference_direct(scene, 1, 1500);
+
+    const double direct = compensated_direct_frames(2.0);
+    const long peak = nearest_peak(ears[0], direct, 3, 1e-3f);
+    ASSERT_GE(peak, 0);
+    EXPECT_NEAR(static_cast<double>(peak), direct, 2.0);
+    for (std::size_t frame = 0; frame + 3 < static_cast<std::size_t>(kAlignFrames); ++frame)
+    {
+        ASSERT_EQ(ears[0][frame], 0.0f) << "frame " << frame;
+        ASSERT_EQ(ears[1][frame], 0.0f) << "frame " << frame;
+    }
+    double peak_level = 0.0;
+    for (std::size_t frame = 0; frame < reference_left.size(); ++frame)
+    {
+        peak_level = std::max(peak_level, static_cast<double>(std::fabs(reference_left[frame])));
+    }
+    EXPECT_GT(peak_level, 0.1);
+    EXPECT_LT(peak_difference(ears[0], reference_left, 0, reference_left.size()),
+              1e-5 * peak_level);
+    EXPECT_LT(peak_difference(ears[1], reference_right, 0, reference_right.size()),
+              1e-5 * peak_level);
+    EXPECT_LT(peak_difference(ears[0], ears[1], 0, 1500), 1e-4 * peak_level);
+    EXPECT_GE(onset(ears[0], 1500, 4096, 1e-3), 1540);
+    EXPECT_LE(onset(ears[0], 1500, 4096, 1e-3), 1560);
+}
+
+TEST(Unit_Dsp, RoomNodeDefaultsDirectDelayToCompensated)
+{
+    // A fresh node reports direct_delay as compensated and one decoder partition of latency;
+    // physical adds round(d / c * fs). The plan's 280 frames assume the listener 2 m from the
+    // cabinet, which the dead room places; the default scene's listener stands 2.596 m away,
+    // 363.31 frames, so a fresh node reports 363 more when physical. The microphone renders
+    // at physical timing with no partition in its path and reports 0 either way.
+    SushiDSP::room::RoomNode node;
+    node.prepare(kInfo);
+    EXPECT_FLOAT_EQ(node.get_parameter("direct_delay"), kDirectCompensated);
+    const std::uint32_t compensated = node.latency_samples();
+    node.set_parameter("direct_delay", kDirectPhysical);
+    const std::uint32_t physical = node.latency_samples();
+    EXPECT_EQ(compensated, kAlignFrames);
+    EXPECT_EQ(physical - compensated, 363u);
+
+    std::string reason;
+    ASSERT_TRUE(node.set_scene(centred_dead_room(), reason)) << reason;
+    EXPECT_EQ(node.latency_samples(), kAlignFrames + 280u);
+    node.set_parameter("direct_delay", kDirectCompensated);
+    EXPECT_EQ(node.latency_samples(), kAlignFrames);
+
+    node.set_parameter("listener", kListenerMicrophone);
+    EXPECT_EQ(node.latency_samples(), 0u);
+    node.set_parameter("direct_delay", kDirectPhysical);
+    EXPECT_EQ(node.latency_samples(), 0u);
+
+    // Before prepare() there is no set and nothing to report.
+    SushiDSP::room::RoomNode fresh;
+    EXPECT_EQ(fresh.latency_samples(), 0u);
+}
+
+TEST(Unit_Dsp, RoomNodeDirectOnsetMovesWithTheDirectDelayChoice)
+{
+    // The rendered direct-path onset, the first frame above 1e-4 of the direct window's peak,
+    // sits 280 frames later in physical mode than in compensated mode in the dead room, and
+    // the floor image's onset, after the direct window, moves by the same 280: the choice
+    // shifts the whole render and not the direct sound alone. The index path stores the
+    // choice for the next publish, as the listener's does.
+    const SushiDSP::room::RoomScene scene = centred_dead_room();
+    std::vector<float> impulse(4096, 0.0f);
+    impulse[0] = 1.0f;
+    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, kListenerEars);
+    const std::vector<float> compensated = render(*node, impulse);
+    node->set_parameter("direct_delay", kDirectPhysical);
+    node->reset();
+    const std::vector<float> physical = render(*node, impulse);
+
+    const long compensated_direct = onset(compensated, 0, 1500, 1e-4);
+    const long physical_direct = onset(physical, 0, 1500, 1e-4);
+    ASSERT_GE(compensated_direct, 0);
+    ASSERT_GE(physical_direct, 0);
+    EXPECT_EQ(physical_direct - compensated_direct, 280);
+    EXPECT_NEAR(static_cast<double>(compensated_direct), compensated_direct_frames(2.0), 3.0);
+    const long compensated_floor = onset(compensated, 1500, 4096, 1e-3);
+    const long physical_floor = onset(physical, 1500 + 280, 4096, 1e-3);
+    ASSERT_GE(compensated_floor, 0);
+    ASSERT_GE(physical_floor, 0);
+    EXPECT_EQ(physical_floor - compensated_floor, 280);
+
+    node->set_parameter(std::uint16_t{ 3 }, kDirectCompensated);
+    EXPECT_FLOAT_EQ(node->get_parameter("direct_delay"), kDirectCompensated);
+    node->reset();
+    EXPECT_EQ(onset(render(*node, impulse), 0, 1500, 1e-4), physical_direct);
+    std::string reason;
+    ASSERT_TRUE(node->set_scene(scene, reason)) << reason;
+    node->reset();
+    EXPECT_EQ(onset(render(*node, impulse), 0, 1500, 1e-4), compensated_direct);
+}
+
+TEST(Unit_Dsp, RoomNodeReproducesWoodworthsInterauralDelayOnTheFallback)
+{
+    // Spec 9.5: a source 2 m away at 30, 60 and 90 degrees azimuth, the listener facing -x in
+    // the dead room; the lag of the interaural cross-correlation peak over the direct window
+    // is Woodworth's (a / c)(theta + sin theta), 0.2611, 0.4881 and 0.6558 ms for a = 8.75 cm
+    // and c = 343 m/s, within 20 microseconds, one sample at 48 kHz. The grid holds those
+    // three azimuths, so the pair is not interpolated and the figure is the model's own. The
+    // window closes at 900 frames, before the nearest image, off the +x wall at 90 degrees,
+    // lands at 1154 - 280 + 128 = 1002. The cabinet faces the listener, so the direct tap's
+    // filter is the on-axis response: 60 degrees off the axis its 2 kHz notch weighted the
+    // correlation toward the low frequencies, where a rigid sphere's delay runs half again
+    // Woodworth's (Kuhn, JASA 62(1), 1977), and the lag read 0.58 ms.
+    const std::array<double, 3> degrees = { 30.0, 60.0, 90.0 };
+    const std::array<double, 3> expected_ms = { 0.2611, 0.4881, 0.6558 };
     std::vector<float> impulse(2048, 0.0f);
     impulse[0] = 1.0f;
-    const std::vector<float> ears = render(*prepared_node(scene, kListenerEars), impulse);
-    const std::vector<float> microphone =
-        render(*prepared_node(omni, kListenerMicrophone), impulse);
+    for (std::size_t index = 0; index < degrees.size(); ++index)
+    {
+        const double theta = degrees[index] * kPi / 180.0;
+        SushiDSP::room::RoomScene scene = centred_dead_room();
+        scene.listener_position = { 8.0, 6.0, 6.0 };
+        scene.listener_yaw_rad = kPi;
+        scene.source_position = { 8.0 - 2.0 * std::cos(theta), 6.0 - 2.0 * std::sin(theta), 6.0 };
+        scene.source_yaw_rad = theta;
+        const std::array<std::vector<float>, 2> ears =
+            render_both(*prepared_node(scene, kListenerEars), impulse);
+        const double lag = interaural_lag(ears[0], ears[1], 0, 900, 60);
+        const double woodworth_s =
+            SushiDSP::room::SphericalHeadHrtf::interaural_time_difference(theta);
+        RecordProperty(("lag_ms_" + std::to_string(static_cast<int>(degrees[index]))).c_str(),
+                       lag / kSampleRate * 1000.0);
+        EXPECT_NEAR(woodworth_s * 1000.0, expected_ms[index], 5e-4) << degrees[index];
+        EXPECT_NEAR(lag / kSampleRate, woodworth_s, 20e-6) << degrees[index] << " degrees";
+    }
+}
 
-    const double direct = 2.0 * kFramesPerMetre;
-    const long peak = nearest_peak(ears, direct, 3, 1e-3f);
-    ASSERT_GE(peak, 0);
-    EXPECT_NEAR(static_cast<double>(peak), direct, 0.5);
-    for (std::size_t frame = 0; frame + 2 < static_cast<std::size_t>(peak); ++frame)
+TEST(Unit_Dsp, RoomNodeReportsSphericalHeadWithNoAssetAndMeasuredWithOne)
+{
+    // hrtf_source() is SphericalHead after prepare(); the six-direction fixture installed
+    // through set_hrtf makes it Measured, the node keeps rendering finite audio through the
+    // fixture's pair and decoder, and an empty set restores the fallback.
+    std::unique_ptr<SushiDSP::room::RoomNode> node =
+        prepared_node(centred_dead_room(), kListenerEars);
+    EXPECT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
+
+    SushiDSP::room::HrtfSet fixture;
+    std::string error;
+    ASSERT_TRUE(SushiDSP::room::HrtfSetLoader::load(fixture_set_path(), kSampleRate, fixture,
+                                                    error)) << error;
+    ASSERT_EQ(fixture.direction_count(), 6u);
+    ASSERT_TRUE(node->set_hrtf(std::move(fixture)));
+    EXPECT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
+    std::vector<float> impulse(2048, 0.0f);
+    impulse[0] = 1.0f;
+    for (const float sample : render(*node, impulse))
     {
-        ASSERT_EQ(ears[frame], 0.0f) << "frame " << frame;
+        ASSERT_TRUE(std::isfinite(sample));
     }
-    for (std::size_t frame = 0; frame < ears.size(); ++frame)
+
+    ASSERT_TRUE(node->set_hrtf(SushiDSP::room::HrtfSet{}));
+    EXPECT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
+
+    // A set without a third-order decoder is refused whole and the source does not move.
+    SushiDSP::room::HrtfSet bare;
+    ASSERT_TRUE(SushiDSP::room::HrtfSetLoader::load(fixture_set_path(), kSampleRate, bare, error))
+        << error;
+    bare.set_decoder(1, std::vector<float>(2 * 4 * SushiDSP::room::HrtfSet::kDecoderTaps));
+    EXPECT_FALSE(node->set_hrtf(std::move(bare)));
+    EXPECT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
+}
+
+TEST(Unit_Dsp, RoomNodeTailIsCoherentLowAndIncoherentHigh)
+{
+    // Spec 6.5: the interaural cross-correlation of the tail alone, measured on the ear
+    // outputs, is above 0.8 in the 125 Hz octave and below 0.3 in the 4 kHz octave. The dead
+    // room keeps the modal layer off and its taps end at t_c = 8397 frames, compensated by 280
+    // and delayed by the partition, so a window opening 1024 frames after that holds the tail
+    // alone; the room's 0.21 s RT60 has decayed 97 dB by the window's end and the correlation
+    // weights the loud start.
+    const SushiDSP::room::RoomScene scene = centred_dead_room();
+    std::vector<float> impulse(32768, 0.0f);
+    impulse[0] = 1.0f;
+    const std::array<std::vector<float>, 2> ears =
+        render_both(*prepared_node(scene, kListenerEars), impulse);
+    const std::size_t begin = 8397 - 280 + kAlignFrames + 1024;
+    const std::size_t end = begin + 16384;
+    const double low = band_iacc(ears[0], ears[1], begin, end, 125.0);
+    const double high = band_iacc(ears[0], ears[1], begin, end, 4000.0);
+    RecordProperty("iacc_125_hz", low);
+    RecordProperty("iacc_4_khz", high);
+    EXPECT_GT(energy(ears[0], begin, end), 0.0);
+    EXPECT_GT(low, 0.8);
+    EXPECT_LT(high, 0.3);
+}
+
+TEST(Unit_Dsp, RoomNodeDecoderMagnitudeMatchesTheMeasuredSet)
+{
+    // Spec 9.5, only with the converted SADIE II set present: the decoder's magnitude response
+    // to one plane wave from each of 24 directions, eight azimuths at -30, 0 and +30 degrees
+    // of elevation, matches the measured HRTF's third-octave magnitudes from 200 Hz to 8 kHz
+    // within 3 dB, the magnitude-least-squares bound at third order.
+    SushiDSP::room::HrtfSet set;
+    std::string error;
+    if (!SushiDSP::room::HrtfSetLoader::load(measured_set_path(), kSampleRate, set, error))
     {
-        ASSERT_EQ(ears[frame], microphone[frame]) << "frame " << frame;
+        GTEST_SKIP() << "no measured set at " << measured_set_path() << ": " << error;
     }
+    SushiDSP::room::BinauralDecoder decoder;
+    decoder.prepare(set, kSampleRate, kBlock);
+    for (const double elevation_deg : { -30.0, 0.0, 30.0 })
+    {
+        for (int step = 0; step < 8; ++step)
+        {
+            const double azimuth = step * kPi / 4.0;
+            const double elevation = elevation_deg * kPi / 180.0;
+            const std::array<std::vector<float>, 2> decoded =
+                decode_plane_wave(decoder, azimuth, elevation, 1024);
+            const SushiDSP::room::HrtfSet::Pair pair = set.interpolate(azimuth, elevation);
+            for (std::uint32_t ear = 0; ear < 2; ++ear)
+            {
+                const std::vector<double> decoded_db =
+                    windowed_power_db(decoded[ear], 0, decoded[ear].size());
+                const std::vector<float> hrir(ear == 0 ? pair.left.begin() : pair.right.begin(),
+                                              ear == 0 ? pair.left.end() : pair.right.end());
+                const std::vector<double> measured_db = windowed_power_db(hrir, 0, hrir.size());
+                for (const double band : kDecoderBands)
+                {
+                    EXPECT_NEAR(third_octave_db(decoded_db, band), third_octave_db(measured_db, band),
+                                3.0) << "azimuth " << step * 45 << " elevation " << elevation_deg
+                                     << " ear " << ear << " band " << band;
+                }
+            }
+        }
+    }
+}
+
+TEST(Unit_Dsp, RoomNodeCarriesTheRearNotchWithAMeasuredSet)
+{
+    // Spec 9.5, only with the converted SADIE II set present: the ears 2 m in front of the
+    // cabinet, facing away from it so the source sits at 180 degrees azimuth, hear the KU100's
+    // rear notch in the direct window: the lowest third octave between 6.3 and 10 kHz sits at
+    // least 6 dB under the mean of the 5 kHz and 12.5 kHz third octaves that flank it.
+    SushiDSP::room::HrtfSet set;
+    std::string error;
+    if (!SushiDSP::room::HrtfSetLoader::load(measured_set_path(), kSampleRate, set, error))
+    {
+        GTEST_SKIP() << "no measured set at " << measured_set_path() << ": " << error;
+    }
+    std::unique_ptr<SushiDSP::room::RoomNode> node =
+        prepared_node(centred_dead_room(), kListenerEars);
+    ASSERT_TRUE(node->set_hrtf(std::move(set)));
+    ASSERT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
+    std::vector<float> impulse(8 * kBlock, 0.0f);
+    impulse[0] = 1.0f;
+    const std::vector<double> power_db = windowed_power_db(render(*node, impulse), 0, kDirectWindow);
+    double floor_db = 1e9;
+    for (const double band : { 6300.0, 8000.0, 10000.0 })
+    {
+        floor_db = std::min(floor_db, third_octave_db(power_db, band));
+    }
+    const double flanks_db = 0.5 * (third_octave_db(power_db, 5000.0)
+                                    + third_octave_db(power_db, 12500.0));
+    RecordProperty("notch_depth_db", flanks_db - floor_db);
+    EXPECT_GE(flanks_db - floor_db, 6.0);
 }
 
 TEST(Unit_Dsp, RoomNodeListenerChangeGoesThroughTheCrossfade)
 {
     // Switching the parameter mid-tone swaps every tap at once, with no state to carry, and
-    // the tail's design with them. In the garage, a cardioid 1 m off the cone against the
-    // ears 2.6 m away, the step ratio stays under a scene publish's in both directions; the
-    // residual against the blend of the two steady renders is -30 dB of the peak and is
-    // recorded, not bounded: the tail's input gain is 0.075 for the microphone's set and
-    // 0.136 for the ears', and the lines carry the old listener's stored energy into the new
-    // set at the room's own decay, where the reference blend has no memory. The dead room,
-    // whose tail is nil, measures the tap crossfade alone: -43.6 dB of the peak in both
-    // directions, bounded at -40 dB; the 0.36 m move of the scene-publish case reads -46 dB
-    // on the same scale.
+    // the tail's design with them; the ears' fade starts one partition after the edit. In
+    // physical mode nothing else moves: in the garage, a cardioid 1 m off the cone against
+    // the ears 2.6 m away, the step ratio stays under a scene publish's in both directions;
+    // the residual against the blend of the two steady renders is recorded, not bounded: the
+    // tail's input gain is 0.075 for the microphone's set and 0.136 for the ears', and the
+    // lines carry the old listener's stored energy into the new set at the room's own decay,
+    // where the reference blend has no memory. The dead room, whose tail is nil, measures the
+    // tap crossfade alone, bounded at -40 dB of the peak: the ears' reflections come through
+    // the decoder at the head's gain now, where they came through channel 0 at unity, so a
+    // zero-started reflection's transient weighs more than the -43.4 dB of the interim render.
+    // In compensated mode the ears' tail is read 280 frames earlier than the microphone's, so
+    // the switch also moves the tail's input under the fade and the tail rings with the old
+    // timing at the room's decay; that residual is recorded for both rooms and bounded in
+    // neither.
     SushiDSP::room::RoomScene garage = microphone_scene();
     garage.microphone_position = { 2.5, 2.0, 0.5 };
     garage.microphone_yaw_rad = kPi;
@@ -1445,17 +2020,29 @@ TEST(Unit_Dsp, RoomNodeListenerChangeGoesThroughTheCrossfade)
     for (const float from : { kListenerMicrophone, kListenerEars })
     {
         const float to = 1.0f - from;
-        const CrossfadeMeasure in_garage = measure_listener_switch(garage, from, to);
-        RecordProperty(from == kListenerMicrophone ? "garage_to_ears_db" : "garage_to_microphone_db",
+        const std::string direction = from == kListenerMicrophone ? "to_ears" : "to_microphone";
+        const CrossfadeMeasure in_garage =
+            measure_listener_switch(garage, from, to, kDirectPhysical);
+        RecordProperty(("garage_" + direction + "_db").c_str(),
                        to_decibels(in_garage.residual / in_garage.peak));
         EXPECT_LE(in_garage.step_ratio, 1.01) << "from " << from;
 
-        const CrossfadeMeasure in_dead_room = measure_listener_switch(dead, from, to);
-        RecordProperty(from == kListenerMicrophone ? "dead_to_ears_db" : "dead_to_microphone_db",
+        const CrossfadeMeasure in_dead_room =
+            measure_listener_switch(dead, from, to, kDirectPhysical);
+        RecordProperty(("dead_" + direction + "_db").c_str(),
                        to_decibels(in_dead_room.residual / in_dead_room.peak));
         EXPECT_LE(in_dead_room.step_ratio, 1.01) << "from " << from;
         EXPECT_LT(to_decibels(in_dead_room.residual / in_dead_room.peak), -40.0)
             << "from " << from;
+
+        const CrossfadeMeasure compensated_garage =
+            measure_listener_switch(garage, from, to, kDirectCompensated);
+        RecordProperty(("compensated_garage_" + direction + "_db").c_str(),
+                       to_decibels(compensated_garage.residual / compensated_garage.peak));
+        const CrossfadeMeasure compensated_dead =
+            measure_listener_switch(dead, from, to, kDirectCompensated);
+        RecordProperty(("compensated_dead_" + direction + "_db").c_str(),
+                       to_decibels(compensated_dead.residual / compensated_dead.peak));
     }
 }
 
@@ -1463,15 +2050,16 @@ TEST(Unit_Dsp, RoomNodeAppliesAListenerWrittenByIndexAtTheNextPublish)
 {
     // The index path is the audio thread's and stores a target only, so an ears node whose
     // listener is written by index to the microphone keeps rendering the ears, 2 m away with
-    // the direct peak at 279.88 frames; the next publish, here a scene, builds the set of the
-    // microphone 0.1 m off the cone, whose direct sound lands at frame 14. The id path
-    // publishes at once. reset() between renders re-adopts the set in place from silence.
+    // the direct peak at the alignment delay, 127.88 frames compensated; the next publish,
+    // here a scene, builds the set of the microphone 0.1 m off the cone, whose direct sound
+    // lands at frame 14. The id path publishes at once. reset() between renders re-adopts the
+    // set in place from silence.
     SushiDSP::room::RoomScene scene = centred_dead_room();
     scene.microphone_position = { 6.1, 6.0, 6.0 };
     std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, kListenerEars);
     std::vector<float> impulse(2048, 0.0f);
     impulse[0] = 1.0f;
-    const double direct = 2.0 * kFramesPerMetre;
+    const double direct = compensated_direct_frames(2.0);
 
     node->set_parameter(std::uint16_t{ 2 }, kListenerMicrophone);
     EXPECT_FLOAT_EQ(node->get_parameter("listener"), kListenerMicrophone);

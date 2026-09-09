@@ -39,6 +39,7 @@
 #include <vector>
 
 #include "SushiDSP/math/Fft.hpp"
+#include "SushiDSP/room/AmbisonicEncoder.hpp"
 
 namespace SushiDSP::room
 {
@@ -266,6 +267,159 @@ namespace SushiDSP::room
             return SphericalHeadHrtf::kHeadRadiusMetres / SphericalHeadHrtf::kSpeedOfSound
                    * (theta + std::sin(theta)) * sample_rate;
         }
+
+        static_assert(HrtfSet::kDecoderTaps + HrtfSet::kTapCount <= kFftSize,
+                      "a delayed HRIR must fit the transform the decoder is summed on");
+
+        /// @brief Returns the max-rE weight of one order at the encoder's order: the Legendre
+        /// polynomial of that order at cos(137.9 degrees / (N + 1.51)) (Zotter and Frank,
+        /// "All-round Ambisonic panning and decoding", JAES 60(10), 2012).
+        double max_re_weight(std::uint32_t order) noexcept
+        {
+            const double x = std::cos(137.9 * kPi / 180.0
+                                      / (static_cast<double>(AmbisonicEncoder::kOrder) + 1.51));
+            double previous = 1.0;
+            double current = x;
+            if (order == 0)
+            {
+                return 1.0;
+            }
+            for (std::uint32_t n = 1; n < order; ++n)
+            {
+                const double degree = static_cast<double>(n);
+                const double next = ((2.0 * degree + 1.0) * x * current - degree * previous)
+                                    / (degree + 1.0);
+                previous = current;
+                current = next;
+            }
+            return current;
+        }
+
+        /// @brief Returns the order of one ACN channel, floor(sqrt(channel)).
+        std::uint32_t acn_order(std::uint32_t channel) noexcept
+        {
+            std::uint32_t order = 0;
+            while ((order + 1) * (order + 1) <= channel)
+            {
+                ++order;
+            }
+            return order;
+        }
+
+        /// @brief Sums every grid direction's HRIR pair, delayed by its ITD and weighted by its
+        /// solid angle, its encode gains and (2n + 1) times the max-rE weight of each order, into
+        /// the 32 decoder filters: the least-squares decoder of a grid that samples the sphere
+        /// by solid angle. Spec §9.4.
+        class SamplingDecoder
+        {
+        public:
+            /// @brief Counts the accumulated filters, left ear then right, ACN order.
+            static constexpr std::uint32_t kFilters = 2 * AmbisonicEncoder::kChannels;
+
+            /// @brief Sizes the transform, its scratch and the 32 spectrum accumulators.
+            SamplingDecoder()
+                : fft_(kFftSize), time_(kFftSize), real_(kFftSize), imag_(kFftSize),
+                  accumulated_real_(static_cast<std::size_t>(kFilters) * kBinCount, 0.0),
+                  accumulated_imag_(static_cast<std::size_t>(kFilters) * kBinCount, 0.0)
+            {
+                for (std::uint32_t channel = 0; channel < AmbisonicEncoder::kChannels; ++channel)
+                {
+                    const std::uint32_t order = acn_order(channel);
+                    order_weight_[channel] = (2.0 * order + 1.0) * max_re_weight(order)
+                                             / (4.0 * kPi);
+                }
+            }
+
+            /// @brief Adds one direction's pair; itd_frames positive means the right ear later.
+            void add(const float* left, const float* right, double itd_frames,
+                     double solid_angle, double azimuth_rad, double elevation_rad)
+            {
+                std::array<float, AmbisonicEncoder::kChannels> gains{};
+                AmbisonicEncoder::encode(azimuth_rad, elevation_rad, gains);
+                std::array<double, AmbisonicEncoder::kChannels> weights{};
+                for (std::uint32_t channel = 0; channel < AmbisonicEncoder::kChannels; ++channel)
+                {
+                    weights[channel] = solid_angle * order_weight_[channel] * gains[channel];
+                }
+                add_ear(0, left, std::max(-itd_frames, 0.0), weights);
+                add_ear(1, right, std::max(itd_frames, 0.0), weights);
+            }
+
+            /// @brief Returns the 32 filters, kDecoderTaps each, left ear then right, ACN order.
+            std::vector<float> render()
+            {
+                std::vector<float> filters(static_cast<std::size_t>(kFilters)
+                                           * HrtfSet::kDecoderTaps);
+                for (std::uint32_t filter = 0; filter < kFilters; ++filter)
+                {
+                    const std::size_t base = static_cast<std::size_t>(filter) * kBinCount;
+                    for (std::uint32_t bin = 0; bin < kFftSize; ++bin)
+                    {
+                        const std::uint32_t folded = bin < kBinCount ? bin : kFftSize - bin;
+                        const double sign = bin < kBinCount ? 1.0 : -1.0;
+                        real_[bin] = static_cast<float>(accumulated_real_[base + folded]);
+                        imag_[bin] = static_cast<float>(sign * accumulated_imag_[base + folded]);
+                    }
+                    // A real filter has real end bins; the delay phase leaves a remainder there.
+                    imag_[0] = 0.0f;
+                    imag_[kBinCount - 1] = 0.0f;
+                    fft_.inverse(real_.data(), imag_.data(), time_.data());
+                    std::copy(time_.begin(), time_.begin() + HrtfSet::kDecoderTaps,
+                              filters.begin()
+                                  + static_cast<std::ptrdiff_t>(filter) * HrtfSet::kDecoderTaps);
+                }
+                return filters;
+            }
+
+        private:
+            /// @brief Transforms one ear's taps, delays them by delay_frames and adds them to
+            /// that ear's sixteen accumulators at the channel weights.
+            void add_ear(std::uint32_t ear, const float* taps, double delay_frames,
+                         const std::array<double, AmbisonicEncoder::kChannels>& weights)
+            {
+                std::fill(time_.begin(), time_.end(), 0.0f);
+                std::copy(taps, taps + HrtfSet::kTapCount, time_.begin());
+                fft_.forward(time_.data(), real_.data(), imag_.data());
+                for (std::uint32_t bin = 0; bin < kBinCount; ++bin)
+                {
+                    const double phase = -2.0 * kPi * bin * delay_frames / kFftSize;
+                    const double cosine = std::cos(phase);
+                    const double sine = std::sin(phase);
+                    const double delayed_real = real_[bin] * cosine - imag_[bin] * sine;
+                    const double delayed_imag = real_[bin] * sine + imag_[bin] * cosine;
+                    for (std::uint32_t channel = 0; channel < AmbisonicEncoder::kChannels;
+                         ++channel)
+                    {
+                        const std::size_t index =
+                            (static_cast<std::size_t>(ear) * AmbisonicEncoder::kChannels + channel)
+                                * kBinCount + bin;
+                        accumulated_real_[index] += weights[channel] * delayed_real;
+                        accumulated_imag_[index] += weights[channel] * delayed_imag;
+                    }
+                }
+            }
+
+            /// @brief Holds the transform plan.
+            Fft fft_;
+
+            /// @brief Holds one response in the time domain.
+            std::vector<float> time_;
+
+            /// @brief Holds the real half of one spectrum.
+            std::vector<float> real_;
+
+            /// @brief Holds the imaginary half of one spectrum.
+            std::vector<float> imag_;
+
+            /// @brief Holds each filter's accumulated real spectrum, kBinCount bins per filter.
+            std::vector<double> accumulated_real_;
+
+            /// @brief Holds each filter's accumulated imaginary spectrum.
+            std::vector<double> accumulated_imag_;
+
+            /// @brief Holds (2n + 1) times the max-rE weight over 4 pi for each channel's order.
+            std::array<double, AmbisonicEncoder::kChannels> order_weight_{};
+        };
     }
 
     double SphericalHeadHrtf::interaural_time_difference(double azimuth_rad) noexcept
@@ -286,6 +440,7 @@ namespace SushiDSP::room
         Magnitudes magnitude{};
         DiffuseFieldAverage diffuse_left;
         DiffuseFieldAverage diffuse_right;
+        SamplingDecoder decoder;
         for (std::uint32_t index = 0; index < kDirectionCount; ++index)
         {
             double azimuth = 0.0;
@@ -301,9 +456,12 @@ namespace SushiDSP::room
             ear_magnitudes(-cos_left, bin_hz, magnitude);
             folder.fold(magnitude, right.data() + offset);
             diffuse_right.add(magnitude, weight);
+            const double itd_frames =
+                woodworth_frames(lateral_angle(azimuth, elevation), sample_rate);
+            decoder.add(left.data() + offset, right.data() + offset, itd_frames, weight,
+                        azimuth, elevation);
             directions[index] = { static_cast<float>(azimuth), static_cast<float>(elevation),
-                                  static_cast<float>(woodworth_frames(
-                                      lateral_angle(azimuth, elevation), sample_rate)) };
+                                  static_cast<float>(itd_frames) };
         }
         DiffuseTaps diffuse_left_taps{};
         DiffuseTaps diffuse_right_taps{};
@@ -311,6 +469,7 @@ namespace SushiDSP::room
         diffuse_right.render(folder, diffuse_right_taps);
         HrtfSet set(sample_rate, std::move(directions), std::move(left), std::move(right));
         set.set_diffuse_field(diffuse_left_taps, diffuse_right_taps);
+        set.set_decoder(AmbisonicEncoder::kOrder, decoder.render());
         return set;
     }
 }

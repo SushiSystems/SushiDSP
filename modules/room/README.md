@@ -2,8 +2,9 @@
 
 One `IAudioNode`, mono in and two channels out, registered as `sushidsp.room` under the `Room`
 category with four parameters: `mix`, `level`, `listener` and `direct_delay`. The node solves a
-shoebox room on the control thread and renders its standing waves, its early reflections and its
-late tail on the audio thread. The module depends on `SushiDSP::sushi_dsp` alone.
+shoebox room on the control thread and renders its standing waves, its direct sound, its early
+reflections and its late tail on the audio thread, for two ears under a head or for one
+microphone. The module depends on `SushiDSP::sushi_dsp` alone.
 
 Intent, the physics behind each solver and the acceptance list live in
 [`docs/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../docs/superpowers/specs/2026-09-08-room-acoustics-design.md);
@@ -38,7 +39,12 @@ This file records what the code in this directory does.
 | What a host calls to install a scene or an HRTF | `IRoomHost` |
 | One input ring, up to 128 fractional taps, two biquad state banks, sixteen channels out | `EarlyReflectionRenderer` |
 | The 16-line Hadamard feedback delay network | `LateReverb` |
-| The topology, the swap, the crossfade, the mix and the level | `RoomNode` |
+| The topology, the swap, the crossfade, the direct path, the ears, the mix and the level | `RoomNode` |
+
+The direct path's renderer, the 128-tap FIR, the fixed frame delay and the fractional-delay ring
+the ears need are nested classes of `RoomNode` (`DirectPath`, `FirFilter`, `FrameDelay`,
+`DelayRing`); they are bricks in their own right and the day the module's build list may change
+they move to files of their own beside `EarlyReflectionRenderer`.
 
 `RoomNode` is the only class here that knows the topology. `ImageSourceSolver` and
 `LateReverbDesign` consume the materials, the fits, the air and the directivity; the renderers
@@ -49,19 +55,25 @@ hand-written record and a solver with arrival times alone.
 
 The audio thread calls `RoomNode::process`, and through it `CrossoverPair::process_sample`,
 `EarlyReflectionRenderer::write`, `EarlyReflectionRenderer::render`,
-`EarlyReflectionRenderer::clear_bank`, `LateReverb::process` and `ModalBank::process`; at the
-block that adopts a set it also calls `CrossoverPair::set_crossover` and `ModalBank::reset`, both
-arithmetic. None of them allocates, locks, opens a file or throws after `prepare()`;
-`tests/functional/unit/test_rt_safety.cpp` traps `operator new` around each of them, and around
-`RoomNode::process` while publishes land that move the microphone, move the listener, widen
-the room and switch the listener, so each path the modal bank can take runs under the trap.
+`EarlyReflectionRenderer::clear_bank`, `LateReverb::process`, `ModalBank::process`,
+`BinauralDecoder::process` and the nested `DirectPath`, `FirFilter`, `FrameDelay` and
+`DelayRing`; at the block that adopts a set it also calls `CrossoverPair::set_crossover`,
+`ModalBank::reset` and `BinauralDecoder::reset`, all arithmetic. None of them allocates, locks,
+opens a file or throws after `prepare()`; `tests/functional/unit/test_rt_safety.cpp` traps
+`operator new` around each of them, and around `RoomNode::process` while publishes land that
+move the microphone, move the listener, widen the room, switch the listener, switch
+`direct_delay` and re-install the fallback HRTF, so each path the node can take runs under the
+trap.
 
 Everything else runs on the control thread. `RoomNode::set_scene` validates the scene, calls
 `build_render_set` for the listener the parameter names, which solves the images, designs the
 tail, finds the Schroeder frequency, designs the modal bank and takes the direct HRIR pair from
-the HRTF set, places the modal receiver, and publishes the finished `RoomRenderSet` through one
-`RtSwapSlot`. A scene the validator refuses is not built and the previous scene stays in place.
-`reclaim_rooms()` frees every set the audio thread has moved past; the host calls it once per GUI
+the HRTF set, re-times an ears set for `direct_delay`, places the modal receiver, and publishes
+the finished `RoomRenderSet` through one `RtSwapSlot`. A scene the validator refuses is not built
+and the previous scene stays in place. `prepare()` and `set_hrtf` build a `BinauralDecoder` from
+the HRTF set in place and publish it through a second slot; a set the decoder refuses, one with
+no third-order decoder, is refused whole and the set in place stays. `reclaim_rooms()` frees
+every set and every decoder the audio thread has moved past; the host calls it once per GUI
 frame, as it does `reclaim_cabinets()`.
 
 The `listener` parameter has two paths. `set_parameter("listener", …)`, the id path, is control
@@ -71,10 +83,11 @@ index path `RigGraph` drains on the audio thread, stores the choice and nothing 
 publish, whatever triggers it, builds for the stored choice.
 `RoomNodeAppliesAListenerWrittenByIndexAtTheNextPublish` checks both.
 
-`process()` does one `acquire_for_audio_thread()` per block. The pointer it gets back is compared
-against the one adopted last and read inside that block only: the taps are copied into the node's
-own bank the first block a set is seen, so no set is ever read after the block that acquired it,
-and a reclaim can free a retired set at any time.
+`process()` does one `acquire_for_audio_thread()` per slot per block. The set pointer it gets
+back is compared against the one adopted last and read inside that block only: the taps, the
+direct tap and its pair, the tail's design and the diffuse pair are copied into the node's own
+banks the first block a set is seen, so no set is ever read after the block that acquired it, and
+a reclaim can free a retired set at any time. The decoder pointer is used inside the block alone.
 
 ## The two-bank crossfade
 
@@ -85,8 +98,20 @@ takes that tap's filter state through `carry_tap`, and a 512-frame raised-cosine
 During the fade both banks render every block, the retiring bank's sixteen channels are blended
 into the arriving bank's, and when the fade ends the retiring bank is the next spare. A set that
 arrives mid-fade restarts the fade from the bank that was arriving; the node never holds more than
-two. The tail is not crossfaded by the node: `LateReverb` adopts a design's coefficients at the
-block it sees them and runs its own 512-frame fade only when the line lengths move.
+two. The direct path has two banks of its own, loaded and carried under the same match rule as the
+taps and blended after rendering. The tail's coefficients are not crossfaded: `LateReverb` adopts
+a design at the block the node hands it over and runs its own 512-frame fade only when the line
+lengths move; its delay to t_c, though, is read out of the node's ring and blended between the
+retiring and the arriving delay under the fade, so a re-timed set never jumps the tail's input.
+
+When the ears take part in a fade, the fade starts one decoder partition, 128 frames at 48 kHz,
+after the set is adopted, when the decoder's first partition of the arriving set comes out. The
+paths the decoder or the alignment delay hold back read the fade's window unlagged, the paths
+that blend at the output, the direct pair, the microphone's channel 0, the tail's read delay and
+the presentations of the tail and the modal field, read it at the lag, and the tail's
+coefficients switch at the block the lag runs out; so every path comes out in step and nothing at
+the output moves before the fade begins. A fade between two microphone sets has no lag. The
+ears' reference blend in the tests is delayed the same 128 frames.
 
 Taps pair by index, the arrival order `ImageSourceSolver` returns. An arriving tap past the
 retiring count starts from zero; a retiring tap past the arriving count is dropped. A pair
@@ -189,7 +214,9 @@ One thing this layer does not do yet, outside this directory:
 - **The seam is not level-matched.** Spec §9a.4 asks the octave under f_s and the octave over
   it to agree within 2 dB. Measured as mean power per hertz on the garage: -2.04 dB under and
   -8.79 dB over at the pose above, a 6.75 dB step, and -1.64 and -6.66 dB averaged over eight
-  poses, a 5.0 dB step. The modal octave is scaled by `ModalSolver` to Eyring's diffuse field
+  poses, a 5.0 dB step; through the binaural path the pose above reads -1.64 dB under and
+  -9.37 dB over, a 7.7 dB step, the geometric octave now carrying the decoder's gain. The modal
+  octave is scaled by `ModalSolver` to Eyring's diffuse field
   and the tail's level is `LateReverbDesign`'s; `RoomNodeIsContinuousAcrossTheSchroederFrequency`
   records the step and skips, its bound still at 2 dB, until the match is settled. Part of the
   step is the pair itself: an LR4 pair sums flat only when both halves carry the same signal.
@@ -216,15 +243,8 @@ is not made here. `RoomNodeReadsTheStandingWavesWhereTheSetsReceiverStands` chec
 
 The microphone fills both outputs with one signal: channel 0 of the early set, the tail read
 once, and the modal field at one point, so the two channels are equal bit for bit whatever the
-listener does (`RoomNodeMicrophoneListenerFillsBothChannelsIdentically`). The ears, until the
-binaural phase lands its decoder and its direct HRIR path, hear channel 0 of the Ambisonic
-encode, the omnidirectional component, in both ears, the tail through its coherence pair, and
-the modal field at their two points; the ears set keeps the (0, 0, 0) image, because nothing
-else renders the direct sound yet, and `RoomNode::remove_direct_image` waits for the HRIR pair.
-`RoomNodeEarsHearTheDirectSoundUntilTheHrirPairLands` pins that: in the dead room the ears' left
-channel equals an omni microphone's at the same spot, sample for sample. `direct_delay` is
-stored and read back and does nothing yet; `latency_samples()` returns 0 until the decoder adds
-its partition.
+listener does (`RoomNodeMicrophoneListenerFillsBothChannelsIdentically`), at physical timing and
+with no latency. The ears hear the binaural path of the next section.
 
 Measured through the node, impulse responses at 48 kHz over the direct-path window of a 12 m
 carpeted room with four open faces, the cabinet at its centre:
@@ -241,22 +261,97 @@ carpeted room with four open faces, the cabinet at its centre:
   and the ears at 2.12 m one of -4.5 dB, the direct window running from two frames before the
   onset to 60 after it and everything else, the standing waves included, counting as room.
 - Switching the listener mid-tone is a publish: every tap is new and starts from a cleared
-  bank. In the dead room the residual against the raised-cosine blend of the two steady renders
-  is -43.4 dB of the peak in either direction; the 0.36 m microphone move of the table above
-  reads -46 dB on that scale. In the garage the step ratio stays at 1.00 but the residual is
-  -28 dB of the peak, and that is the tail: its input gain is 0.075 for the microphone's set and
-  0.136 for the ears', and the lines carry the old listener's stored energy into the new set at
-  the room's decay, where the reference blend has no memory.
+  bank. With `direct_delay` physical, in the dead room the residual against the raised-cosine
+  blend of the two steady renders is -42.1 dB of the peak to the ears and -43.4 dB to the
+  microphone, bounded at -40 dB; the 0.36 m microphone move of the table above reads -46 dB on
+  that scale. In the garage the step ratio stays at 1.00 but the residual is -26.8 and -28.2 dB
+  of the peak, and that is the tail: its input gain is 0.075 for the microphone's set and 0.136
+  for the ears', and the lines carry the old listener's stored energy into the new set at the
+  room's decay, where the reference blend has no memory. With `direct_delay` compensated the
+  ears' tail is read 280 frames earlier than the microphone's in the dead room and 363 in the
+  garage, so the switch also moves the tail's input under the fade and the tail rings with the
+  old timing at the room's decay: -36.7 and -38.0 dB in the dead room, -16.3 and -17.6 dB in the
+  garage, recorded and bounded in neither room.
+
+## The binaural path
+
+The ears hear three paths that share one HRTF set, which is what keeps the seam between them
+inaudible: the direct sound through the set's HRIR pair for its direction, the early reflections
+through the set's third-order decoder, and the tail through the set's diffuse-field average
+(spec §9.4). The set is `SphericalHeadHrtf` until a host installs a measured one through
+`IRoomHost::set_hrtf`; `hrtf_source()` says which. No measured asset is in the tree yet, and the
+host does not load one yet either: `apps/host_gui` rebuilds its nodes on every structural edit
+and re-applies a slot's cabinet at each rebuild, so an HRTF installed once from `main.cpp` would
+be lost at the next edit; the load belongs beside the cabinet path in `RigController`, with the
+`assets/hrtf` copy and the room link in the host's build list, and none of that is in this
+directory.
+
+**The direct path.** Tap 0 of an ears set, the (0, 0, 0) image, is taken out of the bank at the
+block the set is adopted (`RoomNode::take_direct_image`) and rendered by `DirectPath`: read out
+of the node's ring at the alignment delay plus the tap's, through the tap's fitted filter and 1/r
+in the early renderer's own arithmetic, then convolved with the set's minimum-phase HRIR for its
+ear, the far ear read the interaural delay later. `RoomNodeEarsHearTheDirectSoundThroughTheHrirPair`
+renders the dead room and matches that chain, built in the test from the render set, to
+1e-5 of the peak in both ears. Woodworth's delay comes through the whole node:
+`RoomNodeReproducesWoodworthsInterauralDelayOnTheFallback` reads the lag of the interaural
+cross-correlation peak at 30, 60 and 90 degrees as 0.2650, 0.4963 and 0.6593 ms against
+(a / c)(theta + sin theta) = 0.2611, 0.4881 and 0.6558 ms, within the one sample the spec allows,
+with the cabinet facing the listener; 60 degrees off the cabinet's axis its 2 kHz notch weights
+the correlation toward the low frequencies, where a rigid sphere's delay runs half again
+Woodworth's (Kuhn, JASA 62(1), 1977), and the lag read 0.58 ms.
+
+**The reflections.** The sixteen accumulation channels go through `BinauralDecoder`, whose 32
+partitioned convolutions add one 128-frame partition of latency at 48 kHz. `SphericalHeadHrtf`
+now builds its own decoder, since the spec's magnitude-least-squares design lives in the
+conversion tool and a machine with no asset had none: each grid pair, delayed by its ITD, is
+summed at its solid angle times the channel's encode gain times (2n + 1) times the max-rE weight
+of its order (Zotter and Frank, JAES 60(10), 2012), the least-squares decoder of a grid that
+samples the sphere by solid angle. Above about 1.5 kHz a third-order decoder sums a lobe of
+directions whose delays differ by up to the ITD, so a reflection's high end comes out combed and
+dull against the direct sound's, the known defect of low-order binaural Ambisonics that the
+magnitude-least-squares design of the conversion tool is there to remove for a measured set. It
+is not measured here; the decoder acceptance of spec §9.5 runs only with the measured set present.
+
+**The tail.** The tail's two outputs pass one 128-tap FIR per ear, the diffuse-field average, then
+a 128-frame delay to the decoder's partition; the modal field passes the same delay, so every
+ears path waits one partition. The tail's coherence pair survives the head:
+`RoomNodeTailIsCoherentLowAndIncoherentHigh` reads the interaural cross-correlation of the dead
+room's tail alone as 0.944 in the 125 Hz octave and 0.176 in the 4 kHz octave, against the spec's
+0.8 and 0.3.
+
+**`direct_delay`.** Compensated, the default, moves an ears set's whole render earlier by
+round(d / c * fs) at publish (`RoomNode::compensate_direct_delay`): tap 0 by that many frames,
+every reflection by the same but floored at one frame, the tail's delay to t_c by the same but
+floored at zero. The direct sound then lands at the alignment delay, 128 frames, and the
+reflections and the tail keep their spacing to it; `latency_samples()` reports 128. Physical
+leaves the set as solved and reports 128 plus the propagation delay: 408 for the dead room's 2 m,
+491 for the default scene's 2.596 m, the 363 frames the plan's 280 assumed a 2 m scene for
+(`RoomNodeDefaultsDirectDelayToCompensated`). `RoomNodeDirectOnsetMovesWithTheDirectDelayChoice`
+sees the direct onset and the floor image's onset both move by 280. The choice is an ears
+choice: the microphone renders at physical timing with no partition in its path and reports 0,
+whatever the parameter says. A changed choice publishes through the crossfade like a changed
+listener; the index path stores it for the next publish.
+
+Measured cost at 48 kHz and 256 frames, clang `-O2 -mavx2 -mfma`, the garage with the cabinet at
+(0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0), every layer running: the ears take 0.25 ms
+per block in the steady state, 4.7 % of the 5.33 ms the block lasts, and 0.46 ms for a block that
+renders both banks; the microphone 0.12 ms and 0.16 ms. Spec §10 budgeted 1.63 ms and 2.57 ms
+scalar for the ears.
 
 ## Sizes fixed at `prepare()`
 
-The input ring holds the longest crossover time the scene bounds allow, `(4 + 1) * 12.0 / 343` s,
-8397 frames at 48 kHz. The tail's lines hold 0.525 s, 25200 frames at 48 kHz, the longest line
-an RT60 of 3 s needs. The accumulation buffers are two sets of sixteen channels of one block; the
-two modal banks hold `kMaxModes` resonators each and one block of lane partials, and the node
-keeps four copies of `ModalDesign`, two per bank plus the ramp's ends, beside its two tap sets.
-The spherical-head HRTF is built at the prepare rate; a measured set installed through `set_hrtf`
-at another rate is dropped for the fallback at the next `prepare()`.
+The early renderer's ring holds the longest crossover time the scene bounds allow,
+`(4 + 1) * 12.0 / 343` s, 8397 frames at 48 kHz; the node's own ring, which the direct path and
+the tail read, holds that plus the alignment delay plus 128 frames for the far ear's ITD, rounded
+up to 16384. The tail's lines hold 0.525 s, 25200 frames at 48 kHz, the longest line an RT60 of
+3 s needs. The accumulation buffers are two sets of sixteen channels of one block; the two modal
+banks hold `kMaxModes` resonators each and one block of lane partials, and the node keeps four
+copies of `ModalDesign`, two per bank plus the ramp's ends, beside its two tap sets, its two
+direct banks with their four 128-tap histories, the two diffuse filters, the four alignment
+delays and one copy of `FdnDesign`. The decoder's 32 convolvers, 256 taps in two partitions of
+128, live in the decoder the slot holds. The spherical-head HRTF and its decoder are built at
+the prepare rate; a measured set installed through `set_hrtf` at another rate is dropped for the
+fallback at the next `prepare()`.
 
 ## Approximations, named as such
 
@@ -289,3 +384,18 @@ at another rate is dropped for the fallback at the next `prepare()`.
 - **Modal damping at a soft boundary.** `ModalSolver` damps each mode by first-order
   perturbation, right to a few percent for concrete, brick and glass and about 30 % wrong in the
   decay of a mode bounded by gypsum on studs at 125 Hz; the frequency is right in both cases.
+- **The fallback's decoder.** The spherical head's third-order decoder is the sampling sum
+  above, not a magnitude-least-squares fit, so reflections lose high end against the direct
+  sound; a measured set brings its own decoder from the conversion tool.
+- **A reflection within a frame of the direct sound.** Compensated, a reflection whose path is
+  under 7 mm longer than the direct path is floored at one frame of delay, since the early
+  renderer's kernel reads one frame ahead; its spacing to the direct sound is off by under a
+  frame.
+- **The tail across a re-timed set.** A compensated set moves the tail's delay to t_c with the
+  listener's distance, so a listener drag moves that delay a frame every 7 mm, under the fade,
+  and the network re-settles to each move at the room's decay; a listener or `direct_delay`
+  switch moves it by the whole propagation delay and the tail rings with the old timing for the
+  RT60, the residuals recorded above.
+- **A fade across listeners.** The modal ramp reads the fade at the lag when the microphone
+  takes part, so the ears' delayed presentation shows the ramp one partition late during a
+  listener switch; the microphone's tail is its mono tail whichever set arrives.
