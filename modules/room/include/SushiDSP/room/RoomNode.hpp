@@ -112,8 +112,11 @@ namespace SushiDSP::room
         /// @return False and fills reason_out when the build refuses the scene or the set.
         bool publish(std::string& reason_out);
 
-        /// @brief Copies a newly acquired set's taps into the spare bank, clears that bank's
-        /// state and starts the fade; the first set ever is copied in with no fade.
+        /// @brief Copies a newly acquired set's taps into the spare bank, zeroes that bank's
+        /// state, carries the active bank's state into every tap the arriving set keeps and
+        /// starts the fade; the first set ever is copied in from zero state with no fade. Taps
+        /// pair by index: an arriving tap past the retiring count starts from zero, a retiring
+        /// tap past the arriving count is dropped. Spec §5.2.
         void adopt(const RoomRenderSet& set) noexcept;
 
         /// @brief Renders the active bank, and the retiring bank blended under a raised cosine

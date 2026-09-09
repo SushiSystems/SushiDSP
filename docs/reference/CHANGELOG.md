@@ -3,6 +3,13 @@
 Grouped by roadmap phase (spec §9). Each phase's implementation plan lives under
 `docs/superpowers/plans/` with the full task-by-task record.
 
+## DE — Room acoustics
+
+The room track, spec `docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
+`docs/superpowers/plans/2026-09-08-room-acoustics.md`.
+
+- 2026-09-09 — Carried each matching tap's filter state into the bank arriving into a crossfade (`EarlyReflectionRenderer::carry_tap`, `RoomNode::adopt`, `modules/room/README.md`, spec §5.2 and §5.3).
+
 ## DT — The arrangement view: bars, clips and playback speed
 
 The timeline track, spec `docs/superpowers/specs/2026-09-08-arrangement-view-design.md`, plan

@@ -1600,6 +1600,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
         renderer.write(input.data(), 256);
         renderer.render(set, 0, outputs.data(), 256);
         renderer.render(set, 1, outputs.data(), 256);
+        renderer.carry_tap(0, 1, static_cast<std::uint32_t>(block));
         renderer.clear_bank(static_cast<std::uint32_t>(block % 2));
     }
     trap.disarm();
