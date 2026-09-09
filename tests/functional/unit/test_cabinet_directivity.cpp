@@ -51,16 +51,89 @@ TEST(Unit_Dsp, CabinetDirectivityIsUnityOnAxis)
     }
 }
 
+namespace
+{
+    /// @brief Returns the 4x12 closed form at one frequency in the front hemisphere: the piston
+    /// factor at the shrinking effective radius times the two-by-two array factor.
+    double closed_form(double frequency_hz, double left, double up)
+    {
+        const SushiDSP::room::CabinetGeometry& g = SushiDSP::room::kCabinet4x12;
+        const double wavenumber = 2.0 * kPi * frequency_hz / SushiDSP::room::kSpeedOfSound;
+        const double ratio = frequency_hz / g.breakup_frequency_hz;
+        const double radius = g.cone_radius_m / std::sqrt(1.0 + ratio * ratio);
+        const double sine = std::sqrt(left * left + up * up);
+        const double piston =
+            SushiDSP::room::CabinetDirectivity::piston_factor(wavenumber * radius * sine);
+        const double half_spacing = 0.5 * wavenumber * g.driver_spacing_m;
+        return std::fabs(piston) * std::fabs(std::cos(half_spacing * left))
+            * std::fabs(std::cos(half_spacing * up));
+    }
+
+    /// @brief Returns the energy mean of the closed form over one octave band, in decibels, by
+    /// the midpoint rule over 1024 equal log-frequency intervals.
+    double octave_mean_db(std::size_t band, double left, double up)
+    {
+        constexpr int points = 1024;
+        double power_sum = 0.0;
+        for (int point = 0; point < points; ++point)
+        {
+            const double octaves = (static_cast<double>(point) + 0.5) / points - 0.5;
+            const double frequency = SushiDSP::room::kBandCentresHz[band] * std::exp2(octaves);
+            const double factor = closed_form(frequency, left, up);
+            power_sum += factor * factor;
+        }
+        return 10.0 * std::log10(power_sum / points);
+    }
+}
+
 TEST(Unit_Dsp, CabinetDirectivityBeamsAtTwoKilohertzAndNotAtOneTwentyFive)
 {
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::kCabinet4x12);
     const SushiDSP::room::BandResponse off = cabinet.gain_for(kPi / 3.0, 0.0);   // 60 degrees
-    // 2 kHz: a(f) = 0.125 / sqrt(1 + 0.64) = 0.097614 m, k = 36.6300 /m,
+    // At the 2 kHz centre itself: a(f) = 0.125 / sqrt(1 + 0.64) = 0.097614 m, k = 36.6300 /m,
     // k*a*sin60 = 3.0958 so the piston is 0.195099 (-14.19 dB), and the array is
-    // |cos(36.6300 * 0.30 * 0.866025 / 2)| = 0.046834 (-26.59 dB).
-    EXPECT_NEAR(off.decibels()[4], -40.78f, 0.10f);
-    // 125 Hz: piston 0.992358, array 0.956086, together -0.46 dB.
-    EXPECT_NEAR(off.decibels()[0], -0.46f, 0.10f);
+    // |cos(36.6300 * 0.30 * 0.866025 / 2)| = 0.046834 (-26.59 dB), together -40.78 dB. The
+    // array factor's null sits 26 Hz above the centre, so the band's energy mean over 1414 to
+    // 2828 Hz reads -15.29 dB by the 1024-point midpoint rule of the same closed form.
+    EXPECT_NEAR(off.decibels()[4], -15.29f, 0.05f);
+    // 125 Hz: the piston is 0.992358 and the array 0.956086 at the centre, -0.46 dB; the
+    // energy mean over the octave reads -0.49 dB.
+    EXPECT_NEAR(off.decibels()[0], -0.49f, 0.05f);
+}
+
+TEST(Unit_Dsp, CabinetDirectivityAveragesTheArrayNullOverTheOctave)
+{
+    // The reference garage's direct path leaves the baffle atan(0.7 / 2.5) = 15.64 degrees
+    // up. There the two rows of drivers, 0.30 m apart, cancel at 343 / (2 * 0.30 * sin 15.64)
+    // = 2120 Hz: at the 2 kHz centre the array factor alone is -21.02 dB and the closed form
+    // -22.05 dB, while the energy mean over the octave reads -11.48 dB, since the null is
+    // narrow and the array factor recovers to 0 dB at both edges of the band.
+    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::kCabinet4x12);
+    const double elevation = std::atan2(0.7, 2.5);
+    const std::array<float, 6> direct = cabinet.gain_for(0.0, elevation).decibels();
+    EXPECT_NEAR(20.0 * std::log10(closed_form(2000.0, 0.0, std::sin(elevation))), -22.05, 0.02);
+    EXPECT_NEAR(direct[4], -11.48f, 0.05f);
+    EXPECT_NEAR(direct[5], -3.49f, 0.05f);
+}
+
+TEST(Unit_Dsp, CabinetDirectivityMatchesTheOctaveMeanOfItsClosedForm)
+{
+    // The model samples sixteen points per octave; the test integrates the same closed form
+    // with 1024, and the two agree within 0.05 dB in every band at every direction tried,
+    // 60 degrees off axis, 15.64 degrees up, and 52.85 degrees up.
+    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::kCabinet4x12);
+    for (const double elevation : { 0.0, std::atan2(0.7, 2.5), std::atan2(3.3, 2.5) })
+    {
+        const double azimuth = elevation == 0.0 ? kPi / 3.0 : 0.0;
+        const double left = std::cos(elevation) * std::sin(azimuth);
+        const double up = std::sin(elevation);
+        const std::array<float, 6> got = cabinet.gain_for(azimuth, elevation).decibels();
+        for (std::size_t band = 0; band < 6u; ++band)
+        {
+            EXPECT_NEAR(got[band], octave_mean_db(band, left, up), 0.05)
+                << "elevation " << elevation << " band " << band;
+        }
+    }
 }
 
 TEST(Unit_Dsp, CabinetDirectivityPistonFactorMatchesTheBesselSeries)

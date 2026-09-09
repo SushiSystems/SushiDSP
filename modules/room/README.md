@@ -91,26 +91,29 @@ transient outlasts the 512-frame fade by a factor of 2.4 and is still at 66 per 
 fade ends. Measured in the garage with a 1 kHz full-scale tone, the output during the fade
 differs from a raised-cosine blend of the two steady renders by:
 
-| Publish                          | Taps carried | Residual         | Before the carry |
-| -------------------------------- | ------------ | ---------------- | ---------------- |
-| The same scene republished       | 96 of 96     | 0, exactly       | -36.2 dBFS       |
-| The microphone moved 1 cm        | 52 of 96     | 0.0160, -35.9 dBFS | -37.5 dBFS     |
-| The microphone moved 0.36 m      | 0 of 94      | 0.0233, -32.7 dBFS | -30.8 dBFS     |
+| Publish                          | Taps carried | Residual           | Two-shelf fit      | Before the carry |
+| -------------------------------- | ------------ | ------------------ | ------------------ | ---------------- |
+| The same scene republished       | 96 of 96     | 0, exactly         | 0, exactly         | -36.2 dBFS       |
+| The microphone moved 1 cm        | 78 of 96     | 0.0010, -60.2 dBFS | 0.0160, -35.9 dBFS | -37.5 dBFS       |
+| The microphone moved 0.36 m      | 5 of 94      | 0.0020, -53.9 dBFS | 0.0233, -32.7 dBFS | -30.8 dBFS       |
 
-The "before" column is the zero-state figure measured with the band fit before `fa95bb5`; with
-the fit as it stands, zero state measures -37.2, -32.0 and -32.2 dBFS for the same three cases.
-A 0.36 m move reorders the taps, so no pair matches and the carry buys nothing there. A 1 cm move
-keeps the order and moves every delay by under 1.4 frames, yet only 52 pairs match: a tap whose
-target has a notch the two-shelf model cannot fit, the direct path's 4x12 directivity at 2 kHz
-for one, lands on a different local minimum of `BandResponseFit` for a target change of 0.03 dB,
-and its coefficients move by up to 3.2. Those taps start from zero and set the floor. The -60
-dBFS of spec §5.3 is out of reach until the fit is continuous for such targets; the carry alone
-cannot get there. The three cases are `RoomNodeCrossfadesAPublishWithoutAStep`,
-`RoomNodeCrossfadesASmallMoveFromTheCarriedState` and
-`RoomNodeRepublishesTheSameSceneWithoutAResidual`, bounded at -32, -35 and -120 dBFS. The step
-bound of the same cases, no sample-to-sample step beyond the steady signal's own, measures a
-ratio of 1.0051 for the 0.36 m move with the fit as it stands, with or without the carry, where
-it measured 0.9994 before `fa95bb5`; the tests bound it at 1.01.
+The "two-shelf fit" column is the figure with `BandResponseFit` as it stood before 2026-09-09,
+two shelves that cannot dip; the "before the carry" column is the zero-state figure with the band
+fit before `fa95bb5`. The tap counts apply the node's match rule, a delay within 2 frames and
+every coefficient within 0.2, to the solver's two tap sets. A 0.36 m move reorders the taps, so
+the carry buys nothing there and the residual is what a zero-started tap leaves: with the two
+shelves the slowest pole over the garage's 96 microphone taps had radius 0.99779, a time constant
+of 453 frames, and 44 of the 96 taps started from zero after a 1 cm move because a target the
+shelves could not fit, the direct path's 4x12 directivity at 2 kHz for one, landed on a different
+local minimum for a 0.03 dB change and moved a coefficient by up to 3.2. With the sections that
+can dip and the directivity averaged over each octave, the slowest pole has radius 0.98801, a
+time constant of 83 frames, so a zero-started tap settles inside the 512-frame fade, and the
+1 cm case reaches the -60 dBFS of spec §5.3. The three cases are
+`RoomNodeCrossfadesAPublishWithoutAStep`, `RoomNodeCrossfadesASmallMoveFromTheCarriedState` and
+`RoomNodeRepublishesTheSameSceneWithoutAResidual`, still bounded at -32, -35 and -120 dBFS. The
+step bound of the same cases, no sample-to-sample step beyond the steady signal's own, measures
+a ratio of 1.0033 for the 0.36 m move, where it measured 1.0051 with the two shelves and 0.9994
+before `fa95bb5`; the tests bound it at 1.01.
 
 ## What each set renders today
 
@@ -141,6 +144,17 @@ another rate is dropped for the fallback at the next `prepare()`.
 - **The piston array.** `CabinetDirectivity` is four rigid pistons in an infinite baffle, and the
   cone's effective radius shrinks above the 2.5 kHz breakup frequency in `kCabinet4x12`. No cone
   is a rigid piston; the model gives the off-axis roll-off its shape, not a measured polar plot.
+  Each band is the energy mean of the closed form over its octave, sixteen log-spaced points,
+  so an interference null inside a band lowers the band by what the null removes and no more:
+  the garage's direct path, 15.6 degrees up, reads -11.5 dB at 2 kHz where the closed form at
+  the centre reads -22.1 dB, since the two rows of drivers cancel at 2120 Hz there.
+- **Two sections per tap.** `BandResponseFit` gives each of a tap's two biquads a step and a
+  peak, so a section can shelve, dip or both, and the fit reaches the direct path above within
+  0.1 dB and a one-band cut of 20 dB within 0.5 dB. A target with two dips is beyond it: over
+  629 directions around the 4x12 the worst octave-mean target misses by 4.6 dB and 34 miss by
+  more than 1 dB, none nearer than 45 degrees to the axis. Of 3774 nudges of 0.05 dB across
+  those targets, 52 move a coefficient by more than 0.1 and 2 by more than 1, where the fit
+  switches between two local minima of a target it misses by over 2 dB.
   The ceiling image of the reference garage, 53 degrees above the baffle's axis, comes out of
   that fit with a group delay that puts its rendered peak one frame after its arrival, which is
   why `RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid` measures placement with a 1 cm piston.

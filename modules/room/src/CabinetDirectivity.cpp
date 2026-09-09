@@ -23,7 +23,8 @@
 
 /**
  * @file CabinetDirectivity.cpp
- * @brief The piston, array and rear-shelf factors and the grid the index integrates over.
+ * @brief The piston, array and rear-shelf factors, their octave-band energy mean, and the grid
+ * the index integrates over.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -44,6 +45,9 @@ namespace SushiDSP::room
 
         /// @brief Counts the icosahedron subdivisions the grid takes; 10 * 4^n + 2 vertices.
         constexpr int kSubdivisions = 4;
+
+        /// @brief Counts the log-spaced frequencies each octave band's energy mean samples.
+        constexpr int kOctavePoints = 16;
 
         /// @brief Names the baffle-step constant, in hertz times metres. Spec §7.
         constexpr double kBaffleStepHzMetres = 115.0;
@@ -79,7 +83,6 @@ namespace SushiDSP::room
 
     CabinetDirectivity::CabinetDirectivity(const CabinetGeometry& geometry)
         : geometry_(geometry)
-        , grid_(build_grid())
     {
     }
 
@@ -111,22 +114,37 @@ namespace SushiDSP::room
         return std::sqrt((1.0 + zero_ratio * zero_ratio) / (1.0 + pole_ratio * pole_ratio));
     }
 
+    double CabinetDirectivity::factor_at(double frequency_hz, const Direction& direction,
+                                         double sine_theta) const noexcept
+    {
+        const double wavenumber = 2.0 * kPi * frequency_hz / kSpeedOfSound;
+        const double piston =
+            piston_factor(wavenumber * effective_radius(frequency_hz) * sine_theta);
+        const double half_spacing = 0.5 * wavenumber * geometry_.driver_spacing_m;
+        const double array = std::fabs(std::cos(half_spacing * direction.left))
+            * std::fabs(std::cos(half_spacing * direction.up));
+        const double rear = direction.forward < 0.0 ? rear_shelf(frequency_hz) : 1.0;
+        return std::fabs(piston) * array * rear;
+    }
+
     BandResponse CabinetDirectivity::gain_for(const Direction& direction) const noexcept
     {
         const double sine_theta = std::sqrt(direction.left * direction.left
                                             + direction.up * direction.up);
-        const bool behind = direction.forward < 0.0;
         BandResponse response{};
         for (std::size_t band = 0; band < kBandCount; ++band)
         {
-            const double frequency = kBandCentresHz[band];
-            const double wavenumber = 2.0 * kPi * frequency / kSpeedOfSound;
-            const double piston = piston_factor(wavenumber * effective_radius(frequency) * sine_theta);
-            const double half_spacing = 0.5 * wavenumber * geometry_.driver_spacing_m;
-            const double array = std::fabs(std::cos(half_spacing * direction.left))
-                * std::fabs(std::cos(half_spacing * direction.up));
-            const double rear = behind ? rear_shelf(frequency) : 1.0;
-            response.gain[band] = static_cast<float>(std::fabs(piston) * array * rear);
+            // The mean samples the midpoints of kOctavePoints equal log-frequency intervals
+            // from the centre over root two to the centre times root two.
+            double power_sum = 0.0;
+            for (int point = 0; point < kOctavePoints; ++point)
+            {
+                const double octaves = (static_cast<double>(point) + 0.5) / kOctavePoints - 0.5;
+                const double frequency = kBandCentresHz[band] * std::exp2(octaves);
+                const double factor = factor_at(frequency, direction, sine_theta);
+                power_sum += factor * factor;
+            }
+            response.gain[band] = static_cast<float>(std::sqrt(power_sum / kOctavePoints));
         }
         return response;
     }
@@ -142,8 +160,9 @@ namespace SushiDSP::room
 
     std::array<float, kBandCount> CabinetDirectivity::directivity_index_db() const
     {
+        static const std::vector<Direction> grid = build_grid();
         std::array<double, kBandCount> power_sum{};
-        for (const Direction& direction : grid_)
+        for (const Direction& direction : grid)
         {
             const BandResponse gain = gain_for(direction);
             for (std::size_t band = 0; band < kBandCount; ++band)
@@ -157,7 +176,7 @@ namespace SushiDSP::room
         for (std::size_t band = 0; band < kBandCount; ++band)
         {
             const double axis = static_cast<double>(on_axis.gain[band]);
-            const double mean = power_sum[band] / static_cast<double>(grid_.size());
+            const double mean = power_sum[band] / static_cast<double>(grid.size());
             index[band] = static_cast<float>(10.0 * std::log10(axis * axis / mean));
         }
         return index;
