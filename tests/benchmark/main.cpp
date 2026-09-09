@@ -40,6 +40,7 @@
 #include "SushiDSP/capture/TrackPlayer.hpp"
 #include "SushiDSP/capture/Transport.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
+#include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/dd3/Dd3Delay.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/circuits/stages/TriodeStage.hpp"
@@ -48,10 +49,17 @@
 #include "SushiDSP/math/Resampler.hpp"
 #include "SushiDSP/math/dk/DkCircuit.hpp"
 #include "SushiDSP/math/dk/DkNetlist.hpp"
+#include "SushiDSP/room/BinauralDecoder.hpp"
+#include "SushiDSP/room/EarlyReflectionRenderer.hpp"
+#include "SushiDSP/room/ModalBank.hpp"
+#include "SushiDSP/room/RoomNode.hpp"
+#include "SushiDSP/room/RoomRenderSet.hpp"
+#include "SushiDSP/room/SphericalHeadHrtf.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamerCircuits.hpp"
 
 #include "circuits/JcmV1aNetlist.hpp"
+#include "common/RoomFixtures.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -467,6 +475,261 @@ namespace
             }
         });
     }
+
+    /// @brief Returns the garage with the cabinet at (0.4, 0.5, 0.5) and the ears and an omni
+    /// microphone together at (5.4, 3.4, 2.0), the pose the modal, early and tail layers are all
+    /// driven at (`modules/room/README.md`, "The wave layer and the seam").
+    SushiDSP::room::RoomScene garage_every_layer_scene()
+    {
+        SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+        scene.source_position = { 0.4, 0.5, 0.5 };
+        scene.listener_position = { 5.4, 3.4, 2.0 };
+        scene.microphone_position = { 5.4, 3.4, 2.0 };
+        scene.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
+        return scene;
+    }
+
+    /// @brief Returns a prepared, full-wet RoomNode rendering the garage for one listener.
+    /// @param listener 0.0f for the ears, 1.0f for the microphone.
+    std::unique_ptr<SushiDSP::room::RoomNode> prepared_room_node(float listener)
+    {
+        auto node = std::make_unique<SushiDSP::room::RoomNode>();
+        node->set_parameter("mix", 1.0f);
+        node->set_parameter("listener", listener);
+        node->prepare({ kSampleRate, kBlockSize, 2 });
+        std::string reason;
+        if (!node->set_scene(garage_every_layer_scene(), reason))
+        {
+            std::printf("RoomNode set_scene failed: %s\n", reason.c_str());
+        }
+        return node;
+    }
+
+    /// @brief Times the steady-state ears block: the garage, no publish in flight, every layer
+    /// running. Plan Task 29 step 1; spec §12 item 10 budgets 1.8 ms.
+    SushiDSP::bench::Result measure_room_ears_steady_state()
+    {
+        auto node = prepared_room_node(0.0f);
+        const std::vector<float> input = make_test_tone(kBlockSize);
+        std::vector<float> left(kBlockSize, 0.0f);
+        std::vector<float> right(kBlockSize, 0.0f);
+        const float* inputs[1] = { input.data() };
+        float* outputs[2] = { left.data(), right.data() };
+        return SushiDSP::bench::measure("RoomNode ears (steady state)", kBlockSize, kSampleRate,
+            [&]
+        {
+            SushiDSP::ProcessContext context{ outputs, inputs, kBlockSize, 0.0 };
+            node->process(context);
+        });
+    }
+
+    /// @brief Times the ears block while a publish lands every other block, so the 512-frame
+    /// raised-cosine fade never lapses and every rendered block runs both early-reflection
+    /// banks. Plan Task 29 step 2; spec §12 item 10 budgets 2.8 ms.
+    SushiDSP::bench::Result measure_room_ears_swap()
+    {
+        auto node = prepared_room_node(0.0f);
+        SushiDSP::room::RoomScene alternate = garage_every_layer_scene();
+        alternate.source_position.x += 0.05;
+        const std::vector<float> input = make_test_tone(kBlockSize);
+        std::vector<float> left(kBlockSize, 0.0f);
+        std::vector<float> right(kBlockSize, 0.0f);
+        const float* inputs[1] = { input.data() };
+        float* outputs[2] = { left.data(), right.data() };
+        bool alternate_next = true;
+        std::string reason;
+        return SushiDSP::bench::measure("RoomNode ears (swap every block)", kBlockSize,
+            kSampleRate, [&]
+        {
+            const SushiDSP::room::RoomScene& scene = alternate_next ? alternate
+                                                                     : garage_every_layer_scene();
+            node->set_scene(scene, reason);
+            alternate_next = !alternate_next;
+            SushiDSP::ProcessContext context{ outputs, inputs, kBlockSize, 0.0 };
+            node->process(context);
+            node->reclaim_rooms();
+        });
+    }
+
+    /// @brief Times the microphone's steady-state block. Plan Task 29 step 3.
+    SushiDSP::bench::Result measure_room_microphone_steady_state()
+    {
+        auto node = prepared_room_node(1.0f);
+        const std::vector<float> input = make_test_tone(kBlockSize);
+        std::vector<float> left(kBlockSize, 0.0f);
+        std::vector<float> right(kBlockSize, 0.0f);
+        const float* inputs[1] = { input.data() };
+        float* outputs[2] = { left.data(), right.data() };
+        return SushiDSP::bench::measure("RoomNode microphone (steady state)", kBlockSize,
+            kSampleRate, [&]
+        {
+            SushiDSP::ProcessContext context{ outputs, inputs, kBlockSize, 0.0 };
+            node->process(context);
+        });
+    }
+
+    /// @brief Times EarlyReflectionRenderer::render alone, fed the garage's own taps, so DE7's
+    /// decision reads the heaviest brick's own cost rather than the node's total. Plan Task 29
+    /// step 4.
+    SushiDSP::bench::Result measure_early_reflection_renderer()
+    {
+        const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(kSampleRate);
+        const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
+            garage_every_layer_scene(), hrtf, kSampleRate, SushiDSP::room::ListenerKind::Ears);
+
+        SushiDSP::room::EarlyReflectionRenderer renderer;
+        constexpr std::uint32_t kMaxDelayFrames = 8397;
+        renderer.prepare(kMaxDelayFrames, kBlockSize);
+
+        const std::vector<float> input = make_test_tone(kBlockSize);
+        std::vector<float> channels(SushiDSP::room::EarlyReflectionRenderer::kOutputChannels * kBlockSize, 0.0f);
+        std::array<float*, SushiDSP::room::EarlyReflectionRenderer::kOutputChannels> channel_pointers{};
+        for (std::uint32_t channel = 0; channel < SushiDSP::room::EarlyReflectionRenderer::kOutputChannels;
+             ++channel)
+        {
+            channel_pointers[channel] = channels.data() + channel * kBlockSize;
+        }
+
+        renderer.write(input.data(), kBlockSize);
+        return SushiDSP::bench::measure("EarlyReflectionRenderer::render", kBlockSize,
+            kSampleRate, [&]
+        {
+            renderer.render(set->early, 0, channel_pointers.data(), kBlockSize);
+        });
+    }
+
+    /// @brief Times ModalBank::process alone, fed the garage's own resonator design. Plan Task
+    /// 29 step 4.
+    SushiDSP::bench::Result measure_modal_bank()
+    {
+        const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(kSampleRate);
+        const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
+            garage_every_layer_scene(), hrtf, kSampleRate, SushiDSP::room::ListenerKind::Ears);
+
+        SushiDSP::room::ModalBank bank;
+        bank.prepare(kBlockSize);
+
+        const std::vector<float> input = make_test_tone(kBlockSize);
+        std::vector<float> left(kBlockSize, 0.0f);
+        std::vector<float> right(kBlockSize, 0.0f);
+        return SushiDSP::bench::measure("ModalBank::process", kBlockSize, kSampleRate, [&]
+        {
+            bank.process(set->modal, input.data(), left.data(), right.data(), kBlockSize);
+        });
+    }
+
+    /// @brief Times BinauralDecoder::process alone; its cost is fixed by the decoder's order and
+    /// does not depend on the scene (`BinauralDecoder.hpp`). Plan Task 29 step 4.
+    SushiDSP::bench::Result measure_binaural_decoder()
+    {
+        const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(kSampleRate);
+        SushiDSP::room::BinauralDecoder decoder;
+        decoder.prepare(hrtf, kSampleRate, kBlockSize);
+
+        const std::vector<float> tone = make_test_tone(kBlockSize);
+        std::vector<float> channels(SushiDSP::room::EarlyReflectionRenderer::kOutputChannels * kBlockSize, 0.0f);
+        std::array<const float*, SushiDSP::room::EarlyReflectionRenderer::kOutputChannels> channel_pointers{};
+        for (std::uint32_t channel = 0; channel < SushiDSP::room::EarlyReflectionRenderer::kOutputChannels;
+             ++channel)
+        {
+            float* row = channels.data() + channel * kBlockSize;
+            std::memcpy(row, tone.data(), kBlockSize * sizeof(float));
+            channel_pointers[channel] = row;
+        }
+        std::vector<float> left(kBlockSize, 0.0f);
+        std::vector<float> right(kBlockSize, 0.0f);
+        return SushiDSP::bench::measure("BinauralDecoder::process", kBlockSize, kSampleRate, [&]
+        {
+            decoder.process(channel_pointers.data(), left.data(), right.data(), kBlockSize);
+        });
+    }
+
+    /// @brief One IAudioNode root that plays the 220 Hz test tone, so a RigGraph chain has a
+    /// signal to carry without a host-supplied input buffer.
+    class ToneSourceNode final : public SushiDSP::IAudioNode
+    {
+    public:
+        void prepare(const SushiDSP::PrepareInfo& info) override
+        {
+            tone_ = make_test_tone(info.max_block);
+        }
+
+        void process(SushiDSP::ProcessContext& context) override
+        {
+            std::memcpy(context.outputs[0], tone_.data(), context.frames * sizeof(float));
+        }
+
+        SushiDSP::PortLayout ports() const override { return { 0, 1 }; }
+
+        float get_parameter(const char*) const override { return 0.0f; }
+        void set_parameter(const char*, float) override {}
+        void reset() override {}
+
+    private:
+        std::vector<float> tone_;
+    };
+
+    /// @brief Times the room's own share of one block in a JCM800-into-room `RigGraph`, the
+    /// shape DE7's decision is made against. Plan Task 29 step 5; over 2.0 ms opens DE7.
+    SushiDSP::bench::Result measure_room_beside_jcm800()
+    {
+        SushiDSP::RigGraph graph(kBlockSize, 8);
+        auto source_handle = graph.add_node(std::make_unique<ToneSourceNode>());
+        auto amp_handle = graph.add_node(std::make_unique<SushiDSP::Jcm800>());
+        auto room_handle = graph.add_node(std::make_unique<SushiDSP::room::RoomNode>());
+        graph.connect(source_handle, amp_handle);
+        graph.connect(amp_handle, room_handle);
+        graph.compile({ kSampleRate, kBlockSize, 2 });
+
+        auto* amp = static_cast<SushiDSP::Jcm800*>(graph.node(amp_handle));
+        amp->set_preamp(0.6f);
+        amp->set_master(0.0f);
+        amp->set_bass(0.6f);
+        amp->set_middle(0.4f);
+        amp->set_treble(0.7f);
+        amp->set_presence(0.5f);
+
+        auto* room = static_cast<SushiDSP::room::RoomNode*>(graph.node(room_handle));
+        room->set_parameter("mix", 1.0f);
+        room->set_parameter("listener", 0.0f);
+        std::string reason;
+        if (!room->set_scene(garage_every_layer_scene(), reason))
+        {
+            std::printf("RoomNode set_scene failed: %s\n", reason.c_str());
+        }
+
+        std::vector<float> left(kBlockSize, 0.0f);
+        std::vector<float> right(kBlockSize, 0.0f);
+        float* outputs[2] = { left.data(), right.data() };
+
+        const SushiDSP::bench::Result whole_chain = SushiDSP::bench::measure(
+            "JCM800 + RoomNode (whole chain)", kBlockSize, kSampleRate, [&]
+        {
+            SushiDSP::ProcessContext context{ outputs, nullptr, kBlockSize, 0.0 };
+            graph.process(context);
+        });
+        SushiDSP::bench::print(whole_chain);
+
+        const SushiDSP::bench::Result amp_alone = measure_node<SushiDSP::Jcm800>(
+            "Jcm800 alone (for subtraction)", [](SushiDSP::Jcm800& node)
+        {
+            node.set_preamp(0.6f);
+            node.set_master(0.0f);
+            node.set_bass(0.6f);
+            node.set_middle(0.4f);
+            node.set_treble(0.7f);
+            node.set_presence(0.5f);
+        });
+
+        // The graph's own per-block cost is not the sum of its nodes' isolated costs (the
+        // gather and the buffer pool add their own share), so the room's reported share is the
+        // whole chain less the amplifier measured on its own, the best estimate the harness can
+        // give without instrumenting RigGraph::process() itself.
+        const double room_share_ns = whole_chain.nanoseconds_per_sample
+            - amp_alone.nanoseconds_per_sample;
+        return { "RoomNode share of JCM800 + Room", room_share_ns,
+                 100.0 * room_share_ns / (1e9 / kSampleRate) };
+    }
 }
 
 int main(int argc, char** argv)
@@ -570,6 +833,16 @@ int main(int argc, char** argv)
         {
             convolution.process(input.data(), output.data());
         }));
+    }
+    if (selected("Room", argc, argv))
+    {
+        print(measure_room_ears_steady_state(), 1.8);
+        print(measure_room_ears_swap(), 2.8);
+        print(measure_room_microphone_steady_state());
+        print(measure_early_reflection_renderer());
+        print(measure_modal_bank());
+        print(measure_binaural_decoder());
+        print(measure_room_beside_jcm800(), 2.0);
     }
     return 0;
 }
