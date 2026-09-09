@@ -187,13 +187,13 @@ f_s will find it empty and should not go looking for the bug.
 `RoomNodeIsContinuousAcrossTheSchroederFrequency` measures each layer against the shared
 `DiffuseField` reference and holds both within 2 dB, which is what the spec asks. The raw step
 between the octave under f_s and the octave over it is recorded and not bounded: it reads
-+0.16 dB for the garage, +1.29 dB for the bedroom and +3.75 dB for the block room in the run of
-2026-09-10, and −0.3, +0.6 and +3.1 dB in the earlier run `modules/room/README.md` records. The
-step cannot be zero, because the reference itself changes across the seam: the 4x12's directivity
++0.16 dB for the garage, +1.29 dB for the bedroom and +3.75 dB for the block room. The step
+cannot be zero, because the reference itself changes across the seam: the 4x12's directivity
 index rises 4.6 dB between 250 and 500 Hz, the block room's absorption halves from 125 to 250 Hz,
 and the poses a room is used at sit 2 to 4 dB under the volume average in the octave below f_s.
-The two runs disagree by up to 0.9 dB and nobody has reconciled them; re-running the case under
-`sd test --type release` and pinning one figure in both documents would settle it.
+An earlier run recorded −0.3, +0.6 and +3.1 dB; those are the figures the Linkwitz-Riley pair
+gave before `CrossoverPair` became power complementary, and each half then lost 2.4 dB at the
+seam. Closes when a bound follows from the reference's own step rather than from a measurement.
 
 ## `BandResponseFit` stops at eight steps on about 60 % of fits
 
