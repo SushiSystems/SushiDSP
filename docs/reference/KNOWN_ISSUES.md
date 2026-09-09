@@ -126,3 +126,15 @@ and nothing ever deletes one; a 3.4-minute song costs about 79 MB. The cache is 
 second drop of the same file cost 0 ms against the first drop's 3128 ms, and what lets a saved
 session find its clip again, so it is kept rather than made optional. Closes when the cache
 carries a size cap and evicts by last use.
+
+## The HRTF converter counts every measured direction equally
+
+`tools/dsp/convert_hrtf.py`'s `diffuse_field_average` sums the magnitude responses of the
+directions a measurement file carries without weighting each by the solid angle it stands for,
+while `SphericalHeadHrtf` weights its own grid by `4*pi*cos(e)*sin(delta/2)/36` per ring point.
+On a latitude-longitude grid the two disagree: at ten degree spacing the rings near the poles
+stand for about a fifth of the solid angle of a ring at the equator, so they carry up to 5.8
+times the weight they should, and the tail through a converted set is coloured towards whatever
+the poles measured. Nothing in the tree hits this today because `assets/hrtf/sadie2_ku100_48k.hrtf`
+is not in the repository and the fallback set is what every rig loads. Closes when the converter
+derives each direction's solid angle from the grid it finds in the file.
