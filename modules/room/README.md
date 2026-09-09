@@ -55,6 +55,32 @@ they move to files of their own beside `EarlyReflectionRenderer`.
 consume the records the solvers publish and nothing else, so a renderer is tested with a
 hand-written record and a solver with arrival times alone.
 
+## What a scene has to clear
+
+`RoomScene::is_valid` bounds each dimension to [1.5, 12] m, holds the source, the listener and
+the microphone inside the box, holds each patch inside its own face, and refuses a room whose
+reverberation runs past `kMaxDecaySeconds`, 12 s. That last bound is one chord change per bar at
+60 bpm, four seconds, with the previous chord 20 dB down when the next one lands; spec §4.1
+carries the derivation.
+
+`RoomScene` cannot ask `EyringDecay` for a decay time, since `EyringDecay` reads `RoomScene`, so
+the bound reaches the scene as a floor on the mean absorption that the scene computes itself:
+`min_mean_absorption()` returns 1 - exp(-0.161 V / (S * kMaxDecaySeconds)), Eyring inverted for
+alpha with the air term dropped. All six bands are checked against it, because a bare concrete
+box is dead at 4 kHz and enormous at 125 Hz. Dropping the air term makes the gate refuse a little
+more than Eyring's own figure would: the default scene reads 9.81 s at 125 Hz against Eyring's
+9.57 s.
+
+The floor rises with V / S, so the same material passes in one room and fails in another. Bare
+unpainted concrete, alpha = 0.01 at 125 Hz, passes at the default scene's 6.0 x 4.0 x 2.5 m, at
+9.81 s, and fails as a cube past an edge of 4.495 m. The default scene is the tightest of the
+rooms in the tree, at 82 % of the bound; the garage, the bedroom, the block room and the dead
+room sit a factor of six or more clear. `RoomSceneAcceptsEveryReferenceRoom` and
+`RoomSceneRefusesARoomThatRingsPastTheModulesDecay` walk them.
+
+The panel prints the reason `is_valid` writes, so a refused drag says which band, which value and
+which floor without any change to `RoomPanel` or `RigController`.
+
 ## Which thread runs what
 
 The audio thread calls `RoomNode::process`, and through it `CrossoverPair::process_sample`,
@@ -516,8 +542,8 @@ measured curve; modal damping at a gypsum boundary is about 30 % wrong; the FDN'
 f_s are crossed out rather than corrected; the raw octave step at the seam is recorded and not
 bounded; `BandResponseFit` stops at eight steps on about three fits in five; a structural rig edit
 rebuilds the node and empties its tail; the room panel cannot edit a patch; a compensated ears
-set's tail floors at zero delay and lands 7.6 ms after its direct sound; and a 12 m concrete
-cube, which the scene validator allows, rings to +36 dB at its 32 Hz mode with nothing between
-the node and the device to bound it. Two more, the
+set's tail floors at zero delay and lands 7.6 ms after its direct sound; and nothing between the
+node and the device bounds the output, which the decay gate narrows rather than closes. Two more,
+the
 converter's unweighted diffuse-field average and the tail's output filter stepping on its running
 state, were written when the change that caused them landed.

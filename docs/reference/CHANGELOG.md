@@ -53,6 +53,7 @@ The room track, spec `docs/superpowers/specs/2026-09-08-room-acoustics-design.md
 - 2026-09-10 — Fixed the tail's handover: the shortest line is now the crossover time and the delay ahead of it what is left (`LateReverbDesign.cpp`, `FdnDesign.hpp`).
 - 2026-09-10 — Added the absolute-level case that reads 1 / r on the cabinet's axis (`tests/functional/unit/test_room_node.cpp`).
 - 2026-09-10 — Documented the room path in `docs/design/sushidsp.md` §3c and §9, `modules/room/README.md`, `docs/README.md` and `docs/reference/KNOWN_ISSUES.md`.
+- 2026-09-10 — Added the decay gate: a scene whose mean absorption misses the floor a 12 s decay asks of it is refused (`RoomScene.hpp`, `RoomScene.cpp`).
 
 ## DT — The arrangement view: bars, clips and playback speed
 
