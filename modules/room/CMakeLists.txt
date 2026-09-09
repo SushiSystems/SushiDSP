@@ -18,6 +18,8 @@ add_library(room STATIC
     src/ImageSourceSolver.cpp
     src/LateReverbDesign.cpp
     src/ModalSolver.cpp
+    src/RoomRenderSet.cpp
+    src/RoomNode.cpp
 )
 add_library(SushiDSP::room ALIAS room)
 target_link_libraries(room PUBLIC SushiDSP::sushi_dsp)

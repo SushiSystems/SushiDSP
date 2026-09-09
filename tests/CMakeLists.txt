@@ -166,6 +166,8 @@ add_executable(sushidsp_tests
     functional/unit/test_image_source_solver.cpp
     functional/unit/test_late_reverb_design.cpp
     functional/unit/test_modal_solver.cpp
+    functional/unit/test_room_render_set.cpp
+    functional/unit/test_room_node.cpp
     functional/unit/test_channel_resampler.cpp
     functional/unit/test_audio_import_cache.cpp
     functional/unit/test_audio_import_queue.cpp
