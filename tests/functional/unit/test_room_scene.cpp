@@ -45,17 +45,17 @@ TEST(Unit_Dsp, RoomSceneComputesTheGaragesVolumeAndArea)
 TEST(Unit_Dsp, RoomSceneWeightsAPatchByItsArea)
 {
     // 92 m2 of unpainted concrete and 6 m2 of open doorway over 98 m2:
-    // 125 Hz (92 * 0.01 + 6 * 1.0) / 98 = 0.070612; 500 Hz (92 * 0.02 + 6 * 1.0) / 98 = 0.079592.
+    // 125 Hz (92 * 0.01 + 6 * 1.0) / 98 = 0.070612; 500 Hz (92 * 0.02 + 6 * 1.0) / 98 = 0.080000.
     const std::array<double, 6> absorption = SushiDSP::test::garage_scene().mean_absorption();
     EXPECT_NEAR(absorption[0], 0.070612, 1e-6);
-    EXPECT_NEAR(absorption[2], 0.079592, 1e-6);
+    EXPECT_NEAR(absorption[2], 0.080000, 1e-6);
 }
 
 TEST(Unit_Dsp, RoomSceneComputesTheBedroomsWeightedAbsorption)
 {
     // 14 m2 carpet, 51.5 m2 gypsum, 1.5 m2 glass over 67 m2:
-    // 500 Hz (14 * 0.14 + 51.5 * 0.05 + 1.5 * 0.18) / 67 = 0.071642.
-    EXPECT_NEAR(SushiDSP::test::bedroom_scene().mean_absorption()[2], 0.071642, 1e-6);
+    // 500 Hz (14 * 0.14 + 51.5 * 0.05 + 1.5 * 0.18) / 67 = 0.071716.
+    EXPECT_NEAR(SushiDSP::test::bedroom_scene().mean_absorption()[2], 0.071716, 1e-6);
 }
 
 TEST(Unit_Dsp, RoomSceneRefusesADimensionOutsideItsBounds)
