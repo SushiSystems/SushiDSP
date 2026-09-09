@@ -186,16 +186,31 @@ goes to the tap, and the rest is handed to the tail's input gain. Default s = 0.
 painted wall and 0.4 for a wall with shelves on it; the user picks from three words, not a number.
 
 `BandResponseFit` turns six band gains into two `Biquad` coefficient sets. Its target is the six
-log-magnitudes; its structure is a low shelf, a high shelf and two peaking sections' worth of
-freedom folded into two biquads; its method is a weighted least-squares fit of the log-magnitude at
-the six centres, started from a closed-form two-shelf guess and refined by at most eight
-Gauss-Newton steps in `double`. It is control-thread code, so its cost is a few thousand flops per
-fit; 128 taps plus 16 FDN lines is under 150 fits per scene change, measured at 4.33 ms in a
-Release build. The draft estimated under a millisecond and the measurement disproved it. The
-budget it has to meet is the 30 Hz at which a slider drag republishes, which is 33 ms, so the
-fit costs 13 % of a scene change and the bound the test asserts is 10 ms.
+log-magnitudes; its structure is a flat gain and two sections, each a zero pair over a pole pair
+with four parameters: a corner, a step in decibels that separates the pair's frequencies so the
+section shelves, a peak in decibels that separates their Qs so the section dips or rises at the
+corner, and a Q. With the peak at zero a section is the RBJ shelf; with the step at zero it is a
+peaking section; the fit can move each between the two. Its method is a least-squares fit of the
+log-magnitude at the six centres, started from a closed-form guess, the two shelves at 250 Hz and
+2 kHz with each corner's peak seeded from that band's departure from the mean of its neighbours,
+and refined by at most eight Gauss-Newton steps in `double`, with a prior that pulls every
+parameter toward the guess (0.1 per squared unit for the gains, corners and Qs, 0.01 for the
+peaks) so that one target has one answer and nearby targets have nearby coefficients. A two-shelf
+model was the structure until 2026-09-09: it cannot dip, and it missed the reference garage's
+direct path through the 4x12, whose 2 kHz octave the array null pulls to -11.5 dB, by 3.5 dB;
+the model with peaks fits it within 0.1 dB. It is control-thread code, so its cost is a few
+thousand flops per fit; 128 taps plus 16 FDN lines is under 150 fits per scene change, measured
+at 4.33 ms in a Release build with the two shelves, and the model with peaks costs the same
+within measurement (1.29 against 1.30 ms for 150 fits in one `-O2` harness). The draft estimated
+under a millisecond and the measurement disproved it. The budget it has to meet is the 30 Hz at
+which a slider drag republishes, which is 33 ms, so the fit costs 13 % of a scene change and the
+bound the test asserts is 10 ms.
 Acceptance is 1 dB at every band centre for every row of the materials table raised to any power
-from 1 to 4 (one to four bounces off the same wall), and the test enumerates exactly that.
+from 1 to 4 (one to four bounces off the same wall), and the test enumerates exactly that; a
+one-band cut of 8 or 20 dB between flat neighbours, and the direct path above, fit within 0.5 dB.
+Targets with two dips, which the 4x12's far off-axis octave means do have, stay out of reach of
+two sections: over 629 directions on the sphere the worst fit misses by 4.6 dB and 34 miss by
+more than 1 dB, none of them nearer than 45 degrees to the axis.
 
 Air absorption follows ISO 9613-1:1993 at 20 °C and 50 % relative humidity, fixed, no knob. At
 those conditions the attenuation is 0.0297 dB/m at 4 kHz and 0.105 dB/m at 8 kHz, so a 30 m early
@@ -305,20 +320,23 @@ swap and taking the residual against the raised-cosine blend of the two steady r
 
 - The same scene republished: every tap carries its state and the residual is exactly zero;
   the test bounds it at -120 dBFS.
-- The microphone moved 1 cm: every delay moves by under 1.4 frames, 52 of the 96 taps carry
-  their state and the residual is -35.9 dBFS; the test bounds it at -35 dBFS.
-- The microphone moved 0.36 m: the taps reorder, none carries and the residual is -32.7 dBFS;
-  the test bounds it at -32 dBFS.
+- The microphone moved 1 cm: every delay moves by under 1.4 frames, 78 of the 96 taps carry
+  their state and the residual is -60.2 dBFS; the test bounds it at -35 dBFS.
+- The microphone moved 0.36 m: the taps reorder, the carry buys nothing and the residual is
+  -53.9 dBFS; the test bounds it at -32 dBFS.
 
-The cases differ by how many taps start from zero. A zero-started tap's transient decays with
-the tap filter's slowest pole, radius 0.99918 in the garage, a time constant of 1220 frames,
-2.4 fades long. The 44 taps that start from zero after a 1 cm move do so because
-`BandResponseFit` lands on a different local minimum for a target its two shelves cannot fit,
-the direct path's 4x12 directivity notch at 2 kHz for one, and moves a coefficient by up to 3.2
-for a 0.03 dB change of the target. The -60 dBFS this section first asked for needs that fit to
-be continuous for notched targets; the carry alone does not reach it. The step bound, no
-sample-to-sample step beyond the steady signal's own, measures a ratio of 1.0051 for the 0.36 m
-move and is bounded at 1.01. `modules/room/README.md` carries the full table.
+The cases differ by how many taps start from zero and by how long a zero-started tap's
+transient lasts, which is set by the tap filter's slowest pole. With the two-shelf fit that pole
+had radius 0.99779 over the garage's 96 microphone taps, a time constant of 453 frames, and 44
+taps started from zero after a 1 cm move because the fit landed on a different local minimum
+for a target its two shelves could not fit, the direct path's 4x12 directivity at 2 kHz for one;
+the 1 cm case measured -35.9 dBFS and the 0.36 m case -32.7 dBFS. With the fit of 2026-09-09,
+whose sections can dip, and the directivity averaged over each octave (§7), the slowest pole
+has radius 0.98801, a time constant of 83 frames, 78 of the 96 taps carry after a 1 cm move and
+the cases measure -60.2 and -53.9 dBFS: the 1 cm case reaches the -60 dBFS this section first
+asked for. The tests keep their bounds of -35 and -32 dBFS. The step bound, no sample-to-sample
+step beyond the steady signal's own, measures a ratio of 1.0033 for the 0.36 m move and is
+bounded at 1.01. `modules/room/README.md` carries the full table.
 
 ## 6. DE2: the late tail
 
@@ -434,10 +452,19 @@ first null is at 30° off axis. The four drivers on 0.3 m centres add an array f
 grating null appears at 1.1 kHz at 90°. Behind the baffle, the closed box radiates as a source
 whose front-to-back ratio rises from 0 dB below the baffle-step frequency (about 115 / W Hz for a
 baffle W metres wide, 150 Hz for a 0.75 m cabinet) to a 6 dB shelf above it, plus the piston's own
-fall-off. `CabinetDirectivity` evaluates this closed form at the six band centres for a given
-outgoing direction and returns a `BandResponse`; the piston model needs no data beyond three
-numbers: the cone radius, the driver spacing and the baffle width, with the 4x12 defaults above and
-a 1x12 and a 2x12 preset beside it.
+fall-off. `CabinetDirectivity` evaluates this closed form over each of the six octave bands for a
+given outgoing direction and returns a `BandResponse` holding each band's energy mean, the
+midpoint rule over sixteen equal log-frequency intervals from the centre over root two to the
+centre times root two; the piston model needs no data beyond three numbers: the cone radius, the
+driver spacing and the baffle width, with the 4x12 defaults above and a 1x12 and a 2x12 preset
+beside it. The mean, not the value at the centre, is the band quantity for the same reason the
+materials table is: a tap filter of fourth order can carry a band's level but not a null inside
+it. Until 2026-09-09 the model sampled the centre alone, and the reference garage's direct path,
+15.6 degrees above the axis, read -22.1 dB at 2 kHz because the two rows of drivers cancel at
+2120 Hz there; the energy mean over the octave reads -11.5 dB, since the null is narrow and the
+array factor recovers to 0 dB at both edges of the band, and that is the level the two-biquad
+tap can render. The centre value also moved with the third digit of the nominal spacing, which
+the mean does not.
 
 Where the piston model is wrong, and knowingly: a real cone breaks up above 2 to 3 kHz, so its
 radiating area shrinks with frequency and the real cabinet is less directional up high than the
@@ -457,10 +484,14 @@ need a free-field measurement the maintainer does not have.
 
 ### 7.1 Acceptance
 
-The on-axis minus 60°-off-axis level at 2 kHz for the 4x12 preset equals the closed-form array
-value within 0.5 dB, and the same difference at 125 Hz is under 1 dB; the directivity index per
-band, integrated numerically over the sphere, is within 0.5 dB of the analytic piston value in the
-bands where a rigid piston applies (below f_b).
+The on-axis minus 60°-off-axis level at 2 kHz for the 4x12 preset equals the octave energy mean
+of the closed form, -15.29 dB by a 1024-point midpoint rule, within 0.05 dB, and the same
+difference at 125 Hz is under 1 dB; at the reference garage's direct-path elevation the 2 kHz
+band reads -11.48 dB where the closed form at the centre reads -22.05 dB; the model's sixteen
+points per octave agree with the 1024-point rule within 0.05 dB in every band at every
+direction tried; the directivity index per band, integrated numerically over the sphere, is
+within 0.5 dB of the analytic piston value in the bands where a rigid piston applies (below
+f_b).
 
 ## 8. DE4, part two: the microphone
 

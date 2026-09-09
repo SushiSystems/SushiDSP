@@ -62,17 +62,16 @@ namespace SushiDSP::room
     /// @brief Describes a 1x12 cabinet.
     inline constexpr CabinetGeometry kCabinet1x12{ 0.125, 0.00, 0.40, 2500.0 };
 
-    /// @brief Evaluates four rigid pistons in an infinite baffle in front of a closed box, on the
-    /// control thread. Spec §7.
+    /// @brief Evaluates four rigid pistons in an infinite baffle in front of a closed box, as an
+    /// energy mean over each octave band, on the control thread. Spec §7.
     class CabinetDirectivity
     {
     public:
-        /// @brief Builds the model for one geometry and the spherical grid its index integrates
-        /// over.
+        /// @brief Builds the model for one geometry.
         explicit CabinetDirectivity(const CabinetGeometry& geometry);
 
         /// @brief Returns the gain per band relative to on axis for a direction in the cabinet's
-        /// own frame.
+        /// own frame, each band the energy mean of the closed form over its octave.
         /// @param azimuth_rad 0 straight ahead, positive to the cabinet's left.
         /// @param elevation_rad 0 on the baffle's axis, positive up.
         BandResponse gain_for(double azimuth_rad, double elevation_rad) const noexcept;
@@ -101,6 +100,11 @@ namespace SushiDSP::room
         /// @brief Returns the gain per band for a unit direction.
         BandResponse gain_for(const Direction& direction) const noexcept;
 
+        /// @brief Returns the closed form at one frequency for a unit direction whose sine of
+        /// the off-axis angle is given.
+        double factor_at(double frequency_hz, const Direction& direction,
+                         double sine_theta) const noexcept;
+
         /// @brief Returns the effective cone radius at one frequency, in metres.
         double effective_radius(double frequency_hz) const noexcept;
 
@@ -112,8 +116,5 @@ namespace SushiDSP::room
 
         /// @brief Stores the geometry the model evaluates.
         CabinetGeometry geometry_;
-
-        /// @brief Stores the spherical grid the directivity index integrates over.
-        std::vector<Direction> grid_;
     };
 }

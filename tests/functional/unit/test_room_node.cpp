@@ -284,10 +284,10 @@ TEST(Unit_Dsp, RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid)
 
 TEST(Unit_Dsp, RoomNodeCrossfadesAPublishWithoutAStep)
 {
-    // The microphone moves 0.36 m, which reorders the taps and refits every filter, so no
-    // tap's state is carried and the arriving bank starts from zero. Measured: a step ratio
-    // of 1.0051 and a residual of 0.0233, -32.7 dBFS. Spec 5.3 states the -60 dBFS this
-    // case cannot reach and the reason; the README's crossfade section carries the figures.
+    // The microphone moves 0.36 m, which reorders the taps and refits every filter, so the
+    // arriving bank starts from zero. Measured: a step ratio of 1.0033 and a residual of
+    // 0.0020, -53.9 dBFS, where the two-shelf fit measured 1.0051 and 0.0233, -32.7 dBFS.
+    // Spec 5.3 and the README's crossfade section carry the figures.
     SushiDSP::room::RoomScene moved = microphone_scene();
     moved.microphone_position = { 3.7, 2.2, 1.2 };
     const CrossfadeMeasure measure = measure_crossfade(microphone_scene(), moved);
@@ -298,9 +298,10 @@ TEST(Unit_Dsp, RoomNodeCrossfadesAPublishWithoutAStep)
 
 TEST(Unit_Dsp, RoomNodeCrossfadesASmallMoveFromTheCarriedState)
 {
-    // One centimetre moves every delay by under 1.4 frames; 52 of the 96 taps refit within
-    // the match bound and carry their state, the other 44 start from zero. Measured: a step
-    // ratio of 1.0000 and a residual of 0.0160, -35.9 dBFS.
+    // One centimetre moves every delay by under 1.4 frames; 78 of the 96 taps refit within
+    // the match bound and carry their state, the other 18 start from zero. Measured: a step
+    // ratio of 1.0000 and a residual of 0.0010, -60.2 dBFS, where the two-shelf fit carried 52
+    // and measured 0.0160, -35.9 dBFS.
     SushiDSP::room::RoomScene nudged = microphone_scene();
     nudged.microphone_position.x += 0.01;
     const CrossfadeMeasure measure = measure_crossfade(microphone_scene(), nudged);

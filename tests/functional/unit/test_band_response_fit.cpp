@@ -193,9 +193,40 @@ TEST(Unit_Dsp, BandResponseFitPutsTheWholeGainInTheFirstSection)
         });
 }
 
+TEST(Unit_Dsp, BandResponseFitReachesADipBetweenFlatBands)
+{
+    // Two shelves cannot dip, so the model gives each section a peak as well as a step. The
+    // first two targets are one band cut with its neighbours flat; the third is the reference
+    // garage's direct path through the 4x12, whose 2 kHz octave the array null pulls down.
+    // Measured: 0.20, 0.45 and 0.10 dB.
+    const std::array<std::array<float, 6>, 3> targets = { {
+        { 0.0f, 0.0f, 0.0f, -8.0f, 0.0f, 0.0f },
+        { 0.0f, 0.0f, 0.0f, 0.0f, -20.0f, 0.0f },
+        { -0.05f, -0.19f, -0.76f, -3.11f, -11.50f, -3.49f },
+    } };
+    for (const std::array<float, 6>& decibels : targets)
+    {
+        const SushiDSP::room::BandResponse target =
+            SushiDSP::room::BandResponse::from_decibels(decibels);
+        const SushiDSP::room::BandResponseFit::Result result =
+            SushiDSP::room::BandResponseFit::fit(target, 48000.0);
+        EXPECT_LE(result.worst_error_db, 0.5) << "target at 2 kHz " << decibels[4];
+        for (std::size_t band = 0; band < 6u; ++band)
+        {
+            EXPECT_NEAR(SushiDSP::room::BandResponseFit::magnitude_db(
+                            result.coefficients, SushiDSP::room::kBandCentresHz[band], 48000.0),
+                        decibels[band], 0.5)
+                << "target at 2 kHz " << decibels[4] << " band " << band;
+        }
+        EXPECT_TRUE(inside_stability_triangle(result.coefficients.section_a));
+        EXPECT_TRUE(inside_stability_triangle(result.coefficients.section_b));
+    }
+}
+
 TEST(Unit_Dsp, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
 {
-    // Measured: 0.036 for 0.05 dB and 0.41 for 0.5 dB; before the prior, 2.32 and 3.73.
+    // Measured: 0.029 for 0.05 dB and 0.21 for 0.5 dB with the peaks; 0.036 and 0.41 with the
+    // two shelves alone; before the prior, 2.32 and 3.73.
     for_every_target(
         [](const SushiDSP::room::BandResponse& target, double rate, const char* label)
         {

@@ -23,7 +23,8 @@
 
 /**
  * @file BandResponseFit.cpp
- * @brief A two-shelf closed-form guess refined by damped Gauss-Newton steps toward a prior.
+ * @brief Two sections that are each a shelf, a peak or both, refined by damped Gauss-Newton
+ * steps from a two-shelf closed-form guess toward the same guess as a prior.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -40,8 +41,12 @@ namespace SushiDSP::room
         /// @brief Holds pi.
         constexpr double kPi = 3.14159265358979323846;
 
-        /// @brief Counts the free parameters: a flat gain, then gain, corner and Q of each shelf.
-        constexpr std::size_t kParameterCount = 7;
+        /// @brief Counts the free parameters: a flat gain, then the log corner, step, peak and
+        /// log Q of each section.
+        constexpr std::size_t kParameterCount = 9;
+
+        /// @brief Counts the parameters of one section.
+        constexpr std::size_t kSectionSlots = 4;
 
         /// @brief Bounds the refinement at eight accepted steps.
         constexpr int kMaxSteps = 8;
@@ -49,10 +54,6 @@ namespace SushiDSP::room
         /// @brief Stops the refinement once an accepted step moves the parameter vector by less
         /// than this, in its own units of decibels and natural logarithms.
         constexpr double kStepTolerance = 1e-3;
-
-        /// @brief Weights the pull of every parameter toward the closed-form guess, in squared
-        /// decibels of cost per squared unit of the parameter.
-        constexpr double kPriorWeight = 0.1;
 
         /// @brief Holds the parameter vector the refinement moves.
         using Parameters = std::array<double, kParameterCount>;
@@ -67,45 +68,49 @@ namespace SushiDSP::room
         enum Slot : std::size_t
         {
             kFlatDb = 0,
-            kLowDb,
-            kLowLogCorner,
-            kLowLogQ,
-            kHighDb,
-            kHighLogCorner,
-            kHighLogQ
+            kFirstLogCorner,
+            kFirstStepDb,
+            kFirstPeakDb,
+            kFirstLogQ,
+            kSecondLogCorner,
+            kSecondStepDb,
+            kSecondPeakDb,
+            kSecondLogQ
         };
 
-        /// @brief Returns the RBJ shelf coefficients, a low shelf when low is true.
-        Section shelf(double sample_rate, double corner_hz, double gain_db, double q, bool low)
+        /// @brief Weights the pull of each parameter toward the closed-form guess, in squared
+        /// decibels of cost per squared unit of the parameter: 0.1 for the gains, corners and
+        /// Qs, 0.01 for the two peaks. Spec §4.2.
+        constexpr Parameters kPriorWeights = { 0.1, 0.1, 0.1, 0.01, 0.1, 0.1, 0.1, 0.01, 0.1 };
+
+        /// @brief Returns the three coefficients of a root pair at the given frequency and Q,
+        /// bilinear-transformed and scaled to a value of one at zero frequency.
+        std::array<double, 3> root_pair(double sample_rate, double frequency_hz, double q) noexcept
         {
-            const double a = std::pow(10.0, gain_db / 40.0);
-            const double omega = 2.0 * kPi * corner_hz / sample_rate;
-            const double sin_omega = std::sin(omega);
-            const double cos_omega = low ? std::cos(omega) : -std::cos(omega);
-            const double alpha = sin_omega / (2.0 * q);
-            const double two_sqrt_a_alpha = 2.0 * std::sqrt(a) * alpha;
-            const double sign = low ? 1.0 : -1.0;
-            const double b0 = a * ((a + 1.0) - (a - 1.0) * cos_omega + two_sqrt_a_alpha);
-            const double b1 = sign * 2.0 * a * ((a - 1.0) - (a + 1.0) * cos_omega);
-            const double b2 = a * ((a + 1.0) - (a - 1.0) * cos_omega - two_sqrt_a_alpha);
-            const double a0 = (a + 1.0) + (a - 1.0) * cos_omega + two_sqrt_a_alpha;
-            const double a1 = sign * -2.0 * ((a - 1.0) + (a + 1.0) * cos_omega);
-            const double a2 = (a + 1.0) + (a - 1.0) * cos_omega - two_sqrt_a_alpha;
-            return { b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0 };
+            const double k = std::tan(kPi * frequency_hz / sample_rate);
+            const double k_squared = k * k;
+            const double scale = 1.0 / (4.0 * k_squared);
+            return { scale * (1.0 + k / q + k_squared), scale * 2.0 * (k_squared - 1.0),
+                     scale * (1.0 - k / q + k_squared) };
         }
 
-        /// @brief Returns the low shelf the parameter vector describes.
-        Section low_shelf(const Parameters& parameters, double sample_rate)
+        /// @brief Returns the section held in the four slots from the given one, unity gain at
+        /// zero frequency and a0 equal to one: its zero pair sits below the corner and its pole
+        /// pair above it by the step, and its zero Q sits below the Q and its pole Q above it by
+        /// the peak, so that the section rises by the step from zero frequency to half the
+        /// sample rate and by the peak at the corner.
+        Section section_at(const Parameters& parameters, std::size_t first, double sample_rate)
         {
-            return shelf(sample_rate, std::exp(parameters[kLowLogCorner]), parameters[kLowDb],
-                         std::exp(parameters[kLowLogQ]), true);
-        }
-
-        /// @brief Returns the high shelf the parameter vector describes.
-        Section high_shelf(const Parameters& parameters, double sample_rate)
-        {
-            return shelf(sample_rate, std::exp(parameters[kHighLogCorner]), parameters[kHighDb],
-                         std::exp(parameters[kHighLogQ]), false);
+            const double corner_hz = std::exp(parameters[first]);
+            const double step_ratio = std::pow(10.0, parameters[first + 1] / 80.0);
+            const double peak_ratio = std::pow(10.0, parameters[first + 2] / 40.0);
+            const double q = std::exp(parameters[first + 3]);
+            const std::array<double, 3> zeros =
+                root_pair(sample_rate, corner_hz / step_ratio, q / peak_ratio);
+            const std::array<double, 3> poles =
+                root_pair(sample_rate, corner_hz * step_ratio, q * peak_ratio);
+            return { zeros[0] / poles[0], zeros[1] / poles[0], zeros[2] / poles[0],
+                     poles[1] / poles[0], poles[2] / poles[0] };
         }
 
         /// @brief Returns true when a section's poles lie inside the unit circle.
@@ -116,24 +121,16 @@ namespace SushiDSP::room
             return std::fabs(a2) < 1.0 && std::fabs(a1) < 1.0 + a2;
         }
 
-        /// @brief Returns a section's gain at zero frequency, (b0 + b1 + b2) / (1 + a1 + a2).
-        double dc_gain(const Section& section) noexcept
-        {
-            return (section[0] + section[1] + section[2]) / (1.0 + section[3] + section[4]);
-        }
-
-        /// @brief Builds the canonical cascade: the low shelf first, the high shelf second with
-        /// unity gain at zero frequency, the whole gain in the first section's numerator.
-        BandResponseFit::Coefficients realise(const Section& low, const Section& high,
+        /// @brief Builds the canonical cascade: the second section at unity gain at zero
+        /// frequency as parameterised, the whole gain in the first section's numerator.
+        BandResponseFit::Coefficients realise(const Section& first, const Section& second,
                                               double flat_db) noexcept
         {
-            BandResponseFit::Coefficients coefficients{ low, high };
-            const double high_dc = dc_gain(high);
-            const double gain = std::pow(10.0, flat_db / 20.0) * high_dc;
+            BandResponseFit::Coefficients coefficients{ first, second };
+            const double gain = std::pow(10.0, flat_db / 20.0);
             for (std::size_t index = 0; index < 3; ++index)
             {
                 coefficients.section_a[index] *= gain;
-                coefficients.section_b[index] /= high_dc;
             }
             return coefficients;
         }
@@ -230,17 +227,17 @@ namespace SushiDSP::room
         /// @brief Holds everything one parameter vector evaluates to.
         struct Evaluation
         {
-            /// @brief Stores the low shelf's coefficients.
-            Section low;
+            /// @brief Stores the first section's coefficients.
+            Section first;
 
-            /// @brief Stores the high shelf's coefficients.
-            Section high;
+            /// @brief Stores the second section's coefficients.
+            Section second;
 
-            /// @brief Stores the low shelf's magnitude per band, in decibels.
-            Bands low_db;
+            /// @brief Stores the first section's magnitude per band, in decibels.
+            Bands first_db;
 
-            /// @brief Stores the high shelf's magnitude per band, in decibels.
-            Bands high_db;
+            /// @brief Stores the second section's magnitude per band, in decibels.
+            Bands second_db;
 
             /// @brief Stores the cascade's magnitude minus the target per band, in decibels.
             Bands residual;
@@ -249,7 +246,7 @@ namespace SushiDSP::room
             /// prior.
             double cost;
 
-            /// @brief Stores whether both shelves have their poles inside the unit circle.
+            /// @brief Stores whether both sections have their poles inside the unit circle.
             bool stable;
         };
 
@@ -258,23 +255,23 @@ namespace SushiDSP::room
                             const Bands& wanted, const BandGrid& grid, double sample_rate)
         {
             Evaluation result{};
-            result.low = low_shelf(parameters, sample_rate);
-            result.high = high_shelf(parameters, sample_rate);
-            result.low_db = section_db(result.low, grid);
-            result.high_db = section_db(result.high, grid);
+            result.first = section_at(parameters, kFirstLogCorner, sample_rate);
+            result.second = section_at(parameters, kSecondLogCorner, sample_rate);
+            result.first_db = section_db(result.first, grid);
+            result.second_db = section_db(result.second, grid);
             result.cost = 0.0;
             for (std::size_t band = 0; band < kBandCount; ++band)
             {
-                result.residual[band] = parameters[kFlatDb] + result.low_db[band]
-                    + result.high_db[band] - wanted[band];
+                result.residual[band] = parameters[kFlatDb] + result.first_db[band]
+                    + result.second_db[band] - wanted[band];
                 result.cost += result.residual[band] * result.residual[band];
             }
             for (std::size_t slot = 0; slot < kParameterCount; ++slot)
             {
                 const double offset = parameters[slot] - prior[slot];
-                result.cost += kPriorWeight * offset * offset;
+                result.cost += kPriorWeights[slot] * offset * offset;
             }
-            result.stable = is_stable(result.low) && is_stable(result.high);
+            result.stable = is_stable(result.first) && is_stable(result.second);
             return result;
         }
 
@@ -282,22 +279,22 @@ namespace SushiDSP::room
         /// slot.
         using Jacobian = std::array<Bands, kParameterCount>;
 
-        /// @brief Returns the Jacobian at an evaluation: the flat gain's row is one, each shelf's
-        /// three rows are forward differences of that shelf alone.
+        /// @brief Returns the Jacobian at an evaluation: the flat gain's row is one, each
+        /// section's four rows are forward differences of that section alone.
         Jacobian jacobian(const Parameters& parameters, const Evaluation& at,
                           const BandGrid& grid, double sample_rate)
         {
             constexpr double delta = 1e-4;
             Jacobian result{};
             result[kFlatDb].fill(1.0);
-            for (std::size_t slot = kLowDb; slot < kParameterCount; ++slot)
+            for (std::size_t slot = kFirstLogCorner; slot < kParameterCount; ++slot)
             {
-                const bool low = slot <= kLowLogQ;
+                const bool first = slot < kSecondLogCorner;
+                const std::size_t start = first ? kFirstLogCorner : kSecondLogCorner;
                 Parameters nudged = parameters;
                 nudged[slot] += delta;
-                const Bands shifted = section_db(
-                    low ? low_shelf(nudged, sample_rate) : high_shelf(nudged, sample_rate), grid);
-                const Bands& base = low ? at.low_db : at.high_db;
+                const Bands shifted = section_db(section_at(nudged, start, sample_rate), grid);
+                const Bands& base = first ? at.first_db : at.second_db;
                 for (std::size_t band = 0; band < kBandCount; ++band)
                 {
                     result[slot][band] = (shifted[band] - base[band]) / delta;
@@ -367,9 +364,9 @@ namespace SushiDSP::room
                     }
                     normal[row][column] = sum;
                 }
-                normal[row][row] += kPriorWeight;
+                normal[row][row] += kPriorWeights[row];
                 normal[row][row] *= 1.0 + damping;
-                double sum = -kPriorWeight * (parameters[row] - prior[row]);
+                double sum = -kPriorWeights[row] * (parameters[row] - prior[row]);
                 for (std::size_t band = 0; band < kBandCount; ++band)
                 {
                     sum -= slope[row][band] * at.residual[band];
@@ -379,30 +376,47 @@ namespace SushiDSP::room
             return solve(normal, gradient, step);
         }
 
-        /// @brief Keeps every corner inside (20 Hz, 0.45 * sample_rate) and every Q inside
-        /// (0.25, 4).
+        /// @brief Keeps every corner inside (20 Hz, 0.45 * sample_rate), every Q inside
+        /// (0.25, 4) and every peak inside (-30, 30) dB.
         void clamp(Parameters& parameters, double sample_rate) noexcept
         {
             const double lowest = std::log(20.0);
             const double highest = std::log(0.45 * sample_rate);
-            parameters[kLowLogCorner] = std::clamp(parameters[kLowLogCorner], lowest, highest);
-            parameters[kHighLogCorner] = std::clamp(parameters[kHighLogCorner], lowest, highest);
-            parameters[kLowLogQ] = std::clamp(parameters[kLowLogQ], std::log(0.25), std::log(4.0));
-            parameters[kHighLogQ] = std::clamp(parameters[kHighLogQ], std::log(0.25), std::log(4.0));
+            const double lowest_q = std::log(0.25);
+            const double highest_q = std::log(4.0);
+            for (std::size_t first = kFirstLogCorner; first < kParameterCount;
+                 first += kSectionSlots)
+            {
+                parameters[first] = std::clamp(parameters[first], lowest, highest);
+                parameters[first + 2] = std::clamp(parameters[first + 2], -30.0, 30.0);
+                parameters[first + 3] = std::clamp(parameters[first + 3], lowest_q, highest_q);
+            }
         }
 
-        /// @brief Returns the closed-form two-shelf guess: corners at 250 Hz and 2 kHz, Q 0.7071,
-        /// the flat gain at the mean of the two middle bands.
+        /// @brief Writes a section into the four slots from the given one: the corner, the
+        /// step, the peak, Q 0.7071.
+        void place(double corner_hz, double step_db, double peak_db, std::size_t first,
+                   Parameters& parameters) noexcept
+        {
+            parameters[first] = std::log(corner_hz);
+            parameters[first + 1] = step_db;
+            parameters[first + 2] = peak_db;
+            parameters[first + 3] = std::log(0.7071);
+        }
+
+        /// @brief Returns the closed-form guess: the flat gain at the 125 Hz band; a section at
+        /// 250 Hz that steps from there to the mean of the two middle bands and peaks by the
+        /// 250 Hz band's departure from the mean of its neighbours; a section at 2 kHz that
+        /// steps on to the 4 kHz band and peaks by the 2 kHz band's departure likewise.
         Parameters initial_guess(const Bands& wanted) noexcept
         {
             Parameters parameters{};
-            parameters[kFlatDb] = 0.5 * (wanted[2] + wanted[3]);
-            parameters[kLowDb] = wanted[0] - parameters[kFlatDb];
-            parameters[kLowLogCorner] = std::log(250.0);
-            parameters[kLowLogQ] = std::log(0.7071);
-            parameters[kHighDb] = wanted[5] - parameters[kFlatDb];
-            parameters[kHighLogCorner] = std::log(2000.0);
-            parameters[kHighLogQ] = std::log(0.7071);
+            const double middle_db = 0.5 * (wanted[2] + wanted[3]);
+            parameters[kFlatDb] = wanted[0];
+            place(250.0, middle_db - wanted[0], wanted[1] - 0.5 * (wanted[0] + wanted[2]),
+                  kFirstLogCorner, parameters);
+            place(2000.0, wanted[5] - middle_db, wanted[4] - 0.5 * (wanted[3] + wanted[5]),
+                  kSecondLogCorner, parameters);
             return parameters;
         }
     }
@@ -465,6 +479,7 @@ namespace SushiDSP::room
                 break;
             }
         }
-        return Result{ realise(best.low, best.high, parameters[kFlatDb]), worst(best.residual) };
+        return Result{ realise(best.first, best.second, parameters[kFlatDb]),
+                       worst(best.residual) };
     }
 }
