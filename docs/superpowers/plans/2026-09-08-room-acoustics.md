@@ -976,9 +976,12 @@ namespace SushiDSP::room
         std::array<std::uint32_t, kLineCount>        line_frames;
         std::array<std::array<double, 5>, kLineCount> line_section_a;
         std::array<std::array<double, 5>, kLineCount> line_section_b;
-        std::array<double, 5> tone_correction;
-        std::array<double, 5> coherence_a;     ///< The gamma filter of spec §6.4.
-        std::array<double, 5> coherence_b;     ///< sqrt(1 - gamma^2).
+        static constexpr std::size_t kOutputSections = 2;
+        using Section = std::array<double, 5>;
+        using Cascade = std::array<Section, kOutputSections>;   ///< One 4th-order filter.
+        Cascade tone_correction;               ///< Both sections of the BandResponseFit.
+        Cascade coherence_a;                   ///< The gamma filter of spec §6.4.
+        Cascade coherence_b;                   ///< sqrt(1 - gamma^2).
         float input_gain;
         float delay_to_crossover_frames;
     };
@@ -1645,10 +1648,10 @@ Write all six out in full.
 - [ ] **Step 3: Implement.** Sixteen `std::vector<float>` lines allocated in `prepare()` at
       `max_line_frames`, each read at its design offset so a shorter room is a shorter read and
       never a reallocation. The feedback matrix is a fast Walsh-Hadamard transform, 64 additions
-      per sample, scaled by 1/4 to be orthonormal. Two `Biquad` per line, the tone-correction
-      biquad on the sum, and the two coherence filters on the ear outputs. A changed line length
-      crossfades between the old and new read heads over 512 frames, the same length the node's
-      set crossfade uses.
+      per sample, scaled by 1/4 to be orthonormal. Two `Biquad` per line, the two-section
+      tone correction on each ear's sum, and the two two-section coherence filters on the right
+      ear. A changed line length crossfades between the old and new read heads over 512 frames,
+      the same length the node's set crossfade uses.
 - [ ] **Step 4: Syntax-check**, paste. **Step 5: Commit**
       `DE2: LateReverb runs the 16-line Hadamard FDN and its two ear outputs`.
 

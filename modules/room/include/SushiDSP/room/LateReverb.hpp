@@ -111,11 +111,34 @@ namespace SushiDSP::room
             void reset() noexcept;
         };
 
+        /// @brief Runs one fourth-order output filter as its two sections in order.
+        struct OutputFilter
+        {
+            /// @brief Stores the two sections, run first to last.
+            std::array<Biquad, FdnDesign::kOutputSections> sections;
+
+            /// @brief Advances both sections by one sample and returns the second's output.
+            float process_sample(float input) noexcept
+            {
+                for (Biquad& section : sections)
+                {
+                    input = section.process_sample(input);
+                }
+                return input;
+            }
+
+            /// @brief Copies one design cascade into the two sections.
+            void load(const FdnDesign::Cascade& cascade) noexcept;
+
+            /// @brief Clears both sections' state.
+            void reset() noexcept;
+        };
+
         /// @brief Adopts the design's lengths, starting a crossfade when they differ from the
         /// lengths in use.
         void adopt_lengths(const FdnDesign& design) noexcept;
 
-        /// @brief Loads the design's filters into the banks and the four output biquads.
+        /// @brief Loads the design's filters into the banks and the four output filters.
         void load_filters(const FdnDesign& design) noexcept;
 
         /// @brief Runs the network over a run of frames, blending two read heads while
@@ -169,15 +192,15 @@ namespace SushiDSP::room
         SectionBank section_b_{};
 
         /// @brief Applies Jot's tone correction to the left ear.
-        Biquad tone_left_;
+        OutputFilter tone_left_;
 
         /// @brief Applies Jot's tone correction to the right ear.
-        Biquad tone_right_;
+        OutputFilter tone_right_;
 
         /// @brief Applies the coherence filter gamma to the A sum on its way to the right ear.
-        Biquad coherence_a_;
+        OutputFilter coherence_a_;
 
         /// @brief Applies sqrt(1 - gamma^2) to the B sum on its way to the right ear.
-        Biquad coherence_b_;
+        OutputFilter coherence_b_;
     };
 }

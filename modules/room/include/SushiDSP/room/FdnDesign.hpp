@@ -41,6 +41,15 @@ namespace SushiDSP::room
         /// @brief Counts the delay lines.
         static constexpr std::size_t kLineCount = 16;
 
+        /// @brief Counts the biquad sections each output filter cascades.
+        static constexpr std::size_t kOutputSections = 2;
+
+        /// @brief Holds one biquad section's b0, b1, b2, a1, a2.
+        using Section = std::array<double, 5>;
+
+        /// @brief Holds one fourth-order output filter as its two sections, run in order.
+        using Cascade = std::array<Section, kOutputSections>;
+
         /// @brief Stores each line's length in frames.
         std::array<std::uint32_t, kLineCount> line_frames;
 
@@ -50,14 +59,14 @@ namespace SushiDSP::room
         /// @brief Stores b0, b1, b2, a1, a2 of each line's second absorption section.
         std::array<std::array<double, 5>, kLineCount> line_section_b;
 
-        /// @brief Stores the tone-correction section applied to the summed output.
-        std::array<double, 5> tone_correction;
+        /// @brief Stores the tone-correction cascade applied to each ear's summed output.
+        Cascade tone_correction;
 
         /// @brief Stores the coherence filter gamma of spec §6.4.
-        std::array<double, 5> coherence_a;
+        Cascade coherence_a;
 
         /// @brief Stores the sqrt(1 - gamma^2) filter of spec §6.4.
-        std::array<double, 5> coherence_b;
+        Cascade coherence_b;
 
         /// @brief Stores the linear gain into the network.
         float input_gain;
