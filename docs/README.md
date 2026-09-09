@@ -54,6 +54,20 @@ once you're in the tree and need a specific document.
   is published to a playing track; the spec is
   [`docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`](superpowers/specs/2026-09-07-stereo-tracks-design.md)
   and the design section is `docs/design/sushidsp.md` §3a.
+- **[`modules/room/`](../modules/room/)** — one cabinet in one room, `sushidsp.room`: a shoebox
+  solved on the control thread, its direct sound, early reflections, standing waves and late tail
+  rendered on the audio thread, for two ears or one microphone. Its
+  [`README.md`](../modules/room/README.md) says which class owns which block, which of them the
+  audio thread calls, how a publish crossfades, and every approximation named as such; the spec is
+  [`docs/superpowers/specs/2026-09-08-room-acoustics-design.md`](superpowers/specs/2026-09-08-room-acoustics-design.md),
+  the plan
+  [`docs/superpowers/plans/2026-09-08-room-acoustics.md`](superpowers/plans/2026-09-08-room-acoustics.md),
+  and the design section is `docs/design/sushidsp.md` §3c.
+- **[`assets/hrtf/`](../assets/hrtf/)** — where the room looks for its head-related transfer
+  function. Its [`README.md`](../assets/hrtf/README.md) states the byte layout, the licence a
+  bundled set must carry and how to regenerate the file with `tools/dsp/convert_hrtf.py`. No
+  measured set is in the repository, so every rig runs `SphericalHeadHrtf` instead; same spec and
+  plan as `modules/room/`.
 - **[`tools/`](../tools/)** — developer-side scripts that are not part of the shipped library:
   `tools/dsp/design_halfband.py` (regenerates `include/SushiDSP/math/HalfbandCoefficients.hpp`
   from a scipy `remez` design), `tools/dsp/design_resampler.py` (regenerates

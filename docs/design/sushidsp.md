@@ -307,6 +307,36 @@ the cache and nothing reads a plain WAV's own sample rate; both are in
 [`docs/reference/GLOSSARY.md`](../reference/GLOSSARY.md) defines bar, beat, clip, take and
 playback speed as this tree uses them.
 
+### §3c The room path — one cabinet in one room
+
+`modules/room` is the DE phase's module: one `IAudioNode`, `sushidsp.room`, mono in and two
+channels out, declaring `PortLayout{1, 2}` on the routing DS0 built. It puts the cabinet in a
+shoebox room and hands back what a head or a microphone hears there. Spec
+[`docs/superpowers/specs/2026-09-08-room-acoustics-design.md`](../superpowers/specs/2026-09-08-room-acoustics-design.md),
+plan
+[`docs/superpowers/plans/2026-09-08-room-acoustics.md`](../superpowers/plans/2026-09-08-room-acoustics.md).
+
+The control thread solves and the audio thread renders, with one `RtSwapSlot` between them. A
+scene — six faces with a material each, the cabinet's pose, the listener's, the microphone's —
+goes into `build_render_set`, which mirrors the source to order 4 (`ImageSourceSolver`), fits each
+tap's six-band target to two biquads (`BandResponseFit`), designs the 16-line Hadamard tail from
+Eyring's decay (`EyringDecay`, `LateReverbDesign`), and solves the room's eigenmodes below the
+Schroeder frequency (`ModalSolver`). The audio thread reads the finished `RoomRenderSet`: the
+early taps into sixteen Ambisonic channels, the tail, the modal bank under a power-complementary
+fourth-order Butterworth seam, and a `BinauralDecoder` into two ears. A publish arrives as a
+second bank and crossfades under a raised cosine, so a slider drag never steps the filters.
+
+Three things a reader should know before changing anything here. Both layers are scaled to one
+reference, `DiffuseField`, so the modal octave and the tail meet at the same level across the
+seam. No measured HRTF asset ships, so every rig runs the spherical-head fallback of
+`SphericalHeadHrtf`, which has no pinna cues. And a structural rig edit rebuilds the node, which
+empties the tail.
+
+Measured at 48 kHz in 256-frame blocks on a Release build, the node costs 0.238 ms per block for
+the ears and 0.113 ms for the microphone, 4.47 % and 2.11 % of one core; the JCM800 with a room
+after it costs 0.893 ms. [`modules/room/README.md`](../../modules/room/README.md) carries the
+class-by-class record, the thread rules and every approximation named as such.
+
 ---
 
 ## §4 DSP math library (portable, SIMD)
@@ -821,6 +851,24 @@ tempo grid, clips on lanes and a playback speed. §3b describes what it built.
 | DT4 | `FileDropQueue` and the two drop routes, both through one `route_file_drop` | Landed 2026-09-08, commits 3d625ca, ce4b638, 8085575 |
 | DT5 | The session: clip placement, the armed frame, the tempo and the playback speed | Landed 2026-09-08, commits 4d36860, f240e98 |
 | DT6 | mp3 import: `dr_mp3`, a worker thread, the rig's rate, a cached float32 WAV | Landed 2026-09-08, commits 3a9faf1, 55503b0, 21cfcf7, 16ac806 |
+
+**DE — room acoustics, a parallel track.** Spec
+`docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
+`docs/superpowers/plans/2026-09-08-room-acoustics.md`. It runs beside the D phases for the same
+reason DS and DT do: `modules/room` needs the graph's stereo routing and nothing from the circuit
+core. §3c describes what it built.
+
+| Phase | What it builds | Status |
+| --- | --- | --- |
+| DE0 | `BandResponse`, `Materials`, `AirAbsorption`, `BandResponseFit`, `RoomScene`, `ImageSourceSolver`, `EarlyTapSet` | Landed 2026-09-08 and 09, commits f150623, bd34d8d, 8e37b08, 9915597, 4e0d855, 80f5c84, 43eb93f |
+| DE1 | `EarlyReflectionRenderer`, `RoomRenderSet`, `IRoomHost`, and `RoomNode` swapping sets under a raised cosine, registered as `sushidsp.room` | Landed 2026-09-09, commits 54aa3b5, 1faae17, 853081d, b077a47 |
+| DE2 | `EyringDecay`, `LateReverbDesign`, `FdnDesign` and the 16-line Hadamard `LateReverb` | Landed 2026-09-09, commits 268ba6b, cff30df, 8c95dde, d20aa95 |
+| DE3 | `ModalSolver`, `ModalBank`, `CrossoverPair`, the seam at f_s and the level match across it, in both quality modes | Landed 2026-09-09, commits 3394fe4, a18aca8, 5ce46b1, 1b72f81, 60b8941, ba33504 |
+| DE4 | `CabinetDirectivity`, `MicrophoneModel` and the `listener` parameter | Landed 2026-09-08 and 09, commits 3878cc1, ba86613, 95954af; the SM57 preset is not in it, see `docs/reference/KNOWN_ISSUES.md` |
+| DE5 | `HrtfSet`, `HrtfSetLoader`, `SphericalHeadHrtf`, `AmbisonicEncoder`, `BinauralDecoder`, `direct_delay` at `compensated`, `tools/dsp/convert_hrtf.py` and `assets/hrtf/README.md` | Landed 2026-09-08 and 09, commits 29e22d3, 725b8a3, f2ae692, d38754f, 549f07a, bfac578, 11aeff0; no measured asset ships |
+| DE6 | The room panel, `IRoomHost` from `RigController`, the scene in the preset, the 30 Hz publish pacing | Landed 2026-09-09, commit db55eba |
+| DE7 | AVX2 lanes in `EarlyReflectionRenderer` behind `SUSHIDSP_ENABLE_AVX2` | Not opened. Its gate is the DE1 benchmark passing 2.0 ms with an amplifier in the graph; the JCM800 with a room measures 0.893 ms per 256-frame block (commit 78a798f) |
+| DE8 | `max/RayTracer`, `max/LateIrSynthesizer` and the `quality` parameter | Deferred; §9a.3 of the spec designs it and no task builds it |
 
 **DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration; DS0 built the per-node multi-channel routing it waited on.
 

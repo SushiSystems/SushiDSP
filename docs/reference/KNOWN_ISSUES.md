@@ -127,6 +127,104 @@ second drop of the same file cost 0 ms against the first drop's 3128 ms, and wha
 session find its clip again, so it is kept rather than made optional. Closes when the cache
 carries a size cap and evicts by last use.
 
+## No measured HRTF set ships, so front and back sound alike
+
+`assets/hrtf/sadie2_ku100_48k.hrtf` is not in the repository, and `tools/dsp/convert_hrtf.py`
+needs a SOFA or WAV release plus numpy and scipy to make one, so every rig runs the fallback
+`SphericalHeadHrtf`. A rigid sphere has an interaural time difference and a head shadow, both
+right to within the sample the spec allows, and no pinna: the front and the rear of the cone of
+confusion give the same pair, so a reflection off the wall behind the listener is not heard as
+behind. Its third-order decoder is the sampling sum of §9.4, not a magnitude-least-squares fit,
+and above about 1.5 kHz it sums a lobe of directions whose delays differ by up to one ITD, so
+reflections and the tail come out combed against the direct sound. Two cases skip for want of the
+file and print the path they looked at: `RoomNodeDecoderMagnitudeMatchesTheMeasuredSet` and
+`RoomNodeCarriesTheRearNotchWithAMeasuredSet` (`tests/functional/unit/test_room_node.cpp`).
+Closes when a set with an Apache-2.0-compatible licence is converted into the tree;
+`assets/hrtf/README.md` states the layout and the licence bar.
+
+## Eight of the spec's fourteen material rows are not transcribed
+
+`Materials.hpp` ships six rows — unpainted concrete, painted concrete block, gypsum board on
+studs, heavy carpet on concrete, a glass window and the open doorway — against the fourteen §4.2
+lists. A user whose garage has a wooden door, a plasterboard ceiling or a curtain picks the
+nearest of the six, and the room's decay is wrong by the difference between the two rows, which
+across §4.2's table reaches 0.4 in absorption at 500 Hz. Nothing is skipped; the code takes any
+row the table holds. Closes by transcribing the other eight from the same source with a citation
+each, which is data and no code.
+
+## The SM57 preset has no measured curve
+
+`MicrophoneModel` evaluates any on-axis curve it is handed, and the module ships one preset,
+`kMicrophoneFlatCardioid`, whose six band values are zero and whose citation reads "no maker's
+curve". Spec §8 asks for a Shure SM57: a cardioid with a presence rise near 6 kHz and a low-end
+roll-off, which the flat preset does not have, so a microphone render is missing the colour the
+capsule itself contributes. The six numbers were not invented, which is why the preset says so in
+its own citation. Closes when the SM57's published frequency response is read off Shure's sheet
+into a second `MicrophonePreset`.
+
+## Modal damping at a soft boundary is about 30 % wrong
+
+`ModalSolver::damping_constant` damps each mode by the first-order perturbation of spec §9a.2,
+which is linear in the absorption coefficient and so right to a few percent while α stays under
+about 0.1. Gypsum board on studs absorbs 0.29 at 125 Hz (`Materials.cpp`), and a mode bounded by
+it decays about 30 % away from the true rate. The mode's frequency is right either way, so the
+room's pitch is right and its low-end decay time is not. Solving the damped eigenproblem against
+a complex wall impedance costs what §9a.2 measures FDTD at, for an error inside a layer that did
+not exist before 2026-09-08. Closes when someone judges that cost worth paying.
+
+## The FDN's own modes below the Schroeder frequency are crossed out, not corrected
+
+A 16-line feedback delay network has its own modal structure, and below f_s that structure is not
+the room's. `CrossoverPair` low-passes the modal bank and high-passes the tail at f_s in both
+quality modes, so the FDN carries no low end and its line lengths are designed for the band above
+f_s alone. The room's low end therefore comes entirely from `ModalSolver`'s eigenmodes, and the
+tail contributes nothing under f_s that a longer reverberation would fill in. This is the design's
+choice rather than a defect to repair, recorded because a reader measuring the tail alone below
+f_s will find it empty and should not go looking for the bug.
+
+## The raw octave step at the seam is not bounded
+
+`RoomNodeIsContinuousAcrossTheSchroederFrequency` measures each layer against the shared
+`DiffuseField` reference and holds both within 2 dB, which is what the spec asks. The raw step
+between the octave under f_s and the octave over it is recorded and not bounded: it reads
++0.16 dB for the garage, +1.29 dB for the bedroom and +3.75 dB for the block room in the run of
+2026-09-10, and −0.3, +0.6 and +3.1 dB in the earlier run `modules/room/README.md` records. The
+step cannot be zero, because the reference itself changes across the seam: the 4x12's directivity
+index rises 4.6 dB between 250 and 500 Hz, the block room's absorption halves from 125 to 250 Hz,
+and the poses a room is used at sit 2 to 4 dB under the volume average in the octave below f_s.
+The two runs disagree by up to 0.9 dB and nobody has reconciled them; re-running the case under
+`sd test --type release` and pinning one figure in both documents would settle it.
+
+## `BandResponseFit` stops at eight steps on about 60 % of fits
+
+`kMaxSteps` in `BandResponseFit.cpp` bounds the refinement at eight accepted steps, and about
+three fits in five reach it rather than converging, so those tap filters sit at whatever the
+eighth step reached. The fit still holds the direct path within 0.1 dB and a one-band 20 dB cut
+within 0.5 dB, so the cap is not what the module's accuracy is limited by today; it is what a
+tighter tolerance would run into first. The refinement differentiates its residual numerically,
+so each step costs six extra evaluations. Closes when the Jacobian is written analytically, which
+buys a higher cap at the cost the fit pays now.
+
+## A structural rig edit empties the room's tail
+
+`RigController::publish()` rebuilds the graph from the slot list, so every node in the rig is
+constructed afresh whenever a node is added, removed, connected or disconnected. The new
+`RoomNode` gets its parameters and its scene back through `apply_room_to_live_node`, and its
+delay lines, its FDN and its modal resonators start at zero, so the room's tail stops at the edit
+and rebuilds over the next RT60. A drag inside the room panel goes through
+`publish_room_scene` instead, which crossfades; only an edit to the graph's shape rebuilds the
+node. Closes when a rebuild
+carries surviving nodes across instead of reconstructing them, which is a `RigController` change
+and touches no module.
+
+## The room panel cannot edit a patch
+
+`RoomScene` carries up to `kMaxPatches` rectangular patches, each overriding one surface's
+material over a rectangle, and `RigController` writes them into the preset and reads them back.
+Nothing in `apps/host_gui/ui/RoomPanel.cpp` draws or edits one, so a user gets patches only by
+hand-editing the preset's JSON. The absorption arithmetic behind them is tested; the way in is
+missing. Closes when the panel grows a patch list beside the per-surface material picker.
+
 ## The HRTF converter counts every measured direction equally
 
 `tools/dsp/convert_hrtf.py`'s `diffuse_field_average` sums the magnitude responses of the

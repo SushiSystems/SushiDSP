@@ -8,15 +8,49 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
 The room track, spec `docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
 `docs/superpowers/plans/2026-09-08-room-acoustics.md`.
 
-- 2026-09-09 — Added the room panel, the scene in the preset, the 30 Hz publish pacing and the HRTF install beside the cabinet path (`apps/host_gui/ui/RoomPanel.cpp`, `RigController`, `main.cpp`).
-- 2026-09-09 — Made the seam's split a power-complementary fourth-order Butterworth pair, section Q 0.5412 and 1.3066, in place of Linkwitz-Riley (`CrossoverPair`, spec §9a.4, `docs/reference/KNOWN_ISSUES.md`).
-- 2026-09-09 — Scaled the modal layer and the tail to one diffuse-field reference, the tail carrying what the taps leave of it per band (`DiffuseField.hpp`, `ModalSolver`, `LateReverbDesign`, spec §6.3 and §9a.4).
-- 2026-09-09 — Moved the modal receiver into the solver as a listener argument and deleted `RoomNode::place_modal_receiver` (`ModalSolver::design`, `build_render_set`, `RoomNode`).
-- 2026-09-09 — Corrected the spec's seam, handover and tone-correction claims and restated the seam acceptance per layer (spec §4.1, §6.1, §9a.4 and §9a.6, `docs/reference/KNOWN_ISSUES.md`).
-- 2026-09-09 — Rendered the ears through the HRIR pair, the decoder and the diffuse pair, wired `direct_delay`, and gave the spherical head a decoder (`RoomNode`, `SphericalHeadHrtf`, `modules/room/README.md`, spec §9.4).
-- 2026-09-09 — Averaged the cabinet's closed form over each octave band instead of sampling its centre, and built the index grid once instead of per solve (`CabinetDirectivity`, `modules/room/README.md`, spec §7 and §7.1).
-- 2026-09-09 — Gave each section of the band fit a peak as well as a step, seeded from the target, so a tap filter can dip (`BandResponseFit`, `modules/room/README.md`, spec §4.2 and §5.3).
+- 2026-09-08 — Added `BandResponse`, six octave-band gains and the arithmetic on them (`modules/room/include/SushiDSP/room/BandResponse.hpp`).
+- 2026-09-08 — Added `tools/dsp/convert_hrtf.py` and `assets/hrtf/README.md`, the SADIE II conversion and the layout `HrtfSetLoader` reads (`tools/dsp/convert_hrtf.py`, `assets/hrtf/README.md`).
+- 2026-09-08 — Added `Materials`, six transcribed absorption rows with a citation each and their reflection factors (`Materials.hpp`, `Materials.cpp`).
+- 2026-09-08 — Added `AirAbsorption`, ISO 9613-1 at 20 °C and 50 % RH (`AirAbsorption.hpp`, `AirAbsorption.cpp`).
+- 2026-09-08 — Added `BandResponseFit`, six band gains fitted to two minimum-phase biquads (`BandResponseFit.hpp`, `BandResponseFit.cpp`).
+- 2026-09-08 — Added `CabinetDirectivity`, a four-piston baffle evaluated per band and direction (`CabinetDirectivity.hpp`, `CabinetDirectivity.cpp`).
+- 2026-09-08 — Added `MicrophoneModel`, a first-order pattern with its proximity effect (`MicrophoneModel.hpp`, `MicrophoneModel.cpp`).
+- 2026-09-08 — Added `EarlyTapSet`, `FdnDesign` and `ModalDesign`, the three records the control thread publishes (`EarlyTapSet.hpp`, `FdnDesign.hpp`, `ModalDesign.hpp`).
+- 2026-09-08 — Added `CrossoverPair`, the split at the Schroeder frequency (`CrossoverPair.hpp`, `CrossoverPair.cpp`).
+- 2026-09-08 — Added `HrtfSet`, minimum-phase pairs, ITDs and the triangle table they blend on (`HrtfSet.hpp`, `HrtfSet.cpp`).
+- 2026-09-08 — Added `AmbisonicEncoder`, third-order ACN/SN3D gains for a direction (`AmbisonicEncoder.hpp`, `AmbisonicEncoder.cpp`).
+- 2026-09-08 — Corrected the plan's self-test asset size to 37 968 bytes and its band-fit budget to 4.33 ms for 150 fits (`docs/superpowers/plans/2026-09-08-room-acoustics.md`).
+- 2026-09-09 — Added `RoomScene`, the shoebox with its materials, its patches, its three poses and its per-face absorption (`RoomScene.hpp`, `RoomScene.cpp`).
+- 2026-09-09 — Added `EarlyReflectionRenderer`, 128 fractional taps read into 16 Ambisonic channels (`EarlyReflectionRenderer.hpp`, `EarlyReflectionRenderer.cpp`).
+- 2026-09-09 — Added `LateReverb`, the 16-line Hadamard feedback delay network and its two ear outputs (`LateReverb.hpp`, `LateReverb.cpp`).
+- 2026-09-09 — Added `ModalBank`, up to 512 second-order resonators for the room's standing waves (`ModalBank.hpp`, `ModalBank.cpp`).
+- 2026-09-09 — Added `SphericalHeadHrtf`, the rigid-sphere set a machine with no measured asset runs (`SphericalHeadHrtf.hpp`, `SphericalHeadHrtf.cpp`).
+- 2026-09-09 — Added `HrtfSetLoader`, reading the flat asset with the standard library alone (`HrtfSetLoader.hpp`, `HrtfSetLoader.cpp`).
+- 2026-09-09 — Added `BinauralDecoder`, 16 Ambisonic channels into two ears through 32 partitioned convolvers (`BinauralDecoder.hpp`, `BinauralDecoder.cpp`).
+- 2026-09-09 — Added `EyringDecay`, the decay time per band and the Schroeder frequency (`EyringDecay.hpp`, `EyringDecay.cpp`).
+- 2026-09-09 — Added `ImageSourceSolver`, a scene turned into early taps with one fitted filter each (`ImageSourceSolver.hpp`, `ImageSourceSolver.cpp`).
+- 2026-09-09 — Added `LateReverbDesign`, the tail's line lengths, absorption filters, input gain and output cascade (`LateReverbDesign.hpp`, `LateReverbDesign.cpp`).
+- 2026-09-09 — Added `ModalSolver`, the eigenmodes below the Schroeder frequency with their damping and their gains (`ModalSolver.hpp`, `ModalSolver.cpp`).
+- 2026-09-09 — Corrected the drafted absorption areas, arrival roundings, modal coefficients, tail lengths and sphere shadow against the code (spec §4, §6, §9 and §9a).
+- 2026-09-09 — Made the tail's coherence pair complementary rather than fitted (`FdnDesign`, `LateReverbDesign`, spec §6.4).
+- 2026-09-09 — Added `RoomRenderSet` and `build_render_set`, what one scene hands the audio thread, and `IRoomHost` (`RoomRenderSet.hpp`, `RoomRenderSet.cpp`, `IRoomHost.hpp`).
+- 2026-09-09 — Made `SphericalHeadHrtf` fill the diffuse-field pair it left at zero (`SphericalHeadHrtf.cpp`).
+- 2026-09-09 — Recorded that the converter's diffuse-field average weights every direction equally (`docs/reference/KNOWN_ISSUES.md`, `tools/dsp/convert_hrtf.py`).
+- 2026-09-09 — Added `RoomNode`, registered as `sushidsp.room`, rendering the early set and the tail and swapping sets under a raised cosine (`RoomNode.hpp`, `RoomNode.cpp`, `NodeRegistry.cpp`).
 - 2026-09-09 — Carried each matching tap's filter state into the bank arriving into a crossfade (`EarlyReflectionRenderer::carry_tap`, `RoomNode::adopt`, `modules/room/README.md`, spec §5.2 and §5.3).
+- 2026-09-09 — Gave each section of the band fit a peak as well as a step, seeded from the target, so a tap filter can dip (`BandResponseFit`, `modules/room/README.md`, spec §4.2 and §5.3).
+- 2026-09-09 — Averaged the cabinet's closed form over each octave band instead of sampling its centre, and built the index grid once instead of per solve (`CabinetDirectivity`, `modules/room/README.md`, spec §7 and §7.1).
+- 2026-09-09 — Corrected the room's wall-clock figures, measured on a Debug binary while `sd test` reconfigured the tree behind the suite (spec §4.3 and §10, plan waves 1 and 4).
+- 2026-09-09 — Ran the modal layer below the Schroeder frequency in both quality modes, under the crossover (`RoomNode`, `ModalBank`, `CrossoverPair`, spec §9a.1).
+- 2026-09-09 — Rendered the listener the `listener` parameter names and read the standing waves at its receiver (`RoomNode`, `ModalSolver`, spec §8 and §9a.2).
+- 2026-09-09 — Rendered the ears through the HRIR pair, the decoder and the diffuse pair, wired `direct_delay`, and gave the spherical head a decoder (`RoomNode`, `SphericalHeadHrtf`, `modules/room/README.md`, spec §9.4).
+- 2026-09-09 — Corrected the spec's seam, handover and tone-correction claims and restated the seam acceptance per layer (spec §4.1, §6.1, §9a.4 and §9a.6, `docs/reference/KNOWN_ISSUES.md`).
+- 2026-09-09 — Moved the modal receiver into the solver as a listener argument and deleted `RoomNode::place_modal_receiver` (`ModalSolver::design`, `build_render_set`, `RoomNode`).
+- 2026-09-09 — Scaled the modal layer and the tail to one diffuse-field reference, the tail carrying what the taps leave of it per band (`DiffuseField.hpp`, `ModalSolver`, `LateReverbDesign`, spec §6.3 and §9a.4).
+- 2026-09-09 — Made the seam's split a power-complementary fourth-order Butterworth pair, section Q 0.5412 and 1.3066, in place of Linkwitz-Riley (`CrossoverPair`, spec §9a.4, `docs/reference/KNOWN_ISSUES.md`).
+- 2026-09-09 — Added the room panel, the scene in the preset, the 30 Hz publish pacing and the HRTF install beside the cabinet path (`apps/host_gui/ui/RoomPanel.cpp`, `RigController`, `main.cpp`).
+- 2026-09-09 — Benchmarked the room's steady state, its swap block and its three heaviest bricks (`tests/benchmark/main.cpp`).
+- 2026-09-10 — Documented the room path in `docs/design/sushidsp.md` §3c and §9, `modules/room/README.md`, `docs/README.md` and `docs/reference/KNOWN_ISSUES.md`.
 
 ## DT — The arrangement view: bars, clips and playback speed
 
