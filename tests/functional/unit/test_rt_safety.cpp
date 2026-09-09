@@ -66,14 +66,17 @@
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/mesa_mark2c/MesaMark2c.hpp"
 #include "SushiDSP/peavey5150/Peavey5150.hpp"
+#include "SushiDSP/room/BinauralDecoder.hpp"
 #include "SushiDSP/room/CrossoverPair.hpp"
 #include "SushiDSP/room/EarlyReflectionRenderer.hpp"
 #include "SushiDSP/room/EarlyTapSet.hpp"
 #include "SushiDSP/room/FdnDesign.hpp"
+#include "SushiDSP/room/HrtfSet.hpp"
 #include "SushiDSP/room/LateReverb.hpp"
 #include "SushiDSP/room/ModalBank.hpp"
 #include "SushiDSP/room/ModalDesign.hpp"
 #include "SushiDSP/room/RoomNode.hpp"
+#include "SushiDSP/room/SphericalHeadHrtf.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 #include "RoomFixtures.hpp"
@@ -1787,6 +1790,91 @@ TEST(Unit_Dsp, LateReverbProcessPerformsNoHeapAllocation)
         reverb.process(current, input.data(), left.data(), left.data(), 256);
     }
     trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+        EXPECT_TRUE(std::isfinite(right[i]));
+    }
+}
+
+TEST(Unit_Dsp, BinauralDecoderProcessPerformsNoHeapAllocation)
+{
+    // prepare() builds the 32 partitioned convolvers from the spherical head's decoder outside
+    // the trap; sixteen blocks of 256 frames, which cross the 128-frame partition thirty-two
+    // times, run inside it.
+    const SushiDSP::room::HrtfSet set = SushiDSP::room::SphericalHeadHrtf::build(48000.0);
+    SushiDSP::room::BinauralDecoder decoder;
+    decoder.prepare(set, 48000.0, 256);
+    ASSERT_TRUE(decoder.ready());
+
+    std::array<std::vector<float>, SushiDSP::room::BinauralDecoder::kChannels> channels;
+    std::array<const float*, SushiDSP::room::BinauralDecoder::kChannels> inputs{};
+    for (std::size_t channel = 0; channel < channels.size(); ++channel)
+    {
+        channels[channel].assign(256, 0.0f);
+        fill_room_tone(channels[channel]);
+        inputs[channel] = channels[channel].data();
+    }
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+
+    AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 16; ++block)
+    {
+        decoder.process(inputs.data(), left.data(), right.data(), 256);
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+        EXPECT_TRUE(std::isfinite(right[i]));
+    }
+}
+
+TEST(Unit_Dsp, RoomNodeBinauralProcessPerformsNoHeapAllocation)
+{
+    // The ears render every binaural path: the direct pair, the decoder, the diffuse pair and
+    // the alignment delays. set_scene, the direct_delay switch and the fallback's re-install
+    // each publish on the control thread outside the trap; the blocks that adopt each set,
+    // fade it in and decode it run inside, and the index path stores the delay choice alone.
+    SushiDSP::room::RoomNode node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    std::string reason;
+    ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[2] = { left.data(), right.data() };
+    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+
+    AllocationTrap trap;
+    for (int publish = 0; publish < 3; ++publish)
+    {
+        if (publish == 1)
+        {
+            node.set_parameter("direct_delay", 1.0f);
+        }
+        if (publish == 2)
+        {
+            ASSERT_TRUE(node.set_hrtf(SushiDSP::room::HrtfSet{}));
+        }
+        trap.arm();
+        for (int block = 0; block < 4; ++block)
+        {
+            node.set_parameter(std::uint16_t{ 3 }, block % 2 == 0 ? 1.0f : 0.0f);
+            node.process(context);
+        }
+        trap.disarm();
+        node.reclaim_rooms();
+    }
 
     EXPECT_EQ(trap.count(), 0);
     for (std::size_t i = 0; i < left.size(); ++i)
