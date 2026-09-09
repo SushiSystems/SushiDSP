@@ -35,18 +35,20 @@
 
 namespace SushiDSP::room
 {
-    /// @brief Fits two biquads whose cascade matches six band gains, on the control thread.
-    /// Spec §4.2.
+    /// @brief Fits two biquads whose cascade matches six band gains, on the control thread, so
+    /// that nearby targets fit to nearby coefficients. Spec §4.2.
     class BandResponseFit
     {
     public:
-        /// @brief Holds the two normalised coefficient sets of the cascade.
+        /// @brief Holds the two normalised coefficient sets of the cascade in canonical form:
+        /// the low shelf first carrying the whole gain, the high shelf second at unity gain at
+        /// zero frequency.
         struct Coefficients
         {
-            /// @brief Stores b0, b1, b2, a1, a2 of the first section.
+            /// @brief Stores b0, b1, b2, a1, a2 of the first section, the low shelf.
             std::array<double, 5> section_a;
 
-            /// @brief Stores b0, b1, b2, a1, a2 of the second section.
+            /// @brief Stores b0, b1, b2, a1, a2 of the second section, the high shelf.
             std::array<double, 5> section_b;
         };
 
@@ -60,7 +62,8 @@ namespace SushiDSP::room
             double worst_error_db;
         };
 
-        /// @brief Fits the cascade to the target's six band gains at the given sample rate.
+        /// @brief Fits the cascade to the target's six band gains at the given sample rate,
+        /// pulled toward the closed-form two-shelf guess so that one target has one answer.
         /// @pre sample_rate > 2 * kBandCentresHz[kBandCount - 1].
         static Result fit(const BandResponse& target, double sample_rate);
 

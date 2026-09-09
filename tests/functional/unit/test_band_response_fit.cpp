@@ -34,7 +34,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <functional>
 
+#include "SushiDSP/room/AirAbsorption.hpp"
 #include "SushiDSP/room/BandResponseFit.hpp"
 #include "SushiDSP/room/Materials.hpp"
 
@@ -46,6 +49,67 @@ namespace
         const double a1 = section[3];
         const double a2 = section[4];
         return std::fabs(a2) < 1.0 && std::fabs(a1) < 1.0 + a2;
+    }
+
+    /// @brief Returns a section's gain at zero frequency.
+    double dc_gain(const std::array<double, 5>& section)
+    {
+        return (section[0] + section[1] + section[2]) / (1.0 + section[3] + section[4]);
+    }
+
+    /// @brief Returns the largest absolute difference between two cascades' coefficients.
+    double largest_coefficient_move(const SushiDSP::room::BandResponseFit::Coefficients& a,
+                                    const SushiDSP::room::BandResponseFit::Coefficients& b)
+    {
+        double largest = 0.0;
+        for (std::size_t index = 0; index < 5; ++index)
+        {
+            largest = std::max(largest, std::fabs(a.section_a[index] - b.section_a[index]));
+            largest = std::max(largest, std::fabs(a.section_b[index] - b.section_b[index]));
+        }
+        return largest;
+    }
+
+    /// @brief Calls the visitor with every material but the doorway, raised to orders one to
+    /// four, behind 0, 5 and 30 m of air, at four sample rates.
+    void for_every_target(
+        const std::function<void(const SushiDSP::room::BandResponse&, double, const char*)>&
+            visitor)
+    {
+        static char label[96];
+        for (std::uint8_t id = 0; id < SushiDSP::room::kMaterialCount; ++id)
+        {
+            const auto material_id = static_cast<SushiDSP::room::MaterialId>(id);
+            if (material_id == SushiDSP::room::MaterialId::OpenDoorway)
+            {
+                continue;
+            }
+            for (const double rate : { 44100.0, 48000.0, 96000.0, 192000.0 })
+            {
+                for (const double order : { 1.0, 2.0, 3.0, 4.0 })
+                {
+                    for (const double metres : { 0.0, 5.0, 30.0 })
+                    {
+                        SushiDSP::room::BandResponse target =
+                            SushiDSP::room::reflection_factor(material_id).powered(order);
+                        target *= SushiDSP::room::AirAbsorption::over_path(metres);
+                        std::snprintf(label, sizeof label,
+                                      "material %d order %g rate %g metres %g", int(id), order,
+                                      rate, metres);
+                        visitor(target, rate, label);
+                    }
+                }
+            }
+        }
+    }
+
+    /// @brief Returns the target with one band raised by the given decibels.
+    SushiDSP::room::BandResponse nudged(const SushiDSP::room::BandResponse& target,
+                                        std::size_t band, double decibels)
+    {
+        SushiDSP::room::BandResponse result = target;
+        result.gain[band] *= static_cast<float>(std::pow(10.0, decibels / 20.0));
+        return result;
     }
 }
 
@@ -116,6 +180,39 @@ TEST(Unit_Dsp, BandResponseFitKeepsEveryPoleInsideTheUnitCircle)
             }
         }
     }
+}
+
+TEST(Unit_Dsp, BandResponseFitPutsTheWholeGainInTheFirstSection)
+{
+    for_every_target(
+        [](const SushiDSP::room::BandResponse& target, double rate, const char* label)
+        {
+            const SushiDSP::room::BandResponseFit::Result result =
+                SushiDSP::room::BandResponseFit::fit(target, rate);
+            EXPECT_NEAR(dc_gain(result.coefficients.section_b), 1.0, 1e-9) << label;
+        });
+}
+
+TEST(Unit_Dsp, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
+{
+    // Measured: 0.036 for 0.05 dB and 0.41 for 0.5 dB; before the prior, 2.32 and 3.73.
+    for_every_target(
+        [](const SushiDSP::room::BandResponse& target, double rate, const char* label)
+        {
+            const SushiDSP::room::BandResponseFit::Result base =
+                SushiDSP::room::BandResponseFit::fit(target, rate);
+            for (std::size_t band = 0; band < SushiDSP::room::kBandCount; ++band)
+            {
+                const SushiDSP::room::BandResponseFit::Result small =
+                    SushiDSP::room::BandResponseFit::fit(nudged(target, band, 0.05), rate);
+                EXPECT_LT(largest_coefficient_move(base.coefficients, small.coefficients), 0.1)
+                    << label << " band " << band << " nudged 0.05 dB";
+                const SushiDSP::room::BandResponseFit::Result large =
+                    SushiDSP::room::BandResponseFit::fit(nudged(target, band, 0.5), rate);
+                EXPECT_LT(largest_coefficient_move(base.coefficients, large.coefficients), 1.0)
+                    << label << " band " << band << " nudged 0.5 dB";
+            }
+        });
 }
 
 TEST(Unit_Dsp, BandResponseFitCostsUnderTenMillisecondsForOneHundredAndFiftyFits)
