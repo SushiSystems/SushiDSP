@@ -25,6 +25,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -45,6 +46,9 @@
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtGraphSlot.hpp"
+#include "SushiDSP/room/HrtfSet.hpp"
+#include "SushiDSP/room/IRoomHost.hpp"
+#include "SushiDSP/room/RoomScene.hpp"
 
 #include "ui/Geometry.hpp"
 
@@ -197,6 +201,46 @@ public:
     /// @return True when the node this slot last published implements SushiDSP::ICabinetHost.
     /// A slot added while bypassed has never had a node and reads false until it goes live.
     bool hosts_cabinet(SlotId slot) const;
+
+    /// @brief Bounds how many scenes a second one slot's room takes; a drag inside 1 / kRoomPublishHz
+    /// of the last publish keeps the newest scene for reclaim() to publish.
+    static constexpr double kRoomPublishHz = 30.0;
+
+    /// @brief Reports whether a slot's node renders a room.
+    /// @param slot The slot.
+    /// @return True when the node this slot last published implements SushiDSP::room::IRoomHost.
+    /// A slot added while bypassed has never had a node and reads false until it goes live.
+    bool hosts_room(SlotId slot) const;
+
+    /// @brief The room node in a slot, or nullptr when that slot holds something else or is
+    /// bypassed. Control thread only.
+    SushiDSP::room::IRoomHost* room_host(SlotId slot);
+
+    /// @brief The scene a slot's room carries, the stored one whether or not the last drag has
+    /// reached the node yet; a slot with no scene reads the default scene.
+    SushiDSP::room::RoomScene room_scene(SlotId slot) const;
+
+    /// @brief Stores a scene for a slot and publishes it at most kRoomPublishHz times a second,
+    /// keeping the newest for reclaim() when a publish lands inside the interval. A bypassed
+    /// slot keeps the scene and takes it on the publish that brings it back. Control thread.
+    /// @param error_out Receives the reason when the scene is refused; "" otherwise.
+    /// @return True when the scene was stored, which needs the scene to be valid.
+    bool set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& scene,
+                        std::string& error_out);
+
+    /// @brief Counts the scenes handed to a slot's room node since the slot went live, so a
+    /// test or a status line can see how many of a drag's edits reached the node.
+    std::size_t room_publishes(SlotId slot) const;
+
+    /// @brief Reads an HRTF asset at the prepared sample rate and installs it into every room
+    /// the rig holds now or builds later; the way cabinet_path() survives a rebuild. A file that
+    /// will not load leaves every room on its spherical-head fallback. Control thread.
+    /// @param error_out Receives the loader's reason on failure; "" otherwise.
+    /// @return True when the set is in place.
+    bool set_hrtf_path(const std::string& path, std::string& error_out);
+
+    /// @brief The HRTF asset in place, or "" when every room runs on its fallback.
+    std::string hrtf_path() const;
 
     /// @brief Lists the ids of every slot with an edge into `slot`, in connect() call order.
     std::vector<SlotId> upstream_of(SlotId slot) const;
@@ -429,6 +473,9 @@ public:
     void load_from_json(const std::string& json_text);
 
 private:
+    /// @brief Names a moment on the clock the room publish interval is measured on.
+    using Clock = std::chrono::steady_clock;
+
     struct Slot
     {
         std::string                     descriptor_id;
@@ -436,6 +483,21 @@ private:
         std::string                     cabinet_path;
         bool                            bypassed = false;
         bool                            hosts_cabinet = false;
+
+        /// @brief Records that the node this slot last published implements IRoomHost.
+        bool                            hosts_room = false;
+
+        /// @brief Holds the scene the slot's room renders, once one was set or loaded.
+        std::optional<SushiDSP::room::RoomScene> room_scene;
+
+        /// @brief Records that room_scene changed since the node last took it.
+        bool                            room_scene_pending = false;
+
+        /// @brief Stamps the last scene handed to the node, for the publish interval.
+        std::optional<Clock::time_point> room_published_at;
+
+        /// @brief Counts the scenes handed to the node since the slot went live.
+        std::size_t                     room_publishes = 0;
     };
     struct Edge { SlotId from; SlotId to; };
 
@@ -459,6 +521,16 @@ private:
 
     void apply_cabinet_to_live_node(SlotId slot);
     void seed_defaults(Slot& slot) const;
+
+    /// @brief Hands a slot's stored scene to its live room node when the interval since the
+    /// last publish has run, or when force is set, and stamps the publish.
+    /// @param error_out Receives the node's reason when it refuses the scene.
+    /// @return False when the node refused the scene; true when it took it or nothing was due.
+    bool publish_room_scene(SlotId slot, bool force, std::string& error_out);
+
+    /// @brief Installs the HRTF set in place and the stored scene into a freshly built room
+    /// node, adopting the node's own scene when the slot stores none.
+    void apply_room_to_live_node(SlotId slot);
 
     /// @brief Builds a fresh RigGraph from the current slots and edges and compiles it, skipping
     /// any slot whose descriptor_id the node registry does not know.
@@ -544,6 +616,12 @@ private:
     std::vector<Edge>                              edges_;
     std::string                                     ir_folder_;
     std::vector<SlotId>                             slot_order_;
+
+    /// @brief Holds the measured HRTF set every room takes; empty when none loaded.
+    SushiDSP::room::HrtfSet                         hrtf_;
+
+    /// @brief Names the file hrtf_ was read from; "" when hrtf_ is empty.
+    std::string                                     hrtf_path_;
     SlotId                                          next_slot_id_ = 0;
     std::unordered_map<SlotId, SushiDSP::NodeHandle> slot_to_handle_;
     SushiDSP::RtGraphSlot                          graph_slot_;

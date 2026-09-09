@@ -56,6 +56,7 @@
 #include "ui/GearBrowser.hpp"
 #include "ui/LevelProbe.hpp"
 #include "ui/MeterBar.hpp"
+#include "ui/RoomPanel.hpp"
 #include "ui/StagePanel.hpp"
 #include "ui/Theme.hpp"
 #include "ui/TopBar.hpp"
@@ -116,6 +117,24 @@ namespace
         }
     }
 
+    /// @brief Installs the bundled HRTF set into a fresh rig, so every room the rig builds from
+    /// then on takes it; without the file the rooms keep their spherical-head fallback and one
+    /// line on stderr names the path that was looked for. See assets/hrtf/README.md.
+    /// @param controller The rig to act on.
+    /// @param default_hrtf_path Path to the bundled set.
+    void apply_default_hrtf(RigController& controller, const std::string& default_hrtf_path)
+    {
+        std::string error;
+        if (controller.set_hrtf_path(default_hrtf_path, error))
+        {
+            return;
+        }
+        std::fprintf(stderr,
+            "No bundled HRTF set: %s - rooms use the spherical-head fallback, so front and back "
+            "sound alike. See assets/hrtf/README.md.\n",
+            error.c_str());
+    }
+
     /// @brief Installs the bundled cabinet impulse response on a freshly-created slot that hosts
     /// a cabinet, if the bundle is present next to the executable. Warns once, on stderr, when it
     /// is not.
@@ -161,6 +180,8 @@ int main(int argc, char** argv)
     const std::string default_ir_directory =
         executable_directory(argc > 0 ? argv[0] : nullptr) + "assets/ir";
     const std::string default_ir_path = default_ir_directory + "/default_4x12.wav";
+    const std::string default_hrtf_path =
+        executable_directory(argc > 0 ? argv[0] : nullptr) + "assets/hrtf/sadie2_ku100_48k.hrtf";
 
     if (!glfwInit())
     {
@@ -204,6 +225,7 @@ int main(int argc, char** argv)
     std::string chain_edit_error;
     std::string transport_error;
     std::string arrangement_error;
+    std::string room_error;
     bool open_device_settings = true;
 
     // The zoom, the scroll and the snap belong to the GUI loop rather than to the rig: they are
@@ -263,7 +285,7 @@ int main(int argc, char** argv)
                            &rig_controller_storage, &rig_input, &rig_output, &rig_output_pointers,
                            &rig_output_const_pointers, &callback_silence, &input_probe,
                            &output_probe, &device_label, &selected_slot, &chain_edit_error,
-                           &open_device_settings]()
+                           &open_device_settings, &default_hrtf_path]()
     {
         connect_error.clear();
 
@@ -301,6 +323,7 @@ int main(int argc, char** argv)
                                         SushiDSP::RigGraph::kMaxChannels);
             SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, rig_channels };
             rig_controller_storage.emplace(info);
+            apply_default_hrtf(*rig_controller_storage, default_hrtf_path);
 
             const std::size_t input_index = SushiDSP::channel_selection_input_index(device_choice.input);
             const SushiDSP::ChannelSelection output_selection = device_choice.output;
@@ -547,6 +570,7 @@ int main(int argc, char** argv)
                 // gear the preset happened to put there. Nothing may carry across.
                 selected_slot = std::nullopt;
                 chain_edit_error.clear();
+                room_error.clear();
             }
         }
         else
@@ -574,7 +598,14 @@ int main(int argc, char** argv)
         ImGui::Begin("##stage", nullptr, kRegionFlags);
         if (rig_controller_storage.has_value())
         {
-            ui::DrawStagePanel(*rig_controller_storage, selected_slot, default_ir_directory);
+            if (selected_slot.has_value() && rig_controller_storage->hosts_room(*selected_slot))
+            {
+                ui::DrawRoomPanel(*rig_controller_storage, *selected_slot, room_error);
+            }
+            else
+            {
+                ui::DrawStagePanel(*rig_controller_storage, selected_slot, default_ir_directory);
+            }
         }
         ImGui::End();
 

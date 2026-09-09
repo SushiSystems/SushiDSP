@@ -35,6 +35,7 @@
 
 #include "SushiDSP/io/IrLoader.hpp"
 #include "SushiDSP/core/ICabinetHost.hpp"
+#include "SushiDSP/room/HrtfSetLoader.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 #include "SushiDSP/rig_preset/RigPreset.hpp"
 #include "SushiDSP/routing/MixerNode.hpp"
@@ -83,6 +84,251 @@ namespace
             }
         }
         return false;
+    }
+
+    /// @brief Pairs one enumerator with the word a preset writes for it.
+    template <typename Enum>
+    struct Word
+    {
+        Enum        value;
+        const char* text;
+    };
+
+    /// @brief Names each material as a preset writes it, in enumerator order.
+    constexpr Word<SushiDSP::room::MaterialId> kMaterialWords[] = {
+        { SushiDSP::room::MaterialId::ConcreteUnpainted, "concrete_unpainted" },
+        { SushiDSP::room::MaterialId::ConcreteBlockPainted, "concrete_block_painted" },
+        { SushiDSP::room::MaterialId::GypsumBoardOnStuds, "gypsum_board_on_studs" },
+        { SushiDSP::room::MaterialId::HeavyCarpetOnConcrete, "heavy_carpet_on_concrete" },
+        { SushiDSP::room::MaterialId::GlassWindow, "glass_window" },
+        { SushiDSP::room::MaterialId::OpenDoorway, "open_doorway" },
+    };
+
+    /// @brief Names each scattering word as a preset writes it.
+    constexpr Word<SushiDSP::room::Scattering> kScatteringWords[] = {
+        { SushiDSP::room::Scattering::Flat, "flat" },
+        { SushiDSP::room::Scattering::Textured, "textured" },
+        { SushiDSP::room::Scattering::Cluttered, "cluttered" },
+    };
+
+    /// @brief Names each face as a preset writes it.
+    constexpr Word<SushiDSP::room::Surface> kSurfaceWords[] = {
+        { SushiDSP::room::Surface::MinusX, "minus_x" },
+        { SushiDSP::room::Surface::PlusX, "plus_x" },
+        { SushiDSP::room::Surface::MinusY, "minus_y" },
+        { SushiDSP::room::Surface::PlusY, "plus_y" },
+        { SushiDSP::room::Surface::Floor, "floor" },
+        { SushiDSP::room::Surface::Ceiling, "ceiling" },
+    };
+
+    /// @brief Names each polar pattern as a preset writes it.
+    constexpr Word<SushiDSP::room::PolarPattern> kPatternWords[] = {
+        { SushiDSP::room::PolarPattern::Omni, "omni" },
+        { SushiDSP::room::PolarPattern::Cardioid, "cardioid" },
+        { SushiDSP::room::PolarPattern::Supercardioid, "supercardioid" },
+        { SushiDSP::room::PolarPattern::FigureEight, "figure_eight" },
+    };
+
+    /// @brief Returns the word of an enumerator.
+    /// @throws std::runtime_error for a value no row names.
+    template <typename Enum, std::size_t N>
+    std::string word_of(const Word<Enum> (&words)[N], Enum value)
+    {
+        for (const Word<Enum>& row : words)
+        {
+            if (row.value == value)
+            {
+                return row.text;
+            }
+        }
+        throw std::runtime_error("RigController: a room field holds a value no preset word names");
+    }
+
+    /// @brief Returns the enumerator of a word.
+    /// @throws std::runtime_error for a word no row carries.
+    template <typename Enum, std::size_t N>
+    Enum value_of(const Word<Enum> (&words)[N], const std::string& text, const char* field)
+    {
+        for (const Word<Enum>& row : words)
+        {
+            if (text == row.text)
+            {
+                return row.value;
+            }
+        }
+        throw std::runtime_error(std::string("RigController: unknown ") + field + " '" + text
+                                 + "' in a preset's room");
+    }
+
+    /// @brief Writes a point as a three-number array.
+    nlohmann::json vec3_to_json(const SushiDSP::room::Vec3& point)
+    {
+        return nlohmann::json::array({ point.x, point.y, point.z });
+    }
+
+    /// @brief Reads a three-number array as a point.
+    /// @throws std::runtime_error when the array does not hold three numbers.
+    SushiDSP::room::Vec3 vec3_from_json(const nlohmann::json& array, const char* field)
+    {
+        if (!array.is_array() || array.size() != 3)
+        {
+            throw std::runtime_error(std::string("RigController: a preset's room ") + field
+                                     + " is not three numbers");
+        }
+        return SushiDSP::room::Vec3{ array.at(0).get<double>(), array.at(1).get<double>(),
+                                     array.at(2).get<double>() };
+    }
+
+    /// @brief Writes a pose as its position and its yaw.
+    nlohmann::json pose_to_json(const SushiDSP::room::Vec3& position, double yaw_rad)
+    {
+        nlohmann::json pose = nlohmann::json::object();
+        pose["position"] = vec3_to_json(position);
+        pose["yaw_rad"] = yaw_rad;
+        return pose;
+    }
+
+    /// @brief Reads a pose written by pose_to_json into a position and a yaw, leaving either
+    /// as it was when the preset omits it.
+    void pose_from_json(const nlohmann::json& pose, const char* field,
+                        SushiDSP::room::Vec3& position, double& yaw_rad)
+    {
+        if (pose.contains("position"))
+        {
+            position = vec3_from_json(pose.at("position"), field);
+        }
+        yaw_rad = pose.value("yaw_rad", yaw_rad);
+    }
+
+    /// @brief Writes a scene as the "room" object of a preset node: the dimensions, the six
+    /// materials and scattering words, the patches, the three poses, the microphone's pattern
+    /// and the cabinet's geometry.
+    nlohmann::json room_scene_to_json(const SushiDSP::room::RoomScene& scene)
+    {
+        nlohmann::json room = nlohmann::json::object();
+        room["dimensions"] = vec3_to_json(scene.dimensions);
+
+        nlohmann::json surfaces = nlohmann::json::array();
+        nlohmann::json scattering = nlohmann::json::array();
+        for (std::size_t face = 0; face < SushiDSP::room::kSurfaceCount; ++face)
+        {
+            surfaces.push_back(word_of(kMaterialWords, scene.surfaces[face]));
+            scattering.push_back(word_of(kScatteringWords, scene.scattering[face]));
+        }
+        room["surfaces"] = surfaces;
+        room["scattering"] = scattering;
+
+        nlohmann::json patches = nlohmann::json::array();
+        for (std::uint32_t index = 0; index < scene.patch_count; ++index)
+        {
+            const SushiDSP::room::RoomScene::Patch& patch = scene.patches[index];
+            nlohmann::json row = nlohmann::json::object();
+            row["surface"] = word_of(kSurfaceWords, patch.surface);
+            row["material"] = word_of(kMaterialWords, patch.material);
+            row["area_m2"] = patch.area_m2;
+            patches.push_back(row);
+        }
+        room["patches"] = patches;
+
+        room["source"] = pose_to_json(scene.source_position, scene.source_yaw_rad);
+        room["listener"] = pose_to_json(scene.listener_position, scene.listener_yaw_rad);
+        nlohmann::json microphone = pose_to_json(scene.microphone_position,
+                                                 scene.microphone_yaw_rad);
+        microphone["pattern"] = word_of(kPatternWords, scene.microphone_pattern);
+        room["microphone"] = microphone;
+
+        nlohmann::json cabinet = nlohmann::json::object();
+        cabinet["cone_radius_m"] = scene.cabinet.cone_radius_m;
+        cabinet["driver_spacing_m"] = scene.cabinet.driver_spacing_m;
+        cabinet["baffle_width_m"] = scene.cabinet.baffle_width_m;
+        cabinet["breakup_frequency_hz"] = scene.cabinet.breakup_frequency_hz;
+        room["cabinet"] = cabinet;
+        return room;
+    }
+
+    /// @brief Reads a "room" object written by room_scene_to_json; a field the object omits
+    /// keeps the default scene's value.
+    /// @throws std::runtime_error for a word or an array the codec does not read.
+    SushiDSP::room::RoomScene room_scene_from_json(const nlohmann::json& room)
+    {
+        SushiDSP::room::RoomScene scene;
+        if (room.contains("dimensions"))
+        {
+            scene.dimensions = vec3_from_json(room.at("dimensions"), "dimensions");
+        }
+        if (room.contains("surfaces"))
+        {
+            const nlohmann::json& surfaces = room.at("surfaces");
+            for (std::size_t face = 0;
+                 face < surfaces.size() && face < SushiDSP::room::kSurfaceCount; ++face)
+            {
+                scene.surfaces[face] =
+                    value_of(kMaterialWords, surfaces.at(face).get<std::string>(), "material");
+            }
+        }
+        if (room.contains("scattering"))
+        {
+            const nlohmann::json& scattering = room.at("scattering");
+            for (std::size_t face = 0;
+                 face < scattering.size() && face < SushiDSP::room::kSurfaceCount; ++face)
+            {
+                scene.scattering[face] = value_of(
+                    kScatteringWords, scattering.at(face).get<std::string>(), "scattering");
+            }
+        }
+        if (room.contains("patches"))
+        {
+            scene.patch_count = 0;
+            for (const nlohmann::json& row : room.at("patches"))
+            {
+                if (scene.patch_count >= SushiDSP::room::RoomScene::kMaxPatches)
+                {
+                    throw std::runtime_error(
+                        "RigController: a preset's room carries more than "
+                        + std::to_string(SushiDSP::room::RoomScene::kMaxPatches) + " patches");
+                }
+                SushiDSP::room::RoomScene::Patch& patch = scene.patches[scene.patch_count++];
+                patch.surface = value_of(kSurfaceWords, row.at("surface").get<std::string>(),
+                                         "surface");
+                patch.material = value_of(kMaterialWords, row.at("material").get<std::string>(),
+                                          "material");
+                patch.area_m2 = row.at("area_m2").get<double>();
+            }
+        }
+        if (room.contains("source"))
+        {
+            pose_from_json(room.at("source"), "source", scene.source_position,
+                           scene.source_yaw_rad);
+        }
+        if (room.contains("listener"))
+        {
+            pose_from_json(room.at("listener"), "listener", scene.listener_position,
+                           scene.listener_yaw_rad);
+        }
+        if (room.contains("microphone"))
+        {
+            const nlohmann::json& microphone = room.at("microphone");
+            pose_from_json(microphone, "microphone", scene.microphone_position,
+                           scene.microphone_yaw_rad);
+            if (microphone.contains("pattern"))
+            {
+                scene.microphone_pattern = value_of(
+                    kPatternWords, microphone.at("pattern").get<std::string>(), "pattern");
+            }
+        }
+        if (room.contains("cabinet"))
+        {
+            const nlohmann::json& cabinet = room.at("cabinet");
+            scene.cabinet.cone_radius_m =
+                cabinet.value("cone_radius_m", scene.cabinet.cone_radius_m);
+            scene.cabinet.driver_spacing_m =
+                cabinet.value("driver_spacing_m", scene.cabinet.driver_spacing_m);
+            scene.cabinet.baffle_width_m =
+                cabinet.value("baffle_width_m", scene.cabinet.baffle_width_m);
+            scene.cabinet.breakup_frequency_hz =
+                cabinet.value("breakup_frequency_hz", scene.cabinet.breakup_frequency_hz);
+        }
+        return scene;
     }
 }
 
@@ -495,6 +741,12 @@ void RigController::reclaim()
         {
             host->reclaim_cabinets();
         }
+        if (auto* room = dynamic_cast<SushiDSP::room::IRoomHost*>(active_graph_->node(handle)))
+        {
+            room->reclaim_rooms();
+            std::string reason;
+            publish_room_scene(slot, false, reason);
+        }
     }
 }
 
@@ -524,6 +776,155 @@ bool RigController::hosts_cabinet(SlotId slot) const
 {
     const auto it = slots_.find(slot);
     return it != slots_.end() && it->second.hosts_cabinet;
+}
+
+bool RigController::hosts_room(SlotId slot) const
+{
+    const auto it = slots_.find(slot);
+    return it != slots_.end() && it->second.hosts_room;
+}
+
+SushiDSP::room::IRoomHost* RigController::room_host(SlotId slot)
+{
+    const auto handle_it = slot_to_handle_.find(slot);
+    if (handle_it == slot_to_handle_.end() || active_graph_ == nullptr)
+    {
+        return nullptr;
+    }
+    return dynamic_cast<SushiDSP::room::IRoomHost*>(active_graph_->node(handle_it->second));
+}
+
+SushiDSP::room::RoomScene RigController::room_scene(SlotId slot) const
+{
+    const auto it = slots_.find(slot);
+    if (it == slots_.end() || !it->second.room_scene.has_value())
+    {
+        return SushiDSP::room::RoomScene{};
+    }
+    return *it->second.room_scene;
+}
+
+bool RigController::set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& scene,
+                                   std::string& error_out)
+{
+    error_out.clear();
+    const auto it = slots_.find(slot);
+    if (it == slots_.end())
+    {
+        error_out = "no slot with that id";
+        return false;
+    }
+    // Refused here rather than at the node, so a drag that leaves the room hears about it on
+    // the frame it happens and not on the publish the interval allows.
+    if (!scene.is_valid(error_out))
+    {
+        return false;
+    }
+    it->second.room_scene = scene;
+    it->second.room_scene_pending = true;
+    return publish_room_scene(slot, false, error_out);
+}
+
+std::size_t RigController::room_publishes(SlotId slot) const
+{
+    const auto it = slots_.find(slot);
+    return it != slots_.end() ? it->second.room_publishes : 0u;
+}
+
+bool RigController::publish_room_scene(SlotId slot, bool force, std::string& error_out)
+{
+    const auto it = slots_.find(slot);
+    if (it == slots_.end() || !it->second.room_scene_pending)
+    {
+        return true;
+    }
+    SushiDSP::room::IRoomHost* host = room_host(slot);
+    if (host == nullptr)
+    {
+        return true;
+    }
+
+    const Clock::time_point now = Clock::now();
+    if (!force && it->second.room_published_at.has_value())
+    {
+        const std::chrono::duration<double> since = now - *it->second.room_published_at;
+        if (since.count() < 1.0 / kRoomPublishHz)
+        {
+            return true;
+        }
+    }
+
+    it->second.room_scene_pending = false;
+    it->second.room_published_at = now;
+    ++it->second.room_publishes;
+    return host->set_scene(*it->second.room_scene, error_out);
+}
+
+void RigController::apply_room_to_live_node(SlotId slot)
+{
+    const auto it = slots_.find(slot);
+    SushiDSP::room::IRoomHost* host = room_host(slot);
+    if (it == slots_.end() || host == nullptr)
+    {
+        return;
+    }
+    if (!hrtf_.empty())
+    {
+        host->set_hrtf(hrtf_);
+    }
+    if (!it->second.room_scene.has_value())
+    {
+        it->second.room_scene = host->scene();
+        return;
+    }
+    std::string reason;
+    it->second.room_scene_pending = true;
+    if (!publish_room_scene(slot, true, reason))
+    {
+        // A stored scene the fresh node refuses is dropped for the node's own, as a cabinet
+        // path the node refuses is dropped.
+        it->second.room_scene = host->scene();
+    }
+}
+
+bool RigController::set_hrtf_path(const std::string& path, std::string& error_out)
+{
+    error_out.clear();
+    SushiDSP::room::HrtfSet set;
+    if (!SushiDSP::room::HrtfSetLoader::load(path, info_.sample_rate, set, error_out))
+    {
+        hrtf_ = SushiDSP::room::HrtfSet{};
+        hrtf_path_.clear();
+        for (SlotId slot : slot_order_)
+        {
+            if (SushiDSP::room::IRoomHost* host = room_host(slot))
+            {
+                host->set_hrtf(SushiDSP::room::HrtfSet{});
+            }
+        }
+        return false;
+    }
+
+    hrtf_ = std::move(set);
+    hrtf_path_ = path;
+    bool every_room_took_it = true;
+    for (SlotId slot : slot_order_)
+    {
+        if (SushiDSP::room::IRoomHost* host = room_host(slot))
+        {
+            every_room_took_it = host->set_hrtf(hrtf_) && every_room_took_it;
+        }
+    }
+    if (!every_room_took_it)
+    {
+        error_out = "a room refused the HRTF set '" + path + "'";
+    }
+    return every_room_took_it;
+}
+
+std::string RigController::hrtf_path() const
+{
+    return hrtf_path_;
 }
 
 std::vector<RigController::SlotId> RigController::upstream_of(SlotId slot) const
@@ -1086,6 +1487,10 @@ std::string RigController::serialize_nodes() const
             {
                 node_json["cabinet_ir"] = slot.cabinet_path;
             }
+            if (slot.room_scene.has_value())
+            {
+                node_json["room"] = room_scene_to_json(*slot.room_scene);
+            }
             if (slot.bypassed)
             {
                 node_json["bypassed"] = true;
@@ -1103,13 +1508,18 @@ void RigController::load_from_json(const std::string& json_text)
     SushiDSP::RigGraph scratch(info_.max_block, static_cast<std::uint32_t>(node_count + 1));
     std::unordered_map<SushiDSP::NodeHandle, std::string> cabinet_paths_by_handle;
     std::unordered_map<SushiDSP::NodeHandle, bool> bypassed_by_handle;
+    std::unordered_map<SushiDSP::NodeHandle, SushiDSP::room::RoomScene> room_scenes_by_handle;
     SushiDSP::deserialize_rig_from_json(scratch, json_text, info_,
-        [&cabinet_paths_by_handle, &bypassed_by_handle](
+        [&cabinet_paths_by_handle, &bypassed_by_handle, &room_scenes_by_handle](
             SushiDSP::NodeHandle handle, const nlohmann::json& node_json)
         {
             if (node_json.contains("cabinet_ir"))
             {
                 cabinet_paths_by_handle[handle] = node_json.at("cabinet_ir").get<std::string>();
+            }
+            if (node_json.contains("room"))
+            {
+                room_scenes_by_handle[handle] = room_scene_from_json(node_json.at("room"));
             }
             if (node_json.contains("bypassed"))
             {
@@ -1232,6 +1642,11 @@ void RigController::load_from_json(const std::string& json_text)
         if (bypass_it != bypassed_by_handle.end())
         {
             slot.bypassed = bypass_it->second;
+        }
+        const auto room_it = room_scenes_by_handle.find(handle);
+        if (room_it != room_scenes_by_handle.end())
+        {
+            slot.room_scene = room_it->second;
         }
         slots_[id] = std::move(slot);
         slot_order_.push_back(id);
@@ -1396,6 +1811,9 @@ void RigController::publish()
         }
         Slot& slot = slots_.at(id);
         slot.hosts_cabinet = dynamic_cast<SushiDSP::ICabinetHost*>(node) != nullptr;
+        slot.hosts_room = dynamic_cast<SushiDSP::room::IRoomHost*>(node) != nullptr;
+        slot.room_published_at.reset();
+        slot.room_publishes = 0;
         for (const auto& [param_id, value] : slot.parameters)
         {
             node->set_parameter(param_id.c_str(), value);
@@ -1408,6 +1826,7 @@ void RigController::publish()
     for (SlotId id : slot_order_)
     {
         apply_cabinet_to_live_node(id);
+        apply_room_to_live_node(id);
     }
 
     graph_slot_.publish(std::move(graph));
