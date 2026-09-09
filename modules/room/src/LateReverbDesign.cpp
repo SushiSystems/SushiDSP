@@ -68,7 +68,10 @@ namespace SushiDSP::room
         const double kDecayRatePerRt60 = 6.0 * std::log(10.0);
 
         /// @brief Holds the section that passes its input unchanged.
-        constexpr std::array<double, 5> kUnitySection = { 1.0, 0.0, 0.0, 0.0, 0.0 };
+        constexpr FdnDesign::Section kUnitySection = { 1.0, 0.0, 0.0, 0.0, 0.0 };
+
+        /// @brief Holds the cascade that passes its input unchanged.
+        constexpr FdnDesign::Cascade kUnityCascade = { kUnitySection, kUnitySection };
 
         /// @brief Returns whether n is prime by trial division up to its square root.
         bool is_prime(std::uint32_t n) noexcept
@@ -158,7 +161,7 @@ namespace SushiDSP::room
 
         /// @brief Returns the RBJ second-order Butterworth section at one corner, a low-pass
         /// when low is true and its power-complementary high-pass otherwise.
-        std::array<double, 5> butterworth(double corner_hz, double sample_rate, bool low) noexcept
+        FdnDesign::Section butterworth(double corner_hz, double sample_rate, bool low) noexcept
         {
             const double omega = 2.0 * kPi * corner_hz / sample_rate;
             const double cos_omega = std::cos(omega);
@@ -258,21 +261,22 @@ namespace SushiDSP::room
             design.line_section_b[line] = fit.coefficients.section_b;
         }
 
-        design.tone_correction =
-            BandResponseFit::fit(tone_correction(mean_tau, rt60), sample_rate).coefficients.section_a;
+        const BandResponseFit::Coefficients tone =
+            BandResponseFit::fit(tone_correction(mean_tau, rt60), sample_rate).coefficients;
+        design.tone_correction = { tone.section_a, tone.section_b };
 
         if (listener == ListenerKind::Ears)
         {
             // A Butterworth pair is power complementary, so the right ear carries the left
             // ear's energy whatever the split between the coherent and incoherent sums.
             const double corner_hz = coherence_corner_hz();
-            design.coherence_a = butterworth(corner_hz, sample_rate, true);
-            design.coherence_b = butterworth(corner_hz, sample_rate, false);
+            design.coherence_a = { butterworth(corner_hz, sample_rate, true), kUnitySection };
+            design.coherence_b = { butterworth(corner_hz, sample_rate, false), kUnitySection };
         }
         else
         {
-            design.coherence_a = kUnitySection;
-            design.coherence_b = kUnitySection;
+            design.coherence_a = kUnityCascade;
+            design.coherence_b = kUnityCascade;
         }
 
         design.delay_to_crossover_frames =

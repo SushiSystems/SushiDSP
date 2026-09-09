@@ -100,12 +100,42 @@ namespace
         return total;
     }
 
-    /// @brief Returns one design section's linear magnitude at a frequency.
-    double section_gain(const std::array<double, 5>& section, double frequency_hz)
+    /// @brief Returns one design cascade's magnitude in decibels at a frequency.
+    double cascade_db(const FdnDesign::Cascade& cascade, double frequency_hz)
     {
-        const BandResponseFit::Coefficients coefficients{ section, { 1.0, 0.0, 0.0, 0.0, 0.0 } };
-        return std::pow(10.0, BandResponseFit::magnitude_db(coefficients, frequency_hz, kSampleRate)
-                                  / 20.0);
+        const BandResponseFit::Coefficients coefficients{ cascade[0], cascade[1] };
+        return BandResponseFit::magnitude_db(coefficients, frequency_hz, kSampleRate);
+    }
+
+    /// @brief Returns one design cascade's linear magnitude at a frequency.
+    double cascade_gain(const FdnDesign::Cascade& cascade, double frequency_hz)
+    {
+        return std::pow(10.0, cascade_db(cascade, frequency_hz) / 20.0);
+    }
+
+    /// @brief Returns Jot's tone correction sqrt(1 - g(f)^2) / sqrt(1 - g(500)^2) in decibels
+    /// per band for a design's mean line, with g(f) = 10^(-3 tau / RT60(f)).
+    std::array<double, 6> tone_target_db(const SushiDSP::room::RoomScene& scene,
+                                         const FdnDesign& design)
+    {
+        const std::array<double, 6> rt60 = SushiDSP::room::EyringDecay::rt60_seconds(scene);
+        double mean_tau = 0.0;
+        for (const std::uint32_t frames : design.line_frames)
+        {
+            mean_tau += static_cast<double>(frames) / kSampleRate / static_cast<double>(kLines);
+        }
+        std::array<double, 6> envelope{};
+        for (std::size_t band = 0; band < 6u; ++band)
+        {
+            const double g = std::pow(10.0, -3.0 * mean_tau / rt60[band]);
+            envelope[band] = std::sqrt(1.0 - g * g);
+        }
+        std::array<double, 6> target{};
+        for (std::size_t band = 0; band < 6u; ++band)
+        {
+            target[band] = 20.0 * std::log10(envelope[band] / envelope[2]);
+        }
+        return target;
     }
 }
 
@@ -245,36 +275,67 @@ TEST(Unit_Dsp, LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh)
 {
     // sin(k d) / (k d) at d = 0.17 m is 0.975 at 125 Hz, 0.902 at 250 Hz and 0.0088 in magnitude
     // at 4 kHz; the plan's 0.900 is the 250 Hz value and its 0.0257 matches no band. The
-    // coherence filter's magnitude is above 0.85 at 125 Hz and below 0.20 at 4 kHz, and the
-    // pair is power complementary at every centre within 1e-6.
+    // coherence filter's magnitude is above 0.85 at 125 Hz and below 0.20 at 4 kHz.
     const FdnDesign design = garage_design();
-    EXPECT_GT(section_gain(design.coherence_a, 125.0), 0.85);
-    EXPECT_LT(section_gain(design.coherence_a, 4000.0), 0.20);
-    EXPECT_LT(section_gain(design.coherence_b, 125.0), 0.20);
-    EXPECT_GT(section_gain(design.coherence_b, 4000.0), 0.95);
-    for (const double frequency_hz : SushiDSP::room::kBandCentresHz)
-    {
-        const double a = section_gain(design.coherence_a, frequency_hz);
-        const double b = section_gain(design.coherence_b, frequency_hz);
-        EXPECT_NEAR(a * a + b * b, 1.0, 1e-6) << frequency_hz << " Hz";
-    }
+    EXPECT_GT(cascade_gain(design.coherence_a, 125.0), 0.85);
+    EXPECT_LT(cascade_gain(design.coherence_a, 4000.0), 0.20);
+    EXPECT_LT(cascade_gain(design.coherence_b, 125.0), 0.20);
+    EXPECT_GT(cascade_gain(design.coherence_b, 4000.0), 0.95);
+}
 
-    // The tone correction is scaled to unity at 500 Hz, the band the mean line came from.
-    EXPECT_NEAR(section_gain(design.tone_correction, 500.0), 1.0, 0.02);
+TEST(Unit_Dsp, LateReverbDesignKeepsTheCoherencePairPowerComplementary)
+{
+    // |A|^2 + |B|^2 = 1 at every band centre and at the corner between them within 1e-9, so
+    // the right ear carries the left ear's energy whatever the split between the two sums.
+    const FdnDesign design = garage_design();
+    for (const double frequency_hz : { 125.0, 250.0, 446.9, 500.0, 1000.0, 2000.0, 4000.0 })
+    {
+        const double a = cascade_gain(design.coherence_a, frequency_hz);
+        const double b = cascade_gain(design.coherence_b, frequency_hz);
+        EXPECT_NEAR(a * a + b * b, 1.0, 1e-9) << frequency_hz << " Hz";
+    }
+}
+
+TEST(Unit_Dsp, LateReverbDesignFitsTheToneCorrectionWithBothSections)
+{
+    // The bedroom's decays, 0.3264, 0.8705, 1.1542, 0.7307, 0.4281 and 0.3565 s against a mean
+    // line of 0.103393 s, ask for +1.433, +0.552, 0, +0.825, +1.331 and +1.408 dB: a dip at
+    // 500 Hz between two raised ends. The first section alone reaches +0.208 dB at 4 kHz; the
+    // cascade lands within the fit's 0.25 dB stopping error at every centre.
+    const SushiDSP::room::RoomScene bedroom = SushiDSP::test::bedroom_scene();
+    const FdnDesign design = LateReverbDesign::design(
+        bedroom, SushiDSP::room::ImageSourceSolver::solve(bedroom, {}), kSampleRate,
+        ListenerKind::Ears);
+    const std::array<double, 6> target = tone_target_db(bedroom, design);
+    EXPECT_NEAR(target[0], 1.433, 0.001);
+    EXPECT_NEAR(target[5], 1.408, 0.001);
+    for (std::size_t band = 0; band < 6u; ++band)
+    {
+        EXPECT_NEAR(cascade_db(design.tone_correction, SushiDSP::room::kBandCentresHz[band]),
+                    target[band], 0.25)
+            << SushiDSP::room::kBandCentresHz[band] << " Hz";
+    }
+    const FdnDesign::Cascade first_only = { design.tone_correction[0],
+                                            { 1.0, 0.0, 0.0, 0.0, 0.0 } };
+    EXPECT_LT(cascade_db(first_only, 4000.0), 0.5);
+
+    // The garage's correction is scaled to unity at 500 Hz, the band the mean line came from.
+    EXPECT_NEAR(cascade_gain(garage_design().tone_correction, 500.0), 1.0, 0.02);
 }
 
 TEST(Unit_Dsp, LateReverbDesignGivesTheMicrophoneOneOutput)
 {
-    // ListenerKind::Microphone leaves both coherence filters as pass-throughs: b0 = 1, the rest
-    // 0. Everything else in the design is the listener's independent.
+    // ListenerKind::Microphone leaves both coherence filters as pass-throughs: b0 = 1 in each
+    // section, the rest 0. Everything else in the design is the listener's independent.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const SushiDSP::room::ImageSourceSolver::Options options{ 4u, ListenerKind::Microphone,
                                                               kSampleRate };
     const EarlyTapSet early = SushiDSP::room::ImageSourceSolver::solve(garage, options);
     const FdnDesign design =
         LateReverbDesign::design(garage, early, kSampleRate, ListenerKind::Microphone);
-    const std::array<double, 5> unity = { 1.0, 0.0, 0.0, 0.0, 0.0 };
-    EXPECT_EQ(design.coherence_a, unity);
-    EXPECT_EQ(design.coherence_b, unity);
+    const FdnDesign::Section unity = { 1.0, 0.0, 0.0, 0.0, 0.0 };
+    const FdnDesign::Cascade unity_cascade = { unity, unity };
+    EXPECT_EQ(design.coherence_a, unity_cascade);
+    EXPECT_EQ(design.coherence_b, unity_cascade);
     EXPECT_EQ(design.line_frames, garage_design().line_frames);
 }

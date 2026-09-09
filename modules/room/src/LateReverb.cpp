@@ -55,12 +55,6 @@ namespace SushiDSP::room
             -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0
         };
 
-        /// @brief Loads five design coefficients into one Biquad.
-        void load_biquad(Biquad& biquad, const std::array<double, 5>& section) noexcept
-        {
-            biquad.set_coefficients(section[0], section[1], section[2], section[3], section[4]);
-        }
-
         /// @brief Returns a read index length frames behind write in a ring of capacity frames.
         /// @pre length < capacity and write < capacity.
         inline std::uint32_t behind(std::uint32_t write, std::uint32_t length,
@@ -106,6 +100,24 @@ namespace SushiDSP::room
         x2.fill(0.0);
         y1.fill(0.0);
         y2.fill(0.0);
+    }
+
+    void LateReverb::OutputFilter::load(const FdnDesign::Cascade& cascade) noexcept
+    {
+        for (std::size_t index = 0; index < FdnDesign::kOutputSections; ++index)
+        {
+            const FdnDesign::Section& section = cascade[index];
+            sections[index].set_coefficients(section[0], section[1], section[2], section[3],
+                                             section[4]);
+        }
+    }
+
+    void LateReverb::OutputFilter::reset() noexcept
+    {
+        for (Biquad& section : sections)
+        {
+            section.reset();
+        }
     }
 
     void LateReverb::hadamard_transform(std::array<double, kLineCount>& values) noexcept
@@ -184,10 +196,10 @@ namespace SushiDSP::room
     {
         section_a_.load(design.line_section_a);
         section_b_.load(design.line_section_b);
-        load_biquad(tone_left_, design.tone_correction);
-        load_biquad(tone_right_, design.tone_correction);
-        load_biquad(coherence_a_, design.coherence_a);
-        load_biquad(coherence_b_, design.coherence_b);
+        tone_left_.load(design.tone_correction);
+        tone_right_.load(design.tone_correction);
+        coherence_a_.load(design.coherence_a);
+        coherence_b_.load(design.coherence_b);
     }
 
     template <bool kFading, bool kTwoEars>

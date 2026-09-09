@@ -34,10 +34,23 @@ namespace
     constexpr std::uint32_t kMaxLineFrames = 8000;
 
     /// @brief Holds a unity section: b0 = 1, every other coefficient 0.
-    constexpr std::array<double, 5> kUnitySection = { 1.0, 0.0, 0.0, 0.0, 0.0 };
+    constexpr FdnDesign::Section kUnitySection = { 1.0, 0.0, 0.0, 0.0, 0.0 };
 
     /// @brief Holds a silent section: every coefficient 0.
-    constexpr std::array<double, 5> kZeroSection = { 0.0, 0.0, 0.0, 0.0, 0.0 };
+    constexpr FdnDesign::Section kZeroSection = { 0.0, 0.0, 0.0, 0.0, 0.0 };
+
+    /// @brief Holds a cascade of two unity sections.
+    constexpr FdnDesign::Cascade kUnityCascade = { kUnitySection, kUnitySection };
+
+    /// @brief Holds a cascade whose first section is silent.
+    constexpr FdnDesign::Cascade kZeroCascade = { kZeroSection, kUnitySection };
+
+    /// @brief Returns a cascade of two plain gains of 0.5, a quarter overall.
+    FdnDesign::Cascade half_twice()
+    {
+        const FdnDesign::Section half = { 0.5, 0.0, 0.0, 0.0, 0.0 };
+        return { half, half };
+    }
 
     /// @brief Holds sixteen primes spread over a 1 : 2 range about 100 ms at 48 kHz.
     constexpr std::array<std::uint32_t, kLines> kMidLines = {
@@ -68,9 +81,9 @@ namespace
             design.line_section_a[line] = { line_gains[line], 0.0, 0.0, 0.0, 0.0 };
             design.line_section_b[line] = kUnitySection;
         }
-        design.tone_correction = kUnitySection;
-        design.coherence_a = kZeroSection;
-        design.coherence_b = kUnitySection;
+        design.tone_correction = kUnityCascade;
+        design.coherence_a = kZeroCascade;
+        design.coherence_b = kUnityCascade;
         design.input_gain = 1.0f;
         design.delay_to_crossover_frames = 0.0f;
         return design;
@@ -237,6 +250,36 @@ TEST(Unit_Dsp, LateReverbEarsDifferButShareTheirEnergy)
     EXPECT_NE(out.left, out.right);
     const double ratio_db = 10.0 * std::log10(energy(out.left) / energy(out.right));
     EXPECT_NEAR(ratio_db, 0.0, 0.5);
+}
+
+TEST(Unit_Dsp, LateReverbRunsBothSectionsOfEveryOutputFilter)
+{
+    // Two sections of gain 0.5 in the tone correction scale both ears by 0.25 against unity;
+    // the same pair in coherence_b scales the right ear alone, since the left ear is A alone.
+    const FdnDesign plain = make_design(kShortLines, uniform_gains(0.5));
+    FdnDesign quarter_tone = plain;
+    quarter_tone.tone_correction = half_twice();
+    FdnDesign quarter_right = plain;
+    quarter_right.coherence_b = half_twice();
+
+    LateReverb reverb;
+    reverb.prepare(kMaxLineFrames);
+    const Rendering reference = render(reverb, plain, impulse(4096));
+    reverb.reset();
+    const Rendering tone = render(reverb, quarter_tone, impulse(4096));
+    reverb.reset();
+    const Rendering right = render(reverb, quarter_right, impulse(4096));
+    ASSERT_GT(energy(reference.left), 0.0);
+    ASSERT_GT(energy(reference.right), 0.0);
+    for (std::size_t frame = 0; frame < 4096; ++frame)
+    {
+        ASSERT_NEAR(tone.left[frame], 0.25f * reference.left[frame], 1e-6f) << "frame " << frame;
+        ASSERT_NEAR(tone.right[frame], 0.25f * reference.right[frame], 1e-6f)
+            << "frame " << frame;
+        ASSERT_EQ(right.left[frame], reference.left[frame]) << "frame " << frame;
+        ASSERT_NEAR(right.right[frame], 0.25f * reference.right[frame], 1e-6f)
+            << "frame " << frame;
+    }
 }
 
 TEST(Unit_Dsp, LateReverbResetSilencesTheLines)
