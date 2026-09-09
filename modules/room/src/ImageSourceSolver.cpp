@@ -98,52 +98,15 @@ namespace SushiDSP::room
             double yaw_rad;
         };
 
-        /// @brief Returns the area of one face of the shoebox, in square metres.
-        double face_area_m2(Surface surface, const Vec3& dimensions) noexcept
-        {
-            switch (surface)
-            {
-            case Surface::MinusX:
-            case Surface::PlusX:
-                return dimensions.y * dimensions.z;
-            case Surface::MinusY:
-            case Surface::PlusY:
-                return dimensions.x * dimensions.z;
-            case Surface::Floor:
-            case Surface::Ceiling:
-                return dimensions.x * dimensions.y;
-            }
-            return 0.0;
-        }
-
-        /// @brief Returns sqrt(1 - alpha) per band for one face, alpha area-weighted over the
-        /// face's own material and the patches on it.
+        /// @brief Returns sqrt(1 - alpha) per band for one face, the absorption coming from
+        /// RoomScene so the solver and Eyring weight a patched face the same way.
         std::array<double, kBandCount> face_reflection(const RoomScene& scene, Surface surface)
         {
-            const double face_area = face_area_m2(surface, scene.dimensions);
-            std::array<double, kBandCount> absorption{};
-            double patch_area = 0.0;
-            for (std::uint32_t index = 0; index < scene.patch_count; ++index)
-            {
-                const RoomScene::Patch& patch = scene.patches[index];
-                if (patch.surface != surface)
-                {
-                    continue;
-                }
-                const Material& row = material(patch.material);
-                for (std::size_t band = 0; band < kBandCount; ++band)
-                {
-                    absorption[band] += patch.area_m2 * static_cast<double>(row.absorption[band]);
-                }
-                patch_area += patch.area_m2;
-            }
-            const Material& bare = material(scene.surfaces[static_cast<std::size_t>(surface)]);
+            const std::array<double, kBandCount> absorption = scene.face_absorption(surface);
             std::array<double, kBandCount> reflection{};
             for (std::size_t band = 0; band < kBandCount; ++band)
             {
-                const double weighted = absorption[band]
-                    + (face_area - patch_area) * static_cast<double>(bare.absorption[band]);
-                reflection[band] = std::sqrt(std::max(0.0, 1.0 - weighted / face_area));
+                reflection[band] = std::sqrt(std::max(0.0, 1.0 - absorption[band]));
             }
             return reflection;
         }

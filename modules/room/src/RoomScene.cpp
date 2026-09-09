@@ -33,23 +33,6 @@ namespace SushiDSP::room
 {
     namespace
     {
-        /// @brief Returns the area of one face of the shoebox, in square metres.
-        double face_area_m2(Surface surface, const Vec3& dimensions) noexcept
-        {
-            switch (surface)
-            {
-            case Surface::MinusX:
-            case Surface::PlusX:
-                return dimensions.y * dimensions.z;
-            case Surface::MinusY:
-            case Surface::PlusY:
-                return dimensions.x * dimensions.z;
-            case Surface::Floor:
-            case Surface::Ceiling:
-                return dimensions.x * dimensions.y;
-            }
-            return 0.0;
-        }
 
         /// @brief Names an axis for a validation reason.
         const char* axis_name(int axis) noexcept
@@ -88,42 +71,75 @@ namespace SushiDSP::room
         double total = 0.0;
         for (std::size_t surface = 0; surface < kSurfaceCount; ++surface)
         {
-            total += face_area_m2(static_cast<Surface>(surface), dimensions);
+            total += face_area_m2(static_cast<Surface>(surface));
         }
         return total;
     }
 
-    std::array<double, kBandCount> RoomScene::mean_absorption() const
+    double RoomScene::face_area_m2(Surface surface) const noexcept
+    {
+        switch (surface)
+        {
+        case Surface::MinusX:
+        case Surface::PlusX:
+            return dimensions.y * dimensions.z;
+        case Surface::MinusY:
+        case Surface::PlusY:
+            return dimensions.x * dimensions.z;
+        case Surface::Floor:
+        case Surface::Ceiling:
+            return dimensions.x * dimensions.y;
+        }
+        return 0.0;
+    }
+
+    std::array<double, kBandCount> RoomScene::face_absorption(Surface surface) const
     {
         // A patch replaces area on its face rather than adding to it, so its own material's
-        // area is subtracted from that face before either is weighted.
-        std::array<double, kSurfaceCount> patch_area{};
-        for (std::uint32_t index = 0; index < patch_count; ++index)
-        {
-            patch_area[static_cast<std::size_t>(patches[index].surface)] += patches[index].area_m2;
-        }
-
+        // area is subtracted from the face before either is weighted.
+        const double face_area = face_area_m2(surface);
         std::array<double, kBandCount> weighted{};
-        double total_area = 0.0;
-        for (std::size_t surface = 0; surface < kSurfaceCount; ++surface)
-        {
-            const double face_area = face_area_m2(static_cast<Surface>(surface), dimensions);
-            const double bare_area = face_area - patch_area[surface];
-            const Material& bare_material = material(surfaces[surface]);
-            for (std::size_t band = 0; band < kBandCount; ++band)
-            {
-                weighted[band] += bare_area * static_cast<double>(bare_material.absorption[band]);
-            }
-            total_area += face_area;
-        }
+        double patch_area = 0.0;
         for (std::uint32_t index = 0; index < patch_count; ++index)
         {
+            if (patches[index].surface != surface)
+            {
+                continue;
+            }
             const Material& patch_material = material(patches[index].material);
             for (std::size_t band = 0; band < kBandCount; ++band)
             {
                 weighted[band] += patches[index].area_m2
                     * static_cast<double>(patch_material.absorption[band]);
             }
+            patch_area += patches[index].area_m2;
+        }
+
+        const Material& bare_material = material(surfaces[static_cast<std::size_t>(surface)]);
+        std::array<double, kBandCount> result{};
+        for (std::size_t band = 0; band < kBandCount; ++band)
+        {
+            weighted[band] += (face_area - patch_area)
+                * static_cast<double>(bare_material.absorption[band]);
+            result[band] = weighted[band] / face_area;
+        }
+        return result;
+    }
+
+    std::array<double, kBandCount> RoomScene::mean_absorption() const
+    {
+        std::array<double, kBandCount> weighted{};
+        double total_area = 0.0;
+        for (std::size_t index = 0; index < kSurfaceCount; ++index)
+        {
+            const Surface surface = static_cast<Surface>(index);
+            const double face_area = face_area_m2(surface);
+            const std::array<double, kBandCount> absorption = face_absorption(surface);
+            for (std::size_t band = 0; band < kBandCount; ++band)
+            {
+                weighted[band] += face_area * absorption[band];
+            }
+            total_area += face_area;
         }
 
         std::array<double, kBandCount> result{};
@@ -159,7 +175,7 @@ namespace SushiDSP::room
         for (std::uint32_t index = 0; index < patch_count; ++index)
         {
             const Patch& patch = patches[index];
-            const double face_area = face_area_m2(patch.surface, dimensions);
+            const double face_area = face_area_m2(patch.surface);
             if (patch.area_m2 > face_area)
             {
                 reason = "a patch of " + std::to_string(patch.area_m2) + " m2 exceeds its face's "
