@@ -62,6 +62,27 @@ def _build_dir(root: Path) -> Path:
     return root / "build"
 
 
+_BUILD_TYPE_FROM_CMAKE = {value: key for key, value in _CMAKE_BUILD_TYPE.items()}
+
+
+def resolve_build_type(requested: Optional[BuildType]) -> BuildType:
+    """Settles which build type a command acts on when --type was not given.
+
+    An explicit flag wins. Otherwise an already configured tree keeps the type it carries,
+    so that `sd test` after `sd build --type release` measures the Release binary instead of
+    reconfiguring the tree to Debug and rebuilding it unoptimised. A tree that does not exist
+    yet, or one whose cache names a type this CLI does not offer, falls back to debug.
+    """
+    if requested is not None:
+        return requested
+    try:
+        build_dir = _build_dir(find_project_root())
+    except Exception:
+        return BuildType.debug
+    cached = cmake_cache.cached_value(build_dir, "CMAKE_BUILD_TYPE")
+    return _BUILD_TYPE_FROM_CMAKE.get(cached or "", BuildType.debug)
+
+
 _RUNNER = Runner(console, PROFILE.program)
 _DRIVER = CMakeDriver(console, _RUNNER)
 
@@ -111,8 +132,9 @@ def _needs_configure(cfg: Config, build_dir: Path, expect: Optional[dict[str, st
                for key, value in (expect or {}).items())
 
 
-def configure(build_type: BuildType, defines: Optional[list[str]] = None) -> int:
+def configure(build_type: Optional[BuildType], defines: Optional[list[str]] = None) -> int:
     """Runs `cmake -S . -B build` with the detected compiler, generator and build type."""
+    build_type = resolve_build_type(build_type)
     root = find_project_root()
     cfg = load_config()
     build_dir = _build_dir(root)
@@ -140,9 +162,11 @@ def configure(build_type: BuildType, defines: Optional[list[str]] = None) -> int
     return _DRIVER.configure(cmd, cwd=root, env=_env(cfg, build_dir))
 
 
-def build(build_type: BuildType, clean: bool = False,
+def build(build_type: Optional[BuildType], clean: bool = False,
           defines: Optional[list[str]] = None) -> int:
     """Configures (if needed or forced by --clean) then builds the project."""
+    # --clean removes the tree, so there is no cached type left to inherit from.
+    build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
     root = find_project_root()
     cfg = load_config()
     build_dir = _build_dir(root)
@@ -165,8 +189,9 @@ def build(build_type: BuildType, clean: bool = False,
                            config=_CMAKE_BUILD_TYPE[build_type])
 
 
-def test(build_type: BuildType, suite: Suite, clean: bool = False) -> int:
+def test(build_type: Optional[BuildType], suite: Suite, clean: bool = False) -> int:
     """Builds (if needed) then runs ctest, optionally filtered by *suite*."""
+    build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
     rc = build(build_type, clean=clean)
     if rc != 0:
         return rc

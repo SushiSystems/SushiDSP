@@ -293,7 +293,7 @@ TEST(Unit_Dsp, RoomNodeCrossfadesAPublishWithoutAStep)
     const CrossfadeMeasure measure = measure_crossfade(microphone_scene(), moved);
     RecordProperty("residual_dbfs", to_decibels(measure.residual));
     EXPECT_LE(measure.step_ratio, 1.01);
-    EXPECT_LT(to_decibels(measure.residual), -32.0);
+    EXPECT_LT(to_decibels(measure.residual), -50.0);
 }
 
 TEST(Unit_Dsp, RoomNodeCrossfadesASmallMoveFromTheCarriedState)
@@ -307,7 +307,7 @@ TEST(Unit_Dsp, RoomNodeCrossfadesASmallMoveFromTheCarriedState)
     const CrossfadeMeasure measure = measure_crossfade(microphone_scene(), nudged);
     RecordProperty("residual_dbfs", to_decibels(measure.residual));
     EXPECT_LE(measure.step_ratio, 1.01);
-    EXPECT_LT(to_decibels(measure.residual), -35.0);
+    EXPECT_LT(to_decibels(measure.residual), -58.0);
 }
 
 TEST(Unit_Dsp, RoomNodeRepublishesTheSameSceneWithoutAResidual)

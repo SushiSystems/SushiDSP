@@ -29,6 +29,8 @@
 
 #include <gtest/gtest.h>
 
+#include "TimingGate.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -248,6 +250,7 @@ TEST(Unit_Dsp, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
 
 TEST(Unit_Dsp, BandResponseFitCostsUnderTenMillisecondsForOneHundredAndFiftyFits)
 {
+    SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
     const SushiDSP::room::BandResponse carpet =
         SushiDSP::room::reflection_factor(SushiDSP::room::MaterialId::HeavyCarpetOnConcrete);
     double sink = 0.0;

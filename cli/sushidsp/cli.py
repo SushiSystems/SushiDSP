@@ -25,9 +25,10 @@ app = typer.Typer(
 
 @app.command("configure")
 def configure(
-    type: BuildType = typer.Option(
-        BuildType.debug, "--type", "-t", case_sensitive=False,
-        help="Build type: debug | release | relwithdebinfo."),
+    type: Optional[BuildType] = typer.Option(
+        None, "--type", "-t", case_sensitive=False,
+        help="Build type: debug | release | relwithdebinfo. "
+             "Defaults to the type the build tree already carries, else debug."),
     define: Optional[list[str]] = typer.Option(
         None, "--define", "-D", metavar="VAR=VALUE",
         help="Pass a CMake cache variable through to configure. Repeatable."),
@@ -38,9 +39,10 @@ def configure(
 
 @app.command("build")
 def build(
-    type: BuildType = typer.Option(
-        BuildType.debug, "--type", "-t", case_sensitive=False,
-        help="Build type: debug | release | relwithdebinfo."),
+    type: Optional[BuildType] = typer.Option(
+        None, "--type", "-t", case_sensitive=False,
+        help="Build type: debug | release | relwithdebinfo. "
+             "Defaults to the type the build tree already carries, else debug."),
     clean: bool = typer.Option(
         False, "--clean", help="Delete the build tree before configuring."),
     define: Optional[list[str]] = typer.Option(
@@ -53,9 +55,10 @@ def build(
 
 @app.command("test")
 def test(
-    type: BuildType = typer.Option(
-        BuildType.debug, "--type", "-t", case_sensitive=False,
-        help="Build type: debug | release | relwithdebinfo."),
+    type: Optional[BuildType] = typer.Option(
+        None, "--type", "-t", case_sensitive=False,
+        help="Build type: debug | release | relwithdebinfo. "
+             "Defaults to the type the build tree already carries, else debug."),
     suite: Suite = typer.Option(
         Suite.unit, "--suite", "-s", case_sensitive=False,
         help="Test suite to run: unit | regression | benchmark | all."),

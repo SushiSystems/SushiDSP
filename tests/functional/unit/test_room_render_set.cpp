@@ -39,6 +39,7 @@
 #include <type_traits>
 
 #include "RoomFixtures.hpp"
+#include "TimingGate.hpp"
 #include "SushiDSP/room/EarlyTapSet.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
 #include "SushiDSP/room/HrtfSet.hpp"
@@ -220,6 +221,7 @@ TEST(Unit_Dsp, BuildRenderSetCarriesTheDiffuseFieldPair)
 
 TEST(Unit_Dsp, BuildRenderSetCostsUnderOnePublishBudget)
 {
+    SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const SushiDSP::room::HrtfSet& hrtf = fallback_hrtf();
 

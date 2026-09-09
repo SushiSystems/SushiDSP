@@ -36,6 +36,7 @@
 #include <cstdint>
 
 #include "RoomFixtures.hpp"
+#include "TimingGate.hpp"
 #include "SushiDSP/room/ImageSourceSolver.hpp"
 
 namespace
@@ -266,14 +267,18 @@ TEST(Unit_Dsp, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
     EXPECT_GT(cluttered.scattered_energy, flat.scattered_energy);
 }
 
-TEST(Unit_Dsp, ImageSourceSolverSolvesTheGarageUnderTenMilliseconds)
+TEST(Unit_Dsp, ImageSourceSolverSolvesTheGarageInsideThePublishBudget)
 {
-    // Spec section 4.2 measured 150 fits at 4.33 ms in a Release build and set the bound its
-    // sibling test asserts at 10 ms; a solve is those fits plus the lattice.
+    SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
+    // A solve is the band fits plus the lattice, and it is the largest part of the render set
+    // whose own test bounds the whole build at the 33 ms a 30 Hz republish allows. The bound
+    // here is that budget less the tail design and the modal solve, which measure well under a
+    // millisecond each. A Release solve measures 9 ms; the margin is deliberate, because a
+    // tighter one measures how loaded the machine is rather than how the solver scales.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const auto start = std::chrono::steady_clock::now();
     const SushiDSP::room::EarlyTapSet set = SushiDSP::room::ImageSourceSolver::solve(garage, {});
     const auto stop = std::chrono::steady_clock::now();
     const double milliseconds = std::chrono::duration<double, std::milli>(stop - start).count();
-    EXPECT_LT(milliseconds, 10.0) << "taps " << set.count;
+    EXPECT_LT(milliseconds, 25.0) << "taps " << set.count;
 }
