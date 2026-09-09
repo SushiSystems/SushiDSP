@@ -2115,7 +2115,7 @@ namespace SushiDSP::room
     enum class ListenerKind : std::uint8_t { Ears = 0, Microphone };
 
     /// @brief Mirrors the source across the six walls to order 4 and reduces every surviving
-    /// image to one tap. Control thread; under a millisecond for 129 images. Spec §4.1.
+    /// image to one tap. Control thread; under ten milliseconds for a garage solve. Spec §4.1.
     class ImageSourceSolver
     {
     public:
@@ -2157,14 +2157,16 @@ TEST(Unit_Dsp, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
     scene.source_position   = { 1.5, 2.0, 0.5 };
     scene.listener_position = { 4.0, 2.0, 1.2 };
     SushiDSP::room::ImageSourceSolver::Options options;
-    options.max_order = 1u;
+    // Order 1 alone cuts at t_c = 2 * 2.5 / 343 = 699.708 frames, which drops the -x and +x
+    // images, so the seven arrivals are read from an order 4 solve.
+    options.max_order = 4u;
     const SushiDSP::room::EarlyTapSet set =
         SushiDSP::room::ImageSourceSolver::solve(scene, options);
-    ASSERT_EQ(set.count, 7u);
+    ASSERT_GE(set.count, 7u);
     // direct 2.596151 m, floor 3.023243 m, ceiling 4.140048 m, -y and +y 4.768648 m,
     // -x 5.544367 m, +x 6.537584 m; divided by 343 and multiplied by 48000:
     const std::array<double, 7> frames =
-        { 363.311, 423.078, 579.365, 667.333, 667.333, 775.888, 914.881 };
+        { 363.310, 423.078, 579.365, 667.333, 667.333, 775.888, 914.881 };
     for (std::size_t tap = 0; tap < 7u; ++tap)
     {
         EXPECT_NEAR(set.taps[tap].delay_frames, frames[tap], 1e-3) << "tap " << tap;
@@ -2197,14 +2199,16 @@ TEST(Unit_Dsp, ImageSourceSolverEncodesEarsAndMicrophoneDifferently)
 
 TEST(Unit_Dsp, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
 {
-    // with every surface Cluttered (s = 0.40) a first-order tap's gain is sqrt(0.60) = 0.774597
-    // of the same tap with a scattering-free surface, and set.scattered_energy is above zero.
+    // Flat is s = 0.10, not zero, so the ratio is against that: with every surface Cluttered
+    // (s = 0.40) a first-order tap's gain is sqrt(0.60 / 0.90) = 0.816497 of the same tap over
+    // Flat surfaces, and set.scattered_energy is above zero.
 }
 
-TEST(Unit_Dsp, ImageSourceSolverSolvesOneHundredAndTwentyNineImagesInUnderAMillisecond)
+TEST(Unit_Dsp, ImageSourceSolverSolvesTheGarageUnderTenMilliseconds)
 {
-    // order 4 with its fits, for the garage, timed with std::chrono::steady_clock: under 1 ms,
-    // because spec §5.2 needs thirty solves a second while a slider drags.
+    // order 4 with its fits, for the garage, timed with std::chrono::steady_clock: under 10 ms,
+    // the bound spec §4.2 derives from the thirty solves a second §5.2 needs while a slider
+    // drags. The fits dominate; the lattice arithmetic is under a percent of the total.
 }
 ```
 
@@ -2221,7 +2225,7 @@ Write the last six out in full.
 - [ ] **Step 4: Syntax-check**, paste. **Step 5: Commit**
       `DE0: ImageSourceSolver turns a scene into 128 early taps with one filter each`.
 
-**Acceptance:** for the spec's example geometry the seven first-order taps land at 363.311,
+**Acceptance:** for the spec's example geometry the seven first-order taps land at 363.310,
 423.078, 579.365, 667.333, 667.333, 775.888 and 914.881 frames at 48 kHz, each within 0.001 frames.
 
 ---
