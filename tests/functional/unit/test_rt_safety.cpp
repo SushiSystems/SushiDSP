@@ -66,10 +66,13 @@
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/mesa_mark2c/MesaMark2c.hpp"
 #include "SushiDSP/peavey5150/Peavey5150.hpp"
+#include "SushiDSP/room/CrossoverPair.hpp"
 #include "SushiDSP/room/EarlyReflectionRenderer.hpp"
 #include "SushiDSP/room/EarlyTapSet.hpp"
 #include "SushiDSP/room/FdnDesign.hpp"
 #include "SushiDSP/room/LateReverb.hpp"
+#include "SushiDSP/room/ModalBank.hpp"
+#include "SushiDSP/room/ModalDesign.hpp"
 #include "SushiDSP/room/RoomNode.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
@@ -1531,7 +1534,9 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
 {
     // Only the audio thread's half of a publish is trapped: set_scene solves and allocates on
     // the control thread, so the trap closes around it and opens around the blocks that pick
-    // the new set up, start the crossfade and run it to its end.
+    // the new set up, start the crossfade and run it to its end. The four publishes walk the
+    // modal bank through each of its paths: a moved microphone leaves the design as it was, a
+    // moved listener ramps the gains, a changed dimension blends the spare bank in from zero.
     SushiDSP::room::RoomNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
 
@@ -1546,8 +1551,11 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
     AllocationTrap trap;
     for (int publish = 0; publish < 4; ++publish)
     {
+        SushiDSP::room::RoomScene scene = room_trap_scene(3.0 + 0.25 * publish);
+        scene.listener_position.y = 2.0 + 0.1 * (publish % 2);
+        scene.dimensions.x = publish < 2 ? 6.0 : 6.2;
         std::string reason;
-        ASSERT_TRUE(node.set_scene(room_trap_scene(3.0 + 0.25 * publish), reason)) << reason;
+        ASSERT_TRUE(node.set_scene(scene, reason)) << reason;
 
         trap.arm();
         for (int block = 0; block < 3; ++block)
@@ -1609,6 +1617,89 @@ TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
     for (float sample : buffers[0])
     {
         EXPECT_TRUE(std::isfinite(sample));
+    }
+}
+
+TEST(Unit_Dsp, ModalBankProcessPerformsNoHeapAllocation)
+{
+    // Every one of kMaxModes resonators runs, at the garage's 68.6 Hz mode with a 1 s decay:
+    // r = 10^(-3 / 48000) = 0.99985610, a1 = -2 r cos(2 pi 68.6 / 48000), a2 = r^2.
+    SushiDSP::room::ModalBank bank;
+    bank.prepare(256);
+
+    auto design = std::make_unique<SushiDSP::room::ModalDesign>();
+    const double radius = std::pow(10.0, -3.0 / 48000.0);
+    const double theta = 2.0 * M_PI * 68.6 / 48000.0;
+    design->count = static_cast<std::uint32_t>(SushiDSP::room::ModalDesign::kMaxModes);
+    for (std::uint32_t mode = 0; mode < design->count; ++mode)
+    {
+        design->modes[mode].section = { 1e-3, 0.0, -1e-3, -2.0 * radius * std::cos(theta),
+                                        radius * radius };
+        design->modes[mode].source_gain = 0.5f;
+        design->modes[mode].ear_gain = { 0.7f, -0.7f };
+    }
+    design->crossover_hz = 278.18f;
+    design->level_scale = 1.0f;
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+
+    AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 8; ++block)
+    {
+        bank.process(*design, input.data(), left.data(), right.data(), 256);
+        bank.process(*design, input.data(), left.data(), right.data(), 1);
+    }
+    bank.reset();
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+        EXPECT_TRUE(std::isfinite(right[i]));
+    }
+}
+
+TEST(Unit_Dsp, CrossoverPairProcessPerformsNoHeapAllocation)
+{
+    // The pair is placed, run, moved and bypassed inside the trap, as the node does at every
+    // adopt; set_crossover is arithmetic on the audio thread and must stay so.
+    SushiDSP::room::CrossoverPair pair;
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> low(256, 0.0f);
+    std::vector<float> high(256, 0.0f);
+
+    AllocationTrap trap;
+    trap.arm();
+    pair.set_crossover(48000.0, 278.18);
+    for (int block = 0; block < 8; ++block)
+    {
+        if (block == 4)
+        {
+            pair.set_crossover(48000.0, 356.1);
+        }
+        if (block == 6)
+        {
+            pair.set_crossover(48000.0, 0.0);
+        }
+        for (std::size_t i = 0; i < input.size(); ++i)
+        {
+            pair.process_sample(input[i], low[i], high[i]);
+        }
+    }
+    pair.reset();
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < low.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(low[i]));
+        EXPECT_TRUE(std::isfinite(high[i]));
     }
 }
 
