@@ -2285,8 +2285,8 @@ TEST(Unit_Dsp, LateReverbDesignMeetsTheModalOverlapRule)
 TEST(Unit_Dsp, LateReverbDesignUsesSixteenDistinctPrimes)
 {
     // The garage's mean line is 1.4 * 1.161 / 16 = 0.101588 s, 4876 frames, so the sixteen land
-    // on 3449, 3613, 3793, 3967, 4153, 4349, 4561, 4783, 4993, 5227, 5477, 5737, 6007, 6287,
-    // 6599 and 6899, totalling 79894. Every entry is prime, none repeats, and max/min is 2.00.
+    // on 3449, 3613, 3793, 3967, 4153, 4349, 4549, 4783, 4993, 5227, 5477, 5737, 6007, 6287,
+    // 6599 and 6899, totalling 79882. Every entry is prime, none repeats, and max/min is 2.00.
 }
 
 TEST(Unit_Dsp, LateReverbDesignFitsTheDecayEachBandAsks)
@@ -2308,7 +2308,8 @@ TEST(Unit_Dsp, LateReverbDesignScalesTheInputToContinueTheEarlyEnergy)
 
 TEST(Unit_Dsp, LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh)
 {
-    // sin(k d)/(k d) at d = 0.17 m is 0.900 at 125 Hz and 0.0257 at 4 kHz, so the coherence
+    // sin(k d)/(k d) at d = 0.17 m is 0.975 at 125 Hz, 0.902 at 250 Hz and -0.0088 at 4 kHz,
+    // so the coherence
     // filter's magnitude is above 0.85 at 125 Hz and below 0.20 at 4 kHz.
 }
 
@@ -2333,7 +2334,7 @@ Write the last six out in full.
 - [ ] **Step 4: Syntax-check**, paste. **Step 5: Commit**
       `DE2: LateReverbDesign sets the FDN's lengths, filters and input from the room`.
 
-**Acceptance:** the garage's sixteen prime line lengths total 79 894 frames at 48 kHz, above the
+**Acceptance:** the garage's sixteen prime line lengths total 79 882 frames at 48 kHz, above the
 78 019 the rule Σ τ_i ≥ 1.4·RT60 demands, and no two lengths are equal.
 
 ---
@@ -2436,9 +2437,11 @@ TEST(Unit_Dsp, ModalSolverPutsThePressureInTheCorners)
 TEST(Unit_Dsp, ModalSolverDampsAnAxialModeByTheTwoWallsItBouncesBetween)
 {
     // a garage whose +x and -x faces are GypsumBoardOnStuds (alpha 0.29 at 125 Hz) and whose
-    // other four are ConcreteUnpainted: the (1, 0, 0) mode's decay_seconds is at least four times
+    // other four are ConcreteUnpainted: the (1, 0, 0) mode's decay_seconds is at least 1.5 times
     // shorter than the (0, 0, 1) mode's, because the soft pair bounds the first and grazes the
-    // second.
+    // second. A grazing wall still absorbs: the first-order perturbation of spec 7.2 weights it
+    // by the mean of psi squared, which is a half rather than zero, so the measured ratio is
+    // 1.846 and not the factor of four a fully reflective grazing wall would give.
 }
 
 TEST(Unit_Dsp, ModalSolverGivesTheTwoEarsDifferentGains)
@@ -3200,7 +3203,7 @@ for a 12 m room; the 25 200-frame line for a 3 s RT60; 1.41 Mflop for 128 taps �
 frames and 0.94 ms at 1.5 Gflop/s; 0.48 Mflop and 0.32 ms for 143 modes × 13 flops; k·a = 1 at
 436.7 Hz and 4.58 at 2 kHz; 280 frames of propagation at 2 m and 48 kHz. The reference rooms' RT60
 figures, their Schroeder frequencies, the garage's 187 modes, its sixteen prime line lengths
-summing to 79 894 frames against the 78 019 the overlap rule demands, the seven first-order arrival
+summing to 79 882 frames against the 78 003 the overlap rule demands, the seven first-order arrival
 times, the piston and array factors at 2 kHz, and the two SN3D encode vectors were each computed
 for this plan and are what the tests assert.
 
