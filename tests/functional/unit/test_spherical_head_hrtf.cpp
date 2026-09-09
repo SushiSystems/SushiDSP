@@ -99,6 +99,32 @@ namespace
         return 10.0 * std::log10(octave_energy(pair.left, centre_hz)
                                  / octave_energy(pair.right, centre_hz));
     }
+
+    /// @brief Returns the squared magnitude of a response's DFT at one frequency.
+    double power_at(const Taps& taps, double hz)
+    {
+        double real = 0.0;
+        double imag = 0.0;
+        for (std::size_t tap = 0; tap < taps.size(); ++tap)
+        {
+            const double angle = 2.0 * kPi * hz * static_cast<double>(tap) / kSampleRate;
+            real += taps[tap] * std::cos(angle);
+            imag -= taps[tap] * std::sin(angle);
+        }
+        return real * real + imag * imag;
+    }
+
+    /// @brief Returns the sum of a response's squared taps, its mean squared magnitude over
+    /// the whole band by Parseval.
+    double energy(const Taps& taps)
+    {
+        double sum = 0.0;
+        for (const float tap : taps)
+        {
+            sum += static_cast<double>(tap) * tap;
+        }
+        return sum;
+    }
 }
 
 TEST(Unit_Dsp, SphericalHeadHrtfMatchesWoodworthsInterauralDelay)
@@ -169,5 +195,40 @@ TEST(Unit_Dsp, SphericalHeadHrtfBuildsAGridThatCoversTheSphere)
         ASSERT_TRUE(std::isfinite(pair.left[0]));
         ASSERT_TRUE(std::isfinite(pair.right[0]));
         ASSERT_TRUE(std::isfinite(pair.itd_frames));
+    }
+}
+
+TEST(Unit_Dsp, SphericalHeadHrtfFillsTheDiffuseFieldPair)
+{
+    for (const std::uint32_t ear : { 0u, 1u })
+    {
+        const Taps& taps = set().diffuse_field(ear);
+        EXPECT_GT(energy(taps), 0.5) << "ear " << ear;
+        for (const float tap : taps)
+        {
+            ASSERT_TRUE(std::isfinite(tap)) << "ear " << ear;
+        }
+    }
+}
+
+TEST(Unit_Dsp, SphericalHeadHrtfHearsTheSameDiffuseFieldAtBothEars)
+{
+    // The ears sit on the sphere's axis and the grid mirrors about the median plane, so the
+    // two power averages are the same sum in a different order.
+    EXPECT_LE(max_difference(set().diffuse_field(0), set().diffuse_field(1)), kTapTolerance);
+}
+
+TEST(Unit_Dsp, SphericalHeadHrtfDiffuseFieldCarriesTheRigidSpheresDiffuseGain)
+{
+    // By Legendre orthogonality the sphere's power averaged over every direction is
+    // sum_m (2m+1) / (mu^4 |h_m'(mu)|^2): 1 at DC, 1.7765 at 4 kHz, rising to 2 at high mu.
+    // Its mean over 0 to 48 kHz is 1.8472, +2.67 dB; the 10-degree grid weighted by solid
+    // angle gives 1.8477, and 128 taps hold all of it to 1e-10.
+    for (const std::uint32_t ear : { 0u, 1u })
+    {
+        const Taps& taps = set().diffuse_field(ear);
+        EXPECT_NEAR(power_at(taps, 0.0), 1.0, 2.0e-3) << "ear " << ear;
+        EXPECT_NEAR(power_at(taps, 4000.0), 1.7765, 0.02) << "ear " << ear;
+        EXPECT_NEAR(energy(taps), 1.847, 0.01) << "ear " << ear;
     }
 }

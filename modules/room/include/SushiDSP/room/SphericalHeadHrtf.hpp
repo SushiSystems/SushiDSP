@@ -54,7 +54,9 @@ namespace SushiDSP::room
         /// @brief Counts the grid directions: the rings, plus the two poles.
         static constexpr std::uint32_t kDirectionCount = kAzimuthSteps * kElevationRings + 2;
 
-        /// @brief Builds a set on a 10-degree azimuth by 10-degree elevation grid, 614 directions.
+        /// @brief Builds a set on a 10-degree azimuth by 10-degree elevation grid, 614 directions,
+        /// with its diffuse-field average pair: each ear's power averaged over the sphere by
+        /// solid angle and folded to minimum phase. Spec §6.4.
         static HrtfSet build(double sample_rate);
 
         /// @brief Returns Woodworth's (a / c) * (theta + sin theta) in seconds, theta the lateral

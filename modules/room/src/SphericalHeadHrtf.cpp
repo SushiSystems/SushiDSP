@@ -65,6 +65,12 @@ namespace SushiDSP::room
         /// @brief Holds one ear's magnitude on the one-sided grid.
         using Magnitudes = std::array<double, kBinCount>;
 
+        /// @brief Holds one ear's diffuse-field filter.
+        using DiffuseTaps = std::array<float, HrtfSet::kDiffuseTaps>;
+
+        static_assert(HrtfSet::kDiffuseTaps == HrtfSet::kTapCount,
+                      "the folder writes kTapCount taps and the diffuse filter must hold them");
+
         /// @brief Returns the far-field rigid-sphere pressure ratio of Duda and Martens at one
         /// normalised frequency mu = k a and one cosine of the angle from the ear.
         Complex sphere_response(double mu, double cos_theta) noexcept
@@ -196,6 +202,64 @@ namespace SushiDSP::room
             elevation_rad = (static_cast<double>(ring) - 8.0) * kGridStep;
         }
 
+        /// @brief Returns the solid angle one grid index stands for in steradians, so that an
+        /// average weighted by it runs over the sphere and not over the grid's points, which
+        /// crowd towards the poles: a ring point takes its ring's band divided by the ring's
+        /// count, a pole takes the cap above the top ring's band.
+        double solid_angle(std::uint32_t index) noexcept
+        {
+            constexpr std::uint32_t ring_total =
+                SphericalHeadHrtf::kAzimuthSteps * SphericalHeadHrtf::kElevationRings;
+            if (index >= ring_total)
+            {
+                return 2.0 * kPi * (1.0 - std::sin(kPi / 2.0 - kGridStep / 2.0));
+            }
+            const std::uint32_t ring = index / SphericalHeadHrtf::kAzimuthSteps;
+            const double elevation = (static_cast<double>(ring) - 8.0) * kGridStep;
+            return 4.0 * kPi * std::cos(elevation) * std::sin(kGridStep / 2.0)
+                   / static_cast<double>(SphericalHeadHrtf::kAzimuthSteps);
+        }
+
+        /// @brief Accumulates one ear's power over the sphere and renders the average as a
+        /// minimum-phase filter. Spec §6.4.
+        class DiffuseFieldAverage
+        {
+        public:
+            /// @brief Starts from no power and no weight.
+            DiffuseFieldAverage() noexcept : power_{}, weight_(0.0)
+            {
+            }
+
+            /// @brief Adds one direction's magnitude grid, weighted by its solid angle.
+            void add(const Magnitudes& magnitude, double solid_angle) noexcept
+            {
+                for (std::uint32_t bin = 0; bin < kBinCount; ++bin)
+                {
+                    power_[bin] += solid_angle * magnitude[bin] * magnitude[bin];
+                }
+                weight_ += solid_angle;
+            }
+
+            /// @brief Writes the root of the mean power, folded to minimum phase, into out.
+            /// @pre At least one direction was added.
+            void render(MinimumPhaseFolder& folder, DiffuseTaps& out) const
+            {
+                Magnitudes magnitude{};
+                for (std::uint32_t bin = 0; bin < kBinCount; ++bin)
+                {
+                    magnitude[bin] = std::sqrt(power_[bin] / weight_);
+                }
+                folder.fold(magnitude, out.data());
+            }
+
+        private:
+            /// @brief Holds the solid-angle-weighted sum of squared magnitudes per bin.
+            std::array<double, kBinCount> power_;
+
+            /// @brief Holds the sum of the solid angles added.
+            double weight_;
+        };
+
         /// @brief Returns Woodworth's delay in frames for a lateral angle.
         double woodworth_frames(double theta, double sample_rate) noexcept
         {
@@ -220,22 +284,33 @@ namespace SushiDSP::room
         std::vector<float> right(tap_total);
         MinimumPhaseFolder folder;
         Magnitudes magnitude{};
+        DiffuseFieldAverage diffuse_left;
+        DiffuseFieldAverage diffuse_right;
         for (std::uint32_t index = 0; index < kDirectionCount; ++index)
         {
             double azimuth = 0.0;
             double elevation = 0.0;
             grid_point(index, azimuth, elevation);
+            const double weight = solid_angle(index);
             const std::size_t offset = static_cast<std::size_t>(index) * HrtfSet::kTapCount;
             // The left ear sits at +90 degrees azimuth and the right at -90, both level.
             const double cos_left = std::cos(elevation) * std::sin(azimuth);
             ear_magnitudes(cos_left, bin_hz, magnitude);
             folder.fold(magnitude, left.data() + offset);
+            diffuse_left.add(magnitude, weight);
             ear_magnitudes(-cos_left, bin_hz, magnitude);
             folder.fold(magnitude, right.data() + offset);
+            diffuse_right.add(magnitude, weight);
             directions[index] = { static_cast<float>(azimuth), static_cast<float>(elevation),
                                   static_cast<float>(woodworth_frames(
                                       lateral_angle(azimuth, elevation), sample_rate)) };
         }
-        return HrtfSet(sample_rate, std::move(directions), std::move(left), std::move(right));
+        DiffuseTaps diffuse_left_taps{};
+        DiffuseTaps diffuse_right_taps{};
+        diffuse_left.render(folder, diffuse_left_taps);
+        diffuse_right.render(folder, diffuse_right_taps);
+        HrtfSet set(sample_rate, std::move(directions), std::move(left), std::move(right));
+        set.set_diffuse_field(diffuse_left_taps, diffuse_right_taps);
+        return set;
     }
 }
