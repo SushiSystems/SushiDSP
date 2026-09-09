@@ -40,6 +40,7 @@
 #include "SushiDSP/room/BandResponse.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
 #include "SushiDSP/room/ImageSourceSolver.hpp"
+#include "SushiDSP/room/ModalSolver.hpp"
 #include "SushiDSP/room/SphericalHeadHrtf.hpp"
 
 namespace SushiDSP::room
@@ -208,7 +209,8 @@ namespace SushiDSP::room
             }
         }
         tail_.assign(max_block_, 0.0f);
-        wet_.assign(max_block_, 0.0f);
+        tail_right_.assign(max_block_, 0.0f);
+        tail_outputs_ = { tail_.data(), tail_.data() };
         modal_low_.assign(max_block_, 0.0f);
         geometric_high_.assign(max_block_, 0.0f);
         modal_left_.assign(max_block_, 0.0f);
@@ -271,7 +273,8 @@ namespace SushiDSP::room
         const FadeWindow window{ kCrossfadeFrames - fade_remaining_,
                                  std::min(frames, fade_remaining_) };
         render_early(frames, window);
-        late_.process(set->late, geometric_high_.data(), tail_.data(), tail_.data(), frames);
+        late_.process(set->late, geometric_high_.data(), tail_outputs_[0], tail_outputs_[1],
+                      frames);
         render_modal(frames, window);
         fade_remaining_ -= window.fading;
         if (fade_remaining_ == 0)
@@ -280,7 +283,6 @@ namespace SushiDSP::room
             modal_ramping_ = false;
         }
 
-        sum_wet(frames);
         join_ears(frames);
         write_outputs(input, context.outputs, frames);
     }
@@ -288,6 +290,8 @@ namespace SushiDSP::room
     void RoomNode::adopt(const RoomRenderSet& set) noexcept
     {
         input_crossover_.set_crossover(sample_rate_, set.crossover_hz);
+        // The microphone's tail is one signal read twice; the ears' passes the coherence pair.
+        tail_outputs_[1] = set.listener == ListenerKind::Ears ? tail_right_.data() : tail_.data();
         if (adopted_ == nullptr)
         {
             bank_taps_[active_bank_] = set.early;
@@ -438,30 +442,19 @@ namespace SushiDSP::room
                                                  modal_right_.data() + frame, 1u);
     }
 
-    void RoomNode::sum_wet(std::uint32_t frames) noexcept
-    {
-        // Every set is rendered for the microphone, whose encode is channel 0 alone.
-        const float* const __restrict early = accumulation_pointers_[active_bank_][0];
-        const float* const __restrict tail = tail_.data();
-        float* const __restrict wet = wet_.data();
-        for (std::uint32_t frame = 0; frame < frames; ++frame)
-        {
-            wet[frame] = early[frame] + tail[frame];
-        }
-    }
-
     void RoomNode::join_ears(std::uint32_t frames) noexcept
     {
-        const float* const __restrict wet = wet_.data();
+        const float* const __restrict early = accumulation_pointers_[active_bank_][0];
         const std::array<const float*, kEars> modal = { modal_left_.data(),
                                                         modal_right_.data() };
         for (std::uint32_t ear = 0; ear < kEars; ++ear)
         {
             float* const __restrict out = ear_pointers_[ear];
+            const float* const __restrict tail = tail_outputs_[ear];
             const float* const __restrict waves = modal[ear];
             for (std::uint32_t frame = 0; frame < frames; ++frame)
             {
-                out[frame] = wet[frame] + waves[frame];
+                out[frame] = early[frame] + tail[frame] + waves[frame];
             }
         }
     }
@@ -502,7 +495,7 @@ namespace SushiDSP::room
         {
             case kMixIndex: return mix_.target();
             case kLevelIndex: return level_db_;
-            case kListenerIndex: return listener_;
+            case kListenerIndex: return listener_.load(std::memory_order_relaxed);
             case kDirectDelayIndex: return direct_delay_;
             default: return 0.0f;
         }
@@ -510,7 +503,13 @@ namespace SushiDSP::room
 
     void RoomNode::set_parameter(const char* id, float value)
     {
-        set_parameter(parameter_index_for(id), value);
+        const std::uint16_t index = parameter_index_for(id);
+        set_parameter(index, value);
+        if (index == kListenerIndex && prepared_ && listener_kind() != published_listener_)
+        {
+            std::string reason;
+            publish(reason);
+        }
     }
 
     void RoomNode::set_parameter(std::uint16_t index, float value)
@@ -525,7 +524,8 @@ namespace SushiDSP::room
                 level_.set_target(decibels_to_gain(level_db_));
                 return;
             case kListenerIndex:
-                listener_ = std::clamp(std::round(value), 0.0f, 1.0f);
+                listener_.store(std::clamp(std::round(value), 0.0f, 1.0f),
+                                std::memory_order_relaxed);
                 return;
             case kDirectDelayIndex:
                 direct_delay_ = std::clamp(std::round(value), 0.0f, 1.0f);
@@ -636,6 +636,34 @@ namespace SushiDSP::room
         slot_.reclaim();
     }
 
+    ListenerKind RoomNode::listener_kind() const noexcept
+    {
+        return listener_.load(std::memory_order_relaxed) >= 0.5f ? ListenerKind::Microphone
+                                                                  : ListenerKind::Ears;
+    }
+
+    bool RoomNode::place_modal_receiver(RoomRenderSet& set, const RoomScene& scene)
+    {
+        if (set.listener != ListenerKind::Microphone || set.modal.count == 0u)
+        {
+            return true;
+        }
+        // The solver's crossover is the one at which enumerate() returns the design's modes.
+        const std::vector<ModalSolver::Mode> modes =
+            ModalSolver::enumerate(scene, static_cast<double>(set.modal.crossover_hz));
+        if (modes.size() != static_cast<std::size_t>(set.modal.count))
+        {
+            return false;
+        }
+        for (std::size_t index = 0; index < modes.size(); ++index)
+        {
+            const float psi = static_cast<float>(
+                ModalSolver::mode_shape(modes[index], scene, scene.microphone_position));
+            set.modal.modes[index].ear_gain = { psi, psi };
+        }
+        return true;
+    }
+
     void RoomNode::remove_direct_image(RoomRenderSet& set) noexcept
     {
         if (set.listener != ListenerKind::Ears || set.early.count == 0)
@@ -654,15 +682,22 @@ namespace SushiDSP::room
     {
         try
         {
-            // The ears' decoder is a later phase; every set renders the microphone for now.
+            const ListenerKind listener = listener_kind();
             std::unique_ptr<RoomRenderSet> set =
-                build_render_set(scene_, hrtf_, sample_rate_, ListenerKind::Microphone);
-            remove_direct_image(*set);
+                build_render_set(scene_, hrtf_, sample_rate_, listener);
+            // The ears keep the direct image until the HRIR pair renders it (README, "What each set renders today").
+            if (!place_modal_receiver(*set, scene_))
+            {
+                reason_out = "RoomNode: the modal enumeration at the set's crossover does not "
+                             "hold the set's mode count";
+                return false;
+            }
             // The report is the split the set renders at, or Eyring's figure with the layer off.
             schroeder_hz_ = set->modal.count > 0u
                 ? static_cast<double>(set->crossover_hz)
                 : EyringDecay::schroeder_frequency_hz(scene_);
             slot_.publish(std::move(set));
+            published_listener_ = listener;
             return true;
         }
         catch (const std::exception& error)

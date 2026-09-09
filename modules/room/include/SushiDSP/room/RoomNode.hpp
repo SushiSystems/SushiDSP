@@ -30,6 +30,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -53,9 +54,9 @@ namespace SushiDSP::room
 {
     /// @brief One cabinet in one room, heard from one spot: PortLayout{1, 2}. Owns the seam's
     /// crossover, the modal banks, the early renderer, the tail and the render-set slot; every
-    /// set is built on the control thread and crossfaded in on the audio thread. Until the
-    /// binaural path lands, every set is rendered for the microphone listener. Spec §1, §5.2,
-    /// §8 and §9a.
+    /// set is built on the control thread for the listener the parameter names and crossfaded
+    /// in on the audio thread. Until the binaural path lands, the ears hear the early set's
+    /// omnidirectional channel. Spec §1, §5.2, §8 and §9a.
     class RoomNode final : public IAudioNode, public IRoomHost
     {
     public:
@@ -79,10 +80,13 @@ namespace SushiDSP::room
         /// @brief Reads a parameter by id; an unknown id reads 0.
         float get_parameter(const char* id) const override;
 
-        /// @brief Writes a parameter by id. Control thread only.
+        /// @brief Writes a parameter by id. Control thread only. A changed listener rebuilds
+        /// the set through the path set_scene uses; the audio thread applies the choice only
+        /// through the next published set.
         void set_parameter(const char* id, float value) override;
 
-        /// @brief Writes a parameter by descriptor index; stores a target and nothing else.
+        /// @brief Writes a parameter by descriptor index; stores a target and nothing else, so
+        /// a listener written here waits for the next publish.
         void set_parameter(std::uint16_t index, float value) override;
 
         /// @brief Silences the ring, every state bank, the tail, the crossover and the crossfade.
@@ -111,6 +115,13 @@ namespace SushiDSP::room
         static bool same_resonators(const ModalDesign& retiring,
                                     const ModalDesign& arriving) noexcept;
 
+        /// @brief Reads the modal field where the set's receiver stands: a microphone set gets
+        /// psi at microphone_position in both ear gains, an ears set keeps the solver's two
+        /// ears at the listener. Control thread.
+        /// @return False when the solver's enumeration at the set's crossover does not hold
+        /// the set's mode count, in which case the set is left as it was.
+        static bool place_modal_receiver(RoomRenderSet& set, const RoomScene& scene);
+
     private:
         /// @brief Counts the channels the early renderer accumulates into.
         static constexpr std::uint32_t kChannels = EarlyReflectionRenderer::kOutputChannels;
@@ -132,14 +143,18 @@ namespace SushiDSP::room
             std::uint32_t fading;
         };
 
-        /// @brief Builds a set for the scene and HRTF in place, publishes it and records the
-        /// frequency the set splits at.
+        /// @brief Returns the listener the parameter names.
+        ListenerKind listener_kind() const noexcept;
+
+        /// @brief Builds a set for the scene, HRTF and listener in place, publishes it and
+        /// records the frequency the set splits at.
         /// @return False and fills reason_out when the build refuses the scene or the set.
         bool publish(std::string& reason_out);
 
         /// @brief Copies a newly acquired set's taps into the spare bank, zeroes that bank's
         /// state, carries the active bank's state into every tap the arriving set keeps, hands
-        /// the modal design to adopt_modal, places the crossover and starts the fade; the first
+        /// the modal design to adopt_modal, places the crossover, points the tail's outputs
+        /// for the set's listener and starts the fade; the first
         /// set ever is copied in from zero state with no fade. Taps pair by index: an arriving
         /// tap past the retiring count starts from zero, a retiring tap past the arriving count
         /// is dropped. Spec §5.2.
@@ -166,10 +181,9 @@ namespace SushiDSP::room
         /// between the retiring and the arriving design.
         void render_modal_ramp(std::uint32_t frame, float weight) noexcept;
 
-        /// @brief Sums the early channel 0 and the tail into wet_, the geometric field.
-        void sum_wet(std::uint32_t frames) noexcept;
-
-        /// @brief Adds each ear's modal field to the geometric sum, into ear_.
+        /// @brief Sums, per ear, the early channel 0, that ear's tail and that ear's modal
+        /// field into ear_; channel 0 is the microphone's encode or the ears' omnidirectional
+        /// component until the decoder lands.
         void join_ears(std::uint32_t frames) noexcept;
 
         /// @brief Writes the smoothed dry-wet mix at the smoothed level to both outputs.
@@ -210,8 +224,12 @@ namespace SushiDSP::room
         /// @brief Stores the level parameter in decibels, what get_parameter reads back.
         float level_db_ = 0.0f;
 
-        /// @brief Stores the listener choice, 0 ears and 1 microphone; applied by a later phase.
-        float listener_ = 0.0f;
+        /// @brief Stores the listener choice, 0 ears and 1 microphone; written on either
+        /// thread, read at publish.
+        std::atomic<float> listener_{ 0.0f };
+
+        /// @brief Names the listener the set published last was built for; control thread.
+        ListenerKind published_listener_ = ListenerKind::Ears;
 
         /// @brief Stores the direct-delay choice, 0 compensated and 1 physical; applied later.
         float direct_delay_ = 0.0f;
@@ -244,11 +262,14 @@ namespace SushiDSP::room
         /// @brief Points at each accumulation set's kChannels buffers.
         std::array<std::array<float*, kChannels>, kBanks> accumulation_pointers_{};
 
-        /// @brief Stores the tail's block.
+        /// @brief Stores the tail's block: the microphone's, or the ears' left.
         std::vector<float> tail_;
 
-        /// @brief Stores the summed geometric block.
-        std::vector<float> wet_;
+        /// @brief Stores the ears' right tail block.
+        std::vector<float> tail_right_;
+
+        /// @brief Points at the tail buffer each ear reads; both at tail_ for the microphone.
+        std::array<float*, kEars> tail_outputs_{};
 
         /// @brief Splits the input at the seam: the low half feeds the modal bank, the high half
         /// the early renderer and the tail.

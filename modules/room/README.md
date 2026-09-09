@@ -53,15 +53,23 @@ The audio thread calls `RoomNode::process`, and through it `CrossoverPair::proce
 block that adopts a set it also calls `CrossoverPair::set_crossover` and `ModalBank::reset`, both
 arithmetic. None of them allocates, locks, opens a file or throws after `prepare()`;
 `tests/functional/unit/test_rt_safety.cpp` traps `operator new` around each of them, and around
-`RoomNode::process` while publishes land that move the microphone, move the listener and widen
-the room, so each path the modal bank can take runs under the trap.
+`RoomNode::process` while publishes land that move the microphone, move the listener, widen
+the room and switch the listener, so each path the modal bank can take runs under the trap.
 
 Everything else runs on the control thread. `RoomNode::set_scene` validates the scene, calls
-`build_render_set`, which solves the images, designs the tail, finds the Schroeder frequency,
-designs the modal bank and takes the direct HRIR pair from the HRTF set, and publishes the
-finished `RoomRenderSet` through one `RtSwapSlot`. A scene the validator refuses is not built and
-the previous scene stays in place. `reclaim_rooms()` frees every set the audio thread has moved
-past; the host calls it once per GUI frame, as it does `reclaim_cabinets()`.
+`build_render_set` for the listener the parameter names, which solves the images, designs the
+tail, finds the Schroeder frequency, designs the modal bank and takes the direct HRIR pair from
+the HRTF set, places the modal receiver, and publishes the finished `RoomRenderSet` through one
+`RtSwapSlot`. A scene the validator refuses is not built and the previous scene stays in place.
+`reclaim_rooms()` frees every set the audio thread has moved past; the host calls it once per GUI
+frame, as it does `reclaim_cabinets()`.
+
+The `listener` parameter has two paths. `set_parameter("listener", …)`, the id path, is control
+thread only: it stores the choice and, when the set published last was built for the other
+listener, publishes a new one through the path `set_scene` uses. `set_parameter(index, …)`, the
+index path `RigGraph` drains on the audio thread, stores the choice and nothing else; the next
+publish, whatever triggers it, builds for the stored choice.
+`RoomNodeAppliesAListenerWrittenByIndexAtTheNextPublish` checks both.
 
 `process()` does one `acquire_for_audio_thread()` per block. The pointer it gets back is compared
 against the one adopted last and read inside that block only: the taps are copied into the node's
@@ -173,10 +181,10 @@ a 262144-frame impulse response at 48 kHz: the first six peaks sit at 28.59, 42.
 the worst 0.33 % off; the -3 dB widths of the first five read 1.48, 0.89, 1.54, 1.59 and 0.88 Hz
 against 2.199 / T60 = 1.49, 0.82, 1.52, 1.49 and 0.84 Hz from the solver's decays, the sixth
 being unreadable because (2, 1, 0) sits 2.86 Hz above (0, 0, 1) and their contours overlap; and
-the 20 to 100 Hz band is 14.1 dB louder with the listener in the corner at (0.15, 0.15, 0.15)
-than at the centre, where every mode with an odd index is at a node; the spec asks for 12 dB.
+the 20 to 100 Hz band is 14.0 dB louder with the ears in the corner at (0.15, 0.15, 0.15) than
+at the centre, where every mode with an odd index is at a node; the spec asks for 12 dB.
 
-Two things this layer does not do yet, both outside this directory:
+One thing this layer does not do yet, outside this directory:
 
 - **The seam is not level-matched.** Spec §9a.4 asks the octave under f_s and the octave over
   it to agree within 2 dB. Measured as mean power per hertz on the garage: -2.04 dB under and
@@ -187,25 +195,58 @@ Two things this layer does not do yet, both outside this directory:
   step is the pair itself: an LR4 pair sums flat only when both halves carry the same signal.
   The modal field and the geometric field are not the same signal, so at f_s, where each half
   is 6 dB down, their powers add to 3 dB down rather than to flat.
-- **The modal ears stand at the listener.** `ModalSolver` evaluates the ear gains at
-  `listener_position`, while every set is built for the microphone listener whose geometric
-  layers stand at `microphone_position`. The two agree only when the scene puts them together,
-  which the tests do; the listener choice of the next phase resolves it.
 
-## What each set renders today
+## The listener, and where the standing waves are read
 
-Every published set is built for the microphone listener, whatever the `listener` parameter
-holds: the ears need the Ambisonic decoder and the direct HRIR path, which land with the binaural
-phase. The microphone's encode is channel 0 alone, so `process()` sums channel 0 of the early
-accumulation buffers with the tail, adds each ear's modal field and writes the left and the right
-sum to the two outputs. `listener` and `direct_delay` are declared so the parameter table never
-reorders; `latency_samples()` returns 0 until the decoder adds its partition.
+`listener` 0 is the ears and 1 the microphone, and one of them renders at a time (spec §8). The
+set is built for that listener: the image solver ends its paths at `listener_position` or at
+`microphone_position`, encodes each tap to sixteen Ambisonic channels for the ears or to channel
+0 alone for the microphone, folds the microphone's pattern and proximity into the microphone's
+taps, and the tail's design carries the coherence pair for the ears and unity for the microphone.
 
-The (0, 0, 0) image is the shortest path of every solve, so it is tap 0 of the set the solver
-returns. For the microphone that tap is the direct sound and stays. For the ears the direct sound
-is rendered through the HRIR pair, so `RoomNode::remove_direct_image` drops tap 0 from a set built
-for the ears before it is published; the invariant is that a published ears set carries
-reflections only.
+The modal field is read where that receiver stands. `ModalSolver::design` places its two ears
+8.5 cm to either side of `listener_position`, which is right for the ears and wrong for a
+microphone somewhere else in the room, so `RoomNode::place_modal_receiver` rewrites a microphone
+set's ear gains to psi at `microphone_position`, the same value in both, and leaves an ears set
+as the solver made it. It finds the modes by `ModalSolver::enumerate` at the set's `crossover_hz`,
+which the solver documents as returning exactly the modes the design carries, and refuses the
+publish if the count disagrees, so a broken contract fails loudly. The cleaner home for this rule
+is a receiver argument on `ModalSolver::design`; that is a change to the solver's interface and
+is not made here. `RoomNodeReadsTheStandingWavesWhereTheSetsReceiverStands` checks both kinds.
+
+The microphone fills both outputs with one signal: channel 0 of the early set, the tail read
+once, and the modal field at one point, so the two channels are equal bit for bit whatever the
+listener does (`RoomNodeMicrophoneListenerFillsBothChannelsIdentically`). The ears, until the
+binaural phase lands its decoder and its direct HRIR path, hear channel 0 of the Ambisonic
+encode, the omnidirectional component, in both ears, the tail through its coherence pair, and
+the modal field at their two points; the ears set keeps the (0, 0, 0) image, because nothing
+else renders the direct sound yet, and `RoomNode::remove_direct_image` waits for the HRIR pair.
+`RoomNodeEarsHearTheDirectSoundUntilTheHrirPairLands` pins that: in the dead room the ears' left
+channel equals an omni microphone's at the same spot, sample for sample. `direct_delay` is
+stored and read back and does nothing yet; `latency_samples()` returns 0 until the decoder adds
+its partition.
+
+Measured through the node, impulse responses at 48 kHz over the direct-path window of a 12 m
+carpeted room with four open faces, the cabinet at its centre:
+
+- A cardioid 5 cm on axis against the same capsule at 3 m reads 13.34 dB more in the 125 Hz
+  third octave, taken against the 4 kHz third octave so that 1 / r cancels, where the model
+  says 13.68 dB. The plan's 15.5 dB at 100 Hz is the model's own value and does not reach the
+  output: `BandResponseFit` is anchored at the 125 Hz band and its low shelf holds level below
+  it, so the rendered 100 Hz third octave reads 13.79 dB.
+- The ears 2 m from the 4x12, 60 degrees off axis against on axis: the 2 kHz third octave drops
+  15.2 dB where the piston model's band says 15.3 dB, and the 125 Hz third octave moves 0.43 dB
+  where the model says 0.49 dB.
+- In the garage, the cardioid 5 cm off the cone has a direct-to-reverberant ratio of 20.2 dB
+  and the ears at 2.12 m one of -4.5 dB, the direct window running from two frames before the
+  onset to 60 after it and everything else, the standing waves included, counting as room.
+- Switching the listener mid-tone is a publish: every tap is new and starts from a cleared
+  bank. In the dead room the residual against the raised-cosine blend of the two steady renders
+  is -43.4 dB of the peak in either direction; the 0.36 m microphone move of the table above
+  reads -46 dB on that scale. In the garage the step ratio stays at 1.00 but the residual is
+  -28 dB of the peak, and that is the tail: its input gain is 0.075 for the microphone's set and
+  0.136 for the ears', and the lines carry the old listener's stored energy into the new set at
+  the room's decay, where the reference blend has no memory.
 
 ## Sizes fixed at `prepare()`
 
@@ -240,6 +281,11 @@ at another rate is dropped for the fallback at the next `prepare()`.
   board on studs, heavy carpet on concrete, a glass window and the open doorway, each as six
   octave-band absorption coefficients with a zero-phase reflection factor. Spec §4.2 lists
   fourteen; the other eight are rows to add, not code.
+- **The microphone reads the standing waves as pressure.** A microphone set's modal ear gains
+  are psi at the capsule, whatever its pattern. A gradient capsule in a standing wave also
+  reads the pressure gradient, a term in quadrature whose size against the pressure term is
+  c / (2 pi f) times the mode shape's slope, of order one at 50 Hz in the garage; modelling it
+  needs a second, phase-shifted gain per mode, which `ModalDesign` does not carry.
 - **Modal damping at a soft boundary.** `ModalSolver` damps each mode by first-order
   perturbation, right to a few percent for concrete, brick and glass and about 30 % wrong in the
   decay of a mode bounded by gypsum on studs at 125 Hz; the frequency is right in both cases.

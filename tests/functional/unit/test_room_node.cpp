@@ -36,6 +36,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -48,7 +49,9 @@
 #include "SushiDSP/room/EarlyReflectionRenderer.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
 #include "SushiDSP/room/ImageSourceSolver.hpp"
+#include "SushiDSP/room/AirAbsorption.hpp"
 #include "SushiDSP/room/LateReverb.hpp"
+#include "SushiDSP/room/MicrophoneModel.hpp"
 #include "SushiDSP/room/ModalSolver.hpp"
 #include "SushiDSP/room/RoomNode.hpp"
 #include "SushiDSP/room/RoomRenderSet.hpp"
@@ -70,6 +73,15 @@ namespace
 
     /// @brief Holds the PrepareInfo every node in this file is prepared with.
     constexpr SushiDSP::PrepareInfo kInfo{ kSampleRate, kBlock, 1 };
+
+    /// @brief Holds the listener parameter's value for the ears.
+    constexpr float kListenerEars = 0.0f;
+
+    /// @brief Holds the listener parameter's value for the microphone.
+    constexpr float kListenerMicrophone = 1.0f;
+
+    /// @brief Names an edit applied to a node between two blocks on the control thread.
+    using NodeEdit = std::function<void(SushiDSP::room::RoomNode&)>;
 
     /// @brief Returns the garage with the source at (1.5, 2.0, 0.5) and an omni microphone at
     /// (4.0, 2.0, 1.2), the listener spot of test_image_source_solver.cpp's example scene.
@@ -240,43 +252,76 @@ namespace
         return peaks;
     }
 
-    /// @brief Returns a prepared node at full wet mix, unity level, with one scene in place.
-    std::unique_ptr<SushiDSP::room::RoomNode> prepared_node(const SushiDSP::room::RoomScene& scene)
+    /// @brief Returns a prepared node at full wet mix, unity level, rendering one scene for
+    /// one listener, kListenerEars or kListenerMicrophone.
+    std::unique_ptr<SushiDSP::room::RoomNode> prepared_node(const SushiDSP::room::RoomScene& scene,
+                                                            float listener)
     {
         auto node = std::make_unique<SushiDSP::room::RoomNode>();
         node->set_parameter("mix", 1.0f);
+        node->set_parameter("listener", listener);
         node->prepare(kInfo);
         std::string reason;
         EXPECT_TRUE(node->set_scene(scene, reason)) << reason;
         return node;
     }
 
-    /// @brief Runs one input through a node block by block and returns the left channel.
-    std::vector<float> render(SushiDSP::room::RoomNode& node, const std::vector<float>& input,
-                              const std::vector<std::uint32_t>& swap_blocks = {},
-                              const SushiDSP::room::RoomScene* swap_scene = nullptr)
+    /// @brief Returns the edit that publishes one scene.
+    NodeEdit scene_edit(const SushiDSP::room::RoomScene& scene)
     {
-        std::vector<float> output(input.size(), 0.0f);
+        return [&scene](SushiDSP::room::RoomNode& node)
+        {
+            std::string reason;
+            EXPECT_TRUE(node.set_scene(scene, reason)) << reason;
+        };
+    }
+
+    /// @brief Returns the edit that sets the listener parameter.
+    NodeEdit listener_edit(float listener)
+    {
+        return [listener](SushiDSP::room::RoomNode& node)
+        {
+            node.set_parameter("listener", listener);
+        };
+    }
+
+    /// @brief Runs one input through a node block by block, applying the edit before each
+    /// block listed in edit_blocks, and returns both output channels.
+    std::array<std::vector<float>, 2> render_both(SushiDSP::room::RoomNode& node,
+                                                  const std::vector<float>& input,
+                                                  const std::vector<std::uint32_t>& edit_blocks = {},
+                                                  const NodeEdit& edit = {})
+    {
+        std::array<std::vector<float>, 2> output = { std::vector<float>(input.size(), 0.0f),
+                                                     std::vector<float>(input.size(), 0.0f) };
         std::vector<float> left(kBlock, 0.0f);
         std::vector<float> right(kBlock, 0.0f);
         float* outputs[2] = { left.data(), right.data() };
         for (std::size_t offset = 0; offset + kBlock <= input.size(); offset += kBlock)
         {
             const std::uint32_t block = static_cast<std::uint32_t>(offset / kBlock);
-            for (std::uint32_t swap : swap_blocks)
+            for (std::uint32_t edited : edit_blocks)
             {
-                if (swap == block && swap_scene != nullptr)
+                if (edited == block && edit)
                 {
-                    std::string reason;
-                    EXPECT_TRUE(node.set_scene(*swap_scene, reason)) << reason;
+                    edit(node);
                 }
             }
             const float* inputs[1] = { input.data() + offset };
             SushiDSP::ProcessContext context{ outputs, inputs, kBlock, 0.0 };
             node.process(context);
-            std::memcpy(output.data() + offset, left.data(), kBlock * sizeof(float));
+            std::memcpy(output[0].data() + offset, left.data(), kBlock * sizeof(float));
+            std::memcpy(output[1].data() + offset, right.data(), kBlock * sizeof(float));
         }
         return output;
+    }
+
+    /// @brief Runs one input through a node as render_both does and returns the left channel.
+    std::vector<float> render(SushiDSP::room::RoomNode& node, const std::vector<float>& input,
+                              const std::vector<std::uint32_t>& edit_blocks = {},
+                              const NodeEdit& edit = {})
+    {
+        return render_both(node, input, edit_blocks, edit)[0];
     }
 
     /// @brief Returns a 1 kHz full-scale tone of the given length.
@@ -291,10 +336,11 @@ namespace
         return samples;
     }
 
-    /// @brief Returns the impulse response of a scene, kWaveFft frames of the left output.
+    /// @brief Returns the impulse response of a scene heard by the ears, kWaveFft frames of
+    /// the left output.
     std::vector<float> wave_response(const SushiDSP::room::RoomScene& scene)
     {
-        std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene);
+        std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, kListenerEars);
         std::vector<float> impulse(kWaveFft, 0.0f);
         impulse[0] = 1.0f;
         return render(*node, impulse);
@@ -360,24 +406,25 @@ namespace
         /// @brief Stores the largest difference between the moving render and the reference
         /// from the swap to one block past the fade.
         double residual;
+
+        /// @brief Stores the reference's largest magnitude over the same frames.
+        double peak;
     };
 
-    /// @brief Renders a tone through three nodes: one in scene a throughout, one in scene b
-    /// throughout, and one that moves from a to b at block 200; the reference is the
-    /// raised-cosine blend of the two steady renders over the node's fade.
-    CrossfadeMeasure measure_crossfade(const SushiDSP::room::RoomScene& scene_a,
-                                       const SushiDSP::room::RoomScene& scene_b)
+    /// @brief Renders a tone through three nodes: a and b steady, and a third that starts as
+    /// a and takes the edit at block 200; the reference is the raised-cosine blend of the two
+    /// steady renders over the node's fade.
+    CrossfadeMeasure measure_crossfade(SushiDSP::room::RoomNode& steady_a,
+                                       SushiDSP::room::RoomNode& steady_b,
+                                       SushiDSP::room::RoomNode& moving, const NodeEdit& edit)
     {
         constexpr std::uint32_t kSwapBlock = 200;
         constexpr std::size_t kFrames = 400 * kBlock;
         const std::vector<float> input = tone(kFrames);
 
-        std::unique_ptr<SushiDSP::room::RoomNode> steady_a = prepared_node(scene_a);
-        std::unique_ptr<SushiDSP::room::RoomNode> steady_b = prepared_node(scene_b);
-        std::unique_ptr<SushiDSP::room::RoomNode> moving = prepared_node(scene_a);
-        const std::vector<float> render_a = render(*steady_a, input);
-        const std::vector<float> render_b = render(*steady_b, input);
-        const std::vector<float> render_x = render(*moving, input, { kSwapBlock }, &scene_b);
+        const std::vector<float> render_a = render(steady_a, input);
+        const std::vector<float> render_b = render(steady_b, input);
+        const std::vector<float> render_x = render(moving, input, { kSwapBlock }, edit);
 
         const std::size_t swap = static_cast<std::size_t>(kSwapBlock) * kBlock;
         const std::size_t fade_end = swap + SushiDSP::room::RoomNode::kCrossfadeFrames;
@@ -400,15 +447,120 @@ namespace
 
         double own_step = 0.0;
         double moving_step = 0.0;
+        double peak = 0.0;
         for (std::size_t frame = swap - kBlock; frame < fade_end + kBlock; ++frame)
         {
             own_step = std::max(own_step, static_cast<double>(
                 std::fabs(reference[frame] - reference[frame - 1])));
             moving_step = std::max(moving_step, static_cast<double>(
                 std::fabs(render_x[frame] - render_x[frame - 1])));
+            if (frame >= swap)
+            {
+                peak = std::max(peak, static_cast<double>(std::fabs(reference[frame])));
+            }
         }
         return { moving_step / own_step,
-                 peak_difference(render_x, reference, swap, fade_end + kBlock) };
+                 peak_difference(render_x, reference, swap, fade_end + kBlock), peak };
+    }
+
+    /// @brief Measures the microphone listener's crossfade from scene a to scene b.
+    CrossfadeMeasure measure_crossfade(const SushiDSP::room::RoomScene& scene_a,
+                                       const SushiDSP::room::RoomScene& scene_b)
+    {
+        std::unique_ptr<SushiDSP::room::RoomNode> steady_a =
+            prepared_node(scene_a, kListenerMicrophone);
+        std::unique_ptr<SushiDSP::room::RoomNode> steady_b =
+            prepared_node(scene_b, kListenerMicrophone);
+        std::unique_ptr<SushiDSP::room::RoomNode> moving =
+            prepared_node(scene_a, kListenerMicrophone);
+        return measure_crossfade(*steady_a, *steady_b, *moving, scene_edit(scene_b));
+    }
+
+    /// @brief Measures the crossfade of one scene switching from one listener to the other.
+    CrossfadeMeasure measure_listener_switch(const SushiDSP::room::RoomScene& scene, float from,
+                                             float to)
+    {
+        std::unique_ptr<SushiDSP::room::RoomNode> steady_a = prepared_node(scene, from);
+        std::unique_ptr<SushiDSP::room::RoomNode> steady_b = prepared_node(scene, to);
+        std::unique_ptr<SushiDSP::room::RoomNode> moving = prepared_node(scene, from);
+        return measure_crossfade(*steady_a, *steady_b, *moving, listener_edit(to));
+    }
+
+    /// @brief Holds the transform length of the direct-path spectra.
+    constexpr std::uint32_t kDirectFft = 65536;
+
+    /// @brief Returns the power spectrum of one window of a signal, zero-padded to kDirectFft.
+    std::vector<double> windowed_power_db(const std::vector<float>& signal, std::size_t begin,
+                                          std::size_t end)
+    {
+        std::vector<float> window(kDirectFft, 0.0f);
+        std::copy(signal.begin() + static_cast<std::ptrdiff_t>(begin),
+                  signal.begin() + static_cast<std::ptrdiff_t>(end), window.begin());
+        return power_spectrum_db(window, kDirectFft);
+    }
+
+    /// @brief Returns 10 log10 of the mean power per hertz of a kDirectFft spectrum over the
+    /// third octave centred on one frequency.
+    double third_octave_db(const std::vector<double>& power_db, double centre_hz)
+    {
+        const double hz_per_bin = kSampleRate / static_cast<double>(kDirectFft);
+        const double edge = std::pow(2.0, 1.0 / 6.0);
+        const std::size_t first = static_cast<std::size_t>(std::ceil(centre_hz / edge / hz_per_bin));
+        const std::size_t last = static_cast<std::size_t>(std::ceil(centre_hz * edge / hz_per_bin));
+        double sum = 0.0;
+        for (std::size_t bin = first; bin < last; ++bin)
+        {
+            sum += std::pow(10.0, power_db[bin] / 10.0);
+        }
+        return 10.0 * std::log10(sum / static_cast<double>(last - first));
+    }
+
+    /// @brief Returns the energy of a signal over [begin, end).
+    double energy(const std::vector<float>& signal, std::size_t begin, std::size_t end)
+    {
+        double sum = 0.0;
+        for (std::size_t frame = begin; frame < end; ++frame)
+        {
+            sum += static_cast<double>(signal[frame]) * signal[frame];
+        }
+        return sum;
+    }
+
+    /// @brief Returns the direct-to-reverberant ratio of an impulse response in decibels: the
+    /// energy from two frames before the direct onset to 60 frames after it, against all the
+    /// rest, which includes the standing waves that ring from frame 0.
+    double direct_to_reverberant_db(const std::vector<float>& response, double onset_frames)
+    {
+        const std::size_t onset = static_cast<std::size_t>(std::floor(onset_frames));
+        const double direct = energy(response, onset - 2, onset + 60);
+        const double total = energy(response, 0, response.size());
+        return 10.0 * std::log10(direct / (total - direct));
+    }
+
+    /// @brief Returns the 12 m dead room with the cabinet at its centre facing +x, so the
+    /// nearest reflection, off the floor or the ceiling, arrives at least 12 m after the direct
+    /// path and a window of 1600 frames holds the direct path alone.
+    SushiDSP::room::RoomScene centred_dead_room()
+    {
+        SushiDSP::room::RoomScene scene = dead_room_scene();
+        scene.source_position = { 6.0, 6.0, 6.0 };
+        scene.listener_position = { 8.0, 6.0, 6.0 };
+        scene.microphone_position = { 9.0, 6.0, 6.0 };
+        scene.microphone_yaw_rad = kPi;
+        scene.microphone_pattern = SushiDSP::room::PolarPattern::Cardioid;
+        return scene;
+    }
+
+    /// @brief Counts the frames of the direct-path window in centred_dead_room().
+    constexpr std::size_t kDirectWindow = 1600;
+
+    /// @brief Returns the direct-path power spectrum of a scene for one listener.
+    std::vector<double> direct_power_db(const SushiDSP::room::RoomScene& scene, float listener)
+    {
+        std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, listener);
+        std::vector<float> impulse(8 * kBlock, 0.0f);
+        impulse[0] = 1.0f;
+        return windowed_power_db(render(*node, impulse), 0, kDirectWindow);
     }
 }
 
@@ -433,7 +585,7 @@ TEST(Unit_Dsp, RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid)
     // which is the filter's group delay and not the tap's placement.
     SushiDSP::room::RoomScene scene = microphone_scene();
     scene.cabinet = SushiDSP::room::CabinetGeometry{ 0.01, 0.0, 0.05, 20000.0 };
-    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene);
+    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, kListenerMicrophone);
 
     std::vector<float> impulse(2048, 0.0f);
     impulse[0] = 1.0f;
@@ -499,7 +651,8 @@ TEST(Unit_Dsp, RoomNodeRepublishesTheSameSceneWithoutAResidual)
 
 TEST(Unit_Dsp, RoomNodeKeepsRenderingTheOldSetWhileASetIsBuilt)
 {
-    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(microphone_scene());
+    std::unique_ptr<SushiDSP::room::RoomNode> node =
+        prepared_node(microphone_scene(), kListenerMicrophone);
     std::vector<float> left(kBlock, 0.0f);
     std::vector<float> right(kBlock, 0.0f);
     float* outputs[2] = { left.data(), right.data() };
@@ -545,7 +698,8 @@ TEST(Unit_Dsp, RoomNodeReclaimsARetiredSetOnlyAfterTheAudioThreadMovedOn)
     // time without a read from freed memory. test_rt_swap_slot.cpp proves the slot's own
     // deferral; this case walks the node through the same sequence and checks that the
     // block after each reclaim still carries the room.
-    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(microphone_scene());
+    std::unique_ptr<SushiDSP::room::RoomNode> node =
+        prepared_node(microphone_scene(), kListenerMicrophone);
     const std::vector<float> input = tone(4 * kBlock);
 
     SushiDSP::room::RoomScene second = microphone_scene();
@@ -584,7 +738,8 @@ TEST(Unit_Dsp, RoomNodeReclaimsARetiredSetOnlyAfterTheAudioThreadMovedOn)
 
 TEST(Unit_Dsp, RoomNodeRefusesAnInvalidSceneAndKeepsTheOldOne)
 {
-    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(microphone_scene());
+    std::unique_ptr<SushiDSP::room::RoomNode> node =
+        prepared_node(microphone_scene(), kListenerMicrophone);
 
     SushiDSP::room::RoomScene invalid = microphone_scene();
     invalid.dimensions.x = 15.0;
@@ -633,7 +788,7 @@ TEST(Unit_Dsp, RoomNodeMixesDryAndWet)
     SushiDSP::room::RoomScene close = dead_room_scene();
     close.microphone_position = close.source_position;
     close.microphone_position.x += 0.1;
-    std::unique_ptr<SushiDSP::room::RoomNode> wet = prepared_node(close);
+    std::unique_ptr<SushiDSP::room::RoomNode> wet = prepared_node(close, kListenerMicrophone);
     std::vector<float> impulse(kBlock, 0.0f);
     impulse[0] = 1.0f;
     const std::vector<float> response = render(*wet, impulse);
@@ -749,9 +904,10 @@ TEST(Unit_Dsp, RoomNodeModeWidthsMatchTheirDamping)
 TEST(Unit_Dsp, RoomNodePressesTheBassIntoTheCorner)
 {
     // The listener stands in the corner at (0.15, 0.15, 0.15) and then at the centre
-    // (3.0, 2.0, 1.25), where every mode with an odd index is at a node. The microphone stays
-    // where it is, so the geometric leakage under 100 Hz is the same in both renders and the
-    // difference is the standing waves alone.
+    // (3.0, 2.0, 1.25), where every mode with an odd index is at a node. The ears carry the
+    // taps and the tail with them, and what those pass under 100 Hz through the LR4 pair, two
+    // octaves under f_s, moves the figure by hundredths of a decibel: 14.06 dB with the
+    // geometric receiver held still, 14.02 dB with it in the corner too.
     SushiDSP::room::RoomScene corner = wave_scene();
     corner.listener_position = { 0.15, 0.15, 0.15 };
     SushiDSP::room::RoomScene centre = wave_scene();
@@ -760,7 +916,6 @@ TEST(Unit_Dsp, RoomNodePressesTheBassIntoTheCorner)
         band_density_db(power_spectrum_db(wave_response(corner), kWaveFft), 20.0, 100.0);
     const double centre_db =
         band_density_db(power_spectrum_db(wave_response(centre), kWaveFft), 20.0, 100.0);
-    // Measured: 14.06 dB.
     RecordProperty("corner_minus_centre_db", corner_db - centre_db);
     EXPECT_GE(corner_db - centre_db, 12.0);
 }
@@ -819,7 +974,7 @@ TEST(Unit_Dsp, RoomNodeSwitchesTheWaveLayerOffInADeadRoom)
     }
     std::vector<float> tail(kBlock);
 
-    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene);
+    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, kListenerMicrophone);
     EXPECT_DOUBLE_EQ(node->schroeder_frequency_hz(), schroeder);
     const std::vector<float> input = tone(kBlocks * kBlock);
     std::vector<float> left(kBlock);
@@ -924,9 +1079,10 @@ namespace
         double settled_db;
     };
 
-    /// @brief Drives three nodes with a tone at 68.6 Hz, the (0, 0, 1) mode: one in scene a
-    /// throughout, one in scene b throughout, and one that moves from a to b at block 200;
-    /// the reference is the raised-cosine blend of the two steady renders over the fade.
+    /// @brief Drives three nodes heard by the ears with a tone at 68.6 Hz, the (0, 0, 1)
+    /// mode: one in scene a throughout, one in scene b throughout, and one that moves from a
+    /// to b at block 200; the reference is the raised-cosine blend of the two steady renders
+    /// over the fade.
     WaveMeasure measure_wave(const SushiDSP::room::RoomScene& scene_a,
                              const SushiDSP::room::RoomScene& scene_b)
     {
@@ -938,10 +1094,12 @@ namespace
             input[frame] = static_cast<float>(
                 std::sin(2.0 * kPi * 68.6 * static_cast<double>(frame) / kSampleRate));
         }
-        const std::vector<float> steady_a = render(*prepared_node(scene_a), input);
-        const std::vector<float> steady_b = render(*prepared_node(scene_b), input);
-        const std::vector<float> moving =
-            render(*prepared_node(scene_a), input, { kSwapBlock }, &scene_b);
+        const std::vector<float> steady_a =
+            render(*prepared_node(scene_a, kListenerEars), input);
+        const std::vector<float> steady_b =
+            render(*prepared_node(scene_b, kListenerEars), input);
+        const std::vector<float> moving = render(*prepared_node(scene_a, kListenerEars), input,
+                                                 { kSwapBlock }, scene_edit(scene_b));
 
         const std::size_t swap = static_cast<std::size_t>(kSwapBlock) * kBlock;
         const std::size_t fade_end = swap + SushiDSP::room::RoomNode::kCrossfadeFrames;
@@ -997,16 +1155,19 @@ TEST(Unit_Dsp, RoomNodeCarriesTheStandingWavesAcrossAMovedCabinet)
 
 TEST(Unit_Dsp, RoomNodeRampsTheEarGainsAsTheOutputBlendWould)
 {
-    // The listener moves 0.3 m along y and the microphone stays, so only the ear gains change.
-    // The bank's output is linear in those gains, so ramping them under the raised cosine is
-    // the blend of the two steady renders, sample for sample. Measured: -144 dB.
+    // The listener moves 0.3 m along y. The resonators are the same, so the ear gains ramp,
+    // and the bank's output is linear in those gains: ramping them under the raised cosine is
+    // the blend of the two steady renders, sample for sample, -144 dB when nothing else moved.
+    // The same listener now carries the taps and the tail with it, and what they pass of a
+    // 68.6 Hz tone through the LR4 pair, two octaves under f_s, crossfades from cleared
+    // banks: measured -95.3 dB, the geometric leakage's own residual, bounded at -90 dB.
     const SushiDSP::room::RoomScene scene = wave_scene();
     SushiDSP::room::RoomScene listener_moved = scene;
     listener_moved.listener_position.y -= 0.3;
     const WaveMeasure measure = measure_wave(scene, listener_moved);
     RecordProperty("residual_db", measure.residual_db);
     EXPECT_LE(measure.step_ratio, 1.0);
-    EXPECT_LT(measure.residual_db, -120.0);
+    EXPECT_LT(measure.residual_db, -90.0);
 }
 
 TEST(Unit_Dsp, RoomNodeRebuildsTheStandingWavesInAChangedRoom)
@@ -1030,7 +1191,8 @@ TEST(Unit_Dsp, RoomNodeReportsTheCrossoverTheSetSplitsAt)
     // lowered figure, the one its seam sits at. The dead room reports Eyring's 22 Hz with the
     // layer off, so a panel still shows the room's own figure.
     const SushiDSP::room::RoomScene garage = wave_scene();
-    const std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(garage);
+    const std::unique_ptr<SushiDSP::room::RoomNode> node =
+        prepared_node(garage, kListenerMicrophone);
     EXPECT_NEAR(node->schroeder_frequency_hz(),
                 SushiDSP::room::EyringDecay::schroeder_frequency_hz(garage), 1e-4);
 
@@ -1056,4 +1218,277 @@ TEST(Unit_Dsp, RoomNodeReportsTheCrossoverTheSetSplitsAt)
     SushiDSP::room::RoomNode fresh;
     ASSERT_TRUE(fresh.set_scene(small, reason)) << reason;
     EXPECT_DOUBLE_EQ(fresh.schroeder_frequency_hz(), eyring);
+}
+
+TEST(Unit_Dsp, RoomNodeReadsTheStandingWavesWhereTheSetsReceiverStands)
+{
+    // The modal field is read where the set's geometric receiver stands. A microphone set
+    // carries psi at microphone_position in both ear gains; an ears set keeps the solver's two
+    // ears, 8.5 cm to either side of the listener, so a listener at (5.4, 3.4, 2.0) facing +x
+    // reads psi at y = 3.485 and y = 3.315.
+    const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(kSampleRate);
+    SushiDSP::room::RoomScene scene = wave_scene();
+    scene.microphone_position = { 1.0, 0.5, 0.5 };
+
+    std::unique_ptr<SushiDSP::room::RoomRenderSet> microphone =
+        SushiDSP::room::build_render_set(scene, hrtf, kSampleRate,
+                                         SushiDSP::room::ListenerKind::Microphone);
+    ASSERT_TRUE(SushiDSP::room::RoomNode::place_modal_receiver(*microphone, scene));
+    const std::vector<SushiDSP::room::ModalSolver::Mode> modes =
+        SushiDSP::room::ModalSolver::enumerate(scene, microphone->modal.crossover_hz);
+    ASSERT_EQ(modes.size(), microphone->modal.count);
+    for (std::size_t index = 0; index < modes.size(); ++index)
+    {
+        const float psi = static_cast<float>(SushiDSP::room::ModalSolver::mode_shape(
+            modes[index], scene, scene.microphone_position));
+        EXPECT_EQ(microphone->modal.modes[index].ear_gain[0], psi) << "mode " << index;
+        EXPECT_EQ(microphone->modal.modes[index].ear_gain[1], psi) << "mode " << index;
+    }
+
+    std::unique_ptr<SushiDSP::room::RoomRenderSet> ears = SushiDSP::room::build_render_set(
+        scene, hrtf, kSampleRate, SushiDSP::room::ListenerKind::Ears);
+    const std::array<float, 2> before = ears->modal.modes[0].ear_gain;
+    ASSERT_TRUE(SushiDSP::room::RoomNode::place_modal_receiver(*ears, scene));
+    EXPECT_EQ(ears->modal.modes[0].ear_gain, before);
+    const SushiDSP::room::Vec3 left = { 5.4, 3.485, 2.0 };
+    const SushiDSP::room::Vec3 right = { 5.4, 3.315, 2.0 };
+    EXPECT_FLOAT_EQ(before[0], static_cast<float>(
+        SushiDSP::room::ModalSolver::mode_shape(modes[0], scene, left)));
+    EXPECT_FLOAT_EQ(before[1], static_cast<float>(
+        SushiDSP::room::ModalSolver::mode_shape(modes[0], scene, right)));
+}
+
+TEST(Unit_Dsp, RoomNodeMicrophoneListenerFillsBothChannelsIdentically)
+{
+    // The microphone is one point: its taps encode to channel 0 alone, its tail is one
+    // signal read twice, and its standing waves are read at the microphone in both ear gains,
+    // so the two outputs are equal bit for bit. The listener stands elsewhere, and a moved
+    // listener mid-render changes nothing the microphone hears.
+    SushiDSP::room::RoomScene scene = wave_scene();
+    scene.listener_position = { 2.0, 1.0, 1.0 };
+    scene.microphone_pattern = SushiDSP::room::PolarPattern::Cardioid;
+    SushiDSP::room::RoomScene listener_moved = scene;
+    listener_moved.listener_position = { 4.0, 3.0, 1.5 };
+
+    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, kListenerMicrophone);
+    std::vector<float> input = tone(16 * kBlock);
+    input[0] = 1.0f;
+    const std::array<std::vector<float>, 2> output =
+        render_both(*node, input, { 6 }, scene_edit(listener_moved));
+    ASSERT_EQ(output[0].size(), 4096u);
+    double peak = 0.0;
+    for (std::size_t frame = 0; frame < output[0].size(); ++frame)
+    {
+        ASSERT_EQ(output[0][frame], output[1][frame]) << "frame " << frame;
+        peak = std::max(peak, static_cast<double>(std::fabs(output[0][frame])));
+    }
+    EXPECT_GT(peak, 0.0);
+}
+
+TEST(Unit_Dsp, RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd)
+{
+    // Spec 8: a cardioid's gradient half gains sqrt(1 + (c / (2 pi f r))^2) on a spherical
+    // wave, 14.2 dB at 125 Hz for r = 5 cm and 0.1 dB at r = 3 m. The whole chain carries
+    // 1 / r as well, 35.6 dB between the two distances, so the figure that survives is the
+    // tilt: the 125 Hz third octave against the 4 kHz third octave, where the boost is
+    // 0.16 dB at 5 cm and nil at 3 m, and air takes 0.08 dB more from 4 kHz over 3 m. The
+    // dead room keeps the modal layer off, so the band reaches the taps unsplit, and the
+    // window holds the direct path alone. Expected 13.68 dB; measured 13.34 dB. The plan's
+    // 15.5 dB at 100 Hz is the model's own figure and does not reach the output: the six-band
+    // fit is anchored at 125 Hz and its low shelf holds level below it, so the rendered 100 Hz
+    // third octave reads 13.79 dB, recorded here and not bounded.
+    SushiDSP::room::RoomScene close_up = centred_dead_room();
+    close_up.microphone_position = { 6.05, 6.0, 6.0 };
+    const SushiDSP::room::RoomScene distant = centred_dead_room();
+    const std::vector<double> close_db = direct_power_db(close_up, kListenerMicrophone);
+    const std::vector<double> distant_db = direct_power_db(distant, kListenerMicrophone);
+
+    const auto tilt = [](const std::vector<double>& power, double band_hz)
+    {
+        return third_octave_db(power, band_hz) - third_octave_db(power, 4000.0);
+    };
+    const auto cardioid_db = [](double frequency_hz, double distance_m)
+    {
+        return 20.0 * std::log10(0.5 + 0.5 * SushiDSP::room::MicrophoneModel::proximity_boost(
+                                                 frequency_hz, distance_m));
+    };
+    const auto air_db = [](double distance_m)
+    {
+        const SushiDSP::room::BandResponse air = SushiDSP::room::AirAbsorption::over_path(distance_m);
+        return 20.0 * std::log10(static_cast<double>(air.gain[0]) / air.gain[5]);
+    };
+    const auto model_tilt = [&](double band_hz)
+    {
+        return cardioid_db(band_hz, 0.05) - cardioid_db(4000.0, 0.05)
+            - (cardioid_db(band_hz, 3.0) - cardioid_db(4000.0, 3.0)) + air_db(3.0) - air_db(0.05);
+    };
+    const double expected = model_tilt(125.0);
+    const double measured = tilt(close_db, 125.0) - tilt(distant_db, 125.0);
+    const double at_100_hz = tilt(close_db, 100.0) - tilt(distant_db, 100.0);
+    RecordProperty("expected_db", expected);
+    RecordProperty("measured_db", measured);
+    RecordProperty("at_100_hz_db", at_100_hz);
+    EXPECT_NEAR(expected, 13.68, 0.05);
+    EXPECT_NEAR(model_tilt(100.0), 15.39, 0.05);
+    EXPECT_NEAR(measured, expected, 1.0);
+    EXPECT_GT(at_100_hz, measured);
+}
+
+TEST(Unit_Dsp, RoomNodeMicrophoneHearsLessRoomThanTheEars)
+{
+    // The garage with the cabinet at (1.5, 2.0, 0.5). A cardioid 5 cm off the cone hears the
+    // direct path at 1 / 0.05 and the nearest reflection, off the floor, at 1 / 1.0 and 140
+    // frames later; the ears at (3.5, 2.0, 1.2), 2.12 m away, hear the direct path at 1 / 2.12
+    // and the floor at 1 / 2.63, 71 frames later. The direct-to-reverberant ratios must differ
+    // by at least 20 dB.
+    SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+    scene.source_position = { 1.5, 2.0, 0.5 };
+    scene.microphone_position = { 1.55, 2.0, 0.5 };
+    scene.microphone_yaw_rad = kPi;
+    scene.microphone_pattern = SushiDSP::room::PolarPattern::Cardioid;
+    scene.listener_position = { 3.5, 2.0, 1.2 };
+
+    std::vector<float> impulse(188 * kBlock, 0.0f);
+    impulse[0] = 1.0f;
+    const std::vector<float> microphone =
+        render(*prepared_node(scene, kListenerMicrophone), impulse);
+    const std::vector<float> ears = render(*prepared_node(scene, kListenerEars), impulse);
+
+    const double microphone_db = direct_to_reverberant_db(microphone, 0.05 * kFramesPerMetre);
+    const double ears_db =
+        direct_to_reverberant_db(ears, std::sqrt(4.0 + 0.49) * kFramesPerMetre);
+    RecordProperty("microphone_db", microphone_db);
+    RecordProperty("ears_db", ears_db);
+    EXPECT_GE(microphone_db - ears_db, 20.0);
+}
+
+TEST(Unit_Dsp, RoomNodeMovingAroundTheCabinetChangesTheTone)
+{
+    // Spec 7: the 4x12's four pistons beam at 2 kHz and are omnidirectional at 125 Hz. The
+    // ears 2 m from the cabinet, on axis and then 60 degrees off it, in the dead room's
+    // direct-path window: the 2 kHz third octave drops by more than 6 dB and the 125 Hz third
+    // octave moves by under 1 dB, each within 1 dB of the piston model's own band value.
+    const SushiDSP::room::RoomScene on_axis = centred_dead_room();
+    SushiDSP::room::RoomScene off_axis = on_axis;
+    off_axis.listener_position = { 7.0, 6.0 + 2.0 * std::sin(kPi / 3.0), 6.0 };
+    const std::vector<double> on_db = direct_power_db(on_axis, kListenerEars);
+    const std::vector<double> off_db = direct_power_db(off_axis, kListenerEars);
+
+    const double drop_2k = third_octave_db(on_db, 2000.0) - third_octave_db(off_db, 2000.0);
+    const double move_125 = third_octave_db(off_db, 125.0) - third_octave_db(on_db, 125.0);
+    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::kCabinet4x12);
+    const SushiDSP::room::BandResponse model = cabinet.gain_for(kPi / 3.0, 0.0);
+    const double model_2k = -20.0 * std::log10(static_cast<double>(model.gain[4]));
+    const double model_125 = 20.0 * std::log10(static_cast<double>(model.gain[0]));
+    RecordProperty("drop_2k_db", drop_2k);
+    RecordProperty("move_125_db", move_125);
+    RecordProperty("model_2k_db", model_2k);
+    RecordProperty("model_125_db", model_125);
+    EXPECT_GT(drop_2k, 6.0);
+    EXPECT_LT(std::fabs(move_125), 1.0);
+    EXPECT_NEAR(drop_2k, model_2k, 1.0);
+    EXPECT_NEAR(move_125, model_125, 1.0);
+}
+
+TEST(Unit_Dsp, RoomNodeEarsHearTheDirectSoundUntilTheHrirPairLands)
+{
+    // Until the binaural path renders the direct sound through the HRIR pair, an ears set
+    // keeps the (0, 0, 0) image and the ears hear it through the omnidirectional channel. In
+    // the dead room, whose modal layer is off, the ears 2 m from the cabinet hear nothing
+    // before the direct peak at 279.88 frames, and their left channel equals, bit for bit,
+    // an omni microphone's at the same spot: the same taps, encoded to channel 0 either way,
+    // and the same left tail, whose coherence pair touches the right ear alone.
+    const SushiDSP::room::RoomScene scene = centred_dead_room();
+    SushiDSP::room::RoomScene omni = scene;
+    omni.microphone_position = scene.listener_position;
+    omni.microphone_yaw_rad = kPi;
+    omni.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
+    std::vector<float> impulse(2048, 0.0f);
+    impulse[0] = 1.0f;
+    const std::vector<float> ears = render(*prepared_node(scene, kListenerEars), impulse);
+    const std::vector<float> microphone =
+        render(*prepared_node(omni, kListenerMicrophone), impulse);
+
+    const double direct = 2.0 * kFramesPerMetre;
+    const long peak = nearest_peak(ears, direct, 3, 1e-3f);
+    ASSERT_GE(peak, 0);
+    EXPECT_NEAR(static_cast<double>(peak), direct, 0.5);
+    for (std::size_t frame = 0; frame + 2 < static_cast<std::size_t>(peak); ++frame)
+    {
+        ASSERT_EQ(ears[frame], 0.0f) << "frame " << frame;
+    }
+    for (std::size_t frame = 0; frame < ears.size(); ++frame)
+    {
+        ASSERT_EQ(ears[frame], microphone[frame]) << "frame " << frame;
+    }
+}
+
+TEST(Unit_Dsp, RoomNodeListenerChangeGoesThroughTheCrossfade)
+{
+    // Switching the parameter mid-tone swaps every tap at once, with no state to carry, and
+    // the tail's design with them. In the garage, a cardioid 1 m off the cone against the
+    // ears 2.6 m away, the step ratio stays under a scene publish's in both directions; the
+    // residual against the blend of the two steady renders is -30 dB of the peak and is
+    // recorded, not bounded: the tail's input gain is 0.075 for the microphone's set and
+    // 0.136 for the ears', and the lines carry the old listener's stored energy into the new
+    // set at the room's own decay, where the reference blend has no memory. The dead room,
+    // whose tail is nil, measures the tap crossfade alone: -43.6 dB of the peak in both
+    // directions, bounded at -40 dB; the 0.36 m move of the scene-publish case reads -46 dB
+    // on the same scale.
+    SushiDSP::room::RoomScene garage = microphone_scene();
+    garage.microphone_position = { 2.5, 2.0, 0.5 };
+    garage.microphone_yaw_rad = kPi;
+    garage.microphone_pattern = SushiDSP::room::PolarPattern::Cardioid;
+    SushiDSP::room::RoomScene dead = centred_dead_room();
+    dead.microphone_position = { 7.0, 6.0, 6.0 };
+
+    for (const float from : { kListenerMicrophone, kListenerEars })
+    {
+        const float to = 1.0f - from;
+        const CrossfadeMeasure in_garage = measure_listener_switch(garage, from, to);
+        RecordProperty(from == kListenerMicrophone ? "garage_to_ears_db" : "garage_to_microphone_db",
+                       to_decibels(in_garage.residual / in_garage.peak));
+        EXPECT_LE(in_garage.step_ratio, 1.01) << "from " << from;
+
+        const CrossfadeMeasure in_dead_room = measure_listener_switch(dead, from, to);
+        RecordProperty(from == kListenerMicrophone ? "dead_to_ears_db" : "dead_to_microphone_db",
+                       to_decibels(in_dead_room.residual / in_dead_room.peak));
+        EXPECT_LE(in_dead_room.step_ratio, 1.01) << "from " << from;
+        EXPECT_LT(to_decibels(in_dead_room.residual / in_dead_room.peak), -40.0)
+            << "from " << from;
+    }
+}
+
+TEST(Unit_Dsp, RoomNodeAppliesAListenerWrittenByIndexAtTheNextPublish)
+{
+    // The index path is the audio thread's and stores a target only, so an ears node whose
+    // listener is written by index to the microphone keeps rendering the ears, 2 m away with
+    // the direct peak at 279.88 frames; the next publish, here a scene, builds the set of the
+    // microphone 0.1 m off the cone, whose direct sound lands at frame 14. The id path
+    // publishes at once. reset() between renders re-adopts the set in place from silence.
+    SushiDSP::room::RoomScene scene = centred_dead_room();
+    scene.microphone_position = { 6.1, 6.0, 6.0 };
+    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, kListenerEars);
+    std::vector<float> impulse(2048, 0.0f);
+    impulse[0] = 1.0f;
+    const double direct = 2.0 * kFramesPerMetre;
+
+    node->set_parameter(std::uint16_t{ 2 }, kListenerMicrophone);
+    EXPECT_FLOAT_EQ(node->get_parameter("listener"), kListenerMicrophone);
+    std::vector<float> response = render(*node, impulse);
+    EXPECT_GE(nearest_peak(response, direct, 3, 1e-3f), 0);
+    EXPECT_EQ(response[14], 0.0f);
+
+    std::string reason;
+    ASSERT_TRUE(node->set_scene(scene, reason)) << reason;
+    node->reset();
+    response = render(*node, impulse);
+    EXPECT_GT(std::fabs(response[14]), 1e-3f);
+    EXPECT_LT(nearest_peak(response, direct, 3, 1e-3f), 0);
+
+    node->set_parameter("listener", kListenerEars);
+    node->reset();
+    response = render(*node, impulse);
+    EXPECT_GE(nearest_peak(response, direct, 3, 1e-3f), 0);
+    EXPECT_EQ(response[14], 0.0f);
 }
