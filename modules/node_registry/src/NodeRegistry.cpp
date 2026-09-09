@@ -30,6 +30,7 @@
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/mesa_mark2c/MesaMark2c.hpp"
 #include "SushiDSP/peavey5150/Peavey5150.hpp"
+#include "SushiDSP/room/RoomNode.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 #include "SushiDSP/routing/MixerNode.hpp"
 #include "SushiDSP/routing/PanNode.hpp"
@@ -49,6 +50,7 @@ namespace SushiDSP
             { &splitter_descriptor(), NodeCategory{ "Routing" } },
             { &mixer_descriptor(), NodeCategory{ "Routing" } },
             { &pan_descriptor(), NodeCategory{ "Routing" } },
+            { &room::room_descriptor(), NodeCategory{ "Room" } },
         };
         return entries;
     }

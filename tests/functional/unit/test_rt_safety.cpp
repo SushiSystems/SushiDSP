@@ -34,6 +34,7 @@
 #include <cstdlib>
 #include <memory>
 #include <new>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -65,8 +66,14 @@
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/mesa_mark2c/MesaMark2c.hpp"
 #include "SushiDSP/peavey5150/Peavey5150.hpp"
+#include "SushiDSP/room/EarlyReflectionRenderer.hpp"
+#include "SushiDSP/room/EarlyTapSet.hpp"
+#include "SushiDSP/room/FdnDesign.hpp"
+#include "SushiDSP/room/LateReverb.hpp"
+#include "SushiDSP/room/RoomNode.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
+#include "RoomFixtures.hpp"
 #include "circuits/JcmV1aNetlist.hpp"
 #include "ui/LevelProbe.hpp"
 
@@ -1459,5 +1466,198 @@ TEST(Unit_Dsp, MetronomeProcessPerformsNoHeapAllocation)
     {
         EXPECT_TRUE(std::isfinite(left[frame]));
         EXPECT_TRUE(std::isfinite(right[frame]));
+    }
+}
+
+namespace
+{
+    /// @brief Returns the garage with an omni microphone 2.5 m in front of the cabinet.
+    SushiDSP::room::RoomScene room_trap_scene(double microphone_x)
+    {
+        SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+        scene.source_position = { 1.5, 2.0, 0.5 };
+        scene.microphone_position = { microphone_x, 2.0, 1.2 };
+        scene.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
+        return scene;
+    }
+
+    /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
+    void fill_room_tone(std::vector<float>& block)
+    {
+        for (std::size_t i = 0; i < block.size(); ++i)
+        {
+            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f
+                                       * static_cast<float>(i) / 48000.0f);
+        }
+    }
+}
+
+TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocation)
+{
+    // prepare() builds the spherical head and publishes the first set outside the trap; the
+    // first trapped block is the one that adopts it, a copy into the node's own bank.
+    SushiDSP::room::RoomNode node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    std::string reason;
+    ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[2] = { left.data(), right.data() };
+    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+
+    AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 16; ++block)
+    {
+        node.set_parameter(std::uint16_t{ 0 }, block % 2 == 0 ? 0.7f : 1.0f);
+        node.set_parameter(std::uint16_t{ 1 }, -3.0f);
+        node.process(context);
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+        EXPECT_TRUE(std::isfinite(right[i]));
+    }
+}
+
+TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
+{
+    // Only the audio thread's half of a publish is trapped: set_scene solves and allocates on
+    // the control thread, so the trap closes around it and opens around the blocks that pick
+    // the new set up, start the crossfade and run it to its end.
+    SushiDSP::room::RoomNode node;
+    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    const float* input_channels[1] = { input.data() };
+    float* output_channels[2] = { left.data(), right.data() };
+    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+
+    AllocationTrap trap;
+    for (int publish = 0; publish < 4; ++publish)
+    {
+        std::string reason;
+        ASSERT_TRUE(node.set_scene(room_trap_scene(3.0 + 0.25 * publish), reason)) << reason;
+
+        trap.arm();
+        for (int block = 0; block < 3; ++block)
+        {
+            node.process(context);
+        }
+        trap.disarm();
+
+        node.reclaim_rooms();
+    }
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+    }
+}
+
+TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
+{
+    SushiDSP::room::EarlyReflectionRenderer renderer;
+    renderer.prepare(8397, 256);
+
+    SushiDSP::room::EarlyTapSet set{};
+    set.count = SushiDSP::room::EarlyTapSet::kMaxEarlyTaps;
+    for (std::uint32_t tap = 0; tap < set.count; ++tap)
+    {
+        set.taps[tap].delay_frames = 1.5f + 60.0f * static_cast<float>(tap);
+        set.taps[tap].gain = 1.0f / (1.0f + static_cast<float>(tap));
+        set.taps[tap].section_a = { 0.5, 0.25, 0.0, -0.25, 0.0 };
+        set.taps[tap].section_b = { 1.0, 0.0, 0.0, 0.0, 0.0 };
+        set.taps[tap].encode.fill(0.1f);
+    }
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::array<std::vector<float>, SushiDSP::room::EarlyReflectionRenderer::kOutputChannels>
+        buffers;
+    std::array<float*, SushiDSP::room::EarlyReflectionRenderer::kOutputChannels> outputs{};
+    for (std::size_t channel = 0; channel < buffers.size(); ++channel)
+    {
+        buffers[channel].assign(256, 0.0f);
+        outputs[channel] = buffers[channel].data();
+    }
+
+    AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 8; ++block)
+    {
+        renderer.write(input.data(), 256);
+        renderer.render(set, 0, outputs.data(), 256);
+        renderer.render(set, 1, outputs.data(), 256);
+        renderer.clear_bank(static_cast<std::uint32_t>(block % 2));
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (float sample : buffers[0])
+    {
+        EXPECT_TRUE(std::isfinite(sample));
+    }
+}
+
+TEST(Unit_Dsp, LateReverbProcessPerformsNoHeapAllocation)
+{
+    // The second design moves every line by 37 frames, so the trapped blocks include the
+    // 512-frame length crossfade as well as the steady network.
+    SushiDSP::room::LateReverb reverb;
+    reverb.prepare(25200);
+
+    SushiDSP::room::FdnDesign design{};
+    const SushiDSP::room::FdnDesign::Section unity = { 1.0, 0.0, 0.0, 0.0, 0.0 };
+    const SushiDSP::room::FdnDesign::Section damped = { 0.9, 0.0, 0.0, 0.0, 0.0 };
+    for (std::size_t line = 0; line < SushiDSP::room::FdnDesign::kLineCount; ++line)
+    {
+        design.line_frames[line] = static_cast<std::uint32_t>(1000 + 97 * line);
+        design.line_section_a[line] = damped;
+        design.line_section_b[line] = unity;
+    }
+    design.tone_correction = { unity, unity };
+    design.coherence_a = { unity, unity };
+    design.coherence_b = { unity, unity };
+    design.input_gain = 0.5f;
+    design.delay_to_crossover_frames = 1749.0f;
+
+    SushiDSP::room::FdnDesign moved = design;
+    for (std::uint32_t& frames : moved.line_frames)
+    {
+        frames += 37u;
+    }
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+
+    AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 8; ++block)
+    {
+        const SushiDSP::room::FdnDesign& current = block < 4 ? design : moved;
+        reverb.process(current, input.data(), left.data(), right.data(), 256);
+        reverb.process(current, input.data(), left.data(), left.data(), 256);
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+        EXPECT_TRUE(std::isfinite(right[i]));
     }
 }
