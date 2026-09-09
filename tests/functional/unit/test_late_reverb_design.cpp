@@ -34,13 +34,17 @@
 #include <cstddef>
 #include <cstdint>
 #include <set>
+#include <vector>
 
 #include "RoomFixtures.hpp"
+#include "SushiDSP/math/Fft.hpp"
 #include "SushiDSP/room/BandResponse.hpp"
 #include "SushiDSP/room/BandResponseFit.hpp"
+#include "SushiDSP/room/DiffuseField.hpp"
 #include "SushiDSP/room/EarlyTapSet.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
 #include "SushiDSP/room/FdnDesign.hpp"
+#include "SushiDSP/room/LateReverb.hpp"
 #include "SushiDSP/room/ImageSourceSolver.hpp"
 #include "SushiDSP/room/LateReverbDesign.hpp"
 #include "SushiDSP/room/RoomScene.hpp"
@@ -113,29 +117,104 @@ namespace
         return std::pow(10.0, cascade_db(cascade, frequency_hz) / 20.0);
     }
 
-    /// @brief Returns Jot's tone correction sqrt(1 - g(f)^2) / sqrt(1 - g(500)^2) in decibels
-    /// per band for a design's mean line, with g(f) = 10^(-3 tau / RT60(f)).
-    std::array<double, 6> tone_target_db(const SushiDSP::room::RoomScene& scene,
-                                         const FdnDesign& design)
+    /// @brief Holds six band figures.
+    using Bands = std::array<double, 6>;
+
+    /// @brief Returns 10 log10 of a power, floored far under any figure here.
+    double decibels(double power)
     {
-        const std::array<double, 6> rt60 = SushiDSP::room::EyringDecay::rt60_seconds(scene);
-        double mean_tau = 0.0;
-        for (const std::uint32_t frames : design.line_frames)
+        return 10.0 * std::log10(std::max(power, 1e-30));
+    }
+
+    /// @brief Returns the energy the taps past the direct sound carry at each band centre:
+    /// gain squared times the fitted filter's power.
+    Bands reflected_energy(const EarlyTapSet& early)
+    {
+        Bands energy{};
+        for (std::uint32_t index = 1; index < early.count; ++index)
         {
-            mean_tau += static_cast<double>(frames) / kSampleRate / static_cast<double>(kLines);
+            const BandResponseFit::Coefficients coefficients{ early.taps[index].section_a,
+                                                              early.taps[index].section_b };
+            const double gain = static_cast<double>(early.taps[index].gain);
+            for (std::size_t band = 0; band < 6u; ++band)
+            {
+                const double db = BandResponseFit::magnitude_db(
+                    coefficients, SushiDSP::room::kBandCentresHz[band], kSampleRate);
+                energy[band] += gain * gain * std::pow(10.0, db / 10.0);
+            }
         }
-        std::array<double, 6> envelope{};
+        return energy;
+    }
+
+    /// @brief Returns what the diffuse field holds beyond the reflections per band, floored at
+    /// zero.
+    Bands remainder_of(const SushiDSP::room::RoomScene& scene, const EarlyTapSet& early)
+    {
+        const SushiDSP::room::DiffuseField field(scene);
+        const Bands reflected = reflected_energy(early);
+        Bands remainder{};
         for (std::size_t band = 0; band < 6u; ++band)
         {
-            const double g = std::pow(10.0, -3.0 * mean_tau / rt60[band]);
-            envelope[band] = std::sqrt(1.0 - g * g);
+            remainder[band] = std::max(field.band_power()[band] - reflected[band], 0.0);
         }
-        std::array<double, 6> target{};
+        return remainder;
+    }
+
+    /// @brief Returns the energy sixteen lines deliver per band for a unit input gain:
+    /// 16 G / (1 - G) with G the mean over lines of 10^(-6 tau_i / RT60(f)).
+    Bands network_energy(const SushiDSP::room::RoomScene& scene, const FdnDesign& design)
+    {
+        const Bands rt60 = SushiDSP::room::EyringDecay::rt60_seconds(scene);
+        Bands energy{};
         for (std::size_t band = 0; band < 6u; ++band)
         {
-            target[band] = 20.0 * std::log10(envelope[band] / envelope[2]);
+            double kept = 0.0;
+            for (const std::uint32_t frames : design.line_frames)
+            {
+                kept += std::pow(10.0, -6.0 * (frames / kSampleRate) / rt60[band]) / 16.0;
+            }
+            energy[band] = 16.0 * kept / (1.0 - kept);
         }
-        return target;
+        return energy;
+    }
+
+    /// @brief Returns the tail's rendered energy per band: an impulse through LateReverb at
+    /// the design, the power spectrum's mean over each octave.
+    Bands rendered_energy(const FdnDesign& design)
+    {
+        constexpr std::uint32_t kFrames = 131072;
+        SushiDSP::room::LateReverb late;
+        late.prepare(25200);
+        std::vector<float> input(kFrames, 0.0f);
+        input[0] = 1.0f;
+        std::vector<float> output(kFrames, 0.0f);
+        for (std::uint32_t offset = 0; offset < kFrames; offset += 256u)
+        {
+            late.process(design, input.data() + offset, output.data() + offset,
+                         output.data() + offset, 256u);
+        }
+        SushiDSP::Fft fft(kFrames);
+        std::vector<float> real(kFrames);
+        std::vector<float> imaginary(kFrames);
+        fft.forward(output.data(), real.data(), imaginary.data());
+        const double bin_hz = kSampleRate / kFrames;
+        Bands energy{};
+        for (std::size_t band = 0; band < 6u; ++band)
+        {
+            const double centre = SushiDSP::room::kBandCentresHz[band];
+            const auto first =
+                static_cast<std::size_t>(std::ceil(centre / std::sqrt(2.0) / bin_hz));
+            const auto last =
+                static_cast<std::size_t>(std::ceil(centre * std::sqrt(2.0) / bin_hz));
+            double sum = 0.0;
+            for (std::size_t bin = first; bin < last; ++bin)
+            {
+                sum += static_cast<double>(real[bin]) * real[bin]
+                    + static_cast<double>(imaginary[bin]) * imaginary[bin];
+            }
+            energy[band] = sum / static_cast<double>(last - first);
+        }
+        return energy;
     }
 }
 
@@ -242,10 +321,52 @@ TEST(Unit_Dsp, LateReverbDesignDelaysTheTailToTheHandoverTime)
               static_cast<float>(std::round(early.crossover_time_s * kSampleRate)));
 }
 
-TEST(Unit_Dsp, LateReverbDesignScalesTheInputToContinueTheEarlyEnergy)
+TEST(Unit_Dsp, LateReverbDesignPutsEachBandsRemainderIntoTheTail)
 {
-    // Halving every early tap's gain, and with it quartering the scattered energy the same set
-    // would have carried, halves input_gain within 1e-6: the match is linear in pressure.
+    // Per band the tail carries what the diffuse field holds beyond the taps: the input gain
+    // squared is the mean over bands of remainder over network energy, each band's share
+    // floored at -30 dB of the largest, and the output cascade lands within the fit's error
+    // on sqrt of each band's share of that mean. The bedroom's 4 kHz reflections alone exceed
+    // its field there, so that band's share sits on the floor.
+    for (const SushiDSP::room::RoomScene& scene :
+         { SushiDSP::test::garage_scene(), SushiDSP::test::bedroom_scene() })
+    {
+        const EarlyTapSet early = SushiDSP::room::ImageSourceSolver::solve(scene, {});
+        const FdnDesign design =
+            LateReverbDesign::design(scene, early, kSampleRate, ListenerKind::Ears);
+        const Bands remainder = remainder_of(scene, early);
+        const Bands network = network_energy(scene, design);
+        Bands share{};
+        double largest = 0.0;
+        for (std::size_t band = 0; band < 6u; ++band)
+        {
+            share[band] = remainder[band] / network[band];
+            largest = std::max(largest, share[band]);
+        }
+        double mean = 0.0;
+        for (std::size_t band = 0; band < 6u; ++band)
+        {
+            share[band] = std::max(share[band], 1e-3 * largest);
+            mean += share[band] / 6.0;
+        }
+        EXPECT_NEAR(static_cast<double>(design.input_gain), std::sqrt(mean),
+                    1e-6 * std::sqrt(mean));
+        for (std::size_t band = 0; band < 6u; ++band)
+        {
+            EXPECT_NEAR(cascade_db(design.tone_correction, SushiDSP::room::kBandCentresHz[band]),
+                        decibels(share[band] / mean), 0.7)
+                << SushiDSP::room::kBandCentresHz[band] << " Hz";
+        }
+    }
+
+    // The bedroom's 4 kHz band sits on the floor and the garage's does not.
+    const SushiDSP::room::RoomScene bedroom = SushiDSP::test::bedroom_scene();
+    const EarlyTapSet bedroom_early = SushiDSP::room::ImageSourceSolver::solve(bedroom, {});
+    EXPECT_EQ(remainder_of(bedroom, bedroom_early)[5], 0.0);
+    EXPECT_GT(remainder_of(SushiDSP::test::garage_scene(), garage_early_taps())[5], 0.0);
+
+    // An empty set leaves the whole field to the tail, so its gain exceeds the full set's;
+    // halving every tap raises the tail, since the remainder grows as the taps shrink.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const EarlyTapSet early = garage_early_taps();
     EarlyTapSet halved = early;
@@ -253,22 +374,51 @@ TEST(Unit_Dsp, LateReverbDesignScalesTheInputToContinueTheEarlyEnergy)
     {
         halved.taps[index].gain *= 0.5f;
     }
-    halved.scattered_energy *= 0.25f;
-
-    const FdnDesign full = LateReverbDesign::design(garage, early, kSampleRate, ListenerKind::Ears);
+    EarlyTapSet empty{};
+    empty.count = 0;
+    empty.crossover_time_s = early.crossover_time_s;
+    const FdnDesign full = garage_design();
     const FdnDesign half =
         LateReverbDesign::design(garage, halved, kSampleRate, ListenerKind::Ears);
+    const FdnDesign alone =
+        LateReverbDesign::design(garage, empty, kSampleRate, ListenerKind::Ears);
     EXPECT_GT(full.input_gain, 0.0f);
-    EXPECT_NEAR(half.input_gain / full.input_gain, 0.5, 1e-6);
+    EXPECT_GT(half.input_gain, full.input_gain);
+    EXPECT_GT(alone.input_gain, half.input_gain);
+}
 
-    // An empty set with no scattered energy asks for a silent tail.
-    EarlyTapSet silent{};
-    silent.count = 0;
-    silent.crossover_time_s = early.crossover_time_s;
-    silent.scattered_energy = 0.0f;
-    const FdnDesign quiet =
-        LateReverbDesign::design(garage, silent, kSampleRate, ListenerKind::Ears);
-    EXPECT_EQ(quiet.input_gain, 0.0f);
+TEST(Unit_Dsp, LateReverbDesignRendersEachBandsRemainder)
+{
+    // An impulse through LateReverb at each room's design, 131072 frames, read as the power
+    // spectrum's mean over each octave: within 1 dB of the band's remainder from 250 Hz up,
+    // where the fits are anchored on both sides, and within 2 dB at 125 Hz, whose octave runs
+    // down to 88 Hz where the line filters and the output cascade hold whatever their low
+    // shelves settle to. A band whose remainder is zero renders at least 10 dB under the
+    // reflections it would sit beneath.
+    for (const SushiDSP::room::RoomScene& scene :
+         { SushiDSP::test::garage_scene(), SushiDSP::test::bedroom_scene(),
+           SushiDSP::test::block_room_scene() })
+    {
+        const EarlyTapSet early = SushiDSP::room::ImageSourceSolver::solve(scene, {});
+        const FdnDesign design =
+            LateReverbDesign::design(scene, early, kSampleRate, ListenerKind::Ears);
+        const Bands remainder = remainder_of(scene, early);
+        const Bands reflected = reflected_energy(early);
+        const Bands rendered = rendered_energy(design);
+        for (std::size_t band = 0; band < 6u; ++band)
+        {
+            const double centre = SushiDSP::room::kBandCentresHz[band];
+            if (remainder[band] == 0.0)
+            {
+                EXPECT_LT(decibels(rendered[band]), decibels(reflected[band]) - 10.0)
+                    << centre << " Hz";
+                continue;
+            }
+            const double error_db = decibels(rendered[band]) - decibels(remainder[band]);
+            RecordProperty("band_" + std::to_string(static_cast<int>(centre)) + "_db", error_db);
+            EXPECT_NEAR(error_db, 0.0, band == 0 ? 2.0 : 1.0) << centre << " Hz";
+        }
+    }
 }
 
 TEST(Unit_Dsp, LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh)
@@ -296,37 +446,26 @@ TEST(Unit_Dsp, LateReverbDesignKeepsTheCoherencePairPowerComplementary)
     }
 }
 
-TEST(Unit_Dsp, LateReverbDesignFitsTheToneCorrectionWithBothSections)
+TEST(Unit_Dsp, LateReverbDesignShapesTheOutputWithBothSections)
 {
-    // The bedroom's decays, 0.3264, 0.8705, 1.1542, 0.7307, 0.4281 and 0.3565 s against a mean
-    // line of 0.103393 s, ask for +1.433, +0.552, 0, +0.825, +1.331 and +1.408 dB: a dip at
-    // 500 Hz between two raised ends. The first section alone reaches +0.208 dB at 4 kHz; the
-    // cascade lands within the fit's 0.25 dB stopping error at every centre.
-    const SushiDSP::room::RoomScene bedroom = SushiDSP::test::bedroom_scene();
-    const FdnDesign design = LateReverbDesign::design(
-        bedroom, SushiDSP::room::ImageSourceSolver::solve(bedroom, {}), kSampleRate,
-        ListenerKind::Ears);
-    const std::array<double, 6> target = tone_target_db(bedroom, design);
-    EXPECT_NEAR(target[0], 1.433, 0.001);
-    EXPECT_NEAR(target[5], 1.408, 0.001);
-    for (std::size_t band = 0; band < 6u; ++band)
-    {
-        EXPECT_NEAR(cascade_db(design.tone_correction, SushiDSP::room::kBandCentresHz[band]),
-                    target[band], 0.25)
-            << SushiDSP::room::kBandCentresHz[band] << " Hz";
-    }
+    // The garage's output cascade falls from +4.7 dB at 125 Hz to -12.1 dB at 4 kHz, the
+    // room's longer bass decay and the 4x12's beaming both handed to the tail; the first
+    // section alone does not reach the 4 kHz figure, so the second carries part of the fall.
+    const FdnDesign design = garage_design();
+    EXPECT_GT(cascade_db(design.tone_correction, 125.0), 3.5);
+    EXPECT_LT(cascade_db(design.tone_correction, 4000.0), -11.0);
     const FdnDesign::Cascade first_only = { design.tone_correction[0],
                                             { 1.0, 0.0, 0.0, 0.0, 0.0 } };
-    EXPECT_LT(cascade_db(first_only, 4000.0), 0.5);
-
-    // The garage's correction is scaled to unity at 500 Hz, the band the mean line came from.
-    EXPECT_NEAR(cascade_gain(garage_design().tone_correction, 500.0), 1.0, 0.02);
+    EXPECT_GT(cascade_db(first_only, 4000.0), cascade_db(design.tone_correction, 4000.0) + 1.0);
+    EXPECT_NEAR(cascade_gain(design.tone_correction, 125.0)
+                    / cascade_gain(design.tone_correction, 4000.0),
+                std::pow(10.0, (4.7 + 12.1) / 20.0), 0.6);
 }
 
 TEST(Unit_Dsp, LateReverbDesignGivesTheMicrophoneOneOutput)
 {
     // ListenerKind::Microphone leaves both coherence filters as pass-throughs: b0 = 1 in each
-    // section, the rest 0. Everything else in the design is the listener's independent.
+    // section, the rest 0. The lines are the room's, the same for both listeners.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const SushiDSP::room::ImageSourceSolver::Options options{ 4u, ListenerKind::Microphone,
                                                               kSampleRate };
@@ -338,4 +477,53 @@ TEST(Unit_Dsp, LateReverbDesignGivesTheMicrophoneOneOutput)
     EXPECT_EQ(design.coherence_a, unity_cascade);
     EXPECT_EQ(design.coherence_b, unity_cascade);
     EXPECT_EQ(design.line_frames, garage_design().line_frames);
+}
+
+TEST(Unit_Dsp, LateReverbDesignHandsAMicrophoneItsShareOfTheField)
+{
+    // A microphone picks up a^2 + (1 - a)^2 / 3 of a diffuse field's power for a pattern
+    // a + (1 - a) cos(theta): all of it as an omni, a third as a cardioid, so at one spot the
+    // cardioid's tail is designed against a third of the field beyond its own taps, and the
+    // ears' against the whole field. The taps hold each capsule's pattern already.
+    SushiDSP::room::RoomScene omni = SushiDSP::test::garage_scene();
+    omni.microphone_position = omni.listener_position;
+    omni.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
+    SushiDSP::room::RoomScene cardioid = omni;
+    cardioid.microphone_pattern = SushiDSP::room::PolarPattern::Cardioid;
+    const SushiDSP::room::ImageSourceSolver::Options options{ 4u, ListenerKind::Microphone,
+                                                              kSampleRate };
+    const EarlyTapSet omni_early = SushiDSP::room::ImageSourceSolver::solve(omni, options);
+    const EarlyTapSet cardioid_early =
+        SushiDSP::room::ImageSourceSolver::solve(cardioid, options);
+    const FdnDesign omni_design =
+        LateReverbDesign::design(omni, omni_early, kSampleRate, ListenerKind::Microphone);
+    const FdnDesign cardioid_design = LateReverbDesign::design(
+        cardioid, cardioid_early, kSampleRate, ListenerKind::Microphone);
+
+    // The omni at the listener's spot reads what the ears' set does: the same remainder.
+    const FdnDesign ears = garage_design();
+    EXPECT_NEAR(static_cast<double>(omni_design.input_gain), static_cast<double>(ears.input_gain),
+                0.02 * ears.input_gain);
+
+    // The cardioid's remainder at 500 Hz is a third of the field less its own taps, which the
+    // pattern has already reduced; the design's gain follows that arithmetic within 1e-6.
+    const SushiDSP::room::DiffuseField field(cardioid);
+    const Bands network = network_energy(cardioid, cardioid_design);
+    const Bands reflected = reflected_energy(cardioid_early);
+    Bands share{};
+    double largest = 0.0;
+    for (std::size_t band = 0; band < 6u; ++band)
+    {
+        share[band] = std::max(field.band_power()[band] / 3.0 - reflected[band], 0.0)
+            / network[band];
+        largest = std::max(largest, share[band]);
+    }
+    double mean = 0.0;
+    for (std::size_t band = 0; band < 6u; ++band)
+    {
+        mean += std::max(share[band], 1e-3 * largest) / 6.0;
+    }
+    EXPECT_NEAR(static_cast<double>(cardioid_design.input_gain), std::sqrt(mean),
+                1e-6 * std::sqrt(mean));
+    EXPECT_LT(cardioid_design.input_gain, omni_design.input_gain);
 }

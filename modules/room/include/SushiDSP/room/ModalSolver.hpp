@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "SushiDSP/room/ImageSourceSolver.hpp"
 #include "SushiDSP/room/ModalDesign.hpp"
 #include "SushiDSP/room/RoomScene.hpp"
 
@@ -39,7 +40,8 @@ namespace SushiDSP::room
 {
     /// @brief Enumerates the shoebox's eigenmodes below the Schroeder frequency, damps each by the
     /// first-order perturbation over the six faces, and evaluates its mode shape at the cabinet
-    /// and the two ears. Control thread. Spec §9a.2 and §9a.4.
+    /// and at the listener's receiver: the two ears or the microphone. Control thread. Spec
+    /// §9a.2 and §9a.4.
     class ModalSolver
     {
     public:
@@ -80,11 +82,14 @@ namespace SushiDSP::room
         static double mode_shape(const Mode& mode, const RoomScene& scene,
                                  const Vec3& position) noexcept;
 
-        /// @brief Returns the whole bank. A crossover under kMinCrossoverHz returns count = 0 and
-        /// crossover_hz = 0; a count past kMaxModes lowers crossover_hz to the first mode left
-        /// out. Every section's numerator already carries level_scale over the mode's norm, so
-        /// source_gain and ear_gain hold psi alone and the bank applies nothing further.
+        /// @brief Returns the whole bank, its octave below the crossover scaled to DiffuseField.
+        /// A crossover under kMinCrossoverHz returns count = 0 and crossover_hz = 0; a count past
+        /// kMaxModes lowers crossover_hz to the first mode left out. Every section's numerator
+        /// already carries level_scale over the mode's norm, so source_gain and ear_gain hold
+        /// psi alone: at the two ears about listener_position for Ears, at microphone_position
+        /// in both for Microphone.
         /// @pre crossover_hz is under half of sample_rate.
-        static ModalDesign design(const RoomScene& scene, double sample_rate, double crossover_hz);
+        static ModalDesign design(const RoomScene& scene, double sample_rate, double crossover_hz,
+                                  ListenerKind listener);
     };
 }

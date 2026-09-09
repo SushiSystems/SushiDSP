@@ -135,7 +135,7 @@ namespace SushiDSP::room
         set->late = LateReverbDesign::design(scene, set->early, sample_rate, listener);
 
         const double schroeder_hz = EyringDecay::schroeder_frequency_hz(scene);
-        set->modal = ModalSolver::design(scene, sample_rate, schroeder_hz);
+        set->modal = ModalSolver::design(scene, sample_rate, schroeder_hz, listener);
         set->crossover_hz = set->modal.crossover_hz;
 
         fill_direct_path(*set, scene, hrtf, sample_rate, receiver_for(scene, listener));

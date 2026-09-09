@@ -40,13 +40,14 @@
 namespace SushiDSP::room
 {
     /// @brief Turns a room into sixteen line lengths, sixteen absorptive filters, an input gain
-    /// that continues the early set's energy at t_c, and the two coherence filters. Control
-    /// thread. Spec §6.2, §6.3 and §6.4.
+    /// and an output cascade that hand the tail what the early set leaves of DiffuseField in
+    /// each band, and the two coherence filters. Control thread. Spec §6.2, §6.3 and §6.4.
     class LateReverbDesign
     {
     public:
         /// @brief Returns the whole FDN design for one scene, its early set and one listener.
-        /// @pre sample_rate exceeds 2 * kBandCentresHz[kBandCount - 1].
+        /// @pre sample_rate exceeds 2 * kBandCentresHz[kBandCount - 1]; the early taps are
+        /// sorted by arrival, so tap 0 is the direct sound whenever count > 0.
         static FdnDesign design(const RoomScene& scene, const EarlyTapSet& early,
                                 double sample_rate, ListenerKind listener);
 

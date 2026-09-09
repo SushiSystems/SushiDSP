@@ -26,8 +26,9 @@ This file records what the code in this directory does.
 | Mirror images to order 4, each reduced to one tap | `ImageSourceSolver` |
 | The taps one scene publishes | `EarlyTapSet` |
 | Eyring's decay per band and the Schroeder frequency | `EyringDecay` |
-| Line lengths, per-line absorption filters and the input gain of the tail | `LateReverbDesign` |
-| The room's eigenmodes below the Schroeder frequency | `ModalSolver` |
+| The steady-state reverberant field one cabinet raises in one room, per hertz | `DiffuseField` |
+| Line lengths, per-line absorption filters, the input gain and the output filter of the tail | `LateReverbDesign` |
+| The room's eigenmodes below the Schroeder frequency, read at the listener's receiver | `ModalSolver` |
 | Minimum-phase HRIR pairs on a grid, ITDs, the diffuse-field average | `HrtfSet` |
 | The rigid-sphere HRTF for a machine with no measured set | `SphericalHeadHrtf` |
 | Reading a converted HRTF asset from disk | `HrtfSetLoader` |
@@ -130,8 +131,8 @@ differs from a raised-cosine blend of the two steady renders by:
 | Publish                          | Taps carried | Residual           | Two-shelf fit      | Before the carry |
 | -------------------------------- | ------------ | ------------------ | ------------------ | ---------------- |
 | The same scene republished       | 96 of 96     | 0, exactly         | 0, exactly         | -36.2 dBFS       |
-| The microphone moved 1 cm        | 78 of 96     | 0.0010, -59.6 dBFS | 0.0160, -35.9 dBFS | -37.5 dBFS       |
-| The microphone moved 0.36 m      | 5 of 94      | 0.0025, -52.1 dBFS | 0.0233, -32.7 dBFS | -30.8 dBFS       |
+| The microphone moved 1 cm        | 78 of 96     | 0.0010, -59.8 dBFS | 0.0160, -35.9 dBFS | -37.5 dBFS       |
+| The microphone moved 0.36 m      | 5 of 94      | 0.0051, -45.8 dBFS | 0.0233, -32.7 dBFS | -30.8 dBFS       |
 
 The "two-shelf fit" column is the figure with `BandResponseFit` as it stood before 2026-09-09,
 two shelves that cannot dip; the "before the carry" column is the zero-state figure with the band
@@ -144,9 +145,13 @@ shelves could not fit, the direct path's 4x12 directivity at 2 kHz for one, land
 local minimum for a 0.03 dB change and moved a coefficient by up to 3.2. With the sections that
 can dip and the directivity averaged over each octave, the slowest pole has radius 0.98801, a
 time constant of 83 frames, so a zero-started tap settles inside the 512-frame fade, and the
-1 cm case reaches the -60 dBFS of spec §5.3. The three cases are
+1 cm case reaches the -60 dBFS of spec §5.3. The 0.36 m case read -52.1 dBFS while the tail sat
+12 dB under its diffuse-field level; at that level, with the tail's output cascade following what
+the taps leave of the field, a move steps the cascade's coefficients on the network's running
+state, 3 % in the second section here, and the residual is -45.8 dBFS
+(`docs/reference/KNOWN_ISSUES.md`). The three cases are
 `RoomNodeCrossfadesAPublishWithoutAStep`, `RoomNodeCrossfadesASmallMoveFromTheCarriedState` and
-`RoomNodeRepublishesTheSameSceneWithoutAResidual`, bounded at -50, -58 and -120 dBFS. The
+`RoomNodeRepublishesTheSameSceneWithoutAResidual`, bounded at -44, -58 and -120 dBFS. The
 residual column is measured through the seam of the next section, whose high half feeds the
 taps: before the wave layer landed the same two moves read -53.9 and -60.2 dBFS. The
 step bound of the same cases, no sample-to-sample step beyond the steady signal's own, measures
@@ -168,8 +173,8 @@ finds the outputs equal sample for sample.
 The split sits at the input, not on the ear sums, so that every filter stays upstream of the
 crossfade. A high-pass after the fade does not commute with the raised cosine, and measured the
 0.36 m microphone move of `RoomNodeCrossfadesAPublishWithoutAStep` at -41.9 dBFS against the
-blend of the two steady renders, where the input split measures the -52.1 dBFS of the table
-above.
+blend of the two steady renders, where the input split measured -52.1 dBFS with the tail as it
+then stood.
 
 The modal bank has its own state, two banks of it, and a published set is adopted under a match
 rule shaped like the early renderer's `carry_tap`. `RoomNode::same_resonators` compares the
@@ -209,19 +214,67 @@ being unreadable because (2, 1, 0) sits 2.86 Hz above (0, 0, 1) and their contou
 the 20 to 100 Hz band is 14.0 dB louder with the ears in the corner at (0.15, 0.15, 0.15) than
 at the centre, where every mode with an odd index is at a node; the spec asks for 12 dB.
 
-One thing this layer does not do yet, outside this directory:
+### The level the two layers meet at
 
-- **The seam is not level-matched.** Spec §9a.4 asks the octave under f_s and the octave over
-  it to agree within 2 dB. Measured as mean power per hertz on the garage: -2.04 dB under and
-  -8.79 dB over at the pose above, a 6.75 dB step, and -1.64 and -6.66 dB averaged over eight
-  poses, a 5.0 dB step; through the binaural path the pose above reads -1.64 dB under and
-  -9.37 dB over, a 7.7 dB step, the geometric octave now carrying the decoder's gain. The modal
-  octave is scaled by `ModalSolver` to Eyring's diffuse field
-  and the tail's level is `LateReverbDesign`'s; `RoomNodeIsContinuousAcrossTheSchroederFrequency`
-  records the step and skips, its bound still at 2 dB, until the match is settled. Part of the
-  step is the pair itself: an LR4 pair sums flat only when both halves carry the same signal.
-  The modal field and the geometric field are not the same signal, so at f_s, where each half
-  is 6 dB down, their powers add to 3 dB down rather than to flat.
+Both layers are scaled to one reference, `DiffuseField`: the room's steady-state reverberant
+power per hertz of a white input, relative to the cabinet's on-axis direct sound at 1 m, which is
+16 pi RT60(f) / (0.161 V) over the cabinet's directivity index, per band and linear in log
+frequency between the centres (spec §6.3). `DiffuseField.hpp` is header-only; it caches the
+directivity index of the last cabinet geometry behind a mutex, since the 2562-direction integral
+costs 18 ms against a 2 ms build and a drag never changes the geometry. Its cases live in
+`tests/functional/unit/test_modal_solver.cpp` (`DiffuseFieldIsEyringOverTheCabinetsDirectivity`)
+until the test list can take a file of its own. The index is the
+directivity of `CabinetDirectivity`, 1.1, 3.0, 7.6, 12.0, 15.7 and 18.8 dB for the 4x12, and it
+is what keeps a beaming cabinet's room quieter than a monopole's: the garage's octave under f_s
+holds 2.4 dB less than Eyring alone says.
+
+`ModalSolver` sets `level_scale` so that the octave under the crossover, summed over its modes as
+each section's white-noise gain 2 / (1 - r^2) and averaged over the cabinet's and the receiver's
+positions, equals the field's integral over that octave; that is an identity of the modal sum,
+since the volume mean of psi^2 is the mode's norm, the mode density is Weyl's and each mode's
+damping is Eyring's. `LateReverbDesign` hands the tail what the taps leave of the field, per band:
+the field times the receiver's share of a diffuse field, 1 for the ears and a^2 + (1 - a)^2 / 3
+for a microphone of pattern a + (1 - a) cos(theta), less every tap past the direct sound at gain
+squared times its fitted filter, floored at zero; sixteen lines keeping a mean G of
+10^(-6 tau_i / RT60(f)) per pass deliver 16 G / (1 - G) per unit input gain, exact for
+incoherent energy flow whatever the lengths, so the input gain squared is the mean over bands of
+remainder over that, each band's share floored at -30 dB of the largest, and the output cascade
+is fitted to the square root of each band's share of the mean. Jot's tone correction, which
+flattened the tail's energy spectrum, is one factor of that cascade; a room's reverberant energy
+is not flat. Rendered alone through `LateReverb`, 131072 frames, each band's energy lands within
+1 dB of its remainder from 250 Hz up and within 2 dB at 125 Hz in all three reference rooms
+(`LateReverbDesignRendersEachBandsRemainder`); the garage's tail carries an input gain of 0.42,
+where the trend of the last 5 ms of taps before t_c, 5 taps of the 56 a diffuse shell holds
+there, had set 0.11.
+
+Measured at the microphone, energy-averaged over six poses per room, 65536 frames each: the
+octave under f_s reads +0.4, +0.7 and +0.8 dB against the modal design's own power at those poses
+through the low half, and the octave over it -0.5, -0.1 and -1.2 dB against the field through the
+high half, garage, bedroom and block room; both within the spec's 2 dB
+(`RoomNodeIsContinuousAcrossTheSchroederFrequency`). The raw step between the two octaves reads
+-0.3, +0.6 and +3.1 dB and is recorded, not bounded: it is the reference's own change across the
+seam, the 4x12's directivity index rising 4.6 dB between 250 and 500 Hz and the block room's
+absorption halving from 125 to 250 Hz, less the modal field's interior deficit. That deficit is
+the pose's mode-shape factor, the product of cos^2(n pi x / L) over the six coordinates against
+the mean of a half each, which the diffuse average assumes: with four modes along the garage's
+height, a cabinet 0.5 m off the floor and a listener at 2 m read 0.375 for that factor's z terms
+where the average is 0.5, and the poses a room is used at sit 2 to 4 dB under the volume average
+in the octave under f_s, the standing waves piling up at the walls and corners instead. The rays
+have no counterpart for it. Before the shared reference the garage's seam stepped by 7.7 dB at one
+pose, -1.64 dB under and -9.37 dB over: the tail was 10 dB under the field and the modal octave
+2 dB over it.
+
+One thing the seam still does wrong, outside this directory:
+
+- **The pair dips 3 dB at f_s.** A Linkwitz-Riley pair sums flat in magnitude only when both
+  halves carry the same signal. Here the low half carries the modal field and the high half the
+  geometric field, two responses with unrelated phases, so at the seam their powers add:
+  (1 + x^8) / (1 + x^4)^2 with x = f / f_s, -3 dB at f_s, -1.7 dB half an octave either side,
+  -0.5 dB an octave away, and each octave beside f_s 2.4 dB under its layer's level. The split
+  should be a power-complementary pair, a fourth-order Butterworth low-pass and high-pass at one
+  corner, whose powers sum to one at every frequency at the same 24 dB per octave; that is a
+  change to `CrossoverPair`'s two section Q values and to `test_crossover_pair.cpp`, recorded in
+  `docs/reference/KNOWN_ISSUES.md`.
 
 ## The listener, and where the standing waves are read
 
@@ -231,15 +284,14 @@ set is built for that listener: the image solver ends its paths at `listener_pos
 0 alone for the microphone, folds the microphone's pattern and proximity into the microphone's
 taps, and the tail's design carries the coherence pair for the ears and unity for the microphone.
 
-The modal field is read where that receiver stands. `ModalSolver::design` places its two ears
-8.5 cm to either side of `listener_position`, which is right for the ears and wrong for a
-microphone somewhere else in the room, so `RoomNode::place_modal_receiver` rewrites a microphone
-set's ear gains to psi at `microphone_position`, the same value in both, and leaves an ears set
-as the solver made it. It finds the modes by `ModalSolver::enumerate` at the set's `crossover_hz`,
-which the solver documents as returning exactly the modes the design carries, and refuses the
-publish if the count disagrees, so a broken contract fails loudly. The cleaner home for this rule
-is a receiver argument on `ModalSolver::design`; that is a change to the solver's interface and
-is not made here. `RoomNodeReadsTheStandingWavesWhereTheSetsReceiverStands` checks both kinds.
+The modal field is read where that receiver stands. `ModalSolver::design` takes the listener
+kind: for the ears it evaluates psi at two points 8.5 cm to either side of `listener_position`,
+for the microphone at `microphone_position` in both ear gains, and the resonators, the count,
+the crossover and the level are the room's whatever the receiver
+(`ModalSolverReadsTheMicrophoneAtOnePoint`, `BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver`).
+Until 2026-09-09 the solver knew only the listener and `RoomNode::place_modal_receiver` rewrote a
+microphone set's gains after the build; that rule and its count check are gone, since nothing
+is rewritten any more.
 
 The microphone fills both outputs with one signal: channel 0 of the early set, the tail read
 once, and the modal field at one point, so the two channels are equal bit for bit whatever the
@@ -262,16 +314,20 @@ carpeted room with four open faces, the cabinet at its centre:
   onset to 60 after it and everything else, the standing waves included, counting as room.
 - Switching the listener mid-tone is a publish: every tap is new and starts from a cleared
   bank. With `direct_delay` physical, in the dead room the residual against the raised-cosine
-  blend of the two steady renders is -42.1 dB of the peak to the ears and -43.4 dB to the
-  microphone, bounded at -40 dB; the 0.36 m microphone move of the table above reads -46 dB on
-  that scale. In the garage the step ratio stays at 1.00 but the residual is -26.8 and -28.2 dB
-  of the peak, and that is the tail: its input gain is 0.075 for the microphone's set and 0.136
-  for the ears', and the lines carry the old listener's stored energy into the new set at the
-  room's decay, where the reference blend has no memory. With `direct_delay` compensated the
-  ears' tail is read 280 frames earlier than the microphone's in the dead room and 363 in the
-  garage, so the switch also moves the tail's input under the fade and the tail rings with the
-  old timing at the room's decay: -36.7 and -38.0 dB in the dead room, -16.3 and -17.6 dB in the
-  garage, recorded and bounded in neither room.
+  blend of the two steady renders is -38.1 dB of the peak to the ears and -38.9 dB to the
+  microphone and the step ratio 1.0105, bounded at -36 dB and 1.02; they read -42.1, -43.4 dB
+  and 1.00 while the dead room's tail was nil, and its tail now sits at the floor of its
+  design, an input gain of 0.0075 for the ears against the garage's 0.42. In the garage the
+  residual is -22.6 and -23.7 dB of the peak and the step ratio 1.00 to the ears and 1.044 to
+  the microphone, and that is the tail: its input gain is 0.42 for the ears' set and 0.24 for
+  the cardioid's, a third of the field, and the lines carry the old listener's stored energy
+  into the new set at the room's decay, where the reference blend has no memory, so both
+  figures read the tail's own level against that blend rather than a discontinuity and both
+  are recorded, not bounded. With `direct_delay` compensated the ears' tail is read 280 frames
+  earlier than the microphone's in the dead room and 363 in the garage, so the switch also
+  moves the tail's input under the fade and the tail rings with the old timing at the room's
+  decay: -31.5 and -32.2 dB in the dead room, -13.7 and -17.1 dB in the garage, recorded and
+  bounded in neither room.
 
 ## The binaural path
 

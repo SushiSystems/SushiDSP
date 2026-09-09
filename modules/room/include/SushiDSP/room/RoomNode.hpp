@@ -131,13 +131,6 @@ namespace SushiDSP::room
         static bool same_resonators(const ModalDesign& retiring,
                                     const ModalDesign& arriving) noexcept;
 
-        /// @brief Reads the modal field where the set's receiver stands: a microphone set gets
-        /// psi at microphone_position in both ear gains, an ears set keeps the solver's two
-        /// ears at the listener. Control thread.
-        /// @return False when the solver's enumeration at the set's crossover does not hold
-        /// the set's mode count, in which case the set is left as it was.
-        static bool place_modal_receiver(RoomRenderSet& set, const RoomScene& scene);
-
     private:
         /// @brief Counts the channels the early renderer accumulates into.
         static constexpr std::uint32_t kChannels = EarlyReflectionRenderer::kOutputChannels;

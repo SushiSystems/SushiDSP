@@ -138,3 +138,33 @@ times the weight they should, and the tail through a converted set is coloured t
 the poles measured. Nothing in the tree hits this today because `assets/hrtf/sadie2_ku100_48k.hrtf`
 is not in the repository and the fallback set is what every rig loads. Closes when the converter
 derives each direction's solid angle from the grid it finds in the file.
+
+## The modal seam dips 3 dB at the Schroeder frequency
+
+`CrossoverPair` splits the room's input with a fourth-order Linkwitz-Riley pair, whose two halves
+sum to unit magnitude in phase when they carry the same signal. In `RoomNode` they do not: the low
+half feeds the modal bank and the high half the taps and the tail, two responses of the room with
+unrelated phases, so at the seam their powers add and the sum reads (1 + x^8) / (1 + x^4)^2 with
+x = f / f_s, -3 dB at f_s, -1.7 dB half an octave to either side and -0.5 dB an octave away; each
+octave beside f_s reads 2.4 dB under the level its layer was scaled to, measured as the mean of
+the low half's power over [f_s / 2, f_s) on the garage's 278 Hz seam. Spec §9a.4 said until
+2026-09-09 that the seam adds no dip. `RoomNodeIsContinuousAcrossTheSchroederFrequency` holds
+each layer to the shared reference through its own half of the pair, so the dip passes it. Closes
+when the pair becomes power-complementary: a fourth-order Butterworth low-pass and high-pass at
+one corner, section Q values 0.5412 and 1.3066 in place of the two 0.7071 sections per half,
+whose powers sum to one at every frequency at the same 24 dB per octave; `test_crossover_pair.cpp`
+then asserts the power sum, not the amplitude sum.
+
+## A publish steps the tail's output filter on its running state
+
+`LateReverbDesign` fits the tail's output cascade to what the early taps leave of the diffuse
+field in each band, so a moved microphone or listener refits it, by 3 % in the second section's
+coefficients for a 0.36 m move in the garage, and `RoomNode` loads the new coefficients into the
+one `LateReverb` at the block the fade begins, on the network's stored energy. With the tail at
+its diffuse-field level, 12 dB above where it sat before 2026-09-09, the residual against the
+blend of the two steady renders reads -45.8 dBFS for that move where it read -52.1 dBFS, and the
+ears' 0.3 m listener move reads -72.3 dB where it read -88.3 dB; the step ratios are unchanged,
+so nothing clicks (`RoomNodeCrossfadesAPublishWithoutAStep`,
+`RoomNodeRampsTheEarGainsAsTheOutputBlendWould`). Closes when the tail's output cascade is run
+twice under the fade, the retiring coefficients and the arriving ones on the same line sum,
+blended under the raised cosine, which is two more biquads per ear in `LateReverb`.

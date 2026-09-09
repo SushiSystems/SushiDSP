@@ -24,7 +24,7 @@
 /**
  * @file ModalSolver.cpp
  * @brief The rigid-shoebox eigenmodes, the perturbation damping, the resonator sections and the
- * seam level that matches the modal layer to Eyring.
+ * seam level that matches the modal layer to the diffuse field.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -34,10 +34,9 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <limits>
 
 #include "SushiDSP/room/BandResponse.hpp"
-#include "SushiDSP/room/EyringDecay.hpp"
+#include "SushiDSP/room/DiffuseField.hpp"
 
 namespace SushiDSP::room
 {
@@ -46,15 +45,8 @@ namespace SushiDSP::room
         /// @brief Holds pi.
         constexpr double kPi = 3.14159265358979323846;
 
-        /// @brief Holds Sabine's constant 24 ln(10) / c at 20 degrees, in seconds per metre.
-        constexpr double kSabineConstant = 0.161;
-
         /// @brief Holds 3 ln(10), the amplitude e-folds a 60 dB decay spans.
         constexpr double kDecayNepers = 6.90775527898213705205;
-
-        /// @brief Holds 16 pi, the diffuse-field pressure squared per unit input power over the
-        /// equivalent absorption area, for a direct sound of unit gain at one metre.
-        constexpr double kDiffuseFieldFactor = 16.0 * kPi;
 
         /// @brief Names the band whose absorption row anchors the low end of the interpolation.
         constexpr std::size_t kLowBand = 0;
@@ -171,6 +163,17 @@ namespace SushiDSP::room
             return ear;
         }
 
+        /// @brief Returns the two points the field is read at: the ears about the listener, or
+        /// the microphone twice.
+        std::array<Vec3, 2> receiver_points(const RoomScene& scene, ListenerKind listener) noexcept
+        {
+            if (listener == ListenerKind::Microphone)
+            {
+                return { scene.microphone_position, scene.microphone_position };
+            }
+            return { ear_position(scene, 1.0), ear_position(scene, -1.0) };
+        }
+
         /// @brief Returns the pole radius 10^(-3 / (T60 fs)) of a resonator with the given decay.
         double pole_radius(double decay_seconds, double sample_rate) noexcept
         {
@@ -184,53 +187,14 @@ namespace SushiDSP::room
             return 2.0 / (1.0 - radius * radius);
         }
 
-        /// @brief Integrates a + b ln(f) over [lower, upper].
-        double integrate_log_line(double a, double b, double lower, double upper) noexcept
+        /// @brief Returns the power a unit-variance white input leaves in the diffuse field
+        /// between lower and upper hertz: the field's integral times the input's 2 / fs per
+        /// hertz.
+        double diffuse_band_power(const RoomScene& scene, double sample_rate, double lower,
+                                  double upper)
         {
-            return a * (upper - lower)
-                + b * (upper * std::log(upper) - upper - lower * std::log(lower) + lower);
-        }
-
-        /// @brief Integrates Eyring's decay time, piecewise linear in log frequency between the
-        /// band centres and held flat outside them, over [lower, upper], in second-hertz.
-        double integrate_rt60(const std::array<double, kBandCount>& rt60, double lower,
-                              double upper) noexcept
-        {
-            double total = 0.0;
-            for (std::size_t segment = 0; segment + 1 <= kBandCount; ++segment)
-            {
-                const bool first = segment == 0;
-                const bool last = segment + 1 == kBandCount;
-                const double from = first ? 0.0 : kBandCentresHz[segment - 1];
-                const double to = last ? std::numeric_limits<double>::infinity()
-                                       : kBandCentresHz[segment];
-                const double piece_lower = std::max(lower, from);
-                const double piece_upper = std::min(upper, to);
-                if (piece_upper <= piece_lower)
-                {
-                    continue;
-                }
-                double slope = 0.0;
-                double intercept = first ? rt60[0] : rt60[segment];
-                if (!first)
-                {
-                    slope = (rt60[segment] - rt60[segment - 1]) / std::log(to / from);
-                    intercept = rt60[segment - 1] - slope * std::log(from);
-                }
-                total += integrate_log_line(intercept, slope, piece_lower, piece_upper);
-            }
-            return total;
-        }
-
-        /// @brief Returns the diffuse-field power a unit-variance white input leaves between
-        /// lower and upper hertz, 16 pi RT60(f) / (0.161 V) per hertz of a 2 / fs density.
-        double eyring_band_power(const RoomScene& scene, double sample_rate, double lower,
-                                 double upper)
-        {
-            const std::array<double, kBandCount> rt60 = EyringDecay::rt60_seconds(scene);
-            const double density = 2.0 / sample_rate;
-            return kDiffuseFieldFactor * density * integrate_rt60(rt60, lower, upper)
-                / (kSabineConstant * scene.volume_m3());
+            const DiffuseField field(scene);
+            return (2.0 / sample_rate) * field.power_between(lower, upper);
         }
 
         /// @brief Returns the frequency at which Weyl's count reaches kEnumerationMargin times
@@ -337,7 +301,7 @@ namespace SushiDSP::room
     }
 
     ModalDesign ModalSolver::design(const RoomScene& scene, double sample_rate,
-                                    double crossover_hz)
+                                    double crossover_hz, ListenerKind listener)
     {
         ModalDesign result{};
         if (crossover_hz < kMinCrossoverHz)
@@ -389,11 +353,10 @@ namespace SushiDSP::room
             }
         }
         const double level_scale = power_sum > 0.0
-            ? std::sqrt(eyring_band_power(scene, sample_rate, lower, upper) / power_sum)
+            ? std::sqrt(diffuse_band_power(scene, sample_rate, lower, upper) / power_sum)
             : 0.0;
 
-        const Vec3 left_ear = ear_position(scene, 1.0);
-        const Vec3 right_ear = ear_position(scene, -1.0);
+        const std::array<Vec3, 2> receiver = receiver_points(scene, listener);
         for (std::size_t index = 0; index < count; ++index)
         {
             const Mode& mode = modes[index];
@@ -403,8 +366,8 @@ namespace SushiDSP::room
             entry.section = { feed, 0.0, -feed, -2.0 * radius[index] * std::cos(theta),
                               radius[index] * radius[index] };
             entry.source_gain = static_cast<float>(mode_shape(mode, scene, scene.source_position));
-            entry.ear_gain = { static_cast<float>(mode_shape(mode, scene, left_ear)),
-                               static_cast<float>(mode_shape(mode, scene, right_ear)) };
+            entry.ear_gain = { static_cast<float>(mode_shape(mode, scene, receiver[0])),
+                               static_cast<float>(mode_shape(mode, scene, receiver[1])) };
         }
         result.count = static_cast<std::uint32_t>(count);
         result.crossover_hz = crossover;

@@ -88,8 +88,9 @@ namespace SushiDSP::room
     };
 
     /// @brief Builds one set on the control thread: validates the scene, solves the images,
-    /// designs the tail, finds the Schroeder frequency, designs the modal bank and takes the
-    /// direct pair from the HRTF set at the path from the source to the listener's receiver.
+    /// designs the tail, finds the Schroeder frequency, designs the modal bank read at the
+    /// listener's receiver, and takes the direct pair from the HRTF set at the path from the
+    /// source to that receiver.
     /// @pre sample_rate exceeds 8 kHz and equals hrtf.sample_rate().
     /// @throw std::runtime_error when the scene is invalid, naming the violation, or when the
     /// HRTF set is empty or measured at another rate.

@@ -23,8 +23,8 @@
 
 /**
  * @file LateReverbDesign.cpp
- * @brief The prime line lengths, the per-line decay fits, the energy handover and the
- * coherence pair.
+ * @brief The prime line lengths, the per-line decay fits, the band energies handed to the tail
+ * and the coherence pair.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -36,7 +36,9 @@
 
 #include "SushiDSP/room/BandResponse.hpp"
 #include "SushiDSP/room/BandResponseFit.hpp"
+#include "SushiDSP/room/DiffuseField.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
+#include "SushiDSP/room/MicrophoneModel.hpp"
 
 namespace SushiDSP::room
 {
@@ -57,15 +59,16 @@ namespace SushiDSP::room
         /// @brief Bounds a line from below, in frames; the smallest prime.
         constexpr std::uint32_t kShortestLine = 2;
 
-        /// @brief Holds the window before t_c whose taps set the handover level, in seconds.
-        constexpr double kHandoverWindowSeconds = 0.005;
-
         /// @brief Holds the inter-ear spacing the diffuse-field coherence is evaluated at, in
         /// metres. Spec §6.4.
         constexpr double kEarSpacingMetres = 0.17;
 
-        /// @brief Holds 6 ln 10, the rate that takes a decay 60 dB down in one RT60.
-        const double kDecayRatePerRt60 = 6.0 * std::log(10.0);
+        /// @brief Holds the six band energies of one signal.
+        using BandEnergy = std::array<double, kBandCount>;
+
+        /// @brief Bounds a band's share of the tail from below at -30 dB of the largest band's,
+        /// the range the two-section fit follows; a band the taps already fill gets that much.
+        constexpr double kShareFloor = 1e-3;
 
         /// @brief Holds the section that passes its input unchanged.
         constexpr FdnDesign::Section kUnitySection = { 1.0, 0.0, 0.0, 0.0, 0.0 };
@@ -116,24 +119,121 @@ namespace SushiDSP::room
             return gains;
         }
 
-        /// @brief Returns Jot's tone correction sqrt(1 - g(f)^2) for the mean line, scaled to
-        /// unity at 500 Hz so it tilts the tail without changing its mid-band level.
-        BandResponse tone_correction(double mean_tau_seconds,
-                                     const std::array<double, kBandCount>& rt60)
+        /// @brief Returns the energy the taps past the direct sound carry per band: each tap's
+        /// gain squared times its fitted filter's power at the band centre, summed.
+        /// @pre The taps are sorted by arrival, so tap 0 is the direct sound whenever count > 0.
+        BandEnergy reflected_band_energy(const EarlyTapSet& early, double sample_rate)
         {
-            const BandResponse gain = line_decay(mean_tau_seconds, rt60);
-            std::array<double, kBandCount> envelope{};
+            BandEnergy energy{};
+            const std::uint32_t count =
+                std::min(early.count, static_cast<std::uint32_t>(EarlyTapSet::kMaxEarlyTaps));
+            for (std::uint32_t index = 1; index < count; ++index)
+            {
+                const EarlyTap& tap = early.taps[index];
+                const BandResponseFit::Coefficients coefficients{ tap.section_a, tap.section_b };
+                const double gain = static_cast<double>(tap.gain);
+                for (std::size_t band = 0; band < kBandCount; ++band)
+                {
+                    const double db = BandResponseFit::magnitude_db(
+                        coefficients, kBandCentresHz[band], sample_rate);
+                    energy[band] += gain * gain * std::pow(10.0, db / 10.0);
+                }
+            }
+            return energy;
+        }
+
+        /// @brief Returns the energy the network delivers per band for a unit input gain:
+        /// sixteen lines each keeping g_i(f)^2 = 10^(-6 tau_i / RT60(f)) of a pass, the mixing
+        /// handing every line's output to all sixteen alike, deliver 16 G / (1 - G) with G the
+        /// mean of the g_i^2; a band with no decay time delivers nothing. Module README, "The
+        /// wave layer and the seam".
+        BandEnergy network_band_energy(const std::array<std::uint32_t, kLines>& frames,
+                                       double sample_rate,
+                                       const std::array<double, kBandCount>& rt60)
+        {
+            BandEnergy energy{};
             for (std::size_t band = 0; band < kBandCount; ++band)
             {
-                const double g = static_cast<double>(gain.gain[band]);
-                envelope[band] = std::sqrt(std::max(1.0 - g * g, 1e-12));
+                if (!(rt60[band] > 0.0))
+                {
+                    continue;
+                }
+                double kept = 0.0;
+                for (std::size_t line = 0; line < kLines; ++line)
+                {
+                    const double tau = static_cast<double>(frames[line]) / sample_rate;
+                    kept += std::pow(10.0, -6.0 * tau / rt60[band]) / static_cast<double>(kLines);
+                }
+                energy[band] = static_cast<double>(kLines) * kept / (1.0 - kept);
             }
-            BandResponse correction{};
+            return energy;
+        }
+
+        /// @brief Returns the share of a diffuse field's power the receiver picks up: 1 for the
+        /// ears, which read pressure, and a^2 + (1 - a)^2 / 3 for a microphone whose pattern
+        /// is a + (1 - a) cos(theta), the pattern's power averaged over every direction.
+        double receiver_efficiency(const RoomScene& scene, ListenerKind listener) noexcept
+        {
+            if (listener != ListenerKind::Microphone)
+            {
+                return 1.0;
+            }
+            const double a = pattern_pressure_share(scene.microphone_pattern);
+            return a * a + (1.0 - a) * (1.0 - a) / 3.0;
+        }
+
+        /// @brief Returns per band what the receiver's share of the diffuse field holds beyond
+        /// the reflections, never under zero.
+        BandEnergy remainder_of(const BandEnergy& field, double efficiency,
+                                const BandEnergy& reflected) noexcept
+        {
+            BandEnergy remainder{};
             for (std::size_t band = 0; band < kBandCount; ++band)
             {
-                correction.gain[band] = static_cast<float>(envelope[band] / envelope[kMidBand]);
+                remainder[band] = std::max(field[band] * efficiency - reflected[band], 0.0);
             }
-            return correction;
+            return remainder;
+        }
+
+        /// @brief Holds the input gain and the output cascade's band targets that put one
+        /// remainder into the network.
+        struct TailLevel
+        {
+            /// @brief Stores the linear gain into every line.
+            float input_gain;
+
+            /// @brief Stores the output cascade's band gains, unity in every band when the
+            /// remainder is zero throughout.
+            BandResponse output;
+        };
+
+        /// @brief Returns the input gain whose square is the mean over bands of remainder over
+        /// network energy, each band's share floored at kShareFloor of the largest, and the
+        /// output gains sqrt of each band's share of that mean, so each band's delivered energy
+        /// is its remainder.
+        TailLevel tail_level(const BandEnergy& remainder, const BandEnergy& network) noexcept
+        {
+            BandEnergy share{};
+            double largest = 0.0;
+            for (std::size_t band = 0; band < kBandCount; ++band)
+            {
+                share[band] = network[band] > 0.0 ? remainder[band] / network[band] : 0.0;
+                largest = std::max(largest, share[band]);
+            }
+            double mean = 0.0;
+            for (std::size_t band = 0; band < kBandCount; ++band)
+            {
+                share[band] = std::max(share[band], kShareFloor * largest);
+                mean += share[band] / static_cast<double>(kBandCount);
+            }
+            TailLevel level{};
+            level.input_gain = static_cast<float>(std::sqrt(mean));
+            for (std::size_t band = 0; band < kBandCount; ++band)
+            {
+                level.output.gain[band] =
+                    mean > 0.0 ? static_cast<float>(std::sqrt(share[band] / mean)) : 1.0f;
+            }
+            return level;
         }
 
         /// @brief Returns sin(k d) / (k d), the diffuse-field interaural coherence at one
@@ -172,55 +272,6 @@ namespace SushiDSP::room
             return { b0 / a0, b1 / a0, b0 / a0, -2.0 * cos_omega / a0, (1.0 - alpha) / a0 };
         }
 
-        /// @brief Returns one tap's energy: its gain squared times its filter's mean power over
-        /// the six centres.
-        double tap_energy(const EarlyTap& tap, double sample_rate)
-        {
-            const BandResponseFit::Coefficients coefficients{ tap.section_a, tap.section_b };
-            double power_sum = 0.0;
-            for (std::size_t band = 0; band < kBandCount; ++band)
-            {
-                const double db =
-                    BandResponseFit::magnitude_db(coefficients, kBandCentresHz[band], sample_rate);
-                power_sum += std::pow(10.0, db / 10.0);
-            }
-            const double gain = static_cast<double>(tap.gain);
-            return gain * gain * power_sum / static_cast<double>(kBandCount);
-        }
-
-        /// @brief Returns the early set's energy per second at t_c: the taps of the last 5 ms
-        /// decayed from the window's centre to t_c, plus the scattered energy spread as a decay
-        /// that starts at t_c.
-        double target_energy_rate(const EarlyTapSet& early, double sample_rate, double rt60_mid)
-        {
-            const double crossover_s = static_cast<double>(early.crossover_time_s);
-            const double window_start_frames = (crossover_s - kHandoverWindowSeconds) * sample_rate;
-            double window_energy = 0.0;
-            const std::uint32_t count =
-                std::min(early.count, static_cast<std::uint32_t>(EarlyTapSet::kMaxEarlyTaps));
-            for (std::uint32_t index = 0; index < count; ++index)
-            {
-                const EarlyTap& tap = early.taps[index];
-                if (static_cast<double>(tap.delay_frames) >= window_start_frames)
-                {
-                    window_energy += tap_energy(tap, sample_rate);
-                }
-            }
-            const double decay_to_crossover =
-                std::exp(-kDecayRatePerRt60 * (0.5 * kHandoverWindowSeconds) / rt60_mid);
-            const double early_rate = window_energy / kHandoverWindowSeconds * decay_to_crossover;
-            const double scattered_rate =
-                static_cast<double>(early.scattered_energy) * kDecayRatePerRt60 / rt60_mid;
-            return early_rate + scattered_rate;
-        }
-
-        /// @brief Returns the gain that makes sixteen lines of mean length tau, each holding
-        /// gain^2 of energy, deliver energy_rate per second: sqrt(energy_rate tau / 16).
-        float input_gain_for(double energy_rate, double mean_tau_seconds)
-        {
-            return static_cast<float>(
-                std::sqrt(energy_rate * mean_tau_seconds / static_cast<double>(kLines)));
-        }
     }
 
     std::array<std::uint32_t, kLines> LateReverbDesign::line_frames(double mean_seconds,
@@ -250,20 +301,25 @@ namespace SushiDSP::room
 
         FdnDesign design{};
         design.line_frames = line_frames(mean_seconds, sample_rate);
-        double mean_tau = 0.0;
         for (std::size_t line = 0; line < kLines; ++line)
         {
             const double tau = static_cast<double>(design.line_frames[line]) / sample_rate;
-            mean_tau += tau / static_cast<double>(kLines);
             const BandResponseFit::Result fit =
                 BandResponseFit::fit(line_decay(tau, rt60), sample_rate);
             design.line_section_a[line] = fit.coefficients.section_a;
             design.line_section_b[line] = fit.coefficients.section_b;
         }
 
-        const BandResponseFit::Coefficients tone =
-            BandResponseFit::fit(tone_correction(mean_tau, rt60), sample_rate).coefficients;
-        design.tone_correction = { tone.section_a, tone.section_b };
+        const DiffuseField field(scene);
+        const BandEnergy remainder =
+            remainder_of(field.band_power(), receiver_efficiency(scene, listener),
+                         reflected_band_energy(early, sample_rate));
+        const TailLevel level =
+            tail_level(remainder, network_band_energy(design.line_frames, sample_rate, rt60));
+        const BandResponseFit::Coefficients output =
+            BandResponseFit::fit(level.output, sample_rate).coefficients;
+        design.tone_correction = { output.section_a, output.section_b };
+        design.input_gain = level.input_gain;
 
         if (listener == ListenerKind::Ears)
         {
@@ -281,9 +337,6 @@ namespace SushiDSP::room
 
         design.delay_to_crossover_frames =
             static_cast<float>(std::round(static_cast<double>(early.crossover_time_s) * sample_rate));
-        design.input_gain = rt60_mid > 0.0
-            ? input_gain_for(target_energy_rate(early, sample_rate, rt60_mid), mean_tau)
-            : 0.0f;
         return design;
     }
 }
