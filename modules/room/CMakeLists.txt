@@ -14,6 +14,8 @@ add_library(room STATIC
     src/SphericalHeadHrtf.cpp
     src/HrtfSetLoader.cpp
     src/BinauralDecoder.cpp
+    src/EyringDecay.cpp
+    src/ImageSourceSolver.cpp
 )
 add_library(SushiDSP::room ALIAS room)
 target_link_libraries(room PUBLIC SushiDSP::sushi_dsp)
