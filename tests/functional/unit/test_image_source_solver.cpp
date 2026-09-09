@@ -273,7 +273,7 @@ TEST(Unit_Dsp, ImageSourceSolverSolvesTheGarageInsideThePublishBudget)
     // A solve is the band fits plus the lattice, and it is the largest part of the render set
     // whose own test bounds the whole build at the 33 ms a 30 Hz republish allows. The bound
     // here is that budget less the tail design and the modal solve, which measure well under a
-    // millisecond each. A Release solve measures 9 ms; the margin is deliberate, because a
+    // millisecond each. A Release solve measures 1 ms; the margin is deliberate, because a
     // tighter one measures how loaded the machine is rather than how the solver scales.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const auto start = std::chrono::steady_clock::now();

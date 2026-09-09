@@ -199,12 +199,15 @@ peaks) so that one target has one answer and nearby targets have nearby coeffici
 model was the structure until 2026-09-09: it cannot dip, and it missed the reference garage's
 direct path through the 4x12, whose 2 kHz octave the array null pulls to -11.5 dB, by 3.5 dB;
 the model with peaks fits it within 0.1 dB. It is control-thread code, so its cost is a few
-thousand flops per fit; 128 taps plus 16 FDN lines is under 150 fits per scene change, measured
-at 4.33 ms in a Release build with the two shelves, and the model with peaks costs the same
-within measurement (1.29 against 1.30 ms for 150 fits in one `-O2` harness). The draft estimated
-under a millisecond and the measurement disproved it. The budget it has to meet is the 30 Hz at
-which a slider drag republishes, which is 33 ms, so the fit costs 13 % of a scene change and the
-bound the test asserts is 10 ms.
+thousand flops per fit; 128 taps plus 16 FDN lines is under 150 fits per scene change. That
+costs about 1 ms in a Release build, with the peaks and without them alike. Every larger figure
+this document carried before 2026-09-09 — 4.33 ms for the fits, 8.9 ms for a render set — came
+from an unoptimised binary: `sd test` defaulted to Debug and silently reconfigured a Release
+tree, so the suite measured `-O0` code while the numbers were written down as Release. The
+budget the fit has to meet is the 30 Hz at which a slider drag republishes, 33 ms, so it costs
+about 3 % of a scene change. The bound the test asserts stays at 10 ms because it states the
+requirement rather than the measurement, and `tests/common/TimingGate.hpp` skips it on an
+unoptimised build rather than compare two different programs.
 Acceptance is 1 dB at every band centre for every row of the materials table raised to any power
 from 1 to 4 (one to four bounces off the same wall), and the test enumerates exactly that; a
 one-band cut of 8 or 20 dB between flat neighbours, and the direct path above, fit within 0.5 dB.
