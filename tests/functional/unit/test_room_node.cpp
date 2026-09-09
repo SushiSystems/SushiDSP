@@ -1268,12 +1268,13 @@ namespace
         double expected;
     };
 
-    /// @brief Returns the fourth-order Linkwitz-Riley low half's power at f for a crossover
-    /// at fc, 1 / (1 + (f / fc)^4)^2; the high half's is (f / fc)^8 times it.
-    double lr4_low_power(double f, double fc)
+    /// @brief Returns the fourth-order Butterworth low half's power at f for a crossover at
+    /// fc, 1 / (1 + (f / fc)^8); the high half's is (f / fc)^8 times it, so the two sum to one.
+    /// The pair splits a modal field from a geometric one, which are uncorrelated, so it keeps
+    /// the power identity rather than the amplitude one a Linkwitz-Riley pair keeps.
+    double butterworth_low_power(double f, double fc)
     {
-        const double x4 = std::pow(f / fc, 4.0);
-        return 1.0 / ((1.0 + x4) * (1.0 + x4));
+        return 1.0 / (1.0 + std::pow(f / fc, 8.0));
     }
 
     /// @brief Returns the mean of a kSeamFrames power spectrum over [lower, upper) hertz.
@@ -1311,7 +1312,7 @@ namespace
             const double psi = static_cast<double>(mode.source_gain) * mode.source_gain
                 * static_cast<double>(mode.ear_gain[0]) * mode.ear_gain[0];
             sum += mode.section[0] * mode.section[0] * 2.0 / (1.0 - mode.section[4]) * psi
-                * lr4_low_power(modes[index].frequency_hz, crossover);
+                * butterworth_low_power(modes[index].frequency_hz, crossover);
         }
         return sum * (0.5 * kSampleRate) / (0.5 * crossover);
     }
@@ -1328,7 +1329,7 @@ namespace
         for (std::size_t index = first; index < last; ++index)
         {
             const double f = static_cast<double>(index) * bin;
-            sum += field.power_at(f) * std::pow(f / crossover, 8.0) * lr4_low_power(f, crossover);
+            sum += field.power_at(f) * std::pow(f / crossover, 8.0) * butterworth_low_power(f, crossover);
         }
         return sum / static_cast<double>(last - first);
     }

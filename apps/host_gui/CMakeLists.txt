@@ -19,6 +19,7 @@ add_executable(sushidsp_host_gui
     ui/DeviceSettings.cpp
     ui/DirectoryListing.cpp
     ui/FileBrowser.cpp
+    ui/RoomPanel.cpp
     ui/TransportBar.cpp
     ui/TimelineScale.cpp
     ui/ArrangementView.cpp
@@ -37,6 +38,7 @@ target_link_libraries(sushidsp_host_gui PRIVATE
     SushiDSP::sushi_dsp_sdl2
     SushiDSP::rig_preset
     SushiDSP::capture
+    SushiDSP::room
     imgui
     nlohmann_json::nlohmann_json
     opengl32
@@ -55,5 +57,17 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/assets/ir")
             "${CMAKE_SOURCE_DIR}/assets/ir"
             "$<TARGET_FILE_DIR:sushidsp_host_gui>/assets/ir"
         COMMENT "Copying assets/ir next to sushidsp_host_gui"
+    )
+endif()
+
+# The room's binaural path resolves assets/hrtf next to its own executable the same way. No
+# measured set ships in the tree (see assets/hrtf/README.md); without one the node keeps the
+# spherical-head fallback it builds for itself, so the guard costs a checkout nothing.
+if(EXISTS "${CMAKE_SOURCE_DIR}/assets/hrtf")
+    add_custom_command(TARGET sushidsp_host_gui POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/assets/hrtf"
+            "$<TARGET_FILE_DIR:sushidsp_host_gui>/assets/hrtf"
+        COMMENT "Copying assets/hrtf next to sushidsp_host_gui"
     )
 endif()
