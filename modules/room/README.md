@@ -252,11 +252,11 @@ where the trend of the last 5 ms of taps before t_c, 5 taps of the 56 a diffuse 
 there, had set 0.11.
 
 Measured at the microphone, energy-averaged over six poses per room, 65536 frames each: the
-octave under f_s reads +0.4, +0.7 and +0.8 dB against the modal design's own power at those poses
-through the low half, and the octave over it -0.5, -0.1 and -1.2 dB against the field through the
+octave under f_s reads +0.5, +0.9 and +0.8 dB against the modal design's own power at those poses
+through the low half, and the octave over it -0.4, +0.0 and -1.2 dB against the field through the
 high half, garage, bedroom and block room; both within the spec's 2 dB
 (`RoomNodeIsContinuousAcrossTheSchroederFrequency`). The raw step between the two octaves reads
--0.3, +0.6 and +3.1 dB and is recorded, not bounded: it is the reference's own change across the
++0.16, +1.29 and +3.75 dB and is recorded, not bounded: it is the reference's own change across the
 seam, the 4x12's directivity index rising 4.6 dB between 250 and 500 Hz and the block room's
 absorption halving from 125 to 250 Hz, less the modal field's interior deficit. That deficit is
 the pose's mode-shape factor, the product of cos^2(n pi x / L) over the six coordinates against
