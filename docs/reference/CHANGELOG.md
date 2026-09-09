@@ -8,6 +8,7 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
 The room track, spec `docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
 `docs/superpowers/plans/2026-09-08-room-acoustics.md`.
 
+- 2026-09-09 — Added the room panel, the scene in the preset, the 30 Hz publish pacing and the HRTF install beside the cabinet path (`apps/host_gui/ui/RoomPanel.cpp`, `RigController`, `main.cpp`).
 - 2026-09-09 — Made the seam's split a power-complementary fourth-order Butterworth pair, section Q 0.5412 and 1.3066, in place of Linkwitz-Riley (`CrossoverPair`, spec §9a.4, `docs/reference/KNOWN_ISSUES.md`).
 - 2026-09-09 — Scaled the modal layer and the tail to one diffuse-field reference, the tail carrying what the taps leave of it per band (`DiffuseField.hpp`, `ModalSolver`, `LateReverbDesign`, spec §6.3 and §9a.4).
 - 2026-09-09 — Moved the modal receiver into the solver as a listener argument and deleted `RoomNode::place_modal_receiver` (`ModalSolver::design`, `build_render_set`, `RoomNode`).

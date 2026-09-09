@@ -22,6 +22,7 @@
 /**************************************************************************/
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -29,6 +30,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -38,6 +40,8 @@
 #include "SlotSelection.hpp"
 #include "SushiDSP/capture/Transport.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
+#include "SushiDSP/room/IRoomHost.hpp"
+#include "SushiDSP/room/RoomScene.hpp"
 
 namespace
 {
@@ -1416,4 +1420,247 @@ TEST(Unit_Dsp, RigControllerLoadsAPresetWithoutASpeedAtUnity)
     target.transport().set_speed(2.0);
     target.load_from_json(document.dump());
     EXPECT_NEAR(target.transport().speed(), 1.0, 1e-9);
+}
+
+// --- The room: its scene in the preset, its publish pacing and its HRTF (DE6) ---
+
+namespace
+{
+    /// @brief Compares two points field by field.
+    bool same_point(const SushiDSP::room::Vec3& left, const SushiDSP::room::Vec3& right)
+    {
+        return left.x == right.x && left.y == right.y && left.z == right.z;
+    }
+
+    /// @brief Compares two scenes field by field, every patch and the cabinet included.
+    bool same_scene(const SushiDSP::room::RoomScene& left, const SushiDSP::room::RoomScene& right)
+    {
+        if (!same_point(left.dimensions, right.dimensions) || left.surfaces != right.surfaces
+            || left.scattering != right.scattering || left.patch_count != right.patch_count)
+        {
+            return false;
+        }
+        for (std::uint32_t index = 0; index < left.patch_count; ++index)
+        {
+            if (left.patches[index].surface != right.patches[index].surface
+                || left.patches[index].material != right.patches[index].material
+                || left.patches[index].area_m2 != right.patches[index].area_m2)
+            {
+                return false;
+            }
+        }
+        return same_point(left.source_position, right.source_position)
+            && left.source_yaw_rad == right.source_yaw_rad
+            && left.cabinet.cone_radius_m == right.cabinet.cone_radius_m
+            && left.cabinet.driver_spacing_m == right.cabinet.driver_spacing_m
+            && left.cabinet.baffle_width_m == right.cabinet.baffle_width_m
+            && left.cabinet.breakup_frequency_hz == right.cabinet.breakup_frequency_hz
+            && same_point(left.listener_position, right.listener_position)
+            && left.listener_yaw_rad == right.listener_yaw_rad
+            && same_point(left.microphone_position, right.microphone_position)
+            && left.microphone_yaw_rad == right.microphone_yaw_rad
+            && left.microphone_pattern == right.microphone_pattern;
+    }
+
+    /// @brief Builds a scene that differs from RoomScene{} in every field a preset writes.
+    SushiDSP::room::RoomScene non_default_scene()
+    {
+        SushiDSP::room::RoomScene scene;
+        scene.dimensions = { 4.25, 3.5, 2.6 };
+        scene.surfaces = { SushiDSP::room::MaterialId::GypsumBoardOnStuds,
+                           SushiDSP::room::MaterialId::GypsumBoardOnStuds,
+                           SushiDSP::room::MaterialId::ConcreteBlockPainted,
+                           SushiDSP::room::MaterialId::GypsumBoardOnStuds,
+                           SushiDSP::room::MaterialId::HeavyCarpetOnConcrete,
+                           SushiDSP::room::MaterialId::GypsumBoardOnStuds };
+        scene.scattering = { SushiDSP::room::Scattering::Textured,
+                             SushiDSP::room::Scattering::Flat,
+                             SushiDSP::room::Scattering::Cluttered,
+                             SushiDSP::room::Scattering::Textured,
+                             SushiDSP::room::Scattering::Cluttered,
+                             SushiDSP::room::Scattering::Flat };
+        scene.patch_count = 2;
+        scene.patches[0] = { SushiDSP::room::Surface::PlusX,
+                             SushiDSP::room::MaterialId::GlassWindow, 1.2 };
+        scene.patches[1] = { SushiDSP::room::Surface::MinusY,
+                             SushiDSP::room::MaterialId::OpenDoorway, 1.6 };
+        scene.source_position = { 0.6, 0.7, 0.45 };
+        scene.source_yaw_rad = 0.35;
+        scene.cabinet = SushiDSP::room::kCabinet1x12;
+        scene.listener_position = { 3.1, 2.2, 1.15 };
+        scene.listener_yaw_rad = -2.9;
+        scene.microphone_position = { 0.66, 0.7, 0.45 };
+        scene.microphone_yaw_rad = 3.0;
+        scene.microphone_pattern = SushiDSP::room::PolarPattern::Supercardioid;
+        return scene;
+    }
+
+    /// @brief Returns the path of the six-direction HRTF fixture convert_hrtf.py's self-test
+    /// writes.
+    std::string hrtf_fixture_path()
+    {
+        return std::string(SUSHIDSP_FIXTURE_DIR) + "/hrtf_self_test.hrtf";
+    }
+}
+
+TEST(Unit_Dsp, RigControllerRoundTripsARoomSceneThroughJson)
+{
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    source.append("sushidsp.tubescreamer");
+    const RigController::SlotId room = source.append("sushidsp.room");
+    ASSERT_TRUE(source.hosts_room(room));
+
+    std::string error;
+    const SushiDSP::room::RoomScene scene = non_default_scene();
+    ASSERT_TRUE(source.set_room_scene(room, scene, error)) << error;
+    ASSERT_NE(source.room_host(room), nullptr);
+    EXPECT_TRUE(same_scene(source.room_host(room)->scene(), scene));
+
+    const std::string saved = source.save_to_json();
+    const nlohmann::json parsed = nlohmann::json::parse(saved);
+    ASSERT_EQ(parsed.at("nodes").size(), 2u);
+    EXPECT_FALSE(parsed.at("nodes").at(0).contains("room"));
+    ASSERT_TRUE(parsed.at("nodes").at(1).contains("room"));
+    const nlohmann::json& written = parsed.at("nodes").at(1).at("room");
+    EXPECT_EQ(written.at("surfaces").at(4).get<std::string>(), "heavy_carpet_on_concrete");
+    EXPECT_EQ(written.at("scattering").at(2).get<std::string>(), "cluttered");
+    EXPECT_EQ(written.at("patches").size(), 2u);
+    EXPECT_EQ(written.at("microphone").at("pattern").get<std::string>(), "supercardioid");
+
+    RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    target.load_from_json(saved);
+
+    EXPECT_EQ(target.save_to_json(), saved);
+    const std::vector<RigController::SlotId> order = target.slot_order();
+    ASSERT_EQ(order.size(), 2u);
+    EXPECT_TRUE(same_scene(target.room_scene(order[1]), scene));
+    ASSERT_NE(target.room_host(order[1]), nullptr);
+    EXPECT_TRUE(same_scene(target.room_host(order[1])->scene(), scene));
+}
+
+TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoRoomAsTheDefaultScene)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+        {"id":1,"type":"sushidsp.room","params":{},"inputs":[0]}
+    ]})";
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    controller.load_from_json(preset);
+
+    const std::vector<RigController::SlotId> order = controller.slot_order();
+    ASSERT_EQ(order.size(), 2u);
+    ASSERT_TRUE(controller.hosts_room(order[1]));
+    EXPECT_TRUE(same_scene(controller.room_scene(order[1]), SushiDSP::room::RoomScene{}));
+    ASSERT_NE(controller.room_host(order[1]), nullptr);
+    EXPECT_TRUE(same_scene(controller.room_host(order[1])->scene(),
+                           SushiDSP::room::RoomScene{}));
+
+    // A fresh node carries its own default and no drag has landed, so the slot took the node's
+    // scene rather than publishing one.
+    EXPECT_EQ(controller.room_publishes(order[1]), 0u);
+}
+
+TEST(Unit_Dsp, RigControllerCoalescesADragToThirtyPublishesPerSecond)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    const RigController::SlotId room = controller.append("sushidsp.room");
+    ASSERT_NE(controller.room_host(room), nullptr);
+    ASSERT_EQ(controller.room_publishes(room), 0u);
+
+    // Three hundred scene edits, each a 1 cm move of the cabinet, as fast as the loop runs.
+    constexpr int kEdits = 300;
+    SushiDSP::room::RoomScene scene;
+    std::string error;
+    const auto started = std::chrono::steady_clock::now();
+    for (int edit = 0; edit < kEdits; ++edit)
+    {
+        scene.source_position.x = 0.5 + 0.01 * edit;
+        ASSERT_TRUE(controller.set_room_scene(room, scene, error)) << error;
+    }
+    const std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - started;
+
+    // The first edit publishes at once and every later one only after 1 / 30 s has passed since
+    // the previous publish, so the count is bounded by the loop's own wall time: at most
+    // 1 + floor(30 T), which is 3 for a loop inside 100 ms.
+    const std::size_t published = controller.room_publishes(room);
+    const std::size_t allowed = 1u + static_cast<std::size_t>(
+        std::floor(elapsed.count() * RigController::kRoomPublishHz));
+    EXPECT_GE(published, 1u);
+    EXPECT_LE(published, allowed) << "in " << elapsed.count() * 1000.0 << " ms";
+    if (elapsed.count() < 0.1)
+    {
+        EXPECT_LE(published, 3u);
+    }
+
+    // The newest scene waits for a frame past the interval, then reaches the node whole.
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
+    controller.reclaim();
+    EXPECT_EQ(controller.room_publishes(room), published + 1u);
+    EXPECT_NEAR(controller.room_host(room)->scene().source_position.x,
+                0.5 + 0.01 * (kEdits - 1), 1e-12);
+
+    // Nothing is pending any more, so a further frame publishes nothing.
+    controller.reclaim();
+    EXPECT_EQ(controller.room_publishes(room), published + 1u);
+}
+
+TEST(Unit_Dsp, RigControllerRefusesASceneOutsideTheRoomWithoutPublishing)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    const RigController::SlotId room = controller.append("sushidsp.room");
+
+    SushiDSP::room::RoomScene outside;
+    outside.listener_position.x = outside.dimensions.x + 1.0;
+    std::string error;
+    EXPECT_FALSE(controller.set_room_scene(room, outside, error));
+    EXPECT_FALSE(error.empty());
+    EXPECT_EQ(controller.room_publishes(room), 0u);
+    EXPECT_TRUE(same_scene(controller.room_scene(room), SushiDSP::room::RoomScene{}));
+}
+
+TEST(Unit_Dsp, RigControllerInstallsAMeasuredHrtfIntoEveryRoomAndKeepsItAcrossARebuild)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    const RigController::SlotId first = controller.append("sushidsp.room");
+    ASSERT_NE(controller.room_host(first), nullptr);
+    EXPECT_EQ(controller.room_host(first)->hrtf_source(),
+              SushiDSP::room::HrtfSource::SphericalHead);
+    EXPECT_EQ(controller.hrtf_path(), "");
+
+    std::string error;
+    ASSERT_TRUE(controller.set_hrtf_path(hrtf_fixture_path(), error)) << error;
+    EXPECT_EQ(error, "");
+    EXPECT_EQ(controller.hrtf_path(), hrtf_fixture_path());
+    EXPECT_EQ(controller.room_host(first)->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
+
+    // A structural edit rebuilds every node; the set goes back in with the scene.
+    const RigController::SlotId second = controller.append("sushidsp.room");
+    ASSERT_NE(controller.room_host(first), nullptr);
+    ASSERT_NE(controller.room_host(second), nullptr);
+    EXPECT_EQ(controller.room_host(first)->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
+    EXPECT_EQ(controller.room_host(second)->hrtf_source(),
+              SushiDSP::room::HrtfSource::Measured);
+}
+
+TEST(Unit_Dsp, RigControllerReportsAMissingHrtfAndLeavesEveryRoomOnTheFallback)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    const RigController::SlotId room = controller.append("sushidsp.room");
+    std::string error;
+    ASSERT_TRUE(controller.set_hrtf_path(hrtf_fixture_path(), error)) << error;
+    ASSERT_EQ(controller.room_host(room)->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
+
+    const std::string missing = std::string(SUSHIDSP_FIXTURE_DIR) + "/no_such_set.hrtf";
+    EXPECT_FALSE(controller.set_hrtf_path(missing, error));
+    EXPECT_NE(error.find(missing), std::string::npos) << error;
+    EXPECT_EQ(controller.hrtf_path(), "");
+    EXPECT_EQ(controller.room_host(room)->hrtf_source(),
+              SushiDSP::room::HrtfSource::SphericalHead);
+
+    // The next rebuild has no set to install, so the fresh node stays on its own fallback.
+    controller.append("sushidsp.tubescreamer");
+    ASSERT_NE(controller.room_host(room), nullptr);
+    EXPECT_EQ(controller.room_host(room)->hrtf_source(),
+              SushiDSP::room::HrtfSource::SphericalHead);
 }
