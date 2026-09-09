@@ -37,6 +37,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "RoomFixtures.hpp"
 #include "TimingGate.hpp"
@@ -45,6 +46,7 @@
 #include "SushiDSP/room/HrtfSet.hpp"
 #include "SushiDSP/room/ImageSourceSolver.hpp"
 #include "SushiDSP/room/IRoomHost.hpp"
+#include "SushiDSP/room/ModalSolver.hpp"
 #include "SushiDSP/room/RoomRenderSet.hpp"
 #include "SushiDSP/room/RoomScene.hpp"
 #include "SushiDSP/room/SphericalHeadHrtf.hpp"
@@ -232,6 +234,44 @@ TEST(Unit_Dsp, BuildRenderSetCostsUnderOnePublishBudget)
     const double milliseconds = std::chrono::duration<double, std::milli>(stop - start).count();
     EXPECT_LT(milliseconds, kPublishBudgetMs)
         << "taps " << set->early.count << " modes " << set->modal.count;
+}
+
+TEST(Unit_Dsp, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)
+{
+    // The modal field is read where the set's geometric receiver stands: a microphone set
+    // carries psi at microphone_position in both ear gains, an ears set the solver's two
+    // ears 8.5 cm to either side of listener_position, so a listener at (5.4, 3.4, 2.0)
+    // facing +x reads psi at y = 3.485 and y = 3.315.
+    SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+    scene.source_position = { 0.4, 0.5, 0.5 };
+    scene.listener_position = { 5.4, 3.4, 2.0 };
+    scene.microphone_position = { 1.0, 0.5, 0.5 };
+    const SushiDSP::room::HrtfSet& hrtf = fallback_hrtf();
+
+    std::unique_ptr<SushiDSP::room::RoomRenderSet> microphone =
+        SushiDSP::room::build_render_set(scene, hrtf, kSampleRate,
+                                         SushiDSP::room::ListenerKind::Microphone);
+    const std::vector<SushiDSP::room::ModalSolver::Mode> modes =
+        SushiDSP::room::ModalSolver::enumerate(scene, microphone->modal.crossover_hz);
+    ASSERT_EQ(modes.size(), microphone->modal.count);
+    for (std::size_t index = 0; index < modes.size(); ++index)
+    {
+        const float psi = static_cast<float>(SushiDSP::room::ModalSolver::mode_shape(
+            modes[index], scene, scene.microphone_position));
+        EXPECT_EQ(microphone->modal.modes[index].ear_gain[0], psi) << "mode " << index;
+        EXPECT_EQ(microphone->modal.modes[index].ear_gain[1], psi) << "mode " << index;
+    }
+
+    std::unique_ptr<SushiDSP::room::RoomRenderSet> ears = SushiDSP::room::build_render_set(
+        scene, hrtf, kSampleRate, SushiDSP::room::ListenerKind::Ears);
+    ASSERT_EQ(ears->modal.count, microphone->modal.count);
+    const SushiDSP::room::Vec3 left = { 5.4, 3.485, 2.0 };
+    const SushiDSP::room::Vec3 right = { 5.4, 3.315, 2.0 };
+    EXPECT_FLOAT_EQ(ears->modal.modes[0].ear_gain[0], static_cast<float>(
+        SushiDSP::room::ModalSolver::mode_shape(modes[0], scene, left)));
+    EXPECT_FLOAT_EQ(ears->modal.modes[0].ear_gain[1], static_cast<float>(
+        SushiDSP::room::ModalSolver::mode_shape(modes[0], scene, right)));
+    EXPECT_EQ(ears->modal.modes[0].section, microphone->modal.modes[0].section);
 }
 
 TEST(Unit_Dsp, RoomRenderSetIsTriviallyCopyable)

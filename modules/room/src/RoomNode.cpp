@@ -41,7 +41,6 @@
 #include "SushiDSP/room/BandResponse.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
 #include "SushiDSP/room/ImageSourceSolver.hpp"
-#include "SushiDSP/room/ModalSolver.hpp"
 #include "SushiDSP/room/SphericalHeadHrtf.hpp"
 
 namespace SushiDSP::room
@@ -1268,28 +1267,6 @@ namespace SushiDSP::room
         return direct_delay_.load(std::memory_order_relaxed) >= 0.5f;
     }
 
-    bool RoomNode::place_modal_receiver(RoomRenderSet& set, const RoomScene& scene)
-    {
-        if (set.listener != ListenerKind::Microphone || set.modal.count == 0u)
-        {
-            return true;
-        }
-        // The solver's crossover is the one at which enumerate() returns the design's modes.
-        const std::vector<ModalSolver::Mode> modes =
-            ModalSolver::enumerate(scene, static_cast<double>(set.modal.crossover_hz));
-        if (modes.size() != static_cast<std::size_t>(set.modal.count))
-        {
-            return false;
-        }
-        for (std::size_t index = 0; index < modes.size(); ++index)
-        {
-            const float psi = static_cast<float>(
-                ModalSolver::mode_shape(modes[index], scene, scene.microphone_position));
-            set.modal.modes[index].ear_gain = { psi, psi };
-        }
-        return true;
-    }
-
     bool RoomNode::take_direct_image(const RoomRenderSet& set, EarlyTapSet& reflections,
                                      EarlyTap& direct) noexcept
     {
@@ -1338,12 +1315,6 @@ namespace SushiDSP::room
             if (!physical)
             {
                 compensate_direct_delay(*set);
-            }
-            if (!place_modal_receiver(*set, scene_))
-            {
-                reason_out = "RoomNode: the modal enumeration at the set's crossover does not "
-                             "hold the set's mode count";
-                return false;
             }
             // The report is the split the set renders at, or Eyring's figure with the layer off.
             schroeder_hz_ = set->modal.count > 0u

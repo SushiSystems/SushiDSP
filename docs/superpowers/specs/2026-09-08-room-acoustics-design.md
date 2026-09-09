@@ -136,10 +136,15 @@ The direct sound is one of these, so order 4 gives exactly 128 reflections. That
 `kMaxEarlyTaps = 128`, and it is a fixed capacity: every buffer the audio thread reads is sized for
 128 taps at `prepare()` and never grows.
 
-**Which taps the set keeps is decided by arrival time, not by order.** The image set of order N is
-complete only up to the arrival of the earliest missing order-(N+1) path, and in a room 2.5 m high
-that path bounces between floor and ceiling: t_c ≈ (N+1)·L_min / c. For N = 4 and L_min = 2.5 m,
-t_c = 36 ms. After t_c the image sum is missing echoes and would sound thin, so the solver drops any
+**Which taps the set keeps is decided by arrival time, not by order.** The handover time is set
+from the shortest wall: t_c ≈ (N+1)·L_min / c, 36 ms for N = 4 and L_min = 2.5 m. The set is not
+complete up to that time, as this document said until 2026-09-09: an image with n bounces along one
+axis lies at least (n − 1)·L from the receiver, so an order-(N+1) path spread over two or three axes
+is shorter than (N+1)·L_min, and in the garage the first order-5 images arrive from about 5 m, 15 ms,
+while t_c is 36 ms. Between the two the set thins: the last 5 ms before t_c hold 5 of the 56 images
+a diffuse shell of that radius contains, and the whole set carries 0.94 of the 2.13 of the direct
+sound's energy at 1 m that the diffuse decay puts before t_c. What the set lacks, the tail carries
+(§6.3). After t_c the image sum is missing echoes and would sound thin, so the solver drops any
 tap arriving after t_c and hands the tail to the FDN from t_c onwards. The perceptual mixing time,
 after which individual reflections stop being resolvable, is about 2·sqrt(V) ms (Polack's rule as
 quoted by Schlecht and Habets, below): 15 ms for a 60 m³ garage, 12 ms for a 36 m³ bedroom. Order 4
@@ -348,8 +353,11 @@ bounded at 1.01. `modules/room/README.md` carries the full table.
 A feedback delay network of 16 delay lines (Jot and Chaigne, "Digital delay networks for designing
 artificial reverberators", 90th AES Convention, 1991) with a 16 × 16 Hadamard feedback matrix,
 applied as a fast Walsh-Hadamard transform (64 additions per sample), a 4th-order absorptive filter
-on every line from `BandResponseFit`, and Jot's tone-correction filter on the output so the
-frequency-dependent decay does not also tilt the tail's spectrum.
+on every line from `BandResponseFit`, and an output filter that sets each band's energy to what the
+room's diffuse field holds beyond the early taps (§6.3). Until 2026-09-09 that output filter was
+Jot's tone correction, sqrt(1 − g(f)²) scaled to unity at 500 Hz, which flattens the tail's energy
+spectrum; a room's reverberant energy is not flat, it follows RT60(f) and the cabinet's radiated
+power, and Jot's factor is one term of the filter §6.3 derives.
 
 Sixteen lines and not eight or thirty-two: the count sets two densities. The echo density grows as
 a polynomial whose coefficients come from the line lengths (Schlecht and Habets, "Feedback delay
@@ -396,13 +404,28 @@ after RT60(f) seconds of recirculation every band is down 60 dB, and `BandRespon
 six numbers into two biquads exactly as it does for a tap. Here the same brick serves both halves
 of the hybrid, which is why it is a brick.
 
-The tail's input level is the one place where the two halves must agree. The tail begins at t_c
-with a level set so that its energy per unit time continues the image set's trend at t_c:
-`LateReverbDesign` sums the energy of the kept taps in the last 5 ms before t_c, scales it by the
-statistical decay over that interval, and sets the FDN input gain so its expected energy density at
-t_c matches. The scattered fraction of the early energy (§4.2) is added to the same input. The
-acceptance test measures the Schroeder backward-integrated decay curve across t_c and refuses a
-step of more than 2 dB.
+The tail's level is the one place where the two halves must agree, and the reference both are
+held to is the room's steady-state reverberant field. For a unit white input whose direct sound
+has unit gain at 1 m, the diffuse field's mean-square pressure per hertz is 16π / A(f), with
+A(f) = 0.161·V / RT60(f) the equivalent absorption Eyring's decay implies, divided by the cabinet's
+directivity index (§7), since the room receives the cabinet's total radiated power and not its
+on-axis response; the same identity falls out of the modal sum averaged over positions (§9a.4).
+`DiffuseField` evaluates it per band, linear in log frequency between the centres. The taps to
+order 4 carry what they carry, a truncated set (§4.1), and `LateReverbDesign` hands the tail the
+remainder, per band: the field's power, times the share a first-order microphone picks up of a
+diffuse field, a² + (1 − a)² / 3 for a pattern a + (1 − a)·cos θ and 1 for the ears, less the
+energy of every tap past the direct sound, gain squared times its fitted filter at the band centre,
+floored at zero. Sixteen lines each keeping g_i(f)² = 10^(−6·τ_i / RT60(f)) of a pass, the
+Hadamard mixing handing every line's output to all sixteen alike, deliver 16·G / (1 − G) of energy
+per unit input gain with G the mean of the g_i², exact for incoherent energy flow whatever the
+line lengths; the input gain squared is the mean over bands of remainder over that, each band's
+share floored at −30 dB of the largest so the fit stays inside its range, and the output filter is
+fitted to the square root of each band's share of the mean. Rendered through `LateReverb`, each
+band lands within 1 dB of its remainder from 250 Hz up and within 2 dB at 125 Hz. Until 2026-09-09
+the level was set to continue the trend of the taps in the last 5 ms before t_c, plus the scattered
+energy; those taps are 5 of the 56 a diffuse shell holds (§4.1), so the tail sat 10 dB under the
+field in the garage and the seam of §9a.4 stepped by 7.7 dB. `EarlyTapSet::scattered_energy` is
+still reported by the solver and no longer read by the design: the remainder covers it.
 
 The source's directivity enters the tail as its per-band power average (the directivity index,
 §7), since a diffuse field receives the cabinet's total radiated power per band and not its
@@ -812,12 +835,33 @@ f_s is computed per scene as 2000·sqrt(RT60_mid / V), with RT60_mid the Eyring 
 500 Hz. Three cases:
 
 - **The usual room**, f_s between 60 and 400 Hz: the modal layer carries everything below f_s, the
-  geometric layers everything above, through a fourth-order Linkwitz-Riley pair whose two halves
-  sum to unit magnitude and are in phase at every frequency, so the seam adds no dip and no hump.
-  The modal layer's steady-state energy in the octave below f_s is scaled once per scene to the
-  diffuse-field energy density Eyring predicts for the same octave, so the two physical models of
-  the same room agree in level where they meet; the acceptance test (§9a.6) measures the band
-  energy of the rendered response on both sides of f_s and refuses a discontinuity over 2 dB.
+  geometric layers everything above, through a fourth-order Linkwitz-Riley pair. An LR4 pair's two
+  halves sum to unit magnitude in phase only when both carry the same signal. Here they do not:
+  the low half carries the modal field and the high half the geometric field, two responses of the
+  same room with unrelated phases, so at the seam their powers add and not their amplitudes,
+  |H_low|² + |H_high|² = (1 + x⁸) / (1 + x⁴)² with x = f / f_s, a dip of −3 dB at f_s, −1.7 dB
+  half an octave to either side and −0.5 dB an octave away, and each octave beside f_s reads 2.4 dB
+  under the level its layer was scaled to. Until 2026-09-09 this section said the seam adds no
+  dip. What the renderer has to do about it is split with a power-complementary pair, a
+  fourth-order Butterworth low-pass and high-pass of the same corner, whose powers sum to
+  1 / (1 + x⁸) + x⁸ / (1 + x⁸) = 1 at every frequency at the same 24 dB per octave; that is a change
+  to `CrossoverPair`'s section Q values and to its test, and `docs/reference/KNOWN_ISSUES.md`
+  carries it until it lands.
+  Both layers are scaled to one reference, `DiffuseField` (§6.3): the modal layer's steady-state
+  energy in the octave below f_s, averaged over the cabinet's and the receiver's positions, equals
+  the field's integral over that octave, an identity of the modal sum (the mean of ψ² is the mode's
+  norm, the mode density is Weyl's, each mode's damping is Eyring's), and the tail carries what the
+  taps leave of the same field above f_s. At one pose the modal octave departs from that average by
+  the pose's mode-shape factor, Π cos²(nπx/L) over the six coordinates against the mean of ½ each:
+  positive near walls and corners, where the standing waves pile up, negative through the interior,
+  2 to 4 dB under the average at the poses a cabinet on the floor and a listener in the room take,
+  which the rays have no counterpart for. The octave averages either side of f_s also carry the
+  reference's own change across the seam, the 4x12's directivity index rising 4.6 dB between the
+  250 and 500 Hz bands and RT60(f)'s shape, so they are not within 2 dB of each other in general:
+  measured energy-averaged over six poses, the octave below reads −0.3 dB against the octave above
+  in the garage, +0.6 dB in the bedroom and +3.1 dB in the block room, whose absorption falls from
+  0.10 at 125 Hz to 0.05 at 250 Hz. The acceptance (§9a.6) therefore holds each layer to the
+  reference, the modal one through its pose factor.
 - **A room so large or so dead that f_s falls under 40 Hz** (a 300 m³ hall at 0.3 s gives 63 Hz; a
   dead 500 m³ studio at 0.25 s gives 45 Hz): the mode count is small, the layer is cheap, and when
   f_s drops below 40 Hz the modal layer is switched off and the geometric layers carry the whole
@@ -850,8 +894,13 @@ audible half of the sensation.
 f_s within 0.5 % (the first six: 28.6, 42.9, 51.5, 57.2, 68.6 and 71.5 Hz for 6 × 4 × 2.5 m), and
 each peak's −3 dB width matches the perturbation damping within 20 %. The pressure at a corner
 exceeds the pressure at the room's centre by at least 12 dB for the (1, 0, 0) mode, as the cosine
-shape predicts. The band energy of the full response is continuous across f_s within 2 dB, and the
-two renders differ by under 1 dB below f_s, because the same bank produced both. A moved cabinet
+shape predicts. The seam is level-matched: in each of the three reference rooms, energy-averaged
+over six poses, the octave under f_s reads within 2 dB of the modal design's own power at those
+poses through the low half, and the octave over f_s within 2 dB of `DiffuseField` through the high
+half, measured at the microphone; the raw step between the two octaves is recorded and not
+bounded (§9a.4). Measured 2026-09-09: +0.4 and −0.5 dB in the garage, +0.7 and −0.1 dB in the
+bedroom, +0.8 and −1.2 dB in the block room. The two renders differ by under 1 dB below f_s,
+because the same bank produced both. A moved cabinet
 publishes new modal gains within one GUI frame. `ModalBank::process` and `CrossoverPair::process`
 pass the allocation trap, and the modal and crossover rows of §10's hybrid table are measured by
 `tests/benchmark`.

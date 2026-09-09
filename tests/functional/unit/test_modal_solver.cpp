@@ -39,7 +39,10 @@
 
 #include "RoomFixtures.hpp"
 #include "SushiDSP/room/BandResponse.hpp"
+#include "SushiDSP/room/CabinetDirectivity.hpp"
+#include "SushiDSP/room/DiffuseField.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
+#include "SushiDSP/room/ImageSourceSolver.hpp"
 #include "SushiDSP/room/Materials.hpp"
 #include "SushiDSP/room/ModalDesign.hpp"
 #include "SushiDSP/room/ModalSolver.hpp"
@@ -152,14 +155,14 @@ namespace
         return scene;
     }
 
-    /// @brief Returns Eyring's decay time at frequency_hz, linear in log frequency between the
-    /// band centres and held flat outside them.
-    double rt60_at(const std::array<double, SushiDSP::room::kBandCount>& rt60, double frequency_hz)
+    /// @brief Interpolates six band values in log frequency, held flat outside the centres.
+    double band_value_at(const std::array<double, SushiDSP::room::kBandCount>& values,
+                         double frequency_hz)
     {
         const auto& centres = SushiDSP::room::kBandCentresHz;
         if (frequency_hz <= centres.front())
         {
-            return rt60.front();
+            return values.front();
         }
         for (std::size_t band = 1; band < SushiDSP::room::kBandCount; ++band)
         {
@@ -167,27 +170,83 @@ namespace
             {
                 const double position = std::log(frequency_hz / centres[band - 1])
                     / std::log(centres[band] / centres[band - 1]);
-                return rt60[band - 1] + (rt60[band] - rt60[band - 1]) * position;
+                return values[band - 1] + (values[band] - values[band - 1]) * position;
             }
         }
-        return rt60.back();
+        return values.back();
     }
 
-    /// @brief Integrates 16 pi RT60(f) / (0.161 V) times a 2 / fs density over [lower, upper]
-    /// by the midpoint rule.
-    double eyring_band_power(const SushiDSP::room::RoomScene& scene, double lower, double upper)
+    /// @brief Returns 16 pi RT60(f) / (0.161 V) times the cabinet's mean radiated power
+    /// 10^(-DI(f) / 10) at each band centre, from EyringDecay and CabinetDirectivity alone.
+    std::array<double, SushiDSP::room::kBandCount>
+        diffuse_band_power(const SushiDSP::room::RoomScene& scene)
     {
-        constexpr int kSteps = 65536;
         const std::array<double, SushiDSP::room::kBandCount> rt60 =
             SushiDSP::room::EyringDecay::rt60_seconds(scene);
+        const std::array<float, SushiDSP::room::kBandCount> index =
+            SushiDSP::room::CabinetDirectivity(scene.cabinet).directivity_index_db();
+        std::array<double, SushiDSP::room::kBandCount> power{};
+        for (std::size_t band = 0; band < SushiDSP::room::kBandCount; ++band)
+        {
+            power[band] = 16.0 * kPi * rt60[band] / (0.161 * scene.volume_m3())
+                * std::pow(10.0, -0.1 * static_cast<double>(index[band]));
+        }
+        return power;
+    }
+
+    /// @brief Integrates the diffuse field's power per hertz times a 2 / fs density over
+    /// [lower, upper] by the midpoint rule.
+    double diffuse_band_power(const SushiDSP::room::RoomScene& scene, double lower, double upper)
+    {
+        constexpr int kSteps = 65536;
+        const std::array<double, SushiDSP::room::kBandCount> power = diffuse_band_power(scene);
         const double width = (upper - lower) / kSteps;
         double sum = 0.0;
         for (int step = 0; step < kSteps; ++step)
         {
-            sum += rt60_at(rt60, lower + (step + 0.5) * width) * width;
+            sum += band_value_at(power, lower + (step + 0.5) * width) * width;
         }
-        return 16.0 * kPi * (2.0 / kSampleRate) * sum / (0.161 * scene.volume_m3());
+        return (2.0 / kSampleRate) * sum;
     }
+}
+
+TEST(Unit_Dsp, DiffuseFieldIsEyringOverTheCabinetsDirectivity)
+{
+    // The garage: Eyring's 1.342, 1.333, 1.161, 1.146, 1.108 and 0.893 s over 0.161 * 60 m3
+    // times 16 pi, and the 4x12's directivity index of 1.12, 2.99, 7.59, 12.01, 15.74 and
+    // 18.82 dB taken back out, give 5.39, 3.48, 1.05, 0.376, 0.154 and 0.0610 per hertz.
+    const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
+    const SushiDSP::room::DiffuseField field(garage);
+    const std::array<double, SushiDSP::room::kBandCount> expected = diffuse_band_power(garage);
+    const std::array<double, 6> rounded = { 5.39, 3.48, 1.05, 0.376, 0.154, 0.0610 };
+    for (std::size_t band = 0; band < SushiDSP::room::kBandCount; ++band)
+    {
+        EXPECT_NEAR(field.band_power()[band], expected[band], 1e-9 * expected[band])
+            << "band " << band;
+        EXPECT_NEAR(field.band_power()[band], rounded[band], 0.005 * rounded[band])
+            << "band " << band;
+    }
+
+    // Between the centres the field is linear in log frequency, flat outside them.
+    EXPECT_NEAR(field.power_at(60.0), expected[0], 1e-12);
+    EXPECT_NEAR(field.power_at(std::sqrt(250.0 * 500.0)), 0.5 * (expected[1] + expected[2]),
+                1e-12);
+    EXPECT_NEAR(field.power_at(10000.0), expected[5], 1e-12);
+
+    // The integral across two centres and past the last one matches the midpoint rule.
+    const double across = diffuse_band_power(garage, 139.09, 278.18) * kSampleRate / 2.0;
+    EXPECT_NEAR(field.power_between(139.09, 278.18), across, 1e-6 * across);
+    const double past = diffuse_band_power(garage, 3000.0, 6000.0) * kSampleRate / 2.0;
+    EXPECT_NEAR(field.power_between(3000.0, 6000.0), past, 1e-6 * past);
+
+    // A cabinet with one driver and a narrower baffle radiates its bass more evenly, so the
+    // same room holds more of it; the field is the cabinet's, not the room's alone.
+    SushiDSP::room::RoomScene single = garage;
+    single.cabinet = SushiDSP::room::kCabinet1x12;
+    const SushiDSP::room::DiffuseField single_field(single);
+    EXPECT_GT(single_field.band_power()[2], field.band_power()[2]);
+    EXPECT_NEAR(single_field.band_power()[2], diffuse_band_power(single)[2],
+                1e-9 * single_field.band_power()[2]);
 }
 
 TEST(Unit_Dsp, ModalSolverFindsTheGaragesEigenfrequencies)
@@ -254,7 +313,8 @@ TEST(Unit_Dsp, ModalSolverLowersTheCrossoverWhenTheCountWouldOverflow)
     ASSERT_GT(SushiDSP::room::ModalSolver::enumerate(room, 900.0).size(),
               SushiDSP::room::ModalDesign::kMaxModes);
     const auto design = std::make_unique<SushiDSP::room::ModalDesign>(
-        SushiDSP::room::ModalSolver::design(room, kSampleRate, 900.0));
+        SushiDSP::room::ModalSolver::design(room, kSampleRate, 900.0,
+                                            SushiDSP::room::ListenerKind::Ears));
     EXPECT_EQ(design->count, SushiDSP::room::ModalDesign::kMaxModes);
     EXPECT_LT(design->crossover_hz, 900.0f);
     EXPECT_GT(design->crossover_hz, 0.0f);
@@ -265,7 +325,8 @@ TEST(Unit_Dsp, ModalSolverLowersTheCrossoverWhenTheCountWouldOverflow)
 TEST(Unit_Dsp, ModalSolverSwitchesOffUnderFortyHertz)
 {
     const auto design = std::make_unique<SushiDSP::room::ModalDesign>(
-        SushiDSP::room::ModalSolver::design(SushiDSP::test::garage_scene(), kSampleRate, 39.0));
+        SushiDSP::room::ModalSolver::design(SushiDSP::test::garage_scene(), kSampleRate, 39.0,
+                                            SushiDSP::room::ListenerKind::Ears));
     EXPECT_EQ(design->count, 0u);
     EXPECT_EQ(design->crossover_hz, 0.0f);
     EXPECT_EQ(design->level_scale, 0.0f);
@@ -284,7 +345,8 @@ TEST(Unit_Dsp, ModalSolverPutsThePressureInTheCorners)
     SushiDSP::room::RoomScene corner = garage;
     corner.source_position = { 0.05, 1.0, 1.0 };
     const auto design = std::make_unique<SushiDSP::room::ModalDesign>(
-        SushiDSP::room::ModalSolver::design(corner, kSampleRate, 100.0));
+        SushiDSP::room::ModalSolver::design(corner, kSampleRate, 100.0,
+                                            SushiDSP::room::ListenerKind::Ears));
     ASSERT_GT(design->count, 0u);
     EXPECT_NEAR(design->modes[0].source_gain, std::cos(kPi * 0.05 / 6.0), 1e-6);
 }
@@ -324,7 +386,8 @@ TEST(Unit_Dsp, ModalSolverGivesTheTwoEarsDifferentGains)
     {
         garage.listener_position = { x, 2.0, 1.2 };
         const auto design = std::make_unique<SushiDSP::room::ModalDesign>(
-            SushiDSP::room::ModalSolver::design(garage, kSampleRate, 100.0));
+            SushiDSP::room::ModalSolver::design(garage, kSampleRate, 100.0,
+                                                SushiDSP::room::ListenerKind::Ears));
         ASSERT_GT(design->count, 0u);
         const double left = design->modes[0].ear_gain[0];
         const double right = design->modes[0].ear_gain[1];
@@ -343,7 +406,8 @@ TEST(Unit_Dsp, ModalSolverWritesEachModesResonatorFromItsFrequencyAndDecay)
     const std::vector<SushiDSP::room::ModalSolver::Mode> modes =
         SushiDSP::room::ModalSolver::enumerate(garage, crossover);
     const auto design = std::make_unique<SushiDSP::room::ModalDesign>(
-        SushiDSP::room::ModalSolver::design(garage, kSampleRate, crossover));
+        SushiDSP::room::ModalSolver::design(garage, kSampleRate, crossover,
+                                            SushiDSP::room::ListenerKind::Ears));
     ASSERT_EQ(design->count, modes.size());
     for (std::size_t index = 0; index < modes.size(); ++index)
     {
@@ -361,30 +425,113 @@ TEST(Unit_Dsp, ModalSolverWritesEachModesResonatorFromItsFrequencyAndDecay)
     }
 }
 
-TEST(Unit_Dsp, ModalSolverMatchesTheOctaveBelowTheCrossoverToEyring)
+TEST(Unit_Dsp, ModalSolverMatchesTheOctaveBelowTheCrossoverToTheDiffuseField)
 {
-    const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
-    const double crossover = 278.2;
-    const std::vector<SushiDSP::room::ModalSolver::Mode> modes =
-        SushiDSP::room::ModalSolver::enumerate(garage, crossover);
-    const auto design = std::make_unique<SushiDSP::room::ModalDesign>(
-        SushiDSP::room::ModalSolver::design(garage, kSampleRate, crossover));
-
     // Averaged over the cabinet and the listener, one mode's power for unit white input is
-    // level_scale^2 times the section's 2 / (1 - r^2); the octave [139.1, 278.2) sum must equal
-    // the diffuse-field power Eyring leaves in that octave.
-    double power_sum = 0.0;
-    for (const SushiDSP::room::ModalSolver::Mode& mode : modes)
+    // level_scale^2 times the section's 2 / (1 - r^2); the octave [f_s / 2, f_s) sum must
+    // equal the power the diffuse field of that room and cabinet holds in the octave, in all
+    // three reference rooms, so the modal layer and the tail read one reference.
+    const std::array<SushiDSP::room::RoomScene, 3> rooms = { SushiDSP::test::garage_scene(),
+                                                             SushiDSP::test::bedroom_scene(),
+                                                             SushiDSP::test::block_room_scene() };
+    for (std::size_t room = 0; room < rooms.size(); ++room)
     {
-        if (mode.frequency_hz < 0.5 * crossover)
+        const double crossover =
+            SushiDSP::room::EyringDecay::schroeder_frequency_hz(rooms[room]);
+        const std::vector<SushiDSP::room::ModalSolver::Mode> modes =
+            SushiDSP::room::ModalSolver::enumerate(rooms[room], crossover);
+        const auto design = std::make_unique<SushiDSP::room::ModalDesign>(
+            SushiDSP::room::ModalSolver::design(rooms[room], kSampleRate, crossover,
+                                                SushiDSP::room::ListenerKind::Ears));
+        double power_sum = 0.0;
+        for (const SushiDSP::room::ModalSolver::Mode& mode : modes)
         {
-            continue;
+            if (mode.frequency_hz < 0.5 * crossover)
+            {
+                continue;
+            }
+            const double radius = std::pow(10.0, -3.0 / (mode.decay_seconds * kSampleRate));
+            power_sum += 2.0 / (1.0 - radius * radius);
         }
-        const double radius = std::pow(10.0, -3.0 / (mode.decay_seconds * kSampleRate));
-        power_sum += 2.0 / (1.0 - radius * radius);
+        const double expected =
+            diffuse_band_power(rooms[room], 0.5 * static_cast<double>(design->crossover_hz),
+                               static_cast<double>(design->crossover_hz));
+        const double scale = static_cast<double>(design->level_scale);
+        EXPECT_GT(scale, 0.0) << "room " << room;
+        EXPECT_NEAR(scale * scale * power_sum, expected, 1e-5 * expected) << "room " << room;
     }
-    const double expected = eyring_band_power(garage, 0.5 * crossover, crossover);
-    const double scale = static_cast<double>(design->level_scale);
-    EXPECT_GT(scale, 0.0);
-    EXPECT_NEAR(scale * scale * power_sum, expected, 1e-5 * expected);
+
+    // The garage's octave [139.09, 278.18) holds 2.334e-2 of a unit white input's variance.
+    // Eyring alone, 16 pi times 1.33 to 1.34 s over 0.161 * 60 m3 spread as 2 / fs over the
+    // octave, would give 4.02e-2; the ratio sits between the 4x12's mean radiated power at
+    // the two bands the octave spans, 10^(-0.299) at 250 Hz and 10^(-0.112) at 125 Hz.
+    const SushiDSP::room::RoomScene garage = rooms[0];
+    const double garage_octave = diffuse_band_power(garage, 139.09, 278.18);
+    EXPECT_NEAR(garage_octave, 2.334e-2, 0.003e-2);
+    const std::array<double, SushiDSP::room::kBandCount> rt60 =
+        SushiDSP::room::EyringDecay::rt60_seconds(garage);
+    std::array<double, SushiDSP::room::kBandCount> eyring{};
+    for (std::size_t band = 0; band < SushiDSP::room::kBandCount; ++band)
+    {
+        eyring[band] = 16.0 * kPi * rt60[band] / (0.161 * garage.volume_m3());
+    }
+    double eyring_alone = 0.0;
+    constexpr int kSteps = 4096;
+    for (int step = 0; step < kSteps; ++step)
+    {
+        eyring_alone += band_value_at(eyring, 139.09 + (step + 0.5) * 139.09 / kSteps)
+            * 139.09 / kSteps * 2.0 / kSampleRate;
+    }
+    EXPECT_NEAR(eyring_alone, 4.02e-2, 0.01e-2);
+    EXPECT_GT(garage_octave / eyring_alone, std::pow(10.0, -0.299));
+    EXPECT_LT(garage_octave / eyring_alone, std::pow(10.0, -0.112));
+}
+
+TEST(Unit_Dsp, ModalSolverReadsTheMicrophoneAtOnePoint)
+{
+    // The microphone listener puts psi at microphone_position in both ear gains; the ears
+    // listener puts psi at the two ears 8.5 cm to either side of listener_position, so a
+    // listener at (5.4, 3.4, 2.0) facing +x reads psi at y = 3.485 and y = 3.315. The
+    // resonators, the count, the crossover and the level are the room's, the same for both.
+    SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+    scene.source_position = { 0.4, 0.5, 0.5 };
+    scene.listener_position = { 5.4, 3.4, 2.0 };
+    scene.microphone_position = { 1.0, 0.5, 0.5 };
+    const double crossover = SushiDSP::room::EyringDecay::schroeder_frequency_hz(scene);
+    const auto ears = std::make_unique<SushiDSP::room::ModalDesign>(
+        SushiDSP::room::ModalSolver::design(scene, kSampleRate, crossover,
+                                            SushiDSP::room::ListenerKind::Ears));
+    const auto microphone = std::make_unique<SushiDSP::room::ModalDesign>(
+        SushiDSP::room::ModalSolver::design(scene, kSampleRate, crossover,
+                                            SushiDSP::room::ListenerKind::Microphone));
+    const std::vector<SushiDSP::room::ModalSolver::Mode> modes =
+        SushiDSP::room::ModalSolver::enumerate(scene, crossover);
+    ASSERT_EQ(ears->count, modes.size());
+    ASSERT_EQ(microphone->count, ears->count);
+    EXPECT_EQ(microphone->crossover_hz, ears->crossover_hz);
+    EXPECT_EQ(microphone->level_scale, ears->level_scale);
+
+    const SushiDSP::room::Vec3 left = { 5.4, 3.485, 2.0 };
+    const SushiDSP::room::Vec3 right = { 5.4, 3.315, 2.0 };
+    std::uint32_t differing = 0;
+    for (std::size_t index = 0; index < modes.size(); ++index)
+    {
+        const float at_microphone = static_cast<float>(SushiDSP::room::ModalSolver::mode_shape(
+            modes[index], scene, scene.microphone_position));
+        EXPECT_EQ(microphone->modes[index].ear_gain[0], at_microphone) << "mode " << index;
+        EXPECT_EQ(microphone->modes[index].ear_gain[1], at_microphone) << "mode " << index;
+        EXPECT_EQ(microphone->modes[index].section, ears->modes[index].section)
+            << "mode " << index;
+        EXPECT_EQ(microphone->modes[index].source_gain, ears->modes[index].source_gain)
+            << "mode " << index;
+        EXPECT_FLOAT_EQ(ears->modes[index].ear_gain[0], static_cast<float>(
+            SushiDSP::room::ModalSolver::mode_shape(modes[index], scene, left)))
+            << "mode " << index;
+        EXPECT_FLOAT_EQ(ears->modes[index].ear_gain[1], static_cast<float>(
+            SushiDSP::room::ModalSolver::mode_shape(modes[index], scene, right)))
+            << "mode " << index;
+        differing += microphone->modes[index].ear_gain[0] != ears->modes[index].ear_gain[0]
+            ? 1u : 0u;
+    }
+    EXPECT_GT(differing, modes.size() / 2);
 }

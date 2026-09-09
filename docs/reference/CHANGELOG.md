@@ -8,6 +8,9 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
 The room track, spec `docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
 `docs/superpowers/plans/2026-09-08-room-acoustics.md`.
 
+- 2026-09-09 — Scaled the modal layer and the tail to one diffuse-field reference, the tail carrying what the taps leave of it per band (`DiffuseField.hpp`, `ModalSolver`, `LateReverbDesign`, spec §6.3 and §9a.4).
+- 2026-09-09 — Moved the modal receiver into the solver as a listener argument and deleted `RoomNode::place_modal_receiver` (`ModalSolver::design`, `build_render_set`, `RoomNode`).
+- 2026-09-09 — Corrected the spec's seam, handover and tone-correction claims and restated the seam acceptance per layer (spec §4.1, §6.1, §9a.4 and §9a.6, `docs/reference/KNOWN_ISSUES.md`).
 - 2026-09-09 — Rendered the ears through the HRIR pair, the decoder and the diffuse pair, wired `direct_delay`, and gave the spherical head a decoder (`RoomNode`, `SphericalHeadHrtf`, `modules/room/README.md`, spec §9.4).
 - 2026-09-09 — Averaged the cabinet's closed form over each octave band instead of sampling its centre, and built the index grid once instead of per solve (`CabinetDirectivity`, `modules/room/README.md`, spec §7 and §7.1).
 - 2026-09-09 — Gave each section of the band fit a peak as well as a step, seeded from the target, so a tap filter can dip (`BandResponseFit`, `modules/room/README.md`, spec §4.2 and §5.3).
