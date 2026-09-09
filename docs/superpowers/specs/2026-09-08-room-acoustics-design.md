@@ -370,8 +370,16 @@ incoherent above: the interaural coherence of a diffuse field is sin(k·d) / (k�
 inter-ear spacing of about 0.17 m (Lindevald and Benade, "Two-ear correlation in the statistical
 sound fields of rooms", JASA 80(2), 1986). So the tail takes two orthogonal ±1 output vectors,
 A and B, and forms L = A and R = H_γ(A) + H_s(B), where H_γ and H_s are the coherence function and
-sqrt(1 − γ²) as fitted 4th-order filters through the same `BandResponseFit`, evaluated at the six
-centres. Both ears then pass through the diffuse-field average of the HRTF set (one 128-tap FIR
+sqrt(1 − γ²) as a power-complementary second-order pair crossing at the frequency where the
+coherence falls to 1/sqrt(2), 446.9 Hz for d = 0.17 m. The pair is not fitted through
+`BandResponseFit` at the six band centres, because sin(k·d)/(k·d) has its first zero at
+c / (2d) = 1008.8 Hz and the 1, 2 and 4 kHz centres all land within a percent of it, so the
+sampled target reads −41 dB at three of the six points and asks for a 37 dB fall inside one
+octave. Above that first zero the coherence oscillates about zero with a magnitude never above
+0.22, so what the tail has to reproduce there is that the field is incoherent, not the sign and
+size of a particular ripple. The complementary pair also holds |H_γ|² + |H_s|² = 1 exactly, which
+two independent fits do not, and an error in the tail's total energy is more audible than an error
+in its coherence. Both ears then pass through the diffuse-field average of the HRTF set (one 128-tap FIR
 per ear, computed at conversion time, §9), which gives the tail the colour of a head in a room
 without the direction any single HRIR would impose.
 
