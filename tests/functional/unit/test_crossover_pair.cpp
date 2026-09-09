@@ -23,7 +23,7 @@
 
 /**
  * @file test_crossover_pair.cpp
- * @brief Tests for CrossoverPair, the Linkwitz-Riley split between the wave and geometric layers.
+ * @brief Tests for CrossoverPair, the power-complementary split between the wave and geometric layers.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -116,36 +116,53 @@ namespace
     }
 }
 
-TEST(Unit_Dsp, CrossoverPairSumsToUnityMagnitudeEverywhere)
+TEST(Unit_Dsp, CrossoverPairSumsToUnityPowerEverywhere)
 {
+    // The halves feed two uncorrelated fields, so their powers add at the seam, and a
+    // fourth-order Butterworth pair at one corner holds 1 / (1 + x^8) + x^8 / (1 + x^8) = 1
+    // at every frequency; the bilinear transform keeps the identity exact in the digital
+    // domain. What remains is float rounding and the response's tail past 8192 samples, both
+    // under 0.001 dB, so the bound is 0.01 dB.
     const ImpulseResponses responses = impulse_responses(kCrossoverHz);
-    const std::vector<double> sum_db = magnitude_db(responses.sum);
+    const std::vector<double> low_db = magnitude_db(responses.low);
+    const std::vector<double> high_db = magnitude_db(responses.high);
     const double bin_hz = kSampleRate / kFftSize;
     const auto first_bin = static_cast<std::size_t>(std::ceil(20.0 / bin_hz));
     const auto last_bin = static_cast<std::size_t>(std::floor(20000.0 / bin_hz));
     for (std::size_t bin = first_bin; bin <= last_bin; ++bin)
     {
-        EXPECT_NEAR(sum_db[bin], 0.0, 0.1) << "bin " << bin << " at " << bin * bin_hz << " Hz";
+        const double power = std::pow(10.0, low_db[bin] / 10.0) + std::pow(10.0, high_db[bin] / 10.0);
+        EXPECT_NEAR(10.0 * std::log10(power), 0.0, 0.01)
+            << "bin " << bin << " at " << bin * bin_hz << " Hz";
     }
 }
 
-TEST(Unit_Dsp, CrossoverPairIsMinusSixDecibelsPerHalfAtTheCrossover)
+TEST(Unit_Dsp, CrossoverPairIsMinusThreeDecibelsPerHalfAtTheCrossover)
 {
-    // Each half is two Butterworth sections at -3.01 dB, so -6.02 dB at the crossover.
+    // Each half is a fourth-order Butterworth, at half power at its corner: -3.01 dB.
     const ImpulseResponses responses = impulse_responses(kCrossoverHz);
-    EXPECT_NEAR(magnitude_db_at(responses.low, kCrossoverHz), -6.02, 0.1);
-    EXPECT_NEAR(magnitude_db_at(responses.high, kCrossoverHz), -6.02, 0.1);
+    EXPECT_NEAR(magnitude_db_at(responses.low, kCrossoverHz), -3.01, 0.05);
+    EXPECT_NEAR(magnitude_db_at(responses.high, kCrossoverHz), -3.01, 0.05);
+}
+
+TEST(Unit_Dsp, CrossoverPairAmplitudeSumPeaksThreeDecibelsAtTheCrossover)
+{
+    // The price of power complementarity: the two halves are not phase-aligned, so one signal
+    // sent through both and summed reads 2 / (0.7654 * 1.8478) = sqrt 2 at the corner,
+    // +3.01 dB. No caller sums a correlated signal through the pair; this records the cost.
+    const ImpulseResponses responses = impulse_responses(kCrossoverHz);
+    EXPECT_NEAR(magnitude_db_at(responses.sum, kCrossoverHz), 3.01, 0.05);
 }
 
 TEST(Unit_Dsp, CrossoverPairFallsTwentyFourDecibelsPerOctave)
 {
-    // Two octaves above the crossover a fourth-order roll-off sits 48 dB under the passband;
-    // the closed form 20 log10(1 / (1 + 4^4)) is -48.17 dB.
+    // Two octaves above the crossover a fourth-order Butterworth sits 48 dB under the passband;
+    // the closed form 10 log10(1 / (1 + 4^8)) is -48.16 dB.
     const ImpulseResponses responses = impulse_responses(kCrossoverHz);
     const double passband_db = magnitude_db_at(responses.low, 5.0);
     const double two_octaves_up_db = magnitude_db_at(responses.low, 4.0 * kCrossoverHz);
     EXPECT_NEAR(passband_db, 0.0, 0.01);
-    EXPECT_NEAR(two_octaves_up_db - passband_db, -48.0, 1.0);
+    EXPECT_NEAR(two_octaves_up_db - passband_db, -48.16, 0.1);
 }
 
 TEST(Unit_Dsp, CrossoverPairResetClearsItsState)

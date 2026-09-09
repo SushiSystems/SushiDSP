@@ -34,7 +34,7 @@ This file records what the code in this directory does.
 | Reading a converted HRTF asset from disk | `HrtfSetLoader` |
 | Third-order Ambisonic encode gains for a direction | `AmbisonicEncoder` |
 | Sixteen Ambisonic channels to two ears | `BinauralDecoder` |
-| The Linkwitz-Riley pair at the modal seam | `CrossoverPair` |
+| The power-complementary Butterworth pair at the modal seam | `CrossoverPair` |
 | Up to 512 second-order resonators | `ModalBank` |
 | Everything the audio thread reads for one scene | `RoomRenderSet`, `build_render_set` |
 | What a host calls to install a scene or an HRTF | `IRoomHost` |
@@ -264,17 +264,9 @@ have no counterpart for it. Before the shared reference the garage's seam steppe
 pose, -1.64 dB under and -9.37 dB over: the tail was 10 dB under the field and the modal octave
 2 dB over it.
 
-One thing the seam still does wrong, outside this directory:
-
-- **The pair dips 3 dB at f_s.** A Linkwitz-Riley pair sums flat in magnitude only when both
-  halves carry the same signal. Here the low half carries the modal field and the high half the
-  geometric field, two responses with unrelated phases, so at the seam their powers add:
-  (1 + x^8) / (1 + x^4)^2 with x = f / f_s, -3 dB at f_s, -1.7 dB half an octave either side,
-  -0.5 dB an octave away, and each octave beside f_s 2.4 dB under its layer's level. The split
-  should be a power-complementary pair, a fourth-order Butterworth low-pass and high-pass at one
-  corner, whose powers sum to one at every frequency at the same 24 dB per octave; that is a
-  change to `CrossoverPair`'s two section Q values and to `test_crossover_pair.cpp`, recorded in
-  `docs/reference/KNOWN_ISSUES.md`.
+The pair is power-complementary, a fourth-order Butterworth low-pass and high-pass at one
+corner with section Q 0.5412 and 1.3066, because the two halves carry uncorrelated fields and
+their powers add; until 2026-09-09 it was Linkwitz-Riley and the seam dipped 3 dB at f_s.
 
 ## The listener, and where the standing waves are read
 

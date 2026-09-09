@@ -95,7 +95,7 @@ modules/room/include/SushiDSP/room/
     ModalSolver.hpp            control thread (DE3): the shoebox's eigenmodes below the Schroeder
                                frequency, their damping and their source and ear gains
     ModalBank.hpp              audio thread (DE3): up to kMaxModes second-order resonators
-    CrossoverPair.hpp          audio thread (DE3): the Linkwitz-Riley pair that splits the field
+    CrossoverPair.hpp          audio thread (DE3): the Butterworth pair that splits the field
                                at the Schroeder frequency
     max/RayTracer.hpp          control thread (DE8): stochastic rays -> per-band directional
                                energy histogram of the late field
@@ -835,18 +835,19 @@ f_s is computed per scene as 2000·sqrt(RT60_mid / V), with RT60_mid the Eyring 
 500 Hz. Three cases:
 
 - **The usual room**, f_s between 60 and 400 Hz: the modal layer carries everything below f_s, the
-  geometric layers everything above, through a fourth-order Linkwitz-Riley pair. An LR4 pair's two
-  halves sum to unit magnitude in phase only when both carry the same signal. Here they do not:
-  the low half carries the modal field and the high half the geometric field, two responses of the
-  same room with unrelated phases, so at the seam their powers add and not their amplitudes,
-  |H_low|² + |H_high|² = (1 + x⁸) / (1 + x⁴)² with x = f / f_s, a dip of −3 dB at f_s, −1.7 dB
-  half an octave to either side and −0.5 dB an octave away, and each octave beside f_s reads 2.4 dB
-  under the level its layer was scaled to. Until 2026-09-09 this section said the seam adds no
-  dip. What the renderer has to do about it is split with a power-complementary pair, a
-  fourth-order Butterworth low-pass and high-pass of the same corner, whose powers sum to
-  1 / (1 + x⁸) + x⁸ / (1 + x⁸) = 1 at every frequency at the same 24 dB per octave; that is a change
-  to `CrossoverPair`'s section Q values and to its test, and `docs/reference/KNOWN_ISSUES.md`
-  carries it until it lands.
+  geometric layers everything above, through a power-complementary pair: a fourth-order
+  Butterworth low-pass and high-pass at one corner, section Q values 1 / (2 cos 22.5°) = 0.5412
+  and 1 / (2 cos 67.5°) = 1.3066, whose powers sum to 1 / (1 + x⁸) + x⁸ / (1 + x⁸) = 1 at every
+  frequency with x = f / f_s, at 24 dB per octave. The identity, not the amplitude sum, is the one
+  the seam needs: the low half carries the modal field and the high half the geometric field, two
+  responses of the same room with unrelated phases, so their powers add. Until 2026-09-09 the pair
+  was Linkwitz-Riley, two Butterworth sections of Q 0.7071 per half, whose halves sum flat in
+  amplitude and in phase only when both carry the same signal; on uncorrelated halves the power
+  sum read (1 + x⁸) / (1 + x⁴)², −3 dB at f_s, −1.7 dB half an octave to either side, and each
+  octave beside f_s 2.4 dB under the level its layer was scaled to. The cost of the Butterworth
+  pair is the converse: one correlated signal through both halves sums to +3 dB at the corner,
+  and no caller does that. `CrossoverPairSumsToUnityPowerEverywhere` holds the power sum within
+  0.01 dB from 20 Hz to 20 kHz.
   Both layers are scaled to one reference, `DiffuseField` (§6.3): the modal layer's steady-state
   energy in the octave below f_s, averaged over the cabinet's and the receiver's positions, equals
   the field's integral over that octave, an identity of the modal sum (the mean of ψ² is the mode's
@@ -858,9 +859,10 @@ f_s is computed per scene as 2000·sqrt(RT60_mid / V), with RT60_mid the Eyring 
   which the rays have no counterpart for. The octave averages either side of f_s also carry the
   reference's own change across the seam, the 4x12's directivity index rising 4.6 dB between the
   250 and 500 Hz bands and RT60(f)'s shape, so they are not within 2 dB of each other in general:
-  measured energy-averaged over six poses, the octave below reads −0.3 dB against the octave above
-  in the garage, +0.6 dB in the bedroom and +3.1 dB in the block room, whose absorption falls from
-  0.10 at 125 Hz to 0.05 at 250 Hz. The acceptance (§9a.6) therefore holds each layer to the
+  measured energy-averaged over six poses through the Butterworth pair, the octave below reads
+  +0.2 dB against the octave above in the garage, +1.3 dB in the bedroom and +3.8 dB in the block
+  room, whose absorption falls from 0.10 at 125 Hz to 0.05 at 250 Hz; through the Linkwitz-Riley
+  pair the same three read −0.3, +0.6 and +3.1 dB. The acceptance (§9a.6) therefore holds each layer to the
   reference, the modal one through its pose factor.
 - **A room so large or so dead that f_s falls under 40 Hz** (a 300 m³ hall at 0.3 s gives 63 Hz; a
   dead 500 m³ studio at 0.25 s gives 45 Hz): the mode count is small, the layer is cheap, and when
@@ -898,8 +900,9 @@ shape predicts. The seam is level-matched: in each of the three reference rooms,
 over six poses, the octave under f_s reads within 2 dB of the modal design's own power at those
 poses through the low half, and the octave over f_s within 2 dB of `DiffuseField` through the high
 half, measured at the microphone; the raw step between the two octaves is recorded and not
-bounded (§9a.4). Measured 2026-09-09: +0.4 and −0.5 dB in the garage, +0.7 and −0.1 dB in the
-bedroom, +0.8 and −1.2 dB in the block room. The two renders differ by under 1 dB below f_s,
+bounded (§9a.4). Measured 2026-09-09 through the Butterworth pair, each expectation taken
+through its own half's power 1 / (1 + x⁸): +0.5 and −0.4 dB in the garage, +0.9 and 0.0 dB in
+the bedroom, +0.8 and −1.2 dB in the block room. The two renders differ by under 1 dB below f_s,
 because the same bank produced both. A moved cabinet
 publishes new modal gains within one GUI frame. `ModalBank::process` and `CrossoverPair::process`
 pass the allocation trap, and the modal and crossover rows of §10's hybrid table are measured by
@@ -929,7 +932,7 @@ acceptance in §12 is on the measured numbers.
 | FDN, 16 lines: 16 × 18 (filters) + 64 (Hadamard) + 64 (in/out vectors) | 256 × 416 | 0.11 | 0.07 | 1.3 % |
 | Tail binauralisation: 2 coherence filters, 2 diffuse-field FIRs of 128 taps | 256 × (36 + 256) | 0.07 | 0.03 | 0.6 % |
 | Modal bank, 143 modes × 13 flops (garage; 512 modes at the cap is 3.6×) | 256 × 143 × 13 | 0.48 | 0.32 | 6.0 % |
-| Crossover pair, LR4 on two ears and the modal input: 6 biquads | 256 × 54 | 0.01 | 0.01 | 0.2 % |
+| Crossover pair, Butterworth on two ears and the modal input: 6 biquads | 256 × 54 | 0.01 | 0.01 | 0.2 % |
 | Mix, smoothing, bookkeeping | 256 × 10 | 0.003 | 0.01 | 0.2 % |
 | **Steady state** | | **2.79** | **1.63** | **31 %** |
 | Swap block: early reflections rendered twice, for 512 frames | + 1.41 | 4.20 | 2.57 | 48 % |
@@ -966,7 +969,7 @@ binauralisation; everything else, the modal bank included, is the hybrid's.
 | --- | --- | --- | --- | --- |
 | Direct path, early reflections, Ambisonic decode (as above) | | 2.12 | 1.19 | 22.3 % |
 | Modal bank, 143 modes × 13 flops (garage; 512 modes at the cap is 3.6×) | 256 × 143 × 13 | 0.48 | 0.32 | 6.0 % |
-| Crossover pair, LR4 on two ears and the modal input: 6 biquads | 256 × 54 | 0.01 | 0.01 | 0.2 % |
+| Crossover pair, Butterworth on two ears and the modal input: 6 biquads | 256 × 54 | 0.01 | 0.01 | 0.2 % |
 | Ray tail, 2 × 57 600-tap convolutions, 450 partitions each | 2 × 2 × (FFT₂₅₆ + 450 × 129 × 8 + IFFT) | 1.90 | 0.65 | 12.2 % |
 | **Steady state** | | **4.51** | **2.17** | **41 %** |
 | Swap block, early set and modal gains only (a moved cabinet or head) | + 1.41 | 5.92 | 3.11 | 58 % |
@@ -1001,7 +1004,7 @@ remedy is the shared-spectra decoder of §9.4 and the second is DE7.
   (α = 0.29 at 125 Hz). The frequency is right in both cases. Solving the damped eigenproblem
   against a complex wall impedance costs what §9a.2 measures FDTD at, for a decay error inside a
   layer the hybrid mode did not have at all before 2026-09-08.
-- **The FDN's own modes below f_s.** They are crossed out by the Linkwitz-Riley pair of §9a.4 in
+- **The FDN's own modes below f_s.** They are crossed out by the Butterworth pair of §9a.4 in
   both quality modes, so the FDN carries no low end and its line lengths are designed for the
   band above f_s alone.
 - **FDTD, or any grid solver.** §9a.2 shows it at two hundred times the cost of the modal bank for
