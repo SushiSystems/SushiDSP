@@ -23,6 +23,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "RigController.hpp"
 
 namespace ui
@@ -32,5 +34,7 @@ namespace ui
     /// node placement or connect step from the user.
     /// @param rig The rig to edit.
     /// @param chain_end The slot to split after — typically the last slot in chain order.
-    void DrawSplitterPicker(RigController& rig, RigController::SlotId chain_end);
+    /// @param error Out: the failure message from a rejected edit, cleared by one that succeeds.
+    void DrawSplitterPicker(RigController& rig, RigController::SlotId chain_end,
+                             std::string& error);
 }
