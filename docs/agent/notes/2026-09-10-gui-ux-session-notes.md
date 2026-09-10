@@ -7,9 +7,11 @@ design spec. Not a spec itself — see `docs/design/` once one exists for this w
 
 - The "Audio device" panel opens pinned to the top-left corner. It should open centered
   in the window instead.
-- The device list is hardcoded (`Roland Rubix` appears as a fixed entry alongside
-  `SDL2 (no input)`). It must instead enumerate the real audio devices present on the
-  system, not a hardcoded name.
+- ~~The device list is hardcoded (`Roland Rubix` appears as a fixed entry).~~ **Corrected
+  after code inspection:** the device list already enumerates real ASIO drivers via
+  `SushiDSP::AsioAudioDevice::enumerate_drivers()`; `Roland Rubix` was a real driver name
+  on the machine the screenshot was taken on, not a hardcoded string. See
+  `docs/design/gui_ux_redesign.md` §2.
 
 ## Layout redesign target (AmpliTube 5-style)
 
