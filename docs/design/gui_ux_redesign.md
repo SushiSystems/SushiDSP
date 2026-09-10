@@ -20,14 +20,22 @@ collapsible panel with a bounded track count.
 ## §2 Audio-device panel
 
 - Opens **centered** in the main window, not pinned to the top-left corner.
-- The device list enumerates the **real audio devices present on the running system** at
-  the time the panel opens. No device name is hardcoded in source; `Roland Rubix` as a
-  fixed list entry is removed. The existing `SDL2 (no input)` entry, if it represents a
-  real always-available backend rather than a placeholder, stays as one enumerated option
-  among others — it is not a second hardcoded name.
-- Device enumeration is sourced from whatever backend(s) the host already links (ASIO,
-  SDL2, etc.) — this spec does not add a new audio backend, only replaces a hardcoded list
-  with a call into the existing backend's device-enumeration API.
+- **Correction (2026-09-10):** the device list was assumed to hardcode a device name
+    (`Roland Rubix`) based on what the panel showed during the walkthrough. Code
+    inspection found no such hardcoding: `apps/host_gui/main.cpp:211-217` already calls
+    `SushiDSP::AsioAudioDevice::enumerate_drivers()` and `apps/host_gui/ui/DeviceSettings.cpp`
+    already renders that list live; `Roland Rubix` in the screenshot was a real ASIO
+    driver name enumerated from the machine it was captured on, not a literal in source.
+    No `"Roland Rubix"` string exists anywhere under `apps/host_gui/`. This item is
+    **dropped** — device enumeration is already correct and out of scope for this
+    redesign.
+- The only remaining work in this section is centering: `DrawDeviceSettings`
+  (`apps/host_gui/ui/DeviceSettings.cpp:34`) currently calls
+  `ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing)` with no matching
+  `SetNextWindowPos`, so it opens at ImGui's default placement. It must instead compute
+  a centered position from the current display size and pass it via
+  `ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f))` (or
+  equivalent), each time the panel transitions from closed to open.
 
 ## §3 Main window layout (AmpliTube-5-style)
 
@@ -106,13 +114,17 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
   (`include/SushiDSP/io/Ir.hpp`, `IrLoader.hpp`) and convolution
   (`include/SushiDSP/math/PartitionedConvolution.hpp`,
   `include/SushiDSP/math/StreamingConvolution.hpp`) are owned by whichever amp hosts them.
-- **Open question, to resolve before implementation planning:** whether `sushidsp.cabinet`
-  is a new standalone `IAudioNode` that wraps `ICabinetHost`'s existing convolution
-  machinery into its own node (leaving amp nodes' built-in `ICabinetHost` support either
-  removed or bypassed when a standalone cabinet is present downstream), or whether the
-  amp-embedded cabinet path is retired outright in favor of the standalone node for every
-  amp. This is a module-boundary and data-ownership decision — per this project's global
-  rules, it is asked, not picked arbitrarily, when the implementation plan reaches it.
+- **Decision (owner, 2026-09-10):** `sushidsp.cabinet` is the only cabinet path. Amp node
+  classes (`modules/jcm800`, `modules/peavey5150`, `modules/diezel_vh4`,
+  `modules/mesa_mark2c`) drop their `ICabinetHost` implementation and the built-in
+  convolution it drove; `ICabinetHost` becomes the interface `sushidsp.cabinet` alone
+  implements. A rig that wants a cabinet places the `sushidsp.cabinet` node after its amp
+  explicitly; there is no amp with a cabinet baked in and no dual-path (no scenario where
+  both an amp's built-in cabinet and a standalone cabinet node could convolve the same
+  signal). This changes each amp's default signal path — an amp rig that relied on the
+  built-in cabinet now needs an explicit `sushidsp.cabinet` node added to sound the same,
+  which is an intentional, one-time break tracked as part of this redesign, not a
+  regression to avoid.
 
 ## §9 Out of scope
 
