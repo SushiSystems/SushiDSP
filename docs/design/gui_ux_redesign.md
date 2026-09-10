@@ -1,7 +1,8 @@
 # GUI/UX redesign — host app
 
-**Status:** §8 (cabinet node) implemented, `docs/superpowers/plans/2026-09-10-cabinet-node.md`;
-§2-§7 still design-only, open phase.
+**Status:** implemented in full. §8 (cabinet node) by
+`docs/superpowers/plans/2026-09-10-cabinet-node.md`; §2-§7 by
+`docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 Raw findings this spec is built from: `docs/agent/notes/2026-09-10-gui-ux-session-notes.md`.
 Reference screenshots: `image.png`, `image1.png` (AmpliTube 5, the layout model),
@@ -19,6 +20,8 @@ wiring, promotes the cabinet to a first-class rig component, and turns the mini-
 collapsible panel with a bounded track count.
 
 ## §2 Audio-device panel
+
+**Implemented** by Task 1 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 - Opens **centered** in the main window, not pinned to the top-left corner.
 - **Correction (2026-09-10):** the device list was assumed to hardcode a device name
@@ -40,6 +43,8 @@ collapsible panel with a bounded track count.
 
 ## §3 Main window layout (AmpliTube-5-style)
 
+**Implemented** by Tasks 3 and 4 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+
 Reference: `image1.png`.
 
 - **Top-left:** preset controls — save, load, and any other preset actions currently on the
@@ -59,6 +64,8 @@ Reference: `image1.png`.
 
 ## §4 Splitter / mixer automation
 
+**Implemented** by Task 5 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+
 - The user never adds a splitter or mixer node by hand.
 - The rig design view's splitter-style picker (§3, bottom) offers the available splitter
   styles. Selecting one:
@@ -74,6 +81,8 @@ Reference: `image1.png`.
 
 ## §5 Transport / metronome bar
 
+**Implemented** by Tasks 2 and 4 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+
 Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
 
 - Moves from the top of the window (current) to the bottom, beside/above the rig design
@@ -86,6 +95,8 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
   placement change only.
 
 ## §6 Mini-DAW panel
+
+**Implemented** by Task 6 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 - Functionally unchanged from the current REC/Play/Stop/Loop/lane-view behavior
   (`image4.png`).
@@ -103,6 +114,8 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
     feature is added in this pass.**
 
 ## §7 Remove the file/folder browser panel
+
+**Implemented** by Task 3 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 - The panel shown in `image5.png` ("Drag a take or a song onto a lane, or c[lick...]" /
   "(no folder)" file browser, currently under the gear list in `image4.png`) is **removed

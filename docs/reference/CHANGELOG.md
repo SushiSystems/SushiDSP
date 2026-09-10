@@ -270,6 +270,8 @@ while this one takes a ratio that changes per block.
 
 ## AmpliTube-style GUI
 
+- 2026-09-10 — Rebuilt the host GUI's main window into an AmpliTube-5-style layout, centered the audio-device panel, added the splitter picker and a collapsible mini-DAW, and removed the unused takes panel (`apps/host_gui`).
+
 `apps/host_gui` stops being one 567-line `main.cpp` drawing sliders and a vertical list. No new
 third-party dependency, no image file, no font file: every panel, knob and link is drawn with
 `ImDrawList`.

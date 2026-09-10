@@ -49,9 +49,6 @@ starts on that without the verdict.
 
 ## Host
 
-- **GUI/UX redesign.** Audio-device panel centering, an AmpliTube-5-style main layout,
-  automated splitter/mixer wiring, a collapsible 8-track-capped mini-DAW, and removal of the
-  unused file/folder browser panel. See `docs/design/gui_ux_redesign.md`.
 - **`RigController::publish()` rebuilds every node.** One structural edit builds the node set
   three times, which is why "No bundled HRTF set" prints three times on a graph change and why a
   room edit through the graph empties the tail (KNOWN_ISSUES, "A structural rig edit empties the
