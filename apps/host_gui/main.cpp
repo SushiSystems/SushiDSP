@@ -541,20 +541,24 @@ int main(int argc, char** argv)
         glfwGetFramebufferSize(window, &display_w, &display_h);
         const float width = static_cast<float>(display_w);
         const float height = static_cast<float>(display_h);
-        const float top_height = 48.0f;
-        // Two rows: one row cannot hold the transport's controls at the reference window's width.
-        const float transport_height = 76.0f;
+
+        const float preset_bar_height = 40.0f;   // top-left preset controls (Save/Load/name)
+        const float transport_height = 76.0f;    // bottom transport/metronome bar
+        const float rig_design_height = 160.0f;  // bottom rig-design (chain) view, splitter picker at its left
+        const float bottom_height = transport_height + rig_design_height;
+        const float center_top = preset_bar_height;
+        const float center_height = std::max(height - preset_bar_height - bottom_height, 240.0f);
+        const float settings_width = width * 0.55f;   // left-of-center: selected node's settings
+        const float gear_width = width - settings_width; // right-of-center: gear browser
+
+        // The mini-DAW panel (arrangement view + meter bar) still occupies the space below the
+        // rig-design view for now; Task 6 makes it collapsible and repositions it.
         const float meter_height = 40.0f;
-        const float browser_width = 300.0f;
-        const float body_top = top_height + transport_height;
-        const float region_height = std::max(height - body_top - meter_height, 240.0f);
-        const float body_height = region_height * 0.5f;
-        const float arrangement_top = body_top + body_height;
-        const float arrangement_height = region_height - body_height;
-        const float stage_height = body_height * 0.58f;
+        const float arrangement_top = center_top + center_height;
+        const float arrangement_height = std::max(height - bottom_height - arrangement_top - meter_height, 0.0f);
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-        ImGui::SetNextWindowSize(ImVec2(width, top_height));
+        ImGui::SetNextWindowSize(ImVec2(width, preset_bar_height));
         ImGui::Begin("##top", nullptr, kRegionFlags);
         if (rig_controller_storage.has_value())
         {
@@ -581,18 +585,9 @@ int main(int argc, char** argv)
         }
         ImGui::End();
 
-        ImGui::SetNextWindowPos(ImVec2(0.0f, top_height));
-        ImGui::SetNextWindowSize(ImVec2(width, transport_height));
-        ImGui::Begin("##transport", nullptr, kRegionFlags);
-        if (rig_controller_storage.has_value())
-        {
-            ui::DrawTransportBar(*rig_controller_storage, transport_error);
-        }
-        ImGui::End();
-
-        ImGui::SetNextWindowPos(ImVec2(0.0f, body_top));
-        ImGui::SetNextWindowSize(ImVec2(width - browser_width, stage_height));
-        ImGui::Begin("##stage", nullptr, kRegionFlags);
+        ImGui::SetNextWindowPos(ImVec2(0.0f, center_top));
+        ImGui::SetNextWindowSize(ImVec2(settings_width, center_height));
+        ImGui::Begin("##settings", nullptr, kRegionFlags);
         if (rig_controller_storage.has_value())
         {
             if (selected_slot.has_value() && rig_controller_storage->hosts_room(*selected_slot))
@@ -606,8 +601,23 @@ int main(int argc, char** argv)
         }
         ImGui::End();
 
-        ImGui::SetNextWindowPos(ImVec2(0.0f, body_top + stage_height));
-        ImGui::SetNextWindowSize(ImVec2(width - browser_width, body_height - stage_height));
+        ImGui::SetNextWindowPos(ImVec2(settings_width, center_top));
+        ImGui::SetNextWindowSize(ImVec2(gear_width, center_height));
+        ImGui::Begin("##gear", nullptr, kRegionFlags);
+        ui::DrawGearBrowser();
+        ImGui::End();
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, height - bottom_height));
+        ImGui::SetNextWindowSize(ImVec2(width, transport_height));
+        ImGui::Begin("##transport", nullptr, kRegionFlags);
+        if (rig_controller_storage.has_value())
+        {
+            ui::DrawTransportBar(*rig_controller_storage, transport_error);
+        }
+        ImGui::End();
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, height - rig_design_height));
+        ImGui::SetNextWindowSize(ImVec2(width, rig_design_height));
         ImGui::Begin("##chain", nullptr, kRegionFlags | ImGuiWindowFlags_HorizontalScrollbar);
         if (rig_controller_storage.has_value())
         {
@@ -631,12 +641,6 @@ int main(int argc, char** argv)
                                    chain_edit_error.c_str());
             }
         }
-        ImGui::End();
-
-        ImGui::SetNextWindowPos(ImVec2(width - browser_width, body_top));
-        ImGui::SetNextWindowSize(ImVec2(browser_width, body_height));
-        ImGui::Begin("##gear", nullptr, kRegionFlags);
-        ui::DrawGearBrowser();
         ImGui::End();
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, arrangement_top));
