@@ -12,6 +12,10 @@ docs/
   README.md                      the manual index
   CONTRIBUTING.md
   DOCUMENTATION_STYLE_GUIDE.md
+  getting_started/                a newcomer's first read, before the architecture chapters
+  architecture/                   how the layers fit together as the tree stands today
+  modules/                        the index of every module's own README.md, nothing more
+  guides/                         task-oriented how-to pages (e.g. the CLI)
   design/                        live intent — a document with at least one open phase
   reference/
     CHANGELOG.md                 what changed and when, by roadmap phase
@@ -24,6 +28,7 @@ docs/
     specs/                       one design specification per sub-project
     plans/                       one implementation plan per sub-project, a `- [ ]` TDD checklist
   agent/                         everything an agent writes while executing a task
+  archive/                       frozen history — added to, never edited
 include/SushiDSP/…, modules/<name>/, tools/<name>/, assets/<name>/
                                   each carries its own README.md beside the code
 ```
@@ -46,9 +51,13 @@ Everything else follows the design spec's status:
   repeated there.
 - A document that records what an agent did while executing a task (a spec, a plan, a report)
   goes under `docs/agent/` or `docs/superpowers/`.
-- Otherwise, if it describes the tree as it is today, it belongs in the manual proper:
-  `reference/` for "what is this called or what changed", the module's own `README.md` for
-  "what does this own".
+- Work with nothing left open belongs in `docs/archive/`, frozen: added to, never edited.
+- Otherwise, if it describes the tree as it is today, it belongs in the manual proper, sorted
+  by what a reader is asking: a newcomer's first orientation goes in `getting_started/`, how
+  the layers fit together goes in `architecture/`, a task-oriented walkthrough (running the
+  CLI, say) goes in `guides/`, "what is this called or what changed" goes in `reference/`, and
+  the index of every module's own `README.md` lives in `modules/README.md` rather than
+  repeating each module's facts there.
 
 ## The index-entry format
 

@@ -2,8 +2,10 @@
 #
 # Applied per target through sushidsp_apply_sanitizers(), the same mechanism as
 # sushidsp_apply_optimization_flags() and sushidsp_apply_warning_flags() in
-# SushiDSPCompilerFlags.cmake / CompilerWarnings.cmake, and called at the same call
-# sites. A global add_compile_options()/add_link_options() would leak ASan/UBSan into
+# SushiDSPCompilerFlags.cmake / CompilerWarnings.cmake. Unlike those two, it is called at
+# only three sites in the root CMakeLists.txt -- sushi_dsp, sushi_dsp_sdl2 and
+# sushi_dsp_asio -- not at the test, benchmark, host-app or product-module call sites.
+# A global add_compile_options()/add_link_options() would leak ASan/UBSan into
 # the vendored SDL2/glfw/imgui sources pulled in through FetchContent_MakeAvailable()
 # and into the directly-embedded imgui and ASIO SDK sources -- code not built for
 # consistent instrumentation, where ASan/UBSan can produce link errors or spurious
