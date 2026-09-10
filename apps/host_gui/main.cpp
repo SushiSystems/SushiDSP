@@ -51,6 +51,7 @@
 #include "ui/ArrangementLayout.hpp"
 #include "ui/ArrangementView.hpp"
 #include "ui/ChainStrip.hpp"
+#include "ui/SplitterPicker.hpp"
 #include "ui/DeviceSettings.hpp"
 #include "ui/GearBrowser.hpp"
 #include "ui/LevelProbe.hpp"
@@ -621,6 +622,14 @@ int main(int argc, char** argv)
         ImGui::Begin("##chain", nullptr, kRegionFlags | ImGuiWindowFlags_HorizontalScrollbar);
         if (rig_controller_storage.has_value())
         {
+            const std::vector<RigController::SlotId> chain_slots =
+                rig_controller_storage->slot_order();
+            if (!chain_slots.empty())
+            {
+                ui::DrawSplitterPicker(*rig_controller_storage, chain_slots.back());
+                ImGui::SameLine();
+            }
+
             std::optional<RigController::SlotId> created_slot;
             ui::DrawChainStrip(*rig_controller_storage, selected_slot, created_slot,
                                chain_edit_error);
