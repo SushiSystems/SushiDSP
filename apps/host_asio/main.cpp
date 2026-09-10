@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+#include "SushiDSP/cabinet/CabinetNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/device/AsioAudioDevice.hpp"
 #include "SushiDSP/audio_format/ChannelSelection.hpp"
@@ -161,7 +162,7 @@ int main(int argc, char** argv)
     tube_screamer->set_tone(0.5f);
     tube_screamer->set_level(0.0f);   // Level is now in dB; 0 dB is the pedal's unity-ish output
 
-    auto jcm800 = std::make_unique<SushiDSP::Jcm800>(cabinet_ir);
+    auto jcm800 = std::make_unique<SushiDSP::Jcm800>();
     jcm800->set_preamp(0.6f);
     jcm800->set_master(0.0f);
     jcm800->set_bass(0.5f);
@@ -175,11 +176,32 @@ int main(int argc, char** argv)
     const SushiDSP::NodeHandle jcm800_handle = rig.add_node(std::move(jcm800));
     rig.connect(tube_screamer_handle, jcm800_handle);
 
+    // The amp no longer hosts a cabinet itself - sushidsp.cabinet is a standalone node, added
+    // to the chain only when an IR was actually requested, so the no-IR path stays a pure
+    // amp-only sink exactly as it was before the cabinet moved out.
+    SushiDSP::NodeHandle cabinet_handle{};
+    const bool has_cabinet = !cabinet_ir.empty();
+    if (has_cabinet)
+    {
+        auto cabinet = std::make_unique<SushiDSP::CabinetNode>();
+        cabinet_handle = rig.add_node(std::move(cabinet));
+        rig.connect(jcm800_handle, cabinet_handle);
+    }
+
     // The rig itself stays mono (1 in, 1 out) - channel selection only decides which physical
     // ASIO channel feeds it and which physical channel(s) its output reaches.
     SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, 1 };
     rig.compile(info);
     std::printf("Rig latency: %u sample(s)\n", rig.latency_samples());
+
+    if (has_cabinet)
+    {
+        auto* const cabinet_node = static_cast<SushiDSP::CabinetNode*>(rig.node(cabinet_handle));
+        if (!cabinet_node->set_cabinet(SushiDSP::Ir{ cabinet_ir, actual.sample_rate }))
+        {
+            std::fprintf(stderr, "Cabinet IR did not install (rate mismatch or empty IR).\n");
+        }
+    }
 
     const std::size_t   input_index = SushiDSP::channel_selection_input_index(input_selection);
     const std::uint32_t device_output_channels = actual.output_channels;
