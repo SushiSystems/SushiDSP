@@ -227,6 +227,9 @@ int main(int argc, char** argv)
     std::string arrangement_error;
     std::string room_error;
     bool open_device_settings = true;
+    // Task 6: the mini-DAW (arrangement view + meter bar) starts hidden; the preset bar's
+    // toggle button flips this, and the region block below gates both windows on it.
+    bool mini_daw_open = false;
 
     // The zoom, the scroll and the snap belong to the GUI loop rather than to the rig: they are
     // how the arrangement is being looked at, not what it plays.
@@ -548,15 +551,22 @@ int main(int argc, char** argv)
         const float rig_design_height = 160.0f;  // bottom rig-design (chain) view, splitter picker at its left
         const float bottom_height = transport_height + rig_design_height;
         const float center_top = preset_bar_height;
-        const float center_height = std::max(height - preset_bar_height - bottom_height, 240.0f);
         const float settings_width = width * 0.55f;   // left-of-center: selected node's settings
         const float gear_width = width - settings_width; // right-of-center: gear browser
 
-        // The mini-DAW panel (arrangement view + meter bar) still occupies the space below the
-        // rig-design view for now; Task 6 makes it collapsible and repositions it.
+        // The mini-DAW panel (arrangement view + meter bar) is collapsible and hidden by
+        // default. When closed it claims no space at all: the settings/gear row simply fills
+        // everything above the fixed transport/chain footer, exactly as if the panel did not
+        // exist. When open, that row gives up a fixed-height band directly above the footer for
+        // the panel; the transport bar and rig-design view keep the exact same position either
+        // way, so the rig design view stays reachable regardless of the mini-DAW's visibility.
+        const float mini_daw_height = 180.0f;
         const float meter_height = 40.0f;
+        const float mini_daw_reserved = mini_daw_open ? mini_daw_height : 0.0f;
+        const float center_height =
+            std::max(height - preset_bar_height - bottom_height - mini_daw_reserved, 240.0f);
         const float arrangement_top = center_top + center_height;
-        const float arrangement_height = std::max(height - bottom_height - arrangement_top - meter_height, 0.0f);
+        const float arrangement_height = std::max(mini_daw_height - meter_height, 0.0f);
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(width, preset_bar_height));
@@ -583,6 +593,11 @@ int main(int argc, char** argv)
             {
                 open_device_settings = true;
             }
+        }
+        ImGui::SameLine(width - 192.0f);
+        if (ImGui::Button(mini_daw_open ? "Hide DAW" : "Show DAW"))
+        {
+            mini_daw_open = !mini_daw_open;
         }
         ImGui::End();
 
@@ -653,23 +668,27 @@ int main(int argc, char** argv)
         }
         ImGui::End();
 
-        ImGui::SetNextWindowPos(ImVec2(0.0f, arrangement_top));
-        ImGui::SetNextWindowSize(ImVec2(width, arrangement_height));
-        // The wheel belongs to the timeline's own scroll and zoom, so the window keeps its
-        // scrollbar and gives up the wheel.
-        ImGui::Begin("##arrangement", nullptr, kRegionFlags | ImGuiWindowFlags_NoScrollWithMouse);
-        if (rig_controller_storage.has_value())
+        if (mini_daw_open)
         {
-            ui::DrawArrangementView(*rig_controller_storage, timeline_scale, snap_mode,
-                                    audio_imports, arrangement_error, lane_geometry);
-        }
-        ImGui::End();
+            ImGui::SetNextWindowPos(ImVec2(0.0f, arrangement_top));
+            ImGui::SetNextWindowSize(ImVec2(width, arrangement_height));
+            // The wheel belongs to the timeline's own scroll and zoom, so the window keeps its
+            // scrollbar and gives up the wheel.
+            ImGui::Begin("##arrangement", nullptr,
+                        kRegionFlags | ImGuiWindowFlags_NoScrollWithMouse);
+            if (rig_controller_storage.has_value())
+            {
+                ui::DrawArrangementView(*rig_controller_storage, timeline_scale, snap_mode,
+                                        audio_imports, arrangement_error, lane_geometry);
+            }
+            ImGui::End();
 
-        ImGui::SetNextWindowPos(ImVec2(0.0f, height - meter_height));
-        ImGui::SetNextWindowSize(ImVec2(width, meter_height));
-        ImGui::Begin("##meters", nullptr, kRegionFlags);
-        ui::DrawMeterBar(input_probe, output_probe);
-        ImGui::End();
+            ImGui::SetNextWindowPos(ImVec2(0.0f, height - bottom_height - meter_height));
+            ImGui::SetNextWindowSize(ImVec2(width, meter_height));
+            ImGui::Begin("##meters", nullptr, kRegionFlags);
+            ui::DrawMeterBar(input_probe, output_probe);
+            ImGui::End();
+        }
 
         if (ui::DrawDeviceSettings(asio_drivers, device_choice, rig_controller_storage.has_value(),
                                    connect_error, open_device_settings))
