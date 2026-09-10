@@ -30,10 +30,7 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
-#include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
-#include "SushiDSP/core/RtSwapSlot.hpp"
-#include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/jcm800/JcmToneStack.hpp"
 #include "SushiDSP/circuits/stages/OutputTransformerStage.hpp"
 #include "SushiDSP/circuits/stages/PentodeStage.hpp"
@@ -42,18 +39,17 @@
 #include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
-#include "SushiDSP/math/StreamingConvolution.hpp"
 
 namespace SushiDSP
 {
     /// @brief The Marshall JCM800 2203 amp: bright cap, V1a/V1b/tone-stack/V2a/phase-inverter/
-    /// EL34-push-pull, output transformer, power sag, presence, and (optional) cabinet
-    /// convolution, followed by a plain full-scale clamp. Exposes jcm800_descriptor().
-    class Jcm800 : public IAudioNode, public ICabinetHost
+    /// EL34-push-pull, output transformer, power sag, presence, followed by a plain full-scale
+    /// clamp. Cabinet convolution lives in the standalone sushidsp.cabinet node. Exposes
+    /// jcm800_descriptor().
+    class Jcm800 : public IAudioNode
     {
     public:
-        /// @param cabinet_impulse_response Cabinet IR samples; empty means no cabinet stage.
-        explicit Jcm800(std::vector<float> cabinet_impulse_response = {});
+        Jcm800();
 
         /// @brief Sizes every scratch buffer and rebuilds every sample-rate-dependent filter.
         /// @param info Sample rate, max block size, and channel count for this node's lifetime.
@@ -67,41 +63,17 @@ namespace SushiDSP
         /// @return Mono in, mono out.
         PortLayout ports() const override;
 
-        /// @brief Clears every stage's state for a click-free restart. Control thread only: it
-        /// reaches the cabinet through the slot's publisher-side accessor, so calling it from
-        /// the audio thread would race reclaim().
+        /// @brief Clears every stage's state for a click-free restart.
         void reset() override;
 
         /// @brief Reports the delay this node adds from input to output, so the host can
         /// compensate it.
-        /// @return The single oversampled region's latency plus, when a cabinet is loaded, its
-        /// one-partition convolution latency. Loading or removing a cabinet is the one thing that
-        /// moves it after prepare(), so a host should re-read it after set_cabinet().
+        /// @return The single oversampled region's latency.
         std::uint32_t latency_samples() const override;
 
         /// @brief This amp's registered type id.
         /// @return "sushidsp.jcm800".
         const char* type_id() const override;
-
-        /// @brief Installs a new cabinet impulse response. Control thread only: the convolver is
-        /// built here in full and handed to the audio thread as a single atomic pointer swap, so
-        /// process() never sees a partially built cabinet and never blocks.
-        /// @param impulse_response The IR and the rate it was captured at; its sample_rate must
-        /// equal the rate this node was prepared at. The samples are retained so a later
-        /// prepare() rebuilds this cabinet; like the constructor's IR they are reused as-is,
-        /// never resampled, so a prepare() at a different rate needs a fresh set_cabinet().
-        /// @return True if the cabinet was installed; false if the IR is empty, if the rates
-        /// disagree, or if prepare() has not run yet - in every failing case nothing is installed
-        /// and nothing is retained, and the previously active cabinet (if any) stays in place.
-        bool set_cabinet(Ir impulse_response) override;
-
-        /// @brief Frees every cabinet the audio thread has provably moved past. Control thread
-        /// only; call periodically (e.g. once per GUI frame) after any set_cabinet().
-        void reclaim_cabinets() override;
-
-        /// @brief Whether a cabinet convolution is currently in the signal path.
-        /// @return True once a cabinet has been installed by the constructor or set_cabinet().
-        bool has_cabinet() const override;
 
         /// @brief Sets the preamp (gain) control.
         /// @param normalized Preamp amount in [0, 1]; smoothed toward on the audio thread.
@@ -184,8 +156,6 @@ namespace SushiDSP
         static constexpr std::uint32_t kOversamplingFactor = 8;
 
         double sample_rate_ = 48000.0;
-        std::uint32_t cabinet_partition_ = 0;
-        std::vector<float> cabinet_impulse_response_;
 
         SmoothedParameter preamp_{ 0.5f }, presence_{ 0.5f };
         SmoothedParameter bass_{ 0.5f }, middle_{ 0.5f }, treble_{ 0.5f };
@@ -219,7 +189,6 @@ namespace SushiDSP
         PowerSupplySagStage sag_;
 
         std::unique_ptr<Oversampler8x> oversampler_;  // spans V1a -> sag
-        RtSwapSlot<StreamingConvolution> cabinet_slot_;
 
         std::vector<float> scratch_base_;
         std::vector<float> scratch_oversampled_;

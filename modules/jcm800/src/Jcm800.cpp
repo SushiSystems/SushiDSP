@@ -254,9 +254,8 @@ namespace SushiDSP
         }
     }
 
-    Jcm800::Jcm800(std::vector<float> cabinet_impulse_response)
-        : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kTriodeSourceResistance, kTriodeGridLeak, kV1aCathodeBias, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
+    Jcm800::Jcm800()
+        : v1a_(kTriodeSourceResistance, kTriodeGridLeak, kV1aCathodeBias, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
         , v1b_(kTriodeSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kV1bGain, kTriode12AX7GridConduction, kV1bPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
         , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kV2aCathodeBias, kV2aGain, kTriode12AX7GridConduction, kV2aPlateSwing)
@@ -344,17 +343,6 @@ namespace SushiDSP
         scratch_base_.assign(info.max_block, 0.0f);
         scratch_oversampled_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
 
-        // StreamingConvolution re-blocks the stream internally, so the partition is a property of
-        // the sample rate alone rather than of the host's block size: every block size, power of
-        // two or not, gets the same cabinet and the same one-partition latency.
-        cabinet_partition_ = StreamingConvolution::partition_size_for(sample_rate_);
-        if (!cabinet_impulse_response_.empty())
-        {
-            cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
-                cabinet_partition_, cabinet_impulse_response_.data(),
-                static_cast<std::uint32_t>(cabinet_impulse_response_.size()), info.max_block));
-        }
-
         reset();
     }
 
@@ -438,19 +426,11 @@ namespace SushiDSP
             scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]) * master_gain;
         }
 
-        // One atomic acquire is the audio thread's entire share of a cabinet swap; the convolver
-        // it hands back was built in full on the control thread.
-        StreamingConvolution* const cabinet = cabinet_slot_.acquire_for_audio_thread();
-        if (cabinet != nullptr)
+        // Cabinet convolution lives in the standalone sushidsp.cabinet node; this amp hands its
+        // dry (post-presence, post-master) signal straight to output.
+        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            cabinet->process(scratch_base_.data(), output, frames);
-        }
-        else
-        {
-            for (std::uint32_t i = 0; i < frames; ++i)
-            {
-                output[i] = scratch_base_[i];
-            }
+            output[i] = scratch_base_[i];
         }
 
         // Nothing upstream is normalized to the DAC's range - every stage is bounded only by its
@@ -467,44 +447,10 @@ namespace SushiDSP
 
     std::uint32_t Jcm800::latency_samples() const
     {
-        const std::uint32_t oversampling_latency = oversampler_ ? oversampler_->latency_samples() : 0;
-        return oversampling_latency + (has_cabinet() ? cabinet_partition_ : 0);
+        return oversampler_ ? oversampler_->latency_samples() : 0;
     }
 
     const char* Jcm800::type_id() const { return "sushidsp.jcm800"; }
-
-    bool Jcm800::set_cabinet(Ir impulse_response)
-    {
-        // cabinet_partition_ is 0 until prepare() has run, and a zero-partition
-        // StreamingConvolution has empty FIFOs that process() would index out of bounds. The rate
-        // check alone does not catch this: sample_rate_ defaults to 48000, so a 48 kHz IR handed
-        // to an unprepared node would otherwise sail past it. Rejected outright rather than
-        // stashed - a false return means nothing was installed and nothing was armed.
-        if (impulse_response.samples.empty() || cabinet_partition_ == 0
-            || impulse_response.sample_rate != sample_rate_)
-        {
-            return false;
-        }
-        // Kept so a later prepare() can rebuild this cabinet at the new partition and block size.
-        // RtSwapSlot has no "unpublish", so a cabinet that outlived its prepare() would otherwise
-        // stay active with a stale partition and a latency figure that no longer described it.
-        cabinet_impulse_response_ = std::move(impulse_response.samples);
-        cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
-            cabinet_partition_, cabinet_impulse_response_.data(),
-            static_cast<std::uint32_t>(cabinet_impulse_response_.size()),
-            static_cast<std::uint32_t>(scratch_base_.size())));
-        return true;
-    }
-
-    void Jcm800::reclaim_cabinets()
-    {
-        cabinet_slot_.reclaim();
-    }
-
-    bool Jcm800::has_cabinet() const
-    {
-        return cabinet_slot_.has_active();
-    }
 
     PortLayout Jcm800::ports() const
     {
@@ -532,10 +478,6 @@ namespace SushiDSP
         if (oversampler_)
         {
             oversampler_->reset();
-        }
-        if (StreamingConvolution* const cabinet = cabinet_slot_.active_for_publisher())
-        {
-            cabinet->reset();
         }
     }
 
