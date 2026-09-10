@@ -24,6 +24,9 @@
 #include "ui/SplitterPicker.hpp"
 
 #include <exception>
+#include <optional>
+#include <stdexcept>
+#include <vector>
 
 #include <imgui.h>
 
@@ -41,16 +44,47 @@ namespace ui
             // A rejected republish leaves the graph the audio thread already plays untouched
             // (RigController::publish() compiles before it swaps), so a thrown edit here is
             // caught and reported rather than let past ImGui's unmatched End().
+            //
+            // add_branch()'s mixer-creation path only triggers once the splitter already has
+            // a downstream branch (RigController::add_branch, the `down.empty()` check), so
+            // the first call here only gives the splitter its lone branch; the second call is
+            // what turns that into an actual parallel split with a rejoining mixer.
+            std::vector<RigController::SlotId> created;
             try
             {
                 const RigController::SlotId splitter = rig.add_node("sushidsp.splitter", false);
+                created.push_back(splitter);
                 rig.connect(chain_end, splitter, false);
-                rig.add_branch(splitter, "sushidsp.splitter");
+
+                const std::optional<RigController::SlotId> first_branch =
+                    rig.add_branch(splitter, "sushidsp.splitter");
+                if (!first_branch.has_value())
+                {
+                    throw std::runtime_error("Could not create the parallel branch");
+                }
+                created.push_back(*first_branch);
+
+                const std::optional<RigController::SlotId> second_branch =
+                    rig.add_branch(splitter, "sushidsp.splitter");
+                if (!second_branch.has_value())
+                {
+                    throw std::runtime_error("Could not create the parallel branch");
+                }
+                created.push_back(*second_branch);
+
                 error.clear();
             }
             catch (const std::exception& failure)
             {
                 error = failure.what();
+
+                // Undo whatever this attempt created, most recently added first, so remove()'s
+                // upstream/downstream reconnect never has to bridge across an already-removed
+                // slot; this restores the graph exactly as it stood before the click.
+                for (auto slot = created.rbegin(); slot != created.rend(); ++slot)
+                {
+                    rig.remove(*slot, false);
+                }
             }
         }
         ImGui::EndGroup();
