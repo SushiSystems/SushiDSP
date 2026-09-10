@@ -227,8 +227,7 @@ int main(int argc, char** argv)
     std::string arrangement_error;
     std::string room_error;
     bool open_device_settings = true;
-    // Task 6: the mini-DAW (arrangement view + meter bar) starts hidden; the preset bar's
-    // toggle button flips this, and the region block below gates both windows on it.
+    // The mini-DAW (arrangement view + meter bar) starts hidden.
     bool mini_daw_open = false;
 
     // The zoom, the scroll and the snap belong to the GUI loop rather than to the rig: they are
@@ -554,12 +553,7 @@ int main(int argc, char** argv)
         const float settings_width = width * 0.55f;   // left-of-center: selected node's settings
         const float gear_width = width - settings_width; // right-of-center: gear browser
 
-        // The mini-DAW panel (arrangement view + meter bar) is collapsible and hidden by
-        // default. When closed it claims no space at all: the settings/gear row simply fills
-        // everything above the fixed transport/chain footer, exactly as if the panel did not
-        // exist. When open, that row gives up a fixed-height band directly above the footer for
-        // the panel; the transport bar and rig-design view keep the exact same position either
-        // way, so the rig design view stays reachable regardless of the mini-DAW's visibility.
+        // The transport bar and rig-design view keep the same position whether the mini-DAW panel is open or closed.
         const float mini_daw_height = 180.0f;
         const float meter_height = 40.0f;
         const float mini_daw_reserved = mini_daw_open ? mini_daw_height : 0.0f;
