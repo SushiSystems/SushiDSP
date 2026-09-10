@@ -49,6 +49,10 @@ starts on that without the verdict.
 
 ## Host
 
+- **Gear-browser grid.** `apps/host_gui/ui/GearBrowser.cpp` still draws a vertical list, one
+  full-width card per row (`GearBrowser.cpp:92`); the grid of draggable amp/pedal/cabinet
+  components described in `docs/design/gui_ux_redesign.md` §3 was never built — only the
+  panel's position moved. See `docs/design/gui_ux_redesign.md`.
 - **`RigController::publish()` rebuilds every node.** One structural edit builds the node set
   three times, which is why "No bundled HRTF set" prints three times on a graph change and why a
   room edit through the graph empties the tail (KNOWN_ISSUES, "A structural rig edit empties the
