@@ -383,9 +383,8 @@ namespace SushiDSP
         }
     }
 
-    Peavey5150::Peavey5150(std::vector<float> cabinet_impulse_response)
-        : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kV1aSourceResistance, kV1aGridLeak, kV1aCathodeBias, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
+    Peavey5150::Peavey5150()
+        : v1a_(kV1aSourceResistance, kV1aGridLeak, kV1aCathodeBias, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
         , v1b_(kV1bSourceResistance, kV1bGridLeak, kV1bCathodeBias, kV1bGain, kTriode12AX7GridConduction, kV1bPlateSwing)
         , v2a_(kV2aSourceResistance, kV2aGridLeak, kV2aCathodeBias, kV2aGain, kTriode12AX7GridConduction, kV2aPlateSwing)
         , v2b_(kV2bSourceResistance, kV2bGridLeak, kV2bCathodeBias, kV2bGain, kTriode12AX7GridConduction, kV2bPlateSwing)
@@ -466,16 +465,6 @@ namespace SushiDSP
         oversampler_ = std::make_unique<Oversampler8x>(info.max_block);
         scratch_base_.assign(info.max_block, 0.0f);
         scratch_oversampled_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
-
-        // StreamingConvolution re-blocks the stream internally, so the partition is a property of
-        // the sample rate alone and every block size gets the same cabinet and the same latency.
-        cabinet_partition_ = StreamingConvolution::partition_size_for(sample_rate_);
-        if (!cabinet_impulse_response_.empty() && info.max_block > 0)
-        {
-            cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
-                cabinet_partition_, cabinet_impulse_response_.data(),
-                static_cast<std::uint32_t>(cabinet_impulse_response_.size()), info.max_block));
-        }
 
         reset();
     }
@@ -597,19 +586,11 @@ namespace SushiDSP
             scratch_base_[i] = resonance_shelf_.process_sample(shelved) * kPostGainUnityGain;
         }
 
-        // One atomic acquire is the audio thread's entire share of a cabinet swap; the convolver it
-        // hands back was built in full on the control thread.
-        StreamingConvolution* const cabinet = cabinet_slot_.acquire_for_audio_thread();
-        if (cabinet != nullptr)
+        // Cabinet convolution lives in the standalone sushidsp.cabinet node; this amp hands its
+        // dry (post-shelf) signal straight to output.
+        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            cabinet->process(scratch_base_.data(), output, frames);
-        }
-        else
-        {
-            for (std::uint32_t i = 0; i < frames; ++i)
-            {
-                output[i] = scratch_base_[i];
-            }
+            output[i] = scratch_base_[i];
         }
 
         // Nothing upstream is normalised to the converter's range - every stage is bounded only by
@@ -624,34 +605,10 @@ namespace SushiDSP
 
     std::uint32_t Peavey5150::latency_samples() const
     {
-        const std::uint32_t oversampling_latency = oversampler_ ? oversampler_->latency_samples() : 0;
-        return oversampling_latency + (has_cabinet() ? cabinet_partition_ : 0);
+        return oversampler_ ? oversampler_->latency_samples() : 0;
     }
 
     const char* Peavey5150::type_id() const { return "sushidsp.peavey5150"; }
-
-    bool Peavey5150::set_cabinet(Ir impulse_response)
-    {
-        // cabinet_partition_ is 0 until prepare() has run with a real block size, and a
-        // zero-partition StreamingConvolution has empty FIFOs that process() would index out of
-        // bounds. Rejected outright rather than stashed: a false return means nothing was
-        // installed and nothing was armed.
-        if (impulse_response.samples.empty() || cabinet_partition_ == 0 || scratch_base_.empty()
-            || impulse_response.sample_rate != sample_rate_)
-        {
-            return false;
-        }
-        cabinet_impulse_response_ = std::move(impulse_response.samples);
-        cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
-            cabinet_partition_, cabinet_impulse_response_.data(),
-            static_cast<std::uint32_t>(cabinet_impulse_response_.size()),
-            static_cast<std::uint32_t>(scratch_base_.size())));
-        return true;
-    }
-
-    void Peavey5150::reclaim_cabinets() { cabinet_slot_.reclaim(); }
-
-    bool Peavey5150::has_cabinet() const { return cabinet_slot_.has_active(); }
 
     PortLayout Peavey5150::ports() const { return { 1, 1 }; }
 
@@ -685,10 +642,6 @@ namespace SushiDSP
         if (oversampler_)
         {
             oversampler_->reset();
-        }
-        if (StreamingConvolution* const cabinet = cabinet_slot_.active_for_publisher())
-        {
-            cabinet->reset();
         }
     }
 

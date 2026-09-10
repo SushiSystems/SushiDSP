@@ -30,10 +30,7 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
-#include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
-#include "SushiDSP/core/RtSwapSlot.hpp"
-#include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/peavey5150/Peavey5150ToneStack.hpp"
 #include "SushiDSP/circuits/stages/OutputTransformerStage.hpp"
 #include "SushiDSP/circuits/stages/PentodeStage.hpp"
@@ -43,21 +40,20 @@
 #include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
-#include "SushiDSP/math/StreamingConvolution.hpp"
 
 namespace SushiDSP
 {
     /// @brief The Peavey 5150 block-letter lead channel: six preamp triodes, the shared FMV deck,
     /// the post-gain node's follower and driver, a long-tailed pair, a 6L6GC quad, the output
-    /// transformer, power sag, the feedback network's resonance and presence shelves and an
-    /// optional cabinet convolution, followed by a plain full-scale clamp. Component values come
-    /// from docs/reference/research/2026-09-06-peavey-5150-design-dossier.md and every departure
-    /// from it is listed in modules/peavey5150/README.md. Exposes peavey5150_descriptor().
-    class Peavey5150 : public IAudioNode, public ICabinetHost
+    /// transformer, power sag, the feedback network's resonance and presence shelves, followed by
+    /// a plain full-scale clamp. Cabinet convolution lives in the standalone sushidsp.cabinet
+    /// node. Component values come from
+    /// docs/reference/research/2026-09-06-peavey-5150-design-dossier.md and every departure from
+    /// it is listed in modules/peavey5150/README.md. Exposes peavey5150_descriptor().
+    class Peavey5150 : public IAudioNode
     {
     public:
-        /// @param cabinet_impulse_response Cabinet IR samples; empty means no cabinet stage.
-        explicit Peavey5150(std::vector<float> cabinet_impulse_response = {});
+        Peavey5150();
 
         /// @brief Sizes every scratch buffer and rebuilds every sample-rate-dependent filter.
         /// @param info Sample rate, max block size, and channel count for this node's lifetime.
@@ -71,35 +67,16 @@ namespace SushiDSP
         /// @return Mono in, mono out.
         PortLayout ports() const override;
 
-        /// @brief Clears every stage's state for a click-free restart. Control thread only: it
-        /// reaches the cabinet through the slot's publisher-side accessor, so calling it from the
-        /// audio thread would race reclaim().
+        /// @brief Clears every stage's state for a click-free restart.
         void reset() override;
 
         /// @brief Reports the delay this node adds from input to output.
-        /// @return The single oversampled region's latency plus, when a cabinet is loaded, its
-        /// one-partition convolution latency.
+        /// @return The single oversampled region's latency.
         std::uint32_t latency_samples() const override;
 
         /// @brief This amp's registered type id.
         /// @return "sushidsp.peavey5150".
         const char* type_id() const override;
-
-        /// @brief Installs a new cabinet impulse response. Control thread only: the convolver is
-        /// built here in full and handed to the audio thread as one atomic pointer swap.
-        /// @param impulse_response The IR and the rate it was captured at; its sample_rate must
-        /// equal the rate this node was prepared at.
-        /// @return True if the cabinet was installed; false if the IR is empty, if the rates
-        /// disagree, or if prepare() has not run yet, in which case nothing is installed.
-        bool set_cabinet(Ir impulse_response) override;
-
-        /// @brief Frees every cabinet the audio thread has provably moved past. Control thread
-        /// only; call periodically after any set_cabinet().
-        void reclaim_cabinets() override;
-
-        /// @brief Whether a cabinet convolution is currently in the signal path.
-        /// @return True once a cabinet has been installed by the constructor or set_cabinet().
-        bool has_cabinet() const override;
 
         /// @brief Sets VR2, the lead channel's PRE GAIN.
         /// @param normalized Pot position in [0, 1]; smoothed toward on the audio thread.
@@ -192,8 +169,6 @@ namespace SushiDSP
         static constexpr std::uint32_t kOversamplingFactor = 8;
 
         double sample_rate_ = 48000.0;
-        std::uint32_t cabinet_partition_ = 0;
-        std::vector<float> cabinet_impulse_response_;
 
         SmoothedParameter pre_gain_{ 0.5f }, resonance_{ 0.5f }, presence_{ 0.5f };
         SmoothedParameter low_{ 0.5f }, mid_{ 0.5f }, high_{ 0.5f };
@@ -248,7 +223,6 @@ namespace SushiDSP
         ResonanceControl resonance_shelf_;
 
         std::unique_ptr<Oversampler8x> oversampler_;  // spans V1A -> sag
-        RtSwapSlot<StreamingConvolution> cabinet_slot_;
 
         std::vector<float> scratch_base_;
         std::vector<float> scratch_oversampled_;
