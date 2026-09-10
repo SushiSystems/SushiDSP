@@ -1,6 +1,7 @@
 # GUI/UX redesign — host app
 
-**Status:** Design — open phase, nothing implemented yet.
+**Status:** §8 (cabinet node) implemented, `docs/superpowers/plans/2026-09-10-cabinet-node.md`;
+§2-§7 still design-only, open phase.
 
 Raw findings this spec is built from: `docs/agent/notes/2026-09-10-gui-ux-session-notes.md`.
 Reference screenshots: `image.png`, `image1.png` (AmpliTube 5, the layout model),
@@ -112,26 +113,27 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
 
 - A new `sushidsp.cabinet` entry appears in the gear browser (§3) alongside amps and
   pedals, draggable into the rig chain the same way.
-- It loads an impulse response (IR) and convolves it into the signal path — the same role
-  the amp-embedded cabinet plays today.
-- **Existing mechanism:** `include/SushiDSP/core/ICabinetHost.hpp` defines the cabinet
+- It loads an impulse response (IR) and convolves it into the signal path — the role the
+  amp-embedded cabinet used to play before this section shipped.
+- **Former mechanism:** `include/SushiDSP/core/ICabinetHost.hpp` defined the cabinet
   contract (`set_cabinet` / `has_cabinet` / `reclaim_cabinets`) that amp node classes
   (`modules/jcm800`, `modules/peavey5150`, `modules/diezel_vh4`, `modules/mesa_mark2c`)
-  implement directly today. There is no standalone cabinet `IAudioNode` yet; IR loading
+  implemented directly. There was no standalone cabinet `IAudioNode`; IR loading
   (`include/SushiDSP/io/Ir.hpp`, `IrLoader.hpp`) and convolution
   (`include/SushiDSP/math/PartitionedConvolution.hpp`,
-  `include/SushiDSP/math/StreamingConvolution.hpp`) are owned by whichever amp hosts them.
-- **Decision (owner, 2026-09-10):** `sushidsp.cabinet` is the only cabinet path. Amp node
-  classes (`modules/jcm800`, `modules/peavey5150`, `modules/diezel_vh4`,
-  `modules/mesa_mark2c`) drop their `ICabinetHost` implementation and the built-in
-  convolution it drove; `ICabinetHost` becomes the interface `sushidsp.cabinet` alone
-  implements. A rig that wants a cabinet places the `sushidsp.cabinet` node after its amp
-  explicitly; there is no amp with a cabinet baked in and no dual-path (no scenario where
-  both an amp's built-in cabinet and a standalone cabinet node could convolve the same
-  signal). This changes each amp's default signal path — an amp rig that relied on the
-  built-in cabinet now needs an explicit `sushidsp.cabinet` node added to sound the same,
-  which is an intentional, one-time break tracked as part of this redesign, not a
-  regression to avoid.
+  `include/SushiDSP/math/StreamingConvolution.hpp`) were owned by whichever amp hosted them.
+- **Decision (owner, 2026-09-10), implemented:** `sushidsp.cabinet` is now the only cabinet
+  path, delivered by `docs/superpowers/plans/2026-09-10-cabinet-node.md` (all 8 tasks
+  complete). The amp node classes (`modules/jcm800`, `modules/peavey5150`,
+  `modules/diezel_vh4`, `modules/mesa_mark2c`) dropped their `ICabinetHost` implementation
+  and the built-in convolution it drove; `ICabinetHost` is now the interface
+  `sushidsp.cabinet` alone implements. A rig that wants a cabinet places the
+  `sushidsp.cabinet` node after its amp explicitly; no amp has a cabinet baked in and there
+  is no dual-path (no scenario where both an amp's built-in cabinet and a standalone
+  cabinet node could convolve the same signal). This changed each amp's default signal
+  path — an amp rig that relied on the built-in cabinet now needs an explicit
+  `sushidsp.cabinet` node added to sound the same, which was an intentional, one-time break
+  tracked as part of this redesign, not a regression to avoid.
 
 ## §9 Out of scope
 

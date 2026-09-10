@@ -83,7 +83,7 @@ namespace ui
         /// @brief Installs one impulse response and reports what went wrong in the field's own
         /// error line.
         /// @param rig The rig that owns the slot.
-        /// @param slot The amp to install the cabinet on.
+        /// @param slot The node to install the cabinet on.
         /// @param path The impulse response's full path.
         /// @param error_out Receives the message, or "" when the cabinet went in.
         void load_cabinet(RigController& rig, RigController::SlotId slot, const std::string& path,
@@ -94,7 +94,7 @@ namespace ui
             {
                 if (!rig.set_cabinet(slot, path))
                 {
-                    error_out = "Cabinet not installed: sample rate mismatch or unprepared amp";
+                    error_out = "Cabinet not installed: sample rate mismatch or unprepared node";
                 }
             }
             catch (const std::exception& error)
@@ -103,9 +103,9 @@ namespace ui
             }
         }
 
-        /// @brief Draws the cabinet field below the panel of an amp that hosts a cabinet.
+        /// @brief Draws the cabinet field below the panel of a node that hosts a cabinet.
         /// @param rig The rig that owns the slot.
-        /// @param slot The amp whose cabinet the field edits.
+        /// @param slot The node whose cabinet the field edits.
         /// @param default_ir_directory Where the browser opens when the rig remembers no folder.
         void draw_cabinet_field(RigController& rig, RigController::SlotId slot,
                                 const std::string& default_ir_directory)
