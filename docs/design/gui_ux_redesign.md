@@ -90,9 +90,16 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
   (`image4.png`).
 - Becomes a **collapsible panel**, hidden by default, toggled by one clearly-labeled
   button. Its internal layout is not redesigned in this pass.
-- Tracks/lanes are user-addable and user-removable, with a hard cap of **8 tracks**. The
-  UI must prevent adding a 9th track (e.g. disable the add-track control at the cap) rather
-  than accept and reject it after the fact.
+- **Correction (2026-09-10):** track count was assumed to need a user-facing
+    add/remove control, capped at 8. Code inspection found the track count is already a
+    fixed compile-time constant of exactly 8 throughout the host
+    (`SushiDSP::TrackPlayer::kMaxTracks = 8` in
+    `modules/capture/include/SushiDSP/capture/TrackPlayer.hpp:51`, mirrored by
+    `RigController::tracks_` as `std::array<TrackInfo, TrackPlayer::kMaxTracks>` in
+    `apps/host_gui/RigController.hpp:634`), with no add/remove-track API anywhere in
+    `RigController` or `ArrangementView` — `ArrangementView` always draws exactly eight
+    lane headers. Fixed-8 already matches the intended cap; **no add/remove-track
+    feature is added in this pass.**
 
 ## §7 Remove the file/folder browser panel
 
