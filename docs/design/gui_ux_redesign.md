@@ -33,13 +33,11 @@ collapsible panel with a bounded track count.
     No `"Roland Rubix"` string exists anywhere under `apps/host_gui/`. This item is
     **dropped** — device enumeration is already correct and out of scope for this
     redesign.
-- The only remaining work in this section is centering: `DrawDeviceSettings`
-  (`apps/host_gui/ui/DeviceSettings.cpp:34`) currently calls
-  `ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing)` with no matching
-  `SetNextWindowPos`, so it opens at ImGui's default placement. It must instead compute
-  a centered position from the current display size and pass it via
-  `ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f))` (or
-  equivalent), each time the panel transitions from closed to open.
+- Centering is done: `DrawDeviceSettings` (`apps/host_gui/ui/DeviceSettings.cpp:34`) now
+  computes the display center and calls
+  `ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f))` ahead of its
+  `SetNextWindowSize`, so the panel opens centered each time it transitions from closed to
+  open.
 
 ## §3 Main window layout (AmpliTube-5-style)
 
@@ -52,9 +50,11 @@ Reference: `image1.png`.
 - **Center, split in two:**
   - **Left of center:** the settings panel for the currently selected rig node (amp,
     pedal, or cabinet controls).
-  - **Right of center:** the gear browser — a grid of draggable amp/pedal/cabinet
-    components, replacing the current narrow list (`image4.png`'s `Search gear` /
-    `Distortion` / `Tube Screamer` list).
+  - **Right of center:** the gear browser (`apps/host_gui/ui/GearBrowser.cpp`), moved from
+    its prior position to sit right-of-center. Its internal presentation — a vertical list
+    of full-width cards, one per row (`GearBrowser.cpp:92`) — is unchanged from before this
+    plan; the grid layout described in an earlier draft of this section was never built and
+    is tracked separately in `docs/design/REMAINING_WORK.md`.
 - **Bottom:**
   - The transport/metronome bar (§5).
   - The rig design (chain) view, with the splitter-style picker at its far left edge,
