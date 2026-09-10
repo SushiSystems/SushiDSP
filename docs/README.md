@@ -11,6 +11,8 @@ once you're in the tree and need a specific document.
 - **[Contributing](CONTRIBUTING.md)** — the conventions every change is held to: C++17, Allman
   braces, the license header format, the test/CTest-label layout, and how to build (`sd`, never
   `cmake` directly).
+- **[Remaining work](design/REMAINING_WORK.md)** — the single backlog: what is open, in
+  the order it should be taken, with the measured defects left to `KNOWN_ISSUES.md`.
 - **[Changelog](reference/CHANGELOG.md)** — what changed and when, by roadmap phase.
 - **[Known issues](reference/KNOWN_ISSUES.md)** — measured defects left open on purpose, each
   with its figure, its mechanism, the skipped test that documents it, and what closes it.

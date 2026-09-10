@@ -8,6 +8,7 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
 The room track, spec `docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
 `docs/superpowers/plans/2026-09-08-room-acoustics.md`.
 
+- 2026-09-10 — Added the backlog every open item is tracked in (`docs/design/REMAINING_WORK.md`, `docs/README.md`).
 - 2026-09-08 — Added `BandResponse`, six octave-band gains and the arithmetic on them (`modules/room/include/SushiDSP/room/BandResponse.hpp`).
 - 2026-09-08 — Added `tools/dsp/convert_hrtf.py` and `assets/hrtf/README.md`, the SADIE II conversion and the layout `HrtfSetLoader` reads (`tools/dsp/convert_hrtf.py`, `assets/hrtf/README.md`).
 - 2026-09-08 — Added `Materials`, six transcribed absorption rows with a citation each and their reflection factors (`Materials.hpp`, `Materials.cpp`).
