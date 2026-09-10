@@ -8,6 +8,9 @@ once you're in the tree and need a specific document.
 - **[Design](design/sushidsp.md)** — the architecture, the math, the SOLID rationale, and the
   product roadmap (D0–D7). This is the authoritative spec an implementer builds from; it
   describes intent and may describe work that does not exist in the tree yet.
+- **[GUI/UX redesign](design/gui_ux_redesign.md)** — the host app's main-window layout, audio
+  device panel, splitter/mixer automation, cabinet component, and mini-DAW panel. Design only,
+  open phase; tracked in `design/REMAINING_WORK.md`'s Host section.
 - **[Contributing](CONTRIBUTING.md)** — the conventions every change is held to: C++17, Allman
   braces, the license header format, the test/CTest-label layout, and how to build (`sd`, never
   `cmake` directly).
