@@ -21,7 +21,7 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
-#include "SushiDSP/device/ChannelSelection.hpp"
+#include "SushiDSP/audio_format/ChannelSelection.hpp"
 
 #include <cstring>
 

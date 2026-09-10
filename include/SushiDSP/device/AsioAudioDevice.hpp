@@ -29,7 +29,7 @@
 #include <vector>
 
 #include "SushiDSP/core/IAudioDevice.hpp"
-#include "SushiDSP/device/AsioSampleConverter.hpp"
+#include "SushiDSP/audio_format/AsioSampleConverter.hpp"
 
 namespace SushiDSP
 {

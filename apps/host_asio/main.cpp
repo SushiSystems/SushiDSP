@@ -30,7 +30,7 @@
 
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/device/AsioAudioDevice.hpp"
-#include "SushiDSP/device/ChannelSelection.hpp"
+#include "SushiDSP/audio_format/ChannelSelection.hpp"
 #include "SushiDSP/io/IrLoader.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"

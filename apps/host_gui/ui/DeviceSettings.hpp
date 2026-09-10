@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/device/ChannelSelection.hpp"
+#include "SushiDSP/audio_format/ChannelSelection.hpp"
 
 namespace ui
 {

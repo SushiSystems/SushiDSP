@@ -18,3 +18,13 @@ docs/api-site/doxygen-warnings.log
 # redistributable) - each developer/CI runner fetches it themselves; it must
 # never be committed. CMake finds it via ASIO_SDK_DIR, defaulting to this path.
 third_party/asio/
+
+# Personal cabinet IRs a developer keeps at the repo root for local host_asio/host_gui
+# testing - not SushiDSP's to redistribute. Root-only (not recursive), so committed test
+# fixture .wav files elsewhere in the tree are unaffected.
+/*.wav
+
+# Screenshots and ImGui's own layout cache dropped at the repo root during a local
+# host_gui session - developer-machine state, not SushiDSP's to redistribute.
+/*.png
+/imgui.ini

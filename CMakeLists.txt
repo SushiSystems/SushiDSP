@@ -22,8 +22,8 @@ add_library(sushi_dsp STATIC
     src/core/BufferPool.cpp
     src/core/RigGraph.cpp
     src/core/RtGraphSlot.cpp
-    src/device/AsioSampleConverter.cpp
-    src/device/ChannelSelection.cpp
+    src/audio_format/AsioSampleConverter.cpp
+    src/audio_format/ChannelSelection.cpp
     src/io/IrLoader.cpp
     src/io/WavFile.cpp
     src/io/WavWriter.cpp

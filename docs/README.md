@@ -39,6 +39,22 @@ once you're in the tree and need a specific document.
   laws the solver calls back into: `SiliconDiode`, `Triode12AX7`, `PentodeEL34`, and the shared
   `SoftTransition` softplus/logistic helpers. Each exposes `current` and `jacobian` in `double`
   against its `.sub` file's exact constants, and is C¹ everywhere.
+- **[`modules/tubescreamer/`](../modules/tubescreamer/)** — the Ibanez Tube Screamer,
+  `sushidsp.tubescreamer`, the D3 product that validated the shared DK solver core before
+  JCM800. Its [`README.md`](../modules/tubescreamer/README.md) says which class owns which
+  block and the one known deviation from the design spec's oversampling figure.
+- **[`modules/routing/`](../modules/routing/)** — the rig graph's own routing nodes
+  (`SplitterNode`, `MixerNode`, `PanNode`), `sushidsp.splitter`/`sushidsp.mixer`/`sushidsp.pan`.
+  Its [`README.md`](../modules/routing/README.md) says why they exist as ordinary nodes rather
+  than `RigGraph` special cases.
+- **[`modules/node_registry/`](../modules/node_registry/)** — the product catalog:
+  `node_registry()` and `make_node()`, the one place in the tree allowed to depend on every
+  product module at once. Its [`README.md`](../modules/node_registry/README.md) lists what is
+  registered today.
+- **[`modules/rig_preset/`](../modules/rig_preset/)** — portable rig presets as JSON,
+  `serialize_rig_to_json()`/`deserialize_rig_from_json()`. Its
+  [`README.md`](../modules/rig_preset/README.md) says how a product-specific host extends the
+  schema without this module knowing about it.
 - **[`modules/dd3/`](../modules/dd3/)** — the Boss DD-3 delay, `sushidsp.dd3`. Its
   [`README.md`](../modules/dd3/README.md) says which revision is modelled, which class owns which
   block, the three constants that are calibrations rather than component values, and what is left
