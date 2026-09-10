@@ -627,7 +627,8 @@ TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsCabinetIr)
 
     RigController original(info);
     const RigController::SlotId amp = original.append("sushidsp.jcm800");
-    ASSERT_TRUE(original.set_cabinet(amp, ir_path));
+    const RigController::SlotId cabinet = original.append("sushidsp.cabinet");
+    ASSERT_TRUE(original.set_cabinet(cabinet, ir_path));
 
     const std::string json_text = original.save_to_json();
 
@@ -635,21 +636,22 @@ TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsCabinetIr)
     reloaded.load_from_json(json_text);
 
     const auto order = reloaded.slot_order();
-    ASSERT_EQ(order.size(), 1u);
-    EXPECT_EQ(reloaded.cabinet_path(order[0]), ir_path);
+    ASSERT_EQ(order.size(), 2u);
+    EXPECT_EQ(reloaded.cabinet_path(order[1]), ir_path);
 
     std::remove(ir_path.c_str());
 }
 
-TEST(Unit_Dsp, RigControllerLoadsACabinetOnAnAmplifierThatIsNotTheJcm800)
+TEST(Unit_Dsp, RigControllerRefusesACabinetOnAnAmplifierSlot)
 {
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     const std::string ir_path = write_temp_impulse_wav();
 
     RigController controller(info);
     const RigController::SlotId amp = controller.append("sushidsp.peavey5150");
-    ASSERT_TRUE(controller.set_cabinet(amp, ir_path));
-    EXPECT_EQ(controller.cabinet_path(amp), ir_path);
+    EXPECT_FALSE(controller.set_cabinet(amp, ir_path));
+    EXPECT_EQ(controller.cabinet_path(amp), "");
+    EXPECT_FALSE(controller.hosts_cabinet(amp));
 
     std::remove(ir_path.c_str());
 }
