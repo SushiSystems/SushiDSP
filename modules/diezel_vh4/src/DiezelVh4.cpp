@@ -267,9 +267,8 @@ namespace SushiDSP
         }
     }
 
-    DiezelVh4::DiezelVh4(std::vector<float> cabinet_impulse_response)
-        : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kV1aSourceResistanceOhms, kV1aGridLeakOhms, kV1aCathodeBiasVolts, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
+    DiezelVh4::DiezelVh4()
+        : v1a_(kV1aSourceResistanceOhms, kV1aGridLeakOhms, kV1aCathodeBiasVolts, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
         , v2a_(kV2aSourceResistanceOhms, kV2aGridLeakOhms, kV2aCathodeBiasVolts, kV2aGain, kTriode12AX7GridConduction, kV2aPlateSwing)
         , v3a_(kV3aSourceResistanceOhms, kV3aGridLeakOhms, kV3aCathodeBiasVolts, kV3aGain, kTriode12AX7GridConduction, kV3aPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
@@ -329,14 +328,6 @@ namespace SushiDSP
 
         scratch_base_.assign(info.max_block, 0.0f);
         scratch_oversampled_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
-
-        cabinet_partition_ = StreamingConvolution::partition_size_for(sample_rate_);
-        if (!cabinet_impulse_response_.empty())
-        {
-            cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
-                cabinet_partition_, cabinet_impulse_response_.data(),
-                static_cast<std::uint32_t>(cabinet_impulse_response_.size()), info.max_block));
-        }
 
         reset();
     }
@@ -441,17 +432,11 @@ namespace SushiDSP
             scratch_base_[i] = deep_shelf_.process_sample(presence_out) * master_gain;
         }
 
-        StreamingConvolution* const cabinet = cabinet_slot_.acquire_for_audio_thread();
-        if (cabinet != nullptr)
+        // Cabinet convolution lives in the standalone sushidsp.cabinet node; this amp hands its
+        // dry (post-presence, post-deep, post-master) signal straight to output.
+        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            cabinet->process(scratch_base_.data(), output, frames);
-        }
-        else
-        {
-            for (std::uint32_t i = 0; i < frames; ++i)
-            {
-                output[i] = scratch_base_[i];
-            }
+            output[i] = scratch_base_[i];
         }
 
         // Nothing upstream is normalized to the DAC's range, so a hot gain/master/output
@@ -464,36 +449,10 @@ namespace SushiDSP
 
     std::uint32_t DiezelVh4::latency_samples() const
     {
-        const std::uint32_t oversampling_latency = oversampler_ ? oversampler_->latency_samples() : 0;
-        return oversampling_latency + (has_cabinet() ? cabinet_partition_ : 0);
+        return oversampler_ ? oversampler_->latency_samples() : 0;
     }
 
     const char* DiezelVh4::type_id() const { return "sushidsp.diezel_vh4"; }
-
-    bool DiezelVh4::set_cabinet(Ir impulse_response)
-    {
-        if (impulse_response.samples.empty() || cabinet_partition_ == 0
-            || impulse_response.sample_rate != sample_rate_)
-        {
-            return false;
-        }
-        cabinet_impulse_response_ = std::move(impulse_response.samples);
-        cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
-            cabinet_partition_, cabinet_impulse_response_.data(),
-            static_cast<std::uint32_t>(cabinet_impulse_response_.size()),
-            static_cast<std::uint32_t>(scratch_base_.size())));
-        return true;
-    }
-
-    void DiezelVh4::reclaim_cabinets()
-    {
-        cabinet_slot_.reclaim();
-    }
-
-    bool DiezelVh4::has_cabinet() const
-    {
-        return cabinet_slot_.has_active();
-    }
 
     std::size_t DiezelVh4::triode_stage_count() const
     {
@@ -539,10 +498,6 @@ namespace SushiDSP
         if (oversampler_)
         {
             oversampler_->reset();
-        }
-        if (StreamingConvolution* const cabinet = cabinet_slot_.active_for_publisher())
-        {
-            cabinet->reset();
         }
     }
 
