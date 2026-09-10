@@ -13,6 +13,7 @@ add_executable(sushidsp_host_gui
     ui/Widgets.cpp
     ui/StagePanel.cpp
     ui/ChainStrip.cpp
+    ui/SplitterPicker.cpp
     ui/GearBrowser.cpp
     ui/MeterBar.cpp
     ui/TopBar.cpp
