@@ -626,7 +626,8 @@ int main(int argc, char** argv)
                 rig_controller_storage->slot_order();
             if (!chain_slots.empty())
             {
-                ui::DrawSplitterPicker(*rig_controller_storage, chain_slots.back());
+                ui::DrawSplitterPicker(*rig_controller_storage, chain_slots.back(),
+                                        chain_edit_error);
                 ImGui::SameLine();
             }
 

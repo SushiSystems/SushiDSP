@@ -31,7 +31,8 @@
 
 namespace ui
 {
-    void DrawSplitterPicker(RigController& rig, RigController::SlotId chain_end)
+    void DrawSplitterPicker(RigController& rig, RigController::SlotId chain_end,
+                             std::string& error)
     {
         ImGui::BeginGroup();
         ImGui::TextUnformatted("Split");
@@ -39,15 +40,17 @@ namespace ui
         {
             // A rejected republish leaves the graph the audio thread already plays untouched
             // (RigController::publish() compiles before it swaps), so a thrown edit here is
-            // swallowed rather than let past ImGui's unmatched End().
+            // caught and reported rather than let past ImGui's unmatched End().
             try
             {
                 const RigController::SlotId splitter = rig.add_node("sushidsp.splitter", false);
                 rig.connect(chain_end, splitter, false);
                 rig.add_branch(splitter, "sushidsp.splitter");
+                error.clear();
             }
-            catch (const std::exception&)
+            catch (const std::exception& failure)
             {
+                error = failure.what();
             }
         }
         ImGui::EndGroup();
