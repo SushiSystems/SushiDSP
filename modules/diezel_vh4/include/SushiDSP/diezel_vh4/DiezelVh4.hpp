@@ -146,7 +146,8 @@ namespace SushiDSP
         /// @param decibels Trim in [-24, +24] dB; 0 dB passes the host's level through unchanged.
         void set_input_trim(float decibels);
 
-        /// @brief Sets the output level applied after the cabinet stage.
+        /// @brief Sets the output level applied after the power section, this node's final trim before
+        /// handing the dry signal to the standalone cabinet node.
         /// @param decibels Output level in [-60, +12] dB; 0 dB is unity.
         void set_output(float decibels);
 
