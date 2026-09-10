@@ -76,8 +76,12 @@ Reference: `d:\Projects\sushidsp\image1.png` (AmpliTube 5) as the layout model,
 
 ## Mini-DAW track count
 
-- Tracks/lanes in the mini-DAW panel are user-addable and user-removable, capped at
-  a maximum of 8 tracks.
+- ~~Tracks/lanes in the mini-DAW panel are user-addable and user-removable, capped at
+  a maximum of 8 tracks.~~ **Corrected after code inspection:** track count is already a
+  fixed compile-time constant of 8 throughout (`TrackPlayer::kMaxTracks`,
+  `RigController::tracks_`), with no add/remove-track API anywhere. Fixed-8 already
+  satisfies the intent; no add/remove feature is built. See
+  `docs/design/gui_ux_redesign.md` §6.
 
 ## Remove the file/folder browser panel
 
