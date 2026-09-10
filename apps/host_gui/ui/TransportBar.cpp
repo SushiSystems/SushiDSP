@@ -120,11 +120,7 @@ namespace ui
             ImGui::SameLine();
             ImGui::PushStyleColor(ImGuiCol_Button,
                                   to_imvec4(recording ? rgba(196, 54, 46) : rgba(52, 52, 60)));
-            if (recording)
-            {
-                ImGui::PushStyleColor(ImGuiCol_Text, to_imvec4(rgba(220, 72, 60)));
-            }
-            if (ImGui::Button("\xE2\x97\x8F##rec"))
+            if (ImGui::Button(recording ? "STOP REC" : "REC"))
             {
                 if (recording)
                 {
@@ -136,19 +132,15 @@ namespace ui
                     rig.arm_recording(take_name, error_out);
                 }
             }
-            if (recording)
-            {
-                ImGui::PopStyleColor();
-            }
             ImGui::PopStyleColor();
 
             ImGui::SameLine();
-            if (ImGui::Button("\xE2\x96\xB6##play"))
+            if (ImGui::Button("Play"))
             {
                 transport.play();
             }
             ImGui::SameLine();
-            if (ImGui::Button("\xE2\x96\xA0##stop"))
+            if (ImGui::Button("Stop"))
             {
                 transport.stop();
                 if (recording)
@@ -157,7 +149,7 @@ namespace ui
                 }
             }
             ImGui::SameLine();
-            if (ImGui::Button("\xE2\x8F\xAE##rewind"))
+            if (ImGui::Button("|<"))
             {
                 transport.seek(0);
             }
@@ -261,7 +253,7 @@ namespace ui
             bool enabled = metronome.enabled();
             ImGui::PushStyleColor(ImGuiCol_Button,
                                   to_imvec4(enabled ? rgba(64, 152, 196) : rgba(52, 52, 60)));
-            if (ImGui::Button("\xE2\x99\xAA##click"))
+            if (ImGui::Button("Click"))
             {
                 metronome.set_enabled(!enabled);
             }
