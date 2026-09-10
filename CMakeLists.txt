@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(cmake/SushiDSPCompilerFlags.cmake)
 include(cmake/CompilerWarnings.cmake)
+include(cmake/Sanitizers.cmake)
 
 add_library(sushi_dsp STATIC
     src/circuits/stages/TriodeStage.cpp
@@ -41,6 +42,7 @@ add_library(sushi_dsp STATIC
 add_library(SushiDSP::sushi_dsp ALIAS sushi_dsp)
 sushidsp_apply_optimization_flags(sushi_dsp)
 sushidsp_apply_warning_flags(sushi_dsp)
+sushidsp_apply_sanitizers(sushi_dsp)
 target_include_directories(sushi_dsp PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
@@ -81,6 +83,7 @@ if(SUSHIDSP_BUILD_SDL2)
     add_library(SushiDSP::sushi_dsp_sdl2 ALIAS sushi_dsp_sdl2)
     sushidsp_apply_optimization_flags(sushi_dsp_sdl2)
     sushidsp_apply_warning_flags(sushi_dsp_sdl2)
+    sushidsp_apply_sanitizers(sushi_dsp_sdl2)
     target_link_libraries(sushi_dsp_sdl2 PUBLIC SushiDSP::sushi_dsp PRIVATE SDL2-static)
     target_include_directories(sushi_dsp_sdl2 PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -111,6 +114,7 @@ if(SUSHIDSP_BUILD_ASIO AND WIN32 AND EXISTS "${ASIO_SDK_DIR}/common/asio.h")
     add_library(SushiDSP::sushi_dsp_asio ALIAS sushi_dsp_asio)
     sushidsp_apply_optimization_flags(sushi_dsp_asio)
     sushidsp_apply_warning_flags(sushi_dsp_asio)
+    sushidsp_apply_sanitizers(sushi_dsp_asio)
     target_include_directories(sushi_dsp_asio PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     )
