@@ -62,8 +62,10 @@ exposes exactly one `NodeDescriptor`. `routing` supplies the rig graph's own
 `SplitterNode`/`MixerNode`/`PanNode` as ordinary products rather than `RigGraph` special
 cases; `capture` and `room` are DS/D-phase modules the same way. `node_registry` is the one
 module allowed to depend on every product at once — `node_registry()` and `make_node()` are
-the id-to-instance catalog every host and the plugin wrapper builds a rig from, so adding a
-product means adding one entry there and touching nothing in `apps/`. `rig_preset` serializes
+the id-to-instance catalog every host in `apps/` builds a rig from today, so adding a product
+means adding one entry there and touching nothing in `apps/`. A future plugin wrapper would
+draw from the same catalog (see "What is spec-only, not yet built" below), but none exists in
+the tree yet. `rig_preset` serializes
 a rig (descriptor id plus parameter values) to and from JSON. This is the dependency rule
 design spec §8 states for `modules/`; what is verified here is that `modules/node_registry/`
 and `modules/rig_preset/` exist in the tree and match that description, alongside the six
