@@ -5,9 +5,14 @@ once you're in the tree and need a specific document.
 
 ## Where to go
 
+- **[Getting started](getting_started/INTRODUCTION.md)** — what SushiDSP is, the rig graph it
+  builds around, and how to set up a workspace to build against it.
 - **[Design](design/sushidsp.md)** — the architecture, the math, the SOLID rationale, and the
   product roadmap (D0–D7). This is the authoritative spec an implementer builds from; it
   describes intent and may describe work that does not exist in the tree yet.
+- **[Architecture](architecture/README.md)** — how the tree's layers fit together as built
+  today, distinct from the design spec's intent; points to `OVERVIEW.md` and to this page's
+  module list.
 - **[GUI/UX redesign](design/gui_ux_redesign.md)** — the host app's main-window layout,
   audio device panel centering, splitter/mixer automation, cabinet component, and
   mini-DAW panel. Design only, open phase; tracked in `design/REMAINING_WORK.md`'s Host
@@ -15,6 +20,10 @@ once you're in the tree and need a specific document.
 - **[Contributing](CONTRIBUTING.md)** — the conventions every change is held to: C++17, Allman
   braces, the license header format, the test/CTest-label layout, and how to build (`sd`, never
   `cmake` directly).
+- **[Documentation style guide](DOCUMENTATION_STYLE_GUIDE.md)** — how a document is shaped: where
+  it goes, and the form every page in this tree already follows.
+- **[Command line interface](guides/COMMAND_LINE_INTERFACE.md)** — the `sd` CLI's six
+  subcommands (`configure`, `build`, `test`, `doxygen`, …) and how each picks a compiler.
 - **[Remaining work](design/REMAINING_WORK.md)** — the single backlog: what is open, in
   the order it should be taken, with the measured defects left to `KNOWN_ISSUES.md`.
 - **[Changelog](reference/CHANGELOG.md)** — what changed and when, by roadmap phase.
@@ -23,6 +32,10 @@ once you're in the tree and need a specific document.
 - **[Glossary](reference/GLOSSARY.md)** — the words this tree fixes a narrower meaning for: bar,
   beat, clip, lane, take, timeline frame and playback speed.
 - **[Code of Conduct](CODE_OF_CONDUCT.md)** and **[Security Policy](SECURITY.md)**.
+- **[Archive](archive/README.md)** — closed-out design documents, moved here intact once nothing
+  in them is still open; currently empty, since SushiDSP hasn't closed one out yet.
+- **[Modules index](modules/README.md)** — every module, one line each, linking to its own
+  `README.md` for which class owns which block and where it departs from the design spec.
 - **[`docs/reference/spice/`](reference/spice/)** — the SPICE reference corpus: netlist-directive
   `.asc` files and Koren/Norman `.sub` models for each circuit block, exported to CSV by
   `tools/spice/export.py` and read back by `tests/measure/SpiceCsv.hpp`. Populating it needs
