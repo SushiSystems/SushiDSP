@@ -82,6 +82,7 @@ add_executable(sushidsp_tests
     functional/unit/test_tube_screamer.cpp
     functional/unit/test_jcm_tone_stack.cpp
     functional/unit/test_jcm800.cpp
+    functional/unit/test_cabinet_node.cpp
     functional/unit/test_peavey5150.cpp
     functional/unit/test_diezel_vh4.cpp
     functional/unit/test_mesa_mark2c.cpp
@@ -200,6 +201,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
     SushiDSP::jcm800
+    SushiDSP::cabinet
     SushiDSP::peavey5150
     SushiDSP::diezel_vh4
     SushiDSP::mesa_mark2c
