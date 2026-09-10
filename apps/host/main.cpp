@@ -61,9 +61,8 @@ int main()
     tube_screamer->set_tone(0.5f);
     tube_screamer->set_level(0.0f);   // Level is now in dB; 0 dB is the pedal's unity-ish output
 
-    // No cabinet impulse response: none ships with this repository, so the demo runs the amp
-    // without its cabinet stage. Loading one is a user-side step -
-    // Jcm800(SushiDSP::WavFile::load_mono("path/to/ir.wav")) - not yet surfaced as a host flag.
+    // No cabinet: sushidsp.cabinet is a separate node the demo doesn't wire in, so this runs
+    // the amp's dry signal. See apps/host_asio/main.cpp for a rig that adds one.
     auto jcm800 = std::make_unique<SushiDSP::Jcm800>();
     jcm800->set_preamp(0.7f);
     jcm800->set_master(0.0f);
