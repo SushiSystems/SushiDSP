@@ -36,11 +36,8 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
-#include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
-#include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/diezel_vh4/DiezelVh4ToneStack.hpp"
-#include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/circuits/stages/OutputTransformerStage.hpp"
 #include "SushiDSP/circuits/stages/PentodeStage.hpp"
 #include "SushiDSP/circuits/stages/PowerSupplySagStage.hpp"
@@ -49,24 +46,23 @@
 #include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
-#include "SushiDSP/math/StreamingConvolution.hpp"
 
 namespace SushiDSP
 {
     /// @brief The Diezel VH4's channel 3 ("Mega"): V1a, the channel gain pot's 1 nF split, V2a,
     /// V3a, the V3b cathode follower, the FMV deck, the channel volume, the four-way mix bus,
     /// V4a and the V4b send buffer, then a phase inverter, an EL34 quad, the output transformer,
-    /// power sag, Deep, Presence and an optional cabinet, followed by a full-scale clamp.
+    /// power sag, Deep and Presence, followed by a full-scale clamp. Cabinet convolution lives
+    /// in the standalone sushidsp.cabinet node.
     ///
     /// A documented approximation rather than a white-box model: the gain chain comes from one
     /// reverse-engineering drawing, the tone stack's interconnection is a reconstruction and the
     /// power section is built from prose alone. modules/diezel_vh4/README.md says which is which.
     /// Exposes diezel_vh4_descriptor().
-    class DiezelVh4 : public IAudioNode, public ICabinetHost
+    class DiezelVh4 : public IAudioNode
     {
     public:
-        /// @param cabinet_impulse_response Cabinet IR samples; empty means no cabinet stage.
-        explicit DiezelVh4(std::vector<float> cabinet_impulse_response = {});
+        DiezelVh4();
 
         /// @brief Sizes every scratch buffer and rebuilds every sample-rate-dependent filter.
         /// @param info Sample rate, max block size, and channel count for this node's lifetime.
@@ -80,31 +76,16 @@ namespace SushiDSP
         /// @return Mono in, mono out.
         PortLayout ports() const override;
 
-        /// @brief Clears every stage's state for a click-free restart. Control thread only: it
-        /// reaches the cabinet through the slot's publisher-side accessor, so calling it from the
-        /// audio thread would race reclaim().
+        /// @brief Clears every stage's state for a click-free restart.
         void reset() override;
 
         /// @brief Reports the delay this node adds from input to output.
-        /// @return The single oversampled region's latency plus, when a cabinet is loaded, its
-        /// one-partition convolution latency.
+        /// @return The single oversampled region's latency.
         std::uint32_t latency_samples() const override;
 
         /// @brief This amp's registered type id.
         /// @return "sushidsp.diezel_vh4".
         const char* type_id() const override;
-
-        /// @brief Installs a new cabinet impulse response. Control thread only: the convolver is
-        /// built here in full and handed to the audio thread as one atomic pointer swap.
-        /// @param impulse_response The IR and the rate it was captured at; its sample_rate must
-        /// equal the rate this node was prepared at.
-        /// @return True if the cabinet was installed; false if the IR is empty, if the rates
-        /// disagree, or if prepare() has not run yet.
-        bool set_cabinet(Ir impulse_response) override;
-
-        /// @brief Frees every cabinet the audio thread has provably moved past. Control thread
-        /// only; call periodically after any set_cabinet().
-        void reclaim_cabinets() override;
 
         /// @brief How many triode stages this amp exposes to grid-excursion probing. A test hook
         /// like Jcm800::set_power_tube_grid_bias_mismatch_volts(): it exists so a test can prove
@@ -116,10 +97,6 @@ namespace SushiDSP
         /// @param stage Index into the signal order triode_stage_count() describes.
         /// @return The peak |Vg - Vk| in volts, or 0 when the index is out of range.
         float grid_excursion_peak_volts(std::size_t stage) const;
-
-        /// @brief Whether a cabinet convolution is currently in the signal path.
-        /// @return True once a cabinet has been installed by the constructor or set_cabinet().
-        bool has_cabinet() const override;
 
         /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
         /// It multiplies the signal after the last nonlinearity, so it scales the output and
@@ -196,8 +173,6 @@ namespace SushiDSP
         void rebuild_gain_high_pass(float normalized);
 
         double sample_rate_ = 48000.0;
-        std::uint32_t cabinet_partition_ = 0;
-        std::vector<float> cabinet_impulse_response_;
 
         SmoothedParameter gain_{ 0.5f }, bass_{ 0.5f }, middle_{ 0.5f }, treble_{ 0.5f };
         SmoothedParameter volume_{ 0.5f }, deep_{ 0.5f }, presence_{ 0.5f };
@@ -228,7 +203,6 @@ namespace SushiDSP
         ResonanceControl deep_shelf_;
 
         std::unique_ptr<Oversampler8x> oversampler_;  // spans V1a -> sag
-        RtSwapSlot<StreamingConvolution> cabinet_slot_;
 
         std::vector<float> scratch_base_;
         std::vector<float> scratch_oversampled_;

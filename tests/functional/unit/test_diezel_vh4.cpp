@@ -36,7 +36,6 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/diezel_vh4/DiezelVh4.hpp"
-#include "SushiDSP/io/Ir.hpp"
 #include "measure/FrequencyResponse.hpp"
 #include "measure/Render.hpp"
 #include "measure/Thd.hpp"
@@ -480,55 +479,6 @@ TEST(Unit_Dsp, DiezelVh4DescriptorMakeProducesAWorkingNode)
     }
 }
 
-TEST(Unit_Dsp, DiezelVh4CabinetStageEngagesAtANonDefaultBlockSize)
-{
-    // The cabinet's partition is derived from the sample rate, not from PrepareInfo::max_block, so
-    // a host running any block size gets the cabinet.
-    constexpr std::uint32_t block_size = 128;
-    std::vector<float> impulse_response(200, 0.0f);
-    impulse_response[0] = 1.0f;
-    for (std::size_t i = 1; i < impulse_response.size(); ++i)
-    {
-        impulse_response[i] = 0.5f * impulse_response[i - 1];
-    }
-
-    auto run = [block_size](std::vector<float> cabinet) -> std::vector<float>
-    {
-        SushiDSP::DiezelVh4 node(std::move(cabinet));
-        SushiDSP::PrepareInfo info{ 48000.0, block_size, 1 };
-        node.prepare(info);
-        node.set_gain(0.6f);
-        node.set_master(0.0f);
-
-        std::vector<float> input(block_size);
-        for (std::size_t i = 0; i < input.size(); ++i)
-        {
-            input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
-        }
-        std::vector<float> output(block_size, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
-
-        for (int block = 0; block < 10; ++block)
-        {
-            SushiDSP::ProcessContext context{ output_channels, input_channels, block_size, 0.0 };
-            node.process(context);
-        }
-        return output;
-    };
-
-    const std::vector<float> without_cabinet = run({});
-    const std::vector<float> with_cabinet = run(impulse_response);
-
-    double total_difference = 0.0;
-    for (std::size_t i = 0; i < without_cabinet.size(); ++i)
-    {
-        ASSERT_TRUE(std::isfinite(with_cabinet[i]));
-        total_difference += std::abs(static_cast<double>(with_cabinet[i]) - without_cabinet[i]);
-    }
-    EXPECT_GT(total_difference, 0.0);
-}
-
 TEST(Unit_Dsp, DiezelVh4DryLatencyIsOneOversampledRegion)
 {
     // V1a through the sag stage is a single 8x region, so the reported latency is one
@@ -536,7 +486,6 @@ TEST(Unit_Dsp, DiezelVh4DryLatencyIsOneOversampledRegion)
     // oversampler itself rather than against a literal.
     SushiDSP::DiezelVh4 node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
-    EXPECT_FALSE(node.has_cabinet());
 
     SushiDSP::Oversampler8x reference(256);
     EXPECT_EQ(node.latency_samples(), reference.latency_samples());
