@@ -89,6 +89,46 @@ TEST(Unit_Dsp, CabinetNodeInstallsAndAppliesAnImpulseResponse)
     }
 }
 
+TEST(Unit_Dsp, CabinetNodeSurvivesVariableBlockSizes)
+{
+    // StreamingConvolution re-blocks the stream internally, so the cabinet must survive a host
+    // that hands the node a different frame count every callback - including counts that are not
+    // powers of two and not multiples of the partition. An identity IR makes the whole cabinet a
+    // pure delay of exactly one partition, so the processed stream must reproduce the raw input
+    // stream shifted by latency_samples(), sample for sample.
+    SushiDSP::CabinetNode node;
+    SushiDSP::PrepareInfo info{ 48000.0, 512, 1 };
+    node.prepare(info);
+    ASSERT_TRUE(node.set_cabinet(SushiDSP::Ir{ make_identity_impulse_response(), 48000.0 }));
+    node.reclaim_cabinets();
+
+    std::vector<float> input(512);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.2f * std::sin(0.03f * static_cast<float>(i));
+    }
+    const float* input_channels[1] = { input.data() };
+
+    std::vector<float> stream_in, stream_out;
+    const std::uint32_t chunks[] = { 100, 37, 512, 1, 300 };
+    for (std::uint32_t frames : chunks)
+    {
+        std::vector<float> output(frames, 0.0f);
+        float* output_channels[1] = { output.data() };
+        SushiDSP::ProcessContext context{ output_channels, input_channels, frames, 0.0 };
+        node.process(context);
+        stream_out.insert(stream_out.end(), output.begin(), output.end());
+        stream_in.insert(stream_in.end(), input.begin(), input.begin() + frames);
+    }
+
+    const std::uint32_t latency = node.latency_samples();
+    EXPECT_EQ(latency, 128u);
+    for (std::size_t n = latency; n < stream_out.size(); ++n)
+    {
+        EXPECT_NEAR(stream_out[n], stream_in[n - latency], 1e-5f);
+    }
+}
+
 TEST(Unit_Dsp, CabinetNodeRejectsAnImpulseResponseAtTheWrongSampleRate)
 {
     SushiDSP::CabinetNode node;
