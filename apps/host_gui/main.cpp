@@ -52,7 +52,6 @@
 #include "ui/ArrangementView.hpp"
 #include "ui/ChainStrip.hpp"
 #include "ui/DeviceSettings.hpp"
-#include "ui/FileBrowser.hpp"
 #include "ui/GearBrowser.hpp"
 #include "ui/LevelProbe.hpp"
 #include "ui/MeterBar.hpp"
@@ -233,7 +232,6 @@ int main(int argc, char** argv)
     ui::TimelineScale timeline_scale;
     ui::SnapMode      snap_mode = ui::SnapMode::Bar;
     ui::LaneGeometry  lane_geometry;
-    std::string       take_directory;
 
     // Sized once by the first Explorer drop and reused, so a drop costs no allocation after it.
     std::vector<SushiDSP::host::FileDrop> drained_drops;
@@ -554,7 +552,6 @@ int main(int argc, char** argv)
         const float arrangement_top = body_top + body_height;
         const float arrangement_height = region_height - body_height;
         const float stage_height = body_height * 0.58f;
-        const float gear_height = body_height * 0.45f;
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(width, top_height));
@@ -637,45 +634,9 @@ int main(int argc, char** argv)
         ImGui::End();
 
         ImGui::SetNextWindowPos(ImVec2(width - browser_width, body_top));
-        ImGui::SetNextWindowSize(ImVec2(browser_width, gear_height));
+        ImGui::SetNextWindowSize(ImVec2(browser_width, body_height));
         ImGui::Begin("##gear", nullptr, kRegionFlags);
         ui::DrawGearBrowser();
-        ImGui::End();
-
-        ImGui::SetNextWindowPos(ImVec2(width - browser_width, body_top + gear_height));
-        ImGui::SetNextWindowSize(ImVec2(browser_width, body_height - gear_height));
-        ImGui::Begin("##takes", nullptr, kRegionFlags);
-        if (rig_controller_storage.has_value())
-        {
-            if (take_directory.empty())
-            {
-                take_directory = rig_controller_storage->take_folder();
-            }
-
-            ImGui::TextColored(ui::to_imvec4(ui::palette().muted_text),
-                               "Drag a take or a song onto a lane, or click one to place it at "
-                               "the playhead.");
-
-            const std::optional<std::string> picked = ui::FileBrowser(
-                "##takes_browser", take_directory, std::vector<std::string>{ ".wav", ".mp3" });
-            if (picked.has_value())
-            {
-                RigController&      rig = *rig_controller_storage;
-                const std::size_t   lane = rig.record_track().value_or(0u);
-                const std::uint64_t start =
-                    timeline_scale.snap(rig.transport().position_frames(), snap_mode,
-                                        rig.musical_clock());
-                if (SushiDSP::host::AudioImportCache::can_import(*picked))
-                {
-                    audio_imports.request(*picked, lane, start, rig.sample_rate());
-                    arrangement_error.clear();
-                }
-                else if (rig.place_clip(lane, *picked, start, arrangement_error))
-                {
-                    arrangement_error.clear();
-                }
-            }
-        }
         ImGui::End();
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, arrangement_top));
