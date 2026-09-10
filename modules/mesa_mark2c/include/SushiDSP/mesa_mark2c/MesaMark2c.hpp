@@ -36,10 +36,7 @@
 
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
-#include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
-#include "SushiDSP/core/RtSwapSlot.hpp"
-#include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/mesa_mark2c/MesaMark2cToneStack.hpp"
 #include "SushiDSP/circuits/GraphicEqualizer.hpp"
 #include "SushiDSP/circuits/stages/OutputTransformerStage.hpp"
@@ -49,23 +46,22 @@
 #include "SushiDSP/math/Biquad.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
-#include "SushiDSP/math/StreamingConvolution.hpp"
 
 namespace SushiDSP
 {
     /// @brief The Mesa/Boogie Mark IIC+ in Lead mode: V1A, the FMV stack on its plate, Volume 1,
     /// V1B, Lead Drive, V3B, V4A, the lead output divider, V2A, the effects loop network with its
     /// Lead Master, V2B, Master 1, the five-band graphic equaliser, the long-tailed pair, the
-    /// Simul-Class output pairs, output transformer, power sag, presence and an optional cabinet
-    /// convolution, followed by a plain full-scale clamp. Exposes mesa_mark2c_descriptor().
-    class MesaMark2c : public IAudioNode, public ICabinetHost
+    /// Simul-Class output pairs, output transformer, power sag and presence, followed by a plain
+    /// full-scale clamp. Cabinet convolution lives in the standalone sushidsp.cabinet node.
+    /// Exposes mesa_mark2c_descriptor().
+    class MesaMark2c : public IAudioNode
     {
     public:
         /// @brief The number of graphic-equaliser sliders on the front panel.
         static constexpr std::size_t kEqualizerBandCount = 5;
 
-        /// @param cabinet_impulse_response Cabinet IR samples; empty means no cabinet stage.
-        explicit MesaMark2c(std::vector<float> cabinet_impulse_response = {});
+        MesaMark2c();
 
         /// @brief Sizes every scratch buffer and rebuilds every sample-rate-dependent filter.
         /// @param info Sample rate, max block size, and channel count for this node's lifetime.
@@ -79,35 +75,16 @@ namespace SushiDSP
         /// @return Mono in, mono out.
         PortLayout ports() const override;
 
-        /// @brief Clears every stage's state for a click-free restart. Control thread only: it
-        /// reaches the cabinet through the slot's publisher-side accessor.
+        /// @brief Clears every stage's state for a click-free restart.
         void reset() override;
 
         /// @brief Reports the delay this node adds from input to output.
-        /// @return The single oversampled region's latency plus, when a cabinet is loaded, its
-        /// one-partition convolution latency. A host should re-read it after set_cabinet().
+        /// @return The single oversampled region's latency.
         std::uint32_t latency_samples() const override;
 
         /// @brief This amp's registered type id.
         /// @return "sushidsp.mesa_mark2c".
         const char* type_id() const override;
-
-        /// @brief Installs a new cabinet impulse response. Control thread only: the convolver is
-        /// built here in full and handed to the audio thread as one atomic pointer swap.
-        /// @param impulse_response The IR and the rate it was captured at; its sample_rate must
-        /// equal the rate this node was prepared at. The samples are retained so a later
-        /// prepare() rebuilds this cabinet; they are never resampled.
-        /// @return True if the cabinet was installed; false if the IR is empty, if the rates
-        /// disagree, or if prepare() has not run yet, in which case nothing is installed and the
-        /// previously active cabinet stays in place.
-        bool set_cabinet(Ir impulse_response) override;
-
-        /// @brief Frees every cabinet the audio thread has provably moved past. Control thread only.
-        void reclaim_cabinets() override;
-
-        /// @brief Whether a cabinet convolution is currently in the signal path.
-        /// @return True once a cabinet has been installed by the constructor or set_cabinet().
-        bool has_cabinet() const override;
 
         /// @brief Reports how many triode stages the grid-excursion probe can be asked about.
         /// A test hook, like set_bias_mismatch() on the JCM800.
@@ -170,7 +147,7 @@ namespace SushiDSP
         /// @param decibels Trim in [-24, +24] dB; 0 dB passes the host's level through unchanged.
         void set_input_trim(float decibels);
 
-        /// @brief Sets the output level applied after the cabinet stage.
+        /// @brief Sets the output level applied after the power section.
         /// @param decibels Output level in [-60, +12] dB; 0 dB is unity.
         void set_output(float decibels);
 
@@ -197,8 +174,6 @@ namespace SushiDSP
         void build_rate_dependent_filters(double oversampled_rate_hz);
 
         double sample_rate_ = 48000.0;
-        std::uint32_t cabinet_partition_ = 0;
-        std::vector<float> cabinet_impulse_response_;
 
         SmoothedParameter volume_1_{ 0.5f }, treble_{ 0.5f }, bass_{ 0.5f }, middle_{ 0.5f };
         SmoothedParameter lead_drive_{ 0.5f }, lead_master_{ 0.5f }, presence_{ 0.5f };
@@ -250,7 +225,6 @@ namespace SushiDSP
         PowerSupplySagStage sag_;
 
         std::unique_ptr<Oversampler8x> oversampler_;  // spans V1A -> sag
-        RtSwapSlot<StreamingConvolution> cabinet_slot_;
 
         std::vector<float> scratch_base_;
         std::vector<float> scratch_oversampled_;
