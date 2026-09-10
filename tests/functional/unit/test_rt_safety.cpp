@@ -49,7 +49,7 @@
 #include "SushiDSP/capture/TrackPlayer.hpp"
 #include "SushiDSP/capture/TrackTimeline.hpp"
 #include "SushiDSP/capture/VariRateReader.hpp"
-#include "SushiDSP/device/AsioSampleConverter.hpp"
+#include "SushiDSP/audio_format/AsioSampleConverter.hpp"
 #include "SushiDSP/io/Ir.hpp"
 #include "SushiDSP/math/Fft.hpp"
 #include "SushiDSP/math/Oversampler.hpp"

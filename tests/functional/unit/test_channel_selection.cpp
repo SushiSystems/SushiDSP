@@ -27,7 +27,7 @@
 #include <gtest/gtest.h>
 
 #include "SushiDSP/core/RigGraph.hpp"
-#include "SushiDSP/device/ChannelSelection.hpp"
+#include "SushiDSP/audio_format/ChannelSelection.hpp"
 
 TEST(Unit_Dsp, ParseChannelSelectionAcceptsLRAndStereo)
 {

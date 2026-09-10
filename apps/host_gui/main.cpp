@@ -41,7 +41,7 @@
 #include "SushiDSP/core/IAudioDevice.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtGraphSlot.hpp"
-#include "SushiDSP/device/ChannelSelection.hpp"
+#include "SushiDSP/audio_format/ChannelSelection.hpp"
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 
 #include "AudioImportCache.hpp"

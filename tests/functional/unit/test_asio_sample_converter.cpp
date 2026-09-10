@@ -26,7 +26,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/device/AsioSampleConverter.hpp"
+#include "SushiDSP/audio_format/AsioSampleConverter.hpp"
 
 TEST(Unit_Dsp, AsioSampleConverterInt32RoundTripsKnownValues)
 {
