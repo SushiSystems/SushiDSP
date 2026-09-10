@@ -25,6 +25,7 @@
 
 #include <cstring>
 
+#include "SushiDSP/cabinet/CabinetNode.hpp"
 #include "SushiDSP/dd3/Dd3Delay.hpp"
 #include "SushiDSP/diezel_vh4/DiezelVh4.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
@@ -51,6 +52,7 @@ namespace SushiDSP
             { &mixer_descriptor(), NodeCategory{ "Routing" } },
             { &pan_descriptor(), NodeCategory{ "Routing" } },
             { &room::room_descriptor(), NodeCategory{ "Room" } },
+            { &cabinet_descriptor(), NodeCategory{ "Cabinet" } },
         };
         return entries;
     }

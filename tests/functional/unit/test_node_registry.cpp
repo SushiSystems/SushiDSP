@@ -127,3 +127,11 @@ TEST(Unit_Dsp, NodeRegistryIncludesRoutingNodes)
     }
     EXPECT_TRUE(found_routing_category);
 }
+
+TEST(Unit_Dsp, NodeRegistryBuildsTheCabinet)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    auto node = SushiDSP::make_node("sushidsp.cabinet", info);
+    ASSERT_NE(node, nullptr);
+    EXPECT_STREQ(node->type_id(), "sushidsp.cabinet");
+}
