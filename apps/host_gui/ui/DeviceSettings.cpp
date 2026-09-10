@@ -40,6 +40,10 @@ namespace ui
         }
 
         bool connect_clicked = false;
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        const ImVec2 center(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+                            viewport->WorkPos.y + viewport->WorkSize.y * 0.5f);
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowSize(ImVec2(420.0f, 0.0f), ImGuiCond_Appearing);
         if (ImGui::Begin("Audio device", &open, ImGuiWindowFlags_NoCollapse))
         {
