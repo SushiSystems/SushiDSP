@@ -42,11 +42,12 @@ are the repo's own bricks; `DiezelVh4` owns the order they run in and nothing el
 | Output transformer, supply sag | JCM800 constants | — | 5 — nothing established |
 | Deep | `ResonanceControl` at 80 Hz, 10 dB | — | 5, 6 |
 | Presence | high shelf at 4 kHz, ±9 dB | — | 5, 6 |
-| Cabinet, master, clamp | as the JCM800 | — | — |
+| Master, clamp | as the JCM800 | — | — |
 
 V1a through the sag stage runs inside one 8× oversampled region, so every corner in that span is
-derived at the oversampled rate. Presence, Deep, the master volume and the
-cabinet run at the host rate.
+derived at the oversampled rate. Presence, Deep and the master volume run at the host rate.
+Cabinet convolution is not part of this node; a rig that wants one places the standalone
+`sushidsp.cabinet` node after this one (see [`modules/cabinet/README.md`](../cabinet/README.md)).
 
 ### The gain knob is a filter
 

@@ -25,8 +25,10 @@ if the reading is wrong: R18 moves V1B by under 0.1 dB, but R20 moves V2A's outp
 
 The whole chain from the grid stopper to the sag stage runs inside one 8× oversampled region, so
 every filter in it is built at the oversampled rate. The presence shelf, the resonance shelf, the
-unity-gain trim, the cabinet and the clamp run after the decimator. Every coupling capacitor is a
-first-order high-pass at the corner its own R and C give.
+unity-gain trim and the clamp run after the decimator. Every coupling capacitor is a first-order
+high-pass at the corner its own R and C give. Cabinet convolution is not part of this node; a rig
+that wants one places the standalone `sushidsp.cabinet` node after this one (see
+[`modules/cabinet/README.md`](../cabinet/README.md)).
 
 | # | Stage | Bricks | Dossier |
 | --- | --- | --- | --- |
@@ -54,7 +56,7 @@ first-order high-pass at the corner its own R and C give.
 | 22 | Output transformer, screen and rail sag | `OutputTransformerStage`, `PowerSupplySagStage` | §5 |
 | 23 | PRESENCE VR9 10 kΩ with C8 ∥ C62 | `Biquad` high shelf, ±10 dB plateau, corner 600 Hz | §6 |
 | 24 | RESONANCE VR8 1 MΩ with C12 | `ResonanceControl`, +10 dB plateau, corner 330 Hz | §6 |
-| 25 | Cabinet slot, output level, full-scale clamp | `StreamingConvolution`, `std::clamp` | — |
+| 25 | Output level, full-scale clamp | `std::clamp` | — |
 
 Each grid after V1A also carries a one-pole Miller rolloff, built the way
 `modules/jcm800/src/Jcm800.cpp` builds its own: `C_in = Cgk + Cgp·(1 + |A|) + stray` with the

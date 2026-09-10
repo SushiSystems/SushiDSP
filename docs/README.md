@@ -64,6 +64,10 @@ once you're in the tree and need a specific document.
   (`SplitterNode`, `MixerNode`, `PanNode`), `sushidsp.splitter`/`sushidsp.mixer`/`sushidsp.pan`.
   Its [`README.md`](../modules/routing/README.md) says why they exist as ordinary nodes rather
   than `RigGraph` special cases.
+- **[`modules/cabinet/`](../modules/cabinet/)** — the standalone cabinet impulse-response node,
+  `sushidsp.cabinet`. Its [`README.md`](../modules/cabinet/README.md) says why it replaced the
+  amp-embedded `ICabinetHost` path that `modules/jcm800`, `modules/peavey5150`,
+  `modules/diezel_vh4` and `modules/mesa_mark2c` used to implement.
 - **[`modules/node_registry/`](../modules/node_registry/)** — the product catalog:
   `node_registry()` and `make_node()`, the one place in the tree allowed to depend on every
   product module at once. Its [`README.md`](../modules/node_registry/README.md) lists what is

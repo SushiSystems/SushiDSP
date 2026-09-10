@@ -1,8 +1,9 @@
 # `modules/jcm800` — Marshall JCM800 2203
 
 One `IAudioNode`, mono in and mono out, registered as `sushidsp.jcm800` with eight parameters:
-preamp, master, bass, middle, treble, presence, input trim and output. The cabinet convolution
-is optional and lives inside the node, behind `set_cabinet()`.
+preamp, master, bass, middle, treble, presence, input trim and output. Cabinet convolution is
+not part of this node; a rig that wants one places the standalone `sushidsp.cabinet` node
+after this one (see [`modules/cabinet/README.md`](../cabinet/README.md)).
 
 Intent and the phase rulings live in
 [`docs/design/sushidsp.md`](../../docs/design/sushidsp.md); the plate-swing change this file
@@ -274,5 +275,6 @@ shape alone.
 `prepare()` builds the bright cap and the presence shelf at the host rate. Everything from V1a
 through the sag stage runs inside a single 8x oversampled region, so the coupling cap, the three
 Miller poles, the tone stack, the output transformer and the sag stage are all derived at the
-oversampled rate. The presence shelf, the master volume and the cabinet run after the decimator,
-where they cost eight times less and generate nothing that could alias.
+oversampled rate. The presence shelf and the master volume run after the decimator, where they
+cost eight times less and generate nothing that could alias; cabinet convolution, if a rig adds
+it, runs in the separate `sushidsp.cabinet` node downstream.
