@@ -281,9 +281,8 @@ namespace SushiDSP
         }
     }
 
-    MesaMark2c::MesaMark2c(std::vector<float> cabinet_impulse_response)
-        : cabinet_impulse_response_(std::move(cabinet_impulse_response))
-        , v1a_(kV1aSourceResistance, kInputGridLeak, kV1aCathodeBias, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
+    MesaMark2c::MesaMark2c()
+        : v1a_(kV1aSourceResistance, kInputGridLeak, kV1aCathodeBias, kV1aGain, kTriode12AX7GridConduction, kV1aPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
         , v1b_(kV1bSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kV1bGain, kTriode12AX7GridConduction, kV1bPlateSwing)
         , v3b_(kV3bSourceResistance, kTriodeGridLeak, kV3bCathodeBias, kV3bGain, kTriode12AX7GridConduction, kV3bPlateSwing)
@@ -381,14 +380,6 @@ namespace SushiDSP
 
         scratch_base_.assign(info.max_block, 0.0f);
         scratch_oversampled_.assign(static_cast<std::size_t>(info.max_block) * kOversamplingFactor, 0.0f);
-
-        cabinet_partition_ = StreamingConvolution::partition_size_for(sample_rate_);
-        if (!cabinet_impulse_response_.empty())
-        {
-            cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
-                cabinet_partition_, cabinet_impulse_response_.data(),
-                static_cast<std::uint32_t>(cabinet_impulse_response_.size()), info.max_block));
-        }
 
         reset();
     }
@@ -508,17 +499,11 @@ namespace SushiDSP
             scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]);
         }
 
-        StreamingConvolution* const cabinet = cabinet_slot_.acquire_for_audio_thread();
-        if (cabinet != nullptr)
+        // Cabinet convolution lives in the standalone sushidsp.cabinet node; this amp hands its
+        // dry (post-presence) signal straight to output.
+        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            cabinet->process(scratch_base_.data(), output, frames);
-        }
-        else
-        {
-            for (std::uint32_t i = 0; i < frames; ++i)
-            {
-                output[i] = scratch_base_[i];
-            }
+            output[i] = scratch_base_[i];
         }
 
         // Nothing upstream is normalised to the DAC's range, so a hot Lead Drive, Master 1 and
@@ -532,36 +517,10 @@ namespace SushiDSP
 
     std::uint32_t MesaMark2c::latency_samples() const
     {
-        const std::uint32_t oversampling_latency = oversampler_ ? oversampler_->latency_samples() : 0;
-        return oversampling_latency + (has_cabinet() ? cabinet_partition_ : 0);
+        return oversampler_ ? oversampler_->latency_samples() : 0;
     }
 
     const char* MesaMark2c::type_id() const { return "sushidsp.mesa_mark2c"; }
-
-    bool MesaMark2c::set_cabinet(Ir impulse_response)
-    {
-        if (impulse_response.samples.empty() || cabinet_partition_ == 0
-            || impulse_response.sample_rate != sample_rate_)
-        {
-            return false;
-        }
-        cabinet_impulse_response_ = std::move(impulse_response.samples);
-        cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
-            cabinet_partition_, cabinet_impulse_response_.data(),
-            static_cast<std::uint32_t>(cabinet_impulse_response_.size()),
-            static_cast<std::uint32_t>(scratch_base_.size())));
-        return true;
-    }
-
-    void MesaMark2c::reclaim_cabinets()
-    {
-        cabinet_slot_.reclaim();
-    }
-
-    bool MesaMark2c::has_cabinet() const
-    {
-        return cabinet_slot_.has_active();
-    }
 
     namespace
     {
@@ -637,10 +596,6 @@ namespace SushiDSP
         if (oversampler_)
         {
             oversampler_->reset();
-        }
-        if (StreamingConvolution* const cabinet = cabinet_slot_.active_for_publisher())
-        {
-            cabinet->reset();
         }
     }
 
