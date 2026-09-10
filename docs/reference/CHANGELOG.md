@@ -8,6 +8,7 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
 The room track, spec `docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
 `docs/superpowers/plans/2026-09-08-room-acoustics.md`.
 
+- 2026-09-10 — Added sushidsp.cabinet and retired the amp-embedded cabinet path (`modules/cabinet`, `modules/jcm800`, `modules/peavey5150`, `modules/diezel_vh4`, `modules/mesa_mark2c`).
 - 2026-09-10 — Added the backlog every open item is tracked in (`docs/design/REMAINING_WORK.md`, `docs/README.md`).
 - 2026-09-10 — Added the missing documentation skeleton (`docs/DOCUMENTATION_STYLE_GUIDE.md`, `docs/getting_started/`, `docs/architecture/`, `docs/modules/`, `docs/guides/`, `docs/archive/`).
 - 2026-09-10 — Added per-target compiler warnings, opt-in sanitizers and matching build presets (`cmake/CompilerWarnings.cmake`, `cmake/Sanitizers.cmake`, `CMakePresets.json`).

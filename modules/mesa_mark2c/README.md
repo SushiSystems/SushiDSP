@@ -34,9 +34,12 @@ input, where the lead chain is on its knee: treble at 1 against 0 raises THD by 
 | Each of the seven 12AX7 halves | `TriodeStage` |
 | The five EQ traps | `GraphicEqualizer` |
 | Each Simul-Class output half | `PentodeStage`, from `kMesaMark2cPower6L6GC` / `kMesaMark2cPowerEl34Triode` |
-| Transformer, sag, cabinet | `OutputTransformerStage`, `PowerSupplySagStage`, `StreamingConvolution` |
+| Transformer, sag | `OutputTransformerStage`, `PowerSupplySagStage` |
 | Every coupling cap, cathode shelf, divider shelf, Miller pole and the presence shelf | `Biquad` |
 | The chain's order and the constants | `SushiDSP::MesaMark2c` |
+
+Cabinet convolution is not part of this node; a rig that wants one places the standalone
+`sushidsp.cabinet` node after this one (see [`modules/cabinet/README.md`](../cabinet/README.md)).
 
 ## Stage order and the numbers behind it
 
