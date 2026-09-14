@@ -1,6 +1,6 @@
 # Remaining work
 
-**Status:** open, last revised 2026-09-10.
+**Status:** open, last revised 2026-09-14.
 
 The single backlog. An entry here names work that is not started or not finished; a defect that
 is measured, understood and deliberately left alone lives in
@@ -49,10 +49,17 @@ starts on that without the verdict.
 
 ## Host
 
-- **Gear-browser grid.** `apps/host_gui/ui/GearBrowser.cpp` still draws a vertical list, one
-  full-width card per row (`GearBrowser.cpp:92`); the grid of draggable amp/pedal/cabinet
-  components described in `docs/design/gui_ux_redesign.md` §3 was never built — only the
-  panel's position moved. See `docs/design/gui_ux_redesign.md`.
+- **Track playback pitch shift.** The bottom bar's Pitch field
+  (`docs/design/gui_ux_redesign.md` §12) is drawn disabled. It needs a semitone shift of
+  track playback that leaves speed alone; today `VariRateReader` moves pitch with speed and
+  nothing in the tree stretches time. Owner decision 2026-09-14: its own plan, applied to
+  track playback only.
+- **Phase 2 manual acceptance.** The seven checks in Task 14 of
+  `docs/superpowers/plans/2026-09-14-host-gui-phase2.md` have not been run in the GUI.
+- **Parallel topology in presets.** A preset with a parallel shape loads flattened to a
+  series chain (`apps/host_gui/main.cpp`, `seed_rig_chain`); §19 leaves persistence open.
+- **`RigController::add_branch` has no caller** since the splitter picker was removed.
+- **`apps/host_gui/README.md` is missing.**
 - **`RigController::publish()` rebuilds every node.** One structural edit builds the node set
   three times, which is why "No bundled HRTF set" prints three times on a graph change and why a
   room edit through the graph empties the tail (KNOWN_ISSUES, "A structural rig edit empties the

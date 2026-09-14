@@ -132,12 +132,10 @@ add_executable(sushidsp_tests
     # the imgui target only exists when SUSHIDSP_BUILD_GUI is ON.
     functional/unit/test_knob_math.cpp
     functional/unit/test_panel_library.cpp
-    functional/unit/test_chain_layout.cpp
     functional/unit/test_level_probe.cpp
     functional/unit/test_directory_listing.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/KnobMath.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/PanelLibrary.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ChainLayout.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/DirectoryListing.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/TimelineScale.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ArrangementLayout.cpp

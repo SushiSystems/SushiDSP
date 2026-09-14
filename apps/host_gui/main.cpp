@@ -31,6 +31,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -48,14 +49,17 @@
 #include "AudioImportQueue.hpp"
 #include "FileDropQueue.hpp"
 #include "RigController.hpp"
+#include "RigTopology.hpp"
+#include "TopologyApplier.hpp"
 #include "ui/ArrangementLayout.hpp"
 #include "ui/ArrangementView.hpp"
-#include "ui/ChainStrip.hpp"
-#include "ui/SplitterPicker.hpp"
 #include "ui/DeviceSettings.hpp"
+#include "ui/Divider.hpp"
+#include "ui/DividerMath.hpp"
 #include "ui/GearBrowser.hpp"
 #include "ui/LevelProbe.hpp"
 #include "ui/MeterBar.hpp"
+#include "ui/RigChainView.hpp"
 #include "ui/RoomPanel.hpp"
 #include "ui/StagePanel.hpp"
 #include "ui/Theme.hpp"
@@ -173,6 +177,54 @@ namespace
             std::fprintf(stderr, "Bundled cabinet impulse response failed to load: %s\n", error.what());
         }
     }
+
+    /// @brief Reports whether the rig's edges are exactly the linear run of its slot order.
+    /// @param rig The rig to inspect.
+    /// @return True when every consecutive pair of slot_order() is an edge and no other edge exists.
+    bool rig_is_linear(const RigController& rig)
+    {
+        const std::vector<RigController::SlotId> order = rig.slot_order();
+        const std::vector<std::pair<RigController::SlotId, RigController::SlotId>> edges = rig.edges();
+        const std::size_t expected = order.empty() ? 0 : order.size() - 1;
+        if (edges.size() != expected)
+        {
+            return false;
+        }
+        for (std::size_t index = 0; index < expected; ++index)
+        {
+            const std::pair<RigController::SlotId, RigController::SlotId> link(order[index], order[index + 1]);
+            if (std::find(edges.begin(), edges.end(), link) == edges.end())
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// @brief Resets the chain view's state to a Series chain of the rig's slot order.
+    /// @param rig The rig the state now describes; flattened to series when its graph is not linear.
+    /// @param state The chain view state to reset.
+    /// @param status Out: a message when the rig's shape was flattened or flattening failed.
+    void seed_rig_chain(RigController& rig, ui::RigChainState& state, std::string& status)
+    {
+        state.topology = RigTopology::from_series(rig.slot_order());
+        state.applier = TopologyApplier();
+        state.selected = std::nullopt;
+        state.edit_error.clear();
+        if (rig_is_linear(rig))
+        {
+            return;
+        }
+        try
+        {
+            state.applier.apply(state.topology, rig);
+            status = "Preset had a parallel shape; loaded as a series chain.";
+        }
+        catch (const std::exception& error)
+        {
+            status = error.what();
+        }
+    }
 }
 
 int main(int argc, char** argv)
@@ -218,11 +270,10 @@ int main(int argc, char** argv)
 
     ui::DeviceChoice device_choice{ 0, SushiDSP::ChannelSelection::Left,
                                     SushiDSP::ChannelSelection::Stereo };
-    std::optional<RigController::SlotId> selected_slot;
+    ui::RigChainState rig_chain_state;
     std::string device_label = "not connected";
     std::string status;
     std::string connect_error;
-    std::string chain_edit_error;
     std::string transport_error;
     std::string arrangement_error;
     std::string room_error;
@@ -236,6 +287,11 @@ int main(int argc, char** argv)
     ui::SnapMode      snap_mode = ui::SnapMode::Bar;
     ui::LaneGeometry  lane_geometry;
     float             arrangement_header_width = 196.0f;
+
+    // Pane sizes the dividers drag; each is re-fitted to the window every frame.
+    float bottom_bar_height = 96.0f;
+    float settings_height = 230.0f;
+    float gear_width = 300.0f;
 
     // Sized once by the first Explorer drop and reused, so a drop costs no allocation after it.
     std::vector<SushiDSP::host::FileDrop> drained_drops;
@@ -286,7 +342,7 @@ int main(int argc, char** argv)
     auto connect_device = [&device, &device_choice, &asio_drivers, &connect_error,
                            &rig_controller_storage, &rig_input, &rig_output, &rig_output_pointers,
                            &rig_output_const_pointers, &callback_silence, &input_probe,
-                           &output_probe, &device_label, &selected_slot, &chain_edit_error,
+                           &output_probe, &device_label, &rig_chain_state, &status,
                            &open_device_settings, &default_hrtf_path]()
     {
         connect_error.clear();
@@ -326,6 +382,7 @@ int main(int argc, char** argv)
             SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, rig_channels };
             rig_controller_storage.emplace(info);
             apply_default_hrtf(*rig_controller_storage, default_hrtf_path);
+            seed_rig_chain(*rig_controller_storage, rig_chain_state, status);
 
             const std::size_t input_index = SushiDSP::channel_selection_input_index(device_choice.input);
             const SushiDSP::ChannelSelection output_selection = device_choice.output;
@@ -464,8 +521,6 @@ int main(int argc, char** argv)
                     : asio_drivers[static_cast<std::size_t>(device_choice.device_index - 1)])
                 + " (input " + SushiDSP::channel_selection_label(device_choice.input)
                 + ", output " + SushiDSP::channel_selection_label(device_choice.output) + ")";
-            selected_slot = std::nullopt;
-            chain_edit_error.clear();
             open_device_settings = false;
         }
         catch (const std::exception& error)
@@ -546,25 +601,21 @@ int main(int argc, char** argv)
         const float width = static_cast<float>(display_w);
         const float height = static_cast<float>(display_h);
 
-        const float preset_bar_height = 40.0f;   // top-left preset controls (Save/Load/name)
-        const float transport_height = 76.0f;    // bottom transport/metronome bar
-        const float rig_design_height = 160.0f;  // bottom rig-design (chain) view, splitter picker at its left
-        const float bottom_height = transport_height + rig_design_height;
-        const float center_top = preset_bar_height;
-        const float settings_width = width * 0.55f;   // left-of-center: selected node's settings
-        const float gear_width = width - settings_width; // right-of-center: gear browser
+        // The bottom divider lives in a thin window of its own between the workspace and the
+        // bottom bar; the workspace's two dividers live inside it, between its child panes.
+        const ImVec2 kNoSpacing(0.0f, 0.0f);
+        const float top_bar_height = 40.0f;
+        const float divider_thickness = 14.0f;
+        const ui::DividerLimits bottom_limits{ 72.0f, 200.0f };
+        const ui::DividerLimits settings_limits{ 120.0f, 140.0f };
+        const ui::DividerLimits gear_limits{ 220.0f, 360.0f };
 
-        // The transport bar and rig-design view keep the same position whether the mini-DAW panel is open or closed.
-        const float mini_daw_height = 180.0f;
-        const float meter_height = 40.0f;
-        const float mini_daw_reserved = mini_daw_open ? mini_daw_height : 0.0f;
-        const float center_height =
-            std::max(height - preset_bar_height - bottom_height - mini_daw_reserved, 240.0f);
-        const float arrangement_top = center_top + center_height;
-        const float arrangement_height = std::max(mini_daw_height - meter_height, 0.0f);
+        const float vertical_available = std::max(height - top_bar_height - divider_thickness, 0.0f);
+        bottom_bar_height = ui::fit_pane_size(bottom_bar_height, vertical_available, bottom_limits);
+        const float workspace_height = std::max(vertical_available - bottom_bar_height, 0.0f);
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-        ImGui::SetNextWindowSize(ImVec2(width, preset_bar_height));
+        ImGui::SetNextWindowSize(ImVec2(width, top_bar_height));
         ImGui::Begin("##top", nullptr, kRegionFlags);
         {
             bool rig_replaced = false;
@@ -572,94 +623,22 @@ int main(int argc, char** argv)
                                                                : nullptr,
                            rig_controller_storage.has_value(), device_label,
                            open_device_settings, status, rig_replaced);
-            if (rig_replaced)
+            if (rig_replaced && rig_controller_storage.has_value())
             {
-                // A load numbers the new rig's slots from zero, so a surviving id names whatever
-                // gear the preset happened to put there. Nothing may carry across.
-                selected_slot = std::nullopt;
-                chain_edit_error.clear();
+                // A load numbers the new rig's slots from zero, so nothing may carry across.
+                seed_rig_chain(*rig_controller_storage, rig_chain_state, status);
                 room_error.clear();
             }
         }
         ImGui::End();
 
-        ImGui::SetNextWindowPos(ImVec2(0.0f, center_top));
-        ImGui::SetNextWindowSize(ImVec2(settings_width, center_height));
-        ImGui::Begin("##settings", nullptr, kRegionFlags);
-        if (rig_controller_storage.has_value())
-        {
-            if (selected_slot.has_value() && rig_controller_storage->hosts_room(*selected_slot))
-            {
-                ui::DrawRoomPanel(*rig_controller_storage, *selected_slot, room_error);
-            }
-            else
-            {
-                ui::DrawStagePanel(*rig_controller_storage, selected_slot, default_ir_directory);
-            }
-        }
-        ImGui::End();
-
-        ImGui::SetNextWindowPos(ImVec2(settings_width, center_top));
-        ImGui::SetNextWindowSize(ImVec2(gear_width, center_height));
-        ImGui::Begin("##gear", nullptr, kRegionFlags);
-        static ui::GearBrowserState gear_browser_state;
-        ui::DrawGearBrowser(gear_browser_state);
-        ImGui::End();
-
-        ImGui::SetNextWindowPos(ImVec2(0.0f, height - bottom_height));
-        ImGui::SetNextWindowSize(ImVec2(width, transport_height));
-        ImGui::Begin("##transport", nullptr, kRegionFlags);
-        if (rig_controller_storage.has_value())
-        {
-            ui::DrawTransportBar(*rig_controller_storage, input_probe, output_probe,
-                                 mini_daw_open, transport_error);
-        }
-        ImGui::End();
-
-        ImGui::SetNextWindowPos(ImVec2(0.0f, height - rig_design_height));
-        ImGui::SetNextWindowSize(ImVec2(width, rig_design_height));
-        ImGui::Begin("##chain", nullptr, kRegionFlags | ImGuiWindowFlags_HorizontalScrollbar);
-        if (rig_controller_storage.has_value())
-        {
-            const std::vector<RigController::SlotId> chain_slots =
-                rig_controller_storage->slot_order();
-            if (!chain_slots.empty())
-            {
-                ui::DrawSplitterPicker(*rig_controller_storage, chain_slots.back(),
-                                        chain_edit_error);
-                ImGui::SameLine();
-            }
-
-            std::optional<RigController::SlotId> created_slot;
-            ui::DrawChainStrip(*rig_controller_storage, selected_slot, created_slot,
-                               chain_edit_error);
-            if (created_slot.has_value())
-            {
-                apply_default_cabinet(*rig_controller_storage, *created_slot, default_ir_path);
-            }
-            if (!chain_edit_error.empty())
-            {
-                // Pinned to the window's own bottom-left rather than to the strip's flow, so the
-                // cards do not jump the frame a message appears or clears.
-                const ImVec2 window_origin = ImGui::GetWindowPos();
-                ImGui::SetCursorScreenPos(
-                    ImVec2(window_origin.x + ImGui::GetStyle().WindowPadding.x,
-                           window_origin.y + ImGui::GetWindowHeight()
-                               - ImGui::GetTextLineHeightWithSpacing()));
-                ImGui::TextColored(ui::to_imvec4(ui::rgba(220, 72, 60)), "Edit refused: %s",
-                                   chain_edit_error.c_str());
-            }
-        }
-        ImGui::End();
-
+        ImGui::SetNextWindowPos(ImVec2(0.0f, top_bar_height));
+        ImGui::SetNextWindowSize(ImVec2(width, workspace_height));
         if (mini_daw_open)
         {
-            ImGui::SetNextWindowPos(ImVec2(0.0f, arrangement_top));
-            ImGui::SetNextWindowSize(ImVec2(width, arrangement_height));
-            // The wheel belongs to the timeline's own scroll and zoom, so the window keeps its
-            // scrollbar and gives up the wheel.
+            // The wheel belongs to the timeline's own scroll and zoom.
             ImGui::Begin("##arrangement", nullptr,
-                        kRegionFlags | ImGuiWindowFlags_NoScrollWithMouse);
+                         kRegionFlags | ImGuiWindowFlags_NoScrollWithMouse);
             if (rig_controller_storage.has_value())
             {
                 ui::DrawArrangementView(*rig_controller_storage, timeline_scale, snap_mode,
@@ -668,6 +647,112 @@ int main(int argc, char** argv)
             }
             ImGui::End();
         }
+        else
+        {
+            const ImGuiWindowFlags kFrameFlags =
+                ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+            const ImVec2 pane_padding = ImGui::GetStyle().WindowPadding;
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, kNoSpacing);
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, kNoSpacing);
+            ImGui::Begin("##workspace", nullptr, kRegionFlags | kFrameFlags);
+
+            const float horizontal_available = std::max(width - divider_thickness, 0.0f);
+            gear_width = ui::fit_pane_size(gear_width, horizontal_available, gear_limits);
+            const float left_width = std::max(horizontal_available - gear_width, 0.0f);
+            const float column_available = std::max(workspace_height - divider_thickness, 0.0f);
+            settings_height = ui::fit_pane_size(settings_height, column_available, settings_limits);
+            const float chain_height = std::max(column_available - settings_height, 0.0f);
+
+            ImGui::BeginChild("##left", ImVec2(left_width, workspace_height), false, kFrameFlags);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, pane_padding);
+            ImGui::BeginChild("##settings", ImVec2(0.0f, settings_height), false,
+                              ImGuiWindowFlags_AlwaysUseWindowPadding);
+            ImGui::PopStyleVar(3);
+            if (rig_controller_storage.has_value())
+            {
+                const std::optional<RigController::SlotId>& selected = rig_chain_state.selected;
+                if (selected.has_value() && rig_controller_storage->hosts_room(*selected))
+                {
+                    ui::DrawRoomPanel(*rig_controller_storage, *selected, room_error);
+                }
+                else
+                {
+                    ui::DrawStagePanel(*rig_controller_storage, selected, default_ir_directory);
+                }
+            }
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, kNoSpacing);
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, kNoSpacing);
+            ImGui::EndChild();
+
+            ui::DrawDivider("##settings_divider", ui::DividerAxis::Horizontal, settings_height,
+                            column_available, settings_limits, false);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, pane_padding);
+            ImGui::BeginChild("##chain", ImVec2(0.0f, chain_height), false,
+                              ImGuiWindowFlags_AlwaysUseWindowPadding
+                                  | ImGuiWindowFlags_HorizontalScrollbar);
+            ImGui::PopStyleVar(3);
+            if (rig_controller_storage.has_value())
+            {
+                std::optional<RigController::SlotId> created_slot;
+                ui::DrawRigChainView(*rig_controller_storage, rig_chain_state, created_slot);
+                if (created_slot.has_value())
+                {
+                    apply_default_cabinet(*rig_controller_storage, *created_slot, default_ir_path);
+                }
+                if (!rig_chain_state.edit_error.empty())
+                {
+                    // Pinned to the pane's bottom-left, so the cards do not jump when it appears.
+                    const ImVec2 window_origin = ImGui::GetWindowPos();
+                    ImGui::SetCursorScreenPos(
+                        ImVec2(window_origin.x + ImGui::GetStyle().WindowPadding.x,
+                               window_origin.y + ImGui::GetWindowHeight()
+                                   - ImGui::GetTextLineHeightWithSpacing()));
+                    ImGui::TextColored(ui::to_imvec4(ui::rgba(220, 72, 60)), "Edit refused: %s",
+                                       rig_chain_state.edit_error.c_str());
+                }
+            }
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, kNoSpacing);
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, kNoSpacing);
+            ImGui::EndChild();
+            ImGui::EndChild();
+
+            ImGui::SameLine();
+            ui::DrawDivider("##gear_divider", ui::DividerAxis::Vertical, gear_width,
+                            horizontal_available, gear_limits, true);
+            ImGui::SameLine();
+
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, pane_padding);
+            ImGui::BeginChild("##gear", ImVec2(0.0f, workspace_height), false,
+                              ImGuiWindowFlags_AlwaysUseWindowPadding);
+            ImGui::PopStyleVar(3);
+            static ui::GearBrowserState gear_browser_state;
+            ui::DrawGearBrowser(gear_browser_state);
+            ImGui::EndChild();
+            ImGui::End();
+        }
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, kNoSpacing);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, kNoSpacing);
+        ImGui::SetNextWindowPos(ImVec2(0.0f, top_bar_height + workspace_height));
+        ImGui::SetNextWindowSize(ImVec2(width, divider_thickness));
+        ImGui::Begin("##bottom_divider", nullptr,
+                     kRegionFlags | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ui::DrawDivider("##bottom_divider_strip", ui::DividerAxis::Horizontal, bottom_bar_height,
+                        vertical_available, bottom_limits, true);
+        ImGui::End();
+        ImGui::PopStyleVar(2);
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, height - bottom_bar_height));
+        ImGui::SetNextWindowSize(ImVec2(width, bottom_bar_height));
+        ImGui::Begin("##bottom", nullptr, kRegionFlags);
+        if (rig_controller_storage.has_value())
+        {
+            ui::DrawTransportBar(*rig_controller_storage, input_probe, output_probe,
+                                 mini_daw_open, transport_error);
+        }
+        ImGui::End();
 
         if (ui::DrawDeviceSettings(asio_drivers, device_choice, rig_controller_storage.has_value(),
                                    connect_error, open_device_settings))

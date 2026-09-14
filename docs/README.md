@@ -15,8 +15,10 @@ once you're in the tree and need a specific document.
   module list.
 - **[GUI/UX redesign](design/gui_ux_redesign.md)** — the host app's main-window layout,
   audio device panel centering, splitter/mixer automation, cabinet component, and
-  mini-DAW panel. Design only, open phase; tracked in `design/REMAINING_WORK.md`'s Host
-  section.
+  mini-DAW panel (Phase 1, implemented). Phase 2 (§10-§19) redesigns the workspace into
+  one resizable rig editor, turns the splitter picker into a whole-chain topology choice,
+  and adds a gear-browser grid view (Phase 2, implemented except the Pitch field; open items
+  in `design/REMAINING_WORK.md`'s Host section).
 - **[Contributing](CONTRIBUTING.md)** — the conventions every change is held to: C++17, Allman
   braces, the license header format, the test/CTest-label layout, and how to build (`sd`, never
   `cmake` directly).
