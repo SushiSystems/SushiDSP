@@ -940,6 +940,62 @@ std::vector<RigController::SlotId> RigController::upstream_of(SlotId slot) const
     return result;
 }
 
+std::vector<std::pair<RigController::SlotId, RigController::SlotId>> RigController::edges() const
+{
+    std::vector<std::pair<SlotId, SlotId>> result;
+    result.reserve(edges_.size());
+    for (const Edge& edge : edges_)
+    {
+        result.push_back({ edge.from, edge.to });
+    }
+    return result;
+}
+
+std::optional<RigController::SlotSnapshot> RigController::snapshot(SlotId slot) const
+{
+    const auto it = slots_.find(slot);
+    if (it == slots_.end())
+    {
+        return std::nullopt;
+    }
+    SlotSnapshot result;
+    result.descriptor_id = it->second.descriptor_id;
+    result.parameters = it->second.parameters;
+    result.cabinet_path = it->second.cabinet_path;
+    result.bypassed = it->second.bypassed;
+    result.room_scene = it->second.room_scene;
+    return result;
+}
+
+RigController::SlotId RigController::restore(const SlotSnapshot& snapshot, bool publish_now)
+{
+    const SlotId id = add_node(snapshot.descriptor_id, false);
+    Slot& slot = slots_.at(id);
+    // Restored values overlay the seeded defaults add_node() already wrote, the way
+    // load_from_json() layers a preset's values over a fresh slot's defaults.
+    for (const auto& [param_id, value] : snapshot.parameters)
+    {
+        slot.parameters[param_id] = value;
+    }
+    slot.cabinet_path = snapshot.cabinet_path;
+    slot.bypassed = snapshot.bypassed;
+    slot.room_scene = snapshot.room_scene;
+    if (publish_now)
+    {
+        publish();
+    }
+    return id;
+}
+
+void RigController::clear_edges(bool publish_now)
+{
+    edges_.clear();
+    if (publish_now)
+    {
+        publish();
+    }
+}
+
 SushiDSP::RigGraph* RigController::active_graph()
 {
     return active_graph_;

@@ -1,0 +1,61 @@
+/**************************************************************************/
+/* test_level_text.cpp                                                    */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                        https://sushisystems.io                         */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the Apache License, Version 2.0 (the "License");        */
+/* you may not use this file except in compliance with the License.       */
+/* You may obtain a copy of the License at                                */
+/*                                                                        */
+/*     http://www.apache.org/licenses/LICENSE-2.0                         */
+/*                                                                        */
+/* Unless required by applicable law or agreed to in writing, software    */
+/* distributed under the License is distributed on an "AS IS" BASIS,      */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
+/* implied. See the License for the specific language governing           */
+/* permissions and limitations under the License.                         */
+/**************************************************************************/
+
+#include <gtest/gtest.h>
+
+#include "ui/LevelText.hpp"
+
+#include <cmath>
+#include <limits>
+
+TEST(Unit_Dsp, LevelTextUnityPeakReadsZeroDecibels)
+{
+    EXPECT_NEAR(ui::peak_to_decibels(1.0f), 0.0f, 1e-4f);
+}
+
+TEST(Unit_Dsp, LevelTextHalfPeakReadsMinusSixDecibels)
+{
+    EXPECT_NEAR(ui::peak_to_decibels(0.5f), -6.0206f, 1e-3f);
+}
+
+TEST(Unit_Dsp, LevelTextZeroPeakReadsNegativeInfinity)
+{
+    EXPECT_TRUE(std::isinf(ui::peak_to_decibels(0.0f)));
+    EXPECT_LT(ui::peak_to_decibels(0.0f), 0.0f);
+}
+
+TEST(Unit_Dsp, LevelTextFillClampsAtBothEnds)
+{
+    EXPECT_FLOAT_EQ(ui::decibels_to_fill(0.0f, -60.0f), 1.0f);
+    EXPECT_FLOAT_EQ(ui::decibels_to_fill(10.0f, -60.0f), 1.0f);
+    EXPECT_FLOAT_EQ(ui::decibels_to_fill(-60.0f, -60.0f), 0.0f);
+    EXPECT_FLOAT_EQ(ui::decibels_to_fill(-100.0f, -60.0f), 0.0f);
+    EXPECT_FLOAT_EQ(ui::decibels_to_fill(-30.0f, -60.0f), 0.5f);
+}
+
+TEST(Unit_Dsp, LevelTextDecibelLabelFormatsOneDecimalOrNegativeInfinity)
+{
+    EXPECT_EQ(ui::decibel_label(0.0f), "0.0 dB");
+    EXPECT_EQ(ui::decibel_label(-12.34f), "-12.3 dB");
+    EXPECT_EQ(ui::decibel_label(-std::numeric_limits<float>::infinity()), "-inf dB");
+}

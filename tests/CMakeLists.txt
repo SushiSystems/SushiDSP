@@ -122,6 +122,8 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ChannelResampler.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/AudioImportCache.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/AudioImportQueue.cpp
+    functional/unit/test_rig_topology.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/RigTopology.cpp
 
     # --- host_gui view layer ---
     # Only the three ImGui-free units are compiled here: sushidsp_tests does not link imgui, and
@@ -139,6 +141,14 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ArrangementLayout.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/TapTempo.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/MusicalTimeText.cpp
+    functional/unit/test_split_layout.cpp
+    functional/unit/test_divider_math.cpp
+    functional/unit/test_gear_filter.cpp
+    functional/unit/test_level_text.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/SplitLayout.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/DividerMath.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/GearFilter.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/LevelText.cpp
 
     # --- DD-3 ---
     functional/unit/test_dd3_analog_filters.cpp
