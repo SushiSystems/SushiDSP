@@ -24,9 +24,10 @@
 #include "ui/GearBrowser.hpp"
 
 #include <algorithm>
-#include <cctype>
+#include <cstddef>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <imgui.h>
@@ -39,105 +40,214 @@ namespace ui
 {
     namespace
     {
-        /// @brief Reports whether needle occurs in haystack, ignoring case.
-        bool contains_ignoring_case(const char* haystack, const std::string& needle)
-        {
-            if (needle.empty())
-            {
-                return true;
-            }
-            std::string lowered(haystack);
-            std::transform(lowered.begin(), lowered.end(), lowered.begin(),
-                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-            std::string wanted = needle;
-            std::transform(wanted.begin(), wanted.end(), wanted.begin(),
-                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-            return lowered.find(wanted) != std::string::npos;
-        }
+        constexpr float kListCardHeight = 44.0f;
+        constexpr float kGridTileWidth = 76.0f;
+        constexpr float kGridTileHeight = 76.0f;
+        constexpr float kGridSpacing = 8.0f;
 
-        /// @brief Lists every category the registry names, once each, in registry order.
-        std::vector<const char*> registry_categories()
+        /// @brief The catalog the gear browser lists, built once from the node registry.
+        /// @return The catalog; stable for the process lifetime, matching node_registry's own
+        /// guarantee that it never changes at runtime.
+        const std::vector<GearItem>& gear_catalog()
         {
-            std::vector<const char*> categories;
-            for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
+            static const std::vector<GearItem> catalog = []
             {
-                const bool seen = std::any_of(categories.begin(), categories.end(),
-                    [&entry](const char* name)
-                    { return std::strcmp(name, entry.category.name) == 0; });
-                if (!seen)
+                std::vector<GearItem> items;
+                items.reserve(SushiDSP::node_registry().size());
+                for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
                 {
-                    categories.push_back(entry.category.name);
+                    items.push_back(GearItem{entry.descriptor->id, entry.descriptor->name,
+                                             entry.category.name});
                 }
-            }
-            return categories;
+                return items;
+            }();
+            return catalog;
         }
 
         /// @brief Draws a card's icon: a filled rounded rectangle tinted by category.
-        void draw_card_icon(ImVec2 top_left, float size, const char* category)
+        void draw_card_icon(ImVec2 top_left, float size, const std::string& category)
         {
-            const ImU32 tint = std::strcmp(category, "Amp") == 0
+            const ImU32 tint = category == "Amp"
                 ? to_imu32(rgba(158, 124, 58))
-                : std::strcmp(category, "Distortion") == 0
+                : category == "Distortion"
                     ? to_imu32(rgba(46, 112, 58))
                     : to_imu32(rgba(70, 84, 120));
             ImGui::GetWindowDrawList()->AddRectFilled(
                 top_left, ImVec2(top_left.x + size, top_left.y + size), tint, 6.0f);
         }
 
-        /// @brief Draws one product's card and makes it a drag source for the rack.
-        void draw_gear_card(const SushiDSP::NodeEntry& entry)
+        /// @brief Makes the item just drawn a drag source carrying its descriptor id.
+        void begin_gear_drag_source(const GearItem& item)
         {
-            ImGui::PushID(entry.descriptor->id);
+            if (ImGui::BeginDragDropSource())
+            {
+                ImGui::SetDragDropPayload("GEAR_DESCRIPTOR_ID", item.id.c_str(),
+                                          item.id.size() + 1);
+                ImGui::Text("%s", item.name.c_str());
+                ImGui::EndDragDropSource();
+            }
+        }
+
+        /// @brief Draws one item as today's full-width list card: icon, name, drag source.
+        void draw_list_card(const GearItem& item)
+        {
+            ImGui::PushID(item.id.c_str());
             const ImVec2 origin = ImGui::GetCursorScreenPos();
-            ImGui::InvisibleButton("card", ImVec2(ImGui::GetContentRegionAvail().x, 44.0f));
+            ImGui::InvisibleButton("card", ImVec2(ImGui::GetContentRegionAvail().x, kListCardHeight));
 
             ImDrawList* draw = ImGui::GetWindowDrawList();
             draw->AddRectFilled(origin,
-                                ImVec2(origin.x + ImGui::GetItemRectSize().x, origin.y + 44.0f),
+                                ImVec2(origin.x + ImGui::GetItemRectSize().x, origin.y + kListCardHeight),
                                 to_imu32(ImGui::IsItemHovered() ? rgba(48, 48, 54) : rgba(34, 34, 39)),
                                 5.0f);
-            draw_card_icon(ImVec2(origin.x + 6.0f, origin.y + 6.0f), 32.0f, entry.category.name);
+            draw_card_icon(ImVec2(origin.x + 6.0f, origin.y + 6.0f), 32.0f, item.category);
             draw->AddText(ImVec2(origin.x + 48.0f, origin.y + 15.0f),
-                          to_imu32(palette().text), entry.descriptor->name);
+                          to_imu32(palette().text), item.name.c_str());
 
-            if (ImGui::BeginDragDropSource())
-            {
-                ImGui::SetDragDropPayload("GEAR_DESCRIPTOR_ID", entry.descriptor->id,
-                                          std::strlen(entry.descriptor->id) + 1);
-                ImGui::Text("%s", entry.descriptor->name);
-                ImGui::EndDragDropSource();
-            }
+            begin_gear_drag_source(item);
             ImGui::PopID();
+        }
+
+        /// @brief Draws one item as a grid tile: icon above name, no subtitle.
+        void draw_grid_tile(const GearItem& item)
+        {
+            ImGui::PushID(item.id.c_str());
+            const ImVec2 origin = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton("tile", ImVec2(kGridTileWidth, kGridTileHeight));
+
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            draw->AddRectFilled(origin,
+                                ImVec2(origin.x + kGridTileWidth, origin.y + kGridTileHeight),
+                                to_imu32(ImGui::IsItemHovered() ? rgba(48, 48, 54) : rgba(34, 34, 39)),
+                                5.0f);
+
+            const float icon_size = 32.0f;
+            const float icon_x = origin.x + (kGridTileWidth - icon_size) * 0.5f;
+            draw_card_icon(ImVec2(icon_x, origin.y + 8.0f), icon_size, item.category);
+
+            const ImVec2 text_size = ImGui::CalcTextSize(item.name.c_str(), nullptr, false, kGridTileWidth - 8.0f);
+            const float text_x = origin.x + (kGridTileWidth - text_size.x) * 0.5f;
+            draw->AddText(nullptr, 0.0f, ImVec2(text_x, origin.y + icon_size + 14.0f),
+                          to_imu32(palette().text), item.name.c_str(), nullptr, kGridTileWidth - 8.0f);
+
+            begin_gear_drag_source(item);
+            ImGui::PopID();
+        }
+
+        /// @brief Draws the header row: title, item count and the list/grid view toggle.
+        void draw_header_row(std::size_t item_count, GearViewMode& mode)
+        {
+            ImGui::TextUnformatted("Gear browser");
+            ImGui::SameLine();
+            ImGui::TextColored(to_imvec4(palette().muted_text), "%zu items", item_count);
+
+            const float toggle_width = 48.0f;
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - toggle_width);
+            if (ImGui::Selectable("List", mode == GearViewMode::List, 0, ImVec2(22.0f, 20.0f)))
+            {
+                mode = GearViewMode::List;
+            }
+            ImGui::SameLine(0.0f, 2.0f);
+            if (ImGui::Selectable("Grid", mode == GearViewMode::Grid, 0, ImVec2(22.0f, 20.0f)))
+            {
+                mode = GearViewMode::Grid;
+            }
+        }
+
+        /// @brief Draws the four tabs as equal-width selectable buttons.
+        void draw_tab_row(GearTab& tab)
+        {
+            static constexpr std::pair<GearTab, const char*> kTabs[] = {
+                {GearTab::All, "All"},
+                {GearTab::Amps, "Amps"},
+                {GearTab::Pedals, "Pedals"},
+                {GearTab::Cabs, "Cabs"},
+            };
+
+            const float spacing = 6.0f;
+            const float width = (ImGui::GetContentRegionAvail().x - spacing * 3.0f) / 4.0f;
+            for (std::size_t i = 0; i < 4; ++i)
+            {
+                if (i != 0)
+                {
+                    ImGui::SameLine(0.0f, spacing);
+                }
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::Selectable(kTabs[i].second, tab == kTabs[i].first, 0, ImVec2(width, 24.0f)))
+                {
+                    tab = kTabs[i].first;
+                }
+                ImGui::PopID();
+            }
+        }
+
+        /// @brief Draws one category's items in list mode: a label, then a full-width card each.
+        void draw_group_list(const GearGroup& group)
+        {
+            ImGui::TextColored(to_imvec4(palette().muted_text), "%s", group.category.c_str());
+            for (const GearItem* item : group.items)
+            {
+                draw_list_card(*item);
+            }
+        }
+
+        /// @brief Draws one category's items in grid mode: a label, then wrapping tiles.
+        void draw_group_grid(const GearGroup& group)
+        {
+            ImGui::TextColored(to_imvec4(palette().muted_text), "%s", group.category.c_str());
+
+            const float avail_width = ImGui::GetContentRegionAvail().x;
+            const int columns = std::max(1, static_cast<int>(
+                (avail_width + kGridSpacing) / (kGridTileWidth + kGridSpacing)));
+
+            int column = 0;
+            for (const GearItem* item : group.items)
+            {
+                if (column != 0)
+                {
+                    ImGui::SameLine(0.0f, kGridSpacing);
+                }
+                draw_grid_tile(*item);
+                column = (column + 1) % columns;
+                if (column == 0)
+                {
+                    ImGui::Dummy(ImVec2(0.0f, kGridSpacing));
+                }
+            }
+            if (column != 0)
+            {
+                ImGui::Dummy(ImVec2(0.0f, kGridSpacing));
+            }
         }
     }
 
-    void DrawGearBrowser()
+    void DrawGearBrowser(GearBrowserState& state)
     {
-        static char search[128] = "";
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputTextWithHint("##gear_search", "Search gear", search, sizeof(search));
+        const std::vector<GearItem>& catalog = gear_catalog();
+
+        draw_header_row(catalog.size(), state.mode);
         ImGui::Separator();
 
-        const std::string needle(search);
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##gear_search", "Search gear", state.search, sizeof(state.search));
 
-        for (const char* category : registry_categories())
+        draw_tab_row(state.tab);
+        ImGui::Separator();
+
+        const std::vector<GearGroup> groups = filter_gear(catalog, state.tab, state.search);
+
+        ImGui::BeginChild("##gear_body", ImVec2(0.0f, 0.0f), false);
+        for (const GearGroup& group : groups)
         {
-            // One header per category, so a repeat further down the registry cannot collide ids.
-            if (!ImGui::CollapsingHeader(category, ImGuiTreeNodeFlags_DefaultOpen))
+            if (state.mode == GearViewMode::List)
             {
-                continue;
+                draw_group_list(group);
             }
-
-            for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
+            else
             {
-                if (std::strcmp(entry.category.name, category) != 0
-                    || !contains_ignoring_case(entry.descriptor->name, needle))
-                {
-                    continue;
-                }
-
-                draw_gear_card(entry);
+                draw_group_grid(group);
             }
         }
+        ImGui::EndChild();
     }
 }

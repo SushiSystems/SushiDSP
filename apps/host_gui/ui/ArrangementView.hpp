@@ -48,10 +48,13 @@ namespace ui
     /// @param arrangement_error In/out: the last refusal, shown until an action succeeds.
     /// @param geometry_out Receives where the lane canvases were drawn, so a drop arriving
     /// outside the ImGui frame can be resolved to a lane on the next one.
+    /// @param header_width In/out: the lane-header column's width, resized by a divider drawn
+    /// between the header column and the grid.
     /// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §6
     void DrawArrangementView(RigController& rig, TimelineScale& scale, SnapMode& snap,
                              SushiDSP::host::AudioImportQueue& imports,
-                             std::string& arrangement_error, LaneGeometry& geometry_out);
+                             std::string& arrangement_error, LaneGeometry& geometry_out,
+                             float& header_width);
 
     /// @brief Places a file on a lane as a clip beginning at the frame a canvas position names.
     /// The one route both an ImGui payload drop and an Explorer drop take, so the two land a

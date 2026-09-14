@@ -124,6 +124,8 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host_gui/AudioImportQueue.cpp
     functional/unit/test_rig_topology.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/RigTopology.cpp
+    functional/unit/test_topology_applier.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/TopologyApplier.cpp
 
     # --- host_gui view layer ---
     # Only the three ImGui-free units are compiled here: sushidsp_tests does not link imgui, and

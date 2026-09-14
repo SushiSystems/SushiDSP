@@ -24,10 +24,10 @@
 #include "ui/MeterBar.hpp"
 
 #include <algorithm>
-#include <cmath>
 
 #include <imgui.h>
 
+#include "ui/LevelText.hpp"
 #include "ui/Theme.hpp"
 
 namespace ui
@@ -37,42 +37,37 @@ namespace ui
         /// @brief Fraction of the displayed level kept each frame while the signal is falling.
         constexpr float kFallPerFrame = 0.85f;
 
-        /// @brief Level, in dBFS, that the left end of a bar represents.
-        constexpr float kFloorDecibels = -60.0f;
+        /// @brief Width of one meter's fill track, in pixels.
+        constexpr float kTrackWidth = 70.0f;
 
-        /// @brief Converts a magnitude to dBFS, flooring silence at kFloorDecibels.
-        float to_decibels(float magnitude)
-        {
-            return magnitude <= 0.0f ? kFloorDecibels
-                                     : std::max(kFloorDecibels, 20.0f * std::log10(magnitude));
-        }
+        /// @brief Height of one meter's fill track, in pixels.
+        constexpr float kTrackHeight = 10.0f;
 
-        /// @brief Draws one labelled bar and returns the level it displayed.
-        void draw_bar(const char* label, float displayed, float width)
+        /// @brief Draws one labelled bar for a level already converted to a display peak.
+        void draw_bar(const char* label, float displayed_peak)
         {
             const Palette& colors = palette();
-            const float decibels = to_decibels(displayed);
-            const float fill = (decibels - kFloorDecibels) / (0.0f - kFloorDecibels);
+            const float decibels = peak_to_decibels(displayed_peak);
+            const float fill = decibels_to_fill(decibels);
 
             ImGui::TextUnformatted(label);
             ImGui::SameLine();
 
             const ImVec2 origin = ImGui::GetCursorScreenPos();
-            const float height = 14.0f;
             ImDrawList* draw = ImGui::GetWindowDrawList();
-            draw->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + height),
+            draw->AddRectFilled(origin, ImVec2(origin.x + kTrackWidth, origin.y + kTrackHeight),
                                 to_imu32(rgba(24, 24, 28)), 3.0f);
-            draw->AddRectFilled(origin,
-                                ImVec2(origin.x + width * std::clamp(fill, 0.0f, 1.0f), origin.y + height),
-                                to_imu32(displayed >= 1.0f ? colors.meter_clipping : colors.meter_normal),
-                                3.0f);
-            ImGui::Dummy(ImVec2(width, height));
+            draw->AddRectFilled(
+                origin, ImVec2(origin.x + kTrackWidth * fill, origin.y + kTrackHeight),
+                to_imu32(displayed_peak >= 1.0f ? colors.meter_clipping : colors.meter_normal),
+                3.0f);
+            ImGui::Dummy(ImVec2(kTrackWidth, kTrackHeight));
             ImGui::SameLine();
-            ImGui::Text("%.1f dB", decibels);
+            ImGui::TextUnformatted(decibel_label(decibels).c_str());
         }
     }
 
-    void DrawMeterBar(LevelProbe& input, LevelProbe& output)
+    void DrawInlineMeters(LevelProbe& input, LevelProbe& output)
     {
         static float displayed_input = 0.0f;
         static float displayed_output = 0.0f;
@@ -82,9 +77,8 @@ namespace ui
         displayed_input = std::max(input_peak, displayed_input * kFallPerFrame);
         displayed_output = std::max(output_peak, displayed_output * kFallPerFrame);
 
-        const float bar_width = std::max(80.0f, ImGui::GetContentRegionAvail().x * 0.3f);
-        draw_bar("In", displayed_input, bar_width);
+        draw_bar("In", displayed_input);
         ImGui::SameLine();
-        draw_bar("Out", displayed_output, bar_width);
+        draw_bar("Out", displayed_output);
     }
 }
