@@ -1667,3 +1667,63 @@ TEST(Unit_Dsp, RigControllerReportsAMissingHrtfAndLeavesEveryRoomOnTheFallback)
     EXPECT_EQ(controller.room_host(room)->hrtf_source(),
               SushiDSP::room::HrtfSource::SphericalHead);
 }
+
+// --- Snapshot and edge accessors (apps/host_gui, Phase 2 chain-type rewiring) ---
+
+TEST(Unit_Dsp, RigControllerSnapshotRestoreKeepsParametersAndCabinetPath)
+{
+    const std::string ir_path = write_temp_impulse_wav();
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    const RigController::SlotId amp = controller.append("sushidsp.jcm800");
+    controller.set_parameter(amp, "preamp", 0.9f);
+    const RigController::SlotId cabinet = controller.append("sushidsp.cabinet");
+    ASSERT_TRUE(controller.set_cabinet(cabinet, ir_path));
+
+    const std::optional<RigController::SlotSnapshot> saved_amp = controller.snapshot(amp);
+    const std::optional<RigController::SlotSnapshot> saved_cabinet = controller.snapshot(cabinet);
+    ASSERT_TRUE(saved_amp.has_value());
+    ASSERT_TRUE(saved_cabinet.has_value());
+    EXPECT_EQ(saved_amp->descriptor_id, "sushidsp.jcm800");
+
+    controller.remove(cabinet, false);
+    controller.remove(amp, false);
+    const RigController::SlotId restored_amp = controller.restore(*saved_amp, false);
+    const RigController::SlotId restored_cabinet = controller.restore(*saved_cabinet, false);
+    controller.connect(restored_amp, restored_cabinet, false);
+    controller.publish();
+
+    EXPECT_EQ(controller.descriptor_id(restored_amp), "sushidsp.jcm800");
+    EXPECT_FLOAT_EQ(controller.get_parameter(restored_amp, "preamp"), 0.9f);
+    EXPECT_EQ(controller.cabinet_path(restored_cabinet), ir_path);
+
+    std::remove(ir_path.c_str());
+}
+
+TEST(Unit_Dsp, RigControllerEdgesListsStoredEdgesInOrder)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    const RigController::SlotId a = controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId b = controller.append("sushidsp.jcm800");
+    const RigController::SlotId c = controller.append("sushidsp.tubescreamer");
+
+    const std::vector<std::pair<RigController::SlotId, RigController::SlotId>> edges =
+        controller.edges();
+
+    ASSERT_EQ(edges.size(), 2u);
+    EXPECT_EQ(edges[0], (std::pair<RigController::SlotId, RigController::SlotId>{ a, b }));
+    EXPECT_EQ(edges[1], (std::pair<RigController::SlotId, RigController::SlotId>{ b, c }));
+}
+
+TEST(Unit_Dsp, RigControllerClearEdgesLeavesSlotsLive)
+{
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    controller.append("sushidsp.tubescreamer");
+    controller.append("sushidsp.jcm800");
+    ASSERT_EQ(controller.edges().size(), 1u);
+
+    controller.clear_edges(false);
+
+    EXPECT_TRUE(controller.edges().empty());
+    EXPECT_EQ(controller.slot_order().size(), 2u);
+}

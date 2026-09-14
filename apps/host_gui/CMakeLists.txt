@@ -9,6 +9,11 @@ add_executable(sushidsp_host_gui
     ui/KnobMath.cpp
     ui/PanelLibrary.cpp
     ui/ChainLayout.cpp
+    RigTopology.cpp
+    ui/SplitLayout.cpp
+    ui/DividerMath.cpp
+    ui/GearFilter.cpp
+    ui/LevelText.cpp
     ui/Theme.cpp
     ui/Widgets.cpp
     ui/StagePanel.cpp

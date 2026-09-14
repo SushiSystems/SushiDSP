@@ -75,6 +75,16 @@ public:
     /// without including this header.
     using SlotId = ui::SlotId;
 
+    /// @brief Holds what a slot needs to be rebuilt: descriptor, parameters, cabinet, bypass, room.
+    struct SlotSnapshot
+    {
+        std::string                              descriptor_id;
+        std::map<std::string, float>             parameters;
+        std::string                              cabinet_path;
+        bool                                      bypassed = false;
+        std::optional<SushiDSP::room::RoomScene>  room_scene;
+    };
+
     explicit RigController(const SushiDSP::PrepareInfo& info);
 
     /// @brief Adds a new, unconnected slot and republishes.
@@ -244,6 +254,28 @@ public:
 
     /// @brief Lists the ids of every slot with an edge into `slot`, in connect() call order.
     std::vector<SlotId> upstream_of(SlotId slot) const;
+
+    /// @brief Every edge the rig holds, in stored (connect() call) order.
+    std::vector<std::pair<SlotId, SlotId>> edges() const;
+
+    /// @brief Captures what a live slot needs to be rebuilt.
+    /// @param slot The slot to capture.
+    /// @return The snapshot, or std::nullopt when the slot is not live.
+    std::optional<SlotSnapshot> snapshot(SlotId slot) const;
+
+    /// @brief Re-adds a slot from a snapshot, unconnected, restoring its parameters over the
+    /// seeded defaults, its cabinet path, its bypass flag and its room scene, applying them on
+    /// the publish that builds the node - the way load_from_json() does today.
+    /// @param snapshot The captured slot state.
+    /// @param publish_now Pass false to batch this with other structural edits; call publish()
+    /// once when done.
+    /// @return The new slot's id.
+    SlotId restore(const SlotSnapshot& snapshot, bool publish_now = true);
+
+    /// @brief Drops every edge the rig holds, leaving every slot live but unconnected.
+    /// @param publish_now Pass false to batch this with other structural edits; call publish()
+    /// once when done.
+    void clear_edges(bool publish_now = true);
 
     /// @brief The currently active, published RigGraph (for the RT thread to acquire from).
     SushiDSP::RigGraph* active_graph();
