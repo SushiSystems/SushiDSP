@@ -8,6 +8,11 @@ Grouped by roadmap phase (spec §9). Each phase's implementation plan lives unde
 The room track, spec `docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
 `docs/superpowers/plans/2026-09-08-room-acoustics.md`.
 
+- 2026-09-14 — Added the chain-type model and its compiler into rig edges (`apps/host_gui/RigTopology.cpp`, `apps/host_gui/TopologyApplier.cpp`).
+- 2026-09-14 — Added slot snapshots and edge access to the rig controller (`apps/host_gui/RigController.cpp`).
+- 2026-09-14 — Replaced the chain strip and splitter picker with the chain-type rail and routed chain view (`apps/host_gui/ui/RigChainView.cpp`, `apps/host_gui/ui/SplitLayout.cpp`).
+- 2026-09-14 — Rebuilt the host window as one resizable workspace with a bottom transport bar (`apps/host_gui/main.cpp`, `apps/host_gui/ui/Divider.cpp`, `apps/host_gui/ui/TransportBar.cpp`, `apps/host_gui/ui/TopBar.cpp`).
+- 2026-09-14 — Added tabs and a grid view to the gear browser (`apps/host_gui/ui/GearBrowser.cpp`, `apps/host_gui/ui/GearFilter.cpp`).
 - 2026-09-10 — Added sushidsp.cabinet and retired the amp-embedded cabinet path (`modules/cabinet`, `modules/jcm800`, `modules/peavey5150`, `modules/diezel_vh4`, `modules/mesa_mark2c`).
 - 2026-09-10 — Added the backlog every open item is tracked in (`docs/design/REMAINING_WORK.md`, `docs/README.md`).
 - 2026-09-10 — Added the missing documentation skeleton (`docs/DOCUMENTATION_STYLE_GUIDE.md`, `docs/getting_started/`, `docs/architecture/`, `docs/modules/`, `docs/guides/`, `docs/archive/`).

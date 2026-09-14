@@ -8,7 +8,7 @@ add_executable(sushidsp_host_gui
     AudioImportQueue.cpp
     ui/KnobMath.cpp
     ui/PanelLibrary.cpp
-    ui/ChainLayout.cpp
+    ui/RigChainView.cpp
     RigTopology.cpp
     TopologyApplier.cpp
     ui/Divider.cpp
@@ -19,8 +19,6 @@ add_executable(sushidsp_host_gui
     ui/Theme.cpp
     ui/Widgets.cpp
     ui/StagePanel.cpp
-    ui/ChainStrip.cpp
-    ui/SplitterPicker.cpp
     ui/GearBrowser.cpp
     ui/MeterBar.cpp
     ui/TopBar.cpp
