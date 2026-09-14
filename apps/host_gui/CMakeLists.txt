@@ -10,6 +10,8 @@ add_executable(sushidsp_host_gui
     ui/PanelLibrary.cpp
     ui/ChainLayout.cpp
     RigTopology.cpp
+    TopologyApplier.cpp
+    ui/Divider.cpp
     ui/SplitLayout.cpp
     ui/DividerMath.cpp
     ui/GearFilter.cpp

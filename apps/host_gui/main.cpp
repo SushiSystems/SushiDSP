@@ -235,6 +235,7 @@ int main(int argc, char** argv)
     ui::TimelineScale timeline_scale;
     ui::SnapMode      snap_mode = ui::SnapMode::Bar;
     ui::LaneGeometry  lane_geometry;
+    float             arrangement_header_width = 196.0f;
 
     // Sized once by the first Explorer drop and reused, so a drop costs no allocation after it.
     std::vector<SushiDSP::host::FileDrop> drained_drops;
@@ -565,11 +566,12 @@ int main(int argc, char** argv)
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(width, preset_bar_height));
         ImGui::Begin("##top", nullptr, kRegionFlags);
-        if (rig_controller_storage.has_value())
         {
             bool rig_replaced = false;
-            ui::DrawTopBar(*rig_controller_storage, device_label, open_device_settings, status,
-                           rig_replaced);
+            ui::DrawTopBar(rig_controller_storage.has_value() ? &*rig_controller_storage
+                                                               : nullptr,
+                           rig_controller_storage.has_value(), device_label,
+                           open_device_settings, status, rig_replaced);
             if (rig_replaced)
             {
                 // A load numbers the new rig's slots from zero, so a surviving id names whatever
@@ -578,20 +580,6 @@ int main(int argc, char** argv)
                 chain_edit_error.clear();
                 room_error.clear();
             }
-        }
-        else
-        {
-            ImGui::TextColored(ui::to_imvec4(ui::palette().muted_text), "No device connected.");
-            ImGui::SameLine(width - 96.0f);
-            if (ImGui::Button("Settings"))
-            {
-                open_device_settings = true;
-            }
-        }
-        ImGui::SameLine(width - 192.0f);
-        if (ImGui::Button(mini_daw_open ? "Hide DAW" : "Show DAW"))
-        {
-            mini_daw_open = !mini_daw_open;
         }
         ImGui::End();
 
@@ -614,7 +602,8 @@ int main(int argc, char** argv)
         ImGui::SetNextWindowPos(ImVec2(settings_width, center_top));
         ImGui::SetNextWindowSize(ImVec2(gear_width, center_height));
         ImGui::Begin("##gear", nullptr, kRegionFlags);
-        ui::DrawGearBrowser();
+        static ui::GearBrowserState gear_browser_state;
+        ui::DrawGearBrowser(gear_browser_state);
         ImGui::End();
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, height - bottom_height));
@@ -622,7 +611,8 @@ int main(int argc, char** argv)
         ImGui::Begin("##transport", nullptr, kRegionFlags);
         if (rig_controller_storage.has_value())
         {
-            ui::DrawTransportBar(*rig_controller_storage, transport_error);
+            ui::DrawTransportBar(*rig_controller_storage, input_probe, output_probe,
+                                 mini_daw_open, transport_error);
         }
         ImGui::End();
 
@@ -673,14 +663,9 @@ int main(int argc, char** argv)
             if (rig_controller_storage.has_value())
             {
                 ui::DrawArrangementView(*rig_controller_storage, timeline_scale, snap_mode,
-                                        audio_imports, arrangement_error, lane_geometry);
+                                        audio_imports, arrangement_error, lane_geometry,
+                                        arrangement_header_width);
             }
-            ImGui::End();
-
-            ImGui::SetNextWindowPos(ImVec2(0.0f, height - bottom_height - meter_height));
-            ImGui::SetNextWindowSize(ImVec2(width, meter_height));
-            ImGui::Begin("##meters", nullptr, kRegionFlags);
-            ui::DrawMeterBar(input_probe, output_probe);
             ImGui::End();
         }
 

@@ -27,10 +27,10 @@
 
 namespace ui
 {
-    /// @brief Draws the input and output level bars into the current window, reading and resetting
-    /// both probes. Owns the ballistics: the displayed level jumps to a higher peak at once and
-    /// falls by 15 percent per frame toward a lower one.
+    /// @brief Draws the input and output level bars inline, right-aligned in the current window,
+    /// reading and resetting both probes. Owns the ballistics: the displayed level jumps to a
+    /// higher peak at once and falls by 15 percent per frame toward a lower one.
     /// @param input The probe fed from the device's input block.
     /// @param output The probe fed from the rig's output block.
-    void DrawMeterBar(LevelProbe& input, LevelProbe& output);
+    void DrawInlineMeters(LevelProbe& input, LevelProbe& output);
 }

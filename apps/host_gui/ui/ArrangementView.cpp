@@ -34,6 +34,7 @@
 #include "AudioImportCache.hpp"
 
 #include "ui/ArrangementLayout.hpp"
+#include "ui/Divider.hpp"
 #include "ui/MusicalTimeText.hpp"
 #include "ui/TextField.hpp"
 #include "ui/Theme.hpp"
@@ -48,8 +49,11 @@ namespace ui
         /// @brief Characters a lane's name box holds, terminator included.
         constexpr std::size_t kNameCapacity = 64;
 
-        /// @brief The width of a lane's header strip, in pixels.
-        constexpr float kHeaderWidth = 196.0f;
+        /// @brief The header column's narrowest and the grid's narrowest width, in pixels.
+        constexpr DividerLimits kHeaderDividerLimits{ 120.0f, 160.0f };
+
+        /// @brief The width of the divider strip between the header column and the grid.
+        constexpr float kHeaderDividerThickness = 14.0f;
 
         /// @brief The height of the bar ruler above the lanes, in pixels.
         constexpr float kRulerHeight = 26.0f;
@@ -194,16 +198,18 @@ namespace ui
         /// @param rig The rig whose player and re-amp leg the strip drives.
         /// @param index The lane.
         /// @param origin The strip's top-left in screen pixels.
+        /// @param header_width The header strip's width.
         /// @param names In/out: the name boxes' character buffers.
         /// @param error_out In/out: the last refusal.
         void draw_lane_header(RigController& rig, std::size_t index, ImVec2 origin,
+                              float header_width,
                               std::array<std::array<char, kNameCapacity>, kLaneCount>& names,
                               std::string& error_out)
         {
             SushiDSP::TrackPlayer& player = rig.player();
             ImDrawList*            draw = ImGui::GetWindowDrawList();
 
-            draw->AddRectFilled(origin, ImVec2(origin.x + kHeaderWidth, origin.y + kLaneHeight),
+            draw->AddRectFilled(origin, ImVec2(origin.x + header_width, origin.y + kLaneHeight),
                                 to_imu32(rgba(38, 38, 44)), 4.0f);
 
             ImGui::SetCursorScreenPos(ImVec2(origin.x + 6.0f, origin.y + 5.0f));
@@ -416,7 +422,8 @@ namespace ui
 
     void DrawArrangementView(RigController& rig, TimelineScale& scale, SnapMode& snap,
                              SushiDSP::host::AudioImportQueue& imports,
-                             std::string& arrangement_error, LaneGeometry& geometry_out)
+                             std::string& arrangement_error, LaneGeometry& geometry_out,
+                             float& header_width)
     {
         static std::array<std::array<char, kNameCapacity>, kLaneCount> names{};
         static ClipDrag                                               drag;
@@ -427,12 +434,22 @@ namespace ui
         SushiDSP::Transport&          transport = rig.transport();
         ImDrawList*                   draw = ImGui::GetWindowDrawList();
         const ImVec2                  origin = ImGui::GetCursorScreenPos();
-        const float                   canvas_x = origin.x + kHeaderWidth;
+        const float                   total_width = ImGui::GetContentRegionAvail().x;
+        const float                   canvas_x = origin.x + header_width + kHeaderDividerThickness;
         const float                   canvas_width =
-            std::max(ImGui::GetContentRegionAvail().x - kHeaderWidth, 32.0f);
+            std::max(total_width - header_width - kHeaderDividerThickness, 32.0f);
         const float lanes_top = origin.y + kRulerHeight;
         const float lanes_bottom =
             lanes_top + static_cast<float>(kLaneCount) * (kLaneHeight + kLaneGap);
+
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        ImGui::SetCursorScreenPos(ImVec2(origin.x + header_width, origin.y));
+        ImGui::BeginChild("##header_divider", ImVec2(kHeaderDividerThickness, lanes_bottom - origin.y),
+                          false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        DrawDivider("header_divider", DividerAxis::Vertical, header_width, total_width,
+                   kHeaderDividerLimits, false);
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
 
         geometry_out.canvas_left = canvas_x;
         geometry_out.canvas_top = lanes_top;
@@ -462,7 +479,8 @@ namespace ui
             const float lane_y = lanes_top + static_cast<float>(index) * (kLaneHeight + kLaneGap);
 
             ImGui::PushID(static_cast<int>(index));
-            draw_lane_header(rig, index, ImVec2(origin.x, lane_y), names, arrangement_error);
+            draw_lane_header(rig, index, ImVec2(origin.x, lane_y), header_width, names,
+                             arrangement_error);
 
             ImGui::SetCursorScreenPos(ImVec2(canvas_x, lane_y));
             ImGui::SetNextItemAllowOverlap();
