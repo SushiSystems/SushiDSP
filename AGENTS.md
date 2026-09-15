@@ -1,1 +1,1 @@
-See docs/CLAUDE.md.
+See CLAUDE.md.
