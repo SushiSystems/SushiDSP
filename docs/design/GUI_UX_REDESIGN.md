@@ -1,13 +1,14 @@
-# GUI/UX redesign — host app
+# Host GUI/UX Redesign
+**Status:** Open — phase 2 of 2
 
-**Status:** Phase 1 (§2-§9) implemented in full. §8 (cabinet node) by
-`docs/superpowers/plans/2026-09-10-cabinet-node.md`; §2-§7 by
-`docs/superpowers/plans/2026-09-10-host-gui-redesign.md`. Phase 2 (§10-§18) implemented by
-`docs/superpowers/plans/2026-09-14-host-gui-phase2.md`, except §12's Pitch field, which is
+Phase 1 (§2-§9) implemented in full. §8 (cabinet node) by
+`docs/archive/superpowers/plans/2026-09-10-cabinet-node.md`; §2-§7 by
+`docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`. Phase 2 (§10-§18) implemented by
+`docs/archive/superpowers/plans/2026-09-14-host-gui-phase2.md`, except §12's Pitch field, which is
 drawn disabled until the track pitch-shift plan lands; its manual acceptance and the other
 open items are in `design/REMAINING_WORK.md`'s Host section.
 
-Raw findings this spec is built from: `docs/agent/notes/2026-09-10-gui-ux-session-notes.md`.
+Raw findings this spec is built from: `docs/archive/notes/2026-09-10-gui-ux-session-notes.md`.
 Reference screenshots for Phase 1: `image.png`, `image1.png` (AmpliTube 5, the layout
 model), `image4.png`, `image5.png`, `image6.png` (`sushidsp_host_gui.exe` states before
 Phase 1), all at the repository root. Reference screenshots for Phase 2: `image1.png`

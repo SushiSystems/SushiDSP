@@ -1,10 +1,9 @@
-# SushiDSP — portable real-time amp/pedal DSP framework: block graph, JCM800, Tube Screamer
+# SushiDSP Design Spec
+**Status:** Open — phase 2 of 4
 
 > **For the implementing agent.** This is the authoritative design specification for the **SushiDSP** repository — a standalone, dependency-free audio-DSP library. Build the repo from this doc. Conventions: **C++17** (no C++20/23), **Allman braces** (opening brace on its own line; trivial one-line accessors may stay compact), types `PascalCase`, functions/variables `snake_case`, members trailing underscore (`impl_`), constants `UPPER_SNAKE`, spelled-out names (no abbreviations), the **Apache 2.0 license header box** on every source file (line 2 carries the file's own name; the literal template is in §0a below — copy it, do not reconstruct it), a Doxygen `@brief`/`@param`/`@return` on every public function, and **no comments unless the *why* is non-obvious**. The developer CLI is **`sd`** (Python Typer, `cli/sushidsp/`, built on the shared `sushicore` presentation layer — see §11a). No comments in code beyond that rule.
 
 SushiDSP is a **standalone amp/pedal simulation framework**, in the spirit of AmpliTube/Bias FX: a portable C++ DSP core (block graph of `IAudioNode`s), a math library (FFT, convolution, filters, WDF/DK-method circuit solving, oversampling), and a **rig** — a user-editable, freely-connectable chain of pedal/amp/cabinet nodes. It ships as a standalone host app and as a VST3/CLAP plugin. It depends on nothing but the C++ standard library and SIMD intrinsics; there is no game-engine integration, no GPU offload seam, and no spatializer/synthesis/aero-thermo content. The first two products are the **JCM800** amp model and the **Tube Screamer** overdrive pedal, both white-box (WDF/DK-method) circuit models sharing the same solver and oversampling infrastructure.
-
-**Status:** Design only — nothing implemented. This supersedes the prior SushiDSP design (game-engine spatializer/aero-thermo/GPU-offload scope), which is abandoned in favor of a focused amp/pedal framework.
 
 **Repository decision (owner, 2026-08-25):** SushiDSP drops the SushiEngine/SushiRuntime layering entirely. It is a fully independent repository and library with zero dependency on any other SushiStack project. Every product (amp, pedal, cabinet) is packaged as a `NodeDescriptor` (§3) so the rig, the standalone host, and the VST3/CLAP wrapper all consume products identically, with zero product-specific code in any of them.
 
@@ -182,8 +181,8 @@ namespace SushiDSP
 ### §3a The studio path — channels, takes and the transport
 
 The DS phase (spec
-[`docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../superpowers/specs/2026-09-07-stereo-tracks-design.md),
-plan [`docs/superpowers/plans/2026-09-07-stereo-tracks.md`](../superpowers/plans/2026-09-07-stereo-tracks.md))
+[`docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../archive/superpowers/specs/2026-09-07-stereo-tracks-design.md),
+plan [`docs/archive/superpowers/plans/2026-09-07-stereo-tracks.md`](../archive/superpowers/plans/2026-09-07-stereo-tracks.md))
 made the graph channel-aware, added a capture module beside the products, and gave the standalone
 host a transport, a track list and a re-amp path.
 
@@ -244,8 +243,8 @@ within 1e-6. The preset carries the track list and the transport's loop range.
 ### §3b The timeline path — bars, clips and playback speed
 
 The DT phase (spec
-[`docs/superpowers/specs/2026-09-08-arrangement-view-design.md`](../superpowers/specs/2026-09-08-arrangement-view-design.md),
-plan [`docs/superpowers/plans/2026-09-08-arrangement-view.md`](../superpowers/plans/2026-09-08-arrangement-view.md))
+[`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`](../archive/superpowers/specs/2026-09-08-arrangement-view-design.md),
+plan [`docs/archive/superpowers/plans/2026-09-08-arrangement-view.md`](../archive/superpowers/plans/2026-09-08-arrangement-view.md))
 put musical time under the studio path. Before it, a take started at transport frame 0 and the
 only tempo in the tree was the guitarist's. After it, a lane holds clips at frames, the host
 draws a bar grid, and a recording re-amps at the bar it was played at.
@@ -312,9 +311,9 @@ playback speed as this tree uses them.
 `modules/room` is the DE phase's module: one `IAudioNode`, `sushidsp.room`, mono in and two
 channels out, declaring `PortLayout{1, 2}` on the routing DS0 built. It puts the cabinet in a
 shoebox room and hands back what a head or a microphone hears there. Spec
-[`docs/superpowers/specs/2026-09-08-room-acoustics-design.md`](../superpowers/specs/2026-09-08-room-acoustics-design.md),
+[`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../archive/superpowers/specs/2026-09-08-room-acoustics-design.md),
 plan
-[`docs/superpowers/plans/2026-09-08-room-acoustics.md`](../superpowers/plans/2026-09-08-room-acoustics.md).
+[`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`](../archive/superpowers/plans/2026-09-08-room-acoustics.md).
 
 The control thread solves and the audio thread renders, with one `RtSwapSlot` between them. A
 scene — six faces with a material each, the cabinet's pose, the listener's, the microphone's —
