@@ -21,7 +21,7 @@ from common.checker import Checker, Issue, run  # noqa: E402
 
 K_DOCS_ENTRIES = frozenset(
     {
-        "README.md", "CONTRIBUTING.md", "DOCUMENTATION_STYLE_GUIDE.md", "CLAUDE.md", "AGENTS.md",
+        "README.md", "CONTRIBUTING.md", "DOCUMENTATION_STYLE_GUIDE.md",
         "getting_started", "architecture", "guides", "reference", "design", "agent", "archive",
     }
 )
