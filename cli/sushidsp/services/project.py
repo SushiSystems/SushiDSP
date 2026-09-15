@@ -19,6 +19,8 @@ import enum
 import os
 import shutil
 import stat
+import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -224,3 +226,95 @@ def doxygen() -> int:
     cfg = load_config()
     doxyfile = root / "Doxyfile"
     return _DRIVER.doxygen(cfg, doxyfile, root, env=_env(cfg, _build_dir(root)), install_hint=_DOXYGEN_HINT)
+
+
+def check(report: bool = False, rule: Optional[str] = None) -> int:
+    """Runs repository layout, changelog, and layering checkers.
+
+    Args:
+        report: Whether to report issue counts instead of failing.
+        rule: Optional single rule name to run.
+
+    Returns:
+        Non-zero exit code if any checker returns non-zero.
+    """
+    try:
+        root = find_project_root()
+    except (SystemExit, Exception):
+        root = Path(__file__).resolve().parents[3]
+
+    checkers = [
+        root / "tools" / "documentation" / "check_docs_layout.py",
+        root / "tools" / "documentation" / "check_changelog.py",
+        root / "tools" / "layering" / "check_layering.py",
+    ]
+
+    exit_code = 0
+    for checker in checkers:
+        cmd = [sys.executable, str(checker)]
+        if report:
+            cmd.append("--report")
+        if rule:
+            cmd.extend(["--rule", rule])
+        result = subprocess.run(cmd, cwd=root)
+        if result.returncode != 0:
+            exit_code = max(exit_code, result.returncode)
+
+    return exit_code
+
+
+def run(
+    build_type: Optional[BuildType] = None,
+    args: Optional[list[str]] = None,
+) -> int:
+    """Launches the sushidsp_host_gui standalone application.
+
+    Args:
+        build_type: Desired build configuration (debug, release, relwithdebinfo).
+        args: Extra CLI arguments to pass to the executable.
+
+    Returns:
+        Process exit code.
+    """
+    root = find_project_root()
+    cfg = load_config()
+    bt = resolve_build_type(build_type)
+    build_dir = _build_dir(root)
+
+    exe_name = "sushidsp_host_gui.exe" if os.name == "nt" else "sushidsp_host_gui"
+    cmake_bt = _CMAKE_BUILD_TYPE[bt]
+
+    def _locate() -> Optional[Path]:
+        candidates = [
+            build_dir / "apps" / "host_gui" / exe_name,
+            build_dir / "apps" / "host_gui" / cmake_bt / exe_name,
+            build_dir / "bin" / exe_name,
+            build_dir / "bin" / cmake_bt / exe_name,
+        ]
+        for p in candidates:
+            if p.is_file():
+                return p
+        return None
+
+    exe_path = _locate()
+    if exe_path is None:
+        console.header(f"Building {exe_name}")
+        build_res = build(bt)
+        if build_res != 0:
+            return build_res
+        exe_path = _locate()
+
+    if exe_path is None:
+        console.header(f"Executable {exe_name} not found")
+        return 1
+
+    console.header(f"Launching {exe_path.name} ({cmake_bt})")
+    env = _env(cfg, build_dir)
+    cmd = [str(exe_path), *(args or [])]
+    try:
+        proc = subprocess.run(cmd, cwd=root, env=env)
+        return proc.returncode
+    except KeyboardInterrupt:
+        return 0
+
+

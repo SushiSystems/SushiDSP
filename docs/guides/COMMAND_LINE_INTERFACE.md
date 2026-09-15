@@ -1,8 +1,7 @@
 # The `sd` command line
 
 SushiDSP is never built by calling `cmake` or `ctest` directly (`docs/CONTRIBUTING.md`). Every
-build action goes through `sd`, the Typer-based CLI in `cli/sushidsp/cli.py`. This guide covers
-each of its six subcommands and how it picks a compiler.
+build action goes through `sd`, the Typer-based CLI in `cli/sushidsp/cli.py`. This guide covers each of its eight subcommands and how it picks a compiler.
 
 ## `sd configure`
 
@@ -47,8 +46,23 @@ toolchain's `bin` directory on `PATH`.
 
 ## `sd doxygen`
 
-Generates the API reference at `docs/api-site/html/` from the headers under
-`include/SushiDSP/`, starting from `docs/api/mainpage.md`. Takes no flags.
+Generates the API reference at `build/docs/api-site/html/` from the headers under
+`include/SushiDSP/`, starting from `docs/reference/API_REFERENCE.md`. Takes no flags.
+
+## `sd check`
+
+Runs repository layout, changelog, and layering checkers from `tools/`.
+
+- `--report` / `-r` — prints issue counts without returning an error exit code.
+- `--rule <name>` — runs only the specified rule function.
+
+## `sd run`
+
+Launches the `sushidsp_host_gui` standalone application.
+
+- `--type` / `-t debug | release | relwithdebinfo` — specifies which configuration binary to launch.
+- `[extra_args]...` — extra arguments forwarded directly to the executable.
+
 
 ## Compiler resolution order
 
