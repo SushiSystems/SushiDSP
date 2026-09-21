@@ -23,118 +23,127 @@
 
 /**
  * @file FmvToneStack.cpp
- * @brief Continuous-time coefficients of the FMV stack and their bilinear discretisation.
+ * @brief The FMV stack's netlist and the DK block that solves it.
  * @author Mustafa Garip & Sushi Systems
  */
 
 #include "SushiDSP/circuits/FmvToneStack.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cassert>
 
 namespace SushiDSP
 {
-    FmvToneStack::FmvToneStack(double sample_rate, const FmvComponents& components)
-        : sample_rate_(sample_rate), components_(components)
+    namespace
     {
-        recompute();
+        /// @brief Node indices of the deck, with the source resistor's node folded out when absent.
+        struct Nodes
+        {
+            std::size_t source;      ///< The driven node.
+            std::size_t input;       ///< The stack's own input; the same node when the source is ideal.
+            std::size_t treble_top;  ///< The treble cap's far end and the treble pot's a end.
+            std::size_t output;      ///< The treble wiper.
+            std::size_t bass_top;    ///< Treble pot's b end, the bass cap's far end, the bass pot's a end.
+            std::size_t slope;       ///< The slope resistor's far end, feeding both lower caps.
+            std::size_t middle_top;  ///< The bass rheostat's wiper and the middle rheostat's a end.
+            std::size_t count;       ///< Number of non-ground nodes.
+        };
+
+        /// @brief Returns the deck's node indices for a termination.
+        /// @param has_source_resistance Whether a resistor sits between the source and the stack.
+        Nodes nodes_for(bool has_source_resistance)
+        {
+            const std::size_t shift = has_source_resistance ? 0u : 1u;
+            return Nodes{ 1u, has_source_resistance ? 2u : 1u, 3u - shift, 4u - shift,
+                          5u - shift, 6u - shift, 7u - shift, 7u - shift };
+        }
+    }
+
+    FmvToneStack::FmvToneStack(double sample_rate, const FmvComponents& components,
+                               const FmvSourceLoad& termination)
+        : sample_rate_(sample_rate), components_(components), termination_(termination)
+    {
+        build();
+    }
+
+    void FmvToneStack::build()
+    {
+        const bool has_source_resistance = termination_.source_resistance_ohms > 0.0f;
+        const Nodes node = nodes_for(has_source_resistance);
+
+        dk::DkNetlist<kStateCount, 0, 1, 1> netlist;
+        netlist.node_count = node.count;
+        netlist.voltage_source(node.source, 0);
+        if (has_source_resistance)
+        {
+            netlist.resistor(node.source, node.input, termination_.source_resistance_ohms);
+        }
+
+        netlist.capacitor(node.input, node.treble_top, components_.treble_capacitor_farads);
+        netlist.resistor(node.input, node.slope, components_.slope_resistor_ohms);
+        netlist.capacitor(node.slope, node.bass_top, components_.bass_capacitor_farads);
+        netlist.capacitor(node.slope, node.middle_top, components_.middle_capacitor_farads);
+
+        // The treble pot's a-to-wiper section grows as the knob closes, so its DK position is
+        // one minus the panel position.
+        treble_pot_ = netlist.potentiometer(node.treble_top, node.output, node.bass_top,
+                                           components_.treble_potentiometer_ohms);
+
+        // Both lower controls are rheostats: the wiper carries the section's current and the
+        // dead wiper-to-b section stamps nothing because its terminals are one node.
+        bass_pot_ = netlist.potentiometer(node.bass_top, node.middle_top, node.middle_top,
+                                         components_.bass_potentiometer_ohms);
+        middle_pot_ = netlist.potentiometer(node.middle_top, 0, 0,
+                                           components_.middle_potentiometer_ohms);
+
+        if (termination_.load_resistance_ohms > 0.0f)
+        {
+            netlist.resistor(node.output, 0, termination_.load_resistance_ohms);
+        }
+        netlist.output(node.output, 0);
+
+        const bool prepared = circuit_.prepare(netlist, sample_rate_);
+        assert(prepared);
+        static_cast<void>(prepared);
+
+        circuit_.set_potentiometer(treble_pot_, 1.0 - static_cast<double>(treble_));
+        circuit_.set_potentiometer(bass_pot_, static_cast<double>(bass_));
+        circuit_.set_potentiometer(middle_pot_, static_cast<double>(middle_));
+        circuit_.update_matrices_if_dirty();
     }
 
     void FmvToneStack::set_bass(float normalized)
     {
         bass_ = std::clamp(normalized, 0.0f, 1.0f);
-        recompute();
+        circuit_.set_potentiometer(bass_pot_, static_cast<double>(bass_));
+        circuit_.update_matrices_if_dirty();
     }
 
     void FmvToneStack::set_middle(float normalized)
     {
         middle_ = std::clamp(normalized, 0.0f, 1.0f);
-        recompute();
+        circuit_.set_potentiometer(middle_pot_, static_cast<double>(middle_));
+        circuit_.update_matrices_if_dirty();
     }
 
     void FmvToneStack::set_treble(float normalized)
     {
         treble_ = std::clamp(normalized, 0.0f, 1.0f);
-        recompute();
-    }
-
-    void FmvToneStack::recompute()
-    {
-        // r1 is the treble pot and r4 the slope resistor, as
-        // docs/superpowers/specs/2026-09-06-high-gain-amps-design.md section 4 numbers them.
-        const double c1 = components_.treble_capacitor_farads;
-        const double c2 = components_.bass_capacitor_farads;
-        const double c3 = components_.middle_capacitor_farads;
-        const double r1 = components_.treble_potentiometer_ohms;
-        const double r2 = components_.bass_potentiometer_ohms;
-        const double r3 = components_.middle_potentiometer_ohms;
-        const double r4 = components_.slope_resistor_ohms;
-
-        const double l = bass_;
-        const double m = middle_;
-        const double t = treble_;
-
-        const double b1 = t * c1 * r1 + l * (c1 * r2 + c2 * r2) + m * (c1 * r3 + c2 * r3 + c3 * r3);
-        const double b2 = t * (c1 * c2 * r1 * r4 + c1 * c3 * r1 * r4)
-                        + l * (c1 * c2 * r1 * r2 + c1 * c2 * r2 * r4 + c1 * c3 * r2 * r4
-                               + m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3))
-                        + m * (c1 * c2 * r1 * r3 + c1 * c2 * r3 * r4 + c1 * c3 * r1 * r3 + c1 * c3 * r3 * r4);
-        const double b3 = l * c1 * c2 * c3 * r2 * (t * r1 * r4 + m * (r1 * r3 + r3 * r4));
-
-        const double a1 = c1 * r1 + c2 * r4 + c3 * r4 + l * (c1 * r2 + c2 * r2)
-                        + m * (c1 * r3 + c2 * r3 + c3 * r3);
-        const double a2 = c1 * c2 * r1 * r4 + c1 * c3 * r1 * r4
-                        + l * (c1 * c2 * r1 * r2 + c1 * c2 * r2 * r4 + c1 * c3 * r2 * r4 + c2 * c3 * r2 * r4
-                               + m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3))
-                        + m * (c1 * c2 * r1 * r3 + c1 * c2 * r3 * r4 + c1 * c3 * r1 * r3 + c1 * c3 * r3 * r4);
-        const double a3 = l * c1 * c2 * c3 * r2 * (r1 * r4 + m * (r1 * r3 + r3 * r4));
-
-        const double c = 2.0 * sample_rate_;
-        const double c_squared = c * c;
-        const double c_cubed = c_squared * c;
-
-        const double numerator[4] = {
-             b3 * c_cubed + b2 * c_squared + b1 * c,
-            -3.0 * b3 * c_cubed - b2 * c_squared + b1 * c,
-             3.0 * b3 * c_cubed - b2 * c_squared - b1 * c,
-            -b3 * c_cubed + b2 * c_squared - b1 * c
-        };
-        const double denominator[4] = {
-             a3 * c_cubed + a2 * c_squared + a1 * c + 1.0,
-            -3.0 * a3 * c_cubed - a2 * c_squared + a1 * c + 3.0,
-             3.0 * a3 * c_cubed - a2 * c_squared - a1 * c + 3.0,
-            -a3 * c_cubed + a2 * c_squared - a1 * c + 1.0
-        };
-
-        const double normalisation = 1.0 / denominator[0];
-        for (int i = 0; i < 4; ++i)
-        {
-            b_[i] = numerator[i] * normalisation;
-            a_[i] = denominator[i] * normalisation;
-        }
+        circuit_.set_potentiometer(treble_pot_, 1.0 - static_cast<double>(treble_));
+        circuit_.update_matrices_if_dirty();
     }
 
     float FmvToneStack::process_sample(float input)
     {
-        const double x = static_cast<double>(input);
-        const double y = b_[0] * x + b_[1] * state_x_[0] + b_[2] * state_x_[1] + b_[3] * state_x_[2]
-                       - a_[1] * state_y_[0] - a_[2] * state_y_[1] - a_[3] * state_y_[2];
-
-        state_x_[2] = state_x_[1];
-        state_x_[1] = state_x_[0];
-        state_x_[0] = x;
-        state_y_[2] = state_y_[1];
-        state_y_[1] = state_y_[0];
-        state_y_[0] = y;
-
-        return static_cast<float>(y);
+        const std::array<double, 1> inputs{ static_cast<double>(input) };
+        std::array<double, 1> outputs{};
+        circuit_.process_sample(port_, inputs, outputs);
+        return static_cast<float>(outputs[0]);
     }
 
     void FmvToneStack::reset()
     {
-        for (int i = 0; i < 3; ++i)
-        {
-            state_x_[i] = 0.0;
-            state_y_[i] = 0.0;
-        }
+        circuit_.reset();
     }
 }
