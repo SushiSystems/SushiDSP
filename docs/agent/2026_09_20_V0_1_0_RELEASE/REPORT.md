@@ -1,7 +1,7 @@
 # What jrb32's traced schematic settles, 2026-09-20
 
 Status: closed. The readings below are in the code and in
-`modules/mesa_mark2c/README.md`; the dossier is archived and is not edited, so this document
+`modules/nodes/mesa_mark2c/README.md`; the dossier is archived and is not edited, so this document
 carries the corrections to it.
 
 The Mark IIC+ dossier's §8 item 16 said jrb32's traced schematic (S3/S8) and Dan__O's SLOCLONES

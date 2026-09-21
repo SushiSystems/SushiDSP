@@ -51,17 +51,17 @@ target_include_directories(sushi_dsp PUBLIC
 
 # Products. Added unconditionally: the module has no SDL2 dependency, and the
 # test suite links it regardless of SUSHIDSP_BUILD_SDL2.
-add_subdirectory(modules/tubescreamer)
-add_subdirectory(modules/jcm800)
-add_subdirectory(modules/node_registry)
-add_subdirectory(modules/routing)
-add_subdirectory(modules/dd3)
-add_subdirectory(modules/peavey5150)
-add_subdirectory(modules/diezel_vh4)
-add_subdirectory(modules/mesa_mark2c)
-add_subdirectory(modules/capture)
-add_subdirectory(modules/room)
-add_subdirectory(modules/cabinet)
+add_subdirectory(modules/nodes/tubescreamer)
+add_subdirectory(modules/nodes/jcm800)
+add_subdirectory(modules/catalog/node_registry)
+add_subdirectory(modules/nodes/routing)
+add_subdirectory(modules/nodes/dd3)
+add_subdirectory(modules/nodes/peavey5150)
+add_subdirectory(modules/nodes/diezel_vh4)
+add_subdirectory(modules/nodes/mesa_mark2c)
+add_subdirectory(modules/nodes/capture)
+add_subdirectory(modules/nodes/room)
+add_subdirectory(modules/nodes/cabinet)
 
 # Nothing in the test suite links SDL2, so this can be turned off to configure
 # and run the tests without network access or an SDL2 build.
@@ -182,7 +182,7 @@ if(SUSHIDSP_BUILD_GUI)
     add_subdirectory(apps/host_gui)
 endif()
 
-add_subdirectory(modules/rig_preset)
+add_subdirectory(modules/session/rig_preset)
 
 enable_testing()
 add_subdirectory(tests)

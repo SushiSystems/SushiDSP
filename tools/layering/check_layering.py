@@ -17,7 +17,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.checker import Checker, Issue, run  # noqa: E402
 
-K_TIER_ORDER: tuple[str, ...] = ()
+# Lowest first. A module may reach its own tier and the ones below it, never above: a node
+# cannot see the catalog that registers it, and the catalog cannot see the session.
+K_TIER_ORDER: tuple[str, ...] = ("nodes", "catalog", "session")
 K_SOURCE_SUFFIXES = frozenset({".h", ".hpp", ".cpp", ".glsl", ".comp", ".vert", ".frag"})
 K_ANGLE_INCLUDE = re.compile(r'^\s*#\s*include\s*<[^/>]+/([^/>]+)/[^>]+>')
 K_QUOTED_INCLUDE = re.compile(r'^\s*#\s*include\s*"([^"]+)"')

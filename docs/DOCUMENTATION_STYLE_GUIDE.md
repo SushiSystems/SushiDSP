@@ -36,8 +36,8 @@ include/SushiDSP/…, modules/<name>/, tools/<name>/, assets/<name>/
 ### The placement rule
 
 A fact about one module (what it owns, which class does what, where it deviates from the
-design spec) goes in that module's own `README.md` — `modules/tubescreamer/README.md`,
-`modules/room/README.md`, and so on — and nowhere else. `docs/README.md` links to it and
+design spec) goes in that module's own `README.md` — `modules/nodes/tubescreamer/README.md`,
+`modules/nodes/room/README.md`, and so on — and nowhere else. `docs/README.md` links to it and
 states no fact of its own.
 
 Everything else follows the design spec's status:

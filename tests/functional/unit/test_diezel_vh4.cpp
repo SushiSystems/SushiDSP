@@ -386,7 +386,7 @@ TEST(Unit_Dsp, DiezelVh4HasACleanEndAtMinimumGain)
 {
     // The acceptance the spec settled on after the level staging came out. Every stage past V1a
     // saturates at the default setting - dossier section 6 says the circuit is that hot, and the
-    // grid probes in modules/diezel_vh4/README.md record where the grids sit - so what has to be
+    // grid probes in modules/nodes/diezel_vh4/README.md record where the grids sit - so what has to be
     // proved is the other end of the knob: turned down, into a small signal, the channel is still
     // an amplifier rather than a fuzz box.
     //
@@ -411,7 +411,7 @@ TEST(Unit_Dsp, DiezelVh4HasACleanEndAtMinimumGain)
 
 TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
 {
-    // The probes are what modules/diezel_vh4/README.md's grid table is measured with, so they have
+    // The probes are what modules/nodes/diezel_vh4/README.md's grid table is measured with, so they have
     // to cover the chain rather than a prefix of it: five stages, every one of them moving after a
     // render, and nothing but zero outside the range.
     SushiDSP::DiezelVh4 node;

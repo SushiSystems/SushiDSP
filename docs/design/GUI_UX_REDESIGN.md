@@ -81,12 +81,12 @@ Reference: `image1.png`.
 - The rig design view's splitter-style picker (§3, bottom) offers the available splitter
   styles. Selecting one:
   1. Inserts the matching splitter node (`sushidsp.splitter`, see
-     `modules/routing/README.md`) at that point in the chain.
+     `modules/nodes/routing/README.md`) at that point in the chain.
   2. Inserts the corresponding mixer node (`sushidsp.mixer`) where the parallel branches
      rejoin.
   3. Wires both ends automatically — the branches created by the split, and the rejoin
      into the mixer — with no manual connection step from the user.
-- `sushidsp.splitter` and `sushidsp.mixer` (`modules/routing/`) already exist as ordinary
+- `sushidsp.splitter` and `sushidsp.mixer` (`modules/nodes/routing/`) already exist as ordinary
   rig nodes (per `docs/README.md`); this feature is GUI automation over node placement and
   wiring, not a new node type.
 
@@ -117,7 +117,7 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
     add/remove control, capped at 8. Code inspection found the track count is already a
     fixed compile-time constant of exactly 8 throughout the host
     (`SushiDSP::TrackPlayer::kMaxTracks = 8` in
-    `modules/capture/include/SushiDSP/capture/TrackPlayer.hpp:51`, mirrored by
+    `modules/nodes/capture/include/SushiDSP/capture/TrackPlayer.hpp:51`, mirrored by
     `RigController::tracks_` as `std::array<TrackInfo, TrackPlayer::kMaxTracks>` in
     `apps/host_gui/RigController.hpp:634`), with no add/remove-track API anywhere in
     `RigController` or `ArrangementView` — `ArrangementView` always draws exactly eight
@@ -340,7 +340,7 @@ is layout and interaction only.
   `SplitterNode`/`MixerNode` compute.
 - No audio-engine wiring for the live meters (§12) or for saving/loading a rig that uses a
   non-series chain type — Phase 2 is the GUI and its data model; persisting a parallel
-  topology through `modules/rig_preset/` is separate work, not committed to by this
+  topology through `modules/session/rig_preset/` is separate work, not committed to by this
   document.
 - No window-state persistence (§18's divider positions, chosen gear-browser view mode,
   or last-used chain type) across a restart.
