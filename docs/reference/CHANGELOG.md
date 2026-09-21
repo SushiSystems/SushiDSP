@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-09-22 — build: Wrote the dependency fragment as one table per dependency, the shape every reader understands (`cli/sushistack.deps.toml`).
 - 2026-09-21 — core: Gave every node one parameter table feeding its descriptor and both dispatches (`include/SushiDSP/core/ParameterTable.hpp`).
 - 2026-09-21 — host_gui: Split the rig controller into a slot graph, a session timeline and a preset codec it forwards to (`apps/host_gui/SlotGraph.cpp`, `apps/host_gui/SessionTimeline.cpp`, `apps/host_gui/RigPersistence.cpp`).
 - 2026-09-21 — core: Renamed both `set_parameter` overloads to name the thread they belong to (`include/SushiDSP/core/IAudioNode.hpp`).
