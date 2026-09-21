@@ -58,9 +58,10 @@ that wants one places the standalone `sushidsp.cabinet` node after this one (see
 | 24 | RESONANCE VR8 1 MΩ with C12 | `ResonanceControl`, +10 dB plateau, corner 330 Hz | §6 |
 | 25 | Output level, full-scale clamp | `std::clamp` | — |
 
-Each grid after V1A also carries a one-pole Miller rolloff, built the way
-`modules/nodes/jcm800/src/Jcm800.cpp` builds its own: `C_in = Cgk + Cgp·(1 + |A|) + stray` with the
-12AX7 model's 1.6 pF and 1.7 pF and 10 pF of stray wiring, against the driving stage's plate load.
+Each grid after V1A also carries a one-pole Miller rolloff, from
+`include/SushiDSP/circuits/stages/MillerInputCapacitance.hpp`: `C_in = Cgk + Cgp·(1 + |A|) + stray`
+with the 12AX7 model's 1.6 pF and 1.7 pF and 10 pF of stray wiring, against the driving stage's
+plate load.
 The corners land at 5.83 kHz (V1B), 93.3 kHz (V2A), 11.0 kHz (V2B), 8.65 kHz (V5B), 12.8 kHz
 (V5A), 42.9 kHz (V3A) and 36.7 kHz (the pair).
 
@@ -128,8 +129,7 @@ operating point, its gain and its tail degeneration" below. Until DA5 the bias w
 
 **The output transformer and the sag stage.** §5 leaves the primary impedance and turns ratio
 **not established** (open question 2), so `OutputTransformerStage` and `PowerSupplySagStage` carry
-the JCM800's constants unchanged (60 Hz, 8 kHz, 0.3 drive; 0.3 sag over 50 ms), cited to
-`modules/nodes/jcm800/src/Jcm800.cpp`. `kPowerTubeToTransformerAttenuation` is the output trim from the
+the corpus's stand-in constants (60 Hz, 8 kHz, 0.3 drive; 0.3 sag over 50 ms). `kPowerTubeToTransformerAttenuation` is the output trim from the
 6L6GC plates to the transformer's units: the pair's full swing, the preset's two headrooms summed
 (392.428 V), lands at the 2.0833 the transformer stage received at full clip before DA5 part 2
 (2 × 20.833 model volts × 0.05), so the transformer and the sag stage see the range they were
@@ -320,7 +320,7 @@ figure for a 10 % "A" taper: 0 at n = 0, 0.00115 (−58.8 dB) at 0.02, 0.00690 (
 0.100 (−20.0 dB) at noon and 1 wide open. The `n·√n` law it replaces in DA5 (spec §6, decision 7)
 sat at −30.0 dB at 0.10 and −9.0 dB at noon, 8 to 11 dB hotter than an audio pot across the middle
 of the knob, so the first half of the travel changed little. The midpoint fraction is the one
-constant of the law; `Jcm800.cpp` and `MesaMark2c.cpp` still carry `n·√n`.
+constant of the law; the corpus's `audio_taper_pot()` still carries `n·√n`.
 
 **Behaviour at silence.** An all-zero input for 2 s leaves the output in the denormals over the
 last half second, peak and DC mean alike: 6.8e−43 at the default setting and 4.7e−41 at PRE GAIN
@@ -331,8 +331,7 @@ transient of the coupling high-passes rather than a standing offset; V1A's 7.3 �
 law's rest current at Vgk −0.9 V, 88 pA, through Rs ∥ Rg = 90 kΩ ∥ 1 MΩ, and C6 22 nF into R29
 470 kΩ strips it before V1B.
 
-**The Miller rolloffs.** The driving impedance is the previous stage's plate load alone, as
-`Jcm800.cpp` takes it. The real Thevenin at every one of these grids is higher; the module's own
+**The Miller rolloffs.** The driving impedance is the previous stage's plate load alone. The real Thevenin at every one of these grids is higher; the module's own
 `kV*SourceResistance` constants are that figure, and they run from 90 kΩ to 673 kΩ. All seven
 errors run the same way and this model is brighter than the amplifier, never darker.
 

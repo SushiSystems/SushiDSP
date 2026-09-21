@@ -136,7 +136,7 @@ Design: `docs/archive/superpowers/specs/2026-09-08-iicplus-loop-network-design.m
 
 Four stand-ins remain in that network, each labelled in the design's section 5. The Lead
 Master's taper: the pot is a rheostat and no source states its law, so it takes the model's
-`audio_taper` (n·√n) like the other pots, and its top half moves the level by 1.9 dB, its bottom
+`audio_taper_pot` (n·√n) like the other pots, and its top half moves the level by 1.9 dB, its bottom
 fifth by 26 dB (§3.6a). The LDR4's on resistance: not read (§8 question 23), so the knob's floor
 is the rheostat's 0 Ω, a hard mute, where a real IIC+ leaks a little signal. V2A's load, held at
 the pot's maximum: the rheostat moves V2A's AC load from 58.75 k to 32.3 k across its travel,
@@ -200,8 +200,8 @@ as it moves down the cascade. `kPhaseInverterToPowerTubeAttenuation` went with t
 the two per-pair grid scales below, and `kPowerTubeToTransformerAttenuation` 0.05 is the output
 trim to full scale.
 
-**Volume 1's ceiling.** The taper law is the JCM800's `preamp_attenuation()`, `n·√n`, but without
-that amp's 1/16 ceiling. The 2203's ceiling stands in for a loss the IIC+ already has: its stack
+**Volume 1's ceiling.** The taper law is the corpus's `audio_taper_pot()`, `n·√n`, but without
+the 2203's 1/16 ceiling. The 2203's ceiling stands in for a loss the IIC+ already has: its stack
 sits ahead of the pot, and at every knob centred it measures −11.3 dB at 100 Hz, −14.9 dB at
 1 kHz and −7.9 dB at 3 kHz.
 
@@ -347,7 +347,7 @@ from something other than a printed value.
 | `kOutputTransformerSaturationDrive` | 0.3 | The JCM800's figure | The same |
 | `kSagAmount` | 0.3 | The JCM800's figure; no IIC+ supply measurement exists | A bench reading of the B+ under load |
 | `kSagRecoveryTimeSeconds` | 0.05 | The same | The same |
-| `kStrayWiringPicofarads` | 10 | Point-to-point wiring, assumed as the JCM800 assumes it | A capacitance measurement on a chassis |
+| `kTriode12AX7MillerCapacitance.stray_wiring_picofarads` | 10 | Point-to-point wiring, a corpus assumption | A capacitance measurement on a chassis |
 | `kPhaseInverterCathodeBias` | −1.5 | §5.1's DC numbers do not close | §8 item 6: three voltmeter readings |
 | `kPhaseInverterGain` | 68.214959 | Derived at that unresolved point, not on the 82.5 k load line | The same |
 | `kPhaseInverterPlateASwing`, `kPhaseInverterPlateBSwing` | 106.646 / 144.645, 117.503 / 159.365 | Scaled from the 82 k load line rather than re-solved on each plate | The same |

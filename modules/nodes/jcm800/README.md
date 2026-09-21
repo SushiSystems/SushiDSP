@@ -60,7 +60,7 @@ in the descriptor.
   until DA5 part 2; `jcm_v1b_cold`'s own AC sweep reads +16.89 dB at 1 kHz. The Miller pole on
   each driven grid reads its stage's gain, so V1b's corner moves from 13.8 kHz to 60.0 kHz
   and V2a's to 12.5 kHz, the inverter's from 31.0 to 13.4 kHz.
-- **`kPhaseInverterDegeneration`, 1.888775, divided into the inverter's input.** The inverter is
+- **`kPhaseInverter.input_degeneration`, 1.888775, divided into the inverter's input.** The inverter is
   a long-tailed pair, so its shared cathode follows the driven grid. The other triode's cathode
   presents `(r_a + R_a)/(µ + 1)` = 125055.615/95.443529 = 1310.2577 Ω in parallel with the tail,
   so the grid-to-cathode signal is the input over `1 + R_tail/(R_tail + that)` =
@@ -106,7 +106,7 @@ in the descriptor.
   Its shape through the mids is not the FMV stack's: part 1's Task 4 measured it 6.35 / 8.68 /
   15.93 dB above `FmvToneStack` at MID 0.1 / 0.5 / 0.9.
 - **The Miller grid poles use a common 100 kΩ source impedance** for all three driven grids. The
-  constants' comment in `Jcm800.cpp` gives the real source impedance at each grid and the
+  `kPlateLoadOhms` comment in `Jcm800.cpp` gives the real source impedance at each grid and the
   direction of the error.
 - **The EL34 bias mismatch is an input-referred 0.24 V grid offset** on the second tube. It was
   0.03 V in the model volts of the bias-referenced `PentodeStage`, which could not express it
@@ -124,7 +124,7 @@ and `kPowerTubeToTransformerAttenuation` stays as the output trim from the EL34 
 transformer's units: the pair's full swing, `kEl34`'s two headrooms summed (305.778 V), lands at
 the 2.0 the transformer stage received at full clip before DA5 part 2 (2 × 20 model volts × 0.05),
 so the transformer and the sag stage see the range they were calibrated for. What replaced the
-staging is not staging: `kPhaseInverterDegeneration` is the pair's own tail feedback, derived
+staging is not staging: `kPhaseInverter.input_degeneration` is the pair's own tail feedback, derived
 above.
 
 ## The EL34 pair

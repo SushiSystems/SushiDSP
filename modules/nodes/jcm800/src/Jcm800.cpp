@@ -21,21 +21,18 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
-#define _USE_MATH_DEFINES
-
 #include "SushiDSP/jcm800/Jcm800.hpp"
 
+#include "SushiDSP/circuits/AudioTaperPot.hpp"
+#include "SushiDSP/circuits/OutputSafetyClamp.hpp"
+#include "SushiDSP/circuits/stages/MillerInputCapacitance.hpp"
+#include "SushiDSP/circuits/stages/PhaseInverterPresets.hpp"
 #include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <utility>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 namespace SushiDSP
 {
@@ -85,56 +82,20 @@ namespace SushiDSP
         /// toward the plate bottom at Vgk = 0 on the same load line.
         constexpr PlateSwing kV2aPlateSwing{ 151.934560f, 88.104683f };
 
-        // The long-tailed pair, in one block so that a module whose inverter is a JCM800 stand-in
-        // can copy the four constants and cite them. Every figure comes from jcm_ltp's 82 kOhm
-        // plate and its shared 470 + 10 kOhm tail, with both grid leaks returned to the 470/10k
-        // junction as the 2203 wires them, and the Koren Jacobian at that idle point: gm
-        // 2.193524 mA/V, r_a 43055.615 Ohm, mu 94.443529 (modules/jcm800/README.md).
-
-        /// @brief The phase inverter's self-bias voltage: the grid leaks return to the tail
-        /// junction, so Vgk is the drop across the 470 Ohm alone, -2 * 1.431927 mA * 470, with
-        /// the cathodes at 29.984558 V on 360 V.
-        constexpr float kPhaseInverterCathodeBias = -1.346012f;
-
-        /// @brief The inverter's plate swing on its 82 kOhm plate: 360 - 242.581959 toward the
-        /// supply, and 212.597400 - 123.049256 of plate-to-cathode voltage toward the bottom at
-        /// Vgk = 0 with the cathode held at its idle voltage.
-        constexpr PlateSwing kPhaseInverterPlateSwing{ 117.418041f, 89.548144f };
-
-        /// @brief One triode's full load-line gain, mu*R_a/(r_a + R_a) =
-        /// 94.443529*82000/125055.615. It is the whole single-triode gain, not half of it: the
-        /// pair's split is already in the degeneration factor below, and halving it here would
-        /// count that split twice.
-        constexpr float kPhaseInverterGain = 61.927402f;
-
-        /// @brief The tail degeneration, divided into the inverter's input because the shared
-        /// cathode follows the driven grid. The other triode's cathode presents
-        /// (r_a + R_a)/(mu + 1) = 125055.615/95.443529 = 1310.2577 Ohm in parallel with the tail,
-        /// so the grid-to-cathode signal is the input over 1 + R_tail/(R_tail + that), which is
-        /// 1 + 10470/(10470 + 1310.2577).
-        /// @pre R_tail here is the 10.47 kOhm both cathodes share, the 470 Ohm and the 10 kOhm in
-        /// series to ground (jcm_ltp); both are in the tail, so neither belongs in the shunt
-        /// branch.
-        constexpr float kPhaseInverterDegeneration = 1.888775f;
+        /// @brief The 2203's long-tailed pair, modelled as one triode on jcm_ltp's 82 kOhm plate
+        /// over the 470 Ohm and 10 kOhm tail both cathodes share, with both grid leaks returned to
+        /// the junction between them as the 2203 wires them; every figure is derived in
+        /// include/SushiDSP/circuits/stages/PhaseInverterPresets.hpp.
+        constexpr SingleTriodeInverter kPhaseInverter = kTriode12AX7Inverter82kPlate;
 
         /// @brief The class-AB bias mismatch between the two output tubes, an input-referred grid
         /// offset on the B side in real volts: the 0.03 model volts the chain carried before
         /// PentodeStage became volt-true, through the deleted 0.125 grid scale
-        /// (modules/jcm800/README.md, "The EL34 pair"). The transformer's 60 Hz high-pass blocks
+        /// (modules/nodes/jcm800/README.md, "The EL34 pair"). The transformer's 60 Hz high-pass blocks
         /// the DC term it introduces. Held in a member so that
         /// set_power_tube_grid_bias_mismatch_volts() can zero it.
         constexpr float kPowerTubeGridBiasMismatchVolts = 0.24f;
 
-        // 12AX7 Miller input capacitance - the interstage bandwidth limit the model was missing.
-        //
-        // Every grid in the amp is driven through a real source impedance into a real input
-        // capacitance, and for a high-mu triode that capacitance is dominated by the Miller
-        // multiplication of the grid-plate capacitance: C_in = Cgk + Cgp * (1 + |A|). The two
-        // capacitances are the 12AX7 model's own (docs/reference/spice/models/12ax7_koren.sub,
-        // Cgk 1.6 pF and Cgp 1.7 pF), and |A| is the stage's mid-band voltage gain, so nothing
-        // here is free-tuned; the only assumption is the stray wiring capacitance, taken as a
-        // conventional 10 pF for point-to-point turret board wiring.
-        //
         // The driving impedance is taken as a common 100 kOhm plate load for all three grids.
         // That is a deliberate simplification, not a per-node fact: V1b's grid is really fed from
         // the 1 MOhm preamp pot's wiper (a Thevenin source of up to 250 kOhm), V2a's from the
@@ -155,9 +116,6 @@ namespace SushiDSP
         // spectrum reach V2a, the phase inverter and the EL34 pair, whose own clipping turned it
         // into content past the 8x Nyquist that folded back into the audio band. A real 2203 has
         // never had that bandwidth to give away.
-        constexpr float kMillerCgkPicofarads = 1.6f;
-        constexpr float kMillerCgpPicofarads = 1.7f;
-        constexpr float kStrayWiringPicofarads = 10.0f;
         constexpr float kPlateLoadOhms = 100000.0f;
 
         constexpr float kOutputTransformerRolloffHz = 60.0f;
@@ -224,16 +182,13 @@ namespace SushiDSP
             return (normalized - 0.5f) * 2.0f * kMaxPresenceDb;
         }
 
-        /// @brief The corner of one grid's Miller input-capacitance pole.
+        /// @brief Returns the corner of one grid's Miller input-capacitance pole.
         /// @param stage_voltage_gain The driven stage's mid-band gain, which is what the
         /// grid-plate capacitance is multiplied by.
         /// @return The -3 dB corner of the grid's RC pole, in Hz.
         double miller_corner_hz(double stage_voltage_gain)
         {
-            const double input_capacitance_farads =
-                (kMillerCgkPicofarads + kMillerCgpPicofarads * (1.0 + stage_voltage_gain)
-                 + kStrayWiringPicofarads) * 1e-12;
-            return 1.0 / (2.0 * M_PI * kPlateLoadOhms * input_capacitance_farads);
+            return kTriode12AX7MillerCapacitance.corner_hz(stage_voltage_gain, kPlateLoadOhms);
         }
 
         // The 2203's preamp volume is a pot between V1a's plate and V1b's grid, so the knob is an
@@ -241,7 +196,7 @@ namespace SushiDSP
         // harder, which is what produces the cascaded-gain-stage distortion rather than just a
         // louder clean signal.
         //
-        // The exponent approximates an audio-taper pot. It is 1.5 rather than a plain square
+        // The knob follows the corpus audio taper. Its exponent is 1.5 rather than a plain square
         // because the cascade's clean-to-saturated transition spans a wide span of interstage
         // level (a grid conducts once it reaches its cathode, and cuts off 4.14 V below), so a
         // steeper taper compresses too much of that transition into the top third of the knob's
@@ -250,7 +205,7 @@ namespace SushiDSP
         // with this one it starts moving at 0.4 and climbs monotonically to 1.0.
         float preamp_attenuation(float normalized)
         {
-            return normalized * std::sqrt(normalized) * kPreampPotMaxAttenuation;
+            return audio_taper_pot(normalized) * kPreampPotMaxAttenuation;
         }
     }
 
@@ -259,7 +214,7 @@ namespace SushiDSP
         , v1b_(kTriodeSourceResistance, kTriodeGridLeak, kV1bCathodeBias, kV1bGain, kTriode12AX7GridConduction, kV1bPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
         , v2a_(kTriodeSourceResistance, kTriodeGridLeak, kV2aCathodeBias, kV2aGain, kTriode12AX7GridConduction, kV2aPlateSwing)
-        , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriode12AX7GridConduction, kPhaseInverterPlateSwing)
+        , phase_inverter_(kTriodeSourceResistance, kTriodeGridLeak, kPhaseInverter.cathode_bias_volts, kPhaseInverter.gain, kTriode12AX7GridConduction, kPhaseInverter.plate_swing)
         , el34_a_(kEl34)
         , el34_b_(kEl34)
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
@@ -270,7 +225,7 @@ namespace SushiDSP
         const double initial_oversampled_rate_hz = 48000.0 * kOversamplingFactor;
         v1b_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kV1bGain));
         v2a_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kV2aGain));
-        phase_inverter_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kPhaseInverterGain));
+        phase_inverter_grid_miller_.set_one_pole_low_pass(initial_oversampled_rate_hz, miller_corner_hz(kPhaseInverter.gain));
     }
 
     void Jcm800::prepare(const PrepareInfo& info)
@@ -296,14 +251,14 @@ namespace SushiDSP
         // through miller_corner_hz(), which reads the gain constants and so tracks them.
         //
         // The phase inverter's pole is a property of *this* model's inverter, which is a single
-        // triode at kPhaseInverterGain. A real 2203's inverter is a long-tailed pair, whose
+        // triode at kPhaseInverter.gain. A real 2203's inverter is a long-tailed pair, whose
         // driven grid sees very little Miller multiplication because that half runs as a
         // grounded-grid stage with no inverting plate-to-grid path. D6d should not inherit this
         // pole when it replaces the inverter with the LTP.
         const double oversampled_rate_hz = sample_rate_ * kOversamplingFactor;
         v1b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV1bGain));
         v2a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV2aGain));
-        phase_inverter_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kPhaseInverterGain));
+        phase_inverter_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kPhaseInverter.gain));
 
         // The tone stack sits inside the single oversampled region (spec D6a.3: one region per
         // node), so its coefficients are derived at the oversampled rate. It is passive and
@@ -403,7 +358,7 @@ namespace SushiDSP
             const float v1b_out = v1b_.process_sample(v1b_in);
             const float toned = v2a_grid_miller_.process_sample(
                 tone_stack_.process_sample(v1b_out) * kToneStackInsertionLoss);
-            const float phase_split = v2a_.process_sample(toned) / kPhaseInverterDegeneration;
+            const float phase_split = v2a_.process_sample(toned) / kPhaseInverter.input_degeneration;
             const float phase_inverted = phase_inverter_.process_sample(
                 phase_inverter_grid_miller_.process_sample(phase_split));
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
@@ -439,10 +394,7 @@ namespace SushiDSP
         // limiter: a waveshaper here would need its own oversampled region to avoid aliasing its
         // own harmonics back down, and the amp's saturation character already comes from the tube
         // and transformer stages that model it. This is a safety rail, not a tone stage.
-        for (std::uint32_t i = 0; i < frames; ++i)
-        {
-            output[i] = std::clamp(output[i] * output_gain, -1.0f, 1.0f);
-        }
+        apply_output_safety_clamp(output, frames, output_gain);
     }
 
     std::uint32_t Jcm800::latency_samples() const

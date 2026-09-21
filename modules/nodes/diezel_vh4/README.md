@@ -37,7 +37,7 @@ are the repo's own bricks; `DiezelVh4` owns the order they run in and nothing el
 | R42 470 k, VOLUME 470 k, R43 680 k into the 48.1 k mix node | knob × 0.5, then ×0.0660 | — | 2, 6 |
 | V4a, Ra 120 k, Rk 640 unbypassed | `TriodeStage`, gain 28.7, Vgk −0.98 V | 184.0 / 72.688 | 6 |
 | V4b send buffer | scalar ×0.986 | — | 2 |
-| Loop return driver, phase inverter | one `TriodeStage` at gain 61.927402, input divided by the tail degeneration 1.888775 | 117.418041 / 89.548144 | 5 — nothing established, `Jcm800.cpp` copied |
+| Loop return driver, phase inverter | one `TriodeStage` at gain 61.927402, input divided by the tail degeneration 1.888775 | 117.418041 / 89.548144 | 5 — nothing established, `kTriode12AX7Inverter82kPlate` |
 | EL34 quad | two `PentodeStage(kDiezelVh4PowerEl34)`, in real volts | 35 / 339.166 V | 5, 7, Philips EL34 sheet |
 | Output transformer, supply sag | JCM800 constants | — | 5 — nothing established |
 | Deep | `ResonanceControl` at 80 Hz, 10 dB | — | 5, 6 |
@@ -149,7 +149,7 @@ The four staging factors this module carried until 2026-09-07 —
 gave `TriodeStage` the plate ceiling the table above lists and left the dossier's own dividers
 (×0.4996, the volume divider, ×0.0660 and the two follower scalars) as the only interstage factors
 in the chain. `kPowerTubeToTransformerAttenuation` stays, this chain's one output trim to full
-scale, and keeps `Jcm800.cpp`'s name because the name is the citation.
+scale, and keeps the corpus name because the name is the citation.
 `kPhaseInverterToPowerTubeAttenuation`, the 1/32 it sat beside, was replaced on the same day by the
 two constants below.
 
@@ -160,17 +160,17 @@ is the input divided by `1 + R_tail / (R_tail + (r_a + Ra) / (µ + 1))`, where `
 is the impedance the other triode's cathode puts in parallel with the tail. Modelling the inverter
 as a plain common-cathode `TriodeStage` hands it a window it does not have.
 
-The VH4's inverter is not established (§5), so it stands in for the JCM800's pair, and since
-2026-09-07 it **copies that module's four constants rather than re-deriving them**:
-`Jcm800.cpp`'s `kPhaseInverterCathodeBias` −1.346012 V, `kPhaseInverterPlateSwing`
-{ 117.418041, 89.548144 }, `kPhaseInverterGain` 61.927402 — one triode's full load-line gain, not
-half of it, because the pair's split is already in the factor — and `kPhaseInverterDegeneration`
-**1.888775**, which `DiezelVh4.cpp` divides the inverter's input by. Its tail is the 10.47 kΩ both
+The VH4's inverter is not established (§5), so it stands in for the 2203's pair, and since
+2026-09-21 it **reads the corpus preset rather than re-deriving it**:
+`kTriode12AX7Inverter82kPlate` in `include/SushiDSP/circuits/stages/PhaseInverterPresets.hpp`, whose
+`cathode_bias_volts` is −1.346012 V, `plate_swing` { 117.418041, 89.548144 }, `gain` 61.927402 — one
+triode's full load-line gain, not half of it, because the pair's split is already in the factor —
+and `input_degeneration` **1.888775**, which `DiezelVh4.cpp` divides the inverter's input by. Its tail is the 10.47 kΩ both
 cathodes share, `jcm_ltp`'s 470 Ω and 10 kΩ in series to ground, and its grid leaks return to
 their junction as the 2203's do, which is what puts the pair at 1.432 mA per half with 117.4 V of
 plate headroom where the deck's grounded leaks gave 0.188 mA and 15.4 V (DA5 part 2). A product
-module may not include another, so the values travel by copy and cite the JCM800's symbol names;
-the derivation lives beside them in `Jcm800.cpp`, from `jcm_ltp`'s 82 kΩ plate, its shared
+module may not include another, so both modules read one preset in `include/SushiDSP/circuits/`;
+the derivation lives beside it in `PhaseInverterPresets.hpp`, from `jcm_ltp`'s 82 kΩ plate, its shared
 470 Ω + 10 kΩ tail and the Koren Jacobian at that pair's idle point. Before this the module derived
 its own figure, got 4.140398 out of a formula with no cathode shunt in it, and disagreed with the
 JCM800 by 6.5 dB on the same stage. Like everything else here, the numbers are a modelling choice
@@ -249,9 +249,12 @@ rolloff at all.
 
 ### Miller poles
 
-The grid capacitances are `Jcm800.cpp`'s: Cgk 1.6 pF and Cgp 1.7 pF from
-`docs/reference/spice/models/12ax7_koren.sub`, plus 10 pF of stray wiring. Unlike the JCM800's,
-the driving resistance is per grid, because §3.3 and §3.4 draw the two stoppers this channel has and
+The grid capacitances are Cgk 1.6 pF and Cgp 1.7 pF from
+`docs/reference/spice/models/12ax7_koren.sub`, plus 10 pF of stray wiring. This module holds all
+three at double precision and computes the pole itself, where
+`include/SushiDSP/circuits/stages/MillerInputCapacitance.hpp` holds them as floats; the two
+disagree by 2.6·10⁻⁸ of the corner, which is why the module did not adopt the brick. The
+driving resistance is per grid, because §3.3 and §3.4 draw the two stoppers this channel has and
 §3.4 computes V3a's pole from R26 itself. The dossier reads that pole at about 2.9 kHz from 115 pF;
 this module's 134.7 pF puts it at 2.51 kHz, the difference being the stray capacitance and Cgk that
 the dossier's figure leaves out.
@@ -261,7 +264,7 @@ the dossier's figure leaves out.
 `TriodeStage`'s source resistance is what loads the grid-conduction diode, so it sets how hard the
 stage clips once the grid goes positive. V2a and V3a get the stoppers the drawing gives them, R21's
 47 k and R26's 470 k. §3.1 draws none on V1a, and the drawing offers nothing else to use, so V1a
-takes `Jcm800.cpp`'s `kTriodeSourceResistance` of 10 kΩ. On the Norman law the grid current is
+takes the corpus stand-in of 10 kΩ. On the Norman law the grid current is
 1 µA × softplus((Vgk − 0.5) / 0.15), a 150 kΩ slope above the 0.5 V knee, so a 10 kΩ source barely
 loads it and the plate ceiling, not the grid, clips V1a. V1a is the stage the gain knob cannot reach,
 so it is also the amp's THD floor at any knob position.
