@@ -69,18 +69,18 @@ namespace SushiDSP
         /// @return The parameter's current normalized value.
         virtual float get_parameter(const char* id) const = 0;
 
-        /// @brief Writes a parameter by its NodeDescriptor::parameters[].id string. Control
-        /// thread only: the string lookup is not real-time safe.
+        /// @brief Writes a parameter by its NodeDescriptor::parameters[].id string. The name
+        /// carries the contract the signature cannot: the string lookup is not real-time safe.
         /// @param id The parameter's id. An unrecognized id is a no-op.
         /// @param value The value to set, in the parameter's declared [min, max] range.
-        virtual void set_parameter(const char* id, float value) = 0;
+        virtual void set_parameter_for_control_thread(const char* id, float value) = 0;
 
-        /// @brief Writes a parameter by its NodeDescriptor::parameters[] index. Called on the
-        /// processing thread as RigGraph drains its ParameterChange ring, so an override must
-        /// only store a target value; the default is a no-op for nodes with no parameters.
+        /// @brief Writes a parameter by its NodeDescriptor::parameters[] index. RigGraph calls it
+        /// as it drains its ParameterChange ring, so an override must only store a target value;
+        /// the default is a no-op for nodes with no parameters.
         /// @param index Index into the node's NodeDescriptor::parameters[]. Out of range is a no-op.
         /// @param value The value to set, in the parameter's declared [min, max] range.
-        virtual void set_parameter(std::uint16_t index, float value) { (void)index; (void)value; }
+        virtual void set_parameter_for_audio_thread(std::uint16_t index, float value) { (void)index; (void)value; }
 
         /// @brief Clears internal state for a click-free restart. Control thread only, and never
         /// concurrently with process(): an implementation may reach state it otherwise only
@@ -89,8 +89,8 @@ namespace SushiDSP
 
         /// @brief Samples of delay this node adds between its input and output (FIR group
         /// delay, convolution partition, look-ahead). Constant after prepare() unless the node
-        /// documents a control-thread operation that changes it (e.g. Jcm800::set_cabinet(),
-        /// which swaps a latency-bearing stage); hosts should re-read it after any such call.
+        /// documents a control-thread operation that changes it, such as CabinetNode::set_cabinet()
+        /// swapping a latency-bearing stage; hosts should re-read it after any such call.
         /// @return Latency in base-rate samples; 0 for a memoryless or IIR-only node.
         virtual std::uint32_t latency_samples() const { return 0; }
 

@@ -34,7 +34,7 @@ namespace
     /// returns the resulting left/right gains (the output value, since the input is 1.0).
     void settled_gains(SushiDSP::PanNode& node, float pan, float& left, float& right)
     {
-        node.set_parameter("pan", pan);
+        node.set_parameter_for_control_thread("pan", pan);
 
         constexpr int kMaxBlocks = 10000;
         std::vector<float> input(64, 1.0f);
@@ -135,10 +135,10 @@ TEST(Unit_Dsp, PanNodeIndexedSetterAgreesWithNamedSetter)
     SushiDSP::PanNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
 
-    node.set_parameter(static_cast<std::uint16_t>(0), 0.5f);
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(0), 0.5f);
     EXPECT_FLOAT_EQ(node.get_parameter("pan"), 0.5f);
 
-    node.set_parameter("pan", -0.25f);
+    node.set_parameter_for_control_thread("pan", -0.25f);
     EXPECT_FLOAT_EQ(node.get_parameter("pan"), -0.25f);
 }
 

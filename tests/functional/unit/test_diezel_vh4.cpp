@@ -148,7 +148,7 @@ TEST(Unit_Dsp, DiezelVh4IndexedParameterSetMatchesTheDescriptorOrder)
     const float values[10] = { 0.2f, 0.3f, 0.4f, 0.45f, 0.6f, 0.7f, 0.8f, -6.0f, 12.0f, -3.0f };
     for (std::uint16_t i = 0; i < 10; ++i)
     {
-        node.set_parameter(i, values[i]);
+        node.set_parameter_for_audio_thread(i, values[i]);
     }
 
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::diezel_vh4_descriptor();
@@ -157,7 +157,7 @@ TEST(Unit_Dsp, DiezelVh4IndexedParameterSetMatchesTheDescriptorOrder)
         EXPECT_FLOAT_EQ(node.get_parameter(descriptor.parameters[i].id), values[i]);
     }
 
-    node.set_parameter(static_cast<std::uint16_t>(99), 1.0f);
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 1.0f);
 }
 
 TEST(Unit_Dsp, DiezelVh4DecibelParametersClampToTheirDescriptorRange)
@@ -175,16 +175,16 @@ TEST(Unit_Dsp, DiezelVh4DecibelParametersClampToTheirDescriptorRange)
 TEST(Unit_Dsp, DiezelVh4GenericParameterRoundTrip)
 {
     SushiDSP::DiezelVh4 node;
-    node.set_parameter("gain", 0.2f);
-    node.set_parameter("bass", 0.3f);
-    node.set_parameter("middle", 0.4f);
-    node.set_parameter("treble", 0.5f);
-    node.set_parameter("volume", 0.6f);
-    node.set_parameter("deep", 0.7f);
-    node.set_parameter("presence", 0.8f);
-    node.set_parameter("master", -6.0f);
-    node.set_parameter("input_trim", 6.0f);
-    node.set_parameter("output", -3.0f);
+    node.set_parameter_for_control_thread("gain", 0.2f);
+    node.set_parameter_for_control_thread("bass", 0.3f);
+    node.set_parameter_for_control_thread("middle", 0.4f);
+    node.set_parameter_for_control_thread("treble", 0.5f);
+    node.set_parameter_for_control_thread("volume", 0.6f);
+    node.set_parameter_for_control_thread("deep", 0.7f);
+    node.set_parameter_for_control_thread("presence", 0.8f);
+    node.set_parameter_for_control_thread("master", -6.0f);
+    node.set_parameter_for_control_thread("input_trim", 6.0f);
+    node.set_parameter_for_control_thread("output", -3.0f);
 
     EXPECT_FLOAT_EQ(node.get_parameter("gain"), 0.2f);
     EXPECT_FLOAT_EQ(node.get_parameter("bass"), 0.3f);
@@ -201,7 +201,7 @@ TEST(Unit_Dsp, DiezelVh4GenericParameterRoundTrip)
 TEST(Unit_Dsp, DiezelVh4UnknownParameterIsSafeNoOp)
 {
     SushiDSP::DiezelVh4 node;
-    node.set_parameter("does_not_exist", 1.0f);
+    node.set_parameter_for_control_thread("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
@@ -218,7 +218,7 @@ TEST(Unit_Dsp, DiezelVh4IsDcStableAcrossManyBlocksAtHighGain)
         for (float extreme : { 0.0f, 1.0f })
         {
             SushiDSP::DiezelVh4 node;
-            node.set_parameter(knob, extreme);
+            node.set_parameter_for_control_thread(knob, extreme);
             node.set_master(kUnityMasterDb);
             node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
 
@@ -310,9 +310,9 @@ TEST(Unit_Dsp, DiezelVh4NeverExceedsFullScaleWithoutALimiter)
     // the test proves only that the amp has headroom.
     SushiDSP::DiezelVh4 node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
-    node.set_parameter("gain", 1.0f);
-    node.set_parameter("master", 12.0f);
-    node.set_parameter("output", 12.0f);
+    node.set_parameter_for_control_thread("gain", 1.0f);
+    node.set_parameter_for_control_thread("master", 12.0f);
+    node.set_parameter_for_control_thread("output", 12.0f);
 
     std::vector<float> input(256), output(256, 0.0f);
     const float* input_channels[1] = { input.data() };

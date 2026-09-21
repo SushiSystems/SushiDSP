@@ -211,7 +211,7 @@ namespace SushiDSP
         }
 
         // Parameters are applied in std::map order, i.e. alphabetical by parameter id — that
-        // ordering is incidental, not designed. Every set_parameter() implementation today is
+        // ordering is incidental, not designed. Every set_parameter_for_control_thread() implementation today is
         // order-independent; if one ever becomes order-dependent, this must switch to
         // preserving descriptor (or JSON-file) order instead.
         for (const auto& [handle, params] : pending_params)
@@ -219,7 +219,7 @@ namespace SushiDSP
             IAudioNode* node = graph.node(handle);
             for (const auto& [key, value] : params)
             {
-                node->set_parameter(key.c_str(), value);
+                node->set_parameter_for_control_thread(key.c_str(), value);
             }
         }
 

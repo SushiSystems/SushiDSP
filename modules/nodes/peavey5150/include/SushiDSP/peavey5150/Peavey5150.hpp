@@ -157,14 +157,13 @@ namespace SushiDSP
         bool tone_stack_is_dirty() const;
 
         float get_parameter(const char* id) const override;
-        void set_parameter(const char* id, float value) override;
+        void set_parameter_for_control_thread(const char* id, float value) override;
 
-        using IAudioNode::set_parameter;
 
         /// @brief Sets one parameter by its descriptor index. Audio-thread safe.
         /// @param index Index into peavey5150_descriptor()'s parameter array.
         /// @param value The new value, in the descriptor's units.
-        void set_parameter(std::uint16_t index, float value) override;
+        void set_parameter_for_audio_thread(std::uint16_t index, float value) override;
 
     private:
         static constexpr std::uint32_t kOversamplingFactor = 8;

@@ -44,7 +44,7 @@ namespace SushiDSP
     void SplitterNode::reset() {}
 
     float SplitterNode::get_parameter(const char*) const { return 0.0f; }
-    void SplitterNode::set_parameter(const char*, float) {}
+    void SplitterNode::set_parameter_for_control_thread(const char*, float) {}
 
     const char* SplitterNode::type_id() const { return "sushidsp.splitter"; }
 

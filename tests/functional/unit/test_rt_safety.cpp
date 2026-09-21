@@ -142,7 +142,7 @@ namespace
         void reset() override {}
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
     };
 }
 
@@ -237,7 +237,7 @@ namespace
         void reset() override {}
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
     };
 
     class MonoPassThroughNode : public SushiDSP::IAudioNode
@@ -258,7 +258,7 @@ namespace
         void reset() override {}
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
     };
 }
 
@@ -511,7 +511,7 @@ TEST(Unit_Dsp, PanNodeProcessPerformsNoHeapAllocation)
     // apply_pan()'s cos/sin recompute runs on stack values only: no heap, lock, syscall, throw.
     SushiDSP::PanNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
-    node.set_parameter("pan", 0.5f);
+    node.set_parameter_for_control_thread("pan", 0.5f);
 
     std::vector<float> input(256, 1.0f);
     std::vector<float> out_left(256, 0.0f);
@@ -1058,7 +1058,7 @@ TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
     trap.arm();
 
     node.process(context);
-    node.set_parameter(mode_index, long_mode_value);
+    node.set_parameter_for_audio_thread(mode_index, long_mode_value);
     node.process(context);
     node.set_mode(SushiDSP::dd3::Dd3Mode::Short);
     node.process(context);
@@ -1374,8 +1374,8 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocation)
     trap.arm();
     for (int block = 0; block < 16; ++block)
     {
-        node.set_parameter(std::uint16_t{ 0 }, block % 2 == 0 ? 0.7f : 1.0f);
-        node.set_parameter(std::uint16_t{ 1 }, -3.0f);
+        node.set_parameter_for_audio_thread(std::uint16_t{ 0 }, block % 2 == 0 ? 0.7f : 1.0f);
+        node.set_parameter_for_audio_thread(std::uint16_t{ 1 }, -3.0f);
         node.process(context);
     }
     trap.disarm();
@@ -1397,7 +1397,7 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
     // moved microphone ramps the gains read at it, a moved listener changes nothing the
     // microphone hears, a changed dimension blends the spare bank in from zero.
     SushiDSP::room::RoomNode node;
-    node.set_parameter("listener", 1.0f);
+    node.set_parameter_for_control_thread("listener", 1.0f);
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
 
     std::vector<float> input(256);
@@ -1455,11 +1455,11 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationForEitherListener)
     AllocationTrap trap;
     for (const float listener : { 0.0f, 1.0f, 0.0f })
     {
-        node.set_parameter("listener", listener);
+        node.set_parameter_for_control_thread("listener", listener);
         trap.arm();
         for (int block = 0; block < 3; ++block)
         {
-            node.set_parameter(std::uint16_t{ 2 }, 1.0f - listener);
+            node.set_parameter_for_audio_thread(std::uint16_t{ 2 }, 1.0f - listener);
             node.process(context);
         }
         trap.disarm();
@@ -1715,7 +1715,7 @@ TEST(Unit_Dsp, RoomNodeBinauralProcessPerformsNoHeapAllocation)
     {
         if (publish == 1)
         {
-            node.set_parameter("direct_delay", 1.0f);
+            node.set_parameter_for_control_thread("direct_delay", 1.0f);
         }
         if (publish == 2)
         {
@@ -1724,7 +1724,7 @@ TEST(Unit_Dsp, RoomNodeBinauralProcessPerformsNoHeapAllocation)
         trap.arm();
         for (int block = 0; block < 4; ++block)
         {
-            node.set_parameter(std::uint16_t{ 3 }, block % 2 == 0 ? 1.0f : 0.0f);
+            node.set_parameter_for_audio_thread(std::uint16_t{ 3 }, block % 2 == 0 ? 1.0f : 0.0f);
             node.process(context);
         }
         trap.disarm();

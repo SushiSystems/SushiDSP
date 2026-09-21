@@ -411,18 +411,18 @@ TEST(Unit_Dsp, Dd3DelayHitsCheckPointFive)
 TEST(Unit_Dsp, Dd3DelayParametersRoundTripByNameAndByIndex)
 {
     SushiDSP::Dd3Delay node;
-    node.set_parameter("time", 0.8f);
-    node.set_parameter("feedback", 0.25f);
-    node.set_parameter("level", 0.6f);
-    node.set_parameter("mode", 3.0f);
+    node.set_parameter_for_control_thread("time", 0.8f);
+    node.set_parameter_for_control_thread("feedback", 0.25f);
+    node.set_parameter_for_control_thread("level", 0.6f);
+    node.set_parameter_for_control_thread("mode", 3.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("time"), 0.8f);
     EXPECT_FLOAT_EQ(node.get_parameter("feedback"), 0.25f);
     EXPECT_FLOAT_EQ(node.get_parameter("level"), 0.6f);
     EXPECT_FLOAT_EQ(node.get_parameter("mode"), 3.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("nonsense"), 0.0f);
-    node.set_parameter(static_cast<std::uint16_t>(0), 0.1f);
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(0), 0.1f);
     EXPECT_FLOAT_EQ(node.get_parameter("time"), 0.1f);
-    node.set_parameter(static_cast<std::uint16_t>(99), 0.1f);   // out of range: a no-op
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 0.1f);   // out of range: a no-op
     EXPECT_FLOAT_EQ(node.get_parameter("time"), 0.1f);
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::dd3_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.dd3");
@@ -441,7 +441,7 @@ TEST(Unit_Dsp, Dd3DelayDefersAModeChangeMadeByIndex)
     const double before = node.wet_delay_seconds();
     EXPECT_NEAR(before, 0.200177273, 1e-6);
 
-    node.set_parameter(static_cast<std::uint16_t>(3), 0.0f);   // Short, by index
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(3), 0.0f);   // Short, by index
     EXPECT_FLOAT_EQ(node.get_parameter("mode"), 0.0f);          // the target reads back at once
     EXPECT_NEAR(node.wet_delay_seconds(), before, 1e-12);       // the ring has not moved yet
 
@@ -454,14 +454,14 @@ TEST(Unit_Dsp, Dd3DelayDefersAModeChangeMadeByIndex)
     EXPECT_NEAR(node.wet_delay_seconds(), 0.013995455, 1e-6);   // block start applied it
 
     // The string overload is the control thread's, so it applies without waiting for a block.
-    node.set_parameter("mode", 2.0f);
+    node.set_parameter_for_control_thread("mode", 2.0f);
     EXPECT_NEAR(node.wet_delay_seconds(), 0.200177273, 1e-6);
 
     // A control-thread write of any other id must leave the ring exactly where it is.
-    node.set_parameter(static_cast<std::uint16_t>(3), 0.0f);
-    node.set_parameter("time", 0.0f);
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(3), 0.0f);
+    node.set_parameter_for_control_thread("time", 0.0f);
     EXPECT_NEAR(node.wet_delay_seconds(), 0.200177273, 1e-6);
-    node.set_parameter("nonsense", 1.0f);
+    node.set_parameter_for_control_thread("nonsense", 1.0f);
     EXPECT_NEAR(node.wet_delay_seconds(), 0.200177273, 1e-6);
 }
 

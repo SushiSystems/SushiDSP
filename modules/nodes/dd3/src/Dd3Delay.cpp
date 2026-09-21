@@ -276,10 +276,10 @@ namespace SushiDSP
         }
     }
 
-    void Dd3Delay::set_parameter(const char* id, float value)
+    void Dd3Delay::set_parameter_for_control_thread(const char* id, float value)
     {
         const std::uint16_t index = parameter_index_for(id);
-        set_parameter(index, value);
+        set_parameter_for_audio_thread(index, value);
         // Only a MODE write clears the ring here; another id would do it under a live process().
         if (index == kModeParameterIndex)
         {
@@ -287,7 +287,7 @@ namespace SushiDSP
         }
     }
 
-    void Dd3Delay::set_parameter(std::uint16_t index, float value)
+    void Dd3Delay::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
         switch (index)
         {

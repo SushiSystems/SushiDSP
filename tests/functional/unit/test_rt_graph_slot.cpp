@@ -46,7 +46,7 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
         void reset() override {}
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
     };
 
     std::unique_ptr<SushiDSP::RigGraph> make_canary_graph()

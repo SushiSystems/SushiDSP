@@ -51,8 +51,8 @@ TEST(Unit_Dsp, MixerNodeAppliesPerInputGain)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    node.set_parameter("gain_0", 0.5f);
-    node.set_parameter("gain_1", 2.0f);
+    node.set_parameter_for_control_thread("gain_0", 0.5f);
+    node.set_parameter_for_control_thread("gain_1", 2.0f);
 
     std::vector<float> a(64, 4.0f);
     std::vector<float> b(64, 1.0f);
@@ -74,7 +74,7 @@ TEST(Unit_Dsp, MixerNodeGetParameterRoundTripsEveryGain)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    node.set_parameter("gain_3", 0.25f);
+    node.set_parameter_for_control_thread("gain_3", 0.25f);
     EXPECT_FLOAT_EQ(node.get_parameter("gain_3"), 0.25f);
     EXPECT_FLOAT_EQ(node.get_parameter("gain_0"), 1.0f);   // untouched slots default to 1.0
 }
@@ -83,7 +83,7 @@ TEST(Unit_Dsp, MixerNodeUnknownParameterIdIsSafeNoOp)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-    node.set_parameter("not_a_real_id", 0.5f);   // must not crash
+    node.set_parameter_for_control_thread("not_a_real_id", 0.5f);   // must not crash
     EXPECT_FLOAT_EQ(node.get_parameter("not_a_real_id"), 0.0f);
 }
 

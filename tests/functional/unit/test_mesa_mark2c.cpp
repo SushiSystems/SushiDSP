@@ -149,7 +149,7 @@ TEST(Unit_Dsp, MesaMark2cIndexedParameterSetMatchesTheDescriptorOrder)
     };
     for (std::uint16_t i = 0; i < kParameterCount; ++i)
     {
-        node.set_parameter(i, values[i]);
+        node.set_parameter_for_audio_thread(i, values[i]);
     }
 
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::mesa_mark2c_descriptor();
@@ -158,7 +158,7 @@ TEST(Unit_Dsp, MesaMark2cIndexedParameterSetMatchesTheDescriptorOrder)
         EXPECT_FLOAT_EQ(node.get_parameter(descriptor.parameters[i].id), values[i]);
     }
 
-    node.set_parameter(static_cast<std::uint16_t>(99), 1.0f);
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 1.0f);
 }
 
 TEST(Unit_Dsp, MesaMark2cDecibelParametersClampToTheirDescriptorRange)
@@ -176,21 +176,21 @@ TEST(Unit_Dsp, MesaMark2cDecibelParametersClampToTheirDescriptorRange)
 TEST(Unit_Dsp, MesaMark2cGenericParameterRoundTrip)
 {
     SushiDSP::MesaMark2c node;
-    node.set_parameter("volume_1", 0.2f);
-    node.set_parameter("treble", 0.3f);
-    node.set_parameter("bass", 0.4f);
-    node.set_parameter("middle", 0.5f);
-    node.set_parameter("lead_drive", 0.6f);
-    node.set_parameter("lead_master", 0.7f);
-    node.set_parameter("master_1", -6.0f);
-    node.set_parameter("presence", 0.8f);
-    node.set_parameter("eq_80", -1.0f);
-    node.set_parameter("eq_240", -0.5f);
-    node.set_parameter("eq_750", 0.25f);
-    node.set_parameter("eq_2200", 0.5f);
-    node.set_parameter("eq_6600", 1.0f);
-    node.set_parameter("input_trim", 6.0f);
-    node.set_parameter("output", -3.0f);
+    node.set_parameter_for_control_thread("volume_1", 0.2f);
+    node.set_parameter_for_control_thread("treble", 0.3f);
+    node.set_parameter_for_control_thread("bass", 0.4f);
+    node.set_parameter_for_control_thread("middle", 0.5f);
+    node.set_parameter_for_control_thread("lead_drive", 0.6f);
+    node.set_parameter_for_control_thread("lead_master", 0.7f);
+    node.set_parameter_for_control_thread("master_1", -6.0f);
+    node.set_parameter_for_control_thread("presence", 0.8f);
+    node.set_parameter_for_control_thread("eq_80", -1.0f);
+    node.set_parameter_for_control_thread("eq_240", -0.5f);
+    node.set_parameter_for_control_thread("eq_750", 0.25f);
+    node.set_parameter_for_control_thread("eq_2200", 0.5f);
+    node.set_parameter_for_control_thread("eq_6600", 1.0f);
+    node.set_parameter_for_control_thread("input_trim", 6.0f);
+    node.set_parameter_for_control_thread("output", -3.0f);
 
     EXPECT_FLOAT_EQ(node.get_parameter("volume_1"), 0.2f);
     EXPECT_FLOAT_EQ(node.get_parameter("treble"), 0.3f);
@@ -212,7 +212,7 @@ TEST(Unit_Dsp, MesaMark2cGenericParameterRoundTrip)
 TEST(Unit_Dsp, MesaMark2cUnknownParameterIsSafeNoOp)
 {
     SushiDSP::MesaMark2c node;
-    node.set_parameter("does_not_exist", 1.0f);
+    node.set_parameter_for_control_thread("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
     node.set_equalizer_band(99, 1.0f);
 }
@@ -350,9 +350,9 @@ TEST(Unit_Dsp, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
     // rail; otherwise the test proves headroom rather than the clamp.
     SushiDSP::MesaMark2c node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
-    node.set_parameter("lead_drive", 1.0f);
-    node.set_parameter("master_1", 12.0f);
-    node.set_parameter("output", 12.0f);
+    node.set_parameter_for_control_thread("lead_drive", 1.0f);
+    node.set_parameter_for_control_thread("master_1", 12.0f);
+    node.set_parameter_for_control_thread("output", 12.0f);
 
     std::vector<float> input(256), output(256, 0.0f);
     const float* input_channels[1] = { input.data() };

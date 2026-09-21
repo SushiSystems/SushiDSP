@@ -87,7 +87,6 @@ namespace SushiDSP
         /// @param db Input trim in [-24, +24] dB.
         void set_input_trim(float db);
 
-        using IAudioNode::set_parameter;
 
         /// @brief Reads a parameter by string id.
         /// @param id One of "drive", "tone", "level", "input_trim".
@@ -97,12 +96,12 @@ namespace SushiDSP
         /// @brief Sets a parameter by string id.
         /// @param id One of "drive", "tone", "level", "input_trim".
         /// @param value The new target value, in that parameter's own units.
-        void set_parameter(const char* id, float value) override;
+        void set_parameter_for_control_thread(const char* id, float value) override;
 
         /// @brief Sets a parameter by descriptor index, RT-safe and free of string compares.
         /// @param index The parameter's index in tube_screamer_descriptor().
         /// @param value The new target value, in that parameter's own units.
-        void set_parameter(std::uint16_t index, float value) override;
+        void set_parameter_for_audio_thread(std::uint16_t index, float value) override;
 
         /// @brief Linear output gain at 0 dB on the Level knob, a -3.17 dB trim. Re-calibrated in
         /// D6c against the measured DK chain at 4x, where a -12 dBFS 82 Hz sine came out at

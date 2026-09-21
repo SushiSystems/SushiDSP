@@ -74,7 +74,7 @@ namespace
     {
         SushiDSP::PanNode node;
         node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
-        node.set_parameter("pan", pan);
+        node.set_parameter_for_control_thread("pan", pan);
 
         std::vector<float> input(64, 1.0f);
         std::vector<float> out_left(64, 0.0f);

@@ -800,7 +800,7 @@ namespace SushiDSP
         return 0.0f;
     }
 
-    void MesaMark2c::set_parameter(const char* id, float value)
+    void MesaMark2c::set_parameter_for_control_thread(const char* id, float value)
     {
         if (std::strcmp(id, "volume_1") == 0) { set_volume_1(value); return; }
         if (std::strcmp(id, "treble") == 0) { set_treble(value); return; }
@@ -822,7 +822,7 @@ namespace SushiDSP
         if (std::strcmp(id, "output") == 0) { set_output(value); return; }
     }
 
-    void MesaMark2c::set_parameter(std::uint16_t index, float value)
+    void MesaMark2c::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
         switch (index)
         {

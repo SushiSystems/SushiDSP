@@ -91,12 +91,12 @@ namespace SushiDSP
         return index == kUnknownParameterIndex ? 0.0f : gains_[index];
     }
 
-    void MixerNode::set_parameter(const char* id, float value)
+    void MixerNode::set_parameter_for_control_thread(const char* id, float value)
     {
-        set_parameter(parameter_index_for(id), value);
+        set_parameter_for_audio_thread(parameter_index_for(id), value);
     }
 
-    void MixerNode::set_parameter(std::uint16_t index, float value)
+    void MixerNode::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
         if (index < kMaxFanIn)
         {

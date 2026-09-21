@@ -711,7 +711,7 @@ namespace SushiDSP
         return 0.0f;
     }
 
-    void Peavey5150::set_parameter(const char* id, float value)
+    void Peavey5150::set_parameter_for_control_thread(const char* id, float value)
     {
         if (std::strcmp(id, "pre_gain") == 0) { set_pre_gain(value); return; }
         if (std::strcmp(id, "low") == 0) { set_low(value); return; }
@@ -724,7 +724,7 @@ namespace SushiDSP
         if (std::strcmp(id, "output") == 0) { set_output(value); return; }
     }
 
-    void Peavey5150::set_parameter(std::uint16_t index, float value)
+    void Peavey5150::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
         switch (index)
         {

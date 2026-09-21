@@ -280,8 +280,8 @@ namespace
                                                             float listener)
     {
         auto node = std::make_unique<SushiDSP::room::RoomNode>();
-        node->set_parameter("mix", 1.0f);
-        node->set_parameter("listener", listener);
+        node->set_parameter_for_control_thread("mix", 1.0f);
+        node->set_parameter_for_control_thread("listener", listener);
         node->prepare(kInfo);
         std::string reason;
         EXPECT_TRUE(node->set_scene(scene, reason)) << reason;
@@ -303,7 +303,7 @@ namespace
     {
         return [listener](SushiDSP::room::RoomNode& node)
         {
-            node.set_parameter("listener", listener);
+            node.set_parameter_for_control_thread("listener", listener);
         };
     }
 
@@ -511,7 +511,7 @@ namespace
         std::unique_ptr<SushiDSP::room::RoomNode> moving = prepared_node(scene, from);
         for (SushiDSP::room::RoomNode* node : { steady_a.get(), steady_b.get(), moving.get() })
         {
-            node->set_parameter("direct_delay", direct_delay);
+            node->set_parameter_for_control_thread("direct_delay", direct_delay);
             node->reset();
         }
         return measure_crossfade(*steady_a, *steady_b, *moving, listener_edit(to),
@@ -1044,7 +1044,7 @@ TEST(Unit_Dsp, RoomNodeMixesDryAndWet)
     // prepare() snaps the smoothers to their targets, so a mix set before it holds from the
     // first frame.
     SushiDSP::room::RoomNode dry;
-    dry.set_parameter("mix", 0.0f);
+    dry.set_parameter_for_control_thread("mix", 0.0f);
     dry.prepare(kInfo);
     std::vector<float> input(2 * kBlock);
     for (std::size_t frame = 0; frame < input.size(); ++frame)
@@ -1178,7 +1178,7 @@ TEST(Unit_Dsp, RoomNodeIsRegisteredUnderRoom)
     EXPECT_EQ(node->ports().output_channels, 2u);
     EXPECT_FLOAT_EQ(node->get_parameter("mix"), 1.0f);
     EXPECT_FLOAT_EQ(node->get_parameter("level"), 0.0f);
-    node->set_parameter("level", -6.0f);
+    node->set_parameter_for_control_thread("level", -6.0f);
     EXPECT_FLOAT_EQ(node->get_parameter("level"), -6.0f);
     EXPECT_NE(dynamic_cast<SushiDSP::room::IRoomHost*>(node.get()), nullptr);
 }
@@ -1910,7 +1910,7 @@ TEST(Unit_Dsp, RoomNodeDefaultsDirectDelayToCompensated)
     node.prepare(kInfo);
     EXPECT_FLOAT_EQ(node.get_parameter("direct_delay"), kDirectCompensated);
     const std::uint32_t compensated = node.latency_samples();
-    node.set_parameter("direct_delay", kDirectPhysical);
+    node.set_parameter_for_control_thread("direct_delay", kDirectPhysical);
     const std::uint32_t physical = node.latency_samples();
     EXPECT_EQ(compensated, kAlignFrames);
     EXPECT_EQ(physical - compensated, 363u);
@@ -1918,12 +1918,12 @@ TEST(Unit_Dsp, RoomNodeDefaultsDirectDelayToCompensated)
     std::string reason;
     ASSERT_TRUE(node.set_scene(centred_dead_room(), reason)) << reason;
     EXPECT_EQ(node.latency_samples(), kAlignFrames + 280u);
-    node.set_parameter("direct_delay", kDirectCompensated);
+    node.set_parameter_for_control_thread("direct_delay", kDirectCompensated);
     EXPECT_EQ(node.latency_samples(), kAlignFrames);
 
-    node.set_parameter("listener", kListenerMicrophone);
+    node.set_parameter_for_control_thread("listener", kListenerMicrophone);
     EXPECT_EQ(node.latency_samples(), 0u);
-    node.set_parameter("direct_delay", kDirectPhysical);
+    node.set_parameter_for_control_thread("direct_delay", kDirectPhysical);
     EXPECT_EQ(node.latency_samples(), 0u);
 
     // Before prepare() there is no set and nothing to report.
@@ -1943,7 +1943,7 @@ TEST(Unit_Dsp, RoomNodeDirectOnsetMovesWithTheDirectDelayChoice)
     impulse[0] = 1.0f;
     std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, kListenerEars);
     const std::vector<float> compensated = render(*node, impulse);
-    node->set_parameter("direct_delay", kDirectPhysical);
+    node->set_parameter_for_control_thread("direct_delay", kDirectPhysical);
     node->reset();
     const std::vector<float> physical = render(*node, impulse);
 
@@ -1959,7 +1959,7 @@ TEST(Unit_Dsp, RoomNodeDirectOnsetMovesWithTheDirectDelayChoice)
     ASSERT_GE(physical_floor, 0);
     EXPECT_EQ(physical_floor - compensated_floor, 280);
 
-    node->set_parameter(std::uint16_t{ 3 }, kDirectCompensated);
+    node->set_parameter_for_audio_thread(std::uint16_t{ 3 }, kDirectCompensated);
     EXPECT_FLOAT_EQ(node->get_parameter("direct_delay"), kDirectCompensated);
     node->reset();
     EXPECT_EQ(onset(render(*node, impulse), 0, 1500, 1e-4), physical_direct);
@@ -2207,7 +2207,7 @@ TEST(Unit_Dsp, RoomNodeAppliesAListenerWrittenByIndexAtTheNextPublish)
     impulse[0] = 1.0f;
     const double direct = compensated_direct_frames(2.0);
 
-    node->set_parameter(std::uint16_t{ 2 }, kListenerMicrophone);
+    node->set_parameter_for_audio_thread(std::uint16_t{ 2 }, kListenerMicrophone);
     EXPECT_FLOAT_EQ(node->get_parameter("listener"), kListenerMicrophone);
     std::vector<float> response = render(*node, impulse);
     EXPECT_GE(nearest_peak(response, direct, 3, 1e-3f), 0);
@@ -2220,7 +2220,7 @@ TEST(Unit_Dsp, RoomNodeAppliesAListenerWrittenByIndexAtTheNextPublish)
     EXPECT_GT(std::fabs(response[14]), 1e-3f);
     EXPECT_LT(nearest_peak(response, direct, 3, 1e-3f), 0);
 
-    node->set_parameter("listener", kListenerEars);
+    node->set_parameter_for_control_thread("listener", kListenerEars);
     node->reset();
     response = render(*node, impulse);
     EXPECT_GE(nearest_peak(response, direct, 3, 1e-3f), 0);

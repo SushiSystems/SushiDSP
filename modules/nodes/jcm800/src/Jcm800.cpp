@@ -546,7 +546,7 @@ namespace SushiDSP
         return 0.0f;
     }
 
-    void Jcm800::set_parameter(const char* id, float value)
+    void Jcm800::set_parameter_for_control_thread(const char* id, float value)
     {
         if (std::strcmp(id, "preamp") == 0) { set_preamp(value); return; }
         if (std::strcmp(id, "master") == 0) { set_master(value); return; }
@@ -558,7 +558,7 @@ namespace SushiDSP
         if (std::strcmp(id, "output") == 0) { set_output(value); return; }
     }
 
-    void Jcm800::set_parameter(std::uint16_t index, float value)
+    void Jcm800::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
         switch (index)
         {

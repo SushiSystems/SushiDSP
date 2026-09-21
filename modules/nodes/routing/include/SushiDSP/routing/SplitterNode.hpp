@@ -41,7 +41,7 @@ namespace SushiDSP
         PortLayout ports() const override;
         void reset() override;
         float get_parameter(const char* id) const override;
-        void set_parameter(const char* id, float value) override;
+        void set_parameter_for_control_thread(const char* id, float value) override;
 
         /// @brief This splitter's registered type id.
         /// @return "sushidsp.splitter".
