@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-09-22 — docs: Wrote the standalone host's README, which the backlog had been asking for (`apps/host_gui/README.md`).
 - 2026-09-22 — cli: Added `sd setup`, which provisions this checkout through `hub install` in a workspace and from its own fragment outside one (`cli/sushidsp/services/setup.py`).
 - 2026-09-22 — build: Declared what this module is, so `hub` recognises the checkout without a catalog entry (`sushi-module.toml`).
 - 2026-09-21 — docs: Repointed thirty-eight cited paths that the archive move and the rig controller's split had left dangling (`docs/`, `modules/`).

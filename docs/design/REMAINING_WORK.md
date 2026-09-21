@@ -60,7 +60,6 @@ starts on that without the verdict.
   series chain (`apps/host_gui/main.cpp`, `seed_rig_chain`); §19 leaves persistence open.
 - **`SlotGraph::add_branch` has no caller** since the splitter picker was removed;
   `RigController` still forwards to it.
-- **`apps/host_gui/README.md` is missing.**
 - **`SlotGraph::publish()` rebuilds every node.** One structural edit builds the node set
   three times, which is why "No bundled HRTF set" prints three times on a graph change and why a
   room edit through the graph empties the tail (KNOWN_ISSUES, "A structural rig edit empties the
