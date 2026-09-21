@@ -39,6 +39,8 @@
 #include "SushiDSP/core/NodeDescriptor.hpp"
 #include "SushiDSP/mesa_mark2c/MesaMark2cToneStack.hpp"
 #include "SushiDSP/circuits/GraphicEqualizer.hpp"
+#include "SushiDSP/circuits/PowerAmpFeedback.hpp"
+#include "SushiDSP/circuits/stages/LongTailedPair.hpp"
 #include "SushiDSP/circuits/stages/OutputTransformerStage.hpp"
 #include "SushiDSP/circuits/stages/PentodeStage.hpp"
 #include "SushiDSP/circuits/stages/PowerSupplySagStage.hpp"
@@ -99,10 +101,10 @@ namespace SushiDSP
         /// @brief Linear gain node F is scaled by when Master 1 reads 0 dB, the pot's fraction
         /// ahead of the equaliser and the phase inverter. Measured so an untouched amp turns a
         /// -12 dBFS 82 Hz sine into a -6.00 dBFS peak, the calibration point all four amplifiers
-        /// share (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 6),
+        /// share (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 6),
         /// and pinned by MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput.
         /// Re-measured 2026-09-08 with Master 1 at node F and the loop network in place
-        /// (docs/superpowers/specs/2026-09-08-iicplus-loop-network-design.md); 0.2349335,
+        /// (docs/archive/superpowers/specs/2026-09-08-iicplus-loop-network-design.md); 0.2349335,
         /// 0.2402319, 0.3343019 and 0.6907759 before, when it scaled the output, the last at 1 kHz.
         static constexpr float kMasterUnityGain = 0.0038289f;
 
@@ -143,6 +145,29 @@ namespace SushiDSP
         /// @param position Slider position in [-1, 1]; 0 is flat.
         void set_equalizer_band(std::size_t band, float position);
 
+        /// @brief The three positions of the panel's equaliser switch (owner's manual page 19).
+        enum class EqualizerMode
+        {
+            Out,  ///< Centre: LDR5 lifts the slider bus off ground and the traps leave the signal.
+            In,   ///< Down: the equaliser is engaged whatever the channel is doing.
+            Auto  ///< Up: engaged with the lead channel, which is the only channel this node has.
+        };
+
+        /// @brief Sets the equaliser switch.
+        /// @param mode Which of the three panel positions the switch is in; Auto behaves as In
+        /// here, because this node is the lead chain and nothing else selects a channel.
+        void set_equalizer_mode(EqualizerMode mode);
+
+        /// @brief Sets PULL BRIGHT, which is two capacitors on one switch.
+        /// @param engaged True puts a second 250 pF beside the tone stack's treble capacitor and
+        /// 180 pF across Volume 1's top section.
+        void set_bright(bool engaged);
+
+        /// @brief Sets PULL DEEP, the second bypass capacitor on V2B's cathode.
+        /// @param engaged True adds 15 uF beside the 0.47 uF, taking the cathode's corner from
+        /// 339 Hz to 10.3 Hz. Deep does not add bass; it stops the stage removing it.
+        void set_deep(bool engaged);
+
         /// @brief Sets the input trim applied ahead of V1A.
         /// @param decibels Trim in [-24, +24] dB; 0 dB passes the host's level through unchanged.
         void set_input_trim(float decibels);
@@ -173,6 +198,15 @@ namespace SushiDSP
         /// @param oversampled_rate_hz The rate the oversampled region runs at, in hertz.
         void build_rate_dependent_filters(double oversampled_rate_hz);
 
+        /// @brief Advances every knob, rebuilds whichever coefficients moved, and renders that far.
+        ///
+        /// A host block is rendered as a run of these, so a knob under a sweep reaches the audio
+        /// in steps of one control period rather than one block.
+        /// @param input The block's input, offset to this period's first frame.
+        /// @param output Where this period's output goes.
+        /// @param frames How many base-rate frames this period covers.
+        void render_control_period(const float* input, float* output, std::uint32_t frames);
+
         double sample_rate_ = 48000.0;
 
         SmoothedParameter volume_1_{ 0.5f }, treble_{ 0.5f }, bass_{ 0.5f }, middle_{ 0.5f };
@@ -184,11 +218,14 @@ namespace SushiDSP
         SmoothedParameter master_gain_{ 1.0f }, input_trim_gain_{ 1.0f }, output_gain_{ 1.0f };
         float master_1_db_ = 0.0f, input_trim_db_ = 0.0f, output_db_ = 0.0f;
         float applied_bass_ = -1.0f, applied_middle_ = -1.0f, applied_treble_ = -1.0f;
-        float applied_presence_ = -1.0f, applied_lead_drive_ = -1.0f;
+        float applied_presence_ = -1.0f, applied_lead_drive_ = -1.0f, applied_volume_1_ = -1.0f;
         float applied_equalizer_[kEqualizerBandCount]{ -2.0f, -2.0f, -2.0f, -2.0f, -2.0f };
 
         Biquad v1b_coupling_;
         Biquad lead_drive_bright_;
+
+        /// @brief Volume 1's bright capacitor, flat until PULL BRIGHT switches it across the pot.
+        Biquad volume_1_bright_;
         Biquad v3b_coupling_;
         Biquad v4a_interstage_shelf_;
         Biquad v4a_cathode_shelf_;
@@ -197,7 +234,6 @@ namespace SushiDSP
         Biquad v2b_loop_return_coupling_;
         Biquad v2b_cathode_shelf_;
         Biquad v2b_coupling_;
-        Biquad presence_shelf_;
 
         // One-pole grid-input-capacitance rolloffs, one per driven triode grid; the Miller
         // constants in MesaMark2c.cpp set their corners.
@@ -216,7 +252,25 @@ namespace SushiDSP
         TriodeStage v2a_;
         TriodeStage v2b_;
         GraphicEqualizer equalizer_bank_;
-        TriodeStage phase_inverter_;
+
+        /// @brief Where the panel's equaliser switch stands; Out takes the traps out of the path.
+        EqualizerMode equalizer_mode_ = EqualizerMode::In;
+
+        /// @brief Whether PULL BRIGHT is in, which adds a treble capacitor at two places at once.
+        bool bright_ = false;
+
+        /// @brief Whether PULL DEEP is out, which is what the panel's knob does when pushed in.
+        bool deep_ = false;
+
+        /// @brief The feedback leg from the transformer's tap to the inverter's second grid.
+        PowerAmpFeedback feedback_;
+
+        /// @brief The phase inverter, the forward signal on one grid and the leg on the other.
+        LongTailedPair phase_inverter_;
+
+        /// @brief The previous oversampled sample at the transformer's secondary, which is what
+        /// the leg feeds back; the loop's one-sample delay lives here.
+        float tap_feedback_ = 0.0f;
         PentodeStage power_inner_a_;
         PentodeStage power_inner_b_;
         PentodeStage power_outer_a_;

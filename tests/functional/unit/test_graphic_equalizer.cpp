@@ -83,10 +83,10 @@ TEST(Unit_Dsp, GraphicEqualizerCutsOneBandAndClampsSliders)
 
 TEST(Unit_Dsp, GraphicEqualizerPerBandQNarrowsOneBandOnly)
 {
-    SushiDSP::GraphicEqualizer equalizer(48000.0, { 71.5f, 371.8f, 979.5f, 1576.0f, 4823.0f }, { 1.434f, 1.938f, 1.571f, 0.673f, 1.0f }, 17.0f);
+    SushiDSP::GraphicEqualizer equalizer(48000.0, { 87.61f, 371.74f, 723.43f, 1575.87f, 4822.88f }, { 1.171f, 1.938f, 2.128f, 0.673f, 1.0f }, 17.0f);
     equalizer.set_band(1, 1.0f);
-    const float at_centre = steady_gain_db(equalizer, 48000.0, 371.8);
-    const float an_octave_up = steady_gain_db(equalizer, 48000.0, 743.6);
+    const float at_centre = steady_gain_db(equalizer, 48000.0, 371.74);
+    const float an_octave_up = steady_gain_db(equalizer, 48000.0, 743.48);
     EXPECT_NEAR(at_centre, 17.0f, 0.3f);
     EXPECT_LT(an_octave_up, at_centre - 8.0f);
 }

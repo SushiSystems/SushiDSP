@@ -74,12 +74,12 @@ namespace SushiDSP
     /// @brief Mesa Mark IIC+ Simul-Class inner pair, 6L6GC pentode: the RCA class AB1 point at its
     /// own 58 mA idle, the printed -45 V bias (modules/mesa_mark2c/README.md, "The output section").
     inline constexpr PowerTubePreset kMesaMark2cPower6L6GC{
-        37600.0f, 220000.0f, -45.0f, 7.388139f, kPentodeEL34GridConduction, PlateSwing{ 81.2f, 311.2283f } };
+        26642.4f, 220000.0f, -45.0f, 7.388139f, kPentodeEL34GridConduction, PlateSwing{ 81.2f, 311.2283f } };
 
     /// @brief Mesa Mark IIC+ Simul-Class outer pair, EL34 triode-strapped: Mesa's 25 W on the same
     /// primary, split evenly as a class A stage (modules/mesa_mark2c/README.md, "The output section").
     inline constexpr PowerTubePreset kMesaMark2cPowerEl34Triode{
-        37600.0f, 220000.0f, -45.0f, 6.635772f, kPentodeEL34GridConduction, PlateSwing{ 132.2876f, 132.2876f } };
+        26642.4f, 220000.0f, -45.0f, 6.635772f, kPentodeEL34GridConduction, PlateSwing{ 132.2876f, 132.2876f } };
 
     /// @brief Diezel VH4, EL34 quad at 500 V: the Philips EL34 datasheet's 500 V push-pull point
     /// (Vg1 -36 V, Raa 4 kOhm, 70 W) at Diezel's 35 mA idle (modules/diezel_vh4/README.md, "The
