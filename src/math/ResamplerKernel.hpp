@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* ResamplerCoefficients.hpp                                              */
+/* ResamplerKernel.hpp                                                    */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                                SushiDSP                                */
@@ -30,29 +30,10 @@
 
 #pragma once
 
-#include <cstdint>
+#include "SushiDSP/math/ResamplerDesign.hpp"
 
 namespace SushiDSP
 {
-    /// @brief Input samples stored on each side of the resampler prototype's peak
-    /// (not the count of true zero crossings, which is lower since fc < 0.5).
-    inline constexpr std::uint32_t kResamplerHalfWidthZeroCrossings = 34u;
-
-    /// @brief Table entries stored per zero crossing (the polyphase interpolation density).
-    inline constexpr std::uint32_t kResamplerPhasesPerZeroCrossing = 512u;
-
-    /// @brief Length of @ref kResamplerKernel: peak, right wing and one guard entry.
-    inline constexpr std::uint32_t kResamplerKernelLength = 17410u;
-
-    /// @brief Cutoff of the prototype's ideal lowpass, in cycles per input sample.
-    inline constexpr float kResamplerCutoff = 0.45f;
-
-    /// @brief Edge of the band over which the passband ripple below is measured.
-    inline constexpr float kResamplerPassbandEdge = 0.4f;
-
-    /// @brief Worst stopband level measured on the oversampled kernel, in dB.
-    inline constexpr float kResamplerStopbandDecibels = -100.477f;
-
     /// @brief Right wing of the even Kaiser-windowed sinc kernel: kResamplerKernel[i]
     /// is h(i / kResamplerPhasesPerZeroCrossing) in input samples. Entry 0 is the peak,
     /// which is 2*kResamplerCutoff (the centre tap of a sub-Nyquist lowpass impulse

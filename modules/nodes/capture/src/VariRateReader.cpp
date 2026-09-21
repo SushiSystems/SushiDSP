@@ -33,7 +33,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "SushiDSP/math/ResamplerCoefficients.hpp"
+#include "SushiDSP/math/ResamplerDesign.hpp"
 
 #include "SushiDSP/capture/Transport.hpp"
 #include "SushiDSP/capture/VariRateReader.hpp"

@@ -209,6 +209,9 @@ target_compile_definitions(sushidsp_tests PRIVATE
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host_gui)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+# Lets the coefficient tests reach headers the library keeps private, such as the generated
+# resampler kernel table.
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
