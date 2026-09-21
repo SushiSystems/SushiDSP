@@ -32,6 +32,8 @@
 
 #include "SushiDSP/diezel_vh4/DiezelVh4.hpp"
 
+#include "SushiDSP/circuits/OutputSafetyClamp.hpp"
+#include "SushiDSP/circuits/stages/PhaseInverterPresets.hpp"
 #include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
 
 #include <algorithm>
@@ -62,7 +64,7 @@ namespace SushiDSP
         // Section 6: x61.4 unloaded, x56.8 into the 470 kOhm the channel-3 leg presents.
         constexpr float kV1aGain = 56.8f;
         // Modelling choice: section 3.1 draws no grid stopper on V1a, so the grid-conduction
-        // source resistance is Jcm800.cpp's kTriodeSourceResistance.
+        // source resistance is the corpus's 10 kOhm stand-in.
         constexpr float kV1aSourceResistanceOhms = 10000.0f;
         /// @brief V1a's plate swing: 367 - 255.3 = 111.7 V to the supply, and 255.3 - 111.133 =
         /// 144.167 V to the bottom, the plate solved at Vgk = 0 on the 120 kOhm load line with the
@@ -147,37 +149,22 @@ namespace SushiDSP
         // reused. The 100k/4.7k send pad (section 6, x0.0449) is on the jack leg and not in the
         // path to the power amp, so it is not applied here.
 
-        // Section 5: nothing past the send jack is established. The loop return driver and the
-        // phase inverter are one triode standing in for the JCM800's long-tailed pair, so the four
-        // constants that describe that pair are copied from Jcm800.cpp - kPhaseInverterCathodeBias,
-        // kPhaseInverterPlateSwing, kPhaseInverterGain and kPhaseInverterDegeneration - rather than
-        // re-derived here, and the derivation lives beside them in that file. A product module may
-        // not include another, so the values travel by copy. A modelling choice, top to bottom.
+        // Section 5: nothing past the send jack is established, so the loop return driver and the
+        // phase inverter are one triode on the corpus's 82 kOhm operating point, a modelling
+        // choice top to bottom.
         constexpr float kPhaseInverterSourceResistanceOhms = 10000.0f;
         constexpr float kPhaseInverterGridLeakOhms = 1000000.0f;
-        /// @brief Jcm800.cpp's kPhaseInverterCathodeBias: the grid leaks return to the tail
-        /// junction, so Vgk is the drop across the 470 Ohm alone, -2 * 1.431927 mA * 470.
-        constexpr float kPhaseInverterCathodeBiasVolts = -1.346012f;
-        /// @brief Jcm800.cpp's kPhaseInverterGain: one triode's full load-line gain,
-        /// mu*Ra/(r_a + Ra) = 94.443529*82000/125055.615. The pair's split is in the degeneration
-        /// factor below, so halving this would count it twice.
-        constexpr float kPhaseInverterGain = 61.927402f;
-        /// @brief Jcm800.cpp's kPhaseInverterPlateSwing on the 82 kOhm plate: 360 - 242.581959
-        /// toward the supply, 212.597400 - 123.049256 toward the bottom at Vgk = 0.
-        constexpr PlateSwing kPhaseInverterPlateSwing{ 117.418041f, 89.548144f };
-        /// @brief Jcm800.cpp's kPhaseInverterDegeneration, divided into the inverter's input
-        /// because the shared cathode follows the driven grid. The other triode's cathode presents
-        /// (r_a + Ra)/(mu + 1) = 1310.2577 Ohm in parallel with the tail, so the window is the
-        /// input over 1 + 10470/(10470 + 1310.2577) = 1.888775.
-        /// @pre The tail here is the 10.47 kOhm both cathodes share, jcm_ltp's 470 Ohm and 10 kOhm
-        /// in series to ground.
-        constexpr float kPhaseInverterDegeneration = 1.888775f;
+
+        /// @brief The pair this chain stands in for, derived in
+        /// include/SushiDSP/circuits/stages/PhaseInverterPresets.hpp.
+        constexpr SingleTriodeInverter kPhaseInverter = kTriode12AX7Inverter82kPlate;
 
         // Every interstage factor below is a dossier value; modules/nodes/diezel_vh4/README.md records
         // the level staging this module carried until 2026-09-07 and why it went.
         /// @brief The level the output transformer stage receives at the pair's full clip: the
-        /// 2 x 22.222 V x 0.05 this chain delivered before PentodeStage became volt-true, a
-        /// modelling choice adopted from modules/nodes/jcm800/src/Jcm800.cpp.
+        /// 2 x 22.222 V x 0.05 this chain delivered before PentodeStage became volt-true. The
+        /// unit the transformer stage works in is a corpus convention, held across every
+        /// amplifier so one transformer model serves them all.
         constexpr float kTransformerFullClipUnits = 2.222222f;
 
         /// @brief The output trim from the EL34 plates to the transformer's units, this chain's
@@ -188,8 +175,8 @@ namespace SushiDSP
                + kDiezelVh4PowerEl34.plate_swing.headroom_to_bottom_volts);
 
         // Modelling choices: section 5 establishes no output transformer primary impedance, no
-        // turns ratio and no supply behaviour, so the transformer and the sag stage carry
-        // Jcm800.cpp's constants unchanged.
+        // turns ratio and no supply behaviour, so all five below are the corpus's stand-in
+        // figures; modules/nodes/diezel_vh4/README.md lists them.
         constexpr float kOutputTransformerRolloffHz = 60.0f;
         constexpr float kOutputTransformerLeakageHz = 8000.0f;
         constexpr float kOutputTransformerSaturationDrive = 0.3f;
@@ -197,7 +184,7 @@ namespace SushiDSP
         constexpr float kSagRecoveryTimeSeconds = 0.05f;
 
         // Sections 5 and 6: Presence "frequency centers at about 4kHz" (S2). Its depth is a
-        // modelling choice, Jcm800.cpp's kMaxPresenceDb, because no VH4 source gives one.
+        // modelling choice, the corpus's 9 dB, because no VH4 source gives one.
         constexpr float kPresenceHz = 4000.0f;
         constexpr float kMaxPresenceDb = 9.0f;
         // Sections 5 and 6: Deep is "centered at 80Hz" (S2). S8 says 90 Hz, and section 8
@@ -209,11 +196,13 @@ namespace SushiDSP
 
         constexpr double kFilterQ = 0.707;
 
-        // 12AX7 Miller input capacitance, exactly as Jcm800.cpp computes it: Cgk 1.6 pF and
-        // Cgp 1.7 pF from docs/reference/spice/models/12ax7_koren.sub, plus 10 pF of stray wiring.
-        // Unlike the JCM800's, the driving resistance here is per grid, because sections 3.3 and
-        // 3.4 draw the two grid stoppers this channel has and section 3.4 computes the V3a pole
-        // from R26 itself.
+        // 12AX7 Miller input capacitance: Cgk 1.6 pF and Cgp 1.7 pF from
+        // docs/reference/spice/models/12ax7_koren.sub, plus 10 pF of stray wiring. This module
+        // holds all three at double precision, where
+        // include/SushiDSP/circuits/stages/MillerInputCapacitance.hpp holds them as floats, so the
+        // pole below is computed here. The driving resistance is per grid, because sections 3.3
+        // and 3.4 draw the two grid stoppers this channel has and section 3.4 computes the V3a
+        // pole from R26 itself.
         constexpr double kMillerCgkPicofarads = 1.6;
         constexpr double kMillerCgpPicofarads = 1.7;
         constexpr double kStrayWiringPicofarads = 10.0;
@@ -273,7 +262,7 @@ namespace SushiDSP
         , v3a_(kV3aSourceResistanceOhms, kV3aGridLeakOhms, kV3aCathodeBiasVolts, kV3aGain, kTriode12AX7GridConduction, kV3aPlateSwing)
         , tone_stack_(48000.0 * kOversamplingFactor)
         , v4a_(kV4aSourceResistanceOhms, kV4aGridLeakOhms, kV4aCathodeBiasVolts, kV4aGain, kTriode12AX7GridConduction, kV4aPlateSwing)
-        , phase_inverter_(kPhaseInverterSourceResistanceOhms, kPhaseInverterGridLeakOhms, kPhaseInverterCathodeBiasVolts, kPhaseInverterGain, kTriode12AX7GridConduction, kPhaseInverterPlateSwing)
+        , phase_inverter_(kPhaseInverterSourceResistanceOhms, kPhaseInverterGridLeakOhms, kPhaseInverter.cathode_bias_volts, kPhaseInverter.gain, kTriode12AX7GridConduction, kPhaseInverter.plate_swing)
         , el34_a_(kDiezelVh4PowerEl34)
         , el34_b_(kDiezelVh4PowerEl34)
         , output_transformer_(48000.0 * kOversamplingFactor, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive)
@@ -412,7 +401,7 @@ namespace SushiDSP
                                 * volume_pot * kMixBusAttenuation;
             const float send_buffer = v4a_.process_sample(mix_bus) * kCathodeFollowerGain;
             const float phase_inverted =
-                phase_inverter_.process_sample(send_buffer / kPhaseInverterDegeneration);
+                phase_inverter_.process_sample(send_buffer / kPhaseInverter.input_degeneration);
             const float el34_a_out = el34_a_.process_sample(phase_inverted);
             const float el34_b_out = el34_b_.process_sample(-phase_inverted);
             const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
@@ -441,10 +430,7 @@ namespace SushiDSP
 
         // Nothing upstream is normalized to the DAC's range, so a hot gain/master/output
         // combination can still land outside [-1, 1]. A safety rail, not a tone stage.
-        for (std::uint32_t i = 0; i < frames; ++i)
-        {
-            output[i] = std::clamp(output[i] * output_gain, -1.0f, 1.0f);
-        }
+        apply_output_safety_clamp(output, frames, output_gain);
     }
 
     std::uint32_t DiezelVh4::latency_samples() const

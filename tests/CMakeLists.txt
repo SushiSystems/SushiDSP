@@ -79,6 +79,10 @@ add_executable(sushidsp_tests
     functional/unit/test_fmv_tone_stack.cpp
     functional/unit/test_long_tailed_pair.cpp
     functional/unit/test_power_amp_feedback.cpp
+    functional/unit/test_miller_input_capacitance.cpp
+    functional/unit/test_phase_inverter_presets.cpp
+    functional/unit/test_output_safety_clamp.cpp
+    functional/unit/test_audio_taper_pot.cpp
 
     # --- Products ---
     functional/unit/test_tube_screamer.cpp

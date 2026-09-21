@@ -27,11 +27,11 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
-#define _USE_MATH_DEFINES
-
 #include "SushiDSP/mesa_mark2c/MesaMark2c.hpp"
 
+#include "SushiDSP/circuits/AudioTaperPot.hpp"
+#include "SushiDSP/circuits/OutputSafetyClamp.hpp"
+#include "SushiDSP/circuits/stages/MillerInputCapacitance.hpp"
 #include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
 
 #include <algorithm>
@@ -40,10 +40,6 @@
 #include <cstring>
 #include <iterator>
 #include <utility>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 namespace SushiDSP
 {
@@ -202,11 +198,7 @@ namespace SushiDSP
         constexpr float kSagAmount = 0.3f;
         constexpr float kSagRecoveryTimeSeconds = 0.05f;
 
-        // 12AX7 Miller input capacitance: C_in = Cgk + Cgp * (1 + |A|) plus stray wiring, driven
-        // from the preceding stage's own plate load.
-        constexpr float kMillerCgkPicofarads = 1.6f;    // The 12AX7 Koren model's grid-cathode capacitance.
-        constexpr float kMillerCgpPicofarads = 1.7f;    // The 12AX7 Koren model's grid-plate capacitance.
-        constexpr float kStrayWiringPicofarads = 10.0f; // Point-to-point wiring, a corpus convention.
+        // Every Miller pole below is driven from the preceding stage's own plate load.
         constexpr float kV1aPlateLoadOhms = 150000.0f;  // Dossier 3.1, 150 k to node D.
         constexpr float kV1bPlateLoadOhms = 100000.0f;  // Dossier 3.2, 100 k to node D.
         constexpr float kV3bPlateLoadOhms = 82000.0f;   // Dossier 3.3, 82 k to node C.
@@ -291,16 +283,13 @@ namespace SushiDSP
         constexpr float kMaxOutputDb = 12.0f;
 
 
-        /// @brief The corner of one grid's Miller input-capacitance pole.
+        /// @brief Returns the corner of one grid's Miller input-capacitance pole.
         /// @param stage_voltage_gain The driven stage's mid-band gain.
         /// @param plate_load_ohms The driving stage's plate resistor.
         /// @return The -3 dB corner of the grid's RC pole, in Hz.
         double miller_corner_hz(double stage_voltage_gain, double plate_load_ohms)
         {
-            const double input_capacitance_farads =
-                (kMillerCgkPicofarads + kMillerCgpPicofarads * (1.0 + stage_voltage_gain)
-                 + kStrayWiringPicofarads) * 1e-12;
-            return 1.0 / (2.0 * M_PI * plate_load_ohms * input_capacitance_farads);
+            return kTriode12AX7MillerCapacitance.corner_hz(stage_voltage_gain, plate_load_ohms);
         }
 
         /// @brief The loop network's gain from V2A's coupled plate to V2B's grid at one Lead
@@ -310,17 +299,9 @@ namespace SushiDSP
         /// @return The linear gain from the coupling capacitor's node to V2B's grid.
         float loop_network_gain(float lead_master);
 
-        /// @brief The audio-taper law the corpus gives every volume pot, position to the 3 / 2.
-        /// @param normalized Pot position in [0, 1].
-        /// @return The pot's voltage division at that position.
-        float audio_taper(float normalized)
-        {
-            return normalized * std::sqrt(normalized);
-        }
-
         float loop_network_gain(float lead_master)
         {
-            const float pot_ohms = kLeadMasterPotOhms * audio_taper(lead_master);
+            const float pot_ohms = kLeadMasterPotOhms * audio_taper_pot(lead_master);
             const float w_ohms = pot_ohms * kLoopShuntToWOhms / (pot_ohms + kLoopShuntToWOhms);
             return (w_ohms / (kLoopSeriesOhms + w_ohms)) * kLoopWToPDivider * kLoopPToGridDivider;
         }
@@ -493,7 +474,7 @@ namespace SushiDSP
             // Flat until PULL BRIGHT switches the capacitor in; then, as on the lead drive, the
             // shelf gives back what the taper is throwing away at this position.
             const float bright_db = bright_
-                ? std::clamp(-gain_to_decibels(audio_taper(volume_1)), 0.0f, kVolume1BrightMaxDb)
+                ? std::clamp(-gain_to_decibels(audio_taper_pot(volume_1)), 0.0f, kVolume1BrightMaxDb)
                 : 0.0f;
             volume_1_bright_.set_high_shelf(sample_rate_ * kOversamplingFactor, kVolume1BrightHz,
                                             bright_db, kFilterQ);
@@ -503,7 +484,7 @@ namespace SushiDSP
         {
             // The 180 pF shorts the pot's top section above the corner, so the shelf's height is
             // whatever the taper is throwing away at this position.
-            const float bright_db = std::clamp(-gain_to_decibels(audio_taper(lead_drive)), 0.0f, kLeadDriveBrightMaxDb);
+            const float bright_db = std::clamp(-gain_to_decibels(audio_taper_pot(lead_drive)), 0.0f, kLeadDriveBrightMaxDb);
             lead_drive_bright_.set_high_shelf(sample_rate_ * kOversamplingFactor, kLeadDriveBrightHz, bright_db, kFilterQ);
             applied_lead_drive_ = lead_drive;
         }
@@ -517,8 +498,8 @@ namespace SushiDSP
             }
         }
 
-        const float volume_1_gain = audio_taper(volume_1);
-        const float lead_drive_gain = audio_taper(lead_drive) * kLeadDriveDivider;
+        const float volume_1_gain = audio_taper_pot(volume_1);
+        const float lead_drive_gain = audio_taper_pot(lead_drive) * kLeadDriveDivider;
         const float loop_gain = loop_network_gain(lead_master);
         const float master_gain = master * MesaMark2c::kMasterUnityGain;
 
@@ -591,10 +572,7 @@ namespace SushiDSP
         // Nothing upstream is normalised to the DAC's range, so a hot Lead Drive, Master 1 and
         // Output combination can still land outside [-1, 1]; the clamp is a safety rail, not a
         // tone stage.
-        for (std::uint32_t i = 0; i < frames; ++i)
-        {
-            output[i] = std::clamp(output[i] * output_gain, -1.0f, 1.0f);
-        }
+        apply_output_safety_clamp(output, frames, output_gain);
     }
 
     std::uint32_t MesaMark2c::latency_samples() const

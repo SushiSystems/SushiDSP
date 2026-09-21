@@ -26,6 +26,8 @@
 
 #include "SushiDSP/peavey5150/Peavey5150.hpp"
 
+#include "SushiDSP/circuits/OutputSafetyClamp.hpp"
+#include "SushiDSP/circuits/stages/MillerInputCapacitance.hpp"
 #include "SushiDSP/circuits/stages/PowerTubePresets.hpp"
 
 #include <algorithm>
@@ -173,8 +175,9 @@ namespace SushiDSP
         constexpr float kPhaseInverterToPowerTubeAttenuation = 0.8617f;
 
         /// @brief The level the output transformer stage receives at the pair's full clip: the
-        /// 2 x 20.833 V x 0.05 this chain delivered before PentodeStage became volt-true, a
-        /// modelling choice adopted from modules/nodes/jcm800/src/Jcm800.cpp.
+        /// 2 x 20.833 V x 0.05 this chain delivered before PentodeStage became volt-true. The
+        /// unit the transformer stage works in is a corpus convention, held across every
+        /// amplifier so one transformer model serves them all.
         constexpr float kTransformerFullClipUnits = 2.083333f;
 
         /// @brief The output trim from the 6L6GC plates to the transformer's units: the pair's
@@ -191,30 +194,23 @@ namespace SushiDSP
         constexpr float kCathodeFollowerGain = 0.98f;
 
         /// @brief Grid bias mismatch between the two halves of the output stage, an input-referred
-        /// offset in real volts: the 0.03 model volts adopted from modules/nodes/jcm800/src/Jcm800.cpp,
-        /// through the deleted 0.0631313 grid scale (modules/nodes/peavey5150/README.md, "The power
-        /// tubes"). Not a dossier value.
+        /// offset in real volts: the corpus's 0.03 model volts through the deleted 0.0631313 grid
+        /// scale (modules/nodes/peavey5150/README.md, "The power tubes"). Not a dossier value.
         constexpr float kPowerTubeGridBiasMismatchVolts = 0.475200f;
 
         // Not dossier values. Dossier section 5 leaves the output transformer's primary impedance
-        // and turns ratio not established (open question 2), so the JCM800's transformer and sag
-        // constants are adopted unchanged from modules/nodes/jcm800/src/Jcm800.cpp.
+        // and turns ratio not established (open question 2), so all five below are the corpus's
+        // stand-in figures; modules/nodes/peavey5150/README.md lists them.
         constexpr float kOutputTransformerRolloffHz = 60.0f;
         constexpr float kOutputTransformerLeakageHz = 8000.0f;
         constexpr float kOutputTransformerSaturationDrive = 0.3f;
         constexpr float kSagAmount = 0.3f;
         constexpr float kSagRecoveryTimeSeconds = 0.05f;
 
-        // 12AX7 Miller input capacitance, the same model modules/nodes/jcm800/src/Jcm800.cpp uses:
-        // C_in = Cgk + Cgp * (1 + |A|) + stray, with Cgk 1.6 pF and Cgp 1.7 pF from
-        // docs/reference/spice/models/12ax7_koren.sub and 10 pF of point-to-point stray wiring.
-        // The driving impedance is taken as the previous stage's plate load alone, as Jcm800.cpp
-        // takes it: the real Thevenin is higher at every one of these grids (the kV*SourceResistance
+        // The driving impedance behind every Miller pole below is the previous stage's plate load
+        // alone. The real Thevenin is higher at every one of these grids (the kV*SourceResistance
         // values above are that figure), so the errors all run the same way and this model is
         // brighter than the amplifier rather than darker.
-        constexpr float kMillerCgkPicofarads = 1.6f;
-        constexpr float kMillerCgpPicofarads = 1.7f;
-        constexpr float kStrayWiringPicofarads = 10.0f;
 
         // Plate loads, dossier section 2, one per driving stage.
         constexpr double kV1aPlateLoadOhms = 220000.0;   // R2.
@@ -332,7 +328,7 @@ namespace SushiDSP
         constexpr float kMinOutputDb = -60.0f;
         constexpr float kMaxOutputDb = 12.0f;
 
-        /// @brief The corner of a first-order RC network.
+        /// @brief Returns the corner of a first-order RC network.
         /// @param resistance_ohms The resistance the capacitor works into.
         /// @param capacitance_farads The capacitance.
         /// @return The -3 dB corner in hertz.
@@ -341,16 +337,13 @@ namespace SushiDSP
             return 1.0 / (2.0 * M_PI * resistance_ohms * capacitance_farads);
         }
 
-        /// @brief The corner of one grid's Miller input-capacitance pole.
+        /// @brief Returns the corner of one grid's Miller input-capacitance pole.
         /// @param stage_voltage_gain The driven stage's mid-band gain, which multiplies Cgp.
         /// @param plate_load_ohms The driving stage's plate load.
         /// @return The -3 dB corner of the grid's RC pole, in hertz.
         double miller_corner_hz(double stage_voltage_gain, double plate_load_ohms)
         {
-            const double input_capacitance_farads =
-                (kMillerCgkPicofarads + kMillerCgpPicofarads * (1.0 + stage_voltage_gain)
-                 + kStrayWiringPicofarads) * 1e-12;
-            return corner_hz(plate_load_ohms, input_capacitance_farads);
+            return kTriode12AX7MillerCapacitance.corner_hz(stage_voltage_gain, plate_load_ohms);
         }
 
         /// @brief The presence shelf's boost at a knob position.
@@ -597,10 +590,7 @@ namespace SushiDSP
         // its own tube's conduction window - so a hot pre-gain, post-gain and output combination
         // can still land outside [-1, 1]. This is a safety rail, not a tone stage: a soft-knee
         // limiter here would need its own oversampled region to avoid aliasing its own harmonics.
-        for (std::uint32_t i = 0; i < frames; ++i)
-        {
-            output[i] = std::clamp(output[i] * output_gain, -1.0f, 1.0f);
-        }
+        apply_output_safety_clamp(output, frames, output_gain);
     }
 
     std::uint32_t Peavey5150::latency_samples() const
