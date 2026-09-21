@@ -47,12 +47,22 @@ class ModuleTree:
 
 
 def _discover(root: Path) -> dict[str, Module]:
-    """Returns every module below root/modules, keyed by module name."""
+    """Returns every module below root/modules, keyed by module name.
+
+    A module is a folder carrying its own CMakeLists.txt. Folders above it are tiers, and a
+    repository that puts its modules straight under modules/ gives them the empty tier.
+    """
     modules: dict[str, Module] = {}
     base = root / "modules"
-    for tier in sorted(entry for entry in base.iterdir() if entry.is_dir()):
-        for folder in sorted(entry for entry in tier.iterdir() if entry.is_dir()):
-            modules[folder.name] = Module(tier.name, folder.name, folder)
+
+    def walk(folder: Path, tier: str) -> None:
+        for entry in sorted(child for child in folder.iterdir() if child.is_dir()):
+            if (entry / "CMakeLists.txt").is_file():
+                modules[entry.name] = Module(tier, entry.name, entry)
+            else:
+                walk(entry, entry.name if not tier else f"{tier}/{entry.name}")
+
+    walk(base, "")
     return modules
 
 
@@ -75,10 +85,13 @@ def _source_lines(module: Module) -> Iterator[tuple[Path, int, str]]:
 
 def rule_declared_tiers(tree: ModuleTree) -> Iterator[Issue]:
     """Yields an issue for each tier folder missing from the declared order."""
+    tiers = {module.tier for module in tree.modules.values()} - {""}
+    if not tiers:
+        return
     if not tree.tier_order:
         yield Issue(Path(__file__), 1, "K_TIER_ORDER is empty; declare the repository's tiers")
         return
-    for tier in sorted({module.tier for module in tree.modules.values()}):
+    for tier in sorted(tiers):
         if tree.rank(tier) is None:
             yield Issue(tree.root / "modules" / tier, 1, f"tier '{tier}' is not in K_TIER_ORDER")
 

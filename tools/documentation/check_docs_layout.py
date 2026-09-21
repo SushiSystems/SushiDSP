@@ -161,15 +161,23 @@ def rule_links(repository: Repository) -> Iterator[Issue]:
                     yield Issue(path, number, f"link target does not exist: {target}")
 
 
+def _modules(folder: Path) -> Iterator[Path]:
+    """Yields every module under a folder, descending through tier folders that hold no build."""
+    for entry in sorted(child for child in folder.iterdir() if child.is_dir()):
+        if (entry / "CMakeLists.txt").is_file():
+            yield entry
+        else:
+            yield from _modules(entry)
+
+
 def rule_module_readmes(repository: Repository) -> Iterator[Issue]:
     """Yields an issue for each module folder without a README.md."""
     modules = repository.root / "modules"
     if not modules.is_dir():
         return
-    for tier in sorted(entry for entry in modules.iterdir() if entry.is_dir()):
-        for module in sorted(entry for entry in tier.iterdir() if entry.is_dir()):
-            if not (module / "README.md").is_file():
-                yield Issue(module, 1, "module lacks README.md")
+    for module in _modules(modules):
+        if not (module / "README.md").is_file():
+            yield Issue(module, 1, "module lacks README.md")
 
 
 def rule_archive_candidates(repository: Repository) -> Iterator[Issue]:
