@@ -38,6 +38,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <iterator>
 #include <utility>
 
 #ifndef M_PI
@@ -59,25 +60,13 @@ namespace SushiDSP
         constexpr float kV2aGain = 22.005f;
         constexpr float kV2bGain = 73.118f;      // Dossier 3.7, computed here: 100 x 170 / 232.5.
 
-        /// @brief One inverter triode's full common-cathode gain on its own load line, the pair's
-        /// split being carried by kPhaseInverterDegeneration instead: mu x Ra / (Ra + ra) is
-        /// 96.378299 x 82000 / (82000 + 34061.086) = 68.093628, with dossier 5.1's 82 k plate. The
-        /// mu is the local gm x ra from the Koren Jacobian at Vgk -1.5 V, Vpk 284.5 V, as
-        /// Jcm800.cpp does, not the model's nominal 100.
-        /// That point is dossier 5.1's printed operating point rather than a solve on the 82 k
-        /// load line, where the Koren model draws 2.946 mA against the line's 1.293 mA and
-        /// dossier question 6 carries the disagreement; solving it gives gain 63.6 or 57.2 with
-        /// degeneration 2.226 or 2.183.
-        constexpr float kPhaseInverterGain = 68.093628f;
-
-        /// @brief How much wider the inverter's input is than the grid-cathode window it opens, the
-        /// shared cathode following the driven grid through the tail: 1 + (Rtail || Zshunt) / Zk.
-        /// Zk is the driven triode's own cathode impedance (ra + Ra) / (mu + 1) = 1191.858 Ohm,
-        /// Zshunt adds dossier 5.1's 470 Ohm drawn between the cathodes for 1661.858 Ohm, and Rtail
-        /// is 5.1's shared 15 k tail glyph: 15000 || 1661.858 = 1496.104, so the factor is
-        /// 1 + 1496.104 / 1191.858 = 2.2552703, always divided by. ra is 34061.086 Ohm and mu the
-        /// local 96.378299, both from the Koren Jacobian at Vgk -1.5 V, Vpk 284.5 V.
-        constexpr float kPhaseInverterDegeneration = 2.2552703f;
+        /// @brief The a half's common-cathode gain, mu x Ra / (Ra + ra) on S8's 82.5 k plate, kept
+        /// only to size the grid's Miller capacitance; LongTailedPair derives each half's own gain
+        /// and the split the shared cathode imposes from kPhaseInverterMu and the plate loads.
+        /// The operating point is dossier 5.1's printed one rather than a solve on the load line,
+        /// where the Koren model draws 2.946 mA against the line's 1.293 mA and dossier question 6
+        /// carries the disagreement.
+        constexpr float kPhaseInverterGain = 68.214959f;
 
         /// @brief The DC operating point each triode's grid rests at, from the printed cathode volts.
         constexpr float kV1aCathodeBias = -1.6f;   // Dossier 3.1, printed cathode voltage.
@@ -89,7 +78,7 @@ namespace SushiDSP
         constexpr float kPhaseInverterCathodeBias = -1.5f;  // Dossier 8 question 6, not established.
 
         /// @brief The Thevenin source resistance each grid is driven from.
-        constexpr float kV1aSourceResistance = 10000.0f;   // Dossier 3.1 draws no stopper; the JCM800's figure.
+        constexpr float kV1aSourceResistance = 10000.0f;   // Dossier 3.1 draws no stopper; a stand-in.
         constexpr float kV1bSourceResistance = 250000.0f;  // Dossier 3.2, the 1 M Volume 1 wiper at its worst case.
         constexpr float kV3bSourceResistance = 250000.0f;  // Dossier 3.3, the 1 M Lead Drive wiper at its worst case.
         constexpr float kV4aSourceResistance = 48571.0f;   // Dossier 3.4, 170 k in parallel with 68 k.
@@ -143,20 +132,43 @@ namespace SushiDSP
         constexpr double kV2bCathodePoleHz = 485.73;   // Dossier 3.7, computed the same way as V4A's.
         constexpr double kV2bCathodeLowGain = 0.6972;  // Dossier 3.7, computed: -3.13 dB below the zero.
 
+        /// @brief V2B's cathode with PULL DEEP in, the 15 uF beside the 0.47 uF.
+        ///
+        /// Both corners scale with the capacitance, 0.47 over 15.47, so the shelf keeps its depth
+        /// and only moves down the band; dossier 3.7 gives the zero as 10.3 Hz.
+        constexpr double kV2bCathodeDeepZeroHz = 10.288;
+        constexpr double kV2bCathodeDeepPoleHz = 14.757;
+
         /// @brief The Lead Drive bright cap, taken at the 470 k reading of its series resistor.
         constexpr double kLeadDriveBrightHz = 1881.3;    // Dossier 3.3, computed from 180 pF and 470 k.
+
+        /// @brief Volume 1's bright capacitor, the one PULL BRIGHT switches across the pot's top
+        /// section. Its corner moves with the wiper, 1 M x (1 - position) against 180 pF, and is
+        /// taken at the pot's midpoint the way the lead drive's is; dossier 2.
+        constexpr double kVolume1BrightHz = 1768.4;
+        constexpr float kVolume1BrightMaxDb = 18.0f;  // A modelling choice: the shelf's ceiling.
         constexpr float kLeadDriveBrightMaxDb = 18.0f;   // A modelling choice: the shelf's ceiling.
 
-        /// @brief The presence network from the 8 ohm tap.
-        constexpr double kPresenceHz = 1063.9;   // Dossier 5.2, computed from 6.8 k and 0.022 uF.
-        constexpr float kMaxPresenceDb = 9.0f;   // A modelling choice: the dossier states no depth.
+        /// @brief What one unit at the output transformer's secondary is worth to the feedback leg.
+        ///
+        /// The stage works in the units kTransformerFullClipUnits sets and the turns ratio that
+        /// would convert them is dossier 8 question 3, unread, so this scalar carries the gap.
+        /// This value is the deepest the loop runs without ringing, not a calibration: the loop
+        /// closes around an output transformer whose corners are stand-ins, and their 8 kHz pole
+        /// is what sets the loop's phase and what the amplifier oscillated at. The measurement and
+        /// the ordering it forces are in docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md.
+        constexpr float kTapToFeedbackVolts = 14.0f;
 
         /// @brief The five graphic-equaliser traps and the range the sliders sweep.
+        ///
+        /// Read off S8, the traced schematic, not off the factory scan; the two drawings disagree
+        /// on the 60 Hz and 750 Hz inductors. `docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md`
+        /// gives the readings and why S8 wins.
         constexpr float kEqualizerCentresHz[MesaMark2c::kEqualizerBandCount] = {
-            71.5f, 371.8f, 979.5f, 1576.0f, 4823.0f   // Dossier 4.2, f0 = 1 / (2 pi sqrt(LC)).
+            87.61f, 371.74f, 723.43f, 1575.87f, 4822.88f  // f0 = 1 / (2 pi sqrt(LC)) on S8's L and C.
         };
         constexpr float kEqualizerBandQ[MesaMark2c::kEqualizerBandCount] = {
-            1.434f, 1.938f, 1.571f, 0.673f, 1.0f      // Dossier 4.2, Q = (1/R) sqrt(L/C).
+            1.171f, 1.938f, 2.128f, 0.673f, 1.0f          // Q = (1/R) sqrt(L/C) on the same values.
         };
         constexpr float kEqualizerMaxGainDb = 17.0f;  // Dossier 4.2, +17 / -18 dB modelled symmetric.
 
@@ -164,7 +176,8 @@ namespace SushiDSP
         constexpr float kSimulClassPairWeight = 0.5f;  // A modelling choice: both pairs sum equally.
         /// @brief The level the output transformer stage receives at both pairs' full clip: the
         /// (2 x 20.408 + 2 x 14.493) V x 0.5 x 0.05 this chain delivered before PentodeStage
-        /// became volt-true, a modelling choice adopted from modules/jcm800/src/Jcm800.cpp.
+        /// became volt-true. The unit the transformer stage works in is a corpus convention, held
+        /// across every amplifier so one transformer model serves them all.
         constexpr float kTransformerFullClipUnits = 1.745265f;
 
         /// @brief The output trim from the power-tube plates to the transformer's units: the two
@@ -176,17 +189,24 @@ namespace SushiDSP
                   + kMesaMark2cPower6L6GC.plate_swing.headroom_to_bottom_volts
                   + kMesaMark2cPowerEl34Triode.plate_swing.headroom_to_supply_volts
                   + kMesaMark2cPowerEl34Triode.plate_swing.headroom_to_bottom_volts));
-        constexpr float kOutputTransformerRolloffHz = 60.0f;   // The JCM800's constant; dossier 8 question 3.
-        constexpr float kOutputTransformerLeakageHz = 8000.0f; // The JCM800's constant; dossier 8 question 3.
-        constexpr float kOutputTransformerSaturationDrive = 0.3f;  // The JCM800's constant; dossier 8 question 3.
-        constexpr float kSagAmount = 0.3f;                     // The JCM800's constant; no IIC+ figure exists.
-        constexpr float kSagRecoveryTimeSeconds = 0.05f;       // The JCM800's constant; no IIC+ figure exists.
+        /// @brief The output transformer's two corners and its core drive. Neither sheet prints
+        /// the primary impedance or the turns ratio, so all three are stand-ins, and the leakage
+        /// corner is the one the feedback loop oscillated against; modules/mesa_mark2c/README.md
+        /// lists them with every other figure the schematic does not carry.
+        constexpr float kOutputTransformerRolloffHz = 60.0f;
+        constexpr float kOutputTransformerLeakageHz = 8000.0f;
+        constexpr float kOutputTransformerSaturationDrive = 0.3f;
 
-        // 12AX7 Miller input capacitance, the JCM800's constants: C_in = Cgk + Cgp * (1 + |A|)
-        // plus stray wiring, driven from the preceding stage's own plate load.
+        /// @brief How far the supply sags and how fast it returns. The dossier's calibration
+        /// targets carry no supply figure at all, so both are stand-ins.
+        constexpr float kSagAmount = 0.3f;
+        constexpr float kSagRecoveryTimeSeconds = 0.05f;
+
+        // 12AX7 Miller input capacitance: C_in = Cgk + Cgp * (1 + |A|) plus stray wiring, driven
+        // from the preceding stage's own plate load.
         constexpr float kMillerCgkPicofarads = 1.6f;    // The 12AX7 Koren model's grid-cathode capacitance.
         constexpr float kMillerCgpPicofarads = 1.7f;    // The 12AX7 Koren model's grid-plate capacitance.
-        constexpr float kStrayWiringPicofarads = 10.0f; // Point-to-point wiring, the JCM800's assumption.
+        constexpr float kStrayWiringPicofarads = 10.0f; // Point-to-point wiring, a corpus convention.
         constexpr float kV1aPlateLoadOhms = 150000.0f;  // Dossier 3.1, 150 k to node D.
         constexpr float kV1bPlateLoadOhms = 100000.0f;  // Dossier 3.2, 100 k to node D.
         constexpr float kV3bPlateLoadOhms = 82000.0f;   // Dossier 3.3, 82 k to node C.
@@ -212,7 +232,7 @@ namespace SushiDSP
 
         /// @brief V2A's plate swing on the 58.746 k AC load line at Lead Master maximum: 1.2902 mA
         /// x 58.746 k toward the supply, and 263.0 V down to Vgk = 0; dossier 3.6. The stage holds
-        /// both at the knob's maximum (docs/superpowers/specs/2026-09-08-iicplus-loop-network-design.md
+        /// both at the knob's maximum (docs/archive/superpowers/specs/2026-09-08-iicplus-loop-network-design.md
         /// section 5).
         constexpr PlateSwing kV2aPlateSwing{ 75.795f, 114.171f };
 
@@ -220,12 +240,44 @@ namespace SushiDSP
         /// 170 k load line to Vgk = 0; the cold, low-headroom stage of dossier 3.7.
         constexpr PlateSwing kV2bPlateSwing{ 204.0f, 92.338f };
 
-        /// @brief The inverter's plate swing: 392 - 286 V toward node C, and 286 - 142.232 V down
-        /// the 82 k load line to Vgk = 0.
-        constexpr PlateSwing kPhaseInverterPlateSwing{ 106.0f, 143.768f };
+        /// @brief The inverter's plate loads, read off S8; the dossier's 5.1 gives both as "82 k"
+        /// from the low-resolution sheet. The wider load on the b half is what matches the two
+        /// plates' amplitudes against the tail's own asymmetry.
+        constexpr float kPhaseInverterPlateAOhms = 82500.0f;
+        constexpr float kPhaseInverterPlateBOhms = 90900.0f;
+
+        /// @brief Each inverter plate's swing: 392 - 286 V toward node C and 286 - 142.232 V down
+        /// to Vgk = 0 on the 82 k line, scaled to each half's own load rather than re-solved.
+        constexpr PlateSwing kPhaseInverterPlateASwing{ 106.646f, 144.645f };
+        constexpr PlateSwing kPhaseInverterPlateBSwing{ 117.503f, 159.365f };
+
+        /// @brief The inverter triodes at their operating point, the local Koren Jacobian at
+        /// Vgk -1.5 V, Vpk 284.5 V, which is the corpus's convention rather than the model's
+        /// nominal mu of 100.
+        constexpr float kPhaseInverterMu = 96.378299f;
+        constexpr float kPhaseInverterPlateResistanceOhms = 34061.086f;
+
+        /// @brief What the joined cathodes reach the tail node through, S8's R67.
+        constexpr float kPhaseInverterCathodeToTailOhms = 470.0f;
+
+        /// @brief Each inverter grid's own leak back to the tail, S8's R65 and R66. The dossier
+        /// draws neither, so the model used to pull both grids to 1 M.
+        constexpr float kPhaseInverterGridLeakAOhms = 100000.0f;
+        constexpr float kPhaseInverterGridLeakBOhms = 150000.0f;
+
+        /// @brief The impedance the pair's cathodes present where the feedback leg meets the tail:
+        /// R67 plus the two triodes' cathode impedances in parallel, (ra + Ra) / (mu + 1) halved.
+        constexpr float kPhaseInverterTailImpedanceOhms = 1068.5f;
 
         constexpr double kFilterQ = 0.707;
         constexpr float kSmoothingMs = 20.0f;
+
+        /// @brief How many base-rate frames pass between two coefficient rebuilds.
+        ///
+        /// Rebuilding per sample would re-solve the tone stack's and the equaliser's matrices at
+        /// the oversampled rate, so a knob's travel is quantised to this instead: at 48 kHz it is
+        /// 0.67 ms, which cuts a 256-frame block's step by eight.
+        constexpr std::uint32_t kControlPeriodFrames = 32;
 
         // Below this a recomputed coefficient set is indistinguishable from the one in place, so
         // the audio thread skips the rebuild.
@@ -238,13 +290,6 @@ namespace SushiDSP
         constexpr float kMinOutputDb = -60.0f;
         constexpr float kMaxOutputDb = 12.0f;
 
-        /// @brief The presence shelf's gain at one knob position.
-        /// @param normalized Presence position in [0, 1]; 0.5 is flat.
-        /// @return The shelf gain in decibels.
-        float presence_gain_db(float normalized)
-        {
-            return (normalized - 0.5f) * 2.0f * kMaxPresenceDb;
-        }
 
         /// @brief The corner of one grid's Miller input-capacitance pole.
         /// @param stage_voltage_gain The driven stage's mid-band gain.
@@ -265,7 +310,7 @@ namespace SushiDSP
         /// @return The linear gain from the coupling capacitor's node to V2B's grid.
         float loop_network_gain(float lead_master);
 
-        /// @brief The audio-taper law the JCM800's preamp_attenuation() uses, without its ceiling.
+        /// @brief The audio-taper law the corpus gives every volume pot, position to the 3 / 2.
         /// @param normalized Pot position in [0, 1].
         /// @return The pot's voltage division at that position.
         float audio_taper(float normalized)
@@ -295,8 +340,17 @@ namespace SushiDSP
                           { kEqualizerBandQ[0], kEqualizerBandQ[1], kEqualizerBandQ[2],
                             kEqualizerBandQ[3], kEqualizerBandQ[4] },
                           kEqualizerMaxGainDb)
-        , phase_inverter_(kPhaseInverterSourceResistance, kTriodeGridLeak, kPhaseInverterCathodeBias, kPhaseInverterGain, kTriode12AX7GridConduction,
-                          kPhaseInverterPlateSwing)
+        , feedback_(48000.0 * kOversamplingFactor, kMark2cFeedback,
+                    PowerAmpFeedbackTermination{ kPhaseInverterTailImpedanceOhms })
+        , phase_inverter_(
+              LongTailedPairTube{ kPhaseInverterMu, kPhaseInverterPlateResistanceOhms,
+                                  kPhaseInverterCathodeBias, kTriode12AX7GridConduction },
+              LongTailedPairHalf{ kPhaseInverterPlateAOhms, kPhaseInverterSourceResistance,
+                                  kPhaseInverterGridLeakAOhms, kPhaseInverterPlateASwing },
+              LongTailedPairHalf{ kPhaseInverterPlateBOhms,
+                                  feedback_grid_source_resistance_ohms(kMark2cFeedback),
+                                  kPhaseInverterGridLeakBOhms, kPhaseInverterPlateBSwing },
+              feedback_tail_resistance_ohms(kMark2cFeedback), kPhaseInverterCathodeToTailOhms)
         , power_inner_a_(kMesaMark2cPower6L6GC)
         , power_inner_b_(kMesaMark2cPower6L6GC)
         , power_outer_a_(kMesaMark2cPowerEl34Triode)
@@ -319,7 +373,10 @@ namespace SushiDSP
         v2b_loop_return_coupling_.set_first_order_high_pass(oversampled_rate_hz, kV2bLoopReturnCouplingHz);
         v2b_coupling_.set_first_order_high_pass(oversampled_rate_hz, kV2bCouplingHz);
         v4a_cathode_shelf_.set_first_order_shelf(oversampled_rate_hz, kV4aCathodeZeroHz, kV4aCathodePoleHz, kV4aCathodeLowGain);
-        v2b_cathode_shelf_.set_first_order_shelf(oversampled_rate_hz, kV2bCathodeZeroHz, kV2bCathodePoleHz, kV2bCathodeLowGain);
+        v2b_cathode_shelf_.set_first_order_shelf(oversampled_rate_hz,
+                                                deep_ ? kV2bCathodeDeepZeroHz : kV2bCathodeZeroHz,
+                                                deep_ ? kV2bCathodeDeepPoleHz : kV2bCathodePoleHz,
+                                                kV2bCathodeLowGain);
         lead_output_divider_.set_first_order_shelf(oversampled_rate_hz, kLeadOutputDividerZeroHz, kLeadOutputDividerPoleHz, kLeadOutputDivider);
 
         // The Miller corners land at 9.0, 14.5, 14.7, 11.6, 11.6 and 15.2 kHz, each set by the
@@ -341,7 +398,7 @@ namespace SushiDSP
         const double oversampled_rate_hz = sample_rate_ * kOversamplingFactor;
 
         build_rate_dependent_filters(oversampled_rate_hz);
-        presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_.target()), kFilterQ);
+        feedback_.set_presence(presence_.target());
 
         // The tone stack and the equaliser sit inside the single oversampled region, so their
         // coefficients are derived at the oversampled rate.
@@ -388,7 +445,16 @@ namespace SushiDSP
     {
         const float* input = context.inputs[0];
         float* output = context.outputs[0];
-        const std::uint32_t frames = context.frames;
+
+        for (std::uint32_t offset = 0; offset < context.frames; offset += kControlPeriodFrames)
+        {
+            const std::uint32_t frames = std::min(kControlPeriodFrames, context.frames - offset);
+            render_control_period(input + offset, output + offset, frames);
+        }
+    }
+
+    void MesaMark2c::render_control_period(const float* input, float* output, std::uint32_t frames)
+    {
         const std::uint32_t oversampled_frames = frames * kOversamplingFactor;
 
         const float volume_1 = volume_1_.skip(frames);
@@ -419,8 +485,19 @@ namespace SushiDSP
         }
         if (std::fabs(presence - applied_presence_) > kCoefficientEpsilon)
         {
-            presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence), kFilterQ);
+            feedback_.set_presence(presence);
             applied_presence_ = presence;
+        }
+        if (std::fabs(volume_1 - applied_volume_1_) > kCoefficientEpsilon)
+        {
+            // Flat until PULL BRIGHT switches the capacitor in; then, as on the lead drive, the
+            // shelf gives back what the taper is throwing away at this position.
+            const float bright_db = bright_
+                ? std::clamp(-gain_to_decibels(audio_taper(volume_1)), 0.0f, kVolume1BrightMaxDb)
+                : 0.0f;
+            volume_1_bright_.set_high_shelf(sample_rate_ * kOversamplingFactor, kVolume1BrightHz,
+                                            bright_db, kFilterQ);
+            applied_volume_1_ = volume_1;
         }
         if (std::fabs(lead_drive - applied_lead_drive_) > kCoefficientEpsilon)
         {
@@ -455,7 +532,8 @@ namespace SushiDSP
         {
             const float v1a_out = v1a_.process_sample(upsampled[i]);
             const float toned = tone_stack_.process_sample(v1a_out);
-            const float v1b_out = v1b_.process_sample(v1b_grid_miller_.process_sample(toned * volume_1_gain));
+            const float v1b_input = volume_1_bright_.process_sample(toned * volume_1_gain);
+            const float v1b_out = v1b_.process_sample(v1b_grid_miller_.process_sample(v1b_input));
 
             const float lead_input = lead_drive_bright_.process_sample(
                 v1b_coupling_.process_sample(v1b_out)) * lead_drive_gain;
@@ -475,32 +553,36 @@ namespace SushiDSP
 
             // Master 1 sits at node F, between V2B's coupling capacitor and the equaliser, ahead of
             // the phase inverter (dossier 2).
-            const float equalised = equalizer_bank_.process_sample(
-                v2b_coupling_.process_sample(v2b_out) * master_gain);
-            const float phase_inverted = phase_inverter_.process_sample(
-                phase_inverter_grid_miller_.process_sample(equalised) / kPhaseInverterDegeneration);
+            const float master_out = v2b_coupling_.process_sample(v2b_out) * master_gain;
+            // EQ OUT lifts the whole slider bus off ground, which takes the five traps out of the
+            // path rather than centring them.
+            const float equalised = equalizer_mode_ == EqualizerMode::Out
+                ? master_out
+                : equalizer_bank_.process_sample(master_out);
+            // The loop closes on the previous oversampled sample, 2.6 us at 48 kHz, because an
+            // implicit solve through the nonlinear power section would iterate.
+            const float feedback_grid = feedback_.process_sample(tap_feedback_
+                * kTapToFeedbackVolts);
+            const LongTailedPair::Plates plates = phase_inverter_.process_sample(
+                phase_inverter_grid_miller_.process_sample(equalised), feedback_grid);
 
-            // Simul-Class: both pairs hang on the same transformer and see the same phase-inverted
-            // grid signal, and they clip apart because their plate swings do (dossier 7.3).
-            const float inner_pair = power_inner_a_.process_sample(phase_inverted)
-                - power_inner_b_.process_sample(-phase_inverted);
-            const float outer_pair = power_outer_a_.process_sample(phase_inverted)
-                - power_outer_b_.process_sample(-phase_inverted);
+            // Simul-Class: both pairs hang on the same transformer, each taking the plate of its
+            // own side, and they clip apart because their plate swings do (dossier 7.3).
+            const float inner_pair = power_inner_a_.process_sample(plates.a)
+                - power_inner_b_.process_sample(plates.b);
+            const float outer_pair = power_outer_a_.process_sample(plates.a)
+                - power_outer_b_.process_sample(plates.b);
             const float power_tube_out = (inner_pair + outer_pair) * kSimulClassPairWeight
                 * kPowerTubeToTransformerAttenuation;
 
             const float transformer_out = output_transformer_.process_sample(power_tube_out);
+            tap_feedback_ = transformer_out;
             scratch_oversampled_[i] = sag_.process_sample(transformer_out);
         }
         oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames, scratch_base_.data());
 
-        for (std::uint32_t i = 0; i < frames; ++i)
-        {
-            scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]);
-        }
-
         // Cabinet convolution lives in the standalone sushidsp.cabinet node; this amp hands its
-        // dry (post-presence) signal straight to output.
+        // dry signal straight to output.
         for (std::uint32_t i = 0; i < frames; ++i)
         {
             output[i] = scratch_base_[i];
@@ -524,30 +606,32 @@ namespace SushiDSP
 
     namespace
     {
-        /// @brief Collects the module's triodes in signal order, so the two probe accessors agree
-        /// on the order and the count by construction.
-        /// @param node The amp whose stages are listed.
-        /// @return Pointers to V1A, V1B, V3B, V4A, V2A, V2B and the phase inverter.
-        std::array<const TriodeStage*, 7> triode_stages_in_signal_order(
+        /// @brief Collects the module's single triodes in signal order, so the two probe
+        /// accessors agree on the order and the count by construction.
+        /// @return Pointers to V1A, V1B, V3B, V4A, V2A and V2B; the inverter is a pair, not a
+        /// single triode, and answers for itself at the index past these.
+        std::array<const TriodeStage*, 6> triode_stages_in_signal_order(
             const TriodeStage& v1a, const TriodeStage& v1b, const TriodeStage& v3b,
-            const TriodeStage& v4a, const TriodeStage& v2a, const TriodeStage& v2b,
-            const TriodeStage& phase_inverter)
+            const TriodeStage& v4a, const TriodeStage& v2a, const TriodeStage& v2b)
         {
-            return { &v1a, &v1b, &v3b, &v4a, &v2a, &v2b, &phase_inverter };
+            return { &v1a, &v1b, &v3b, &v4a, &v2a, &v2b };
         }
     }
 
     std::size_t MesaMark2c::triode_stage_count() const
     {
-        return triode_stages_in_signal_order(v1a_, v1b_, v3b_, v4a_, v2a_, v2b_, phase_inverter_)
-            .size();
+        return triode_stages_in_signal_order(v1a_, v1b_, v3b_, v4a_, v2a_, v2b_).size() + 1;
     }
 
     float MesaMark2c::grid_excursion_peak_volts(std::size_t stage) const
     {
-        const std::array<const TriodeStage*, 7> stages =
-            triode_stages_in_signal_order(v1a_, v1b_, v3b_, v4a_, v2a_, v2b_, phase_inverter_);
-        if (stage >= stages.size())
+        const std::array<const TriodeStage*, 6> stages =
+            triode_stages_in_signal_order(v1a_, v1b_, v3b_, v4a_, v2a_, v2b_);
+        if (stage == stages.size())
+        {
+            return phase_inverter_.peak_grid_excursion_volts();
+        }
+        if (stage > stages.size())
         {
             return 0.0f;
         }
@@ -563,6 +647,7 @@ namespace SushiDSP
     {
         v1b_coupling_.reset();
         lead_drive_bright_.reset();
+        volume_1_bright_.reset();
         v3b_coupling_.reset();
         v4a_interstage_shelf_.reset();
         v4a_cathode_shelf_.reset();
@@ -571,7 +656,8 @@ namespace SushiDSP
         v2b_cathode_shelf_.reset();
         v2b_loop_return_coupling_.reset();
         v2b_coupling_.reset();
-        presence_shelf_.reset();
+        feedback_.reset();
+        tap_feedback_ = 0.0f;
         v1b_grid_miller_.reset();
         v3b_grid_miller_.reset();
         v4a_grid_miller_.reset();
@@ -616,6 +702,32 @@ namespace SushiDSP
         equalizer_[band].set_target(std::clamp(position, -1.0f, 1.0f));
     }
 
+    void MesaMark2c::set_equalizer_mode(EqualizerMode mode) { equalizer_mode_ = mode; }
+
+    void MesaMark2c::set_bright(bool engaged)
+    {
+        if (engaged == bright_)
+        {
+            return;
+        }
+        bright_ = engaged;
+        tone_stack_.set_bright(engaged);
+        // Forces the next control period to rebuild Volume 1's shelf at the new switch position.
+        applied_volume_1_ = -1.0f;
+    }
+
+    void MesaMark2c::set_deep(bool engaged)
+    {
+        if (engaged == deep_)
+        {
+            return;
+        }
+        deep_ = engaged;
+        // Only the one shelf moves, but it is rebuilt through the same path prepare() uses so the
+        // two cannot drift apart.
+        build_rate_dependent_filters(sample_rate_ * kOversamplingFactor);
+    }
+
     void MesaMark2c::set_master_1(float decibels)
     {
         master_1_db_ = std::clamp(decibels, kMinMasterDb, kMaxMasterDb);
@@ -650,6 +762,21 @@ namespace SushiDSP
             || std::fabs(lead_drive_.target() - applied_lead_drive_) > kCoefficientEpsilon;
     }
 
+    namespace
+    {
+        /// @brief Maps an automation value onto the equaliser switch's three positions.
+        /// @param value 0 is Out, 1 is In, 2 is Auto; anything else is clamped.
+        /// @return The position that value selects.
+        MesaMark2c::EqualizerMode equalizer_mode_from(float value)
+        {
+            if (value < 0.5f)
+            {
+                return MesaMark2c::EqualizerMode::Out;
+            }
+            return value < 1.5f ? MesaMark2c::EqualizerMode::In : MesaMark2c::EqualizerMode::Auto;
+        }
+    }
+
     float MesaMark2c::get_parameter(const char* id) const
     {
         if (std::strcmp(id, "volume_1") == 0) return volume_1_.target();
@@ -665,6 +792,9 @@ namespace SushiDSP
         if (std::strcmp(id, "eq_750") == 0) return equalizer_[2].target();
         if (std::strcmp(id, "eq_2200") == 0) return equalizer_[3].target();
         if (std::strcmp(id, "eq_6600") == 0) return equalizer_[4].target();
+        if (std::strcmp(id, "bright") == 0) return bright_ ? 1.0f : 0.0f;
+        if (std::strcmp(id, "deep") == 0) return deep_ ? 1.0f : 0.0f;
+        if (std::strcmp(id, "eq_mode") == 0) return static_cast<float>(equalizer_mode_);
         if (std::strcmp(id, "input_trim") == 0) return input_trim_db_;
         if (std::strcmp(id, "output") == 0) return output_db_;
         return 0.0f;
@@ -685,6 +815,9 @@ namespace SushiDSP
         if (std::strcmp(id, "eq_750") == 0) { set_equalizer_band(2, value); return; }
         if (std::strcmp(id, "eq_2200") == 0) { set_equalizer_band(3, value); return; }
         if (std::strcmp(id, "eq_6600") == 0) { set_equalizer_band(4, value); return; }
+        if (std::strcmp(id, "bright") == 0) { set_bright(value >= 0.5f); return; }
+        if (std::strcmp(id, "deep") == 0) { set_deep(value >= 0.5f); return; }
+        if (std::strcmp(id, "eq_mode") == 0) { set_equalizer_mode(equalizer_mode_from(value)); return; }
         if (std::strcmp(id, "input_trim") == 0) { set_input_trim(value); return; }
         if (std::strcmp(id, "output") == 0) { set_output(value); return; }
     }
@@ -708,6 +841,9 @@ namespace SushiDSP
         case 12: set_equalizer_band(4, value); break;
         case 13: set_input_trim(value); break;
         case 14: set_output(value); break;
+        case 15: set_bright(value >= 0.5f); break;
+        case 16: set_deep(value >= 0.5f); break;
+        case 17: set_equalizer_mode(equalizer_mode_from(value)); break;
         default: break;
         }
     }
@@ -732,6 +868,11 @@ namespace SushiDSP
             { "eq_6600",     "EQ 6600",    -1.0f,            1.0f,            0.0f, ParamKind::Linear,  ""   },
             { "input_trim",  "Input Trim",  kMinInputTrimDb, kMaxInputTrimDb, 0.0f, ParamKind::Decibel, "dB" },
             { "output",      "Output",      kMinOutputDb,    kMaxOutputDb,    0.0f, ParamKind::Decibel, "dB" },
+            // The panel switches are appended rather than placed beside the knobs they sit next
+            // to, because the index order is what a saved preset addresses these by.
+            { "bright",      "Pull Bright", 0.0f,            1.0f,            0.0f, ParamKind::Boolean, ""   },
+            { "deep",        "Pull Deep",   0.0f,            1.0f,            0.0f, ParamKind::Boolean, ""   },
+            { "eq_mode",     "EQ Switch",   0.0f,            2.0f,            1.0f, ParamKind::Choice,  ""   },
         };
 
         std::unique_ptr<IAudioNode> make_mesa_mark2c(const PrepareInfo&)
@@ -746,7 +887,7 @@ namespace SushiDSP
             "sushidsp.mesa_mark2c",
             "Mark IIC+",
             kMesaMark2cParameters,
-            15,
+            static_cast<std::uint16_t>(std::size(kMesaMark2cParameters)),
             PortLayout{ 1, 1 },
             &make_mesa_mark2c,
         };

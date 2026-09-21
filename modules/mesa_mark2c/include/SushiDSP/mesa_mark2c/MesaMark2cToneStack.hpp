@@ -59,10 +59,24 @@ namespace SushiDSP
         /// @return The tone-shaped output sample.
         float process_sample(float input);
 
+        /// @brief Switches PULL BRIGHT's second treble capacitor in or out.
+        ///
+        /// LDR1 puts another 250 pF beside the first, so the deck's series path into the treble
+        /// pot opens an octave lower. The whole netlist is rebuilt, because the capacitance is a
+        /// component value rather than a pot position; the three pot positions are carried over.
+        /// @param engaged True puts the second capacitor in.
+        void set_bright(bool engaged);
+
         /// @brief Clears the stack's delay line.
         void reset();
 
     private:
+        /// @brief Rebuilds the deck from the components the bright switch selects.
+        void build();
+
+        double sample_rate_;
+        bool bright_ = false;
+        float bass_ = 0.5f, middle_ = 0.5f, treble_ = 0.5f;
         FmvToneStack stack_;
     };
 }
