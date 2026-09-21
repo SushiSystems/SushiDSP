@@ -96,18 +96,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Check out SushiStack, which carries sushicore
-        # sushicore is published to no index, so it cannot be a pip dependency.
-        uses: actions/checkout@v4
-        with:
-          repository: SushiSystems/SushiStack
-          ref: main
-          path: .sushistack
-
-      - name: Install tooling
+      - name: Install the CLI and its tooling
+        # sushicore comes from PyPI, so pip resolves it from cli/pyproject.toml
+        # and no sibling checkout is needed.
         run: |
           python -m pip install --upgrade pip pytest pyflakes
-          python -m pip install -e ./.sushistack/sushicore
+          python -m pip install -e ./cli
 
       - name: Import-safety check (no crash outside a checkout)
         working-directory: cli
