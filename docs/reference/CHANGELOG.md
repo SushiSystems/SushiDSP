@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-09-21 — docs: Repointed thirty-eight cited paths that the archive move and the rig controller's split had left dangling (`docs/`, `modules/`).
 - 2026-09-21 — circuits: Moved each amplifier's power-tube preset into the module that uses it (`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`).
 - 2026-09-21 — tests: Made the panel and pentode tests read the registry instead of naming products (`tests/functional/unit/test_panel_library.cpp`).
 - 2026-09-21 — room: Split the room node along the signal path into a modal, a geometric and a binaural brick (`modules/nodes/room/`).

@@ -55,12 +55,13 @@ starts on that without the verdict.
   nothing in the tree stretches time. Owner decision 2026-09-14: its own plan, applied to
   track playback only.
 - **Phase 2 manual acceptance.** The seven checks in Task 14 of
-  `docs/superpowers/plans/2026-09-14-host-gui-phase2.md` have not been run in the GUI.
+  `docs/archive/superpowers/plans/2026-09-14-host-gui-phase2.md` have not been run in the GUI.
 - **Parallel topology in presets.** A preset with a parallel shape loads flattened to a
   series chain (`apps/host_gui/main.cpp`, `seed_rig_chain`); §19 leaves persistence open.
-- **`RigController::add_branch` has no caller** since the splitter picker was removed.
+- **`SlotGraph::add_branch` has no caller** since the splitter picker was removed;
+  `RigController` still forwards to it.
 - **`apps/host_gui/README.md` is missing.**
-- **`RigController::publish()` rebuilds every node.** One structural edit builds the node set
+- **`SlotGraph::publish()` rebuilds every node.** One structural edit builds the node set
   three times, which is why "No bundled HRTF set" prints three times on a graph change and why a
   room edit through the graph empties the tail (KNOWN_ISSUES, "A structural rig edit empties the
   room's tail"). Carrying surviving nodes across a rebuild closes both and touches no module.

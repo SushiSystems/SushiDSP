@@ -53,7 +53,7 @@ becomes available.
 
 ## OGG export is deferred, so a take leaves the host as WAV only
 
-DS5 of `docs/superpowers/specs/2026-09-07-stereo-tracks-design.md` puts `libvorbis` and `libogg`
+DS5 of `docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md` puts `libvorbis` and `libogg`
 inside `apps/host_gui` and nowhere else, and DS0 through DS4 shipped without it. A five-minute
 stereo take at 48 kHz is 115 MB of 32-bit float on disk, which is what the host writes and what a
 user copies out. No test is skipped for this; nothing is broken, the phase is unwritten. Closes

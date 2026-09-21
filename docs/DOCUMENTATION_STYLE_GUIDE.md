@@ -56,7 +56,7 @@ Everything else follows the design spec's status:
   by what a reader is asking: a newcomer's first orientation goes in `getting_started/`, how
   the layers fit together goes in `architecture/`, a task-oriented walkthrough (running the
   CLI, say) goes in `guides/`, "what is this called or what changed" goes in `reference/`, and
-  the index of every module's own `README.md` lives in `modules/README.md` rather than
+  the index of every module's own `README.md` lives in `docs/architecture/MODULES.md` rather than
   repeating each module's facts there.
 
 ## The index-entry format
@@ -110,7 +110,7 @@ the design document instead, however useful the explanation is.
 `CONTRIBUTING.md` §3 sets the rule this tree's headers already follow: `@brief`/`@param`/
 `@return` on every public function, and no comment beyond that unless the *why* is
 non-obvious, because a well-named identifier already says *what* it does. `sd doxygen` builds
-`docs/api-site/html/` from these comments starting at `docs/api/mainpage.md`. It documents what
+`build/docs/api-site/html/` from these comments starting at `docs/reference/API_REFERENCE.md`. It documents what
 the headers say, is never a substitute for the design spec's reasoning, and is never
 hand-edited.
 

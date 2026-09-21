@@ -40,6 +40,10 @@ The root directory conforms to `repository-layout` specifications:
 - Developer-local artifacts at the repository root (`*.png`, `*.wav`, `imgui.ini`) are handled by
   the repository owner and remain ignored in `.gitignore`.
 
+Commit `cfcb43f` later moved the two instruction files out of `docs/` to the repository root, so
+`CLAUDE.md` and `AGENTS.md` now hold the guidelines rather than pointing at a copy under `docs/`.
+The four bullets above record what phase 1 did, not where those files are today.
+
 ### 3. Documentation Tree Realignment
 
 The `docs/` tree aligns strictly with the documentation skill:
@@ -74,7 +78,7 @@ docs/
 
 Key transformations:
 1. `docs/superpowers/plans/` and `docs/superpowers/specs/` move to `docs/archive/superpowers/`.
-2. `docs/modules/README.md` moves to `docs/architecture/MODULES.md`.
+2. The module index moves to `docs/architecture/MODULES.md`. Done.
 3. `docs/api/mainpage.md` moves to `docs/reference/API_REFERENCE.md`.
 4. `docs/design/sushidsp.md` is renamed to `docs/design/SUSHIDSP.md` with status `**Status:** Open — phase 2 of 4`.
 5. `docs/design/gui_ux_redesign.md` is renamed to `docs/design/GUI_UX_REDESIGN.md` with status `**Status:** Open — phase 2 of 2`.
