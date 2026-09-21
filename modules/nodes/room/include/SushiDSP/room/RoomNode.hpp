@@ -37,6 +37,7 @@
 
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
+#include "SushiDSP/core/ParameterTable.hpp"
 #include "SushiDSP/core/RtSwapSlot.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
 #include "SushiDSP/room/BinauralDecoder.hpp"
@@ -93,6 +94,12 @@ namespace SushiDSP::room
         /// @brief Writes a parameter by descriptor index; stores a target and nothing else, so
         /// a listener or direct delay written here waits for the next publish.
         void set_parameter_for_audio_thread(std::uint16_t index, float value) override;
+
+        /// @brief This node's parameters, one row each, feeding the descriptor and both
+        /// dispatches. Declared on the class rather than at namespace scope so a row's
+        /// lambdas can reach the private field a knob actually lives in.
+        /// @return The table, built once on first use.
+        static const ParameterTable<RoomNode, 4>& parameters();
 
         /// @brief Silences the rings, every state bank, the tail, the decoder, the crossover,
         /// the alignment delays and the crossfade.

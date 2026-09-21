@@ -49,18 +49,6 @@ namespace SushiDSP
         constexpr float kDefaultLevel    = 0.5f;
         constexpr float kDefaultModeIndex = static_cast<float>(static_cast<int>(Dd3Delay::kDefaultMode));
 
-        constexpr std::uint16_t kUnknownParameterIndex = 0xFFFF;
-        constexpr std::uint16_t kModeParameterIndex = 3u;
-
-        std::uint16_t parameter_index_for(const char* id)
-        {
-            if (std::strcmp(id, "time") == 0) return 0;
-            if (std::strcmp(id, "feedback") == 0) return 1;
-            if (std::strcmp(id, "level") == 0) return 2;
-            if (std::strcmp(id, "mode") == 0) return kModeParameterIndex;
-            return kUnknownParameterIndex;
-        }
-
         dd3::Dd3Mode mode_for_index(float value)
         {
             const long index = std::lround(static_cast<double>(value));
@@ -263,25 +251,39 @@ namespace SushiDSP
         return ring + round_trip + prime;
     }
 
-    float Dd3Delay::get_parameter(const char* id) const
+    const ParameterTable<Dd3Delay, 4>& Dd3Delay::parameters()
     {
-        switch (parameter_index_for(id))
-        {
-            case 0: return time_;
-            case 1: return feedback_.target();
-            case 2: return level_.target();
-            case 3: return static_cast<float>(
-                static_cast<int>(pending_mode_.load(std::memory_order_relaxed)));
-            default: return 0.0f;
-        }
+        static const ParameterTable<Dd3Delay, 4> table{ {{
+            { { "time", "D.Time", 0.0f, 1.0f, kDefaultTime, ParamKind::Linear, "" },
+              [](Dd3Delay& n, float v) { n.set_time(v); },
+              [](const Dd3Delay& n) { return n.time_; } },
+            { { "feedback", "F.Back", 0.0f, 1.0f, kDefaultFeedback, ParamKind::Linear, "" },
+              [](Dd3Delay& n, float v) { n.set_feedback(v); },
+              [](const Dd3Delay& n) { return n.feedback_.target(); } },
+            { { "level", "E.Level", 0.0f, 1.0f, kDefaultLevel, ParamKind::Linear, "" },
+              [](Dd3Delay& n, float v) { n.set_level(v); },
+              [](const Dd3Delay& n) { return n.level_.target(); } },
+            // Recorded only: clearing 16384 samples inside the host's drain is not RT-safe, so
+            // this row stores the pending mode rather than applying it (see apply_pending_mode).
+            { { "mode", "Mode", 0.0f, 3.0f, kDefaultModeIndex, ParamKind::Choice, "" },
+              [](Dd3Delay& n, float v) {
+                  n.pending_mode_.store(mode_for_index(v), std::memory_order_relaxed);
+              },
+              [](const Dd3Delay& n) {
+                  return static_cast<float>(
+                      static_cast<int>(n.pending_mode_.load(std::memory_order_relaxed)));
+              } },
+        }} };
+        return table;
     }
+
+    float Dd3Delay::get_parameter(const char* id) const { return parameters().read(*this, id); }
 
     void Dd3Delay::set_parameter_for_control_thread(const char* id, float value)
     {
-        const std::uint16_t index = parameter_index_for(id);
-        set_parameter_for_audio_thread(index, value);
+        parameters().write(*this, id, value);
         // Only a MODE write clears the ring here; another id would do it under a live process().
-        if (index == kModeParameterIndex)
+        if (std::strcmp(id, "mode") == 0)
         {
             apply_pending_mode();
         }
@@ -289,28 +291,11 @@ namespace SushiDSP
 
     void Dd3Delay::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
-        switch (index)
-        {
-            case 0: set_time(value); return;
-            case 1: set_feedback(value); return;
-            case 2: set_level(value); return;
-            // Recorded only: clearing 16384 samples inside the host's drain is not RT-safe.
-            case kModeParameterIndex:
-                pending_mode_.store(mode_for_index(value), std::memory_order_relaxed);
-                return;
-            default: return;
-        }
+        parameters().write(*this, index, value);
     }
 
     namespace
     {
-        constexpr ParameterDescriptor kDd3Parameters[] = {
-            { "time",     "D.Time",  0.0f, 1.0f, kDefaultTime,     ParamKind::Linear, "" },
-            { "feedback", "F.Back",  0.0f, 1.0f, kDefaultFeedback, ParamKind::Linear, "" },
-            { "level",    "E.Level", 0.0f, 1.0f, kDefaultLevel,    ParamKind::Linear, "" },
-            { "mode",     "Mode",    0.0f, 3.0f, kDefaultModeIndex, ParamKind::Choice, "" },
-        };
-
         std::unique_ptr<IAudioNode> make_dd3(const PrepareInfo&)
         {
             return std::make_unique<Dd3Delay>();
@@ -322,8 +307,8 @@ namespace SushiDSP
         static const NodeDescriptor descriptor{
             "sushidsp.dd3",
             "DD-3 Digital Delay",
-            kDd3Parameters,
-            4,
+            Dd3Delay::parameters().descriptors(),
+            Dd3Delay::parameters().count(),
             PortLayout{ 1, 1 },
             &make_dd3,
         };

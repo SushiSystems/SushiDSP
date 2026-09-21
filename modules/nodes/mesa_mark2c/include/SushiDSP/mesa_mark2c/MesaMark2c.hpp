@@ -37,6 +37,7 @@
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
+#include "SushiDSP/core/ParameterTable.hpp"
 #include "SushiDSP/mesa_mark2c/MesaMark2cToneStack.hpp"
 #include "SushiDSP/circuits/GraphicEqualizer.hpp"
 #include "SushiDSP/circuits/PowerAmpFeedback.hpp"
@@ -189,6 +190,12 @@ namespace SushiDSP
         /// @param index Index into mesa_mark2c_descriptor()'s parameter array.
         /// @param value The new value, in the descriptor's units.
         void set_parameter_for_audio_thread(std::uint16_t index, float value) override;
+
+        /// @brief This node's parameters, one row each, feeding the descriptor and both
+        /// dispatches. Declared on the class rather than at namespace scope so a row's
+        /// lambdas can reach the private field a knob actually lives in.
+        /// @return The table, built once on first use.
+        static const ParameterTable<MesaMark2c, 18>& parameters();
 
     private:
         static constexpr std::uint32_t kOversamplingFactor = 8;

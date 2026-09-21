@@ -24,31 +24,10 @@
 #include "SushiDSP/routing/MixerNode.hpp"
 
 #include <algorithm>
-#include <cstdio>
-#include <cstring>
 #include <memory>
 
 namespace SushiDSP
 {
-    namespace
-    {
-        constexpr std::uint16_t kUnknownParameterIndex = 0xFFFF;
-
-        std::uint16_t parameter_index_for(const char* id)
-        {
-            for (std::uint16_t i = 0; i < static_cast<std::uint16_t>(MixerNode::kMaxFanIn); ++i)
-            {
-                char expected[16];
-                std::snprintf(expected, sizeof(expected), "gain_%u", static_cast<unsigned>(i));
-                if (std::strcmp(id, expected) == 0)
-                {
-                    return i;
-                }
-            }
-            return kUnknownParameterIndex;
-        }
-    }
-
     MixerNode::MixerNode()
     {
         gains_.fill(1.0f);
@@ -85,42 +64,53 @@ namespace SushiDSP
 
     void MixerNode::reset() {}
 
-    float MixerNode::get_parameter(const char* id) const
+    const ParameterTable<MixerNode, MixerNode::kMaxFanIn>& MixerNode::parameters()
     {
-        const std::uint16_t index = parameter_index_for(id);
-        return index == kUnknownParameterIndex ? 0.0f : gains_[index];
+        static const ParameterTable<MixerNode, MixerNode::kMaxFanIn> table{ {{
+            { { "gain_0", "Gain 1", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
+              [](MixerNode& n, float v) { n.gains_[0] = v; },
+              [](const MixerNode& n) { return n.gains_[0]; } },
+            { { "gain_1", "Gain 2", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
+              [](MixerNode& n, float v) { n.gains_[1] = v; },
+              [](const MixerNode& n) { return n.gains_[1]; } },
+            { { "gain_2", "Gain 3", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
+              [](MixerNode& n, float v) { n.gains_[2] = v; },
+              [](const MixerNode& n) { return n.gains_[2]; } },
+            { { "gain_3", "Gain 4", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
+              [](MixerNode& n, float v) { n.gains_[3] = v; },
+              [](const MixerNode& n) { return n.gains_[3]; } },
+            { { "gain_4", "Gain 5", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
+              [](MixerNode& n, float v) { n.gains_[4] = v; },
+              [](const MixerNode& n) { return n.gains_[4]; } },
+            { { "gain_5", "Gain 6", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
+              [](MixerNode& n, float v) { n.gains_[5] = v; },
+              [](const MixerNode& n) { return n.gains_[5]; } },
+            { { "gain_6", "Gain 7", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
+              [](MixerNode& n, float v) { n.gains_[6] = v; },
+              [](const MixerNode& n) { return n.gains_[6]; } },
+            { { "gain_7", "Gain 8", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
+              [](MixerNode& n, float v) { n.gains_[7] = v; },
+              [](const MixerNode& n) { return n.gains_[7]; } },
+        }} };
+        return table;
     }
+
+    float MixerNode::get_parameter(const char* id) const { return parameters().read(*this, id); }
 
     void MixerNode::set_parameter_for_control_thread(const char* id, float value)
     {
-        set_parameter_for_audio_thread(parameter_index_for(id), value);
+        parameters().write(*this, id, value);
     }
 
     void MixerNode::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
-        if (index < kMaxFanIn)
-        {
-            gains_[index] = value;
-        }
+        parameters().write(*this, index, value);
     }
 
     const char* MixerNode::type_id() const { return "sushidsp.mixer"; }
 
     namespace
     {
-        constexpr ParameterDescriptor kMixerParameters[] = {
-            { "gain_0", "Gain 1", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
-            { "gain_1", "Gain 2", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
-            { "gain_2", "Gain 3", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
-            { "gain_3", "Gain 4", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
-            { "gain_4", "Gain 5", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
-            { "gain_5", "Gain 6", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
-            { "gain_6", "Gain 7", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
-            { "gain_7", "Gain 8", 0.0f, 2.0f, 1.0f, ParamKind::Linear, "" },
-        };
-        static_assert(sizeof(kMixerParameters) / sizeof(kMixerParameters[0]) == MixerNode::kMaxFanIn,
-            "kMixerParameters must declare exactly MixerNode::kMaxFanIn entries");
-
         std::unique_ptr<IAudioNode> make_mixer(const PrepareInfo&)
         {
             return std::make_unique<MixerNode>();
@@ -132,8 +122,8 @@ namespace SushiDSP
         static const NodeDescriptor descriptor{
             "sushidsp.mixer",
             "Mixer",
-            kMixerParameters,
-            MixerNode::kMaxFanIn,
+            MixerNode::parameters().descriptors(),
+            MixerNode::parameters().count(),
             PortLayout{ static_cast<std::uint32_t>(MixerNode::kMaxFanIn), 1 },
             &make_mixer,
         };

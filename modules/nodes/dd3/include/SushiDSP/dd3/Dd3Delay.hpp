@@ -35,6 +35,7 @@
 
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
+#include "SushiDSP/core/ParameterTable.hpp"
 #include "SushiDSP/dd3/Dd3AnalogFilters.hpp"
 #include "SushiDSP/dd3/Dd3Clock.hpp"
 #include "SushiDSP/dd3/Dd3Converter.hpp"
@@ -123,6 +124,12 @@ namespace SushiDSP
         /// @param index The parameter's index in dd3_descriptor().
         /// @param value The new target value, in that parameter's declared range.
         void set_parameter_for_audio_thread(std::uint16_t index, float value) override;
+
+        /// @brief This node's parameters, one row each, feeding the descriptor and both
+        /// dispatches. Declared on the class rather than at namespace scope so a row's
+        /// lambdas can reach the private field a knob actually lives in.
+        /// @return The table, built once on first use.
+        static const ParameterTable<Dd3Delay, 4>& parameters();
 
         /// @brief The wet path's current delay: the ring, plus the two conversions' round trip,
         /// plus the wet FIFO's prime (plan N2). Not reported as node latency, because the dry

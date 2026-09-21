@@ -537,70 +537,60 @@ namespace SushiDSP
             || std::fabs(presence_.target() - applied_presence_) > kCoefficientEpsilon;
     }
 
-    float DiezelVh4::get_parameter(const char* id) const
+    const ParameterTable<DiezelVh4, 10>& DiezelVh4::parameters()
     {
-        if (std::strcmp(id, "gain") == 0) return gain_.target();
-        if (std::strcmp(id, "bass") == 0) return bass_.target();
-        if (std::strcmp(id, "middle") == 0) return middle_.target();
-        if (std::strcmp(id, "treble") == 0) return treble_.target();
-        if (std::strcmp(id, "volume") == 0) return volume_.target();
-        if (std::strcmp(id, "deep") == 0) return deep_.target();
-        if (std::strcmp(id, "presence") == 0) return presence_.target();
-        if (std::strcmp(id, "master") == 0) return master_db_;
-        if (std::strcmp(id, "input_trim") == 0) return input_trim_db_;
-        if (std::strcmp(id, "output") == 0) return output_db_;
-        return 0.0f;
+        // The order is a contract: a host addresses these by index, and a preset written by one
+        // build is read back by another, so rows are appended, never reordered or removed.
+        static const ParameterTable<DiezelVh4, 10> table{ {{
+            { { "gain", "Gain", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](DiezelVh4& n, float v) { n.set_gain(v); },
+              [](const DiezelVh4& n) { return n.gain_.target(); } },
+            { { "bass", "Bass", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](DiezelVh4& n, float v) { n.set_bass(v); },
+              [](const DiezelVh4& n) { return n.bass_.target(); } },
+            { { "middle", "Middle", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](DiezelVh4& n, float v) { n.set_middle(v); },
+              [](const DiezelVh4& n) { return n.middle_.target(); } },
+            { { "treble", "Treble", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](DiezelVh4& n, float v) { n.set_treble(v); },
+              [](const DiezelVh4& n) { return n.treble_.target(); } },
+            { { "volume", "Volume", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](DiezelVh4& n, float v) { n.set_volume(v); },
+              [](const DiezelVh4& n) { return n.volume_.target(); } },
+            { { "deep", "Deep", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](DiezelVh4& n, float v) { n.set_deep(v); },
+              [](const DiezelVh4& n) { return n.deep_.target(); } },
+            { { "presence", "Presence", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](DiezelVh4& n, float v) { n.set_presence(v); },
+              [](const DiezelVh4& n) { return n.presence_.target(); } },
+            { { "master", "Master", kMinMasterDb, kMaxMasterDb, 0.0f, ParamKind::Decibel, "dB" },
+              [](DiezelVh4& n, float v) { n.set_master(v); },
+              [](const DiezelVh4& n) { return n.master_db_; } },
+            { { "input_trim", "Input Trim", kMinInputTrimDb, kMaxInputTrimDb, 0.0f,
+                ParamKind::Decibel, "dB" },
+              [](DiezelVh4& n, float v) { n.set_input_trim(v); },
+              [](const DiezelVh4& n) { return n.input_trim_db_; } },
+            { { "output", "Output", kMinOutputDb, kMaxOutputDb, 0.0f, ParamKind::Decibel, "dB" },
+              [](DiezelVh4& n, float v) { n.set_output(v); },
+              [](const DiezelVh4& n) { return n.output_db_; } },
+        }} };
+        return table;
     }
+
+    float DiezelVh4::get_parameter(const char* id) const { return parameters().read(*this, id); }
 
     void DiezelVh4::set_parameter_for_control_thread(const char* id, float value)
     {
-        if (std::strcmp(id, "gain") == 0) { set_gain(value); return; }
-        if (std::strcmp(id, "bass") == 0) { set_bass(value); return; }
-        if (std::strcmp(id, "middle") == 0) { set_middle(value); return; }
-        if (std::strcmp(id, "treble") == 0) { set_treble(value); return; }
-        if (std::strcmp(id, "volume") == 0) { set_volume(value); return; }
-        if (std::strcmp(id, "deep") == 0) { set_deep(value); return; }
-        if (std::strcmp(id, "presence") == 0) { set_presence(value); return; }
-        if (std::strcmp(id, "master") == 0) { set_master(value); return; }
-        if (std::strcmp(id, "input_trim") == 0) { set_input_trim(value); return; }
-        if (std::strcmp(id, "output") == 0) { set_output(value); return; }
+        parameters().write(*this, id, value);
     }
 
     void DiezelVh4::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
-        switch (index)
-        {
-        case 0: set_gain(value); break;
-        case 1: set_bass(value); break;
-        case 2: set_middle(value); break;
-        case 3: set_treble(value); break;
-        case 4: set_volume(value); break;
-        case 5: set_deep(value); break;
-        case 6: set_presence(value); break;
-        case 7: set_master(value); break;
-        case 8: set_input_trim(value); break;
-        case 9: set_output(value); break;
-        default: break;
-        }
+        parameters().write(*this, index, value);
     }
 
     namespace
     {
-        // The order is a contract: a host addresses these by index, and a preset written by one
-        // build is read back by another, so entries are appended - never reordered or removed.
-        constexpr ParameterDescriptor kDiezelVh4Parameters[] = {
-            { "gain",       "Gain",       0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "bass",       "Bass",       0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "middle",     "Middle",     0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "treble",     "Treble",     0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "volume",     "Volume",     0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "deep",       "Deep",       0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "presence",   "Presence",   0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "master",     "Master",     kMinMasterDb,     kMaxMasterDb,     0.0f, ParamKind::Decibel, "dB" },
-            { "input_trim", "Input Trim", kMinInputTrimDb,  kMaxInputTrimDb,  0.0f, ParamKind::Decibel, "dB" },
-            { "output",     "Output",     kMinOutputDb,     kMaxOutputDb,     0.0f, ParamKind::Decibel, "dB" },
-        };
-
         std::unique_ptr<IAudioNode> make_diezel_vh4(const PrepareInfo&)
         {
             return std::make_unique<DiezelVh4>();
@@ -612,8 +602,8 @@ namespace SushiDSP
         static const NodeDescriptor descriptor{
             "sushidsp.diezel_vh4",
             "VH4 Ch3",
-            kDiezelVh4Parameters,
-            10,
+            DiezelVh4::parameters().descriptors(),
+            DiezelVh4::parameters().count(),
             PortLayout{ 1, 1 },
             &make_diezel_vh4,
         };
