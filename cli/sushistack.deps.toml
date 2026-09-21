@@ -1,6 +1,11 @@
-# SushiDSP dependency fragment — the dependencies SushiDSP owns. `hub`
-# aggregates this with the SushiStack base fragment and provisions everything
-# into the shared dependencies/ tree.
+# SushiDSP dependency fragment — the dependencies SushiDSP owns. A reader
+# aggregates this with whatever else is present and provisions the set; inside a
+# SushiStack workspace that reader is `hub install`, and `sd setup` is the one
+# outside it.
+#
+# One table per dependency, keyed by its name. This file used an array of
+# [[dependency]] tables until 2026-09-22, which the reader skipped without a
+# word, so nothing here was ever provisioned.
 #
 # SushiDSP has no [module] depends_on entry: unlike sushiblas (which rides on
 # sushiruntime), SushiDSP's core is dependency-free by design (see
@@ -16,15 +21,13 @@
 #   windows_vcpkg  vcpkg port names; empty list = not an apt/vcpkg package.
 #   check_cmd      Optional command; exit 0 means "already installed".
 
-[[dependency]]
-name = "intel-llvm"
-description = "intel/llvm clang++ (the workspace's shared toolchain). Optional: when present `sd` builds with it, otherwise with the platform compiler."
+[intel-llvm]
+description = "intel/llvm clang++ (the workspace's shared toolchain). Optional: when present `sd` builds with it, otherwise with the platform compiler. SushiDSP compiles no SYCL; this is a C++ compiler preference."
 required = false
 linux_apt = []
 windows_vcpkg = []
 
-[[dependency]]
-name = "sdl2"
+[sdl2]
 description = "Audio device backend for apps/host (D1)."
 required = true
 linux_apt = ["libsdl2-dev"]
