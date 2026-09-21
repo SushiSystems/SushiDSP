@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-09-21 — math: Moved the generated resampler kernel table out of the public headers (`include/SushiDSP/math/ResamplerDesign.hpp`, `src/math/ResamplerKernel.hpp`).
 - 2026-09-21 — modules: Grouped the twelve modules into the nodes, catalog and session tiers (`modules/`, `tools/layering/check_layering.py`).
 - 2026-09-22 — cli: Took `sushicore` from PyPI instead of a sibling checkout (`cli/pyproject.toml`).
 - 2026-09-21 — docs: Rewrote the front door around what the models rest on (`README.md`).

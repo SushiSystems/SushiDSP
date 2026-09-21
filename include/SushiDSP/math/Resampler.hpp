@@ -36,7 +36,7 @@ namespace SushiDSP
 {
     /// @brief Arbitrary-ratio polyphase resampler over one committed prototype filter.
     ///
-    /// A single fractional phase accumulator walks the kernel of ResamplerCoefficients.hpp; a
+    /// A single fractional phase accumulator walks the kernel of src/math/ResamplerKernel.hpp; a
     /// ratio change moves the accumulator's step and the kernel's time scale, and never rebuilds
     /// a filter bank. Every buffer is sized in prepare(); process() and set_rates() are
     /// allocation-, lock-, syscall- and throw-free.

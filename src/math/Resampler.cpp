@@ -34,7 +34,9 @@
 #include <cstdint>
 
 #include "SushiDSP/math/Resampler.hpp"
-#include "SushiDSP/math/ResamplerCoefficients.hpp"
+#include "SushiDSP/math/ResamplerDesign.hpp"
+
+#include "math/ResamplerKernel.hpp"
 
 namespace SushiDSP
 {

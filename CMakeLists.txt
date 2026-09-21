@@ -48,6 +48,9 @@ sushidsp_apply_sanitizers(sushi_dsp)
 target_include_directories(sushi_dsp PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
+# Headers under src/ are implementation detail: the generated resampler kernel table is
+# reachable from the library's own sources, never from the public include surface.
+target_include_directories(sushi_dsp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Products. Added unconditionally: the module has no SDL2 dependency, and the
 # test suite links it regardless of SUSHIDSP_BUILD_SDL2.
