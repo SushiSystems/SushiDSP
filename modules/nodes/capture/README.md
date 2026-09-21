@@ -5,9 +5,9 @@ A product-independent module: it models no pedal and no amplifier, and depends o
 `IAudioNode`.
 
 Intent and the acceptance list live in
-[`docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../../docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md)
+[`docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../../docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md)
 §5 for recording and §6 for playback, and in
-[`docs/superpowers/specs/2026-09-08-arrangement-view-design.md`](../../docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md)
+[`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`](../../docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md)
 §3 to §5a for musical time, clips and the playback speed. This file records what the code in this
 directory does.
 

@@ -7,9 +7,9 @@ reflections and its late tail on the audio thread, for two ears under a head or 
 microphone. The module depends on `SushiDSP::sushi_dsp` alone.
 
 Intent, the physics behind each solver and the acceptance list live in
-[`docs/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md);
+[`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md);
 the task order is
-[`docs/superpowers/plans/2026-09-08-room-acoustics.md`](../../docs/archive/superpowers/plans/2026-09-08-room-acoustics.md).
+[`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`](../../docs/archive/superpowers/plans/2026-09-08-room-acoustics.md).
 This file records what the code in this directory does. `docs/design/sushidsp.md` §3c places the
 module in the tree and §9 carries its roadmap rows;
 [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) holds what the phase

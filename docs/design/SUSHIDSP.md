@@ -346,7 +346,7 @@ All numeric building blocks the amp/pedal circuit models need.
 - **§4.2 Partitioned convolution** — uniform-partitioned (256-frame) overlap-add FFT convolution for the cabinet IR. CPU only.
 - **§4.3 Filters** — TPT/zero-delay-feedback state-variable filter (SVF), biquad cascade (RBJ cookbook coefficients), one-pole/one-zero, all-pass; per-block-smoothed parameters, click-free. Used inside the WDF/DK circuit models and for cabinet mic-model pre-filtering.
 - **§4.4 Resamplers** — two of them, solving different problems and sharing no code. `math/Oversampler` converts by a **fixed integer ratio** through a polyphase FIR halfband cascade, which is what the amp/pedal oversampler wants (§7/§8): the ratio is a build-time constant, so a per-stage halfband is both the cheapest and the sharpest answer. `math/Resampler` converts by an **arbitrary ratio that may move every block**, over one fixed prototype filter walked by a fractional phase accumulator; a halfband cascade cannot do that at all, and rebuilding a bank per ratio would allocate on the audio thread. The DD-3's sample clock, which the delay-time knob moves between 20 and 82.5 kHz, is the first consumer. **As built (DR1):** see "As built in DR1" below.
-- **§4.5 WDF/DK circuit-solving core** — the shared nonlinear-circuit infrastructure both JCM800 and Tube Screamer build on: Wave Digital Filter adaptor primitives (series/parallel/resistive/reactive), a DK-method (discrete Kirchhoff state-space) formulation for tightly-coupled blocks, and a Newton–Raphson nonlinear-root solver (2–4 iterations, warm-started from the previous sample) shared by every nonlinear stage (triode, op-amp clipper, diode pair). **Amendment (D5b, user-confirmed 2026-08-26):** the WDF adaptor tree is deferred indefinitely — DK covers everything the roadmap needs and `Wdf.hpp` stays as the two linear one-ports it already has; see the decision table in `docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`. **As built (D6b):** see the "As built in D6b" section below for the headers that exist, the corrected nonlinear-branch counts D6d must size against, and the measured solver cost.
+- **§4.5 WDF/DK circuit-solving core** — the shared nonlinear-circuit infrastructure both JCM800 and Tube Screamer build on: Wave Digital Filter adaptor primitives (series/parallel/resistive/reactive), a DK-method (discrete Kirchhoff state-space) formulation for tightly-coupled blocks, and a Newton–Raphson nonlinear-root solver (2–4 iterations, warm-started from the previous sample) shared by every nonlinear stage (triode, op-amp clipper, diode pair). **Amendment (D5b, user-confirmed 2026-08-26):** the WDF adaptor tree is deferred indefinitely — DK covers everything the roadmap needs and `Wdf.hpp` stays as the two linear one-ports it already has; see the decision table in `docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`. **As built (D6b):** see the "As built in D6b" section below for the headers that exist, the corrected nonlinear-branch counts D6d must size against, and the measured solver cost.
 - **§4.6 Complex + windowing** — a POD complex type, Hann/Blackman-Harris/Kaiser windows.
 - **§4.7 Portability** — a thin SIMD abstraction (SSE/AVX/NEON with a scalar fallback) so the core builds on any target; no intrinsics leak into public headers.
 
@@ -619,7 +619,7 @@ solver bound; each dossier's own dividers now run at face value, in volts, from 
 the power tubes. Two circuit facts came with that change, applied by every module: the phase
 inverter is a long-tailed pair, so its grid-cathode window is the input divided by the tail
 degeneration `1 + (R_tail ∥ Z_shunt) / Z_k` of the spec's section 4
-(`docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`), not the full swing a
+(`docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`), not the full swing a
 common-cathode stage would see; and `PentodeStage`'s grid is not volt-true, so the link from a preamp stage's volts into its
 grid carries a derived `kPowerTubeGridScale` bridge until `PentodeStage` is rebuilt in DA5. Every
 coupling capacitor moved to `Biquad::set_first_order_high_pass`, the numerically stable one-pole
@@ -712,16 +712,16 @@ cannot see, so §11's −33.8 dB stays a known issue. The cost at the build's `-
 
 ### §5a Amplifier family
 
-The DA phase (plans `docs/superpowers/plans/2026-09-06-high-gain-amps-part1.md` and
-`docs/superpowers/plans/2026-09-06-high-gain-amps-part2.md`) grew the
+The DA phase (plans `docs/archive/superpowers/plans/2026-09-06-high-gain-amps-part1.md` and
+`docs/archive/superpowers/plans/2026-09-06-high-gain-amps-part2.md`) grew the
 single JCM800 into four sibling amplifier modules sharing the stage classes above.
 
 | Module | Channel | Dossier | Module path | Status |
 | --- | --- | --- | --- | --- |
 | JCM800 | Marshall JCM800 2203, one channel | — | `modules/nodes/jcm800/` | White-box, see "As built" above. DA4: plate-swing chain. |
-| Peavey 5150 | Block-letter 1992 5150, lead channel | `docs/reference/research/2026-09-06-peavey-5150-design-dossier.md` | `modules/nodes/peavey5150/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
-| Mesa/Boogie Mark IIC+ | Lead mode | `docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` | `modules/nodes/mesa_mark2c/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
-| Diezel VH4 | Channel 3 ("Mega") | `docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md` | `modules/nodes/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. DA4: plate-swing chain. |
+| Peavey 5150 | Block-letter 1992 5150, lead channel | `docs/archive/research/2026-09-06-peavey-5150-design-dossier.md` | `modules/nodes/peavey5150/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
+| Mesa/Boogie Mark IIC+ | Lead mode | `docs/archive/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` | `modules/nodes/mesa_mark2c/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
+| Diezel VH4 | Channel 3 ("Mega") | `docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md` | `modules/nodes/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. DA4: plate-swing chain. |
 
 Each module's own README lists exactly where its model departs from its dossier.
 
@@ -760,7 +760,7 @@ block, so its smoothing time does not depend on the host's block size.
 
 A **product module** is a self-contained library (its own DSP) that exposes one `NodeDescriptor` (§3) and nothing else. It never references a device or a host.
 
-Three products exist: `jcm800` (§5), `tubescreamer` (§6), and `dd3`, the Boss DD-3 delay built in DR2 against `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. The DD-3 has no section of its own here; `modules/nodes/dd3/README.md` carries its block table, the three constants that are calibrations rather than component values, and what it leaves unmodelled, and the spec carries the rulings behind them. The SPX90 joins them in DR3 behind the same seam.
+Three products exist: `jcm800` (§5), `tubescreamer` (§6), and `dd3`, the Boss DD-3 delay built in DR2 against `docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`. The DD-3 has no section of its own here; `modules/nodes/dd3/README.md` carries its block table, the three constants that are calibrations rather than component values, and what it leaves unmodelled, and the spec carries the rulings behind them. The SPX90 joins them in DR3 behind the same seam.
 
 From these modules, two consumers are built by generic (non-product-specific) code:
 
@@ -819,12 +819,12 @@ Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical cor
 - **D6 — VST3/CLAP wrapper.** `apps/plugin` hosting the rig graph as a DAW plugin with its own rig-editor UI. *Ships: SushiDSP.vst3/.clap loads in a DAW, hosts TS + JCM800.*
 - **D7 — Hardening & packaging.** Namespaced export/Config finalized, perceptual A/B validation once reference captures are available.
 - **DA — High-gain amplifiers.** §5a: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes, registered in the node registry with their own front-panel layouts. *Ships: all four amps selectable in the rig host, RT-safety-trapped, panel- and registry-tested.*
-- **DA4 — Plate-swing `TriodeStage`.** Spec `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. A physical plate ceiling replaces the level-staging devices in all four amplifiers; the phase-inverter tail degeneration and the `PentodeStage` grid bridge become explicit, derived constants. *Ships: all four amps on the seven-argument `TriodeStage`, a clean end and non-decreasing THD on every gain knob, two known issues carried to DA5 (the JCM800's alias floor, the IIC+'s undocumented loop return).*
-- **DA5 — The grid knee, antialiasing and the volt-true power stage.** Spec `docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, parts 1 and 2 built. The 2026-09-07 diagnosis (`.superpowers/sdd/amp-gain-staging/diagnosis.md`) measured the alias source as `TriodeStage`'s Shockley grid knee, not the DA4 plate ceiling and not the level the stages sit at: one stage 3× past its window folds at −37 dB, the Norman law of `Triode12AX7` takes it to −81 dB. *Ships (part 1, decisions 1, 5, 6 and 7): the Norman grid law in `TriodeStage` through `GridConductionLaw`, the six-argument path deleted, the 5150's inverter at its solved −1.175 V, all four unity constants pinned at 82 Hz, the 5150's PRE GAIN on an audio taper; see "As built in DA5, part 1". Ships (part 2, decisions 3 and 4): the volt-true `PentodeStage` on `PentodeEL34`'s grid law and a `PlateSwing`, the five power-tube presets from datasheet operating points, `kPowerTubeGridScale` deleted from all four modules, the JCM800's per-stage gains and its inverter with the grid leaks on the tail junction; see "As built in DA5, part 2".* Ships (part 4, decision 2): first-order ADAA of every stage's composite transfer through `AntiderivativeAntialiaser`, and `Biquad` in double; the hot defaults move 8.7 to 15.4 dB and the clean floor 30 dB, the −33.8 dB acceptance stays open as a known issue; see "As built in DA5, part 4".* The shelf-corner rule and the transformer's DC pass (final review F2, F5, F7) stay in this phase.
+- **DA4 — Plate-swing `TriodeStage`.** Spec `docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. A physical plate ceiling replaces the level-staging devices in all four amplifiers; the phase-inverter tail degeneration and the `PentodeStage` grid bridge become explicit, derived constants. *Ships: all four amps on the seven-argument `TriodeStage`, a clean end and non-decreasing THD on every gain knob, two known issues carried to DA5 (the JCM800's alias floor, the IIC+'s undocumented loop return).*
+- **DA5 — The grid knee, antialiasing and the volt-true power stage.** Spec `docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, parts 1 and 2 built. The 2026-09-07 diagnosis (`.superpowers/sdd/amp-gain-staging/diagnosis.md`) measured the alias source as `TriodeStage`'s Shockley grid knee, not the DA4 plate ceiling and not the level the stages sit at: one stage 3× past its window folds at −37 dB, the Norman law of `Triode12AX7` takes it to −81 dB. *Ships (part 1, decisions 1, 5, 6 and 7): the Norman grid law in `TriodeStage` through `GridConductionLaw`, the six-argument path deleted, the 5150's inverter at its solved −1.175 V, all four unity constants pinned at 82 Hz, the 5150's PRE GAIN on an audio taper; see "As built in DA5, part 1". Ships (part 2, decisions 3 and 4): the volt-true `PentodeStage` on `PentodeEL34`'s grid law and a `PlateSwing`, the five power-tube presets from datasheet operating points, `kPowerTubeGridScale` deleted from all four modules, the JCM800's per-stage gains and its inverter with the grid leaks on the tail junction; see "As built in DA5, part 2".* Ships (part 4, decision 2): first-order ADAA of every stage's composite transfer through `AntiderivativeAntialiaser`, and `Biquad` in double; the hot defaults move 8.7 to 15.4 dB and the clean floor 30 dB, the −33.8 dB acceptance stays open as a known issue; see "As built in DA5, part 4".* The shelf-corner rule and the transformer's DC pass (final review F2, F5, F7) stay in this phase.
 
 **DS — stereo, tracks and playback, a parallel track.** Spec
-`docs/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan
-`docs/superpowers/plans/2026-09-07-stereo-tracks.md`. It runs beside the D phases because nothing
+`docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan
+`docs/archive/superpowers/plans/2026-09-07-stereo-tracks.md`. It runs beside the D phases because nothing
 in it touches the circuit core: it is the graph's channel routing, a capture module and the host.
 §3a describes what it built.
 
@@ -838,8 +838,8 @@ in it touches the circuit core: it is the graph's channel routing, a capture mod
 | DS5 | OGG export through `libvorbis`/`libogg`, inside `apps/host_gui` only | Deferred; written up once a user asks for it |
 
 **DT — the arrangement view, a parallel track.** Spec
-`docs/superpowers/specs/2026-09-08-arrangement-view-design.md`, plan
-`docs/superpowers/plans/2026-09-08-arrangement-view.md`. It continues DS with musical time: a
+`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`, plan
+`docs/archive/superpowers/plans/2026-09-08-arrangement-view.md`. It continues DS with musical time: a
 tempo grid, clips on lanes and a playback speed. §3b describes what it built.
 
 | Phase | What it builds | Status |
@@ -853,8 +853,8 @@ tempo grid, clips on lanes and a playback speed. §3b describes what it built.
 | DT6 | mp3 import: `dr_mp3`, a worker thread, the rig's rate, a cached float32 WAV | Landed 2026-09-08, commits 3a9faf1, 55503b0, 21cfcf7, 16ac806 |
 
 **DE — room acoustics, a parallel track.** Spec
-`docs/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
-`docs/superpowers/plans/2026-09-08-room-acoustics.md`. It runs beside the D phases for the same
+`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
+`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`. It runs beside the D phases for the same
 reason DS and DT do: `modules/room` needs the graph's stereo routing and nothing from the circuit
 core. §3c describes what it built.
 
@@ -870,7 +870,7 @@ core. §3c describes what it built.
 | DE7 | AVX2 lanes in `EarlyReflectionRenderer` behind `SUSHIDSP_ENABLE_AVX2` | Not opened. Its gate is the DE1 benchmark passing 2.0 ms with an amplifier in the graph; the JCM800 with a room measures 0.893 ms per 256-frame block (commit 78a798f) |
 | DE8 | `max/RayTracer`, `max/LateIrSynthesizer` and the `quality` parameter | Deferred; §9a.3 of the spec designs it and no task builds it |
 
-**DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/nodes/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration; DS0 built the per-node multi-channel routing it waited on.
+**DR — delay and reverb, a parallel track.** Spec: `docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/nodes/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration; DS0 built the per-node multi-channel routing it waited on.
 
 ---
 
@@ -891,7 +891,7 @@ core. §3c describes what it built.
 
 ## §11a SushiStack CLI membership (developer tooling only, not a code dependency)
 
-SushiDSP is a registered SushiStack module (`sushistack/cli/sushistack/services/modules.py`), linked into a developer's workspace with `hub link sushidsp <path>` or cloned with `hub add sushidsp`, exactly like sushiruntime/sushiengine/sushiai/sushiblas. This buys two things, both developer-tooling-only:
+SushiDSP is a registered SushiStack module, listed by that repository's own `cli/sushistack/services/modules.py`, linked into a developer's workspace with `hub link sushidsp <path>` or cloned with `hub add sushidsp`, exactly like sushiruntime/sushiengine/sushiai/sushiblas. This buys two things, both developer-tooling-only:
 
 1. **`cli/sushistack.deps.toml`** — SushiDSP's dependency fragment (today: SDL2), aggregated by `hub install` alongside the other modules' fragments into the workspace's shared `dependencies/` tree. SushiDSP has no `[module] depends_on` entry — it needs no other stack module's build output.
 2. **`sushicore`** — the shared CLI presentation layer (themed console output, layered `config.toml`/`config.local.toml` loading, workspace-root discovery) that `sr`/`se`/`sa`/`sb` already build on. `cli/sushidsp/console.py` and `cli/sushidsp/config.py` are thin wrappers over `sushicore.build_console`/`sushicore.config_base.ToolConfig`, matching those CLIs' shape exactly (see any of them for the pattern). `sushicore` is not a resolvable pip dependency (unpublished), so `cli/pyproject.toml` does not list it — `hub install-cli sushidsp` injects it the same way it does for every other module.

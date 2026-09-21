@@ -8,7 +8,7 @@ after this one (see [`modules/nodes/cabinet/README.md`](../cabinet/README.md)).
 Intent and the phase rulings live in
 [`docs/design/sushidsp.md`](../../docs/design/sushidsp.md); the plate-swing change this file
 describes is specified in
-[`docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`](../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md).
+[`docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`](../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md).
 The component values come from the `jcm_*` SPICE decks under
 [`docs/reference/spice/`](../../docs/reference/spice/). This file records what the code in this
 directory does.
@@ -173,7 +173,7 @@ measured 2026-09-07. These are measurements, not assertions; no test pins them.
 | Phase inverter | 18.9606 V |
 
 V1a, V1b and V2a stay below the 0.5 V knee of the Norman grid law `TriodeStage` carries since
-DA5 (`docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` §3), V2a because V1b
+DA5 (`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` §3), V2a because V1b
 now drives it at the cold clipper's 7.77 rather than 60. The inverter's grid travels 19.0 V,
 where it travelled 63.6 V against the deck-biased pair's 15.38 V plate ceiling: with 117.4 V of
 headroom the pair's ceiling is reached at a fifth of the drive it took before, and the grid's

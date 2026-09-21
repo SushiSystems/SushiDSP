@@ -6,7 +6,7 @@ Phase 1 (§2-§9) implemented in full. §8 (cabinet node) by
 `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`. Phase 2 (§10-§18) implemented by
 `docs/archive/superpowers/plans/2026-09-14-host-gui-phase2.md`, except §12's Pitch field, which is
 drawn disabled until the track pitch-shift plan lands; its manual acceptance and the other
-open items are in `design/REMAINING_WORK.md`'s Host section.
+open items are in `docs/design/REMAINING_WORK.md`'s Host section.
 
 Raw findings this spec is built from: `docs/archive/notes/2026-09-10-gui-ux-session-notes.md`.
 Reference screenshots for Phase 1: `image.png`, `image1.png` (AmpliTube 5, the layout
@@ -32,7 +32,7 @@ collapsible panel with a bounded track count.
 
 ## §2 Audio-device panel
 
-**Implemented** by Task 1 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+**Implemented** by Task 1 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 - Opens **centered** in the main window, not pinned to the top-left corner.
 - **Correction (2026-09-10):** the device list was assumed to hardcode a device name
@@ -52,7 +52,7 @@ collapsible panel with a bounded track count.
 
 ## §3 Main window layout (AmpliTube-5-style)
 
-**Implemented** by Tasks 3 and 4 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+**Implemented** by Tasks 3 and 4 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 Reference: `image1.png`.
 
@@ -75,7 +75,7 @@ Reference: `image1.png`.
 
 ## §4 Splitter / mixer automation
 
-**Implemented** by Task 5 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+**Implemented** by Task 5 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 - The user never adds a splitter or mixer node by hand.
 - The rig design view's splitter-style picker (§3, bottom) offers the available splitter
@@ -92,7 +92,7 @@ Reference: `image1.png`.
 
 ## §5 Transport / metronome bar
 
-**Implemented** by Tasks 2 and 4 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+**Implemented** by Tasks 2 and 4 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
 
@@ -107,7 +107,7 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
 
 ## §6 Mini-DAW panel
 
-**Implemented** by Task 6 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+**Implemented** by Task 6 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 - Functionally unchanged from the current REC/Play/Stop/Loop/lane-view behavior
   (`image4.png`).
@@ -118,15 +118,15 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
     fixed compile-time constant of exactly 8 throughout the host
     (`SushiDSP::TrackPlayer::kMaxTracks = 8` in
     `modules/nodes/capture/include/SushiDSP/capture/TrackPlayer.hpp:51`, mirrored by
-    `RigController::tracks_` as `std::array<TrackInfo, TrackPlayer::kMaxTracks>` in
-    `apps/host_gui/RigController.hpp:634`), with no add/remove-track API anywhere in
+    `SessionTimeline::tracks_` as `std::array<TrackInfo, TrackPlayer::kMaxTracks>` in
+    `apps/host_gui/SessionTimeline.hpp`), with no add/remove-track API anywhere in
     `RigController` or `ArrangementView` — `ArrangementView` always draws exactly eight
     lane headers. Fixed-8 already matches the intended cap; **no add/remove-track
     feature is added in this pass.**
 
 ## §7 Remove the file/folder browser panel
 
-**Implemented** by Task 3 of `docs/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+**Implemented** by Task 3 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
 
 - The panel shown in `image5.png` ("Drag a take or a song onto a lane, or c[lick...]" /
   "(no folder)" file browser, currently under the gear list in `image4.png`) is **removed
@@ -147,7 +147,7 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
   (`include/SushiDSP/math/PartitionedConvolution.hpp`,
   `include/SushiDSP/math/StreamingConvolution.hpp`) were owned by whichever amp hosted them.
 - **Decision (owner, 2026-09-10), implemented:** `sushidsp.cabinet` is now the only cabinet
-  path, delivered by `docs/superpowers/plans/2026-09-10-cabinet-node.md` (all 8 tasks
+  path, delivered by `docs/archive/superpowers/plans/2026-09-10-cabinet-node.md` (all 8 tasks
   complete). The amp node classes (`modules/jcm800`, `modules/peavey5150`,
   `modules/diezel_vh4`, `modules/mesa_mark2c`) dropped their `ICabinetHost` implementation
   and the built-in convolution it drove; `ICabinetHost` is now the interface
@@ -244,7 +244,7 @@ the same column group have changed.
 
 ## §14 Gear browser: list or grid, user's choice
 
-Closes the open item in `design/REMAINING_WORK.md`'s Host section ("gear-browser grid").
+Closes the open item in `docs/design/REMAINING_WORK.md`'s Host section ("gear-browser grid").
 The browser keeps §3's search field and type tabs (All/Amps/Pedals/Cabs) and adds a
 two-button toggle in its header: **list** (§3's original vertical, full-width card per row)
 and **grid** (a wrapping grid of compact icon tiles, name only, no subtitle). Both modes

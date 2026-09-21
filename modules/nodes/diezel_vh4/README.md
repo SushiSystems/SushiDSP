@@ -5,7 +5,7 @@
 > approximation.**
 
 That is the verdict of
-[`docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md`](../../docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md),
+[`docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md`](../../docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md),
 and this module is built from that dossier and nothing else. Every section number below points
 into it. One `IAudioNode`, mono in and mono out, registered as `sushidsp.diezel_vh4` with ten
 parameters: Gain, Bass, Middle, Treble, Volume, Deep, Presence, Master, Input Trim and Output.
@@ -208,7 +208,7 @@ knobs untouched and a −12 dBFS 1 kHz sine in, they read (2026-09-07):
 | V4a | 1.1443 V |
 | Phase inverter | 15.9062 V |
 
-Since DA5 (`docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` §3) no solver
+Since DA5 (`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` §3) no solver
 fence holds a grid: V3a's 25.3 V is 180.8 V of headroom to the supply over its gain of 71.4, the
 point at which its plate ceiling has saturated, and the inverter's 15.9 V is its grid pulled
 through the 470 kΩ source into the 150 kΩ conducting slope of the Norman law, with its 117.4 V

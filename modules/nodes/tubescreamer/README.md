@@ -12,7 +12,7 @@ repeating the spec's figure as fact. This file records what the code in this dir
 
 `TubeScreamerCircuits.hpp` describes the netlists node for node against
 [`docs/reference/spice/ts_clip/README.md`](../../docs/reference/spice/ts_clip/README.md) and
-`ts_tone/README.md`, because the committed reference CSVs from those schematics are what the
+`docs/reference/spice/ts_tone/README.md`, because the committed reference CSVs from those schematics are what the
 block tests null against — a value drifting from its README source makes those nulls
 meaningless.
 
@@ -44,7 +44,7 @@ latency.
 `LinearPort`-style port. At the shipping 4x rate, `AdaaDiodePairPort` nulls further from the
 reference circuit than the plain port does, so the smaller alias floor it would buy costs more
 total error than it saves — see
-[`docs/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`](../../docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md),
+[`docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`](../../docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md),
 "Model corrections D6c C2, The verdict". Wiring it in would need one more line in `reset()`
 (`clip_port_.reset()`) beyond the declaration already present.
 

@@ -5,7 +5,7 @@ PRE GAIN, LOW, MID, HIGH, POST GAIN, RESONANCE, PRESENCE, plus the input trim an
 every amplifier module carries.
 
 Every component value comes from
-[`docs/reference/research/2026-09-06-peavey-5150-design-dossier.md`](../../docs/archive/research/2026-09-06-peavey-5150-design-dossier.md),
+[`docs/archive/research/2026-09-06-peavey-5150-design-dossier.md`](../../docs/archive/research/2026-09-06-peavey-5150-design-dossier.md),
 and the code cites the section each one is read from. This file records what the module does and,
 more to the point, every place where it does something the dossier does not say outright.
 
@@ -169,7 +169,7 @@ frequency, so each corner is placed where the plateau has already arrived. Prese
 
 **Interstage level staging, removed.** The module carried seven scalars, one per link, plus an
 eighth that lifted the phase inverter's output by 28.62 into the power tubes. All eight are gone,
-deleted by `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. Each `TriodeStage` now
+deleted by `docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. Each `TriodeStage` now
 runs the seven-argument constructor with a `PlateSwing` solved from §3's DC table, so the plate
 saturates where the real plate does instead of running to ±320 V, and the dossier's dividers reach
 the 6L6GC grids at face value in volts. `kPhaseInverterToPowerTubeAttenuation` 0.8617 is the last

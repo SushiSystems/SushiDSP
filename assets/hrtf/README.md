@@ -15,7 +15,7 @@ database into this flat file once, on a developer's machine, and `HrtfSetLoader`
   the repository, so anything with a non-redistributable or non-commercial clause cannot go
   here.
 - The byte layout `tools/dsp/convert_hrtf.py` writes and
-  `docs/superpowers/specs/2026-09-08-room-acoustics-design.md` §9.3 fixes: magic `SDHRTF\0\0`,
+  `docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md` §9.3 fixes: magic `SDHRTF\0\0`,
   version 1, then the header's sample rate, direction count, tap count, decoder order and
   flags, then one record per direction, then the Ambisonic decoder, then the diffuse-field
   average per ear. Little-endian `float32` throughout.

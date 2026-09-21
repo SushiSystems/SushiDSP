@@ -18,7 +18,7 @@ rule: `GoldenFile.hpp`. Tolerance: RMS residual <= -80 dB.
 | dd3_48k/96k | DR2 Task 2.6, 2026-09-07 | first pin; DD-3 variable-rate loop with the 8x-substepped NE570 rectifier (`9ba392a`), mode M / TIME 0.4 / F.BACK 0.45 |
 | tube_screamer_48k/96k | D6c Task 8, 2026-09-07 | TubeScreamer rebuilt on the ts_clip and ts_tone DK blocks inside one 4x region (spec D6c); the memoryless clipper, the 20 Hz input biquad and the LP/HP tone crossfade are gone, and kLevelUnityGain is re-calibrated 1.1078783 -> 0.6942987 against the measured chain |
 
-| jcm800, peavey5150, mesa_mark2c, diezel_vh4 (48k/96k) | DA4, 2026-09-07 | plate-swing TriodeStage, level staging removed, LTP degeneration, power-grid scale, first-order couplings, corrected long-tailed pair with the shunt form, shared AC tail and local mu (spec `docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`); JCM800 alias floor -43.4 -> -6.7 dB, known issue |
+| jcm800, peavey5150, mesa_mark2c, diezel_vh4 (48k/96k) | DA4, 2026-09-07 | plate-swing TriodeStage, level staging removed, LTP degeneration, power-grid scale, first-order couplings, corrected long-tailed pair with the shunt form, shared AC tail and local mu (spec `docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`); JCM800 alias floor -43.4 -> -6.7 dB, known issue |
 | mesa_mark2c_48k/96k | v0.1.0 phase A3, 2026-09-20 | the IIC+'s tone stack is terminated by V1A's 44 k plate impedance and Volume 1's 1 M, which the model omitted; residual against the old pin -28.2 dB, default peak still inside the -7 to -5 dBFS window so kMasterUnityGain is unchanged (plan `docs/agent/2026_09_20_V0_1_0_RELEASE/PLAN.md`) |
 
 Regenerate with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row here. That
