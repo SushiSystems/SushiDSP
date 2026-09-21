@@ -697,66 +697,58 @@ namespace SushiDSP
             || std::fabs(resonance_.target() - applied_resonance_) > kCoefficientEpsilon;
     }
 
-    float Peavey5150::get_parameter(const char* id) const
+    const ParameterTable<Peavey5150, 9>& Peavey5150::parameters()
     {
-        if (std::strcmp(id, "pre_gain") == 0) return pre_gain_.target();
-        if (std::strcmp(id, "low") == 0) return low_.target();
-        if (std::strcmp(id, "mid") == 0) return mid_.target();
-        if (std::strcmp(id, "high") == 0) return high_.target();
-        if (std::strcmp(id, "post_gain") == 0) return post_gain_db_;
-        if (std::strcmp(id, "resonance") == 0) return resonance_.target();
-        if (std::strcmp(id, "presence") == 0) return presence_.target();
-        if (std::strcmp(id, "input_trim") == 0) return input_trim_db_;
-        if (std::strcmp(id, "output") == 0) return output_db_;
-        return 0.0f;
+        // The order is a contract: a host addresses these by index and a preset written by one
+        // build is read back by another, so rows are appended, never reordered or removed.
+        static const ParameterTable<Peavey5150, 9> table{ {{
+            { { "pre_gain", "Pre Gain", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Peavey5150& n, float v) { n.set_pre_gain(v); },
+              [](const Peavey5150& n) { return n.pre_gain_.target(); } },
+            { { "low", "Low", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Peavey5150& n, float v) { n.set_low(v); },
+              [](const Peavey5150& n) { return n.low_.target(); } },
+            { { "mid", "Mid", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Peavey5150& n, float v) { n.set_mid(v); },
+              [](const Peavey5150& n) { return n.mid_.target(); } },
+            { { "high", "High", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Peavey5150& n, float v) { n.set_high(v); },
+              [](const Peavey5150& n) { return n.high_.target(); } },
+            { { "post_gain", "Post Gain", kMinPostGainDb, kMaxPostGainDb, 0.0f,
+                ParamKind::Decibel, "dB" },
+              [](Peavey5150& n, float v) { n.set_post_gain(v); },
+              [](const Peavey5150& n) { return n.post_gain_db_; } },
+            { { "resonance", "Resonance", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Peavey5150& n, float v) { n.set_resonance(v); },
+              [](const Peavey5150& n) { return n.resonance_.target(); } },
+            { { "presence", "Presence", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Peavey5150& n, float v) { n.set_presence(v); },
+              [](const Peavey5150& n) { return n.presence_.target(); } },
+            { { "input_trim", "Input Trim", kMinInputTrimDb, kMaxInputTrimDb, 0.0f,
+                ParamKind::Decibel, "dB" },
+              [](Peavey5150& n, float v) { n.set_input_trim(v); },
+              [](const Peavey5150& n) { return n.input_trim_db_; } },
+            { { "output", "Output", kMinOutputDb, kMaxOutputDb, 0.0f, ParamKind::Decibel, "dB" },
+              [](Peavey5150& n, float v) { n.set_output(v); },
+              [](const Peavey5150& n) { return n.output_db_; } },
+        }} };
+        return table;
     }
+
+    float Peavey5150::get_parameter(const char* id) const { return parameters().read(*this, id); }
 
     void Peavey5150::set_parameter_for_control_thread(const char* id, float value)
     {
-        if (std::strcmp(id, "pre_gain") == 0) { set_pre_gain(value); return; }
-        if (std::strcmp(id, "low") == 0) { set_low(value); return; }
-        if (std::strcmp(id, "mid") == 0) { set_mid(value); return; }
-        if (std::strcmp(id, "high") == 0) { set_high(value); return; }
-        if (std::strcmp(id, "post_gain") == 0) { set_post_gain(value); return; }
-        if (std::strcmp(id, "resonance") == 0) { set_resonance(value); return; }
-        if (std::strcmp(id, "presence") == 0) { set_presence(value); return; }
-        if (std::strcmp(id, "input_trim") == 0) { set_input_trim(value); return; }
-        if (std::strcmp(id, "output") == 0) { set_output(value); return; }
+        parameters().write(*this, id, value);
     }
 
     void Peavey5150::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
-        switch (index)
-        {
-        case 0: set_pre_gain(value); break;
-        case 1: set_low(value); break;
-        case 2: set_mid(value); break;
-        case 3: set_high(value); break;
-        case 4: set_post_gain(value); break;
-        case 5: set_resonance(value); break;
-        case 6: set_presence(value); break;
-        case 7: set_input_trim(value); break;
-        case 8: set_output(value); break;
-        default: break;
-        }
+        parameters().write(*this, index, value);
     }
 
     namespace
     {
-        // The order is a contract: a host addresses these by index and a preset written by one
-        // build is read back by another, so entries are appended - never reordered or removed.
-        constexpr ParameterDescriptor kPeavey5150Parameters[] = {
-            { "pre_gain",   "Pre Gain",   0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "low",        "Low",        0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "mid",        "Mid",        0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "high",       "High",       0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "post_gain",  "Post Gain",  kMinPostGainDb,   kMaxPostGainDb,   0.0f, ParamKind::Decibel, "dB" },
-            { "resonance",  "Resonance",  0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "presence",   "Presence",   0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "input_trim", "Input Trim", kMinInputTrimDb,  kMaxInputTrimDb,  0.0f, ParamKind::Decibel, "dB" },
-            { "output",     "Output",     kMinOutputDb,     kMaxOutputDb,     0.0f, ParamKind::Decibel, "dB" },
-        };
-
         std::unique_ptr<IAudioNode> make_peavey5150(const PrepareInfo&)
         {
             return std::make_unique<Peavey5150>();
@@ -768,8 +760,8 @@ namespace SushiDSP
         static const NodeDescriptor descriptor{
             "sushidsp.peavey5150",
             "5150",
-            kPeavey5150Parameters,
-            9,
+            Peavey5150::parameters().descriptors(),
+            Peavey5150::parameters().count(),
             PortLayout{ 1, 1 },
             &make_peavey5150,
         };

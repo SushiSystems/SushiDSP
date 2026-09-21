@@ -25,6 +25,7 @@
 
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
+#include "SushiDSP/core/ParameterTable.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
 
 namespace SushiDSP
@@ -69,6 +70,12 @@ namespace SushiDSP
         /// @brief This pan node's registered type id.
         /// @return "sushidsp.pan".
         const char* type_id() const override;
+
+        /// @brief This node's parameters, one row each, feeding the descriptor and both
+        /// dispatches. Declared on the class rather than at namespace scope so a row's
+        /// lambdas can reach the private field a knob actually lives in.
+        /// @return The table, built once on first use.
+        static const ParameterTable<PanNode, 1>& parameters();
 
     private:
         /// @brief Recomputes gain_left_/gain_right_ from a moved pan value and updates the

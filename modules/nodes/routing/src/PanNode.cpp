@@ -28,7 +28,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <memory>
 
 namespace SushiDSP
@@ -88,35 +87,32 @@ namespace SushiDSP
 
     void PanNode::reset() {}
 
-    float PanNode::get_parameter(const char* id) const
+    const ParameterTable<PanNode, 1>& PanNode::parameters()
     {
-        return std::strcmp(id, "pan") == 0 ? pan_.target() : 0.0f;
+        static const ParameterTable<PanNode, 1> table{ {{
+            { { "pan", "Pan", -1.0f, 1.0f, 0.0f, ParamKind::Linear, "" },
+              [](PanNode& n, float v) { n.pan_.set_target(std::max(-1.0f, std::min(1.0f, v))); },
+              [](const PanNode& n) { return n.pan_.target(); } },
+        }} };
+        return table;
     }
+
+    float PanNode::get_parameter(const char* id) const { return parameters().read(*this, id); }
 
     void PanNode::set_parameter_for_control_thread(const char* id, float value)
     {
-        if (std::strcmp(id, "pan") == 0)
-        {
-            pan_.set_target(std::max(-1.0f, std::min(1.0f, value)));
-        }
+        parameters().write(*this, id, value);
     }
 
     void PanNode::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
-        if (index == 0)
-        {
-            pan_.set_target(std::max(-1.0f, std::min(1.0f, value)));
-        }
+        parameters().write(*this, index, value);
     }
 
     const char* PanNode::type_id() const { return "sushidsp.pan"; }
 
     namespace
     {
-        constexpr ParameterDescriptor kPanParameters[] = {
-            { "pan", "Pan", -1.0f, 1.0f, 0.0f, ParamKind::Linear, "" },
-        };
-
         std::unique_ptr<IAudioNode> make_pan(const PrepareInfo&)
         {
             return std::make_unique<PanNode>();
@@ -128,8 +124,8 @@ namespace SushiDSP
         static const NodeDescriptor descriptor{
             "sushidsp.pan",
             "Pan",
-            kPanParameters,
-            1,
+            PanNode::parameters().descriptors(),
+            PanNode::parameters().count(),
             PortLayout{ 1, 2 },
             &make_pan,
         };

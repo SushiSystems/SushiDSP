@@ -31,6 +31,7 @@
 #include "SushiDSP/core/Calibration.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
+#include "SushiDSP/core/ParameterTable.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/SmoothedParameter.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamerCircuits.hpp"
@@ -102,6 +103,12 @@ namespace SushiDSP
         /// @param index The parameter's index in tube_screamer_descriptor().
         /// @param value The new target value, in that parameter's own units.
         void set_parameter_for_audio_thread(std::uint16_t index, float value) override;
+
+        /// @brief This node's parameters, one row each, feeding the descriptor and both
+        /// dispatches. Declared on the class rather than at namespace scope so a row's
+        /// lambdas can reach the private field a knob actually lives in.
+        /// @return The table, built once on first use.
+        static const ParameterTable<TubeScreamer, 4>& parameters();
 
         /// @brief Linear output gain at 0 dB on the Level knob, a -3.17 dB trim. Re-calibrated in
         /// D6c against the measured DK chain at 4x, where a -12 dBFS 82 Hz sine came out at

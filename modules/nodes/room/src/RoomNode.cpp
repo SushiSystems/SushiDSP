@@ -64,28 +64,12 @@ namespace SushiDSP::room
         /// far ear's ITD, 2.7 ms at 48 kHz against Woodworth's 0.66 ms.
         constexpr std::uint32_t kItdMarginFrames = 128;
 
-        constexpr std::uint16_t kMixIndex = 0;
-        constexpr std::uint16_t kLevelIndex = 1;
-        constexpr std::uint16_t kListenerIndex = 2;
-        constexpr std::uint16_t kDirectDelayIndex = 3;
-        constexpr std::uint16_t kUnknownIndex = 0xFFFF;
-
         constexpr float kDefaultMix = 1.0f;
         constexpr float kDefaultLevelDb = 0.0f;
         constexpr float kDefaultListener = 0.0f;
         constexpr float kDefaultDirectDelay = 0.0f;
         constexpr float kMinLevelDb = -24.0f;
         constexpr float kMaxLevelDb = 24.0f;
-
-        /// @brief Returns the descriptor index of an id, or kUnknownIndex.
-        std::uint16_t parameter_index_for(const char* id) noexcept
-        {
-            if (std::strcmp(id, "mix") == 0) return kMixIndex;
-            if (std::strcmp(id, "level") == 0) return kLevelIndex;
-            if (std::strcmp(id, "listener") == 0) return kListenerIndex;
-            if (std::strcmp(id, "direct_delay") == 0) return kDirectDelayIndex;
-            return kUnknownIndex;
-        }
 
         /// @brief Returns the frames the longest t_c the scene bounds allow takes at one rate:
         /// (order + 1) * kMaxDimension / c, 8397 at 48 kHz.
@@ -1064,26 +1048,45 @@ namespace SushiDSP::room
         return { 1, 2 };
     }
 
-    float RoomNode::get_parameter(const char* id) const
+    const ParameterTable<RoomNode, 4>& RoomNode::parameters()
     {
-        switch (parameter_index_for(id))
-        {
-            case kMixIndex: return mix_.target();
-            case kLevelIndex: return level_db_;
-            case kListenerIndex: return listener_.load(std::memory_order_relaxed);
-            case kDirectDelayIndex: return direct_delay_.load(std::memory_order_relaxed);
-            default: return 0.0f;
-        }
+        static const ParameterTable<RoomNode, 4> table{ {{
+            { { "mix", "Mix", 0.0f, 1.0f, kDefaultMix, ParamKind::Linear, "" },
+              [](RoomNode& n, float v) { n.mix_.set_target(std::clamp(v, 0.0f, 1.0f)); },
+              [](const RoomNode& n) { return n.mix_.target(); } },
+            { { "level", "Level", kMinLevelDb, kMaxLevelDb, kDefaultLevelDb, ParamKind::Decibel,
+                "dB" },
+              [](RoomNode& n, float v) {
+                  n.level_db_ = std::clamp(v, kMinLevelDb, kMaxLevelDb);
+                  n.level_.set_target(decibels_to_gain(n.level_db_));
+              },
+              [](const RoomNode& n) { return n.level_db_; } },
+            { { "listener", "Listener", 0.0f, 1.0f, kDefaultListener, ParamKind::Choice, "" },
+              [](RoomNode& n, float v) {
+                  n.listener_.store(std::clamp(std::round(v), 0.0f, 1.0f),
+                                    std::memory_order_relaxed);
+              },
+              [](const RoomNode& n) { return n.listener_.load(std::memory_order_relaxed); } },
+            { { "direct_delay", "Direct delay", 0.0f, 1.0f, kDefaultDirectDelay,
+                ParamKind::Choice, "" },
+              [](RoomNode& n, float v) {
+                  n.direct_delay_.store(std::clamp(std::round(v), 0.0f, 1.0f),
+                                        std::memory_order_relaxed);
+              },
+              [](const RoomNode& n) { return n.direct_delay_.load(std::memory_order_relaxed); } },
+        }} };
+        return table;
     }
+
+    float RoomNode::get_parameter(const char* id) const { return parameters().read(*this, id); }
 
     void RoomNode::set_parameter_for_control_thread(const char* id, float value)
     {
-        const std::uint16_t index = parameter_index_for(id);
-        set_parameter_for_audio_thread(index, value);
+        parameters().write(*this, id, value);
         const bool listener_moved =
-            index == kListenerIndex && listener_kind() != published_listener_;
+            std::strcmp(id, "listener") == 0 && listener_kind() != published_listener_;
         const bool delay_moved =
-            index == kDirectDelayIndex && direct_delay_physical() != published_physical_;
+            std::strcmp(id, "direct_delay") == 0 && direct_delay_physical() != published_physical_;
         if (prepared_ && (listener_moved || delay_moved))
         {
             std::string reason;
@@ -1093,26 +1096,7 @@ namespace SushiDSP::room
 
     void RoomNode::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
-        switch (index)
-        {
-            case kMixIndex:
-                mix_.set_target(std::clamp(value, 0.0f, 1.0f));
-                return;
-            case kLevelIndex:
-                level_db_ = std::clamp(value, kMinLevelDb, kMaxLevelDb);
-                level_.set_target(decibels_to_gain(level_db_));
-                return;
-            case kListenerIndex:
-                listener_.store(std::clamp(std::round(value), 0.0f, 1.0f),
-                                std::memory_order_relaxed);
-                return;
-            case kDirectDelayIndex:
-                direct_delay_.store(std::clamp(std::round(value), 0.0f, 1.0f),
-                                    std::memory_order_relaxed);
-                return;
-            default:
-                return;
-        }
+        parameters().write(*this, index, value);
     }
 
     void RoomNode::reset()
@@ -1344,15 +1328,6 @@ namespace SushiDSP::room
 
     namespace
     {
-        constexpr ParameterDescriptor kRoomParameters[] = {
-            { "mix", "Mix", 0.0f, 1.0f, kDefaultMix, ParamKind::Linear, "" },
-            { "level", "Level", kMinLevelDb, kMaxLevelDb, kDefaultLevelDb, ParamKind::Decibel,
-              "dB" },
-            { "listener", "Listener", 0.0f, 1.0f, kDefaultListener, ParamKind::Choice, "" },
-            { "direct_delay", "Direct delay", 0.0f, 1.0f, kDefaultDirectDelay,
-              ParamKind::Choice, "" },
-        };
-
         std::unique_ptr<IAudioNode> make_room(const PrepareInfo&)
         {
             return std::make_unique<RoomNode>();
@@ -1364,8 +1339,8 @@ namespace SushiDSP::room
         static const NodeDescriptor descriptor{
             "sushidsp.room",
             "Room",
-            kRoomParameters,
-            4,
+            RoomNode::parameters().descriptors(),
+            RoomNode::parameters().count(),
             PortLayout{ 1, 2 },
             &make_room,
         };

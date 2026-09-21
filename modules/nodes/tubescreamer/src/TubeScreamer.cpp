@@ -43,17 +43,6 @@ namespace SushiDSP
         constexpr float kMaxLevelDecibels = 12.0f;
         constexpr float kMinInputTrimDecibels = -24.0f;
         constexpr float kMaxInputTrimDecibels = 24.0f;
-
-        constexpr std::uint16_t kUnknownParameterIndex = 0xFFFF;
-
-        std::uint16_t parameter_index_for(const char* id)
-        {
-            if (std::strcmp(id, "drive") == 0) return 0;
-            if (std::strcmp(id, "tone") == 0) return 1;
-            if (std::strcmp(id, "level") == 0) return 2;
-            if (std::strcmp(id, "input_trim") == 0) return 3;
-            return kUnknownParameterIndex;
-        }
     }
 
     TubeScreamer::TubeScreamer() = default;
@@ -205,46 +194,41 @@ namespace SushiDSP
         input_trim_gain_.set_target(decibels_to_gain(input_trim_db_));
     }
 
-    float TubeScreamer::get_parameter(const char* id) const
+    const ParameterTable<TubeScreamer, 4>& TubeScreamer::parameters()
     {
-        switch (parameter_index_for(id))
-        {
-            case 0: return drive_.target();
-            case 1: return tone_.target();
-            case 2: return level_db_;
-            case 3: return input_trim_db_;
-            default: return 0.0f;
-        }
+        static const ParameterTable<TubeScreamer, 4> table{ {{
+            { { "drive", "Drive", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](TubeScreamer& n, float v) { n.set_drive(v); },
+              [](const TubeScreamer& n) { return n.drive_.target(); } },
+            { { "tone", "Tone", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](TubeScreamer& n, float v) { n.set_tone(v); },
+              [](const TubeScreamer& n) { return n.tone_.target(); } },
+            { { "level", "Level", kMinLevelDecibels, kMaxLevelDecibels, 0.0f,
+                ParamKind::Decibel, "dB" },
+              [](TubeScreamer& n, float v) { n.set_level(v); },
+              [](const TubeScreamer& n) { return n.level_db_; } },
+            { { "input_trim", "Input Trim", kMinInputTrimDecibels, kMaxInputTrimDecibels, 0.0f,
+                ParamKind::Decibel, "dB" },
+              [](TubeScreamer& n, float v) { n.set_input_trim(v); },
+              [](const TubeScreamer& n) { return n.input_trim_db_; } },
+        }} };
+        return table;
     }
+
+    float TubeScreamer::get_parameter(const char* id) const { return parameters().read(*this, id); }
 
     void TubeScreamer::set_parameter_for_control_thread(const char* id, float value)
     {
-        set_parameter_for_audio_thread(parameter_index_for(id), value);
+        parameters().write(*this, id, value);
     }
 
     void TubeScreamer::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
-        switch (index)
-        {
-            case 0: set_drive(value); return;
-            case 1: set_tone(value); return;
-            case 2: set_level(value); return;
-            case 3: set_input_trim(value); return;
-            default: return;
-        }
+        parameters().write(*this, index, value);
     }
 
     namespace
     {
-        constexpr ParameterDescriptor kTubeScreamerParameters[] = {
-            { "drive",      "Drive",        0.0f,  1.0f, 0.5f, ParamKind::Linear,  "" },
-            { "tone",       "Tone",         0.0f,  1.0f, 0.5f, ParamKind::Linear,  "" },
-            { "level",      "Level",      kMinLevelDecibels, kMaxLevelDecibels, 0.0f,
-              ParamKind::Decibel, "dB" },
-            { "input_trim", "Input Trim", kMinInputTrimDecibels, kMaxInputTrimDecibels, 0.0f,
-              ParamKind::Decibel, "dB" },
-        };
-
         std::unique_ptr<IAudioNode> make_tube_screamer(const PrepareInfo&)
         {
             return std::make_unique<TubeScreamer>();
@@ -256,8 +240,8 @@ namespace SushiDSP
         static const NodeDescriptor descriptor{
             "sushidsp.tubescreamer",
             "Tube Screamer",
-            kTubeScreamerParameters,
-            4,
+            TubeScreamer::parameters().descriptors(),
+            TubeScreamer::parameters().count(),
             PortLayout{ 1, 1 },
             &make_tube_screamer,
         };

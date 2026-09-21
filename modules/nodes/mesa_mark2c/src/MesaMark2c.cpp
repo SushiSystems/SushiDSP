@@ -777,104 +777,86 @@ namespace SushiDSP
         }
     }
 
-    float MesaMark2c::get_parameter(const char* id) const
+    const ParameterTable<MesaMark2c, 18>& MesaMark2c::parameters()
     {
-        if (std::strcmp(id, "volume_1") == 0) return volume_1_.target();
-        if (std::strcmp(id, "treble") == 0) return treble_.target();
-        if (std::strcmp(id, "bass") == 0) return bass_.target();
-        if (std::strcmp(id, "middle") == 0) return middle_.target();
-        if (std::strcmp(id, "lead_drive") == 0) return lead_drive_.target();
-        if (std::strcmp(id, "lead_master") == 0) return lead_master_.target();
-        if (std::strcmp(id, "master_1") == 0) return master_1_db_;
-        if (std::strcmp(id, "presence") == 0) return presence_.target();
-        if (std::strcmp(id, "eq_80") == 0) return equalizer_[0].target();
-        if (std::strcmp(id, "eq_240") == 0) return equalizer_[1].target();
-        if (std::strcmp(id, "eq_750") == 0) return equalizer_[2].target();
-        if (std::strcmp(id, "eq_2200") == 0) return equalizer_[3].target();
-        if (std::strcmp(id, "eq_6600") == 0) return equalizer_[4].target();
-        if (std::strcmp(id, "bright") == 0) return bright_ ? 1.0f : 0.0f;
-        if (std::strcmp(id, "deep") == 0) return deep_ ? 1.0f : 0.0f;
-        if (std::strcmp(id, "eq_mode") == 0) return static_cast<float>(equalizer_mode_);
-        if (std::strcmp(id, "input_trim") == 0) return input_trim_db_;
-        if (std::strcmp(id, "output") == 0) return output_db_;
-        return 0.0f;
+        // The order is a contract: a host addresses these by index and a saved preset reads them
+        // back by index, so rows are appended, never reordered or removed.
+        static const ParameterTable<MesaMark2c, 18> table{ {{
+            { { "volume_1", "Volume 1", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_volume_1(v); },
+              [](const MesaMark2c& n) { return n.volume_1_.target(); } },
+            { { "treble", "Treble", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_treble(v); },
+              [](const MesaMark2c& n) { return n.treble_.target(); } },
+            { { "bass", "Bass", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_bass(v); },
+              [](const MesaMark2c& n) { return n.bass_.target(); } },
+            { { "middle", "Middle", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_middle(v); },
+              [](const MesaMark2c& n) { return n.middle_.target(); } },
+            { { "lead_drive", "Lead Drive", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_lead_drive(v); },
+              [](const MesaMark2c& n) { return n.lead_drive_.target(); } },
+            { { "lead_master", "Lead Master", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_lead_master(v); },
+              [](const MesaMark2c& n) { return n.lead_master_.target(); } },
+            { { "master_1", "Master 1", kMinMasterDb, kMaxMasterDb, 0.0f, ParamKind::Decibel, "dB" },
+              [](MesaMark2c& n, float v) { n.set_master_1(v); },
+              [](const MesaMark2c& n) { return n.master_1_db_; } },
+            { { "presence", "Presence", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_presence(v); },
+              [](const MesaMark2c& n) { return n.presence_.target(); } },
+            { { "eq_80", "EQ 80", -1.0f, 1.0f, 0.0f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_equalizer_band(0, v); },
+              [](const MesaMark2c& n) { return n.equalizer_[0].target(); } },
+            { { "eq_240", "EQ 240", -1.0f, 1.0f, 0.0f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_equalizer_band(1, v); },
+              [](const MesaMark2c& n) { return n.equalizer_[1].target(); } },
+            { { "eq_750", "EQ 750", -1.0f, 1.0f, 0.0f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_equalizer_band(2, v); },
+              [](const MesaMark2c& n) { return n.equalizer_[2].target(); } },
+            { { "eq_2200", "EQ 2200", -1.0f, 1.0f, 0.0f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_equalizer_band(3, v); },
+              [](const MesaMark2c& n) { return n.equalizer_[3].target(); } },
+            { { "eq_6600", "EQ 6600", -1.0f, 1.0f, 0.0f, ParamKind::Linear, "" },
+              [](MesaMark2c& n, float v) { n.set_equalizer_band(4, v); },
+              [](const MesaMark2c& n) { return n.equalizer_[4].target(); } },
+            { { "input_trim", "Input Trim", kMinInputTrimDb, kMaxInputTrimDb, 0.0f,
+                ParamKind::Decibel, "dB" },
+              [](MesaMark2c& n, float v) { n.set_input_trim(v); },
+              [](const MesaMark2c& n) { return n.input_trim_db_; } },
+            { { "output", "Output", kMinOutputDb, kMaxOutputDb, 0.0f, ParamKind::Decibel, "dB" },
+              [](MesaMark2c& n, float v) { n.set_output(v); },
+              [](const MesaMark2c& n) { return n.output_db_; } },
+            // The panel switches are appended rather than placed beside the knobs they sit next
+            // to, because the index order is what a saved preset addresses these by.
+            { { "bright", "Pull Bright", 0.0f, 1.0f, 0.0f, ParamKind::Boolean, "" },
+              [](MesaMark2c& n, float v) { n.set_bright(v >= 0.5f); },
+              [](const MesaMark2c& n) { return n.bright_ ? 1.0f : 0.0f; } },
+            { { "deep", "Pull Deep", 0.0f, 1.0f, 0.0f, ParamKind::Boolean, "" },
+              [](MesaMark2c& n, float v) { n.set_deep(v >= 0.5f); },
+              [](const MesaMark2c& n) { return n.deep_ ? 1.0f : 0.0f; } },
+            { { "eq_mode", "EQ Switch", 0.0f, 2.0f, 1.0f, ParamKind::Choice, "" },
+              [](MesaMark2c& n, float v) { n.set_equalizer_mode(equalizer_mode_from(v)); },
+              [](const MesaMark2c& n) { return static_cast<float>(n.equalizer_mode_); } },
+        }} };
+        return table;
     }
+
+    float MesaMark2c::get_parameter(const char* id) const { return parameters().read(*this, id); }
 
     void MesaMark2c::set_parameter_for_control_thread(const char* id, float value)
     {
-        if (std::strcmp(id, "volume_1") == 0) { set_volume_1(value); return; }
-        if (std::strcmp(id, "treble") == 0) { set_treble(value); return; }
-        if (std::strcmp(id, "bass") == 0) { set_bass(value); return; }
-        if (std::strcmp(id, "middle") == 0) { set_middle(value); return; }
-        if (std::strcmp(id, "lead_drive") == 0) { set_lead_drive(value); return; }
-        if (std::strcmp(id, "lead_master") == 0) { set_lead_master(value); return; }
-        if (std::strcmp(id, "master_1") == 0) { set_master_1(value); return; }
-        if (std::strcmp(id, "presence") == 0) { set_presence(value); return; }
-        if (std::strcmp(id, "eq_80") == 0) { set_equalizer_band(0, value); return; }
-        if (std::strcmp(id, "eq_240") == 0) { set_equalizer_band(1, value); return; }
-        if (std::strcmp(id, "eq_750") == 0) { set_equalizer_band(2, value); return; }
-        if (std::strcmp(id, "eq_2200") == 0) { set_equalizer_band(3, value); return; }
-        if (std::strcmp(id, "eq_6600") == 0) { set_equalizer_band(4, value); return; }
-        if (std::strcmp(id, "bright") == 0) { set_bright(value >= 0.5f); return; }
-        if (std::strcmp(id, "deep") == 0) { set_deep(value >= 0.5f); return; }
-        if (std::strcmp(id, "eq_mode") == 0) { set_equalizer_mode(equalizer_mode_from(value)); return; }
-        if (std::strcmp(id, "input_trim") == 0) { set_input_trim(value); return; }
-        if (std::strcmp(id, "output") == 0) { set_output(value); return; }
+        parameters().write(*this, id, value);
     }
 
     void MesaMark2c::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
-        switch (index)
-        {
-        case 0: set_volume_1(value); break;
-        case 1: set_treble(value); break;
-        case 2: set_bass(value); break;
-        case 3: set_middle(value); break;
-        case 4: set_lead_drive(value); break;
-        case 5: set_lead_master(value); break;
-        case 6: set_master_1(value); break;
-        case 7: set_presence(value); break;
-        case 8: set_equalizer_band(0, value); break;
-        case 9: set_equalizer_band(1, value); break;
-        case 10: set_equalizer_band(2, value); break;
-        case 11: set_equalizer_band(3, value); break;
-        case 12: set_equalizer_band(4, value); break;
-        case 13: set_input_trim(value); break;
-        case 14: set_output(value); break;
-        case 15: set_bright(value >= 0.5f); break;
-        case 16: set_deep(value >= 0.5f); break;
-        case 17: set_equalizer_mode(equalizer_mode_from(value)); break;
-        default: break;
-        }
+        parameters().write(*this, index, value);
     }
 
     namespace
     {
-        // The order is a contract: a host addresses these by index and a saved preset reads them
-        // back by index, so entries are appended, never reordered or removed.
-        constexpr ParameterDescriptor kMesaMark2cParameters[] = {
-            { "volume_1",    "Volume 1",    0.0f,            1.0f,            0.5f, ParamKind::Linear,  ""   },
-            { "treble",      "Treble",      0.0f,            1.0f,            0.5f, ParamKind::Linear,  ""   },
-            { "bass",        "Bass",        0.0f,            1.0f,            0.5f, ParamKind::Linear,  ""   },
-            { "middle",      "Middle",      0.0f,            1.0f,            0.5f, ParamKind::Linear,  ""   },
-            { "lead_drive",  "Lead Drive",  0.0f,            1.0f,            0.5f, ParamKind::Linear,  ""   },
-            { "lead_master", "Lead Master", 0.0f,            1.0f,            0.5f, ParamKind::Linear,  ""   },
-            { "master_1",    "Master 1",    kMinMasterDb,    kMaxMasterDb,    0.0f, ParamKind::Decibel, "dB" },
-            { "presence",    "Presence",    0.0f,            1.0f,            0.5f, ParamKind::Linear,  ""   },
-            { "eq_80",       "EQ 80",      -1.0f,            1.0f,            0.0f, ParamKind::Linear,  ""   },
-            { "eq_240",      "EQ 240",     -1.0f,            1.0f,            0.0f, ParamKind::Linear,  ""   },
-            { "eq_750",      "EQ 750",     -1.0f,            1.0f,            0.0f, ParamKind::Linear,  ""   },
-            { "eq_2200",     "EQ 2200",    -1.0f,            1.0f,            0.0f, ParamKind::Linear,  ""   },
-            { "eq_6600",     "EQ 6600",    -1.0f,            1.0f,            0.0f, ParamKind::Linear,  ""   },
-            { "input_trim",  "Input Trim",  kMinInputTrimDb, kMaxInputTrimDb, 0.0f, ParamKind::Decibel, "dB" },
-            { "output",      "Output",      kMinOutputDb,    kMaxOutputDb,    0.0f, ParamKind::Decibel, "dB" },
-            // The panel switches are appended rather than placed beside the knobs they sit next
-            // to, because the index order is what a saved preset addresses these by.
-            { "bright",      "Pull Bright", 0.0f,            1.0f,            0.0f, ParamKind::Boolean, ""   },
-            { "deep",        "Pull Deep",   0.0f,            1.0f,            0.0f, ParamKind::Boolean, ""   },
-            { "eq_mode",     "EQ Switch",   0.0f,            2.0f,            1.0f, ParamKind::Choice,  ""   },
-        };
-
         std::unique_ptr<IAudioNode> make_mesa_mark2c(const PrepareInfo&)
         {
             return std::make_unique<MesaMark2c>();
@@ -886,8 +868,8 @@ namespace SushiDSP
         static const NodeDescriptor descriptor{
             "sushidsp.mesa_mark2c",
             "Mark IIC+",
-            kMesaMark2cParameters,
-            static_cast<std::uint16_t>(std::size(kMesaMark2cParameters)),
+            MesaMark2c::parameters().descriptors(),
+            MesaMark2c::parameters().count(),
             PortLayout{ 1, 1 },
             &make_mesa_mark2c,
         };

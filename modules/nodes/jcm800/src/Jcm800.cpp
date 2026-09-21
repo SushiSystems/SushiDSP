@@ -533,62 +533,52 @@ namespace SushiDSP
             || std::fabs(presence_.target() - applied_presence_) > kCoefficientEpsilon;
     }
 
-    float Jcm800::get_parameter(const char* id) const
+    const ParameterTable<Jcm800, 8>& Jcm800::parameters()
     {
-        if (std::strcmp(id, "preamp") == 0) return preamp_.target();
-        if (std::strcmp(id, "master") == 0) return master_db_;
-        if (std::strcmp(id, "bass") == 0) return bass_.target();
-        if (std::strcmp(id, "middle") == 0) return middle_.target();
-        if (std::strcmp(id, "treble") == 0) return treble_.target();
-        if (std::strcmp(id, "presence") == 0) return presence_.target();
-        if (std::strcmp(id, "input_trim") == 0) return input_trim_db_;
-        if (std::strcmp(id, "output") == 0) return output_db_;
-        return 0.0f;
+        static const ParameterTable<Jcm800, 8> table{ {{
+            { { "preamp", "Preamp", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Jcm800& n, float v) { n.set_preamp(v); },
+              [](const Jcm800& n) { return n.preamp_.target(); } },
+            { { "master", "Master", kMinMasterDb, kMaxMasterDb, 0.0f, ParamKind::Decibel, "dB" },
+              [](Jcm800& n, float v) { n.set_master(v); },
+              [](const Jcm800& n) { return n.master_db_; } },
+            { { "bass", "Bass", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Jcm800& n, float v) { n.set_bass(v); },
+              [](const Jcm800& n) { return n.bass_.target(); } },
+            { { "middle", "Middle", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Jcm800& n, float v) { n.set_middle(v); },
+              [](const Jcm800& n) { return n.middle_.target(); } },
+            { { "treble", "Treble", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Jcm800& n, float v) { n.set_treble(v); },
+              [](const Jcm800& n) { return n.treble_.target(); } },
+            { { "presence", "Presence", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
+              [](Jcm800& n, float v) { n.set_presence(v); },
+              [](const Jcm800& n) { return n.presence_.target(); } },
+            { { "input_trim", "Input Trim", kMinInputTrimDb, kMaxInputTrimDb, 0.0f,
+                ParamKind::Decibel, "dB" },
+              [](Jcm800& n, float v) { n.set_input_trim(v); },
+              [](const Jcm800& n) { return n.input_trim_db_; } },
+            { { "output", "Output", kMinOutputDb, kMaxOutputDb, 0.0f, ParamKind::Decibel, "dB" },
+              [](Jcm800& n, float v) { n.set_output(v); },
+              [](const Jcm800& n) { return n.output_db_; } },
+        }} };
+        return table;
     }
+
+    float Jcm800::get_parameter(const char* id) const { return parameters().read(*this, id); }
 
     void Jcm800::set_parameter_for_control_thread(const char* id, float value)
     {
-        if (std::strcmp(id, "preamp") == 0) { set_preamp(value); return; }
-        if (std::strcmp(id, "master") == 0) { set_master(value); return; }
-        if (std::strcmp(id, "bass") == 0) { set_bass(value); return; }
-        if (std::strcmp(id, "middle") == 0) { set_middle(value); return; }
-        if (std::strcmp(id, "treble") == 0) { set_treble(value); return; }
-        if (std::strcmp(id, "presence") == 0) { set_presence(value); return; }
-        if (std::strcmp(id, "input_trim") == 0) { set_input_trim(value); return; }
-        if (std::strcmp(id, "output") == 0) { set_output(value); return; }
+        parameters().write(*this, id, value);
     }
 
     void Jcm800::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
-        switch (index)
-        {
-        case 0: set_preamp(value); break;
-        case 1: set_master(value); break;
-        case 2: set_bass(value); break;
-        case 3: set_middle(value); break;
-        case 4: set_treble(value); break;
-        case 5: set_presence(value); break;
-        case 6: set_input_trim(value); break;
-        case 7: set_output(value); break;
-        default: break;
-        }
+        parameters().write(*this, index, value);
     }
 
     namespace
     {
-        // The order is a contract: a host addresses these by index, and a preset written by one
-        // build is read back by another, so entries are appended - never reordered or removed.
-        constexpr ParameterDescriptor kJcm800Parameters[] = {
-            { "preamp",     "Preamp",     0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "master",     "Master",     kMinMasterDb,     kMaxMasterDb,     0.0f, ParamKind::Decibel, "dB" },
-            { "bass",       "Bass",       0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "middle",     "Middle",     0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "treble",     "Treble",     0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "presence",   "Presence",   0.0f,             1.0f,             0.5f, ParamKind::Linear,  ""   },
-            { "input_trim", "Input Trim", kMinInputTrimDb,  kMaxInputTrimDb,  0.0f, ParamKind::Decibel, "dB" },
-            { "output",     "Output",     kMinOutputDb,     kMaxOutputDb,     0.0f, ParamKind::Decibel, "dB" },
-        };
-
         std::unique_ptr<IAudioNode> make_jcm800(const PrepareInfo&)
         {
             return std::make_unique<Jcm800>();
@@ -600,8 +590,8 @@ namespace SushiDSP
         static const NodeDescriptor descriptor{
             "sushidsp.jcm800",
             "JCM800",
-            kJcm800Parameters,
-            8,
+            Jcm800::parameters().descriptors(),
+            Jcm800::parameters().count(),
             PortLayout{ 1, 1 },
             &make_jcm800,
         };

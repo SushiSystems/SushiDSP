@@ -27,6 +27,7 @@
 
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
+#include "SushiDSP/core/ParameterTable.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 
 namespace SushiDSP
@@ -54,6 +55,12 @@ namespace SushiDSP
         /// @brief This mixer's registered type id.
         /// @return "sushidsp.mixer".
         const char* type_id() const override;
+
+        /// @brief This node's parameters, one row each, feeding the descriptor and both
+        /// dispatches. Declared on the class rather than at namespace scope so a row's
+        /// lambdas can reach the private field a knob actually lives in.
+        /// @return The table, built once on first use.
+        static const ParameterTable<MixerNode, kMaxFanIn>& parameters();
 
     private:
         std::array<float, kMaxFanIn> gains_;
