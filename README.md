@@ -37,6 +37,29 @@ sd doxygen    # the API reference, from the headers
 
 C++17 and CMake 3.20 or newer. Windows and Linux.
 
+## Dependencies
+
+`cli/sushistack.deps.toml` is what SushiDSP needs beyond a compiler: SDL2 for the host's audio
+device, and, optionally, the intel/llvm clang++ it prefers when one is around. GoogleTest comes
+through CMake FetchContent, so nothing has to be installed for the suite.
+
+```bash
+sd setup            # report what is needed and how it would be installed
+sd setup --install  # install it
+```
+
+Inside a SushiStack workspace the command hands the job to `hub install`, which provisions every
+checkout under that workspace from one tree. Outside one it reads the fragment itself and names
+an apt or vcpkg command per entry. It says which of the two ran, every time. SushiStack is an
+accelerator here, not a requirement: SushiDSP builds and tests without it.
+
+One honest limit: `sd setup` reports a dependency as *unknown* rather than missing when the
+fragment declares no check for it. Whether a package is installed is a question only a package
+manager answers, and the command asks none before you pass `--install`.
+
+`sushi-module.toml` is what makes a checkout kept inside a workspace recognisable to `hub`
+without a catalog entry.
+
 ## How the models are held in place
 
 1007 tests run under `sd test`. Twelve of them are golden files: one second of mono float32 per

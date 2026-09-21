@@ -14,6 +14,7 @@ import typer
 
 from .services import diag as diag_svc
 from .services import project as project_svc
+from .services import setup as setup_svc
 from .services.project import BuildType, Suite
 
 app = typer.Typer(
@@ -113,3 +114,10 @@ def run(
     raise typer.Exit(project_svc.run(type, args=extra_args))
 
 
+@app.command("setup")
+def setup(
+    install: bool = typer.Option(
+        False, "--install", help="Run the commands instead of only reporting them."),
+):
+    """Reports the dependencies this checkout needs, and installs them with --install."""
+    raise typer.Exit(setup_svc.setup(install=install))
