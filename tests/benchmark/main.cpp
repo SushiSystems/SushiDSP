@@ -43,6 +43,9 @@
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/dd3/Dd3Delay.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
+#include "SushiDSP/mesa_mark2c/MesaMark2c.hpp"
+#include "SushiDSP/peavey5150/Peavey5150.hpp"
+#include "SushiDSP/diezel_vh4/DiezelVh4.hpp"
 #include "SushiDSP/circuits/stages/TriodeStage.hpp"
 #include "SushiDSP/math/Oversampler.hpp"
 #include "SushiDSP/math/PartitionedConvolution.hpp"
@@ -749,6 +752,42 @@ int main(int argc, char** argv)
             node.set_middle(0.4f);
             node.set_treble(0.7f);
             node.set_presence(0.5f);
+        }), 1.5);
+    }
+    if (selected("MesaMark2c", argc, argv))
+    {
+        print(measure_node<SushiDSP::MesaMark2c>("MesaMark2c (no cabinet)",
+            [](SushiDSP::MesaMark2c& node)
+        {
+            node.set_parameter_for_control_thread("lead_drive", 0.7f);
+            node.set_parameter_for_control_thread("bass", 0.5f);
+            node.set_parameter_for_control_thread("middle", 0.5f);
+            node.set_parameter_for_control_thread("treble", 0.7f);
+            node.set_parameter_for_control_thread("presence", 0.5f);
+        }), 1.5);
+    }
+    if (selected("Peavey5150", argc, argv))
+    {
+        print(measure_node<SushiDSP::Peavey5150>("Peavey5150 (no cabinet)",
+            [](SushiDSP::Peavey5150& node)
+        {
+            node.set_parameter_for_control_thread("pre_gain", 0.7f);
+            node.set_parameter_for_control_thread("low", 0.5f);
+            node.set_parameter_for_control_thread("mid", 0.5f);
+            node.set_parameter_for_control_thread("high", 0.7f);
+            node.set_parameter_for_control_thread("presence", 0.5f);
+        }), 1.5);
+    }
+    if (selected("DiezelVh4", argc, argv))
+    {
+        print(measure_node<SushiDSP::DiezelVh4>("DiezelVh4 (no cabinet)",
+            [](SushiDSP::DiezelVh4& node)
+        {
+            node.set_parameter_for_control_thread("gain", 0.7f);
+            node.set_parameter_for_control_thread("bass", 0.5f);
+            node.set_parameter_for_control_thread("middle", 0.5f);
+            node.set_parameter_for_control_thread("treble", 0.7f);
+            node.set_parameter_for_control_thread("presence", 0.5f);
         }), 1.5);
     }
     if (selected("TubeScreamer", argc, argv))

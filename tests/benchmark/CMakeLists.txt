@@ -16,6 +16,9 @@ target_link_libraries(sushidsp_bench PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
     SushiDSP::jcm800
+    SushiDSP::mesa_mark2c
+    SushiDSP::peavey5150
+    SushiDSP::diezel_vh4
     SushiDSP::capture
     SushiDSP::dd3
     SushiDSP::room

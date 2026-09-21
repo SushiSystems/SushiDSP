@@ -30,6 +30,23 @@ which puts the 5150 and the IIC+ at 167 % of the block at `-O0` and 99 to 102 % 
 closes the rest is the maintainer's: that 16×, a band limit between the stages that lets 8× stay,
 or a higher-order antiderivative.
 
+## The IIC+ and the 5150 leave little headroom at the smallest device buffer
+
+`sushidsp_bench` measures the IIC+ at 7236 ns per output sample and the 5150 at 6286, against
+the JCM800's 2587 and the VH4's 3875, so a 256-frame block costs the IIC+ 1.852 ms against the
+1.5 ms budget that block is allowed at 48 kHz. The cost is the valve count solved at 8x: the
+IIC+ runs six single triodes, a long-tailed pair and four power tubes, and a single `TriodeStage`
+at the base rate measures 69.9 ns. Nothing else in a guitarist's chain is close - the Tube
+Screamer costs 594.9 ns and a 4096-tap cabinet convolution 15.6 ns. Per-sample cost does not move
+with the block size (7356 ns at 16 frames, 7243 at 256), so a small buffer adds no penalty of its
+own; what a small buffer removes is the slack that absorbs a slow block, and the same node
+measures 34.8 % of one core at its best and 57.6 % at its worst. A Tube Screamer into the IIC+
+into a cabinet therefore runs near 38 % of one core steady and past 60 % on a slow block, which
+underruns at the smallest USB buffer while leaving a larger one alone. What closes it is a
+decision the maintainer owns: dropping this model to 4x, which halves the cost against the alias
+floor the entry above measures, or a cheaper triode solve. Measured by `sushidsp_bench`
+(`tests/benchmark/main.cpp`), which times each amplifier node.
+
 ## Mesa Mark IIC+ has no clean setting
 
 The dossier's §2 places an EFFECTS SEND / RETURN network between V2A's plate and V2B's grid,
