@@ -93,7 +93,7 @@ namespace SushiDSP
         return std::strcmp(id, "pan") == 0 ? pan_.target() : 0.0f;
     }
 
-    void PanNode::set_parameter(const char* id, float value)
+    void PanNode::set_parameter_for_control_thread(const char* id, float value)
     {
         if (std::strcmp(id, "pan") == 0)
         {
@@ -101,7 +101,7 @@ namespace SushiDSP
         }
     }
 
-    void PanNode::set_parameter(std::uint16_t index, float value)
+    void PanNode::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
         if (index == 0)
         {

@@ -67,7 +67,7 @@ namespace SushiDSP
     }
 
     float CabinetNode::get_parameter(const char*) const { return 0.0f; }
-    void CabinetNode::set_parameter(const char*, float) {}
+    void CabinetNode::set_parameter_for_control_thread(const char*, float) {}
 
     std::uint32_t CabinetNode::latency_samples() const
     {

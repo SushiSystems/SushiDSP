@@ -45,7 +45,7 @@ namespace SushiDSP
         void reset() override;
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
     private:
         float  frequency_hz_;

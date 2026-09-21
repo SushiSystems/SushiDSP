@@ -70,7 +70,7 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
         void reset() override {}
 
@@ -109,7 +109,7 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
         void reset() override
         {
@@ -167,7 +167,7 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
         void reset() override
         {
@@ -212,7 +212,7 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
         void reset() override {}
     };
@@ -235,7 +235,7 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
         void reset() override {}
     };
@@ -285,7 +285,7 @@ namespace
         /// @brief Writes a parameter; this fixture exposes none.
         /// @param id Ignored.
         /// @param value Ignored.
-        void set_parameter(const char* id, float value) override
+        void set_parameter_for_control_thread(const char* id, float value) override
         {
             static_cast<void>(id);
             static_cast<void>(value);
@@ -342,7 +342,7 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
         void reset() override { state_ = 0.0f; }
 

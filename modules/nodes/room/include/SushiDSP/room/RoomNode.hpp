@@ -88,11 +88,11 @@ namespace SushiDSP::room
         /// @brief Writes a parameter by id. Control thread only. A changed listener or direct
         /// delay rebuilds the set through the path set_scene uses; the audio thread applies
         /// either choice only through the next published set.
-        void set_parameter(const char* id, float value) override;
+        void set_parameter_for_control_thread(const char* id, float value) override;
 
         /// @brief Writes a parameter by descriptor index; stores a target and nothing else, so
         /// a listener or direct delay written here waits for the next publish.
-        void set_parameter(std::uint16_t index, float value) override;
+        void set_parameter_for_audio_thread(std::uint16_t index, float value) override;
 
         /// @brief Silences the rings, every state bank, the tail, the decoder, the crossover,
         /// the alignment delays and the crossfade.

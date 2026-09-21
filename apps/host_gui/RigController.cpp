@@ -44,7 +44,7 @@
 namespace
 {
     /// @brief Finds a parameter's position in its descriptor's parameters[] array - which is
-    /// exactly the index SushiDSP::ParameterChange carries and IAudioNode::set_parameter(index)
+    /// exactly the index SushiDSP::ParameterChange carries and IAudioNode::set_parameter_for_audio_thread()
     /// expects.
     /// @param descriptor_id The owning node's NodeDescriptor id.
     /// @param param_id The parameter's id.
@@ -1872,7 +1872,7 @@ void RigController::publish()
         slot.room_publishes = 0;
         for (const auto& [param_id, value] : slot.parameters)
         {
-            node->set_parameter(param_id.c_str(), value);
+            node->set_parameter_for_control_thread(param_id.c_str(), value);
         }
     }
 

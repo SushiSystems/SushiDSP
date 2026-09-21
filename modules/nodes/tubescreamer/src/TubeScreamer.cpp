@@ -217,12 +217,12 @@ namespace SushiDSP
         }
     }
 
-    void TubeScreamer::set_parameter(const char* id, float value)
+    void TubeScreamer::set_parameter_for_control_thread(const char* id, float value)
     {
-        set_parameter(parameter_index_for(id), value);
+        set_parameter_for_audio_thread(parameter_index_for(id), value);
     }
 
-    void TubeScreamer::set_parameter(std::uint16_t index, float value)
+    void TubeScreamer::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
         switch (index)
         {

@@ -494,8 +494,8 @@ namespace
     std::unique_ptr<SushiDSP::room::RoomNode> prepared_room_node(float listener)
     {
         auto node = std::make_unique<SushiDSP::room::RoomNode>();
-        node->set_parameter("mix", 1.0f);
-        node->set_parameter("listener", listener);
+        node->set_parameter_for_control_thread("mix", 1.0f);
+        node->set_parameter_for_control_thread("listener", listener);
         node->prepare({ kSampleRate, kBlockSize, 2 });
         std::string reason;
         if (!node->set_scene(garage_every_layer_scene(), reason))
@@ -662,7 +662,7 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 0, 1 }; }
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
         void reset() override {}
 
     private:
@@ -690,8 +690,8 @@ namespace
         amp->set_presence(0.5f);
 
         auto* room = static_cast<SushiDSP::room::RoomNode*>(graph.node(room_handle));
-        room->set_parameter("mix", 1.0f);
-        room->set_parameter("listener", 0.0f);
+        room->set_parameter_for_control_thread("mix", 1.0f);
+        room->set_parameter_for_control_thread("listener", 0.0f);
         std::string reason;
         if (!room->set_scene(garage_every_layer_scene(), reason))
         {

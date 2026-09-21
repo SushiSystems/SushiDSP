@@ -44,7 +44,7 @@ namespace
         void process(SushiDSP::ProcessContext&) override {}
         SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
         void reset() override {}
         const char* type_id() const override { return "not.registered"; }
     };
@@ -122,7 +122,7 @@ TEST(Unit_Dsp, SerializeThenDeserializeRoundTripsABranchingGraph)
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     SushiDSP::RigGraph original(256, 6);
     auto source_ts = original.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));
-    original.node(source_ts)->set_parameter("drive", 0.9f);
+    original.node(source_ts)->set_parameter_for_control_thread("drive", 0.9f);
     auto splitter = original.add_node(SushiDSP::make_node("sushidsp.splitter", info));
     auto amp = original.add_node(SushiDSP::make_node("sushidsp.jcm800", info));
     auto dry = original.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));
@@ -132,8 +132,8 @@ TEST(Unit_Dsp, SerializeThenDeserializeRoundTripsABranchingGraph)
     original.connect(splitter, dry);
     original.connect(amp, mixer);
     original.connect(dry, mixer);
-    original.node(mixer)->set_parameter("gain_0", 0.3f);
-    original.node(mixer)->set_parameter("gain_1", 0.7f);
+    original.node(mixer)->set_parameter_for_control_thread("gain_0", 0.3f);
+    original.node(mixer)->set_parameter_for_control_thread("gain_1", 0.7f);
     original.compile(info);
 
     const std::string json_text = SushiDSP::serialize_rig_to_json(original);

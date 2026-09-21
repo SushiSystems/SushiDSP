@@ -319,7 +319,7 @@ TEST(Unit_Dsp, Jcm800ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
 
     // The control-thread call stores a target and nothing else: the coefficients the audio thread
     // last built are still the old ones, which is exactly what "dirty" reports.
-    node.set_parameter("bass", 1.0f);
+    node.set_parameter_for_control_thread("bass", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("bass"), 1.0f);
     EXPECT_TRUE(node.tone_stack_is_dirty());
 
@@ -342,7 +342,7 @@ TEST(Unit_Dsp, Jcm800IndexedParameterSetMatchesTheDescriptorOrder)
     const float values[8] = { 0.2f, -6.0f, 0.4f, 0.45f, 0.6f, 0.7f, 12.0f, -3.0f };
     for (std::uint16_t i = 0; i < 8; ++i)
     {
-        node.set_parameter(i, values[i]);
+        node.set_parameter_for_audio_thread(i, values[i]);
     }
 
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::jcm800_descriptor();
@@ -351,7 +351,7 @@ TEST(Unit_Dsp, Jcm800IndexedParameterSetMatchesTheDescriptorOrder)
         EXPECT_FLOAT_EQ(node.get_parameter(descriptor.parameters[i].id), values[i]);
     }
 
-    node.set_parameter(static_cast<std::uint16_t>(99), 1.0f);
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 1.0f);
 }
 
 TEST(Unit_Dsp, Jcm800DecibelParametersClampToTheirDescriptorRange)
@@ -597,14 +597,14 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
 TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)
 {
     SushiDSP::Jcm800 node;
-    node.set_parameter("preamp", 0.2f);
-    node.set_parameter("master", 0.3f);
-    node.set_parameter("bass", 0.4f);
-    node.set_parameter("middle", 0.5f);
-    node.set_parameter("treble", 0.6f);
-    node.set_parameter("presence", 0.7f);
-    node.set_parameter("input_trim", 6.0f);
-    node.set_parameter("output", -3.0f);
+    node.set_parameter_for_control_thread("preamp", 0.2f);
+    node.set_parameter_for_control_thread("master", 0.3f);
+    node.set_parameter_for_control_thread("bass", 0.4f);
+    node.set_parameter_for_control_thread("middle", 0.5f);
+    node.set_parameter_for_control_thread("treble", 0.6f);
+    node.set_parameter_for_control_thread("presence", 0.7f);
+    node.set_parameter_for_control_thread("input_trim", 6.0f);
+    node.set_parameter_for_control_thread("output", -3.0f);
 
     EXPECT_FLOAT_EQ(node.get_parameter("preamp"), 0.2f);
     EXPECT_FLOAT_EQ(node.get_parameter("master"), 0.3f);
@@ -619,7 +619,7 @@ TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)
 TEST(Unit_Dsp, Jcm800UnknownParameterIsSafeNoOp)
 {
     SushiDSP::Jcm800 node;
-    node.set_parameter("does_not_exist", 1.0f);
+    node.set_parameter_for_control_thread("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
@@ -632,9 +632,9 @@ TEST(Unit_Dsp, Jcm800NeverExceedsFullScaleWithoutALimiter)
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
-    node.set_parameter("preamp", 1.0f);
-    node.set_parameter("master", 12.0f);
-    node.set_parameter("output", 12.0f);
+    node.set_parameter_for_control_thread("preamp", 1.0f);
+    node.set_parameter_for_control_thread("master", 12.0f);
+    node.set_parameter_for_control_thread("output", 12.0f);
 
     std::vector<float> input(256), output(256, 0.0f);
     const float* input_channels[1] = { input.data() };

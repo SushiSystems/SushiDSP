@@ -1076,10 +1076,10 @@ namespace SushiDSP::room
         }
     }
 
-    void RoomNode::set_parameter(const char* id, float value)
+    void RoomNode::set_parameter_for_control_thread(const char* id, float value)
     {
         const std::uint16_t index = parameter_index_for(id);
-        set_parameter(index, value);
+        set_parameter_for_audio_thread(index, value);
         const bool listener_moved =
             index == kListenerIndex && listener_kind() != published_listener_;
         const bool delay_moved =
@@ -1091,7 +1091,7 @@ namespace SushiDSP::room
         }
     }
 
-    void RoomNode::set_parameter(std::uint16_t index, float value)
+    void RoomNode::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
         switch (index)
         {

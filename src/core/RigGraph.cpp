@@ -325,7 +325,8 @@ namespace SushiDSP
         {
             if (change.node < nodes_.size() && nodes_[change.node] != nullptr)
             {
-                nodes_[change.node]->set_parameter(change.parameter_index, change.value);
+                nodes_[change.node]->set_parameter_for_audio_thread(change.parameter_index,
+                                                                  change.value);
             }
         }
 

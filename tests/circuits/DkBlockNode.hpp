@@ -105,7 +105,7 @@ namespace SushiDSP::test_circuits
         /// @brief Writes a parameter; this fixture exposes none.
         /// @param id Ignored.
         /// @param value Ignored.
-        void set_parameter(const char* id, float value) override
+        void set_parameter_for_control_thread(const char* id, float value) override
         {
             static_cast<void>(id);
             static_cast<void>(value);

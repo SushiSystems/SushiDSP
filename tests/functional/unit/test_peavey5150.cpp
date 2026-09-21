@@ -180,7 +180,7 @@ TEST(Unit_Dsp, Peavey5150IndexedParameterSetMatchesTheDescriptorOrder)
     const float values[kParameterCount] = { 0.2f, 0.4f, 0.45f, 0.6f, -6.0f, 0.3f, 0.7f, 12.0f, -3.0f };
     for (std::uint16_t i = 0; i < kParameterCount; ++i)
     {
-        node.set_parameter(i, values[i]);
+        node.set_parameter_for_audio_thread(i, values[i]);
     }
 
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::peavey5150_descriptor();
@@ -189,7 +189,7 @@ TEST(Unit_Dsp, Peavey5150IndexedParameterSetMatchesTheDescriptorOrder)
         EXPECT_FLOAT_EQ(node.get_parameter(descriptor.parameters[i].id), values[i]);
     }
 
-    node.set_parameter(static_cast<std::uint16_t>(99), 1.0f);
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 1.0f);
 }
 
 TEST(Unit_Dsp, Peavey5150DecibelParametersClampToTheirDescriptorRange)
@@ -207,15 +207,15 @@ TEST(Unit_Dsp, Peavey5150DecibelParametersClampToTheirDescriptorRange)
 TEST(Unit_Dsp, Peavey5150GenericParameterRoundTrip)
 {
     SushiDSP::Peavey5150 node;
-    node.set_parameter("pre_gain", 0.2f);
-    node.set_parameter("low", 0.4f);
-    node.set_parameter("mid", 0.5f);
-    node.set_parameter("high", 0.6f);
-    node.set_parameter("post_gain", -3.0f);
-    node.set_parameter("resonance", 0.3f);
-    node.set_parameter("presence", 0.7f);
-    node.set_parameter("input_trim", 6.0f);
-    node.set_parameter("output", -3.0f);
+    node.set_parameter_for_control_thread("pre_gain", 0.2f);
+    node.set_parameter_for_control_thread("low", 0.4f);
+    node.set_parameter_for_control_thread("mid", 0.5f);
+    node.set_parameter_for_control_thread("high", 0.6f);
+    node.set_parameter_for_control_thread("post_gain", -3.0f);
+    node.set_parameter_for_control_thread("resonance", 0.3f);
+    node.set_parameter_for_control_thread("presence", 0.7f);
+    node.set_parameter_for_control_thread("input_trim", 6.0f);
+    node.set_parameter_for_control_thread("output", -3.0f);
 
     EXPECT_FLOAT_EQ(node.get_parameter("pre_gain"), 0.2f);
     EXPECT_FLOAT_EQ(node.get_parameter("low"), 0.4f);
@@ -231,7 +231,7 @@ TEST(Unit_Dsp, Peavey5150GenericParameterRoundTrip)
 TEST(Unit_Dsp, Peavey5150UnknownParameterIsSafeNoOp)
 {
     SushiDSP::Peavey5150 node;
-    node.set_parameter("does_not_exist", 1.0f);
+    node.set_parameter_for_control_thread("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
@@ -248,7 +248,7 @@ TEST(Unit_Dsp, Peavey5150ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
 
     // The control-thread call stores a target and nothing else: the coefficients the audio thread
     // last built are still the old ones, which is exactly what "dirty" reports.
-    node->set_parameter("low", 1.0f);
+    node->set_parameter_for_control_thread("low", 1.0f);
     EXPECT_TRUE(node->tone_stack_is_dirty());
 
     for (int block = 0; block < 40 && node->tone_stack_is_dirty(); ++block)
@@ -450,9 +450,9 @@ TEST(Unit_Dsp, Peavey5150NeverExceedsFullScaleWithoutALimiter)
     // ceilings must still leave every sample inside [-1, 1] - and must actually reach the rail, or
     // the test would be proving only that the amp has headroom.
     auto node = prepared_node();
-    node->set_parameter("pre_gain", 1.0f);
-    node->set_parameter("post_gain", 12.0f);
-    node->set_parameter("output", 12.0f);
+    node->set_parameter_for_control_thread("pre_gain", 1.0f);
+    node->set_parameter_for_control_thread("post_gain", 12.0f);
+    node->set_parameter_for_control_thread("output", 12.0f);
 
     const std::vector<float> output = render_sine(*node, 220.0, 1.0f, 50);
     bool clamped_at_least_once = false;

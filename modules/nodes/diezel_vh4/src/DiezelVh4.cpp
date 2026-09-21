@@ -552,7 +552,7 @@ namespace SushiDSP
         return 0.0f;
     }
 
-    void DiezelVh4::set_parameter(const char* id, float value)
+    void DiezelVh4::set_parameter_for_control_thread(const char* id, float value)
     {
         if (std::strcmp(id, "gain") == 0) { set_gain(value); return; }
         if (std::strcmp(id, "bass") == 0) { set_bass(value); return; }
@@ -566,7 +566,7 @@ namespace SushiDSP
         if (std::strcmp(id, "output") == 0) { set_output(value); return; }
     }
 
-    void DiezelVh4::set_parameter(std::uint16_t index, float value)
+    void DiezelVh4::set_parameter_for_audio_thread(std::uint16_t index, float value)
     {
         switch (index)
         {

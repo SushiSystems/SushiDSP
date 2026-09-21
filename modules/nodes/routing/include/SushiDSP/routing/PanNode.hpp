@@ -59,12 +59,12 @@ namespace SushiDSP
         /// @brief Sets a parameter by string id.
         /// @param id The parameter's id ("pan").
         /// @param value The new target, clamped to [-1, 1].
-        void set_parameter(const char* id, float value) override;
+        void set_parameter_for_control_thread(const char* id, float value) override;
 
         /// @brief Sets a parameter by descriptor index.
         /// @param index The parameter's index (0 for "pan").
         /// @param value The new target, clamped to [-1, 1].
-        void set_parameter(std::uint16_t index, float value) override;
+        void set_parameter_for_audio_thread(std::uint16_t index, float value) override;
 
         /// @brief This pan node's registered type id.
         /// @return "sushidsp.pan".

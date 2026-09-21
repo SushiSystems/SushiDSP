@@ -59,7 +59,7 @@ TEST(Unit_Dsp, MakeNodeConstructsTubeScreamerById)
     ASSERT_NE(node, nullptr);
     EXPECT_EQ(node->ports().input_channels, 1u);
     EXPECT_EQ(node->ports().output_channels, 1u);
-    node->set_parameter("drive", 0.3f);
+    node->set_parameter_for_control_thread("drive", 0.3f);
     EXPECT_FLOAT_EQ(node->get_parameter("drive"), 0.3f);
 }
 
@@ -68,7 +68,7 @@ TEST(Unit_Dsp, MakeNodeConstructsJcm800ById)
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     auto node = SushiDSP::make_node("sushidsp.jcm800", info);
     ASSERT_NE(node, nullptr);
-    node->set_parameter("preamp", 0.4f);
+    node->set_parameter_for_control_thread("preamp", 0.4f);
     EXPECT_FLOAT_EQ(node->get_parameter("preamp"), 0.4f);
 }
 

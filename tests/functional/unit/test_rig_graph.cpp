@@ -56,7 +56,7 @@ namespace
         void reset() override {}
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
     private:
         float gain_;
@@ -82,7 +82,7 @@ namespace
         void reset() override {}
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
     private:
         float value_;
@@ -301,7 +301,7 @@ namespace
         }
         SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
         void reset() override {}
         std::uint32_t latency_samples() const override { return latency_; }
     private:
@@ -326,7 +326,7 @@ namespace
         SushiDSP::PortLayout ports() const override { return { 2, 1 }; }
         void reset() override {}
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
     };
 }
 
@@ -370,8 +370,8 @@ namespace
         }
         SushiDSP::PortLayout ports() const override { return { 0, 1 }; }
         float get_parameter(const char*) const override { return last_value_; }
-        void set_parameter(const char*, float) override {}
-        void set_parameter(std::uint16_t index, float value) override { last_index_ = index; last_value_ = value; }
+        void set_parameter_for_control_thread(const char*, float) override {}
+        void set_parameter_for_audio_thread(std::uint16_t index, float value) override { last_index_ = index; last_value_ = value; }
         void reset() override {}
         std::uint16_t last_index_ = 0xFFFF;
         float last_value_ = 0.0f;
@@ -425,7 +425,7 @@ namespace
         }
         SushiDSP::PortLayout ports() const override { return { 0, 1 }; }
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
         void reset() override {}
     };
 }
@@ -591,8 +591,8 @@ TEST(Unit_Dsp, RigGraphSplitterAndMixerRoundTripThroughTwoEffectBranches)
     graph.connect(branch_a, mixer_handle);
     graph.connect(branch_b, mixer_handle);
 
-    graph.node(mixer_handle)->set_parameter("gain_0", 0.5f);
-    graph.node(mixer_handle)->set_parameter("gain_1", 1.0f);
+    graph.node(mixer_handle)->set_parameter_for_control_thread("gain_0", 0.5f);
+    graph.node(mixer_handle)->set_parameter_for_control_thread("gain_1", 1.0f);
 
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     graph.compile(info);
@@ -709,7 +709,7 @@ namespace
         void reset() override {}
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
     private:
         float left_;
@@ -742,7 +742,7 @@ namespace
         void reset() override {}
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
 
         float seen_[2] = { 0.0f, 0.0f };
 
@@ -772,7 +772,7 @@ namespace
         void reset() override {}
 
         float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter(const char*, float) override {}
+        void set_parameter_for_control_thread(const char*, float) override {}
     };
 }
 
