@@ -45,6 +45,16 @@ namespace SushiDSP
 {
     namespace
     {
+    /// @brief Mesa Mark IIC+ Simul-Class inner pair, 6L6GC pentode: the RCA class AB1 point at its
+    /// own 58 mA idle, the printed -45 V bias (modules/nodes/mesa_mark2c/README.md, "The output section").
+    constexpr PowerTubePreset kMesaMark2cPower6L6GC{
+        26642.4f, 220000.0f, -45.0f, 7.388139f, kPentodeEL34GridConduction, PlateSwing{ 81.2f, 311.2283f } };
+
+    /// @brief Mesa Mark IIC+ Simul-Class outer pair, EL34 triode-strapped: Mesa's 25 W on the same
+    /// primary, split evenly as a class A stage (modules/nodes/mesa_mark2c/README.md, "The output section").
+    constexpr PowerTubePreset kMesaMark2cPowerEl34Triode{
+        26642.4f, 220000.0f, -45.0f, 6.635772f, kPentodeEL34GridConduction, PlateSwing{ 132.2876f, 132.2876f } };
+
         /// @brief Small-signal gain of one triode, from the dossier's own mu and rp arithmetic.
         constexpr float kV1aGain = 70.6f;        // Dossier 3.1, 100 x 150 / 212.5.
         constexpr float kV1bGain = 61.5f;        // Dossier 3.2, 100 x 100 / 162.5.

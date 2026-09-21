@@ -45,9 +45,21 @@ namespace
     }
 }
 
+namespace
+{
+    /// @brief A reference pentode for exercising the stage itself.
+    ///
+    /// The figures are the Philips EL34 datasheet's class B push-pull point, which is a real
+    /// operating point rather than any product's tuning. A brick's test that reached into an
+    /// amplifier module would fail whenever that amplifier was recalibrated.
+    constexpr SushiDSP::PowerTubePreset kReferencePentode{
+        33831.9f, 220000.0f, -38.0f, 6.882361f, SushiDSP::kPentodeEL34GridConduction,
+        SushiDSP::PlateSwing{ 25.5f, 280.2777f } };
+}
+
 TEST(Unit_Dsp, PentodeStageIsDcStableForConstantInput)
 {
-    SushiDSP::PentodeStage stage(SushiDSP::kEl34);
+    SushiDSP::PentodeStage stage(kReferencePentode);
     EXPECT_TRUE(std::isfinite(settled(stage, 1.0f, 1000)));
 }
 
@@ -57,8 +69,8 @@ TEST(Unit_Dsp, PentodeStageSaturatesInsideItsPlateSwing)
     // current's drop across the reflected load, toward the bottom by the rest of the datasheet's
     // full-signal swing. A grid driven far past cutoff or far into conduction reaches the tanh
     // ceiling and nothing else.
-    SushiDSP::PentodeStage cut_off(SushiDSP::kEl34);
-    SushiDSP::PentodeStage conducting(SushiDSP::kEl34);
+    SushiDSP::PentodeStage cut_off(kReferencePentode);
+    SushiDSP::PentodeStage conducting(kReferencePentode);
     const float toward_supply = settled(cut_off, -400.0f);
     const float toward_bottom = settled(conducting, 400.0f);
 
@@ -66,21 +78,21 @@ TEST(Unit_Dsp, PentodeStageSaturatesInsideItsPlateSwing)
     EXPECT_TRUE(std::isfinite(toward_bottom));
     EXPECT_GT(toward_supply, 0.0f);
     EXPECT_LT(toward_bottom, 0.0f);
-    EXPECT_LE(toward_supply, SushiDSP::kEl34.plate_swing.headroom_to_supply_volts);
-    EXPECT_GE(toward_bottom, -SushiDSP::kEl34.plate_swing.headroom_to_bottom_volts);
-    EXPECT_GT(toward_supply, 0.99f * SushiDSP::kEl34.plate_swing.headroom_to_supply_volts);
-    EXPECT_LT(toward_bottom, -0.99f * SushiDSP::kEl34.plate_swing.headroom_to_bottom_volts);
+    EXPECT_LE(toward_supply, kReferencePentode.plate_swing.headroom_to_supply_volts);
+    EXPECT_GE(toward_bottom, -kReferencePentode.plate_swing.headroom_to_bottom_volts);
+    EXPECT_GT(toward_supply, 0.99f * kReferencePentode.plate_swing.headroom_to_supply_volts);
+    EXPECT_LT(toward_bottom, -0.99f * kReferencePentode.plate_swing.headroom_to_bottom_volts);
 }
 
 TEST(Unit_Dsp, PentodeStageIsNearlyLinearForSmallInput)
 {
     // Inside the window the grid draws no current, the 220 kOhm leak against the 33.8 kOhm
     // source sets the grid at 0.867 of the input, and the plate reads that times the gain.
-    SushiDSP::PentodeStage stage(SushiDSP::kEl34);
+    SushiDSP::PentodeStage stage(kReferencePentode);
     const float output = settled(stage, 0.1f, 50);
-    const float grid_divider = SushiDSP::kEl34.grid_leak_resistance_ohms
-        / (SushiDSP::kEl34.grid_leak_resistance_ohms + SushiDSP::kEl34.source_resistance_ohms);
-    const float linear_prediction = -SushiDSP::kEl34.gain * grid_divider * 0.1f;
+    const float grid_divider = kReferencePentode.grid_leak_resistance_ohms
+        / (kReferencePentode.grid_leak_resistance_ohms + kReferencePentode.source_resistance_ohms);
+    const float linear_prediction = -kReferencePentode.gain * grid_divider * 0.1f;
     EXPECT_NEAR(output, linear_prediction, std::abs(linear_prediction) * 0.02f);
 }
 
@@ -91,14 +103,14 @@ TEST(Unit_Dsp, PentodeStageGridConductsAtTheCathodeNotAtTheBiasPoint)
     // comes back as the linear plate answer through the tanh, to the float; the same swing on a
     // -20 V grid has crossed its window, the 150 kOhm conducting slope loads the 33.8 kOhm
     // source, and the plate is held 4.28 V short of that answer (measured 2026-09-07).
-    SushiDSP::PentodeStage inside(SushiDSP::kEl34);
+    SushiDSP::PentodeStage inside(kReferencePentode);
     SushiDSP::PentodeStage crossed(
-        SushiDSP::kEl34.source_resistance_ohms, SushiDSP::kEl34.grid_leak_resistance_ohms, -20.0f,
-        SushiDSP::kEl34.gain, SushiDSP::kEl34.grid_conduction, SushiDSP::kEl34.plate_swing);
-    const float grid_divider = SushiDSP::kEl34.grid_leak_resistance_ohms
-        / (SushiDSP::kEl34.grid_leak_resistance_ohms + SushiDSP::kEl34.source_resistance_ohms);
-    const float linear = -SushiDSP::kEl34.gain * grid_divider * 30.0f;
-    const float through_tanh = SushiDSP::kEl34.plate_swing.bound(linear);
+        kReferencePentode.source_resistance_ohms, kReferencePentode.grid_leak_resistance_ohms, -20.0f,
+        kReferencePentode.gain, kReferencePentode.grid_conduction, kReferencePentode.plate_swing);
+    const float grid_divider = kReferencePentode.grid_leak_resistance_ohms
+        / (kReferencePentode.grid_leak_resistance_ohms + kReferencePentode.source_resistance_ohms);
+    const float linear = -kReferencePentode.gain * grid_divider * 30.0f;
+    const float through_tanh = kReferencePentode.plate_swing.bound(linear);
 
     EXPECT_NEAR(settled(inside, 30.0f), through_tanh, 0.01f * std::abs(through_tanh));
     EXPECT_GT(settled(crossed, 30.0f), through_tanh + 2.0f);
@@ -106,8 +118,8 @@ TEST(Unit_Dsp, PentodeStageGridConductsAtTheCathodeNotAtTheBiasPoint)
 
 TEST(Unit_Dsp, PentodeStageResetClearsWarmStartState)
 {
-    SushiDSP::PentodeStage stage_a(SushiDSP::kEl34);
-    SushiDSP::PentodeStage stage_b(SushiDSP::kEl34);
+    SushiDSP::PentodeStage stage_a(kReferencePentode);
+    SushiDSP::PentodeStage stage_b(kReferencePentode);
 
     stage_a.process_sample(100.0f);
     stage_a.reset();
@@ -127,11 +139,11 @@ TEST(Unit_Dsp, PentodePairIsOddSymmetricInsideTheWindowAndABiasDifferenceMovesTh
     auto composite = [](float bias_a, float bias_b, float u)
     {
         SushiDSP::PentodeStage a(
-            SushiDSP::kEl34.source_resistance_ohms, SushiDSP::kEl34.grid_leak_resistance_ohms, bias_a,
-            SushiDSP::kEl34.gain, SushiDSP::kEl34.grid_conduction, SushiDSP::kEl34.plate_swing);
+            kReferencePentode.source_resistance_ohms, kReferencePentode.grid_leak_resistance_ohms, bias_a,
+            kReferencePentode.gain, kReferencePentode.grid_conduction, kReferencePentode.plate_swing);
         SushiDSP::PentodeStage b(
-            SushiDSP::kEl34.source_resistance_ohms, SushiDSP::kEl34.grid_leak_resistance_ohms, bias_b,
-            SushiDSP::kEl34.gain, SushiDSP::kEl34.grid_conduction, SushiDSP::kEl34.plate_swing);
+            kReferencePentode.source_resistance_ohms, kReferencePentode.grid_leak_resistance_ohms, bias_b,
+            kReferencePentode.gain, kReferencePentode.grid_conduction, kReferencePentode.plate_swing);
         return settled(a, u, 64) - settled(b, -u, 64);
     };
     auto peak_even_part = [&](float bias_a, float bias_b, float drive)
@@ -153,11 +165,11 @@ TEST(Unit_Dsp, PentodePairIsOddSymmetricInsideTheWindowAndABiasDifferenceMovesTh
 
 TEST(Unit_Dsp, PentodeStagePresetConstructorMatchesTheSixArgumentOne)
 {
-    SushiDSP::PentodeStage from_preset(SushiDSP::kEl34);
+    SushiDSP::PentodeStage from_preset(kReferencePentode);
     SushiDSP::PentodeStage from_fields(
-        SushiDSP::kEl34.source_resistance_ohms, SushiDSP::kEl34.grid_leak_resistance_ohms,
-        SushiDSP::kEl34.cathode_bias_volts, SushiDSP::kEl34.gain, SushiDSP::kEl34.grid_conduction,
-        SushiDSP::kEl34.plate_swing);
+        kReferencePentode.source_resistance_ohms, kReferencePentode.grid_leak_resistance_ohms,
+        kReferencePentode.cathode_bias_volts, kReferencePentode.gain, kReferencePentode.grid_conduction,
+        kReferencePentode.plate_swing);
     for (int i = 0; i < 2000; ++i)
     {
         const float x = 40.0f * static_cast<float>(std::sin(2.0 * kPi * 440.0 * i / 48000.0));
@@ -170,7 +182,7 @@ TEST(Unit_Dsp, PentodeStageAntialiaserAntiderivativeDifferentiatesBackToTheTrans
     // The EL34's knee sits 38.5 V above rest and its plate reaches 280 V toward the bottom, so
     // the identity the triode's antialiaser keeps, dG/du = bound(-gain u) dg/du, is checked on
     // the power tube's own table.
-    const SushiDSP::PowerTubePreset& preset = SushiDSP::kEl34;
+    const SushiDSP::PowerTubePreset& preset = kReferencePentode;
     const SushiDSP::AntiderivativeAntialiaser antialiaser(
         preset.source_resistance_ohms, preset.grid_leak_resistance_ohms, preset.cathode_bias_volts, preset.gain,
         preset.grid_conduction, preset.plate_swing);

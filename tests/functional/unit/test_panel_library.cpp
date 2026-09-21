@@ -40,18 +40,25 @@ TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForAKnownNodeType)
     EXPECT_GT(panel->aspect.x, panel->aspect.y);
 }
 
-TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForEachHighGainAmplifier)
+TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForEveryAmplifier)
 {
-    static const char* kAmplifierIds[] = {
-        "sushidsp.peavey5150", "sushidsp.mesa_mark2c", "sushidsp.diezel_vh4"
-    };
-    for (const char* id : kAmplifierIds)
+    std::size_t amplifiers = 0;
+    for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
     {
-        const ui::PanelDescriptor* panel = ui::panel_for(id);
-        ASSERT_NE(panel, nullptr) << id;
-        EXPECT_GT(panel->control_count, 0u) << id;
-        EXPECT_GT(panel->aspect.x, panel->aspect.y) << id;
+        if (std::strcmp(entry.category.name, "Amp") != 0)
+        {
+            continue;
+        }
+        ++amplifiers;
+        const ui::PanelDescriptor* panel = ui::panel_for(entry.descriptor->id);
+        ASSERT_NE(panel, nullptr) << entry.descriptor->id;
+        EXPECT_GT(panel->control_count, 0u) << entry.descriptor->id;
+        EXPECT_GT(panel->aspect.x, panel->aspect.y) << entry.descriptor->id;
     }
+
+    // The registry is what says which products are amplifiers, so adding one does not mean
+    // remembering to name it here.
+    EXPECT_GT(amplifiers, 0u);
 }
 
 TEST(Unit_Dsp, PanelLibraryDrawsTheMarkTwoCPlusEqualizerBandsAsFaders)
@@ -209,5 +216,36 @@ TEST(Unit_Dsp, PanelLibraryLeavesTheVisibilityRuleUnsetForEveryPanelButTheMixer)
             continue;
         }
         EXPECT_EQ(panel.is_control_visible, nullptr) << panel.descriptor_id;
+    }
+}
+
+TEST(Unit_Dsp, PanelLibraryGivesEveryRegisteredNodeAPanelWithAControlPerParameter)
+{
+    for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
+    {
+        const SushiDSP::NodeDescriptor& node = *entry.descriptor;
+        std::vector<ui::ControlPlacement> storage;
+        const ui::PanelDescriptor* hand_authored = ui::panel_for(node.id);
+        const ui::PanelDescriptor panel = hand_authored != nullptr
+            ? *hand_authored
+            : ui::auto_panel(node, storage);
+
+        // A node with no hand-authored entry still has to reach every one of its parameters, or
+        // the product ships a knob nobody can turn. Nothing here names a node type, so adding one
+        // is a module and a registry line rather than a test to remember.
+        for (std::uint16_t i = 0; i < node.parameter_count; ++i)
+        {
+            const char* id = node.parameters[i].id;
+            bool placed = false;
+            for (std::size_t c = 0; c < panel.control_count; ++c)
+            {
+                if (std::strcmp(panel.controls[c].param_id, id) == 0)
+                {
+                    placed = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(placed) << node.id << " has no control for '" << id << "'";
+        }
     }
 }
