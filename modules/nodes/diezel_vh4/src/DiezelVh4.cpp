@@ -49,6 +49,12 @@ namespace SushiDSP
 {
     namespace
     {
+    /// @brief Diezel VH4, EL34 quad at 500 V: the Philips EL34 datasheet's 500 V push-pull point
+    /// (Vg1 -36 V, Raa 4 kOhm, 70 W) at Diezel's 35 mA idle (modules/nodes/diezel_vh4/README.md, "The
+    /// power tube is an EL34").
+    constexpr PowerTubePreset kDiezelVh4PowerEl34{
+        10000.0f, 220000.0f, -36.0f, 8.458480f, kPentodeEL34GridConduction, PlateSwing{ 35.0f, 339.1657f } };
+
         // Every constant below cites the section of
         // docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md it comes from. A
         // constant the dossier marks "not established" or that this module chose for itself says

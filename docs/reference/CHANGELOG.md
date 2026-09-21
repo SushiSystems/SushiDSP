@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 2026-09-21 — circuits: Moved each amplifier's power-tube preset into the module that uses it (`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`).
+- 2026-09-21 — tests: Made the panel and pentode tests read the registry instead of naming products (`tests/functional/unit/test_panel_library.cpp`).
+- 2026-09-21 — room: Split the room node along the signal path into a modal, a geometric and a binaural brick (`modules/nodes/room/`).
+- 2026-09-21 — circuits: Extracted the Miller grid capacitance, the inverter preset, the audio taper and the output clamp the amplifier modules duplicated (`include/SushiDSP/circuits/`).
 - 2026-09-22 — build: Wrote the dependency fragment as one table per dependency, the shape every reader understands (`cli/sushistack.deps.toml`).
 - 2026-09-21 — core: Gave every node one parameter table feeding its descriptor and both dispatches (`include/SushiDSP/core/ParameterTable.hpp`).
 - 2026-09-21 — host_gui: Split the rig controller into a slot graph, a session timeline and a preset codec it forwards to (`apps/host_gui/SlotGraph.cpp`, `apps/host_gui/SessionTimeline.cpp`, `apps/host_gui/RigPersistence.cpp`).

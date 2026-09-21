@@ -38,6 +38,12 @@ namespace SushiDSP
 {
     namespace
     {
+    /// @brief EL34 as the JCM800 2203 runs it: the Philips EL34 datasheet's class B push-pull
+    /// point at Vg1 -38 V, Raa 3.4 kOhm, 2 x 30 mA, 55 W (modules/nodes/jcm800/README.md, "The EL34
+    /// pair"); source (82k || 43.056k) + 5.6k from the corrected inverter and jcm_pp_ot_nfb.
+    constexpr PowerTubePreset kEl34{
+        33831.9f, 220000.0f, -38.0f, 6.882361f, kPentodeEL34GridConduction, PlateSwing{ 25.5f, 280.2777f } };
+
         // Component values are physically-motivated approximations for a 12AX7/EL34 JCM800-style
         // signal path, not measured from a real amplifier (no reference unit or captures
         // available - see spec section 8's "Perceptual A/B validation... deferred").

@@ -352,6 +352,18 @@ namespace
     };
 }
 
+namespace
+{
+    /// @brief A reference pentode for exercising the stage itself.
+    ///
+    /// The figures are the Philips EL34 datasheet's class B push-pull point, which is a real
+    /// operating point rather than any product's tuning. A brick's test that reached into an
+    /// amplifier module would fail whenever that amplifier was recalibrated.
+    constexpr SushiDSP::PowerTubePreset kReferencePentode{
+        33831.9f, 220000.0f, -38.0f, 6.882361f, SushiDSP::kPentodeEL34GridConduction,
+        SushiDSP::PlateSwing{ 25.5f, 280.2777f } };
+}
+
 TEST(Unit_Dsp, MeasureSpectrumFloorOfPureSineIsBelowMinus110dB)
 {
     const double sample_rate = 48000.0;
@@ -621,8 +633,8 @@ TEST(Regression_Dsp, PentodeStageAliasFloorInsideAndAtItsWindow)
     // -88.1 dB at 8 V and -55.1 dB at 38 V, and -101.2 and -84.4 dB once antialiased (DA5
     // part 4), where the bias-referenced stage read -49.7 dB at one model volt
     // (.superpowers/sdd/amp-gain-staging/diagnosis.md section 6).
-    OversampledPentodeStageNode inside(SushiDSP::PentodeStage(SushiDSP::kEl34), 8.0f, 300.0f);
-    OversampledPentodeStageNode at_window(SushiDSP::PentodeStage(SushiDSP::kEl34), 38.0f, 300.0f);
+    OversampledPentodeStageNode inside(SushiDSP::PentodeStage(kReferencePentode), 8.0f, 300.0f);
+    OversampledPentodeStageNode at_window(SushiDSP::PentodeStage(kReferencePentode), 38.0f, 300.0f);
 
     const double inside_floor = SushiDSP::measure::alias_floor(inside, 48000.0);
     const double window_floor = SushiDSP::measure::alias_floor(at_window, 48000.0);

@@ -44,6 +44,12 @@ namespace SushiDSP
 {
     namespace
     {
+    /// @brief Peavey 5150 lead, two 6L6GC per push-pull side: the RCA 6L6GC sheet's class AB1
+    /// point (450 V, 400 V screen, Raa 5600 Ohm, 55 W) doubled, at the dossier's 2 x 30 mA idle
+    /// and -55 V bias (modules/nodes/peavey5150/README.md, "The power tubes").
+    constexpr PowerTubePreset kPeavey5150Power6L6GC{
+        39000.0f, 220000.0f, -55.0f, 5.995340f, kPentodeEL34GridConduction, PlateSwing{ 42.0f, 350.4283f } };
+
         // Every number in this block cites the section of
         // docs/reference/research/2026-09-06-peavey-5150-design-dossier.md it is read from or
         // derived from. A value the dossier marks not established, or that is a modelling choice
