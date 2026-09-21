@@ -5,7 +5,7 @@ PRE GAIN, LOW, MID, HIGH, POST GAIN, RESONANCE, PRESENCE, plus the input trim an
 every amplifier module carries.
 
 Every component value comes from
-[`docs/reference/research/2026-09-06-peavey-5150-design-dossier.md`](../../docs/reference/research/2026-09-06-peavey-5150-design-dossier.md),
+[`docs/reference/research/2026-09-06-peavey-5150-design-dossier.md`](../../docs/archive/research/2026-09-06-peavey-5150-design-dossier.md),
 and the code cites the section each one is read from. This file records what the module does and,
 more to the point, every place where it does something the dossier does not say outright.
 

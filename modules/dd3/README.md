@@ -5,9 +5,9 @@ D.TIME, F.BACK, E.LEVEL and MODE. The direct/wet mix stays inside the node, as t
 E.LEVEL pot does.
 
 Intent, the rulings behind the fitted constants and the acceptance table live in
-[`docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`](../../docs/superpowers/specs/2026-09-05-dd3-spx90-design.md).
+[`docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`](../../docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md).
 The schematic values come from
-[`docs/reference/research/2026-08-26-boss-dd3-design-dossier.md`](../../docs/reference/research/2026-08-26-boss-dd3-design-dossier.md).
+[`docs/reference/research/2026-08-26-boss-dd3-design-dossier.md`](../../docs/archive/research/2026-08-26-boss-dd3-design-dossier.md).
 This file records what the code in this directory does.
 
 ## Which pedal
