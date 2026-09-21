@@ -1,0 +1,38 @@
+SushiDSP
+Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+
+This product includes software developed by Mustafa Garip and Sushi Systems,
+licensed under the Apache License, Version 2.0. A copy of the License is in
+the LICENSE file beside this one.
+
+Trademarks
+----------
+
+SushiDSP models the behaviour of guitar amplifiers and effects that other
+companies designed and sell. Every manufacturer and product name in this
+repository, in its source, its documentation and its user interface, names
+the equipment a model was written against and nothing else.
+
+Mesa/Boogie, Mark IIC+ and Simul-Class are trademarks of Mesa/Boogie Ltd.
+Marshall and JCM800 are trademarks of Marshall Amplification plc. Peavey and
+5150 are trademarks of Peavey Electronics Corporation. Diezel and VH4 are
+trademarks of Diezel Amplification GmbH. Ibanez and Tube Screamer are
+trademarks of Hoshino Gakki Co. Ltd. Boss and DD-3 are trademarks of Roland
+Corporation. Yamaha and SPX90 are trademarks of Yamaha Corporation.
+
+None of these companies endorses, sponsors or is affiliated with SushiDSP,
+and no claim is made to any of their marks. The names appear because a
+person reading the code has to know which circuit each file describes.
+
+Third-party software
+--------------------
+
+Builds of SushiDSP fetch and link the following, each under its own licence:
+
+  SDL              2.30.0    zlib       https://github.com/libsdl-org/SDL
+  nlohmann/json    3.11.3    MIT        https://github.com/nlohmann/json
+  GLFW             3.4       zlib       https://github.com/glfw/glfw
+  Dear ImGui       1.90.9    MIT        https://github.com/ocornut/imgui
+  GoogleTest       1.14.0    BSD-3      https://github.com/google/googletest
+
+GoogleTest is fetched for the test suite and is not part of a shipped build.
