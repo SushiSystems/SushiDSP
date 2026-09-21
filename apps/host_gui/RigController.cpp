@@ -21,1896 +21,316 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+/** @file RigController.cpp
+ *  @brief Implements the rig facade as forwarders onto the three bricks it holds.
+ *  @author Mustafa Garip
+ */
+
 #include "RigController.hpp"
 
-#include <algorithm>
-#include <cstring>
-#include <stdexcept>
-#include <exception>
-#include <memory>
-#include <set>
 #include <utility>
-
-#include <nlohmann/json.hpp>
-
-#include "SushiDSP/io/IrLoader.hpp"
-#include "SushiDSP/core/ICabinetHost.hpp"
-#include "SushiDSP/room/HrtfSetLoader.hpp"
-#include "SushiDSP/node_registry/NodeRegistry.hpp"
-#include "SushiDSP/rig_preset/RigPreset.hpp"
-#include "SushiDSP/routing/MixerNode.hpp"
-#include "SushiDSP/routing/SplitterNode.hpp"
-
-namespace
-{
-    /// @brief Finds a parameter's position in its descriptor's parameters[] array - which is
-    /// exactly the index SushiDSP::ParameterChange carries and IAudioNode::set_parameter_for_audio_thread()
-    /// expects.
-    /// @param descriptor_id The owning node's NodeDescriptor id.
-    /// @param param_id The parameter's id.
-    /// @param out_index Receives the index on success.
-    /// @return True if the descriptor and the parameter were both found.
-    bool find_parameter_index(const std::string& descriptor_id, const char* param_id, std::uint16_t& out_index)
-    {
-        for (const auto& entry : SushiDSP::node_registry())
-        {
-            if (descriptor_id != entry.descriptor->id)
-            {
-                continue;
-            }
-            for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
-            {
-                if (std::strcmp(param_id, entry.descriptor->parameters[p].id) == 0)
-                {
-                    out_index = static_cast<std::uint16_t>(p);
-                    return true;
-                }
-            }
-            return false;
-        }
-        return false;
-    }
-
-    /// @brief Reports whether the node registry can construct a descriptor id.
-    /// @param descriptor_id The id to look for.
-    /// @return True when the registry holds an entry with that id.
-    bool descriptor_is_registered(const std::string& descriptor_id)
-    {
-        for (const auto& entry : SushiDSP::node_registry())
-        {
-            if (descriptor_id == entry.descriptor->id)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// @brief Pairs one enumerator with the word a preset writes for it.
-    template <typename Enum>
-    struct Word
-    {
-        Enum        value;
-        const char* text;
-    };
-
-    /// @brief Names each material as a preset writes it, in enumerator order.
-    constexpr Word<SushiDSP::room::MaterialId> kMaterialWords[] = {
-        { SushiDSP::room::MaterialId::ConcreteUnpainted, "concrete_unpainted" },
-        { SushiDSP::room::MaterialId::ConcreteBlockPainted, "concrete_block_painted" },
-        { SushiDSP::room::MaterialId::GypsumBoardOnStuds, "gypsum_board_on_studs" },
-        { SushiDSP::room::MaterialId::HeavyCarpetOnConcrete, "heavy_carpet_on_concrete" },
-        { SushiDSP::room::MaterialId::GlassWindow, "glass_window" },
-        { SushiDSP::room::MaterialId::OpenDoorway, "open_doorway" },
-    };
-
-    /// @brief Names each scattering word as a preset writes it.
-    constexpr Word<SushiDSP::room::Scattering> kScatteringWords[] = {
-        { SushiDSP::room::Scattering::Flat, "flat" },
-        { SushiDSP::room::Scattering::Textured, "textured" },
-        { SushiDSP::room::Scattering::Cluttered, "cluttered" },
-    };
-
-    /// @brief Names each face as a preset writes it.
-    constexpr Word<SushiDSP::room::Surface> kSurfaceWords[] = {
-        { SushiDSP::room::Surface::MinusX, "minus_x" },
-        { SushiDSP::room::Surface::PlusX, "plus_x" },
-        { SushiDSP::room::Surface::MinusY, "minus_y" },
-        { SushiDSP::room::Surface::PlusY, "plus_y" },
-        { SushiDSP::room::Surface::Floor, "floor" },
-        { SushiDSP::room::Surface::Ceiling, "ceiling" },
-    };
-
-    /// @brief Names each polar pattern as a preset writes it.
-    constexpr Word<SushiDSP::room::PolarPattern> kPatternWords[] = {
-        { SushiDSP::room::PolarPattern::Omni, "omni" },
-        { SushiDSP::room::PolarPattern::Cardioid, "cardioid" },
-        { SushiDSP::room::PolarPattern::Supercardioid, "supercardioid" },
-        { SushiDSP::room::PolarPattern::FigureEight, "figure_eight" },
-    };
-
-    /// @brief Returns the word of an enumerator.
-    /// @throws std::runtime_error for a value no row names.
-    template <typename Enum, std::size_t N>
-    std::string word_of(const Word<Enum> (&words)[N], Enum value)
-    {
-        for (const Word<Enum>& row : words)
-        {
-            if (row.value == value)
-            {
-                return row.text;
-            }
-        }
-        throw std::runtime_error("RigController: a room field holds a value no preset word names");
-    }
-
-    /// @brief Returns the enumerator of a word.
-    /// @throws std::runtime_error for a word no row carries.
-    template <typename Enum, std::size_t N>
-    Enum value_of(const Word<Enum> (&words)[N], const std::string& text, const char* field)
-    {
-        for (const Word<Enum>& row : words)
-        {
-            if (text == row.text)
-            {
-                return row.value;
-            }
-        }
-        throw std::runtime_error(std::string("RigController: unknown ") + field + " '" + text
-                                 + "' in a preset's room");
-    }
-
-    /// @brief Writes a point as a three-number array.
-    nlohmann::json vec3_to_json(const SushiDSP::room::Vec3& point)
-    {
-        return nlohmann::json::array({ point.x, point.y, point.z });
-    }
-
-    /// @brief Reads a three-number array as a point.
-    /// @throws std::runtime_error when the array does not hold three numbers.
-    SushiDSP::room::Vec3 vec3_from_json(const nlohmann::json& array, const char* field)
-    {
-        if (!array.is_array() || array.size() != 3)
-        {
-            throw std::runtime_error(std::string("RigController: a preset's room ") + field
-                                     + " is not three numbers");
-        }
-        return SushiDSP::room::Vec3{ array.at(0).get<double>(), array.at(1).get<double>(),
-                                     array.at(2).get<double>() };
-    }
-
-    /// @brief Writes a pose as its position and its yaw.
-    nlohmann::json pose_to_json(const SushiDSP::room::Vec3& position, double yaw_rad)
-    {
-        nlohmann::json pose = nlohmann::json::object();
-        pose["position"] = vec3_to_json(position);
-        pose["yaw_rad"] = yaw_rad;
-        return pose;
-    }
-
-    /// @brief Reads a pose written by pose_to_json into a position and a yaw, leaving either
-    /// as it was when the preset omits it.
-    void pose_from_json(const nlohmann::json& pose, const char* field,
-                        SushiDSP::room::Vec3& position, double& yaw_rad)
-    {
-        if (pose.contains("position"))
-        {
-            position = vec3_from_json(pose.at("position"), field);
-        }
-        yaw_rad = pose.value("yaw_rad", yaw_rad);
-    }
-
-    /// @brief Writes a scene as the "room" object of a preset node: the dimensions, the six
-    /// materials and scattering words, the patches, the three poses, the microphone's pattern
-    /// and the cabinet's geometry.
-    nlohmann::json room_scene_to_json(const SushiDSP::room::RoomScene& scene)
-    {
-        nlohmann::json room = nlohmann::json::object();
-        room["dimensions"] = vec3_to_json(scene.dimensions);
-
-        nlohmann::json surfaces = nlohmann::json::array();
-        nlohmann::json scattering = nlohmann::json::array();
-        for (std::size_t face = 0; face < SushiDSP::room::kSurfaceCount; ++face)
-        {
-            surfaces.push_back(word_of(kMaterialWords, scene.surfaces[face]));
-            scattering.push_back(word_of(kScatteringWords, scene.scattering[face]));
-        }
-        room["surfaces"] = surfaces;
-        room["scattering"] = scattering;
-
-        nlohmann::json patches = nlohmann::json::array();
-        for (std::uint32_t index = 0; index < scene.patch_count; ++index)
-        {
-            const SushiDSP::room::RoomScene::Patch& patch = scene.patches[index];
-            nlohmann::json row = nlohmann::json::object();
-            row["surface"] = word_of(kSurfaceWords, patch.surface);
-            row["material"] = word_of(kMaterialWords, patch.material);
-            row["area_m2"] = patch.area_m2;
-            patches.push_back(row);
-        }
-        room["patches"] = patches;
-
-        room["source"] = pose_to_json(scene.source_position, scene.source_yaw_rad);
-        room["listener"] = pose_to_json(scene.listener_position, scene.listener_yaw_rad);
-        nlohmann::json microphone = pose_to_json(scene.microphone_position,
-                                                 scene.microphone_yaw_rad);
-        microphone["pattern"] = word_of(kPatternWords, scene.microphone_pattern);
-        room["microphone"] = microphone;
-
-        nlohmann::json cabinet = nlohmann::json::object();
-        cabinet["cone_radius_m"] = scene.cabinet.cone_radius_m;
-        cabinet["driver_spacing_m"] = scene.cabinet.driver_spacing_m;
-        cabinet["baffle_width_m"] = scene.cabinet.baffle_width_m;
-        cabinet["breakup_frequency_hz"] = scene.cabinet.breakup_frequency_hz;
-        room["cabinet"] = cabinet;
-        return room;
-    }
-
-    /// @brief Reads a "room" object written by room_scene_to_json; a field the object omits
-    /// keeps the default scene's value.
-    /// @throws std::runtime_error for a word or an array the codec does not read.
-    SushiDSP::room::RoomScene room_scene_from_json(const nlohmann::json& room)
-    {
-        SushiDSP::room::RoomScene scene;
-        if (room.contains("dimensions"))
-        {
-            scene.dimensions = vec3_from_json(room.at("dimensions"), "dimensions");
-        }
-        if (room.contains("surfaces"))
-        {
-            const nlohmann::json& surfaces = room.at("surfaces");
-            for (std::size_t face = 0;
-                 face < surfaces.size() && face < SushiDSP::room::kSurfaceCount; ++face)
-            {
-                scene.surfaces[face] =
-                    value_of(kMaterialWords, surfaces.at(face).get<std::string>(), "material");
-            }
-        }
-        if (room.contains("scattering"))
-        {
-            const nlohmann::json& scattering = room.at("scattering");
-            for (std::size_t face = 0;
-                 face < scattering.size() && face < SushiDSP::room::kSurfaceCount; ++face)
-            {
-                scene.scattering[face] = value_of(
-                    kScatteringWords, scattering.at(face).get<std::string>(), "scattering");
-            }
-        }
-        if (room.contains("patches"))
-        {
-            scene.patch_count = 0;
-            for (const nlohmann::json& row : room.at("patches"))
-            {
-                if (scene.patch_count >= SushiDSP::room::RoomScene::kMaxPatches)
-                {
-                    throw std::runtime_error(
-                        "RigController: a preset's room carries more than "
-                        + std::to_string(SushiDSP::room::RoomScene::kMaxPatches) + " patches");
-                }
-                SushiDSP::room::RoomScene::Patch& patch = scene.patches[scene.patch_count++];
-                patch.surface = value_of(kSurfaceWords, row.at("surface").get<std::string>(),
-                                         "surface");
-                patch.material = value_of(kMaterialWords, row.at("material").get<std::string>(),
-                                          "material");
-                patch.area_m2 = row.at("area_m2").get<double>();
-            }
-        }
-        if (room.contains("source"))
-        {
-            pose_from_json(room.at("source"), "source", scene.source_position,
-                           scene.source_yaw_rad);
-        }
-        if (room.contains("listener"))
-        {
-            pose_from_json(room.at("listener"), "listener", scene.listener_position,
-                           scene.listener_yaw_rad);
-        }
-        if (room.contains("microphone"))
-        {
-            const nlohmann::json& microphone = room.at("microphone");
-            pose_from_json(microphone, "microphone", scene.microphone_position,
-                           scene.microphone_yaw_rad);
-            if (microphone.contains("pattern"))
-            {
-                scene.microphone_pattern = value_of(
-                    kPatternWords, microphone.at("pattern").get<std::string>(), "pattern");
-            }
-        }
-        if (room.contains("cabinet"))
-        {
-            const nlohmann::json& cabinet = room.at("cabinet");
-            scene.cabinet.cone_radius_m =
-                cabinet.value("cone_radius_m", scene.cabinet.cone_radius_m);
-            scene.cabinet.driver_spacing_m =
-                cabinet.value("driver_spacing_m", scene.cabinet.driver_spacing_m);
-            scene.cabinet.baffle_width_m =
-                cabinet.value("baffle_width_m", scene.cabinet.baffle_width_m);
-            scene.cabinet.breakup_frequency_hz =
-                cabinet.value("breakup_frequency_hz", scene.cabinet.breakup_frequency_hz);
-        }
-        return scene;
-    }
-}
 
 RigController::RigController(const SushiDSP::PrepareInfo& info)
     : info_(info)
-    , recording_bus_(std::max(1u, info.channels), info.sample_rate)
-    , metronome_(info.sample_rate)
+    , graph_(info)
+    , session_(info)
+    , persistence_(info, graph_, session_)
 {
-    musical_clock_.set_sample_rate(info.sample_rate);
-    // A lane converts a clip only through a sized reader, so both players are prepared here and
-    // no caller can set a speed on an unprepared one.
-    player_.prepare(info.max_block);
-    reamp_player_.prepare(info.max_block);
-    publish();
-}
-
-void RigController::seed_defaults(Slot& slot) const
-{
-    for (const auto& entry : SushiDSP::node_registry())
-    {
-        if (slot.descriptor_id == entry.descriptor->id)
-        {
-            for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
-            {
-                const auto& param = entry.descriptor->parameters[p];
-                slot.parameters[param.id] = param.default_value;
-            }
-            break;
-        }
-    }
 }
 
 RigController::SlotId RigController::add_node(const std::string& descriptor_id, bool publish_now)
 {
-    const SlotId id = next_slot_id_++;
-    Slot slot;
-    slot.descriptor_id = descriptor_id;
-    seed_defaults(slot);
-    slots_[id] = std::move(slot);
-    slot_order_.push_back(id);
-    if (publish_now)
-    {
-        publish();
-    }
-    return id;
+    return graph_.add_node(descriptor_id, publish_now);
 }
 
 void RigController::connect(SlotId from, SlotId to, bool publish_now)
 {
-    const bool present = std::any_of(edges_.begin(), edges_.end(),
-        [from, to](const Edge& edge) { return edge.from == from && edge.to == to; });
-    if (present)
-    {
-        return;
-    }
-    edges_.push_back({ from, to });
-    if (publish_now)
-    {
-        publish();
-    }
+    graph_.connect(from, to, publish_now);
 }
 
 void RigController::disconnect(SlotId from, SlotId to, bool publish_now)
 {
-    edges_.erase(
-        std::remove_if(edges_.begin(), edges_.end(),
-            [from, to](const Edge& edge) { return edge.from == from && edge.to == to; }),
-        edges_.end());
-    if (publish_now)
-    {
-        publish();
-    }
+    graph_.disconnect(from, to, publish_now);
 }
 
 void RigController::remove(SlotId slot, bool publish_now)
 {
-    // Find slot's one upstream and one downstream neighbor (if any) before erasing its edges,
-    // so a middle-of-chain removal can reconnect around the gap — matches today's behavior of
-    // never leaving two previously-adjacent slots disconnected by a removal.
-    std::optional<SlotId> upstream;
-    std::optional<SlotId> downstream;
-    for (const Edge& edge : edges_)
-    {
-        if (edge.to == slot) { upstream = edge.from; }
-        if (edge.from == slot) { downstream = edge.to; }
-    }
+    graph_.remove(slot, publish_now);
+}
 
-    edges_.erase(
-        std::remove_if(edges_.begin(), edges_.end(),
-            [slot](const Edge& edge) { return edge.from == slot || edge.to == slot; }),
-        edges_.end());
+void RigController::publish()
+{
+    graph_.publish();
+}
 
-    if (upstream.has_value() && downstream.has_value())
-    {
-        connect(*upstream, *downstream, false);
-    }
+void RigController::set_bypassed(SlotId slot, bool bypassed)
+{
+    graph_.set_bypassed(slot, bypassed);
+}
 
-    slots_.erase(slot);
-    slot_order_.erase(std::remove(slot_order_.begin(), slot_order_.end(), slot), slot_order_.end());
-    if (publish_now)
-    {
-        publish();
-    }
+bool RigController::is_bypassed(SlotId slot) const
+{
+    return graph_.is_bypassed(slot);
 }
 
 RigController::SlotId RigController::append(const std::string& descriptor_id)
 {
-    const SlotId id = next_slot_id_++;
-    Slot slot;
-    slot.descriptor_id = descriptor_id;
-    seed_defaults(slot);
-    slots_[id] = std::move(slot);
-
-    if (!slot_order_.empty())
-    {
-        connect(slot_order_.back(), id, false);
-    }
-    slot_order_.push_back(id);
-    publish();
-    return id;
+    return graph_.append(descriptor_id);
 }
 
-RigController::SlotId RigController::insert_before(std::optional<SlotId> following, const std::string& descriptor_id)
+RigController::SlotId RigController::insert_before(std::optional<SlotId>  following,
+                                                   const std::string&     descriptor_id)
 {
-    const SlotId id = next_slot_id_++;
-    Slot slot;
-    slot.descriptor_id = descriptor_id;
-    seed_defaults(slot);
-    slots_[id] = std::move(slot);
-
-    if (following.has_value())
-    {
-        // Retarget whichever edge currently points at `following` (if any) to point at the new
-        // slot instead, then connect the new slot to `following`.
-        for (Edge& edge : edges_)
-        {
-            if (edge.to == *following)
-            {
-                edge.to = id;
-            }
-        }
-        connect(id, *following, false);
-
-        const auto position = std::find(slot_order_.begin(), slot_order_.end(), *following);
-        slot_order_.insert(position, id);
-    }
-    else if (!slot_order_.empty())
-    {
-        connect(id, slot_order_.front(), false);
-        slot_order_.insert(slot_order_.begin(), id);
-    }
-    else
-    {
-        slot_order_.push_back(id);
-    }
-
-    publish();
-    return id;
-}
-
-std::vector<RigController::SlotId> RigController::downstream_of(SlotId slot) const
-{
-    std::vector<SlotId> result;
-    for (const Edge& edge : edges_)
-    {
-        if (edge.from == slot)
-        {
-            result.push_back(edge.to);
-        }
-    }
-    return result;
-}
-
-RigController::BranchEnd RigController::walk_branch(SlotId start) const
-{
-    SlotId current = start;
-    std::set<SlotId> visited;
-    while (visited.insert(current).second)
-    {
-        if (upstream_of(current).size() >= 2)
-        {
-            return { current, true };
-        }
-        const std::vector<SlotId> next = downstream_of(current);
-        if (next.size() != 1)
-        {
-            return { current, false };
-        }
-        current = next.front();
-    }
-    // A cycle walked back onto a slot already left behind; stop rather than circle it forever.
-    return { current, false };
+    return graph_.insert_before(following, descriptor_id);
 }
 
 std::optional<RigController::SlotId> RigController::add_branch(SlotId splitter,
                                                                const std::string& descriptor_id)
 {
-    const auto splitter_slot = slots_.find(splitter);
-    if (splitter_slot == slots_.end()
-        || splitter_slot->second.descriptor_id != SushiDSP::splitter_descriptor().id
-        || !descriptor_is_registered(descriptor_id))
-    {
-        return std::nullopt;
-    }
-
-    const std::vector<SlotId> down = downstream_of(splitter);
-    if (down.empty())
-    {
-        // A dangling splitter's one branch is still the graph's only sink, so it needs no mixer.
-        const SlotId only_branch = add_node(descriptor_id, false);
-        connect(splitter, only_branch, false);
-        publish();
-        return only_branch;
-    }
-
-    const BranchEnd end = walk_branch(down.front());
-    const SlotId branch = add_node(descriptor_id, false);
-
-    const auto end_slot = slots_.find(end.slot);
-    const bool rejoin_exists = end.is_join && end_slot != slots_.end()
-        && end_slot->second.descriptor_id == SushiDSP::mixer_descriptor().id;
-
-    if (rejoin_exists)
-    {
-        connect(splitter, branch, false);
-        connect(branch, end.slot, false);
-
-        // The rejoin stays last in chain order, so append() still lands past every branch.
-        slot_order_.erase(std::remove(slot_order_.begin(), slot_order_.end(), branch),
-                          slot_order_.end());
-        slot_order_.insert(std::find(slot_order_.begin(), slot_order_.end(), end.slot), branch);
-    }
-    else
-    {
-        // A branch nothing rejoins is a second sink, which RigGraph::compile() rejects.
-        const std::vector<SlotId> after = downstream_of(end.slot);
-        const SlotId mixer = add_node(SushiDSP::mixer_descriptor().id, false);
-        if (!after.empty())
-        {
-            disconnect(end.slot, after.front(), false);
-        }
-        connect(end.slot, mixer, false);
-        connect(splitter, branch, false);
-        connect(branch, mixer, false);
-        if (!after.empty())
-        {
-            connect(mixer, after.front(), false);
-        }
-    }
-
-    publish();
-    return branch;
+    return graph_.add_branch(splitter, descriptor_id);
 }
 
 void RigController::move_before(SlotId moved, std::optional<SlotId> following)
 {
-    if (following.has_value() && *following == moved)
-    {
-        return;
-    }
-
-    // Detach `moved` the same way remove() does (reconnect its old neighbors around it), but
-    // keep `moved`'s own slot alive.
-    std::optional<SlotId> upstream;
-    std::optional<SlotId> downstream;
-    for (const Edge& edge : edges_)
-    {
-        if (edge.to == moved) { upstream = edge.from; }
-        if (edge.from == moved) { downstream = edge.to; }
-    }
-    edges_.erase(
-        std::remove_if(edges_.begin(), edges_.end(),
-            [moved](const Edge& edge) { return edge.from == moved || edge.to == moved; }),
-        edges_.end());
-    if (upstream.has_value() && downstream.has_value())
-    {
-        connect(*upstream, *downstream, false);
-    }
-    slot_order_.erase(std::remove(slot_order_.begin(), slot_order_.end(), moved), slot_order_.end());
-
-    if (following.has_value())
-    {
-        for (Edge& edge : edges_)
-        {
-            if (edge.to == *following)
-            {
-                edge.to = moved;
-            }
-        }
-        connect(moved, *following, false);
-        const auto position = std::find(slot_order_.begin(), slot_order_.end(), *following);
-        slot_order_.insert(position, moved);
-    }
-    else if (!slot_order_.empty())
-    {
-        connect(moved, slot_order_.front(), false);
-        slot_order_.insert(slot_order_.begin(), moved);
-    }
-    else
-    {
-        slot_order_.push_back(moved);
-    }
-
-    publish();
+    graph_.move_before(moved, following);
 }
 
 void RigController::set_parameter(SlotId slot, const char* param_id, float value)
 {
-    const auto it = slots_.find(slot);
-    if (it == slots_.end())
-    {
-        return;
-    }
-    it->second.parameters[param_id] = value;
-
-    std::uint16_t parameter_index = 0;
-    if (!find_parameter_index(it->second.descriptor_id, param_id, parameter_index))
-    {
-        return;
-    }
-
-    const auto handle_it = slot_to_handle_.find(slot);
-    if (active_graph_ != nullptr && handle_it != slot_to_handle_.end())
-    {
-        const SushiDSP::ParameterChange change{ handle_it->second, parameter_index, value };
-        if (!active_graph_->push_parameter_change(change))
-        {
-            ++dropped_parameter_changes_;
-        }
-    }
+    graph_.set_parameter(slot, param_id, value);
 }
 
 float RigController::get_parameter(SlotId slot, const char* param_id) const
 {
-    const auto it = slots_.find(slot);
-    if (it == slots_.end())
-    {
-        return 0.0f;
-    }
-    const auto param_it = it->second.parameters.find(param_id);
-    return param_it != it->second.parameters.end() ? param_it->second : 0.0f;
+    return graph_.get_parameter(slot, param_id);
 }
 
 bool RigController::set_cabinet(SlotId slot, const std::string& path)
 {
-    const auto it = slots_.find(slot);
-    if (it == slots_.end())
-    {
-        return false;
-    }
-
-    SushiDSP::Ir impulse_response = SushiDSP::IrLoader::load(path, info_.sample_rate);
-
-    const auto handle_it = slot_to_handle_.find(slot);
-    if (handle_it != slot_to_handle_.end() && active_graph_ != nullptr)
-    {
-        auto* host = dynamic_cast<SushiDSP::ICabinetHost*>(active_graph_->node(handle_it->second));
-        if (host == nullptr || !host->set_cabinet(std::move(impulse_response)))
-        {
-            return false;
-        }
-    }
-
-    // A bypassed slot has no live node to ask, so the path is kept and the node decides on the
-    // publish that brings it back; apply_cabinet_to_live_node() drops it if the node refuses.
-    it->second.cabinet_path = path;
-    return true;
-}
-
-void RigController::apply_cabinet_to_live_node(SlotId slot)
-{
-    const auto it = slots_.find(slot);
-    const auto handle_it = slot_to_handle_.find(slot);
-    if (it == slots_.end() || it->second.cabinet_path.empty()
-        || handle_it == slot_to_handle_.end() || active_graph_ == nullptr)
-    {
-        return;
-    }
-    auto* host = dynamic_cast<SushiDSP::ICabinetHost*>(active_graph_->node(handle_it->second));
-    if (host == nullptr)
-    {
-        it->second.cabinet_path.clear();
-        return;
-    }
-    try
-    {
-        if (!host->set_cabinet(SushiDSP::IrLoader::load(it->second.cabinet_path, info_.sample_rate)))
-        {
-            it->second.cabinet_path.clear();
-        }
-    }
-    catch (const std::exception&)
-    {
-        it->second.cabinet_path.clear();
-    }
+    return graph_.set_cabinet(slot, path);
 }
 
 void RigController::reclaim()
 {
-    graph_slot_.reclaim();
-    player_.reclaim();
-    reamp_player_.reclaim();
-    if (active_graph_ == nullptr)
-    {
-        return;
-    }
-    for (const auto& [slot, handle] : slot_to_handle_)
-    {
-        if (auto* host = dynamic_cast<SushiDSP::ICabinetHost*>(active_graph_->node(handle)))
-        {
-            host->reclaim_cabinets();
-        }
-        if (auto* room = dynamic_cast<SushiDSP::room::IRoomHost*>(active_graph_->node(handle)))
-        {
-            room->reclaim_rooms();
-            std::string reason;
-            publish_room_scene(slot, false, reason);
-        }
-    }
+    graph_.reclaim();
+    session_.reclaim();
 }
 
 std::size_t RigController::dropped_parameter_changes() const
 {
-    return dropped_parameter_changes_;
+    return graph_.dropped_parameter_changes();
 }
 
 std::vector<RigController::SlotId> RigController::slot_order() const
 {
-    return slot_order_;
+    return graph_.slot_order();
 }
 
 std::string RigController::descriptor_id(SlotId slot) const
 {
-    const auto it = slots_.find(slot);
-    return it != slots_.end() ? it->second.descriptor_id : std::string();
+    return graph_.descriptor_id(slot);
 }
 
 std::string RigController::cabinet_path(SlotId slot) const
 {
-    const auto it = slots_.find(slot);
-    return it != slots_.end() ? it->second.cabinet_path : std::string();
+    return graph_.cabinet_path(slot);
 }
 
 bool RigController::hosts_cabinet(SlotId slot) const
 {
-    const auto it = slots_.find(slot);
-    return it != slots_.end() && it->second.hosts_cabinet;
+    return graph_.hosts_cabinet(slot);
 }
 
 bool RigController::hosts_room(SlotId slot) const
 {
-    const auto it = slots_.find(slot);
-    return it != slots_.end() && it->second.hosts_room;
+    return graph_.hosts_room(slot);
 }
 
 SushiDSP::room::IRoomHost* RigController::room_host(SlotId slot)
 {
-    const auto handle_it = slot_to_handle_.find(slot);
-    if (handle_it == slot_to_handle_.end() || active_graph_ == nullptr)
-    {
-        return nullptr;
-    }
-    return dynamic_cast<SushiDSP::room::IRoomHost*>(active_graph_->node(handle_it->second));
+    return graph_.room_host(slot);
 }
 
 SushiDSP::room::RoomScene RigController::room_scene(SlotId slot) const
 {
-    const auto it = slots_.find(slot);
-    if (it == slots_.end() || !it->second.room_scene.has_value())
-    {
-        return SushiDSP::room::RoomScene{};
-    }
-    return *it->second.room_scene;
+    return graph_.room_scene(slot);
 }
 
 bool RigController::set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& scene,
                                    std::string& error_out)
 {
-    error_out.clear();
-    const auto it = slots_.find(slot);
-    if (it == slots_.end())
-    {
-        error_out = "no slot with that id";
-        return false;
-    }
-    // Refused here rather than at the node, so a drag that leaves the room hears about it on
-    // the frame it happens and not on the publish the interval allows.
-    if (!scene.is_valid(error_out))
-    {
-        return false;
-    }
-    it->second.room_scene = scene;
-    it->second.room_scene_pending = true;
-    return publish_room_scene(slot, false, error_out);
+    return graph_.set_room_scene(slot, scene, error_out);
 }
 
 std::size_t RigController::room_publishes(SlotId slot) const
 {
-    const auto it = slots_.find(slot);
-    return it != slots_.end() ? it->second.room_publishes : 0u;
-}
-
-bool RigController::publish_room_scene(SlotId slot, bool force, std::string& error_out)
-{
-    const auto it = slots_.find(slot);
-    if (it == slots_.end() || !it->second.room_scene_pending)
-    {
-        return true;
-    }
-    SushiDSP::room::IRoomHost* host = room_host(slot);
-    if (host == nullptr)
-    {
-        return true;
-    }
-
-    const Clock::time_point now = Clock::now();
-    if (!force && it->second.room_published_at.has_value())
-    {
-        const std::chrono::duration<double> since = now - *it->second.room_published_at;
-        if (since.count() < 1.0 / kRoomPublishHz)
-        {
-            return true;
-        }
-    }
-
-    it->second.room_scene_pending = false;
-    it->second.room_published_at = now;
-    ++it->second.room_publishes;
-    return host->set_scene(*it->second.room_scene, error_out);
-}
-
-void RigController::apply_room_to_live_node(SlotId slot)
-{
-    const auto it = slots_.find(slot);
-    SushiDSP::room::IRoomHost* host = room_host(slot);
-    if (it == slots_.end() || host == nullptr)
-    {
-        return;
-    }
-    if (!hrtf_.empty())
-    {
-        host->set_hrtf(hrtf_);
-    }
-    if (!it->second.room_scene.has_value())
-    {
-        it->second.room_scene = host->scene();
-        return;
-    }
-    std::string reason;
-    it->second.room_scene_pending = true;
-    if (!publish_room_scene(slot, true, reason))
-    {
-        // A stored scene the fresh node refuses is dropped for the node's own, as a cabinet
-        // path the node refuses is dropped.
-        it->second.room_scene = host->scene();
-    }
+    return graph_.room_publishes(slot);
 }
 
 bool RigController::set_hrtf_path(const std::string& path, std::string& error_out)
 {
-    error_out.clear();
-    SushiDSP::room::HrtfSet set;
-    if (!SushiDSP::room::HrtfSetLoader::load(path, info_.sample_rate, set, error_out))
-    {
-        hrtf_ = SushiDSP::room::HrtfSet{};
-        hrtf_path_.clear();
-        for (SlotId slot : slot_order_)
-        {
-            if (SushiDSP::room::IRoomHost* host = room_host(slot))
-            {
-                host->set_hrtf(SushiDSP::room::HrtfSet{});
-            }
-        }
-        return false;
-    }
-
-    hrtf_ = std::move(set);
-    hrtf_path_ = path;
-    bool every_room_took_it = true;
-    for (SlotId slot : slot_order_)
-    {
-        if (SushiDSP::room::IRoomHost* host = room_host(slot))
-        {
-            every_room_took_it = host->set_hrtf(hrtf_) && every_room_took_it;
-        }
-    }
-    if (!every_room_took_it)
-    {
-        error_out = "a room refused the HRTF set '" + path + "'";
-    }
-    return every_room_took_it;
+    return graph_.set_hrtf_path(path, error_out);
 }
 
 std::string RigController::hrtf_path() const
 {
-    return hrtf_path_;
+    return graph_.hrtf_path();
 }
 
 std::vector<RigController::SlotId> RigController::upstream_of(SlotId slot) const
 {
-    std::vector<SlotId> result;
-    for (const Edge& edge : edges_)
-    {
-        if (edge.to == slot)
-        {
-            result.push_back(edge.from);
-        }
-    }
-    return result;
+    return graph_.upstream_of(slot);
 }
 
 std::vector<std::pair<RigController::SlotId, RigController::SlotId>> RigController::edges() const
 {
-    std::vector<std::pair<SlotId, SlotId>> result;
-    result.reserve(edges_.size());
-    for (const Edge& edge : edges_)
-    {
-        result.push_back({ edge.from, edge.to });
-    }
-    return result;
+    return graph_.edges();
 }
 
 std::optional<RigController::SlotSnapshot> RigController::snapshot(SlotId slot) const
 {
-    const auto it = slots_.find(slot);
-    if (it == slots_.end())
-    {
-        return std::nullopt;
-    }
-    SlotSnapshot result;
-    result.descriptor_id = it->second.descriptor_id;
-    result.parameters = it->second.parameters;
-    result.cabinet_path = it->second.cabinet_path;
-    result.bypassed = it->second.bypassed;
-    result.room_scene = it->second.room_scene;
-    return result;
+    return graph_.snapshot(slot);
 }
 
 RigController::SlotId RigController::restore(const SlotSnapshot& snapshot, bool publish_now)
 {
-    const SlotId id = add_node(snapshot.descriptor_id, false);
-    Slot& slot = slots_.at(id);
-    // Restored values overlay the seeded defaults add_node() already wrote, the way
-    // load_from_json() layers a preset's values over a fresh slot's defaults.
-    for (const auto& [param_id, value] : snapshot.parameters)
-    {
-        slot.parameters[param_id] = value;
-    }
-    slot.cabinet_path = snapshot.cabinet_path;
-    slot.bypassed = snapshot.bypassed;
-    slot.room_scene = snapshot.room_scene;
-    if (publish_now)
-    {
-        publish();
-    }
-    return id;
+    return graph_.restore(snapshot, publish_now);
 }
 
 void RigController::clear_edges(bool publish_now)
 {
-    edges_.clear();
-    if (publish_now)
-    {
-        publish();
-    }
+    graph_.clear_edges(publish_now);
 }
 
 SushiDSP::RigGraph* RigController::active_graph()
 {
-    return active_graph_;
+    return graph_.active_graph();
 }
 
 SushiDSP::RtGraphSlot& RigController::graph_slot()
 {
-    return graph_slot_;
+    return graph_.graph_slot();
 }
 
 void RigController::set_ir_folder(const std::string& path)
 {
-    ir_folder_ = path;
+    graph_.set_ir_folder(path);
 }
 
 std::string RigController::ir_folder() const
 {
-    return ir_folder_;
-}
-
-
-std::unique_ptr<SushiDSP::Take> RigController::load_take(const std::string& path,
-                                                         std::string& error_out)
-{
-    error_out.clear();
-    try
-    {
-        return std::make_unique<SushiDSP::Take>(SushiDSP::Take::load(path));
-    }
-    catch (const std::exception& error)
-    {
-        error_out = error.what();
-        return nullptr;
-    }
-}
-
-std::string RigController::path_stem(const std::string& path)
-{
-    const std::size_t cut = path.find_last_of("/\\");
-    const std::string name = cut == std::string::npos ? path : path.substr(cut + 1);
-    const std::size_t dot = name.find_last_of('.');
-    return dot == std::string::npos ? name : name.substr(0, dot);
+    return graph_.ir_folder();
 }
 
 void RigController::set_input_source(RigInputSource source)
 {
-    input_source_.store(source, std::memory_order_relaxed);
+    graph_.set_input_source(source);
 }
 
-std::string RigController::join_take_path(const std::string& folder,
-                                          const std::string& file_name)
+bool RigController::load_track(std::size_t index, const std::string& path, std::string& error_out)
 {
-    if (folder.empty())
-    {
-        return file_name;
-    }
-    const char last = folder.back();
-    if (last == '/' || last == '\\')
-    {
-        return folder + file_name;
-    }
-    return folder + '/' + file_name;
-}
-
-const SushiDSP::Take* RigController::take_for_path(const std::string& path,
-                                                   std::string&       error_out)
-{
-    error_out.clear();
-    const auto found = takes_by_path_.find(path);
-    if (found != takes_by_path_.end())
-    {
-        return found->second;
-    }
-
-    std::unique_ptr<SushiDSP::Take> take = load_take(path, error_out);
-    if (take == nullptr)
-    {
-        return nullptr;
-    }
-
-    const SushiDSP::Take* borrowed = player_.takes().insert(std::move(take));
-    takes_by_path_[path] = borrowed;
-    return borrowed;
-}
-
-void RigController::forget_unused_takes()
-{
-    std::set<std::string> named;
-    for (const TrackInfo& track : tracks_)
-    {
-        for (const ClipPlacement& placement : track.clips)
-        {
-            named.insert(placement.path);
-        }
-    }
-
-    for (auto entry = takes_by_path_.begin(); entry != takes_by_path_.end();)
-    {
-        entry = named.count(entry->first) == 0 ? takes_by_path_.erase(entry) : std::next(entry);
-    }
-}
-
-bool RigController::publish_lane(std::size_t track, std::vector<ClipPlacement> clips,
-                                 std::string& error_out)
-{
-    error_out.clear();
-    if (track >= tracks_.size())
-    {
-        error_out = "track index out of range";
-        return false;
-    }
-
-    std::sort(clips.begin(), clips.end(),
-              [](const ClipPlacement& left, const ClipPlacement& right)
-              { return left.start_frame < right.start_frame; });
-
-    std::vector<SushiDSP::Clip> lane;
-    lane.reserve(clips.size());
-    for (ClipPlacement& placement : clips)
-    {
-        const SushiDSP::Take* take = take_for_path(placement.path, error_out);
-        if (take == nullptr)
-        {
-            forget_unused_takes();
-            return false;
-        }
-
-        // A zero length is the take's whole remainder, which is what a preset row naming only a
-        // file means and what a freshly dropped file means.
-        const std::uint64_t frames = static_cast<std::uint64_t>(take->frames());
-        placement.take_offset = std::min(placement.take_offset, frames);
-        const std::uint64_t available = frames - placement.take_offset;
-        placement.length_frames = placement.length_frames == 0
-            ? available
-            : std::min(placement.length_frames, available);
-
-        lane.push_back(SushiDSP::Clip{ take, placement.start_frame, placement.take_offset,
-                                       placement.length_frames });
-    }
-
-    std::unique_ptr<SushiDSP::TrackTimeline> timeline;
-    try
-    {
-        timeline = std::make_unique<SushiDSP::TrackTimeline>(player_.takes(), lane);
-    }
-    catch (const std::exception& error)
-    {
-        error_out = error.what();
-        forget_unused_takes();
-        return false;
-    }
-
-    tracks_[track].clips = std::move(clips);
-    player_.set_timeline(track, std::move(timeline));
-    forget_unused_takes();
-    return true;
+    return session_.load_track(index, path, error_out);
 }
 
 bool RigController::place_clip(std::size_t track, const std::string& path,
                                std::uint64_t start_frame, std::string& error_out)
 {
-    error_out.clear();
-    if (track >= tracks_.size())
-    {
-        error_out = "track index out of range";
-        return false;
-    }
-    if (tracks_[track].clips.size() >= SushiDSP::TrackTimeline::kMaxClips)
-    {
-        error_out = "lane " + std::to_string(track) + " already holds "
-            + std::to_string(SushiDSP::TrackTimeline::kMaxClips) + " clips";
-        return false;
-    }
-
-    std::vector<ClipPlacement> clips = tracks_[track].clips;
-    ClipPlacement              placement;
-    placement.path = path;
-    placement.start_frame = start_frame;
-    clips.push_back(placement);
-
-    if (!publish_lane(track, std::move(clips), error_out))
-    {
-        return false;
-    }
-    if (tracks_[track].name.empty())
-    {
-        tracks_[track].name = path_stem(path);
-    }
-    return true;
+    return session_.place_clip(track, path, start_frame, error_out);
 }
 
 bool RigController::remove_clip(std::size_t track, std::size_t clip_index,
                                 std::string& error_out)
 {
-    error_out.clear();
-    if (track >= tracks_.size() || clip_index >= tracks_[track].clips.size())
-    {
-        error_out = "no clip at that index";
-        return false;
-    }
-
-    std::vector<ClipPlacement> clips = tracks_[track].clips;
-    clips.erase(clips.begin() + static_cast<std::ptrdiff_t>(clip_index));
-    return publish_lane(track, std::move(clips), error_out);
+    return session_.remove_clip(track, clip_index, error_out);
 }
 
 bool RigController::move_clip(std::size_t track, std::size_t clip_index,
                               std::uint64_t start_frame, std::string& error_out)
 {
-    error_out.clear();
-    if (track >= tracks_.size() || clip_index >= tracks_[track].clips.size())
-    {
-        error_out = "no clip at that index";
-        return false;
-    }
-
-    std::vector<ClipPlacement> clips = tracks_[track].clips;
-    clips[clip_index].start_frame = start_frame;
-    return publish_lane(track, std::move(clips), error_out);
+    return session_.move_clip(track, clip_index, start_frame, error_out);
 }
 
 std::size_t RigController::clip_count(std::size_t track) const
 {
-    return track < tracks_.size() ? tracks_[track].clips.size() : 0u;
+    return session_.clip_count(track);
 }
 
 RigController::ClipPlacement RigController::clip(std::size_t track, std::size_t clip_index) const
 {
-    if (track >= tracks_.size() || clip_index >= tracks_[track].clips.size())
-    {
-        return ClipPlacement{};
-    }
-    return tracks_[track].clips[clip_index];
-}
-
-bool RigController::load_track(std::size_t index, const std::string& path, std::string& error_out)
-{
-    error_out.clear();
-    if (index >= tracks_.size())
-    {
-        error_out = "track index out of range";
-        return false;
-    }
-
-    const std::string previous_name = tracks_[index].name;
-    const std::string previous_path = track_path(index);
-
-    std::vector<ClipPlacement> single(1);
-    single[0].path = path;
-    if (!publish_lane(index, std::move(single), error_out))
-    {
-        return false;
-    }
-
-    if (previous_name.empty() || previous_name == path_stem(previous_path))
-    {
-        tracks_[index].name = path_stem(path);
-    }
-    return true;
+    return session_.clip(track, clip_index);
 }
 
 void RigController::clear_track(std::size_t index)
 {
-    if (index >= tracks_.size())
-    {
-        return;
-    }
-    tracks_[index] = TrackInfo{};
-    std::string error;
-    publish_lane(index, std::vector<ClipPlacement>{}, error);
-    player_.set_gain(index, 1.0f);
-    player_.set_pan(index, 0.0f);
-    player_.set_mute(index, false);
-    player_.set_solo(index, false);
-    if (reamp_track_.has_value() && *reamp_track_ == index)
-    {
-        clear_reamp_track();
-    }
+    session_.clear_track(index);
 }
 
 bool RigController::track_is_loaded(std::size_t index) const
 {
-    return index < tracks_.size() && !tracks_[index].clips.empty();
+    return session_.track_is_loaded(index);
 }
 
 std::string RigController::track_name(std::size_t index) const
 {
-    return index < tracks_.size() ? tracks_[index].name : std::string();
+    return session_.track_name(index);
 }
 
 void RigController::set_track_name(std::size_t index, const std::string& name)
 {
-    if (index < tracks_.size())
-    {
-        tracks_[index].name = name;
-    }
+    session_.set_track_name(index, name);
 }
 
 std::string RigController::track_path(std::size_t index) const
 {
-    if (index >= tracks_.size() || tracks_[index].clips.empty())
-    {
-        return std::string();
-    }
-    return tracks_[index].clips.front().path;
+    return session_.track_path(index);
 }
 
 bool RigController::set_reamp_track(std::size_t index, std::string& error_out)
 {
-    error_out.clear();
-    if (index >= tracks_.size() || tracks_[index].clips.empty())
-    {
-        clear_reamp_track();
-        return false;
-    }
-
-    // The re-amp leg mirrors the lane's frames, so a take recorded at a bar drives the rig at
-    // that bar. See docs/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
-    reamp_takes_by_path_.clear();
-    std::vector<SushiDSP::Clip> lane;
-    lane.reserve(tracks_[index].clips.size());
-    for (const ClipPlacement& placement : tracks_[index].clips)
-    {
-        const SushiDSP::Take* take = nullptr;
-        const auto            found = reamp_takes_by_path_.find(placement.path);
-        if (found != reamp_takes_by_path_.end())
-        {
-            take = found->second;
-        }
-        else
-        {
-            std::unique_ptr<SushiDSP::Take> loaded = load_take(placement.path, error_out);
-            if (loaded == nullptr)
-            {
-                reamp_takes_by_path_.clear();
-                return false;
-            }
-            take = reamp_player_.takes().insert(std::move(loaded));
-            reamp_takes_by_path_[placement.path] = take;
-        }
-        lane.push_back(SushiDSP::Clip{ take, placement.start_frame, placement.take_offset,
-                                       placement.length_frames });
-    }
-
-    std::unique_ptr<SushiDSP::TrackTimeline> timeline;
-    try
-    {
-        timeline = std::make_unique<SushiDSP::TrackTimeline>(reamp_player_.takes(), lane);
-    }
-    catch (const std::exception& error)
-    {
-        error_out = error.what();
-        reamp_takes_by_path_.clear();
-        return false;
-    }
-
-    reamp_player_.set_timeline(0, std::move(timeline));
-    reamp_player_.set_mute(0, false);
-    reamp_track_ = index;
-    return true;
+    return session_.set_reamp_track(index, error_out);
 }
 
 void RigController::clear_reamp_track()
 {
-    reamp_takes_by_path_.clear();
-    reamp_player_.set_timeline(0, std::make_unique<SushiDSP::TrackTimeline>(
-        reamp_player_.takes(), std::vector<SushiDSP::Clip>{}));
-    reamp_track_ = std::nullopt;
+    session_.clear_reamp_track();
 }
 
 void RigController::set_take_folder(const std::string& path)
 {
-    take_folder_ = path;
+    session_.set_take_folder(path);
 }
 
 std::string RigController::take_folder() const
 {
-    return take_folder_;
+    return session_.take_folder();
 }
 
 void RigController::set_record_track(std::optional<std::size_t> track)
 {
-    record_track_ = track.has_value() && *track < tracks_.size() ? track : std::nullopt;
+    session_.set_record_track(track);
 }
 
 bool RigController::arm_recording(const std::string& take_name, std::string& error_out)
 {
-    error_out.clear();
-    if (take_name.empty())
-    {
-        error_out = "a take needs a name";
-        return false;
-    }
-
-    // The stamp is read before the bus opens, so no block the bus accepts belongs to an earlier
-    // frame than the one a stopped recording's clip begins at.
-    const std::uint64_t armed_at = transport_.position_frames();
-    if (!recording_bus_.arm(take_folder_, take_name))
-    {
-        error_out = "could not open the take files in '" + take_folder_ + "'";
-        return false;
-    }
-    armed_frame_ = armed_at;
-    record_take_name_ = take_name;
-    transport_.record();
-    return true;
+    return session_.arm_recording(take_name, error_out);
 }
 
 void RigController::stop_recording(std::string* error_out)
 {
-    recording_bus_.stop();
-
-    const std::string take_name = record_take_name_;
-    record_take_name_.clear();
-    if (!record_track_.has_value() || take_name.empty())
-    {
-        return;
-    }
-
-    std::string error;
-    const bool  placed = place_clip(*record_track_,
-                                    join_take_path(take_folder_, take_name + "-dry.wav"),
-                                    armed_frame_, error);
-    if (!placed && error_out != nullptr)
-    {
-        *error_out = error;
-    }
+    session_.stop_recording(error_out);
 }
 
 bool RigController::poll_recording(std::string& error_out)
 {
-    if (!recording_bus_.failed())
-    {
-        return false;
-    }
-
-    recording_bus_.stop();
-    transport_.stop();
-    error_out = "recording stopped: a take file could not be written";
-    return true;
+    return session_.poll_recording(error_out);
 }
 
 std::string RigController::save_to_json() const
 {
-    nlohmann::json document = nlohmann::json::parse(serialize_nodes());
-    if (!ir_folder_.empty())
-    {
-        document["ir_folder"] = ir_folder_;
-    }
-    if (!take_folder_.empty())
-    {
-        document["take_folder"] = take_folder_;
-    }
-
-    nlohmann::json tracks_json = nlohmann::json::array();
-    for (std::size_t index = 0; index < tracks_.size(); ++index)
-    {
-        if (tracks_[index].clips.empty())
-        {
-            continue;
-        }
-        nlohmann::json track_json = nlohmann::json::object();
-        track_json["index"] = index;
-        track_json["name"] = tracks_[index].name;
-        track_json["path"] = track_path(index);
-        track_json["gain"] = player_.gain(index);
-        track_json["pan"] = player_.pan(index);
-        track_json["muted"] = player_.muted(index);
-        track_json["soloed"] = player_.soloed(index);
-
-        nlohmann::json clips_json = nlohmann::json::array();
-        for (const ClipPlacement& placement : tracks_[index].clips)
-        {
-            nlohmann::json clip_json = nlohmann::json::object();
-            clip_json["path"] = placement.path;
-            clip_json["start_frame"] = placement.start_frame;
-            clip_json["take_offset"] = placement.take_offset;
-            clip_json["length_frames"] = placement.length_frames;
-            clips_json.push_back(clip_json);
-        }
-        track_json["clips"] = clips_json;
-        tracks_json.push_back(track_json);
-    }
-    if (!tracks_json.empty())
-    {
-        document["tracks"] = tracks_json;
-    }
-
-    if (transport_.has_loop())
-    {
-        nlohmann::json loop_json = nlohmann::json::object();
-        loop_json["begin_frames"] = transport_.loop_begin_frames();
-        loop_json["end_frames"] = transport_.loop_end_frames();
-        document["loop"] = loop_json;
-    }
-
-    // The playback speed is a practice setting, not a session's, so it is written nowhere. See
-    // docs/superpowers/specs/2026-09-08-arrangement-view-design.md §8.
-    nlohmann::json tempo_json = nlohmann::json::object();
-    tempo_json["bpm"] = musical_clock_.beats_per_minute();
-    tempo_json["beats_per_bar"] = musical_clock_.beats_per_bar();
-    tempo_json["beat_unit"] = musical_clock_.beat_unit();
-    tempo_json["metronome_enabled"] = metronome_.enabled();
-    tempo_json["metronome_level"] = metronome_.level();
-    tempo_json["playback_speed"] = transport_.speed();
-    document["tempo"] = tempo_json;
-
-    return document.dump(2);
-}
-
-std::string RigController::serialize_nodes() const
-{
-    if (slot_order_.empty())
-    {
-        return "{\"nodes\":[]}";
-    }
-
-    std::unordered_map<SlotId, SushiDSP::NodeHandle> handles;
-    const std::unique_ptr<SushiDSP::RigGraph> graph = build_graph(false, handles);
-
-    std::unordered_map<SushiDSP::NodeHandle, SlotId> slot_by_handle;
-    for (const auto& [slot, handle] : handles)
-    {
-        slot_by_handle[handle] = slot;
-    }
-
-    return SushiDSP::serialize_rig_to_json(*graph,
-        [this, &slot_by_handle](SushiDSP::NodeHandle handle, nlohmann::json& node_json)
-        {
-            const auto it = slot_by_handle.find(handle);
-            if (it == slot_by_handle.end())
-            {
-                return;
-            }
-            const Slot& slot = slots_.at(it->second);
-
-            nlohmann::json params_json = nlohmann::json::object();
-            for (const auto& [param_id, value] : slot.parameters)
-            {
-                params_json[param_id] = value;
-            }
-            node_json["params"] = params_json;
-
-            if (!slot.cabinet_path.empty())
-            {
-                node_json["cabinet_ir"] = slot.cabinet_path;
-            }
-            if (slot.room_scene.has_value())
-            {
-                node_json["room"] = room_scene_to_json(*slot.room_scene);
-            }
-            if (slot.bypassed)
-            {
-                node_json["bypassed"] = true;
-            }
-        });
+    return persistence_.save_to_json();
 }
 
 void RigController::load_from_json(const std::string& json_text)
 {
-    // Size the scratch graph's buffer pool from the preset's own node count (plus the same +1
-    // headroom publish() uses). RigGraph::compile() only assert()s the pool's capacity, so a
-    // fixed guess would hand the audio thread null buffers on any preset larger than that guess.
-    const nlohmann::json document = nlohmann::json::parse(json_text);
-    const std::size_t node_count = document.at("nodes").size();
-    SushiDSP::RigGraph scratch(info_.max_block, static_cast<std::uint32_t>(node_count + 1));
-    std::unordered_map<SushiDSP::NodeHandle, std::string> cabinet_paths_by_handle;
-    std::unordered_map<SushiDSP::NodeHandle, bool> bypassed_by_handle;
-    std::unordered_map<SushiDSP::NodeHandle, SushiDSP::room::RoomScene> room_scenes_by_handle;
-    SushiDSP::deserialize_rig_from_json(scratch, json_text, info_,
-        [&cabinet_paths_by_handle, &bypassed_by_handle, &room_scenes_by_handle](
-            SushiDSP::NodeHandle handle, const nlohmann::json& node_json)
-        {
-            if (node_json.contains("cabinet_ir"))
-            {
-                cabinet_paths_by_handle[handle] = node_json.at("cabinet_ir").get<std::string>();
-            }
-            if (node_json.contains("room"))
-            {
-                room_scenes_by_handle[handle] = room_scene_from_json(node_json.at("room"));
-            }
-            if (node_json.contains("bypassed"))
-            {
-                bypassed_by_handle[handle] = node_json.at("bypassed").get<bool>();
-            }
-        });
-    scratch.compile(info_);
-
-    slots_.clear();
-    edges_.clear();
-    slot_order_.clear();
-    next_slot_id_ = 0;
-    ir_folder_ = document.contains("ir_folder") ? document.at("ir_folder").get<std::string>()
-                                                : std::string();
-    take_folder_ = document.contains("take_folder")
-        ? document.at("take_folder").get<std::string>()
-        : std::string();
-
-    // Every track is emptied to its defaults first, so a preset brings its own mixer state.
-    for (std::size_t index = 0; index < tracks_.size(); ++index)
-    {
-        clear_track(index);
-    }
-    if (document.contains("tracks"))
-    {
-        std::string track_error;
-        for (const nlohmann::json& track_json : document.at("tracks"))
-        {
-            const std::size_t index = track_json.value("index", tracks_.size());
-            if (index >= tracks_.size())
-            {
-                continue;
-            }
-            const std::string row_path = track_json.value("path", std::string());
-
-            std::vector<ClipPlacement> clips;
-            if (track_json.contains("clips"))
-            {
-                for (const nlohmann::json& clip_json : track_json.at("clips"))
-                {
-                    ClipPlacement placement;
-                    placement.path = clip_json.value("path", std::string());
-                    placement.start_frame = clip_json.value("start_frame", std::uint64_t{ 0 });
-                    placement.take_offset = clip_json.value("take_offset", std::uint64_t{ 0 });
-                    placement.length_frames = clip_json.value("length_frames", std::uint64_t{ 0 });
-                    if (!placement.path.empty())
-                    {
-                        clips.push_back(placement);
-                    }
-                }
-            }
-            else if (!row_path.empty())
-            {
-                // A preset written before the timeline names one file per row, which is what one
-                // clip at frame 0 means. Spec §8.
-                ClipPlacement placement;
-                placement.path = row_path;
-                clips.push_back(placement);
-            }
-
-            publish_lane(index, std::move(clips), track_error);
-            tracks_[index].name = track_json.value("name", path_stem(track_path(index)));
-            player_.set_gain(index, track_json.value("gain", 1.0f));
-            player_.set_pan(index, track_json.value("pan", 0.0f));
-            player_.set_mute(index, track_json.value("muted", false));
-            player_.set_solo(index, track_json.value("soloed", false));
-        }
-    }
-
-    transport_.clear_loop();
-    if (document.contains("loop"))
-    {
-        const nlohmann::json& loop_json = document.at("loop");
-        transport_.set_loop(loop_json.value("begin_frames", std::uint64_t{ 0 }),
-                            loop_json.value("end_frames", std::uint64_t{ 0 }));
-    }
-
-    // A session carries no playback speed, so every session opens at 1.0. Spec §8.
-    transport_.set_speed(1.0);
-
-    // A preset written before the timeline carries no tempo, which meant 120 BPM in 4/4 with the
-    // click off. Spec §8.
-    const nlohmann::json tempo_json = document.contains("tempo")
-        ? document.at("tempo")
-        : nlohmann::json::object();
-    musical_clock_.set_tempo(tempo_json.value("bpm", 120.0));
-    musical_clock_.set_meter(tempo_json.value("beats_per_bar", std::uint32_t{ 4 }),
-                             tempo_json.value("beat_unit", std::uint32_t{ 4 }));
-    musical_clock_.set_sample_rate(info_.sample_rate);
-    metronome_.set_enabled(tempo_json.value("metronome_enabled", false));
-    metronome_.set_level(tempo_json.value("metronome_level", 0.5f));
-    transport_.set_speed(tempo_json.value("playback_speed", 1.0));
-
-    std::unordered_map<SushiDSP::NodeHandle, SlotId> handle_to_slot;
-    for (SushiDSP::NodeHandle handle : scratch.nodes())
-    {
-        SushiDSP::IAudioNode* node = scratch.node(handle);
-        const SlotId id = next_slot_id_++;
-        Slot slot;
-        slot.descriptor_id = node->type_id();
-        seed_defaults(slot);
-        for (const auto& entry : SushiDSP::node_registry())
-        {
-            if (slot.descriptor_id == entry.descriptor->id)
-            {
-                for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
-                {
-                    const char* param_id = entry.descriptor->parameters[p].id;
-                    slot.parameters[param_id] = node->get_parameter(param_id);
-                }
-                break;
-            }
-        }
-        const auto cabinet_it = cabinet_paths_by_handle.find(handle);
-        if (cabinet_it != cabinet_paths_by_handle.end())
-        {
-            slot.cabinet_path = cabinet_it->second;
-        }
-        const auto bypass_it = bypassed_by_handle.find(handle);
-        if (bypass_it != bypassed_by_handle.end())
-        {
-            slot.bypassed = bypass_it->second;
-        }
-        const auto room_it = room_scenes_by_handle.find(handle);
-        if (room_it != room_scenes_by_handle.end())
-        {
-            slot.room_scene = room_it->second;
-        }
-        slots_[id] = std::move(slot);
-        slot_order_.push_back(id);
-        handle_to_slot[handle] = id;
-    }
-    for (SushiDSP::NodeHandle handle : scratch.nodes())
-    {
-        for (SushiDSP::NodeHandle upstream_handle : scratch.upstream_of(handle))
-        {
-            connect(handle_to_slot.at(upstream_handle), handle_to_slot.at(handle), false);
-        }
-    }
-
-    publish();
-}
-
-std::unique_ptr<SushiDSP::RigGraph> RigController::build_graph(bool apply_bypass,
-    std::unordered_map<SlotId, SushiDSP::NodeHandle>& handles_out) const
-{
-    handles_out.clear();
-
-    auto graph = std::make_unique<SushiDSP::RigGraph>(
-        info_.max_block, static_cast<std::uint32_t>(slot_order_.size() + 1));
-
-    for (SlotId id : slot_order_)
-    {
-        const Slot& slot = slots_.at(id);
-        if (apply_bypass && slot.bypassed)
-        {
-            continue;
-        }
-        auto node = SushiDSP::make_node(slot.descriptor_id.c_str(), info_);
-        if (node == nullptr)
-        {
-            continue;
-        }
-        handles_out[id] = graph->add_node(std::move(node));
-    }
-
-    const std::vector<std::pair<SlotId, SlotId>> resolved =
-        apply_bypass ? bridged_edges(handles_out) : direct_edges(handles_out);
-
-    std::unordered_map<SlotId, std::size_t> fan_out;
-    std::unordered_map<SlotId, std::size_t> fan_in;
-    for (const auto& edge : resolved)
-    {
-        if (++fan_out[edge.first] > SushiDSP::RigGraph::kMaxFanInOut
-            || ++fan_in[edge.second] > SushiDSP::RigGraph::kMaxFanInOut)
-        {
-            throw std::runtime_error(
-                apply_bypass
-                    ? "RigController::build_graph: bridging a bypassed slot would exceed the "
-                      "graph's fan-in/fan-out limit"
-                    : "RigController::build_graph: the rig's own edges exceed the graph's "
-                      "fan-in/fan-out limit");
-        }
-    }
-
-    for (const auto& edge : resolved)
-    {
-        graph->connect(handles_out.at(edge.first), handles_out.at(edge.second));
-    }
-
-    graph->compile(info_);
-    return graph;
-}
-
-std::vector<std::pair<RigController::SlotId, RigController::SlotId>>
-RigController::direct_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const
-{
-    std::vector<std::pair<SlotId, SlotId>> result;
-    std::set<std::pair<SlotId, SlotId>> seen;
-    for (const Edge& edge : edges_)
-    {
-        if (live.count(edge.from) != 0 && live.count(edge.to) != 0
-            && seen.insert({ edge.from, edge.to }).second)
-        {
-            result.push_back({ edge.from, edge.to });
-        }
-    }
-    return result;
-}
-
-std::vector<std::pair<RigController::SlotId, RigController::SlotId>>
-RigController::bridged_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const
-{
-    std::vector<std::pair<SlotId, SlotId>> result;
-    std::set<std::pair<SlotId, SlotId>> seen;
-
-    for (const Edge& edge : edges_)
-    {
-        if (live.count(edge.from) == 0)
-        {
-            continue;
-        }
-
-        // Walk forward from edge.to through bypassed slots until every live target is found.
-        std::vector<SlotId> frontier{ edge.to };
-        std::set<SlotId> visited;
-        while (!frontier.empty())
-        {
-            const SlotId current = frontier.back();
-            frontier.pop_back();
-            if (!visited.insert(current).second)
-            {
-                continue;
-            }
-            if (live.count(current) != 0)
-            {
-                if (seen.insert({ edge.from, current }).second)
-                {
-                    result.push_back({ edge.from, current });
-                }
-                continue;
-            }
-            for (const Edge& next : edges_)
-            {
-                if (next.from == current)
-                {
-                    frontier.push_back(next.to);
-                }
-            }
-        }
-    }
-    return result;
-}
-
-void RigController::publish()
-{
-    std::unordered_map<SlotId, SushiDSP::NodeHandle> fresh_handles;
-    auto graph = build_graph(true, fresh_handles);
-
-    // A slot the registry no longer knows is dropped here rather than inside build_graph, which
-    // stays const so save_to_json() can call it too.
-    std::vector<SlotId> surviving_order;
-    surviving_order.reserve(slot_order_.size());
-    for (SlotId id : slot_order_)
-    {
-        if (fresh_handles.count(id) != 0 || slots_.at(id).bypassed)
-        {
-            surviving_order.push_back(id);
-        }
-        else
-        {
-            slots_.erase(id);
-        }
-    }
-    slot_order_ = std::move(surviving_order);
-
-    edges_.erase(
-        std::remove_if(edges_.begin(), edges_.end(),
-            [this](const Edge& edge)
-            { return slots_.count(edge.from) == 0 || slots_.count(edge.to) == 0; }),
-        edges_.end());
-
-    for (const auto& [id, handle] : fresh_handles)
-    {
-        SushiDSP::IAudioNode* node = graph->node(handle);
-        if (node == nullptr)
-        {
-            continue;
-        }
-        Slot& slot = slots_.at(id);
-        slot.hosts_cabinet = dynamic_cast<SushiDSP::ICabinetHost*>(node) != nullptr;
-        slot.hosts_room = dynamic_cast<SushiDSP::room::IRoomHost*>(node) != nullptr;
-        slot.room_published_at.reset();
-        slot.room_publishes = 0;
-        for (const auto& [param_id, value] : slot.parameters)
-        {
-            node->set_parameter_for_control_thread(param_id.c_str(), value);
-        }
-    }
-
-    slot_to_handle_ = std::move(fresh_handles);
-    active_graph_ = graph.get();
-
-    for (SlotId id : slot_order_)
-    {
-        apply_cabinet_to_live_node(id);
-        apply_room_to_live_node(id);
-    }
-
-    graph_slot_.publish(std::move(graph));
-}
-
-void RigController::set_bypassed(SlotId slot, bool bypassed)
-{
-    const auto it = slots_.find(slot);
-    if (it == slots_.end() || it->second.bypassed == bypassed)
-    {
-        return;
-    }
-
-    const bool previous = it->second.bypassed;
-    it->second.bypassed = bypassed;
-    try
-    {
-        publish();
-    }
-    catch (...)
-    {
-        it->second.bypassed = previous;
-        throw;
-    }
-}
-
-bool RigController::is_bypassed(SlotId slot) const
-{
-    const auto it = slots_.find(slot);
-    return it != slots_.end() && it->second.bypassed;
+    persistence_.load_from_json(json_text);
 }

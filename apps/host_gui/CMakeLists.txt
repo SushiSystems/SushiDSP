@@ -1,6 +1,9 @@
 add_executable(sushidsp_host_gui
     main.cpp
     RigController.cpp
+    SlotGraph.cpp
+    SessionTimeline.cpp
+    RigPersistence.cpp
     FileDropQueue.cpp
     Mp3Decoder.cpp
     ChannelResampler.cpp

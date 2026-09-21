@@ -119,6 +119,9 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host/SineToneNode.cpp
     functional/unit/test_rig_controller.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/RigController.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/SlotGraph.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/SessionTimeline.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/RigPersistence.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/FileDropQueue.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/Mp3Decoder.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ChannelResampler.cpp
