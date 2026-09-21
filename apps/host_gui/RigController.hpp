@@ -21,50 +21,32 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+/** @file RigController.hpp
+ *  @brief Declares the host's rig facade over the slot graph, the timeline and the preset codec.
+ *  @author Mustafa Garip
+ */
+
 #pragma once
 
-#include <array>
-#include <atomic>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <map>
-#include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "SushiDSP/capture/Metronome.hpp"
-#include "SushiDSP/capture/MusicalClock.hpp"
-#include "SushiDSP/capture/RecordingBus.hpp"
-#include "SushiDSP/capture/Take.hpp"
-#include "SushiDSP/capture/TrackPlayer.hpp"
-#include "SushiDSP/capture/TrackTimeline.hpp"
-#include "SushiDSP/capture/Transport.hpp"
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/core/RtGraphSlot.hpp"
-#include "SushiDSP/room/HrtfSet.hpp"
 #include "SushiDSP/room/IRoomHost.hpp"
 #include "SushiDSP/room/RoomScene.hpp"
 
-#include "ui/Geometry.hpp"
+#include "RigPersistence.hpp"
+#include "SessionTimeline.hpp"
+#include "SlotGraph.hpp"
 
-/// @brief Names the signal the host assembles into the rig's input buffer. Track and Both are
-/// what re-amping is made of - a dry take driven through the rig instead of, or on top of, the
-/// live instrument. See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md section 6.
-enum class RigInputSource : std::uint32_t
-{
-    LiveInput = 0,
-    Track = 1,
-    Both = 2
-};
-
-/// @brief Owns the authoritative rig topology - slots carrying a descriptor id and parameter
-/// values, plus the edges between them - and republishes a freshly compiled SushiDSP::RigGraph
-/// through an SushiDSP::RtGraphSlot on every structural edit. App-local glue, GUI thread only.
+/// @brief The host's single handle on a rig: it holds the slot graph, the session timeline and
+/// the preset codec, and forwards to whichever of the three owns the call. GUI thread only.
 /// A slot is named by a SlotId, stable across every insert, move and remove, and unrelated to
 /// the SushiDSP::NodeHandle RigGraph::add_node() assigns fresh on each rebuild.
 /// @see docs/superpowers/specs/2026-09-07-stereo-tracks-design.md
@@ -73,17 +55,14 @@ class RigController
 public:
     /// @brief The slot identity type, owned by ui::Geometry so the layout layer can name it
     /// without including this header.
-    using SlotId = ui::SlotId;
+    using SlotId = SlotGraph::SlotId;
 
     /// @brief Holds what a slot needs to be rebuilt: descriptor, parameters, cabinet, bypass, room.
-    struct SlotSnapshot
-    {
-        std::string                              descriptor_id;
-        std::map<std::string, float>             parameters;
-        std::string                              cabinet_path;
-        bool                                      bypassed = false;
-        std::optional<SushiDSP::room::RoomScene>  room_scene;
-    };
+    using SlotSnapshot = SlotGraph::SlotSnapshot;
+
+    /// @brief Names one run of a take on a lane: the file it reads, where on the timeline it
+    /// lands, where in the take it starts and how much of the take it plays.
+    using ClipPlacement = SessionTimeline::ClipPlacement;
 
     explicit RigController(const SushiDSP::PrepareInfo& info);
 
@@ -99,19 +78,13 @@ public:
 
     /// @brief Connects one slot's output to another's input and republishes. An edge the rig
     /// already holds is a no-op: the rig never carries the same edge twice.
-    /// @param publish_now Pass false to batch several structural edits (e.g. building a
-    /// multi-node shape where every individual add_node()/connect() call would otherwise leave
-    /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
-    /// when done. Every existing single-call use is unaffected — the default republishes
-    /// immediately, exactly as before.
+    /// @param publish_now Pass false to batch several structural edits into one rebuild; call
+    /// publish() once when done.
     void connect(SlotId from, SlotId to, bool publish_now = true);
 
     /// @brief Removes a single edge, if present, and republishes.
-    /// @param publish_now Pass false to batch several structural edits (e.g. building a
-    /// multi-node shape where every individual add_node()/connect() call would otherwise leave
-    /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
-    /// when done. Every existing single-call use is unaffected — the default republishes
-    /// immediately, exactly as before.
+    /// @param publish_now Pass false to batch several structural edits into one rebuild; call
+    /// publish() once when done.
     void disconnect(SlotId from, SlotId to, bool publish_now = true);
 
     /// @brief Removes a live slot and every edge touching it, then republishes. A slot with one
@@ -124,8 +97,7 @@ public:
 
     /// @brief Rebuilds a fresh RigGraph from the current slots and edges, compiles it, and
     /// publishes it through the RtGraphSlot. Called automatically by every edit that publishes;
-    /// call it explicitly after a batch of add_node()/connect()/disconnect()/remove() calls made
-    /// with publish_now = false.
+    /// call it explicitly after a batch of edits made with publish_now = false.
     /// @throws std::runtime_error if the resulting graph does not compile (e.g. it has no sink).
     void publish();
 
@@ -169,13 +141,13 @@ public:
     void move_before(SlotId moved, std::optional<SlotId> following);
 
     /// @brief Sets a parameter on `slot`. Does NOT republish (no structural change) and never
-    /// touches the live node directly: the value is stored in this controller's own slot state
-    /// and queued on the active RigGraph's lock-free parameter ring, where the audio thread
-    /// applies it at the top of its next process() call. If the ring is full the change is
-    /// dropped and dropped_parameter_changes() is incremented; the call never blocks.
+    /// touches the live node directly: the value is stored in the slot graph's own state and
+    /// queued on the active RigGraph's lock-free parameter ring, where the audio thread applies
+    /// it at the top of its next process() call. If the ring is full the change is dropped and
+    /// dropped_parameter_changes() is incremented; the call never blocks.
     void set_parameter(SlotId slot, const char* param_id, float value);
 
-    /// @brief Reads this controller's stored value for a parameter on `slot`.
+    /// @brief Reads the stored value for a parameter on `slot`.
     float get_parameter(SlotId slot, const char* param_id) const;
 
     /// @brief Installs a cabinet impulse response on the amplifier at `slot`, loading it at the
@@ -187,8 +159,8 @@ public:
     /// @throws std::runtime_error if the file cannot be opened or parsed.
     bool set_cabinet(SlotId slot, const std::string& path);
 
-    /// @brief Reclaims retired graphs and the retired cabinets of every live node that hosts
-    /// one. Control thread only; call once per GUI frame.
+    /// @brief Reclaims retired graphs, the retired cabinets of every live node that hosts one,
+    /// and the takes both players have retired. Control thread only; call once per GUI frame.
     void reclaim();
 
     /// @brief Counts parameter changes dropped because the audio thread's ring was full.
@@ -214,7 +186,7 @@ public:
 
     /// @brief Bounds how many scenes a second one slot's room takes; a drag inside 1 / kRoomPublishHz
     /// of the last publish keeps the newest scene for reclaim() to publish.
-    static constexpr double kRoomPublishHz = 30.0;
+    static constexpr double kRoomPublishHz = SlotGraph::kRoomPublishHz;
 
     /// @brief Reports whether a slot's node renders a room.
     /// @param slot The slot.
@@ -293,7 +265,6 @@ public:
     /// @brief The remembered impulse-response folder, or "" when the preset carried none.
     std::string ir_folder() const;
 
-
     /// @brief Reports the sample rate every take, the transport and the rig were prepared at.
     /// @return The rate in Hz.
     double sample_rate() const { return info_.sample_rate; }
@@ -309,20 +280,7 @@ public:
 
     /// @brief Reports the signal the host feeds the rig. Either thread; real-time safe.
     /// @return The current choice.
-    RigInputSource input_source() const noexcept
-    {
-        return input_source_.load(std::memory_order_relaxed);
-    }
-
-    /// @brief Names one run of a take on a lane: the file it reads, where on the timeline it
-    /// lands, where in the take it starts and how much of the take it plays.
-    struct ClipPlacement
-    {
-        std::string   path;              ///< Holds the file the clip's take was read from.
-        std::uint64_t start_frame = 0;   ///< Holds the timeline frame the clip's first sample lands on.
-        std::uint64_t take_offset = 0;   ///< Holds the first take frame the clip plays.
-        std::uint64_t length_frames = 0; ///< Holds how many take frames the clip plays.
-    };
+    RigInputSource input_source() const noexcept { return graph_.input_source(); }
 
     /// @brief Replaces a track's clips with one clip of a WAV file starting at frame 0. Control
     /// thread only.
@@ -374,16 +332,19 @@ public:
     ClipPlacement clip(std::size_t track, std::size_t clip_index) const;
 
     /// @brief The tempo and the meter every bar line, beat line and click is read from.
-    SushiDSP::MusicalClock& musical_clock() noexcept { return musical_clock_; }
+    SushiDSP::MusicalClock& musical_clock() noexcept { return session_.musical_clock(); }
 
     /// @brief The tempo and the meter, for a reader.
-    const SushiDSP::MusicalClock& musical_clock() const noexcept { return musical_clock_; }
+    const SushiDSP::MusicalClock& musical_clock() const noexcept
+    {
+        return session_.musical_clock();
+    }
 
     /// @brief The click the host adds to the monitor path once the recorders have been written.
-    SushiDSP::Metronome& metronome() noexcept { return metronome_; }
+    SushiDSP::Metronome& metronome() noexcept { return session_.metronome(); }
 
     /// @brief The click, for a reader.
-    const SushiDSP::Metronome& metronome() const noexcept { return metronome_; }
+    const SushiDSP::Metronome& metronome() const noexcept { return session_.metronome(); }
 
     /// @brief Empties a playback track of every clip, and drops the re-amp take when that track
     /// was feeding it. Control thread only.
@@ -423,7 +384,7 @@ public:
 
     /// @brief Reports which track feeds the re-amp leg.
     /// @return The track index, or std::nullopt when no take is loaded there.
-    std::optional<std::size_t> reamp_track() const { return reamp_track_; }
+    std::optional<std::size_t> reamp_track() const { return session_.reamp_track(); }
 
     /// @brief Remembers the folder recorded takes are written into. Saved with the preset.
     /// @param path The folder.
@@ -439,12 +400,12 @@ public:
 
     /// @brief Reports the lane a stopped recording's dry file becomes a clip on.
     /// @return The lane index, or std::nullopt when a recording places no clip.
-    std::optional<std::size_t> record_track() const { return record_track_; }
+    std::optional<std::size_t> record_track() const { return session_.record_track(); }
 
     /// @brief Reports the transport frame the last arm_recording() stamped, which is the frame a
     /// stopped recording's clip begins at.
     /// @return The frame, or 0 when nothing has been armed.
-    std::uint64_t armed_frame() const noexcept { return armed_frame_; }
+    std::uint64_t armed_frame() const noexcept { return session_.armed_frame(); }
 
     /// @brief Opens the processed and dry files for a take, stamps the transport frame the take
     /// begins at, and puts the transport into Recording. Control thread only.
@@ -467,25 +428,28 @@ public:
     bool poll_recording(std::string& error_out);
 
     /// @brief The shared sample clock the audio callback advances once per block.
-    SushiDSP::Transport& transport() noexcept { return transport_; }
+    SushiDSP::Transport& transport() noexcept { return session_.transport(); }
 
     /// @brief The shared sample clock, for a reader.
-    const SushiDSP::Transport& transport() const noexcept { return transport_; }
+    const SushiDSP::Transport& transport() const noexcept { return session_.transport(); }
 
     /// @brief The playback tracks the callback mixes into the rig's output.
-    SushiDSP::TrackPlayer& player() noexcept { return player_; }
+    SushiDSP::TrackPlayer& player() noexcept { return session_.player(); }
 
     /// @brief The playback tracks, for a reader.
-    const SushiDSP::TrackPlayer& player() const noexcept { return player_; }
+    const SushiDSP::TrackPlayer& player() const noexcept { return session_.player(); }
 
     /// @brief The single-track player the callback adds into the rig's input buffer.
-    SushiDSP::TrackPlayer& reamp_player() noexcept { return reamp_player_; }
+    SushiDSP::TrackPlayer& reamp_player() noexcept { return session_.reamp_player(); }
 
     /// @brief The pair of recorders the callback writes both legs of a take into.
-    SushiDSP::RecordingBus& recording_bus() noexcept { return recording_bus_; }
+    SushiDSP::RecordingBus& recording_bus() noexcept { return session_.recording_bus(); }
 
     /// @brief The pair of recorders, for a reader.
-    const SushiDSP::RecordingBus& recording_bus() const noexcept { return recording_bus_; }
+    const SushiDSP::RecordingBus& recording_bus() const noexcept
+    {
+        return session_.recording_bus();
+    }
 
     /// @brief Serializes the current rig to JSON via SushiDSP::serialize_rig_to_json(). Cabinet
     /// IR is included via the `"cabinet_ir"` JSON field. Every slot is written, a bypassed one
@@ -505,188 +469,15 @@ public:
     void load_from_json(const std::string& json_text);
 
 private:
-    /// @brief Names a moment on the clock the room publish interval is measured on.
-    using Clock = std::chrono::steady_clock;
+    /// @brief Holds the rate, block size and width every part of the rig was prepared at.
+    SushiDSP::PrepareInfo info_;
 
-    struct Slot
-    {
-        std::string                     descriptor_id;
-        std::map<std::string, float>    parameters;
-        std::string                     cabinet_path;
-        bool                            bypassed = false;
-        bool                            hosts_cabinet = false;
+    /// @brief Owns the slots, the edges and the graph published to the audio thread.
+    SlotGraph             graph_;
 
-        /// @brief Records that the node this slot last published implements IRoomHost.
-        bool                            hosts_room = false;
+    /// @brief Owns the lanes, the clips, the re-amp leg and the take recorders.
+    SessionTimeline       session_;
 
-        /// @brief Holds the scene the slot's room renders, once one was set or loaded.
-        std::optional<SushiDSP::room::RoomScene> room_scene;
-
-        /// @brief Records that room_scene changed since the node last took it.
-        bool                            room_scene_pending = false;
-
-        /// @brief Stamps the last scene handed to the node, for the publish interval.
-        std::optional<Clock::time_point> room_published_at;
-
-        /// @brief Counts the scenes handed to the node since the slot went live.
-        std::size_t                     room_publishes = 0;
-    };
-    struct Edge { SlotId from; SlotId to; };
-
-    /// @brief The slot a forward walk out of a splitter's branch stopped on.
-    struct BranchEnd
-    {
-        SlotId slot;
-        bool   is_join;
-    };
-
-    /// @brief Lists the ids of every slot `slot` has an edge into, in connect() call order.
-    /// @param slot The upstream slot to query.
-    /// @return The downstream ids.
-    std::vector<SlotId> downstream_of(SlotId slot) const;
-
-    /// @brief Walks forward from `start`, one successor per step, stopping at the first slot two
-    /// or more edges enter or at the first slot that does not have exactly one downstream edge.
-    /// @param start The branch's first slot.
-    /// @return The slot the walk stopped on, flagged as a join when two or more edges enter it.
-    BranchEnd walk_branch(SlotId start) const;
-
-    void apply_cabinet_to_live_node(SlotId slot);
-    void seed_defaults(Slot& slot) const;
-
-    /// @brief Hands a slot's stored scene to its live room node when the interval since the
-    /// last publish has run, or when force is set, and stamps the publish.
-    /// @param error_out Receives the node's reason when it refuses the scene.
-    /// @return False when the node refused the scene; true when it took it or nothing was due.
-    bool publish_room_scene(SlotId slot, bool force, std::string& error_out);
-
-    /// @brief Installs the HRTF set in place and the stored scene into a freshly built room
-    /// node, adopting the node's own scene when the slot stores none.
-    void apply_room_to_live_node(SlotId slot);
-
-    /// @brief Builds a fresh RigGraph from the current slots and edges and compiles it, skipping
-    /// any slot whose descriptor_id the node registry does not know.
-    /// @param apply_bypass True leaves bypassed slots out and bridges around them; false adds
-    /// every live slot and honours every edge, the shape a preset records.
-    /// @param handles_out Receives the slot-to-handle mapping for the graph that was built.
-    /// @return The compiled graph.
-    /// @throws std::runtime_error if the edges exceed RigGraph::kMaxFanInOut or the graph does
-    /// not compile.
-    std::unique_ptr<SushiDSP::RigGraph> build_graph(bool apply_bypass,
-        std::unordered_map<SlotId, SushiDSP::NodeHandle>& handles_out) const;
-
-    /// @brief Lists every edge whose endpoints both reached the graph. Duplicate edges are
-    /// dropped, so a preset that names one twice still builds one edge.
-    /// @param live The slot-to-handle mapping for the graph being built.
-    /// @return The edges, as (from, to) pairs.
-    std::vector<std::pair<SlotId, SlotId>> direct_edges(
-        const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const;
-
-    /// @brief Serializes the slots and edges through SushiDSP::serialize_rig_to_json(), with no
-    /// rig-level key of this controller's own. save_to_json() adds those on top.
-    /// @return The `"nodes"` document.
-    /// @throws std::runtime_error if the unbypassed graph does not compile.
-    std::string serialize_nodes() const;
-
-    /// @brief Lists every edge with bypassed slots collapsed away: an edge into a bypassed slot
-    /// is followed through to each live slot reachable past it, so a run of bypassed slots
-    /// bridges in one step. Duplicate edges are dropped.
-    /// @param live The slot-to-handle mapping for the graph being built.
-    /// @return The bridged edges, as (from, to) pairs.
-    std::vector<std::pair<SlotId, SlotId>> bridged_edges(
-        const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const;
-
-    /// @brief One playback track's control-thread metadata; the audible state lives in player_.
-    struct TrackInfo
-    {
-        std::string                name;  ///< Holds the lane's display name.
-        std::vector<ClipPlacement> clips; ///< Holds the lane's clips, in start_frame order.
-    };
-
-    /// @brief Returns the take a path was loaded into, loading the file the first time a clip
-    /// names it so two clips of one file hold one copy of its samples.
-    /// @param path Filesystem path to the WAV file.
-    /// @param error_out Receives the failure message when the file will not parse.
-    /// @return The borrowed take, or nullptr when the file will not parse.
-    const SushiDSP::Take* take_for_path(const std::string& path, std::string& error_out);
-
-    /// @brief Builds a lane's timeline from a clip list and publishes it, leaving the lane as it
-    /// was when the list will not build.
-    /// @param track Lane index; out of range does nothing and reports failure.
-    /// @param clips The lane's new clips, in any order.
-    /// @param error_out Receives the failure message when a file will not parse or the timeline
-    /// refuses the list.
-    /// @return True when the lane now holds those clips.
-    bool publish_lane(std::size_t track, std::vector<ClipPlacement> clips,
-                      std::string& error_out);
-
-    /// @brief Drops every path no lane's clip names any more, so takes_by_path_ never hands out
-    /// a take the library is free to collect.
-    void forget_unused_takes();
-
-    /// @brief Joins a take folder and a file name the way RecordingBus does, so a stopped
-    /// recording's clip names the file the recorder actually wrote.
-    /// @param folder Directory the file lives in; may be empty.
-    /// @param file_name Name of the file inside that directory.
-    /// @return The joined path.
-    static std::string join_take_path(const std::string& folder, const std::string& file_name);
-
-    /// @brief Reads a WAV file into a take, or reports why it could not be read.
-    /// @param path Filesystem path to the WAV file.
-    /// @param error_out Receives the failure message when the load fails.
-    /// @return The take, or nullptr on failure.
-    static std::unique_ptr<SushiDSP::Take> load_take(const std::string& path,
-                                                     std::string& error_out);
-
-    /// @brief Strips a path down to its file name without an extension.
-    /// @param path The path to reduce.
-    /// @return The stem, or "" for a path that ends in a separator.
-    static std::string path_stem(const std::string& path);
-
-    SushiDSP::PrepareInfo                          info_;
-    std::unordered_map<SlotId, Slot>               slots_;
-    std::vector<Edge>                              edges_;
-    std::string                                     ir_folder_;
-    std::vector<SlotId>                             slot_order_;
-
-    /// @brief Holds the measured HRTF set every room takes; empty when none loaded.
-    SushiDSP::room::HrtfSet                         hrtf_;
-
-    /// @brief Names the file hrtf_ was read from; "" when hrtf_ is empty.
-    std::string                                     hrtf_path_;
-    SlotId                                          next_slot_id_ = 0;
-    std::unordered_map<SlotId, SushiDSP::NodeHandle> slot_to_handle_;
-    SushiDSP::RtGraphSlot                          graph_slot_;
-    SushiDSP::RigGraph*                            active_graph_ = nullptr;
-    std::size_t                                     dropped_parameter_changes_ = 0;
-    SushiDSP::Transport                             transport_;
-    SushiDSP::TrackPlayer                           player_;
-    SushiDSP::TrackPlayer                           reamp_player_;
-    SushiDSP::RecordingBus                          recording_bus_;
-    std::array<TrackInfo, SushiDSP::TrackPlayer::kMaxTracks> tracks_;
-    std::optional<std::size_t>                      reamp_track_;
-    std::string                                     take_folder_;
-    std::atomic<RigInputSource>                     input_source_{ RigInputSource::LiveInput };
-
-    /// @brief Maps a clip's path to the take player_'s library owns for it, holding only paths
-    /// some lane's clip still names.
-    std::unordered_map<std::string, const SushiDSP::Take*> takes_by_path_;
-
-    /// @brief Maps a re-amped clip's path to the take reamp_player_'s own library owns for it.
-    std::unordered_map<std::string, const SushiDSP::Take*> reamp_takes_by_path_;
-
-    /// @brief Holds the tempo and the meter the ruler and the click read.
-    SushiDSP::MusicalClock                          musical_clock_;
-
-    /// @brief Holds the click the host adds after both recorder legs are written.
-    SushiDSP::Metronome                             metronome_;
-
-    /// @brief Holds the lane a stopped recording's dry file becomes a clip on.
-    std::optional<std::size_t>                      record_track_;
-
-    /// @brief Holds the name the armed take's two files were built from.
-    std::string                                     record_take_name_;
-
-    /// @brief Holds the transport frame arm_recording() stamped.
-    std::uint64_t                                   armed_frame_ = 0;
+    /// @brief Reads and writes the other two as a preset; declared last so both outlive it.
+    RigPersistence        persistence_;
 };
