@@ -1,6 +1,6 @@
 # Remaining work
 
-**Status:** open, last revised 2026-09-14.
+**Status:** open, last revised 2026-09-20.
 
 The single backlog. An entry here names work that is not started or not finished; a defect that
 is measured, understood and deliberately left alone lives in
@@ -71,10 +71,59 @@ starts on that without the verdict.
 
 ## Products
 
-- **Read the Mesa Mark IIC+'s effects send/return network off a schematic.** Three tests are
-  skipped for it and the amplifier has no clean end on its knob.
+- **Calibrate the power amplifier's feedback depth, after the output transformer is the Mesa's.**
+  The leg's own response is solved from S8 (`src/circuits/PowerAmpFeedback.cpp`) and the forward
+  gain is measured: 38.33 dB at 80 Hz, 39.56 at 600 Hz, 61.59 at 3 kHz and 53.31 at 10 kHz, with
+  the loop open. Depth cannot be set from those numbers yet. At the depth that sweeps presence the
+  18 dB the shelf it replaced did, the amplifier oscillates at 11.8 kHz, which is the 8 kHz pole of
+  an output transformer still borrowed from the JCM800; at the deepest depth that does not ring,
+  `kTapToFeedbackVolts` 14.0, a 9 dB resonance sits at 10 kHz and presence runs backwards above
+  it. What the loop does is decided by the phase of what it loops around, so this item waits on the
+  transformer below. The 14.0 in the tree is a holding value, not a calibration.
+- **The Mesa Mark IIC+'s remaining accuracy work.** Planned in
+  [`docs/agent/2026_09_20_V0_1_0_RELEASE/PLAN.md`](../agent/2026_09_20_V0_1_0_RELEASE/PLAN.md)
+  phase A. Coefficients became a 32-frame control period on 2026-09-21, and PULL BRIGHT, PULL DEEP
+  and the equaliser's three-position switch landed the same day. Three switches stay out because
+  the schematic does not settle them: PULL BRIGHT's V4A cathode resistor is illegible (§8 question
+  9), CLASS A does not say which pair it takes out (question 12), and BASS SHIFT's sheet gives
+  neither the capacitor's value nor which leg the switch lifts. The JCM800's
+  citations left the module on 2026-09-21, but the output transformer's two corners, its core drive
+  and both sag figures remain stand-ins, because neither sheet prints the primary impedance and the
+  dossier's calibration targets carry no supply figure. Those five are listed in the module README's
+  table; the leakage corner is the one that now decides whether the feedback loop is stable. A
+  search outside the repository on 2026-09-21 established that the transformer's figures are
+  unpublished rather than merely unread, so this waits on a bench measurement of a real chassis or
+  on Mercury Magnetics characterising one. The tone stack's termination landed 2026-09-20, the
+  equaliser's centres were corrected the same day, and presence became the traced feedback loop
+  around a real long-tailed pair. The equaliser as its trap network is deferred past 0.1.0: S8 draws
+  the active stage, but four transistors are a Newton solve of their own size.
 - **Find a Diezel VH4 power-amp schematic.** Its phase inverter and power section are the
   JCM800's, borrowed whole.
 - **Close the alias floor.** The maintainer's call between 16×, a band limit between the stages,
   or a higher-order antiderivative; part 4's measurements for all three are in KNOWN_ISSUES.
 - **Transcribe the remaining eight material rows**, and measure the SM57's curve.
+- **Give `sd test` a test filter.** Without one, `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`
+  rewrites all twelve golden files, so re-pinning one node means overwriting the JCM800 anchor's and
+  restoring it by hand afterwards (`tests/golden/README.md`).
+
+## The Mark IIC+ questions only a real amplifier answers
+
+Twelve of the dossier's §8 items need an LCR meter, a voltmeter or a better scan of the 1983
+factory sheet, and no line of code closes one. Each is listed against the constant it holds up in
+[`modules/mesa_mark2c/README.md`](../../modules/mesa_mark2c/README.md). The two that carry the
+most audible weight, in order:
+
+- **The lead output divider's shunt** (item 21). 100 K on S1, 3.3 K on S8, and 26.5 dB of V2A's
+  drive between them. An ohmmeter across R30 on any IIC+ settles it.
+- **Where V4A's 0.047 µF sits** (item 18). Across the 170 K or in parallel with the 68 K, worth
+  10.9 dB across the guitar band. A photograph of that corner of the board settles it.
+
+Item 15 is the one nothing in this repository can fix: no bench measurement of a Mark IIC+ appears
+to have been published. The model is calibrated against arithmetic until someone puts one on an
+analyser.
+
+Items 1, 2, 11 and 16 closed on 2026-09-20 against jrb32's traced schematic, which reads as a
+vector drawing rather than a scan; the readings and the corrections they make to the dossier are in
+[`docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md`](../agent/2026_09_20_V0_1_0_RELEASE/REPORT.md).
+The two EQ inductors moved two band centres in the model. The equaliser's active stage is now drawn
+but not modelled, and item 17's SPICE decks are unblocked by the same reading.
