@@ -2,7 +2,39 @@
 
 ## Unreleased
 
-- 2026-09-22 — Took `sushicore` from PyPI instead of a sibling checkout (`cli/pyproject.toml`).
+- 2026-09-22 — cli: Took `sushicore` from PyPI instead of a sibling checkout (`cli/pyproject.toml`).
+- 2026-09-21 — docs: Rewrote the front door around what the models rest on (`README.md`).
+- 2026-09-21 — docs: Moved the code of conduct and the security policy where GitHub reads them (`.github/`).
+- 2026-09-21 — docs: Added issue templates for a defect and for a model disagreeing with its circuit (`.github/ISSUE_TEMPLATE/`).
+- 2026-09-21 — docs: Added a pull request template carrying the repository's verification rules (`.github/PULL_REQUEST_TEMPLATE.md`).
+- 2026-09-21 — build: Declared the project version 0.1.0 (`CMakeLists.txt`).
+- 2026-09-21 — ci: Installed the CLI from its own metadata instead of checking out SushiStack (`.github/workflows/ci.yml`).
+- 2026-09-21 — docs: Repointed seven module READMEs at the archived specs and dossiers (`modules/`).
+- 2026-09-21 — docs: Added NOTICE with the attribution, trademark and third-party terms (`NOTICE`, `README.md`).
+- 2026-09-21 — tools: Added the Apache header to the nineteen Python files that lacked one (`tools/`, `cli/`).
+- 2026-09-21 — mesa_mark2c: Added PULL BRIGHT, PULL DEEP and the equaliser's three-position switch (`modules/mesa_mark2c/src/MesaMark2c.cpp`).
+- 2026-09-21 — mesa_mark2c: Derived the descriptor's parameter count from its own table (`modules/mesa_mark2c/src/MesaMark2c.cpp`).
+- 2026-09-21 — host_gui: Placed the Mark IIC+'s three panel switches (`apps/host_gui/ui/PanelLibrary.cpp`).
+- 2026-09-21 — mesa_mark2c: Rebuilt coefficients once per 32-frame control period instead of once per block (`modules/mesa_mark2c/src/MesaMark2c.cpp`).
+- 2026-09-21 — mesa_mark2c: Corrected the power tubes' source resistance to the real inverter's plate impedance (`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`).
+- 2026-09-21 — mesa_mark2c: Retired every JCM800 citation from the Mark IIC+'s constants (`modules/mesa_mark2c/src/MesaMark2c.cpp`).
+- 2026-09-21 — tests: Added a guard that the Mark IIC+ falls silent at every presence position (`tests/functional/unit/test_mesa_mark2c.cpp`).
+- 2026-09-21 — mesa_mark2c: Set the feedback loop's depth to the deepest that does not ring, 14.0 (`modules/mesa_mark2c/src/MesaMark2c.cpp`).
+- 2026-09-21 — tests: Regenerated the Mark IIC+ golden files after the feedback loop closed (`tests/golden/mesa_mark2c_48k.f32`, `tests/golden/mesa_mark2c_96k.f32`).
+- 2026-09-21 — docs: Recorded the measured forward gain and the oscillation that blocks the loop's calibration (`docs/design/REMAINING_WORK.md`).
+- 2026-09-20 — circuits: Rebuilt the FMV tone stack on a DK netlist, retiring its hand-derived closed form (`src/circuits/FmvToneStack.cpp`, `include/SushiDSP/circuits/FmvToneStack.hpp`).
+- 2026-09-20 — circuits: Added source and load termination to the FMV tone stack (`include/SushiDSP/circuits/FmvToneStack.hpp`).
+- 2026-09-20 — math: Added the shared empty nonlinear port for linear DK blocks (`include/SushiDSP/math/dk/LinearPort.hpp`).
+- 2026-09-20 — mesa_mark2c: Terminated the tone stack with V1A's plate impedance and Volume 1 (`modules/mesa_mark2c/src/MesaMark2cToneStack.cpp`).
+- 2026-09-20 — tests: Regenerated the Mark IIC+ golden files after the tone stack was terminated (`tests/golden/mesa_mark2c_48k.f32`, `tests/golden/README.md`).
+- 2026-09-20 — tools: Fixed module discovery to read modules as the folders carrying a build (`tools/documentation/check_docs_layout.py`, `tools/layering/check_layering.py`).
+- 2026-09-20 — docs: Listed every Mark IIC+ constant that is not read off the schematic (`modules/mesa_mark2c/README.md`, `docs/design/REMAINING_WORK.md`).
+- 2026-09-20 — mesa_mark2c: Corrected two graphic-equaliser band centres against the traced schematic (`modules/mesa_mark2c/src/MesaMark2c.cpp`).
+- 2026-09-20 — docs: Recorded what jrb32's traced schematic settles about the Mark IIC+ (`docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md`).
+- 2026-09-20 — circuits: Added the long-tailed pair phase inverter, two grids in and two plates out (`include/SushiDSP/circuits/stages/LongTailedPair.hpp`).
+- 2026-09-20 — circuits: Added the power amplifier's feedback leg as a DK netlist (`include/SushiDSP/circuits/PowerAmpFeedback.hpp`).
+- 2026-09-20 — mesa_mark2c: Replaced the presence shelf with the traced feedback loop into the inverter's second grid (`modules/mesa_mark2c/src/MesaMark2c.cpp`).
+- 2026-09-20 — mesa_mark2c: Corrected the inverter's plate loads and tail against the traced schematic (`modules/mesa_mark2c/src/MesaMark2c.cpp`).
 - 2026-09-16 — cli: Added the sd run command to launch the standalone host GUI directly (`cli.py`, `project.py`).
 - 2026-09-16 — tools: Added canonical checkers and the sd check command (`check_docs_layout.py`, `check_changelog.py`, `check_layering.py`).
 - 2026-09-14 — host_gui: Added chain-type model and compiler into rig edges (`apps/host_gui/RigTopology.cpp`, `apps/host_gui/TopologyApplier.cpp`).
