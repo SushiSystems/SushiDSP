@@ -1,3 +1,5 @@
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under the Apache License, Version 2.0. See LICENSE.
 """Convert a measured HRTF database into the flat binary the room module loads.
 
 Usage:  python tools/dsp/convert_hrtf.py --input <SOFA file or WAV directory> \

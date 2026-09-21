@@ -1,3 +1,5 @@
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under the Apache License, Version 2.0. See LICENSE.
 """Test fixtures for the SushiDSP CLI.
 
 ``sushidsp`` imports :mod:`sushicore` -- the shared core underneath every

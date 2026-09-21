@@ -1,3 +1,5 @@
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under the Apache License, Version 2.0. See LICENSE.
 """Design the three SushiDSP halfband stages with Parks-McClellan and emit the C++ header.
 
 Usage:  python tools/dsp/design_halfband.py > include/SushiDSP/math/HalfbandCoefficients.hpp
