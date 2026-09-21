@@ -77,6 +77,8 @@ add_executable(sushidsp_tests
     functional/unit/test_resonance_control.cpp
     functional/unit/test_graphic_equalizer.cpp
     functional/unit/test_fmv_tone_stack.cpp
+    functional/unit/test_long_tailed_pair.cpp
+    functional/unit/test_power_amp_feedback.cpp
 
     # --- Products ---
     functional/unit/test_tube_screamer.cpp
