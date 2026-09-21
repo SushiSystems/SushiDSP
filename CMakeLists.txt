@@ -15,12 +15,14 @@ include(cmake/Sanitizers.cmake)
 
 add_library(sushi_dsp STATIC
     src/circuits/stages/TriodeStage.cpp
+    src/circuits/stages/LongTailedPair.cpp
     src/circuits/stages/PentodeStage.cpp
     src/circuits/stages/OutputTransformerStage.cpp
     src/circuits/stages/PowerSupplySagStage.cpp
     src/circuits/stages/ResonanceControl.cpp
     src/circuits/GraphicEqualizer.cpp
     src/circuits/FmvToneStack.cpp
+    src/circuits/PowerAmpFeedback.cpp
     src/core/BufferPool.cpp
     src/core/RigGraph.cpp
     src/core/RtGraphSlot.cpp
