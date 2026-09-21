@@ -19,6 +19,14 @@ add_library(room STATIC
     src/LateReverbDesign.cpp
     src/ModalSolver.cpp
     src/RoomRenderSet.cpp
+    src/FadeWindow.cpp
+    src/FirFilter.cpp
+    src/FrameDelay.cpp
+    src/DelayRing.cpp
+    src/DirectPath.cpp
+    src/ModalPath.cpp
+    src/GeometricPath.cpp
+    src/BinauralStage.cpp
     src/RoomNode.cpp
 )
 add_library(SushiDSP::room ALIAS room)
