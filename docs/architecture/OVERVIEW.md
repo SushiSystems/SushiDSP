@@ -67,8 +67,8 @@ means adding one entry there and touching nothing in `apps/`. A future plugin wr
 draw from the same catalog (see "What is spec-only, not yet built" below), but none exists in
 the tree yet. `rig_preset` serializes
 a rig (descriptor id plus parameter values) to and from JSON. This is the dependency rule
-design spec §8 states for `modules/`; what is verified here is that `modules/node_registry/`
-and `modules/rig_preset/` exist in the tree and match that description, alongside the six
+design spec §8 states for `modules/`; what is verified here is that `modules/catalog/node_registry/`
+and `modules/session/rig_preset/` exist in the tree and match that description, alongside the six
 product modules and `routing`/`capture`/`room`.
 
 ## Hosts (`apps/`)

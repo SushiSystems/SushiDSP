@@ -227,7 +227,7 @@ and `TrackPlayer::process` are the module's two audio-thread entry points and bo
 `tests/functional/unit/test_rt_safety.cpp`. `Transport` packs the loop range into one 64-bit word,
 begin in the high half and length in the low, so a block reads both ends in one load and cannot see
 a half-applied range; the cost is that a loop must lie inside the first 2^32 frames, 24.8 hours at
-48 kHz. `modules/capture/README.md` carries the rest.
+48 kHz. `modules/nodes/capture/README.md` carries the rest.
 
 **Re-amping** needs no node. The host chooses what feeds the rig — `RigInputSource::LiveInput`, a
 track, or both summed — and a dry take played into a different amplifier is then an ordinary
@@ -302,7 +302,7 @@ next launch. Float32 rather than 16-bit PCM because resampling a real song raise
 the cache and nothing reads a plain WAV's own sample rate; both are in
 [`docs/reference/KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md).
 
-`modules/capture/README.md` carries the rest, and
+`modules/nodes/capture/README.md` carries the rest, and
 [`docs/reference/GLOSSARY.md`](../reference/GLOSSARY.md) defines bar, beat, clip, take and
 playback speed as this tree uses them.
 
@@ -333,7 +333,7 @@ empties the tail.
 
 Measured at 48 kHz in 256-frame blocks on a Release build, the node costs 0.238 ms per block for
 the ears and 0.113 ms for the microphone, 4.47 % and 2.11 % of one core; the JCM800 with a room
-after it costs 0.893 ms. [`modules/room/README.md`](../../modules/room/README.md) carries the
+after it costs 0.893 ms. [`modules/nodes/room/README.md`](../../modules/nodes/room/README.md) carries the
 class-by-class record, the thread rules and every approximation named as such.
 
 ---
@@ -717,10 +717,10 @@ single JCM800 into four sibling amplifier modules sharing the stage classes abov
 
 | Module | Channel | Dossier | Module path | Status |
 | --- | --- | --- | --- | --- |
-| JCM800 | Marshall JCM800 2203, one channel | — | `modules/jcm800/` | White-box, see "As built" above. DA4: plate-swing chain. |
-| Peavey 5150 | Block-letter 1992 5150, lead channel | `docs/reference/research/2026-09-06-peavey-5150-design-dossier.md` | `modules/peavey5150/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
-| Mesa/Boogie Mark IIC+ | Lead mode | `docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` | `modules/mesa_mark2c/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
-| Diezel VH4 | Channel 3 ("Mega") | `docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md` | `modules/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. DA4: plate-swing chain. |
+| JCM800 | Marshall JCM800 2203, one channel | — | `modules/nodes/jcm800/` | White-box, see "As built" above. DA4: plate-swing chain. |
+| Peavey 5150 | Block-letter 1992 5150, lead channel | `docs/reference/research/2026-09-06-peavey-5150-design-dossier.md` | `modules/nodes/peavey5150/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
+| Mesa/Boogie Mark IIC+ | Lead mode | `docs/reference/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` | `modules/nodes/mesa_mark2c/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
+| Diezel VH4 | Channel 3 ("Mega") | `docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md` | `modules/nodes/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. DA4: plate-swing chain. |
 
 Each module's own README lists exactly where its model departs from its dossier.
 
@@ -759,7 +759,7 @@ block, so its smoothing time does not depend on the host's block size.
 
 A **product module** is a self-contained library (its own DSP) that exposes one `NodeDescriptor` (§3) and nothing else. It never references a device or a host.
 
-Three products exist: `jcm800` (§5), `tubescreamer` (§6), and `dd3`, the Boss DD-3 delay built in DR2 against `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. The DD-3 has no section of its own here; `modules/dd3/README.md` carries its block table, the three constants that are calibrations rather than component values, and what it leaves unmodelled, and the spec carries the rulings behind them. The SPX90 joins them in DR3 behind the same seam.
+Three products exist: `jcm800` (§5), `tubescreamer` (§6), and `dd3`, the Boss DD-3 delay built in DR2 against `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. The DD-3 has no section of its own here; `modules/nodes/dd3/README.md` carries its block table, the three constants that are calibrations rather than component values, and what it leaves unmodelled, and the spec carries the rulings behind them. The SPX90 joins them in DR3 behind the same seam.
 
 From these modules, two consumers are built by generic (non-product-specific) code:
 
@@ -869,7 +869,7 @@ core. §3c describes what it built.
 | DE7 | AVX2 lanes in `EarlyReflectionRenderer` behind `SUSHIDSP_ENABLE_AVX2` | Not opened. Its gate is the DE1 benchmark passing 2.0 ms with an amplifier in the graph; the JCM800 with a room measures 0.893 ms per 256-frame block (commit 78a798f) |
 | DE8 | `max/RayTracer`, `max/LateIrSynthesizer` and the `quality` parameter | Deferred; §9a.3 of the spec designs it and no task builds it |
 
-**DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration; DS0 built the per-node multi-channel routing it waited on.
+**DR — delay and reverb, a parallel track.** Spec: `docs/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/nodes/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration; DS0 built the per-node multi-channel routing it waited on.
 
 ---
 

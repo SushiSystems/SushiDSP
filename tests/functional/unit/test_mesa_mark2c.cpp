@@ -226,7 +226,7 @@ TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
     // rectification the tanh introduced at the extreme setting was never blocked: the high stop
     // read -0.0506. Since DA5 part 3 the stage's secondary carries no mean, as a real secondary
     // winding does, and the high stop reads -0.00009 (-80.7 dBFS, 2026-09-07). See
-    // modules/mesa_mark2c/README.md.
+    // modules/nodes/mesa_mark2c/README.md.
     //
     // At the low stop Master 1 sits at -60 dB, so a bound on the DC alone would pass on
     // attenuation. The drift check is what makes that extreme mean something: the DC of the

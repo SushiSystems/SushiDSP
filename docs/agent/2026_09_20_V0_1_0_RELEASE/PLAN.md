@@ -62,7 +62,7 @@ listed.
 
 ### A1. The assumption ledger
 
-Add a table to `modules/mesa_mark2c/README.md` listing every constant in `MesaMark2c.cpp` that is
+Add a table to `modules/nodes/mesa_mark2c/README.md` listing every constant in `MesaMark2c.cpp` that is
 not read off S1, with what it is, where it came from, and the §8 item that would settle it. Add
 the fifteen bench-blocked questions to `REMAINING_WORK.md` as one section, and close §8 items 19,
 20 and 24, which the loop-network commit already answered.
@@ -130,7 +130,7 @@ PDF and draws the active stage in full, which closes §8 item 11; it also correc
 trap inductors, and those two band centres are now in the code
 (`REPORT.md`). What remains is the work itself: four transistors are a Newton solve of their
 own size, not an afternoon on top of A5. The five biquads ship in 0.1.0 and
-`modules/mesa_mark2c/README.md` says so.
+`modules/nodes/mesa_mark2c/README.md` says so.
 
 ### A5. A real negative-feedback loop, and presence inside it
 

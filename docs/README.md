@@ -22,15 +22,15 @@ The manual index. Start at the root [README.md](../README.md) for a general over
 - **[`include/SushiDSP/math/dk/`](../include/SushiDSP/math/dk/)**: Damped Newton-Raphson solver and Netlist builder.
 - **[`include/SushiDSP/math/Resampler.hpp`](../include/SushiDSP/math/Resampler.hpp)**: Polyphase arbitrary-ratio resampler.
 - **[`include/SushiDSP/circuits/models/`](../include/SushiDSP/circuits/models/)**: Device laws for triodes, pentodes, and clipping diodes.
-- **[`modules/tubescreamer/`](../modules/tubescreamer/)**: Ibanez Tube Screamer pedal model.
-- **[`modules/routing/`](../modules/routing/)**: Splitter, mixer, and pan nodes for rig graph routing.
-- **[`modules/cabinet/`](../modules/cabinet/)**: Cabinet impulse-response convolution node.
-- **[`modules/node_registry/`](../modules/node_registry/)**: Catalog registering available audio nodes.
-- **[`modules/rig_preset/`](../modules/rig_preset/)**: JSON serialization and deserialization for rig graphs.
-- **[`modules/dd3/`](../modules/dd3/)**: Boss DD-3 digital delay pedal model.
-- **[`modules/peavey5150/`](../modules/peavey5150/)**, **[`modules/mesa_mark2c/`](../modules/mesa_mark2c/)**, and **[`modules/diezel_vh4/`](../modules/diezel_vh4/)**: High-gain amplifier models built from schematics in `docs/archive/research/`.
-- **[`modules/capture/`](../modules/capture/)**: Synchronized audio capture and playback module.
-- **[`modules/room/`](../modules/room/)**: Room acoustics simulation, early reflections, and modal resonance.
+- **[`modules/nodes/tubescreamer/`](../modules/nodes/tubescreamer/)**: Ibanez Tube Screamer pedal model.
+- **[`modules/nodes/routing/`](../modules/nodes/routing/)**: Splitter, mixer, and pan nodes for rig graph routing.
+- **[`modules/nodes/cabinet/`](../modules/nodes/cabinet/)**: Cabinet impulse-response convolution node.
+- **[`modules/catalog/node_registry/`](../modules/catalog/node_registry/)**: Catalog registering available audio nodes.
+- **[`modules/session/rig_preset/`](../modules/session/rig_preset/)**: JSON serialization and deserialization for rig graphs.
+- **[`modules/nodes/dd3/`](../modules/nodes/dd3/)**: Boss DD-3 digital delay pedal model.
+- **[`modules/nodes/peavey5150/`](../modules/nodes/peavey5150/)**, **[`modules/nodes/mesa_mark2c/`](../modules/nodes/mesa_mark2c/)**, and **[`modules/nodes/diezel_vh4/`](../modules/nodes/diezel_vh4/)**: High-gain amplifier models built from schematics in `docs/archive/research/`.
+- **[`modules/nodes/capture/`](../modules/nodes/capture/)**: Synchronized audio capture and playback module.
+- **[`modules/nodes/room/`](../modules/nodes/room/)**: Room acoustics simulation, early reflections, and modal resonance.
 - **[`assets/hrtf/`](../assets/hrtf/)**: Head-related transfer function assets and converters.
 - **[`tools/`](../tools/)**: Repository checkers and DSP filter design scripts.
 - **[`tests/measure/`](../tests/measure/)**: Audio measurement library (THD, alias floor, frequency response).

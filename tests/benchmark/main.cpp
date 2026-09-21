@@ -478,7 +478,7 @@ namespace
 
     /// @brief Returns the garage with the cabinet at (0.4, 0.5, 0.5) and the ears and an omni
     /// microphone together at (5.4, 3.4, 2.0), the pose the modal, early and tail layers are all
-    /// driven at (`modules/room/README.md`, "The wave layer and the seam").
+    /// driven at (`modules/nodes/room/README.md`, "The wave layer and the seam").
     SushiDSP::room::RoomScene garage_every_layer_scene()
     {
         SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();

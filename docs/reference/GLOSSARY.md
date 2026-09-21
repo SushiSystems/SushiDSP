@@ -33,6 +33,6 @@ reaches a take through a lane's `RtSwapSlot<TrackTimeline>` and holds it as a ra
 sample rate. A clip's `start_frame` and its take frames are the same unit whatever the playback
 speed, and `TrackPlayer` converts to output frames at each run's own base.
 
-The classes named here live in [`modules/capture/`](../../modules/capture/) and are described in
-its [`README.md`](../../modules/capture/README.md); the intent behind them is in
+The classes named here live in [`modules/nodes/capture/`](../../modules/nodes/capture/) and are described in
+its [`README.md`](../../modules/nodes/capture/README.md); the intent behind them is in
 [`docs/design/sushidsp.md`](../design/sushidsp.md) §3b.

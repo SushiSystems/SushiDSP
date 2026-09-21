@@ -15,7 +15,7 @@ Every constant in a model comes from somewhere, and each module's README says wh
 off a schematic is marked as read; a figure derived from it shows the arithmetic; a figure nobody
 has published is listed in that module's stand-in table, with what would settle it.
 
-`modules/mesa_mark2c/README.md` is the longest of these, because the Mark IIC+ is the most
+`modules/nodes/mesa_mark2c/README.md` is the longest of these, because the Mark IIC+ is the most
 carefully traced model in the repository. It records, among other things, that the output
 transformer's primary impedance appears on no sheet and in no published source, that five of the
 model's constants therefore stand in for it, and that one of them currently decides whether the

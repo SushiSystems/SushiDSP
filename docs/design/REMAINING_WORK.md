@@ -110,7 +110,7 @@ starts on that without the verdict.
 
 Twelve of the dossier's §8 items need an LCR meter, a voltmeter or a better scan of the 1983
 factory sheet, and no line of code closes one. Each is listed against the constant it holds up in
-[`modules/mesa_mark2c/README.md`](../../modules/mesa_mark2c/README.md). The two that carry the
+[`modules/nodes/mesa_mark2c/README.md`](../../modules/nodes/mesa_mark2c/README.md). The two that carry the
 most audible weight, in order:
 
 - **The lead output divider's shunt** (item 21). 100 K on S1, 3.3 K on S8, and 26.5 dB of V2A's

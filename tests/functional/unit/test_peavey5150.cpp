@@ -371,7 +371,7 @@ TEST(Unit_Dsp, Peavey5150EvenHarmonicsRiseFromLowToFullPreGain)
     // and 1.00 - because at this stimulus every stage from V5A on is past its window, so the
     // amplifier's even harmonics are the push-pull pair's as much as V2A's. V2A's asymmetry is
     // real; what an output-side measure cannot do is attribute it, which is why this test is named
-    // for the two points it compares. modules/peavey5150/README.md, "The cold clipper's
+    // for the two points it compares. modules/nodes/peavey5150/README.md, "The cold clipper's
     // asymmetry", carries the sweep.
     EXPECT_GT(driven, quiet * 2.0);
 }
@@ -526,7 +526,7 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
     //
     // Measured 2026-09-07 on the Norman grid law, the solved inverter bias and the audio taper:
     // 0.499 % at the nominal input, and 21.73 % at -40 dBFS. At -40 dBFS the amplifier squares
-    // from V5A on. modules/peavey5150/README.md, "The clean end", carries the table.
+    // from V5A on. modules/nodes/peavey5150/README.md, "The clean end", carries the table.
     constexpr float kLowestTestedPosition = 0.02f;
     constexpr float kMinusFortyDbfs = 0.01f;
     constexpr float kNominalMinusEightyDbv = 7.071e-5f;
