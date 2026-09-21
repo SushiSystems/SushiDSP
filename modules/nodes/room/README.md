@@ -43,12 +43,15 @@ knowingly left open.
 | What a host calls to install a scene or an HRTF | `IRoomHost` |
 | One input ring, up to 128 fractional taps, two biquad state banks, sixteen channels out | `EarlyReflectionRenderer` |
 | The 16-line Hadamard feedback delay network | `LateReverb` |
-| The topology, the swap, the crossfade, the direct path, the ears, the mix and the level | `RoomNode` |
+| The crossover's low half: the standing waves and their two banks | `ModalPath` |
+| The crossover's high half: the direct sound, the taps and the tail | `GeometricPath` |
+| Where the two halves meet: the head, the decoder, the alignment and each ear's sum | `BinauralStage` |
+| The topology, the seam, the swap, the crossfade, the mix and the level | `RoomNode` |
 
 The direct path's renderer, the 128-tap FIR, the fixed frame delay and the fractional-delay ring
-the ears need are nested classes of `RoomNode` (`DirectPath`, `FirFilter`, `FrameDelay`,
-`DelayRing`); they are bricks in their own right and the day the module's build list may change
-they move to files of their own beside `EarlyReflectionRenderer`.
+the ears need are files of their own beside `EarlyReflectionRenderer` (`DirectPath`, `FirFilter`,
+`FrameDelay`, `DelayRing`), each owned by the path that drives it. `FadeWindow` carries the one
+crossfade window all three paths read.
 
 `RoomNode` is the only class here that knows the topology. `ImageSourceSolver` and
 `LateReverbDesign` consume the materials, the fits, the air and the directivity; the renderers
@@ -90,8 +93,9 @@ which floor without any change to `RoomPanel` or `RigController`.
 The audio thread calls `RoomNode::process`, and through it `CrossoverPair::process_sample`,
 `EarlyReflectionRenderer::write`, `EarlyReflectionRenderer::render`,
 `EarlyReflectionRenderer::clear_bank`, `LateReverb::process`, `ModalBank::process`,
-`BinauralDecoder::process` and the nested `DirectPath`, `FirFilter`, `FrameDelay` and
-`DelayRing`; at the block that adopts a set it also calls `CrossoverPair::set_crossover`,
+`BinauralDecoder::process` and, through `ModalPath`, `GeometricPath` and `BinauralStage`,
+`DirectPath`, `FirFilter`, `FrameDelay` and `DelayRing`; at the block that adopts a set it also
+calls `CrossoverPair::set_crossover`,
 `ModalBank::reset` and `BinauralDecoder::reset`, all arithmetic. None of them allocates, locks,
 opens a file or throws after `prepare()`; `tests/functional/unit/test_rt_safety.cpp` traps
 `operator new` around each of them, and around `RoomNode::process` while publishes land that
@@ -150,7 +154,7 @@ ears' reference blend in the tests is delayed the same 128 frames.
 Taps pair by index, the arrival order `ImageSourceSolver` returns. An arriving tap past the
 retiring count starts from zero; a retiring tap past the arriving count is dropped. A pair
 matches when the delay moved by at most 2 frames and none of the ten coefficients moved by more
-than 0.2 (`kMatchDelayFrames`, `kMatchCoefficientMove` in `RoomNode.cpp`). A tap that does not
+than 0.2 (`kMatchDelayFrames`, `kMatchCoefficientMove` in `GeometricPath.cpp`). A tap that does not
 match starts from zero, because a retiring state run through a different filter is further from
 that filter's steady state than zero is: carrying every tap regardless measured -15.4 dBFS for a
 one-centimetre move against -32.0 dBFS from zero.
@@ -210,7 +214,7 @@ blend of the two steady renders, where the input split measured -52.1 dBFS with 
 then stood.
 
 The modal bank has its own state, two banks of it, and a published set is adopted under a match
-rule shaped like the early renderer's `carry_tap`. `RoomNode::same_resonators` compares the
+rule shaped like the early renderer's `carry_tap`. `ModalPath::same_resonators` compares the
 arriving design's sections with the active bank's, bit for bit: one room designs one set of
 resonators whatever the poses, so a moved cabinet or listener leaves every section equal and
 changes `source_gain` and `ear_gain` alone (spec §9a.2; `RoomNodePublishesNewModalGainsWithoutRebuildingAResonator`
@@ -410,7 +414,7 @@ be lost at the next edit; the load belongs beside the cabinet path in `RigContro
 directory.
 
 **The direct path.** Tap 0 of an ears set, the (0, 0, 0) image, is taken out of the bank at the
-block the set is adopted (`RoomNode::take_direct_image`) and rendered by `DirectPath`: read out
+block the set is adopted (`GeometricPath::take_direct_image`) and rendered by `DirectPath`: read out
 of the node's ring at the alignment delay plus the tap's, through the tap's fitted filter and 1/r
 in the early renderer's own arithmetic, then convolved with the set's minimum-phase HRIR for its
 ear, the far ear read the interaural delay later. `RoomNodeEarsHearTheDirectSoundThroughTheHrirPair`
