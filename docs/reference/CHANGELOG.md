@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-09-22 — Took `sushicore` from PyPI instead of a sibling checkout (`cli/pyproject.toml`).
 - 2026-09-16 — cli: Added the sd run command to launch the standalone host GUI directly (`cli.py`, `project.py`).
 - 2026-09-16 — tools: Added canonical checkers and the sd check command (`check_docs_layout.py`, `check_changelog.py`, `check_layering.py`).
 - 2026-09-14 — host_gui: Added chain-type model and compiler into rig edges (`apps/host_gui/RigTopology.cpp`, `apps/host_gui/TopologyApplier.cpp`).
