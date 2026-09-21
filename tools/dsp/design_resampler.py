@@ -1,3 +1,5 @@
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under the Apache License, Version 2.0. See LICENSE.
 """Design the windowed-sinc resampler prototype filter and emit the C++ header.
 
 Usage:  python tools/dsp/design_resampler.py > include/SushiDSP/math/ResamplerCoefficients.hpp

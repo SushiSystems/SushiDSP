@@ -1,3 +1,5 @@
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under the Apache License, Version 2.0. See LICENSE.
 """Build-environment assembly for the detected compiler.
 
 A found clang++ needs two things the parent shell may not have: on Windows the

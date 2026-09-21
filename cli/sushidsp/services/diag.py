@@ -1,3 +1,5 @@
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under the Apache License, Version 2.0. See LICENSE.
 """Diagnostic command: inspect the resolved configuration.
 
 `sd config` answers *what* the CLI resolved and *where each value came from* --
