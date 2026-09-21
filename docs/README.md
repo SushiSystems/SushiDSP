@@ -15,7 +15,7 @@ The manual index. Start at the root [README.md](../README.md) for a general over
 - **[Changelog](reference/CHANGELOG.md)**: Change history organized by roadmap milestone and release.
 - **[Known issues](reference/KNOWN_ISSUES.md)**: Documented defect tracking, reproduction steps, and planned resolutions.
 - **[Glossary](reference/GLOSSARY.md)**: Domain vocabulary definitions for timeline units, audio buffers, and rig slots.
-- **[Code of conduct](reference/CODE_OF_CONDUCT.md)** and **[Security policy](reference/SECURITY.md)**.
+- **[Code of conduct](../.github/CODE_OF_CONDUCT.md)** and **[Security policy](../.github/SECURITY.md)**: in `.github/`, which is where GitHub looks for them.
 - **[Archive](archive/README.md)**: Historical plans, specs, and research dossiers.
 - **[Modules index](architecture/MODULES.md)**: Inventory of project modules and their responsibilities.
 - **[`docs/reference/spice/`](reference/spice/)**: Netlists, subcircuit definitions, and SPICE reference data.

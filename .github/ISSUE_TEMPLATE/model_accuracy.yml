@@ -1,0 +1,47 @@
+name: Model accuracy
+description: A circuit model does not match the amplifier or pedal it is named after.
+labels: ["accuracy"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every model in this repository is arithmetic on a schematic, and each module's README
+        lists which of its constants were read off the drawing and which are stand-ins. Read
+        that table first: the disagreement you heard may already be written down there, with
+        what would settle it.
+
+  - type: input
+    id: module
+    attributes:
+      label: Which model
+      placeholder: modules/mesa_mark2c
+    validations:
+      required: true
+
+  - type: textarea
+    id: disagreement
+    attributes:
+      label: What disagrees
+      description: |
+        What the model does, what the real circuit does, and at which control settings. A
+        frequency, a level in decibels or a measurement beats an adjective: "the presence
+        control does nothing above 3 kHz" can be checked, "it sounds fizzy" cannot.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: What it rests on
+      description: |
+        A schematic with the sheet and component designators, a datasheet operating point, a
+        bench measurement, or a recording. Say which, and say plainly where a figure is your
+        own estimate; an honest gap is more useful to us than a confident guess.
+    validations:
+      required: true
+
+  - type: textarea
+    id: readme-table
+    attributes:
+      label: What the module's README already says
+      description: Quote the row from its stand-in table, if one covers this.

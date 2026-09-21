@@ -1,0 +1,57 @@
+name: Defect
+description: Something behaves differently from what the documentation says it does.
+labels: ["defect"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a model that runs but sounds wrong, use the "Model accuracy" template instead.
+        This one is for a crash, a build failure, a wrong value, or a control that does nothing.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you observed, and what you expected instead. Paste exact error text.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce it
+      description: |
+        The shortest sequence that shows it. Name the node, the parameter values, the sample
+        rate and the block size, because a defect that only appears at one of them is a
+        different defect.
+      placeholder: |
+        1. sd run ...
+        2. Set Lead Drive to 1.0
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: A tag, or the output of `git rev-parse --short HEAD`.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: Logs, a `sd check` or `sd test` transcript, or a rig preset that shows it.
