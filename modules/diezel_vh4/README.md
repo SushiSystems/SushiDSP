@@ -5,7 +5,7 @@
 > approximation.**
 
 That is the verdict of
-[`docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md`](../../docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md),
+[`docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md`](../../docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md),
 and this module is built from that dossier and nothing else. Every section number below points
 into it. One `IAudioNode`, mono in and mono out, registered as `sushidsp.diezel_vh4` with ten
 parameters: Gain, Bass, Middle, Treble, Volume, Deep, Presence, Master, Input Trim and Output.
@@ -145,7 +145,7 @@ dossier's §8 question 13 says so in those terms.
 The four staging factors this module carried until 2026-09-07 —
 `kV1aToV2aLevelStaging`, `kV2aToV3aLevelStaging`, `kFollowerToMixBusLevelStaging` and
 `kV4bToPhaseInverterLevelStaging` — were removed by
-[the plate-swing spec](../../docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md), which
+[the plate-swing spec](../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md), which
 gave `TriodeStage` the plate ceiling the table above lists and left the dossier's own dividers
 (×0.4996, the volume divider, ×0.0660 and the two follower scalars) as the only interstage factors
 in the chain. `kPowerTubeToTransformerAttenuation` stays, this chain's one output trim to full

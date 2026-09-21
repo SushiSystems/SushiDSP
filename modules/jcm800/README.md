@@ -8,7 +8,7 @@ after this one (see [`modules/cabinet/README.md`](../cabinet/README.md)).
 Intent and the phase rulings live in
 [`docs/design/sushidsp.md`](../../docs/design/sushidsp.md); the plate-swing change this file
 describes is specified in
-[`docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`](../../docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md).
+[`docs/superpowers/specs/2026-09-07-triode-plate-swing-design.md`](../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md).
 The component values come from the `jcm_*` SPICE decks under
 [`docs/reference/spice/`](../../docs/reference/spice/). This file records what the code in this
 directory does.
