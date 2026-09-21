@@ -72,6 +72,9 @@ namespace ui
             { "eq_750",      ControlKind::Slider, { 0.730f, 0.755f }, 0.240f, "750"         },
             { "eq_2200",     ControlKind::Slider, { 0.805f, 0.755f }, 0.240f, "2200"        },
             { "eq_6600",     ControlKind::Slider, { 0.880f, 0.755f }, 0.240f, "6600"        },
+            { "bright",      ControlKind::Switch, { 0.115f, 0.480f }, 0.060f, "Bright"      },
+            { "deep",        ControlKind::Switch, { 0.295f, 0.480f }, 0.060f, "Deep"        },
+            { "eq_mode",     ControlKind::Switch, { 0.730f, 0.480f }, 0.060f, "EQ"          },
         };
 
         constexpr ControlPlacement kDiezelVh4Controls[] = {
