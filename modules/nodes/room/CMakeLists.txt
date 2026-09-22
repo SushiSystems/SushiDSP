@@ -2,6 +2,7 @@ add_library(room STATIC
     src/Materials.cpp
     src/Furniture.cpp
     src/AirAbsorption.cpp
+    src/MediumAbsorption.cpp
     src/BandResponseFit.cpp
     src/CabinetDirectivity.cpp
     src/MicrophoneModel.cpp
