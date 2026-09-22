@@ -85,6 +85,8 @@ namespace SushiDSP::room
         sample_rate_ = info.sample_rate;
         max_block_ = std::max<std::uint32_t>(info.max_block, 1u);
         alignment_frames_ = StreamingConvolution::partition_size_for(sample_rate_);
+        dry_delay_.prepare(std::max(alignment_frames_, 1u), max_block_);
+        dry_delay_buffer_.assign(max_block_, 0.0f);
 
         modal_.prepare(max_block_);
         geometric_.prepare(sample_rate_, alignment_frames_, max_block_);
@@ -177,6 +179,8 @@ namespace SushiDSP::room
 
     void RoomNode::adopt(const RoomRenderSet& set) noexcept
     {
+        // The microphone carries no decoder partition, so only the ears' dry waits with it.
+        dry_delay_frames_ = set.listener == ListenerKind::Ears ? alignment_frames_ : 0u;
         input_crossover_.set_crossover(sample_rate_, set.crossover_hz);
         const bool first = adopted_ == nullptr;
         geometric_.stage_tail(set, first);
@@ -212,15 +216,24 @@ namespace SushiDSP::room
     void RoomNode::write_outputs(const float* input, float* const* outputs,
                                  std::uint32_t frames) noexcept
     {
+        dry_delay_.write(input, frames);
+        const float* dry_source = input;
+        if (dry_delay_frames_ > 0u)
+        {
+            dry_delay_.read(static_cast<double>(dry_delay_frames_), 1.0f,
+                            dry_delay_buffer_.data(), frames);
+            dry_source = dry_delay_buffer_.data();
+        }
         float* const __restrict left = outputs[0];
         float* const __restrict right = outputs[1];
+        const float* const __restrict dry_input = dry_source;
         const float* const __restrict wet_left = binaural_.ear(0);
         const float* const __restrict wet_right = binaural_.ear(1);
         for (std::uint32_t frame = 0; frame < frames; ++frame)
         {
             const float mix = mix_.next();
             const float gain = level_.next();
-            const float dry = (1.0f - mix) * input[frame];
+            const float dry = (1.0f - mix) * dry_input[frame];
             left[frame] = gain * (dry + mix * wet_left[frame]);
             right[frame] = gain * (dry + mix * wet_right[frame]);
         }
@@ -288,6 +301,8 @@ namespace SushiDSP::room
         geometric_.reset();
         binaural_.reset();
         input_crossover_.reset();
+        dry_delay_.reset();
+        dry_delay_frames_ = 0;
         fade_remaining_ = 0;
         fade_total_ = 0;
         fade_lag_ = 0;

@@ -1042,7 +1042,7 @@ TEST(Unit_Dsp, RoomNodeRefusesAnInvalidSceneAndKeepsTheOldOne)
 TEST(Unit_Dsp, RoomNodeMixesDryAndWet)
 {
     // prepare() snaps the smoothers to their targets, so a mix set before it holds from the
-    // first frame.
+    // first frame; the ears' dry waits the same alignment delay the wet does.
     SushiDSP::room::RoomNode dry;
     dry.set_parameter_for_control_thread("mix", 0.0f);
     dry.prepare(kInfo);
@@ -1061,8 +1061,10 @@ TEST(Unit_Dsp, RoomNodeMixesDryAndWet)
         dry.process(context);
         for (std::uint32_t frame = 0; frame < kBlock; ++frame)
         {
-            EXPECT_EQ(left[frame], input[offset + frame]);
-            EXPECT_EQ(right[frame], input[offset + frame]);
+            const std::size_t absolute = offset + frame;
+            const float expected = absolute >= kAlignFrames ? input[absolute - kAlignFrames] : 0.0f;
+            EXPECT_EQ(left[frame], expected) << "frame " << absolute;
+            EXPECT_EQ(right[frame], expected) << "frame " << absolute;
         }
     }
 
@@ -1081,6 +1083,21 @@ TEST(Unit_Dsp, RoomNodeMixesDryAndWet)
         EXPECT_EQ(response[frame], 0.0f) << "frame " << frame;
     }
     EXPECT_GT(std::fabs(response[14]), 0.0f);
+}
+
+TEST(Unit_Dsp, RoomNodeLeavesTheMicrophonesDryUndelayed)
+{
+    SushiDSP::room::RoomNode node;
+    node.set_parameter_for_control_thread("mix", 0.0f);
+    node.set_parameter_for_control_thread("listener", kListenerMicrophone);
+    node.prepare(kInfo);
+    std::vector<float> input(kBlock, 0.0f);
+    input[10] = 1.0f;
+    const std::vector<float> response = render(node, input);
+    for (std::size_t frame = 0; frame < input.size(); ++frame)
+    {
+        EXPECT_EQ(response[frame], input[frame]) << "frame " << frame;
+    }
 }
 
 TEST(Unit_Dsp, RoomNodeTakesTheDirectImageOutOfTheEarsBankAndLeavesTheMicrophones)

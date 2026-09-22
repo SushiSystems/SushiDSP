@@ -525,6 +525,14 @@ choice: the microphone renders at physical timing with no partition in its path 
 whatever the parameter says. A changed choice publishes through the crossfade like a changed
 listener; the index path stores it for the next publish.
 
+`write_outputs` reads the dry side of `mix` out of its own ring, delayed by `dry_delay_frames_`:
+the alignment delay for the ears, matching the wet's decoder partition so the two blends stay in
+step, and zero for the microphone, which carries no partition. Without it a fully dry node's own
+mix ran the dry side 128 frames ahead of the wet, audible as the wet trailing every note
+(`RoomNodeMixesDryAndWet`, `RoomNodeLeavesTheMicrophonesDryUndelayed`). Physical's extra
+propagation delay is left out of the dry side on purpose: it stands for the time a distant
+cabinet's sound actually takes to arrive, which the dry input was never subject to.
+
 Measured cost at 48 kHz and 256 frames on a Release build, best of 200, the garage with the
 cabinet at (0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0), every layer running
 (`tests/benchmark/main.cpp`):

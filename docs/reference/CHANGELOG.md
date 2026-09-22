@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-09-23 — room: Delayed the dry side of `mix` to the ears' alignment frame, so it no longer runs ahead of the wet (`RoomNode.cpp`, `write_outputs`).
 - 2026-09-22 — tools: Added the Motus reference tool, its figures and the test comparing them against the module (`tools/dsp/motus_reference.py`, `tests/fixtures/motus_reference.csv`, `tests/functional/unit/test_room_motus.cpp`).
 - 2026-09-22 — host: Gave the room panel a furnishing list and a patch editor under Shell, Finishes and Furnishings (`apps/host_gui/ui/RoomPanel.cpp`, `ui/FurnishingList.cpp`, `ui/PatchList.cpp`).
 - 2026-09-22 — room: Loaded `starter_scene()` into a fresh room slot in place of the bare reference room (`StarterScene.cpp`, `RoomNode.cpp`, `apps/host_gui/SlotGraph.cpp`).
