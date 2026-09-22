@@ -141,17 +141,26 @@ namespace ui
             ImGui::SameLine();
             ImGui::TextColored(to_imvec4(palette().muted_text), "%zu items", item_count);
 
-            const float toggle_width = 48.0f;
+            // Each toggle is as wide as its own caption plus padding: a fixed box narrower than
+            // the text lets the two labels overlap each other and the window's edge.
+            constexpr float kTogglePadding = 10.0f;
+            constexpr float kToggleGap = 2.0f;
+            const float list_width = ImGui::CalcTextSize("List").x + kTogglePadding;
+            const float grid_width = ImGui::CalcTextSize("Grid").x + kTogglePadding;
+            const float toggle_width = list_width + kToggleGap + grid_width;
+
             ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - toggle_width);
-            if (ImGui::Selectable("List", mode == GearViewMode::List, 0, ImVec2(22.0f, 20.0f)))
+            ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
+            if (ImGui::Selectable("List", mode == GearViewMode::List, 0, ImVec2(list_width, 20.0f)))
             {
                 mode = GearViewMode::List;
             }
-            ImGui::SameLine(0.0f, 2.0f);
-            if (ImGui::Selectable("Grid", mode == GearViewMode::Grid, 0, ImVec2(22.0f, 20.0f)))
+            ImGui::SameLine(0.0f, kToggleGap);
+            if (ImGui::Selectable("Grid", mode == GearViewMode::Grid, 0, ImVec2(grid_width, 20.0f)))
             {
                 mode = GearViewMode::Grid;
             }
+            ImGui::PopStyleVar();
         }
 
         /// @brief Draws the four tabs as equal-width selectable buttons.
@@ -166,6 +175,9 @@ namespace ui
 
             const float spacing = 6.0f;
             const float width = (ImGui::GetContentRegionAvail().x - spacing * 3.0f) / 4.0f;
+            // A Selectable puts its caption in the top-left of the box it is given, which reads
+            // as text that has come loose from its button once the box is wider than the word.
+            ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
             for (std::size_t i = 0; i < 4; ++i)
             {
                 if (i != 0)
@@ -179,6 +191,7 @@ namespace ui
                 }
                 ImGui::PopID();
             }
+            ImGui::PopStyleVar();
         }
 
         /// @brief Draws one category's items in list mode: a label, then a full-width card each.
