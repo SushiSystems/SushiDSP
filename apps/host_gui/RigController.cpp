@@ -275,6 +275,36 @@ std::string RigController::track_name(std::size_t index) const
     return session_.track_name(index);
 }
 
+std::size_t RigController::track_count() const
+{
+    return session_.track_count();
+}
+
+bool RigController::add_track(std::string& error_out)
+{
+    return session_.add_track(error_out);
+}
+
+bool RigController::remove_track(std::size_t index, std::string& error_out)
+{
+    return session_.remove_track(index, error_out);
+}
+
+bool RigController::remove_track_and_files(std::size_t index, std::string& error_out)
+{
+    return session_.remove_track_and_files(index, error_out);
+}
+
+SessionTimeline::TrackColor RigController::track_color(std::size_t index) const
+{
+    return session_.track_color(index);
+}
+
+void RigController::set_track_color(std::size_t index, SessionTimeline::TrackColor color)
+{
+    session_.set_track_color(index, color);
+}
+
 void RigController::set_track_name(std::size_t index, const std::string& name)
 {
     session_.set_track_name(index, name);
