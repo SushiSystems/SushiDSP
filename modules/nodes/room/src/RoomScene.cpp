@@ -29,6 +29,7 @@
 
 #include "SushiDSP/room/RoomScene.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace SushiDSP::room
@@ -63,6 +64,48 @@ namespace SushiDSP::room
                 }
             }
             return true;
+        }
+
+        /// @brief Checks the live furnishings' count, rows and quantities.
+        /// @return true when every live furnishing is a known row with a positive quantity.
+        bool furnishings_valid(const RoomScene& scene, std::string& reason)
+        {
+            if (scene.furnishing_count > RoomScene::kMaxFurnishings)
+            {
+                reason = "more than " + std::to_string(RoomScene::kMaxFurnishings) + " furnishings";
+                return false;
+            }
+            for (std::uint32_t index = 0; index < scene.furnishing_count; ++index)
+            {
+                const RoomScene::Furnishing& entry = scene.furnishings[index];
+                if (static_cast<std::size_t>(entry.item) >= kFurnitureCount)
+                {
+                    reason = "furnishing " + std::to_string(index) + " names no furniture row";
+                    return false;
+                }
+                if (!std::isfinite(entry.quantity) || !(entry.quantity > 0.0))
+                {
+                    reason = "furnishing " + std::to_string(index)
+                        + " has a non-positive quantity";
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// @brief Returns the surfaces' mean absorption with furniture standing in the room, per
+        /// band: 1 - (1 - a_s) exp(-A_f / S).
+        std::array<double, kBandCount> furnished_absorption(const RoomScene& scene)
+        {
+            const std::array<double, kBandCount> surfaces = scene.mean_absorption();
+            const std::array<double, kBandCount> area = scene.furnishing_absorption_area();
+            const double surface_area = scene.surface_area_m2();
+            std::array<double, kBandCount> result{};
+            for (std::size_t band = 0; band < kBandCount; ++band)
+            {
+                result[band] = 1.0 - (1.0 - surfaces[band]) * std::exp(-area[band] / surface_area);
+            }
+            return result;
         }
     }
 
@@ -155,6 +198,22 @@ namespace SushiDSP::room
         return result;
     }
 
+    std::array<double, kBandCount> RoomScene::furnishing_absorption_area() const
+    {
+        const std::size_t live = std::min<std::size_t>(furnishing_count, kMaxFurnishings);
+        std::array<double, kBandCount> area{};
+        for (std::size_t index = 0; index < live; ++index)
+        {
+            const FurnitureItem& row = furniture(furnishings[index].item);
+            for (std::size_t band = 0; band < kBandCount; ++band)
+            {
+                area[band] += furnishings[index].quantity
+                    * static_cast<double>(row.absorption_area[band]);
+            }
+        }
+        return area;
+    }
+
     double RoomScene::min_mean_absorption() const noexcept
     {
         // Eyring inverted for alpha at kMaxDecaySeconds, the air term dropped; spec section 4.1.
@@ -185,20 +244,45 @@ namespace SushiDSP::room
             return false;
         }
 
+        if (patch_count > kMaxPatches)
+        {
+            reason = "more than " + std::to_string(kMaxPatches) + " patches";
+            return false;
+        }
+        std::array<double, kSurfaceCount> covered{};
         for (std::uint32_t index = 0; index < patch_count; ++index)
         {
             const Patch& patch = patches[index];
             const double face_area = face_area_m2(patch.surface);
+            if (!std::isfinite(patch.area_m2) || !(patch.area_m2 > 0.0))
+            {
+                reason = "patch " + std::to_string(index) + " has a non-positive area";
+                return false;
+            }
             if (patch.area_m2 > face_area)
             {
                 reason = "a patch of " + std::to_string(patch.area_m2) + " m2 exceeds its face's "
                     + std::to_string(face_area) + " m2";
                 return false;
             }
+            double& total = covered[static_cast<std::size_t>(patch.surface)];
+            total += patch.area_m2;
+            if (total > face_area)
+            {
+                reason = "the patches on one face total " + std::to_string(total)
+                    + " m2, over its face's " + std::to_string(face_area) + " m2";
+                return false;
+            }
+        }
+
+        if (!furnishings_valid(*this, reason))
+        {
+            return false;
         }
 
         const double floor_absorption = min_mean_absorption();
-        const std::array<double, kBandCount> absorption = mean_absorption();
+        const std::array<double, kBandCount> absorption =
+            furnishing_count > 0 ? furnished_absorption(*this) : mean_absorption();
         for (std::size_t band = 0; band < kBandCount; ++band)
         {
             if (absorption[band] < floor_absorption)

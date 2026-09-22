@@ -30,6 +30,8 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
+#include <limits>
 #include <string>
 
 #include "RoomFixtures.hpp"
@@ -204,4 +206,144 @@ TEST(Unit_Dsp, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
     shoebox.surfaces.fill(MaterialId::ConcreteUnpainted);
     EXPECT_TRUE(shoebox.is_valid(reason)) << reason;
     EXPECT_LT(shoebox.min_mean_absorption(), over.min_mean_absorption());
+}
+
+TEST(Unit_Dsp, RoomSceneSumsItsFurnishingAreaByQuantity)
+{
+    using SushiDSP::room::FurnitureId;
+    using SushiDSP::room::furniture;
+
+    SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+    scene.furnishings[0] = { FurnitureId::WardrobeModule, 3.0 };
+    scene.furnishings[1] = { FurnitureId::SofaTwoSeat, 2.0 };
+    scene.furnishing_count = 2;
+
+    const std::array<double, 6> area = scene.furnishing_absorption_area();
+    const auto& wardrobe = furniture(FurnitureId::WardrobeModule).absorption_area;
+    const auto& sofa = furniture(FurnitureId::SofaTwoSeat).absorption_area;
+    for (std::size_t band = 0; band < area.size(); ++band)
+    {
+        const double expected = 3.0 * static_cast<double>(wardrobe[band])
+            + 2.0 * static_cast<double>(sofa[band]);
+        EXPECT_NEAR(area[band], expected, 1e-12) << "band " << band;
+    }
+}
+
+TEST(Unit_Dsp, RoomSceneWithoutFurnishingsHasNoFurnishingArea)
+{
+    const std::array<double, 6> area = SushiDSP::test::garage_scene().furnishing_absorption_area();
+    for (std::size_t band = 0; band < area.size(); ++band)
+    {
+        EXPECT_EQ(area[band], 0.0) << "band " << band;
+    }
+}
+
+TEST(Unit_Dsp, RoomSceneRefusesABadFurnishing)
+{
+    using SushiDSP::room::FurnitureId;
+    using SushiDSP::room::RoomScene;
+
+    const auto refused_with = [](double quantity)
+    {
+        RoomScene scene = SushiDSP::test::garage_scene();
+        scene.furnishings[0] = { FurnitureId::SofaTwoSeat, quantity };
+        scene.furnishing_count = 1;
+        std::string reason;
+        EXPECT_FALSE(scene.is_valid(reason)) << "quantity " << quantity;
+        EXPECT_FALSE(reason.empty()) << "quantity " << quantity;
+    };
+    refused_with(0.0);
+    refused_with(-1.0);
+    refused_with(std::numeric_limits<double>::quiet_NaN());
+    refused_with(std::numeric_limits<double>::infinity());
+
+    RoomScene unknown_item = SushiDSP::test::garage_scene();
+    unknown_item.furnishings[0] = { static_cast<FurnitureId>(200), 1.0 };
+    unknown_item.furnishing_count = 1;
+    std::string reason;
+    EXPECT_FALSE(unknown_item.is_valid(reason));
+    EXPECT_FALSE(reason.empty());
+
+    RoomScene too_many = SushiDSP::test::garage_scene();
+    too_many.furnishing_count = 17;
+    reason.clear();
+    EXPECT_FALSE(too_many.is_valid(reason));
+    EXPECT_NE(reason.find("16"), std::string::npos) << reason;
+}
+
+TEST(Unit_Dsp, RoomSceneCountsFurnitureTowardTheDecayBound)
+{
+    using SushiDSP::room::FurnitureId;
+    using SushiDSP::room::MaterialId;
+    using SushiDSP::room::RoomScene;
+
+    // A 12 m concrete cube rings past the bound bare and inside it with six sofas.
+    RoomScene cube;
+    cube.dimensions = { 12.0, 12.0, 12.0 };
+    cube.surfaces.fill(MaterialId::ConcreteUnpainted);
+    std::string reason;
+    EXPECT_FALSE(cube.is_valid(reason));
+
+    cube.furnishings[0] = { FurnitureId::SofaTwoSeat, 6.0 };
+    cube.furnishing_count = 1;
+    EXPECT_TRUE(cube.is_valid(reason)) << reason;
+}
+
+TEST(Unit_Dsp, RoomSceneKeepsItsAbsorptionWhenFurnished)
+{
+    using SushiDSP::room::FurnitureId;
+    using SushiDSP::room::RoomScene;
+
+    const RoomScene bare = SushiDSP::test::bedroom_scene();
+    RoomScene furnished = bare;
+    furnished.furnishings[0] = { FurnitureId::SofaTwoSeat, 2.0 };
+    furnished.furnishing_count = 1;
+
+    const std::array<double, 6> before = bare.mean_absorption();
+    const std::array<double, 6> after = furnished.mean_absorption();
+    for (std::size_t band = 0; band < before.size(); ++band)
+    {
+        EXPECT_EQ(before[band], after[band]) << "band " << band;
+    }
+}
+
+TEST(Unit_Dsp, RoomSceneRefusesPatchesThatTogetherOverfillAFace)
+{
+    using SushiDSP::room::MaterialId;
+    using SushiDSP::room::RoomScene;
+    using SushiDSP::room::Surface;
+
+    RoomScene garage = SushiDSP::test::garage_scene();
+    garage.patch_count = 2;
+    garage.patches[0] = { Surface::PlusY, MaterialId::GlassWindow, 8.0 };
+    garage.patches[1] = { Surface::PlusY, MaterialId::WoodenDoor, 8.0 };
+    std::string reason;
+    EXPECT_FALSE(garage.is_valid(reason));
+    EXPECT_NE(reason.find("total"), std::string::npos);
+
+    garage.patches[1].surface = Surface::MinusY;
+    EXPECT_TRUE(garage.is_valid(reason)) << reason;
+}
+
+TEST(Unit_Dsp, RoomSceneRefusesABadPatchAreaAndTooManyPatches)
+{
+    using SushiDSP::room::MaterialId;
+    using SushiDSP::room::RoomScene;
+    using SushiDSP::room::Surface;
+
+    RoomScene garage = SushiDSP::test::garage_scene();
+    garage.patch_count = 1;
+    std::string reason;
+    for (const double area : { 0.0, -1.0, std::numeric_limits<double>::quiet_NaN(),
+                               std::numeric_limits<double>::infinity() })
+    {
+        garage.patches[0] = { Surface::PlusX, MaterialId::GlassWindow, area };
+        EXPECT_FALSE(garage.is_valid(reason)) << "area " << area;
+        EXPECT_FALSE(reason.empty());
+    }
+
+    garage.patches[0] = { Surface::PlusX, MaterialId::GlassWindow, 1.0 };
+    garage.patch_count = RoomScene::kMaxPatches + 1;
+    EXPECT_FALSE(garage.is_valid(reason));
+    EXPECT_NE(reason.find("patches"), std::string::npos);
 }

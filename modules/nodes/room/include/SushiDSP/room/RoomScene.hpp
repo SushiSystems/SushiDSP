@@ -37,6 +37,7 @@
 
 #include "SushiDSP/room/BandResponse.hpp"
 #include "SushiDSP/room/CabinetDirectivity.hpp"
+#include "SushiDSP/room/Furniture.hpp"
 #include "SushiDSP/room/Materials.hpp"
 #include "SushiDSP/room/MicrophoneModel.hpp"
 
@@ -79,7 +80,7 @@ namespace SushiDSP::room
         static constexpr double kMaxDecaySeconds = 12.0;
 
         /// @brief Counts the patches a scene may carry.
-        static constexpr std::size_t kMaxPatches = 4;
+        static constexpr std::size_t kMaxPatches = 8;
 
         /// @brief A patch of a different material on one face: the open doorway, the window.
         struct Patch
@@ -93,6 +94,19 @@ namespace SushiDSP::room
             /// @brief Stores the patch's area, in square metres.
             /// @pre area_m2 does not exceed its face's own area.
             double area_m2;
+        };
+
+        /// @brief Counts the furnishings a scene may carry.
+        static constexpr std::size_t kMaxFurnishings = 16;
+
+        /// @brief A quantity of one furniture row standing in the room.
+        struct Furnishing
+        {
+            /// @brief Names the furniture row.
+            FurnitureId item;
+
+            /// @brief Counts items, or square metres, as the row's unit says.
+            double quantity;
         };
 
         /// @brief Stores the shoebox's width, depth and height, in metres.
@@ -114,6 +128,13 @@ namespace SushiDSP::room
 
         /// @brief Counts the live entries of patches.
         std::uint32_t patch_count = 0;
+
+        /// @brief Stores the furnishings carried by this scene; only furnishing_count of these
+        /// are live.
+        std::array<Furnishing, kMaxFurnishings> furnishings{};
+
+        /// @brief Counts the live entries of furnishings.
+        std::uint32_t furnishing_count = 0;
 
         /// @brief Stores the cabinet's position.
         Vec3 source_position{ 1.5, 2.0, 0.5 };
@@ -154,12 +175,17 @@ namespace SushiDSP::room
         /// @brief Area-weighted absorption per band over the six faces and their patches.
         std::array<double, kBandCount> mean_absorption() const;
 
+        /// @brief Sums the live furnishings' equivalent absorption area per band, in square
+        /// metres; reads at most kMaxFurnishings entries.
+        /// @pre every live entry names a furniture row.
+        std::array<double, kBandCount> furnishing_absorption_area() const;
+
         /// @brief Returns the absorption one band must reach for this shoebox to decay inside
         /// kMaxDecaySeconds, taking its surfaces as the only absorber.
         double min_mean_absorption() const noexcept;
 
-        /// @brief Whether every dimension, every pose, every patch and every band's absorption
-        /// is inside its bound.
+        /// @brief Whether every dimension, every pose, every patch, every furnishing and every
+        /// band's absorption is inside its bound.
         /// @param reason Filled with the first violation when the scene is refused.
         bool is_valid(std::string& reason) const;
     };
