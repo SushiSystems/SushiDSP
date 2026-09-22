@@ -27,3 +27,11 @@ Design-time scripts. Nothing here runs in CI or at build time; their outputs are
   file is the loader test's fixture. The byte layout and the −50 dB truncation and 3 dB decoder
   bounds are the room acoustics spec's §9.3 and §9.5, and `assets/hrtf/README.md` says how to
   reproduce the asset.
+- `motus_reference.py` — computes octave-band T20, T30, EDT, DRR and C50 from Motus spherical-harmonic
+  room impulse responses (Zenodo 4923187, CC-BY-4.0) and writes `tests/fixtures/motus_reference.csv`.
+  Needs `numpy` and `scipy` (`pip install numpy scipy`). Run from the repo root:
+  `python tools/dsp/motus_reference.py --rir 0001_1_sh_rirs.wav 0002_1_sh_rirs.wav 0003_1_sh_rirs.wav
+  --csv tests/fixtures/motus_reference.csv`. The RIRs are three members of the 16.1 GB `sh_rirs.zip`;
+  they are not in the repository. The bands, filter, noise truncation and every fit range are
+  listed in the script's docstring, and `tests/fixtures/motus_reference.README.md` gives the
+  provenance and the citation. Design intent: `docs/design/ROOM_FURNISHINGS.md` section 8.
