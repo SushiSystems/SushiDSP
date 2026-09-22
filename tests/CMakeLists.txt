@@ -167,6 +167,7 @@ add_executable(sushidsp_tests
     functional/unit/test_dd3_delay.cpp
     functional/unit/test_band_response.cpp
     functional/unit/test_room_materials.cpp
+    functional/unit/test_room_furniture.cpp
     functional/unit/test_air_absorption.cpp
     functional/unit/test_band_response_fit.cpp
     functional/unit/test_cabinet_directivity.cpp
@@ -176,6 +177,7 @@ add_executable(sushidsp_tests
     functional/unit/test_hrtf_set.cpp
     functional/unit/test_ambisonic_encoder.cpp
     functional/unit/test_room_scene.cpp
+    functional/unit/test_room_scene_furnishings.cpp
     functional/unit/test_early_reflection_renderer.cpp
     functional/unit/test_late_reverb.cpp
     functional/unit/test_modal_bank.cpp

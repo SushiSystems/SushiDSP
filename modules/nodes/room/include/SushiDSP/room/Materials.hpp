@@ -45,11 +45,20 @@ namespace SushiDSP::room
         GypsumBoardOnStuds,
         HeavyCarpetOnConcrete,
         GlassWindow,
-        OpenDoorway
+        OpenDoorway,
+        PlasterOnMasonryPainted,
+        CeramicTile,
+        ParquetOnConcrete,
+        WoodPanel,
+        WindowDoubleGlazed,
+        WoodenDoor,
+        ThinCarpetOnConcrete,
+        CurtainHeavyVelour,
+        CurtainLight
     };
 
     /// @brief Counts the rows of the shipped absorption table.
-    inline constexpr std::size_t kMaterialCount = 6;
+    inline constexpr std::size_t kMaterialCount = 15;
 
     /// @brief Names how much of a reflection leaves the surface diffusely. Spec §4.2.
     enum class Scattering : std::uint8_t
@@ -65,6 +74,9 @@ namespace SushiDSP::room
         /// @brief Names the surface as the cited table names it.
         const char* name;
 
+        /// @brief Names the surface as a preset file spells it.
+        const char* key;
+
         /// @brief Stores the random-incidence absorption coefficient per octave band.
         std::array<float, kBandCount> absorption;
 
@@ -74,6 +86,12 @@ namespace SushiDSP::room
 
     /// @brief Returns the transcribed row of the given material.
     const Material& material(MaterialId id) noexcept;
+
+    /// @brief Finds the row whose key equals the given text exactly.
+    /// @param key A null-terminated preset word.
+    /// @param id Written only when a row carries the key.
+    /// @return true when a row carries the key.
+    bool find_material(const char* key, MaterialId& id) noexcept;
 
     /// @brief Returns the pressure reflection factor sqrt(1 - alpha) per band, phase taken as
     /// zero.
