@@ -98,4 +98,24 @@ namespace ui
         ImGui::PopID();
         return changed;
     }
+
+    void DrawPaneSeparator(DividerAxis axis, float thickness)
+    {
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        const bool   vertical = axis == DividerAxis::Vertical;
+        const float  cross_length =
+            vertical ? ImGui::GetContentRegionAvail().y : ImGui::GetContentRegionAvail().x;
+        const ImVec2 strip_size = vertical ? ImVec2(thickness, cross_length)
+                                           : ImVec2(cross_length, thickness);
+
+        ImGui::Dummy(strip_size);
+
+        const ImVec2 center(origin.x + strip_size.x * 0.5f, origin.y + strip_size.y * 0.5f);
+        const ImVec2 line_min = vertical ? ImVec2(center.x - 0.5f, origin.y)
+                                         : ImVec2(origin.x, center.y - 0.5f);
+        const ImVec2 line_max = vertical ? ImVec2(center.x + 0.5f, origin.y + strip_size.y)
+                                         : ImVec2(origin.x + strip_size.x, center.y + 0.5f);
+        ImGui::GetWindowDrawList()->AddRectFilled(line_min, line_max,
+                                                  to_imu32(palette().muted_text));
+    }
 }
