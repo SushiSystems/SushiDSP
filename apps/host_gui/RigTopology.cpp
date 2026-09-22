@@ -61,12 +61,11 @@ std::size_t RigTopology::branch_count(ChainType type) noexcept
 {
     switch (type)
     {
-        case ChainType::Series:    return 0;
-        case ChainType::TwoWay:    return 2;
-        case ChainType::ThreeWay:  return 3;
-        case ChainType::TwoWayAlt: return 2;
+        case ChainType::Single:   return 1;
+        case ChainType::TwoWay:   return 2;
+        case ChainType::ThreeWay: return 3;
     }
-    return 0;
+    return 1;
 }
 
 ChainType RigTopology::chain_type() const noexcept
@@ -74,22 +73,29 @@ ChainType RigTopology::chain_type() const noexcept
     return type_;
 }
 
-std::vector<RigTopology::SlotId> RigTopology::set_chain_type(ChainType type)
+ChainTypeChange RigTopology::set_chain_type(ChainType type)
 {
     if (type == type_)
     {
         return {};
     }
 
-    std::vector<SlotId> discarded;
-    for (const std::vector<SlotId>& branch : branches_)
+    ChainTypeChange change;
+    const std::size_t wanted = branch_count(type);
+
+    for (std::size_t branch = wanted; branch < branches_.size(); ++branch)
     {
-        discarded.insert(discarded.end(), branch.begin(), branch.end());
+        change.discarded.insert(change.discarded.end(), branches_[branch].begin(),
+                                branches_[branch].end());
+    }
+    for (std::size_t branch = branches_.size(); branch < wanted; ++branch)
+    {
+        change.opened.push_back(branch);
     }
 
-    branches_.assign(branch_count(type), {});
+    branches_.resize(wanted);
     type_ = type;
-    return discarded;
+    return change;
 }
 
 const std::vector<RigTopology::SlotId>& RigTopology::stage(const StageAddress& address) const
@@ -97,9 +103,7 @@ const std::vector<RigTopology::SlotId>& RigTopology::stage(const StageAddress& a
     static const std::vector<SlotId> kEmpty;
     switch (address.kind)
     {
-        case StageKind::Series: return series_;
-        case StageKind::Pre:    return pre_;
-        case StageKind::Post:   return post_;
+        case StageKind::Post: return post_;
         case StageKind::Branch:
             if (address.branch < branches_.size())
             {
@@ -114,11 +118,10 @@ bool RigTopology::is_visible(const StageAddress& address) const
 {
     switch (address.kind)
     {
-        case StageKind::Series: return type_ == ChainType::Series;
-        case StageKind::Pre:    return type_ != ChainType::Series;
-        case StageKind::Post:   return type_ != ChainType::Series;
-        case StageKind::Branch:
-            return type_ != ChainType::Series && address.branch < branches_.size();
+        // One path needs no master bus: it is the run itself, and a stage drawn nowhere that
+        // still carried gear would be audible with nothing on screen to explain it.
+        case StageKind::Post:   return branches_.size() > 1;
+        case StageKind::Branch: return address.branch < branches_.size();
     }
     return false;
 }
@@ -127,22 +130,16 @@ namespace
 {
     /// @brief Resolves a stage address to the mutable list it names.
     /// @param address The stage to resolve.
-    /// @param series The series list.
-    /// @param pre The pre list.
-    /// @param post The post list.
-    /// @param branches The branch lists.
-    /// @return A pointer to the named list, or nullptr for an out-of-range branch.
+    /// @param post The master bus list.
+    /// @param branches The path lists.
+    /// @return A pointer to the named list, or nullptr for an out-of-range path.
     std::vector<ui::SlotId>* resolve_stage(const StageAddress& address,
-                                           std::vector<ui::SlotId>& series,
-                                           std::vector<ui::SlotId>& pre,
                                            std::vector<ui::SlotId>& post,
                                            std::vector<std::vector<ui::SlotId>>& branches)
     {
         switch (address.kind)
         {
-            case StageKind::Series: return &series;
-            case StageKind::Pre:    return &pre;
-            case StageKind::Post:   return &post;
+            case StageKind::Post: return &post;
             case StageKind::Branch:
                 if (address.branch < branches.size())
                 {
@@ -160,7 +157,7 @@ bool RigTopology::insert(const StageAddress& address, std::size_t index, SlotId 
     {
         return false;
     }
-    std::vector<SlotId>* target = resolve_stage(address, series_, pre_, post_, branches_);
+    std::vector<SlotId>* target = resolve_stage(address, post_, branches_);
     if (target == nullptr)
     {
         return false;
@@ -172,14 +169,6 @@ bool RigTopology::insert(const StageAddress& address, std::size_t index, SlotId 
 
 std::optional<StageAddress> RigTopology::find(SlotId slot) const
 {
-    if (std::find(series_.begin(), series_.end(), slot) != series_.end())
-    {
-        return StageAddress{ StageKind::Series, 0 };
-    }
-    if (std::find(pre_.begin(), pre_.end(), slot) != pre_.end())
-    {
-        return StageAddress{ StageKind::Pre, 0 };
-    }
     if (std::find(post_.begin(), post_.end(), slot) != post_.end())
     {
         return StageAddress{ StageKind::Post, 0 };
@@ -203,14 +192,14 @@ bool RigTopology::move(SlotId slot, const StageAddress& address, std::size_t ind
         return false;
     }
 
-    std::vector<SlotId>* source = resolve_stage(*current, series_, pre_, post_, branches_);
+    std::vector<SlotId>* source = resolve_stage(*current, post_, branches_);
     if (source == nullptr)
     {
         return false;
     }
     source->erase(std::find(source->begin(), source->end(), slot));
 
-    std::vector<SlotId>* destination = resolve_stage(address, series_, pre_, post_, branches_);
+    std::vector<SlotId>* destination = resolve_stage(address, post_, branches_);
     if (destination == nullptr)
     {
         return false;
@@ -227,7 +216,7 @@ bool RigTopology::remove(SlotId slot)
     {
         return false;
     }
-    std::vector<SlotId>* target = resolve_stage(*address, series_, pre_, post_, branches_);
+    std::vector<SlotId>* target = resolve_stage(*address, post_, branches_);
     if (target == nullptr)
     {
         return false;
@@ -243,7 +232,7 @@ bool RigTopology::replace(SlotId from, SlotId to)
     {
         return false;
     }
-    std::vector<SlotId>* target = resolve_stage(*address, series_, pre_, post_, branches_);
+    std::vector<SlotId>* target = resolve_stage(*address, post_, branches_);
     if (target == nullptr)
     {
         return false;
@@ -254,27 +243,16 @@ bool RigTopology::replace(SlotId from, SlotId to)
 
 std::vector<RigTopology::SlotId> RigTopology::active_slots() const
 {
-    if (type_ == ChainType::Series)
-    {
-        return series_;
-    }
-
-    std::vector<SlotId> result = pre_;
+    std::vector<SlotId> result;
     for (const std::vector<SlotId>& branch : branches_)
     {
         result.insert(result.end(), branch.begin(), branch.end());
     }
-    result.insert(result.end(), post_.begin(), post_.end());
-    return result;
-}
-
-std::vector<RigTopology::SlotId> RigTopology::parked_slots() const
-{
-    if (type_ == ChainType::Series)
+    if (branches_.size() > 1)
     {
-        return {};
+        result.insert(result.end(), post_.begin(), post_.end());
     }
-    return series_;
+    return result;
 }
 
 std::vector<std::pair<RigTopology::SlotId, RigTopology::SlotId>>
@@ -282,16 +260,11 @@ RigTopology::edges(std::optional<SlotId> splitter, std::optional<SlotId> mixer) 
 {
     std::vector<std::pair<SlotId, SlotId>> result;
 
-    if (type_ == ChainType::Series)
+    // One path needs no splitter and no mixer: it runs straight into the master bus.
+    if (branches_.size() == 1)
     {
-        push_chain(result, series_);
+        push_chain(result, branches_.front());
         return result;
-    }
-
-    push_chain(result, pre_);
-    if (!pre_.empty() && splitter.has_value())
-    {
-        push_unique(result, { pre_.back(), *splitter });
     }
 
     for (const std::vector<SlotId>& branch : branches_)
@@ -319,9 +292,9 @@ RigTopology::edges(std::optional<SlotId> splitter, std::optional<SlotId> mixer) 
     return result;
 }
 
-RigTopology RigTopology::from_series(std::vector<SlotId> order)
+RigTopology RigTopology::from_linear_order(std::vector<SlotId> order)
 {
     RigTopology topology;
-    topology.series_ = std::move(order);
+    topology.branches_.assign(1, std::move(order));
     return topology;
 }

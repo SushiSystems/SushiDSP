@@ -207,7 +207,7 @@ namespace
     /// @param status Out: a message when the rig's shape was flattened or flattening failed.
     void seed_rig_chain(RigController& rig, ui::RigChainState& state, std::string& status)
     {
-        state.topology = RigTopology::from_series(rig.slot_order());
+        state.topology = RigTopology::from_linear_order(rig.slot_order());
         state.applier = TopologyApplier();
         state.selected = std::nullopt;
         state.edit_error.clear();

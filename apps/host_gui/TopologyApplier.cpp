@@ -72,11 +72,8 @@ void TopologyApplier::apply(RigTopology& topology, RigController& rig)
 
     try
     {
-        park(topology, rig, journal);
-        unpark(topology, rig, journal);
         place_routing(topology, rig, journal);
         remove_strays(topology, rig, journal);
-        prune_parked(topology);
         connect(topology, rig);
         rig.publish();
     }
@@ -87,50 +84,37 @@ void TopologyApplier::apply(RigTopology& topology, RigController& rig)
     }
 }
 
-std::size_t TopologyApplier::parked_count() const noexcept
+void TopologyApplier::switch_chain_type(RigTopology& topology, RigController& rig,
+                                        ChainType type)
 {
-    return state_.parked.size();
-}
+    const ChainTypeChange change = topology.set_chain_type(type);
 
-void TopologyApplier::park(const RigTopology& topology, RigController& rig, Journal& journal)
-{
-    for (SlotId slot : topology.parked_slots())
+    // The main path is copied into each path that opened, so a split starts from what was
+    // already being heard rather than from silence.
+    const std::vector<SlotId> main_path = topology.stage(StageAddress{ StageKind::Branch, 0 });
+    for (std::size_t branch : change.opened)
     {
-        const std::optional<RigController::SlotSnapshot> saved = rig.snapshot(slot);
-        if (!saved.has_value())
+        std::size_t index = 0;
+        for (SlotId source : main_path)
         {
-            continue;
+            const std::optional<RigController::SlotSnapshot> saved = rig.snapshot(source);
+            if (!saved.has_value())
+            {
+                continue;
+            }
+            const SlotId copy = rig.restore(*saved, false);
+            topology.insert(StageAddress{ StageKind::Branch, branch }, index, copy);
+            ++index;
         }
-        state_.parked.emplace_back(slot, *saved);
-        remove_journaled(slot, rig, journal);
     }
-}
 
-void TopologyApplier::unpark(RigTopology& topology, RigController& rig, Journal& journal)
-{
-    for (SlotId slot : topology.active_slots())
-    {
-        if (rig.snapshot(slot).has_value())
-        {
-            continue;
-        }
-        const auto it = std::find_if(state_.parked.begin(), state_.parked.end(),
-            [slot](const auto& entry) { return entry.first == slot; });
-        if (it == state_.parked.end())
-        {
-            continue;
-        }
-        const SlotId restored = rig.restore(it->second, false);
-        journal.added.push_back(restored);
-        topology.replace(slot, restored);
-        state_.parked.erase(it);
-    }
+    apply(topology, rig);
 }
 
 void TopologyApplier::place_routing(const RigTopology& topology, RigController& rig,
                                     Journal& journal)
 {
-    if (topology.chain_type() != ChainType::Series)
+    if (RigTopology::branch_count(topology.chain_type()) > 1)
     {
         state_.splitter = ensure_slot(state_.splitter, kSplitterId, rig, journal);
         state_.mixer = ensure_slot(state_.mixer, kMixerId, rig, journal);
@@ -163,14 +147,7 @@ void TopologyApplier::remove_strays(const RigTopology& topology, RigController& 
     }
 }
 
-void TopologyApplier::prune_parked(const RigTopology& topology)
-{
-    const std::vector<SlotId> parked = topology.parked_slots();
-    state_.parked.erase(
-        std::remove_if(state_.parked.begin(), state_.parked.end(),
-            [&parked](const auto& entry) { return !holds(parked, entry.first); }),
-        state_.parked.end());
-}
+
 
 void TopologyApplier::connect(const RigTopology& topology, RigController& rig) const
 {

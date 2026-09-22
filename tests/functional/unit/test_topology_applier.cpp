@@ -75,13 +75,13 @@ namespace
     }
 }
 
-TEST(Unit_Dsp, TopologyApplierSeriesWiresALinearChain)
+TEST(Unit_Dsp, TopologyApplierSinglePathWiresALinearChain)
 {
     RigController rig(test_info());
     const SlotId a = rig.add_node("sushidsp.tubescreamer", false);
     const SlotId b = rig.add_node("sushidsp.jcm800", false);
     const SlotId c = rig.add_node("sushidsp.tubescreamer", false);
-    RigTopology topology = RigTopology::from_series({ c, a, b });
+    RigTopology topology = RigTopology::from_linear_order({ c, a, b });
     TopologyApplier applier;
 
     applier.apply(topology, rig);
@@ -95,48 +95,60 @@ TEST(Unit_Dsp, TopologyApplierTwoWayAddsOneSplitterAndOneMixer)
     RigController rig(test_info());
     const SlotId drive = rig.add_node("sushidsp.tubescreamer", false);
     const SlotId amp = rig.add_node("sushidsp.jcm800", false);
-    RigTopology topology;
-    topology.set_chain_type(ChainType::TwoWay);
-    topology.insert({ StageKind::Pre }, 0, drive);
-    topology.insert({ StageKind::Branch, 0 }, 0, amp);
+    RigTopology topology = RigTopology::from_linear_order({ drive, amp });
     TopologyApplier applier;
 
-    applier.apply(topology, rig);
+    applier.switch_chain_type(topology, rig, ChainType::TwoWay);
     applier.apply(topology, rig);
 
     EXPECT_EQ(count_descriptor(rig, "sushidsp.splitter"), 1u);
     EXPECT_EQ(count_descriptor(rig, "sushidsp.mixer"), 1u);
     const SlotId splitter = find_descriptor(rig, "sushidsp.splitter");
     const SlotId mixer = find_descriptor(rig, "sushidsp.mixer");
-    EXPECT_EQ(rig.edges(), (EdgeList{ { drive, splitter }, { splitter, amp }, { amp, mixer },
-                                      { splitter, mixer } }));
+    const std::vector<SlotId> copied = topology.stage({ StageKind::Branch, 1 });
+    ASSERT_EQ(copied.size(), 2u);
+    EXPECT_EQ(rig.edges(), (EdgeList{ { splitter, drive }, { drive, amp }, { amp, mixer },
+                                      { splitter, copied[0] }, { copied[0], copied[1] },
+                                      { copied[1], mixer } }));
 }
 
-TEST(Unit_Dsp, TopologyApplierBackToSeriesRestoresParkedParameters)
+TEST(Unit_Dsp, TopologyApplierOpeningAPathCopiesTheMainPathWithItsParameters)
 {
     RigController rig(test_info());
     const SlotId amp = rig.append("sushidsp.jcm800");
     rig.set_parameter(amp, "preamp", 0.9f);
-    const SlotId drive = rig.append("sushidsp.tubescreamer");
-    RigTopology topology = RigTopology::from_series({ amp, drive });
+    RigTopology topology = RigTopology::from_linear_order({ amp });
     TopologyApplier applier;
 
-    topology.set_chain_type(ChainType::TwoWay);
-    applier.apply(topology, rig);
-    EXPECT_EQ(applier.parked_count(), 2u);
-    EXPECT_EQ(rig.slot_order().size(), 2u);
-    EXPECT_EQ(count_descriptor(rig, "sushidsp.jcm800"), 0u);
+    applier.switch_chain_type(topology, rig, ChainType::TwoWay);
 
-    topology.set_chain_type(ChainType::Series);
-    applier.apply(topology, rig);
+    // The main path is untouched and the path that opened carries a copy of it, the knob
+    // position included.
+    EXPECT_EQ(topology.stage({ StageKind::Branch, 0 }), (std::vector<SlotId>{ amp }));
+    const std::vector<SlotId> copied = topology.stage({ StageKind::Branch, 1 });
+    ASSERT_EQ(copied.size(), 1u);
+    EXPECT_NE(copied[0], amp);
+    EXPECT_EQ(rig.descriptor_id(copied[0]), "sushidsp.jcm800");
+    EXPECT_FLOAT_EQ(rig.get_parameter(copied[0], "preamp"), 0.9f);
+    EXPECT_FLOAT_EQ(rig.get_parameter(amp, "preamp"), 0.9f);
+}
 
-    EXPECT_EQ(applier.parked_count(), 0u);
-    const std::vector<SlotId> active = topology.active_slots();
-    ASSERT_EQ(active.size(), 2u);
-    EXPECT_EQ(rig.descriptor_id(active[0]), "sushidsp.jcm800");
-    EXPECT_FLOAT_EQ(rig.get_parameter(active[0], "preamp"), 0.9f);
-    EXPECT_EQ(rig.slot_order().size(), 2u);
-    EXPECT_EQ(rig.edges(), (EdgeList{ { active[0], active[1] } }));
+TEST(Unit_Dsp, TopologyApplierClosingAPathKeepsTheMainPathAndDropsTheCopy)
+{
+    RigController rig(test_info());
+    const SlotId amp = rig.append("sushidsp.jcm800");
+    RigTopology topology = RigTopology::from_linear_order({ amp });
+    TopologyApplier applier;
+
+    applier.switch_chain_type(topology, rig, ChainType::TwoWay);
+    const std::vector<SlotId> copied = topology.stage({ StageKind::Branch, 1 });
+    ASSERT_EQ(copied.size(), 1u);
+
+    applier.switch_chain_type(topology, rig, ChainType::Single);
+
+    EXPECT_EQ(topology.stage({ StageKind::Branch, 0 }), (std::vector<SlotId>{ amp }));
+    EXPECT_TRUE(rig.descriptor_id(copied[0]).empty());
+    EXPECT_EQ(rig.slot_order(), (std::vector<SlotId>{ amp }));
 }
 
 TEST(Unit_Dsp, TopologyApplierDiscardedBranchSlotsAreRemovedFromTheRig)
@@ -149,11 +161,12 @@ TEST(Unit_Dsp, TopologyApplierDiscardedBranchSlotsAreRemovedFromTheRig)
     TopologyApplier applier;
     applier.apply(topology, rig);
 
-    EXPECT_EQ(topology.set_chain_type(ChainType::ThreeWay), (std::vector<SlotId>{ branch_slot }));
+    EXPECT_EQ(topology.set_chain_type(ChainType::Single).discarded,
+              (std::vector<SlotId>{ branch_slot }));
     applier.apply(topology, rig);
 
     EXPECT_TRUE(rig.descriptor_id(branch_slot).empty());
-    EXPECT_EQ(rig.slot_order().size(), 2u);
+    EXPECT_TRUE(rig.slot_order().empty());
 }
 
 TEST(Unit_Dsp, TopologyApplierEmptyTopologiesApplyWithoutThrowing)
@@ -180,7 +193,7 @@ TEST(Unit_Dsp, TopologyApplierLeavesThePreviousGraphWhenApplyThrows)
     const SushiDSP::RigGraph* graph_before = rig.active_graph();
 
     // A slot listed twice closes a cycle, which RigGraph::compile rejects.
-    RigTopology topology = RigTopology::from_series({ a, b, a });
+    RigTopology topology = RigTopology::from_linear_order({ a, b, a });
     TopologyApplier applier;
 
     EXPECT_THROW(applier.apply(topology, rig), std::runtime_error);
@@ -197,7 +210,7 @@ TEST(Unit_Dsp, TopologyApplierRollbackRestoresRemovedSlotsUnderNewIds)
     const SlotId a = rig.append("sushidsp.tubescreamer");
     const SlotId b = rig.append("sushidsp.jcm800");
     const SlotId stray = rig.append("sushidsp.tubescreamer");
-    RigTopology topology = RigTopology::from_series({ a, b, a });
+    RigTopology topology = RigTopology::from_linear_order({ a, b, a });
     TopologyApplier applier;
 
     EXPECT_THROW(applier.apply(topology, rig), std::runtime_error);

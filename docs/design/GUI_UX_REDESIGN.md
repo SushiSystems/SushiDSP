@@ -90,6 +90,39 @@ Reference: `image1.png`.
   rig nodes (per `docs/README.md`); this feature is GUI automation over node placement and
   wiring, not a new node type.
 
+## §4a Chain types and what a change does to the gear
+
+**Implemented** 2026-09-22, against AmpliTube 5's own behaviour as its user manual chapter 3
+describes it; the research this is built from is in this session's report.
+
+The rail offers three chain types, named after the manual's:
+
+| Type | Paths | What it draws |
+| --- | --- | --- |
+| Single path | 1 | One straight run into the master bus |
+| 2-ways splitter | 2 | Two paths between a splitter and a mixer |
+| 3-ways splitter | 3 | Three paths between a splitter and a mixer |
+
+AmpliTube's fourth type, **Parallel**, is stereo in and stereo out and is left out until the rig
+renders in stereo; `docs/design/REMAINING_WORK.md` carries that work under the Host section.
+
+**Path 0 is the main path.** It exists under every chain type and keeps its gear across every
+change, which is the yellow path in AmpliTube's own colour code. The paths beside it are the
+orange ones:
+
+- A path that **opens** is filled with a copy of the main path, each node's parameter values
+  included, so a split starts from what was already being heard rather than from silence.
+- A path that **closes** takes its gear with it; the slots it held are destroyed.
+- The master bus opens with the second path and closes with it. One path is the whole chain, so
+  it carries no master bus: a stage drawn nowhere that still routed gear would be audible with
+  nothing on screen to account for it.
+
+`RigTopology` holds identities, not nodes, so it cannot copy gear itself: `set_chain_type`
+reports which paths opened, and `TopologyApplier::switch_chain_type` does the duplication
+through the rig's own snapshot and restore. This is why the two are one call at the view's
+site — a caller that switched the type without filling the paths would leave a split running
+silent on every branch but the first, which is what the rail did before this section existed.
+
 ## §5 Transport / metronome bar
 
 **Implemented** by Tasks 2 and 4 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
