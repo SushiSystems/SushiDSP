@@ -13,9 +13,8 @@
 - 2026-09-22 — room: Added the furniture table, an equivalent absorption area per item and octave band with a citation per row (`Furniture.hpp`, `Furniture.cpp`, `RoomScene.cpp`).
 - 2026-09-22 — host: Kept the main path and copied it into every path a chain change opens (`apps/host_gui/RigTopology.cpp`, `TopologyApplier.cpp`).
 - 2026-09-22 — host: Gave the timeline tracks that can be added, removed and coloured (`apps/host_gui/SessionTimeline.cpp`, `ui/ArrangementView.cpp`).
-- 2026-09-22 — host: Stopped the transport bar's meters drawing over the buttons and past the window's edge (`apps/host_gui/ui/MeterBar.cpp`, `ui/TransportBar.cpp`).
 - 2026-09-22 — host: Sized the gear browser's view toggle to its captions and centred every tab's label (`apps/host_gui/ui/GearBrowser.cpp`).
-- 2026-09-22 — host: Fixed the workspace panes, replacing their drag handles with a plain seam (`apps/host_gui/ui/Divider.cpp`, `main.cpp`).
+- 2026-09-22 — host: Fixed the gear and transport panes, leaving the rig's own boundary draggable (`apps/host_gui/ui/Divider.cpp`, `main.cpp`).
 - 2026-09-22 — tests: Timed the three amplifier nodes the benchmark had never covered (`tests/benchmark/main.cpp`).
 - 2026-09-22 — docs: Wrote the standalone host's README, which the backlog had been asking for (`apps/host_gui/README.md`).
 - 2026-09-22 — cli: Added `sd setup`, which provisions this checkout through `hub install` in a workspace and from its own fragment outside one (`cli/sushidsp/services/setup.py`).
