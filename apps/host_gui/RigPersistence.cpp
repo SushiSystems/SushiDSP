@@ -28,9 +28,11 @@
 
 #include "RigPersistence.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <optional>
 #include <stdexcept>
 #include <unordered_map>
@@ -42,6 +44,10 @@
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 #include "SushiDSP/rig_preset/RigPreset.hpp"
+#include "SushiDSP/room/Furniture.hpp"
+#include "SushiDSP/room/Materials.hpp"
+#include "SushiDSP/room/RoomScene.hpp"
+#include "SushiDSP/room/StarterScene.hpp"
 
 namespace
 {
@@ -51,16 +57,6 @@ namespace
     {
         Enum        value;
         const char* text;
-    };
-
-    /// @brief Names each material as a preset writes it, in enumerator order.
-    constexpr Word<SushiDSP::room::MaterialId> kMaterialWords[] = {
-        { SushiDSP::room::MaterialId::ConcreteUnpainted, "concrete_unpainted" },
-        { SushiDSP::room::MaterialId::ConcreteBlockPainted, "concrete_block_painted" },
-        { SushiDSP::room::MaterialId::GypsumBoardOnStuds, "gypsum_board_on_studs" },
-        { SushiDSP::room::MaterialId::HeavyCarpetOnConcrete, "heavy_carpet_on_concrete" },
-        { SushiDSP::room::MaterialId::GlassWindow, "glass_window" },
-        { SushiDSP::room::MaterialId::OpenDoorway, "open_doorway" },
     };
 
     /// @brief Names each scattering word as a preset writes it.
@@ -119,6 +115,164 @@ namespace
                                  + "' in a preset's room");
     }
 
+    /// @brief Returns the preset word of a material, read from the absorption table.
+    /// @throws std::runtime_error for a value no table row names.
+    std::string material_word(SushiDSP::room::MaterialId id)
+    {
+        if (static_cast<std::size_t>(id) >= SushiDSP::room::kMaterialCount)
+        {
+            throw std::runtime_error(
+                "RigController: a room field holds a value no preset word names");
+        }
+        return SushiDSP::room::material(id).key;
+    }
+
+    /// @brief Returns the material a preset word names, read from the absorption table.
+    /// @throws std::runtime_error for a word no table row carries.
+    SushiDSP::room::MaterialId material_from_word(const std::string& text, const char* field)
+    {
+        SushiDSP::room::MaterialId id{};
+        if (!SushiDSP::room::find_material(text.c_str(), id))
+        {
+            throw std::runtime_error(std::string("RigController: unknown ") + field + " '" + text
+                                     + "' in a preset's room");
+        }
+        return id;
+    }
+
+    /// @brief Returns the preset word of a furnishing, read from the furniture table.
+    /// @throws std::runtime_error for a value no table row names.
+    std::string furniture_word(SushiDSP::room::FurnitureId id)
+    {
+        if (static_cast<std::size_t>(id) >= SushiDSP::room::kFurnitureCount)
+        {
+            throw std::runtime_error(
+                "RigController: a room field holds a value no preset word names");
+        }
+        return SushiDSP::room::furniture(id).key;
+    }
+
+    /// @brief Returns the furnishing a preset word names, read from the furniture table.
+    /// @throws std::runtime_error for a word no table row carries.
+    SushiDSP::room::FurnitureId furniture_from_word(const std::string& text, const char* field)
+    {
+        SushiDSP::room::FurnitureId id{};
+        if (!SushiDSP::room::find_furniture(text.c_str(), id))
+        {
+            throw std::runtime_error(std::string("RigController: unknown ") + field + " '" + text
+                                     + "' in a preset's room");
+        }
+        return id;
+    }
+
+    /// @brief Writes a lane's colour as its four channels, red first.
+    nlohmann::json color_to_json(SessionTimeline::TrackColor color)
+    {
+        return nlohmann::json::array({ (color >> 24) & 0xFFu, (color >> 16) & 0xFFu,
+                                       (color >> 8) & 0xFFu, color & 0xFFu });
+    }
+
+    /// @brief Reads a colour written by color_to_json.
+    /// @throws std::runtime_error when the array does not hold four channels in 0-255.
+    SessionTimeline::TrackColor color_from_json(const nlohmann::json& array)
+    {
+        if (!array.is_array() || array.size() != 4)
+        {
+            throw std::runtime_error("RigController: a preset's track colour is not four numbers");
+        }
+        SessionTimeline::TrackColor color = 0;
+        for (const nlohmann::json& channel : array)
+        {
+            if (!channel.is_number_unsigned() || channel.get<std::uint64_t>() > 255u)
+            {
+                throw std::runtime_error(
+                    "RigController: a preset's track colour channel is not a byte");
+            }
+            color = (color << 8) | channel.get<SessionTimeline::TrackColor>();
+        }
+        return color;
+    }
+
+    /// @brief Holds one preset track row, already read and checked, so the session is only
+    /// touched once every row has parsed.
+    struct TrackRow
+    {
+        std::size_t                                 index = 0;     ///< Holds the lane it restores.
+        std::string                                 name;          ///< Holds the lane's name.
+        SessionTimeline::TrackColor                 color = 0;     ///< Holds the lane's colour.
+        bool                                        has_color = false; ///< Marks a row that named a colour.
+        bool                                        has_name = false;  ///< Marks a row that named a name.
+        float                                       gain = 1.0f;   ///< Holds the lane's gain.
+        float                                       pan = 0.0f;    ///< Holds the lane's pan.
+        bool                                        muted = false; ///< Marks the lane muted.
+        bool                                        soloed = false;///< Marks the lane soloed.
+        std::vector<SessionTimeline::ClipPlacement> clips;         ///< Holds the lane's clips.
+    };
+
+    /// @brief Reads every "tracks" row of a preset, dropping a row whose index no lane of the
+    /// coming arrangement carries.
+    /// @param document The preset.
+    /// @param track_count How many lanes the arrangement will carry.
+    /// @return The rows, in the order the preset wrote them.
+    /// @throws std::runtime_error for a row the codec does not read.
+    std::vector<TrackRow> track_rows_from_json(const nlohmann::json& document,
+                                               std::size_t           track_count)
+    {
+        std::vector<TrackRow> rows;
+        if (!document.contains("tracks"))
+        {
+            return rows;
+        }
+        for (const nlohmann::json& track_json : document.at("tracks"))
+        {
+            const std::size_t index = track_json.value("index", track_count);
+            if (index >= track_count)
+            {
+                continue;
+            }
+
+            TrackRow row;
+            row.index = index;
+            row.has_name = track_json.contains("name");
+            row.name = track_json.value("name", std::string());
+            row.has_color = track_json.contains("color");
+            if (row.has_color)
+            {
+                row.color = color_from_json(track_json.at("color"));
+            }
+            row.gain = track_json.value("gain", 1.0f);
+            row.pan = track_json.value("pan", 0.0f);
+            row.muted = track_json.value("muted", false);
+            row.soloed = track_json.value("soloed", false);
+
+            if (track_json.contains("clips"))
+            {
+                for (const nlohmann::json& clip_json : track_json.at("clips"))
+                {
+                    SessionTimeline::ClipPlacement placement;
+                    placement.path = clip_json.value("path", std::string());
+                    placement.start_frame = clip_json.value("start_frame", std::uint64_t{ 0 });
+                    placement.take_offset = clip_json.value("take_offset", std::uint64_t{ 0 });
+                    placement.length_frames = clip_json.value("length_frames", std::uint64_t{ 0 });
+                    if (!placement.path.empty())
+                    {
+                        row.clips.push_back(placement);
+                    }
+                }
+            }
+            else if (!track_json.value("path", std::string()).empty())
+            {
+                // A preset written before the timeline names one file per row, which is what one
+                // clip at frame 0 means. Spec §8.
+                SessionTimeline::ClipPlacement placement;
+                placement.path = track_json.at("path").get<std::string>();
+                row.clips.push_back(placement);
+            }
+            rows.push_back(std::move(row));
+        }
+        return rows;
+    }
+
     /// @brief Writes a point as a three-number array.
     nlohmann::json vec3_to_json(const SushiDSP::room::Vec3& point)
     {
@@ -171,7 +325,7 @@ namespace
         nlohmann::json scattering = nlohmann::json::array();
         for (std::size_t face = 0; face < SushiDSP::room::kSurfaceCount; ++face)
         {
-            surfaces.push_back(word_of(kMaterialWords, scene.surfaces[face]));
+            surfaces.push_back(material_word(scene.surfaces[face]));
             scattering.push_back(word_of(kScatteringWords, scene.scattering[face]));
         }
         room["surfaces"] = surfaces;
@@ -183,11 +337,28 @@ namespace
             const SushiDSP::room::RoomScene::Patch& patch = scene.patches[index];
             nlohmann::json row = nlohmann::json::object();
             row["surface"] = word_of(kSurfaceWords, patch.surface);
-            row["material"] = word_of(kMaterialWords, patch.material);
+            row["material"] = material_word(patch.material);
             row["area_m2"] = patch.area_m2;
             patches.push_back(row);
         }
         room["patches"] = patches;
+
+        if (scene.furnishing_count > 0)
+        {
+            nlohmann::json furnishings = nlohmann::json::array();
+            const std::uint32_t live = std::min<std::uint32_t>(
+                scene.furnishing_count,
+                static_cast<std::uint32_t>(SushiDSP::room::RoomScene::kMaxFurnishings));
+            for (std::uint32_t index = 0; index < live; ++index)
+            {
+                const SushiDSP::room::RoomScene::Furnishing& entry = scene.furnishings[index];
+                nlohmann::json row = nlohmann::json::object();
+                row["item"] = furniture_word(entry.item);
+                row["quantity"] = entry.quantity;
+                furnishings.push_back(row);
+            }
+            room["furnishings"] = furnishings;
+        }
 
         room["source"] = pose_to_json(scene.source_position, scene.source_yaw_rad);
         room["listener"] = pose_to_json(scene.listener_position, scene.listener_yaw_rad);
@@ -206,11 +377,11 @@ namespace
     }
 
     /// @brief Reads a "room" object written by room_scene_to_json; a field the object omits
-    /// keeps the default scene's value.
+    /// keeps the starter scene's value, except furnishings, which an omitting object holds none of.
     /// @throws std::runtime_error for a word or an array the codec does not read.
     SushiDSP::room::RoomScene room_scene_from_json(const nlohmann::json& room)
     {
-        SushiDSP::room::RoomScene scene;
+        SushiDSP::room::RoomScene scene = SushiDSP::room::starter_scene();
         if (room.contains("dimensions"))
         {
             scene.dimensions = vec3_from_json(room.at("dimensions"), "dimensions");
@@ -222,7 +393,7 @@ namespace
                  face < surfaces.size() && face < SushiDSP::room::kSurfaceCount; ++face)
             {
                 scene.surfaces[face] =
-                    value_of(kMaterialWords, surfaces.at(face).get<std::string>(), "material");
+                    material_from_word(surfaces.at(face).get<std::string>(), "material");
             }
         }
         if (room.contains("scattering"))
@@ -249,10 +420,44 @@ namespace
                 SushiDSP::room::RoomScene::Patch& patch = scene.patches[scene.patch_count++];
                 patch.surface = value_of(kSurfaceWords, row.at("surface").get<std::string>(),
                                          "surface");
-                patch.material = value_of(kMaterialWords, row.at("material").get<std::string>(),
-                                          "material");
+                patch.material = material_from_word(row.at("material").get<std::string>(),
+                                                    "material");
                 patch.area_m2 = row.at("area_m2").get<double>();
             }
+        }
+        if (room.contains("furnishings"))
+        {
+            const nlohmann::json& furnishings = room.at("furnishings");
+            if (!furnishings.is_array())
+            {
+                throw std::runtime_error(
+                    "RigController: a preset's room holds furnishings that are not an array");
+            }
+            scene.furnishing_count = 0;
+            for (const nlohmann::json& row : furnishings)
+            {
+                if (scene.furnishing_count >= SushiDSP::room::RoomScene::kMaxFurnishings)
+                {
+                    throw std::runtime_error(
+                        "RigController: a preset's room carries more than "
+                        + std::to_string(SushiDSP::room::RoomScene::kMaxFurnishings)
+                        + " furnishings");
+                }
+                const nlohmann::json& quantity = row.at("quantity");
+                if (!quantity.is_number())
+                {
+                    throw std::runtime_error(
+                        "RigController: a preset's furnishing quantity is not a number");
+                }
+                SushiDSP::room::RoomScene::Furnishing& entry =
+                    scene.furnishings[scene.furnishing_count++];
+                entry.item = furniture_from_word(row.at("item").get<std::string>(), "furnishing");
+                entry.quantity = quantity.get<double>();
+            }
+        }
+        else
+        {
+            scene.furnishing_count = 0;
         }
         if (room.contains("source"))
         {
@@ -364,16 +569,14 @@ std::string RigPersistence::save_to_json() const
     }
 
     const SushiDSP::TrackPlayer& player = session_.player();
+    document["track_count"] = session_.track_count();
     nlohmann::json tracks_json = nlohmann::json::array();
     for (std::size_t index = 0; index < session_.track_count(); ++index)
     {
-        if (session_.clip_count(index) == 0)
-        {
-            continue;
-        }
         nlohmann::json track_json = nlohmann::json::object();
         track_json["index"] = index;
         track_json["name"] = session_.track_name(index);
+        track_json["color"] = color_to_json(session_.track_color(index));
         track_json["path"] = session_.track_path(index);
         track_json["gain"] = player.gain(index);
         track_json["pan"] = player.pan(index);
@@ -428,6 +631,12 @@ void RigPersistence::load_from_json(const std::string& json_text)
     // headroom publish() uses). RigGraph::compile() only assert()s the pool's capacity, so a
     // fixed guess would hand the audio thread null buffers on any preset larger than that guess.
     const nlohmann::json document = nlohmann::json::parse(json_text);
+
+    // Every track row is read and checked here, before the session is touched.
+    const std::size_t track_count = std::min<std::size_t>(
+        document.value("track_count", SessionTimeline::kMaxTracks), SessionTimeline::kMaxTracks);
+    const std::vector<TrackRow> track_rows = track_rows_from_json(document, track_count);
+
     const std::size_t node_count = document.at("nodes").size();
     SushiDSP::RigGraph scratch(info_.max_block, static_cast<std::uint32_t>(node_count + 1));
     std::unordered_map<SushiDSP::NodeHandle, std::string> cabinet_paths_by_handle;
@@ -460,56 +669,36 @@ void RigPersistence::load_from_json(const std::string& json_text)
                                  ? document.at("take_folder").get<std::string>()
                                  : std::string());
 
+    // A preset with no "track_count" carries the fixed set of lanes the host used to open with.
+    std::string lane_error;
+    while (session_.track_count() > track_count)
+    {
+        session_.remove_track(session_.track_count() - 1, lane_error);
+    }
+    while (session_.track_count() < track_count)
+    {
+        session_.add_track(lane_error);
+    }
+
     // Every track is emptied to its defaults first, so a preset brings its own mixer state.
     for (std::size_t index = 0; index < session_.track_count(); ++index)
     {
         session_.clear_track(index);
     }
-    if (document.contains("tracks"))
+    for (const TrackRow& row : track_rows)
     {
-        std::string track_error;
-        for (const nlohmann::json& track_json : document.at("tracks"))
-        {
-            const std::size_t index = track_json.value("index", session_.track_count());
-            if (index >= session_.track_count())
-            {
-                continue;
-            }
-            const std::string row_path = track_json.value("path", std::string());
-
-            std::vector<SessionTimeline::ClipPlacement> clips;
-            if (track_json.contains("clips"))
-            {
-                for (const nlohmann::json& clip_json : track_json.at("clips"))
-                {
-                    SessionTimeline::ClipPlacement placement;
-                    placement.path = clip_json.value("path", std::string());
-                    placement.start_frame = clip_json.value("start_frame", std::uint64_t{ 0 });
-                    placement.take_offset = clip_json.value("take_offset", std::uint64_t{ 0 });
-                    placement.length_frames = clip_json.value("length_frames", std::uint64_t{ 0 });
-                    if (!placement.path.empty())
-                    {
-                        clips.push_back(placement);
-                    }
-                }
-            }
-            else if (!row_path.empty())
-            {
-                // A preset written before the timeline names one file per row, which is what one
-                // clip at frame 0 means. Spec §8.
-                SessionTimeline::ClipPlacement placement;
-                placement.path = row_path;
-                clips.push_back(placement);
-            }
-
-            session_.publish_lane(index, std::move(clips), track_error);
-            session_.set_track_name(index, track_json.value(
-                "name", SessionTimeline::path_stem(session_.track_path(index))));
-            session_.player().set_gain(index, track_json.value("gain", 1.0f));
-            session_.player().set_pan(index, track_json.value("pan", 0.0f));
-            session_.player().set_mute(index, track_json.value("muted", false));
-            session_.player().set_solo(index, track_json.value("soloed", false));
-        }
+        session_.publish_lane(row.index, row.clips, lane_error);
+        session_.set_track_name(row.index,
+                                row.has_name
+                                    ? row.name
+                                    : SessionTimeline::path_stem(session_.track_path(row.index)));
+        session_.set_track_color(row.index, row.has_color
+                                                ? row.color
+                                                : SessionTimeline::palette_color(row.index));
+        session_.player().set_gain(row.index, row.gain);
+        session_.player().set_pan(row.index, row.pan);
+        session_.player().set_mute(row.index, row.muted);
+        session_.player().set_solo(row.index, row.soloed);
     }
 
     session_.transport().clear_loop();

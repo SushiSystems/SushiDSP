@@ -10,6 +10,7 @@ add_library(room STATIC
     src/HrtfSet.cpp
     src/AmbisonicEncoder.cpp
     src/RoomScene.cpp
+    src/StarterScene.cpp
     src/EarlyReflectionRenderer.cpp
     src/LateReverb.cpp
     src/ModalBank.cpp
