@@ -366,6 +366,37 @@ public:
     /// @param name The new display name.
     void set_track_name(std::size_t index, const std::string& name);
 
+    /// @brief Counts the tracks the arrangement holds.
+    /// @return The track count.
+    std::size_t track_count() const;
+
+    /// @brief Appends an empty track at the end of the arrangement. Control thread only.
+    /// @param error_out Receives the refusal when the arrangement is already full.
+    /// @return True when a track was added; the new track's index is track_count() - 1.
+    bool add_track(std::string& error_out);
+
+    /// @brief Removes a track, leaving every file it read on disk. Control thread only.
+    /// @param index Track index; the tracks after it move down by one.
+    /// @param error_out Receives the refusal when the index names no track.
+    /// @return True when the track was removed.
+    bool remove_track(std::size_t index, std::string& error_out);
+
+    /// @brief Removes a track and deletes the files only it was reading. Control thread only.
+    /// @param index Track index; the tracks after it move down by one.
+    /// @param error_out Receives the refusal, including a file that would not delete.
+    /// @return True when the track and its files are gone.
+    bool remove_track_and_files(std::size_t index, std::string& error_out);
+
+    /// @brief Reports the colour a track draws in.
+    /// @param index Track index.
+    /// @return The colour as 0xRRGGBBAA, or the palette's first entry for an index out of range.
+    SessionTimeline::TrackColor track_color(std::size_t index) const;
+
+    /// @brief Sets a track's colour. Control thread only.
+    /// @param index Track index; out of range does nothing.
+    /// @param color The colour as 0xRRGGBBAA.
+    void set_track_color(std::size_t index, SessionTimeline::TrackColor color);
+
     /// @brief Reports the file a track's first clip was loaded from.
     /// @param index Track index.
     /// @return The path, or "" when the track holds no clip.

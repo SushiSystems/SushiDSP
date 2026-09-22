@@ -46,6 +46,12 @@ namespace ui
         /// @brief How many lanes the view lays out, one per playback track.
         constexpr std::size_t kLaneCount = SushiDSP::TrackPlayer::kMaxTracks;
 
+        /// @brief Width of the colour strip down a lane header's leading edge, in pixels.
+        constexpr float kColorStripWidth = 5.0f;
+
+        /// @brief Where a lane header's controls start, clear of the colour strip, in pixels.
+        constexpr float kHeaderInset = 11.0f;
+
         /// @brief Characters a lane's name box holds, terminator included.
         constexpr std::size_t kNameCapacity = 64;
 
@@ -159,7 +165,7 @@ namespace ui
             }
 
             std::size_t placed = 0;
-            for (std::size_t lane = 0; lane < kLaneCount; ++lane)
+            for (std::size_t lane = 0; lane < rig.track_count(); ++lane)
             {
                 placed += rig.clip_count(lane);
             }
@@ -204,7 +210,7 @@ namespace ui
         void draw_lane_header(RigController& rig, std::size_t index, ImVec2 origin,
                               float header_width,
                               std::array<std::array<char, kNameCapacity>, kLaneCount>& names,
-                              std::string& error_out)
+                              std::optional<std::size_t>& remove_request, std::string& error_out)
         {
             SushiDSP::TrackPlayer& player = rig.player();
             ImDrawList*            draw = ImGui::GetWindowDrawList();
@@ -212,8 +218,47 @@ namespace ui
             draw->AddRectFilled(origin, ImVec2(origin.x + header_width, origin.y + kLaneHeight),
                                 to_imu32(rgba(38, 38, 44)), 4.0f);
 
-            ImGui::SetCursorScreenPos(ImVec2(origin.x + 6.0f, origin.y + 5.0f));
-            ImGui::SetNextItemWidth(118.0f);
+            // The track's own colour, down the header's leading edge: a click opens the palette,
+            // a right-click anywhere on the header offers to remove the track.
+            ImGui::SetCursorScreenPos(origin);
+            ImGui::InvisibleButton("color", ImVec2(kColorStripWidth, kLaneHeight));
+            const bool color_hovered = ImGui::IsItemHovered();
+            draw->AddRectFilled(origin,
+                                ImVec2(origin.x + kColorStripWidth, origin.y + kLaneHeight),
+                                rig.track_color(index), 4.0f);
+            if (color_hovered)
+            {
+                ImGui::SetTooltip("Track colour; right-click the lane to remove it");
+            }
+            if (ImGui::IsItemClicked())
+            {
+                ImGui::OpenPopup("palette");
+            }
+            if (ImGui::BeginPopup("palette"))
+            {
+                for (std::size_t entry = 0; entry < SessionTimeline::palette_size(); ++entry)
+                {
+                    if (entry != 0)
+                    {
+                        ImGui::SameLine(0.0f, 4.0f);
+                    }
+                    ImGui::PushID(static_cast<int>(entry));
+                    const ImVec2 swatch = ImGui::GetCursorScreenPos();
+                    if (ImGui::InvisibleButton("swatch", ImVec2(18.0f, 18.0f)))
+                    {
+                        rig.set_track_color(index, SessionTimeline::palette_color(entry));
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::GetWindowDrawList()->AddRectFilled(
+                        swatch, ImVec2(swatch.x + 18.0f, swatch.y + 18.0f),
+                        SessionTimeline::palette_color(entry), 3.0f);
+                    ImGui::PopID();
+                }
+                ImGui::EndPopup();
+            }
+
+            ImGui::SetCursorScreenPos(ImVec2(origin.x + kHeaderInset, origin.y + 5.0f));
+            ImGui::SetNextItemWidth(100.0f);
             if (TextField("##name", names[index].data(), kNameCapacity, rig.track_name(index)))
             {
                 rig.set_track_name(index, names[index].data());
@@ -221,7 +266,7 @@ namespace ui
 
             const bool is_reamp_source =
                 rig.reamp_track().has_value() && *rig.reamp_track() == index;
-            ImGui::SetCursorScreenPos(ImVec2(origin.x + 130.0f, origin.y + 6.0f));
+            ImGui::SetCursorScreenPos(ImVec2(origin.x + kHeaderInset + 106.0f, origin.y + 6.0f));
             if (ImGui::SmallButton(is_reamp_source ? "RE-AMP" : "re-amp"))
             {
                 if (is_reamp_source)
@@ -235,7 +280,17 @@ namespace ui
                 }
             }
 
-            ImGui::SetCursorScreenPos(ImVec2(origin.x + 6.0f, origin.y + 26.0f));
+            ImGui::SameLine(0.0f, 4.0f);
+            if (ImGui::SmallButton("x"))
+            {
+                remove_request = index;
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Remove this track");
+            }
+
+            ImGui::SetCursorScreenPos(ImVec2(origin.x + kHeaderInset, origin.y + 26.0f));
             ImGui::SetNextItemWidth(184.0f);
             float level = player.gain(index);
             if (ImGui::SliderFloat("##level", &level, 0.0f, 2.0f, "%.2f"))
@@ -243,7 +298,7 @@ namespace ui
                 player.set_gain(index, level);
             }
 
-            ImGui::SetCursorScreenPos(ImVec2(origin.x + 6.0f, origin.y + 46.0f));
+            ImGui::SetCursorScreenPos(ImVec2(origin.x + kHeaderInset, origin.y + 46.0f));
             const bool armed = rig.record_track().has_value() && *rig.record_track() == index;
             ImGui::PushStyleColor(ImGuiCol_Button,
                                   to_imvec4(armed ? rgba(196, 54, 46) : rgba(52, 52, 60)));
@@ -427,6 +482,8 @@ namespace ui
     {
         static std::array<std::array<char, kNameCapacity>, kLaneCount> names{};
         static ClipDrag                                               drag;
+        static std::optional<std::size_t>                             pending_removal;
+        std::optional<std::size_t>                                    remove_request;
 
         draw_toolbar(rig, scale, snap);
 
@@ -440,7 +497,7 @@ namespace ui
             std::max(total_width - header_width - kHeaderDividerThickness, 32.0f);
         const float lanes_top = origin.y + kRulerHeight;
         const float lanes_bottom =
-            lanes_top + static_cast<float>(kLaneCount) * (kLaneHeight + kLaneGap);
+            lanes_top + static_cast<float>(rig.track_count()) * (kLaneHeight + kLaneGap);
 
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
         ImGui::SetCursorScreenPos(ImVec2(origin.x + header_width, origin.y));
@@ -456,7 +513,7 @@ namespace ui
         geometry_out.canvas_width = canvas_width;
         geometry_out.lane_height = kLaneHeight;
         geometry_out.lane_stride = kLaneHeight + kLaneGap;
-        geometry_out.lane_count = kLaneCount;
+        geometry_out.lane_count = rig.track_count();
 
         draw->AddRectFilled(ImVec2(canvas_x, origin.y),
                             ImVec2(canvas_x + canvas_width, origin.y + kRulerHeight),
@@ -474,13 +531,14 @@ namespace ui
             transport.seek(scale.snap(scale.frame_of_x(pointer), snap, clock));
         }
 
-        for (std::size_t index = 0; index < kLaneCount; ++index)
+        const std::size_t lane_count = rig.track_count();
+        for (std::size_t index = 0; index < lane_count; ++index)
         {
             const float lane_y = lanes_top + static_cast<float>(index) * (kLaneHeight + kLaneGap);
 
             ImGui::PushID(static_cast<int>(index));
             draw_lane_header(rig, index, ImVec2(origin.x, lane_y), header_width, names,
-                             arrangement_error);
+                             remove_request, arrangement_error);
 
             ImGui::SetCursorScreenPos(ImVec2(canvas_x, lane_y));
             ImGui::SetNextItemAllowOverlap();
@@ -507,6 +565,59 @@ namespace ui
             draw->AddLine(ImVec2(canvas_x, lane_y + kLaneHeight),
                           ImVec2(canvas_x + canvas_width, lane_y + kLaneHeight),
                           to_imu32(rgba(46, 46, 54)));
+        }
+
+        // Adding and removing tracks. The removal asks about the files every time rather than
+        // choosing for the person, because one answer cannot be undone.
+        ImGui::SetCursorScreenPos(ImVec2(origin.x,
+                                         lanes_top + static_cast<float>(lane_count)
+                                             * (kLaneHeight + kLaneGap) + 4.0f));
+        if (ImGui::SmallButton("+ Add track"))
+        {
+            std::string error;
+            if (!rig.add_track(error))
+            {
+                arrangement_error = error;
+            }
+        }
+
+        if (remove_request.has_value())
+        {
+            pending_removal = remove_request;
+            ImGui::OpenPopup("Remove track");
+        }
+        if (ImGui::BeginPopupModal("Remove track", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextUnformatted("Remove the lane, or the lane and the files it reads?");
+            std::string error;
+            if (ImGui::Button("Lane only"))
+            {
+                if (pending_removal.has_value()
+                    && !rig.remove_track(*pending_removal, error))
+                {
+                    arrangement_error = error;
+                }
+                pending_removal.reset();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Lane and files"))
+            {
+                if (pending_removal.has_value()
+                    && !rig.remove_track_and_files(*pending_removal, error))
+                {
+                    arrangement_error = error;
+                }
+                pending_removal.reset();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                pending_removal.reset();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
 
         const float playhead_x = canvas_x + scale.x_of(transport.position_frames());

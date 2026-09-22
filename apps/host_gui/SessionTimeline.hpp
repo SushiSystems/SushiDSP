@@ -28,7 +28,6 @@
 
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -63,10 +62,66 @@ public:
         std::uint64_t length_frames = 0; ///< Holds how many take frames the clip plays.
     };
 
+    /// @brief A lane's colour, packed as 0xRRGGBBAA, which is the form the view draws with.
+    using TrackColor = std::uint32_t;
+
+    /// @brief Caps how many lanes the arrangement carries, which is what the player mixes.
+    static constexpr std::size_t kMaxTracks = SushiDSP::TrackPlayer::kMaxTracks;
+
     explicit SessionTimeline(const SushiDSP::PrepareInfo& info);
 
     /// @brief Reports how many playback lanes the arrangement carries.
     std::size_t track_count() const noexcept { return tracks_.size(); }
+
+    /// @brief Appends an empty lane, named default_track_name() and coloured palette_color() for
+    /// its new index, at index track_count() - 1. Control thread only.
+    /// @param error_out Receives the failure message when the arrangement already carries
+    /// kMaxTracks lanes.
+    /// @return True when the arrangement now carries one more lane.
+    bool add_track(std::string& error_out);
+
+    /// @brief Removes a lane and leaves every file its clips read on disk. Every lane after it
+    /// moves down one index, so a caller holding an index above the removed one must lower it by
+    /// one. Control thread only.
+    /// @param index Lane index; out of range does nothing and reports failure.
+    /// @param error_out Receives the failure message when the index is out of range or a lane
+    /// that moved down could not be republished.
+    /// @return True when the arrangement no longer carries that lane.
+    bool remove_track(std::size_t index, std::string& error_out);
+
+    /// @brief Removes a lane the way remove_track() does and then deletes from disk each file
+    /// only that lane's clips read, leaving a file another lane still reads alone. Every lane
+    /// after it moves down one index. Control thread only; it touches the filesystem.
+    /// @param index Lane index; out of range does nothing and reports failure.
+    /// @param error_out Receives the failure message when the index is out of range, a lane that
+    /// moved down could not be republished, or a file could not be deleted; the lane is gone
+    /// either way once the index was in range.
+    /// @return True when the lane is gone and every file it alone read is deleted.
+    bool remove_track_and_files(std::size_t index, std::string& error_out);
+
+    /// @brief Reports a lane's colour.
+    /// @param index Lane index.
+    /// @return The colour, or 0 for an index out of range.
+    TrackColor track_color(std::size_t index) const;
+
+    /// @brief Recolours a lane. Control thread only.
+    /// @param index Lane index; out of range does nothing.
+    /// @param color The new colour, packed as 0xRRGGBBAA.
+    void set_track_color(std::size_t index, TrackColor color);
+
+    /// @brief Reports the colour the palette gives an index, cycling once the palette runs out.
+    /// @param index Lane index; any value is answered.
+    /// @return The packed colour.
+    static TrackColor palette_color(std::size_t index) noexcept;
+
+    /// @brief Reports how many colours the palette holds before it repeats.
+    static std::size_t palette_size() noexcept;
+
+    /// @brief Reports the name add_track() gives a lane at an index, which is "Track" and the
+    /// one-based index.
+    /// @param index Lane index.
+    /// @return The name.
+    static std::string default_track_name(std::size_t index);
 
     /// @brief Reclaims the takes both players have retired. Control thread only; call once per
     /// GUI frame.
@@ -143,8 +198,9 @@ public:
     /// @brief The click, for a reader.
     const SushiDSP::Metronome& metronome() const noexcept { return metronome_; }
 
-    /// @brief Empties a playback track of every clip, and drops the re-amp take when that track
-    /// was feeding it. Control thread only.
+    /// @brief Empties a playback track of every clip, drops its name, returns it to the palette's
+    /// colour for its index, and drops the re-amp take when that track was feeding it. Control
+    /// thread only.
     /// @param index Track index; out of range does nothing.
     void clear_track(std::size_t index);
 
@@ -254,9 +310,23 @@ private:
     /// @brief One playback track's control-thread metadata; the audible state lives in player_.
     struct TrackInfo
     {
-        std::string                name;  ///< Holds the lane's display name.
-        std::vector<ClipPlacement> clips; ///< Holds the lane's clips, in start_frame order.
+        std::string                name;      ///< Holds the lane's display name.
+        TrackColor                 color = 0; ///< Holds the lane's colour, packed as 0xRRGGBBAA.
+        std::vector<ClipPlacement> clips;     ///< Holds the lane's clips, in start_frame order.
     };
+
+    /// @brief Drops a lane from the list, republishes every lane that moved down onto the player
+    /// lane it now occupies, silences the lane the list no longer reaches, and lowers the re-amp
+    /// and record indices that pointed above it.
+    /// @param index Lane index; out of range does nothing and reports failure.
+    /// @param error_out Receives the first failure message a republished lane produced.
+    /// @return True when every lane that moved down was republished.
+    bool erase_track(std::size_t index, std::string& error_out);
+
+    /// @brief Lists the files a lane's clips read that no other lane's clips read.
+    /// @param index Lane index.
+    /// @return The paths, each once; empty for an index out of range.
+    std::vector<std::string> files_only_track_reads(std::size_t index) const;
 
     /// @brief Returns the take a path was loaded into, loading the file the first time a clip
     /// names it so two clips of one file hold one copy of its samples.
@@ -287,7 +357,7 @@ private:
     SushiDSP::TrackPlayer                           player_;
     SushiDSP::TrackPlayer                           reamp_player_;
     SushiDSP::RecordingBus                          recording_bus_;
-    std::array<TrackInfo, SushiDSP::TrackPlayer::kMaxTracks> tracks_;
+    std::vector<TrackInfo>                          tracks_;
     std::optional<std::size_t>                      reamp_track_;
     std::string                                     take_folder_;
 

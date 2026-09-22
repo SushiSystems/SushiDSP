@@ -30,15 +30,31 @@
 
 #include <algorithm>
 #include <exception>
+#include <filesystem>
 #include <iterator>
 #include <memory>
 #include <set>
+#include <system_error>
 #include <utility>
+
+namespace
+{
+    /// @brief Holds the colours a new lane takes, in the order add_track() hands them out.
+    constexpr SessionTimeline::TrackColor kTrackPalette[] = {
+        0x4E9BE8FFu, 0x59C08AFFu, 0xE8B14EFFu, 0xE0655EFFu,
+        0xA77BE8FFu, 0x4EC8C8FFu, 0xE07FB4FFu, 0x9AA7B4FFu,
+    };
+}
 
 SessionTimeline::SessionTimeline(const SushiDSP::PrepareInfo& info)
     : recording_bus_(std::max(1u, info.channels), info.sample_rate)
+    , tracks_(kMaxTracks)
     , metronome_(info.sample_rate)
 {
+    for (std::size_t index = 0; index < tracks_.size(); ++index)
+    {
+        tracks_[index].color = palette_color(index);
+    }
     musical_clock_.set_sample_rate(info.sample_rate);
     // A lane converts a clip only through a sized reader, so both players are prepared here and
     // no caller can set a speed on an unprepared one.
@@ -210,7 +226,7 @@ bool SessionTimeline::place_clip(std::size_t track, const std::string& path,
     {
         return false;
     }
-    if (tracks_[track].name.empty())
+    if (tracks_[track].name.empty() || tracks_[track].name == default_track_name(track))
     {
         tracks_[track].name = path_stem(path);
     }
@@ -282,11 +298,213 @@ bool SessionTimeline::load_track(std::size_t index, const std::string& path,
         return false;
     }
 
-    if (previous_name.empty() || previous_name == path_stem(previous_path))
+    if (previous_name.empty() || previous_name == default_track_name(index)
+        || previous_name == path_stem(previous_path))
     {
         tracks_[index].name = path_stem(path);
     }
     return true;
+}
+
+SessionTimeline::TrackColor SessionTimeline::palette_color(std::size_t index) noexcept
+{
+    return kTrackPalette[index % palette_size()];
+}
+
+std::size_t SessionTimeline::palette_size() noexcept
+{
+    return std::size(kTrackPalette);
+}
+
+std::string SessionTimeline::default_track_name(std::size_t index)
+{
+    return "Track " + std::to_string(index + 1);
+}
+
+bool SessionTimeline::add_track(std::string& error_out)
+{
+    error_out.clear();
+    if (tracks_.size() >= kMaxTracks)
+    {
+        error_out = "the arrangement already carries " + std::to_string(kMaxTracks) + " tracks";
+        return false;
+    }
+
+    const std::size_t index = tracks_.size();
+    TrackInfo         track;
+    track.name = default_track_name(index);
+    track.color = palette_color(index);
+    tracks_.push_back(std::move(track));
+
+    std::string ignored;
+    publish_lane(index, std::vector<ClipPlacement>{}, ignored);
+    player_.set_gain(index, 1.0f);
+    player_.set_pan(index, 0.0f);
+    player_.set_mute(index, false);
+    player_.set_solo(index, false);
+    return true;
+}
+
+std::vector<std::string> SessionTimeline::files_only_track_reads(std::size_t index) const
+{
+    if (index >= tracks_.size())
+    {
+        return std::vector<std::string>();
+    }
+
+    std::set<std::string> elsewhere;
+    for (std::size_t lane = 0; lane < tracks_.size(); ++lane)
+    {
+        if (lane == index)
+        {
+            continue;
+        }
+        for (const ClipPlacement& placement : tracks_[lane].clips)
+        {
+            elsewhere.insert(placement.path);
+        }
+    }
+
+    std::set<std::string>    named;
+    std::vector<std::string> files;
+    for (const ClipPlacement& placement : tracks_[index].clips)
+    {
+        if (elsewhere.count(placement.path) == 0 && named.insert(placement.path).second)
+        {
+            files.push_back(placement.path);
+        }
+    }
+    return files;
+}
+
+bool SessionTimeline::erase_track(std::size_t index, std::string& error_out)
+{
+    error_out.clear();
+    if (index >= tracks_.size())
+    {
+        error_out = "track index out of range";
+        return false;
+    }
+
+    struct MixState
+    {
+        float gain;   ///< Holds the lane's linear gain.
+        float pan;    ///< Holds the lane's pan position.
+        bool  muted;  ///< Marks the lane as dropped from the mix.
+        bool  soloed; ///< Marks the lane as soloed.
+    };
+
+    std::vector<MixState> mix;
+    mix.reserve(tracks_.size());
+    for (std::size_t lane = 0; lane < tracks_.size(); ++lane)
+    {
+        mix.push_back(MixState{ player_.gain(lane), player_.pan(lane), player_.muted(lane),
+                                player_.soloed(lane) });
+    }
+
+    const std::size_t vacated = tracks_.size() - 1;
+    const auto        cut = static_cast<std::ptrdiff_t>(index);
+    tracks_.erase(tracks_.begin() + cut);
+    mix.erase(mix.begin() + cut);
+
+    // Every lane that moved down is republished even after one of them failed.
+    bool        republished = true;
+    std::string lane_error;
+    for (std::size_t lane = index; lane < tracks_.size(); ++lane)
+    {
+        std::vector<ClipPlacement> clips = tracks_[lane].clips;
+        if (!publish_lane(lane, std::move(clips), lane_error))
+        {
+            republished = false;
+            if (error_out.empty())
+            {
+                error_out = lane_error;
+            }
+        }
+        player_.set_gain(lane, mix[lane].gain);
+        player_.set_pan(lane, mix[lane].pan);
+        player_.set_mute(lane, mix[lane].muted);
+        player_.set_solo(lane, mix[lane].soloed);
+    }
+
+    player_.set_timeline(vacated, std::make_unique<SushiDSP::TrackTimeline>(
+        player_.takes(), std::vector<SushiDSP::Clip>{}));
+    player_.set_gain(vacated, 1.0f);
+    player_.set_pan(vacated, 0.0f);
+    player_.set_mute(vacated, false);
+    player_.set_solo(vacated, false);
+    forget_unused_takes();
+
+    if (reamp_track_.has_value())
+    {
+        if (*reamp_track_ == index)
+        {
+            clear_reamp_track();
+        }
+        else if (*reamp_track_ > index)
+        {
+            reamp_track_ = *reamp_track_ - 1;
+        }
+    }
+    if (record_track_.has_value())
+    {
+        if (*record_track_ == index)
+        {
+            record_track_ = std::nullopt;
+        }
+        else if (*record_track_ > index)
+        {
+            record_track_ = *record_track_ - 1;
+        }
+    }
+    return republished;
+}
+
+bool SessionTimeline::remove_track(std::size_t index, std::string& error_out)
+{
+    return erase_track(index, error_out);
+}
+
+bool SessionTimeline::remove_track_and_files(std::size_t index, std::string& error_out)
+{
+    error_out.clear();
+    if (index >= tracks_.size())
+    {
+        error_out = "track index out of range";
+        return false;
+    }
+
+    const std::vector<std::string> files = files_only_track_reads(index);
+    const bool                     erased = erase_track(index, error_out);
+
+    bool deleted = true;
+    for (const std::string& path : files)
+    {
+        std::error_code code;
+        std::filesystem::remove(std::filesystem::u8path(path), code);
+        if (code)
+        {
+            deleted = false;
+            if (error_out.empty())
+            {
+                error_out = "could not delete '" + path + "': " + code.message();
+            }
+        }
+    }
+    return erased && deleted;
+}
+
+SessionTimeline::TrackColor SessionTimeline::track_color(std::size_t index) const
+{
+    return index < tracks_.size() ? tracks_[index].color : TrackColor{ 0 };
+}
+
+void SessionTimeline::set_track_color(std::size_t index, TrackColor color)
+{
+    if (index < tracks_.size())
+    {
+        tracks_[index].color = color;
+    }
 }
 
 void SessionTimeline::clear_track(std::size_t index)
@@ -296,6 +514,7 @@ void SessionTimeline::clear_track(std::size_t index)
         return;
     }
     tracks_[index] = TrackInfo{};
+    tracks_[index].color = palette_color(index);
     std::string error;
     publish_lane(index, std::vector<ClipPlacement>{}, error);
     player_.set_gain(index, 1.0f);
