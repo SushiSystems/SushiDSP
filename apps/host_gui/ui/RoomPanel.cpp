@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -39,12 +40,15 @@
 #include <imgui.h>
 
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
+#include "SushiDSP/room/Furniture.hpp"
 #include "SushiDSP/room/Materials.hpp"
 #include "SushiDSP/room/MicrophoneModel.hpp"
 #include "SushiDSP/room/ModalSolver.hpp"
 #include "SushiDSP/room/RoomNode.hpp"
 #include "SushiDSP/room/RoomScene.hpp"
 
+#include "ui/FurnishingList.hpp"
+#include "ui/PatchList.hpp"
 #include "ui/Theme.hpp"
 
 namespace ui
@@ -66,6 +70,24 @@ namespace ui
         /// @brief Keeps a dragged pose this far inside the walls, in metres.
         constexpr double kWallMargin = 0.05;
 
+        /// @brief Holds the width of the rule under a section heading, in pixels.
+        constexpr float kSectionWidth = 720.0f;
+
+        /// @brief Holds the width of a furnishing row's item combo, in pixels.
+        constexpr float kFurnishingItemWidth = 400.0f;
+
+        /// @brief Holds the width of a furnishing row's quantity field, in pixels.
+        constexpr float kFurnishingQuantityWidth = 90.0f;
+
+        /// @brief Holds the width of a patch row's surface combo, in pixels.
+        constexpr float kPatchSurfaceWidth = 80.0f;
+
+        /// @brief Holds the width of a patch row's material combo, in pixels.
+        constexpr float kPatchMaterialWidth = 170.0f;
+
+        /// @brief Holds the width of a patch row's area field, in pixels.
+        constexpr float kPatchAreaWidth = 80.0f;
+
         /// @brief Names the six faces in Surface order, for the surface rows.
         constexpr const char* kSurfaceLabels[SushiDSP::room::kSurfaceCount] = {
             "Wall -x", "Wall +x", "Wall -y", "Wall +y", "Floor", "Ceiling"
@@ -82,6 +104,39 @@ namespace ui
 
         /// @brief Lists the direct-delay choices for the combo, in the parameter's order.
         constexpr const char* kDirectDelayItems = "Compensated\0Physical\0";
+
+        /// @brief Returns the face names joined for the combo, in Surface order.
+        const std::string& surface_items()
+        {
+            static const std::string items = []
+            {
+                std::string joined;
+                for (const char* label : kSurfaceLabels)
+                {
+                    joined += label;
+                    joined.push_back('\0');
+                }
+                return joined;
+            }();
+            return items;
+        }
+
+        /// @brief Returns the furniture names joined for the combo, in FurnitureId order.
+        const std::string& furniture_items()
+        {
+            static const std::string items = []
+            {
+                std::string joined;
+                for (std::size_t index = 0; index < SushiDSP::room::kFurnitureCount; ++index)
+                {
+                    joined += SushiDSP::room::furniture(
+                        static_cast<SushiDSP::room::FurnitureId>(index)).name;
+                    joined.push_back('\0');
+                }
+                return joined;
+            }();
+            return items;
+        }
 
         /// @brief Returns the material names joined for the combo, in MaterialId order.
         const std::string& material_items()
@@ -268,6 +323,88 @@ namespace ui
             return changed;
         }
 
+        /// @brief Draws the patch list: a row per entry and the add row under it.
+        /// @return True on the frames an entry was added, removed or changed.
+        bool draw_patches(RoomScene& scene)
+        {
+            bool changed = false;
+            std::uint32_t removed = scene.patch_count;
+            for (std::uint32_t index = 0; index < scene.patch_count; ++index)
+            {
+                ImGui::PushID(static_cast<int>(index));
+                RoomScene::Patch& entry = scene.patches[index];
+
+                int surface = static_cast<int>(entry.surface);
+                ImGui::SetNextItemWidth(kPatchSurfaceWidth);
+                if (ImGui::Combo("##patch_surface", &surface, surface_items().c_str()))
+                {
+                    entry.surface = static_cast<SushiDSP::room::Surface>(surface);
+                    changed = true;
+                }
+                ImGui::SameLine();
+                int material = static_cast<int>(entry.material);
+                ImGui::SetNextItemWidth(kPatchMaterialWidth);
+                if (ImGui::Combo("##patch_material", &material, material_items().c_str()))
+                {
+                    entry.material = static_cast<SushiDSP::room::MaterialId>(material);
+                    changed = true;
+                }
+                ImGui::SameLine();
+                double area = entry.area_m2;
+                ImGui::SetNextItemWidth(kPatchAreaWidth);
+                if (ImGui::InputDouble("##patch_area", &area, 0.1, 1.0, "%.2f m2"))
+                {
+                    changed = set_patch_area(scene, index, area) || changed;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Remove"))
+                {
+                    removed = index;
+                }
+                ImGui::PopID();
+            }
+            if (removed < scene.patch_count)
+            {
+                remove_patch(scene, removed);
+                changed = true;
+            }
+
+            ImGuiStorage* storage = ImGui::GetStateStorage();
+            const ImGuiID surface_key = ImGui::GetID("add_patch_surface");
+            const ImGuiID material_key = ImGui::GetID("add_patch_material");
+            int chosen_surface = std::clamp(storage->GetInt(surface_key, 0), 0,
+                                            static_cast<int>(SushiDSP::room::kSurfaceCount) - 1);
+            int chosen_material = std::clamp(storage->GetInt(material_key, 0), 0,
+                                             static_cast<int>(SushiDSP::room::kMaterialCount) - 1);
+            ImGui::SetNextItemWidth(kPatchSurfaceWidth);
+            if (ImGui::Combo("##add_patch_surface", &chosen_surface, surface_items().c_str()))
+            {
+                storage->SetInt(surface_key, chosen_surface);
+            }
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(kPatchMaterialWidth);
+            if (ImGui::Combo("##add_patch_material", &chosen_material, material_items().c_str()))
+            {
+                storage->SetInt(material_key, chosen_material);
+            }
+            ImGui::SameLine();
+            const bool full = scene.patch_count >= RoomScene::kMaxPatches;
+            ImGui::BeginDisabled(full);
+            if (ImGui::Button("Add"))
+            {
+                const SushiDSP::room::Surface surface =
+                    static_cast<SushiDSP::room::Surface>(chosen_surface);
+                changed = add_patch(scene, surface,
+                                    static_cast<SushiDSP::room::MaterialId>(chosen_material),
+                                    default_patch_area(surface)) || changed;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::TextColored(to_imvec4(palette().muted_text), "%u of %zu",
+                               static_cast<unsigned>(scene.patch_count), RoomScene::kMaxPatches);
+            return changed;
+        }
+
         /// @brief Draws six rows of a material combo and a scattering combo.
         /// @return True on the frames a row changed.
         bool draw_surfaces(RoomScene& scene)
@@ -295,6 +432,70 @@ namespace ui
                 ImGui::TextUnformatted(kSurfaceLabels[face]);
                 ImGui::PopID();
             }
+            return changed;
+        }
+
+        /// @brief Draws the furnishing list: a row per entry and the add row under it.
+        /// @return True on the frames an entry was added, removed or changed.
+        bool draw_furnishings(RoomScene& scene)
+        {
+            bool changed = false;
+            std::uint32_t removed = scene.furnishing_count;
+            for (std::uint32_t index = 0; index < scene.furnishing_count; ++index)
+            {
+                ImGui::PushID(static_cast<int>(index));
+                RoomScene::Furnishing& entry = scene.furnishings[index];
+
+                int item = static_cast<int>(entry.item);
+                ImGui::SetNextItemWidth(kFurnishingItemWidth);
+                if (ImGui::Combo("##item", &item, furniture_items().c_str()))
+                {
+                    entry.item = static_cast<SushiDSP::room::FurnitureId>(item);
+                    changed = true;
+                }
+                ImGui::SameLine();
+                double quantity = entry.quantity;
+                ImGui::SetNextItemWidth(kFurnishingQuantityWidth);
+                if (ImGui::InputDouble("##quantity", &quantity, 0.5, 1.0, "%.2f"))
+                {
+                    changed = set_furnishing_quantity(scene, index, quantity) || changed;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Remove"))
+                {
+                    removed = index;
+                }
+                ImGui::PopID();
+            }
+            if (removed < scene.furnishing_count)
+            {
+                remove_furnishing(scene, removed);
+                changed = true;
+            }
+
+            ImGuiStorage* storage = ImGui::GetStateStorage();
+            const ImGuiID chosen_key = ImGui::GetID("add_item");
+            int chosen = std::clamp(storage->GetInt(chosen_key, 0), 0,
+                                    static_cast<int>(SushiDSP::room::kFurnitureCount) - 1);
+            ImGui::SetNextItemWidth(kFurnishingItemWidth);
+            if (ImGui::Combo("##add_item", &chosen, furniture_items().c_str()))
+            {
+                storage->SetInt(chosen_key, chosen);
+            }
+            ImGui::SameLine();
+            const bool full = scene.furnishing_count >= RoomScene::kMaxFurnishings;
+            ImGui::BeginDisabled(full);
+            if (ImGui::Button("Add"))
+            {
+                const SushiDSP::room::FurnitureId item =
+                    static_cast<SushiDSP::room::FurnitureId>(chosen);
+                changed = add_furnishing(scene, item, default_furnishing_quantity(item)) || changed;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::TextColored(to_imvec4(palette().muted_text), "%u of %zu",
+                               static_cast<unsigned>(scene.furnishing_count),
+                               RoomScene::kMaxFurnishings);
             return changed;
         }
 
@@ -373,6 +574,16 @@ namespace ui
             }
         }
 
+        /// @brief Draws a section's name with a rule under it, kSectionWidth wide.
+        void draw_section_heading(const char* name)
+        {
+            ImGui::TextUnformatted(name);
+            const ImVec2 start = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddLine(start, ImVec2(start.x + kSectionWidth, start.y),
+                                                to_imu32(palette().muted_text));
+            ImGui::Dummy(ImVec2(kSectionWidth, kPadding * 0.5f));
+        }
+
         /// @brief Draws the mix group: the node's four parameters.
         void draw_mix(RigController& rig, RigController::SlotId slot)
         {
@@ -418,10 +629,12 @@ namespace ui
         bool changed = false;
 
         ImGui::BeginGroup();
-        ImGui::TextUnformatted("Room");
+        draw_section_heading("Shell");
+        ImGui::BeginGroup();
         changed = draw_dimensions(scene) || changed;
         ImGui::Spacing();
-        changed = draw_surfaces(scene) || changed;
+        ImGui::TextUnformatted("Openings and coverings");
+        changed = draw_patches(scene) || changed;
         ImGui::EndGroup();
 
         ImGui::SameLine(0.0f, 3.0f * kPadding);
@@ -436,6 +649,15 @@ namespace ui
         changed = draw_pose_fields("microphone", "Microphone", scene.microphone_position,
                                    scene.microphone_yaw_rad, scene.dimensions) || changed;
         changed = draw_microphone(scene) || changed;
+        ImGui::EndGroup();
+
+        ImGui::Spacing();
+        draw_section_heading("Finishes");
+        changed = draw_surfaces(scene) || changed;
+
+        ImGui::Spacing();
+        draw_section_heading("Furnishings");
+        changed = draw_furnishings(scene) || changed;
         ImGui::EndGroup();
 
         ImGui::SameLine(0.0f, 3.0f * kPadding);
