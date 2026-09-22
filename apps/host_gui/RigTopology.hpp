@@ -36,49 +36,68 @@
 
 #include "ui/Geometry.hpp"
 
-/// @brief The rig's chain shape: one linear run, or a split with 2 or 3 parallel branches.
+/// @brief The rig's chain shape: one path, or a split into two or three parallel paths.
+///
+/// The names follow AmpliTube 5's own, which is the behaviour this model reproduces; the
+/// routing rules and what a path change does to the gear already placed are recorded in
+/// docs/design/GUI_UX_REDESIGN.md.
 enum class ChainType : std::uint8_t
 {
-    Series,
+    Single,
     TwoWay,
-    ThreeWay,
-    TwoWayAlt
+    ThreeWay
 };
 
 /// @brief Which stage list a slot address names.
 enum class StageKind : std::uint8_t
 {
-    Series,
-    Pre,
     Branch,
     Post
 };
 
-/// @brief Names one stage: a fixed list, or a branch picked out by index.
+/// @brief Names one stage: the master bus, or a path picked out by index.
 struct StageAddress
 {
-    StageKind   kind = StageKind::Series;
-    std::size_t branch = 0;   ///< Holds the branch index; read only when kind is Branch.
+    StageKind   kind = StageKind::Branch;
+    std::size_t branch = 0;   ///< Holds the path index; read only when kind is Branch.
 };
 
-/// @brief Owns the chain type and the slot lists it routes: series, pre, branches, post.
+/// @brief Reports what a chain-type switch did, so the caller can act on the slots it names.
+///
+/// The model holds identities, not nodes, so it cannot copy a path's gear itself: it says which
+/// paths were opened and leaves the duplication to whoever owns the nodes.
+struct ChainTypeChange
+{
+    /// @brief The slots the paths that closed were holding; the caller destroys them.
+    std::vector<ui::SlotId> discarded;
+
+    /// @brief The indices of the paths that opened, each to be filled from the main path.
+    std::vector<std::size_t> opened;
+};
+
+/// @brief Owns the chain type and the slot lists it routes: one path per branch, plus the
+/// master bus every path merges into.
+///
+/// Branch 0 is the main path. It exists under every chain type and keeps its gear across every
+/// switch; the paths beside it open as copies of it and are discarded when they close.
 class RigTopology
 {
 public:
     using SlotId = ui::SlotId;
 
-    /// @brief Reports how many parallel branches a chain type opens.
-    /// @return 0 for Series, 2 for TwoWay and TwoWayAlt, 3 for ThreeWay.
+    /// @brief Reports how many parallel paths a chain type opens.
+    /// @return 1 for Single, 2 for TwoWay, 3 for ThreeWay.
     static std::size_t branch_count(ChainType type) noexcept;
 
     /// @brief Reads the active chain type.
     /// @return The current ChainType.
     ChainType chain_type() const noexcept;
 
-    /// @brief Switches the active chain type, discarding branches the new type does not keep.
+    /// @brief Switches the active chain type, keeping the main path and discarding the paths the
+    /// new type closes.
     /// @param type The chain type to switch to.
-    /// @return The slots the switch discards; series, pre and post lists survive every switch.
-    std::vector<SlotId> set_chain_type(ChainType type);
+    /// @return What closed and what opened; both lists are empty when the type does not change.
+    ChainTypeChange set_chain_type(ChainType type);
 
     /// @brief Reads one stage's slot list.
     /// @param address The stage to read.
@@ -87,8 +106,7 @@ public:
 
     /// @brief Reports whether a stage is reachable under the active chain type.
     /// @param address The stage to check.
-    /// @return True for Series only while Series is active; true for Pre, Branch and Post only
-    /// while a split type is active, and only for a branch index the type opens.
+    /// @return True for Post always; true for a Branch only at an index the type opens.
     bool is_visible(const StageAddress& address) const;
 
     /// @brief Inserts a slot into a stage at a clamped index.
@@ -122,29 +140,23 @@ public:
     std::optional<StageAddress> find(SlotId slot) const;
 
     /// @brief Lists every slot the active chain type routes, in signal order.
-    /// @return Series' slots when Series is active; otherwise pre, then each branch, then post.
+    /// @return Each path's slots in path order, then the master bus's.
     std::vector<SlotId> active_slots() const;
 
-    /// @brief Lists every slot held but not routed by the active chain type.
-    /// @return The series list's slots while a split type is active; empty while Series is active.
-    std::vector<SlotId> parked_slots() const;
-
-    /// @brief Builds the edge list a split or series chain compiles to.
-    /// @param splitter The splitter slot; required when a split type is active.
-    /// @param mixer The mixer slot; required when a split type is active.
+    /// @brief Builds the edge list the active chain type compiles to.
+    /// @param splitter The splitter slot; required while more than one path is open.
+    /// @param mixer The mixer slot; required while more than one path is open.
     /// @return The edges, first occurrence kept when a slot repeats an edge.
     std::vector<std::pair<SlotId, SlotId>> edges(std::optional<SlotId> splitter,
                                                   std::optional<SlotId> mixer) const;
 
-    /// @brief Builds a Series topology from a linear slot order, for loading a preset.
+    /// @brief Builds a single-path topology from a linear slot order, for loading a preset.
     /// @param order The slots, in signal order.
-    /// @return A RigTopology with `order` as its series list.
-    static RigTopology from_series(std::vector<SlotId> order);
+    /// @return A RigTopology whose main path is `order`.
+    static RigTopology from_linear_order(std::vector<SlotId> order);
 
 private:
-    ChainType                          type_ = ChainType::Series;
-    std::vector<SlotId>                series_;
-    std::vector<SlotId>                pre_;
+    ChainType                          type_ = ChainType::Single;
     std::vector<SlotId>                post_;
-    std::vector<std::vector<SlotId>>   branches_;
+    std::vector<std::vector<SlotId>>   branches_{ 1 };
 };

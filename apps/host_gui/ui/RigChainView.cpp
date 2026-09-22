@@ -67,8 +67,8 @@ namespace ui
         constexpr float kCaretHeight = 34.0f;
         constexpr float kBadgeRadius = 8.0f;
 
-        constexpr std::array<ChainType, 4> kChainTypes = { ChainType::Series, ChainType::TwoWay,
-                                                          ChainType::ThreeWay, ChainType::TwoWayAlt };
+        constexpr std::array<ChainType, 3> kChainTypes = { ChainType::Single, ChainType::TwoWay,
+                                                          ChainType::ThreeWay };
 
         /// @brief Pairs a stage's address with the geometry layout_split gave it.
         struct StageView
@@ -117,7 +117,7 @@ namespace ui
             };
             switch (type)
             {
-            case ChainType::Series:
+            case ChainType::Single:
                 draw->AddLine(at(3.0f, 12.0f), at(21.0f, 12.0f), color, kIconThickness);
                 break;
             case ChainType::TwoWay:
@@ -129,16 +129,6 @@ namespace ui
                 draw->AddLine(at(3.0f, 12.0f), at(21.0f, 12.0f), color, kIconThickness);
                 branch(7.0f, 5.0f);
                 branch(7.0f, 19.0f);
-                break;
-            case ChainType::TwoWayAlt:
-                for (float y : { 8.0f, 16.0f })
-                {
-                    draw->AddLine(at(3.0f, y), at(16.0f, y), color, kIconThickness);
-                    draw->PathLineTo(at(13.0f, y - 3.0f));
-                    draw->PathLineTo(at(16.0f, y));
-                    draw->PathLineTo(at(13.0f, y + 3.0f));
-                    draw->PathStroke(color, ImDrawFlags_None, kIconThickness);
-                }
                 break;
             }
         }
@@ -197,9 +187,7 @@ namespace ui
                 if (ImGui::InvisibleButton("chain_type", ImVec2(kButtonSize, kButtonSize)) && !active)
                 {
                     run_edit(state, [&] {
-                        // The applier removes every slot the switch discards, as a stray.
-                        static_cast<void>(state.topology.set_chain_type(type));
-                        state.applier.apply(state.topology, rig);
+                        state.applier.switch_chain_type(state.topology, rig, type);
                     });
                     state.selected = std::nullopt;
                 }
@@ -219,12 +207,13 @@ namespace ui
         std::vector<StageView> collect_stages(ChainType type, const SplitGeometry& geometry)
         {
             std::vector<StageView> stages;
-            if (type == ChainType::Series)
+            // One path is the run itself and carries no master bus, so it is the only stage the
+            // view shows; more than one puts each path in its own row, then the master bus.
+            if (RigTopology::branch_count(type) == 1)
             {
-                stages.push_back({ StageAddress{ StageKind::Series, 0 }, &geometry.series });
+                stages.push_back({ StageAddress{ StageKind::Branch, 0 }, &geometry.series });
                 return stages;
             }
-            stages.push_back({ StageAddress{ StageKind::Pre, 0 }, &geometry.pre });
             for (std::size_t i = 0; i < geometry.branches.size(); ++i)
             {
                 stages.push_back({ StageAddress{ StageKind::Branch, i }, &geometry.branches[i] });
@@ -441,18 +430,23 @@ namespace ui
         SplitGeometry layout_topology(const RigTopology& topology)
         {
             const ChainType type = topology.chain_type();
+            const std::size_t paths = RigTopology::branch_count(type);
+            const std::size_t post = topology.stage(StageAddress{ StageKind::Post, 0 }).size();
+
+            // One path draws as a straight run, which is what layout_split builds when no branch
+            // sizes are given; the main path takes the geometry that run occupies.
+            if (paths == 1)
+            {
+                return layout_split(topology.stage(StageAddress{ StageKind::Branch, 0 }).size(), 0,
+                                    {}, 0, SplitMetrics{});
+            }
+
             std::vector<std::size_t> branch_sizes;
-            for (std::size_t i = 0; i < RigTopology::branch_count(type); ++i)
+            for (std::size_t i = 0; i < paths; ++i)
             {
                 branch_sizes.push_back(topology.stage(StageAddress{ StageKind::Branch, i }).size());
             }
-            if (type == ChainType::Series)
-            {
-                return layout_split(topology.stage(StageAddress{ StageKind::Series, 0 }).size(), 0, branch_sizes,
-                                    0, SplitMetrics{});
-            }
-            return layout_split(0, topology.stage(StageAddress{ StageKind::Pre, 0 }).size(), branch_sizes,
-                                topology.stage(StageAddress{ StageKind::Post, 0 }).size(), SplitMetrics{});
+            return layout_split(0, 0, branch_sizes, post, SplitMetrics{});
         }
 
         /// @brief Draws the chain canvas and returns the one edit this frame's interaction queued.
@@ -490,7 +484,8 @@ namespace ui
                     const Rect& rect = stage.geometry->nodes[n];
                     draw_node(rig, state, slots[n], to_screen(origin, rect.min), to_screen(origin, rect.max), pending);
                 }
-                if (stage.address.kind == StageKind::Branch)
+                // A badge numbers a path against its siblings; one path has none to be told from.
+                if (stage.address.kind == StageKind::Branch && stages.size() > 1)
                 {
                     draw_badge(draw, origin, *stage.geometry, stage.address.branch + 1);
                 }

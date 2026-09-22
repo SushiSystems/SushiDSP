@@ -36,21 +36,29 @@
 #include "RigController.hpp"
 #include "RigTopology.hpp"
 
-/// @brief Rewires a RigController to match a RigTopology, owning the hidden routing slots and
-/// the snapshots of parked series slots. GUI thread only.
+/// @brief Rewires a RigController to match a RigTopology and owns the hidden routing slots.
+/// GUI thread only.
 class TopologyApplier
 {
 public:
     /// @brief Rewires the rig to match the topology and publishes once.
-    /// @param topology The model to apply; parked slots that come back are renamed in it.
+    /// @param topology The model to apply.
     /// @param rig The controller to rewire; a slot the topology does not hold is removed.
     /// @throws std::runtime_error when the rewired graph does not compile; the rig, the topology
     /// and this applier are rolled back first.
     void apply(RigTopology& topology, RigController& rig);
 
-    /// @brief Counts the parked series slots held as snapshots.
-    /// @return The number of snapshots waiting for Series to come back.
-    std::size_t parked_count() const noexcept;
+    /// @brief Switches the chain type and rewires the rig to match, in one step.
+    ///
+    /// A path that opens is filled with a copy of the main path's gear, parameter values
+    /// included, which is the behaviour docs/design/GUI_UX_REDESIGN.md records; a path that
+    /// closes leaves its slots behind as strays, and the apply removes them.
+    /// @param topology The model to switch.
+    /// @param rig The controller to rewire.
+    /// @param type The chain type to switch to.
+    /// @throws std::runtime_error when the rewired graph does not compile; everything is rolled
+    /// back first.
+    void switch_chain_type(RigTopology& topology, RigController& rig, ChainType type);
 
 private:
     using SlotId = RigController::SlotId;
@@ -68,23 +76,13 @@ private:
     {
         std::optional<SlotId>                                       splitter; ///< Holds the hidden splitter slot.
         std::optional<SlotId>                                       mixer;    ///< Holds the hidden mixer slot.
-        std::vector<std::pair<SlotId, RigController::SlotSnapshot>> parked;   ///< Holds parked snapshots by pre-park id.
     };
 
-    /// @brief Snapshots and removes every parked slot still live in the rig.
-    void park(const RigTopology& topology, RigController& rig, Journal& journal);
-
-    /// @brief Restores every active slot held as a snapshot and renames it in the topology.
-    void unpark(RigTopology& topology, RigController& rig, Journal& journal);
-
-    /// @brief Creates the splitter and mixer for a split type, or removes them for Series.
+    /// @brief Creates the splitter and mixer while a split is open, or removes them for one path.
     void place_routing(const RigTopology& topology, RigController& rig, Journal& journal);
 
     /// @brief Removes every rig slot the topology does not route and that is not a routing slot.
     void remove_strays(const RigTopology& topology, RigController& rig, Journal& journal);
-
-    /// @brief Drops parked snapshots the topology no longer holds.
-    void prune_parked(const RigTopology& topology);
 
     /// @brief Replaces every rig edge with the topology's edges.
     void connect(const RigTopology& topology, RigController& rig) const;
