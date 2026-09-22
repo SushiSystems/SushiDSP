@@ -29,6 +29,10 @@ add_executable(sushidsp_host_gui
     ui/DirectoryListing.cpp
     ui/FileBrowser.cpp
     ui/RoomPanel.cpp
+    ui/FurnishingList.cpp
+    ui/PatchList.cpp
+    ui/FurnishingList.cpp
+    ui/PatchList.cpp
     ui/TransportBar.cpp
     ui/TimelineScale.cpp
     ui/ArrangementView.cpp

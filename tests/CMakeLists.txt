@@ -158,6 +158,8 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/DividerMath.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/GearFilter.cpp
     ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/LevelText.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/FurnishingList.cpp
+    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/PatchList.cpp
 
     # --- DD-3 ---
     functional/unit/test_dd3_analog_filters.cpp
@@ -180,6 +182,8 @@ add_executable(sushidsp_tests
     functional/unit/test_room_scene.cpp
     functional/unit/test_room_scene_furnishings.cpp
     functional/unit/test_room_starter_scene.cpp
+    functional/unit/test_furnishing_list.cpp
+    functional/unit/test_patch_list.cpp
     functional/unit/test_early_reflection_renderer.cpp
     functional/unit/test_late_reverb.cpp
     functional/unit/test_modal_bank.cpp
