@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-09-25 — cli: Grouped sd's help under Build, Application and Environment panels with per-command examples (`cli/sushidsp/cli.py`, `test_help_screen.py`).
 - 2026-09-24 — cli: Replaced sd's own setup with sushicore's shared setup, doctor, link and unlink (`cli/sushidsp/cli.py`, `cli/sushidsp/config.py`).
 - 2026-09-23 — room: Refused an HRTF grid with directions under 1 degree apart or a degenerating hull, instead of exhausting memory (`HrtfSet.cpp`).
 - 2026-09-23 — room: Shipped the SADIE II KU100 HRTF set, thinned to 1531 directions, and bounded its two tests by measurement (`sadie2_ku100_48k.hrtf`, `convert_hrtf.py`, `test_room_node.cpp`).
