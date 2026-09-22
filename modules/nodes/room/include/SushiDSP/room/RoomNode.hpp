@@ -32,6 +32,7 @@
 #include <atomic>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/core/NodeDescriptor.hpp"
@@ -40,6 +41,7 @@
 #include "SushiDSP/math/SmoothedParameter.hpp"
 #include "SushiDSP/room/BinauralStage.hpp"
 #include "SushiDSP/room/CrossoverPair.hpp"
+#include "SushiDSP/room/DelayRing.hpp"
 #include "SushiDSP/room/EarlyTapSet.hpp"
 #include "SushiDSP/room/FadeWindow.hpp"
 #include "SushiDSP/room/GeometricPath.hpp"
@@ -162,7 +164,9 @@ namespace SushiDSP::room
         /// path's high half; a bypassed crossover passes everything to the high half.
         void split_input(const float* input, std::uint32_t frames) noexcept;
 
-        /// @brief Writes the smoothed dry-wet mix at the smoothed level to both outputs.
+        /// @brief Writes the smoothed dry-wet mix at the smoothed level to both outputs; the dry
+        /// signal is delayed to the frame the wet output lands at, so the blend never runs the
+        /// dry ahead of the wet.
         void write_outputs(const float* input, float* const* outputs,
                            std::uint32_t frames) noexcept;
 
@@ -243,6 +247,17 @@ namespace SushiDSP::room
 
         /// @brief Records that the paths hold a staged adoption not applied yet.
         bool pending_ = false;
+
+        /// @brief Delays the dry signal to the frame the wet ears output lands at.
+        DelayRing dry_delay_;
+
+        /// @brief Holds one block of the delayed dry signal, sized at prepare().
+        std::vector<float> dry_delay_buffer_;
+
+        /// @brief Stores the dry delay for the set adopted last, in frames: the alignment delay
+        /// for the ears, zero for the microphone, which carries no decoder partition. Audio
+        /// thread.
+        std::uint32_t dry_delay_frames_ = 0;
     };
 
     /// @brief Returns the registration entry for "sushidsp.room".
