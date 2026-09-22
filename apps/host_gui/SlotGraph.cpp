@@ -40,6 +40,7 @@
 #include "SushiDSP/io/IrLoader.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 #include "SushiDSP/room/HrtfSetLoader.hpp"
+#include "SushiDSP/room/StarterScene.hpp"
 #include "SushiDSP/routing/MixerNode.hpp"
 #include "SushiDSP/routing/SplitterNode.hpp"
 
@@ -547,7 +548,7 @@ SushiDSP::room::RoomScene SlotGraph::room_scene(SlotId slot) const
     const auto it = slots_.find(slot);
     if (it == slots_.end() || !it->second.room_scene.has_value())
     {
-        return SushiDSP::room::RoomScene{};
+        return SushiDSP::room::starter_scene();
     }
     return *it->second.room_scene;
 }

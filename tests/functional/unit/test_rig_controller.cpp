@@ -29,6 +29,7 @@
 #include <fstream>
 #include <map>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -37,11 +38,15 @@
 #include <nlohmann/json.hpp>
 
 #include "RigController.hpp"
+#include "RigPersistence.hpp"
+#include "SessionTimeline.hpp"
+#include "SlotGraph.hpp"
 #include "SlotSelection.hpp"
 #include "SushiDSP/capture/Transport.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 #include "SushiDSP/room/IRoomHost.hpp"
 #include "SushiDSP/room/RoomScene.hpp"
+#include "SushiDSP/room/StarterScene.hpp"
 
 namespace
 {
@@ -1541,7 +1546,7 @@ TEST(Unit_Dsp, RigControllerRoundTripsARoomSceneThroughJson)
     EXPECT_TRUE(same_scene(target.room_host(order[1])->scene(), scene));
 }
 
-TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoRoomAsTheDefaultScene)
+TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoRoomAsTheStarterScene)
 {
     const std::string preset = R"({"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
@@ -1554,12 +1559,14 @@ TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoRoomAsTheDefaultScene)
     const std::vector<RigController::SlotId> order = controller.slot_order();
     ASSERT_EQ(order.size(), 2u);
     ASSERT_TRUE(controller.hosts_room(order[1]));
-    EXPECT_TRUE(same_scene(controller.room_scene(order[1]), SushiDSP::room::RoomScene{}));
+    const SushiDSP::room::RoomScene starter = SushiDSP::room::starter_scene();
+    EXPECT_TRUE(same_scene(controller.room_scene(order[1]), starter));
+    EXPECT_EQ(controller.room_scene(order[1]).furnishing_count, starter.furnishing_count);
     ASSERT_NE(controller.room_host(order[1]), nullptr);
-    EXPECT_TRUE(same_scene(controller.room_host(order[1])->scene(),
-                           SushiDSP::room::RoomScene{}));
+    EXPECT_TRUE(same_scene(controller.room_host(order[1])->scene(), starter));
+    EXPECT_EQ(controller.room_host(order[1])->scene().furnishing_count, starter.furnishing_count);
 
-    // A fresh node carries its own default and no drag has landed, so the slot took the node's
+    // A fresh node carries the starter scene and no drag has landed, so the slot took the node's
     // scene rather than publishing one.
     EXPECT_EQ(controller.room_publishes(order[1]), 0u);
 }
@@ -1619,7 +1626,7 @@ TEST(Unit_Dsp, RigControllerRefusesASceneOutsideTheRoomWithoutPublishing)
     EXPECT_FALSE(controller.set_room_scene(room, outside, error));
     EXPECT_FALSE(error.empty());
     EXPECT_EQ(controller.room_publishes(room), 0u);
-    EXPECT_TRUE(same_scene(controller.room_scene(room), SushiDSP::room::RoomScene{}));
+    EXPECT_TRUE(same_scene(controller.room_scene(room), SushiDSP::room::starter_scene()));
 }
 
 TEST(Unit_Dsp, RigControllerInstallsAMeasuredHrtfIntoEveryRoomAndKeepsItAcrossARebuild)
@@ -1726,4 +1733,212 @@ TEST(Unit_Dsp, RigControllerClearEdgesLeavesSlotsLive)
 
     EXPECT_TRUE(controller.edges().empty());
     EXPECT_EQ(controller.slot_order().size(), 2u);
+}
+
+TEST(Unit_Dsp, SessionTimelineAddAfterRemoveReturnsTheCountToWhereItStarted)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SessionTimeline       session(info);
+    const std::size_t     before = session.track_count();
+    ASSERT_GT(before, 0u);
+
+    std::string error;
+    ASSERT_TRUE(session.remove_track(before - 1, error)) << error;
+    EXPECT_EQ(session.track_count(), before - 1);
+
+    ASSERT_TRUE(session.add_track(error)) << error;
+    EXPECT_EQ(session.track_count(), before);
+    EXPECT_EQ(session.track_name(before - 1), SessionTimeline::default_track_name(before - 1));
+    EXPECT_EQ(session.track_color(before - 1), SessionTimeline::palette_color(before - 1));
+
+    EXPECT_FALSE(session.add_track(error));
+    EXPECT_FALSE(error.empty());
+    EXPECT_EQ(session.track_count(), before);
+}
+
+TEST(Unit_Dsp, SessionTimelineRemovingTheMiddleTrackMovesTheOthersDownWithTheirNamesAndColors)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SessionTimeline       session(info);
+    for (std::size_t index = 0; index < session.track_count(); ++index)
+    {
+        session.set_track_name(index, "lane " + std::to_string(index));
+    }
+    const std::size_t                 before = session.track_count();
+    const SessionTimeline::TrackColor color_of_two = session.track_color(2);
+    const SessionTimeline::TrackColor color_of_four = session.track_color(4);
+
+    std::string error;
+    ASSERT_TRUE(session.remove_track(3, error)) << error;
+
+    EXPECT_EQ(session.track_count(), before - 1);
+    EXPECT_EQ(session.track_name(2), "lane 2");
+    EXPECT_EQ(session.track_color(2), color_of_two);
+    EXPECT_EQ(session.track_name(3), "lane 4");
+    EXPECT_EQ(session.track_color(3), color_of_four);
+}
+
+TEST(Unit_Dsp, SessionTimelineTrackColorAndCountSurviveAPresetRoundTrip)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SlotGraph             graph(info);
+    SessionTimeline       session(info);
+    RigPersistence        codec(info, graph, session);
+    graph.append("sushidsp.tubescreamer");
+
+    std::string error;
+    ASSERT_TRUE(session.remove_track(session.track_count() - 1, error)) << error;
+    session.set_track_name(1, "rhythm");
+    session.set_track_color(1, 0x123456FFu);
+    const std::size_t   expected_count = session.track_count();
+    const std::string   json_text = codec.save_to_json();
+
+    SlotGraph       reloaded_graph(info);
+    SessionTimeline reloaded(info);
+    RigPersistence  reloaded_codec(info, reloaded_graph, reloaded);
+    reloaded_codec.load_from_json(json_text);
+
+    EXPECT_EQ(reloaded.track_count(), expected_count);
+    EXPECT_EQ(reloaded.track_name(1), "rhythm");
+    EXPECT_EQ(reloaded.track_color(1), 0x123456FFu);
+}
+
+TEST(Unit_Dsp, SessionTimelinePresetWithoutColorsLoadsThePaletteColors)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SlotGraph             graph(info);
+    SessionTimeline       session(info);
+    RigPersistence        codec(info, graph, session);
+    graph.append("sushidsp.tubescreamer");
+    session.set_track_name(0, "rhythm");
+
+    nlohmann::json document = nlohmann::json::parse(codec.save_to_json());
+    document.erase("track_count");
+    for (nlohmann::json& track_json : document.at("tracks"))
+    {
+        track_json.erase("color");
+    }
+
+    SlotGraph       reloaded_graph(info);
+    SessionTimeline reloaded(info);
+    RigPersistence  reloaded_codec(info, reloaded_graph, reloaded);
+    reloaded_codec.load_from_json(document.dump());
+
+    EXPECT_EQ(reloaded.track_count(), SessionTimeline::kMaxTracks);
+    EXPECT_EQ(reloaded.track_name(0), "rhythm");
+    for (std::size_t index = 0; index < reloaded.track_count(); ++index)
+    {
+        EXPECT_EQ(reloaded.track_color(index), SessionTimeline::palette_color(index));
+    }
+}
+
+TEST(Unit_Dsp, SessionTimelinePresetWithAMalformedColorLeavesTheTimelineAlone)
+{
+    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SlotGraph             graph(info);
+    SessionTimeline       session(info);
+    RigPersistence        codec(info, graph, session);
+    graph.append("sushidsp.tubescreamer");
+    session.set_track_name(0, "rhythm");
+    session.set_track_color(0, 0x123456FFu);
+
+    nlohmann::json document = nlohmann::json::parse(codec.save_to_json());
+    document.at("tracks").at(0).at("color") = nlohmann::json::array({ 1, 2 });
+
+    EXPECT_THROW(codec.load_from_json(document.dump()), std::runtime_error);
+    EXPECT_EQ(session.track_name(0), "rhythm");
+    EXPECT_EQ(session.track_color(0), 0x123456FFu);
+    EXPECT_EQ(session.track_count(), SessionTimeline::kMaxTracks);
+}
+
+TEST(Unit_Dsp, RigControllerRoundTripsThreeFurnishingsThroughJson)
+{
+    using SushiDSP::room::FurnitureId;
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    const RigController::SlotId room = source.append("sushidsp.room");
+    ASSERT_TRUE(source.hosts_room(room));
+
+    SushiDSP::room::RoomScene scene = non_default_scene();
+    scene.furnishing_count = 3;
+    scene.furnishings[0] = { FurnitureId::WardrobeModule, 4.5 };
+    scene.furnishings[1] = { FurnitureId::SofaTwoSeat, 2.0 };
+    scene.furnishings[2] = { FurnitureId::WardrobeModule, 1.25 };
+    std::string error;
+    ASSERT_TRUE(source.set_room_scene(room, scene, error)) << error;
+
+    const std::string saved = source.save_to_json();
+    const nlohmann::json written =
+        nlohmann::json::parse(saved).at("nodes").at(0).at("room").at("furnishings");
+    ASSERT_EQ(written.size(), 3u);
+    EXPECT_EQ(written.at(1).at("item").get<std::string>(), "sofa_two_seat");
+    EXPECT_EQ(written.at(2).at("quantity").get<double>(), 1.25);
+
+    RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    target.load_from_json(saved);
+    EXPECT_EQ(target.save_to_json(), saved);
+
+    const std::vector<RigController::SlotId> order = target.slot_order();
+    ASSERT_EQ(order.size(), 1u);
+    const SushiDSP::room::RoomScene loaded = target.room_scene(order[0]);
+    ASSERT_EQ(loaded.furnishing_count, 3u);
+    for (std::uint32_t index = 0; index < 3u; ++index)
+    {
+        EXPECT_EQ(loaded.furnishings[index].item, scene.furnishings[index].item);
+        EXPECT_EQ(loaded.furnishings[index].quantity, scene.furnishings[index].quantity);
+    }
+}
+
+TEST(Unit_Dsp, RigControllerWritesNoFurnishingsFieldForABareRoom)
+{
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    const RigController::SlotId room = source.append("sushidsp.room");
+    std::string error;
+    ASSERT_TRUE(source.set_room_scene(room, non_default_scene(), error)) << error;
+
+    const nlohmann::json parsed = nlohmann::json::parse(source.save_to_json());
+    EXPECT_FALSE(parsed.at("nodes").at(0).at("room").contains("furnishings"));
+}
+
+TEST(Unit_Dsp, RigControllerLoadsARoomWithoutFurnishingsAsAnUnfurnishedScene)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
+         "room":{"dimensions":[4.0,3.0,2.5]}}
+    ]})";
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    controller.load_from_json(preset);
+
+    const std::vector<RigController::SlotId> order = controller.slot_order();
+    ASSERT_EQ(order.size(), 1u);
+    const SushiDSP::room::RoomScene loaded = controller.room_scene(order[0]);
+    EXPECT_EQ(loaded.dimensions.x, 4.0);
+    EXPECT_EQ(loaded.furnishing_count, 0u);
+}
+
+TEST(Unit_Dsp, RigControllerRefusesAFurnishingNoTableRowNames)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
+         "room":{"furnishings":[{"item":"no_such_row","quantity":1.0}]}}
+    ]})";
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    EXPECT_THROW(controller.load_from_json(preset), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigControllerRefusesMoreFurnishingRowsThanARoomCarries)
+{
+    nlohmann::json rows = nlohmann::json::array();
+    for (std::size_t index = 0; index <= SushiDSP::room::RoomScene::kMaxFurnishings; ++index)
+    {
+        rows.push_back({ { "item", "sofa_two_seat" }, { "quantity", 1.0 } });
+    }
+    const nlohmann::json preset = { { "nodes", nlohmann::json::array(
+        { { { "id", 0 }, { "type", "sushidsp.room" }, { "params", nlohmann::json::object() },
+            { "inputs", nlohmann::json::array() },
+            { "room", { { "furnishings", rows } } } } }) } };
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    EXPECT_THROW(controller.load_from_json(preset.dump()), std::runtime_error);
 }

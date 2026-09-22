@@ -39,6 +39,7 @@
 #include "SushiDSP/core/DenormalGuard.hpp"
 #include "SushiDSP/math/StreamingConvolution.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
+#include "SushiDSP/room/StarterScene.hpp"
 
 namespace SushiDSP::room
 {
@@ -63,6 +64,7 @@ namespace SushiDSP::room
 
     RoomNode::RoomNode()
     {
+        scene_ = starter_scene();
         schroeder_hz_ = EyringDecay::schroeder_frequency_hz(scene_);
     }
 

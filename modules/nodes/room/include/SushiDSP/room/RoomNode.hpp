@@ -66,7 +66,7 @@ namespace SushiDSP::room
         /// @brief Names the crossfade window all three paths blend under.
         using FadeWindow = room::FadeWindow;
 
-        /// @brief Puts every parameter at its descriptor default and the default scene in place.
+        /// @brief Puts every parameter at its descriptor default and the starter scene in place.
         RoomNode();
 
         /// @brief Sizes the input rings, the tail's lines, the modal banks, the alignment delays
