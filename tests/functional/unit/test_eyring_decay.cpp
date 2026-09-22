@@ -167,3 +167,69 @@ TEST(Unit_Dsp, EyringDecayHandlesAFullyAbsorbentRoom)
     }
     EXPECT_DOUBLE_EQ(SushiDSP::room::EyringDecay::schroeder_frequency_hz(scene), 0.0);
 }
+
+TEST(Unit_Dsp, EyringDecayOfAnUnfurnishedSceneIsUnchanged)
+{
+    // With nothing furnished the six values equal the air-only hand formula bit for bit.
+    const SushiDSP::room::RoomScene scene;
+    const std::array<double, 6> mean_alpha = scene.mean_absorption();
+    const std::array<double, 6> computed = SushiDSP::room::EyringDecay::rt60_seconds(scene);
+    for (std::size_t band = 0; band < 6u; ++band)
+    {
+        EXPECT_EQ(
+            computed[band],
+            eyring_seconds(scene.volume_m3(), scene.surface_area_m2(), mean_alpha[band], band))
+            << "band " << band;
+    }
+}
+
+TEST(Unit_Dsp, EyringDecayAddsTheFurnishingAreaToTheDenominator)
+{
+    using SushiDSP::room::FurnitureId;
+
+    SushiDSP::room::RoomScene scene;
+    scene.furnishings[0] = { FurnitureId::WardrobeModule, 3.0 };
+    scene.furnishings[1] = { FurnitureId::SofaTwoSeat, 2.0 };
+    scene.furnishing_count = 2;
+
+    const double volume = scene.volume_m3();
+    const double surface_area = scene.surface_area_m2();
+    const std::array<double, 6> mean_alpha = scene.mean_absorption();
+    const std::array<double, 6> furnishing_area = scene.furnishing_absorption_area();
+    const std::array<double, 6> computed = SushiDSP::room::EyringDecay::rt60_seconds(scene);
+    for (std::size_t band = 0; band < 6u; ++band)
+    {
+        const double air =
+            4.0 * SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(band) * volume;
+        const double expected = 0.161 * volume
+            / (-surface_area * std::log(1.0 - mean_alpha[band]) + air + furnishing_area[band]);
+        EXPECT_NEAR(computed[band], expected, 1e-9 * expected) << "band " << band;
+    }
+}
+
+TEST(Unit_Dsp, EyringDecayShortensWithEveryFurnishing)
+{
+    using SushiDSP::room::FurnitureId;
+
+    SushiDSP::room::RoomScene scene;
+    const std::array<double, 6> bare = SushiDSP::room::EyringDecay::rt60_seconds(scene);
+
+    scene.furnishings[0] = { FurnitureId::WardrobeModule, 3.0 };
+    scene.furnishing_count = 1;
+    const std::array<double, 6> wardrobed = SushiDSP::room::EyringDecay::rt60_seconds(scene);
+
+    scene.furnishings[1] = { FurnitureId::SofaTwoSeat, 2.0 };
+    scene.furnishing_count = 2;
+    const std::array<double, 6> furnished = SushiDSP::room::EyringDecay::rt60_seconds(scene);
+
+    scene.furnishings[0].quantity = 6.0;
+    scene.furnishings[1].quantity = 4.0;
+    const std::array<double, 6> doubled = SushiDSP::room::EyringDecay::rt60_seconds(scene);
+
+    for (std::size_t band = 0; band < 6u; ++band)
+    {
+        EXPECT_LT(wardrobed[band], bare[band]) << "band " << band;
+        EXPECT_LT(furnished[band], wardrobed[band]) << "band " << band;
+        EXPECT_LT(doubled[band], furnished[band]) << "band " << band;
+    }
+}

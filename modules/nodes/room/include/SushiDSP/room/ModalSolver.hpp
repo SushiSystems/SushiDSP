@@ -88,6 +88,7 @@ namespace SushiDSP::room
         /// already carries level_scale over the mode's norm, so source_gain and ear_gain hold
         /// psi alone: at the two ears about listener_position for Ears, at microphone_position
         /// in both for Microphone.
+        /// @pre scene.is_valid() holds.
         /// @pre crossover_hz is under half of sample_rate.
         static ModalDesign design(const RoomScene& scene, double sample_rate, double crossover_hz,
                                   ListenerKind listener);

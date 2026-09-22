@@ -23,7 +23,7 @@
 
 /**
  * @file EyringDecay.cpp
- * @brief Eyring's formula with the air term, evaluated over the scene's mean absorption.
+ * @brief Eyring's formula with the air and furnishing terms, over the scene's mean absorption.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -33,7 +33,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/AirAbsorption.hpp"
+#include "SushiDSP/room/MediumAbsorption.hpp"
 
 namespace SushiDSP::room
 {
@@ -49,15 +49,15 @@ namespace SushiDSP::room
         constexpr std::size_t kMidBand = 2;
 
         /// @brief Evaluates Eyring's denominator -S ln(1 - alpha) + 4 m V for one band, in square
-        /// metres.
-        double eyring_denominator(double mean_absorption, std::size_t band, double volume_m3,
+        /// metres, with m taken from the scene's medium: the air and the furnishings together.
+        double eyring_denominator(const MediumAbsorption& medium, double mean_absorption,
+                                  std::size_t band, double volume_m3,
                                   double surface_area_m2) noexcept
         {
             const double bounded = std::min(mean_absorption, kMaxMeanAbsorption);
             const double surface_term = -surface_area_m2 * std::log(1.0 - bounded);
-            const double air_term =
-                4.0 * AirAbsorption::energy_coefficient_per_metre(band) * volume_m3;
-            return surface_term + air_term;
+            const double medium_term = 4.0 * medium.energy_coefficient_per_metre(band) * volume_m3;
+            return surface_term + medium_term;
         }
     }
 
@@ -66,6 +66,7 @@ namespace SushiDSP::room
         const double volume = scene.volume_m3();
         const double surface_area = scene.surface_area_m2();
         const std::array<double, kBandCount> mean_absorption = scene.mean_absorption();
+        const MediumAbsorption medium(scene);
 
         std::array<double, kBandCount> result{};
         for (std::size_t band = 0; band < kBandCount; ++band)
@@ -77,7 +78,7 @@ namespace SushiDSP::room
                 continue;
             }
             result[band] = kSabineConstant * volume
-                / eyring_denominator(mean_absorption[band], band, volume, surface_area);
+                / eyring_denominator(medium, mean_absorption[band], band, volume, surface_area);
         }
         return result;
     }

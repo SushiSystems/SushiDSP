@@ -39,6 +39,7 @@
 #include "SushiDSP/room/BandResponseFit.hpp"
 #include "SushiDSP/room/CabinetDirectivity.hpp"
 #include "SushiDSP/room/Materials.hpp"
+#include "SushiDSP/room/MediumAbsorption.hpp"
 #include "SushiDSP/room/MicrophoneModel.hpp"
 
 namespace SushiDSP::room
@@ -255,6 +256,22 @@ namespace SushiDSP::room
             }
         }
 
+        /// @brief Returns true when the candidate is the line of sight: no reflection on any axis.
+        bool is_direct(const Candidate& candidate) noexcept
+        {
+            return candidate.counts[0] == 0 && candidate.counts[1] == 0 && candidate.counts[2] == 0;
+        }
+
+        /// @brief Returns the volumetric loss a candidate's path suffers: the air alone for the
+        /// line of sight, which furniture does not thin, and the air with the furnishings for a
+        /// reflected path.
+        BandResponse path_loss(const Candidate& candidate, const MediumAbsorption& medium,
+                               double distance) noexcept
+        {
+            return is_direct(candidate) ? AirAbsorption::over_path(distance)
+                                        : medium.over_path(distance);
+        }
+
         /// @brief Returns the mean band power of a product, what a diffuse field receives.
         double mean_power(const std::array<double, kBandCount>& product) noexcept
         {
@@ -306,6 +323,7 @@ namespace SushiDSP::room
         const std::size_t kept = std::min(candidates.size(), EarlyTapSet::kMaxEarlyTaps);
 
         const CabinetDirectivity cabinet(scene.cabinet);
+        const MediumAbsorption medium(scene);
         const MicrophoneModel microphone(scene.microphone_pattern,
                                          kMicrophoneFlatCardioid.on_axis_db);
         const double forward_x = std::cos(receiver.yaw_rad);
@@ -330,7 +348,7 @@ namespace SushiDSP::room
             outgoing_direction(x, y, z, receiver.position, distance, scene.source_yaw_rad,
                                azimuth, elevation);
             fold(product, cabinet.gain_for(azimuth, elevation));
-            fold(product, AirAbsorption::over_path(distance));
+            fold(product, path_loss(candidate, medium, distance));
 
             const double arrival_x = (x.coordinate - receiver.position.x) / distance;
             const double arrival_y = (y.coordinate - receiver.position.y) / distance;

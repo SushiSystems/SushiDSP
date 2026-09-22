@@ -42,6 +42,7 @@
 #include "SushiDSP/room/CabinetDirectivity.hpp"
 #include "SushiDSP/room/DiffuseField.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
+#include "SushiDSP/room/Furniture.hpp"
 #include "SushiDSP/room/ImageSourceSolver.hpp"
 #include "SushiDSP/room/Materials.hpp"
 #include "SushiDSP/room/ModalDesign.hpp"
@@ -207,6 +208,39 @@ namespace
             sum += band_value_at(power, lower + (step + 0.5) * width) * width;
         }
         return (2.0 / kSampleRate) * sum;
+    }
+
+    /// @brief Returns the garage with three wardrobe modules and two two-seat sofas standing in
+    /// it.
+    SushiDSP::room::RoomScene furnished_garage()
+    {
+        SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+        scene.furnishings[0] = { SushiDSP::room::FurnitureId::WardrobeModule, 3.0 };
+        scene.furnishings[1] = { SushiDSP::room::FurnitureId::SofaTwoSeat, 2.0 };
+        scene.furnishing_count = 2;
+        return scene;
+    }
+
+    /// @brief Evaluates A_f / (4 V) at the 125 Hz and 250 Hz bands and interpolates it in log
+    /// frequency, held flat below 125 Hz, in energy attenuation per metre.
+    double furnishing_coefficient_at(const SushiDSP::room::RoomScene& scene, double frequency_hz)
+    {
+        const std::array<double, SushiDSP::room::kBandCount> area =
+            scene.furnishing_absorption_area();
+        const double low = area[0] / (4.0 * scene.volume_m3());
+        const double high = area[1] / (4.0 * scene.volume_m3());
+        const double position = std::log(frequency_hz / 125.0) / std::log(2.0);
+        const double clamped = std::min(1.0, std::max(0.0, position));
+        return low + (high - low) * clamped;
+    }
+
+    /// @brief Returns the modal design of a scene for the ears, heap-held.
+    std::unique_ptr<SushiDSP::room::ModalDesign> design_of(const SushiDSP::room::RoomScene& scene,
+                                                           double crossover_hz)
+    {
+        return std::make_unique<SushiDSP::room::ModalDesign>(
+            SushiDSP::room::ModalSolver::design(scene, kSampleRate, crossover_hz,
+                                                SushiDSP::room::ListenerKind::Ears));
     }
 }
 
@@ -534,4 +568,125 @@ TEST(Unit_Dsp, ModalSolverReadsTheMicrophoneAtOnePoint)
             ? 1u : 0u;
     }
     EXPECT_GT(differing, modes.size() / 2);
+}
+
+TEST(Unit_Dsp, ModalSolverLeavesAnUnfurnishedRoomAlone)
+{
+    const SushiDSP::room::RoomScene bare = SushiDSP::test::garage_scene();
+    SushiDSP::room::RoomScene junk = bare;
+    junk.furnishings.fill({ SushiDSP::room::FurnitureId::SofaTwoSeat, 9.0 });
+    junk.furnishing_count = 0;
+
+    constexpr double kCrossover = 278.2;
+    const std::vector<SushiDSP::room::ModalSolver::Mode> bare_modes =
+        SushiDSP::room::ModalSolver::enumerate(bare, kCrossover);
+    const std::vector<SushiDSP::room::ModalSolver::Mode> junk_modes =
+        SushiDSP::room::ModalSolver::enumerate(junk, kCrossover);
+    ASSERT_EQ(junk_modes.size(), bare_modes.size());
+
+    const auto bare_design = design_of(bare, kCrossover);
+    const auto junk_design = design_of(junk, kCrossover);
+    ASSERT_EQ(junk_design->count, bare_design->count);
+    EXPECT_EQ(junk_design->crossover_hz, bare_design->crossover_hz);
+    EXPECT_EQ(junk_design->level_scale, bare_design->level_scale);
+    for (std::size_t index = 0; index < bare_modes.size(); ++index)
+    {
+        EXPECT_EQ(junk_modes[index].frequency_hz, bare_modes[index].frequency_hz)
+            << "mode " << index;
+        EXPECT_EQ(junk_modes[index].decay_seconds, bare_modes[index].decay_seconds)
+            << "mode " << index;
+        EXPECT_EQ(junk_design->modes[index].section, bare_design->modes[index].section)
+            << "mode " << index;
+        EXPECT_EQ(junk_design->modes[index].source_gain, bare_design->modes[index].source_gain)
+            << "mode " << index;
+        EXPECT_EQ(junk_design->modes[index].ear_gain, bare_design->modes[index].ear_gain)
+            << "mode " << index;
+    }
+}
+
+TEST(Unit_Dsp, ModalSolverKeepsTheModeFrequenciesWhenFurnished)
+{
+    const SushiDSP::room::RoomScene bare = SushiDSP::test::garage_scene();
+    const SushiDSP::room::RoomScene furnished = furnished_garage();
+
+    constexpr double kCrossover = 278.2;
+    const std::vector<SushiDSP::room::ModalSolver::Mode> bare_modes =
+        SushiDSP::room::ModalSolver::enumerate(bare, kCrossover);
+    const std::vector<SushiDSP::room::ModalSolver::Mode> furnished_modes =
+        SushiDSP::room::ModalSolver::enumerate(furnished, kCrossover);
+    ASSERT_EQ(furnished_modes.size(), bare_modes.size());
+    for (std::size_t index = 0; index < bare_modes.size(); ++index)
+    {
+        EXPECT_EQ(furnished_modes[index].frequency_hz, bare_modes[index].frequency_hz)
+            << "mode " << index;
+        EXPECT_EQ(furnished_modes[index].nx, bare_modes[index].nx) << "mode " << index;
+        EXPECT_EQ(furnished_modes[index].ny, bare_modes[index].ny) << "mode " << index;
+        EXPECT_EQ(furnished_modes[index].nz, bare_modes[index].nz) << "mode " << index;
+        EXPECT_LT(furnished_modes[index].decay_seconds, bare_modes[index].decay_seconds)
+            << "mode " << index;
+    }
+
+    const auto bare_design = design_of(bare, kCrossover);
+    const auto furnished_design = design_of(furnished, kCrossover);
+    ASSERT_EQ(furnished_design->count, bare_design->count);
+    EXPECT_EQ(furnished_design->crossover_hz, bare_design->crossover_hz);
+    for (std::size_t index = 0; index < bare_modes.size(); ++index)
+    {
+        EXPECT_EQ(furnished_design->modes[index].source_gain, bare_design->modes[index].source_gain)
+            << "mode " << index;
+        EXPECT_EQ(furnished_design->modes[index].ear_gain, bare_design->modes[index].ear_gain)
+            << "mode " << index;
+    }
+}
+
+TEST(Unit_Dsp, ModalSolverAddsTheFurnishingDampingToEveryMode)
+{
+    const SushiDSP::room::RoomScene bare = SushiDSP::test::garage_scene();
+    const SushiDSP::room::RoomScene furnished = furnished_garage();
+    constexpr double kDecayNepers = 3.0 * 2.302585092994046;
+
+    // The table's 3 wardrobe modules and 2 sofas over 4 V = 240 m3.
+    const auto& wardrobe =
+        SushiDSP::room::furniture(SushiDSP::room::FurnitureId::WardrobeModule).absorption_area;
+    const auto& sofa =
+        SushiDSP::room::furniture(SushiDSP::room::FurnitureId::SofaTwoSeat).absorption_area;
+    const double low = furnishing_coefficient_at(furnished, 125.0);
+    const double high = furnishing_coefficient_at(furnished, 250.0);
+    EXPECT_NEAR(low, (3.0 * wardrobe[0] + 2.0 * sofa[0]) / 240.0, 1e-9);
+    EXPECT_NEAR(high, (3.0 * wardrobe[1] + 2.0 * sofa[1]) / 240.0, 1e-9);
+
+    constexpr double kCrossover = 278.2;
+    const std::vector<SushiDSP::room::ModalSolver::Mode> bare_modes =
+        SushiDSP::room::ModalSolver::enumerate(bare, kCrossover);
+    const std::vector<SushiDSP::room::ModalSolver::Mode> furnished_modes =
+        SushiDSP::room::ModalSolver::enumerate(furnished, kCrossover);
+    ASSERT_EQ(furnished_modes.size(), bare_modes.size());
+    const auto design = design_of(furnished, kCrossover);
+    ASSERT_EQ(design->count, furnished_modes.size());
+
+    bool below_low_band = false;
+    bool between_bands = false;
+    bool above_high_band = false;
+    for (std::size_t index = 0; index < bare_modes.size(); ++index)
+    {
+        const double frequency = bare_modes[index].frequency_hz;
+        below_low_band = below_low_band || frequency < 125.0;
+        between_bands = between_bands || (frequency > 125.0 && frequency < 250.0);
+        above_high_band = above_high_band || frequency > 250.0;
+
+        // A decay of T seconds is delta = 3 ln(10) / T nepers per second.
+        const double bare_delta = kDecayNepers / bare_modes[index].decay_seconds;
+        const double furnished_delta = kDecayNepers / furnished_modes[index].decay_seconds;
+        const double expected =
+            0.5 * SushiDSP::room::kSpeedOfSound * furnishing_coefficient_at(furnished, frequency);
+        EXPECT_GT(expected, 0.0) << "mode " << index;
+        EXPECT_NEAR(furnished_delta - bare_delta, expected, 1e-9 * expected) << "mode " << index;
+
+        // The pole radius r = 10^(-3 / (T fs)) gives r^2 = exp(-2 delta / fs).
+        const double designed_delta = -0.5 * kSampleRate * std::log(design->modes[index].section[4]);
+        EXPECT_NEAR(designed_delta, furnished_delta, 1e-9 * furnished_delta) << "mode " << index;
+    }
+    EXPECT_TRUE(below_low_band);
+    EXPECT_TRUE(between_bands);
+    EXPECT_TRUE(above_high_band);
 }

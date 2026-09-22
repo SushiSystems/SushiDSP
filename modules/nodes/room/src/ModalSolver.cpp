@@ -37,6 +37,7 @@
 
 #include "SushiDSP/room/BandResponse.hpp"
 #include "SushiDSP/room/DiffuseField.hpp"
+#include "SushiDSP/room/MediumAbsorption.hpp"
 
 namespace SushiDSP::room
 {
@@ -106,8 +107,18 @@ namespace SushiDSP::room
             return rows;
         }
 
-        /// @brief Interpolates one face's row in log frequency to frequency_hz, held flat outside
-        /// the two anchoring bands.
+        /// @brief Holds the furnishings' energy attenuation per metre at kLowBand and kHighBand.
+        using FurnishingRow = std::array<double, 2>;
+
+        /// @brief Returns the furnishings' energy attenuation per metre at the two low bands.
+        FurnishingRow furnishing_row(const MediumAbsorption& medium) noexcept
+        {
+            return { medium.furnishing_coefficient_per_metre(kLowBand),
+                     medium.furnishing_coefficient_per_metre(kHighBand) };
+        }
+
+        /// @brief Interpolates one row of two band values in log frequency to frequency_hz, held
+        /// flat outside the two anchoring bands.
         double face_absorption_at(const std::array<double, 2>& row, double frequency_hz) noexcept
         {
             const double low = kBandCentresHz[kLowBand];
@@ -119,8 +130,9 @@ namespace SushiDSP::room
 
         /// @brief Returns the amplitude decay constant delta = (c / 16 V) sum over axes of
         /// epsilon_i (alpha_-i + alpha_+i) A_i with epsilon_i = 1 for a zero index and 2
-        /// otherwise, in nepers per second. Spec §9a.2.
+        /// otherwise, plus c m_f / 2 for the furnishings, in nepers per second. Spec §9a.2.
         double damping_constant(const RoomScene& scene, const FaceRows& rows,
+                                const FurnishingRow& furnishing,
                                 const ModalSolver::Mode& mode) noexcept
         {
             const std::array<std::uint32_t, 3> indices = indices_of(mode);
@@ -136,7 +148,10 @@ namespace SushiDSP::room
                                          mode.frequency_hz);
                 weighted_area += epsilon * absorption * scene.face_area_m2(low_face);
             }
-            return kSpeedOfSound * weighted_area / (16.0 * scene.volume_m3());
+            const double furnishing_coefficient =
+                face_absorption_at(furnishing, mode.frequency_hz);
+            return kSpeedOfSound * weighted_area / (16.0 * scene.volume_m3())
+                + 0.5 * kSpeedOfSound * furnishing_coefficient;
         }
 
         /// @brief Returns the volume mean of psi squared: one half per non-zero index.
@@ -235,6 +250,7 @@ namespace SushiDSP::room
     {
         const Lengths lengths = lengths_of(scene);
         const FaceRows rows = face_rows(scene);
+        const FurnishingRow furnishing = furnishing_row(MediumAbsorption(scene));
         std::vector<Mode> modes;
         modes.reserve(static_cast<std::size_t>(std::max(0.0, estimated_count(scene, max_frequency_hz)))
                       + 16u);
@@ -263,7 +279,7 @@ namespace SushiDSP::room
                         break;
                     }
                     Mode mode{ nx, ny, nz, frequency, 0.0 };
-                    mode.decay_seconds = kDecayNepers / damping_constant(scene, rows, mode);
+                    mode.decay_seconds = kDecayNepers / damping_constant(scene, rows, furnishing, mode);
                     modes.push_back(mode);
                 }
             }
