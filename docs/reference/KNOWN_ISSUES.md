@@ -47,6 +47,17 @@ decision the maintainer owns: dropping this model to 4x, which halves the cost a
 floor the entry above measures, or a cheaper triode solve. Measured by `sushidsp_bench`
 (`tests/benchmark/main.cpp`), which times each amplifier node.
 
+## Removing a track can double one block of audio
+
+`SessionTimeline::remove_track` republishes lanes *index* through *n-1* one at a time, each
+through its own `RtSwapSlot`, so the removal is not atomic across lanes. A callback that lands
+between two of those publishes renders one block in which lane 3 already holds lane 4's clips
+while lane 4 still holds its own, and that block carries the same clip twice. Nothing on the
+audio thread allocates, locks or throws, and no memory is raced; what the seam costs is one
+block, 5.33 ms at 48 kHz and a 256-frame buffer. What closes it is a generation counter the
+callback reads once per block, or refusing the removal while the transport runs; both are the
+maintainer's call, and neither is worth doing before the removal is something people use.
+
 ## Mesa Mark IIC+ has no clean setting
 
 The dossier's §2 places an EFFECTS SEND / RETURN network between V2A's plate and V2B's grid,
@@ -144,6 +155,39 @@ second drop of the same file cost 0 ms against the first drop's 3128 ms, and wha
 session find its clip again, so it is kept rather than made optional. Closes when the cache
 carries a size cap and evicts by last use.
 
+## The room over-predicts decay against a measured room by 1.1 to 1.8x
+
+`tests/functional/unit/test_room_motus.cpp` builds the Motus room, 4.9 x 4.4 x 2.9 m of concrete
+and 61.13 m3 (Zenodo 4923187), from the module's own material rows and compares its T30 against
+the measured figures in `tests/fixtures/motus_reference.csv`. Empty, the model reads 3.123, 3.856,
+3.180, 3.429, 3.410 and 2.080 s from 125 Hz to 4 kHz where the room measures 2.572, 2.147, 2.009,
+2.119, 1.958 and 1.508 s, a ratio of 1.214, 1.796, 1.583, 1.618, 1.741 and 1.380. With a carpet
+down the ratios read 1.105, 1.689, 1.644, 1.461, 1.224 and 0.975, and the carpet's own reduction
+comes out larger in the model than in the room: 39.2 % against 32.6 % at 1 kHz, 58.2 % against
+40.4 % at 2 kHz, 53.2 % against 33.8 % at 4 kHz. The direction is what a tabulated coefficient
+predicts. A published table is an idealisation of one mounting in one chamber, and a real room
+also carries fixtures, cable trays, door and window seams, leakage and edge diffraction that six
+octave numbers per surface do not hold; the empty concrete bedroom of Pettersson et al. reads its
+absorption 1.5 to 2 times the tabulated figure the same way. The test bounds the model at twice
+the measurement and prints the rest, so the disagreement is recorded rather than tuned away.
+Closes on the maintainer's decision about a floor of absorption or a correction term
+(`docs/design/ROOM_FURNISHINGS.md` section 11), which changes every decay the module reports and
+so waits on more reference rooms than this one.
+
+## Four furnishing and covering rows carry no measurement of their own
+
+`docs/agent/2026_09_22_ROOM_FURNISHINGS/REPORT.md`'s "What was not found" records that no ISO 354
+or JIS A 1409 test of a household desk, a double bed with its bedding, a filled bookcase or a
+flat-woven kilim on a hard floor could be sourced. `Furniture.cpp`'s desk row is therefore the
+Korean apartment study's 0.0131 m2 per m3 taken at 30 m3, 0.4 m2 flat across the bands, and its
+bookcase row is EN 12354-6 formula 4 on an assumed 0.8 x 0.3 x 1.8 m volume, 0.57 m2 flat; the
+double bed is the one measured single bed without bedding scaled by the mattress perimeter ratio
+1.22; and a rug enters a scene as `ThinCarpetOnConcrete`, a fitted woven carpet row standing in
+for a kilim and probably an upper bound. Each row's citation names its kind, so nothing is
+presented as measured that is not, and the room-level cross-check in the same report puts the sum
+inside the 0.16 to 0.35 m2 per m3 the furnished-room studies measure. Closes when a per-object
+measurement of each is published or made.
+
 ## No measured HRTF set ships, so front and back sound alike
 
 `assets/hrtf/sadie2_ku100_48k.hrtf` is not in the repository, and `tools/dsp/convert_hrtf.py`
@@ -159,15 +203,14 @@ file and print the path they looked at: `RoomNodeDecoderMagnitudeMatchesTheMeasu
 Closes when a set with an Apache-2.0-compatible licence is converted into the tree;
 `assets/hrtf/README.md` states the layout and the licence bar.
 
-## Eight of the spec's fourteen material rows are not transcribed
+## Four of the spec's fourteen material rows are not transcribed
 
-`Materials.hpp` ships six rows — unpainted concrete, painted concrete block, gypsum board on
-studs, heavy carpet on concrete, a glass window and the open doorway — against the fourteen §4.2
-lists. A user whose garage has a wooden door, a plasterboard ceiling or a curtain picks the
-nearest of the six, and the room's decay is wrong by the difference between the two rows, which
-across §4.2's table reaches 0.4 in absorption at 500 Hz. Nothing is skipped; the code takes any
-row the table holds. Closes by transcribing the other eight from the same source with a citation
-each, which is data and no code.
+`Materials.hpp` ships fifteen rows, nine of them added on 2026-09-22, and §4.2's brick, acoustic
+foam, steel garage door and carpet on underlay are not among them. A user whose garage has a
+steel door or a foam panel picks the nearest row instead, and the room's decay is wrong by the
+difference between the two, which across §4.2's table reaches 0.4 in absorption at 500 Hz.
+Nothing is skipped; the code takes any row the table holds. Closes by transcribing the other four
+from the same source with a citation each, which is data and no code.
 
 ## The SM57 preset has no measured curve
 
@@ -257,14 +300,6 @@ and rebuilds over the next RT60. A drag inside the room panel goes through
 node. Closes when a rebuild
 carries surviving nodes across instead of reconstructing them, which is a `RigController` change
 and touches no module.
-
-## The room panel cannot edit a patch
-
-`RoomScene` carries up to `kMaxPatches` rectangular patches, each overriding one surface's
-material over a rectangle, and `RigController` writes them into the preset and reads them back.
-Nothing in `apps/host_gui/ui/RoomPanel.cpp` draws or edits one, so a user gets patches only by
-hand-editing the preset's JSON. The absorption arithmetic behind them is tested; the way in is
-missing. Closes when the panel grows a patch list beside the per-surface material picker.
 
 ## The HRTF converter counts every measured direction equally
 

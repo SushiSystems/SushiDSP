@@ -1,6 +1,6 @@
 # Remaining work
 
-**Status:** open, last revised 2026-09-20.
+**Status:** open, last revised 2026-09-22.
 
 The single backlog. An entry here names work that is not started or not finished; a defect that
 is measured, understood and deliberately left alone lives in
@@ -39,8 +39,12 @@ starts on that without the verdict.
   stepping the filter on the network's stored energy.
 - **Give `BandResponseFit` an analytic Jacobian.** It stops at its eight-step cap on about 60 %
   of fits and costs 4.33 ms for 150 fits, against the 30 Hz republish budget.
-- **Draw patches in `RoomPanel`.** The garage reference scene is the one every room measurement
-  in the spec is quoted against, and it cannot be built from the user interface.
+- **Decide whether the absorption rows need a floor.** Against the Motus room the module's decay
+  runs 1.10 to 1.80 times the measured one, empty and with a carpet, and a floor of about 0.015
+  to 0.02 per unit of surface would close it (`docs/design/ROOM_FURNISHINGS.md` section 11). The
+  constant moves every decay the module reports, and one measured room is thin evidence for that,
+  so it is the maintainer's decision and it wants a second reference room first. The figures are
+  in KNOWN_ISSUES.
 - **Rebuild the room's spec section 6.2.** Its line-allocation sentence sizes the delay lines for
   an RT60 of 3 s, and `FdnDesign::kMaxLineSeconds` is the 0.525 s that follows from it, while
   `RoomScene::kMaxDecaySeconds` admits scenes up to 12 s. The lines do not lengthen with the
@@ -101,7 +105,7 @@ starts on that without the verdict.
   JCM800's, borrowed whole.
 - **Close the alias floor.** The maintainer's call between 16×, a band limit between the stages,
   or a higher-order antiderivative; part 4's measurements for all three are in KNOWN_ISSUES.
-- **Transcribe the remaining eight material rows**, and measure the SM57's curve.
+- **Transcribe the remaining four material rows**, and measure the SM57's curve.
 - **Give `sd test` a test filter.** Without one, `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`
   rewrites all twelve golden files, so re-pinning one node means overwriting the JCM800 anchor's and
   restoring it by hand afterwards (`tests/golden/README.md`).

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- 2026-09-22 — tools: Added the Motus reference tool, its figures and the test comparing them against the module (`tools/dsp/motus_reference.py`, `tests/fixtures/motus_reference.csv`, `tests/functional/unit/test_room_motus.cpp`).
+- 2026-09-22 — host: Gave the room panel a furnishing list and a patch editor under Shell, Finishes and Furnishings (`apps/host_gui/ui/RoomPanel.cpp`, `ui/FurnishingList.cpp`, `ui/PatchList.cpp`).
+- 2026-09-22 — room: Loaded `starter_scene()` into a fresh room slot in place of the bare reference room (`StarterScene.cpp`, `RoomNode.cpp`, `apps/host_gui/SlotGraph.cpp`).
+- 2026-09-22 — room: Added nine material rows: painted plaster, tile, parquet, a wood panel, two windows, a wooden door, thin carpet and two curtains (`Materials.cpp`).
+- 2026-09-22 — room: Bounded a scene's furnishings and its patches in the validator, furniture counting against the 12 s decay gate (`RoomScene.cpp`).
+- 2026-09-22 — room: Fed the air's coefficient and the furnishings' through one seam into the decay, the reflected taps and the modes (`MediumAbsorption.cpp`, `EyringDecay.cpp`, `ImageSourceSolver.cpp`, `ModalSolver.cpp`).
+- 2026-09-22 — room: Made a curtain and a rug material rows a scene carries as patches instead of furniture rows (`Materials.cpp`, `Furniture.cpp`).
+- 2026-09-22 — room: Added the furniture table, an equivalent absorption area per item and octave band with a citation per row (`Furniture.hpp`, `Furniture.cpp`, `RoomScene.cpp`).
+- 2026-09-22 — host: Kept the main path and copied it into every path a chain change opens (`apps/host_gui/RigTopology.cpp`, `TopologyApplier.cpp`).
+- 2026-09-22 — host: Gave the timeline tracks that can be added, removed and coloured (`apps/host_gui/SessionTimeline.cpp`, `ui/ArrangementView.cpp`).
+- 2026-09-22 — host: Stopped the transport bar's meters drawing over the buttons and past the window's edge (`apps/host_gui/ui/MeterBar.cpp`, `ui/TransportBar.cpp`).
+- 2026-09-22 — host: Sized the gear browser's view toggle to its captions and centred every tab's label (`apps/host_gui/ui/GearBrowser.cpp`).
+- 2026-09-22 — host: Fixed the workspace panes, replacing their drag handles with a plain seam (`apps/host_gui/ui/Divider.cpp`, `main.cpp`).
 - 2026-09-22 — tests: Timed the three amplifier nodes the benchmark had never covered (`tests/benchmark/main.cpp`).
 - 2026-09-22 — docs: Wrote the standalone host's README, which the backlog had been asking for (`apps/host_gui/README.md`).
 - 2026-09-22 — cli: Added `sd setup`, which provisions this checkout through `hub install` in a workspace and from its own fragment outside one (`cli/sushidsp/services/setup.py`).
