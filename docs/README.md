@@ -8,6 +8,7 @@ The manual index. Start at the root [README.md](../README.md) for a general over
 - **[Design spec](design/SUSHIDSP.md)**: Architecture, circuit equations, SOLID boundaries, and the roadmap.
 - **[Architecture](architecture/README.md)**: Current system layer layout and module boundaries.
 - **[GUI/UX redesign](design/GUI_UX_REDESIGN.md)**: Main window layout, rig routing view, and gear browser grid.
+- **[Room furnishings](design/ROOM_FURNISHINGS.md)**: Furniture as equivalent absorption in the room module, the layered room and how it is checked against measured rooms.
 - **[Contributing](CONTRIBUTING.md)**: Engineering conventions: C++17, Allman braces, headers, and test requirements.
 - **[Documentation style guide](DOCUMENTATION_STYLE_GUIDE.md)**: Documentation standards, layout, and document structure.
 - **[Command line interface](guides/COMMAND_LINE_INTERFACE.md)**: Developer CLI (`sd`) subcommands, compilers, and presets.

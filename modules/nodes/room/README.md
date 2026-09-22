@@ -21,6 +21,9 @@ knowingly left open.
 | --- | --- |
 | The shoebox, its six materials, patches, and the source, listener and microphone poses | `RoomScene` |
 | Six-band absorption per material, with a citation per row | `Materials.hpp` |
+| Six-band equivalent absorption area per item of furniture, with a citation per row | `Furniture.hpp` |
+| The room's volumetric loss per metre: the air's ISO 9613-1 figure plus the furnishings', the one seam `EyringDecay`, `ImageSourceSolver` and `ModalSolver` all read | `MediumAbsorption` |
+| The room a fresh room slot loads | `StarterScene` |
 | Six band gains and the arithmetic on them | `BandResponse` |
 | A six-band target fitted to two biquads, minimum phase | `BandResponseFit` |
 | ISO 9613-1 air attenuation over a path length | `AirAbsorption` |
@@ -71,22 +74,85 @@ the bound reaches the scene as a floor on the mean absorption that the scene com
 `min_mean_absorption()` returns 1 - exp(-0.161 V / (S * kMaxDecaySeconds)), Eyring inverted for
 alpha with the air term dropped. All six bands are checked against it, because a bare concrete
 box is dead at 4 kHz and enormous at 125 Hz. Dropping the air term makes the gate refuse a little
-more than Eyring's own figure would: the default scene reads 1.32 s at 500 Hz against Eyring's
+more than Eyring's own figure would: `RoomScene{}` reads 1.32 s at 500 Hz against Eyring's
 1.29 s.
 
 The floor rises with V / S, so the same material passes in one room and fails in another. Bare
 unpainted concrete, alpha = 0.01 at 125 Hz, passes at 6.0 x 4.0 x 2.5 m, at 9.81 s, and fails as
 a cube past an edge of 4.495 m. The block room is the tightest of the rooms in the tree, at 15.9 %
-of the bound; the default scene sits at 11.0 %. `RoomSceneAcceptsEveryReferenceRoom` and
+of the bound; `RoomScene{}` sits at 11.0 %. `RoomSceneAcceptsEveryReferenceRoom` and
 `RoomSceneRefusesARoomThatRingsPastTheModulesDecay` walk them.
 
-The default scene is that 6.0 x 4.0 x 2.5 m box with gypsum board on studs on the four walls and
-the ceiling and heavy carpet on the floor, and no patch. It is what a fresh room slot and a
-preset with no `"room"` object both load, so it is the room a musician hears first; spec §4.1
-carries why it is furnished rather than bare and why it carries no doorway.
+`RoomScene{}` is that 6.0 x 4.0 x 2.5 m box with gypsum board on studs on the four walls and
+the ceiling and heavy carpet on the floor, no patch and no furnishing. It is the bare reference
+room the tests and the figures above pin; spec §4.1 carries why it is furnished rather than bare
+and why it carries no doorway. What a fresh room slot and a preset with no `"room"` object load
+is `starter_scene()`, the next section.
 
 The panel prints the reason `is_valid` writes, so a refused drag says which band, which value and
 which floor without any change to `RoomPanel` or `RigController`.
+
+## Furniture, coverings and the starter scene
+
+A furniture row is an equivalent absorption area per item, in square metres per octave band, not
+a geometry: the increase in the room's equivalent absorption area one bed, one wardrobe module or
+one chair brings, the floor and the walls under it included (ISO 354 object absorption, ISO
+20189). `Furniture.hpp` carries seven rows, each with its citation, and
+`RoomScene::furnishing_absorption_area()` sums quantity times area over the scene's live
+furnishings. `docs/design/ROOM_FURNISHINGS.md` section 6 says which rows are measured, which are
+tabulated and which are derived.
+
+A covering is not a furniture row. A curtain over a window or a rug on a floor replaces the
+absorption of the surface under it, so both are `Materials` rows that enter a scene as a `Patch`,
+which takes its area out of its face. Counting a curtain as an area added on top of the untouched
+window would count the glass twice: 49 % too much absorption at 500 Hz for 3 m2 of heavy velour
+over a glass window (design section 3).
+
+`MediumAbsorption` is the one seam the three layers read. It returns the air's ISO 9613-1
+coefficient plus `A_f(f) / 4V` for the furnishings, per metre and per band, and `EyringDecay`,
+`ImageSourceSolver` and `ModalSolver` each take their loss from it, so a furnished scene's tail,
+its early reflections and its standing waves stay in level agreement instead of stepping at the
+seam. `ImageSourceSolver` folds it on reflected taps only: the `(0, 0, 0)` image is a clear line
+of sight, and furniture absorbs what reflects off it rather than thinning a path nothing crosses.
+
+`RoomScene::is_valid` refuses a furnishing that names no row, a non-positive or non-finite
+quantity and more than `kMaxFurnishings`, 16, entries, and it counts the furniture against the
+12 s decay bound: each band's surface absorption `a_s` is raised to
+`1 - (1 - a_s) * exp(-A_f / S)` before the floor of `min_mean_absorption()` is applied. That form
+is the exact algebraic inversion of adding `A_f` to Eyring's denominator, not a linearisation, so
+the gate and the decay the node then reports cannot disagree. Patches are bounded the same way:
+`kMaxPatches`, 8, per scene, each area positive, finite and inside its own face, and the patches
+sharing one face may not together exceed that face's area.
+
+`starter_scene()` is what a fresh room slot and a preset with no `"room"` object load: 6.0 x 4.0
+x 2.6 m, painted plaster on five faces and parquet on the floor, a 4 m2 heavy velour curtain, a
+12 m2 rug and a 1.9 m2 wooden door as patches, and a double bed, a desk, three wardrobe modules
+and a chair as furnishings, with no sofa.
+
+### Measured against the Motus room
+
+One real room is checked in: 4.9 x 4.4 x 2.9 m of concrete, 61.13 m3, from the Motus dataset
+(Zenodo 4923187). `tools/dsp/motus_reference.py` computes T20, T30, EDT, DRR and C50 per octave
+from three of its ambisonic impulse responses into `tests/fixtures/motus_reference.csv`, whose
+method and provenance are in `tests/fixtures/motus_reference.README.md`;
+`tests/functional/unit/test_room_motus.cpp` builds the same scenes here and prints both figures.
+The empty room (measurement 0001) and the room with a carpet (0002):
+
+| Band | Measured T30, empty | Model, empty | Ratio | Measured T30, carpet | Model, carpet | Ratio |
+| --- | --- | --- | --- | --- | --- | --- |
+| 125 Hz | 2.572 s | 3.123 s | 1.214 | 2.704 s | 2.989 s | 1.105 |
+| 250 Hz | 2.147 s | 3.856 s | 1.796 | 2.057 s | 3.473 s | 1.689 |
+| 500 Hz | 2.009 s | 3.180 s | 1.583 | 1.635 s | 2.688 s | 1.644 |
+| 1 kHz | 2.119 s | 3.429 s | 1.618 | 1.428 s | 2.087 s | 1.461 |
+| 2 kHz | 1.958 s | 3.410 s | 1.741 | 1.166 s | 1.427 s | 1.224 |
+| 4 kHz | 1.508 s | 2.080 s | 1.380 | 0.998 s | 0.973 s | 0.975 |
+
+The module decays 1.10 to 1.80 times longer than the room does, worst at 250 Hz. The carpet
+shortens both, and the model's reduction is the larger one: 39.2 % against 32.6 % at 1 kHz,
+58.2 % against 40.4 % at 2 kHz, 53.2 % against 33.8 % at 4 kHz. Whether a floor of absorption
+belongs under the tabulated coefficients is open and is the maintainer's;
+[`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) carries the entry and
+`docs/design/ROOM_FURNISHINGS.md` section 11 the decision.
 
 ## Which thread runs what
 
@@ -314,7 +380,7 @@ bedroom and the block room hand over at 37.98 and 39.35 ms against their own t_c
 `LateReverbDesignDelaysTheTailToTheHandoverTime` walks all three and holds the onset within 8
 frames of t_c. A compensated ears set moves the tail's read delay earlier with everything else,
 but the shortest line is latency the design cannot give back, so the delay floors at zero and
-the ears' tail sits up to the propagation delay late, 363 frames for the default scene.
+the ears' tail sits up to the propagation delay late, 363 frames for `RoomScene{}`.
 
 Measured at the microphone, energy-averaged over six poses per room, 65536 frames each: the
 octave under f_s reads +0.5, +0.9 and +0.8 dB against the modal design's own power at those poses
@@ -452,7 +518,7 @@ every reflection by the same but floored at one frame, the tail's delay to t_c b
 floored at zero. The direct sound then lands at the alignment delay, 128 frames, and the
 reflections and the tail keep their spacing to it; `latency_samples()` reports 128. Physical
 leaves the set as solved and reports 128 plus the propagation delay: 408 for the dead room's 2 m,
-491 for the default scene's 2.596 m, the 363 frames the plan's 280 assumed a 2 m scene for
+491 for `RoomScene{}`'s 2.596 m, the 363 frames the plan's 280 assumed a 2 m scene for
 (`RoomNodeDefaultsDirectDelayToCompensated`). `RoomNodeDirectOnsetMovesWithTheDirectDelayChoice`
 sees the direct onset and the floor image's onset both move by 280. The choice is an ears
 choice: the microphone renders at physical timing with no partition in its path and reports 0,
@@ -513,10 +579,13 @@ fallback at the next `prepare()`.
   The ceiling image of the reference garage, 53 degrees above the baffle's axis, comes out of
   that fit with a group delay that puts its rendered peak one frame after its arrival, which is
   why `RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid` measures placement with a 1 cm piston.
-- **Six materials.** `Materials.hpp` ships unpainted concrete, painted concrete block, gypsum
-  board on studs, heavy carpet on concrete, a glass window and the open doorway, each as six
-  octave-band absorption coefficients with a zero-phase reflection factor. Spec §4.2 lists
-  fourteen; the other eight are rows to add, not code.
+- **Fifteen materials.** `Materials.hpp` ships unpainted concrete, painted concrete block, gypsum
+  board on studs, heavy carpet on concrete, thin carpet on concrete, painted plaster on masonry,
+  ceramic tile, parquet on concrete, a wood panel, a glass window, a double-glazed window, a
+  wooden door, a heavy velour curtain, a light curtain and the open doorway, each as six
+  octave-band absorption coefficients with a zero-phase reflection factor. Of spec §4.2's
+  fourteen, brick, acoustic foam, a steel garage door and carpet on underlay are still rows to
+  add, not code.
 - **The microphone reads the standing waves as pressure.** A microphone set's modal ear gains
   are psi at the capsule, whatever its pattern. A gradient capsule in a standing wave also
   reads the pressure gradient, a term in quadrature whose size against the pressure term is
@@ -543,13 +612,16 @@ fallback at the next `prepare()`.
 
 ## What the phase left open
 
-Eleven entries in [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) belong to
-this module, each with its figure and its exit: no measured HRTF set ships, so front and back
-sound alike; eight of the spec's fourteen material rows are untranscribed; the SM57 preset has no
+Twelve entries in [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) belong to
+this module, each with its figure and its exit: the module decays 1.10 to 1.80 times longer than
+the measured Motus room, and no absorption floor is decided; the bed, desk, bookcase and kilim
+rows rest on a derivation or an analogue, since no measurement of them was found; no measured
+HRTF set ships, so front and back sound alike; four of the spec's fourteen material rows are
+untranscribed; the SM57 preset has no
 measured curve; modal damping at a gypsum boundary is about 30 % wrong; the FDN's own modes below
 f_s are crossed out rather than corrected; the raw octave step at the seam is recorded and not
 bounded; `BandResponseFit` stops at eight steps on about three fits in five; a structural rig edit
-rebuilds the node and empties its tail; the room panel cannot edit a patch; a compensated ears
+rebuilds the node and empties its tail; a compensated ears
 set's tail floors at zero delay and lands 7.6 ms after its direct sound; and nothing between the
 node and the device bounds the output, which the decay gate narrows rather than closes. Two more,
 the
