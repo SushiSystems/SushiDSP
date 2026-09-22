@@ -290,7 +290,7 @@ int main(int argc, char** argv)
 
     // Pane sizes the dividers drag; each is re-fitted to the window every frame.
     float bottom_bar_height = 96.0f;
-    float settings_height = 230.0f;
+    float settings_height = 430.0f;
     float gear_width = 300.0f;
 
     // Sized once by the first Explorer drop and reused, so a drop costs no allocation after it.
@@ -606,11 +606,15 @@ int main(int argc, char** argv)
         const ImVec2 kNoSpacing(0.0f, 0.0f);
         const float top_bar_height = 40.0f;
         const float divider_thickness = 14.0f;
+
+        // A seam between panes that do not resize carries no grab handle, so it needs only
+        // enough room for its hairline; at the grab strip's 14 px it read as a black band.
+        const float seam_thickness = 5.0f;
         const ui::DividerLimits bottom_limits{ 72.0f, 200.0f };
         const ui::DividerLimits settings_limits{ 120.0f, 140.0f };
         const ui::DividerLimits gear_limits{ 220.0f, 360.0f };
 
-        const float vertical_available = std::max(height - top_bar_height - divider_thickness, 0.0f);
+        const float vertical_available = std::max(height - top_bar_height - seam_thickness, 0.0f);
         bottom_bar_height = ui::fit_pane_size(bottom_bar_height, vertical_available, bottom_limits);
         const float workspace_height = std::max(vertical_available - bottom_bar_height, 0.0f);
 
@@ -656,7 +660,7 @@ int main(int argc, char** argv)
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, kNoSpacing);
             ImGui::Begin("##workspace", nullptr, kRegionFlags | kFrameFlags);
 
-            const float horizontal_available = std::max(width - divider_thickness, 0.0f);
+            const float horizontal_available = std::max(width - seam_thickness, 0.0f);
             gear_width = ui::fit_pane_size(gear_width, horizontal_available, gear_limits);
             const float left_width = std::max(horizontal_available - gear_width, 0.0f);
             const float column_available = std::max(workspace_height - divider_thickness, 0.0f);
@@ -719,8 +723,7 @@ int main(int argc, char** argv)
             ImGui::EndChild();
 
             ImGui::SameLine();
-            ui::DrawDivider("##gear_divider", ui::DividerAxis::Vertical, gear_width,
-                            horizontal_available, gear_limits, true);
+            ui::DrawPaneSeparator(ui::DividerAxis::Vertical, seam_thickness);
             ImGui::SameLine();
 
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, pane_padding);
@@ -736,11 +739,10 @@ int main(int argc, char** argv)
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, kNoSpacing);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, kNoSpacing);
         ImGui::SetNextWindowPos(ImVec2(0.0f, top_bar_height + workspace_height));
-        ImGui::SetNextWindowSize(ImVec2(width, divider_thickness));
+        ImGui::SetNextWindowSize(ImVec2(width, seam_thickness));
         ImGui::Begin("##bottom_divider", nullptr,
                      kRegionFlags | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        ui::DrawDivider("##bottom_divider_strip", ui::DividerAxis::Horizontal, bottom_bar_height,
-                        vertical_available, bottom_limits, true);
+        ui::DrawPaneSeparator(ui::DividerAxis::Horizontal, seam_thickness);
         ImGui::End();
         ImGui::PopStyleVar(2);
 

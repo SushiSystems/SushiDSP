@@ -49,4 +49,11 @@ namespace ui
     /// @return True when the drag changed size this frame.
     bool DrawDivider(const char* id, DividerAxis axis, float& size, float available,
                      DividerLimits limits, bool invert);
+
+    /// @brief Draws the boundary between two panes that do not resize: a hairline down the
+    /// middle of a strip, with no grab handle, so the seam does not invite a drag it will not
+    /// answer. Advances the cursor like a normal item.
+    /// @param axis Vertical for a strip between side-by-side panes, Horizontal for stacked panes.
+    /// @param thickness The strip's thickness across its cross axis, in pixels.
+    void DrawPaneSeparator(DividerAxis axis, float thickness);
 }
