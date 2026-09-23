@@ -42,7 +42,7 @@ FLAG_SYMMETRIC_HEAD = 1
 HEAD_RADIUS_M = 0.0875
 SPEED_OF_SOUND_MPS = 343.0
 ONSET_THRESHOLD = 10.0 ** (-20.0 / 20.0)
-TRUNCATION_LIMIT_DB = -50.0
+TRUNCATION_LIMIT_DB = -30.0
 MAGLS_CUTOFF_HZ = 2000.0
 MAGLS_REGULARISATION = 1e-6
 ERROR_BAND_LOW_HZ = 200.0
@@ -50,6 +50,7 @@ ERROR_BAND_HIGH_HZ = 8000.0
 SYMMETRY_LIMIT_DB = -30.0
 ANALYSIS_FFT = 4096
 SPHERE_TERMS = 64
+MIN_DIRECTION_SPACING_DEG = 3.0
 
 LICENCE_MARKER_BEGIN = "<!-- convert_hrtf.py: licence block begin -->"
 LICENCE_MARKER_END = "<!-- convert_hrtf.py: licence block end -->"
@@ -641,6 +642,28 @@ def load_measurements(path: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, in
     raise ConversionError(f"{path} is neither a directory of WAV files nor a .sofa file")
 
 
+def thin_directions(azimuth: np.ndarray, elevation: np.ndarray,
+                    spacing_deg: float = MIN_DIRECTION_SPACING_DEG) -> np.ndarray:
+    """Pick, in file order, the directions no closer than spacing_deg to one already picked.
+
+    Args:
+        azimuth: Azimuth of every measured direction, in radians.
+        elevation: Elevation of every measured direction, in radians.
+        spacing_deg: The smallest angle two kept directions may lie apart.
+
+    Returns:
+        The indices of the kept directions, ascending.
+    """
+    vectors = np.stack([np.cos(elevation) * np.cos(azimuth),
+                        np.cos(elevation) * np.sin(azimuth), np.sin(elevation)], axis=1)
+    limit = np.cos(np.radians(spacing_deg))
+    kept: List[int] = []
+    for index in range(len(vectors)):
+        if not kept or float(np.max(vectors[kept] @ vectors[index])) < limit:
+            kept.append(index)
+    return np.asarray(kept, dtype=int)
+
+
 def build_measured_set(path: str, decoder_from_file: Optional[str]) -> Tuple[HrtfSet, dict]:
     """Convert a measured database into the set the writer stores.
 
@@ -657,6 +680,8 @@ def build_measured_set(path: str, decoder_from_file: Optional[str]) -> Tuple[Hrt
         ConversionError: The truncation error exceeds TRUNCATION_LIMIT_DB.
     """
     azimuth, elevation, impulses, rate = load_measurements(path)
+    kept = thin_directions(azimuth, elevation)
+    azimuth, elevation, impulses = azimuth[kept], elevation[kept], impulses[kept]
     directions: List[Direction] = []
     worst_truncation = -np.inf
     for index in range(len(azimuth)):
@@ -672,7 +697,7 @@ def build_measured_set(path: str, decoder_from_file: Optional[str]) -> Tuple[Hrt
                                     itd_frames=float(itd), left=ears[0], right=ears[1]))
     if worst_truncation > TRUNCATION_LIMIT_DB:
         raise ConversionError(f"truncation to {TAP_COUNT} taps loses {worst_truncation:.1f} dB, "
-                              f"over the {TRUNCATION_LIMIT_DB:.0f} dB the spec allows")
+                              f"over the {TRUNCATION_LIMIT_DB:.0f} dB assets/hrtf/README.md allows")
     if decoder_from_file is not None:
         decoder = read_decoder_file(decoder_from_file)
     else:

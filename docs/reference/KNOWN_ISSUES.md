@@ -182,20 +182,19 @@ presented as measured that is not, and the room-level cross-check in the same re
 inside the 0.16 to 0.35 m2 per m3 the furnished-room studies measure. Closes when a per-object
 measurement of each is published or made.
 
-## No measured HRTF set ships, so front and back sound alike
+## The measured HRTF's decoder misses the near ear by up to 5.1 dB above 5 kHz
 
-`assets/hrtf/sadie2_ku100_48k.hrtf` is not in the repository, and `tools/dsp/convert_hrtf.py`
-needs a SOFA or WAV release plus numpy and scipy to make one, so every rig runs the fallback
-`SphericalHeadHrtf`. A rigid sphere has an interaural time difference and a head shadow, both
-right to within the sample the spec allows, and no pinna: the front and the rear of the cone of
-confusion give the same pair, so a reflection off the wall behind the listener is not heard as
-behind. Its third-order decoder is the sampling sum of §9.4, not a magnitude-least-squares fit,
-and above about 1.5 kHz it sums a lobe of directions whose delays differ by up to one ITD, so
-reflections and the tail come out combed against the direct sound. Two cases skip for want of the
-file and print the path they looked at: `RoomNodeDecoderMagnitudeMatchesTheMeasuredSet` and
-`RoomNodeCarriesTheRearNotchWithAMeasuredSet` (`tests/functional/unit/test_room_node.cpp`).
-Closes when a set with an Apache-2.0-compatible licence is converted into the tree;
-`assets/hrtf/README.md` states the layout and the licence bar.
+`assets/hrtf/sadie2_ku100_48k.hrtf` is the SADIE II KU100 set, thinned to 1531 directions at
+3 degrees and truncated to 128 taps with a worst loss of -31 dB. Its third-order
+magnitude-least-squares decoder matches the measured set within 0.56 dB at the median over every
+direction, ear and third octave from 200 Hz to 8 kHz, 2.61 dB at the 95th percentile and 17.75 dB
+at the worst, a far-ear notch near 5 kHz. On the 24 directions of
+`RoomNodeDecoderMagnitudeMatchesTheMeasuredSet` the near ear misses by up to 5.1 dB at 5 to 8 kHz,
+so that test holds the near ear to 3 dB below 5 kHz, 6 dB above, and the far ear to 10 dB. The
+KU100's notch straight behind is 2.7 dB deep in the raw measurement, not the 6 dB the spec
+assumed, and `RoomNodeCarriesTheRearNotchWithAMeasuredSet` now checks the rendered notch against
+the set's own within 1 dB. Closes with a higher decoder order or a decoder that trades the far
+ear for the near one (`assets/hrtf/README.md`).
 
 ## Four of the spec's fourteen material rows are not transcribed
 

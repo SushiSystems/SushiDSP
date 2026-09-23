@@ -51,6 +51,9 @@ namespace SushiDSP::room
         /// @brief Bounds how small a barycentric weight may be before it reads as zero.
         constexpr double kWeightEpsilon = 1.0e-6;
 
+        /// @brief Holds the cosine of the smallest angle two grid directions may lie apart, 1 degree.
+        const double kMinSpacingCosine = std::cos(1.0 * 3.14159265358979323846 / 180.0);
+
         /// @brief Returns the unit vector of a direction: x forward, y left, z up.
         Vector unit_vector(double azimuth_rad, double elevation_rad) noexcept
         {
@@ -229,6 +232,21 @@ namespace SushiDSP::room
         {
             vectors_.push_back(unit_vector(direction.azimuth_rad, direction.elevation_rad));
         }
+        // Near-coincident directions leave the hull build's plane tests degenerate.
+        for (std::size_t first = 0; first < vectors_.size(); ++first)
+        {
+            for (std::size_t second = first + 1; second < vectors_.size(); ++second)
+            {
+                const double cosine = vectors_[first][0] * vectors_[second][0]
+                    + vectors_[first][1] * vectors_[second][1]
+                    + vectors_[first][2] * vectors_[second][2];
+                if (cosine > kMinSpacingCosine)
+                {
+                    throw std::invalid_argument(
+                        "HrtfSet: two grid directions lie closer than 1 degree");
+                }
+            }
+        }
         build_triangles();
     }
 
@@ -253,6 +271,11 @@ namespace SushiDSP::room
             if (std::find(seed.begin(), seed.end(), index) == seed.end())
             {
                 add_point(vectors_, triangles_, index);
+                // A hull over n points on a sphere holds 2n - 4 faces; more means a degenerate build.
+                if (triangles_.size() > 2u * static_cast<std::size_t>(count))
+                {
+                    throw std::invalid_argument("HrtfSet: the grid's hull build degenerated");
+                }
             }
         }
         // Every face keeps the origin strictly behind it and every grid point is a vertex.

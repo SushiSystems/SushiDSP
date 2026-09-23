@@ -188,3 +188,20 @@ TEST(Unit_Dsp, HrtfSetKeepsItsDecoderAndDiffuseFilters)
     EXPECT_EQ(set.diffuse_field(1)[127], -0.5f);
     EXPECT_DOUBLE_EQ(set.sample_rate(), 48000.0);
 }
+
+TEST(Unit_Dsp, HrtfSetRefusesTwoDirectionsCloserThanOneDegree)
+{
+    const auto half_pi = static_cast<float>(kPi / 2.0);
+    const auto pi = static_cast<float>(kPi);
+    const auto close = static_cast<float>(0.5 * kPi / 180.0);
+    std::vector<SushiDSP::room::HrtfSet::Direction> directions = {
+        { 0.0f, 0.0f, 0.0f },  { half_pi, 0.0f, 0.0f },  { 0.0f, half_pi, 0.0f },
+        { pi, 0.0f, 0.0f },    { -half_pi, 0.0f, 0.0f }, { 0.0f, -half_pi, 0.0f },
+        { close, 0.0f, 0.0f }
+    };
+    const std::size_t taps = directions.size() * SushiDSP::room::HrtfSet::kTapCount;
+    EXPECT_THROW(SushiDSP::room::HrtfSet(48000.0, std::move(directions),
+                                         std::vector<float>(taps, 0.0f),
+                                         std::vector<float>(taps, 0.0f)),
+                 std::invalid_argument);
+}

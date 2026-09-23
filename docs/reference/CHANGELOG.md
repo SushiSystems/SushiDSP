@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-09-23 — room: Refused an HRTF grid with directions under 1 degree apart or a degenerating hull, instead of exhausting memory (`HrtfSet.cpp`).
+- 2026-09-23 — room: Shipped the SADIE II KU100 HRTF set, thinned to 1531 directions, and bounded its two tests by measurement (`sadie2_ku100_48k.hrtf`, `convert_hrtf.py`, `test_room_node.cpp`).
+- 2026-09-23 — host_gui: Started amplifier slots without a cabinet silently when no bundled IR is present (`main.cpp`, `apply_default_cabinet`).
 - 2026-09-23 — room: Added the built room's per-band surface loss, on in the starter scene, saved and toggled in the panel (`BuiltRoomLoss.hpp`, `RoomScene`, `RigPersistence.cpp`, `RoomPanel.cpp`).
 - 2026-09-23 — tools: Added the BRAS CR2 reference tool, its figures and the test comparing them against the module (`tools/dsp/bras_reference.py`, `tests/fixtures/bras_cr2_reference.csv`, `test_room_bras.cpp`).
 - 2026-09-23 — room: Delayed the dry side of `mix` to the ears' alignment frame, so it no longer runs ahead of the wet (`RoomNode.cpp`, `write_outputs`).
