@@ -1,5 +1,5 @@
 # Room Furnishings and Finishes
-**Status:** Open — phase 4 of 4, the absorption calibration decision pending
+**Status:** Open — phase 4 of 4, the low-band built-room loss unresolved
 
 The room module (`modules/nodes/room`) models a shoebox from six surface materials. It has no
 furniture, so the room a musician plays in, with a bed, a desk and a wardrobe, cannot be
@@ -155,7 +155,8 @@ lands.
 ## 7. Persistence and panel
 
 - `RigPersistence` writes `"furnishings": [{ "item": "bed", "quantity": 1 }]` in a room's JSON.
-  A preset without the field loads as no furnishings.
+  A preset without the field loads as no furnishings. It also writes `"built_room_loss": true`
+  or `false`; a room object without that field loads with the loss off.
 - Each row carries a `key` string. Preset words come from the table, so adding a material or a
   furniture row is one edit and the codec does not change. Today a new material needs three.
 - `RoomPanel` groups its controls under Shell, Finishes and Furnishings. Furnishings is a list:
@@ -218,19 +219,24 @@ section 11.
 | 1 | Furniture table, scene field, `MediumAbsorption`, the three consumers, tier 1 tests | Done |
 | 2 | Preset keys and `furnishings` JSON, the layered panel with its furnishing and patch lists | Done |
 | 3 | Coverings as materials, finish rows, `starter_scene()` as what a fresh slot loads | Done |
-| 4 | Tier 2 comparison against Motus, the module README and known issues | The tool, the fixture and the test are checked in and green; what they measure is not acted on |
+| 4 | Tier 2 comparison against Motus and BRAS CR2, the built room's loss, the module README and known issues | Done from 500 Hz up; below 500 Hz the two rooms disagree |
 
 ## 11. Open items
 
-- **The module decays longer than measured rooms.** The Motus empty room, measured 2.009 s at
-  500 Hz, comes out at 3.180 s from the rows, and the ratio runs 1.214 to 1.796 across the six
-  bands (section 8). An empty concrete bedroom of 27 m3 in Pettersson et al. shows the same
-  direction, its mean absorption about 1.5 to 2 times the tabulated one. Two rooms suggest that
-  tabulated coefficients miss a floor of real absorption (fixtures, leakage, edges) of about
-  0.015 to 0.02 per unit of surface. A constant of that kind changes every decay the module
-  reports, so it is the maintainer's decision and it waits for more rooms. The carpet case says
-  the same thing from the other side: the model takes 58.2 % off the 2 kHz decay where the room
-  takes 40.4 %, which is what an absorption that starts too low does when a strong absorber lands
-  on it.
+- **The built room's loss, decided 2026-09-23.** Tabulated coefficients under-predict a built
+  room's absorption. Measured minus modelled mean absorption, 125 Hz to 4 kHz, is +0.007, +0.020,
+  +0.018, +0.018, +0.021 and +0.018 in the empty Motus room and +0.062, +0.046, +0.030, +0.027,
+  +0.030 and +0.012 in the empty BRAS CR2 seminar room (146 m3, T30 from its ten dodecahedron
+  responses, `tests/fixtures/bras_cr2_reference.csv`). The BRAS CR1 reverberation chamber, sealed
+  and purpose-built, shows no excess: its fitted concrete absorption is 0.009 to 0.019, below the
+  database's initial estimate. The excess therefore comes from what a built room carries (doors,
+  windows, radiators, ducts, seams, leakage), not from the surface materials, and it is a scene
+  property, `RoomScene::built_room_loss`, adding `kBuiltRoomLoss` = 0.020, 0.025, 0.020, 0.020,
+  0.020 and 0.015 to every face; the starter scene sets it, a bare scene does not. With it the
+  model reads 0.96 to 1.04 of Motus and 1.14 to 1.21 of CR2 from 500 Hz to 2 kHz.
+- **Below 500 Hz the two rooms disagree.** Motus asks for +0.007 at 125 Hz and CR2 for +0.062,
+  so the model reads 0.75 of Motus and 2.1 of CR2 there. CR2's large windows, radiators and
+  ribbed ceiling are the likely low-frequency absorbers, but that is not measured. Closing it
+  wants a third room, or a low-frequency term tied to lightweight elements rather than to area.
 - Whether the panel should read out the room's decay per band. It needs a read on `IRoomHost`,
   a public interface, so it is a separate decision.

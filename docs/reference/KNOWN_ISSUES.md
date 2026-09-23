@@ -155,24 +155,18 @@ second drop of the same file cost 0 ms against the first drop's 3128 ms, and wha
 session find its clip again, so it is kept rather than made optional. Closes when the cache
 carries a size cap and evicts by last use.
 
-## The room over-predicts decay against a measured room by 1.1 to 1.8x
+## The built room's loss fits neither measured room below 500 Hz
 
-`tests/functional/unit/test_room_motus.cpp` builds the Motus room, 4.9 x 4.4 x 2.9 m of concrete
-and 61.13 m3 (Zenodo 4923187), from the module's own material rows and compares its T30 against
-the measured figures in `tests/fixtures/motus_reference.csv`. Empty, the model reads 3.123, 3.856,
-3.180, 3.429, 3.410 and 2.080 s from 125 Hz to 4 kHz where the room measures 2.572, 2.147, 2.009,
-2.119, 1.958 and 1.508 s, a ratio of 1.214, 1.796, 1.583, 1.618, 1.741 and 1.380. With a carpet
-down the ratios read 1.105, 1.689, 1.644, 1.461, 1.224 and 0.975, and the carpet's own reduction
-comes out larger in the model than in the room: 39.2 % against 32.6 % at 1 kHz, 58.2 % against
-40.4 % at 2 kHz, 53.2 % against 33.8 % at 4 kHz. The direction is what a tabulated coefficient
-predicts. A published table is an idealisation of one mounting in one chamber, and a real room
-also carries fixtures, cable trays, door and window seams, leakage and edge diffraction that six
-octave numbers per surface do not hold; the empty concrete bedroom of Pettersson et al. reads its
-absorption 1.5 to 2 times the tabulated figure the same way. The test bounds the model at twice
-the measurement and prints the rest, so the disagreement is recorded rather than tuned away.
-Closes on the maintainer's decision about a floor of absorption or a correction term
-(`docs/design/ROOM_FURNISHINGS.md` section 11), which changes every decay the module reports and
-so waits on more reference rooms than this one.
+`RoomScene::built_room_loss` adds one absorption figure per band to every surface
+(`BuiltRoomLoss.hpp`). From 500 Hz to 2 kHz it brings the model to 0.96 to 1.04 times the
+measured decay of the Motus room and 1.14 to 1.21 times that of the BRAS CR2 seminar room
+(`test_room_motus.cpp`, `test_room_bras.cpp`). Below 500 Hz the two rooms want different figures:
+at 125 Hz the model reads 1.917 s against Motus's measured 2.572 s, a ratio of 0.745, and
+2.991 s against CR2's 1.402 s, a ratio of 2.133; at 250 Hz 0.913 and 1.476. The 0.020 and 0.025
+chosen for those bands sit between the two rooms. A fresh room's low end is therefore uncertain
+by about a factor of two either way. Closes when a third measured room, or a low-frequency term
+tied to windows and other lightweight elements, settles the low bands
+(`docs/design/ROOM_FURNISHINGS.md` section 11).
 
 ## Four furnishing and covering rows carry no measurement of their own
 

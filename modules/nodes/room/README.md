@@ -23,6 +23,7 @@ knowingly left open.
 | Six-band absorption per material, with a citation per row | `Materials.hpp` |
 | Six-band equivalent absorption area per item of furniture, with a citation per row | `Furniture.hpp` |
 | The room's volumetric loss per metre: the air's ISO 9613-1 figure plus the furnishings', the one seam `EyringDecay`, `ImageSourceSolver` and `ModalSolver` all read | `MediumAbsorption` |
+| The absorption a built room adds to every surface, per band | `BuiltRoomLoss.hpp` |
 | The room a fresh room slot loads | `StarterScene` |
 | Six band gains and the arithmetic on them | `BandResponse` |
 | A six-band target fitted to two biquads, minimum phase | `BandResponseFit` |
@@ -127,11 +128,18 @@ sharing one face may not together exceed that face's area.
 `starter_scene()` is what a fresh room slot and a preset with no `"room"` object load: 6.0 x 4.0
 x 2.6 m, painted plaster on five faces and parquet on the floor, a 4 m2 heavy velour curtain, a
 12 m2 rug and a 1.9 m2 wooden door as patches, and a double bed, a desk, three wardrobe modules
-and a chair as furnishings, with no sofa.
+and a chair as furnishings, with no sofa. It sets `built_room_loss`.
 
-### Measured against the Motus room
+`RoomScene::built_room_loss` adds `kBuiltRoomLoss`, 0.020, 0.025, 0.020, 0.020, 0.020 and 0.015
+from 125 Hz to 4 kHz, to every face's absorption, capped at 1, inside `face_absorption()`, so
+Eyring, the image sources, the modal damping and the decay gate all see it. It stands for what a
+built room absorbs beyond its tabulated surfaces: doors, windows, radiators, ducts, seams and
+leakage. A bare `RoomScene{}` leaves it off, as does a preset room object without the
+`"built_room_loss"` field, so an ideal box or a sealed chamber can still be described.
 
-One real room is checked in: 4.9 x 4.4 x 2.9 m of concrete, 61.13 m3, from the Motus dataset
+### Measured against the Motus room and the BRAS CR2 room
+
+Two real rooms are checked in. The first: 4.9 x 4.4 x 2.9 m of concrete, 61.13 m3, from the Motus dataset
 (Zenodo 4923187). `tools/dsp/motus_reference.py` computes T20, T30, EDT, DRR and C50 per octave
 from three of its ambisonic impulse responses into `tests/fixtures/motus_reference.csv`, whose
 method and provenance are in `tests/fixtures/motus_reference.README.md`;
@@ -149,10 +157,28 @@ The empty room (measurement 0001) and the room with a carpet (0002):
 
 The module decays 1.10 to 1.80 times longer than the room does, worst at 250 Hz. The carpet
 shortens both, and the model's reduction is the larger one: 39.2 % against 32.6 % at 1 kHz,
-58.2 % against 40.4 % at 2 kHz, 53.2 % against 33.8 % at 4 kHz. Whether a floor of absorption
-belongs under the tabulated coefficients is open and is the maintainer's;
-[`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) carries the entry and
-`docs/design/ROOM_FURNISHINGS.md` section 11 the decision.
+58.2 % against 40.4 % at 2 kHz, 53.2 % against 33.8 % at 4 kHz.
+
+The second is the empty BRAS CR2 seminar room at RWTH Aachen, 146.1 m3 and 202.5 m2 of linoleum,
+concrete, plaster and windows (TU Berlin DepositOnce, doi 10.14279/depositonce-6726.3).
+`tools/dsp/bras_reference.py` averages the T30 of its ten dodecahedron responses into
+`tests/fixtures/bras_cr2_reference.csv`, and `tests/functional/unit/test_room_bras.cpp` models it
+as a box with the same volume and area per material. With `built_room_loss` set, the model's
+decay against the measured one:
+
+| Band | Motus, measured | Motus, model | Ratio | CR2, measured | CR2, model | Ratio |
+| --- | --- | --- | --- | --- | --- | --- |
+| 125 Hz | 2.572 s | 1.917 s | 0.745 | 1.402 s | 2.991 s | 2.133 |
+| 250 Hz | 2.147 s | 1.961 s | 0.913 | 1.740 s | 2.569 s | 1.476 |
+| 500 Hz | 2.009 s | 1.940 s | 0.966 | 2.022 s | 2.442 s | 1.208 |
+| 1 kHz | 2.119 s | 2.033 s | 0.959 | 1.938 s | 2.201 s | 1.136 |
+| 2 kHz | 1.958 s | 2.029 s | 1.036 | 1.741 s | 2.084 s | 1.197 |
+| 4 kHz | 1.508 s | 1.584 s | 1.051 | 1.563 s | 1.588 s | 1.016 |
+
+The tests bound 500 Hz to 2 kHz: within a fifth for Motus, within a quarter for CR2. Below
+500 Hz the two rooms disagree, Motus wanting less loss and CR2 more, so no single figure fits
+both there; [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) carries that
+entry and `docs/design/ROOM_FURNISHINGS.md` section 11 the evidence.
 
 ## Which thread runs what
 
@@ -621,8 +647,8 @@ fallback at the next `prepare()`.
 ## What the phase left open
 
 Twelve entries in [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) belong to
-this module, each with its figure and its exit: the module decays 1.10 to 1.80 times longer than
-the measured Motus room, and no absorption floor is decided; the bed, desk, bookcase and kilim
+this module, each with its figure and its exit: below 500 Hz the built room's loss fits neither
+measured room, reading 0.75 times Motus's decay and 2.1 times CR2's at 125 Hz; the bed, desk, bookcase and kilim
 rows rest on a derivation or an analogue, since no measurement of them was found; no measured
 HRTF set ships, so front and back sound alike; four of the spec's fourteen material rows are
 untranscribed; the SM57 preset has no

@@ -136,6 +136,10 @@ namespace SushiDSP::room
         /// @brief Counts the live entries of furnishings.
         std::uint32_t furnishing_count = 0;
 
+        /// @brief Adds kBuiltRoomLoss to every surface's absorption when set; off for an ideal
+        /// shoebox or a sealed chamber.
+        bool built_room_loss = false;
+
         /// @brief Stores the cabinet's position.
         Vec3 source_position{ 1.5, 2.0, 0.5 };
 
@@ -169,7 +173,8 @@ namespace SushiDSP::room
         /// @brief Returns one face's area, in square metres.
         double face_area_m2(Surface surface) const noexcept;
 
-        /// @brief Area-weighted absorption per band over one face and the patches on it.
+        /// @brief Area-weighted absorption per band over one face and the patches on it, plus
+        /// kBuiltRoomLoss when built_room_loss is set, capped at 1.
         std::array<double, kBandCount> face_absorption(Surface surface) const;
 
         /// @brief Area-weighted absorption per band over the six faces and their patches.

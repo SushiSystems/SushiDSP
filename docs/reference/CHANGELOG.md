@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-09-23 — room: Added the built room's per-band surface loss, on in the starter scene, saved and toggled in the panel (`BuiltRoomLoss.hpp`, `RoomScene`, `RigPersistence.cpp`, `RoomPanel.cpp`).
+- 2026-09-23 — tools: Added the BRAS CR2 reference tool, its figures and the test comparing them against the module (`tools/dsp/bras_reference.py`, `tests/fixtures/bras_cr2_reference.csv`, `test_room_bras.cpp`).
 - 2026-09-23 — room: Delayed the dry side of `mix` to the ears' alignment frame, so it no longer runs ahead of the wet (`RoomNode.cpp`, `write_outputs`).
 - 2026-09-22 — tools: Added the Motus reference tool, its figures and the test comparing them against the module (`tools/dsp/motus_reference.py`, `tests/fixtures/motus_reference.csv`, `tests/functional/unit/test_room_motus.cpp`).
 - 2026-09-22 — host: Gave the room panel a furnishing list and a patch editor under Shell, Finishes and Furnishings (`apps/host_gui/ui/RoomPanel.cpp`, `ui/FurnishingList.cpp`, `ui/PatchList.cpp`).

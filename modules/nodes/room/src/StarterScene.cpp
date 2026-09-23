@@ -53,6 +53,8 @@ namespace SushiDSP::room
         scene.furnishings[2] = { FurnitureId::WardrobeModule, 3.0 };
         scene.furnishings[3] = { FurnitureId::ChairUpholstered, 1.0 };
         scene.furnishing_count = 4;
+
+        scene.built_room_loss = true;
         return scene;
     }
 }

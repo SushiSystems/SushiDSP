@@ -1942,3 +1942,45 @@ TEST(Unit_Dsp, RigControllerRefusesMoreFurnishingRowsThanARoomCarries)
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
     EXPECT_THROW(controller.load_from_json(preset.dump()), std::runtime_error);
 }
+
+TEST(Unit_Dsp, RigControllerRoundTripsTheBuiltRoomLossThroughJson)
+{
+    RigController source(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    const RigController::SlotId room = source.append("sushidsp.room");
+    SushiDSP::room::RoomScene scene = non_default_scene();
+    scene.built_room_loss = true;
+    std::string error;
+    ASSERT_TRUE(source.set_room_scene(room, scene, error)) << error;
+
+    const std::string saved = source.save_to_json();
+    EXPECT_TRUE(nlohmann::json::parse(saved).at("nodes").at(0).at("room")
+                    .at("built_room_loss").get<bool>());
+
+    RigController target(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    target.load_from_json(saved);
+    EXPECT_EQ(target.save_to_json(), saved);
+    EXPECT_TRUE(target.room_scene(target.slot_order().at(0)).built_room_loss);
+}
+
+TEST(Unit_Dsp, RigControllerLoadsARoomWithoutTheBuiltRoomLossFieldWithTheLossOff)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
+         "room":{"dimensions":[4.0,3.0,2.5]}}
+    ]})";
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    controller.load_from_json(preset);
+    EXPECT_FALSE(controller.room_scene(controller.slot_order().at(0)).built_room_loss);
+}
+
+TEST(Unit_Dsp, RigControllerRefusesABuiltRoomLossThatIsNotABoolean)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
+         "room":{"built_room_loss":1}}
+    ]})";
+
+    RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 2 });
+    EXPECT_THROW(controller.load_from_json(preset), std::runtime_error);
+}
