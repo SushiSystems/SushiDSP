@@ -18,6 +18,7 @@ Record the source and its licence here when you add the file.
 
 ## Not present?
 
-The host prints one warning line to stderr and runs without a cabinet. Any IR can still be
+Amplifier slots start without a cabinet and the host prints nothing; a file that is present but
+fails to load is still reported on stderr. Any IR can still be
 loaded at runtime from the "Cabinet IR path" field on a JCM800 slot, and the path is saved into
 the preset.

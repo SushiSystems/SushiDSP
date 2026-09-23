@@ -140,8 +140,8 @@ namespace
     }
 
     /// @brief Installs the bundled cabinet impulse response on a freshly-created slot that hosts
-    /// a cabinet, if the bundle is present next to the executable. Warns once, on stderr, when it
-    /// is not.
+    /// a cabinet, if the bundle is present next to the executable; without it the slot starts
+    /// with no cabinet, which is a valid state, and nothing is printed.
     /// @param controller The rig to act on.
     /// @param slot The new slot's id.
     /// @param default_ir_path Path to the bundled impulse response.
@@ -152,18 +152,9 @@ namespace
             return;
         }
 
-        static bool warned = false;
         std::ifstream probe(default_ir_path, std::ios::binary);
         if (!probe)
         {
-            if (!warned)
-            {
-                warned = true;
-                std::fprintf(stderr,
-                    "No bundled cabinet impulse response at '%s' - amplifier slots start without "
-                    "a cabinet. Drop a 4x12 IR there, or load one from the Cabinet IR field.\n",
-                    default_ir_path.c_str());
-            }
             return;
         }
         probe.close();
