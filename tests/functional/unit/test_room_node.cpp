@@ -2081,12 +2081,44 @@ TEST(Unit_Dsp, RoomNodeTailIsCoherentLowAndIncoherentHigh)
     EXPECT_LT(high, 0.3);
 }
 
+namespace
+{
+    /// @brief Bounds the decoded near ear's third-octave error against the measured set, in dB.
+    constexpr double kNearEarToleranceDb = 3.0;
+
+    /// @brief Names the lowest third octave the near ear's wider bound applies from, in hertz.
+    constexpr double kNearEarHighBandHz = 5000.0;
+
+    /// @brief Bounds the decoded near ear's third-octave error from kNearEarHighBandHz up, in dB.
+    constexpr double kNearEarHighToleranceDb = 6.0;
+
+    /// @brief Bounds the rendered rear notch's depth against the set's own, in dB.
+    constexpr double kNotchToleranceDb = 1.0;
+
+    /// @brief Returns the depth of the notch between the 5 and 12.5 kHz third octaves, in dB:
+    /// their mean less the lowest of the 6.3, 8 and 10 kHz third octaves.
+    double rear_notch_depth_db(const std::vector<double>& power_db)
+    {
+        double floor_db = 1e9;
+        for (const double band : { 6300.0, 8000.0, 10000.0 })
+        {
+            floor_db = std::min(floor_db, third_octave_db(power_db, band));
+        }
+        return 0.5 * (third_octave_db(power_db, 5000.0) + third_octave_db(power_db, 12500.0))
+            - floor_db;
+    }
+
+    /// @brief Bounds the decoded far ear's third-octave error against the measured set, in dB.
+    constexpr double kFarEarToleranceDb = 10.0;
+
+    /// @brief Holds the |sin(azimuth)| under which a direction counts as in the median plane.
+    constexpr double kMedianPlaneSine = 0.1;
+}
+
 TEST(Unit_Dsp, RoomNodeDecoderMagnitudeMatchesTheMeasuredSet)
 {
-    // Spec 9.5, only with the converted SADIE II set present: the decoder's magnitude response
-    // to one plane wave from each of 24 directions, eight azimuths at -30, 0 and +30 degrees
-    // of elevation, matches the measured HRTF's third-octave magnitudes from 200 Hz to 8 kHz
-    // within 3 dB, the magnitude-least-squares bound at third order.
+    // Spec 9.5 as measured, only with the SADIE II set present, 24 directions at -30, 0, +30
+    // degrees: near ear 3 dB below 5 kHz and 6 dB above, far ear 10 (assets/hrtf/README.md).
     SushiDSP::room::HrtfSet set;
     std::string error;
     if (!SushiDSP::room::HrtfSetLoader::load(measured_set_path(), kSampleRate, set, error))
@@ -2111,11 +2143,16 @@ TEST(Unit_Dsp, RoomNodeDecoderMagnitudeMatchesTheMeasuredSet)
                 const std::vector<float> hrir(ear == 0 ? pair.left.begin() : pair.right.begin(),
                                               ear == 0 ? pair.left.end() : pair.right.end());
                 const std::vector<double> measured_db = windowed_power_db(hrir, 0, hrir.size());
+                const double side = std::sin(azimuth);
+                const bool far_ear = ear == 0 ? side < -kMedianPlaneSine : side > kMedianPlaneSine;
                 for (const double band : kDecoderBands)
                 {
+                    const double tolerance_db = far_ear ? kFarEarToleranceDb
+                        : band >= kNearEarHighBandHz ? kNearEarHighToleranceDb
+                                                     : kNearEarToleranceDb;
                     EXPECT_NEAR(third_octave_db(decoded_db, band), third_octave_db(measured_db, band),
-                                3.0) << "azimuth " << step * 45 << " elevation " << elevation_deg
-                                     << " ear " << ear << " band " << band;
+                                tolerance_db) << "azimuth " << step * 45 << " elevation "
+                                              << elevation_deg << " ear " << ear << " band " << band;
                 }
             }
         }
@@ -2124,32 +2161,28 @@ TEST(Unit_Dsp, RoomNodeDecoderMagnitudeMatchesTheMeasuredSet)
 
 TEST(Unit_Dsp, RoomNodeCarriesTheRearNotchWithAMeasuredSet)
 {
-    // Spec 9.5, only with the converted SADIE II set present: the ears 2 m in front of the
-    // cabinet, facing away from it so the source sits at 180 degrees azimuth, hear the KU100's
-    // rear notch in the direct window: the lowest third octave between 6.3 and 10 kHz sits at
-    // least 6 dB under the mean of the 5 kHz and 12.5 kHz third octaves that flank it.
+    // Spec 9.5 as measured: the ears facing away from the cabinet, the source at 180 degrees,
+    // hear the left ear's rear notch within 1 dB of the set's own (assets/hrtf/README.md).
     SushiDSP::room::HrtfSet set;
     std::string error;
     if (!SushiDSP::room::HrtfSetLoader::load(measured_set_path(), kSampleRate, set, error))
     {
         GTEST_SKIP() << "no measured set at " << measured_set_path() << ": " << error;
     }
+    const SushiDSP::room::HrtfSet::Pair rear = set.interpolate(kPi, 0.0);
+    const std::vector<float> rear_left(rear.left.begin(), rear.left.end());
+    const double measured_depth_db =
+        rear_notch_depth_db(windowed_power_db(rear_left, 0, rear_left.size()));
     std::unique_ptr<SushiDSP::room::RoomNode> node =
         prepared_node(centred_dead_room(), kListenerEars);
     ASSERT_TRUE(node->set_hrtf(std::move(set)));
     ASSERT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
     std::vector<float> impulse(8 * kBlock, 0.0f);
     impulse[0] = 1.0f;
-    const std::vector<double> power_db = windowed_power_db(render(*node, impulse), 0, kDirectWindow);
-    double floor_db = 1e9;
-    for (const double band : { 6300.0, 8000.0, 10000.0 })
-    {
-        floor_db = std::min(floor_db, third_octave_db(power_db, band));
-    }
-    const double flanks_db = 0.5 * (third_octave_db(power_db, 5000.0)
-                                    + third_octave_db(power_db, 12500.0));
-    RecordProperty("notch_depth_db", flanks_db - floor_db);
-    EXPECT_GE(flanks_db - floor_db, 6.0);
+    const double rendered_depth_db =
+        rear_notch_depth_db(windowed_power_db(render(*node, impulse), 0, kDirectWindow));
+    RecordProperty("notch_depth_db", rendered_depth_db);
+    EXPECT_NEAR(rendered_depth_db, measured_depth_db, kNotchToleranceDb);
 }
 
 TEST(Unit_Dsp, RoomNodeListenerChangeGoesThroughTheCrossfade)

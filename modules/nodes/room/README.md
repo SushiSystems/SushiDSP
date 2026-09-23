@@ -498,12 +498,9 @@ The ears hear three paths that share one HRTF set, which is what keeps the seam 
 inaudible: the direct sound through the set's HRIR pair for its direction, the early reflections
 through the set's third-order decoder, and the tail through the set's diffuse-field average
 (spec §9.4). The set is `SphericalHeadHrtf` until a host installs a measured one through
-`IRoomHost::set_hrtf`; `hrtf_source()` says which. No measured asset is in the tree yet, and the
-host does not load one yet either: `apps/host_gui` rebuilds its nodes on every structural edit
-and re-applies a slot's cabinet at each rebuild, so an HRTF installed once from `main.cpp` would
-be lost at the next edit; the load belongs beside the cabinet path in `RigController`, with the
-`assets/hrtf` copy and the room link in the host's build list, and none of that is in this
-directory.
+`IRoomHost::set_hrtf`; `hrtf_source()` says which. The tree ships
+`assets/hrtf/sadie2_ku100_48k.hrtf`, the SADIE II KU100 set thinned to 1531 directions, and
+`apps/host_gui` installs it through `RigController::set_hrtf_path` at start-up.
 
 **The direct path.** Tap 0 of an ears set, the (0, 0, 0) image, is taken out of the bank at the
 block the set is adopted (`GeometricPath::take_direct_image`) and rendered by `DirectPath`: read out
@@ -649,8 +646,8 @@ fallback at the next `prepare()`.
 Twelve entries in [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) belong to
 this module, each with its figure and its exit: below 500 Hz the built room's loss fits neither
 measured room, reading 0.75 times Motus's decay and 2.1 times CR2's at 125 Hz; the bed, desk, bookcase and kilim
-rows rest on a derivation or an analogue, since no measurement of them was found; no measured
-HRTF set ships, so front and back sound alike; four of the spec's fourteen material rows are
+rows rest on a derivation or an analogue, since no measurement of them was found; the measured
+HRTF's third-order decoder misses the near ear by up to 5.1 dB above 5 kHz; four of the spec's fourteen material rows are
 untranscribed; the SM57 preset has no
 measured curve; modal damping at a gypsum boundary is about 30 % wrong; the FDN's own modes below
 f_s are crossed out rather than corrected; the raw octave step at the seam is recorded and not

@@ -32,9 +32,9 @@ starts on that without the verdict.
   used to be the corner-cube's +36 dB, but `RoomScene`'s absorption gate refuses that scene now,
   and the loudest a still-valid scene reaches has not been measured. Measure it first, then
   decide whether a guard belongs in the node, the rig or neither.
-- **Ship a measured HRTF set**, and weight the converter's diffuse average by solid angle. Two
-  entries in KNOWN_ISSUES, one licence question and one arithmetic fix; the second is worthless
-  until the first lands, because no rig loads a converted file today.
+- **Weight the converter's diffuse average by solid angle**, now that the SADIE II set ships and
+  the host loads it; and decide whether the near ear's 5.1 dB above 5 kHz wants a higher decoder
+  order (KNOWN_ISSUES).
 - **Run the tail's output cascade twice under a fade**, so a listener or microphone move stops
   stepping the filter on the network's stored energy.
 - **Give `BandResponseFit` an analytic Jacobian.** It stops at its eight-step cap on about 60 %

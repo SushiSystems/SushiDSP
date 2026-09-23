@@ -86,8 +86,8 @@ namespace SushiDSP::room
         /// @param right_taps The same layout for the right ear.
         /// @pre At least four distinct directions, not all within one hemisphere, so the grid's
         /// convex hull encloses the origin and every direction lies in some triangle.
-        /// @throw std::invalid_argument when the tap vectors do not match the grid or the grid
-        /// does not cover the sphere.
+        /// @throw std::invalid_argument when the tap vectors do not match the grid, two
+        /// directions lie closer than 1 degree, or the grid does not cover the sphere.
         HrtfSet(double sample_rate, std::vector<Direction> directions,
                 std::vector<float> left_taps, std::vector<float> right_taps);
 
