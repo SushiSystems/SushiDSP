@@ -654,6 +654,12 @@ namespace ui
         ImGui::Spacing();
         draw_section_heading("Finishes");
         changed = draw_surfaces(scene) || changed;
+        changed = ImGui::Checkbox("Built room loss", &scene.built_room_loss) || changed;
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Adds the absorption a real built room shows over its tabulated "
+                              "surfaces; off for an ideal box or a sealed chamber.");
+        }
 
         ImGui::Spacing();
         draw_section_heading("Furnishings");

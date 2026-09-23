@@ -359,6 +359,7 @@ namespace
             }
             room["furnishings"] = furnishings;
         }
+        room["built_room_loss"] = scene.built_room_loss;
 
         room["source"] = pose_to_json(scene.source_position, scene.source_yaw_rad);
         room["listener"] = pose_to_json(scene.listener_position, scene.listener_yaw_rad);
@@ -377,7 +378,8 @@ namespace
     }
 
     /// @brief Reads a "room" object written by room_scene_to_json; a field the object omits
-    /// keeps the starter scene's value, except furnishings, which an omitting object holds none of.
+    /// keeps the starter scene's value, except furnishings, which an omitting object holds none of,
+    /// and the built room's loss, which an omitting object leaves off.
     /// @throws std::runtime_error for a word or an array the codec does not read.
     SushiDSP::room::RoomScene room_scene_from_json(const nlohmann::json& room)
     {
@@ -458,6 +460,17 @@ namespace
         else
         {
             scene.furnishing_count = 0;
+        }
+        scene.built_room_loss = false;
+        if (room.contains("built_room_loss"))
+        {
+            const nlohmann::json& loss = room.at("built_room_loss");
+            if (!loss.is_boolean())
+            {
+                throw std::runtime_error(
+                    "RigController: a preset's room holds a built_room_loss that is not a boolean");
+            }
+            scene.built_room_loss = loss.get<bool>();
         }
         if (room.contains("source"))
         {

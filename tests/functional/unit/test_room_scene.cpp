@@ -35,6 +35,7 @@
 #include <string>
 
 #include "RoomFixtures.hpp"
+#include "SushiDSP/room/BuiltRoomLoss.hpp"
 #include "SushiDSP/room/RoomScene.hpp"
 
 TEST(Unit_Dsp, RoomSceneComputesTheGaragesVolumeAndArea)
@@ -346,4 +347,36 @@ TEST(Unit_Dsp, RoomSceneRefusesABadPatchAreaAndTooManyPatches)
     garage.patch_count = RoomScene::kMaxPatches + 1;
     EXPECT_FALSE(garage.is_valid(reason));
     EXPECT_NE(reason.find("patches"), std::string::npos);
+}
+
+TEST(Unit_Dsp, RoomSceneAddsTheBuiltRoomLossToEveryFaceWhenSet)
+{
+    SushiDSP::room::RoomScene plain;
+    SushiDSP::room::RoomScene built = plain;
+    built.built_room_loss = true;
+
+    for (std::size_t face = 0; face < SushiDSP::room::kSurfaceCount; ++face)
+    {
+        const auto surface = static_cast<SushiDSP::room::Surface>(face);
+        const std::array<double, 6> without = plain.face_absorption(surface);
+        const std::array<double, 6> with = built.face_absorption(surface);
+        for (std::size_t band = 0; band < 6; ++band)
+        {
+            EXPECT_DOUBLE_EQ(with[band], without[band] + SushiDSP::room::kBuiltRoomLoss[band])
+                << "face " << face << " band " << band;
+        }
+    }
+}
+
+TEST(Unit_Dsp, RoomSceneCapsTheBuiltRoomLossAtFullAbsorption)
+{
+    SushiDSP::room::RoomScene scene;
+    scene.surfaces.fill(SushiDSP::room::MaterialId::OpenDoorway);
+    scene.built_room_loss = true;
+
+    const std::array<double, 6> absorption = scene.mean_absorption();
+    for (std::size_t band = 0; band < 6; ++band)
+    {
+        EXPECT_DOUBLE_EQ(absorption[band], 1.0) << "band " << band;
+    }
 }

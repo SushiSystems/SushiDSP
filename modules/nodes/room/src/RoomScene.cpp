@@ -31,6 +31,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
+
+#include "SushiDSP/room/BuiltRoomLoss.hpp"
 
 namespace SushiDSP::room
 {
@@ -170,6 +173,10 @@ namespace SushiDSP::room
             weighted[band] += (face_area - patch_area)
                 * static_cast<double>(bare_material.absorption[band]);
             result[band] = weighted[band] / face_area;
+            if (built_room_loss)
+            {
+                result[band] = std::min(1.0, result[band] + kBuiltRoomLoss[band]);
+            }
         }
         return result;
     }

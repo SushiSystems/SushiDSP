@@ -39,12 +39,9 @@ starts on that without the verdict.
   stepping the filter on the network's stored energy.
 - **Give `BandResponseFit` an analytic Jacobian.** It stops at its eight-step cap on about 60 %
   of fits and costs 4.33 ms for 150 fits, against the 30 Hz republish budget.
-- **Decide whether the absorption rows need a floor.** Against the Motus room the module's decay
-  runs 1.10 to 1.80 times the measured one, empty and with a carpet, and a floor of about 0.015
-  to 0.02 per unit of surface would close it (`docs/design/ROOM_FURNISHINGS.md` section 11). The
-  constant moves every decay the module reports, and one measured room is thin evidence for that,
-  so it is the maintainer's decision and it wants a second reference room first. The figures are
-  in KNOWN_ISSUES.
+- **Settle the built room's loss below 500 Hz.** It fits Motus and BRAS CR2 from 500 Hz up; at
+  125 Hz it reads 0.75 of one and 2.1 of the other (KNOWN_ISSUES). A third measured room, or a
+  low-frequency term tied to lightweight elements, decides it.
 - **Rebuild the room's spec section 6.2.** Its line-allocation sentence sizes the delay lines for
   an RT60 of 3 s, and `FdnDesign::kMaxLineSeconds` is the 0.525 s that follows from it, while
   `RoomScene::kMaxDecaySeconds` admits scenes up to 12 s. The lines do not lengthen with the

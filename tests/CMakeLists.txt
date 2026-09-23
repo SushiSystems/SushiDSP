@@ -185,6 +185,7 @@ add_executable(sushidsp_tests
     functional/unit/test_furnishing_list.cpp
     functional/unit/test_patch_list.cpp
     functional/unit/test_room_motus.cpp
+    functional/unit/test_room_bras.cpp
     functional/unit/test_early_reflection_renderer.cpp
     functional/unit/test_late_reverb.cpp
     functional/unit/test_modal_bank.cpp

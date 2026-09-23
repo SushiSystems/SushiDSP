@@ -187,3 +187,9 @@ TEST(Unit_Dsp, StarterSceneWithoutItsFurnishingsDecaysLongerInEveryBand)
         EXPECT_GT(without[band], with[band]) << "band " << band;
     }
 }
+
+TEST(Unit_Dsp, StarterSceneCarriesTheBuiltRoomLossAndTheBareSceneDoesNot)
+{
+    EXPECT_TRUE(starter_scene().built_room_loss);
+    EXPECT_FALSE(RoomScene{}.built_room_loss);
+}

@@ -67,6 +67,12 @@ namespace
     /// @brief Names the last band of the carpet check, 4 kHz, as an index into the bands.
     constexpr std::size_t kLastCarpetBand = 5;
 
+    /// @brief Names the first band of the built-room check, 500 Hz, as an index into the bands.
+    constexpr std::size_t kFirstBuiltBand = 2;
+
+    /// @brief Bounds the built-room model's decay against the measurement, as a ratio each way.
+    constexpr double kBuiltRatioTolerance = 0.2;
+
     /// @brief Holds one row of motus_reference.csv, the decay figures the test reads.
     struct MotusRow
     {
@@ -255,5 +261,30 @@ TEST(Unit_Dsp, MotusCarpetShortensTheModelAndTheMeasurementAtOneToFourKilohertz)
 
         EXPECT_LT(carpet_model[band], empty_model[band]) << hz << " Hz";
         EXPECT_LT(measured_carpet, measured_empty) << hz << " Hz";
+    }
+}
+
+TEST(Unit_Dsp, MotusEmptyRoomWithTheBuiltRoomLossDecaysWithinAFifthOfMeasured)
+{
+    const std::vector<MotusRow> rows = load_motus_reference();
+    ASSERT_EQ(rows.size(), kExpectedRowCount);
+    RoomScene scene = motus_empty_scene();
+    scene.built_room_loss = true;
+    std::string reason;
+    ASSERT_TRUE(scene.is_valid(reason)) << reason;
+
+    const std::array<double, kBandCount> model = EyringDecay::rt60_seconds(scene);
+    for (std::size_t band = 0; band < kBandCount; ++band)
+    {
+        const double hz = kBandCentresHz[band];
+        print_table_line("0001 built", hz, measured_decay_seconds(rows, "0001", hz), model[band]);
+    }
+    for (std::size_t band = kFirstBuiltBand; band <= kLastMidBand; ++band)
+    {
+        const double measured = measured_decay_seconds(rows, "0001", kBandCentresHz[band]);
+        ASSERT_TRUE(std::isfinite(measured) && measured > 0.0);
+        const double ratio = model[band] / measured;
+        EXPECT_GE(ratio, 1.0 - kBuiltRatioTolerance) << kBandCentresHz[band] << " Hz";
+        EXPECT_LE(ratio, 1.0 + kBuiltRatioTolerance) << kBandCentresHz[band] << " Hz";
     }
 }
