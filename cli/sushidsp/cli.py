@@ -116,7 +116,6 @@ def run(
     raise typer.Exit(project_svc.run(type, args=extra_args))
 
 
-
 register_provision_commands(app, ModuleProvision(
     profile=PROFILE,
     project_root=find_project_root,
