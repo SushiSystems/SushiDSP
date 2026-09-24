@@ -11,9 +11,8 @@ SushiDSP pins no toolchain. It builds with whatever C++17 compiler it can
 find, in this order, and `sd config` reports which one won:
 
     1. an explicit ``cxx`` (config.local.toml or SD_CXX);
-    2. the intel/llvm clang++ that ``hub install`` provisions into the
-       SushiStack workspace (``llvm_root``, written by ``hub`` into the
-       workspace-shared config.local.toml);
+    2. the intel/llvm clang++ that ``sd setup`` or the workspace provides
+       (``llvm_root`` in a config.local.toml);
     3. a ``clang++`` on PATH;
     4. nothing -- CMake's platform default (MSVC through the Visual Studio
        generator on Windows, the system compiler elsewhere).
@@ -46,9 +45,7 @@ PROFILE = ModuleProfile(
                 "vs_vcvars", "llvm_root", "target_bin"),
 )
 
-# The workspace-shared config.local.toml is where `hub install` records the
-# bundled intel/llvm root, vcvars, ninja and cmake it found; reading it is how
-# step 2 of the compiler search works without SushiDSP pinning anything itself.
+# Layers the workspace-shared config.local.toml, which holds the intel/llvm root from the workspace.
 _MODULE = ModuleConfig(PROFILE, use_workspace_config=True)
 
 find_project_root = _MODULE.find_project_root
