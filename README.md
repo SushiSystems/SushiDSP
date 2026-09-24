@@ -44,18 +44,17 @@ device, and, optionally, the intel/llvm clang++ it prefers when one is around. G
 through CMake FetchContent, so nothing has to be installed for the suite.
 
 ```bash
-sd setup            # report what is needed and how it would be installed
-sd setup --install  # install it
+sd setup --dry-run  # report what is missing and what would be written
+sd setup            # provision it; --yes skips the LLVM-download prompt
+sd doctor           # report whether this machine can build; --for GROUP limits it to one group
+sd link             # record this checkout in a workspace's module registry
+sd unlink           # remove it from that registry
 ```
 
-Inside a SushiStack workspace the command hands the job to `hub install`, which provisions every
-checkout under that workspace from one tree. Outside one it reads the fragment itself and names
-an apt or vcpkg command per entry. It says which of the two ran, every time. SushiStack is an
+`sd setup` provisions into the shared root, `~/.sushisystems` (or `SUSHISYSTEMS_HOME`), whether
+or not the checkout sits in a SushiStack workspace, and it no longer calls `hub`. It then writes
+the tool paths it found to `config.local.toml` and prints the doctor report. SushiStack is an
 accelerator here, not a requirement: SushiDSP builds and tests without it.
-
-One honest limit: `sd setup` reports a dependency as *unknown* rather than missing when the
-fragment declares no check for it. Whether a package is installed is a question only a package
-manager answers, and the command asks none before you pass `--install`.
 
 `sushi-module.toml` is what makes a checkout kept inside a workspace recognisable to `hub`
 without a catalog entry.

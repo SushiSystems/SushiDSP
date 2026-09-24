@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-09-24 — cli: Replaced sd's own setup with sushicore's shared setup, doctor, link and unlink (`cli/sushidsp/cli.py`, `cli/sushidsp/config.py`).
 - 2026-09-23 — room: Refused an HRTF grid with directions under 1 degree apart or a degenerating hull, instead of exhausting memory (`HrtfSet.cpp`).
 - 2026-09-23 — room: Shipped the SADIE II KU100 HRTF set, thinned to 1531 directions, and bounded its two tests by measurement (`sadie2_ku100_48k.hrtf`, `convert_hrtf.py`, `test_room_node.cpp`).
 - 2026-09-23 — host_gui: Started amplifier slots without a cabinet silently when no bundled IR is present (`main.cpp`, `apply_default_cabinet`).
