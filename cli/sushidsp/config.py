@@ -28,9 +28,10 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from sushicore.config_base import ToolConfig
 from sushicore.module_config import ModuleConfig
 from sushicore.profile import ModuleProfile
+from sushicore.provision import home as provision_home
+from sushicore.provision.config import ProvisionSettings
 
 #: How SushiDSP describes itself to the shared machinery.
 PROFILE = ModuleProfile(
@@ -65,11 +66,11 @@ _INTEL_LLVM_BUNDLE_DIRS = ("llvm-sycl-nightly", "llvm-sycl")
 
 
 @dataclass
-class Config(ToolConfig):
+class Config(ProvisionSettings):
     """Resolved, platform-specific tool configuration for the SushiDSP build.
 
     Inherits every field (cmake/ninja paths, cxx, generator, vs_vcvars, ...) from
-    :class:`ToolConfig` and adds the intel/llvm bundle root ``hub`` records.
+    :class:`ProvisionSettings`, including the intel/llvm bundle root ``llvm_root``.
     """
 
     target_bin: str = "sushidsp_host"
@@ -79,10 +80,8 @@ class Config(ToolConfig):
     # found the generator is chosen by resolved_generator() instead.
     generator: str = ""
 
-    # intel/llvm bundle root holding bin/clang++, as written by `hub install`.
-    llvm_root: str = ""
-
     def _clang_name(self) -> str:
+        """Return the platform's clang++ executable name."""
         return "clang++.exe" if self.is_windows else "clang++"
 
     def bundled_clang(self) -> str:
@@ -90,6 +89,9 @@ class Config(ToolConfig):
         candidates: list[Path] = []
         if self.llvm_root:
             candidates.append(Path(self.expand(self.llvm_root)))
+        candidates += [root / "toolchains" / name
+                       for root in provision_home.search_roots()
+                       for name in _INTEL_LLVM_BUNDLE_DIRS]
         home = workspace_home()
         if home:
             candidates += [home / "dependencies" / "toolchains" / name
@@ -121,7 +123,7 @@ class Config(ToolConfig):
             return "SushiStack workspace (intel/llvm)"
         if shutil.which("clang++"):
             return "PATH (clang++)"
-        return "platform default (no clang++ found; `hub install` provisions intel/llvm)"
+        return "platform default (no clang++ found; `sd setup` provisions intel/llvm)"
 
     def resolved_ninja(self) -> str:
         """The ninja binary to hand CMake, or '' when none is available."""
