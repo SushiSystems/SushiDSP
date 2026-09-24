@@ -52,8 +52,8 @@ sd unlink           # remove it from that registry
 ```
 
 `sd setup` provisions into the shared root, `~/.sushisystems` (or `SUSHISYSTEMS_HOME`), whether
-or not the checkout sits in a SushiStack workspace, and it no longer calls `hub`. It then writes
-the tool paths it found to `config.local.toml` and prints the doctor report. SushiStack is an
+or not the checkout sits in a SushiStack workspace. It then writes the tool paths it found to
+`config.local.toml` and prints the doctor report. SushiStack is an
 accelerator here, not a requirement: SushiDSP builds and tests without it.
 
 `sushi-module.toml` is what makes a checkout kept inside a workspace recognisable to `hub`
