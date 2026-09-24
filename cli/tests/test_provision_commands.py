@@ -38,3 +38,64 @@ def test_bundled_clang_is_found_under_the_provision_root(tmp_path, monkeypatch):
     exe.parent.mkdir(parents=True)
     exe.write_text("")
     assert Config().bundled_clang() == str(exe)
+
+
+def _plant_clang(root, exe_name):
+    """Create an empty clang++ under ``root``/bin and return its path."""
+    exe = root / "bin" / exe_name
+    exe.parent.mkdir(parents=True)
+    exe.write_text("")
+    return exe
+
+
+def test_provision_root_clang_wins_over_the_workspace_one(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    workspace = tmp_path / "ws"
+    monkeypatch.setenv("SUSHISYSTEMS_HOME", str(home))
+    monkeypatch.setattr("sushidsp.config.workspace_home", lambda: workspace)
+    cfg = Config()
+    name = cfg._clang_name()
+    _plant_clang(workspace / "dependencies" / "toolchains" / "llvm-sycl", name)
+    exe = _plant_clang(home / "toolchains" / "llvm-sycl", name)
+    assert cfg.bundled_clang() == str(exe)
+    assert cfg.compiler_source().startswith("provision root")
+
+
+def test_workspace_clang_is_labelled_as_the_workspace(tmp_path, monkeypatch):
+    workspace = tmp_path / "ws"
+    monkeypatch.setenv("SUSHISYSTEMS_HOME", str(tmp_path / "home"))
+    monkeypatch.setattr("sushidsp.config.workspace_home", lambda: workspace)
+    cfg = Config()
+    _plant_clang(workspace / "dependencies" / "toolchains" / "llvm-sycl", cfg._clang_name())
+    assert cfg.compiler_source() == "SushiStack workspace (intel/llvm)"
+
+
+def test_setup_dry_run_in_a_workspace_never_calls_hub(tmp_path, monkeypatch):
+    import subprocess
+
+    workspace = tmp_path / "ws"
+    (workspace / ".sushistack").mkdir(parents=True)
+    module = workspace / "sushidsp"
+    module.mkdir()
+    (module / "CMakeLists.txt").write_text("")
+    monkeypatch.setenv("SUSHISTACK_HOME", str(workspace))
+    monkeypatch.setenv("SUSHISYSTEMS_HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(module)
+
+    def _is_hub(argv):
+        first = argv if isinstance(argv, str) else (list(argv) or [""])[0]
+        return str(first).replace("\\", "/").rsplit("/", 1)[-1].split(".")[0] == "hub"
+
+    real_popen = subprocess.Popen
+
+    class _GuardedPopen(real_popen):
+        def __init__(self, args, *rest, **kwargs):
+            assert not _is_hub(args), f"hub was invoked: {args}"
+            super().__init__(args, *rest, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", _GuardedPopen)
+    result = CliRunner().invoke(app, ["setup", "--dry-run"])
+    assert result.exception is None or isinstance(result.exception, SystemExit), result.output
+    for step in ("setup: detect", "setup: install-deps", "setup: configure"):
+        assert step in result.output
+    assert "hub install" not in result.output

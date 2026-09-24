@@ -60,8 +60,7 @@ workspace_home = _MODULE.workspace_home
 #: environment and needs the reverse map.
 _ENV_OVERRIDES = PROFILE.env_overrides()
 
-#: Directory names `hub install` has unpacked the intel/llvm bundle under, in
-#: preference order, probed when llvm_root is not written down.
+#: Directory names searched for the intel/llvm bundle, in preference order.
 _INTEL_LLVM_BUNDLE_DIRS = ("llvm-sycl-nightly", "llvm-sycl")
 
 
@@ -84,23 +83,32 @@ class Config(ProvisionSettings):
         """Return the platform's clang++ executable name."""
         return "clang++.exe" if self.is_windows else "clang++"
 
-    def bundled_clang(self) -> str:
-        """The workspace's intel/llvm clang++, or '' when none is installed."""
-        candidates: list[Path] = []
+    def _clang_candidates(self) -> list[tuple[Path, str]]:
+        """Return every intel/llvm bundle root to probe, paired with its origin label."""
+        candidates: list[tuple[Path, str]] = []
         if self.llvm_root:
-            candidates.append(Path(self.expand(self.llvm_root)))
-        candidates += [root / "toolchains" / name
+            candidates.append((Path(self.expand(self.llvm_root)), "llvm_root (intel/llvm)"))
+        candidates += [(root / "toolchains" / name, f"provision root {root} (intel/llvm)")
                        for root in provision_home.search_roots()
                        for name in _INTEL_LLVM_BUNDLE_DIRS]
         home = workspace_home()
         if home:
-            candidates += [home / "dependencies" / "toolchains" / name
+            candidates += [(home / "dependencies" / "toolchains" / name,
+                            "SushiStack workspace (intel/llvm)")
                            for name in _INTEL_LLVM_BUNDLE_DIRS]
-        for root in candidates:
+        return candidates
+
+    def _find_bundled_clang(self) -> tuple[str, str]:
+        """Return the first bundled clang++ found and its origin, or ('', '')."""
+        for root, origin in self._clang_candidates():
             exe = root / "bin" / self._clang_name()
             if exe.is_file():
-                return str(exe)
-        return ""
+                return str(exe), origin
+        return "", ""
+
+    def bundled_clang(self) -> str:
+        """Return the bundled intel/llvm clang++, or '' when none is installed."""
+        return self._find_bundled_clang()[0]
 
     def resolved_compiler(self, root: Path | None = None) -> str:
         """The C++ compiler to drive the build, or '' for CMake's platform default.
@@ -119,8 +127,9 @@ class Config(ProvisionSettings):
         """Which step of the search produced resolved_compiler(), for diagnostics."""
         if self.cxx:
             return "pinned (cxx)"
-        if self.bundled_clang():
-            return "SushiStack workspace (intel/llvm)"
+        origin = self._find_bundled_clang()[1]
+        if origin:
+            return origin
         if shutil.which("clang++"):
             return "PATH (clang++)"
         return "platform default (no clang++ found; `sd setup` provisions intel/llvm)"
