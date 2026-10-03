@@ -88,7 +88,7 @@ namespace
     /// @param window The window the files were dropped on; its user pointer is the queue.
     /// @param count How many paths were dropped.
     /// @param paths The dropped paths, owned by GLFW for the duration of the call.
-    /// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §7
+    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §7
     void queue_dropped_files(GLFWwindow* window, int count, const char** paths)
     {
         auto* queue =
@@ -491,7 +491,7 @@ int main(int argc, char** argv)
                 }
 
                 // Added after both recorder legs are written, so the click reaches no recorded file.
-                // @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §4
+                // @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §4
                 rig_controller_ref.metronome().process(rig_output_pointers.data(), rig_channels,
                                                        frames, transport,
                                                        rig_controller_ref.musical_clock());

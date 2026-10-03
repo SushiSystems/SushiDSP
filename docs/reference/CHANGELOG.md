@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-03 — docs: Folded the untagged v0.1.0, v0.2.0 and v0.3.0 headings into Unreleased (`CHANGELOG.md`, `docs/archive/changelog/`).
+- 2026-10-03 — ci: Removed the Python CLI job, which cannot install sushicore 0.6.0 from PyPI (`.github/workflows/ci.yml`, `README.md`).
+- 2026-10-03 — docs: Repointed the cited paths that no longer resolve to the archive or the renamed spec (`CONTRIBUTING.md`, `OVERVIEW.md`, `KNOWN_ISSUES.md`).
 - 2026-09-25 — cli: Grouped sd's help under Build, Application and Environment panels with per-command examples (`cli/sushidsp/cli.py`, `test_help_screen.py`).
 - 2026-09-24 — cli: Replaced sd's own setup with sushicore's shared setup, doctor, link and unlink (`cli/sushidsp/cli.py`, `cli/sushidsp/config.py`).
 - 2026-09-23 — room: Refused an HRTF grid with directions under 1 degree apart or a degenerating hull, instead of exhausting memory (`HrtfSet.cpp`).
@@ -136,7 +139,7 @@
 - 2026-09-08 — room: Added `CrossoverPair` Schroeder frequency phase-aligned crossover (`CrossoverPair.hpp`, `CrossoverPair.cpp`).
 - 2026-09-08 — room: Added `HrtfSet` minimum-phase HRIR dataset and interpolation (`HrtfSet.hpp`, `HrtfSet.cpp`).
 - 2026-09-08 — room: Added `AmbisonicEncoder` third-order spherical harmonics encoder (`AmbisonicEncoder.hpp`, `AmbisonicEncoder.cpp`).
-- 2026-09-08 — docs: Corrected self-test asset size to 37 968 bytes and band-fit budget to 4.33 ms (`docs/superpowers/plans/2026-09-08-room-acoustics.md`).
+- 2026-09-08 — docs: Corrected self-test asset size to 37 968 bytes and band-fit budget to 4.33 ms (`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`).
 - 2026-09-08 — capture: Added `MusicalClock` frame to bar-and-beat fixed-point map (`modules/nodes/capture/include/SushiDSP/capture/MusicalClock.hpp`, `MusicalClock.cpp`).
 - 2026-09-08 — capture: Added `TakeLibrary` control-thread audio take container (`TakeLibrary.hpp`, `TakeLibrary.cpp`).
 - 2026-09-08 — capture: Added `VariRateReader` resampling take playback between 0.5x and 2.0x (`VariRateReader.hpp`, `VariRateReader.cpp`).
@@ -228,7 +231,7 @@
 - 2026-09-07 — docs: Created known issues register for alias floors and loop networks (`docs/reference/KNOWN_ISSUES.md`).
 - 2026-09-07 — tests: Skipped incomplete Mark IIC+ loop return test cases with logged values (`test_mesa_mark2c.cpp`).
 - 2026-09-07 — tests: Skipped JCM800 alias floor assertion at measured value (`test_measure.cpp`).
-- 2026-09-07 — docs: Documented open questions regarding Mark IIC+ loop circuit design (`docs/reference/research/`).
+- 2026-09-07 — docs: Documented open questions regarding Mark IIC+ loop circuit design (`docs/archive/research/`).
 - 2026-09-07 — tests: Set Peavey 5150 clean input test level to nominal rating (`test_peavey5150.cpp`).
 - 2026-09-07 — docs: Documented malformed commit message hashes across DA4 development.
 - 2026-09-07 — core: Unified cabinet IR management under `ICabinetHost` interface (`include/SushiDSP/core/ICabinetHost.hpp`, `apps/host_gui/RigController.cpp`).
@@ -252,7 +255,7 @@
 - 2026-09-06 — circuits: Added `FmvToneStack` Fender-Marshall-Vox stack model (`FmvToneStack.hpp`, `FmvToneStack.cpp`).
 - 2026-09-06 — spice: Corrected FMV tone stack schematic return node in SPICE (`docs/reference/spice/jcm_fmv/`).
 - 2026-09-06 — spice: Verified eight circuit blocks against LTspice simulation benchmarks (`docs/reference/spice/`).
-- 2026-09-06 — docs: Created amplifier design dossiers for 5150, Mark IIC+ and VH4 (`docs/reference/research/`).
+- 2026-09-06 — docs: Created amplifier design dossiers for 5150, Mark IIC+ and VH4 (`docs/archive/research/`).
 - 2026-09-06 — circuits: Wired tone stack middle potentiometer as variable resistance rheostat (`FmvToneStack.hpp`, `FmvToneStack.cpp`).
 - 2026-09-06 — circuits: Added power-tube preset constructors to `PentodeStage` (`PentodeStage.hpp`, `PowerTubePresets.hpp`).
 - 2026-09-06 — circuits: Added per-band quality factor override to `GraphicEqualizer` (`GraphicEqualizer.hpp`, `GraphicEqualizer.cpp`).
@@ -300,8 +303,6 @@
 - 2026-09-05 — math: Clarified latency reporting and lookahead in `Resampler` (`Resampler.hpp`).
 - 2026-09-05 — math: Maintained phase accumulator continuity across dynamic rate changes (`src/math/Resampler.cpp`).
 
-## v0.3.0 — 2026-09-01
-
 - 2026-08-27 — math: Added `DenseLu`, `DampedNewtonSolver`, `DkNetlist` and `DkCircuit` (`include/SushiDSP/math/dk/`).
 - 2026-08-27 — circuits: Added diode and tube device models with double-precision Jacobians (`SiliconDiode.hpp`, `Triode12AX7.hpp`, `PentodeEL34.hpp`).
 - 2026-08-27 — tests: Validated RC, RLC, diode clipper and JCM800 V1a netlists against analytic poles (`test_dk_circuit.cpp`).
@@ -319,3 +320,31 @@
 - 2026-08-26 — bench: Benchmarked JCM800 and Tube Screamer execution times against block budgets (`tests/benchmark/main.cpp`).
 - 2026-08-26 — tests: Switched regression tests to 1-second golden audio comparisons at 48 kHz and 96 kHz (`tests/golden/`).
 - 2026-08-26 — spice: Staged SPICE reference corpus, netlists and export automation (`docs/reference/spice/`, `tools/spice/export.py`).
+- 2026-08-26 — core: Added latency reporting contract to `IAudioNode`, `RigGraph` and `Oversampler8x` (`IAudioNode.hpp`, `RigGraph.hpp`).
+- 2026-08-26 — core: Added `RtSwapSlot` for lock-free object reclamation between audio and control threads (`RtSwapSlot.hpp`).
+- 2026-08-26 — core: Added `SmoothedParameter` with millisecond time constants for smoothing (`SmoothedParameter.hpp`).
+- 2026-08-26 — io: Added `IrLoader` for resampling, trimming, fading and loudness normalisation of cabinet impulses (`IrLoader.hpp`, `IrLoader.cpp`).
+- 2026-08-26 — core: Added lock-free parameter ring buffer drained at block boundaries (`RigGraph.cpp`, `SpscRing.hpp`).
+- 2026-08-26 — jcm800: Moved cabinet simulation to `StreamingConvolution` behind `RtSwapSlot` (`modules/jcm800/`).
+- 2026-08-26 — core: Calibrated full-scale input voltage to 2 V peak and repinned node defaults (`Calibration.hpp`).
+- 2026-08-26 — host_gui: Routed parameter changes through lock-free ring and added runtime cabinet loading (`apps/host_gui/`).
+- 2026-08-25 — cli: Added compiler auto-detection and pinned FMA contraction off in `sd` (`cli/sushidsp/`).
+- 2026-08-25 — bench: Added `sushidsp_bench` timing harness and reporting via `sd test -s benchmark` (`tests/benchmark/`).
+- 2026-08-25 — build: Added AVX2, FMA and link-time optimisation build configurations (`cmake/SushiDSPCompilerFlags.cmake`).
+- 2026-08-25 — core: Added `DenormalGuard` RAII helper to enforce flush-to-zero in audio callbacks (`DenormalGuard.hpp`).
+- 2026-08-25 — math: Added joint residual and derivative solver in `NewtonRaphsonSolver` (`NewtonRaphsonSolver.hpp`).
+- 2026-08-25 — math: Converted `HalfbandUpsampler2x` and `HalfbandDownsampler2x` to polyphase forms (`HalfbandCoefficients.hpp`).
+- 2026-08-25 — math: Added `PartitionedConvolution` for uniform-partitioned overlap-add FFT convolution (`PartitionedConvolution.hpp`).
+- 2026-08-25 — math: Added `HalfbandUpsampler2x`, `HalfbandDownsampler2x` and `Oversampler8x` (`Oversampler.hpp`).
+- 2026-08-25 — math: Added `WdfResistor` and `WdfCapacitor` linear Wave Digital Filter one-ports (`Wdf.hpp`).
+- 2026-08-25 — math: Added `NewtonRaphsonSolver` and single-stage diode clipper proof circuit (`DiodeClipperCircuit.hpp`).
+- 2026-08-25 — device: Added `IAudioDevice` seam and SDL2 audio device backend (`IAudioDevice.hpp`, `Sdl2AudioDevice.hpp`).
+- 2026-08-25 — core: Added lock-free `SpscRing` for control to real-time communication (`SpscRing.hpp`).
+- 2026-08-25 — host: Added `sushidsp_host` standalone rig playback proof application (`apps/host/`).
+- 2026-08-25 — build: Added repository CMake skeleton and `sd` developer CLI (`CMakeLists.txt`, `cli/`).
+- 2026-08-25 — core: Added `IAudioNode`, `RigGraph` and `NodeDescriptor` core graph contracts (`IAudioNode.hpp`, `RigGraph.hpp`).
+- 2026-08-25 — core: Added allocation-free transient `BufferPool` (`BufferPool.hpp`, `BufferPool.cpp`).
+- 2026-08-25 — math: Added real `Fft` and RBJ biquad filter implementations (`Fft.hpp`, `Biquad.hpp`).
+- 2026-08-25 — tests: Added real-time safety operator new trap harness for regression suites (`tests/functional/unit/test_rt_safety.cpp`).
+- 2026-07-24 — docs: Pivoted design scope from game audio to standalone amp and pedal DSP framework (`docs/design/SUSHIDSP.md`).
+- 2026-07-24 — cli: Registered `sushidsp` as a SushiStack module with `sd` alias (`sushicore`).

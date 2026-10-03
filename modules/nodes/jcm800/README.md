@@ -6,7 +6,7 @@ not part of this node; a rig that wants one places the standalone `sushidsp.cabi
 after this one (see [`modules/nodes/cabinet/README.md`](../cabinet/README.md)).
 
 Intent and the phase rulings live in
-[`docs/design/sushidsp.md`](../../docs/design/sushidsp.md); the plate-swing change this file
+[`docs/design/SUSHIDSP.md`](../../docs/design/SUSHIDSP.md); the plate-swing change this file
 describes is specified in
 [`docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`](../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md).
 The component values come from the `jcm_*` SPICE decks under

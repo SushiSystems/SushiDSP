@@ -411,8 +411,8 @@ TEST(Unit_Dsp, DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation)
     // offsets, which cancel between the two antiparallel branches.
     //
     // D6b's DiodeClipperCircuit used to sit here too, as a second, independently written
-    // implementation to agree with. D6c's plan (docs/superpowers/plans/2026-09-05-d6c-tubescreamer
-    // -on-dk.md, Task 10) retired it: it ran four fixed float Newton iterations with no
+    // implementation to agree with. D6c's plan (docs/archive/superpowers/plans/
+    // 2026-09-05-d6c-tubescreamer-on-dk.md, Task 10) retired it: it ran four fixed float Newton iterations with no
     // convergence test and drifted up to 2.8 mV from the root at high slew, so agreeing with it
     // was a weaker claim than agreeing with the equation. Bisecting the scalar equation itself,
     // in double precision, is an independently written *root* rather than an independently

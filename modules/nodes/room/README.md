@@ -10,7 +10,7 @@ Intent, the physics behind each solver and the acceptance list live in
 [`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md);
 the task order is
 [`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`](../../docs/archive/superpowers/plans/2026-09-08-room-acoustics.md).
-This file records what the code in this directory does. `docs/design/sushidsp.md` §3c places the
+This file records what the code in this directory does. `docs/design/SUSHIDSP.md` §3c places the
 module in the tree and §9 carries its roadmap rows;
 [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) holds what the phase
 knowingly left open.

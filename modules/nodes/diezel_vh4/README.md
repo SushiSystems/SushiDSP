@@ -289,8 +289,8 @@ behind it.
 ### The pair's DC and where it goes
 
 At the default and a 0.2 220 Hz input the inverter's plate carries a mean of +5.5 to +13 V on a
-±117 V swing, and the pair's difference carries a mean of 2.3 to 4.7 % of its full clip (2026-09-07,
-`.superpowers/sdd/amp-gain-staging/da5-part3-report.md`). Both are the circuit's: every stage past
+±117 V swing, and the pair's difference carries a mean of 2.3 to 4.7 % of its full clip (measured
+2026-09-07). Both are the circuit's: every stage past
 V1a clips asymmetrically, each coupling corner removes the mean the stage before it made, and the
 square that reaches the power tubes has two halves of unequal length. A real amplifier's coupling
 capacitors and output transformer pass none of it to the speaker. This module has no coupling

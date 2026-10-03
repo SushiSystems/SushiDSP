@@ -2,7 +2,7 @@
 
 Two free functions that convert between a live, compiled `RigGraph` and a JSON string:
 `serialize_rig_to_json()` and `deserialize_rig_from_json()`. This is the concrete form of what
-[`docs/design/sushidsp.md`](../../docs/design/sushidsp.md) calls a portable preset — an ordered
+[`docs/design/SUSHIDSP.md`](../../docs/design/SUSHIDSP.md) calls a portable preset — an ordered
 list of `{descriptor.id, {param_id → value}}`, so a rig built in the VST loads unchanged in the
 standalone host and vice versa. `RigController` in `apps/host_gui` is the module's only caller
 today. This file records what the code in this directory does.

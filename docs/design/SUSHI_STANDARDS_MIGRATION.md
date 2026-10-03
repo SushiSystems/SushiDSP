@@ -77,7 +77,7 @@ docs/
 ```
 
 Key transformations:
-1. `docs/superpowers/plans/` and `docs/superpowers/specs/` move to `docs/archive/superpowers/`.
+1. `docs/archive/superpowers/plans/` and `docs/archive/superpowers/specs/` move to `docs/archive/superpowers/`.
 2. The module index moves to `docs/architecture/MODULES.md`. Done.
 3. `docs/api/mainpage.md` moves to `docs/reference/API_REFERENCE.md`.
 4. `docs/design/sushidsp.md` is renamed to `docs/design/SUSHIDSP.md` with status `**Status:** Open — phase 2 of 4`.

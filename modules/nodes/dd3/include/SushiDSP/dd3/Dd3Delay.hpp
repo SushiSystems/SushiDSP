@@ -53,7 +53,7 @@ namespace SushiDSP
     /// D.TIME clock every @ref kClockUpdateFrames samples. The feedback leaves the wet leg's
     /// output and joins the dry branch at the pre-emphasis summing node, one sample at a time,
     /// downstream of the input buffer; the rulings that place both ends of that path are in
-    /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections.
+    /// docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections.
     class Dd3Delay : public IAudioNode
     {
     public:
@@ -150,7 +150,7 @@ namespace SushiDSP
         /// 3 samples one base-rate push returns never starve the read (plan N2).
         ///
         /// dd3::WetFifo owns the mechanism, and
-        /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections, has the
+        /// docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections, has the
         /// measurement that chose priming on real samples over zeros written at reset.
         static constexpr std::uint32_t kWetPrimeFrames = dd3::WetFifo::kPrimeFrames;
 

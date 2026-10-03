@@ -27,7 +27,7 @@ namespace SushiDSP
 {
     /// @brief Direct Form I biquad filter with RBJ cookbook coefficient derivation, its
     /// coefficients and state in double behind a float sample interface
-    /// (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 15).
+    /// (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 15).
     class Biquad
     {
     public:
@@ -90,7 +90,7 @@ namespace SushiDSP
         /// @brief Configures this filter as a first-order shelf with independent zero and pole.
         ///
         /// Both corners are prewarped separately, so a mirrored pair cancels exactly; see
-        /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md for the derivation.
+        /// docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md for the derivation.
         /// @param sample_rate Sample rate in Hz.
         /// @param zero_hz Frequency of the transfer function's zero, in Hz.
         /// @param pole_hz Frequency of its pole, in Hz.

@@ -35,7 +35,7 @@
 namespace
 {
     /// @brief The secondary's mean-tracking corner as a fraction of the rolloff corner
-    /// (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 14).
+    /// (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 14).
     constexpr double kSecondaryMeanCornerFraction = 0.1;
 }
 

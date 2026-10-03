@@ -51,7 +51,7 @@
 
 /// @brief Names the signal the host assembles into the rig's input buffer. Track and Both are
 /// what re-amping is made of - a dry take driven through the rig instead of, or on top of, the
-/// live instrument. See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md section 6.
+/// live instrument. See docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md section 6.
 enum class RigInputSource : std::uint32_t
 {
     LiveInput = 0,
@@ -64,7 +64,7 @@ enum class RigInputSource : std::uint32_t
 /// through an SushiDSP::RtGraphSlot on every structural edit. App-local glue, GUI thread only.
 /// A slot is named by a SlotId, stable across every insert, move and remove, and unrelated to
 /// the SushiDSP::NodeHandle RigGraph::add_node() assigns fresh on each rebuild.
-/// @see docs/superpowers/specs/2026-09-07-stereo-tracks-design.md
+/// @see docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md
 class SlotGraph
 {
 public:

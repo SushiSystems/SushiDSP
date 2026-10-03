@@ -102,7 +102,7 @@ namespace SushiDSP
         /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
         /// It multiplies the signal after the last nonlinearity, so it scales the output and
         /// nothing else. The calibration point is the one all four amplifiers share: every knob
-        /// at its default and a -12 dBFS 82 Hz input peaks at -6.00 dBFS (docs/superpowers/specs/
+        /// at its default and a -12 dBFS 82 Hz input peaks at -6.00 dBFS (docs/archive/superpowers/specs/
         /// 2026-09-07-grid-knee-antialiasing-design.md section 6), pinned by
         /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput. Re-measured
         /// 2026-09-07 on the Norman grid law, on the volt-true power stage and on the

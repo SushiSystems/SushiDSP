@@ -48,7 +48,7 @@
 /// @brief Owns the host's arrangement - the playback lanes, their clips, the re-amp leg, the
 /// tempo and the take recorders - and keeps the audible players in step with it. App-local
 /// glue, GUI thread only. It knows nothing of the rig's topology.
-/// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md
+/// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md
 class SessionTimeline
 {
 public:

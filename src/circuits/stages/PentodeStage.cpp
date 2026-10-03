@@ -32,7 +32,7 @@ namespace
 {
     /// @brief The tanh argument past which the plate ceiling reads 1.0 in float; the solver's
     /// grid bounds sit where the plate can no longer move
-    /// (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 5).
+    /// (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 5).
     constexpr float kPlateReach = 10.0f;
 
     /// @brief Newton iterations per sample from the previous sample's root.
@@ -104,8 +104,7 @@ namespace SushiDSP
     {
         // Newton's first step from a bound leaves the iterate on it whenever the residual there
         // has the sign that points past the bound; the conduction current is never negative, and
-        // at the conduction bound softplus equals its argument
-        // (.superpowers/sdd/amp-gain-staging/optimisation-round-1.md).
+        // at the conduction bound softplus equals its argument.
         const float linear_residual = (grid_voltage - source_voltage) / source_resistance_
                                       + (grid_voltage - cathode_bias_) / grid_leak_resistance_;
         if (grid_voltage == cutoff_grid_limit_)

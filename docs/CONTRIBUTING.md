@@ -8,7 +8,7 @@ the reference for how the project is actually built and how a change should look
 By contributing you agree that your contributions are licensed under the project's
 **Apache License, Version 2.0** (see [`LICENSE`](../LICENSE)).
 
-> New to the codebase? Read [`docs/design/sushidsp.md`](design/sushidsp.md) first — it explains
+> New to the codebase? Read [`docs/design/SUSHIDSP.md`](design/SUSHIDSP.md) first — it explains
 > the rig graph, the `NodeDescriptor` product contract, and the math/circuit layering every
 > DSP kernel follows.
 
@@ -65,7 +65,7 @@ gets sent back before anything else is reviewed.
   trailing underscore (`impl_`); constants `kPascalCase` (`kMaximumNodes`); spelled-out names,
   no abbreviations.
 - **License header** — the exact 76-column boxed `/* ... */` template pinned in
-  [`docs/design/sushidsp.md` §0a](design/sushidsp.md), on every `.hpp`/`.cpp` file. Copy an
+  [`docs/design/SUSHIDSP.md` §0a](design/SUSHIDSP.md), on every `.hpp`/`.cpp` file. Copy an
   existing file's header verbatim (e.g. `include/SushiDSP/core/PortLayout.hpp`) and only change
   the filename line — do not retype the box by hand, and do not skip it on a test file (every
   `.hpp`/`.cpp` in the tree carries it, tests included).
@@ -121,7 +121,7 @@ gets sent back before anything else is reviewed.
 - **ISP** — narrow interfaces (`IAudioNode`, `IAudioDevice`) — no god-interface.
 - **DIP** — the core depends on abstractions; the platform device is injected, never assumed.
 
-See [`docs/design/sushidsp.md` §10](design/sushidsp.md) for the full statement.
+See [`docs/design/SUSHIDSP.md` §10](design/SUSHIDSP.md) for the full statement.
 
 ## 6. Commit messages
 

@@ -49,7 +49,7 @@ namespace SushiDSP
     /// transformer, power sag, the feedback network's resonance and presence shelves, followed by
     /// a plain full-scale clamp. Cabinet convolution lives in the standalone sushidsp.cabinet
     /// node. Component values come from
-    /// docs/reference/research/2026-09-06-peavey-5150-design-dossier.md and every departure from
+    /// docs/archive/research/2026-09-06-peavey-5150-design-dossier.md and every departure from
     /// it is listed in modules/nodes/peavey5150/README.md. Exposes peavey5150_descriptor().
     class Peavey5150 : public IAudioNode
     {
@@ -120,7 +120,7 @@ namespace SushiDSP
 
         /// @brief Linear gain the finished signal is scaled by so an untouched amp turns a
         /// -12 dBFS 82 Hz input into a -6.00 dBFS peak, the calibration point all four
-        /// amplifiers share (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md
+        /// amplifiers share (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md
         /// section 6). Re-measured 2026-09-07 on the Norman grid law, the solved inverter bias and
         /// the audio-taper PRE GAIN, on the volt-true power stage and on the transformer whose
         /// secondary carries no mean; 0.1730211, 0.2400876 and 0.6114945 before those, the last

@@ -56,7 +56,7 @@ namespace SushiDSP
     /// @brief Reports whether a rig output width can be written to a device output width. The
     /// table is the one RigGraph::channels_adapt carries, clamped to the two widths
     /// write_rig_output_to_device implements: 1 into 1, 2 into 2, 1 into 2 (copied) and 2 into 1
-    /// (summed and halved). See docs/superpowers/specs/2026-09-07-stereo-tracks-design.md.
+    /// (summed and halved). See docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md.
     /// @param rig_channels The rig's output channel count.
     /// @param device_channels The device's output channel count.
     /// @return False when the pair has no rule, which the caller turns into a setup-time refusal.

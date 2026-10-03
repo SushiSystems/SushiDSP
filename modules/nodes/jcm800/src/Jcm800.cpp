@@ -56,7 +56,7 @@ namespace SushiDSP
 
         /// @brief V1b's gain with its 10 kOhm cathode unbypassed, mu*Ra/(ra + Ra + (mu + 1)*Rk) at
         /// its idle point: gm 0.6812 mA/V, ra 115.768 kOhm, mu 78.8604; jcm_v1b_cold's AC sweep
-        /// reads +16.89 dB (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md
+        /// reads +16.89 dB (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md
         /// section 6).
         constexpr float kV1bGain = 7.774305f;
 

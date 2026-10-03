@@ -607,8 +607,7 @@ TEST(Regression_Dsp, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
     // 2.0 V window driven 3x and 12x past, folds under -60 dB and -40 dB. On the Norman grid
     // law it measured -81.2 dB at 6 V and -53.7 dB at 24 V on 2026-09-07, and -102.4 and
     // -79.8 dB once the stage's composite transfer was antialiased (DA5 part 4); the
-    // room-temperature Shockley knee read -37.3 dB and -13.7 dB at the same drives (the
-    // diagnosis at .superpowers/sdd/amp-gain-staging/diagnosis.md section 5).
+    // room-temperature Shockley knee read -37.3 dB and -13.7 dB at the same drives.
     auto v5a = []
     {
         return SushiDSP::TriodeStage(671730.0f, 1000000.0f, -2.0f, 25.3f, SushiDSP::kTriode12AX7GridConduction,
@@ -631,8 +630,7 @@ TEST(Regression_Dsp, PentodeStageAliasFloorInsideAndAtItsWindow)
     // EL34 alone in an 8x region, driven to the 8 V that one model volt of the old stage stood
     // for and to its whole 38 V window, folds under -80 dB and -50 dB. Measured 2026-09-07:
     // -88.1 dB at 8 V and -55.1 dB at 38 V, and -101.2 and -84.4 dB once antialiased (DA5
-    // part 4), where the bias-referenced stage read -49.7 dB at one model volt
-    // (.superpowers/sdd/amp-gain-staging/diagnosis.md section 6).
+    // part 4), where the bias-referenced stage read -49.7 dB at one model volt.
     OversampledPentodeStageNode inside(SushiDSP::PentodeStage(kReferencePentode), 8.0f, 300.0f);
     OversampledPentodeStageNode at_window(SushiDSP::PentodeStage(kReferencePentode), 38.0f, 300.0f);
 

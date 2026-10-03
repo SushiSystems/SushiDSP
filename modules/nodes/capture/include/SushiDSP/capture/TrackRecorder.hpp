@@ -39,7 +39,7 @@ namespace SushiDSP
     /// @brief One recording destination: the audio thread pushes blocks into one SpscRing<float>
     /// per channel and a writer thread drains all of them in step into a WavWriter. A disk that
     /// cannot keep up costs whole blocks, counted by dropped_blocks(), never a wait in write().
-    /// @see docs/superpowers/specs/2026-09-07-stereo-tracks-design.md §5
+    /// @see docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md §5
     class TrackRecorder
     {
     public:
