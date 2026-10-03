@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.0 — 2026-10-03
+
 - 2026-10-03 — docs: Folded the untagged v0.1.0, v0.2.0 and v0.3.0 headings into Unreleased (`CHANGELOG.md`, `docs/archive/changelog/`).
 - 2026-10-03 — ci: Removed the Python CLI job, which cannot install sushicore 0.6.0 from PyPI (`.github/workflows/ci.yml`, `README.md`).
 - 2026-10-03 — docs: Repointed the cited paths that no longer resolve to the archive or the renamed spec (`CONTRIBUTING.md`, `OVERVIEW.md`, `KNOWN_ISSUES.md`).
