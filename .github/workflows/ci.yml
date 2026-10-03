@@ -85,35 +85,11 @@ jobs:
           cmake --build build --config Debug
           ctest --test-dir build -C Debug -L "unit|regression" --output-on-failure
 
-  cli:
-    name: Python CLI (lint + tests)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install the CLI and its tooling
-        # sushicore comes from PyPI, so pip resolves it from cli/pyproject.toml
-        # and no sibling checkout is needed.
-        run: |
-          python -m pip install --upgrade pip pytest pyflakes
-          python -m pip install -e ./cli
-
-      - name: Import-safety check (no crash outside a checkout)
-        working-directory: cli
-        run: python -m pyflakes sushidsp || true
-
-      - name: Run CLI unit tests
-        working-directory: cli
-        run: python -m pytest tests -q
-
 # ---------------------------------------------------------------------------
 # Deliberately absent
 # ---------------------------------------------------------------------------
+# * The Python CLI job. `cli/` needs sushicore 0.6.0, which is not on PyPI, so
+#   a public clone cannot install it; its tests run locally.
 # * A sibling-module checkout step. SushiDSP has no code dependency on any
 #   other SushiStack module (spec §11/§11a) — nothing to check out.
 # * A SYCL/oneAPI container image. The core has no GPU/SYCL dependency at all.

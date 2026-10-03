@@ -25,7 +25,9 @@ written down can be corrected by the next person who measures a real chassis.
 ## Build and run
 
 Everything goes through `sd`, the repository's own CLI. It sets the runtime search path, so a
-binary started any other way will not find its libraries.
+binary started any other way will not find its libraries. `sd` is the Python package in `cli/`
+and needs sushicore 0.6.0, which is not on PyPI yet; install sushicore from its own checkout
+first, then `python -m pip install -e ./cli`.
 
 ```bash
 sd build      # configure if needed, then build every target
