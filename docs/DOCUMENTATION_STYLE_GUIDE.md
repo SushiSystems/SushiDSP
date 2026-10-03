@@ -43,14 +43,14 @@ states no fact of its own.
 Everything else follows the design spec's status:
 
 - A document describing intent with at least one phase not built lives in `docs/design/`.
-  `docs/design/sushidsp.md` and `docs/design/gui_ux_redesign.md` are both design documents
+  `docs/design/SUSHIDSP.md` and `docs/design/GUI_UX_REDESIGN.md` are both design documents
   that describe work not yet in the tree. Read one as a record of intent, never as a
   description of the tree as it stands.
 - `docs/design/REMAINING_WORK.md` is the single backlog: every open item, in the order it
   should be taken, with measured-and-accepted defects left to `KNOWN_ISSUES.md` instead of
   repeated there.
 - A document that records what an agent did while executing a task (a spec, a plan, a report)
-  goes under `docs/agent/` or `docs/superpowers/`.
+  goes under `docs/agent/`.
 - Work with nothing left open belongs in `docs/archive/`, frozen: added to, never edited.
 - Otherwise, if it describes the tree as it is today, it belongs in the manual proper, sorted
   by what a reader is asking: a newcomer's first orientation goes in `getting_started/`, how
@@ -87,14 +87,13 @@ describes is done:
 
 A status line that says "design only" or names an open phase means the document describes
 intent, not the tree as it stands. Read it as a spec to build from, never as a report of what
-exists. `docs/design/sushidsp.md`'s own header states this for the whole design spec: it is
+exists. `docs/design/SUSHIDSP.md`'s own header states this for the whole design spec: it is
 what an implementer builds from, and it may describe a module, a class or a behavior that has
 not been written yet.
 
 ## Changelog entries
 
-`docs/reference/CHANGELOG.md` is grouped by roadmap phase (design spec §9), each phase citing
-its spec and plan under `docs/superpowers/`. Every entry is one line:
+`docs/reference/CHANGELOG.md` is grouped by release, newest first. Every entry is one line:
 
 ```markdown
 - 2026-09-08 — Added `AirAbsorption`, ISO 9613-1 at 20 °C and 50 % RH (`AirAbsorption.hpp`, `AirAbsorption.cpp`).

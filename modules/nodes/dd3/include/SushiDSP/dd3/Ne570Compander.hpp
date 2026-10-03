@@ -48,7 +48,7 @@ namespace SushiDSP::dd3
     /// The rectifier and its pole run at @ref kRectifierOversampling times the host rate; the
     /// gain cell does not. Rectification is the one nonlinearity here whose aliasing is a
     /// discretisation artefact rather than modelled hardware, and
-    /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections, carries the
+    /// docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections, carries the
     /// ruling and the measurements.
     class Ne570Compander
     {

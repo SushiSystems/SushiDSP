@@ -259,7 +259,7 @@ TEST(Unit_Dsp, Dd3ReconstructionCascadeMatchesItsDampedPrototype)
 TEST(Unit_Dsp, Dd3DelayPathMeetsThePublishedResponseWindow)
 {
     // The acceptance: 40 Hz - 7 kHz within +1/-3 dB of 1 kHz, from the DD-3's published
-    // delay-path figure (docs/reference/research/2026-08-26-boss-dd3-design-dossier.md
+    // delay-path figure (docs/archive/research/2026-08-26-boss-dd3-design-dossier.md
     // section 3). Both the anti-alias cascade alone and the two cascades in series are held to
     // it, because on the board the wet signal passes through both.
     for (const double sample_rate : { 48000.0, 96000.0 })

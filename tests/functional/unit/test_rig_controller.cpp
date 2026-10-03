@@ -1302,7 +1302,7 @@ TEST(Unit_Dsp, RigControllerReAmpsARecordedTakeFromTheBarItWasRecordedAt)
     ASSERT_TRUE(controller.set_reamp_track(0, error)) << error;
 
     // The re-amp leg is silent before the bar the take was recorded at, which is the whole point
-    // of the stamp: docs/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
+    // of the stamp: docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
     std::vector<float> assembled(block, 0.0f);
     float*             assembled_pointer[1] = { assembled.data() };
     controller.transport().seek(0);

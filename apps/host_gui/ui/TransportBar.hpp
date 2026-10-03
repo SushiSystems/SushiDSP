@@ -43,8 +43,8 @@ namespace ui
     /// @param mini_daw_active In/out: whether the workspace shows the mini-DAW; the bar's button
     /// toggles it and reads "Mini-DAW" or "Back to Rig" accordingly.
     /// @param transport_error In/out: the last refusal, shown until an action succeeds.
-    /// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §5a and §6
-    /// @see docs/design/gui_ux_redesign.md §12
+    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §5a and §6
+    /// @see docs/design/GUI_UX_REDESIGN.md §12
     void DrawTransportBar(RigController& rig, LevelProbe& input, LevelProbe& output,
                           bool& mini_daw_active, std::string& transport_error);
 }

@@ -13,7 +13,7 @@ in the tree that implements `ICabinetHost` now, and none of the four amp classes
 `ICabinetHost`, `set_cabinet` or `StreamingConvolution` any more. A rig that wants a cabinet
 places `sushidsp.cabinet` after its amp explicitly — there is no amp with one built in, and no
 rig can convolve the same signal twice by accident. The decision and its rationale are recorded
-in [`docs/design/gui_ux_redesign.md`](../../docs/design/gui_ux_redesign.md) §8.
+in [`docs/design/GUI_UX_REDESIGN.md`](../../docs/design/GUI_UX_REDESIGN.md) §8.
 
 ## The blocks and who owns each
 

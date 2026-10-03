@@ -625,7 +625,7 @@ std::string RigPersistence::save_to_json() const
     }
 
     // The playback speed is a practice setting, not a session's, so it is written nowhere. See
-    // docs/superpowers/specs/2026-09-08-arrangement-view-design.md §8.
+    // docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §8.
     nlohmann::json tempo_json = nlohmann::json::object();
     tempo_json["bpm"] = session_.musical_clock().beats_per_minute();
     tempo_json["beats_per_bar"] = session_.musical_clock().beats_per_bar();

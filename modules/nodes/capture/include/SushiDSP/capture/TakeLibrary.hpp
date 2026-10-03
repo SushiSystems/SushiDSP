@@ -35,7 +35,7 @@ namespace SushiDSP
     /// @brief Owns every loaded Take and hands out the borrowed pointers clips hold. Control
     /// thread only: it carries no atomic and has no real-time entry point, so nothing the audio
     /// thread runs ever steps a count or frees a take. The lifetime argument is in
-    /// docs/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
+    /// docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
     class TakeLibrary
     {
     public:

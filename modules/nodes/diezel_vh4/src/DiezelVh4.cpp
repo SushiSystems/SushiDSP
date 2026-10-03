@@ -56,7 +56,7 @@ namespace SushiDSP
         10000.0f, 220000.0f, -36.0f, 8.458480f, kPentodeEL34GridConduction, PlateSwing{ 35.0f, 339.1657f } };
 
         // Every constant below cites the section of
-        // docs/reference/research/2026-09-06-diezel-vh4-design-dossier.md it comes from. A
+        // docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md it comes from. A
         // constant the dossier marks "not established" or that this module chose for itself says
         // so on its own line and is listed again in modules/nodes/diezel_vh4/README.md.
 

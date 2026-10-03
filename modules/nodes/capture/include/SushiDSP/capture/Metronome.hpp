@@ -39,7 +39,7 @@ namespace SushiDSP
     /// heard on the monitor path and reaches no recorded file. Every beat is derived from the
     /// absolute position, so a seek moves the click with the playhead and nothing accumulates
     /// down a long take.
-    /// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §4
+    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §4
     class Metronome
     {
     public:

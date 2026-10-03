@@ -9,7 +9,7 @@
 #
 # SushiDSP has no [module] depends_on entry: unlike sushiblas (which rides on
 # sushiruntime), SushiDSP's core is dependency-free by design (see
-# docs/design/sushidsp.md §0/§11) and links no other SushiStack module.
+# docs/design/SUSHIDSP.md §0/§11) and links no other SushiStack module.
 #
 # GoogleTest is resolved via CMake FetchContent (see the root CMakeLists.txt),
 # not a system/vcpkg port, so there is nothing to declare for it here.

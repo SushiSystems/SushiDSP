@@ -68,7 +68,7 @@ namespace SushiDSP::dd3
     /// fitted, because the window is a knife edge in it: 0.98 would put the delay path
     /// +3.18 dB at 7 kHz. The published window bounds it to 0.9431071-0.9665162 and this is
     /// the midpoint. Derivation, interval and provenance:
-    /// docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, DR2 model corrections.
+    /// docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md, DR2 model corrections.
     inline constexpr double kEmitterFollowerGain = 0.9548116;
 
     /// @brief The band edge both schematic legends and the published response name, 7 kHz.

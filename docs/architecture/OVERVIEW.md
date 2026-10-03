@@ -3,7 +3,7 @@
 This page describes SushiDSP's layering as built, verified against the tree under
 `include/SushiDSP/`, `src/`, `modules/` and `apps/`. It is not the design spec: where a claim
 comes from intent rather than code, it says so and cites
-[`docs/design/sushidsp.md`](../design/sushidsp.md) by section instead of restating the intent
+[`docs/design/SUSHIDSP.md`](../design/SUSHIDSP.md) by section instead of restating the intent
 as fact.
 
 ## The four layers
@@ -83,7 +83,7 @@ layout entry describe it, but no `apps/plugin` directory exists in the tree yet.
 
 ## What is spec-only, not yet built
 
-The following are described in `docs/design/sushidsp.md` as intent and were not found under
+The following are described in `docs/design/SUSHIDSP.md` as intent and were not found under
 `include/`, `src/`, `modules/` or `apps/` during this review — read them from the spec, not as
 current fact:
 

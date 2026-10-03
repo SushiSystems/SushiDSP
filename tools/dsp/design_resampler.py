@@ -9,7 +9,7 @@ both relative to the repository root.
 
 Kaiser-windowed sinc, table-driven for polyphase interpolation, normalised so every
 polyphase branch has unity DC gain rather than the peak; HALF_WIDTH is 34, not the plan's
-32, per docs/superpowers/plans/2026-09-05-dr1-dr2-resampler-and-dd3.md Task 1.1 ruling.
+32, per docs/archive/superpowers/plans/2026-09-05-dr1-dr2-resampler-and-dd3.md Task 1.1 ruling.
 """
 import sys
 import numpy as np

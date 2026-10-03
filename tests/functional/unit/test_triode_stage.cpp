@@ -202,7 +202,7 @@ TEST(Unit_Dsp, TriodeStageCutoffIsThePlateCeiling)
 {
     // No solver fence holds the grid short of the ceiling: at -30 V in, the 5150's V5A stage
     // reaches its 90.742 V headroom to the supply, where a 4.136 V fence held it at 74.3 V
-    // (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 3).
+    // (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 3).
     SushiDSP::TriodeStage v5a(671730.0f, 1000000.0f, -2.0f, 25.3f, SushiDSP::kTriode12AX7GridConduction,
                               SushiDSP::PlateSwing{ 90.742f, 134.001f });
     EXPECT_GT(settled_plate(v5a, -30.0f), 90.7f);
@@ -259,8 +259,7 @@ TEST(Unit_Dsp, AntiderivativeAntialiaserAntiderivativeDifferentiatesBackToTheTra
 {
     // G is the antiderivative of the plate output with respect to the input, so dG/du equals
     // bound(-gain u) times dg/du at every excursion, across the knee and past both plate
-    // ceilings. The bound is the table's cubic Hermite error, measured at 7e-9 of the swing
-    // (.superpowers/sdd/amp-gain-staging/da5-part4-report.md section 3).
+    // ceilings. The bound is the table's cubic Hermite error, measured at 7e-9 of the swing.
     const SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
     const double transition = SushiDSP::Triode12AX7::kGridTransitionVolts;
     constexpr double kDelta = 1e-4;

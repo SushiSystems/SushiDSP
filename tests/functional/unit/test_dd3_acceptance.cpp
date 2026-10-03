@@ -61,7 +61,7 @@ namespace
     ///
     /// Page 2 of the notes takes its whole check-point ladder at 1 kHz and 100 mVp-p in, i.e.
     /// 0.05 V peak; against the core's 2 V peak full scale that is 0.025 of full scale (dossier
-    /// docs/reference/research/2026-08-26-boss-dd3-design-dossier.md, check-point levels).
+    /// docs/archive/research/2026-08-26-boss-dd3-design-dossier.md, check-point levels).
     constexpr double kServiceNoteStimulus = 0.025;
 
     /// @brief Half the resampler prototype's width, counted in zero crossings, so the two
@@ -450,7 +450,7 @@ TEST(Regression_Dsp, Dd3AcceptanceAliasFloorIsMeasuredNotAssumed)
     // revisit took that reading and bought Ne570Compander::kRectifierOversampling with it, which
     // moved this row from -35.86 dB to -55.32 dB. The number still misses the -60 dB the printf
     // names, by 4.7 dB; 16 sub-steps would reach -65.13 dB, and the cost curve that chose 8 is in
-    // docs/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections.
+    // docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections.
     SushiDSP::Dd3Delay node;
     node.set_mode(SushiDSP::dd3::Dd3Mode::Middle);
     node.set_time(0.5f);

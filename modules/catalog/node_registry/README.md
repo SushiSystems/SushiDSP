@@ -5,7 +5,7 @@ product is registered under, plus `make_node(id, info)`, the id-to-instance fact
 and the plugin wrapper use to build a node without knowing its concrete type. Adding a product
 to the rig means adding one entry to `NodeRegistry.cpp`'s `node_registry()` — nothing else in
 `apps/host_gui` or `apps/host_asio` changes, which is the contract
-[`docs/design/sushidsp.md`](../../docs/design/sushidsp.md) describes for `NodeDescriptor`, the
+[`docs/design/SUSHIDSP.md`](../../docs/design/SUSHIDSP.md) describes for `NodeDescriptor`, the
 self-describing factory. This file records what the code in this directory does.
 
 ## What it owns

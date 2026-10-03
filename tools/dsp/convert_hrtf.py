@@ -9,7 +9,7 @@ Usage:  python tools/dsp/convert_hrtf.py --input <SOFA file or WAV directory> \
 The reference input is SADIE II, University of York, Neumann KU100 subject, 48 kHz. Nothing
 in the C++ tree reads SOFA or HDF5; this script runs once on a developer's machine and the
 module reads only the file it writes. The byte layout is fixed by the DE plan's Task 2 and by
-docs/superpowers/specs/2026-09-08-room-acoustics-design.md section 9.3.
+docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md section 9.3.
 
 Each direction is stored as a minimum-phase pair plus a separate interaural delay, so the
 loader can blend neighbouring directions without comb filtering. The licence and citation

@@ -15,8 +15,7 @@ every `TriodeStage` and `PentodeStage` with a first-order antiderivative of the 
 grid-and-plate transfer (`AntiderivativeAntialiaser`, spec section 15): one stage alone now folds
 at −102.4 dB at 3× past its window and −79.8 dB at 12× (−81.2 and −53.7 dB before), and the
 EL34 at −101.2 and −84.4 dB (−88.1 and −55.1 dB). What remains in the amplifiers is not the
-transformer's tanh, the sag envelope or the solver's iteration count, each measured and ruled out
-(`.superpowers/sdd/amp-gain-staging/da5-part4-report.md` section 5): at every default the worst
+transformer's tanh, the sag envelope or the solver's iteration count, each measured and ruled out: at every default the worst
 line is the 20 kHz tone's 19th harmonic folding about 384 kHz to 3995 Hz, made by the stages
 after the first, which receive an already-clipped waveform whose content reaches the oversampled
 Nyquist and so breaks the linear-between-samples assumption first-order ADAA rests on. Documented
@@ -93,10 +92,9 @@ Three sessions worked this checkout at once and each committed by explicit path,
 RigGraph routes as many channels as its nodes declare") also carries Task 5's `Transport`,
 `TrackPlayer` and `test_track_player.cpp`, and 18eb040 ("DS2: Take, TrackRecorder and
 RecordingBus") carries the rest of that task. The content of every file is the one its own task
-wrote and reviewed; only the commit each landed in is wrong. The ledger
-(`.superpowers/sdd/2026-09-07-stereo-tracks/progress.md`, "Task 5") ruled against rewriting
-history in a shared checkout, so `git log` stays as it is and this entry is the record. Closes by
-reading the ledger, not by a repair.
+wrote and reviewed; only the commit each landed in is wrong. The task's
+review ruled against rewriting history in a shared checkout, so `git log` stays as it is and this entry is the record. Closes as recorded here,
+not by a repair.
 
 ## `write_rig_output_to_device`'s 2 into 1 downmix has no live caller
 
@@ -124,8 +122,8 @@ costs nothing today. Closes by preparing the rig at the device's width, as the G
 `seek()` and `advance()` both store to `position_`, so a seek issued while the audio thread is
 inside a block can be overwritten by that block's store, leaving the transport a block-length away
 from where the user put it. The host serialises the two, and `Transport::seek`'s `@pre` states the
-rule rather than paying for a generation counter no caller needs today. Raised as finding 9 of
-`.superpowers/sdd/2026-09-07-stereo-tracks/review-tasks-1-4-5.md`. Closes when a caller appears
+rule rather than paying for a generation counter no caller needs today. Raised in the stereo-tracks
+review. Closes when a caller appears
 that cannot serialise them.
 
 ## A stereo branch collapses back to mono at a `MixerNode`

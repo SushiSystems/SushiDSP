@@ -51,7 +51,7 @@ starts on that without the verdict.
 ## Host
 
 - **Track playback pitch shift.** The bottom bar's Pitch field
-  (`docs/design/gui_ux_redesign.md` §12) is drawn disabled. It needs a semitone shift of
+  (`docs/design/GUI_UX_REDESIGN.md` §12) is drawn disabled. It needs a semitone shift of
   track playback that leaves speed alone; today `VariRateReader` moves pitch with speed and
   nothing in the tree stretches time. Owner decision 2026-09-14: its own plan, applied to
   track playback only.

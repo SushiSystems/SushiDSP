@@ -564,7 +564,7 @@ bool SessionTimeline::set_reamp_track(std::size_t index, std::string& error_out)
     }
 
     // The re-amp leg mirrors the lane's frames, so a take recorded at a bar drives the rig at
-    // that bar. See docs/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
+    // that bar. See docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
     reamp_takes_by_path_.clear();
     std::vector<SushiDSP::Clip> lane;
     lane.reserve(tracks_[index].clips.size());

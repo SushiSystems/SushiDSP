@@ -43,7 +43,7 @@ namespace SushiDSP
     /// with a single relaxed load, so no reader ever sees a torn tempo. The class holds no
     /// position: a caller passes a frame in, which is what keeps it detachable from
     /// Transport.
-    /// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §2 and §3
+    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §2 and §3
     class MusicalClock
     {
     public:

@@ -51,7 +51,7 @@ namespace SushiDSP
         39000.0f, 220000.0f, -55.0f, 5.995340f, kPentodeEL34GridConduction, PlateSwing{ 42.0f, 350.4283f } };
 
         // Every number in this block cites the section of
-        // docs/reference/research/2026-09-06-peavey-5150-design-dossier.md it is read from or
+        // docs/archive/research/2026-09-06-peavey-5150-design-dossier.md it is read from or
         // derived from. A value the dossier marks not established, or that is a modelling choice
         // the dossier does not carry, says so here and appears in modules/nodes/peavey5150/README.md.
 
@@ -362,7 +362,7 @@ namespace SushiDSP
 
         /// @brief The fraction of its travel an audio-taper pot passes at the middle of its
         /// rotation, the datasheet figure for a 10 % "A" taper
-        /// (docs/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 6).
+        /// (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 6).
         constexpr float kPreGainTaperMidpointFraction = 0.10f;
 
         /// @brief The base of the exponential taper, ((1 - m) / m)^2, which puts the law exactly

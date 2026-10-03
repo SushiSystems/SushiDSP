@@ -35,4 +35,4 @@ speed, and `TrackPlayer` converts to output frames at each run's own base.
 
 The classes named here live in [`modules/nodes/capture/`](../../modules/nodes/capture/) and are described in
 its [`README.md`](../../modules/nodes/capture/README.md); the intent behind them is in
-[`docs/design/sushidsp.md`](../design/sushidsp.md) §3b.
+[`docs/design/SUSHIDSP.md`](../design/SUSHIDSP.md) §3b.

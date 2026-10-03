@@ -50,7 +50,7 @@ namespace ui
     /// outside the ImGui frame can be resolved to a lane on the next one.
     /// @param header_width In/out: the lane-header column's width, resized by a divider drawn
     /// between the header column and the grid.
-    /// @see docs/superpowers/specs/2026-09-08-arrangement-view-design.md §6
+    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §6
     void DrawArrangementView(RigController& rig, TimelineScale& scale, SnapMode& snap,
                              SushiDSP::host::AudioImportQueue& imports,
                              std::string& arrangement_error, LaneGeometry& geometry_out,
