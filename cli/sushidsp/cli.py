@@ -23,7 +23,6 @@ from .services.project import BuildType, Suite
 K_BUILD = "Build"
 K_APPLICATION = "Application"
 K_ENVIRONMENT = "Environment"
-K_PROVISION_COMMANDS = ("setup", "doctor", "link", "unlink")
 
 _help_group = help_group(console.current)
 
@@ -173,7 +172,5 @@ register_provision_commands(app, ModuleProvision(
     project_root=find_project_root,
     load_config=load_config,
     console=lambda: console,
+    panel=K_ENVIRONMENT,
 ))
-for _command in app.registered_commands:
-    if _command.callback is not None and _command.callback.__name__ in K_PROVISION_COMMANDS:
-        _command.rich_help_panel = K_ENVIRONMENT

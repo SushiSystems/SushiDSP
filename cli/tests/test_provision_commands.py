@@ -25,6 +25,13 @@ def test_setup_no_longer_takes_install():
     assert "--install" not in out
 
 
+def test_setup_takes_the_shared_toolchain_options():
+    """Assert setup offers --toolchain and --no-gpu."""
+    out = CliRunner().invoke(app, ["setup", "--help"]).output
+    for option in ("--toolchain", "--no-gpu"):
+        assert option in out
+
+
 def test_config_is_a_provision_config():
     """Assert sd's config carries every field provision reads."""
     assert issubclass(Config, ProvisionSettings)

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-04 — cli: Took the help panel of the provision commands from sushicore and required sushicore 0.7.0 (`cli/sushidsp/cli.py`, `cli/pyproject.toml`).
+
 ## v0.1.0 — 2026-10-03
 
 - 2026-10-03 — docs: Folded the untagged v0.1.0, v0.2.0 and v0.3.0 headings into Unreleased (`CHANGELOG.md`, `docs/archive/changelog/`).

@@ -71,6 +71,9 @@ doctor report.
 
 - `--dry-run` — reports what is missing and what would be written, and changes nothing.
 - `--yes` — skips the confirmation prompt before the intel/llvm download.
+- `--toolchain <name>` — also installs that toolchain. SushiDSP marks intel/llvm optional, so
+  it downloads only with `--toolchain intel-llvm`. Repeatable.
+- `--no-gpu` — skips the GPU toolkit. SushiDSP declares no GPU dependency, so nothing changes.
 
 ## `sd doctor`
 
@@ -99,7 +102,7 @@ whichever step won:
 
 1. **An explicit `cxx`** — set as `cxx` in a `config.local.toml` or as the `SD_CXX` environment
    variable. Reported as `pinned (cxx)`.
-2. **The intel/llvm `clang++` that `sd setup` provisions.** `sd setup` writes the bundle's
+2. **The intel/llvm `clang++` that `sd setup --toolchain intel-llvm` provisions.** `sd setup` writes the bundle's
    root to `llvm_root` in `config.local.toml`, or a workspace provides it in the
    workspace-shared `config.local.toml`; if that field is
    absent, `Config.bundled_clang()` also probes
@@ -109,7 +112,7 @@ whichever step won:
 3. **A `clang++` on `PATH`.** Reported as `PATH (clang++)`.
 4. **CMake's platform default** — MSVC through the Visual Studio generator on Windows, the
    system compiler elsewhere — when none of the above resolved. Reported as
-   `platform default (no clang++ found; `sd setup` provisions intel/llvm)`.
+   `platform default (no clang++ found; `sd setup --toolchain intel-llvm` provisions one)`.
 
 A compiler found in step 1–3 also decides the generator: `resolved_generator()` pairs it with
 Ninja when a `ninja` binary is available (never with the Visual Studio generator, which would
@@ -119,7 +122,7 @@ single-config default (Makefiles or NMake) carries the compiler instead. `sd con
 
 This order means a standalone checkout with no SushiStack workspace still builds — it falls
 through to a `clang++` on `PATH`, or to CMake's own default — while a workspace upgrades the
-compiler automatically the moment `sd setup` provisions one.
+compiler automatically the moment `sd setup --toolchain intel-llvm` provisions one.
 
 ## Configuration precedence
 
