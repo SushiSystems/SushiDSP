@@ -129,7 +129,7 @@ class Config(ProvisionSettings):
             return origin
         if shutil.which("clang++"):
             return "PATH (clang++)"
-        return "platform default (no clang++ found; `sd setup` provisions intel/llvm)"
+        return "platform default (no clang++ found; `sd setup --toolchain intel-llvm` provisions one)"
 
     def resolved_ninja(self) -> str:
         """The ninja binary to hand CMake, or '' when none is available."""
