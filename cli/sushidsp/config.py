@@ -42,10 +42,9 @@ PROFILE = ModuleProfile(
     env_prefix="SD",
     root_marker="CMakeLists.txt",
     default_target="sushidsp_host",
-    # A deliberate subset: the knobs SushiDSP actually has. No vcpkg, no
-    # sibling checkouts.
+    # Every name here has a suffix in sushicore's table, so each one is a real SD_* variable.
     env_fields=("cxx", "generator", "cmake_exe", "ctest_exe", "ninja_exe",
-                "vs_vcvars", "llvm_root", "target_bin"),
+                "vs_vcvars", "target_bin"),
 )
 
 # Layers the workspace-shared config.local.toml, which holds the intel/llvm root from the workspace.

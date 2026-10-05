@@ -13,9 +13,9 @@ from typer.testing import CliRunner
 from sushidsp.cli import app
 
 K_GROUPS = {
-    "Build": ["configure", "build", "test", "doxygen", "check"],
+    "Build": ["configure", "build", "test", "run", "clean", "docs", "check"],
     "Environment": ["config", "env", "setup", "doctor", "link", "unlink"],
-    "Application": ["run"],
+    "Application": ["host"],
 }
 
 
@@ -60,6 +60,12 @@ def test_no_command_is_listed_under_a_group_it_does_not_belong_to():
         assert set(grouped[heading]) == set(names)
 
 
-def test_a_command_help_carries_examples():
-    out = _run("build", "--help")
-    assert "Examples" in out and "sd build" in out
+@pytest.mark.parametrize("command", ["build", "host", "run"])
+def test_a_command_help_carries_examples(command):
+    out = _run(command, "--help")
+    assert "Examples" in out and f"sd {command}" in out
+
+
+def test_run_help_hides_the_type_option_it_keeps_for_the_old_spelling():
+    assert "--type" not in _run("run", "--help")
+    assert "--type" in _run("host", "--help") and "--no-run" in _run("host", "--help")

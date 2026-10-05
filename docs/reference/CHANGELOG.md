@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- 2026-10-05 — cli: Moved the host GUI launch to `sd host` and made `sd run TARGET` run any built executable; `sd run` with no target stays a hidden alias of `sd host` until 2027-03-25 (`cli/sushidsp/cli.py`, `services/project.py`).
+- 2026-10-05 — cli: Renamed `sd doxygen` to `sd docs`, the old word staying as a hidden alias until 2027-03-25 (`cli/sushidsp/cli.py`, `cli/sushidsp/aliases.py`).
+- 2026-10-05 — cli: Added --version, --describe, sd clean and sd test --filter, and took config, env and the entry point from sushicore (`cli/sushidsp/cli.py`, `services/diag.py`, `services/project.py`).
+- 2026-10-05 — cli: Fixed `sd build -D`, which a configured tree ignored, and made `sd host` build the requested type before launching the host GUI (`cli/sushidsp/services/project.py`).
+- 2026-10-05 — cli: Reported a locked build tree and a missing host GUI as one error line, and ran `sd check`, `sd host` and `sd run` through the shared runner (`cli/sushidsp/services/project.py`).
+- 2026-10-05 — docs: Added the CLI's own README and corrected the sushicore floor and the API reference path (`cli/README.md`, `README.md`, `COMMAND_LINE_INTERFACE.md`, `INTRODUCTION.md`).
 - 2026-10-05 — licence: Replaced Apache-2.0 with PolyForm Noncommercial 1.0.0 and renamed NOTICE (`LICENSE`, `COMMERCIAL.md`, `NOTICE.md`, `README.md`, `docs/CONTRIBUTING.md`).
 - 2026-10-04 — cli: Took the help panel of the provision commands from sushicore and required sushicore 0.7.0 (`cli/sushidsp/cli.py`, `cli/pyproject.toml`).
 

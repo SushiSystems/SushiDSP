@@ -51,8 +51,11 @@ def test_an_unknown_cached_type_falls_back_to_debug(tree):
     assert project_svc.resolve_build_type(None) is BuildType.debug
 
 
-def test_no_project_root_falls_back_to_debug(monkeypatch):
+def test_outside_a_checkout_the_shared_message_ends_the_command(monkeypatch):
+    """No type is guessed outside a checkout; find_project_root's exit goes through."""
     def raise_outside():
-        raise RuntimeError("not a checkout")
+        """Raises what find_project_root raises outside a checkout."""
+        raise SystemExit("Not inside a SushiDSP project")
     monkeypatch.setattr(project_svc, "find_project_root", raise_outside)
-    assert project_svc.resolve_build_type(None) is BuildType.debug
+    with pytest.raises(SystemExit):
+        project_svc.resolve_build_type(None)

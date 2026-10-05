@@ -3,7 +3,7 @@
 `sushidsp_host_gui` is the application the amplifier models are heard through: it opens an audio
 device, builds a rig out of the products in `node_registry()`, draws their front panels, and
 records and plays back takes against a timeline. It is a host, not a library — nothing in the
-tree links it, and it holds no DSP of its own. `sd run` launches it. This file records what the
+tree links it, and it holds no DSP of its own. `sd host` launches it. This file records what the
 code in this directory does.
 
 ## What it owns

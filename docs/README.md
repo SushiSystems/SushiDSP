@@ -38,4 +38,4 @@ The manual index. Start at the root [README.md](../README.md) for a general over
 
 ## Generated API reference
 
-Run `sd doxygen` to generate the HTML API documentation in `build/docs/api-site/html/` from [`docs/reference/API_REFERENCE.md`](reference/API_REFERENCE.md) and header comments.
+Run `sd docs` to generate the HTML API documentation in `build/docs/api-site/html/` from [`docs/reference/API_REFERENCE.md`](reference/API_REFERENCE.md) and header comments.

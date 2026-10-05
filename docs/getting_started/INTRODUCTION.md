@@ -21,7 +21,7 @@ commands you will reach for most:
 ```bash
 sd build      # configures and builds the tree
 sd test       # runs the test suite
-sd doxygen    # generates the API reference under docs/api-site/html/
+sd docs       # generates the API reference under build/docs/api-site/html/
 ```
 
 ## Where to go next

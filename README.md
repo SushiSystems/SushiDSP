@@ -26,15 +26,17 @@ written down can be corrected by the next person who measures a real chassis.
 
 Everything goes through `sd`, the repository's own CLI. It sets the runtime search path, so a
 binary started any other way will not find its libraries. `sd` is the Python package in `cli/`
-and needs sushicore 0.6.0, which is not on PyPI yet; install sushicore from its own checkout
+and needs sushicore 0.7.0 or newer, which is not on PyPI yet; install sushicore from its own checkout
 first, then `python -m pip install -e ./cli`.
 
 ```bash
 sd build      # configure if needed, then build every target
 sd test       # build if needed, then run the suite
 sd check      # documentation layout, changelog shape and layer boundaries
-sd run        # the standalone host GUI
-sd doxygen    # the API reference, from the headers
+sd host       # build if needed, then start the standalone host GUI
+sd run NAME   # run an executable the build tree already holds
+sd clean      # remove the build tree
+sd docs       # the API reference, from the headers
 ```
 
 C++17 and CMake 3.20 or newer. Windows and Linux.
