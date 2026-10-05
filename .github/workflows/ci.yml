@@ -47,8 +47,7 @@ jobs:
           set -e
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DSUSHIDSP_BUILD_SDL2=OFF \
-            -DSUSHIDSP_BUILD_GUI=OFF
+            -DSUSHIDSP_BUILD_SDL2=OFF
           cmake --build build
           # The umbrella label regex `sd test --suite all` uses.
           ctest --test-dir build -L "unit|regression" --output-on-failure
@@ -68,11 +67,11 @@ jobs:
             libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev \
             xorg-dev libgl1-mesa-dev libegl1-mesa-dev
 
-      - name: Configure and build (SDL2 on, apps/host included)
+      - name: Configure and build (SDL2 on, apps/host and apps/host_gui included)
         run: |
           set -e
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --target sushidsp_host
+          cmake --build build --target sushidsp_host sushidsp_host_gui
 
   windows:
     name: Functional tests (Windows)
@@ -80,12 +79,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure, build, and run the functional suite
+      # One command per step: pwsh reports only the last command's exit code.
+      - name: Configure
         shell: pwsh
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSUSHIDSP_BUILD_SDL2=OFF
-          cmake --build build --config Debug
-          ctest --test-dir build -C Debug -L "unit|regression" --output-on-failure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSUSHIDSP_BUILD_SDL2=OFF
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Debug
+
+      - name: Run the functional suite
+        shell: pwsh
+        run: ctest --test-dir build -C Debug -L "unit|regression" --output-on-failure
 
 # ---------------------------------------------------------------------------
 # Deliberately absent

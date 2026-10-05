@@ -153,9 +153,13 @@ FetchContent_MakeAvailable(json)
 # ImGui/GLFW are fetched only when the GUI is built; CI can disable this exactly like
 # SUSHIDSP_BUILD_SDL2/SUSHIDSP_BUILD_ASIO to skip the extra network fetch and build time when
 # the GUI isn't needed.
-option(SUSHIDSP_BUILD_GUI "Build the ImGui rig GUI (apps/host_gui)" ON)
+option(SUSHIDSP_BUILD_GUI "Build the ImGui rig GUI (apps/host_gui); needs SUSHIDSP_BUILD_SDL2" ON)
 
-if(SUSHIDSP_BUILD_GUI)
+if(SUSHIDSP_BUILD_GUI AND NOT SUSHIDSP_BUILD_SDL2)
+    message(STATUS "SUSHIDSP_BUILD_GUI needs the SDL2 device backend - GUI skipped")
+endif()
+
+if(SUSHIDSP_BUILD_GUI AND SUSHIDSP_BUILD_SDL2)
     FetchContent_Declare(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw.git
