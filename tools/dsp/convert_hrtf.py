@@ -8,16 +8,7 @@
 Usage:  python tools/dsp/convert_hrtf.py --input <SOFA file or WAV directory> \
             --output assets/hrtf/sadie2_ku100_48k.hrtf --readme assets/hrtf/README.md
         python tools/dsp/convert_hrtf.py --self-test build/hrtf_fixture.hrtf
-
-The reference input is SADIE II, University of York, Neumann KU100 subject, 48 kHz. Nothing
-in the C++ tree reads SOFA or HDF5; this script runs once on a developer's machine and the
-module reads only the file it writes. The byte layout is fixed by the DE plan's Task 2 and by
-docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md section 9.3.
-
-Each direction is stored as a minimum-phase pair plus a separate interaural delay, so the
-loader can blend neighbouring directions without comb filtering. The licence and citation
-block written into the asset README is copied verbatim out of the downloaded database's own
-documentation; with no such text in the download the script refuses to write the block.
+The input, the byte layout and the licence block are in tools/dsp/README.md, "convert_hrtf.py".
 """
 import argparse
 import hashlib
@@ -187,8 +178,7 @@ def rigid_sphere_magnitude(incidence_rad: float, frequencies_hz: np.ndarray) -> 
     mu = 2.0 * np.pi * np.asarray(frequencies_hz, dtype=np.float64) * HEAD_RADIUS_M \
         / SPEED_OF_SOUND_MPS
     mu = np.maximum(mu, 1e-6)
-    # The series' polar axis points along the wave's travel, so the ear facing the source is
-    # at Legendre argument -cos(incidence): that is the illuminated face, +6 dB at high mu.
+    # The ear facing the source sits at Legendre argument -cos(incidence); see tools/dsp/README.md.
     cos_incidence = -float(np.cos(incidence_rad))
     legendre_previous = np.ones_like(mu)
     legendre_current = np.full_like(mu, cos_incidence)

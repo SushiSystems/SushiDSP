@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_spice_csv.cpp
+ * @brief Tests the loading of LTspice CSV exports in SpiceCsv.
+ * @author Mustafa Garip
+ */
+
 #include <string>
 
 #include <gtest/gtest.h>

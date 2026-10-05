@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_newton_raphson_solver.cpp
+ * @brief Tests the convergence of NewtonRaphsonSolver.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 
 #include <gtest/gtest.h>
@@ -57,8 +63,7 @@ TEST(Unit_Dsp, NewtonRaphsonSolverWarmStartConvergesInFewerIterationsThanColdSta
 
 TEST(Unit_Dsp, NewtonRaphsonSolverJointOverloadMatchesSplitOverloadBitForBit)
 {
-    // The circuit stages moved to the joint form to share one exp() between residual and
-    // derivative; that must be a pure cost change, so both forms must walk identical iterates.
+    // Both overloads must walk identical iterates. See tests/functional/unit/README.md.
     auto function = [](float x) { return std::exp(x) - 3.0f; };
     auto derivative = [](float x) { return std::exp(x); };
     auto joint = [](float x)

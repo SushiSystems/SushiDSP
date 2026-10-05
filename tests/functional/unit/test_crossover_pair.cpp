@@ -103,11 +103,7 @@ namespace
 
 TEST(Unit_Dsp, CrossoverPairSumsToUnityPowerEverywhere)
 {
-    // The halves feed two uncorrelated fields, so their powers add at the seam, and a
-    // fourth-order Butterworth pair at one corner holds 1 / (1 + x^8) + x^8 / (1 + x^8) = 1
-    // at every frequency; the bilinear transform keeps the identity exact in the digital
-    // domain. What remains is float rounding and the response's tail past 8192 samples, both
-    // under 0.001 dB, so the bound is 0.01 dB.
+    // The pair's powers sum to one at every frequency. See tests/functional/unit/README.md.
     const ImpulseResponses responses = impulse_responses(kCrossoverHz);
     const std::vector<double> low_db = magnitude_db(responses.low);
     const std::vector<double> high_db = magnitude_db(responses.high);
@@ -132,17 +128,14 @@ TEST(Unit_Dsp, CrossoverPairIsMinusThreeDecibelsPerHalfAtTheCrossover)
 
 TEST(Unit_Dsp, CrossoverPairAmplitudeSumPeaksThreeDecibelsAtTheCrossover)
 {
-    // The price of power complementarity: the two halves are not phase-aligned, so one signal
-    // sent through both and summed reads 2 / (0.7654 * 1.8478) = sqrt 2 at the corner,
-    // +3.01 dB. No caller sums a correlated signal through the pair; this records the cost.
+    // The amplitude sum reads +3.01 dB at the corner. See tests/functional/unit/README.md.
     const ImpulseResponses responses = impulse_responses(kCrossoverHz);
     EXPECT_NEAR(magnitude_db_at(responses.sum, kCrossoverHz), 3.01, 0.05);
 }
 
 TEST(Unit_Dsp, CrossoverPairFallsTwentyFourDecibelsPerOctave)
 {
-    // Two octaves above the crossover a fourth-order Butterworth sits 48 dB under the passband;
-    // the closed form 10 log10(1 / (1 + 4^8)) is -48.16 dB.
+    // The closed form two octaves up is -48.16 dB. See tests/functional/unit/README.md.
     const ImpulseResponses responses = impulse_responses(kCrossoverHz);
     const double passband_db = magnitude_db_at(responses.low, 5.0);
     const double two_octaves_up_db = magnitude_db_at(responses.low, 4.0 * kCrossoverHz);

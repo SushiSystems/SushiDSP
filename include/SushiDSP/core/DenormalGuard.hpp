@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DenormalGuard.hpp
+ * @brief Defines a scope guard that flushes denormals to zero on the calling thread.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -22,15 +28,9 @@ namespace SushiDSP
     /// @brief Puts the calling thread's FPU into flush-to-zero / denormals-are-zero mode for the
     /// guard's lifetime, restoring the previous mode on destruction.
     ///
-    /// Every decaying state on the audio path (halfband delay lines, biquads, the coupling
-    /// capacitors, the exp() tails of the tube residuals) drifts through the denormal range on
-    /// its way to silence, and on x86 a denormal operand costs on the order of a hundred times a
-    /// normal one via a microcode assist. Flushing them to zero is inaudible (they sit ~1e-38
-    /// below full scale) and removes a CPU spike that shows up exactly when the signal is
-    /// quiet. Engage one guard at the top of every device callback; the mode is per thread, so a
-    /// guard on the audio thread changes nothing for the rest of the process.
-    ///
-    /// Allocation-free, lock-free, syscall-free: it is a control-register read and write.
+    /// One guard is engaged at the top of every device callback; the mode is per thread. The
+    /// guard is a control-register read and write, with no allocation, lock or syscall
+    /// (include/SushiDSP/README.md).
     class DenormalGuard
     {
     public:

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_mixer_node.cpp
+ * @brief Tests the summing and per-input gains of MixerNode.
+ * @author Mustafa Garip
+ */
+
 #include <vector>
 
 #include <gtest/gtest.h>

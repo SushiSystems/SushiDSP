@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file MixerNode.cpp
+ * @brief Implements the node that sums its inputs, each scaled by its own gain.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/routing/MixerNode.hpp"
 
 #include <algorithm>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_tap_tempo.cpp
+ * @brief Tests the tempo TapTempo reads from taps.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include "ui/TapTempo.hpp"

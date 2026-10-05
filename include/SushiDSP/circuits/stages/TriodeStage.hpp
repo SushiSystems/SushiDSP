@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TriodeStage.hpp
+ * @brief Declares a common-cathode triode gain stage.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/circuits/models/Triode12AX7.hpp"
@@ -36,8 +42,6 @@ namespace SushiDSP
         /// @param grid_leak_resistance_ohms The grid-leak resistor to the cathode-bias voltage.
         /// @param cathode_bias_volts The stage's DC operating point, Vgk at rest.
         /// @param gain The common-cathode stage's inverting linear gain from grid to plate.
-        /// @param grid_conduction The grid-current law's three constants.
-        /// @param plate_swing The two headroom figures that bound the plate output.
         /// @pre cathode_bias_volts < 0, so the grid rests below the cathode.
         /// @pre gain > 0, and both plate_swing headrooms > 0.
         TriodeStage(

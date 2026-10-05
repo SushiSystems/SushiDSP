@@ -52,19 +52,11 @@ namespace SushiDSP
         void reset() noexcept;
 
         /// @brief Reads exactly output_frames samples per channel, starting at take_frame.
-        ///
-        /// Each output costs speed take frames, so the push loop runs at most
-        /// output_frames * kMaxSpeed plus the kernel's half span widened by kMaxSpeed, and past
-        /// the take's last frame it pushes zeros. A channel the take does not carry reads the
-        /// take's first channel, which is how TrackPlayer folds a mono take into a stereo mix.
-        /// @param take The recording to read.
-        /// @param take_frame First take frame this call consumes.
         /// @param speed Take frames consumed per output frame; clamped to [kMinSpeed, kMaxSpeed].
         /// @param outputs One writable buffer of at least output_frames samples per channel.
-        /// @param channels How many output channels outputs holds.
-        /// @param output_frames How many frames to write per channel.
         /// @pre prepare() has been called with at least channels and output_frames.
         /// @return The take frame the next call should start at.
+        /// @see modules/nodes/capture/README.md, "What a `VariRateReader::read` costs"
         std::uint64_t read(const Take& take, std::uint64_t take_frame, double speed,
                            float* const* outputs, std::uint32_t channels,
                            std::uint32_t output_frames) noexcept;

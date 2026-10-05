@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Divider.cpp
+ * @brief Implements the grab strip and the seam drawn between panes.
+ * @author Mustafa Garip
+ */
+
 #include "ui/Divider.hpp"
 
 #include <imgui.h>

@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// which GCC/Clang expose unconditionally.
+/**
+ * @file test_output_transformer_stage.cpp
+ * @brief Tests the DC blocking, saturation and reset of OutputTransformerStage.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 #include <cmath>
 
@@ -34,14 +39,7 @@ TEST(Unit_Dsp, OutputTransformerStageBlocksDc)
 
 TEST(Unit_Dsp, OutputTransformerStageSecondaryCarriesNoMean)
 {
-    // A push-pull pair driven through asymmetric clipping delivers a square whose two halves are
-    // not equally long, and a saturating core compresses the taller half more than the shorter, so
-    // the saturated waveform carries a mean even after the rolloff has removed the square's own.
-    // A transformer's secondary sees d(flux)/dt and passes no mean at all (DA5 spec section 14).
-    //
-    // Stimulus: a 220 Hz square of amplitude 2.2 at 40 % duty, two seconds at 48 kHz, the mean
-    // taken over the second second. With the saturation as the last element the stage read
-    // -0.063500 (2026-09-07); with the secondary's mean removed it reads +0.000005.
+    // A transformer's secondary passes no mean. See tests/functional/unit/README.md.
     SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);
 
     double sum = 0.0;

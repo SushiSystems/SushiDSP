@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Metronome.cpp
+ * @brief Implements the metronome's click bursts and their placement on the beat grid.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/capture/Metronome.hpp"
 
 #include <cmath>
@@ -62,8 +68,7 @@ namespace SushiDSP
 
         for (std::size_t index = 0; index < length; ++index)
         {
-            // The burst is sampled from one frame in, so its first written sample is not zero
-            // and a click's onset frame is the frame it is written at.
+            // The burst is sampled from one frame in; see modules/nodes/capture/README.md.
             const double seconds = static_cast<double>(index + 1) / sample_rate_;
             const double attack = static_cast<double>(index + 1) < attack_frames
                 ? 0.5 * (1.0 - std::cos(3.141592653589793 * static_cast<double>(index + 1)

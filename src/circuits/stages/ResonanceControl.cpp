@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file ResonanceControl.cpp
+ * @brief Implements the low shelf of the Resonance or Deep control.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/circuits/stages/ResonanceControl.hpp"
 
 #include <algorithm>

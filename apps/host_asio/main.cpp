@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file main.cpp
+ * @brief Runs an ASIO input through the Tube Screamer, the JCM800 and an optional cabinet.
+ * @author Mustafa Garip
+ */
+
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -97,8 +103,7 @@ int main(int argc, char** argv)
     const std::string driver_name = positional[0];
     const std::string ir_path = positional.size() >= 2 ? positional[1] : std::string();
 
-    // Always open both channels, regardless of selection, so --input=R (guitar wired to the
-    // right input) and --output=stereo both have a real ASIO channel to read from/write to.
+    // Both channels open in each direction whatever was selected; see apps/host_asio/README.md.
     SushiDSP::DeviceFormat requested{ 48000.0, 256, 2, 2 };
 
     std::unique_ptr<SushiDSP::AsioAudioDevice> device;
@@ -155,15 +160,12 @@ int main(int argc, char** argv)
     jcm800->set_treble(0.6f);
     jcm800->set_presence(0.5f);
 
-    // No SineToneNode: tube_screamer_handle has no upstream edge, so RigGraph feeds it the
-    // device's own live input directly (Task 1's root-node passthrough).
+    // With no upstream edge, tube_screamer_handle takes live input; see apps/host_asio/README.md.
     const SushiDSP::NodeHandle tube_screamer_handle = rig.add_node(std::move(tube_screamer));
     const SushiDSP::NodeHandle jcm800_handle = rig.add_node(std::move(jcm800));
     rig.connect(tube_screamer_handle, jcm800_handle);
 
-    // The amp no longer hosts a cabinet itself - sushidsp.cabinet is a standalone node, added
-    // to the chain only when an IR was actually requested, so the no-IR path stays a pure
-    // amp-only sink exactly as it was before the cabinet moved out.
+    // The cabinet node joins the chain only with an IR; see apps/host_asio/README.md.
     SushiDSP::NodeHandle cabinet_handle{};
     const bool has_cabinet = !cabinet_ir.empty();
     if (has_cabinet)
@@ -173,8 +175,7 @@ int main(int argc, char** argv)
         rig.connect(jcm800_handle, cabinet_handle);
     }
 
-    // The rig itself stays mono (1 in, 1 out) - channel selection only decides which physical
-    // ASIO channel feeds it and which physical channel(s) its output reaches.
+    // The rig is mono, one channel in and one out, whatever channels were selected.
     SushiDSP::PrepareInfo info{ actual.sample_rate, actual.block_size, 1 };
     rig.compile(info);
     std::printf("Rig latency: %u sample(s)\n", rig.latency_samples());
@@ -197,8 +198,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // The rig renders into this private mono scratch buffer, sized off the audio thread, so the
-    // callback that maps it onto the device's channels allocates nothing.
+    // mono_output is sized here, off the audio thread, so the callback allocates nothing.
     std::vector<float> mono_output(actual.block_size, 0.0f);
 
     device->start([&rig, &mono_output, input_index, output_selection, device_output_channels](const float* const* inputs, float* const* outputs, std::uint32_t frames)

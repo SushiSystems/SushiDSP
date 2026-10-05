@@ -379,3 +379,129 @@ cathode, which this module models as a scalar rather than as a node with an outp
 The rhythm channel, the CRUNCH and BRIGHT switches, the effects loop and its send and return
 jacks, the preamp-out jack, the low-gain input's −6 dB pad, the standby switch, the impedance
 selector, and the screen node's shared sag.
+
+## Implementation notes
+
+### The post-gain unity gain
+
+`kPostGainUnityGain` scales the finished signal so an untouched amp turns a -12 dBFS 82 Hz input
+into a -6.00 dBFS peak, the calibration point all four amplifiers share
+(`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, section 6). The
+value 0.1710120 was measured on 2026-09-07 on the Norman grid law, the solved inverter bias and
+the audio-taper PRE GAIN, on the volt-true power stage and on the transformer whose secondary
+carries no mean. The values before those changes were 0.1730211, 0.2400876 and 0.6114945, the
+last pinned at 1 kHz. `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`
+measures it and pins it.
+
+The constant sits outside the nonlinearity, after the decimator and both feedback shelves, where
+`Jcm800.cpp` applies its `kMasterUnityGain` inside the amplifier alongside the master pot. That
+is a deliberate departure from the sibling. This amplifier's POST GAIN pot is a real mid-chain
+control that drives the driver, the phase inverter and the output tubes, so it is applied in the
+chain where the schematic puts it, and the constant is left outside as a pure level trim. Folding
+the two together would make a calibration change a tone change.
+
+### Dossier citations
+
+Every number in the constant block of `Peavey5150.cpp` cites the section of
+`docs/archive/research/2026-09-06-peavey-5150-design-dossier.md` it is read from or derived from.
+A value the dossier marks not established, or that is a modelling choice the dossier does not
+carry, says so in the source and appears in this README.
+
+### Source resistances
+
+Each source resistance is the Thevenin impedance its grid is driven from, built the way section 7
+builds the output tubes': the previous stage's plate load in parallel with its solved plate
+resistance (section 3's ra column), plus the series elements section 2's diagram puts between
+them, in parallel with the shunt at the grid node.
+
+### The inverter's grid-leak divider
+
+`kPhaseInverterToPowerTubeAttenuation` follows section 5: the pair's plates drive R55/R54 220k
+through C29/C28 with only the 2.2 kOhm stoppers between the node and the grids, so the loss is
+the 220 kOhm leak against the dossier's own 35.3 kOhm plate impedance, 220/(220 + 35.3) = 0.8617.
+That 35.3 kOhm is the dossier's arithmetic, not this module's ra, which the solved point behind
+`kPhaseInverterGain` puts at 44.655 kOhm.
+
+### The follower's gain
+
+`kCathodeFollowerGain` follows section 3: V3B's plate ties straight to V2 with no plate resistor,
+and section 3 uses 0.98 as the follower's gain when it computes the bootstrapped grid return. The
+follower is modelled as that scalar and its coupling capacitor; its compression is not modelled.
+The dossier reads the follower as hanging off the post-gain node in parallel with V3A, not in
+series ahead of it.
+
+### C52's corner
+
+C52 works into V3B's bootstrapped grid. Section 3 puts that grid's impedance near
+1M/(1 - 0.98) = 50 MOhm, so the corner is 1/(2*pi*22n*50M) = 0.145 Hz.
+
+### The pre-gain treble peaker
+
+The lead pre-gain treble peaker (section 3) is R29 470 kOhm in parallel with C17 2.2 nF, working
+into the pot node's R40 || R41 || VR2 = 333 kOhm. At DC the divider passes 333/(470 + 333) =
+0.4147, and above 371 Hz the capacitor shorts R29 and it approaches unity. The zero is
+1/(2*pi*470k*2.2n) = 153.92 Hz, the pole is 1/(2*pi*(470k || 333k)*2.2n) = 371.17 Hz, and
+0.4147 * 371.17/153.92 = 1.0 exactly, so the shelf is the network and not a fit to it.
+
+### C48's pole
+
+C48 is 1 nF at V2A's output node (section 3). With K1B lifted, the node's shunt is R11 330 kOhm
+alone, and against V2A's own 100k || 301k = 75.0 kOhm source the pole is
+1/(2*pi*1n*(75.0k || 330k)) = 2603 Hz. The dossier's 482 Hz is the same capacitor against R11
+with the source taken as zero, which the dossier says it is not.
+
+### Presence and Resonance
+
+Section 6 gives "Active Presence: +10 dB 2 kHz" and "Active Resonance: +10 dB at the cabinet
+resonant frequency". Both are frequency-selective reductions of the global feedback, not active
+circuits, and the +10 dB is the loop's.
+
+### Rates
+
+The whole amplifier from the grid stopper to the sag stage sits inside one 8x
+region, so every filter in it is derived at the oversampled rate. Deriving one at the base rate
+would place its real corner eight times higher. The presence shelf and the resonance shelf are
+both linear and both sit after the decimator, so they are derived at the base rate and cost
+eight times less there.
+
+### Control changes on the audio thread
+
+Control changes that reach `process()` are only ever targets; the audio thread is where they take
+effect. The per-block advance is one closed-form step and every rebuild is plain arithmetic on
+stack values: no allocation, no lock, no syscall.
+
+### What reaches the tone stack
+
+The tone stack's own input network carries R24's loss and the C59/R94 leg, so the plate voltage
+goes in unattenuated and the only thing after the deck is the pot.
+
+### The transformer, the sag stage and the feedback shelves
+
+The transformer's core saturation is a genuine tanh nonlinearity and the sag stage's gain is
+signal-dependent, so both stay inside the oversampled region. Running either after the decimator
+would fold their harmonics back below Nyquist. Both feedback shelves are linear, so they generate
+nothing to alias and cost eight times less on the host-rate side of the decimator.
+
+### The output clamp
+
+Nothing upstream of the output is normalised to the converter's range: every stage is bounded
+only by its own tube's conduction window, so a hot combination of pre-gain, post-gain and output
+can still land outside [-1, 1]. The clamp is a safety rail. A soft-knee limiter
+there would need its own oversampled region to avoid aliasing its own harmonics.
+
+### Parameter order
+
+The order of the parameter table's rows is a contract. A host addresses the parameters by index
+and a preset written by one build is read back by another, so rows are appended, never reordered
+or removed.
+
+### R24's loss
+
+R24 is 33 kOhm from V5A's coupling node to ground (section 4). Against V5A's source resistance it
+is a frequency-independent loss of 33k/(35.4k + 33k) = 0.4824525, and it is applied once, as the
+input shelf's gain at DC.
+
+### Tone stack values
+
+`Peavey5150ToneStack.cpp` takes the deck from dossier section 4: C16 470 pF || C60 100 pF, C18 and
+C21 0.022 uF, R28 47 kOhm slope, VR3 1 MOhm LOW, VR4 50 kOhm MID, VR5 250 kOhm HIGH.

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_split_layout.cpp
+ * @brief Tests the node and cable placement of SplitLayout.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include "ui/SplitLayout.hpp"

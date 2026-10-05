@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and <cmath> may otherwise be pulled in transitively before this point.
+/**
+ * @file test_mesa_mark2c.cpp
+ * @brief Tests the MesaMark2c node's parameters, levels, switches and latency.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
 #include <algorithm>
@@ -89,13 +94,11 @@ TEST(Unit_Dsp, MesaMark2cDescriptorExposesEighteenParametersInContractOrder)
     EXPECT_STREQ(descriptor.name, "Mark IIC+");
     ASSERT_EQ(descriptor.parameter_count, kParameterCount);
 
-    // The index order is the contract a host and a saved preset address these by, so it is
-    // pinned here rather than merely checked for membership.
+    // The index order is the contract of hosts and presets. See tests/functional/unit/README.md.
     const char* expected_ids[kParameterCount] = {
         "volume_1", "treble", "bass", "middle", "lead_drive", "lead_master", "master_1",
         "presence", "eq_80", "eq_240", "eq_750", "eq_2200", "eq_6600", "input_trim", "output",
-        // The three panel switches were appended on 2026-09-21, after the fifteen knobs, so that
-        // a preset saved before them still addresses the same parameter at every index.
+        // The three switches follow the fifteen knobs. See tests/functional/unit/README.md.
         "bright", "deep", "eq_mode"
     };
     for (std::size_t i = 0; i < kParameterCount; ++i)
@@ -128,8 +131,7 @@ TEST(Unit_Dsp, MesaMark2cIndexedParameterSetMatchesTheDescriptorOrder)
     const float values[kParameterCount] = {
         0.2f, 0.3f, 0.4f, 0.45f, 0.6f, 0.7f, -6.0f, 0.8f,
         -1.0f, -0.5f, 0.25f, 0.5f, 1.0f, 12.0f, -3.0f,
-        // The switches read back the position they select, not the value that selected it, so
-        // each is given a value that is already one of its own positions.
+        // A switch reads back the position it selects. See tests/functional/unit/README.md.
         1.0f, 1.0f, 2.0f
     };
     for (std::uint16_t i = 0; i < kParameterCount; ++i)
@@ -204,18 +206,7 @@ TEST(Unit_Dsp, MesaMark2cUnknownParameterIsSafeNoOp)
 
 TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
 {
-    // Every knob is driven to both of its stops and held there for 200 blocks. The output must
-    // stay finite, its settled DC term must stay under -40 dBFS, and that term must stop moving.
-    //
-    // The bound was 0.25 while OutputTransformerStage ran its tanh after its own rolloff and the
-    // rectification the tanh introduced at the extreme setting was never blocked: the high stop
-    // read -0.0506. Since DA5 part 3 the stage's secondary carries no mean, as a real secondary
-    // winding does, and the high stop reads -0.00009 (-80.7 dBFS, 2026-09-07). See
-    // modules/nodes/mesa_mark2c/README.md.
-    //
-    // At the low stop Master 1 sits at -60 dB, so a bound on the DC alone would pass on
-    // attenuation. The drift check is what makes that extreme mean something: the DC of the
-    // third quarter and of the last must agree, which a slowly diverging state would not.
+    // The settled DC stays under -40 dBFS and stops moving. See tests/functional/unit/README.md.
     for (float extreme : { 0.0f, 1.0f })
     {
         const std::vector<float> rendered = render_mesa_mark2c(
@@ -259,9 +250,7 @@ TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
 
 TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
 {
-    // The probe pair is what the README's grid table and the plate-swing work are read through, so
-    // it needs its own cover: seven stages, every one of them reporting a grid that moved, and an
-    // out-of-range index answering 0 rather than reading off the end of the array.
+    // Seven stages report; an out-of-range index answers 0. See tests/functional/unit/README.md.
     SushiDSP::MesaMark2c node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
 
@@ -303,13 +292,7 @@ TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
 
 TEST(Unit_Dsp, MesaMark2cThdDoesNotFallAsLeadDriveRises)
 {
-    // Spec section 4: the metric saturates once every stage clips, so a rising spectrum is not
-    // required of Lead Drive; what is required is that turning it up never makes the amp cleaner,
-    // within the 1.0 percentage point that section allows for the wave squaring off.
-    // Measured with the shared THD analyser at a bin-exact 1 kHz and a 0.2 input.
-    //
-    // The sweep starts at 0.05, the first position that passes signal: audio_taper(0) is exactly
-    // zero, so the knob's floor is a hard mute and the analyser would read noise against noise.
+    // The sweep starts at 0.05, where the knob passes signal. See tests/functional/unit/README.md.
     const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
     const double tolerance_percentage_points = 1.0;  // Spec section 4.
     double previous = 0.0;
@@ -330,9 +313,7 @@ TEST(Unit_Dsp, MesaMark2cThdDoesNotFallAsLeadDriveRises)
 
 TEST(Unit_Dsp, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
 {
-    // A plain clamp is what bounds the output, so driving Lead Drive, Master 1 and Output to
-    // their ceilings must still leave every sample inside [-1, 1] and must actually reach the
-    // rail; otherwise the test proves headroom rather than the clamp.
+    // The output stays in [-1, 1] and reaches the rail. See tests/functional/unit/README.md.
     SushiDSP::MesaMark2c node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
     node.set_parameter_for_control_thread("lead_drive", 1.0f);
@@ -367,10 +348,7 @@ TEST(Unit_Dsp, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
 
 TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
 {
-    // The clean end the effects loop network and Master 1 at node F give the amp: at Lead Drive
-    // 0.02 and -40 dBFS the chain reads 0.20 % THD (2026-09-08), where it read 40.7 % with V2A's
-    // plate meeting V2B's grid directly and Master 1 scaling the output. Lead Drive 0.02 is the
-    // lowest position this test uses, not a threshold: the control passes signal below it too.
+    // Lead Drive 0.02 at -40 dBFS reads 0.20 % THD. See tests/functional/unit/README.md.
     const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
     const std::vector<float> rendered = render_mesa_mark2c(
         [](SushiDSP::MesaMark2c& node) { node.set_lead_drive(0.02f); }, 0.01, frequency, 640);
@@ -381,9 +359,7 @@ TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
 
 TEST(Unit_Dsp, MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
 {
-    // The shipped calibration point, and what pins MesaMark2c::kMasterUnityGain: a -12 dBFS
-    // 82 Hz sine into an untouched amp comes back out at about -6 dBFS, the frequency all four
-    // amplifiers pin at (DA5 spec section 6).
+    // A -12 dBFS 82 Hz sine comes out at about -6 dBFS. See tests/functional/unit/README.md.
     const std::vector<float> rendered = render_mesa_mark2c([](SushiDSP::MesaMark2c&) {}, 0.251, 82.0, 188);
 
     float peak = 0.0f;
@@ -421,8 +397,7 @@ TEST(Unit_Dsp, MesaMark2cDescriptorMakeProducesAWorkingNode)
 
 TEST(Unit_Dsp, MesaMark2cDryLatencyIsOneOversampledRegion)
 {
-    // V1A through the sag stage is a single 8x region, so the reported dry latency is one
-    // Oversampler8x round trip; it is pinned against the oversampler rather than a literal.
+    // The latency is one Oversampler8x round trip. See tests/functional/unit/README.md.
     SushiDSP::MesaMark2c node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
 
@@ -432,16 +407,7 @@ TEST(Unit_Dsp, MesaMark2cDryLatencyIsOneOversampledRegion)
 
 TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
 {
-    // A brighter stack drives the lead stages harder, which shows as THD only while the chain is
-    // on its knee: at Lead Drive 0.05 and a 0.01 input (-40 dBFS) treble 0 against 1 read 0.41
-    // against 8.91 %, +8.50 pp (2026-09-08). At Lead Drive 1.0 and 0.2 every stage from V3B on is
-    // a square with or without treble and the same difference is 0.03 pp; that is the amplifier,
-    // 110 dB of gain fed a hot line level, so the operating point is the knee, not the ceiling.
-    //
-    // Since 2026-09-20 the deck is terminated by V1A's 44 k plate impedance and Volume 1's 1 M,
-    // which costs 4.1 dB ahead of the four lead stages, so the same measurement sits lower on the
-    // knee and the difference is +3.32 pp. The threshold moved with it. The property the test
-    // exists for is unchanged: the stack is ahead of the distortion, so treble moves THD.
+    // The stack is ahead of the distortion: treble moves THD. See tests/functional/unit/README.md.
     const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
     auto thd_at_treble = [frequency](float treble)
     {
@@ -464,11 +430,7 @@ TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
 
 TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
 {
-    // The 750 Hz slider's full lift reaches the output only where the power section is linear,
-    // so Master 1 sits 20 dB down: the lift read 16.93 dB there against 16.09 dB at 0 dB, where
-    // the inverter's compression takes the rest (2026-09-08). The same repair the VH4's Deep test
-    // needed. The centre moved from 979.5 Hz on 2026-09-20 with the band's inductor
-    // (docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md).
+    // At Master 1 -20 dB the power section is linear. See tests/functional/unit/README.md.
     constexpr double centre_hz = 723.43;
     auto level_at = [](float slider)
     {
@@ -532,9 +494,7 @@ TEST(Unit_Dsp, MesaMark2cFallsSilentAtEveryPresencePositionWhenTheDriveStops)
             last_silent_peak = block == 47 ? peak : last_silent_peak;
         }
 
-        // The power amplifier's feedback loop oscillated at 11.8 kHz on 2026-09-21 when its depth
-        // was set from the presence sweep alone, and the ratio below sat at 0.92 instead of falling.
-        // docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md carries the measurement.
+        // The ratio sat at 0.92 while the loop oscillated. See tests/functional/unit/README.md.
         EXPECT_LT(last_silent_peak / (first_silent_peak + 1e-30), 1e-3)
             << "presence " << presence;
     }
@@ -592,9 +552,7 @@ TEST(Unit_Dsp, MesaMark2cSweepSoundsTheSameWhateverTheHostBlockSize)
         largest_sample = std::max(largest_sample, std::fabs(static_cast<double>(in_256[i])));
     }
 
-    // Coefficients are rebuilt once per control period, not once per block, so a knob under a
-    // sweep reaches the audio at the same moments however the host cuts the work up. Rebuilding
-    // per block made the 256-frame render lag the 32-frame one by up to a whole block.
+    // Coefficients are rebuilt once per control period. See tests/functional/unit/README.md.
     EXPECT_GT(largest_sample, 0.0);
     EXPECT_LT(largest_difference, largest_sample * 1e-3);
 }
@@ -659,8 +617,7 @@ TEST(Unit_Dsp, MesaMark2cPullDeepStopsV2bRemovingBass)
         return [engaged](SushiDSP::MesaMark2c& node) { node.set_deep(engaged); };
     };
 
-    // V2B's cathode shelf is 0.6972 deep, -3.13 dB. Out, its zero sits at 339 Hz and 80 Hz is
-    // below it; in, the zero drops to 10.3 Hz and 80 Hz climbs back to the shelf's top.
+    // V2B's cathode shelf is 0.6972 deep, -3.13 dB. See tests/functional/unit/README.md.
     EXPECT_NEAR(mark2c_gain_db(deep(true), 80.0) - mark2c_gain_db(deep(false), 80.0), 3.13, 0.4);
 
     // At 3 kHz both settings are far above either zero, so the switch does nothing.
@@ -704,8 +661,6 @@ TEST(Unit_Dsp, MesaMark2cPullBrightLiftsTrebleAtBothOfItsCapacitors)
     const double high_in = mark2c_gain_db(bright(true), 6000.0);
     const double high_out = mark2c_gain_db(bright(false), 6000.0);
 
-    // One switch, two capacitors: a second 250 pF beside the tone stack's treble cap and 180 pF
-    // across Volume 1's top section. Both pass treble past their own corner, so what the switch
-    // does is tilt the amplifier, not raise it.
+    // The switch tilts the amplifier; it does not raise it. See tests/functional/unit/README.md.
     EXPECT_GT(high_in - high_out, low_in - low_out + 1.0);
 }

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TubeScreamerCircuits.hpp
+ * @brief Declares the TS808's two DK blocks, their component values and their nonlinear ports.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -127,19 +133,8 @@ namespace SushiDSP::tube_screamer_circuits
     inline constexpr double kOpenCircuitStepFloor = 1.0e-6;
 
     /// @brief The clip stage's nonlinear port with first-order antiderivative antialiasing.
-    ///
-    /// The pair is wired as two branches that are each other's reverse, so the port's second row is
-    /// the negative of its first throughout: v[1] = -v[0], p[1] = -p[0] and F is antisymmetric with
-    /// F[0][1] = F[1][0] = -F[0][0]. The two-branch port is therefore one scalar port carrying the
-    /// pair current h(v) = i(v) - i(-v), and DkCircuit's residual row reads v = p + F[0][0] h(v):
-    /// a memoryless map from the open-circuit voltage p to the current the linear part is stamped
-    /// with. That is exactly the shape Holters' stateful ADAA needs, and the substitution
-    /// dp = (1 - F[0][0] h'(v)) dv integrates it in closed form, so no lookup table is required.
-    /// The derivation, the deliberate omission of Holters' delay compensation and what that costs
-    /// are in spec 2026-08-26-aaa-audio-quality-design.md, Model corrections (D6c C2).
-    ///
-    /// Cadence contract: the owning node calls reset() whenever it resets its circuit, because the
-    /// history here is the circuit's state as much as DkCircuit's own.
+    /// @pre The owning node calls reset() whenever it resets its circuit.
+    /// @see modules/nodes/tubescreamer/README.md, "The ADAA diode pair port"
     struct AdaaDiodePairPort
     {
         SiliconDiode diode{};
@@ -160,18 +155,12 @@ namespace SushiDSP::tube_screamer_circuits
         }
 
         /// @brief Replaces the stamped pair current with its average over the sample interval.
-        ///
-        /// The average is the divided difference of the composed map's antiderivative, and near a
-        /// stationary open-circuit voltage the midpoint of the two port voltages stands in for it.
-        /// A moved potentiometer changes F[0][0] between samples and so changes which curve the
-        /// stored point sits on; re-anchoring the previous port voltage onto the new curve puts it
-        /// back on one exactly, which is why the history keeps v rather than p alone.
         /// @param open_circuit p[n], the port's open-circuit voltage.
         /// @param port_voltage v[n], the solved port voltage.
         /// @param port_impedance F, the port impedance matrix; only F[0][0] is read.
-        /// @param currents Receives the branch currents the state update and the output stamp.
         /// @pre The port is the antiparallel pair build_clip_block() wires, so its second row is
         /// the negative of its first.
+        /// @see modules/nodes/tubescreamer/README.md, "The ADAA diode pair port"
         void currents_for_update(const std::array<double, 2>&                 open_circuit,
                                  const std::array<double, 2>&                 port_voltage,
                                  const std::array<std::array<double, 2>, 2>&  port_impedance,
@@ -232,14 +221,11 @@ namespace SushiDSP::tube_screamer_circuits
 
     private:
         /// @brief The pair current at one port voltage, and the composed map's antiderivative.
-        ///
-        /// h(v) = i(v) - i(-v) and, with H the sum of the two diode antiderivatives,
-        /// Q(v) = H(v) - F[0][0] h(v)^2 / 2, whose derivative with respect to p is h by the
-        /// substitution named in the struct's documentation.
         /// @param voltage The port voltage in volts.
         /// @param impedance F[0][0], in ohms.
         /// @param current Receives h in amperes.
         /// @param antiderivative Receives Q in ampere-volts.
+        /// @see modules/nodes/tubescreamer/README.md, "The ADAA diode pair port"
         void pair_current_and_antiderivative(double voltage, double impedance, double& current,
                                              double& antiderivative) const
         {

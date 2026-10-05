@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_fft.cpp
+ * @brief Tests Fft against known bins, a brute-force DFT and its own inverse.
+ * @author Mustafa Garip
+ */
+
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <cstdlib>

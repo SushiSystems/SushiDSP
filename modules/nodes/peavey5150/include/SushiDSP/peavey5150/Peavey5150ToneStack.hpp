@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Peavey5150ToneStack.hpp
+ * @brief Declares the 5150's passive LOW, MID and HIGH deck.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/circuits/FmvToneStack.hpp"

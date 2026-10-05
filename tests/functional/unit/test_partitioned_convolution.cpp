@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_partitioned_convolution.cpp
+ * @brief Tests PartitionedConvolution against direct convolution.
+ * @author Mustafa Garip
+ */
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>

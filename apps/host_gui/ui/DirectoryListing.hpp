@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DirectoryListing.hpp
+ * @brief Declares the directory listing the file browser reads.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <string>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file RecordingBus.cpp
+ * @brief Implements the pair of recorders armed and stopped together.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/capture/RecordingBus.hpp"
 
 namespace SushiDSP

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DkBlockNode.hpp
+ * @brief Defines the adapter that wraps a one-in, one-out DkCircuit as an IAudioNode.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -15,12 +21,6 @@
 #include "SushiDSP/core/IAudioNode.hpp"
 #include "SushiDSP/math/dk/DkNetlist.hpp"
 
-/// @file
-/// @brief A one-in, one-out DkCircuit wrapped as an IAudioNode, for tests/measure/.
-///
-/// measure::render, frequency_response and alias_floor all drive an IAudioNode, and a DK block
-/// is not one. The block solves in double and float appears only at the buffer boundary, which
-/// is the rule every product node follows. Test-side only; no product includes it.
 namespace SushiDSP::test_circuits
 {
     /// @brief Wraps one single-input, single-output DK block as a node.

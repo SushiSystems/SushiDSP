@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and <cmath> may otherwise be pulled in transitively before this point.
+/**
+ * @file test_rt_safety.cpp
+ * @brief Tests that the audio-thread paths perform no heap allocation.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
 #include <algorithm>
@@ -249,8 +254,7 @@ namespace
 
 TEST(Unit_Dsp, RigGraphStereoProcessPerformsNoHeapAllocation)
 {
-    // Exercises every arithmetic path of the edge adaptation: a stereo producer summed into a
-    // mono consumer, a fan-in summed per channel, and a mono sink widened to a stereo host.
+    // The graph covers every path of the edge adaptation. See tests/functional/unit/README.md.
     SushiDSP::RigGraph graph(256, 4);
     const auto first_source  = graph.add_node(std::make_unique<StereoSourceNode>());
     const auto second_source = graph.add_node(std::make_unique<StereoSourceNode>());
@@ -426,12 +430,7 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
     AllocationTrap trap;
     trap.arm();
 
-    // Moving a knob before every block is the path the plain loop misses: a wiper that has
-    // changed marks the block dirty and update_matrices_if_dirty() re-derives inside process(),
-    // which is where a solver would allocate if it were going to. This is the D6c instance of
-    // the trap D6b's DkCircuitPotentiometerUpdatePerformsNoHeapAllocation established, now on a
-    // shipping node rather than on a bare circuit. Both knobs sweep their full travel so every
-    // derivation sees a genuinely new matrix.
+    // A moved knob re-derives the matrices inside process(). See tests/functional/unit/README.md.
     for (int block = 0; block < 1000; ++block)
     {
         const float position = static_cast<float>(block) / 999.0f;
@@ -518,10 +517,7 @@ TEST(Unit_Dsp, PanNodeProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
-    // This is also the trap for Jcm800::process()'s per-block set_high_shelf() call: recomputing
-    // the presence shelf's RBJ coefficients every block looks expensive, but it is pure double
-    // arithmetic (pow/sin/cos/sqrt) with no heap, lock, syscall, or throw behind it, so it must
-    // not register here.
+    // The per-block set_high_shelf() is pure arithmetic. See tests/functional/unit/README.md.
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
@@ -672,10 +668,7 @@ TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithoutCabinet)
 
 TEST(Unit_Dsp, CabinetNodeProcessPerformsNoHeapAllocationWithCabinet)
 {
-    // Cabinet convolution is now sushidsp.cabinet's own surface, not any amp's: it runs
-    // StreamingConvolution's FFT, spectrum history, and overlap-add buffers, all of which must
-    // have been sized in prepare(). 500 blocks is more than the impulse response's partition
-    // count, so the circular spectrum history wraps at least once under the trap.
+    // 500 blocks wrap the spectrum history at least once. See tests/functional/unit/README.md.
     std::vector<float> impulse_response(200, 0.0f);
     impulse_response[0] = 1.0f;
     for (std::size_t i = 1; i < impulse_response.size(); ++i)
@@ -752,13 +745,7 @@ TEST(Unit_Dsp, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, CabinetNodeSetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 {
-    // A cabinet published from the control thread must reach process() through RtSwapSlot's
-    // single atomic acquire - no allocation, no lock. Only the audio thread's half of a swap has
-    // to be RT-safe (publish() builds the convolver and is expected to allocate), so the trap is
-    // armed around the processing blocks and disarmed across each set_cabinet(). That way every
-    // trapped block is one that picks up a freshly published cabinet, which is the case the name
-    // promises - a version of this test that published everything up front would only be proving
-    // that convolving allocates nothing.
+    // The trap is armed around the blocks, not set_cabinet(). See tests/functional/unit/README.md.
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     node.prepare(info);
@@ -798,8 +785,7 @@ TEST(Unit_Dsp, CabinetNodeSetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 
 namespace
 {
-    // The netlist, its component constants and the triode glue live in
-    // tests/circuits/JcmV1aNetlist.hpp, shared with the D6b stage test and the benchmark.
+    // The netlist lives in tests/circuits/JcmV1aNetlist.hpp. See tests/functional/unit/README.md.
     using namespace SushiDSP::test_circuits;
 
     using DkStageCircuit = SushiDSP::dk::DkCircuit<6, 2, 2, 1>;
@@ -883,10 +869,7 @@ TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, DkCircuitPotentiometerUpdatePerformsNoHeapAllocation)
 {
-    // The one audio-thread path that re-runs a derivation (plan Ruling 3): a pot move invalidates
-    // the DK matrices and update_matrices_if_dirty() rebuilds them at the top of the next block.
-    // If anything in that rebuild allocated, Ruling 3 would have to be replaced by a control-
-    // thread rebuild plus an RtSwapSlot hand-off, so this case is the one that decides it.
+    // A pot move rebuilds the DK matrices on the audio thread. See tests/functional/unit/README.md.
     DkStageNetlist netlist;
     const std::size_t pot_index = build_jcm_v1a(netlist);
 
@@ -947,10 +930,7 @@ TEST(Unit_Dsp, DampedNewtonSolverPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, ResamplerProcessPerformsNoHeapAllocation)
 {
-    // The DD-3's decimating leg at the VCO's slowest clock, which is where the Resampler is
-    // widest: the prototype's half width of 34 (input samples; true crossings are fewer at
-    // fc = 0.45) stretches to 34 / (20000 / 48000) = 81.6, so interpolate() runs two loops of 82
-    // and touches 164 taps per output, and prepare() sizes the history ring for exactly that.
+    // At the slowest clock interpolate() touches 164 taps. See tests/functional/unit/README.md.
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
 
@@ -977,10 +957,7 @@ TEST(Unit_Dsp, ResamplerProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, ResamplerRateChangePerformsNoHeapAllocation)
 {
-    // The case plan Ruling 3 rests on. The DD-3 re-clocks every 8 frames, so one 256-frame
-    // block calls set_rates 32 times; a ratio change that rebuilt a filter bank would put the
-    // node off the audio thread entirely. The sweep runs the VCO's whole 20-82.5 kHz range, so
-    // the ratio reaches both ends of the clamp prepare() was given.
+    // One 256-frame block calls set_rates 32 times. See tests/functional/unit/README.md.
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 82500.0, 8u, 20000.0 / 48000.0);
 
@@ -1013,12 +990,7 @@ TEST(Unit_Dsp, ResamplerRateChangePerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
 {
-    // Two things happen inside this trap window that no other node does. process() drives both
-    // Resamplers' set_rates 32 times per block through the 8-frame clock grid, and a MODE
-    // change clears the ring (plan Ruling 14) - once through set_parameter by index, which only
-    // records the mode so that process() applies it at the next block start, and once through
-    // set_mode, which applies it on the spot. Middle holds 4096 samples and Long 16384, so both
-    // changes below move N and both pay the std::fill.
+    // Both MODE changes below move N and pay the std::fill. See tests/functional/unit/README.md.
     SushiDSP::Dd3Delay node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
     node.set_time(0.4f);
@@ -1059,10 +1031,7 @@ TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, TrackRecorderWritePerformsNoHeapAllocation)
 {
-    // The one capture path the audio thread touches. arm() allocates the rings and starts the
-    // writer thread before the trap opens, and the first block is written and drained outside it
-    // so that WavWriter's stream buffer already exists: what the trap then sees is the ring copy
-    // and, once the ring fills, the drop counter.
+    // The trap sees the ring copy and the drop counter. See tests/functional/unit/README.md.
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "sushidsp_rt_safety_recorder";
     std::filesystem::remove_all(root);
@@ -1102,10 +1071,7 @@ TEST(Unit_Dsp, TrackRecorderWritePerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
 {
-    // Every timeline is published and every converter sized before the trap window opens, so
-    // what is measured is the mix itself: eight slot acquisitions, eight lanes of sixteen clips
-    // walked, the pan trigonometry, a loop range that splits each block into two runs, and both
-    // the unity copy path and the converted one.
+    // Timelines and converters exist before the trap opens. See tests/functional/unit/README.md.
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport   transport;
 
@@ -1168,10 +1134,7 @@ TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
 {
-    // Every replacement timeline is built before the run, and the window is opened only around
-    // process(), so what is measured is the audio thread picking up a lane that changed under
-    // it: one acquire of a new generation and a converter that has to restart on a clip it was
-    // not inside a block ago.
+    // The trap covers the pick-up of a changed lane. See tests/functional/unit/README.md.
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport   transport;
 
@@ -1233,8 +1196,7 @@ TEST(Unit_Dsp, TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
 
 TEST(Unit_Dsp, VariRateReaderReadPerformsNoHeapAllocation)
 {
-    // The converters are sized before the trap window opens, so what is measured is the read
-    // itself: a set_rates() on every speed change and one push per take frame consumed.
+    // The converters are sized before the trap opens. See tests/functional/unit/README.md.
     SushiDSP::Take take(2u, 48000.0, 48000u);
     for (std::uint32_t channel = 0; channel < 2u; ++channel)
     {
@@ -1278,8 +1240,7 @@ TEST(Unit_Dsp, VariRateReaderReadPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, MetronomeProcessPerformsNoHeapAllocation)
 {
-    // The bursts are built before the trap window opens, so what is measured is the block: two
-    // atomic loads, a beat index and a copy out of a vector already sized.
+    // The bursts are built before the trap opens. See tests/functional/unit/README.md.
     SushiDSP::MusicalClock clock;
     clock.set_tempo(137.4);
 
@@ -1340,8 +1301,7 @@ namespace
 
 TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocation)
 {
-    // prepare() builds the spherical head and publishes the first set outside the trap; the
-    // first trapped block is the one that adopts it, a copy into the node's own bank.
+    // The first trapped block adopts the published set. See tests/functional/unit/README.md.
     SushiDSP::room::RoomNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
     std::string reason;
@@ -1375,12 +1335,7 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
 {
-    // Only the audio thread's half of a publish is trapped: set_scene solves and allocates on
-    // the control thread, so the trap closes around it and opens around the blocks that pick
-    // the new set up, start the crossfade and run it to its end. The node renders the
-    // microphone, and the four publishes walk the modal bank through each of its paths: a
-    // moved microphone ramps the gains read at it, a moved listener changes nothing the
-    // microphone hears, a changed dimension blends the spare bank in from zero.
+    // Only the audio thread's half of a publish is trapped. See tests/functional/unit/README.md.
     SushiDSP::room::RoomNode node;
     node.set_parameter_for_control_thread("listener", 1.0f);
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
@@ -1421,9 +1376,7 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
 
 TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationForEitherListener)
 {
-    // The listener parameter's id path publishes on the control thread, outside the trap;
-    // the blocks that adopt each set and fade it in are trapped, first for the ears, then for
-    // the microphone, and the index path inside the trap stores the choice and nothing else.
+    // The index path stores the choice and nothing else. See tests/functional/unit/README.md.
     SushiDSP::room::RoomNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
     std::string reason;
@@ -1507,8 +1460,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, ModalBankProcessPerformsNoHeapAllocation)
 {
-    // Every one of kMaxModes resonators runs, at the garage's 68.6 Hz mode with a 1 s decay:
-    // r = 10^(-3 / 48000) = 0.99985610, a1 = -2 r cos(2 pi 68.6 / 48000), a2 = r^2.
+    // All kMaxModes resonators run at 68.6 Hz, 1 s decay. See tests/functional/unit/README.md.
     SushiDSP::room::ModalBank bank;
     bank.prepare(256);
 
@@ -1551,8 +1503,7 @@ TEST(Unit_Dsp, ModalBankProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, CrossoverPairProcessPerformsNoHeapAllocation)
 {
-    // The pair is placed, run, moved and bypassed inside the trap, as the node does at every
-    // adopt; set_crossover is arithmetic on the audio thread and must stay so.
+    // set_crossover is arithmetic on the audio thread. See tests/functional/unit/README.md.
     SushiDSP::room::CrossoverPair pair;
     std::vector<float> input(256);
     fill_room_tone(input);
@@ -1590,8 +1541,7 @@ TEST(Unit_Dsp, CrossoverPairProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, LateReverbProcessPerformsNoHeapAllocation)
 {
-    // The second design moves every line by 37 frames, so the trapped blocks include the
-    // 512-frame length crossfade as well as the steady network.
+    // The trapped blocks include the 512-frame crossfade. See tests/functional/unit/README.md.
     SushiDSP::room::LateReverb reverb;
     reverb.prepare(25200);
 
@@ -1641,9 +1591,7 @@ TEST(Unit_Dsp, LateReverbProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, BinauralDecoderProcessPerformsNoHeapAllocation)
 {
-    // prepare() builds the 32 partitioned convolvers from the spherical head's decoder outside
-    // the trap; sixteen blocks of 256 frames, which cross the 128-frame partition thirty-two
-    // times, run inside it.
+    // Sixteen blocks cross the 128-frame partition 32 times. See tests/functional/unit/README.md.
     const SushiDSP::room::HrtfSet set = SushiDSP::room::SphericalHeadHrtf::build(48000.0);
     SushiDSP::room::BinauralDecoder decoder;
     decoder.prepare(set, 48000.0, 256);
@@ -1678,10 +1626,7 @@ TEST(Unit_Dsp, BinauralDecoderProcessPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, RoomNodeBinauralProcessPerformsNoHeapAllocation)
 {
-    // The ears render every binaural path: the direct pair, the decoder, the diffuse pair and
-    // the alignment delays. set_scene, the direct_delay switch and the fallback's re-install
-    // each publish on the control thread outside the trap; the blocks that adopt each set,
-    // fade it in and decode it run inside, and the index path stores the delay choice alone.
+    // The ears render every binaural path inside the trap. See tests/functional/unit/README.md.
     SushiDSP::room::RoomNode node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
     std::string reason;

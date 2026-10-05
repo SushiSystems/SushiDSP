@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PentodeEL34.hpp
+ * @brief Defines the stateless Koren EL34 pentode model with Norman's grid law.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -75,12 +81,7 @@ namespace SushiDSP
             const double vg2k = v[1] < kScreenFloorVolts ? kScreenFloorVolts : v[1];
             const double vpk = v[2];
 
-            // Below the floor the screen voltage the model sees no longer varies with v[1], so the
-            // whole Vg2k column of the Jacobian is zero there. The clamp makes the column
-            // one-sided at exactly v[1] == kScreenFloorVolts: the derivative reported at that
-            // point is the right-hand one, the unclamped column, while the left-hand one is zero.
-            // A 1 mV screen supply is nonphysical, so no operating point sits on that seam; the
-            // clamp exists only to keep vg1k / vg2k finite for a solver that wanders there.
+            // The Vg2k Jacobian column is zero below the screen floor (include/SushiDSP/README.md).
             const double screen_follows_input = v[1] < kScreenFloorVolts ? 0.0 : 1.0;
 
             const double u = kKp * (1.0 / kMu + vg1k / vg2k);                       // u_arg
@@ -99,9 +100,7 @@ namespace SushiDSP
             const double de1_dvg1k = sigma;                                         // dE1/dVg1k
             const double de1_dvg2k = s / kKp - sigma * vg1k / vg2k;                 // dE1/dVg2k
 
-            // kx > 1, so E1^(kx-1) and z^(kx-1) both vanish continuously as their arguments reach
-            // zero: the two max(0, .) clamps are C1, not slope discontinuities, and the single
-            // guard on each power carries its whole branch, current and derivative alike.
+            // kx > 1, so each guarded power vanishes continuously at zero (include/SushiDSP/README.md).
             const double e1_power = e1 <= 0.0 ? 0.0 : std::pow(e1, kKx - 1.0);      // E1^(kx-1)
             const double z_power = z <= 0.0 ? 0.0 : std::pow(z, kKx - 1.0);         // z^(kx-1)
 

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Benchmark.hpp
+ * @brief Defines the timing harness and the table row the benchmark cases print.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <chrono>
@@ -33,15 +39,10 @@ namespace SushiDSP::bench
     };
 
     /// @brief Runs `body` repeatedly and reports the fastest observed cost per sample.
-    ///
-    /// The minimum, not the mean, is reported: on a desktop OS the variance is scheduler noise
-    /// stacked on the true cost, so the minimum is the least-contaminated estimate of what the
-    /// audio thread actually pays.
-    /// @param name Case label printed in the table.
     /// @param samples_per_call Output samples produced by one invocation of `body`.
     /// @param sample_rate Reference rate for the real-time budget column.
     /// @param body Callable invoked once per repetition; must not allocate.
-    /// @return The measured Result.
+    /// @see tests/benchmark/README.md, "Benchmark.hpp", for the choice of the minimum.
     template <typename Body>
     Result measure(const char* name, std::uint32_t samples_per_call, double sample_rate, Body&& body)
     {

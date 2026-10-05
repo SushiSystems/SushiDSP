@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Widgets.hpp
+ * @brief Declares the knob, fader, switch and readout widgets.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <imgui.h>

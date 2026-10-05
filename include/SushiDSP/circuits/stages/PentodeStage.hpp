@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PentodeStage.hpp
+ * @brief Declares one push-pull half of a power stage.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/circuits/stages/AntiderivativeAntialiaser.hpp"
@@ -29,8 +35,6 @@ namespace SushiDSP
         /// @param grid_leak_resistance_ohms The grid-leak resistor to the bias supply.
         /// @param cathode_bias_volts The grid's DC voltage against the cathode at rest.
         /// @param gain The inverting small-signal gain from grid to plate.
-        /// @param grid_conduction The grid-current law's three constants.
-        /// @param plate_swing The two headroom figures that bound the plate output.
         /// @pre cathode_bias_volts < 0, so the grid rests below the cathode.
         /// @pre gain > 0, and both plate_swing headrooms > 0.
         PentodeStage(

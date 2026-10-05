@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file AsioSampleConverter.cpp
+ * @brief Implements the conversions between hardware sample formats and float.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/audio_format/AsioSampleConverter.hpp"
 
 #include <algorithm>
@@ -63,10 +69,7 @@ namespace SushiDSP
             }
             case AsioSampleFormat::Int32LSB:
             {
-                // Unlike Int16LSB, kInt32FullScale - 1.0f is not exact in float: at 2^31 a
-                // float's ULP is 256, so the subtraction rounds back to kInt32FullScale itself,
-                // and casting that to int32_t overflows. Promoting to double first keeps the
-                // subtraction exact (INT32_MAX), which the cast then truncates correctly.
+                // The scale is formed in double; in float it rounds up to 2^31 (src/README.md).
                 const std::int32_t raw = static_cast<std::int32_t>(clamped * (static_cast<double>(kInt32FullScale) - 1.0));
                 std::memcpy(out_sample_bytes, &raw, sizeof(raw));
                 return;

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_pentode_el34.cpp
+ * @brief Tests the PentodeEL34 model against hand-computed currents and derivatives.
+ * @author Mustafa Garip
+ */
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -16,34 +22,7 @@
 
 TEST(Unit_Dsp, PentodeEL34MatchesKorenAtThreeOperatingPoints)
 {
-    // mu = 11, kp = 60, kvb = 24, kg1 = 650, kg2 = 4500, kx = 1.35.
-    //
-    // (1) Vpk = 400, Vg2k = 400, Vg1k = -37  (a JCM800 idle point at -37 V fixed bias)
-    //     u_arg = 60*(1/11 - 37/400) = -0.0954545454545452
-    //     s = ln(1+exp(u_arg)) = 0.646558421976595,  E1 = 400*s/60 = 4.31038947984397
-    //     knee = atan(400/24) = 1.51086817167369
-    //     Ip  = 2 * E1^1.35 / 650 * knee = 3.34149261300818e-2 A   (33.4 mA idle)
-    //     dIp/dVg1k = 4.98316907313410e-3 S,  dIp/dVg2k = 5.73718514953930e-4 S,
-    //     dIp/dVpk  = 3.30555615548759e-6 S   (a ~300 kOhm plate resistance: pentode, as expected)
-    //     z = 400/11 - 37 = -0.636363636363633 < 0, so Ig2 = 0 and its whole row is 0 - the screen
-    //     draws nothing at idle, which is what the max(0, .) clamp is for.
-    //
-    // (2) Vpk = 250, Vg2k = 300, Vg1k = -20
-    //     u_arg = 60*(1/11 - 20/300) = 1.45454545454545,  s = 1.66440636412608
-    //     E1 = 300*s/60 = 8.32203182063039,  knee = atan(250/24) = 1.47508961870809
-    //     Ip = 7.92947981392609e-2 A,  dIp/dVg1k = 1.04281593600714e-2 S,
-    //     dIp/dVg2k = 1.05203721563143e-3 S, dIp/dVpk = 2.04537709631731e-5 S
-    //     z = 300/11 - 20 = 7.27272727272727,  Ig2 = z^1.35 / 4500 = 3.23652408855726e-3 A
-    //     dIg2/dVg1k = 1.35 * z^0.35 / 4500 = 6.00779783938442e-4 S
-    //     dIg2/dVg2k = 6.00779783938442e-4 / 11 = 5.46163439944038e-5 S
-    //
-    // (3) Vpk = 100, Vg2k = 400, Vg1k = -5   (hard into conduction, plate pulled down)
-    //     u_arg = 60*(1/11 - 5/400) = 4.70454545454546,  s = 4.71355874131221
-    //     E1 = 400*s/60 = 31.4237249420814,  knee = atan(100/24) = 1.33525134607403
-    //     Ip = 4.31496731894557e-1 A,  dIp/dVg1k = 1.83712705886168e-2 S,
-    //     dIp/dVg2k = 1.68594235250184e-3 S,  dIp/dVpk = 7.33338162266083e-4 S
-    //     z = 400/11 - 5 = 31.3636363636364,  Ig2 = 2.32789367120296e-2 A,
-    //     dIg2/dVg1k = 1.00200640630040e-3 S,  dIg2/dVg2k = 9.10914914818548e-5 S
+    // The three points are hand-computed from Koren's law. See tests/functional/unit/README.md.
     const SushiDSP::PentodeEL34 pentode;
     struct Point
     {
@@ -90,14 +69,7 @@ TEST(Unit_Dsp, PentodeEL34MatchesKorenAtThreeOperatingPoints)
 
 TEST(Unit_Dsp, PentodeEL34GridCurrentFollowsNormansSoftLaw)
 {
-    // Ig1 = 1e-6 * ln(1 + exp((Vg1k - 0.5)/0.15)), dIg1/dVg1k = (1e-6/0.15) * logistic(same).
-    //
-    //   Vg1k = -1.5 : argument = -13.3333333333333, ln(1+exp) = 1.61959548076714e-6
-    //                 Ig1 = 1.61959548076714e-12 A,  dIg1 = 1.07972944614873e-11 S
-    //   Vg1k =  0.5 : argument = 0, ln(2) = 0.693147180559945
-    //                 Ig1 = 6.93147180559945e-7 A,  dIg1 = (1e-6/0.15)*0.5 = 3.33333333333333e-6 S
-    //   Vg1k =  1.0 : argument = 3.33333333333333, ln(1+exp) = 3.36838574941280
-    //                 Ig1 = 3.36838574941280e-6 A,  dIg1 = 6.43703202889193e-6 S
+    // Ig1 = 1e-6 * ln(1 + exp((Vg1k - 0.5)/0.15)). See tests/functional/unit/README.md.
     const SushiDSP::PentodeEL34 pentode;
     struct Point
     {
@@ -130,9 +102,7 @@ TEST(Unit_Dsp, PentodeEL34JacobianMatchesCentredDifferencesEverywhere)
         {
             for (const double vpk : { 20.0, 100.0, 250.0, 450.0 })
             {
-                // The screen law has a max(0, z) kink at z = Vg2k/mu + Vg1k = 0. A centred
-                // difference that straddles the kink averages two different one-sided slopes and
-                // is not the derivative there, so skip a step-sized neighbourhood of it.
+                // The screen law kinks at z = 0; skip it. See tests/functional/unit/README.md.
                 if (std::abs(vg2k / SushiDSP::PentodeEL34::kMu + vg1k) < 1e-3)
                 {
                     continue;
@@ -167,8 +137,7 @@ TEST(Unit_Dsp, PentodeEL34JacobianMatchesCentredDifferencesEverywhere)
 
 TEST(Unit_Dsp, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
 {
-    // z = Vg2k/mu + Vg1k crosses zero at Vg1k = -Vg2k/mu. kx = 1.35 > 1, so z^kx and
-    // kx*z^(kx-1) both vanish continuously there: no slope step for the Newton solver to trip on.
+    // kx > 1, so the screen current is C1 at z = 0. See tests/functional/unit/README.md.
     const SushiDSP::PentodeEL34 pentode;
     const double vg2k = 400.0;
     const double kink = -vg2k / SushiDSP::PentodeEL34::kMu;
@@ -196,10 +165,7 @@ TEST(Unit_Dsp, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
 
 TEST(Unit_Dsp, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
 {
-    // The pentode's whole character is atan(Vpk/kvb): Ip factors into a grid-only term times that
-    // knee, so quadrupling the plate voltage raises Ip only by
-    // atan(400/24)/atan(100/24) = 1.51086817167369 / 1.33525134607403 = 1.13152342150114.
-    // A triode, whose plate current tracks Vpk directly, would have risen far more.
+    // Ip factors into a grid term times atan(Vpk/kvb). See tests/functional/unit/README.md.
     const SushiDSP::PentodeEL34 pentode;
     std::array<double, 3> high{};
     std::array<double, 3> low{};
@@ -212,10 +178,7 @@ TEST(Unit_Dsp, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
 
 TEST(Unit_Dsp, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
 {
-    // Same shape as the triode case. current() and jacobian() forward to the joint form, so these
-    // agree exactly by construction today, and pinning that keeps the three entry points from
-    // drifting apart later. The first screen voltage sits below kScreenFloorVolts, so the clamped
-    // Vg2k column is exercised too.
+    // current() and jacobian() forward to the joint form. See tests/functional/unit/README.md.
     const SushiDSP::PentodeEL34 pentode;
     for (const double vg1k : { -45.0, -37.0, -20.0, -5.0, 0.0 })
     {

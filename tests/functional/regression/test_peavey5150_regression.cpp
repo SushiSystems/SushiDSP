@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and <cmath> may otherwise be pulled in transitively before this point.
+/**
+ * @file test_peavey5150_regression.cpp
+ * @brief Tests the Peavey5150 node against its golden files.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
 #include <algorithm>
@@ -52,13 +57,8 @@ namespace
     }
 }
 
-// One second of the amp's output is pinned as tests/golden/peavey5150_<rate>.f32 and compared by
-// RMS residual. -80 dB catches any real behaviour change and absorbs float reassociation between
-// toolchains. No cabinet is loaded so the file is independent of anything on disk.
-//
-// Regenerate deliberately, never to make a red test green:
-//   SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression
-// and say why in the commit message and in tests/golden/README.md.
+/// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
+/// @see tests/functional/regression/README.md
 TEST(Regression_Dsp, Peavey5150GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("peavey5150_48k", render_peavey5150(48000.0)), -80.0);

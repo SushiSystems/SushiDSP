@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_track_recorder.cpp
+ * @brief Tests the recording paths of TrackRecorder and RecordingBus.
+ * @author Mustafa Garip
+ */
+
 #include <cstdint>
 #include <filesystem>
 #include <string>

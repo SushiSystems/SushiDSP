@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_sine_tone_node.cpp
+ * @brief Tests the range, frequency and reset of SineToneNode.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <vector>
 

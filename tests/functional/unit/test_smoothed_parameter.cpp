@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_smoothed_parameter.cpp
+ * @brief Tests the time constant and snapping of SmoothedParameter.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <gtest/gtest.h>
 #include "SushiDSP/math/SmoothedParameter.hpp"

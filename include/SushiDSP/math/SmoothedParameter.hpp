@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SmoothedParameter.hpp
+ * @brief Declares a one-pole parameter smoother.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

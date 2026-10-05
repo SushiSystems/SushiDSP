@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Calibration.hpp
+ * @brief Defines the full-scale calibration voltage and the decibel conversions.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <algorithm>

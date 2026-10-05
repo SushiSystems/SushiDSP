@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file AntiderivativeAntialiaser.hpp
+ * @brief Defines the first-order antiderivative antialiaser of one grid-and-plate stage.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>

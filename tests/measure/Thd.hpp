@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Thd.hpp
+ * @brief Defines the total harmonic distortion measurement of a steady-state signal.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cmath>

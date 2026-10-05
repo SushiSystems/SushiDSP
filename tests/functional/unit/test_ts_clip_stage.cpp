@@ -127,17 +127,7 @@ TEST(Unit_Dsp, DkTsClipBlockPreparesAtEveryDrivePositionIncludingBothEndStops)
 
 TEST(Unit_Dsp, DkTsClipBlockSmallSignalResponseMatchesItsClosedForm)
 {
-    // Driven far below the clipping threshold so the diodes stay on their zero-bias conductance,
-    // which is the regime the closed form (and an LTspice .ac) describes. The pair's conductance
-    // grows as cosh(w / nVt); holding the diode voltage w under 14 mV keeps it within 5 % of the
-    // zero-bias value, and at the highest gain here (107.6) that means an input under
-    // 0.0143 / 106.6 = 1.34e-4 V. 1e-4 V is used for all three settings.
-    //
-    // Closed-form values from the D6c plan, in dB:
-    //          100 Hz    1000 Hz
-    //   0.1   10.1534   25.1395
-    //   0.5   18.8134   34.1273
-    //   0.9   22.9649   38.2321
+    // At 1e-4 V the diodes stay on zero-bias conductance. See tests/functional/unit/README.md.
     constexpr double kRunRate = 384000.0;
     constexpr double kAmplitudeVolts = 1.0e-4;
 
@@ -175,13 +165,7 @@ TEST(Unit_Dsp, DkTsClipBlockSmallSignalResponseMatchesItsClosedForm)
 
 TEST(Unit_Dsp, DkTsClipBlockClipsAtTheReferencePeakVoltage)
 {
-    // The reference transient drives 100 mV at 1 kHz and peaks at 0.481683 / 0.490169 / 0.491758 V
-    // for DRIVE = 0.1 / 0.5 / 0.9 - almost independent of drive, because the diode pair, not the
-    // feedback resistor, is what sets the output above threshold. Back of envelope at DRIVE = 0.1:
-    // the peak drives 0.1 / |4700 - j3386.28| = 17.26 uA into the ground leg, and the diode-pair
-    // voltage carrying that through Rf in parallel with the pair is 0.3886 V, so the output is
-    // 0.1 + 0.3886 = 0.4886 V. This case is the legible failure the null test is not: a stamp sign
-    // error moves this number by volts.
+    // The diode pair, not Rf, sets the peak above threshold. See tests/functional/unit/README.md.
     constexpr double            kRunRate = 192000.0;
     const std::array<double, 3> expected_peak{ 0.481683, 0.490169, 0.491758 };
 
@@ -281,42 +265,22 @@ namespace
 
 TEST(Unit_Dsp, DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
 {
-    // Spec's Newton acceptance, on this block's own material: a 2 s sweep 20 Hz -> 20 kHz at
-    // -12 dBFS in volts (0.251 * kFullScaleVolts = 0.502 V), then 1 kHz bursts at 0.05 V, 0.5 V
-    // and 5 V, all at 384 kHz with the drive pot wide open, which is the hardest setting.
-    //
-    // The D6c plan instrumented this block at 2.7 Newton iterations per solve on average and 4
-    // worst case, but it did that on a 0.5 V stimulus, and the 5 V burst is harder than anything
-    // the plan measured. One run before the session was interrupted saw the eight-iteration
-    // budget exhausted on 57 of 1 056 000 samples, 0.0054 %, inside the spec's 0.01 % but past
-    // the plan's "4 worst case". That figure is unverified since; the deferred sd test run
-    // confirms or corrects it.
+    // The stimulus is a sweep and three bursts at 384 kHz. See tests/functional/unit/README.md.
     EXPECT_LE(clip_convergence_percentage<DiodePairPort>("plain"), 0.01);
 }
 
 TEST(Unit_Dsp, DkTsClipBlockAdaaPortAlmostDoublesTheNewtonMissRate)
 {
-    // AdaaDiodePairPort's currents_and_jacobian() is DiodePairPort's character for character, so
-    // the residual Newton solves is the same function and the extra misses are not a harder
-    // solve: they are a different state trajectory arriving at harder open-circuit voltages. The
-    // measured rate is 0.0105 % against the plain port's 0.0054 %, which is past the spec's
-    // 0.01 % gate. That miss is recorded rather than accommodated - it is one of the two reasons
-    // the shipping node still holds a DiodePairPort (spec
-    // 2026-08-26-aaa-audio-quality-design.md, Model corrections D6c C2).
+    // The ADAA port measures 0.0105 % against 0.0054 %. See tests/functional/unit/README.md.
     EXPECT_LE(clip_convergence_percentage<AdaaDiodePairPort>("adaa"), 0.02);
 }
 
 namespace
 {
     /// @brief Nulls the clip block against ts_clip's LTspice transient through one port.
-    ///
-    /// Templated so the antialiased port is held against the same reference at the same
-    /// tolerance. Antiderivative antialiasing evaluates the pair current half a sample early
-    /// inside the feedback loop, which is a real change to the modelled circuit; the honest place
-    /// to see what it costs is this residual, not an argument (spec
-    /// 2026-08-26-aaa-audio-quality-design.md, Model corrections D6c C2).
     /// @tparam Port The nonlinear port type.
     /// @param label Printed with each setting's residual.
+    /// @see tests/functional/unit/README.md
     template <typename Port>
     void run_clip_transient_null(const char* label, double bound_db)
     {
@@ -346,21 +310,7 @@ namespace
             circuit.set_potentiometer(pot, drive_to_position(kSteppedDrive[setting]));
             circuit.update_matrices_if_dirty();
 
-            // tools/spice/export.py runs `tran 0 40m 20m 1u`: LTspice solves the DC operating point,
-            // runs 40 ms and saves the last 20 ms. This block sits at zero at DC - there is no supply
-            // rail - so a DK block starting from zero state has LTspice's initial condition exactly,
-            // and the saved window is 20 whole cycles of the 1 kHz stimulus. Replaying it ONCE
-            // therefore reproduces LTspice's own first 20 ms, and the second pass is the comparison
-            // window. Replaying it more converges this block to the periodic steady state while the
-            // reference is still on its turn-on transient, and the null gets worse - see the pre-roll
-            // table in the D6c plan. This is why jcm_v1a's eight passes are wrong here: that block has
-            // a 360 V rail and a bias point.
-            //
-            // Both signals are low-passed at 10 kHz by the same 4th-order Butterworth before
-            // comparison, so the band-limiting cannot flatter either one; the top octave is where
-            // LTspice's variable-step integrator and our fixed-step trapezoidal rule are known to
-            // disagree (spec Risks). Computed while writing the D6c plan with exactly this procedure:
-            // -80.3 / -73.7 / -76.0 dB.
+            // One pre-roll pass matches LTspice's own start. See tests/functional/unit/README.md.
             constexpr std::size_t kPreRollPasses = 1;
 
             std::vector<double> stimulus;
@@ -420,33 +370,13 @@ TEST(Unit_Dsp, DkTsClipBlockNullsAgainstTheLtspiceTransientReference)
 
 TEST(Unit_Dsp, DkTsClipBlockAdaaPortFallsShortOfTheLtspiceTransientReferenceByItsOwnBandLimiting)
 {
-    // This case does NOT meet the spec's -60 dB null, and its name says so. The reference grid is
-    // 1 MHz, where a clipped corner has next to no aliasing left to remove, so all that
-    // antialiasing can do there is spend its half-sample delay and its high-frequency
-    // attenuation: measured against the plain port through this same pipeline the two differ by
-    // -36.2 / -31.9 / -30.2 dB, which is the whole of the gap below. The departure is first order
-    // in the timestep - the same comparison reads -48.6 dB at 1 MHz and -64.6 dB at 4 MHz - so it
-    // is the method's known cost and not an error in it, and the reference is also offered
-    // delayed by half a sample to show that realigning does not recover it either.
-    //
-    // Recovering the null needs Holters' delay compensation, which discretises the block at two
-    // thirds of the run rate and would move every corner of the linear part by 1.5x, breaking
-    // DkTsClipBlockSmallSignalResponseMatchesItsClosedForm. That is the open decision recorded in
-    // spec 2026-08-26-aaa-audio-quality-design.md, Model corrections (D6c C2), and it is why
-    // TubeScreamer still holds a DiodePairPort. The bound here is a regression floor on the
-    // measured numbers, not an acceptance.
+    // The bound is a regression floor, not an acceptance. See tests/functional/unit/README.md.
     run_clip_transient_null<AdaaDiodePairPort>("adaa", -28.0);
 }
 
 TEST(Unit_Dsp, DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged)
 {
-    // tests/circuits/DkBlockNode.hpp is the adapter every block-level measurement runs through,
-    // and Task 7's product node follows the same rule, so what it owes is exact: the buffer
-    // sample times input_scale_volts is what the block solves, and the block's answer divided by
-    // the same constant is what lands in the output buffer. A non-unity scale is used so a
-    // dropped multiply on either side shows up. The drive is 0.3 rather than the 0.5 the adapter
-    // defaults every wiper to, so prepare()'s set_potentiometer and update_matrices_if_dirty have
-    // to have run for the two blocks to agree.
+    // The adapter scales by input_scale_volts both ways. See tests/functional/unit/README.md.
     constexpr double        kRunRate = 192000.0;
     constexpr std::uint32_t kFrames = 256;
     constexpr double        kScaleVolts = 2.0;
@@ -491,14 +421,7 @@ TEST(Unit_Dsp, DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged)
 
 TEST(Unit_Dsp, DkTsClipBlockLeavesItsCurrentsInStepWithItsVoltagesAfterAFailedSolve)
 {
-    // Carried from the Task 3 review: DkCircuit re-evaluates the models on the failure path
-    // because DampedNewtonSolver::fail() restores the lowest-residual iterate, which is generally
-    // not the point the models were last evaluated at. The reviewer's recipe was a stiff port plus
-    // set_maximum_iterations(1); DkCircuit exposes no setter for the solver's budget, so the
-    // budget is exhausted the physical way instead - a diode nine times stiffer than a 1N914 and a
-    // stimulus that flips sign every sample, which throws the warm start to the far side of the
-    // root. It lives here rather than in test_dk_circuit.cpp because Task 5 does not touch that
-    // file and this is the block whose port makes the failure reachable.
+    // A stiff diode and a flipping input exhaust the budget. See tests/functional/unit/README.md.
     constexpr double      kRunRate = 48000.0;
     constexpr std::size_t kSamples = 4096;
 
@@ -660,10 +583,7 @@ namespace
 
 TEST(Unit_Dsp, DkTsClipBlockDiodePairPortIsOneScalarPortInDisguise)
 {
-    // AdaaDiodePairPort's derivation rests on the pair's second branch being the negative of its
-    // first, which makes the two-branch port one scalar port carrying i(v) - i(-v). The netlist
-    // wires branch 1 as branch 0 reversed, so the claim holds to the last bit in p and in F
-    // rather than approximately, and this is where that is checked.
+    // Branch 1 is branch 0 reversed, to the last bit. See tests/functional/unit/README.md.
     constexpr double kRunRate = 192000.0;
 
     ClipNetlist            netlist;
@@ -689,10 +609,7 @@ TEST(Unit_Dsp, DkTsClipBlockDiodePairPortIsOneScalarPortInDisguise)
 
 TEST(Unit_Dsp, AdaaDiodePairPortAntiderivativeDividesBackToThePairCurrent)
 {
-    // The identity the method stands on. With v = p + F00*h(v), the substitution
-    // dp = (1 - F00*h'(v)) dv turns the integral of h dp into H(v) - F00*h(v)^2/2, so the
-    // derivative of that with respect to p has to come back as h(v) at every port voltage. A
-    // divided difference over a narrow interval in p is the direct way to say so.
+    // d/dp of H(v) - F00*h(v)^2/2 comes back as h(v). See tests/functional/unit/README.md.
     const SushiDSP::SiliconDiode diode;
 
     ClipNetlist            netlist;
@@ -728,10 +645,7 @@ TEST(Unit_Dsp, AdaaDiodePairPortAntiderivativeDividesBackToThePairCurrent)
 
 TEST(Unit_Dsp, AdaaDiodePairPortSinksTheFoldedHarmonicThatSetsTheAliasFloor)
 {
-    // The mechanism task 9 diagnosed, isolated: at the shipping 4x run rate of 192 kHz the 13th
-    // harmonic of a 15 kHz tone lands on 195 kHz and folds to 3 kHz, already in band before any
-    // filter can act. 16384 samples at 192 kHz put both 15 kHz and 3 kHz on exact bins, so the
-    // two lines are read without a window and without leakage between them.
+    // The 13th harmonic of 15 kHz folds to 3 kHz at 192 kHz. See tests/functional/unit/README.md.
     constexpr std::size_t kFrames = 16384;
     constexpr std::size_t kFundamentalBin = 1280;  // 15 kHz
     constexpr std::size_t kFoldBin = 256;          // 3 kHz
@@ -757,10 +671,7 @@ TEST(Unit_Dsp, AdaaDiodePairPortSinksTheFoldedHarmonicThatSetsTheAliasFloor)
 
 TEST(Unit_Dsp, AdaaDiodePairPortResetDropsItsSampleIntervalHistory)
 {
-    // A port with no history has no interval to average over, so it stamps the plain pair
-    // current; the node's reset() leans on that to restart click-free. The pair current is
-    // i(v) - i(-v) and the port splits it evenly across the two branches, so the difference of
-    // the two stamped currents is what has to come back.
+    // A port with no history stamps the plain pair current. See tests/functional/unit/README.md.
     const SushiDSP::SiliconDiode diode;
     AdaaDiodePairPort            port;
 
@@ -804,20 +715,10 @@ namespace
     constexpr std::size_t kDecimationSettle = 256;
 
     /// @brief Converts one signal from the LTspice grid to the shipping run rate.
-    ///
-    /// `Resampler` is the tree's committed arbitrary-ratio converter (DR1), which matters here
-    /// because 1 MHz to 192 kHz is 24/125 and no halfband cascade reaches it. It is zero phase, so
-    /// output time t carries input time t and nothing has to be shifted back afterwards, and its
-    /// kernel time-scales with the ratio, so decimating moves its cutoff to 96 kHz and the
-    /// reference arrives band-limited to what a 4x model could represent in the first place.
-    ///
-    /// The converter touches the reference and the stimulus, never a circuit output: both ports
-    /// are then driven by the same decimated stimulus and nulled against the same decimated
-    /// reference, so whatever colour it leaves below 10 kHz is common to both and cancels in the
-    /// comparison the case exists to make.
     /// @param input The signal on the reference grid.
     /// @param source_rate The reference grid's rate in hertz.
     /// @return The signal at kShippingRunRate.
+    /// @see tests/functional/unit/README.md
     std::vector<float> decimate_to_run_rate(const std::vector<float>& input, double source_rate)
     {
         SushiDSP::Resampler resampler;
@@ -850,9 +751,7 @@ namespace
         circuit.set_potentiometer(pot, drive_to_position(drive));
         circuit.update_matrices_if_dirty();
 
-        // The reference window is the second half of LTspice's 40 ms run, so the block is walked
-        // through the stimulus once and compared on the replay, exactly as the reference-rate case
-        // argues.
+        // The block is compared on the replay of the stimulus. See tests/functional/unit/README.md.
         std::vector<float>    circuit_output;
         std::array<double, 1> outputs{};
         for (std::size_t pass = 0; pass < 2; ++pass)
@@ -876,16 +775,7 @@ namespace
 
 TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheReferenceDecimatedToTheShippingRunRate)
 {
-    // The decision measurement for D6c C2. The reference-rate case nulls at 1 MHz, where a clipped
-    // corner carries almost no aliasing and antialiasing can only spend its half-sample delay and
-    // its corner attenuation; it therefore says nothing about whether antialiasing helps at the
-    // rate the pedal actually runs. This case asks the question that decides: decimate LTspice's
-    // 1 MHz transient to the shipping 192 kHz, so the reference is the analogue circuit
-    // band-limited to what a 4x model can represent, then null both ports against it there.
-    //
-    // Whichever port comes back closer is the one that models the circuit better at the rate it
-    // ships at. The verdict and its numbers are in spec 2026-08-26-aaa-audio-quality-design.md,
-    // Model corrections (D6c C2).
+    // Both ports null against LTspice decimated to 192 kHz. See tests/functional/unit/README.md.
     const std::string path = spice_path("ts_clip", "tran");
     const auto        reference = SushiDSP::measure::load_transient_csv(path);
     if (reference.input.empty())
@@ -931,8 +821,7 @@ TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheReferenceDecimatedToTheShippi
                     "plain %.2f dB, adaa %.2f dB\n",
                     setting, plain, antialiased);
 
-        // Both ports must stay recognisably the same circuit; which one wins is what the printout
-        // reports and the spec records, and it is not asserted here in either direction.
+        // Which port wins is printed, not asserted. See tests/functional/unit/README.md.
         EXPECT_LE(plain, -20.0) << "setting " << setting;
         EXPECT_LE(antialiased, -20.0) << "setting " << setting;
     }
@@ -994,16 +883,7 @@ namespace
 
 TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases)
 {
-    // The companion to the decimated-LTspice case, and the reason that one cannot decide alone:
-    // ts_clip's stimulus is a 1 kHz sine, and 192000 / 1000 is an integer, so at the shipping rate
-    // every folded harmonic of that tone lands exactly on a harmonic of it. The stimulus is blind
-    // to the aliasing antialiasing exists to remove, and can only charge it for its cost.
-    //
-    // This case puts the question on the tone that does alias. The reference is the same block's
-    // own equations at 1.92 MHz, where the 13th harmonic of 15 kHz is nowhere near Nyquist, then
-    // decimated to 192 kHz by the same converter - a converged solution of the model rather than
-    // of the circuit, which is the right reference for asking which discretisation is closer to
-    // the answer it is trying to compute.
+    // The reference is the block's own model at 1.92 MHz. See tests/functional/unit/README.md.
     constexpr double      kTone = 15000.0;
     constexpr double      kAmplitudeVolts = 0.5;
     constexpr std::size_t kFrames = 16384;
@@ -1019,8 +899,7 @@ TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAl
     const std::vector<float> antialiased
         = render_clip_at_rate<AdaaDiodePairPort>(kShippingRunRate, kTone, kAmplitudeVolts, kFrames);
 
-    // The head of the decimated reference carries the converter's start-up, and both candidates
-    // are trimmed by the same amount, so neither is favoured.
+    // Both candidates are trimmed by the same amount. See tests/functional/unit/README.md.
     auto trim = [](const std::vector<float>& signal)
     {
         return std::vector<float>(signal.begin() + static_cast<std::ptrdiff_t>(kDecimationSettle),
@@ -1036,15 +915,7 @@ TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAl
     plain_window.resize(length);
     antialiased_window.resize(length);
 
-    // null_test aligns an integer lag and a gain, so antialiasing's half sample survives it, and
-    // the antialiased port is also offered the reference delayed by half a sample. Read that
-    // third number carefully: the two-tap mean below is a delay AND a low-pass, cos(pi*f/fs),
-    // which is -0.26 dB at 15 kHz but -2.6 dB at 45 kHz. Antialiasing's error is corner
-    // attenuation, so this filter attenuates the reference's corner too and the confound runs in
-    // antialiasing's favour. It is printed because it still loses under a handicap that helps it,
-    // which strengthens the verdict; it does not separate delay from attenuation, and nothing
-    // here should be read as doing so. That separation would want a Thiran allpass or a
-    // linear-phase term in the frequency domain.
+    // The two-tap mean is a delay and a low-pass. See tests/functional/unit/README.md.
     std::vector<float> delayed_reference = reference_window;
     for (std::size_t index = delayed_reference.size(); index-- > 1;)
     {
@@ -1062,8 +933,7 @@ TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAl
                 "adaa %.2f dB, adaa half-sample aligned %.2f dB\n",
                 plain_residual, antialiased_residual, antialiased_aligned);
 
-    // Regression floors on the measured numbers, not acceptances. Which port is closer is the
-    // decision this case exists to make, and it is recorded in the spec rather than asserted here.
+    // These are regression floors, not acceptances. See tests/functional/unit/README.md.
     EXPECT_LE(plain_residual, -15.0);
     EXPECT_LE(antialiased_residual, -4.0);
 }

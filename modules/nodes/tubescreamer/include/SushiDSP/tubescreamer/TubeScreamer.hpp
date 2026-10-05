@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TubeScreamer.hpp
+ * @brief Declares the Tube Screamer overdrive pedal node and its descriptor.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>
@@ -119,14 +125,7 @@ namespace SushiDSP
         float level_db_ = 0.0f;
         float input_trim_db_ = 0.0f;
 
-        // Still the plain port, and measured to be the right one: at the shipping 4x rate
-        // AdaaDiodePairPort nulls 14 dB further from the circuit than this does, so its smaller
-        // alias floor costs more total error than it saves (spec
-        // 2026-08-26-aaa-audio-quality-design.md, Model corrections D6c C2, The verdict).
-        //
-        // Wiring it in would be two edits, not one: this declaration, and a clip_port_.reset()
-        // call in reset(). That port keeps a sample interval of history, and DkCircuit is handed
-        // the port per sample rather than owning it, so DkCircuit::reset() cannot clear it.
+        // The plain port nulls deeper at the 4x rate; see modules/nodes/tubescreamer/README.md.
         tube_screamer_circuits::ClipCircuit       clip_circuit_;
         tube_screamer_circuits::DiodePairPort     clip_port_;
         tube_screamer_circuits::ToneCircuit       tone_circuit_;

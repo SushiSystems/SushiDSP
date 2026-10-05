@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PentodeStage.cpp
+ * @brief Implements the grid solve and plate output of one power-stage half.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/circuits/stages/PentodeStage.hpp"
 
 #include <cmath>
@@ -59,8 +65,7 @@ namespace SushiDSP
         // The coupling capacitor passes signal only, so the source sits at Vk + Vin behind Rs.
         const float source_voltage = vk + input_voltage;
 
-        // KCL at the grid, every branch current leaving the node: (Vg - Vk - Vin) / Rs +
-        // (Vg - Vk) / Rg + IG0 softplus((Vg - VGAMMA) / VTG) = 0, Vg referenced to the cathode.
+        // KCL at the grid, every branch current leaving the node (src/README.md).
         auto node_equation = [rs, rg, vk, source_voltage, scale, threshold, transition](float vg)
         {
             double softplus = 0.0;
@@ -71,8 +76,7 @@ namespace SushiDSP
                 1.0f / rs + 1.0f / rg + static_cast<float>(scale / transition * logistic) };
         };
 
-        // The residual is convex and increasing in Vg, so Newton converges from either side;
-        // the bounds mark where the plate ceiling has already saturated.
+        // The residual is convex and increasing in Vg (src/README.md).
         float grid_voltage = previous_grid_voltage_;
         if (!root_stays_on_bound(grid_voltage, source_voltage))
         {
@@ -87,9 +91,7 @@ namespace SushiDSP
 
     bool PentodeStage::root_stays_on_bound(float grid_voltage, float source_voltage) const
     {
-        // Newton's first step from a bound leaves the iterate on it whenever the residual there
-        // has the sign that points past the bound; the conduction current is never negative, and
-        // at the conduction bound softplus equals its argument.
+        // A Newton step from a bound stays on it when the residual there points past it (src/README.md).
         const float linear_residual = (grid_voltage - source_voltage) / source_resistance_
                                       + (grid_voltage - cathode_bias_) / grid_leak_resistance_;
         if (grid_voltage == cutoff_grid_limit_)

@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and <cmath> may otherwise be pulled in transitively before this point.
+/**
+ * @file test_sinc_resampler.cpp
+ * @brief Tests that SincResampler preserves a tone and low-passes when downsampling.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
 #include <cmath>

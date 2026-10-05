@@ -175,3 +175,70 @@ converter history, and `reset()` is what discards it.
   `TrackTimeline` nor `TrackPlayer` reads it, so a 44.1 kHz file dropped on a 48 kHz rig plays
   8.8 % slow. `apps/host_gui` converts an imported mp3 on the way in, which covers songs and not
   WAV files; `docs/reference/KNOWN_ISSUES.md` carries the entry.
+
+## Implementation notes
+
+### What `TrackPlayer::process` mixes
+
+`TrackPlayer::process()` mixes the soloed lanes when any lane is soloed and the unmuted ones
+otherwise. It starts at the transport's position, walks on at the transport's speed, wraps at the
+loop end as `Transport::advance()` will, and leaves the transport where it found it. A mono output
+carries no pan, so a lane folds into it at its own gain whatever its pan position. At unity speed
+a clip is copied out of its take, so the output holds the take's own samples bit for bit; at any
+other speed the lane's `VariRateReader` converts it and the pitch falls with the speed. The call
+runs on the audio thread and is real-time safe: it allocates nothing, takes no lock and throws
+nothing.
+
+### What a `VariRateReader::read` costs
+
+Each output frame of `VariRateReader::read()` costs `speed` take frames, so the push loop runs at
+most `output_frames * kMaxSpeed` iterations plus the kernel's half span widened by `kMaxSpeed`.
+Past the take's last frame it pushes zeros. A channel the take does not carry reads the take's
+first channel, which is how `TrackPlayer` folds a mono take into a stereo mix.
+
+### The click burst's first sample
+
+The `Metronome` constructor samples each click burst from one frame in, at `(index + 1) /
+sample_rate`. The first sample written is therefore not zero, and a click's onset frame is the
+frame it is written at.
+
+### Take pointers
+
+`TakeLibrary::insert()` hands out a raw pointer to a `Take` it has just stored. The `Take` stays
+where it was heap-allocated: `entries_` growing moves the `unique_ptr`, never the object it owns,
+so the pointer stays good until `collect()` frees the take.
+
+### Reclaim order
+
+`TrackPlayer::reclaim()` reclaims every lane slot before it collects the library, so a take a
+retired timeline still names is never freed.
+
+### The de-click ramp
+
+A clip's de-click ramp is symmetric about the clip's middle. Asking for the gain at the middle
+frame suppresses the edge on that side and leaves the other edge intact.
+
+The de-click gain rises, holds and falls, so its smallest value over a run is at one of the run's
+two ends. Both ends at one mean the whole run is flat.
+
+### The converter's expected position
+
+A block's own 32.32 accumulator starts at zero while `Transport::advance()` carries its fraction
+on, so the position a lane's converter expects may sit one frame either side of the real one. A
+wider gap than that is a seek, a jump between clips or a speed change.
+
+### An unsized converter
+
+A converter that has not been sized for the block cannot carry it, so the lane falls back to the
+copy path instead of allocating on the audio thread.
+
+### Disarming during a write
+
+`TrackRecorder::write()` raises the in-flight count before it reads `recording_`, so `disarm()`
+can never return while a `write()` call is still touching the rings.
+
+### Converter output counts
+
+In a `VariRateReader`, every channel's converter carries the same rates and the same push count,
+so they all emit the same number of outputs on every push. Channel 0's count speaks for all of
+them.

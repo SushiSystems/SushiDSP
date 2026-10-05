@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DividerMath.hpp
+ * @brief Declares the clamping a pane size goes through when a divider moves.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 namespace ui

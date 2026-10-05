@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file LevelProbe.hpp
+ * @brief Defines the probe that carries a block's peak from the audio thread to the GUI.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <atomic>

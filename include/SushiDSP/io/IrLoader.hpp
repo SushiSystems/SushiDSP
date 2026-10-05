@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file IrLoader.hpp
+ * @brief Declares the loader that conditions cabinet impulse responses for convolution.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <string>

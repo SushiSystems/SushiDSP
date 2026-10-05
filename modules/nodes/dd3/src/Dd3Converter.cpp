@@ -41,9 +41,7 @@ namespace SushiDSP::dd3
 
     void Dd3Converter::set_mode(Dd3Mode mode)
     {
-        // Before prepare() has allocated ring_, only mode_ is recorded; prepare() resolves
-        // length_ from it. Applying a length here while ring_ is still empty would leave
-        // length_ pointing past an empty ring for process_sample to index into.
+        // Before prepare() sizes ring_, only mode_ is recorded; see modules/nodes/dd3/README.md.
         if (ring_.empty())
         {
             mode_ = mode;

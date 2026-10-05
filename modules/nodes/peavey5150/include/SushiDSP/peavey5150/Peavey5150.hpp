@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Peavey5150.hpp
+ * @brief Declares the Peavey 5150 lead-channel amplifier node and its descriptor.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>
@@ -104,21 +110,8 @@ namespace SushiDSP
         void set_output(float decibels);
 
         /// @brief Linear gain the finished signal is scaled by so an untouched amp turns a
-        /// -12 dBFS 82 Hz input into a -6.00 dBFS peak, the calibration point all four
-        /// amplifiers share (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md
-        /// section 6). Re-measured 2026-09-07 on the Norman grid law, the solved inverter bias and
-        /// the audio-taper PRE GAIN, on the volt-true power stage and on the transformer whose
-        /// secondary carries no mean; 0.1730211, 0.2400876 and 0.6114945 before those, the last
-        /// pinned at 1 kHz. Measured by
-        /// Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput, which pins it.
-        ///
-        /// It sits outside the nonlinearity, after the decimator and both feedback shelves, where
-        /// Jcm800.cpp applies its kMasterUnityGain inside the amplifier alongside the master pot.
-        /// A deliberate departure from the sibling: this amplifier's POST GAIN pot is a real
-        /// mid-chain control that drives the driver, the phase inverter and the output tubes, so it
-        /// is applied in the chain where the schematic puts it, and this constant is left outside
-        /// as a pure level trim. Folding the two together would make a calibration change a tone
-        /// change. See modules/nodes/peavey5150/README.md.
+        /// -12 dBFS 82 Hz input into a -6.00 dBFS peak.
+        /// @see modules/nodes/peavey5150/README.md, "The post-gain unity gain"
         static constexpr float kPostGainUnityGain = 0.1710120f;
 
         /// @brief Overrides the 6L6GC quad's grid bias mismatch. A test hook, not a user control
@@ -187,8 +180,7 @@ namespace SushiDSP
         Biquad v2b_cathode_shelf_; ///< R13 1.02k partially bypassed by C5 1u.
         Biquad v3a_cathode_shelf_; ///< R14 3.3k with C61 4.7n, an oscillation stopper.
 
-        // One-pole grid-input-capacitance rolloffs, one per driven grid; the Miller constants in
-        // Peavey5150.cpp set their corners.
+        // One-pole rolloffs, one per driven grid; Peavey5150.cpp sets their corners.
         Biquad v1b_grid_miller_;
         Biquad v2a_grid_miller_;
         Biquad v2b_grid_miller_;

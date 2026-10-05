@@ -206,9 +206,7 @@ TEST(Unit_Dsp, VariRateReaderResetStartsFromSilence)
 
 TEST(Unit_Dsp, VariRateReaderDoesNotDriftFarDownTheTake)
 {
-    // At half speed the step is exactly 0.5, so 256 outputs cost exactly 128 take frames once
-    // the kernel has filled. An accumulator that loses the fraction across a block boundary
-    // shows up here and not in the first bar.
+    // At half speed 256 outputs cost 128 take frames. See tests/functional/unit/README.md.
     const SushiDSP::Take take = sine_take(440.0, 4096u, 48000.0);
 
     SushiDSP::VariRateReader reader;

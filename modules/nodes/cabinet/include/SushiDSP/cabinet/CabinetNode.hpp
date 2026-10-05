@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file CabinetNode.hpp
+ * @brief Declares the standalone cabinet impulse-response convolver node.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

@@ -151,8 +151,7 @@ namespace SushiDSP::room
         const auto whole_frames = static_cast<std::uint32_t>(whole);
         const LagrangeKernel kernel = lagrange_kernel(delay - whole,
                                                       static_cast<double>(tap.gain));
-        // The window starts two frames behind the integer delay and never wraps: the mirror
-        // region holds what lies past the ring's end.
+        // The window never wraps past the ring's end; see modules/nodes/room/README.md.
         const std::uint32_t behind = whole_frames + 2u;
         const std::uint32_t start = block_start_ >= behind ? block_start_ - behind
                                                            : block_start_ + ring_length_ - behind;

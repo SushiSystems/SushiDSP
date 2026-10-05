@@ -35,16 +35,8 @@
 
 namespace SushiDSP
 {
-    /// @brief The Diezel VH4's channel 3 ("Mega"): V1a, the channel gain pot's 1 nF split, V2a,
-    /// V3a, the V3b cathode follower, the FMV deck, the channel volume, the four-way mix bus,
-    /// V4a and the V4b send buffer, then a phase inverter, an EL34 quad, the output transformer,
-    /// power sag, Deep and Presence, followed by a full-scale clamp. Cabinet convolution lives
-    /// in the standalone sushidsp.cabinet node.
-    ///
-    /// A documented approximation rather than a white-box model: the gain chain comes from one
-    /// reverse-engineering drawing, the tone stack's interconnection is a reconstruction and the
-    /// power section is built from prose alone. modules/nodes/diezel_vh4/README.md says which is which.
-    /// Exposes diezel_vh4_descriptor().
+    /// @brief Models the Diezel VH4's channel 3 ("Mega") from V1a to a full-scale clamp.
+    /// @see modules/nodes/diezel_vh4/README.md, "What the class models"
     class DiezelVh4 : public IAudioNode
     {
     public:
@@ -85,14 +77,7 @@ namespace SushiDSP
         float grid_excursion_peak_volts(std::size_t stage) const;
 
         /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
-        /// It multiplies the signal after the last nonlinearity, so it scales the output and
-        /// nothing else. The calibration point is the one all four amplifiers share: every knob
-        /// at its default and a -12 dBFS 82 Hz input peaks at -6.00 dBFS (docs/archive/superpowers/specs/
-        /// 2026-09-07-grid-knee-antialiasing-design.md section 6), pinned by
-        /// DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput. Re-measured
-        /// 2026-09-07 on the Norman grid law, on the volt-true power stage and on the
-        /// transformer whose secondary carries no mean; 0.2365060, 0.3543949 and 0.627263 before
-        /// those, the last pinned at 1 kHz. modules/nodes/diezel_vh4/README.md carries the derivation.
+        /// @see modules/nodes/diezel_vh4/README.md, "The master unity gain"
         static constexpr float kMasterUnityGain = 0.2319680f;
 
         /// @brief Sets the channel-3 GAIN control, the 250 kOhm pot of dossier section 3.2.

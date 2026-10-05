@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file MusicalClock.hpp
+ * @brief Declares the mapping between sample frames and bars and beats.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <atomic>

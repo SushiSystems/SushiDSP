@@ -48,7 +48,6 @@ namespace SushiDSP
         void set_rates(double source_rate, double target_rate);
 
         /// @brief Converts one push of input, producing however many outputs are now available.
-        /// @param input input_frames source-rate samples.
         /// @param input_frames Number of input samples; must not exceed max_input_frames.
         /// @param output Destination, at least output_capacity samples; must not alias input.
         /// @param output_capacity Room available; use maximum_output_frames() to size it. A

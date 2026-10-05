@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_track_timeline.cpp
+ * @brief Tests the clip ordering and limits of TrackTimeline.
+ * @author Mustafa Garip
+ */
+
 #include <cstdint>
 #include <memory>
 #include <stdexcept>

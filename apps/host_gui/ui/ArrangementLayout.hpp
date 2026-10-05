@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file ArrangementLayout.hpp
+ * @brief Declares the arrangement view's grid lines, clip spans and lane hit tests.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>

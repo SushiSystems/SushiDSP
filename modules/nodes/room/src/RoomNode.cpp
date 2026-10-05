@@ -98,8 +98,7 @@ namespace SushiDSP::room
         const std::uint32_t frames = std::min(context.frames, max_block_);
         const float* input = context.inputs[0];
 
-        // One atomic acquire per slot is the audio thread's whole share of a publish; the set
-        // pointer is compared against the last one and read only inside this block.
+        // One atomic acquire per slot is this thread's share; see modules/nodes/room/README.md.
         const RoomRenderSet* const set = slot_.acquire_for_audio_thread();
         BinauralDecoder* const decoder = binaural_.acquire_decoder();
         if (set != nullptr && set != adopted_)

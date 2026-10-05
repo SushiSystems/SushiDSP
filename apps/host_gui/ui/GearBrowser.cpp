@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file GearBrowser.cpp
+ * @brief Implements the gear browser's header, search box, tabs and cards.
+ * @author Mustafa Garip
+ */
+
 #include "ui/GearBrowser.hpp"
 
 #include <algorithm>
@@ -126,8 +132,7 @@ namespace ui
             ImGui::SameLine();
             ImGui::TextColored(to_imvec4(palette().muted_text), "%zu items", item_count);
 
-            // Each toggle is as wide as its own caption plus padding: a fixed box narrower than
-            // the text lets the two labels overlap each other and the window's edge.
+            // Each toggle is as wide as its caption plus padding; see apps/host_gui/ui/README.md.
             constexpr float kTogglePadding = 10.0f;
             constexpr float kToggleGap = 2.0f;
             const float list_width = ImGui::CalcTextSize("List").x + kTogglePadding;
@@ -160,8 +165,7 @@ namespace ui
 
             const float spacing = 6.0f;
             const float width = (ImGui::GetContentRegionAvail().x - spacing * 3.0f) / 4.0f;
-            // A Selectable puts its caption in the top-left of the box it is given, which reads
-            // as text that has come loose from its button once the box is wider than the word.
+            // The caption is centered in its box; apps/host_gui/ui/README.md says why.
             ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
             for (std::size_t i = 0; i < 4; ++i)
             {

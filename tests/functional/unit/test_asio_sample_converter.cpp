@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_asio_sample_converter.cpp
+ * @brief Tests the conversion between ASIO sample formats and float.
+ * @author Mustafa Garip
+ */
+
 #include <cstdint>
 #include <cstring>
 
@@ -68,8 +74,7 @@ TEST(Unit_Dsp, AsioSampleConverterInt16RoundTripsKnownValues)
 
 TEST(Unit_Dsp, AsioSampleConverterFloatToSampleClampsOutOfRangeInput)
 {
-    // A value outside [-1, 1] (e.g. from a hot upstream signal) must not overflow the
-    // integer container - it clamps to the format's full-scale value instead.
+    // Out-of-range input clamps to full scale. See tests/functional/unit/README.md.
     std::uint8_t bytes[4];
     SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, 2.0f, bytes);
     std::int32_t decoded_value = 0;

@@ -315,16 +315,13 @@ namespace SushiDSP::room
         const double handover_frames =
             std::round(static_cast<double>(early.crossover_time_s) * sample_rate);
 
-        // The network emits nothing until its shortest line has run, so that line is what the
-        // handover time bounds; the sum of the sixteen stays kOverlapRatio times the mid-band
-        // decay, which is what fixes the tail's modal density (spec §6.2).
+        // The handover time bounds the shortest line; see modules/nodes/room/README.md.
         double shortest_frames = std::max(handover_frames, 1.0);
         double spread = kMinSpread;
         const double wanted = total_frames / shortest_frames;
         if (wanted <= spread_sum(kMinSpread))
         {
-            // A room whose handover exceeds its whole delay budget cannot start there; the
-            // budget sets the shortest line and the input delay carries what is left.
+            // The delay budget caps the shortest line; see modules/nodes/room/README.md.
             shortest_frames = total_frames / spread_sum(kMinSpread);
         }
         else
@@ -358,8 +355,7 @@ namespace SushiDSP::room
 
         if (listener == ListenerKind::Ears)
         {
-            // A Butterworth pair is power complementary, so the right ear carries the left
-            // ear's energy whatever the split between the coherent and incoherent sums.
+            // A Butterworth pair is power complementary; see modules/nodes/room/README.md.
             const double corner_hz = coherence_corner_hz();
             design.coherence_a = { butterworth(corner_hz, sample_rate, true), kUnitySection };
             design.coherence_b = { butterworth(corner_hz, sample_rate, false), kUnitySection };
@@ -370,8 +366,7 @@ namespace SushiDSP::room
             design.coherence_b = kUnityCascade;
         }
 
-        // The shortest line is the network's own latency, so the delay ahead of it is what is
-        // left of the handover time.
+        // The shortest line is the network's own latency; see modules/nodes/room/README.md.
         design.delay_to_crossover_frames = static_cast<float>(
             std::max(handover_frames - static_cast<double>(design.line_frames[0]), 0.0));
         return design;

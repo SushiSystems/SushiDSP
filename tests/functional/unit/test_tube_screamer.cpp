@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and <cmath> may otherwise be pulled in transitively before this point.
+/**
+ * @file test_tube_screamer.cpp
+ * @brief Tests the TubeScreamer node's parameters, levels, smoothing and latency.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
 #include <algorithm>
@@ -177,11 +182,7 @@ TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
 
 TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
 {
-    // Step the level from -60 dB to 0 dB and find, to the sample, when the output envelope first
-    // reaches 63 % of its final settled peak - one time constant. Expressed in milliseconds that
-    // crossing must not depend on the block size: 64 and 4096 frames must agree within 5 %.
-    // A 4 kHz probe keeps the peak-detection granularity (half a period, 6 samples) far below
-    // the 1 ms that 5 % of the 20 ms time constant allows.
+    // The 63 % crossing must not depend on the block size. See tests/functional/unit/README.md.
     constexpr double sample_rate = 48000.0;
     constexpr double probe_hz = 4000.0;
     constexpr double probe_amplitude = 0.02;
@@ -254,11 +255,7 @@ TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
 
 TEST(Unit_Dsp, TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseLag)
 {
-    // latency_samples() reports the one delay a host can compensate: the 4x oversampler's
-    // round-trip. The two DK blocks add group delay of their own, but it is frequency- and
-    // tone-knob-dependent, so it is tone rather than latency and reporting it would over-
-    // compensate at every frequency but one. The impulse peak therefore lands a couple of
-    // samples past the reported figure, and never before it - see the D6c plan, task 8.
+    // Only the 4x oversampler's round trip is latency. See tests/functional/unit/README.md.
     constexpr std::uint32_t block = 64;
     constexpr std::uint32_t max_block_group_delay = 4;
 
@@ -390,10 +387,7 @@ TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
             output.insert(output.end(), block_output.begin(), block_output.end());
         }
 
-        // THD proxy: RMS deviation of the (settled, tail-half) output from a best-fit sine at
-        // the fundamental, normalized by the output's own RMS. Not a true THD measurement (that
-        // needs an FFT-based harmonic decomposition), but monotonic with clipping severity for
-        // this purpose, and cheap.
+        // The THD proxy is RMS deviation from a fitted sine. See tests/functional/unit/README.md.
         const std::size_t settle_start = output.size() / 2;
         double sum_sq = 0.0, sum_sin = 0.0, sum_cos = 0.0;
         for (std::size_t i = settle_start; i < output.size(); ++i)
@@ -496,8 +490,7 @@ TEST(Unit_Dsp, TubeScreamerUnknownParameterIsSafeNoOp)
 
 TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelveDbfsInput)
 {
-    // At default drive the pedal is close to unity at 82 Hz, so the shipped calibration leaves a
-    // -12 dBFS low-E sine within a couple of dB of where it came in.
+    // At default drive the pedal is near unity at 82 Hz. See tests/functional/unit/README.md.
     SushiDSP::TubeScreamer node;
     node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
 
@@ -534,13 +527,7 @@ TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelve
 
 TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
 {
-    // The D6a chain high-passed at 20 Hz with a biquad. The real pedal's input network is 1 uF
-    // into 510 kOhm - a 0.312069 Hz corner - so the response either side of 20 Hz is flat, and
-    // 30 Hz against 10 Hz is the pair that says so: a 20 Hz high-pass would put them octaves
-    // apart, while the circuit leaves the ratio near 1. The reference is not 300 Hz, which sits
-    // on the clip stage's own 4.7 kOhm / 0.047 uF boost slope and is 12 dB up for that reason.
-    // The chain measures 1.11; a second-order 20 Hz high-pass would put it near 3.9. Small
-    // signal throughout so the clipper does not compress the comparison.
+    // The input corner is 0.312069 Hz, so 20 Hz is flat. See tests/functional/unit/README.md.
     auto settled_rms_at = [](double frequency)
     {
         SushiDSP::TubeScreamer node;
@@ -555,10 +542,7 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
         double index = 0.0, sum_squares = 0.0;
         std::size_t counted = 0;
 
-        // The measurement window is truncated to whole cycles of the tone under test. Blocks 100
-        // to 199 hold 25600 samples, which is 16 cycles at 30 Hz but 5.33 at 10 Hz. The partial
-        // cycle biased the 10 Hz RMS low by 1.2 %, and the ratio above with it, from 1.11 to the
-        // 1.1233 this case used to read.
+        // The window is truncated to whole cycles. See tests/functional/unit/README.md.
         const std::size_t cycle_samples = static_cast<std::size_t>(48000.0 / frequency);
         const std::size_t window = 25600 / cycle_samples * cycle_samples;
 
@@ -596,10 +580,7 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
 
 TEST(Unit_Dsp, TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicking)
 {
-    // The drive pot re-derives the clip block's matrices at block cadence (D6b ruling 3). Sweeping
-    // it across its whole travel over a second must not produce a sample-to-sample step: the
-    // largest first difference stays under the largest one the same render produces with the knob
-    // still at 1.0, its loudest end, times two.
+    // A drive sweep must not produce a sample-to-sample step. See tests/functional/unit/README.md.
     constexpr std::uint32_t block = 256;
     constexpr std::uint32_t blocks_per_second = 48000u / block;
 

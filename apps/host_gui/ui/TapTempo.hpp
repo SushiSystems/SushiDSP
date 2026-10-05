@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TapTempo.hpp
+ * @brief Declares the class that turns a run of taps into a tempo.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>

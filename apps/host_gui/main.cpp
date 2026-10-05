@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file main.cpp
+ * @brief Runs the host's window: opens the audio device, builds the rig and draws each frame.
+ * @author Mustafa Garip
+ */
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -257,8 +263,7 @@ int main(int argc, char** argv)
     // The mini-DAW (arrangement view + meter bar) starts hidden.
     bool mini_daw_open = false;
 
-    // The zoom, the scroll and the snap belong to the GUI loop rather than to the rig: they are
-    // how the arrangement is being looked at, not what it plays.
+    // The zoom, the scroll and the snap are view state, so the GUI loop owns them, not the rig.
     ui::TimelineScale timeline_scale;
     ui::SnapMode      snap_mode = ui::SnapMode::Bar;
     ui::LaneGeometry  lane_geometry;
@@ -272,25 +277,12 @@ int main(int argc, char** argv)
     // Sized once by the first Explorer drop and reused, so a drop costs no allocation after it.
     std::vector<SushiDSP::host::FileDrop> drained_drops;
 
-    // A dropped mp3 is decoded to a WAV in a folder of the host's own, beside the impulse
-    // responses it already keeps next to the executable, and the clip points at that WAV: a
-    // session stores a clip as a path, so the decode has to leave a file behind, and it must not
-    // be written into the user's music folder. The decode runs on the queue's worker thread, so
-    // a five-minute song does not stop the window.
+    // A dropped mp3 is decoded to a WAV beside the executable; see apps/host_gui/README.md.
     SushiDSP::host::AudioImportQueue audio_imports{ SushiDSP::host::AudioImportCache(
         executable_directory(argc > 0 ? argv[0] : nullptr) + "cache/imported_audio") };
     std::vector<SushiDSP::host::AudioImport> finished_imports;
 
-    // Both buffers are captured BY REFERENCE in the device callback (below), and that callback
-    // keeps firing on the audio thread for as long as the device runs - i.e. for every frame
-    // after the one where Connect was clicked. They MUST therefore live in this outer
-    // main()-body scope, not inside the connect_device lambda: a lambda-body declaration would
-    // be destroyed the instant the connect sequence returns, leaving the callback's captured
-    // references dangling on the very next audio callback. Both start empty and are
-    // `.assign()`-ed once, inside connect_device, once `actual.block_size` is known - never
-    // resized again afterward, so the callback that captures them by reference stays
-    // allocation-free. The two level probes sit here for the same lifetime reason: the callback
-    // reports a peak into each of them on every block.
+    // The audio callback captures these by reference; apps/host_gui/README.md states the lifetime.
     std::vector<float>        rig_input;
     std::vector<float>        rig_output;
     std::vector<float*>       rig_output_pointers;
@@ -299,17 +291,7 @@ int main(int argc, char** argv)
     ui::LevelProbe input_probe;
     ui::LevelProbe output_probe;
 
-    // rig_controller_storage is declared (as storage) before device so that, by C++'s reverse-
-    // declaration-order destruction rule, `device` is guaranteed to be destroyed BEFORE
-    // rig_controller_storage and the RigGraphs it owns - correct by construction rather than by
-    // relying on the explicit device->stop() call below. RigController's constructor needs
-    // `info`, which is derived from device->format(), so it cannot be constructed until after
-    // `device` exists; std::optional lets us fix the *declaration* order (and hence destruction
-    // order) independently of the *construction* order. mono_output/callback_silence and the two
-    // probes are declared even earlier, above, so they are destroyed LAST of all - i.e. after
-    // `device` is already destroyed, which is exactly correct: nothing may reference them once
-    // they're gone, and `device` (whose callback references them) is already torn down by that
-    // point.
+    // rig_controller_storage outlives device by declaration order; see apps/host_gui/README.md.
     std::optional<RigController> rig_controller_storage;
     std::unique_ptr<SushiDSP::IAudioDevice> device;
 
@@ -323,12 +305,7 @@ int main(int argc, char** argv)
     {
         connect_error.clear();
 
-        // Destroy any previous (possibly partially-set-up) device FIRST, before
-        // constructing a new one. AsioAudioDevice/Sdl2AudioDevice both wrap
-        // process-wide SDK state; std::unique_ptr::operator= would otherwise
-        // evaluate the new construction (ASIOInit/ASIOCreateBuffers etc.) while
-        // the old device is still alive, then tear that old state down only
-        // afterwards - destroying the SDK state the new device just built.
+        // The previous device is destroyed before the next is built; see apps/host_gui/README.md.
         device.reset();
 
         try
@@ -348,10 +325,7 @@ int main(int argc, char** argv)
 #endif
 
             const SushiDSP::DeviceFormat actual = device->format();
-            // The rig's input is always one channel - an amplifier is a mono circuit. Its output
-            // is as wide as the device can take, up to RigGraph::kMaxChannels, and RigGraph
-            // adapts a mono terminal node to that width itself. Channel selection still decides
-            // which physical channel feeds the rig and which receives its output.
+            // The rig takes one input and up to kMaxChannels outputs; see apps/host_gui/README.md.
             const std::uint32_t rig_channels =
                 std::min<std::uint32_t>(std::max(1u, actual.output_channels),
                                         SushiDSP::RigGraph::kMaxChannels);
@@ -371,10 +345,7 @@ int main(int argc, char** argv)
                     + " output channels to the device's " + std::to_string(device_output_channels));
             }
 
-            // Sized once, here, off the audio thread - the outer-scope vectors declared
-            // above (mono_output, callback_silence) are never resized again after this,
-            // so the callback that captures them by reference stays allocation-free
-            // (mirrors apps/host_asio/main.cpp's own pattern).
+            // The buffers are sized once here and never resized; see apps/host_gui/README.md.
             rig_input.assign(actual.block_size, 0.0f);
             rig_output.assign(static_cast<std::size_t>(actual.block_size) * rig_channels, 0.0f);
             rig_output_pointers.resize(rig_channels);
@@ -447,8 +418,7 @@ int main(int argc, char** argv)
                 }
                 else if (active->is_empty())
                 {
-                    // A rack holding nothing, or one whose every slot is bypassed: both are a
-                    // cable, so the input reaches every output channel untouched.
+                    // An empty or all-bypassed rack passes the input; see apps/host_gui/README.md.
                     for (std::uint32_t channel = 0; channel < rig_channels; ++channel)
                     {
                         std::memcpy(rig_output_pointers[channel], rig_input.data(),
@@ -475,8 +445,7 @@ int main(int argc, char** argv)
                     bus.write(rig_output_const_pointers.data(), rig_input.data(), frames);
                 }
 
-                // Added after both recorder legs are written, so the click reaches no recorded file.
-                // @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §4
+                // The click is added after both recorder legs; see apps/host_gui/README.md.
                 rig_controller_ref.metronome().process(rig_output_pointers.data(), rig_channels,
                                                        frames, transport,
                                                        rig_controller_ref.musical_clock());
@@ -513,8 +482,7 @@ int main(int argc, char** argv)
             rig_controller_storage->reclaim();
         }
 
-        // Explorer's drops are resolved against the lane rectangles the previous frame recorded,
-        // then routed through the function an ImGui payload drop also calls.
+        // Drops resolve against the previous frame's lane rectangles; see apps/host_gui/README.md.
         file_drops.drain(drained_drops);
         for (const SushiDSP::host::FileDrop& drop : drained_drops)
         {
@@ -541,8 +509,7 @@ int main(int argc, char** argv)
         }
         drained_drops.clear();
 
-        // A decode that finished on the worker thread becomes a clip here, on the thread that
-        // owns the rig.
+        // A finished decode becomes a clip here, on the thread that owns the rig.
         audio_imports.drain(finished_imports);
         for (const SushiDSP::host::AudioImport& import : finished_imports)
         {
@@ -577,14 +544,12 @@ int main(int argc, char** argv)
         const float width = static_cast<float>(display_w);
         const float height = static_cast<float>(display_h);
 
-        // The bottom divider lives in a thin window of its own between the workspace and the
-        // bottom bar; the workspace's two dividers live inside it, between its child panes.
+        // Only the bottom divider has a window of its own; see apps/host_gui/README.md.
         const ImVec2 kNoSpacing(0.0f, 0.0f);
         const float top_bar_height = 40.0f;
         const float divider_thickness = 14.0f;
 
-        // A seam between panes that do not resize carries no grab handle, so it needs only
-        // enough room for its hairline; at the grab strip's 14 px it read as a black band.
+        // A seam carries no grab handle, so it is 5 px thick; see apps/host_gui/README.md.
         const float seam_thickness = 5.0f;
         const ui::DividerLimits bottom_limits{ 72.0f, 200.0f };
         const ui::DividerLimits settings_limits{ 120.0f, 140.0f };

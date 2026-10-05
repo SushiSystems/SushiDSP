@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SplitLayout.cpp
+ * @brief Implements the chain view's geometry for every chain type.
+ * @author Mustafa Garip
+ */
+
 #include "ui/SplitLayout.hpp"
 
 #include <algorithm>
@@ -27,8 +33,8 @@ namespace ui
                          Vec2{ std::max(a.max.x, b.max.x), std::max(a.max.y, b.max.y) } };
         }
 
-        // One gap before each node and one after the last, so a caller can always drop at either
-        // end; an empty stage collapses to the single gap `empty_width` wide.
+        /// @brief Places one stage's nodes with a drop gap before each and one after the last.
+        /// @see apps/host_gui/ui/README.md
         StageGeometry layout_stage(float start_x, float center_y, std::size_t count,
                                    const SplitMetrics& metrics, float empty_width)
         {
@@ -82,8 +88,8 @@ namespace ui
             return Vec2{ rect.min.x, (rect.min.y + rect.max.y) / 2.0f };
         }
 
-        // The routed cable the mockup's redrawSplitWires draws: an orthogonal step from the
-        // source's right edge, halfway across the gap, into the target's left edge.
+        /// @brief Routes a cable as an orthogonal step that turns halfway across the gap.
+        /// @see apps/host_gui/ui/README.md
         std::vector<Vec2> route(Vec2 from, Vec2 to)
         {
             const float mid_x = from.x + (to.x - from.x) / 2.0f;

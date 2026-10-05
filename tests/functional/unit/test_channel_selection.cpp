@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_channel_selection.cpp
+ * @brief Tests the parsing and mapping of ChannelSelection.
+ * @author Mustafa Garip
+ */
+
 #include <stdexcept>
 #include <vector>
 

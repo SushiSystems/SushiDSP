@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file LevelText.cpp
+ * @brief Implements the conversions from a peak to decibels, a meter fill and a label.
+ * @author Mustafa Garip
+ */
+
 #include "ui/LevelText.hpp"
 
 #include <algorithm>

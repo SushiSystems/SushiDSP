@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TapTempo.cpp
+ * @brief Implements the tempo a run of taps implies.
+ * @author Mustafa Garip
+ */
+
 #include "ui/TapTempo.hpp"
 
 #include <algorithm>

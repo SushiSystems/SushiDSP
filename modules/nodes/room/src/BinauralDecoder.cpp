@@ -95,8 +95,7 @@ namespace SushiDSP::room
         {
             const std::uint32_t count = std::min(frames - done, partition_size - fill_);
 
-            // output_partition_[fill_ ..) is the not-yet-emitted result of the previous
-            // partition, so one cursor reads an output frame and writes an input frame.
+            // One cursor reads output and writes input; see modules/nodes/room/README.md.
             std::copy_n(output_partition + fill_, count, left + done);
             std::copy_n(output_partition + partition_size + fill_, count, right + done);
             for (std::uint32_t channel = 0; channel < kChannels; ++channel)
@@ -123,8 +122,7 @@ namespace SushiDSP::room
         float* const output_partition = output_partition_.data();
         float* const scratch = scratch_.data();
 
-        // Each convolver transforms its own input, so the sixteen channels are each transformed
-        // twice: the unshared figure spec §10 budgets; sharing the spectra changes no interface.
+        // Each of the sixteen channels is transformed twice; see modules/nodes/room/README.md.
         for (std::uint32_t ear = 0; ear < kEars; ++ear)
         {
             float* const ear_output =

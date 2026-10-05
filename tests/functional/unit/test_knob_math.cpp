@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_knob_math.cpp
+ * @brief Tests the mapping between parameter values and knob positions in KnobMath.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include "ui/KnobMath.hpp"

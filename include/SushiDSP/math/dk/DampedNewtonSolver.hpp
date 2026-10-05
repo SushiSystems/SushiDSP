@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DampedNewtonSolver.hpp
+ * @brief Defines the damped Newton solver of a DK circuit's nonlinear port.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -17,39 +23,24 @@
 
 namespace SushiDSP::dk
 {
-    /// @brief Damped multivariate Newton iteration for the nonlinear port of a DK circuit.
+    /// @brief Runs a damped multivariate Newton iteration on the nonlinear port of a DK circuit.
     ///
-    /// The caller supplies a system object exposing
-    /// `void residual_and_jacobian(const std::array<double, N>& v, std::array<double, N>& r,
-    /// std::array<std::array<double, N>, N>& jacobian)`, which must evaluate both together: the
-    /// solver never asks for one alone, so a system may share the exponentials between them.
-    /// Every buffer is a member std::array and no step allocates, locks, or throws, so solve()
-    /// is safe on the audio thread. Statistics are counters the host can poll to see how hard
-    /// the circuit is working.
+    /// The system object exposes `void residual_and_jacobian(const std::array<double, N>& v,
+    /// std::array<double, N>& r, std::array<std::array<double, N>, N>& jacobian)` and fills both
+    /// from one evaluation. solve() allocates nothing, takes no lock and throws nothing
+    /// (include/SushiDSP/README.md).
     /// @tparam N Dimension of the nonlinear port.
     template <std::size_t N>
     class DampedNewtonSolver
     {
     public:
         /// @brief Iterates from the supplied starting point until the residual vanishes.
-        /// @param system The residual/Jacobian evaluator.
-        /// @param v In: the starting iterate (warm-starting from the previous sample is the
-        /// intended use). Out: on success the converged iterate; on failure the lowest-residual
-        /// finite iterate visited, which is never worse than the one passed in.
-        /// @return True on convergence, meaning either a residual below the absolute tolerance or
-        /// a norm-reducing step that no longer moves the iterate. A step that stopped moving
-        /// without reducing the residual is a stall, not convergence, and keeps iterating; that
-        /// distinction is what stops a Jacobian underflowing far from the root from being
-        /// reported as a solution. False when the iteration budget ran out, the Jacobian stayed
-        /// singular, or the system produced a non-finite value.
-        ///
-        /// On success the last call this function made to `System::residual_and_jacobian` was
-        /// made at the iterate it leaves in `v`: the tolerance return happens with the residual
-        /// belonging to the current `v`, and every step return sets `v` to the trial point the
-        /// line search last evaluated. A system that caches per-evaluation quantities may
-        /// therefore reuse them after a `true` return. **On failure it may not** — `fail()`
-        /// restores the lowest-residual iterate seen, which is generally not the last one
-        /// evaluated. `test_damped_newton_solver.cpp` pins this.
+        /// @param v In: the starting iterate. Out: the converged iterate on success, and on failure
+        /// the lowest-residual finite iterate visited, never worse than the one passed in.
+        /// @return True on convergence: a residual below the absolute tolerance, or a norm-reducing
+        /// step that no longer moves the iterate. False when the budget ran out, the Jacobian stayed
+        /// singular, or the system produced a non-finite value. Only after true was the system
+        /// last evaluated at the returned v (include/SushiDSP/README.md).
         template <typename System>
         bool solve(System&& system, std::array<double, N>& v)
         {

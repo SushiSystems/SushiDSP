@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TakeLibrary.hpp
+ * @brief Declares the owner of every loaded take.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>

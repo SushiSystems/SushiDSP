@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file ChannelSelection.hpp
+ * @brief Declares the device channel selection and the rig-to-device output adaptation.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -48,17 +54,12 @@ namespace SushiDSP
     bool rig_output_adapts_to_device(std::uint32_t rig_channels, std::uint32_t device_channels);
 
     /// @brief Writes a rig's output block into a device's output channels, adapting the width by
-    /// the rig_output_adapts_to_device table. Real-time safe: no allocation, no lock, no syscall,
-    /// no throw. Every device channel is written, so the caller never needs a separate memset.
+    /// the rig_output_adapts_to_device table. Real-time safe: no allocation, lock, syscall or throw.
     /// @param rig_outputs One pointer per rig output channel, each `frames` samples.
-    /// @param rig_channels The rig's output channel count, 1 or 2.
-    /// @param device_outputs One pointer per device output channel, each `frames` samples.
-    /// @param device_channels The device's output channel count, 1 or 2.
-    /// @param frames Sample count per channel.
+    /// @param device_outputs One pointer per device output channel; every one is written in full.
     /// @param output_selection Gates a two-channel device: Left writes only device_outputs[0],
     /// Right only device_outputs[1], Stereo both. A one-channel device ignores it.
     /// @pre rig_output_adapts_to_device(rig_channels, device_channels) is true.
-    /// @see rig_output_adapts_to_device
     void write_rig_output_to_device(const float* const* rig_outputs, std::uint32_t rig_channels,
                                     float* const* device_outputs, std::uint32_t device_channels,
                                     std::uint32_t frames, ChannelSelection output_selection);

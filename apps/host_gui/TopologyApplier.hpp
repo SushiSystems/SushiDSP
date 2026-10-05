@@ -34,15 +34,12 @@ public:
     void apply(RigTopology& topology, RigController& rig);
 
     /// @brief Switches the chain type and rewires the rig to match, in one step.
-    ///
-    /// A path that opens is filled with a copy of the main path's gear, parameter values
-    /// included, which is the behaviour docs/design/GUI_UX_REDESIGN.md records; a path that
-    /// closes leaves its slots behind as strays, and the apply removes them.
     /// @param topology The model to switch.
     /// @param rig The controller to rewire.
     /// @param type The chain type to switch to.
     /// @throws std::runtime_error when the rewired graph does not compile; everything is rolled
     /// back first.
+    /// @see apps/host_gui/README.md
     void switch_chain_type(RigTopology& topology, RigController& rig, ChainType type);
 
 private:

@@ -70,13 +70,11 @@ namespace SushiDSP
         netlist.capacitor(node.slope, node.bass_top, components_.bass_capacitor_farads);
         netlist.capacitor(node.slope, node.middle_top, components_.middle_capacitor_farads);
 
-        // The treble pot's a-to-wiper section grows as the knob closes, so its DK position is
-        // one minus the panel position.
+        // The treble pot's DK position is one minus the panel position (src/README.md).
         treble_pot_ = netlist.potentiometer(node.treble_top, node.output, node.bass_top,
                                            components_.treble_potentiometer_ohms);
 
-        // Both lower controls are rheostats: the wiper carries the section's current and the
-        // dead wiper-to-b section stamps nothing because its terminals are one node.
+        // Both lower controls are rheostats; the dead section stamps nothing (src/README.md).
         bass_pot_ = netlist.potentiometer(node.bass_top, node.middle_top, node.middle_top,
                                          components_.bass_potentiometer_ohms);
         middle_pot_ = netlist.potentiometer(node.middle_top, 0, 0,

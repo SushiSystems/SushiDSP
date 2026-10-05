@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_dk_triode_stage.cpp
+ * @brief Tests the DK model of the jcm_v1a triode stage against a hand solve and LTspice.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include <array>
@@ -28,11 +34,7 @@
 
 namespace
 {
-    // The netlist, its component constants and the triode glue live in
-    // tests/circuits/JcmV1aNetlist.hpp: the RT-safety traps and the benchmark build the same
-    // block, and one description of it is the only way the three stay the same circuit. The
-    // same namespace carries tests/circuits/SpiceBlockCompare.hpp's spice_path, band_limit and
-    // interpolate_magnitude, which the Tube Screamer block tests use unchanged.
+    // The netlist lives in tests/circuits/JcmV1aNetlist.hpp. See tests/functional/unit/README.md.
     using namespace SushiDSP::test_circuits;
 
     /// @brief The stage's DK shape: six capacitors, two triode branches, two sources, one probe.
@@ -155,21 +157,8 @@ namespace
     inline constexpr std::array<double, 3> kSteppedPreamp{ 0.1, 0.5, 0.9 };
 }
 
-// Spec D6b.4 acceptance: the operating point of the jcm_v1a stage.
-//
-// Hand solution (independent of DkCircuit, two-variable reduction plus bisection on Ip):
-// Kirchhoff gives Vgk = -Ip*Rk and Vpk = 360 - Ip*(Rp + Rk) with Rk = 2.7k, Rp = 100k, so the
-// whole bias reduces to the scalar fixed point Ip = koren(-Ip*Rk, 360 - Ip*102.7k). koren(...)
-// - Ip is strictly decreasing over 0 to 3.4 mA (it falls from 11.3 mA at Ip = 0 to zero before
-// 1.7 mA), so the root is unique; bisection to machine precision gives
-//
-//   Ip = 8.555837e-4 A,  Vk = 2.3101 V,  Vpk = 272.132 V,  Vp = 274.442 V.
-//
-// The brief's advisory band (0.8 V < Vk < 2.2 V) was derived for a 1.5k cathode resistor; with
-// the block's actual 2.7k and a 360 V supply the correct cathode voltage is 2.31 V, and the hand
-// solve above says so without reference to any DkCircuit output. The assertions below therefore
-// pin the hand-computed fixed point directly, which is strictly stronger than the advisory band:
-// any stamp sign error moves the operating point far further than these tolerances allow.
+/// @brief Tests that the jcm_v1a stage settles at the hand-computed bias point.
+/// @see tests/functional/unit/README.md
 TEST(Unit_Dsp, DkTriodeStageSettlesAtTheHandComputedBiasPoint)
 {
     constexpr double kRunRate = 384000.0;
@@ -202,9 +191,7 @@ TEST(Unit_Dsp, DkTriodeStageSettlesAtTheHandComputedBiasPoint)
 
 TEST(Unit_Dsp, DkTriodeStageNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
 {
-    // Spec D6b.4: <= 0.01 % non-converged, zero NaN, over the full stimulus set. The set is a
-    // 2-second sweep 20 Hz -> 20 kHz at -12 dBFS scaled to volts by kFullScaleVolts, plus a
-    // 1 kHz burst at 0.05 V, 0.5 V and 5 V (well past grid conduction), all at 384 kHz.
+    // The stimulus set is a sweep and three bursts at 384 kHz. See tests/functional/unit/README.md.
     constexpr double kRunRate = 384000.0;
 
     StageNetlist      netlist;
@@ -292,13 +279,7 @@ TEST(Unit_Dsp, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
         circuit.update_matrices_if_dirty();
         settle(circuit, port, reference.sample_rate, 0.2);
 
-        // The exporter saves one 20 ms steady-state block per setting. The output high-pass
-        // formed by Cc (0.022 uF) into the ~1 MOhm pot has tau ~ 22 ms, so driving that block
-        // once from the quiescent bias leaves a turn-on DC transient around -43 dB that the
-        // plan's 5 ms discard nowhere near removes. The block is 20 whole cycles of the 1 kHz
-        // stimulus, so it repeats seamlessly: it is run kPreRollPasses times to give over 160 ms
-        // (more than seven time constants, decaying the transient past -100 dB) and only the
-        // final pass is compared, which is why no leading samples are discarded from it.
+        // Only the last of kPreRollPasses passes is compared. See tests/functional/unit/README.md.
         constexpr std::size_t kPreRollPasses = 8;
 
         std::vector<double> stimulus;
@@ -352,8 +333,7 @@ TEST(Unit_Dsp, DkTriodeStageMatchesTheLtspiceAcSweepWithinHalfADecibel)
 
     constexpr double kRunRate = 192000.0;
 
-    // frequency_response drives the node at -40 dBFS, which keeps the stage small-signal - the
-    // regime an LTspice .ac analysis linearises around.
+    // -40 dBFS keeps the stage small-signal. See tests/functional/unit/README.md.
     const std::vector<double> frequencies{ 20.0,   50.0,   100.0,  200.0,  500.0,
                                            1000.0, 2000.0, 5000.0, 10000.0 };
 
@@ -362,8 +342,7 @@ TEST(Unit_Dsp, DkTriodeStageMatchesTheLtspiceAcSweepWithinHalfADecibel)
         JcmV1aStageNode node;
         node.set_preamp(kSteppedPreamp[setting]);
 
-        // measure::render calls node.prepare() itself, so the derivation and the bias settle
-        // happen there; prepared() is checked afterwards rather than preparing twice.
+        // measure::render calls node.prepare() itself. See tests/functional/unit/README.md.
         const auto measured
             = SushiDSP::measure::frequency_response(node, kRunRate, frequencies);
         ASSERT_TRUE(node.prepared());

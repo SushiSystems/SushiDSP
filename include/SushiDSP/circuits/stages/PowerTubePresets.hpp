@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PowerTubePresets.hpp
+ * @brief Declares the constructor constants PentodeStage takes for a named power tube.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/circuits/models/PentodeEL34.hpp"

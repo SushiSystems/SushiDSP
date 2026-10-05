@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_wdf.cpp
+ * @brief Tests the wave digital filter elements of Wdf.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 
 #include <gtest/gtest.h>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SpiceCsv.hpp
+ * @brief Defines the loaders for the LTspice CSVs that tools/spice/export.py writes.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>
@@ -54,11 +60,7 @@ namespace detail
 {
 
 /**
- * @brief Splits one CSV line into its comma-separated fields.
- *
- * Trailing carriage returns (files authored on Windows and read in text mode elsewhere)
- * are stripped so `std::stod` never sees them.
- *
+ * @brief Splits one CSV line into its comma-separated fields, dropping carriage returns.
  * @param line Raw line, without its terminating newline.
  * @return The fields in order; a line with no comma yields a single field.
  */
@@ -86,13 +88,9 @@ inline std::vector<std::string> split_csv_line(const std::string& line)
 
 /**
  * @brief Loads an AC sweep CSV produced by `tools/spice/export.py`.
- *
- * The single header line is skipped, as are blank lines and any line with fewer than four
- * fields. A missing or unreadable file is not an error: it yields an empty sweep, which
- * lets a test that needs the corpus skip cleanly instead of aborting.
- *
  * @param path Path to a `<block>_ac.csv` file.
  * @return The parsed sweep, empty when the file is absent or contains no data rows.
+ * @see tests/measure/README.md, "SpiceCsv.hpp", for the rows the loader skips.
  */
 inline AcSweep load_ac_csv(const std::string& path)
 {
@@ -131,13 +129,9 @@ inline AcSweep load_ac_csv(const std::string& path)
 
 /**
  * @brief Loads a transient CSV produced by `tools/spice/export.py`.
- *
- * Behaves like @ref load_ac_csv for headers, blank lines and missing files. The sample
- * rate is derived as `1 / (t[1] - t[0])` and left at 0 when fewer than two rows are
- * present or the first two time stamps coincide.
- *
  * @param path Path to a `<block>_tran.csv` file.
  * @return The parsed transient, empty with a 0 sample rate when the file is absent.
+ * @see tests/measure/README.md, "SpiceCsv.hpp", for how the sample rate is derived.
  */
 inline Transient load_transient_csv(const std::string& path)
 {

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PlateSwing.hpp
+ * @brief Defines a stage's plate headrooms and the tanh ceiling that bounds its output by them.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cmath>

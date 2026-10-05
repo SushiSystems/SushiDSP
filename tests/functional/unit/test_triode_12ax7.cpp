@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_triode_12ax7.cpp
+ * @brief Tests the Triode12AX7 model against hand-computed currents and derivatives.
+ * @author Mustafa Garip
+ */
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -16,29 +22,7 @@
 
 TEST(Unit_Dsp, Triode12AX7PlateCurrentMatchesKorenAtThreeOperatingPoints)
 {
-    // mu = 100, kp = 600, kvb = 300, kg1 = 1060, kx = 1.4.
-    //
-    // (1) Vpk = 250, Vgk = -1.5  (the classic 12AX7 quiescent point)
-    //     root = sqrt(300 + 62500) = 250.599281722833
-    //     t    = 600 * (0.01 - 1.5 / 250.599281722833) = 2.40860901989570
-    //     s    = ln(1 + exp(t)) = 2.49473195572810,  E1 = 250 * s / 600 = 1.03947164822004
-    //     Ip   = 2 * 1.03947164822004^1.4 / 1060 = 1.99187388684622e-3 A  (1.99 mA, right for a 12AX7)
-    //     dIp/dVgk = 2.45547036171309e-3 S,  dIp/dVpk = 2.58169362128740e-5 S
-    //     (gm = 2.46 mA/V and rp = 1/2.58e-5 = 38.7 kOhm, both a few percent off the datasheet's
-    //      1.6 mA/V / 62.5 kOhm here - Koren's fit runs hot at this point, a known property of the
-    //      model rather than a transcription error.)
-    //
-    // (2) Vpk = 100, Vgk = -2.0  (deep toward cutoff)
-    //     root = sqrt(300 + 10000) = 101.488915650922,  t = 600 * (0.01 - 2 / root) = -5.82395133797152
-    //     s = 2.95154218089098e-3,  E1 = 100 * s / 600 = 4.91923696815163e-4
-    //     Ip = 2 * 4.91923696815163e-4^1.4 / 1060 = 4.40941496483551e-8 A
-    //     dIp/dVgk = 3.64418892389800e-7 S,  dIp/dVpk = 7.69341309293717e-9 S
-    //
-    // (3) Vpk = 300, Vgk = 0  (grid at the cathode; the stage is fully on)
-    //     root = sqrt(300 + 90000) = 300.499584026334,  t = 600 * 0.01 = 6 exactly
-    //     s = ln(1 + exp(6)) = 6.00247568513773,  E1 = 300 * s / 600 = 3.00123784256887
-    //     Ip = 2 * 3.00123784256887^1.4 / 1060 = 8.78910615164942e-3 A
-    //     dIp/dVgk = 4.08295444882820e-3 S,  dIp/dVpk = 4.10158287076973e-5 S
+    // The three points are hand-computed from Koren's law. See tests/functional/unit/README.md.
     const SushiDSP::Triode12AX7 triode;
     struct Point
     {
@@ -68,14 +52,7 @@ TEST(Unit_Dsp, Triode12AX7PlateCurrentMatchesKorenAtThreeOperatingPoints)
 
 TEST(Unit_Dsp, Triode12AX7GridCurrentFollowsNormansSoftLaw)
 {
-    // Ig = 1e-6 * ln(1 + exp((Vgk - 0.5)/0.15)), dIg/dVgk = (1e-6/0.15) * logistic(same argument).
-    //
-    //   Vgk = -1.5 : argument = -13.3333333333333, ln(1+exp) = 1.61959548076714e-6
-    //                Ig = 1.61959548076714e-12 A,  dIg = 1.07972944614873e-11 S (effectively cut off)
-    //   Vgk =  0.5 : argument = 0, ln(2) = 0.693147180559945
-    //                Ig = 6.93147180559945e-7 A,  dIg = (1e-6/0.15) * 0.5 = 3.33333333333333e-6 S
-    //   Vgk =  1.0 : argument = 3.33333333333333, ln(1+exp) = 3.36838574941280
-    //                Ig = 3.36838574941280e-6 A,  dIg = (1e-6/0.15) * 0.965554 = 6.43703202889193e-6 S
+    // Ig = 1e-6 * ln(1 + exp((Vgk - 0.5)/0.15)). See tests/functional/unit/README.md.
     const SushiDSP::Triode12AX7 triode;
     struct Point
     {
@@ -141,8 +118,7 @@ TEST(Unit_Dsp, Triode12AX7IsCutOffAndCOneAtNonPositivePlateVoltage)
     EXPECT_DOUBLE_EQ(currents[1], 0.0);
     EXPECT_DOUBLE_EQ(jacobian[1][0], 0.0);
     EXPECT_DOUBLE_EQ(jacobian[1][1], 0.0);
-    // Approaching Vpk = 0 from above, plate current and both of its derivatives go to zero, so the
-    // piecewise definition is C1 and not a slope discontinuity like the D5b clamp was.
+    // The piecewise definition is C1 at Vpk = 0. See tests/functional/unit/README.md.
     for (const double vpk : { 1e-3, 1e-4, 1e-5 })
     {
         triode.current({ -2.0, vpk }, currents);
@@ -154,9 +130,7 @@ TEST(Unit_Dsp, Triode12AX7IsCutOffAndCOneAtNonPositivePlateVoltage)
 
 TEST(Unit_Dsp, Triode12AX7JointFormAgreesWithTheSeparateEntryPoints)
 {
-    // current() and jacobian() forward to the joint form, so these agree exactly by construction
-    // today. Pinning that is the point: the three entry points cannot drift apart later, and a
-    // current() specialised for speed would have to keep matching the form the solver calls.
+    // current() and jacobian() forward to the joint form. See tests/functional/unit/README.md.
     const SushiDSP::Triode12AX7 triode;
     for (const double vgk : { -8.0, -3.0, -1.5, 0.0, 1.0 })
     {

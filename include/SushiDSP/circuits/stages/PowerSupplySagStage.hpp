@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PowerSupplySagStage.hpp
+ * @brief Declares the power-supply sag stage.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 namespace SushiDSP

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_musical_clock.cpp
+ * @brief Tests the frame arithmetic of MusicalClock.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <cstdint>
 
@@ -95,8 +101,7 @@ TEST(Unit_Dsp, MusicalClockPublishesTheStepTheTempoAndMeterName)
     EXPECT_EQ(clock.beat_step_q32(), 90025515374672ull);
     EXPECT_EQ(clock.beat_step_q32() >> 32, 20960u);
 
-    // An eighth-note beat is half the quarter, exactly, because the halving is a division by
-    // two of a value the double holds without loss.
+    // An eighth-note beat is exactly half the quarter. See tests/functional/unit/README.md.
     clock.set_meter(7, 8);
     EXPECT_EQ(clock.beat_step_q32(), 45012757687336ull);
 }
@@ -113,8 +118,7 @@ TEST(Unit_Dsp, MusicalClockPlacesAnAwkwardMeterAtAHandComputedFrame)
     const SushiDSP::BarBeat at = clock.position_of(2955458u + 5000u);
     EXPECT_EQ(at.bar, 41u);
     EXPECT_EQ(at.beat, 3u);
-    // The eighth truly begins at frame 2955458.516, so the frame sits 4999.484 into a
-    // 10480.349 frame beat.
+    // The frame sits 4999.484 into a 10480.349 frame beat. See tests/functional/unit/README.md.
     EXPECT_NEAR(at.fraction, 0.4770341666682013, 1e-9);
 }
 
@@ -124,8 +128,7 @@ TEST(Unit_Dsp, MusicalClockKeepsBarStartsWithinOneSampleFarDownTheTimeline)
     clock.set_sample_rate(48000.0);
     clock.set_tempo(137.4);
     clock.set_meter(4, 4);
-    // The step is rounded to the nearest 2^-32 of a frame and every start is derived from the
-    // absolute beat index, so the gap against the ideal start never grows with the bar number.
+    // Every start derives from the absolute beat index. See tests/functional/unit/README.md.
     const double frames_per_beat = 48000.0 * 60.0 / 137.4;
     for (const std::uint64_t bar : { 2ull, 100ull, 1000ull, 20000ull })
     {

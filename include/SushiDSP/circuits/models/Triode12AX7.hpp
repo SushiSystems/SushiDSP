@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Triode12AX7.hpp
+ * @brief Defines the stateless Koren 12AX7 triode model with Norman's grid law.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -83,8 +89,7 @@ namespace SushiDSP
             const double de1_dvpk = s / kKp
                                     - vpk * vpk * vgk * sigma / (root * root * root);  // dE1/dVpk
 
-            // kx > 1, so E1^(kx-1) and with it both Ip and its derivatives vanish continuously as
-            // E1 reaches zero; the single guard here covers the whole plate branch.
+            // kx > 1, so Ip and its derivatives vanish continuously at E1 = 0 under this one guard.
             const double e1_power = e1 <= 0.0 ? 0.0 : std::pow(e1, kKx - 1.0);      // E1^(kx-1)
             const double dip_de1 = 2.0 * kKx * e1_power / kKg1;
 

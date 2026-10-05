@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PartitionedConvolution.cpp
+ * @brief Implements uniform-partitioned FFT convolution.
+ * @author Mustafa Garip
+ */
+
 #include <algorithm>
 #include <cassert>
 
@@ -47,9 +53,7 @@ namespace SushiDSP
     {
         assert(partition_size_ > 0 && "partition_size must be non-zero");
 
-        // Each partition is the impulse-response slice [k*N, (k+1)*N) zero-padded to 2N. The
-        // second half must stay zero: it is the headroom that turns the FFT's circular
-        // convolution into the linear one the overlap-add reconstruction assumes.
+        // Each partition is zero-padded to 2N, and the upper half stays zero (src/README.md).
         for (std::uint32_t partition = 0; partition < partition_count_; ++partition)
         {
             std::fill(zero_padded_scratch_.begin(), zero_padded_scratch_.end(), 0.0f);
@@ -74,8 +78,7 @@ namespace SushiDSP
         const std::uint32_t fft_size = fft_size_;
         const std::uint32_t partition_count = partition_count_;
 
-        // Zero-pad the block to 2N. The copy overwrites the whole lower half, so only the upper
-        // half needs clearing — and it is already zero every call after the first.
+        // The block is zero-padded to 2N; the copy overwrites the whole lower half.
         float* const __restrict padded = zero_padded_scratch_.data();
         std::copy(input, input + partition_size, padded);
         std::fill(padded + partition_size, padded + fft_size, 0.0f);
@@ -87,8 +90,7 @@ namespace SushiDSP
         std::fill(accumulated_real, accumulated_real + fft_size, 0.0f);
         std::fill(accumulated_imag, accumulated_imag + fft_size, 0.0f);
 
-        // Y = sum_k X[i-k] * H[k]: impulse-response partition k lines up with the input block
-        // received k calls ago, which is the history slot k steps behind the one just written.
+        // Partition k meets the input block received k calls ago, k history slots behind the newest.
         for (std::uint32_t partition = 0; partition < partition_count; ++partition)
         {
             const std::uint32_t history_slot = (write_index_ + partition_count - partition) % partition_count;
@@ -107,8 +109,7 @@ namespace SushiDSP
 
         fft_.inverse(accumulated_real, accumulated_imag, time_domain_scratch_.data());
 
-        // Overlap-add: the first half is this block's output once the tail carried over from the
-        // previous call is added in; the second half becomes the tail for the next call.
+        // The first half plus the carried tail is this block's output; the second half is the next tail.
         const float* const __restrict time_domain = time_domain_scratch_.data();
         float* const __restrict overlap = overlap_.data();
         float* const __restrict destination = output;

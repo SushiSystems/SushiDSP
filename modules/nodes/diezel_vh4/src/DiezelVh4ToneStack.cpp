@@ -18,10 +18,7 @@ namespace SushiDSP
 {
     namespace
     {
-        // Dossier section 4 "Values": C27 560 pF, C28 22 nF, C29 22 nF, R41 39 kOhm slope, bass 1
-        // MOhm,
-        // mid 22 kOhm, treble 220 kOhm. R40 10 kOhm is not a member of the closed form and is
-        // carried by DiezelVh4ToneStack::kInputResistorAttenuation instead.
+        // Dossier section 4 "Values" gives the seven components; R40 is not one of them.
         constexpr FmvComponents kDiezelVh4Channel3Stack{ 560e-12f, 22e-9f, 22e-9f, 39e3f, 1e6f, 22e3f, 220e3f };
     }
 

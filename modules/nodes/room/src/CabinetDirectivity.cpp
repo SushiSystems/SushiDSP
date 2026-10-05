@@ -91,8 +91,7 @@ namespace SushiDSP::room
 
     double CabinetDirectivity::rear_shelf(double frequency_hz) const noexcept
     {
-        // The pole sits at the baffle step and the zero an octave above it, so the shelf reads
-        // 0 dB far below the step and -6 dB far above it.
+        // The shelf reads 0 dB below the step and -6 dB above; see modules/nodes/room/README.md.
         const double step_hz = kBaffleStepHzMetres / geometry_.baffle_width_m;
         const double zero_ratio = frequency_hz / (2.0 * step_hz);
         const double pole_ratio = frequency_hz / step_hz;
@@ -119,8 +118,7 @@ namespace SushiDSP::room
         BandResponse response{};
         for (std::size_t band = 0; band < kBandCount; ++band)
         {
-            // The mean samples the midpoints of kOctavePoints equal log-frequency intervals
-            // from the centre over root two to the centre times root two.
+            // The mean samples kOctavePoints log-spaced points; see modules/nodes/room/README.md.
             double power_sum = 0.0;
             for (int point = 0; point < kOctavePoints; ++point)
             {

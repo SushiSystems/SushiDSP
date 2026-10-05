@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file FileBrowser.cpp
+ * @brief Implements the directory browser that reports the file the user picked.
+ * @author Mustafa Garip
+ */
+
 #include "ui/FileBrowser.hpp"
 
 #include <algorithm>

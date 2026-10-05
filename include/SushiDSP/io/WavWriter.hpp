@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file WavWriter.hpp
+ * @brief Declares the streaming WAV writer.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

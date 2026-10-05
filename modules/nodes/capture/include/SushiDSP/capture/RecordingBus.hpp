@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file RecordingBus.hpp
+ * @brief Declares the pair of recorders that capture the processed and dry files together.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <atomic>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file GraphicEqualizer.cpp
+ * @brief Implements the bank of peaking bands in series.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/circuits/GraphicEqualizer.hpp"
 
 #include <algorithm>

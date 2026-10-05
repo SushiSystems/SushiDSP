@@ -109,11 +109,7 @@ namespace
 
 TEST(Unit_Dsp, Dd3SectionConstantsMatchTheComponentValues)
 {
-    // f0 = 1/(2*pi*R*sqrt(C1*C2)), Q = 0.5*sqrt(C1/C2), C1 the cap bridging to the emitter and
-    // C2 the cap shunting the base to ground (dossier 1.3, 1.4).
-    //   AA 1: C9 4700p / C8 2700p      AA 2: C15 6800p / C14 470p
-    //   AA 3: C17 0.018u / C16 220p    RC 1: C38 2700p / C37 1200p
-    //   RC 2: C35 6800p / C36 150p
+    // f0 = 1/(2*pi*R*sqrt(C1*C2)) and Q = 0.5*sqrt(C1/C2). See tests/functional/unit/README.md.
     struct Section
     {
         double c1;
@@ -150,8 +146,7 @@ TEST(Unit_Dsp, Dd3SectionConstantsMatchTheComponentValues)
 
 TEST(Unit_Dsp, Dd3EmitterFollowerDampingLowersEveryQ)
 {
-    // Q = 1/(1/q + 2*(1-K)*q) for the equal-R Sallen-Key with a buffer of gain K, which is what
-    // takes the cascade from +6.45 dB at 7 kHz to inside the published window.
+    // Q = 1/(1/q + 2*(1-K)*q) for a buffer of gain K. See tests/functional/unit/README.md.
     const double damped_anti_alias[3] = { 0.6347216596, 1.4333063892, 1.5876726071 };
     const double damped_reconstruction[2] = { 0.7137168140, 1.6630691464 };
     for (std::size_t i = 0; i < 3; ++i)
@@ -174,8 +169,7 @@ TEST(Unit_Dsp, Dd3EmitterFollowerDampingLowersEveryQ)
 
 TEST(Unit_Dsp, Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAlike)
 {
-    // One prewarp reference for the whole cascade, so tan(pi*fd/fs) stays proportional to the
-    // analogue f0 and the sections keep their stagger at every rate.
+    // One prewarp reference serves the whole cascade. See tests/functional/unit/README.md.
     for (const double sample_rate : { 48000.0, 96000.0, 192000.0 })
     {
         EXPECT_NEAR(
@@ -197,9 +191,7 @@ TEST(Unit_Dsp, Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAlike)
 
 TEST(Unit_Dsp, Dd3AntiAliasCascadeMatchesItsDampedPrototype)
 {
-    // The discretisation is checked against the analogue prototype at both rates the node runs
-    // at and at 192 kHz. The prewarp holds the passband to 0.4 % of the prototype everywhere,
-    // which is the whole reason it is anchored at 7 kHz rather than per section.
+    // The prewarp holds the passband within 0.4 %. See tests/functional/unit/README.md.
     for (const double sample_rate : { 48000.0, 96000.0, 192000.0 })
     {
         SushiDSP::dd3::Dd3AntiAliasFilter filter;
@@ -235,18 +227,14 @@ TEST(Unit_Dsp, Dd3ReconstructionCascadeMatchesItsDampedPrototype)
                 << sample_rate << " Hz rate, " << frequency << " Hz";
         }
     }
-    // 1.003462 at 1 kHz, 1.041637 at 5 kHz, 1.010033 at 7 kHz: the 4th-order filter alone is
-    // still rising at the band edge, which is why the 6th-order one carries the roll-off.
+    // The 4th-order filter is still rising at the band edge. See tests/functional/unit/README.md.
     EXPECT_NEAR(reconstruction_prototype(1000.0), 1.003462, 1e-5);
     EXPECT_NEAR(reconstruction_prototype(7000.0), 1.010033, 1e-5);
 }
 
 TEST(Unit_Dsp, Dd3DelayPathMeetsThePublishedResponseWindow)
 {
-    // The acceptance: 40 Hz - 7 kHz within +1/-3 dB of 1 kHz, from the DD-3's published
-    // delay-path figure (docs/archive/research/2026-08-26-boss-dd3-design-dossier.md
-    // section 3). Both the anti-alias cascade alone and the two cascades in series are held to
-    // it, because on the board the wet signal passes through both.
+    // The window is +1/-3 dB of 1 kHz from 40 Hz to 7 kHz. See tests/functional/unit/README.md.
     for (const double sample_rate : { 48000.0, 96000.0 })
     {
         SushiDSP::dd3::Dd3AntiAliasFilter anti_alias;
@@ -304,9 +292,7 @@ TEST(Unit_Dsp, Dd3DelayPathMeetsThePublishedResponseWindow)
 
 TEST(Unit_Dsp, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
 {
-    // What the filter is for. The RBJ low-pass carries a zero at Nyquist the analogue
-    // prototype does not, so 20 kHz is further down at 48 kHz than at 96 kHz; both are
-    // asserted so a change of discretisation is caught rather than absorbed.
+    // 20 kHz is further down at 48 kHz than at 96 kHz. See tests/functional/unit/README.md.
     SushiDSP::dd3::Dd3AntiAliasFilter filter;
     const auto run = [&](double frequency, double sample_rate)
     {
@@ -315,8 +301,7 @@ TEST(Unit_Dsp, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
                                sample_rate);
     };
 
-    // 0.1325 and 4.7e-6 at 48 kHz; 0.2073 and 8.3e-4 at 96 kHz. The four thresholds are set
-    // just above those, so they catch a change in the cascade rather than state a requirement.
+    // The thresholds sit just above the measured readings. See tests/functional/unit/README.md.
     filter.prepare(48000.0);
     EXPECT_LT(run(10000.0, 48000.0), 0.15);
     EXPECT_LT(run(20000.0, 48000.0), 1e-4);
@@ -328,9 +313,7 @@ TEST(Unit_Dsp, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
 
 TEST(Unit_Dsp, Dd3EmphasisPairIsTheIdentity)
 {
-    // The pre-emphasis zero is the de-emphasis pole and vice versa, and 33/47 * 47/33 = 1, so
-    // the cascade is unity by construction. Assert a null below -120 dB on broadband noise,
-    // which no tolerance-based response check would catch.
+    // The pair is unity by construction: 33/47 * 47/33 = 1. See tests/functional/unit/README.md.
     for (const double sample_rate : { 48000.0, 96000.0 })
     {
         SushiDSP::dd3::Dd3PreEmphasis pre;
@@ -357,11 +340,7 @@ TEST(Unit_Dsp, Dd3EmphasisPairIsTheIdentity)
 
 TEST(Unit_Dsp, Dd3PreEmphasisHitsItsThreeDerivedGains)
 {
-    // 0.7025132 below the zero, 1.3184111 at 1 kHz, 3.5023974 well above the pole. All three
-    // are the analogue shelf; the discretised one sits above it, because the bilinear tangent
-    // stretches the shelf as the probe climbs (3.5234141 at 6 kHz), and the tolerances carry
-    // that gap. The probe stays at fs/16: at fs/4 the peak-of-sine estimator reads 99.58 % of
-    // the digital response, which happens to cancel the stretch and hide both errors.
+    // The probe stays at fs/16; fs/4 hides both errors. See tests/functional/unit/README.md.
     SushiDSP::dd3::Dd3PreEmphasis pre;
     pre.prepare(96000.0);
     const auto run = [&](double frequency)
@@ -379,9 +358,7 @@ TEST(Unit_Dsp, Dd3PreEmphasisHitsItsThreeDerivedGains)
 
 TEST(Unit_Dsp, Dd3DeEmphasisIsTheReciprocalOfThePreEmphasis)
 {
-    // The tolerance is the bilinear warp, not the estimator: at 5 kHz the discretised shelf
-    // sits 1.61e-3 below the analogue one and the peak-of-sine reading is within 4.6e-5 of
-    // the discretised response. Dd3EmphasisPairIsTheIdentity is what pins the pair exactly.
+    // The tolerance is the bilinear warp, not the estimator. See tests/functional/unit/README.md.
     SushiDSP::dd3::Dd3DeEmphasis de;
     de.prepare(96000.0);
     for (const double frequency : { 20.0, 1000.0, 5000.0 })

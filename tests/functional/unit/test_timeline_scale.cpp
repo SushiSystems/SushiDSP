@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_timeline_scale.cpp
+ * @brief Tests the frame-to-pixel mapping and snapping of TimelineScale.
+ * @author Mustafa Garip
+ */
+
 #include <cstdint>
 
 #include <gtest/gtest.h>

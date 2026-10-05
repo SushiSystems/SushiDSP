@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file WavFile.hpp
+ * @brief Declares the RIFF/WAVE reader that loads impulse responses.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <string>

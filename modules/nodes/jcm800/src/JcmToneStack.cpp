@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file JcmToneStack.cpp
+ * @brief Implements the Marshall tone stack as three cascaded shelf and peak filters.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/jcm800/JcmToneStack.hpp"
 
 #include <algorithm>

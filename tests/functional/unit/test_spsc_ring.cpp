@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_spsc_ring.cpp
+ * @brief Tests the push, pop and ordering of SpscRing.
+ * @author Mustafa Garip
+ */
+
 #include <atomic>
 #include <thread>
 #include <vector>

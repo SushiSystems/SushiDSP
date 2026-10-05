@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SplitterNode.cpp
+ * @brief Implements the pass-through node that names a split point in a rig.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/routing/SplitterNode.hpp"
 
 #include <memory>

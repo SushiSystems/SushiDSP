@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_arrangement_layout.cpp
+ * @brief Tests ArrangementLayout, which places grid lines and clip rectangles.
+ * @author Mustafa Garip
+ */
+
 #include <cstdint>
 
 #include <gtest/gtest.h>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_wav_writer.cpp
+ * @brief Tests that WavWriter writes files WavFile reads back.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <cstdint>
 #include <filesystem>

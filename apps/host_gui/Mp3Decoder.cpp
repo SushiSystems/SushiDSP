@@ -39,8 +39,7 @@ namespace SushiDSP::host
                 return true;
             }
 
-            // A path reaches this call narrow from the browser and UTF-8 from the window's drop
-            // callback; the wide retry is what opens the second kind.
+            // The wide retry opens a UTF-8 path from a window drop; see apps/host_gui/README.md.
             const std::wstring wide = std::filesystem::u8path(path).wstring();
             return drmp3_init_file_w(&mp3, wide.c_str(), nullptr) != DRMP3_FALSE;
         }

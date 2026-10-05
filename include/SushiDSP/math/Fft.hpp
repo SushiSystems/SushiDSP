@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Fft.hpp
+ * @brief Declares a power-of-two real FFT.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

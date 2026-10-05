@@ -124,8 +124,7 @@ TEST(Unit_Dsp, ModalBankRingsAtEachModesFrequency)
         power_db[bin] = 10.0 * std::log10(power);
         peak_bin = power_db[bin] > power_db[peak_bin] ? bin : peak_bin;
     }
-    // The parabola through the three bins around the maximum places the peak between bins,
-    // which are 0.73 Hz apart against a 0.34 Hz tolerance.
+    // A parabola through three bins places the peak. See tests/functional/unit/README.md.
     const double below = power_db[peak_bin - 1];
     const double at = power_db[peak_bin];
     const double above = power_db[peak_bin + 1];
@@ -136,8 +135,7 @@ TEST(Unit_Dsp, ModalBankRingsAtEachModesFrequency)
 
 TEST(Unit_Dsp, ModalBankDecaysAtTheDampingItWasGiven)
 {
-    // The RMS of equal windows falls linearly in decibels along r^n; the slope between two
-    // windows inside the ring is the 60 dB time.
+    // The slope between two windows is the 60 dB time. See tests/functional/unit/README.md.
     constexpr std::size_t kFrames = 96000;
     constexpr std::size_t kWindowFrames = 1024;
     constexpr std::size_t kEarlyWindow = 5;

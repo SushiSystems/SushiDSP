@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and it must remain the very first thing in the translation unit.
+/**
+ * @file Biquad.cpp
+ * @brief Implements the biquad filter.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include: it makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 
 #include "SushiDSP/math/Biquad.hpp"

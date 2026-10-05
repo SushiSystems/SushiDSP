@@ -208,8 +208,7 @@ namespace SushiDSP::room
 
     bool GeometricPath::adopt(const RoomRenderSet& set) noexcept
     {
-        // A set arriving mid-fade restarts the fade from the bank now active; the host
-        // coalesces edits so the path never holds more than two sets (spec §5.2).
+        // A set arriving mid-fade restarts from the active bank; see modules/nodes/room/README.md.
         EarlyTap direct{};
         const std::uint32_t arriving = active_bank_ == 0 ? 1u : 0u;
         const bool has_direct = take_direct_image(set, bank_taps_[arriving], direct);

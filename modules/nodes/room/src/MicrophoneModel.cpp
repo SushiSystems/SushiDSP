@@ -47,9 +47,7 @@ namespace SushiDSP::room
 
     BandResponse MicrophoneModel::gain_for(double incidence_rad, double distance_m) const noexcept
     {
-        // The boost multiplies the gradient share (1 - a) cos(theta) and never the pressure
-        // share a, so the on-axis far field reads a + (1 - a) = 1 and a 5 cm cardioid reads
-        // the 15.5 dB of spec section 8.1 at 100 Hz.
+        // The boost scales only the gradient share; see modules/nodes/room/README.md.
         const double gradient = (1.0 - pressure_share_) * std::cos(incidence_rad);
         BandResponse response{};
         for (std::size_t band = 0; band < kBandCount; ++band)

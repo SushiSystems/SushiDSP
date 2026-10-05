@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TimelineScale.cpp
+ * @brief Implements the conversion between timeline frames and canvas pixels.
+ * @author Mustafa Garip
+ */
+
 #include "ui/TimelineScale.hpp"
 
 #include <cmath>
@@ -107,9 +113,7 @@ namespace ui
         const std::uint64_t lower = frame_of_beat(lower_index, clock);
         const std::uint64_t upper = frame_of_beat(lower_index + step, clock);
 
-        // position_of floors, so a frame that is a grid frame can be placed on the beat before
-        // it with a fraction just under one; upper is then that frame itself and rounds to zero
-        // distance.
+        // position_of floors; apps/host_gui/ui/README.md says what that does to a grid frame.
         if (frame < lower)
         {
             return lower;

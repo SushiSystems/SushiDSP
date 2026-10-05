@@ -48,15 +48,14 @@ namespace SushiDSP::host
         /// @return The path inside this cache's folder.
         std::string entry_path(const std::string& source_path, double target_rate) const;
 
-        /// @brief Returns the WAV for a source file, decoding it only when the folder does not
-        /// already hold it. The decode writes a partial file first and renames it into place, so
-        /// a run that dies mid-decode leaves nothing to be mistaken for a finished entry.
+        /// @brief Returns the WAV for a source file, decoding it only when the folder lacks it.
         /// @param source_path The file to convert.
         /// @param target_rate The rate to write at, in Hz; a rate that is not positive writes
         /// the source's own rate.
         /// @return The WAV's path.
         /// @throws std::runtime_error when the source cannot be decoded or the WAV cannot be
         /// written.
+        /// @see apps/host_gui/README.md
         std::string import(const std::string& source_path, double target_rate) const;
 
         /// @brief Returns the folder the decoded WAVs are written into.

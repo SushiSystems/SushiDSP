@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file OutputTransformerStage.hpp
+ * @brief Declares the output transformer stage.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/math/Biquad.hpp"

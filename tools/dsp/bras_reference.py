@@ -6,8 +6,8 @@
 """Measure the mean octave-band T30 of a BRAS room from its dodecahedron impulse responses.
 
 Usage: python tools/dsp/bras_reference.py --room CR2 --rir <wav>... --csv <path>
-Source, licence and method: tests/fixtures/bras_cr2_reference.README.md and the docstring of
-motus_reference.py, whose band analysis every file goes through.
+Source, licence and method: tests/fixtures/bras_cr2_reference.README.md and tools/dsp/README.md,
+"motus_reference.py", whose band analysis every file goes through.
 """
 
 from __future__ import annotations

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PartitionedConvolution.hpp
+ * @brief Declares uniform-partitioned FFT convolution against a fixed impulse response.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

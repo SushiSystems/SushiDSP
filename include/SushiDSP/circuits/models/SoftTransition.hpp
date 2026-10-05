@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SoftTransition.hpp
+ * @brief Defines the softplus and logistic functions the device models share.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cmath>
@@ -24,8 +30,7 @@ namespace SushiDSP
         /// @param logistic_value Receives 1 / (1 + exp(-t)).
         inline void softplus_and_logistic(double t, double& softplus_value, double& logistic_value)
         {
-            // ln(1 + exp(t)) - t is 9.24e-14 at t = 30 and falls from there, so the linear branch
-            // is exact to double precision and keeps exp(t) away from its ~709 overflow.
+            // From t = 30 up softplus equals t to double precision (include/SushiDSP/README.md).
             if (t >= 30.0)
             {
                 softplus_value = t;
@@ -33,8 +38,7 @@ namespace SushiDSP
                 return;
             }
 
-            // exp(t) underflows gracefully to zero for very negative t, giving softplus 0 and
-            // logistic 0 rather than the inf that exp(-t) would produce.
+            // exp(t) underflows to zero for very negative t, where exp(-t) would overflow to inf.
             const double exponential = std::exp(t);
             softplus_value = std::log1p(exponential);
             logistic_value = exponential / (1.0 + exponential);

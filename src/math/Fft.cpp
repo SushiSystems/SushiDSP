@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and any earlier include could pull <cmath> in first and latch the definition out.
+/**
+ * @file Fft.cpp
+ * @brief Implements the power-of-two real FFT.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include: it makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 #include <cassert>
 #include <cmath>
@@ -123,8 +128,7 @@ namespace SushiDSP
         {
             bit_reversal_[i] = reverse_bits(i, bit_count);
         }
-        // Stage span reads exp(-i*2*pi*(k*stride)/size) for k in [0, span), stride = size/(2*span);
-        // the spans' tables sit end to end, span at offset span - 1.
+        // The stages' twiddle tables sit end to end, span at offset span - 1 (src/README.md).
         for (std::uint32_t span = 1; span < size; span <<= 1)
         {
             const std::uint32_t stride = size / (2u * span);

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_resonance_control.cpp
+ * @brief Tests the depth and boost of ResonanceControl.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 
 #include <gtest/gtest.h>

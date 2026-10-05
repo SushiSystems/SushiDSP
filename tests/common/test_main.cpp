@@ -6,18 +6,16 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_main.cpp
+ * @brief Runs the SushiDSP test suite under GoogleTest.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 /**
- * @brief Entry point for the SushiDSP test suite.
- *
- * Initializes GoogleTest and runs every registered case. SushiDSP is a
- * portable, dependency-free DSP library, so the tests exercise the real
- * kernels and graph directly on the host — there are no mocks and no device
- * setup to perform here.
- *
- * @param argc Number of command-line arguments.
- * @param argv Array of command-line argument strings.
+ * @brief Runs every registered GoogleTest case.
  * @return 0 on success, non-zero if any test fails.
  */
 int main(int argc, char** argv)

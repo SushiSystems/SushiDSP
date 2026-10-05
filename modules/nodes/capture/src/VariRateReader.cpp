@@ -96,8 +96,7 @@ namespace SushiDSP
             std::fill(outputs[channel], outputs[channel] + output_frames, 0.0f);
         }
 
-        // Every converter carries the same rates and the same push count, so they emit the same
-        // number of outputs on every push; channel 0's count speaks for all of them.
+        // Every converter emits the same count per push; see modules/nodes/capture/README.md.
         const std::uint64_t input_bound =
             static_cast<std::uint64_t>(std::ceil(static_cast<double>(output_frames) * kMaxSpeed))
             + kInputBoundSlack;

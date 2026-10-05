@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DkCircuit.hpp
+ * @brief Defines one discretised nonlinear circuit block of the nodal DK method.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -31,13 +37,8 @@ namespace SushiDSP::dk
     /// @brief Detects a nonlinear port that restates the branch currents the update stamps.
     ///
     /// True when the port declares `currents_for_update(p, v, F, i)`, which DkCircuit calls once
-    /// per sample after the solve has converged; false ports keep the plain path, where the
-    /// currents Newton left are the ones stamped. The hook exists so a port can stamp something
-    /// other than f(v) at the converged operating point without DkCircuit knowing what: the port
-    /// is handed the open-circuit voltage p, the solved port voltage v and the port impedance
-    /// matrix F, which together are the whole of the memoryless map p -> i that the block's
-    /// linear part sees. Antiderivative antialiasing is the reason it exists (spec
-    /// 2026-08-26-aaa-audio-quality-design.md, Model corrections D6c C2).
+    /// per sample after the solve has converged; a port without it stamps the currents Newton
+    /// left (include/SushiDSP/README.md).
     /// @tparam System The caller's model glue.
     /// @tparam N Nonlinear branch count.
     template <typename System, std::size_t N, typename = void>
@@ -57,33 +58,13 @@ namespace SushiDSP::dk
     {
     };
 
-    /// @brief One discretised nonlinear circuit block, solved by damped Newton per sample.
+    /// @brief Solves one discretised nonlinear circuit block by damped Newton per sample, on the
+    /// nodal DK method with the trapezoidal rule (include/SushiDSP/README.md).
     ///
-    /// Implements the nodal DK method (Holters and Zoelzer) with the trapezoidal rule, as
-    /// transcribed in the D6b plan. prepare() runs the derivation once; after that each sample
-    /// costs one Newton solve on the N-dimensional nonlinear port plus the five small matrix
-    /// products of the state-space update. Potentiometers are re-derived rather than carried as
-    /// Newton branches (D6b plan, ruling 3), which is what makes a knob cost nothing per sample.
-    ///
-    /// The caller supplies the glue between the branch vector and its device models as a
-    /// NonlinearSystem exposing one method,
-    /// `void currents_and_jacobian(const std::array<double, N>& v, std::array<double, N>& i,
-    /// std::array<std::array<double, N>, N>& j) const`, which fills both outputs from a single
-    /// evaluation; Newton never wants one without the other, and the exponentials a model shares
-    /// between them are most of the per-sample cost. The Jacobian buffer is zeroed before every
-    /// call, so a glue struct for independent devices leaves the off-diagonal blocks alone.
-    /// Nothing here includes a circuit model: DkCircuit stays in SushiDSP/math with no
-    /// dependency on SushiDSP/circuits. A glue struct may additionally declare
-    /// `currents_for_update()`; see HasCurrentsForUpdate.
-    ///
-    /// process_sample(), update_matrices_if_dirty() and everything they reach are
-    /// allocation-free, lock-free, syscall-free and throw-free. Every state is clamped each
-    /// sample and a non-finite sample restores the previous state, so the block cannot emit a
-    /// non-finite output regardless of what is fed to it (D6b plan, ruling 10).
-    /// @tparam S Reactive element (state) count.
+    /// The caller's NonlinearSystem exposes `void currents_and_jacobian(const std::array<double,
+    /// N>& v, std::array<double, N>& i, std::array<std::array<double, N>, N>& j) const`; the
+    /// Jacobian buffer arrives zeroed. No output is ever non-finite.
     /// @tparam N Nonlinear branch count; may be zero, in which case no solver runs.
-    /// @tparam I Input voltage source count.
-    /// @tparam O Output probe count.
     template <std::size_t S, std::size_t N, std::size_t I, std::size_t O>
     class DkCircuit
     {
@@ -183,8 +164,7 @@ namespace SushiDSP::dk
 
             for (std::size_t index = 0; index < S; ++index)
             {
-                // Gx = 2C/T for a capacitor and T/(2L) for an inductor, with T = 1/sample_rate
-                // (D6b plan, Reactive companion).
+                // Gx is 2C/T for a capacitor and T/(2L) for an inductor, with T = 1/sample_rate.
                 gx_[index] = netlist_.reactive_sign_[index] > 0.0
                                  ? 2.0 * netlist_.reactive_[index].value * sample_rate
                                  : 1.0 / (2.0 * netlist_.reactive_[index].value * sample_rate);
@@ -201,12 +181,11 @@ namespace SushiDSP::dk
             return derived;
         }
 
-        /// @brief Advances the circuit by one sample.
+        /// @brief Advances the circuit by one sample, warm-starting Newton from the previous
+        /// sample's port voltages.
         ///
         /// Allocation-free, lock-free, syscall-free and throw-free, provided the supplied models
-        /// are. Warm-starts the Newton iteration from the previous sample's port voltages, which
-        /// is what keeps it at one to three iterations on an oversampled path.
-        /// @tparam NonlinearSystem The caller's model glue; see the class documentation.
+        /// are.
         /// @param nonlinear The model glue instance; referenced, never stored.
         /// @param inputs Source voltages u[n], in the order the sources were added.
         /// @param outputs Probe voltages y[n], overwritten; always finite.
@@ -235,8 +214,7 @@ namespace SushiDSP::dk
                     open_circuit_voltage_[row] = accumulator;
                 }
 
-                // The adapter holds five references and nothing else: it is a handful of
-                // pointers on the stack, not an allocation.
+                // The adapter holds five references and nothing else, so it allocates nothing.
                 struct NewtonAdapter
                 {
                     NonlinearSystem&                             system;
@@ -289,12 +267,7 @@ namespace SushiDSP::dk
                                        nonlinear_current_, model_jacobian_ };
                 if (!solver_.solve(adapter, nonlinear_voltage_))
                 {
-                    // A failed solve restores the lowest-residual iterate, which is generally
-                    // not where the models were last evaluated, so nonlinear_current_ has to be
-                    // brought back into step with nonlinear_voltage_. On a converged solve the
-                    // solver's own contract says the two already agree (DampedNewtonSolver).
-                    // The convergence gate keeps this under 0.01 % of samples, so the extra
-                    // evaluation is off the critical path.
+                    // A failed solve leaves the currents stale (include/SushiDSP/README.md).
                     ++non_converged_samples_;
                     adapter.residual_and_jacobian(nonlinear_voltage_, residual_scratch_,
                                                   jacobian_scratch_);
@@ -547,16 +520,8 @@ namespace SushiDSP::dk
             return accumulator;
         }
 
-        /// Rebuilds all nine DK matrices from the netlist and the current pot positions.
-        ///
-        /// Cost at the worst D6d shape (node_count_ + I = 13, S = 4, N = 10, O = 1): the LU
-        /// factorisation is about 13^3/3 = 730 multiply-adds, the thirteen unit-vector solves
-        /// about 13 * 13^2 = 2200, and the nine matrix products are row and column differences
-        /// rather than dense multiplies, so together they are under a thousand more - roughly
-        /// 4 kflop, on the order of three microseconds, once per block and only when a knob
-        /// actually moved. That is why ruling 3 re-derives instead of maintaining a Woodbury
-        /// update: against a 1.5 ms block budget the saving would be noise, and the rank-two
-        /// update is far harder to keep correct.
+        /// @brief Rebuilds all nine DK matrices from the netlist and the current pot positions, at
+        /// the cost include/SushiDSP/README.md accounts for.
         bool derive()
         {
             const std::size_t nodes = node_count_;
@@ -614,10 +579,7 @@ namespace SushiDSP::dk
                 }
             }
 
-            // A nullor's row is its nullator (V(p) - V(q) = 0, right-hand side zero) and its
-            // column is its norator (an unknown current into the driven pair). Unlike a source,
-            // the two are different node pairs, which is exactly why an op-amp cannot be spelled
-            // with voltage_source() (D6c plan, ruling 1).
+            // A nullor's row is its nullator and its column its norator (include/SushiDSP/README.md).
             for (std::size_t index = 0; index < netlist_.nullor_count_; ++index)
             {
                 const std::size_t row = nodes + I + index;
@@ -641,11 +603,7 @@ namespace SushiDSP::dk
                 }
             }
 
-            // Every nullor puts a zero on the diagonal: its row touches only the sensed nodes
-            // and its column only the driven ones. DenseLu's partial pivoting takes the largest
-            // magnitude in each column rather than the diagonal entry, so those zeros cost it
-            // nothing. It fails only when a whole column below the diagonal is zero, which is
-            // the rank deficiency an op-amp outside a feedback loop leaves behind.
+            // Partial pivoting absorbs each nullor's zero diagonal entry (include/SushiDSP/README.md).
             if (!lu_.factorise(system_, order))
             {
                 return false;
@@ -664,10 +622,7 @@ namespace SushiDSP::dk
                 }
             }
 
-            // Pleft is still inverse_[0..nodes)[0..nodes) and Pright still
-            // inverse_[0..nodes)[nodes..nodes+I): the nullor rows and columns sit after the
-            // sources, and their right-hand side is zero, so they shape the inverse without ever
-            // being read out of it.
+            // Pleft and Pright are still the leading blocks of inverse_ (include/SushiDSP/README.md).
             build_left_and_right(netlist_.reactive_, reactive_left_, reactive_right_, nodes);
             build_left_and_right(netlist_.nonlinear_, nonlinear_left_, nonlinear_right_, nodes);
             build_left_and_right(netlist_.outputs_, output_left_, output_right_, nodes);

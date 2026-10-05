@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DeviceSettings.cpp
+ * @brief Implements the device and channel settings window.
+ * @author Mustafa Garip
+ */
+
 #include "ui/DeviceSettings.hpp"
 
 #include <cstddef>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SplitLayout.hpp
+ * @brief Declares the chain view's geometry for every chain type.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>
@@ -61,17 +67,13 @@ namespace ui
     };
 
     /// @brief Places IN/OUT, every stage's nodes and drop gaps, and the splitter/mixer cables.
-    /// Series (`branch_sizes` empty) lays out `series_size` nodes between IN and OUT and leaves
-    /// `pre`, `post`, `branches`, `splitter`, `mixer` and `cables` empty. Otherwise it lays out
-    /// `pre_size` nodes, a splitter glyph, one row per entry of `branch_sizes` stacked around the
-    /// block's vertical centre, a mixer glyph, then `post_size` nodes; an empty branch still gets
-    /// one `empty_slot_width` drop gap so it stays a valid drop target.
     /// @param series_size Node count for the Series stage; ignored unless `branch_sizes` is empty.
     /// @param pre_size Node count for the stage before the splitter glyph.
     /// @param branch_sizes One entry per branch, its node count; empty selects Series.
     /// @param post_size Node count for the stage after the mixer glyph.
     /// @param metrics The measurements to place everything with.
     /// @return The full geometry, `size` holding its overall bounding box.
+    /// @see apps/host_gui/ui/README.md
     SplitGeometry layout_split(std::size_t series_size, std::size_t pre_size,
                                const std::vector<std::size_t>& branch_sizes, std::size_t post_size,
                                const SplitMetrics& metrics);

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_cabinet_node.cpp
+ * @brief Tests CabinetNode with and without an impulse response installed.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -66,8 +72,7 @@ TEST(Unit_Dsp, CabinetNodeInstallsAndAppliesAnImpulseResponse)
 
     node.process(context);
 
-    // An identity IR makes the cabinet a pure delay of one partition; every sample that has
-    // seen the delayed input by now must reproduce it exactly.
+    // An identity IR makes the cabinet a one-partition delay. See tests/functional/unit/README.md.
     const std::uint32_t latency = node.latency_samples();
     for (std::uint32_t i = latency; i < input.size(); ++i)
     {
@@ -77,11 +82,7 @@ TEST(Unit_Dsp, CabinetNodeInstallsAndAppliesAnImpulseResponse)
 
 TEST(Unit_Dsp, CabinetNodeSurvivesVariableBlockSizes)
 {
-    // StreamingConvolution re-blocks the stream internally, so the cabinet must survive a host
-    // that hands the node a different frame count every callback - including counts that are not
-    // powers of two and not multiples of the partition. An identity IR makes the whole cabinet a
-    // pure delay of exactly one partition, so the processed stream must reproduce the raw input
-    // stream shifted by latency_samples(), sample for sample.
+    // An identity IR must survive any host block size. See tests/functional/unit/README.md.
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{ 48000.0, 512, 1 };
     node.prepare(info);

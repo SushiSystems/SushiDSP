@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file KnobMath.cpp
+ * @brief Implements the conversions between a parameter value, a knob position and an angle.
+ * @author Mustafa Garip
+ */
+
 #include "ui/KnobMath.hpp"
 
 #include <algorithm>

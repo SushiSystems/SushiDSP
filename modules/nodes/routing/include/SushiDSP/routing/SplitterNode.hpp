@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SplitterNode.hpp
+ * @brief Declares the pass-through node that names a split point in a rig.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/core/IAudioNode.hpp"

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file ArrangementView.cpp
+ * @brief Implements the arrangement view and the route a dropped file takes onto a lane.
+ * @author Mustafa Garip
+ */
+
 #include "ui/ArrangementView.hpp"
 
 #include <algorithm>
@@ -203,8 +209,7 @@ namespace ui
             draw->AddRectFilled(origin, ImVec2(origin.x + header_width, origin.y + kLaneHeight),
                                 to_imu32(rgba(38, 38, 44)), 4.0f);
 
-            // The track's own colour, down the header's leading edge: a click opens the palette,
-            // a right-click anywhere on the header offers to remove the track.
+            // Strip click: palette; header right-click: removal; see apps/host_gui/ui/README.md.
             ImGui::SetCursorScreenPos(origin);
             ImGui::InvisibleButton("color", ImVec2(kColorStripWidth, kLaneHeight));
             const bool color_hovered = ImGui::IsItemHovered();
@@ -327,7 +332,6 @@ namespace ui
         /// @param rig The rig whose clips the lane holds.
         /// @param scale The zoom and scroll every lane shares.
         /// @param snap What a dragged clip's frame is rounded to.
-        /// @param index The lane.
         /// @param origin The canvas's top-left in screen pixels.
         /// @param canvas_width The canvas width in pixels.
         /// @param drag In/out: the clip the pointer is dragging, if any.
@@ -373,9 +377,7 @@ namespace ui
                               to_imu32(palette().text), label.c_str());
                 draw->PopClipRect();
 
-                // A clip is identified by the frame it starts on, which is unique on a lane
-                // because clips may not overlap, so a reorder retires the popup instead of
-                // pointing it at the neighbour that took the index.
+                // A clip's id is its start frame, unique on a lane; see apps/host_gui/ui/README.md.
                 std::array<char, 32> clip_id{};
                 std::snprintf(clip_id.data(), clip_id.size(), "clip%llu",
                               static_cast<unsigned long long>(placement.start_frame));
@@ -552,8 +554,7 @@ namespace ui
                           to_imu32(rgba(46, 46, 54)));
         }
 
-        // Adding and removing tracks. The removal asks about the files every time rather than
-        // choosing for the person, because one answer cannot be undone.
+        // Removing a track asks about its files every time; see apps/host_gui/ui/README.md.
         ImGui::SetCursorScreenPos(ImVec2(origin.x,
                                          lanes_top + static_cast<float>(lane_count)
                                              * (kLaneHeight + kLaneGap) + 4.0f));

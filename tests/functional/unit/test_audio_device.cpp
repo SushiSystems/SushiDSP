@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_audio_device.cpp
+ * @brief Tests that NullAudioDevice reports its format and invokes its callback per block.
+ * @author Mustafa Garip
+ */
+
 #include <vector>
 
 #include <gtest/gtest.h>

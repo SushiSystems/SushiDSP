@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TrackRecorder.cpp
+ * @brief Implements the recorder's ring writes and its writer thread.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/capture/TrackRecorder.hpp"
 
 #include <algorithm>
@@ -113,8 +119,7 @@ namespace SushiDSP
 
     bool TrackRecorder::write(const float* const* channels, std::uint32_t frames) noexcept
     {
-        // The in-flight count is raised before recording_ is read, so disarm() can never return
-        // while this call is still touching the rings.
+        // The in-flight count rises before recording_ is read; see modules/nodes/capture/README.md.
         writers_in_flight_.fetch_add(1, std::memory_order_acquire);
 
         const bool queued = write_locked(channels, frames);

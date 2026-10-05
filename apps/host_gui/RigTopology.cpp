@@ -103,8 +103,7 @@ bool RigTopology::is_visible(const StageAddress& address) const
 {
     switch (address.kind)
     {
-        // One path needs no master bus: it is the run itself, and a stage drawn nowhere that
-        // still carried gear would be audible with nothing on screen to explain it.
+        // One path carries no master bus; apps/host_gui/README.md says why.
         case StageKind::Post:   return branches_.size() > 1;
         case StageKind::Branch: return address.branch < branches_.size();
     }

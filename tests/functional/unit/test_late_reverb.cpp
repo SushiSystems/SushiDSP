@@ -188,8 +188,7 @@ namespace
 
 TEST(Unit_Dsp, LateReverbHadamardPreservesEnergy)
 {
-    // The transform alone: 1000 applications to a fixed vector keep its sum of squares within
-    // 1e-5 of the start, because the normalised Hadamard matrix is orthogonal.
+    // The normalised Hadamard matrix is orthogonal. See tests/functional/unit/README.md.
     std::array<double, kLines> values{};
     double start = 0.0;
     for (std::size_t line = 0; line < kLines; ++line)
@@ -208,9 +207,7 @@ TEST(Unit_Dsp, LateReverbHadamardPreservesEnergy)
         EXPECT_NEAR(current / start, 1.0, 1e-5);
     }
 
-    // The network with 16 lines of length 1, unit filters and no absorption: an impulse puts 1
-    // in every line; H maps the all-ones state to 4 e0 and back, so the left ear, whose vector
-    // A sums to zero and has A[0] = 1, reads 0 and 4 in turn without decaying over 1000 frames.
+    // The left ear reads 0 and 4 in turn without decaying. See tests/functional/unit/README.md.
     std::array<std::uint32_t, kLines> ones{};
     ones.fill(1u);
     const FdnDesign design = make_design(ones, uniform_gains(1.0));
@@ -262,8 +259,7 @@ TEST(Unit_Dsp, LateReverbEarsDifferButShareTheirEnergy)
 
 TEST(Unit_Dsp, LateReverbRunsBothSectionsOfEveryOutputFilter)
 {
-    // Two sections of gain 0.5 in the tone correction scale both ears by 0.25 against unity;
-    // the same pair in coherence_b scales the right ear alone, since the left ear is A alone.
+    // Two sections of gain 0.5 scale the output by 0.25. See tests/functional/unit/README.md.
     const FdnDesign plain = make_design(kShortLines, uniform_gains(0.5));
     FdnDesign quarter_tone = plain;
     quarter_tone.tone_correction = half_twice();
@@ -307,9 +303,7 @@ TEST(Unit_Dsp, LateReverbResetSilencesTheLines)
 
 TEST(Unit_Dsp, LateReverbSurvivesALineLengthChangeWithoutAClick)
 {
-    // A 50 Hz sine at 48 kHz steps by at most 2 pi 50 / 48000 = 0.0065 of its peak per sample;
-    // a read head that jumped between lines hundreds of frames apart would step by up to twice
-    // the peak, and the 512-frame crossfade spreads that over 512 samples.
+    // A 50 Hz sine steps at most 0.0065 of peak per sample. See tests/functional/unit/README.md.
     constexpr std::size_t kBlock = 1024;
     std::vector<float> sine(2 * kBlock);
     for (std::size_t frame = 0; frame < sine.size(); ++frame)

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_panel_library.cpp
+ * @brief Tests that PanelLibrary returns a panel for every registered node.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include "ui/PanelLibrary.hpp"
@@ -41,8 +47,7 @@ TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForEveryAmplifier)
         EXPECT_GT(panel->aspect.x, panel->aspect.y) << entry.descriptor->id;
     }
 
-    // The registry is what says which products are amplifiers, so adding one does not mean
-    // remembering to name it here.
+    // The registry says which products are amplifiers. See tests/functional/unit/README.md.
     EXPECT_GT(amplifiers, 0u);
 }
 
@@ -215,9 +220,7 @@ TEST(Unit_Dsp, PanelLibraryGivesEveryRegisteredNodeAPanelWithAControlPerParamete
             ? *hand_authored
             : ui::auto_panel(node, storage);
 
-        // A node with no hand-authored entry still has to reach every one of its parameters, or
-        // the product ships a knob nobody can turn. Nothing here names a node type, so adding one
-        // is a module and a registry line rather than a test to remember.
+        // Every parameter of every node has a control. See tests/functional/unit/README.md.
         for (std::uint16_t i = 0; i < node.parameter_count; ++i)
         {
             const char* id = node.parameters[i].id;

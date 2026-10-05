@@ -97,8 +97,7 @@ TEST(Unit_Dsp, HrtfSetInterpolationAtAGridPointReturnsThatPointExactly)
 
 TEST(Unit_Dsp, HrtfSetInterpolationBetweenThreePointsIsABarycentricBlend)
 {
-    // The centroid of +x, +y and +z is (1, 1, 1) / sqrt(3): azimuth pi / 4, elevation
-    // atan(1 / sqrt(2)); by symmetry each of the three carries one third.
+    // By symmetry each of the three points carries one third. See tests/functional/unit/README.md.
     const SushiDSP::room::HrtfSet set = six_axis_set();
     const SushiDSP::room::HrtfSet::Pair pair =
         set.interpolate(kPi / 4.0, std::atan(1.0 / std::sqrt(2.0)));
@@ -118,8 +117,7 @@ TEST(Unit_Dsp, HrtfSetInterpolationBetweenThreePointsIsABarycentricBlend)
 
 TEST(Unit_Dsp, HrtfSetInterpolationWeightsSumToOne)
 {
-    // On the octahedron the triangle around a direction holds the axis of each coordinate's
-    // sign, and the barycentric weights are the coordinates' magnitudes over their sum.
+    // Each weight is a coordinate's magnitude over the sum. See tests/functional/unit/README.md.
     const SushiDSP::room::HrtfSet set = six_axis_set();
     std::uint32_t state = 12345u;
     auto next_unit = [&state]() {

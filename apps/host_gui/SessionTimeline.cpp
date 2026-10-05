@@ -41,8 +41,7 @@ SessionTimeline::SessionTimeline(const SushiDSP::PrepareInfo& info)
         tracks_[index].color = palette_color(index);
     }
     musical_clock_.set_sample_rate(info.sample_rate);
-    // A lane converts a clip only through a sized reader, so both players are prepared here and
-    // no caller can set a speed on an unprepared one.
+    // Both players are prepared here, before any speed is set; see apps/host_gui/README.md.
     player_.prepare(info.max_block);
     reamp_player_.prepare(info.max_block);
 }
@@ -154,8 +153,7 @@ bool SessionTimeline::publish_lane(std::size_t track, std::vector<ClipPlacement>
             return false;
         }
 
-        // A zero length is the take's whole remainder, which is what a preset row naming only a
-        // file means and what a freshly dropped file means.
+        // A zero length means the take's whole remainder; see apps/host_gui/README.md.
         const std::uint64_t frames = static_cast<std::uint64_t>(take->frames());
         placement.take_offset = std::min(placement.take_offset, frames);
         const std::uint64_t available = frames - placement.take_offset;
@@ -548,8 +546,7 @@ bool SessionTimeline::set_reamp_track(std::size_t index, std::string& error_out)
         return false;
     }
 
-    // The re-amp leg mirrors the lane's frames, so a take recorded at a bar drives the rig at
-    // that bar. See docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
+    // The re-amp leg mirrors the lane's frames; see apps/host_gui/README.md.
     reamp_takes_by_path_.clear();
     std::vector<SushiDSP::Clip> lane;
     lane.reserve(tracks_[index].clips.size());
@@ -626,8 +623,7 @@ bool SessionTimeline::arm_recording(const std::string& take_name, std::string& e
         return false;
     }
 
-    // The stamp is read before the bus opens, so no block the bus accepts belongs to an earlier
-    // frame than the one a stopped recording's clip begins at.
+    // The stamp is read before the bus opens, so no accepted block precedes the clip's start.
     const std::uint64_t armed_at = transport_.position_frames();
     if (!recording_bus_.arm(take_folder_, take_name))
     {

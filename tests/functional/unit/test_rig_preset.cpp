@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_rig_preset.cpp
+ * @brief Tests the JSON serialisation of a rig in RigPreset.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -93,9 +99,7 @@ TEST(Unit_Dsp, DeserializeRigFromJsonRebuildsBranchingTopologyAndParameters)
     EXPECT_TRUE(found_drive_075);
     EXPECT_TRUE(found_drive_010);
 
-    // Topology: the mixer (preset id 4, handle 4 since deserialize preserves JSON-array add
-    // order) must have exactly the two upstream nodes the JSON's "inputs": [2, 3] declares —
-    // the amp (handle 2) and the dry tubescreamer (handle 3), in that order.
+    // The mixer's inputs are handles 2 and 3, in that order. See tests/functional/unit/README.md.
     const std::vector<SushiDSP::NodeHandle> mixer_inputs = graph.upstream_of(4);
     ASSERT_EQ(mixer_inputs.size(), 2u);
     EXPECT_EQ(mixer_inputs[0], 2u);
@@ -140,11 +144,7 @@ TEST(Unit_Dsp, SerializeThenDeserializeRoundTripsABranchingGraph)
     }
     EXPECT_TRUE(found_mixer_with_gains);
 
-    // Topology: deserialize_rig_from_json adds nodes into an empty graph in the same
-    // JSON-array order that serialize_rig_to_json wrote them (which itself follows
-    // original.nodes()'s add_node() order), so rebuilt's handles line up 1:1 with original's.
-    // Compare upstream_of() as ordered vectors for every handle to catch a dropped connect()
-    // or a reversed fan-in that a "does some node have the right value" check would miss.
+    // Rebuilt handles line up 1:1 with the original's. See tests/functional/unit/README.md.
     for (SushiDSP::NodeHandle handle : original.nodes())
     {
         EXPECT_EQ(rebuilt.upstream_of(handle), original.upstream_of(handle))
@@ -169,9 +169,7 @@ TEST(Unit_Dsp, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheGr
 {
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
 
-    // Each of these is rejected in the first validation pass, so the caller's graph must come
-    // back completely unmodified — never half-populated with orphan nodes that would then make
-    // the caller's next compile() throw "no sink node found".
+    // A rejected preset leaves the graph unmodified. See tests/functional/unit/README.md.
     const std::vector<std::string> malformed = {
         // Missing "id" — the shape of a host_gui-format preset, the likeliest wrong file.
         R"({"nodes":[{"type":"sushidsp.tubescreamer","params":{},"inputs":[]}]})",
@@ -184,8 +182,7 @@ TEST(Unit_Dsp, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheGr
         // Duplicate id.
         R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
                     {"id":0,"type":"sushidsp.jcm800","params":{},"inputs":[]}]})",
-        // Dangling "inputs" reference: id 7 is declared by no entry. Previously this escaped as
-        // std::out_of_range from std::map::at(), which does not derive from std::runtime_error.
+        // Id 7 is declared by no entry. See tests/functional/unit/README.md.
         R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
                     {"id":1,"type":"sushidsp.jcm800","params":{},"inputs":[7]}]})",
         // A valid first entry followed by a broken one: the first must NOT be added.
@@ -263,8 +260,7 @@ TEST(Unit_Dsp, DeserializeRigFromJsonCallsOnNodeLoadedWithFullEntry)
 
 TEST(Unit_Dsp, SerializeAndDeserializeStillWorkWithNoCallback)
 {
-    // Regression guard: every existing call site (no callback argument) must keep compiling
-    // and behaving exactly as before this task.
+    // Call sites without a callback behave unchanged. See tests/functional/unit/README.md.
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     SushiDSP::RigGraph graph(256, 4);
     graph.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));

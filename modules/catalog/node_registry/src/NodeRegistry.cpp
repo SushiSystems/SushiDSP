@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file NodeRegistry.cpp
+ * @brief Implements the node catalog and the factory that builds a node by id.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 
 #include <cstring>

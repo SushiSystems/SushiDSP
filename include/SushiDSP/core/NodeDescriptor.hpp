@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file NodeDescriptor.hpp
+ * @brief Declares the descriptors a host instantiates and drives a product through.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <memory>

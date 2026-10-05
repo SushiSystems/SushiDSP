@@ -62,8 +62,7 @@ namespace
 
 TEST(Unit_Dsp, ResampledFrameCountRoundsTheRatio)
 {
-    // 1000 * 48000 / 44100 = 1088.43..., and the 44.1 kHz song the cache was measured on is
-    // 9093888 frames long, which is 9898109 frames at 48 kHz.
+    // 9093888 frames at 44.1 kHz are 9898109 at 48 kHz. See tests/functional/unit/README.md.
     EXPECT_EQ(SushiDSP::host::resampled_frame_count(1000, 44100.0, 48000.0), 1088u);
     EXPECT_EQ(SushiDSP::host::resampled_frame_count(9093888, 44100.0, 48000.0), 9898109u);
     EXPECT_EQ(SushiDSP::host::resampled_frame_count(48000, 48000.0, 44100.0), 44100u);
@@ -95,8 +94,7 @@ TEST(Unit_Dsp, ResampleChannelsDoublesTheRateAndKeepsTheWave)
     EXPECT_EQ(converted[0].size(), 800u);
     EXPECT_EQ(converted[0], converted[1]);
 
-    // Away from the ends the converted tone sits on the analytic sine to within 4e-6; the first
-    // and last samples read a filter that has silence on one side of it, and stay within 0.035.
+    // The ends read silence on one side and stay within 0.035. See tests/functional/unit/README.md.
     EXPECT_LT(worst_error(converted[0], 500.0, 16000.0, 100), 1.0e-3);
     EXPECT_LT(worst_error(converted[0], 500.0, 16000.0, 0), 0.05);
 }

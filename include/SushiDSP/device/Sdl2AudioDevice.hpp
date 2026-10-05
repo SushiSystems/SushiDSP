@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Sdl2AudioDevice.hpp
+ * @brief Declares the SDL2-backed audio device.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/core/IAudioDevice.hpp"

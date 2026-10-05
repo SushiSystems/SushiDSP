@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_track_player.cpp
+ * @brief Tests the mixing, clip placement and speed of TrackPlayer.
+ * @author Mustafa Garip
+ */
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -422,8 +428,7 @@ TEST(Unit_Dsp, TrackPlayerPlaysAClipAtItsStartFrame)
         place(player, 0, { SushiDSP::Clip{ take, start, 0u, 8u } });
         player.set_pan(0, -1.0f);
 
-        // The impulse sits at the clip's fourth frame, so it lands three frames past the clip's
-        // start frame in the block that holds it.
+        // The impulse sits at the clip's fourth frame. See tests/functional/unit/README.md.
         const std::uint64_t block = (start / 64u) * 64u;
         transport.seek(block);
 
@@ -516,9 +521,7 @@ TEST(Unit_Dsp, TrackPlayerFadesAClipEdge)
         samples[frame] = 1.0f;
     }
 
-    // The clip starts 1000 frames into the take, so its head is a cut and carries the ramp; a
-    // clip covering a whole take is cut at neither end and stays flat, which is what keeps the
-    // single-take cases above sample for sample.
+    // A clip cut inside its take carries the ramp. See tests/functional/unit/README.md.
     const SushiDSP::Take* take = lend(player, std::move(source));
     place(player, 0, { SushiDSP::Clip{ take, 0u, 1000u, 2000u } });
     player.set_pan(0, -1.0f);
@@ -582,8 +585,7 @@ TEST(Unit_Dsp, TrackPlayerAtHalfSpeedDropsAnOctave)
         rendered.insert(rendered.end(), left.begin(), left.end());
     }
 
-    // Half speed halves 880 Hz to 440 Hz; 24000 frames at 48 kHz hold 220 cycles of it, and a
-    // cycle crosses zero twice.
+    // 24000 frames hold 220 cycles of 440 Hz. See tests/functional/unit/README.md.
     EXPECT_EQ(zero_crossings(rendered, rendered.size() - 24000u), 440);
 
     double peak = 0.0;
@@ -609,8 +611,7 @@ TEST(Unit_Dsp, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
     place(player, 0, {});
     player.reclaim();
 
-    // The audio thread's watermark still names the generation the first timeline was published
-    // at, so that timeline is alive and its take is not collectable.
+    // The first timeline is alive, so its take is held. See tests/functional/unit/README.md.
     EXPECT_EQ(player.takes().size(), 1u);
     EXPECT_EQ(player.takes().reference_count(take), 1u);
 

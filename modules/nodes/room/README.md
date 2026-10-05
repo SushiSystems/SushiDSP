@@ -658,3 +658,72 @@ node and the device bounds the output, which the decay gate narrows rather than 
 the
 converter's unweighted diffuse-field average and the tail's output filter stepping on its running
 state, were written when the change that caused them landed.
+
+## Implementation notes
+
+### The decoder's transforms and cursor
+
+Each convolver transforms its own input, so the sixteen channels are each transformed twice.
+That is the unshared figure spec section 10 budgets. Sharing the spectra between the two ears
+would change no interface.
+
+In `BinauralDecoder.cpp`, `output_partition_[fill_ ..)` holds the result of the previous partition
+that has not been emitted yet. One cursor therefore reads an output frame and writes an input
+frame.
+
+### A tap set arriving mid-fade
+
+A tap set that arrives while a crossfade is running restarts the fade from the bank that is
+active at that moment. The host coalesces edits, so the path never holds more than two sets
+(spec section 5.2).
+
+### The tail's delay lines
+
+The feedback delay network emits nothing until its shortest line has run, so that line is what
+the handover time bounds. The sum of the sixteen lines stays `kOverlapRatio` times the mid-band
+decay, which is what fixes the tail's modal density (spec section 6.2).
+
+A room whose handover exceeds its whole delay budget cannot start there: the budget sets the
+shortest line and the input delay carries what is left. The shortest line is the network's own
+latency, so the delay ahead of it is what is left of the handover time.
+
+A Butterworth pair is power complementary, so the right ear carries the left ear's energy whatever
+the split between the coherent and incoherent sums.
+
+### The proximity boost
+
+The proximity boost multiplies the gradient share `(1 - a) cos(theta)` and never the pressure
+share `a`. The on-axis far field therefore reads `a + (1 - a) = 1`, and a 5 cm cardioid reads the
+15.5 dB of spec section 8.1 at 100 Hz.
+
+### The audio thread's share of a publish
+
+One atomic acquire per slot is the audio thread's whole share of a publish. The set pointer is
+compared against the last one the thread saw and is read only inside the block that acquired it.
+
+### The baffle-step shelf
+
+`CabinetDirectivity.cpp` puts the shelf's pole at the baffle step and its zero an octave above it,
+so the shelf reads 0 dB far below the step and -6 dB far above it. The octave mean samples the
+midpoints of `kOctavePoints` equal log-frequency intervals, from the centre over root two to the
+centre times root two.
+
+### The interpolation window
+
+In `EarlyReflectionRenderer.cpp` the window starts two frames behind the integer delay and never
+wraps: the mirror region holds what lies past the ring's end.
+
+### Loading an HRTF set
+
+`HrtfSetLoader.cpp` lands every field in a local set first and moves it into the caller's set only
+on success, so a failure anywhere leaves the caller's set exactly as it was.
+
+### The reported crossover
+
+`ModalSolver.cpp` reports the first mode left out as the crossover, so `enumerate()` at that
+frequency returns exactly the modes the design carries.
+
+### A patch's area
+
+In `RoomScene.cpp` a patch replaces area on its face and does not add to it, so its own material's
+area is subtracted from the face before either is weighted.

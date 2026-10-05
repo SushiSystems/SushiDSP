@@ -12,8 +12,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// which GCC/Clang's libstdc++/libc++ define unconditionally.
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
 #include <gtest/gtest.h>
@@ -56,9 +55,7 @@ TEST(Unit_Dsp, Dd3ConverterSaturatesRatherThanWrapping)
 
 TEST(Unit_Dsp, Dd3ConverterQuantisationNoiseMatchesTwelveBits)
 {
-    // An ideal N-bit converter gives 6.0206*N + 1.7609 dB of SNR for a full-scale sine:
-    // 6.0206*12 + 1.7609 = 74.008 dB. Measure it directly as the ratio of signal power to
-    // error power, which needs no window and no FFT.
+    // An ideal 12-bit converter gives 74.008 dB of SNR. See tests/functional/unit/README.md.
     using Converter = SushiDSP::dd3::Dd3Converter;
     double signal_power = 0.0;
     double error_power = 0.0;
@@ -101,9 +98,7 @@ TEST(Unit_Dsp, Dd3ConverterRingDelaysByExactlyNSamples)
 
 TEST(Unit_Dsp, Dd3ConverterHoldKeepsTheLoopAndInhibitsWrites)
 {
-    // Dossier 1.8: HOLD is a mode bit into the LSI, sharing L's clock range with writes inhibited.
-    // Ruling 14: Long and Hold share N, so the transition between them must not clear the ring -
-    // holding silence is the one thing HOLD must not do.
+    // Long and Hold share N, so the ring is not cleared. See tests/functional/unit/README.md.
     SushiDSP::dd3::Dd3Converter converter;
     converter.prepare();
     converter.set_mode(SushiDSP::dd3::Dd3Mode::Long);
@@ -112,8 +107,7 @@ TEST(Unit_Dsp, Dd3ConverterHoldKeepsTheLoopAndInhibitsWrites)
         converter.process_sample(n == 100u ? 1.0f : 0.0f);
     }
     converter.set_mode(SushiDSP::dd3::Dd3Mode::Hold);
-    // The stored impulse comes back on schedule and keeps coming back, lap after lap, while
-    // everything pushed in is discarded.
+    // The stored impulse returns each lap; writes are dropped. See tests/functional/unit/README.md.
     for (std::uint32_t lap = 0; lap < 3u; ++lap)
     {
         for (std::uint32_t n = 0; n < 16384u; ++n)

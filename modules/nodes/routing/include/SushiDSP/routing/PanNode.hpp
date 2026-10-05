@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PanNode.hpp
+ * @brief Declares the node that turns one channel into two on a constant-power pan law.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/core/IAudioNode.hpp"

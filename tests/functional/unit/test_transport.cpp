@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_transport.cpp
+ * @brief Tests the position arithmetic of Transport.
+ * @author Mustafa Garip
+ */
+
 #include <cstdint>
 
 #include <gtest/gtest.h>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_graphic_equalizer.cpp
+ * @brief Tests the bands of GraphicEqualizer at rest, boosted and cut.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 
 #include <gtest/gtest.h>
