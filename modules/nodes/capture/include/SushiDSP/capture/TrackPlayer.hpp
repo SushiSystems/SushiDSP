@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TrackPlayer.hpp
+ * @brief Declares the mixer that plays clip timelines at the transport's position and speed.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -93,19 +99,10 @@ namespace SushiDSP
         /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md section 5
         void reclaim();
 
-        /// @brief Adds every audible lane's clips into the output, starting at the transport's
-        /// position and walking on at the transport's speed - the soloed lanes if any is soloed,
-        /// otherwise the unmuted ones - wrapping at the loop end as Transport::advance() will,
-        /// and leaving the transport where it found it. A mono output carries no pan, so a lane
-        /// folds into it at its own gain whatever its pan position. At unity speed a clip is
-        /// copied out of its take, so the output holds the take's own samples bit for bit; at
-        /// any other speed the lane's VariRateReader converts it and the pitch falls with the
-        /// speed. Audio thread. Real-time safe: allocation-free, lock-free and throw-free.
+        /// @brief Adds every audible lane's clips into the output at the transport's position.
         /// @param outputs One writable buffer of at least frames samples per output channel.
-        /// @param channels How many output channels outputs holds.
-        /// @param frames How many frames to mix.
-        /// @param transport The clock giving the read position, the loop range and the speed.
         /// @pre prepare() has been called with at least frames whenever the speed is not unity.
+        /// @see modules/nodes/capture/README.md, "What `TrackPlayer::process` mixes"
         void process(float* const* outputs, std::uint32_t channels, std::uint32_t frames,
                      Transport& transport);
 
@@ -203,10 +200,7 @@ namespace SushiDSP
         /// @brief Adds one clip's samples into the output over a contiguous run of frames.
         /// @param left_source The left samples to read, starting at the run's first frame.
         /// @param right_source The right samples to read, starting at the run's first frame.
-        /// @param outputs The output buffers to add into.
-        /// @param channels How many output channels outputs holds.
         /// @param offset The first output frame this run writes.
-        /// @param count How many frames this run covers.
         /// @param clip The clip the run belongs to, which carries its de-click ramp.
         /// @param clip_frame How far into the clip the run's first frame lies.
         /// @param gains The lane's three mix gains.
@@ -217,9 +211,6 @@ namespace SushiDSP
 
         /// @brief Adds one clip's samples into the output by copying the take, which is what
         /// makes unity speed carry the take's own samples bit for bit.
-        /// @param clip The clip to read.
-        /// @param outputs The output buffers to add into.
-        /// @param channels How many output channels outputs holds.
         /// @param offset The first output frame this run writes.
         /// @param count How many frames this run covers.
         /// @param clip_frame How far into the clip the run's first frame lies.
@@ -232,15 +223,10 @@ namespace SushiDSP
         /// @brief Adds one clip's samples into the output through the lane's speed converter,
         /// resetting that converter whenever the run does not continue the one before it.
         /// @param track The lane being mixed, whose converter carries the history.
-        /// @param clip The clip to read.
-        /// @param outputs The output buffers to add into.
-        /// @param channels How many output channels outputs holds.
         /// @param offset The first output frame this run writes.
-        /// @param count How many frames this run covers.
         /// @param clip_frame How far into the clip the run's first frame lies.
         /// @param position The timeline frame the run's first output frame belongs to.
         /// @param speed_q32 Timeline frames per output frame, in 32.32 fixed point.
-        /// @param gains The lane's three mix gains.
         void mix_clip_at_speed(Track& track, const Clip& clip, float* const* outputs,
                                std::uint32_t channels, std::uint32_t offset, std::uint32_t count,
                                std::uint64_t clip_frame, std::uint64_t position,

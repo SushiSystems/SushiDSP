@@ -3,17 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""CLI output for the SushiDSP CLI.
+"""Builds the SushiDSP CLI's console on first use, through sushicore's LazyConsole.
 
-Thin wrapper around :mod:`sushicore` — the theme/icon/renderer logic and its
-``[cli]`` config schema live there, shared with every other Sushi* CLI. See
-sushicore's README to change colors.
-
-The console is built lazily, by :class:`sushicore.cli_console.LazyConsole`:
-constructing it needs this repo's ``cli/`` directory, and locating that fails
-outside a checkout, so building at import time would make every ``sd``
-invocation abort with "Not inside a SushiDSP project" — including ``sd --help``,
-which Typer can serve with no project at all.
+The reason the console is built lazily is in cli/README.md, "console.py".
 """
 
 from __future__ import annotations
@@ -30,6 +22,5 @@ def current():
     return _lazy.get()
 
 
-# PEP 562: attributes resolve on first access, so importing this module never
-# touches the filesystem or the project layout.
+# PEP 562: attributes resolve on first access, so an import never reads the project layout.
 __getattr__ = _lazy.attribute

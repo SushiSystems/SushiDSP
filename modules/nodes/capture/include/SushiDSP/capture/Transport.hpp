@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Transport.hpp
+ * @brief Declares the sample clock every track shares.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <atomic>

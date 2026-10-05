@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_take_library.cpp
+ * @brief Tests the lifetime of takes held in TakeLibrary.
+ * @author Mustafa Garip
+ */
+
 #include <cstddef>
 #include <memory>
 #include <vector>
@@ -93,8 +99,7 @@ TEST(Unit_Dsp, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
     lane.reclaim();
     library.collect();
 
-    // The first timeline is retired but the audio thread's watermark has not passed it, so both
-    // timelines still name the take and the take must survive.
+    // A retired timeline still names the take. See tests/functional/unit/README.md.
     EXPECT_EQ(library.size(), 1u);
     EXPECT_EQ(library.reference_count(take), 2u);
     EXPECT_EQ(lane.active_for_publisher()->clip(0).take->channel(0), take->channel(0));

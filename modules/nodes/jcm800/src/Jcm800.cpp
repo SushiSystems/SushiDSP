@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Jcm800.cpp
+ * @brief Implements the JCM800 2203 amplifier node from its preamp to its output clamp.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/jcm800/Jcm800.hpp"
 
 #include "SushiDSP/circuits/AudioTaperPot.hpp"
@@ -29,9 +35,7 @@ namespace SushiDSP
     constexpr PowerTubePreset kEl34{
         33831.9f, 220000.0f, -38.0f, 6.882361f, kPentodeEL34GridConduction, PlateSwing{ 25.5f, 280.2777f } };
 
-        // Component values are physically-motivated approximations for a 12AX7/EL34 JCM800-style
-        // signal path, not measured from a real amplifier (no reference unit or captures
-        // available - see spec section 8's "Perceptual A/B validation... deferred").
+        // Component values are approximations, not measured; see modules/nodes/jcm800/README.md.
         constexpr float kTriodeSourceResistance = 10000.0f;
         constexpr float kTriodeGridLeak = 1000000.0f;
 
@@ -87,26 +91,7 @@ namespace SushiDSP
         /// set_power_tube_grid_bias_mismatch_volts() can zero it.
         constexpr float kPowerTubeGridBiasMismatchVolts = 0.24f;
 
-        // The driving impedance is taken as a common 100 kOhm plate load for all three grids.
-        // That is a deliberate simplification, not a per-node fact: V1b's grid is really fed from
-        // the 1 MOhm preamp pot's wiper (a Thevenin source of up to 250 kOhm), V2a's from the
-        // tone stack's output impedance, and the phase inverter's from V2a's plate through its
-        // coupling cap. Every one of those is higher than 100 kOhm over most of its range, so the
-        // errors all run in the same direction - this model is brighter than the amp,
-        // never darker - and none of them is available as a single number until D6d gives each
-        // block a real source impedance.
-        //
-        // V1b's grid sits behind the 2203's 470k/470p treble peaker, which this model carries as
-        // kV1bTreblePeakerDivider and its shelf: the network's own loss and its return to unity
-        // above the corner. What it does not carry is the peaker's interaction with the grid
-        // capacitance below, where the 470 pF puts itself in series with the ~115 pF grid and the
-        // source drives the two together. The corner below is computed from the plate load and
-        // the grid capacitance alone, so the real circuit's sits higher than this one's.
-        //
-        // Without this, the D6a single 8x region let V1a/V1b's full 192 kHz-wide harmonic
-        // spectrum reach V2a, the phase inverter and the EL34 pair, whose own clipping turned it
-        // into content past the 8x Nyquist that folded back into the audio band. A real 2203 has
-        // never had that bandwidth to give away.
+        // One 100 kOhm plate load drives all three grids; see modules/nodes/jcm800/README.md.
         constexpr float kPlateLoadOhms = 100000.0f;
 
         constexpr float kOutputTransformerRolloffHz = 60.0f;
@@ -155,10 +140,7 @@ namespace SushiDSP
 
         constexpr float kSmoothingMs = 20.0f;
 
-        // Below this, a recomputed tone-stack/presence coefficient set would be numerically
-        // indistinguishable from the one already in place, so the audio thread skips the rebuild.
-        // It is a cost filter, not a quality one: 1e-4 of a knob's 0..1 travel is far finer than
-        // the ~1e-3 step a 7-bit MIDI controller can even express.
+        // Below this a coefficient rebuild is skipped; see modules/nodes/jcm800/README.md.
         constexpr float kCoefficientEpsilon = 1e-4f;
 
         constexpr float kMinMasterDb = -60.0f;
@@ -182,18 +164,7 @@ namespace SushiDSP
             return kTriode12AX7MillerCapacitance.corner_hz(stage_voltage_gain, kPlateLoadOhms);
         }
 
-        // The 2203's preamp volume is a pot between V1a's plate and V1b's grid, so the knob is an
-        // attenuator, not an input multiplier: turning it up feeds V1b (and everything after it)
-        // harder, which is what produces the cascaded-gain-stage distortion rather than just a
-        // louder clean signal.
-        //
-        // The knob follows the corpus audio taper. Its exponent is 1.5 rather than a plain square
-        // because the cascade's clean-to-saturated transition spans a wide span of interstage
-        // level (a grid conducts once it reaches its cathode, and cuts off 4.14 V below), so a
-        // steeper taper compresses too much of that transition into the top third of the knob's
-        // travel.
-        // Measured at a 0.2 input: with a square taper the THD proxy is zero below preamp 0.5,
-        // with this one it starts moving at 0.4 and climbs monotonically to 1.0.
+        // The knob is an attenuator on a 1.5 audio taper; see modules/nodes/jcm800/README.md.
         float preamp_attenuation(float normalized)
         {
             return audio_taper_pot(normalized) * kPreampPotMaxAttenuation;
@@ -223,46 +194,23 @@ namespace SushiDSP
     {
         sample_rate_ = info.sample_rate;
         bright_cap_.set_high_pass(sample_rate_, kBrightCapHz, kFilterQ);
-        // The V1a->V1b coupling capacitor sits inside the oversampled region, so its coefficients
-        // must be derived at the oversampled rate; deriving them at the base rate would place the
-        // real corner 8x higher (960 Hz instead of 120 Hz) and gut the low end.
-        //
-        // It is a first-order high-pass because that is what a coupling capacitor into a grid
-        // leak is; a Butterworth biquad would roll the low end off at twice the rate the RC does.
-        // The first-order pole is also what keeps this stable at the oversampled rate: 120 Hz
-        // against 8 x 192 kHz is a ratio of 7.8e-5, under set_high_pass's 1e-4 floor.
+        // The coupling cap is derived at the oversampled rate; see modules/nodes/jcm800/README.md.
         coupling_cap_.set_first_order_high_pass(sample_rate_ * kOversamplingFactor, kCouplingCapHz);
         // The peaker sits inside the oversampled region with the coupling capacitor it follows.
         v1b_treble_peaker_.set_high_shelf(sample_rate_ * kOversamplingFactor, kV1bTreblePeakerHz,
                                           kV1bTreblePeakerShelfDb, kFilterQ);
         presence_shelf_.set_high_shelf(sample_rate_, kPresenceHz, presence_gain_db(presence_.target()), kFilterQ);
 
-        // The Miller poles are part of the oversampled chain, so like the coupling capacitor they
-        // are derived at the oversampled rate, each from the gain of the stage whose grid it is,
-        // through miller_corner_hz(), which reads the gain constants and so tracks them.
-        //
-        // The phase inverter's pole is a property of *this* model's inverter, which is a single
-        // triode at kPhaseInverter.gain. A real 2203's inverter is a long-tailed pair, whose
-        // driven grid sees very little Miller multiplication because that half runs as a
-        // grounded-grid stage with no inverting plate-to-grid path. D6d should not inherit this
-        // pole when it replaces the inverter with the LTP.
+        // The Miller poles are derived at the oversampled rate; see modules/nodes/jcm800/README.md.
         const double oversampled_rate_hz = sample_rate_ * kOversamplingFactor;
         v1b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV1bGain));
         v2a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV2aGain));
         phase_inverter_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kPhaseInverter.gain));
 
-        // The tone stack sits inside the single oversampled region (spec D6a.3: one region per
-        // node), so its coefficients are derived at the oversampled rate. It is passive and
-        // linear today and gains nothing from the higher rate; it is inside because collapsing
-        // the two regions into one halves the node's latency, and because D6d turns it into a
-        // DK-method block whose solver does belong at 8x.
+        // The tone stack is built at the oversampled rate; see modules/nodes/jcm800/README.md.
         tone_stack_ = JcmToneStack(sample_rate_ * kOversamplingFactor);
 
-        // Every knob is smoothed at the base rate, since every one of them is read once per block
-        // in process() via skip(frames). prepare() is a discontinuity anyway (buffers resized,
-        // filters rebuilt), so the smoothers snap rather than ramp from a stale value, and the
-        // applied_* markers are invalidated so the first block builds the coefficients that match
-        // those snapped targets.
+        // Every knob smoother snaps to its target here; see modules/nodes/jcm800/README.md.
         SmoothedParameter* const smoothed[] = {
             &preamp_, &presence_, &bass_, &middle_, &treble_,
             &master_gain_, &input_trim_gain_, &output_gain_
@@ -277,9 +225,7 @@ namespace SushiDSP
         applied_treble_ = -1.0f;
         applied_presence_ = -1.0f;
 
-        // The output transformer and the sag stage run inside the oversampled region (see
-        // process()), so both are built at the oversampled rate: their filter corners and the
-        // sag recovery time constant are all derived from the rate they are stepped at.
+        // Both stages are built at the oversampled rate; see modules/nodes/jcm800/README.md.
         const double oversampled_rate = sample_rate_ * kOversamplingFactor;
         output_transformer_ = OutputTransformerStage(oversampled_rate, kOutputTransformerRolloffHz, kOutputTransformerLeakageHz, kOutputTransformerSaturationDrive);
         sag_ = PowerSupplySagStage(oversampled_rate, kSagAmount, kSagRecoveryTimeSeconds);
@@ -299,9 +245,7 @@ namespace SushiDSP
         const std::uint32_t frames = context.frames;
         const std::uint32_t oversampled_frames = frames * kOversamplingFactor;
 
-        // Control changes are only ever targets; the audio thread is where they take effect. The
-        // per-block advance is a single closed-form step, and the coefficient rebuilds below are
-        // plain arithmetic on stack values - no allocation, no lock, no syscall.
+        // Control changes are only ever targets here; see modules/nodes/jcm800/README.md.
         const float preamp = preamp_.skip(frames);
         const float bass = bass_.skip(frames);
         const float middle = middle_.skip(frames);
@@ -356,35 +300,25 @@ namespace SushiDSP
             const float el34_b_out = el34_b_.process_sample(-phase_inverted - power_tube_grid_bias_mismatch_volts_);
             const float power_tube_out = (el34_a_out - el34_b_out) * kPowerTubeToTransformerAttenuation;
 
-            // The transformer and the sag stage stay inside the oversampled region, as spec
-            // section 5's diagram places them: the transformer's core saturation is a genuine
-            // tanh nonlinearity and the sag stage's gain is signal-dependent, so running either
-            // after the decimator would fold their generated harmonics back below Nyquist.
+            // Both nonlinear stages stay in the 8x region; see modules/nodes/jcm800/README.md.
             const float transformer_out = output_transformer_.process_sample(power_tube_out);
             scratch_oversampled_[i] = sag_.process_sample(transformer_out);
         }
         oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames, scratch_base_.data());
 
-        // The presence shelf and the master volume are linear, so they generate nothing to alias
-        // and cost 8x less on this side of the decimator.
+        // Presence and master run after the decimator; see modules/nodes/jcm800/README.md.
         for (std::uint32_t i = 0; i < frames; ++i)
         {
             scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]) * master_gain;
         }
 
-        // Cabinet convolution lives in the standalone sushidsp.cabinet node; this amp hands its
-        // dry (post-presence, post-master) signal straight to output.
+        // Cabinet convolution is the sushidsp.cabinet node's; see modules/nodes/jcm800/README.md.
         for (std::uint32_t i = 0; i < frames; ++i)
         {
             output[i] = scratch_base_[i];
         }
 
-        // Nothing upstream is normalized to the DAC's range - every stage is bounded only by its
-        // own tube's conduction window - so a hot preamp/master/output combination can still land
-        // outside [-1, 1]. The clamp is what makes that safe. It is deliberately not a soft-knee
-        // limiter: a waveshaper here would need its own oversampled region to avoid aliasing its
-        // own harmonics back down, and the amp's saturation character already comes from the tube
-        // and transformer stages that model it. This is a safety rail, not a tone stage.
+        // The clamp is a safety rail for the DAC's range; see modules/nodes/jcm800/README.md.
         apply_output_safety_clamp(output, frames, output_gain);
     }
 

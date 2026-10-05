@@ -164,12 +164,7 @@ TEST(Unit_Dsp, Dd3DelayAtZeroLevelIsAWire)
 
 TEST(Unit_Dsp, Dd3DelayWetDelayMatchesThePlansArithmetic)
 {
-    // N2, with the resampler round trip read off the committed prototype rather than off the
-    // plan's draft: Task 1.1 grew the half width from 32 to 34 zero crossings, so the two
-    // conversions cost 68 / min(fs, 48000) between them, not 64.
-    //   Mode L at TIME = 0: 16384/82500 + 68/48000 + 8/48000
-    //     = 0.198593939 + 0.001416667 + 0.000166667 = 0.200177273 s = 9608.51 samples.
-    //   Mode S at TIME = 0: 1024/82500 + 68/48000 + 8/48000 = 0.013995455 s = 671.78 samples.
+    // The two conversions cost 68 / min(fs, 48000), not 64. See tests/functional/unit/README.md.
     struct Case { SushiDSP::dd3::Dd3Mode mode; double expected_seconds; };
     const Case cases[2] = {
         { SushiDSP::dd3::Dd3Mode::Short, 0.013995455 },
@@ -198,9 +193,7 @@ TEST(Unit_Dsp, Dd3DelayWetDelayMatchesThePlansArithmetic)
         const double expected_samples = item.expected_seconds * kSampleRate;
         std::printf("[ measure ] DD-3 wet echo at %zu samples, predicted %.2f\n",
                     peak_at, expected_samples);
-        // The echo has been through two 7 kHz cascades, so its peak spreads over a few samples
-        // and lands about 13 late; 32 samples is tight enough to catch a wrong N, a wrong fs or
-        // a missed round trip.
+        // 32 samples catch a wrong N, fs or round trip. See tests/functional/unit/README.md.
         EXPECT_NEAR(static_cast<double>(peak_at), expected_samples, 32.0);
     }
 }
@@ -291,9 +284,7 @@ TEST(Unit_Dsp, Dd3DelayResetReturnsItToSilence)
 
 TEST(Unit_Dsp, Dd3DelayRepeatsDecayAndDarkenWithFeedback)
 {
-    // Dossier 3, "Self-oscillation": every repeat is re-band-limited by both 7 kHz cascades and
-    // re-quantised, so repeats lose level and lose treble together. The take-off sits at the wet
-    // leg's output, so the emphasis pair cancels inside the loop and the tilt is the filters'.
+    // Each repeat loses level and treble together. See tests/functional/unit/README.md.
     SushiDSP::Dd3Delay node;
     node.set_mode(SushiDSP::dd3::Dd3Mode::Short);
     node.set_time(0.0f);
@@ -317,10 +308,7 @@ TEST(Unit_Dsp, Dd3DelayRepeatsDecayAndDarkenWithFeedback)
 
 TEST(Unit_Dsp, Dd3DelaySelfOscillatesOnlyAtTheTopOfTheKnob)
 {
-    // kFeedbackPathGain exists so that kMaximumFeedback is the loop gain it claims to be: the
-    // loop's forward gain peaks at 6.3184 at 3278 Hz, and on the mix resistors alone the node
-    // would regenerate from F.BACK 0.22 upward. Below the top of the knob the tail dies; at the
-    // top it sustains.
+    // The tail sustains only at the top of the knob. See tests/functional/unit/README.md.
     const auto input = burst_stimulus(static_cast<std::size_t>(2.0 * kSampleRate));
     double tails[2] = { 0.0, 0.0 };
     const float positions[2] = { 0.7f, 1.0f };
@@ -370,8 +358,7 @@ TEST(Unit_Dsp, Dd3DelayHoldKeepsRepeatingWithNoInput)
 
 TEST(Unit_Dsp, Dd3DelayHitsCheckPointFive)
 {
-    // Service note ladder, 1 kHz at 100 mVp-p in -> [5] 140 mVp-p of delay signal (dossier 1.0).
-    // In this tree's units: 0.025 full scale in, 0.035 full scale of wet out.
+    // 0.025 full scale in gives 0.035 full scale of wet out. See tests/functional/unit/README.md.
     SushiDSP::Dd3Delay wet_node, dry_node;
     for (SushiDSP::Dd3Delay* node : { &wet_node, &dry_node })
     {

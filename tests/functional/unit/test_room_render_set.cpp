@@ -76,8 +76,7 @@ TEST(Unit_Dsp, BuildRenderSetFillsEveryLayerForTheGarage)
         garage, fallback_hrtf(), kSampleRate, SushiDSP::room::ListenerKind::Ears);
     ASSERT_NE(set, nullptr);
 
-    // The early set is the solver's own at order 4: 129 images, of which the garage keeps the
-    // 96 that arrive before t_c = 5 * 2.5 / 343 s, the 12.5 m the shortest dimension allows.
+    // The garage keeps 96 of the 129 order-4 images. See tests/functional/unit/README.md.
     SushiDSP::room::ImageSourceSolver::Options options;
     options.max_order = 4;
     options.listener = SushiDSP::room::ListenerKind::Ears;
@@ -103,9 +102,7 @@ TEST(Unit_Dsp, BuildRenderSetFillsEveryLayerForTheGarage)
 
 TEST(Unit_Dsp, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
 {
-    // The source (1.5, 2.0, 0.5) and the listener (4.0, 2.0, 1.2) are sqrt(2.5^2 + 0.7^2) =
-    // sqrt(6.74) = 2.596151 m apart: round(2.596151 / 343 * 48000) = round(363.31) = 363 frames
-    // and 1 / 2.596151 = 0.385186.
+    // 2.596151 m is 363 frames and a gain of 0.385186. See tests/functional/unit/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
         garage, fallback_hrtf(), kSampleRate, SushiDSP::room::ListenerKind::Ears);
@@ -124,8 +121,7 @@ TEST(Unit_Dsp, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
 
 TEST(Unit_Dsp, BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone)
 {
-    // The microphone sits 0.1 m from the source: round(0.1 / 343 * 48000) = round(13.99) = 14
-    // frames and a gain of 10.
+    // 0.1 m is 14 frames and a gain of 10. See tests/functional/unit/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
         garage, fallback_hrtf(), kSampleRate, SushiDSP::room::ListenerKind::Microphone);
@@ -167,9 +163,7 @@ TEST(Unit_Dsp, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
 
 TEST(Unit_Dsp, BuildRenderSetTakesTheDirectPairFromTheHrtfSet)
 {
-    // A source one metre to the listener's left, at ear height, sits at 90 degrees azimuth on
-    // the spherical head: Woodworth's (a / c) (theta + sin theta) with a = 0.0875 m and theta =
-    // pi / 2 is 0.0006558 s, 31.48 frames, and the right ear is the later one.
+    // The interaural delay is 0.0006558 s, 31.48 frames. See tests/functional/unit/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.listener_position = { 4.0, 2.0, 1.2 };
     scene.listener_yaw_rad = 0.0;
@@ -223,10 +217,7 @@ TEST(Unit_Dsp, BuildRenderSetCostsUnderOnePublishBudget)
 
 TEST(Unit_Dsp, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)
 {
-    // The modal field is read where the set's geometric receiver stands: a microphone set
-    // carries psi at microphone_position in both ear gains, an ears set the solver's two
-    // ears 8.5 cm to either side of listener_position, so a listener at (5.4, 3.4, 2.0)
-    // facing +x reads psi at y = 3.485 and y = 3.315.
+    // The modal field is read at the set's receiver. See tests/functional/unit/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.source_position = { 0.4, 0.5, 0.5 };
     scene.listener_position = { 5.4, 3.4, 2.0 };

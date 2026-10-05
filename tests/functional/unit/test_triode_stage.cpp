@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_triode_stage.cpp
+ * @brief Tests TriodeStage and the AntiderivativeAntialiaser it runs through.
+ * @author Mustafa Garip
+ */
+
 #include <algorithm>
 #include <cmath>
 
@@ -16,8 +22,7 @@
 
 namespace
 {
-    // The JCM800's V1a-shaped stage: a 10 kOhm source into a 1 MOhm grid leak, biased 1.5 V
-    // below the cathode, gain 60, with a 194 / 115 V plate swing.
+    // These constants are the JCM800's V1a-shaped stage. See tests/functional/unit/README.md.
     constexpr float kSourceResistance = 10000.0f;
     constexpr float kGridLeakResistance = 1000000.0f;
     constexpr float kCathodeBias = -1.5f;
@@ -129,8 +134,7 @@ TEST(Unit_Dsp, TriodeStageIsInvertingForSmallSignal)
 
 TEST(Unit_Dsp, TriodeStageGridFollowsTheSourceDividerBelowTheCathode)
 {
-    // Below the cathode the Norman law's current is nanoamperes, so the grid sits on the
-    // Rg / (Rs + Rg) divider of the input: 3 V in is 2.9703 V of excursion.
+    // 3 V in is 2.9703 V of grid excursion. See tests/functional/unit/README.md.
     SushiDSP::TriodeStage stage = make_stage();
     settled_plate(stage, -3.0f);
     EXPECT_NEAR(stage.peak_grid_excursion_volts(), 3.0f * kGridLeakResistance / (kSourceResistance + kGridLeakResistance), 1e-3f);
@@ -138,10 +142,7 @@ TEST(Unit_Dsp, TriodeStageGridFollowsTheSourceDividerBelowTheCathode)
 
 TEST(Unit_Dsp, TriodeStageGridConductsOnTheNormanLaw)
 {
-    // The solver's root is the root of the KCL the header states, checked against an independent
-    // bisection at three inputs: below the 0.5 V knee, on it, and well past it, where the
-    // conducting slope of 150 kOhm against the 10 kOhm source pulls the grid 0.45 V off the
-    // divider (8 V in: 7.554 V of excursion against 7.921 V linear).
+    // The root is checked against an independent bisection. See tests/functional/unit/README.md.
     for (float input_voltage : { 0.1f, 1.5f, 3.0f, 8.0f })
     {
         SushiDSP::TriodeStage stage = make_stage();
@@ -174,9 +175,7 @@ TEST(Unit_Dsp, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
         negative_peak = std::min(negative_peak, y);
     }
 
-    // Cutoff side: 9.9 V of excursion is a linear plate of 594 V, and 194 * tanh(594 / 194) is
-    // 193.15 V. Conduction side: the grid rises to 7.55 V of excursion, a linear plate of
-    // -453 V, and -115 * tanh(453 / 115) is -114.99 V. The two sides differ by the swing alone.
+    // The two sides differ by the swing alone. See tests/functional/unit/README.md.
     EXPECT_NEAR(positive_peak, 193.15f, 1.0f);
     EXPECT_LT(positive_peak, kSwing.headroom_to_supply_volts);
     EXPECT_NEAR(negative_peak, -114.99f, 0.5f);
@@ -185,9 +184,7 @@ TEST(Unit_Dsp, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
 
 TEST(Unit_Dsp, TriodeStageCutoffIsThePlateCeiling)
 {
-    // No solver fence holds the grid short of the ceiling: at -30 V in, the 5150's V5A stage
-    // reaches its 90.742 V headroom to the supply, where a 4.136 V fence held it at 74.3 V
-    // (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 3).
+    // No solver fence holds the grid short of the ceiling. See tests/functional/unit/README.md.
     SushiDSP::TriodeStage v5a(671730.0f, 1000000.0f, -2.0f, 25.3f, SushiDSP::kTriode12AX7GridConduction,
                               SushiDSP::PlateSwing{ 90.742f, 134.001f });
     EXPECT_GT(settled_plate(v5a, -30.0f), 90.7f);
@@ -230,8 +227,7 @@ TEST(Unit_Dsp, TriodeStageGridLawIsTheTriode12AX7Model)
 
 TEST(Unit_Dsp, AntiderivativeAntialiaserInputMapInvertsTheGridSolve)
 {
-    // g(u) is the input the KCL says puts the grid at u, so composing it with the bisected solve
-    // of that KCL returns the input: the map the divided difference divides by is the stage's own.
+    // g(u) composed with the bisected solve is the identity. See tests/functional/unit/README.md.
     const SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
     for (double input_voltage : { -30.0, -3.0, -0.1, 0.1, 1.5, 2.0, 2.5, 3.0, 8.0, 30.0 })
     {
@@ -242,9 +238,7 @@ TEST(Unit_Dsp, AntiderivativeAntialiaserInputMapInvertsTheGridSolve)
 
 TEST(Unit_Dsp, AntiderivativeAntialiaserAntiderivativeDifferentiatesBackToTheTransfer)
 {
-    // G is the antiderivative of the plate output with respect to the input, so dG/du equals
-    // bound(-gain u) times dg/du at every excursion, across the knee and past both plate
-    // ceilings. The bound is the table's cubic Hermite error, measured at 7e-9 of the swing.
+    // dG/du equals bound(-gain u) times dg/du everywhere. See tests/functional/unit/README.md.
     const SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
     const double transition = SushiDSP::Triode12AX7::kGridTransitionVolts;
     constexpr double kDelta = 1e-4;
@@ -262,8 +256,7 @@ TEST(Unit_Dsp, AntiderivativeAntialiaserAntiderivativeDifferentiatesBackToTheTra
 
 TEST(Unit_Dsp, AntiderivativeAntialiaserTransferMatchesThePlateBoundBetweenKnots)
 {
-    // G'(u) / g'(u) is what the ill-conditioned branch returns; between the table's knots it may
-    // differ from bound(-gain u) only by the Hermite interpolant's slope error.
+    // Between knots only the Hermite slope error remains. See tests/functional/unit/README.md.
     const SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
     const double transition = SushiDSP::Triode12AX7::kGridTransitionVolts;
     const double half_step = transition / SushiDSP::AntiderivativeAntialiaser::kIntervalsPerTransition / 2.0;
@@ -277,9 +270,7 @@ TEST(Unit_Dsp, AntiderivativeAntialiaserTransferMatchesThePlateBoundBetweenKnots
 
 TEST(Unit_Dsp, AntiderivativeAntialiaserDividedDifferenceIsTheMeanOfTheCompositeTransfer)
 {
-    // Over an input interval the divided difference of G equals the mean of the composite
-    // transfer, checked against Simpson's rule on the bisected transfer for intervals that sit
-    // inside the knee, cross it, and cross both plate ceilings.
+    // The divided difference of G is the mean transfer. See tests/functional/unit/README.md.
     const SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
     struct Interval
     {
@@ -303,10 +294,7 @@ TEST(Unit_Dsp, AntiderivativeAntialiaserDividedDifferenceIsTheMeanOfTheComposite
 
 TEST(Unit_Dsp, AntiderivativeAntialiaserIsContinuousWhereConsecutiveSamplesNearlyCoincide)
 {
-    // The divided difference loses its precision as g(u1) - g(u0) shrinks, so under
-    // kMinimumInputDifferenceVolts it gives way to the transfer at the midpoint. Two identical
-    // samples and two a float ulp apart must return the plate bound, and sweeping the difference
-    // through the threshold must leave no step larger than the float output's own quantisation.
+    // Near-equal samples fall back to the midpoint transfer. See tests/functional/unit/README.md.
     SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
     const float excursion = static_cast<float>(bisected_signed_excursion(1.2 * kKneeExcursion));
     const float plate = static_cast<float>(plate_at(excursion));
@@ -342,9 +330,7 @@ TEST(Unit_Dsp, AntiderivativeAntialiaserIsContinuousWhereConsecutiveSamplesNearl
 
 TEST(Unit_Dsp, AntiderivativeAntialiaserResetDropsItsPreviousSample)
 {
-    // Without a previous sample there is no interval to average over, so the first sample after
-    // reset() is the plain transfer at that excursion; the stages lean on that to restart
-    // click-free.
+    // The first sample after reset() is the plain transfer. See tests/functional/unit/README.md.
     SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
     const float first = static_cast<float>(bisected_signed_excursion(0.5 * kKneeExcursion));
     const float second = static_cast<float>(bisected_signed_excursion(1.5 * kKneeExcursion));
@@ -359,9 +345,7 @@ TEST(Unit_Dsp, AntiderivativeAntialiaserResetDropsItsPreviousSample)
 
 TEST(Unit_Dsp, TriodeStageOutputIsTheAntialiaserOfItsOwnGridSolve)
 {
-    // The stage's plate output is its antialiaser fed with the grid excursion its solver found:
-    // the same excursions through a bare antialiaser reproduce the stage sample for sample, to
-    // the Newton solver's four-iteration tolerance.
+    // The stage's output is its antialiaser's output. See tests/functional/unit/README.md.
     SushiDSP::TriodeStage stage = make_stage();
     SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
     for (int i = 0; i < 4000; ++i)

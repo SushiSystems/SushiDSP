@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Sdl2AudioDevice.cpp
+ * @brief Implements the SDL2-backed audio device.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 
 #include "SushiDSP/core/DenormalGuard.hpp"
@@ -50,8 +56,7 @@ namespace SushiDSP
         format_.input_channels = 0;
         format_.output_channels = obtained.channels;
 
-        // A one-channel device hands its own buffer to the callback, so only a wider
-        // device needs somewhere deinterleaved to render into.
+        // A one-channel device renders into SDL2's own buffer; only a wider one deinterleaves.
         if (format_.output_channels > 1)
         {
             deinterleaved_output_.assign(
@@ -89,9 +94,7 @@ namespace SushiDSP
     {
         SDL_PauseAudioDevice(device_id_, 1);
 
-        // Once stopped, the device must not keep a reference to whatever the
-        // caller's callback captured; SDL_PauseAudioDevice waits for any
-        // in-flight callback to finish, so clearing here is safe.
+        // SDL_PauseAudioDevice waits out any in-flight callback, so clearing is safe (src/README.md).
         callback_ = {};
     }
 

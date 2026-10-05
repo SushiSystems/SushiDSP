@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file GearFilter.hpp
+ * @brief Declares the gear browser's tabs, items and the filter that groups them.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file NodeRegistry.hpp
+ * @brief Declares the catalog of constructible nodes and the factory that builds one by id.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <memory>

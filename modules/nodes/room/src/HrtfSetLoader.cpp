@@ -209,8 +209,7 @@ namespace SushiDSP::room
         read_floats(bytes.data(), cursor, HrtfSet::kDiffuseTaps, diffuse_left_vector);
         read_floats(bytes.data(), cursor, HrtfSet::kDiffuseTaps, diffuse_right_vector);
 
-        // Every field lands in a local set first; only success moves it into the caller's set,
-        // so a failure anywhere below leaves the caller's set exactly as it was.
+        // A failure leaves the caller's set as it was; see modules/nodes/room/README.md.
         try
         {
             HrtfSet loaded(static_cast<double>(header.sample_rate_hz), std::move(directions),

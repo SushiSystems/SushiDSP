@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TrackRecorder.hpp
+ * @brief Declares one recording destination fed by rings and drained by a writer thread.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <atomic>

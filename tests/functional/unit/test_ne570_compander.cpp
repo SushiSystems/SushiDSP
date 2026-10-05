@@ -6,15 +6,14 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and it must remain the very first thing in the translation unit.
-#define _USE_MATH_DEFINES
-
 /**
  * @file test_ne570_compander.cpp
  * @brief Tests for the NE570 compander model.
  * @author Mustafa Garip & Sushi Systems
  */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
+#define _USE_MATH_DEFINES
 
 #include <gtest/gtest.h>
 
@@ -59,13 +58,7 @@ namespace
 
 TEST(Unit_Dsp, Ne570CompressorFollowsTheTwoToOneLaw)
 {
-    // N6: V_out = sqrt(V_ref * V_in) with V_ref = 6.6125 V.
-    //   V_in = 0.066125 (0.01 V_ref) -> sqrt(6.6125*0.066125) = 0.66125     (exactly 0.1 V_ref)
-    //   V_in = 0.66125  (0.1 V_ref)  -> sqrt(6.6125*0.66125)  = 2.0910639   (0.3162278 V_ref)
-    //   V_in = 6.6125   (1.0 V_ref)  -> 6.6125                              (exactly V_ref)
-    //   V_in = 26.45    (4.0 V_ref)  -> sqrt(6.6125*26.45)    = 13.225      (exactly 2 V_ref)
-    // The 2 % tolerance is the rectifier's own ripple at 1 kHz: the ripple sits at 2 kHz and the
-    // 23.4051 Hz pole leaves 23.4051/2000 = 1.17 % of it on the control voltage.
+    // V_out = sqrt(V_ref * V_in) with V_ref = 6.6125 V. See tests/functional/unit/README.md.
     struct Point { double input; double output; };
     const Point points[4] = { { 0.066125, 0.66125 }, { 0.66125, 2.0910639 },
                               { 6.6125, 6.6125 }, { 26.45, 13.225 } };
@@ -78,11 +71,7 @@ TEST(Unit_Dsp, Ne570CompressorFollowsTheTwoToOneLaw)
 
 TEST(Unit_Dsp, Ne570ExpanderFollowsTheOneToTwoLaw)
 {
-    // N6: V_out = V_in^2 / V_ref.
-    //   0.66125    -> 0.66125^2/6.6125    = 0.066125
-    //   2.0910639  -> 2.0910639^2/6.6125  = 0.66125
-    //   6.6125     -> 6.6125
-    //   13.225     -> 13.225^2/6.6125     = 26.45
+    // V_out = V_in^2 / V_ref. See tests/functional/unit/README.md.
     struct Point { double input; double output; };
     const Point points[4] = { { 0.66125, 0.066125 }, { 2.0910639, 0.66125 },
                               { 6.6125, 6.6125 }, { 13.225, 26.45 } };
@@ -115,8 +104,7 @@ TEST(Unit_Dsp, Ne570RoundTripIsTheIdentityInTheStaticLimit)
 
 TEST(Unit_Dsp, Ne570EnvelopeReachesSixtyThreePercentAtSixPointEightMilliseconds)
 {
-    // G(t) = (G_i - G_f)*e^(-t/tau) + G_f with tau = 10k * 0.68u = 6.8 ms exactly.
-    // 1 - e^-1 = 0.6321206 of a step, at 0.0068 * 48000 = 326.4 samples.
+    // tau = 10k * 0.68u = 6.8 ms, 326.4 samples at 48 kHz. See tests/functional/unit/README.md.
     SushiDSP::dd3::Ne570Compander expander(SushiDSP::dd3::CompanderHalf::Expander);
     expander.prepare(48000.0);
     const double target = 1.0;                       // a 1 V DC step reads 1 V * pi/2 rectified...
@@ -124,8 +112,7 @@ TEST(Unit_Dsp, Ne570EnvelopeReachesSixtyThreePercentAtSixPointEightMilliseconds)
     for (std::size_t n = 0; n < 4800; ++n)
     {
         expander.process_sample(static_cast<float>(target));
-        // The rectifier reads |x| * pi/2, so its final value is pi/2; the 63.21 % point is
-        // 0.6321206 * pi/2 = 0.9929407.
+        // The 63.21 % point is 0.6321206 * pi/2 = 0.9929407. See tests/functional/unit/README.md.
         if (crossing == 0 && expander.envelope_volts() >= 0.6321206 * M_PI / 2.0)
         {
             crossing = n + 1;
@@ -138,8 +125,7 @@ TEST(Unit_Dsp, Ne570EnvelopeReachesSixtyThreePercentAtSixPointEightMilliseconds)
 
 TEST(Unit_Dsp, Ne570CompressorGainSaturatesAtTheEnvelopeFloor)
 {
-    // Below V_ref * kEnvelopeFloor = 6.6125e-4 V the gain stops at 1/kEnvelopeFloor = 1e4 and the
-    // law goes linear, which is the modelled end of the gain cell's range (N6).
+    // Below 6.6125e-4 V the gain stops at 1e4. See tests/functional/unit/README.md.
     const double tiny = 1e-9;
     const double output = settled_peak(SushiDSP::dd3::CompanderHalf::Compressor, tiny, 1000.0);
     EXPECT_NEAR(output / tiny, 1.0e4, 1.0e2);
@@ -147,12 +133,7 @@ TEST(Unit_Dsp, Ne570CompressorGainSaturatesAtTheEnvelopeFloor)
 
 TEST(Unit_Dsp, Ne570RectifierRippleReachesTheSignalAtLowFrequencies)
 {
-    // Dossier 3, "Compander behaviour": the 23.4051 Hz rectifier corner is deliberately fast, and
-    // the datasheet's stated penalty - ripple modulating the gain cell into third-harmonic
-    // distortion on low-frequency material - is a feature to reproduce, not an artefact to filter
-    // out. At 50 Hz the ripple sits at 100 Hz and the pole leaves 23.4051/100 = 23.4 % of it, so
-    // the third harmonic must be clearly present. This asserts a floor, not a ceiling: the test
-    // fails if a future "improvement" smooths the envelope.
+    // The third harmonic has a floor, not a ceiling. See tests/functional/unit/README.md.
     SushiDSP::dd3::Ne570Compander compressor(SushiDSP::dd3::CompanderHalf::Compressor);
     compressor.prepare(48000.0);
     const double f0 = SushiDSP::measure::bin_exact_frequency(50.0, 48000.0, SushiDSP::measure::kFftSize);
@@ -170,24 +151,7 @@ TEST(Unit_Dsp, Ne570RectifierRippleReachesTheSignalAtLowFrequencies)
 
 TEST(Unit_Dsp, Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier)
 {
-    // |sin| carries a harmonic at every 2k*f0, so a rectifier sampled at the host rate folds
-    // them, and 48000/6 is the tone that folds one worst: the sixth harmonic lands on 48001.5 Hz
-    // and aliases to 1.46 Hz, two analysis bins off the carrier and far inside the 23.4051 Hz
-    // pole, so it modulates the gain cell at full weight. The board's rectifier is continuous
-    // time and does none of this, which is why kRectifierOversampling exists.
-    //
-    // The fold itself sits at +-2 bins, inside the Blackman-Harris main lobe (+-3 bins) and so
-    // unmeasurable here; the search below starts at bin 4 and therefore bounds the comb's tail,
-    // not its peak. The worst line outside the main lobe reads -76.05 dB with the sub-stepping
-    // and -57.67 dB without it, so the -70 dB bound sits 6 dB above the measurement (headroom
-    // against run-to-run noise) and 12.3 dB below what a host-rate rectifier produces (still
-    // catching the regression). The tail bound and
-    // Ne570RectifierRippleReachesTheSignalAtLowFrequencies's floor are the invariant pair: the
-    // genuine 100 Hz ripple a 50 Hz tone makes must survive, and it does, unmoved at -23.75 dB.
-    // Driven at 2.0 V, the project-wide full-scale peak (SushiDSP::kFullScaleVolts,
-    // include/SushiDSP/core/Calibration.hpp), to catch the fold at the loudest stimulus the
-    // converter passes; the ripple test above drives kReferenceVolts because it is exercising
-    // the 2:1 law's own pivot point instead.
+    // The -70 dB bound covers the comb's tail from bin 4. See tests/functional/unit/README.md.
     SushiDSP::dd3::Ne570Compander compressor(SushiDSP::dd3::CompanderHalf::Compressor);
     compressor.prepare(48000.0);
     const double f0 = SushiDSP::measure::bin_exact_frequency(8000.0, 48000.0, SushiDSP::measure::kFftSize);
@@ -215,8 +179,7 @@ TEST(Unit_Dsp, Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier)
 
 TEST(Unit_Dsp, Ne570HalvesDoNotShareState)
 {
-    // The expander is open-loop: it tracks the reconstructed signal, never what the compressor
-    // did (dossier 1.9 item 2). Two instances driven differently must hold different envelopes.
+    // The expander is open-loop; instances share no state. See tests/functional/unit/README.md.
     SushiDSP::dd3::Ne570Compander first(SushiDSP::dd3::CompanderHalf::Expander);
     SushiDSP::dd3::Ne570Compander second(SushiDSP::dd3::CompanderHalf::Expander);
     first.prepare(48000.0);

@@ -415,3 +415,116 @@ worth ×0.09225 together.
   220k" in that position, and the resistor sets how V2a recovers from blocking distortion (§8,
   question 5).
 - **Pot tapers.** The drawing marks none. Every knob here is linear in position (§8, question 6).
+
+## Implementation notes
+
+### What the class models
+
+`DiezelVh4` is the VH4's channel 3 ("Mega"): V1a, the channel gain pot's 1 nF split, V2a, V3a,
+the V3b cathode follower, the FMV deck, the channel volume, the four-way mix bus, V4a and the V4b
+send buffer, then a phase inverter, an EL34 quad, the output transformer, power sag, Deep and
+Presence, followed by a full-scale clamp. Cabinet convolution lives in the standalone
+`sushidsp.cabinet` node. The class is a documented approximation, not a white-box model: the gain
+chain comes from one reverse-engineering drawing, the tone stack's interconnection is a
+reconstruction and the power section is built from prose alone. The sections above say which is
+which. The class exposes `diezel_vh4_descriptor()`.
+
+### The master unity gain
+
+`kMasterUnityGain` multiplies the signal after the last nonlinearity, so it scales the output and
+nothing else. The calibration point is the one all four amplifiers share: every knob at its
+default and a -12 dBFS 82 Hz input peaks at -6.00 dBFS
+(`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, section 6), pinned
+by `DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`. The value 0.2319680 was
+measured on 2026-09-07 on the Norman grid law, on the volt-true power stage and on the transformer
+whose secondary carries no mean. The values before those three changes were 0.2365060, 0.3543949
+and 0.627263, the last pinned at 1 kHz. "Calibration" above carries the derivation.
+
+### Dossier citations
+
+Every constant in `DiezelVh4.cpp` cites the section of
+`docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md` it comes from. A constant the
+dossier marks "not established", or that this module chose for itself, says so on its own line and
+is listed again in this README.
+
+### V1a's plate impedance
+
+`kV1aPlateImpedanceOhms` is Ra 120 kOhm in parallel with rp 54.6 kOhm (sections 3.1 and 6). It is
+the impedance C13 is driven from, and it is what puts the gain pot's corners on the dossier's
+314 Hz and 618 Hz.
+
+### V2a's stopper and grid leak
+
+`kV2aSourceResistanceOhms` and `kV2aGridLeakOhms` are R21 47 kOhm and R22 3M3 as section 3.3
+draws them. Section 8 question 5 records that a tech reports 1 MOhm and 220 kOhm on real boards.
+
+### The coupling capacitors
+
+C13, C18 and C20 each run `Biquad::set_first_order_high_pass()`; "Approximations, one by one"
+above says why.
+
+### The volume's series divider
+
+`kVolumeSeriesDivider` follows from sections 2 and 4: the stack's output leaves through R42
+470 kOhm into the 470 kOhm channel volume, so the wiper's own fraction sits on a fixed
+470/(470+470) divider.
+
+### V4a's grid
+
+V4a runs Ra 120 kOhm with its 640 Ohm cathode unbypassed (sections 2 and 6), which is already
+folded into the x28.7 gain. Its grid is the mix node, so `kV4aSourceResistanceOhms` is R43
+680 kOhm in parallel with the node's 48.1 kOhm, and `kV4aGridLeakOhms` is that node.
+
+### The loop return and the phase inverter
+
+Section 5 establishes nothing past the send jack, so the loop return driver and the phase
+inverter are one triode on the corpus's 82 kOhm operating point. That is a modelling choice top
+to bottom.
+
+### The transformer and sag stand-ins
+
+Section 5 establishes no output transformer primary impedance, no turns ratio and no supply
+behaviour, so the transformer's rolloff, leakage and saturation drive and the sag stage's amount
+and recovery time are the corpus's stand-in figures; "The power section" above lists them.
+
+### Presence and Deep
+
+Presence "frequency centers at about 4kHz" (S2; sections 5 and 6). Its depth is a modelling
+choice, the corpus's 9 dB, because no VH4 source gives one.
+
+Deep is "centered at 80Hz" (S2; sections 5 and 6). S8 says 90 Hz, and section 8 question 9
+records the disagreement. The 10 dB of lift is a modelling choice, and so is the first-order
+shelf: section 5 and section 8 question 8 say the real control is an LC section in the feedback
+loop.
+
+### Rates
+
+Everything from the gain pot's coupling capacitor to the sag stage sits inside the single
+oversampled region, so `prepare()` derives every one of those corners at 8x the host rate.
+
+Deep and Presence are the two shelves inside the power amp's global feedback loop
+(section 5), so they sit after the output stage. Both are linear and generate nothing to alias,
+which is why they run on the host-rate side of the decimator with the master volume.
+
+### The output clamp
+
+Nothing upstream of the output is normalized to the DAC's range, so a hot combination of gain,
+master and output can still land outside [-1, 1]. The clamp at the end of `process()` is a safety
+rail.
+
+### Parameter order
+
+The order of the parameter table's rows is a contract. A host addresses the parameters by index,
+and a preset written by one build is read back by another, so rows are appended, never reordered
+or removed.
+
+### Tone stack values
+
+Dossier section 4, "Values", gives the stack's components: C27 560 pF, C28 22 nF, C29 22 nF, the
+R41 39 kOhm slope resistor, bass 1 MOhm, mid 22 kOhm and treble 220 kOhm. R40 10 kOhm is not a
+member of the closed form and is carried by `DiezelVh4ToneStack::kInputResistorAttenuation`.
+
+### V3a's values
+
+Section 3.4 gives V3a an R26 470 kOhm grid stopper, the 500 kOhm R24'/R25' pair as the grid leak,
+Vgk -1.02 V, and Rk 680 Ohm with C19 2.2 uF.

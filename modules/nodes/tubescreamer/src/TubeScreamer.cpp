@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TubeScreamer.cpp
+ * @brief Implements the Tube Screamer pedal: the clip block, the tone block and the level gain.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 #include <algorithm>
@@ -16,12 +22,10 @@ namespace SushiDSP
 {
     namespace
     {
-        // Four times is where the diode pair's aliasing products fall below the noise floor of
-        // the committed halfbands; the DK solve costs too much to spend eight (approved C1).
+        // Four is where the alias floor was measured; see modules/nodes/tubescreamer/README.md.
         constexpr std::uint32_t kOversamplingFactor = 4;
 
-        // Time constant of every knob's smoother: slow enough that a jump cannot step the
-        // clipper's operating point audibly, fast enough to feel immediate under a hand.
+        // One time constant serves every knob's smoother; see modules/nodes/tubescreamer/README.md.
         constexpr float kSmoothingMs = 20.0f;
 
         constexpr float kMinLevelDecibels = -60.0f;
@@ -43,8 +47,7 @@ namespace SushiDSP
             = tube_screamer_circuits::build_tone_block(tone_netlist);
         tone_pot_ = tone_pots.tone;
 
-        // The DK blocks are stepped once per oversampled sample, so they are discretised at the
-        // run rate, not at the host rate.
+        // The DK blocks are discretised at the oversampled run rate, not at the host rate.
         const double run_rate = sample_rate_ * static_cast<double>(kOversamplingFactor);
         circuits_ready_ = clip_circuit_.prepare(clip_netlist, run_rate)
                           && tone_circuit_.prepare(tone_netlist, run_rate);
@@ -79,10 +82,7 @@ namespace SushiDSP
 
         if (!circuits_ready_)
         {
-            // A derivation that failed never recovers, so the pedal degrades to what its own
-            // bypass would give: the dry signal, copied. No solver runs and the input is
-            // already bounded, so this path cannot alias or blow up. The guard sits above
-            // every skip() so all four smoothers advance together or not at all.
+            // A failed derivation copies the dry signal; see modules/nodes/tubescreamer/README.md.
             std::copy(input, input + context.frames, output);
             return;
         }
@@ -91,9 +91,7 @@ namespace SushiDSP
         const float tone = tone_.skip(context.frames);
         const float input_gain = input_trim_gain_.skip(context.frames);
 
-        // Wiper positions are a control-rate concern: set_potentiometer marks nothing dirty when
-        // the value has not moved, so a still knob costs nothing and a moved one costs one
-        // re-derivation per block (D6b plan, ruling 3).
+        // A still knob marks nothing dirty; see modules/nodes/tubescreamer/README.md.
         clip_circuit_.set_potentiometer(
             drive_pot_, tube_screamer_circuits::drive_to_position(static_cast<double>(drive)));
         tone_circuit_.set_potentiometer(
@@ -101,9 +99,7 @@ namespace SushiDSP
         clip_circuit_.update_matrices_if_dirty();
         tone_circuit_.update_matrices_if_dirty();
 
-        // Volts in, volts out: the DK blocks are the real circuit and kFullScaleVolts is what
-        // 0 dBFS means at the instrument jack (spec D5b.5). The D6a 20 Hz input biquad is gone -
-        // the clip block's own 1 uF into 510 kOhm is the pedal's real input high-pass, at 0.31 Hz.
+        // The loop works in volts in and volts out; see modules/nodes/tubescreamer/README.md.
         for (std::uint32_t frame = 0; frame < context.frames; ++frame)
         {
             oversampled_scratch_[frame] = input[frame] * input_gain * kFullScaleVolts;
@@ -118,23 +114,18 @@ namespace SushiDSP
             std::array<double, 1> toned{};
             clip_circuit_.process_sample(clip_port_, { static_cast<double>(upsampled[index]) },
                                          clipped);
-            // The clip stage's probe is its op-amp's output node, which has zero output
-            // impedance, so the tone block cannot load it: cascading the two within one sample is
-            // exact, not an approximation (D6c plan, ruling 8).
+            // Cascading both blocks in a sample is exact; see modules/nodes/tubescreamer/README.md.
             tone_circuit_.process_sample(tone_port_, clipped, toned);
             clipped_scratch_[index] = static_cast<float>(toned[0]);
         }
 
-        // oversampled_scratch_ is reused here: every element in [0, frames) is overwritten by
-        // downsample() before the level loop reads it back.
+        // downsample() overwrites all of [0, frames) in oversampled_scratch_ before the read-back.
         oversampler_->downsample(clipped_scratch_.data(), frames_oversampled,
                                  oversampled_scratch_.data());
 
         for (std::uint32_t frame = 0; frame < context.frames; ++frame)
         {
-            // Level alone ramps per sample: it is a single multiply outside the oversampled loop,
-            // and stepping it once per block would make the audible smoothing time a function of
-            // the host's block size.
+            // Level alone ramps per sample; see modules/nodes/tubescreamer/README.md.
             output[frame] = oversampled_scratch_[frame] / kFullScaleVolts * level_gain_.next()
                             * kLevelUnityGain;
         }
@@ -147,8 +138,7 @@ namespace SushiDSP
 
     void TubeScreamer::reset()
     {
-        // Zeroing the state vectors is the whole reset: a pedal has no bias point to settle, so
-        // unlike JcmV1aStageNode::reset() there is no warm-up loop to run here.
+        // Zeroing the state vectors is the whole reset; see modules/nodes/tubescreamer/README.md.
         clip_circuit_.reset();
         tone_circuit_.reset();
         if (oversampler_)

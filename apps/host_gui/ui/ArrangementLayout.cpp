@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file ArrangementLayout.cpp
+ * @brief Implements the arrangement view's grid lines, clip spans and lane hit tests.
+ * @author Mustafa Garip
+ */
+
 #include "ui/ArrangementLayout.hpp"
 
 #include <cmath>

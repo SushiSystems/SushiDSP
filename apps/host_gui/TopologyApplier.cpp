@@ -74,8 +74,7 @@ void TopologyApplier::switch_chain_type(RigTopology& topology, RigController& ri
 {
     const ChainTypeChange change = topology.set_chain_type(type);
 
-    // The main path is copied into each path that opened, so a split starts from what was
-    // already being heard rather than from silence.
+    // The main path is copied into each path that opened; see apps/host_gui/README.md.
     const std::vector<SlotId> main_path = topology.stage(StageAddress{ StageKind::Branch, 0 });
     for (std::size_t branch : change.opened)
     {

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file MeterBar.cpp
+ * @brief Implements the input and output level meters.
+ * @author Mustafa Garip
+ */
+
 #include "ui/MeterBar.hpp"
 
 #include <algorithm>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file AliasFloor.hpp
+ * @brief Defines the alias-floor measurement of a node across 1 to 20 kHz test tones.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -19,19 +25,11 @@
 
 namespace SushiDSP::measure
 {
-    /// @brief Worst non-harmonic spectral line produced by a node across 1..20 kHz test tones.
-    ///
-    /// Each tone is bin-exact, rendered for one second of settling plus one analysis frame.
-    /// Lines within four bins of DC, of the fundamental, or of any harmonic below Nyquist are
-    /// excluded; a harmonic that would fall above Nyquist has folded back and is counted as an
-    /// alias, which is what the number is for.
+    /// @brief Returns the worst non-harmonic spectral line a node produces across 1..20 kHz tones.
     /// @param node The node under test, knobs already set.
-    /// @param sample_rate Sample rate.
-    /// @param amplitude Peak stimulus in full-scale units; -12 dBFS by default. A node that
-    /// clips inside its own chain at this level reports that clipping's folded harmonics rather
-    /// than its conversion, so sweep such a node at the operating point its data sheet or
-    /// service note publishes.
+    /// @param amplitude Peak stimulus in full-scale units; -12 dBFS by default.
     /// @return Worst alias level in dB relative to the fundamental (more negative is better).
+    /// @see tests/measure/README.md, "AliasFloor.hpp", for the masking rule and the level caveat.
     inline double alias_floor(IAudioNode& node, double sample_rate, float amplitude = 0.251189f)
     {
         const std::size_t settle = static_cast<std::size_t>(sample_rate);

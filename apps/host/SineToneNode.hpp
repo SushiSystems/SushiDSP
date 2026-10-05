@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SineToneNode.hpp
+ * @brief Declares the diagnostic sine generator of the standalone host.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/core/IAudioNode.hpp"

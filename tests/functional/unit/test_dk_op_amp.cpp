@@ -41,9 +41,7 @@ namespace
 
 TEST(Unit_Dsp, DkCircuitIdealOpAmpInvertingAmplifierHasGainMinusRfOverRin)
 {
-    // Node 1 = source, 2 = the summing junction, 3 = the output. The nullator senses ground
-    // against node 2, so V(2) = 0; the norator drives node 3. KCL at node 2 is then
-    // -V(1)/Rin - V(3)/Rf = 0, so V(3) = -(Rf/Rin) V(1) = -10 V(1) at every frequency.
+    // V(3) = -(Rf/Rin) V(1) = -10 V(1) at every frequency. See tests/functional/unit/README.md.
     SushiDSP::dk::DkNetlist<0, 0, 1, 1> netlist;
     netlist.node_count = 3;
     netlist.voltage_source(1, 0);
@@ -67,8 +65,7 @@ TEST(Unit_Dsp, DkCircuitIdealOpAmpInvertingAmplifierHasGainMinusRfOverRin)
 
 TEST(Unit_Dsp, DkCircuitIdealOpAmpNonInvertingAmplifierHasGainOnePlusRfOverRg)
 {
-    // The Tube Screamer clip stage with its capacitors removed and the drive pot at zero:
-    // 1 + 51000/4700 = 11.851063829787234 exactly.
+    // 1 + 51000/4700 = 11.851063829787234 exactly. See tests/functional/unit/README.md.
     SushiDSP::dk::DkNetlist<0, 0, 1, 1> netlist;
     netlist.node_count = 3;
     netlist.voltage_source(1, 0);
@@ -107,12 +104,7 @@ TEST(Unit_Dsp, DkCircuitIdealOpAmpVoltageFollowerPassesItsInputThrough)
 
 TEST(Unit_Dsp, DkCircuitIdealOpAmpLowPassMatchesTheBilinearTransformExactly)
 {
-    // Inverting stage with Rf in parallel with Cf: H(s) = -(Rf/Rin) / (1 + s Rf Cf).
-    // Trapezoidal DK must reproduce its bilinear transform exactly. With Rin = 10 kOhm,
-    // Rf = 100 kOhm, Cf = 10 nF, fs = 48000: a = 2 fs Rf Cf = 2*48000*1e-3 = 96, so
-    //   H(z) = -(Rf/Rin) (1 + z^-1) / ((1 + a) + (1 - a) z^-1)
-    // with pole (a - 1)/(a + 1) = 95/97 = 0.979381443298969 and DC gain -10 exactly.
-    // The analogue corner is 1/(2 pi Rf Cf) = 159.154943 Hz.
+    // The pole is 95/97 and the DC gain is -10 exactly. See tests/functional/unit/README.md.
     constexpr double kInputOhms = 10.0e3;
     constexpr double kFeedbackOhms = 100.0e3;
     constexpr double kFeedbackFarads = 10.0e-9;
@@ -151,8 +143,7 @@ TEST(Unit_Dsp, DkCircuitIdealOpAmpLowPassMatchesTheBilinearTransformExactly)
 
 TEST(Unit_Dsp, DkCircuitRejectsAnOpAmpWithNoFeedbackPath)
 {
-    // An op-amp whose output does not reach its own input leaves the augmented system rank
-    // deficient. prepare() must say so rather than derive nonsense.
+    // Without a feedback path the system is rank deficient. See tests/functional/unit/README.md.
     SushiDSP::dk::DkNetlist<0, 0, 1, 1> netlist;
     netlist.node_count = 3;
     netlist.voltage_source(1, 0);

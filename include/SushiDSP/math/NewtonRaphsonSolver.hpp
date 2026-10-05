@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file NewtonRaphsonSolver.hpp
+ * @brief Defines a Newton-Raphson root finder for a scalar nonlinear equation.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cmath>
@@ -30,20 +36,11 @@ namespace SushiDSP
         };
 
         /// @brief Finds x such that the residual is approximately zero, starting from initial_guess.
-        /// @tparam JointFunction Any callable Evaluation(float) returning f(x) and f'(x) together.
-        /// Templated rather than type-erased through std::function on purpose: every caller sits
-        /// on the audio thread and builds a fresh capturing lambda per sample, and a capture list
-        /// wider than the standard library's small-buffer optimisation (16 bytes on libstdc++)
-        /// would make std::function heap-allocate inside process(). A template instantiates the
-        /// callable inline, with no allocation on any platform.
-        /// @param function Returns the residual f(x) and its derivative f'(x).
-        /// @param initial_guess Starting point; warm-starting from the previous sample's
-        /// solution is what makes 2-4 iterations sufficient at audio rates.
-        /// @param max_iterations Maximum Newton iterations.
-        /// @param minimum_x Lower bound the iterate is clamped to after every step. Circuits with
-        /// exponential residuals (diode models) must bound the trial point, otherwise a single
-        /// overshoot evaluates exp() past the float range and poisons the warm-start state with
-        /// inf/nan forever. Defaults to unbounded.
+        /// @tparam JointFunction Any callable Evaluation(float) returning f(x) and f'(x) together; a
+        /// template so that no call allocates (include/SushiDSP/README.md).
+        /// @param initial_guess Starting point; the previous sample's solution is the intended one.
+        /// @param minimum_x Lower bound the iterate is clamped to after every step. Unbounded by
+        /// default; an exponential residual needs it finite.
         /// @param maximum_x Upper bound the iterate is clamped to after every step.
         /// @return The converged root estimate. Always finite when the bounds are finite.
         template <typename JointFunction>
@@ -81,8 +78,7 @@ namespace SushiDSP
 
                 float next = x - evaluation.value / f_prime_value;
 
-                // A non-finite step means the residual blew past the float range; keep the last
-                // good iterate rather than propagating inf/nan into the caller's warm-start state.
+                // A non-finite step keeps the last good iterate; inf/nan never reaches the warm start.
                 if (!std::isfinite(next))
                 {
                     break;
@@ -96,10 +92,7 @@ namespace SushiDSP
                 {
                     next = maximum_x;
                 }
-                // A step that lands exactly on the current iterate is a fixed point in float:
-                // every further iteration would recompute the same value, so stopping here
-                // changes nothing but the cost. Warm-started audio-rate solves reach this on
-                // most samples well before max_iterations.
+                // A step onto the current iterate is a float fixed point (include/SushiDSP/README.md).
                 if (next == x)
                 {
                     break;
@@ -109,14 +102,10 @@ namespace SushiDSP
             return x;
         }
 
-        /// @brief Split-callable form of solve_joint() for residuals whose derivative shares no work
-        /// with the residual itself. Same contract and same arithmetic as the joint overload.
+        /// @brief Finds the root from a residual and a derivative supplied as separate callables,
+        /// under the contract and arithmetic of solve_joint().
         /// @tparam Residual Any callable float(float).
         /// @tparam Derivative Any callable float(float).
-        /// @param function The residual function f(x).
-        /// @param derivative The derivative f'(x).
-        /// @param initial_guess Starting point.
-        /// @param max_iterations Maximum Newton iterations.
         /// @param minimum_x Lower clamp on the iterate.
         /// @param maximum_x Upper clamp on the iterate.
         /// @return The converged root estimate.

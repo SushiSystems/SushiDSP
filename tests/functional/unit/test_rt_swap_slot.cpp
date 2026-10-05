@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_rt_swap_slot.cpp
+ * @brief Tests the publish, acquire and reclaim sequence of RtSwapSlot.
+ * @author Mustafa Garip
+ */
+
 #include <atomic>
 #include <memory>
 #include <thread>
@@ -16,11 +22,8 @@
 
 namespace
 {
-    // A payload whose destructor is observable, so the deferred-reclaim contract can be checked
-    // by counting frees rather than by inspecting RtSwapSlot's internals. The canary value is
-    // dereferenced (not just null-checked) by the concurrent case: a dangling-but-non-null
-    // pointer sails straight through a null-check, whereas reading a field of freed memory that
-    // has since been reused shows up as a wrong value or a crash.
+    /// @brief Declares a payload whose destructor is observable through a live count.
+    /// @see tests/functional/unit/README.md
     class Counted
     {
     public:
@@ -89,8 +92,7 @@ TEST(Unit_Dsp, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMove
 
         slot.publish(std::make_unique<Counted>(2));
 
-        // The audio thread is still parked on generation 1, so generation 1's object must stay
-        // alive no matter how often reclaim() runs.
+        // Generation 1 stays alive while the thread is on it. See tests/functional/unit/README.md.
         slot.reclaim();
         EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 2);
 
@@ -144,10 +146,7 @@ TEST(Unit_Dsp, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
 
 TEST(Unit_Dsp, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
 {
-    // active_for_publisher() exists so the publishing thread can look at the active object
-    // without claiming the audio thread reached it. Reading it must therefore leave reclaim()'s
-    // "provably moved past" bound exactly where it was - if it forged the watermark instead,
-    // reclaim() would free the object an audio thread is still using.
+    // Reading the active object must not move the watermark. See tests/functional/unit/README.md.
     Counted::live_count.store(0, std::memory_order_relaxed);
     {
         SushiDSP::RtSwapSlot<Counted> slot;
@@ -161,22 +160,17 @@ TEST(Unit_Dsp, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark
 
         EXPECT_EQ(slot.active_for_publisher(), slot.acquire_for_audio_thread());
 
-        // The audio thread's last recorded generation is still the second acquire above, so the
-        // first object is genuinely retired here. Re-read it through the publisher accessor and
-        // confirm that read alone did not move anything.
+        // The read alone moves nothing. See tests/functional/unit/README.md.
         EXPECT_EQ(slot.active_for_publisher()->value(), 2);
 
         slot.publish(std::make_unique<Counted>(3));
         EXPECT_EQ(slot.active_for_publisher()->value(), 3);
 
-        // The audio thread has not acquired since generation 2 was published, so reclaim() may
-        // free nothing published at or after it: object 2 (still the generation the audio thread
-        // last recorded) and object 3 (active) must both survive. Only object 1 may go.
+        // Only object 1 may be freed here. See tests/functional/unit/README.md.
         slot.reclaim();
         EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 2);
 
-        // Once the audio thread does acquire, the earlier object becomes reclaimable - proving
-        // the watermark was still being driven by acquire_for_audio_thread() alone.
+        // Only acquire_for_audio_thread() moves the watermark. See tests/functional/unit/README.md.
         ASSERT_EQ(slot.acquire_for_audio_thread()->value(), 3);
         slot.reclaim();
         EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 1);

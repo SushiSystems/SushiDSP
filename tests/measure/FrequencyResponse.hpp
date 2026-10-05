@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file FrequencyResponse.hpp
+ * @brief Defines the swept-sine magnitude-response measurement of a node.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -26,29 +32,11 @@ namespace SushiDSP::measure
         double magnitude_db;
     };
 
-    /// @brief Small-signal magnitude response by exponential sine sweep and deconvolution.
-    ///
-    /// Sweep 5 Hz -> sample_rate/2 over two seconds at -40 dBFS, followed by one second of
-    /// silence for the tail. The sweep deliberately starts two octaves below the lowest
-    /// frequency any caller reports: an ESS carries no energy below its own start frequency,
-    /// and the abrupt onset at f1 leaves the first few bins of the deconvolved response
-    /// contaminated by that truncation. Measured against an analytic 2nd-order Butterworth
-    /// high-pass at 192 kHz, a sweep starting at 20 Hz reads 20 Hz as -27.250 dB against an
-    /// analytic -25.552 dB (error -1.699 dB) for a 87 Hz corner, and -6.386 vs -3.010
-    /// (error -3.375 dB) for a 20 Hz corner. Starting at 5 Hz instead brings both to
-    /// -0.068 dB, and the worst error anywhere from 20 Hz up is 0.17 dB. The inverse filter is the time-reversed sweep with a 6 dB/octave
-    /// amplitude envelope (Farina). The envelope rises along the original sweep's time axis,
-    /// so it compensates the sweep's 1/f energy density: the low frequencies at the sweep's
-    /// start are attenuated and the high frequencies at its end are not. Weighting it the
-    /// other way round attenuates the highs twice over and deconvolves to a low-frequency
-    /// blob rather than a delta. The linear impulse response is the circular convolution
-    /// of output and inverse. Harmonic products land before the linear response and are
-    /// excluded by keeping only the causal second. The stimulus itself is deconvolved the same
-    /// way and used as the 0 dB reference.
+    /// @brief Returns a node's small-signal magnitude response by sine sweep and deconvolution.
     /// @param node The node under test, knobs already set.
-    /// @param sample_rate Sample rate.
     /// @param frequencies_hz Frequencies to report.
     /// @return One point per requested frequency.
+    /// @see tests/measure/README.md, "FrequencyResponse.hpp", for the sweep and its measured error.
     inline std::vector<ResponsePoint> frequency_response(IAudioNode& node, double sample_rate, const std::vector<double>& frequencies_hz)
     {
         const double sweep_seconds = 2.0;

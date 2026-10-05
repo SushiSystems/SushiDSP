@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file ResonanceControl.hpp
+ * @brief Declares the low shelf of a power section's Resonance or Deep control.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/math/Biquad.hpp"

@@ -302,9 +302,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
 
 TEST(Unit_Dsp, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
 {
-    // Two copies of a resonator ring in bank 0 after an impulse. Tap 0's state carried into
-    // bank 1 makes bank 1 ring exactly as bank 0's tap 0 alone does; tap 1, not carried,
-    // stays silent in bank 1 because the ring has gone quiet.
+    // Only tap 0's state is carried into bank 1. See tests/functional/unit/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     const double radius = 0.999;
     const double theta = 2.0 * kPi * 1000.0 / 48000.0;
@@ -346,8 +344,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
 
 TEST(Unit_Dsp, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
 {
-    // The same bank as both ends of a carry is a copy onto itself: a copy of the renderer
-    // that never made the call renders the same block.
+    // A carry onto the same bank is a copy onto itself. See tests/functional/unit/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     const double radius = 0.999;
     const double theta = 2.0 * kPi * 1000.0 / 48000.0;

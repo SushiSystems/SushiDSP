@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Transport.cpp
+ * @brief Implements the transport's position, loop range and playback speed.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/capture/Transport.hpp"
 
 #include <algorithm>

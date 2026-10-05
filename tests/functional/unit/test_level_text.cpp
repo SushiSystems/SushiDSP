@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_level_text.cpp
+ * @brief Tests the decibel text and meter fill of LevelText.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include "ui/LevelText.hpp"

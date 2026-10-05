@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_streaming_convolution.cpp
+ * @brief Tests StreamingConvolution against the direct form.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <vector>
 #include <gtest/gtest.h>

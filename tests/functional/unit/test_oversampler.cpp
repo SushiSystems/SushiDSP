@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_oversampler.cpp
+ * @brief Tests the halfband filters and the 4x and 8x oversamplers.
+ * @author Mustafa Garip
+ */
+
 // _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 #include <algorithm>
@@ -93,8 +99,7 @@ TEST(Unit_Dsp, HalfbandDesignsHaveExactZeroTapsAndUnityDcGain)
         double sum = 0.0;
         for (std::uint32_t i = 0; i < design->tap_count; ++i)
         {
-            // tap_count = 4M-1 puts the centre at index 2M-1. The halfband zeros sit at even
-            // distances from the centre; the surviving taps are at odd distances 1, 3, 5, ...
+            // The halfband zeros sit at even centre distances. See tests/functional/unit/README.md.
             if (i != centre && (i > centre ? i - centre : centre - i) % 2 == 0)
             {
                 EXPECT_EQ(design->taps[i], 0.0f) << i;
@@ -139,8 +144,7 @@ TEST(Unit_Dsp, HalfbandDownsamplerMatchesDirectForm)
 
 TEST(Unit_Dsp, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
 {
-    // Spec D6a: image rejection >= 90 dB at 0.3*f_base and beyond. A tone's images sit at
-    // k*f_base +- f; every line in the 8x spectrum other than the tone must be >= 90 dB down.
+    // A tone's images sit at k*f_base +- f. See tests/functional/unit/README.md.
     const std::size_t base_frames = SushiDSP::measure::kFftSize / 8;
     for (const double fraction : { 0.30, 0.35, 0.40, 0.45 })
     {
@@ -171,18 +175,12 @@ TEST(Unit_Dsp, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
 
 TEST(Unit_Dsp, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
 {
-    // Tones at the 8x rate from 0.55*f_base to 3.95*f_base in 0.05 steps, decimated to base
-    // rate: whatever folds into [0, 0.45*f_base] must be >= 90 dB below the tone. Folds that
-    // land in the stage-1 transition band (0.45..0.5)*f_base are the filter's don't-care
-    // region and are skipped.
+    // Folds into (0.45..0.5)*f_base are skipped. See tests/functional/unit/README.md.
     const std::size_t base_frames = SushiDSP::measure::kFftSize;
-    // Reference level: the same-amplitude tone analysed with the same window at base rate. It
-    // has to be bin-exact, as the folded aliases are; a tone off-bin loses up to 0.83 dB to
-    // Blackman-Harris scalloping, which would flatter every alias by that much.
+    // The reference tone is bin-exact, as the aliases are. See tests/functional/unit/README.md.
     const double reference_cycles = std::round(0.1 * base_frames) / base_frames;
     const double reference = peak_db(SushiDSP::measure::magnitude_spectrum_db(sine(reference_cycles, base_frames * 2, 0.5f), base_frames));
-    // Integer-stepped: accumulating += 0.05 in double drifts, and near-integer fractions
-    // then fold to ~1e-7 instead of ~0, where the sweep would assert nothing.
+    // The sweep steps in integers; += 0.05 drifts. See tests/functional/unit/README.md.
     for (int step = 11; step <= 79; ++step)
     {
         const double fraction = step * 0.05;
@@ -260,8 +258,7 @@ TEST(Unit_Dsp, Oversampler8xLatencyMatchesMeasuredImpulseDelay)
 
 TEST(Unit_Dsp, Oversampler4xRoundTripDroopAt20kIsWithinTenthOfADecibel)
 {
-    // 20 kHz at 48 kHz is 0.4167*f_base, inside the 0.45 passband; round trip through the two
-    // stages shared with Oversampler8x's own stages 1 and 2.
+    // 20 kHz is 0.4167*f_base, inside the 0.45 passband. See tests/functional/unit/README.md.
     const std::size_t base_frames = SushiDSP::measure::kFftSize;
     const double cycles = std::round(20000.0 / 48000.0 * base_frames) / base_frames;
     const auto input = sine(cycles, base_frames * 2, 0.5f);
@@ -300,11 +297,7 @@ TEST(Unit_Dsp, Oversampler4xLatencyMatchesMeasuredImpulseDelay)
             peak = i;
         }
     }
-    // The impulse peak is the round trip: 31.75 base-rate samples up and 31.75 back, 63.5 in
-    // all. The 27-tap stage is what makes it fractional - it runs at 4x, so its 13 taps of delay
-    // are 3.25 base-rate samples each way and 6.5 together. The 115-tap stage contributes 28.5
-    // each way, a whole 57. See the derivation in Oversampler4x::latency_samples. The reported
-    // floor is within one sample of the peak.
+    // The round trip is 63.5 base-rate samples. See tests/functional/unit/README.md.
     const long difference = static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
     EXPECT_GE(difference, 0);
     EXPECT_LE(difference, 1);
@@ -325,9 +318,7 @@ TEST(Unit_Dsp, Oversampler8xPassesDcAtUnity)
 
 TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
 {
-    // An instance that has processed a burst and then been reset must produce bit-identical
-    // output to a never-used instance, on all four classes. Oversampler4x is here because it is
-    // what every shipping D6c node runs; TubeScreamer::reset() is only as good as this.
+    // A reset instance matches a never-used one bit for bit. See tests/functional/unit/README.md.
     const auto burst = sine(0.1913, 512, 0.9f);
     const auto probe = sine(0.0611, 128, 0.6f);
 
@@ -365,9 +356,7 @@ TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
             used.downsample(up, 512, scratch.data());
         }
         used.reset();
-        // The 4x buffer is internally owned and reused, so each block is copied out before the
-        // next call overwrites it. The two halfband blocks above need no such copy because
-        // process() writes to a caller-owned buffer.
+        // The 4x buffer is reused, so each block is copied. See tests/functional/unit/README.md.
         std::vector<float> after_reset_up(512, 0.0f), never_used_up(512, 0.0f);
         std::vector<float> after_reset(128, 0.0f), never_used(128, 0.0f);
         const float* used_up = used.upsample(probe.data(), 128);
@@ -390,8 +379,7 @@ TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
             used.downsample(up, 1024, scratch.data());
         }
         used.reset();
-        // The 8x buffer is internally owned and reused, so each block is copied out before the
-        // next call overwrites it.
+        // The 8x buffer is reused, so each block is copied. See tests/functional/unit/README.md.
         std::vector<float> after_reset_up(1024, 0.0f), never_used_up(1024, 0.0f);
         std::vector<float> after_reset(128, 0.0f), never_used(128, 0.0f);
         const float* used_up = used.upsample(probe.data(), 128);

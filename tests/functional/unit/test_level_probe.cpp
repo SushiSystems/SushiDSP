@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_level_probe.cpp
+ * @brief Tests that LevelProbe reports and resets the peak magnitude.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include "ui/LevelProbe.hpp"

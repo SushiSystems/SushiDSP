@@ -98,8 +98,7 @@ namespace
 
 TEST(Unit_Dsp, ResamplerHoldsADcLevelAtEveryRatio)
 {
-    // Every polyphase branch has unity DC gain and the decimating scale factor restores it, so a
-    // constant comes back as the same constant whichever way the rate moves.
+    // Every polyphase branch has unity DC gain. See tests/functional/unit/README.md.
     for (const double target : { 20000.0, 31250.0, 48000.0, 82500.0, 96000.0 })
     {
         SushiDSP::Resampler resampler;
@@ -116,10 +115,7 @@ TEST(Unit_Dsp, ResamplerHoldsADcLevelAtEveryRatio)
 
 TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3SlowClock)
 {
-    // 48 kHz -> 20 kHz -> 48 kHz. The content stops at 7 kHz, which is the pedal's own delay-path
-    // limit and is inside the prototype's passband (0.400 * 20000 = 8000 Hz, N1), so the round
-    // trip is limited by the kernel's own error: -100 dB stopband, -108 dB interpolation floor.
-    // -80 dB is asserted with margin for the float buffers.
+    // The 7 kHz content sits inside the 8000 Hz passband. See tests/functional/unit/README.md.
     const std::vector<float> input = multitone({ 100.0, 1000.0, 3000.0, 7000.0 }, 48000.0, 96000u);
     SushiDSP::Resampler down, up;
     down.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
@@ -133,9 +129,7 @@ TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3SlowClock)
 
 TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3FastClockAndTheSpx90Ratio)
 {
-    // 48 kHz -> 82.5 kHz -> 48 kHz, and 48 kHz -> 31.25 kHz -> 48 kHz (the SPX90's 1.536).
-    // At the SPX90 ratio the passband reaches 0.400 * 31250 = 12500 Hz, which is exactly the
-    // unit's published 20 Hz - 12 kHz band, so 12 kHz content must survive.
+    // 12 kHz content survives at the SPX90 ratio. See tests/functional/unit/README.md.
     struct Case { double middle_rate; std::vector<double> partials; };
     const Case cases[2] = {
         { 82500.0, { 100.0, 1000.0, 7000.0, 15000.0 } },
@@ -158,10 +152,7 @@ TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3FastClockAndTheSpx90Ratio)
 
 TEST(Unit_Dsp, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
 {
-    // An interpolating ratio never widens the kernel past its own 34 input samples, so a
-    // minimum_ratio above 1 must size the history on min(1, minimum_ratio). Dividing by the
-    // minimum_ratio alone reserves 64 slots here against a live reach of 76 and the ring wraps
-    // on top of itself, which shows up as a round trip that does not null.
+    // The history is sized on min(1, minimum_ratio). See tests/functional/unit/README.md.
     const std::vector<float> input = multitone({ 100.0, 1000.0, 7000.0 }, 48000.0, 24000u);
     SushiDSP::Resampler up, down;
     up.prepare(48000.0, 192000.0, 8u, 2.0);
@@ -175,9 +166,7 @@ TEST(Unit_Dsp, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
 
 TEST(Unit_Dsp, ResamplerRejectsAToneAboveTheOutputNyquist)
 {
-    // 15 kHz into a 20 kHz output rate would fold to |15000 - 20000| = 5000 Hz. Normalised to
-    // the lower rate, 15 kHz is 0.75 cycles/sample, deep in the prototype's stopband, so the
-    // image must land below -90 dB relative to the input tone.
+    // 15 kHz into 20 kHz would fold to 5000 Hz. See tests/functional/unit/README.md.
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
     std::vector<float> input(400000u, 0.0f);
@@ -190,8 +179,7 @@ TEST(Unit_Dsp, ResamplerRejectsAToneAboveTheOutputNyquist)
     const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(
         output, output.size() - SushiDSP::measure::kFftSize);
     const double image = SushiDSP::measure::peak_near(spectrum, SushiDSP::measure::bin_of(5000.0, 20000.0));
-    // 0 dB reference: what the same tone would read if it had passed unattenuated. Use the input
-    // itself, analysed at its own rate, so the two spectra share a window and a length.
+    // The 0 dB reference is the input at its own rate. See tests/functional/unit/README.md.
     const auto reference_spectrum = SushiDSP::measure::magnitude_spectrum_db(
         input, input.size() - SushiDSP::measure::kFftSize);
     const double reference = SushiDSP::measure::peak_near(
@@ -202,8 +190,7 @@ TEST(Unit_Dsp, ResamplerRejectsAToneAboveTheOutputNyquist)
 
 TEST(Unit_Dsp, ResamplerOutputCountFollowsTheRatioWithoutDrift)
 {
-    // Over a million frames the accumulated output count must stay within a sample or two of
-    // input_frames * ratio; a phase accumulator that rebases badly drifts here and nowhere else.
+    // The output count stays within two samples of the ratio. See tests/functional/unit/README.md.
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
     const std::vector<float> silence(256u, 0.0f);
@@ -220,9 +207,7 @@ TEST(Unit_Dsp, ResamplerOutputCountFollowsTheRatioWithoutDrift)
 
 TEST(Unit_Dsp, ResamplerResumesAfterAnUnderSizedOutputBuffer)
 {
-    // A short output buffer defers the outputs it had no room for. While the ring still holds
-    // their history the next call emits them, so the stream is the one an always-fed instance
-    // produces, sample for sample. Every position here is an integer, so equality is exact.
+    // Deferred outputs come out on the next call. See tests/functional/unit/README.md.
     const std::vector<float> input = multitone({ 100.0, 1000.0, 7000.0 }, 48000.0, 8192u);
     SushiDSP::Resampler reference, starved;
     reference.prepare(48000.0, 48000.0, 256u, 20000.0 / 48000.0);
@@ -248,10 +233,7 @@ TEST(Unit_Dsp, ResamplerResumesAfterAnUnderSizedOutputBuffer)
 
 TEST(Unit_Dsp, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
 {
-    // Truncation that never lets up cannot be deferred forever: the ring holds one span of
-    // history, and past that process() drops the backlog instead of reading slots it has
-    // overwritten. The proof that it drops rather than wraps is the tail: once the buffer is
-    // big enough again, the output lines up with the live input to better than -60 dB.
+    // process() drops the backlog instead of wrapping. See tests/functional/unit/README.md.
     const std::vector<float> input = multitone({ 100.0, 1000.0, 7000.0 }, 48000.0, 65536u);
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 48000.0, 256u, 20000.0 / 48000.0);
@@ -285,12 +267,7 @@ TEST(Unit_Dsp, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
 
 TEST(Unit_Dsp, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
 {
-    // The one way a phase can start a call below the floor: starve it until it pins on the 1:1
-    // floor, then decimate 16:1. The half span grows from 34 to 544 input samples, which lifts
-    // the floor 510 samples above where the phase sits, and only a clamp on entry keeps the
-    // outermost taps out of slots the ring has overwritten. The check is the identity every
-    // uniformly sampled sinusoid obeys, y[n-1] + y[n+1] = 2*cos(w)*y[n]: it needs neither the
-    // phase nor the amplitude of the output grid, and one overwritten tap breaks it.
+    // y[n-1] + y[n+1] = 2*cos(w)*y[n] for a sampled sinusoid. See tests/functional/unit/README.md.
     std::vector<float> input(262144u, 0.0f);
     for (std::size_t n = 0; n < input.size(); ++n)
     {
@@ -336,8 +313,7 @@ TEST(Unit_Dsp, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
 
 TEST(Unit_Dsp, ResamplerLatencyIsThirtyFourSamplesOfTheLowerRate)
 {
-    // DR1+DR2 plan N1, as the Task 1.1 ruling widened it: the delay is
-    // kResamplerHalfWidthZeroCrossings = 34 divided by min(source, target) seconds at every ratio.
+    // The delay is 34 / min(source, target) seconds. See tests/functional/unit/README.md.
     struct Case { double source; double target; double expected_seconds; std::uint32_t expected_samples; };
     const Case cases[6] = {
         { 48000.0, 48000.0, 34.0 / 48000.0, 34u },
@@ -386,10 +362,7 @@ TEST(Unit_Dsp, ResamplerKeepsAToneAtItsFrequency)
 
 TEST(Unit_Dsp, ResamplerRateChangeMidStreamIsContinuous)
 {
-    // The DD-3 usage: set_rates() every 8 frames while the target sweeps 82.5 kHz -> 20 kHz.
-    // A phase reset or a bank rebuild shows up here as a step; a correct accumulator does not.
-    // Reference: a 100 Hz unit sine sampled at 20 kHz moves at most 2*pi*100/20000 = 0.0314 per
-    // sample, so 0.05 leaves room for the sweep's own rate change and none for a click.
+    // At 20 kHz a 100 Hz sine steps at most 0.0314. See tests/functional/unit/README.md.
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 82500.0, 8u, 20000.0 / 48000.0);
     std::vector<float> scratch(resampler.maximum_output_frames(8u) + 8u, 0.0f);

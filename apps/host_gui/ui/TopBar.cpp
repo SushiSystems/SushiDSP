@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TopBar.cpp
+ * @brief Implements the top bar's preset controls, brand mark and device group.
+ * @author Mustafa Garip
+ */
+
 #include "ui/TopBar.hpp"
 
 #include <cstddef>
@@ -69,8 +75,7 @@ namespace ui
 
         const float window_width = ImGui::GetWindowWidth();
 
-        // Left column: preset path, Save, Load (only meaningful with a rig), then the last
-        // Save/Load status, elided so it never runs into the centered brand mark.
+        // Left column: preset path, Save, Load and the last status; see apps/host_gui/ui/README.md.
         if (rig != nullptr)
         {
             ImGui::SetNextItemWidth(280.0f);
@@ -134,14 +139,12 @@ namespace ui
             ImGui::TextColored(to_imvec4(palette().muted_text), "No device connected.");
         }
 
-        // Center column: the brand mark, placed at (window width - its width) / 2 regardless of
-        // what either side group drew.
+        // Center column: the brand mark, centered on the window; see apps/host_gui/ui/README.md.
         const float brand_width = ImGui::CalcTextSize(kBrandName).x;
         ImGui::SameLine((window_width - brand_width) / 2.0f);
         ImGui::TextColored(to_imvec4(palette().text), "%s", kBrandName);
 
-        // Right column: the connection pill (or nothing, with no device) and Settings, both
-        // pinned to the bar's right edge.
+        // Right column: the connection pill and Settings; see apps/host_gui/ui/README.md.
         if (connected)
         {
             const float pill_width = ImGui::CalcTextSize(device_label.c_str()).x + 8.0f;

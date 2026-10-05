@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file WavFile.cpp
+ * @brief Implements the RIFF/WAVE reader.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/io/WavFile.hpp"
 
 #include <cstddef>

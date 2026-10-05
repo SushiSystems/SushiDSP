@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_ir_loader.cpp
+ * @brief Tests the trimming, normalisation and resampling of IrLoader.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <cstdint>
 #include <fstream>
@@ -72,8 +78,8 @@ namespace
         return path;
     }
 
-    // Mean magnitude in dB over [low_hz, high_hz], measured by a direct DFT of the samples
-    // zero-padded to fft_size - independent of IrLoader's own FFT and bin arithmetic.
+    /// @brief Returns the mean magnitude in dB over a band by a direct DFT of the samples.
+    /// @see tests/functional/unit/README.md
     double band_mean_decibels(const std::vector<float>& samples, double sample_rate,
                               std::uint32_t fft_size, double low_hz, double high_hz)
     {
@@ -122,8 +128,7 @@ TEST(Unit_Dsp, IrLoaderNormalisesBandAverageToZeroDb)
 
 TEST(Unit_Dsp, IrLoaderNormalisesShapedBandAverageToZeroDb)
 {
-    // A two-tap comb: |1 + 0.9 e^-jwK| ripples between 0.1 and 1.9 across the 100 Hz - 5 kHz
-    // band, so unlike a single-tap IR the band selection and the averaging rule both matter.
+    // A two-tap comb makes the band selection matter. See tests/functional/unit/README.md.
     std::vector<float> samples(4096, 0.0f);
     samples[0] = 1.0f;
     samples[64] = 0.9f;

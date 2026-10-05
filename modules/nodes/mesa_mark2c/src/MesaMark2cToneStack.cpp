@@ -18,8 +18,7 @@ namespace SushiDSP
 {
     namespace
     {
-        // Dossier section 4.1: 250 pF treble, 0.1 uF bass, 0.047 uF mid, 100 k slope, 250 k bass,
-        // 10 k mid, 250 k treble.
+        // The seven values are dossier section 4.1's; see modules/nodes/mesa_mark2c/README.md.
         constexpr FmvComponents kMesaMark2cComponents{
             250e-12f, 100e-9f, 47e-9f, 100e3f, 250e3f, 10e3f, 250e3f
         };

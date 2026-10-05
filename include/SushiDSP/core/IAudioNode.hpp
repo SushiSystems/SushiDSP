@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file IAudioNode.hpp
+ * @brief Declares the DSP graph node interface and its prepare and process contexts.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TransportBar.cpp
+ * @brief Implements the bottom transport bar.
+ * @author Mustafa Garip
+ */
+
 #include "ui/TransportBar.hpp"
 
 #include <algorithm>
@@ -276,8 +282,7 @@ namespace ui
             if (ImGui::DragFloat("##bpm", &tempo, 0.25f, kMinimumTempo, kMaximumTempo, "%.1f BPM"))
             {
                 clock.set_tempo(static_cast<double>(tempo));
-                // A tempo typed by hand ends whatever tap run was in progress, so the next tap
-                // opens a run of its own rather than averaging across the change.
+                // A tempo typed by hand ends the tap run, so the next tap opens a run of its own.
                 taps.reset();
             }
         }
@@ -348,8 +353,7 @@ namespace ui
                                   "does: half speed is an octave down.");
             }
 
-            // The slider consumes its own clicks, so the way back to unity is a button beside it
-            // rather than a double-click the slider would have swallowed.
+            // The slider consumes its own clicks, so a button beside it is the way back to unity.
             ImGui::SameLine(0.0f, 4.0f);
             if (ImGui::SmallButton("1x"))
             {

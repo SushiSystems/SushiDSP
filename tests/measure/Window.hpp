@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Window.hpp
+ * @brief Defines the Blackman-Harris analysis window.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #define _USE_MATH_DEFINES

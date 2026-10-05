@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file ICabinetHost.hpp
+ * @brief Declares the interface of a node that carries a cabinet impulse response.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/io/Ir.hpp"
@@ -19,16 +25,12 @@ namespace SushiDSP
     {
         virtual ~ICabinetHost() = default;
 
-        /// @brief Installs a new cabinet impulse response. Control thread only: the convolver is
-        /// built here in full and handed to the audio thread as one atomic pointer swap, so
-        /// process() never sees a partially built cabinet and never blocks.
+        /// @brief Installs a new cabinet impulse response and hands it to the audio thread as one
+        /// atomic pointer swap. Control thread only.
         /// @param impulse_response The IR and the rate it was captured at; its sample_rate must
-        /// equal the rate this node was prepared at. The samples are retained so a later
-        /// prepare() rebuilds this cabinet, and they are never resampled, so a prepare() at a
-        /// different rate needs a fresh set_cabinet().
-        /// @return True if the cabinet was installed; false if the IR is empty, if the rates
-        /// disagree, or if prepare() has not run yet - in every failing case nothing is installed
-        /// and nothing is retained, and the previously active cabinet stays in place.
+        /// equal the rate this node was prepared at (include/SushiDSP/README.md).
+        /// @return True if the cabinet was installed; false if the IR is empty, the rates disagree,
+        /// or prepare() has not run yet, and then the active cabinet stays in place.
         virtual bool set_cabinet(Ir impulse_response) = 0;
 
         /// @brief Frees every cabinet the audio thread has provably moved past.

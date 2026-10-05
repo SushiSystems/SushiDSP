@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_splitter_node.cpp
+ * @brief Tests that SplitterNode copies its input and has no parameters.
+ * @author Mustafa Garip
+ */
+
 #include <memory>
 #include <new>
 #include <vector>

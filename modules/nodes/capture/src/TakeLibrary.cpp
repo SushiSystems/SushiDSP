@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TakeLibrary.cpp
+ * @brief Implements the ownership and reference counts of loaded takes.
+ * @author Mustafa Garip
+ */
+
 #include <algorithm>
 
 #include "SushiDSP/capture/TakeLibrary.hpp"
@@ -19,8 +25,7 @@ namespace SushiDSP
             return nullptr;
         }
 
-        // The Take stays where it was heap-allocated: entries_ growing moves the unique_ptr, never
-        // the object it owns, so a pointer handed out here stays good until collect() frees it.
+        // A heap-allocated Take never moves; see modules/nodes/capture/README.md.
         const Take* borrowed = take.get();
         entries_.emplace_back(std::move(take), std::size_t{ 0 });
         return borrowed;

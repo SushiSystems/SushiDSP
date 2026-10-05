@@ -231,9 +231,7 @@ namespace
 
 TEST(Unit_Dsp, DiffuseFieldIsEyringOverTheCabinetsDirectivity)
 {
-    // The garage: Eyring's 1.342, 1.333, 1.161, 1.146, 1.108 and 0.893 s over 0.161 * 60 m3
-    // times 16 pi, and the 4x12's directivity index of 1.12, 2.99, 7.59, 12.01, 15.74 and
-    // 18.82 dB taken back out, give 5.39, 3.48, 1.05, 0.376, 0.154 and 0.0610 per hertz.
+    // The field is Eyring over the 4x12's directivity. See tests/functional/unit/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const SushiDSP::room::DiffuseField field(garage);
     const std::array<double, SushiDSP::room::kBandCount> expected = diffuse_band_power(garage);
@@ -258,8 +256,7 @@ TEST(Unit_Dsp, DiffuseFieldIsEyringOverTheCabinetsDirectivity)
     const double past = diffuse_band_power(garage, 3000.0, 6000.0) * kSampleRate / 2.0;
     EXPECT_NEAR(field.power_between(3000.0, 6000.0), past, 1e-6 * past);
 
-    // A cabinet with one driver and a narrower baffle radiates its bass more evenly, so the
-    // same room holds more of it; the field is the cabinet's, not the room's alone.
+    // The field is the cabinet's, not the room's alone. See tests/functional/unit/README.md.
     SushiDSP::room::RoomScene single = garage;
     single.cabinet = SushiDSP::room::kCabinet1x12;
     const SushiDSP::room::DiffuseField single_field(single);
@@ -273,8 +270,7 @@ TEST(Unit_Dsp, ModalSolverFindsTheGaragesEigenfrequencies)
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const std::vector<SushiDSP::room::ModalSolver::Mode> modes =
         SushiDSP::room::ModalSolver::enumerate(garage, 100.0);
-    // (c / 2) sqrt((nx / 6)^2 + (ny / 4)^2 + (nz / 2.5)^2) at c = 343 for the first eight:
-    // 28.5833, 42.8750, 51.5293, 57.1667, 68.6000, 71.4583, 74.3167 and 80.8964 Hz.
+    // f = (c/2) sqrt((nx/6)^2 + (ny/4)^2 + (nz/2.5)^2). See tests/functional/unit/README.md.
     const std::array<Triple, 8> triples = { Triple{ 1, 0, 0 }, Triple{ 0, 1, 0 },
                                             Triple{ 1, 1, 0 }, Triple{ 2, 0, 0 },
                                             Triple{ 0, 0, 1 }, Triple{ 2, 1, 0 },
@@ -301,8 +297,7 @@ TEST(Unit_Dsp, ModalSolverCountsOneHundredAndEightySevenModesBelowTheGaragesSchr
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     EXPECT_EQ(SushiDSP::room::ModalSolver::enumerate(garage, 278.2).size(), 187u);
-    // (4 pi / 3) 60 (278.2 / 343)^3 + (pi / 4) 98 (278.2 / 343)^2 + (50 / 8) (278.2 / 343)
-    // = 134.11 + 50.63 + 5.07 = 189.80.
+    // Weyl's count is 134.11 + 50.63 + 5.07 = 189.80. See tests/functional/unit/README.md.
     EXPECT_NEAR(SushiDSP::room::ModalSolver::estimated_count(garage, 278.2),
                 weyl_count(garage, 278.2), 1e-9);
     EXPECT_NEAR(SushiDSP::room::ModalSolver::estimated_count(garage, 278.2), 190.0, 1.0);
@@ -385,11 +380,7 @@ TEST(Unit_Dsp, ModalSolverDampsAnAxialModeByTheTwoWallsItBouncesBetween)
     const double decay_x = find_mode(modes, along_x).decay_seconds;
     const double decay_z = find_mode(modes, along_z).decay_seconds;
 
-    // Both modes sit under 125 Hz, so gypsum holds 0.29, the doorway face 0.716 and concrete
-    // 0.01. The soft pair counts twice for (1, 0, 0) and once for (0, 0, 1):
-    // delta_x = (343 / 960) (2 (0.29 + 0.716) 10 + (0.02) 15 + (0.02) 24) = 7.467 nepers/s,
-    // delta_z = (343 / 960) ((0.29 + 0.716) 10 + (0.02) 15 + 2 (0.02) 24) = 4.044 nepers/s,
-    // a decay ratio of 1.846.
+    // The decay ratio of the two modes is 1.846. See tests/functional/unit/README.md.
     EXPECT_NEAR(decay_x, decay_seconds(soft, along_x), 1e-9);
     EXPECT_NEAR(decay_z, decay_seconds(soft, along_z), 1e-9);
     EXPECT_NEAR(decay_z / decay_x, 1.8463, 1e-3);
@@ -446,10 +437,7 @@ TEST(Unit_Dsp, ModalSolverWritesEachModesResonatorFromItsFrequencyAndDecay)
 
 TEST(Unit_Dsp, ModalSolverMatchesTheOctaveBelowTheCrossoverToTheDiffuseField)
 {
-    // Averaged over the cabinet and the listener, one mode's power for unit white input is
-    // level_scale^2 times the section's 2 / (1 - r^2); the octave [f_s / 2, f_s) sum must
-    // equal the power the diffuse field of that room and cabinet holds in the octave, in all
-    // three reference rooms, so the modal layer and the tail read one reference.
+    // The octave below f_s holds the diffuse field's power. See tests/functional/unit/README.md.
     const std::array<SushiDSP::room::RoomScene, 3> rooms = { SushiDSP::test::garage_scene(),
                                                              SushiDSP::test::bedroom_scene(),
                                                              SushiDSP::test::block_room_scene() };
@@ -480,10 +468,7 @@ TEST(Unit_Dsp, ModalSolverMatchesTheOctaveBelowTheCrossoverToTheDiffuseField)
         EXPECT_NEAR(scale * scale * power_sum, expected, 1e-5 * expected) << "room " << room;
     }
 
-    // The garage's octave [139.09, 278.18) holds 2.334e-2 of a unit white input's variance.
-    // Eyring alone, 16 pi times 1.33 to 1.34 s over 0.161 * 60 m3 spread as 2 / fs over the
-    // octave, would give 4.02e-2; the ratio sits between the 4x12's mean radiated power at
-    // the two bands the octave spans, 10^(-0.299) at 250 Hz and 10^(-0.112) at 125 Hz.
+    // The garage's octave holds 2.334e-2 of the variance. See tests/functional/unit/README.md.
     const SushiDSP::room::RoomScene garage = rooms[0];
     const double garage_octave = diffuse_band_power(garage, 139.09, 278.18);
     EXPECT_NEAR(garage_octave, 2.334e-2, 0.003e-2);
@@ -508,10 +493,7 @@ TEST(Unit_Dsp, ModalSolverMatchesTheOctaveBelowTheCrossoverToTheDiffuseField)
 
 TEST(Unit_Dsp, ModalSolverReadsTheMicrophoneAtOnePoint)
 {
-    // The microphone listener puts psi at microphone_position in both ear gains; the ears
-    // listener puts psi at the two ears 8.5 cm to either side of listener_position, so a
-    // listener at (5.4, 3.4, 2.0) facing +x reads psi at y = 3.485 and y = 3.315. The
-    // resonators, the count, the crossover and the level are the room's, the same for both.
+    // The ears sit 8.5 cm to either side of the listener. See tests/functional/unit/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.source_position = { 0.4, 0.5, 0.5 };
     scene.listener_position = { 5.4, 3.4, 2.0 };

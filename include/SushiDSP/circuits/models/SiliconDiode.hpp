@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SiliconDiode.hpp
+ * @brief Defines the Shockley-law silicon diode model for a DK-method solver.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cmath>
@@ -13,37 +19,11 @@
 
 namespace SushiDSP
 {
-    /// @brief Shockley-law silicon diode device model with an ideality factor, for use as a
-    /// nonlinear branch in a DK-method circuit solver.
+    /// @brief Models a Shockley-law silicon diode with an ideality factor as a nonlinear branch of
+    /// a DK-method solver; the defaults match docs/reference/spice/models/d1n914.sub.
     ///
-    /// The default parameters (Is = 2.52 nA, n = 1.752, Vt = 0.025864 V) match the 1N914
-    /// small-signal diode as modelled in `docs/reference/spice/models/d1n914.sub`.
-    ///
-    /// `current()`/`jacobian()` implement:
-    /// @code
-    /// n*Vt  = ideality_factor * thermal_voltage_volts
-    /// i(v)  = Is * (exp(v / (n*Vt)) - 1)
-    /// di/dv = (Is / (n*Vt)) * exp(v / (n*Vt))
-    /// @endcode
-    ///
-    /// A Newton-Raphson solver can overshoot far past any physically meaningful diode voltage,
-    /// and `exp()` of a large argument overflows to `inf`. To keep the model finite everywhere
-    /// while remaining exactly the Shockley law inside the operating range, the exponent argument
-    /// is clamped to +-40 (v_max = 40*n*Vt =~ 1.81 V for the 1N914 defaults) — no silicon diode in
-    /// a guitar circuit sits above that voltage. Clamping the exponent alone would break C^1
-    /// continuity at the knee, so beyond either knee the model switches to the Shockley law's own
-    /// tangent line there: `i(v) = i(k) + jacobian(k) * (v - k)` with `jacobian(v) = jacobian(k)`,
-    /// taking k = +v_max above the upper knee and k = -v_max below the lower one. This is C^1
-    /// everywhere, finite everywhere, and identical to the Shockley law for |v| <= v_max.
-    ///
-    /// The two tangents are not each other's mirror image, and must not be: the reverse tangent
-    /// continues a diode that is not conducting, so it carries -Is and a conductance of
-    /// (Is/(n*Vt))*exp(-40), while the forward one carries hundreds of megamperes per volt.
-    /// Mirroring the forward tangent instead put a step from -2.5 nA to -593 MA at the lower knee
-    /// (D6c C2).
-    ///
-    /// A DK solver wants the current and its derivative at the same voltage, so
-    /// `current_and_jacobian()` carries the law and `current()`/`jacobian()` forward to it.
+    /// The law is exact for |v| <= 40*n*Vt and continues on its own tangent beyond either knee,
+    /// so the current is C^1 and finite everywhere (include/SushiDSP/README.md).
     class SiliconDiode
     {
     public:
@@ -117,14 +97,8 @@ namespace SushiDSP
 
         /// @brief Evaluates the diode current and its antiderivative from a single exponential.
         ///
-        /// Piecewise with current_and_jacobian() by construction: the Shockley branch integrates to
-        /// Is*(n*Vt*exp(v/(n*Vt)) - v), and beyond either knee the tangent line integrates to the
-        /// quadratic matched to it in value there, so the antiderivative is C^1 wherever the current
-        /// is C^0. Its constant of integration is the Shockley branch's own and cancels in any
-        /// difference of two evaluations, which is the only way antiderivative antialiasing reads it
-        /// (spec 2026-08-26-aaa-audio-quality-design.md, Model corrections D6c C2). An antiparallel
-        /// pair wants both quantities at both polarities, so pairing them here costs one exponential
-        /// per side rather than two, exactly as current_and_jacobian() pairs the Newton quantities.
+        /// The antiderivative is C^1 wherever the current is C^0, and only a difference of two
+        /// evaluations means anything (include/SushiDSP/README.md).
         /// @param voltage The voltage across the diode (anode minus cathode), in volts.
         /// @param current_amps Receives the diode current in amperes. Always finite.
         /// @param antiderivative_ampere_volts Receives the integral of the current. Always finite.

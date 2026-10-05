@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PanNode.cpp
+ * @brief Implements the constant-power pan node.
+ * @author Mustafa Garip
+ */
+
 // M_PI requires _USE_MATH_DEFINES before any <cmath>.
 #define _USE_MATH_DEFINES
 

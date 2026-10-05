@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file BufferPool.cpp
+ * @brief Implements the fixed-capacity pool of block-sized float buffers.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/core/BufferPool.hpp"
 
 namespace SushiDSP

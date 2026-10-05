@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file main.cpp
+ * @brief Runs the SushiDSP benchmark cases and prints one table row per case.
+ * @author Mustafa Garip
+ */
+
 // _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 #include <algorithm>
@@ -88,14 +94,10 @@ namespace
         });
     }
 
-    // The netlist, its component constants and the triode glue live in
-    // tests/circuits/JcmV1aNetlist.hpp, shared with the D6b stage test and the RT-safety traps.
-    // build_jcm_v1a(netlist, true) appends the series RC that takes the block from the SPICE
-    // stage's six reactive states to the seven the D6b budget is written against.
+    // build_jcm_v1a(netlist, true) yields the seven-state block; see tests/benchmark/README.md.
     using namespace SushiDSP::test_circuits;
 
-    // The Tube Screamer's two blocks come from the product module, because the circuits are the
-    // pedal: the bench prices exactly the description Task 7's node will run.
+    // The Tube Screamer's blocks are the product module's own; see tests/benchmark/README.md.
     using namespace SushiDSP::tube_screamer_circuits;
 
     constexpr std::uint32_t kOversampleFactor = 8;
@@ -162,10 +164,7 @@ namespace
             return { "DkCircuit 2-nonlin 7-state @8x", 0.0, 0.0 };
         }
         settle_dk_stage(circuit, port, run_rate);
-        // Cleared after the settle and never again, so the counters below cover exactly the
-        // solves measure() drives: every warm-up repetition and every timed one, 2048 per
-        // repetition. total_samples() is the circuit's own count, so the reported rate cannot
-        // drift from the harness's repetition constants.
+        // The counters cover only the solves measure() drives; see tests/benchmark/README.md.
         circuit.reset_statistics();
 
         const std::vector<float>  input = make_test_tone(kBlockSize);
@@ -188,8 +187,7 @@ namespace
             }
         });
 
-        // The interelectrode capacitances make the buffer wrap cost no solve, so this count is
-        // zero; test_dk_triode_stage.cpp measures the honest figure for a real stream.
+        // The buffer wrap costs no solve, so this count is zero; see tests/benchmark/README.md.
         print_solver_counters(circuit);
         return result;
     }
@@ -236,14 +234,8 @@ namespace
     }
 
     /// @brief Times the potentiometer re-derivation on its own, with no solving around it.
-    ///
-    /// Plan Ruling 3 lets a pot move re-derive the DK matrices on the audio thread at block
-    /// cadence, so the cost of one re-derivation is the number the ruling rests on. The case
-    /// above cannot supply it - a re-derivation is under one percent of the block it sits in, so
-    /// subtracting two block timings would report scheduler noise. This one calls
-    /// set_potentiometer + update_matrices_if_dirty 256 times and nothing else, so the harness's
-    /// per-sample column reads directly as nanoseconds per re-derivation.
     /// @return The measured Result, whose ns/sample column is ns per re-derivation.
+    /// @see tests/benchmark/README.md, "main.cpp", for what the block case cannot supply.
     SushiDSP::bench::Result measure_dk_potentiometer_rederivation()
     {
         DkStageNetlist    netlist;
@@ -368,17 +360,8 @@ namespace
     }
 
     /// @brief Times one 256-frame block through the DD-3's two resamplers at the slow clock.
-    ///
-    /// 48 kHz down to 20 kHz and back is the pair's worst case: the decimating stage's half span
-    /// is 34 / (20000 / 48000) = 81.6 input samples, so interpolate() runs two loops of 82 and
-    /// touches 164 taps per output. Both resamplers are prepared outside the timed body, since
-    /// prepare() is where every buffer is allocated.
-    ///
-    /// The case prices the resampler pair in isolation at that clock; it does not decompose the
-    /// DD-3's own number. The node pushes 256 single frames per block where this pushes one block
-    /// of 256, and its clock follows D.TIME instead of sitting at 20 kHz, so the kernel span
-    /// differs as well. That is why the 0.10 ms it prints against is advisory.
     /// @return The measured Result, costed per output sample at the base rate.
+    /// @see tests/benchmark/README.md, "main.cpp", for the worst-case clock and the case's limits.
     SushiDSP::bench::Result measure_resampler_round_trip()
     {
         constexpr double slow_clock_hz = 20000.0;
@@ -709,10 +692,7 @@ namespace
             node.set_presence(0.5f);
         });
 
-        // The graph's own per-block cost is not the sum of its nodes' isolated costs (the
-        // gather and the buffer pool add their own share), so the room's reported share is the
-        // whole chain less the amplifier measured on its own, the best estimate the harness can
-        // give without instrumenting RigGraph::process() itself.
+        // The room's share is the chain less the amplifier alone; see tests/benchmark/README.md.
         const double room_share_ns = whole_chain.nanoseconds_per_sample
             - amp_alone.nanoseconds_per_sample;
         return { "RoomNode share of JCM800 + Room", room_share_ns,

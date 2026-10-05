@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Oversampler.hpp
+ * @brief Declares the halfband 2x stages and the 4x and 8x oversamplers built on them.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

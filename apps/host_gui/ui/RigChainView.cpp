@@ -192,8 +192,7 @@ namespace ui
         std::vector<StageView> collect_stages(ChainType type, const SplitGeometry& geometry)
         {
             std::vector<StageView> stages;
-            // One path is the run itself and carries no master bus, so it is the only stage the
-            // view shows; more than one puts each path in its own row, then the master bus.
+            // Several paths are rows, then the master bus; see apps/host_gui/ui/README.md.
             if (RigTopology::branch_count(type) == 1)
             {
                 stages.push_back({ StageAddress{ StageKind::Branch, 0 }, &geometry.series });
@@ -418,8 +417,7 @@ namespace ui
             const std::size_t paths = RigTopology::branch_count(type);
             const std::size_t post = topology.stage(StageAddress{ StageKind::Post, 0 }).size();
 
-            // One path draws as a straight run, which is what layout_split builds when no branch
-            // sizes are given; the main path takes the geometry that run occupies.
+            // One path is layout_split's straight run; see apps/host_gui/ui/README.md.
             if (paths == 1)
             {
                 return layout_split(topology.stage(StageAddress{ StageKind::Branch, 0 }).size(), 0,

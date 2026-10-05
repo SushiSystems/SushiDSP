@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SlotSelection.hpp
+ * @brief Defines the check that the rack's selected slot still names a live slot.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <algorithm>

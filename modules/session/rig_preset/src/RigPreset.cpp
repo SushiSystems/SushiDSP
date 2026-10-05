@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file RigPreset.cpp
+ * @brief Implements the JSON serialization and validated deserialization of a rig graph.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/rig_preset/RigPreset.hpp"
 
 #include <cstring>
@@ -89,11 +95,7 @@ namespace SushiDSP
     {
         const nlohmann::json root = nlohmann::json::parse(json_text);
 
-        // First pass: fully validate every entry — key presence, key shape, type resolution,
-        // duplicate ids and dangling input references — before mutating graph at all, so a
-        // corrupt/edited-by-hand preset (or a wrong file entirely, e.g. a host_gui preset,
-        // which has "type" but no "id") never leaves the caller's live graph half-populated
-        // with orphan nodes that would then break its next compile().
+        // Every entry is checked before the graph moves; see modules/session/rig_preset/README.md.
         std::vector<const NodeDescriptor*> descriptors;
         descriptors.reserve(root.at("nodes").size());
         std::set<int> declared_ids;
@@ -139,9 +141,7 @@ namespace SushiDSP
             }
         }
 
-        // Dangling-reference check needs the complete id set, so it runs as its own sweep.
-        // Doing it here (rather than letting a map .at() throw during the build pass) keeps
-        // the documented std::runtime_error contract and the graph-untouched guarantee.
+        // The dangling check needs the complete id set; see modules/session/rig_preset/README.md.
         validate_index = 0;
         for (const auto& node_json : root.at("nodes"))
         {
@@ -195,10 +195,7 @@ namespace SushiDSP
             pending_inputs[handle] = std::move(inputs);
         }
 
-        // Parameters are applied in std::map order, i.e. alphabetical by parameter id — that
-        // ordering is incidental, not designed. Every set_parameter_for_control_thread() implementation today is
-        // order-independent; if one ever becomes order-dependent, this must switch to
-        // preserving descriptor (or JSON-file) order instead.
+        // Parameters apply in std::map order; see modules/session/rig_preset/README.md.
         for (const auto& [handle, params] : pending_params)
         {
             IAudioNode* node = graph.node(handle);

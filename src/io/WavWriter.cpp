@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file WavWriter.cpp
+ * @brief Implements the streaming WAV writer.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/io/WavWriter.hpp"
 
 #include <algorithm>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SmoothedParameter.cpp
+ * @brief Implements the one-pole parameter smoother.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/math/SmoothedParameter.hpp"
 
 #include <cmath>

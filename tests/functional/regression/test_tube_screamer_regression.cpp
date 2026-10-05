@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and <cmath> may otherwise be pulled in transitively before this point.
+/**
+ * @file test_tube_screamer_regression.cpp
+ * @brief Tests the TubeScreamer node against its golden files.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
 #include <algorithm>
@@ -48,20 +53,15 @@ namespace
     }
 }
 
-// One second of the pedal's output is pinned as tests/golden/tube_screamer_<rate>.f32 and
-// compared by RMS residual. -80 dB catches any real behaviour change and absorbs float
-// reassociation between toolchains.
-//
-// Regenerate deliberately, never to make a red test green:
-//   SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression
-// and say why in the commit message and in tests/golden/README.md.
-// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
+/// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
+/// @see tests/functional/regression/README.md
 TEST(Regression_Dsp, TubeScreamerGoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("tube_screamer_48k", render_tube_screamer(48000.0)), -80.0);
 }
 
-// Expected red until Task 8 re-pins against the DK chain at 4x - see the D6c plan.
+/// @brief Tests that the 96 kHz render matches its golden file within -80 dB.
+/// @see tests/functional/regression/README.md
 TEST(Regression_Dsp, TubeScreamerGoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("tube_screamer_96k", render_tube_screamer(96000.0)), -80.0);

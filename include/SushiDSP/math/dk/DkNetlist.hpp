@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DkNetlist.hpp
+ * @brief Defines the control-thread description of a DK circuit.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -53,17 +59,10 @@ namespace SushiDSP::dk
         Branch norator;   ///< The driven pair; an unknown current flows positive to negative.
     };
 
-    /// @brief Control-thread description of a circuit: node indices and component values.
+    /// @brief Describes a circuit on the control thread: node indices and component values.
     ///
-    /// Node 0 is ground and non-ground nodes are numbered from 1 upwards. This is a plain
-    /// aggregate of fixed-size arrays so DkCircuit can own a copy and re-derive its matrices on
-    /// the audio thread without touching the builder. Elements are stored as node pairs rather
-    /// than as dense incidence matrices: every product in the DK derivation is a row or column
-    /// difference, which a stamp loop over these pairs computes directly.
-    ///
-    /// The add methods assert on overflow or an out-of-range node, because they run on the
-    /// control thread while a circuit is written by hand. DkCircuit::prepare re-validates and
-    /// returns false instead, because it is also reachable from a preset load.
+    /// Node 0 is ground and non-ground nodes are numbered from 1 upwards. The add methods assert
+    /// where DkCircuit::prepare returns false (include/SushiDSP/README.md).
     /// @tparam S Reactive element (state) count.
     /// @tparam N Nonlinear branch count.
     /// @tparam I Input voltage source count.
@@ -134,7 +133,6 @@ namespace SushiDSP::dk
         /// Position 0 puts the wiper at @p a and position 1 puts it at @p b, so the a-to-wiper
         /// section is @p ohms times the position.
         /// @param a One end of the track; 0 is ground.
-        /// @param wiper The wiper node; 0 is ground.
         /// @param b The other end of the track; 0 is ground.
         /// @param ohms End-to-end track resistance, strictly positive.
         /// @return The potentiometer's index, for DkCircuit::set_potentiometer.
@@ -155,21 +153,13 @@ namespace SushiDSP::dk
             return index;
         }
 
-        /// @brief Adds an ideal op-amp, stamped as a nullor.
-        ///
-        /// The sensed pair is a nullator — the derivation forces
-        /// V(sense_positive) - V(sense_negative) to zero and draws no current through it — and the
-        /// driven pair is a norator, carrying whatever current that constraint demands. Together
-        /// they are the infinite-gain limit of a voltage-controlled voltage source, which is what
-        /// the LTspice reference blocks model with an E source of gain 1e6.
-        ///
-        /// A nullor is only well posed inside a negative-feedback loop: if the driven pair cannot
-        /// reach the sensed pair through the rest of the circuit, the augmented nodal system is
-        /// singular and DkCircuit::prepare returns false.
+        /// @brief Adds an ideal op-amp, stamped as a nullor: the sensed pair is forced to zero
+        /// volts and draws no current, and the driven pair carries the current that demands.
         /// @param sense_positive The non-inverting input node; 0 is ground.
         /// @param sense_negative The inverting input node; 0 is ground.
         /// @param output_positive The node the output current flows out of; 0 is ground.
         /// @param output_negative The node it returns to; 0 is ground.
+        /// @pre The op-amp sits inside a negative-feedback loop (include/SushiDSP/README.md).
         /// @return The nullor's index, in the order they were added.
         std::size_t nullor(std::size_t sense_positive, std::size_t sense_negative,
                            std::size_t output_positive, std::size_t output_negative)

@@ -32,8 +32,7 @@ TEST(Unit_Dsp, RoomSceneComputesTheGaragesVolumeAndArea)
 
 TEST(Unit_Dsp, RoomSceneWeightsAPatchByItsArea)
 {
-    // 92 m2 of unpainted concrete and 6 m2 of open doorway over 98 m2:
-    // 125 Hz (92 * 0.01 + 6 * 1.0) / 98 = 0.070612; 500 Hz (92 * 0.02 + 6 * 1.0) / 98 = 0.080000.
+    // 92 m2 of concrete and 6 m2 of doorway over 98 m2. See tests/functional/unit/README.md.
     const std::array<double, 6> absorption = SushiDSP::test::garage_scene().mean_absorption();
     EXPECT_NEAR(absorption[0], 0.070612, 1e-6);
     EXPECT_NEAR(absorption[2], 0.080000, 1e-6);
@@ -41,8 +40,7 @@ TEST(Unit_Dsp, RoomSceneWeightsAPatchByItsArea)
 
 TEST(Unit_Dsp, RoomSceneComputesTheBedroomsWeightedAbsorption)
 {
-    // 14 m2 carpet, 51.5 m2 gypsum, 1.5 m2 glass over 67 m2:
-    // 500 Hz (14 * 0.14 + 51.5 * 0.05 + 1.5 * 0.18) / 67 = 0.071716.
+    // At 500 Hz the bedroom's mean absorption is 0.071716. See tests/functional/unit/README.md.
     EXPECT_NEAR(SushiDSP::test::bedroom_scene().mean_absorption()[2], 0.071716, 1e-6);
 }
 
@@ -106,10 +104,7 @@ TEST(Unit_Dsp, RoomSceneAcceptsEveryReferenceRoom)
     using SushiDSP::room::RoomScene;
     using SushiDSP::room::Surface;
 
-    // The default scene is 6.0 x 4.0 x 2.5 m of gypsum board on studs over a carpeted floor:
-    // 74 m2 of board and 24 m2 of carpet over 98 m2 give (74 * 0.29 + 24 * 0.02) / 98 = 0.223878
-    // at 125 Hz and (74 * 0.05 + 24 * 0.14) / 98 = 0.072041 at 500 Hz, its least absorbent band,
-    // which clears the 0.008181 floor this shoebox needs by a factor of 8.8.
+    // The default scene clears its floor by a factor of 8.8. See tests/functional/unit/README.md.
     std::string reason;
     const RoomScene fresh;
     EXPECT_TRUE(fresh.is_valid(reason)) << reason;
@@ -121,8 +116,7 @@ TEST(Unit_Dsp, RoomSceneAcceptsEveryReferenceRoom)
     EXPECT_TRUE(SushiDSP::test::bedroom_scene().is_valid(reason)) << reason;
     EXPECT_TRUE(SushiDSP::test::block_room_scene().is_valid(reason)) << reason;
 
-    // The 12 m carpeted room with four open faces the node tests render, whose absorption runs
-    // 0.673 at 125 Hz against a floor of 0.026477.
+    // The dead room reads 0.673 against a floor of 0.026477. See tests/functional/unit/README.md.
     RoomScene dead;
     dead.dimensions = { 12.0, 12.0, 12.0 };
     dead.surfaces.fill(MaterialId::HeavyCarpetOnConcrete);
@@ -153,8 +147,7 @@ TEST(Unit_Dsp, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::RoomScene;
 
-    // The 12 m cube of unpainted concrete: 0.010000 at 125 Hz against a floor of 0.026477,
-    // Eyring's 32.04 s from its surfaces alone against the 12 s bound.
+    // The concrete cube rings 32.04 s against the 12 s bound. See tests/functional/unit/README.md.
     RoomScene cube;
     cube.dimensions = { 12.0, 12.0, 12.0 };
     cube.surfaces.fill(MaterialId::ConcreteUnpainted);
@@ -165,16 +158,13 @@ TEST(Unit_Dsp, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
     EXPECT_NE(reason.find("0.026477"), std::string::npos) << reason;
     EXPECT_NE(reason.find("12 s"), std::string::npos) << reason;
 
-    // The bound is on every band, not on the mid one: a 10 m cube of gypsum board on studs is
-    // dead at 125 Hz, 0.29, and rings 6.57 s at 1 kHz, so a room whose bass is fine and whose
-    // mid is not stays valid while the same shell in concrete does not.
+    // The bound is on every band, not on the mid one. See tests/functional/unit/README.md.
     RoomScene gypsum;
     gypsum.dimensions = { 10.0, 10.0, 10.0 };
     gypsum.surfaces.fill(MaterialId::GypsumBoardOnStuds);
     EXPECT_TRUE(gypsum.is_valid(reason)) << reason;
 
-    // A bare unpainted concrete cube crosses the bound at an edge of 4.495 m, where 0.161 L / 6
-    // over -ln(1 - 0.01) reaches 12 s; 4.4 m gives 11.75 s and 4.6 m gives 12.28 s.
+    // A bare concrete cube crosses the bound at 4.495 m. See tests/functional/unit/README.md.
     RoomScene under;
     under.dimensions = { 4.4, 4.4, 4.4 };
     under.surfaces.fill(MaterialId::ConcreteUnpainted);
@@ -185,8 +175,7 @@ TEST(Unit_Dsp, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
     over.surfaces.fill(MaterialId::ConcreteUnpainted);
     EXPECT_FALSE(over.is_valid(reason));
 
-    // Absorption alone does not decide it: the same concrete at 6.0 x 4.0 x 2.5 m passes, since
-    // the floor rises with the room's volume over its area.
+    // The floor rises with the room's volume over its area. See tests/functional/unit/README.md.
     RoomScene shoebox;
     shoebox.dimensions = { 6.0, 4.0, 2.5 };
     shoebox.surfaces.fill(MaterialId::ConcreteUnpainted);

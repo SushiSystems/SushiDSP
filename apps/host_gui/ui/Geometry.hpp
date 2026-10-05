@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Geometry.hpp
+ * @brief Declares the slot id, point and color types the UI layer shares.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

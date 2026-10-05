@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file LevelText.hpp
+ * @brief Declares the conversions from a peak to decibels, a meter fill and a label.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <string>

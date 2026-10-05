@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_buffer_pool.cpp
+ * @brief Tests that BufferPool hands out, counts and reuses its buffers.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include "SushiDSP/core/BufferPool.hpp"

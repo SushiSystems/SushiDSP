@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file GoldenFile.hpp
+ * @brief Defines the golden-file stimulus, the residual rule and the comparison step.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #define _USE_MATH_DEFINES

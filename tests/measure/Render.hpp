@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Render.hpp
+ * @brief Defines the block-by-block node renderer and the sine stimulus it is fed.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #define _USE_MATH_DEFINES

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file RigPreset.hpp
+ * @brief Declares the functions that save a rig graph to JSON and rebuild one from it.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <functional>
@@ -32,33 +38,20 @@ namespace SushiDSP
     /// check in this function's first validation pass.
     using OnNodeLoadedFn = std::function<void(NodeHandle, const nlohmann::json&)>;
 
-    /// @brief Serializes a compiled RigGraph's topology and every declared parameter to a JSON
-    /// string: `{"nodes": [{"id", "type", "params", "inputs"}, ...]}`, where each node's
-    /// `inputs` lists the preset-local `id`s of its upstream nodes in connect() order.
-    /// @param graph The graph to serialize. Must have been compile()'d (uses node_registry() to
-    /// look up each live node's declared parameters by matching NodeDescriptor::id).
-    /// @param annotate_node Optional; if non-null, called once per node with the JSON object
-    /// being built for it, letting the caller add extra fields or overwrite ones already
-    /// written. Null means no extra fields.
+    /// @brief Serializes a compiled RigGraph's topology and every declared parameter to JSON.
+    /// @param graph The graph to serialize; it must have been compile()'d.
+    /// @param annotate_node Optional; called once per node with the JSON object being built for it.
     /// @return The JSON text, pretty-printed.
-    /// @throws std::runtime_error if a live node's type is not found in node_registry() (should
-    /// not happen for any node constructed via make_node(), but a hand-built RigGraph using a
-    /// non-registered IAudioNode subclass cannot be serialized).
+    /// @throws std::runtime_error if a live node's type is not found in node_registry().
+    /// @see modules/session/rig_preset/README.md, "What serialization writes"
     std::string serialize_rig_to_json(const RigGraph& graph, AnnotateNodeFn annotate_node = nullptr);
 
-    /// @brief Parses a JSON string produced by serialize_rig_to_json() (or hand-written to the
-    /// same schema) and rebuilds it into graph via add_node()/connect() — does not call
-    /// compile(); the caller compiles afterward once, the same as any other graph edit.
-    /// @param graph An empty or existing RigGraph to add the parsed nodes/edges into.
-    /// @param json_text The JSON text to parse.
-    /// @param info The PrepareInfo each node is constructed with.
-    /// @param on_node_loaded Optional; if non-null, called once per constructed node with its
-    /// full parsed JSON entry. Null means no extra handling.
-    /// @throws std::runtime_error if the JSON is malformed: a missing or wrong-shaped `id`,
-    /// `type`, `params` or `inputs` key, a `type` not found in node_registry(), a duplicate `id`,
-    /// or an `inputs` entry referencing an id no entry declares. Every entry is fully validated
-    /// in a first pass before any node is added, so graph is left unmodified for any malformed
-    /// entry. (nlohmann::json::parse_error still escapes for text that is not valid JSON.)
+    /// @brief Parses JSON in serialize_rig_to_json()'s schema and adds its nodes and edges.
+    /// @param graph An empty or existing RigGraph; the caller compiles it afterward.
+    /// @param on_node_loaded Optional; called once per constructed node with its parsed JSON entry.
+    /// @throws std::runtime_error if an entry is malformed; graph is then left unmodified.
+    /// @throws nlohmann::json::parse_error if the text is not valid JSON.
+    /// @see modules/session/rig_preset/README.md, "What deserialization accepts"
     void deserialize_rig_from_json(RigGraph& graph, const std::string& json_text,
         const PrepareInfo& info, OnNodeLoadedFn on_node_loaded = nullptr);
 }

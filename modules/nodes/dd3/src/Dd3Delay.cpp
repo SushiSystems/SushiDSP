@@ -117,8 +117,7 @@ namespace SushiDSP
 
     float Dd3Delay::process_sample(float input)
     {
-        // The core's 2.0 V calibration, not dd3::Dd3Converter::kFullScaleVolts (2.5 V), the
-        // converter's own ADC/DAC rail.
+        // The scale is the core's 2.0 V, not the 2.5 V ADC rail; see modules/nodes/dd3/README.md.
         const double dry = static_cast<double>(input) * SushiDSP::kFullScaleVolts;
         const double injected = static_cast<double>(feedback_.next())
                               * kMaximumFeedback * kFeedbackPathGain * wet_previous_;
@@ -248,8 +247,7 @@ namespace SushiDSP
             { { "level", "E.Level", 0.0f, 1.0f, kDefaultLevel, ParamKind::Linear, "" },
               [](Dd3Delay& n, float v) { n.set_level(v); },
               [](const Dd3Delay& n) { return n.level_.target(); } },
-            // Recorded only: clearing 16384 samples inside the host's drain is not RT-safe, so
-            // this row stores the pending mode rather than applying it (see apply_pending_mode).
+            // The row stores the pending mode without applying it; see modules/nodes/dd3/README.md.
             { { "mode", "Mode", 0.0f, 3.0f, kDefaultModeIndex, ParamKind::Choice, "" },
               [](Dd3Delay& n, float v) {
                   n.pending_mode_.store(mode_for_index(v), std::memory_order_relaxed);

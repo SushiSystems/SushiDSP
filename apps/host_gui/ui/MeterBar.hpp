@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file MeterBar.hpp
+ * @brief Declares the input and output level meters.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "ui/LevelProbe.hpp"

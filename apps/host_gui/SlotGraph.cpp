@@ -141,9 +141,7 @@ void SlotGraph::disconnect(SlotId from, SlotId to, bool publish_now)
 
 void SlotGraph::remove(SlotId slot, bool publish_now)
 {
-    // Find slot's one upstream and one downstream neighbor (if any) before erasing its edges,
-    // so a middle-of-chain removal can reconnect around the gap — matches today's behavior of
-    // never leaving two previously-adjacent slots disconnected by a removal.
+    // The neighbors are found before the edges are erased; see apps/host_gui/README.md.
     std::optional<SlotId> upstream;
     std::optional<SlotId> downstream;
     for (const Edge& edge : edges_)
@@ -197,8 +195,7 @@ SlotGraph::SlotId SlotGraph::insert_before(std::optional<SlotId> following, cons
 
     if (following.has_value())
     {
-        // Retarget whichever edge currently points at `following` (if any) to point at the new
-        // slot instead, then connect the new slot to `following`.
+        // The edge that pointed at `following` now feeds the new slot; see apps/host_gui/README.md.
         for (Edge& edge : edges_)
         {
             if (edge.to == *following)
@@ -326,8 +323,7 @@ void SlotGraph::move_before(SlotId moved, std::optional<SlotId> following)
         return;
     }
 
-    // Detach `moved` the same way remove() does (reconnect its old neighbors around it), but
-    // keep `moved`'s own slot alive.
+    // `moved` is detached as remove() does, but its slot stays alive; see apps/host_gui/README.md.
     std::optional<SlotId> upstream;
     std::optional<SlotId> downstream;
     for (const Edge& edge : edges_)
@@ -428,8 +424,7 @@ bool SlotGraph::set_cabinet(SlotId slot, const std::string& path)
         }
     }
 
-    // A bypassed slot has no live node to ask, so the path is kept and the node decides on the
-    // publish that brings it back; apply_cabinet_to_live_node() drops it if the node refuses.
+    // A bypassed slot has no live node to ask, so the path is kept; see apps/host_gui/README.md.
     it->second.cabinet_path = path;
     return true;
 }
@@ -548,8 +543,7 @@ bool SlotGraph::set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& sce
         error_out = "no slot with that id";
         return false;
     }
-    // Refused here rather than at the node, so a drag that leaves the room hears about it on
-    // the frame it happens and not on the publish the interval allows.
+    // The scene is refused here, on the frame of the drag; see apps/host_gui/README.md.
     if (!scene.is_valid(error_out))
     {
         return false;
@@ -615,8 +609,7 @@ void SlotGraph::apply_room_to_live_node(SlotId slot)
     it->second.room_scene_pending = true;
     if (!publish_room_scene(slot, true, reason))
     {
-        // A stored scene the fresh node refuses is dropped for the node's own, as a cabinet
-        // path the node refuses is dropped.
+        // A stored scene the fresh node refuses is dropped; see apps/host_gui/README.md.
         it->second.room_scene = host->scene();
     }
 }
@@ -705,8 +698,7 @@ SlotGraph::SlotId SlotGraph::restore(const SlotSnapshot& snapshot, bool publish_
 {
     const SlotId id = add_node(snapshot.descriptor_id, false);
     Slot& slot = slots_.at(id);
-    // Restored values overlay the seeded defaults add_node() already wrote, the way a preset's
-    // values layer over a fresh slot's defaults.
+    // Restored values overlay the defaults add_node() seeded; see apps/host_gui/README.md.
     for (const auto& [param_id, value] : snapshot.parameters)
     {
         slot.parameters[param_id] = value;
@@ -879,8 +871,7 @@ void SlotGraph::publish()
     std::unordered_map<SlotId, SushiDSP::NodeHandle> fresh_handles;
     auto graph = build_graph(true, fresh_handles);
 
-    // A slot the registry no longer knows is dropped here rather than inside build_graph, which
-    // stays const so a preset save can call it too.
+    // A slot the registry no longer knows is dropped here; see apps/host_gui/README.md.
     std::vector<SlotId> surviving_order;
     surviving_order.reserve(slot_order_.size());
     for (SlotId id : slot_order_)

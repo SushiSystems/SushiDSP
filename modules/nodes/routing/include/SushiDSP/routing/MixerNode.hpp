@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file MixerNode.hpp
+ * @brief Declares the node that sums its inputs, each scaled by its own gain, into one output.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>

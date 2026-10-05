@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Metronome.hpp
+ * @brief Declares the metronome that adds a click on every beat of the transport.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <atomic>

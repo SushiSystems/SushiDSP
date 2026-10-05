@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PanelLibrary.cpp
+ * @brief Implements the front-panel table and the generic grid panel.
+ * @author Mustafa Garip
+ */
+
 #include "ui/PanelLibrary.hpp"
 
 #include <cmath>
@@ -39,8 +45,7 @@ namespace ui
             { "presence",   ControlKind::Knob, { 0.78f, 0.78f }, 0.14f, "Presence"   },
         };
 
-        // The Mark IIC+ front panel: the knob row on the left, the graphic equalizer's faders on
-        // the right. Two knob rows, because eight knobs across half of a 900x420 panel crowd.
+        // Mark IIC+: knob rows left, equalizer faders right; see apps/host_gui/ui/README.md.
         constexpr ControlPlacement kMesaMark2cControls[] = {
             { "input_trim",  ControlKind::Knob,   { 0.055f, 0.665f }, 0.075f, "Trim"        },
             { "output",      ControlKind::Knob,   { 0.055f, 0.865f }, 0.075f, "Output"      },

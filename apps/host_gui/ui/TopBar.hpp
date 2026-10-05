@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TopBar.hpp
+ * @brief Declares the top bar's preset controls, brand mark and device group.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <string>
@@ -14,20 +20,14 @@
 
 namespace ui
 {
-    /// @brief Draws the three-column top bar into the current window: the preset path box, Save
-    /// and Load on the left; the "SushiDSP" brand mark centered on the window regardless of the
-    /// side groups' widths; and, on the right, the connection pill (or, with no device, the
-    /// "No device connected." label) plus the settings button.
+    /// @brief Draws the top bar: the preset controls, the brand mark and the device group.
     /// @param rig The rig to save from and load into; null draws the disconnected left group.
-    /// @param connected Whether an audio device is connected, selecting the right group's pill
-    /// or its absence.
-    /// @param device_label Text naming the connected device and its channel selection; read only
-    /// when connected is true.
+    /// @param connected Whether an audio device is connected.
+    /// @param device_label Names the connected device; read only when connected is true.
     /// @param open_device_settings Out: set to true on the frame the settings button is clicked.
-    /// @param status Out: a message describing the last Save or Load, empty when neither has run.
-    /// @param rig_replaced Out: set to true on the frame a Load succeeded. A load rebuilds the
-    /// slot id space from zero, so ids that survive the load name different gear; every caller
-    /// holding a SlotId must drop it on the frame this reads true.
+    /// @param status Out: describes the last Save or Load, empty when neither has run.
+    /// @param rig_replaced Out: true on the frame a Load succeeded; drop every held SlotId then.
+    /// @see apps/host_gui/ui/README.md
     void DrawTopBar(RigController* rig, bool connected, const std::string& device_label,
                     bool& open_device_settings, std::string& status, bool& rig_replaced);
 }

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file AsioAudioDevice.hpp
+ * @brief Declares the ASIO-backed audio device.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -78,10 +84,8 @@ namespace SushiDSP
 
         bool running_ = false;
 
-        // Trampoline target for ASIO's free-function callbacks (the SDK assumes one open
-        // driver process-wide; a second concurrently-open AsioAudioDevice is a documented
-        // programming error, not runtime-guarded, matching this codebase's existing
-        // precedent of documenting rather than checking constructor-level preconditions).
+        /// @brief Points at the one open device the ASIO free-function callbacks forward to.
+        /// @pre At most one AsioAudioDevice is open at a time (include/SushiDSP/README.md).
         static AsioAudioDevice* active_instance_;
 
         /// @brief The real-time buffer-switch body. Allocation-, lock-, syscall- and

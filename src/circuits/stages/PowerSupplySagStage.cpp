@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PowerSupplySagStage.cpp
+ * @brief Implements the power-supply sag stage.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/circuits/stages/PowerSupplySagStage.hpp"
 
 #include <algorithm>

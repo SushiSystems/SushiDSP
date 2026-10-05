@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file JcmV1aNetlist.hpp
+ * @brief Defines the JCM800 2203 V1a stage as a DkNetlist for every test-side consumer.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -13,13 +19,6 @@
 
 #include "SushiDSP/circuits/models/Triode12AX7.hpp"
 
-/// @file
-/// @brief The JCM800 2203 V1a stage as a DkNetlist, shared by every test-side consumer.
-///
-/// Three consumers build this exact block - the D6b stage test, the RT-safety traps and the
-/// benchmark - so it is described once, here, with the component values named rather than
-/// spelled as literals at each call site. Test-side only: nothing in this header is linked into
-/// a product, and no product may include it.
 namespace SushiDSP::test_circuits
 {
     /// @brief Node numbering of docs/reference/spice/jcm_v1a, node for node; 0 is ground.
@@ -91,16 +90,11 @@ namespace SushiDSP::test_circuits
     };
 
     /// @brief Builds the jcm_v1a netlist, node for node against the SPICE block's component table.
-    ///
-    /// Without the tail the block has six reactive states - three discrete capacitors plus the
-    /// triode's three interelectrode capacitances - and probes the stage output at node 6; with
-    /// it, seven states and the probe moves to the tail's load, node 9. The nonlinear branches,
-    /// the sources and the potentiometer are identical either way, so the two shapes differ only
-    /// in what the plan calls S.
     /// @tparam Netlist A DkNetlist instantiation whose S matches the requested state count.
     /// @param netlist Receives the description; any previous contents are overwritten.
-    /// @param with_rc_tail True to append the seventh-state RC tail described above.
+    /// @param with_rc_tail True to append the seventh-state RC tail and probe node 9.
     /// @return The preamp potentiometer's index, for DkCircuit::set_potentiometer.
+    /// @see tests/circuits/README.md, "JcmV1aNetlist.hpp", for the two shapes of the block.
     template <typename Netlist>
     std::size_t build_jcm_v1a(Netlist& netlist, bool with_rc_tail = false)
     {

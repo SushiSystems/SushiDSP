@@ -103,3 +103,63 @@ something a host should compensate.
   dropping the top clock to 80 kHz would cover the DD-3A's deltas that change the sound. Its gate
   array's internal conversion timing is undocumented either way, which is the part that would not
   follow.
+
+## Implementation notes
+
+### The converter's rulings
+
+Three rulings shape `Dd3Converter`. Ruling 13: the SBM1024 is a plain uniform mid-tread quantiser
+here. The R-2R ladder's per-bit DNL has no measured target yet, so it is not modelled; a table
+would replace the linear step in `quantise` if one is ever measured. Ruling 14: a MODE change
+swaps the ring length and clears the ring, except that Long and Hold share one length, so
+switching between them must not clear the loop HOLD is meant to freeze. Ruling 15: the converter
+saturates at both rails and does not wrap on overflow.
+
+### A mode set before `prepare`
+
+`set_mode` only ever records the requested mode. It resizes or clears `ring_` itself only once
+`prepare` has allocated it; before that `ring_` is empty whatever mode was requested, so a mode
+selected before `prepare` cannot leave `length_` pointing past an empty ring for `process_sample`
+to index into. `prepare()` resolves `length_` from the recorded mode. `process_sample` requires
+`prepare` to have run first. On an unprepared object it asserts in debug and returns `0.0F` in
+release without touching `ring_`. The empty-ring check that makes this safe is unconditional, not
+compiled out, so the out-of-bounds read cannot happen in either build.
+
+### The compander's rectifier
+
+The compressor rectifies its own output (2:1, `sqrt(kReferenceVolts * volts)`); the expander
+rectifies its input (1:2, `volts^2 / kReferenceVolts`). The compressor's gain therefore lags its
+own rectifier by one sample. The loop is otherwise algebraic, and at a 6.8 ms time constant one
+sample of lag is 0.3 % of one time constant at 48 kHz.
+
+The rectifier and its pole run at `kRectifierOversampling` times the host rate; the gain cell
+does not. Rectification is the one nonlinearity here whose aliasing is a discretisation artefact
+and not modelled hardware.
+`docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`, "Model corrections", carries the
+ruling and the measurements.
+
+### The rectifier's oversampling
+
+`kRectifierOversampling` is 8. The board's rectifier is continuous time, so the harmonics `|x|`
+carries at every `2k*f0` never fold. Sampling it at the host rate does fold them, and the fold
+lands where the pole cannot reach: at 48 kHz an 8 kHz tone puts `6*f0` on 48001.5 Hz, which
+aliases to 1.46 Hz and modulates the gain cell at full weight. Eight sub-steps move the surviving
+fold from the 6th harmonic of `|x|` to the 48th, whose Fourier coefficient is 1/2303 against
+1/35, and take the DD-3's alias floor from -35.86 dB to -55.32 dB at the service note's stimulus.
+
+### The dry path's full-scale voltage
+
+The dry path scales the input by the core's `SushiDSP::kFullScaleVolts`, the 2.0 V calibration.
+`dd3::Dd3Converter::kFullScaleVolts` is a different constant: 2.5 V, the converter's own ADC/DAC
+rail.
+
+### The pending mode
+
+The `mode` parameter row records the requested mode and does not apply it. Clearing 16384 samples
+inside the host's parameter drain is not real-time safe, so the row stores the pending mode and
+`apply_pending_mode` applies it.
+
+Eight sub-steps of the rectifier's pole in `Ne570Compander.cpp` compose to the host-rate pole's
+coefficient exactly: `exp(-1/(8*fs*tau))^8` is `exp(-1/(fs*tau))`, so `tau` does not move with the
+sub-stepping. Under a changing input the sub-stepped map differs from the host-rate one by about
+0.4 samples of envelope lag, which is negligible against `tau`'s 326.4-sample time constant.

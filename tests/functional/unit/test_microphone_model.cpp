@@ -36,12 +36,9 @@ namespace
 
 TEST(Unit_Dsp, MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointFiveDecibels)
 {
-    // Spec section 8.1 states its 15.5 dB at 100 Hz, which is not a band centre. At 100 Hz the
-    // boost is 10.9637 at 5 cm and 1.0164 at 3 m: 0.5 + 0.5 * 10.9637 = 5.9819 (15.54 dB)
-    // against 1.0082 (0.07 dB), a difference of 15.47 dB.
+    // At 100 Hz the two distances differ by 15.47 dB. See tests/functional/unit/README.md.
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.05) - cardioid_on_axis_db(100.0, 3.0), 15.47, 0.05);
-    // Band 0 is 125 Hz: the boost is 8.7915 at 5 cm and 1.01054 at 3 m, so the model reads
-    // 0.5 + 0.5 * 8.7915 = 4.8957 (13.80 dB) against 1.00527 (0.046 dB), 13.75 dB apart.
+    // At 125 Hz the two distances differ by 13.75 dB. See tests/functional/unit/README.md.
     const SushiDSP::room::MicrophoneModel cardioid(
         SushiDSP::room::PolarPattern::Cardioid, { 0, 0, 0, 0, 0, 0 });
     const float near_db = cardioid.gain_for(0.0, 0.05).decibels()[0];
@@ -52,8 +49,7 @@ TEST(Unit_Dsp, MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointFiveDeci
 
 TEST(Unit_Dsp, MicrophoneModelProximityBoostIsTheSphericalWaveTerm)
 {
-    // f_p = c / (2 pi r) is 1091.8 Hz at 5 cm and 182.0 Hz at 30 cm.
-    // 343 / (2 pi * 100 * 0.05) = 10.9180, sqrt(1 + 119.204) = 10.9637.
+    // sqrt(1 + 10.9180^2) = 10.9637 at 100 Hz and 5 cm. See tests/functional/unit/README.md.
     EXPECT_NEAR(SushiDSP::room::MicrophoneModel::proximity_boost(100.0, 0.05), 10.9637, 1e-4);
     // 343 / (2 pi * 100 * 0.30) = 1.81967, sqrt(1 + 3.31120) = 2.07634.
     EXPECT_NEAR(SushiDSP::room::MicrophoneModel::proximity_boost(100.0, 0.30), 2.07634, 1e-4);
@@ -63,12 +59,10 @@ TEST(Unit_Dsp, MicrophoneModelProximityBoostIsTheSphericalWaveTerm)
 
 TEST(Unit_Dsp, MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointSevenDecibels)
 {
-    // At 100 Hz, 0.5 + 0.5 * 2.07634 = 1.53817, which is 3.74 dB over the far-field value of
-    // 1; against the same capsule at 3 m (0.07 dB) the difference is 3.67 dB.
+    // At 100 Hz and 30 cm the capsule gains 3.74 dB. See tests/functional/unit/README.md.
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.30), 3.74, 0.02);
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.30) - cardioid_on_axis_db(100.0, 3.0), 3.67, 0.02);
-    // Band 0, 125 Hz: the boost is 1.76612 at 30 cm, so 0.5 + 0.5 * 1.76612 = 1.38306
-    // (2.82 dB), 2.77 dB over the capsule at 3 m.
+    // At 125 Hz and 30 cm the capsule gains 2.82 dB. See tests/functional/unit/README.md.
     const SushiDSP::room::MicrophoneModel cardioid(
         SushiDSP::room::PolarPattern::Cardioid, { 0, 0, 0, 0, 0, 0 });
     const float thirty_db = cardioid.gain_for(0.0, 0.30).decibels()[0];
@@ -79,9 +73,7 @@ TEST(Unit_Dsp, MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointSevenDec
 
 TEST(Unit_Dsp, MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecibels)
 {
-    // cos(pi/2) is 6.1e-17 in double, so the pattern term is of that order and the decibel
-    // conversion floors it at kDecibelFloor; no band may be a NaN and every band is at least
-    // 40 dB below the same capsule on axis.
+    // The pattern term floors at kDecibelFloor, never a NaN. See tests/functional/unit/README.md.
     const SushiDSP::room::MicrophoneModel eight(
         SushiDSP::room::PolarPattern::FigureEight, { 0, 0, 0, 0, 0, 0 });
     const SushiDSP::room::BandResponse side = eight.gain_for(kPi / 2.0, 1.0);

@@ -7,41 +7,7 @@
 
 Usage:  python tools/dsp/motus_reference.py --rir 0001_1_sh_rirs.wav 0002_1_sh_rirs.wav \
             0003_1_sh_rirs.wav --csv tests/fixtures/motus_reference.csv
-        python tools/dsp/motus_reference.py --rir 0001_1_sh_rirs.wav
-
-The input is a Motus RIR (Zenodo 4923187, CC-BY-4.0: Gotz, Falcon Perez, Schlecht, Pulkki,
-I3DA 2021, doi 10.5281/zenodo.4923187), a 25-channel 4th-order ambisonic WAV in ACN/SN3D
-order. Channel 0 is the omnidirectional W; the other channels are ignored. Every figure below
-comes from that one channel, so no decoder or loudspeaker model enters the result.
-
-Parameters, all fixed:
-  Bands       octave bands centred on 125, 250, 500, 1000, 2000 and 4000 Hz, edges at
-              fc / sqrt(2) and fc * sqrt(2).
-  Filter      fourth-order Butterworth band-pass, applied forward and backward with
-              sosfiltfilt, so the effective order is eight and the phase is zero. The zero
-              phase leaves the direct sound smeared symmetrically about its true time, about
-              1 / bandwidth wide: about 11 ms at 125 Hz, about 0.4 ms at 4 kHz.
-  Onset       the sample of the largest absolute value of the unfiltered W channel, taken as
-              the direct sound. Every band uses that one index, so the bands share one time
-              origin.
-  Noise       the mean of the squared band signal over the last 10 percent of the response.
-  Truncation  the smoothed squared band signal (a centred 20 ms moving average) is followed
-              from the onset; the first sample at or below the noise level ends the
-              integration. Later samples are dropped from every sum below.
-  Decay curve Schroeder backward integral of the squared band signal from the onset to the
-              truncation, in dB relative to its start.
-  T20, T30    least-squares line through the decay curve between its first crossing of -5 dB
-              and its first crossing of -25 dB (T20) or -35 dB (T30); the time for a 60 dB
-              fall on that line. A value is left empty when the curve never reaches the lower
-              level before the truncation.
-  EDT         the same fit between 0 dB and -10 dB, as a 60 dB fall.
-  DRR         energy from 2.5 ms before to 2.5 ms after the onset, against all energy from
-              2.5 ms after the onset to the truncation, in dB.
-  C50         energy from 0 to 50 ms after the onset against energy from 50 ms to the
-              truncation, in dB.
-
-Nothing here is a fit of decay plus noise as the paper describes; the truncated Schroeder
-curve is the simpler method and the two differ where the noise floor is close to the decay.
+The input, the method and every fixed parameter are in tools/dsp/README.md, "motus_reference.py".
 """
 from __future__ import annotations
 

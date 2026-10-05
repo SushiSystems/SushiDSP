@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file RtGraphSlot.hpp
+ * @brief Declares the slot that publishes RigGraph replacements to the audio thread.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <atomic>
@@ -18,21 +24,12 @@
 
 namespace SushiDSP
 {
-    /// @brief Publishes RigGraph replacements to the audio thread without ever locking or
-    /// blocking it. A non-RT thread builds a whole new compiled RigGraph and publish()es it;
-    /// the audio thread reads the active graph with one atomic load per callback. Retired
-    /// graphs are freed only once the audio thread has provably moved past them, checked by
-    /// reclaim() on the non-RT thread.
+    /// @brief Publishes RigGraph replacements to the audio thread without locking or blocking
+    /// it, and frees a retired graph only once the audio thread has moved past it.
     ///
-    /// Threading contract:
-    ///  - publish() and reclaim() must both be called from a single, consistent non-RT thread.
-    ///    If callers ever need to call either from more than one thread, they must externally
-    ///    synchronize those calls themselves - this class provides no such synchronization on
-    ///    its own.
-    ///  - acquire_for_audio_thread() must be called from a single, consistent RT (audio)
-    ///    thread. The pointer it returns is only valid until that SAME thread's NEXT call to
-    ///    acquire_for_audio_thread(); it must not be retained across calls (a subsequent
-    ///    reclaim() may free the graph it pointed at once this thread has moved past it).
+    /// publish() and reclaim() belong to one non-RT thread and acquire_for_audio_thread() to
+    /// one audio thread; the slot synchronises neither side against itself
+    /// (include/SushiDSP/README.md).
     class RtGraphSlot
     {
     public:

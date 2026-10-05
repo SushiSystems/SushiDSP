@@ -120,15 +120,14 @@ public:
     /// @return True when the track now holds the file's audio.
     bool load_track(std::size_t index, const std::string& path, std::string& error_out);
 
-    /// @brief Loads a WAV file and adds it to a lane as one clip beginning at a timeline frame,
-    /// sharing the take with every clip already reading the same path. Control thread only.
+    /// @brief Loads a WAV file and adds it to a lane as one clip beginning at a timeline frame.
     /// @param track Lane index; out of range does nothing and reports failure.
     /// @param path Filesystem path to the WAV file.
     /// @param start_frame Timeline frame the clip's first sample lands on.
-    /// @param error_out Receives the failure message when the file will not parse, the lane
-    /// already holds SushiDSP::TrackTimeline::kMaxClips clips, or the clip would overlap one the
-    /// lane already holds.
+    /// @param error_out Receives the failure message; apps/host_gui/README.md lists the
+    /// refusals.
     /// @return True when the lane now holds the clip; the lane is left as it was otherwise.
+    /// @pre Called on the control thread.
     bool place_clip(std::size_t track, const std::string& path, std::uint64_t start_frame,
                     std::string& error_out);
 

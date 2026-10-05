@@ -7,21 +7,15 @@
 
 Usage:  python tools/dsp/design_resampler.py
 
-Writes include/SushiDSP/math/ResamplerDesign.hpp and src/math/ResamplerKernel.hpp,
-both relative to the repository root.
-
-Kaiser-windowed sinc, table-driven for polyphase interpolation, normalised so every
-polyphase branch has unity DC gain rather than the peak; HALF_WIDTH is 34, not the plan's
-32, per docs/archive/superpowers/plans/2026-09-05-dr1-dr2-resampler-and-dd3.md Task 1.1 ruling.
+Writes include/SushiDSP/math/ResamplerDesign.hpp and src/math/ResamplerKernel.hpp, both relative
+to the repository root. The design choices are in tools/dsp/README.md, "design_resampler.py".
 """
 import sys
 import numpy as np
 import scipy
 from scipy.signal import freqz
 
-HALF_WIDTH = 34          # zero crossings each side (33 clears -100 dB with only 0.08 dB of
-                         # margin at the true worst frequency; 34 gives ~0.45 dB of margin -
-                         # see the DR1+DR2 plan, Task 1.1 ruling on the stopband conflict)
+HALF_WIDTH = 34          # zero crossings each side; 34 and not 33, per tools/dsp/README.md
 PHASES = 512             # table entries per zero crossing
 CUTOFF = 0.45            # normalised to the lower of the two sample rates
 PASSBAND_EDGE = 0.400
@@ -66,9 +60,7 @@ def design():
     t = np.arange(n + 1) / PHASES
     kernel = 2.0 * CUTOFF * np.sinc(2.0 * CUTOFF * t)
     kernel *= np.kaiser(2 * n + 1, BETA)[n:]
-    # The last table entry (t == HALF_WIDTH) sits at the Kaiser window's tapered edge and is
-    # already negligible; it is the interpolator's outermost table point, so it is forced to
-    # the exact zero the interface promises rather than left at a near-zero float.
+    # The outermost table point is the exact zero the interface promises; see tools/dsp/README.md.
     kernel[-1] = 0.0
     kernel /= phase_sums(kernel).mean()
     return np.concatenate([kernel, [0.0]]), phase_sums(kernel)
@@ -86,8 +78,7 @@ def measure_response(kernel):
     """
     full = np.concatenate([kernel[-2:0:-1], kernel[:-1]])
     w, response = freqz(full, worN=GRID, fs=PHASES)
-    # freqz's raw DC gain is the tap count density (~PHASES); the interpolating filter's own
-    # gain is that response divided by PHASES, matching the continuous-time integral it applies.
+    # The interpolating filter's gain is freqz's response over PHASES; see tools/dsp/README.md.
     magnitude_db = 20.0 * np.log10(np.maximum(np.abs(response) / PHASES, 1e-300))
     passband = magnitude_db[(w >= 0.0) & (w <= PASSBAND_EDGE)]
     stopband = magnitude_db[w >= 0.5]
@@ -191,8 +182,7 @@ def measure_all(kernel, dc_sums):
         raise SystemExit("interpolation bound exceeds N1's headroom")
     if measurements["stopband"] > -100.0:
         raise SystemExit("HALF_WIDTH no longer clears the -100 dB stopband target")
-    # The brief names no numeric passband-ripple target, so it is measured and printed
-    # above but not gated.
+    # The passband ripple is printed above and not gated; see tools/dsp/README.md.
     return measurements
 
 

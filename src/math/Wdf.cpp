@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Wdf.cpp
+ * @brief Implements the wave digital filter resistor and capacitor one-ports.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/math/Wdf.hpp"
 
 namespace SushiDSP

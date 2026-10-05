@@ -33,10 +33,7 @@ namespace SushiDSP::dd3
     void Ne570Compander::prepare(double sample_rate)
     {
         sample_rate_ = sample_rate;
-        // Eight sub-steps of this pole compose to the host-rate pole's coefficient exactly:
-        // exp(-1/(8*fs*tau))^8 is exp(-1/(fs*tau)), so tau does not move with the sub-stepping.
-        // Under a changing input the sub-stepped map differs from the host-rate one by about
-        // 0.4 samples of envelope lag, negligible against tau's 326.4-sample time constant.
+        // The sub-stepped pole equals the host-rate one exactly; see modules/nodes/dd3/README.md.
         coefficient_ = 1.0 - std::exp(-1.0 / (sample_rate_ * kRectifierOversampling
                                               * kTimeConstantSeconds));
     }

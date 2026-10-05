@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TimelineScale.hpp
+ * @brief Declares the conversion between timeline frames and canvas pixels.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

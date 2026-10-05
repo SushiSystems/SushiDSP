@@ -364,3 +364,58 @@ from something other than a printed value.
 | `kCoefficientEpsilon` | 1e−4 | The threshold below which the audio thread skips a rebuild | Nothing |
 | `kMasterUnityGain` | 0.0038289 | The calibration that puts a −12 dBFS 82 Hz sine at −6 dBFS with default knobs | Nothing; it is the pin all four amplifiers share |
 | `kMinMasterDb` … `kMaxOutputDb` | −60 / +12 dB on Master 1 and Output, ±24 dB on Input Trim | Control ranges, where the amp has a 100 k pot | Nothing; the ranges are the host's, not the amp's |
+
+## Implementation notes
+
+### The 0.047 uF ahead of V4A
+
+S1 draws 68 k in parallel with 0.047 uF to ground ahead of V4A, which as drawn is a 69.7 Hz
+low-pass no lead channel could have. The model places the capacitor across the 170 k, which
+gives the tightness dossier 3.4's prose describes. This is open question 18.
+
+### Miller corners
+
+The Miller corners land at 9.0, 14.5, 14.7, 11.6, 11.6 and 15.2 kHz, each set by the plate load
+that drives the grid and not by one shared figure. V2A's pole uses V4A's 270 k, the load that
+drives the grid, while `kV2aSourceResistance` is the divider's 3.25 k Thevenin that sets where
+that grid conducts.
+
+### The bright shelves
+
+The Volume 1 bright shelf is flat until PULL BRIGHT switches the capacitor in. Then, as on the
+lead drive, the shelf gives back what the taper is throwing away at the knob's position. On the
+lead drive the 180 pF shorts the pot's top section above the corner, so the shelf's height is
+whatever the taper is throwing away at that position.
+
+### The feedback loop's delay
+
+The negative feedback loop closes on the previous oversampled sample, 2.6 us at 48 kHz, because
+an implicit solve through the nonlinear power section would iterate.
+
+### Simul-Class
+
+Simul-Class: both power pairs hang on the same transformer, each taking the plate of its own
+side, and they clip apart because their plate swings do (dossier 7.3).
+
+### The output clamp
+
+Nothing upstream of the output is normalised to the DAC's range, so a hot combination of Lead
+Drive, Master 1 and Output can still land outside [-1, 1]. The clamp is a safety rail.
+
+### Parameter order
+
+The order of the parameter table's rows is a contract. A host addresses the parameters by index
+and a saved preset reads them back by index, so rows are appended, never reordered or removed.
+For the same reason the panel switches are appended after the knobs and not placed beside the
+knobs they sit next to on the panel.
+
+### Master 1 and EQ OUT
+
+Master 1 sits at node F, between V2B's coupling capacitor and the equaliser, ahead of the phase
+inverter (dossier 2). EQ OUT lifts the whole slider bus off ground, which takes the five traps out
+of the path; it does not centre them.
+
+### Tone stack values
+
+`MesaMark2cToneStack.cpp` takes its values from dossier section 4.1: 250 pF treble, 0.1 uF bass,
+0.047 uF mid, 100 k slope, 250 k bass, 10 k mid, 250 k treble.

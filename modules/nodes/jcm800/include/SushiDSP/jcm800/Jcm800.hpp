@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Jcm800.hpp
+ * @brief Declares the JCM800 2203 amplifier node and its descriptor.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>
@@ -160,12 +166,10 @@ namespace SushiDSP
         Biquad coupling_cap_;
         Biquad presence_shelf_;
 
-        // The 2203's 470 k / 470 pF treble peaker into V1b's grid leak, as the high shelf that
-        // network is; see kV1bTreblePeakerDivider in Jcm800.cpp for the values it comes from.
+        // Models the 2203's 470 k / 470 pF treble peaker; see modules/nodes/jcm800/README.md.
         Biquad v1b_treble_peaker_;
 
-        // One-pole grid-input-capacitance rolloffs, one per driven triode grid; see the Miller
-        // constants in Jcm800.cpp for what sets their corners.
+        // One-pole rolloffs, one per driven triode grid; see modules/nodes/jcm800/README.md.
         Biquad v1b_grid_miller_;
         Biquad v2a_grid_miller_;
         Biquad phase_inverter_grid_miller_;

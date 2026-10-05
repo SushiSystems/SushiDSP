@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file AsioSampleConverter.hpp
+ * @brief Declares the hardware sample formats and their conversions to and from float.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

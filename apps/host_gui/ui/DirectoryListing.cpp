@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DirectoryListing.cpp
+ * @brief Implements the directory listing the file browser reads.
+ * @author Mustafa Garip
+ */
+
 #include "ui/DirectoryListing.hpp"
 
 #include <algorithm>

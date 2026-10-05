@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_denormal_guard.cpp
+ * @brief Tests that DenormalGuard flushes denormals while alive and restores the mode after.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <limits>
 
@@ -15,8 +21,7 @@
 
 namespace
 {
-    // Reading through a volatile keeps the compiler from folding the product at compile time,
-    // where it would be evaluated under IEEE rules regardless of the runtime FPU mode.
+    // A volatile read stops the compiler folding the product. See tests/functional/unit/README.md.
     float decay_toward_zero(float start)
     {
         volatile float value = start;

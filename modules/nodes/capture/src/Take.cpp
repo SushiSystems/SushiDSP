@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Take.cpp
+ * @brief Implements the in-memory recording and its loading from a WAV file.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/capture/Take.hpp"
 
 #include <algorithm>

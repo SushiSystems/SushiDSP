@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file GraphicEqualizer.hpp
+ * @brief Declares a bank of fixed-centre peaking bands in series.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>

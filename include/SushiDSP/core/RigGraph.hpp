@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file RigGraph.hpp
+ * @brief Declares the directed graph of audio nodes that is compiled and replayed per block.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

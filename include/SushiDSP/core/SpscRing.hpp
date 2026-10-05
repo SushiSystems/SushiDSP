@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SpscRing.hpp
+ * @brief Defines a lock-free single-producer, single-consumer ring buffer.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <algorithm>

@@ -6,23 +6,25 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Peavey5150ToneStack.cpp
+ * @brief Implements the 5150's passive tone deck and the input network ahead of it.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/peavey5150/Peavey5150ToneStack.hpp"
 
 namespace SushiDSP
 {
     namespace
     {
-        // Dossier section 4: C16 470 pF in parallel with C60 100 pF, C18 0.022 uF, C21 0.022 uF,
-        // R28 47 kOhm slope resistor, VR3 1 MOhm LOW, VR4 50 kOhm MID, VR5 250 kOhm HIGH.
+        // The deck's values are dossier section 4's; see modules/nodes/peavey5150/README.md.
         constexpr FmvComponents kPeavey5150Stack{ 570e-12f, 22e-9f, 22e-9f, 47e3f, 1e6f, 50e3f, 250e3f };
 
-        // Dossier section 3, V5A row: the plate load R86 100 kOhm in parallel with the solved
-        // plate resistance 54.8 kOhm, which is the impedance driving the stack's input node.
+        // Dossier section 3, V5A row: R86 100 kOhm || the solved 54.8 kOhm ra drives the input.
         constexpr double kV5aSourceResistanceOhms = 35400.5;
 
-        // Dossier section 4: R24 33 kOhm from V5A's coupling node to ground. Against V5A's source
-        // resistance it is a frequency-independent loss of 33k/(35.4k + 33k) = 0.4824525, and it is
-        // applied once, as the shelf below's gain at DC.
+        // Dossier section 4: R24 33 kOhm to ground loses 33k/(35.4k + 33k) = 0.4824525, once.
         constexpr double kInputShuntOhms = 33000.0;
         constexpr double kInputShuntAttenuation = 0.4824525;
 
@@ -33,17 +35,14 @@ namespace SushiDSP
         // Dossier section 2: C58 0.022 uF from V5A's plate into the stack.
         constexpr double kCouplingCapacitorFarads = 22e-9;
 
-        // Computed from the values above: the coupling capacitor works into V5A's source
-        // resistance plus R24, so the corner is 1/(2*pi*22n*(35.4k + 33k)) = 105.76 Hz.
+        // The capacitor works into V5A's source plus R24: 1/(2*pi*22n*(35.4k + 33k)) = 105.76 Hz.
         double coupling_corner_hz()
         {
             return 1.0 / (2.0 * 3.14159265358979323846
                           * kCouplingCapacitorFarads * (kV5aSourceResistanceOhms + kInputShuntOhms));
         }
 
-        // The C59/R94 leg is open at DC and 47 kOhm above its corner, so the input node's shunt
-        // falls from 33 kOhm to 33k || 47k = 19.36 kOhm and the divider from 0.4825 to 0.3539:
-        // a 2.71 dB treble cut. Zero 338.63 Hz, pole 248.37 Hz.
+        // The C59/R94 leg makes a 2.71 dB treble cut: zero 338.63 Hz, pole 248.37 Hz.
         double input_shelf_zero_hz()
         {
             return 1.0 / (2.0 * 3.14159265358979323846

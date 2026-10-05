@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TextField.hpp
+ * @brief Defines a text box whose buffer follows its owner's value while idle.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>

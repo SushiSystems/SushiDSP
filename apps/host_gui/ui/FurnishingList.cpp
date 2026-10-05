@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file FurnishingList.cpp
+ * @brief Implements the edits of a room scene's furnishing list.
+ * @author Mustafa Garip
+ */
+
 #include "ui/FurnishingList.hpp"
 
 #include <cmath>

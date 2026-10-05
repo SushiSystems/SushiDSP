@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file StreamingConvolution.hpp
+ * @brief Declares the re-blocking front of PartitionedConvolution.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 #include <cstdint>
 #include <vector>

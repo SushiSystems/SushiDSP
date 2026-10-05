@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_rig_topology.cpp
+ * @brief Tests the paths and edges of RigTopology.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include "RigTopology.hpp"
@@ -40,8 +46,7 @@ TEST(Unit_Dsp, RigTopologyOpeningAPathReportsItForTheCallerToFill)
     EXPECT_EQ(to_two.opened, (std::vector<std::size_t>{ 1 }));
     EXPECT_TRUE(to_two.discarded.empty());
 
-    // The model holds identities, so the path it opens starts empty: filling it from the main
-    // path is the caller's work.
+    // The path the model opens starts empty. See tests/functional/unit/README.md.
     EXPECT_TRUE(topology.stage({ StageKind::Branch, 1 }).empty());
 
     const ChainTypeChange to_three = topology.set_chain_type(ChainType::ThreeWay);

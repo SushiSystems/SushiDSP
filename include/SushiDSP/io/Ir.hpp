@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Ir.hpp
+ * @brief Declares a mono impulse response and the sample rate it is valid at.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <vector>

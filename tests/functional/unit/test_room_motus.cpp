@@ -213,8 +213,7 @@ TEST(Unit_Dsp, MotusEmptyRoomDecayIsNotShorterThanMeasuredAndAtMostTwiceAsLong)
         ASSERT_TRUE(std::isfinite(measured));
         ASSERT_GT(measured, 0.0);
         ASSERT_TRUE(std::isfinite(empty_model[band]));
-        // The module's documented state: a first hand estimate put the empty room 40 to 70 percent
-        // too long in the mid bands, so two times is a ceiling on that error, not a target.
+        // Two times is a ceiling on the error, not a target. See tests/functional/unit/README.md.
         const double ratio = empty_model[band] / measured;
         EXPECT_GE(ratio, 1.0) << kBandCentresHz[band] << " Hz";
         EXPECT_LE(ratio, 2.0) << kBandCentresHz[band] << " Hz";

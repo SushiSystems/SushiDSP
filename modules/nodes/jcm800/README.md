@@ -277,4 +277,122 @@ through the sag stage runs inside a single 8x oversampled region, so the couplin
 Miller poles, the tone stack, the output transformer and the sag stage are all derived at the
 oversampled rate. The presence shelf and the master volume run after the decimator, where they
 cost eight times less and generate nothing that could alias; cabinet convolution, if a rig adds
-it, runs in the separate `sushidsp.cabinet` node downstream.
+it, runs in the separate `sushidsp.cabinet` node downstream, so the amp hands its dry signal,
+after presence and master, straight to the output.
+
+## Implementation notes
+
+### Component values
+
+The component values are physically-motivated approximations for a 12AX7/EL34 JCM800-style signal
+path. They are not measured from a real amplifier: no reference unit or captures were available,
+and spec section 8 records "Perceptual A/B validation... deferred".
+
+### The common plate load
+
+`kPlateLoadOhms` takes the driving impedance as a common 100 kOhm plate load for all three grids.
+That is a deliberate simplification, not a per-node fact. V1b's grid is really fed from the
+1 MOhm preamp pot's wiper, a Thevenin source of up to 250 kOhm; V2a's from the tone stack's
+output impedance; and the phase inverter's from V2a's plate through its coupling cap. Every one
+of those is higher than 100 kOhm over most of its range, so the errors all run in the same
+direction: this model is brighter than the amp, never darker. None of them is available as a
+single number until D6d gives each block a real source impedance.
+
+### The treble peaker and the grid capacitance
+
+V1b's grid sits behind the 2203's 470k/470p treble peaker, which this model carries as
+`kV1bTreblePeakerDivider` and its shelf: the network's own loss and its return to unity above the
+corner. What it does not carry is the peaker's interaction with the grid capacitance, where the
+470 pF puts itself in series with the ~115 pF grid and the source drives the two together. The
+Miller corner is computed from the plate load and the grid capacitance alone, so the real
+circuit's sits higher than this one's.
+
+### Miller poles
+
+Without the Miller poles, the D6a single 8x region let V1a/V1b's full 192 kHz-wide harmonic
+spectrum reach V2a, the phase inverter and the EL34 pair, whose own clipping turned it into
+content past the 8x Nyquist that folded back into the audio band. A real 2203 has never had that
+bandwidth to give away.
+
+### The coefficient epsilon
+
+`kCoefficientEpsilon` is the knob movement below which a recomputed tone-stack or presence
+coefficient set would be numerically indistinguishable from the one already in place, so the
+audio thread skips the rebuild. It only saves work: 1e-4 of a knob's 0..1
+travel is far finer than the ~1e-3 step a 7-bit MIDI controller can even express.
+
+### The preamp taper
+
+`preamp_attenuation()` exists because the 2203's preamp volume is a pot between V1a's plate and
+V1b's grid, so the knob is an attenuator, not an input multiplier. Turning it up feeds V1b, and
+everything after it, harder, which is what produces the cascaded-gain-stage distortion and not
+just a louder clean signal. The knob follows the corpus audio taper. Its exponent is 1.5 and not
+a plain square because the cascade's clean-to-saturated transition spans a wide range of
+interstage level (a grid conducts once it reaches its cathode, and cuts off 4.14 V below), so a
+steeper taper compresses too much of that transition into the top third of the knob's travel.
+Measured at a 0.2 input: with a square taper the THD proxy is zero below preamp 0.5; with this
+one it starts moving at 0.4 and climbs monotonically to 1.0.
+
+### The coupling capacitor's rate
+
+The V1a-to-V1b coupling capacitor sits inside the oversampled region, so its coefficients must be
+derived at the oversampled rate. Deriving them at the base rate would place the real corner 8x
+higher, 960 Hz instead of 120 Hz, and gut the low end. It is a first-order high-pass because that
+is what a coupling capacitor into a grid leak is; a Butterworth biquad would roll the low end off
+at twice the rate the RC does. The first-order pole is also what keeps the filter stable at the
+oversampled rate: 120 Hz against 8 x 192 kHz is a ratio of 7.8e-5, under `set_high_pass`'s 1e-4
+floor.
+
+### The Miller poles' rate and the inverter's pole
+
+The Miller poles are part of the oversampled chain, so like the coupling capacitor they are
+derived at the oversampled rate, each from the gain of the stage whose grid it is, through
+`miller_corner_hz()`, which reads the gain constants and so tracks them. The phase inverter's
+pole is a property of this model's inverter, which is a single triode at `kPhaseInverter.gain`.
+A real 2203's inverter is a long-tailed pair, whose driven grid sees very little Miller
+multiplication because that half runs as a grounded-grid stage with no inverting plate-to-grid
+path. D6d should not inherit this pole when it replaces the inverter with the LTP.
+
+### The tone stack's rate
+
+The tone stack sits inside the single oversampled region (spec D6a.3: one region per node), so
+its coefficients are derived at the oversampled rate. It is passive and linear today and gains
+nothing from the higher rate. It is inside because collapsing the two regions into one halves the
+node's latency, and because D6d turns it into a DK-method block whose solver does belong at 8x.
+
+### Knob smoothing
+
+Every knob is smoothed at the base rate, since every one of them is read once per block in
+`process()` via `skip(frames)`. `prepare()` is a discontinuity anyway, with buffers resized and
+filters rebuilt, so the smoothers snap and do not ramp from a stale value, and the `applied_*`
+markers are invalidated so the first block builds the coefficients that match those snapped
+targets.
+
+### The transformer and the sag stage
+
+The output transformer and the sag stage run inside the oversampled region, so both are built at
+the oversampled rate: their filter corners and the sag recovery time constant are all derived
+from the rate they are stepped at. They stay inside that region, as spec section 5's diagram
+places them, because the transformer's core saturation is a genuine tanh nonlinearity and the sag
+stage's gain is signal-dependent. Running either after the decimator would fold their generated
+harmonics back below Nyquist.
+
+### Control changes on the audio thread
+
+Control changes that reach `process()` are only ever targets; the audio thread is where they take
+effect. The per-block advance is a single closed-form step, and the coefficient rebuilds are
+plain arithmetic on stack values: no allocation, no lock, no syscall.
+
+### Presence and master after the decimator
+
+The presence shelf and the master volume are linear, so they generate nothing to alias and cost
+8x less on the host-rate side of the decimator.
+
+### The output clamp
+
+Nothing upstream of the output is normalized to the DAC's range: every stage is bounded only by
+its own tube's conduction window, so a hot combination of preamp, master and output can still
+land outside [-1, 1]. The clamp is what makes that safe. It is deliberately not a soft-knee
+limiter: a waveshaper there would need its own oversampled region to avoid aliasing its own
+harmonics back down, and the amp's saturation character already comes from the tube and
+transformer stages that model it.

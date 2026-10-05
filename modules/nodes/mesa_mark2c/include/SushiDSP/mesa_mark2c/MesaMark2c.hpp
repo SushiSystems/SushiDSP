@@ -226,8 +226,7 @@ namespace SushiDSP
         Biquad v2b_cathode_shelf_;
         Biquad v2b_coupling_;
 
-        // One-pole grid-input-capacitance rolloffs, one per driven triode grid; the Miller
-        // constants in MesaMark2c.cpp set their corners.
+        // One-pole rolloffs, one per driven triode grid; MesaMark2c.cpp sets their corners.
         Biquad v1b_grid_miller_;
         Biquad v3b_grid_miller_;
         Biquad v4a_grid_miller_;

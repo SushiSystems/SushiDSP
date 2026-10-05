@@ -43,9 +43,7 @@ TEST(Unit_Dsp, RoomRecordsCarryTheSpecsCapacities)
 
 TEST(Unit_Dsp, RoomRecordsAreSmallEnoughToPublishPerGuiFrame)
 {
-    // One EarlyTap is 4 + 4 + 40 + 40 + 64 = 152 bytes, a multiple of the double's alignment,
-    // so a 128-tap set is 19456 plus 12 of header, padded to 19472; one Mode is 40 + 4 + 8 = 52
-    // padded to 56, so 512 of them are 28672 plus 12, padded to 28688.
+    // One EarlyTap is 152 bytes and one Mode is 56. See tests/functional/unit/README.md.
     EXPECT_EQ(sizeof(SushiDSP::room::EarlyTap), 152u);
     EXPECT_EQ(sizeof(SushiDSP::room::ModalDesign::Mode), 56u);
     EXPECT_LT(sizeof(SushiDSP::room::EarlyTapSet), 24u * 1024u);

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_node_registry.cpp
+ * @brief Tests that NodeRegistry lists and builds the registered nodes.
+ * @author Mustafa Garip
+ */
+
 #include <cstring>
 #include <string>
 

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_wav_file.cpp
+ * @brief Tests the loading of PCM and IEEE float WAV files in WavFile.
+ * @author Mustafa Garip
+ */
+
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -101,8 +107,8 @@ namespace
         write_u32_le(buffer, data_bytes);
     }
 
-    // Builds a minimal mono 24-bit PCM WAV file. Each sample is a 24-bit signed integer,
-    // supplied as an int32_t whose low 24 bits are used (little-endian 3-byte encoding).
+    /// @brief Builds a minimal mono 24-bit PCM WAV file.
+    /// @param samples Signed values whose low 24 bits are written little-endian.
     std::vector<uint8_t> build_pcm24_wav(uint32_t sample_rate, const std::vector<int32_t>& samples)
     {
         const uint32_t data_bytes = static_cast<uint32_t>(samples.size() * 3);
@@ -146,8 +152,8 @@ namespace
         return buffer;
     }
 
-    // Builds a minimal stereo 16-bit PCM WAV file. left/right must be the same length;
-    // samples are interleaved left,right per frame.
+    /// @brief Builds a minimal stereo 16-bit PCM WAV file, interleaved left then right.
+    /// @pre left and right have the same length.
     std::vector<uint8_t> build_pcm16_stereo_wav(
         uint32_t sample_rate, const std::vector<int16_t>& left, const std::vector<int16_t>& right)
     {
@@ -204,8 +210,7 @@ TEST(Unit_Dsp, WavFileThrowsOnTruncatedHeader)
 
 TEST(Unit_Dsp, WavFileLoadsMonoPcm24SamplesWithSignExtension)
 {
-    // 0x000000 = 0, 0x400000 = +0.5 (positive, bit 23 clear), 0x7FFFFF = max positive,
-    // 0xFFFFFF = -1 LSB (all-ones, negative), 0x800000 = most-negative (bit 23 set, sign extension).
+    // The samples cover zero, both extremes and -1 LSB. See tests/functional/unit/README.md.
     const std::vector<int32_t> samples = { 0x000000, 0x400000, 0x7FFFFF, static_cast<int32_t>(0xFFFFFFFF), static_cast<int32_t>(0xFF800000) };
     const std::string path = write_temp_wav(build_pcm24_wav(48000, samples), "wav_pcm24.wav");
 
@@ -251,9 +256,7 @@ TEST(Unit_Dsp, WavFileLoadsMonoIeeeFloatSamplesUnscaled)
 
 TEST(Unit_Dsp, WavFileDownmixesStereoAsAverageOfChannels)
 {
-    // Same-sign, unequal per-channel values: sum-instead-of-average is off by a factor of
-    // ~2 here (unlike opposite-signed values, which would let sum and average both land
-    // near zero and hide an averaging bug under a loose tolerance).
+    // Same-sign values make a sum twice the average. See tests/functional/unit/README.md.
     const std::vector<int16_t> left = { 0, 16384, 8000, 20000 };
     const std::vector<int16_t> right = { 0, 8192, 12000, 10000 };
     const std::string path = write_temp_wav(build_pcm16_stereo_wav(48000, left, right), "wav_pcm16_stereo.wav");

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file KnobMath.hpp
+ * @brief Declares the conversions between a parameter value, a knob position and an angle.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/core/NodeDescriptor.hpp"

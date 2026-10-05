@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file IAudioDevice.hpp
+ * @brief Declares the audio device interface, its format and its block callback.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

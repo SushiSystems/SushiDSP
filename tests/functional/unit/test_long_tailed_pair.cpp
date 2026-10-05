@@ -52,8 +52,7 @@ TEST(Unit_Dsp, LongTailedPairDrivesItsTwoPlatesInOppositeDirections)
 
     EXPECT_LT(plates.a, 0.0f);
     EXPECT_GT(plates.b, 0.0f);
-    // Whether the two amplitudes come out matched is not asserted: each grid sits behind its own
-    // source and leak, and dossier question 6 leaves the pair's DC point open.
+    // Matched amplitudes are not asserted. See tests/functional/unit/README.md.
     EXPECT_GT(std::fabs(plates.a), 0.0f);
     EXPECT_GT(std::fabs(plates.b), 0.0f);
 }

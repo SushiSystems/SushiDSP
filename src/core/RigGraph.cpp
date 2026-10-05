@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file RigGraph.cpp
+ * @brief Implements RigGraph's compilation to a topological order and its per-block replay.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/core/RigGraph.hpp"
 
 #include "SushiDSP/core/DenormalGuard.hpp"
@@ -127,9 +133,7 @@ namespace SushiDSP
 
     void RigGraph::compile(const PrepareInfo& info)
     {
-        // Reset every cached compile() result up front, so a compile() that throws partway
-        // through (cycle, multi-sink, zero-sink) can never leave a stale latency/sink value
-        // behind from a previous successful compile().
+        // Every cached compile() result is cleared first (src/README.md).
         cached_latency_samples_ = 0;
         sink_handle_ = 0;
         topological_order_.clear();
@@ -320,8 +324,7 @@ namespace SushiDSP
 
         for (NodeHandle handle : topological_order_)
         {
-            // compile()'s cycle check only accepts a topological order covering exactly the
-            // live nodes, so every handle here is guaranteed non-null.
+            // compile() accepts only an order covering exactly the live nodes; the handle is non-null.
             assert(nodes_[handle] != nullptr);
 
             const NodeChannels channels = node_channels_[handle];
@@ -442,15 +445,7 @@ namespace SushiDSP
                 }
             }
 
-            // A node with no upstream edge is a root node. Feed it the graph's own live
-            // input (e.g. an ASIO device's captured audio) rather than always nullptr, so a
-            // rig can start directly from live input without a synthetic source node.
-            //
-            // The host's own inputs array is never handed to a node directly: hosts pass a
-            // 1-element array, while a multi-input node (MixerNode) reads all kMaxFanInOut
-            // slots. Routing external input through slot 0 of the fixed-size gather array
-            // guarantees every node always sees a full-width array whose unused slots are
-            // nullptr, instead of reading past the host's array.
+            // A root node reads the live input through slot 0 of the gather array (src/README.md).
             if (edge_index == 0 && context.inputs != nullptr)
             {
                 for (std::uint32_t channel = 0; channel < width; ++channel)
@@ -513,9 +508,7 @@ namespace SushiDSP
         }
         else
         {
-            // An empty graph must still fully define its output: leaving the caller's buffer
-            // untouched would replay whatever was previously in it (e.g. SDL's raw stream
-            // buffer), which is audible garbage looping at block rate.
+            // An empty graph still writes silence to every output channel (src/README.md).
             for (std::uint32_t channel = 0; channel < host_output_channels_; ++channel)
             {
                 for (std::uint32_t frame = 0; frame < context.frames; ++frame)

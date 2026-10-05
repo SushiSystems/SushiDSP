@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file BufferPool.hpp
+ * @brief Declares a fixed-capacity pool of block-sized float buffers.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -27,8 +33,8 @@ namespace SushiDSP
         /// @return Pointer to a block_size-float buffer, or nullptr.
         float* acquire(std::uint32_t frames);
 
-        /// @brief Returns a buffer previously obtained from acquire() to the pool.
-        /// @param buffer Pointer previously returned by acquire().
+        /// @brief Returns a buffer obtained from acquire() to the pool.
+        /// @param buffer A pointer acquire() returned.
         void release(float* buffer);
 
         /// @brief The maximum number of buffers that can be live at once.

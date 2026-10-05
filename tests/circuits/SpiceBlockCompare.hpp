@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SpiceBlockCompare.hpp
+ * @brief Defines the steps every block test applies to an LTspice reference before comparing.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>
@@ -16,12 +22,6 @@
 
 #include "measure/SpiceCsv.hpp"
 
-/// @file
-/// @brief The three things every block test does to an LTspice reference before comparing it.
-///
-/// Each DK block test finds its CSV, band-limits both signals the same way and reads a
-/// magnitude off a stepped sweep. Three test files would otherwise carry three copies of a
-/// 4th-order Butterworth. Test-side only; no product includes it.
 namespace SushiDSP::test_circuits
 {
     /// @brief Path of a generated LTspice CSV; a missing file means "not generated yet".
@@ -34,14 +34,10 @@ namespace SushiDSP::test_circuits
     }
 
     /// @brief Applies a 4th-order Butterworth low-pass, as two cascaded Biquad sections.
-    ///
-    /// The same filter shape and cutoff are applied to the reference and to the circuit under
-    /// test, so the band-limiting cannot flatter either signal: it removes the top octave, where
-    /// LTspice's variable-step integrator and our fixed-step trapezoidal rule are known to
-    /// disagree (D6b plan, Risks).
     /// @param signal The signal to filter, modified in place.
     /// @param sample_rate Sample rate in hertz.
     /// @param cutoff_hz Corner frequency in hertz.
+    /// @see tests/circuits/README.md, "SpiceBlockCompare.hpp", for what the filter removes.
     inline void band_limit(std::vector<float>& signal, double sample_rate, double cutoff_hz)
     {
         Biquad first;

@@ -29,21 +29,7 @@ namespace SushiDSP::dd3
     };
 
     /// @brief Models the SBM1024's 12-bit quantiser and its S/M/L/H delay ring.
-    ///
-    /// Ruling 13: the SBM1024 is a plain uniform mid-tread quantiser here; the R-2R ladder's
-    /// per-bit DNL has no measured target yet, so it is not modelled — a table would replace
-    /// @ref quantise's linear step if one is ever measured. Ruling 14: MODE changes swap the
-    /// ring length and clear it, except that Long and Hold share one length, so switching
-    /// between them must not clear the loop HOLD is meant to freeze. Ruling 15: the converter
-    /// saturates at both rails rather than wrapping on overflow.
-    ///
-    /// State-machine note: @ref set_mode only ever records the requested mode; it resizes or
-    /// clears @ref ring_ itself only once @ref prepare has allocated it (`ring_` is otherwise
-    /// empty, whatever mode was requested), so a mode selected before @ref prepare cannot leave
-    /// `length_` pointing past an empty ring. @ref process_sample requires @ref prepare to have
-    /// run first; on an unprepared object it asserts in debug and, in release, returns 0.0F
-    /// without touching `ring_` — the empty-ring check that makes this safe is unconditional,
-    /// not compiled out, so the out-of-bounds read cannot happen in either build.
+    /// @see modules/nodes/dd3/README.md, "The converter's rulings"
     class Dd3Converter
     {
     public:

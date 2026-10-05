@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file StreamingConvolution.cpp
+ * @brief Implements the re-blocking front of PartitionedConvolution.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/math/StreamingConvolution.hpp"
 #include <algorithm>
 namespace SushiDSP
@@ -21,9 +27,7 @@ namespace SushiDSP
 
     void StreamingConvolution::process(const float* input, float* output, std::uint32_t frames)
     {
-        // Invariant: output_fifo_[fifo_fill_ ..) is the not-yet-emitted result of the previous
-        // partition, so reading one output sample and writing one input sample keep the same
-        // cursor. Starting from a zero output_fifo_ is what makes the latency exactly one partition.
+        // output_fifo_[fifo_fill_ ..) is the unemitted result of the previous partition (src/README.md).
         for (std::uint32_t i = 0; i < frames; ++i)
         {
             output[i] = output_fifo_[fifo_fill_];

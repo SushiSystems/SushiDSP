@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file GearFilter.cpp
+ * @brief Implements the filter that groups the gear browser's items by category.
+ * @author Mustafa Garip
+ */
+
 #include "ui/GearFilter.hpp"
 
 #include <algorithm>

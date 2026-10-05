@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DeviceSettings.hpp
+ * @brief Declares the device and channel settings window.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <string>
@@ -23,16 +29,14 @@ namespace ui
         SushiDSP::ChannelSelection   output;
     };
 
-    /// @brief Draws the device and channel pickers in their own window, which does not block
-    /// input to the windows behind it.
+    /// @brief Draws the device and channel pickers in a window that does not block the others.
     /// @param asio_drivers Every ASIO driver name, or empty when ASIO is not built in.
     /// @param choice In/out: the current selection.
     /// @param already_running True when a rig is playing, which the window warns will be replaced.
     /// @param error Text from the last failed connection attempt, or empty.
-    /// @param open In/out: the window draws only while this is true, and Close clears it.
-    /// Connect leaves it set, so a failed connection keeps the window up to show the error; the
-    /// caller clears it once the device opens.
+    /// @param open In/out: the window draws while this is true; the caller clears it on success.
     /// @return True on the frame Connect is clicked, meaning the caller should open the device.
+    /// @see apps/host_gui/ui/README.md
     bool DrawDeviceSettings(const std::vector<std::string>& asio_drivers, DeviceChoice& choice,
                             bool already_running, const std::string& error, bool& open);
 }

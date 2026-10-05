@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_rt_graph_slot.cpp
+ * @brief Tests the publish, acquire and reclaim sequence of RtGraphSlot.
+ * @author Mustafa Garip
+ */
+
 #include <atomic>
 #include <memory>
 #include <thread>
@@ -18,11 +24,8 @@
 
 namespace
 {
-    // A minimal node whose ports() is a virtual call returning a fixed, checkable value. Poking
-    // it after the owning RigGraph has (incorrectly) been freed exercises the object's vtable
-    // pointer -- freed memory that's since been reused for something else will very likely make
-    // this crash outright (invalid/foreign vtable) rather than just quietly return stale data,
-    // which is a much stronger use-after-free signal than a bare null-check on the RigGraph*.
+    /// @brief Declares a node whose virtual ports() returns a fixed, checkable value.
+    /// @see tests/functional/unit/README.md
     class CanaryNode : public SushiDSP::IAudioNode
     {
     public:
@@ -89,14 +92,7 @@ TEST(Unit_Dsp, RtGraphSlotConcurrentPublishAndAcquireDoesNotRace)
             SushiDSP::RigGraph* graph = slot.acquire_for_audio_thread();
             ASSERT_NE(graph, nullptr);
 
-            // Actually dereference the returned graph, through a virtual call, rather than just
-            // null-checking the pointer -- a dangling-but-non-null RigGraph* sails straight
-            // through a null-check. Every published graph here carries exactly one CanaryNode,
-            // so nodes() must come back with exactly one handle, and that node's ports() (a
-            // virtual call) must always report { 1, 1 }. If acquire_for_audio_thread() ever
-            // hands back a pointer to a graph reclaim() already freed, this either crashes
-            // outright (the vtable slot now belongs to whatever reused the memory) or the
-            // checks below fail.
+            // A virtual call catches a dangling graph pointer. See tests/functional/unit/README.md.
             auto handles = graph->nodes();
             ASSERT_EQ(handles.size(), 1u);
             SushiDSP::IAudioNode* node = graph->node(handles[0]);

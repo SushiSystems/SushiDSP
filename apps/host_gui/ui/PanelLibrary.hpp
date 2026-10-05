@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PanelLibrary.hpp
+ * @brief Declares the front-panel descriptors and the table that looks them up.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>

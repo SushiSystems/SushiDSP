@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file main.cpp
+ * @brief Runs a 440 Hz tone through the Tube Screamer and the JCM800 for three seconds.
+ * @author Mustafa Garip
+ */
+
 #include <chrono>
 #include <cstdio>
 #include <memory>
@@ -39,15 +45,13 @@ int main()
 
     SushiDSP::RigGraph rig(actual.block_size, 4);
 
-    // Hardcoded demo settings: there is no rig-editor UI yet, so the node controls are set once
-    // here rather than driven live.
+    // The node controls are set once here; apps/host/README.md says why.
     auto tube_screamer = std::make_unique<SushiDSP::TubeScreamer>();
     tube_screamer->set_drive(0.7f);
     tube_screamer->set_tone(0.5f);
     tube_screamer->set_level(0.0f);   // Level is now in dB; 0 dB is the pedal's unity-ish output
 
-    // No cabinet: sushidsp.cabinet is a separate node the demo doesn't wire in, so this runs
-    // the amp's dry signal. See apps/host_asio/main.cpp for a rig that adds one.
+    // The rig ends at the amplifier with no cabinet node; see apps/host/README.md.
     auto jcm800 = std::make_unique<SushiDSP::Jcm800>();
     jcm800->set_preamp(0.7f);
     jcm800->set_master(0.0f);

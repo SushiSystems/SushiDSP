@@ -48,9 +48,7 @@ TEST(Unit_Dsp, Dd3ClockIsMonotoneAndStaysInsideItsRange)
 
 TEST(Unit_Dsp, Dd3ClockDelayTimesLandOnThePublishedRanges)
 {
-    // N5's mode table, and the reason it is not exact: N = 1024/4096/16384 against published
-    // times computed with N = 1000/4000/16000. The delay-time errors are printed, not asserted;
-    // acceptance row 1 is a check on fs, which the case above makes.
+    // The delay-time errors are printed, not asserted. See tests/functional/unit/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
     struct Mode { const char* name; double n; double fast_ms; double slow_ms; };
     const Mode modes[3] = { { "S", 1024.0, 12.5, 50.0 }, { "M", 4096.0, 50.0, 200.0 },
@@ -73,10 +71,7 @@ TEST(Unit_Dsp, Dd3ClockDelayTimesLandOnThePublishedRanges)
 
 TEST(Unit_Dsp, Dd3ClockSlewMatchesTheR56C52Pole)
 {
-    // tau = 22000 * 2.7e-8 = 5.94e-4 s = 0.594 ms = 28.512 samples at 48 kHz.
-    // After one tau the control has covered 1 - e^-1 = 0.6321206 of the log distance, and
-    // log2(4.125) = 2.0443847 octaves, so the pitch has moved 1.2922934 octaves:
-    //   fs = 82500 * 2^-1.2922934 = 82500 * 0.408259 = 33681.4 Hz
+    // After one tau the clock reads 33681.4 Hz. See tests/functional/unit/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
     EXPECT_NEAR(Clock::kSlewTimeConstantSeconds, 5.94e-4, 1e-12);
     SushiDSP::dd3::Dd3Clock clock;
@@ -92,9 +87,7 @@ TEST(Unit_Dsp, Dd3ClockSlewMatchesTheR56C52Pole)
 
 TEST(Unit_Dsp, Dd3ClockAdvancesOneQuarterOfTheRemainingDistancePerSubBlock)
 {
-    // Ruling 11: 8 frames at 48 kHz is 8/28.512 = 0.28058305 time constants, so the pole closes
-    // 1 - exp(-0.28058305) = 0.2446570 of what is left, every sub-block. That figure is what
-    // makes the pitch trace a glide rather than a jump, so it is pinned here.
+    // The pole closes 0.2446570 of the rest per sub-block. See tests/functional/unit/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
     SushiDSP::dd3::Dd3Clock clock;
     clock.prepare(48000.0);

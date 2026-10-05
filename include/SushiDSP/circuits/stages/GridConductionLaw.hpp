@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file GridConductionLaw.hpp
+ * @brief Declares the three constants of the Norman grid-current law.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 namespace SushiDSP

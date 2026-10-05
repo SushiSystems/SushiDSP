@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and it must remain the very first thing in the translation unit.
+/**
+ * @file test_biquad.cpp
+ * @brief Tests the Biquad filter designs against their analytic responses.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
 #include <algorithm>
@@ -213,11 +218,7 @@ TEST(Unit_Dsp, BiquadResetClearsState)
 
 TEST(Unit_Dsp, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
 {
-    // Golden values from the analytic single-RC magnitude 1/sqrt(1+(f/fc)^2), which the
-    // prewarped bilinear form reproduces exactly at the corner and closely below fs/8.
-    // The point of the case is the slope: a one-pole must lose 6 dB per octave, not the 12 dB
-    // a Butterworth biquad loses, or it would darken a Miller-limited stage twice as fast as
-    // the physics does.
+    // A one-pole loses 6 dB per octave, not 12. See tests/functional/unit/README.md.
     constexpr double sample_rate = 384000.0;
     constexpr double corner = 13800.0;
     SushiDSP::Biquad filter;
@@ -246,9 +247,7 @@ TEST(Unit_Dsp, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
         return -10.0 * std::log10(1.0 + (frequency / corner) * (frequency / corner));
     };
 
-    // Compared only up to fs/8; above that the bilinear map's frequency warping pulls the
-    // discrete response below the analytic one by design (0.55 dB at 55 kHz here), which is the
-    // usual and desirable direction for an anti-aliasing role.
+    // Bilinear warping pulls the response down above fs/8. See tests/functional/unit/README.md.
     for (const double frequency : { 1000.0, 13800.0, 27600.0 })
     {
         EXPECT_NEAR(gain_db_at(frequency), analytic_db(frequency), 0.15) << frequency << " Hz";
@@ -286,21 +285,7 @@ namespace
 
 TEST(Unit_Dsp, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
 {
-    // DD-3 pre-emphasis (DR1+DR2 plan N4): zero 594.07 Hz, pole 3386.28 Hz, LF gain 33/47.
-    // These are the same corners modules/dd3::Dd3PreEmphasis configures, so the goldens below
-    // are shared with Dd3PreEmphasisHitsItsThreeDerivedGains (test_dd3_analog_filters.cpp).
-    //
-    // The probe sits at fs/16 and fs = 96 kHz, not 48 kHz: at 48 kHz, fs/4 = 12 kHz lands the
-    // sine's own samples on the same four phase points every cycle (48000/12000 = 4 exactly),
-    // so the peak-of-sine estimator below can never see the true peak, whatever the tolerance;
-    // and fs/16 = 3 kHz at 48 kHz sits below the pole, short of the HF asymptote it is meant to
-    // probe. 96 kHz clears both problems, matching the sibling DD-3 test's fix (commit dc8422f).
-    //   LF gain  = 0.7021277                     (-3.0745 dB)
-    //   HF gain  = 0.7021277 * (3386.28/594.07)  = 0.7021277 * 5.7001364 = 4.0022236
-    //   at 1 kHz = 0.7021277 * sqrt((1+(1000/594.07)^2)/(1+(1000/3386.28)^2))
-    //            = 0.7021277 * 1.8778100 = 1.31855
-    // The discretised HF asymptote is tan-warped and is NOT 4.0022236 at Nyquist; the goldens
-    // below are the digital (post-warp) readings at 96 kHz, not the analogue ones above.
+    // The goldens are the post-warp readings at 96 kHz. See tests/functional/unit/README.md.
     SushiDSP::Biquad shelf;
     shelf.set_first_order_shelf(96000.0, 594.07, 3386.28, 33.0 / 47.0);
     EXPECT_NEAR(biquad_magnitude(shelf, 20.0, 96000.0), 0.7025132, 2e-3);
@@ -310,10 +295,7 @@ TEST(Unit_Dsp, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
 
 TEST(Unit_Dsp, BiquadFirstOrderShelfPairCancelsExactly)
 {
-    // N4: pre-emphasis (zero 594.07, pole 3386.28, gain 33/47) followed by de-emphasis (the same
-    // two corners swapped, gain 47/33) is the identity, because the numerator polynomial of one
-    // is the denominator polynomial of the other and the scalars multiply to 1. Assert a null
-    // below -120 dB on a broadband signal, which no tolerance-based response check would catch.
+    // The shelf pair cancels to a null below -120 dB. See tests/functional/unit/README.md.
     SushiDSP::Biquad pre, de;
     pre.set_first_order_shelf(48000.0, 594.07, 3386.28, 33.0 / 47.0);
     de.set_first_order_shelf(48000.0, 3386.28, 594.07, 47.0 / 33.0);
@@ -382,8 +364,7 @@ namespace
 
 TEST(Unit_Dsp, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
 {
-    // A single RC section: -3.01 dB at the corner and -0.04 dB a decade above it, which is what
-    // separates it from the second-order Butterworth (-3.01 dB at fc, but -0.004 dB a decade up).
+    // A single RC reads -0.04 dB a decade above its corner. See tests/functional/unit/README.md.
     SushiDSP::Biquad filter;
     filter.set_first_order_high_pass(48000.0, 100.0);
 
@@ -398,9 +379,7 @@ TEST(Unit_Dsp, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
 
 TEST(Unit_Dsp, BiquadFirstOrderHighPassStaysCleanAtLowCornersAtHighRates)
 {
-    // The corner range that makes set_high_pass diverge at the 384 kHz oversampled rate: there the
-    // conjugate pole pair rounds onto the unit circle, while this one-pole's real pole does not.
-    // The passband reading is checked against the analogue RC value, an independent reference.
+    // The one-pole's real pole stays inside the unit circle. See tests/functional/unit/README.md.
     constexpr double sample_rate = 384000.0;
     for (const double cutoff_hz : { 2.0, 5.0, 7.23, 10.58 })
     {
@@ -433,8 +412,7 @@ TEST(Unit_Dsp, BiquadSetCoefficientsLoadsThemVerbatim)
     EXPECT_FLOAT_EQ(average.process_sample(0.0f), 0.5f);
     EXPECT_FLOAT_EQ(average.process_sample(0.0f), 0.0f);
 
-    // b = {1, 0, 0}, a = {-0.5, 0} is the one-pole y[n] = x[n] + 0.5 y[n-1], whose impulse
-    // response is the geometric sequence 1, 1/2, 1/4, 1/8.
+    // The impulse response is 1, 1/2, 1/4, 1/8. See tests/functional/unit/README.md.
     SushiDSP::Biquad one_pole;
     one_pole.set_coefficients(1.0, 0.0, 0.0, -0.5, 0.0);
     EXPECT_FLOAT_EQ(one_pole.process_sample(1.0f), 1.0f);

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file DenseLu.hpp
+ * @brief Defines fixed-size LU factorisation with partial pivoting.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>
@@ -14,14 +20,11 @@
 
 namespace SushiDSP::dk
 {
-    /// @brief Fixed-size LU factorisation with partial pivoting for a dense N x N system.
+    /// @brief Factorises a dense N x N system by LU with partial pivoting, in fixed storage.
     ///
-    /// All storage is member std::array, so factorise() and solve() are allocation-free and
-    /// usable on the audio thread. The factors persist after factorise(), so one factorisation
-    /// can serve several right-hand sides; DkCircuit uses that when it inverts the augmented
-    /// nodal matrix column by column. The size-aware overloads let a caller hold one
-    /// compile-time-maximum array and factorise only the leading order x order block it
-    /// actually filled.
+    /// factorise() and solve() allocate nothing, and the factors persist after factorise(), so
+    /// one factorisation serves several right-hand sides. The size-aware overloads work on the
+    /// leading order x order block of a compile-time-maximum array (include/SushiDSP/README.md).
     /// @tparam N System dimension.
     template <std::size_t N>
     class DenseLu

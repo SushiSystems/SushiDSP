@@ -24,17 +24,7 @@ namespace SushiDSP::dd3
     };
 
     /// @brief One half of an NE570 companding pair: an open-loop rectifier feeding a gain cell.
-    ///
-    /// The compressor rectifies its own output (2:1, `sqrt(kReferenceVolts * volts)`); the
-    /// expander rectifies its input (1:2, `volts^2 / kReferenceVolts`). The compressor's gain
-    /// therefore lags its own rectifier by one sample: the loop is otherwise algebraic, and at a
-    /// 6.8 ms time constant one sample of lag is 0.3 % of one time constant at 48 kHz.
-    ///
-    /// The rectifier and its pole run at @ref kRectifierOversampling times the host rate; the
-    /// gain cell does not. Rectification is the one nonlinearity here whose aliasing is a
-    /// discretisation artefact rather than modelled hardware, and
-    /// docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections, carries the
-    /// ruling and the measurements.
+    /// @see modules/nodes/dd3/README.md, "The compander's rectifier"
     class Ne570Compander
     {
     public:
@@ -65,14 +55,7 @@ namespace SushiDSP::dd3
         static constexpr double kEnvelopeFloor              = 1e-4;      ///< 80 dB maximum gain.
 
         /// @brief Sub-steps the rectifier and its pole take per host sample.
-        ///
-        /// The board's rectifier is continuous time, so the harmonics `|x|` carries at every
-        /// 2k*f0 never fold. Sampling it at the host rate does fold them, and the fold lands
-        /// where the pole cannot reach: at 48 kHz an 8 kHz tone puts 6*f0 on 48001.5 Hz, which
-        /// aliases to 1.46 Hz and modulates the gain cell at full weight. Eight sub-steps move
-        /// the surviving fold from the 6th harmonic of `|x|` to the 48th, whose Fourier
-        /// coefficient is 1/2303 against 1/35, and take the DD-3's alias floor from -35.86 dB to
-        /// -55.32 dB at the service note's stimulus.
+        /// @see modules/nodes/dd3/README.md, "The rectifier's oversampling"
         static constexpr int kRectifierOversampling = 8;
 
     private:

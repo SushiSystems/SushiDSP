@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Spectrum.hpp
+ * @brief Defines the windowed magnitude spectrum and the bin helpers that read it.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <algorithm>

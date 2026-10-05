@@ -3,25 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Layered configuration loading for the SushiDSP CLI.
+"""Loads the layered configuration of the SushiDSP CLI and finds the compiler it builds with.
 
-Precedence (low to high):
-
-    built-in defaults -> config.toml -> workspace config.local.toml -> repo
-    config.local.toml -> SD_* env vars
-
-SushiDSP pins no toolchain. It builds with whatever C++17 compiler it can
-find, in this order, and `sd config` reports which one won:
-
-    1. an explicit ``cxx`` (config.local.toml or SD_CXX);
-    2. the intel/llvm clang++ that ``sd setup`` or the workspace provides
-       (``llvm_root`` in a config.local.toml);
-    3. a ``clang++`` on PATH;
-    4. nothing -- CMake's platform default (MSVC through the Visual Studio
-       generator on Windows, the system compiler elsewhere).
-
-Step 4 is why a standalone checkout keeps building with no SushiStack at all;
-the workspace only upgrades the compiler when it is there to be found.
+The layer precedence and the compiler search order are in cli/README.md, "config.py".
 """
 
 from __future__ import annotations
@@ -54,9 +38,7 @@ find_project_root = _MODULE.find_project_root
 config_dir = _MODULE.config_dir
 workspace_home = _MODULE.workspace_home
 
-#: Field -> environment variable, derived from the profile's prefix. Exposed as
-#: a module attribute because `sd config` reports which values came from the
-#: environment and needs the reverse map.
+#: Maps each field to its SD_* variable; `sd config` reads the reverse map (cli/README.md).
 _ENV_OVERRIDES = PROFILE.env_overrides()
 
 #: Directory names searched for the intel/llvm bundle, in preference order.
@@ -73,9 +55,7 @@ class Config(ProvisionSettings):
 
     target_bin: str = "sushidsp_host"
 
-    # Left unset so that, with no compiler found, CMake picks the platform default
-    # (Visual Studio's multi-config generator on Windows). When a compiler is
-    # found the generator is chosen by resolved_generator() instead.
+    # Left unset so CMake picks the platform default when no compiler is found; see cli/README.md.
     generator: str = ""
 
     def _clang_name(self) -> str:

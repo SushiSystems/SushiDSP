@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Take.hpp
+ * @brief Declares an in-memory multi-channel recording.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstddef>

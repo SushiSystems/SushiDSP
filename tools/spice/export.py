@@ -6,16 +6,10 @@
 # Commercial use requires a licence from Sushi Systems.
 """Regenerate the SushiDSP LTspice reference CSVs from the committed schematics.
 
-For each block this script copies ``<block>.asc`` into a temporary directory twice --
-once with the ``;ac`` analysis line enabled and once with the ``;tran`` line enabled --
-runs LTspice in batch mode, parses the ASCII ``.raw`` output and writes two CSVs next to
-the schematic:
-
-* ``<block>_ac.csv``   -- ``frequency_hz,setting,magnitude_db,phase_degrees``
-* ``<block>_tran.csv`` -- ``time_s,setting,input_v,output_v``
-
-Only the standard library and numpy are used. CI never runs this script; it reads the
-committed CSVs.
+Each block's ``<block>.asc`` runs through LTspice in batch mode, once with its ``;ac`` line
+live and once with its ``;tran`` line live, and ``<block>_ac.csv`` and ``<block>_tran.csv``
+land next to the schematic. CI never runs this script; it reads the committed CSVs. The steps
+and the CSV columns are in tools/spice/README.md.
 """
 
 import argparse
@@ -40,8 +34,7 @@ BLOCKS = [
     "jcm_pp_ot_nfb",
 ]
 
-# The stimulus node is read out of the schematic itself: every block defines its source as
-# "V1 <node> 0 SINE(...) AC 1", so <node> is authoritative and survives any node rename.
+# The stimulus node is read from the schematic's V1 line; see tools/spice/README.md.
 STIMULUS_RE = re.compile(r"(?:^|\\n)\s*V1\s+(\S+)\s+0\s", re.IGNORECASE | re.MULTILINE)
 
 OUTPUT_NODE = "V(out)"
@@ -186,8 +179,7 @@ def parse_raw(raw_path):
         if starts_point:
             if current is not None:
                 points.append(current)
-            # LTspice writes one variable per line, but tolerate all of a point's values
-            # sharing the index line.
+            # A point's values may all share the index line; LTspice writes one per line.
             current = [to_number(field) for field in fields[1:]]
         elif current is not None:
             current.extend(to_number(field) for field in fields)

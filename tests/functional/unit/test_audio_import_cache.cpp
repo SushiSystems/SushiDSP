@@ -131,8 +131,7 @@ TEST(Unit_Dsp, AudioImportCacheReusesTheWavItAlreadyHolds)
     std::filesystem::create_directories(root / "cache");
     write_file(entry, "kept");
 
-    // The source would fail to decode, so a returned path with its contents untouched is proof
-    // that no decode was run.
+    // An untouched file proves that no decode ran. See tests/functional/unit/README.md.
     EXPECT_EQ(cache.import(source, 48000.0), entry);
     EXPECT_EQ(read_file(entry), "kept");
 }

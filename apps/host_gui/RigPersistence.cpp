@@ -247,8 +247,7 @@ namespace
             }
             else if (!track_json.value("path", std::string()).empty())
             {
-                // A preset written before the timeline names one file per row, which is what one
-                // clip at frame 0 means. Spec §8.
+                // A row naming only a file is one clip at frame 0; see apps/host_gui/README.md.
                 SessionTimeline::ClipPlacement placement;
                 placement.path = track_json.at("path").get<std::string>();
                 row.clips.push_back(placement);
@@ -609,8 +608,7 @@ std::string RigPersistence::save_to_json() const
         document["loop"] = loop_json;
     }
 
-    // The playback speed is a practice setting, not a session's, so it is written nowhere. See
-    // docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §8.
+    // The playback speed is written nowhere; see apps/host_gui/README.md.
     nlohmann::json tempo_json = nlohmann::json::object();
     tempo_json["bpm"] = session_.musical_clock().beats_per_minute();
     tempo_json["beats_per_bar"] = session_.musical_clock().beats_per_bar();
@@ -625,9 +623,7 @@ std::string RigPersistence::save_to_json() const
 
 void RigPersistence::load_from_json(const std::string& json_text)
 {
-    // Size the scratch graph's buffer pool from the preset's own node count (plus the same +1
-    // headroom publish() uses). RigGraph::compile() only assert()s the pool's capacity, so a
-    // fixed guess would hand the audio thread null buffers on any preset larger than that guess.
+    // The scratch graph's pool is sized from the preset's node count; see apps/host_gui/README.md.
     const nlohmann::json document = nlohmann::json::parse(json_text);
 
     // Every track row is read and checked here, before the session is touched.
@@ -710,8 +706,7 @@ void RigPersistence::load_from_json(const std::string& json_text)
     // A session carries no playback speed, so every session opens at 1.0. Spec §8.
     session_.transport().set_speed(1.0);
 
-    // A preset written before the timeline carries no tempo, which meant 120 BPM in 4/4 with the
-    // click off. Spec §8.
+    // A preset with no tempo object means 120 BPM in 4/4, click off; see apps/host_gui/README.md.
     const nlohmann::json tempo_json = document.contains("tempo")
         ? document.at("tempo")
         : nlohmann::json::object();

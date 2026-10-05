@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file PortLayout.hpp
+ * @brief Declares the input and output channel counts of an audio node.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file IrLoader.cpp
+ * @brief Implements the loading and conditioning of cabinet impulse responses.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/io/IrLoader.hpp"
 
 #include <algorithm>

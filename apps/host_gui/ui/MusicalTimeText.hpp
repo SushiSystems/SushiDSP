@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file MusicalTimeText.hpp
+ * @brief Declares the bar and beat text a timeline frame is named by.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

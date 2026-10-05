@@ -46,10 +46,85 @@ reference circuit than the plain port does, so the smaller alias floor it would 
 total error than it saves — see
 [`docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`](../../../docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md),
 "Model corrections D6c C2, The verdict". Wiring it in would need one more line in `reset()`
-(`clip_port_.reset()`) beyond the declaration already present.
+(`clip_port_.reset()`) beyond the declaration already present. The measured gap is 14 dB. The
+reset line is needed because the ADAA port keeps a sample interval of history, and `DkCircuit`
+is handed the port per sample and does not own it, so `DkCircuit::reset()` cannot clear it.
 
 ## Dependencies
 
 Links only `SushiDSP::sushi_dsp` (`modules/nodes/tubescreamer/CMakeLists.txt`) — this is the D3
 product the design spec uses to validate the shared DK solver core before JCM800 (§9, D3), as
 the simpler single-nonlinear-stage circuit.
+
+## Implementation notes
+
+### The ADAA diode pair port
+
+`AdaaDiodePairPort` models the diode pair as two branches that are each other's reverse, so the
+port's second row is the negative of its first throughout: `v[1] = -v[0]`, `p[1] = -p[0]` and `F`
+is antisymmetric with `F[0][1] = F[1][0] = -F[0][0]`. The two-branch port is therefore one scalar
+port carrying the pair current `h(v) = i(v) - i(-v)`, and `DkCircuit`'s residual row reads
+`v = p + F[0][0] h(v)`: a memoryless map from the open-circuit voltage `p` to the current the
+linear part is stamped with. That is exactly the shape Holters' stateful ADAA needs, and the
+substitution `dp = (1 - F[0][0] h'(v)) dv` integrates it in closed form, so no lookup table is
+required. The derivation, the deliberate omission of Holters' delay compensation and what that
+costs are in spec `2026-08-26-aaa-audio-quality-design.md`, Model corrections (D6c C2).
+
+The port has a cadence contract: the owning node calls `reset()` whenever it resets its circuit,
+because the history in the port is the circuit's state as much as `DkCircuit`'s own.
+
+`currents_for_update` replaces the stamped pair current with its average over the sample
+interval. The average is the divided difference of the composed map's antiderivative, and near a
+stationary open-circuit voltage the midpoint of the two port voltages stands in for it. A moved
+potentiometer changes `F[0][0]` between samples and so changes which curve the stored point sits
+on. Re-anchoring the previous port voltage onto the new curve puts it back on one exactly, which
+is why the history keeps `v` and not `p` alone. Its `currents` argument receives the branch
+currents that the state update and the output stamp use.
+
+`pair_current_and_antiderivative` computes `h(v) = i(v) - i(-v)` and, with `H` the sum of the two
+diode antiderivatives, `Q(v) = H(v) - F[0][0] h(v)^2 / 2`, whose derivative with respect to `p`
+is `h` by the substitution above.
+
+### The oversampling factor and the smoothing time
+
+`kOversamplingFactor` is 4. Each knob's smoother uses the 20 ms `kSmoothingMs`: slow enough that
+a jump cannot step the clipper's operating point audibly, fast enough to feel immediate under a
+hand. Four times is where the diode pair's aliasing products fall below the
+noise floor of the committed halfbands, and the DK solve costs too much to spend eight (approved
+C1).
+
+### A failed derivation
+
+When a DK derivation fails in `prepare()` it never recovers, so `process()` degrades to what the
+pedal's own bypass would give: the dry signal, copied. No solver runs and the input is already
+bounded, so that path cannot alias or blow up. The guard sits above every `skip()` so all four
+smoothers advance together or not at all.
+
+### Potentiometer updates
+
+Wiper positions are a control-rate concern. `set_potentiometer` marks nothing dirty when the
+value has not moved, so a still knob costs nothing and a moved one costs one re-derivation per
+block (D6b plan, ruling 3).
+
+### Volts inside the oversampled loop
+
+The oversampled loop works in volts in and volts out: the DK blocks are the real circuit, and
+`kFullScaleVolts` is what 0 dBFS means at the instrument jack (spec D5b.5). The D6a 20 Hz input
+biquad is gone. The clip block's own 1 uF into 510 kOhm is the pedal's real input high-pass, at
+0.31 Hz.
+
+### Cascading the clip and tone blocks
+
+The clip stage's probe is its op-amp's output node, which has zero output impedance, so the tone
+block cannot load it. Cascading the two within one sample is exact, not an approximation (D6c
+plan, ruling 8).
+
+### The Level ramp
+
+Level alone ramps per sample. It is a single multiply outside the oversampled loop, and stepping
+it once per block would make the audible smoothing time a function of the host's block size.
+
+### Reset
+
+Zeroing the state vectors is the whole of `reset()`. A pedal has no bias point to settle, so
+unlike `JcmV1aStageNode::reset()` there is no warm-up loop to run.

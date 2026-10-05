@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_dk_circuit.cpp
+ * @brief Tests DkCircuit on linear, resonant and diode circuits with closed-form answers.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -94,15 +100,12 @@ namespace
         }
     };
 
-    /// @brief Magnitude of the DTFT of a real impulse response at one frequency.
-    ///
-    /// |H(e^{jw})| = |sum_n h[n] e^{-jwn}|. Evaluated directly rather than by FFT because the
-    /// resonance test needs magnitudes on an arbitrarily fine frequency grid, at full double
-    /// precision, and the impulse response is short.
+    /// @brief Returns the magnitude of the DTFT of a real impulse response at one frequency.
     /// @param impulse The impulse response, assumed fully decayed by its last sample.
     /// @param frequency_hz Frequency to evaluate at.
     /// @param sample_rate Sample rate the response was measured at.
     /// @return The magnitude, a pure number.
+    /// @see tests/functional/unit/README.md
     double magnitude_at(const std::vector<double>& impulse, double frequency_hz, double sample_rate)
     {
         const double omega = 2.0 * kPi * frequency_hz / sample_rate;
@@ -146,8 +149,8 @@ namespace
     }
 }
 
-// Compile-and-smoke gate for the three DkCircuit shapes D6c and D6d instantiate. Tasks 6 and 7
-// own the numerical validation; this case only proves every shape compiles, prepares and steps.
+/// @brief Tests that every DkCircuit shape D6c and D6d need compiles, prepares and steps.
+/// @see tests/functional/unit/README.md
 TEST(Unit_Dsp, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
 {
     constexpr double kSampleRate = 48000.0;
@@ -216,8 +219,7 @@ TEST(Unit_Dsp, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
     }
 
     {
-        // The widest D6d-style shape: four states, a two-branch nonlinear port, two sources
-        // (signal plus supply rail), one probe, and a potentiometer to drive re-derivation.
+        // This is the widest shape D6d instantiates. See tests/functional/unit/README.md.
         SushiDSP::dk::DkNetlist<4, 2, 2, 1> netlist;
         netlist.node_count = 5;
         netlist.voltage_source(1, 0);
@@ -271,16 +273,7 @@ TEST(Unit_Dsp, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
 
 TEST(Unit_Dsp, DkCircuitRcLowpassMatchesTheBilinearTransformExactly)
 {
-    // Node 1 = source, node 2 = output. R from 1 to 2, C from 2 to ground, probe node 2.
-    // Trapezoidal DK must reproduce the bilinear transform of 1/(1 + sRC) exactly:
-    //   Gc = 2C/T,  H(z) = (1 + z^-1) / ((1 + R*Gc) + (1 - R*Gc) z^-1)
-    // With R = 1 kOhm, C = 100 nF, fs = 48000: Gc = 2*1e-7*48000 = 9.6e-3 S and R*Gc = 9.6, so
-    //   pole      = -a1/a0 = (R*Gc - 1)/(R*Gc + 1) = 8.6/10.6 = +0.811320754717
-    //   DC gain   = (1 + 1)/((1 + 9.6) + (1 - 9.6)) = 2/2 = 1 exactly
-    //   Nyquist   = (1 - 1)/(...) = 0 exactly
-    // Note the sign: a lowpass pole must approach +1 as fs -> infinity, so the pole is
-    // (R*Gc - 1)/(R*Gc + 1) and NOT (1 - R*Gc)/(1 + R*Gc); the latter is a Nyquist pole. The
-    // -3 dB point of the analogue prototype is 1/(2*pi*R*C) = 1591.549431 Hz.
+    // Trapezoidal DK reproduces the bilinear transform. See tests/functional/unit/README.md.
     constexpr double kResistance = 1000.0;
     constexpr double kCapacitance = 100e-9;
     constexpr double kSampleRate = 48000.0;
@@ -324,29 +317,7 @@ TEST(Unit_Dsp, DkCircuitRcLowpassMatchesTheBilinearTransformExactly)
 
 TEST(Unit_Dsp, DkCircuitSeriesRlcResonatesWhereTheAnalogueCircuitDoes)
 {
-    // Source -> R -> L -> C -> ground, probing across C: H(s) = 1 / (1 + sRC + s^2 LC).
-    // With R = 100 Ohm, L = 10 mH, C = 100 nF:
-    //   w0    = 1/sqrt(LC)            = sqrt(1e9)                 = 31622.776602 rad/s
-    //                                                             -> f0   = 5032.921210 Hz
-    //   zeta  = (R/2)*sqrt(C/L)       = 50*sqrt(1e-5)             = 0.158113883, zeta^2 = 0.025
-    //   w_d   = w0*sqrt(1 - zeta^2)   = sqrt(1/(LC) - R^2/(4L^2)) = 31224.989990 rad/s
-    //                                                             -> f_d  = 4969.611 Hz
-    //   w_pk  = w0*sqrt(1 - 2*zeta^2) = sqrt(1/(LC) - R^2/(2L^2)) = 30822.070014 rad/s
-    //                                                             -> f_pk = 4905.485 Hz
-    // The MAGNITUDE peak of a second-order lowpass sits at w0*sqrt(1 - 2*zeta^2), not at the
-    // damped natural frequency w0*sqrt(1 - zeta^2); the two differ by 1.3 % here, well outside
-    // the 0.5 % tolerance, so the damped resonance is the wrong golden for a measured peak.
-    // Peak magnitude is 1/(2*zeta*sqrt(1 - zeta^2)) = 3.202563.
-    //
-    // Run rate 384 kHz so trapezoidal frequency warping is negligible: the digital peak sits at
-    // (2/T)*atan(w_pk*T/2) = 30805.6 rad/s, 0.053 % below the analogue peak - an order of
-    // magnitude inside the tolerance, so the assertion is about the circuit, not the warping.
-    //
-    // The response is measured as the DTFT of the impulse response rather than with
-    // measure::frequency_response: the resonance is broad (Q = 3.16), so a 0.5 % frequency error
-    // costs only 0.004 dB of magnitude. Locating the peak by argmax therefore needs a magnitude
-    // accuracy far below the ~0.05 dB a swept-sine measurement delivers, and a sweep-based
-    // assertion here would be measuring the sweep rather than the circuit.
+    // The magnitude peak sits at w0*sqrt(1 - 2*zeta^2). See tests/functional/unit/README.md.
     constexpr double kResistance = 100.0;
     constexpr double kInductance = 10e-3;
     constexpr double kCapacitance = 100e-9;
@@ -365,8 +336,7 @@ TEST(Unit_Dsp, DkCircuitSeriesRlcResonatesWhereTheAnalogueCircuitDoes)
     SushiDSP::dk::DkCircuit<2, 0, 1, 1> circuit;
     ASSERT_TRUE(circuit.prepare(netlist, kSampleRate));
 
-    // The envelope decays as exp(-zeta*w0*t), one time constant every 76.8 samples at 384 kHz,
-    // so 4096 samples is 53 time constants: the truncated tail is below 1e-23 of the peak.
+    // 4096 samples are 53 time constants of the envelope. See tests/functional/unit/README.md.
     LinearPort<0>       nonlinear;
     std::vector<double> impulse(4096, 0.0);
     for (std::size_t sample = 0; sample < impulse.size(); ++sample)
@@ -389,19 +359,7 @@ TEST(Unit_Dsp, DkCircuitSeriesRlcResonatesWhereTheAnalogueCircuitDoes)
 
 TEST(Unit_Dsp, DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation)
 {
-    // The circuit solves v = Vs - Rs*Is*(exp(v/Vt) - exp(-v/Vt)). Node 1 = source, node 2 = the
-    // diode node, Rs from 1 to 2, and TWO antiparallel SiliconDiode branches from 2 to ground -
-    // a pair, not a single symmetric element, so D6c can make it asymmetric later. Using
-    // SiliconDiode with n = 1 and the same Vt reproduces that law exactly except for its -1
-    // offsets, which cancel between the two antiparallel branches.
-    //
-    // D6b's DiodeClipperCircuit used to sit here too, as a second, independently written
-    // implementation to agree with. D6c's plan (docs/archive/superpowers/plans/
-    // 2026-09-05-d6c-tubescreamer-on-dk.md, Task 10) retired it: it ran four fixed float Newton iterations with no
-    // convergence test and drifted up to 2.8 mV from the root at high slew, so agreeing with it
-    // was a weaker claim than agreeing with the equation. Bisecting the scalar equation itself,
-    // in double precision, is an independently written *root* rather than an independently
-    // written approximation, and it is the oracle this case now compares against exclusively.
+    // The oracle is the bisected root of the diode equation. See tests/functional/unit/README.md.
     constexpr double kSourceResistance = 2200.0;
     constexpr double kSaturationCurrent = 2.52e-9;
     constexpr double kThermalVoltage = 0.025864;
@@ -421,10 +379,7 @@ TEST(Unit_Dsp, DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation)
 
     AntiparallelDiodePort port{ SushiDSP::SiliconDiode(kSaturationCurrent, 1.0, kThermalVoltage) };
 
-    // The scalar equation, evaluated in double precision, and its slope. |residual| over the
-    // slope is a first-order bound on the distance from a candidate voltage to the equation's
-    // true root, which is the oracle: it compares the DK solution against the equation itself
-    // rather than against another approximation of it.
+    // |residual| / slope bounds the distance to the root. See tests/functional/unit/README.md.
     auto residual = [&](double v, double source)
     {
         return kSourceResistance * kSaturationCurrent
@@ -461,15 +416,11 @@ TEST(Unit_Dsp, DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation)
 
 TEST(Unit_Dsp, DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhenUnchanged)
 {
-    // A 10 kOhm pot as a voltage divider into a 100 nF cap. The track runs from ground (the
-    // pot's a terminal) to the source (its b terminal), so the a-to-wiper section is
-    // position*10k and the DC gain from the source to the wiper is exactly the position: a DC
-    // input of 1 V settles to p at the output. Positions 0.25, 0.5, 0.9 give 0.25, 0.5, 0.9.
+    // The DC gain from source to wiper is the position. See tests/functional/unit/README.md.
     constexpr double kTrackOhms = 10000.0;
     constexpr double kCapacitance = 100e-9;
     constexpr double kSampleRate = 48000.0;
-    // The worst-case source impedance seen by the cap is the parallel combination of the two
-    // sections, at most 2.5 kOhm, so tau <= 250 us. 40000 samples is 0.83 s, over 3000 tau.
+    // tau is at most 250 us, so 40000 samples settle it. See tests/functional/unit/README.md.
     constexpr int kSettleSamples = 40000;
 
     SushiDSP::dk::DkNetlist<1, 0, 1, 1> netlist;
@@ -502,10 +453,7 @@ TEST(Unit_Dsp, DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhenUnchan
     EXPECT_NEAR(settled_gain(0.5), 0.5, 1e-9);
     EXPECT_NEAR(settled_gain(0.9), 0.9, 1e-9);
 
-    // Both end stops must still derive and produce finite output. kMinimumPotOhms floors the
-    // shorted section at 1 Ohm rather than 0, so the divider reads 1/10001 and 10000/10001
-    // instead of exactly 0 and 1; that 0.01 % is the floor, and it is what keeps the augmented
-    // nodal matrix non-singular at the stops.
+    // kMinimumPotOhms floors a shorted section at 1 Ohm. See tests/functional/unit/README.md.
     const double bottom = settled_gain(0.0);
     const double top = settled_gain(1.0);
     EXPECT_TRUE(std::isfinite(bottom));
@@ -524,10 +472,7 @@ TEST(Unit_Dsp, DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhenUnchan
 
 TEST(Unit_Dsp, DkCircuitNeverEmitsANonFiniteSampleAndCountsItsFallbacks)
 {
-    // An RC lowpass with a linear nonlinear branch across the cap, so there is a state a
-    // poisoned sample could corrupt. A nonlinearity that deliberately returns inf on one sample
-    // must not poison that state: the trajectory has to return to that of an identical circuit
-    // that was never poisoned.
+    // One inf sample must not poison the capacitor's state. See tests/functional/unit/README.md.
     constexpr double kResistance = 1000.0;
     constexpr double kCapacitance = 100e-9;
     constexpr double kSampleRate = 48000.0;
@@ -583,13 +528,7 @@ TEST(Unit_Dsp, DkCircuitNeverEmitsANonFiniteSampleAndCountsItsFallbacks)
         }
     }
 
-    // The fallback holds the previous state rather than advancing it, so the poisoned sample
-    // costs exactly one sample's worth of state update - a bounded step off the reference
-    // trajectory, not a poisoned state. The bound below is the size of one sample's output
-    // change on this stimulus (~0.04 V at 300 Hz through a 100 us time constant); measured
-    // 0.022. The two then reconverge at the circuit's own pole, 0.811 per sample here, so 190
-    // samples later the deviation is 0.811^190 = 6e-18 of that step, i.e. gone. A state that
-    // had actually been poisoned would have stayed non-finite, or diverged, instead.
+    // The fallback costs one sample's worth of state update. See tests/functional/unit/README.md.
     EXPECT_LT(deviation_after_the_fallback, 0.05);
     EXPECT_GT(deviation_after_the_fallback, 0.0);
     EXPECT_LT(deviation_at_the_end, 1e-15);
@@ -600,9 +539,7 @@ TEST(Unit_Dsp, DkCircuitNeverEmitsANonFiniteSampleAndCountsItsFallbacks)
 
 TEST(Unit_Dsp, DkCircuitClampsItsStateUnderAnAbsurdInputAndStaysFinite)
 {
-    // 1e30 V into the RC lowpass. The output is allowed to be enormous - it is a linear circuit
-    // driven by an enormous source - but it must stay finite, and the state must stop at the
-    // configured limit rather than running away.
+    // The output stays finite and the state stops at a limit. See tests/functional/unit/README.md.
     constexpr double kResistance = 1000.0;
     constexpr double kCapacitance = 100e-9;
     constexpr double kSampleRate = 48000.0;

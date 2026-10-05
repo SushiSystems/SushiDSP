@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Oversampler.cpp
+ * @brief Implements the halfband 2x stages and the 4x and 8x oversamplers.
+ * @author Mustafa Garip
+ */
+
 #include <algorithm>
 #include <vector>
 
@@ -56,27 +62,14 @@ namespace SushiDSP
 
     void HalfbandUpsampler2x::process(const float* input, std::uint32_t frames, float* output)
     {
-        // tap_count = 4M-1, centre index c = 2M-1, and the zero-stuffed input has x_s[2n] = 2x[n]
-        // with x_s odd samples zero. Output sample m only sees taps h[k] with k congruent to m
-        // modulo 2.
-        //
-        // Output 2n+1 (odd) needs odd k, i.e. an even distance k-c, and every one of those is an
-        // exact zero except the centre itself: y[2n+1] = 0.5 * x_s[2n+1-c] = x[n - (M-1)], a pure
-        // delay of centre_delay_ = (tap_count-1)/4 = M-1 base-rate samples.
-        //
-        // Output 2n (even) needs even k, i.e. an odd distance d = 2k+1 from the centre, which is
-        // exactly the non-zero pair set. The tap at k = c-d reads x[n - (centre_delay_ - k)] and
-        // its mirror at k = c+d reads x[n - (centre_delay_ + k + 1)], so one coefficient serves
-        // both and is multiplied once.
+        // Odd outputs are the delayed input; even ones sum the tap pairs (src/README.md).
         const std::uint32_t pair_count = static_cast<std::uint32_t>(pair_coefficients_.size());
         for (std::uint32_t frame = 0; frame < frames; ++frame)
         {
             write_index_ = (write_index_ + 1) & history_mask_;
             history_[write_index_] = input[frame];
 
-            // Accumulated in float. The 1e-6 direct-form equivalence the tests pin is
-            // empirical - it holds because these designs' taps decay fast, so the pair
-            // sum is dominated by a handful of terms - not a worst-case error bound.
+            // The accumulator is float; the tests' 1e-6 equivalence is empirical (src/README.md).
             float accumulator = 0.0f;
             for (std::uint32_t k = 0; k < pair_count; ++k)
             {
@@ -108,10 +101,7 @@ namespace SushiDSP
 
     void HalfbandDownsampler2x::process(const float* input, std::uint32_t frames_in, float* output)
     {
-        // Only the retained outputs y[m] = sum_k h[k] u[2m-k] are computed; the discarded input
-        // samples still enter the history so it stays continuous. Within a retained output only
-        // the non-zero taps are touched: the centre, at history offset centre_offset_, and the
-        // symmetric pairs at odd distances 1, 3, 5, ... either side of it.
+        // Only the retained outputs are computed, and every input sample still enters the history.
         const std::uint32_t pair_count = static_cast<std::uint32_t>(pair_coefficients_.size());
         std::uint32_t output_index = 0;
         for (std::uint32_t frame = 0; frame < frames_in; ++frame)
@@ -174,8 +164,7 @@ namespace SushiDSP
 
     std::uint32_t Oversampler8x::latency_samples() const
     {
-        // A linear-phase FIR of T taps delays by (T-1)/2 samples at its own rate. Up-stages run
-        // at 2x, 4x, 8x of base; down-stages at the same rates. Convert each to base-rate samples.
+        // Each stage delays (taps - 1) / 2 samples at its own rate (src/README.md).
         const double up = (stage1_up_.taps() - 1) / 2.0 / 2.0
                         + (stage2_up_.taps() - 1) / 2.0 / 4.0
                         + (stage3_up_.taps() - 1) / 2.0 / 8.0;
@@ -229,8 +218,7 @@ namespace SushiDSP
 
     std::uint32_t Oversampler4x::latency_samples() const
     {
-        // A linear-phase FIR of T taps delays by (T-1)/2 samples at its own rate. Up-stages run
-        // at 2x, 4x of base; down-stages at the same rates. Convert each to base-rate samples.
+        // Each stage delays (taps - 1) / 2 samples at its own rate (src/README.md).
         const double up = (stage1_up_.taps() - 1) / 2.0 / 2.0
                         + (stage2_up_.taps() - 1) / 2.0 / 4.0;
         const double down = (stage2_down_.taps() - 1) / 2.0 / 4.0

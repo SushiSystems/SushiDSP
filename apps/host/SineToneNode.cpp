@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SineToneNode.cpp
+ * @brief Implements the sine generator the standalone host plays its test tone from.
+ * @author Mustafa Garip
+ */
+
 #include "SineToneNode.hpp"
 
 #ifndef _USE_MATH_DEFINES

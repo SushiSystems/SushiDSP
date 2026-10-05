@@ -6,8 +6,13 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
-// _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI,
-// and it must remain the very first thing in the translation unit.
+/**
+ * @file test_jcm_tone_stack.cpp
+ * @brief Tests the knobs and state of JcmToneStack.
+ * @author Mustafa Garip
+ */
+
+// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
 #include <cmath>
@@ -111,8 +116,7 @@ TEST(Unit_Dsp, JcmToneStackResetClearsState)
 
 TEST(Unit_Dsp, JcmToneStackAtEightTimesRateMatchesBaseRateWithinFifthOfADecibel)
 {
-    // The stack moves inside the 8x region in D6a; at fs/f0 ~ 3840 the float biquads'
-    // coefficient quantisation must not shift the response by more than 0.2 dB.
+    // Float coefficient quantisation stays within 0.2 dB. See tests/functional/unit/README.md.
     for (const double frequency : { 80.0, 250.0, 1000.0, 4000.0, 10000.0 })
     {
         double gain[2] = { 0.0, 0.0 };

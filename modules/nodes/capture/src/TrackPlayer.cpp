@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TrackPlayer.cpp
+ * @brief Implements the mixing of clip timelines at the transport's position and speed.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/capture/TrackPlayer.hpp"
 
 #include <algorithm>
@@ -100,8 +106,7 @@ namespace SushiDSP
 
     void TrackPlayer::reclaim()
     {
-        // Every lane slot is reclaimed before the library is collected, so a take a retired
-        // timeline still names is never freed.
+        // Lane slots are reclaimed before the library; see modules/nodes/capture/README.md.
         for (Track& track : tracks_)
         {
             track.timeline.reclaim();
@@ -137,8 +142,7 @@ namespace SushiDSP
         const bool head_is_cut = clip.take_offset > 0u;
         const bool tail_is_cut = clip.take_offset + clip.length_frames < take_frames;
 
-        // The ramp is symmetric about the clip's middle, so asking about the middle frame
-        // suppresses the edge on that side while leaving the other one intact.
+        // The ramp is symmetric about the clip's middle; see modules/nodes/capture/README.md.
         const std::uint64_t middle = clip.length_frames / 2u;
         std::uint64_t       query = middle;
 
@@ -192,8 +196,7 @@ namespace SushiDSP
             return;
         }
 
-        // The de-click gain rises, holds and falls, so its smallest value over a run is at one
-        // of the run's ends; both ends at one means the whole run is flat.
+        // The gain is smallest at one end of a run; see modules/nodes/capture/README.md.
         const bool flat = clip_gain(clip, clip_frame) == 1.0f
             && clip_gain(clip, clip_frame + count - 1u) == 1.0f;
 
@@ -269,9 +272,7 @@ namespace SushiDSP
             return;
         }
 
-        // The block's own 32.32 accumulator starts at zero while Transport::advance() carries
-        // its fraction on, so the expected position may sit one frame either side of the real
-        // one; a wider gap than that is a seek, a jump between clips or a speed change.
+        // The expected position may be one frame off; see modules/nodes/capture/README.md.
         const std::uint64_t drift = position > track.reader_position
             ? position - track.reader_position
             : track.reader_position - position;
@@ -330,8 +331,7 @@ namespace SushiDSP
 
         std::uint64_t speed_q32 = transport.speed_q32();
 
-        // An unsized converter cannot carry a block, so the lane falls back to the copy path
-        // rather than allocate on this thread.
+        // An unsized converter takes the copy path; see modules/nodes/capture/README.md.
         if (frames > prepared_block_frames_ || speed_q32 == 0u)
         {
             speed_q32 = kUnitySpeedQ32;

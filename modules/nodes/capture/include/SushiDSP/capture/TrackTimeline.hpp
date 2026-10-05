@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TrackTimeline.hpp
+ * @brief Declares a clip and the sorted, immutable timeline that holds one lane's clips.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <array>

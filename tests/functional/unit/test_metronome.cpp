@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_metronome.cpp
+ * @brief Tests where and when Metronome adds its clicks.
+ * @author Mustafa Garip
+ */
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>

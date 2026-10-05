@@ -316,8 +316,7 @@ namespace SushiDSP::room
         std::size_t count = modes.size();
         if (count > ModalDesign::kMaxModes)
         {
-            // The reported crossover is the first mode left out, so that enumerate() at it
-            // returns exactly the modes the design carries.
+            // The reported crossover is the first mode left out; see modules/nodes/room/README.md.
             crossover = floor_to_float(modes[ModalDesign::kMaxModes].frequency_hz);
             count = static_cast<std::size_t>(
                 std::lower_bound(modes.begin(), modes.end(), static_cast<double>(crossover),

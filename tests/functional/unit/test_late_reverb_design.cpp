@@ -205,16 +205,13 @@ namespace
 
 TEST(Unit_Dsp, LateReverbDesignMeetsTheModalOverlapRule)
 {
-    // Garage: Eyring gives RT60(500 Hz) = 1.160756 s, so the sixteen lines must total at least
-    // 1.4 * 1.160756 = 1.625058 s, which is 78002.8 frames at 48 kHz. The plan's 78019 rounds
-    // the decay to 1.161 s first; both bounds hold.
+    // The lines total at least 1.4 * RT60(500 Hz). See tests/functional/unit/README.md.
     const FdnDesign design = garage_design();
     const std::uint64_t total = total_frames(design.line_frames);
     EXPECT_GE(total, 78003u);
     EXPECT_GE(total, 78019u);
     EXPECT_LT(total, 90000u);
-    // The rule is met by spreading the lines, not by holding them all back: the shortest line
-    // is the handover time, so the tail's first output lands where the taps stop.
+    // The shortest line is the handover time. See tests/functional/unit/README.md.
     EXPECT_NEAR(static_cast<double>(design.line_frames[0]), 1749.0, 8.0);
 
     // The same rule holds for the other two rooms from their own mid-band decay.
@@ -232,9 +229,7 @@ TEST(Unit_Dsp, LateReverbDesignMeetsTheModalOverlapRule)
 
 TEST(Unit_Dsp, LateReverbDesignUsesSixteenDistinctPrimes)
 {
-    // The garage's shortest line is its handover time, 1749 frames, and the spread that carries
-    // the sixteen to 1.4 * 1.160756 s = 78002.8 frames is 5.836; the targets
-    // 1749 * 5.836^(k / 15), rounded and stepped up to the next prime, run from 1753 to 10211.
+    // The garage's primes run from 1753 to 10211. See tests/functional/unit/README.md.
     const FdnDesign design = garage_design();
     EXPECT_EQ(design.line_frames[0], 1753u);
     EXPECT_EQ(design.line_frames[kLines - 1], 10211u);
@@ -252,15 +247,13 @@ TEST(Unit_Dsp, LateReverbDesignUsesSixteenDistinctPrimes)
     EXPECT_LE(static_cast<double>(design.line_frames[kLines - 1]),
               FdnDesign::kMaxLineSeconds * kSampleRate);
 
-    // line_frames alone: a 100 ms shortest line spread by four asks for 4800 and 19200 frames,
-    // and the primes at or above them are 4801 and 19207.
+    // The targets 4800 and 19200 step up to 4801 and 19207. See tests/functional/unit/README.md.
     const std::array<std::uint32_t, kLines> mid =
         LateReverbDesign::line_frames(0.1, 4.0, kSampleRate);
     EXPECT_EQ(mid[0], 4801u);
     EXPECT_EQ(mid[kLines - 1], 19207u);
 
-    // A zero shortest line still yields sixteen distinct primes, the first sixteen, so the
-    // network never sees a zero or a repeated length.
+    // A zero shortest line yields the first sixteen primes. See tests/functional/unit/README.md.
     const std::array<std::uint32_t, kLines> shortest =
         LateReverbDesign::line_frames(0.0, 2.0, kSampleRate);
     const std::array<std::uint32_t, kLines> first_primes = {
@@ -271,9 +264,7 @@ TEST(Unit_Dsp, LateReverbDesignUsesSixteenDistinctPrimes)
 
 TEST(Unit_Dsp, LateReverbDesignFitsTheDecayEachBandAsks)
 {
-    // Line 0 is 3449 frames, tau_0 = 0.0718542 s. Against the garage's six decays 1.341523,
-    // 1.332626, 1.160756, 1.146019, 1.108081 and 0.893129 s the wanted gains 10^(-3 tau_0 / RT60)
-    // are -3.214, -3.235, -3.714, -3.762, -3.891 and -4.827 dB; the cascade lands within 1 dB.
+    // The cascade lands within 1 dB of each wanted gain. See tests/functional/unit/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const std::array<double, 6> rt60 = SushiDSP::room::EyringDecay::rt60_seconds(garage);
     const FdnDesign design = garage_design();
@@ -296,9 +287,7 @@ TEST(Unit_Dsp, LateReverbDesignFitsTheDecayEachBandAsks)
 
 TEST(Unit_Dsp, LateReverbDesignDelaysTheTailToTheHandoverTime)
 {
-    // t_c = 5 * 2.5 / 343 = 0.0364431 s, 1749.27 frames. The network emits nothing until its
-    // shortest line has run, so the delay ahead of it is the handover time less that line: the
-    // garage's shortest line is 1753 frames, already past t_c, and the delay is zero.
+    // The delay is the handover time less the shortest line. See tests/functional/unit/README.md.
     const EarlyTapSet early = garage_early_taps();
     EXPECT_NEAR(early.crossover_time_s, 5.0 * 2.5 / 343.0, 1e-6);
     const FdnDesign design = garage_design();
@@ -308,8 +297,7 @@ TEST(Unit_Dsp, LateReverbDesignDelaysTheTailToTheHandoverTime)
                                               - static_cast<double>(design.line_frames[0]),
                                           0.0)));
 
-    // Every reference room hands over within a frame of t_c, the tail's first output landing
-    // at the delay plus the shortest line.
+    // Every reference room hands over within a frame of t_c. See tests/functional/unit/README.md.
     for (const SushiDSP::room::RoomScene& scene :
          { SushiDSP::test::garage_scene(), SushiDSP::test::bedroom_scene(),
            SushiDSP::test::block_room_scene() })
@@ -325,11 +313,7 @@ TEST(Unit_Dsp, LateReverbDesignDelaysTheTailToTheHandoverTime)
 
 TEST(Unit_Dsp, LateReverbDesignPutsEachBandsRemainderIntoTheTail)
 {
-    // Per band the tail carries what the diffuse field holds beyond the taps: the input gain
-    // squared is the mean over bands of remainder over network energy, each band's share
-    // floored at -30 dB of the largest, and the output cascade lands within the fit's error
-    // on sqrt of each band's share of that mean. The bedroom's 4 kHz reflections alone exceed
-    // its field there, so that band's share sits on the floor.
+    // Each band's share is floored at -30 dB of the largest. See tests/functional/unit/README.md.
     for (const SushiDSP::room::RoomScene& scene :
          { SushiDSP::test::garage_scene(), SushiDSP::test::bedroom_scene() })
     {
@@ -367,8 +351,7 @@ TEST(Unit_Dsp, LateReverbDesignPutsEachBandsRemainderIntoTheTail)
     EXPECT_EQ(remainder_of(bedroom, bedroom_early)[5], 0.0);
     EXPECT_GT(remainder_of(SushiDSP::test::garage_scene(), garage_early_taps())[5], 0.0);
 
-    // An empty set leaves the whole field to the tail, so its gain exceeds the full set's;
-    // halving every tap raises the tail, since the remainder grows as the taps shrink.
+    // The tail's gain grows as the taps shrink. See tests/functional/unit/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const EarlyTapSet early = garage_early_taps();
     EarlyTapSet halved = early;
@@ -391,12 +374,7 @@ TEST(Unit_Dsp, LateReverbDesignPutsEachBandsRemainderIntoTheTail)
 
 TEST(Unit_Dsp, LateReverbDesignRendersEachBandsRemainder)
 {
-    // An impulse through LateReverb at each room's design, 131072 frames, read as the power
-    // spectrum's mean over each octave: within 1 dB of the band's remainder from 250 Hz up,
-    // where the fits are anchored on both sides, and within 2 dB at 125 Hz, whose octave runs
-    // down to 88 Hz where the line filters and the output cascade hold whatever their low
-    // shelves settle to. A band whose remainder is zero renders at least 10 dB under the
-    // reflections it would sit beneath.
+    // Each band renders within 1 dB, or 2 dB at 125 Hz. See tests/functional/unit/README.md.
     for (const SushiDSP::room::RoomScene& scene :
          { SushiDSP::test::garage_scene(), SushiDSP::test::bedroom_scene(),
            SushiDSP::test::block_room_scene() })
@@ -425,9 +403,7 @@ TEST(Unit_Dsp, LateReverbDesignRendersEachBandsRemainder)
 
 TEST(Unit_Dsp, LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh)
 {
-    // sin(k d) / (k d) at d = 0.17 m is 0.975 at 125 Hz, 0.902 at 250 Hz and 0.0088 in magnitude
-    // at 4 kHz; the plan's 0.900 is the 250 Hz value and its 0.0257 matches no band. The
-    // coherence filter's magnitude is above 0.85 at 125 Hz and below 0.20 at 4 kHz.
+    // Coherence is above 0.85 at 125 Hz, below 0.20 at 4 kHz. See tests/functional/unit/README.md.
     const FdnDesign design = garage_design();
     EXPECT_GT(cascade_gain(design.coherence_a, 125.0), 0.85);
     EXPECT_LT(cascade_gain(design.coherence_a, 4000.0), 0.20);
@@ -437,8 +413,7 @@ TEST(Unit_Dsp, LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh)
 
 TEST(Unit_Dsp, LateReverbDesignKeepsTheCoherencePairPowerComplementary)
 {
-    // |A|^2 + |B|^2 = 1 at every band centre and at the corner between them within 1e-9, so
-    // the right ear carries the left ear's energy whatever the split between the two sums.
+    // |A|^2 + |B|^2 = 1 within 1e-9. See tests/functional/unit/README.md.
     const FdnDesign design = garage_design();
     for (const double frequency_hz : { 125.0, 250.0, 446.9, 500.0, 1000.0, 2000.0, 4000.0 })
     {
@@ -450,9 +425,7 @@ TEST(Unit_Dsp, LateReverbDesignKeepsTheCoherencePairPowerComplementary)
 
 TEST(Unit_Dsp, LateReverbDesignShapesTheOutputWithBothSections)
 {
-    // The garage's output cascade falls from +4.7 dB at 125 Hz to -12.1 dB at 4 kHz, the
-    // room's longer bass decay and the 4x12's beaming both handed to the tail; the first
-    // section alone does not reach the 4 kHz figure, so the second carries part of the fall.
+    // The second section carries part of the fall to 4 kHz. See tests/functional/unit/README.md.
     const FdnDesign design = garage_design();
     EXPECT_GT(cascade_db(design.tone_correction, 125.0), 3.5);
     EXPECT_LT(cascade_db(design.tone_correction, 4000.0), -11.0);
@@ -466,8 +439,7 @@ TEST(Unit_Dsp, LateReverbDesignShapesTheOutputWithBothSections)
 
 TEST(Unit_Dsp, LateReverbDesignGivesTheMicrophoneOneOutput)
 {
-    // ListenerKind::Microphone leaves both coherence filters as pass-throughs: b0 = 1 in each
-    // section, the rest 0. The lines are the room's, the same for both listeners.
+    // A microphone's coherence filters are pass-throughs. See tests/functional/unit/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const SushiDSP::room::ImageSourceSolver::Options options{ 4u, ListenerKind::Microphone,
                                                               kSampleRate };
@@ -483,10 +455,7 @@ TEST(Unit_Dsp, LateReverbDesignGivesTheMicrophoneOneOutput)
 
 TEST(Unit_Dsp, LateReverbDesignHandsAMicrophoneItsShareOfTheField)
 {
-    // A microphone picks up a^2 + (1 - a)^2 / 3 of a diffuse field's power for a pattern
-    // a + (1 - a) cos(theta): all of it as an omni, a third as a cardioid, so at one spot the
-    // cardioid's tail is designed against a third of the field beyond its own taps, and the
-    // ears' against the whole field. The taps hold each capsule's pattern already.
+    // A microphone picks up a^2 + (1 - a)^2 / 3 of the field. See tests/functional/unit/README.md.
     SushiDSP::room::RoomScene omni = SushiDSP::test::garage_scene();
     omni.microphone_position = omni.listener_position;
     omni.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
@@ -507,8 +476,7 @@ TEST(Unit_Dsp, LateReverbDesignHandsAMicrophoneItsShareOfTheField)
     EXPECT_NEAR(static_cast<double>(omni_design.input_gain), static_cast<double>(ears.input_gain),
                 0.02 * ears.input_gain);
 
-    // The cardioid's remainder at 500 Hz is a third of the field less its own taps, which the
-    // pattern has already reduced; the design's gain follows that arithmetic within 1e-6.
+    // The design's gain follows that arithmetic within 1e-6. See tests/functional/unit/README.md.
     const SushiDSP::room::DiffuseField field(cardioid);
     const Bands network = network_energy(cardioid, cardioid_design);
     const Bands reflected = reflected_energy(cardioid_early);

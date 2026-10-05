@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file StagePanel.hpp
+ * @brief Declares the drawing of the selected slot's front panel.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <optional>

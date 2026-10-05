@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_directory_listing.cpp
+ * @brief Tests the directory listing's ordering and extension filter.
+ * @author Mustafa Garip
+ */
+
 #include <filesystem>
 #include <fstream>
 #include <string>

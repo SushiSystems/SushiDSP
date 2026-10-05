@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_rig_controller.cpp
+ * @brief Tests RigController, its persistence and SlotSelection.
+ * @author Mustafa Garip
+ */
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -299,8 +305,7 @@ TEST(Unit_Dsp, RigControllerRemoveDropsFromChainAndReconnectsSurvivors)
     ASSERT_EQ(order.size(), 2u);
     EXPECT_EQ(order[0], a);
     EXPECT_EQ(order[1], c);
-    // b's removal must not leave a and c disconnected — the chain must re-link around the gap,
-    // matching today's behavior where removing a middle slot still produces one working chain.
+    // The chain re-links around a removed middle slot. See tests/functional/unit/README.md.
     ASSERT_NE(controller.active_graph(), nullptr);
     const auto handles = controller.active_graph()->nodes();
     ASSERT_EQ(handles.size(), 2u);
@@ -323,11 +328,7 @@ TEST(Unit_Dsp, RigControllerBuildsSplitterTwoBranchMixerShapeAndProcessesCorrect
     controller.connect(branch_b, mixer, false);
     controller.publish();
 
-    // Every node exists and the graph compiled/published without throwing — the split/mix shape
-    // this test builds was, before the publish-batching parameter, impossible to construct
-    // through the public API at all (the second add_node() would have republished a two-node,
-    // zero-edge graph, which RigGraph::compile() rejects for having no sink). Confirm the rig
-    // actually processes a block without crashing or throwing.
+    // The split/mix shape needs publish batching to build. See tests/functional/unit/README.md.
     ASSERT_NE(controller.active_graph(), nullptr);
     ASSERT_EQ(controller.active_graph()->nodes().size(), 5u);
 
@@ -344,10 +345,7 @@ TEST(Unit_Dsp, RigControllerAddBranchBuildsTheParallelShapeTheGuiOffers)
     SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
     RigController controller(info);
 
-    // The whole point of the feature, in the order a user performs it: drag a source, a splitter
-    // and one effect into a straight line, then drop a second effect on the splitter's open row.
-    // add_branch() is what turns that one drop into the four-edge shape RigGraph::compile()
-    // accepts, mixer and all.
+    // add_branch() turns one drop into the four-edge shape. See tests/functional/unit/README.md.
     const RigController::SlotId source = controller.append("sushidsp.tubescreamer");
     const RigController::SlotId splitter = controller.append("sushidsp.splitter");
     const RigController::SlotId branch_a = controller.append("sushidsp.jcm800");
@@ -600,9 +598,7 @@ TEST(Unit_Dsp, RigControllerSaveToJsonUsesOwnStoredValueNotLiveNodeState)
     RigController controller(info);
     const RigController::SlotId ts = controller.append("sushidsp.tubescreamer");
     controller.set_parameter(ts, "drive", 0.9f);
-    // Deliberately no process() call and no further structural edit here — the live node still
-    // reads the pre-edit default (0.5), but save_to_json() must report the controller's own
-    // authoritative 0.9f, matching what get_parameter() and the GUI slider both already show.
+    // No process() runs here; the live node still reads 0.5. See tests/functional/unit/README.md.
 
     const std::string json_text = controller.save_to_json();
     const nlohmann::json root = nlohmann::json::parse(json_text);
@@ -659,10 +655,7 @@ TEST(Unit_Dsp, RigControllerRefusesACabinetOnANodeThatHostsNone)
     std::remove(ir_path.c_str());
 }
 
-// --- Per-slot bypass ---
-//
-// A bypassed slot keeps its place in slot_order_, its parameters and its edges; only the
-// published graph leaves it out, wiring its upstream neighbours straight to its downstream ones.
+// A bypassed slot keeps its place, parameters and edges. See tests/functional/unit/README.md.
 
 TEST(Unit_Dsp, RigControllerBypassBridgesTheSlotsNeighbours)
 {
@@ -810,8 +803,6 @@ TEST(Unit_Dsp, RigControllerIsBypassedIsFalseForASlotThatIsNotLive)
     EXPECT_FALSE(controller.is_bypassed(9999));
 }
 
-// --- Impulse-response folder (preset-level, no audio behind it) ---
-
 TEST(Unit_Dsp, RigControllerRemembersTheIrFolder)
 {
     RigController controller(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
@@ -874,10 +865,7 @@ TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoIrFolderKeyWithAnEmptyFolder)
     EXPECT_EQ(controller.ir_folder(), "");
 }
 
-// --- Rack-list selection tracking (apps/host_gui/SlotSelection.hpp) ---
-//
-// A SlotId stays valid across insert/move/remove, unlike the old int-index scheme, so the only
-// remaining job is dropping a selection that no longer names a live slot.
+// A SlotId stays valid across insert, move and remove. See tests/functional/unit/README.md.
 
 TEST(Unit_Dsp, SlotSelectionStillValidReturnsTrueWhenSlotIsInTheList)
 {
@@ -1286,8 +1274,7 @@ TEST(Unit_Dsp, RigControllerReAmpsARecordedTakeFromTheBarItWasRecordedAt)
 
     ASSERT_TRUE(controller.set_reamp_track(0, error)) << error;
 
-    // The re-amp leg is silent before the bar the take was recorded at, which is the whole point
-    // of the stamp: docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §5.
+    // The re-amp leg is silent before the take's bar. See tests/functional/unit/README.md.
     std::vector<float> assembled(block, 0.0f);
     float*             assembled_pointer[1] = { assembled.data() };
     controller.transport().seek(0);
@@ -1413,8 +1400,6 @@ TEST(Unit_Dsp, RigControllerLoadsAPresetWithoutASpeedAtUnity)
     target.load_from_json(document.dump());
     EXPECT_NEAR(target.transport().speed(), 1.0, 1e-9);
 }
-
-// --- The room: its scene in the preset, its publish pacing and its HRTF (DE6) ---
 
 namespace
 {
@@ -1551,8 +1536,7 @@ TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoRoomAsTheStarterScene)
     EXPECT_TRUE(same_scene(controller.room_host(order[1])->scene(), starter));
     EXPECT_EQ(controller.room_host(order[1])->scene().furnishing_count, starter.furnishing_count);
 
-    // A fresh node carries the starter scene and no drag has landed, so the slot took the node's
-    // scene rather than publishing one.
+    // A fresh node carries the starter scene. See tests/functional/unit/README.md.
     EXPECT_EQ(controller.room_publishes(order[1]), 0u);
 }
 
@@ -1575,9 +1559,7 @@ TEST(Unit_Dsp, RigControllerCoalescesADragToThirtyPublishesPerSecond)
     }
     const std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - started;
 
-    // The first edit publishes at once and every later one only after 1 / 30 s has passed since
-    // the previous publish, so the count is bounded by the loop's own wall time: at most
-    // 1 + floor(30 T), which is 3 for a loop inside 100 ms.
+    // At most 1 + floor(30 T) publishes land in T seconds. See tests/functional/unit/README.md.
     const std::size_t published = controller.room_publishes(room);
     const std::size_t allowed = 1u + static_cast<std::size_t>(
         std::floor(elapsed.count() * RigController::kRoomPublishHz));
@@ -1659,8 +1641,6 @@ TEST(Unit_Dsp, RigControllerReportsAMissingHrtfAndLeavesEveryRoomOnTheFallback)
     EXPECT_EQ(controller.room_host(room)->hrtf_source(),
               SushiDSP::room::HrtfSource::SphericalHead);
 }
-
-// --- Snapshot and edge accessors (apps/host_gui, Phase 2 chain-type rewiring) ---
 
 TEST(Unit_Dsp, RigControllerSnapshotRestoreKeepsParametersAndCabinetPath)
 {

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_pan_node.cpp
+ * @brief Tests the pan law of PanNode.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <vector>
 

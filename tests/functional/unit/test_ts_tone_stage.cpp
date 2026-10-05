@@ -101,17 +101,7 @@ namespace
 
 TEST(Unit_Dsp, DkTsToneBlockResponseMatchesItsClosedForm)
 {
-    // Closed form of the corrected network, in dB:
-    //          100 Hz    1000 Hz   10000 Hz
-    //   0.1   -1.3471    -6.2987   -22.5431
-    //   0.5   -0.9946    -4.5852   -22.1373
-    //   0.9   -0.6948    -2.2872   -19.7318
-    // The old netlist read -30.43 dB at 100 Hz and -34.38 dB at 1 kHz at noon, and moved level
-    // rather than corner with the knob; these numbers check that the correction is in the block.
-    //
-    // The 0.25 dB tolerance is the sweep measurement's own accuracy - D6a puts its worst error
-    // above 20 Hz at 0.17 dB - not the block's. The block is linear, so any drive level
-    // measures the same response; -40 dBFS is what measure::frequency_response uses.
+    // The 0.25 dB tolerance is the sweep's own accuracy. See tests/functional/unit/README.md.
     constexpr double          kRunRate = 384000.0;
     const std::vector<double> frequencies{ 20.0,   50.0,   100.0,  200.0,  500.0,
                                            1000.0, 2000.0, 5000.0, 10000.0 };
@@ -136,44 +126,25 @@ TEST(Unit_Dsp, DkTsToneBlockResponseMatchesItsClosedForm)
 
 TEST(Unit_Dsp, DkTsToneBlockClosedFormCostsUnderOneDecibelAtOneHundredHertzAtNoon)
 {
-    // The acceptance the old reference could not have met: its stage was an integrator with
-    // unity gain at 1 / (2*pi*10k*220n) = 72.3 Hz, so it read -30.43 dB at 100 Hz at noon.
-    // R.G. Keen on the real stage: "there is no net signal loss through the tone control stage,
-    // a gain of 1". The three factors at 100 Hz at noon are the filter -1.1957 dB, the gain leg
-    // +0.2887 dB and the output network -0.0875 dB. Of the filter's loss, 0.8279 dB is R7
-    // against the 10 kOhm bias return, 20*log10(1 / (1 + 1k/10k)); the other 0.3679 dB is C5
-    // and the wiper leg loading that node.
+    // The stage costs under 1 dB at 100 Hz at noon. See tests/functional/unit/README.md.
     EXPECT_NEAR(tone_closed_form_db(100.0, 0.5), -0.9946, 0.001);
     EXPECT_GT(tone_closed_form_db(100.0, 0.5), -1.0);
 }
 
 TEST(Unit_Dsp, DkTsToneBlockClosedFormSweepsSixteenDecibelsAtTheLegsTurnoverFrequency)
 {
-    // Keen puts the wiper leg's turnover where the 220 nF reaches 220 Ohm, "about 3.2KHz", and
-    // that is where the knob has to do its work: at the + end the leg hangs on the passive
-    // filter and cuts, at the - end it is the gain leg and boosts. The old netlist swung
-    // 19.08 dB of flat level here while its corner moved 807 Hz to 760 Hz, which is a volume
-    // control, not a tone control.
+    // The wiper leg's turnover sits at about 3.2 kHz. See tests/functional/unit/README.md.
     const double dark = tone_closed_form_db(3200.0, 0.0 + 1.0e-9);
     const double bright = tone_closed_form_db(3200.0, 1.0 - 1.0e-9);
     EXPECT_NEAR(bright - dark, 16.185, 0.01);
 
-    // At the bright end the gain leg wins over the passive filter for about an octave around
-    // 1.1 kHz and the whole stage passes more than it is given: +0.435 dB at 1 kHz, peaking at
-    // +0.465 dB at 1159 Hz. An integrator 30.43 dB down at 100 Hz cannot do that, so this
-    // is the single number that separates the corrected netlist from the one it replaced.
+    // At the bright end the stage passes +0.435 dB at 1 kHz. See tests/functional/unit/README.md.
     EXPECT_GT(tone_closed_form_db(1000.0, 1.0 - 1.0e-9), 0.0);
 }
 
 TEST(Unit_Dsp, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAtNoon)
 {
-    // The D5b/D6a tone control crossfaded a Butterworth low-pass against a Butterworth
-    // high-pass, both at 720 Hz, so at noon the two cancelled and left a full null at 720 Hz.
-    // The real network cannot notch: above the passive filter's 723 Hz corner it falls
-    // monotonically at every setting. The closed form is checked at 1e-9 dB, which is what
-    // pins the shape; the measured sweep is checked at 0.25 dB, its own accuracy, which is
-    // what pins that this block is that shape. A null like D6a's is tens of dB deep and fails
-    // the loose gate as readily as the tight one.
+    // The real network cannot notch above 723 Hz. See tests/functional/unit/README.md.
     constexpr double          kRunRate = 384000.0;
     const std::vector<double> frequencies = midband_frequencies();
 
@@ -201,9 +172,7 @@ TEST(Unit_Dsp, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAt
 
 TEST(Unit_Dsp, DkTsToneBlockKnobMapsOntoTheReferencesSteppedRange)
 {
-    // TONE is measured from the op-amp's + input, where the wiper leg only cuts, so TONE = 1 is
-    // bright and the mapping is the identity. Before the 2026-09-06 correction this ran
-    // backwards and stopped at 0.1 and 0.9, because the old netlist muted at TONE = 1.
+    // TONE = 1 is bright and the mapping is the identity. See tests/functional/unit/README.md.
     EXPECT_DOUBLE_EQ(tone_to_position(0.0), 0.0);
     EXPECT_DOUBLE_EQ(tone_to_position(0.5), 0.5);
     EXPECT_DOUBLE_EQ(tone_to_position(1.0), 1.0);
@@ -211,11 +180,7 @@ TEST(Unit_Dsp, DkTsToneBlockKnobMapsOntoTheReferencesSteppedRange)
 
 TEST(Unit_Dsp, DkTsToneBlockPreparesAtEveryTonePositionIncludingBothEndStops)
 {
-    // The old netlist muted at wiper position 1 - the pot shorted the wiper to the op-amp
-    // output and the summing junction's equation collapsed - which is why tone_to_position used
-    // to stop short of its own track. On the corrected network both ends are ordinary settings:
-    // at 0 the wiper leg loads the passive filter, at 1 it is the whole gain leg, and neither
-    // is degenerate. This is the case that fails first if someone reinstates the clamp.
+    // Both end stops are ordinary settings. See tests/functional/unit/README.md.
     ToneNetlist              netlist;
     const TonePotentiometers pots = build_tone_block(netlist);
     EXPECT_EQ(netlist.node_count, 9u);
@@ -312,17 +277,7 @@ TEST(Unit_Dsp, DkTsToneBlockNullsAgainstTheLtspiceTransientReference)
         circuit.set_potentiometer(pots.level, kLevelPotPosition);
         circuit.update_matrices_if_dirty();
 
-        // tools/spice/export.py runs `tran 0 40m 20m 1u`: LTspice solves the DC operating point,
-        // runs 40 ms and saves the last 20 ms. This block sits at zero at DC - the 4V5 rail is
-        // an AC ground here - so a DK block starting from zero state has LTspice's initial
-        // condition exactly, and the saved window is 20 whole cycles of the 1 kHz stimulus.
-        // Replaying it ONCE therefore reproduces LTspice's own first 20 ms, and the second pass
-        // is the comparison window. This is the clip block's procedure, for the same reason.
-        //
-        // Both signals are low-passed at 10 kHz by the same 4th-order Butterworth before
-        // comparison, so the band-limiting cannot flatter either one. The block is linear, so a
-        // residual anywhere near the -60 dB gate means a component value or a node index is
-        // wrong, not that a solver drifted.
+        // One pre-roll pass matches LTspice's own start. See tests/functional/unit/README.md.
         constexpr std::size_t kPreRollPasses = 1;
 
         std::vector<double> stimulus;

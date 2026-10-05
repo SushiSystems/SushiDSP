@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file ChannelSelection.cpp
+ * @brief Implements channel selection parsing and the rig-to-device output adaptation.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/audio_format/ChannelSelection.hpp"
 
 #include <cstring>

@@ -182,10 +182,7 @@ TEST(Unit_Dsp, BandResponseFitPutsTheWholeGainInTheFirstSection)
 
 TEST(Unit_Dsp, BandResponseFitReachesADipBetweenFlatBands)
 {
-    // Two shelves cannot dip, so the model gives each section a peak as well as a step. The
-    // first two targets are one band cut with its neighbours flat; the third is the reference
-    // garage's direct path through the 4x12, whose 2 kHz octave the array null pulls down.
-    // Measured: 0.20, 0.45 and 0.10 dB.
+    // Each section has a peak, since two shelves cannot dip. See tests/functional/unit/README.md.
     const std::array<std::array<float, 6>, 3> targets = { {
         { 0.0f, 0.0f, 0.0f, -8.0f, 0.0f, 0.0f },
         { 0.0f, 0.0f, 0.0f, 0.0f, -20.0f, 0.0f },

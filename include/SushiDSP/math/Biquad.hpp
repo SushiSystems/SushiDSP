@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Biquad.hpp
+ * @brief Declares a Direct Form I biquad filter with RBJ coefficient derivation.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 namespace SushiDSP
@@ -33,12 +39,8 @@ namespace SushiDSP
 
         /// @brief Configures this filter as a first-order (one-pole) high-pass.
         ///
-        /// A single RC section mapped by the impulse-invariant pole R = exp(-2*pi*fc/fs), so the
-        /// response is unity at Nyquist and -3 dB at the corner. This is the shape a coupling
-        /// capacitor into a grid leak has, and it stays stable at corners far below where the
-        /// second-order set_high_pass does - its pole sits on the real axis, where a float ulp
-        /// moves the radius by an ulp instead of collapsing a conjugate pair onto the unit circle.
-        /// @param sample_rate Sample rate in Hz.
+        /// A single RC section mapped by the impulse-invariant pole R = exp(-2*pi*fc/fs): unity at
+        /// Nyquist and -3 dB at the corner (include/SushiDSP/README.md).
         /// @param cutoff_hz Corner frequency in Hz, where the response is -3 dB.
         /// @pre 0 < cutoff_hz < sample_rate / 2
         void set_first_order_high_pass(double sample_rate, double cutoff_hz);

@@ -75,24 +75,15 @@ TEST(Unit_Dsp, CabinetDirectivityBeamsAtTwoKilohertzAndNotAtOneTwentyFive)
 {
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::kCabinet4x12);
     const SushiDSP::room::BandResponse off = cabinet.gain_for(kPi / 3.0, 0.0);   // 60 degrees
-    // At the 2 kHz centre itself: a(f) = 0.125 / sqrt(1 + 0.64) = 0.097614 m, k = 36.6300 /m,
-    // k*a*sin60 = 3.0958 so the piston is 0.195099 (-14.19 dB), and the array is
-    // |cos(36.6300 * 0.30 * 0.866025 / 2)| = 0.046834 (-26.59 dB), together -40.78 dB. The
-    // array factor's null sits 26 Hz above the centre, so the band's energy mean over 1414 to
-    // 2828 Hz reads -15.29 dB by the 1024-point midpoint rule of the same closed form.
+    // The 2 kHz band's energy mean reads -15.29 dB. See tests/functional/unit/README.md.
     EXPECT_NEAR(off.decibels()[4], -15.29f, 0.05f);
-    // 125 Hz: the piston is 0.992358 and the array 0.956086 at the centre, -0.46 dB; the
-    // energy mean over the octave reads -0.49 dB.
+    // The 125 Hz band's energy mean reads -0.49 dB. See tests/functional/unit/README.md.
     EXPECT_NEAR(off.decibels()[0], -0.49f, 0.05f);
 }
 
 TEST(Unit_Dsp, CabinetDirectivityAveragesTheArrayNullOverTheOctave)
 {
-    // The reference garage's direct path leaves the baffle atan(0.7 / 2.5) = 15.64 degrees
-    // up. There the two rows of drivers, 0.30 m apart, cancel at 343 / (2 * 0.30 * sin 15.64)
-    // = 2120 Hz: at the 2 kHz centre the array factor alone is -21.02 dB and the closed form
-    // -22.05 dB, while the energy mean over the octave reads -11.48 dB, since the null is
-    // narrow and the array factor recovers to 0 dB at both edges of the band.
+    // The row null at 2120 Hz averages to -11.48 dB. See tests/functional/unit/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::kCabinet4x12);
     const double elevation = std::atan2(0.7, 2.5);
     const std::array<float, 6> direct = cabinet.gain_for(0.0, elevation).decibels();
@@ -103,9 +94,7 @@ TEST(Unit_Dsp, CabinetDirectivityAveragesTheArrayNullOverTheOctave)
 
 TEST(Unit_Dsp, CabinetDirectivityMatchesTheOctaveMeanOfItsClosedForm)
 {
-    // The model samples sixteen points per octave; the test integrates the same closed form
-    // with 1024, and the two agree within 0.05 dB in every band at every direction tried,
-    // 60 degrees off axis, 15.64 degrees up, and 52.85 degrees up.
+    // Sixteen points per octave match 1024 within 0.05 dB. See tests/functional/unit/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::kCabinet4x12);
     for (const double elevation : { 0.0, std::atan2(0.7, 2.5), std::atan2(3.3, 2.5) })
     {
@@ -131,10 +120,7 @@ TEST(Unit_Dsp, CabinetDirectivityPistonFactorMatchesTheBesselSeries)
 
 TEST(Unit_Dsp, CabinetDirectivityIndexIsSmallWhereTheConeIsOmnidirectional)
 {
-    // 125 Hz gives k*a = 0.286, so the piston and array together cost under 0.2 dB over the
-    // sphere; the closed box's rear shelf reads -1.55 dB over the back hemisphere, which is
-    // 10*log10(2 / (1 + 0.70)) = 0.71 dB of index on its own. Together the index stays under
-    // 1.5 dB, and by 2 kHz the beam is over 10 dB.
+    // The index stays under 1.5 dB at 125 Hz. See tests/functional/unit/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::kCabinet4x12);
     const std::array<float, 6> index = cabinet.directivity_index_db();
     EXPECT_GT(index[0], 0.5f);
@@ -162,10 +148,7 @@ TEST(Unit_Dsp, CabinetDirectivityIsSymmetricLeftAndRight)
 
 TEST(Unit_Dsp, CabinetDirectivityFallsSixDecibelsBehindTheBaffleAboveTheStep)
 {
-    // Straight behind, the piston and the array are both 1 and only the rear shelf remains.
-    // The 4x12's step is 115 / 0.75 = 153.3 Hz. At 4 kHz the shelf is
-    // sqrt((1 + (4000/306.7)^2) / (1 + (4000/153.3)^2)) = sqrt(171.1 / 681.6) = -6.00 dB;
-    // at 125 Hz it is sqrt(1.1662 / 1.6647) = -1.55 dB.
+    // Straight behind, only the rear shelf remains. See tests/functional/unit/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::kCabinet4x12);
     const std::array<float, 6> behind = cabinet.gain_for(kPi, 0.0).decibels();
     EXPECT_NEAR(behind[5], -6.00f, 0.05f);

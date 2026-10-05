@@ -152,9 +152,7 @@ TEST(Unit_Dsp, SphericalHeadHrtfCannotTellFrontFromBack)
 
 TEST(Unit_Dsp, SphericalHeadHrtfShadowsTheFarEarAboveOneKilohertz)
 {
-    // With the ears on the axis, the far ear sits at the sphere's bright spot, so the level
-    // difference at 90 degrees is the near ear's own rise: 4.7 dB in the 4 kHz octave, and it
-    // grows from octave to octave.
+    // The far ear sits at the sphere's bright spot. See tests/functional/unit/README.md.
     const SushiDSP::room::HrtfSet::Pair side = set().interpolate(kPi / 2.0, 0.0);
     EXPECT_GE(interaural_level_db(side, 4000.0), 4.0);
     EXPECT_LE(std::fabs(interaural_level_db(side, 125.0)), 2.0);
@@ -198,17 +196,13 @@ TEST(Unit_Dsp, SphericalHeadHrtfFillsTheDiffuseFieldPair)
 
 TEST(Unit_Dsp, SphericalHeadHrtfHearsTheSameDiffuseFieldAtBothEars)
 {
-    // The ears sit on the sphere's axis and the grid mirrors about the median plane, so the
-    // two power averages are the same sum in a different order.
+    // The grid mirrors about the median plane. See tests/functional/unit/README.md.
     EXPECT_LE(max_difference(set().diffuse_field(0), set().diffuse_field(1)), kTapTolerance);
 }
 
 TEST(Unit_Dsp, SphericalHeadHrtfDiffuseFieldCarriesTheRigidSpheresDiffuseGain)
 {
-    // By Legendre orthogonality the sphere's power averaged over every direction is
-    // sum_m (2m+1) / (mu^4 |h_m'(mu)|^2): 1 at DC, 1.7765 at 4 kHz, rising to 2 at high mu.
-    // Its mean over 0 to 48 kHz is 1.8472, +2.67 dB; the 10-degree grid weighted by solid
-    // angle gives 1.8477, and 128 taps hold all of it to 1e-10.
+    // The sphere's mean diffuse power is 1.8472, +2.67 dB. See tests/functional/unit/README.md.
     for (const std::uint32_t ear : { 0u, 1u })
     {
         const Taps& taps = set().diffuse_field(ear);

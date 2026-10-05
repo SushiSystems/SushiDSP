@@ -266,8 +266,7 @@ namespace SushiDSP
         /// 0.67 ms, which cuts a 256-frame block's step by eight.
         constexpr std::uint32_t kControlPeriodFrames = 32;
 
-        // Below this a recomputed coefficient set is indistinguishable from the one in place, so
-        // the audio thread skips the rebuild.
+        // Below this change in a knob the audio thread skips the coefficient rebuild.
         constexpr float kCoefficientEpsilon = 1e-4f;
 
         constexpr float kMinMasterDb = -60.0f;
@@ -341,9 +340,7 @@ namespace SushiDSP
     {
         v1b_coupling_.set_first_order_high_pass(oversampled_rate_hz, kV1bCouplingHz);
         v3b_coupling_.set_first_order_high_pass(oversampled_rate_hz, kV3bCouplingHz);
-        // S1 draws 68 k in parallel with 0.047 uF to ground, which as drawn is a 69.7 Hz
-        // low-pass no lead channel could have; the model places the capacitor across the 170 k,
-        // which gives the tightness dossier 3.4's prose describes; open question 18.
+        // The 0.047 uF is across the 170 k, not the 68 k; see modules/nodes/mesa_mark2c/README.md.
         v4a_interstage_shelf_.set_first_order_shelf(oversampled_rate_hz, kV4aInterstageZeroHz, kV4aInterstagePoleHz, kV4aInterstageLowGain);
         v4a_coupling_.set_first_order_high_pass(oversampled_rate_hz, kV4aCouplingHz);
         v2b_loop_return_coupling_.set_first_order_high_pass(oversampled_rate_hz, kV2bLoopReturnCouplingHz);
@@ -355,13 +352,11 @@ namespace SushiDSP
                                                 kV2bCathodeLowGain);
         lead_output_divider_.set_first_order_shelf(oversampled_rate_hz, kLeadOutputDividerZeroHz, kLeadOutputDividerPoleHz, kLeadOutputDivider);
 
-        // The Miller corners land at 9.0, 14.5, 14.7, 11.6, 11.6 and 15.2 kHz, each set by the
-        // plate load that drives the grid rather than by one shared figure.
+        // Each Miller corner follows its own plate load; see modules/nodes/mesa_mark2c/README.md.
         v1b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV1bGain, kV1aPlateLoadOhms));
         v3b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV3bGain, kV1bPlateLoadOhms));
         v4a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV4aGain, kV3bPlateLoadOhms));
-        // V2A's pole uses V4A's 270 k, the load that drives the grid, while kV2aSourceResistance
-        // is the divider's 3.25 k Thevenin that sets where that grid conducts.
+        // V2A's pole uses V4A's 270 k plate load; see modules/nodes/mesa_mark2c/README.md.
         v2a_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV2aGain, kV4aPlateLoadOhms));
         // V2B's corner from the loop's 5.9 k is near 196 kHz; the 100 k pole here is a placeholder the band does not reach.
         v2b_grid_miller_.set_one_pole_low_pass(oversampled_rate_hz, miller_corner_hz(kV2bGain, kV2aPlateLoadOhms));
@@ -376,8 +371,7 @@ namespace SushiDSP
         build_rate_dependent_filters(oversampled_rate_hz);
         feedback_.set_presence(presence_.target());
 
-        // The tone stack and the equaliser sit inside the single oversampled region, so their
-        // coefficients are derived at the oversampled rate.
+        // The tone stack and the equaliser are built at the oversampled rate they run at.
         tone_stack_ = MesaMark2cToneStack(oversampled_rate_hz);
         equalizer_bank_ = GraphicEqualizer(oversampled_rate_hz,
                                            { kEqualizerCentresHz[0], kEqualizerCentresHz[1], kEqualizerCentresHz[2],
@@ -466,8 +460,7 @@ namespace SushiDSP
         }
         if (std::fabs(volume_1 - applied_volume_1_) > kCoefficientEpsilon)
         {
-            // Flat until PULL BRIGHT switches the capacitor in; then, as on the lead drive, the
-            // shelf gives back what the taper is throwing away at this position.
+            // The shelf is flat until PULL BRIGHT; see modules/nodes/mesa_mark2c/README.md.
             const float bright_db = bright_
                 ? std::clamp(-gain_to_decibels(audio_taper_pot(volume_1)), 0.0f, kVolume1BrightMaxDb)
                 : 0.0f;
@@ -477,8 +470,7 @@ namespace SushiDSP
         }
         if (std::fabs(lead_drive - applied_lead_drive_) > kCoefficientEpsilon)
         {
-            // The 180 pF shorts the pot's top section above the corner, so the shelf's height is
-            // whatever the taper is throwing away at this position.
+            // The shelf returns what the taper drops; see modules/nodes/mesa_mark2c/README.md.
             const float bright_db = std::clamp(-gain_to_decibels(audio_taper_pot(lead_drive)), 0.0f, kLeadDriveBrightMaxDb);
             lead_drive_bright_.set_high_shelf(sample_rate_ * kOversamplingFactor, kLeadDriveBrightHz, bright_db, kFilterQ);
             applied_lead_drive_ = lead_drive;
@@ -527,23 +519,19 @@ namespace SushiDSP
                 v2b_.process_sample(v2b_grid_miller_.process_sample(
                     v2b_loop_return_coupling_.process_sample(v2a_out) * loop_gain)));
 
-            // Master 1 sits at node F, between V2B's coupling capacitor and the equaliser, ahead of
-            // the phase inverter (dossier 2).
+            // Master 1 sits at node F, ahead of the phase inverter (dossier 2).
             const float master_out = v2b_coupling_.process_sample(v2b_out) * master_gain;
-            // EQ OUT lifts the whole slider bus off ground, which takes the five traps out of the
-            // path rather than centring them.
+            // EQ OUT lifts the slider bus off ground and takes the five traps out of the path.
             const float equalised = equalizer_mode_ == EqualizerMode::Out
                 ? master_out
                 : equalizer_bank_.process_sample(master_out);
-            // The loop closes on the previous oversampled sample, 2.6 us at 48 kHz, because an
-            // implicit solve through the nonlinear power section would iterate.
+            // The loop closes on the previous sample; see modules/nodes/mesa_mark2c/README.md.
             const float feedback_grid = feedback_.process_sample(tap_feedback_
                 * kTapToFeedbackVolts);
             const LongTailedPair::Plates plates = phase_inverter_.process_sample(
                 phase_inverter_grid_miller_.process_sample(equalised), feedback_grid);
 
-            // Simul-Class: both pairs hang on the same transformer, each taking the plate of its
-            // own side, and they clip apart because their plate swings do (dossier 7.3).
+            // Both pairs share one transformer; see modules/nodes/mesa_mark2c/README.md.
             const float inner_pair = power_inner_a_.process_sample(plates.a)
                 - power_inner_b_.process_sample(plates.b);
             const float outer_pair = power_outer_a_.process_sample(plates.a)
@@ -557,16 +545,13 @@ namespace SushiDSP
         }
         oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames, scratch_base_.data());
 
-        // Cabinet convolution lives in the standalone sushidsp.cabinet node; this amp hands its
-        // dry signal straight to output.
+        // Cabinet convolution is the sushidsp.cabinet node's; the dry signal goes straight out.
         for (std::uint32_t i = 0; i < frames; ++i)
         {
             output[i] = scratch_base_[i];
         }
 
-        // Nothing upstream is normalised to the DAC's range, so a hot Lead Drive, Master 1 and
-        // Output combination can still land outside [-1, 1]; the clamp is a safety rail, not a
-        // tone stage.
+        // The clamp is a safety rail for the DAC's range; see modules/nodes/mesa_mark2c/README.md.
         apply_output_safety_clamp(output, frames, output_gain);
     }
 
@@ -696,8 +681,7 @@ namespace SushiDSP
             return;
         }
         deep_ = engaged;
-        // Only the one shelf moves, but it is rebuilt through the same path prepare() uses so the
-        // two cannot drift apart.
+        // The one shelf is rebuilt through the path prepare() uses, so the two cannot drift.
         build_rate_dependent_filters(sample_rate_ * kOversamplingFactor);
     }
 
@@ -752,8 +736,7 @@ namespace SushiDSP
 
     const ParameterTable<MesaMark2c, 18>& MesaMark2c::parameters()
     {
-        // The order is a contract: a host addresses these by index and a saved preset reads them
-        // back by index, so rows are appended, never reordered or removed.
+        // Row order is a contract; rows are only appended; see modules/nodes/mesa_mark2c/README.md.
         static const ParameterTable<MesaMark2c, 18> table{ {{
             { { "volume_1", "Volume 1", 0.0f, 1.0f, 0.5f, ParamKind::Linear, "" },
               [](MesaMark2c& n, float v) { n.set_volume_1(v); },
@@ -801,8 +784,7 @@ namespace SushiDSP
             { { "output", "Output", kMinOutputDb, kMaxOutputDb, 0.0f, ParamKind::Decibel, "dB" },
               [](MesaMark2c& n, float v) { n.set_output(v); },
               [](const MesaMark2c& n) { return n.output_db_; } },
-            // The panel switches are appended rather than placed beside the knobs they sit next
-            // to, because the index order is what a saved preset addresses these by.
+            // The panel switches come after the knobs; see modules/nodes/mesa_mark2c/README.md.
             { { "bright", "Pull Bright", 0.0f, 1.0f, 0.0f, ParamKind::Boolean, "" },
               [](MesaMark2c& n, float v) { n.set_bright(v >= 0.5f); },
               [](const MesaMark2c& n) { return n.bright_ ? 1.0f : 0.0f; } },

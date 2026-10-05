@@ -3,15 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Build-environment assembly for the detected compiler.
+"""Assembles the environment that cmake, ctest and the bench run under for the found compiler.
 
-A found clang++ needs two things the parent shell may not have: on Windows the
-MSVC headers, libraries and linker that clang++ targets (loaded by running
-vcvars64 in a child shell and snapshotting the result, cached on disk keyed by
-the settings that produced it), and on every platform the toolchain's own bin
-(and on Linux lib) directory ahead on PATH. With no compiler found nothing is
-snapshotted and the current environment is used as is -- a plain checkout with
-MSVC or g++ already reachable needs no help.
+What a found clang++ needs and how the snapshot is cached are in cli/README.md, "env.py".
 """
 
 from __future__ import annotations

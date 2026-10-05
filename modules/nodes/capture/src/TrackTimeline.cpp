@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file TrackTimeline.cpp
+ * @brief Implements the construction and lookup of one lane's clip timeline.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/capture/TrackTimeline.hpp"
 
 #include <algorithm>

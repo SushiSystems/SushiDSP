@@ -48,9 +48,7 @@ namespace
     /// arrival order: direct, floor, ceiling, -y, +y, -x, +x.
     std::array<double, 7> first_order_metres()
     {
-        // dx = 2.5 on every path but the two x images; dz = 0.7 on every path but the floor
-        // (1.7) and the ceiling (3.3); dy = 4.0 on the two y images; dx = 5.5 and 6.5 on the
-        // two x images.
+        // These are the seven first-order path lengths. See tests/functional/unit/README.md.
         return { std::sqrt(2.5 * 2.5 + 0.7 * 0.7), std::sqrt(2.5 * 2.5 + 1.7 * 1.7),
                  std::sqrt(2.5 * 2.5 + 3.3 * 3.3), std::sqrt(2.5 * 2.5 + 4.0 * 4.0 + 0.7 * 0.7),
                  std::sqrt(2.5 * 2.5 + 4.0 * 4.0 + 0.7 * 0.7), std::sqrt(5.5 * 5.5 + 0.7 * 0.7),
@@ -105,12 +103,7 @@ TEST(Unit_Dsp, ImageSourceSolverCountsTheLatticePoints)
 
 TEST(Unit_Dsp, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
 {
-    // direct sqrt(6.74) = 2.596151 m, floor sqrt(9.14) = 3.023243 m, ceiling sqrt(17.14) =
-    // 4.140048 m, -y and +y sqrt(22.74) = 4.768648 m, -x sqrt(30.74) = 5.544367 m, +x
-    // sqrt(42.74) = 6.537584 m; times 48000 / 343 that is 363.3098, 423.0778, 579.3654,
-    // 667.3326, 667.3326, 775.8880 and 914.8805 frames. At order 4 t_c is 1749.27 frames and
-    // all seven survive; the two y images share one arrival, so the lookup asks for a pair
-    // there and a single tap elsewhere.
+    // The two y images share one arrival. See tests/functional/unit/README.md.
     const SushiDSP::room::EarlyTapSet set =
         SushiDSP::room::ImageSourceSolver::solve(example_scene(), {});
     const std::array<double, 7> metres = first_order_metres();
@@ -136,8 +129,7 @@ TEST(Unit_Dsp, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
 
 TEST(Unit_Dsp, ImageSourceSolverCutsTheFirstOrderSetAtItsOwnHandover)
 {
-    // At order 1 t_c is 2 * 2.5 / 343 = 0.0145773 s, 699.708 frames, so the -x and +x images
-    // at 775.888 and 914.881 frames are past it and five taps remain.
+    // At order 1 t_c is 699.708 frames, so five taps remain. See tests/functional/unit/README.md.
     SushiDSP::room::ImageSourceSolver::Options options;
     options.max_order = 1u;
     const SushiDSP::room::EarlyTapSet set =
@@ -184,8 +176,7 @@ TEST(Unit_Dsp, ImageSourceSolverDropsEveryTapPastTheHandoverTime)
     {
         EXPECT_LE(set.taps[tap].delay_frames, crossover * 48000.0) << "tap " << tap;
     }
-    // Order 4 enumerates 129 images and the far corners of the lattice arrive after t_c, so
-    // the set is smaller than the lattice.
+    // Order 4 enumerates 129 images; some arrive after t_c. See tests/functional/unit/README.md.
     EXPECT_LT(set.count, 129u);
 }
 
@@ -249,9 +240,7 @@ TEST(Unit_Dsp, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
     // The direct tap crosses no wall and keeps 1 / r whatever the scattering.
     EXPECT_NEAR(flat.taps[0].gain, 1.0 / metres[0], 1e-6);
     EXPECT_NEAR(cluttered.taps[0].gain, 1.0 / metres[0], 1e-6);
-    // One bounce keeps sqrt(1 - s) of the pressure: sqrt(0.90) / r for Flat and sqrt(0.60) / r
-    // for Cluttered, so Cluttered is sqrt(0.60 / 0.90) = 0.816497 of Flat. The two y images
-    // share an arrival, so the floor, ceiling, -x and +x taps are the ones looked up.
+    // Cluttered keeps sqrt(0.60 / 0.90) = 0.816497 of Flat. See tests/functional/unit/README.md.
     constexpr std::array<std::size_t, 4> single_arrivals = { 1, 2, 5, 6 };
     for (const std::size_t tap : single_arrivals)
     {
@@ -270,11 +259,7 @@ TEST(Unit_Dsp, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
 TEST(Unit_Dsp, ImageSourceSolverSolvesTheGarageInsideThePublishBudget)
 {
     SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
-    // A solve is the band fits plus the lattice, and it is the largest part of the render set
-    // whose own test bounds the whole build at the 33 ms a 30 Hz republish allows. The bound
-    // here is that budget less the tail design and the modal solve, which measure well under a
-    // millisecond each. A Release solve measures 1 ms; the margin is deliberate, because a
-    // tighter one measures how loaded the machine is rather than how the solver scales.
+    // A Release solve measures 1 ms; the margin is deliberate. See tests/functional/unit/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const auto start = std::chrono::steady_clock::now();
     const SushiDSP::room::EarlyTapSet set = SushiDSP::room::ImageSourceSolver::solve(garage, {});

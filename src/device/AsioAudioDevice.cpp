@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file AsioAudioDevice.cpp
+ * @brief Implements the ASIO-backed audio device.
+ * @author Mustafa Garip
+ */
+
 #include "SushiDSP/device/AsioAudioDevice.hpp"
 
 #include "SushiDSP/core/DenormalGuard.hpp"
@@ -20,8 +26,7 @@
 #include "asio.h"
 #include "asiodrivers.h"
 
-// asiodrivers.cpp defines this but declares it in no header; the SDK's own host sample
-// declares it locally too, so this is the sanctioned way to reach it.
+// asiodrivers.cpp defines loadAsioDriver and no SDK header declares it (src/README.md).
 extern bool loadAsioDriver(char* name);
 
 namespace SushiDSP
@@ -103,8 +108,7 @@ namespace SushiDSP
 
         static void sample_rate_did_change(ASIOSampleRate /*sample_rate*/)
         {
-            // Nothing to do: format() reports the rate negotiated at construction, and a
-            // mid-stream clock change is a driver-level event this device does not chase.
+            // format() keeps the rate negotiated at construction; a clock change is not followed.
         }
 
         static long asio_message(long selector, long value, void* /*message*/, double* /*opt*/)
@@ -119,23 +123,17 @@ namespace SushiDSP
                 case kAsioEngineVersion:
                     return 2L;
 
-                // Acknowledged so the driver does not keep re-asking; this device does not
-                // act on them, since reopening the driver is the host application's call.
+                // Acknowledged and not acted on: reopening the driver is the host application's call.
                 case kAsioResyncRequest:
                 case kAsioLatenciesChanged:
                 case kAsioOverload:
                     return 1L;
 
-                // Answering 1 here would claim this device tears down and re-creates its
-                // buffers in response, which it does not do - a real reset handler belongs
-                // at the host layer that owns rebuilding format/buffers, which does not
-                // exist yet. 0 is the honest "not handled" answer, and correctly excluded
-                // from kAsioSelectorSupported above.
+                // Answers 0, not handled: this device never rebuilds its buffers (src/README.md).
                 case kAsioResetRequest:
                     return 0L;
 
-                // Declining time info keeps the driver on the plain bufferSwitch path,
-                // which is all this device needs.
+                // Declining time info keeps the driver on the plain bufferSwitch path.
                 case kAsioSupportsTimeInfo:
                     return 0L;
 
@@ -146,8 +144,7 @@ namespace SushiDSP
 
         static ASIOTime* buffer_switch_time_info(ASIOTime* /*params*/, long buffer_index, ASIOBool direct_process)
         {
-            // Only reachable if a driver ignores our kAsioSupportsTimeInfo answer; forward
-            // it rather than dropping the block.
+            // Reached only when a driver ignores the kAsioSupportsTimeInfo answer; forwards the block.
             buffer_switch(buffer_index, direct_process);
             return nullptr;
         }
@@ -191,14 +188,12 @@ namespace SushiDSP
             throw std::runtime_error("ASIO driver '" + driver_name + "' could not be loaded");
         }
 
-        // From here on any failure must unload the driver, or the process-wide SDK state
-        // stays wedged and the next open of any driver fails.
+        // Any failure from here on unloads the driver, or the next open of any driver fails.
         try
         {
             ASIODriverInfo driver_info{};
             driver_info.asioVersion = 2;
-            // Console and library hosts have no application window; the desktop window is
-            // the conventional stand-in, and drivers that ignore sysRef are unaffected.
+            // The desktop window stands in for the application window a console host lacks.
             driver_info.sysRef = GetDesktopWindow();
             throw_on_error(ASIOInit(&driver_info), "ASIOInit");
 
@@ -227,9 +222,7 @@ namespace SushiDSP
                                         ? requested_block
                                         : preferred_size;
 
-            // ASIOCanSampleRate is the only non-destructive way to ask; only set the rate
-            // when the driver confirms it, so an unsupported request leaves the hardware's
-            // current clock alone rather than failing the whole open.
+            // The rate is set only once ASIOCanSampleRate confirms it (src/README.md).
             if (requested_format.sample_rate > 0.0
                 && ASIOCanSampleRate(static_cast<ASIOSampleRate>(requested_format.sample_rate)) == ASE_OK)
             {
@@ -248,9 +241,7 @@ namespace SushiDSP
             format_.input_channels  = requested_format.input_channels;
             format_.output_channels = requested_format.output_channels;
 
-            // Every channel in one direction must share a container format; this device
-            // keeps a single per-direction format rather than a per-channel table, so a
-            // mixed-format driver is rejected instead of misread.
+            // One container format per direction; a mixed-format driver is rejected (src/README.md).
             const auto probe_direction = [](long channel_count, ASIOBool is_input, const char* label)
             {
                 AsioSampleFormat format = AsioSampleFormat::Float32LSB;
@@ -293,8 +284,7 @@ namespace SushiDSP
             impl_->callbacks.asioMessage          = &Impl::asio_message;
             impl_->callbacks.bufferSwitchTimeInfo = &Impl::buffer_switch_time_info;
 
-            // active_instance_ must be live before ASIOCreateBuffers: some drivers issue
-            // asioMessage callbacks from inside it.
+            // active_instance_ is set before ASIOCreateBuffers, which may call asioMessage.
             active_instance_ = this;
 
             throw_on_error(ASIOCreateBuffers(impl_->buffer_infos.data(),
@@ -370,8 +360,7 @@ namespace SushiDSP
             return;
         }
 
-        // ASIOStop guarantees no further bufferSwitch call on return, so releasing whatever
-        // the caller's callback captured is safe only after it.
+        // ASIOStop returns with no further bufferSwitch to come, so the callback is released after it.
         ASIOStop();
         running_ = false;
         callback_ = {};

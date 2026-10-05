@@ -134,9 +134,7 @@ TEST(Unit_Dsp, AmbisonicEncoderKeepsChannelZeroAtOneEverywhere)
 
 TEST(Unit_Dsp, AmbisonicEncoderIsOrthonormalOverTheSphere)
 {
-    // Under SN3D the sphere mean of Y_i Y_j is 1 / (2n + 1) on the diagonal and zero off it;
-    // 42 Gauss-Legendre elevations times 61 azimuths, 2562 points, integrate every product
-    // of two order-3 harmonics exactly, so the residual is float rounding alone.
+    // The quadrature is exact here; the residual is rounding. See tests/functional/unit/README.md.
     const std::vector<QuadratureNode> latitudes = gauss_legendre(kLatitudeNodes);
     std::array<std::array<double, 16>, 16> mean{};
     for (const QuadratureNode& node : latitudes)

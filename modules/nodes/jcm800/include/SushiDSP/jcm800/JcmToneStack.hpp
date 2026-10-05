@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file JcmToneStack.hpp
+ * @brief Declares the Marshall bass, middle and treble tone stack.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "SushiDSP/math/Biquad.hpp"

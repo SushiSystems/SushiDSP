@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file ParameterChange.hpp
+ * @brief Declares the node handle and the parameter write sent to the audio thread.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <cstdint>

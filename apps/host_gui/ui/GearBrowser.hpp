@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file GearBrowser.hpp
+ * @brief Declares the gear browser and the state it keeps between frames.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include "ui/GearFilter.hpp"

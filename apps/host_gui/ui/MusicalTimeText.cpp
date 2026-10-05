@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file MusicalTimeText.cpp
+ * @brief Implements the bar and beat text a timeline frame is named by.
+ * @author Mustafa Garip
+ */
+
 #include "ui/MusicalTimeText.hpp"
 
 #include <array>

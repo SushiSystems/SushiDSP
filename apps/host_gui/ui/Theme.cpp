@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file Theme.cpp
+ * @brief Implements the GUI's palette and the theme written into ImGui's style.
+ * @author Mustafa Garip
+ */
+
 #include "ui/Theme.hpp"
 
 namespace ui

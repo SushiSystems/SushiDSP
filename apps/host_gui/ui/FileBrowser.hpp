@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file FileBrowser.hpp
+ * @brief Declares the directory browser that reports the file the user picked.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <optional>

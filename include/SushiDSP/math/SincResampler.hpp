@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file SincResampler.hpp
+ * @brief Declares the offline windowed-sinc sample-rate converter.
+ * @author Mustafa Garip
+ */
+
 #pragma once
 
 #include <vector>

@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_divider_math.cpp
+ * @brief Tests the drag and fit arithmetic of DividerMath.
+ * @author Mustafa Garip
+ */
+
 #include <gtest/gtest.h>
 
 #include "ui/DividerMath.hpp"

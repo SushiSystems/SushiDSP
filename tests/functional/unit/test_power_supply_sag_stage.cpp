@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_power_supply_sag_stage.cpp
+ * @brief Tests the sag and recovery of PowerSupplySagStage.
+ * @author Mustafa Garip
+ */
+
 #include <cmath>
 #include <vector>
 
@@ -44,8 +50,7 @@ TEST(Unit_Dsp, PowerSupplySagStageRecoversTowardUnityAfterSilence)
         recovered_output = stage.process_sample(0.0f);
     }
 
-    // With zero input the sag envelope should decay, so a subsequent unity-input sample should
-    // be closer to unity than the deeply-sagged sample was.
+    // The sag envelope decays over silence. See tests/functional/unit/README.md.
     const float post_silence_output = stage.process_sample(1.0f);
     EXPECT_GT(std::abs(post_silence_output), std::abs(sagged_output));
     (void)recovered_output;

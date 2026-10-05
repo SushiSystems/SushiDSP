@@ -6,6 +6,12 @@
 /* Commercial use requires a licence from Sushi Systems.        */
 /****************************************************************/
 
+/**
+ * @file test_musical_time_text.cpp
+ * @brief Tests the bar, beat and sixteenth text of MusicalTimeText.
+ * @author Mustafa Garip
+ */
+
 #include <cstdint>
 
 #include <gtest/gtest.h>
