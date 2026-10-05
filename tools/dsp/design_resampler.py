@@ -1,5 +1,8 @@
-# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under the Apache License, Version 2.0. See LICENSE.
+# design_resampler.py
+# SushiDSP - https://github.com/SushiSystems/SushiDSP
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Design the windowed-sinc resampler prototype filter and emit its C++ headers.
 
 Usage:  python tools/dsp/design_resampler.py
@@ -111,6 +114,7 @@ def measure_interpolation_bound(kernel):
 
 DESIGN_HEADER_PATH = "include/SushiDSP/math/ResamplerDesign.hpp"
 KERNEL_HEADER_PATH = "src/math/ResamplerKernel.hpp"
+LICENCE_BLOCK_LINES = 7
 
 
 def licence_block(file_name):
@@ -123,9 +127,9 @@ def licence_block(file_name):
         The licence block as a newline-terminated string.
     """
     header = open("include/SushiDSP/core/PortLayout.hpp", encoding="utf-8").read().split("\n")
-    licence = header[:22]
+    licence = header[:LICENCE_BLOCK_LINES]
     name_line = f"/* {file_name}"
-    licence[1] = name_line + " " * (76 - len(name_line) - 2) + "*/"
+    licence[1] = name_line + " " * (len(licence[0]) - len(name_line) - 2) + "*/"
     return "\n".join(licence) + "\n"
 
 

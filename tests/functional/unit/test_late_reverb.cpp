@@ -1,3 +1,11 @@
+/****************************************************************/
+/* test_late_reverb.cpp                                         */
+/* SushiDSP - https://github.com/SushiSystems/SushiDSP          */
+/* Copyright (c) 2026 Sushi Systems                             */
+/* Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.    */
+/* Commercial use requires a licence from Sushi Systems.        */
+/****************************************************************/
+
 /**
  * @file test_late_reverb.cpp
  * @brief Tests for LateReverb, the 16-line Hadamard feedback delay network.

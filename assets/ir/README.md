@@ -7,9 +7,9 @@ executable, so dropping the file here is enough.
 ## Requirements for `default_4x12.wav`
 
 - A 4x12 guitar cabinet impulse response.
-- Licensed CC0, or under a licence compatible with this project's Apache License 2.0 — the file
-  ships inside the repository, so anything with a non-redistributable or non-commercial clause
-  cannot go here.
+- Licensed CC0, or under a licence compatible with Apache License 2.0 — the file ships inside
+  the repository, so anything with a non-redistributable or non-commercial clause cannot go
+  here.
 - WAV, PCM 16/24/32-bit or 32-bit IEEE float, mono or stereo (stereo is downmixed).
 - Any sample rate: `SushiDSP::IrLoader` resamples to the host rate, truncates to a bounded
   length with a raised-cosine fade-out, and normalises the mid-band level.

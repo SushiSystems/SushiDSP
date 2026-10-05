@@ -1,3 +1,9 @@
+# CMakeLists.txt
+# SushiDSP - https://github.com/SushiSystems/SushiDSP
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
+
 add_library(peavey5150 STATIC
     src/Peavey5150ToneStack.cpp
     src/Peavey5150.cpp

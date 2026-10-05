@@ -85,8 +85,8 @@ and the citation request verbatim out of the downloaded database's own documents
 write the block at all when the download carries neither, so nothing here is a transcription
 from memory. The block is empty until someone downloads the database and runs the tool.
 
-The set the maintainer chose is Apache License 2.0, the licence this repository already
-carries, so a converted copy ships in the tree without a second licence file. The SADIE project
+The set the maintainer chose is Apache License 2.0. The converted copy stays under it; the text
+is in `third_party/licenses/Apache-2.0.txt` and `NOTICE.md` lists the set. The SADIE project
 asks that work using the database cite Armstrong, Thresh, Murphy and Kearney, "A Perceptual
 Evaluation of Individual and Non-Individual HRTFs: A Case Study of the SADIE II Database",
 *Applied Sciences* 8(11), 2018 — the tool copies the project's own wording of that request

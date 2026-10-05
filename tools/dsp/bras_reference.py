@@ -1,5 +1,8 @@
-# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under the Apache License, Version 2.0. See LICENSE.
+# bras_reference.py
+# SushiDSP - https://github.com/SushiSystems/SushiDSP
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Measure the mean octave-band T30 of a BRAS room from its dodecahedron impulse responses.
 
 Usage: python tools/dsp/bras_reference.py --room CR2 --rir <wav>... --csv <path>
