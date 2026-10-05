@@ -256,7 +256,7 @@ TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
 TEST(Unit_Dsp, TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseLag)
 {
     // Only the 4x oversampler's round trip is latency. See tests/functional/unit/README.md.
-    constexpr std::uint32_t block = 64;
+    static constexpr std::uint32_t block = 64;
     constexpr std::uint32_t max_block_group_delay = 4;
 
     auto peak_index_at_tone = [](float tone)
@@ -581,8 +581,8 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
 TEST(Unit_Dsp, TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicking)
 {
     // A drive sweep must not produce a sample-to-sample step. See tests/functional/unit/README.md.
-    constexpr std::uint32_t block = 256;
-    constexpr std::uint32_t blocks_per_second = 48000u / block;
+    static constexpr std::uint32_t block = 256;
+    static constexpr std::uint32_t blocks_per_second = 48000u / block;
 
     auto largest_first_difference = [](bool sweeping)
     {
