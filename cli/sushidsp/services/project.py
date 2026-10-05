@@ -3,19 +3,11 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Project configure / build / test logic.
+"""Drives SushiDSP's configure, build, test, clean, docs, check, host and run steps.
 
-This module holds SushiDSP's own build policy — which cache variables it passes, which
-targets and test suites it has — and drives cmake and ctest through
-``sushicore.cmake_driver.CMakeDriver``, inheriting the parent environment unchanged:
-SushiDSP needs no vcvars snapshot or SYCL toolchain setup, so there is nothing to layer
-on top of ``os.environ``.
-
-``tests/CMakeLists.txt`` registers every test via ``gtest_discover_tests``
-with the CTest label ``unit`` assigned from the GTest suite-name prefix
-convention (``Unit_*`` / ``Regression_*``), matching
-sushiblas/sushiengine/sushiruntime — see the ``Suite`` enum below.
-``integration`` joins once a D-phase test needs it (see tests/CMakeLists.txt).
+Holds the build policy: the cache variables, the suites and their CTest labels, the checkers
+and the host GUI's place in the tree. cmake and ctest run through
+``sushicore.cmake_driver.CMakeDriver`` under the environment ``sushidsp.env`` assembles.
 """
 
 from __future__ import annotations
@@ -24,10 +16,9 @@ import enum
 import os
 import shutil
 import stat
-import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional
 
 from sushicore import cmake_cache
 from sushicore.cmake_driver import CMakeDriver
@@ -37,15 +28,20 @@ from sushicore.toolchain_args import c_compiler_for
 from .. import console
 from ..config import Config, PROFILE, find_project_root, load_config
 from ..env import load_build_env
+from . import discovery
 
 
 class BuildType(str, enum.Enum):
+    """Names the build types `--type` accepts."""
+
     debug = "debug"
     release = "release"
     relwithdebinfo = "relwithdebinfo"
 
 
 class Suite(str, enum.Enum):
+    """Names the test suites `--suite` accepts."""
+
     unit = "unit"
     regression = "regression"
     benchmark = "benchmark"
@@ -64,34 +60,16 @@ _CMAKE_BUILD_TYPE = {
     BuildType.relwithdebinfo: "RelWithDebInfo",
 }
 
-
-def _build_dir(root: Path) -> Path:
-    return root / "build"
-
-
 _BUILD_TYPE_FROM_CMAKE = {value: key for key, value in _CMAKE_BUILD_TYPE.items()}
 
+_CHECKERS = (
+    Path("tools", "documentation", "check_docs_layout.py"),
+    Path("tools", "documentation", "check_changelog.py"),
+    Path("tools", "layering", "check_layering.py"),
+)
 
-def resolve_build_type(requested: Optional[BuildType]) -> BuildType:
-    """Settles which build type a command acts on when --type was not given.
-
-    An explicit flag wins. Otherwise an already configured tree keeps the type it carries,
-    so that `sd test` after `sd build --type release` measures the Release binary instead of
-    reconfiguring the tree to Debug and rebuilding it unoptimised. A tree that does not exist
-    yet, or one whose cache names a type this CLI does not offer, falls back to debug.
-    """
-    if requested is not None:
-        return requested
-    try:
-        build_dir = _build_dir(find_project_root())
-    except Exception:
-        return BuildType.debug
-    cached = cmake_cache.cached_value(build_dir, "CMAKE_BUILD_TYPE")
-    return _BUILD_TYPE_FROM_CMAKE.get(cached or "", BuildType.debug)
-
-
-_RUNNER = Runner(console, PROFILE.program)
-_DRIVER = CMakeDriver(console, _RUNNER)
+_HOST_GUI = "sushidsp_host_gui"
+_HOST_GUI_FOLDERS = (Path("apps", "host_gui"), Path("bin"))
 
 _DOXYGEN_HINT = (
     "  - Windows: winget install DimitriVanHeesch.Doxygen\n"
@@ -99,17 +77,36 @@ _DOXYGEN_HINT = (
     "  - macOS:   brew install doxygen graphviz\n"
     "  - or set doxygen_exe in cli/config.local.toml to an existing doxygen binary.")
 
+_RUNNER = Runner(console, PROFILE.program)
+_APP_RUNNER = Runner(console, PROFILE.program, catch_interrupt=True)
+_DRIVER = CMakeDriver(console, _RUNNER)
+
+
+def _build_dir(root: Path) -> Path:
+    """Returns the build tree of the checkout at *root*."""
+    return root / "build"
+
 
 def _env(cfg: Config, build_dir: Path) -> dict[str, str]:
+    """Returns the environment cmake, ctest and the host GUI run under."""
     return load_build_env(cfg, build_dir)
 
 
-def _generator_changed(cfg: Config, build_dir: Path) -> bool:
-    """Whether the tree was configured with a generator other than the one resolved now.
+def resolve_build_type(requested: BuildType | None) -> BuildType:
+    """Settles which build type a command acts on when --type was not given.
 
-    CMake refuses to switch a tree's generator in place, so this is the one case where
-    the tree has to go before configure can run.
+    Returns:
+        The requested type; else the type a configured tree carries; else debug, also for a
+        tree whose cache names a type this CLI does not offer.
     """
+    if requested is not None:
+        return requested
+    cached = cmake_cache.cached_value(_build_dir(find_project_root()), "CMAKE_BUILD_TYPE")
+    return _BUILD_TYPE_FROM_CMAKE.get(cached or "", BuildType.debug)
+
+
+def _generator_changed(cfg: Config, build_dir: Path) -> bool:
+    """Tells whether the tree was configured with a generator other than the one resolved now."""
     cached = cmake_cache.cached_value(build_dir, "CMAKE_GENERATOR")
     if cached is None:
         return False
@@ -119,28 +116,46 @@ def _generator_changed(cfg: Config, build_dir: Path) -> bool:
     return cached != wanted
 
 
-def _remove_tree(path: Path) -> None:
-    """rmtree that also removes read-only files: FetchContent's git checkouts under
-    build/_deps leave read-only objects that plain rmtree refuses on Windows."""
-    def make_writable_and_retry(func, target, _exc_info):
+def _remove_tree(build_dir: Path) -> bool:
+    """Removes the build tree, read-only files included, and reports a failure in one line.
+
+    Returns:
+        False when a file in the tree could not be removed.
+    """
+    def make_writable_and_retry(func, target, _exc_info) -> None:
+        """Clears the read-only bit FetchContent's git objects carry and retries once."""
         os.chmod(target, stat.S_IWRITE)
         func(target)
-    shutil.rmtree(path, onerror=make_writable_and_retry)
+
+    console.info(f"Removing {build_dir} ...")
+    try:
+        shutil.rmtree(build_dir, onerror=make_writable_and_retry)
+    except OSError as error:
+        console.error(
+            f"Could not remove {error.filename or build_dir} ({error.strerror}); {build_dir} "
+            "is left partly removed. Close the program that holds the file and run again.")
+        return False
+    return True
 
 
-def _needs_configure(cfg: Config, build_dir: Path, expect: Optional[dict[str, str]]) -> bool:
+def _needs_configure(cfg: Config, build_dir: Path, expect: dict[str, str] | None) -> bool:
+    """Tells whether the tree must be configured before it can be compiled."""
     if not (build_dir / "CMakeCache.txt").is_file():
         return True
     generator = cfg.resolved_generator()
     if generator:
         return _DRIVER.needs_configure(build_dir, generator, expect=expect)
-    # CMake's platform default: no sentinel to check, only the baked build type.
+    # CMake's platform default leaves no generator sentinel, only the cache entries.
     return any(cmake_cache.cached_value(build_dir, key) != value
                for key, value in (expect or {}).items())
 
 
-def configure(build_type: Optional[BuildType], defines: Optional[list[str]] = None) -> int:
-    """Runs `cmake -S . -B build` with the detected compiler, generator and build type."""
+def configure(build_type: BuildType | None, defines: Sequence[str] | None = None) -> int:
+    """Runs `cmake -S . -B build` with the detected compiler, generator and build type.
+
+    Args:
+        defines: `VAR=VALUE` cache variables, passed after every flag this function sets.
+    """
     build_type = resolve_build_type(build_type)
     root = find_project_root()
     cfg = load_config()
@@ -163,15 +178,20 @@ def configure(build_type: Optional[BuildType], defines: Optional[list[str]] = No
                 f"-DCMAKE_C_COMPILER={c_compiler_for(compiler)}"]
     else:
         console.info(f"Compiler: {cfg.compiler_source()}")
-    for define in defines or []:
+    for define in defines or ():
         cmd += ["-D", define]
 
     return _DRIVER.configure(cmd, cwd=root, env=_env(cfg, build_dir))
 
 
-def build(build_type: Optional[BuildType], clean: bool = False,
-          defines: Optional[list[str]] = None) -> int:
-    """Configures (if needed or forced by --clean) then builds the project."""
+def build(build_type: BuildType | None, clean: bool = False,
+          defines: Sequence[str] | None = None) -> int:
+    """Configures when the tree needs it or *defines* are given, then compiles every target.
+
+    Args:
+        clean: Removes the build tree first.
+        defines: `VAR=VALUE` cache variables; any of them reconfigures a configured tree.
+    """
     # --clean removes the tree, so there is no cached type left to inherit from.
     build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
     root = find_project_root()
@@ -180,14 +200,14 @@ def build(build_type: Optional[BuildType], clean: bool = False,
 
     if build_dir.exists() and (clean or _generator_changed(cfg, build_dir)):
         if not clean:
-            console.warn("Build tree was configured with a different generator; rebuilding from scratch.")
-        console.info(f"Removing {build_dir} ...")
-        _remove_tree(build_dir)
+            console.warn(
+                "Build tree was configured with a different generator; rebuilding from scratch.")
+        if not _remove_tree(build_dir):
+            return 1
 
-    # A single-config generator bakes CMAKE_BUILD_TYPE into the tree, so changing -t is a
-    # reconfigure there; the Visual Studio generator selects it at build time instead.
+    # A single-config generator bakes CMAKE_BUILD_TYPE into the tree; Visual Studio does not.
     expect = None if cfg.is_multi_config() else {"CMAKE_BUILD_TYPE": _CMAKE_BUILD_TYPE[build_type]}
-    if _needs_configure(cfg, build_dir, expect):
+    if defines or _needs_configure(cfg, build_dir, expect):
         rc = configure(build_type, defines)
         if rc != 0:
             return rc
@@ -196,8 +216,23 @@ def build(build_type: Optional[BuildType], clean: bool = False,
                            config=_CMAKE_BUILD_TYPE[build_type])
 
 
-def test(build_type: Optional[BuildType], suite: Suite, clean: bool = False) -> int:
-    """Builds (if needed) then runs ctest, optionally filtered by *suite*."""
+def _benchmark_ctest_args(cfg: Config, build_dir: Path, config: str,
+                          filter: str | None) -> list[str]:
+    """Returns the ctest command line of the benchmark suite, whose timing table needs -V."""
+    args = [_DRIVER.ctest(cfg), "--test-dir", str(build_dir), "-C", config,
+            "--output-on-failure", "-V", "-L", _SUITE_LABEL_REGEX[Suite.benchmark]]
+    if filter:
+        args += ["-R", filter]
+    return args
+
+
+def test(build_type: BuildType | None, suite: Suite, clean: bool = False,
+         filter: str | None = None) -> int:
+    """Builds when needed, then runs ctest over the tests *suite* and *filter* select.
+
+    Args:
+        filter: A ctest -R regex over the `Suite.Case` names gtest_discover_tests registers.
+    """
     build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
     rc = build(build_type, clean=clean)
     if rc != 0:
@@ -206,120 +241,129 @@ def test(build_type: Optional[BuildType], suite: Suite, clean: bool = False) -> 
     root = find_project_root()
     build_dir = _build_dir(root)
     cfg = load_config()
+    env = _env(cfg, build_dir)
+    config = _CMAKE_BUILD_TYPE[build_type]
 
-    # Not CMakeDriver.ctest_run: it has no "-C <config>" knob (this generator can be
-    # multi-config, unlike the other four modules' single-config Ninja/Make trees, so the
-    # flag is load-bearing here and not just belt-and-braces) and it drains the child's
-    # output through a pipe, where this call has always inherited stdout directly.
-    cmd = [_DRIVER.ctest(cfg), "--test-dir", str(build_dir),
-           "-C", _CMAKE_BUILD_TYPE[build_type], "--output-on-failure"]
-    # The benchmark case always "passes" (it has no assertion, only a timing table), so
-    # --output-on-failure alone would hide the very numbers this suite exists to show.
-    if suite == Suite.benchmark:
-        cmd += ["-V"]
-    label_regex = _SUITE_LABEL_REGEX.get(suite)
-    if label_regex is not None:
-        cmd += ["-L", label_regex]
-
-    return _RUNNER.run(cmd, root, env=_env(cfg, build_dir))
+    # CMakeDriver.ctest_run has no verbose switch, so the benchmark suite builds its own argv.
+    if suite is Suite.benchmark:
+        return _RUNNER.run(_benchmark_ctest_args(cfg, build_dir, config, filter), root, env)
+    return _DRIVER.ctest_run(cfg, build_dir, env, label_regex=_SUITE_LABEL_REGEX.get(suite),
+                             filter=filter, config=config)
 
 
-def doxygen() -> int:
-    """Generates the API reference from the headers via the repo-root Doxyfile."""
+def clean() -> int:
+    """Removes the build tree and reports what happened.
+
+    Returns:
+        1 when a file in the tree could not be removed, else 0.
+    """
+    console.header("Project Clean")
+    build_dir = _build_dir(find_project_root())
+    if not build_dir.exists():
+        console.info(f"{build_dir} does not exist, nothing to clean.")
+        return 0
+    if not _remove_tree(build_dir):
+        return 1
+    console.success(f"{build_dir} removed.")
+    return 0
+
+
+def docs() -> int:
+    """Generates the API reference from the headers through the Doxyfile at the root."""
     console.header("Doxygen Generation")
     root = find_project_root()
     cfg = load_config()
-    doxyfile = root / "Doxyfile"
-    return _DRIVER.doxygen(cfg, doxyfile, root, env=_env(cfg, _build_dir(root)), install_hint=_DOXYGEN_HINT)
+    return _DRIVER.doxygen(cfg, root / "Doxyfile", root, env=_env(cfg, _build_dir(root)),
+                           install_hint=_DOXYGEN_HINT)
 
 
-def check(report: bool = False, rule: Optional[str] = None) -> int:
-    """Runs repository layout, changelog, and layering checkers.
+def check(report: bool = False, rule: str | None = None) -> int:
+    """Runs the layout, changelog and layering checkers under tools/.
 
     Args:
-        report: Whether to report issue counts instead of failing.
-        rule: Optional single rule name to run.
+        report: Makes each checker print issue counts and exit zero.
+        rule: The one rule to run; it is forwarded to every checker.
 
     Returns:
-        Non-zero exit code if any checker returns non-zero.
+        The highest exit code among the checkers.
     """
-    try:
-        root = find_project_root()
-    except (SystemExit, Exception):
-        root = Path(__file__).resolve().parents[3]
-
-    checkers = [
-        root / "tools" / "documentation" / "check_docs_layout.py",
-        root / "tools" / "documentation" / "check_changelog.py",
-        root / "tools" / "layering" / "check_layering.py",
-    ]
-
-    exit_code = 0
-    for checker in checkers:
-        cmd = [sys.executable, str(checker)]
-        if report:
-            cmd.append("--report")
-        if rule:
-            cmd.extend(["--rule", rule])
-        result = subprocess.run(cmd, cwd=root)
-        if result.returncode != 0:
-            exit_code = max(exit_code, result.returncode)
-
-    return exit_code
+    root = find_project_root()
+    arguments = (["--report"] if report else []) + (["--rule", rule] if rule else [])
+    return max(_RUNNER.run([sys.executable, str(root / checker), *arguments], root)
+               for checker in _CHECKERS)
 
 
-def run(
-    build_type: Optional[BuildType] = None,
-    args: Optional[list[str]] = None,
-) -> int:
-    """Launches the sushidsp_host_gui standalone application.
+def _locate_host_gui(cfg: Config, build_dir: Path, config: str) -> Path | None:
+    """Returns the host GUI binary the tree holds for *config*, or None.
+
+    A multi-config generator keeps each configuration in a folder of its own; a single-config
+    tree holds one binary, of the type it was configured with.
+    """
+    name = f"{_HOST_GUI}.exe" if os.name == "nt" else _HOST_GUI
+    suffix = Path(config) if cfg.is_multi_config() else Path()
+    for folder in _HOST_GUI_FOLDERS:
+        candidate = build_dir / folder / suffix / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def host(build_type: BuildType | None = None, launch: bool = True,
+         app_args: Sequence[str] | None = None) -> int:
+    """Builds the requested type, then launches the standalone host GUI of that type.
 
     Args:
-        build_type: Desired build configuration (debug, release, relwithdebinfo).
-        args: Extra CLI arguments to pass to the executable.
+        launch: False stops after the build.
+        app_args: Arguments handed to the host GUI unchanged.
 
     Returns:
-        Process exit code.
+        The build's code when it fails or *launch* is off, 1 when the tree holds no host GUI,
+        130 after Ctrl+C, else the host GUI's own exit code.
+    """
+    build_type = resolve_build_type(build_type)
+    rc = build(build_type)
+    if rc != 0 or not launch:
+        return rc
+
+    root = find_project_root()
+    cfg = load_config()
+    build_dir = _build_dir(root)
+    config = _CMAKE_BUILD_TYPE[build_type]
+
+    exe = _locate_host_gui(cfg, build_dir, config)
+    if exe is None:
+        console.error(
+            f"{_HOST_GUI} was not found under {build_dir} after a {config} build. "
+            "It is built only when SUSHIDSP_BUILD_GUI is ON.")
+        return 1
+
+    console.header(f"Launching {exe.name} ({config})")
+    return _APP_RUNNER.run([str(exe), *(app_args or ())], root, _env(cfg, build_dir))
+
+
+def run(target: str | None = None, sort: bool = False,
+        app_args: Sequence[str] | None = None) -> int:
+    """Runs an executable the build tree already holds, without building first.
+
+    Args:
+        target: The executable's name, matched exactly and then as a substring; None runs
+            the configured `target_bin`.
+        sort: Prompts for one executable from a list and ignores *target*.
+        app_args: Arguments handed to the executable unchanged.
+
+    Returns:
+        1 when there is no build tree or no match, 130 after Ctrl+C, else the executable's code.
     """
     root = find_project_root()
     cfg = load_config()
-    bt = resolve_build_type(build_type)
     build_dir = _build_dir(root)
-
-    exe_name = "sushidsp_host_gui.exe" if os.name == "nt" else "sushidsp_host_gui"
-    cmake_bt = _CMAKE_BUILD_TYPE[bt]
-
-    def _locate() -> Optional[Path]:
-        candidates = [
-            build_dir / "apps" / "host_gui" / exe_name,
-            build_dir / "apps" / "host_gui" / cmake_bt / exe_name,
-            build_dir / "bin" / exe_name,
-            build_dir / "bin" / cmake_bt / exe_name,
-        ]
-        for p in candidates:
-            if p.is_file():
-                return p
-        return None
-
-    exe_path = _locate()
-    if exe_path is None:
-        console.header(f"Building {exe_name}")
-        build_res = build(bt)
-        if build_res != 0:
-            return build_res
-        exe_path = _locate()
-
-    if exe_path is None:
-        console.header(f"Executable {exe_name} not found")
+    if not build_dir.is_dir():
+        console.error(f"{build_dir} does not exist. Run `sd build` first.")
         return 1
 
-    console.header(f"Launching {exe_path.name} ({cmake_bt})")
-    env = _env(cfg, build_dir)
-    cmd = [str(exe_path), *(args or [])]
-    try:
-        proc = subprocess.run(cmd, cwd=root, env=env)
-        return proc.returncode
-    except KeyboardInterrupt:
-        return 0
+    exe = discovery.resolve(build_dir, console, target=target, sort=sort, default=cfg.target_bin)
+    if exe is None:
+        return 1
 
-
+    console.info(f"Executing: {exe}")
+    return _APP_RUNNER.run([str(exe), *(app_args or ())], root, _env(cfg, build_dir))

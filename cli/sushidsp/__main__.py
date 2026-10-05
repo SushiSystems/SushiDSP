@@ -3,9 +3,11 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Enable `python3 -m sushidsp` as an entry point."""
+"""Enables `python -m sushidsp` as an entry point."""
 
-from .cli import app
+from __future__ import annotations
+
+from .cli import main
 
 if __name__ == "__main__":
-    app()
+    main()

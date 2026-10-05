@@ -17,8 +17,8 @@ dependencies = [
 ]
 
 [project.scripts]
-sd = "sushidsp.cli:app"
-sushidsp = "sushidsp.cli:app"
+sd = "sushidsp.cli:main"
+sushidsp = "sushidsp.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

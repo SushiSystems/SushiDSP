@@ -46,6 +46,13 @@ def test_default_target_bin_is_sushidsp_host():
     assert config.Config().target_bin == "sushidsp_host"
 
 
+def test_every_env_field_has_an_environment_variable():
+    """Each field the profile lists as overridable maps to a real SD_* variable."""
+    overrides = config.PROFILE.env_overrides()
+    assert set(overrides) == set(config.PROFILE.env_fields)
+    assert all(name.startswith("SD_") for name in overrides.values())
+
+
 def test_default_generator_is_unset():
     """Unlike ToolConfig's 'Ninja' default, SushiDSP leaves the generator to CMake."""
     assert config.Config().generator == ""

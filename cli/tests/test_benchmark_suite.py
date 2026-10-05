@@ -26,7 +26,7 @@ def test_benchmark_suite_selects_the_benchmark_label():
 def test_test_command_accepts_benchmark_suite(monkeypatch):
     seen = {}
 
-    def fake_test(build_type, suite, clean=False):
+    def fake_test(build_type, suite, clean=False, filter=None):
         seen["suite"] = suite
         return 0
 
