@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-05 — licence: Replaced Apache-2.0 with PolyForm Noncommercial 1.0.0 and renamed NOTICE (`LICENSE`, `COMMERCIAL.md`, `NOTICE.md`, `README.md`, `docs/CONTRIBUTING.md`).
 - 2026-10-04 — cli: Took the help panel of the provision commands from sushicore and required sushicore 0.7.0 (`cli/sushidsp/cli.py`, `cli/pyproject.toml`).
 
 ## v0.1.0 — 2026-10-03

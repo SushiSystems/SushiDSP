@@ -7,6 +7,7 @@ name = "sushidsp-cli"
 version = "0.1.0"
 description = "SushiDSP developer CLI (build / test)"
 authors = [{ name = "Mustafa Garip", email = "mustafagarip@sushisystems.io" }]
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 requires-python = ">=3.10"
 dependencies = [
     "sushicore>=0.7.0",

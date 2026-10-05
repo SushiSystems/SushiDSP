@@ -85,8 +85,11 @@ first thing to read before changing anything.
 
 ## License
 
-Apache License, Version 2.0. See [LICENSE](LICENSE).
+SushiDSP is source-available, free for non-commercial use under the PolyForm Noncommercial
+License 1.0.0; see [LICENSE](LICENSE). Commercial use needs a licence from Sushi Systems; see
+[COMMERCIAL.md](COMMERCIAL.md).
 
-[NOTICE](NOTICE) carries the attribution the licence asks for, the third-party libraries a build
-links, and the trademark position: the manufacturer and product names in this repository say which
-circuit a model was written against, and none of those companies is affiliated with SushiDSP.
+[NOTICE.md](NOTICE.md) lists the third-party libraries a build links, the third-party data in the
+tree, the terms of a build with the Steinberg ASIO SDK, and the trademark position: the
+manufacturer and product names in this repository say which circuit a model was written against,
+and none of those companies is affiliated with SushiDSP.

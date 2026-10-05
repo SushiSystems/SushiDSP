@@ -5,8 +5,10 @@ vision while the architecture is still settling, **external pull requests are no
 at this stage** — but bug reports and design discussion are very welcome, and this document is
 the reference for how the project is actually built and how a change should look.
 
-By contributing you agree that your contributions are licensed under the project's
-**Apache License, Version 2.0** (see [`LICENSE`](../LICENSE)).
+Contributions from outside Sushi Systems are not accepted yet. SushiDSP is source-available, free
+for non-commercial use under the PolyForm Noncommercial License 1.0.0 (see
+[`LICENSE`](../LICENSE)); commercial use needs a licence from Sushi Systems, see
+[`COMMERCIAL.md`](../COMMERCIAL.md).
 
 > New to the codebase? Read [`docs/design/SUSHIDSP.md`](design/SUSHIDSP.md) first — it explains
 > the rig graph, the `NodeDescriptor` product contract, and the math/circuit layering every
@@ -64,11 +66,9 @@ gets sent back before anything else is reviewed.
 - **Naming** — types `PascalCase`; functions and variables `snake_case`; class members carry a
   trailing underscore (`impl_`); constants `kPascalCase` (`kMaximumNodes`); spelled-out names,
   no abbreviations.
-- **License header** — the exact 76-column boxed `/* ... */` template pinned in
-  [`docs/design/SUSHIDSP.md` §0a](design/SUSHIDSP.md), on every `.hpp`/`.cpp` file. Copy an
-  existing file's header verbatim (e.g. `include/SushiDSP/core/PortLayout.hpp`) and only change
-  the filename line — do not retype the box by hand, and do not skip it on a test file (every
-  `.hpp`/`.cpp` in the tree carries it, tests included).
+- **License header** — the license block of the `source-comments` skill, on every source file,
+  tests included. `tools/licensing/write_license_block.py` in SushiSkills writes it; do not type
+  the box by hand.
 - **Doxygen** — `@brief`/`@param`/`@return` on every public function.
 - **Comments** — none, unless the *why* is non-obvious. Never explain *what* the code does;
   well-named identifiers already do that.

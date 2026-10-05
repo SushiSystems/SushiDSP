@@ -1,3 +1,9 @@
+# SushiDSPCompilerFlags.cmake
+# SushiDSP - https://github.com/SushiSystems/SushiDSP
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
+
 # Optimization policy for the DSP core and everything that links it.
 #
 # Applied per target through sushidsp_apply_optimization_flags() so that every target

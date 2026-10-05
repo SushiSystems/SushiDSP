@@ -1,3 +1,9 @@
+# Sanitizers.cmake
+# SushiDSP - https://github.com/SushiSystems/SushiDSP
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
+
 # Opt-in sanitizer instrumentation for the DSP core and its consumers.
 #
 # Applied per target through sushidsp_apply_sanitizers(), the same mechanism as

@@ -1,5 +1,8 @@
-# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under the Apache License, Version 2.0. See LICENSE.
+# project.py
+# SushiDSP - https://github.com/SushiSystems/SushiDSP
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Project configure / build / test logic.
 
 This module holds SushiDSP's own build policy — which cache variables it passes, which

@@ -1,7 +1,7 @@
 # SushiDSP Design Spec
 **Status:** Open — phase 2 of 4
 
-> **For the implementing agent.** This is the authoritative design specification for the **SushiDSP** repository — a standalone, dependency-free audio-DSP library. Build the repo from this doc. Conventions: **C++17** (no C++20/23), **Allman braces** (opening brace on its own line; trivial one-line accessors may stay compact), types `PascalCase`, functions/variables `snake_case`, members trailing underscore (`impl_`), constants `UPPER_SNAKE`, spelled-out names (no abbreviations), the **Apache 2.0 license header box** on every source file (line 2 carries the file's own name; the literal template is in §0a below — copy it, do not reconstruct it), a Doxygen `@brief`/`@param`/`@return` on every public function, and **no comments unless the *why* is non-obvious**. The developer CLI is **`sd`** (Python Typer, `cli/sushidsp/`, built on the shared `sushicore` presentation layer — see §11a). No comments in code beyond that rule.
+> **For the implementing agent.** This is the authoritative design specification for the **SushiDSP** repository — a standalone, dependency-free audio-DSP library. Build the repo from this doc. Conventions: **C++17** (no C++20/23), **Allman braces** (opening brace on its own line; trivial one-line accessors may stay compact), types `PascalCase`, functions/variables `snake_case`, members trailing underscore (`impl_`), constants `UPPER_SNAKE`, spelled-out names (no abbreviations), the **license block** of the `source-comments` skill on every source file (see §0a below), a Doxygen `@brief`/`@param`/`@return` on every public function, and **no comments unless the *why* is non-obvious**. The developer CLI is **`sd`** (Python Typer, `cli/sushidsp/`, built on the shared `sushicore` presentation layer — see §11a). No comments in code beyond that rule.
 
 SushiDSP is a **standalone amp/pedal simulation framework**, in the spirit of AmpliTube/Bias FX: a portable C++ DSP core (block graph of `IAudioNode`s), a math library (FFT, convolution, filters, WDF/DK-method circuit solving, oversampling), and a **rig** — a user-editable, freely-connectable chain of pedal/amp/cabinet nodes. It ships as a standalone host app and as a VST3/CLAP plugin. It depends on nothing but the C++ standard library and SIMD intrinsics; there is no game-engine integration, no GPU offload seam, and no spatializer/synthesis/aero-thermo content. The first two products are the **JCM800** amp model and the **Tube Screamer** overdrive pedal, both white-box (WDF/DK-method) circuit models sharing the same solver and oversampling infrastructure.
 
@@ -17,38 +17,13 @@ SushiDSP is a **standalone amp/pedal simulation framework**, in the spirit of Am
 4. **JCM800 fidelity.** White-box 2203 circuit (WDF / DK state-space), ≥ 8× oversampling, six front-panel controls, partitioned-convolution cabinet.
 5. **Tube Screamer fidelity.** White-box TS808/TS9 circuit (WDF / DK state-space), same oversampling/solver infrastructure as JCM800, Drive/Tone/Level controls.
 6. **VST/standalone wrapping.** A thin VST3/CLAP wrapper and a standalone host both drive the rig with no reference to any other engine or runtime.
-7. **SOLID + conventions.** Apache headers, Allman braces, `I`-prefixed interfaces, Doxygen on every public function, trivially-copyable POD where it crosses a thread.
+7. **SOLID + conventions.** the license block of the `source-comments` skill, Allman braces, `I`-prefixed interfaces, Doxygen on every public function, trivially-copyable POD where it crosses a thread.
 
 ---
 
 ## §0a Reference header
 
-Every `.hpp`/`.cpp` in this repo opens with this exact block, each line 76 columns wide, with `<FILENAME>` replaced by the file's own name left-aligned after `/* ` and padded out to the box edge. Copy it verbatim; `tests/common/test_main.cpp` is a live example.
-
-```
-/**************************************************************************/
-/* <FILENAME>                                                             */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                                SushiDSP                                */
-/*                https://github.com/SushiSystems/SushiDSP                */
-/*                        https://sushisystems.io                         */
-/**************************************************************************/
-/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
-/*                                                                        */
-/* Licensed under the Apache License, Version 2.0 (the "License");        */
-/* you may not use this file except in compliance with the License.       */
-/* You may obtain a copy of the License at                                */
-/*                                                                        */
-/*     http://www.apache.org/licenses/LICENSE-2.0                         */
-/*                                                                        */
-/* Unless required by applicable law or agreed to in writing, software    */
-/* distributed under the License is distributed on an "AS IS" BASIS,      */
-/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or        */
-/* implied. See the License for the specific language governing           */
-/* permissions and limitations under the License.                         */
-/**************************************************************************/
-```
+Every source file opens with the license block of the `source-comments` skill. `tools/licensing/write_license_block.py` in SushiSkills writes it with the project line `SushiDSP - https://github.com/SushiSystems/SushiDSP`; nobody types it by hand. `tests/common/test_main.cpp` is a live example.
 
 ---
 
