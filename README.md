@@ -65,7 +65,7 @@ without a catalog entry.
 
 ## How the models are held in place
 
-1007 tests run under `sd test`. Twelve of them are golden files: one second of mono float32 per
+The suite runs under `sd test`. It holds twelve golden files: one second of mono float32 per
 node per sample rate, compared against a pinned render, failing when the RMS residual rises above
 -80 dB. `tests/golden/README.md` records every time one was regenerated and what changed to
 justify it, so a model's history reads as a list of deliberate decisions rather than a drifting
@@ -79,8 +79,8 @@ review.
 
 ## Where to go next
 
-The manual index is [docs/README.md](docs/README.md); every document in the tree is reachable from
-it. [docs/design/SUSHIDSP.md](docs/design/SUSHIDSP.md) is the design spec and records intent, so it
+The manual index is [docs/README.md](docs/README.md); it reaches every manual page, every design
+document and every README kept beside the code. [docs/design/SUSHIDSP.md](docs/design/SUSHIDSP.md) is the design spec and records intent, so it
 describes work that does not exist yet. [docs/design/REMAINING_WORK.md](docs/design/REMAINING_WORK.md)
 is the single backlog of what is actually open. [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) is the
 first thing to read before changing anything.

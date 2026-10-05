@@ -1,11 +1,10 @@
 # Sushi Systems Programming Standards Migration
-
-**Status:** Open — phase 1 of 3
+**Status:** Open — phase 2 of 3
 
 ## Overview
 
-This document specifies the migration plan to align SushiDSP with Sushi Systems Programming
-standards. The migration follows a phased rollout to preserve continuous build stability and test
+This document specifies the migration plan to align SushiDSP with the SushiSkills rules, which
+were named `sushisystemsprogramming` when phase 1 ran. The migration follows a phased rollout to preserve continuous build stability and test
 verification across all 969 baseline unit tests and host applications.
 
 ## Phase 1: Foundational Tooling and Documentation Layout
@@ -46,7 +45,7 @@ The four bullets above record what phase 1 did, not where those files are today.
 
 ### 3. Documentation Tree Realignment
 
-The `docs/` tree aligns strictly with the documentation skill:
+The `docs/` tree phase 1 produced, before `CLAUDE.md` and `AGENTS.md` moved back to the root:
 ```
 docs/
     README.md
@@ -92,7 +91,12 @@ Key transformations:
 
 - Reorganise `src/` and `include/SushiDSP/` into `modules/<tier>/<module>/`.
 - Move `apps/` to `applications/`.
-- Configure `K_TIER_ORDER` in `tools/layering/check_layering.py` and `cmake/`.
+- Configure `K_TIER_ORDER` in `tools/layering/check_layering.py` and `cmake/`. The checker's half
+  landed on 2026-09-21 with the `nodes`, `catalog` and `session` tiers.
+
+The work folder of phase 1 is archived at
+`docs/archive/agent/2026_09_15_SUSHI_STANDARDS_PHASE_1/`. The tools were copied again from
+SushiSkills on 2026-10-05, with the license block writer and the checker tests.
 
 ## Phase 3: Code Style and Comment Compliance (Future)
 

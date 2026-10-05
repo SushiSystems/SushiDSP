@@ -1,7 +1,5 @@
 # Remaining work
 
-**Status:** open, last revised 2026-09-22.
-
 The single backlog. An entry here names work that is not started or not finished; a defect that
 is measured, understood and deliberately left alone lives in
 [`docs/reference/KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md) instead, and the entries below
@@ -128,3 +126,41 @@ vector drawing rather than a scan; the readings and the corrections they make to
 [`docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md`](../agent/2026_09_20_V0_1_0_RELEASE/REPORT.md).
 The two EQ inductors moved two band centres in the model. The equaliser's active stage is now drawn
 but not modelled, and item 17's SPICE decks are unblocked by the same reading.
+
+## Opened by the 2026-10-05 estate audit
+
+The defects are listed in
+[`docs/reference/KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md), "Open findings of the
+2026-10-05 estate audit". The work that closes them, in the order it should be taken.
+
+Decisions the owner takes first:
+
+- **Tag v0.1.0 or fold its heading back into Unreleased.** The changelog and commit `de235ac`
+  declare the release and no tag exists.
+- **Say whether SushiDSP is in hub's catalogue**, then correct `docs/design/SUSHIDSP.md` §11a
+  to match `sushi-module.toml`.
+- **Choose the core's place in the module tree**: one module per area under `modules/<tier>/`,
+  or a recorded exemption for the root `include/` and `src/`.
+- **Choose a logger and one error model**, since both are public interface.
+- **Converge on the C++ style skill's names or record an exemption**: snake_case files,
+  `K_` constants, no `I` prefix.
+- **State the test count with its suite** in `README.md`, after one `sd test --suite all` run.
+
+Mechanical work that follows:
+
+- Rewrite `docs/archive/README.md` as an index of what the archive holds, and say there
+  which of the two standards phase 1 plans is the record.
+- Give the five placeless changelog entries of 2026-09-05 and 2026-09-07 their places.
+- Write the READMEs for `apps/host/`, `apps/host_asio/`, `tests/measure/`, `tests/benchmark/`
+  and each area under `include/SushiDSP/`.
+- Rewrite the CLI guide, the design spec's opening block and the first known issue in the
+  `humanizer` register.
+- Rename `src/` to `source/` in every module and at the root, and `apps/` to `applications/`.
+- Add a checker job to CI and route its build through `sd`; split the workflow by trigger.
+- Add `.clang-format`, `.editorconfig` and `*.f32 binary`; move `Doxyfile` out of the root.
+- Bring the source comments to the `source-comments` shape, then add
+  `check_source_comments.py` to `sd check`.
+- Move the SPICE transient CSVs out of `docs/reference/spice/` to a fixture folder, with the
+  tests and `tools/spice/export.py` that read and write them.
+- Correct `assets/ir/README.md`: the impulse response it names is not shipped, and its
+  admission rule still names the Apache licence.

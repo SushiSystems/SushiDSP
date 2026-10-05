@@ -1,4 +1,4 @@
-# `modules/mesa_mark2c` — Mesa/Boogie Mark IIC+, Lead mode
+# `modules/nodes/mesa_mark2c` — Mesa/Boogie Mark IIC+, Lead mode
 
 One `IAudioNode`, mono in and mono out, registered as `sushidsp.mesa_mark2c` with fifteen
 parameters: Volume 1, Treble, Bass, Middle, Lead Drive, Lead Master, Master 1, Presence, the five
@@ -6,7 +6,7 @@ graphic-equaliser sliders, Input Trim and Output. The PULL switches on the pots 
 every one of them is fixed at the position the dossier reads for Lead mode.
 
 Every component value, every gain and every operating point comes from
-[`docs/archive/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md`](../../docs/archive/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md).
+[`docs/archive/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md`](../../../docs/archive/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md).
 A number that is not in that file is marked below as a modelling choice. Nobody has published a
 bench measurement of a Mark IIC+, so the whole module is calibrated against arithmetic on a 1983
 drawing and on jrb32's trace of a real chassis (dossier S8).

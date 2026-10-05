@@ -1,41 +1,59 @@
-# SushiDSP documentation
+# SushiDSP manual
 
-The manual index. Start at the root [README.md](../README.md) for a general overview; this page indexes every document in the repository.
+The manual index. The root [README.md](../README.md) says what SushiDSP is; this page reaches
+every document under `docs/` outside `agent/` and `archive/`, and every README kept beside the
+code.
 
-## Manual index
+## Manual
 
-- **[Getting started](getting_started/INTRODUCTION.md)**: Overview of SushiDSP, the rig graph, and workspace setup.
-- **[Design spec](design/SUSHIDSP.md)**: Architecture, circuit equations, SOLID boundaries, and the roadmap.
-- **[Architecture](architecture/README.md)**: Current system layer layout and module boundaries.
-- **[GUI/UX redesign](design/GUI_UX_REDESIGN.md)**: Main window layout, rig routing view, and gear browser grid.
-- **[Room furnishings](design/ROOM_FURNISHINGS.md)**: Furniture as equivalent absorption in the room module, the layered room and how it is checked against measured rooms.
-- **[Contributing](CONTRIBUTING.md)**: Engineering conventions: C++17, Allman braces, headers, and test requirements.
-- **[Documentation style guide](DOCUMENTATION_STYLE_GUIDE.md)**: Documentation standards, layout, and document structure.
-- **[Command line interface](guides/COMMAND_LINE_INTERFACE.md)**: Developer CLI (`sd`) subcommands, compilers, and presets.
-- **[Remaining work](design/REMAINING_WORK.md)**: The single live backlog of open implementation items.
-- **[Changelog](reference/CHANGELOG.md)**: Change history organized by roadmap milestone and release.
-- **[Known issues](reference/KNOWN_ISSUES.md)**: Documented defect tracking, reproduction steps, and planned resolutions.
-- **[Glossary](reference/GLOSSARY.md)**: Domain vocabulary definitions for timeline units, audio buffers, and rig slots.
-- **[Code of conduct](../.github/CODE_OF_CONDUCT.md)** and **[Security policy](../.github/SECURITY.md)**: in `.github/`, which is where GitHub looks for them.
-- **[Archive](archive/README.md)**: Historical plans, specs, and research dossiers.
-- **[Modules index](architecture/MODULES.md)**: Inventory of project modules and their responsibilities.
-- **[`docs/reference/spice/`](reference/spice/)**: Netlists, subcircuit definitions, and SPICE reference data.
-- **[`include/SushiDSP/math/dk/`](../include/SushiDSP/math/dk/)**: Damped Newton-Raphson solver and Netlist builder.
-- **[`include/SushiDSP/math/Resampler.hpp`](../include/SushiDSP/math/Resampler.hpp)**: Polyphase arbitrary-ratio resampler.
-- **[`include/SushiDSP/circuits/models/`](../include/SushiDSP/circuits/models/)**: Device laws for triodes, pentodes, and clipping diodes.
-- **[`modules/nodes/tubescreamer/`](../modules/nodes/tubescreamer/)**: Ibanez Tube Screamer pedal model.
-- **[`modules/nodes/routing/`](../modules/nodes/routing/)**: Splitter, mixer, and pan nodes for rig graph routing.
-- **[`modules/nodes/cabinet/`](../modules/nodes/cabinet/)**: Cabinet impulse-response convolution node.
-- **[`modules/catalog/node_registry/`](../modules/catalog/node_registry/)**: Catalog registering available audio nodes.
-- **[`modules/session/rig_preset/`](../modules/session/rig_preset/)**: JSON serialization and deserialization for rig graphs.
-- **[`modules/nodes/dd3/`](../modules/nodes/dd3/)**: Boss DD-3 digital delay pedal model.
-- **[`modules/nodes/peavey5150/`](../modules/nodes/peavey5150/)**, **[`modules/nodes/mesa_mark2c/`](../modules/nodes/mesa_mark2c/)**, and **[`modules/nodes/diezel_vh4/`](../modules/nodes/diezel_vh4/)**: High-gain amplifier models built from schematics in `docs/archive/research/`.
-- **[`modules/nodes/capture/`](../modules/nodes/capture/)**: Synchronized audio capture and playback module.
-- **[`modules/nodes/room/`](../modules/nodes/room/)**: Room acoustics simulation, early reflections, and modal resonance.
-- **[`assets/hrtf/`](../assets/hrtf/)**: Head-related transfer function assets and converters.
-- **[`tools/`](../tools/)**: Repository checkers and DSP filter design scripts.
-- **[`tests/measure/`](../tests/measure/)**: Audio measurement library (THD, alias floor, frequency response).
+| Document | Holds |
+| --- | --- |
+| [Getting started](getting_started/INTRODUCTION.md) | The first-run sequence, from installing `sd` to starting the host |
+| [Architecture](architecture/README.md) | Where the two architecture pages begin |
+| [Architecture overview](architecture/OVERVIEW.md) | The layers as the tree holds them today |
+| [Modules](architecture/MODULES.md) | One link per module to its own README |
+| [Command line](guides/COMMAND_LINE_INTERFACE.md) | Every `sd` subcommand, its flags and the compiler search |
+| [Contributing](CONTRIBUTING.md) | How a change lands and what it must document |
+| [Documentation style guide](DOCUMENTATION_STYLE_GUIDE.md) | How a document is written in this repository |
+| [API reference landing page](reference/API_REFERENCE.md) | The page Doxygen opens the generated reference with |
+| [Changelog](reference/CHANGELOG.md) | What changed, by release |
+| [Glossary](reference/GLOSSARY.md) | The words these documents use in a sense the code fixes |
+| [Known issues](reference/KNOWN_ISSUES.md) | Defects that are recorded and left open |
+| [SPICE reference corpus](reference/spice/README.md) | The LTspice schematics and CSVs the circuit solver is nulled against, one README per block |
 
-## Generated API reference
+`sd docs` writes the generated API reference to `build/docs/api-site/html/`.
 
-Run `sd docs` to generate the HTML API documentation in `build/docs/api-site/html/` from [`docs/reference/API_REFERENCE.md`](reference/API_REFERENCE.md) and header comments.
+## Design
+
+| Document | Holds |
+| --- | --- |
+| [Design map](design/README.md) | Which design document covers which topic, with each one's status |
+| [Remaining work](design/REMAINING_WORK.md) | The single backlog |
+
+## Beside the code
+
+Each module's README is linked from [Modules](architecture/MODULES.md). The other READMEs:
+
+| README | Holds |
+| --- | --- |
+| [`apps/host_gui`](../apps/host_gui/README.md) | The standalone host: its classes, its files and what it looks for at startup |
+| [`cli`](../cli/README.md) | The `sd` package: install, layout, configuration and tests |
+| [`assets/hrtf`](../assets/hrtf/README.md) | The bundled HRTF set, its source and its licence |
+| [`assets/ir`](../assets/ir/README.md) | What a bundled cabinet impulse response must be |
+| [`tools`](../tools/README.md) | The checkers, the license block writer and their tests |
+| [`tools/dsp`](../tools/dsp/README.md) | The scripts that generate filter tables, the HRTF asset and the room fixtures |
+| [`tools/spice`](../tools/spice/README.md) | The exporter that turns an LTspice run into the corpus CSVs |
+| [`tests/golden`](../tests/golden/README.md) | The golden files and every regeneration of one |
+| [`tests/fixtures`, BRAS](../tests/fixtures/bras_cr2_reference.README.md) | Where `bras_cr2_reference.csv` comes from |
+| [`tests/fixtures`, Motus](../tests/fixtures/motus_reference.README.md) | Where `motus_reference.csv` comes from |
+| [`third_party/dr_libs`](../third_party/dr_libs/README.md) | The vendored MP3 decoder and its version |
+
+The [code of conduct](../.github/CODE_OF_CONDUCT.md) and the
+[security policy](../.github/SECURITY.md) are in `.github/`, where GitHub reads them.
+
+## Agent work and the archive
+
+Agent work folders are under `agent/`, one per piece of work. Finished material is under
+`archive/` and is not edited. `archive/agent/` holds closed work folders; `archive/superpowers/`,
+`archive/research/` and `archive/notes/` hold the plans, specs and dossiers written before the
+work-folder shape existed.

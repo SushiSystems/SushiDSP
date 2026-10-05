@@ -8,7 +8,7 @@ intrinsics, so a plugin built on it ships without a GPU toolchain.
 This is the generated API reference. It documents what the headers say; the reasoning behind the
 design lives in the prose docs, and those are the better place to start:
 
-- `docs/README.md` — what the library is and how to build it.
+- `docs/README.md` — the manual index; `docs/getting_started/INTRODUCTION.md` says how to build.
 - `docs/design/SUSHIDSP.md` — the design spec: architecture, math, and the product roadmap.
 - `docs/CONTRIBUTING.md` — the build rules (`sd build`, never cmake directly) and coding conventions.
 

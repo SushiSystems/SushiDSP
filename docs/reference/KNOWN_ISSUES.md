@@ -317,3 +317,67 @@ so nothing clicks (`RoomNodeCrossfadesAPublishWithoutAStep`,
 `RoomNodeRampsTheEarGainsAsTheOutputBlendWould`). Closes when the tail's output cascade is run
 twice under the fade, the retiring coefficients and the arriving ones on the same line sum,
 blended under the raised cosine, which is two more biquads per ear in `LateReverb`.
+
+## Open findings of the 2026-10-05 estate audit
+
+`docs/agent/2026_10_05_ESTATE_AUDIT/REPORT.md` is the audit. This table lists its documentation,
+layout and code shape findings that were still open on 2026-10-05, each re-checked against the
+tree that day. The licence and command line findings were worked on in their own programmes and
+were not re-checked for this list. The work that closes a row is in
+[`docs/design/REMAINING_WORK.md`](../design/REMAINING_WORK.md).
+
+### Documentation
+
+| Issue | Where |
+| --- | --- |
+| The `## v0.1.0 — 2026-10-03` heading has no tag behind it; `git tag -l` prints nothing | `docs/reference/CHANGELOG.md`, git |
+| The entry that folded the untagged headings cites `docs/archive/changelog/`, which does not exist | `docs/reference/CHANGELOG.md`, 2026-10-03 |
+| Five `docs` entries of 2026-09-05 and 2026-09-07 name no place | `docs/reference/CHANGELOG.md` |
+| Three entries cite files that no longer exist: `cli/sushidsp/services/setup.py`, `apps/host_gui/ui/TrackPanel.cpp`, `include/SushiDSP/math/ResamplerCoefficients.hpp` | `docs/reference/CHANGELOG.md` |
+| The archive's README says the archive is empty; it holds 56 other files | `docs/archive/README.md` |
+| Archived plans, specs, dossiers and notes carry dated lower-case names, not `UPPER_SNAKE_CASE.md` | `docs/archive/superpowers/`, `docs/archive/research/`, `docs/archive/notes/` |
+| The standards phase 1 work has two plans in the archive, a 288-line plan and a 10-line checklist | `docs/archive/superpowers/plans/2026-09-15-sushi-standards-phase-1.md`, `docs/archive/agent/2026_09_15_SUSHI_STANDARDS_PHASE_1/PLAN.md` |
+| The report in the v0.1.0 release work folder records what jrb32's traced schematic settles, not the release | `docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md` |
+| §11a says SushiDSP is in hub's catalogue and that `cli/pyproject.toml` does not list sushicore; the manifest says it is not in the catalogue and `pyproject.toml` requires `sushicore>=0.7.0` | `docs/design/SUSHIDSP.md`, `sushi-module.toml`, `cli/pyproject.toml` |
+| The opening block names constants `UPPER_SNAKE`; the constants in the tree are `kPascalCase` | `docs/design/SUSHIDSP.md` line 4 |
+| Em dashes used as punctuation throughout: 106 lines in the design spec, 45 in the GUI redesign, 35 in the CLI guide | `docs/design/SUSHIDSP.md`, `docs/design/GUI_UX_REDESIGN.md`, `docs/guides/COMMAND_LINE_INTERFACE.md` |
+| The first entry of this page is one paragraph of nested figures | `docs/reference/KNOWN_ISSUES.md`, "Alias floor at 8×" |
+| No README beside the code | `apps/host/`, `apps/host_asio/`, `tests/measure/`, `tests/benchmark/`, each area under `include/SushiDSP/` |
+| Two READMEs cite `assets/ir/default_4x12.wav`, which the tree does not hold | `assets/ir/README.md`, `apps/host_gui/README.md` |
+| The admission rule for a bundled impulse response still names the Apache License 2.0 | `assets/ir/README.md` |
+| Two comments and one issue template cite module paths from before the tiers: `modules/rig_preset`, `modules/dd3`, `modules/mesa_mark2c` | `modules/session/rig_preset/include/SushiDSP/rig_preset/RigPreset.hpp` line 22, `tests/functional/unit/test_biquad.cpp` line 290, `.github/ISSUE_TEMPLATE/model_accuracy.yml` line 17 |
+| The front door's count of 1007 tests could not be reproduced without a build and was removed on 2026-10-05; no document states the count | `README.md` |
+
+### Layout
+
+| Issue | Where |
+| --- | --- |
+| CI calls `cmake` and `ctest` directly, runs no checker and has no job for the CLI's tests; its comments cite `docs/CLAUDE.md` and sushicore 0.6.0 | `.github/workflows/ci.yml` |
+| One workflow file for every trigger; no release workflow | `.github/workflows/` |
+| Every module keeps its private code in `src/`, 62 tracked files, so `rule_private_reach`, which matches `source/`, cannot fire | `modules/*/*/src/`, `tools/layering/check_layering.py` |
+| The core sits at the root beside `modules/` and outside the layering check; `core/ICabinetHost.hpp` includes `io/Ir.hpp` | `include/SushiDSP/`, `src/` |
+| Top-level names differ from the shared tree: `src/`, `apps/`, `assets/`; `Doxyfile` sits at the root | repository root |
+| `.clang-format` and `.editorconfig` are missing | repository root |
+| Tests are not grouped as unit, integration, regression and common; no module has its own `tests/`; 24 `apps/host_gui` sources are compiled into the test binary | `tests/`, `tests/CMakeLists.txt` |
+| 317 of 453 C++ files are named in PascalCase | `include/`, `src/`, `modules/`, `apps/`, `tests/` |
+| `*.f32` is not marked binary; 3.1 MB of transient CSVs sit inside the manual | `.gitattributes`, `docs/reference/spice/*/*_tran.csv` |
+| Eight remote-tracking refs under `refs/remotes/local/` have no remote configured | git |
+| The root build file defines targets and fetches dependencies | `CMakeLists.txt` |
+| No generated version header; the version is kept by hand in two files and absent from the manifest | `CMakeLists.txt`, `cli/pyproject.toml`, `sushi-module.toml` |
+| The ignore file ignores `docs/api-site/html/`, where nothing is written, names `sd doxygen` and carries paragraphs of comment | `.gitignore` |
+| The host writes `imgui.ini` into the working directory | `apps/host_gui/` |
+
+### Code shape
+
+| Issue | Where |
+| --- | --- |
+| `check_source_comments.py` reports 1106 findings: 270 file headers, 69 blocks over eight lines, 761 comment runs, 6 history words; `sd check` does not run it | `python tools/documentation/check_source_comments.py . --report` |
+| No logger exists; caught failures drop their cause | `apps/host_gui/TopologyApplier.cpp`, `modules/nodes/capture/src/TrackRecorder.cpp` |
+| Exceptions, `bool` with an error string and bare `bool` coexist as error models; no function is `[[nodiscard]]` | `src/io/WavFile.cpp`, `apps/host_gui/RigController.hpp`, `modules/nodes/room/include/SushiDSP/room/RoomNode.hpp` |
+| `RigController` forwards `SlotGraph`'s surface one for one; `main()` owns setup and the frame loop | `apps/host_gui/RigController.hpp`, `apps/host_gui/SlotGraph.hpp`, `apps/host_gui/main.cpp` |
+| The host names products by id, so adding a product edits the GUI | `apps/host_gui/ui/PanelLibrary.cpp`, `apps/host_gui/ui/GearFilter.cpp`, `apps/host_gui/TopologyApplier.cpp` |
+| `nlohmann::json` is part of the preset module's public interface | `modules/session/rig_preset/include/SushiDSP/rig_preset/RigPreset.hpp` |
+| The four amplifier modules repeat the same helpers and constants | `modules/nodes/jcm800/src/Jcm800.cpp`, `Peavey5150.cpp`, `DiezelVh4.cpp`, `MesaMark2c.cpp` |
+| `Wdf` is built into the library and no production code uses it | `include/SushiDSP/math/Wdf.hpp` |
+| One header lacks `#pragma once` | `tests/common/TimingGate.hpp` |
+| The device backends, the GUI views and the scripts under `tools/dsp/` and `tools/spice/` have no tests | `src/device/`, `apps/host_gui/ui/`, `tools/` |

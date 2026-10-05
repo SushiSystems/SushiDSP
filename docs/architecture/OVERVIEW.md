@@ -11,8 +11,12 @@ as fact.
 ```
 apps/                 host, host_asio, host_gui — own IAudioDevice, drive the rig graph
   ↓
-modules/<product>/     jcm800, tubescreamer, dd3, peavey5150, mesa_mark2c, diezel_vh4,
-                        room, routing, capture, rig_preset, node_registry
+modules/session/       rig_preset
+  ↓
+modules/catalog/       node_registry
+  ↓
+modules/nodes/         jcm800, tubescreamer, dd3, peavey5150, mesa_mark2c, diezel_vh4,
+                        cabinet, room, routing, capture
   ↓
 include+src: core/     IAudioNode, RigGraph, NodeDescriptor, BufferPool, IAudioDevice,
                         SpscRing — the portable graph plumbing
@@ -47,8 +51,7 @@ actually checked into `include/SushiDSP/core/` today.
 `math/` holds the portable numerical kernels — `Biquad`, `Fft`, `Oversampler`,
 `PartitionedConvolution`, `StreamingConvolution`, `Resampler`/`SincResampler`, `Wdf`,
 `SmoothedParameter` — and `math/dk/` holds the DK-method nonlinear-circuit core:
-`DenseLu`, `DampedNewtonSolver`, `DkNetlist`, `DkCircuit<S, N, I, O>` (see
-[`docs/README.md`](../README.md) for the per-header description). `circuits/` holds
+`DenseLu`, `DampedNewtonSolver`, `DkNetlist`, `DkCircuit<S, N, I, O>`. `circuits/` holds
 `FmvToneStack.hpp` and `GraphicEqualizer.hpp` alongside `circuits/models/` (the device laws:
 `SiliconDiode`, `Triode12AX7`, `PentodeEL34`) and `circuits/stages/`. Everything in `math/` and
 `circuits/` depends on the C++ standard library only, never on `core/` — a product module pulls
@@ -58,18 +61,21 @@ kernels down from here, never the reverse.
 
 Each of `jcm800`, `tubescreamer`, `dd3`, `peavey5150`, `mesa_mark2c` and `diezel_vh4` is a
 library that composes `math`/`circuits` kernels behind one `IAudioNode` implementation and
-exposes exactly one `NodeDescriptor`. `routing` supplies the rig graph's own
+exposes exactly one `NodeDescriptor`. `cabinet` is the impulse-response convolution the
+amplifiers used to carry themselves, now a node of its own. `routing` supplies the rig graph's own
 `SplitterNode`/`MixerNode`/`PanNode` as ordinary products rather than `RigGraph` special
 cases; `capture` and `room` are DS/D-phase modules the same way. `node_registry` is the one
 module allowed to depend on every product at once — `node_registry()` and `make_node()` are
-the id-to-instance catalog every host in `apps/` builds a rig from today, so adding a product
-means adding one entry there and touching nothing in `apps/`. A future plugin wrapper would
+the id-to-instance catalog every host in `apps/` builds a rig from today. Adding a product
+adds one entry there; the host GUI still names products by id in
+`apps/host_gui/ui/PanelLibrary.cpp`, `ui/GearFilter.cpp` and `TopologyApplier.cpp`, which
+[`KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md) records. A future plugin wrapper would
 draw from the same catalog (see "What is spec-only, not yet built" below), but none exists in
 the tree yet. `rig_preset` serializes
 a rig (descriptor id plus parameter values) to and from JSON. This is the dependency rule
 design spec §8 states for `modules/`; what is verified here is that `modules/catalog/node_registry/`
 and `modules/session/rig_preset/` exist in the tree and match that description, alongside the six
-product modules and `routing`/`capture`/`room`.
+product modules and `cabinet`/`routing`/`capture`/`room` under `modules/nodes/`.
 
 ## Hosts (`apps/`)
 

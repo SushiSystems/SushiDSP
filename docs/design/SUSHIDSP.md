@@ -190,7 +190,7 @@ ending in a `PanNode` moves between them. `Sdl2AudioDevice` writes any output wi
 constructor sizes one deinterleaved scratch block, and the callback interleaves into SDL2's buffer;
 a one-channel device keeps the older path that writes SDL2's buffer directly.
 
-**Takes, tracks and the transport.** `modules/capture` is product-independent — it models no
+**Takes, tracks and the transport.** `modules/nodes/capture` is product-independent — it models no
 circuit, exposes no `NodeDescriptor` and depends only on `SushiDSP::sushi_dsp`. It holds `Take` (a
 recording in memory with its sample rate), `TrackRecorder` (one destination: a `SpscRing<float>`
 per channel, a writer thread, a dropped-block counter), `RecordingBus` (the processed/dry pair
@@ -283,7 +283,7 @@ playback speed as this tree uses them.
 
 ### §3c The room path — one cabinet in one room
 
-`modules/room` is the DE phase's module: one `IAudioNode`, `sushidsp.room`, mono in and two
+`modules/nodes/room` is the DE phase's module: one `IAudioNode`, `sushidsp.room`, mono in and two
 channels out, declaring `PortLayout{1, 2}` on the routing DS0 built. It puts the cabinet in a
 shoebox room and hands back what a head or a microphone hears there. Spec
 [`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../archive/superpowers/specs/2026-09-08-room-acoustics-design.md),
@@ -577,7 +577,7 @@ amount and oversample factor are compile-time constants.
   absolute figures moved because the drive reaching the power stage changed, while the
   mismatch's own effect — it removes about 0.76 pp of second harmonic — is unchanged.
 - Since DA0 the four stage classes live in `include/SushiDSP/circuits/stages/`, owned by the
-  core, so any amplifier module can use them; `modules/jcm800` keeps only `JcmToneStack` and
+  core, so any amplifier module can use them; `modules/nodes/jcm800` keeps only `JcmToneStack` and
   `Jcm800`.
 
 ### As built in DA4
@@ -788,8 +788,8 @@ Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical cor
 - **D0 — Skeleton + math kernels.** Repo, `sd` CLI, `sushi_dsp` target, `IAudioNode`/rig graph/`NodeDescriptor`, transient pool, FFT (§4.1) + filters (§4.3) with golden-vector tests. *Ships: headless graph processes a verified tone/filter sweep.*
 - **D1 — Device seam + standalone host.** `IAudioDevice` (SDL2), RT-safe callback, `SpscRing`, generic `apps/host` with a minimal rig editor. *Ships: sound out the speakers, zero XRuns.*
 - **D2 — WDF/DK solver core.** §4.5 shared nonlinear-circuit infrastructure (WDF adaptors, DK-method state-space, Newton–Raphson solver), partitioned convolution (§4.2), oversampling (§4.4), golden-vector tests against known WDF reference circuits. *Ships: a minimal one-stage WDF test circuit processes correctly.*
-- **D3 — Tube Screamer (`modules/tubescreamer`).** §6 op-amp clipping + tone stack; `tube_screamer_descriptor()`. *Ships: TS standalone in the rig host, plausibility-tested (DC stability, THD sweep).* Chosen before JCM800 as the simpler single-nonlinear-stage circuit to validate the solver core.
-- **D4 — JCM800 (`modules/jcm800`).** §5 white-box chain + cabinet convolution; `jcm800_descriptor()`. *Ships: JCM800 in the rig host, plausibility-tested.*
+- **D3 — Tube Screamer (`modules/nodes/tubescreamer`).** §6 op-amp clipping + tone stack; `tube_screamer_descriptor()`. *Ships: TS standalone in the rig host, plausibility-tested (DC stability, THD sweep).* Chosen before JCM800 as the simpler single-nonlinear-stage circuit to validate the solver core.
+- **D4 — JCM800 (`modules/nodes/jcm800`).** §5 white-box chain + cabinet convolution; `jcm800_descriptor()`. *Ships: JCM800 in the rig host, plausibility-tested.*
 - **D5 — Rig recompile + presets.** Full free-graph rig editing (add/remove/reorder any product, series/parallel), atomic-swap recompile, portable rig-preset save/load. *Ships: a rig with TS → JCM800 chained, edited live with no dropout.*
 - **D6 — VST3/CLAP wrapper.** `apps/plugin` hosting the rig graph as a DAW plugin with its own rig-editor UI. *Ships: SushiDSP.vst3/.clap loads in a DAW, hosts TS + JCM800.*
 - **D7 — Hardening & packaging.** Namespaced export/Config finalized, perceptual A/B validation once reference captures are available.
@@ -807,7 +807,7 @@ in it touches the circuit core: it is the graph's channel routing, a capture mod
 | --- | --- | --- |
 | DS0 | `RigGraph` routes as many channels per edge as its two nodes declare; `channels_adapt()`, `live_buffer_count()`, `kMaxChannels = 2` | Landed 2026-09-07, commit 394a605 |
 | DS1 | `routing::PanNode` on a constant-power law, the same table in `ChannelSelection`, two output channels from both hosts' devices | Landed 2026-09-07, commits 99796e6, bc774fa, 02a9a1a |
-| DS2 | `modules/capture`'s recording half — `Take`, `TrackRecorder`, `RecordingBus` — and `io::WavWriter` | Landed 2026-09-07, commits 39c1a02, 18eb040 |
+| DS2 | `modules/nodes/capture`'s recording half — `Take`, `TrackRecorder`, `RecordingBus` — and `io::WavWriter` | Landed 2026-09-07, commits 39c1a02, 18eb040 |
 | DS3 | `Transport` and `TrackPlayer`: eight tracks, gain, pan, mute, solo, and a loop range packed into one 64-bit word | Landed 2026-09-07, commit 394a605 (attribution, see `docs/reference/KNOWN_ISSUES.md`) |
 | DS4 | The host: a stereo output, record and play in the callback, a transport bar, a track panel, the re-amp input switch, the preset's track list and loop range | Landed 2026-09-07, commits af6a9ed, da342fc, afa0627 |
 | DS5 | OGG export through `libvorbis`/`libogg`, inside `apps/host_gui` only | Deferred; written up once a user asks for it |
@@ -830,7 +830,7 @@ tempo grid, clips on lanes and a playback speed. §3b describes what it built.
 **DE — room acoustics, a parallel track.** Spec
 `docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
 `docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`. It runs beside the D phases for the same
-reason DS and DT do: `modules/room` needs the graph's stereo routing and nothing from the circuit
+reason DS and DT do: `modules/nodes/room` needs the graph's stereo routing and nothing from the circuit
 core. §3c describes what it built.
 
 | Phase | What it builds | Status |
@@ -879,5 +879,5 @@ None of this touches `sushi_dsp`'s C++ link graph. A checkout of this repo with 
 
 Known work with no phase attached. An item leaves this list when it lands, not when it is planned.
 
-- **No mechanical comment-shape check.** `tools/documentation/check_source_comments.py` does not exist in this repo. `docs/CONTRIBUTING.md` §3 states the shape and every reviewer applies it by reading, so the rule holds by attention rather than by a script.
+- **The comment-shape check is outside the gate.** `tools/documentation/check_source_comments.py` exists and `sd check` does not run it; its `--report` counted 1106 findings on 2026-10-05, listed by rule in `docs/reference/KNOWN_ISSUES.md`.
 - **DR2 shipped without a single measured number.** The build was locked while the DD-3 was written, so the 0.15 ms benchmark budget is unjudged, every acceptance row is unrun, and `tests/golden/dd3_48k.f32` and `dd3_96k.f32` do not exist, which fails the two regression cases. The changelog's DR2 "Not yet measured" paragraph names the three commands that close this.

@@ -1,11 +1,11 @@
-# `modules/node_registry` — the product catalog
+# `modules/catalog/node_registry` — the product catalog
 
 One function, `node_registry()`, returning the static list every `NodeDescriptor`-exposing
 product is registered under, plus `make_node(id, info)`, the id-to-instance factory both hosts
 and the plugin wrapper use to build a node without knowing its concrete type. Adding a product
 to the rig means adding one entry to `NodeRegistry.cpp`'s `node_registry()` — nothing else in
 `apps/host_gui` or `apps/host_asio` changes, which is the contract
-[`docs/design/SUSHIDSP.md`](../../docs/design/SUSHIDSP.md) describes for `NodeDescriptor`, the
+[`docs/design/SUSHIDSP.md`](../../../docs/design/SUSHIDSP.md) describes for `NodeDescriptor`, the
 self-describing factory. This file records what the code in this directory does.
 
 ## What it owns
@@ -44,5 +44,5 @@ name.
 ## Failure mode
 
 `make_node` returns `nullptr` for an id with no matching entry rather than throwing;
-`modules/rig_preset`'s deserializer is the caller that turns a lookup miss into a diagnosed
+`modules/session/rig_preset`'s deserializer is the caller that turns a lookup miss into a diagnosed
 error, since it has the JSON context needed to name the offending node.

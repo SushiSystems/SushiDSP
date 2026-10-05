@@ -1,13 +1,13 @@
-# `modules/capture` — recording and playing back takes
+# `modules/nodes/capture` — recording and playing back takes
 
 A product-independent module: it models no pedal and no amplifier, and depends only on
 `SushiDSP::sushi_dsp`. It moves audio between the rig and the filesystem. Nothing here is an
 `IAudioNode`.
 
 Intent and the acceptance list live in
-[`docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../../docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md)
+[`docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../../../docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md)
 §5 for recording and §6 for playback, and in
-[`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`](../../docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md)
+[`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`](../../../docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md)
 §3 to §5a for musical time, clips and the playback speed. This file records what the code in this
 directory does.
 
@@ -143,7 +143,7 @@ Spec §6 carries the intent behind all of it.
 
 `VariRateReader` reads a take at a speed between 0.5 and 2.0, and the pitch falls with the speed
 the way a tape machine's does. Half speed is an octave down. Nothing here stretches time, and
-[spec §5a](../../docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md) states that as the
+[spec §5a](../../../docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md) states that as the
 behaviour the maintainer asked for.
 
 Each channel gets its own `SushiDSP::Resampler`, sized in `prepare()` on the control thread for a

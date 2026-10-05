@@ -1,4 +1,4 @@
-# `modules/jcm800` — Marshall JCM800 2203
+# `modules/nodes/jcm800` — Marshall JCM800 2203
 
 One `IAudioNode`, mono in and mono out, registered as `sushidsp.jcm800` with eight parameters:
 preamp, master, bass, middle, treble, presence, input trim and output. Cabinet convolution is
@@ -6,11 +6,11 @@ not part of this node; a rig that wants one places the standalone `sushidsp.cabi
 after this one (see [`modules/nodes/cabinet/README.md`](../cabinet/README.md)).
 
 Intent and the phase rulings live in
-[`docs/design/SUSHIDSP.md`](../../docs/design/SUSHIDSP.md); the plate-swing change this file
+[`docs/design/SUSHIDSP.md`](../../../docs/design/SUSHIDSP.md); the plate-swing change this file
 describes is specified in
-[`docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`](../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md).
+[`docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`](../../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md).
 The component values come from the `jcm_*` SPICE decks under
-[`docs/reference/spice/`](../../docs/reference/spice/). This file records what the code in this
+[`docs/reference/spice/`](../../../docs/reference/spice/). This file records what the code in this
 directory does.
 
 ## Which amp

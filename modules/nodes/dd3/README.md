@@ -1,13 +1,13 @@
-# `modules/dd3` — Boss DD-3 digital delay
+# `modules/nodes/dd3` — Boss DD-3 digital delay
 
 One `IAudioNode`, mono in and mono out, registered as `sushidsp.dd3` with four parameters:
 D.TIME, F.BACK, E.LEVEL and MODE. The direct/wet mix stays inside the node, as the pedal's
 E.LEVEL pot does.
 
 Intent, the rulings behind the fitted constants and the acceptance table live in
-[`docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`](../../docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md).
+[`docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`](../../../docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md).
 The schematic values come from
-[`docs/archive/research/2026-08-26-boss-dd3-design-dossier.md`](../../docs/archive/research/2026-08-26-boss-dd3-design-dossier.md).
+[`docs/archive/research/2026-08-26-boss-dd3-design-dossier.md`](../../../docs/archive/research/2026-08-26-boss-dd3-design-dossier.md).
 This file records what the code in this directory does.
 
 ## Which pedal

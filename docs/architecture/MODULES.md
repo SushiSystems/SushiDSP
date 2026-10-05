@@ -1,15 +1,37 @@
 # Modules
 
-A module is a product or product-shaped feature: an amplifier, delay, mixer, or capture system. Each registers one or more audio nodes in the rig graph under `sushidsp.*` names. The module's `README.md` documents which class owns which block, the constants and approximations it carries, and any deviations from the design spec.
+A module is one library under `modules/<tier>/<module>/` with its own `README.md`. The README
+says which class owns which block, which constants and approximations the module carries, and
+where it departs from the design spec. This page links to those READMEs and states nothing
+else about a module.
 
-- **[`modules/nodes/capture/`](../../modules/nodes/capture/)** — recording and playing takes back, the DS phase's own module: no circuit, no `NodeDescriptor`, only the core as a dependency.
-- **[`modules/nodes/dd3/`](../../modules/nodes/dd3/)** — the Boss DD-3 delay, `sushidsp.dd3`.
-- **[`modules/nodes/diezel_vh4/`](../../modules/nodes/diezel_vh4/)** — the Diezel VH4, one of three high-gain amplifiers sibling to the JCM800.
-- **[`modules/nodes/jcm800/`](../../modules/nodes/jcm800/)** — Marshall JCM800 2203, mono in and mono out, registered as `sushidsp.jcm800`.
-- **[`modules/nodes/mesa_mark2c/`](../../modules/nodes/mesa_mark2c/)** — the Mesa Mark IIC+, one of three high-gain amplifiers sibling to the JCM800.
-- **[`modules/catalog/node_registry/`](../../modules/catalog/node_registry/)** — the product catalog: `node_registry()` and `make_node()`, the one place in the tree allowed to depend on every product module at once.
-- **[`modules/nodes/peavey5150/`](../../modules/nodes/peavey5150/)** — the Peavey 5150, one of three high-gain amplifiers sibling to the JCM800.
-- **[`modules/session/rig_preset/`](../../modules/session/rig_preset/)** — portable rig presets as JSON, `serialize_rig_to_json()`/`deserialize_rig_from_json()`.
-- **[`modules/nodes/room/`](../../modules/nodes/room/)** — one cabinet in one room, `sushidsp.room`: a shoebox solved on the control thread, its direct sound, early reflections, standing waves and late tail rendered on the audio thread, for two ears or one microphone.
-- **[`modules/nodes/routing/`](../../modules/nodes/routing/)** — the rig graph's own routing nodes (`SplitterNode`, `MixerNode`, `PanNode`), `sushidsp.splitter`/`sushidsp.mixer`/`sushidsp.pan`.
-- **[`modules/nodes/tubescreamer/`](../../modules/nodes/tubescreamer/)** — the Ibanez Tube Screamer, `sushidsp.tubescreamer`, the D3 product that validated the shared DK solver core before JCM800.
+The tiers, lowest first, are `nodes`, `catalog` and `session`. A module may include its own
+tier and the ones below it; `tools/layering/check_layering.py` holds the order in
+`K_TIER_ORDER` and checks it.
+
+## `nodes`
+
+| Module | Registered as | What it is |
+| --- | --- | --- |
+| [`cabinet`](../../modules/nodes/cabinet/README.md) | `sushidsp.cabinet` | Cabinet impulse-response convolution |
+| [`capture`](../../modules/nodes/capture/README.md) | none | Recording takes and playing them back |
+| [`dd3`](../../modules/nodes/dd3/README.md) | `sushidsp.dd3` | Boss DD-3 digital delay |
+| [`diezel_vh4`](../../modules/nodes/diezel_vh4/README.md) | `sushidsp.diezel_vh4` | Diezel VH4, channel 3 |
+| [`jcm800`](../../modules/nodes/jcm800/README.md) | `sushidsp.jcm800` | Marshall JCM800 2203 |
+| [`mesa_mark2c`](../../modules/nodes/mesa_mark2c/README.md) | `sushidsp.mesa_mark2c` | Mesa/Boogie Mark IIC+, lead mode |
+| [`peavey5150`](../../modules/nodes/peavey5150/README.md) | `sushidsp.peavey5150` | Peavey 5150, lead channel |
+| [`room`](../../modules/nodes/room/README.md) | `sushidsp.room` | One cabinet in one room |
+| [`routing`](../../modules/nodes/routing/README.md) | `sushidsp.splitter`, `sushidsp.mixer`, `sushidsp.pan` | The rig graph's routing nodes |
+| [`tubescreamer`](../../modules/nodes/tubescreamer/README.md) | `sushidsp.tubescreamer` | Ibanez Tube Screamer |
+
+## `catalog`
+
+| Module | What it is |
+| --- | --- |
+| [`node_registry`](../../modules/catalog/node_registry/README.md) | The product catalogue, `node_registry()` and `make_node()` |
+
+## `session`
+
+| Module | What it is |
+| --- | --- |
+| [`rig_preset`](../../modules/session/rig_preset/README.md) | Rig presets as JSON |
