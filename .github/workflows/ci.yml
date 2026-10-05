@@ -40,7 +40,11 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build
+          # GLFW is fetched and configures both its Wayland and X11 backends.
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config \
+            libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev \
+            xorg-dev libgl1-mesa-dev libegl1-mesa-dev
 
       - name: Configure, build, and run the functional suite
         run: |
@@ -64,7 +68,9 @@ jobs:
           # SDL2 needs ALSA/PulseAudio dev headers to configure its Linux
           # audio backends even though the library itself is FetchContent'd.
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build libasound2-dev libpulse-dev
+            cmake ninja-build pkg-config libasound2-dev libpulse-dev \
+            libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev \
+            xorg-dev libgl1-mesa-dev libegl1-mesa-dev
 
       - name: Configure and build (SDL2 on, apps/host included)
         run: |
@@ -88,8 +94,6 @@ jobs:
 # ---------------------------------------------------------------------------
 # Deliberately absent
 # ---------------------------------------------------------------------------
-# * The Python CLI job. `cli/` needs sushicore 0.6.0, which is not on PyPI, so
-#   a public clone cannot install it; its tests run locally.
 # * A sibling-module checkout step. SushiDSP has no code dependency on any
 #   other SushiStack module (spec §11/§11a) — nothing to check out.
 # * A SYCL/oneAPI container image. The core has no GPU/SYCL dependency at all.
@@ -125,3 +129,19 @@ jobs:
         run: python tools/layering/check_layering.py .
       - name: python -m unittest discover -s tools/tests
         run: python -m unittest discover -s tools/tests
+
+  cli:
+    name: Python CLI (tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip pytest
+          python -m pip install -e ./cli
+      - name: Run CLI unit tests
+        working-directory: cli
+        run: python -m pytest tests -q
