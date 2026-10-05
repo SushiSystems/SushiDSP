@@ -40,18 +40,15 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          # GLFW is fetched and configures both its Wayland and X11 backends.
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build pkg-config \
-            libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev \
-            xorg-dev libgl1-mesa-dev libegl1-mesa-dev
+          sudo apt-get install -y --no-install-recommends cmake ninja-build
 
       - name: Configure, build, and run the functional suite
         run: |
           set -e
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DSUSHIDSP_BUILD_SDL2=OFF
+            -DSUSHIDSP_BUILD_SDL2=OFF \
+            -DSUSHIDSP_BUILD_GUI=OFF
           cmake --build build
           # The umbrella label regex `sd test --suite all` uses.
           ctest --test-dir build -L "unit|regression" --output-on-failure
@@ -65,8 +62,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          # SDL2 needs ALSA/PulseAudio dev headers to configure its Linux
-          # audio backends even though the library itself is FetchContent'd.
+          # SDL2 needs the ALSA and PulseAudio headers; GLFW needs Wayland, X11 and EGL.
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build pkg-config libasound2-dev libpulse-dev \
             libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev \
