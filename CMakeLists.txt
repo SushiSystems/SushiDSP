@@ -86,6 +86,8 @@ if(SUSHIDSP_BUILD_SDL2)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
     set(SDL_TEST OFF CACHE BOOL "" FORCE)
+    # SDL2 drives audio only; its Wayland protocol objects collide with GLFW's at link time.
+    set(SDL_WAYLAND OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(SDL2)
 
     add_library(sushi_dsp_sdl2 STATIC
