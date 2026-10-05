@@ -1,129 +1,116 @@
 # Contributing to SushiDSP
 
-SushiDSP is currently a personal project developed by Mustafa Garip. To maintain a unified
-vision while the architecture is still settling, **external pull requests are not being accepted
-at this stage** — but bug reports and design discussion are very welcome, and this document is
-the reference for how the project is actually built and how a change should look.
+Contributions from outside Sushi Systems are not accepted yet; a bug report or a design
+discussion as an issue is the way in. SushiDSP is source-available, free for non-commercial use
+under the PolyForm Noncommercial License 1.0.0 (see [`LICENSE`](../LICENSE)); commercial use
+needs a licence from Sushi Systems, see [`COMMERCIAL.md`](../COMMERCIAL.md).
 
-Contributions from outside Sushi Systems are not accepted yet. SushiDSP is source-available, free
-for non-commercial use under the PolyForm Noncommercial License 1.0.0 (see
-[`LICENSE`](../LICENSE)); commercial use needs a licence from Sushi Systems, see
-[`COMMERCIAL.md`](../COMMERCIAL.md).
-
-> New to the codebase? Read [`docs/design/SUSHIDSP.md`](design/SUSHIDSP.md) first — it explains
-> the rig graph, the `NodeDescriptor` product contract, and the math/circuit layering every
-> DSP kernel follows.
-
----
+The rules this repository follows are the SushiSkills skills named in
+[`CLAUDE.md`](../CLAUDE.md). This page holds what is particular to SushiDSP and does not
+restate them.
 
 ## 1. Getting set up
 
+[`getting_started/INTRODUCTION.md`](getting_started/INTRODUCTION.md) has the first-run
+sequence. SushiDSP pins no toolchain: `sd` uses the compiler its configuration names, else an
+intel/llvm clang++ when `sd setup` has provisioned one, else a `clang++` on `PATH`, else the
+platform compiler. `sd config` reports
+which one it chose and `sd env` the environment it builds in. The regression snapshots hold
+across compilers because `cmake/SushiDSPCompilerFlags.cmake` pins FMA contraction off for every
+toolchain.
+
+Every build, test and run goes through `sd`. `cmake` and `ctest` are not called by hand.
+
+## 2. What a change must carry
+
+A change is finished when these land in the same commit as the code:
+
+| Changed | Also changes |
+| --- | --- |
+| A module's behaviour, classes, constants or stand-ins | That module's `README.md` |
+| Anything a manual page states | That page |
+| The phase a design document is in | Its status line and its row in [`design/README.md`](design/README.md) |
+| Work opened or closed | [`design/REMAINING_WORK.md`](design/REMAINING_WORK.md) |
+| A defect measured and left open, or one closed | [`reference/KNOWN_ISSUES.md`](reference/KNOWN_ISSUES.md) |
+| Anything at all | One line under `## Unreleased` in [`reference/CHANGELOG.md`](reference/CHANGELOG.md) |
+| A golden file | A row in `tests/golden/README.md` saying what changed |
+
+Before a commit that touches `docs/`, both of these print nothing:
+
 ```bash
-curl -fsSL https://sushisystems.io/install.sh | bash    # Linux/macOS
+python tools/documentation/check_docs_layout.py .
+python tools/documentation/check_changelog.py .
 ```
 
-```powershell
-irm https://sushisystems.io/install.ps1 | iex            # Windows
-```
+`sd check` runs those two and the layering checker. `check_source_comments.py` is run by hand;
+[`tools/README.md`](../tools/README.md) describes all four.
 
-```bash
-hub add sushidsp             # or: hub link sushidsp <path-to-an-existing-checkout>
-hub install-cli sushidsp     # puts `sd` / `sushidsp` on PATH
-sd build
-sd test
-```
+## 3. Before you start coding
 
-SushiDSP pins no toolchain, so it also builds standalone: clone it anywhere, `sd build`/`sd test`
-work unchanged with the platform compiler. Inside a SushiStack workspace `sd` picks up the
-intel/llvm clang++ that `hub install` provisions (then a `clang++` on PATH, then the platform
-default); `sd config` reports which one it chose and `sd env` the environment it builds in. The
-regression snapshots hold across compilers because FMA contraction is pinned off for every
-toolchain (`cmake/SushiDSPCompilerFlags.cmake`).
+- One logical change per commit. A refactor and a behaviour change together are hard to review
+  and hard to revert.
+- Keep the layer boundaries. The core under `include/SushiDSP/` and `src/` depends on the C++17
+  standard library and SIMD intrinsics only. A module under `modules/nodes/` depends on the
+  core and on no other node, device or host. `tools/layering/check_layering.py` checks the
+  order of the three tiers under `modules/`; nothing checks the areas inside the core yet.
+- A decision that narrows scope is written down in the design document or the work folder's
+  plan. The WDF adaptor tree, deferred until a circuit needs it, is the pattern.
 
-## 2. Before you start coding
+## 4. Code conventions
 
-- This is a personal project; if you're not the maintainer, the productive path is an issue — a
-  bug report or a design discussion — not a PR.
-- **Keep changes focused.** One logical change per commit. A refactor and a behavior change
-  together are hard to review and hard to revert.
-- **Match the layer boundaries.** The `sushi_dsp` core (`include/SushiDSP/core`, `math`) has zero
-  dependency beyond the C++17 standard library and SIMD intrinsics — nothing in it may reach for
-  SDL2, a product module, or any host/device concern. A product module depends only on
-  `sushi_dsp`; it never references a device or a host. Read spec §7/§8 before adding a new
-  target or crossing one of these boundaries.
-- **A design decision that narrows scope gets written down, not silently dropped.** If you defer
-  something (see the WDF adaptor-tree deferral in the D2 plan for the pattern), say so explicitly
-  in the plan/spec, with the reason.
+The `cpp-code-style`, `python-code-style` and `source-comments` skills are the rules. Where the
+tree differs from them today, the difference is listed here and in
+[`reference/KNOWN_ISSUES.md`](reference/KNOWN_ISSUES.md); new code follows what the tree does
+until the migration in
+[`design/SUSHI_STANDARDS_MIGRATION.md`](design/SUSHI_STANDARDS_MIGRATION.md) phase 3 changes
+both at once.
 
-## 3. Code conventions
+| Rule | In this tree |
+| --- | --- |
+| Language | C++17; no C++20 or C++23 feature |
+| Braces | Allman |
+| Names | Types `PascalCase`, functions and variables `snake_case`, members with a trailing underscore |
+| Constants | `kPascalCase`, such as `RigGraph::kMaxChannels` |
+| Files | Named after their class, `RigGraph.hpp` |
+| License block | Written by `tools/licensing/write_license_block.py`, never typed by hand |
+| Comments | Doxygen, as `source-comments` states: what a thing does, never why |
+| Real-time path | `IAudioNode::process()` and everything it calls allocates nothing, locks nothing, makes no system call and throws nothing |
 
-These are enforced by every reviewer and by the implementation plans; a PR that violates them
-gets sent back before anything else is reviewed.
+A class that will sit on the audio path gets a `*ProcessPerformsNoHeapAllocation` case in
+`tests/functional/unit/test_rt_safety.cpp`, which replaces `operator new` and fails when the
+audio path reaches it. Every scratch buffer is sized in the constructor or in `prepare()`.
 
-- **C++17 only** — no C++20/23 features.
-- **Allman braces** — the opening brace on its own line. Trivial one-line accessors may stay
-  compact.
-- **Naming** — types `PascalCase`; functions and variables `snake_case`; class members carry a
-  trailing underscore (`impl_`); constants `kPascalCase` (`kMaximumNodes`); spelled-out names,
-  no abbreviations.
-- **License header** — the license block of the `source-comments` skill, on every source file,
-  tests included. `tools/licensing/write_license_block.py` in SushiSkills writes it; do not type
-  the box by hand.
-- **Doxygen** — `@brief`/`@param`/`@return` on every public function.
-- **Comments** — none, unless the *why* is non-obvious. Never explain *what* the code does;
-  well-named identifiers already do that.
-- **Real-time safety** — `IAudioNode::process()`, and anything reachable from it, must be
-  allocation-free, lock-free, syscall-free, and throw-free. Size every scratch buffer in the
-  constructor. If you add a class that will eventually sit on the audio path, add a
-  `*ProcessPerformsNoHeapAllocation` case to `tests/functional/unit/test_rt_safety.cpp` using its
-  existing `operator new` trap — don't leave that as an inspection-only claim.
+## 5. Tests
 
-## 4. Tests
+All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 
-- Every test lives under `tests/functional/unit/test_<snake_case_name>.cpp`, compiled into the
-  single `sushidsp_tests` binary via `tests/CMakeLists.txt`.
-- Every GTest case uses the suite-name prefix convention: `TEST(Unit_Dsp, SomeCase)` for a unit
-  test. `Integration_Dsp`/`Regression_Dsp` join the convention once a phase needs those suites —
-  see `tests/CMakeLists.txt`'s comment for how `ctest -L <suite>` selects a sub-suite from the
-  prefix.
-- A **regression test** pins a fixed input against a fixed, previously-verified expected output
-  (a snapshot), guarding against an accidental behavior change in a later refactor — distinct
-  from a unit test, which exercises one function's contract in isolation. Add one whenever a
-  product's end-to-end output (not just a math kernel) first becomes stable enough to snapshot.
-- **Golden files** (`tests/golden/`) are the regression snapshot format: a 1-second render at
-  48 kHz and at 96 kHz, stored as a raw `.f32` file, compared against a fresh render at −80 dB
-  RMS residual — loose enough to survive a toolchain/compiler change, tight enough to catch a
-  real behavior change. A deliberate behavior change regenerates them:
-  `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`, then commit the updated `.f32` files and
-  add a row to `tests/golden/README.md` explaining what changed and why — never regenerate to
-  silence a failure without knowing the reason for it.
-- Golden-vector tests (an independently-derived expected value, not the implementation's own
-  output) are preferred over tautological "does it run" tests for anything numerical — see any
-  D0–D2 math kernel test for the pattern.
-- The alias-floor acceptance cases (`tests/functional/unit/test_measure.cpp`) carry the
-  `Regression_Dsp` prefix rather than `Unit_Dsp`: each renders several seconds of audio, and
-  keeping them under the regression label leaves `sd test -s unit` a fast edit loop.
-- Run `sd test` before every commit. `sd test --suite all` once more than `unit` exists.
-- Anything touching the audio path gets measured: `sd test -t release -s benchmark` (the
-  `tests/benchmark/` timing harness, registered as a single ctest case under the
-  `benchmark` label) before and after, and the numbers go in the commit message or the
-  plan. A change that is meant to be pure cost must keep the regression snapshots
-  bit-identical; one that moves them is a behaviour change and is reviewed as one.
+| Folder | Holds |
+| --- | --- |
+| `tests/functional/unit/` | One `test_<snake_case_name>.cpp` per class or behaviour |
+| `tests/functional/regression/` | One golden-file comparison per product |
+| `tests/golden/` | The pinned `.f32` renders and the record of each regeneration |
+| `tests/fixtures/` | Reference data from measured rooms, each with its own README |
+| `tests/measure/` | Headers that measure THD, alias floor, frequency response and nulls |
+| `tests/circuits/` | Netlists and block wrappers the SPICE comparisons share |
+| `tests/common/` | `test_main.cpp` and fixtures shared across suites |
+| `tests/benchmark/` | The timing harness, one CTest case under the `benchmark` label |
 
-## 5. SOLID
-
-- **SRP** — every `IAudioNode` does one DSP job; math kernels, the device seam, and each product
-  are separate.
-- **OCP** — new nodes/products/decoders/devices plug in behind existing interfaces; the rig graph
-  never names a concrete node type.
-- **LSP** — every node honors "fill exactly `frames`, allocation-free"; any node is substitutable
-  in any rig slot.
-- **ISP** — narrow interfaces (`IAudioNode`, `IAudioDevice`) — no god-interface.
-- **DIP** — the core depends on abstractions; the platform device is injected, never assumed.
-
-See [`docs/design/SUSHIDSP.md` §10](design/SUSHIDSP.md) for the full statement.
+- A GoogleTest suite name carries its label as a prefix: `TEST(Unit_Dsp, SomeCase)` runs under
+  `sd test -s unit`, `TEST(Regression_Dsp, SomeCase)` under `sd test -s regression`.
+- A golden file is one second of mono float32 per node at 48 kHz and at 96 kHz, compared
+  against a fresh render at −80 dB RMS residual. A deliberate behaviour change regenerates
+  them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`; a golden file is never
+  regenerated to silence a failure whose cause is unknown.
+- A numerical test compares against a value derived independently of the implementation.
+- The alias-floor cases in `tests/functional/unit/test_measure.cpp` carry the `Regression_Dsp`
+  prefix, because each renders several seconds of audio and `sd test -s unit` is the edit loop.
+- Run `sd test` before every commit, and `sd test --suite all` before a change to the audio
+  path lands.
+- A change to the audio path is timed before and after with `sd test -t release -s benchmark`,
+  and the figures go in the commit message. A change meant to cost nothing keeps the golden
+  files bit-identical.
 
 ## 6. Commit messages
 
-Explain *why*, not *what* — the diff already says what changed. Reference the roadmap phase
-(`D0`, `D1`, …) when the change belongs to one.
+The `commits` skill is the rule. Name the roadmap phase (`D0`, `DS2`, `DE`) in the body when a
+change belongs to one; the phases are listed in [`design/SUSHIDSP.md`](design/SUSHIDSP.md) §9.

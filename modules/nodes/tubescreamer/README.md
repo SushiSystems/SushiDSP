@@ -1,8 +1,8 @@
-# `modules/tubescreamer` — Ibanez Tube Screamer (TS808/TS9)
+# `modules/nodes/tubescreamer` — Ibanez Tube Screamer (TS808/TS9)
 
 One `IAudioNode`, mono in and mono out, registered as `sushidsp.tubescreamer` with four
 parameters: drive, tone, level, input trim.
-[`docs/design/SUSHIDSP.md`](../../docs/design/SUSHIDSP.md) §6 describes it as an input buffer
+[`docs/design/SUSHIDSP.md`](../../../docs/design/SUSHIDSP.md) §6 describes it as an input buffer
 stage, an op-amp soft-clipping stage with a diode feedback pair, and a passive tone/output
 stage, all via WDF/DK-method on the same solver as JCM800 (§4.5); as built, the pedal runs at
 4x oversampling, not the 8x the spec names, and this file records that discrepancy rather than
@@ -11,7 +11,7 @@ repeating the spec's figure as fact. This file records what the code in this dir
 ## The two DK blocks
 
 `TubeScreamerCircuits.hpp` describes the netlists node for node against
-[`docs/reference/spice/ts_clip/README.md`](../../docs/reference/spice/ts_clip/README.md) and
+[`docs/reference/spice/ts_clip/README.md`](../../../docs/reference/spice/ts_clip/README.md) and
 `docs/reference/spice/ts_tone/README.md`, because the committed reference CSVs from those schematics are what the
 block tests null against — a value drifting from its README source makes those nulls
 meaningless.
@@ -44,7 +44,7 @@ latency.
 `LinearPort`-style port. At the shipping 4x rate, `AdaaDiodePairPort` nulls further from the
 reference circuit than the plain port does, so the smaller alias floor it would buy costs more
 total error than it saves — see
-[`docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`](../../docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md),
+[`docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`](../../../docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md),
 "Model corrections D6c C2, The verdict". Wiring it in would need one more line in `reset()`
 (`clip_port_.reset()`) beyond the declaration already present.
 

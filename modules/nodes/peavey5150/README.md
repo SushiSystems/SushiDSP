@@ -1,11 +1,11 @@
-# `modules/peavey5150` — Peavey 5150 lead channel
+# `modules/nodes/peavey5150` — Peavey 5150 lead channel
 
 One `IAudioNode`, mono in and mono out, registered as `sushidsp.peavey5150` with nine parameters:
 PRE GAIN, LOW, MID, HIGH, POST GAIN, RESONANCE, PRESENCE, plus the input trim and output level
 every amplifier module carries.
 
 Every component value comes from
-[`docs/archive/research/2026-09-06-peavey-5150-design-dossier.md`](../../docs/archive/research/2026-09-06-peavey-5150-design-dossier.md),
+[`docs/archive/research/2026-09-06-peavey-5150-design-dossier.md`](../../../docs/archive/research/2026-09-06-peavey-5150-design-dossier.md),
 and the code cites the section each one is read from. This file records what the module does and,
 more to the point, every place where it does something the dossier does not say outright.
 

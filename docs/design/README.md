@@ -1,11 +1,13 @@
-# Design Documents
+# Design map
 
-Topic to design document map for live intent.
+One document per topic. Each row's status is the status line of the document it names; a
+document that changes its status changes this row in the same commit.
 
 | Topic | Document | Status |
 | --- | --- | --- |
-| Core DSP & Architecture | [SUSHIDSP.md](SUSHIDSP.md) | Open — phase 2 of 4 |
-| Host GUI/UX Redesign | [GUI_UX_REDESIGN.md](GUI_UX_REDESIGN.md) | Open — phase 2 of 2 |
-| Sushi Standards Migration | [SUSHI_STANDARDS_MIGRATION.md](SUSHI_STANDARDS_MIGRATION.md) | Open — phase 1 of 3 |
-| Room Furnishings and Finishes | [ROOM_FURNISHINGS.md](ROOM_FURNISHINGS.md) | Open — phase 4 of 4, the absorption calibration decision pending |
-| Remaining Work Backlog | [REMAINING_WORK.md](REMAINING_WORK.md) | Single live backlog |
+| The DSP core, the circuit method, the products and the roadmap | [SUSHIDSP.md](SUSHIDSP.md) | Open — phase 2 of 4 |
+| The host's window, rig view and gear browser | [GUI_UX_REDESIGN.md](GUI_UX_REDESIGN.md) | Open — phase 2 of 2 |
+| Furniture and finishes in the room module | [ROOM_FURNISHINGS.md](ROOM_FURNISHINGS.md) | Open — phase 4 of 4, the low-band built-room loss unresolved |
+| Bringing the repository onto the SushiSkills rules | [SUSHI_STANDARDS_MIGRATION.md](SUSHI_STANDARDS_MIGRATION.md) | Open — phase 2 of 3 |
+
+[REMAINING_WORK.md](REMAINING_WORK.md) is the single backlog.

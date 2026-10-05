@@ -1,4 +1,4 @@
-# `modules/room` — one cabinet in one room
+# `modules/nodes/room` — one cabinet in one room
 
 One `IAudioNode`, mono in and two channels out, registered as `sushidsp.room` under the `Room`
 category with four parameters: `mix`, `level`, `listener` and `direct_delay`. The node solves a
@@ -7,12 +7,12 @@ reflections and its late tail on the audio thread, for two ears under a head or 
 microphone. The module depends on `SushiDSP::sushi_dsp` alone.
 
 Intent, the physics behind each solver and the acceptance list live in
-[`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md);
+[`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../../docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md);
 the task order is
-[`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`](../../docs/archive/superpowers/plans/2026-09-08-room-acoustics.md).
+[`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`](../../../docs/archive/superpowers/plans/2026-09-08-room-acoustics.md).
 This file records what the code in this directory does. `docs/design/SUSHIDSP.md` §3c places the
 module in the tree and §9 carries its roadmap rows;
-[`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) holds what the phase
+[`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) holds what the phase
 knowingly left open.
 
 ## Which class owns what
@@ -177,7 +177,7 @@ decay against the measured one:
 
 The tests bound 500 Hz to 2 kHz: within a fifth for Motus, within a quarter for CR2. Below
 500 Hz the two rooms disagree, Motus wanting less loss and CR2 more, so no single figure fits
-both there; [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) carries that
+both there; [`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) carries that
 entry and `docs/design/ROOM_FURNISHINGS.md` section 11 the evidence.
 
 ## Which thread runs what
@@ -643,7 +643,7 @@ fallback at the next `prepare()`.
 
 ## What the phase left open
 
-Twelve entries in [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md) belong to
+Twelve entries in [`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) belong to
 this module, each with its figure and its exit: below 500 Hz the built room's loss fits neither
 measured room, reading 0.75 times Motus's decay and 2.1 times CR2's at 125 Hz; the bed, desk, bookcase and kilim
 rows rest on a derivation or an analogue, since no measurement of them was found; the measured

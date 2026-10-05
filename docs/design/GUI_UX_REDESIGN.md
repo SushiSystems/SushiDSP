@@ -174,15 +174,15 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
   amp-embedded cabinet used to play before this section shipped.
 - **Former mechanism:** `include/SushiDSP/core/ICabinetHost.hpp` defined the cabinet
   contract (`set_cabinet` / `has_cabinet` / `reclaim_cabinets`) that amp node classes
-  (`modules/jcm800`, `modules/peavey5150`, `modules/diezel_vh4`, `modules/mesa_mark2c`)
+  (`modules/nodes/jcm800`, `modules/nodes/peavey5150`, `modules/nodes/diezel_vh4`, `modules/nodes/mesa_mark2c`)
   implemented directly. There was no standalone cabinet `IAudioNode`; IR loading
   (`include/SushiDSP/io/Ir.hpp`, `IrLoader.hpp`) and convolution
   (`include/SushiDSP/math/PartitionedConvolution.hpp`,
   `include/SushiDSP/math/StreamingConvolution.hpp`) were owned by whichever amp hosted them.
 - **Decision (owner, 2026-09-10), implemented:** `sushidsp.cabinet` is now the only cabinet
   path, delivered by `docs/archive/superpowers/plans/2026-09-10-cabinet-node.md` (all 8 tasks
-  complete). The amp node classes (`modules/jcm800`, `modules/peavey5150`,
-  `modules/diezel_vh4`, `modules/mesa_mark2c`) dropped their `ICabinetHost` implementation
+  complete). The amp node classes (`modules/nodes/jcm800`, `modules/nodes/peavey5150`,
+  `modules/nodes/diezel_vh4`, `modules/nodes/mesa_mark2c`) dropped their `ICabinetHost` implementation
   and the built-in convolution it drove; `ICabinetHost` is now the interface
   `sushidsp.cabinet` alone implements. A rig that wants a cabinet places the
   `sushidsp.cabinet` node after its amp explicitly; no amp has a cabinet baked in and there

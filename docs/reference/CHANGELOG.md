@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- 2026-10-05 — cli: Moved the host GUI launch to `sd host` and made `sd run TARGET` run any built executable; `sd run` with no target stays a hidden alias of `sd host` until 2027-03-25 (`cli/sushidsp/cli.py`, `services/project.py`).
+- 2026-10-05 — docs: Indexed every manual page, repointed the module READMEs' links, archived the standards phase 1 work folder and copied the SushiSkills tools (`docs/README.md`, `modules/`, `docs/archive/agent/`, `tools/`).
+- 2026-10-05 — cli: Moved the host GUI launch to `sd host`, a bare `sd run` staying its hidden alias until 2027-03-25 (`cli/sushidsp/cli.py`, `services/project.py`).
+- 2026-10-05 — cli: Made `sd run TARGET` run any built executable (`cli/sushidsp/cli.py`, `services/project.py`).
 - 2026-10-05 — cli: Renamed `sd doxygen` to `sd docs`, the old word staying as a hidden alias until 2027-03-25 (`cli/sushidsp/cli.py`, `cli/sushidsp/aliases.py`).
 - 2026-10-05 — cli: Added --version, --describe, sd clean and sd test --filter, and took config, env and the entry point from sushicore (`cli/sushidsp/cli.py`, `services/diag.py`, `services/project.py`).
 - 2026-10-05 — cli: Fixed `sd build -D`, which a configured tree ignored, and made `sd host` build the requested type before launching the host GUI (`cli/sushidsp/services/project.py`).
@@ -14,16 +16,16 @@
 ## v0.1.0 — 2026-10-03
 
 - 2026-10-03 — docs: Folded the untagged v0.1.0, v0.2.0 and v0.3.0 headings into Unreleased (`CHANGELOG.md`, `docs/archive/changelog/`).
-- 2026-10-03 — ci: Removed the Python CLI job, which cannot install sushicore 0.6.0 from PyPI (`.github/workflows/ci.yml`, `README.md`).
+- 2026-10-03 — ci: Removed the Python CLI job (`.github/workflows/ci.yml`, `README.md`).
 - 2026-10-03 — docs: Repointed the cited paths that no longer resolve to the archive or the renamed spec (`CONTRIBUTING.md`, `OVERVIEW.md`, `KNOWN_ISSUES.md`).
 - 2026-09-25 — cli: Grouped sd's help under Build, Application and Environment panels with per-command examples (`cli/sushidsp/cli.py`, `test_help_screen.py`).
 - 2026-09-24 — cli: Replaced sd's own setup with sushicore's shared setup, doctor, link and unlink (`cli/sushidsp/cli.py`, `cli/sushidsp/config.py`).
-- 2026-09-23 — room: Refused an HRTF grid with directions under 1 degree apart or a degenerating hull, instead of exhausting memory (`HrtfSet.cpp`).
+- 2026-09-23 — room: Refused an HRTF grid with directions under 1 degree apart or a degenerating hull (`HrtfSet.cpp`).
 - 2026-09-23 — room: Shipped the SADIE II KU100 HRTF set, thinned to 1531 directions, and bounded its two tests by measurement (`sadie2_ku100_48k.hrtf`, `convert_hrtf.py`, `test_room_node.cpp`).
 - 2026-09-23 — host_gui: Started amplifier slots without a cabinet silently when no bundled IR is present (`main.cpp`, `apply_default_cabinet`).
 - 2026-09-23 — room: Added the built room's per-band surface loss, on in the starter scene, saved and toggled in the panel (`BuiltRoomLoss.hpp`, `RoomScene`, `RigPersistence.cpp`, `RoomPanel.cpp`).
 - 2026-09-23 — tools: Added the BRAS CR2 reference tool, its figures and the test comparing them against the module (`tools/dsp/bras_reference.py`, `tests/fixtures/bras_cr2_reference.csv`, `test_room_bras.cpp`).
-- 2026-09-23 — room: Delayed the dry side of `mix` to the ears' alignment frame, so it no longer runs ahead of the wet (`RoomNode.cpp`, `write_outputs`).
+- 2026-09-23 — room: Delayed the dry side of `mix` to the ears' alignment frame (`RoomNode.cpp`, `write_outputs`).
 - 2026-09-22 — tools: Added the Motus reference tool, its figures and the test comparing them against the module (`tools/dsp/motus_reference.py`, `tests/fixtures/motus_reference.csv`, `tests/functional/unit/test_room_motus.cpp`).
 - 2026-09-22 — host: Gave the room panel a furnishing list and a patch editor under Shell, Finishes and Furnishings (`apps/host_gui/ui/RoomPanel.cpp`, `ui/FurnishingList.cpp`, `ui/PatchList.cpp`).
 - 2026-09-22 — room: Loaded `starter_scene()` into a fresh room slot in place of the bare reference room (`StarterScene.cpp`, `RoomNode.cpp`, `apps/host_gui/SlotGraph.cpp`).
@@ -37,21 +39,21 @@
 - 2026-09-22 — host: Sized the gear browser's view toggle to its captions and centred every tab's label (`apps/host_gui/ui/GearBrowser.cpp`).
 - 2026-09-22 — host: Fixed the gear and transport panes, leaving the rig's own boundary draggable (`apps/host_gui/ui/Divider.cpp`, `main.cpp`).
 - 2026-09-22 — tests: Timed the three amplifier nodes the benchmark had never covered (`tests/benchmark/main.cpp`).
-- 2026-09-22 — docs: Wrote the standalone host's README, which the backlog had been asking for (`apps/host_gui/README.md`).
+- 2026-09-22 — docs: Wrote the standalone host's README (`apps/host_gui/README.md`).
 - 2026-09-22 — cli: Added `sd setup`, which provisions this checkout through `hub install` in a workspace and from its own fragment outside one (`cli/sushidsp/services/setup.py`).
-- 2026-09-22 — build: Declared what this module is, so `hub` recognises the checkout without a catalog entry (`sushi-module.toml`).
+- 2026-09-22 — build: Declared the module to `hub` in a manifest that needs no catalog entry (`sushi-module.toml`).
+- 2026-09-22 — build: Wrote the dependency fragment as one table per dependency (`cli/sushistack.deps.toml`).
+- 2026-09-22 — cli: Took `sushicore` from PyPI instead of a sibling checkout (`cli/pyproject.toml`).
 - 2026-09-21 — docs: Repointed thirty-eight cited paths that the archive move and the rig controller's split had left dangling (`docs/`, `modules/`).
 - 2026-09-21 — circuits: Moved each amplifier's power-tube preset into the module that uses it (`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`).
 - 2026-09-21 — tests: Made the panel and pentode tests read the registry instead of naming products (`tests/functional/unit/test_panel_library.cpp`).
 - 2026-09-21 — room: Split the room node along the signal path into a modal, a geometric and a binaural brick (`modules/nodes/room/`).
 - 2026-09-21 — circuits: Extracted the Miller grid capacitance, the inverter preset, the audio taper and the output clamp the amplifier modules duplicated (`include/SushiDSP/circuits/`).
-- 2026-09-22 — build: Wrote the dependency fragment as one table per dependency, the shape every reader understands (`cli/sushistack.deps.toml`).
 - 2026-09-21 — core: Gave every node one parameter table feeding its descriptor and both dispatches (`include/SushiDSP/core/ParameterTable.hpp`).
 - 2026-09-21 — host_gui: Split the rig controller into a slot graph, a session timeline and a preset codec it forwards to (`apps/host_gui/SlotGraph.cpp`, `apps/host_gui/SessionTimeline.cpp`, `apps/host_gui/RigPersistence.cpp`).
 - 2026-09-21 — core: Renamed both `set_parameter` overloads to name the thread they belong to (`include/SushiDSP/core/IAudioNode.hpp`).
 - 2026-09-21 — math: Moved the generated resampler kernel table out of the public headers (`include/SushiDSP/math/ResamplerDesign.hpp`, `src/math/ResamplerKernel.hpp`).
 - 2026-09-21 — modules: Grouped the twelve modules into the nodes, catalog and session tiers (`modules/`, `tools/layering/check_layering.py`).
-- 2026-09-22 — cli: Took `sushicore` from PyPI instead of a sibling checkout (`cli/pyproject.toml`).
 - 2026-09-21 — docs: Rewrote the front door around what the models rest on (`README.md`).
 - 2026-09-21 — docs: Moved the code of conduct and the security policy where GitHub reads them (`.github/`).
 - 2026-09-21 — docs: Added issue templates for a defect and for a model disagreeing with its circuit (`.github/ISSUE_TEMPLATE/`).
@@ -119,7 +121,7 @@
 - 2026-09-09 — room: Added `ImageSourceSolver` converting shoebox scenes into early reflection taps (`ImageSourceSolver.hpp`, `ImageSourceSolver.cpp`).
 - 2026-09-09 — room: Added `LateReverbDesign` feedback delay network parameter synthesis (`LateReverbDesign.hpp`, `LateReverbDesign.cpp`).
 - 2026-09-09 — room: Added `ModalSolver` eigenmode resonance calculation below Schroeder frequency (`ModalSolver.hpp`, `ModalSolver.cpp`).
-- 2026-09-09 — docs: Corrected drafted absorption areas, arrival roundings, modal coefficients, tail lengths and sphere shadow against code.
+- 2026-09-09 — docs: Corrected drafted absorption areas, arrival roundings, modal coefficients, tail lengths and sphere shadow against code (`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`).
 - 2026-09-09 — room: Made tail coherence pair complementary rather than fitted (`FdnDesign.hpp`, `LateReverbDesign.hpp`).
 - 2026-09-09 — room: Added render set synthesis and host interface for audio thread (`RoomRenderSet.hpp`, `RoomRenderSet.cpp`, `IRoomHost.hpp`).
 - 2026-09-09 — room: Made `SphericalHeadHrtf` populate diffuse-field pairs (`SphericalHeadHrtf.cpp`).
@@ -128,7 +130,7 @@
 - 2026-09-09 — room: Carried tap filter states across crossfades to prevent filter transients (`EarlyReflectionRenderer.hpp`, `RoomNode.cpp`).
 - 2026-09-09 — room: Added peaking section seeding to band response fit for dip support (`BandResponseFit.hpp`, `modules/nodes/room/README.md`).
 - 2026-09-09 — room: Averaged cabinet closed form over octave bands and cached index grid (`CabinetDirectivity.hpp`, `modules/nodes/room/README.md`).
-- 2026-09-09 — docs: Corrected room wall-clock figures measured on debug binaries.
+- 2026-09-09 — docs: Corrected room wall-clock figures measured on debug binaries (`2026-09-08-room-acoustics.md`, `2026-09-08-room-acoustics-design.md`).
 - 2026-09-09 — room: Ran modal layer below Schroeder frequency under crossover across quality modes (`RoomNode.cpp`, `ModalBank.hpp`, `CrossoverPair.hpp`).
 - 2026-09-09 — room: Rendered listener parameter updates and read standing waves at receiver (`RoomNode.cpp`, `ModalSolver.hpp`).
 - 2026-09-09 — room: Rendered binaural ears through HRIR pair, decoder and diffuse filter (`RoomNode.cpp`, `SphericalHeadHrtf.hpp`).
@@ -194,7 +196,7 @@
 - 2026-09-07 — device: Routed arbitrary output channel widths through scratch buffer in SDL2 (`Sdl2AudioDevice.hpp`, `Sdl2AudioDevice.cpp`).
 - 2026-09-07 — audio_format: Added rig-to-device channel adaptation functions (`ChannelSelection.hpp`, `ChannelSelection.cpp`).
 - 2026-09-07 — host_gui: Initialized SDL2 audio device for stereo playback (`apps/host_gui/main.cpp`).
-- 2026-09-07 — capture: Folds mono track playback to unity gain across all pan settings (`TrackPlayer.cpp`).
+- 2026-09-07 — capture: Folded mono track playback to unity gain across all pan settings (`TrackPlayer.cpp`).
 - 2026-09-07 — capture: Added writer thread handshake to `TrackRecorder` (`TrackRecorder.hpp`, `TrackRecorder.cpp`).
 - 2026-09-07 — capture: Disarmed recording legs atomically before closing file streams (`RecordingBus.cpp`).
 - 2026-09-07 — host_gui: Handled disk write errors gracefully in transport bar (`RecordingBus.hpp`, `RigController.cpp`, `TransportBar.cpp`).
