@@ -1,6 +1,6 @@
 # test_help_screen.py
 # SushiDSP - https://github.com/SushiSystems/SushiDSP
-# Copyright (c) 2026 Sushi Systems
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
 """sd's help screen groups its commands under three headings and carries examples."""
