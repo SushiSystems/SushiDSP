@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-07 — docs: Excluded the Doxygen main page from the published pages and passed secrets to the called CI (`docs/publish.toml`, `.github/workflows/release.yml`).
 - 2026-10-07 — ci: Added the release job that builds the documentation bundle after CI and attaches it to the tag's release (`.github/workflows/release.yml`, `ci.yml`).
 - 2026-10-07 — cli: Added `sd docs bundle`, made `docs` a command group registered from SushiCore, and added the publish list (`cli/sushidsp/cli.py`, `docs/publish.toml`, `Doxyfile`).
 - 2026-10-07 — docs: Added the frequently asked questions page (`docs/guides/FAQ.md`).
