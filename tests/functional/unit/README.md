@@ -16,6 +16,15 @@ of their includes. MSVC's `<cmath>` declares `M_PI` only when the macro is alrea
 the first thing in the translation unit. GCC and Clang, through libstdc++ and libc++, declare
 `M_PI` unconditionally.
 
+## Log tests
+
+`test_log_formatter.cpp`, `test_log_compile_time_cut.cpp`, `test_logger.cpp`,
+`test_log_line_queue.cpp` and `test_async_log_sink.cpp` cover the logger of
+`include/SushiDSP/log/`. The compile-time cut has a file of its own because it sets
+`SD_LOG_MIN_LEVEL` before including `Log.hpp`. `test_track_recorder_logging.cpp`,
+`test_room_node_logging.cpp` and `test_directory_listing_logging.cpp` each provoke one
+handled failure and read the single line it logs through a capturing sink.
+
 ## `test_ambisonic_encoder.cpp`
 
 ### `AmbisonicEncoderIsOrthonormalOverTheSphere`

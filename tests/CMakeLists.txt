@@ -65,6 +65,16 @@ add_executable(sushidsp_tests
     functional/unit/test_node_registry.cpp
     functional/unit/test_spsc_ring.cpp
 
+    # --- Log ---
+    functional/unit/test_log_formatter.cpp
+    functional/unit/test_log_compile_time_cut.cpp
+    functional/unit/test_logger.cpp
+    functional/unit/test_log_line_queue.cpp
+    functional/unit/test_async_log_sink.cpp
+    functional/unit/test_track_recorder_logging.cpp
+    functional/unit/test_room_node_logging.cpp
+    functional/unit/test_directory_listing_logging.cpp
+
     # --- Circuits ---
     functional/unit/test_silicon_diode.cpp
     functional/unit/test_triode_12ax7.cpp

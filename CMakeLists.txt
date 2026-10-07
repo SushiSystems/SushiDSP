@@ -37,6 +37,15 @@ add_library(sushi_dsp STATIC
     src/io/IrLoader.cpp
     src/io/WavFile.cpp
     src/io/WavWriter.cpp
+    src/log/AsyncLogSink.cpp
+    src/log/CapturingLogSink.cpp
+    src/log/DefaultLogger.cpp
+    src/log/LogArgument.cpp
+    src/log/LogFormatter.cpp
+    src/log/LogLineQueue.cpp
+    src/log/Logger.cpp
+    src/log/ScopedLogSink.cpp
+    src/log/StderrLogSink.cpp
     src/math/Fft.cpp
     src/math/Biquad.cpp
     src/math/Oversampler.cpp

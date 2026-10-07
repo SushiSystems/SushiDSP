@@ -237,6 +237,15 @@ copy path instead of allocating on the audio thread.
 `TrackRecorder::write()` raises the in-flight count before it reads `recording_`, so `disarm()`
 can never return while a `write()` call is still touching the rings.
 
+### What the recorder logs
+
+`TrackRecorder` logs under `K_CAPTURE_LOG_CATEGORY`, declared in `capture_log_category.hpp`.
+`arm()` logs one `ERROR` when the take file cannot be opened and one when the writer thread
+cannot be started; both run on the control thread and `arm()` still returns false. The writer
+thread logs one `ERROR` when an append fails, then sets `failed_` and drains nothing more, so a
+failed take produces one line. `write()` runs on the audio thread and never logs: a block it
+refuses is counted in `dropped_blocks()`.
+
 ### Converter output counts
 
 In a `VariRateReader`, every channel's converter carries the same rates and the same push count,

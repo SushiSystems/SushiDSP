@@ -32,6 +32,10 @@ include+src: math/     Biquad, Fft, Resampler, Oversampler, Wdf, dk/ — the DSP
 utilities that products and hosts both use. None of the four sit above `core/` or `math/` in
 the dependency order; a lower tier never includes a higher one.
 
+`log/` (`Logger.hpp`, `Log.hpp`, the sinks) is the library's logger. It depends on the C++
+standard library only, and every module and host may include it. The audio thread never calls
+it; [`include/SushiDSP/README.md`](../../include/SushiDSP/README.md) says what it does instead.
+
 ## Core interfaces (`include/SushiDSP/core/`)
 
 `IAudioNode.hpp` declares `prepare()`/`process()`/`ports()`/`reset()`, the one interface every

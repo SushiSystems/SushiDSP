@@ -31,6 +31,10 @@
 #include <cctype>
 #include <filesystem>
 
+#include "SushiDSP/log/Log.hpp"
+
+#include "host_gui_log_category.hpp"
+
 namespace ui
 {
     namespace
@@ -118,8 +122,12 @@ namespace ui
                 entries.push_back(DirectoryEntry{ item.path().filename().string(), is_directory });
             }
         }
-        catch (const std::filesystem::filesystem_error&)
+        catch (const std::filesystem::filesystem_error& error)
         {
+            // The cause comes before the path, so a path long enough to be cut cannot hide it.
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "could not list a directory: {}; it is shown as empty: '{}'",
+                        error.code().message(), directory);
             return {};
         }
 

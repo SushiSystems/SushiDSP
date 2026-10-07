@@ -48,6 +48,10 @@
 #include "SushiDSP/core/RtGraphSlot.hpp"
 #include "SushiDSP/audio_format/ChannelSelection.hpp"
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
+#include "SushiDSP/log/AsyncLogSink.hpp"
+#include "SushiDSP/log/DefaultLogger.hpp"
+#include "SushiDSP/log/ScopedLogSink.hpp"
+#include "SushiDSP/log/StderrLogSink.hpp"
 
 #include "AudioImportCache.hpp"
 #include "AudioImportQueue.hpp"
@@ -224,6 +228,12 @@ namespace
 
 int main(int argc, char** argv)
 {
+    // The guard flushes the asynchronous sink on every return path of main.
+    const SushiDSP::ScopedLogSink log_sink(
+        SushiDSP::default_logger(),
+        std::make_shared<SushiDSP::AsyncLogSink>(std::make_shared<SushiDSP::StderrLogSink>(),
+                                                 SushiDSP::kDefaultLogQueueCapacity));
+
     const std::string default_ir_directory =
         executable_directory(argc > 0 ? argv[0] : nullptr) + "assets/ir";
     const std::string default_ir_path = default_ir_directory + "/default_4x12.wav";

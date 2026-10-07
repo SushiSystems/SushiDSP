@@ -141,7 +141,13 @@ Decisions the owner takes first:
   to match `sushi-module.toml`.
 - **Choose the core's place in the module tree**: one module per area under `modules/<tier>/`,
   or a recorded exemption for the root `include/` and `src/`.
-- **Choose a logger and one error model**, since both are public interface.
+- **Choose one error model**, since it is public interface. The logger landed on 2026-10-07
+  (`include/SushiDSP/log/`).
+- **Logger follow-ups.** No test provokes the writer-thread start or the append failure in
+  `TrackRecorder`, nor the `TopologyApplier` and `SlotGraph` sites; the `list_directory` test
+  skips on Windows, where a 40 000-character path raises nothing; `StderrLogSink` has no test;
+  a line carries no timestamp or thread id; `sushi_dsp` uses `std::thread` without linking
+  `Threads::Threads`.
 - **Converge on the C++ style skill's names or record an exemption**: snake_case files,
   `K_` constants, no `I` prefix.
 - **State the test count with its suite** in `README.md`, after one `sd test --suite all` run.

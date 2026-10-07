@@ -76,6 +76,11 @@ holds the same for `ui/`.
 
 ### `main.cpp`
 
+`main()` installs an `AsyncLogSink` over a `StderrLogSink` through a `ScopedLogSink`, which
+flushes the sink on every return path. The host logs under `K_HOST_GUI_LOG_CATEGORY`, declared
+in `host_gui_log_category.hpp`. The messages `main()` prints with `fprintf` are its
+command-line output and do not go through the logger.
+
 The zoom, the scroll and the snap mode belong to the GUI loop and not to the rig: they are how
 the arrangement is being looked at, not what it plays.
 
@@ -201,6 +206,10 @@ keeps the path, and the node decides on the publish that brings the slot back;
 `apply_cabinet_to_live_node()` drops the path if the node refuses it. A stored room scene the
 fresh node refuses is dropped for the node's own scene in the same way.
 
+`apply_cabinet_to_live_node()` logs one `WARN` when the impulse response cannot be loaded and
+one when the node refuses it, each with the slot, the path and the sample rate, before it drops
+the path.
+
 `set_room_scene()` validates the scene itself and does not leave that to the node. A drag that
 takes a pose out of the room is then refused on the frame it happens, not on the later publish
 the pacing interval allows.
@@ -212,6 +221,10 @@ preset's values layer over a fresh slot's defaults.
 `build_graph()`, which stays `const` so that a preset save can call it too.
 
 ### `TopologyApplier`
+
+`roll_back` publishes the rig again when the rollback restored removed slots. The model it
+publishes compiled once before the edit, so a failure there leaves the old graph playing;
+`roll_back` logs it as one `WARN` and returns.
 
 `switch_chain_type` fills a path that opens with a copy of the main path's gear, parameter
 values included, so a split starts from what was already being heard and not from silence.

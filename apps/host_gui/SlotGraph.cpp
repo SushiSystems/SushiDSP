@@ -36,11 +36,14 @@
 
 #include "SushiDSP/core/ICabinetHost.hpp"
 #include "SushiDSP/io/IrLoader.hpp"
+#include "SushiDSP/log/Log.hpp"
 #include "SushiDSP/node_registry/NodeRegistry.hpp"
 #include "SushiDSP/room/HrtfSetLoader.hpp"
 #include "SushiDSP/room/StarterScene.hpp"
 #include "SushiDSP/routing/MixerNode.hpp"
 #include "SushiDSP/routing/SplitterNode.hpp"
+
+#include "host_gui_log_category.hpp"
 
 namespace
 {
@@ -461,11 +464,19 @@ void SlotGraph::apply_cabinet_to_live_node(SlotId slot)
     {
         if (!host->set_cabinet(SushiDSP::IrLoader::load(it->second.cabinet_path, info_.sample_rate)))
         {
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "the node of slot {} refused cabinet IR '{}' at {} Hz; the slot forgets "
+                        "the path",
+                        slot, it->second.cabinet_path, info_.sample_rate);
             it->second.cabinet_path.clear();
         }
     }
-    catch (const std::exception&)
+    catch (const std::exception& error)
     {
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "loading cabinet IR '{}' for slot {} at {} Hz failed: {}; the slot forgets "
+                    "the path",
+                    it->second.cabinet_path, slot, info_.sample_rate, error.what());
         it->second.cabinet_path.clear();
     }
 }
