@@ -444,7 +444,7 @@ TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
 TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
 {
     // At Master 1 -20 dB the power section is linear. See tests/functional/unit/README.md.
-    constexpr double centre_hz = 723.43;
+    static constexpr double centre_hz = 723.43;
     auto level_at = [](float slider)
     {
         const std::vector<float> rendered = render_mesa_mark2c(

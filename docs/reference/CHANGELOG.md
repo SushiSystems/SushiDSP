@@ -3,6 +3,7 @@
 ## Unreleased
 
 - 2026-10-06 — licence: Restored the three-section license box and named both holders in the copyright line of every source file (`tools/licensing/write_license_block.py`, `tools/documentation/check_source_comments.py`).
+- 2026-10-05 — build: Skipped the GUI when the SDL2 backend is off and linked OpenGL through `OpenGL::GL`, so a configure with `SUSHIDSP_BUILD_SDL2=OFF` no longer fails (`CMakeLists.txt`, `apps/host_gui/CMakeLists.txt`).
 - 2026-10-05 — docs: Moved design reasoning out of source comments into module and folder READMEs and gave every source file its file block (`modules/`, `apps/`, `include/`, `src/`, `tests/`).
 - 2026-10-05 — docs: Indexed every manual page, repointed the module READMEs' links, archived the standards phase 1 work folder and copied the SushiSkills tools (`docs/README.md`, `modules/`, `docs/archive/agent/`, `tools/`).
 - 2026-10-05 — cli: Moved the host GUI launch to `sd host`, a bare `sd run` staying its hidden alias until 2027-03-25 (`cli/sushidsp/cli.py`, `services/project.py`).

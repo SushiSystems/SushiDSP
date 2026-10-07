@@ -166,7 +166,7 @@ namespace
 /// @see tests/functional/unit/README.md
 TEST(Unit_Dsp, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
 {
-    constexpr double kSampleRate = 48000.0;
+    static constexpr double kSampleRate = 48000.0;
 
     {
         // Diode-clipper shape: source - R - node - nonlinear - ground.
@@ -289,7 +289,7 @@ TEST(Unit_Dsp, DkCircuitRcLowpassMatchesTheBilinearTransformExactly)
     // Trapezoidal DK reproduces the bilinear transform. See tests/functional/unit/README.md.
     constexpr double kResistance = 1000.0;
     constexpr double kCapacitance = 100e-9;
-    constexpr double kSampleRate = 48000.0;
+    static constexpr double kSampleRate = 48000.0;
     constexpr double kExpectedPole = 0.811320754717;
 
     SushiDSP::dk::DkNetlist<1, 0, 1, 1> netlist;
@@ -376,7 +376,7 @@ TEST(Unit_Dsp, DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation)
     constexpr double kSourceResistance = 2200.0;
     constexpr double kSaturationCurrent = 2.52e-9;
     constexpr double kThermalVoltage = 0.025864;
-    constexpr double kSampleRate = 48000.0;
+    static constexpr double kSampleRate = 48000.0;
     constexpr int    kSampleCount = 2048;
 
     SushiDSP::dk::DkNetlist<0, 2, 1, 1> netlist;
@@ -432,7 +432,7 @@ TEST(Unit_Dsp, DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhenUnchan
     // The DC gain from source to wiper is the position. See tests/functional/unit/README.md.
     constexpr double kTrackOhms = 10000.0;
     constexpr double kCapacitance = 100e-9;
-    constexpr double kSampleRate = 48000.0;
+    static constexpr double kSampleRate = 48000.0;
     // tau is at most 250 us, so 40000 samples settle it. See tests/functional/unit/README.md.
     constexpr int kSettleSamples = 40000;
 
@@ -486,9 +486,9 @@ TEST(Unit_Dsp, DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhenUnchan
 TEST(Unit_Dsp, DkCircuitNeverEmitsANonFiniteSampleAndCountsItsFallbacks)
 {
     // One inf sample must not poison the capacitor's state. See tests/functional/unit/README.md.
-    constexpr double kResistance = 1000.0;
-    constexpr double kCapacitance = 100e-9;
-    constexpr double kSampleRate = 48000.0;
+    static constexpr double kResistance = 1000.0;
+    static constexpr double kCapacitance = 100e-9;
+    static constexpr double kSampleRate = 48000.0;
     constexpr int    kPoisonedSample = 64;
 
     auto build = [](SushiDSP::dk::DkCircuit<1, 1, 1, 1>& circuit)
@@ -555,7 +555,7 @@ TEST(Unit_Dsp, DkCircuitClampsItsStateUnderAnAbsurdInputAndStaysFinite)
     // The output stays finite and the state stops at a limit. See tests/functional/unit/README.md.
     constexpr double kResistance = 1000.0;
     constexpr double kCapacitance = 100e-9;
-    constexpr double kSampleRate = 48000.0;
+    static constexpr double kSampleRate = 48000.0;
     constexpr double kStateLimit = 1000.0;
 
     SushiDSP::dk::DkNetlist<1, 0, 1, 1> netlist;

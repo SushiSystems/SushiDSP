@@ -88,7 +88,7 @@ TEST(Unit_Dsp, FileDropQueueDrainAppendsToACallerSVector)
 
 TEST(Unit_Dsp, FileDropQueueSurvivesConcurrentPushAndDrain)
 {
-    constexpr int kPathCount = 1000;
+    static constexpr int kPathCount = 1000;
     FileDropQueue queue;
 
     std::thread pusher([&queue]()
