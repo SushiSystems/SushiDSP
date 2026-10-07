@@ -61,16 +61,17 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          # SDL2 needs ALSA/PulseAudio dev headers to configure its Linux
-          # audio backends even though the library itself is FetchContent'd.
+          # SDL2 needs the ALSA and PulseAudio headers; GLFW needs Wayland, X11 and EGL.
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build libasound2-dev libpulse-dev
+            cmake ninja-build pkg-config libasound2-dev libpulse-dev \
+            libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev \
+            xorg-dev libgl1-mesa-dev libegl1-mesa-dev
 
-      - name: Configure and build (SDL2 on, apps/host included)
+      - name: Configure and build (SDL2 on, apps/host and apps/host_gui included)
         run: |
           set -e
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --target sushidsp_host
+          cmake --build build --target sushidsp_host sushidsp_host_gui
 
   windows:
     name: Functional tests (Windows)
@@ -78,18 +79,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure, build, and run the functional suite
+      # One command per step: pwsh reports only the last command's exit code.
+      - name: Configure
         shell: pwsh
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSUSHIDSP_BUILD_SDL2=OFF
-          cmake --build build --config Debug
-          ctest --test-dir build -C Debug -L "unit|regression" --output-on-failure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSUSHIDSP_BUILD_SDL2=OFF
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Debug
+
+      - name: Run the functional suite
+        shell: pwsh
+        run: ctest --test-dir build -C Debug -L "unit|regression" --output-on-failure
 
 # ---------------------------------------------------------------------------
 # Deliberately absent
 # ---------------------------------------------------------------------------
-# * The Python CLI job. `cli/` needs sushicore 0.6.0, which is not on PyPI, so
-#   a public clone cannot install it; its tests run locally.
 # * A sibling-module checkout step. SushiDSP has no code dependency on any
 #   other SushiStack module (spec §11/§11a) — nothing to check out.
 # * A SYCL/oneAPI container image. The core has no GPU/SYCL dependency at all.
@@ -125,3 +130,19 @@ jobs:
         run: python tools/layering/check_layering.py .
       - name: python -m unittest discover -s tools/tests
         run: python -m unittest discover -s tools/tests
+
+  cli:
+    name: Python CLI (tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip pytest
+          python -m pip install -e ./cli
+      - name: Run CLI unit tests
+        working-directory: cli
+        run: python -m pytest tests -q

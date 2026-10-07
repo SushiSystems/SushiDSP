@@ -49,6 +49,7 @@ add_executable(sushidsp_host_gui
 # ui/*.cpp include their own headers as "ui/<Name>.hpp" and reach RigController.hpp beside them,
 # so the app directory itself has to be on the include path.
 target_include_directories(sushidsp_host_gui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/third_party)
+find_package(OpenGL REQUIRED)
 target_link_libraries(sushidsp_host_gui PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::node_registry
@@ -60,7 +61,7 @@ target_link_libraries(sushidsp_host_gui PRIVATE
     SushiDSP::room
     imgui
     nlohmann_json::nlohmann_json
-    opengl32
+    OpenGL::GL
 )
 if(TARGET SushiDSP::sushi_dsp_asio)
     target_link_libraries(sushidsp_host_gui PRIVATE SushiDSP::sushi_dsp_asio)
