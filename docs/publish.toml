@@ -1,0 +1,5 @@
+name = "sushidsp"
+title = "SushiDSP"
+summary = "SushiDSP models guitar amplifiers and effects by solving their circuits, sample by sample, in real time."
+sections = ["getting_started", "guides", "architecture", "reference"]
+api = true

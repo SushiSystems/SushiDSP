@@ -23,9 +23,10 @@ from sushidsp.cli import app
 from sushidsp.services import project as project_svc
 
 
-def test_doxygen_still_runs_the_docs_command(monkeypatch):
+def test_doxygen_still_runs_the_docs_command(monkeypatch, tmp_path):
     """`sd doxygen` runs what `sd docs` runs and exits with its code."""
     monkeypatch.setattr(project_svc, "docs", lambda: 5)
+    monkeypatch.setattr(cli, "find_project_root", lambda: tmp_path)
     runner = CliRunner()
 
     assert runner.invoke(app, ["docs"]).exit_code == 5

@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 from sushidsp.cli import app
 
 K_GROUPS = {
-    "Build": ["configure", "build", "test", "run", "clean", "docs", "check"],
+    "Build": ["configure", "build", "test", "run", "clean", "check", "docs"],
     "Environment": ["config", "env", "setup", "doctor", "link", "unlink"],
     "Application": ["host"],
 }

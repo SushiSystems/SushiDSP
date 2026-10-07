@@ -33,7 +33,9 @@ name and `python -m sushidsp` as a third way in.
 
 sushicore supplies `--version`, `--describe`, `config`, `env`, `setup`, `doctor`, `link`,
 `unlink`, the alias table's mechanism and the entry point that turns a configuration error into
-one line.
+one line. It also supplies the `docs` group: `cli.py` hands `register_docs_commands` the
+Doxygen build in `services/project.py` and the folder its XML lands in, so `sd docs` builds the
+API reference and `sd docs bundle` packs the documentation bundle `docs/publish.toml` describes.
 
 ## Configuration
 
