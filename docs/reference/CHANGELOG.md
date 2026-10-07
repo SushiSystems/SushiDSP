@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-07 — cli: Added `sd docs bundle`, made `docs` a command group registered from SushiCore, and added the publish list (`cli/sushidsp/cli.py`, `docs/publish.toml`, `Doxyfile`).
 - 2026-10-07 — docs: Added the frequently asked questions page (`docs/guides/FAQ.md`).
 - 2026-10-07 — log: Added the logger and logged the handled failures that were dropped (`include/SushiDSP/log/`, `TrackRecorder.cpp`, `RoomNode.cpp`, `SlotGraph.cpp`, `DirectoryListing.cpp`).
 - 2026-10-07 — licence: Named Mustafa Garip and Sushi Systems as the copyright holders in the licence and notice files (`LICENSE`, `NOTICE.md`).

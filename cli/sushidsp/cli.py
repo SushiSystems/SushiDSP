@@ -6,8 +6,8 @@
 """Declares the commands of `sd`, the SushiDSP developer CLI.
 
 A thin Typer layer: each command parses its arguments and delegates to
-``sushidsp.services``. The root options, `config`, `env`, the provision commands and
-the entry point come from sushicore.
+``sushidsp.services``. The root options, `config`, `env`, the `docs` group, the provision
+commands and the entry point come from sushicore.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from typing import Any, Optional
 
 import typer
 from sushicore.diag_commands import register_diagnostic_commands
+from sushicore.docs_bundle import ApiSource, register_docs_commands
 from sushicore.entry import run as run_app
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
 from sushicore.root_options import register_root_options
@@ -40,6 +41,8 @@ K_TYPE_HELP = ("Build type: debug | release | relwithdebinfo. "
 K_DEFINE_HELP = ("Pass a CMake cache variable to configure; on a configured tree it "
                  "reconfigures. Repeatable.")
 K_CLEAN_HELP = "Delete the build tree before configuring."
+
+K_API_XML = "build/docs/api-site/xml"
 
 K_FORWARDING = {"allow_extra_args": True, "ignore_unknown_options": True}
 K_BARE_RUN = "sd run"
@@ -169,14 +172,25 @@ def clean() -> None:
     raise typer.Exit(project_svc.clean())
 
 
-@app.command(
-    "docs",
-    rich_help_panel=K_BUILD,
-    epilog="sd docs",
-)
-def docs() -> None:
-    """Generate the API reference (build/docs/api-site/html) from the headers."""
+def _api_source() -> ApiSource:
+    """Returns how `sd` builds the API reference and where Doxygen leaves its XML."""
+    return ApiSource(build=project_svc.docs, xml_dir=find_project_root() / K_API_XML)
+
+
+def _docs_alias() -> None:
+    """Builds the API reference; the callback behind the old spelling `sd doxygen`."""
     raise typer.Exit(project_svc.docs())
+
+
+register_docs_commands(
+    app,
+    program=K_PROGRAM,
+    panel=K_BUILD,
+    project_root=find_project_root,
+    api=_api_source,
+    report=lambda line: console.success(line),
+    group_cls=_help_group,
+)
 
 
 @app.command(
@@ -218,7 +232,7 @@ def host(
     raise typer.Exit(project_svc.host(type, launch=not no_run, app_args=list(ctx.args)))
 
 
-ALIASES.command(app, "doxygen", docs, "sd doxygen")
+ALIASES.command(app, "doxygen", _docs_alias, "sd doxygen")
 
 register_root_options(app, distribution=K_DISTRIBUTION)
 

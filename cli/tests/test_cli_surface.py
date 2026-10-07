@@ -22,6 +22,7 @@ from sushidsp.services import project as project_svc
 from sushidsp.services.project import BuildType
 
 K_DISTRIBUTION = "sushidsp-cli"
+K_SUBCOMMANDS = ["docs bundle"]
 
 
 def _visible_commands() -> list[str]:
@@ -63,9 +64,23 @@ def test_describe_lists_every_visible_command_and_no_hidden_one():
     assert result.exit_code == 0
     document = json.loads(result.output)
     assert document["program"] == "sd"
-    assert [command["name"] for command in document["commands"]] == _visible_commands()
+    assert [command["name"] for command in document["commands"]] == sorted(
+        _visible_commands() + K_SUBCOMMANDS)
     assert "doxygen" not in _visible_commands()
     assert {"host", "run"} <= set(_visible_commands())
+
+
+def test_docs_runs_the_api_build_and_bundle_is_its_subcommand(monkeypatch, tmp_path):
+    """`sd docs` still builds the reference, and `sd docs bundle` asks for a release."""
+    monkeypatch.setattr(project_svc, "docs", lambda: 6)
+    monkeypatch.setattr(cli, "find_project_root", lambda: tmp_path)
+    runner = CliRunner()
+
+    assert runner.invoke(app, ["docs"]).exit_code == 6
+    assert runner.invoke(app, ["doxygen"]).exit_code == 6
+    missing = runner.invoke(app, ["docs", "bundle"])
+    assert missing.exit_code == 2
+    assert "--release" in missing.output
 
 
 def test_the_command_set_is_the_documented_one():

@@ -70,9 +70,23 @@ toolchain's `bin` directory on `PATH`.
 ## `sd docs`
 
 Generates the API reference at `build/docs/api-site/html/` from the headers under
-`include/SushiDSP/`, starting from `docs/reference/API_REFERENCE.md`. Takes no flags.
+`include/SushiDSP/`, starting from `docs/reference/API_REFERENCE.md`. Takes no flags, and
+exits with Doxygen's code.
 
-The command was `sd doxygen` until 2026-10-05. The old word still runs it, hidden from the
+`sd docs bundle --release X.Y.Z` writes the archive `docs.sushisystems.io` reads:
+`docs-bundle-X.Y.Z.tar.gz` and its `.sha256` file. `docs/publish.toml` lists what goes in: the
+manual pages of the sections it names and, because it sets `api = true`, the Doxygen XML from
+`build/docs/api-site/xml`, which the command builds first.
+
+- `--release X.Y.Z` — the release the bundle is built for, three integers. Required; without
+  it the command exits 2.
+- `--out <folder>` — where the archive is written. Defaults to `build/docs/bundle`.
+
+A page with no level-one heading, a page `docs/README.md` does not link, or a link to a file
+that does not exist stops the command with one line naming the page, and exit code 1. The
+archive's layout is in SushiCore's `docs/reference/DOCS_BUNDLE.md`.
+
+The bare command was `sd doxygen` until 2026-10-05. The old word still runs it, hidden from the
 help, and says so once on a terminal; it is removed after 2027-03-25.
 `SD_NO_DEPRECATION_NOTICE=1` silences the notice.
 
