@@ -13,6 +13,7 @@ code.
 | [Architecture overview](architecture/OVERVIEW.md) | The layers as the tree holds them today |
 | [Modules](architecture/MODULES.md) | One link per module to its own README |
 | [Command line](guides/COMMAND_LINE_INTERFACE.md) | Every `sd` subcommand, its flags and the compiler search |
+| [FAQ](guides/FAQ.md) | The questions a newcomer asks, each answered from this manual |
 | [Contributing](CONTRIBUTING.md) | How a change lands and what it must document |
 | [Documentation style guide](DOCUMENTATION_STYLE_GUIDE.md) | How a document is written in this repository |
 | [API reference landing page](reference/API_REFERENCE.md) | The page Doxygen opens the generated reference with |

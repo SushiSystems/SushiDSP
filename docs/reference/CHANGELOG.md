@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-07 — docs: Added the frequently asked questions page (`docs/guides/FAQ.md`).
 - 2026-10-07 — log: Added the logger and logged the handled failures that were dropped (`include/SushiDSP/log/`, `TrackRecorder.cpp`, `RoomNode.cpp`, `SlotGraph.cpp`, `DirectoryListing.cpp`).
 - 2026-10-07 — licence: Named Mustafa Garip and Sushi Systems as the copyright holders in the licence and notice files (`LICENSE`, `NOTICE.md`).
 - 2026-10-06 — licence: Restored the three-section license box and named both holders in the copyright line of every source file (`tools/licensing/write_license_block.py`, `tools/documentation/check_source_comments.py`).
