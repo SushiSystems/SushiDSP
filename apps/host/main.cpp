@@ -34,10 +34,20 @@
 #include "SushiDSP/core/RigGraph.hpp"
 #include "SushiDSP/device/Sdl2AudioDevice.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
+#include "SushiDSP/log/AsyncLogSink.hpp"
+#include "SushiDSP/log/DefaultLogger.hpp"
+#include "SushiDSP/log/ScopedLogSink.hpp"
+#include "SushiDSP/log/StderrLogSink.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 int main()
 {
+    // The guard flushes the asynchronous sink on every return path of main.
+    const SushiDSP::ScopedLogSink log_sink(
+        SushiDSP::default_logger(),
+        std::make_shared<SushiDSP::AsyncLogSink>(std::make_shared<SushiDSP::StderrLogSink>(),
+                                                 SushiDSP::kDefaultLogQueueCapacity));
+
     SushiDSP::DeviceFormat requested{ 48000.0, 256, 0, 1 };
 
     std::unique_ptr<SushiDSP::Sdl2AudioDevice> device;

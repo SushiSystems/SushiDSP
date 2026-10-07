@@ -24,6 +24,10 @@ The rig renders into `mono_output`, a buffer `main()` owns and sizes
 before the device starts. The callback maps that buffer onto the device's channels and
 allocates nothing.
 
+`main()` installs an `AsyncLogSink` over a `StderrLogSink` through a `ScopedLogSink`, which
+flushes the sink on every return path. What `main()` prints with `printf` is its own output and
+does not go through the logger.
+
 ## Dependencies
 
 Links `SushiDSP::sushi_dsp_asio`, `SushiDSP::tubescreamer`, `SushiDSP::jcm800` and

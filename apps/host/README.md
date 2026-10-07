@@ -16,6 +16,10 @@ The rig stops at the amplifier. `sushidsp.cabinet` is a separate node and this d
 wire one in, so what reaches the device is the amplifier's dry signal. `apps/host_asio/main.cpp`
 builds a rig that adds a cabinet.
 
+`main()` installs an `AsyncLogSink` over a `StderrLogSink` through a `ScopedLogSink`, which
+flushes the sink on every return path. What `main()` prints with `printf` is its own output and
+does not go through the logger.
+
 ## Dependencies
 
 Links `SushiDSP::sushi_dsp_sdl2`, `SushiDSP::tubescreamer` and `SushiDSP::jcm800`.

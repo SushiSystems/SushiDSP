@@ -35,9 +35,11 @@
 #include <utility>
 
 #include "SushiDSP/core/DenormalGuard.hpp"
+#include "SushiDSP/log/Log.hpp"
 #include "SushiDSP/math/StreamingConvolution.hpp"
 #include "SushiDSP/room/EyringDecay.hpp"
 #include "SushiDSP/room/StarterScene.hpp"
+#include "SushiDSP/room/room_log_category.hpp"
 
 namespace SushiDSP::room
 {
@@ -378,8 +380,12 @@ namespace SushiDSP::room
                 decoder = std::make_unique<BinauralDecoder>();
                 decoder->prepare(set, sample_rate_, max_block_);
             }
-            catch (const std::exception&)
+            catch (const std::exception& error)
             {
+                SD_LOG_ERROR(K_ROOM_LOG_CATEGORY,
+                             "set_hrtf() could not prepare a decoder for the set of {} directions "
+                             "at {} Hz: {}; the set is refused and the HRTF in place stays",
+                             set.direction_count(), sample_rate_, error.what());
                 return false;
             }
         }

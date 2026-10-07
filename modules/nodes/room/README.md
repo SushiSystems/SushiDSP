@@ -718,6 +718,13 @@ wraps: the mirror region holds what lies past the ring's end.
 `HrtfSetLoader.cpp` lands every field in a local set first and moves it into the caller's set only
 on success, so a failure anywhere leaves the caller's set exactly as it was.
 
+### A set the decoder refuses
+
+`RoomNode::set_hrtf()` runs on the control thread. When `BinauralDecoder::prepare` throws on a
+set, it logs one `ERROR` under `K_ROOM_LOG_CATEGORY`, declared in `room_log_category.hpp`, with
+the set's direction count, the sample rate and the decoder's message, and returns false with the
+HRTF in place untouched.
+
 ### The reported crossover
 
 `ModalSolver.cpp` reports the first mode left out as the crossover, so `enumerate()` at that

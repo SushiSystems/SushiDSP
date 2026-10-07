@@ -40,6 +40,12 @@ The settings window draws in its own window and does not block input to the wind
 It draws only while `open` is true. Close clears `open`. Connect leaves it set, so a failed
 connection keeps the window up to show the error; the caller clears it once the device opens.
 
+## `DirectoryListing.cpp`
+
+`list_directory` returns an empty listing when the file system raises an error on the path. It
+logs that as one `WARN` under `K_HOST_GUI_LOG_CATEGORY`, with the cause first and the path
+last. A path long enough to be cut at the message limit then still shows why it failed.
+
 ## `Divider.hpp`
 
 `DrawDivider` draws a 14 px-thick invisible button spanning the region's cross axis, with a

@@ -372,7 +372,6 @@ were not re-checked for this list. The work that closes a row is in
 | Issue | Where |
 | --- | --- |
 | `check_source_comments.py` reports 1106 findings: 270 file headers, 69 blocks over eight lines, 761 comment runs, 6 history words; `sd check` does not run it | `python tools/documentation/check_source_comments.py . --report` |
-| No logger exists; caught failures drop their cause | `apps/host_gui/TopologyApplier.cpp`, `modules/nodes/capture/src/TrackRecorder.cpp` |
 | Exceptions, `bool` with an error string and bare `bool` coexist as error models; no function is `[[nodiscard]]` | `src/io/WavFile.cpp`, `apps/host_gui/RigController.hpp`, `modules/nodes/room/include/SushiDSP/room/RoomNode.hpp` |
 | `RigController` forwards `SlotGraph`'s surface one for one; `main()` owns setup and the frame loop | `apps/host_gui/RigController.hpp`, `apps/host_gui/SlotGraph.hpp`, `apps/host_gui/main.cpp` |
 | The host names products by id, so adding a product edits the GUI | `apps/host_gui/ui/PanelLibrary.cpp`, `apps/host_gui/ui/GearFilter.cpp`, `apps/host_gui/TopologyApplier.cpp` |

@@ -29,6 +29,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <exception>
+
+#include "SushiDSP/capture/capture_log_category.hpp"
+#include "SushiDSP/log/Log.hpp"
 
 namespace SushiDSP
 {
@@ -83,8 +87,20 @@ namespace SushiDSP
         {
             writer_.reset(new WavWriter(path, sample_rate_, channels_, WavWriter::Format::Float32));
         }
+        catch (const std::exception& error)
+        {
+            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
+                         "arm('{}') could not open the take file: {}; the recorder stays disarmed",
+                         path, error.what());
+            writer_.reset();
+            return false;
+        }
         catch (...)
         {
+            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
+                         "arm('{}') could not open the take file: an exception of unknown type; "
+                         "the recorder stays disarmed",
+                         path);
             writer_.reset();
             return false;
         }
@@ -101,16 +117,34 @@ namespace SushiDSP
         draining_.store(true, std::memory_order_relaxed);
         recording_.store(true, std::memory_order_release);
 
-        try
-        {
-            writer_thread_ = std::thread(&TrackRecorder::drain_loop, this);
-        }
-        catch (...)
+        const auto disarm_without_writer_thread = [this]
         {
             recording_.store(false, std::memory_order_release);
             draining_.store(false, std::memory_order_release);
             writer_->close();
             writer_.reset();
+        };
+
+        try
+        {
+            writer_thread_ = std::thread(&TrackRecorder::drain_loop, this);
+        }
+        catch (const std::exception& error)
+        {
+            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
+                         "arm('{}') could not start the writer thread: {}; the take file is closed "
+                         "and the recorder stays disarmed",
+                         path, error.what());
+            disarm_without_writer_thread();
+            return false;
+        }
+        catch (...)
+        {
+            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
+                         "arm('{}') could not start the writer thread: an exception of unknown "
+                         "type; the take file is closed and the recorder stays disarmed",
+                         path);
+            disarm_without_writer_thread();
             return false;
         }
 
@@ -241,15 +275,33 @@ namespace SushiDSP
         }
         popped_frames_.store(popped + frames, std::memory_order_release);
 
+        const auto stop_after_write_failure = [this]
+        {
+            failed_.store(true, std::memory_order_release);
+            recording_.store(false, std::memory_order_release);
+        };
+
         try
         {
             writer_->append(scratch_pointers_.data(), static_cast<std::uint32_t>(frames));
             frames_written_.store(writer_->frames_written(), std::memory_order_relaxed);
         }
+        catch (const std::exception& error)
+        {
+            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
+                         "appending {} frames to the take file failed after {} frames written: {}; "
+                         "recording stops and the frames still queued are discarded",
+                         frames, frames_written_.load(std::memory_order_relaxed), error.what());
+            stop_after_write_failure();
+        }
         catch (...)
         {
-            failed_.store(true, std::memory_order_release);
-            recording_.store(false, std::memory_order_release);
+            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
+                         "appending {} frames to the take file failed after {} frames written: an "
+                         "exception of unknown type; recording stops and the frames still queued "
+                         "are discarded",
+                         frames, frames_written_.load(std::memory_order_relaxed));
+            stop_after_write_failure();
         }
 
         return frames;

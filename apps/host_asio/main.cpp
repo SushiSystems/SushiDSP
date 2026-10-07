@@ -38,6 +38,10 @@
 #include "SushiDSP/audio_format/ChannelSelection.hpp"
 #include "SushiDSP/io/IrLoader.hpp"
 #include "SushiDSP/jcm800/Jcm800.hpp"
+#include "SushiDSP/log/AsyncLogSink.hpp"
+#include "SushiDSP/log/DefaultLogger.hpp"
+#include "SushiDSP/log/ScopedLogSink.hpp"
+#include "SushiDSP/log/StderrLogSink.hpp"
 #include "SushiDSP/tubescreamer/TubeScreamer.hpp"
 
 namespace
@@ -57,6 +61,12 @@ namespace
 
 int main(int argc, char** argv)
 {
+    // The guard flushes the asynchronous sink on every return path of main.
+    const SushiDSP::ScopedLogSink log_sink(
+        SushiDSP::default_logger(),
+        std::make_shared<SushiDSP::AsyncLogSink>(std::make_shared<SushiDSP::StderrLogSink>(),
+                                                 SushiDSP::kDefaultLogQueueCapacity));
+
     const std::vector<std::string> drivers = SushiDSP::AsioAudioDevice::enumerate_drivers();
     if (drivers.empty())
     {

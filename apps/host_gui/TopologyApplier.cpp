@@ -27,8 +27,13 @@
 #include "TopologyApplier.hpp"
 
 #include <algorithm>
+#include <exception>
 #include <map>
 #include <string>
+
+#include "SushiDSP/log/Log.hpp"
+
+#include "host_gui_log_category.hpp"
 
 namespace
 {
@@ -223,8 +228,19 @@ void TopologyApplier::roll_back(const Journal& journal, RigTopology topology_bef
     {
         rig.publish();
     }
+    catch (const std::exception& error)
+    {
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "publishing the rig after rolling back a topology edit with {} removed slots "
+                    "failed: {}; the graph published before the edit keeps playing",
+                    journal.removed.size(), error.what());
+    }
     catch (...)
     {
-        // The pre-apply model compiled once, so a failure here leaves the old graph playing.
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "publishing the rig after rolling back a topology edit with {} removed slots "
+                    "failed: an exception of unknown type; the graph published before the edit "
+                    "keeps playing",
+                    journal.removed.size());
     }
 }
