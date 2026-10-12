@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <exception>
 #include <map>
+#include <set>
 #include <string>
 
 #include "SushiDSP/log/log.hpp"
@@ -63,6 +64,39 @@ namespace
         return rig.descriptor_id(slot) == descriptor_id;
     }
 
+    /// @brief Adds the DI path to a chain's edges: the chain's single sink and the DI strip both feed
+    /// the master bus. The sink is the one slot no edge leaves; a one-slot path has no edges, so it is
+    /// the path's only slot.
+    /// @return The edges with the master bus wired in.
+    std::vector<std::pair<ui::SlotId, ui::SlotId>>
+    with_di(std::vector<std::pair<ui::SlotId, ui::SlotId>> edges,
+            const std::vector<ui::SlotId>& active, ui::SlotId di_strip, ui::SlotId master_bus)
+    {
+        std::set<ui::SlotId> sources;
+        for (const auto& edge : edges)
+        {
+            sources.insert(edge.first);
+        }
+        std::optional<ui::SlotId> sink;
+        for (const auto& edge : edges)
+        {
+            if (sources.count(edge.second) == 0)
+            {
+                sink = edge.second;
+            }
+        }
+        if (!sink.has_value() && edges.empty() && active.size() == 1)
+        {
+            sink = active.front();
+        }
+        if (sink.has_value())
+        {
+            edges.push_back({*sink, master_bus});
+        }
+        edges.push_back({di_strip, master_bus});
+        return edges;
+    }
+
     /// @brief Maps an id through a rename table, keeping ids the table does not name.
     /// @return The renamed id, or `slot` itself.
     ui::SlotId renamed(const std::map<ui::SlotId, ui::SlotId>& renames, ui::SlotId slot)
@@ -82,6 +116,7 @@ void TopologyApplier::apply(RigTopology& topology, RigController& rig)
     try
     {
         place_routing(topology, rig, journal);
+        place_di(topology, rig, journal);
         remove_strays(topology, rig, journal);
         connect(topology, rig);
         bind_inputs(topology, rig);
@@ -166,6 +201,27 @@ void TopologyApplier::place_routing(const RigTopology& topology, RigController& 
     state_.right_strip.reset();
 }
 
+void TopologyApplier::place_di(const RigTopology& topology, RigController& rig, Journal& journal)
+{
+    if (!topology.di())
+    {
+        if (state_.di_strip.has_value() && is_live_as(rig, *state_.di_strip, K_CHANNEL_STRIP_ID))
+        {
+            remove_journaled(*state_.di_strip, rig, journal);
+        }
+        if (state_.master_bus.has_value() && is_live_as(rig, *state_.master_bus, K_BUS_ID))
+        {
+            remove_journaled(*state_.master_bus, rig, journal);
+        }
+        state_.di_strip.reset();
+        state_.master_bus.reset();
+        return;
+    }
+
+    state_.di_strip = ensure_slot(state_.di_strip, K_CHANNEL_STRIP_ID, rig, journal);
+    state_.master_bus = ensure_slot(state_.master_bus, K_BUS_ID, rig, journal);
+}
+
 void TopologyApplier::remove_strays(const RigTopology& topology, RigController& rig,
                                     Journal& journal)
 {
@@ -173,7 +229,8 @@ void TopologyApplier::remove_strays(const RigTopology& topology, RigController& 
     for (SlotId slot : rig.slot_order())
     {
         const bool routing = slot == state_.splitter || slot == state_.mixer ||
-                             slot == state_.left_strip || slot == state_.right_strip;
+                             slot == state_.left_strip || slot == state_.right_strip ||
+                             slot == state_.di_strip || slot == state_.master_bus;
         if (!routing && !holds(active, slot))
         {
             remove_journaled(slot, rig, journal);
@@ -184,12 +241,17 @@ void TopologyApplier::remove_strays(const RigTopology& topology, RigController& 
 void TopologyApplier::connect(const RigTopology& topology, RigController& rig) const
 {
     rig.clear_edges(false);
-    const auto edges =
+    auto edges =
         topology.chain_type() == ChainType::Parallel
             ? (state_.left_strip && state_.right_strip && state_.mixer
                    ? topology.parallel_edges(*state_.left_strip, *state_.right_strip, *state_.mixer)
                    : std::vector<std::pair<SlotId, SlotId>>{})
             : topology.edges(state_.splitter, state_.mixer);
+    if (topology.di() && state_.di_strip.has_value() && state_.master_bus.has_value())
+    {
+        edges = with_di(std::move(edges), topology.active_slots(), *state_.di_strip,
+                        *state_.master_bus);
+    }
     for (const auto& [from, to] : edges)
     {
         rig.connect(from, to, false);
@@ -306,4 +368,14 @@ void TopologyApplier::roll_back(const Journal& journal, RigTopology topology_bef
                     "keeps playing",
                     journal.removed.size());
     }
+}
+
+void TopologyApplier::set_di(RigTopology& topology, RigController& rig, bool enabled)
+{
+    if (topology.di() == enabled)
+    {
+        return;
+    }
+    topology.set_di(enabled);
+    apply(topology, rig);
 }

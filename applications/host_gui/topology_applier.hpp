@@ -55,6 +55,14 @@ class TopologyApplier
         /// @see applications/host_gui/README.md
         void switch_chain_type(RigTopology& topology, RigController& rig, ChainType type);
 
+        /// @brief Opens or closes the DI path and rewires the rig to match, in one step.
+        /// @param topology The model to change.
+        /// @param rig The controller to rewire.
+        /// @param enabled True to open the DI path.
+        /// @throws std::runtime_error when the rewired graph does not compile; everything is rolled
+        /// back first.
+        void set_di(RigTopology& topology, RigController& rig, bool enabled);
+
     private:
         using SlotId = RigController::SlotId;
 
@@ -75,10 +83,15 @@ class TopologyApplier
                 std::optional<SlotId> mixer;    ///< Holds the hidden mixer slot.
                 std::optional<SlotId> left_strip;  ///< Holds the Parallel left path's strip.
                 std::optional<SlotId> right_strip; ///< Holds the Parallel right path's strip.
+                std::optional<SlotId> di_strip;    ///< Holds the DI path's strip, while DI is open.
+                std::optional<SlotId> master_bus;  ///< Holds the bus that sums the chain and DI.
         };
 
         /// @brief Creates the splitter and mixer while a split is open, or removes them for one path.
         void place_routing(const RigTopology& topology, RigController& rig, Journal& journal);
+
+        /// @brief Creates the DI strip and the master bus while DI is open, or removes them.
+        void place_di(const RigTopology& topology, RigController& rig, Journal& journal);
 
         /// @brief Removes every rig slot the topology does not route and that is not a routing slot.
         void remove_strays(const RigTopology& topology, RigController& rig, Journal& journal);

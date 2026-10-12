@@ -102,6 +102,16 @@ ChainTypeChange RigTopology::set_chain_type(ChainType type)
     return change;
 }
 
+bool RigTopology::di() const noexcept
+{
+    return di_;
+}
+
+void RigTopology::set_di(bool enabled) noexcept
+{
+    di_ = enabled;
+}
+
 const std::vector<RigTopology::SlotId>& RigTopology::stage(const StageAddress& address) const
 {
     static const std::vector<SlotId> K_EMPTY;

@@ -138,6 +138,16 @@ class RigTopology
         /// @return The slot's stage address, or nullopt when no stage holds it.
         std::optional<StageAddress> find(SlotId slot) const;
 
+        /// @brief Reports whether the DI path is open. The DI signal is the rig input before any amplifier,
+        /// summed with the chain's output in the master bus the applier adds.
+        /// @return True when the DI path is open.
+        bool di() const noexcept;
+
+        /// @brief Opens or closes the DI path. The applier creates or removes the DI strip and the
+        /// master bus; this only records the choice.
+        /// @param enabled True to open the path.
+        void set_di(bool enabled) noexcept;
+
         /// @brief Lists every slot the active chain type routes, in signal order.
         /// @return Each path's slots in path order, then the master bus's.
         std::vector<SlotId> active_slots() const;
@@ -169,6 +179,7 @@ class RigTopology
 
     private:
         ChainType type_ = ChainType::Single;
+        bool di_ = false;
         std::vector<SlotId> post_;
         std::vector<std::vector<SlotId>> branches_{1};
 };
