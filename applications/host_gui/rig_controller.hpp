@@ -78,7 +78,8 @@ class RigController
         /// already holds is a no-op: the rig never carries the same edge twice.
         /// @param publish_now Pass false to batch several structural edits into one rebuild; call
         /// publish() once when done.
-        void connect(SlotId from, SlotId to, bool publish_now = true);
+        void connect(SlotId from, SlotId to, bool publish_now = true,
+                     std::uint32_t from_port = 0);
 
         /// @brief Removes a single edge, if present, and republishes.
         /// @param publish_now Pass false to batch several structural edits into one rebuild; call
@@ -234,6 +235,18 @@ class RigController
 
         /// @brief Every edge the rig holds, in stored (connect() call) order.
         std::vector<std::pair<SlotId, SlotId>> edges() const;
+
+        /// @brief Reads the cabinet section's layout. Publish after an edit so the room is rebuilt.
+        /// @return The layout.
+        RoomLayout& room_layout() noexcept;
+
+        /// @brief Reads the cabinet section's layout.
+        /// @return The layout.
+        const RoomLayout& room_layout() const noexcept;
+
+        /// @brief Every edge the rig holds with the upstream port it reads, in stored order.
+        /// @return The records.
+        std::vector<SlotGraph::EdgeRecord> edge_records() const;
 
         /// @brief Captures what a live slot needs to be rebuilt.
         /// @param slot The slot to capture.

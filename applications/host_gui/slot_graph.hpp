@@ -43,6 +43,7 @@
 #include "SushiDSP/core/rt_graph_slot.hpp"
 #include "SushiDSP/room/hrtf_set.hpp"
 #include "SushiDSP/room/room_host.hpp"
+#include "room_layout.hpp"
 #include "SushiDSP/room/room_scene.hpp"
 
 #include "ui/geometry.hpp"
@@ -99,7 +100,8 @@ class SlotGraph
         /// the graph in a state RigGraph::compile() rejects) into one rebuild; call publish() once
         /// when done. Every existing single-call use is unaffected — the default republishes
         /// immediately, exactly as before.
-        void connect(SlotId from, SlotId to, bool publish_now = true);
+        void connect(SlotId from, SlotId to, bool publish_now = true,
+                     std::uint32_t from_port = 0);
 
         /// @brief Removes a single edge, if present, and republishes.
         /// @param publish_now Pass false to batch several structural edits (e.g. building a
@@ -259,6 +261,28 @@ class SlotGraph
         /// @brief Every edge the rig holds, in stored (connect() call) order.
         std::vector<std::pair<SlotId, SlotId>> edges() const;
 
+        /// @brief One edge with the upstream output port it reads.
+        struct EdgeRecord
+        {
+                SlotId from;             ///< Holds the upstream slot.
+                SlotId to;               ///< Holds the downstream slot.
+                std::uint32_t from_port; ///< Holds the upstream output port.
+        };
+
+        /// @brief Every edge the graph holds, with its port, in stored order.
+        /// @return The records.
+        std::vector<EdgeRecord> edge_records() const;
+
+        /// @brief Reads the cabinet section's layout: the room, the listener, the cabinets and the
+        /// microphones. Publish after an edit so the room environment is rebuilt from it.
+        /// @return The layout.
+        RoomLayout& room_layout() noexcept;
+
+        /// @brief Reads the cabinet section's layout.
+        /// @return The layout.
+        const RoomLayout& room_layout() const noexcept;
+
+
         /// @brief Captures what a live slot needs to be rebuilt.
         /// @param slot The slot to capture.
         /// @return The snapshot, or std::nullopt when the slot is not live.
@@ -356,6 +380,9 @@ class SlotGraph
         {
                 SlotId from;
                 SlotId to;
+
+                /// @brief Holds the upstream output port the edge reads; 0 is the main output.
+                std::uint32_t from_port = 0;
         };
 
         /// @brief The slot a forward walk out of a splitter's branch stopped on.
@@ -405,6 +432,17 @@ class SlotGraph
         bridged_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const;
 
         SushiDSP::PrepareInfo info_;
+        /// @brief Configures a room environment node from the layout. Throws when the room refuses it.
+        /// @param node The node the room slot built.
+        void configure_room(SushiDSP::AudioNode& node) const;
+
+        /// @brief Finds the upstream port the stored edge from `from` to `to` reads.
+        /// @return The port, or 0 when no stored edge joins the pair.
+        std::uint32_t port_of(SlotId from, SlotId to) const;
+
+        /// @brief Holds the cabinet section's layout, read when the room environment is built.
+        RoomLayout room_layout_;
+
         std::unordered_map<SlotId, Slot> slots_;
         std::vector<Edge> edges_;
         std::string ir_folder_;

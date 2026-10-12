@@ -148,6 +148,16 @@ class RigTopology
         /// @param enabled True to open the path.
         void set_di(bool enabled) noexcept;
 
+        /// @brief Reports whether the cabinet section is open. Then every path ends in the room, and the
+        /// room's microphones and listener join a bus in place of the chain's own join.
+        /// @return True when the room is open.
+        bool room() const noexcept;
+
+        /// @brief Opens or closes the cabinet section. The applier builds the room's slots and wiring
+        /// from this choice; the paths stay as they are.
+        /// @param enabled True to open the room.
+        void set_room(bool enabled) noexcept;
+
         /// @brief Lists every slot the active chain type routes, in signal order.
         /// @return Each path's slots in path order, then the master bus's.
         std::vector<SlotId> active_slots() const;
@@ -180,6 +190,7 @@ class RigTopology
     private:
         ChainType type_ = ChainType::Single;
         bool di_ = false;
+        bool room_ = false;
         std::vector<SlotId> post_;
         std::vector<std::vector<SlotId>> branches_{1};
 };

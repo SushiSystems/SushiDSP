@@ -19,6 +19,7 @@ add_executable(sushidsp_host_gui
     ui/panel_library.cpp
     ui/rig_chain_view.cpp
     rig_topology.cpp
+    room_layout.cpp
     topology_applier.cpp
     ui/divider.cpp
     ui/split_layout.cpp

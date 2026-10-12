@@ -112,6 +112,16 @@ void RigTopology::set_di(bool enabled) noexcept
     di_ = enabled;
 }
 
+bool RigTopology::room() const noexcept
+{
+    return room_;
+}
+
+void RigTopology::set_room(bool enabled) noexcept
+{
+    room_ = enabled;
+}
+
 const std::vector<RigTopology::SlotId>& RigTopology::stage(const StageAddress& address) const
 {
     static const std::vector<SlotId> K_EMPTY;

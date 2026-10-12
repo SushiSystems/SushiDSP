@@ -39,6 +39,7 @@
 #include "SushiDSP/log/log.hpp"
 #include "SushiDSP/node_registry/node_registry.hpp"
 #include "SushiDSP/room/hrtf_set_loader.hpp"
+#include "SushiDSP/room/room_environment_node.hpp"
 #include "SushiDSP/room/starter_scene.hpp"
 #include "SushiDSP/routing/mixer_node.hpp"
 #include "SushiDSP/routing/splitter_node.hpp"
@@ -128,18 +129,19 @@ SlotGraph::SlotId SlotGraph::add_node(const std::string& descriptor_id, bool pub
     return id;
 }
 
-void SlotGraph::connect(SlotId from, SlotId to, bool publish_now)
+void SlotGraph::connect(SlotId from, SlotId to, bool publish_now, std::uint32_t from_port)
 {
     const bool present = std::any_of(edges_.begin(), edges_.end(),
-                                     [from, to](const Edge& edge)
+                                     [from, to, from_port](const Edge& edge)
                                      {
-                                         return edge.from == from && edge.to == to;
+                                         return edge.from == from && edge.to == to &&
+                                                edge.from_port == from_port;
                                      });
     if (present)
     {
         return;
     }
-    edges_.push_back({from, to});
+    edges_.push_back({from, to, from_port});
     if (publish_now)
     {
         publish();
@@ -726,6 +728,72 @@ std::vector<std::pair<SlotGraph::SlotId, SlotGraph::SlotId>> SlotGraph::edges() 
     return result;
 }
 
+RoomLayout& SlotGraph::room_layout() noexcept
+{
+    return room_layout_;
+}
+
+const RoomLayout& SlotGraph::room_layout() const noexcept
+{
+    return room_layout_;
+}
+
+void SlotGraph::configure_room(SushiDSP::AudioNode& node) const
+{
+    auto* const room = dynamic_cast<SushiDSP::Room::RoomEnvironmentNode*>(&node);
+    if (room == nullptr)
+    {
+        throw std::runtime_error("SlotGraph::configure_room: the node is not a room environment");
+    }
+
+    using Environment = SushiDSP::Room::RoomEnvironmentNode;
+    const auto to_placement = [](const RoomPlacement& place)
+    {
+        return Environment::Placement{place.position, place.yaw_rad};
+    };
+
+    std::vector<Environment::Placement> sources;
+    for (const RoomPlacement& cabinet : room_layout_.cabinets())
+    {
+        sources.push_back(to_placement(cabinet));
+    }
+    std::vector<Environment::Microphone> microphones;
+    for (const MicrophoneSpot& spot : room_layout_.microphones())
+    {
+        microphones.push_back(Environment::Microphone{to_placement(spot.place), spot.pattern});
+    }
+
+    std::string reason;
+    if (!room->configure(room_layout_.shell(), sources, to_placement(room_layout_.listener()),
+                         microphones, reason))
+    {
+        throw std::runtime_error("SlotGraph::configure_room: " + reason);
+    }
+}
+
+std::uint32_t SlotGraph::port_of(SlotId from, SlotId to) const
+{
+    for (const Edge& edge : edges_)
+    {
+        if (edge.from == from && edge.to == to)
+        {
+            return edge.from_port;
+        }
+    }
+    return 0;
+}
+
+std::vector<SlotGraph::EdgeRecord> SlotGraph::edge_records() const
+{
+    std::vector<EdgeRecord> result;
+    result.reserve(edges_.size());
+    for (const Edge& edge : edges_)
+    {
+        result.push_back({edge.from, edge.to, edge.from_port});
+    }
+    return result;
+}
+
 std::optional<SlotGraph::SlotSnapshot> SlotGraph::snapshot(SlotId slot) const
 {
     const auto it = slots_.find(slot);
@@ -824,7 +892,12 @@ SlotGraph::build_graph(bool apply_bypass,
         {
             continue;
         }
+        SushiDSP::AudioNode* const raw = node.get();
         handles_out[id] = graph->add_node(std::move(node));
+        if (slot.descriptor_id == "sushidsp.room_environment")
+        {
+            configure_room(*raw);
+        }
     }
 
     const std::vector<std::pair<SlotId, SlotId>> resolved =
@@ -848,7 +921,8 @@ SlotGraph::build_graph(bool apply_bypass,
 
     for (const auto& edge : resolved)
     {
-        graph->connect(handles_out.at(edge.first), handles_out.at(edge.second));
+        graph->connect(handles_out.at(edge.first), handles_out.at(edge.second),
+                       port_of(edge.first, edge.second));
     }
 
     // A slot nothing feeds is a root; it reads the host input channel its slot names.
