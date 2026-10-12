@@ -73,6 +73,8 @@ class TopologyApplier
         {
                 std::optional<SlotId> splitter; ///< Holds the hidden splitter slot.
                 std::optional<SlotId> mixer;    ///< Holds the hidden mixer slot.
+                std::optional<SlotId> left_strip;  ///< Holds the Parallel left path's strip.
+                std::optional<SlotId> right_strip; ///< Holds the Parallel right path's strip.
         };
 
         /// @brief Creates the splitter and mixer while a split is open, or removes them for one path.
@@ -83,6 +85,10 @@ class TopologyApplier
 
         /// @brief Replaces every rig edge with the topology's edges.
         void connect(const RigTopology& topology, RigController& rig) const;
+
+        /// @brief Binds each root slot to the host input channel its path reads: the Parallel
+        /// chain's two paths read channels 0 and 1, every other root reads channel 0.
+        void bind_inputs(const RigTopology& topology, RigController& rig) const;
 
         /// @brief Returns a live routing slot of the given descriptor, creating one when needed.
         /// @return The slot's id.

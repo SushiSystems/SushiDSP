@@ -851,6 +851,20 @@ SlotGraph::build_graph(bool apply_bypass,
         graph->connect(handles_out.at(edge.first), handles_out.at(edge.second));
     }
 
+    // A slot nothing feeds is a root; it reads the host input channel its slot names.
+    std::set<SlotId> fed;
+    for (const auto& edge : resolved)
+    {
+        fed.insert(edge.second);
+    }
+    for (const auto& [id, handle] : handles_out)
+    {
+        if (fed.count(id) == 0)
+        {
+            graph->bind_input(handle, slots_.at(id).input_channel);
+        }
+    }
+
     graph->compile(info_);
     return graph;
 }
@@ -972,6 +986,20 @@ void SlotGraph::publish()
     }
 
     graph_slot_.publish(std::move(graph));
+}
+
+void SlotGraph::set_input_channel(SlotId slot, std::uint32_t channel, bool publish_now)
+{
+    const auto it = slots_.find(slot);
+    if (it == slots_.end() || it->second.input_channel == channel)
+    {
+        return;
+    }
+    it->second.input_channel = channel;
+    if (publish_now)
+    {
+        publish();
+    }
 }
 
 void SlotGraph::set_bypassed(SlotId slot, bool bypassed)

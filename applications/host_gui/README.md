@@ -230,3 +230,19 @@ publishes compiled once before the edit, so a failure there leaves the old graph
 values included, so a split starts from what was already being heard and not from silence.
 `docs/design/GUI_UX_REDESIGN.md` records that behaviour. A path that closes leaves its slots
 behind as strays, and the apply removes them.
+
+## The Parallel chain
+
+`ChainType::Parallel` is the stereo chain: two mono paths, the left one fed by host input channel 0
+and the right one by channel 1. Each path ends in a channel strip panned to its side
+(`sushidsp.channel_strip`, pan -1 and +1), and both strips join a bus (`sushidsp.bus`), the hidden
+slot the applier owns in place of the mixer. `RigTopology::parallel_edges` builds the edges.
+
+The GUI host passes the rig two input channels every block: the one `--input` selects first, and the
+device's other input second. A mono device repeats the first, so both paths hear the same signal. The
+applier binds each path's head slot to its channel through `RigController::set_input_channel`, which
+`SlotGraph::build_graph` passes to `RigGraph::bind_input`. A path left behind by a switch to another
+chain type is rebound to channel 0.
+
+Not yet built: the DI path. AmpliTube 5's DI track, a parallel input strip that bypasses the
+amplifier, is not in this model.

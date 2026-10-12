@@ -312,6 +312,8 @@ int main(int argc, char** argv)
 
     // The audio callback captures these by reference; applications/host_gui/README.md states the lifetime.
     std::vector<float> rig_input;
+    // The second host channel the rig reads; a Parallel chain takes its right path from it.
+    std::vector<float> rig_input_second;
     std::vector<float> rig_output;
     std::vector<float*> rig_output_pointers;
     std::vector<const float*> rig_output_const_pointers;
@@ -326,7 +328,7 @@ int main(int argc, char** argv)
     /// @brief Opens the chosen device, builds a rig for its format and starts the audio callback.
     /// Records the failure in connect_error and leaves the previous rig gone on any exception.
     auto connect_device = [&device, &device_choice, &asio_drivers, &connect_error,
-                           &rig_controller_storage, &rig_input, &rig_output, &rig_output_pointers,
+                           &rig_controller_storage, &rig_input, &rig_input_second, &rig_output, &rig_output_pointers,
                            &rig_output_const_pointers, &callback_silence, &input_probe,
                            &output_probe, &device_label, &rig_chain_state, &status,
                            &open_device_settings, &default_hrtf_path]()
@@ -376,6 +378,7 @@ int main(int argc, char** argv)
 
             // The buffers are sized once here and never resized; see applications/host_gui/README.md.
             rig_input.assign(actual.block_size, 0.0f);
+            rig_input_second.assign(actual.block_size, 0.0f);
             rig_output.assign(static_cast<std::size_t>(actual.block_size) * rig_channels, 0.0f);
             rig_output_pointers.resize(rig_channels);
             rig_output_const_pointers.resize(rig_channels);
@@ -390,7 +393,7 @@ int main(int argc, char** argv)
 
             RigController& rig_controller_ref = *rig_controller_storage;
             device->start(
-                [&rig_controller_ref, &rig_input, &rig_output, &rig_output_pointers,
+                [&rig_controller_ref, &rig_input, &rig_input_second, &rig_output, &rig_output_pointers,
                  &rig_output_const_pointers, &callback_silence, &input_probe, &output_probe,
                  input_index, output_selection, is_multi_channel_input, device_output_channels,
                  rig_channels](const float* const* inputs, float* const* outputs,
@@ -439,7 +442,19 @@ int main(int argc, char** argv)
                                                                   transport);
                     }
 
-                    const float* rig_input_const_pointer[1] = {rig_input.data()};
+                    // The second channel is the device's other input; a mono device, or a re-amp
+                    // source, repeats the first so both paths hear the same signal.
+                    if (source == RigInputSource::LiveInput && is_multi_channel_input && inputs != nullptr)
+                    {
+                        const std::size_t other_index = input_index == 0 ? 1u : 0u;
+                        std::memcpy(rig_input_second.data(), inputs[other_index], frames * sizeof(float));
+                    }
+                    else
+                    {
+                        std::memcpy(rig_input_second.data(), rig_input.data(), frames * sizeof(float));
+                    }
+
+                    const float* rig_input_const_pointer[2] = {rig_input.data(), rig_input_second.data()};
                     SushiDSP::ProcessContext context{rig_output_pointers.data(),
                                                      rig_input_const_pointer, frames, 0.0};
                     if (active == nullptr)
