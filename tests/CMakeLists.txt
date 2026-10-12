@@ -49,6 +49,8 @@ add_executable(sushidsp_tests
     functional/unit/test_sample_delay_line.cpp
     functional/unit/test_channel_strip_node.cpp
     functional/unit/test_bus_node.cpp
+    functional/unit/test_room_environment_node.cpp
+    functional/unit/test_microphone_node.cpp
     functional/unit/test_splitter_node.cpp
     functional/unit/test_mixer_node.cpp
     functional/unit/test_pan_node.cpp

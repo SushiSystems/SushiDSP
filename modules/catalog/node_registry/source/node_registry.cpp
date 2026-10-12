@@ -35,6 +35,8 @@
 #include "SushiDSP/jcm800/jcm800.hpp"
 #include "SushiDSP/mesa_mark2c/mesa_mark2c.hpp"
 #include "SushiDSP/peavey5150/peavey5150.hpp"
+#include "SushiDSP/room/microphone_node.hpp"
+#include "SushiDSP/room/room_environment_node.hpp"
 #include "SushiDSP/room/room_node.hpp"
 #include "SushiDSP/tubescreamer/tube_screamer.hpp"
 #include "SushiDSP/routing/bus_node.hpp"
@@ -60,6 +62,8 @@ namespace SushiDSP
             {&channel_strip_descriptor(), NodeCategory{"Routing"}},
             {&bus_descriptor(), NodeCategory{"Routing"}},
             {&room::room_descriptor(), NodeCategory{"Room"}},
+            {&Room::room_environment_descriptor(), NodeCategory{"Room"}},
+            {&Room::microphone_descriptor(), NodeCategory{"Room"}},
             {&cabinet_descriptor(), NodeCategory{"Cabinet"}},
         };
         return entries;
