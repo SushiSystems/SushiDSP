@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-13 — core: Added named output ports, breaking because `ProcessContext` gained `port_outputs` (`audio_node.hpp`, `rig_graph.cpp`).
 - 2026-10-13 — host: Rendered the ASIO example rig at the device's width, up to two channels, so a stereo device hears the chain in both outputs (`applications/host_asio/main.cpp`, `README.md`).
 - 2026-10-13 — room: Opened the AmpliTube 5 channel and cabinet section work and wrote its spec (`docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md`).
 

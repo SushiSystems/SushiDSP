@@ -42,12 +42,19 @@ namespace SushiDSP
     };
 
     /// @brief Per-block processing context. process() must fill exactly [0, frames) of each output channel.
+    ///
+    /// A node with one output port writes `outputs` and ignores `port_outputs`. A node that declares
+    /// more output ports writes port p through `port_outputs[p]`. RigGraph always sets `port_outputs`
+    /// and makes `port_outputs[0]` equal `outputs`; a caller that invokes process() directly leaves it
+    /// null, and such a caller may then drive only port 0.
     struct ProcessContext
     {
             float* const* outputs;
             const float* const* inputs;
             std::uint32_t frames;
             double time_seconds;
+            /// @brief Holds one channel-pointer array per output port; null outside RigGraph.
+            float* const* const* port_outputs = nullptr;
     };
 
     /// @brief One DSP graph node. Implementations must be real-time safe in process().
@@ -65,8 +72,24 @@ namespace SushiDSP
             virtual void process(ProcessContext& context) = 0;
 
             /// @brief Returns this node's fixed input/output channel counts.
-            /// @return The node's PortLayout.
+            /// @return The node's PortLayout. Its output_channels is the width of output port 0.
             virtual PortLayout ports() const = 0;
+
+            /// @brief Returns how many output ports this node declares. Port 0 always exists.
+            /// @return 1 unless the node overrides it; RigGraph refuses a count above its K_MAX_OUTPUT_PORTS.
+            virtual std::uint32_t output_port_count() const
+            {
+                return 1;
+            }
+
+            /// @brief Returns the channel count of one output port, the width RigGraph routes from it.
+            /// @param port The port index, below output_port_count().
+            /// @return The channel count; port 0 defaults to ports().output_channels, and any other
+            /// port defaults to 0, which RigGraph refuses. A node with more ports overrides this too.
+            virtual std::uint32_t output_port_channels(std::uint32_t port) const
+            {
+                return port == 0 ? ports().output_channels : 0;
+            }
 
             /// @brief Reads a parameter by its NodeDescriptor::parameters[].id string.
             /// @param id The parameter's id. An unrecognized id returns 0.0f.
