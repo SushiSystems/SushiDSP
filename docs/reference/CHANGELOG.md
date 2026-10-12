@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-13 — room: Opened the AmpliTube 5 channel and cabinet section work and wrote its spec (`docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md`).
+
 - 2026-10-12 — layout: Moved the core areas into the foundation tier, `src/` into each module's `source/`, and `apps/` into `applications/` (`cmake/SushiDSPLayers.cmake`).
 - 2026-10-12 — naming: Renamed sources and headers to snake_case, dropped the I prefix from five interfaces and renamed constants to `K_UPPER_SNAKE` (`audio_node.hpp`, `log_sink.hpp`).
 - 2026-10-12 — format: Added `.clang-format` and `.editorconfig` and formatted every C++ source with them, comment reflow off (`.clang-format`).

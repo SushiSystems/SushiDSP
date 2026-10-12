@@ -127,6 +127,16 @@ vector drawing rather than a scan; the readings and the corrections they make to
 The two EQ inductors moved two band centres in the model. The equaliser's active stage is now drawn
 but not modelled, and item 17's SPICE decks are unblocked by the same reading.
 
+## Opened 2026-10-13: AmpliTube 5 channels and cabinet section
+
+The copy of AmpliTube 5's signal architecture, in the phases its spec names
+([`docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md`](../agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md),
+section 11): stereo rig on the ASIO host (P0), output ports on `AudioNode` (P1), channel strips and
+the bus (P2), the Parallel and DI paths (P3), the cabinet section with the microphone node, the room
+environment and the 3D scene (P4), the preset format (P5), and the mixer view (P6). Open decisions
+the spec lists in section 12 are taken before the phase that depends on them. Nothing in this entry
+has started; the spec awaits the owner's review.
+
 ## Opened by the 2026-10-05 estate audit
 
 The defects are listed in
