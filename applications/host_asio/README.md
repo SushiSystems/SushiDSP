@@ -17,12 +17,14 @@ The amplifier does not host a cabinet. `sushidsp.cabinet` is a standalone node
 that joins the chain only when an impulse response was named on the command line, so a run
 without one ends at the amplifier, as it did before the cabinet became a node of its own.
 
-The rig has one input and one output channel. The channel selection decides
-only which physical ASIO channel feeds it and which physical channels its output reaches.
+The rig has one input channel and as many output channels as the device has, up to
+`RigGraph::K_MAX_CHANNELS`. A mono amplifier chain is copied to both channels of a stereo device by
+the graph itself. The channel selection decides only which physical ASIO channel feeds the rig and
+which physical channels its output reaches.
 
-The rig renders into `mono_output`, a buffer `main()` owns and sizes
-before the device starts. The callback maps that buffer onto the device's channels and
-allocates nothing.
+The rig renders into `rig_output`, one block per rig channel, a buffer `main()` owns and sizes
+before the device starts. Two pointer arrays name those blocks. The callback maps them onto the
+device's channels and allocates nothing.
 
 `main()` installs an `AsyncLogSink` over a `StderrLogSink` through a `ScopedLogSink`, which
 flushes the sink on every return path. What `main()` prints with `printf` is its own output and
