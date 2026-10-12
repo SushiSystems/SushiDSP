@@ -106,6 +106,16 @@ namespace SushiDSP
                      edges_.end());
     }
 
+    void RigGraph::bind_input(NodeHandle handle, std::uint32_t host_channel)
+    {
+        if (handle >= nodes_.size() || nodes_[handle] == nullptr)
+        {
+            throw std::runtime_error("RigGraph::bind_input: no live node " + std::to_string(handle));
+        }
+        input_binding_.resize(nodes_.size(), 0u);
+        input_binding_[handle] = host_channel;
+    }
+
     void RigGraph::disconnect(NodeHandle from, NodeHandle to)
     {
         edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
@@ -234,6 +244,18 @@ namespace SushiDSP
         for (NodeHandle handle : topological_order_)
         {
             node_channels_[handle] = channels_of(nodes_[handle]->ports());
+        }
+
+        input_binding_.resize(nodes_.size(), 0u);
+        for (NodeHandle handle : topological_order_)
+        {
+            if (input_binding_[handle] >= K_MAX_CHANNELS)
+            {
+                throw std::runtime_error("RigGraph::compile: node " + std::to_string(handle) +
+                                         " is bound to host input channel " +
+                                         std::to_string(input_binding_[handle]) +
+                                         ", the limit is " + std::to_string(K_MAX_CHANNELS));
+            }
         }
 
         port_count_.assign(nodes_.size(), 0);
@@ -532,11 +554,13 @@ namespace SushiDSP
             }
 
             // A root node reads the live input through slot 0 of the gather array (modules/foundation/core/README.md).
+            // A one-channel root reads the host channel it is bound to; a two-channel root reads host channels 0 and 1.
             if (edge_index == 0 && context.inputs != nullptr)
             {
+                const std::uint32_t first_channel = width == 1 ? input_binding_[handle] : 0u;
                 for (std::uint32_t channel = 0; channel < width; ++channel)
                 {
-                    gathered_inputs_[channel] = context.inputs[0];
+                    gathered_inputs_[channel] = context.inputs[first_channel + channel];
                 }
                 edge_index = 1;
             }
