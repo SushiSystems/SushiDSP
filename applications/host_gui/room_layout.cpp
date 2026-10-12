@@ -98,6 +98,23 @@ std::uint32_t RoomLayout::add_microphone(MicrophoneSpot spot, std::string& reaso
     return spot.id;
 }
 
+bool RoomLayout::restore_microphone(const MicrophoneSpot& spot, std::string& reason_out)
+{
+    if (microphones_.size() >= K_MAX_MICROPHONES)
+    {
+        reason_out = "a room takes at most " + std::to_string(K_MAX_MICROPHONES) + " microphones";
+        return false;
+    }
+    if (spot.id == 0 || find_microphone(spot.id) != nullptr)
+    {
+        reason_out = "microphone id " + std::to_string(spot.id) + " is taken or invalid";
+        return false;
+    }
+    microphones_.push_back(spot);
+    next_id_ = std::max(next_id_, spot.id + 1);
+    return true;
+}
+
 bool RoomLayout::remove_microphone(std::uint32_t id)
 {
     const auto it = std::find_if(microphones_.begin(), microphones_.end(),

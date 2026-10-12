@@ -119,6 +119,13 @@ class RoomLayout
         /// @return The id the microphone was given, or 0 when refused.
         std::uint32_t add_microphone(MicrophoneSpot spot, std::string& reason_out);
 
+        /// @brief Adds a microphone under the id it already has, as a saved layout is read back. Keeps
+        /// the next id above every restored one.
+        /// @param spot The microphone, with its id.
+        /// @param reason_out Holds the reason when the id is taken or the room is full.
+        /// @return False when refused.
+        bool restore_microphone(const MicrophoneSpot& spot, std::string& reason_out);
+
         /// @brief Removes a microphone.
         /// @param id The microphone's id.
         /// @return False when no microphone has that id.

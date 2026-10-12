@@ -576,3 +576,15 @@ void TopologyApplier::set_di(RigTopology& topology, RigController& rig, bool ena
     topology.set_di(enabled);
     apply(topology, rig);
 }
+
+TopologyApplier::MixerSlots TopologyApplier::mixer_slots() const
+{
+    MixerSlots slots;
+    slots.room_left = state_.room_left;
+    slots.room_right = state_.room_right;
+    slots.room_bus = state_.room_bus;
+    slots.di_strip = state_.di_strip;
+    slots.master_bus = state_.master_bus;
+    slots.microphones = state_.microphones;
+    return slots;
+}
