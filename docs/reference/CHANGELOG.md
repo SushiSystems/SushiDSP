@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-13 — host: Added the cabinet section: the room environment wired into the rig, a layout saved in presets, and a window with the plan view and the mixer (`room_layout.cpp`, `room_layout_codec.cpp`, `cabinet_section_window.cpp`).
+- 2026-10-13 — host: Added the DI path as a master bus that sums the chain's sink and the DI strip (`topology_applier.cpp`).
+
 - 2026-10-13 — host: Added the Parallel chain type, two mono paths joined by a bus through channel strips, with each path bound to its own host input channel (`rig_topology.cpp`, `topology_applier.cpp`, `main.cpp`).
 
 - 2026-10-13 — room: Added the room environment, which places up to three cabinets and eight microphones in one room (`room_environment_node.cpp`, `microphone_node.cpp`).
