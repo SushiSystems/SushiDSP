@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 2026-10-13 — room: Added the room environment, which places up to three cabinets and eight microphones in one room (`room_environment_node.cpp`, `microphone_node.cpp`).
+- 2026-10-13 — room: Added the microphone rig element, carrying polarity and the room flag (`microphone_node.hpp`).
+- 2026-10-13 — core: Added `RigGraph::bind_input`, so a root node reads the host channel it is bound to; the default keeps channel 0 (`rig_graph.cpp`).
+
 - 2026-10-13 — routing: Added the channel strip and the bus, which holds mute and solo for the mixer's inputs (`channel_strip_node.cpp`, `bus_node.cpp`, `sample_delay_line.cpp`).
 - 2026-10-13 — core: Added named output ports, breaking because `ProcessContext` gained `port_outputs` (`audio_node.hpp`, `rig_graph.cpp`).
 - 2026-10-13 — host: Rendered the ASIO example rig at the device's width, up to two channels, so a stereo device hears the chain in both outputs (`applications/host_asio/main.cpp`, `README.md`).
