@@ -246,3 +246,21 @@ chain type is rebound to channel 0.
 
 Not yet built: the DI path. AmpliTube 5's DI track, a parallel input strip that bypasses the
 amplifier, is not in this model.
+
+## The cabinet section
+
+`RoomLayout` (`room_layout.cpp`) records the cabinet section: the shell room, the listener, one
+placement per path and the microphones with their ids. It holds data and checks only. A preset
+stores it as the `"cabinet_section"` object (`room_layout_codec.cpp`, version 1). The room's open
+switch is not stored yet, because the chain's topology is not stored either; a loaded layout starts
+with the room closed.
+
+With the room open, every path ends in the room environment, whose listener ears and microphones
+reach a bus through channel strips and microphone rig elements, and the chain's own joins are not
+built. Each path must hold at least one slot, and each path needs a placed cabinet. The microphones
+are limited to six, because the bus takes eight inputs and the listener takes two.
+
+The "Cabinet section" window (`ui/cabinet_section_window.cpp`) holds the switches, places missing
+cabinets, draws the plan view (`ui/cabinet_section_view.cpp`, top-down, not perspective), and shows the
+mixer (`ui/mixer_panel.cpp`). Parameter edits in the mixer are not published; structural edits go
+through `TopologyApplier`.

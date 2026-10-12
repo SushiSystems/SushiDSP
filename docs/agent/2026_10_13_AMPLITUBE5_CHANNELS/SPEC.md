@@ -228,3 +228,11 @@ These need an owner decision before the phase that depends on them.
 - It does not change the JCM800 tone anchor. Amplifier and cabinet modules are
   not modified by P0 to P3, and a change to them would come with its own
   listening check.
+
+## 14. Decisions taken in the final run, 2026-10-13
+
+- **Six microphones on the host, eight in the engine.** The room environment still accepts eight, but the host layout takes six: the master bus has eight inputs and the listener ears take two. This changes the limit the owner approved in section 3; the owner should confirm it.
+- **Presets save the cabinet section without the open switch.** The switch lives in the chain's topology, which presets do not save yet.
+- **The mixer follows the bus wiring.** Room bus inputs are labelled in layout order, the order the applier connects them.
+- **The plan view is top-down.** The spec's "3D scene" is a plan with draggable markers; a perspective view is a later change.
+

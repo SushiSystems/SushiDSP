@@ -117,7 +117,7 @@ Everything below is written and syntax-checked with `clang++ -fsyntax-only`. Not
 - **P0** stereo output on the ASIO example: done.
 - **P1** output ports: done.
 - **P2** channel strip, bus, delay line: done. Mixer panel: not done.
-- **P3** Parallel chain: done in the host model, applier, input binding and tests. DI path: not done.
-- **P4** room environment and microphone node: done as engine code and tests. Host wiring (SlotGraph placement sync, microphone slots, the 3D scene): not done. Benchmark gate: not run; it needs a build.
-- **P5** preset format for placements, microphones and strips: not done.
-- **P6** mixer view: not done.
+- **P3** Parallel chain and DI path: done in the host model, applier, input binding and tests. The DI path joins after the chain's last slot; it does not yet sit before the effects.
+- **P4** room environment, microphone node and host wiring: done as code and tests. The benchmark gate is not run; it needs a build.
+- **P5** preset format for the cabinet section: done (`room_layout_codec.cpp`, `rig_persistence.cpp`). The room's open switch and the chain topology are not saved yet.
+- **P6** mixer view and plan view: done as a plan (top-down) with draggable markers, and a mixer panel. Not checked on screen.
