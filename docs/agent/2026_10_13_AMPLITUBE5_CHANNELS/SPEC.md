@@ -45,6 +45,8 @@ Each row is an owner decision, recorded with its date.
 | Node output ports | 2026-10-13 | `AudioNode` gains named output ports. Port 0 is the default, so existing nodes are unchanged. Public interface change, see section 6. |
 | Limits: 3 cabinets, 8 microphones | 2026-10-13 | Matches the 3-way splitter, and the existing fan-in limit `K_MAX_FAN_IN_OUT = 8`. Over-limit placements are refused on the control thread, with a reason. |
 | Mixer split into a channel strip and a bus | 2026-10-13 | `MixerNode` keeps summing; the strip is a new brick. |
+| Solo and mute live on the bus, not the strip | 2026-10-13 | Owner decision. Only the bus sees every input, so only it can make solo silence its neighbours. The strip keeps level, pan, polarity and delay. Width moves to P4 with the room's stereo sum. |
+| The P2 mixer panel moves to P4 | 2026-10-13 | Proposed in the phase plan, not yet approved by the owner. The panel is UI, and P4 builds the scene the strips sit in. |
 | Parallel path as two mono amplifier chains | 2026-10-13 | Matches AmpliTube 5. Reuses the existing 1-to-2 copy and 2-to-1 sum rules. |
 | The 3D scene is built with the first placeable items | 2026-10-13 | Not after the audio work. Phase P4 carries a visible scene. |
 | Term: "channel strip" for AmpliTube's "channel" | 2026-10-13 | Recorded in `docs/reference/GLOSSARY.md` in the phase that introduces the strip. |
