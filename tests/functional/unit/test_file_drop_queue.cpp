@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "FileDropQueue.hpp"
+#include "file_drop_queue.hpp"
 
 #include <gtest/gtest.h>
 
@@ -88,19 +88,21 @@ TEST(Unit_Dsp, FileDropQueueDrainAppendsToACallerSVector)
 
 TEST(Unit_Dsp, FileDropQueueSurvivesConcurrentPushAndDrain)
 {
-    static constexpr int kPathCount = 1000;
+    static constexpr int K_PATH_COUNT = 1000;
     FileDropQueue queue;
 
-    std::thread pusher([&queue]()
-    {
-        for (int i = 0; i < kPathCount; ++i)
+    std::thread pusher(
+        [&queue]()
         {
-            queue.push(std::to_string(i) + ".wav", static_cast<double>(i), static_cast<double>(i));
-        }
-    });
+            for (int i = 0; i < K_PATH_COUNT; ++i)
+            {
+                queue.push(std::to_string(i) + ".wav", static_cast<double>(i),
+                           static_cast<double>(i));
+            }
+        });
 
     std::vector<FileDrop> drained;
-    while (drained.size() < static_cast<std::size_t>(kPathCount))
+    while (drained.size() < static_cast<std::size_t>(K_PATH_COUNT))
     {
         queue.drain(drained);
     }
@@ -111,12 +113,12 @@ TEST(Unit_Dsp, FileDropQueueSurvivesConcurrentPushAndDrain)
     queue.drain(trailing);
     drained.insert(drained.end(), trailing.begin(), trailing.end());
 
-    ASSERT_EQ(drained.size(), static_cast<std::size_t>(kPathCount));
+    ASSERT_EQ(drained.size(), static_cast<std::size_t>(K_PATH_COUNT));
 
     std::set<std::string> seen;
     for (const FileDrop& drop : drained)
     {
         EXPECT_TRUE(seen.insert(drop.path).second) << "duplicate path: " << drop.path;
     }
-    EXPECT_EQ(seen.size(), static_cast<std::size_t>(kPathCount));
+    EXPECT_EQ(seen.size(), static_cast<std::size_t>(K_PATH_COUNT));
 }

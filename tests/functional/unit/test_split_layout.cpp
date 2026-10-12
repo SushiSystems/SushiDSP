@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include "ui/SplitLayout.hpp"
+#include "ui/split_layout.hpp"
 
 TEST(Unit_Dsp, SplitLayoutSeriesPlacesNodesLeftToRightWithOneGapMore)
 {
@@ -57,7 +57,7 @@ TEST(Unit_Dsp, SplitLayoutSeriesPlacesNodesLeftToRightWithOneGapMore)
 TEST(Unit_Dsp, SplitLayoutThreeWayStacksRowsAroundTheMainLine)
 {
     const ui::SplitMetrics metrics;
-    const ui::SplitGeometry geometry = ui::layout_split(0, 0, { 1, 1, 1 }, 0, metrics);
+    const ui::SplitGeometry geometry = ui::layout_split(0, 0, {1, 1, 1}, 0, metrics);
 
     ASSERT_EQ(geometry.branches.size(), 3u);
     ASSERT_TRUE(geometry.splitter.has_value());
@@ -68,25 +68,30 @@ TEST(Unit_Dsp, SplitLayoutThreeWayStacksRowsAroundTheMainLine)
     EXPECT_FLOAT_EQ((geometry.splitter->min.y + geometry.splitter->max.y) / 2.0f, center_y);
     EXPECT_FLOAT_EQ((geometry.mixer->min.y + geometry.mixer->max.y) / 2.0f, center_y);
 
-    const float row0_center = (geometry.branches[0].nodes[0].min.y + geometry.branches[0].nodes[0].max.y) / 2.0f;
-    const float row1_center = (geometry.branches[1].nodes[0].min.y + geometry.branches[1].nodes[0].max.y) / 2.0f;
-    const float row2_center = (geometry.branches[2].nodes[0].min.y + geometry.branches[2].nodes[0].max.y) / 2.0f;
+    const float row0_center =
+        (geometry.branches[0].nodes[0].min.y + geometry.branches[0].nodes[0].max.y) / 2.0f;
+    const float row1_center =
+        (geometry.branches[1].nodes[0].min.y + geometry.branches[1].nodes[0].max.y) / 2.0f;
+    const float row2_center =
+        (geometry.branches[2].nodes[0].min.y + geometry.branches[2].nodes[0].max.y) / 2.0f;
     EXPECT_FLOAT_EQ(row0_center, 43.0f);
     EXPECT_FLOAT_EQ(row1_center, center_y);
     EXPECT_FLOAT_EQ(row2_center, 243.0f);
     // Adjacent rows are exactly row_gap apart.
-    EXPECT_FLOAT_EQ(geometry.branches[1].bounds.min.y - geometry.branches[0].bounds.max.y, metrics.row_gap);
-    EXPECT_FLOAT_EQ(geometry.branches[2].bounds.min.y - geometry.branches[1].bounds.max.y, metrics.row_gap);
+    EXPECT_FLOAT_EQ(geometry.branches[1].bounds.min.y - geometry.branches[0].bounds.max.y,
+                    metrics.row_gap);
+    EXPECT_FLOAT_EQ(geometry.branches[2].bounds.min.y - geometry.branches[1].bounds.max.y,
+                    metrics.row_gap);
 }
 
 TEST(Unit_Dsp, SplitLayoutCablesStartAtSplitterAndEndAtMixer)
 {
     const ui::SplitMetrics metrics;
-    const ui::SplitGeometry geometry = ui::layout_split(0, 0, { 1, 1 }, 0, metrics);
+    const ui::SplitGeometry geometry = ui::layout_split(0, 0, {1, 1}, 0, metrics);
 
     ASSERT_TRUE(geometry.splitter.has_value());
     ASSERT_TRUE(geometry.mixer.has_value());
-    ASSERT_EQ(geometry.cables.size(), 4u);  // two polylines (in, out) per branch
+    ASSERT_EQ(geometry.cables.size(), 4u); // two polylines (in, out) per branch
 
     const float splitter_right_x = geometry.splitter->max.x;
     const float splitter_mid_y = (geometry.splitter->min.y + geometry.splitter->max.y) / 2.0f;
@@ -111,7 +116,7 @@ TEST(Unit_Dsp, SplitLayoutCablesStartAtSplitterAndEndAtMixer)
 TEST(Unit_Dsp, SplitLayoutEmptyBranchStillOffersOneGap)
 {
     const ui::SplitMetrics metrics;
-    const ui::SplitGeometry geometry = ui::layout_split(0, 0, { 0 }, 0, metrics);
+    const ui::SplitGeometry geometry = ui::layout_split(0, 0, {0}, 0, metrics);
 
     ASSERT_EQ(geometry.branches.size(), 1u);
     EXPECT_TRUE(geometry.branches[0].nodes.empty());
@@ -126,7 +131,7 @@ TEST(Unit_Dsp, SplitLayoutNearestGapPicksTheClosestCentre)
     const ui::SplitGeometry geometry = ui::layout_split(2, 0, {}, 0, metrics);
 
     // gap centres: 49, 157, 265; 170 sits closest to gap 1's centre (157).
-    const auto index = ui::nearest_gap(geometry.series, ui::Vec2{ 170.0f, 43.0f });
+    const auto index = ui::nearest_gap(geometry.series, ui::Vec2{170.0f, 43.0f});
     ASSERT_TRUE(index.has_value());
     EXPECT_EQ(*index, 1u);
 }
@@ -136,6 +141,6 @@ TEST(Unit_Dsp, SplitLayoutNearestGapRejectsAPointOutsideTheStage)
     const ui::SplitMetrics metrics;
     const ui::SplitGeometry geometry = ui::layout_split(2, 0, {}, 0, metrics);
 
-    const auto index = ui::nearest_gap(geometry.series, ui::Vec2{ 170.0f, 200.0f });
+    const auto index = ui::nearest_gap(geometry.series, ui::Vec2{170.0f, 200.0f});
     EXPECT_FALSE(index.has_value());
 }

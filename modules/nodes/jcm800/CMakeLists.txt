@@ -5,11 +5,11 @@
 # Commercial use requires a licence from Sushi Systems.
 
 add_library(jcm800 STATIC
-    src/JcmToneStack.cpp
-    src/Jcm800.cpp
+    source/jcm_tone_stack.cpp
+    source/jcm800.cpp
 )
 add_library(SushiDSP::jcm800 ALIAS jcm800)
-target_link_libraries(jcm800 PUBLIC SushiDSP::sushi_dsp)
+target_link_libraries(jcm800 PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math)
 sushidsp_apply_optimization_flags(jcm800)
 target_include_directories(jcm800 PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

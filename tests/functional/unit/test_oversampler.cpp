@@ -34,9 +34,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/HalfbandCoefficients.hpp"
-#include "SushiDSP/math/Oversampler.hpp"
-#include "measure/Spectrum.hpp"
+#include "SushiDSP/math/halfband_coefficients.hpp"
+#include "SushiDSP/math/oversampler.hpp"
+#include "measure/spectrum.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -49,13 +49,15 @@ namespace
         std::vector<float> signal(length);
         for (std::size_t i = 0; i < length; ++i)
         {
-            signal[i] = amplitude * static_cast<float>(std::sin(2.0 * M_PI * cycles_per_sample * static_cast<double>(i)));
+            signal[i] = amplitude * static_cast<float>(std::sin(2.0 * M_PI * cycles_per_sample *
+                                                                static_cast<double>(i)));
         }
         return signal;
     }
 
     /// @brief Direct-form FIR of the zero-stuffed input: the textbook definition polyphase must match.
-    std::vector<float> reference_upsample(const SushiDSP::HalfbandDesign& design, const std::vector<float>& input)
+    std::vector<float> reference_upsample(const SushiDSP::HalfbandDesign& design,
+                                          const std::vector<float>& input)
     {
         std::vector<float> stuffed(input.size() * 2, 0.0f);
         for (std::size_t i = 0; i < input.size(); ++i)
@@ -76,7 +78,8 @@ namespace
     }
 
     /// @brief Direct-form FIR of the input, keeping only the even-indexed filtered samples.
-    std::vector<float> reference_downsample(const SushiDSP::HalfbandDesign& design, const std::vector<float>& input)
+    std::vector<float> reference_downsample(const SushiDSP::HalfbandDesign& design,
+                                            const std::vector<float>& input)
     {
         std::vector<float> output(input.size() / 2, 0.0f);
         for (std::size_t m = 0; m < output.size(); ++m)
@@ -101,11 +104,12 @@ namespace
         }
         return peak;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, HalfbandDesignsHaveExactZeroTapsAndUnityDcGain)
 {
-    for (const SushiDSP::HalfbandDesign* design : { &SushiDSP::kHalfbandStage1, &SushiDSP::kHalfbandStage2, &SushiDSP::kHalfbandStage3 })
+    for (const SushiDSP::HalfbandDesign* design :
+         {&SushiDSP::K_HALFBAND_STAGE1, &SushiDSP::K_HALFBAND_STAGE2, &SushiDSP::K_HALFBAND_STAGE3})
     {
         ASSERT_EQ(design->tap_count % 4, 3u);
         const std::uint32_t centre = (design->tap_count - 1) / 2;
@@ -129,12 +133,12 @@ TEST(Unit_Dsp, HalfbandDesignsHaveExactZeroTapsAndUnityDcGain)
 TEST(Unit_Dsp, HalfbandUpsamplerMatchesDirectFormOfZeroStuffedInput)
 {
     const auto input = sine(0.0731, 4096, 0.7f);
-    SushiDSP::HalfbandUpsampler2x upsampler(SushiDSP::kHalfbandStage1);
+    SushiDSP::HalfbandUpsampler2x upsampler(SushiDSP::K_HALFBAND_STAGE1);
     std::vector<float> output(input.size() * 2, 0.0f);
     // Two blocks, so streaming state across a block boundary is covered.
     upsampler.process(input.data(), 2048, output.data());
     upsampler.process(input.data() + 2048, 2048, output.data() + 4096);
-    const auto reference = reference_upsample(SushiDSP::kHalfbandStage1, input);
+    const auto reference = reference_upsample(SushiDSP::K_HALFBAND_STAGE1, input);
     for (std::size_t i = 0; i < output.size(); ++i)
     {
         ASSERT_NEAR(output[i], reference[i], 1e-6f) << i;
@@ -144,11 +148,11 @@ TEST(Unit_Dsp, HalfbandUpsamplerMatchesDirectFormOfZeroStuffedInput)
 TEST(Unit_Dsp, HalfbandDownsamplerMatchesDirectForm)
 {
     const auto input = sine(0.0377, 8192, 0.7f);
-    SushiDSP::HalfbandDownsampler2x downsampler(SushiDSP::kHalfbandStage1);
+    SushiDSP::HalfbandDownsampler2x downsampler(SushiDSP::K_HALFBAND_STAGE1);
     std::vector<float> output(input.size() / 2, 0.0f);
     downsampler.process(input.data(), 4096, output.data());
     downsampler.process(input.data() + 4096, 4096, output.data() + 2048);
-    const auto reference = reference_downsample(SushiDSP::kHalfbandStage1, input);
+    const auto reference = reference_downsample(SushiDSP::K_HALFBAND_STAGE1, input);
     for (std::size_t i = 0; i < output.size(); ++i)
     {
         ASSERT_NEAR(output[i], reference[i], 1e-6f) << i;
@@ -158,8 +162,8 @@ TEST(Unit_Dsp, HalfbandDownsamplerMatchesDirectForm)
 TEST(Unit_Dsp, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
 {
     // A tone's images sit at k*f_base +- f. See tests/functional/unit/README.md.
-    const std::size_t base_frames = SushiDSP::measure::kFftSize / 8;
-    for (const double fraction : { 0.30, 0.35, 0.40, 0.45 })
+    const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE / 8;
+    for (const double fraction : {0.30, 0.35, 0.40, 0.45})
     {
         const double cycles = std::round(fraction * base_frames) / base_frames;
         const auto input = sine(cycles, base_frames * 2, 0.5f);
@@ -170,8 +174,10 @@ TEST(Unit_Dsp, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
             const float* block = oversampler.upsample(input.data() + position, 256);
             std::copy(block, block + 2048, oversampled.begin() + position * 8);
         }
-        const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(oversampled, oversampled.size() - SushiDSP::measure::kFftSize);
-        const std::uint32_t tone_bin = static_cast<std::uint32_t>(std::lround(cycles / 8.0 * SushiDSP::measure::kFftSize));
+        const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(
+            oversampled, oversampled.size() - SushiDSP::measure::K_FFT_SIZE);
+        const std::uint32_t tone_bin =
+            static_cast<std::uint32_t>(std::lround(cycles / 8.0 * SushiDSP::measure::K_FFT_SIZE));
         const double fundamental = SushiDSP::measure::peak_near(spectrum, tone_bin);
         double worst = -300.0;
         for (std::uint32_t bin = 8; bin < spectrum.size(); ++bin)
@@ -189,10 +195,11 @@ TEST(Unit_Dsp, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
 TEST(Unit_Dsp, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
 {
     // Folds into (0.45..0.5)*f_base are skipped. See tests/functional/unit/README.md.
-    const std::size_t base_frames = SushiDSP::measure::kFftSize;
+    const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE;
     // The reference tone is bin-exact, as the aliases are. See tests/functional/unit/README.md.
     const double reference_cycles = std::round(0.1 * base_frames) / base_frames;
-    const double reference = peak_db(SushiDSP::measure::magnitude_spectrum_db(sine(reference_cycles, base_frames * 2, 0.5f), base_frames));
+    const double reference = peak_db(SushiDSP::measure::magnitude_spectrum_db(
+        sine(reference_cycles, base_frames * 2, 0.5f), base_frames));
     // The sweep steps in integers; += 0.05 drifts. See tests/functional/unit/README.md.
     for (int step = 11; step <= 79; ++step)
     {
@@ -203,7 +210,8 @@ TEST(Unit_Dsp, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
         {
             continue;
         }
-        const double cycles_at_8x = std::round(fraction / 8.0 * base_frames * 8) / (base_frames * 8);
+        const double cycles_at_8x =
+            std::round(fraction / 8.0 * base_frames * 8) / (base_frames * 8);
         const auto input = sine(cycles_at_8x, base_frames * 8 * 2, 0.5f);
         SushiDSP::Oversampler8x oversampler(256);
         std::vector<float> output(base_frames * 2, 0.0f);
@@ -211,8 +219,10 @@ TEST(Unit_Dsp, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
         {
             oversampler.downsample(input.data() + position * 8, 2048, output.data() + position);
         }
-        const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(output, output.size() - SushiDSP::measure::kFftSize);
-        const std::uint32_t band_edge = static_cast<std::uint32_t>(0.45 * SushiDSP::measure::kFftSize);
+        const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(
+            output, output.size() - SushiDSP::measure::K_FFT_SIZE);
+        const std::uint32_t band_edge =
+            static_cast<std::uint32_t>(0.45 * SushiDSP::measure::K_FFT_SIZE);
         double worst = -300.0;
         for (std::uint32_t bin = 8; bin <= band_edge; ++bin)
         {
@@ -225,7 +235,7 @@ TEST(Unit_Dsp, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
 TEST(Unit_Dsp, Oversampler8xRoundTripDroopAt20kIsWithinTenthOfADecibel)
 {
     // 20 kHz at 48 kHz is 0.4167*f_base, inside the 0.45 passband; round trip through six stages.
-    const std::size_t base_frames = SushiDSP::measure::kFftSize;
+    const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE;
     const double cycles = std::round(20000.0 / 48000.0 * base_frames) / base_frames;
     const auto input = sine(cycles, base_frames * 2, 0.5f);
     SushiDSP::Oversampler8x oversampler(256);
@@ -264,7 +274,8 @@ TEST(Unit_Dsp, Oversampler8xLatencyMatchesMeasuredImpulseDelay)
         }
     }
     // The true group delay is fractional at base rate; the reported floor is within one sample.
-    const long difference = static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
+    const long difference =
+        static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
     EXPECT_GE(difference, 0);
     EXPECT_LE(difference, 1);
 }
@@ -272,7 +283,7 @@ TEST(Unit_Dsp, Oversampler8xLatencyMatchesMeasuredImpulseDelay)
 TEST(Unit_Dsp, Oversampler4xRoundTripDroopAt20kIsWithinTenthOfADecibel)
 {
     // 20 kHz is 0.4167*f_base, inside the 0.45 passband. See tests/functional/unit/README.md.
-    const std::size_t base_frames = SushiDSP::measure::kFftSize;
+    const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE;
     const double cycles = std::round(20000.0 / 48000.0 * base_frames) / base_frames;
     const auto input = sine(cycles, base_frames * 2, 0.5f);
     SushiDSP::Oversampler4x oversampler(256);
@@ -311,7 +322,8 @@ TEST(Unit_Dsp, Oversampler4xLatencyMatchesMeasuredImpulseDelay)
         }
     }
     // The round trip is 63.5 base-rate samples. See tests/functional/unit/README.md.
-    const long difference = static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
+    const long difference =
+        static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
     EXPECT_GE(difference, 0);
     EXPECT_LE(difference, 1);
 }
@@ -336,8 +348,8 @@ TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
     const auto probe = sine(0.0611, 128, 0.6f);
 
     {
-        SushiDSP::HalfbandUpsampler2x used(SushiDSP::kHalfbandStage1);
-        SushiDSP::HalfbandUpsampler2x fresh(SushiDSP::kHalfbandStage1);
+        SushiDSP::HalfbandUpsampler2x used(SushiDSP::K_HALFBAND_STAGE1);
+        SushiDSP::HalfbandUpsampler2x fresh(SushiDSP::K_HALFBAND_STAGE1);
         std::vector<float> scratch(burst.size() * 2, 0.0f);
         used.process(burst.data(), static_cast<std::uint32_t>(burst.size()), scratch.data());
         used.reset();
@@ -348,8 +360,8 @@ TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
     }
 
     {
-        SushiDSP::HalfbandDownsampler2x used(SushiDSP::kHalfbandStage1);
-        SushiDSP::HalfbandDownsampler2x fresh(SushiDSP::kHalfbandStage1);
+        SushiDSP::HalfbandDownsampler2x used(SushiDSP::K_HALFBAND_STAGE1);
+        SushiDSP::HalfbandDownsampler2x fresh(SushiDSP::K_HALFBAND_STAGE1);
         std::vector<float> scratch(burst.size() / 2, 0.0f);
         used.process(burst.data(), static_cast<std::uint32_t>(burst.size()), scratch.data());
         used.reset();

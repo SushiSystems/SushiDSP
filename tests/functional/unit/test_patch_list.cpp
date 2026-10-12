@@ -32,10 +32,10 @@
 #include <limits>
 #include <string>
 
-#include "SushiDSP/room/Materials.hpp"
-#include "SushiDSP/room/RoomScene.hpp"
+#include "SushiDSP/room/materials.hpp"
+#include "SushiDSP/room/room_scene.hpp"
 
-#include "ui/PatchList.hpp"
+#include "ui/patch_list.hpp"
 
 namespace
 {
@@ -54,22 +54,22 @@ namespace
         }
         return scene;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, PatchListAddFillsToTheLimitAndRefusesTheNext)
 {
     RoomScene scene;
-    for (std::size_t index = 0; index < RoomScene::kMaxPatches; ++index)
+    for (std::size_t index = 0; index < RoomScene::K_MAX_PATCHES; ++index)
     {
         ASSERT_TRUE(ui::add_patch(scene, Surface::PlusX, MaterialId::GlassWindow,
                                   static_cast<double>(index + 1)));
         EXPECT_EQ(scene.patch_count, index + 1);
     }
-    EXPECT_EQ(scene.patch_count, RoomScene::kMaxPatches);
+    EXPECT_EQ(scene.patch_count, RoomScene::K_MAX_PATCHES);
 
     EXPECT_FALSE(ui::add_patch(scene, Surface::Floor, MaterialId::OpenDoorway, 9.0));
-    EXPECT_EQ(scene.patch_count, RoomScene::kMaxPatches);
-    for (std::size_t index = 0; index < RoomScene::kMaxPatches; ++index)
+    EXPECT_EQ(scene.patch_count, RoomScene::K_MAX_PATCHES);
+    for (std::size_t index = 0; index < RoomScene::K_MAX_PATCHES; ++index)
     {
         EXPECT_EQ(scene.patches[index].surface, Surface::PlusX);
         EXPECT_EQ(scene.patches[index].material, MaterialId::GlassWindow);
@@ -89,14 +89,12 @@ TEST(Unit_Dsp, PatchListAddRecordsTheFaceTheMaterialAndTheArea)
 
 TEST(Unit_Dsp, PatchListAddRefusesZeroNegativeNaNAndInfinity)
 {
-    const double refused[] = {
-        0.0,
-        -0.0,
-        -1.0,
-        std::numeric_limits<double>::quiet_NaN(),
-        std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity()
-    };
+    const double refused[] = {0.0,
+                              -0.0,
+                              -1.0,
+                              std::numeric_limits<double>::quiet_NaN(),
+                              std::numeric_limits<double>::infinity(),
+                              -std::numeric_limits<double>::infinity()};
     RoomScene scene = scene_with(2);
     for (double area : refused)
     {
@@ -149,11 +147,11 @@ TEST(Unit_Dsp, PatchListRemoveIgnoresAnIndexAtOrPastTheCount)
 
 TEST(Unit_Dsp, PatchListRemoveFreesASlotForTheNextAdd)
 {
-    RoomScene scene = scene_with(static_cast<std::uint32_t>(RoomScene::kMaxPatches));
+    RoomScene scene = scene_with(static_cast<std::uint32_t>(RoomScene::K_MAX_PATCHES));
     ui::remove_patch(scene, 0);
-    EXPECT_EQ(scene.patch_count, RoomScene::kMaxPatches - 1);
+    EXPECT_EQ(scene.patch_count, RoomScene::K_MAX_PATCHES - 1);
     EXPECT_TRUE(ui::add_patch(scene, Surface::Floor, MaterialId::OpenDoorway, 2.0));
-    EXPECT_EQ(scene.patch_count, RoomScene::kMaxPatches);
+    EXPECT_EQ(scene.patch_count, RoomScene::K_MAX_PATCHES);
 }
 
 TEST(Unit_Dsp, PatchListSetChangesTheAreaOfOneEntry)
@@ -187,7 +185,7 @@ TEST(Unit_Dsp, PatchListSetRefusesABadIndexOrABadArea)
 TEST(Unit_Dsp, PatchListDefaultAreaIsATenthOfTheDefaultFace)
 {
     const RoomScene defaults;
-    for (std::size_t face = 0; face < SushiDSP::room::kSurfaceCount; ++face)
+    for (std::size_t face = 0; face < SushiDSP::room::K_SURFACE_COUNT; ++face)
     {
         const Surface surface = static_cast<Surface>(face);
         EXPECT_DOUBLE_EQ(ui::default_patch_area(surface), 0.1 * defaults.face_area_m2(surface));

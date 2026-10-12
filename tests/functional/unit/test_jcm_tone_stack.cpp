@@ -32,7 +32,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/jcm800/JcmToneStack.hpp"
+#include "SushiDSP/jcm800/jcm_tone_stack.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -64,9 +64,13 @@ TEST(Unit_Dsp, JcmToneStackAtFlatSettingsIsApproximatelyUnityGainAtMidFrequency)
 TEST(Unit_Dsp, JcmToneStackBassKnobChangesLowFrequencyLevel)
 {
     SushiDSP::JcmToneStack dark(48000.0);
-    dark.set_bass(0.0f); dark.set_middle(0.5f); dark.set_treble(0.5f);
+    dark.set_bass(0.0f);
+    dark.set_middle(0.5f);
+    dark.set_treble(0.5f);
     SushiDSP::JcmToneStack bright(48000.0);
-    bright.set_bass(1.0f); bright.set_middle(0.5f); bright.set_treble(0.5f);
+    bright.set_bass(1.0f);
+    bright.set_middle(0.5f);
+    bright.set_treble(0.5f);
 
     constexpr double sample_rate = 48000.0;
     constexpr double test_freq = 80.0;
@@ -89,9 +93,13 @@ TEST(Unit_Dsp, JcmToneStackBassKnobChangesLowFrequencyLevel)
 TEST(Unit_Dsp, JcmToneStackMiddleKnobChangesMidFrequencyLevel)
 {
     SushiDSP::JcmToneStack scooped(48000.0);
-    scooped.set_bass(0.5f); scooped.set_middle(0.0f); scooped.set_treble(0.5f);
+    scooped.set_bass(0.5f);
+    scooped.set_middle(0.0f);
+    scooped.set_treble(0.5f);
     SushiDSP::JcmToneStack boosted(48000.0);
-    boosted.set_bass(0.5f); boosted.set_middle(1.0f); boosted.set_treble(0.5f);
+    boosted.set_bass(0.5f);
+    boosted.set_middle(1.0f);
+    boosted.set_treble(0.5f);
 
     constexpr double sample_rate = 48000.0;
     constexpr double test_freq = 750.0;
@@ -114,9 +122,13 @@ TEST(Unit_Dsp, JcmToneStackMiddleKnobChangesMidFrequencyLevel)
 TEST(Unit_Dsp, JcmToneStackResetClearsState)
 {
     SushiDSP::JcmToneStack stack_a(48000.0);
-    stack_a.set_bass(0.8f); stack_a.set_middle(0.2f); stack_a.set_treble(0.9f);
+    stack_a.set_bass(0.8f);
+    stack_a.set_middle(0.2f);
+    stack_a.set_treble(0.9f);
     SushiDSP::JcmToneStack stack_b(48000.0);
-    stack_b.set_bass(0.8f); stack_b.set_middle(0.2f); stack_b.set_treble(0.9f);
+    stack_b.set_bass(0.8f);
+    stack_b.set_middle(0.2f);
+    stack_b.set_treble(0.9f);
 
     stack_a.process_sample(1.0f);
     stack_a.reset();
@@ -130,11 +142,11 @@ TEST(Unit_Dsp, JcmToneStackResetClearsState)
 TEST(Unit_Dsp, JcmToneStackAtEightTimesRateMatchesBaseRateWithinFifthOfADecibel)
 {
     // Float coefficient quantisation stays within 0.2 dB. See tests/functional/unit/README.md.
-    for (const double frequency : { 80.0, 250.0, 1000.0, 4000.0, 10000.0 })
+    for (const double frequency : {80.0, 250.0, 1000.0, 4000.0, 10000.0})
     {
-        double gain[2] = { 0.0, 0.0 };
+        double gain[2] = {0.0, 0.0};
         int index = 0;
-        for (const double rate : { 48000.0, 384000.0 })
+        for (const double rate : {48000.0, 384000.0})
         {
             SushiDSP::JcmToneStack stack(rate);
             stack.set_bass(0.6f);
@@ -144,7 +156,8 @@ TEST(Unit_Dsp, JcmToneStackAtEightTimesRateMatchesBaseRateWithinFifthOfADecibel)
             double input_power = 0.0, output_power = 0.0;
             for (std::size_t i = 0; i < length; ++i)
             {
-                const float x = 0.1f * static_cast<float>(std::sin(2.0 * M_PI * frequency * static_cast<double>(i) / rate));
+                const float x = 0.1f * static_cast<float>(std::sin(2.0 * M_PI * frequency *
+                                                                   static_cast<double>(i) / rate));
                 const float y = stack.process_sample(x);
                 if (i >= length / 2)
                 {

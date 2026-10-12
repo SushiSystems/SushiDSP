@@ -31,10 +31,10 @@
 #include <cstdint>
 #include <limits>
 
-#include "SushiDSP/room/Furniture.hpp"
-#include "SushiDSP/room/RoomScene.hpp"
+#include "SushiDSP/room/furniture.hpp"
+#include "SushiDSP/room/room_scene.hpp"
 
-#include "ui/FurnishingList.hpp"
+#include "ui/furnishing_list.hpp"
 
 namespace
 {
@@ -52,22 +52,22 @@ namespace
         }
         return scene;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, FurnishingListAddFillsToTheLimitAndRefusesTheNext)
 {
     RoomScene scene;
-    for (std::size_t index = 0; index < RoomScene::kMaxFurnishings; ++index)
+    for (std::size_t index = 0; index < RoomScene::K_MAX_FURNISHINGS; ++index)
     {
-        ASSERT_TRUE(ui::add_furnishing(scene, FurnitureId::SofaTwoSeat,
-                                       static_cast<double>(index + 1)));
+        ASSERT_TRUE(
+            ui::add_furnishing(scene, FurnitureId::SofaTwoSeat, static_cast<double>(index + 1)));
         EXPECT_EQ(scene.furnishing_count, index + 1);
     }
-    EXPECT_EQ(scene.furnishing_count, RoomScene::kMaxFurnishings);
+    EXPECT_EQ(scene.furnishing_count, RoomScene::K_MAX_FURNISHINGS);
 
     EXPECT_FALSE(ui::add_furnishing(scene, FurnitureId::WardrobeModule, 9.0));
-    EXPECT_EQ(scene.furnishing_count, RoomScene::kMaxFurnishings);
-    for (std::size_t index = 0; index < RoomScene::kMaxFurnishings; ++index)
+    EXPECT_EQ(scene.furnishing_count, RoomScene::K_MAX_FURNISHINGS);
+    for (std::size_t index = 0; index < RoomScene::K_MAX_FURNISHINGS; ++index)
     {
         EXPECT_EQ(scene.furnishings[index].item, FurnitureId::SofaTwoSeat);
         EXPECT_DOUBLE_EQ(scene.furnishings[index].quantity, static_cast<double>(index + 1));
@@ -85,14 +85,12 @@ TEST(Unit_Dsp, FurnishingListAddRecordsTheItemAndTheQuantity)
 
 TEST(Unit_Dsp, FurnishingListAddRefusesZeroNegativeNaNAndInfinity)
 {
-    const double refused[] = {
-        0.0,
-        -0.0,
-        -1.0,
-        std::numeric_limits<double>::quiet_NaN(),
-        std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity()
-    };
+    const double refused[] = {0.0,
+                              -0.0,
+                              -1.0,
+                              std::numeric_limits<double>::quiet_NaN(),
+                              std::numeric_limits<double>::infinity(),
+                              -std::numeric_limits<double>::infinity()};
     RoomScene scene = scene_with(2);
     for (double quantity : refused)
     {
@@ -143,11 +141,11 @@ TEST(Unit_Dsp, FurnishingListRemoveIgnoresAnIndexAtOrPastTheCount)
 
 TEST(Unit_Dsp, FurnishingListRemoveFreesASlotForTheNextAdd)
 {
-    RoomScene scene = scene_with(static_cast<std::uint32_t>(RoomScene::kMaxFurnishings));
+    RoomScene scene = scene_with(static_cast<std::uint32_t>(RoomScene::K_MAX_FURNISHINGS));
     ui::remove_furnishing(scene, 0);
-    EXPECT_EQ(scene.furnishing_count, RoomScene::kMaxFurnishings - 1);
+    EXPECT_EQ(scene.furnishing_count, RoomScene::K_MAX_FURNISHINGS - 1);
     EXPECT_TRUE(ui::add_furnishing(scene, FurnitureId::WardrobeModule, 2.0));
-    EXPECT_EQ(scene.furnishing_count, RoomScene::kMaxFurnishings);
+    EXPECT_EQ(scene.furnishing_count, RoomScene::K_MAX_FURNISHINGS);
 }
 
 TEST(Unit_Dsp, FurnishingListSetChangesTheQuantityOfOneEntry)
@@ -180,7 +178,7 @@ TEST(Unit_Dsp, FurnishingListSetRefusesABadIndexOrABadQuantity)
 
 TEST(Unit_Dsp, FurnishingListDefaultsToOneItemForEveryRow)
 {
-    for (std::size_t index = 0; index < SushiDSP::room::kFurnitureCount; ++index)
+    for (std::size_t index = 0; index < SushiDSP::room::K_FURNITURE_COUNT; ++index)
     {
         EXPECT_DOUBLE_EQ(ui::default_furnishing_quantity(static_cast<FurnitureId>(index)), 1.0);
     }

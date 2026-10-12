@@ -1,0 +1,83 @@
+/**************************************************************************/
+/* knob_math.cpp                                                          */
+/**************************************************************************/
+/*                          This file is part of:                         */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                         https://sushisystems.io                        */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the PolyForm Noncommercial License 1.0.0 (the           */
+/* "License"); you may not use this file except in compliance with the    */
+/* License. You may obtain a copy of the License at                       */
+/*                                                                        */
+/*     https://polyformproject.org/licenses/noncommercial/1.0.0           */
+/*                                                                        */
+/* Noncommercial use is free. Commercial use requires a separate licence  */
+/* from Sushi Systems; see COMMERCIAL.md. The software is provided        */
+/* "as is", without warranty of any kind.                                 */
+/**************************************************************************/
+
+/**
+ * @file knob_math.cpp
+ * @brief Implements the conversions between a parameter value, a knob position and an angle.
+ * @author Mustafa Garip
+ */
+
+#include "ui/knob_math.hpp"
+
+#include <algorithm>
+#include <cmath>
+
+namespace ui
+{
+    namespace
+    {
+        /// @brief Reports whether a parameter's range admits a logarithmic taper.
+        bool uses_log_taper(const SushiDSP::ParameterDescriptor& param)
+        {
+            return param.kind == SushiDSP::ParamKind::Logarithmic && param.min > 0.0f &&
+                   param.max > param.min;
+        }
+    } // namespace
+
+    float value_to_normalized(const SushiDSP::ParameterDescriptor& param, float value)
+    {
+        const float clamped = std::clamp(value, param.min, param.max);
+        if (uses_log_taper(param))
+        {
+            return std::log(clamped / param.min) / std::log(param.max / param.min);
+        }
+        if (param.max <= param.min)
+        {
+            return 0.0f;
+        }
+        return (clamped - param.min) / (param.max - param.min);
+    }
+
+    float normalized_to_value(const SushiDSP::ParameterDescriptor& param, float normalized)
+    {
+        const float position = std::clamp(normalized, 0.0f, 1.0f);
+        if (uses_log_taper(param))
+        {
+            return param.min * std::pow(param.max / param.min, position);
+        }
+        if (param.max <= param.min)
+        {
+            return param.min;
+        }
+        return param.min + position * (param.max - param.min);
+    }
+
+    float normalized_to_angle(float normalized)
+    {
+        return K_KNOB_START_RADIANS + std::clamp(normalized, 0.0f, 1.0f) * K_KNOB_SWEEP_RADIANS;
+    }
+
+    float apply_drag(float normalized, float pixels_dy, bool fine)
+    {
+        const float travel = fine ? K_KNOB_FINE_DRAG_PIXELS : K_KNOB_DRAG_PIXELS;
+        return std::clamp(normalized - pixels_dy / travel, 0.0f, 1.0f);
+    }
+} // namespace ui

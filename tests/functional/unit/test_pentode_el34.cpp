@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/models/PentodeEL34.hpp"
+#include "SushiDSP/circuits/models/pentode_el34.hpp"
 
 TEST(Unit_Dsp, PentodeEL34MatchesKorenAtThreeOperatingPoints)
 {
@@ -39,28 +39,28 @@ TEST(Unit_Dsp, PentodeEL34MatchesKorenAtThreeOperatingPoints)
     const SushiDSP::PentodeEL34 pentode;
     struct Point
     {
-        double vg1k;
-        double vg2k;
-        double vpk;
-        double ip;
-        double dip_dvg1k;
-        double dip_dvg2k;
-        double dip_dvpk;
-        double ig2;
-        double dig2_dvg1k;
-        double dig2_dvg2k;
+            double vg1k;
+            double vg2k;
+            double vpk;
+            double ip;
+            double dip_dvg1k;
+            double dip_dvg2k;
+            double dip_dvpk;
+            double ig2;
+            double dig2_dvg1k;
+            double dig2_dvg2k;
     };
     const Point points[3] = {
-        { -37.0, 400.0, 400.0, 3.34149261300818e-2, 4.98316907313410e-3, 5.73718514953930e-4,
-          3.30555615548759e-6, 0.0, 0.0, 0.0 },
-        { -20.0, 300.0, 250.0, 7.92947981392609e-2, 1.04281593600714e-2, 1.05203721563143e-3,
-          2.04537709631731e-5, 3.23652408855726e-3, 6.00779783938442e-4, 5.46163439944038e-5 },
-        { -5.0, 400.0, 100.0, 4.31496731894557e-1, 1.83712705886168e-2, 1.68594235250184e-3,
-          7.33338162266083e-4, 2.32789367120296e-2, 1.00200640630040e-3, 9.10914914818548e-5 },
+        {-37.0, 400.0, 400.0, 3.34149261300818e-2, 4.98316907313410e-3, 5.73718514953930e-4,
+         3.30555615548759e-6, 0.0, 0.0, 0.0},
+        {-20.0, 300.0, 250.0, 7.92947981392609e-2, 1.04281593600714e-2, 1.05203721563143e-3,
+         2.04537709631731e-5, 3.23652408855726e-3, 6.00779783938442e-4, 5.46163439944038e-5},
+        {-5.0, 400.0, 100.0, 4.31496731894557e-1, 1.83712705886168e-2, 1.68594235250184e-3,
+         7.33338162266083e-4, 2.32789367120296e-2, 1.00200640630040e-3, 9.10914914818548e-5},
     };
     for (const Point& point : points)
     {
-        const std::array<double, 3> voltages{ point.vg1k, point.vg2k, point.vpk };
+        const std::array<double, 3> voltages{point.vg1k, point.vg2k, point.vpk};
         std::array<double, 3> currents{};
         std::array<std::array<double, 3>, 3> jacobian{};
         pentode.current(voltages, currents);
@@ -86,21 +86,21 @@ TEST(Unit_Dsp, PentodeEL34GridCurrentFollowsNormansSoftLaw)
     const SushiDSP::PentodeEL34 pentode;
     struct Point
     {
-        double vg1k;
-        double ig1;
-        double dig1;
+            double vg1k;
+            double ig1;
+            double dig1;
     };
     const Point points[3] = {
-        { -1.5, 1.61959548076714e-12, 1.07972944614873e-11 },
-        { 0.5, 6.93147180559945e-7, 3.33333333333333e-6 },
-        { 1.0, 3.36838574941280e-6, 6.43703202889193e-6 },
+        {-1.5, 1.61959548076714e-12, 1.07972944614873e-11},
+        {0.5, 6.93147180559945e-7, 3.33333333333333e-6},
+        {1.0, 3.36838574941280e-6, 6.43703202889193e-6},
     };
     for (const Point& point : points)
     {
         std::array<double, 3> currents{};
         std::array<std::array<double, 3>, 3> jacobian{};
-        pentode.current({ point.vg1k, 400.0, 400.0 }, currents);
-        pentode.jacobian({ point.vg1k, 400.0, 400.0 }, jacobian);
+        pentode.current({point.vg1k, 400.0, 400.0}, currents);
+        pentode.jacobian({point.vg1k, 400.0, 400.0}, jacobian);
         EXPECT_NEAR(currents[0], point.ig1, 1e-18 + 1e-9 * point.ig1) << point.vg1k;
         EXPECT_NEAR(jacobian[0][0], point.dig1, 1e-18 + 1e-9 * point.dig1) << point.vg1k;
     }
@@ -109,25 +109,25 @@ TEST(Unit_Dsp, PentodeEL34GridCurrentFollowsNormansSoftLaw)
 TEST(Unit_Dsp, PentodeEL34JacobianMatchesCentredDifferencesEverywhere)
 {
     const SushiDSP::PentodeEL34 pentode;
-    for (const double vg1k : { -45.0, -30.0, -15.0, -5.0, 0.0 })
+    for (const double vg1k : {-45.0, -30.0, -15.0, -5.0, 0.0})
     {
-        for (const double vg2k : { 50.0, 200.0, 400.0 })
+        for (const double vg2k : {50.0, 200.0, 400.0})
         {
-            for (const double vpk : { 20.0, 100.0, 250.0, 450.0 })
+            for (const double vpk : {20.0, 100.0, 250.0, 450.0})
             {
                 // The screen law kinks at z = 0; skip it. See tests/functional/unit/README.md.
-                if (std::abs(vg2k / SushiDSP::PentodeEL34::kMu + vg1k) < 1e-3)
+                if (std::abs(vg2k / SushiDSP::PentodeEL34::K_MU + vg1k) < 1e-3)
                 {
                     continue;
                 }
 
                 std::array<std::array<double, 3>, 3> jacobian{};
-                pentode.jacobian({ vg1k, vg2k, vpk }, jacobian);
+                pentode.jacobian({vg1k, vg2k, vpk}, jacobian);
                 for (std::size_t input = 0; input < 3; ++input)
                 {
                     const double step = 1e-6;
-                    std::array<double, 3> up{ vg1k, vg2k, vpk };
-                    std::array<double, 3> down{ vg1k, vg2k, vpk };
+                    std::array<double, 3> up{vg1k, vg2k, vpk};
+                    std::array<double, 3> down{vg1k, vg2k, vpk};
                     up[input] += step;
                     down[input] -= step;
                     std::array<double, 3> current_up{};
@@ -153,13 +153,13 @@ TEST(Unit_Dsp, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
     // kx > 1, so the screen current is C1 at z = 0. See tests/functional/unit/README.md.
     const SushiDSP::PentodeEL34 pentode;
     const double vg2k = 400.0;
-    const double kink = -vg2k / SushiDSP::PentodeEL34::kMu;
-    for (const double offset : { -1e-2, -1e-4, -1e-6, 0.0, 1e-6, 1e-4, 1e-2 })
+    const double kink = -vg2k / SushiDSP::PentodeEL34::K_MU;
+    for (const double offset : {-1e-2, -1e-4, -1e-6, 0.0, 1e-6, 1e-4, 1e-2})
     {
         std::array<double, 3> currents{};
         std::array<std::array<double, 3>, 3> jacobian{};
-        pentode.current({ kink + offset, vg2k, 400.0 }, currents);
-        pentode.jacobian({ kink + offset, vg2k, 400.0 }, jacobian);
+        pentode.current({kink + offset, vg2k, 400.0}, currents);
+        pentode.jacobian({kink + offset, vg2k, 400.0}, jacobian);
         EXPECT_GE(currents[1], 0.0) << offset;
         EXPECT_LT(currents[1], 1e-6) << offset;
         EXPECT_GE(jacobian[1][0], 0.0) << offset;
@@ -169,8 +169,8 @@ TEST(Unit_Dsp, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
 
     std::array<double, 3> at_kink{};
     std::array<std::array<double, 3>, 3> jacobian_at_kink{};
-    pentode.current({ kink, vg2k, 400.0 }, at_kink);
-    pentode.jacobian({ kink, vg2k, 400.0 }, jacobian_at_kink);
+    pentode.current({kink, vg2k, 400.0}, at_kink);
+    pentode.jacobian({kink, vg2k, 400.0}, jacobian_at_kink);
     EXPECT_DOUBLE_EQ(at_kink[1], 0.0);
     EXPECT_DOUBLE_EQ(jacobian_at_kink[1][0], 0.0);
     EXPECT_DOUBLE_EQ(jacobian_at_kink[1][1], 0.0);
@@ -182,8 +182,8 @@ TEST(Unit_Dsp, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
     const SushiDSP::PentodeEL34 pentode;
     std::array<double, 3> high{};
     std::array<double, 3> low{};
-    pentode.current({ -20.0, 300.0, 400.0 }, high);
-    pentode.current({ -20.0, 300.0, 100.0 }, low);
+    pentode.current({-20.0, 300.0, 400.0}, high);
+    pentode.current({-20.0, 300.0, 100.0}, low);
     EXPECT_NEAR(high[2] / low[2], 1.13152342150114, 1e-9);
     EXPECT_DOUBLE_EQ(high[1], low[1]);
     EXPECT_DOUBLE_EQ(high[0], low[0]);
@@ -193,13 +193,13 @@ TEST(Unit_Dsp, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
 {
     // current() and jacobian() forward to the joint form. See tests/functional/unit/README.md.
     const SushiDSP::PentodeEL34 pentode;
-    for (const double vg1k : { -45.0, -37.0, -20.0, -5.0, 0.0 })
+    for (const double vg1k : {-45.0, -37.0, -20.0, -5.0, 0.0})
     {
-        for (const double vg2k : { 1e-4, 50.0, 300.0, 400.0 })
+        for (const double vg2k : {1e-4, 50.0, 300.0, 400.0})
         {
-            for (const double vpk : { 20.0, 100.0, 250.0, 400.0 })
+            for (const double vpk : {20.0, 100.0, 250.0, 400.0})
             {
-                const std::array<double, 3> v{ vg1k, vg2k, vpk };
+                const std::array<double, 3> v{vg1k, vg2k, vpk};
                 std::array<double, 3> separate_currents{};
                 std::array<std::array<double, 3>, 3> separate_jacobian{};
                 pentode.current(v, separate_currents);
@@ -227,7 +227,7 @@ TEST(Unit_Dsp, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
     // The JCM800 idle point, straight out of the joint form (D6b Task 4's golden vector).
     std::array<double, 3> currents{};
     std::array<std::array<double, 3>, 3> jacobian{};
-    pentode.current_and_jacobian({ -37.0, 400.0, 400.0 }, currents, jacobian);
+    pentode.current_and_jacobian({-37.0, 400.0, 400.0}, currents, jacobian);
     EXPECT_NEAR(currents[2], 3.34149261301e-2, 1e-11);
     EXPECT_NEAR(jacobian[2][0], 4.98316907313e-3, 1e-11);
     EXPECT_DOUBLE_EQ(currents[1], 0.0);
@@ -236,16 +236,16 @@ TEST(Unit_Dsp, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
 TEST(Unit_Dsp, PentodeEL34StaysFiniteUnderAbsurdInputs)
 {
     const SushiDSP::PentodeEL34 pentode;
-    for (const double vg1k : { -1e4, -50.0, 0.0, 50.0, 1e4 })
+    for (const double vg1k : {-1e4, -50.0, 0.0, 50.0, 1e4})
     {
-        for (const double vg2k : { -1e4, -1.0, 0.0, 1e-4, 1.0, 1e4 })
+        for (const double vg2k : {-1e4, -1.0, 0.0, 1e-4, 1.0, 1e4})
         {
-            for (const double vpk : { -1e4, 0.0, 1e4 })
+            for (const double vpk : {-1e4, 0.0, 1e4})
             {
                 std::array<double, 3> currents{};
                 std::array<std::array<double, 3>, 3> jacobian{};
-                pentode.current({ vg1k, vg2k, vpk }, currents);
-                pentode.jacobian({ vg1k, vg2k, vpk }, jacobian);
+                pentode.current({vg1k, vg2k, vpk}, currents);
+                pentode.jacobian({vg1k, vg2k, vpk}, jacobian);
                 for (std::size_t branch = 0; branch < 3; ++branch)
                 {
                     EXPECT_TRUE(std::isfinite(currents[branch]))

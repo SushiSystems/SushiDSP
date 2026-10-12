@@ -136,21 +136,21 @@ add_executable(sushidsp_tests
 
     # --- Host diagnostics ---
     functional/unit/test_sine_tone_node.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host/SineToneNode.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host/sine_tone_node.cpp
     functional/unit/test_rig_controller.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/RigController.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/SlotGraph.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/SessionTimeline.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/RigPersistence.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/FileDropQueue.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/Mp3Decoder.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ChannelResampler.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/AudioImportCache.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/AudioImportQueue.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_controller.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/slot_graph.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/session_timeline.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_persistence.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/file_drop_queue.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/mp3_decoder.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/channel_resampler.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/audio_import_cache.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/audio_import_queue.cpp
     functional/unit/test_rig_topology.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/RigTopology.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_topology.cpp
     functional/unit/test_topology_applier.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/TopologyApplier.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/topology_applier.cpp
 
     # --- host_gui view layer ---
     # Only the three ImGui-free units are compiled here: sushidsp_tests does not link imgui, and
@@ -159,23 +159,23 @@ add_executable(sushidsp_tests
     functional/unit/test_panel_library.cpp
     functional/unit/test_level_probe.cpp
     functional/unit/test_directory_listing.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/KnobMath.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/PanelLibrary.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/DirectoryListing.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/TimelineScale.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/ArrangementLayout.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/TapTempo.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/MusicalTimeText.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/knob_math.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/panel_library.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/directory_listing.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/timeline_scale.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/arrangement_layout.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/tap_tempo.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/musical_time_text.cpp
     functional/unit/test_split_layout.cpp
     functional/unit/test_divider_math.cpp
     functional/unit/test_gear_filter.cpp
     functional/unit/test_level_text.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/SplitLayout.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/DividerMath.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/GearFilter.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/LevelText.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/FurnishingList.cpp
-    ${CMAKE_SOURCE_DIR}/apps/host_gui/ui/PatchList.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/split_layout.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/divider_math.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/gear_filter.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/level_text.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/furnishing_list.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/patch_list.cpp
 
     # --- DD-3 ---
     functional/unit/test_dd3_analog_filters.cpp
@@ -239,9 +239,11 @@ target_compile_definitions(sushidsp_tests PRIVATE
     SUSHIDSP_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
     SUSHIDSP_SPICE_DIR="${CMAKE_SOURCE_DIR}/docs/reference/spice"
 )
-target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host)
-target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/host_gui)
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/host)
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/host_gui)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+# The generated resampler kernel is private to the math module; this test checks the table itself.
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/modules/foundation/math/source)
 # Lets the coefficient tests reach headers the library keeps private, such as the generated
 # resampler kernel table.
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -265,7 +267,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     # SUSHIDSP_BUILD_GUI block, which FetchContent_MakeAvailable(json)s it. If a future
     # developer configures with SUSHIDSP_BUILD_GUI OFF, this target fails to configure.
     # Out of scope to fix here: every other opt-in module (SDL2, ASIO) already has the
-    # same "tests assume it's on" characteristic, e.g. apps/host/SineToneNode.cpp being
+    # same "tests assume it's on" characteristic, e.g. applications/host/sine_tone_node.cpp being
     # compiled unconditionally into sushidsp_tests regardless of SUSHIDSP_BUILD_SDL2.
     nlohmann_json::nlohmann_json
 )

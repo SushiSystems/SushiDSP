@@ -1,6 +1,6 @@
-# `modules/nodes/jcm800` — Marshall JCM800 2203
+# `modules/nodes/jcm800`, Marshall JCM800 2203
 
-One `IAudioNode`, mono in and mono out, registered as `sushidsp.jcm800` with eight parameters:
+One `AudioNode`, mono in and mono out, registered as `sushidsp.jcm800` with eight parameters:
 preamp, master, bass, middle, treble, presence, input trim and output. Cabinet convolution is
 not part of this node; a rig that wants one places the standalone `sushidsp.cabinet` node
 after this one (see [`modules/nodes/cabinet/README.md`](../cabinet/README.md)).
@@ -24,7 +24,7 @@ networks, and each one says so.
 ## The stages and their plate swings
 
 Every triode runs on `TriodeStage`'s seven-argument constructor. The bias and swing figures come
-from the Koren 12AX7 model in `include/SushiDSP/circuits/models/Triode12AX7.hpp` solved on each
+from the Koren 12AX7 model in `modules/foundation/circuits/include/SushiDSP/circuits/models/triode12_ax7.hpp` solved on each
 block's own load line at B+ 360 V: the idle point from `Vk = Rk·Ia` with the grid at DC ground,
 and the plate bottom from `Va = 360 − Ra·Ia` at `Vgk = 0` with the cathode held at its idle
 voltage.
@@ -52,7 +52,7 @@ in the descriptor.
 
 ## Derived factors that are not stage constants
 
-- **`kV1aGain`, `kV1bGain`, `kV2aGain`: 55.432497, 7.774305, 67.001549.** Each is the Koren
+- **`K_V1A_GAIN`, `K_V1B_GAIN`, `K_V2A_GAIN`: 55.432497, 7.774305, 67.001549.** Each is the Koren
   Jacobian at the stage's own idle point above: `µ·R_a/(r_a + R_a)` for the two bypassed
   cathodes (V1a gm 1.5025 mA/V, r_a 58.465 kΩ, µ 87.84; V2a gm 2.2682 mA/V, r_a 41.923 kΩ,
   µ 95.09), and `µ·R_a/(r_a + R_a + (µ + 1)·R_k)` for V1b's unbypassed 10 kΩ (gm 0.6812 mA/V,
@@ -60,26 +60,26 @@ in the descriptor.
   until DA5 part 2; `jcm_v1b_cold`'s own AC sweep reads +16.89 dB at 1 kHz. The Miller pole on
   each driven grid reads its stage's gain, so V1b's corner moves from 13.8 kHz to 60.0 kHz
   and V2a's to 12.5 kHz, the inverter's from 31.0 to 13.4 kHz.
-- **`kPhaseInverter.input_degeneration`, 1.888775, divided into the inverter's input.** The inverter is
+- **`K_PHASE_INVERTER.input_degeneration`, 1.888775, divided into the inverter's input.** The inverter is
   a long-tailed pair, so its shared cathode follows the driven grid. The other triode's cathode
   presents `(r_a + R_a)/(µ + 1)` = 125055.615/95.443529 = 1310.2577 Ω in parallel with the tail,
   so the grid-to-cathode signal is the input over `1 + R_tail/(R_tail + that)` =
   1 + 10470/(10470 + 1310.2577). µ is 94.443529 = gm·r_a from the Koren Jacobian at the idle
   point above, with gm 2.193524 mA/V and r_a 43055.615 Ω. R_tail is the 10.47 kΩ both cathodes
-  share — `jcm_ltp`'s 470 Ω and 10 kΩ in series to ground, both in the tail, so neither goes in
+  share, `jcm_ltp`'s 470 Ω and 10 kΩ in series to ground, both in the tail, so neither goes in
   the shunt branch. The undriven grid's return to the same junction is not in the factor; it
   keeps the plain form the 5150's pair uses.
-- **`kPhaseInverterGain`, 61.927402.** One triode's full load-line gain,
+- **`K_PHASE_INVERTER_GAIN`, 61.927402.** One triode's full load-line gain,
   `µ·R_a/(r_a + R_a)` = 94.443529 × 82000/125055.615. It is the whole single-triode gain: the
   pair's split already lives in the degeneration factor, and halving it here would count that
   split twice. It was 22.426327 on the deck's grounded grid leaks and 40 in D6a.
-- **`kV1bTreblePeakerDivider`, 0.680272, with a 3.34635 dB shelf at 873.541 Hz.** The 2203 feeds
+- **`K_V1B_TREBLE_PEAKER_DIVIDER`, 0.680272, with a 3.34635 dB shelf at 873.541 Hz.** The 2203 feeds
   V1b's grid through a 470 kΩ resistor bypassed by 470 pF, into a 1 MΩ grid leak
   (`jcm_v1b_cold`). At mid frequencies that is 1 M/(470 k + 1 M); the 470 pF puts a zero at
   1/(2π·470k·470p) = 720.484 Hz and the network's pole at 1.47 times that, 1059.112 Hz, so the
   divider returns to unity over the top end. The shelf's corner is the geometric mean of the two.
-- **`kToneStackInsertionLoss`, 0.4030488.** The passive 2203 stack loses 7.8928 dB at 1 kHz with
-  all three controls at 0.5, measured here on `FmvToneStack(kJcm2203ToneStack)` and matching the
+- **`K_TONE_STACK_INSERTION_LOSS`, 0.4030488.** The passive 2203 stack loses 7.8928 dB at 1 kHz with
+  all three controls at 0.5, measured here on `FmvToneStack(K_JCM2203_TONE_STACK)` and matching the
   −7.84 dB `jcm_fmv`'s own sweep reads. The loss belongs to the passive stack; `JcmToneStack`'s
   three biquads are unity at flat and do not carry it, so it is applied at the stack's output. It
   goes away when `FmvToneStack` replaces `JcmToneStack`.
@@ -106,7 +106,7 @@ in the descriptor.
   Its shape through the mids is not the FMV stack's: part 1's Task 4 measured it 6.35 / 8.68 /
   15.93 dB above `FmvToneStack` at MID 0.1 / 0.5 / 0.9.
 - **The Miller grid poles use a common 100 kΩ source impedance** for all three driven grids. The
-  `kPlateLoadOhms` comment in `Jcm800.cpp` gives the real source impedance at each grid and the
+  `K_PLATE_LOAD_OHMS` comment in `jcm800.cpp` gives the real source impedance at each grid and the
   direction of the error.
 - **The EL34 bias mismatch is an input-referred 0.24 V grid offset** on the second tube. It was
   0.03 V in the model volts of the bias-referenced `PentodeStage`, which could not express it
@@ -116,26 +116,26 @@ in the descriptor.
 
 ## Level staging
 
-The module used to carry three interstage scalars — `kV1bToV2aAttenuation`,
-`kV2aToPhaseInverterAttenuation` and `kPhaseInverterToPowerTubeAttenuation`, at 1/50, 1/50 and
-1/32 — whose job was to keep each grid inside its solver bound. They were not circuit values, and
-the plate-swing spec removed them. `kPreampPotMaxAttenuation` stays because it is the preamp pot,
-and `kPowerTubeToTransformerAttenuation` stays as the output trim from the EL34 plates to the
-transformer's units: the pair's full swing, `kEl34`'s two headrooms summed (305.778 V), lands at
+The module used to carry three interstage scalars, `K_V1B_TO_V2A_ATTENUATION`,
+`kV2aToPhaseInverterAttenuation` and `K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION`, at 1/50, 1/50 and
+1/32, whose job was to keep each grid inside its solver bound. They were not circuit values, and
+the plate-swing spec removed them. `K_PREAMP_POT_MAX_ATTENUATION` stays because it is the preamp pot,
+and `K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION` stays as the output trim from the EL34 plates to the
+transformer's units: the pair's full swing, `K_EL34`'s two headrooms summed (305.778 V), lands at
 the 2.0 the transformer stage received at full clip before DA5 part 2 (2 × 20 model volts × 0.05),
 so the transformer and the sag stage see the range they were calibrated for. What replaced the
-staging is not staging: `kPhaseInverter.input_degeneration` is the pair's own tail feedback, derived
+staging is not staging: `K_PHASE_INVERTER.input_degeneration` is the pair's own tail feedback, derived
 above.
 
 ## The EL34 pair
 
-`kEl34` (`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`) is the Philips EL34
+`K_EL34` (`modules/foundation/circuits/include/SushiDSP/circuits/stages/power_tube_presets.hpp`) is the Philips EL34
 datasheet's operating point for the tube in the 2203's arrangement, and every one of its fields
 is that row or the deck. The January 1969 sheet's page 3, "Class B, two tubes in push-pull",
 first column: grid No. 2 series resistor 1000 Ω, Vg1 −38 V, Vb 425 V, Va 420 V, Ia 2 × 30 mA at
 zero signal and 2 × 120 mA at full, Raa 3.4 kΩ, Vi 27 Vrms, Wo 55 W. That is the 2203's power
-stage as `jcm_pp_ot_nfb` draws it — 1 kΩ screen stoppers off the plate supply, −38 V fixed bias,
-220 kΩ grid leaks, 5.6 kΩ grid stoppers, a 3.4 kΩ primary — with the datasheet's supply in
+stage as `jcm_pp_ot_nfb` draws it, 1 kΩ screen stoppers off the plate supply, −38 V fixed bias,
+220 kΩ grid leaks, 5.6 kΩ grid stoppers, a 3.4 kΩ primary, with the datasheet's supply in
 place of the deck's 360 V, which the deck's README calls the D6a brief's figure.
 
 | Field | Value | From |
@@ -246,7 +246,7 @@ generate more distinct harmonics to fold, and the fundamental shrinks with them.
 
 ## Calibration
 
-`Jcm800::kMasterUnityGain` is 0.2500494, re-measured on 2026-09-07 on the transformer whose
+`Jcm800::K_MASTER_UNITY_GAIN` is 0.2500494, re-measured on 2026-09-07 on the transformer whose
 secondary carries no mean (DA5 part 3). It puts a −12 dBFS 82 Hz sine at default knobs out at
 −6.000 dBFS, which is what `Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`
 pins; 82 Hz is the frequency all four amplifiers pin at (DA5 spec §6). It read 0.2534701 on the
@@ -290,7 +290,7 @@ and spec section 8 records "Perceptual A/B validation... deferred".
 
 ### The common plate load
 
-`kPlateLoadOhms` takes the driving impedance as a common 100 kOhm plate load for all three grids.
+`K_PLATE_LOAD_OHMS` takes the driving impedance as a common 100 kOhm plate load for all three grids.
 That is a deliberate simplification, not a per-node fact. V1b's grid is really fed from the
 1 MOhm preamp pot's wiper, a Thevenin source of up to 250 kOhm; V2a's from the tone stack's
 output impedance; and the phase inverter's from V2a's plate through its coupling cap. Every one
@@ -301,7 +301,7 @@ single number until D6d gives each block a real source impedance.
 ### The treble peaker and the grid capacitance
 
 V1b's grid sits behind the 2203's 470k/470p treble peaker, which this model carries as
-`kV1bTreblePeakerDivider` and its shelf: the network's own loss and its return to unity above the
+`K_V1B_TREBLE_PEAKER_DIVIDER` and its shelf: the network's own loss and its return to unity above the
 corner. What it does not carry is the peaker's interaction with the grid capacitance, where the
 470 pF puts itself in series with the ~115 pF grid and the source drives the two together. The
 Miller corner is computed from the plate load and the grid capacitance alone, so the real
@@ -316,7 +316,7 @@ bandwidth to give away.
 
 ### The coefficient epsilon
 
-`kCoefficientEpsilon` is the knob movement below which a recomputed tone-stack or presence
+`K_COEFFICIENT_EPSILON` is the knob movement below which a recomputed tone-stack or presence
 coefficient set would be numerically indistinguishable from the one already in place, so the
 audio thread skips the rebuild. It only saves work: 1e-4 of a knob's 0..1
 travel is far finer than the ~1e-3 step a 7-bit MIDI controller can even express.
@@ -348,7 +348,7 @@ floor.
 The Miller poles are part of the oversampled chain, so like the coupling capacitor they are
 derived at the oversampled rate, each from the gain of the stage whose grid it is, through
 `miller_corner_hz()`, which reads the gain constants and so tracks them. The phase inverter's
-pole is a property of this model's inverter, which is a single triode at `kPhaseInverter.gain`.
+pole is a property of this model's inverter, which is a single triode at `K_PHASE_INVERTER.gain`.
 A real 2203's inverter is a long-tailed pair, whose driven grid sees very little Miller
 multiplication because that half runs as a grounded-grid stage with no inverting plate-to-grid
 path. D6d should not inherit this pole when it replaces the inverter with the LTP.

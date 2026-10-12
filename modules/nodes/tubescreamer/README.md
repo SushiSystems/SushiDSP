@@ -1,6 +1,6 @@
-# `modules/nodes/tubescreamer` — Ibanez Tube Screamer (TS808/TS9)
+# `modules/nodes/tubescreamer`, Ibanez Tube Screamer (TS808/TS9)
 
-One `IAudioNode`, mono in and mono out, registered as `sushidsp.tubescreamer` with four
+One `AudioNode`, mono in and mono out, registered as `sushidsp.tubescreamer` with four
 parameters: drive, tone, level, input trim.
 [`docs/design/SUSHIDSP.md`](../../../docs/design/SUSHIDSP.md) §6 describes it as an input buffer
 stage, an op-amp soft-clipping stage with a diode feedback pair, and a passive tone/output
@@ -10,10 +10,10 @@ repeating the spec's figure as fact. This file records what the code in this dir
 
 ## The two DK blocks
 
-`TubeScreamerCircuits.hpp` describes the netlists node for node against
+`tube_screamer_circuits.hpp` describes the netlists node for node against
 [`docs/reference/spice/ts_clip/README.md`](../../../docs/reference/spice/ts_clip/README.md) and
 `docs/reference/spice/ts_tone/README.md`, because the committed reference CSVs from those schematics are what the
-block tests null against — a value drifting from its README source makes those nulls
+block tests null against, a value drifting from its README source makes those nulls
 meaningless.
 
 | Block | Class | What it does |
@@ -26,16 +26,16 @@ and cleared, along with both DK blocks, in `reset()`.
 
 ## Level staging and calibration
 
-- `kLevelUnityGain = 0.6942987f` — the Level knob's 0 dB gain, measured against the 4x DK chain
+- `K_LEVEL_UNITY_GAIN = 0.6942987f`, the Level knob's 0 dB gain, measured against the 4x DK chain
   directly: a −12 dBFS 82 Hz sine measures −7.94 dBFS through the chain at this setting.
-- `kMinFeedbackResistance = 51000.0f` / `kMaxFeedbackResistance = 551000.0f` — the Drive
+- `K_MIN_FEEDBACK_RESISTANCE = 51000.0f` / `K_MAX_FEEDBACK_RESISTANCE = 551000.0f`, the Drive
   rheostat's endpoints in ohms, exposed publicly so a host or test can read what the knob's ends
   mean without opening the netlist.
 
 ## Latency
 
 `latency_samples()` reports only the 4x oversampler's round-trip group delay; the DK blocks'
-own group delay is frequency- and tone-dependent, so it is left out deliberately — tone, not
+own group delay is frequency- and tone-dependent, so it is left out deliberately, tone, not
 latency.
 
 ## Known deviation: `DiodePairPort` not wired in
@@ -43,7 +43,7 @@ latency.
 `clip_port_` is declared as `DiodePairPort`, but the node still wires up the plain
 `LinearPort`-style port. At the shipping 4x rate, `AdaaDiodePairPort` nulls further from the
 reference circuit than the plain port does, so the smaller alias floor it would buy costs more
-total error than it saves — see
+total error than it saves, see
 [`docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`](../../../docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md),
 "Model corrections D6c C2, The verdict". Wiring it in would need one more line in `reset()`
 (`clip_port_.reset()`) beyond the declaration already present. The measured gap is 14 dB. The
@@ -52,7 +52,7 @@ is handed the port per sample and does not own it, so `DkCircuit::reset()` canno
 
 ## Dependencies
 
-Links only `SushiDSP::sushi_dsp` (`modules/nodes/tubescreamer/CMakeLists.txt`) — this is the D3
+Links only `SushiDSP::sushi_dsp` (`modules/nodes/tubescreamer/CMakeLists.txt`), this is the D3
 product the design spec uses to validate the shared DK solver core before JCM800 (§9, D3), as
 the simpler single-nonlinear-stage circuit.
 
@@ -87,7 +87,7 @@ is `h` by the substitution above.
 
 ### The oversampling factor and the smoothing time
 
-`kOversamplingFactor` is 4. Each knob's smoother uses the 20 ms `kSmoothingMs`: slow enough that
+`K_OVERSAMPLING_FACTOR` is 4. Each knob's smoother uses the 20 ms `K_SMOOTHING_MS`: slow enough that
 a jump cannot step the clipper's operating point audibly, fast enough to feel immediate under a
 hand. Four times is where the diode pair's aliasing products fall below the
 noise floor of the committed halfbands, and the DK solve costs too much to spend eight (approved
@@ -109,7 +109,7 @@ block (D6b plan, ruling 3).
 ### Volts inside the oversampled loop
 
 The oversampled loop works in volts in and volts out: the DK blocks are the real circuit, and
-`kFullScaleVolts` is what 0 dBFS means at the instrument jack (spec D5b.5). The D6a 20 Hz input
+`K_FULL_SCALE_VOLTS` is what 0 dBFS means at the instrument jack (spec D5b.5). The D6a 20 Hz input
 biquad is gone. The clip block's own 1 uF into 510 kOhm is the pedal's real input high-pass, at
 0.31 Hz.
 

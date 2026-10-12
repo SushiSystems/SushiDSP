@@ -1,4 +1,4 @@
-# `modules/nodes/diezel_vh4` — Diezel VH4, channel 3
+# `modules/nodes/diezel_vh4`, Diezel VH4, channel 3
 
 > **Channel 3's gain chain can be written as a white-box module. Its tone stack, its power section
 > and its supply voltages cannot, and the module as a whole is therefore a documented
@@ -7,7 +7,7 @@
 That is the verdict of
 [`docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md`](../../../docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md),
 and this module is built from that dossier and nothing else. Every section number below points
-into it. One `IAudioNode`, mono in and mono out, registered as `sushidsp.diezel_vh4` with ten
+into it. One `AudioNode`, mono in and mono out, registered as `sushidsp.diezel_vh4` with ten
 parameters: Gain, Bass, Middle, Treble, Volume, Deep, Presence, Master, Input Trim and Output.
 
 Diezel has never published a schematic. What the dossier reads is one anonymous reverse-engineering
@@ -24,25 +24,25 @@ are the repo's own bricks; `DiezelVh4` owns the order they run in and nothing el
 
 | Stage | What runs | Plate swing, V up / V down | Numbers from |
 | --- | --- | --- | --- |
-| R1 1 M, C1 100–200 pF | not modelled; C1's corner depends on the source impedance | — | 3.1 |
+| R1 1 M, C1 100–200 pF | not modelled; C1's corner depends on the source impedance |, | 3.1 |
 | V1a, Ra 120 k, Rk 2k2 bypassed by 47 µF | `TriodeStage`, gain 56.8, Vgk −2.05 V, grid leak 1 M | 111.7 / 144.167 | 3.1, 6 |
-| C13 1 nF, R14 220 k, GAIN 250 k | first-order high-pass whose corner tracks the knob, plus the pot's own division | — | 3.1, 3.2, 6 |
-| R21 47 k stopper, R22 3M3 grid leak | Miller low-pass, 26.5 kHz | — | 3.3 |
+| C13 1 nF, R14 220 k, GAIN 250 k | first-order high-pass whose corner tracks the knob, plus the pot's own division |, | 3.1, 3.2, 6 |
+| R21 47 k stopper, R22 3M3 grid leak | Miller low-pass, 26.5 kHz |, | 3.3 |
 | V2a, Ra 120 k, Rk 680 ∥ 1 µF | `TriodeStage`, gain 67.2, Vgk −1.02 V; cathode shelf, zero 234 Hz, pole 603 Hz, −8.22 dB | 180.8 / 75.857 | 3.3, 6 |
-| C18 4.7 nF into the relay node | first-order high-pass, 63.8 Hz; divider ×0.4996 | — | 3.4, 6 |
-| R26 470 k stopper | Miller low-pass, 2.51 kHz | — | 3.4 |
+| C18 4.7 nF into the relay node | first-order high-pass, 63.8 Hz; divider ×0.4996 |, | 3.4, 6 |
+| R26 470 k stopper | Miller low-pass, 2.51 kHz |, | 3.4 |
 | V3a, Ra 120 k, Rk 680 ∥ 2.2 µF | `TriodeStage`, gain 71.4, Vgk −1.02 V; cathode shelf, zero 106 Hz, pole 274 Hz, −8.22 dB | 180.8 / 75.857 | 3.4, 6 |
-| V3b cathode follower, Rk 120 k | scalar ×0.986, then a first-order high-pass at 2.26 Hz | — | 3.5, 6 |
-| Tone stack | `DiezelVh4ToneStack`: 560 pF, 22 nF, 22 nF, 39 k slope, pots 1 M / 22 k / 220 k | — | 4 |
-| R42 470 k, VOLUME 470 k, R43 680 k into the 48.1 k mix node | knob × 0.5, then ×0.0660 | — | 2, 6 |
+| V3b cathode follower, Rk 120 k | scalar ×0.986, then a first-order high-pass at 2.26 Hz |, | 3.5, 6 |
+| Tone stack | `DiezelVh4ToneStack`: 560 pF, 22 nF, 22 nF, 39 k slope, pots 1 M / 22 k / 220 k |, | 4 |
+| R42 470 k, VOLUME 470 k, R43 680 k into the 48.1 k mix node | knob × 0.5, then ×0.0660 |, | 2, 6 |
 | V4a, Ra 120 k, Rk 640 unbypassed | `TriodeStage`, gain 28.7, Vgk −0.98 V | 184.0 / 72.688 | 6 |
-| V4b send buffer | scalar ×0.986 | — | 2 |
-| Loop return driver, phase inverter | one `TriodeStage` at gain 61.927402, input divided by the tail degeneration 1.888775 | 117.418041 / 89.548144 | 5 — nothing established, `kTriode12AX7Inverter82kPlate` |
-| EL34 quad | two `PentodeStage(kDiezelVh4PowerEl34)`, in real volts | 35 / 339.166 V | 5, 7, Philips EL34 sheet |
-| Output transformer, supply sag | JCM800 constants | — | 5 — nothing established |
-| Deep | `ResonanceControl` at 80 Hz, 10 dB | — | 5, 6 |
-| Presence | high shelf at 4 kHz, ±9 dB | — | 5, 6 |
-| Master, clamp | as the JCM800 | — | — |
+| V4b send buffer | scalar ×0.986 |, | 2 |
+| Loop return driver, phase inverter | one `TriodeStage` at gain 61.927402, input divided by the tail degeneration 1.888775 | 117.418041 / 89.548144 | 5, nothing established, `K_TRIODE12_AX7_INVERTER82K_PLATE` |
+| EL34 quad | two `PentodeStage(K_DIEZEL_VH4_POWER_EL34)`, in real volts | 35 / 339.166 V | 5, 7, Philips EL34 sheet |
+| Output transformer, supply sag | JCM800 constants |, | 5, nothing established |
+| Deep | `ResonanceControl` at 80 Hz, 10 dB |, | 5, 6 |
+| Presence | high shelf at 4 kHz, ±9 dB |, | 5, 6 |
+| Master, clamp | as the JCM800 |, |, |
 
 V1a through the sag stage runs inside one 8× oversampled region, so every corner in that span is
 derived at the oversampled rate. Presence, Deep and the master volume run at the host rate.
@@ -51,8 +51,8 @@ Cabinet convolution is not part of this node; a rig that wants one places the st
 
 ### The gain knob is a filter
 
-C13's 1 nF is the number that voices this channel (§3.1). It works against V1a's plate impedance —
-120 k in parallel with rp 54.6 k, so 37.53 k — plus R14's 220 k plus whatever the pot's shunt leg
+C13's 1 nF is the number that voices this channel (§3.1). It works against V1a's plate impedance , 
+120 k in parallel with rp 54.6 k, so 37.53 k, plus R14's 220 k plus whatever the pot's shunt leg
 adds. The knob therefore moves the corner and the level together:
 
 ```
@@ -87,7 +87,7 @@ The flat-position response of this deck is therefore a prediction, not a target 
 
 `FmvToneStack`'s closed form has no series input resistor, and the dossier states no input impedance
 for the deck. R40's 10 k is applied as one frequency-independent factor against the resistive path
-the stack presents at midband — R41 39 k plus the bass pot's 1 M plus the mid pot's 22 k, so
+the stack presents at midband, R41 39 k plus the bass pot's 1 M plus the mid pot's 22 k, so
 1.061 M:
 
 ```
@@ -109,7 +109,7 @@ V4b reuses it, on the grounds that §2 draws it as the same topology on the same
 
 The drawing puts a 10 µF in series with R31's 470 k on the follower's output. The tech who reads the
 same sheet says the position is real but the values are not, and that a real one is nearer 2n2 into
-47–100 k — a treble shunt around 1.5 kHz, which is a different circuit. The dossier's ruling is
+47–100 k, a treble shunt around 1.5 kHz, which is a different circuit. The dossier's ruling is
 quoted here in full: **"Do not implement this network from S1."** Its blocking question 3 is what
 would settle it.
 
@@ -129,9 +129,9 @@ for the arithmetic being consistent rather than for the sound.
 ### The send pad is not in the signal path
 
 The 100 k / 4.7 k pad at the send jack (×0.0449, §6) feeds the jack, not the power amp. The loop's
-through-path leaves V4b's cathode ahead of it, so the pad is absent here. Its two figures — 4.5 kΩ
+through-path leaves V4b's cathode ahead of it, so the pad is absent here. Its two figures, 4.5 kΩ
 of source impedance against Diezel's stated 4.7 kΩ, and 420 Ω at the follower against a stated
-~600 Ω — are part of why the dossier trusts the drawing at all.
+~600 Ω, are part of why the dossier trusts the drawing at all.
 
 ### The mix bus is hard-coded
 
@@ -142,15 +142,15 @@ dossier's §8 question 13 says so in those terms.
 
 ### Level staging is gone
 
-The four staging factors this module carried until 2026-09-07 —
+The four staging factors this module carried until 2026-09-07 , 
 `kV1aToV2aLevelStaging`, `kV2aToV3aLevelStaging`, `kFollowerToMixBusLevelStaging` and
-`kV4bToPhaseInverterLevelStaging` — were removed by
+`kV4bToPhaseInverterLevelStaging`, were removed by
 [the plate-swing spec](../../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md), which
 gave `TriodeStage` the plate ceiling the table above lists and left the dossier's own dividers
 (×0.4996, the volume divider, ×0.0660 and the two follower scalars) as the only interstage factors
-in the chain. `kPowerTubeToTransformerAttenuation` stays, this chain's one output trim to full
+in the chain. `K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION` stays, this chain's one output trim to full
 scale, and keeps the corpus name because the name is the citation.
-`kPhaseInverterToPowerTubeAttenuation`, the 1/32 it sat beside, was replaced on the same day by the
+`K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION`, the 1/32 it sat beside, was replaced on the same day by the
 two constants below.
 
 ### The phase inverter's tail
@@ -162,15 +162,15 @@ as a plain common-cathode `TriodeStage` hands it a window it does not have.
 
 The VH4's inverter is not established (§5), so it stands in for the 2203's pair, and since
 2026-09-21 it **reads the corpus preset rather than re-deriving it**:
-`kTriode12AX7Inverter82kPlate` in `include/SushiDSP/circuits/stages/PhaseInverterPresets.hpp`, whose
-`cathode_bias_volts` is −1.346012 V, `plate_swing` { 117.418041, 89.548144 }, `gain` 61.927402 — one
-triode's full load-line gain, not half of it, because the pair's split is already in the factor —
-and `input_degeneration` **1.888775**, which `DiezelVh4.cpp` divides the inverter's input by. Its tail is the 10.47 kΩ both
+`K_TRIODE12_AX7_INVERTER82K_PLATE` in `modules/foundation/circuits/include/SushiDSP/circuits/stages/phase_inverter_presets.hpp`, whose
+`cathode_bias_volts` is −1.346012 V, `plate_swing` { 117.418041, 89.548144 }, `gain` 61.927402, one
+triode's full load-line gain, not half of it, because the pair's split is already in the factor , 
+and `input_degeneration` **1.888775**, which `diezel_vh4.cpp` divides the inverter's input by. Its tail is the 10.47 kΩ both
 cathodes share, `jcm_ltp`'s 470 Ω and 10 kΩ in series to ground, and its grid leaks return to
 their junction as the 2203's do, which is what puts the pair at 1.432 mA per half with 117.4 V of
 plate headroom where the deck's grounded leaks gave 0.188 mA and 15.4 V (DA5 part 2). A product
-module may not include another, so both modules read one preset in `include/SushiDSP/circuits/`;
-the derivation lives beside it in `PhaseInverterPresets.hpp`, from `jcm_ltp`'s 82 kΩ plate, its shared
+module may not include another, so both modules read one preset in `modules/foundation/circuits/include/SushiDSP/circuits/`;
+the derivation lives beside it in `phase_inverter_presets.hpp`, from `jcm_ltp`'s 82 kΩ plate, its shared
 470 Ω + 10 kΩ tail and the Koren Jacobian at that pair's idle point. Before this the module derived
 its own figure, got 4.140398 out of a formula with no cathode shunt in it, and disagreed with the
 JCM800 by 6.5 dB on the same stage. Like everything else here, the numbers are a modelling choice
@@ -184,11 +184,11 @@ in volts.
 
 Each `PlateSwing` is `{ 367 − Va, Va − Va_bottom }`. `Va` is the dossier's §6 idle plate voltage;
 `Va_bottom` is the plate solved at `Vgk = 0` on the stage's 120 kΩ load line against the Koren
-12AX7 of `include/SushiDSP/circuits/models/Triode12AX7.hpp`, by bisection, with the cathode held at
+12AX7 of `modules/foundation/circuits/include/SushiDSP/circuits/models/triode12_ax7.hpp`, by bisection, with the cathode held at
 its idle voltage. V4a's 640 Ω cathode is unbypassed, so holding its cathode at the idle 0.98 V and
 reading `Vgk = 0` as the conduction limit is a simplification: the real cathode rises as the stage
 conducts, which would put the bottom a little higher. The phase inverter is a modelling choice like
-the rest of that stage — it takes the JCM800 long-tailed pair's swing, computed from
+the rest of that stage, it takes the JCM800 long-tailed pair's swing, computed from
 [`jcm_ltp`](../../../docs/reference/spice/jcm_ltp/README.md) at B+ 360 V, where the 82 kΩ half
 self-biases to `Vk` 3.928014 V and `Va` 344.618092 V, the matched-pair figures this module
 copies by value. That leaves only 15.8 V toward the supply, which
@@ -220,7 +220,7 @@ That is the circuit rather than the model. §6 puts the midband product V1a × p
 after the first is in grid conduction on any real input". A plate ceiling of 72 to 210 V cannot hold
 the grid behind it inside four, so these are recorded here as measurements and no test asserts them;
 what the tests assert is the clean end of the knob, `DiezelVh4HasACleanEndAtMinimumGain`.
-`DiezelVh4GridProbesReportEveryStageInSignalOrder` pins the hooks themselves — five stages, every
+`DiezelVh4GridProbesReportEveryStageInSignalOrder` pins the hooks themselves, five stages, every
 one moving after a render, zero outside the range.
 
 ### Silence in, silence out
@@ -228,10 +228,10 @@ one moving after a render, zero outside the range.
 Each grid carries a small resting offset, `Is·(Rs ∥ Rg)` from the cathode-referenced conduction
 diode, and each plate multiplies it: at silence the five grids sit at 10 µV, 119 µV, 1.35 mV,
 391 µV and 6.296 mV (default knobs, 2 s of all-zero input, 2026-09-07). None of it reaches the
-output. C18 and C20 are in the two places the offset could accumulate — C20, 220 nF at 2.26 Hz, is
+output. C18 and C20 are in the two places the offset could accumulate, C20, 220 nF at 2.26 Hz, is
 the capacitor the drawing puts on V3b's output, and the module applies it immediately after the
 follower scalar through `Biquad::set_first_order_high_pass()`, whose real pole stays put at a
-corner that far down — and the output transformer's 60 Hz rolloff takes what is left. Two seconds of
+corner that far down, and the output transformer's 60 Hz rolloff takes what is left. Two seconds of
 digital silence come back at **3.4e-44 peak, −869.5 dBFS**, DC mean −6.1e-48, with the gain knob at
 its default, and at 3.5e-44, −869.1 dBFS with the knob at 0.0. Both are denormals.
 
@@ -252,7 +252,7 @@ rolloff at all.
 The grid capacitances are Cgk 1.6 pF and Cgp 1.7 pF from
 `docs/reference/spice/models/12ax7_koren.sub`, plus 10 pF of stray wiring. This module holds all
 three at double precision and computes the pole itself, where
-`include/SushiDSP/circuits/stages/MillerInputCapacitance.hpp` holds them as floats; the two
+`modules/foundation/circuits/include/SushiDSP/circuits/stages/miller_input_capacitance.hpp` holds them as floats; the two
 disagree by 2.6·10⁻⁸ of the corner, which is why the module did not adopt the brick. The
 driving resistance is per grid, because §3.3 and §3.4 draw the two stoppers this channel has and
 §3.4 computes V3a's pole from R26 itself. The dossier reads that pole at about 2.9 kHz from 115 pF;
@@ -281,7 +281,7 @@ and it carries none. What that leaves unpinned, in the dossier's own words:
 
 So the phase inverter here is one `TriodeStage` on the JCM800's four long-tailed-pair constants,
 and the output transformer and the sag stage carry the JCM800's constants unchanged.
-`kPowerTubeToTransformerAttenuation` maps the pair's full swing, `kDiezelVh4PowerEl34`'s two
+`K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION` maps the pair's full swing, `K_DIEZEL_VH4_POWER_EL34`'s two
 headrooms summed (374.166 V), onto the 2.2222 the transformer stage received at full clip before
 DA5 part 2 (2 × 22.222 model volts × 0.05). All of it is a modelling choice with nothing VH4-specific
 behind it.
@@ -298,23 +298,23 @@ capacitor between the inverter and the EL34 grids (§5 establishes none, and add
 0.022 µF into 230 kΩ moves the pair's mean from 4.5 to 6.4 % without curing it), so the mean
 reaches the grids as a shift of both tubes' operating points; `OutputTransformerStage` removes the
 pair's mean with its rolloff, and since DA5 part 3 its secondary carries no mean either, so the
-saturation's own rectification of the unequal halves — 0.021 of full scale here, the source of the
-0.0152 `DiezelVh4IsDcStableAcrossManyBlocksAtHighGain` read at bass 0 — no longer reaches the
+saturation's own rectification of the unequal halves, 0.021 of full scale here, the source of the
+0.0152 `DiezelVh4IsDcStableAcrossManyBlocksAtHighGain` read at bass 0, no longer reaches the
 output. What remains at that setting is 0.0010, made where the ±1 output clamp cuts the unequal
 halves of a 1.06 peak.
 
 Deep is a first-order low shelf at 80 Hz. The 80 Hz is Diezel's owner's manual (S2); the product
 page says 90 Hz, and §8 question 9 records that the two factory documents disagree. The 10 dB of
-depth is a modelling choice — no source gives one. The first-order form is also a choice: §5 and §8
+depth is a modelling choice, no source gives one. The first-order form is also a choice: §5 and §8
 question 8 say the real control is an LC section in the feedback loop, whose lift is bounded and
 resonant and whose interaction with the cabinet's own resonance a shelf will not reproduce. Presence
 is a high shelf at 4 kHz, which is Diezel's figure (S2), at the JCM800's ±9 dB, which is not.
 
 ### The power tube is an EL34
 
-`kDiezelVh4PowerEl34` (`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`) is that row of the
+`K_DIEZEL_VH4_POWER_EL34` (`modules/foundation/circuits/include/SushiDSP/circuits/stages/power_tube_presets.hpp`) is that row of the
 Philips EL34 datasheet in full, since DA5 part 2 made `PentodeStage` volt-true: page 3, "Class B,
-two tubes in push-pull", the Vba 500 V column — Va 495 V, Vg2 400 V, Vg1 −36 V, Ia 2 × 30 mA at
+two tubes in push-pull", the Vba 500 V column, Va 495 V, Vg2 400 V, Vg1 −36 V, Ia 2 × 30 mA at
 zero signal, Raa 4 kΩ, Vi 25.8 Vrms, Wo 70 W. The VH4 runs ~500 V on the OT primary (S7) and
 Diezel specifies 35 mA per tube (S3), so that row is the closest published operating point to this
 amplifier, and the idle current is Diezel's.
@@ -330,14 +330,14 @@ amplifier, and the idle current is Diezel's.
 
 The 4 kΩ primary is the datasheet's; the VH4's is not established (§5). The
 `{ 10000, 220000, -36, 8, 1e-9, 0.02585, 0.045 }` preset this module carried before had its gain
-and ceiling scaled from `kEl34`, which had been fitted to golden files with no operating point
+and ceiling scaled from `K_EL34`, which had been fitted to golden files with no operating point
 behind it.
 
 The spec's original choice was the KT77, and §7 works that case out in full: −43 V from the Genalex
 sheet's Vb 500 V ultra-linear row, with a ±25 % adjustment window putting the real figure somewhere
 between −32 V and −54 V. Nothing in any source puts a KT77 in a VH4. Diezel's own documents name no
 power-tube type at all; the service manual only rules types out. What evidence exists points to the
-EL34 — the model name is "VH4 EL34 Head", the bias selector is labelled "EL34 and 6L6", and the
+EL34, the model name is "VH4 EL34 Head", the bias selector is labelled "EL34 and 6L6", and the
 factory biasing table has rows for 5881, 6L6, EL34 and 6550/KT66/KT88 and none for the KT77. The
 KT77 is a drop-in EL34 replacement, so building this module for it would be a voicing decision
 rather than an error, and swapping the preset is a one-line change.
@@ -349,7 +349,7 @@ is the corpus's Norman law, the same for every tube in it.
 
 ## Calibration
 
-`DiezelVh4::kMasterUnityGain` uses the calibration point all four amplifiers share (DA5 spec §6):
+`DiezelVh4::K_MASTER_UNITY_GAIN` uses the calibration point all four amplifiers share (DA5 spec §6):
 with every knob at its default and a −12 dBFS 82 Hz sine in, the output peaks at −6.00 dBFS.
 `DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput` is the test that reads it.
 
@@ -365,7 +365,7 @@ constant multiplies the signal after the last nonlinearity, so it is set, the te
 constant scaled by the decibels the reading misses.
 
 There is no measured target to calibrate anything else against. **No bench measurement of a VH4 has
-been published** — no frequency response, no THD figure, no input sensitivity, no capture of any
+been published**, no frequency response, no THD figure, no input sensitivity, no capture of any
 node. The dossier searched for one and says so. What the tests assert instead are the operating
 points, the corner frequencies and the two impedance figures §6 lists, which test this module
 against the documented circuit rather than against an amplifier.
@@ -384,7 +384,7 @@ against a nominal 5, with the master 20 dB under unity. The sweep runs at −40 
 volt-true power stage this channel turns that into a full-scale output: at unity the flat response
 at 80 Hz reads +39.8 dB over the sweep, the output sits on the ±1 rail, and the shelf's lift of a
 clamped signal reads 2.18 dB (2026-09-07). The shelf is linear and sits after the amp, so once
-nothing clamps the figure stops depending on the level — 4.813 dB with the master 10, 20 and 40 dB
+nothing clamps the figure stops depending on the level, 4.813 dB with the master 10, 20 and 40 dB
 down alike. The 20 Hz point reads 6.840 dB where the shelf is 10 dB deep: C13's input high-pass,
 314 Hz with the gain knob at its top and 618 Hz at its bottom, has thrown the fundamental away
 before the first distorting stage, so at 20 Hz the swept-sine estimate is measuring the saturated
@@ -431,7 +431,7 @@ which. The class exposes `diezel_vh4_descriptor()`.
 
 ### The master unity gain
 
-`kMasterUnityGain` multiplies the signal after the last nonlinearity, so it scales the output and
+`K_MASTER_UNITY_GAIN` multiplies the signal after the last nonlinearity, so it scales the output and
 nothing else. The calibration point is the one all four amplifiers share: every knob at its
 default and a -12 dBFS 82 Hz input peaks at -6.00 dBFS
 (`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, section 6), pinned
@@ -442,20 +442,20 @@ and 0.627263, the last pinned at 1 kHz. "Calibration" above carries the derivati
 
 ### Dossier citations
 
-Every constant in `DiezelVh4.cpp` cites the section of
+Every constant in `diezel_vh4.cpp` cites the section of
 `docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md` it comes from. A constant the
 dossier marks "not established", or that this module chose for itself, says so on its own line and
 is listed again in this README.
 
 ### V1a's plate impedance
 
-`kV1aPlateImpedanceOhms` is Ra 120 kOhm in parallel with rp 54.6 kOhm (sections 3.1 and 6). It is
+`K_V1A_PLATE_IMPEDANCE_OHMS` is Ra 120 kOhm in parallel with rp 54.6 kOhm (sections 3.1 and 6). It is
 the impedance C13 is driven from, and it is what puts the gain pot's corners on the dossier's
 314 Hz and 618 Hz.
 
 ### V2a's stopper and grid leak
 
-`kV2aSourceResistanceOhms` and `kV2aGridLeakOhms` are R21 47 kOhm and R22 3M3 as section 3.3
+`K_V2A_SOURCE_RESISTANCE_OHMS` and `K_V2A_GRID_LEAK_OHMS` are R21 47 kOhm and R22 3M3 as section 3.3
 draws them. Section 8 question 5 records that a tech reports 1 MOhm and 220 kOhm on real boards.
 
 ### The coupling capacitors
@@ -465,15 +465,15 @@ above says why.
 
 ### The volume's series divider
 
-`kVolumeSeriesDivider` follows from sections 2 and 4: the stack's output leaves through R42
+`K_VOLUME_SERIES_DIVIDER` follows from sections 2 and 4: the stack's output leaves through R42
 470 kOhm into the 470 kOhm channel volume, so the wiper's own fraction sits on a fixed
 470/(470+470) divider.
 
 ### V4a's grid
 
 V4a runs Ra 120 kOhm with its 640 Ohm cathode unbypassed (sections 2 and 6), which is already
-folded into the x28.7 gain. Its grid is the mix node, so `kV4aSourceResistanceOhms` is R43
-680 kOhm in parallel with the node's 48.1 kOhm, and `kV4aGridLeakOhms` is that node.
+folded into the x28.7 gain. Its grid is the mix node, so `K_V4A_SOURCE_RESISTANCE_OHMS` is R43
+680 kOhm in parallel with the node's 48.1 kOhm, and `K_V4A_GRID_LEAK_OHMS` is that node.
 
 ### The loop return and the phase inverter
 
@@ -522,7 +522,7 @@ or removed.
 
 Dossier section 4, "Values", gives the stack's components: C27 560 pF, C28 22 nF, C29 22 nF, the
 R41 39 kOhm slope resistor, bass 1 MOhm, mid 22 kOhm and treble 220 kOhm. R40 10 kOhm is not a
-member of the closed form and is carried by `DiezelVh4ToneStack::kInputResistorAttenuation`.
+member of the closed form and is carried by `DiezelVh4ToneStack::K_INPUT_RESISTOR_ATTENUATION`.
 
 ### V3a's values
 

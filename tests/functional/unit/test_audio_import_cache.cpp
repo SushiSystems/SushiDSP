@@ -33,7 +33,7 @@
 
 #include <gtest/gtest.h>
 
-#include "AudioImportCache.hpp"
+#include "audio_import_cache.hpp"
 
 namespace
 {
@@ -65,10 +65,9 @@ namespace
     std::string read_file(const std::filesystem::path& path)
     {
         std::ifstream in(path, std::ios::binary);
-        return std::string((std::istreambuf_iterator<char>(in)),
-                           std::istreambuf_iterator<char>());
+        return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, AudioImportCacheImportsOnlyMp3)
 {
@@ -82,7 +81,7 @@ TEST(Unit_Dsp, AudioImportCacheImportsOnlyMp3)
 TEST(Unit_Dsp, AudioImportCacheNamesOneEntryPerSourceAndRate)
 {
     const std::filesystem::path root = make_fixture("names");
-    const std::string           source = (root / "song.mp3").string();
+    const std::string source = (root / "song.mp3").string();
     write_file(source, "one");
 
     const std::string at_48 = SushiDSP::host::AudioImportCache::entry_name(source, 48000.0);
@@ -98,7 +97,7 @@ TEST(Unit_Dsp, AudioImportCacheNamesOneEntryPerSourceAndRate)
 TEST(Unit_Dsp, AudioImportCacheNamesANewEntryWhenTheSourceChanges)
 {
     const std::filesystem::path root = make_fixture("changed");
-    const std::string           source = (root / "song.mp3").string();
+    const std::string source = (root / "song.mp3").string();
 
     write_file(source, "one");
     const std::string before = SushiDSP::host::AudioImportCache::entry_name(source, 48000.0);
@@ -111,7 +110,7 @@ TEST(Unit_Dsp, AudioImportCacheNamesANewEntryWhenTheSourceChanges)
 TEST(Unit_Dsp, AudioImportCacheKeepsOnlySafeCharactersFromTheStem)
 {
     const std::filesystem::path root = make_fixture("stem");
-    const std::string           source = (root / "Peace Sells! (320 Kbps).mp3").string();
+    const std::string source = (root / "Peace Sells! (320 Kbps).mp3").string();
     write_file(source, "one");
 
     const std::string name = SushiDSP::host::AudioImportCache::entry_name(source, 48000.0);
@@ -122,7 +121,7 @@ TEST(Unit_Dsp, AudioImportCacheKeepsOnlySafeCharactersFromTheStem)
 TEST(Unit_Dsp, AudioImportCachePutsItsEntriesInItsOwnFolder)
 {
     const std::filesystem::path root = make_fixture("folder");
-    const std::string           source = (root / "song.mp3").string();
+    const std::string source = (root / "song.mp3").string();
     write_file(source, "one");
 
     const SushiDSP::host::AudioImportCache cache((root / "cache").string());
@@ -136,11 +135,11 @@ TEST(Unit_Dsp, AudioImportCachePutsItsEntriesInItsOwnFolder)
 TEST(Unit_Dsp, AudioImportCacheReusesTheWavItAlreadyHolds)
 {
     const std::filesystem::path root = make_fixture("reuse");
-    const std::string           source = (root / "song.mp3").string();
+    const std::string source = (root / "song.mp3").string();
     write_file(source, "not an mp3 at all");
 
     const SushiDSP::host::AudioImportCache cache((root / "cache").string());
-    const std::string                      entry = cache.entry_path(source, 48000.0);
+    const std::string entry = cache.entry_path(source, 48000.0);
     std::filesystem::create_directories(root / "cache");
     write_file(entry, "kept");
 
@@ -152,7 +151,7 @@ TEST(Unit_Dsp, AudioImportCacheReusesTheWavItAlreadyHolds)
 TEST(Unit_Dsp, AudioImportCacheRefusesAFileThatIsNotAnMp3AndLeavesNothingBehind)
 {
     const std::filesystem::path root = make_fixture("refuse");
-    const std::string           source = (root / "song.mp3").string();
+    const std::string source = (root / "song.mp3").string();
     write_file(source, "not an mp3 at all");
 
     const SushiDSP::host::AudioImportCache cache((root / "cache").string());

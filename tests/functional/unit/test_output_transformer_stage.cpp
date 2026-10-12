@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/OutputTransformerStage.hpp"
+#include "SushiDSP/circuits/stages/output_transformer_stage.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -81,7 +81,8 @@ TEST(Unit_Dsp, OutputTransformerStageSaturatesLargeSignalsToFiniteOutput)
     float max_output = 0.0f;
     for (int i = 0; i < 4000; ++i)
     {
-        const float input = 50.0f * static_cast<float>(std::sin(2.0 * M_PI * test_freq * i / sample_rate));
+        const float input =
+            50.0f * static_cast<float>(std::sin(2.0 * M_PI * test_freq * i / sample_rate));
         const float output = stage.process_sample(input);
         ASSERT_TRUE(std::isfinite(output));
         if (i > 3000)

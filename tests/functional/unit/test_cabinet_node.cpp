@@ -31,20 +31,20 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/cabinet/CabinetNode.hpp"
+#include "SushiDSP/cabinet/cabinet_node.hpp"
 
 namespace
 {
     std::vector<float> make_identity_impulse_response()
     {
-        return std::vector<float>{ 1.0f };
+        return std::vector<float>{1.0f};
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, CabinetNodeIsAPassthroughWithNoCabinetInstalled)
 {
     SushiDSP::CabinetNode node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
 
     std::vector<float> input(256);
@@ -53,9 +53,10 @@ TEST(Unit_Dsp, CabinetNodeIsAPassthroughWithNoCabinetInstalled)
         input[i] = std::sin(static_cast<float>(i) * 0.1f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* inputs[1] = { input.data() };
-    float* outputs[1] = { output.data() };
-    SushiDSP::ProcessContext context{ outputs, inputs, static_cast<std::uint32_t>(input.size()), 0.0 };
+    const float* inputs[1] = {input.data()};
+    float* outputs[1] = {output.data()};
+    SushiDSP::ProcessContext context{outputs, inputs, static_cast<std::uint32_t>(input.size()),
+                                     0.0};
 
     node.process(context);
 
@@ -69,19 +70,20 @@ TEST(Unit_Dsp, CabinetNodeIsAPassthroughWithNoCabinetInstalled)
 TEST(Unit_Dsp, CabinetNodeInstallsAndAppliesAnImpulseResponse)
 {
     SushiDSP::CabinetNode node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
 
     EXPECT_FALSE(node.has_cabinet());
-    EXPECT_TRUE(node.set_cabinet(SushiDSP::Ir{ make_identity_impulse_response(), 48000.0 }));
+    EXPECT_TRUE(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}));
     EXPECT_TRUE(node.has_cabinet());
     node.reclaim_cabinets();
 
     std::vector<float> input(256, 1.0f);
     std::vector<float> output(256, 0.0f);
-    const float* inputs[1] = { input.data() };
-    float* outputs[1] = { output.data() };
-    SushiDSP::ProcessContext context{ outputs, inputs, static_cast<std::uint32_t>(input.size()), 0.0 };
+    const float* inputs[1] = {input.data()};
+    float* outputs[1] = {output.data()};
+    SushiDSP::ProcessContext context{outputs, inputs, static_cast<std::uint32_t>(input.size()),
+                                     0.0};
 
     node.process(context);
 
@@ -97,9 +99,9 @@ TEST(Unit_Dsp, CabinetNodeSurvivesVariableBlockSizes)
 {
     // An identity IR must survive any host block size. See tests/functional/unit/README.md.
     SushiDSP::CabinetNode node;
-    SushiDSP::PrepareInfo info{ 48000.0, 512, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 512, 1};
     node.prepare(info);
-    ASSERT_TRUE(node.set_cabinet(SushiDSP::Ir{ make_identity_impulse_response(), 48000.0 }));
+    ASSERT_TRUE(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}));
     node.reclaim_cabinets();
 
     std::vector<float> input(512);
@@ -107,15 +109,15 @@ TEST(Unit_Dsp, CabinetNodeSurvivesVariableBlockSizes)
     {
         input[i] = 0.2f * std::sin(0.03f * static_cast<float>(i));
     }
-    const float* input_channels[1] = { input.data() };
+    const float* input_channels[1] = {input.data()};
 
     std::vector<float> stream_in, stream_out;
-    const std::uint32_t chunks[] = { 100, 37, 512, 1, 300 };
+    const std::uint32_t chunks[] = {100, 37, 512, 1, 300};
     for (std::uint32_t frames : chunks)
     {
         std::vector<float> output(frames, 0.0f);
-        float* output_channels[1] = { output.data() };
-        SushiDSP::ProcessContext context{ output_channels, input_channels, frames, 0.0 };
+        float* output_channels[1] = {output.data()};
+        SushiDSP::ProcessContext context{output_channels, input_channels, frames, 0.0};
         node.process(context);
         stream_out.insert(stream_out.end(), output.begin(), output.end());
         stream_in.insert(stream_in.end(), input.begin(), input.begin() + frames);
@@ -132,10 +134,10 @@ TEST(Unit_Dsp, CabinetNodeSurvivesVariableBlockSizes)
 TEST(Unit_Dsp, CabinetNodeRejectsAnImpulseResponseAtTheWrongSampleRate)
 {
     SushiDSP::CabinetNode node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
 
-    EXPECT_FALSE(node.set_cabinet(SushiDSP::Ir{ make_identity_impulse_response(), 44100.0 }));
+    EXPECT_FALSE(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 44100.0}));
     EXPECT_FALSE(node.has_cabinet());
 }
 
@@ -143,7 +145,7 @@ TEST(Unit_Dsp, CabinetNodeRejectsAnImpulseResponseBeforePrepare)
 {
     SushiDSP::CabinetNode node;
 
-    EXPECT_FALSE(node.set_cabinet(SushiDSP::Ir{ make_identity_impulse_response(), 48000.0 }));
+    EXPECT_FALSE(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}));
     EXPECT_FALSE(node.has_cabinet());
 }
 
@@ -155,7 +157,7 @@ TEST(Unit_Dsp, CabinetNodeDescriptorMatchesTypeId)
     EXPECT_EQ(descriptor.ports.output_channels, 1u);
     EXPECT_EQ(descriptor.parameter_count, 0u);
 
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     auto node = descriptor.make(info);
     ASSERT_NE(node, nullptr);
     EXPECT_STREQ(node->type_id(), "sushidsp.cabinet");

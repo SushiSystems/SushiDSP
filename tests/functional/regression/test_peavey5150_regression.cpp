@@ -35,8 +35,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/peavey5150/Peavey5150.hpp"
-#include "golden/GoldenFile.hpp"
+#include "SushiDSP/peavey5150/peavey5150.hpp"
+#include "golden/golden_file.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -55,29 +55,32 @@ namespace
         node.set_post_gain(0.0f);
         node.set_resonance(0.5f);
         node.set_presence(0.5f);
-        node.prepare({ sample_rate, 256, 1 });
+        node.prepare({sample_rate, 256, 1});
         const auto input = SushiDSP::golden::stimulus(sample_rate);
         std::vector<float> output(input.size(), 0.0f);
         for (std::size_t position = 0; position < input.size(); position += 256)
         {
-            const std::uint32_t frames = static_cast<std::uint32_t>(std::min<std::size_t>(256, input.size() - position));
-            const float* inputs[1] = { input.data() + position };
-            float* outputs[1] = { output.data() + position };
-            SushiDSP::ProcessContext context{ outputs, inputs, frames, 0.0 };
+            const std::uint32_t frames =
+                static_cast<std::uint32_t>(std::min<std::size_t>(256, input.size() - position));
+            const float* inputs[1] = {input.data() + position};
+            float* outputs[1] = {output.data() + position};
+            SushiDSP::ProcessContext context{outputs, inputs, frames, 0.0};
             node.process(context);
         }
         return output;
     }
-}
+} // namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md
 TEST(Regression_Dsp, Peavey5150GoldenFile48k)
 {
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("peavey5150_48k", render_peavey5150(48000.0)), -80.0);
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("peavey5150_48k", render_peavey5150(48000.0)),
+              -80.0);
 }
 
 TEST(Regression_Dsp, Peavey5150GoldenFile96k)
 {
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("peavey5150_96k", render_peavey5150(96000.0)), -80.0);
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("peavey5150_96k", render_peavey5150(96000.0)),
+              -80.0);
 }

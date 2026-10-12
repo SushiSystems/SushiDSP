@@ -33,36 +33,36 @@
 #include <cstdint>
 #include <string>
 
-#include "SushiDSP/room/BandResponse.hpp"
-#include "SushiDSP/room/EyringDecay.hpp"
-#include "SushiDSP/room/Furniture.hpp"
-#include "SushiDSP/room/Materials.hpp"
-#include "SushiDSP/room/RoomNode.hpp"
-#include "SushiDSP/room/RoomScene.hpp"
-#include "SushiDSP/room/StarterScene.hpp"
+#include "SushiDSP/room/band_response.hpp"
+#include "SushiDSP/room/eyring_decay.hpp"
+#include "SushiDSP/room/furniture.hpp"
+#include "SushiDSP/room/materials.hpp"
+#include "SushiDSP/room/room_node.hpp"
+#include "SushiDSP/room/room_scene.hpp"
+#include "SushiDSP/room/starter_scene.hpp"
 
 namespace
 {
     using SushiDSP::room::EyringDecay;
     using SushiDSP::room::FurnitureId;
-    using SushiDSP::room::kBandCount;
+    using SushiDSP::room::K_BAND_COUNT;
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::RoomScene;
     using SushiDSP::room::starter_scene;
     using SushiDSP::room::Surface;
 
     /// @brief Names the 500 Hz octave band's index.
-    constexpr std::size_t kBand500Hz = 2;
+    constexpr std::size_t K_BAND500_HZ = 2;
 
     /// @brief Names the 1 kHz octave band's index.
-    constexpr std::size_t kBand1kHz = 3;
+    constexpr std::size_t K_BAND1K_HZ = 3;
 
     /// @brief Bounds the starter scene's reverberation time from above, in seconds.
-    constexpr double kUpperBoundSeconds = 1.3;
+    constexpr double K_UPPER_BOUND_SECONDS = 1.3;
 
     /// @brief Bounds the starter scene's reverberation time from below, in seconds.
-    constexpr double kLowerBoundSeconds = 0.5;
-}
+    constexpr double K_LOWER_BOUND_SECONDS = 0.5;
+} // namespace
 
 TEST(Unit_Dsp, StarterSceneIsValid)
 {
@@ -79,8 +79,8 @@ TEST(Unit_Dsp, StarterSceneIsTheTokiRoomOfTheDesign)
     EXPECT_EQ(scene.dimensions.z, 2.6);
     EXPECT_EQ(scene.surfaces[static_cast<std::size_t>(Surface::Floor)],
               MaterialId::ParquetOnConcrete);
-    for (const Surface face : { Surface::MinusX, Surface::PlusX, Surface::MinusY, Surface::PlusY,
-                                Surface::Ceiling })
+    for (const Surface face :
+         {Surface::MinusX, Surface::PlusX, Surface::MinusY, Surface::PlusY, Surface::Ceiling})
     {
         EXPECT_EQ(scene.surfaces[static_cast<std::size_t>(face)],
                   MaterialId::PlasterOnMasonryPainted)
@@ -160,15 +160,15 @@ TEST(Unit_Dsp, RoomNodeStartsFromTheStarterScene)
 
 TEST(Unit_Dsp, StarterSceneDecaysInsideTheRecordedBandAndShorterThanTheBareDefault)
 {
-    const std::array<double, kBandCount> starter = EyringDecay::rt60_seconds(starter_scene());
-    const std::array<double, kBandCount> bare = EyringDecay::rt60_seconds(RoomScene{});
+    const std::array<double, K_BAND_COUNT> starter = EyringDecay::rt60_seconds(starter_scene());
+    const std::array<double, K_BAND_COUNT> bare = EyringDecay::rt60_seconds(RoomScene{});
 
-    for (const std::size_t band : { kBand500Hz, kBand1kHz })
+    for (const std::size_t band : {K_BAND500_HZ, K_BAND1K_HZ})
     {
-        EXPECT_LT(starter[band], kUpperBoundSeconds) << "band " << band;
-        EXPECT_GT(starter[band], kLowerBoundSeconds) << "band " << band;
+        EXPECT_LT(starter[band], K_UPPER_BOUND_SECONDS) << "band " << band;
+        EXPECT_GT(starter[band], K_LOWER_BOUND_SECONDS) << "band " << band;
     }
-    EXPECT_LT(starter[kBand500Hz], bare[kBand500Hz]);
+    EXPECT_LT(starter[K_BAND500_HZ], bare[K_BAND500_HZ]);
 }
 
 TEST(Unit_Dsp, StarterSceneWithoutItsFurnishingsDecaysLongerInEveryBand)
@@ -177,9 +177,9 @@ TEST(Unit_Dsp, StarterSceneWithoutItsFurnishingsDecaysLongerInEveryBand)
     RoomScene empty = furnished;
     empty.furnishing_count = 0;
 
-    const std::array<double, kBandCount> with = EyringDecay::rt60_seconds(furnished);
-    const std::array<double, kBandCount> without = EyringDecay::rt60_seconds(empty);
-    for (std::size_t band = 0; band < kBandCount; ++band)
+    const std::array<double, K_BAND_COUNT> with = EyringDecay::rt60_seconds(furnished);
+    const std::array<double, K_BAND_COUNT> without = EyringDecay::rt60_seconds(empty);
+    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
     {
         EXPECT_GT(without[band], with[band]) << "band " << band;
     }

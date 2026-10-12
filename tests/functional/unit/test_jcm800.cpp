@@ -38,10 +38,10 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/Calibration.hpp"
-#include "SushiDSP/jcm800/Jcm800.hpp"
-#include "measure/Render.hpp"
-#include "measure/Thd.hpp"
+#include "SushiDSP/core/calibration.hpp"
+#include "SushiDSP/jcm800/jcm800.hpp"
+#include "measure/render.hpp"
+#include "measure/thd.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -49,14 +49,15 @@
 
 namespace
 {
-    // kUnityMasterDb is derived from kMasterUnityGain. See tests/functional/unit/README.md.
-    const float kUnityMasterDb = -SushiDSP::gain_to_decibels(SushiDSP::Jcm800::kMasterUnityGain);
-}
+    // unity_master_db is derived from K_MASTER_UNITY_GAIN. See tests/functional/unit/README.md.
+    const float unity_master_db =
+        -SushiDSP::gain_to_decibels(SushiDSP::Jcm800::K_MASTER_UNITY_GAIN);
+} // namespace
 
 TEST(Unit_Dsp, Jcm800ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
     SushiDSP::Jcm800 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_preamp(0.6f);
     node.set_master(0.0f);
@@ -71,12 +72,12 @@ TEST(Unit_Dsp, Jcm800ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
         input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     for (int block = 0; block < 20; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -89,7 +90,7 @@ TEST(Unit_Dsp, Jcm800ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 TEST(Unit_Dsp, Jcm800OutputNeverExceedsFullScaleUnderHotGainStaging)
 {
     SushiDSP::Jcm800 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_preamp(1.0f);
     node.set_master(12.0f);
@@ -104,12 +105,12 @@ TEST(Unit_Dsp, Jcm800OutputNeverExceedsFullScaleUnderHotGainStaging)
         input[i] = std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     for (int block = 0; block < 40; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -130,7 +131,7 @@ TEST(Unit_Dsp, Jcm800PortsAreMonoInMonoOut)
 TEST(Unit_Dsp, Jcm800MasterAtMinimumProducesSilenceAfterSettling)
 {
     SushiDSP::Jcm800 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_preamp(0.6f);
     node.set_master(-60.0f);
@@ -141,12 +142,12 @@ TEST(Unit_Dsp, Jcm800MasterAtMinimumProducesSilenceAfterSettling)
 
     std::vector<float> input(256, 0.3f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     for (int block = 0; block < 20; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -161,7 +162,7 @@ TEST(Unit_Dsp, Jcm800PreampIncreasesOutputEnergy)
     auto measure_rms = [](float preamp) -> float
     {
         SushiDSP::Jcm800 node;
-        SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+        SushiDSP::PrepareInfo info{48000.0, 256, 1};
         node.prepare(info);
         node.set_preamp(preamp);
         node.set_master(0.0f);
@@ -172,8 +173,8 @@ TEST(Unit_Dsp, Jcm800PreampIncreasesOutputEnergy)
 
         std::vector<float> input(256);
         std::vector<float> output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
 
         double sum_sq = 0.0;
         std::size_t count = 0;
@@ -186,7 +187,7 @@ TEST(Unit_Dsp, Jcm800PreampIncreasesOutputEnergy)
             }
             global_index += 256.0;
 
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
 
             if (block >= 15)
@@ -203,8 +204,8 @@ TEST(Unit_Dsp, Jcm800PreampIncreasesOutputEnergy)
 
     const float low_preamp_rms = measure_rms(0.1f);
     const float high_preamp_rms = measure_rms(1.0f);
-    std::printf("[ measure ] preamp energy: %.6f at 0.1, %.6f at 1.0\n",
-                low_preamp_rms, high_preamp_rms);
+    std::printf("[ measure ] preamp energy: %.6f at 0.1, %.6f at 1.0\n", low_preamp_rms,
+                high_preamp_rms);
 
     // The preamp knob never costs level; 1 % is sag drift. See tests/functional/unit/README.md.
     EXPECT_GE(high_preamp_rms, low_preamp_rms * 0.99f);
@@ -216,7 +217,7 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
     auto measure_peak = [](float input_amplitude) -> float
     {
         SushiDSP::Jcm800 node;
-        SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+        SushiDSP::PrepareInfo info{48000.0, 256, 1};
         node.prepare(info);
         node.set_preamp(0.02f);
         node.set_master(0.0f);
@@ -227,8 +228,8 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
 
         std::vector<float> input(256);
         std::vector<float> output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
 
         float peak = 0.0f;
         double global_index = 0.0;
@@ -236,12 +237,13 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
         {
             for (std::size_t i = 0; i < input.size(); ++i)
             {
-                input[i] = input_amplitude
-                    * static_cast<float>(std::sin(2.0 * M_PI * 220.0 * (global_index + i) / 48000.0));
+                input[i] =
+                    input_amplitude *
+                    static_cast<float>(std::sin(2.0 * M_PI * 220.0 * (global_index + i) / 48000.0));
             }
             global_index += 256.0;
 
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
 
             if (block >= 15)
@@ -257,8 +259,8 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
 
     const float quiet_peak = measure_peak(0.01f);
     const float loud_peak = measure_peak(0.251f);
-    std::printf("[ measure ] level tracking: %.6f at 0.01 in, %.6f at 0.251 in\n",
-                quiet_peak, loud_peak);
+    std::printf("[ measure ] level tracking: %.6f at 0.01 in, %.6f at 0.251 in\n", quiet_peak,
+                loud_peak);
 
     EXPECT_GT(loud_peak, quiet_peak * 2.0f);
 }
@@ -271,9 +273,8 @@ TEST(Unit_Dsp, Jcm800DescriptorExposesEightParametersInContractOrder)
     ASSERT_EQ(descriptor.parameter_count, 8u);
 
     // The index order is the contract of hosts and presets. See tests/functional/unit/README.md.
-    const char* expected_ids[8] = {
-        "preamp", "master", "bass", "middle", "treble", "presence", "input_trim", "output"
-    };
+    const char* expected_ids[8] = {"preamp", "master",   "bass",       "middle",
+                                   "treble", "presence", "input_trim", "output"};
     for (std::size_t i = 0; i < 8; ++i)
     {
         EXPECT_STREQ(descriptor.parameters[i].id, expected_ids[i]);
@@ -294,13 +295,13 @@ TEST(Unit_Dsp, Jcm800DescriptorExposesEightParametersInContractOrder)
 TEST(Unit_Dsp, Jcm800ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
 {
     SushiDSP::Jcm800 node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
     node.process(context);
     ASSERT_FALSE(node.tone_stack_is_dirty());
 
@@ -323,7 +324,7 @@ TEST(Unit_Dsp, Jcm800ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
 TEST(Unit_Dsp, Jcm800IndexedParameterSetMatchesTheDescriptorOrder)
 {
     SushiDSP::Jcm800 node;
-    const float values[8] = { 0.2f, -6.0f, 0.4f, 0.45f, 0.6f, 0.7f, 12.0f, -3.0f };
+    const float values[8] = {0.2f, -6.0f, 0.4f, 0.45f, 0.6f, 0.7f, 12.0f, -3.0f};
     for (std::uint16_t i = 0; i < 8; ++i)
     {
         node.set_parameter_for_audio_thread(i, values[i]);
@@ -355,7 +356,7 @@ TEST(Unit_Dsp, Jcm800InputTrimAndOutputScaleTheSignalInDecibels)
     auto measure_rms = [](float input_trim_db, float output_db) -> double
     {
         SushiDSP::Jcm800 node;
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
         node.set_preamp(0.6f);
         node.set_master(0.0f);
         node.set_input_trim(input_trim_db);
@@ -363,8 +364,8 @@ TEST(Unit_Dsp, Jcm800InputTrimAndOutputScaleTheSignalInDecibels)
 
         std::vector<float> input(256);
         std::vector<float> output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
 
         double sum_sq = 0.0;
         std::size_t count = 0;
@@ -373,11 +374,12 @@ TEST(Unit_Dsp, Jcm800InputTrimAndOutputScaleTheSignalInDecibels)
         {
             for (std::size_t i = 0; i < input.size(); ++i)
             {
-                input[i] = 0.02f * static_cast<float>(std::sin(2.0 * M_PI * 220.0 * (global_index + i) / 48000.0));
+                input[i] = 0.02f * static_cast<float>(
+                                       std::sin(2.0 * M_PI * 220.0 * (global_index + i) / 48000.0));
             }
             global_index += 256.0;
 
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
 
             if (block >= 20)
@@ -405,17 +407,17 @@ TEST(Unit_Dsp, Jcm800InputTrimAndOutputScaleTheSignalInDecibels)
 TEST(Unit_Dsp, Jcm800DescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::jcm800_descriptor();
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
 
-    std::unique_ptr<SushiDSP::IAudioNode> node = descriptor.make(info);
+    std::unique_ptr<SushiDSP::AudioNode> node = descriptor.make(info);
     ASSERT_NE(node, nullptr);
     node->prepare(info);
 
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
     node->process(context);
 
     for (float sample : output)
@@ -427,10 +429,10 @@ TEST(Unit_Dsp, Jcm800DescriptorMakeProducesAWorkingNode)
 TEST(Unit_Dsp, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
 {
     SushiDSP::Jcm800 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_preamp(1.0f);
-    node.set_master(kUnityMasterDb);
+    node.set_master(unity_master_db);
     node.set_bass(0.5f);
     node.set_middle(0.5f);
     node.set_treble(0.5f);
@@ -438,12 +440,12 @@ TEST(Unit_Dsp, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
 
     std::vector<float> input(256, 0.1f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     for (int block = 0; block < 200; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
         for (float sample : output)
         {
@@ -455,9 +457,10 @@ TEST(Unit_Dsp, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
 TEST(Unit_Dsp, Jcm800ThdDoesNotFallAsPreampRises)
 {
     // THD must not fall as the preamp knob rises. See tests/functional/unit/README.md.
-    const double f0 = SushiDSP::measure::bin_exact_frequency(220.0, 48000.0, SushiDSP::measure::kFftSize);
-    const auto stimulus = SushiDSP::measure::sine_stimulus(
-        f0, 48000.0, SushiDSP::measure::kFftSize * 2, 0.2f);
+    const double f0 =
+        SushiDSP::measure::bin_exact_frequency(220.0, 48000.0, SushiDSP::measure::K_FFT_SIZE);
+    const auto stimulus =
+        SushiDSP::measure::sine_stimulus(f0, 48000.0, SushiDSP::measure::K_FFT_SIZE * 2, 0.2f);
 
     auto thd_at = [&](float preamp)
     {
@@ -468,7 +471,7 @@ TEST(Unit_Dsp, Jcm800ThdDoesNotFallAsPreampRises)
         return SushiDSP::measure::thd(rendered, f0, 48000.0).thd_percent;
     };
 
-    const float preamps[] = { 0.02f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f };
+    const float preamps[] = {0.02f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f};
     double highest_so_far = 0.0;
     for (float preamp : preamps)
     {
@@ -491,14 +494,14 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     auto second_harmonic_ratio_for = [&](bool mismatch_active)
     {
         SushiDSP::Jcm800 node;
-        SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+        SushiDSP::PrepareInfo info{48000.0, 256, 1};
         node.prepare(info);
         if (!mismatch_active)
         {
             node.set_power_tube_grid_bias_mismatch_volts(0.0f);
         }
         node.set_preamp(0.5f);
-        node.set_master(kUnityMasterDb);
+        node.set_master(unity_master_db);
         node.set_bass(0.5f);
         node.set_middle(0.5f);
         node.set_treble(0.5f);
@@ -511,15 +514,16 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
             std::vector<float> input(256, 0.0f);
             for (std::size_t i = 0; i < input.size(); ++i)
             {
-                input[i] = static_cast<float>(
-                    0.2 * std::sin(2.0 * M_PI * frequency * (global_sample_index + i) / sample_rate));
+                input[i] =
+                    static_cast<float>(0.2 * std::sin(2.0 * M_PI * frequency *
+                                                      (global_sample_index + i) / sample_rate));
             }
             global_sample_index += 256.0;
 
             std::vector<float> block_output(256, 0.0f);
-            const float* input_channels[1] = { input.data() };
-            float* output_channels[1] = { block_output.data() };
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            const float* input_channels[1] = {input.data()};
+            float* output_channels[1] = {block_output.data()};
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
             output.insert(output.end(), block_output.begin(), block_output.end());
         }
@@ -543,7 +547,8 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
 
     const double active_ratio = second_harmonic_ratio_for(true);
     const double zeroed_ratio = second_harmonic_ratio_for(false);
-    std::printf("[ measure ] second harmonic %.9f active, %.9f zeroed\n", active_ratio, zeroed_ratio);
+    std::printf("[ measure ] second harmonic %.9f active, %.9f zeroed\n", active_ratio,
+                zeroed_ratio);
 
     EXPECT_LT(active_ratio - zeroed_ratio, -1e-5);
 }
@@ -581,15 +586,15 @@ TEST(Unit_Dsp, Jcm800NeverExceedsFullScaleWithoutALimiter)
 {
     // The output stays in [-1, 1] and reaches the rail. See tests/functional/unit/README.md.
     SushiDSP::Jcm800 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_parameter_for_control_thread("preamp", 1.0f);
     node.set_parameter_for_control_thread("master", 12.0f);
     node.set_parameter_for_control_thread("output", 12.0f);
 
     std::vector<float> input(256), output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     bool clamped_at_least_once = false;
     for (int block = 0; block < 50; ++block)
@@ -599,7 +604,7 @@ TEST(Unit_Dsp, Jcm800NeverExceedsFullScaleWithoutALimiter)
             const float t = static_cast<float>(block * 256 + i) / 48000.0f;
             input[i] = std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * t);
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
         for (float sample : output)
         {
@@ -617,12 +622,12 @@ TEST(Unit_Dsp, Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput
 {
     // A -12 dBFS low-E sine comes out at about -6 dBFS. See tests/functional/unit/README.md.
     SushiDSP::Jcm800 node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     float peak = 0.0f;
     for (int block = 0; block < 188; ++block)
@@ -630,10 +635,10 @@ TEST(Unit_Dsp, Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput
         for (int i = 0; i < 256; ++i)
         {
             const float sample_index = static_cast<float>(block * 256 + i);
-            input[static_cast<std::size_t>(i)] =
-                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 82.0f * sample_index / 48000.0f);
+            input[static_cast<std::size_t>(i)] = 0.251f * std::sin(2.0f * static_cast<float>(M_PI) *
+                                                                   82.0f * sample_index / 48000.0f);
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
 
         // The first blocks hold the startup transient. See tests/functional/unit/README.md.
@@ -655,7 +660,7 @@ TEST(Unit_Dsp, Jcm800DryLatencyIsOneOversampledRegion)
 {
     // The latency is one Oversampler8x round trip. See tests/functional/unit/README.md.
     SushiDSP::Jcm800 node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     SushiDSP::Oversampler8x reference(256);
     EXPECT_EQ(node.latency_samples(), reference.latency_samples());
@@ -664,9 +669,10 @@ TEST(Unit_Dsp, Jcm800DryLatencyIsOneOversampledRegion)
 TEST(Unit_Dsp, Jcm800HasACleanEndAtMinimumGain)
 {
     // The knob is read at 0.01 because 0.0 passes no signal. See tests/functional/unit/README.md.
-    const double f0 = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
-    const auto stimulus = SushiDSP::measure::sine_stimulus(
-        f0, 48000.0, SushiDSP::measure::kFftSize * 2, 0.01f);
+    const double f0 =
+        SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::K_FFT_SIZE);
+    const auto stimulus =
+        SushiDSP::measure::sine_stimulus(f0, 48000.0, SushiDSP::measure::K_FFT_SIZE * 2, 0.01f);
 
     SushiDSP::Jcm800 node;
     node.set_preamp(0.01f);
@@ -682,7 +688,7 @@ TEST(Unit_Dsp, Jcm800GridProbesReportEveryStageInSignalOrder)
 {
     // The probe hooks are pinned, not their figures. See tests/functional/unit/README.md.
     SushiDSP::Jcm800 node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     ASSERT_EQ(node.triode_stage_count(), 4u);
     EXPECT_EQ(node.grid_excursion_peak_volts(node.triode_stage_count()), 0.0f);
@@ -696,17 +702,18 @@ TEST(Unit_Dsp, Jcm800GridProbesReportEveryStageInSignalOrder)
 
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
     for (int block = 0; block < 40; ++block)
     {
         for (int i = 0; i < 256; ++i)
         {
             const float sample_index = static_cast<float>(block * 256 + i);
             input[static_cast<std::size_t>(i)] =
-                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * sample_index / 48000.0f);
+                0.251f *
+                std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * sample_index / 48000.0f);
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 

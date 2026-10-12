@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/SpscRing.hpp"
+#include "SushiDSP/core/spsc_ring.hpp"
 
 TEST(Unit_Dsp, SpscRingPushThenPopReturnsSameValue)
 {
@@ -87,32 +87,34 @@ TEST(Unit_Dsp, SpscRingConcurrentProducerConsumerDeliversAllValuesInOrder)
     std::vector<int> consumed;
     consumed.reserve(total);
 
-    std::thread producer([&ring, total]()
-    {
-        for (int i = 0; i < total; ++i)
+    std::thread producer(
+        [&ring, total]()
         {
-            while (!ring.push(i))
+            for (int i = 0; i < total; ++i)
             {
-                std::this_thread::yield();
+                while (!ring.push(i))
+                {
+                    std::this_thread::yield();
+                }
             }
-        }
-    });
+        });
 
-    std::thread consumer([&ring, &consumed, total]()
-    {
-        int value = 0;
-        while (static_cast<int>(consumed.size()) < total)
+    std::thread consumer(
+        [&ring, &consumed, total]()
         {
-            if (ring.pop(value))
+            int value = 0;
+            while (static_cast<int>(consumed.size()) < total)
             {
-                consumed.push_back(value);
+                if (ring.pop(value))
+                {
+                    consumed.push_back(value);
+                }
+                else
+                {
+                    std::this_thread::yield();
+                }
             }
-            else
-            {
-                std::this_thread::yield();
-            }
-        }
-    });
+        });
 
     producer.join();
     consumer.join();

@@ -11,7 +11,7 @@ sample by sample in real time, at 4x or 8x the host rate: the schematic's own no
 with the triode and pentode laws in the loop. No stage is a trained network, and no stage is
 fitted to a recording. The repository calls this a white box model.
 
-A graph of `IAudioNode`s, the rig, chains the models in any order, the way a pedalboard does.
+A graph of `AudioNode`s, the rig, chains the models in any order, the way a pedalboard does.
 The core depends on the C++17 standard library and SIMD intrinsics and on nothing else.
 [Getting started](../getting_started/INTRODUCTION.md) introduces the library, and the
 [glossary](../reference/GLOSSARY.md) fixes the words the manual uses.
@@ -68,7 +68,7 @@ front panels, and records and plays back takes against a timeline.
 everything after `--` reaches the host unchanged. The command exits 1 when the tree was
 configured with `SUSHIDSP_BUILD_GUI=OFF`. No cabinet impulse response ships in the checkout, so
 a fresh amplifier slot starts without one. The
-[host's README](../../apps/host_gui/README.md) says what the host looks for at startup.
+[host's README](../../applications/host_gui/README.md) says what the host looks for at startup.
 
 ## Which platforms and compilers does SushiDSP support?
 
@@ -88,12 +88,12 @@ contraction off for every toolchain. The detail is under "Compiler resolution or
 
 ## How do I use the models from my own host application?
 
-The three hosts under `apps/` show the pattern: each owns an `IAudioDevice`, builds a `RigGraph`
+The three hosts under `applications/` show the pattern: each owns an `AudioDevice`, builds a `RigGraph`
 from `node_registry()`, and drives `process()` once per audio callback. Every product exposes one
 `NodeDescriptor` (an id, a name, parameters, ports and a `make()` function), so a host
 instantiates a node through `make_node()` without naming its concrete class.
 
-The real-time path carries one rule: `IAudioNode::process()` and everything it calls allocates
+The real-time path carries one rule: `AudioNode::process()` and everything it calls allocates
 nothing, locks nothing, makes no system call and throws nothing.
 [Architecture overview](../architecture/OVERVIEW.md) describes the layers and the core
 interfaces. `sd docs` writes the generated API reference to `build/docs/api-site/html/`.
@@ -112,11 +112,11 @@ no SushiRuntime, no SYCL and no game engine.
 
 ## Is there a VST or CLAP plugin?
 
-No. A VST3/CLAP plugin wrapper is design intent only: no `apps/plugin` directory exists in the
+No. A VST3/CLAP plugin wrapper is design intent only: no `applications/plugin` directory exists in the
 tree. The same holds for any packaging step beyond what `sd build` and `sd test` exercise.
 
-What the tree holds today is three standalone hosts: `apps/host`, a minimal SDL2-backed host;
-`apps/host_asio`, its ASIO-backed counterpart; and `apps/host_gui`, the rig-editing GUI.
+What the tree holds today is three standalone hosts: `applications/host`, a minimal SDL2-backed host;
+`applications/host_asio`, its ASIO-backed counterpart; and `applications/host_gui`, the rig-editing GUI.
 [Architecture overview](../architecture/OVERVIEW.md) lists what is specified and not yet built.
 
 ## What does SushiDSP not do yet?

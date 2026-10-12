@@ -27,14 +27,14 @@
 
 #include <gtest/gtest.h>
 
-#include "ui/PanelLibrary.hpp"
+#include "ui/panel_library.hpp"
 
 #include <cstring>
 #include <string>
 #include <vector>
 
-#include "SushiDSP/jcm800/Jcm800.hpp"
-#include "SushiDSP/node_registry/NodeRegistry.hpp"
+#include "SushiDSP/jcm800/jcm800.hpp"
+#include "SushiDSP/node_registry/node_registry.hpp"
 
 TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForAKnownNodeType)
 {
@@ -78,7 +78,7 @@ TEST(Unit_Dsp, PanelLibraryDrawsTheMarkTwoCPlusEqualizerBandsAsFaders)
         }
     }
 
-    const std::vector<std::string> expected{ "eq_80", "eq_240", "eq_750", "eq_2200", "eq_6600" };
+    const std::vector<std::string> expected{"eq_80", "eq_240", "eq_750", "eq_2200", "eq_6600"};
     EXPECT_EQ(fader_ids, expected);
 }
 
@@ -153,7 +153,8 @@ TEST(Unit_Dsp, PanelLibraryEveryTableEntryNamesARegisteredNodeType)
                 break;
             }
         }
-        EXPECT_TRUE(found) << "panel table names unregistered node type '" << panel.descriptor_id << "'";
+        EXPECT_TRUE(found) << "panel table names unregistered node type '" << panel.descriptor_id
+                           << "'";
     }
 }
 
@@ -183,11 +184,11 @@ TEST(Unit_Dsp, PanelLibraryAutoPanelPlacesOneControlPerParameterInASquareGrid)
 TEST(Unit_Dsp, PanelLibraryAutoPanelPicksTheControlKindFromTheParameterKind)
 {
     constexpr SushiDSP::ParameterDescriptor params[] = {
-        { "a", "A", 0.0f, 1.0f, 0.0f, SushiDSP::ParamKind::Linear,  "" },
-        { "b", "B", 0.0f, 1.0f, 0.0f, SushiDSP::ParamKind::Boolean, "" },
-        { "c", "C", 0.0f, 3.0f, 0.0f, SushiDSP::ParamKind::Choice,  "" },
+        {"a", "A", 0.0f, 1.0f, 0.0f, SushiDSP::ParamKind::Linear, ""},
+        {"b", "B", 0.0f, 1.0f, 0.0f, SushiDSP::ParamKind::Boolean, ""},
+        {"c", "C", 0.0f, 3.0f, 0.0f, SushiDSP::ParamKind::Choice, ""},
     };
-    const SushiDSP::NodeDescriptor node{ "test.node", "Test", params, 3, { 1, 1 }, nullptr };
+    const SushiDSP::NodeDescriptor node{"test.node", "Test", params, 3, {1, 1}, nullptr};
 
     std::vector<ui::ControlPlacement> storage;
     ui::auto_panel(node, storage);
@@ -229,9 +230,8 @@ TEST(Unit_Dsp, PanelLibraryGivesEveryRegisteredNodeAPanelWithAControlPerParamete
         const SushiDSP::NodeDescriptor& node = *entry.descriptor;
         std::vector<ui::ControlPlacement> storage;
         const ui::PanelDescriptor* hand_authored = ui::panel_for(node.id);
-        const ui::PanelDescriptor panel = hand_authored != nullptr
-            ? *hand_authored
-            : ui::auto_panel(node, storage);
+        const ui::PanelDescriptor panel =
+            hand_authored != nullptr ? *hand_authored : ui::auto_panel(node, storage);
 
         // Every parameter of every node has a control. See tests/functional/unit/README.md.
         for (std::uint16_t i = 0; i < node.parameter_count; ++i)

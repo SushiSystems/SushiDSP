@@ -33,7 +33,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/io/IrLoader.hpp"
+#include "SushiDSP/io/ir_loader.hpp"
 
 namespace
 {
@@ -116,12 +116,13 @@ namespace
         }
         return sum / count;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, IrLoaderTrimsAndFadesToMaxLength)
 {
     std::vector<float> samples(48000, 1.0f);
-    const auto ir = SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0, SushiDSP::IrLoadOptions{ 200.0f, 5.0f, false });
+    const auto ir = SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0,
+                                                SushiDSP::IrLoadOptions{200.0f, 5.0f, false});
 
     EXPECT_EQ(ir.samples.size(), 9600u);
     EXPECT_NEAR(ir.samples[9599], 0.0f, 1e-3f);

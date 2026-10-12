@@ -1,6 +1,6 @@
-# `modules/nodes/peavey5150` — Peavey 5150 lead channel
+# `modules/nodes/peavey5150`, Peavey 5150 lead channel
 
-One `IAudioNode`, mono in and mono out, registered as `sushidsp.peavey5150` with nine parameters:
+One `AudioNode`, mono in and mono out, registered as `sushidsp.peavey5150` with nine parameters:
 PRE GAIN, LOW, MID, HIGH, POST GAIN, RESONANCE, PRESENCE, plus the input trim and output level
 every amplifier module carries.
 
@@ -19,7 +19,7 @@ The relay reading is K2A energised for lead, and the module follows the dossier'
 step from there: if K1 shares that coil, the lead channel runs with **R18 47 kΩ and R20 220 kΩ
 lifted**. That is dossier open question 14, and it is not settled by the five sheets. What it costs
 if the reading is wrong: R18 moves V1B by under 0.1 dB, but R20 moves V2A's output divider from
-0.815 to 0.638 — 2.1 dB the model would be carrying the wrong way.
+0.815 to 0.638, 2.1 dB the model would be carrying the wrong way.
 
 ## Stage order
 
@@ -52,14 +52,14 @@ that wants one places the standalone `sushidsp.cabinet` node after this one (see
 | 18 | C11 47 nF into R26 1 MΩ, V3A, R14 3.3 kΩ ∥ C61 4.7 nF | first-order high-pass **3.39 Hz**, `TriodeStage` gain 14.0 + cathode shelf, `PlateSwing` 52.0 / 148.1 V | §3 |
 | 19 | C49 22 nF, R48 100 kΩ + R50 1 MΩ; the pair's tail degeneration | first-order high-pass **6.58 Hz**, divide by 1.914527 | §5 |
 | 20 | V4A/V4B long-tailed pair, R54/R55 220 kΩ, 2.2 kΩ stoppers | `TriodeStage` gain 63.512682, Vgk −1.174528 V, `PlateSwing` 113.7 / 79.6 V, attenuation 0.8617, grid scale 0.0631313 | §5 |
-| 21 | 6L6GC quad, push-pull | two `PentodeStage(kPeavey5150Power6L6GC)`, one per side, opposite phase, 0.4752 V bias mismatch | §7 |
+| 21 | 6L6GC quad, push-pull | two `PentodeStage(K_PEAVEY5150_POWER6_L6_GC)`, one per side, opposite phase, 0.4752 V bias mismatch | §7 |
 | 22 | Output transformer, screen and rail sag | `OutputTransformerStage`, `PowerSupplySagStage` | §5 |
 | 23 | PRESENCE VR9 10 kΩ with C8 ∥ C62 | `Biquad` high shelf, ±10 dB plateau, corner 600 Hz | §6 |
 | 24 | RESONANCE VR8 1 MΩ with C12 | `ResonanceControl`, +10 dB plateau, corner 330 Hz | §6 |
-| 25 | Output level, full-scale clamp | `std::clamp` | — |
+| 25 | Output level, full-scale clamp | `std::clamp` |, |
 
 Each grid after V1A also carries a one-pole Miller rolloff, from
-`include/SushiDSP/circuits/stages/MillerInputCapacitance.hpp`: `C_in = Cgk + Cgp·(1 + |A|) + stray`
+`modules/foundation/circuits/include/SushiDSP/circuits/stages/miller_input_capacitance.hpp`: `C_in = Cgk + Cgp·(1 + |A|) + stray`
 with the 12AX7 model's 1.6 pF and 1.7 pF and 10 pF of stray wiring, against the driving stage's
 plate load.
 The corners land at 5.83 kHz (V1B), 93.3 kHz (V2A), 11.0 kHz (V2B), 8.65 kHz (V5B), 12.8 kHz
@@ -129,19 +129,19 @@ operating point, its gain and its tail degeneration" below. Until DA5 the bias w
 
 **The output transformer and the sag stage.** §5 leaves the primary impedance and turns ratio
 **not established** (open question 2), so `OutputTransformerStage` and `PowerSupplySagStage` carry
-the corpus's stand-in constants (60 Hz, 8 kHz, 0.3 drive; 0.3 sag over 50 ms). `kPowerTubeToTransformerAttenuation` is the output trim from the
+the corpus's stand-in constants (60 Hz, 8 kHz, 0.3 drive; 0.3 sag over 50 ms). `K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION` is the output trim from the
 6L6GC plates to the transformer's units: the pair's full swing, the preset's two headrooms summed
 (392.428 V), lands at the 2.0833 the transformer stage received at full clip before DA5 part 2
 (2 × 20.833 model volts × 0.05), so the transformer and the sag stage see the range they were
 calibrated for. The **screen sag** §5 argues for, one shared 400 Ω feeding four screens, is not
 modelled as a shared node; the generic sag stage stands in for it.
 
-**The power tubes.** Since DA5 part 2 `PentodeStage` is volt-true, and `kPeavey5150Power6L6GC`
-(`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`) describes one push-pull *side*, the two
+**The power tubes.** Since DA5 part 2 `PentodeStage` is volt-true, and `K_PEAVEY5150_POWER6_L6_GC`
+(`modules/foundation/circuits/include/SushiDSP/circuits/stages/power_tube_presets.hpp`) describes one push-pull *side*, the two
 6L6GCs in parallel there, on the RCA 6L6-GC sheet's class AB₁ fixed-bias point (S7: 450 V plate,
 400 V screen, −37 V, 2 × 58 mA at zero signal, Raa 5600 Ω, 55 W) doubled. Four tubes making twice
 the power halve the primary impedance, so each side sees the row's per-tube load, Raa/4 = 1400 Ω
-per tube and 700 Ω for the pair — a 2800 Ω primary, inside the 2500–3000 Ω bracket §5 argues to.
+per tube and 700 Ω for the pair, a 2800 Ω primary, inside the 2500–3000 Ω bracket §5 argues to.
 
 | Field | Value | From |
 | --- | --- | --- |
@@ -160,8 +160,8 @@ stage needed, carried over rather than re-derived; it is not a dossier value.
 **The two feedback shelves' corners.** §5 gives the feedback network's components and derives no
 corner from them; §6 names 2 kHz for the presence and "the cabinet resonant frequency", taken here
 as 100 Hz, for the resonance. Both corners are modelling choices, and each sits on the plateau side
-of the frequency §6 names — the presence shelf below its 2 kHz, the resonance shelf above its
-100 Hz — for a reason that is the shelf's shape rather than the circuit's: an RBJ shelf gives half
+of the frequency §6 names, the presence shelf below its 2 kHz, the resonance shelf above its
+100 Hz, for a reason that is the shelf's shape rather than the circuit's: an RBJ shelf gives half
 its decibel gain at its own corner and the full amount only well past it, so a shelf cornered at
 2 kHz is +5 dB at 2 kHz, not the +10 dB §6 publishes. §6 states the boost measured *at* a
 frequency, so each corner is placed where the plateau has already arrived. Presence corners at
@@ -172,20 +172,20 @@ eighth that lifted the phase inverter's output by 28.62 into the power tubes. Al
 deleted by `docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. Each `TriodeStage` now
 runs the seven-argument constructor with a `PlateSwing` solved from §3's DC table, so the plate
 saturates where the real plate does instead of running to ±320 V, and the dossier's dividers reach
-the 6L6GC grids at face value in volts. `kPhaseInverterToPowerTubeAttenuation` 0.8617 is the last
-factor before the power tubes, and `kPowerTubeToTransformerAttenuation` 0.05 is the output trim to
+the 6L6GC grids at face value in volts. `K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION` 0.8617 is the last
+factor before the power tubes, and `K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION` 0.05 is the output trim to
 full scale, the one number left in the chain that is a level choice rather than a component.
 
 **The plate swings.** Each is `B+ − Va` on the cutoff side and `Va − Va_bottom` on the conduction
 side. `Va` and the idle current are §3's DC table at the 340 V rail; `Va_bottom` is the plate
 voltage at `Vgk = 0` on the same load line, `Va = 340 − Ra·Ip(0, Va − Vk)` solved by bisection with
-the Koren 12AX7 of `include/SushiDSP/circuits/models/Triode12AX7.hpp`. Solving the idle point the
+the Koren 12AX7 of `modules/foundation/circuits/include/SushiDSP/circuits/models/triode12_ax7.hpp`. Solving the idle point the
 same way reproduces §3's three columns to their printed precision, so both sides of every swing
 come from one model. `Vk` is held at the idle cathode voltage through the swing; on the five
 unbypassed cathodes the real `Vk` rises with plate current, so the true bottom sits a few volts
 above the figure below and the conduction side is modelled slightly wider than the stage's. The
 pair has no DC row in §5, so its idle point is solved with the grid leaks on node X against the
-average of R46 82 kΩ and R58 100 kΩ, the same average `kPhaseInverterGain` is taken over; its Vk
+average of R46 82 kΩ and R58 100 kΩ, the same average `K_PHASE_INVERTER_GAIN` is taken over; its Vk
 is the 37.910 V the tail carries, so its Va and Va_bottom sit 37.9 V higher than a
 cathode-grounded stage's would.
 
@@ -204,18 +204,18 @@ cathode-grounded stage's would.
 pair's resistors and no gain row, so all three come from one solved point. Both grid leaks return
 to node X, the junction below R52 470 Ω, so with the pair's 2·Ia through the tail the driven
 grid sits at Vgk = −2·Ia·470 and the cathode at Vk = 2·Ia·15170. The Koren 12AX7 of
-`include/SushiDSP/circuits/models/Triode12AX7.hpp` closes on that against the average of R46
+`modules/foundation/circuits/include/SushiDSP/circuits/models/triode12_ax7.hpp` closes on that against the average of R46
 82 kΩ and R58 100 kΩ, 91 kΩ, at B+ 340 V: Ia 1.249497 mA, Vk 37.910 V, Vgk −1.174528 V, plate
 226.296 V above ground and 188.386 V above the cathode. The Jacobian there gives `gm` 2.12024 mA/V
 and `r_a` 44.655 kΩ, so `µ` = `gm`·`r_a` = 94.679.
 
-`kPhaseInverterGain` is the full single-triode figure `µ·Ra/(r_a + Ra)` =
+`K_PHASE_INVERTER_GAIN` is the full single-triode figure `µ·Ra/(r_a + Ra)` =
 94.679 × 91 / (44.655 + 91) = **63.512682**, not half of it. Driven single-ended, the shared cathode
 follows the grid through the tail, so the driven triode's grid-to-cathode signal is the input
 divided by `1 + R_tail / (R_tail + (r_a + R_a)/(µ + 1))`, where `(r_a + R_a)/(µ + 1)` is the
 impedance the other triode's cathode presents in parallel with the tail. §5's tail is R52 470 Ω +
 R51 10 kΩ + R57 4.7 kΩ = 15.17 kΩ and the shunt is (44.655 k + 91 k)/95.679 = 1417.81 Ω, so
-`kPhaseInverterDegeneration` = 1 + 15170/(15170 + 1417.81) = **1.914527**, applied at the
+`K_PHASE_INVERTER_DEGENERATION` = 1 + 15170/(15170 + 1417.81) = **1.914527**, applied at the
 inverter's input as a divide. The tail is the DC path: §5 also returns the feedback loop into node
 N through C30, whose shunt the module does not model, so the AC tail sits below 15.17 kΩ. The grid
 leak's return to node X also bootstraps R50 against the tail's own signal; the degeneration keeps
@@ -234,7 +234,7 @@ module review caught it.
 **The power-grid scale bridge, removed.** Until DA5 part 2 `PentodeStage` was not volt-true and
 a `kPowerTubeGridScale` of 3.4722 / 55 = 0.0631313 bridged the volt-true preamp into its grid
 units. The stage now takes real volts and the bridge is gone; the pair is driven by the circuit's
-own grid-leak divider `kPhaseInverterToPowerTubeAttenuation` 0.8617 alone.
+own grid-leak divider `K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION` 0.8617 alone.
 
 **Grid excursions at the default setting.** `triode_stage_count()` and
 `grid_excursion_peak_volts()` read each stage's largest |Vg − Vk| since the last `reset()`. These
@@ -256,7 +256,7 @@ turn 0.1 mV into 130 W has no operating point at which its later stages stay lin
 
 **The clean end.** Spec §4 asks that a player turning PRE GAIN down reach a setting the amplifier
 does not square: below 10 % THD at a −40 dBFS input, and below 5 % at Peavey's nominal −80 dBV.
-That is 1e−4 V RMS, so 1.4142e−4 V peak, which against `kFullScaleVolts` 2.0 is an amplitude of
+That is 1e−4 V RMS, so 1.4142e−4 V peak, which against `K_FULL_SCALE_VOLTS` 2.0 is an amplitude of
 7.071e−5 full scale, −83.01 dBFS. Only the second holds. Measured 2026-09-07 at 220 Hz over 300
 blocks of 256:
 
@@ -305,8 +305,8 @@ amplifier's even-harmonic content at two physical drive levels: PRE GAIN 0.4776,
 a factor of 3.18 against a gate of 2; on the Shockley knee the same two drives read 0.00865
 against 0.09843, a factor of 11.4 against a gate of 4. It was written to assert V2A's asymmetry
 and is now named for what it measures, because across the whole knob the measure is not
-monotonic — 0.0421, 0.0460, 0.0724, 0.0535, 0.0385, 0.0411, 0.0454, 0.1203, 0.1306 at 0.05,
-0.10, 0.20, 0.30, 0.40, 0.4776, 0.50, 0.70 and 1.00 — because at that stimulus every stage from
+monotonic, 0.0421, 0.0460, 0.0724, 0.0535, 0.0385, 0.0411, 0.0454, 0.1203, 0.1306 at 0.05,
+0.10, 0.20, 0.30, 0.40, 0.4776, 0.50, 0.70 and 1.00, because at that stimulus every stage from
 V5A on is past its window, so the even harmonics leaving the amplifier are the push-pull pair's as
 much as V2A's. V2A's own grid does move from 2.81 V to 4.26 V over the same
 span, past the 4.00 V at which it conducts, so V2A's asymmetry is real; what an output-side
@@ -346,7 +346,7 @@ one of them is wrong. The module uses the drawn R25 1 MΩ.
 
 Two points are measured rather than derived, and each is pinned by the test that measures it.
 
-- **`kPostGainUnityGain = 0.1710120`** — the linear trim on the finished signal. Re-measured
+- **`K_POST_GAIN_UNITY_GAIN = 0.1710120`**: the linear trim on the finished signal. Re-measured
   2026-09-07 by `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`, which is
   also the test that pins it: an untouched amp turns a −12 dBFS 82 Hz sine into a −6.00 dBFS peak,
   the point all four amplifiers pin at (DA5 spec §6). It read 0.1730211 before the transformer's
@@ -358,10 +358,10 @@ Two points are measured rather than derived, and each is pinned by the test that
   corners.
 
   It is applied after the decimator and both feedback shelves, outside the nonlinearity, where
-  `Jcm800.cpp` applies its `kMasterUnityGain` inside the amplifier alongside the master pot. That
+  `jcm800.cpp` applies its `K_MASTER_UNITY_GAIN` inside the amplifier alongside the master pot. That
   is a deliberate departure from the sibling. This amplifier's POST GAIN is a real mid-chain
-  control — VR7 sits between the tone stack and V3A, and it drives the driver, the phase inverter
-  and the output tubes — so it is applied where the schematic puts it, and the calibration constant
+  control, VR7 sits between the tone stack and V3A, and it drives the driver, the phase inverter
+  and the output tubes, so it is applied where the schematic puts it, and the calibration constant
   is left outside as a pure level trim. Folded together, a recalibration would be a tone change.
 - **The presence and resonance shelf heights**: §6's +10 dB at 2 kHz and +10 dB at the cabinet
   resonance, asserted by `Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels` and
@@ -384,7 +384,7 @@ selector, and the screen node's shared sag.
 
 ### The post-gain unity gain
 
-`kPostGainUnityGain` scales the finished signal so an untouched amp turns a -12 dBFS 82 Hz input
+`K_POST_GAIN_UNITY_GAIN` scales the finished signal so an untouched amp turns a -12 dBFS 82 Hz input
 into a -6.00 dBFS peak, the calibration point all four amplifiers share
 (`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, section 6). The
 value 0.1710120 was measured on 2026-09-07 on the Norman grid law, the solved inverter bias and
@@ -394,7 +394,7 @@ last pinned at 1 kHz. `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwe
 measures it and pins it.
 
 The constant sits outside the nonlinearity, after the decimator and both feedback shelves, where
-`Jcm800.cpp` applies its `kMasterUnityGain` inside the amplifier alongside the master pot. That
+`jcm800.cpp` applies its `K_MASTER_UNITY_GAIN` inside the amplifier alongside the master pot. That
 is a deliberate departure from the sibling. This amplifier's POST GAIN pot is a real mid-chain
 control that drives the driver, the phase inverter and the output tubes, so it is applied in the
 chain where the schematic puts it, and the constant is left outside as a pure level trim. Folding
@@ -402,7 +402,7 @@ the two together would make a calibration change a tone change.
 
 ### Dossier citations
 
-Every number in the constant block of `Peavey5150.cpp` cites the section of
+Every number in the constant block of `peavey5150.cpp` cites the section of
 `docs/archive/research/2026-09-06-peavey-5150-design-dossier.md` it is read from or derived from.
 A value the dossier marks not established, or that is a modelling choice the dossier does not
 carry, says so in the source and appears in this README.
@@ -416,15 +416,15 @@ them, in parallel with the shunt at the grid node.
 
 ### The inverter's grid-leak divider
 
-`kPhaseInverterToPowerTubeAttenuation` follows section 5: the pair's plates drive R55/R54 220k
+`K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION` follows section 5: the pair's plates drive R55/R54 220k
 through C29/C28 with only the 2.2 kOhm stoppers between the node and the grids, so the loss is
 the 220 kOhm leak against the dossier's own 35.3 kOhm plate impedance, 220/(220 + 35.3) = 0.8617.
 That 35.3 kOhm is the dossier's arithmetic, not this module's ra, which the solved point behind
-`kPhaseInverterGain` puts at 44.655 kOhm.
+`K_PHASE_INVERTER_GAIN` puts at 44.655 kOhm.
 
 ### The follower's gain
 
-`kCathodeFollowerGain` follows section 3: V3B's plate ties straight to V2 with no plate resistor,
+`K_CATHODE_FOLLOWER_GAIN` follows section 3: V3B's plate ties straight to V2 with no plate resistor,
 and section 3 uses 0.98 as the follower's gain when it computes the bootstrapped grid return. The
 follower is modelled as that scalar and its coupling capacitor; its compression is not modelled.
 The dossier reads the follower as hanging off the post-gain node in parallel with V3A, not in
@@ -503,5 +503,5 @@ input shelf's gain at DC.
 
 ### Tone stack values
 
-`Peavey5150ToneStack.cpp` takes the deck from dossier section 4: C16 470 pF || C60 100 pF, C18 and
+`peavey5150_tone_stack.cpp` takes the deck from dossier section 4: C16 470 pF || C60 100 pF, C18 and
 C21 0.022 uF, R28 47 kOhm slope, VR3 1 MOhm LOW, VR4 50 kOhm MID, VR5 250 kOhm HIGH.

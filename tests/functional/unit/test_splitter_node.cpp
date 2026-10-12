@@ -31,18 +31,18 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/routing/SplitterNode.hpp"
+#include "SushiDSP/routing/splitter_node.hpp"
 
 TEST(Unit_Dsp, SplitterNodeCopiesInputToOutput)
 {
     SushiDSP::SplitterNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
 
     std::vector<float> input(64, 3.5f);
     std::vector<float> output(64, 0.0f);
-    const float* inputs[1] = { input.data() };
-    float* outputs[1] = { output.data() };
-    SushiDSP::ProcessContext context{ outputs, inputs, 64, 0.0 };
+    const float* inputs[1] = {input.data()};
+    float* outputs[1] = {output.data()};
+    SushiDSP::ProcessContext context{outputs, inputs, 64, 0.0};
 
     node.process(context);
 

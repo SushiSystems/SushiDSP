@@ -2,13 +2,13 @@
 
 Design-time scripts. Nothing here runs in CI or at build time; their outputs are committed.
 
-- `design_halfband.py` — regenerates `include/SushiDSP/math/HalfbandCoefficients.hpp`.
+- `design_halfband.py`, regenerates `modules/foundation/math/include/SushiDSP/math/halfband_coefficients.hpp`.
   Needs `numpy` and `scipy` (`pip install numpy scipy`). Run from the repo root:
-  `python tools/dsp/design_halfband.py > include/SushiDSP/math/HalfbandCoefficients.hpp`
+  `python tools/dsp/design_halfband.py > modules/foundation/math/include/SushiDSP/math/halfband_coefficients.hpp`
   (write the file without a BOM). The band edges and stopband targets live in the script's
   `STAGES` table; the rationale is spec D6a.3 and the D6a plan's "Rulings" section.
-- `design_resampler.py` — regenerates `include/SushiDSP/math/ResamplerDesign.hpp`, the six
-  constants that describe the prototype's shape, and `src/math/ResamplerKernel.hpp`, the
+- `design_resampler.py`, regenerates `modules/foundation/math/include/SushiDSP/math/resampler_design.hpp`, the six
+  constants that describe the prototype's shape, and `modules/foundation/math/source/resampler_kernel.hpp`, the
   Kaiser-windowed-sinc table the arbitrary-ratio resampler polyphase-interpolates against.
   Needs `numpy` and `scipy` (`pip install numpy scipy`). Run from the repo root:
   `python tools/dsp/design_resampler.py`
@@ -16,7 +16,7 @@ Design-time scripts. Nothing here runs in CI or at build time; their outputs are
   of the script; the design targets are the DR1+DR2 plan's N1 and the spec's "New shared
   brick" section, and `HALF_WIDTH`'s value (34, not the originally planned 32) is fixed by the
   DR1+DR2 plan's Task 1.1 controller ruling on the stopband conflict.
-- `convert_hrtf.py` — converts a measured HRTF database into `assets/hrtf/sadie2_ku100_48k.hrtf`,
+- `convert_hrtf.py`, converts a measured HRTF database into `assets/hrtf/sadie2_ku100_48k.hrtf`,
   the flat binary `SushiDSP::HrtfSetLoader` reads. Needs `numpy` and `scipy`, plus `netCDF4` or
   `h5py` for a SOFA input (`pip install numpy scipy netCDF4`); a WAV release needs neither. Run
   from the repo root: `python tools/dsp/convert_hrtf.py --input <SOFA file or WAV directory>
@@ -27,7 +27,7 @@ Design-time scripts. Nothing here runs in CI or at build time; their outputs are
   file is the loader test's fixture. The byte layout and the −50 dB truncation and 3 dB decoder
   bounds are the room acoustics spec's §9.3 and §9.5, and `assets/hrtf/README.md` says how to
   reproduce the asset.
-- `motus_reference.py` — computes octave-band T20, T30, EDT, DRR and C50 from Motus spherical-harmonic
+- `motus_reference.py`, computes octave-band T20, T30, EDT, DRR and C50 from Motus spherical-harmonic
   room impulse responses (Zenodo 4923187, CC-BY-4.0) and writes `tests/fixtures/motus_reference.csv`.
   Needs `numpy` and `scipy` (`pip install numpy scipy`). Run from the repo root:
   `python tools/dsp/motus_reference.py --rir 0001_1_sh_rirs.wav 0002_1_sh_rirs.wav 0003_1_sh_rirs.wav

@@ -41,8 +41,8 @@ starts on that without the verdict.
   125 Hz it reads 0.75 of one and 2.1 of the other (KNOWN_ISSUES). A third measured room, or a
   low-frequency term tied to lightweight elements, decides it.
 - **Rebuild the room's spec section 6.2.** Its line-allocation sentence sizes the delay lines for
-  an RT60 of 3 s, and `FdnDesign::kMaxLineSeconds` is the 0.525 s that follows from it, while
-  `RoomScene::kMaxDecaySeconds` admits scenes up to 12 s. The lines do not lengthen with the
+  an RT60 of 3 s, and `FdnDesign::K_MAX_LINE_SECONDS` is the 0.525 s that follows from it, while
+  `RoomScene::K_MAX_DECAY_SECONDS` admits scenes up to 12 s. The lines do not lengthen with the
   gate, so a scene between the two decays at the echo density 0.525 s lines give. Whether that
   thins audibly is not measured.
 
@@ -56,7 +56,7 @@ starts on that without the verdict.
 - **Phase 2 manual acceptance.** The seven checks in Task 14 of
   `docs/archive/superpowers/plans/2026-09-14-host-gui-phase2.md` have not been run in the GUI.
 - **Parallel topology in presets.** A preset with a parallel shape loads flattened to a
-  series chain (`apps/host_gui/main.cpp`, `seed_rig_chain`); §19 leaves persistence open.
+  series chain (`applications/host_gui/main.cpp`, `seed_rig_chain`); §19 leaves persistence open.
 - **`SlotGraph::add_branch` has no caller** since the splitter picker was removed;
   `RigController` still forwards to it.
 - **`SlotGraph::publish()` rebuilds every node.** One structural edit builds the node set
@@ -71,12 +71,12 @@ starts on that without the verdict.
 ## Products
 
 - **Calibrate the power amplifier's feedback depth, after the output transformer is the Mesa's.**
-  The leg's own response is solved from S8 (`src/circuits/PowerAmpFeedback.cpp`) and the forward
+  The leg's own response is solved from S8 (`modules/foundation/circuits/source/power_amp_feedback.cpp`) and the forward
   gain is measured: 38.33 dB at 80 Hz, 39.56 at 600 Hz, 61.59 at 3 kHz and 53.31 at 10 kHz, with
   the loop open. Depth cannot be set from those numbers yet. At the depth that sweeps presence the
   18 dB the shelf it replaced did, the amplifier oscillates at 11.8 kHz, which is the 8 kHz pole of
   an output transformer still borrowed from the JCM800; at the deepest depth that does not ring,
-  `kTapToFeedbackVolts` 14.0, a 9 dB resonance sits at 10 kHz and presence runs backwards above
+  `K_TAP_TO_FEEDBACK_VOLTS` 14.0, a 9 dB resonance sits at 10 kHz and presence runs backwards above
   it. What the loop does is decided by the phase of what it loops around, so this item waits on the
   transformer below. The 14.0 in the tree is a holding value, not a calibration.
 - **The Mesa Mark IIC+'s remaining accuracy work.** Planned in
@@ -139,17 +139,13 @@ Decisions the owner takes first:
   declare the release and no tag exists.
 - **Say whether SushiDSP is in hub's catalogue**, then correct `docs/design/SUSHIDSP.md` §11a
   to match `sushi-module.toml`.
-- **Choose the core's place in the module tree**: one module per area under `modules/<tier>/`,
-  or a recorded exemption for the root `include/` and `src/`.
 - **Choose one error model**, since it is public interface. The logger landed on 2026-10-07
-  (`include/SushiDSP/log/`).
+  (`modules/foundation/log/include/SushiDSP/log/`).
 - **Logger follow-ups.** No test provokes the writer-thread start or the append failure in
   `TrackRecorder`, nor the `TopologyApplier` and `SlotGraph` sites; the `list_directory` test
   skips on Windows, where a 40 000-character path raises nothing; `StderrLogSink` has no test;
   a line carries no timestamp or thread id; `sushi_dsp` uses `std::thread` without linking
   `Threads::Threads`.
-- **Converge on the C++ style skill's names or record an exemption**: snake_case files,
-  `K_` constants, no `I` prefix.
 - **State the test count with its suite** in `README.md`, after one `sd test --suite all` run.
 
 Mechanical work that follows:
@@ -157,15 +153,24 @@ Mechanical work that follows:
 - Rewrite `docs/archive/README.md` as an index of what the archive holds, and say there
   which of the two standards phase 1 plans is the record.
 - Give the five placeless changelog entries of 2026-09-05 and 2026-09-07 their places.
-- Write the READMEs for `apps/host/`, `apps/host_asio/`, `tests/measure/`, `tests/benchmark/`
+- Write the READMEs for `applications/host/`, `applications/host_asio/`, `tests/measure/`, `tests/benchmark/`
   and each area under `include/SushiDSP/`.
 - Rewrite the CLI guide, the design spec's opening block and the first known issue in the
   `humanizer` register.
-- Rename `src/` to `source/` in every module and at the root, and `apps/` to `applications/`.
-- Add a checker job to CI and route its build through `sd`; split the workflow by trigger.
-- Add `.clang-format`, `.editorconfig` and `*.f32 binary`; move `Doxyfile` out of the root.
-- Bring the source comments to the `source-comments` shape, then add
-  `check_source_comments.py` to `sd check`.
+- Route CI through `sd` and split the workflow by trigger. Blocked: the CLI depends on the
+  `sushicore` package, and CI needs a decided way to install it on the runners.
+- Build the test layout the repository-layout skill names: `tests/unit/` and `tests/regression/`
+  in place of `tests/functional/`, module tests under each module's `tests/`, one test program per
+  module. Blocked: it changes the test binaries and their labels, which needs a build to verify.
+- Split `tests/functional/unit/README.md`, 4447 lines against the 800-line ceiling, with the test
+  layout above.
+- Replace the paragraphs of the docs-truth findings still open: 21 named symbols the source does
+  not hold (`TopBar`, `StagePanel`, `Mp3Decoder`, ...), 28 history words, and two duplicated
+  passages in the SPICE READMEs. Read each against the source before editing.
+- Reserve the error model, `[[nodiscard]]` and the `RigController` and `SlotGraph` split for an
+  owner decision, since they change public interfaces (see `docs/agent/2026_10_12_SUSHI_STANDARDS_MIGRATION/SPEC.md`).
+- Rewrite the em dash replacements of 2026-10-12 in the `humanizer` register. They replaced each
+  dash with a comma, a colon or a stop by its context, and no page was read after that pass.
 - Move the SPICE transient CSVs out of `docs/reference/spice/` to a fixture folder, with the
   tests and `tools/spice/export.py` that read and write them.
 - Correct `assets/ir/README.md`: the impulse response it names is not shipped, and its

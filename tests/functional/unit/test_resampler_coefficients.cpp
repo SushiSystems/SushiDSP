@@ -35,9 +35,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/ResamplerDesign.hpp"
+#include "SushiDSP/math/resampler_design.hpp"
 
-#include "math/ResamplerKernel.hpp"
+#include "resampler_kernel.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -46,32 +46,35 @@
 TEST(Unit_Dsp, ResamplerKernelHasTheCommittedShape)
 {
     // 34 * 512 + 1 endpoint + 1 guard = 17410. See tests/functional/unit/README.md.
-    EXPECT_EQ(SushiDSP::kResamplerKernelLength, 17410u);
-    EXPECT_EQ(SushiDSP::kResamplerHalfWidthZeroCrossings * SushiDSP::kResamplerPhasesPerZeroCrossing,
+    EXPECT_EQ(SushiDSP::K_RESAMPLER_KERNEL_LENGTH, 17410u);
+    EXPECT_EQ(SushiDSP::K_RESAMPLER_HALF_WIDTH_ZERO_CROSSINGS *
+                  SushiDSP::K_RESAMPLER_PHASES_PER_ZERO_CROSSING,
               17408u);
     // The centre tap of the kernel is 2*fc, not 1. See tests/functional/unit/README.md.
-    EXPECT_NEAR(SushiDSP::kResamplerKernel[0], 2.0f * SushiDSP::kResamplerCutoff, 1e-3f);
-    EXPECT_FLOAT_EQ(SushiDSP::kResamplerKernel[17408], 0.0f);
-    EXPECT_FLOAT_EQ(SushiDSP::kResamplerKernel[17409], 0.0f);
+    EXPECT_NEAR(SushiDSP::K_RESAMPLER_KERNEL[0], 2.0f * SushiDSP::K_RESAMPLER_CUTOFF, 1e-3f);
+    EXPECT_FLOAT_EQ(SushiDSP::K_RESAMPLER_KERNEL[17408], 0.0f);
+    EXPECT_FLOAT_EQ(SushiDSP::K_RESAMPLER_KERNEL[17409], 0.0f);
     // A windowed sinc alternates in sign between zero crossings; the first sidelobe is negative.
-    EXPECT_LT(SushiDSP::kResamplerKernel[768], 0.0f);   // 1.5 input samples out
-    EXPECT_GT(SushiDSP::kResamplerKernel[1280], 0.0f);  // 2.5 input samples out
+    EXPECT_LT(SushiDSP::K_RESAMPLER_KERNEL[768], 0.0f);  // 1.5 input samples out
+    EXPECT_GT(SushiDSP::K_RESAMPLER_KERNEL[1280], 0.0f); // 2.5 input samples out
 }
 
 TEST(Unit_Dsp, ResamplerKernelSumsToOnePerPhase)
 {
     // Branch p is h(p/512 + k) for integer k. See tests/functional/unit/README.md.
-    for (std::uint32_t phase = 0; phase < SushiDSP::kResamplerPhasesPerZeroCrossing; ++phase)
+    for (std::uint32_t phase = 0; phase < SushiDSP::K_RESAMPLER_PHASES_PER_ZERO_CROSSING; ++phase)
     {
         double sum = 0.0;
-        for (std::uint32_t tap = 0; tap < SushiDSP::kResamplerHalfWidthZeroCrossings; ++tap)
+        for (std::uint32_t tap = 0; tap < SushiDSP::K_RESAMPLER_HALF_WIDTH_ZERO_CROSSINGS; ++tap)
         {
-            const std::uint32_t right = tap * SushiDSP::kResamplerPhasesPerZeroCrossing + phase;
-            const std::uint32_t left  = (tap + 1) * SushiDSP::kResamplerPhasesPerZeroCrossing - phase;
-            sum += SushiDSP::kResamplerKernel[right];
-            if (left < SushiDSP::kResamplerKernelLength)
+            const std::uint32_t right =
+                tap * SushiDSP::K_RESAMPLER_PHASES_PER_ZERO_CROSSING + phase;
+            const std::uint32_t left =
+                (tap + 1) * SushiDSP::K_RESAMPLER_PHASES_PER_ZERO_CROSSING - phase;
+            sum += SushiDSP::K_RESAMPLER_KERNEL[right];
+            if (left < SushiDSP::K_RESAMPLER_KERNEL_LENGTH)
             {
-                sum += SushiDSP::kResamplerKernel[left];
+                sum += SushiDSP::K_RESAMPLER_KERNEL[left];
             }
         }
         EXPECT_NEAR(sum, 1.0, 2.0e-4) << phase;
@@ -83,23 +86,25 @@ TEST(Unit_Dsp, ResamplerKernelMeetsItsPassbandAndStopbandTargets)
     // The passband is |f| <= 0.400, the stopband >= 0.500. See tests/functional/unit/README.md.
     auto magnitude_db = [](double frequency_cycles_per_input_sample)
     {
-        std::complex<double> sum(SushiDSP::kResamplerKernel[0], 0.0);
+        std::complex<double> sum(SushiDSP::K_RESAMPLER_KERNEL[0], 0.0);
         for (std::uint32_t i = 1; i < 17409u; ++i)
         {
-            const double t = static_cast<double>(i) / SushiDSP::kResamplerPhasesPerZeroCrossing;
+            const double t =
+                static_cast<double>(i) / SushiDSP::K_RESAMPLER_PHASES_PER_ZERO_CROSSING;
             const double phase = 2.0 * M_PI * frequency_cycles_per_input_sample * t;
-            sum += 2.0 * SushiDSP::kResamplerKernel[i] * std::complex<double>(std::cos(phase), 0.0);
+            sum +=
+                2.0 * SushiDSP::K_RESAMPLER_KERNEL[i] * std::complex<double>(std::cos(phase), 0.0);
         }
         // The kernel is even and real, so is its transform. See tests/functional/unit/README.md.
-        const double gain = std::abs(sum) / SushiDSP::kResamplerPhasesPerZeroCrossing;
+        const double gain = std::abs(sum) / SushiDSP::K_RESAMPLER_PHASES_PER_ZERO_CROSSING;
         return 20.0 * std::log10(std::max(gain, 1e-300));
     };
 
-    for (const double f : { 0.0, 0.05, 0.10, 0.20, 0.30, 0.35, 0.399 })
+    for (const double f : {0.0, 0.05, 0.10, 0.20, 0.30, 0.35, 0.399})
     {
         EXPECT_NEAR(magnitude_db(f), 0.0, 0.10) << f;
     }
-    for (const double f : { 0.50, 0.60, 0.80, 1.00, 1.50, 2.00, 4.00 })
+    for (const double f : {0.50, 0.60, 0.80, 1.00, 1.50, 2.00, 4.00})
     {
         EXPECT_LE(magnitude_db(f), -100.0) << f;
     }
@@ -111,12 +116,12 @@ TEST(Unit_Dsp, ResamplerKernelIsSmoothEnoughForLinearInterpolation)
     double worst = 0.0;
     for (std::uint32_t i = 1; i + 1 < 17409u; ++i)
     {
-        const double second_difference = static_cast<double>(SushiDSP::kResamplerKernel[i + 1])
-                                       - 2.0 * SushiDSP::kResamplerKernel[i]
-                                       + SushiDSP::kResamplerKernel[i - 1];
+        const double second_difference = static_cast<double>(SushiDSP::K_RESAMPLER_KERNEL[i + 1]) -
+                                         2.0 * SushiDSP::K_RESAMPLER_KERNEL[i] +
+                                         SushiDSP::K_RESAMPLER_KERNEL[i - 1];
         worst = std::max(worst, std::abs(second_difference) / 8.0);
     }
-    std::printf("[ measure ] resampler kernel linear-interpolation bound %.4e (%.2f dB)\n",
-                worst, 20.0 * std::log10(worst));
+    std::printf("[ measure ] resampler kernel linear-interpolation bound %.4e (%.2f dB)\n", worst,
+                20.0 * std::log10(worst));
     EXPECT_LE(worst, 4.0e-6);
 }

@@ -1,10 +1,10 @@
-# `modules/session/rig_preset` — portable rig presets
+# `modules/session/rig_preset`, portable rig presets
 
 Two free functions that convert between a live, compiled `RigGraph` and a JSON string:
 `serialize_rig_to_json()` and `deserialize_rig_from_json()`. This is the concrete form of what
-[`docs/design/SUSHIDSP.md`](../../../docs/design/SUSHIDSP.md) calls a portable preset — an ordered
+[`docs/design/SUSHIDSP.md`](../../../docs/design/SUSHIDSP.md) calls a portable preset, an ordered
 list of `{descriptor.id, {param_id → value}}`, so a rig built in the VST loads unchanged in the
-standalone host and vice versa. `RigController` in `apps/host_gui` is the module's only caller
+standalone host and vice versa. `RigController` in `applications/host_gui` is the module's only caller
 today. This file records what the code in this directory does.
 
 ## What it owns
@@ -16,7 +16,7 @@ today. This file records what the code in this directory does.
 | Looking up a live node's declared parameters by matching `NodeDescriptor::id` | `descriptor_for_type()` (internal) |
 
 Each node's `params` come from the node's own declared `ParameterDescriptor`s in
-`node_registry()`, read by string id — this module has no per-product knowledge and adds none
+`node_registry()`, read by string id, this module has no per-product knowledge and adds none
 when a new product registers. `inputs` records, per node, the preset-local ids of its upstream
 `connect()` edges, in the order they were connected.
 
@@ -30,14 +30,14 @@ module knowing about it:
   about (e.g. a `Jcm800`'s cabinet IR path) or overwrite `params` with its own stored values.
 - `OnNodeLoadedFn`, called once per node during deserialization, after `add_node()` but before
   its params/edges are applied, so a caller can read a field its own `AnnotateNodeFn` wrote and
-  act on it (e.g. install a cabinet) — never invoked for a malformed entry, since every entry
+  act on it (e.g. install a cabinet), never invoked for a malformed entry, since every entry
   passes deserialization's full shape check in a first pass before any node is added.
 
 ## Failure mode
 
-`deserialize_rig_from_json` throws `std::runtime_error` for any malformed entry — a missing or
+`deserialize_rig_from_json` throws `std::runtime_error` for any malformed entry, a missing or
 wrong-shaped `id`/`type`/`params`/`inputs` key, an unregistered `type`, a duplicate `id`, or an
-`inputs` entry naming an id no entry declares — and validates every entry before adding any
+`inputs` entry naming an id no entry declares, and validates every entry before adding any
 node, so a malformed preset leaves `graph` unmodified rather than half-built.
 `nlohmann::json::parse_error` still escapes unparseable text.
 
@@ -58,7 +58,7 @@ node's `inputs` lists the preset-local `id`s of its upstream nodes in `connect()
 caller add extra fields to a node's JSON object or overwrite ones already written; null means no
 extra fields. The `std::runtime_error` for an unregistered type should not happen for any node
 constructed via `make_node()`, but a hand-built `RigGraph` that uses a non-registered
-`IAudioNode` subclass cannot be serialized.
+`AudioNode` subclass cannot be serialized.
 
 ### What deserialization accepts
 

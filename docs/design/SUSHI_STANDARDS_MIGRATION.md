@@ -79,18 +79,18 @@ Key transformations:
 1. `docs/archive/superpowers/plans/` and `docs/archive/superpowers/specs/` move to `docs/archive/superpowers/`.
 2. The module index moves to `docs/architecture/MODULES.md`. Done.
 3. `docs/api/mainpage.md` moves to `docs/reference/API_REFERENCE.md`.
-4. `docs/design/sushidsp.md` is renamed to `docs/design/SUSHIDSP.md` with status `**Status:** Open — phase 2 of 4`.
-5. `docs/design/gui_ux_redesign.md` is renamed to `docs/design/GUI_UX_REDESIGN.md` with status `**Status:** Open — phase 2 of 2`.
+4. `docs/design/sushidsp.md` is renamed to `docs/design/SUSHIDSP.md` with status `**Status:** Open, phase 2 of 4`.
+5. `docs/design/gui_ux_redesign.md` is renamed to `docs/design/GUI_UX_REDESIGN.md` with status `**Status:** Open, phase 2 of 2`.
 6. `docs/design/README.md` is added to provide a direct topic-to-design document map.
 7. `docs/reference/CHANGELOG.md` is formatted to comply with `check_changelog.py` rules:
    - Heading reads `## Unreleased`.
-   - Each entry follows `- YYYY-MM-DD — scope: Past-tense verb description (`path`).` with fewer than 240 characters.
+   - Each entry follows `- YYYY-MM-DD, scope: Past-tense verb description (`path`).` with fewer than 240 characters.
 8. `docs/README.md` internal hyperlinks are updated to resolve correctly.
 
 ## Phase 2: Module Tier Restructuring (Future)
 
 - Reorganise `src/` and `include/SushiDSP/` into `modules/<tier>/<module>/`.
-- Move `apps/` to `applications/`.
+- Move `applications/` to `applications/`.
 - Configure `K_TIER_ORDER` in `tools/layering/check_layering.py` and `cmake/`. The checker's half
   landed on 2026-09-21 with the `nodes`, `catalog` and `session` tiers.
 

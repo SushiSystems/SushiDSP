@@ -37,8 +37,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/AsyncLogSink.hpp"
-#include "SushiDSP/log/CapturingLogSink.hpp"
+#include "SushiDSP/log/async_log_sink.hpp"
+#include "SushiDSP/log/capturing_log_sink.hpp"
 
 namespace
 {
@@ -47,89 +47,93 @@ namespace
         SushiDSP::make_log_category("async_test");
 
     /// @brief Writes one numbered line to a sink.
-    void write_line(SushiDSP::ILogSink& sink, std::size_t index)
+    void write_line(SushiDSP::LogSink& sink, std::size_t index)
     {
         const std::string text = "line " + std::to_string(index);
-        sink.write(SushiDSP::LogRecord{ SushiDSP::LogLevel::Info, K_ASYNC_TEST_LOG_CATEGORY, text });
+        sink.write(SushiDSP::LogRecord{SushiDSP::LogLevel::Info, K_ASYNC_TEST_LOG_CATEGORY, text});
     }
 
     /// @brief Holds every write() until open() is called, then passes the lines on.
-    class GatedLogSink final : public SushiDSP::ILogSink
+    class GatedLogSink final : public SushiDSP::LogSink
     {
-    public:
-        /// @brief Starts closed, passing lines on to a sink once opened.
-        explicit GatedLogSink(std::shared_ptr<SushiDSP::ILogSink> downstream)
-            : downstream_(std::move(downstream))
-        {
-        }
-
-        /// @brief Blocks until the gate opens, then passes the line on.
-        void write(const SushiDSP::LogRecord& record) noexcept override
-        {
-            entered_.store(true, std::memory_order_release);
+        public:
+            /// @brief Starts closed, passing lines on to a sink once opened.
+            explicit GatedLogSink(std::shared_ptr<SushiDSP::LogSink> downstream)
+                : downstream_(std::move(downstream))
             {
-                std::unique_lock<std::mutex> lock(mutex_);
-                opened_.wait(lock, [this] { return open_; });
             }
-            downstream_->write(record);
-        }
 
-        /// @brief Passes the flush on.
-        void flush() noexcept override
-        {
-            downstream_->flush();
-        }
-
-        /// @brief Reports whether a write() has reached the gate.
-        bool has_entered() const noexcept
-        {
-            return entered_.load(std::memory_order_acquire);
-        }
-
-        /// @brief Lets every held and later write() through.
-        void open()
-        {
+            /// @brief Blocks until the gate opens, then passes the line on.
+            void write(const SushiDSP::LogRecord& record) noexcept override
             {
-                const std::lock_guard<std::mutex> lock(mutex_);
-                open_ = true;
+                entered_.store(true, std::memory_order_release);
+                {
+                    std::unique_lock<std::mutex> lock(mutex_);
+                    opened_.wait(lock,
+                                 [this]
+                                 {
+                                     return open_;
+                                 });
+                }
+                downstream_->write(record);
             }
-            opened_.notify_all();
-        }
 
-    private:
-        /// @brief Receives the lines once the gate is open.
-        std::shared_ptr<SushiDSP::ILogSink> downstream_;
+            /// @brief Passes the flush on.
+            void flush() noexcept override
+            {
+                downstream_->flush();
+            }
 
-        /// @brief Guards open_.
-        std::mutex mutex_;
+            /// @brief Reports whether a write() has reached the gate.
+            bool has_entered() const noexcept
+            {
+                return entered_.load(std::memory_order_acquire);
+            }
 
-        /// @brief Wakes the writes held at the gate.
-        std::condition_variable opened_;
+            /// @brief Lets every held and later write() through.
+            void open()
+            {
+                {
+                    const std::lock_guard<std::mutex> lock(mutex_);
+                    open_ = true;
+                }
+                opened_.notify_all();
+            }
 
-        /// @brief Tells whether the gate is open.
-        bool open_ = false;
+        private:
+            /// @brief Receives the lines once the gate is open.
+            std::shared_ptr<SushiDSP::LogSink> downstream_;
 
-        /// @brief Tells whether a write() has reached the gate.
-        std::atomic<bool> entered_{ false };
+            /// @brief Guards open_.
+            std::mutex mutex_;
+
+            /// @brief Wakes the writes held at the gate.
+            std::condition_variable opened_;
+
+            /// @brief Tells whether the gate is open.
+            bool open_ = false;
+
+            /// @brief Tells whether a write() has reached the gate.
+            std::atomic<bool> entered_{false};
     };
-}
+} // namespace
 
 TEST(Unit_Log, AsyncSinkDeliversEveryLineInOrderBeforeFlushReturns)
 {
-    constexpr std::size_t kLines = 500;
+    constexpr std::size_t K_LINES = 500;
 
-    const auto             capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::AsyncLogSink sink(capture, 1024);
 
-    for (std::size_t index = 0; index < kLines; ++index)
+    for (std::size_t index = 0; index < K_LINES; ++index)
     {
         write_line(sink, index);
     }
     sink.flush();
 
     const std::vector<SushiDSP::CapturedLogLine> lines = capture->lines();
-    ASSERT_EQ(lines.size(), kLines);
-    for (std::size_t index = 0; index < kLines; ++index)
+    ASSERT_EQ(lines.size(), K_LINES);
+    for (std::size_t index = 0; index < K_LINES; ++index)
     {
         EXPECT_EQ(lines[index].message, "line " + std::to_string(index));
         EXPECT_EQ(lines[index].category, "async_test");
@@ -141,7 +145,7 @@ TEST(Unit_Log, AsyncSinkDeliversEveryLineInOrderBeforeFlushReturns)
 
 TEST(Unit_Log, AsyncSinkFlushReturnsWhenNothingIsQueued)
 {
-    const auto             capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::AsyncLogSink sink(capture, 16);
 
     sink.flush();
@@ -153,19 +157,19 @@ TEST(Unit_Log, AsyncSinkFlushReturnsWhenNothingIsQueued)
 
 TEST(Unit_Log, AsyncSinkDeliversWhatIsQueuedWhenItIsDestroyed)
 {
-    constexpr std::size_t kLines = 100;
+    constexpr std::size_t K_LINES = 100;
 
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     {
         SushiDSP::AsyncLogSink sink(capture, 128);
-        for (std::size_t index = 0; index < kLines; ++index)
+        for (std::size_t index = 0; index < K_LINES; ++index)
         {
             write_line(sink, index);
         }
     }
 
     const std::vector<SushiDSP::CapturedLogLine> lines = capture->lines();
-    ASSERT_EQ(lines.size(), kLines);
+    ASSERT_EQ(lines.size(), K_LINES);
     EXPECT_EQ(lines.front().message, "line 0");
     EXPECT_EQ(lines.back().message, "line 99");
     EXPECT_GE(capture->flush_count(), 1u);
@@ -173,8 +177,8 @@ TEST(Unit_Log, AsyncSinkDeliversWhatIsQueuedWhenItIsDestroyed)
 
 TEST(Unit_Log, AsyncSinkDropsAndCountsWhenTheQueueIsFullInsteadOfBlocking)
 {
-    const auto             capture = std::make_shared<SushiDSP::CapturingLogSink>();
-    const auto             gate = std::make_shared<GatedLogSink>(capture);
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    const auto gate = std::make_shared<GatedLogSink>(capture);
     SushiDSP::AsyncLogSink sink(gate, 2);
 
     write_line(sink, 0);
@@ -202,6 +206,5 @@ TEST(Unit_Log, AsyncSinkDropsAndCountsWhenTheQueueIsFullInsteadOfBlocking)
     EXPECT_EQ(lines[2].message, "line 2");
     EXPECT_EQ(lines[3].level, SushiDSP::LogLevel::Warn);
     EXPECT_EQ(lines[3].category, "log");
-    EXPECT_NE(lines[3].message.find("3 lines were dropped"), std::string::npos)
-        << lines[3].message;
+    EXPECT_NE(lines[3].message.find("3 lines were dropped"), std::string::npos) << lines[3].message;
 }

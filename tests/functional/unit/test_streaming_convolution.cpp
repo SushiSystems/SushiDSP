@@ -28,7 +28,7 @@
 #include <cmath>
 #include <vector>
 #include <gtest/gtest.h>
-#include "SushiDSP/math/StreamingConvolution.hpp"
+#include "SushiDSP/math/streaming_convolution.hpp"
 
 namespace
 {
@@ -37,21 +37,30 @@ namespace
         std::vector<float> y(x.size(), 0.0f);
         for (std::size_t n = 0; n < x.size(); ++n)
         {
-            for (std::size_t k = 0; k < h.size() && k <= n; ++k) { y[n] += x[n - k] * h[k]; }
+            for (std::size_t k = 0; k < h.size() && k <= n; ++k)
+            {
+                y[n] += x[n - k] * h[k];
+            }
         }
         return y;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, StreamingConvolutionMatchesDirectFormForIrregularBlockSizes)
 {
     std::vector<float> ir(300);
-    for (std::size_t i = 0; i < ir.size(); ++i) { ir[i] = std::sin(0.37f * i) * std::exp(-0.01f * i); }
+    for (std::size_t i = 0; i < ir.size(); ++i)
+    {
+        ir[i] = std::sin(0.37f * i) * std::exp(-0.01f * i);
+    }
     std::vector<float> signal(5000);
-    for (std::size_t i = 0; i < signal.size(); ++i) { signal[i] = std::sin(0.05f * i) + 0.3f * std::cos(0.9f * i); }
+    for (std::size_t i = 0; i < signal.size(); ++i)
+    {
+        signal[i] = std::sin(0.05f * i) + 0.3f * std::cos(0.9f * i);
+    }
 
     SushiDSP::StreamingConvolution convolution(128, ir.data(), 300, 4096);
-    const std::uint32_t chunks[] = { 1, 7, 64, 100, 256, 1000, 4096 };
+    const std::uint32_t chunks[] = {1, 7, 64, 100, 256, 1000, 4096};
     std::vector<float> streamed;
     std::size_t cursor = 0;
     std::size_t chunk_index = 0;

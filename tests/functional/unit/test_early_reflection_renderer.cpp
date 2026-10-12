@@ -33,57 +33,63 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/room/EarlyReflectionRenderer.hpp"
+#include "SushiDSP/room/early_reflection_renderer.hpp"
 
 namespace
 {
     /// @brief Counts the channels the renderer accumulates into.
-    constexpr std::uint32_t kChannels = SushiDSP::room::EarlyReflectionRenderer::kOutputChannels;
+    constexpr std::uint32_t K_CHANNELS = SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS;
 
     /// @brief Holds the block length every test renders in.
-    constexpr std::uint32_t kBlock = 256;
+    constexpr std::uint32_t K_BLOCK = 256;
 
     /// @brief Holds the longest delay the tests ask the ring to hold.
-    constexpr std::uint32_t kMaxDelay = 8397;
+    constexpr std::uint32_t K_MAX_DELAY = 8397;
 
     /// @brief Holds pi.
-    constexpr double kPi = 3.14159265358979323846;
+    constexpr double K_PI = 3.14159265358979323846;
 
     /// @brief Holds sixteen accumulation buffers and the pointer table the renderer takes.
     class OutputBlock
     {
-    public:
-        /// @brief Allocates zeroed buffers of one block each.
-        OutputBlock()
-        {
-            for (std::uint32_t channel = 0; channel < kChannels; ++channel)
+        public:
+            /// @brief Allocates zeroed buffers of one block each.
+            OutputBlock()
             {
-                buffers_[channel].assign(kBlock, 0.0f);
-                pointers_[channel] = buffers_[channel].data();
+                for (std::uint32_t channel = 0; channel < K_CHANNELS; ++channel)
+                {
+                    buffers_[channel].assign(K_BLOCK, 0.0f);
+                    pointers_[channel] = buffers_[channel].data();
+                }
             }
-        }
 
-        /// @brief Zeroes every channel.
-        void clear()
-        {
-            for (auto& buffer : buffers_)
+            /// @brief Zeroes every channel.
+            void clear()
             {
-                buffer.assign(kBlock, 0.0f);
+                for (auto& buffer : buffers_)
+                {
+                    buffer.assign(K_BLOCK, 0.0f);
+                }
             }
-        }
 
-        /// @brief Returns the pointer table.
-        float* const* pointers() { return pointers_.data(); }
+            /// @brief Returns the pointer table.
+            float* const* pointers()
+            {
+                return pointers_.data();
+            }
 
-        /// @brief Returns one channel.
-        const std::vector<float>& channel(std::uint32_t index) const { return buffers_[index]; }
+            /// @brief Returns one channel.
+            const std::vector<float>& channel(std::uint32_t index) const
+            {
+                return buffers_[index];
+            }
 
-    private:
-        /// @brief Stores the sixteen buffers.
-        std::array<std::vector<float>, kChannels> buffers_;
+        private:
+            /// @brief Stores the sixteen buffers.
+            std::array<std::vector<float>, K_CHANNELS> buffers_;
 
-        /// @brief Stores one pointer per buffer.
-        std::array<float*, kChannels> pointers_;
+            /// @brief Stores one pointer per buffer.
+            std::array<float*, K_CHANNELS> pointers_;
     };
 
     /// @brief Returns a tap with a pass-through filter and an encode of 1 on channel 0.
@@ -92,8 +98,8 @@ namespace
         SushiDSP::room::EarlyTap tap{};
         tap.delay_frames = delay_frames;
         tap.gain = gain;
-        tap.section_a = { 1.0, 0.0, 0.0, 0.0, 0.0 };
-        tap.section_b = { 1.0, 0.0, 0.0, 0.0, 0.0 };
+        tap.section_a = {1.0, 0.0, 0.0, 0.0, 0.0};
+        tap.section_b = {1.0, 0.0, 0.0, 0.0, 0.0};
         tap.encode.fill(0.0f);
         tap.encode[0] = 1.0f;
         return tap;
@@ -112,14 +118,14 @@ namespace
     SushiDSP::room::EarlyReflectionRenderer prepared_renderer()
     {
         SushiDSP::room::EarlyReflectionRenderer renderer;
-        renderer.prepare(kMaxDelay, kBlock);
+        renderer.prepare(K_MAX_DELAY, K_BLOCK);
         return renderer;
     }
 
     /// @brief Returns one block that is a unit impulse at frame 0.
     std::vector<float> impulse_block()
     {
-        std::vector<float> block(kBlock, 0.0f);
+        std::vector<float> block(K_BLOCK, 0.0f);
         block[0] = 1.0f;
         return block;
     }
@@ -128,19 +134,19 @@ namespace
     std::vector<float> render_sine(const SushiDSP::room::EarlyTapSet& set, std::uint32_t blocks)
     {
         SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-        std::vector<float> input(kBlock);
+        std::vector<float> input(K_BLOCK);
         std::vector<float> output;
-        output.reserve(static_cast<std::size_t>(blocks) * kBlock);
+        output.reserve(static_cast<std::size_t>(blocks) * K_BLOCK);
         for (std::uint32_t block = 0; block < blocks; ++block)
         {
-            for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+            for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
             {
-                const double time = static_cast<double>(block * kBlock + frame) / 48000.0;
-                input[frame] = static_cast<float>(std::sin(2.0 * kPi * 1000.0 * time));
+                const double time = static_cast<double>(block * K_BLOCK + frame) / 48000.0;
+                input[frame] = static_cast<float>(std::sin(2.0 * K_PI * 1000.0 * time));
             }
-            renderer.write(input.data(), kBlock);
+            renderer.write(input.data(), K_BLOCK);
             OutputBlock outputs;
-            renderer.render(set, 0u, outputs.pointers(), kBlock);
+            renderer.render(set, 0u, outputs.pointers(), K_BLOCK);
             output.insert(output.end(), outputs.channel(0).begin(), outputs.channel(0).end());
         }
         return output;
@@ -157,8 +163,8 @@ namespace
             double sum = 0.0;
             for (std::ptrdiff_t frame = start; frame < start + length; ++frame)
             {
-                sum += static_cast<double>(late[static_cast<std::size_t>(frame)])
-                    * static_cast<double>(early[static_cast<std::size_t>(frame - lag)]);
+                sum += static_cast<double>(late[static_cast<std::size_t>(frame)]) *
+                       static_cast<double>(early[static_cast<std::size_t>(frame - lag)]);
             }
             correlation[static_cast<std::size_t>(lag + 2)] = sum;
         }
@@ -176,17 +182,17 @@ namespace
         const double offset = 0.5 * (left - right) / (left - 2.0 * centre + right);
         return static_cast<double>(peak) - 2.0 + offset;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, EarlyReflectionRendererPutsAnImpulseAtTheTapsDelay)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     const SushiDSP::room::EarlyTapSet set = single_tap_set(100.0f);
     const std::vector<float> input = impulse_block();
-    renderer.write(input.data(), kBlock);
+    renderer.write(input.data(), K_BLOCK);
     OutputBlock outputs;
-    renderer.render(set, 0u, outputs.pointers(), kBlock);
-    for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+    renderer.render(set, 0u, outputs.pointers(), K_BLOCK);
+    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
     {
         if (frame == 100u)
         {
@@ -204,9 +210,9 @@ TEST(Unit_Dsp, EarlyReflectionRendererInterpolatesAFractionalDelay)
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     const SushiDSP::room::EarlyTapSet half = single_tap_set(100.5f);
     const std::vector<float> input = impulse_block();
-    renderer.write(input.data(), kBlock);
+    renderer.write(input.data(), K_BLOCK);
     OutputBlock outputs;
-    renderer.render(half, 0u, outputs.pointers(), kBlock);
+    renderer.render(half, 0u, outputs.pointers(), K_BLOCK);
     EXPECT_GT(outputs.channel(0)[100], 0.4f);
     EXPECT_GT(outputs.channel(0)[101], 0.4f);
 
@@ -220,17 +226,17 @@ TEST(Unit_Dsp, EarlyReflectionRendererSumsOneHundredAndTwentyEightTaps)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::EarlyTapSet set{};
-    set.count = static_cast<std::uint32_t>(SushiDSP::room::EarlyTapSet::kMaxEarlyTaps);
+    set.count = static_cast<std::uint32_t>(SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS);
     for (std::uint32_t tap = 0; tap < set.count; ++tap)
     {
         set.taps[tap] = unit_tap(static_cast<float>(100u + tap), 1.0f / 128.0f);
     }
     const std::vector<float> input = impulse_block();
-    renderer.write(input.data(), kBlock);
+    renderer.write(input.data(), K_BLOCK);
     OutputBlock outputs;
-    renderer.render(set, 0u, outputs.pointers(), kBlock);
+    renderer.render(set, 0u, outputs.pointers(), K_BLOCK);
     double sum = 0.0;
-    for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
     {
         const float value = outputs.channel(0)[frame];
         sum += static_cast<double>(value);
@@ -252,17 +258,17 @@ TEST(Unit_Dsp, EarlyReflectionRendererEncodesIntoSixteenChannels)
     SushiDSP::room::EarlyTapSet set = single_tap_set(100.0f);
     set.taps[0].encode[3] = 1.0f;
     const std::vector<float> input = impulse_block();
-    renderer.write(input.data(), kBlock);
+    renderer.write(input.data(), K_BLOCK);
     OutputBlock outputs;
-    renderer.render(set, 0u, outputs.pointers(), kBlock);
-    for (std::uint32_t channel = 0; channel < kChannels; ++channel)
+    renderer.render(set, 0u, outputs.pointers(), K_BLOCK);
+    for (std::uint32_t channel = 0; channel < K_CHANNELS; ++channel)
     {
         if (channel == 0u || channel == 3u)
         {
             EXPECT_EQ(outputs.channel(channel)[100], 1.0f) << "channel " << channel;
             continue;
         }
-        for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+        for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
         {
             EXPECT_LT(std::fabs(outputs.channel(channel)[frame]), 1e-9f)
                 << "channel " << channel << " frame " << frame;
@@ -276,27 +282,27 @@ TEST(Unit_Dsp, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
     SushiDSP::room::EarlyTapSet set = single_tap_set(100.0f);
     // A resonator near 1 kHz with a pole radius of 0.999 rings for many blocks.
     const double radius = 0.999;
-    const double theta = 2.0 * kPi * 1000.0 / 48000.0;
-    set.taps[0].section_a = { 1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius };
+    const double theta = 2.0 * K_PI * 1000.0 / 48000.0;
+    set.taps[0].section_a = {1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius};
 
     const std::vector<float> impulse = impulse_block();
-    const std::vector<float> silence(kBlock, 0.0f);
-    renderer.write(impulse.data(), kBlock);
+    const std::vector<float> silence(K_BLOCK, 0.0f);
+    renderer.write(impulse.data(), K_BLOCK);
     OutputBlock first_from_bank_zero;
-    renderer.render(set, 0u, first_from_bank_zero.pointers(), kBlock);
+    renderer.render(set, 0u, first_from_bank_zero.pointers(), K_BLOCK);
     OutputBlock scratch;
     for (int block = 1; block < 10; ++block)
     {
-        renderer.write(silence.data(), kBlock);
+        renderer.write(silence.data(), K_BLOCK);
         scratch.clear();
-        renderer.render(set, 0u, scratch.pointers(), kBlock);
+        renderer.render(set, 0u, scratch.pointers(), K_BLOCK);
     }
 
-    renderer.write(impulse.data(), kBlock);
+    renderer.write(impulse.data(), K_BLOCK);
     renderer.clear_bank(1u);
     OutputBlock first_from_bank_one;
-    renderer.render(set, 1u, first_from_bank_one.pointers(), kBlock);
-    for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+    renderer.render(set, 1u, first_from_bank_one.pointers(), K_BLOCK);
+    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
     {
         EXPECT_EQ(first_from_bank_one.channel(0)[frame], first_from_bank_zero.channel(0)[frame])
             << "frame " << frame;
@@ -304,7 +310,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
 
     // Bank 0 still rings from its own history, so the same block through it is not bank 1's.
     OutputBlock ringing_bank_zero;
-    renderer.render(set, 0u, ringing_bank_zero.pointers(), kBlock);
+    renderer.render(set, 0u, ringing_bank_zero.pointers(), K_BLOCK);
     bool differs = false;
     for (std::uint32_t frame = 0; frame < 100u; ++frame)
     {
@@ -318,9 +324,9 @@ TEST(Unit_Dsp, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
     // Only tap 0's state is carried into bank 1. See tests/functional/unit/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     const double radius = 0.999;
-    const double theta = 2.0 * kPi * 1000.0 / 48000.0;
+    const double theta = 2.0 * K_PI * 1000.0 / 48000.0;
     SushiDSP::room::EarlyTapSet both = single_tap_set(100.0f);
-    both.taps[0].section_a = { 1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius };
+    both.taps[0].section_a = {1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius};
     both.count = 2u;
     both.taps[1] = both.taps[0];
     both.taps[1].delay_frames = 200.0f;
@@ -328,25 +334,25 @@ TEST(Unit_Dsp, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
     first_only.count = 1u;
 
     const std::vector<float> impulse = impulse_block();
-    const std::vector<float> silence(kBlock, 0.0f);
-    renderer.write(impulse.data(), kBlock);
+    const std::vector<float> silence(K_BLOCK, 0.0f);
+    renderer.write(impulse.data(), K_BLOCK);
     OutputBlock scratch;
-    renderer.render(both, 0u, scratch.pointers(), kBlock);
+    renderer.render(both, 0u, scratch.pointers(), K_BLOCK);
     for (int block = 1; block < 10; ++block)
     {
-        renderer.write(silence.data(), kBlock);
+        renderer.write(silence.data(), K_BLOCK);
         scratch.clear();
-        renderer.render(both, 0u, scratch.pointers(), kBlock);
+        renderer.render(both, 0u, scratch.pointers(), K_BLOCK);
     }
 
     renderer.carry_tap(0u, 1u, 0u);
-    renderer.write(silence.data(), kBlock);
+    renderer.write(silence.data(), K_BLOCK);
     OutputBlock from_bank_zero;
-    renderer.render(first_only, 0u, from_bank_zero.pointers(), kBlock);
+    renderer.render(first_only, 0u, from_bank_zero.pointers(), K_BLOCK);
     OutputBlock from_bank_one;
-    renderer.render(both, 1u, from_bank_one.pointers(), kBlock);
+    renderer.render(both, 1u, from_bank_one.pointers(), K_BLOCK);
     bool rings = false;
-    for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
     {
         EXPECT_EQ(from_bank_one.channel(0)[frame], from_bank_zero.channel(0)[frame])
             << "frame " << frame;
@@ -360,25 +366,25 @@ TEST(Unit_Dsp, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
     // A carry onto the same bank is a copy onto itself. See tests/functional/unit/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     const double radius = 0.999;
-    const double theta = 2.0 * kPi * 1000.0 / 48000.0;
+    const double theta = 2.0 * K_PI * 1000.0 / 48000.0;
     SushiDSP::room::EarlyTapSet set = single_tap_set(100.0f);
-    set.taps[0].section_a = { 1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius };
+    set.taps[0].section_a = {1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius};
 
     const std::vector<float> impulse = impulse_block();
-    const std::vector<float> silence(kBlock, 0.0f);
-    renderer.write(impulse.data(), kBlock);
+    const std::vector<float> silence(K_BLOCK, 0.0f);
+    renderer.write(impulse.data(), K_BLOCK);
     OutputBlock scratch;
-    renderer.render(set, 0u, scratch.pointers(), kBlock);
+    renderer.render(set, 0u, scratch.pointers(), K_BLOCK);
 
     SushiDSP::room::EarlyReflectionRenderer untouched = renderer;
     renderer.carry_tap(0u, 0u, 0u);
-    renderer.write(silence.data(), kBlock);
-    untouched.write(silence.data(), kBlock);
+    renderer.write(silence.data(), K_BLOCK);
+    untouched.write(silence.data(), K_BLOCK);
     OutputBlock carried;
-    renderer.render(set, 0u, carried.pointers(), kBlock);
+    renderer.render(set, 0u, carried.pointers(), K_BLOCK);
     OutputBlock reference;
-    untouched.render(set, 0u, reference.pointers(), kBlock);
-    for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+    untouched.render(set, 0u, reference.pointers(), K_BLOCK);
+    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
     {
         EXPECT_EQ(carried.channel(0)[frame], reference.channel(0)[frame]) << "frame " << frame;
     }
@@ -389,20 +395,20 @@ TEST(Unit_Dsp, EarlyReflectionRendererCarriesATailAcrossBlockBoundaries)
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     const SushiDSP::room::EarlyTapSet set = single_tap_set(300.0f);
     const std::vector<float> impulse = impulse_block();
-    const std::vector<float> silence(kBlock, 0.0f);
+    const std::vector<float> silence(K_BLOCK, 0.0f);
 
-    renderer.write(impulse.data(), kBlock);
+    renderer.write(impulse.data(), K_BLOCK);
     OutputBlock first;
-    renderer.render(set, 0u, first.pointers(), kBlock);
-    for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+    renderer.render(set, 0u, first.pointers(), K_BLOCK);
+    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
     {
         EXPECT_LT(std::fabs(first.channel(0)[frame]), 1e-9f) << "frame " << frame;
     }
 
-    renderer.write(silence.data(), kBlock);
+    renderer.write(silence.data(), K_BLOCK);
     OutputBlock second;
-    renderer.render(set, 0u, second.pointers(), kBlock);
-    for (std::uint32_t frame = 0; frame < kBlock; ++frame)
+    renderer.render(set, 0u, second.pointers(), K_BLOCK);
+    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
     {
         if (frame == 44u)
         {

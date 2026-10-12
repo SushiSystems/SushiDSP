@@ -35,8 +35,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/diezel_vh4/DiezelVh4.hpp"
-#include "golden/GoldenFile.hpp"
+#include "SushiDSP/diezel_vh4/diezel_vh4.hpp"
+#include "golden/golden_file.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -56,29 +56,32 @@ namespace
         node.set_deep(0.5f);
         node.set_presence(0.5f);
         node.set_master(0.0f);
-        node.prepare({ sample_rate, 256, 1 });
+        node.prepare({sample_rate, 256, 1});
         const auto input = SushiDSP::golden::stimulus(sample_rate);
         std::vector<float> output(input.size(), 0.0f);
         for (std::size_t position = 0; position < input.size(); position += 256)
         {
-            const std::uint32_t frames = static_cast<std::uint32_t>(std::min<std::size_t>(256, input.size() - position));
-            const float* inputs[1] = { input.data() + position };
-            float* outputs[1] = { output.data() + position };
-            SushiDSP::ProcessContext context{ outputs, inputs, frames, 0.0 };
+            const std::uint32_t frames =
+                static_cast<std::uint32_t>(std::min<std::size_t>(256, input.size() - position));
+            const float* inputs[1] = {input.data() + position};
+            float* outputs[1] = {output.data() + position};
+            SushiDSP::ProcessContext context{outputs, inputs, frames, 0.0};
             node.process(context);
         }
         return output;
     }
-}
+} // namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md
 TEST(Regression_Dsp, DiezelVh4GoldenFile48k)
 {
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("diezel_vh4_48k", render_diezel_vh4(48000.0)), -80.0);
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("diezel_vh4_48k", render_diezel_vh4(48000.0)),
+              -80.0);
 }
 
 TEST(Regression_Dsp, DiezelVh4GoldenFile96k)
 {
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("diezel_vh4_96k", render_diezel_vh4(96000.0)), -80.0);
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("diezel_vh4_96k", render_diezel_vh4(96000.0)),
+              -80.0);
 }

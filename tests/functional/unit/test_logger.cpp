@@ -31,20 +31,20 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/CapturingLogSink.hpp"
-#include "SushiDSP/log/Log.hpp"
-#include "SushiDSP/log/ScopedLogSink.hpp"
+#include "SushiDSP/log/capturing_log_sink.hpp"
+#include "SushiDSP/log/log.hpp"
+#include "SushiDSP/log/scoped_log_sink.hpp"
 
 namespace
 {
     /// @brief Names the lines this file logs.
     inline constexpr SushiDSP::LogCategory K_LOGGER_TEST_LOG_CATEGORY =
         SushiDSP::make_log_category("logger_test");
-}
+} // namespace
 
 TEST(Unit_Log, CapturingSinkReceivesTheCategoryTheLevelAndTheFormattedLine)
 {
-    const auto       capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::Logger logger(capture, SushiDSP::LogLevel::Trace);
 
     logger.log(SushiDSP::LogLevel::Warn, K_LOGGER_TEST_LOG_CATEGORY, "slot {} refused '{}'", 3,
@@ -59,7 +59,7 @@ TEST(Unit_Log, CapturingSinkReceivesTheCategoryTheLevelAndTheFormattedLine)
 
 TEST(Unit_Log, LoggerDiscardsLinesBelowTheRuntimeMinimum)
 {
-    const auto       capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::Logger logger(capture, SushiDSP::LogLevel::Warn);
 
     logger.log(SushiDSP::LogLevel::Info, K_LOGGER_TEST_LOG_CATEGORY, "info");
@@ -81,10 +81,10 @@ TEST(Unit_Log, LoggerDiscardsLinesBelowTheRuntimeMinimum)
 
 TEST(Unit_Log, MacroBelowTheRuntimeMinimumDoesNotEvaluateItsArguments)
 {
-    const auto               capture = std::make_shared<SushiDSP::CapturingLogSink>();
-    SushiDSP::Logger&        logger = SushiDSP::default_logger();
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    SushiDSP::Logger& logger = SushiDSP::default_logger();
     const SushiDSP::LogLevel level_before = logger.minimum_level();
-    int                      evaluations = 0;
+    int evaluations = 0;
     {
         const SushiDSP::ScopedLogSink guard(logger, capture);
         logger.set_minimum_level(SushiDSP::LogLevel::Error);
@@ -106,20 +106,20 @@ TEST(Unit_Log, MacroBelowTheRuntimeMinimumDoesNotEvaluateItsArguments)
 
 TEST(Unit_Log, LoggerCutsAMessageAtTheMaximumLength)
 {
-    const auto        capture = std::make_shared<SushiDSP::CapturingLogSink>();
-    SushiDSP::Logger  logger(capture, SushiDSP::LogLevel::Trace);
-    const std::string twice_the_limit(2 * SushiDSP::kMaxLogMessageLength, 'a');
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    SushiDSP::Logger logger(capture, SushiDSP::LogLevel::Trace);
+    const std::string twice_the_limit(2 * SushiDSP::K_MAX_LOG_MESSAGE_LENGTH, 'a');
 
     logger.log(SushiDSP::LogLevel::Info, K_LOGGER_TEST_LOG_CATEGORY, "{}", twice_the_limit);
 
     const std::vector<SushiDSP::CapturedLogLine> lines = capture->lines();
     ASSERT_EQ(lines.size(), 1u);
-    EXPECT_EQ(lines[0].message, std::string(SushiDSP::kMaxLogMessageLength, 'a'));
+    EXPECT_EQ(lines[0].message, std::string(SushiDSP::K_MAX_LOG_MESSAGE_LENGTH, 'a'));
 }
 
 TEST(Unit_Log, LoggerFlushesTheSinkAfterAFatalLine)
 {
-    const auto       capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::Logger logger(capture, SushiDSP::LogLevel::Trace);
 
     logger.log(SushiDSP::LogLevel::Error, K_LOGGER_TEST_LOG_CATEGORY, "error");
@@ -131,8 +131,8 @@ TEST(Unit_Log, LoggerFlushesTheSinkAfterAFatalLine)
 
 TEST(Unit_Log, ScopedSinkTakesTheLinesOfItsScopeAndThenRestoresTheOldSink)
 {
-    const auto       outer = std::make_shared<SushiDSP::CapturingLogSink>();
-    const auto       inner = std::make_shared<SushiDSP::CapturingLogSink>();
+    const auto outer = std::make_shared<SushiDSP::CapturingLogSink>();
+    const auto inner = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::Logger logger(outer, SushiDSP::LogLevel::Trace);
 
     logger.log(SushiDSP::LogLevel::Info, K_LOGGER_TEST_LOG_CATEGORY, "before");

@@ -5,41 +5,41 @@
 # Commercial use requires a licence from Sushi Systems.
 
 add_library(room STATIC
-    src/Materials.cpp
-    src/Furniture.cpp
-    src/AirAbsorption.cpp
-    src/MediumAbsorption.cpp
-    src/BandResponseFit.cpp
-    src/CabinetDirectivity.cpp
-    src/MicrophoneModel.cpp
-    src/CrossoverPair.cpp
-    src/HrtfSet.cpp
-    src/AmbisonicEncoder.cpp
-    src/RoomScene.cpp
-    src/StarterScene.cpp
-    src/EarlyReflectionRenderer.cpp
-    src/LateReverb.cpp
-    src/ModalBank.cpp
-    src/SphericalHeadHrtf.cpp
-    src/HrtfSetLoader.cpp
-    src/BinauralDecoder.cpp
-    src/EyringDecay.cpp
-    src/ImageSourceSolver.cpp
-    src/LateReverbDesign.cpp
-    src/ModalSolver.cpp
-    src/RoomRenderSet.cpp
-    src/FadeWindow.cpp
-    src/FirFilter.cpp
-    src/FrameDelay.cpp
-    src/DelayRing.cpp
-    src/DirectPath.cpp
-    src/ModalPath.cpp
-    src/GeometricPath.cpp
-    src/BinauralStage.cpp
-    src/RoomNode.cpp
+    source/materials.cpp
+    source/furniture.cpp
+    source/air_absorption.cpp
+    source/medium_absorption.cpp
+    source/band_response_fit.cpp
+    source/cabinet_directivity.cpp
+    source/microphone_model.cpp
+    source/crossover_pair.cpp
+    source/hrtf_set.cpp
+    source/ambisonic_encoder.cpp
+    source/room_scene.cpp
+    source/starter_scene.cpp
+    source/early_reflection_renderer.cpp
+    source/late_reverb.cpp
+    source/modal_bank.cpp
+    source/spherical_head_hrtf.cpp
+    source/hrtf_set_loader.cpp
+    source/binaural_decoder.cpp
+    source/eyring_decay.cpp
+    source/image_source_solver.cpp
+    source/late_reverb_design.cpp
+    source/modal_solver.cpp
+    source/room_render_set.cpp
+    source/fade_window.cpp
+    source/fir_filter.cpp
+    source/frame_delay.cpp
+    source/delay_ring.cpp
+    source/direct_path.cpp
+    source/modal_path.cpp
+    source/geometric_path.cpp
+    source/binaural_stage.cpp
+    source/room_node.cpp
 )
 add_library(SushiDSP::room ALIAS room)
-target_link_libraries(room PUBLIC SushiDSP::sushi_dsp)
+target_link_libraries(room PUBLIC SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math)
 sushidsp_apply_optimization_flags(room)
 target_include_directories(room PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

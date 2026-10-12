@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/routing/PanNode.hpp"
+#include "SushiDSP/routing/pan_node.hpp"
 
 namespace
 {
@@ -40,17 +40,17 @@ namespace
     {
         node.set_parameter_for_control_thread("pan", pan);
 
-        constexpr int kMaxBlocks = 10000;
+        constexpr int K_MAX_BLOCKS = 10000;
         std::vector<float> input(64, 1.0f);
         std::vector<float> out_left(64, 0.0f);
         std::vector<float> out_right(64, 0.0f);
-        const float* inputs[1] = { input.data() };
-        float* outputs[2] = { out_left.data(), out_right.data() };
-        SushiDSP::ProcessContext context{ outputs, inputs, 64, 0.0 };
+        const float* inputs[1] = {input.data()};
+        float* outputs[2] = {out_left.data(), out_right.data()};
+        SushiDSP::ProcessContext context{outputs, inputs, 64, 0.0};
 
         float previous_left = 0.0f;
         float previous_right = 0.0f;
-        for (int block = 0; block < kMaxBlocks; ++block)
+        for (int block = 0; block < K_MAX_BLOCKS; ++block)
         {
             node.process(context);
             left = out_left.back();
@@ -68,12 +68,12 @@ namespace
     {
         return 20.0f * std::log10(std::fabs(gain));
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, PanNodeCentreIsMinus3Point01DbOnBothChannels)
 {
     SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
 
     float left = 0.0f, right = 0.0f;
     settled_gains(node, 0.0f, left, right);
@@ -85,7 +85,7 @@ TEST(Unit_Dsp, PanNodeCentreIsMinus3Point01DbOnBothChannels)
 TEST(Unit_Dsp, PanNodeHardLeftIsUnityLeftAndDeepNullRight)
 {
     SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
 
     float left = 0.0f, right = 0.0f;
     settled_gains(node, -1.0f, left, right);
@@ -97,7 +97,7 @@ TEST(Unit_Dsp, PanNodeHardLeftIsUnityLeftAndDeepNullRight)
 TEST(Unit_Dsp, PanNodeHardRightIsUnityRightAndDeepNullLeft)
 {
     SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
 
     float left = 0.0f, right = 0.0f;
     settled_gains(node, 1.0f, left, right);
@@ -109,7 +109,7 @@ TEST(Unit_Dsp, PanNodeHardRightIsUnityRightAndDeepNullLeft)
 TEST(Unit_Dsp, PanNodeSumOfSquaredGainsStaysUnityAcrossItsRange)
 {
     SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
 
     for (int step = 0; step <= 20; ++step)
     {
@@ -137,7 +137,7 @@ TEST(Unit_Dsp, PanNodeDescriptorDeclaresOnePanParameterInContractOrder)
 TEST(Unit_Dsp, PanNodeIndexedSetterAgreesWithNamedSetter)
 {
     SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
 
     node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(0), 0.5f);
     EXPECT_FLOAT_EQ(node.get_parameter("pan"), 0.5f);

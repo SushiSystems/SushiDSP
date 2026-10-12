@@ -38,11 +38,11 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/Calibration.hpp"
-#include "SushiDSP/peavey5150/Peavey5150.hpp"
-#include "measure/FrequencyResponse.hpp"
-#include "measure/Render.hpp"
-#include "measure/Thd.hpp"
+#include "SushiDSP/core/calibration.hpp"
+#include "SushiDSP/peavey5150/peavey5150.hpp"
+#include "measure/frequency_response.hpp"
+#include "measure/render.hpp"
+#include "measure/thd.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -50,47 +50,49 @@
 
 namespace
 {
-    constexpr std::size_t kParameterCount = 9;
+    constexpr std::size_t K_PARAMETER_COUNT = 9;
 
     /// @brief A node with every knob at its descriptor default, prepared at 48 kHz.
     std::unique_ptr<SushiDSP::Peavey5150> prepared_node(std::uint32_t block_size = 256)
     {
         auto node = std::make_unique<SushiDSP::Peavey5150>();
-        node->prepare(SushiDSP::PrepareInfo{ 48000.0, block_size, 1 });
+        node->prepare(SushiDSP::PrepareInfo{48000.0, block_size, 1});
         return node;
     }
 
     // The shelves are read with a small-signal path ahead. See tests/functional/unit/README.md.
-    constexpr float kLinearPathPreGain = 0.02f;
-    constexpr float kLinearPathInputTrimDb = -24.0f;
-    constexpr float kLinearPathPostGainDb = -40.0f;
+    constexpr float K_LINEAR_PATH_PRE_GAIN = 0.02f;
+    constexpr float K_LINEAR_PATH_INPUT_TRIM_DB = -24.0f;
+    constexpr float K_LINEAR_PATH_POST_GAIN_DB = -40.0f;
 
     /// @brief A default node set to a level at which the chain ahead of the shelves stays linear.
     std::unique_ptr<SushiDSP::Peavey5150> small_signal_node()
     {
         auto node = prepared_node();
-        node->set_pre_gain(kLinearPathPreGain);
-        node->set_input_trim(kLinearPathInputTrimDb);
-        node->set_post_gain(kLinearPathPostGainDb);
+        node->set_pre_gain(K_LINEAR_PATH_PRE_GAIN);
+        node->set_input_trim(K_LINEAR_PATH_INPUT_TRIM_DB);
+        node->set_post_gain(K_LINEAR_PATH_POST_GAIN_DB);
         return node;
     }
 
     /// @brief Runs a sine through a node and returns the settled tail of its output.
-    std::vector<float> render_sine(SushiDSP::Peavey5150& node, double frequency, float amplitude, int blocks)
+    std::vector<float> render_sine(SushiDSP::Peavey5150& node, double frequency, float amplitude,
+                                   int blocks)
     {
         std::vector<float> input(256, 0.0f), block_output(256, 0.0f), output;
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { block_output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {block_output.data()};
         double index = 0.0;
         for (int block = 0; block < blocks; ++block)
         {
             for (std::size_t i = 0; i < input.size(); ++i)
             {
                 input[i] = static_cast<float>(
-                    amplitude * std::sin(2.0 * M_PI * frequency * (index + static_cast<double>(i)) / 48000.0));
+                    amplitude *
+                    std::sin(2.0 * M_PI * frequency * (index + static_cast<double>(i)) / 48000.0));
             }
             index += 256.0;
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
             output.insert(output.end(), block_output.begin(), block_output.end());
         }
@@ -98,7 +100,7 @@ namespace
     }
 
     // measure::thd() needs at least 65536 samples. See tests/functional/unit/README.md.
-    constexpr int kSpectrumBlocks = 300;
+    constexpr int K_SPECTRUM_BLOCKS = 300;
 
     /// @brief The whole node's harmonic distortion at one pre-gain setting.
     /// @param pre_gain VR2's position.
@@ -108,16 +110,17 @@ namespace
     {
         auto node = prepared_node();
         node->set_pre_gain(pre_gain);
-        return SushiDSP::measure::thd(render_sine(*node, 220.0, amplitude, kSpectrumBlocks), 220.0, 48000.0, 8);
+        return SushiDSP::measure::thd(render_sine(*node, 220.0, amplitude, K_SPECTRUM_BLOCKS),
+                                      220.0, 48000.0, 8);
     }
 
     /// @brief The magnitude one frequency comes back at, in decibels.
     double response_at(SushiDSP::Peavey5150& node, double frequency)
     {
-        const auto points = SushiDSP::measure::frequency_response(node, 48000.0, { frequency });
+        const auto points = SushiDSP::measure::frequency_response(node, 48000.0, {frequency});
         return points.front().magnitude_db;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, Peavey5150ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
@@ -143,13 +146,13 @@ TEST(Unit_Dsp, Peavey5150DescriptorExposesNineParametersInContractOrder)
 
     EXPECT_STREQ(descriptor.id, "sushidsp.peavey5150");
     EXPECT_STREQ(descriptor.name, "5150");
-    ASSERT_EQ(descriptor.parameter_count, kParameterCount);
+    ASSERT_EQ(descriptor.parameter_count, K_PARAMETER_COUNT);
 
     // The index order is the contract of hosts and presets. See tests/functional/unit/README.md.
-    const char* expected_ids[kParameterCount] = {
-        "pre_gain", "low", "mid", "high", "post_gain", "resonance", "presence", "input_trim", "output"
-    };
-    for (std::size_t i = 0; i < kParameterCount; ++i)
+    const char* expected_ids[K_PARAMETER_COUNT] = {"pre_gain", "low",        "mid",
+                                                   "high",     "post_gain",  "resonance",
+                                                   "presence", "input_trim", "output"};
+    for (std::size_t i = 0; i < K_PARAMETER_COUNT; ++i)
     {
         EXPECT_STREQ(descriptor.parameters[i].id, expected_ids[i]);
     }
@@ -169,14 +172,15 @@ TEST(Unit_Dsp, Peavey5150DescriptorExposesNineParametersInContractOrder)
 TEST(Unit_Dsp, Peavey5150IndexedParameterSetMatchesTheDescriptorOrder)
 {
     SushiDSP::Peavey5150 node;
-    const float values[kParameterCount] = { 0.2f, 0.4f, 0.45f, 0.6f, -6.0f, 0.3f, 0.7f, 12.0f, -3.0f };
-    for (std::uint16_t i = 0; i < kParameterCount; ++i)
+    const float values[K_PARAMETER_COUNT] = {0.2f, 0.4f, 0.45f, 0.6f, -6.0f,
+                                             0.3f, 0.7f, 12.0f, -3.0f};
+    for (std::uint16_t i = 0; i < K_PARAMETER_COUNT; ++i)
     {
         node.set_parameter_for_audio_thread(i, values[i]);
     }
 
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::peavey5150_descriptor();
-    for (std::uint16_t i = 0; i < kParameterCount; ++i)
+    for (std::uint16_t i = 0; i < K_PARAMETER_COUNT; ++i)
     {
         EXPECT_FLOAT_EQ(node.get_parameter(descriptor.parameters[i].id), values[i]);
     }
@@ -232,9 +236,9 @@ TEST(Unit_Dsp, Peavey5150ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
     auto node = prepared_node();
 
     std::vector<float> input(256, 0.0f), output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
     node->process(context);
     ASSERT_FALSE(node->tone_stack_is_dirty());
 
@@ -252,7 +256,7 @@ TEST(Unit_Dsp, Peavey5150ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
 TEST(Unit_Dsp, Peavey5150IsDcStableAcrossManyBlocksAtHighGain)
 {
     // A stuck operating point shows as a drifting offset. See tests/functional/unit/README.md.
-    for (float extreme : { 0.0f, 1.0f })
+    for (float extreme : {0.0f, 1.0f})
     {
         auto node = prepared_node();
         node->set_pre_gain(extreme);
@@ -264,14 +268,14 @@ TEST(Unit_Dsp, Peavey5150IsDcStableAcrossManyBlocksAtHighGain)
         node->set_post_gain(extreme > 0.5f ? 12.0f : -60.0f);
 
         std::vector<float> input(256, 0.1f), output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
 
         double sum = 0.0;
         std::size_t counted = 0;
         for (int block = 0; block < 200; ++block)
         {
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node->process(context);
             for (float sample : output)
             {
@@ -291,7 +295,7 @@ TEST(Unit_Dsp, Peavey5150IsDcStableAcrossManyBlocksAtHighGain)
 TEST(Unit_Dsp, Peavey5150ThdDoesNotFallAsPreGainRises)
 {
     // The sweep starts at 0.02, where the knob passes signal. See tests/functional/unit/README.md.
-    const float positions[] = { 0.02f, 0.05f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f };
+    const float positions[] = {0.02f, 0.05f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f};
     double previous = 0.0;
     bool first = true;
     for (float position : positions)
@@ -324,10 +328,11 @@ TEST(Unit_Dsp, Peavey5150EvenHarmonicsRiseFromLowToFullPreGain)
         return std::sqrt(even);
     };
 
-    constexpr float kQuietPreGain = 0.4776f;
-    const double quiet = even_harmonic_ratio(kQuietPreGain);
+    constexpr float K_QUIET_PRE_GAIN = 0.4776f;
+    const double quiet = even_harmonic_ratio(K_QUIET_PRE_GAIN);
     const double driven = even_harmonic_ratio(1.0f);
-    std::printf("[ measure ] even harmonics %.5f at pre gain %.4f, %.5f at 1.0\n", quiet, kQuietPreGain, driven);
+    std::printf("[ measure ] even harmonics %.5f at pre gain %.4f, %.5f at 1.0\n", quiet,
+                K_QUIET_PRE_GAIN, driven);
 
     // The gate is a factor of 2 against a measured 3.18. See tests/functional/unit/README.md.
     EXPECT_GT(driven, quiet * 2.0);
@@ -337,7 +342,7 @@ TEST(Unit_Dsp, Peavey5150GridProbesReportEveryStageInSignalOrder)
 {
     // The probe hooks are pinned, not their figures. See tests/functional/unit/README.md.
     auto node = prepared_node();
-    ASSERT_EQ(node->triode_stage_count(), std::size_t{ 8 });
+    ASSERT_EQ(node->triode_stage_count(), std::size_t{8});
     EXPECT_EQ(node->grid_excursion_peak_volts(node->triode_stage_count()), 0.0f);
     EXPECT_EQ(node->grid_excursion_peak_volts(99), 0.0f);
 
@@ -387,7 +392,8 @@ TEST(Unit_Dsp, Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels)
     lifted->set_resonance(1.0f);
     const double boosted = response_at(*lifted, 100.0);
 
-    std::printf("[ measure ] resonance at 100 Hz: %.2f dB flat, %.2f dB full\n", reference, boosted);
+    std::printf("[ measure ] resonance at 100 Hz: %.2f dB flat, %.2f dB full\n", reference,
+                boosted);
     EXPECT_NEAR(boosted - reference, 10.0, 1.0);
 }
 
@@ -418,8 +424,8 @@ TEST(Unit_Dsp, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsI
     auto node = prepared_node();
 
     std::vector<float> input(256, 0.0f), output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     float peak = 0.0f;
     for (int block = 0; block < 188; ++block)
@@ -427,10 +433,10 @@ TEST(Unit_Dsp, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsI
         for (int i = 0; i < 256; ++i)
         {
             const float sample_index = static_cast<float>(block * 256 + i);
-            input[static_cast<std::size_t>(i)] =
-                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 82.0f * sample_index / 48000.0f);
+            input[static_cast<std::size_t>(i)] = 0.251f * std::sin(2.0f * static_cast<float>(M_PI) *
+                                                                   82.0f * sample_index / 48000.0f);
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node->process(context);
 
         // The first blocks hold the startup transient. See tests/functional/unit/README.md.
@@ -444,7 +450,7 @@ TEST(Unit_Dsp, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsI
     }
 
     const float peak_decibels = 20.0f * std::log10(peak);
-    std::printf("[ measure ] default peak %.3f dBFS; kPostGainUnityGain would need x%.6f\n",
+    std::printf("[ measure ] default peak %.3f dBFS; K_POST_GAIN_UNITY_GAIN would need x%.6f\n",
                 static_cast<double>(peak_decibels),
                 static_cast<double>(0.5011872f / std::max(peak, 1e-9f)));
     EXPECT_GT(peak_decibels, -7.0f);
@@ -454,15 +460,16 @@ TEST(Unit_Dsp, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsI
 TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
 {
     // The nominal lead input is -83.01 dBFS. See tests/functional/unit/README.md.
-    constexpr float kLowestTestedPosition = 0.02f;
-    constexpr float kMinusFortyDbfs = 0.01f;
-    constexpr float kNominalMinusEightyDbv = 7.071e-5f;
+    constexpr float K_LOWEST_TESTED_POSITION = 0.02f;
+    constexpr float K_MINUS_FORTY_DBFS = 0.01f;
+    constexpr float K_NOMINAL_MINUS_EIGHTY_DBV = 7.071e-5f;
 
     auto nominal = prepared_node();
-    nominal->set_pre_gain(kLowestTestedPosition);
+    nominal->set_pre_gain(K_LOWEST_TESTED_POSITION);
     const double nominal_thd =
-        SushiDSP::measure::thd(render_sine(*nominal, 220.0, kNominalMinusEightyDbv, kSpectrumBlocks),
-                               220.0, 48000.0, 8)
+        SushiDSP::measure::thd(
+            render_sine(*nominal, 220.0, K_NOMINAL_MINUS_EIGHTY_DBV, K_SPECTRUM_BLOCKS), 220.0,
+            48000.0, 8)
             .thd_percent;
     std::printf("[ measure ] thd %.4f%% at pre gain 0.02, -83.01 dBFS (Peavey's -80 dBV)\n",
                 nominal_thd);
@@ -470,10 +477,11 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
 
     // Recorded, not asserted: a guitar-level input is 46 dB past what this channel is specified for.
     auto guitar_level = prepared_node();
-    guitar_level->set_pre_gain(kLowestTestedPosition);
+    guitar_level->set_pre_gain(K_LOWEST_TESTED_POSITION);
     const double guitar_level_thd =
-        SushiDSP::measure::thd(render_sine(*guitar_level, 220.0, kMinusFortyDbfs, kSpectrumBlocks),
-                               220.0, 48000.0, 8)
+        SushiDSP::measure::thd(
+            render_sine(*guitar_level, 220.0, K_MINUS_FORTY_DBFS, K_SPECTRUM_BLOCKS), 220.0,
+            48000.0, 8)
             .thd_percent;
     std::printf("[ measure ] thd %.4f%% at pre gain 0.02, -40 dBFS (recorded, not asserted)\n",
                 guitar_level_thd);
@@ -482,16 +490,16 @@ TEST(Unit_Dsp, Peavey5150HasACleanEndAtMinimumGain)
 TEST(Unit_Dsp, Peavey5150DescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::peavey5150_descriptor();
-    const SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    const SushiDSP::PrepareInfo info{48000.0, 256, 1};
 
-    std::unique_ptr<SushiDSP::IAudioNode> node = descriptor.make(info);
+    std::unique_ptr<SushiDSP::AudioNode> node = descriptor.make(info);
     ASSERT_NE(node, nullptr);
     node->prepare(info);
 
     std::vector<float> input(256, 0.0f), output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
     node->process(context);
 
     for (float sample : output)

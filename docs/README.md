@@ -37,7 +37,7 @@ Each module's README is linked from [Modules](architecture/MODULES.md). The othe
 
 | README | Holds |
 | --- | --- |
-| [`apps/host_gui`](../apps/host_gui/README.md) | The standalone host: its classes, its files and what it looks for at startup |
+| [`applications/host_gui`](../applications/host_gui/README.md) | The standalone host: its classes, its files and what it looks for at startup |
 | [`cli`](../cli/README.md) | The `sd` package: install, layout, configuration and tests |
 | [`assets/hrtf`](../assets/hrtf/README.md) | The bundled HRTF set, its source and its licence |
 | [`assets/ir`](../assets/ir/README.md) | What a bundled cabinet impulse response must be |

@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/MusicalClock.hpp"
+#include "SushiDSP/capture/musical_clock.hpp"
 
 TEST(Unit_Dsp, MusicalClockPlacesBarOneHundredAtTheExactFrame)
 {
@@ -47,9 +47,9 @@ TEST(Unit_Dsp, MusicalClockPlacesBarOneHundredAtTheExactFrame)
 
 TEST(Unit_Dsp, MusicalClockRoundTripsEveryFrameToItsOwnBeat)
 {
-    for (const double rate : { 44100.0, 48000.0, 96000.0, 192000.0 })
+    for (const double rate : {44100.0, 48000.0, 96000.0, 192000.0})
     {
-        for (const double bpm : { 120.0, 137.4 })
+        for (const double bpm : {120.0, 137.4})
         {
             SushiDSP::MusicalClock clock;
             clock.set_sample_rate(rate);
@@ -143,7 +143,7 @@ TEST(Unit_Dsp, MusicalClockKeepsBarStartsWithinOneSampleFarDownTheTimeline)
     clock.set_meter(4, 4);
     // Every start derives from the absolute beat index. See tests/functional/unit/README.md.
     const double frames_per_beat = 48000.0 * 60.0 / 137.4;
-    for (const std::uint64_t bar : { 2ull, 100ull, 1000ull, 20000ull })
+    for (const std::uint64_t bar : {2ull, 100ull, 1000ull, 20000ull})
     {
         const double ideal = static_cast<double>((bar - 1u) * 4u) * frames_per_beat;
         const double actual = static_cast<double>(clock.frame_of(bar, 1));

@@ -35,7 +35,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/Biquad.hpp"
+#include "SushiDSP/math/biquad.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -244,7 +244,8 @@ TEST(Unit_Dsp, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
         double input_power = 0.0, output_power = 0.0;
         for (std::size_t i = 0; i < length; ++i)
         {
-            const float x = static_cast<float>(std::sin(2.0 * M_PI * frequency * static_cast<double>(i) / sample_rate));
+            const float x = static_cast<float>(
+                std::sin(2.0 * M_PI * frequency * static_cast<double>(i) / sample_rate));
             const float y = filter.process_sample(x);
             if (i >= length / 2)
             {
@@ -261,7 +262,7 @@ TEST(Unit_Dsp, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
     };
 
     // Bilinear warping pulls the response down above fs/8. See tests/functional/unit/README.md.
-    for (const double frequency : { 1000.0, 13800.0, 27600.0 })
+    for (const double frequency : {1000.0, 13800.0, 27600.0})
     {
         EXPECT_NEAR(gain_db_at(frequency), analytic_db(frequency), 0.15) << frequency << " Hz";
     }
@@ -281,12 +282,13 @@ namespace
     {
         filter.reset();
         const std::size_t settle = 200000;
-        const std::size_t measure = static_cast<std::size_t>(std::round(20.0 * sample_rate / frequency_hz));
+        const std::size_t measure =
+            static_cast<std::size_t>(std::round(20.0 * sample_rate / frequency_hz));
         double peak = 0.0;
         for (std::size_t n = 0; n < settle + measure; ++n)
         {
-            const float y = filter.process_sample(
-                static_cast<float>(std::sin(2.0 * M_PI * frequency_hz * static_cast<double>(n) / sample_rate)));
+            const float y = filter.process_sample(static_cast<float>(
+                std::sin(2.0 * M_PI * frequency_hz * static_cast<double>(n) / sample_rate)));
             if (n >= settle)
             {
                 peak = std::max(peak, std::abs(static_cast<double>(y)));
@@ -294,7 +296,7 @@ namespace
         }
         return peak;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
 {
@@ -334,7 +336,7 @@ TEST(Unit_Dsp, BiquadFirstOrderShelfWithEqualCornersIsAFlatGain)
     // A degenerate but reachable configuration: zero == pole cancels, leaving a plain gain.
     SushiDSP::Biquad shelf;
     shelf.set_first_order_shelf(48000.0, 1000.0, 1000.0, 2.0);
-    for (const double frequency : { 30.0, 300.0, 3000.0, 15000.0 })
+    for (const double frequency : {30.0, 300.0, 3000.0, 15000.0})
     {
         EXPECT_NEAR(biquad_magnitude(shelf, frequency, 48000.0), 2.0, 1e-3) << frequency;
     }
@@ -370,10 +372,10 @@ namespace
             }
         }
 
-        return 2.0 * std::sqrt(real_part * real_part + imaginary_part * imaginary_part)
-             / static_cast<double>(measure);
+        return 2.0 * std::sqrt(real_part * real_part + imaginary_part * imaginary_part) /
+               static_cast<double>(measure);
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
 {
@@ -381,8 +383,7 @@ TEST(Unit_Dsp, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
     SushiDSP::Biquad filter;
     filter.set_first_order_high_pass(48000.0, 100.0);
 
-    const double at_corner =
-        20.0 * std::log10(biquad_projected_magnitude(filter, 100.0, 48000.0));
+    const double at_corner = 20.0 * std::log10(biquad_projected_magnitude(filter, 100.0, 48000.0));
     const double a_decade_up =
         20.0 * std::log10(biquad_projected_magnitude(filter, 1000.0, 48000.0));
 
@@ -394,7 +395,7 @@ TEST(Unit_Dsp, BiquadFirstOrderHighPassStaysCleanAtLowCornersAtHighRates)
 {
     // The one-pole's real pole stays inside the unit circle. See tests/functional/unit/README.md.
     constexpr double sample_rate = 384000.0;
-    for (const double cutoff_hz : { 2.0, 5.0, 7.23, 10.58 })
+    for (const double cutoff_hz : {2.0, 5.0, 7.23, 10.58})
     {
         SushiDSP::Biquad filter;
         filter.set_first_order_high_pass(sample_rate, cutoff_hz);

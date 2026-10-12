@@ -20,10 +20,10 @@ name: CI
 # project.py's configure()/build()/test()).
 #
 # SUSHIDSP_BUILD_SDL2=OFF on the functional job: the unit/regression suites
-# never link sushi_dsp_sdl2 or apps/host (see tests/CMakeLists.txt), so
+# never link sushi_dsp_sdl2 or applications/host (see tests/CMakeLists.txt), so
 # fetching and building SDL2 on every CI run would cost real time for zero
 # coverage. A second job builds WITH SDL2 on to catch a build break in
-# apps/host/sushi_dsp_sdl2 specifically, since that path has no test coverage
+# applications/host/sushi_dsp_sdl2 specifically, since that path has no test coverage
 # of its own (D1's plan documents why: it opens real audio hardware).
 on:
   push:
@@ -68,7 +68,7 @@ jobs:
             libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev \
             xorg-dev libgl1-mesa-dev libegl1-mesa-dev
 
-      - name: Configure and build (SDL2 on, apps/host and apps/host_gui included)
+      - name: Configure and build (SDL2 on, applications/host and applications/host_gui included)
         run: |
           set -e
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -104,7 +104,7 @@ jobs:
 #   and SpscRing<T> (D1), which already has a dedicated 100k-item concurrent
 #   stress test run under the normal functional suite. Add a TSan lane if a
 #   future phase adds a synchronization primitive that test doesn't cover.
-# * A doxygen job. `sd doxygen` exists and reads a repo-root `Doxyfile`
+# * A doxygen job. `sd doxygen` exists and reads `.config/doxygen/Doxyfile`
 #   (committed, unlike sushiblas's), so this is a natural future addition —
 #   left out for now to keep this workflow's first version minimal and
 #   focused on the suite that actually gates correctness.

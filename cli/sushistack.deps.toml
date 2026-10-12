@@ -28,7 +28,7 @@ linux_apt = []
 windows_vcpkg = []
 
 [sdl2]
-description = "Audio device backend for apps/host (D1)."
+description = "Audio device backend for applications/host (D1)."
 required = true
 linux_apt = ["libsdl2-dev"]
 windows_vcpkg = ["sdl2"]

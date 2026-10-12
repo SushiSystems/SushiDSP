@@ -42,17 +42,18 @@ python tools/documentation/check_docs_layout.py .
 python tools/documentation/check_changelog.py .
 ```
 
-`sd check` runs those two and the layering checker. `check_source_comments.py` is run by hand;
-[`tools/README.md`](../tools/README.md) describes all four.
+`sd check` runs all five checkers under `tools/`; [`tools/README.md`](../tools/README.md) describes
+them.
 
 ## 3. Before you start coding
 
 - One logical change per commit. A refactor and a behaviour change together are hard to review
   and hard to revert.
-- Keep the layer boundaries. The core under `include/SushiDSP/` and `src/` depends on the C++17
-  standard library and SIMD intrinsics only. A module under `modules/nodes/` depends on the
-  core and on no other node, device or host. `tools/layering/check_layering.py` checks the
-  order of the three tiers under `modules/`; nothing checks the areas inside the core yet.
+- Keep the layer boundaries. The foundation tier under `modules/foundation/` depends on the
+  C++17 standard library and SIMD intrinsics only, plus the same-tier edges listed in
+  `cmake/SushiDSPLayers.cmake`; an edge that table does not list fails to configure. A module
+  under `modules/nodes/` depends on the foundation and on no other node, device or host.
+  `tools/layering/check_layering.py` checks the order of the four tiers under `modules/`.
 - A decision that narrows scope is written down in the design document or the work folder's
   plan. The WDF adaptor tree, deferred until a circuit needs it, is the pattern.
 
@@ -63,18 +64,19 @@ tree differs from them today, the difference is listed here and in
 [`reference/KNOWN_ISSUES.md`](reference/KNOWN_ISSUES.md); new code follows what the tree does
 until the migration in
 [`design/SUSHI_STANDARDS_MIGRATION.md`](design/SUSHI_STANDARDS_MIGRATION.md) phase 3 changes
-both at once.
+both at once. The rules below are the tree today.
 
 | Rule | In this tree |
 | --- | --- |
 | Language | C++17; no C++20 or C++23 feature |
 | Braces | Allman |
 | Names | Types `PascalCase`, functions and variables `snake_case`, members with a trailing underscore |
-| Constants | `kPascalCase`, such as `RigGraph::kMaxChannels` |
-| Files | Named after their class, `RigGraph.hpp` |
+| Interfaces | No `I` prefix: `AudioNode`, `AudioDevice`, `CabinetHost`, `LogSink`, `RoomHost` |
+| Constants | `K_UPPER_SNAKE`, such as `RigGraph::K_MAX_CHANNELS` |
+| Files | `snake_case`, named after the one primary symbol, `rig_graph.hpp` |
 | License block | Written by `tools/licensing/write_license_block.py`, never typed by hand |
 | Comments | Doxygen, as `source-comments` states: what a thing does, never why |
-| Real-time path | `IAudioNode::process()` and everything it calls allocates nothing, locks nothing, makes no system call and throws nothing |
+| Real-time path | `AudioNode::process()` and everything it calls allocates nothing, locks nothing, makes no system call and throws nothing |
 
 A class that will sit on the audio path gets a `*ProcessPerformsNoHeapAllocation` case in
 `tests/functional/unit/test_rt_safety.cpp`, which replaces `operator new` and fails when the

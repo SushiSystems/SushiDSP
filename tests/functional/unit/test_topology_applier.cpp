@@ -32,9 +32,9 @@
 
 #include <gtest/gtest.h>
 
-#include "RigController.hpp"
-#include "RigTopology.hpp"
-#include "TopologyApplier.hpp"
+#include "rig_controller.hpp"
+#include "rig_topology.hpp"
+#include "topology_applier.hpp"
 
 namespace
 {
@@ -45,7 +45,7 @@ namespace
     /// @return A mono 48 kHz block of 64 frames.
     SushiDSP::PrepareInfo test_info()
     {
-        return SushiDSP::PrepareInfo{ 48000.0, 64, 1 };
+        return SushiDSP::PrepareInfo{48000.0, 64, 1};
     }
 
     /// @brief Counts the rig's slots carrying a descriptor.
@@ -54,7 +54,11 @@ namespace
     {
         const std::vector<SlotId> order = rig.slot_order();
         return static_cast<std::size_t>(std::count_if(order.begin(), order.end(),
-            [&](SlotId slot) { return rig.descriptor_id(slot) == descriptor_id; }));
+                                                      [&](SlotId slot)
+                                                      {
+                                                          return rig.descriptor_id(slot) ==
+                                                                 descriptor_id;
+                                                      }));
     }
 
     /// @brief Finds the first live slot carrying a descriptor.
@@ -71,7 +75,7 @@ namespace
         ADD_FAILURE() << "no slot carries " << descriptor_id;
         return 0;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, TopologyApplierSinglePathWiresALinearChain)
 {
@@ -79,12 +83,12 @@ TEST(Unit_Dsp, TopologyApplierSinglePathWiresALinearChain)
     const SlotId a = rig.add_node("sushidsp.tubescreamer", false);
     const SlotId b = rig.add_node("sushidsp.jcm800", false);
     const SlotId c = rig.add_node("sushidsp.tubescreamer", false);
-    RigTopology topology = RigTopology::from_linear_order({ c, a, b });
+    RigTopology topology = RigTopology::from_linear_order({c, a, b});
     TopologyApplier applier;
 
     applier.apply(topology, rig);
 
-    EXPECT_EQ(rig.edges(), (EdgeList{ { c, a }, { a, b } }));
+    EXPECT_EQ(rig.edges(), (EdgeList{{c, a}, {a, b}}));
     EXPECT_EQ(rig.slot_order().size(), 3u);
 }
 
@@ -93,7 +97,7 @@ TEST(Unit_Dsp, TopologyApplierTwoWayAddsOneSplitterAndOneMixer)
     RigController rig(test_info());
     const SlotId drive = rig.add_node("sushidsp.tubescreamer", false);
     const SlotId amp = rig.add_node("sushidsp.jcm800", false);
-    RigTopology topology = RigTopology::from_linear_order({ drive, amp });
+    RigTopology topology = RigTopology::from_linear_order({drive, amp});
     TopologyApplier applier;
 
     applier.switch_chain_type(topology, rig, ChainType::TwoWay);
@@ -103,11 +107,14 @@ TEST(Unit_Dsp, TopologyApplierTwoWayAddsOneSplitterAndOneMixer)
     EXPECT_EQ(count_descriptor(rig, "sushidsp.mixer"), 1u);
     const SlotId splitter = find_descriptor(rig, "sushidsp.splitter");
     const SlotId mixer = find_descriptor(rig, "sushidsp.mixer");
-    const std::vector<SlotId> copied = topology.stage({ StageKind::Branch, 1 });
+    const std::vector<SlotId> copied = topology.stage({StageKind::Branch, 1});
     ASSERT_EQ(copied.size(), 2u);
-    EXPECT_EQ(rig.edges(), (EdgeList{ { splitter, drive }, { drive, amp }, { amp, mixer },
-                                      { splitter, copied[0] }, { copied[0], copied[1] },
-                                      { copied[1], mixer } }));
+    EXPECT_EQ(rig.edges(), (EdgeList{{splitter, drive},
+                                     {drive, amp},
+                                     {amp, mixer},
+                                     {splitter, copied[0]},
+                                     {copied[0], copied[1]},
+                                     {copied[1], mixer}}));
 }
 
 TEST(Unit_Dsp, TopologyApplierOpeningAPathCopiesTheMainPathWithItsParameters)
@@ -115,14 +122,14 @@ TEST(Unit_Dsp, TopologyApplierOpeningAPathCopiesTheMainPathWithItsParameters)
     RigController rig(test_info());
     const SlotId amp = rig.append("sushidsp.jcm800");
     rig.set_parameter(amp, "preamp", 0.9f);
-    RigTopology topology = RigTopology::from_linear_order({ amp });
+    RigTopology topology = RigTopology::from_linear_order({amp});
     TopologyApplier applier;
 
     applier.switch_chain_type(topology, rig, ChainType::TwoWay);
 
     // The opened path carries a copy of the main path. See tests/functional/unit/README.md.
-    EXPECT_EQ(topology.stage({ StageKind::Branch, 0 }), (std::vector<SlotId>{ amp }));
-    const std::vector<SlotId> copied = topology.stage({ StageKind::Branch, 1 });
+    EXPECT_EQ(topology.stage({StageKind::Branch, 0}), (std::vector<SlotId>{amp}));
+    const std::vector<SlotId> copied = topology.stage({StageKind::Branch, 1});
     ASSERT_EQ(copied.size(), 1u);
     EXPECT_NE(copied[0], amp);
     EXPECT_EQ(rig.descriptor_id(copied[0]), "sushidsp.jcm800");
@@ -134,18 +141,18 @@ TEST(Unit_Dsp, TopologyApplierClosingAPathKeepsTheMainPathAndDropsTheCopy)
 {
     RigController rig(test_info());
     const SlotId amp = rig.append("sushidsp.jcm800");
-    RigTopology topology = RigTopology::from_linear_order({ amp });
+    RigTopology topology = RigTopology::from_linear_order({amp});
     TopologyApplier applier;
 
     applier.switch_chain_type(topology, rig, ChainType::TwoWay);
-    const std::vector<SlotId> copied = topology.stage({ StageKind::Branch, 1 });
+    const std::vector<SlotId> copied = topology.stage({StageKind::Branch, 1});
     ASSERT_EQ(copied.size(), 1u);
 
     applier.switch_chain_type(topology, rig, ChainType::Single);
 
-    EXPECT_EQ(topology.stage({ StageKind::Branch, 0 }), (std::vector<SlotId>{ amp }));
+    EXPECT_EQ(topology.stage({StageKind::Branch, 0}), (std::vector<SlotId>{amp}));
     EXPECT_TRUE(rig.descriptor_id(copied[0]).empty());
-    EXPECT_EQ(rig.slot_order(), (std::vector<SlotId>{ amp }));
+    EXPECT_EQ(rig.slot_order(), (std::vector<SlotId>{amp}));
 }
 
 TEST(Unit_Dsp, TopologyApplierDiscardedBranchSlotsAreRemovedFromTheRig)
@@ -154,12 +161,12 @@ TEST(Unit_Dsp, TopologyApplierDiscardedBranchSlotsAreRemovedFromTheRig)
     const SlotId branch_slot = rig.add_node("sushidsp.jcm800", false);
     RigTopology topology;
     topology.set_chain_type(ChainType::TwoWay);
-    topology.insert({ StageKind::Branch, 1 }, 0, branch_slot);
+    topology.insert({StageKind::Branch, 1}, 0, branch_slot);
     TopologyApplier applier;
     applier.apply(topology, rig);
 
     EXPECT_EQ(topology.set_chain_type(ChainType::Single).discarded,
-              (std::vector<SlotId>{ branch_slot }));
+              (std::vector<SlotId>{branch_slot}));
     applier.apply(topology, rig);
 
     EXPECT_TRUE(rig.descriptor_id(branch_slot).empty());
@@ -179,7 +186,7 @@ TEST(Unit_Dsp, TopologyApplierEmptyTopologiesApplyWithoutThrowing)
     EXPECT_NO_THROW(applier.apply(topology, rig));
     const SlotId splitter = find_descriptor(rig, "sushidsp.splitter");
     const SlotId mixer = find_descriptor(rig, "sushidsp.mixer");
-    EXPECT_EQ(rig.edges(), (EdgeList{ { splitter, mixer } }));
+    EXPECT_EQ(rig.edges(), (EdgeList{{splitter, mixer}}));
 }
 
 TEST(Unit_Dsp, TopologyApplierLeavesThePreviousGraphWhenApplyThrows)
@@ -190,15 +197,15 @@ TEST(Unit_Dsp, TopologyApplierLeavesThePreviousGraphWhenApplyThrows)
     const SushiDSP::RigGraph* graph_before = rig.active_graph();
 
     // A slot listed twice closes a cycle, which RigGraph::compile rejects.
-    RigTopology topology = RigTopology::from_linear_order({ a, b, a });
+    RigTopology topology = RigTopology::from_linear_order({a, b, a});
     TopologyApplier applier;
 
     EXPECT_THROW(applier.apply(topology, rig), std::runtime_error);
 
-    EXPECT_EQ(topology.active_slots(), (std::vector<SlotId>{ a, b, a }));
+    EXPECT_EQ(topology.active_slots(), (std::vector<SlotId>{a, b, a}));
     EXPECT_EQ(rig.active_graph(), graph_before);
-    EXPECT_EQ(rig.slot_order(), (std::vector<SlotId>{ a, b }));
-    EXPECT_EQ(rig.edges(), (EdgeList{ { a, b } }));
+    EXPECT_EQ(rig.slot_order(), (std::vector<SlotId>{a, b}));
+    EXPECT_EQ(rig.edges(), (EdgeList{{a, b}}));
 }
 
 TEST(Unit_Dsp, TopologyApplierRollbackRestoresRemovedSlotsUnderNewIds)
@@ -207,7 +214,7 @@ TEST(Unit_Dsp, TopologyApplierRollbackRestoresRemovedSlotsUnderNewIds)
     const SlotId a = rig.append("sushidsp.tubescreamer");
     const SlotId b = rig.append("sushidsp.jcm800");
     const SlotId stray = rig.append("sushidsp.tubescreamer");
-    RigTopology topology = RigTopology::from_linear_order({ a, b, a });
+    RigTopology topology = RigTopology::from_linear_order({a, b, a});
     TopologyApplier applier;
 
     EXPECT_THROW(applier.apply(topology, rig), std::runtime_error);
@@ -218,5 +225,5 @@ TEST(Unit_Dsp, TopologyApplierRollbackRestoresRemovedSlotsUnderNewIds)
     EXPECT_EQ(order[1], b);
     EXPECT_NE(order[2], stray);
     EXPECT_EQ(rig.descriptor_id(order[2]), "sushidsp.tubescreamer");
-    EXPECT_EQ(rig.edges(), (EdgeList{ { a, b }, { b, order[2] } }));
+    EXPECT_EQ(rig.edges(), (EdgeList{{a, b}, {b, order[2]}}));
 }

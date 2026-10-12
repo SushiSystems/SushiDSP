@@ -1,8 +1,8 @@
-# `modules/nodes/capture` — recording and playing back takes
+# `modules/nodes/capture`, recording and playing back takes
 
 A product-independent module: it models no pedal and no amplifier, and depends only on
 `SushiDSP::sushi_dsp`. It moves audio between the rig and the filesystem. Nothing here is an
-`IAudioNode`.
+`AudioNode`.
 
 Intent and the acceptance list live in
 [`docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../../../docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md)
@@ -40,15 +40,15 @@ noticing.
 
 The audio thread calls four functions here: `TrackRecorder::write`, `TrackPlayer::process`,
 `Metronome::process` and `Transport::advance`. `write` is `noexcept`, allocates nothing, takes no
-lock and opens no file — it copies the block into one `SpscRing<float>` per channel and returns.
+lock and opens no file, it copies the block into one `SpscRing<float>` per channel and returns.
 `process` mixes the audible tracks into the output without allocating, locking or throwing.
 `advance` is three atomic operations and one multiply by the speed word, carrying the fraction a
 block leaves over in 32.32 fixed point, so a hundred thousand blocks of 256 at speed 1.3 land on
-frame 33280000 rather than near it. `Transport`'s readers — `position_frames`, `state`,
-`has_loop`, the two loop ends, `speed_q32` — are safe from either thread.
+frame 33280000 rather than near it. `Transport`'s readers, `position_frames`, `state`,
+`has_loop`, the two loop ends, `speed_q32`, are safe from either thread.
 
 `Metronome::process` reads the transport position, the clock's beat step and two atomics, then
-copies out of a vector the constructor already sized. It is not an `IAudioNode` and it holds no
+copies out of a vector the constructor already sized. It is not an `AudioNode` and it holds no
 place in the `RigGraph`: the host calls it after `RecordingBus::write`, which is what keeps the
 click on the monitor path and out of both recorded files. There is no second recorder that
 captures it and no click track written beside the take.
@@ -61,8 +61,8 @@ only once the audio thread's watermark has passed the generation it was publishe
 order is fixed: reclaim every lane slot first, then call `collect()` once. The other order would
 free a take a retired timeline still names.
 
-Everything else — `arm`, `stop`, `Take::load`, `Take`'s constructor, `TrackPlayer::set_take` and
-its four control setters, `reclaim`, `Metronome::set_sample_rate` — runs on the control thread and
+Everything else, `arm`, `stop`, `Take::load`, `Take`'s constructor, `TrackPlayer::set_take` and
+its four control setters, `reclaim`, `Metronome::set_sample_rate`, runs on the control thread and
 is free to allocate and throw.
 
 The writer thread that `arm()` starts drains all the channel rings in step, up to 4096 frames per
@@ -73,7 +73,7 @@ published only at block boundaries, so the writer never sees half a block.
 Those same two counters decide whether a block fits. `write` compares the block against the free
 space before it pushes anything, so a block is queued whole or not at all. A block that does not
 fit is dropped and `dropped_blocks()` counts it. That is the trade the spec asks for: a disk that
-cannot keep up costs recorded samples, never an audio dropout. `RecordingBus::kRingCapacityFrames`
+cannot keep up costs recorded samples, never an audio dropout. `RecordingBus::K_RING_CAPACITY_FRAMES`
 is 65536, 1.37 seconds at 48 kHz.
 
 `RecordingBus::write(processed, dry, frames)` takes both legs in one call and asks both recorders
@@ -103,7 +103,7 @@ timeline for the block and records the generation it read, so the clips under a 
 replaced mid-block without the audio thread ever touching freed memory. `TrackPlayer::set_take`
 still exists for a host that plays one whole recording: it hands the take to `takes()` and
 publishes a one-clip timeline starting at frame 0. `TrackPlayer::reclaim()` on the control thread
-— once per GUI frame is enough — reclaims all eight lane slots and only then collects the
+,  once per GUI frame is enough, reclaims all eight lane slots and only then collects the
 library, and a host that never calls it leaks every timeline and every take it replaces.
 
 A clip's de-click ramp is `TrackTimeline::edge_gain`, and `TrackPlayer` asks for it only at an edge
@@ -120,7 +120,7 @@ one.
 The block walks a lane in timeline frames, not output frames. `Transport::advance` moves the
 position by `speed` frames per output frame, so a clip's `start_frame` and its take frames are the
 same unit and a clip at timeline frame 12345 reads take frame 0 there whatever the speed. The two
-are converted at the run's own base with the 32.32 speed word, which costs at most kMaxClips
+are converted at the run's own base with the 32.32 speed word, which costs at most K_MAX_CLIPS
 comparisons per run, and a run ends at the loop end or the block end. Speed 1.0 is a bypass:
 the clip is copied straight out of the take and never enters the lane's `VariRateReader`, so a
 golden file compares bits rather than a filter's output.
@@ -128,7 +128,7 @@ golden file compares bits rather than a filter's output.
 `Transport` keeps the loop range in a single `std::atomic<std::uint64_t>`: the begin frame in the
 high half, the length in the low. One load gives the audio thread two ends that agree, so no block
 can read a begin from before a `set_loop` and an end from after it, and no seqlock is needed. The
-cost is that a loop must lie inside the first 2^32 frames — 24.8 hours at 48 kHz — and `set_loop`
+cost is that a loop must lie inside the first 2^32 frames, 24.8 hours at 48 kHz, and `set_loop`
 clears the loop rather than setting a bad one when its arguments do not fit or do not increase.
 `seek()` concurrent with `advance()` can be overwritten by that block's store; the host serialises
 the two, and the header says so as a `@pre` rather than paying for a generation counter no caller
@@ -147,10 +147,10 @@ the way a tape machine's does. Half speed is an octave down. Nothing here stretc
 behaviour the maintainer asked for.
 
 Each channel gets its own `SushiDSP::Resampler`, sized in `prepare()` on the control thread for a
-push of one input frame and a smallest ratio of `1 / kMaxSpeed`. `read()` clamps the speed, calls
+push of one input frame and a smallest ratio of `1 / K_MAX_SPEED`. `read()` clamps the speed, calls
 `set_rates(speed, 1.0)` when it moved, then pushes take frames one at a time until it has written
 the exact block the caller asked for, zero-filling past the take's last frame. Every output costs
-`speed` take frames, so the push loop is bounded by `output_frames * kMaxSpeed` plus the kernel's
+`speed` take frames, so the push loop is bounded by `output_frames * K_MAX_SPEED` plus the kernel's
 half span, and it allocates nothing;
 `VariRateReaderReadPerformsNoHeapAllocation` in `tests/functional/unit/test_rt_safety.cpp` holds
 that bar.
@@ -159,7 +159,7 @@ that bar.
 and the reader carries the phase. A seek, a speed change or a move to another clip invalidates the
 converter history, and `reset()` is what discards it.
 
-`Transport::kMinSpeed` and `kMaxSpeed` are the same pair, and `VariRateReader.cpp` carries a
+`Transport::K_MIN_SPEED` and `K_MAX_SPEED` are the same pair, and `vari_rate_reader.cpp` carries a
 `static_assert` that they stay the same pair.
 
 ## What is not modelled
@@ -173,7 +173,7 @@ converter history, and `reset()` is what discards it.
   One thread draining both would halve that and is a change confined to `TrackRecorder`.
 - **Sample rate conversion.** A `Take` carries the rate it was captured at and neither
   `TrackTimeline` nor `TrackPlayer` reads it, so a 44.1 kHz file dropped on a 48 kHz rig plays
-  8.8 % slow. `apps/host_gui` converts an imported mp3 on the way in, which covers songs and not
+  8.8 % slow. `applications/host_gui` converts an imported mp3 on the way in, which covers songs and not
   WAV files; `docs/reference/KNOWN_ISSUES.md` carries the entry.
 
 ## Implementation notes
@@ -192,7 +192,7 @@ nothing.
 ### What a `VariRateReader::read` costs
 
 Each output frame of `VariRateReader::read()` costs `speed` take frames, so the push loop runs at
-most `output_frames * kMaxSpeed` iterations plus the kernel's half span widened by `kMaxSpeed`.
+most `output_frames * K_MAX_SPEED` iterations plus the kernel's half span widened by `K_MAX_SPEED`.
 Past the take's last frame it pushes zeros. A channel the take does not carry reads the take's
 first channel, which is how `TrackPlayer` folds a mono take into a stereo mix.
 

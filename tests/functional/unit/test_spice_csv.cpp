@@ -29,11 +29,12 @@
 
 #include <gtest/gtest.h>
 
-#include "measure/SpiceCsv.hpp"
+#include "measure/spice_csv.hpp"
 
 TEST(Unit_Dsp, SpiceCsvLoadsAcSweepColumns)
 {
-    const auto sweep = SushiDSP::measure::load_ac_csv(std::string(SUSHIDSP_FIXTURE_DIR) + "/spice/example_ac.csv");
+    const auto sweep =
+        SushiDSP::measure::load_ac_csv(std::string(SUSHIDSP_FIXTURE_DIR) + "/spice/example_ac.csv");
     ASSERT_EQ(sweep.frequency_hz.size(), 5u);
     EXPECT_DOUBLE_EQ(sweep.frequency_hz[0], 10.0);
     EXPECT_EQ(sweep.setting[4], 0);
@@ -43,7 +44,8 @@ TEST(Unit_Dsp, SpiceCsvLoadsAcSweepColumns)
 
 TEST(Unit_Dsp, SpiceCsvLoadsTransientAtItsRate)
 {
-    const auto transient = SushiDSP::measure::load_transient_csv(std::string(SUSHIDSP_FIXTURE_DIR) + "/spice/example_tran.csv");
+    const auto transient = SushiDSP::measure::load_transient_csv(std::string(SUSHIDSP_FIXTURE_DIR) +
+                                                                 "/spice/example_tran.csv");
     ASSERT_EQ(transient.input.size(), 8u);
     EXPECT_NEAR(transient.sample_rate, 192000.0, 1.0);
     EXPECT_FLOAT_EQ(transient.output[7], 0.125f);
@@ -51,6 +53,7 @@ TEST(Unit_Dsp, SpiceCsvLoadsTransientAtItsRate)
 
 TEST(Unit_Dsp, SpiceCsvMissingFileYieldsEmptySweep)
 {
-    const auto sweep = SushiDSP::measure::load_ac_csv(std::string(SUSHIDSP_FIXTURE_DIR) + "/spice/does_not_exist.csv");
+    const auto sweep = SushiDSP::measure::load_ac_csv(std::string(SUSHIDSP_FIXTURE_DIR) +
+                                                      "/spice/does_not_exist.csv");
     EXPECT_TRUE(sweep.frequency_hz.empty());
 }

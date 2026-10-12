@@ -60,14 +60,14 @@ maintainer's call, and neither is worth doing before the removal is something pe
 ## Mesa Mark IIC+ has no clean setting
 
 The dossier's §2 places an EFFECTS SEND / RETURN network between V2A's plate and V2B's grid,
-and its §3.7 gives no value for that link, so the model has no loop network at all — neither the
+and its §3.7 gives no value for that link, so the model has no loop network at all, neither the
 series path nor the shunt one, of which the missing return capacitor's 7.23 Hz corner is only a
 part: V2A's plate drives
 V2B's grid window about twenty-one times past it, and the node limits at every input level with
 no clean end on the knob. Three tests are skipped, not weakened: `MesaMark2cHasACleanEndAtMinimumGain`,
 `MesaMark2cToneStackSitsBeforeTheLeadStages` and `MesaMark2cEqBandBoostsItsCentre`
 (`tests/functional/unit/test_mesa_mark2c.cpp`), each printing what it measures today against
-what it will re-assert. Closes when the send/return network is read off the schematic — dossier
+what it will re-assert. Closes when the send/return network is read off the schematic, dossier
 open questions 19 and 20.
 
 ## Diezel VH4's phase inverter and power section are a JCM800 stand-in
@@ -81,7 +81,7 @@ becomes available.
 ## OGG export is deferred, so a take leaves the host as WAV only
 
 DS5 of `docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md` puts `libvorbis` and `libogg`
-inside `apps/host_gui` and nowhere else, and DS0 through DS4 shipped without it. A five-minute
+inside `applications/host_gui` and nowhere else, and DS0 through DS4 shipped without it. A five-minute
 stereo take at 48 kHz is 115 MB of 32-bit float on disk, which is what the host writes and what a
 user copies out. No test is skipped for this; nothing is broken, the phase is unwritten. Closes
 with DS5.
@@ -98,19 +98,19 @@ not by a repair.
 
 ## `write_rig_output_to_device`'s 2 into 1 downmix has no live caller
 
-`apps/host_gui/main.cpp` prepares the rig at `min(device output channels, RigGraph::kMaxChannels)`,
+`applications/host_gui/main.cpp` prepares the rig at `min(device output channels, RigGraph::K_MAX_CHANNELS)`,
 so the rig is never wider than the device and the sum-and-halve branch of
 `write_rig_output_to_device` cannot run from the host. The branch exists because
 `ChannelSelection` carries the whole `RigGraph::channels_adapt` table rather than the part one
 caller happens to reach, and
 `WriteRigOutputSumsAndHalvesTwoRigChannelsIntoAMonoDevice`
 (`tests/functional/unit/test_channel_selection.cpp`) is the only thing that exercises it. It stops
-being dead the first time a rig's width is set by something other than the device — a fixed stereo
+being dead the first time a rig's width is set by something other than the device, a fixed stereo
 rig, or a preset that pins the width.
 
 ## The ASIO host still renders the rig in mono
 
-`apps/host_asio/main.cpp` opens two ASIO output channels but prepares its rig with
+`applications/host_asio/main.cpp` opens two ASIO output channels but prepares its rig with
 `PrepareInfo{..., 1}`, so a `PanNode` at the end of a rig run under that host is summed back to one
 channel by the graph's own output stage. It shares the GUI host's `rig_output_adapts_to_device` and
 `write_rig_output_to_device` pair, so the mapping is the same rule; only the rig's own width differs.
@@ -131,7 +131,7 @@ that cannot serialise them.
 `routing::MixerNode` declares `PortLayout{8, 1}`, so `RigGraph::channels_of` reads its input width
 as 1 and the graph's gather averages any two-channel producer down to one channel before the mixer
 sees it. A `PanNode` inside a parallel branch therefore loses its width the moment the branch
-rejoins. This is what spec §2's adaptation table says should happen — 2 into 1 sums and halves —
+rejoins. This is what spec §2's adaptation table says should happen, 2 into 1 sums and halves , 
 and no test or user asks for anything else, so the behaviour stays. Closes when a mixer that keeps
 its inputs' width exists, which needs a `PortLayout` that can say "eight slots, two channels each".
 
@@ -140,7 +140,7 @@ its inputs' width exists, which needs a `PortLayout` that can say "eight slots, 
 `Take` carries the rate it was captured at, and neither `TrackPlayer` nor `TrackTimeline` asks
 for it: a clip is read frame for frame against the rig's rate. A 44.1 kHz WAV dropped on a
 48 kHz rig therefore plays 8.8 % slow and a semitone's fifth flat. Imported mp3 files are not
-affected — `AudioImportCache` converts a decoded song to the rig's rate before the clip ever
+affected, `AudioImportCache` converts a decoded song to the rig's rate before the clip ever
 points at it, which is why the defect survived the mp3 work. Closes when a clip carries the
 ratio between its take's rate and the rig's into `VariRateReader`, which already reads at an
 arbitrary speed.
@@ -156,7 +156,7 @@ carries a size cap and evicts by last use.
 ## The built room's loss fits neither measured room below 500 Hz
 
 `RoomScene::built_room_loss` adds one absorption figure per band to every surface
-(`BuiltRoomLoss.hpp`). From 500 Hz to 2 kHz it brings the model to 0.96 to 1.04 times the
+(`built_room_loss.hpp`). From 500 Hz to 2 kHz it brings the model to 0.96 to 1.04 times the
 measured decay of the Motus room and 1.14 to 1.21 times that of the BRAS CR2 seminar room
 (`test_room_motus.cpp`, `test_room_bras.cpp`). Below 500 Hz the two rooms want different figures:
 at 125 Hz the model reads 1.917 s against Motus's measured 2.572 s, a ratio of 0.745, and
@@ -170,7 +170,7 @@ tied to windows and other lightweight elements, settles the low bands
 
 `docs/agent/2026_09_22_ROOM_FURNISHINGS/REPORT.md`'s "What was not found" records that no ISO 354
 or JIS A 1409 test of a household desk, a double bed with its bedding, a filled bookcase or a
-flat-woven kilim on a hard floor could be sourced. `Furniture.cpp`'s desk row is therefore the
+flat-woven kilim on a hard floor could be sourced. `furniture.cpp`'s desk row is therefore the
 Korean apartment study's 0.0131 m2 per m3 taken at 30 m3, 0.4 m2 flat across the bands, and its
 bookcase row is EN 12354-6 formula 4 on an assumed 0.8 x 0.3 x 1.8 m volume, 0.57 m2 flat; the
 double bed is the one measured single bed without bedding scaled by the mattress perimeter ratio
@@ -196,7 +196,7 @@ ear for the near one (`assets/hrtf/README.md`).
 
 ## Four of the spec's fourteen material rows are not transcribed
 
-`Materials.hpp` ships fifteen rows, nine of them added on 2026-09-22, and §4.2's brick, acoustic
+`materials.hpp` ships fifteen rows, nine of them added on 2026-09-22, and §4.2's brick, acoustic
 foam, steel garage door and carpet on underlay are not among them. A user whose garage has a
 steel door or a foam panel picks the nearest row instead, and the room's decay is wrong by the
 difference between the two, which across §4.2's table reaches 0.4 in absorption at 500 Hz.
@@ -206,7 +206,7 @@ from the same source with a citation each, which is data and no code.
 ## The SM57 preset has no measured curve
 
 `MicrophoneModel` evaluates any on-axis curve it is handed, and the module ships one preset,
-`kMicrophoneFlatCardioid`, whose six band values are zero and whose citation reads "no maker's
+`K_MICROPHONE_FLAT_CARDIOID`, whose six band values are zero and whose citation reads "no maker's
 curve". Spec §8 asks for a Shure SM57: a cardioid with a presence rise near 6 kHz and a low-end
 roll-off, which the flat preset does not have, so a microphone render is missing the colour the
 capsule itself contributes. The six numbers were not invented, which is why the preset says so in
@@ -217,7 +217,7 @@ into a second `MicrophonePreset`.
 
 `ModalSolver::damping_constant` damps each mode by the first-order perturbation of spec §9a.2,
 which is linear in the absorption coefficient and so right to a few percent while α stays under
-about 0.1. Gypsum board on studs absorbs 0.29 at 125 Hz (`Materials.cpp`), and a mode bounded by
+about 0.1. Gypsum board on studs absorbs 0.29 at 125 Hz (`materials.cpp`), and a mode bounded by
 it decays about 30 % away from the true rate. The mode's frequency is right either way, so the
 room's pitch is right and its low-end decay time is not. Solving the damped eigenproblem against
 a complex wall impedance costs what §9a.2 measures FDTD at, for an error inside a layer that did
@@ -272,7 +272,7 @@ seam. Closes when a bound follows from the reference's own step rather than from
 
 ## `BandResponseFit` stops at eight steps on about 60 % of fits
 
-`kMaxSteps` in `BandResponseFit.cpp` bounds the refinement at eight accepted steps, and about
+`K_MAX_STEPS` in `band_response_fit.cpp` bounds the refinement at eight accepted steps, and about
 three fits in five reach it rather than converging, so those tap filters sit at whatever the
 eighth step reached. The fit still holds the direct path within 0.1 dB and a one-band 20 dB cut
 within 0.5 dB, so the cap is not what the module's accuracy is limited by today; it is what a
@@ -330,22 +330,21 @@ were not re-checked for this list. The work that closes a row is in
 
 | Issue | Where |
 | --- | --- |
-| The `## v0.1.0 — 2026-10-03` heading has no tag behind it; `git tag -l` prints nothing | `docs/reference/CHANGELOG.md`, git |
+| The `## v0.1.0, 2026-10-03` heading has no tag behind it; `git tag -l` prints nothing | `docs/reference/CHANGELOG.md`, git |
 | The entry that folded the untagged headings cites `docs/archive/changelog/`, which does not exist | `docs/reference/CHANGELOG.md`, 2026-10-03 |
 | Five `docs` entries of 2026-09-05 and 2026-09-07 name no place | `docs/reference/CHANGELOG.md` |
-| Three entries cite files that no longer exist: `cli/sushidsp/services/setup.py`, `apps/host_gui/ui/TrackPanel.cpp`, `include/SushiDSP/math/ResamplerCoefficients.hpp` | `docs/reference/CHANGELOG.md` |
+| Three entries cite files that no longer exist: `cli/sushidsp/services/setup.py`, `applications/host_gui/ui/TrackPanel.cpp`, `modules/foundation/math/include/SushiDSP/math/ResamplerCoefficients.hpp` | `docs/reference/CHANGELOG.md` |
 | The archive's README says the archive is empty; it holds 56 other files | `docs/archive/README.md` |
 | Archived plans, specs, dossiers and notes carry dated lower-case names, not `UPPER_SNAKE_CASE.md` | `docs/archive/superpowers/`, `docs/archive/research/`, `docs/archive/notes/` |
 | The standards phase 1 work has two plans in the archive, a 288-line plan and a 10-line checklist | `docs/archive/superpowers/plans/2026-09-15-sushi-standards-phase-1.md`, `docs/archive/agent/2026_09_15_SUSHI_STANDARDS_PHASE_1/PLAN.md` |
 | The report in the v0.1.0 release work folder records what jrb32's traced schematic settles, not the release | `docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md` |
 | §11a says SushiDSP is in hub's catalogue and that `cli/pyproject.toml` does not list sushicore; the manifest says it is not in the catalogue and `pyproject.toml` requires `sushicore>=0.7.0` | `docs/design/SUSHIDSP.md`, `sushi-module.toml`, `cli/pyproject.toml` |
-| The opening block names constants `UPPER_SNAKE`; the constants in the tree are `kPascalCase` | `docs/design/SUSHIDSP.md` line 4 |
 | Em dashes used as punctuation throughout: 106 lines in the design spec, 45 in the GUI redesign, 35 in the CLI guide | `docs/design/SUSHIDSP.md`, `docs/design/GUI_UX_REDESIGN.md`, `docs/guides/COMMAND_LINE_INTERFACE.md` |
 | The first entry of this page is one paragraph of nested figures | `docs/reference/KNOWN_ISSUES.md`, "Alias floor at 8×" |
-| No README beside the code | `apps/host/`, `apps/host_asio/`, `tests/measure/`, `tests/benchmark/`, each area under `include/SushiDSP/` |
-| Two READMEs cite `assets/ir/default_4x12.wav`, which the tree does not hold | `assets/ir/README.md`, `apps/host_gui/README.md` |
+| No README beside the code | `applications/host/`, `applications/host_asio/`, `tests/measure/`, `tests/benchmark/`, each area under `include/SushiDSP/` |
+| Two READMEs cite `assets/ir/default_4x12.wav`, which the tree does not hold | `assets/ir/README.md`, `applications/host_gui/README.md` |
 | The admission rule for a bundled impulse response still names the Apache License 2.0 | `assets/ir/README.md` |
-| Two comments and one issue template cite module paths from before the tiers: `modules/rig_preset`, `modules/dd3`, `modules/mesa_mark2c` | `modules/session/rig_preset/include/SushiDSP/rig_preset/RigPreset.hpp` line 22, `tests/functional/unit/test_biquad.cpp` line 290, `.github/ISSUE_TEMPLATE/model_accuracy.yml` line 17 |
+| Two comments and one issue template cite module paths from before the tiers: `modules/session/rig_preset`, `modules/nodes/dd3`, `modules/nodes/mesa_mark2c` | `modules/session/rig_preset/include/SushiDSP/rig_preset/rig_preset.hpp` line 22, `tests/functional/unit/test_biquad.cpp` line 290, `.github/ISSUE_TEMPLATE/model_accuracy.yml` line 17 |
 | The front door's count of 1007 tests could not be reproduced without a build and was removed on 2026-10-05; no document states the count | `README.md` |
 
 ### Layout
@@ -354,29 +353,23 @@ were not re-checked for this list. The work that closes a row is in
 | --- | --- |
 | CI calls `cmake` and `ctest` directly, runs no checker and has no job for the CLI's tests; its comments cite `docs/CLAUDE.md` and sushicore 0.6.0 | `.github/workflows/ci.yml` |
 | One workflow file for every trigger; no release workflow | `.github/workflows/` |
-| Every module keeps its private code in `src/`, 62 tracked files, so `rule_private_reach`, which matches `source/`, cannot fire | `modules/*/*/src/`, `tools/layering/check_layering.py` |
-| The core sits at the root beside `modules/` and outside the layering check; `core/ICabinetHost.hpp` includes `io/Ir.hpp` | `include/SushiDSP/`, `src/` |
-| Top-level names differ from the shared tree: `src/`, `apps/`, `assets/`; `Doxyfile` sits at the root | repository root |
-| `.clang-format` and `.editorconfig` are missing | repository root |
-| Tests are not grouped as unit, integration, regression and common; no module has its own `tests/`; 24 `apps/host_gui` sources are compiled into the test binary | `tests/`, `tests/CMakeLists.txt` |
-| 317 of 453 C++ files are named in PascalCase | `include/`, `src/`, `modules/`, `apps/`, `tests/` |
+| Tests are not grouped as unit, integration, regression and common; no module has its own `tests/`; 24 `applications/host_gui` sources are compiled into the test binary | `tests/`, `tests/CMakeLists.txt` |
 | `*.f32` is not marked binary; 3.1 MB of transient CSVs sit inside the manual | `.gitattributes`, `docs/reference/spice/*/*_tran.csv` |
 | Eight remote-tracking refs under `refs/remotes/local/` have no remote configured | git |
 | The root build file defines targets and fetches dependencies | `CMakeLists.txt` |
 | No generated version header; the version is kept by hand in two files and absent from the manifest | `CMakeLists.txt`, `cli/pyproject.toml`, `sushi-module.toml` |
 | The ignore file ignores `docs/api-site/html/`, where nothing is written, names `sd doxygen` and carries paragraphs of comment | `.gitignore` |
-| The host writes `imgui.ini` into the working directory | `apps/host_gui/` |
+| The host writes `imgui.ini` into the working directory | `applications/host_gui/` |
 
 ### Code shape
 
 | Issue | Where |
 | --- | --- |
-| `check_source_comments.py` reports 1106 findings: 270 file headers, 69 blocks over eight lines, 761 comment runs, 6 history words; `sd check` does not run it | `python tools/documentation/check_source_comments.py . --report` |
-| Exceptions, `bool` with an error string and bare `bool` coexist as error models; no function is `[[nodiscard]]` | `src/io/WavFile.cpp`, `apps/host_gui/RigController.hpp`, `modules/nodes/room/include/SushiDSP/room/RoomNode.hpp` |
-| `RigController` forwards `SlotGraph`'s surface one for one; `main()` owns setup and the frame loop | `apps/host_gui/RigController.hpp`, `apps/host_gui/SlotGraph.hpp`, `apps/host_gui/main.cpp` |
-| The host names products by id, so adding a product edits the GUI | `apps/host_gui/ui/PanelLibrary.cpp`, `apps/host_gui/ui/GearFilter.cpp`, `apps/host_gui/TopologyApplier.cpp` |
-| `nlohmann::json` is part of the preset module's public interface | `modules/session/rig_preset/include/SushiDSP/rig_preset/RigPreset.hpp` |
-| The four amplifier modules repeat the same helpers and constants | `modules/nodes/jcm800/src/Jcm800.cpp`, `Peavey5150.cpp`, `DiezelVh4.cpp`, `MesaMark2c.cpp` |
-| `Wdf` is built into the library and no production code uses it | `include/SushiDSP/math/Wdf.hpp` |
-| One header lacks `#pragma once` | `tests/common/TimingGate.hpp` |
-| The device backends, the GUI views and the scripts under `tools/dsp/` and `tools/spice/` have no tests | `src/device/`, `apps/host_gui/ui/`, `tools/` |
+| Exceptions, `bool` with an error string and bare `bool` coexist as error models; no function is `[[nodiscard]]` | `modules/foundation/io/source/wav_file.cpp`, `applications/host_gui/rig_controller.hpp`, `modules/nodes/room/include/SushiDSP/room/room_node.hpp` |
+| `RigController` forwards `SlotGraph`'s surface one for one; `main()` owns setup and the frame loop | `applications/host_gui/rig_controller.hpp`, `applications/host_gui/slot_graph.hpp`, `applications/host_gui/main.cpp` |
+| The host names products by id, so adding a product edits the GUI | `applications/host_gui/ui/panel_library.cpp`, `applications/host_gui/ui/gear_filter.cpp`, `applications/host_gui/topology_applier.cpp` |
+| `nlohmann::json` is part of the preset module's public interface | `modules/session/rig_preset/include/SushiDSP/rig_preset/rig_preset.hpp` |
+| The four amplifier modules repeat the same helpers and constants | `modules/nodes/jcm800/source/jcm800.cpp`, `peavey5150.cpp`, `diezel_vh4.cpp`, `mesa_mark2c.cpp` |
+| `Wdf` is built into the library and no production code uses it | `modules/foundation/math/include/SushiDSP/math/wdf.hpp` |
+| One header lacks `#pragma once` | `tests/common/timing_gate.hpp` |
+| The device backends, the GUI views and the scripts under `tools/dsp/` and `tools/spice/` have no tests | `modules/foundation/device/source/`, `applications/host_gui/ui/`, `tools/` |

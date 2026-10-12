@@ -102,11 +102,11 @@ Two consequences are decided here.
 
 | Concern | Brick | Shape it copies |
 | --- | --- | --- |
-| Per-item absorption area per band, a citation per row | `Furniture.hpp`, `FurnitureId` | `Materials.hpp` |
+| Per-item absorption area per band, a citation per row | `furniture.hpp`, `FurnitureId` | `materials.hpp` |
 | The items a scene holds and their quantities | `RoomScene::furnishings` | `RoomScene::patches` |
 | Sum of a scene's items per band | `RoomScene::furnishing_absorption_area()` | `RoomScene::mean_absorption()` |
 | The room's volumetric loss per metre, per band | `MediumAbsorption` | `AirAbsorption` |
-| Preset words for materials and furniture | a `key` in each table row | replaces the word tables in `RigPersistence.cpp` |
+| Preset words for materials and furniture | a `key` in each table row | replaces the word tables in `rig_persistence.cpp` |
 
 `MediumAbsorption` is the seam the three consumers call. It returns the air's coefficient plus
 `m_f`, so a further loss adds inside it and no consumer changes. `AirAbsorption` is untouched.
@@ -120,7 +120,7 @@ Every furniture row is per item: a bed, a wardrobe module, a chair. `Furnishing`
 ## 5. The validator
 
 `RoomScene::is_valid` refuses a non-positive or non-finite quantity and more than
-`kMaxFurnishings` (16) entries. The 12 s decay bound counts furniture, since furniture is real
+`K_MAX_FURNISHINGS` (16) entries. The 12 s decay bound counts furniture, since furniture is real
 absorption: the surfaces' effective absorption becomes `1 - (1 - a_s) exp(-A_f / S)`, compared
 with the existing `min_mean_absorption()` floor, which keeps its definition and its tests.
 
@@ -231,12 +231,12 @@ section 11.
   and purpose-built, shows no excess: its fitted concrete absorption is 0.009 to 0.019, below the
   database's initial estimate. The excess therefore comes from what a built room carries (doors,
   windows, radiators, ducts, seams, leakage), not from the surface materials, and it is a scene
-  property, `RoomScene::built_room_loss`, adding `kBuiltRoomLoss` = 0.020, 0.025, 0.020, 0.020,
+  property, `RoomScene::built_room_loss`, adding `K_BUILT_ROOM_LOSS` = 0.020, 0.025, 0.020, 0.020,
   0.020 and 0.015 to every face; the starter scene sets it, a bare scene does not. With it the
   model reads 0.96 to 1.04 of Motus and 1.14 to 1.21 of CR2 from 500 Hz to 2 kHz.
 - **Below 500 Hz the two rooms disagree.** Motus asks for +0.007 at 125 Hz and CR2 for +0.062,
   so the model reads 0.75 of Motus and 2.1 of CR2 there. CR2's large windows, radiators and
   ribbed ceiling are the likely low-frequency absorbers, but that is not measured. Closing it
   wants a third room, or a low-frequency term tied to lightweight elements rather than to area.
-- Whether the panel should read out the room's decay per band. It needs a read on `IRoomHost`,
+- Whether the panel should read out the room's decay per band. It needs a read on `RoomHost`,
   a public interface, so it is a separate decision.

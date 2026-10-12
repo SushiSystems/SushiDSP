@@ -1,2 +1,3 @@
 *.hrtf binary
 *.wav binary
+*.f32 binary

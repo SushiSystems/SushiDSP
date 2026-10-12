@@ -27,12 +27,12 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/PhaseInverterPresets.hpp"
-#include "SushiDSP/circuits/stages/TriodeStage.hpp"
+#include "SushiDSP/circuits/stages/phase_inverter_presets.hpp"
+#include "SushiDSP/circuits/stages/triode_stage.hpp"
 
 TEST(Unit_Dsp, Triode12AX7Inverter82kPlateHoldsItsSolvedOperatingPoint)
 {
-    const SushiDSP::SingleTriodeInverter& inverter = SushiDSP::kTriode12AX7Inverter82kPlate;
+    const SushiDSP::SingleTriodeInverter& inverter = SushiDSP::K_TRIODE12_AX7_INVERTER82K_PLATE;
     EXPECT_FLOAT_EQ(inverter.cathode_bias_volts, -1.346012f);
     EXPECT_FLOAT_EQ(inverter.gain, 61.927402f);
     EXPECT_FLOAT_EQ(inverter.input_degeneration, 1.888775f);
@@ -42,7 +42,7 @@ TEST(Unit_Dsp, Triode12AX7Inverter82kPlateHoldsItsSolvedOperatingPoint)
 
 TEST(Unit_Dsp, Triode12AX7Inverter82kPlateRestsBelowItsCathodeAndDegeneratesItsInput)
 {
-    const SushiDSP::SingleTriodeInverter& inverter = SushiDSP::kTriode12AX7Inverter82kPlate;
+    const SushiDSP::SingleTriodeInverter& inverter = SushiDSP::K_TRIODE12_AX7_INVERTER82K_PLATE;
     EXPECT_LT(inverter.cathode_bias_volts, 0.0f);
     EXPECT_GT(inverter.gain, 0.0f);
     EXPECT_GT(inverter.input_degeneration, 1.0f);
@@ -52,9 +52,9 @@ TEST(Unit_Dsp, Triode12AX7Inverter82kPlateRestsBelowItsCathodeAndDegeneratesItsI
 
 TEST(Unit_Dsp, Triode12AX7Inverter82kPlateDrivesATriodeStageThatInvertsAndBounds)
 {
-    const SushiDSP::SingleTriodeInverter& inverter = SushiDSP::kTriode12AX7Inverter82kPlate;
+    const SushiDSP::SingleTriodeInverter& inverter = SushiDSP::K_TRIODE12_AX7_INVERTER82K_PLATE;
     SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, inverter.cathode_bias_volts, inverter.gain,
-                                SushiDSP::kTriode12AX7GridConduction, inverter.plate_swing);
+                                SushiDSP::K_TRIODE12_AX7_GRID_CONDUCTION, inverter.plate_swing);
     EXPECT_LT(stage.process_sample(0.5f), 0.0f);
     stage.reset();
     EXPECT_GT(stage.process_sample(-0.5f), 0.0f);

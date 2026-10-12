@@ -35,25 +35,25 @@
 #include <cstdint>
 #include <string>
 
-#include "RoomFixtures.hpp"
-#include "TimingGate.hpp"
-#include "SushiDSP/room/BandResponseFit.hpp"
-#include "SushiDSP/room/ImageSourceSolver.hpp"
-#include "SushiDSP/room/MediumAbsorption.hpp"
-#include "SushiDSP/room/RoomScene.hpp"
+#include "room_fixtures.hpp"
+#include "timing_gate.hpp"
+#include "SushiDSP/room/band_response_fit.hpp"
+#include "SushiDSP/room/image_source_solver.hpp"
+#include "SushiDSP/room/medium_absorption.hpp"
+#include "SushiDSP/room/room_scene.hpp"
 
 namespace
 {
     /// @brief Holds the frames one metre of path takes at 48 kHz and 343 m/s.
-    constexpr double kFramesPerMetre = 48000.0 / 343.0;
+    constexpr double K_FRAMES_PER_METRE = 48000.0 / 343.0;
 
     /// @brief Returns the spec's section 4.3 geometry: the garage with the source at
     /// (1.5, 2.0, 0.5) and the listener at (4.0, 2.0, 1.2).
     SushiDSP::room::RoomScene example_scene()
     {
         SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
-        scene.source_position = { 1.5, 2.0, 0.5 };
-        scene.listener_position = { 4.0, 2.0, 1.2 };
+        scene.source_position = {1.5, 2.0, 0.5};
+        scene.listener_position = {4.0, 2.0, 1.2};
         return scene;
     }
 
@@ -62,10 +62,13 @@ namespace
     std::array<double, 7> first_order_metres()
     {
         // These are the seven first-order path lengths. See tests/functional/unit/README.md.
-        return { std::sqrt(2.5 * 2.5 + 0.7 * 0.7), std::sqrt(2.5 * 2.5 + 1.7 * 1.7),
-                 std::sqrt(2.5 * 2.5 + 3.3 * 3.3), std::sqrt(2.5 * 2.5 + 4.0 * 4.0 + 0.7 * 0.7),
-                 std::sqrt(2.5 * 2.5 + 4.0 * 4.0 + 0.7 * 0.7), std::sqrt(5.5 * 5.5 + 0.7 * 0.7),
-                 std::sqrt(6.5 * 6.5 + 0.7 * 0.7) };
+        return {std::sqrt(2.5 * 2.5 + 0.7 * 0.7),
+                std::sqrt(2.5 * 2.5 + 1.7 * 1.7),
+                std::sqrt(2.5 * 2.5 + 3.3 * 3.3),
+                std::sqrt(2.5 * 2.5 + 4.0 * 4.0 + 0.7 * 0.7),
+                std::sqrt(2.5 * 2.5 + 4.0 * 4.0 + 0.7 * 0.7),
+                std::sqrt(5.5 * 5.5 + 0.7 * 0.7),
+                std::sqrt(6.5 * 6.5 + 0.7 * 0.7)};
     }
 
     /// @brief Returns the index of the one tap arriving at the given frame within 1e-3, or
@@ -98,12 +101,12 @@ namespace
     SushiDSP::room::RoomScene furnished_scene(double beds, double sofas)
     {
         SushiDSP::room::RoomScene scene;
-        scene.furnishings[0] = { SushiDSP::room::FurnitureId::BedDouble, beds };
-        scene.furnishings[1] = { SushiDSP::room::FurnitureId::SofaTwoSeat, sofas };
+        scene.furnishings[0] = {SushiDSP::room::FurnitureId::BedDouble, beds};
+        scene.furnishings[1] = {SushiDSP::room::FurnitureId::SofaTwoSeat, sofas};
         scene.furnishing_count = 2;
         return scene;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, ImageSourceSolverCountsTheLatticePoints)
 {
@@ -120,11 +123,11 @@ TEST(Unit_Dsp, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
     const SushiDSP::room::EarlyTapSet set =
         SushiDSP::room::ImageSourceSolver::solve(example_scene(), {});
     const std::array<double, 7> metres = first_order_metres();
-    const std::array<double, 7> expected_frames =
-        { 363.3098, 423.0778, 579.3654, 667.3326, 667.3326, 775.8880, 914.8805 };
+    const std::array<double, 7> expected_frames = {363.3098, 423.0778, 579.3654, 667.3326,
+                                                   667.3326, 775.8880, 914.8805};
     for (std::size_t tap = 0; tap < 7u; ++tap)
     {
-        const double frames = metres[tap] * kFramesPerMetre;
+        const double frames = metres[tap] * K_FRAMES_PER_METRE;
         EXPECT_NEAR(frames, expected_frames[tap], 1e-3) << "tap " << tap;
         std::uint32_t matches = 0;
         for (std::uint32_t index = 0; index < set.count; ++index)
@@ -151,7 +154,7 @@ TEST(Unit_Dsp, ImageSourceSolverCutsTheFirstOrderSetAtItsOwnHandover)
     const std::array<double, 7> metres = first_order_metres();
     for (std::size_t tap = 0; tap < 5u; ++tap)
     {
-        EXPECT_NEAR(set.taps[tap].delay_frames, metres[tap] * kFramesPerMetre, 1e-3)
+        EXPECT_NEAR(set.taps[tap].delay_frames, metres[tap] * K_FRAMES_PER_METRE, 1e-3)
             << "tap " << tap;
     }
     EXPECT_NEAR(set.crossover_time_s, 2.0 * 2.5 / 343.0, 1e-6);
@@ -159,16 +162,15 @@ TEST(Unit_Dsp, ImageSourceSolverCutsTheFirstOrderSetAtItsOwnHandover)
 
 TEST(Unit_Dsp, ImageSourceSolverSortsItsTapsByArrival)
 {
-    const std::array<SushiDSP::room::RoomScene, 3> rooms = {
-        SushiDSP::test::garage_scene(), SushiDSP::test::bedroom_scene(),
-        SushiDSP::test::block_room_scene()
-    };
+    const std::array<SushiDSP::room::RoomScene, 3> rooms = {SushiDSP::test::garage_scene(),
+                                                            SushiDSP::test::bedroom_scene(),
+                                                            SushiDSP::test::block_room_scene()};
     for (std::size_t room = 0; room < rooms.size(); ++room)
     {
         const SushiDSP::room::EarlyTapSet set =
             SushiDSP::room::ImageSourceSolver::solve(rooms[room], {});
         ASSERT_GT(set.count, 7u) << "room " << room;
-        ASSERT_LE(set.count, SushiDSP::room::EarlyTapSet::kMaxEarlyTaps) << "room " << room;
+        ASSERT_LE(set.count, SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS) << "room " << room;
         for (std::uint32_t tap = 1; tap < set.count; ++tap)
         {
             EXPECT_GE(set.taps[tap].delay_frames, set.taps[tap - 1].delay_frames)
@@ -239,7 +241,7 @@ TEST(Unit_Dsp, ImageSourceSolverEncodesEarsAndMicrophoneDifferently)
         }
     }
     // The microphone sits 0.1 m from the source and the ears 2.596 m, so the direct taps differ.
-    EXPECT_NEAR(microphone.taps[0].delay_frames, 0.1 * kFramesPerMetre, 1e-3);
+    EXPECT_NEAR(microphone.taps[0].delay_frames, 0.1 * K_FRAMES_PER_METRE, 1e-3);
     EXPECT_GT(microphone.taps[0].gain, ears.taps[0].gain);
 }
 
@@ -254,10 +256,10 @@ TEST(Unit_Dsp, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
     EXPECT_NEAR(flat.taps[0].gain, 1.0 / metres[0], 1e-6);
     EXPECT_NEAR(cluttered.taps[0].gain, 1.0 / metres[0], 1e-6);
     // Cluttered keeps sqrt(0.60 / 0.90) = 0.816497 of Flat. See tests/functional/unit/README.md.
-    constexpr std::array<std::size_t, 4> single_arrivals = { 1, 2, 5, 6 };
+    constexpr std::array<std::size_t, 4> single_arrivals = {1, 2, 5, 6};
     for (const std::size_t tap : single_arrivals)
     {
-        const std::uint32_t index = find_tap(flat, metres[tap] * kFramesPerMetre);
+        const std::uint32_t index = find_tap(flat, metres[tap] * K_FRAMES_PER_METRE);
         ASSERT_LT(index, flat.count) << "tap " << tap;
         EXPECT_NEAR(flat.taps[index].gain, std::sqrt(0.90) / metres[tap], 1e-6) << "tap " << tap;
         EXPECT_NEAR(cluttered.taps[index].gain, std::sqrt(0.60) / metres[tap], 1e-6)
@@ -312,8 +314,8 @@ TEST(Unit_Dsp, ImageSourceSolverKeepsEveryDelayAndGainWhenFurnished)
 TEST(Unit_Dsp, ImageSourceSolverThinsAReflectedTapByTheFurnishingLoss)
 {
     // Measured worst miss over these taps is 0.68 dB against an expected reduction of up to 3.65 dB.
-    constexpr double kToleranceDb = 1.0;
-    constexpr std::uint32_t kReflectedTaps = 12;
+    constexpr double K_TOLERANCE_DB = 1.0;
+    constexpr std::uint32_t K_REFLECTED_TAPS = 12;
     const SushiDSP::room::RoomScene scene = furnished_scene(4.0, 5.0);
     const SushiDSP::room::MediumAbsorption medium(scene);
     const SushiDSP::room::EarlyTapSet bare =
@@ -321,29 +323,30 @@ TEST(Unit_Dsp, ImageSourceSolverThinsAReflectedTapByTheFurnishingLoss)
     const SushiDSP::room::EarlyTapSet furnished =
         SushiDSP::room::ImageSourceSolver::solve(scene, {});
     ASSERT_EQ(bare.count, furnished.count);
-    ASSERT_GT(bare.count, kReflectedTaps);
+    ASSERT_GT(bare.count, K_REFLECTED_TAPS);
 
     double largest_reduction_db = 0.0;
     double worst_miss_db = 0.0;
-    for (std::uint32_t tap = 1; tap <= kReflectedTaps; ++tap)
+    for (std::uint32_t tap = 1; tap <= K_REFLECTED_TAPS; ++tap)
     {
-        const double metres = static_cast<double>(bare.taps[tap].delay_frames) / kFramesPerMetre;
-        for (std::size_t band = 0; band < SushiDSP::room::kBandCount; ++band)
+        const double metres = static_cast<double>(bare.taps[tap].delay_frames) / K_FRAMES_PER_METRE;
+        for (std::size_t band = 0; band < SushiDSP::room::K_BAND_COUNT; ++band)
         {
-            const double centre = SushiDSP::room::kBandCentresHz[band];
+            const double centre = SushiDSP::room::K_BAND_CENTRES_HZ[band];
             const double measured =
                 SushiDSP::room::BandResponseFit::magnitude_db(
-                    { furnished.taps[tap].section_a, furnished.taps[tap].section_b }, centre,
-                    48000.0)
-                - SushiDSP::room::BandResponseFit::magnitude_db(
-                    { bare.taps[tap].section_a, bare.taps[tap].section_b }, centre, 48000.0);
+                    {furnished.taps[tap].section_a, furnished.taps[tap].section_b}, centre,
+                    48000.0) -
+                SushiDSP::room::BandResponseFit::magnitude_db(
+                    {bare.taps[tap].section_a, bare.taps[tap].section_b}, centre, 48000.0);
             const double expected =
-                10.0 * std::log10(std::exp(-medium.furnishing_coefficient_per_metre(band) * metres));
+                10.0 *
+                std::log10(std::exp(-medium.furnishing_coefficient_per_metre(band) * metres));
             largest_reduction_db = std::max(largest_reduction_db, -expected);
             worst_miss_db = std::max(worst_miss_db, std::fabs(measured - expected));
-            EXPECT_NEAR(measured, expected, kToleranceDb) << "tap " << tap << " band " << band;
+            EXPECT_NEAR(measured, expected, K_TOLERANCE_DB) << "tap " << tap << " band " << band;
         }
     }
-    EXPECT_GT(largest_reduction_db, 3.0 * kToleranceDb);
-    EXPECT_LT(worst_miss_db, kToleranceDb);
+    EXPECT_GT(largest_reduction_db, 3.0 * K_TOLERANCE_DB);
+    EXPECT_LT(worst_miss_db, K_TOLERANCE_DB);
 }

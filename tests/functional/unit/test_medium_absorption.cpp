@@ -31,26 +31,26 @@
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/AirAbsorption.hpp"
-#include "SushiDSP/room/Furniture.hpp"
-#include "SushiDSP/room/MediumAbsorption.hpp"
-#include "SushiDSP/room/RoomScene.hpp"
+#include "SushiDSP/room/air_absorption.hpp"
+#include "SushiDSP/room/furniture.hpp"
+#include "SushiDSP/room/medium_absorption.hpp"
+#include "SushiDSP/room/room_scene.hpp"
 
 namespace
 {
     using SushiDSP::room::AirAbsorption;
     using SushiDSP::room::BandResponse;
     using SushiDSP::room::FurnitureId;
+    using SushiDSP::room::K_BAND_COUNT;
     using SushiDSP::room::MediumAbsorption;
     using SushiDSP::room::RoomScene;
-    using SushiDSP::room::kBandCount;
 
     /// @brief Builds the default scene with three wardrobe modules and two two-seat sofas.
     RoomScene furnished_scene()
     {
         RoomScene scene{};
-        scene.furnishings[0] = RoomScene::Furnishing{ FurnitureId::WardrobeModule, 3.0 };
-        scene.furnishings[1] = RoomScene::Furnishing{ FurnitureId::SofaTwoSeat, 2.0 };
+        scene.furnishings[0] = RoomScene::Furnishing{FurnitureId::WardrobeModule, 3.0};
+        scene.furnishings[1] = RoomScene::Furnishing{FurnitureId::SofaTwoSeat, 2.0};
         scene.furnishing_count = 2;
         return scene;
     }
@@ -70,23 +70,24 @@ namespace
     /// bit for bit for path gains.
     void expect_matches_air(const MediumAbsorption& medium)
     {
-        for (std::size_t band = 0; band < kBandCount; ++band)
+        for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
         {
             EXPECT_EQ(medium.energy_coefficient_per_metre(band),
-                      AirAbsorption::energy_coefficient_per_metre(band)) << "band " << band;
+                      AirAbsorption::energy_coefficient_per_metre(band))
+                << "band " << band;
             EXPECT_EQ(medium.furnishing_coefficient_per_metre(band), 0.0) << "band " << band;
         }
-        for (const double metres : { 0.0, 1.0, 7.3, 30.0 })
+        for (const double metres : {0.0, 1.0, 7.3, 30.0})
         {
             const BandResponse got = medium.over_path(metres);
             const BandResponse air = AirAbsorption::over_path(metres);
-            for (std::size_t band = 0; band < kBandCount; ++band)
+            for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
             {
                 EXPECT_EQ(got.gain[band], air.gain[band]) << "band " << band << " at " << metres;
             }
         }
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, MediumAbsorptionOfAnUnfurnishedSceneIsTheAirsOwn)
 {
@@ -103,7 +104,7 @@ TEST(Unit_Dsp, MediumAbsorptionTreatsACountOfZeroAsUnfurnished)
 TEST(Unit_Dsp, MediumAbsorptionFurnishingCoefficientIsAreaOverFourVolumes)
 {
     const MediumAbsorption medium(furnished_scene());
-    for (std::size_t band = 0; band < kBandCount; ++band)
+    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
     {
         EXPECT_NEAR(medium.furnishing_coefficient_per_metre(band), expected_furnishing(band), 1e-12)
             << "band " << band;
@@ -114,26 +115,27 @@ TEST(Unit_Dsp, MediumAbsorptionFurnishingCoefficientIsAreaOverFourVolumes)
 TEST(Unit_Dsp, MediumAbsorptionEnergyCoefficientIsTheAirPlusTheFurnishings)
 {
     const MediumAbsorption medium(furnished_scene());
-    for (std::size_t band = 0; band < kBandCount; ++band)
+    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
     {
         EXPECT_NEAR(medium.energy_coefficient_per_metre(band),
                     AirAbsorption::energy_coefficient_per_metre(band) + expected_furnishing(band),
-                    1e-12) << "band " << band;
+                    1e-12)
+            << "band " << band;
     }
 }
 
 TEST(Unit_Dsp, MediumAbsorptionPathGainIsTheAirsTimesHalfTheFurnishingDecay)
 {
     const MediumAbsorption medium(furnished_scene());
-    for (const double metres : { 2.6, 12.0 })
+    for (const double metres : {2.6, 12.0})
     {
         const BandResponse got = medium.over_path(metres);
         const BandResponse air = AirAbsorption::over_path(metres);
-        for (std::size_t band = 0; band < kBandCount; ++band)
+        for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
         {
             const double expected = std::exp(-0.5 * expected_furnishing(band) * metres);
-            const double ratio = static_cast<double>(got.gain[band])
-                / static_cast<double>(air.gain[band]);
+            const double ratio =
+                static_cast<double>(got.gain[band]) / static_cast<double>(air.gain[band]);
             EXPECT_NEAR(ratio, expected, 1e-6 * expected) << "band " << band << " at " << metres;
         }
     }
@@ -142,7 +144,7 @@ TEST(Unit_Dsp, MediumAbsorptionPathGainIsTheAirsTimesHalfTheFurnishingDecay)
 TEST(Unit_Dsp, MediumAbsorptionOverZeroMetresIsUnityInEveryBand)
 {
     const BandResponse none = MediumAbsorption(furnished_scene()).over_path(0.0);
-    for (std::size_t band = 0; band < kBandCount; ++band)
+    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
     {
         EXPECT_FLOAT_EQ(none.gain[band], 1.0f) << "band " << band;
     }
@@ -151,11 +153,11 @@ TEST(Unit_Dsp, MediumAbsorptionOverZeroMetresIsUnityInEveryBand)
 TEST(Unit_Dsp, MediumAbsorptionGainNeverRisesWithDistance)
 {
     const MediumAbsorption medium(furnished_scene());
-    std::array<float, kBandCount> previous = medium.over_path(0.0).gain;
+    std::array<float, K_BAND_COUNT> previous = medium.over_path(0.0).gain;
     for (double metres = 0.5; metres <= 30.0; metres += 0.5)
     {
         const BandResponse current = medium.over_path(metres);
-        for (std::size_t band = 0; band < kBandCount; ++band)
+        for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
         {
             EXPECT_LE(current.gain[band], previous[band]) << "band " << band << " at " << metres;
         }

@@ -38,8 +38,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/Biquad.hpp"
-#include "SushiDSP/tubescreamer/TubeScreamer.hpp"
+#include "SushiDSP/math/biquad.hpp"
+#include "SushiDSP/tubescreamer/tube_screamer.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -48,7 +48,7 @@
 TEST(Unit_Dsp, TubeScreamerProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
     SushiDSP::TubeScreamer node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_drive(0.5f);
     node.set_tone(0.5f);
@@ -60,12 +60,12 @@ TEST(Unit_Dsp, TubeScreamerProcessesABlockWithoutCrashingOrProducingNonFiniteOut
         input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     for (int block = 0; block < 20; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -86,7 +86,7 @@ TEST(Unit_Dsp, TubeScreamerPortsAreMonoInMonoOut)
 TEST(Unit_Dsp, TubeScreamerMinimumLevelProducesNearSilenceAfterSettling)
 {
     SushiDSP::TubeScreamer node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_drive(0.5f);
     node.set_tone(0.5f);
@@ -94,12 +94,12 @@ TEST(Unit_Dsp, TubeScreamerMinimumLevelProducesNearSilenceAfterSettling)
 
     std::vector<float> input(256, 0.2f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     for (int block = 0; block < 20; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -155,15 +155,15 @@ TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
     auto settled_peak_at_trim = [](float trim_decibels)
     {
         SushiDSP::TubeScreamer node;
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
         node.set_drive(0.0f);
         node.set_tone(0.5f);
         node.set_level(0.0f);
         node.set_input_trim(trim_decibels);
 
         std::vector<float> input(256, 0.0f), output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
         double index = 0.0;
         double peak = 0.0;
 
@@ -171,11 +171,11 @@ TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
         {
             for (std::size_t i = 0; i < input.size(); ++i)
             {
-                input[i] = static_cast<float>(
-                    0.02 * std::sin(2.0 * M_PI * 440.0 * (index + i) / 48000.0));
+                input[i] =
+                    static_cast<float>(0.02 * std::sin(2.0 * M_PI * 440.0 * (index + i) / 48000.0));
             }
             index += 256.0;
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
             if (block >= 20)
             {
@@ -203,8 +203,8 @@ TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
     auto crossing_ms = [&](std::uint32_t block)
     {
         std::vector<float> input(block, 0.0f), output(block, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
         double index = 0.0;
 
         auto run_block = [&](SushiDSP::TubeScreamer& node)
@@ -215,7 +215,7 @@ TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
                     probe_amplitude * std::sin(2.0 * M_PI * probe_hz * (index + i) / sample_rate));
             }
             index += block;
-            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, block, 0.0};
             node.process(context);
         };
         auto block_peak = [&]()
@@ -231,16 +231,22 @@ TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
         const std::uint32_t one_second_of_blocks = (48000u + block - 1u) / block;
 
         SushiDSP::TubeScreamer settled;
-        settled.prepare(SushiDSP::PrepareInfo{ sample_rate, block, 1 });
+        settled.prepare(SushiDSP::PrepareInfo{sample_rate, block, 1});
         settled.set_parameter_for_control_thread("level", 0.0f);
-        for (std::uint32_t i = 0; i < one_second_of_blocks; ++i) { run_block(settled); }
+        for (std::uint32_t i = 0; i < one_second_of_blocks; ++i)
+        {
+            run_block(settled);
+        }
         const double final_peak = block_peak();
 
         SushiDSP::TubeScreamer stepping;
-        stepping.prepare(SushiDSP::PrepareInfo{ sample_rate, block, 1 });
+        stepping.prepare(SushiDSP::PrepareInfo{sample_rate, block, 1});
         stepping.set_parameter_for_control_thread("level", -60.0f);
         index = 0.0;
-        for (std::uint32_t i = 0; i < one_second_of_blocks; ++i) { run_block(stepping); }
+        for (std::uint32_t i = 0; i < one_second_of_blocks; ++i)
+        {
+            run_block(stepping);
+        }
 
         stepping.set_parameter_for_control_thread("level", 0.0f);
         double elapsed_samples = 0.0;
@@ -275,21 +281,21 @@ TEST(Unit_Dsp, TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseL
     auto peak_index_at_tone = [](float tone)
     {
         SushiDSP::TubeScreamer node;
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, block, 1});
         node.set_drive(0.0f);
         node.set_tone(tone);
         node.set_level(0.0f);
 
         std::vector<float> input(block, 0.0f), output(block, 0.0f);
         input[0] = 0.001f;
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
 
         // Two blocks so a delay longer than one block would still be observed.
         std::vector<float> observed;
         for (int b = 0; b < 2; ++b)
         {
-            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, block, 0.0};
             node.process(context);
             observed.insert(observed.end(), output.begin(), output.end());
             std::fill(input.begin(), input.end(), 0.0f);
@@ -298,7 +304,10 @@ TEST(Unit_Dsp, TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseL
         std::size_t peak_index = 0;
         for (std::size_t i = 1; i < observed.size(); ++i)
         {
-            if (std::fabs(observed[i]) > std::fabs(observed[peak_index])) { peak_index = i; }
+            if (std::fabs(observed[i]) > std::fabs(observed[peak_index]))
+            {
+                peak_index = i;
+            }
         }
         return std::make_pair(static_cast<std::uint32_t>(peak_index), node.latency_samples());
     };
@@ -306,22 +315,22 @@ TEST(Unit_Dsp, TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseL
     SushiDSP::TubeScreamer unprepared;
     EXPECT_EQ(unprepared.latency_samples(), 0u);
 
-    for (float tone : { 0.0f, 0.5f, 1.0f })
+    for (float tone : {0.0f, 0.5f, 1.0f})
     {
         const auto measured = peak_index_at_tone(tone);
         EXPECT_GE(measured.first, measured.second) << "tone " << tone;
         EXPECT_LE(measured.first, measured.second + max_block_group_delay)
-            << "tone " << tone << ", peak at " << measured.first
-            << ", latency_samples() " << measured.second;
+            << "tone " << tone << ", peak at " << measured.first << ", latency_samples() "
+            << measured.second;
     }
 }
 
 TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::tube_screamer_descriptor();
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
 
-    std::unique_ptr<SushiDSP::IAudioNode> node = descriptor.make(info);
+    std::unique_ptr<SushiDSP::AudioNode> node = descriptor.make(info);
     ASSERT_NE(node, nullptr);
     node->prepare(info);
 
@@ -330,9 +339,9 @@ TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
 
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
     node->process(context);
 
     for (float sample : output)
@@ -344,7 +353,7 @@ TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
 TEST(Unit_Dsp, TubeScreamerIsDcStableAcrossManyBlocksAtHighDrive)
 {
     SushiDSP::TubeScreamer node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_drive(1.0f);
     node.set_tone(0.5f);
@@ -352,12 +361,12 @@ TEST(Unit_Dsp, TubeScreamerIsDcStableAcrossManyBlocksAtHighDrive)
 
     std::vector<float> input(256, 0.1f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     for (int block = 0; block < 200; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
         for (float sample : output)
         {
@@ -371,7 +380,7 @@ TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
     auto measure_thd_proxy = [](float drive) -> float
     {
         SushiDSP::TubeScreamer node;
-        SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+        SushiDSP::PrepareInfo info{48000.0, 256, 1};
         node.prepare(info);
         node.set_drive(drive);
         node.set_tone(0.5f);
@@ -387,15 +396,16 @@ TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
             std::vector<float> input(256, 0.0f);
             for (std::size_t i = 0; i < input.size(); ++i)
             {
-                input[i] = static_cast<float>(
-                    0.2 * std::sin(2.0 * M_PI * frequency * (global_sample_index + i) / sample_rate));
+                input[i] =
+                    static_cast<float>(0.2 * std::sin(2.0 * M_PI * frequency *
+                                                      (global_sample_index + i) / sample_rate));
             }
             global_sample_index += 256.0;
 
             std::vector<float> block_output(256, 0.0f);
-            const float* input_channels[1] = { input.data() };
-            float* output_channels[1] = { block_output.data() };
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            const float* input_channels[1] = {input.data()};
+            float* output_channels[1] = {block_output.data()};
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
             output.insert(output.end(), block_output.begin(), block_output.end());
         }
@@ -411,7 +421,8 @@ TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
             sum_cos += output[i] * std::cos(phase);
         }
         const std::size_t n = output.size() - settle_start;
-        const double fundamental_amplitude = 2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n;
+        const double fundamental_amplitude =
+            2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n;
         const double fundamental_power = 0.5 * fundamental_amplitude * fundamental_amplitude * n;
         const double residual_power = std::max(0.0, sum_sq - fundamental_power);
         return static_cast<float>(std::sqrt(residual_power / std::max(1e-12, sum_sq)));
@@ -428,7 +439,7 @@ TEST(Unit_Dsp, TubeScreamerToneControlsHighFrequencyBalance)
     auto measure_high_frequency_rms = [](float tone) -> double
     {
         SushiDSP::TubeScreamer node;
-        SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+        SushiDSP::PrepareInfo info{48000.0, 256, 1};
         node.prepare(info);
         node.set_drive(0.2f);
         node.set_tone(tone);
@@ -448,16 +459,15 @@ TEST(Unit_Dsp, TubeScreamerToneControlsHighFrequencyBalance)
             for (std::size_t i = 0; i < input.size(); ++i)
             {
                 const double t = (global_sample_index + i) / sample_rate;
-                input[i] = static_cast<float>(
-                    0.15 * std::sin(2.0 * M_PI * 100.0 * t)
-                    + 0.15 * std::sin(2.0 * M_PI * 5000.0 * t));
+                input[i] = static_cast<float>(0.15 * std::sin(2.0 * M_PI * 100.0 * t) +
+                                              0.15 * std::sin(2.0 * M_PI * 5000.0 * t));
             }
             global_sample_index += 256.0;
 
             std::vector<float> block_output(256, 0.0f);
-            const float* input_channels[1] = { input.data() };
-            float* output_channels[1] = { block_output.data() };
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            const float* input_channels[1] = {input.data()};
+            float* output_channels[1] = {block_output.data()};
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
 
             for (float sample : block_output)
@@ -505,12 +515,12 @@ TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelve
 {
     // At default drive the pedal is near unity at 82 Hz. See tests/functional/unit/README.md.
     SushiDSP::TubeScreamer node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     float peak = 0.0f;
     for (int block = 0; block < 188; ++block)
@@ -518,10 +528,10 @@ TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelve
         for (int i = 0; i < 256; ++i)
         {
             const float sample_index = static_cast<float>(block * 256 + i);
-            input[static_cast<std::size_t>(i)] =
-                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 82.0f * sample_index / 48000.0f);
+            input[static_cast<std::size_t>(i)] = 0.251f * std::sin(2.0f * static_cast<float>(M_PI) *
+                                                                   82.0f * sample_index / 48000.0f);
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
 
         if (block > 20)
@@ -544,14 +554,14 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
     auto settled_rms_at = [](double frequency)
     {
         SushiDSP::TubeScreamer node;
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
         node.set_drive(0.0f);
         node.set_tone(0.5f);
         node.set_level(0.0f);
 
         std::vector<float> input(256, 0.0f), output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
         double index = 0.0, sum_squares = 0.0;
         std::size_t counted = 0;
 
@@ -567,7 +577,7 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
                     0.01 * std::sin(2.0 * M_PI * frequency * (index + i) / 48000.0));
             }
             index += 256.0;
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
             if (block >= 100)
             {
@@ -600,14 +610,14 @@ TEST(Unit_Dsp, TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicking)
     auto largest_first_difference = [](bool sweeping)
     {
         SushiDSP::TubeScreamer node;
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, block, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, block, 1});
         node.set_drive(sweeping ? 0.0f : 1.0f);
         node.set_tone(0.5f);
         node.set_level(0.0f);
 
         std::vector<float> input(block, 0.0f), output(block, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
         double index = 0.0, largest = 0.0;
         float previous = 0.0f;
 
@@ -619,11 +629,11 @@ TEST(Unit_Dsp, TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicking)
             }
             for (std::size_t i = 0; i < input.size(); ++i)
             {
-                input[i] = static_cast<float>(
-                    0.1 * std::sin(2.0 * M_PI * 220.0 * (index + i) / 48000.0));
+                input[i] =
+                    static_cast<float>(0.1 * std::sin(2.0 * M_PI * 220.0 * (index + i) / 48000.0));
             }
             index += block;
-            SushiDSP::ProcessContext context{ output_channels, input_channels, block, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, block, 0.0};
             node.process(context);
 
             for (float sample : output)

@@ -31,16 +31,15 @@
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/AirAbsorption.hpp"
+#include "SushiDSP/room/air_absorption.hpp"
 
 TEST(Unit_Dsp, AirAbsorptionMatchesIso9613AtTwentyDegreesAndFiftyPercent)
 {
-    const std::array<double, 6> expected =
-        { 0.00044, 0.00131, 0.00273, 0.00466, 0.00989, 0.02967 };
+    const std::array<double, 6> expected = {0.00044, 0.00131, 0.00273, 0.00466, 0.00989, 0.02967};
     for (std::size_t band = 0; band < 6u; ++band)
     {
         const double computed = SushiDSP::room::AirAbsorption::attenuation_db_per_metre(
-            SushiDSP::room::kBandCentresHz[band]);
+            SushiDSP::room::K_BAND_CENTRES_HZ[band]);
         EXPECT_NEAR(computed, expected[band], 0.05 * expected[band]) << "band " << band;
     }
     EXPECT_NEAR(SushiDSP::room::AirAbsorption::attenuation_db_per_metre(8000.0), 0.1053, 0.006);
@@ -58,7 +57,7 @@ TEST(Unit_Dsp, AirAbsorptionEnergyCoefficientIsTheDecibelFigureOverFourPointThre
 TEST(Unit_Dsp, AirAbsorptionOverThirtyMetresCostsUnderOneDecibel)
 {
     const SushiDSP::room::BandResponse thirty = SushiDSP::room::AirAbsorption::over_path(30.0);
-    EXPECT_NEAR(thirty.decibels()[5], -0.89f, 0.05f);   // 30 * 0.02967
+    EXPECT_NEAR(thirty.decibels()[5], -0.89f, 0.05f); // 30 * 0.02967
     EXPECT_GT(thirty.decibels()[0], -0.02f);
 }
 

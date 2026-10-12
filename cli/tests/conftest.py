@@ -119,8 +119,8 @@ class Project:
         return exe
 
     def plant_host_gui(self, *folders: str) -> Path:
-        """Creates an empty host GUI binary under build/apps/host_gui and returns its path."""
-        return self.plant_executable("sushidsp_host_gui", "apps", "host_gui", *folders)
+        """Creates an empty host GUI binary under build/applications/host_gui and returns its path."""
+        return self.plant_executable("sushidsp_host_gui", "applications", "host_gui", *folders)
 
 
 @pytest.fixture

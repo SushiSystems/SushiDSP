@@ -11,10 +11,10 @@ licence was read from the licence file in the fetched source.
 
 | Component | Where | Source | Version | Licence |
 | --- | --- | --- | --- | --- |
-| SDL | fetched by `CMakeLists.txt`; linked by `apps/host` | https://github.com/libsdl-org/SDL | release-2.30.0 | zlib, Copyright (C) 1997-2024 Sam Lantinga |
+| SDL | fetched by `CMakeLists.txt`; linked by `applications/host` | https://github.com/libsdl-org/SDL | release-2.30.0 | zlib, Copyright (C) 1997-2024 Sam Lantinga |
 | nlohmann/json | fetched by `CMakeLists.txt` | https://github.com/nlohmann/json | v3.11.3 | MIT, Copyright (c) 2013-2022 Niels Lohmann |
-| GLFW | fetched by `CMakeLists.txt`; linked by `apps/host_gui` | https://github.com/glfw/glfw | 3.4 | zlib, Copyright (c) 2002-2006 Marcus Geelnard, Copyright (c) 2006-2019 Camilla Löwy |
-| Dear ImGui | fetched by `CMakeLists.txt`; linked by `apps/host_gui` | https://github.com/ocornut/imgui | v1.90.9 | MIT, Copyright (c) 2014-2024 Omar Cornut |
+| GLFW | fetched by `CMakeLists.txt`; linked by `applications/host_gui` | https://github.com/glfw/glfw | 3.4 | zlib, Copyright (c) 2002-2006 Marcus Geelnard, Copyright (c) 2006-2019 Camilla Löwy |
+| Dear ImGui | fetched by `CMakeLists.txt`; linked by `applications/host_gui` | https://github.com/ocornut/imgui | v1.90.9 | MIT, Copyright (c) 2014-2024 Omar Cornut |
 | GoogleTest | fetched by `tests/CMakeLists.txt` | https://github.com/google/googletest | v1.14.0 | BSD-3-Clause, Copyright 2008, Google Inc. |
 
 GoogleTest is fetched for the test suite and is not part of a shipped build.
@@ -43,7 +43,7 @@ Installed for the command line and the tools, not tracked and not linked into a 
 The ASIO SDK is not tracked and not distributed with this repository; `.gitignore` excludes
 `third_party/asio/`. A developer who places the SDK there (ASIO SDK 2.3, from
 www.steinberg.net/en/company/developers.html) gets a Windows build that compiles three of its files
-into the `sushi_dsp_asio` library, which `apps/host_asio` and `apps/host_gui` link.
+into the `sushi_dsp_asio` library, which `applications/host_asio` and `applications/host_gui` link.
 
 The SDK is licensed by Steinberg Media Technologies GmbH under the proprietary Steinberg ASIO
 License or, alternatively, the GNU General Public License version 3. A build with ASIO falls
@@ -75,7 +75,7 @@ The converted HRTF file and the two fixtures stay under the licences in the tabl
 | Work | Where | Source | Licence of the source |
 | --- | --- | --- | --- |
 | TS808 tone and level stage, traced | `docs/reference/spice/ts_tone/ts_tone.asc` | ElectroSmash, TS808 tone/volume schematic; R.G. Keen, "The Technology of the Tube Screamer" (geofex.com) | unverified |
-| Mark IIC+ component values | `modules/nodes/mesa_mark2c/`, `include/SushiDSP/circuits/PowerAmpFeedback.hpp` | jrb32's trace of a chassis; the 1983 Mesa/Boogie factory drawing | unverified |
+| Mark IIC+ component values | `modules/nodes/mesa_mark2c/`, `modules/foundation/circuits/include/SushiDSP/circuits/power_amp_feedback.hpp` | jrb32's trace of a chassis; the 1983 Mesa/Boogie factory drawing | unverified |
 
 ## Trademarks
 

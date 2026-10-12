@@ -36,8 +36,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/dd3/Dd3Delay.hpp"
-#include "golden/GoldenFile.hpp"
+#include "SushiDSP/dd3/dd3_delay.hpp"
+#include "golden/golden_file.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -45,7 +45,7 @@
 
 namespace
 {
-    constexpr std::uint32_t kBlock = 256u;
+    constexpr std::uint32_t K_BLOCK = 256u;
 
     /// @brief Renders one second of the pedal at the knob positions the snapshot pins.
     /// @param sample_rate Rate to render at.
@@ -58,21 +58,21 @@ namespace
         node.set_time(0.4f);
         node.set_feedback(0.45f);
         node.set_level(0.5f);
-        node.prepare({ sample_rate, kBlock, 1 });
+        node.prepare({sample_rate, K_BLOCK, 1});
         const auto input = SushiDSP::golden::stimulus(sample_rate);
         std::vector<float> output(input.size(), 0.0f);
-        for (std::size_t position = 0; position < input.size(); position += kBlock)
+        for (std::size_t position = 0; position < input.size(); position += K_BLOCK)
         {
             const std::uint32_t frames =
-                static_cast<std::uint32_t>(std::min<std::size_t>(kBlock, input.size() - position));
-            const float* inputs[1] = { input.data() + position };
-            float* outputs[1] = { output.data() + position };
-            SushiDSP::ProcessContext context{ outputs, inputs, frames, 0.0 };
+                static_cast<std::uint32_t>(std::min<std::size_t>(K_BLOCK, input.size() - position));
+            const float* inputs[1] = {input.data() + position};
+            float* outputs[1] = {output.data() + position};
+            SushiDSP::ProcessContext context{outputs, inputs, frames, 0.0};
             node.process(context);
         }
         return output;
     }
-}
+} // namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md

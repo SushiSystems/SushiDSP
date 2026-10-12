@@ -30,9 +30,9 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "SushiDSP/room/EarlyTapSet.hpp"
-#include "SushiDSP/room/FdnDesign.hpp"
-#include "SushiDSP/room/ModalDesign.hpp"
+#include "SushiDSP/room/early_tap_set.hpp"
+#include "SushiDSP/room/fdn_design.hpp"
+#include "SushiDSP/room/modal_design.hpp"
 
 TEST(Unit_Dsp, RoomRecordsAreTriviallyCopyable)
 {
@@ -49,9 +49,9 @@ TEST(Unit_Dsp, RoomRecordsAreTriviallyCopyable)
 
 TEST(Unit_Dsp, RoomRecordsCarryTheSpecsCapacities)
 {
-    EXPECT_EQ(SushiDSP::room::EarlyTapSet::kMaxEarlyTaps, 128u);
-    EXPECT_EQ(SushiDSP::room::FdnDesign::kLineCount, 16u);
-    EXPECT_EQ(SushiDSP::room::ModalDesign::kMaxModes, 512u);
+    EXPECT_EQ(SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS, 128u);
+    EXPECT_EQ(SushiDSP::room::FdnDesign::K_LINE_COUNT, 16u);
+    EXPECT_EQ(SushiDSP::room::ModalDesign::K_MAX_MODES, 512u);
 }
 
 TEST(Unit_Dsp, RoomRecordsAreSmallEnoughToPublishPerGuiFrame)

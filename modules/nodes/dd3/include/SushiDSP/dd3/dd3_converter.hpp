@@ -1,0 +1,96 @@
+/**************************************************************************/
+/* dd3_converter.hpp                                                      */
+/**************************************************************************/
+/*                          This file is part of:                         */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                         https://sushisystems.io                        */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the PolyForm Noncommercial License 1.0.0 (the           */
+/* "License"); you may not use this file except in compliance with the    */
+/* License. You may obtain a copy of the License at                       */
+/*                                                                        */
+/*     https://polyformproject.org/licenses/noncommercial/1.0.0           */
+/*                                                                        */
+/* Noncommercial use is free. Commercial use requires a separate licence  */
+/* from Sushi Systems; see COMMERCIAL.md. The software is provided        */
+/* "as is", without warranty of any kind.                                 */
+/**************************************************************************/
+
+/**
+ * @file dd3_converter.hpp
+ * @brief The DD-3's 12-bit A/D-D/A characteristic and fixed-length ring.
+ * @author Mustafa Garip & Sushi Systems
+ */
+
+#pragma once
+
+#include <cstdint>
+#include <vector>
+
+namespace SushiDSP::dd3
+{
+    /// @brief The mode switch's four positions (dossier 1.8, S1 SBM1024 truth table).
+    enum class Dd3Mode
+    {
+        Short,
+        Middle,
+        Long,
+        Hold
+    };
+
+    /// @brief Models the SBM1024's 12-bit quantiser and its S/M/L/H delay ring.
+    /// @see modules/nodes/dd3/README.md, "The converter's rulings"
+    class Dd3Converter
+    {
+        public:
+            /// @brief Allocates the ring at its maximum length and applies the pending mode.
+            /// Control thread only.
+            void prepare();
+
+            /// @brief Selects the buffer length, clearing the ring only when N changes (Ruling 14).
+            /// Before @ref prepare has run this only records the mode for @ref prepare to apply.
+            /// @param mode The new mode; Long and Hold share N = 16384, so switching between them
+            /// keeps whatever the loop holds, which is what HOLD is for.
+            void set_mode(Dd3Mode mode);
+
+            /// @brief Quantises, writes (unless HOLD) and reads one sample at the ring's clock.
+            /// @param volts The sample to store, in volts at the converter's own scale.
+            /// @return What the ring held N samples ago, dequantised; 0.0F if @ref prepare has not
+            /// run yet.
+            /// @pre prepare() has been called at least once.
+            float process_sample(float volts);
+
+            /// @brief Zeroes the ring without changing the mode.
+            void reset();
+
+            /// @brief The active buffer length in samples.
+            /// @return 1024, 4096 or 16384.
+            std::uint32_t ring_length() const;
+
+            /// @brief The 12-bit mid-tread characteristic, saturating at both rails (Ruling 15).
+            /// @param volts Input voltage.
+            /// @return The dequantised voltage.
+            static double quantise(double volts);
+
+            static constexpr double K_FULL_SCALE_VOLTS = 2.5;
+            static constexpr double K_STEP_VOLTS = 5.0 / 4096.0;
+            static constexpr std::int32_t K_MAXIMUM_CODE = 2047;
+            static constexpr std::int32_t K_MINIMUM_CODE = -2048;
+            static constexpr std::uint32_t K_SHORT_LENGTH = 1024u;
+            static constexpr std::uint32_t K_MIDDLE_LENGTH = 4096u;
+            static constexpr std::uint32_t K_LONG_LENGTH = 16384u;
+            static constexpr std::uint32_t K_MAXIMUM_RING_LENGTH = 16384u;
+
+        private:
+            /// @brief Maps a mode to its ring length, Long and Hold sharing K_LONG_LENGTH.
+            static std::uint32_t length_for_mode(Dd3Mode mode);
+
+            std::vector<float> ring_;
+            std::uint32_t length_ = K_LONG_LENGTH;
+            std::uint32_t index_ = 0u;
+            Dd3Mode mode_ = Dd3Mode::Long;
+    };
+} // namespace SushiDSP::dd3

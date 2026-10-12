@@ -1,6 +1,6 @@
-# `modules/nodes/dd3` — Boss DD-3 digital delay
+# `modules/nodes/dd3`, Boss DD-3 digital delay
 
-One `IAudioNode`, mono in and mono out, registered as `sushidsp.dd3` with four parameters:
+One `AudioNode`, mono in and mono out, registered as `sushidsp.dd3` with four parameters:
 D.TIME, F.BACK, E.LEVEL and MODE. The direct/wet mix stays inside the node, as the pedal's
 E.LEVEL pot does.
 
@@ -45,26 +45,26 @@ Most numbers in the module come straight from a component value. Five do not, an
 two kinds. These three close a gap between the transcribed network and a service-note check point,
 and a bench measurement would replace each one.
 
-- **`kInputPathGainToCheckPointOne = 4.70358`** — check point [1], 620 mVp-p at the pre-emphasis
+- **`K_INPUT_PATH_GAIN_TO_CHECK_POINT_ONE = 4.70358`**: check point [1], 620 mVp-p at the pre-emphasis
   output for 1 kHz at 100 mVp-p in. The transcribed stage produces 131.8145 mVp-p, and
   620 / 131.8145 = 4.70358. It sits on the input buffer, upstream of the summing node, so the dry
   branch carries it and the feedback loop does not.
-- **`kExpanderOutputStageGain = 6.0`** — check points [3] 2.3 Vp-p and [4] 2.4 Vp-p. The expander
+- **`K_EXPANDER_OUTPUT_STAGE_GAIN = 6.0`**: check points [3] 2.3 Vp-p and [4] 2.4 Vp-p. The expander
   returns 1.15² / 6.6125 = 0.2 V peak, so 0.4 Vp-p, and 2.4 / 0.4 = 6.0. Check point [4] is the
   reconstruction filter's output, upstream of the F.BACK take-off, so this gain recirculates.
-- **`kLevelUnityGain = 0.0490307`** — check point [5], 140 mVp-p. In mode M at D.TIME 0.5 the wet
+- **`K_LEVEL_UNITY_GAIN = 0.0490307`**: check point [5], 140 mVp-p. In mode M at D.TIME 0.5 the wet
   leg measures 0.713838 full scale with E.LEVEL at unity, [5] is 0.035 full scale, and
   0.035 / 0.713838 = 0.0490307.
 
 The other two are fitted to a published figure rather than read off any page. The spec's model
 corrections carry their derivations.
 
-- **`kEmitterFollowerGain = 0.9548116`** in `Dd3AnalogFilters.hpp` damps every Sallen–Key section.
+- **`K_EMITTER_FOLLOWER_GAIN = 0.9548116`** in `dd3_analog_filters.hpp` damps every Sallen–Key section.
   It is not the follower's loaded voltage gain, which is about 0.987; it absorbs the follower's
   output impedance and its base-current loading of the shunt capacitor. The published +1/−3 dB
   window bounds it to 0.9431071–0.9665162, and this is the midpoint. The window is a knife edge in
   it: 0.98 would put the delay path +3.18 dB at 7 kHz.
-- **`kFeedbackTakeoffTrim = 1 / 4.170136`** in `Dd3Delay.hpp` makes `kFeedbackPathGain` equal to
+- **`K_FEEDBACK_TAKEOFF_TRIM = 1 / 4.170136`** in `dd3_delay.hpp` makes `K_FEEDBACK_PATH_GAIN` equal to
   1 / 6.318388, the reciprocal of the loop's forward gain at its 3278 Hz peak. A bench measurement
   of the loop gain, dossier §4.7 item 5, is what would replace it.
 
@@ -127,12 +127,12 @@ compiled out, so the out-of-bounds read cannot happen in either build.
 
 ### The compander's rectifier
 
-The compressor rectifies its own output (2:1, `sqrt(kReferenceVolts * volts)`); the expander
-rectifies its input (1:2, `volts^2 / kReferenceVolts`). The compressor's gain therefore lags its
+The compressor rectifies its own output (2:1, `sqrt(K_REFERENCE_VOLTS * volts)`); the expander
+rectifies its input (1:2, `volts^2 / K_REFERENCE_VOLTS`). The compressor's gain therefore lags its
 own rectifier by one sample. The loop is otherwise algebraic, and at a 6.8 ms time constant one
 sample of lag is 0.3 % of one time constant at 48 kHz.
 
-The rectifier and its pole run at `kRectifierOversampling` times the host rate; the gain cell
+The rectifier and its pole run at `K_RECTIFIER_OVERSAMPLING` times the host rate; the gain cell
 does not. Rectification is the one nonlinearity here whose aliasing is a discretisation artefact
 and not modelled hardware.
 `docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`, "Model corrections", carries the
@@ -140,7 +140,7 @@ ruling and the measurements.
 
 ### The rectifier's oversampling
 
-`kRectifierOversampling` is 8. The board's rectifier is continuous time, so the harmonics `|x|`
+`K_RECTIFIER_OVERSAMPLING` is 8. The board's rectifier is continuous time, so the harmonics `|x|`
 carries at every `2k*f0` never fold. Sampling it at the host rate does fold them, and the fold
 lands where the pole cannot reach: at 48 kHz an 8 kHz tone puts `6*f0` on 48001.5 Hz, which
 aliases to 1.46 Hz and modulates the gain cell at full weight. Eight sub-steps move the surviving
@@ -149,8 +149,8 @@ fold from the 6th harmonic of `|x|` to the 48th, whose Fourier coefficient is 1/
 
 ### The dry path's full-scale voltage
 
-The dry path scales the input by the core's `SushiDSP::kFullScaleVolts`, the 2.0 V calibration.
-`dd3::Dd3Converter::kFullScaleVolts` is a different constant: 2.5 V, the converter's own ADC/DAC
+The dry path scales the input by the core's `SushiDSP::K_FULL_SCALE_VOLTS`, the 2.0 V calibration.
+`dd3::Dd3Converter::K_FULL_SCALE_VOLTS` is a different constant: 2.5 V, the converter's own ADC/DAC
 rail.
 
 ### The pending mode
@@ -159,7 +159,7 @@ The `mode` parameter row records the requested mode and does not apply it. Clear
 inside the host's parameter drain is not real-time safe, so the row stores the pending mode and
 `apply_pending_mode` applies it.
 
-Eight sub-steps of the rectifier's pole in `Ne570Compander.cpp` compose to the host-rate pole's
+Eight sub-steps of the rectifier's pole in `ne570_compander.cpp` compose to the host-rate pole's
 coefficient exactly: `exp(-1/(8*fs*tau))^8` is `exp(-1/(fs*tau))`, so `tau` does not move with the
 sub-stepping. Under a changing input the sub-stepped map differs from the host-rate one by about
 0.4 samples of envelope lag, which is negligible against `tau`'s 326.4-sample time constant.

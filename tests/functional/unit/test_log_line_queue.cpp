@@ -33,7 +33,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/LogLineQueue.hpp"
+#include "SushiDSP/log/log_line_queue.hpp"
 
 namespace
 {
@@ -44,7 +44,7 @@ namespace
     /// @brief Returns a record that carries a text; the text must outlive the record.
     SushiDSP::LogRecord record_of(const std::string& text)
     {
-        return SushiDSP::LogRecord{ SushiDSP::LogLevel::Info, K_QUEUE_TEST_LOG_CATEGORY, text };
+        return SushiDSP::LogRecord{SushiDSP::LogLevel::Info, K_QUEUE_TEST_LOG_CATEGORY, text};
     }
 
     /// @brief Returns the text of a queued line.
@@ -52,7 +52,7 @@ namespace
     {
         return std::string(line.record().message);
     }
-}
+} // namespace
 
 TEST(Unit_Log, LogLineQueueRoundsItsCapacityUpToAPowerOfTwo)
 {
@@ -64,12 +64,12 @@ TEST(Unit_Log, LogLineQueueRoundsItsCapacityUpToAPowerOfTwo)
 TEST(Unit_Log, LogLineQueuePopsLinesInPushOrderWithTheirLevelAndCategory)
 {
     SushiDSP::LogLineQueue queue(4);
-    const auto             line = std::make_unique<SushiDSP::QueuedLogLine>();
+    const auto line = std::make_unique<SushiDSP::QueuedLogLine>();
 
     EXPECT_FALSE(queue.pop(*line));
     ASSERT_TRUE(queue.push(record_of("first")));
-    ASSERT_TRUE(queue.push(SushiDSP::LogRecord{ SushiDSP::LogLevel::Error,
-                                                K_QUEUE_TEST_LOG_CATEGORY, "second" }));
+    ASSERT_TRUE(queue.push(
+        SushiDSP::LogRecord{SushiDSP::LogLevel::Error, K_QUEUE_TEST_LOG_CATEGORY, "second"}));
 
     ASSERT_TRUE(queue.pop(*line));
     EXPECT_EQ(text_of(*line), "first");
@@ -84,7 +84,7 @@ TEST(Unit_Log, LogLineQueuePopsLinesInPushOrderWithTheirLevelAndCategory)
 TEST(Unit_Log, LogLineQueueRefusesALineWhenFullAndTakesOneAgainAfterAPop)
 {
     SushiDSP::LogLineQueue queue(2);
-    const auto             line = std::make_unique<SushiDSP::QueuedLogLine>();
+    const auto line = std::make_unique<SushiDSP::QueuedLogLine>();
 
     ASSERT_TRUE(queue.push(record_of("a")));
     ASSERT_TRUE(queue.push(record_of("b")));
@@ -102,30 +102,31 @@ TEST(Unit_Log, LogLineQueueRefusesALineWhenFullAndTakesOneAgainAfterAPop)
 
 TEST(Unit_Log, LogLineQueueKeepsEveryLineOfSeveralProducersInEachProducersOrder)
 {
-    constexpr std::size_t kProducers = 4;
-    constexpr std::size_t kLinesEach = 2000;
+    constexpr std::size_t K_PRODUCERS = 4;
+    constexpr std::size_t K_LINES_EACH = 2000;
 
-    SushiDSP::LogLineQueue   queue(64);
+    SushiDSP::LogLineQueue queue(64);
     std::vector<std::thread> producers;
-    for (std::size_t producer = 0; producer < kProducers; ++producer)
+    for (std::size_t producer = 0; producer < K_PRODUCERS; ++producer)
     {
-        producers.emplace_back([&queue, producer]
-        {
-            for (std::size_t index = 0; index < kLinesEach; ++index)
+        producers.emplace_back(
+            [&queue, producer]
             {
-                const std::string text = std::to_string(producer) + ":" + std::to_string(index);
-                while (!queue.push(record_of(text)))
+                for (std::size_t index = 0; index < K_LINES_EACH; ++index)
                 {
-                    std::this_thread::yield();
+                    const std::string text = std::to_string(producer) + ":" + std::to_string(index);
+                    while (!queue.push(record_of(text)))
+                    {
+                        std::this_thread::yield();
+                    }
                 }
-            }
-        });
+            });
     }
 
-    const auto               line = std::make_unique<SushiDSP::QueuedLogLine>();
+    const auto line = std::make_unique<SushiDSP::QueuedLogLine>();
     std::vector<std::string> received;
-    received.reserve(kProducers * kLinesEach);
-    while (received.size() < kProducers * kLinesEach)
+    received.reserve(K_PRODUCERS * K_LINES_EACH);
+    while (received.size() < K_PRODUCERS * K_LINES_EACH)
     {
         if (queue.pop(*line))
         {
@@ -142,14 +143,14 @@ TEST(Unit_Log, LogLineQueueKeepsEveryLineOfSeveralProducersInEachProducersOrder)
     }
     EXPECT_FALSE(queue.pop(*line));
 
-    std::vector<std::size_t> next_index(kProducers, 0);
+    std::vector<std::size_t> next_index(K_PRODUCERS, 0);
     for (const std::string& text : received)
     {
         const std::size_t colon = text.find(':');
         ASSERT_NE(colon, std::string::npos);
         const std::size_t producer = std::stoul(text.substr(0, colon));
         const std::size_t index = std::stoul(text.substr(colon + 1));
-        ASSERT_LT(producer, kProducers);
+        ASSERT_LT(producer, K_PRODUCERS);
         EXPECT_EQ(index, next_index[producer]);
         next_index[producer] = index + 1;
     }

@@ -35,9 +35,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/Resampler.hpp"
-#include "measure/NullTest.hpp"
-#include "measure/Spectrum.hpp"
+#include "SushiDSP/math/resampler.hpp"
+#include "measure/null_test.hpp"
+#include "measure/spectrum.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -50,7 +50,7 @@ namespace
     /// A stage's first outputs are formed against a zero history where the signal's own past
     /// belongs, so they carry whatever that past held. The error dies inside one kernel half
     /// span, widest at the slowest ratio used here: 34 / (20000/48000) = 81.6 source samples.
-    constexpr std::size_t kSettlingFrames = 256;
+    constexpr std::size_t K_SETTLING_FRAMES = 256;
 
     /// @brief Streams a signal through a resampler in fixed-size pushes.
     /// @param resampler A prepared resampler.
@@ -66,9 +66,9 @@ namespace
         {
             const std::uint32_t frames =
                 static_cast<std::uint32_t>(std::min<std::size_t>(push, input.size() - position));
-            const std::uint32_t produced = resampler.process(
-                input.data() + position, frames, scratch.data(),
-                static_cast<std::uint32_t>(scratch.size()));
+            const std::uint32_t produced =
+                resampler.process(input.data() + position, frames, scratch.data(),
+                                  static_cast<std::uint32_t>(scratch.size()));
             output.insert(output.end(), scratch.begin(), scratch.begin() + produced);
         }
         return output;
@@ -77,12 +77,12 @@ namespace
     /// @brief Residual of b against a once both have left their start-up region.
     /// @param a Reference signal, sample-aligned with b.
     /// @param b Signal under test.
-    /// @pre Both signals hold more than kSettlingFrames samples.
+    /// @pre Both signals hold more than K_SETTLING_FRAMES samples.
     /// @return Residual in dB.
     double settled_null_test(const std::vector<float>& a, const std::vector<float>& b)
     {
-        const std::vector<float> settled_a(a.begin() + kSettlingFrames, a.end());
-        const std::vector<float> settled_b(b.begin() + kSettlingFrames, b.end());
+        const std::vector<float> settled_a(a.begin() + K_SETTLING_FRAMES, a.end());
+        const std::vector<float> settled_b(b.begin() + K_SETTLING_FRAMES, b.end());
         return SushiDSP::measure::null_test(settled_a, settled_b, 512u);
     }
 
@@ -101,18 +101,19 @@ namespace
             double value = 0.0;
             for (const double frequency : frequencies_hz)
             {
-                value += amplitude * std::sin(2.0 * M_PI * frequency * static_cast<double>(n) / sample_rate);
+                value += amplitude *
+                         std::sin(2.0 * M_PI * frequency * static_cast<double>(n) / sample_rate);
             }
             signal[n] = static_cast<float>(value);
         }
         return signal;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, ResamplerHoldsADcLevelAtEveryRatio)
 {
     // Every polyphase branch has unity DC gain. See tests/functional/unit/README.md.
-    for (const double target : { 20000.0, 31250.0, 48000.0, 82500.0, 96000.0 })
+    for (const double target : {20000.0, 31250.0, 48000.0, 82500.0, 96000.0})
     {
         SushiDSP::Resampler resampler;
         resampler.prepare(48000.0, target, 256u, 20000.0 / 48000.0);
@@ -129,7 +130,7 @@ TEST(Unit_Dsp, ResamplerHoldsADcLevelAtEveryRatio)
 TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3SlowClock)
 {
     // The 7 kHz content sits inside the 8000 Hz passband. See tests/functional/unit/README.md.
-    const std::vector<float> input = multitone({ 100.0, 1000.0, 3000.0, 7000.0 }, 48000.0, 96000u);
+    const std::vector<float> input = multitone({100.0, 1000.0, 3000.0, 7000.0}, 48000.0, 96000u);
     SushiDSP::Resampler down, up;
     down.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
     up.prepare(20000.0, 48000.0, 256u, 20000.0 / 82500.0);
@@ -143,10 +144,14 @@ TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3SlowClock)
 TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3FastClockAndTheSpx90Ratio)
 {
     // 12 kHz content survives at the SPX90 ratio. See tests/functional/unit/README.md.
-    struct Case { double middle_rate; std::vector<double> partials; };
+    struct Case
+    {
+            double middle_rate;
+            std::vector<double> partials;
+    };
     const Case cases[2] = {
-        { 82500.0, { 100.0, 1000.0, 7000.0, 15000.0 } },
-        { 31250.0, { 100.0, 1000.0, 7000.0, 12000.0 } },
+        {82500.0, {100.0, 1000.0, 7000.0, 15000.0}},
+        {31250.0, {100.0, 1000.0, 7000.0, 12000.0}},
     };
     for (const Case& item : cases)
     {
@@ -166,7 +171,7 @@ TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3FastClockAndTheSpx90Ratio)
 TEST(Unit_Dsp, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
 {
     // The history is sized on min(1, minimum_ratio). See tests/functional/unit/README.md.
-    const std::vector<float> input = multitone({ 100.0, 1000.0, 7000.0 }, 48000.0, 24000u);
+    const std::vector<float> input = multitone({100.0, 1000.0, 7000.0}, 48000.0, 24000u);
     SushiDSP::Resampler up, down;
     up.prepare(48000.0, 192000.0, 8u, 2.0);
     down.prepare(192000.0, 48000.0, 128u, 48000.0 / 192000.0);
@@ -185,19 +190,22 @@ TEST(Unit_Dsp, ResamplerRejectsAToneAboveTheOutputNyquist)
     std::vector<float> input(400000u, 0.0f);
     for (std::size_t n = 0; n < input.size(); ++n)
     {
-        input[n] = 0.8f * static_cast<float>(std::sin(2.0 * M_PI * 15000.0 * static_cast<double>(n) / 48000.0));
+        input[n] = 0.8f * static_cast<float>(
+                              std::sin(2.0 * M_PI * 15000.0 * static_cast<double>(n) / 48000.0));
     }
     const std::vector<float> output = stream(resampler, input, 256u);
-    ASSERT_GT(output.size(), 2u * SushiDSP::measure::kFftSize);
+    ASSERT_GT(output.size(), 2u * SushiDSP::measure::K_FFT_SIZE);
     const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(
-        output, output.size() - SushiDSP::measure::kFftSize);
-    const double image = SushiDSP::measure::peak_near(spectrum, SushiDSP::measure::bin_of(5000.0, 20000.0));
+        output, output.size() - SushiDSP::measure::K_FFT_SIZE);
+    const double image =
+        SushiDSP::measure::peak_near(spectrum, SushiDSP::measure::bin_of(5000.0, 20000.0));
     // The 0 dB reference is the input at its own rate. See tests/functional/unit/README.md.
     const auto reference_spectrum = SushiDSP::measure::magnitude_spectrum_db(
-        input, input.size() - SushiDSP::measure::kFftSize);
+        input, input.size() - SushiDSP::measure::K_FFT_SIZE);
     const double reference = SushiDSP::measure::peak_near(
         reference_spectrum, SushiDSP::measure::bin_of(15000.0, 48000.0));
-    std::printf("[ measure ] resampler 15 kHz -> 20 kHz image at 5 kHz: %.2f dB\n", image - reference);
+    std::printf("[ measure ] resampler 15 kHz -> 20 kHz image at 5 kHz: %.2f dB\n",
+                image - reference);
     EXPECT_LE(image - reference, -90.0);
 }
 
@@ -221,7 +229,7 @@ TEST(Unit_Dsp, ResamplerOutputCountFollowsTheRatioWithoutDrift)
 TEST(Unit_Dsp, ResamplerResumesAfterAnUnderSizedOutputBuffer)
 {
     // Deferred outputs come out on the next call. See tests/functional/unit/README.md.
-    const std::vector<float> input = multitone({ 100.0, 1000.0, 7000.0 }, 48000.0, 8192u);
+    const std::vector<float> input = multitone({100.0, 1000.0, 7000.0}, 48000.0, 8192u);
     SushiDSP::Resampler reference, starved;
     reference.prepare(48000.0, 48000.0, 256u, 20000.0 / 48000.0);
     starved.prepare(48000.0, 48000.0, 256u, 20000.0 / 48000.0);
@@ -233,8 +241,8 @@ TEST(Unit_Dsp, ResamplerResumesAfterAnUnderSizedOutputBuffer)
     {
         // Room for 100 outputs on every fourth push, where about 256 are due.
         const std::uint32_t capacity = (block % 4u == 0u) ? 100u : 1024u;
-        const std::uint32_t produced = starved.process(input.data() + block * 256u, 256u,
-                                                       scratch.data(), capacity);
+        const std::uint32_t produced =
+            starved.process(input.data() + block * 256u, 256u, scratch.data(), capacity);
         actual.insert(actual.end(), scratch.begin(), scratch.begin() + produced);
     }
     ASSERT_EQ(actual.size(), expected.size());
@@ -247,7 +255,7 @@ TEST(Unit_Dsp, ResamplerResumesAfterAnUnderSizedOutputBuffer)
 TEST(Unit_Dsp, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
 {
     // process() drops the backlog instead of wrapping. See tests/functional/unit/README.md.
-    const std::vector<float> input = multitone({ 100.0, 1000.0, 7000.0 }, 48000.0, 65536u);
+    const std::vector<float> input = multitone({100.0, 1000.0, 7000.0}, 48000.0, 65536u);
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 48000.0, 256u, 20000.0 / 48000.0);
     const std::size_t blocks = input.size() / 256u;
@@ -256,8 +264,8 @@ TEST(Unit_Dsp, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
     for (std::size_t block = 0; block < blocks; ++block)
     {
         const std::uint32_t capacity = (block + 8u < blocks) ? 100u : 1024u;
-        const std::uint32_t produced = resampler.process(input.data() + block * 256u, 256u,
-                                                         scratch.data(), capacity);
+        const std::uint32_t produced =
+            resampler.process(input.data() + block * 256u, 256u, scratch.data(), capacity);
         ASSERT_GT(produced, 0u) << block;
         ASSERT_LE(produced, capacity) << block;
         for (std::uint32_t j = 0; j < produced; ++j)
@@ -271,7 +279,8 @@ TEST(Unit_Dsp, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
     }
     ASSERT_GT(tail.size(), 1024u);
     const std::size_t latency = resampler.latency_samples();
-    const std::vector<float> window(input.end() - static_cast<std::ptrdiff_t>(latency + tail.size()),
+    const std::vector<float> window(input.end() -
+                                        static_cast<std::ptrdiff_t>(latency + tail.size()),
                                     input.end() - static_cast<std::ptrdiff_t>(latency));
     const double residual = SushiDSP::measure::null_test(window, tail, 256u);
     std::printf("[ measure ] resampler starved tail against the live input: %.2f dB\n", residual);
@@ -284,7 +293,8 @@ TEST(Unit_Dsp, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
     std::vector<float> input(262144u, 0.0f);
     for (std::size_t n = 0; n < input.size(); ++n)
     {
-        input[n] = static_cast<float>(std::sin(2.0 * M_PI * 100.0 * static_cast<double>(n) / 48000.0));
+        input[n] =
+            static_cast<float>(std::sin(2.0 * M_PI * 100.0 * static_cast<double>(n) / 48000.0));
     }
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 48000.0, 256u, 3000.0 / 48000.0);
@@ -299,9 +309,9 @@ TEST(Unit_Dsp, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
     std::vector<float> output;
     for (std::size_t block = starved_blocks; block < input.size() / 256u; ++block)
     {
-        const std::uint32_t produced = resampler.process(input.data() + block * 256u, 256u,
-                                                         scratch.data(),
-                                                         static_cast<std::uint32_t>(scratch.size()));
+        const std::uint32_t produced =
+            resampler.process(input.data() + block * 256u, 256u, scratch.data(),
+                              static_cast<std::uint32_t>(scratch.size()));
         for (std::uint32_t j = 0; j < produced; ++j)
         {
             ASSERT_TRUE(std::isfinite(scratch[j])) << block << " " << j;
@@ -315,9 +325,9 @@ TEST(Unit_Dsp, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
     double worst = 0.0;
     for (std::size_t n = 1; n + 1 < output.size(); ++n)
     {
-        const double residual = std::abs(static_cast<double>(output[n - 1])
-                                         + static_cast<double>(output[n + 1])
-                                         - recurrence * static_cast<double>(output[n]));
+        const double residual =
+            std::abs(static_cast<double>(output[n - 1]) + static_cast<double>(output[n + 1]) -
+                     recurrence * static_cast<double>(output[n]));
         worst = std::max(worst, residual);
     }
     std::printf("[ measure ] resampler phase re-clamp, sinusoid identity residual: %.3e\n", worst);
@@ -327,14 +337,20 @@ TEST(Unit_Dsp, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
 TEST(Unit_Dsp, ResamplerLatencyIsThirtyFourSamplesOfTheLowerRate)
 {
     // The delay is 34 / min(source, target) seconds. See tests/functional/unit/README.md.
-    struct Case { double source; double target; double expected_seconds; std::uint32_t expected_samples; };
+    struct Case
+    {
+            double source;
+            double target;
+            double expected_seconds;
+            std::uint32_t expected_samples;
+    };
     const Case cases[6] = {
-        { 48000.0, 48000.0, 34.0 / 48000.0, 34u },
-        { 48000.0, 82500.0, 34.0 / 48000.0, 34u },
-        { 82500.0, 48000.0, 34.0 / 48000.0, 58u },   // 34 / (48000/82500) = 58.4375 -> 58
-        { 48000.0, 20000.0, 34.0 / 20000.0, 82u },   // 34 / (20000/48000) = 81.6 -> 82
-        { 20000.0, 48000.0, 34.0 / 20000.0, 34u },
-        { 48000.0, 31250.0, 34.0 / 31250.0, 52u },   // 34 / (31250/48000) = 52.224 -> 52
+        {48000.0, 48000.0, 34.0 / 48000.0, 34u},
+        {48000.0, 82500.0, 34.0 / 48000.0, 34u},
+        {82500.0, 48000.0, 34.0 / 48000.0, 58u}, // 34 / (48000/82500) = 58.4375 -> 58
+        {48000.0, 20000.0, 34.0 / 20000.0, 82u}, // 34 / (20000/48000) = 81.6 -> 82
+        {20000.0, 48000.0, 34.0 / 20000.0, 34u},
+        {48000.0, 31250.0, 34.0 / 31250.0, 52u}, // 34 / (31250/48000) = 52.224 -> 52
     };
     for (const Case& item : cases)
     {
@@ -349,16 +365,18 @@ TEST(Unit_Dsp, ResamplerKeepsAToneAtItsFrequency)
 {
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
-    const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 20000.0, SushiDSP::measure::kFftSize);
+    const double frequency =
+        SushiDSP::measure::bin_exact_frequency(1000.0, 20000.0, SushiDSP::measure::K_FFT_SIZE);
     std::vector<float> input(400000u, 0.0f);
     for (std::size_t n = 0; n < input.size(); ++n)
     {
-        input[n] = 0.5f * static_cast<float>(std::sin(2.0 * M_PI * frequency * static_cast<double>(n) / 48000.0));
+        input[n] = 0.5f * static_cast<float>(
+                              std::sin(2.0 * M_PI * frequency * static_cast<double>(n) / 48000.0));
     }
     const std::vector<float> output = stream(resampler, input, 256u);
-    ASSERT_GT(output.size(), 2u * SushiDSP::measure::kFftSize);
+    ASSERT_GT(output.size(), 2u * SushiDSP::measure::K_FFT_SIZE);
     const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(
-        output, output.size() - SushiDSP::measure::kFftSize);
+        output, output.size() - SushiDSP::measure::K_FFT_SIZE);
     const std::uint32_t expected_bin = SushiDSP::measure::bin_of(frequency, 20000.0);
     double best_bin = 0.0;
     double best_level = -1e300;
@@ -389,10 +407,11 @@ TEST(Unit_Dsp, ResamplerRateChangeMidStreamIsContinuous)
         for (std::uint32_t j = 0; j < 8u; ++j)
         {
             const std::size_t n = sub_block * 8u + j;
-            input[j] = static_cast<float>(std::sin(2.0 * M_PI * 100.0 * static_cast<double>(n) / 48000.0));
+            input[j] =
+                static_cast<float>(std::sin(2.0 * M_PI * 100.0 * static_cast<double>(n) / 48000.0));
         }
-        const std::uint32_t produced =
-            resampler.process(input, 8u, scratch.data(), static_cast<std::uint32_t>(scratch.size()));
+        const std::uint32_t produced = resampler.process(
+            input, 8u, scratch.data(), static_cast<std::uint32_t>(scratch.size()));
         for (std::uint32_t j = 0; j < produced; ++j)
         {
             if (!output.empty())
