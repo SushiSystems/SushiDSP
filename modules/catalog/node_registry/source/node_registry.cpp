@@ -37,6 +37,8 @@
 #include "SushiDSP/peavey5150/peavey5150.hpp"
 #include "SushiDSP/room/room_node.hpp"
 #include "SushiDSP/tubescreamer/tube_screamer.hpp"
+#include "SushiDSP/routing/bus_node.hpp"
+#include "SushiDSP/routing/channel_strip_node.hpp"
 #include "SushiDSP/routing/mixer_node.hpp"
 #include "SushiDSP/routing/pan_node.hpp"
 #include "SushiDSP/routing/splitter_node.hpp"
@@ -55,6 +57,8 @@ namespace SushiDSP
             {&splitter_descriptor(), NodeCategory{"Routing"}},
             {&mixer_descriptor(), NodeCategory{"Routing"}},
             {&pan_descriptor(), NodeCategory{"Routing"}},
+            {&channel_strip_descriptor(), NodeCategory{"Routing"}},
+            {&bus_descriptor(), NodeCategory{"Routing"}},
             {&room::room_descriptor(), NodeCategory{"Room"}},
             {&cabinet_descriptor(), NodeCategory{"Cabinet"}},
         };
