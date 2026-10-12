@@ -734,3 +734,32 @@ frequency returns exactly the modes the design carries.
 
 In `room_scene.cpp` a patch replaces area on its face and does not add to it, so its own material's
 area is subtracted from the face before either is weighted.
+
+## The cabinet section: environment and microphones
+
+`SushiDSP::Room::RoomEnvironmentNode` (`sushidsp.room_environment`, in `source/room_environment_node.cpp`)
+puts up to three cabinets and up to eight microphones in one room, with the listener. Its
+configuration is a shell scene plus a placement for each source, the listener and each microphone.
+Each cabinet is one mono input slot. Every (cabinet, receiver) pair is one `RoomNode`, so the
+solvers above run unchanged, and the pair outputs are summed per receiver.
+
+Its output ports are all mono: port 0 is the listener's left ear, port 1 its right ear, and port
+`2 + m` is microphone `m`. A port with no receiver behind it is silent. The two ears go to two
+channel strips, one hard left and one hard right, because a node's output port is one channel wide.
+
+The layout is fixed for the life of the node: all `3 x 9` pairs exist from construction, and
+`configure()` chooses which are active and where they stand. A move is a control-thread solve, not
+a graph rebuild. `configure()` validates every pair's scene before it changes any, so a refusal leaves
+the previous placement in place.
+
+Two limits follow from the design, and neither is measured yet. Cost grows with the number of
+active pairs; the benchmark gate in the AmpliTube 5 spec is still to be run. And the microphones
+and the listener are not latency-aligned with each other: the ears carry a decoder partition and
+the microphones do not.
+
+`SushiDSP::Room::MicrophoneNode` (`sushidsp.microphone`, in `source/microphone_node.cpp`) is the
+gear of one microphone in the rig: it carries polarity and the room flag. Its position and polar
+pattern belong to the room's placement, because they change what the room computes.
+
+Both classes are in `SushiDSP::Room`. The rest of this module is still in `SushiDSP::room`, the
+namespace the migration to PascalCase has not yet reached.

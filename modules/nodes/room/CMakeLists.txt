@@ -37,6 +37,8 @@ add_library(room STATIC
     source/geometric_path.cpp
     source/binaural_stage.cpp
     source/room_node.cpp
+    source/room_environment_node.cpp
+    source/microphone_node.cpp
 )
 add_library(SushiDSP::room ALIAS room)
 target_link_libraries(room PUBLIC SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math)
