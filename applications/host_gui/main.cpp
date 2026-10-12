@@ -67,6 +67,7 @@
 #include "ui/gear_browser.hpp"
 #include "ui/level_probe.hpp"
 #include "ui/meter_bar.hpp"
+#include "ui/cabinet_section_window.hpp"
 #include "ui/rig_chain_view.hpp"
 #include "ui/room_panel.hpp"
 #include "ui/stage_panel.hpp"
@@ -287,6 +288,7 @@ int main(int argc, char** argv)
     std::string transport_error;
     std::string arrangement_error;
     std::string room_error;
+    std::string cabinet_error;
     bool open_device_settings = true;
     // The mini-DAW (arrangement view + meter bar) starts hidden.
     bool mini_daw_open = false;
@@ -608,6 +610,12 @@ int main(int argc, char** argv)
         const float vertical_available = std::max(height - top_bar_height - seam_thickness, 0.0f);
         bottom_bar_height = ui::fit_pane_size(bottom_bar_height, vertical_available, bottom_limits);
         const float workspace_height = std::max(vertical_available - bottom_bar_height, 0.0f);
+
+        if (rig_controller_storage.has_value())
+        {
+            ui::DrawCabinetSectionWindow(*rig_controller_storage, rig_chain_state.topology,
+                                         rig_chain_state.applier, cabinet_error);
+        }
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(width, top_bar_height));
