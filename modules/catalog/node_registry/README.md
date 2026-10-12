@@ -29,7 +29,7 @@ module has to know about panel grouping.
 | `sushidsp.mesa_mark2c` | Amp | `mesa_mark2c` |
 | `sushidsp.diezel_vh4` | Amp | `diezel_vh4` |
 | `sushidsp.dd3` | Delay | `dd3` |
-| `sushidsp.splitter`, `sushidsp.mixer`, `sushidsp.pan` | Routing | `routing` |
+| `sushidsp.splitter`, `sushidsp.mixer`, `sushidsp.pan`, `sushidsp.channel_strip`, `sushidsp.bus` | Routing | `routing` |
 | `sushidsp.room` | Room | `room` |
 
 ## Dependencies

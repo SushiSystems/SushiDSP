@@ -46,6 +46,9 @@ add_executable(sushidsp_tests
     functional/unit/test_denormal_guard.cpp
     functional/unit/test_rig_graph.cpp
     functional/unit/test_rig_graph_output_ports.cpp
+    functional/unit/test_sample_delay_line.cpp
+    functional/unit/test_channel_strip_node.cpp
+    functional/unit/test_bus_node.cpp
     functional/unit/test_splitter_node.cpp
     functional/unit/test_mixer_node.cpp
     functional/unit/test_pan_node.cpp
