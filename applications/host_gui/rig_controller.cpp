@@ -38,9 +38,9 @@ RigController::SlotId RigController::add_node(const std::string& descriptor_id, 
     return graph_.add_node(descriptor_id, publish_now);
 }
 
-void RigController::connect(SlotId from, SlotId to, bool publish_now)
+void RigController::connect(SlotId from, SlotId to, bool publish_now, std::uint32_t from_port)
 {
-    graph_.connect(from, to, publish_now);
+    graph_.connect(from, to, publish_now, from_port);
 }
 
 void RigController::disconnect(SlotId from, SlotId to, bool publish_now)
@@ -185,6 +185,21 @@ std::vector<RigController::SlotId> RigController::upstream_of(SlotId slot) const
 std::vector<std::pair<RigController::SlotId, RigController::SlotId>> RigController::edges() const
 {
     return graph_.edges();
+}
+
+RoomLayout& RigController::room_layout() noexcept
+{
+    return graph_.room_layout();
+}
+
+const RoomLayout& RigController::room_layout() const noexcept
+{
+    return graph_.room_layout();
+}
+
+std::vector<SlotGraph::EdgeRecord> RigController::edge_records() const
+{
+    return graph_.edge_records();
 }
 
 std::optional<RigController::SlotSnapshot> RigController::snapshot(SlotId slot) const

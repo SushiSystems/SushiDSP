@@ -63,14 +63,22 @@ class TopologyApplier
         /// back first.
         void set_di(RigTopology& topology, RigController& rig, bool enabled);
 
+        /// @brief Opens or closes the cabinet section and rewires the rig to match, in one step.
+        /// @param topology The model to change.
+        /// @param rig The controller to rewire; its room layout is read when the room is built.
+        /// @param enabled True to open the room.
+        /// @throws std::runtime_error when the room cannot be built, or the rewired graph does not
+        /// compile; everything is rolled back first.
+        void set_room(RigTopology& topology, RigController& rig, bool enabled);
+
     private:
         using SlotId = RigController::SlotId;
 
         /// @brief Records every slot edit one apply made, so a failed apply can undo them.
         struct Journal
         {
-                std::vector<std::pair<SlotId, SlotId>>
-                    edges;                 ///< Holds the rig's edges before the apply.
+                std::vector<SlotGraph::EdgeRecord>
+                    edges;                 ///< Holds the rig's edges, with their ports, before the apply.
                 std::vector<SlotId> added; ///< Holds the slots the apply created.
                 std::vector<std::pair<SlotId, RigController::SlotSnapshot>>
                     removed; ///< Holds the slots the apply removed.
@@ -85,10 +93,25 @@ class TopologyApplier
                 std::optional<SlotId> right_strip; ///< Holds the Parallel right path's strip.
                 std::optional<SlotId> di_strip;    ///< Holds the DI path's strip, while DI is open.
                 std::optional<SlotId> master_bus;  ///< Holds the bus that sums the chain and DI.
+                std::optional<SlotId> environment; ///< Holds the room environment, while the room is open.
+                std::optional<SlotId> room_left;   ///< Holds the strip that pans the listener's left ear.
+                std::optional<SlotId> room_right;  ///< Holds the strip that pans the listener's right ear.
+                std::optional<SlotId> room_bus;    ///< Holds the bus that joins the room's outputs.
+                std::map<std::uint32_t, SlotId> microphones; ///< Holds one microphone slot per layout id.
         };
 
         /// @brief Creates the splitter and mixer while a split is open, or removes them for one path.
         void place_routing(const RigTopology& topology, RigController& rig, Journal& journal);
+
+        /// @brief Creates the room environment, its strips, its bus and one microphone slot per layout
+        /// microphone, and removes the chain's own joins.
+        void place_room(const RigTopology& topology, RigController& rig, Journal& journal);
+
+        /// @brief Removes the room's slots, when the room is closed or being rebuilt.
+        void remove_room(RigController& rig, Journal& journal);
+
+        /// @brief Wires the room: every path ends in the environment, its outputs reach the room bus.
+        void connect_room(const RigTopology& topology, RigController& rig) const;
 
         /// @brief Creates the DI strip and the master bus while DI is open, or removes them.
         void place_di(const RigTopology& topology, RigController& rig, Journal& journal);
