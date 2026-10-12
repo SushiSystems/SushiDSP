@@ -63,9 +63,9 @@ starts on that without the verdict.
   three times, which is why "No bundled HRTF set" prints three times on a graph change and why a
   room edit through the graph empties the tail (KNOWN_ISSUES, "A structural rig edit empties the
   room's tail"). Carrying surviving nodes across a rebuild closes both and touches no module.
-- **Render the rig in stereo on the ASIO host**, which also gives
-  `write_rig_output_to_device`'s 2-into-1 downmix its first live caller and stops a stereo branch
-  collapsing at a `MixerNode`. Three KNOWN_ISSUES entries, one change.
+- **A stereo branch collapses at a `MixerNode`**, and **`write_rig_output_to_device`'s 2-into-1
+  downmix has one live caller**, the GUI host on a mono device (KNOWN_ISSUES, both entries). The
+  ASIO example renders stereo since 2026-10-13; the mixer and the downmix are the open part.
 - **DS5, the OGG export.** A five-minute stereo take is 115 MB of float on disk today.
 
 ## Products
