@@ -25,6 +25,7 @@
  * @author Mustafa Garip
  */
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -198,8 +199,11 @@ int main(int argc, char** argv)
         rig.connect(jcm800_handle, cabinet_handle);
     }
 
-    // The rig is mono, one channel in and one out, whatever channels were selected.
-    SushiDSP::PrepareInfo info{actual.sample_rate, actual.block_size, 1};
+    // The rig is as wide as the device, up to RigGraph::K_MAX_CHANNELS. A mono chain is copied to
+    // every output channel by the graph, so both outputs of a stereo device carry it.
+    const std::uint32_t rig_channels =
+        std::min(std::max(1u, actual.output_channels), SushiDSP::RigGraph::K_MAX_CHANNELS);
+    SushiDSP::PrepareInfo info{actual.sample_rate, actual.block_size, rig_channels};
     rig.compile(info);
     std::printf("Rig latency: %u sample(s)\n", rig.latency_samples());
 
@@ -214,28 +218,39 @@ int main(int argc, char** argv)
 
     const std::size_t input_index = SushiDSP::channel_selection_input_index(input_selection);
     const std::uint32_t device_output_channels = actual.output_channels;
-    if (!SushiDSP::rig_output_adapts_to_device(1u, device_output_channels))
+    if (!SushiDSP::rig_output_adapts_to_device(rig_channels, device_output_channels))
     {
-        std::fprintf(stderr, "A mono rig cannot be written to %u device output channel(s).\n",
-                     device_output_channels);
+        std::fprintf(stderr, "A %u-channel rig cannot be written to %u device output channel(s).\n",
+                     rig_channels, device_output_channels);
         return 1;
     }
 
-    // mono_output is sized here, off the audio thread, so the callback allocates nothing.
-    std::vector<float> mono_output(actual.block_size, 0.0f);
+    // rig_output holds one block per rig channel. The two pointer arrays name those blocks, one
+    // mutable for the rig to render into and one const for the device write. All of it is sized
+    // here, off the audio thread, so the callback allocates nothing.
+    const std::size_t block = actual.block_size;
+    std::vector<float> rig_output(static_cast<std::size_t>(rig_channels) * block, 0.0f);
+    std::vector<float*> rig_output_pointers(rig_channels);
+    std::vector<const float*> rig_output_const_pointers(rig_channels);
+    for (std::uint32_t channel = 0; channel < rig_channels; ++channel)
+    {
+        rig_output_pointers[channel] = rig_output.data() + channel * block;
+        rig_output_const_pointers[channel] = rig_output_pointers[channel];
+    }
 
     device->start(
-        [&rig, &mono_output, input_index, output_selection, device_output_channels](
-            const float* const* inputs, float* const* outputs, std::uint32_t frames)
+        [&rig, &rig_output_pointers, &rig_output_const_pointers, rig_channels, input_index,
+         output_selection, device_output_channels](const float* const* inputs,
+                                                   float* const* outputs, std::uint32_t frames)
         {
             const float* selected_input[1] = {inputs[input_index]};
-            float* mono_output_ptr[1] = {mono_output.data()};
-            SushiDSP::ProcessContext context{mono_output_ptr, selected_input, frames, 0.0};
+            SushiDSP::ProcessContext context{rig_output_pointers.data(), selected_input, frames,
+                                             0.0};
             rig.process(context);
 
-            const float* rig_output_pointers[1] = {mono_output.data()};
-            SushiDSP::write_rig_output_to_device(rig_output_pointers, 1u, outputs,
-                                                 device_output_channels, frames, output_selection);
+            SushiDSP::write_rig_output_to_device(rig_output_const_pointers.data(), rig_channels,
+                                                 outputs, device_output_channels, frames,
+                                                 output_selection);
         });
 
     std::printf("Playing live through TubeScreamer -> JCM800. Press Enter to stop.\n");
