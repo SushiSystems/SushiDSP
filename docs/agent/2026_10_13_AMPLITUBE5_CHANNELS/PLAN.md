@@ -109,3 +109,15 @@ Each phase starts with its own detailed plan section, written against the code a
 - Build and run on a stereo ASIO driver (task 1, step 6). Requires the owner's permission and a device.
 - The three documentation checkers (task 2, step 5).
 - The stereo-branch-collapse and 2-into-1 entries remain open in KNOWN_ISSUES; this work does not close them.
+
+## Status after the unattended run, 2026-10-13
+
+Everything below is written and syntax-checked with `clang++ -fsyntax-only`. Nothing is built or run.
+
+- **P0** stereo output on the ASIO example: done.
+- **P1** output ports: done.
+- **P2** channel strip, bus, delay line: done. Mixer panel: not done.
+- **P3** Parallel chain: done in the host model, applier, input binding and tests. DI path: not done.
+- **P4** room environment and microphone node: done as engine code and tests. Host wiring (SlotGraph placement sync, microphone slots, the 3D scene): not done. Benchmark gate: not run; it needs a build.
+- **P5** preset format for placements, microphones and strips: not done.
+- **P6** mixer view: not done.
