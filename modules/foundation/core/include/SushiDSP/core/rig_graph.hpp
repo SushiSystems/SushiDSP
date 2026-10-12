@@ -54,6 +54,10 @@ namespace SushiDSP
             /// Bounds every fixed-size per-channel array RigGraph::process() uses.
             static constexpr std::uint32_t K_MAX_CHANNELS = 2;
 
+            /// @brief Maximum output ports a node may declare. Bounds the fixed-size port tables
+            /// RigGraph::process() fills for each node.
+            static constexpr std::uint32_t K_MAX_OUTPUT_PORTS = 8;
+
             /// @brief Reports whether the adaptation table covers a producer/consumer channel pair.
             /// The table is 1 into 2 (copied), 2 into 1 (summed and halved), and n into n.
             /// @param from_channels The producer's channel count.
@@ -71,10 +75,12 @@ namespace SushiDSP
             /// @return A handle identifying the node for connect() calls.
             NodeHandle add_node(std::unique_ptr<AudioNode> node);
 
-            /// @brief Connects one node's output to another's input. Not real-time safe.
+            /// @brief Connects one node's output port to another's input. Not real-time safe.
             /// @param from The upstream node.
             /// @param to The downstream node.
-            void connect(NodeHandle from, NodeHandle to);
+            /// @param from_port The upstream output port the edge reads; 0 is the node's main output.
+            /// compile() refuses a port the upstream node does not declare.
+            void connect(NodeHandle from, NodeHandle to, std::uint32_t from_port = 0);
 
             /// @brief Topologically sorts the graph and calls prepare() on every node. Not real-time safe; call after every add_node/connect.
             /// @param info Sample rate, block size, and channel count for every node.
@@ -85,7 +91,8 @@ namespace SushiDSP
             /// @param handle The node to remove.
             void remove_node(NodeHandle handle);
 
-            /// @brief Removes a single edge, if present. Not real-time safe.
+            /// @brief Removes every edge from one node to another, whichever output ports they read.
+            /// Not real-time safe.
             /// @param from The upstream node.
             /// @param to The downstream node.
             void disconnect(NodeHandle from, NodeHandle to);
@@ -139,6 +146,8 @@ namespace SushiDSP
             {
                     NodeHandle from;
                     NodeHandle to;
+                    /// @brief Holds the upstream output port the edge reads.
+                    std::uint32_t from_port;
             };
 
             /// @brief The channel widths and input slot count RigGraph derives from a node's PortLayout.
@@ -179,8 +188,21 @@ namespace SushiDSP
             /// @brief Holds the buffer count compile() sized the pool from.
             std::uint32_t live_buffer_count_ = 0;
 
-            /// @brief Holds one buffer per node output channel, indexed handle * max_output_channels_ + channel.
+            /// @brief Holds the output port count each node declared at compile(), indexed by handle.
+            std::vector<std::uint32_t> port_count_;
+
+            /// @brief Holds the channel width of each output port, indexed handle * K_MAX_OUTPUT_PORTS + port.
+            std::vector<std::uint32_t> port_widths_;
+
+            /// @brief Holds one buffer per node output channel, indexed
+            /// (handle * K_MAX_OUTPUT_PORTS + port) * max_output_channels_ + channel.
             std::vector<float*> node_output_scratch_;
+
+            /// @brief Holds the channel pointers of each port of the node process() is running.
+            float* port_output_ptrs_[K_MAX_OUTPUT_PORTS][K_MAX_CHANNELS] = {};
+
+            /// @brief Holds the table handed to the node as ProcessContext::port_outputs.
+            float* const* port_output_table_[K_MAX_OUTPUT_PORTS] = {};
 
             /// @brief Holds the input pointers one node's gather hands to process().
             const float* gathered_inputs_[K_MAX_FAN_IN_OUT * K_MAX_CHANNELS] = {};

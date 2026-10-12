@@ -66,7 +66,7 @@ namespace SushiDSP
         return static_cast<NodeHandle>(nodes_.size() - 1);
     }
 
-    void RigGraph::connect(NodeHandle from, NodeHandle to)
+    void RigGraph::connect(NodeHandle from, NodeHandle to, std::uint32_t from_port)
     {
         std::size_t fan_out = 0;
         std::size_t fan_in = 0;
@@ -89,7 +89,7 @@ namespace SushiDSP
         {
             throw std::runtime_error("RigGraph::connect: fan-in limit exceeded");
         }
-        edges_.push_back({from, to});
+        edges_.push_back({from, to, from_port});
     }
 
     void RigGraph::remove_node(NodeHandle handle)
@@ -236,9 +236,48 @@ namespace SushiDSP
             node_channels_[handle] = channels_of(nodes_[handle]->ports());
         }
 
+        port_count_.assign(nodes_.size(), 0);
+        port_widths_.assign(nodes_.size() * K_MAX_OUTPUT_PORTS, 0);
+        for (NodeHandle handle : topological_order_)
+        {
+            AudioNode& node = *nodes_[handle];
+            const std::uint32_t count = node.output_port_count();
+            if (count == 0 || count > K_MAX_OUTPUT_PORTS)
+            {
+                throw std::runtime_error("RigGraph::compile: node " + std::to_string(handle) +
+                                         " declares " + std::to_string(count) +
+                                         " output port(s), the limit is " +
+                                         std::to_string(K_MAX_OUTPUT_PORTS));
+            }
+            port_count_[handle] = count;
+            for (std::uint32_t port = 0; port < count; ++port)
+            {
+                const std::uint32_t width = node.output_port_channels(port);
+                if (width == 0 || width > K_MAX_CHANNELS)
+                {
+                    throw std::runtime_error("RigGraph::compile: output port " +
+                                             std::to_string(port) + " of node " +
+                                             std::to_string(handle) + " has no channel width");
+                }
+                port_widths_[handle * K_MAX_OUTPUT_PORTS + port] = width;
+            }
+            if (port_widths_[handle * K_MAX_OUTPUT_PORTS] != node_channels_[handle].output_width)
+            {
+                throw std::runtime_error("RigGraph::compile: output port 0 of node " +
+                                         std::to_string(handle) +
+                                         " disagrees with its PortLayout");
+            }
+        }
+
         for (const Edge& edge : edges_)
         {
-            const std::uint32_t from_channels = node_channels_[edge.from].output_width;
+            if (edge.from_port >= port_count_[edge.from])
+            {
+                throw std::runtime_error("RigGraph::compile: node " + std::to_string(edge.from) +
+                                         " has no output port " + std::to_string(edge.from_port));
+            }
+            const std::uint32_t from_channels =
+                port_widths_[edge.from * K_MAX_OUTPUT_PORTS + edge.from_port];
             const std::uint32_t to_channels = node_channels_[edge.to].input_width;
             if (from_channels > K_MAX_CHANNELS || to_channels > K_MAX_CHANNELS ||
                 !channels_adapt(from_channels, to_channels))
@@ -270,9 +309,12 @@ namespace SushiDSP
         std::uint32_t total_output_channels = 0;
         for (NodeHandle handle : topological_order_)
         {
-            max_output_channels_ =
-                std::max(max_output_channels_, node_channels_[handle].output_width);
-            total_output_channels += node_channels_[handle].output_width;
+            for (std::uint32_t port = 0; port < port_count_[handle]; ++port)
+            {
+                const std::uint32_t width = port_widths_[handle * K_MAX_OUTPUT_PORTS + port];
+                max_output_channels_ = std::max(max_output_channels_, width);
+                total_output_channels += width;
+            }
         }
 
         // The gather reserve is the widest single gather, not one buffer per edge in the graph.
@@ -285,7 +327,8 @@ namespace SushiDSP
             buffer_pool_ = BufferPool(block_size_, pool_capacity);
         }
 
-        node_output_scratch_.assign(nodes_.size() * max_output_channels_, nullptr);
+        node_output_scratch_.assign(nodes_.size() * K_MAX_OUTPUT_PORTS * max_output_channels_,
+                                    nullptr);
 
         for (auto& node : nodes_)
         {
@@ -355,16 +398,26 @@ namespace SushiDSP
 
             const NodeChannels channels = node_channels_[handle];
 
-            float* output_ptr[K_MAX_CHANNELS] = {};
-            for (std::uint32_t channel = 0; channel < channels.output_width; ++channel)
+            for (std::uint32_t port = 0; port < K_MAX_OUTPUT_PORTS; ++port)
             {
-                // compile() sizes the pool at sum(output channels) + K_MAX_FAN_IN_OUT * K_MAX_CHANNELS, so acquire() cannot fail here.
-                float* node_buffer = buffer_pool_.acquire(context.frames);
-                assert(
-                    node_buffer != nullptr &&
-                    "RigGraph: BufferPool exhausted; compile() sizes it from live_buffer_count()");
-                node_output[handle * max_output_channels_ + channel] = node_buffer;
-                output_ptr[channel] = node_buffer;
+                const std::uint32_t width =
+                    port < port_count_[handle] ? port_widths_[handle * K_MAX_OUTPUT_PORTS + port]
+                                               : 0u;
+                for (std::uint32_t channel = 0; channel < K_MAX_CHANNELS; ++channel)
+                {
+                    port_output_ptrs_[port][channel] = nullptr;
+                }
+                for (std::uint32_t channel = 0; channel < width; ++channel)
+                {
+                    // compile() sizes the pool at sum(output channels) + K_MAX_FAN_IN_OUT * K_MAX_CHANNELS, so acquire() cannot fail here.
+                    float* node_buffer = buffer_pool_.acquire(context.frames);
+                    assert(node_buffer != nullptr &&
+                           "RigGraph: BufferPool exhausted; compile() sizes it from live_buffer_count()");
+                    node_output[(handle * K_MAX_OUTPUT_PORTS + port) * max_output_channels_ +
+                                channel] = node_buffer;
+                    port_output_ptrs_[port][channel] = node_buffer;
+                }
+                port_output_table_[port] = width > 0 ? port_output_ptrs_[port] : nullptr;
             }
 
             // slots * width indexes gathered_inputs_, so both are clamped to the bounds that array was sized from.
@@ -390,11 +443,12 @@ namespace SushiDSP
                 const std::uint32_t slot = std::min(edge_index, slots - 1);
                 ++edge_index;
 
-                const std::uint32_t producer_width = node_channels_[edge.from].output_width;
+                const std::size_t producer_slot = edge.from * K_MAX_OUTPUT_PORTS + edge.from_port;
+                const std::uint32_t producer_width = port_widths_[producer_slot];
                 const float* producer[K_MAX_CHANNELS] = {};
                 for (std::uint32_t channel = 0; channel < producer_width; ++channel)
                 {
-                    producer[channel] = node_output[edge.from * max_output_channels_ + channel];
+                    producer[channel] = node_output[producer_slot * max_output_channels_ + channel];
                 }
 
                 const std::uint32_t base = slot * width;
@@ -488,8 +542,8 @@ namespace SushiDSP
             }
             const float* const* node_inputs = (edge_index > 0) ? gathered_inputs_ : nullptr;
 
-            ProcessContext node_context{output_ptr, node_inputs, context.frames,
-                                        context.time_seconds};
+            ProcessContext node_context{port_output_ptrs_[0], node_inputs, context.frames,
+                                        context.time_seconds, port_output_table_};
             nodes_[handle]->process(node_context);
 
             for (std::uint32_t slot_channel = 0; slot_channel < slots * width; ++slot_channel)
@@ -508,7 +562,9 @@ namespace SushiDSP
             const float* sink_output[K_MAX_CHANNELS] = {};
             for (std::uint32_t channel = 0; channel < sink_width; ++channel)
             {
-                sink_output[channel] = node_output[sink_handle_ * max_output_channels_ + channel];
+                sink_output[channel] =
+                    node_output[(sink_handle_ * K_MAX_OUTPUT_PORTS) * max_output_channels_ +
+                                channel];
             }
 
             if (sink_width == host_output_channels_)

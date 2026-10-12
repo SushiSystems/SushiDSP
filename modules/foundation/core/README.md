@@ -107,3 +107,21 @@ unused slots are `nullptr`, and no node reads past the host's array.
 An empty graph must still fully define its output. Leaving the caller's buffer untouched would
 replay whatever it last held, SDL's raw stream buffer for one, which is audible garbage looping at
 block rate.
+
+### Output ports
+
+A node declares how many output ports it has (`AudioNode::output_port_count()`, default 1) and the
+channel width of each (`AudioNode::output_port_channels(port)`). Port 0 is the node's main output and
+its width is `PortLayout::output_channels`; `compile()` refuses a node whose two answers disagree.
+`RigGraph::connect(from, to, from_port)` names the port an edge reads, and `compile()` refuses a port
+the upstream node does not declare, a count above `RigGraph::K_MAX_OUTPUT_PORTS`, and a port with no
+width.
+
+`process()` gives a node its ports through `ProcessContext::port_outputs`, where `port_outputs[p]`
+holds the channel pointers of port `p` and `port_outputs[0]` is `outputs`. The graph sets both on
+every block; a caller that calls `process()` directly leaves `port_outputs` null. A node with one
+port ignores the table. A node with more than one must run under `RigGraph`.
+
+Each edge adapts its own port's width to the consumer's input with the rule of `channels_adapt`, so
+a port 1 of two channels summed into a mono consumer arrives at half level, exactly as a main output
+would. `disconnect(from, to)` removes every edge between the two nodes, whichever ports they read.
