@@ -32,7 +32,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/Fft.hpp"
+#include "SushiDSP/math/fft.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -59,7 +59,7 @@ TEST(Unit_Dsp, FftOfDcSignalHasEnergyOnlyInBinZero)
 
 TEST(Unit_Dsp, FftOfSingleBinSineMatchesKnownBin)
 {
-    constexpr std::uint32_t size       = 64;
+    constexpr std::uint32_t size = 64;
     constexpr std::uint32_t target_bin = 4;
     SushiDSP::Fft fft(size);
 
@@ -74,8 +74,8 @@ TEST(Unit_Dsp, FftOfSingleBinSineMatchesKnownBin)
     fft.forward(time_domain.data(), real_out.data(), imag_out.data());
 
     const float expected_magnitude = static_cast<float>(size) / 2.0f;
-    const float magnitude_at_target =
-        std::sqrt(real_out[target_bin] * real_out[target_bin] + imag_out[target_bin] * imag_out[target_bin]);
+    const float magnitude_at_target = std::sqrt(real_out[target_bin] * real_out[target_bin] +
+                                                imag_out[target_bin] * imag_out[target_bin]);
     EXPECT_NEAR(magnitude_at_target, expected_magnitude, 1e-2f);
 }
 
@@ -110,13 +110,15 @@ TEST(Unit_Dsp, FftMatchesBruteForceDftAcrossSizes)
             double expected_imag = 0.0;
             for (std::uint32_t n = 0; n < transform_size; ++n)
             {
-                const double theta = -2.0 * M_PI * static_cast<double>(k) * static_cast<double>(n)
-                                     / static_cast<double>(transform_size);
+                const double theta = -2.0 * M_PI * static_cast<double>(k) * static_cast<double>(n) /
+                                     static_cast<double>(transform_size);
                 expected_real += input[n] * std::cos(theta);
                 expected_imag += input[n] * std::sin(theta);
             }
-            EXPECT_NEAR(real_out[k], static_cast<float>(expected_real), 1e-3f) << "size=" << transform_size << " k=" << k;
-            EXPECT_NEAR(imag_out[k], static_cast<float>(expected_imag), 1e-3f) << "size=" << transform_size << " k=" << k;
+            EXPECT_NEAR(real_out[k], static_cast<float>(expected_real), 1e-3f)
+                << "size=" << transform_size << " k=" << k;
+            EXPECT_NEAR(imag_out[k], static_cast<float>(expected_imag), 1e-3f)
+                << "size=" << transform_size << " k=" << k;
         }
     }
 }

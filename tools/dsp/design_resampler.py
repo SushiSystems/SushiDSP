@@ -7,7 +7,7 @@
 
 Usage:  python tools/dsp/design_resampler.py
 
-Writes include/SushiDSP/math/ResamplerDesign.hpp and src/math/ResamplerKernel.hpp, both relative
+Writes modules/foundation/math/include/SushiDSP/math/resampler_design.hpp and modules/foundation/math/source/resampler_kernel.hpp, both relative
 to the repository root. The design choices are in tools/dsp/README.md, "design_resampler.py".
 """
 import sys
@@ -103,8 +103,8 @@ def measure_interpolation_bound(kernel):
     return np.abs(second_difference).max() / 8.0
 
 
-DESIGN_HEADER_PATH = "include/SushiDSP/math/ResamplerDesign.hpp"
-KERNEL_HEADER_PATH = "src/math/ResamplerKernel.hpp"
+DESIGN_HEADER_PATH = "modules/foundation/math/include/SushiDSP/math/resampler_design.hpp"
+KERNEL_HEADER_PATH = "modules/foundation/math/source/resampler_kernel.hpp"
 LICENCE_BLOCK_LINES = 7
 
 
@@ -117,7 +117,7 @@ def licence_block(file_name):
     Returns:
         The licence block as a newline-terminated string.
     """
-    header = open("include/SushiDSP/core/PortLayout.hpp", encoding="utf-8").read().split("\n")
+    header = open("modules/foundation/core/include/SushiDSP/core/port_layout.hpp", encoding="utf-8").read().split("\n")
     licence = header[:LICENCE_BLOCK_LINES]
     name_line = f"/* {file_name}"
     licence[1] = name_line + " " * (len(licence[0]) - len(name_line) - 2) + "*/"
@@ -193,27 +193,27 @@ def emit_design(out, measurements):
         out: A text-mode writable stream.
         measurements: Mapping as returned by measure_all().
     """
-    out.write(licence_block("ResamplerDesign.hpp") + "\n")
+    out.write(licence_block("resampler_design.hpp") + "\n")
     out.write(banner_block(measurements) + "\n")
     out.write("#pragma once\n\n#include <cstdint>\n\nnamespace SushiDSP\n{\n")
     out.write("    /// @brief Input samples stored on each side of the resampler prototype's peak\n")
     out.write("    /// (not the count of true zero crossings, which is lower since fc < 0.5).\n")
-    out.write(f"    inline constexpr std::uint32_t kResamplerHalfWidthZeroCrossings "
+    out.write(f"    inline constexpr std::uint32_t K_RESAMPLER_HALF_WIDTH_ZERO_CROSSINGS "
               f"= {HALF_WIDTH}u;\n\n")
     out.write("    /// @brief Table entries stored per zero crossing (the polyphase "
               "interpolation density).\n")
-    out.write(f"    inline constexpr std::uint32_t kResamplerPhasesPerZeroCrossing = {PHASES}u;\n\n")
+    out.write(f"    inline constexpr std::uint32_t K_RESAMPLER_PHASES_PER_ZERO_CROSSING = {PHASES}u;\n\n")
     out.write(f"    /// @brief Length of the kernel table in {KERNEL_HEADER_PATH}: peak, "
               f"right wing\n")
     out.write("    /// and one guard entry.\n")
-    out.write(f"    inline constexpr std::uint32_t kResamplerKernelLength "
+    out.write(f"    inline constexpr std::uint32_t K_RESAMPLER_KERNEL_LENGTH "
               f"= {HALF_WIDTH * PHASES + 2}u;\n\n")
     out.write("    /// @brief Cutoff of the prototype's ideal lowpass, in cycles per input sample.\n")
-    out.write(f"    inline constexpr float kResamplerCutoff = {CUTOFF}f;\n\n")
+    out.write(f"    inline constexpr float K_RESAMPLER_CUTOFF = {CUTOFF}f;\n\n")
     out.write("    /// @brief Edge of the band over which the passband ripple above is measured.\n")
-    out.write(f"    inline constexpr float kResamplerPassbandEdge = {PASSBAND_EDGE}f;\n\n")
+    out.write(f"    inline constexpr float K_RESAMPLER_PASSBAND_EDGE = {PASSBAND_EDGE}f;\n\n")
     out.write("    /// @brief Worst stopband level measured on the oversampled kernel, in dB.\n")
-    out.write(f"    inline constexpr float kResamplerStopbandDecibels "
+    out.write(f"    inline constexpr float K_RESAMPLER_STOPBAND_DECIBELS "
               f"= {measurements['stopband']:.3f}f;\n")
     out.write("}\n")
 
@@ -226,17 +226,17 @@ def emit_kernel(out, kernel, measurements):
         kernel: Right wing plus guard entry, as returned by design().
         measurements: Mapping as returned by measure_all().
     """
-    out.write(licence_block("ResamplerKernel.hpp") + "\n")
+    out.write(licence_block("resampler_kernel.hpp") + "\n")
     out.write(banner_block(measurements) + "\n")
     out.write("#pragma once\n\n")
-    out.write('#include "SushiDSP/math/ResamplerDesign.hpp"\n\nnamespace SushiDSP\n{\n')
-    out.write("    /// @brief Right wing of the even Kaiser-windowed sinc kernel: kResamplerKernel[i]\n")
-    out.write("    /// is h(i / kResamplerPhasesPerZeroCrossing) in input samples. Entry 0 is the peak,\n")
-    out.write("    /// which is 2*kResamplerCutoff (the centre tap of a sub-Nyquist lowpass impulse\n")
+    out.write('#include "SushiDSP/math/resampler_design.hpp"\n\nnamespace SushiDSP\n{\n')
+    out.write("    /// @brief Right wing of the even Kaiser-windowed sinc kernel: K_RESAMPLER_KERNEL[i]\n")
+    out.write("    /// is h(i / K_RESAMPLER_PHASES_PER_ZERO_CROSSING) in input samples. Entry 0 is the peak,\n")
+    out.write("    /// which is 2*K_RESAMPLER_CUTOFF (the centre tap of a sub-Nyquist lowpass impulse\n")
     out.write("    /// response), not 1.0 - the kernel is normalised on the polyphase DC sums, which\n")
     out.write("    /// are already ~1 for any cutoff below 0.5 and barely move the peak. The last two\n")
     out.write("    /// entries are the exact-zero endpoint and guard.\n")
-    out.write("    inline constexpr float kResamplerKernel[kResamplerKernelLength] =\n    {\n")
+    out.write("    inline constexpr float K_RESAMPLER_KERNEL[K_RESAMPLER_KERNEL_LENGTH] =\n    {\n")
     length = HALF_WIDTH * PHASES + 2
     for i in range(0, length, 4):
         row = ", ".join(f"{float(np.float32(v)):.9e}f" for v in kernel[i:i + 4])

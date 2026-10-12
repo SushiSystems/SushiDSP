@@ -31,20 +31,20 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/LogFormatter.hpp"
+#include "SushiDSP/log/log_formatter.hpp"
 
 namespace
 {
     /// @brief Formats into a buffer of 256 characters and returns what was written.
-    template<typename... Values>
+    template <typename... Values>
     std::string formatted(std::string_view format, const Values&... values)
     {
-        char              buffer[256];
+        char buffer[256];
         const std::size_t length =
             SushiDSP::format_log_message(buffer, sizeof(buffer), format, values...);
         return std::string(buffer, length);
     }
-}
+} // namespace
 
 TEST(Unit_Log, FormatterReplacesMarkersWithArgumentsInOrder)
 {
@@ -88,10 +88,10 @@ TEST(Unit_Log, FormatterPrintsRealsWithSixSignificantDigits)
 
 TEST(Unit_Log, FormatterPrintsTextOfEveryKind)
 {
-    const std::string      owned = "owned";
+    const std::string owned = "owned";
     const std::string_view view = "view";
-    const char*            pointer = "pointer";
-    const char*            missing = nullptr;
+    const char* pointer = "pointer";
+    const char* missing = nullptr;
 
     EXPECT_EQ(formatted("{} {} {} {}", "literal", owned, view, pointer),
               "literal owned view pointer");

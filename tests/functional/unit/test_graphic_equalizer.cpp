@@ -29,15 +29,16 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/GraphicEqualizer.hpp"
+#include "SushiDSP/circuits/graphic_equalizer.hpp"
 
 namespace
 {
     /// @brief Drives a sine tone through the equalizer and returns its steady-state gain in dB.
-    float steady_gain_db(SushiDSP::GraphicEqualizer& equalizer, double sample_rate, double frequency_hz)
+    float steady_gain_db(SushiDSP::GraphicEqualizer& equalizer, double sample_rate,
+                         double frequency_hz)
     {
-        constexpr double kPi = 3.14159265358979323846;
-        const double angular_step = 2.0 * kPi * frequency_hz / sample_rate;
+        constexpr double K_PI = 3.14159265358979323846;
+        const double angular_step = 2.0 * K_PI * frequency_hz / sample_rate;
 
         for (int i = 0; i < 48000; ++i)
         {
@@ -59,18 +60,20 @@ namespace
         const double output_rms = std::sqrt(output_sum_squares / 48000.0);
         return static_cast<float>(20.0 * std::log10(output_rms / input_rms));
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, GraphicEqualizerHoldsFiveBandsAndIsFlatAtRest)
 {
-    SushiDSP::GraphicEqualizer equalizer(48000.0, { 80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f }, 1.4f, 12.0f);
+    SushiDSP::GraphicEqualizer equalizer(48000.0, {80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f}, 1.4f,
+                                         12.0f);
     EXPECT_EQ(equalizer.band_count(), 5u);
     EXPECT_NEAR(steady_gain_db(equalizer, 48000.0, 750.0), 0.0f, 0.05f);
 }
 
 TEST(Unit_Dsp, GraphicEqualizerBoostsOneBandAtItsCentre)
 {
-    SushiDSP::GraphicEqualizer equalizer(48000.0, { 80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f }, 1.4f, 12.0f);
+    SushiDSP::GraphicEqualizer equalizer(48000.0, {80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f}, 1.4f,
+                                         12.0f);
     equalizer.set_band(2, 1.0f);
     EXPECT_NEAR(steady_gain_db(equalizer, 48000.0, 750.0), 12.0f, 0.3f);
     EXPECT_NEAR(steady_gain_db(equalizer, 48000.0, 80.0), 0.0f, 0.5f);
@@ -78,7 +81,8 @@ TEST(Unit_Dsp, GraphicEqualizerBoostsOneBandAtItsCentre)
 
 TEST(Unit_Dsp, GraphicEqualizerCutsOneBandAndClampsSliders)
 {
-    SushiDSP::GraphicEqualizer equalizer(48000.0, { 80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f }, 1.4f, 12.0f);
+    SushiDSP::GraphicEqualizer equalizer(48000.0, {80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f}, 1.4f,
+                                         12.0f);
     equalizer.set_band(0, -3.0f);
     EXPECT_NEAR(steady_gain_db(equalizer, 48000.0, 80.0), -12.0f, 0.3f);
     equalizer.set_band(7, 1.0f);
@@ -87,7 +91,8 @@ TEST(Unit_Dsp, GraphicEqualizerCutsOneBandAndClampsSliders)
 
 TEST(Unit_Dsp, GraphicEqualizerPerBandQNarrowsOneBandOnly)
 {
-    SushiDSP::GraphicEqualizer equalizer(48000.0, { 87.61f, 371.74f, 723.43f, 1575.87f, 4822.88f }, { 1.171f, 1.938f, 2.128f, 0.673f, 1.0f }, 17.0f);
+    SushiDSP::GraphicEqualizer equalizer(48000.0, {87.61f, 371.74f, 723.43f, 1575.87f, 4822.88f},
+                                         {1.171f, 1.938f, 2.128f, 0.673f, 1.0f}, 17.0f);
     equalizer.set_band(1, 1.0f);
     const float at_centre = steady_gain_db(equalizer, 48000.0, 371.74);
     const float an_octave_up = steady_gain_db(equalizer, 48000.0, 743.48);

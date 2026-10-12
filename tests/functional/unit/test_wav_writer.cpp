@@ -35,41 +35,44 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/io/WavFile.hpp"
-#include "SushiDSP/io/WavWriter.hpp"
+#include "SushiDSP/io/wav_file.hpp"
+#include "SushiDSP/io/wav_writer.hpp"
 
 namespace
 {
-    constexpr double kPi = 3.14159265358979323846;
+    constexpr double K_PI = 3.14159265358979323846;
 
     /// @brief Names a file in the test temporary directory and removes it when the case ends,
     /// so no run leaves its fixtures behind for the next one.
     class TempWavFile
     {
-    public:
-        /// @brief Builds the path from the temporary directory and the given name.
-        /// @param name The file's name inside that directory.
-        explicit TempWavFile(const std::string& name)
-            : path_(std::string(::testing::TempDir()) + name)
-        {
-        }
+        public:
+            /// @brief Builds the path from the temporary directory and the given name.
+            /// @param name The file's name inside that directory.
+            explicit TempWavFile(const std::string& name)
+                : path_(std::string(::testing::TempDir()) + name)
+            {
+            }
 
-        /// @brief Removes the file, ignoring a file that was never created.
-        ~TempWavFile()
-        {
-            std::error_code ignored;
-            std::filesystem::remove(path_, ignored);
-        }
+            /// @brief Removes the file, ignoring a file that was never created.
+            ~TempWavFile()
+            {
+                std::error_code ignored;
+                std::filesystem::remove(path_, ignored);
+            }
 
-        TempWavFile(const TempWavFile&) = delete;
-        TempWavFile& operator=(const TempWavFile&) = delete;
+            TempWavFile(const TempWavFile&) = delete;
+            TempWavFile& operator=(const TempWavFile&) = delete;
 
-        /// @brief Reports the file's full path.
-        const std::string& path() const { return path_; }
+            /// @brief Reports the file's full path.
+            const std::string& path() const
+            {
+                return path_;
+            }
 
-    private:
-        /// @brief Holds the file's full path.
-        std::string path_;
+        private:
+            /// @brief Holds the file's full path.
+            std::string path_;
     };
 
     std::vector<float> sine(std::size_t count, double frequency, double sample_rate)
@@ -78,21 +81,21 @@ namespace
         for (std::size_t i = 0; i < count; ++i)
         {
             samples[i] = static_cast<float>(
-                0.5 * std::sin(2.0 * kPi * frequency * static_cast<double>(i) / sample_rate));
+                0.5 * std::sin(2.0 * K_PI * frequency * static_cast<double>(i) / sample_rate));
         }
         return samples;
     }
-}
+} // namespace
 
 TEST(Unit_Io, WavWriterFloat32RoundTripsSampleForSample)
 {
-    const TempWavFile   fixture("sushidsp_wav_writer_float32.wav");
-    const std::string&  path = fixture.path();
+    const TempWavFile fixture("sushidsp_wav_writer_float32.wav");
+    const std::string& path = fixture.path();
     const std::vector<float> samples = sine(256, 440.0, 48000.0);
 
     {
         SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32);
-        const float* channels[1] = { samples.data() };
+        const float* channels[1] = {samples.data()};
         writer.append(channels, static_cast<std::uint32_t>(samples.size()));
         EXPECT_EQ(writer.frames_written(), samples.size());
     }
@@ -110,8 +113,8 @@ TEST(Unit_Io, WavWriterFloat32RoundTripsSampleForSample)
 
 TEST(Unit_Io, WavWriterPcm16RoundTripsWithinOneQuantisationStep)
 {
-    const TempWavFile   fixture("sushidsp_wav_writer_pcm16.wav");
-    const std::string&  path = fixture.path();
+    const TempWavFile fixture("sushidsp_wav_writer_pcm16.wav");
+    const std::string& path = fixture.path();
     const std::vector<float> samples = sine(256, 440.0, 48000.0);
     // The writer's 32767 scale and the reader's 32768 divide bound a sample of magnitude a at (0.5 + a) / 32768.
     const float peak_magnitude = 0.5f;
@@ -119,7 +122,7 @@ TEST(Unit_Io, WavWriterPcm16RoundTripsWithinOneQuantisationStep)
 
     {
         SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Pcm16);
-        const float* channels[1] = { samples.data() };
+        const float* channels[1] = {samples.data()};
         writer.append(channels, static_cast<std::uint32_t>(samples.size()));
     }
 
@@ -134,8 +137,8 @@ TEST(Unit_Io, WavWriterPcm16RoundTripsWithinOneQuantisationStep)
 
 TEST(Unit_Io, WavWriterTwoChannelsDownmixToTheMeanOnReadback)
 {
-    const TempWavFile   fixture("sushidsp_wav_writer_stereo.wav");
-    const std::string&  path = fixture.path();
+    const TempWavFile fixture("sushidsp_wav_writer_stereo.wav");
+    const std::string& path = fixture.path();
     const std::vector<float> left = sine(128, 220.0, 48000.0);
     std::vector<float> right(left.size());
     for (std::size_t i = 0; i < left.size(); ++i)
@@ -145,7 +148,7 @@ TEST(Unit_Io, WavWriterTwoChannelsDownmixToTheMeanOnReadback)
 
     {
         SushiDSP::WavWriter writer(path, 48000.0, 2, SushiDSP::WavWriter::Format::Float32);
-        const float* channels[2] = { left.data(), right.data() };
+        const float* channels[2] = {left.data(), right.data()};
         writer.append(channels, static_cast<std::uint32_t>(left.size()));
     }
 
@@ -161,12 +164,12 @@ TEST(Unit_Io, WavWriterTwoChannelsDownmixToTheMeanOnReadback)
 
 TEST(Unit_Io, WavWriterCloseTwiceIsSafeAndLeavesTheFileValid)
 {
-    const TempWavFile   fixture("sushidsp_wav_writer_double_close.wav");
-    const std::string&  path = fixture.path();
+    const TempWavFile fixture("sushidsp_wav_writer_double_close.wav");
+    const std::string& path = fixture.path();
     const std::vector<float> samples = sine(64, 220.0, 48000.0);
 
     SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32);
-    const float* channels[1] = { samples.data() };
+    const float* channels[1] = {samples.data()};
     writer.append(channels, static_cast<std::uint32_t>(samples.size()));
     writer.close();
     writer.close();
@@ -181,15 +184,15 @@ TEST(Unit_Io, WavWriterCloseTwiceIsSafeAndLeavesTheFileValid)
 
 TEST(Unit_Io, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
 {
-    const TempWavFile   fixture("sushidsp_wav_writer_sizes.wav");
-    const std::string&  path = fixture.path();
+    const TempWavFile fixture("sushidsp_wav_writer_sizes.wav");
+    const std::string& path = fixture.path();
     const std::vector<float> first_block = sine(100, 220.0, 48000.0);
     const std::vector<float> second_block = sine(37, 330.0, 48000.0);
 
     {
         SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Pcm16);
-        const float* first_channels[1] = { first_block.data() };
-        const float* second_channels[1] = { second_block.data() };
+        const float* first_channels[1] = {first_block.data()};
+        const float* second_channels[1] = {second_block.data()};
         writer.append(first_channels, static_cast<std::uint32_t>(first_block.size()));
         writer.append(second_channels, static_cast<std::uint32_t>(second_block.size()));
         EXPECT_EQ(writer.frames_written(), first_block.size() + second_block.size());
@@ -197,18 +200,19 @@ TEST(Unit_Io, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
 
     std::ifstream file(path, std::ios::binary);
     ASSERT_TRUE(static_cast<bool>(file));
-    std::vector<std::uint8_t> bytes(
-        (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(file)),
+                                    std::istreambuf_iterator<char>());
 
-    const auto read_u32_le = [&bytes](std::size_t offset) {
+    const auto read_u32_le = [&bytes](std::size_t offset)
+    {
         return static_cast<std::uint32_t>(bytes[offset]) |
                (static_cast<std::uint32_t>(bytes[offset + 1]) << 8) |
                (static_cast<std::uint32_t>(bytes[offset + 2]) << 16) |
                (static_cast<std::uint32_t>(bytes[offset + 3]) << 24);
     };
 
-    const std::uint32_t expected_data_bytes =
-        static_cast<std::uint32_t>((first_block.size() + second_block.size()) * sizeof(std::int16_t));
+    const std::uint32_t expected_data_bytes = static_cast<std::uint32_t>(
+        (first_block.size() + second_block.size()) * sizeof(std::int16_t));
     EXPECT_EQ(read_u32_le(4), 36 + expected_data_bytes);
     EXPECT_EQ(read_u32_le(40), expected_data_bytes);
     EXPECT_EQ(bytes.size(), 44 + expected_data_bytes);
@@ -216,31 +220,34 @@ TEST(Unit_Io, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
 
 TEST(Unit_Io, WavWriterFloat32HeaderCarriesAnExtensibleFmtChunkAndAFactChunk)
 {
-    const TempWavFile   fixture("sushidsp_wav_writer_fact_chunk.wav");
-    const std::string&  path = fixture.path();
+    const TempWavFile fixture("sushidsp_wav_writer_fact_chunk.wav");
+    const std::string& path = fixture.path();
     const std::vector<float> samples = sine(50, 440.0, 48000.0);
 
     {
         SushiDSP::WavWriter writer(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32);
-        const float* channels[1] = { samples.data() };
+        const float* channels[1] = {samples.data()};
         writer.append(channels, static_cast<std::uint32_t>(samples.size()));
     }
 
     std::ifstream file(path, std::ios::binary);
     ASSERT_TRUE(static_cast<bool>(file));
-    std::vector<std::uint8_t> bytes(
-        (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(file)),
+                                    std::istreambuf_iterator<char>());
 
-    const auto read_u32_le = [&bytes](std::size_t offset) {
+    const auto read_u32_le = [&bytes](std::size_t offset)
+    {
         return static_cast<std::uint32_t>(bytes[offset]) |
                (static_cast<std::uint32_t>(bytes[offset + 1]) << 8) |
                (static_cast<std::uint32_t>(bytes[offset + 2]) << 16) |
                (static_cast<std::uint32_t>(bytes[offset + 3]) << 24);
     };
-    const auto read_u16_le = [&bytes](std::size_t offset) {
+    const auto read_u16_le = [&bytes](std::size_t offset)
+    {
         return static_cast<std::uint16_t>(bytes[offset] | (bytes[offset + 1] << 8));
     };
-    const auto read_tag = [&bytes](std::size_t offset) {
+    const auto read_tag = [&bytes](std::size_t offset)
+    {
         return std::string(reinterpret_cast<const char*>(bytes.data() + offset), 4);
     };
 
@@ -270,10 +277,9 @@ TEST(Unit_Io, WavWriterFloat32HeaderCarriesAnExtensibleFmtChunkAndAFactChunk)
 
 TEST(Unit_Io, WavWriterThrowsWhenThePathCannotBeOpened)
 {
-    const TempWavFile   fixture("sushidsp_wav_writer_no_such_dir/take.wav");
-    const std::string&  path = fixture.path();
+    const TempWavFile fixture("sushidsp_wav_writer_no_such_dir/take.wav");
+    const std::string& path = fixture.path();
 
-    EXPECT_THROW(
-        SushiDSP::WavWriter(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32),
-        std::runtime_error);
+    EXPECT_THROW(SushiDSP::WavWriter(path, 48000.0, 1, SushiDSP::WavWriter::Format::Float32),
+                 std::runtime_error);
 }

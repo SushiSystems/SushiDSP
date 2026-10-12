@@ -27,7 +27,7 @@
 
 #include <cmath>
 #include <gtest/gtest.h>
-#include "SushiDSP/math/SmoothedParameter.hpp"
+#include "SushiDSP/math/smoothed_parameter.hpp"
 
 TEST(Unit_Dsp, SmoothedParameterReachesSixtyThreePercentAtOneTimeConstant)
 {
@@ -35,7 +35,7 @@ TEST(Unit_Dsp, SmoothedParameterReachesSixtyThreePercentAtOneTimeConstant)
     parameter.prepare(48000.0, 20.0f);
     parameter.set_target(1.0f);
     float value = 0.0f;
-    for (int i = 0; i < 960; ++i)  // 20 ms at 48 kHz
+    for (int i = 0; i < 960; ++i) // 20 ms at 48 kHz
     {
         value = parameter.next();
     }
@@ -50,7 +50,10 @@ TEST(Unit_Dsp, SmoothedParameterSkipMatchesRepeatedNext)
     a.set_target(0.7f);
     b.set_target(0.7f);
     float via_next = 0.0f;
-    for (int i = 0; i < 4096; ++i) { via_next = a.next(); }
+    for (int i = 0; i < 4096; ++i)
+    {
+        via_next = a.next();
+    }
     const float via_skip = b.skip(4096);
     EXPECT_NEAR(via_next, via_skip, 1e-5f);
 }

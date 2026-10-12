@@ -32,10 +32,10 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/TrackRecorder.hpp"
-#include "SushiDSP/log/CapturingLogSink.hpp"
-#include "SushiDSP/log/DefaultLogger.hpp"
-#include "SushiDSP/log/ScopedLogSink.hpp"
+#include "SushiDSP/capture/track_recorder.hpp"
+#include "SushiDSP/log/capturing_log_sink.hpp"
+#include "SushiDSP/log/default_logger.hpp"
+#include "SushiDSP/log/scoped_log_sink.hpp"
 
 TEST(Unit_Dsp, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFileCannotBeOpened)
 {
@@ -49,7 +49,7 @@ TEST(Unit_Dsp, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFileCannotBeOpen
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     {
         const SushiDSP::ScopedLogSink guard(SushiDSP::default_logger(), capture);
-        SushiDSP::TrackRecorder       recorder(1u, 48000.0, 8192);
+        SushiDSP::TrackRecorder recorder(1u, 48000.0, 8192);
         EXPECT_FALSE(recorder.arm(path));
         EXPECT_FALSE(recorder.is_recording());
     }

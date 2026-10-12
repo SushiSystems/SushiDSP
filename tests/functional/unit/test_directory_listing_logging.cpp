@@ -31,17 +31,17 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/CapturingLogSink.hpp"
-#include "SushiDSP/log/DefaultLogger.hpp"
-#include "SushiDSP/log/ScopedLogSink.hpp"
-#include "ui/DirectoryListing.hpp"
+#include "SushiDSP/log/capturing_log_sink.hpp"
+#include "SushiDSP/log/default_logger.hpp"
+#include "SushiDSP/log/scoped_log_sink.hpp"
+#include "ui/directory_listing.hpp"
 
 TEST(Unit_Dsp, ListDirectoryLogsOneWarningNamingTheCauseWhenTheFileSystemRefusesThePath)
 {
     // A name of 40 000 characters is longer than any file system here accepts.
     const std::string overlong(40000, 'a');
 
-    const auto                      capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     std::vector<ui::DirectoryEntry> entries;
     {
         const SushiDSP::ScopedLogSink guard(SushiDSP::default_logger(), capture);

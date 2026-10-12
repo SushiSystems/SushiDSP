@@ -32,7 +32,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/PartitionedConvolution.hpp"
+#include "SushiDSP/math/partitioned_convolution.hpp"
 
 namespace
 {
@@ -48,18 +48,19 @@ namespace
         }
         return y;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, PartitionedConvolutionOfImpulseReproducesImpulseResponse)
 {
     constexpr std::uint32_t partition_size = 64;
-    std::vector<float>      impulse_response(100);
+    std::vector<float> impulse_response(100);
     for (std::size_t i = 0; i < impulse_response.size(); ++i)
     {
         impulse_response[i] = std::sin(0.1f * static_cast<float>(i)) * 0.5f;
     }
 
-    SushiDSP::PartitionedConvolution convolution(partition_size, impulse_response.data(),
+    SushiDSP::PartitionedConvolution convolution(
+        partition_size, impulse_response.data(),
         static_cast<std::uint32_t>(impulse_response.size()));
 
     std::vector<float> input(partition_size, 0.0f);
@@ -86,13 +87,13 @@ TEST(Unit_Dsp, PartitionedConvolutionOfImpulseReproducesImpulseResponse)
 
 TEST(Unit_Dsp, PartitionedConvolutionMatchesDirectConvolutionForWhiteNoise)
 {
-    constexpr std::uint32_t partition_size  = 64;
-    constexpr std::uint32_t impulse_length  = 150; // spans 3 partitions, last one padded
-    constexpr int           num_blocks      = 6;
+    constexpr std::uint32_t partition_size = 64;
+    constexpr std::uint32_t impulse_length = 150; // spans 3 partitions, last one padded
+    constexpr int num_blocks = 6;
 
     std::vector<float> impulse_response(impulse_length);
-    unsigned           seed        = 12345u;
-    auto               next_random = [&seed]() -> float
+    unsigned seed = 12345u;
+    auto next_random = [&seed]() -> float
     {
         seed = seed * 1664525u + 1013904223u;
         return (static_cast<float>(seed >> 8) / static_cast<float>(1u << 24)) * 2.0f - 1.0f;
@@ -108,8 +109,9 @@ TEST(Unit_Dsp, PartitionedConvolutionMatchesDirectConvolutionForWhiteNoise)
         x = next_random();
     }
 
-    SushiDSP::PartitionedConvolution convolution(partition_size, impulse_response.data(), impulse_length);
-    std::vector<float>               streamed;
+    SushiDSP::PartitionedConvolution convolution(partition_size, impulse_response.data(),
+                                                 impulse_length);
+    std::vector<float> streamed;
     for (int block = 0; block < num_blocks; ++block)
     {
         std::vector<float> output(partition_size, 0.0f);
@@ -128,13 +130,16 @@ TEST(Unit_Dsp, PartitionedConvolutionMatchesDirectConvolutionForWhiteNoise)
 
 TEST(Unit_Dsp, PartitionedConvolutionResetClearsTail)
 {
-    const float ir[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    const float ir[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     SushiDSP::PartitionedConvolution convolution(4, ir, 4);
-    float block[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+    float block[4] = {1.0f, 0.0f, 0.0f, 0.0f};
     float out[4];
     convolution.process(block, out);
     convolution.reset();
-    float silence[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    float silence[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     convolution.process(silence, out);
-    for (float sample : out) { EXPECT_NEAR(sample, 0.0f, 1e-7f); }
+    for (float sample : out)
+    {
+        EXPECT_NEAR(sample, 0.0f, 1e-7f);
+    }
 }

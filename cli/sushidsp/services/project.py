@@ -65,11 +65,13 @@ _BUILD_TYPE_FROM_CMAKE = {value: key for key, value in _CMAKE_BUILD_TYPE.items()
 _CHECKERS = (
     Path("tools", "documentation", "check_docs_layout.py"),
     Path("tools", "documentation", "check_changelog.py"),
+    Path("tools", "documentation", "check_docs_truth.py"),
+    Path("tools", "documentation", "check_source_comments.py"),
     Path("tools", "layering", "check_layering.py"),
 )
 
 _HOST_GUI = "sushidsp_host_gui"
-_HOST_GUI_FOLDERS = (Path("apps", "host_gui"), Path("bin"))
+_HOST_GUI_FOLDERS = (Path("applications", "host_gui"), Path("bin"))
 
 _DOXYGEN_HINT = (
     "  - Windows: winget install DimitriVanHeesch.Doxygen\n"
@@ -269,11 +271,12 @@ def clean() -> int:
 
 
 def docs() -> int:
-    """Generates the API reference from the headers through the Doxyfile at the root."""
+    """Generates the API reference from the headers through .config/doxygen/Doxyfile."""
     console.header("Doxygen Generation")
     root = find_project_root()
     cfg = load_config()
-    return _DRIVER.doxygen(cfg, root / "Doxyfile", root, env=_env(cfg, _build_dir(root)),
+    doxyfile = root / ".config" / "doxygen" / "Doxyfile"
+    return _DRIVER.doxygen(cfg, doxyfile, root, env=_env(cfg, _build_dir(root)),
                            install_hint=_DOXYGEN_HINT)
 
 

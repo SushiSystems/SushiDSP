@@ -239,7 +239,8 @@ def test_check_runs_every_checker_through_the_runner(project):
     assert project_svc.check(report=True) == 0
 
     assert [Path(command[1]).name for command in project.runner.commands] == [
-        "check_docs_layout.py", "check_changelog.py", "check_layering.py"]
+        "check_docs_layout.py", "check_changelog.py", "check_docs_truth.py",
+            "check_source_comments.py", "check_layering.py"]
     for command in project.runner.commands:
         assert command[0] == sys.executable and command[2:] == ["--report"]
 

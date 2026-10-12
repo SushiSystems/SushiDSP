@@ -29,29 +29,29 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/MillerInputCapacitance.hpp"
+#include "SushiDSP/circuits/stages/miller_input_capacitance.hpp"
 
 namespace
 {
-    constexpr double kPi = 3.14159265358979323846;
+    constexpr double K_PI = 3.14159265358979323846;
 
     double corner_by_hand(double cgk_pf, double cgp_pf, double stray_pf, double gain, double ohms)
     {
         const double farads = (cgk_pf + cgp_pf * (1.0 + gain) + stray_pf) * 1e-12;
-        return 1.0 / (2.0 * kPi * ohms * farads);
+        return 1.0 / (2.0 * K_PI * ohms * farads);
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, MillerInputCapacitanceCarriesThe12AX7ModelsOwnFigures)
 {
-    EXPECT_FLOAT_EQ(SushiDSP::kTriode12AX7MillerCapacitance.grid_cathode_picofarads, 1.6f);
-    EXPECT_FLOAT_EQ(SushiDSP::kTriode12AX7MillerCapacitance.grid_plate_picofarads, 1.7f);
-    EXPECT_FLOAT_EQ(SushiDSP::kTriode12AX7MillerCapacitance.stray_wiring_picofarads, 10.0f);
+    EXPECT_FLOAT_EQ(SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE.grid_cathode_picofarads, 1.6f);
+    EXPECT_FLOAT_EQ(SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE.grid_plate_picofarads, 1.7f);
+    EXPECT_FLOAT_EQ(SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE.stray_wiring_picofarads, 10.0f);
 }
 
 TEST(Unit_Dsp, MillerInputCapacitanceCornerMatchesTheHandComputedPole)
 {
-    const SushiDSP::MillerInputCapacitance& c = SushiDSP::kTriode12AX7MillerCapacitance;
+    const SushiDSP::MillerInputCapacitance& c = SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE;
     EXPECT_DOUBLE_EQ(c.corner_hz(55.432497, 100000.0),
                      corner_by_hand(1.6f, 1.7f, 10.0f, 55.432497, 100000.0));
     EXPECT_DOUBLE_EQ(c.corner_hz(7.774305, 100000.0),
@@ -60,7 +60,7 @@ TEST(Unit_Dsp, MillerInputCapacitanceCornerMatchesTheHandComputedPole)
 
 TEST(Unit_Dsp, MillerInputCapacitanceCornerFallsWithGainAndWithDrivingResistance)
 {
-    const SushiDSP::MillerInputCapacitance& c = SushiDSP::kTriode12AX7MillerCapacitance;
+    const SushiDSP::MillerInputCapacitance& c = SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE;
     EXPECT_LT(c.corner_hz(70.0, 100000.0), c.corner_hz(10.0, 100000.0));
     EXPECT_LT(c.corner_hz(70.0, 220000.0), c.corner_hz(70.0, 100000.0));
     EXPECT_TRUE(std::isfinite(c.corner_hz(0.0, 100000.0)));
@@ -68,6 +68,6 @@ TEST(Unit_Dsp, MillerInputCapacitanceCornerFallsWithGainAndWithDrivingResistance
 
 TEST(Unit_Dsp, MillerInputCapacitanceAtZeroGainIsTheUnmultipliedSum)
 {
-    const SushiDSP::MillerInputCapacitance c{ 2.0f, 3.0f, 5.0f };
+    const SushiDSP::MillerInputCapacitance c{2.0f, 3.0f, 5.0f};
     EXPECT_DOUBLE_EQ(c.corner_hz(0.0, 100000.0), corner_by_hand(2.0, 3.0, 5.0, 0.0, 100000.0));
 }

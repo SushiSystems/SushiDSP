@@ -1,6 +1,6 @@
-# `modules/nodes/room` — one cabinet in one room
+# `modules/nodes/room`, one cabinet in one room
 
-One `IAudioNode`, mono in and two channels out, registered as `sushidsp.room` under the `Room`
+One `AudioNode`, mono in and two channels out, registered as `sushidsp.room` under the `Room`
 category with four parameters: `mix`, `level`, `listener` and `direct_delay`. The node solves a
 shoebox room on the control thread and renders its standing waves, its direct sound, its early
 reflections and its late tail on the audio thread, for two ears under a head or for one
@@ -20,10 +20,10 @@ knowingly left open.
 | Concern | Class |
 | --- | --- |
 | The shoebox, its six materials, patches, and the source, listener and microphone poses | `RoomScene` |
-| Six-band absorption per material, with a citation per row | `Materials.hpp` |
-| Six-band equivalent absorption area per item of furniture, with a citation per row | `Furniture.hpp` |
+| Six-band absorption per material, with a citation per row | `materials.hpp` |
+| Six-band equivalent absorption area per item of furniture, with a citation per row | `furniture.hpp` |
 | The room's volumetric loss per metre: the air's ISO 9613-1 figure plus the furnishings', the one seam `EyringDecay`, `ImageSourceSolver` and `ModalSolver` all read | `MediumAbsorption` |
-| The absorption a built room adds to every surface, per band | `BuiltRoomLoss.hpp` |
+| The absorption a built room adds to every surface, per band | `built_room_loss.hpp` |
 | The room a fresh room slot loads | `StarterScene` |
 | Six band gains and the arithmetic on them | `BandResponse` |
 | A six-band target fitted to two biquads, minimum phase | `BandResponseFit` |
@@ -44,7 +44,7 @@ knowingly left open.
 | The power-complementary Butterworth pair at the modal seam | `CrossoverPair` |
 | Up to 512 second-order resonators | `ModalBank` |
 | Everything the audio thread reads for one scene | `RoomRenderSet`, `build_render_set` |
-| What a host calls to install a scene or an HRTF | `IRoomHost` |
+| What a host calls to install a scene or an HRTF | `RoomHost` |
 | One input ring, up to 128 fractional taps, two biquad state banks, sixteen channels out | `EarlyReflectionRenderer` |
 | The 16-line Hadamard feedback delay network | `LateReverb` |
 | The crossover's low half: the standing waves and their two banks | `ModalPath` |
@@ -66,13 +66,13 @@ hand-written record and a solver with arrival times alone.
 
 `RoomScene::is_valid` bounds each dimension to [1.5, 12] m, holds the source, the listener and
 the microphone inside the box, holds each patch inside its own face, and refuses a room whose
-reverberation runs past `kMaxDecaySeconds`, 12 s. That last bound is one chord change per bar at
+reverberation runs past `K_MAX_DECAY_SECONDS`, 12 s. That last bound is one chord change per bar at
 60 bpm, four seconds, with the previous chord 20 dB down when the next one lands; spec §4.1
 carries the derivation.
 
 `RoomScene` cannot ask `EyringDecay` for a decay time, since `EyringDecay` reads `RoomScene`, so
 the bound reaches the scene as a floor on the mean absorption that the scene computes itself:
-`min_mean_absorption()` returns 1 - exp(-0.161 V / (S * kMaxDecaySeconds)), Eyring inverted for
+`min_mean_absorption()` returns 1 - exp(-0.161 V / (S * K_MAX_DECAY_SECONDS)), Eyring inverted for
 alpha with the air term dropped. All six bands are checked against it, because a bare concrete
 box is dead at 4 kHz and enormous at 125 Hz. Dropping the air term makes the gate refuse a little
 more than Eyring's own figure would: `RoomScene{}` reads 1.32 s at 500 Hz against Eyring's
@@ -98,7 +98,7 @@ which floor without any change to `RoomPanel` or `RigController`.
 A furniture row is an equivalent absorption area per item, in square metres per octave band, not
 a geometry: the increase in the room's equivalent absorption area one bed, one wardrobe module or
 one chair brings, the floor and the walls under it included (ISO 354 object absorption, ISO
-20189). `Furniture.hpp` carries seven rows, each with its citation, and
+20189). `furniture.hpp` carries seven rows, each with its citation, and
 `RoomScene::furnishing_absorption_area()` sums quantity times area over the scene's live
 furnishings. `docs/design/ROOM_FURNISHINGS.md` section 6 says which rows are measured, which are
 tabulated and which are derived.
@@ -117,12 +117,12 @@ seam. `ImageSourceSolver` folds it on reflected taps only: the `(0, 0, 0)` image
 of sight, and furniture absorbs what reflects off it rather than thinning a path nothing crosses.
 
 `RoomScene::is_valid` refuses a furnishing that names no row, a non-positive or non-finite
-quantity and more than `kMaxFurnishings`, 16, entries, and it counts the furniture against the
+quantity and more than `K_MAX_FURNISHINGS`, 16, entries, and it counts the furniture against the
 12 s decay bound: each band's surface absorption `a_s` is raised to
 `1 - (1 - a_s) * exp(-A_f / S)` before the floor of `min_mean_absorption()` is applied. That form
 is the exact algebraic inversion of adding `A_f` to Eyring's denominator, not a linearisation, so
 the gate and the decay the node then reports cannot disagree. Patches are bounded the same way:
-`kMaxPatches`, 8, per scene, each area positive, finite and inside its own face, and the patches
+`K_MAX_PATCHES`, 8, per scene, each area positive, finite and inside its own face, and the patches
 sharing one face may not together exceed that face's area.
 
 `starter_scene()` is what a fresh room slot and a preset with no `"room"` object load: 6.0 x 4.0
@@ -130,7 +130,7 @@ x 2.6 m, painted plaster on five faces and parquet on the floor, a 4 m2 heavy ve
 12 m2 rug and a 1.9 m2 wooden door as patches, and a double bed, a desk, three wardrobe modules
 and a chair as furnishings, with no sofa. It sets `built_room_loss`.
 
-`RoomScene::built_room_loss` adds `kBuiltRoomLoss`, 0.020, 0.025, 0.020, 0.020, 0.020 and 0.015
+`RoomScene::built_room_loss` adds `K_BUILT_ROOM_LOSS`, 0.020, 0.025, 0.020, 0.020, 0.020 and 0.015
 from 125 Hz to 4 kHz, to every face's absorption, capped at 1, inside `face_absorption()`, so
 Eyring, the image sources, the modal damping and the decay gate all see it. It stands for what a
 built room absorbs beyond its tabulated surfaces: doors, windows, radiators, ducts, seams and
@@ -246,7 +246,7 @@ ears' reference blend in the tests is delayed the same 128 frames.
 Taps pair by index, the arrival order `ImageSourceSolver` returns. An arriving tap past the
 retiring count starts from zero; a retiring tap past the arriving count is dropped. A pair
 matches when the delay moved by at most 2 frames and none of the ten coefficients moved by more
-than 0.2 (`kMatchDelayFrames`, `kMatchCoefficientMove` in `GeometricPath.cpp`). A tap that does not
+than 0.2 (`K_MATCH_DELAY_FRAMES`, `K_MATCH_COEFFICIENT_MOVE` in `geometric_path.cpp`). A tap that does not
 match starts from zero, because a retiring state run through a different filter is further from
 that filter's steady state than zero is: carrying every tap regardless measured -15.4 dBFS for a
 one-centimetre move against -32.0 dBFS from zero.
@@ -328,7 +328,7 @@ block, on a running state, which is a transient a room change carries anyway.
 
 `RoomNode::schroeder_frequency_hz()` reports the frequency the published set splits at: the
 solver's `crossover_hz` while the modal layer runs, which is Eyring's figure unless the mode
-count would pass `kMaxModes` and the solver lowered it (spec §9a.4), and Eyring's figure itself
+count would pass `K_MAX_MODES` and the solver lowered it (spec §9a.4), and Eyring's figure itself
 when the layer is off, so a panel still shows the room's own number under 40 Hz. Before
 `prepare()` there is no set and the report is Eyring's figure for the scene in place.
 `RoomNodeReportsTheCrossoverTheSetSplitsAt` walks the garage, a 3.0 x 2.5 x 2.4 m concrete room
@@ -348,7 +348,7 @@ at the centre, where every mode with an odd index is at a node; the spec asks fo
 Both layers are scaled to one reference, `DiffuseField`: the room's steady-state reverberant
 power per hertz of a white input, relative to the cabinet's on-axis direct sound at 1 m, which is
 16 pi RT60(f) / (0.161 V) over the cabinet's directivity index, per band and linear in log
-frequency between the centres (spec §6.3). `DiffuseField.hpp` is header-only; it caches the
+frequency between the centres (spec §6.3). `diffuse_field.hpp` is header-only; it caches the
 directivity index of the last cabinet geometry behind a mutex, since the 2562-direction integral
 costs 18 ms against a 2 ms build, both measured on an unoptimised binary, and a drag never
 changes the geometry. Its cases live in
@@ -390,12 +390,12 @@ preceded it. The energy was right and the time was not.
 
 The shortest line is now the handover time itself. `line_frames` takes a shortest line and a
 spread rather than a mean, and `design` picks them from two constraints: the shortest line is
-`round(t_c fs)`, and the sixteen still sum to `kOverlapRatio` times the mid-band RT60, which is
+`round(t_c fs)`, and the sixteen still sum to `K_OVERLAP_RATIO` times the mid-band RT60, which is
 what fixes the tail's modal density (spec §6.2, three modes per resonance bandwidth). The
 spread that satisfies the second given the first is bisected; the garage's is 5.836, its lines
 run 1753 to 10211 frames and total 78098 against the 78003 the rule asks for. A room whose handover time exceeds a sixteenth of its
 delay budget cannot start there, and then the budget sets the shortest line at the old spread
-of 2 and the input delay carries the rest. `FdnDesign::kMaxLineSeconds` caps the longest line,
+of 2 and the input delay carries the rest. `FdnDesign::K_MAX_LINE_SECONDS` caps the longest line,
 so a room past the design's 3 s RT60 loses density rather than overrunning the renderer's
 storage.
 
@@ -498,9 +498,9 @@ The ears hear three paths that share one HRTF set, which is what keeps the seam 
 inaudible: the direct sound through the set's HRIR pair for its direction, the early reflections
 through the set's third-order decoder, and the tail through the set's diffuse-field average
 (spec §9.4). The set is `SphericalHeadHrtf` until a host installs a measured one through
-`IRoomHost::set_hrtf`; `hrtf_source()` says which. The tree ships
+`RoomHost::set_hrtf`; `hrtf_source()` says which. The tree ships
 `assets/hrtf/sadie2_ku100_48k.hrtf`, the SADIE II KU100 set thinned to 1531 directions, and
-`apps/host_gui` installs it through `RigController::set_hrtf_path` at start-up.
+`applications/host_gui` installs it through `RigController::set_hrtf_path` at start-up.
 
 **The direct path.** Tap 0 of an ears set, the (0, 0, 0) image, is taken out of the bank at the
 block the set is adopted (`GeometricPath::take_direct_image`) and rendered by `DirectPath`: read out
@@ -581,9 +581,9 @@ for the ears, and the 0.893 ms the whole chain costs is what leaves DE7's AVX2 l
 The early renderer's ring holds the longest crossover time the scene bounds allow,
 `(4 + 1) * 12.0 / 343` s, 8397 frames at 48 kHz; the node's own ring, which the direct path and
 the tail read, holds that plus the alignment delay plus 128 frames for the far ear's ITD, rounded
-up to 16384. The tail's lines hold `FdnDesign::kMaxLineSeconds`, 0.525 s or 25200 frames at
+up to 16384. The tail's lines hold `FdnDesign::K_MAX_LINE_SECONDS`, 0.525 s or 25200 frames at
 48 kHz, which is also the ceiling the designer spreads the lines under. The accumulation buffers are two sets of sixteen channels of one block; the two modal
-banks hold `kMaxModes` resonators each and one block of lane partials, and the node keeps four
+banks hold `K_MAX_MODES` resonators each and one block of lane partials, and the node keeps four
 copies of `ModalDesign`, two per bank plus the ramp's ends, beside its two tap sets, its two
 direct banks with their four 128-tap histories, the two diffuse filters, the four alignment
 delays and one copy of `FdnDesign`. The decoder's 32 convolvers, 256 taps in two partitions of
@@ -594,7 +594,7 @@ fallback at the next `prepare()`.
 ## Approximations, named as such
 
 - **The piston array.** `CabinetDirectivity` is four rigid pistons in an infinite baffle, and the
-  cone's effective radius shrinks above the 2.5 kHz breakup frequency in `kCabinet4x12`. No cone
+  cone's effective radius shrinks above the 2.5 kHz breakup frequency in `K_CABINET4X12`. No cone
   is a rigid piston; the model gives the off-axis roll-off its shape, not a measured polar plot.
   Each band is the energy mean of the closed form over its octave, sixteen log-spaced points,
   so an interference null inside a band lowers the band by what the null removes and no more:
@@ -610,7 +610,7 @@ fallback at the next `prepare()`.
   The ceiling image of the reference garage, 53 degrees above the baffle's axis, comes out of
   that fit with a group delay that puts its rendered peak one frame after its arrival, which is
   why `RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid` measures placement with a 1 cm piston.
-- **Fifteen materials.** `Materials.hpp` ships unpainted concrete, painted concrete block, gypsum
+- **Fifteen materials.** `materials.hpp` ships unpainted concrete, painted concrete block, gypsum
   board on studs, heavy carpet on concrete, thin carpet on concrete, painted plaster on masonry,
   ceramic tile, parquet on concrete, a wood panel, a glass window, a double-glazed window, a
   wooden door, a heavy velour curtain, a light curtain and the open doorway, each as six
@@ -667,7 +667,7 @@ Each convolver transforms its own input, so the sixteen channels are each transf
 That is the unshared figure spec section 10 budgets. Sharing the spectra between the two ears
 would change no interface.
 
-In `BinauralDecoder.cpp`, `output_partition_[fill_ ..)` holds the result of the previous partition
+In `binaural_decoder.cpp`, `output_partition_[fill_ ..)` holds the result of the previous partition
 that has not been emitted yet. One cursor therefore reads an output frame and writes an input
 frame.
 
@@ -680,7 +680,7 @@ active at that moment. The host coalesces edits, so the path never holds more th
 ### The tail's delay lines
 
 The feedback delay network emits nothing until its shortest line has run, so that line is what
-the handover time bounds. The sum of the sixteen lines stays `kOverlapRatio` times the mid-band
+the handover time bounds. The sum of the sixteen lines stays `K_OVERLAP_RATIO` times the mid-band
 decay, which is what fixes the tail's modal density (spec section 6.2).
 
 A room whose handover exceeds its whole delay budget cannot start there: the budget sets the
@@ -703,19 +703,19 @@ compared against the last one the thread saw and is read only inside the block t
 
 ### The baffle-step shelf
 
-`CabinetDirectivity.cpp` puts the shelf's pole at the baffle step and its zero an octave above it,
+`cabinet_directivity.cpp` puts the shelf's pole at the baffle step and its zero an octave above it,
 so the shelf reads 0 dB far below the step and -6 dB far above it. The octave mean samples the
-midpoints of `kOctavePoints` equal log-frequency intervals, from the centre over root two to the
+midpoints of `K_OCTAVE_POINTS` equal log-frequency intervals, from the centre over root two to the
 centre times root two.
 
 ### The interpolation window
 
-In `EarlyReflectionRenderer.cpp` the window starts two frames behind the integer delay and never
+In `early_reflection_renderer.cpp` the window starts two frames behind the integer delay and never
 wraps: the mirror region holds what lies past the ring's end.
 
 ### Loading an HRTF set
 
-`HrtfSetLoader.cpp` lands every field in a local set first and moves it into the caller's set only
+`hrtf_set_loader.cpp` lands every field in a local set first and moves it into the caller's set only
 on success, so a failure anywhere leaves the caller's set exactly as it was.
 
 ### A set the decoder refuses
@@ -727,10 +727,10 @@ HRTF in place untouched.
 
 ### The reported crossover
 
-`ModalSolver.cpp` reports the first mode left out as the crossover, so `enumerate()` at that
+`modal_solver.cpp` reports the first mode left out as the crossover, so `enumerate()` at that
 frequency returns exactly the modes the design carries.
 
 ### A patch's area
 
-In `RoomScene.cpp` a patch replaces area on its face and does not add to it, so its own material's
+In `room_scene.cpp` a patch replaces area on its face and does not add to it, so its own material's
 area is subtracted from the face before either is weighted.

@@ -71,7 +71,7 @@ node per sample rate, compared against a pinned render, failing when the RMS res
 justify it, so a model's history reads as a list of deliberate decisions rather than a drifting
 file.
 
-The real-time path carries a harder rule: `IAudioNode::process()`, and everything it calls,
+The real-time path carries a harder rule: `AudioNode::process()`, and everything it calls,
 allocates nothing, locks nothing, makes no system call and throws nothing. Thirty-nine tests in
 `tests/functional/unit/test_rt_safety.cpp` enforce the first of those four by replacing
 `operator new` and failing the test if the audio path reaches it. The other three are held by

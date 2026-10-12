@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include "ui/GearFilter.hpp"
+#include "ui/gear_filter.hpp"
 
 namespace
 {
@@ -36,17 +36,17 @@ namespace
     std::vector<ui::GearItem> sample_catalog()
     {
         return {
-            { "sushidsp.tubescreamer", "Tube Screamer", "Distortion" },
-            { "sushidsp.jcm800", "JCM800", "Amp" },
-            { "sushidsp.peavey5150", "Peavey 5150", "Amp" },
-            { "sushidsp.mesa_mark2c", "Mesa Mark IIC+", "Amp" },
-            { "sushidsp.diezel_vh4", "Diezel VH4", "Amp" },
-            { "sushidsp.dd3", "DD-3 Delay", "Delay" },
-            { "sushidsp.splitter", "Splitter", "Routing" },
-            { "sushidsp.mixer", "Mixer", "Routing" },
-            { "sushidsp.pan", "Pan", "Routing" },
-            { "sushidsp.room", "Room", "Room" },
-            { "sushidsp.cabinet", "4x12 Cabinet", "Cabinet" },
+            {"sushidsp.tubescreamer", "Tube Screamer", "Distortion"},
+            {"sushidsp.jcm800", "JCM800", "Amp"},
+            {"sushidsp.peavey5150", "Peavey 5150", "Amp"},
+            {"sushidsp.mesa_mark2c", "Mesa Mark IIC+", "Amp"},
+            {"sushidsp.diezel_vh4", "Diezel VH4", "Amp"},
+            {"sushidsp.dd3", "DD-3 Delay", "Delay"},
+            {"sushidsp.splitter", "Splitter", "Routing"},
+            {"sushidsp.mixer", "Mixer", "Routing"},
+            {"sushidsp.pan", "Pan", "Routing"},
+            {"sushidsp.room", "Room", "Room"},
+            {"sushidsp.cabinet", "4x12 Cabinet", "Cabinet"},
         };
     }
 
@@ -62,7 +62,7 @@ namespace
         }
         return count;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, GearFilterAllTabKeepsEveryNonRoutingItem)
 {
@@ -83,8 +83,7 @@ TEST(Unit_Dsp, GearFilterAmpsTabKeepsOnlyAmps)
 TEST(Unit_Dsp, GearFilterSearchIgnoresCase)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
-    const std::vector<ui::GearGroup> groups =
-        ui::filter_gear(catalog, ui::GearTab::All, "jcm800");
+    const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::All, "jcm800");
     ASSERT_EQ(total_items(groups), 1u);
     EXPECT_EQ(groups[0].items[0]->id, "sushidsp.jcm800");
 }

@@ -34,16 +34,16 @@
 #include <cstdint>
 #include <string>
 
-#include "RoomFixtures.hpp"
-#include "SushiDSP/room/BandResponse.hpp"
-#include "SushiDSP/room/Furniture.hpp"
-#include "SushiDSP/room/MediumAbsorption.hpp"
-#include "SushiDSP/room/RoomScene.hpp"
+#include "room_fixtures.hpp"
+#include "SushiDSP/room/band_response.hpp"
+#include "SushiDSP/room/furniture.hpp"
+#include "SushiDSP/room/medium_absorption.hpp"
+#include "SushiDSP/room/room_scene.hpp"
 
 namespace
 {
     using SushiDSP::room::FurnitureId;
-    using SushiDSP::room::kBandCount;
+    using SushiDSP::room::K_BAND_COUNT;
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::RoomScene;
 
@@ -51,7 +51,7 @@ namespace
     RoomScene concrete_cube()
     {
         RoomScene cube;
-        cube.dimensions = { 12.0, 12.0, 12.0 };
+        cube.dimensions = {12.0, 12.0, 12.0};
         cube.surfaces.fill(MaterialId::ConcreteUnpainted);
         return cube;
     }
@@ -60,7 +60,7 @@ namespace
     RoomScene cube_with_sofas(double quantity)
     {
         RoomScene scene = concrete_cube();
-        scene.furnishings[0] = { FurnitureId::SofaTwoSeat, quantity };
+        scene.furnishings[0] = {FurnitureId::SofaTwoSeat, quantity};
         scene.furnishing_count = 1;
         return scene;
     }
@@ -77,17 +77,17 @@ namespace
     {
         const double floor_absorption = scene.min_mean_absorption();
         const double surface_absorption = scene.mean_absorption()[band];
-        return scene.surface_area_m2()
-            * -std::log((1.0 - floor_absorption) / (1.0 - surface_absorption));
+        return scene.surface_area_m2() *
+               -std::log((1.0 - floor_absorption) / (1.0 - surface_absorption));
     }
 
     /// @brief Returns the area the linear form S * (floor - a_s) would demand at one band.
     double linear_required_area(const RoomScene& scene, std::size_t band)
     {
-        return scene.surface_area_m2()
-            * (scene.min_mean_absorption() - scene.mean_absorption()[band]);
+        return scene.surface_area_m2() *
+               (scene.min_mean_absorption() - scene.mean_absorption()[band]);
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, RoomSceneBoundUsesTheExactFormNotTheLinearOne)
 {
@@ -106,7 +106,7 @@ TEST(Unit_Dsp, RoomSceneBoundUsesTheExactFormNotTheLinearOne)
     EXPECT_FALSE(reason.empty());
     EXPECT_TRUE(cube_with_sofas(over).is_valid(reason)) << "quantity " << over << ": " << reason;
 
-    for (std::size_t band = 0; band < kBandCount; ++band)
+    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
     {
         EXPECT_GT(over * row_area(FurnitureId::SofaTwoSeat, band), exact_required_area(cube, band))
             << "band " << band;
@@ -116,23 +116,23 @@ TEST(Unit_Dsp, RoomSceneBoundUsesTheExactFormNotTheLinearOne)
 TEST(Unit_Dsp, RoomSceneAcceptsExactlyTheMaximumFurnishings)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
-    for (std::size_t index = 0; index < RoomScene::kMaxFurnishings; ++index)
+    for (std::size_t index = 0; index < RoomScene::K_MAX_FURNISHINGS; ++index)
     {
-        scene.furnishings[index] = { FurnitureId::BedDouble, 0.05 };
+        scene.furnishings[index] = {FurnitureId::BedDouble, 0.05};
     }
-    scene.furnishing_count = static_cast<std::uint32_t>(RoomScene::kMaxFurnishings);
+    scene.furnishing_count = static_cast<std::uint32_t>(RoomScene::K_MAX_FURNISHINGS);
     std::string reason;
     EXPECT_TRUE(scene.is_valid(reason)) << reason;
 
-    scene.furnishing_count = static_cast<std::uint32_t>(RoomScene::kMaxFurnishings + 1);
+    scene.furnishing_count = static_cast<std::uint32_t>(RoomScene::K_MAX_FURNISHINGS + 1);
     EXPECT_FALSE(scene.is_valid(reason));
 }
 
 TEST(Unit_Dsp, RoomSceneRefusesABadFurnishingAfterAGoodOne)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
-    scene.furnishings[0] = { FurnitureId::SofaTwoSeat, 1.0 };
-    scene.furnishings[1] = { FurnitureId::BedDouble, 0.0 };
+    scene.furnishings[0] = {FurnitureId::SofaTwoSeat, 1.0};
+    scene.furnishings[1] = {FurnitureId::BedDouble, 0.0};
     scene.furnishing_count = 2;
     std::string reason;
     EXPECT_FALSE(scene.is_valid(reason));
@@ -141,15 +141,15 @@ TEST(Unit_Dsp, RoomSceneRefusesABadFurnishingAfterAGoodOne)
 
 TEST(Unit_Dsp, RoomSceneAcceptsEveryReferenceRoomUnchangedWhenUnfurnished)
 {
-    const std::array<RoomScene, 3> rooms = { SushiDSP::test::garage_scene(),
-                                             SushiDSP::test::bedroom_scene(),
-                                             SushiDSP::test::block_room_scene() };
+    const std::array<RoomScene, 3> rooms = {SushiDSP::test::garage_scene(),
+                                            SushiDSP::test::bedroom_scene(),
+                                            SushiDSP::test::block_room_scene()};
     for (std::size_t room = 0; room < rooms.size(); ++room)
     {
         RoomScene scene = rooms[room];
         for (RoomScene::Furnishing& entry : scene.furnishings)
         {
-            entry = { static_cast<FurnitureId>(200), -1.0 };
+            entry = {static_cast<FurnitureId>(200), -1.0};
         }
         scene.furnishing_count = 0;
         std::string reason;
@@ -160,26 +160,25 @@ TEST(Unit_Dsp, RoomSceneAcceptsEveryReferenceRoomUnchangedWhenUnfurnished)
 TEST(Unit_Dsp, FurnishingAreaIgnoresEntriesBeyondTheCount)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
-    scene.furnishings[0] = { FurnitureId::SofaTwoSeat, 1.0 };
-    scene.furnishings[1] = { FurnitureId::BedDouble, 1.0 };
+    scene.furnishings[0] = {FurnitureId::SofaTwoSeat, 1.0};
+    scene.furnishings[1] = {FurnitureId::BedDouble, 1.0};
     scene.furnishing_count = 1;
-    std::array<double, kBandCount> area = scene.furnishing_absorption_area();
-    for (std::size_t band = 0; band < kBandCount; ++band)
+    std::array<double, K_BAND_COUNT> area = scene.furnishing_absorption_area();
+    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
     {
         EXPECT_EQ(area[band], row_area(FurnitureId::SofaTwoSeat, band)) << "band " << band;
     }
 
     for (RoomScene::Furnishing& entry : scene.furnishings)
     {
-        entry = { FurnitureId::SofaTwoSeat, 1.0 };
+        entry = {FurnitureId::SofaTwoSeat, 1.0};
     }
-    scene.furnishing_count = static_cast<std::uint32_t>(RoomScene::kMaxFurnishings + 5);
+    scene.furnishing_count = static_cast<std::uint32_t>(RoomScene::K_MAX_FURNISHINGS + 5);
     area = scene.furnishing_absorption_area();
-    for (std::size_t band = 0; band < kBandCount; ++band)
+    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
     {
-        EXPECT_DOUBLE_EQ(area[band],
-                         static_cast<double>(RoomScene::kMaxFurnishings)
-                             * row_area(FurnitureId::SofaTwoSeat, band))
+        EXPECT_DOUBLE_EQ(area[band], static_cast<double>(RoomScene::K_MAX_FURNISHINGS) *
+                                         row_area(FurnitureId::SofaTwoSeat, band))
             << "band " << band;
     }
 }
@@ -187,13 +186,13 @@ TEST(Unit_Dsp, FurnishingAreaIgnoresEntriesBeyondTheCount)
 TEST(Unit_Dsp, MediumAbsorptionIgnoresALiveLookingEntryPastTheCount)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
-    scene.furnishings[0] = { FurnitureId::SofaTwoSeat, 1.0 };
-    scene.furnishings[1] = { FurnitureId::WardrobeModule, 3.0 };
+    scene.furnishings[0] = {FurnitureId::SofaTwoSeat, 1.0};
+    scene.furnishings[1] = {FurnitureId::WardrobeModule, 3.0};
     scene.furnishing_count = 1;
 
     const SushiDSP::room::MediumAbsorption medium(scene);
     const double four_volumes = 4.0 * scene.volume_m3();
-    for (std::size_t band = 0; band < kBandCount; ++band)
+    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
     {
         EXPECT_NEAR(medium.furnishing_coefficient_per_metre(band),
                     row_area(FurnitureId::SofaTwoSeat, band) / four_volumes, 1e-12)

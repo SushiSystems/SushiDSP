@@ -14,7 +14,7 @@ body:
     id: module
     attributes:
       label: Which model
-      placeholder: modules/mesa_mark2c
+      placeholder: modules/nodes/mesa_mark2c
     validations:
       required: true
 

@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "SushiDSP/log/LogCategory.hpp"
+#include "SushiDSP/log/log_category.hpp"
 
 /// @brief Names the lines the room module writes.
 inline constexpr SushiDSP::LogCategory K_ROOM_LOG_CATEGORY = SushiDSP::make_log_category("room");

@@ -1,10 +1,10 @@
-# `modules/catalog/node_registry` — the product catalog
+# `modules/catalog/node_registry`, the product catalog
 
 One function, `node_registry()`, returning the static list every `NodeDescriptor`-exposing
 product is registered under, plus `make_node(id, info)`, the id-to-instance factory both hosts
 and the plugin wrapper use to build a node without knowing its concrete type. Adding a product
-to the rig means adding one entry to `NodeRegistry.cpp`'s `node_registry()` — nothing else in
-`apps/host_gui` or `apps/host_asio` changes, which is the contract
+to the rig means adding one entry to `node_registry.cpp`'s `node_registry()`, nothing else in
+`applications/host_gui` or `applications/host_asio` changes, which is the contract
 [`docs/design/SUSHIDSP.md`](../../../docs/design/SUSHIDSP.md) describes for `NodeDescriptor`, the
 self-describing factory. This file records what the code in this directory does.
 
@@ -35,7 +35,7 @@ module has to know about panel grouping.
 ## Dependencies
 
 `node_registry` links `SushiDSP::sushi_dsp` plus every product library it registers
-(`tubescreamer`, `jcm800`, `peavey5150`, `mesa_mark2c`, `diezel_vh4`, `routing`, `dd3`, `room` —
+(`tubescreamer`, `jcm800`, `peavey5150`, `mesa_mark2c`, `diezel_vh4`, `routing`, `dd3`, `room` , 
 see `modules/catalog/node_registry/CMakeLists.txt`). It is the one place in the tree allowed to depend
 on all of them at once; every product module itself depends only on `sushi_dsp`, so this module
 is where that fan-in happens, and nowhere else in the codebase needs to list every product by

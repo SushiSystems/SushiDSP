@@ -2,7 +2,7 @@
 
 SushiDSP is a C++17 library of amplifier and pedal models. Each nonlinear stage is the
 circuit's own equations, solved per sample; none is a trained network. The core depends on the
-C++17 standard library and SIMD intrinsics and on nothing else. A graph of `IAudioNode`s, the
+C++17 standard library and SIMD intrinsics and on nothing else. A graph of `AudioNode`s, the
 rig, chains the models in any order, the way a pedalboard does.
 
 The root [`README.md`](../../README.md) says which circuits are modelled and how the models are

@@ -34,20 +34,21 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/SincResampler.hpp"
+#include "SushiDSP/math/sinc_resampler.hpp"
 
 TEST(Unit_Dsp, SincResamplerPreservesAOneKilohertzToneWithinMinusEightyDb)
 {
     std::vector<float> in(44100);
     for (std::size_t i = 0; i < in.size(); ++i)
     {
-        in[i] = static_cast<float>(std::sin(2.0 * M_PI * 1000.0 * static_cast<double>(i) / 44100.0));
+        in[i] =
+            static_cast<float>(std::sin(2.0 * M_PI * 1000.0 * static_cast<double>(i) / 44100.0));
     }
 
     const auto out = SushiDSP::SincResampler::resample(in, 44100.0, 48000.0);
     ASSERT_NEAR(static_cast<double>(out.size()), 48000.0, 2.0);
 
-    double error  = 0.0;
+    double error = 0.0;
     double energy = 0.0;
     for (std::size_t i = 1000; i + 1000 < out.size(); ++i)
     {
@@ -66,7 +67,8 @@ TEST(Unit_Dsp, SincResamplerLowpassesAboveTheNewNyquistWhenDownsampling)
         std::vector<float> in(96000);
         for (std::size_t i = 0; i < in.size(); ++i)
         {
-            in[i] = static_cast<float>(std::sin(2.0 * M_PI * frequency_hz * static_cast<double>(i) / 96000.0));
+            in[i] = static_cast<float>(
+                std::sin(2.0 * M_PI * frequency_hz * static_cast<double>(i) / 96000.0));
         }
 
         const auto out = SushiDSP::SincResampler::resample(in, 96000.0, 48000.0);
@@ -82,7 +84,7 @@ TEST(Unit_Dsp, SincResamplerLowpassesAboveTheNewNyquistWhenDownsampling)
     };
 
     const double passband_energy = tone_energy_after_halving_the_rate(1000.0);
-    const double aliased_energy  = tone_energy_after_halving_the_rate(30000.0);
+    const double aliased_energy = tone_energy_after_halving_the_rate(30000.0);
 
     EXPECT_LT(10.0 * std::log10(aliased_energy / passband_energy), -60.0);
 }

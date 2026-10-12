@@ -29,25 +29,31 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/ResonanceControl.hpp"
+#include "SushiDSP/circuits/stages/resonance_control.hpp"
 
 namespace
 {
-    constexpr double kPi = 3.14159265358979323846;
+    constexpr double K_PI = 3.14159265358979323846;
 
-    float steady_gain_db(SushiDSP::ResonanceControl& control, double sample_rate, double frequency_hz)
+    float steady_gain_db(SushiDSP::ResonanceControl& control, double sample_rate,
+                         double frequency_hz)
     {
         const int settle = 48000, measure = 48000;
         double sum_squares_out = 0.0, sum_squares_in = 0.0;
         for (int i = 0; i < settle + measure; ++i)
         {
-            const float x = static_cast<float>(std::sin(2.0 * kPi * frequency_hz * i / sample_rate));
+            const float x =
+                static_cast<float>(std::sin(2.0 * K_PI * frequency_hz * i / sample_rate));
             const float y = control.process_sample(x);
-            if (i >= settle) { sum_squares_out += y * y; sum_squares_in += x * x; }
+            if (i >= settle)
+            {
+                sum_squares_out += y * y;
+                sum_squares_in += x * x;
+            }
         }
         return static_cast<float>(10.0 * std::log10(sum_squares_out / sum_squares_in));
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, ResonanceControlAtZeroDepthIsUnity)
 {

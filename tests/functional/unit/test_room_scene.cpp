@@ -32,9 +32,9 @@
 #include <limits>
 #include <string>
 
-#include "RoomFixtures.hpp"
-#include "SushiDSP/room/BuiltRoomLoss.hpp"
-#include "SushiDSP/room/RoomScene.hpp"
+#include "room_fixtures.hpp"
+#include "SushiDSP/room/built_room_loss.hpp"
+#include "SushiDSP/room/room_scene.hpp"
 
 TEST(Unit_Dsp, RoomSceneComputesTheGaragesVolumeAndArea)
 {
@@ -104,7 +104,7 @@ TEST(Unit_Dsp, RoomSceneRefusesAPatchLargerThanItsFace)
     using SushiDSP::room::Surface;
 
     RoomScene garage = SushiDSP::test::garage_scene();
-    garage.patches[0] = { Surface::PlusX, MaterialId::OpenDoorway, 12.0 };
+    garage.patches[0] = {Surface::PlusX, MaterialId::OpenDoorway, 12.0};
     std::string reason;
     EXPECT_FALSE(garage.is_valid(reason));
     EXPECT_NE(reason.find("12"), std::string::npos);
@@ -131,26 +131,26 @@ TEST(Unit_Dsp, RoomSceneAcceptsEveryReferenceRoom)
 
     // The dead room reads 0.673 against a floor of 0.026477. See tests/functional/unit/README.md.
     RoomScene dead;
-    dead.dimensions = { 12.0, 12.0, 12.0 };
+    dead.dimensions = {12.0, 12.0, 12.0};
     dead.surfaces.fill(MaterialId::HeavyCarpetOnConcrete);
-    dead.patches[0] = { Surface::MinusX, MaterialId::OpenDoorway, 144.0 };
-    dead.patches[1] = { Surface::PlusX, MaterialId::OpenDoorway, 144.0 };
-    dead.patches[2] = { Surface::MinusY, MaterialId::OpenDoorway, 144.0 };
-    dead.patches[3] = { Surface::PlusY, MaterialId::OpenDoorway, 144.0 };
+    dead.patches[0] = {Surface::MinusX, MaterialId::OpenDoorway, 144.0};
+    dead.patches[1] = {Surface::PlusX, MaterialId::OpenDoorway, 144.0};
+    dead.patches[2] = {Surface::MinusY, MaterialId::OpenDoorway, 144.0};
+    dead.patches[3] = {Surface::PlusY, MaterialId::OpenDoorway, 144.0};
     dead.patch_count = 4;
-    dead.source_position = { 3.0, 4.0, 1.0 };
-    dead.listener_position = { 7.0, 5.0, 1.5 };
-    dead.microphone_position = { 7.0, 5.0, 1.5 };
+    dead.source_position = {3.0, 4.0, 1.0};
+    dead.listener_position = {7.0, 5.0, 1.5};
+    dead.microphone_position = {7.0, 5.0, 1.5};
     EXPECT_TRUE(dead.is_valid(reason)) << reason;
     EXPECT_NEAR(dead.min_mean_absorption(), 0.026477, 1e-6);
 
     // The 3.0 x 2.5 x 2.4 m unpainted concrete room the crossover case walks: 6.96 s at 125 Hz.
     RoomScene small_concrete;
-    small_concrete.dimensions = { 3.0, 2.5, 2.4 };
+    small_concrete.dimensions = {3.0, 2.5, 2.4};
     small_concrete.surfaces.fill(MaterialId::ConcreteUnpainted);
-    small_concrete.source_position = { 0.3, 0.3, 0.3 };
-    small_concrete.listener_position = { 1.5, 1.25, 1.2 };
-    small_concrete.microphone_position = { 1.5, 1.25, 1.2 };
+    small_concrete.source_position = {0.3, 0.3, 0.3};
+    small_concrete.listener_position = {1.5, 1.25, 1.2};
+    small_concrete.microphone_position = {1.5, 1.25, 1.2};
     EXPECT_TRUE(small_concrete.is_valid(reason)) << reason;
     EXPECT_NEAR(small_concrete.min_mean_absorption(), 0.005816, 1e-6);
 }
@@ -162,7 +162,7 @@ TEST(Unit_Dsp, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
 
     // The concrete cube rings 32.04 s against the 12 s bound. See tests/functional/unit/README.md.
     RoomScene cube;
-    cube.dimensions = { 12.0, 12.0, 12.0 };
+    cube.dimensions = {12.0, 12.0, 12.0};
     cube.surfaces.fill(MaterialId::ConcreteUnpainted);
     std::string reason;
     EXPECT_FALSE(cube.is_valid(reason));
@@ -173,24 +173,24 @@ TEST(Unit_Dsp, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
 
     // The bound is on every band, not on the mid one. See tests/functional/unit/README.md.
     RoomScene gypsum;
-    gypsum.dimensions = { 10.0, 10.0, 10.0 };
+    gypsum.dimensions = {10.0, 10.0, 10.0};
     gypsum.surfaces.fill(MaterialId::GypsumBoardOnStuds);
     EXPECT_TRUE(gypsum.is_valid(reason)) << reason;
 
     // A bare concrete cube crosses the bound at 4.495 m. See tests/functional/unit/README.md.
     RoomScene under;
-    under.dimensions = { 4.4, 4.4, 4.4 };
+    under.dimensions = {4.4, 4.4, 4.4};
     under.surfaces.fill(MaterialId::ConcreteUnpainted);
     EXPECT_TRUE(under.is_valid(reason)) << reason;
 
     RoomScene over;
-    over.dimensions = { 4.6, 4.6, 4.6 };
+    over.dimensions = {4.6, 4.6, 4.6};
     over.surfaces.fill(MaterialId::ConcreteUnpainted);
     EXPECT_FALSE(over.is_valid(reason));
 
     // The floor rises with the room's volume over its area. See tests/functional/unit/README.md.
     RoomScene shoebox;
-    shoebox.dimensions = { 6.0, 4.0, 2.5 };
+    shoebox.dimensions = {6.0, 4.0, 2.5};
     shoebox.surfaces.fill(MaterialId::ConcreteUnpainted);
     EXPECT_TRUE(shoebox.is_valid(reason)) << reason;
     EXPECT_LT(shoebox.min_mean_absorption(), over.min_mean_absorption());
@@ -198,12 +198,12 @@ TEST(Unit_Dsp, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
 
 TEST(Unit_Dsp, RoomSceneSumsItsFurnishingAreaByQuantity)
 {
-    using SushiDSP::room::FurnitureId;
     using SushiDSP::room::furniture;
+    using SushiDSP::room::FurnitureId;
 
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
-    scene.furnishings[0] = { FurnitureId::WardrobeModule, 3.0 };
-    scene.furnishings[1] = { FurnitureId::SofaTwoSeat, 2.0 };
+    scene.furnishings[0] = {FurnitureId::WardrobeModule, 3.0};
+    scene.furnishings[1] = {FurnitureId::SofaTwoSeat, 2.0};
     scene.furnishing_count = 2;
 
     const std::array<double, 6> area = scene.furnishing_absorption_area();
@@ -211,8 +211,8 @@ TEST(Unit_Dsp, RoomSceneSumsItsFurnishingAreaByQuantity)
     const auto& sofa = furniture(FurnitureId::SofaTwoSeat).absorption_area;
     for (std::size_t band = 0; band < area.size(); ++band)
     {
-        const double expected = 3.0 * static_cast<double>(wardrobe[band])
-            + 2.0 * static_cast<double>(sofa[band]);
+        const double expected =
+            3.0 * static_cast<double>(wardrobe[band]) + 2.0 * static_cast<double>(sofa[band]);
         EXPECT_NEAR(area[band], expected, 1e-12) << "band " << band;
     }
 }
@@ -234,7 +234,7 @@ TEST(Unit_Dsp, RoomSceneRefusesABadFurnishing)
     const auto refused_with = [](double quantity)
     {
         RoomScene scene = SushiDSP::test::garage_scene();
-        scene.furnishings[0] = { FurnitureId::SofaTwoSeat, quantity };
+        scene.furnishings[0] = {FurnitureId::SofaTwoSeat, quantity};
         scene.furnishing_count = 1;
         std::string reason;
         EXPECT_FALSE(scene.is_valid(reason)) << "quantity " << quantity;
@@ -246,7 +246,7 @@ TEST(Unit_Dsp, RoomSceneRefusesABadFurnishing)
     refused_with(std::numeric_limits<double>::infinity());
 
     RoomScene unknown_item = SushiDSP::test::garage_scene();
-    unknown_item.furnishings[0] = { static_cast<FurnitureId>(200), 1.0 };
+    unknown_item.furnishings[0] = {static_cast<FurnitureId>(200), 1.0};
     unknown_item.furnishing_count = 1;
     std::string reason;
     EXPECT_FALSE(unknown_item.is_valid(reason));
@@ -267,12 +267,12 @@ TEST(Unit_Dsp, RoomSceneCountsFurnitureTowardTheDecayBound)
 
     // A 12 m concrete cube rings past the bound bare and inside it with six sofas.
     RoomScene cube;
-    cube.dimensions = { 12.0, 12.0, 12.0 };
+    cube.dimensions = {12.0, 12.0, 12.0};
     cube.surfaces.fill(MaterialId::ConcreteUnpainted);
     std::string reason;
     EXPECT_FALSE(cube.is_valid(reason));
 
-    cube.furnishings[0] = { FurnitureId::SofaTwoSeat, 6.0 };
+    cube.furnishings[0] = {FurnitureId::SofaTwoSeat, 6.0};
     cube.furnishing_count = 1;
     EXPECT_TRUE(cube.is_valid(reason)) << reason;
 }
@@ -284,7 +284,7 @@ TEST(Unit_Dsp, RoomSceneKeepsItsAbsorptionWhenFurnished)
 
     const RoomScene bare = SushiDSP::test::bedroom_scene();
     RoomScene furnished = bare;
-    furnished.furnishings[0] = { FurnitureId::SofaTwoSeat, 2.0 };
+    furnished.furnishings[0] = {FurnitureId::SofaTwoSeat, 2.0};
     furnished.furnishing_count = 1;
 
     const std::array<double, 6> before = bare.mean_absorption();
@@ -303,8 +303,8 @@ TEST(Unit_Dsp, RoomSceneRefusesPatchesThatTogetherOverfillAFace)
 
     RoomScene garage = SushiDSP::test::garage_scene();
     garage.patch_count = 2;
-    garage.patches[0] = { Surface::PlusY, MaterialId::GlassWindow, 8.0 };
-    garage.patches[1] = { Surface::PlusY, MaterialId::WoodenDoor, 8.0 };
+    garage.patches[0] = {Surface::PlusY, MaterialId::GlassWindow, 8.0};
+    garage.patches[1] = {Surface::PlusY, MaterialId::WoodenDoor, 8.0};
     std::string reason;
     EXPECT_FALSE(garage.is_valid(reason));
     EXPECT_NE(reason.find("total"), std::string::npos);
@@ -322,16 +322,16 @@ TEST(Unit_Dsp, RoomSceneRefusesABadPatchAreaAndTooManyPatches)
     RoomScene garage = SushiDSP::test::garage_scene();
     garage.patch_count = 1;
     std::string reason;
-    for (const double area : { 0.0, -1.0, std::numeric_limits<double>::quiet_NaN(),
-                               std::numeric_limits<double>::infinity() })
+    for (const double area : {0.0, -1.0, std::numeric_limits<double>::quiet_NaN(),
+                              std::numeric_limits<double>::infinity()})
     {
-        garage.patches[0] = { Surface::PlusX, MaterialId::GlassWindow, area };
+        garage.patches[0] = {Surface::PlusX, MaterialId::GlassWindow, area};
         EXPECT_FALSE(garage.is_valid(reason)) << "area " << area;
         EXPECT_FALSE(reason.empty());
     }
 
-    garage.patches[0] = { Surface::PlusX, MaterialId::GlassWindow, 1.0 };
-    garage.patch_count = RoomScene::kMaxPatches + 1;
+    garage.patches[0] = {Surface::PlusX, MaterialId::GlassWindow, 1.0};
+    garage.patch_count = RoomScene::K_MAX_PATCHES + 1;
     EXPECT_FALSE(garage.is_valid(reason));
     EXPECT_NE(reason.find("patches"), std::string::npos);
 }
@@ -342,14 +342,14 @@ TEST(Unit_Dsp, RoomSceneAddsTheBuiltRoomLossToEveryFaceWhenSet)
     SushiDSP::room::RoomScene built = plain;
     built.built_room_loss = true;
 
-    for (std::size_t face = 0; face < SushiDSP::room::kSurfaceCount; ++face)
+    for (std::size_t face = 0; face < SushiDSP::room::K_SURFACE_COUNT; ++face)
     {
         const auto surface = static_cast<SushiDSP::room::Surface>(face);
         const std::array<double, 6> without = plain.face_absorption(surface);
         const std::array<double, 6> with = built.face_absorption(surface);
         for (std::size_t band = 0; band < 6; ++band)
         {
-            EXPECT_DOUBLE_EQ(with[band], without[band] + SushiDSP::room::kBuiltRoomLoss[band])
+            EXPECT_DOUBLE_EQ(with[band], without[band] + SushiDSP::room::K_BUILT_ROOM_LOSS[band])
                 << "face " << face << " band " << band;
         }
     }

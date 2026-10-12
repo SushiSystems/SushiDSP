@@ -32,12 +32,12 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/FmvToneStack.hpp"
-#include "measure/SpiceCsv.hpp"
+#include "SushiDSP/circuits/fmv_tone_stack.hpp"
+#include "measure/spice_csv.hpp"
 
 namespace
 {
-    constexpr double kPi = 3.14159265358979323846;
+    constexpr double K_PI = 3.14159265358979323846;
 
     /// @brief Measures a section's steady-state gain by projecting its output onto the drive.
     /// @param stack The section, left with its state at the end of the run.
@@ -49,12 +49,13 @@ namespace
         // A whole number of cycles keeps the single-bin projection free of leakage.
         const long long settle = static_cast<long long>(sample_rate);
         const double cycles = std::ceil(0.25 * frequency_hz);
-        const long long measure = static_cast<long long>(std::llround(cycles * sample_rate / frequency_hz));
+        const long long measure =
+            static_cast<long long>(std::llround(cycles * sample_rate / frequency_hz));
 
         double real_part = 0.0, imaginary_part = 0.0;
         for (long long i = 0; i < settle + measure; ++i)
         {
-            const double phase = 2.0 * kPi * frequency_hz * static_cast<double>(i) / sample_rate;
+            const double phase = 2.0 * K_PI * frequency_hz * static_cast<double>(i) / sample_rate;
             const float y = stack.process_sample(static_cast<float>(std::sin(phase)));
             if (i >= settle)
             {
@@ -63,8 +64,9 @@ namespace
             }
         }
 
-        const double magnitude = 2.0 * std::sqrt(real_part * real_part + imaginary_part * imaginary_part)
-                               / static_cast<double>(measure);
+        const double magnitude =
+            2.0 * std::sqrt(real_part * real_part + imaginary_part * imaginary_part) /
+            static_cast<double>(measure);
         return static_cast<float>(20.0 * std::log10(magnitude));
     }
 
@@ -72,24 +74,26 @@ namespace
     {
         return std::string(SUSHIDSP_SPICE_DIR) + "/" + block + "/" + block + "_" + kind + ".csv";
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, FmvToneStackMatchesSpiceMidSweepWithinFiveHundredthsOfADecibel)
 {
     const auto sweep = SushiDSP::measure::load_ac_csv(spice_path("jcm_fmv", "ac"));
-    const float mid_positions[3] = { 0.1f, 0.5f, 0.9f };
+    const float mid_positions[3] = {0.1f, 0.5f, 0.9f};
     const double sample_rate = 192000.0;
     for (int setting = 0; setting < 3; ++setting)
     {
-        SushiDSP::FmvToneStack stack(sample_rate, SushiDSP::kJcm2203ToneStack);
+        SushiDSP::FmvToneStack stack(sample_rate, SushiDSP::K_JCM2203_TONE_STACK);
         stack.set_bass(0.5f);
         stack.set_treble(0.5f);
         stack.set_middle(mid_positions[setting]);
         for (std::size_t row = 0; row < sweep.frequency_hz.size(); ++row)
         {
-            if (sweep.setting[row] != setting) continue;
+            if (sweep.setting[row] != setting)
+                continue;
             const double f = sweep.frequency_hz[row];
-            if (f < 20.0 || f > 20000.0) continue;
+            if (f < 20.0 || f > 20000.0)
+                continue;
             stack.reset();
             EXPECT_NEAR(steady_gain_db(stack, sample_rate, f), sweep.magnitude_db[row], 0.05)
                 << "setting " << setting << " at " << f << " Hz";
@@ -99,23 +103,25 @@ TEST(Unit_Dsp, FmvToneStackMatchesSpiceMidSweepWithinFiveHundredthsOfADecibel)
 
 TEST(Unit_Dsp, FmvToneStackMidScoopDeepensAsMiddleCloses)
 {
-    SushiDSP::FmvToneStack open(48000.0, SushiDSP::kJcm2203ToneStack);
-    SushiDSP::FmvToneStack closed(48000.0, SushiDSP::kJcm2203ToneStack);
+    SushiDSP::FmvToneStack open(48000.0, SushiDSP::K_JCM2203_TONE_STACK);
+    SushiDSP::FmvToneStack closed(48000.0, SushiDSP::K_JCM2203_TONE_STACK);
     open.set_middle(0.9f);
     closed.set_middle(0.1f);
-    EXPECT_LT(steady_gain_db(closed, 48000.0, 1000.0), steady_gain_db(open, 48000.0, 1000.0) - 6.0f);
+    EXPECT_LT(steady_gain_db(closed, 48000.0, 1000.0),
+              steady_gain_db(open, 48000.0, 1000.0) - 6.0f);
 }
 
 TEST(Unit_Dsp, FmvToneStackAtEveryKnobZeroIsFiniteAndQuiet)
 {
-    SushiDSP::FmvToneStack stack(48000.0, SushiDSP::kJcm2203ToneStack);
+    SushiDSP::FmvToneStack stack(48000.0, SushiDSP::K_JCM2203_TONE_STACK);
     stack.set_bass(0.0f);
     stack.set_middle(0.0f);
     stack.set_treble(0.0f);
     float peak = 0.0f;
     for (int i = 0; i < 48000; ++i)
     {
-        const float y = stack.process_sample(static_cast<float>(std::sin(2.0 * kPi * 500.0 * i / 48000.0)));
+        const float y =
+            stack.process_sample(static_cast<float>(std::sin(2.0 * K_PI * 500.0 * i / 48000.0)));
         ASSERT_TRUE(std::isfinite(y));
         peak = std::max(peak, std::fabs(y));
     }
@@ -124,19 +130,20 @@ TEST(Unit_Dsp, FmvToneStackAtEveryKnobZeroIsFiniteAndQuiet)
 
 TEST(Unit_Dsp, FmvToneStackIsStableAtEveryKnobExtreme)
 {
-    const float positions[2] = { 0.0f, 1.0f };
+    const float positions[2] = {0.0f, 1.0f};
     for (float b : positions)
     {
         for (float m : positions)
         {
             for (float t : positions)
             {
-                SushiDSP::FmvToneStack stack(48000.0, SushiDSP::kJcm2203ToneStack);
+                SushiDSP::FmvToneStack stack(48000.0, SushiDSP::K_JCM2203_TONE_STACK);
                 stack.set_bass(b);
                 stack.set_middle(m);
                 stack.set_treble(t);
                 float y = 0.0f;
-                for (int i = 0; i < 48000; ++i) y = stack.process_sample(i == 0 ? 1.0f : 0.0f);
+                for (int i = 0; i < 48000; ++i)
+                    y = stack.process_sample(i == 0 ? 1.0f : 0.0f);
                 EXPECT_LT(std::fabs(y), 1e-6f) << b << m << t;
             }
         }
@@ -153,8 +160,8 @@ namespace
     /// @param frequency_hz The frequency to evaluate at.
     /// @return The magnitude in decibels.
     /// @see tests/functional/unit/README.md
-    double closed_form_gain_db(const SushiDSP::FmvComponents& components,
-                               double treble, double bass, double middle, double frequency_hz)
+    double closed_form_gain_db(const SushiDSP::FmvComponents& components, double treble,
+                               double bass, double middle, double frequency_hz)
     {
         const double c1 = components.treble_capacitor_farads;
         const double c2 = components.bass_capacitor_farads;
@@ -166,40 +173,45 @@ namespace
         const double t = treble, l = bass, m = middle;
 
         const double b1 = t * c1 * r1 + l * (c1 * r2 + c2 * r2) + m * (c1 * r3 + c2 * r3 + c3 * r3);
-        const double b2 = t * (c1 * c2 * r1 * r4 + c1 * c3 * r1 * r4)
-                        + l * (c1 * c2 * r1 * r2 + c1 * c2 * r2 * r4 + c1 * c3 * r2 * r4
-                               + m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3))
-                        + m * (c1 * c2 * r1 * r3 + c1 * c2 * r3 * r4 + c1 * c3 * r1 * r3 + c1 * c3 * r3 * r4);
+        const double b2 =
+            t * (c1 * c2 * r1 * r4 + c1 * c3 * r1 * r4) +
+            l * (c1 * c2 * r1 * r2 + c1 * c2 * r2 * r4 + c1 * c3 * r2 * r4 +
+                 m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3)) +
+            m * (c1 * c2 * r1 * r3 + c1 * c2 * r3 * r4 + c1 * c3 * r1 * r3 + c1 * c3 * r3 * r4);
         const double b3 = l * c1 * c2 * c3 * r2 * (t * r1 * r4 + m * (r1 * r3 + r3 * r4));
-        const double a1 = c1 * r1 + c2 * r4 + c3 * r4 + l * (c1 * r2 + c2 * r2)
-                        + m * (c1 * r3 + c2 * r3 + c3 * r3);
-        const double a2 = c1 * c2 * r1 * r4 + c1 * c3 * r1 * r4
-                        + l * (c1 * c2 * r1 * r2 + c1 * c2 * r2 * r4 + c1 * c3 * r2 * r4 + c2 * c3 * r2 * r4
-                               + m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3))
-                        + m * (c1 * c2 * r1 * r3 + c1 * c2 * r3 * r4 + c1 * c3 * r1 * r3 + c1 * c3 * r3 * r4);
+        const double a1 = c1 * r1 + c2 * r4 + c3 * r4 + l * (c1 * r2 + c2 * r2) +
+                          m * (c1 * r3 + c2 * r3 + c3 * r3);
+        const double a2 =
+            c1 * c2 * r1 * r4 + c1 * c3 * r1 * r4 +
+            l * (c1 * c2 * r1 * r2 + c1 * c2 * r2 * r4 + c1 * c3 * r2 * r4 + c2 * c3 * r2 * r4 +
+                 m * (c1 * c3 * r2 * r3 + c2 * c3 * r2 * r3)) +
+            m * (c1 * c2 * r1 * r3 + c1 * c2 * r3 * r4 + c1 * c3 * r1 * r3 + c1 * c3 * r3 * r4);
         const double a3 = l * c1 * c2 * c3 * r2 * (r1 * r4 + m * (r1 * r3 + r3 * r4));
 
-        const double w = 2.0 * kPi * frequency_hz;
+        const double w = 2.0 * K_PI * frequency_hz;
         // H(jw) with s = jw: the numerator has no constant term and the denominator's is 1.
         const double num_real = -b2 * w * w;
         const double num_imaginary = b1 * w - b3 * w * w * w;
         const double den_real = 1.0 - a2 * w * w;
         const double den_imaginary = a1 * w - a3 * w * w * w;
         const double den_squared = den_real * den_real + den_imaginary * den_imaginary;
-        const double real_part = (num_real * den_real + num_imaginary * den_imaginary) / den_squared;
-        const double imaginary_part = (num_imaginary * den_real - num_real * den_imaginary) / den_squared;
-        return 20.0 * std::log10(std::sqrt(real_part * real_part + imaginary_part * imaginary_part));
+        const double real_part =
+            (num_real * den_real + num_imaginary * den_imaginary) / den_squared;
+        const double imaginary_part =
+            (num_imaginary * den_real - num_real * den_imaginary) / den_squared;
+        return 20.0 *
+               std::log10(std::sqrt(real_part * real_part + imaginary_part * imaginary_part));
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, FmvToneStackNetlistReproducesTheClosedFormItReplaced)
 {
     // 192 kHz keeps bilinear warping inside the tolerance. See tests/functional/unit/README.md.
     const double sample_rate = 192000.0;
-    const double treble_positions[3] = { 0.1, 0.5, 0.9 };
-    const double bass_positions[2] = { 0.2, 0.8 };
-    const double middle_positions[2] = { 0.1, 0.6 };
-    const double frequencies[4] = { 82.0, 440.0, 2000.0, 6000.0 };
+    const double treble_positions[3] = {0.1, 0.5, 0.9};
+    const double bass_positions[2] = {0.2, 0.8};
+    const double middle_positions[2] = {0.1, 0.6};
+    const double frequencies[4] = {82.0, 440.0, 2000.0, 6000.0};
 
     for (double t : treble_positions)
     {
@@ -207,17 +219,18 @@ TEST(Unit_Dsp, FmvToneStackNetlistReproducesTheClosedFormItReplaced)
         {
             for (double m : middle_positions)
             {
-                SushiDSP::FmvToneStack stack(sample_rate, SushiDSP::kJcm2203ToneStack);
+                SushiDSP::FmvToneStack stack(sample_rate, SushiDSP::K_JCM2203_TONE_STACK);
                 stack.set_treble(static_cast<float>(t));
                 stack.set_bass(static_cast<float>(l));
                 stack.set_middle(static_cast<float>(m));
                 for (double f : frequencies)
                 {
                     stack.reset();
-                    const double reference
-                        = closed_form_gain_db(SushiDSP::kJcm2203ToneStack, t, l, m, f);
+                    const double reference =
+                        closed_form_gain_db(SushiDSP::K_JCM2203_TONE_STACK, t, l, m, f);
                     EXPECT_NEAR(steady_gain_db(stack, sample_rate, f), reference, 0.02)
-                        << "treble " << t << " bass " << l << " middle " << m << " at " << f << " Hz";
+                        << "treble " << t << " bass " << l << " middle " << m << " at " << f
+                        << " Hz";
                 }
             }
         }
@@ -228,35 +241,34 @@ TEST(Unit_Dsp, FmvToneStackLoadingCostIsTheDecksOwnAndNotOneFigure)
 {
     // The same termination costs each deck a different tilt. See tests/functional/unit/README.md.
     const double sample_rate = 192000.0;
-    const SushiDSP::FmvSourceLoad termination{ 44.0e3f, 1.0e6f };
+    const SushiDSP::FmvSourceLoad termination{44.0e3f, 1.0e6f};
 
     // Dossier section 4.1: the Mark IIC+'s deck.
-    const SushiDSP::FmvComponents mesa_components{
-        250e-12f, 100e-9f, 47e-9f, 100e3f, 250e3f, 10e3f, 250e3f
-    };
+    const SushiDSP::FmvComponents mesa_components{250e-12f, 100e-9f, 47e-9f, 100e3f,
+                                                  250e3f,   10e3f,   250e3f};
 
     struct Case
     {
-        const char*                    name;
-        const SushiDSP::FmvComponents& components;
-        double                         expected_tilt_db;
+            const char* name;
+            const SushiDSP::FmvComponents& components;
+            double expected_tilt_db;
     };
-    const Case cases[2] = { { "JCM 2203", SushiDSP::kJcm2203ToneStack, 3.89 },
-                            { "Mark IIC+", mesa_components, 0.87 } };
+    const Case cases[2] = {{"JCM 2203", SushiDSP::K_JCM2203_TONE_STACK, 3.89},
+                           {"Mark IIC+", mesa_components, 0.87}};
 
     for (const Case& deck : cases)
     {
         SushiDSP::FmvToneStack unloaded(sample_rate, deck.components);
         SushiDSP::FmvToneStack loaded(sample_rate, deck.components, termination);
 
-        const double frequencies[3] = { 41.0, 1000.0, 10000.0 };
+        const double frequencies[3] = {41.0, 1000.0, 10000.0};
         double deviation_db[3]{};
         for (int index = 0; index < 3; ++index)
         {
             unloaded.reset();
             loaded.reset();
-            deviation_db[index] = steady_gain_db(loaded, sample_rate, frequencies[index])
-                                - steady_gain_db(unloaded, sample_rate, frequencies[index]);
+            deviation_db[index] = steady_gain_db(loaded, sample_rate, frequencies[index]) -
+                                  steady_gain_db(unloaded, sample_rate, frequencies[index]);
             EXPECT_LT(deviation_db[index], 0.0)
                 << deck.name << " must be attenuated at " << frequencies[index] << " Hz";
         }

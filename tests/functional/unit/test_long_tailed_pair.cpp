@@ -29,24 +29,24 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/LongTailedPair.hpp"
+#include "SushiDSP/circuits/stages/long_tailed_pair.hpp"
 
 namespace
 {
-    /// @brief The Mark IIC+'s inverter, as MesaMark2c.cpp builds it.
+    /// @brief The Mark IIC+'s inverter, as mesa_mark2c.cpp builds it.
     /// @return A pair on S8's 82.5 k and 90.9 k plates over the feedback leg's 27.27 k tail.
     SushiDSP::LongTailedPair mark2c_inverter()
     {
         return SushiDSP::LongTailedPair(
-            SushiDSP::LongTailedPairTube{ 96.378299f, 34061.086f, -1.5f,
-                                          SushiDSP::kTriode12AX7GridConduction },
-            SushiDSP::LongTailedPairHalf{ 82500.0f, 25000.0f, 100000.0f,
-                                          SushiDSP::PlateSwing{ 106.646f, 144.645f } },
-            SushiDSP::LongTailedPairHalf{ 90900.0f, 2869.2f, 150000.0f,
-                                          SushiDSP::PlateSwing{ 117.503f, 159.365f } },
+            SushiDSP::LongTailedPairTube{96.378299f, 34061.086f, -1.5f,
+                                         SushiDSP::K_TRIODE12_AX7_GRID_CONDUCTION},
+            SushiDSP::LongTailedPairHalf{82500.0f, 25000.0f, 100000.0f,
+                                         SushiDSP::PlateSwing{106.646f, 144.645f}},
+            SushiDSP::LongTailedPairHalf{90900.0f, 2869.2f, 150000.0f,
+                                         SushiDSP::PlateSwing{117.503f, 159.365f}},
             26800.0f, 470.0f);
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, LongTailedPairSplitsASingleEndedInputNearlyInHalf)
 {

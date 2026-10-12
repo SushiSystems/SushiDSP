@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include "ui/LevelText.hpp"
+#include "ui/level_text.hpp"
 
 #include <cmath>
 #include <limits>

@@ -36,7 +36,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/dd3/Dd3AnalogFilters.hpp"
+#include "SushiDSP/dd3/dd3_analog_filters.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -86,10 +86,10 @@ namespace
     double anti_alias_prototype(double frequency_hz)
     {
         double magnitude = 1.0;
-        for (std::size_t i = 0; i < SushiDSP::dd3::Dd3AntiAliasFilter::kSectionCount; ++i)
+        for (std::size_t i = 0; i < SushiDSP::dd3::Dd3AntiAliasFilter::K_SECTION_COUNT; ++i)
         {
-            magnitude *= section_magnitude(SushiDSP::dd3::kAntiAliasSectionFrequencies[i],
-                                           SushiDSP::dd3::kAntiAliasSectionQ[i], frequency_hz);
+            magnitude *= section_magnitude(SushiDSP::dd3::K_ANTI_ALIAS_SECTION_FREQUENCIES[i],
+                                           SushiDSP::dd3::K_ANTI_ALIAS_SECTION_Q[i], frequency_hz);
         }
         return magnitude;
     }
@@ -100,10 +100,11 @@ namespace
     double reconstruction_prototype(double frequency_hz)
     {
         double magnitude = 1.0;
-        for (std::size_t i = 0; i < SushiDSP::dd3::Dd3ReconstructionFilter::kSectionCount; ++i)
+        for (std::size_t i = 0; i < SushiDSP::dd3::Dd3ReconstructionFilter::K_SECTION_COUNT; ++i)
         {
-            magnitude *= section_magnitude(SushiDSP::dd3::kReconstructionSectionFrequencies[i],
-                                           SushiDSP::dd3::kReconstructionSectionQ[i], frequency_hz);
+            magnitude *=
+                section_magnitude(SushiDSP::dd3::K_RECONSTRUCTION_SECTION_FREQUENCIES[i],
+                                  SushiDSP::dd3::K_RECONSTRUCTION_SECTION_Q[i], frequency_hz);
         }
         return magnitude;
     }
@@ -113,90 +114,91 @@ namespace
     /// @return |H| of the zero/pole pair scaled by R12/R7.
     double pre_emphasis_prototype(double frequency_hz)
     {
-        const double zero_ratio = frequency_hz / SushiDSP::dd3::kEmphasisZeroHz;
-        const double pole_ratio = frequency_hz / SushiDSP::dd3::kEmphasisPoleHz;
-        return SushiDSP::dd3::kPreEmphasisLowGain
-               * std::sqrt((1.0 + zero_ratio * zero_ratio) / (1.0 + pole_ratio * pole_ratio));
+        const double zero_ratio = frequency_hz / SushiDSP::dd3::K_EMPHASIS_ZERO_HZ;
+        const double pole_ratio = frequency_hz / SushiDSP::dd3::K_EMPHASIS_POLE_HZ;
+        return SushiDSP::dd3::K_PRE_EMPHASIS_LOW_GAIN *
+               std::sqrt((1.0 + zero_ratio * zero_ratio) / (1.0 + pole_ratio * pole_ratio));
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, Dd3SectionConstantsMatchTheComponentValues)
 {
     // f0 = 1/(2*pi*R*sqrt(C1*C2)) and Q = 0.5*sqrt(C1/C2). See tests/functional/unit/README.md.
     struct Section
     {
-        double c1;
-        double c2;
+            double c1;
+            double c2;
     };
     const Section sections[5] = {
-        { 4.7e-9, 2.7e-9 }, { 6.8e-9, 4.7e-10 }, { 1.8e-8, 2.2e-10 },
-        { 2.7e-9, 1.2e-9 }, { 6.8e-9, 1.5e-10 },
+        {4.7e-9, 2.7e-9}, {6.8e-9, 4.7e-10}, {1.8e-8, 2.2e-10}, {2.7e-9, 1.2e-9}, {6.8e-9, 1.5e-10},
     };
-    double frequencies[5] = { 0.0 };
-    double quality_factors[5] = { 0.0 };
+    double frequencies[5] = {0.0};
+    double quality_factors[5] = {0.0};
     for (std::size_t i = 0; i < 5; ++i)
     {
-        frequencies[i] = 1.0
-                         / (2.0 * M_PI * SushiDSP::dd3::kSallenKeyResistanceOhms
-                            * std::sqrt(sections[i].c1 * sections[i].c2));
+        frequencies[i] = 1.0 / (2.0 * M_PI * SushiDSP::dd3::K_SALLEN_KEY_RESISTANCE_OHMS *
+                                std::sqrt(sections[i].c1 * sections[i].c2));
         quality_factors[i] = 0.5 * std::sqrt(sections[i].c1 / sections[i].c2);
     }
     for (std::size_t i = 0; i < 3; ++i)
     {
-        EXPECT_NEAR(SushiDSP::dd3::kAntiAliasSectionFrequencies[i], frequencies[i], 1e-6) << i;
-        EXPECT_NEAR(SushiDSP::dd3::kAntiAliasSectionQ[i], quality_factors[i], 1e-12) << i;
+        EXPECT_NEAR(SushiDSP::dd3::K_ANTI_ALIAS_SECTION_FREQUENCIES[i], frequencies[i], 1e-6) << i;
+        EXPECT_NEAR(SushiDSP::dd3::K_ANTI_ALIAS_SECTION_Q[i], quality_factors[i], 1e-12) << i;
     }
     for (std::size_t i = 0; i < 2; ++i)
     {
-        EXPECT_NEAR(SushiDSP::dd3::kReconstructionSectionFrequencies[i], frequencies[3 + i], 1e-6)
+        EXPECT_NEAR(SushiDSP::dd3::K_RECONSTRUCTION_SECTION_FREQUENCIES[i], frequencies[3 + i],
+                    1e-6)
             << i;
-        EXPECT_NEAR(SushiDSP::dd3::kReconstructionSectionQ[i], quality_factors[3 + i], 1e-12) << i;
+        EXPECT_NEAR(SushiDSP::dd3::K_RECONSTRUCTION_SECTION_Q[i], quality_factors[3 + i], 1e-12)
+            << i;
     }
-    EXPECT_NEAR(SushiDSP::dd3::kEmphasisZeroHz, 1.0 / (2.0 * M_PI * 57000.0 * 4.7e-9), 1e-9);
-    EXPECT_NEAR(SushiDSP::dd3::kEmphasisPoleHz, 1.0 / (2.0 * M_PI * 10000.0 * 4.7e-9), 1e-9);
-    EXPECT_NEAR(SushiDSP::dd3::kPreEmphasisLowGain * SushiDSP::dd3::kDeEmphasisLowGain, 1.0, 1e-15);
+    EXPECT_NEAR(SushiDSP::dd3::K_EMPHASIS_ZERO_HZ, 1.0 / (2.0 * M_PI * 57000.0 * 4.7e-9), 1e-9);
+    EXPECT_NEAR(SushiDSP::dd3::K_EMPHASIS_POLE_HZ, 1.0 / (2.0 * M_PI * 10000.0 * 4.7e-9), 1e-9);
+    EXPECT_NEAR(SushiDSP::dd3::K_PRE_EMPHASIS_LOW_GAIN * SushiDSP::dd3::K_DE_EMPHASIS_LOW_GAIN, 1.0,
+                1e-15);
 }
 
 TEST(Unit_Dsp, Dd3EmitterFollowerDampingLowersEveryQ)
 {
     // Q = 1/(1/q + 2*(1-K)*q) for a buffer of gain K. See tests/functional/unit/README.md.
-    const double damped_anti_alias[3] = { 0.6347216596, 1.4333063892, 1.5876726071 };
-    const double damped_reconstruction[2] = { 0.7137168140, 1.6630691464 };
+    const double damped_anti_alias[3] = {0.6347216596, 1.4333063892, 1.5876726071};
+    const double damped_reconstruction[2] = {0.7137168140, 1.6630691464};
     for (std::size_t i = 0; i < 3; ++i)
     {
-        const double q = SushiDSP::dd3::emitter_follower_damped_q(
-            SushiDSP::dd3::kAntiAliasSectionQ[i]);
+        const double q =
+            SushiDSP::dd3::emitter_follower_damped_q(SushiDSP::dd3::K_ANTI_ALIAS_SECTION_Q[i]);
         EXPECT_NEAR(q, damped_anti_alias[i], 1e-9) << i;
-        EXPECT_LT(q, SushiDSP::dd3::kAntiAliasSectionQ[i]) << i;
+        EXPECT_LT(q, SushiDSP::dd3::K_ANTI_ALIAS_SECTION_Q[i]) << i;
     }
     for (std::size_t i = 0; i < 2; ++i)
     {
-        const double q = SushiDSP::dd3::emitter_follower_damped_q(
-            SushiDSP::dd3::kReconstructionSectionQ[i]);
+        const double q =
+            SushiDSP::dd3::emitter_follower_damped_q(SushiDSP::dd3::K_RECONSTRUCTION_SECTION_Q[i]);
         EXPECT_NEAR(q, damped_reconstruction[i], 1e-9) << i;
-        EXPECT_LT(q, SushiDSP::dd3::kReconstructionSectionQ[i]) << i;
+        EXPECT_LT(q, SushiDSP::dd3::K_RECONSTRUCTION_SECTION_Q[i]) << i;
     }
     EXPECT_DOUBLE_EQ(SushiDSP::dd3::emitter_follower_damped_q(1.0),
-                     1.0 / (1.0 + 2.0 * (1.0 - SushiDSP::dd3::kEmitterFollowerGain)));
+                     1.0 / (1.0 + 2.0 * (1.0 - SushiDSP::dd3::K_EMITTER_FOLLOWER_GAIN)));
 }
 
 TEST(Unit_Dsp, Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAlike)
 {
     // One prewarp reference serves the whole cascade. See tests/functional/unit/README.md.
-    for (const double sample_rate : { 48000.0, 96000.0, 192000.0 })
+    for (const double sample_rate : {48000.0, 96000.0, 192000.0})
     {
         EXPECT_NEAR(
-            SushiDSP::dd3::prewarped_corner_hz(SushiDSP::dd3::kPassbandEdgeHz, sample_rate),
-            SushiDSP::dd3::kPassbandEdgeHz, 1e-9)
+            SushiDSP::dd3::prewarped_corner_hz(SushiDSP::dd3::K_PASSBAND_EDGE_HZ, sample_rate),
+            SushiDSP::dd3::K_PASSBAND_EDGE_HZ, 1e-9)
             << sample_rate;
         const double edge_tangent =
-            std::tan(M_PI * SushiDSP::dd3::kPassbandEdgeHz / sample_rate);
-        for (const double corner : SushiDSP::dd3::kAntiAliasSectionFrequencies)
+            std::tan(M_PI * SushiDSP::dd3::K_PASSBAND_EDGE_HZ / sample_rate);
+        for (const double corner : SushiDSP::dd3::K_ANTI_ALIAS_SECTION_FREQUENCIES)
         {
             const double digital = SushiDSP::dd3::prewarped_corner_hz(corner, sample_rate);
             EXPECT_LT(digital, 0.5 * sample_rate) << corner;
             EXPECT_NEAR(std::tan(M_PI * digital / sample_rate) / edge_tangent,
-                        corner / SushiDSP::dd3::kPassbandEdgeHz, 1e-12)
+                        corner / SushiDSP::dd3::K_PASSBAND_EDGE_HZ, 1e-12)
                 << corner;
         }
     }
@@ -205,15 +207,19 @@ TEST(Unit_Dsp, Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAlike)
 TEST(Unit_Dsp, Dd3AntiAliasCascadeMatchesItsDampedPrototype)
 {
     // The prewarp holds the passband within 0.4 %. See tests/functional/unit/README.md.
-    for (const double sample_rate : { 48000.0, 96000.0, 192000.0 })
+    for (const double sample_rate : {48000.0, 96000.0, 192000.0})
     {
         SushiDSP::dd3::Dd3AntiAliasFilter filter;
         filter.prepare(sample_rate);
-        for (const double frequency : { 1000.0, 2000.0, 5000.0, 7000.0 })
+        for (const double frequency : {1000.0, 2000.0, 5000.0, 7000.0})
         {
             filter.reset();
             const double measured = chain_magnitude(
-                [&](float x) { return filter.process_sample(x); }, frequency, sample_rate);
+                [&](float x)
+                {
+                    return filter.process_sample(x);
+                },
+                frequency, sample_rate);
             EXPECT_NEAR(measured, anti_alias_prototype(frequency),
                         0.015 * anti_alias_prototype(frequency))
                 << sample_rate << " Hz rate, " << frequency << " Hz";
@@ -226,15 +232,19 @@ TEST(Unit_Dsp, Dd3AntiAliasCascadeMatchesItsDampedPrototype)
 
 TEST(Unit_Dsp, Dd3ReconstructionCascadeMatchesItsDampedPrototype)
 {
-    for (const double sample_rate : { 48000.0, 96000.0, 192000.0 })
+    for (const double sample_rate : {48000.0, 96000.0, 192000.0})
     {
         SushiDSP::dd3::Dd3ReconstructionFilter filter;
         filter.prepare(sample_rate);
-        for (const double frequency : { 1000.0, 2000.0, 5000.0, 7000.0 })
+        for (const double frequency : {1000.0, 2000.0, 5000.0, 7000.0})
         {
             filter.reset();
             const double measured = chain_magnitude(
-                [&](float x) { return filter.process_sample(x); }, frequency, sample_rate);
+                [&](float x)
+                {
+                    return filter.process_sample(x);
+                },
+                frequency, sample_rate);
             EXPECT_NEAR(measured, reconstruction_prototype(frequency),
                         0.015 * reconstruction_prototype(frequency))
                 << sample_rate << " Hz rate, " << frequency << " Hz";
@@ -248,16 +258,21 @@ TEST(Unit_Dsp, Dd3ReconstructionCascadeMatchesItsDampedPrototype)
 TEST(Unit_Dsp, Dd3DelayPathMeetsThePublishedResponseWindow)
 {
     // The window is +1/-3 dB of 1 kHz from 40 Hz to 7 kHz. See tests/functional/unit/README.md.
-    for (const double sample_rate : { 48000.0, 96000.0 })
+    for (const double sample_rate : {48000.0, 96000.0})
     {
         SushiDSP::dd3::Dd3AntiAliasFilter anti_alias;
         SushiDSP::dd3::Dd3ReconstructionFilter reconstruction;
         anti_alias.prepare(sample_rate);
         reconstruction.prepare(sample_rate);
 
-        const auto alone = [&](float x) { return anti_alias.process_sample(x); };
+        const auto alone = [&](float x)
+        {
+            return anti_alias.process_sample(x);
+        };
         const auto both = [&](float x)
-        { return reconstruction.process_sample(anti_alias.process_sample(x)); };
+        {
+            return reconstruction.process_sample(anti_alias.process_sample(x));
+        };
 
         anti_alias.reset();
         const double alone_reference = chain_magnitude(alone, 1000.0, sample_rate);
@@ -269,14 +284,12 @@ TEST(Unit_Dsp, Dd3DelayPathMeetsThePublishedResponseWindow)
         while (frequency < 7000.0)
         {
             anti_alias.reset();
-            const double alone_db = 20.0
-                                    * std::log10(chain_magnitude(alone, frequency, sample_rate)
-                                                 / alone_reference);
+            const double alone_db =
+                20.0 * std::log10(chain_magnitude(alone, frequency, sample_rate) / alone_reference);
             anti_alias.reset();
             reconstruction.reset();
-            const double both_db = 20.0
-                                   * std::log10(chain_magnitude(both, frequency, sample_rate)
-                                                / both_reference);
+            const double both_db =
+                20.0 * std::log10(chain_magnitude(both, frequency, sample_rate) / both_reference);
             EXPECT_LE(alone_db, 1.0) << sample_rate << " Hz rate, " << frequency << " Hz";
             EXPECT_GE(alone_db, -3.0) << sample_rate << " Hz rate, " << frequency << " Hz";
             EXPECT_LE(both_db, 1.0) << sample_rate << " Hz rate, " << frequency << " Hz";
@@ -285,14 +298,12 @@ TEST(Unit_Dsp, Dd3DelayPathMeetsThePublishedResponseWindow)
         }
 
         anti_alias.reset();
-        const double alone_edge = 20.0
-                                  * std::log10(chain_magnitude(alone, 7000.0, sample_rate)
-                                               / alone_reference);
+        const double alone_edge =
+            20.0 * std::log10(chain_magnitude(alone, 7000.0, sample_rate) / alone_reference);
         anti_alias.reset();
         reconstruction.reset();
-        const double both_edge = 20.0
-                                 * std::log10(chain_magnitude(both, 7000.0, sample_rate)
-                                              / both_reference);
+        const double both_edge =
+            20.0 * std::log10(chain_magnitude(both, 7000.0, sample_rate) / both_reference);
         std::printf("[ measure ] DD-3 at %.0f Hz rate, 7 kHz: anti-alias %.3f dB, "
                     "delay path %.3f dB\n",
                     sample_rate, alone_edge, both_edge);
@@ -310,8 +321,12 @@ TEST(Unit_Dsp, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
     const auto run = [&](double frequency, double sample_rate)
     {
         filter.reset();
-        return chain_magnitude([&](float x) { return filter.process_sample(x); }, frequency,
-                               sample_rate);
+        return chain_magnitude(
+            [&](float x)
+            {
+                return filter.process_sample(x);
+            },
+            frequency, sample_rate);
     };
 
     // The thresholds sit just above the measured readings. See tests/functional/unit/README.md.
@@ -327,7 +342,7 @@ TEST(Unit_Dsp, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
 TEST(Unit_Dsp, Dd3EmphasisPairIsTheIdentity)
 {
     // The pair is unity by construction: 33/47 * 47/33 = 1. See tests/functional/unit/README.md.
-    for (const double sample_rate : { 48000.0, 96000.0 })
+    for (const double sample_rate : {48000.0, 96000.0})
     {
         SushiDSP::dd3::Dd3PreEmphasis pre;
         SushiDSP::dd3::Dd3DeEmphasis de;
@@ -359,14 +374,19 @@ TEST(Unit_Dsp, Dd3PreEmphasisHitsItsThreeDerivedGains)
     const auto run = [&](double frequency)
     {
         pre.reset();
-        return chain_magnitude([&](float x) { return pre.process_sample(x); }, frequency, 96000.0);
+        return chain_magnitude(
+            [&](float x)
+            {
+                return pre.process_sample(x);
+            },
+            frequency, 96000.0);
     };
     EXPECT_NEAR(run(20.0), 0.7025132, 2e-3);
     EXPECT_NEAR(run(1000.0), 1.3184111, 3e-3);
     EXPECT_NEAR(run(6000.0), 3.5023974, 3e-2);
     EXPECT_NEAR(pre_emphasis_prototype(20.0), 0.7025132, 1e-6);
     EXPECT_NEAR(pre_emphasis_prototype(1000.0), 1.3184111, 1e-6);
-    EXPECT_NEAR(SushiDSP::dd3::kPreEmphasisLowGain * 5.7, 4.0021277, 1e-6);
+    EXPECT_NEAR(SushiDSP::dd3::K_PRE_EMPHASIS_LOW_GAIN * 5.7, 4.0021277, 1e-6);
 }
 
 TEST(Unit_Dsp, Dd3DeEmphasisIsTheReciprocalOfThePreEmphasis)
@@ -374,11 +394,15 @@ TEST(Unit_Dsp, Dd3DeEmphasisIsTheReciprocalOfThePreEmphasis)
     // The tolerance is the bilinear warp, not the estimator. See tests/functional/unit/README.md.
     SushiDSP::dd3::Dd3DeEmphasis de;
     de.prepare(96000.0);
-    for (const double frequency : { 20.0, 1000.0, 5000.0 })
+    for (const double frequency : {20.0, 1000.0, 5000.0})
     {
         de.reset();
         const double measured = chain_magnitude(
-            [&](float x) { return de.process_sample(x); }, frequency, 96000.0);
+            [&](float x)
+            {
+                return de.process_sample(x);
+            },
+            frequency, 96000.0);
         EXPECT_NEAR(measured, 1.0 / pre_emphasis_prototype(frequency), 4e-3) << frequency;
     }
 }

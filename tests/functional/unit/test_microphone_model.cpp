@@ -31,31 +31,31 @@
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/MicrophoneModel.hpp"
+#include "SushiDSP/room/microphone_model.hpp"
 
 namespace
 {
     /// @brief Holds pi.
-    constexpr double kPi = 3.14159265358979323846;
+    constexpr double K_PI = 3.14159265358979323846;
 
     /// @brief Returns a cardioid's on-axis gain in decibels at one frequency and distance,
     /// 0.5 + 0.5 * B(f, r), the far-field value being 1.
     double cardioid_on_axis_db(double frequency_hz, double distance_m)
     {
-        return 20.0 * std::log10(
-            0.5 + 0.5 * SushiDSP::room::MicrophoneModel::proximity_boost(frequency_hz, distance_m));
+        return 20.0 * std::log10(0.5 + 0.5 * SushiDSP::room::MicrophoneModel::proximity_boost(
+                                                 frequency_hz, distance_m));
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointFiveDecibels)
 {
     // At 100 Hz the two distances differ by 15.47 dB. See tests/functional/unit/README.md.
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.05) - cardioid_on_axis_db(100.0, 3.0), 15.47, 0.05);
     // At 125 Hz the two distances differ by 13.75 dB. See tests/functional/unit/README.md.
-    const SushiDSP::room::MicrophoneModel cardioid(
-        SushiDSP::room::PolarPattern::Cardioid, { 0, 0, 0, 0, 0, 0 });
+    const SushiDSP::room::MicrophoneModel cardioid(SushiDSP::room::PolarPattern::Cardioid,
+                                                   {0, 0, 0, 0, 0, 0});
     const float near_db = cardioid.gain_for(0.0, 0.05).decibels()[0];
-    const float far_db  = cardioid.gain_for(0.0, 3.00).decibels()[0];
+    const float far_db = cardioid.gain_for(0.0, 3.00).decibels()[0];
     EXPECT_NEAR(near_db, 13.80f, 0.05f);
     EXPECT_NEAR(near_db - far_db, 13.75f, 0.05f);
 }
@@ -76,20 +76,20 @@ TEST(Unit_Dsp, MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointSevenDec
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.30), 3.74, 0.02);
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.30) - cardioid_on_axis_db(100.0, 3.0), 3.67, 0.02);
     // At 125 Hz and 30 cm the capsule gains 2.82 dB. See tests/functional/unit/README.md.
-    const SushiDSP::room::MicrophoneModel cardioid(
-        SushiDSP::room::PolarPattern::Cardioid, { 0, 0, 0, 0, 0, 0 });
+    const SushiDSP::room::MicrophoneModel cardioid(SushiDSP::room::PolarPattern::Cardioid,
+                                                   {0, 0, 0, 0, 0, 0});
     const float thirty_db = cardioid.gain_for(0.0, 0.30).decibels()[0];
-    const float far_db    = cardioid.gain_for(0.0, 3.00).decibels()[0];
+    const float far_db = cardioid.gain_for(0.0, 3.00).decibels()[0];
     EXPECT_NEAR(thirty_db, 2.82f, 0.02f);
     EXPECT_NEAR(thirty_db - far_db, 2.77f, 0.02f);
 }
 
 TEST(Unit_Dsp, MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecibels)
 {
-    // The pattern term floors at kDecibelFloor, never a NaN. See tests/functional/unit/README.md.
-    const SushiDSP::room::MicrophoneModel eight(
-        SushiDSP::room::PolarPattern::FigureEight, { 0, 0, 0, 0, 0, 0 });
-    const SushiDSP::room::BandResponse side = eight.gain_for(kPi / 2.0, 1.0);
+    // The pattern term floors at K_DECIBEL_FLOOR, never a NaN. See tests/functional/unit/README.md.
+    const SushiDSP::room::MicrophoneModel eight(SushiDSP::room::PolarPattern::FigureEight,
+                                                {0, 0, 0, 0, 0, 0});
+    const SushiDSP::room::BandResponse side = eight.gain_for(K_PI / 2.0, 1.0);
     const SushiDSP::room::BandResponse front = eight.gain_for(0.0, 1.0);
     const std::array<float, 6> side_db = side.decibels();
     const std::array<float, 6> front_db = front.decibels();
@@ -97,19 +97,19 @@ TEST(Unit_Dsp, MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecibels)
     {
         EXPECT_FALSE(std::isnan(side.gain[band]));
         EXPECT_LT(side.gain[band], 1e-10f);
-        EXPECT_FLOAT_EQ(side_db[band], SushiDSP::room::kDecibelFloor);
+        EXPECT_FLOAT_EQ(side_db[band], SushiDSP::room::K_DECIBEL_FLOOR);
         EXPECT_GE(front_db[band] - side_db[band], 40.0f);
     }
 }
 
 TEST(Unit_Dsp, MicrophoneModelOmniIgnoresIncidenceAndDistanceColour)
 {
-    const SushiDSP::room::MicrophoneModel omni(
-        SushiDSP::room::PolarPattern::Omni, { 0, 0, 0, 0, 0, 0 });
+    const SushiDSP::room::MicrophoneModel omni(SushiDSP::room::PolarPattern::Omni,
+                                               {0, 0, 0, 0, 0, 0});
     const SushiDSP::room::BandResponse reference = omni.gain_for(0.0, 0.05);
-    for (const double incidence : { 0.0, kPi / 3.0, kPi })
+    for (const double incidence : {0.0, K_PI / 3.0, K_PI})
     {
-        for (const double distance : { 0.05, 3.0 })
+        for (const double distance : {0.05, 3.0})
         {
             const SushiDSP::room::BandResponse gain = omni.gain_for(incidence, distance);
             for (std::size_t band = 0; band < 6u; ++band)
@@ -124,12 +124,12 @@ TEST(Unit_Dsp, MicrophoneModelOmniIgnoresIncidenceAndDistanceColour)
 
 TEST(Unit_Dsp, MicrophoneModelAppliesTheOnAxisCurve)
 {
-    const SushiDSP::room::MicrophoneModel flat(
-        SushiDSP::room::PolarPattern::Cardioid, { 0, 0, 0, 0, 0, 0 });
-    const SushiDSP::room::MicrophoneModel coloured(
-        SushiDSP::room::PolarPattern::Cardioid, { 0, 0, 0, 0, 3, 6 });
-    const std::array<float, 6> expected_difference = { 0.0f, 0.0f, 0.0f, 0.0f, 3.0f, 6.0f };
-    for (const double distance : { 0.05, 0.30, 3.0 })
+    const SushiDSP::room::MicrophoneModel flat(SushiDSP::room::PolarPattern::Cardioid,
+                                               {0, 0, 0, 0, 0, 0});
+    const SushiDSP::room::MicrophoneModel coloured(SushiDSP::room::PolarPattern::Cardioid,
+                                                   {0, 0, 0, 0, 3, 6});
+    const std::array<float, 6> expected_difference = {0.0f, 0.0f, 0.0f, 0.0f, 3.0f, 6.0f};
+    for (const double distance : {0.05, 0.30, 3.0})
     {
         const std::array<float, 6> flat_db = flat.gain_for(0.3, distance).decibels();
         const std::array<float, 6> coloured_db = coloured.gain_for(0.3, distance).decibels();
@@ -143,20 +143,19 @@ TEST(Unit_Dsp, MicrophoneModelAppliesTheOnAxisCurve)
 
 TEST(Unit_Dsp, MicrophoneModelShipsOneFlatPreset)
 {
-    EXPECT_EQ(SushiDSP::room::kMicrophonePresetCount, 1u);
-    EXPECT_EQ(SushiDSP::room::kMicrophoneFlatCardioid.pattern,
+    EXPECT_EQ(SushiDSP::room::K_MICROPHONE_PRESET_COUNT, 1u);
+    EXPECT_EQ(SushiDSP::room::K_MICROPHONE_FLAT_CARDIOID.pattern,
               SushiDSP::room::PolarPattern::Cardioid);
     for (std::size_t band = 0; band < 6u; ++band)
     {
-        EXPECT_FLOAT_EQ(SushiDSP::room::kMicrophoneFlatCardioid.on_axis_db[band], 0.0f);
+        EXPECT_FLOAT_EQ(SushiDSP::room::K_MICROPHONE_FLAT_CARDIOID.on_axis_db[band], 0.0f);
     }
     EXPECT_DOUBLE_EQ(SushiDSP::room::pattern_pressure_share(SushiDSP::room::PolarPattern::Omni),
                      1.0);
+    EXPECT_DOUBLE_EQ(SushiDSP::room::pattern_pressure_share(SushiDSP::room::PolarPattern::Cardioid),
+                     0.5);
     EXPECT_DOUBLE_EQ(
-        SushiDSP::room::pattern_pressure_share(SushiDSP::room::PolarPattern::Cardioid), 0.5);
-    EXPECT_DOUBLE_EQ(
-        SushiDSP::room::pattern_pressure_share(SushiDSP::room::PolarPattern::Supercardioid),
-        0.366);
+        SushiDSP::room::pattern_pressure_share(SushiDSP::room::PolarPattern::Supercardioid), 0.366);
     EXPECT_DOUBLE_EQ(
         SushiDSP::room::pattern_pressure_share(SushiDSP::room::PolarPattern::FigureEight), 0.0);
 }

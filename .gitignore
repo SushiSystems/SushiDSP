@@ -9,7 +9,7 @@ cli/build/
 cli/.pytest_cache/
 __pycache__/
 
-# Doxyfile itself is COMMITTED - `sd doxygen` reads a repo-root one and fails
+# The Doxyfile in .config/doxygen is COMMITTED - `sd doxygen` reads it and fails
 # without it. Only the generated output is ignored.
 docs/api-site/html/
 docs/api-site/doxygen-warnings.log

@@ -30,17 +30,17 @@
 
 #include <gtest/gtest.h>
 
-#include "SineToneNode.hpp"
+#include "sine_tone_node.hpp"
 
 TEST(Unit_Dsp, SineToneNodeOutputStaysWithinUnitRange)
 {
     SushiDSP::SineToneNode node(440.0f);
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
 
     std::vector<float> output_buffer(256, 0.0f);
-    float* output_channels[1] = { output_buffer.data() };
-    SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+    float* output_channels[1] = {output_buffer.data()};
+    SushiDSP::ProcessContext context{output_channels, nullptr, 256, 0.0};
 
     node.process(context);
 
@@ -55,12 +55,12 @@ TEST(Unit_Dsp, SineToneNodeProducesExpectedFrequency)
     constexpr double sample_rate = 48000.0;
     constexpr float frequency = 1000.0f;
     SushiDSP::SineToneNode node(frequency);
-    SushiDSP::PrepareInfo info{ sample_rate, 480, 1 };
+    SushiDSP::PrepareInfo info{sample_rate, 480, 1};
     node.prepare(info);
 
     std::vector<float> output_buffer(480, 0.0f);
-    float* output_channels[1] = { output_buffer.data() };
-    SushiDSP::ProcessContext context{ output_channels, nullptr, 480, 0.0 };
+    float* output_channels[1] = {output_buffer.data()};
+    SushiDSP::ProcessContext context{output_channels, nullptr, 480, 0.0};
 
     node.process(context);
 
@@ -80,19 +80,19 @@ TEST(Unit_Dsp, SineToneNodeProducesExpectedFrequency)
 TEST(Unit_Dsp, SineToneNodeResetRestartsPhaseFromZero)
 {
     SushiDSP::SineToneNode node(440.0f);
-    SushiDSP::PrepareInfo info{ 48000.0, 8, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 8, 1};
     node.prepare(info);
 
     std::vector<float> first_buffer(8, 0.0f);
-    float* first_channels[1] = { first_buffer.data() };
-    SushiDSP::ProcessContext first_context{ first_channels, nullptr, 8, 0.0 };
+    float* first_channels[1] = {first_buffer.data()};
+    SushiDSP::ProcessContext first_context{first_channels, nullptr, 8, 0.0};
     node.process(first_context);
 
     node.reset();
 
     std::vector<float> second_buffer(8, 0.0f);
-    float* second_channels[1] = { second_buffer.data() };
-    SushiDSP::ProcessContext second_context{ second_channels, nullptr, 8, 0.0 };
+    float* second_channels[1] = {second_buffer.data()};
+    SushiDSP::ProcessContext second_context{second_channels, nullptr, 8, 0.0};
     node.process(second_context);
 
     for (std::size_t i = 0; i < first_buffer.size(); ++i)

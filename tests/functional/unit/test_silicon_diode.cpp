@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/models/SiliconDiode.hpp"
+#include "SushiDSP/circuits/models/silicon_diode.hpp"
 
 TEST(Unit_Dsp, SiliconDiodeMatchesShockleyAtThreeOperatingPoints)
 {
@@ -55,18 +55,21 @@ TEST(Unit_Dsp, SiliconDiodeReverseCurrentApproachesMinusSaturationCurrent)
 TEST(Unit_Dsp, SiliconDiodeJacobianMatchesACentredDifference)
 {
     const SushiDSP::SiliconDiode diode;
-    for (const double voltage : { -0.3, 0.0, 0.3, 0.55, 0.65 })
+    for (const double voltage : {-0.3, 0.0, 0.3, 0.55, 0.65})
     {
         const double step = 1e-6;
-        const double numerical = (diode.current(voltage + step) - diode.current(voltage - step)) / (2.0 * step);
-        EXPECT_NEAR(diode.jacobian(voltage), numerical, 1e-6 * std::abs(diode.jacobian(voltage)) + 1e-14) << voltage;
+        const double numerical =
+            (diode.current(voltage + step) - diode.current(voltage - step)) / (2.0 * step);
+        EXPECT_NEAR(diode.jacobian(voltage), numerical,
+                    1e-6 * std::abs(diode.jacobian(voltage)) + 1e-14)
+            << voltage;
     }
 }
 
 TEST(Unit_Dsp, SiliconDiodeStaysFiniteAndCOneAcrossTheLinearExtrapolation)
 {
     const SushiDSP::SiliconDiode diode;
-    for (const double voltage : { -60.0, -2.0, 2.0, 60.0, 1000.0 })
+    for (const double voltage : {-60.0, -2.0, 2.0, 60.0, 1000.0})
     {
         EXPECT_TRUE(std::isfinite(diode.current(voltage))) << voltage;
         EXPECT_TRUE(std::isfinite(diode.jacobian(voltage))) << voltage;
@@ -82,7 +85,7 @@ TEST(Unit_Dsp, SiliconDiodeStaysFiniteAndCOneAcrossTheLinearExtrapolation)
 TEST(Unit_Dsp, SiliconDiodeJointFormAgreesWithTheSeparateEntryPoints)
 {
     const SushiDSP::SiliconDiode diode;
-    for (const double voltage : { -60.0, -0.5, 0.0, 0.4, 0.6, 0.7, 1.81254912, 60.0 })
+    for (const double voltage : {-60.0, -0.5, 0.0, 0.4, 0.6, 0.7, 1.81254912, 60.0})
     {
         double current = 0.0;
         double conductance = 0.0;
@@ -110,16 +113,14 @@ TEST(Unit_Dsp, SiliconDiodeAntiparallelPairMatchesTwoTimesSaturationCurrentTimes
     const SushiDSP::SiliconDiode diode;
     struct Point
     {
-        double w;
-        double current;
-        double conductance;
+            double w;
+            double current;
+            double conductance;
     };
     const Point points[5] = {
-        { 0.2, 2.080515143e-7, 4.592704262e-6 },
-        { 0.3, 1.890822805e-6, 4.172752069e-5 },
-        { 0.38, 1.105058316e-5, 2.438683551e-4 },
-        { 0.4, 1.718179822e-5, 3.791742530e-4 },
-        { 0.5, 1.561297429e-4, 3.445528538e-3 },
+        {0.2, 2.080515143e-7, 4.592704262e-6},  {0.3, 1.890822805e-6, 4.172752069e-5},
+        {0.38, 1.105058316e-5, 2.438683551e-4}, {0.4, 1.718179822e-5, 3.791742530e-4},
+        {0.5, 1.561297429e-4, 3.445528538e-3},
     };
     for (const Point& point : points)
     {
@@ -149,12 +150,12 @@ TEST(Unit_Dsp, SiliconDiodeAntiderivativeDifferentiatesBackToTheDiodeCurrent)
 {
     // The antiderivative's slope is the diode current. See tests/functional/unit/README.md.
     const SushiDSP::SiliconDiode diode;
-    const double                 delta = 1.0e-7;
+    const double delta = 1.0e-7;
     for (double voltage = -2.2; voltage <= 2.2; voltage += 0.01)
     {
-        const double slope = (diode.current_antiderivative(voltage + delta)
-                              - diode.current_antiderivative(voltage - delta))
-                             / (2.0 * delta);
+        const double slope = (diode.current_antiderivative(voltage + delta) -
+                              diode.current_antiderivative(voltage - delta)) /
+                             (2.0 * delta);
         const double expected = diode.current(voltage);
         EXPECT_NEAR(slope, expected, 1.0e-6 * std::fabs(expected) + 1.0e-14) << voltage;
     }
@@ -164,14 +165,14 @@ TEST(Unit_Dsp, SiliconDiodeAntiderivativeHasNoStepAtEitherKnee)
 {
     // The bound is the largest slope times the width. See tests/functional/unit/README.md.
     const SushiDSP::SiliconDiode diode;
-    const double                 knee = 40.0 * 1.752 * 0.025864;
-    const double                 delta = 1.0e-9;
-    for (const double edge : { knee, -knee })
+    const double knee = 40.0 * 1.752 * 0.025864;
+    const double delta = 1.0e-9;
+    for (const double edge : {knee, -knee})
     {
         const double below = diode.current_antiderivative(edge - delta);
         const double above = diode.current_antiderivative(edge + delta);
-        const double steepest
-            = std::max(std::fabs(diode.current(edge - delta)), std::fabs(diode.current(edge + delta)));
+        const double steepest = std::max(std::fabs(diode.current(edge - delta)),
+                                         std::fabs(diode.current(edge + delta)));
         EXPECT_LE(std::fabs(above - below), 2.0 * delta * steepest * 1.000001) << edge;
     }
 }
@@ -180,7 +181,7 @@ TEST(Unit_Dsp, SiliconDiodeJointAntiderivativeFormAgreesWithTheSeparateEntryPoin
 {
     // The joint form must match the two entry points. See tests/functional/unit/README.md.
     const SushiDSP::SiliconDiode diode;
-    for (const double voltage : { -2.5, -0.7, -0.05, 0.0, 0.05, 0.7, 2.5 })
+    for (const double voltage : {-2.5, -0.7, -0.05, 0.0, 0.05, 0.7, 2.5})
     {
         double current = 0.0;
         double antiderivative = 0.0;
@@ -194,8 +195,8 @@ TEST(Unit_Dsp, SiliconDiodeReverseExtrapolationContinuesTheShockleyLawRatherThan
 {
     // Below the lower knee the current stays at -Is. See tests/functional/unit/README.md.
     const SushiDSP::SiliconDiode diode;
-    const double                 knee = 40.0 * 1.752 * 0.025864;
-    const double                 saturation = 2.52e-9;
+    const double knee = 40.0 * 1.752 * 0.025864;
+    const double saturation = 2.52e-9;
 
     // C^0 and C^1 across the lower knee, to the same relative tolerance the upper knee is held to.
     const double inside_current = diode.current(-knee + 1e-7);
@@ -205,7 +206,7 @@ TEST(Unit_Dsp, SiliconDiodeReverseExtrapolationContinuesTheShockleyLawRatherThan
                 1e-5 * diode.jacobian(-knee + 1e-7));
 
     // Far into reverse bias the current is still -Is, not a runaway.
-    for (const double voltage : { -2.0, -10.0, -1000.0 })
+    for (const double voltage : {-2.0, -10.0, -1000.0})
     {
         EXPECT_NEAR(diode.current(voltage), -saturation, 1e-6 * saturation) << voltage;
         EXPECT_LT(diode.jacobian(voltage), 1e-20) << voltage;

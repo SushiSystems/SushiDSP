@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include "TimingGate.hpp"
+#include "timing_gate.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -37,9 +37,9 @@
 #include <cstdio>
 #include <functional>
 
-#include "SushiDSP/room/AirAbsorption.hpp"
-#include "SushiDSP/room/BandResponseFit.hpp"
-#include "SushiDSP/room/Materials.hpp"
+#include "SushiDSP/room/air_absorption.hpp"
+#include "SushiDSP/room/band_response_fit.hpp"
+#include "SushiDSP/room/materials.hpp"
 
 namespace
 {
@@ -72,30 +72,28 @@ namespace
 
     /// @brief Calls the visitor with every material but the doorway, raised to orders one to
     /// four, behind 0, 5 and 30 m of air, at four sample rates.
-    void for_every_target(
-        const std::function<void(const SushiDSP::room::BandResponse&, double, const char*)>&
-            visitor)
+    void for_every_target(const std::function<void(const SushiDSP::room::BandResponse&, double,
+                                                   const char*)>& visitor)
     {
         static char label[96];
-        for (std::uint8_t id = 0; id < SushiDSP::room::kMaterialCount; ++id)
+        for (std::uint8_t id = 0; id < SushiDSP::room::K_MATERIAL_COUNT; ++id)
         {
             const auto material_id = static_cast<SushiDSP::room::MaterialId>(id);
             if (material_id == SushiDSP::room::MaterialId::OpenDoorway)
             {
                 continue;
             }
-            for (const double rate : { 44100.0, 48000.0, 96000.0, 192000.0 })
+            for (const double rate : {44100.0, 48000.0, 96000.0, 192000.0})
             {
-                for (const double order : { 1.0, 2.0, 3.0, 4.0 })
+                for (const double order : {1.0, 2.0, 3.0, 4.0})
                 {
-                    for (const double metres : { 0.0, 5.0, 30.0 })
+                    for (const double metres : {0.0, 5.0, 30.0})
                     {
                         SushiDSP::room::BandResponse target =
                             SushiDSP::room::reflection_factor(material_id).powered(order);
                         target *= SushiDSP::room::AirAbsorption::over_path(metres);
-                        std::snprintf(label, sizeof label,
-                                      "material %d order %g rate %g metres %g", int(id), order,
-                                      rate, metres);
+                        std::snprintf(label, sizeof label, "material %d order %g rate %g metres %g",
+                                      int(id), order, rate, metres);
                         visitor(target, rate, label);
                     }
                 }
@@ -111,20 +109,20 @@ namespace
         result.gain[band] *= static_cast<float>(std::pow(10.0, decibels / 20.0));
         return result;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, BandResponseFitClearsOneDecibelForEveryMaterialToEveryOrder)
 {
-    for (std::uint8_t id = 0; id < SushiDSP::room::kMaterialCount; ++id)
+    for (std::uint8_t id = 0; id < SushiDSP::room::K_MATERIAL_COUNT; ++id)
     {
         const auto material_id = static_cast<SushiDSP::room::MaterialId>(id);
         if (material_id == SushiDSP::room::MaterialId::OpenDoorway)
         {
             continue;
         }
-        for (const double rate : { 44100.0, 48000.0, 96000.0, 192000.0 })
+        for (const double rate : {44100.0, 48000.0, 96000.0, 192000.0})
         {
-            for (const double order : { 1.0, 2.0, 3.0, 4.0 })
+            for (const double order : {1.0, 2.0, 3.0, 4.0})
             {
                 const SushiDSP::room::BandResponse target =
                     SushiDSP::room::reflection_factor(material_id).powered(order);
@@ -134,13 +132,11 @@ TEST(Unit_Dsp, BandResponseFitClearsOneDecibelForEveryMaterialToEveryOrder)
                     << "material " << int(id) << " order " << order << " rate " << rate;
                 for (std::size_t band = 0; band < 6u; ++band)
                 {
-                    const double wanted =
-                        20.0 * std::log10(std::max(target.gain[band], 1e-9f));
+                    const double wanted = 20.0 * std::log10(std::max(target.gain[band], 1e-9f));
                     const double got = SushiDSP::room::BandResponseFit::magnitude_db(
-                        result.coefficients, SushiDSP::room::kBandCentresHz[band], rate);
-                    EXPECT_NEAR(got, wanted, 1.0)
-                        << "material " << int(id) << " order " << order << " rate " << rate
-                        << " band " << band;
+                        result.coefficients, SushiDSP::room::K_BAND_CENTRES_HZ[band], rate);
+                    EXPECT_NEAR(got, wanted, 1.0) << "material " << int(id) << " order " << order
+                                                  << " rate " << rate << " band " << band;
                 }
             }
         }
@@ -158,16 +154,16 @@ TEST(Unit_Dsp, BandResponseFitReproducesAFlatTargetExactly)
 
 TEST(Unit_Dsp, BandResponseFitKeepsEveryPoleInsideTheUnitCircle)
 {
-    for (std::uint8_t id = 0; id < SushiDSP::room::kMaterialCount; ++id)
+    for (std::uint8_t id = 0; id < SushiDSP::room::K_MATERIAL_COUNT; ++id)
     {
         const auto material_id = static_cast<SushiDSP::room::MaterialId>(id);
         if (material_id == SushiDSP::room::MaterialId::OpenDoorway)
         {
             continue;
         }
-        for (const double rate : { 44100.0, 48000.0, 96000.0, 192000.0 })
+        for (const double rate : {44100.0, 48000.0, 96000.0, 192000.0})
         {
-            for (const double order : { 1.0, 2.0, 3.0, 4.0 })
+            for (const double order : {1.0, 2.0, 3.0, 4.0})
             {
                 const SushiDSP::room::BandResponse target =
                     SushiDSP::room::reflection_factor(material_id).powered(order);
@@ -196,11 +192,11 @@ TEST(Unit_Dsp, BandResponseFitPutsTheWholeGainInTheFirstSection)
 TEST(Unit_Dsp, BandResponseFitReachesADipBetweenFlatBands)
 {
     // Each section has a peak, since two shelves cannot dip. See tests/functional/unit/README.md.
-    const std::array<std::array<float, 6>, 3> targets = { {
-        { 0.0f, 0.0f, 0.0f, -8.0f, 0.0f, 0.0f },
-        { 0.0f, 0.0f, 0.0f, 0.0f, -20.0f, 0.0f },
-        { -0.05f, -0.19f, -0.76f, -3.11f, -11.50f, -3.49f },
-    } };
+    const std::array<std::array<float, 6>, 3> targets = {{
+        {0.0f, 0.0f, 0.0f, -8.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f, 0.0f, -20.0f, 0.0f},
+        {-0.05f, -0.19f, -0.76f, -3.11f, -11.50f, -3.49f},
+    }};
     for (const std::array<float, 6>& decibels : targets)
     {
         const SushiDSP::room::BandResponse target =
@@ -211,7 +207,7 @@ TEST(Unit_Dsp, BandResponseFitReachesADipBetweenFlatBands)
         for (std::size_t band = 0; band < 6u; ++band)
         {
             EXPECT_NEAR(SushiDSP::room::BandResponseFit::magnitude_db(
-                            result.coefficients, SushiDSP::room::kBandCentresHz[band], 48000.0),
+                            result.coefficients, SushiDSP::room::K_BAND_CENTRES_HZ[band], 48000.0),
                         decibels[band], 0.5)
                 << "target at 2 kHz " << decibels[4] << " band " << band;
         }
@@ -228,7 +224,7 @@ TEST(Unit_Dsp, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
         {
             const SushiDSP::room::BandResponseFit::Result base =
                 SushiDSP::room::BandResponseFit::fit(target, rate);
-            for (std::size_t band = 0; band < SushiDSP::room::kBandCount; ++band)
+            for (std::size_t band = 0; band < SushiDSP::room::K_BAND_COUNT; ++band)
             {
                 const SushiDSP::room::BandResponseFit::Result small =
                     SushiDSP::room::BandResponseFit::fit(nudged(target, band, 0.05), rate);
@@ -254,7 +250,6 @@ TEST(Unit_Dsp, BandResponseFitCostsUnderTenMillisecondsForOneHundredAndFiftyFits
         sink += SushiDSP::room::BandResponseFit::fit(carpet, 48000.0).worst_error_db;
     }
     const auto stop = std::chrono::steady_clock::now();
-    const double milliseconds =
-        std::chrono::duration<double, std::milli>(stop - start).count();
+    const double milliseconds = std::chrono::duration<double, std::milli>(stop - start).count();
     EXPECT_LT(milliseconds, 10.0) << "sink " << sink;
 }

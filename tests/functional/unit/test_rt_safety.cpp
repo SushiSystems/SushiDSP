@@ -43,49 +43,49 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/IAudioNode.hpp"
-#include "SushiDSP/core/RigGraph.hpp"
-#include "SushiDSP/core/RtSwapSlot.hpp"
-#include "SushiDSP/dd3/Dd3Delay.hpp"
-#include "SushiDSP/capture/Metronome.hpp"
-#include "SushiDSP/capture/TrackRecorder.hpp"
-#include "SushiDSP/capture/TrackPlayer.hpp"
-#include "SushiDSP/capture/TrackTimeline.hpp"
-#include "SushiDSP/capture/VariRateReader.hpp"
-#include "SushiDSP/audio_format/AsioSampleConverter.hpp"
-#include "SushiDSP/io/Ir.hpp"
-#include "SushiDSP/math/Fft.hpp"
-#include "SushiDSP/math/Oversampler.hpp"
-#include "SushiDSP/math/PartitionedConvolution.hpp"
-#include "SushiDSP/math/Resampler.hpp"
-#include "SushiDSP/math/StreamingConvolution.hpp"
-#include "SushiDSP/math/dk/DampedNewtonSolver.hpp"
-#include "SushiDSP/math/dk/DkCircuit.hpp"
-#include "SushiDSP/math/dk/DkNetlist.hpp"
-#include "SushiDSP/routing/SplitterNode.hpp"
-#include "SushiDSP/routing/MixerNode.hpp"
-#include "SushiDSP/routing/PanNode.hpp"
-#include "SushiDSP/cabinet/CabinetNode.hpp"
-#include "SushiDSP/diezel_vh4/DiezelVh4.hpp"
-#include "SushiDSP/jcm800/Jcm800.hpp"
-#include "SushiDSP/mesa_mark2c/MesaMark2c.hpp"
-#include "SushiDSP/peavey5150/Peavey5150.hpp"
-#include "SushiDSP/room/BinauralDecoder.hpp"
-#include "SushiDSP/room/CrossoverPair.hpp"
-#include "SushiDSP/room/EarlyReflectionRenderer.hpp"
-#include "SushiDSP/room/EarlyTapSet.hpp"
-#include "SushiDSP/room/FdnDesign.hpp"
-#include "SushiDSP/room/HrtfSet.hpp"
-#include "SushiDSP/room/LateReverb.hpp"
-#include "SushiDSP/room/ModalBank.hpp"
-#include "SushiDSP/room/ModalDesign.hpp"
-#include "SushiDSP/room/RoomNode.hpp"
-#include "SushiDSP/room/SphericalHeadHrtf.hpp"
-#include "SushiDSP/tubescreamer/TubeScreamer.hpp"
+#include "SushiDSP/core/audio_node.hpp"
+#include "SushiDSP/core/rig_graph.hpp"
+#include "SushiDSP/core/rt_swap_slot.hpp"
+#include "SushiDSP/dd3/dd3_delay.hpp"
+#include "SushiDSP/capture/metronome.hpp"
+#include "SushiDSP/capture/track_recorder.hpp"
+#include "SushiDSP/capture/track_player.hpp"
+#include "SushiDSP/capture/track_timeline.hpp"
+#include "SushiDSP/capture/vari_rate_reader.hpp"
+#include "SushiDSP/audio_format/asio_sample_converter.hpp"
+#include "SushiDSP/io/ir.hpp"
+#include "SushiDSP/math/fft.hpp"
+#include "SushiDSP/math/oversampler.hpp"
+#include "SushiDSP/math/partitioned_convolution.hpp"
+#include "SushiDSP/math/resampler.hpp"
+#include "SushiDSP/math/streaming_convolution.hpp"
+#include "SushiDSP/math/dk/damped_newton_solver.hpp"
+#include "SushiDSP/math/dk/dk_circuit.hpp"
+#include "SushiDSP/math/dk/dk_netlist.hpp"
+#include "SushiDSP/routing/splitter_node.hpp"
+#include "SushiDSP/routing/mixer_node.hpp"
+#include "SushiDSP/routing/pan_node.hpp"
+#include "SushiDSP/cabinet/cabinet_node.hpp"
+#include "SushiDSP/diezel_vh4/diezel_vh4.hpp"
+#include "SushiDSP/jcm800/jcm800.hpp"
+#include "SushiDSP/mesa_mark2c/mesa_mark2c.hpp"
+#include "SushiDSP/peavey5150/peavey5150.hpp"
+#include "SushiDSP/room/binaural_decoder.hpp"
+#include "SushiDSP/room/crossover_pair.hpp"
+#include "SushiDSP/room/early_reflection_renderer.hpp"
+#include "SushiDSP/room/early_tap_set.hpp"
+#include "SushiDSP/room/fdn_design.hpp"
+#include "SushiDSP/room/hrtf_set.hpp"
+#include "SushiDSP/room/late_reverb.hpp"
+#include "SushiDSP/room/modal_bank.hpp"
+#include "SushiDSP/room/modal_design.hpp"
+#include "SushiDSP/room/room_node.hpp"
+#include "SushiDSP/room/spherical_head_hrtf.hpp"
+#include "SushiDSP/tubescreamer/tube_screamer.hpp"
 
-#include "RoomFixtures.hpp"
-#include "circuits/JcmV1aNetlist.hpp"
-#include "ui/LevelProbe.hpp"
+#include "room_fixtures.hpp"
+#include "circuits/jcm_v1a_netlist.hpp"
+#include "ui/level_probe.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -94,60 +94,75 @@
 namespace
 {
     // Each thread carries its own trap, so a case only ever counts the thread that opened its window.
-    thread_local std::atomic<bool> g_trap_allocations{ false };
-    thread_local std::atomic<int>  g_trapped_allocation_count{ 0 };
+    thread_local std::atomic<bool> g_trap_allocations{false};
+    thread_local std::atomic<int> g_trapped_allocation_count{0};
 
     /// @brief Counts the calling thread's heap allocations over the window a case opens, and
     /// closes that window on the way out however the case leaves it.
     class AllocationTrap
     {
-    public:
-        /// @brief Zeroes the calling thread's count and leaves the trap closed.
-        AllocationTrap() noexcept
-        {
-            g_trapped_allocation_count.store(0, std::memory_order_relaxed);
-        }
-
-        /// @brief Closes the window, so a case that returns early cannot poison a later one.
-        ~AllocationTrap() { disarm(); }
-
-        AllocationTrap(const AllocationTrap&) = delete;
-        AllocationTrap& operator=(const AllocationTrap&) = delete;
-
-        /// @brief Opens the window, counting every allocation this thread makes from here.
-        void arm() noexcept { g_trap_allocations.store(true, std::memory_order_relaxed); }
-
-        /// @brief Closes the window.
-        void disarm() noexcept { g_trap_allocations.store(false, std::memory_order_relaxed); }
-
-        /// @brief Reports how many allocations this thread made inside the window.
-        int count() const noexcept
-        {
-            return g_trapped_allocation_count.load(std::memory_order_relaxed);
-        }
-    };
-
-    class SumNode : public SushiDSP::IAudioNode
-    {
-    public:
-        void prepare(const SushiDSP::PrepareInfo&) override {}
-
-        void process(SushiDSP::ProcessContext& context) override
-        {
-            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+        public:
+            /// @brief Zeroes the calling thread's count and leaves the trap closed.
+            AllocationTrap() noexcept
             {
-                context.outputs[0][frame] = 1.0f;
+                g_trapped_allocation_count.store(0, std::memory_order_relaxed);
             }
-        }
 
-        SushiDSP::PortLayout ports() const override { return { 0, 1 }; }
+            /// @brief Closes the window, so a case that returns early cannot poison a later one.
+            ~AllocationTrap()
+            {
+                disarm();
+            }
 
-        void reset() override {}
+            AllocationTrap(const AllocationTrap&) = delete;
+            AllocationTrap& operator=(const AllocationTrap&) = delete;
 
-        float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter_for_control_thread(const char*, float) override {}
+            /// @brief Opens the window, counting every allocation this thread makes from here.
+            void arm() noexcept
+            {
+                g_trap_allocations.store(true, std::memory_order_relaxed);
+            }
+
+            /// @brief Closes the window.
+            void disarm() noexcept
+            {
+                g_trap_allocations.store(false, std::memory_order_relaxed);
+            }
+
+            /// @brief Reports how many allocations this thread made inside the window.
+            int count() const noexcept
+            {
+                return g_trapped_allocation_count.load(std::memory_order_relaxed);
+            }
     };
-}
+
+    class SumNode : public SushiDSP::AudioNode
+    {
+        public:
+            void prepare(const SushiDSP::PrepareInfo&) override {}
+
+            void process(SushiDSP::ProcessContext& context) override
+            {
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    context.outputs[0][frame] = 1.0f;
+                }
+            }
+
+            SushiDSP::PortLayout ports() const override
+            {
+                return {0, 1};
+            }
+
+            void reset() override {}
+
+            float get_parameter(const char*) const override
+            {
+                return 0.0f;
+            }
+            void set_parameter_for_control_thread(const char*, float) override {}
+    };
+} // namespace
 
 void* operator new(std::size_t size)
 {
@@ -193,11 +208,11 @@ TEST(Unit_Dsp, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
     SushiDSP::RigGraph graph(256, 4);
     graph.add_node(std::make_unique<SumNode>());
 
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     graph.compile(info);
 
     std::vector<float> output_buffer(256, 0.0f);
-    float* output_channels[1] = { output_buffer.data() };
+    float* output_channels[1] = {output_buffer.data()};
 
     AllocationTrap trap;
 
@@ -205,12 +220,12 @@ TEST(Unit_Dsp, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
     {
         for (std::uint16_t index = 0; index < 100; ++index)
         {
-            graph.push_parameter_change(SushiDSP::ParameterChange{ 0, index, 0.5f });
+            graph.push_parameter_change(SushiDSP::ParameterChange{0, index, 0.5f});
         }
 
         trap.arm();
 
-        SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, nullptr, 256, 0.0};
         graph.process(context);
 
         trap.disarm();
@@ -221,66 +236,79 @@ TEST(Unit_Dsp, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
 
 namespace
 {
-    class StereoSourceNode : public SushiDSP::IAudioNode
+    class StereoSourceNode : public SushiDSP::AudioNode
     {
-    public:
-        void prepare(const SushiDSP::PrepareInfo&) override {}
+        public:
+            void prepare(const SushiDSP::PrepareInfo&) override {}
 
-        void process(SushiDSP::ProcessContext& context) override
-        {
-            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            void process(SushiDSP::ProcessContext& context) override
             {
-                context.outputs[0][frame] = 1.0f;
-                context.outputs[1][frame] = -1.0f;
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    context.outputs[0][frame] = 1.0f;
+                    context.outputs[1][frame] = -1.0f;
+                }
             }
-        }
 
-        SushiDSP::PortLayout ports() const override { return { 0, 2 }; }
+            SushiDSP::PortLayout ports() const override
+            {
+                return {0, 2};
+            }
 
-        void reset() override {}
+            void reset() override {}
 
-        float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter_for_control_thread(const char*, float) override {}
+            float get_parameter(const char*) const override
+            {
+                return 0.0f;
+            }
+            void set_parameter_for_control_thread(const char*, float) override {}
     };
 
-    class MonoPassThroughNode : public SushiDSP::IAudioNode
+    class MonoPassThroughNode : public SushiDSP::AudioNode
     {
-    public:
-        void prepare(const SushiDSP::PrepareInfo&) override {}
+        public:
+            void prepare(const SushiDSP::PrepareInfo&) override {}
 
-        void process(SushiDSP::ProcessContext& context) override
-        {
-            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            void process(SushiDSP::ProcessContext& context) override
             {
-                context.outputs[0][frame] = context.inputs[0] != nullptr ? context.inputs[0][frame] : 0.0f;
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    context.outputs[0][frame] =
+                        context.inputs[0] != nullptr ? context.inputs[0][frame] : 0.0f;
+                }
             }
-        }
 
-        SushiDSP::PortLayout ports() const override { return { 1, 1 }; }
+            SushiDSP::PortLayout ports() const override
+            {
+                return {1, 1};
+            }
 
-        void reset() override {}
+            void reset() override {}
 
-        float get_parameter(const char*) const override { return 0.0f; }
-        void set_parameter_for_control_thread(const char*, float) override {}
+            float get_parameter(const char*) const override
+            {
+                return 0.0f;
+            }
+            void set_parameter_for_control_thread(const char*, float) override {}
     };
-}
+} // namespace
 
 TEST(Unit_Dsp, RigGraphStereoProcessPerformsNoHeapAllocation)
 {
     // The graph covers every path of the edge adaptation. See tests/functional/unit/README.md.
     SushiDSP::RigGraph graph(256, 4);
-    const auto first_source  = graph.add_node(std::make_unique<StereoSourceNode>());
+    const auto first_source = graph.add_node(std::make_unique<StereoSourceNode>());
     const auto second_source = graph.add_node(std::make_unique<StereoSourceNode>());
-    const auto sink          = graph.add_node(std::make_unique<MonoPassThroughNode>());
+    const auto sink = graph.add_node(std::make_unique<MonoPassThroughNode>());
     graph.connect(first_source, sink);
     graph.connect(second_source, sink);
 
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 2 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 2};
     graph.compile(info);
 
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    float* output_channels[2] = { left.data(), right.data() };
+    float* output_channels[2] = {left.data(), right.data()};
 
     AllocationTrap trap;
 
@@ -288,7 +316,7 @@ TEST(Unit_Dsp, RigGraphStereoProcessPerformsNoHeapAllocation)
     {
         trap.arm();
 
-        SushiDSP::ProcessContext context{ output_channels, nullptr, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, nullptr, 256, 0.0};
         graph.process(context);
 
         trap.disarm();
@@ -300,7 +328,7 @@ TEST(Unit_Dsp, RigGraphStereoProcessPerformsNoHeapAllocation)
 TEST(Unit_Dsp, FftForwardAndInverseRoundTripPerformsNoHeapAllocation)
 {
     const std::uint32_t size = 256;
-    SushiDSP::Fft       fft(size);
+    SushiDSP::Fft fft(size);
 
     std::vector<float> time_domain(size, 0.0f);
     std::vector<float> real_bins(size, 0.0f);
@@ -366,7 +394,8 @@ TEST(Unit_Dsp, PartitionedConvolutionProcessPerformsNoHeapAllocation)
     }
 
     SushiDSP::PartitionedConvolution convolution(
-        partition_size, impulse_response.data(), static_cast<std::uint32_t>(impulse_response.size()));
+        partition_size, impulse_response.data(),
+        static_cast<std::uint32_t>(impulse_response.size()));
 
     std::vector<float> input(partition_size, 0.0f);
     std::vector<float> output(partition_size, 0.0f);
@@ -398,8 +427,9 @@ TEST(Unit_Dsp, StreamingConvolutionProcessPerformsNoHeapAllocation)
         impulse_response[i] = 1.0f / (1.0f + static_cast<float>(i));
     }
 
-    SushiDSP::StreamingConvolution convolution(
-        partition_size, impulse_response.data(), static_cast<std::uint32_t>(impulse_response.size()), 4096);
+    SushiDSP::StreamingConvolution convolution(partition_size, impulse_response.data(),
+                                               static_cast<std::uint32_t>(impulse_response.size()),
+                                               4096);
 
     const std::uint32_t frames = 37;
     std::vector<float> input(frames, 0.0f);
@@ -425,7 +455,7 @@ TEST(Unit_Dsp, StreamingConvolutionProcessPerformsNoHeapAllocation)
 TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
 {
     SushiDSP::TubeScreamer node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_drive(0.6f);
     node.set_tone(0.4f);
@@ -437,8 +467,8 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
         input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     AllocationTrap trap;
     trap.arm();
@@ -449,7 +479,7 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
         const float position = static_cast<float>(block) / 999.0f;
         node.set_drive(position);
         node.set_tone(1.0f - position);
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -461,13 +491,13 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
 TEST(Unit_Dsp, SplitterNodeProcessPerformsNoHeapAllocation)
 {
     SushiDSP::SplitterNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> input(256, 1.0f);
     std::vector<float> output(256, 0.0f);
-    const float* inputs[1] = { input.data() };
-    float* outputs[1] = { output.data() };
-    SushiDSP::ProcessContext context{ outputs, inputs, 256, 0.0 };
+    const float* inputs[1] = {input.data()};
+    float* outputs[1] = {output.data()};
+    SushiDSP::ProcessContext context{outputs, inputs, 256, 0.0};
 
     AllocationTrap trap;
     trap.arm();
@@ -483,14 +513,15 @@ TEST(Unit_Dsp, SplitterNodeProcessPerformsNoHeapAllocation)
 TEST(Unit_Dsp, MixerNodeProcessPerformsNoHeapAllocation)
 {
     SushiDSP::MixerNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> a(256, 1.0f);
     std::vector<float> b(256, 1.0f);
     std::vector<float> output(256, 0.0f);
-    const float* inputs[SushiDSP::MixerNode::kMaxFanIn] = { a.data(), b.data(), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
-    float* outputs[1] = { output.data() };
-    SushiDSP::ProcessContext context{ outputs, inputs, 256, 0.0 };
+    const float* inputs[SushiDSP::MixerNode::K_MAX_FAN_IN] = {a.data(), b.data(), nullptr, nullptr,
+                                                              nullptr,  nullptr,  nullptr, nullptr};
+    float* outputs[1] = {output.data()};
+    SushiDSP::ProcessContext context{outputs, inputs, 256, 0.0};
 
     AllocationTrap trap;
     trap.arm();
@@ -507,15 +538,15 @@ TEST(Unit_Dsp, PanNodeProcessPerformsNoHeapAllocation)
 {
     // apply_pan()'s cos/sin recompute runs on stack values only: no heap, lock, syscall, throw.
     SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
     node.set_parameter_for_control_thread("pan", 0.5f);
 
     std::vector<float> input(256, 1.0f);
     std::vector<float> out_left(256, 0.0f);
     std::vector<float> out_right(256, 0.0f);
-    const float* inputs[1] = { input.data() };
-    float* outputs[2] = { out_left.data(), out_right.data() };
-    SushiDSP::ProcessContext context{ outputs, inputs, 256, 0.0 };
+    const float* inputs[1] = {input.data()};
+    float* outputs[2] = {out_left.data(), out_right.data()};
+    SushiDSP::ProcessContext context{outputs, inputs, 256, 0.0};
 
     AllocationTrap trap;
     trap.arm();
@@ -532,7 +563,7 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     // The per-block set_high_shelf() is pure arithmetic. See tests/functional/unit/README.md.
     SushiDSP::Jcm800 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_preamp(0.8f);
     node.set_master(0.0f);
@@ -547,15 +578,15 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
         input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     AllocationTrap trap;
     trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -567,7 +598,7 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
 TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     SushiDSP::Peavey5150 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_pre_gain(0.8f);
     node.set_low(0.6f);
@@ -583,15 +614,15 @@ TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithoutCabinet)
         input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     AllocationTrap trap;
     trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -603,7 +634,7 @@ TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithoutCabinet)
 TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     SushiDSP::MesaMark2c node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_volume_1(0.8f);
     node.set_treble(0.7f);
@@ -625,15 +656,15 @@ TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithoutCabinet)
         input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     AllocationTrap trap;
     trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -645,7 +676,7 @@ TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithoutCabinet)
 TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     SushiDSP::DiezelVh4 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_gain(0.8f);
     node.set_bass(0.6f);
@@ -662,15 +693,15 @@ TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithoutCabinet)
         input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     AllocationTrap trap;
     trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -690,9 +721,9 @@ TEST(Unit_Dsp, CabinetNodeProcessPerformsNoHeapAllocationWithCabinet)
     }
 
     SushiDSP::CabinetNode node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
-    ASSERT_TRUE(node.set_cabinet(SushiDSP::Ir{ impulse_response, 48000.0 }));
+    ASSERT_TRUE(node.set_cabinet(SushiDSP::Ir{impulse_response, 48000.0}));
 
     std::vector<float> input(256);
     for (std::size_t i = 0; i < input.size(); ++i)
@@ -700,15 +731,15 @@ TEST(Unit_Dsp, CabinetNodeProcessPerformsNoHeapAllocationWithCabinet)
         input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     AllocationTrap trap;
     trap.arm();
 
     for (int block = 0; block < 500; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -719,14 +750,15 @@ TEST(Unit_Dsp, CabinetNodeProcessPerformsNoHeapAllocationWithCabinet)
 
 TEST(Unit_Dsp, AsioSampleConverterPerformsNoHeapAllocation)
 {
-    std::uint8_t bytes[4] = { 0, 0, 0, 0 };
+    std::uint8_t bytes[4] = {0, 0, 0, 0};
 
     AllocationTrap trap;
     trap.arm();
 
     for (int i = 0; i < 10000; ++i)
     {
-        const float decoded = SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
+        const float decoded =
+            SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
         SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, decoded, bytes);
     }
 
@@ -760,7 +792,7 @@ TEST(Unit_Dsp, CabinetNodeSetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 {
     // The trap is armed around the blocks, not set_cabinet(). See tests/functional/unit/README.md.
     SushiDSP::CabinetNode node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
 
     SushiDSP::Ir impulse_response;
@@ -774,8 +806,8 @@ TEST(Unit_Dsp, CabinetNodeSetCabinetSwapsWithoutAllocatingOnTheAudioThread)
         input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     AllocationTrap trap;
 
@@ -786,7 +818,7 @@ TEST(Unit_Dsp, CabinetNodeSetCabinetSwapsWithoutAllocatingOnTheAudioThread)
         ASSERT_TRUE(node.has_cabinet());
 
         trap.arm();
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
         trap.disarm();
     }
@@ -798,7 +830,7 @@ TEST(Unit_Dsp, CabinetNodeSetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 
 namespace
 {
-    // The netlist lives in tests/circuits/JcmV1aNetlist.hpp. See tests/functional/unit/README.md.
+    // The netlist lives in tests/circuits/jcm_v1a_netlist.hpp. See tests/functional/unit/README.md.
     using namespace SushiDSP::test_circuits;
 
     using DkStageCircuit = SushiDSP::dk::DkCircuit<6, 2, 2, 1>;
@@ -811,25 +843,25 @@ namespace
     /// the line search do real work from a distant start rather than converging in one step.
     struct ExponentialPairSystem
     {
-        /// @brief Evaluates the residual and its Jacobian at one iterate.
-        /// @param v The iterate.
-        /// @param residual Receives the residual.
-        /// @param jacobian Receives the 2x2 Jacobian.
-        void residual_and_jacobian(const std::array<double, 2>&              v,
-                                   std::array<double, 2>&                    residual,
-                                   std::array<std::array<double, 2>, 2>&     jacobian) const
-        {
-            const double first = std::exp(v[0]);
-            const double second = std::exp(v[1]);
-            residual[0] = first - 1.0 + 0.5 * v[1];
-            residual[1] = 0.5 * v[0] + second - 1.0;
-            jacobian[0][0] = first;
-            jacobian[0][1] = 0.5;
-            jacobian[1][0] = 0.5;
-            jacobian[1][1] = second;
-        }
+            /// @brief Evaluates the residual and its Jacobian at one iterate.
+            /// @param v The iterate.
+            /// @param residual Receives the residual.
+            /// @param jacobian Receives the 2x2 Jacobian.
+            void residual_and_jacobian(const std::array<double, 2>& v,
+                                       std::array<double, 2>& residual,
+                                       std::array<std::array<double, 2>, 2>& jacobian) const
+            {
+                const double first = std::exp(v[0]);
+                const double second = std::exp(v[1]);
+                residual[0] = first - 1.0 + 0.5 * v[1];
+                residual[1] = 0.5 * v[0] + second - 1.0;
+                jacobian[0][0] = first;
+                jacobian[0][1] = 0.5;
+                jacobian[1][0] = 0.5;
+                jacobian[1][1] = second;
+            }
     };
-}
+} // namespace
 
 TEST(Unit_Dsp, LevelProbeReportPerformsNoHeapAllocation)
 {
@@ -853,11 +885,11 @@ TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
     build_jcm_v1a(netlist);
 
     DkStageCircuit circuit;
-    TriodeStagePort   port;
+    TriodeStagePort port;
     ASSERT_TRUE(circuit.prepare(netlist, 48000.0));
 
-    const std::array<double, 2> silence{ 0.0, kSupplyVolts };
-    std::array<double, 1>       outputs{};
+    const std::array<double, 2> silence{0.0, K_SUPPLY_VOLTS};
+    std::array<double, 1> outputs{};
     for (int sample = 0; sample < 4800; ++sample)
     {
         circuit.process_sample(port, silence, outputs);
@@ -868,9 +900,9 @@ TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
 
     for (int sample = 0; sample < 256; ++sample)
     {
-        const double drive = 0.2
-            * std::sin(2.0 * M_PI * 220.0 * static_cast<double>(sample) / 48000.0);
-        const std::array<double, 2> inputs{ drive, kSupplyVolts };
+        const double drive =
+            0.2 * std::sin(2.0 * M_PI * 220.0 * static_cast<double>(sample) / 48000.0);
+        const std::array<double, 2> inputs{drive, K_SUPPLY_VOLTS};
         circuit.process_sample(port, inputs, outputs);
     }
 
@@ -887,11 +919,11 @@ TEST(Unit_Dsp, DkCircuitPotentiometerUpdatePerformsNoHeapAllocation)
     const std::size_t pot_index = build_jcm_v1a(netlist);
 
     DkStageCircuit circuit;
-    TriodeStagePort   port;
+    TriodeStagePort port;
     ASSERT_TRUE(circuit.prepare(netlist, 48000.0));
 
-    const std::array<double, 2> silence{ 0.0, kSupplyVolts };
-    std::array<double, 1>       outputs{};
+    const std::array<double, 2> silence{0.0, K_SUPPLY_VOLTS};
+    std::array<double, 1> outputs{};
 
     AllocationTrap trap;
 
@@ -919,8 +951,8 @@ TEST(Unit_Dsp, DkCircuitPotentiometerUpdatePerformsNoHeapAllocation)
 TEST(Unit_Dsp, DampedNewtonSolverPerformsNoHeapAllocation)
 {
     SushiDSP::dk::DampedNewtonSolver<2> solver;
-    ExponentialPairSystem               system;
-    std::array<double, 2>               v{ 0.0, 0.0 };
+    ExponentialPairSystem system;
+    std::array<double, 2> v{0.0, 0.0};
 
     AllocationTrap trap;
     trap.arm();
@@ -988,8 +1020,8 @@ TEST(Unit_Dsp, ResamplerRateChangePerformsNoHeapAllocation)
     {
         for (int sub_block = 0; sub_block < 32; ++sub_block)
         {
-            const double clock_hz = 20000.0
-                + (82500.0 - 20000.0) * static_cast<double>(sub_block) / 31.0;
+            const double clock_hz =
+                20000.0 + (82500.0 - 20000.0) * static_cast<double>(sub_block) / 31.0;
             resampler.set_rates(48000.0, clock_hz);
             resampler.process(input.data(), 8u, output.data(),
                               static_cast<std::uint32_t>(output.size()));
@@ -1005,7 +1037,7 @@ TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
 {
     // Both MODE changes below move N and pay the std::fill. See tests/functional/unit/README.md.
     SushiDSP::Dd3Delay node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
     node.set_time(0.4f);
     node.set_feedback(0.45f);
     node.set_level(0.5f);
@@ -1016,12 +1048,12 @@ TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
         input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
 
     const std::uint16_t mode_index = 3u;
-    const float         long_mode_value =
+    const float long_mode_value =
         static_cast<float>(static_cast<int>(SushiDSP::dd3::Dd3Mode::Long));
 
     AllocationTrap trap;
@@ -1055,7 +1087,7 @@ TEST(Unit_Dsp, TrackRecorderWritePerformsNoHeapAllocation)
 
     std::vector<float> left(256, 0.25f);
     std::vector<float> right(256, -0.25f);
-    const float* channels[2] = { left.data(), right.data() };
+    const float* channels[2] = {left.data(), right.data()};
 
     ASSERT_TRUE(recorder.write(channels, 256u));
     const std::chrono::steady_clock::time_point deadline =
@@ -1086,25 +1118,25 @@ TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
 {
     // Timelines and converters exist before the trap opens. See tests/functional/unit/README.md.
     SushiDSP::TrackPlayer player;
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
 
-    for (std::size_t track = 0; track < SushiDSP::TrackPlayer::kMaxTracks; ++track)
+    for (std::size_t track = 0; track < SushiDSP::TrackPlayer::K_MAX_TRACKS; ++track)
     {
-        auto   take = std::make_unique<SushiDSP::Take>(track % 2 == 0 ? 1u : 2u, 48000.0, 4096u);
+        auto take = std::make_unique<SushiDSP::Take>(track % 2 == 0 ? 1u : 2u, 48000.0, 4096u);
         float* samples = take->mutable_channel(0);
         for (std::size_t frame = 0; frame < 4096; ++frame)
         {
-            samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f
-                                              * static_cast<float>(frame) / 48000.0f);
+            samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f *
+                                              static_cast<float>(frame) / 48000.0f);
         }
 
         const SushiDSP::Take* borrowed =
             player.takes().insert(std::unique_ptr<const SushiDSP::Take>(std::move(take)));
 
         std::vector<SushiDSP::Clip> clips;
-        for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::kMaxClips; ++clip)
+        for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::K_MAX_CLIPS; ++clip)
         {
-            clips.push_back(SushiDSP::Clip{ borrowed, clip * 200u, 64u, 150u });
+            clips.push_back(SushiDSP::Clip{borrowed, clip * 200u, 64u, 150u});
         }
 
         player.set_timeline(track, std::unique_ptr<SushiDSP::TrackTimeline>(
@@ -1118,12 +1150,12 @@ TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
 
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    float*             outputs[2] = { left.data(), right.data() };
+    float* outputs[2] = {left.data(), right.data()};
 
     AllocationTrap trap;
     trap.arm();
 
-    for (double speed : { 1.0, 0.5 })
+    for (double speed : {1.0, 0.5})
     {
         transport.set_speed(speed);
         for (int block = 0; block < 200; ++block)
@@ -1149,28 +1181,27 @@ TEST(Unit_Dsp, TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
 {
     // The trap covers the pick-up of a changed lane. See tests/functional/unit/README.md.
     SushiDSP::TrackPlayer player;
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
 
-    auto   take = std::make_unique<SushiDSP::Take>(2u, 48000.0, 4096u);
+    auto take = std::make_unique<SushiDSP::Take>(2u, 48000.0, 4096u);
     float* samples = take->mutable_channel(0);
     for (std::size_t frame = 0; frame < 4096; ++frame)
     {
-        samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f
-                                          * static_cast<float>(frame) / 48000.0f);
+        samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f *
+                                          static_cast<float>(frame) / 48000.0f);
     }
     const SushiDSP::Take* borrowed =
         player.takes().insert(std::unique_ptr<const SushiDSP::Take>(std::move(take)));
 
-    constexpr int kSwaps = 64;
+    constexpr int K_SWAPS = 64;
     std::vector<std::unique_ptr<SushiDSP::TrackTimeline>> prepared;
-    for (int swap = 0; swap < kSwaps; ++swap)
+    for (int swap = 0; swap < K_SWAPS; ++swap)
     {
         std::vector<SushiDSP::Clip> clips;
-        for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::kMaxClips; ++clip)
+        for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::K_MAX_CLIPS; ++clip)
         {
-            clips.push_back(SushiDSP::Clip{ borrowed,
-                                            static_cast<std::uint64_t>(swap) + clip * 300u, 32u,
-                                            250u });
+            clips.push_back(SushiDSP::Clip{borrowed, static_cast<std::uint64_t>(swap) + clip * 300u,
+                                           32u, 250u});
         }
         prepared.push_back(std::unique_ptr<SushiDSP::TrackTimeline>(
             new SushiDSP::TrackTimeline(player.takes(), clips)));
@@ -1182,11 +1213,11 @@ TEST(Unit_Dsp, TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
 
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    float*             outputs[2] = { left.data(), right.data() };
+    float* outputs[2] = {left.data(), right.data()};
 
     AllocationTrap trap;
 
-    for (int swap = 0; swap < kSwaps; ++swap)
+    for (int swap = 0; swap < K_SWAPS; ++swap)
     {
         player.set_timeline(0, std::move(prepared[static_cast<std::size_t>(swap)]));
 
@@ -1216,8 +1247,8 @@ TEST(Unit_Dsp, VariRateReaderReadPerformsNoHeapAllocation)
         float* samples = take.mutable_channel(channel);
         for (std::size_t frame = 0; frame < 48000u; ++frame)
         {
-            samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f
-                                              * static_cast<float>(frame) / 48000.0f);
+            samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f *
+                                              static_cast<float>(frame) / 48000.0f);
         }
     }
 
@@ -1226,12 +1257,12 @@ TEST(Unit_Dsp, VariRateReaderReadPerformsNoHeapAllocation)
 
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    float*             outputs[2] = { left.data(), right.data() };
+    float* outputs[2] = {left.data(), right.data()};
 
     AllocationTrap trap;
     trap.arm();
 
-    for (double speed : { 0.5, 1.0, 2.0 })
+    for (double speed : {0.5, 1.0, 2.0})
     {
         reader.reset();
         std::uint64_t cursor = 0u;
@@ -1266,7 +1297,7 @@ TEST(Unit_Dsp, MetronomeProcessPerformsNoHeapAllocation)
 
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    float*             outputs[2] = { left.data(), right.data() };
+    float* outputs[2] = {left.data(), right.data()};
 
     AllocationTrap trap;
     trap.arm();
@@ -1295,8 +1326,8 @@ namespace
     SushiDSP::room::RoomScene room_trap_scene(double microphone_x)
     {
         SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
-        scene.source_position = { 1.5, 2.0, 0.5 };
-        scene.microphone_position = { microphone_x, 2.0, 1.2 };
+        scene.source_position = {1.5, 2.0, 0.5};
+        scene.microphone_position = {microphone_x, 2.0, 1.2};
         scene.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
         return scene;
     }
@@ -1306,17 +1337,17 @@ namespace
     {
         for (std::size_t i = 0; i < block.size(); ++i)
         {
-            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f
-                                       * static_cast<float>(i) / 48000.0f);
+            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f *
+                                       static_cast<float>(i) / 48000.0f);
         }
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocation)
 {
     // The first trapped block adopts the published set. See tests/functional/unit/README.md.
     SushiDSP::room::RoomNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
     std::string reason;
     ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
 
@@ -1324,16 +1355,16 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocation)
     fill_room_tone(input);
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[2] = { left.data(), right.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[2] = {left.data(), right.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
 
     AllocationTrap trap;
     trap.arm();
     for (int block = 0; block < 16; ++block)
     {
-        node.set_parameter_for_audio_thread(std::uint16_t{ 0 }, block % 2 == 0 ? 0.7f : 1.0f);
-        node.set_parameter_for_audio_thread(std::uint16_t{ 1 }, -3.0f);
+        node.set_parameter_for_audio_thread(std::uint16_t{0}, block % 2 == 0 ? 0.7f : 1.0f);
+        node.set_parameter_for_audio_thread(std::uint16_t{1}, -3.0f);
         node.process(context);
     }
     trap.disarm();
@@ -1351,15 +1382,15 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
     // Only the audio thread's half of a publish is trapped. See tests/functional/unit/README.md.
     SushiDSP::room::RoomNode node;
     node.set_parameter_for_control_thread("listener", 1.0f);
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> input(256);
     fill_room_tone(input);
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[2] = { left.data(), right.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[2] = {left.data(), right.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
 
     AllocationTrap trap;
     for (int publish = 0; publish < 4; ++publish)
@@ -1391,7 +1422,7 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationForEitherListener)
 {
     // The index path stores the choice and nothing else. See tests/functional/unit/README.md.
     SushiDSP::room::RoomNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
     std::string reason;
     ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
 
@@ -1399,18 +1430,18 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationForEitherListener)
     fill_room_tone(input);
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[2] = { left.data(), right.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[2] = {left.data(), right.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
 
     AllocationTrap trap;
-    for (const float listener : { 0.0f, 1.0f, 0.0f })
+    for (const float listener : {0.0f, 1.0f, 0.0f})
     {
         node.set_parameter_for_control_thread("listener", listener);
         trap.arm();
         for (int block = 0; block < 3; ++block)
         {
-            node.set_parameter_for_audio_thread(std::uint16_t{ 2 }, 1.0f - listener);
+            node.set_parameter_for_audio_thread(std::uint16_t{2}, 1.0f - listener);
             node.process(context);
         }
         trap.disarm();
@@ -1431,21 +1462,21 @@ TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
     renderer.prepare(8397, 256);
 
     SushiDSP::room::EarlyTapSet set{};
-    set.count = SushiDSP::room::EarlyTapSet::kMaxEarlyTaps;
+    set.count = SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS;
     for (std::uint32_t tap = 0; tap < set.count; ++tap)
     {
         set.taps[tap].delay_frames = 1.5f + 60.0f * static_cast<float>(tap);
         set.taps[tap].gain = 1.0f / (1.0f + static_cast<float>(tap));
-        set.taps[tap].section_a = { 0.5, 0.25, 0.0, -0.25, 0.0 };
-        set.taps[tap].section_b = { 1.0, 0.0, 0.0, 0.0, 0.0 };
+        set.taps[tap].section_a = {0.5, 0.25, 0.0, -0.25, 0.0};
+        set.taps[tap].section_b = {1.0, 0.0, 0.0, 0.0, 0.0};
         set.taps[tap].encode.fill(0.1f);
     }
 
     std::vector<float> input(256);
     fill_room_tone(input);
-    std::array<std::vector<float>, SushiDSP::room::EarlyReflectionRenderer::kOutputChannels>
+    std::array<std::vector<float>, SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS>
         buffers;
-    std::array<float*, SushiDSP::room::EarlyReflectionRenderer::kOutputChannels> outputs{};
+    std::array<float*, SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS> outputs{};
     for (std::size_t channel = 0; channel < buffers.size(); ++channel)
     {
         buffers[channel].assign(256, 0.0f);
@@ -1473,20 +1504,20 @@ TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
 
 TEST(Unit_Dsp, ModalBankProcessPerformsNoHeapAllocation)
 {
-    // All kMaxModes resonators run at 68.6 Hz, 1 s decay. See tests/functional/unit/README.md.
+    // All K_MAX_MODES resonators run at 68.6 Hz, 1 s decay. See tests/functional/unit/README.md.
     SushiDSP::room::ModalBank bank;
     bank.prepare(256);
 
     auto design = std::make_unique<SushiDSP::room::ModalDesign>();
     const double radius = std::pow(10.0, -3.0 / 48000.0);
     const double theta = 2.0 * M_PI * 68.6 / 48000.0;
-    design->count = static_cast<std::uint32_t>(SushiDSP::room::ModalDesign::kMaxModes);
+    design->count = static_cast<std::uint32_t>(SushiDSP::room::ModalDesign::K_MAX_MODES);
     for (std::uint32_t mode = 0; mode < design->count; ++mode)
     {
-        design->modes[mode].section = { 1e-3, 0.0, -1e-3, -2.0 * radius * std::cos(theta),
-                                        radius * radius };
+        design->modes[mode].section = {1e-3, 0.0, -1e-3, -2.0 * radius * std::cos(theta),
+                                       radius * radius};
         design->modes[mode].source_gain = 0.5f;
-        design->modes[mode].ear_gain = { 0.7f, -0.7f };
+        design->modes[mode].ear_gain = {0.7f, -0.7f};
     }
     design->crossover_hz = 278.18f;
     design->level_scale = 1.0f;
@@ -1559,17 +1590,17 @@ TEST(Unit_Dsp, LateReverbProcessPerformsNoHeapAllocation)
     reverb.prepare(25200);
 
     SushiDSP::room::FdnDesign design{};
-    const SushiDSP::room::FdnDesign::Section unity = { 1.0, 0.0, 0.0, 0.0, 0.0 };
-    const SushiDSP::room::FdnDesign::Section damped = { 0.9, 0.0, 0.0, 0.0, 0.0 };
-    for (std::size_t line = 0; line < SushiDSP::room::FdnDesign::kLineCount; ++line)
+    const SushiDSP::room::FdnDesign::Section unity = {1.0, 0.0, 0.0, 0.0, 0.0};
+    const SushiDSP::room::FdnDesign::Section damped = {0.9, 0.0, 0.0, 0.0, 0.0};
+    for (std::size_t line = 0; line < SushiDSP::room::FdnDesign::K_LINE_COUNT; ++line)
     {
         design.line_frames[line] = static_cast<std::uint32_t>(1000 + 97 * line);
         design.line_section_a[line] = damped;
         design.line_section_b[line] = unity;
     }
-    design.tone_correction = { unity, unity };
-    design.coherence_a = { unity, unity };
-    design.coherence_b = { unity, unity };
+    design.tone_correction = {unity, unity};
+    design.coherence_a = {unity, unity};
+    design.coherence_b = {unity, unity};
     design.input_gain = 0.5f;
     design.delay_to_crossover_frames = 1749.0f;
 
@@ -1610,8 +1641,8 @@ TEST(Unit_Dsp, BinauralDecoderProcessPerformsNoHeapAllocation)
     decoder.prepare(set, 48000.0, 256);
     ASSERT_TRUE(decoder.ready());
 
-    std::array<std::vector<float>, SushiDSP::room::BinauralDecoder::kChannels> channels;
-    std::array<const float*, SushiDSP::room::BinauralDecoder::kChannels> inputs{};
+    std::array<std::vector<float>, SushiDSP::room::BinauralDecoder::K_CHANNELS> channels;
+    std::array<const float*, SushiDSP::room::BinauralDecoder::K_CHANNELS> inputs{};
     for (std::size_t channel = 0; channel < channels.size(); ++channel)
     {
         channels[channel].assign(256, 0.0f);
@@ -1641,7 +1672,7 @@ TEST(Unit_Dsp, RoomNodeBinauralProcessPerformsNoHeapAllocation)
 {
     // The ears render every binaural path inside the trap. See tests/functional/unit/README.md.
     SushiDSP::room::RoomNode node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
     std::string reason;
     ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
 
@@ -1649,9 +1680,9 @@ TEST(Unit_Dsp, RoomNodeBinauralProcessPerformsNoHeapAllocation)
     fill_room_tone(input);
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[2] = { left.data(), right.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[2] = {left.data(), right.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
 
     AllocationTrap trap;
     for (int publish = 0; publish < 3; ++publish)
@@ -1667,7 +1698,7 @@ TEST(Unit_Dsp, RoomNodeBinauralProcessPerformsNoHeapAllocation)
         trap.arm();
         for (int block = 0; block < 4; ++block)
         {
-            node.set_parameter_for_audio_thread(std::uint16_t{ 3 }, block % 2 == 0 ? 1.0f : 0.0f);
+            node.set_parameter_for_audio_thread(std::uint16_t{3}, block % 2 == 0 ? 1.0f : 0.0f);
             node.process(context);
         }
         trap.disarm();

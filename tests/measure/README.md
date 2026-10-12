@@ -1,21 +1,21 @@
 # tests/measure
 
 Header-only measurement helpers that the functional tests and the block tests share. Each one
-drives an `IAudioNode` or reads a signal and returns a figure in dB or percent. No product
+drives an `AudioNode` or reads a signal and returns a figure in dB or percent. No product
 includes these headers.
 
 | File | What it holds |
 | --- | --- |
-| `Render.hpp` | `render`, which streams a stimulus through a node block by block, and `sine_stimulus` |
-| `Window.hpp` | The four-term Blackman-Harris window |
-| `Spectrum.hpp` | The 65536-point magnitude spectrum and the bin helpers that read it |
-| `Thd.hpp` | Total harmonic distortion at a bin-exact fundamental |
-| `AliasFloor.hpp` | The worst non-harmonic line across 1 to 20 kHz tones |
-| `FrequencyResponse.hpp` | Magnitude response by exponential sine sweep |
-| `NullTest.hpp` | The residual of one signal against another after alignment |
-| `SpiceCsv.hpp` | Loaders for the CSVs `tools/spice/export.py` writes |
+| `render.hpp` | `render`, which streams a stimulus through a node block by block, and `sine_stimulus` |
+| `window.hpp` | The four-term Blackman-Harris window |
+| `spectrum.hpp` | The 65536-point magnitude spectrum and the bin helpers that read it |
+| `thd.hpp` | Total harmonic distortion at a bin-exact fundamental |
+| `alias_floor.hpp` | The worst non-harmonic line across 1 to 20 kHz tones |
+| `frequency_response.hpp` | Magnitude response by exponential sine sweep |
+| `null_test.hpp` | The residual of one signal against another after alignment |
+| `spice_csv.hpp` | Loaders for the CSVs `tools/spice/export.py` writes |
 
-## AliasFloor.hpp
+## alias_floor.hpp
 
 `alias_floor` renders one bin-exact tone per kilohertz from 1 kHz to 20 kHz. Each tone runs for
 one second of settling plus one analysis frame. Lines within four bins of DC, of the
@@ -26,7 +26,7 @@ The default stimulus is -12 dBFS. A node that clips inside its own chain at this
 that clipping's folded harmonics, not its conversion, so sweep such a node at the operating
 point its data sheet or service note publishes.
 
-## FrequencyResponse.hpp
+## frequency_response.hpp
 
 `frequency_response` sweeps from 5 Hz to half the sample rate over two seconds at -40 dBFS, then
 holds one second of silence for the tail.
@@ -54,7 +54,7 @@ The linear impulse response is the circular convolution of the output and the in
 Harmonic products land before the linear response and are excluded by keeping only the causal
 second. The stimulus itself is deconvolved the same way and used as the 0 dB reference.
 
-## NullTest.hpp
+## null_test.hpp
 
 `null_test` picks the lag in `[-max_lag, max_lag]` that maximises the magnitude of the
 cross-correlation. A `b` that is inverted relative to `a`, as it is after an odd number of
@@ -69,7 +69,7 @@ them would floor the result at the ratio of the lag to the length.
 
 The cost is O(length * max_lag), so pass a small `max_lag` when the delay is known to be small.
 
-## SpiceCsv.hpp
+## spice_csv.hpp
 
 `split_csv_line` strips carriage returns so that `std::stod` never sees one. They appear when a
 file authored on Windows is read in text mode elsewhere.

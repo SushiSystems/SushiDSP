@@ -26,7 +26,7 @@ docs/
   agent/                         one folder per piece of agent work
   archive/                       frozen
 modules/<tier>/<module>/README.md
-apps/host_gui/  cli/  assets/<name>/  tools/  tools/<name>/  tests/golden/  each with a README.md
+applications/host_gui/  cli/  assets/<name>/  tools/  tools/<name>/  tests/golden/  each with a README.md
 ```
 
 `sd docs` writes the generated API reference to `build/docs/api-site/html/`. It is build

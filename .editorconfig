@@ -1,0 +1,27 @@
+# .editorconfig
+# SushiDSP - https://github.com/SushiSystems/SushiDSP
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
+
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{h,hpp,cpp,glsl,comp,vert,frag,cmake,py}]
+indent_style = space
+indent_size = 4
+
+[CMakeLists.txt]
+indent_style = space
+indent_size = 4
+
+[*.{md,toml,yml,yaml,json}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

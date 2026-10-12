@@ -36,9 +36,9 @@
 #include <cstdio>
 #include <vector>
 
-#include "SushiDSP/dd3/Dd3Delay.hpp"
-#include "SushiDSP/dd3/WetFifo.hpp"
-#include "measure/Render.hpp"
+#include "SushiDSP/dd3/dd3_delay.hpp"
+#include "SushiDSP/dd3/wet_fifo.hpp"
+#include "measure/render.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -46,21 +46,21 @@
 
 namespace
 {
-    constexpr double kSampleRate = 48000.0;
-    constexpr std::uint32_t kBlock = 256u;
+    constexpr double K_SAMPLE_RATE = 48000.0;
+    constexpr std::uint32_t K_BLOCK = 256u;
 
     /// @brief Streams a stimulus through an already-prepared node, block by block.
     /// @param node The node under test.
     /// @param stimulus Input samples; its length must be a whole number of blocks.
     /// @return The node's output.
-    std::vector<float> stream(SushiDSP::IAudioNode& node, const std::vector<float>& stimulus)
+    std::vector<float> stream(SushiDSP::AudioNode& node, const std::vector<float>& stimulus)
     {
         std::vector<float> output(stimulus.size(), 0.0f);
-        for (std::size_t offset = 0; offset + kBlock <= stimulus.size(); offset += kBlock)
+        for (std::size_t offset = 0; offset + K_BLOCK <= stimulus.size(); offset += K_BLOCK)
         {
-            const float* inputs[1] = { stimulus.data() + offset };
-            float* outputs[1] = { output.data() + offset };
-            SushiDSP::ProcessContext context{ outputs, inputs, kBlock, 0.0 };
+            const float* inputs[1] = {stimulus.data() + offset};
+            float* outputs[1] = {output.data() + offset};
+            SushiDSP::ProcessContext context{outputs, inputs, K_BLOCK, 0.0};
             node.process(context);
         }
         return output;
@@ -89,10 +89,10 @@ namespace
     std::vector<float> burst_stimulus(std::size_t length)
     {
         std::vector<float> input(length, 0.0f);
-        for (std::size_t n = 0; n < 480; ++n)      // 10 ms, well inside the 7 kHz band
+        for (std::size_t n = 0; n < 480; ++n) // 10 ms, well inside the 7 kHz band
         {
-            input[n] = 0.6f * static_cast<float>(
-                std::sin(2.0 * M_PI * 3000.0 * static_cast<double>(n) / kSampleRate));
+            input[n] = 0.6f * static_cast<float>(std::sin(2.0 * M_PI * 3000.0 *
+                                                          static_cast<double>(n) / K_SAMPLE_RATE));
         }
         return input;
     }
@@ -105,14 +105,15 @@ namespace
     /// @return The stimulus.
     std::vector<float> multitone_stimulus(std::size_t length)
     {
-        const double tones[8] = { 400.0, 900.0, 1600.0, 2500.0, 3600.0, 4900.0, 6400.0, 8100.0 };
+        const double tones[8] = {400.0, 900.0, 1600.0, 2500.0, 3600.0, 4900.0, 6400.0, 8100.0};
         std::vector<float> input(length, 0.0f);
         for (std::size_t n = 0; n < 480; ++n)
         {
             double sum = 0.0;
             for (const double frequency : tones)
             {
-                sum += 0.15 * std::sin(2.0 * M_PI * frequency * static_cast<double>(n) / kSampleRate);
+                sum += 0.15 *
+                       std::sin(2.0 * M_PI * frequency * static_cast<double>(n) / K_SAMPLE_RATE);
             }
             input[n] = static_cast<float>(sum);
         }
@@ -135,10 +136,11 @@ namespace
             double imaginary = 0.0;
             for (std::size_t n = 0; n < length && begin + n < samples.size(); ++n)
             {
-                const double taper = 0.5 - 0.5 * std::cos(2.0 * M_PI * static_cast<double>(n)
-                                                          / static_cast<double>(length - 1));
+                const double taper = 0.5 - 0.5 * std::cos(2.0 * M_PI * static_cast<double>(n) /
+                                                          static_cast<double>(length - 1));
                 const double value = static_cast<double>(samples[begin + n]) * taper;
-                const double angle = 2.0 * M_PI * frequency * static_cast<double>(n) / kSampleRate;
+                const double angle =
+                    2.0 * M_PI * frequency * static_cast<double>(n) / K_SAMPLE_RATE;
                 real += value * std::cos(angle);
                 imaginary -= value * std::sin(angle);
             }
@@ -148,12 +150,12 @@ namespace
         }
         return total > 0.0 ? weighted / total : 0.0;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, Dd3DelayDeclaresItselfCorrectly)
 {
     SushiDSP::Dd3Delay node;
-    node.prepare({ kSampleRate, kBlock, 1u });
+    node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
     EXPECT_EQ(node.ports().input_channels, 1u);
     EXPECT_EQ(node.ports().output_channels, 1u);
     EXPECT_STREQ(node.type_id(), "sushidsp.dd3");
@@ -167,8 +169,8 @@ TEST(Unit_Dsp, Dd3DelayAtZeroLevelIsAWire)
     SushiDSP::Dd3Delay node;
     node.set_level(0.0f);
     node.set_feedback(0.0f);
-    const auto input = SushiDSP::measure::sine_stimulus(440.0, kSampleRate, 48000u, 0.5f);
-    const auto output = SushiDSP::measure::render(node, input, kSampleRate, kBlock);
+    const auto input = SushiDSP::measure::sine_stimulus(440.0, K_SAMPLE_RATE, 48000u, 0.5f);
+    const auto output = SushiDSP::measure::render(node, input, K_SAMPLE_RATE, K_BLOCK);
     for (std::size_t n = 0; n < input.size(); ++n)
     {
         ASSERT_NEAR(output[n], input[n], 1e-5f) << n;
@@ -178,10 +180,14 @@ TEST(Unit_Dsp, Dd3DelayAtZeroLevelIsAWire)
 TEST(Unit_Dsp, Dd3DelayWetDelayMatchesThePlansArithmetic)
 {
     // The two conversions cost 68 / min(fs, 48000), not 64. See tests/functional/unit/README.md.
-    struct Case { SushiDSP::dd3::Dd3Mode mode; double expected_seconds; };
+    struct Case
+    {
+            SushiDSP::dd3::Dd3Mode mode;
+            double expected_seconds;
+    };
     const Case cases[2] = {
-        { SushiDSP::dd3::Dd3Mode::Short, 0.013995455 },
-        { SushiDSP::dd3::Dd3Mode::Long,  0.200177273 },
+        {SushiDSP::dd3::Dd3Mode::Short, 0.013995455},
+        {SushiDSP::dd3::Dd3Mode::Long, 0.200177273},
     };
     for (const Case& item : cases)
     {
@@ -190,22 +196,26 @@ TEST(Unit_Dsp, Dd3DelayWetDelayMatchesThePlansArithmetic)
         node.set_time(0.0f);
         node.set_feedback(0.0f);
         node.set_level(1.0f);
-        node.prepare({ kSampleRate, kBlock, 1u });
+        node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
         EXPECT_NEAR(node.wet_delay_seconds(), item.expected_seconds, 1e-6);
 
         // And the measured delay agrees: an impulse comes back once, near that time.
-        std::vector<float> input(static_cast<std::size_t>(0.5 * kSampleRate), 0.0f);
+        std::vector<float> input(static_cast<std::size_t>(0.5 * K_SAMPLE_RATE), 0.0f);
         input[0] = 1.0f;
-        const auto output = SushiDSP::measure::render(node, input, kSampleRate, kBlock);
+        const auto output = SushiDSP::measure::render(node, input, K_SAMPLE_RATE, K_BLOCK);
         std::size_t peak_at = 0;
         float peak = 0.0f;
         for (std::size_t n = 8; n < output.size(); ++n)
         {
-            if (std::abs(output[n]) > peak) { peak = std::abs(output[n]); peak_at = n; }
+            if (std::abs(output[n]) > peak)
+            {
+                peak = std::abs(output[n]);
+                peak_at = n;
+            }
         }
-        const double expected_samples = item.expected_seconds * kSampleRate;
-        std::printf("[ measure ] DD-3 wet echo at %zu samples, predicted %.2f\n",
-                    peak_at, expected_samples);
+        const double expected_samples = item.expected_seconds * K_SAMPLE_RATE;
+        std::printf("[ measure ] DD-3 wet echo at %zu samples, predicted %.2f\n", peak_at,
+                    expected_samples);
         // 32 samples catch a wrong N, fs or round trip. See tests/functional/unit/README.md.
         EXPECT_NEAR(static_cast<double>(peak_at), expected_samples, 32.0);
     }
@@ -213,14 +223,14 @@ TEST(Unit_Dsp, Dd3DelayWetDelayMatchesThePlansArithmetic)
 
 TEST(Unit_Dsp, Dd3DelayFillsEveryBlockSizeAndStaysFinite)
 {
-    for (const std::uint32_t block : { 1u, 7u, 8u, 9u, 64u, 255u, 256u })
+    for (const std::uint32_t block : {1u, 7u, 8u, 9u, 64u, 255u, 256u})
     {
         SushiDSP::Dd3Delay node;
         node.set_level(0.7f);
         node.set_feedback(0.6f);
         node.set_time(0.4f);
-        const auto input = SushiDSP::measure::sine_stimulus(220.0, kSampleRate, 48000u, 0.8f);
-        const auto output = SushiDSP::measure::render(node, input, kSampleRate, block);
+        const auto input = SushiDSP::measure::sine_stimulus(220.0, K_SAMPLE_RATE, 48000u, 0.8f);
+        const auto output = SushiDSP::measure::render(node, input, K_SAMPLE_RATE, block);
         ASSERT_EQ(output.size(), input.size()) << block;
         for (const float sample : output)
         {
@@ -232,7 +242,7 @@ TEST(Unit_Dsp, Dd3DelayFillsEveryBlockSizeAndStaysFinite)
 TEST(Unit_Dsp, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
 {
     // Splitting the same input differently must not move a sample while the clock glides.
-    const auto input = SushiDSP::measure::sine_stimulus(220.0, kSampleRate, 24000u, 0.8f);
+    const auto input = SushiDSP::measure::sine_stimulus(220.0, K_SAMPLE_RATE, 24000u, 0.8f);
     auto glide = [&](std::uint32_t block)
     {
         SushiDSP::Dd3Delay node;
@@ -240,7 +250,7 @@ TEST(Unit_Dsp, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
         node.set_time(0.0f);
         node.set_feedback(0.6f);
         node.set_level(0.7f);
-        node.prepare({ kSampleRate, block, 1u });
+        node.prepare({K_SAMPLE_RATE, block, 1u});
         // prepare() snaps the clock to D.TIME 0, so this is what makes it glide during the run.
         node.set_time(1.0f);
         std::vector<float> output(input.size(), 0.0f);
@@ -248,17 +258,17 @@ TEST(Unit_Dsp, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
         {
             const std::uint32_t frames =
                 static_cast<std::uint32_t>(std::min<std::size_t>(block, input.size() - offset));
-            const float* inputs[1] = { input.data() + offset };
-            float* outputs[1] = { output.data() + offset };
-            SushiDSP::ProcessContext context{ outputs, inputs, frames, 0.0 };
+            const float* inputs[1] = {input.data() + offset};
+            float* outputs[1] = {output.data() + offset};
+            SushiDSP::ProcessContext context{outputs, inputs, frames, 0.0};
             node.process(context);
         }
         return output;
     };
 
-    const auto reference = glide(kBlock);
+    const auto reference = glide(K_BLOCK);
     double worst = 0.0;
-    for (const std::uint32_t block : { 1u, 7u, 8u, 9u, 64u, 255u })
+    for (const std::uint32_t block : {1u, 7u, 8u, 9u, 64u, 255u})
     {
         const auto output = glide(block);
         for (std::size_t n = 0; n < reference.size(); ++n)
@@ -267,8 +277,9 @@ TEST(Unit_Dsp, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
             ASSERT_NEAR(output[n], reference[n], 1e-6f) << "block " << block << " sample " << n;
         }
     }
-    std::printf("[ measure ] DD-3 block-size invariance during a D.TIME glide: worst |delta| %.3e\n",
-                worst);
+    std::printf(
+        "[ measure ] DD-3 block-size invariance during a D.TIME glide: worst |delta| %.3e\n",
+        worst);
 }
 
 TEST(Unit_Dsp, Dd3DelayResetReturnsItToSilence)
@@ -276,13 +287,13 @@ TEST(Unit_Dsp, Dd3DelayResetReturnsItToSilence)
     SushiDSP::Dd3Delay node;
     node.set_level(1.0f);
     node.set_feedback(0.8f);
-    node.prepare({ kSampleRate, kBlock, 1u });
+    node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
 
     std::vector<float> loud(24000u, 0.0f);
     for (std::size_t n = 0; n < loud.size(); ++n)
     {
         loud[n] = 0.9f * static_cast<float>(
-            std::sin(2.0 * M_PI * 300.0 * static_cast<double>(n) / kSampleRate));
+                             std::sin(2.0 * M_PI * 300.0 * static_cast<double>(n) / K_SAMPLE_RATE));
     }
     stream(node, loud);
 
@@ -303,8 +314,8 @@ TEST(Unit_Dsp, Dd3DelayRepeatsDecayAndDarkenWithFeedback)
     node.set_time(0.0f);
     node.set_feedback(0.7f);
     node.set_level(1.0f);
-    const auto input = multitone_stimulus(static_cast<std::size_t>(1.0 * kSampleRate));
-    const auto output = SushiDSP::measure::render(node, input, kSampleRate, kBlock);
+    const auto input = multitone_stimulus(static_cast<std::size_t>(1.0 * K_SAMPLE_RATE));
+    const auto output = SushiDSP::measure::render(node, input, K_SAMPLE_RATE, K_BLOCK);
 
     // Echoes land near 672, 1344 and 2016 samples (N2's 13.995 ms, three times).
     const double first = window_rms(output, 660u, 512u);
@@ -314,17 +325,17 @@ TEST(Unit_Dsp, Dd3DelayRepeatsDecayAndDarkenWithFeedback)
 
     const double first_centroid = window_centroid(output, 660u, 512u);
     const double third_centroid = window_centroid(output, 2004u, 512u);
-    std::printf("[ measure ] DD-3 repeats: rms %.6e -> %.6e, centroid %.1f Hz -> %.1f Hz\n",
-                first, third, first_centroid, third_centroid);
+    std::printf("[ measure ] DD-3 repeats: rms %.6e -> %.6e, centroid %.1f Hz -> %.1f Hz\n", first,
+                third, first_centroid, third_centroid);
     EXPECT_LT(third_centroid, 0.95 * first_centroid);
 }
 
 TEST(Unit_Dsp, Dd3DelaySelfOscillatesOnlyAtTheTopOfTheKnob)
 {
     // The tail sustains only at the top of the knob. See tests/functional/unit/README.md.
-    const auto input = burst_stimulus(static_cast<std::size_t>(2.0 * kSampleRate));
-    double tails[2] = { 0.0, 0.0 };
-    const float positions[2] = { 0.7f, 1.0f };
+    const auto input = burst_stimulus(static_cast<std::size_t>(2.0 * K_SAMPLE_RATE));
+    double tails[2] = {0.0, 0.0};
+    const float positions[2] = {0.7f, 1.0f};
     for (int i = 0; i < 2; ++i)
     {
         SushiDSP::Dd3Delay node;
@@ -332,7 +343,7 @@ TEST(Unit_Dsp, Dd3DelaySelfOscillatesOnlyAtTheTopOfTheKnob)
         node.set_time(0.0f);
         node.set_feedback(positions[i]);
         node.set_level(1.0f);
-        const auto output = SushiDSP::measure::render(node, input, kSampleRate, kBlock);
+        const auto output = SushiDSP::measure::render(node, input, K_SAMPLE_RATE, K_BLOCK);
         tails[i] = window_rms(output, 48000u, 48000u);
     }
     std::printf("[ measure ] DD-3 tail rms in the second second: F.BACK 0.7 %.3e, 1.0 %.3e\n",
@@ -348,17 +359,17 @@ TEST(Unit_Dsp, Dd3DelayHoldKeepsRepeatingWithNoInput)
     node.set_time(0.0f);
     node.set_feedback(0.0f);
     node.set_level(1.0f);
-    node.prepare({ kSampleRate, kBlock, 1u });
+    node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
 
-    std::vector<float> tone(static_cast<std::size_t>(0.25 * kSampleRate), 0.0f);
+    std::vector<float> tone(static_cast<std::size_t>(0.25 * K_SAMPLE_RATE), 0.0f);
     for (std::size_t n = 0; n < tone.size(); ++n)
     {
         tone[n] = 0.5f * static_cast<float>(
-            std::sin(2.0 * M_PI * 500.0 * static_cast<double>(n) / kSampleRate));
+                             std::sin(2.0 * M_PI * 500.0 * static_cast<double>(n) / K_SAMPLE_RATE));
     }
     stream(node, tone);
 
-    node.set_mode(SushiDSP::dd3::Dd3Mode::Hold);   // Ruling 14: same N, so the loop survives
+    node.set_mode(SushiDSP::dd3::Dd3Mode::Hold); // Ruling 14: same N, so the loop survives
     const std::vector<float> silence(48000u, 0.0f);
     const auto held = stream(node, silence);
     double energy = 0.0;
@@ -373,7 +384,7 @@ TEST(Unit_Dsp, Dd3DelayHitsCheckPointFive)
 {
     // 0.025 full scale in gives 0.035 full scale of wet out. See tests/functional/unit/README.md.
     SushiDSP::Dd3Delay wet_node, dry_node;
-    for (SushiDSP::Dd3Delay* node : { &wet_node, &dry_node })
+    for (SushiDSP::Dd3Delay* node : {&wet_node, &dry_node})
     {
         node->set_mode(SushiDSP::dd3::Dd3Mode::Middle);
         node->set_time(0.5f);
@@ -381,9 +392,9 @@ TEST(Unit_Dsp, Dd3DelayHitsCheckPointFive)
     }
     wet_node.set_level(1.0f);
     dry_node.set_level(0.0f);
-    const auto input = SushiDSP::measure::sine_stimulus(1000.0, kSampleRate, 96000u, 0.025f);
-    const auto with_wet = SushiDSP::measure::render(wet_node, input, kSampleRate, kBlock);
-    const auto without = SushiDSP::measure::render(dry_node, input, kSampleRate, kBlock);
+    const auto input = SushiDSP::measure::sine_stimulus(1000.0, K_SAMPLE_RATE, 96000u, 0.025f);
+    const auto with_wet = SushiDSP::measure::render(wet_node, input, K_SAMPLE_RATE, K_BLOCK);
+    const auto without = SushiDSP::measure::render(dry_node, input, K_SAMPLE_RATE, K_BLOCK);
     double peak = 0.0;
     for (std::size_t n = 72000; n < with_wet.size(); ++n)
     {
@@ -407,7 +418,8 @@ TEST(Unit_Dsp, Dd3DelayParametersRoundTripByNameAndByIndex)
     EXPECT_FLOAT_EQ(node.get_parameter("nonsense"), 0.0f);
     node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(0), 0.1f);
     EXPECT_FLOAT_EQ(node.get_parameter("time"), 0.1f);
-    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 0.1f);   // out of range: a no-op
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99),
+                                        0.1f); // out of range: a no-op
     EXPECT_FLOAT_EQ(node.get_parameter("time"), 0.1f);
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::dd3_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.dd3");
@@ -422,21 +434,21 @@ TEST(Unit_Dsp, Dd3DelayDefersAModeChangeMadeByIndex)
     SushiDSP::Dd3Delay node;
     node.set_mode(SushiDSP::dd3::Dd3Mode::Long);
     node.set_time(0.0f);
-    node.prepare({ kSampleRate, kBlock, 1u });
+    node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
     const double before = node.wet_delay_seconds();
     EXPECT_NEAR(before, 0.200177273, 1e-6);
 
-    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(3), 0.0f);   // Short, by index
-    EXPECT_FLOAT_EQ(node.get_parameter("mode"), 0.0f);          // the target reads back at once
-    EXPECT_NEAR(node.wet_delay_seconds(), before, 1e-12);       // the ring has not moved yet
+    node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(3), 0.0f); // Short, by index
+    EXPECT_FLOAT_EQ(node.get_parameter("mode"), 0.0f);    // the target reads back at once
+    EXPECT_NEAR(node.wet_delay_seconds(), before, 1e-12); // the ring has not moved yet
 
-    const std::vector<float> silence(kBlock, 0.0f);
-    const float* inputs[1] = { silence.data() };
-    std::vector<float> scratch(kBlock, 0.0f);
-    float* outputs[1] = { scratch.data() };
-    SushiDSP::ProcessContext context{ outputs, inputs, kBlock, 0.0 };
+    const std::vector<float> silence(K_BLOCK, 0.0f);
+    const float* inputs[1] = {silence.data()};
+    std::vector<float> scratch(K_BLOCK, 0.0f);
+    float* outputs[1] = {scratch.data()};
+    SushiDSP::ProcessContext context{outputs, inputs, K_BLOCK, 0.0};
     node.process(context);
-    EXPECT_NEAR(node.wet_delay_seconds(), 0.013995455, 1e-6);   // block start applied it
+    EXPECT_NEAR(node.wet_delay_seconds(), 0.013995455, 1e-6); // block start applied it
 
     // The string overload is the control thread's, so it applies without waiting for a block.
     node.set_parameter_for_control_thread("mode", 2.0f);
@@ -456,36 +468,36 @@ TEST(Unit_Dsp, WetFifoPrimesThenDropsTheOldestWhenFull)
     fifo.reset();
 
     // Nothing comes out until the prime is met, and the prime is taken on real samples.
-    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::kPrimeFrames - 1u; ++n)
+    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::K_PRIME_FRAMES - 1u; ++n)
     {
         fifo.push(static_cast<float>(n));
         EXPECT_TRUE(fifo.priming()) << n;
         EXPECT_FLOAT_EQ(fifo.pop(), 0.0f) << n;
     }
     fifo.push(7.0f);
-    EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::kPrimeFrames);
-    EXPECT_FLOAT_EQ(fifo.pop(), 0.0f);          // sample 0, the oldest, and the prime is now met
+    EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::K_PRIME_FRAMES);
+    EXPECT_FLOAT_EQ(fifo.pop(), 0.0f); // sample 0, the oldest, and the prime is now met
     EXPECT_FALSE(fifo.priming());
     EXPECT_FLOAT_EQ(fifo.pop(), 1.0f);
 
     // Overflow drops the oldest rather than the newest, and the depth never exceeds capacity.
     fifo.reset();
-    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::kCapacity + 3u; ++n)
+    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::K_CAPACITY + 3u; ++n)
     {
         fifo.push(static_cast<float>(n));
     }
-    EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::kCapacity);
-    EXPECT_FLOAT_EQ(fifo.pop(), 3.0f);          // 0, 1 and 2 went to make room
-    EXPECT_FALSE(fifo.priming());               // pop() is where the prime is checked
+    EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::K_CAPACITY);
+    EXPECT_FLOAT_EQ(fifo.pop(), 3.0f); // 0, 1 and 2 went to make room
+    EXPECT_FALSE(fifo.priming());      // pop() is where the prime is checked
     EXPECT_FLOAT_EQ(fifo.pop(), 4.0f);
 
     // A starved FIFO returns silence without moving its read index.
     fifo.reset();
-    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::kPrimeFrames; ++n)
+    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::K_PRIME_FRAMES; ++n)
     {
         fifo.push(1.0f);
     }
-    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::kPrimeFrames; ++n)
+    for (std::uint32_t n = 0; n < SushiDSP::dd3::WetFifo::K_PRIME_FRAMES; ++n)
     {
         EXPECT_FLOAT_EQ(fifo.pop(), 1.0f) << n;
     }

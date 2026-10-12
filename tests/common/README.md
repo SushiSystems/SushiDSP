@@ -5,8 +5,8 @@ Code every test executable shares.
 | File | What it holds |
 | --- | --- |
 | `test_main.cpp` | The entry point of the test suite |
-| `RoomFixtures.hpp` | The three reference rooms the room-acoustics acceptance tests measure against |
-| `TimingGate.hpp` | The gate that skips a wall-clock bound when the binary is not optimised |
+| `room_fixtures.hpp` | The three reference rooms the room-acoustics acceptance tests measure against |
+| `timing_gate.hpp` | The gate that skips a wall-clock bound when the binary is not optimised |
 
 ## test_main.cpp
 

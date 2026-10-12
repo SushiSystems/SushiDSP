@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include "ui/TapTempo.hpp"
+#include "ui/tap_tempo.hpp"
 
 TEST(Unit_Dsp, TapTempoReadsFourEvenTapsAsTheirTempo)
 {
@@ -41,7 +41,7 @@ TEST(Unit_Dsp, TapTempoReadsFourEvenTapsAsTheirTempo)
 
     EXPECT_DOUBLE_EQ(*taps.tap(1.0), 120.0);
     EXPECT_DOUBLE_EQ(*taps.tap(1.5), 120.0);
-    EXPECT_EQ(taps.tap_count(), ui::TapTempo::kTapCount);
+    EXPECT_EQ(taps.tap_count(), ui::TapTempo::K_TAP_COUNT);
 }
 
 TEST(Unit_Dsp, TapTempoAveragesOverTheLastFourTapsOnly)
@@ -75,10 +75,10 @@ TEST(Unit_Dsp, TapTempoHoldsItsTempoInsideTheRange)
     ui::TapTempo taps;
 
     taps.tap(0.0);
-    EXPECT_DOUBLE_EQ(*taps.tap(0.1), ui::TapTempo::kMaximumTempo);
+    EXPECT_DOUBLE_EQ(*taps.tap(0.1), ui::TapTempo::K_MAXIMUM_TEMPO);
 
     taps.reset();
     EXPECT_EQ(taps.tap_count(), 0u);
     taps.tap(0.0);
-    EXPECT_DOUBLE_EQ(*taps.tap(2.0), ui::TapTempo::kMinimumTempo);
+    EXPECT_DOUBLE_EQ(*taps.tap(2.0), ui::TapTempo::K_MINIMUM_TEMPO);
 }

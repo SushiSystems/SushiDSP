@@ -32,28 +32,28 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/IAudioNode.hpp"
-#include "SushiDSP/log/CapturingLogSink.hpp"
-#include "SushiDSP/log/DefaultLogger.hpp"
-#include "SushiDSP/log/ScopedLogSink.hpp"
-#include "SushiDSP/room/HrtfSet.hpp"
-#include "SushiDSP/room/HrtfSetLoader.hpp"
-#include "SushiDSP/room/RoomNode.hpp"
+#include "SushiDSP/core/audio_node.hpp"
+#include "SushiDSP/log/capturing_log_sink.hpp"
+#include "SushiDSP/log/default_logger.hpp"
+#include "SushiDSP/log/scoped_log_sink.hpp"
+#include "SushiDSP/room/hrtf_set.hpp"
+#include "SushiDSP/room/hrtf_set_loader.hpp"
+#include "SushiDSP/room/room_node.hpp"
 
 TEST(Unit_Dsp, RoomNodeLogsOneErrorNamingTheCauseWhenTheDecoderCannotBePrepared)
 {
-    constexpr double kSampleRate = 48000.0;
+    constexpr double K_SAMPLE_RATE = 48000.0;
 
     SushiDSP::room::RoomNode node;
-    node.prepare(SushiDSP::PrepareInfo{ kSampleRate, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{K_SAMPLE_RATE, 256, 1});
 
     SushiDSP::room::HrtfSet set;
-    std::string             error;
+    std::string error;
     ASSERT_TRUE(SushiDSP::room::HrtfSetLoader::load(
-        std::string(SUSHIDSP_FIXTURE_DIR) + "/hrtf_self_test.hrtf", kSampleRate, set, error))
+        std::string(SUSHIDSP_FIXTURE_DIR) + "/hrtf_self_test.hrtf", K_SAMPLE_RATE, set, error))
         << error;
     // A first-order decoder is one the node cannot use, so preparing the binaural decoder throws.
-    set.set_decoder(1, std::vector<float>(2 * 4 * SushiDSP::room::HrtfSet::kDecoderTaps));
+    set.set_decoder(1, std::vector<float>(2 * 4 * SushiDSP::room::HrtfSet::K_DECODER_TAPS));
     const std::string directions = std::to_string(set.direction_count());
 
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();

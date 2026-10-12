@@ -5,19 +5,19 @@
 # Commercial use requires a licence from Sushi Systems.
 
 add_library(capture STATIC
-    src/Take.cpp
-    src/TrackRecorder.cpp
-    src/RecordingBus.cpp
-    src/Transport.cpp
-    src/TrackPlayer.cpp
-    src/TakeLibrary.cpp
-    src/MusicalClock.cpp
-    src/VariRateReader.cpp
-    src/Metronome.cpp
-    src/TrackTimeline.cpp
+    source/take.cpp
+    source/track_recorder.cpp
+    source/recording_bus.cpp
+    source/transport.cpp
+    source/track_player.cpp
+    source/take_library.cpp
+    source/musical_clock.cpp
+    source/vari_rate_reader.cpp
+    source/metronome.cpp
+    source/track_timeline.cpp
 )
 add_library(SushiDSP::capture ALIAS capture)
-target_link_libraries(capture PUBLIC SushiDSP::sushi_dsp)
+target_link_libraries(capture PUBLIC SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_io SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math)
 sushidsp_apply_optimization_flags(capture)
 target_include_directories(capture PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

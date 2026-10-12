@@ -1,6 +1,6 @@
-# `modules/nodes/mesa_mark2c` — Mesa/Boogie Mark IIC+, Lead mode
+# `modules/nodes/mesa_mark2c`, Mesa/Boogie Mark IIC+, Lead mode
 
-One `IAudioNode`, mono in and mono out, registered as `sushidsp.mesa_mark2c` with fifteen
+One `AudioNode`, mono in and mono out, registered as `sushidsp.mesa_mark2c` with fifteen
 parameters: Volume 1, Treble, Bass, Middle, Lead Drive, Lead Master, Master 1, Presence, the five
 graphic-equaliser sliders, Input Trim and Output. The PULL switches on the pots are not exposed;
 every one of them is fixed at the position the dossier reads for Lead mode.
@@ -31,8 +31,8 @@ Volume 1, and until 2026-09-20 the model gave it neither. It now receives 150 k 
 as its source and Volume 1's 1 M as its load, which costs 4.13 dB at 1 kHz with the controls at
 noon and tilts the band by 0.87 dB between 41 Hz and 10 kHz. So the omission was a gain-staging
 error rather than a tone error: the four lead stages were driven 4 dB harder than the circuit
-drives them. The output calibration did not move with it, because the chain compresses — the
-default peak stays inside the −7 to −5 dBFS window `kMasterUnityGain` is pinned against — but the
+drives them. The output calibration did not move with it, because the chain compresses, the
+default peak stays inside the −7 to −5 dBFS window `K_MASTER_UNITY_GAIN` is pinned against, but the
 distortion's distribution between the stages did, which is what took the THD figure above from
 8.50 pp to 3.32 pp.
 
@@ -48,7 +48,7 @@ one by 0.87 dB. The other three amplifiers pass no termination and are unchanged
 | The FMV stack of §4.1 | `MesaMark2cToneStack`, wrapping `FmvToneStack` |
 | Each of the seven 12AX7 halves | `TriodeStage` |
 | The five EQ traps | `GraphicEqualizer` |
-| Each Simul-Class output half | `PentodeStage`, from `kMesaMark2cPower6L6GC` / `kMesaMark2cPowerEl34Triode` |
+| Each Simul-Class output half | `PentodeStage`, from `K_MESA_MARK2C_POWER6_L6_GC` / `K_MESA_MARK2C_POWER_EL34_TRIODE` |
 | Transformer, sag | `OutputTransformerStage`, `PowerSupplySagStage` |
 | Every coupling cap, cathode shelf, divider shelf and Miller pole | `Biquad` |
 | The chain's order and the constants | `SushiDSP::MesaMark2c` |
@@ -69,30 +69,30 @@ rendering the same slider sweep in 256-frame and 32-frame blocks and comparing t
 
 | Stage | Constant | Plate swing (up / down, V) | Dossier |
 | --- | --- | --- | --- |
-| V1A, Rp 150 k, Rk 1.5 k, Vk 1.6 V, source 10 k | gain 70.6; §3.1 draws no grid stopper, so `kV1aSourceResistance` borrows the JCM800's 10 k | 160.0 / 120.961 (D 382 V, Va 222 V, bottom 101.039 V) | §3.1 |
-| Tone stack on the plate | 250 pF / 0.1 µF / 0.047 µF, 100 k slope, 250 k / 10 k / 250 k pots; driven through V1A's 44.12 k and loaded by Volume 1's 1 M, which costs 4.13 dB at 1 kHz | — | §4.1 |
-| Volume 1, 1 M | audio taper, no ceiling (see below) | — | §2 |
+| V1A, Rp 150 k, Rk 1.5 k, Vk 1.6 V, source 10 k | gain 70.6; §3.1 draws no grid stopper, so `K_V1A_SOURCE_RESISTANCE` borrows the JCM800's 10 k | 160.0 / 120.961 (D 382 V, Va 222 V, bottom 101.039 V) | §3.1 |
+| Tone stack on the plate | 250 pF / 0.1 µF / 0.047 µF, 100 k slope, 250 k / 10 k / 250 k pots; driven through V1A's 44.12 k and loaded by Volume 1's 1 M, which costs 4.13 dB at 1 kHz |, | §4.1 |
+| Volume 1, 1 M | audio taper, no ceiling (see below) |, | §2 |
 | V1B, Rp 100 k, Vk 1.9 V | gain 61.5 | 127.0 / 128.851 (D 382 V, Va 255 V, bottom 126.149 V) | §3.2 |
-| V1B coupling, 0.1 µF into 100 k | high-pass **15.92 Hz** (computed) | — | §3.2 |
-| Lead Drive bright cap, 180 pF | high shelf at **1881 Hz** (computed from 470 k) | — | §3.3 |
-| 680 k into Lead Drive 1 M | attenuation 0.595 at maximum | — | §3.3 |
+| V1B coupling, 0.1 µF into 100 k | high-pass **15.92 Hz** (computed) |, | §3.2 |
+| Lead Drive bright cap, 180 pF | high shelf at **1881 Hz** (computed from 470 k) |, | §3.3 |
+| 680 k into Lead Drive 1 M | attenuation 0.595 at maximum |, | §3.3 |
 | V3B, Rp 82 k, Vk 1.8 V | gain 56.7 | 98.0 / 151.554 (C 392 V, Va 294 V, bottom 142.446 V) | §3.3 |
-| V3B coupling, 0.02 µF into 170 k + 68 k | high-pass **33.44 Hz** (computed) | — | §3.4 |
-| Interstage network, 68 k with 0.047 µF across the 170 k | low shelf: 0.286 below, unity above, zero **19.939 Hz**, pole 69.717 Hz | — | §3.4, open question 18 |
+| V3B coupling, 0.02 µF into 170 k + 68 k | high-pass **33.44 Hz** (computed) |, | §3.4 |
+| Interstage network, 68 k with 0.047 µF across the 170 k | low shelf: 0.286 below, unity above, zero **19.939 Hz**, pole 69.717 Hz |, | §3.4, open question 18 |
 | V4A, Rp 270 k, Rk 3.3 k, Vk 1.2 V | gain 70 | 98.0 / 221.216 (C 392 V, Va 294 V, bottom 72.784 V) | §3.4 |
-| V4A cathode, 0.22 µF on 3.3 k | zero 219.22 Hz, pole **438.97 Hz**, loss below **0.4994** (−6.03 dB) | — | §3.4 |
-| V4A coupling, 0.047 µF into 320 k | high-pass **10.58 Hz** (computed) | — | §3.5 |
-| Lead output divider, 220 k ∥ 250 pF over 3.3 k ∥ 500 pF | 0.014778 at DC (−36.6 dB), zero **2893.7 Hz**, pole **65269.6 Hz**, 0.3333 above; the shunt is S8's traced R30, not S1's `100K` glyph (§8 question 21) | — | §3.5 |
+| V4A cathode, 0.22 µF on 3.3 k | zero 219.22 Hz, pole **438.97 Hz**, loss below **0.4994** (−6.03 dB) |, | §3.4 |
+| V4A coupling, 0.047 µF into 320 k | high-pass **10.58 Hz** (computed) |, | §3.5 |
+| Lead output divider, 220 k ∥ 250 pF over 3.3 k ∥ 500 pF | 0.014778 at DC (−36.6 dB), zero **2893.7 Hz**, pole **65269.6 Hz**, 0.3333 above; the shunt is S8's traced R30, not S1's `100K` glyph (§8 question 21) |, | §3.5 |
 | V2A, Rp 100 k, Rk 1.5 k unbypassed, Vk 1.935 V, grid 680 k ∥ 47 pF, source 220 k ∥ 3.3 k = 3.25 k | gain **22.005** = 91.561 × 58.746 / (58.746 + 46.848 + 92.561 × 1.5), the Koren model's local µ and r_a at 1.2902 mA into the loop network's 58.746 k AC load | 75.795 / 114.171 (C 392 V, Va 263.0 V, on the 58.746 k AC load line) | §3.6 |
-| Loop network: 47 k (R105) and 0.047 µF (C9) to W; W to ground through the 250 k Lead Master rheostat; W ─ 150 k (R102) ─ P; P ─ 4.7 k (R101) to ground; P ─ 2.2 k (R12) ─ SEND, normalled to RETURN at V2B's grid with its 47 k (R103) | coupling high-pass **16.33 Hz**; at Lead Master maximum 0.6699 × 0.02770 × 0.9533 = **0.01769** (−35.0 dB) from the capacitor's node to V2B's grid; `loop_network_gain()` carries the rheostat's law, Z_W / (47 k + Z_W) with Z_W = pot ∥ 154.27 k | — | §3.6a |
+| Loop network: 47 k (R105) and 0.047 µF (C9) to W; W to ground through the 250 k Lead Master rheostat; W ─ 150 k (R102) ─ P; P ─ 4.7 k (R101) to ground; P ─ 2.2 k (R12) ─ SEND, normalled to RETURN at V2B's grid with its 47 k (R103) | coupling high-pass **16.33 Hz**; at Lead Master maximum 0.6699 × 0.02770 × 0.9533 = **0.01769** (−35.0 dB) from the capacitor's node to V2B's grid; `loop_network_gain()` carries the rheostat's law, Z_W / (47 k + Z_W) with Z_W = pot ∥ 154.27 k |, | §3.6a |
 | V2B, Rp 170 k, Rk 1 k, source 5.909 k | gain **73.118** (computed: 100 × 170 / 232.5) | 204.0 / 92.338 (C 392 V, Va 188 V, bottom 95.662 V) | §3.7 |
-| V2B cathode, 0.47 µF on 1 k, PULL DEEP out | zero 338.63 Hz, pole **485.73 Hz**, loss below **0.6972** (−3.13 dB) | — | §3.7 |
-| V2B coupling, 0.047 µF into 100 k | high-pass **33.86 Hz** (computed) | — | §3.7 |
-| Master 1, 100 k, at node F | dB control, `kMasterUnityGain` 0.0038289 at 0 dB | — | §2 |
-| Graphic EQ | 87.61 / 371.74 / 723.43 / 1575.87 / 4822.88 Hz at Q 1.171 / 1.938 / 2.128 / 0.673 / 1.0, ±17 dB | — | §4.2, on S8's inductors |
+| V2B cathode, 0.47 µF on 1 k, PULL DEEP out | zero 338.63 Hz, pole **485.73 Hz**, loss below **0.6972** (−3.13 dB) |, | §3.7 |
+| V2B coupling, 0.047 µF into 100 k | high-pass **33.86 Hz** (computed) |, | §3.7 |
+| Master 1, 100 k, at node F | dB control, `K_MASTER_UNITY_GAIN` 0.0038289 at 0 dB |, | §2 |
+| Graphic EQ | 87.61 / 371.74 / 723.43 / 1575.87 / 4822.88 Hz at Q 1.171 / 1.938 / 2.128 / 0.673 / 1.0, ±17 dB |, | §4.2, on S8's inductors |
 | V5A/V5B long-tailed pair, Rp 82.5 k and 90.9 k | `LongTailedPair`: gains **68.214959** and **70.108125** on each plate, shared cathode following **0.49678** of the two grids through the 27.27 k tail | 106.646 / 144.645 and 117.503 / 159.365, scaled per load from (C 392 V, Va 286 V, bottom 142.232 V) | §5.1, plates and tail off S8 |
-| Simul-Class output | `kMesaMark2cPower6L6GC` ×2 and `kMesaMark2cPowerEl34Triode` ×2, in real volts | inner 81.2 / 311.228 V, outer 132.288 / 132.288 V | §5.3, §7.2, §7.3, RCA 6L6-GC sheet |
-| Presence, a 250 k rheostat in the feedback leg | `PowerAmpFeedback`, the leg solved on DK; opening the pot removes **14.15 dB** of feedback at 80 Hz against **34.38 dB** at 10 kHz | — | §5.2 as S8 corrects it |
+| Simul-Class output | `K_MESA_MARK2C_POWER6_L6_GC` ×2 and `K_MESA_MARK2C_POWER_EL34_TRIODE` ×2, in real volts | inner 81.2 / 311.228 V, outer 132.288 / 132.288 V | §5.3, §7.2, §7.3, RCA 6L6-GC sheet |
+| Presence, a 250 k rheostat in the feedback leg | `PowerAmpFeedback`, the leg solved on DK; opening the pot removes **14.15 dB** of feedback at 80 Hz against **34.38 dB** at 10 kHz |, | §5.2 as S8 corrects it |
 
 The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 11.6 kHz (V2A),
 11.6 kHz (V2B) and 15.2 kHz (the inverter). Each is computed from the 12AX7 Koren model's capacitances
@@ -196,8 +196,8 @@ a plate. `TriodeStage` now takes a `PlateSwing` and bounds each plate by its own
 spec at docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md deleted
 `kGridDriveNormalisation` and the seven `k*GridDrive` constants along with the JCM800's and the
 VH4's equivalents. The dossier's dividers and pots are now the only things that change the drive
-as it moves down the cascade. `kPhaseInverterToPowerTubeAttenuation` went with them, replaced by
-the two per-pair grid scales below, and `kPowerTubeToTransformerAttenuation` 0.05 is the output
+as it moves down the cascade. `K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION` went with them, replaced by
+the two per-pair grid scales below, and `K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION` 0.05 is the output
 trim to full scale.
 
 **Volume 1's ceiling.** The taper law is the corpus's `audio_taper_pot()`, `n·√n`, but without
@@ -209,7 +209,7 @@ sits ahead of the pot, and at every knob centred it measures −11.3 dB at 100 H
 with 0.047 µF to ground, which as drawn is a 69.7 Hz low-pass no lead channel could have: with the
 0.02 µF coupling cap in front it is a band-pass peaking at 0.171 near 48 Hz and sitting 29 dB down
 at 2 kHz. The model places the capacitor across the 170 k, which gives the tightness §3.4's prose
-describes — a low shelf, 0.286 below the corner and unity above it, with the pole at exactly the
+describes, a low shelf, 0.286 below the corner and unity above it, with the pole at exactly the
 69.717 Hz §3.4 prints and the zero at 19.939 Hz. It is the only reading under which the prose, the
 0.286 and the 69.7 Hz are all true of one circuit, and it replaces both the flat divider and the
 separate high-pass, so the low end is not rolled twice. Dossier §8 open question 18.
@@ -229,19 +229,19 @@ the plate loads, so no hand-set degeneration constant remains.
 leg's own response is solved from S8's components, and the forward gain is measured with the loop
 open: 38.33 dB at 80 Hz, 39.56 at 600 Hz, 61.59 at 3 kHz, 53.31 at 10 kHz. Depth still cannot be
 set from them. At the depth that sweeps presence 18 dB the amplifier oscillates at 11.8 kHz, the
-pole of a transformer whose corners are stand-ins and which sits inside the loop. `kTapToFeedbackVolts`
+pole of a transformer whose corners are stand-ins and which sits inside the loop. `K_TAP_TO_FEEDBACK_VOLTS`
 is 14.0, the deepest that does not ring, and at that depth a 9 dB resonance sits at 10 kHz and
 presence runs backwards above it. The calibration waits on the transformer.
 
 **The Simul-Class summing weight is 0.5 each.** Both pairs see the same phase-inverted grid signal
 and are summed at the transformer with equal weight. The 75 W / 25 W split lives in the presets'
-plate swing — 392.4 V against 264.6 V, 3.42 dB of staggered clipping where §7.3 computed 2.99 dB
-from the same power figures — and not in the summing. §7.3 says as much: the audible content of
+plate swing, 392.4 V against 264.6 V, 3.42 dB of staggered clipping where §7.3 computed 2.99 dB
+from the same power figures, and not in the summing. §7.3 says as much: the audible content of
 Simul-Class is the ceiling difference, not a level difference.
 
 **The output section.** §5.3 establishes the tubes, the printed −45 V grid voltage, the 2.2 kΩ
 stoppers and the 220 kΩ leak at V8, and leaves the idle current and the primary impedance
-unprinted. The two presets (`include/SushiDSP/circuits/stages/PowerTubePresets.hpp`) therefore
+unprinted. The two presets (`modules/foundation/circuits/include/SushiDSP/circuits/stages/power_tube_presets.hpp`) therefore
 stand on the tubes' datasheet operating points and on Mesa's own power figures, and the table
 says which field is the amplifier's and which is the datasheet's:
 
@@ -264,8 +264,8 @@ computed 2.99 dB from the same 25 and 50 W with the old ceilings.
 not establish the IIC+'s primary impedance or turns ratio (§8 question 3), and §6 has no sag or
 rolloff figure at all. Since 2026-09-21 one of them carries more than tone: the 8 kHz leakage
 corner sets the phase of the global feedback loop, and it is what the amplifier oscillated at when
-the loop was taken to the depth presence needs. `kPowerTubeToTransformerAttenuation` maps the two pairs' full swings,
-weighted by `kSimulClassPairWeight`, onto the 1.7453 the transformer stage received at full clip
+the loop was taken to the depth presence needs. `K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION` maps the two pairs' full swings,
+weighted by `K_SIMUL_CLASS_PAIR_WEIGHT`, onto the 1.7453 the transformer stage received at full clip
 before DA5 part 2, so the transformer and the sag stage see the range they were calibrated for.
 
 **Grid leaks other than V1A's and V2A's are 1 MΩ.** The sheet draws a grid leak at the input
@@ -274,7 +274,7 @@ Thevenin but the stage's solver still carries the 1 MΩ.
 
 **Master 1 is applied at node F, inside the oversampled region.** It multiplies the sample between
 V2B's coupling capacitor and the equaliser, ahead of the phase inverter, so turning it down takes
-drive out of the power section as the amp's does. `kMasterUnityGain` is the pot fraction 0 dB
+drive out of the power section as the amp's does. `K_MASTER_UNITY_GAIN` is the pot fraction 0 dB
 stands for: 0.0038289 puts a −12 dBFS 82 Hz sine at default knobs out at −6.000 dBFS, the point
 all four amplifiers pin at (DA5 spec §6), and at that fraction the inverter's grid sits at 0.12 V
 and the power section runs clean. While the control scaled the output, after the power section
@@ -322,7 +322,7 @@ controls they sit next to, because a saved preset addresses parameters by index.
 
 ## Every constant that is not read off the schematic
 
-`MesaMark2c.cpp` declares 89 named constants. Most cite a dossier section in their comment and come
+`mesa_mark2c.cpp` declares 89 named constants. Most cite a dossier section in their comment and come
 from a component value printed on the 1983 factory sheet. The ones below do not, and each is
 either a choice this module made or a reading the dossier could not settle. The right-hand column
 names what would close it.
@@ -333,37 +333,37 @@ from something other than a printed value.
 
 | Constant | Value | What it stands in for | What settles it |
 |---|---|---|---|
-| `kV1aSourceResistance` | 10 000 | S1 draws no grid stopper at V1A. It drives `TriodeStage`'s grid-conduction divider, which is V1A's grid, not the plate impedance the deck sits on | A higher-resolution scan of sheet 1 |
-| `kV1bSourceResistance` | 250 000 | Volume 1's wiper at its worst case, fixed where the real value tracks the knob | Solving the wiper position into the source impedance |
-| `kV3bSourceResistance` | 250 000 | Lead Drive's wiper, the same way | The same |
-| `kPhaseInverterSourceResistance` | 25 000 | Master 1's wiper, the same way | The same |
-| `kTriodeGridLeak` | 1 000 000 | No grid leak is drawn at those stages | A higher-resolution scan of sheet 1 |
-| `kLeadDriveBrightMaxDb` | 18 | The bright shelf's ceiling | §8 item 8: the series resistor reads 47 k or 470 k |
-| `kTapToFeedbackVolts` | 14.0 | The deepest the loop runs without ringing, not a calibration | The Mesa's own output transformer, which sets the loop's phase |
-| `kSimulClassPairWeight` | 0.5 | Both output pairs summing equally at the transformer | The transformer's winding arrangement, which no source states |
-| `kTransformerFullClipUnits` | 1.745265 | The level the transformer stage receives, a unit convention the corpus shares | A volt-true drive figure from §7 |
-| `kOutputTransformerRolloffHz` | 60 | A stand-in low corner | §8 item 3: the IIC+'s primary impedance is not published |
-| `kOutputTransformerLeakageHz` | 8000 | A stand-in high corner, and the pole the feedback loop's phase margin hangs on | The same |
-| `kOutputTransformerSaturationDrive` | 0.3 | The JCM800's figure | The same |
-| `kSagAmount` | 0.3 | The JCM800's figure; no IIC+ supply measurement exists | A bench reading of the B+ under load |
-| `kSagRecoveryTimeSeconds` | 0.05 | The same | The same |
-| `kTriode12AX7MillerCapacitance.stray_wiring_picofarads` | 10 | Point-to-point wiring, a corpus assumption | A capacitance measurement on a chassis |
-| `kPhaseInverterCathodeBias` | −1.5 | §5.1's DC numbers do not close | §8 item 6: three voltmeter readings |
-| `kPhaseInverterGain` | 68.214959 | Derived at that unresolved point, not on the 82.5 k load line | The same |
-| `kPhaseInverterPlateASwing`, `kPhaseInverterPlateBSwing` | 106.646 / 144.645, 117.503 / 159.365 | Scaled from the 82 k load line rather than re-solved on each plate | The same |
-| `kLeadOutputDivider` | 0.014778 | S8's traced 3.3 k shunt, against S1's 100 k | §8 item 21: an ohmmeter across R30, worth 26.5 dB of V2A drive |
-| `kEqualizerBandQ` | 1.171 … 1.0 | Each trap's own `(1/R)·√(L/C)`, standing in for the in-circuit Q | The EQ's active stage, drawn on S8 but not modelled |
-| `kEqualizerMaxGainDb` | 17 | S6's Mark IV figure, modelled symmetric where the amp gives +17 / −18 dB | A measurement of a IIC+ EQ at its stops |
-| `kV4aInterstageZeroHz` | 19.939 | The 0.047 µF taken as sitting across the 170 k | §8 item 18: a photograph of that corner, worth 10.9 dB |
-| `kV4aInterstagePoleHz` | 69.717 | The same | The same |
-| `kV4aInterstageLowGain` | 0.286 | The same | The same |
-| `kV2bPlateLoadOhms` | 170 000 | S1's value, against S8's 120 k | §8 item 22: an ohmmeter, worth 7.3 of V2B's 73.1 gain |
-| `kLeadMasterPotOhms` | 250 000 | The pot's value is read; its law is not | §8 item 14, and item 23 for the LDR4's floor |
-| `kFilterQ` | 0.707 | The shelves' Q, an implementation choice rather than a circuit value | Nothing; it is not a component |
-| `kSmoothingMs` | 20 | Parameter smoothing, likewise | Nothing |
-| `kCoefficientEpsilon` | 1e−4 | The threshold below which the audio thread skips a rebuild | Nothing |
-| `kMasterUnityGain` | 0.0038289 | The calibration that puts a −12 dBFS 82 Hz sine at −6 dBFS with default knobs | Nothing; it is the pin all four amplifiers share |
-| `kMinMasterDb` … `kMaxOutputDb` | −60 / +12 dB on Master 1 and Output, ±24 dB on Input Trim | Control ranges, where the amp has a 100 k pot | Nothing; the ranges are the host's, not the amp's |
+| `K_V1A_SOURCE_RESISTANCE` | 10 000 | S1 draws no grid stopper at V1A. It drives `TriodeStage`'s grid-conduction divider, which is V1A's grid, not the plate impedance the deck sits on | A higher-resolution scan of sheet 1 |
+| `K_V1B_SOURCE_RESISTANCE` | 250 000 | Volume 1's wiper at its worst case, fixed where the real value tracks the knob | Solving the wiper position into the source impedance |
+| `K_V3B_SOURCE_RESISTANCE` | 250 000 | Lead Drive's wiper, the same way | The same |
+| `K_PHASE_INVERTER_SOURCE_RESISTANCE` | 25 000 | Master 1's wiper, the same way | The same |
+| `K_TRIODE_GRID_LEAK` | 1 000 000 | No grid leak is drawn at those stages | A higher-resolution scan of sheet 1 |
+| `K_LEAD_DRIVE_BRIGHT_MAX_DB` | 18 | The bright shelf's ceiling | §8 item 8: the series resistor reads 47 k or 470 k |
+| `K_TAP_TO_FEEDBACK_VOLTS` | 14.0 | The deepest the loop runs without ringing, not a calibration | The Mesa's own output transformer, which sets the loop's phase |
+| `K_SIMUL_CLASS_PAIR_WEIGHT` | 0.5 | Both output pairs summing equally at the transformer | The transformer's winding arrangement, which no source states |
+| `K_TRANSFORMER_FULL_CLIP_UNITS` | 1.745265 | The level the transformer stage receives, a unit convention the corpus shares | A volt-true drive figure from §7 |
+| `K_OUTPUT_TRANSFORMER_ROLLOFF_HZ` | 60 | A stand-in low corner | §8 item 3: the IIC+'s primary impedance is not published |
+| `K_OUTPUT_TRANSFORMER_LEAKAGE_HZ` | 8000 | A stand-in high corner, and the pole the feedback loop's phase margin hangs on | The same |
+| `K_OUTPUT_TRANSFORMER_SATURATION_DRIVE` | 0.3 | The JCM800's figure | The same |
+| `K_SAG_AMOUNT` | 0.3 | The JCM800's figure; no IIC+ supply measurement exists | A bench reading of the B+ under load |
+| `K_SAG_RECOVERY_TIME_SECONDS` | 0.05 | The same | The same |
+| `K_TRIODE12_AX7_MILLER_CAPACITANCE.stray_wiring_picofarads` | 10 | Point-to-point wiring, a corpus assumption | A capacitance measurement on a chassis |
+| `K_PHASE_INVERTER_CATHODE_BIAS` | −1.5 | §5.1's DC numbers do not close | §8 item 6: three voltmeter readings |
+| `K_PHASE_INVERTER_GAIN` | 68.214959 | Derived at that unresolved point, not on the 82.5 k load line | The same |
+| `K_PHASE_INVERTER_PLATE_ASWING`, `K_PHASE_INVERTER_PLATE_BSWING` | 106.646 / 144.645, 117.503 / 159.365 | Scaled from the 82 k load line rather than re-solved on each plate | The same |
+| `K_LEAD_OUTPUT_DIVIDER` | 0.014778 | S8's traced 3.3 k shunt, against S1's 100 k | §8 item 21: an ohmmeter across R30, worth 26.5 dB of V2A drive |
+| `K_EQUALIZER_BAND_Q` | 1.171 … 1.0 | Each trap's own `(1/R)·√(L/C)`, standing in for the in-circuit Q | The EQ's active stage, drawn on S8 but not modelled |
+| `K_EQUALIZER_MAX_GAIN_DB` | 17 | S6's Mark IV figure, modelled symmetric where the amp gives +17 / −18 dB | A measurement of a IIC+ EQ at its stops |
+| `K_V4A_INTERSTAGE_ZERO_HZ` | 19.939 | The 0.047 µF taken as sitting across the 170 k | §8 item 18: a photograph of that corner, worth 10.9 dB |
+| `K_V4A_INTERSTAGE_POLE_HZ` | 69.717 | The same | The same |
+| `K_V4A_INTERSTAGE_LOW_GAIN` | 0.286 | The same | The same |
+| `K_V2B_PLATE_LOAD_OHMS` | 170 000 | S1's value, against S8's 120 k | §8 item 22: an ohmmeter, worth 7.3 of V2B's 73.1 gain |
+| `K_LEAD_MASTER_POT_OHMS` | 250 000 | The pot's value is read; its law is not | §8 item 14, and item 23 for the LDR4's floor |
+| `K_FILTER_Q` | 0.707 | The shelves' Q, an implementation choice rather than a circuit value | Nothing; it is not a component |
+| `K_SMOOTHING_MS` | 20 | Parameter smoothing, likewise | Nothing |
+| `K_COEFFICIENT_EPSILON` | 1e−4 | The threshold below which the audio thread skips a rebuild | Nothing |
+| `K_MASTER_UNITY_GAIN` | 0.0038289 | The calibration that puts a −12 dBFS 82 Hz sine at −6 dBFS with default knobs | Nothing; it is the pin all four amplifiers share |
+| `K_MIN_MASTER_DB` … `K_MAX_OUTPUT_DB` | −60 / +12 dB on Master 1 and Output, ±24 dB on Input Trim | Control ranges, where the amp has a 100 k pot | Nothing; the ranges are the host's, not the amp's |
 
 ## Implementation notes
 
@@ -377,7 +377,7 @@ gives the tightness dossier 3.4's prose describes. This is open question 18.
 
 The Miller corners land at 9.0, 14.5, 14.7, 11.6, 11.6 and 15.2 kHz, each set by the plate load
 that drives the grid and not by one shared figure. V2A's pole uses V4A's 270 k, the load that
-drives the grid, while `kV2aSourceResistance` is the divider's 3.25 k Thevenin that sets where
+drives the grid, while `K_V2A_SOURCE_RESISTANCE` is the divider's 3.25 k Thevenin that sets where
 that grid conducts.
 
 ### The bright shelves
@@ -417,5 +417,5 @@ of the path; it does not centre them.
 
 ### Tone stack values
 
-`MesaMark2cToneStack.cpp` takes its values from dossier section 4.1: 250 pF treble, 0.1 uF bass,
+`mesa_mark2c_tone_stack.cpp` takes its values from dossier section 4.1: 250 pF treble, 0.1 uF bass,
 0.047 uF mid, 100 k slope, 250 k bass, 10 k mid, 250 k treble.

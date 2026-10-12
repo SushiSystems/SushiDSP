@@ -38,7 +38,7 @@ K_PUBLISH_LIST = (
     'api = false\n'
 )
 K_ARCHIVE = "docs-bundle-1.2.3.tar.gz"
-K_DOXYFILE = Path(__file__).resolve().parents[2] / "Doxyfile"
+K_DOXYFILE = Path(__file__).resolve().parents[2] / ".config" / "doxygen" / "Doxyfile"
 
 
 def _visible_commands() -> list[str]:

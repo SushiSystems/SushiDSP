@@ -1,7 +1,7 @@
 # Bundled HRTF
 
 `sushidsp_host_gui` looks for `assets/hrtf/sadie2_ku100_48k.hrtf` next to its executable on
-startup and installs it into every room it creates through `IRoomHost::set_hrtf`. The build
+startup and installs it into every room it creates through `RoomHost::set_hrtf`. The build
 copies this directory beside the executable, so dropping the file here is enough.
 
 Nothing in the C++ tree reads SOFA or HDF5. `tools/dsp/convert_hrtf.py` converts a measured
@@ -11,7 +11,7 @@ database into this flat file once, on a developer's machine, and `HrtfSetLoader`
 ## Requirements for `sadie2_ku100_48k.hrtf`
 
 - A measured head-related transfer function set, or a set derived from one.
-- Licensed under Apache License 2.0, or a licence compatible with it — the file ships inside
+- Licensed under Apache License 2.0, or a licence compatible with it, the file ships inside
   the repository, so anything with a non-redistributable or non-commercial clause cannot go
   here.
 - The byte layout `tools/dsp/convert_hrtf.py` writes and
@@ -65,7 +65,7 @@ number §9.5's 3 dB bound is read from. Finally it rewrites the licence block be
 download's own documents, and prints the SHA-256 of what it wrote.
 
 A WAV release must name each file with its azimuth and elevation in degrees, the way SADIE's
-own release does — `azi_15,0_ele_0,0.wav`, comma or full stop as the decimal mark. The tool
+own release does, `azi_15,0_ele_0,0.wav`, comma or full stop as the decimal mark. The tool
 refuses a name it cannot read rather than guessing a direction.
 
 To check a file already in the tree, compare `sha256sum` against the hash in the licence block,
@@ -89,7 +89,7 @@ The set the maintainer chose is Apache License 2.0. The converted copy stays und
 is in `third_party/licenses/Apache-2.0.txt` and `NOTICE.md` lists the set. The SADIE project
 asks that work using the database cite Armstrong, Thresh, Murphy and Kearney, "A Perceptual
 Evaluation of Individual and Non-Individual HRTFs: A Case Study of the SADIE II Database",
-*Applied Sciences* 8(11), 2018 — the tool copies the project's own wording of that request
+*Applied Sciences* 8(11), 2018, the tool copies the project's own wording of that request
 below, and that copy, not this sentence, is what ships.
 
 <!-- convert_hrtf.py: licence block begin -->
@@ -119,7 +119,7 @@ All data was recorded and developed at The Audio Lab, Department of Electronic E
 
 Everything builds and every test runs. The host prints one line to stderr naming the path it
 looked for, `RoomNode` keeps the `SphericalHeadHrtf` its constructor built, and
-`IRoomHost::hrtf_source()` returns `HrtfSource::SphericalHead`, which the room panel shows as
-"spherical head — front and back sound alike". The interaural delay and level difference are
+`RoomHost::hrtf_source()` returns `HrtfSource::SphericalHead`, which the room panel shows as
+"spherical head, front and back sound alike". The interaural delay and level difference are
 right; the pinna cues that separate front from back are not there, so a cabinet placed behind
 the head sounds in front of it.

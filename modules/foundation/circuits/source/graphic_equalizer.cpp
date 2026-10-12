@@ -1,0 +1,108 @@
+/**************************************************************************/
+/* graphic_equalizer.cpp                                                  */
+/**************************************************************************/
+/*                          This file is part of:                         */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                         https://sushisystems.io                        */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the PolyForm Noncommercial License 1.0.0 (the           */
+/* "License"); you may not use this file except in compliance with the    */
+/* License. You may obtain a copy of the License at                       */
+/*                                                                        */
+/*     https://polyformproject.org/licenses/noncommercial/1.0.0           */
+/*                                                                        */
+/* Noncommercial use is free. Commercial use requires a separate licence  */
+/* from Sushi Systems; see COMMERCIAL.md. The software is provided        */
+/* "as is", without warranty of any kind.                                 */
+/**************************************************************************/
+
+/**
+ * @file graphic_equalizer.cpp
+ * @brief Implements the bank of peaking bands in series.
+ * @author Mustafa Garip
+ */
+
+#include "SushiDSP/circuits/graphic_equalizer.hpp"
+
+#include <algorithm>
+
+namespace SushiDSP
+{
+    GraphicEqualizer::GraphicEqualizer(double sample_rate,
+                                       std::initializer_list<float> centre_frequencies_hz,
+                                       float band_q, float maximum_gain_db)
+        : sample_rate_(sample_rate), maximum_gain_db_(maximum_gain_db)
+    {
+        for (const float centre_hz : centre_frequencies_hz)
+        {
+            if (band_count_ >= K_MAXIMUM_BANDS)
+            {
+                break;
+            }
+            centres_hz_[band_count_] = centre_hz;
+            positions_[band_count_] = 0.0f;
+            band_q_[band_count_] = band_q;
+            bands_[band_count_].set_peaking(sample_rate_, centre_hz, 0.0f, band_q_[band_count_]);
+            ++band_count_;
+        }
+    }
+
+    GraphicEqualizer::GraphicEqualizer(double sample_rate,
+                                       std::initializer_list<float> centre_frequencies_hz,
+                                       std::initializer_list<float> band_q, float maximum_gain_db)
+        : sample_rate_(sample_rate), maximum_gain_db_(maximum_gain_db)
+    {
+        auto band_q_iterator = band_q.begin();
+        for (const float centre_hz : centre_frequencies_hz)
+        {
+            if (band_count_ >= K_MAXIMUM_BANDS || band_q_iterator == band_q.end())
+            {
+                break;
+            }
+            centres_hz_[band_count_] = centre_hz;
+            positions_[band_count_] = 0.0f;
+            band_q_[band_count_] = *band_q_iterator;
+            bands_[band_count_].set_peaking(sample_rate_, centre_hz, 0.0f, band_q_[band_count_]);
+            ++band_q_iterator;
+            ++band_count_;
+        }
+    }
+
+    void GraphicEqualizer::set_band(std::size_t band, float position)
+    {
+        if (band >= band_count_)
+        {
+            return;
+        }
+        const float clamped_position = std::clamp(position, -1.0f, 1.0f);
+        positions_[band] = clamped_position;
+        bands_[band].set_peaking(sample_rate_, centres_hz_[band],
+                                 clamped_position * maximum_gain_db_, band_q_[band]);
+    }
+
+    float GraphicEqualizer::process_sample(float input)
+    {
+        float sample = input;
+        for (std::size_t band = 0; band < band_count_; ++band)
+        {
+            sample = bands_[band].process_sample(sample);
+        }
+        return sample;
+    }
+
+    void GraphicEqualizer::reset()
+    {
+        for (std::size_t band = 0; band < band_count_; ++band)
+        {
+            bands_[band].reset();
+        }
+    }
+
+    std::size_t GraphicEqualizer::band_count() const
+    {
+        return band_count_;
+    }
+} // namespace SushiDSP

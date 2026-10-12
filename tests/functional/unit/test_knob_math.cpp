@@ -27,61 +27,61 @@
 
 #include <gtest/gtest.h>
 
-#include "ui/KnobMath.hpp"
+#include "ui/knob_math.hpp"
 
 #include <cmath>
 
 namespace
 {
-    constexpr SushiDSP::ParameterDescriptor kLinear{
-        "drive", "Drive", 0.0f, 1.0f, 0.5f, SushiDSP::ParamKind::Linear, "" };
-    constexpr SushiDSP::ParameterDescriptor kDecibel{
-        "master", "Master", -60.0f, 12.0f, 0.0f, SushiDSP::ParamKind::Decibel, "dB" };
-    constexpr SushiDSP::ParameterDescriptor kLog{
-        "freq", "Freq", 20.0f, 20000.0f, 1000.0f, SushiDSP::ParamKind::Logarithmic, "Hz" };
-    constexpr SushiDSP::ParameterDescriptor kLogBadMin{
-        "freq", "Freq", 0.0f, 20000.0f, 1000.0f, SushiDSP::ParamKind::Logarithmic, "Hz" };
-}
+    constexpr SushiDSP::ParameterDescriptor K_LINEAR{
+        "drive", "Drive", 0.0f, 1.0f, 0.5f, SushiDSP::ParamKind::Linear, ""};
+    constexpr SushiDSP::ParameterDescriptor K_DECIBEL{
+        "master", "Master", -60.0f, 12.0f, 0.0f, SushiDSP::ParamKind::Decibel, "dB"};
+    constexpr SushiDSP::ParameterDescriptor K_LOG{
+        "freq", "Freq", 20.0f, 20000.0f, 1000.0f, SushiDSP::ParamKind::Logarithmic, "Hz"};
+    constexpr SushiDSP::ParameterDescriptor K_LOG_BAD_MIN{
+        "freq", "Freq", 0.0f, 20000.0f, 1000.0f, SushiDSP::ParamKind::Logarithmic, "Hz"};
+} // namespace
 
 TEST(Unit_Dsp, KnobMathMapsLinearParameterEndpointsAndMidpoint)
 {
-    EXPECT_FLOAT_EQ(ui::value_to_normalized(kLinear, 0.0f), 0.0f);
-    EXPECT_FLOAT_EQ(ui::value_to_normalized(kLinear, 1.0f), 1.0f);
-    EXPECT_FLOAT_EQ(ui::value_to_normalized(kLinear, 0.5f), 0.5f);
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, 0.0f), 0.0f);
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, 1.0f), 1.0f);
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, 0.5f), 0.5f);
 }
 
 TEST(Unit_Dsp, KnobMathMapsDecibelParameterLinearlyInItsOwnUnit)
 {
-    EXPECT_FLOAT_EQ(ui::value_to_normalized(kDecibel, -60.0f), 0.0f);
-    EXPECT_FLOAT_EQ(ui::value_to_normalized(kDecibel, 12.0f), 1.0f);
-    EXPECT_FLOAT_EQ(ui::value_to_normalized(kDecibel, -24.0f), 0.5f);
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_DECIBEL, -60.0f), 0.0f);
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_DECIBEL, 12.0f), 1.0f);
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_DECIBEL, -24.0f), 0.5f);
 }
 
 TEST(Unit_Dsp, KnobMathClampsValuesOutsideTheParameterRange)
 {
-    EXPECT_FLOAT_EQ(ui::value_to_normalized(kLinear, -3.0f), 0.0f);
-    EXPECT_FLOAT_EQ(ui::value_to_normalized(kLinear, 4.0f), 1.0f);
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, -3.0f), 0.0f);
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, 4.0f), 1.0f);
 }
 
 TEST(Unit_Dsp, KnobMathRoundTripsValueThroughNormalized)
 {
-    for (float value : { -60.0f, -33.0f, 0.0f, 11.5f })
+    for (float value : {-60.0f, -33.0f, 0.0f, 11.5f})
     {
-        const float normalized = ui::value_to_normalized(kDecibel, value);
-        EXPECT_NEAR(ui::normalized_to_value(kDecibel, normalized), value, 1e-4f);
+        const float normalized = ui::value_to_normalized(K_DECIBEL, value);
+        EXPECT_NEAR(ui::normalized_to_value(K_DECIBEL, normalized), value, 1e-4f);
     }
 }
 
 TEST(Unit_Dsp, KnobMathGivesLogarithmicParameterAGeometricMidpoint)
 {
-    EXPECT_NEAR(ui::normalized_to_value(kLog, 0.5f), std::sqrt(20.0f * 20000.0f), 1e-2f);
-    EXPECT_NEAR(ui::value_to_normalized(kLog, 20000.0f), 1.0f, 1e-5f);
+    EXPECT_NEAR(ui::normalized_to_value(K_LOG, 0.5f), std::sqrt(20.0f * 20000.0f), 1e-2f);
+    EXPECT_NEAR(ui::value_to_normalized(K_LOG, 20000.0f), 1.0f, 1e-5f);
 }
 
 TEST(Unit_Dsp, KnobMathFallsBackToLinearWhenALogarithmicRangeStartsAtZero)
 {
-    EXPECT_FLOAT_EQ(ui::value_to_normalized(kLogBadMin, 10000.0f), 0.5f);
-    EXPECT_FLOAT_EQ(ui::normalized_to_value(kLogBadMin, 0.5f), 10000.0f);
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LOG_BAD_MIN, 10000.0f), 0.5f);
+    EXPECT_FLOAT_EQ(ui::normalized_to_value(K_LOG_BAD_MIN, 0.5f), 10000.0f);
 }
 
 TEST(Unit_Dsp, KnobMathDragMovesUpwardPointerTravelTowardTheMaximum)
@@ -107,17 +107,17 @@ TEST(Unit_Dsp, KnobMathFineDragTravelsExactlyOneQuarterAsFar)
 TEST(Unit_Dsp, KnobMathPointsDownLeftAtZeroStraightUpAtHalfAndDownRightAtOne)
 {
     // ImGui's y grows downward, so a positive sine points down the screen.
-    constexpr float kDiagonal = 0.70710678f;
+    constexpr float K_DIAGONAL = 0.70710678f;
 
     const float low = ui::normalized_to_angle(0.0f);
-    EXPECT_NEAR(std::cos(low), -kDiagonal, 1e-4f);
-    EXPECT_NEAR(std::sin(low), kDiagonal, 1e-4f);
+    EXPECT_NEAR(std::cos(low), -K_DIAGONAL, 1e-4f);
+    EXPECT_NEAR(std::sin(low), K_DIAGONAL, 1e-4f);
 
     const float middle = ui::normalized_to_angle(0.5f);
     EXPECT_NEAR(std::cos(middle), 0.0f, 1e-4f);
     EXPECT_NEAR(std::sin(middle), -1.0f, 1e-4f);
 
     const float high = ui::normalized_to_angle(1.0f);
-    EXPECT_NEAR(std::cos(high), kDiagonal, 1e-4f);
-    EXPECT_NEAR(std::sin(high), kDiagonal, 1e-4f);
+    EXPECT_NEAR(std::cos(high), K_DIAGONAL, 1e-4f);
+    EXPECT_NEAR(std::sin(high), K_DIAGONAL, 1e-4f);
 }

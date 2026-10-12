@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/Wdf.hpp"
+#include "SushiDSP/math/wdf.hpp"
 
 TEST(Unit_Dsp, WdfResistorReportsConfiguredPortResistance)
 {
@@ -48,7 +48,7 @@ TEST(Unit_Dsp, WdfResistorAlwaysReflectsZero)
 TEST(Unit_Dsp, WdfCapacitorPortResistanceMatchesBilinearFormula)
 {
     constexpr double sample_rate = 48000.0;
-    constexpr float capacitance = 1e-6f;  // 1 microfarad
+    constexpr float capacitance = 1e-6f; // 1 microfarad
     SushiDSP::WdfCapacitor capacitor(sample_rate, capacitance);
 
     const float expected_resistance = static_cast<float>(1.0 / sample_rate) / (2.0f * capacitance);

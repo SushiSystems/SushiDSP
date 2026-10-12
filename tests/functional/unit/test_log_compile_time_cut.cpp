@@ -33,24 +33,24 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/CapturingLogSink.hpp"
-#include "SushiDSP/log/Log.hpp"
-#include "SushiDSP/log/ScopedLogSink.hpp"
+#include "SushiDSP/log/capturing_log_sink.hpp"
+#include "SushiDSP/log/log.hpp"
+#include "SushiDSP/log/scoped_log_sink.hpp"
 
 namespace
 {
     /// @brief Names the lines this file logs.
     inline constexpr SushiDSP::LogCategory K_CUT_TEST_LOG_CATEGORY =
         SushiDSP::make_log_category("cut_test");
-}
+} // namespace
 
 TEST(Unit_Log, CallBelowTheCompileTimeMinimumDoesNotEvaluateItsArguments)
 {
     const std::shared_ptr<SushiDSP::CapturingLogSink> capture =
         std::make_shared<SushiDSP::CapturingLogSink>();
-    SushiDSP::Logger&         logger = SushiDSP::default_logger();
-    const SushiDSP::LogLevel  level_before = logger.minimum_level();
-    int                       evaluations = 0;
+    SushiDSP::Logger& logger = SushiDSP::default_logger();
+    const SushiDSP::LogLevel level_before = logger.minimum_level();
+    int evaluations = 0;
     {
         const SushiDSP::ScopedLogSink guard(logger, capture);
         // The runtime level admits everything, so only the compile-time cut can stop a line.

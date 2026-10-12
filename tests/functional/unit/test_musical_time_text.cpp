@@ -29,9 +29,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/MusicalClock.hpp"
+#include "SushiDSP/capture/musical_clock.hpp"
 
-#include "ui/MusicalTimeText.hpp"
+#include "ui/musical_time_text.hpp"
 
 namespace
 {
@@ -44,7 +44,7 @@ namespace
         clock.set_meter(4u, 4u);
         clock.set_sample_rate(48000.0);
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, MusicalTimeTextReadsFrameZeroAsBarOneBeatOneSixteenthOne)
 {

@@ -97,7 +97,7 @@ setting):
 time_s,setting,input_v,output_v
 ```
 
-`tests/measure/SpiceCsv.hpp` reads both. A missing file yields an empty result rather than an
+`tests/measure/spice_csv.hpp` reads both. A missing file yields an empty result rather than an
 error, so a test can skip cleanly while the corpus is still ungenerated.
 
 **The `setting` column is meaningless in the AC CSVs of `jcm_v1b_cold`, `jcm_cf` and

@@ -29,12 +29,18 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/NewtonRaphsonSolver.hpp"
+#include "SushiDSP/math/newton_raphson_solver.hpp"
 
 TEST(Unit_Dsp, NewtonRaphsonSolverFindsSquareRootOfTwo)
 {
-    auto function = [](float x) { return x * x - 2.0f; };
-    auto derivative = [](float x) { return 2.0f * x; };
+    auto function = [](float x)
+    {
+        return x * x - 2.0f;
+    };
+    auto derivative = [](float x)
+    {
+        return 2.0f * x;
+    };
 
     const float root = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, 1.0f, 6);
 
@@ -43,8 +49,14 @@ TEST(Unit_Dsp, NewtonRaphsonSolverFindsSquareRootOfTwo)
 
 TEST(Unit_Dsp, NewtonRaphsonSolverConvergesFromNegativeGuess)
 {
-    auto function = [](float x) { return x * x - 2.0f; };
-    auto derivative = [](float x) { return 2.0f * x; };
+    auto function = [](float x)
+    {
+        return x * x - 2.0f;
+    };
+    auto derivative = [](float x)
+    {
+        return 2.0f * x;
+    };
 
     const float root = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, -1.0f, 6);
 
@@ -54,8 +66,14 @@ TEST(Unit_Dsp, NewtonRaphsonSolverConvergesFromNegativeGuess)
 TEST(Unit_Dsp, NewtonRaphsonSolverHandlesNearZeroDerivativeWithoutDivergingToNanOrInf)
 {
     // f(x) = x^3, root at 0, derivative 3x^2 vanishes exactly at the root.
-    auto function = [](float x) { return x * x * x; };
-    auto derivative = [](float x) { return 3.0f * x * x; };
+    auto function = [](float x)
+    {
+        return x * x * x;
+    };
+    auto derivative = [](float x)
+    {
+        return 3.0f * x * x;
+    };
 
     const float result = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, 0.5f, 8);
 
@@ -64,8 +82,14 @@ TEST(Unit_Dsp, NewtonRaphsonSolverHandlesNearZeroDerivativeWithoutDivergingToNan
 
 TEST(Unit_Dsp, NewtonRaphsonSolverWarmStartConvergesInFewerIterationsThanColdStart)
 {
-    auto function = [](float x) { return x * x - 2.0f; };
-    auto derivative = [](float x) { return 2.0f * x; };
+    auto function = [](float x)
+    {
+        return x * x - 2.0f;
+    };
+    auto derivative = [](float x)
+    {
+        return 2.0f * x;
+    };
 
     const float warm = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, 1.4f, 2);
     const float cold = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, 0.01f, 2);
@@ -77,17 +101,25 @@ TEST(Unit_Dsp, NewtonRaphsonSolverWarmStartConvergesInFewerIterationsThanColdSta
 TEST(Unit_Dsp, NewtonRaphsonSolverJointOverloadMatchesSplitOverloadBitForBit)
 {
     // Both overloads must walk identical iterates. See tests/functional/unit/README.md.
-    auto function = [](float x) { return std::exp(x) - 3.0f; };
-    auto derivative = [](float x) { return std::exp(x); };
+    auto function = [](float x)
+    {
+        return std::exp(x) - 3.0f;
+    };
+    auto derivative = [](float x)
+    {
+        return std::exp(x);
+    };
     auto joint = [](float x)
     {
         const float e = std::exp(x);
-        return SushiDSP::NewtonRaphsonSolver::Evaluation{ e - 3.0f, e };
+        return SushiDSP::NewtonRaphsonSolver::Evaluation{e - 3.0f, e};
     };
     for (float guess = -2.0f; guess <= 4.0f; guess += 0.37f)
     {
-        const float split = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, guess, 4, -5.0f, 5.0f);
-        const float shared = SushiDSP::NewtonRaphsonSolver::solve_joint(joint, guess, 4, -5.0f, 5.0f);
+        const float split =
+            SushiDSP::NewtonRaphsonSolver::solve(function, derivative, guess, 4, -5.0f, 5.0f);
+        const float shared =
+            SushiDSP::NewtonRaphsonSolver::solve_joint(joint, guess, 4, -5.0f, 5.0f);
         EXPECT_EQ(split, shared);
     }
 }
@@ -98,7 +130,7 @@ TEST(Unit_Dsp, NewtonRaphsonSolverJointOverloadEvaluatesOncePerIteration)
     auto joint = [&evaluations](float x)
     {
         ++evaluations;
-        return SushiDSP::NewtonRaphsonSolver::Evaluation{ x * x - 2.0f, 2.0f * x };
+        return SushiDSP::NewtonRaphsonSolver::Evaluation{x * x - 2.0f, 2.0f * x};
     };
     SushiDSP::NewtonRaphsonSolver::solve_joint(joint, 1.0f, 4);
     EXPECT_EQ(evaluations, 4);

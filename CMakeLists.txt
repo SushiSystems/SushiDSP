@@ -18,54 +18,30 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(cmake/SushiDSPCompilerFlags.cmake)
 include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)
+include(cmake/SushiDSPLayers.cmake)
 
-add_library(sushi_dsp STATIC
-    src/circuits/stages/TriodeStage.cpp
-    src/circuits/stages/LongTailedPair.cpp
-    src/circuits/stages/PentodeStage.cpp
-    src/circuits/stages/OutputTransformerStage.cpp
-    src/circuits/stages/PowerSupplySagStage.cpp
-    src/circuits/stages/ResonanceControl.cpp
-    src/circuits/GraphicEqualizer.cpp
-    src/circuits/FmvToneStack.cpp
-    src/circuits/PowerAmpFeedback.cpp
-    src/core/BufferPool.cpp
-    src/core/RigGraph.cpp
-    src/core/RtGraphSlot.cpp
-    src/audio_format/AsioSampleConverter.cpp
-    src/audio_format/ChannelSelection.cpp
-    src/io/IrLoader.cpp
-    src/io/WavFile.cpp
-    src/io/WavWriter.cpp
-    src/log/AsyncLogSink.cpp
-    src/log/CapturingLogSink.cpp
-    src/log/DefaultLogger.cpp
-    src/log/LogArgument.cpp
-    src/log/LogFormatter.cpp
-    src/log/LogLineQueue.cpp
-    src/log/Logger.cpp
-    src/log/ScopedLogSink.cpp
-    src/log/StderrLogSink.cpp
-    src/math/Fft.cpp
-    src/math/Biquad.cpp
-    src/math/Oversampler.cpp
-    src/math/SmoothedParameter.cpp
-    src/math/PartitionedConvolution.cpp
-    src/math/Resampler.cpp
-    src/math/SincResampler.cpp
-    src/math/StreamingConvolution.cpp
-    src/math/Wdf.cpp
-)
+# The core areas are foundation modules. Each declares its own sources, and each same-tier
+# dependency it has is listed in cmake/SushiDSPLayers.cmake.
+add_subdirectory(modules/foundation/audio_format)
+add_subdirectory(modules/foundation/circuits)
+add_subdirectory(modules/foundation/core)
+add_subdirectory(modules/foundation/io)
+add_subdirectory(modules/foundation/log)
+add_subdirectory(modules/foundation/math)
+
+# sushi_dsp bundles the foundation for consumers. A consumer that needs one module links it
+# directly instead.
+add_library(sushi_dsp INTERFACE)
 add_library(SushiDSP::sushi_dsp ALIAS sushi_dsp)
-sushidsp_apply_optimization_flags(sushi_dsp)
-sushidsp_apply_warning_flags(sushi_dsp)
-sushidsp_apply_sanitizers(sushi_dsp)
-target_include_directories(sushi_dsp PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+target_link_libraries(sushi_dsp INTERFACE
+    SushiDSP::sushi_dsp_audio_format
+    SushiDSP::sushi_dsp_circuits
+    SushiDSP::sushi_dsp_core
+    SushiDSP::sushi_dsp_io
+    SushiDSP::sushi_dsp_log
+    SushiDSP::sushi_dsp_math
+    SushiDSP::sushi_dsp_device
 )
-# Headers under src/ are implementation detail: the generated resampler kernel table is
-# reachable from the library's own sources, never from the public include surface.
-target_include_directories(sushi_dsp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Products. Added unconditionally: the module has no SDL2 dependency, and the
 # test suite links it regardless of SUSHIDSP_BUILD_SDL2.
@@ -98,20 +74,6 @@ if(SUSHIDSP_BUILD_SDL2)
     # SDL2 drives audio only; its Wayland protocol objects collide with GLFW's at link time.
     set(SDL_WAYLAND OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(SDL2)
-
-    add_library(sushi_dsp_sdl2 STATIC
-        src/device/Sdl2AudioDevice.cpp
-    )
-    add_library(SushiDSP::sushi_dsp_sdl2 ALIAS sushi_dsp_sdl2)
-    sushidsp_apply_optimization_flags(sushi_dsp_sdl2)
-    sushidsp_apply_warning_flags(sushi_dsp_sdl2)
-    sushidsp_apply_sanitizers(sushi_dsp_sdl2)
-    target_link_libraries(sushi_dsp_sdl2 PUBLIC SushiDSP::sushi_dsp PRIVATE SDL2-static)
-    target_include_directories(sushi_dsp_sdl2 PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    )
-
-    add_subdirectory(apps/host)
 endif()
 
 # The Steinberg ASIO SDK is proprietary (accept-the-license, dual Steinberg/GPLv3) and cannot
@@ -122,35 +84,21 @@ endif()
 set(ASIO_SDK_DIR "${CMAKE_SOURCE_DIR}/third_party/asio" CACHE PATH "Path to the Steinberg ASIO SDK")
 option(SUSHIDSP_BUILD_ASIO "Build the ASIO device backend" ON)
 
-if(SUSHIDSP_BUILD_ASIO AND WIN32 AND EXISTS "${ASIO_SDK_DIR}/common/asio.h")
-    # Only the SDK's host-side files belong here: common/asiodrvr.cpp, common/combase.cpp,
-    # common/register.cpp and common/dllentry.cpp implement the *driver* side of ASIO (they
-    # define DllMain and COM class-factory plumbing), and host/ASIOConvertSamples.cpp is
-    # superseded by SushiDSP's own AsioSampleConverter.
-    add_library(sushi_dsp_asio STATIC
-        src/device/AsioAudioDevice.cpp
-        ${ASIO_SDK_DIR}/common/asio.cpp
-        ${ASIO_SDK_DIR}/host/asiodrivers.cpp
-        ${ASIO_SDK_DIR}/host/pc/asiolist.cpp
-    )
-    add_library(SushiDSP::sushi_dsp_asio ALIAS sushi_dsp_asio)
-    sushidsp_apply_optimization_flags(sushi_dsp_asio)
-    sushidsp_apply_warning_flags(sushi_dsp_asio)
-    sushidsp_apply_sanitizers(sushi_dsp_asio)
-    target_include_directories(sushi_dsp_asio PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    )
-    target_include_directories(sushi_dsp_asio PRIVATE
-        ${ASIO_SDK_DIR}/common ${ASIO_SDK_DIR}/host ${ASIO_SDK_DIR}/host/pc)
-    target_link_libraries(sushi_dsp_asio PUBLIC SushiDSP::sushi_dsp PRIVATE ole32 oleaut32)
-    message(STATUS "ASIO SDK found at ${ASIO_SDK_DIR} - sushi_dsp_asio target enabled")
-    add_subdirectory(apps/host_asio)
+# The device module builds the SDL2 and ASIO backends; it reads the two options above.
+add_subdirectory(modules/foundation/device)
+
+if(SUSHIDSP_BUILD_SDL2)
+    add_subdirectory(applications/host)
+endif()
+
+if(SUSHIDSP_ASIO_AVAILABLE)
+    add_subdirectory(applications/host_asio)
 else()
     message(STATUS "ASIO SDK not found at ${ASIO_SDK_DIR} (or not on Windows) - sushi_dsp_asio target skipped")
 endif()
 
 # nlohmann::json is a test dependency (tests/CMakeLists.txt links it and compiles
-# apps/host_gui/{RigController,Preset}.cpp unconditionally), so it is fetched regardless of
+# applications/host_gui/{RigController,Preset}.cpp unconditionally), so it is fetched regardless of
 # SUSHIDSP_BUILD_GUI - only glfw/imgui, which nothing outside the GUI needs, stay gated below.
 include(FetchContent)
 FetchContent_Declare(
@@ -164,7 +112,7 @@ FetchContent_MakeAvailable(json)
 # ImGui/GLFW are fetched only when the GUI is built; CI can disable this exactly like
 # SUSHIDSP_BUILD_SDL2/SUSHIDSP_BUILD_ASIO to skip the extra network fetch and build time when
 # the GUI isn't needed.
-option(SUSHIDSP_BUILD_GUI "Build the ImGui rig GUI (apps/host_gui); needs SUSHIDSP_BUILD_SDL2" ON)
+option(SUSHIDSP_BUILD_GUI "Build the ImGui rig GUI (applications/host_gui); needs SUSHIDSP_BUILD_SDL2" ON)
 
 if(SUSHIDSP_BUILD_GUI AND NOT SUSHIDSP_BUILD_SDL2)
     message(STATUS "SUSHIDSP_BUILD_GUI needs the SDL2 device backend - GUI skipped")
@@ -203,7 +151,7 @@ if(SUSHIDSP_BUILD_GUI AND SUSHIDSP_BUILD_SDL2)
     )
     target_link_libraries(imgui PUBLIC glfw)
 
-    add_subdirectory(apps/host_gui)
+    add_subdirectory(applications/host_gui)
 endif()
 
 add_subdirectory(modules/session/rig_preset)

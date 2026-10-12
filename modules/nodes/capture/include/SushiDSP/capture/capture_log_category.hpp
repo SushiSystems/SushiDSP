@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "SushiDSP/log/LogCategory.hpp"
+#include "SushiDSP/log/log_category.hpp"
 
 /// @brief Names the lines the capture module writes.
 inline constexpr SushiDSP::LogCategory K_CAPTURE_LOG_CATEGORY =

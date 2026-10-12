@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/DenormalGuard.hpp"
+#include "SushiDSP/core/denormal_guard.hpp"
 
 namespace
 {
@@ -41,7 +41,7 @@ namespace
         volatile float factor = 0.5f;
         return value * factor;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, DenormalGuardFlushesResultsToZeroWhileAlive)
 {

@@ -33,22 +33,22 @@
 
 #include <gtest/gtest.h>
 
-#include "AudioImportQueue.hpp"
+#include "audio_import_queue.hpp"
 
 namespace
 {
     /// @brief How long a test waits for the worker before giving up.
-    constexpr std::chrono::seconds kPatience{ 10 };
+    constexpr std::chrono::seconds K_PATIENCE{10};
 
     /// @brief Waits for the queue to report one finished import.
     /// @param queue The queue to drain.
     /// @param out Receives the finished imports.
-    /// @return True when an import arrived before kPatience ran out.
+    /// @return True when an import arrived before K_PATIENCE ran out.
     bool wait_for_one(SushiDSP::host::AudioImportQueue& queue,
                       std::vector<SushiDSP::host::AudioImport>& out)
     {
         const std::chrono::steady_clock::time_point deadline =
-            std::chrono::steady_clock::now() + kPatience;
+            std::chrono::steady_clock::now() + K_PATIENCE;
         while (std::chrono::steady_clock::now() < deadline)
         {
             queue.drain(out);
@@ -60,12 +60,12 @@ namespace
         }
         return false;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, AudioImportQueueStartsIdle)
 {
-    SushiDSP::host::AudioImportQueue queue{ SushiDSP::host::AudioImportCache(
-        (std::filesystem::temp_directory_path() / "sushidsp_import_idle").string()) };
+    SushiDSP::host::AudioImportQueue queue{SushiDSP::host::AudioImportCache(
+        (std::filesystem::temp_directory_path() / "sushidsp_import_idle").string())};
 
     std::vector<SushiDSP::host::AudioImport> drained;
     queue.drain(drained);
@@ -81,7 +81,7 @@ TEST(Unit_Dsp, AudioImportQueueReportsAFailureAndKeepsThePlacementItWasGiven)
         std::filesystem::temp_directory_path() / "sushidsp_import_queue";
     std::filesystem::remove_all(root);
 
-    SushiDSP::host::AudioImportQueue queue{ SushiDSP::host::AudioImportCache(root.string()) };
+    SushiDSP::host::AudioImportQueue queue{SushiDSP::host::AudioImportCache(root.string())};
     const std::string missing = (root / "nothing_here.mp3").string();
     queue.request(missing, 5, 987654, 48000.0);
 
@@ -102,14 +102,14 @@ TEST(Unit_Dsp, AudioImportQueueHandsBackOneResultPerRequest)
         std::filesystem::temp_directory_path() / "sushidsp_import_queue_many";
     std::filesystem::remove_all(root);
 
-    SushiDSP::host::AudioImportQueue queue{ SushiDSP::host::AudioImportCache(root.string()) };
+    SushiDSP::host::AudioImportQueue queue{SushiDSP::host::AudioImportCache(root.string())};
     queue.request((root / "one.mp3").string(), 0, 0, 48000.0);
     queue.request((root / "two.mp3").string(), 1, 64, 48000.0);
     queue.request((root / "three.mp3").string(), 2, 128, 48000.0);
 
     std::vector<SushiDSP::host::AudioImport> drained;
     const std::chrono::steady_clock::time_point deadline =
-        std::chrono::steady_clock::now() + kPatience;
+        std::chrono::steady_clock::now() + K_PATIENCE;
     while (drained.size() < 3u && std::chrono::steady_clock::now() < deadline)
     {
         queue.drain(drained);

@@ -20,8 +20,8 @@ the first thing in the translation unit. GCC and Clang, through libstdc++ and li
 
 `test_log_formatter.cpp`, `test_log_compile_time_cut.cpp`, `test_logger.cpp`,
 `test_log_line_queue.cpp` and `test_async_log_sink.cpp` cover the logger of
-`include/SushiDSP/log/`. The compile-time cut has a file of its own because it sets
-`SD_LOG_MIN_LEVEL` before including `Log.hpp`. `test_track_recorder_logging.cpp`,
+`modules/foundation/log/include/SushiDSP/log/`. The compile-time cut has a file of its own because it sets
+`SD_LOG_MIN_LEVEL` before including `log.hpp`. `test_track_recorder_logging.cpp`,
 `test_room_node_logging.cpp` and `test_directory_listing_logging.cpp` each provoke one
 handled failure and read the single line it logs through a capturing sink.
 
@@ -434,7 +434,7 @@ harmonic folds about the 40620 Hz clock onto 619 Hz.
 Nothing clips at the note's level, and what was left there was the NE570's rectifier aliasing
 rather than a fold of the test tone: |sin| carries a harmonic at every 2k\*f0 and 6\*8000.24 Hz
 folded to 1.46 Hz, inside the rectifier's own 23.4 Hz pole. The Ruling 7 revisit took that
-reading and bought Ne570Compander::kRectifierOversampling with it, which moved this row from
+reading and bought Ne570Compander::K_RECTIFIER_OVERSAMPLING with it, which moved this row from
 -35.86 dB to -55.32 dB. The number still misses the -60 dB the printf names, by 4.7 dB; 16
 sub-steps would reach -65.13 dB, and the cost curve that chose 8 is in
 docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections.
@@ -617,7 +617,7 @@ output, so the emphasis pair cancels inside the loop and the tilt is the filters
 
 `// The tail sustains only at the top of the knob.`
 
-kFeedbackPathGain exists so that kMaximumFeedback is the loop gain it claims to be: the loop's
+K_FEEDBACK_PATH_GAIN exists so that K_MAXIMUM_FEEDBACK is the loop gain it claims to be: the loop's
 forward gain peaks at 6.3184 at 3278 Hz, and on the mix resistors alone the node would
 regenerate from F.BACK 0.22 upward. Below the top of the knob the tail dies; at the top it
 sustains.
@@ -640,9 +640,9 @@ would be evaluated under IEEE rules regardless of the runtime FPU mode.
 
 ## `test_diezel_vh4.cpp`
 
-### `kUnityMasterDb`
+### `unity_master_db`
 
-`// kUnityMasterDb is derived from the calibration constant.`
+`// unity_master_db is derived from the calibration constant.`
 
 The master level whose linear multiplier is exactly 1.0, derived from the calibration constant
 rather than written out, so a recalibration does not silently move what the tests below measure.
@@ -701,7 +701,7 @@ proves only that the amp has headroom.
 
 `// A -12 dBFS 82 Hz sine comes out at about -6 dBFS.`
 
-The shipped calibration point, and the test that pins DiezelVh4::kMasterUnityGain: a -12 dBFS 82
+The shipped calibration point, and the test that pins DiezelVh4::K_MASTER_UNITY_GAIN: a -12 dBFS 82
 Hz sine into an untouched amp comes back out at about -6 dBFS, the frequency all four amplifiers
 pin at (DA5 spec section 6).
 
@@ -793,7 +793,7 @@ saturates, so the pair is compressing there by 2.3 dB. Dossier section 6 warns a
 cascade gain figure at all, because at 108.7 dB "nothing survives that linearly" - which is true
 of the amp as it is played, and is why the level here is six orders below it.
 
-Every factor at 1 kHz with the knobs at noon, each one a constant DiezelVh4.cpp names. A
+Every factor at 1 kHz with the knobs at noon, each one a constant diezel_vh4.cpp names. A
 TriodeStage's grid sits on Rg/(Rs + Rg) of its input, so each stage's own divider is on its row
 with its gain:
 
@@ -802,26 +802,26 @@ V1a, grid divider 1M/(1M+10k), gain 56.8                x56.2376  -> 0.0056238 V
 C13 0.923278, the gain pot at 0.5 giving 0.326772       x0.301701 -> 0.0016967 V
 V2a's cathode shelf 0.879497, its Miller pole 0.999304  x0.878885 -> 0.0014912 V
 V2a, grid divider 3M3/(3M3+47k), gain 67.2              x66.2564  -> 0.0988016 V
-C18 0.997970, kV2aToV3aDivider 0.4996003                x0.498586 -> 0.0492611 V
+C18 0.997970, K_V2A_TO_V3A_DIVIDER 0.4996003                x0.498586 -> 0.0492611 V
 V3a's cathode shelf 0.969856, its Miller pole 0.929217  x0.901207 -> 0.0443944 V
 V3a, grid divider 500k/(500k+470k), gain 71.4           x36.8041  -> 1.6339 V
 the V3b follower 0.986, C20 1.000054                    x0.986053 -> 1.61111 V
 the FMV deck at noon, R40 folded into it                x0.388541 -> 0.625983 V
-volume 0.5 x 0.5, kMixBusAttenuation 0.0660             x0.0165   -> 0.0103287 V
+volume 0.5 x 0.5, K_MIX_BUS_ATTENUATION 0.0660             x0.0165   -> 0.0103287 V
 V4a, grid divider 48.1k/(48.1k+44.923k), gain 28.7      x14.8401  -> 0.153279 V
-the V4b follower 0.986, / kPhaseInverterDegeneration    x0.522032 -> 0.0800166 V
+the V4b follower 0.986, / K_PHASE_INVERTER_DEGENERATION    x0.522032 -> 0.0800166 V
 the inverter, grid divider 1M/(1M+10k), gain 61.927402  x61.3143  -> 4.90620 V
                                                product to the EL34 grids  x49062
 ```
 
-The EL34 pair differenced, kPowerTubeToTransformerAttenuation, the transformer and the sag stage
+The EL34 pair differenced, K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION, the transformer and the sag stage
 are the one block left unwritten, and they are worth x0.09225 here: 49062 x 0.09225 is the 4526
 the assertion pins, 73.114 dB on 2026-09-07, with the input at 1e-6 rather than the 1e-4 the
 rows above are written for. The grid probes corroborate the table at that level - it predicts
 0.000229 V on V3a's grid against a measured 0.000244, and 0.000792 V on the inverter's against
 0.000853.
 
-kMasterUnityGain is absent on purpose: the knob is set to kUnityMasterDb, which is its
+K_MASTER_UNITY_GAIN is absent on purpose: the knob is set to unity_master_db, which is its
 reciprocal, so the two cancel and the master contributes x1.
 
 ## `test_dk_circuit.cpp`
@@ -948,9 +948,9 @@ output. Positions 0.25, 0.5, 0.9 give 0.25, 0.5, 0.9.
 The worst-case source impedance seen by the cap is the parallel combination of the two sections,
 at most 2.5 kOhm, so tau \<= 250 us. 40000 samples is 0.83 s, over 3000 tau.
 
-`// kMinimumPotOhms floors a shorted section at 1 Ohm.`
+`// K_MINIMUM_POT_OHMS floors a shorted section at 1 Ohm.`
 
-Both end stops must still derive and produce finite output. kMinimumPotOhms floors the shorted
+Both end stops must still derive and produce finite output. K_MINIMUM_POT_OHMS floors the shorted
 section at 1 Ohm rather than 0, so the divider reads 1/10001 and 10000/10001 instead of exactly
 0 and 1; that 0.01 % is the floor, and it is what keeps the augmented nodal matrix non-singular
 at the stops.
@@ -1025,12 +1025,12 @@ prepare() must say so rather than derive nonsense.
 
 ### `File scope`
 
-`// The netlist lives in tests/circuits/JcmV1aNetlist.hpp.`
+`// The netlist lives in tests/circuits/jcm_v1a_netlist.hpp.`
 
 The netlist, its component constants and the triode glue live in
-tests/circuits/JcmV1aNetlist.hpp: the RT-safety traps and the benchmark build the same block,
+tests/circuits/jcm_v1a_netlist.hpp: the RT-safety traps and the benchmark build the same block,
 and one description of it is the only way the three stay the same circuit. The same namespace
-carries tests/circuits/SpiceBlockCompare.hpp's spice_path, band_limit and interpolate_magnitude,
+carries tests/circuits/spice_block_compare.hpp's spice_path, band_limit and interpolate_magnitude,
 which the Tube Screamer block tests use unchanged.
 
 ### `DkTriodeStageSettlesAtTheHandComputedBiasPoint`
@@ -1060,18 +1060,18 @@ any stamp sign error moves the operating point far further than these tolerances
 `// The stimulus set is a sweep and three bursts at 384 kHz.`
 
 Spec D6b.4: \<= 0.01 % non-converged, zero NaN, over the full stimulus set. The set is a
-2-second sweep 20 Hz -> 20 kHz at -12 dBFS scaled to volts by kFullScaleVolts, plus a 1 kHz
+2-second sweep 20 Hz -> 20 kHz at -12 dBFS scaled to volts by K_FULL_SCALE_VOLTS, plus a 1 kHz
 burst at 0.05 V, 0.5 V and 5 V (well past grid conduction), all at 384 kHz.
 
 ### `DkTriodeStageNullsAgainstTheLtspiceTransientReference`
 
-`// Only the last of kPreRollPasses passes is compared.`
+`// Only the last of K_PRE_ROLL_PASSES passes is compared.`
 
 The exporter saves one 20 ms steady-state block per setting. The output high-pass formed by Cc
 (0.022 uF) into the \~1 MOhm pot has tau \~ 22 ms, so driving that block once from the quiescent
 bias leaves a turn-on DC transient around -43 dB that the plan's 5 ms discard nowhere near
 removes. The block is 20 whole cycles of the 1 kHz stimulus, so it repeats seamlessly: it is run
-kPreRollPasses times to give over 160 ms (more than seven time constants, decaying the transient
+K_PRE_ROLL_PASSES times to give over 160 ms (more than seven time constants, decaying the transient
 past -100 dB) and only the final pass is compared, which is why no leading samples are discarded
 from it.
 
@@ -1180,8 +1180,8 @@ own error.
 
 `// The same termination costs each deck a different tilt.`
 
-The same termination — V1A's 44 k plate impedance ahead of the deck and a 1 M volume pot across
-it — costs the two decks different things, because the slope resistor sets how much of a
+The same termination, V1A's 44 k plate impedance ahead of the deck and a 1 M volume pot across
+it, costs the two decks different things, because the slope resistor sets how much of a
 perturbation a 44 k source is: 33 k on the JCM against 100 k on the IIC+. So a model cannot
 carry one loading figure for every amplifier, and terminating one deck says nothing about
 another. An independent nodal solve of the same network predicts 3.89 dB of tilt for the JCM's
@@ -1272,12 +1272,12 @@ unlike a single-tap IR the band selection and the averaging rule both matter.
 
 ## `test_jcm800.cpp`
 
-### `kUnityMasterDb`
+### `unity_master_db`
 
-`// kUnityMasterDb is derived from kMasterUnityGain.`
+`// unity_master_db is derived from K_MASTER_UNITY_GAIN.`
 
 The master level whose linear multiplier is exactly 1.0. Master is a dB control whose 0 dB
-reference is kMasterUnityGain, so the tests that used to ask for "master fully up at 1.0 linear"
+reference is K_MASTER_UNITY_GAIN, so the tests that used to ask for "master fully up at 1.0 linear"
 ask for this instead and keep measuring the same signal - including across the D5b recalibration
 of that reference, which is why it is derived from the constant rather than written out as a
 number.
@@ -1350,7 +1350,7 @@ is a short to ground and there is no signal to measure.
 
 `// The sign of the difference is pinned at 1e-5.`
 
-Guards the power-tube bias mismatch (Jcm800.cpp's kPowerTubeGridBiasMismatchVolts) against being
+Guards the power-tube bias mismatch (jcm800.cpp's K_POWER_TUBE_GRID_BIAS_MISMATCH_VOLTS) against being
 dropped or neutralized. It is asserted at the amp's output rather than at the pair because the
 pair itself is not reachable from here; what an input-referred offset does to the pair's
 composite is pinned in test_pentode_stage.cpp.
@@ -1621,9 +1621,9 @@ b is inverted as well as delayed and scaled, as it would be after an odd number 
 stages. The lag search has to match on correlation magnitude to find 37 here; matching on the
 signed correlation picks whatever lag is least negative and the residual never nulls.
 
-### `kD5bJcm800AliasFloorDb`
+### `K_D5B_JCM800_ALIAS_FLOOR_DB`
 
-`// kD5bJcm800AliasFloorDb is the D5b baseline of -3.8 dB.`
+`// K_D5B_JCM800_ALIAS_FLOOR_DB is the D5b baseline of -3.8 dB.`
 
 D5b baseline, measured by Task 2 of the D6a plan at commit eec6499 with the 15-tap Hamming
 halfbands: TubeScreamer drive=1 -8.3 dB, Jcm800 preamp=10 -3.8 dB. Spec D6a requires the pre-DK
@@ -1650,7 +1650,7 @@ Measured again after D6a Task 5 collapsed the JCM800 into a single 8x region. Co
 alone made the floor worse, not better - -20.4 dB - because region A's decimator had silently
 been band-limiting V1b's output before the later clipping stages saw it. Restoring the
 interstage bandwidth the model was actually missing (the 12AX7's Miller input capacitance, in
-Jcm800.cpp) took it to -43.4 dB, 39.6 dB better than D5b and clear of the spec bar. DA4 then
+jcm800.cpp) took it to -43.4 dB, 39.6 dB better than D5b and clear of the spec bar. DA4 then
 removed the JCM800's level staging and the floor went to -6.7 dB, so that case is skipped as a
 known issue and its own comment carries the reason. The TubeScreamer's floor is aliasing
 generated inside the oversampled domain, and D6c's rebuild moved it to -18.6 dB without reaching
@@ -1824,7 +1824,7 @@ position this test uses, not a threshold: the control passes signal below it too
 
 `// A -12 dBFS 82 Hz sine comes out at about -6 dBFS.`
 
-The shipped calibration point, and what pins MesaMark2c::kMasterUnityGain: a -12 dBFS 82 Hz sine
+The shipped calibration point, and what pins MesaMark2c::K_MASTER_UNITY_GAIN: a -12 dBFS 82 Hz sine
 into an untouched amp comes back out at about -6 dBFS, the frequency all four amplifiers pin at
 (DA5 spec section 6).
 
@@ -1927,10 +1927,10 @@ dB over the capsule at 3 m.
 
 ### `MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecibels`
 
-`// The pattern term floors at kDecibelFloor, never a NaN.`
+`// The pattern term floors at K_DECIBEL_FLOOR, never a NaN.`
 
 cos(pi/2) is 6.1e-17 in double, so the pattern term is of that order and the decibel conversion
-floors it at kDecibelFloor; no band may be a NaN and every band is at least 40 dB below the same
+floors it at K_DECIBEL_FLOOR; no band may be a NaN and every band is at least 40 dB below the same
 capsule on axis.
 
 ## `test_modal_bank.cpp`
@@ -2082,7 +2082,7 @@ pi/2 = 0.9929407.
 
 `// Below 6.6125e-4 V the gain stops at 1e4.`
 
-Below V_ref \* kEnvelopeFloor = 6.6125e-4 V the gain stops at 1/kEnvelopeFloor = 1e4 and the law
+Below V_ref \* K_ENVELOPE_FLOOR = 6.6125e-4 V the gain stops at 1/K_ENVELOPE_FLOOR = 1e4 and the law
 goes linear, which is the modelled end of the gain cell's range (N6).
 
 ### `Ne570RectifierRippleReachesTheSignalAtLowFrequencies`
@@ -2104,7 +2104,7 @@ be clearly present. This asserts a floor, not a ceiling: the test fails if a fut
 and 48000/6 is the tone that folds one worst: the sixth harmonic lands on 48001.5 Hz and aliases
 to 1.46 Hz, two analysis bins off the carrier and far inside the 23.4051 Hz pole, so it
 modulates the gain cell at full weight. The board's rectifier is continuous time and does none
-of this, which is why kRectifierOversampling exists.
+of this, which is why K_RECTIFIER_OVERSAMPLING exists.
 
 The fold itself sits at +-2 bins, inside the Blackman-Harris main lobe (+-3 bins) and so
 unmeasurable here; the search below starts at bin 4 and therefore bounds the comb's tail, not
@@ -2113,9 +2113,9 @@ dB without it, so the -70 dB bound sits 6 dB above the measurement (headroom aga
 noise) and 12.3 dB below what a host-rate rectifier produces (still catching the regression).
 The tail bound and Ne570RectifierRippleReachesTheSignalAtLowFrequencies's floor are the
 invariant pair: the genuine 100 Hz ripple a 50 Hz tone makes must survive, and it does, unmoved
-at -23.75 dB. Driven at 2.0 V, the project-wide full-scale peak (SushiDSP::kFullScaleVolts,
-include/SushiDSP/core/Calibration.hpp), to catch the fold at the loudest stimulus the converter
-passes; the ripple test above drives kReferenceVolts because it is exercising the 2:1 law's own
+at -23.75 dB. Driven at 2.0 V, the project-wide full-scale peak (SushiDSP::K_FULL_SCALE_VOLTS,
+modules/foundation/core/include/SushiDSP/core/calibration.hpp), to catch the fold at the loudest stimulus the converter
+passes; the ripple test above drives K_REFERENCE_VOLTS because it is exercising the 2:1 law's own
 pivot point instead.
 
 ### `Ne570HalvesDoNotShareState`
@@ -2239,7 +2239,7 @@ and a registry line rather than a test to remember.
 
 ## `test_peavey5150.cpp`
 
-### `kLinearPathPreGain`
+### `K_LINEAR_PATH_PRE_GAIN`
 
 `// The shelves are read with a small-signal path ahead.`
 
@@ -2253,7 +2253,7 @@ sits ahead of the driver, the phase inverter and the output tubes, which is wher
 compression is. At this setting the two shelves read 9.90 dB and 9.90 dB against their 10 dB
 target.
 
-### `kSpectrumBlocks`
+### `K_SPECTRUM_BLOCKS`
 
 `// measure::thd() needs at least 65536 samples.`
 
@@ -2345,7 +2345,7 @@ signal order - V1A, V1B, V2A, V2B, V5B, V5A, V3A and the phase inverter.
 
 Dossier section 6, quoting Peavey's own specification table: "Active Presence: +10 dB 2 kHz".
 The shelf's corner sits at 600 Hz so its plateau has arrived by 2 kHz; the comment beside
-kPresenceHz in Peavey5150.cpp carries why. Read on the small-signal path for the reason above
+K_PRESENCE_HZ in peavey5150.cpp carries why. Read on the small-signal path for the reason above
 small_signal_node(); measured 2026-09-07: 3.32 dB flat, 13.22 dB full, a 9.90 dB lift.
 
 ### `Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels`
@@ -2370,7 +2370,7 @@ test would be proving only that the amp has headroom.
 
 `// A -12 dBFS 82 Hz sine comes out at about -6 dBFS.`
 
-The shipped calibration point, and the measurement that pins kPostGainUnityGain: a -12 dBFS 82
+The shipped calibration point, and the measurement that pins K_POST_GAIN_UNITY_GAIN: a -12 dBFS 82
 Hz sine into an untouched amp comes back out at about -6 dBFS, the frequency all four amplifiers
 pin at (DA5 spec section 6). At 1 kHz, where this constant was pinned before, the resonance
 shelf's lift below 330 Hz put the low E on the output clamp.
@@ -2387,7 +2387,7 @@ the sag stage's startup transient.
 Spec section 4's acceptance for the plate-swing phase: a player who turns PRE GAIN down must
 reach a setting the amplifier does not square. The 5150 asserts that at Peavey's own nominal
 lead input and no louder: -80 dBV is 1e-4 V RMS, so 1.4142e-4 V peak, which against
-kFullScaleVolts 2.0 is an amplitude of 7.071e-5 full scale, -83.01 dBFS. A 20 mV guitar sits 46
+K_FULL_SCALE_VOLTS 2.0 is an amplitude of 7.071e-5 full scale, -83.01 dBFS. A 20 mV guitar sits 46
 dB above the nominal the manufacturer prints for this channel, so the -40 dBFS figure is
 measured and printed but not asserted.
 
@@ -2496,7 +2496,7 @@ directly, would have risen far more.
 
 Same shape as the triode case. current() and jacobian() forward to the joint form, so these
 agree exactly by construction today, and pinning that keeps the three entry points from drifting
-apart later. The first screen voltage sits below kScreenFloorVolts, so the clamped Vg2k column
+apart later. The first screen voltage sits below K_SCREEN_FLOOR_VOLTS, so the clamped Vg2k column
 is exercised too.
 
 ## `test_pentode_stage.cpp`
@@ -2644,7 +2644,7 @@ output grid, and one overwritten tap breaks it.
 `// The delay is 34 / min(source, target) seconds.`
 
 DR1+DR2 plan N1, as the Task 1.1 ruling widened it: the delay is
-kResamplerHalfWidthZeroCrossings = 34 divided by min(source, target) seconds at every ratio.
+K_RESAMPLER_HALF_WIDTH_ZERO_CROSSINGS = 34 divided by min(source, target) seconds at every ratio.
 
 ### `ResamplerRateChangeMidStreamIsContinuous`
 
@@ -2709,24 +2709,24 @@ the groups are listed here and the file is reported as a candidate for splitting
 - Per-slot bypass, from `RigControllerBypassBridgesTheSlotsNeighbours`.
 - The impulse-response folder, from `RigControllerRemembersTheIrFolder`. The folder is
   preset-level and has no audio behind it.
-- Rack-list selection tracking (`apps/host_gui/SlotSelection.hpp`), from
+- Rack-list selection tracking (`applications/host_gui/slot_selection.hpp`), from
   `SlotSelectionStillValidReturnsTrueWhenSlotIsInTheList`.
 - The room: its scene in the preset, its publish pacing and its HRTF (DE6).
-- Snapshot and edge accessors (`apps/host_gui`, Phase 2 chain-type rewiring), from
+- Snapshot and edge accessors (`applications/host_gui`, Phase 2 chain-type rewiring), from
   `RigControllerSnapshotRestoreKeepsParametersAndCabinetPath`.
 
 ### `RigControllerRemoveDropsFromChainAndReconnectsSurvivors`
 
 `// The chain re-links around a removed middle slot.`
 
-b's removal must not leave a and c disconnected — the chain must re-link around the gap,
+b's removal must not leave a and c disconnected, the chain must re-link around the gap,
 matching today's behavior where removing a middle slot still produces one working chain.
 
 ### `RigControllerBuildsSplitterTwoBranchMixerShapeAndProcessesCorrectly`
 
 `// The split/mix shape needs publish batching to build.`
 
-Every node exists and the graph compiled/published without throwing — the split/mix shape this
+Every node exists and the graph compiled/published without throwing, the split/mix shape this
 test builds was, before the publish-batching parameter, impossible to construct through the
 public API at all (the second add_node() would have republished a two-node, zero-edge graph,
 which RigGraph::compile() rejects for having no sink). Confirm the rig actually processes a
@@ -2745,7 +2745,7 @@ mixer and all.
 
 `// No process() runs here; the live node still reads 0.5.`
 
-Deliberately no process() call and no further structural edit here — the live node still reads
+Deliberately no process() call and no further structural edit here, the live node still reads
 the pre-edit default (0.5), but save_to_json() must report the controller's own authoritative
 0.9f, matching what get_parameter() and the GUI slider both already show.
 
@@ -2762,7 +2762,7 @@ graph leaves it out, wiring its upstream neighbours straight to its downstream o
 
 `// A SlotId stays valid across insert, move and remove.`
 
-Rack-list selection tracking (apps/host_gui/SlotSelection.hpp).
+Rack-list selection tracking (applications/host_gui/slot_selection.hpp).
 
 A SlotId stays valid across insert/move/remove, unlike the old int-index scheme, so the only
 remaining job is dropping a selection that no longer names a live slot.
@@ -2804,7 +2804,7 @@ from a previous block).
 `// The graph passes nullptr through to a root node.`
 
 Unchanged behavior: a root node must not crash or misbehave when the graph itself has no live
-input (e.g. the existing SDL2 output-only path) — GainNode would dereference a null
+input (e.g. the existing SDL2 output-only path), GainNode would dereference a null
 context.inputs, so this uses ConstantSourceNode (0 input ports) to prove the \*graph\* passes
 nullptr through, without the test node needing to read it.
 
@@ -2839,13 +2839,13 @@ than leaving sink_handle_ pointing at a stale/default handle for process() to mi
 
 ### `RigGraphFeedsRootNodeExternalInputThroughAFullWidthGatherArray`
 
-`// Every node receives a kMaxFanInOut-sized array.`
+`// Every node receives a K_MAX_FAN_IN_OUT-sized array.`
 
-Regression: a multi-input node (MixerNode reads all kMaxFanInOut slots) placed as a ROOT node —
+Regression: a multi-input node (MixerNode reads all K_MAX_FAN_IN_OUT slots) placed as a ROOT node , 
 no incoming edges, reachable via a hand-authored or rig_preset-loaded JSON whose mixer has an
-empty "inputs" — used to be handed the host's raw context.inputs pointer. Hosts pass a 1-element
+empty "inputs", used to be handed the host's raw context.inputs pointer. Hosts pass a 1-element
 array, so the mixer read 7 pointers past the end of it and dereferenced whatever garbage
-followed. Every node must now receive a kMaxFanInOut-sized array whose unused slots are nullptr.
+followed. Every node must now receive a K_MAX_FAN_IN_OUT-sized array whose unused slots are nullptr.
 
 `// Unused slots are nullptr, never garbage.`
 
@@ -2866,7 +2866,7 @@ that slot channel for channel rather than dropped.
 `// The mixer's inputs are handles 2 and 3, in that order.`
 
 Topology: the mixer (preset id 4, handle 4 since deserialize preserves JSON-array add order)
-must have exactly the two upstream nodes the JSON's "inputs": [2, 3] declares — the amp (handle
+must have exactly the two upstream nodes the JSON's "inputs": [2, 3] declares, the amp (handle
 2) and the dry tubescreamer (handle 3), in that order.
 
 ### `SerializeThenDeserializeRoundTripsABranchingGraph`
@@ -2884,7 +2884,7 @@ node have the right value" check would miss.
 `// A rejected preset leaves the graph unmodified.`
 
 Each of these is rejected in the first validation pass, so the caller's graph must come back
-completely unmodified — never half-populated with orphan nodes that would then make the caller's
+completely unmodified, never half-populated with orphan nodes that would then make the caller's
 next compile() throw "no sink node found".
 
 `// Id 7 is declared by no entry.`
@@ -3480,10 +3480,10 @@ allocates nothing.
 
 ### `File scope`
 
-`// The netlist lives in tests/circuits/JcmV1aNetlist.hpp.`
+`// The netlist lives in tests/circuits/jcm_v1a_netlist.hpp.`
 
 The netlist, its component constants and the triode glue live in
-tests/circuits/JcmV1aNetlist.hpp, shared with the D6b stage test and the benchmark.
+tests/circuits/jcm_v1a_netlist.hpp, shared with the D6b stage test and the benchmark.
 
 ### `DkCircuitPotentiometerUpdatePerformsNoHeapAllocation`
 
@@ -3592,9 +3592,9 @@ the index path inside the trap stores the choice and nothing else.
 
 ### `ModalBankProcessPerformsNoHeapAllocation`
 
-`// All kMaxModes resonators run at 68.6 Hz, 1 s decay.`
+`// All K_MAX_MODES resonators run at 68.6 Hz, 1 s decay.`
 
-Every one of kMaxModes resonators runs, at the garage's 68.6 Hz mode with a 1 s decay: r =
+Every one of K_MAX_MODES resonators runs, at the garage's 68.6 Hz mode with a 1 s decay: r =
 10^(-3 / 48000) = 0.99985610, a1 = -2 r cos(2 pi 68.6 / 48000), a2 = r^2.
 
 ### `CrossoverPairProcessPerformsNoHeapAllocation`
@@ -3712,10 +3712,10 @@ continuous across it. knee_jacobian_ itself is \~1.309e10 S (Is/(nVt) \* exp(40)
 absolute tolerance of 1e-3/1e-9 is unsatisfiable at this magnitude for any correct
 implementation: measured directly, jacobian(knee - 1e-7) and jacobian(knee + 1e-7) differ by
 \~2.89e4 absolute (\~2.2e-6 relative) purely from the Shockley curve's real slope this close to
-exp(40) — a 1e-4 relative tolerance (\~1.31e6 absolute) left over 45x slack versus that measured
+exp(40), a 1e-4 relative tolerance (\~1.31e6 absolute) left over 45x slack versus that measured
 gap, so this uses 1e-5 relative (\~1.31e5 absolute, \~4.5x the measured gap) instead. The
 extrapolation identity below only holds to double's rounding: measured directly, the two sides
-differ by \~4e-16 relative (\~1 ULP at this magnitude), so this uses 1e-12 relative — \~2500x
+differ by \~4e-16 relative (\~1 ULP at this magnitude), so this uses 1e-12 relative, \~2500x
 the measured gap, still \~1e3x tighter than the 1e-9 absolute tolerance originally in the brief
 once rescaled to this \~7e9 magnitude.
 
@@ -3922,7 +3922,7 @@ current() specialised for speed would have to keep matching the form the solver 
 
 ## `test_triode_stage.cpp`
 
-### `kSourceResistance`
+### `K_SOURCE_RESISTANCE`
 
 `// These constants are the JCM800's V1a-shaped stage.`
 
@@ -3996,7 +3996,7 @@ cross it, and cross both plate ceilings.
 `// Near-equal samples fall back to the midpoint transfer.`
 
 The divided difference loses its precision as g(u1) - g(u0) shrinks, so under
-kMinimumInputDifferenceVolts it gives way to the transfer at the midpoint. Two identical samples
+K_MINIMUM_INPUT_DIFFERENCE_VOLTS it gives way to the transfer at the midpoint. Two identical samples
 and two a float ulp apart must return the plate bound, and sweeping the difference through the
 threshold must leave no step larger than the float output's own quantisation.
 
@@ -4053,7 +4053,7 @@ number by volts.
 `// The stimulus is a sweep and three bursts at 384 kHz.`
 
 Spec's Newton acceptance, on this block's own material: a 2 s sweep 20 Hz -> 20 kHz at -12 dBFS
-in volts (0.251 \* kFullScaleVolts = 0.502 V), then 1 kHz bursts at 0.05 V, 0.5 V and 5 V, all
+in volts (0.251 \* K_FULL_SCALE_VOLTS = 0.502 V), then 1 kHz bursts at 0.05 V, 0.5 V and 5 V, all
 at 384 kHz with the drive pot wide open, which is the hardest setting.
 
 The D6c plan instrumented this block at 2.7 Newton iterations per solve on average and 4 worst
@@ -4125,7 +4125,7 @@ an acceptance.
 
 `// The adapter scales by input_scale_volts both ways.`
 
-tests/circuits/DkBlockNode.hpp is the adapter every block-level measurement runs through, and
+tests/circuits/dk_block_node.hpp is the adapter every block-level measurement runs through, and
 Task 7's product node follows the same rule, so what it owes is exact: the buffer sample times
 input_scale_volts is what the block solves, and the block's answer divided by the same constant
 is what lands in the output buffer. A non-unity scale is used so a dropped multiply on either

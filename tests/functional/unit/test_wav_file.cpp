@@ -34,7 +34,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/io/WavFile.hpp"
+#include "SushiDSP/io/wav_file.hpp"
 
 namespace
 {
@@ -70,12 +70,12 @@ namespace
 
         write_tag(buffer, "fmt ");
         write_u32_le(buffer, 16);
-        write_u16_le(buffer, 1);       // PCM
-        write_u16_le(buffer, 1);       // mono
+        write_u16_le(buffer, 1); // PCM
+        write_u16_le(buffer, 1); // mono
         write_u32_le(buffer, sample_rate);
         write_u32_le(buffer, byte_rate);
-        write_u16_le(buffer, 2);       // block align
-        write_u16_le(buffer, 16);      // bits per sample
+        write_u16_le(buffer, 2);  // block align
+        write_u16_le(buffer, 16); // bits per sample
 
         write_tag(buffer, "data");
         write_u32_le(buffer, data_bytes);
@@ -91,14 +91,15 @@ namespace
     {
         const std::string path = std::string(::testing::TempDir()) + name;
         std::ofstream out(path, std::ios::binary);
-        out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        out.write(reinterpret_cast<const char*>(bytes.data()),
+                  static_cast<std::streamsize>(bytes.size()));
         out.close();
         return path;
     }
 
-    void write_fmt_and_riff_header(
-        std::vector<uint8_t>& buffer, uint16_t format_tag, uint16_t channel_count,
-        uint32_t sample_rate, uint16_t bits_per_sample, uint32_t data_bytes)
+    void write_fmt_and_riff_header(std::vector<uint8_t>& buffer, uint16_t format_tag,
+                                   uint16_t channel_count, uint32_t sample_rate,
+                                   uint16_t bits_per_sample, uint32_t data_bytes)
     {
         const uint16_t block_align = static_cast<uint16_t>(channel_count * (bits_per_sample / 8));
         const uint32_t byte_rate = sample_rate * block_align;
@@ -167,10 +168,12 @@ namespace
 
     /// @brief Builds a minimal stereo 16-bit PCM WAV file, interleaved left then right.
     /// @pre left and right have the same length.
-    std::vector<uint8_t> build_pcm16_stereo_wav(
-        uint32_t sample_rate, const std::vector<int16_t>& left, const std::vector<int16_t>& right)
+    std::vector<uint8_t> build_pcm16_stereo_wav(uint32_t sample_rate,
+                                                const std::vector<int16_t>& left,
+                                                const std::vector<int16_t>& right)
     {
-        const uint32_t data_bytes = static_cast<uint32_t>((left.size() + right.size()) * sizeof(int16_t));
+        const uint32_t data_bytes =
+            static_cast<uint32_t>((left.size() + right.size()) * sizeof(int16_t));
         std::vector<uint8_t> buffer;
         write_fmt_and_riff_header(buffer, 1, 2, sample_rate, 16, data_bytes);
         for (std::size_t i = 0; i < left.size(); ++i)
@@ -180,11 +183,11 @@ namespace
         }
         return buffer;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, WavFileLoadsMonoPcm16SamplesInCorrectRange)
 {
-    const std::vector<int16_t> samples = { 0, 16384, -16384, 32767, -32768 };
+    const std::vector<int16_t> samples = {0, 16384, -16384, 32767, -32768};
     const std::string path = write_temp_wav(build_pcm16_wav(48000, samples), "wav_pcm16.wav");
 
     const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
@@ -199,7 +202,7 @@ TEST(Unit_Dsp, WavFileLoadsMonoPcm16SamplesInCorrectRange)
 
 TEST(Unit_Dsp, WavFileReportsTheFileSampleRate)
 {
-    const std::vector<int16_t> samples = { 0, 0 };
+    const std::vector<int16_t> samples = {0, 0};
     const std::string path = write_temp_wav(build_pcm16_wav(44100, samples), "wav_rate.wav");
 
     double sample_rate = 0.0;
@@ -210,12 +213,13 @@ TEST(Unit_Dsp, WavFileReportsTheFileSampleRate)
 
 TEST(Unit_Dsp, WavFileThrowsOnMissingFile)
 {
-    EXPECT_THROW(SushiDSP::WavFile::load_mono("this_file_does_not_exist_12345.wav"), std::runtime_error);
+    EXPECT_THROW(SushiDSP::WavFile::load_mono("this_file_does_not_exist_12345.wav"),
+                 std::runtime_error);
 }
 
 TEST(Unit_Dsp, WavFileThrowsOnTruncatedHeader)
 {
-    std::vector<uint8_t> truncated = { 'R', 'I', 'F', 'F', 0, 0 };
+    std::vector<uint8_t> truncated = {'R', 'I', 'F', 'F', 0, 0};
     const std::string path = write_temp_wav(truncated, "wav_truncated.wav");
 
     EXPECT_THROW(SushiDSP::WavFile::load_mono(path), std::runtime_error);
@@ -224,7 +228,9 @@ TEST(Unit_Dsp, WavFileThrowsOnTruncatedHeader)
 TEST(Unit_Dsp, WavFileLoadsMonoPcm24SamplesWithSignExtension)
 {
     // The samples cover zero, both extremes and -1 LSB. See tests/functional/unit/README.md.
-    const std::vector<int32_t> samples = { 0x000000, 0x400000, 0x7FFFFF, static_cast<int32_t>(0xFFFFFFFF), static_cast<int32_t>(0xFF800000) };
+    const std::vector<int32_t> samples = {0x000000, 0x400000, 0x7FFFFF,
+                                          static_cast<int32_t>(0xFFFFFFFF),
+                                          static_cast<int32_t>(0xFF800000)};
     const std::string path = write_temp_wav(build_pcm24_wav(48000, samples), "wav_pcm24.wav");
 
     const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
@@ -239,7 +245,7 @@ TEST(Unit_Dsp, WavFileLoadsMonoPcm24SamplesWithSignExtension)
 
 TEST(Unit_Dsp, WavFileLoadsMonoPcm32SamplesInCorrectRange)
 {
-    const std::vector<int32_t> samples = { 0, 1073741824, -1073741824, 2147483647, -2147483647 - 1 };
+    const std::vector<int32_t> samples = {0, 1073741824, -1073741824, 2147483647, -2147483647 - 1};
     const std::string path = write_temp_wav(build_pcm32_wav(48000, samples), "wav_pcm32.wav");
 
     const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
@@ -254,7 +260,7 @@ TEST(Unit_Dsp, WavFileLoadsMonoPcm32SamplesInCorrectRange)
 
 TEST(Unit_Dsp, WavFileLoadsMonoIeeeFloatSamplesUnscaled)
 {
-    const std::vector<float> samples = { 0.0f, 0.5f, -0.5f, 1.0f, -1.0f, 2.0f };
+    const std::vector<float> samples = {0.0f, 0.5f, -0.5f, 1.0f, -1.0f, 2.0f};
     const std::string path = write_temp_wav(build_float32_wav(48000, samples), "wav_float32.wav");
 
     const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
@@ -270,16 +276,19 @@ TEST(Unit_Dsp, WavFileLoadsMonoIeeeFloatSamplesUnscaled)
 TEST(Unit_Dsp, WavFileDownmixesStereoAsAverageOfChannels)
 {
     // Same-sign values make a sum twice the average. See tests/functional/unit/README.md.
-    const std::vector<int16_t> left = { 0, 16384, 8000, 20000 };
-    const std::vector<int16_t> right = { 0, 8192, 12000, 10000 };
-    const std::string path = write_temp_wav(build_pcm16_stereo_wav(48000, left, right), "wav_pcm16_stereo.wav");
+    const std::vector<int16_t> left = {0, 16384, 8000, 20000};
+    const std::vector<int16_t> right = {0, 8192, 12000, 10000};
+    const std::string path =
+        write_temp_wav(build_pcm16_stereo_wav(48000, left, right), "wav_pcm16_stereo.wav");
 
     const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
 
     ASSERT_EQ(loaded.size(), left.size());
     for (std::size_t i = 0; i < left.size(); ++i)
     {
-        const float expected = ((static_cast<float>(left[i]) / 32768.0f) + (static_cast<float>(right[i]) / 32768.0f)) / 2.0f;
+        const float expected =
+            ((static_cast<float>(left[i]) / 32768.0f) + (static_cast<float>(right[i]) / 32768.0f)) /
+            2.0f;
         EXPECT_NEAR(loaded[i], expected, 1e-4f);
     }
     // Confirms it's a genuine average and not just one channel passed through.

@@ -34,13 +34,13 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/room/HrtfSet.hpp"
-#include "SushiDSP/room/HrtfSetLoader.hpp"
+#include "SushiDSP/room/hrtf_set.hpp"
+#include "SushiDSP/room/hrtf_set_loader.hpp"
 
 namespace
 {
     /// @brief Holds pi.
-    constexpr double kPi = 3.14159265358979323846;
+    constexpr double K_PI = 3.14159265358979323846;
 
     /// @brief Returns the path of the fixture Task 2's --self-test writes.
     std::string fixture_path()
@@ -65,24 +65,23 @@ namespace
     {
         std::ofstream stream(path, std::ios::binary | std::ios::trunc);
         stream.write(reinterpret_cast<const char*>(bytes.data()),
-                    static_cast<std::streamsize>(bytes.size()));
+                     static_cast<std::streamsize>(bytes.size()));
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, HrtfSetLoaderReadsEveryFieldOfTheFixture)
 {
     SushiDSP::room::HrtfSet set;
     std::string error;
-    ASSERT_TRUE(SushiDSP::room::HrtfSetLoader::load(fixture_path(), 48000.0, set, error))
-        << error;
+    ASSERT_TRUE(SushiDSP::room::HrtfSetLoader::load(fixture_path(), 48000.0, set, error)) << error;
 
     ASSERT_EQ(set.direction_count(), 6u);
     EXPECT_NEAR(set.direction(0).azimuth_rad, 0.0, 1e-6);
-    EXPECT_NEAR(set.direction(1).azimuth_rad, kPi / 2.0, 1e-6);
-    EXPECT_NEAR(set.direction(2).azimuth_rad, kPi, 1e-6);
-    EXPECT_NEAR(set.direction(3).azimuth_rad, 3.0 * kPi / 2.0, 1e-6);
-    EXPECT_NEAR(set.direction(4).elevation_rad, kPi / 2.0, 1e-6);
-    EXPECT_NEAR(set.direction(5).elevation_rad, -kPi / 2.0, 1e-6);
+    EXPECT_NEAR(set.direction(1).azimuth_rad, K_PI / 2.0, 1e-6);
+    EXPECT_NEAR(set.direction(2).azimuth_rad, K_PI, 1e-6);
+    EXPECT_NEAR(set.direction(3).azimuth_rad, 3.0 * K_PI / 2.0, 1e-6);
+    EXPECT_NEAR(set.direction(4).elevation_rad, K_PI / 2.0, 1e-6);
+    EXPECT_NEAR(set.direction(5).elevation_rad, -K_PI / 2.0, 1e-6);
 
     EXPECT_EQ(set.decoder_order(), 3u);
     EXPECT_EQ(set.decoder_filters().size(), 32u * 256u);

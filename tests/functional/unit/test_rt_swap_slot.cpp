@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/RtSwapSlot.hpp"
+#include "SushiDSP/core/rt_swap_slot.hpp"
 
 namespace
 {
@@ -39,23 +39,32 @@ namespace
     /// @see tests/functional/unit/README.md
     class Counted
     {
-    public:
-        static std::atomic<int> live_count;
+        public:
+            static std::atomic<int> live_count;
 
-        explicit Counted(int value) : value_(value) { live_count.fetch_add(1, std::memory_order_relaxed); }
-        ~Counted() { live_count.fetch_sub(1, std::memory_order_relaxed); }
+            explicit Counted(int value) : value_(value)
+            {
+                live_count.fetch_add(1, std::memory_order_relaxed);
+            }
+            ~Counted()
+            {
+                live_count.fetch_sub(1, std::memory_order_relaxed);
+            }
 
-        Counted(const Counted&) = delete;
-        Counted& operator=(const Counted&) = delete;
+            Counted(const Counted&) = delete;
+            Counted& operator=(const Counted&) = delete;
 
-        int value() const { return value_; }
+            int value() const
+            {
+                return value_;
+            }
 
-    private:
-        int value_;
+        private:
+            int value_;
     };
 
-    std::atomic<int> Counted::live_count{ 0 };
-}
+    std::atomic<int> Counted::live_count{0};
+} // namespace
 
 TEST(Unit_Dsp, RtSwapSlotStartsWithNoActiveObject)
 {
@@ -81,14 +90,14 @@ TEST(Unit_Dsp, RtSwapSlotReclaimFreesOldObjectAfterAudioThreadMovesOn)
 {
     SushiDSP::RtSwapSlot<int> slot;
     slot.publish(std::make_unique<int>(1));
-    slot.acquire_for_audio_thread();  // audio thread "sees" generation 1
+    slot.acquire_for_audio_thread(); // audio thread "sees" generation 1
 
     auto second = std::make_unique<int>(2);
     int* second_raw = second.get();
     slot.publish(std::move(second));
 
-    slot.acquire_for_audio_thread();  // audio thread now "sees" generation 2
-    slot.reclaim();                   // safe to free generation 1's object now
+    slot.acquire_for_audio_thread(); // audio thread now "sees" generation 2
+    slot.reclaim();                  // safe to free generation 1's object now
 
     EXPECT_EQ(slot.acquire_for_audio_thread(), second_raw);
 }
@@ -131,17 +140,18 @@ TEST(Unit_Dsp, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
         SushiDSP::RtSwapSlot<Counted> slot;
         slot.publish(std::make_unique<Counted>(7));
 
-        std::atomic<bool> stop{ false };
+        std::atomic<bool> stop{false};
 
-        std::thread audio_thread([&]
-        {
-            while (!stop.load(std::memory_order_relaxed))
+        std::thread audio_thread(
+            [&]
             {
-                Counted* object = slot.acquire_for_audio_thread();
-                ASSERT_NE(object, nullptr);
-                EXPECT_EQ(object->value(), 7);
-            }
-        });
+                while (!stop.load(std::memory_order_relaxed))
+                {
+                    Counted* object = slot.acquire_for_audio_thread();
+                    ASSERT_NE(object, nullptr);
+                    EXPECT_EQ(object->value(), 7);
+                }
+            });
 
         for (int i = 0; i < 20000; ++i)
         {

@@ -33,10 +33,10 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/TrackPlayer.hpp"
-#include "SushiDSP/capture/TrackTimeline.hpp"
-#include "SushiDSP/capture/Transport.hpp"
-#include "SushiDSP/routing/PanNode.hpp"
+#include "SushiDSP/capture/track_player.hpp"
+#include "SushiDSP/capture/track_timeline.hpp"
+#include "SushiDSP/capture/transport.hpp"
+#include "SushiDSP/routing/pan_node.hpp"
 
 namespace
 {
@@ -47,7 +47,7 @@ namespace
     /// @return The filled take.
     std::unique_ptr<SushiDSP::Take> ramp_take(std::size_t frames, float scale = 1.0f)
     {
-        auto   take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
+        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
         float* samples = take->mutable_channel(0);
         for (std::size_t frame = 0; frame < frames; ++frame)
         {
@@ -66,7 +66,7 @@ namespace
     {
         std::fill(left.begin(), left.end(), 0.0f);
         std::fill(right.begin(), right.end(), 0.0f);
-        float* outputs[2] = { left.data(), right.data() };
+        float* outputs[2] = {left.data(), right.data()};
         player.process(outputs, 2u, static_cast<std::uint32_t>(left.size()), transport);
     }
 
@@ -77,21 +77,21 @@ namespace
     void pan_node_gains(float pan, float& left, float& right)
     {
         SushiDSP::PanNode node;
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 64, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
         node.set_parameter_for_control_thread("pan", pan);
 
         std::vector<float> input(64, 1.0f);
         std::vector<float> out_left(64, 0.0f);
         std::vector<float> out_right(64, 0.0f);
-        const float*             inputs[1] = { input.data() };
-        float*                   outputs[2] = { out_left.data(), out_right.data() };
-        SushiDSP::ProcessContext context{ outputs, inputs, 64, 0.0 };
+        const float* inputs[1] = {input.data()};
+        float* outputs[2] = {out_left.data(), out_right.data()};
+        SushiDSP::ProcessContext context{outputs, inputs, 64, 0.0};
 
         // PanNode snaps its smoother onto the target, so its output stops changing only once settled.
-        constexpr int kMaxBlocks = 4000;
-        float         previous_left = 0.0f;
-        float         previous_right = 0.0f;
-        for (int block = 0; block < kMaxBlocks; ++block)
+        constexpr int K_MAX_BLOCKS = 4000;
+        float previous_left = 0.0f;
+        float previous_right = 0.0f;
+        for (int block = 0; block < K_MAX_BLOCKS; ++block)
         {
             node.process(context);
             left = out_left.back();
@@ -119,7 +119,7 @@ namespace
     /// @return The filled take.
     std::unique_ptr<SushiDSP::Take> impulse_take(std::size_t frames, std::size_t at)
     {
-        auto   take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
+        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
         float* samples = take->mutable_channel(0);
         samples[at] = 1.0f;
         return take;
@@ -131,13 +131,13 @@ namespace
     /// @return The filled take.
     std::unique_ptr<SushiDSP::Take> sine_take(double frequency_hz, std::size_t frames)
     {
-        auto   take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
+        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
         float* samples = take->mutable_channel(0);
         for (std::size_t frame = 0; frame < frames; ++frame)
         {
-            samples[frame] = static_cast<float>(
-                std::sin(2.0 * 3.14159265358979323846 * frequency_hz
-                         * static_cast<double>(frame) / 48000.0));
+            samples[frame] =
+                static_cast<float>(std::sin(2.0 * 3.14159265358979323846 * frequency_hz *
+                                            static_cast<double>(frame) / 48000.0));
         }
         return take;
     }
@@ -146,8 +146,7 @@ namespace
     /// @param player The player owning the library.
     /// @param take The take to hand over.
     /// @return The borrowed pointer.
-    const SushiDSP::Take* lend(SushiDSP::TrackPlayer&          player,
-                               std::unique_ptr<SushiDSP::Take> take)
+    const SushiDSP::Take* lend(SushiDSP::TrackPlayer& player, std::unique_ptr<SushiDSP::Take> take)
     {
         return player.takes().insert(std::unique_ptr<const SushiDSP::Take>(std::move(take)));
     }
@@ -179,11 +178,11 @@ namespace
         }
         return crossings;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, TrackPlayerUnityTrackReproducesItsTakeSampleForSample)
 {
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
     player.set_take(0, ramp_take(256));
     player.set_pan(0, -1.0f);
@@ -207,7 +206,7 @@ TEST(Unit_Dsp, TrackPlayerUnityTrackReproducesItsTakeSampleForSample)
 
 TEST(Unit_Dsp, TrackPlayerMutedTrackContributesNothing)
 {
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
     player.set_take(0, ramp_take(256));
     player.set_mute(0, true);
@@ -225,7 +224,7 @@ TEST(Unit_Dsp, TrackPlayerMutedTrackContributesNothing)
 
 TEST(Unit_Dsp, TrackPlayerSoloSilencesTheOtherTracks)
 {
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
     player.set_take(0, ramp_take(256));
     player.set_take(1, ramp_take(256, 10.0f));
@@ -245,7 +244,7 @@ TEST(Unit_Dsp, TrackPlayerSoloSilencesTheOtherTracks)
 
 TEST(Unit_Dsp, TrackPlayerTwoTracksSum)
 {
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
     player.set_take(0, ramp_take(256));
     player.set_take(1, ramp_take(256, 3.0f));
@@ -268,10 +267,10 @@ TEST(Unit_Dsp, TrackPlayerPanLawMatchesPanNodeWithinAHundredthOfADecibel)
     {
         const float pan = -1.0f + 0.25f * static_cast<float>(step);
 
-        SushiDSP::Transport   transport;
+        SushiDSP::Transport transport;
         SushiDSP::TrackPlayer player;
 
-        auto   take = std::make_unique<SushiDSP::Take>(1u, 48000.0, std::size_t{ 64 });
+        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, std::size_t{64});
         float* samples = take->mutable_channel(0);
         for (std::size_t frame = 0; frame < 64; ++frame)
         {
@@ -299,14 +298,14 @@ TEST(Unit_Dsp, TrackPlayerMonoOutputIgnoresPan)
     {
         const float pan = -1.0f + 0.25f * static_cast<float>(step);
 
-        SushiDSP::Transport   transport;
+        SushiDSP::Transport transport;
         SushiDSP::TrackPlayer player;
         player.set_take(0, ramp_take(64));
         player.set_pan(0, pan);
         player.set_gain(0, 0.5f);
 
         std::vector<float> mono(64, 0.0f);
-        float*             outputs[1] = { mono.data() };
+        float* outputs[1] = {mono.data()};
         player.process(outputs, 1u, static_cast<std::uint32_t>(mono.size()), transport);
 
         for (std::size_t frame = 0; frame < mono.size(); ++frame)
@@ -319,7 +318,7 @@ TEST(Unit_Dsp, TrackPlayerMonoOutputIgnoresPan)
 
 TEST(Unit_Dsp, TrackPlayerPlayingPastTheEndYieldsSilence)
 {
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
     player.set_take(0, ramp_take(100));
     player.set_pan(0, -1.0f);
@@ -348,7 +347,7 @@ TEST(Unit_Dsp, TrackPlayerPlayingPastTheEndYieldsSilence)
 
 TEST(Unit_Dsp, TrackPlayerLoopWrapsAtExactlyTheLoopEnd)
 {
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
     player.set_take(0, ramp_take(256));
     player.set_pan(0, -1.0f);
@@ -431,14 +430,13 @@ TEST(Unit_Dsp, TransportStateAndPositionRoundTrip)
 
 TEST(Unit_Dsp, TrackPlayerPlaysAClipAtItsStartFrame)
 {
-    for (std::uint64_t start : { std::uint64_t{ 0 }, std::uint64_t{ 12345 },
-                                 std::uint64_t{ 1000000 } })
+    for (std::uint64_t start : {std::uint64_t{0}, std::uint64_t{12345}, std::uint64_t{1000000}})
     {
         SushiDSP::TrackPlayer player;
-        SushiDSP::Transport   transport;
+        SushiDSP::Transport transport;
 
         const SushiDSP::Take* take = lend(player, impulse_take(8u, 3u));
-        place(player, 0, { SushiDSP::Clip{ take, start, 0u, 8u } });
+        place(player, 0, {SushiDSP::Clip{take, start, 0u, 8u}});
         player.set_pan(0, -1.0f);
 
         // The impulse sits at the clip's fourth frame. See tests/functional/unit/README.md.
@@ -461,11 +459,10 @@ TEST(Unit_Dsp, TrackPlayerPlaysAClipAtItsStartFrame)
 TEST(Unit_Dsp, TrackPlayerPlaysTwoClipsOnOneLane)
 {
     SushiDSP::TrackPlayer player;
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
 
     const SushiDSP::Take* take = lend(player, impulse_take(4u, 0u));
-    place(player, 0,
-          { SushiDSP::Clip{ take, 0u, 0u, 4u }, SushiDSP::Clip{ take, 20u, 0u, 4u } });
+    place(player, 0, {SushiDSP::Clip{take, 0u, 0u, 4u}, SushiDSP::Clip{take, 20u, 0u, 4u}});
     player.set_pan(0, -1.0f);
 
     std::vector<float> left(64, 0.0f);
@@ -486,9 +483,9 @@ TEST(Unit_Dsp, TrackPlayerPlaysTwoClipsOnOneLane)
 TEST(Unit_Dsp, TrackPlayerIsSilentBetweenClips)
 {
     SushiDSP::TrackPlayer player;
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
 
-    auto   source = std::make_unique<SushiDSP::Take>(1u, 48000.0, std::size_t{ 8 });
+    auto source = std::make_unique<SushiDSP::Take>(1u, 48000.0, std::size_t{8});
     float* samples = source->mutable_channel(0);
     for (std::size_t frame = 0; frame < 8; ++frame)
     {
@@ -496,8 +493,7 @@ TEST(Unit_Dsp, TrackPlayerIsSilentBetweenClips)
     }
 
     const SushiDSP::Take* take = lend(player, std::move(source));
-    place(player, 0,
-          { SushiDSP::Clip{ take, 0u, 0u, 8u }, SushiDSP::Clip{ take, 40u, 0u, 8u } });
+    place(player, 0, {SushiDSP::Clip{take, 0u, 0u, 8u}, SushiDSP::Clip{take, 40u, 0u, 8u}});
     player.set_pan(0, -1.0f);
 
     std::vector<float> left(64, 0.0f);
@@ -525,9 +521,9 @@ TEST(Unit_Dsp, TrackPlayerIsSilentBetweenClips)
 TEST(Unit_Dsp, TrackPlayerFadesAClipEdge)
 {
     SushiDSP::TrackPlayer player;
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
 
-    auto   source = std::make_unique<SushiDSP::Take>(1u, 48000.0, std::size_t{ 4096 });
+    auto source = std::make_unique<SushiDSP::Take>(1u, 48000.0, std::size_t{4096});
     float* samples = source->mutable_channel(0);
     for (std::size_t frame = 0; frame < 4096; ++frame)
     {
@@ -536,19 +532,19 @@ TEST(Unit_Dsp, TrackPlayerFadesAClipEdge)
 
     // A clip cut inside its take carries the ramp. See tests/functional/unit/README.md.
     const SushiDSP::Take* take = lend(player, std::move(source));
-    place(player, 0, { SushiDSP::Clip{ take, 0u, 1000u, 2000u } });
+    place(player, 0, {SushiDSP::Clip{take, 0u, 1000u, 2000u}});
     player.set_pan(0, -1.0f);
 
     std::vector<float> left(512, 0.0f);
     std::vector<float> right(512, 0.0f);
     render(player, transport, left, right);
 
-    const float ramp = static_cast<float>(SushiDSP::TrackTimeline::kFadeFrames);
-    for (std::size_t frame = 0; frame < SushiDSP::TrackTimeline::kFadeFrames; ++frame)
+    const float ramp = static_cast<float>(SushiDSP::TrackTimeline::K_FADE_FRAMES);
+    for (std::size_t frame = 0; frame < SushiDSP::TrackTimeline::K_FADE_FRAMES; ++frame)
     {
         EXPECT_FLOAT_EQ(left[frame], static_cast<float>(frame) / ramp) << "at frame " << frame;
     }
-    for (std::size_t frame = SushiDSP::TrackTimeline::kFadeFrames; frame < left.size(); ++frame)
+    for (std::size_t frame = SushiDSP::TrackTimeline::K_FADE_FRAMES; frame < left.size(); ++frame)
     {
         EXPECT_FLOAT_EQ(left[frame], 1.0f) << "at frame " << frame;
     }
@@ -557,9 +553,9 @@ TEST(Unit_Dsp, TrackPlayerFadesAClipEdge)
 TEST(Unit_Dsp, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
 {
     SushiDSP::TrackPlayer player;
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
 
-    auto                     source = sine_take(997.0, 1024u);
+    auto source = sine_take(997.0, 1024u);
     const std::vector<float> reference(source->channel(0), source->channel(0) + 256);
 
     player.set_take(0, std::move(source));
@@ -581,7 +577,7 @@ TEST(Unit_Dsp, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
 TEST(Unit_Dsp, TrackPlayerAtHalfSpeedDropsAnOctave)
 {
     SushiDSP::TrackPlayer player;
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
 
     player.set_take(0, sine_take(880.0, 96000u));
     player.set_pan(0, -1.0f);
@@ -612,10 +608,10 @@ TEST(Unit_Dsp, TrackPlayerAtHalfSpeedDropsAnOctave)
 TEST(Unit_Dsp, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
 {
     SushiDSP::TrackPlayer player;
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
 
     const SushiDSP::Take* take = lend(player, impulse_take(64u, 0u));
-    place(player, 0, { SushiDSP::Clip{ take, 0u, 0u, 64u } });
+    place(player, 0, {SushiDSP::Clip{take, 0u, 0u, 64u}});
 
     std::vector<float> left(64, 0.0f);
     std::vector<float> right(64, 0.0f);
@@ -636,10 +632,10 @@ TEST(Unit_Dsp, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
 TEST(Unit_Dsp, TrackPlayerFreesATakeOnceBothLanesUsingItAreCleared)
 {
     SushiDSP::TrackPlayer player;
-    SushiDSP::Transport   transport;
+    SushiDSP::Transport transport;
 
-    const SushiDSP::Take*             take = lend(player, impulse_take(64u, 0u));
-    const std::vector<SushiDSP::Clip> clips{ SushiDSP::Clip{ take, 0u, 0u, 64u } };
+    const SushiDSP::Take* take = lend(player, impulse_take(64u, 0u));
+    const std::vector<SushiDSP::Clip> clips{SushiDSP::Clip{take, 0u, 0u, 64u}};
     place(player, 0, clips);
     place(player, 1, clips);
     EXPECT_EQ(player.takes().reference_count(take), 2u);

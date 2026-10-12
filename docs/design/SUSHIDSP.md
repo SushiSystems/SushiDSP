@@ -1,9 +1,9 @@
 # SushiDSP Design Spec
 **Status:** Open — phase 2 of 4
 
-> **For the implementing agent.** This is the authoritative design specification for the **SushiDSP** repository — a standalone, dependency-free audio-DSP library. Build the repo from this doc. Conventions: **C++17** (no C++20/23), **Allman braces** (opening brace on its own line; trivial one-line accessors may stay compact), types `PascalCase`, functions/variables `snake_case`, members trailing underscore (`impl_`), constants `UPPER_SNAKE`, spelled-out names (no abbreviations), the **license block** of the `source-comments` skill on every source file (see §0a below), a Doxygen `@brief`/`@param`/`@return` on every public function, and **no comments unless the *why* is non-obvious**. The developer CLI is **`sd`** (Python Typer, `cli/sushidsp/`, built on the shared `sushicore` presentation layer — see §11a). No comments in code beyond that rule.
+> **For the implementing agent.** This is the authoritative design specification for the **SushiDSP** repository, a standalone, dependency-free audio-DSP library. Build the repo from this doc. Conventions: **C++17** (no C++20/23), **Allman braces** (opening brace on its own line; trivial one-line accessors may stay compact), types `PascalCase`, functions/variables `snake_case`, members trailing underscore (`impl_`), constants `UPPER_SNAKE`, spelled-out names (no abbreviations), the **license block** of the `source-comments` skill on every source file (see §0a below), a Doxygen `@brief`/`@param`/`@return` on every public function, and **no comments unless the *why* is non-obvious**. The developer CLI is **`sd`** (Python Typer, `cli/sushidsp/`, built on the shared `sushicore` presentation layer, see §11a). No comments in code beyond that rule.
 
-SushiDSP is a **standalone amp/pedal simulation framework**, in the spirit of AmpliTube/Bias FX: a portable C++ DSP core (block graph of `IAudioNode`s), a math library (FFT, convolution, filters, WDF/DK-method circuit solving, oversampling), and a **rig** — a user-editable, freely-connectable chain of pedal/amp/cabinet nodes. It ships as a standalone host app and as a VST3/CLAP plugin. It depends on nothing but the C++ standard library and SIMD intrinsics; there is no game-engine integration, no GPU offload seam, and no spatializer/synthesis/aero-thermo content. The first two products are the **JCM800** amp model and the **Tube Screamer** overdrive pedal, both white-box (WDF/DK-method) circuit models sharing the same solver and oversampling infrastructure.
+SushiDSP is a **standalone amp/pedal simulation framework**, in the spirit of AmpliTube/Bias FX: a portable C++ DSP core (block graph of `AudioNode`s), a math library (FFT, convolution, filters, WDF/DK-method circuit solving, oversampling), and a **rig**: a user-editable, freely-connectable chain of pedal/amp/cabinet nodes. It ships as a standalone host app and as a VST3/CLAP plugin. It depends on nothing but the C++ standard library and SIMD intrinsics; there is no game-engine integration, no GPU offload seam, and no spatializer/synthesis/aero-thermo content. The first two products are the **JCM800** amp model and the **Tube Screamer** overdrive pedal, both white-box (WDF/DK-method) circuit models sharing the same solver and oversampling infrastructure.
 
 **Repository decision (owner, 2026-08-25):** SushiDSP drops the SushiEngine/SushiRuntime layering entirely. It is a fully independent repository and library with zero dependency on any other SushiStack project. Every product (amp, pedal, cabinet) is packaged as a `NodeDescriptor` (§3) so the rig, the standalone host, and the VST3/CLAP wrapper all consume products identically, with zero product-specific code in any of them.
 
@@ -11,8 +11,8 @@ SushiDSP is a **standalone amp/pedal simulation framework**, in the spirit of Am
 
 ## §0 Goals and hard acceptance criteria
 
-1. **Portable, dependency-free CPU core.** The DSP graph, all `IAudioNode`s, and the math library compile and run with only a C++17 standard library and SIMD intrinsics. A headless unit test processes a graph to a float buffer on any toolchain.
-2. **Real-time-safe processing.** `IAudioNode::process()` performs no allocation, no lock, no syscall, no exception. Verified by a test harness that traps `malloc`/lock calls on the processing thread across a 30-minute soak; the bar is zero violations.
+1. **Portable, dependency-free CPU core.** The DSP graph, all `AudioNode`s, and the math library compile and run with only a C++17 standard library and SIMD intrinsics. A headless unit test processes a graph to a float buffer on any toolchain.
+2. **Real-time-safe processing.** `AudioNode::process()` performs no allocation, no lock, no syscall, no exception. Verified by a test harness that traps `malloc`/lock calls on the processing thread across a 30-minute soak; the bar is zero violations.
 3. **One core, N products, freely rigged.** The same block graph + math substrate hosts any number of amp/pedal/cabinet products; the **rig** is a user-editable graph of `NodeDescriptor`-backed nodes connected in any series/parallel topology the user chooses, recompiled off the RT thread and swapped in atomically. No product-specific code in the rig, host, or plugin wrapper.
 4. **JCM800 fidelity.** White-box 2203 circuit (WDF / DK state-space), ≥ 8× oversampling, six front-panel controls, partitioned-convolution cabinet.
 5. **Tube Screamer fidelity.** White-box TS808/TS9 circuit (WDF / DK state-space), same oversampling/solver infrastructure as JCM800, Drive/Tone/Level controls.
@@ -29,7 +29,7 @@ Every source file opens with the license block of the `source-comments` skill. `
 
 ## §1 Why SushiDSP is standalone
 
-SushiDSP has no consumer beyond its own standalone host and its own VST3/CLAP plugin. It does not sit "between" anything, and it links nothing beyond the C++ standard library, SIMD intrinsics, and — for the wrapper/host targets only — SDL2 and the CLAP/VST3 SDK. This keeps the plugin free of any external runtime dependency and keeps the whole library buildable and testable headless.
+SushiDSP has no consumer beyond its own standalone host and its own VST3/CLAP plugin. It does not sit "between" anything, and it links nothing beyond the C++ standard library, SIMD intrinsics, and, for the wrapper/host targets only, SDL2 and the CLAP/VST3 SDK. This keeps the plugin free of any external runtime dependency and keeps the whole library buildable and testable headless.
 
 ```
          ┌───────────────────────┐        ┌───────────────────────┐
@@ -39,37 +39,37 @@ SushiDSP has no consumer beyond its own standalone host and its own VST3/CLAP pl
                                        ▼
                      ┌───────────────────────────────────┐
                      │              SushiDSP                │
-                     │  rig graph · IAudioNode ·             │
+                     │  rig graph · AudioNode ·             │
                      │  NodeDescriptor · buffer pool ·       │
                      │  FFT/convolution/filters/WDF/DK ·     │
-                     │  JCM800 · Tube Screamer · IAudioDevice │
-                     │  PORTABLE C++/SIMD — zero external deps│
+                     │  JCM800 · Tube Screamer · AudioDevice │
+                     │  PORTABLE C++/SIMD, zero external deps│
                      └───────────────────────────────────┘
 ```
 
 ---
 
-## §2 Survey conclusions — what we adopt and why
+## §2 Survey conclusions, what we adopt and why
 
-| Source | What we take (math/structure only — no code, no dependency) |
+| Source | What we take (math/structure only, no code, no dependency) |
 |---|---|
 | JUCE `dsp`, chowdsp | Oversampling (polyphase halfband cascade), partitioned-convolution structure, WDF adaptor class shape. |
 | Zölzer *DAFX*; Yeh/Pakarinen/Werner (WDF/tube papers) | Triode models (Koren/Norman), DK-method state-space, op-amp clipping stage modeling (Tube Screamer). |
-| pffft / KISS FFT (reference) | Split-radix real-FFT structure for the portable CPU FFT (§4.1) — reference for correctness, own implementation. |
+| pffft / KISS FFT (reference) | Split-radix real-FFT structure for the portable CPU FFT (§4.1), reference for correctness, own implementation. |
 
-**Skip list:** vendor DSP libraries as hard dependencies (own the math for portability); neural amp/cabinet (white-box chosen — §7/§8; a neural node stays an OCP seam, unbuilt); any GPU/accelerator dependency; spatializer, synthesis framework, and aero/thermo generators (out of scope — this is an amp/pedal framework, not a general audio-DSP or game-audio library).
+**Skip list:** vendor DSP libraries as hard dependencies (own the math for portability); neural amp/cabinet (white-box chosen, §7/§8; a neural node stays an OCP seam, unbuilt); any GPU/accelerator dependency; spatializer, synthesis framework, and aero/thermo generators (out of scope, this is an amp/pedal framework, not a general audio-DSP or game-audio library).
 
 ---
 
-## §3 Architecture — the rig graph
+## §3 Architecture, the rig graph
 
-A directed acyclic graph of `IAudioNode`s, topologically sorted and **replayed per block**. Unlike a fixed per-product graph, the **rig** is a graph the user edits freely at runtime: any number of pedal/amp/cabinet nodes, connected in any series/parallel topology, via the VST host UI or the standalone host's UI. The graph is a plain C++ object walked on the RT thread — a deterministic single-thread topological walk, zero handoff, zero scheduler.
+A directed acyclic graph of `AudioNode`s, topologically sorted and **replayed per block**. Unlike a fixed per-product graph, the **rig** is a graph the user edits freely at runtime: any number of pedal/amp/cabinet nodes, connected in any series/parallel topology, via the VST host UI or the standalone host's UI. The graph is a plain C++ object walked on the RT thread, a deterministic single-thread topological walk, zero handoff, zero scheduler.
 
 ```
- IAudioNode rig graph (recompiled on edit, replayed per 256-frame block):
+ AudioNode rig graph (recompiled on edit, replayed per 256-frame block):
 
    [DI in]─▶[Tube Screamer]─▶[JCM800]─▶[Cabinet conv]─▶[Meter/Limiter]─▶ out
-                  (any product, any order, any count — user-edited)
+                  (any product, any order, any count, user-edited)
 
  process(context) contract per node:  fill exactly context.frames of output,
    no alloc / no lock / no syscall / no throw.  All memory acquired in prepare().
@@ -90,19 +90,19 @@ namespace SushiDSP
     };
 
     /// One DSP graph node. The whole library is compositions of these.
-    struct IAudioNode
+    struct AudioNode
     {
-        virtual ~IAudioNode() = default;
+        virtual ~AudioNode() = default;
         virtual void prepare(const PrepareInfo& info) = 0;   ///< all allocation happens here
         virtual void process(ProcessContext& context) = 0;   ///< RT-safe: no alloc/lock/syscall/throw
         virtual PortLayout ports() const = 0;
         virtual void reset() = 0;                             ///< clear state, click-free
     };
 
-    /// A hardware/output device. Injected — SushiDSP never assumes one. SDL2/WASAPI/CoreAudio/VST-host.
-    struct IAudioDevice
+    /// A hardware/output device. Injected, SushiDSP never assumes one. SDL2/WASAPI/CoreAudio/VST-host.
+    struct AudioDevice
     {
-        virtual ~IAudioDevice() = default;
+        virtual ~AudioDevice() = default;
         virtual DeviceFormat format() const = 0;
         virtual void start(DeviceCallback callback) = 0;     ///< callback runs on the RT thread
         virtual void stop() = 0;
@@ -110,7 +110,7 @@ namespace SushiDSP
 }
 ```
 
-### Product contract — the `NodeDescriptor` (the rig-slot seam)
+### Product contract, the `NodeDescriptor` (the rig-slot seam)
 
 A **product** (JCM800, Tube Screamer, a cabinet IR loader, any future amp/pedal) is packaged as a self-describing factory. This POD contract is what lets the rig, the standalone host, and the VST3/CLAP wrapper all instantiate and drive any product identically.
 
@@ -134,7 +134,7 @@ namespace SushiDSP
         const char*                       name;       ///< "JCM800", "Tube Screamer"
         span<const ParameterDescriptor>   parameters; ///< the full automation surface
         PortLayout                        ports;      ///< in/out channel counts
-        std::unique_ptr<IAudioNode>     (*make)(const PrepareInfo&);  ///< the factory
+        std::unique_ptr<AudioNode>     (*make)(const PrepareInfo&);  ///< the factory
     };
 
     /// Each product exposes exactly one of these. Registration is a free function.
@@ -150,10 +150,10 @@ namespace SushiDSP
 
 ### Graph mechanics
 
-- **Transient buffer pool** — block-sized float channel buffers with liveness-based reuse; a node's output frees back to the pool once its last consumer reads it.
-- **Recompile off the RT thread** — the user editing the rig (add/remove/reorder a pedal or amp) recompiles the graph on a control thread; the new graph is swapped in via an atomic pointer flip, the old retired after a grace block. This is the **primary** way users interact with SushiDSP, not a rare structural event.
+- **Transient buffer pool**: block-sized float channel buffers with liveness-based reuse; a node's output frees back to the pool once its last consumer reads it.
+- **Recompile off the RT thread**: the user editing the rig (add/remove/reorder a pedal or amp) recompiles the graph on a control thread; the new graph is swapped in via an atomic pointer flip, the old retired after a grace block. This is the **primary** way users interact with SushiDSP, not a rare structural event.
 
-### §3a The studio path — channels, takes and the transport
+### §3a The studio path, channels, takes and the transport
 
 The DS phase (spec
 [`docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../archive/superpowers/specs/2026-09-07-stereo-tracks-design.md),
@@ -163,39 +163,39 @@ host a transport, a track list and a re-amp path.
 
 The amplifiers stay mono in and mono out. Spec §2 gives the reason: a guitar amplifier is a mono
 circuit, and running its chain twice over the same samples costs twice the CPU for two identical
-channels. Stereo begins where the channels differ — the pan law, a recorded track placed off
-centre, two cabinets — so the graph's job is to carry whatever width its endpoints declare and
+channels. Stereo begins where the channels differ, the pan law, a recorded track placed off
+centre, two cabinets, so the graph's job is to carry whatever width its endpoints declare and
 never collapse one by accident.
 
 **The channel rule.** `RigGraph` acquires `PortLayout::output_channels` buffers per node instead
 of one, and adapts at each edge under a table the graph applies and no node ever sees: one channel
 into two is copied to both, two into one is summed and scaled by 0.5, n into n passes channel for
 channel. `RigGraph::channels_adapt(from, to)` is that table as a predicate, and `compile()` refuses
-any edge it rejects, naming the edge, so an unroutable rig fails at build time. `kMaxChannels` is
-2. `kMaxFanInOut` stays 8, now counted in edges. `PortLayout::input_channels` is a slot count in
-this tree — `MixerNode` declares `{8, 1}` and reads one edge per slot — so a node's width is
+any edge it rejects, naming the edge, so an unroutable rig fails at build time. `K_MAX_CHANNELS` is
+2. `K_MAX_FAN_IN_OUT` stays 8, now counted in edges. `PortLayout::input_channels` is a slot count in
+this tree, `MixerNode` declares `{8, 1}` and reads one edge per slot, so a node's width is
 `min(input_channels, output_channels)` and its slot count is `input_channels / width`; edges past
 the last slot fold into it, summed per channel. `live_buffer_count()` reports the pool size
-`compile()` needed: every node's channels, plus `kMaxFanInOut * kMaxChannels` = 16 adaptation
+`compile()` needed: every node's channels, plus `K_MAX_FAN_IN_OUT * K_MAX_CHANNELS` = 16 adaptation
 buffers added once, because a gather's buffers go back to the pool before the next node runs.
 
 **Pan and the device edge.** `routing::PanNode` is `PortLayout{1, 2}` with one `pan` parameter in
 [-1, 1] on a constant-power law, smoothed by `SmoothedParameter`, registered under Routing with a
 front panel. `ChannelSelection` carries the same table out to the device:
 `rig_output_adapts_to_device(rig_channels, device_channels)` answers whether a pair is covered and
-`write_rig_output_to_device()` performs the mapping, allocation-free. `apps/host_gui` asks its
+`write_rig_output_to_device()` performs the mapping, allocation-free. `applications/host_gui` asks its
 device for two output channels and prepares the rig at
-`min(device output channels, RigGraph::kMaxChannels)`, so a mono rig fills both speakers and a rig
+`min(device output channels, RigGraph::K_MAX_CHANNELS)`, so a mono rig fills both speakers and a rig
 ending in a `PanNode` moves between them. `Sdl2AudioDevice` writes any output width: its
 constructor sizes one deinterleaved scratch block, and the callback interleaves into SDL2's buffer;
 a one-channel device keeps the older path that writes SDL2's buffer directly.
 
-**Takes, tracks and the transport.** `modules/nodes/capture` is product-independent — it models no
+**Takes, tracks and the transport.** `modules/nodes/capture` is product-independent, it models no
 circuit, exposes no `NodeDescriptor` and depends only on `SushiDSP::sushi_dsp`. It holds `Take` (a
 recording in memory with its sample rate), `TrackRecorder` (one destination: a `SpscRing<float>`
 per channel, a writer thread, a dropped-block counter), `RecordingBus` (the processed/dry pair
 armed in one call, which is what makes the two files sample-aligned), `Transport` and
-`TrackPlayer` (up to `kMaxTracks` = 8 tracks, each with a take, gain, pan, mute and solo).
+`TrackPlayer` (up to `K_MAX_TRACKS` = 8 tracks, each with a take, gain, pan, mute and solo).
 `SushiDSP::WavWriter`, in the core's `io/`, is the streaming write half of `WavFile`: 16-bit PCM or
 32-bit float, the float path carrying a `fact` chunk and an 18-byte `fmt `. `TrackRecorder::write`
 and `TrackPlayer::process` are the module's two audio-thread entry points and both are trapped in
@@ -204,8 +204,8 @@ begin in the high half and length in the low, so a block reads both ends in one 
 a half-applied range; the cost is that a loop must lie inside the first 2^32 frames, 24.8 hours at
 48 kHz. `modules/nodes/capture/README.md` carries the rest.
 
-**Re-amping** needs no node. The host chooses what feeds the rig — `RigInputSource::LiveInput`, a
-track, or both summed — and a dry take played into a different amplifier is then an ordinary
+**Re-amping** needs no node. The host chooses what feeds the rig, `RigInputSource::LiveInput`, a
+track, or both summed, and a dry take played into a different amplifier is then an ordinary
 playback with the switch thrown. The dry leg records the buffer that actually drove the rig rather
 than the raw device input, which departs from spec §5's letter so that the dry file matches the
 processed file beside it whatever the input source is.
@@ -215,7 +215,7 @@ re-amps it through an identical rig in the host's own callback order, and assert
 within 1e-6. The preset carries the track list and the transport's loop range.
 
 
-### §3b The timeline path — bars, clips and playback speed
+### §3b The timeline path, bars, clips and playback speed
 
 The DT phase (spec
 [`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`](../archive/superpowers/specs/2026-09-08-arrangement-view-design.md),
@@ -229,10 +229,10 @@ draws a bar grid, and a recording re-amps at the bar it was played at.
 32.32 fixed point, and the clock is handed a position rather than keeping one. `Transport` stays
 position-and-speed. Either can be replaced without the other noticing, which is the reason the
 tempo does not live on the transport where a first draft would put it. `frame_of` floors, so a
-bar line is at most one sample early and `frame_of(position_of(f)) <= f` holds — a bar's frame
+bar line is at most one sample early and `frame_of(position_of(f)) <= f` holds, a bar's frame
 never lands after the bar it names.
 
-**Clips, and who owns a take.** `TrackTimeline` is one lane's clips: up to `kMaxClips` = 16 of
+**Clips, and who owns a take.** `TrackTimeline` is one lane's clips: up to `K_MAX_CLIPS` = 16 of
 them, sorted at construction, immutable once published, each naming a take by a raw
 `const Take*` and carrying its own start frame, take offset and length. `TakeLibrary` owns every
 loaded take on the control thread and counts the borrows; a lane publishes a timeline through an
@@ -241,21 +241,21 @@ every lane slot first, then `collect()` once. No `shared_ptr` reaches the audio 
 `TrackTimeline::edge_gain` is the 5 ms de-click ramp, and `TrackPlayer` asks for it only at an
 edge that cuts into the take, so a whole-take clip is still bit-for-bit its file.
 
-**Speed carries pitch.** `Transport` holds a speed as a 32.32 word between `kMinSpeed` 0.5 and
-`kMaxSpeed` 2.0, saved in the session, and `advance()` moves the position by that many frames per
+**Speed carries pitch.** `Transport` holds a speed as a 32.32 word between `K_MIN_SPEED` 0.5 and
+`K_MAX_SPEED` 2.0, saved in the session, and `advance()` moves the position by that many frames per
 output frame while carrying the fraction, so 100000 blocks of 256 at 1.3 land on frame 33280000
 rather than near it. `VariRateReader` reads a take at that speed through `Resampler`, one
 converter per channel, and the pitch falls with the speed the way a tape machine's does. Half
 speed is an octave down; nothing here stretches time, which is spec §5a's stated decision.
-Speed 1.0 never enters the reader — `TrackPlayer` copies the take — so the golden files compare
+Speed 1.0 never enters the reader, `TrackPlayer` copies the take, so the golden files compare
 bits rather than a filter's output. Against sample-domain linear interpolation at half speed the
 sinc measures 112.5 dB of spurious-free dynamic range at 1 kHz against 47.3.
 
-**The click is in no file.** `Metronome` is not an `IAudioNode` and holds no place in the
+**The click is in no file.** `Metronome` is not an `AudioNode` and holds no place in the
 `RigGraph`. The host calls it after `RecordingBus::write`, which is what keeps the click on the
 monitor path and out of both recorded files; there is no click track written beside a take.
 
-**The host.** `apps/host_gui` draws the arrangement full width beneath the rig panels:
+**The host.** `applications/host_gui` draws the arrangement full width beneath the rig panels:
 `ui::TimelineScale` maps frames to pixels and snaps to a bar, a beat or nothing,
 `ui::ArrangementLayout` holds the grid arithmetic the drawing units then only draw, and
 `ui::TapTempo` and `ui::MusicalTimeText` serve the transport bar's two rows. A file reaches a
@@ -268,7 +268,7 @@ alignment: a take recorded at bar 5 drives the rig at bar 5
 (`RigControllerReAmpsARecordedTakeFromTheBarItWasRecordedAt`).
 
 **An mp3 becomes a WAV on the way in.** `dr_mp3` is vendored under `third_party/dr_libs` and
-named only inside `apps/host_gui`: `Mp3Decoder` decodes on a worker thread, `ChannelResampler`
+named only inside `applications/host_gui`: `Mp3Decoder` decodes on a worker thread, `ChannelResampler`
 converts to the rig's rate through the tree's own `Resampler`, and `AudioImportCache` writes the
 result as a float32 WAV under the executable's `cache/imported_audio/` before the clip points at
 it. The session stores a clip as a path, so an in-memory decode would leave an empty clip on the
@@ -281,9 +281,9 @@ the cache and nothing reads a plain WAV's own sample rate; both are in
 [`docs/reference/GLOSSARY.md`](../reference/GLOSSARY.md) defines bar, beat, clip, take and
 playback speed as this tree uses them.
 
-### §3c The room path — one cabinet in one room
+### §3c The room path, one cabinet in one room
 
-`modules/nodes/room` is the DE phase's module: one `IAudioNode`, `sushidsp.room`, mono in and two
+`modules/nodes/room` is the DE phase's module: one `AudioNode`, `sushidsp.room`, mono in and two
 channels out, declaring `PortLayout{1, 2}` on the routing DS0 built. It puts the cabinet in a
 shoebox room and hands back what a head or a microphone hears there. Spec
 [`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../archive/superpowers/specs/2026-09-08-room-acoustics-design.md),
@@ -291,7 +291,7 @@ plan
 [`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`](../archive/superpowers/plans/2026-09-08-room-acoustics.md).
 
 The control thread solves and the audio thread renders, with one `RtSwapSlot` between them. A
-scene — six faces with a material each, the cabinet's pose, the listener's, the microphone's —
+scene, six faces with a material each, the cabinet's pose, the listener's, the microphone's , 
 goes into `build_render_set`, which mirrors the source to order 4 (`ImageSourceSolver`), fits each
 tap's six-band target to two biquads (`BandResponseFit`), designs the 16-line Hadamard tail from
 Eyring's decay (`EyringDecay`, `LateReverbDesign`), and solves the room's eigenmodes below the
@@ -317,17 +317,17 @@ class-by-class record, the thread rules and every approximation named as such.
 
 All numeric building blocks the amp/pedal circuit models need.
 
-- **§4.1 FFT/DFT** — split-radix real FFT (forward/inverse), power-of-two sizes, in-place, cache-blocked. Foundation for partitioned convolution. Own implementation.
-- **§4.2 Partitioned convolution** — uniform-partitioned (256-frame) overlap-add FFT convolution for the cabinet IR. CPU only.
-- **§4.3 Filters** — TPT/zero-delay-feedback state-variable filter (SVF), biquad cascade (RBJ cookbook coefficients), one-pole/one-zero, all-pass; per-block-smoothed parameters, click-free. Used inside the WDF/DK circuit models and for cabinet mic-model pre-filtering.
-- **§4.4 Resamplers** — two of them, solving different problems and sharing no code. `math/Oversampler` converts by a **fixed integer ratio** through a polyphase FIR halfband cascade, which is what the amp/pedal oversampler wants (§7/§8): the ratio is a build-time constant, so a per-stage halfband is both the cheapest and the sharpest answer. `math/Resampler` converts by an **arbitrary ratio that may move every block**, over one fixed prototype filter walked by a fractional phase accumulator; a halfband cascade cannot do that at all, and rebuilding a bank per ratio would allocate on the audio thread. The DD-3's sample clock, which the delay-time knob moves between 20 and 82.5 kHz, is the first consumer. **As built (DR1):** see "As built in DR1" below.
-- **§4.5 WDF/DK circuit-solving core** — the shared nonlinear-circuit infrastructure both JCM800 and Tube Screamer build on: Wave Digital Filter adaptor primitives (series/parallel/resistive/reactive), a DK-method (discrete Kirchhoff state-space) formulation for tightly-coupled blocks, and a Newton–Raphson nonlinear-root solver (2–4 iterations, warm-started from the previous sample) shared by every nonlinear stage (triode, op-amp clipper, diode pair). **Amendment (D5b, user-confirmed 2026-08-26):** the WDF adaptor tree is deferred indefinitely — DK covers everything the roadmap needs and `Wdf.hpp` stays as the two linear one-ports it already has; see the decision table in `docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`. **As built (D6b):** see the "As built in D6b" section below for the headers that exist, the corrected nonlinear-branch counts D6d must size against, and the measured solver cost.
-- **§4.6 Complex + windowing** — a POD complex type, Hann/Blackman-Harris/Kaiser windows.
-- **§4.7 Portability** — a thin SIMD abstraction (SSE/AVX/NEON with a scalar fallback) so the core builds on any target; no intrinsics leak into public headers.
+- **§4.1 FFT/DFT**: split-radix real FFT (forward/inverse), power-of-two sizes, in-place, cache-blocked. Foundation for partitioned convolution. Own implementation.
+- **§4.2 Partitioned convolution**: uniform-partitioned (256-frame) overlap-add FFT convolution for the cabinet IR. CPU only.
+- **§4.3 Filters**: TPT/zero-delay-feedback state-variable filter (SVF), biquad cascade (RBJ cookbook coefficients), one-pole/one-zero, all-pass; per-block-smoothed parameters, click-free. Used inside the WDF/DK circuit models and for cabinet mic-model pre-filtering.
+- **§4.4 Resamplers**: two of them, solving different problems and sharing no code. `math/Oversampler` converts by a **fixed integer ratio** through a polyphase FIR halfband cascade, which is what the amp/pedal oversampler wants (§7/§8): the ratio is a build-time constant, so a per-stage halfband is both the cheapest and the sharpest answer. `math/Resampler` converts by an **arbitrary ratio that may move every block**, over one fixed prototype filter walked by a fractional phase accumulator; a halfband cascade cannot do that at all, and rebuilding a bank per ratio would allocate on the audio thread. The DD-3's sample clock, which the delay-time knob moves between 20 and 82.5 kHz, is the first consumer. **As built (DR1):** see "As built in DR1" below.
+- **§4.5 WDF/DK circuit-solving core**: the shared nonlinear-circuit infrastructure both JCM800 and Tube Screamer build on: Wave Digital Filter adaptor primitives (series/parallel/resistive/reactive), a DK-method (discrete Kirchhoff state-space) formulation for tightly-coupled blocks, and a Newton–Raphson nonlinear-root solver (2–4 iterations, warm-started from the previous sample) shared by every nonlinear stage (triode, op-amp clipper, diode pair). **Amendment (D5b, user-confirmed 2026-08-26):** the WDF adaptor tree is deferred indefinitely, DK covers everything the roadmap needs and `wdf.hpp` stays as the two linear one-ports it already has; see the decision table in `docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`. **As built (D6b):** see the "As built in D6b" section below for the headers that exist, the corrected nonlinear-branch counts D6d must size against, and the measured solver cost.
+- **§4.6 Complex + windowing**: a POD complex type, Hann/Blackman-Harris/Kaiser windows.
+- **§4.7 Portability**: a thin SIMD abstraction (SSE/AVX/NEON with a scalar fallback) so the core builds on any target; no intrinsics leak into public headers.
 
 ### As built in D6a
 
-The three halfband stages (`include/SushiDSP/math/HalfbandCoefficients.hpp`, generated by
+The three halfband stages (`modules/foundation/math/include/SushiDSP/math/halfband_coefficients.hpp`, generated by
 `tools/dsp/design_halfband.py` from a scipy `remez` design, not hand-tuned) are, each running at
 its own stage's higher rate with passband 0.45·f_base / stopband 0.55·f_base:
 
@@ -337,45 +337,45 @@ its own stage's higher rate with passband 0.45·f_base / stopband 0.55·f_base:
 | 2 (2× ↔ 4×) | 27 | −101.60 dB | ≤ 0.0003 dB |
 | 3 (4× ↔ 8×) | 15 | −110.69 dB | ≤ 0.0003 dB |
 
-Both `HalfbandUpsampler2x` and `HalfbandDownsampler2x` are polyphase in both directions — the
+Both `HalfbandUpsampler2x` and `HalfbandDownsampler2x` are polyphase in both directions, the
 even-indexed zero taps that a symmetric halfband design produces are never multiplied, only the
 non-zero half of each stage's taps is touched per output sample. `Oversampler8x`'s round trip
 (upsample + downsample of a 256-frame block) measures 66.4 → 60.2 ns/sample after this change,
 even though the wider filters needed for the deeper stopbands above raise the round-trip latency
-`Oversampler8x` reports from 12 to 65 base-rate samples — the per-sample cost still falls because
+`Oversampler8x` reports from 12 to 65 base-rate samples, the per-sample cost still falls because
 the polyphase evaluation touches only the non-zero taps, regardless of how many taps a stage
 carries.
 
-### As built in D6b — the DK circuit core
+### As built in D6b, the DK circuit core
 
 D6b built §4.5's circuit solver and nothing else: no product module changed, and the JCM800 and
 Tube Screamer still run their D6a stages. What exists now is the layer the D6c/D6d rebuilds sit
 on.
 
-**Layering.** `include/SushiDSP/math/dk/` holds four headers, each header-only and each depending
+**Layering.** `modules/foundation/math/include/SushiDSP/math/dk/` holds four headers, each header-only and each depending
 only on the standard library:
 
-- `DenseLu.hpp` — fixed-size LU with partial pivoting, `DenseLu<N>`, with a size-aware overload so
+- `dense_lu.hpp`, fixed-size LU with partial pivoting, `DenseLu<N>`, with a size-aware overload so
   a circuit derived at less than its maximum node count factorises only the live block.
-- `DampedNewtonSolver.hpp` — `DampedNewtonSolver<N>`, damped multivariate Newton with a halving
+- `damped_newton_solver.hpp`, `DampedNewtonSolver<N>`, damped multivariate Newton with a halving
   line search, warm-started from the previous sample, carrying call/non-convergence/worst-case
   iteration counters.
-- `DkNetlist.hpp` — the control-thread description: `resistor`, `capacitor`, `inductor`,
+- `dk_netlist.hpp`, the control-thread description: `resistor`, `capacitor`, `inductor`,
   `voltage_source`, `nonlinear`, `output`, `potentiometer`, over fixed-size arrays
-  (`kMaximumNodes = 16`).
-- `DkCircuit.hpp` — `DkCircuit<S, N, I, O>`: `prepare(netlist, sample_rate)` discretises by the
+  (`K_MAXIMUM_NODES = 16`).
+- `dk_circuit.hpp`, `DkCircuit<S, N, I, O>`: `prepare(netlist, sample_rate)` discretises by the
   trapezoidal rule and derives the DK matrices; `process_sample` is the per-sample solve;
   `set_potentiometer` / `update_matrices_if_dirty` re-derive at block cadence;
   `nonlinear_currents()` is the hand-off a supply-sag model reads.
 
-Above it, `include/SushiDSP/circuits/models/` holds the device laws the solver calls back into —
-`SiliconDiode.hpp`, `Triode12AX7.hpp`, `PentodeEL34.hpp` and the `SoftTransition.hpp` softplus and
+Above it, `modules/foundation/circuits/include/SushiDSP/circuits/models/` holds the device laws the solver calls back into , 
+`silicon_diode.hpp`, `triode12_ax7.hpp`, `pentode_el34.hpp` and the `soft_transition.hpp` softplus and
 logistic helpers shared by them. Everything evaluates in `double`; `float` appears only at the
-`IAudioNode` boundary. The dependency runs one way: `circuits/` includes `math/`, and nothing in
-`math/` names a circuit model — the models reach `DkCircuit` as a template parameter, never as an
+`AudioNode` boundary. The dependency runs one way: `circuits/` includes `math/`, and nothing in
+`math/` names a circuit model, the models reach `DkCircuit` as a template parameter, never as an
 `#include`.
 
-**WDF.** The adaptor tree stays deferred, as the D5b amendment above says. `Wdf.hpp` remains the
+**WDF.** The adaptor tree stays deferred, as the D5b amendment above says. `wdf.hpp` remains the
 two linear one-ports it has always been. DK is the circuit solver.
 
 **Branch counts for D6d (Ruling 6 of the D6b plan).** The spec's D6d block table is wrong about
@@ -387,7 +387,7 @@ implies. Anyone sizing a D6d template from the spec alone will size it too small
 same way: a 12AX7 carries three interelectrode capacitances of its own (see *Measured* below), so
 block 1's three discrete capacitors make `S = 6`, and the shape is `DkCircuit<6, 2, 2, 1>`.
 
-**Open question carried into D6d.** The Koren fit in `PentodeEL34.hpp` draws 33.4 mA at
+**Open question carried into D6d.** The Koren fit in `pentode_el34.hpp` draws 33.4 mA at
 `Vg1k = −37 V`, `Vg2k = Vpk = 400 V`. That is at the high end of a real 2203's idle, which may
 mean the default fixed-bias point in spec §D6d wants moving rather than the model wanting
 refitting. D6b did not decide it; D6d has to.
@@ -398,23 +398,23 @@ capacitors of the SPICE block plus the 12AX7's own Cgk/Cgp/Cpk, which
 therefore has. Miller-multiplied by the stage gain, Cgp with the 68 kΩ grid stopper puts the input
 corner near 22 kHz; a DK build without it is a different filter from the reference and would floor
 the pending SPICE transient null around −27 dB instead of the −60 dB the plan asks for. The stage
-(six capacitors, two triode branches, one preamp pot) settles to `Vk = 2.310 V`, `Vp = 274.4 V` —
+(six capacitors, two triode branches, one preamp pot) settles to `Vk = 2.310 V`, `Vp = 274.4 V` , 
 the same bias point, since capacitors do not move DC. Newton convergence depends on the stimulus,
 and both figures matter:
 
-- *Continuous* — a 2 s 20 Hz→20 kHz sweep plus 1 kHz bursts at 0.05 V, 0.5 V and 5 V (past grid
+- *Continuous*, a 2 s 20 Hz→20 kHz sweep plus 1 kHz bursts at 0.05 V, 0.5 V and 5 V (past grid
   conduction), 1 056 000 samples at 384 kHz: **0 non-converged solves, 0.0000 %**, inside the
   plan's 0.01 % target.
-- *Looped block* — the benchmark harness replays one 256-frame buffer, so the tone steps back to
+- *Looped block*, the benchmark harness replays one 256-frame buffer, so the tone steps back to
   sample 0 once per repetition: **0 in 450 560, 0.0000 %**. Before the interelectrode capacitances
-  were added this case missed the target at 219 in 450 560 (0.0486 %) — one per repetition, the
+  were added this case missed the target at 219 in 450 560 (0.0486 %), one per repetition, the
   harness's own discontinuity. The extra states damp that step; on this stimulus the count is zero, so the miss handed to D6c
-  is closed as measured (one stimulus — an upper bound, not a guarantee; the counter stays printed).
+  is closed as measured (one stimulus, an upper bound, not a guarantee; the counter stays printed).
 
 Both cases produced zero non-finite samples and never exceeded 4 iterations.
 
 Cost, release build, 256-frame block at 48 kHz: the seven-state two-nonlinearity block at 8×
-oversampling costs **0.963 ms/block against the plan's 0.12 ms budget** — 8.0× over. The plan's
+oversampling costs **0.963 ms/block against the plan's 0.12 ms budget**: 8.0× over. The plan's
 binding number was written for a *four-state* block (0.873 ms as first measured); the shape grew to
 seven states for reference-topology parity, and the ~10 % it costs is recorded here rather than
 hidden by keeping the smaller netlist. About 90 % of the time is `Triode12AX7::current` and
@@ -424,12 +424,12 @@ are a joint `current_and_jacobian` on the models, `process_sample`'s redundant p
 timed on its own, costs 1.56 µs and confirms plan Ruling 3 (pot moves re-derive on the audio
 thread at block cadence, allocation-free).
 
-### As built in DR1 — `math/Resampler`
+### As built in DR1, `math/Resampler`
 
-`include/SushiDSP/math/Resampler.hpp` and `src/math/Resampler.cpp`. One prototype filter, a
+`modules/foundation/math/include/SushiDSP/math/resampler.hpp` and `modules/foundation/math/source/resampler.cpp`. One prototype filter, a
 Kaiser-windowed sinc at cutoff 0.45, is split across two generated headers:
-`include/SushiDSP/math/ResamplerDesign.hpp` carries the six constants a caller may read, and
-`src/math/ResamplerKernel.hpp` carries the 17410-entry table, which no public header reaches.
+`modules/foundation/math/include/SushiDSP/math/resampler_design.hpp` carries the six constants a caller may read, and
+`modules/foundation/math/source/resampler_kernel.hpp` carries the 17410-entry table, which no public header reaches.
 `tools/dsp/design_resampler.py` writes both; neither is edited by hand.
 
 | Property | Value |
@@ -445,7 +445,7 @@ Kaiser-windowed sinc at cutoff 0.45, is split across two generated headers:
 them is one **input sample**: a half width of 34 spans 34 input samples either side of the output
 instant, and the table holds 512 entries per input sample. At `CUTOFF = 0.45` the sinc's true
 zeros sit 1/0.9 input samples apart, so fewer than 34 of them fall inside that span. Every span
-figure elsewhere — the trap and benchmark comments, the wet-delay arithmetic — counts input
+figure elsewhere, the trap and benchmark comments, the wet-delay arithmetic, counts input
 samples for this reason.
 
 The half width grew from the planned 32 because 32 stopped at −98.45 dB, short of the −100 dB the
@@ -478,9 +478,9 @@ thread. `tests/functional/unit/test_rt_safety.cpp` traps both `process` and `set
 
 ---
 
-## §5 JCM800 amp simulation (white-box) — product module `jcm800`
+## §5 JCM800 amp simulation (white-box), product module `jcm800`
 
-One composite `IAudioNode` (`Jcm800`) modeling the Marshall JCM800 2203 signal path with **Wave Digital Filters** for modular reactive sub-circuits and the **DK-method** for tightly-coupled blocks (the tone stack), at **8× oversampling**. Exposes `jcm800_descriptor()`.
+One composite `AudioNode` (`Jcm800`) modeling the Marshall JCM800 2203 signal path with **Wave Digital Filters** for modular reactive sub-circuits and the **DK-method** for tightly-coupled blocks (the tone stack), at **8× oversampling**. Exposes `jcm800_descriptor()`.
 
 ```
 DI in ─▶ input/bright cap ─▶ [V1a 12AX7] ─▶ coupling cap (tightness HPF) ─▶ [V1b 12AX7]
@@ -504,8 +504,8 @@ The section above records the intended design. What D4 actually shipped is simpl
 places, each a deliberate scope decision rather than an omission:
 
 - **Triode stages** are not a WDF sub-tree with Koren/Norman plate and grid equations. `TriodeStage`
-  solves one grid-node equation — source resistance, grid leak, and a Shockley grid-conduction
-  diode — with the shared Newton–Raphson solver, and takes the plate output as an inverting linear
+  solves one grid-node equation, source resistance, grid leak, and a Shockley grid-conduction
+  diode, with the shared Newton–Raphson solver, and takes the plate output as an inverting linear
   gain on the grid's excursion from its bias point. The distortion character comes from grid
   conduction, not from a plate-current law.
 - **Tone stack** is three cascaded RBJ biquads (low shelf, peaking, high shelf), not the passive
@@ -515,13 +515,13 @@ places, each a deliberate scope decision rather than an omission:
 - **Power section** is `PentodeStage`: the same grid-conduction model as the triode, followed by an
   explicit `tanh` plate saturation. There is no screen-grid dependence. Its node equation is
   bias-invariant by construction, so the class-AB asymmetry between the two tubes is applied as an
-  input-referred grid offset on one half rather than as a difference in their bias points — a
+  input-referred grid offset on one half rather than as a difference in their bias points, a
   cathode-bias difference cancels out of the equation entirely and produces no asymmetry at all.
 - **Output transformer** core saturation is a plain `tanh`, not Jiles-Atherton-lite.
 
 The signal chain otherwise follows the diagram, including where the decimator sits: the output
 transformer and the sag stage run inside the oversampled region, and only the presence shelf and
-the master volume — both linear, so neither generates anything to alias — run after it. Resonance
+the master volume, both linear, so neither generates anything to alias, run after it. Resonance
 and a true global NFB loop are not implemented; presence is a fixed high shelf. Of the advanced
 parameters listed below, only the cabinet IR is settable (a constructor argument); bias, sag
 amount and oversample factor are compile-time constants.
@@ -533,16 +533,16 @@ amount and oversample factor are compile-time constants.
 - **Parameters** are eight, not six: Preamp, Master (dB), Bass, Middle, Treble, Presence,
   Input trim (dB), Output (dB). Master, Input trim and Output are calibrated in decibels via
   `Calibration::decibels_to_gain`; the rest stay normalized `[0, 1]`. Every parameter is a
-  `SmoothedParameter` target set by `Jcm800::set_parameter(std::uint16_t, float)` — index-based,
-  RT-safe — and applied with a per-block `skip(frames)` step rather than per-sample ramping.
+  `SmoothedParameter` target set by `Jcm800::set_parameter(std::uint16_t, float)`, index-based,
+  RT-safe, and applied with a per-block `skip(frames)` step rather than per-sample ramping.
   Defaults are calibrated so a −12 dBFS input lands the amp's output at roughly −6 dBFS.
 - **Cabinet** runs on `StreamingConvolution` (§4.2/§4.4's partition, chosen by
-  `StreamingConvolution::partition_size_for` — 128 frames at or below 50 kHz, 256 above) behind
+  `StreamingConvolution::partition_size_for`, 128 frames at or below 50 kHz, 256 above) behind
   an `RtSwapSlot<StreamingConvolution>`, so `set_cabinet(Ir)` can install a new impulse response
   from the control thread at any time, at any host block size, with `reclaim_cabinets()` freeing
   the previous engine once the audio thread has moved past it. `latency_samples()` reports the
   oversampler's latency plus the active cabinet's partition size, and moves after `set_cabinet()`
-  — a host should re-read it whenever the cabinet changes.
+ , a host should re-read it whenever the cabinet changes.
 - **Output limiter removed.** The soft-knee limiter added after D4 is gone; the output stage is
   a plain clamp to full scale. Calibration (input trim + the −6 dBFS default operating point)
   is what keeps normal playing levels off the clamp, not a limiter.
@@ -554,7 +554,7 @@ amount and oversample factor are compile-time constants.
   regions with a base-rate gap between them. **This raises the reported latency, it does not
   halve it:** at D5b each `Oversampler8x` round trip cost 12 base-rate samples and the amp ran
   two regions, for 24 in total; one region built from the new 115/27/15-tap halfbands costs 65,
-  so the amp goes 24 → 65 base-rate samples — about 0.85 ms more latency at 48 kHz, and a
+  so the amp goes 24 → 65 base-rate samples, about 0.85 ms more latency at 48 kHz, and a
   host-visible behaviour change.
 - **Where the alias floor actually came from.** The D5b baseline is −3.8 dB at `preamp = 10`
   (two regions, 15-tap stages). The new halfbands alone, still with two regions, take it to
@@ -565,18 +565,18 @@ amount and oversample factor are compile-time constants.
 - **Three Miller-effect grid poles.** V1b, V2a and the phase inverter each gain a physically
   derived one-pole lowpass (`Biquad::set_one_pole_low_pass`, prewarped bilinear) on their grid
   node, modeling the 12AX7's Miller capacitance seen through a 100 kΩ source: `C_in = C_gk`
-  (1.6 pF) `+ C_gp` (1.7 pF) `· (1 + |A|) + 10 pF` stray (a stated assumption — the stray term is
+  (1.6 pF) `+ C_gp` (1.7 pF) `· (1 + |A|) + 10 pF` stray (a stated assumption, the stray term is
   not derived from a real JCM800 layout, and is the knob to turn if the amp should sound
   brighter). At the stage gains involved this puts the corner at 13 804 Hz (V1b, |A| = 60),
   13 804 Hz (V2a, |A| = 60) and 19 576 Hz (PI, |A| = 40). Adding these three poles is what takes
-  the measured alias floor the rest of the way, from −20.4 dB to −43.4 dB at `preamp = 10` — past
+  the measured alias floor the rest of the way, from −20.4 dB to −43.4 dB at `preamp = 10`, past
   the D6a acceptance target of ≥ 30 dB improvement over the D5b baseline of −3.8 dB. Their audible
   cost is a whole-amp treble rolloff (preamp 0.6, knobs centred): −0.06 dB at 1 kHz, −1.33 dB at
   5 kHz, −4.64 dB at 10 kHz, −8.76 dB at 15 kHz. The bias-mismatch asymmetry re-measures at
   2.17 % second harmonic active vs. 2.93 % zeroed, up from 1.77 % / 2.45 % before D6a: the
   absolute figures moved because the drive reaching the power stage changed, while the
-  mismatch's own effect — it removes about 0.76 pp of second harmonic — is unchanged.
-- Since DA0 the four stage classes live in `include/SushiDSP/circuits/stages/`, owned by the
+  mismatch's own effect, it removes about 0.76 pp of second harmonic, is unchanged.
+- Since DA0 the four stage classes live in `modules/foundation/circuits/include/SushiDSP/circuits/stages/`, owned by the
   core, so any amplifier module can use them; `modules/nodes/jcm800` keeps only `JcmToneStack` and
   `Jcm800`.
 
@@ -607,11 +607,11 @@ bound as a result and is carried as a known issue (`docs/reference/KNOWN_ISSUES.
 2026-09-07 diagnosis measured the source as the grid-conduction knee rather than the plate
 ceiling or the level; the DA5 spec below carries the repair.
 
-### As built in DA5, part 1 — the grid law
+### As built in DA5, part 1, the grid law
 
 `TriodeStage`'s grid-conduction diode is the Norman law `Ig = IG0 · softplus((Vgk − VGAMMA) / VTG)`
 with IG0 1 µA, VGAMMA 0.5 V and VTG 0.15 V, read from `Triode12AX7` through a `GridConductionLaw`
-struct (`kTriode12AX7GridConduction`) so the stage and the DK model cannot drift apart; the
+struct (`K_TRIODE12_AX7_GRID_CONDUCTION`) so the stage and the DK model cannot drift apart; the
 room-temperature Shockley knee (Is 1 nA, Vt 25.85 mV) and the six-argument bias-referenced
 constructor are gone. The solver's grid bounds sit where the plate `tanh` has saturated in float,
 so no fence holds a grid short of its ceiling: the V5A stage's DC transfer reaches its full
@@ -628,14 +628,14 @@ the −33.8 dB bound, which the spec's antialiasing part (decision 2, held for a
 and the volt-true `PentodeStage` (decision 3) still own, with the JCM800's V1b gain and inverter
 bias (decision 4).
 
-### As built in DA5, part 2 — the volt-true power stage and the 2203's corrections
+### As built in DA5, part 2, the volt-true power stage and the 2203's corrections
 
 `PentodeStage` takes the six arguments `TriodeStage` takes, in real volts: its grid conducts on
-the Norman law of `PentodeEL34` (`kPentodeEL34GridConduction`), referenced to the cathode, so an
+the Norman law of `PentodeEL34` (`K_PENTODE_EL34_GRID_CONDUCTION`), referenced to the cathode, so an
 EL34 biased at −38 V has 38 V of clean grid swing where the bias-referenced stage clamped at
 +0.2 model volts; its plate is bounded by a `PlateSwing` of its own through `PlateSwing::bound`,
 the two-sided tanh both stages share. `PowerTubePreset` carries a law and a swing in place of the
-Shockley pair and the saturation drive, and every preset stands on a datasheet row: `kEl34` is the
+Shockley pair and the saturation drive, and every preset stands on a datasheet row: `K_EL34` is the
 Philips EL34 sheet's class B push-pull point at −38 V, 3.4 kΩ and 2 × 30 mA (swing 25.5 / 280.3 V,
 gain 6.88), the VH4's is the same sheet's 500 V row at Diezel's 35 mA, the 5150's and the IIC+'s
 6L6GCs are the RCA sheet's class AB₁ row, and the IIC+'s outer pair is Mesa's 25 W split as a
@@ -654,7 +654,7 @@ IIC+ defaults read the same with the power stage made linear, so what shows ther
 fold, which the old clamp had masked by re-squaring the output; the antialiasing part (decision 2)
 owns it. Unity constants at 82 Hz: JCM800 0.2534701, 5150 0.1730211, IIC+ 0.2402319, VH4 0.2365060.
 
-### As built in DA5, part 3 — the transformer's secondary and the 16× measurement
+### As built in DA5, part 3, the transformer's secondary and the 16× measurement
 
 `OutputTransformerStage`'s output carries no mean: a one-pole running mean of the saturated signal,
 tracked in double a decade under the rolloff's corner, is subtracted after the tanh, because a
@@ -668,7 +668,7 @@ and −13.3 to −27.3 (VH4) at 1.9 to 2.0× the CPU, the 5150 alone taking 5.19
 the clean settings' floor at either rate is `Biquad`'s float rounding (−48.0 dB at 8×, −78.0 with
 double state), not a fold.
 
-### As built in DA5, part 4 — the antiderivative of the composite stage, and the double biquad
+### As built in DA5, part 4, the antiderivative of the composite stage, and the double biquad
 
 `TriodeStage` and `PentodeStage` return the output of an `AntiderivativeAntialiaser`: first-order
 ADAA of the composite grid-and-plate transfer, evaluated in the grid's coordinate as
@@ -693,7 +693,7 @@ single JCM800 into four sibling amplifier modules sharing the stage classes abov
 
 | Module | Channel | Dossier | Module path | Status |
 | --- | --- | --- | --- | --- |
-| JCM800 | Marshall JCM800 2203, one channel | — | `modules/nodes/jcm800/` | White-box, see "As built" above. DA4: plate-swing chain. |
+| JCM800 | Marshall JCM800 2203, one channel |, | `modules/nodes/jcm800/` | White-box, see "As built" above. DA4: plate-swing chain. |
 | Peavey 5150 | Block-letter 1992 5150, lead channel | `docs/archive/research/2026-09-06-peavey-5150-design-dossier.md` | `modules/nodes/peavey5150/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
 | Mesa/Boogie Mark IIC+ | Lead mode | `docs/archive/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` | `modules/nodes/mesa_mark2c/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
 | Diezel VH4 | Channel 3 ("Mega") | `docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md` | `modules/nodes/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. DA4: plate-swing chain. |
@@ -702,9 +702,9 @@ Each module's own README lists exactly where its model departs from its dossier.
 
 ---
 
-## §6 Tube Screamer overdrive (white-box) — product module `tubescreamer`
+## §6 Tube Screamer overdrive (white-box), product module `tubescreamer`
 
-One composite `IAudioNode` (`TubeScreamer`) modeling the TS808/TS9 signal path: input buffer stage, an op-amp soft-clipping stage with a diode feedback pair, and a passive tone/output stage, all via WDF/DK-method on the same solver as JCM800 (§4.5), at the same 8× oversampling. Exposes `tube_screamer_descriptor()`.
+One composite `AudioNode` (`TubeScreamer`) modeling the TS808/TS9 signal path: input buffer stage, an op-amp soft-clipping stage with a diode feedback pair, and a passive tone/output stage, all via WDF/DK-method on the same solver as JCM800 (§4.5), at the same 8× oversampling. Exposes `tube_screamer_descriptor()`.
 
 ```
 DI in ─▶ input buffer (JFET/op-amp, unity gain) ─▶ high-pass (input cap)
@@ -713,15 +713,15 @@ DI in ─▶ input buffer (JFET/op-amp, unity gain) ─▶ high-pass (input cap)
       ─▶ output level (Level control) ─▶ out
 ```
 
-- **Op-amp clipping stage:** the core TS nonlinearity — an inverting op-amp with a parallel diode pair (2× silicon diodes, antiparallel) in the feedback path; modeled as a WDF sub-tree with the diode pair as the nonlinear root, solved by the shared Newton–Raphson solver (§4.5). `drive` sets the feedback resistance (a potentiometer), directly setting the clipping threshold and asymmetry.
+- **Op-amp clipping stage:** the core TS nonlinearity, an inverting op-amp with a parallel diode pair (2× silicon diodes, antiparallel) in the feedback path; modeled as a WDF sub-tree with the diode pair as the nonlinear root, solved by the shared Newton–Raphson solver (§4.5). `drive` sets the feedback resistance (a potentiometer), directly setting the clipping threshold and asymmetry.
 - **Tone stack:** single-pot passive RC tone network (the characteristic TS "tone" shaping, a fixed low-pass/high-pass blend) via DK-method, matching the real circuit's frequency-dependent interaction with the pot position.
 - **Input/output buffering:** unity-gain buffer stages modeled as linear WDF elements (no nonlinear cost).
 
-**Parameters (`NodeDescriptor`):** Drive, Tone, Level. All smoothed, click-free. **Cost target:** one Newton–Raphson nonlinear stage × 8×, **< 0.2 ms per 256-block on one core** (far cheaper than JCM800 — one nonlinear stage vs. ~6).
+**Parameters (`NodeDescriptor`):** Drive, Tone, Level. All smoothed, click-free. **Cost target:** one Newton–Raphson nonlinear stage × 8×, **< 0.2 ms per 256-block on one core** (far cheaper than JCM800, one nonlinear stage vs. ~6).
 
 ### As built in D5b
 
-**Parameters** are four, not three: Drive, Tone, Level (dB), Input trim (dB) — indexed via
+**Parameters** are four, not three: Drive, Tone, Level (dB), Input trim (dB), indexed via
 `TubeScreamer::set_parameter(std::uint16_t, float)`, each a `SmoothedParameter` stepped once per
 block. Level and Input trim are calibrated in decibels the same way as the JCM800's Master/Input
 trim/Output; defaults land the pedal's output around −12 dBFS for a −12 dBFS input. `drive` still
@@ -739,34 +739,34 @@ Three products exist: `jcm800` (§5), `tubescreamer` (§6), and `dd3`, the Boss 
 
 From these modules, two consumers are built by generic (non-product-specific) code:
 
-- **§7.1 `IAudioDevice`** — injected output backend. First implementation SDL2; WASAPI-exclusive/ASIO/CoreAudio/ALSA/PipeWire later, each behind the same seam.
-- **§7.2 Standalone host** — a generic app that opens an `IAudioDevice`, lets the user build/edit a rig from the registered `NodeDescriptor`s, and runs it with a simple parameter UI. Rig presets save/load as portable `{descriptor.id, {param_id → value}}` lists.
-- **§7.3 VST3 / CLAP wrapper** — one generic adapter: maps host process-block → rig graph `process()`; the rig itself (not a single product) is what the plugin hosts, so the plugin's own UI is the rig editor. Built with the CLAP/VST3 SDK (or iPlug2). Depends on **SushiDSP only** — zero external runtime dependency.
-- **§7.4 Command/param plumbing** — a lock-free SPSC ring carries parameter changes, rig-edit commands, and events from the control/UI thread to the RT thread; SushiDSP provides its own generic `SpscRing<T>`. **As built in D5b:** `RigGraph` owns an `SpscRing<ParameterChange>`; `RigGraph::push_parameter_change` is the control-thread-facing producer (used by `RigController` in `apps/host_gui`), and `RigGraph::process` drains the ring at the top of every block before running any node, dispatching each change to the target node's `IAudioNode::set_parameter(std::uint16_t, float)`. Nodes recompute derived coefficients on the audio thread only when their `SmoothedParameter` actually moved that block, so an idle knob costs nothing.
+- **§7.1 `AudioDevice`**: injected output backend. First implementation SDL2; WASAPI-exclusive/ASIO/CoreAudio/ALSA/PipeWire later, each behind the same seam.
+- **§7.2 Standalone host**: a generic app that opens an `AudioDevice`, lets the user build/edit a rig from the registered `NodeDescriptor`s, and runs it with a simple parameter UI. Rig presets save/load as portable `{descriptor.id, {param_id → value}}` lists.
+- **§7.3 VST3 / CLAP wrapper**: one generic adapter: maps host process-block → rig graph `process()`; the rig itself (not a single product) is what the plugin hosts, so the plugin's own UI is the rig editor. Built with the CLAP/VST3 SDK (or iPlug2). Depends on **SushiDSP only**: zero external runtime dependency.
+- **§7.4 Command/param plumbing**: a lock-free SPSC ring carries parameter changes, rig-edit commands, and events from the control/UI thread to the RT thread; SushiDSP provides its own generic `SpscRing<T>`. **As built in D5b:** `RigGraph` owns an `SpscRing<ParameterChange>`; `RigGraph::push_parameter_change` is the control-thread-facing producer (used by `RigController` in `applications/host_gui`), and `RigGraph::process` drains the ring at the top of every block before running any node, dispatching each change to the target node's `AudioNode::set_parameter(std::uint16_t, float)`. Nodes recompute derived coefficients on the audio thread only when their `SmoothedParameter` actually moved that block, so an idle knob costs nothing.
 
 ---
 
 ## §8 Repository, modules & packaging
 
-SushiDSP is a standalone repository with a developer CLI **`sd`** (`sd configure` / `sd build` / `sd test`, growing `sd run` / `sd plugin` as those targets land). It is a registered SushiStack member (`hub add sushidsp` / `hub link sushidsp <path>`, alias `sd`) — this buys the shared CLI presentation layer (`sushicore`, §11a) and dependency-fragment aggregation (`cli/sushistack.deps.toml`), not a code dependency: the `sushi_dsp` core target itself still links nothing beyond the C++17 standard library and SIMD intrinsics (§0/§11), and building/testing this repo standalone (outside any SushiStack workspace) works unchanged.
+SushiDSP is a standalone repository with a developer CLI **`sd`** (`sd configure` / `sd build` / `sd test`, growing `sd run` / `sd plugin` as those targets land). It is a registered SushiStack member (`hub add sushidsp` / `hub link sushidsp <path>`, alias `sd`), this buys the shared CLI presentation layer (`sushicore`, §11a) and dependency-fragment aggregation (`cli/sushistack.deps.toml`), not a code dependency: the `sushi_dsp` core target itself still links nothing beyond the C++17 standard library and SIMD intrinsics (§0/§11), and building/testing this repo standalone (outside any SushiStack workspace) works unchanged.
 
 ### Layout
 
 ```
 sushidsp/
   include/SushiDSP/
-    core/     rig graph, IAudioNode, NodeDescriptor, buffer pool, SpscRing, IAudioDevice
+    core/     rig graph, AudioNode, NodeDescriptor, buffer pool, SpscRing, AudioDevice
     math/     fft, convolution, filters, resamplers, wdf, complex, windows, simd
   src/                       core/math impls (portable C++/SIMD)
   modules/                   ← the separable PRODUCTS, each a library exposing a NodeDescriptor
-    jcm800/                    §5 amp: WDF/DK stages, tone stack, cabinet — depends only on core+math
+    jcm800/                    §5 amp: WDF/DK stages, tone stack, cabinet, depends only on core+math
     peavey5150/                §5a amp: lead channel, shared stage classes (its own README)
     mesa_mark2c/               §5a amp: lead mode, five-band graphic EQ (its own README)
     diezel_vh4/                §5a amp: channel 3, documented approximation (its own README)
-    tubescreamer/              §6 pedal: WDF/DK clipping stage, tone stack — depends only on core+math
+    tubescreamer/              §6 pedal: WDF/DK clipping stage, tone stack, depends only on core+math
     dd3/                       DR2 delay: variable-rate loop, 12-bit ring, NE570 compander (its own README)
-  apps/
-    host/                      the standalone rig host (SDL2, IAudioDevice, rig editor UI)
+  applications/
+    host/                      the standalone rig host (SDL2, AudioDevice, rig editor UI)
     plugin/                    the VST3/CLAP rig wrapper
   examples/  rig_demo
   tests/     Unit_Dsp golden-vector + RT-safety
@@ -775,29 +775,29 @@ sushidsp/
 
 ### Targets & dependency rules
 
-- **`SushiDSP::sushi_dsp`** — the portable core (`core`+`math`). C++17 stdlib + SIMD only, **zero** external deps.
-- **`SushiDSP::jcm800`, `SushiDSP::peavey5150`, `SushiDSP::mesa_mark2c`, `SushiDSP::diezel_vh4`, `SushiDSP::tubescreamer`, `SushiDSP::dd3`** — product libs, each depending only on `sushi_dsp`. Fully separable; a product can graduate to its own repo with no code change, because it couples to the core only through headers and to consumers only through its `NodeDescriptor`.
-- **Exported & namespaced** — SushiDSP ships install/export rules producing `SushiDSP::*` targets and a `SushiDSPConfig.cmake`.
+- **`SushiDSP::sushi_dsp`**: the portable core (`core`+`math`). C++17 stdlib + SIMD only, **zero** external deps.
+- **`SushiDSP::jcm800`, `SushiDSP::peavey5150`, `SushiDSP::mesa_mark2c`, `SushiDSP::diezel_vh4`, `SushiDSP::tubescreamer`, `SushiDSP::dd3`**: product libs, each depending only on `sushi_dsp`. Fully separable; a product can graduate to its own repo with no code change, because it couples to the core only through headers and to consumers only through its `NodeDescriptor`.
+- **Exported & namespaced**: SushiDSP ships install/export rules producing `SushiDSP::*` targets and a `SushiDSPConfig.cmake`.
 
-Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical correctness (golden-vector), rig compile/recompile, RT-safety (no-alloc trap); per-product physical-plausibility tests (DC stability, frequency response, THD sweep) in their module. Perceptual A/B validation against real hardware captures is deferred — no reference captures available yet. **As built in D6a:** `tests/measure/` is a test-side-only measurement library (`render`, `thd`, `alias_floor`, `frequency_response`, `null_test`) that every product's plausibility and alias-floor test builds on, so those numbers come from one audited implementation instead of each test computing its own FFT/THD by hand. `tests/golden/` replaces the old five-sample-snapshot regression tests with 1-second rendered `.f32` files at 48 kHz and 96 kHz, compared at −80 dB RMS residual; regenerate them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row to `tests/golden/README.md` recording why. A SPICE reference corpus is staged under `docs/reference/spice/` (netlist-directive `.asc` files, Koren/Norman `.sub` models, `tools/spice/export.py`, `tests/measure/SpiceCsv.hpp`) but nothing has been simulated yet — LTspice is not installed in this environment, so producing the golden CSVs (`python tools/spice/export.py --all`, then commit) is a user-side step, not something this repo's tests currently check against.
+Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical correctness (golden-vector), rig compile/recompile, RT-safety (no-alloc trap); per-product physical-plausibility tests (DC stability, frequency response, THD sweep) in their module. Perceptual A/B validation against real hardware captures is deferred, no reference captures available yet. **As built in D6a:** `tests/measure/` is a test-side-only measurement library (`render`, `thd`, `alias_floor`, `frequency_response`, `null_test`) that every product's plausibility and alias-floor test builds on, so those numbers come from one audited implementation instead of each test computing its own FFT/THD by hand. `tests/golden/` replaces the old five-sample-snapshot regression tests with 1-second rendered `.f32` files at 48 kHz and 96 kHz, compared at −80 dB RMS residual; regenerate them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row to `tests/golden/README.md` recording why. A SPICE reference corpus is staged under `docs/reference/spice/` (netlist-directive `.asc` files, Koren/Norman `.sub` models, `tools/spice/export.py`, `tests/measure/spice_csv.hpp`) but nothing has been simulated yet, LTspice is not installed in this environment, so producing the golden CSVs (`python tools/spice/export.py --all`, then commit) is a user-side step, not something this repo's tests currently check against.
 
 ---
 
 ## §9 Roadmap (prefix **D** = Dsp)
 
-- **D0 — Skeleton + math kernels.** Repo, `sd` CLI, `sushi_dsp` target, `IAudioNode`/rig graph/`NodeDescriptor`, transient pool, FFT (§4.1) + filters (§4.3) with golden-vector tests. *Ships: headless graph processes a verified tone/filter sweep.*
-- **D1 — Device seam + standalone host.** `IAudioDevice` (SDL2), RT-safe callback, `SpscRing`, generic `apps/host` with a minimal rig editor. *Ships: sound out the speakers, zero XRuns.*
-- **D2 — WDF/DK solver core.** §4.5 shared nonlinear-circuit infrastructure (WDF adaptors, DK-method state-space, Newton–Raphson solver), partitioned convolution (§4.2), oversampling (§4.4), golden-vector tests against known WDF reference circuits. *Ships: a minimal one-stage WDF test circuit processes correctly.*
-- **D3 — Tube Screamer (`modules/nodes/tubescreamer`).** §6 op-amp clipping + tone stack; `tube_screamer_descriptor()`. *Ships: TS standalone in the rig host, plausibility-tested (DC stability, THD sweep).* Chosen before JCM800 as the simpler single-nonlinear-stage circuit to validate the solver core.
-- **D4 — JCM800 (`modules/nodes/jcm800`).** §5 white-box chain + cabinet convolution; `jcm800_descriptor()`. *Ships: JCM800 in the rig host, plausibility-tested.*
-- **D5 — Rig recompile + presets.** Full free-graph rig editing (add/remove/reorder any product, series/parallel), atomic-swap recompile, portable rig-preset save/load. *Ships: a rig with TS → JCM800 chained, edited live with no dropout.*
-- **D6 — VST3/CLAP wrapper.** `apps/plugin` hosting the rig graph as a DAW plugin with its own rig-editor UI. *Ships: SushiDSP.vst3/.clap loads in a DAW, hosts TS + JCM800.*
-- **D7 — Hardening & packaging.** Namespaced export/Config finalized, perceptual A/B validation once reference captures are available.
-- **DA — High-gain amplifiers.** §5a: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes, registered in the node registry with their own front-panel layouts. *Ships: all four amps selectable in the rig host, RT-safety-trapped, panel- and registry-tested.*
-- **DA4 — Plate-swing `TriodeStage`.** Spec `docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. A physical plate ceiling replaces the level-staging devices in all four amplifiers; the phase-inverter tail degeneration and the `PentodeStage` grid bridge become explicit, derived constants. *Ships: all four amps on the seven-argument `TriodeStage`, a clean end and non-decreasing THD on every gain knob, two known issues carried to DA5 (the JCM800's alias floor, the IIC+'s undocumented loop return).*
-- **DA5 — The grid knee, antialiasing and the volt-true power stage.** Spec `docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, parts 1 and 2 built. The 2026-09-07 diagnosis measured the alias source as `TriodeStage`'s Shockley grid knee, not the DA4 plate ceiling and not the level the stages sit at: one stage 3× past its window folds at −37 dB, the Norman law of `Triode12AX7` takes it to −81 dB. *Ships (part 1, decisions 1, 5, 6 and 7): the Norman grid law in `TriodeStage` through `GridConductionLaw`, the six-argument path deleted, the 5150's inverter at its solved −1.175 V, all four unity constants pinned at 82 Hz, the 5150's PRE GAIN on an audio taper; see "As built in DA5, part 1". Ships (part 2, decisions 3 and 4): the volt-true `PentodeStage` on `PentodeEL34`'s grid law and a `PlateSwing`, the five power-tube presets from datasheet operating points, `kPowerTubeGridScale` deleted from all four modules, the JCM800's per-stage gains and its inverter with the grid leaks on the tail junction; see "As built in DA5, part 2".* Ships (part 4, decision 2): first-order ADAA of every stage's composite transfer through `AntiderivativeAntialiaser`, and `Biquad` in double; the hot defaults move 8.7 to 15.4 dB and the clean floor 30 dB, the −33.8 dB acceptance stays open as a known issue; see "As built in DA5, part 4".* The shelf-corner rule and the transformer's DC pass (final review F2, F5, F7) stay in this phase.
+- **D0, Skeleton + math kernels.** Repo, `sd` CLI, `sushi_dsp` target, `AudioNode`/rig graph/`NodeDescriptor`, transient pool, FFT (§4.1) + filters (§4.3) with golden-vector tests. *Ships: headless graph processes a verified tone/filter sweep.*
+- **D1, Device seam + standalone host.** `AudioDevice` (SDL2), RT-safe callback, `SpscRing`, generic `applications/host` with a minimal rig editor. *Ships: sound out the speakers, zero XRuns.*
+- **D2, WDF/DK solver core.** §4.5 shared nonlinear-circuit infrastructure (WDF adaptors, DK-method state-space, Newton–Raphson solver), partitioned convolution (§4.2), oversampling (§4.4), golden-vector tests against known WDF reference circuits. *Ships: a minimal one-stage WDF test circuit processes correctly.*
+- **D3, Tube Screamer (`modules/nodes/tubescreamer`).** §6 op-amp clipping + tone stack; `tube_screamer_descriptor()`. *Ships: TS standalone in the rig host, plausibility-tested (DC stability, THD sweep).* Chosen before JCM800 as the simpler single-nonlinear-stage circuit to validate the solver core.
+- **D4, JCM800 (`modules/nodes/jcm800`).** §5 white-box chain + cabinet convolution; `jcm800_descriptor()`. *Ships: JCM800 in the rig host, plausibility-tested.*
+- **D5, Rig recompile + presets.** Full free-graph rig editing (add/remove/reorder any product, series/parallel), atomic-swap recompile, portable rig-preset save/load. *Ships: a rig with TS → JCM800 chained, edited live with no dropout.*
+- **D6, VST3/CLAP wrapper.** `applications/plugin` hosting the rig graph as a DAW plugin with its own rig-editor UI. *Ships: SushiDSP.vst3/.clap loads in a DAW, hosts TS + JCM800.*
+- **D7, Hardening & packaging.** Namespaced export/Config finalized, perceptual A/B validation once reference captures are available.
+- **DA, High-gain amplifiers.** §5a: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes, registered in the node registry with their own front-panel layouts. *Ships: all four amps selectable in the rig host, RT-safety-trapped, panel- and registry-tested.*
+- **DA4, Plate-swing `TriodeStage`.** Spec `docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. A physical plate ceiling replaces the level-staging devices in all four amplifiers; the phase-inverter tail degeneration and the `PentodeStage` grid bridge become explicit, derived constants. *Ships: all four amps on the seven-argument `TriodeStage`, a clean end and non-decreasing THD on every gain knob, two known issues carried to DA5 (the JCM800's alias floor, the IIC+'s undocumented loop return).*
+- **DA5, The grid knee, antialiasing and the volt-true power stage.** Spec `docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, parts 1 and 2 built. The 2026-09-07 diagnosis measured the alias source as `TriodeStage`'s Shockley grid knee, not the DA4 plate ceiling and not the level the stages sit at: one stage 3× past its window folds at −37 dB, the Norman law of `Triode12AX7` takes it to −81 dB. *Ships (part 1, decisions 1, 5, 6 and 7): the Norman grid law in `TriodeStage` through `GridConductionLaw`, the six-argument path deleted, the 5150's inverter at its solved −1.175 V, all four unity constants pinned at 82 Hz, the 5150's PRE GAIN on an audio taper; see "As built in DA5, part 1". Ships (part 2, decisions 3 and 4): the volt-true `PentodeStage` on `PentodeEL34`'s grid law and a `PlateSwing`, the five power-tube presets from datasheet operating points, `kPowerTubeGridScale` deleted from all four modules, the JCM800's per-stage gains and its inverter with the grid leaks on the tail junction; see "As built in DA5, part 2".* Ships (part 4, decision 2): first-order ADAA of every stage's composite transfer through `AntiderivativeAntialiaser`, and `Biquad` in double; the hot defaults move 8.7 to 15.4 dB and the clean floor 30 dB, the −33.8 dB acceptance stays open as a known issue; see "As built in DA5, part 4".* The shelf-corner rule and the transformer's DC pass (final review F2, F5, F7) stay in this phase.
 
-**DS — stereo, tracks and playback, a parallel track.** Spec
+**DS, stereo, tracks and playback, a parallel track.** Spec
 `docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan
 `docs/archive/superpowers/plans/2026-09-07-stereo-tracks.md`. It runs beside the D phases because nothing
 in it touches the circuit core: it is the graph's channel routing, a capture module and the host.
@@ -805,14 +805,14 @@ in it touches the circuit core: it is the graph's channel routing, a capture mod
 
 | Phase | What it builds | Status |
 | --- | --- | --- |
-| DS0 | `RigGraph` routes as many channels per edge as its two nodes declare; `channels_adapt()`, `live_buffer_count()`, `kMaxChannels = 2` | Landed 2026-09-07, commit 394a605 |
+| DS0 | `RigGraph` routes as many channels per edge as its two nodes declare; `channels_adapt()`, `live_buffer_count()`, `K_MAX_CHANNELS = 2` | Landed 2026-09-07, commit 394a605 |
 | DS1 | `routing::PanNode` on a constant-power law, the same table in `ChannelSelection`, two output channels from both hosts' devices | Landed 2026-09-07, commits 99796e6, bc774fa, 02a9a1a |
-| DS2 | `modules/nodes/capture`'s recording half — `Take`, `TrackRecorder`, `RecordingBus` — and `io::WavWriter` | Landed 2026-09-07, commits 39c1a02, 18eb040 |
+| DS2 | `modules/nodes/capture`'s recording half, `Take`, `TrackRecorder`, `RecordingBus`, and `io::WavWriter` | Landed 2026-09-07, commits 39c1a02, 18eb040 |
 | DS3 | `Transport` and `TrackPlayer`: eight tracks, gain, pan, mute, solo, and a loop range packed into one 64-bit word | Landed 2026-09-07, commit 394a605 (attribution, see `docs/reference/KNOWN_ISSUES.md`) |
 | DS4 | The host: a stereo output, record and play in the callback, a transport bar, a track panel, the re-amp input switch, the preset's track list and loop range | Landed 2026-09-07, commits af6a9ed, da342fc, afa0627 |
-| DS5 | OGG export through `libvorbis`/`libogg`, inside `apps/host_gui` only | Deferred; written up once a user asks for it |
+| DS5 | OGG export through `libvorbis`/`libogg`, inside `applications/host_gui` only | Deferred; written up once a user asks for it |
 
-**DT — the arrangement view, a parallel track.** Spec
+**DT, the arrangement view, a parallel track.** Spec
 `docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`, plan
 `docs/archive/superpowers/plans/2026-09-08-arrangement-view.md`. It continues DS with musical time: a
 tempo grid, clips on lanes and a playback speed. §3b describes what it built.
@@ -827,7 +827,7 @@ tempo grid, clips on lanes and a playback speed. §3b describes what it built.
 | DT5 | The session: clip placement, the armed frame, the tempo and the playback speed | Landed 2026-09-08, commits 4d36860, f240e98 |
 | DT6 | mp3 import: `dr_mp3`, a worker thread, the rig's rate, a cached float32 WAV | Landed 2026-09-08, commits 3a9faf1, 55503b0, 21cfcf7, 16ac806 |
 
-**DE — room acoustics, a parallel track.** Spec
+**DE, room acoustics, a parallel track.** Spec
 `docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
 `docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`. It runs beside the D phases for the same
 reason DS and DT do: `modules/nodes/room` needs the graph's stereo routing and nothing from the circuit
@@ -836,42 +836,42 @@ core. §3c describes what it built.
 | Phase | What it builds | Status |
 | --- | --- | --- |
 | DE0 | `BandResponse`, `Materials`, `AirAbsorption`, `BandResponseFit`, `RoomScene`, `ImageSourceSolver`, `EarlyTapSet` | Landed 2026-09-08 and 09, commits f150623, bd34d8d, 8e37b08, 9915597, 4e0d855, 80f5c84, 43eb93f |
-| DE1 | `EarlyReflectionRenderer`, `RoomRenderSet`, `IRoomHost`, and `RoomNode` swapping sets under a raised cosine, registered as `sushidsp.room` | Landed 2026-09-09, commits 54aa3b5, 1faae17, 853081d, b077a47 |
+| DE1 | `EarlyReflectionRenderer`, `RoomRenderSet`, `RoomHost`, and `RoomNode` swapping sets under a raised cosine, registered as `sushidsp.room` | Landed 2026-09-09, commits 54aa3b5, 1faae17, 853081d, b077a47 |
 | DE2 | `EyringDecay`, `LateReverbDesign`, `FdnDesign` and the 16-line Hadamard `LateReverb` | Landed 2026-09-09, commits 268ba6b, cff30df, 8c95dde, d20aa95 |
 | DE3 | `ModalSolver`, `ModalBank`, `CrossoverPair`, the seam at f_s and the level match across it, in both quality modes | Landed 2026-09-09, commits 3394fe4, a18aca8, 5ce46b1, 1b72f81, 60b8941, ba33504 |
 | DE4 | `CabinetDirectivity`, `MicrophoneModel` and the `listener` parameter | Landed 2026-09-08 and 09, commits 3878cc1, ba86613, 95954af; the SM57 preset is not in it, see `docs/reference/KNOWN_ISSUES.md` |
 | DE5 | `HrtfSet`, `HrtfSetLoader`, `SphericalHeadHrtf`, `AmbisonicEncoder`, `BinauralDecoder`, `direct_delay` at `compensated`, `tools/dsp/convert_hrtf.py` and `assets/hrtf/README.md` | Landed 2026-09-08 and 09, commits 29e22d3, 725b8a3, f2ae692, d38754f, 549f07a, bfac578, 11aeff0; no measured asset ships |
-| DE6 | The room panel, `IRoomHost` from `RigController`, the scene in the preset, the 30 Hz publish pacing | Landed 2026-09-09, commit db55eba |
+| DE6 | The room panel, `RoomHost` from `RigController`, the scene in the preset, the 30 Hz publish pacing | Landed 2026-09-09, commit db55eba |
 | DE7 | AVX2 lanes in `EarlyReflectionRenderer` behind `SUSHIDSP_ENABLE_AVX2` | Not opened. Its gate is the DE1 benchmark passing 2.0 ms with an amplifier in the graph; the JCM800 with a room measures 0.893 ms per 256-frame block (commit 78a798f) |
 | DE8 | `max/RayTracer`, `max/LateIrSynthesizer` and the `quality` parameter | Deferred; §9a.3 of the spec designs it and no task builds it |
 
-**DR — delay and reverb, a parallel track.** Spec: `docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/nodes/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration; DS0 built the per-node multi-channel routing it waited on.
+**DR, delay and reverb, a parallel track.** Spec: `docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases instead of inside them, because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton solve. **DR1** built `math/Resampler` (§4.4, "As built in DR1"). **DR2** built the DD-3, `modules/nodes/dd3/`. **DR3** builds the SPX90 engine and the eight programs that calibrate against the Surefyre IR pack; **DR4** adds the remaining 22 and the graph integration; DS0 built the per-node multi-channel routing it waited on.
 
 ---
 
 ## §10 SOLID
 
-- **SRP:** every `IAudioNode` does one DSP job; math kernels, device, and each product are separate.
+- **SRP:** every `AudioNode` does one DSP job; math kernels, device, and each product are separate.
 - **OCP:** new products (amps, pedals, cabinets) and the deferred neural-amp path plug in behind existing interfaces; the rig never names concrete node types; new products register a `NodeDescriptor` without touching the rig, host, or plugin wrapper.
 - **LSP:** every node honors "fill exactly `frames`, allocation-free"; any node is substitutable in any rig slot; any `NodeDescriptor` is hostable by the generic wrapper.
-- **ISP:** narrow interfaces — `IAudioNode`, `IAudioDevice` — no god-interface.
+- **ISP:** narrow interfaces, `AudioNode`, `AudioDevice`, no god-interface.
 - **DIP:** the core depends on abstractions; the platform device is injected.
 
 ---
 
 ## §11 Dependencies
 
-- **Platform:** SDL2 for the first `IAudioDevice` (PRIVATE, host target only); the CLAP/VST3 SDK for the wrapper (PRIVATE, plugin target only).
-- **Everything else:** C++17 standard library + SIMD intrinsics only. No other SushiStack repository's *code*, no GPU runtime, no neural-inference dependency — see §11a for the CLI-only exception.
+- **Platform:** SDL2 for the first `AudioDevice` (PRIVATE, host target only); the CLAP/VST3 SDK for the wrapper (PRIVATE, plugin target only).
+- **Everything else:** C++17 standard library + SIMD intrinsics only. No other SushiStack repository's *code*, no GPU runtime, no neural-inference dependency, see §11a for the CLI-only exception.
 
 ## §11a SushiStack CLI membership (developer tooling only, not a code dependency)
 
 SushiDSP is a registered SushiStack module, listed by that repository's own `cli/sushistack/services/modules.py`, linked into a developer's workspace with `hub link sushidsp <path>` or cloned with `hub add sushidsp`, exactly like sushiruntime/sushiengine/sushiai/sushiblas. This buys two things, both developer-tooling-only:
 
-1. **`cli/sushistack.deps.toml`** — SushiDSP's dependency fragment (today: SDL2), provisioned by `sd setup` into the shared root, `~/.sushisystems` (or `SUSHISYSTEMS_HOME`). SushiDSP has no `[module] depends_on` entry — it needs no other stack module's build output.
-2. **`sushicore`** — the shared CLI presentation layer (themed console output, layered `config.toml`/`config.local.toml` loading, workspace-root discovery) that `sr`/`se`/`sa`/`sb` already build on. `cli/sushidsp/console.py` and `cli/sushidsp/config.py` are thin wrappers over `sushicore.build_console`/`sushicore.config_base.ToolConfig`, matching those CLIs' shape exactly (see any of them for the pattern). `sushicore` is not a resolvable pip dependency (unpublished), so `cli/pyproject.toml` does not list it — `hub install-cli sushidsp` injects it the same way it does for every other module.
+1. **`cli/sushistack.deps.toml`**: SushiDSP's dependency fragment (today: SDL2), provisioned by `sd setup` into the shared root, `~/.sushisystems` (or `SUSHISYSTEMS_HOME`). SushiDSP has no `[module] depends_on` entry, it needs no other stack module's build output.
+2. **`sushicore`**: the shared CLI presentation layer (themed console output, layered `config.toml`/`config.local.toml` loading, workspace-root discovery) that `sr`/`se`/`sa`/`sb` already build on. `cli/sushidsp/console.py` and `cli/sushidsp/config.py` are thin wrappers over `sushicore.build_console`/`sushicore.config_base.ToolConfig`, matching those CLIs' shape exactly (see any of them for the pattern). `sushicore` is not a resolvable pip dependency (unpublished), so `cli/pyproject.toml` does not list it, `hub install-cli sushidsp` injects it the same way it does for every other module.
 
-None of this touches `sushi_dsp`'s C++ link graph. A checkout of this repo with no SushiStack workspace around it still configures and builds with plain `cmake`/`ctest` — `sd`'s commands (`configure`/`build`/`test`) are POSIX/Windows subprocess wrappers around those, and `sushicore`'s console degrades to an unthemed default (not a crash) when no `cli/config.toml` is reachable (see `console.py`'s lazy-build docstring).
+None of this touches `sushi_dsp`'s C++ link graph. A checkout of this repo with no SushiStack workspace around it still configures and builds with plain `cmake`/`ctest`, `sd`'s commands (`configure`/`build`/`test`) are POSIX/Windows subprocess wrappers around those, and `sushicore`'s console degrades to an unthemed default (not a crash) when no `cli/config.toml` is reachable (see `console.py`'s lazy-build docstring).
 
 ---
 

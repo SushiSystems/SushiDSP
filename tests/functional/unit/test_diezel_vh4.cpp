@@ -37,11 +37,11 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/Calibration.hpp"
-#include "SushiDSP/diezel_vh4/DiezelVh4.hpp"
-#include "measure/FrequencyResponse.hpp"
-#include "measure/Render.hpp"
-#include "measure/Thd.hpp"
+#include "SushiDSP/core/calibration.hpp"
+#include "SushiDSP/diezel_vh4/diezel_vh4.hpp"
+#include "measure/frequency_response.hpp"
+#include "measure/render.hpp"
+#include "measure/thd.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -49,14 +49,16 @@
 
 namespace
 {
-    // kUnityMasterDb is derived from the calibration constant. See tests/functional/unit/README.md.
-    const float kUnityMasterDb = -SushiDSP::gain_to_decibels(SushiDSP::DiezelVh4::kMasterUnityGain);
+    // unity_master_db is derived from the calibration constant. See tests/functional/unit/README.md.
+    const float unity_master_db =
+        -SushiDSP::gain_to_decibels(SushiDSP::DiezelVh4::K_MASTER_UNITY_GAIN);
 
     /// @brief Reads one frequency out of a magnitude response.
     /// @param points The response frequency_response() returned.
     /// @param frequency_hz The frequency requested from it.
     /// @return That point's magnitude in decibels.
-    double magnitude_at(const std::vector<SushiDSP::measure::ResponsePoint>& points, double frequency_hz)
+    double magnitude_at(const std::vector<SushiDSP::measure::ResponsePoint>& points,
+                        double frequency_hz)
     {
         for (const SushiDSP::measure::ResponsePoint& point : points)
         {
@@ -67,12 +69,12 @@ namespace
         }
         return 0.0;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, DiezelVh4ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
     SushiDSP::DiezelVh4 node;
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
     node.set_gain(0.6f);
     node.set_master(0.0f);
@@ -83,12 +85,12 @@ TEST(Unit_Dsp, DiezelVh4ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput
         input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
     }
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     for (int block = 0; block < 20; ++block)
     {
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -115,10 +117,8 @@ TEST(Unit_Dsp, DiezelVh4DescriptorExposesTenParametersInContractOrder)
     ASSERT_EQ(descriptor.parameter_count, 10u);
 
     // The index order is the contract of hosts and presets. See tests/functional/unit/README.md.
-    const char* expected_ids[10] = {
-        "gain", "bass", "middle", "treble", "volume",
-        "deep", "presence", "master", "input_trim", "output"
-    };
+    const char* expected_ids[10] = {"gain", "bass",     "middle", "treble",     "volume",
+                                    "deep", "presence", "master", "input_trim", "output"};
     for (std::size_t i = 0; i < 10; ++i)
     {
         EXPECT_STREQ(descriptor.parameters[i].id, expected_ids[i]);
@@ -144,7 +144,7 @@ TEST(Unit_Dsp, DiezelVh4DescriptorExposesTenParametersInContractOrder)
 TEST(Unit_Dsp, DiezelVh4IndexedParameterSetMatchesTheDescriptorOrder)
 {
     SushiDSP::DiezelVh4 node;
-    const float values[10] = { 0.2f, 0.3f, 0.4f, 0.45f, 0.6f, 0.7f, 0.8f, -6.0f, 12.0f, -3.0f };
+    const float values[10] = {0.2f, 0.3f, 0.4f, 0.45f, 0.6f, 0.7f, 0.8f, -6.0f, 12.0f, -3.0f};
     for (std::uint16_t i = 0; i < 10; ++i)
     {
         node.set_parameter_for_audio_thread(i, values[i]);
@@ -207,20 +207,20 @@ TEST(Unit_Dsp, DiezelVh4UnknownParameterIsSafeNoOp)
 TEST(Unit_Dsp, DiezelVh4IsDcStableAcrossManyBlocksAtHighGain)
 {
     // Each knob visits both extremes in turn: ten settings. See tests/functional/unit/README.md.
-    const char* const knobs[5] = { "gain", "bass", "middle", "treble", "volume" };
+    const char* const knobs[5] = {"gain", "bass", "middle", "treble", "volume"};
     for (const char* knob : knobs)
     {
-        for (float extreme : { 0.0f, 1.0f })
+        for (float extreme : {0.0f, 1.0f})
         {
             SushiDSP::DiezelVh4 node;
             node.set_parameter_for_control_thread(knob, extreme);
-            node.set_master(kUnityMasterDb);
-            node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+            node.set_master(unity_master_db);
+            node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
             std::vector<float> input(256, 0.0f);
             std::vector<float> output(256, 0.0f);
-            const float* input_channels[1] = { input.data() };
-            float* output_channels[1] = { output.data() };
+            const float* input_channels[1] = {input.data()};
+            float* output_channels[1] = {output.data()};
 
             double sum = 0.0;
             std::size_t counted = 0;
@@ -229,13 +229,15 @@ TEST(Unit_Dsp, DiezelVh4IsDcStableAcrossManyBlocksAtHighGain)
                 for (int i = 0; i < 256; ++i)
                 {
                     const double t = static_cast<double>(block * 256 + i) / 48000.0;
-                    input[static_cast<std::size_t>(i)] = 0.2f * static_cast<float>(std::sin(2.0 * M_PI * 220.0 * t));
+                    input[static_cast<std::size_t>(i)] =
+                        0.2f * static_cast<float>(std::sin(2.0 * M_PI * 220.0 * t));
                 }
-                SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+                SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
                 node.process(context);
                 for (float sample : output)
                 {
-                    ASSERT_TRUE(std::isfinite(sample)) << knob << " at " << extreme << ", block " << block;
+                    ASSERT_TRUE(std::isfinite(sample))
+                        << knob << " at " << extreme << ", block " << block;
                     if (block >= 100)
                     {
                         sum += sample;
@@ -255,27 +257,30 @@ TEST(Unit_Dsp, DiezelVh4ThdDoesNotFallAsGainRises)
 {
     // The THD reading must not fall as the gain knob rises. See tests/functional/unit/README.md.
     constexpr double sample_rate = 48000.0;
-    const double frequency = SushiDSP::measure::bin_exact_frequency(220.0, sample_rate, SushiDSP::measure::kFftSize);
+    const double frequency =
+        SushiDSP::measure::bin_exact_frequency(220.0, sample_rate, SushiDSP::measure::K_FFT_SIZE);
 
     auto thd_percent_for = [&](float gain) -> double
     {
         SushiDSP::DiezelVh4 node;
         node.set_gain(gain);
-        node.set_master(kUnityMasterDb);
+        node.set_master(unity_master_db);
         const std::vector<float> stimulus =
             SushiDSP::measure::sine_stimulus(frequency, sample_rate, 131072, 0.2f);
-        const std::vector<float> rendered = SushiDSP::measure::render(node, stimulus, sample_rate, 256);
+        const std::vector<float> rendered =
+            SushiDSP::measure::render(node, stimulus, sample_rate, 256);
         return SushiDSP::measure::thd(rendered, frequency, sample_rate).thd_percent;
     };
 
     const double low = thd_percent_for(0.1f);
     const double middle = thd_percent_for(0.5f);
     const double high = thd_percent_for(1.0f);
-    std::printf("[ measure ] THD %.3f%% at gain 0.1, %.3f%% at 0.5, %.3f%% at 1.0\n", low, middle, high);
+    std::printf("[ measure ] THD %.3f%% at gain 0.1, %.3f%% at 0.5, %.3f%% at 1.0\n", low, middle,
+                high);
 
-    constexpr double kFallTolerancePercentagePoints = 0.5;
-    EXPECT_GT(middle, low - kFallTolerancePercentagePoints);
-    EXPECT_GT(high, middle - kFallTolerancePercentagePoints);
+    constexpr double K_FALL_TOLERANCE_PERCENTAGE_POINTS = 0.5;
+    EXPECT_GT(middle, low - K_FALL_TOLERANCE_PERCENTAGE_POINTS);
+    EXPECT_GT(high, middle - K_FALL_TOLERANCE_PERCENTAGE_POINTS);
     EXPECT_GT(high, 10.0);
 }
 
@@ -283,14 +288,14 @@ TEST(Unit_Dsp, DiezelVh4NeverExceedsFullScaleWithoutALimiter)
 {
     // The output stays in [-1, 1] and reaches the rail. See tests/functional/unit/README.md.
     SushiDSP::DiezelVh4 node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
     node.set_parameter_for_control_thread("gain", 1.0f);
     node.set_parameter_for_control_thread("master", 12.0f);
     node.set_parameter_for_control_thread("output", 12.0f);
 
     std::vector<float> input(256), output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     bool clamped_at_least_once = false;
     for (int block = 0; block < 50; ++block)
@@ -298,9 +303,10 @@ TEST(Unit_Dsp, DiezelVh4NeverExceedsFullScaleWithoutALimiter)
         for (int i = 0; i < 256; ++i)
         {
             const float t = static_cast<float>(block * 256 + i) / 48000.0f;
-            input[static_cast<std::size_t>(i)] = std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * t);
+            input[static_cast<std::size_t>(i)] =
+                std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * t);
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
         for (float sample : output)
         {
@@ -318,12 +324,12 @@ TEST(Unit_Dsp, DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsIn
 {
     // A -12 dBFS 82 Hz sine comes out at about -6 dBFS. See tests/functional/unit/README.md.
     SushiDSP::DiezelVh4 node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     float peak = 0.0f;
     for (int block = 0; block < 188; ++block)
@@ -331,10 +337,10 @@ TEST(Unit_Dsp, DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsIn
         for (int i = 0; i < 256; ++i)
         {
             const float sample_index = static_cast<float>(block * 256 + i);
-            input[static_cast<std::size_t>(i)] =
-                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 82.0f * sample_index / 48000.0f);
+            input[static_cast<std::size_t>(i)] = 0.251f * std::sin(2.0f * static_cast<float>(M_PI) *
+                                                                   82.0f * sample_index / 48000.0f);
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
 
         // The first blocks hold the startup transient. See tests/functional/unit/README.md.
@@ -357,13 +363,14 @@ TEST(Unit_Dsp, DiezelVh4HasACleanEndAtMinimumGain)
 {
     // The knob is read at 0.01 because 0.0 is a short. See tests/functional/unit/README.md.
     constexpr double sample_rate = 48000.0;
-    const double frequency = SushiDSP::measure::bin_exact_frequency(220.0, sample_rate, SushiDSP::measure::kFftSize);
+    const double frequency =
+        SushiDSP::measure::bin_exact_frequency(220.0, sample_rate, SushiDSP::measure::K_FFT_SIZE);
 
     SushiDSP::DiezelVh4 node;
     node.set_gain(0.01f);
-    node.set_master(kUnityMasterDb);
+    node.set_master(unity_master_db);
     const std::vector<float> stimulus =
-        SushiDSP::measure::sine_stimulus(frequency, sample_rate, 131072, 0.01f);   // -40 dBFS
+        SushiDSP::measure::sine_stimulus(frequency, sample_rate, 131072, 0.01f); // -40 dBFS
     const std::vector<float> rendered = SushiDSP::measure::render(node, stimulus, sample_rate, 256);
     const double thd_percent = SushiDSP::measure::thd(rendered, frequency, sample_rate).thd_percent;
 
@@ -375,9 +382,9 @@ TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
 {
     // The probes cover all five stages in signal order. See tests/functional/unit/README.md.
     SushiDSP::DiezelVh4 node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
-    ASSERT_EQ(node.triode_stage_count(), std::size_t{ 5 });
+    ASSERT_EQ(node.triode_stage_count(), std::size_t{5});
 
     // Before any audio every stage rests at its bias point, so every probe reads zero.
     for (std::size_t stage = 0; stage < node.triode_stage_count(); ++stage)
@@ -387,8 +394,8 @@ TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
 
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     for (int block = 0; block < 40; ++block)
     {
@@ -396,9 +403,10 @@ TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
         {
             const float sample_index = static_cast<float>(block * 256 + i);
             input[static_cast<std::size_t>(i)] =
-                0.251f * std::sin(2.0f * static_cast<float>(M_PI) * 1000.0f * sample_index / 48000.0f);
+                0.251f *
+                std::sin(2.0f * static_cast<float>(M_PI) * 1000.0f * sample_index / 48000.0f);
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -407,7 +415,7 @@ TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
         EXPECT_GT(node.grid_excursion_peak_volts(stage), 0.0f) << "stage " << stage;
     }
     EXPECT_EQ(node.grid_excursion_peak_volts(node.triode_stage_count()), 0.0f);
-    EXPECT_EQ(node.grid_excursion_peak_volts(std::size_t{ 1000 }), 0.0f);
+    EXPECT_EQ(node.grid_excursion_peak_volts(std::size_t{1000}), 0.0f);
 
     // reset() clears the peaks with the rest of the state.
     node.reset();
@@ -420,17 +428,17 @@ TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
 TEST(Unit_Dsp, DiezelVh4DescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::diezel_vh4_descriptor();
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
 
-    std::unique_ptr<SushiDSP::IAudioNode> node = descriptor.make(info);
+    std::unique_ptr<SushiDSP::AudioNode> node = descriptor.make(info);
     ASSERT_NE(node, nullptr);
     node->prepare(info);
 
     std::vector<float> input(256, 0.0f);
     std::vector<float> output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
     node->process(context);
 
     for (float sample : output)
@@ -443,7 +451,7 @@ TEST(Unit_Dsp, DiezelVh4DryLatencyIsOneOversampledRegion)
 {
     // The latency is one Oversampler8x round trip. See tests/functional/unit/README.md.
     SushiDSP::DiezelVh4 node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     SushiDSP::Oversampler8x reference(256);
     EXPECT_EQ(node.latency_samples(), reference.latency_samples());
@@ -456,8 +464,8 @@ TEST(Unit_Dsp, DiezelVh4GainKnobMovesTheInputHighPassCorner)
     {
         SushiDSP::DiezelVh4 node;
         node.set_gain(gain);
-        node.set_master(kUnityMasterDb);
-        return SushiDSP::measure::frequency_response(node, 48000.0, { 300.0, 1000.0 });
+        node.set_master(unity_master_db);
+        return SushiDSP::measure::frequency_response(node, 48000.0, {300.0, 1000.0});
     };
 
     const auto lowest = response_for(0.02f);
@@ -478,8 +486,8 @@ TEST(Unit_Dsp, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
     {
         SushiDSP::DiezelVh4 node;
         node.set_deep(deep);
-        node.set_master(kUnityMasterDb - 20.0f);
-        return SushiDSP::measure::frequency_response(node, 48000.0, { 20.0, 80.0 });
+        node.set_master(unity_master_db - 20.0f);
+        return SushiDSP::measure::frequency_response(node, 48000.0, {20.0, 80.0});
     };
 
     const auto flat = response_for(0.0f);
@@ -487,7 +495,8 @@ TEST(Unit_Dsp, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
 
     const double lift_at_eighty = magnitude_at(deepest, 80.0) - magnitude_at(flat, 80.0);
     const double lift_at_twenty = magnitude_at(deepest, 20.0) - magnitude_at(flat, 20.0);
-    std::printf("[ measure ] Deep lift %.3f dB at 80 Hz, %.3f dB at 20 Hz\n", lift_at_eighty, lift_at_twenty);
+    std::printf("[ measure ] Deep lift %.3f dB at 80 Hz, %.3f dB at 20 Hz\n", lift_at_eighty,
+                lift_at_twenty);
 
     EXPECT_NEAR(lift_at_eighty, 5.0, 0.5);
 }
@@ -495,7 +504,7 @@ TEST(Unit_Dsp, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
 TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
 {
     // The chain is linear end to end at -120 dBFS. See tests/functional/unit/README.md.
-    constexpr double kExpectedSmallSignalGainDb = 73.114;
+    constexpr double K_EXPECTED_SMALL_SIGNAL_GAIN_DB = 73.114;
 
     SushiDSP::DiezelVh4 node;
     node.set_gain(0.5f);
@@ -505,11 +514,12 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     node.set_volume(0.5f);
     node.set_deep(0.0f);
     node.set_presence(0.5f);
-    node.set_master(kUnityMasterDb);
+    node.set_master(unity_master_db);
 
     constexpr double sample_rate = 48000.0;
-    const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, sample_rate, SushiDSP::measure::kFftSize);
-    constexpr float amplitude = 0.000001f;   // -120 dBFS
+    const double frequency =
+        SushiDSP::measure::bin_exact_frequency(1000.0, sample_rate, SushiDSP::measure::K_FFT_SIZE);
+    constexpr float amplitude = 0.000001f; // -120 dBFS
     const std::vector<float> stimulus =
         SushiDSP::measure::sine_stimulus(frequency, sample_rate, 131072, amplitude);
     const std::vector<float> rendered = SushiDSP::measure::render(node, stimulus, sample_rate, 256);
@@ -522,5 +532,5 @@ TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
     const double gain_db = 20.0 * std::log10(static_cast<double>(peak) / amplitude);
     std::printf("[ measure ] small-signal gain %.3f dB at 1 kHz\n", gain_db);
 
-    EXPECT_NEAR(gain_db, kExpectedSmallSignalGainDb, 0.5);
+    EXPECT_NEAR(gain_db, K_EXPECTED_SMALL_SIGNAL_GAIN_DB, 0.5);
 }

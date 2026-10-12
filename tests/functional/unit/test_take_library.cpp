@@ -31,23 +31,23 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/Take.hpp"
-#include "SushiDSP/capture/TakeLibrary.hpp"
-#include "SushiDSP/capture/TrackTimeline.hpp"
-#include "SushiDSP/core/RtSwapSlot.hpp"
+#include "SushiDSP/capture/take.hpp"
+#include "SushiDSP/capture/take_library.hpp"
+#include "SushiDSP/capture/track_timeline.hpp"
+#include "SushiDSP/core/rt_swap_slot.hpp"
 
 namespace
 {
     /// @brief Builds a one-clip timeline naming a take, which retains it for as long as the
     /// timeline lives and releases it in its destructor, so a lane slot's reclaim() is what
     /// ends the hold.
-    std::unique_ptr<const SushiDSP::TrackTimeline> holding_timeline(
-        SushiDSP::TakeLibrary& library, const SushiDSP::Take* take)
+    std::unique_ptr<const SushiDSP::TrackTimeline> holding_timeline(SushiDSP::TakeLibrary& library,
+                                                                    const SushiDSP::Take* take)
     {
-        const std::vector<SushiDSP::Clip> clips{ SushiDSP::Clip{ take, 0u, 0u, 128u } };
+        const std::vector<SushiDSP::Clip> clips{SushiDSP::Clip{take, 0u, 0u, 128u}};
         return std::make_unique<const SushiDSP::TrackTimeline>(library, clips);
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, TakeLibraryKeepsATakeAliveWhileSomethingHoldsIt)
 {
@@ -97,8 +97,8 @@ TEST(Unit_Dsp, TakeLibraryGivesTwoHoldersOneCopyOfTheSamples)
 
 TEST(Unit_Dsp, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
 {
-    SushiDSP::TakeLibrary                        library;
-    SushiDSP::RtSwapSlot<const SushiDSP::TrackTimeline>  lane;
+    SushiDSP::TakeLibrary library;
+    SushiDSP::RtSwapSlot<const SushiDSP::TrackTimeline> lane;
 
     const SushiDSP::Take* take =
         library.insert(std::make_unique<const SushiDSP::Take>(1u, 48000.0, 128u));
@@ -120,7 +120,7 @@ TEST(Unit_Dsp, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
 
 TEST(Unit_Dsp, TakeLibraryFreesATakeOnlyAfterEveryLaneHasBeenReclaimed)
 {
-    SushiDSP::TakeLibrary                       library;
+    SushiDSP::TakeLibrary library;
     SushiDSP::RtSwapSlot<const SushiDSP::TrackTimeline> lane;
 
     const SushiDSP::Take* take =

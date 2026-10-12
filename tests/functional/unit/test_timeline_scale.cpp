@@ -29,9 +29,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/MusicalClock.hpp"
+#include "SushiDSP/capture/musical_clock.hpp"
 
-#include "ui/TimelineScale.hpp"
+#include "ui/timeline_scale.hpp"
 
 TEST(Unit_Dsp, TimelineScaleRoundTripsAFrameThroughAPixel)
 {
@@ -57,8 +57,8 @@ TEST(Unit_Dsp, TimelineScalePutsTheScrollOriginAtXZero)
 
 TEST(Unit_Dsp, TimelineScaleSnapsToTheNearestBar)
 {
-    SushiDSP::MusicalClock clock;   // 120 BPM, 4/4, 48 kHz: a bar is 96000 frames
-    ui::TimelineScale      scale;
+    SushiDSP::MusicalClock clock; // 120 BPM, 4/4, 48 kHz: a bar is 96000 frames
+    ui::TimelineScale scale;
 
     EXPECT_EQ(clock.frame_of(2u, 1u), 96000u);
     EXPECT_EQ(clock.frame_of(3u, 1u), 192000u);
@@ -72,19 +72,19 @@ TEST(Unit_Dsp, TimelineScaleSnapsToTheNearestBar)
 
 TEST(Unit_Dsp, TimelineScaleSnapsToTheNearestBeat)
 {
-    SushiDSP::MusicalClock clock;   // 120 BPM, 4/4, 48 kHz: a beat is 24000 frames
-    ui::TimelineScale      scale;
+    SushiDSP::MusicalClock clock; // 120 BPM, 4/4, 48 kHz: a beat is 24000 frames
+    ui::TimelineScale scale;
 
     EXPECT_EQ(scale.snap(100000u, ui::SnapMode::Beat, clock), 96000u);
     EXPECT_EQ(scale.snap(110000u, ui::SnapMode::Beat, clock), 120000u);
     EXPECT_EQ(scale.snap(24000u, ui::SnapMode::Beat, clock), 24000u);
-    EXPECT_EQ(scale.snap(12000u, ui::SnapMode::Beat, clock), 0u);   // a tie takes the earlier
+    EXPECT_EQ(scale.snap(12000u, ui::SnapMode::Beat, clock), 0u); // a tie takes the earlier
 }
 
 TEST(Unit_Dsp, TimelineScaleSnapModeNoneReturnsTheFrameUnchanged)
 {
     SushiDSP::MusicalClock clock;
-    ui::TimelineScale      scale;
+    ui::TimelineScale scale;
 
     EXPECT_EQ(scale.snap(100000u, ui::SnapMode::None, clock), 100000u);
     EXPECT_EQ(scale.snap(1u, ui::SnapMode::None, clock), 1u);
@@ -100,5 +100,5 @@ TEST(Unit_Dsp, TimelineScaleDoesNotUnderflowBeforeFrameZero)
     EXPECT_EQ(scale.frame_of_x(-100000.0f), 0u);
 
     scale.set_scroll_frames(1000u);
-    EXPECT_EQ(scale.frame_of_x(-1000.0f), 0u);   // 1000 frames of scroll, 100000 frames left
+    EXPECT_EQ(scale.frame_of_x(-1000.0f), 0u); // 1000 frames of scroll, 100000 frames left
 }

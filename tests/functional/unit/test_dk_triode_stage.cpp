@@ -34,20 +34,20 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/core/Calibration.hpp"
-#include "SushiDSP/core/IAudioNode.hpp"
-#include "SushiDSP/math/dk/DkCircuit.hpp"
-#include "SushiDSP/math/dk/DkNetlist.hpp"
+#include "SushiDSP/core/calibration.hpp"
+#include "SushiDSP/core/audio_node.hpp"
+#include "SushiDSP/math/dk/dk_circuit.hpp"
+#include "SushiDSP/math/dk/dk_netlist.hpp"
 
-#include "circuits/JcmV1aNetlist.hpp"
-#include "circuits/SpiceBlockCompare.hpp"
-#include "measure/FrequencyResponse.hpp"
-#include "measure/NullTest.hpp"
-#include "measure/SpiceCsv.hpp"
+#include "circuits/jcm_v1a_netlist.hpp"
+#include "circuits/spice_block_compare.hpp"
+#include "measure/frequency_response.hpp"
+#include "measure/null_test.hpp"
+#include "measure/spice_csv.hpp"
 
 namespace
 {
-    // The netlist lives in tests/circuits/JcmV1aNetlist.hpp. See tests/functional/unit/README.md.
+    // The netlist lives in tests/circuits/jcm_v1a_netlist.hpp. See tests/functional/unit/README.md.
     using namespace SushiDSP::test_circuits;
 
     /// @brief The stage's DK shape: six capacitors, two triode branches, two sources, one probe.
@@ -61,9 +61,9 @@ namespace
     /// @param seconds Amount of silence to run.
     void settle(StageCircuit& circuit, TriodeStagePort& port, double sample_rate, double seconds)
     {
-        const std::array<double, 2> inputs{ 0.0, kSupplyVolts };
-        std::array<double, 1>       outputs{};
-        const std::size_t           samples = static_cast<std::size_t>(seconds * sample_rate);
+        const std::array<double, 2> inputs{0.0, K_SUPPLY_VOLTS};
+        std::array<double, 1> outputs{};
+        const std::size_t samples = static_cast<std::size_t>(seconds * sample_rate);
         for (std::size_t index = 0; index < samples; ++index)
         {
             circuit.process_sample(port, inputs, outputs);
@@ -73,123 +73,132 @@ namespace
     /// @brief One instance of the D6c/D6d product-node pattern, wrapping a DK block.
     ///
     /// This adapter is the template every DK-based product module will follow: the block itself
-    /// is solved entirely in double, and float appears only at the IAudioNode boundary, where the
-    /// host's normalised sample is scaled to volts by kFullScaleVolts on the way in and back by
+    /// is solved entirely in double, and float appears only at the AudioNode boundary, where the
+    /// host's normalised sample is scaled to volts by K_FULL_SCALE_VOLTS on the way in and back by
     /// the same constant on the way out. prepare() does all the work that is not real-time safe -
     /// the derivation and the bias settling - so process() is only the per-sample solve.
-    class JcmV1aStageNode final : public SushiDSP::IAudioNode
+    class JcmV1aStageNode final : public SushiDSP::AudioNode
     {
-    public:
-        /// @brief Sets the preamp pot position; takes effect at the next prepare() or block.
-        /// @param preamp Normalised preamp-pot fraction, matching the SPICE block's PREAMP.
-        void set_preamp(double preamp) { preamp_ = preamp; }
-
-        /// @brief Derives the DK matrices at the run rate and settles the bias point.
-        /// @param info Sample rate, block size and channel count.
-        void prepare(const SushiDSP::PrepareInfo& info) override
-        {
-            StageNetlist netlist;
-            pot_index_ = build_jcm_v1a(netlist);
-            sample_rate_ = info.sample_rate;
-            prepared_ = circuit_.prepare(netlist, info.sample_rate);
-            circuit_.set_potentiometer(pot_index_, preamp_to_position(preamp_));
-            circuit_.update_matrices_if_dirty();
-            settle(circuit_, port_, info.sample_rate, kSettleSeconds);
-            circuit_.reset_statistics();
-        }
-
-        /// @brief Solves one sample per frame, casting float to volts and back.
-        /// @param context The per-block buffers and frame count.
-        void process(SushiDSP::ProcessContext& context) override
-        {
-            const float* input = context.inputs == nullptr ? nullptr : context.inputs[0];
-            float*       output = context.outputs[0];
-            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+        public:
+            /// @brief Sets the preamp pot position; takes effect at the next prepare() or block.
+            /// @param preamp Normalised preamp-pot fraction, matching the SPICE block's PREAMP.
+            void set_preamp(double preamp)
             {
-                const double drive = input == nullptr
-                                         ? 0.0
-                                         : static_cast<double>(input[frame])
-                                               * static_cast<double>(SushiDSP::kFullScaleVolts);
-                const std::array<double, 2> inputs{ drive, kSupplyVolts };
-                std::array<double, 1>       outputs{};
-                circuit_.process_sample(port_, inputs, outputs);
-                output[frame] = static_cast<float>(outputs[0]
-                                                   / static_cast<double>(SushiDSP::kFullScaleVolts));
+                preamp_ = preamp;
             }
-        }
 
-        /// @brief Reports the node's fixed channel counts.
-        /// @return One input channel and one output channel.
-        SushiDSP::PortLayout ports() const override { return SushiDSP::PortLayout{ 1u, 1u }; }
+            /// @brief Derives the DK matrices at the run rate and settles the bias point.
+            /// @param info Sample rate, block size and channel count.
+            void prepare(const SushiDSP::PrepareInfo& info) override
+            {
+                StageNetlist netlist;
+                pot_index_ = build_jcm_v1a(netlist);
+                sample_rate_ = info.sample_rate;
+                prepared_ = circuit_.prepare(netlist, info.sample_rate);
+                circuit_.set_potentiometer(pot_index_, preamp_to_position(preamp_));
+                circuit_.update_matrices_if_dirty();
+                settle(circuit_, port_, info.sample_rate, K_SETTLE_SECONDS);
+                circuit_.reset_statistics();
+            }
 
-        /// @brief Reads a parameter; this fixture exposes none.
-        /// @param id Ignored.
-        /// @return Always zero.
-        float get_parameter(const char* id) const override
-        {
-            static_cast<void>(id);
-            return 0.0f;
-        }
+            /// @brief Solves one sample per frame, casting float to volts and back.
+            /// @param context The per-block buffers and frame count.
+            void process(SushiDSP::ProcessContext& context) override
+            {
+                const float* input = context.inputs == nullptr ? nullptr : context.inputs[0];
+                float* output = context.outputs[0];
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    const double drive =
+                        input == nullptr ? 0.0
+                                         : static_cast<double>(input[frame]) *
+                                               static_cast<double>(SushiDSP::K_FULL_SCALE_VOLTS);
+                    const std::array<double, 2> inputs{drive, K_SUPPLY_VOLTS};
+                    std::array<double, 1> outputs{};
+                    circuit_.process_sample(port_, inputs, outputs);
+                    output[frame] = static_cast<float>(
+                        outputs[0] / static_cast<double>(SushiDSP::K_FULL_SCALE_VOLTS));
+                }
+            }
 
-        /// @brief Writes a parameter; this fixture exposes none.
-        /// @param id Ignored.
-        /// @param value Ignored.
-        void set_parameter_for_control_thread(const char* id, float value) override
-        {
-            static_cast<void>(id);
-            static_cast<void>(value);
-        }
+            /// @brief Reports the node's fixed channel counts.
+            /// @return One input channel and one output channel.
+            SushiDSP::PortLayout ports() const override
+            {
+                return SushiDSP::PortLayout{1u, 1u};
+            }
 
-        /// @brief Clears the circuit state and re-settles the bias point.
-        ///
-        /// Prepare-class, not real-time safe: the 200 ms settle is hundreds of thousands of
-        /// Newton solves. IAudioNode::reset() is documented control-thread-only, so that is
-        /// legal, but a product node copying this template must keep it off the audio thread.
-        void reset() override
-        {
-            circuit_.reset();
-            settle(circuit_, port_, sample_rate_, kSettleSeconds);
-        }
+            /// @brief Reads a parameter; this fixture exposes none.
+            /// @param id Ignored.
+            /// @return Always zero.
+            float get_parameter(const char* id) const override
+            {
+                static_cast<void>(id);
+                return 0.0f;
+            }
 
-        /// @brief Whether prepare() derived a usable circuit.
-        /// @return True when the derivation succeeded.
-        bool prepared() const { return prepared_; }
+            /// @brief Writes a parameter; this fixture exposes none.
+            /// @param id Ignored.
+            /// @param value Ignored.
+            void set_parameter_for_control_thread(const char* id, float value) override
+            {
+                static_cast<void>(id);
+                static_cast<void>(value);
+            }
 
-    private:
-        static constexpr double kSettleSeconds = 0.2;
+            /// @brief Clears the circuit state and re-settles the bias point.
+            ///
+            /// Prepare-class, not real-time safe: the 200 ms settle is hundreds of thousands of
+            /// Newton solves. AudioNode::reset() is documented control-thread-only, so that is
+            /// legal, but a product node copying this template must keep it off the audio thread.
+            void reset() override
+            {
+                circuit_.reset();
+                settle(circuit_, port_, sample_rate_, K_SETTLE_SECONDS);
+            }
 
-        StageCircuit    circuit_{};
-        TriodeStagePort port_{};
-        std::size_t     pot_index_{ 0 };
-        double          preamp_{ 0.5 };
-        double          sample_rate_{ 0.0 };
-        bool            prepared_{ false };
+            /// @brief Whether prepare() derived a usable circuit.
+            /// @return True when the derivation succeeded.
+            bool prepared() const
+            {
+                return prepared_;
+            }
+
+        private:
+            static constexpr double K_SETTLE_SECONDS = 0.2;
+
+            StageCircuit circuit_{};
+            TriodeStagePort port_{};
+            std::size_t pot_index_{0};
+            double preamp_{0.5};
+            double sample_rate_{0.0};
+            bool prepared_{false};
     };
 
     /// @brief The three PREAMP values the SPICE block steps, in setting-index order.
-    inline constexpr std::array<double, 3> kSteppedPreamp{ 0.1, 0.5, 0.9 };
-}
+    inline constexpr std::array<double, 3> K_STEPPED_PREAMP{0.1, 0.5, 0.9};
+} // namespace
 
 /// @brief Tests that the jcm_v1a stage settles at the hand-computed bias point.
 /// @see tests/functional/unit/README.md
 TEST(Unit_Dsp, DkTriodeStageSettlesAtTheHandComputedBiasPoint)
 {
-    constexpr double kRunRate = 384000.0;
+    constexpr double K_RUN_RATE = 384000.0;
 
-    StageNetlist      netlist;
+    StageNetlist netlist;
     const std::size_t pot = build_jcm_v1a(netlist);
 
-    StageCircuit    circuit;
+    StageCircuit circuit;
     TriodeStagePort port;
-    ASSERT_TRUE(circuit.prepare(netlist, kRunRate));
+    ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
     circuit.set_potentiometer(pot, preamp_to_position(0.5));
     circuit.update_matrices_if_dirty();
 
-    settle(circuit, port, kRunRate, 0.2);
+    settle(circuit, port, K_RUN_RATE, 0.2);
 
     const double plate_current = circuit.nonlinear_currents()[1];
     const double grid_current = circuit.nonlinear_currents()[0];
-    const double cathode_volts = (plate_current + grid_current) * kCathodeOhms;
+    const double cathode_volts = (plate_current + grid_current) * K_CATHODE_OHMS;
     const double plate_to_cathode = circuit.nonlinear_voltages()[1];
     const double plate_volts = plate_to_cathode + cathode_volts;
 
@@ -205,57 +214,56 @@ TEST(Unit_Dsp, DkTriodeStageSettlesAtTheHandComputedBiasPoint)
 TEST(Unit_Dsp, DkTriodeStageNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
 {
     // The stimulus set is a sweep and three bursts at 384 kHz. See tests/functional/unit/README.md.
-    constexpr double kRunRate = 384000.0;
+    constexpr double K_RUN_RATE = 384000.0;
 
-    StageNetlist      netlist;
+    StageNetlist netlist;
     const std::size_t pot = build_jcm_v1a(netlist);
 
-    StageCircuit    circuit;
+    StageCircuit circuit;
     TriodeStagePort port;
-    ASSERT_TRUE(circuit.prepare(netlist, kRunRate));
+    ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
     circuit.set_potentiometer(pot, preamp_to_position(0.5));
     circuit.update_matrices_if_dirty();
 
-    settle(circuit, port, kRunRate, 0.2);
+    settle(circuit, port, K_RUN_RATE, 0.2);
     circuit.reset_statistics();
 
     std::array<double, 1> outputs{};
 
-    const double      sweep_seconds = 2.0;
-    const double      sweep_low = 20.0;
-    const double      sweep_high = 20000.0;
-    const double      sweep_amplitude = 0.25118864 * static_cast<double>(SushiDSP::kFullScaleVolts);
-    const std::size_t sweep_samples = static_cast<std::size_t>(sweep_seconds * kRunRate);
-    const double      rate = std::log(sweep_high / sweep_low);
+    const double sweep_seconds = 2.0;
+    const double sweep_low = 20.0;
+    const double sweep_high = 20000.0;
+    const double sweep_amplitude = 0.25118864 * static_cast<double>(SushiDSP::K_FULL_SCALE_VOLTS);
+    const std::size_t sweep_samples = static_cast<std::size_t>(sweep_seconds * K_RUN_RATE);
+    const double rate = std::log(sweep_high / sweep_low);
     for (std::size_t index = 0; index < sweep_samples; ++index)
     {
-        const double seconds = static_cast<double>(index) / kRunRate;
-        const double phase = 2.0 * 3.14159265358979323846 * sweep_low * sweep_seconds / rate
-                             * (std::exp(seconds * rate / sweep_seconds) - 1.0);
-        const std::array<double, 2> inputs{ sweep_amplitude * std::sin(phase), kSupplyVolts };
+        const double seconds = static_cast<double>(index) / K_RUN_RATE;
+        const double phase = 2.0 * 3.14159265358979323846 * sweep_low * sweep_seconds / rate *
+                             (std::exp(seconds * rate / sweep_seconds) - 1.0);
+        const std::array<double, 2> inputs{sweep_amplitude * std::sin(phase), K_SUPPLY_VOLTS};
         circuit.process_sample(port, inputs, outputs);
     }
 
-    const std::array<double, 3> burst_volts{ 0.05, 0.5, 5.0 };
-    const std::size_t           burst_samples = static_cast<std::size_t>(0.25 * kRunRate);
+    const std::array<double, 3> burst_volts{0.05, 0.5, 5.0};
+    const std::size_t burst_samples = static_cast<std::size_t>(0.25 * K_RUN_RATE);
     for (double amplitude : burst_volts)
     {
         for (std::size_t index = 0; index < burst_samples; ++index)
         {
-            const double seconds = static_cast<double>(index) / kRunRate;
-            const double drive
-                = amplitude * std::sin(2.0 * 3.14159265358979323846 * 1000.0 * seconds);
-            const std::array<double, 2> inputs{ drive, kSupplyVolts };
+            const double seconds = static_cast<double>(index) / K_RUN_RATE;
+            const double drive =
+                amplitude * std::sin(2.0 * 3.14159265358979323846 * 1000.0 * seconds);
+            const std::array<double, 2> inputs{drive, K_SUPPLY_VOLTS};
             circuit.process_sample(port, inputs, outputs);
         }
     }
 
-    const double ratio = 100.0 * static_cast<double>(circuit.non_converged_samples())
-                       / static_cast<double>(circuit.total_samples());
+    const double ratio = 100.0 * static_cast<double>(circuit.non_converged_samples()) /
+                         static_cast<double>(circuit.total_samples());
     std::printf("[ measure ] jcm_v1a DK: %.4f %% non-converged (%llu of %llu), max %u iterations, "
                 "%llu NaN fallbacks\n",
-                ratio,
-                static_cast<unsigned long long>(circuit.non_converged_samples()),
+                ratio, static_cast<unsigned long long>(circuit.non_converged_samples()),
                 static_cast<unsigned long long>(circuit.total_samples()),
                 circuit.maximum_iterations_seen(),
                 static_cast<unsigned long long>(circuit.nan_fallback_samples()));
@@ -266,7 +274,7 @@ TEST(Unit_Dsp, DkTriodeStageNewtonConvergesOnNinetyNinePointNineNinePercentOfSam
 TEST(Unit_Dsp, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
 {
     const std::string path = spice_path("jcm_v1a", "tran");
-    const auto        reference = SushiDSP::measure::load_transient_csv(path);
+    const auto reference = SushiDSP::measure::load_transient_csv(path);
     if (reference.input.empty())
     {
         GTEST_SKIP() << "No LTspice reference at " << path
@@ -277,23 +285,23 @@ TEST(Unit_Dsp, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
 
     ASSERT_GT(reference.sample_rate, 0.0);
 
-    for (std::size_t setting = 0; setting < kSteppedPreamp.size(); ++setting)
+    for (std::size_t setting = 0; setting < K_STEPPED_PREAMP.size(); ++setting)
     {
         std::vector<float> reference_output;
         std::vector<float> circuit_output;
 
-        StageNetlist      netlist;
+        StageNetlist netlist;
         const std::size_t pot = build_jcm_v1a(netlist);
 
-        StageCircuit    circuit;
+        StageCircuit circuit;
         TriodeStagePort port;
         ASSERT_TRUE(circuit.prepare(netlist, reference.sample_rate));
-        circuit.set_potentiometer(pot, preamp_to_position(kSteppedPreamp[setting]));
+        circuit.set_potentiometer(pot, preamp_to_position(K_STEPPED_PREAMP[setting]));
         circuit.update_matrices_if_dirty();
         settle(circuit, port, reference.sample_rate, 0.2);
 
-        // Only the last of kPreRollPasses passes is compared. See tests/functional/unit/README.md.
-        constexpr std::size_t kPreRollPasses = 8;
+        // Only the last of K_PRE_ROLL_PASSES passes is compared. See tests/functional/unit/README.md.
+        constexpr std::size_t K_PRE_ROLL_PASSES = 8;
 
         std::vector<double> stimulus;
         for (std::size_t row = 0; row < reference.input.size(); ++row)
@@ -306,12 +314,12 @@ TEST(Unit_Dsp, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
         }
 
         std::array<double, 1> outputs{};
-        for (std::size_t pass = 0; pass <= kPreRollPasses; ++pass)
+        for (std::size_t pass = 0; pass <= K_PRE_ROLL_PASSES; ++pass)
         {
-            const bool final_pass = pass == kPreRollPasses;
+            const bool final_pass = pass == K_PRE_ROLL_PASSES;
             for (std::size_t index = 0; index < stimulus.size(); ++index)
             {
-                const std::array<double, 2> inputs{ stimulus[index], kSupplyVolts };
+                const std::array<double, 2> inputs{stimulus[index], K_SUPPLY_VOLTS};
                 circuit.process_sample(port, inputs, outputs);
                 if (final_pass)
                 {
@@ -325,8 +333,7 @@ TEST(Unit_Dsp, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
         band_limit(reference_output, reference.sample_rate, 10000.0);
         band_limit(circuit_output, reference.sample_rate, 10000.0);
 
-        const double residual
-            = SushiDSP::measure::null_test(reference_output, circuit_output, 256);
+        const double residual = SushiDSP::measure::null_test(reference_output, circuit_output, 256);
         std::printf("[ measure ] jcm_v1a tran setting %zu: %.2f dB residual\n", setting, residual);
         EXPECT_LE(residual, -60.0) << "setting " << setting;
     }
@@ -335,7 +342,7 @@ TEST(Unit_Dsp, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
 TEST(Unit_Dsp, DkTriodeStageMatchesTheLtspiceAcSweepWithinHalfADecibel)
 {
     const std::string path = spice_path("jcm_v1a", "ac");
-    const auto        reference = SushiDSP::measure::load_ac_csv(path);
+    const auto reference = SushiDSP::measure::load_ac_csv(path);
     if (reference.frequency_hz.empty())
     {
         GTEST_SKIP() << "No LTspice reference at " << path
@@ -344,20 +351,19 @@ TEST(Unit_Dsp, DkTriodeStageMatchesTheLtspiceAcSweepWithinHalfADecibel)
                      << "then commit the CSV.";
     }
 
-    constexpr double kRunRate = 192000.0;
+    constexpr double K_RUN_RATE = 192000.0;
 
     // -40 dBFS keeps the stage small-signal. See tests/functional/unit/README.md.
-    const std::vector<double> frequencies{ 20.0,   50.0,   100.0,  200.0,  500.0,
-                                           1000.0, 2000.0, 5000.0, 10000.0 };
+    const std::vector<double> frequencies{20.0,   50.0,   100.0,  200.0,  500.0,
+                                          1000.0, 2000.0, 5000.0, 10000.0};
 
-    for (std::size_t setting = 0; setting < kSteppedPreamp.size(); ++setting)
+    for (std::size_t setting = 0; setting < K_STEPPED_PREAMP.size(); ++setting)
     {
         JcmV1aStageNode node;
-        node.set_preamp(kSteppedPreamp[setting]);
+        node.set_preamp(K_STEPPED_PREAMP[setting]);
 
         // measure::render calls node.prepare() itself. See tests/functional/unit/README.md.
-        const auto measured
-            = SushiDSP::measure::frequency_response(node, kRunRate, frequencies);
+        const auto measured = SushiDSP::measure::frequency_response(node, K_RUN_RATE, frequencies);
         ASSERT_TRUE(node.prepared());
         ASSERT_EQ(measured.size(), frequencies.size());
 

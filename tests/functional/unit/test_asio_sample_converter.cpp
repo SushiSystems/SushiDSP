@@ -30,32 +30,34 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/audio_format/AsioSampleConverter.hpp"
+#include "SushiDSP/audio_format/asio_sample_converter.hpp"
 
 TEST(Unit_Dsp, AsioSampleConverterInt32RoundTripsKnownValues)
 {
     // Int32LSB: full-scale is +/-2147483648.
-    const std::int32_t half_scale_positive = 1073741824;  // 0.5 * INT32_MAX+1
+    const std::int32_t half_scale_positive = 1073741824; // 0.5 * INT32_MAX+1
     std::uint8_t bytes[4];
     std::memcpy(bytes, &half_scale_positive, 4);
 
-    const float decoded = SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
+    const float decoded =
+        SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
     EXPECT_NEAR(decoded, 0.5f, 1e-6f);
 
     std::uint8_t re_encoded[4];
     SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, 0.5f, re_encoded);
     std::int32_t re_encoded_value = 0;
     std::memcpy(&re_encoded_value, re_encoded, 4);
-    EXPECT_NEAR(re_encoded_value, half_scale_positive, 2);  // rounding tolerance
+    EXPECT_NEAR(re_encoded_value, half_scale_positive, 2); // rounding tolerance
 }
 
 TEST(Unit_Dsp, AsioSampleConverterInt32ClampsFullScaleNegative)
 {
-    const std::int32_t full_scale_negative = -2147483647 - 1;  // INT32_MIN, avoids UB literal
+    const std::int32_t full_scale_negative = -2147483647 - 1; // INT32_MIN, avoids UB literal
     std::uint8_t bytes[4];
     std::memcpy(bytes, &full_scale_negative, 4);
 
-    const float decoded = SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
+    const float decoded =
+        SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
     EXPECT_NEAR(decoded, -1.0f, 1e-6f);
 }
 
@@ -65,7 +67,8 @@ TEST(Unit_Dsp, AsioSampleConverterFloat32PassesThroughUnchanged)
     std::uint8_t bytes[4];
     std::memcpy(bytes, &original, 4);
 
-    const float decoded = SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Float32LSB, bytes);
+    const float decoded =
+        SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Float32LSB, bytes);
     EXPECT_FLOAT_EQ(decoded, original);
 
     std::uint8_t re_encoded[4];
@@ -77,11 +80,12 @@ TEST(Unit_Dsp, AsioSampleConverterFloat32PassesThroughUnchanged)
 
 TEST(Unit_Dsp, AsioSampleConverterInt16RoundTripsKnownValues)
 {
-    const std::int16_t quarter_scale = 8192;  // 0.25 * 32768
+    const std::int16_t quarter_scale = 8192; // 0.25 * 32768
     std::uint8_t bytes[2];
     std::memcpy(bytes, &quarter_scale, 2);
 
-    const float decoded = SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int16LSB, bytes);
+    const float decoded =
+        SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int16LSB, bytes);
     EXPECT_NEAR(decoded, 0.25f, 1e-4f);
 }
 

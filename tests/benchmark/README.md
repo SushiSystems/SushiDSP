@@ -1,9 +1,9 @@
 # tests/benchmark
 
-The benchmark executable. `Benchmark.hpp` is the timing harness and `main.cpp` holds the cases,
+The benchmark executable. `benchmark.hpp` is the timing harness and `main.cpp` holds the cases,
 each of which prints one table row.
 
-## Benchmark.hpp
+## benchmark.hpp
 
 `measure` reports the minimum over its timed repetitions, not the mean. On a desktop operating
 system the variance is scheduler noise stacked on the true cost, so the minimum is the
@@ -14,7 +14,7 @@ least-contaminated estimate of what the audio thread pays.
 ### The JCM800 V1a block
 
 The netlist, its component constants and the triode glue live in
-`tests/circuits/JcmV1aNetlist.hpp`, shared with the D6b stage test and the RT-safety traps.
+`tests/circuits/jcm_v1a_netlist.hpp`, shared with the D6b stage test and the RT-safety traps.
 `build_jcm_v1a(netlist, true)` appends the series RC that takes the block from the SPICE
 stage's six reactive states to the seven the D6b budget is written against.
 

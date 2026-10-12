@@ -32,7 +32,7 @@
 
 #include <gtest/gtest.h>
 
-#include "ui/DirectoryListing.hpp"
+#include "ui/directory_listing.hpp"
 
 namespace
 {
@@ -70,7 +70,7 @@ namespace
         }
         return names;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, ListDirectoryPutsSubdirectoriesBeforeMatchingFilesAndSortsEachGroup)
 {
@@ -82,7 +82,7 @@ TEST(Unit_Dsp, ListDirectoryPutsSubdirectoriesBeforeMatchingFilesAndSortsEachGro
 
     const std::vector<ui::DirectoryEntry> entries = ui::list_directory(root.string(), ".wav");
 
-    EXPECT_EQ(names_of(entries), (std::vector<std::string>{ "sub", "a.wav", "b.wav" }));
+    EXPECT_EQ(names_of(entries), (std::vector<std::string>{"sub", "a.wav", "b.wav"}));
     ASSERT_EQ(entries.size(), 3u);
     EXPECT_TRUE(entries[0].is_directory);
     EXPECT_FALSE(entries[1].is_directory);
@@ -98,7 +98,7 @@ TEST(Unit_Dsp, ListDirectoryMatchesTheExtensionIgnoringCase)
 
     const std::vector<ui::DirectoryEntry> entries = ui::list_directory(root.string(), ".wav");
 
-    EXPECT_EQ(names_of(entries), (std::vector<std::string>{ "Cab.WAV" }));
+    EXPECT_EQ(names_of(entries), (std::vector<std::string>{"Cab.WAV"}));
 
     std::filesystem::remove_all(root);
 }
@@ -112,8 +112,7 @@ TEST(Unit_Dsp, ListDirectoryWithAnEmptyExtensionKeepsEveryFile)
 
     const std::vector<ui::DirectoryEntry> entries = ui::list_directory(root.string(), "");
 
-    EXPECT_EQ(names_of(entries),
-              (std::vector<std::string>{ "a.wav", "notes.txt", "readme" }));
+    EXPECT_EQ(names_of(entries), (std::vector<std::string>{"a.wav", "notes.txt", "readme"}));
 
     std::filesystem::remove_all(root);
 }
@@ -126,9 +125,9 @@ TEST(Unit_Dsp, ListDirectoryKeepsEveryExtensionItIsGiven)
     write_file(root / "sample.flac");
 
     const std::vector<ui::DirectoryEntry> entries =
-        ui::list_directory(root.string(), std::vector<std::string>{ ".wav", ".mp3" });
+        ui::list_directory(root.string(), std::vector<std::string>{".wav", ".mp3"});
 
-    EXPECT_EQ(names_of(entries), (std::vector<std::string>{ "song.MP3", "take.wav" }));
+    EXPECT_EQ(names_of(entries), (std::vector<std::string>{"song.MP3", "take.wav"}));
 
     std::filesystem::remove_all(root);
 }

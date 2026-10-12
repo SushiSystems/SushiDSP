@@ -38,9 +38,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/Calibration.hpp"
-#include "SushiDSP/mesa_mark2c/MesaMark2c.hpp"
-#include "measure/Thd.hpp"
+#include "SushiDSP/core/calibration.hpp"
+#include "SushiDSP/mesa_mark2c/mesa_mark2c.hpp"
+#include "measure/thd.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -48,7 +48,7 @@
 
 namespace
 {
-    constexpr std::size_t kParameterCount = 18;
+    constexpr std::size_t K_PARAMETER_COUNT = 18;
 
     /// @brief Renders a settled tone through a default-knob amp with one control moved.
     /// @param configure Called with the node before prepare(), so the smoothers snap.
@@ -57,34 +57,37 @@ namespace
     /// @param blocks Number of 256-frame blocks rendered.
     /// @return Every rendered sample, in order.
     template <typename Configure>
-    std::vector<float> render_mesa_mark2c(Configure configure, double amplitude, double frequency, int blocks)
+    std::vector<float> render_mesa_mark2c(Configure configure, double amplitude, double frequency,
+                                          int blocks)
     {
         SushiDSP::MesaMark2c node;
         configure(node);
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
         std::vector<float> rendered, input(256), output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
         for (int block = 0; block < blocks; ++block)
         {
             for (std::size_t i = 0; i < input.size(); ++i)
             {
                 const double n = block * 256.0 + static_cast<double>(i);
-                input[i] = static_cast<float>(amplitude * std::sin(2.0 * M_PI * frequency * n / 48000.0));
+                input[i] =
+                    static_cast<float>(amplitude * std::sin(2.0 * M_PI * frequency * n / 48000.0));
             }
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
             rendered.insert(rendered.end(), output.begin(), output.end());
         }
         return rendered;
     }
 
-}
+} // namespace
 
 TEST(Unit_Dsp, MesaMark2cProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
-    const std::vector<float> rendered = render_mesa_mark2c([](SushiDSP::MesaMark2c&) {}, 0.2, 220.0, 20);
+    const std::vector<float> rendered =
+        render_mesa_mark2c([](SushiDSP::MesaMark2c&) {}, 0.2, 220.0, 20);
     for (float sample : rendered)
     {
         EXPECT_TRUE(std::isfinite(sample));
@@ -105,16 +108,15 @@ TEST(Unit_Dsp, MesaMark2cDescriptorExposesEighteenParametersInContractOrder)
 
     EXPECT_STREQ(descriptor.id, "sushidsp.mesa_mark2c");
     EXPECT_STREQ(descriptor.name, "Mark IIC+");
-    ASSERT_EQ(descriptor.parameter_count, kParameterCount);
+    ASSERT_EQ(descriptor.parameter_count, K_PARAMETER_COUNT);
 
     // The index order is the contract of hosts and presets. See tests/functional/unit/README.md.
-    const char* expected_ids[kParameterCount] = {
-        "volume_1", "treble", "bass", "middle", "lead_drive", "lead_master", "master_1",
-        "presence", "eq_80", "eq_240", "eq_750", "eq_2200", "eq_6600", "input_trim", "output",
+    const char* expected_ids[K_PARAMETER_COUNT] = {
+        "volume_1", "treble", "bass", "middle", "lead_drive", "lead_master", "master_1", "presence",
+        "eq_80", "eq_240", "eq_750", "eq_2200", "eq_6600", "input_trim", "output",
         // The three switches follow the fifteen knobs. See tests/functional/unit/README.md.
-        "bright", "deep", "eq_mode"
-    };
-    for (std::size_t i = 0; i < kParameterCount; ++i)
+        "bright", "deep", "eq_mode"};
+    for (std::size_t i = 0; i < K_PARAMETER_COUNT; ++i)
     {
         EXPECT_STREQ(descriptor.parameters[i].id, expected_ids[i]);
     }
@@ -141,19 +143,18 @@ TEST(Unit_Dsp, MesaMark2cDescriptorExposesEighteenParametersInContractOrder)
 TEST(Unit_Dsp, MesaMark2cIndexedParameterSetMatchesTheDescriptorOrder)
 {
     SushiDSP::MesaMark2c node;
-    const float values[kParameterCount] = {
-        0.2f, 0.3f, 0.4f, 0.45f, 0.6f, 0.7f, -6.0f, 0.8f,
-        -1.0f, -0.5f, 0.25f, 0.5f, 1.0f, 12.0f, -3.0f,
+    const float values[K_PARAMETER_COUNT] = {
+        0.2f, 0.3f, 0.4f, 0.45f, 0.6f, 0.7f, -6.0f, 0.8f, -1.0f, -0.5f, 0.25f, 0.5f, 1.0f, 12.0f,
+        -3.0f,
         // A switch reads back the position it selects. See tests/functional/unit/README.md.
-        1.0f, 1.0f, 2.0f
-    };
-    for (std::uint16_t i = 0; i < kParameterCount; ++i)
+        1.0f, 1.0f, 2.0f};
+    for (std::uint16_t i = 0; i < K_PARAMETER_COUNT; ++i)
     {
         node.set_parameter_for_audio_thread(i, values[i]);
     }
 
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::mesa_mark2c_descriptor();
-    for (std::uint16_t i = 0; i < kParameterCount; ++i)
+    for (std::uint16_t i = 0; i < K_PARAMETER_COUNT; ++i)
     {
         EXPECT_FLOAT_EQ(node.get_parameter(descriptor.parameters[i].id), values[i]);
     }
@@ -220,7 +221,7 @@ TEST(Unit_Dsp, MesaMark2cUnknownParameterIsSafeNoOp)
 TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
 {
     // The settled DC stays under -40 dBFS and stops moving. See tests/functional/unit/README.md.
-    for (float extreme : { 0.0f, 1.0f })
+    for (float extreme : {0.0f, 1.0f})
     {
         const std::vector<float> rendered = render_mesa_mark2c(
             [extreme](SushiDSP::MesaMark2c& node)
@@ -233,7 +234,8 @@ TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
                 node.set_lead_master(extreme);
                 node.set_presence(extreme);
                 node.set_master_1(extreme > 0.5f ? 12.0f : -60.0f);
-                for (std::size_t band = 0; band < SushiDSP::MesaMark2c::kEqualizerBandCount; ++band)
+                for (std::size_t band = 0; band < SushiDSP::MesaMark2c::K_EQUALIZER_BAND_COUNT;
+                     ++band)
                 {
                     node.set_equalizer_band(band, extreme > 0.5f ? 1.0f : -1.0f);
                 }
@@ -255,7 +257,8 @@ TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
         }
         const double quarter = static_cast<double>(last_quarter - third_quarter);
         const double third_quarter_dc = third_sum / quarter;
-        const double last_quarter_dc = last_sum / static_cast<double>(rendered.size() - last_quarter);
+        const double last_quarter_dc =
+            last_sum / static_cast<double>(rendered.size() - last_quarter);
         EXPECT_LT(std::fabs(last_quarter_dc), 0.01) << "extreme " << extreme;
         EXPECT_LT(std::fabs(last_quarter_dc - third_quarter_dc), 0.01) << "extreme " << extreme;
     }
@@ -265,7 +268,7 @@ TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
 {
     // Seven stages report; an out-of-range index answers 0. See tests/functional/unit/README.md.
     SushiDSP::MesaMark2c node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     ASSERT_EQ(node.triode_stage_count(), 7u);
 
@@ -276,8 +279,8 @@ TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
     }
 
     std::vector<float> input(256), output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
     for (int block = 0; block < 40; ++block)
     {
         for (std::size_t i = 0; i < input.size(); ++i)
@@ -285,7 +288,7 @@ TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
             const double n = block * 256.0 + static_cast<double>(i);
             input[i] = static_cast<float>(0.251 * std::sin(2.0 * M_PI * 1000.0 * n / 48000.0));
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
     }
 
@@ -306,17 +309,22 @@ TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
 TEST(Unit_Dsp, MesaMark2cThdDoesNotFallAsLeadDriveRises)
 {
     // The sweep starts at 0.05, where the knob passes signal. See tests/functional/unit/README.md.
-    const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
-    const double tolerance_percentage_points = 1.0;  // Spec section 4.
+    const double frequency =
+        SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::K_FFT_SIZE);
+    const double tolerance_percentage_points = 1.0; // Spec section 4.
     double previous = 0.0;
-    for (float lead_drive : { 0.05f, 0.1f, 0.2f, 0.5f, 1.0f })
+    for (float lead_drive : {0.05f, 0.1f, 0.2f, 0.5f, 1.0f})
     {
         const std::vector<float> rendered = render_mesa_mark2c(
-            [lead_drive](SushiDSP::MesaMark2c& node) { node.set_lead_drive(lead_drive); },
+            [lead_drive](SushiDSP::MesaMark2c& node)
+            {
+                node.set_lead_drive(lead_drive);
+            },
             0.2, frequency, 640);
         const double thd_percent = SushiDSP::measure::thd(rendered, frequency, 48000.0).thd_percent;
         EXPECT_GT(thd_percent, previous - tolerance_percentage_points)
-            << "lead_drive " << lead_drive << " read " << thd_percent << " %, previous " << previous << " %";
+            << "lead_drive " << lead_drive << " read " << thd_percent << " %, previous " << previous
+            << " %";
         previous = thd_percent;
     }
 
@@ -328,14 +336,14 @@ TEST(Unit_Dsp, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
 {
     // The output stays in [-1, 1] and reaches the rail. See tests/functional/unit/README.md.
     SushiDSP::MesaMark2c node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
     node.set_parameter_for_control_thread("lead_drive", 1.0f);
     node.set_parameter_for_control_thread("master_1", 12.0f);
     node.set_parameter_for_control_thread("output", 12.0f);
 
     std::vector<float> input(256), output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
 
     bool clamped_at_least_once = false;
     for (int block = 0; block < 50; ++block)
@@ -343,9 +351,10 @@ TEST(Unit_Dsp, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
         for (int i = 0; i < 256; ++i)
         {
             const float t = static_cast<float>(block * 256 + i) / 48000.0f;
-            input[static_cast<std::size_t>(i)] = std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * t);
+            input[static_cast<std::size_t>(i)] =
+                std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * t);
         }
-        SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
         node.process(context);
         for (float sample : output)
         {
@@ -362,9 +371,14 @@ TEST(Unit_Dsp, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
 TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
 {
     // Lead Drive 0.02 at -40 dBFS reads 0.20 % THD. See tests/functional/unit/README.md.
-    const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
+    const double frequency =
+        SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::K_FFT_SIZE);
     const std::vector<float> rendered = render_mesa_mark2c(
-        [](SushiDSP::MesaMark2c& node) { node.set_lead_drive(0.02f); }, 0.01, frequency, 640);
+        [](SushiDSP::MesaMark2c& node)
+        {
+            node.set_lead_drive(0.02f);
+        },
+        0.01, frequency, 640);
 
     const double thd_percent = SushiDSP::measure::thd(rendered, frequency, 48000.0).thd_percent;
     EXPECT_LT(thd_percent, 10.0) << "THD " << thd_percent << " %";
@@ -373,7 +387,8 @@ TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
 TEST(Unit_Dsp, MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
 {
     // A -12 dBFS 82 Hz sine comes out at about -6 dBFS. See tests/functional/unit/README.md.
-    const std::vector<float> rendered = render_mesa_mark2c([](SushiDSP::MesaMark2c&) {}, 0.251, 82.0, 188);
+    const std::vector<float> rendered =
+        render_mesa_mark2c([](SushiDSP::MesaMark2c&) {}, 0.251, 82.0, 188);
 
     float peak = 0.0f;
     for (std::size_t i = rendered.size() / 4; i < rendered.size(); ++i)
@@ -389,17 +404,17 @@ TEST(Unit_Dsp, MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsI
 TEST(Unit_Dsp, MesaMark2cDescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::mesa_mark2c_descriptor();
-    SushiDSP::PrepareInfo info{ 48000.0, 256, 1 };
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
 
-    std::unique_ptr<SushiDSP::IAudioNode> node = descriptor.make(info);
+    std::unique_ptr<SushiDSP::AudioNode> node = descriptor.make(info);
     ASSERT_NE(node, nullptr);
     node->prepare(info);
     EXPECT_STREQ(node->type_id(), "sushidsp.mesa_mark2c");
 
     std::vector<float> input(256, 0.0f), output(256, 0.0f);
-    const float* input_channels[1] = { input.data() };
-    float* output_channels[1] = { output.data() };
-    SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
     node->process(context);
 
     for (float sample : output)
@@ -412,7 +427,7 @@ TEST(Unit_Dsp, MesaMark2cDryLatencyIsOneOversampledRegion)
 {
     // The latency is one Oversampler8x round trip. See tests/functional/unit/README.md.
     SushiDSP::MesaMark2c node;
-    node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     SushiDSP::Oversampler8x reference(256);
     EXPECT_EQ(node.latency_samples(), reference.latency_samples());
@@ -421,18 +436,19 @@ TEST(Unit_Dsp, MesaMark2cDryLatencyIsOneOversampledRegion)
 TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
 {
     // The stack is ahead of the distortion: treble moves THD. See tests/functional/unit/README.md.
-    const double frequency = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::kFftSize);
+    const double frequency =
+        SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::K_FFT_SIZE);
     auto thd_at_treble = [frequency](float treble)
     {
-        return SushiDSP::measure::thd(
-            render_mesa_mark2c(
-                [treble](SushiDSP::MesaMark2c& node)
-                {
-                    node.set_lead_drive(0.05f);
-                    node.set_treble(treble);
-                },
-                0.01, frequency, 640),
-            frequency, 48000.0).thd_percent;
+        return SushiDSP::measure::thd(render_mesa_mark2c(
+                                          [treble](SushiDSP::MesaMark2c& node)
+                                          {
+                                              node.set_lead_drive(0.05f);
+                                              node.set_treble(treble);
+                                          },
+                                          0.01, frequency, 640),
+                                      frequency, 48000.0)
+            .thd_percent;
     };
 
     const double dark = thd_at_treble(0.0f);
@@ -467,7 +483,8 @@ TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
             sum_cos += rendered[i] * std::cos(phase);
         }
         const std::size_t n = rendered.size() - start;
-        return 20.0 * std::log10(2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n + 1e-30);
+        return 20.0 *
+               std::log10(2.0 * std::sqrt(sum_sin * sum_sin + sum_cos * sum_cos) / n + 1e-30);
     };
 
     EXPECT_NEAR(level_at(1.0f) - level_at(0.0f), 17.0, 1.0);
@@ -475,15 +492,15 @@ TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
 
 TEST(Unit_Dsp, MesaMark2cFallsSilentAtEveryPresencePositionWhenTheDriveStops)
 {
-    for (float presence : { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f })
+    for (float presence : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f})
     {
         SushiDSP::MesaMark2c node;
         node.set_presence(presence);
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
         std::vector<float> input(256), output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
 
         double first_silent_peak = 0.0, last_silent_peak = 0.0;
         for (int block = 0; block < 48; ++block)
@@ -491,11 +508,12 @@ TEST(Unit_Dsp, MesaMark2cFallsSilentAtEveryPresencePositionWhenTheDriveStops)
             for (std::size_t i = 0; i < input.size(); ++i)
             {
                 const double n = block * 256.0 + static_cast<double>(i);
-                input[i] = block < 8 ? static_cast<float>(1e-3 * std::sin(2.0 * M_PI * 1000.0 * n
-                                                                         / 48000.0))
-                                     : 0.0f;
+                input[i] =
+                    block < 8
+                        ? static_cast<float>(1e-3 * std::sin(2.0 * M_PI * 1000.0 * n / 48000.0))
+                        : 0.0f;
             }
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
 
             double peak = 0.0;
@@ -508,8 +526,7 @@ TEST(Unit_Dsp, MesaMark2cFallsSilentAtEveryPresencePositionWhenTheDriveStops)
         }
 
         // The ratio sat at 0.92 while the loop oscillated. See tests/functional/unit/README.md.
-        EXPECT_LT(last_silent_peak / (first_silent_peak + 1e-30), 1e-3)
-            << "presence " << presence;
+        EXPECT_LT(last_silent_peak / (first_silent_peak + 1e-30), 1e-3) << "presence " << presence;
     }
 }
 
@@ -523,16 +540,16 @@ namespace
     /// @return 40 blocks' worth of output at the base rate.
     std::vector<float> render_equalizer_sweep(std::uint32_t block_frames)
     {
-        constexpr std::uint32_t kTotalFrames = 40 * 256;
+        constexpr std::uint32_t K_TOTAL_FRAMES = 40 * 256;
         SushiDSP::MesaMark2c node;
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, block_frames, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, block_frames, 1});
 
         std::vector<float> input(block_frames), block(block_frames, 0.0f), rendered;
-        rendered.reserve(kTotalFrames);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { block.data() };
+        rendered.reserve(K_TOTAL_FRAMES);
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {block.data()};
 
-        for (std::uint32_t start = 0; start < kTotalFrames; start += block_frames)
+        for (std::uint32_t start = 0; start < K_TOTAL_FRAMES; start += block_frames)
         {
             if (start % 256 == 0)
             {
@@ -543,13 +560,13 @@ namespace
                 const double n = static_cast<double>(start + i);
                 input[i] = static_cast<float>(1e-4 * std::sin(2.0 * M_PI * 80.0 * n / 48000.0));
             }
-            SushiDSP::ProcessContext context{ output_channels, input_channels, block_frames, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, block_frames, 0.0};
             node.process(context);
             rendered.insert(rendered.end(), block.begin(), block.end());
         }
         return rendered;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, MesaMark2cSweepSoundsTheSameWhateverTheHostBlockSize)
 {
@@ -560,8 +577,8 @@ TEST(Unit_Dsp, MesaMark2cSweepSoundsTheSameWhateverTheHostBlockSize)
     double largest_difference = 0.0, largest_sample = 0.0;
     for (std::size_t i = 0; i < in_256.size(); ++i)
     {
-        largest_difference = std::max(largest_difference,
-                                      std::fabs(static_cast<double>(in_256[i] - in_32[i])));
+        largest_difference =
+            std::max(largest_difference, std::fabs(static_cast<double>(in_256[i] - in_32[i])));
         largest_sample = std::max(largest_sample, std::fabs(static_cast<double>(in_256[i])));
     }
 
@@ -584,12 +601,12 @@ namespace
     {
         SushiDSP::MesaMark2c node;
         configure(node);
-        node.prepare(SushiDSP::PrepareInfo{ 48000.0, 256, 1 });
+        node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
         constexpr double amplitude = 1e-4;
         std::vector<float> input(256), output(256, 0.0f);
-        const float* input_channels[1] = { input.data() };
-        float* output_channels[1] = { output.data() };
+        const float* input_channels[1] = {input.data()};
+        float* output_channels[1] = {output.data()};
 
         double real_part = 0.0, imaginary_part = 0.0;
         std::size_t counted = 0;
@@ -598,10 +615,10 @@ namespace
             for (std::size_t i = 0; i < input.size(); ++i)
             {
                 const double n = block * 256.0 + static_cast<double>(i);
-                input[i] = static_cast<float>(
-                    amplitude * std::sin(2.0 * M_PI * frequency_hz * n / 48000.0));
+                input[i] = static_cast<float>(amplitude *
+                                              std::sin(2.0 * M_PI * frequency_hz * n / 48000.0));
             }
-            SushiDSP::ProcessContext context{ output_channels, input_channels, 256, 0.0 };
+            SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
             node.process(context);
             if (block < 50)
             {
@@ -616,18 +633,21 @@ namespace
                 ++counted;
             }
         }
-        const double magnitude = 2.0 * std::sqrt(real_part * real_part
-                                                 + imaginary_part * imaginary_part)
-                               / static_cast<double>(counted);
+        const double magnitude =
+            2.0 * std::sqrt(real_part * real_part + imaginary_part * imaginary_part) /
+            static_cast<double>(counted);
         return 20.0 * std::log10(magnitude / amplitude + 1e-30);
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, MesaMark2cPullDeepStopsV2bRemovingBass)
 {
     const auto deep = [](bool engaged)
     {
-        return [engaged](SushiDSP::MesaMark2c& node) { node.set_deep(engaged); };
+        return [engaged](SushiDSP::MesaMark2c& node)
+        {
+            node.set_deep(engaged);
+        };
     };
 
     // V2B's cathode shelf is 0.6972 deep, -3.13 dB. See tests/functional/unit/README.md.
@@ -666,7 +686,10 @@ TEST(Unit_Dsp, MesaMark2cPullBrightLiftsTrebleAtBothOfItsCapacitors)
 {
     const auto bright = [](bool engaged)
     {
-        return [engaged](SushiDSP::MesaMark2c& node) { node.set_bright(engaged); };
+        return [engaged](SushiDSP::MesaMark2c& node)
+        {
+            node.set_bright(engaged);
+        };
     };
 
     const double low_in = mark2c_gain_db(bright(true), 200.0);

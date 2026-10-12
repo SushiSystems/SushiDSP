@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "ChannelResampler.hpp"
+#include "channel_resampler.hpp"
 
 namespace
 {
@@ -45,8 +45,8 @@ namespace
         std::vector<float> out(frames);
         for (std::size_t index = 0; index < frames; ++index)
         {
-            const double phase = 2.0 * 3.14159265358979323846 * frequency
-                * static_cast<double>(index) / rate;
+            const double phase =
+                2.0 * 3.14159265358979323846 * frequency * static_cast<double>(index) / rate;
             out[index] = static_cast<float>(std::sin(phase));
         }
         return out;
@@ -64,14 +64,14 @@ namespace
         double worst = 0.0;
         for (std::size_t index = skip; index + skip < converted.size(); ++index)
         {
-            const double phase = 2.0 * 3.14159265358979323846 * frequency
-                * static_cast<double>(index) / rate;
-            worst = std::max(worst, std::abs(static_cast<double>(converted[index])
-                                             - std::sin(phase)));
+            const double phase =
+                2.0 * 3.14159265358979323846 * frequency * static_cast<double>(index) / rate;
+            worst =
+                std::max(worst, std::abs(static_cast<double>(converted[index]) - std::sin(phase)));
         }
         return worst;
     }
-}
+} // namespace
 
 TEST(Unit_Dsp, ResampledFrameCountRoundsTheRatio)
 {
@@ -90,15 +90,15 @@ TEST(Unit_Dsp, ResampledFrameCountKeepsTheLengthWhenNoConversionIsAsked)
 
 TEST(Unit_Dsp, ResampleChannelsReturnsTheInputWhenTheRatesMatch)
 {
-    const std::vector<std::vector<float>> channels{ sine(64, 500.0, 8000.0) };
+    const std::vector<std::vector<float>> channels{sine(64, 500.0, 8000.0)};
     EXPECT_EQ(SushiDSP::host::resample_channels(channels, 48000.0, 48000.0), channels);
     EXPECT_EQ(SushiDSP::host::resample_channels(channels, 0.0, 48000.0), channels);
 }
 
 TEST(Unit_Dsp, ResampleChannelsDoublesTheRateAndKeepsTheWave)
 {
-    const std::vector<float>              tone = sine(400, 500.0, 8000.0);
-    const std::vector<std::vector<float>> channels{ tone, tone };
+    const std::vector<float> tone = sine(400, 500.0, 8000.0);
+    const std::vector<std::vector<float>> channels{tone, tone};
 
     const std::vector<std::vector<float>> converted =
         SushiDSP::host::resample_channels(channels, 8000.0, 16000.0);
