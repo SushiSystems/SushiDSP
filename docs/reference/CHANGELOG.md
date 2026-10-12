@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-13 — host: Added the Parallel chain type, two mono paths joined by a bus through channel strips, with each path bound to its own host input channel (`rig_topology.cpp`, `topology_applier.cpp`, `main.cpp`).
+
 - 2026-10-13 — room: Added the room environment, which places up to three cabinets and eight microphones in one room (`room_environment_node.cpp`, `microphone_node.cpp`).
 - 2026-10-13 — room: Added the microphone rig element, carrying polarity and the room flag (`microphone_node.hpp`).
 - 2026-10-13 — core: Added `RigGraph::bind_input`, so a root node reads the host channel it is bound to; the default keeps channel 0 (`rig_graph.cpp`).
