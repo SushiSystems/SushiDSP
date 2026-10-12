@@ -74,7 +74,8 @@ class TopologyApplier
                 std::optional<ui::SlotId> room_bus;    ///< The bus that joins the room's outputs.
                 std::optional<ui::SlotId> di_strip;    ///< The DI strip, while DI is open.
                 std::optional<ui::SlotId> master_bus;  ///< The master bus, while DI is open.
-                std::map<std::uint32_t, ui::SlotId> microphones; ///< Microphone slots by layout id.
+                std::vector<std::pair<std::uint32_t, ui::SlotId>>
+                    microphones; ///< Microphone slots in layout order, with their layout ids.
         };
 
         /// @brief Reads the hidden slots the mixer shows.
@@ -116,6 +117,7 @@ class TopologyApplier
                 std::optional<SlotId> room_right;  ///< Holds the strip that pans the listener's right ear.
                 std::optional<SlotId> room_bus;    ///< Holds the bus that joins the room's outputs.
                 std::map<std::uint32_t, SlotId> microphones; ///< Holds one microphone slot per layout id.
+                std::vector<std::uint32_t> microphone_order; ///< Holds the layout ids in layout order.
         };
 
         /// @brief Creates the splitter and mixer while a split is open, or removes them for one path.

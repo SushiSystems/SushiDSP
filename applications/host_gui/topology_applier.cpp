@@ -277,6 +277,11 @@ void TopologyApplier::place_room(const RigTopology& topology, RigController& rig
         }
     }
     state_.microphones = kept;
+    state_.microphone_order.clear();
+    for (const MicrophoneSpot& spot : layout.microphones())
+    {
+        state_.microphone_order.push_back(spot.id);
+    }
 }
 
 void TopologyApplier::remove_room(RigController& rig, Journal& journal)
@@ -298,6 +303,7 @@ void TopologyApplier::remove_room(RigController& rig, Journal& journal)
         remove_journaled(slot, rig, journal);
     }
     state_.microphones.clear();
+    state_.microphone_order.clear();
 }
 
 void TopologyApplier::connect_room(const RigTopology& topology, RigController& rig) const
@@ -585,6 +591,13 @@ TopologyApplier::MixerSlots TopologyApplier::mixer_slots() const
     slots.room_bus = state_.room_bus;
     slots.di_strip = state_.di_strip;
     slots.master_bus = state_.master_bus;
-    slots.microphones = state_.microphones;
+    for (std::uint32_t id : state_.microphone_order)
+    {
+        const auto held = state_.microphones.find(id);
+        if (held != state_.microphones.end())
+        {
+            slots.microphones.emplace_back(id, held->second);
+        }
+    }
     return slots;
 }

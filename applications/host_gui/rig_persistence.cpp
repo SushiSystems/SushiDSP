@@ -45,6 +45,7 @@
 #include "SushiDSP/room/furniture.hpp"
 #include "SushiDSP/room/materials.hpp"
 #include "SushiDSP/room/room_scene.hpp"
+#include "room_layout_codec.hpp"
 #include "SushiDSP/room/starter_scene.hpp"
 
 namespace
@@ -572,6 +573,9 @@ std::string RigPersistence::save_to_json() const
     {
         document["take_folder"] = session_.take_folder();
     }
+    // The room section's open switch lives in the chain's topology, which a preset does not carry yet,
+    // so it is written closed and ignored on load.
+    document["cabinet_section"] = room_layout_to_json(graph_.room_layout(), false);
 
     const SushiDSP::TrackPlayer& player = session_.player();
     document["track_count"] = session_.track_count();
@@ -640,6 +644,12 @@ void RigPersistence::load_from_json(const std::string& json_text)
                               SessionTimeline::K_MAX_TRACKS);
     const std::vector<TrackRow> track_rows = track_rows_from_json(document, track_count);
 
+    // The cabinet section is read before the rig is touched, so a refused section leaves the rig as it was.
+    const RoomLayout section_layout =
+        document.contains("cabinet_section")
+            ? room_layout_from_json(document.at("cabinet_section")).layout
+            : RoomLayout();
+
     const std::size_t node_count = document.at("nodes").size();
     SushiDSP::RigGraph scratch(info_.max_block, static_cast<std::uint32_t>(node_count + 1));
     std::unordered_map<SushiDSP::NodeHandle, std::string> cabinet_paths_by_handle;
@@ -666,6 +676,7 @@ void RigPersistence::load_from_json(const std::string& json_text)
     scratch.compile(info_);
 
     graph_.clear();
+    graph_.room_layout() = section_layout;
     graph_.set_ir_folder(document.contains("ir_folder")
                              ? document.at("ir_folder").get<std::string>()
                              : std::string());

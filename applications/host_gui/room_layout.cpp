@@ -31,7 +31,11 @@
 
 #include "SushiDSP/room/starter_scene.hpp"
 
-RoomLayout::RoomLayout() : shell_(SushiDSP::room::starter_scene()) {}
+RoomLayout::RoomLayout() : shell_(SushiDSP::room::starter_scene())
+{
+    listener_.position = shell_.listener_position;
+    listener_.yaw_rad = shell_.listener_yaw_rad;
+}
 
 const SushiDSP::room::RoomScene& RoomLayout::shell() const noexcept
 {

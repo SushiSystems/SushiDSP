@@ -20,6 +20,7 @@ add_executable(sushidsp_host_gui
     ui/rig_chain_view.cpp
     rig_topology.cpp
     room_layout.cpp
+    room_layout_codec.cpp
     topology_applier.cpp
     ui/divider.cpp
     ui/split_layout.cpp
@@ -36,6 +37,9 @@ add_executable(sushidsp_host_gui
     ui/directory_listing.cpp
     ui/file_browser.cpp
     ui/room_panel.cpp
+    ui/cabinet_section_view.cpp
+    ui/mixer_panel.cpp
+    ui/cabinet_section_window.cpp
     ui/furnishing_list.cpp
     ui/patch_list.cpp
     ui/furnishing_list.cpp
