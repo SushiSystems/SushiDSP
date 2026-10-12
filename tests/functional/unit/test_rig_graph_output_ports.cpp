@@ -344,3 +344,51 @@ TEST(Unit_Dsp, RigGraphDisconnectRemovesEveryPortOfThePair)
 
     EXPECT_TRUE(graph.upstream_of(sink).empty());
 }
+
+TEST(Unit_Dsp, RigGraphRootReadsTheHostChannelItIsBoundTo)
+{
+    // The root copies its live input to its output; the sink then records what the root passed on.
+    class PassThroughNode : public SushiDSP::AudioNode
+    {
+        public:
+            void prepare(const SushiDSP::PrepareInfo&) override {}
+            void process(SushiDSP::ProcessContext& context) override
+            {
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    context.outputs[0][frame] = context.inputs[0][frame];
+                }
+            }
+            SushiDSP::PortLayout ports() const override { return {1, 1}; }
+            void reset() override {}
+            float get_parameter(const char*) const override { return 0.0f; }
+            void set_parameter_for_control_thread(const char*, float) override {}
+    };
+
+    SushiDSP::RigGraph graph(256, 4);
+    const auto root = graph.add_node(std::make_unique<PassThroughNode>());
+    auto sink = std::make_unique<RecordingSinkNode>();
+    RecordingSinkNode* sink_raw = sink.get();
+    const auto sink_handle = graph.add_node(std::move(sink));
+    graph.connect(root, sink_handle);
+    graph.bind_input(root, 1);
+    graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
+
+    std::vector<float> left(256, 0.1f), right(256, 0.9f);
+    const float* host_inputs[2] = {left.data(), right.data()};
+    std::vector<float> out(256, 0.0f);
+    float* outputs[1] = {out.data()};
+    SushiDSP::ProcessContext context{outputs, host_inputs, 256, 0.0};
+    graph.process(context);
+
+    EXPECT_FLOAT_EQ(sink_raw->seen_, 0.9f);
+}
+
+TEST(Unit_Dsp, RigGraphCompileRefusesABindingBeyondTheHostChannels)
+{
+    SushiDSP::RigGraph graph(256, 4);
+    const auto root = graph.add_node(std::make_unique<RecordingSinkNode>());
+    graph.bind_input(root, SushiDSP::RigGraph::K_MAX_CHANNELS);
+
+    EXPECT_THROW(graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1}), std::runtime_error);
+}

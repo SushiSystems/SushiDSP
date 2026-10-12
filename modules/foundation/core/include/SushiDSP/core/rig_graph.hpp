@@ -97,6 +97,15 @@ namespace SushiDSP
             /// @param to The downstream node.
             void disconnect(NodeHandle from, NodeHandle to);
 
+            /// @brief Chooses which host input channel a root node reads as its live input. Not real-time
+            /// safe; call after add_node() and before compile(). A root of one channel reads host channel
+            /// host_channel; a root of two channels reads host channels 0 and 1 and ignores this. The
+            /// default is 0. The host passes at least host_channel + 1 input channels to process().
+            /// @param handle The root node.
+            /// @param host_channel The host input channel, below K_MAX_CHANNELS.
+            /// @throws std::runtime_error if handle names no live node.
+            void bind_input(NodeHandle handle, std::uint32_t host_channel);
+
             /// @brief Looks up a live node by handle.
             /// @param handle The node's handle.
             /// @return The node, or nullptr if handle is out of range or was removed.
@@ -187,6 +196,9 @@ namespace SushiDSP
 
             /// @brief Holds the buffer count compile() sized the pool from.
             std::uint32_t live_buffer_count_ = 0;
+
+            /// @brief Holds the host input channel each node reads as a root, indexed by handle.
+            std::vector<std::uint32_t> input_binding_;
 
             /// @brief Holds the output port count each node declared at compile(), indexed by handle.
             std::vector<std::uint32_t> port_count_;
