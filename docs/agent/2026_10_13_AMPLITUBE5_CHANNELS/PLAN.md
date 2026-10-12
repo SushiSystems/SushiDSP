@@ -1,0 +1,96 @@
+# AmpliTube 5 channels and cabinet section Implementation Plan
+
+> **For agentic workers:** Execution method chosen by the owner: inline, with subagents for independent read-only checks. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Reproduce AmpliTube 5's signal architecture in SushiDSP, phase by phase, as the spec's section 11 orders them.
+
+**Architecture:** A stereo rig, output ports on `AudioNode`, channel strips with a bus, the Parallel and DI paths, and a cabinet section in which a room places cabinets and microphones. Acoustics are model-based.
+
+**Tech Stack:** C++17 (foundation, nodes, host), CMake through `sd`, GoogleTest (`sushidsp_tests`), Dear ImGui in the GUI host.
+
+**Spec:** [`SPEC.md`](SPEC.md) in this folder. This plan implements it, and the spec's section 11 is the phase list.
+
+**Scope of this plan.** It gives full task detail for **P0** only. P1 to P6 are listed at phase level below. Each gets its own detailed section when it starts, because each depends on decisions the spec lists in section 12 and on code that P0 to P(n-1) change. Writing their steps now would guess at interfaces that do not exist yet.
+
+**Record of order.** The P0 code change was made before this plan was written. The writing-plans skill asked for the plan first; that was a process miss. The task list below records what was done, what was checked and what is still open.
+
+## Global Constraints
+
+- The spec's section 9: a 256-frame block at 48 kHz is 5.33 ms; `AudioNode::process()` and everything it calls allocate nothing, lock nothing, make no system call and throw nothing.
+- The spec's section 10: golden files for the existing mono products stay bit-identical through P0 to P3.
+- `K_MAX_CHANNELS` stays 2 (spec section 6, item 5).
+- `AudioNode` public change (ports) is P1 and needs its `api-stability` entry at that point.
+- No `sd build` or `sd test` without the owner's permission (memory: ask before building; never kill the running GUI). Syntax checks through `clang++ -fsyntax-only` with the flags of `build/compile_commands.json` are allowed.
+- Every change lands its module README, manual page, changelog line and backlog row in the same commit (`documentation`, `CONTRIBUTING.md`).
+- Commit messages in English; `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>` at the end.
+
+## Review Focus
+
+1. **A device with one output channel.** The rig stays one channel, as before. Pinned by `RigOutputAdaptsToDeviceCoversTheGraphsTable` (`tests/functional/unit/test_channel_selection.cpp`).
+2. **A device with two output channels.** The rig renders two channels; a mono chain reaches both. Pinned by `RigGraphCopiesAMonoProducerIntoAStereoConsumer` (`tests/functional/unit/test_rig_graph.cpp`) and `WriteRigOutputPassesTwoRigChannelsStraightThrough`.
+3. **A device with more than two, or zero, output channels.** Refused at setup with a message, as before. Pinned by `RigOutputAdaptsToDeviceRefusesWidthsWithNoRule`. The example's own refusal path has no unit test (see task 1).
+4. **Left or Right output selection on a stereo rig.** The excluded device channel is silent. Pinned by `WriteRigOutputZeroesTheChannelTheSelectionExcludes`.
+5. **The width choice is duplicated.** `applications/host_asio/main.cpp` and `applications/host_gui/main.cpp` each compute `min(max(1, outputs), K_MAX_CHANNELS)`. Nothing pins the two to each other. A shared rule would need a new public function, which is the owner's decision; see task 3.
+
+## P0: Stereo output on the ASIO example
+
+**Status:** code changed, checked by compiling; not built or run.
+
+### Task 1: Render the ASIO example rig at the device's width
+
+**Files:**
+- Modify: `applications/host_asio/main.cpp`
+- Modify: `applications/host_asio/README.md`
+
+**Interfaces:**
+- Consumes: `RigGraph::K_MAX_CHANNELS`, `rig_output_adapts_to_device`, `write_rig_output_to_device` (`modules/foundation/audio_format/include/SushiDSP/audio_format/channel_selection.hpp`).
+- Produces: nothing for later tasks.
+
+- [x] **Step 1: Choose the rig width from the device.** `rig_channels = min(max(1, actual.output_channels), RigGraph::K_MAX_CHANNELS)`, passed to `PrepareInfo`.
+- [x] **Step 2: Allocate one block per rig channel off the audio thread.** `rig_output` plus two pointer arrays, one mutable and one const, filled once in `main()`.
+- [x] **Step 3: Map the rig output onto the device.** The callback renders into `rig_output_pointers` and calls `write_rig_output_to_device` with `rig_channels`.
+- [x] **Step 4: Update the README** to say the rig is as wide as the device and the buffer is `rig_output`.
+- [x] **Step 5: Syntax-check the file.** Command and output below. No binary was built.
+- [ ] **Step 6: Build and run the example on a stereo ASIO driver.** Needs the owner's permission and a device. Not done.
+
+Syntax check, run from `build/` with the compile command recorded for `applications/host_asio/main.cpp` in `build/compile_commands.json`, with `-fsyntax-only -Wall -Wextra` added:
+
+```
+clang++ -I<the -I paths of that entry> -std=c++17 -Wall -Wextra -fsyntax-only D:/Projects/sushidsp/applications/host_asio/main.cpp
+clang exit=0
+```
+
+### Task 2: Record the closure in the manual and the backlog
+
+**Files:**
+- Modify: `docs/reference/KNOWN_ISSUES.md` (the entry "The ASIO host still renders the rig in mono" is deleted; its own text said it closes by this change)
+- Modify: `docs/design/REMAINING_WORK.md` (the stereo bullet is rewritten to name what is still open)
+- Modify: `docs/reference/CHANGELOG.md` (one line under Unreleased)
+- Modify: `docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md` (P0 row and tests; stereo input moved to P3)
+
+- [x] **Step 1: Delete the closed known issue.**
+- [x] **Step 2: Rewrite the backlog bullet** so it names only the two entries still open.
+- [x] **Step 3: Add the changelog line.**
+- [x] **Step 4: Update the spec's P0 rows and decision table.**
+- [ ] **Step 5: Run the three documentation checkers.** Run before the commit; see the result in the report.
+
+### Task 3: Shared width rule (open, needs the owner's decision)
+
+The width formula sits in two hosts. Moving it into one place would be a small public function (for example on `RigGraph`), a public interface addition. Not started. The owner decides the name and the home.
+
+## P1 to P6: phase level
+
+Each phase starts with its own detailed plan section, written against the code as it stands then.
+
+- **P1 Output ports.** `AudioNode` declares named output ports; `RigGraph::connect` names the producer's port; `compile()` refuses an undeclared port. Public change: `api-stability` entry and changelog `!` marker. Blocked on nothing; starts after P0 is verified.
+- **P2 Channel strips and bus.** `ChannelStripNode` (level, pan, mute, solo, polarity, delay, width) and the bus. `MixerNode` narrowed to summing. Blocked on the spec's open item 5 (room flag location).
+- **P3 Parallel and DI paths.** Stereo input pair through `ChannelSelection`; the Parallel path as two mono chains; the DI path beside the main chain. Blocked on the spec's open item 4 (Loop FX sends are out of P3 unless decided).
+- **P4 Cabinet section.** `MicrophoneNode`, the room environment with sources and receivers, placement by node identity, the 3D scene. Blocked on the spec's open items 1 (benchmark threshold), 2 (tail sharing) and 3 (VIRTM view). Starts with the benchmark, not the code.
+- **P5 Preset format.** Versioned JSON for placements, microphones and strips, with the migration in spec section 8. Blocked on P4.
+- **P6 Mixer view and polish.** Blocked on P2 and P4.
+
+## Open before P0 can close
+
+- Build and run on a stereo ASIO driver (task 1, step 6). Requires the owner's permission and a device.
+- The three documentation checkers (task 2, step 5).
+- The stereo-branch-collapse and 2-into-1 entries remain open in KNOWN_ISSUES; this work does not close them.
