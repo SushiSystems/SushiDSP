@@ -43,6 +43,12 @@ namespace
     /// @brief Names the descriptor of the hidden slot that joins a split's branches.
     constexpr const char* K_MIXER_ID = "sushidsp.mixer";
 
+    /// @brief Names the descriptor of the hidden bus that joins the Parallel chain's two paths.
+    constexpr const char* K_BUS_ID = "sushidsp.bus";
+
+    /// @brief Names the descriptor of the hidden strip that pans a Parallel path to its side.
+    constexpr const char* K_CHANNEL_STRIP_ID = "sushidsp.channel_strip";
+
     /// @brief Reports whether a list holds a slot.
     /// @return True when `slot` appears in `slots`.
     bool holds(const std::vector<ui::SlotId>& slots, ui::SlotId slot)
@@ -78,6 +84,7 @@ void TopologyApplier::apply(RigTopology& topology, RigController& rig)
         place_routing(topology, rig, journal);
         remove_strays(topology, rig, journal);
         connect(topology, rig);
+        bind_inputs(topology, rig);
         rig.publish();
     }
     catch (...)
@@ -115,6 +122,21 @@ void TopologyApplier::switch_chain_type(RigTopology& topology, RigController& ri
 void TopologyApplier::place_routing(const RigTopology& topology, RigController& rig,
                                     Journal& journal)
 {
+    if (topology.chain_type() == ChainType::Parallel)
+    {
+        if (state_.splitter.has_value() && is_live_as(rig, *state_.splitter, K_SPLITTER_ID))
+        {
+            remove_journaled(*state_.splitter, rig, journal);
+        }
+        state_.splitter.reset();
+        state_.left_strip = ensure_slot(state_.left_strip, K_CHANNEL_STRIP_ID, rig, journal);
+        state_.right_strip = ensure_slot(state_.right_strip, K_CHANNEL_STRIP_ID, rig, journal);
+        state_.mixer = ensure_slot(state_.mixer, K_BUS_ID, rig, journal);
+        rig.set_parameter(*state_.left_strip, "pan", -1.0f);
+        rig.set_parameter(*state_.right_strip, "pan", 1.0f);
+        return;
+    }
+
     if (RigTopology::branch_count(topology.chain_type()) > 1)
     {
         state_.splitter = ensure_slot(state_.splitter, K_SPLITTER_ID, rig, journal);
@@ -130,8 +152,18 @@ void TopologyApplier::place_routing(const RigTopology& topology, RigController& 
     {
         remove_journaled(*state_.mixer, rig, journal);
     }
+    if (state_.left_strip.has_value() && is_live_as(rig, *state_.left_strip, K_CHANNEL_STRIP_ID))
+    {
+        remove_journaled(*state_.left_strip, rig, journal);
+    }
+    if (state_.right_strip.has_value() && is_live_as(rig, *state_.right_strip, K_CHANNEL_STRIP_ID))
+    {
+        remove_journaled(*state_.right_strip, rig, journal);
+    }
     state_.splitter.reset();
     state_.mixer.reset();
+    state_.left_strip.reset();
+    state_.right_strip.reset();
 }
 
 void TopologyApplier::remove_strays(const RigTopology& topology, RigController& rig,
@@ -140,7 +172,8 @@ void TopologyApplier::remove_strays(const RigTopology& topology, RigController& 
     const std::vector<SlotId> active = topology.active_slots();
     for (SlotId slot : rig.slot_order())
     {
-        const bool routing = slot == state_.splitter || slot == state_.mixer;
+        const bool routing = slot == state_.splitter || slot == state_.mixer ||
+                             slot == state_.left_strip || slot == state_.right_strip;
         if (!routing && !holds(active, slot))
         {
             remove_journaled(slot, rig, journal);
@@ -151,10 +184,43 @@ void TopologyApplier::remove_strays(const RigTopology& topology, RigController& 
 void TopologyApplier::connect(const RigTopology& topology, RigController& rig) const
 {
     rig.clear_edges(false);
-    for (const auto& [from, to] : topology.edges(state_.splitter, state_.mixer))
+    const auto edges =
+        topology.chain_type() == ChainType::Parallel
+            ? (state_.left_strip && state_.right_strip && state_.mixer
+                   ? topology.parallel_edges(*state_.left_strip, *state_.right_strip, *state_.mixer)
+                   : std::vector<std::pair<SlotId, SlotId>>{})
+            : topology.edges(state_.splitter, state_.mixer);
+    for (const auto& [from, to] : edges)
     {
         rig.connect(from, to, false);
     }
+}
+
+void TopologyApplier::bind_inputs(const RigTopology& topology, RigController& rig) const
+{
+    // Every slot reads channel 0 unless it is a Parallel path's head, so a path left behind by a
+    // chain-type switch does not keep a channel it no longer needs.
+    for (SlotId slot : topology.active_slots())
+    {
+        rig.set_input_channel(slot, 0u, false);
+    }
+    if (state_.left_strip.has_value())
+    {
+        rig.set_input_channel(*state_.left_strip, 0u, false);
+    }
+    if (state_.right_strip.has_value())
+    {
+        rig.set_input_channel(*state_.right_strip, 0u, false);
+    }
+
+    if (topology.chain_type() != ChainType::Parallel || !state_.left_strip || !state_.right_strip)
+    {
+        return;
+    }
+    const std::vector<SlotId> left = topology.stage(StageAddress{StageKind::Branch, 0});
+    const std::vector<SlotId> right = topology.stage(StageAddress{StageKind::Branch, 1});
+    rig.set_input_channel(left.empty() ? *state_.left_strip : left.front(), 0u, false);
+    rig.set_input_channel(right.empty() ? *state_.right_strip : right.front(), 1u, false);
 }
 
 TopologyApplier::SlotId TopologyApplier::ensure_slot(std::optional<SlotId> slot,

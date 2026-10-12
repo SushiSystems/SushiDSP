@@ -145,6 +145,13 @@ class RigController
         /// dropped_parameter_changes() is incremented; the call never blocks.
         void set_parameter(SlotId slot, const char* param_id, float value);
 
+        /// @brief Chooses the host input channel a slot reads when it is a root of the graph. Publishes
+        /// when publish_now is true; otherwise the next publish() picks it up.
+        /// @param slot The slot to bind.
+        /// @param channel The host input channel, below RigGraph::K_MAX_CHANNELS.
+        /// @param publish_now Publishes the graph when true.
+        void set_input_channel(SlotId slot, std::uint32_t channel, bool publish_now = true);
+
         /// @brief Reads the stored value for a parameter on `slot`.
         float get_parameter(SlotId slot, const char* param_id) const;
 

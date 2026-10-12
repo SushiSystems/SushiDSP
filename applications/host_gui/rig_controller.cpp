@@ -95,6 +95,11 @@ void RigController::set_parameter(SlotId slot, const char* param_id, float value
     graph_.set_parameter(slot, param_id, value);
 }
 
+void RigController::set_input_channel(SlotId slot, std::uint32_t channel, bool publish_now)
+{
+    graph_.set_input_channel(slot, channel, publish_now);
+}
+
 float RigController::get_parameter(SlotId slot, const char* param_id) const
 {
     return graph_.get_parameter(slot, param_id);

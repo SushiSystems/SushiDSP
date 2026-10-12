@@ -26,6 +26,7 @@
 
 #include "rig_topology.hpp"
 
+#include <array>
 #include <algorithm>
 
 namespace
@@ -65,6 +66,8 @@ std::size_t RigTopology::branch_count(ChainType type) noexcept
         return 2;
     case ChainType::ThreeWay:
         return 3;
+    case ChainType::Parallel:
+        return 2;
     }
     return 1;
 }
@@ -290,6 +293,37 @@ RigTopology::edges(std::optional<SlotId> splitter, std::optional<SlotId> mixer) 
     if (!post_.empty() && mixer.has_value())
     {
         push_unique(result, {*mixer, post_.front()});
+    }
+    push_chain(result, post_);
+
+    return result;
+}
+
+std::vector<std::pair<RigTopology::SlotId, RigTopology::SlotId>>
+RigTopology::parallel_edges(SlotId left_strip, SlotId right_strip, SlotId bus) const
+{
+    std::vector<std::pair<SlotId, SlotId>> result;
+    if (branches_.size() != 2)
+    {
+        return result;
+    }
+
+    // An empty path feeds its strip directly; the applier binds that strip to its input channel.
+    const std::array<SlotId, 2> strips = {left_strip, right_strip};
+    for (std::size_t side = 0; side < 2; ++side)
+    {
+        const std::vector<SlotId>& path = branches_[side];
+        if (!path.empty())
+        {
+            push_chain(result, path);
+            push_unique(result, {path.back(), strips[side]});
+        }
+        push_unique(result, {strips[side], bus});
+    }
+
+    if (!post_.empty())
+    {
+        push_unique(result, {bus, post_.front()});
     }
     push_chain(result, post_);
 

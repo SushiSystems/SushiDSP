@@ -65,8 +65,9 @@ namespace ui
         constexpr float K_CARET_HEIGHT = 34.0f;
         constexpr float K_BADGE_RADIUS = 8.0f;
 
-        constexpr std::array<ChainType, 3> K_CHAIN_TYPES = {ChainType::Single, ChainType::TwoWay,
-                                                            ChainType::ThreeWay};
+        constexpr std::array<ChainType, 4> K_CHAIN_TYPES = {ChainType::Single, ChainType::TwoWay,
+                                                            ChainType::ThreeWay,
+                                                            ChainType::Parallel};
 
         /// @brief Pairs a stage's address with the geometry layout_split gave it.
         struct StageView
@@ -130,6 +131,10 @@ namespace ui
                 draw->AddLine(at(3.0f, 12.0f), at(21.0f, 12.0f), color, K_ICON_THICKNESS);
                 branch(7.0f, 5.0f);
                 branch(7.0f, 19.0f);
+                break;
+            case ChainType::Parallel:
+                branch(8.0f, 7.0f);
+                branch(8.0f, 17.0f);
                 break;
             }
         }

@@ -133,6 +133,12 @@ class SlotGraph
         /// unchanged and the previous graph keeps playing.
         void set_bypassed(SlotId slot, bool bypassed);
 
+        /// @brief Chooses the host input channel a slot reads when the graph roots it.
+        /// @param slot The slot; an unknown slot is a no-op.
+        /// @param channel The host input channel, below RigGraph::K_MAX_CHANNELS.
+        /// @param publish_now Publishes the graph when true.
+        void set_input_channel(SlotId slot, std::uint32_t channel, bool publish_now = true);
+
         /// @brief Reports whether a slot is bypassed.
         /// @param slot The slot.
         /// @return True when the slot is live and bypassed.
@@ -327,6 +333,9 @@ class SlotGraph
                 std::string cabinet_path;
                 bool bypassed = false;
                 bool hosts_cabinet = false;
+
+                /// @brief Holds the host input channel the slot reads when it is a root of the graph.
+                std::uint32_t input_channel = 0;
 
                 /// @brief Records that the node this slot last published implements RoomHost.
                 bool hosts_room = false;

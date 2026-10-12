@@ -43,7 +43,8 @@ enum class ChainType : std::uint8_t
 {
     Single,
     TwoWay,
-    ThreeWay
+    ThreeWay,
+    Parallel
 };
 
 /// @brief Which stage list a slot address names.
@@ -140,6 +141,19 @@ class RigTopology
         /// @brief Lists every slot the active chain type routes, in signal order.
         /// @return Each path's slots in path order, then the master bus's.
         std::vector<SlotId> active_slots() const;
+
+        /// @brief Builds the edge list the active chain type compiles to.
+        /// @param splitter The splitter slot; required while more than one path is open.
+        /// @param mixer The mixer slot; required while more than one path is open.
+        /// @return The edges, first occurrence kept when a slot repeats an edge.
+        /// @brief Builds the edge list of the Parallel chain: two mono paths, each panned to its side
+        /// by a channel strip, joined by the bus.
+        /// @param left_strip The strip the left path ends in; required while the Parallel type is active.
+        /// @param right_strip The strip the right path ends in; required while the Parallel type is active.
+        /// @param bus The bus slot the two strips join; required while the Parallel type is active.
+        /// @return The edges, first occurrence kept when a slot repeats an edge.
+        std::vector<std::pair<SlotId, SlotId>> parallel_edges(SlotId left_strip, SlotId right_strip,
+                                                              SlotId bus) const;
 
         /// @brief Builds the edge list the active chain type compiles to.
         /// @param splitter The splitter slot; required while more than one path is open.

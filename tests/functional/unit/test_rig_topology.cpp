@@ -190,3 +190,22 @@ TEST(Unit_Dsp, RigTopologyReplaceRenamesASlotInPlace)
     EXPECT_EQ(topology.find(5), std::nullopt);
     EXPECT_FALSE(topology.replace(5, 66));
 }
+
+TEST(Unit_Dsp, ParallelChainJoinsEachPathThroughItsStripAndTheBus)
+{
+    RigTopology topology;
+    topology.set_chain_type(ChainType::Parallel);
+    topology.insert(StageAddress{StageKind::Branch, 0}, 0, 10);
+    topology.insert(StageAddress{StageKind::Branch, 1}, 0, 11);
+
+    const auto edges = topology.parallel_edges(900, 901, 902);
+
+    const std::vector<std::pair<RigTopology::SlotId, RigTopology::SlotId>> expected{
+        {10, 900}, {900, 902}, {11, 901}, {901, 902}};
+    EXPECT_EQ(edges, expected);
+}
+
+TEST(Unit_Dsp, ParallelChainHasTwoPaths)
+{
+    EXPECT_EQ(RigTopology::branch_count(ChainType::Parallel), 2u);
+}
