@@ -83,6 +83,12 @@ The width formula sits in two hosts. Moving it into one place would be a small p
 Each phase starts with its own detailed plan section, written against the code as it stands then.
 
 - **P1 Output ports.** `AudioNode` declares named output ports; `RigGraph::connect` names the producer's port; `compile()` refuses an undeclared port. Public change: `api-stability` entry and changelog `!` marker. Blocked on nothing; starts after P0 is verified.
+
+  **P1 interface shape, pending the owner's choice.** Two shapes meet the approved concept:
+  - **A (recommended):** `AudioNode` gains `virtual std::uint32_t output_ports() const` (default 1) and `virtual std::uint32_t output_port_channels(std::uint32_t port) const` (default: `ports().output_channels`). `ProcessContext` gains a trailing member `float* const* const* port_outputs = nullptr`, where `port_outputs[0]` is `outputs`. Existing aggregate initialisers keep compiling. `RigGraph::connect(from, to, from_port = 0)` and an `Edge::from_port` field. `disconnect(from, to)` removes every edge between the pair.
+  - **B:** keep `ProcessContext` unchanged and add a virtual `process_ports(PortContext&)` whose default forwards to `process()`. No change to the 122 construction sites, but a second process entry point that every multi-port node must implement.
+
+  Both change `AudioNode` or `RigGraph` public surfaces. The choice of shape is the owner's; the plan above does not start until it is made.
 - **P2 Channel strips and bus.** `ChannelStripNode` (level, pan, mute, solo, polarity, delay, width) and the bus. `MixerNode` narrowed to summing. Blocked on the spec's open item 5 (room flag location).
 - **P3 Parallel and DI paths.** Stereo input pair through `ChannelSelection`; the Parallel path as two mono chains; the DI path beside the main chain. Blocked on the spec's open item 4 (Loop FX sends are out of P3 unless decided).
 - **P4 Cabinet section.** `MicrophoneNode`, the room environment with sources and receivers, placement by node identity, the 3D scene. Blocked on the spec's open items 1 (benchmark threshold), 2 (tail sharing) and 3 (VIRTM view). Starts with the benchmark, not the code.
