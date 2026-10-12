@@ -38,6 +38,7 @@ Each row is an owner decision, recorded with its date.
 | --- | --- | --- |
 | Copy AmpliTube 5 directly; modify after the copy works | 2026-10-13 | No design choice is made to differ from AmpliTube 5 without a later task. |
 | Include a stereo rig | 2026-10-13 | The backlog item "Render the rig in stereo on the ASIO host" becomes phase P0. |
+| Stereo input moves from P0 to P3 | 2026-10-13 | Only the Parallel path takes a stereo input, so the stereo input pair is built with it. P0 covers stereo output, which the example needed. The GUI host already prepares its rig at the device width. |
 | Microphones are separate rig elements | 2026-10-13 | A microphone node exists; a cabinet does not own microphones. |
 | The room owns placement | 2026-10-13 | Positions of cabinets, microphones and the listener live in the room, keyed by the rig node's identity. Gear nodes carry gear data only. |
 | Acoustics are model-based | 2026-10-13 | Microphone position changes distance, proximity and directivity. It does not change speaker-specific timbre, because no measured per-position impulse responses exist. |
@@ -157,8 +158,10 @@ phase and in the changelog entry that lands it.
 
 Each phase has its own tests before it lands:
 
-- P0: a stereo device pair maps to the rig input; a stereo rig renders the
-  same bits as before for a mono rig on the left channel.
+- P0: a mono chain on a two-channel rig renders the same samples on both
+  outputs (`RigGraphCopiesAMonoProducerIntoAStereoConsumer`, existing). The
+  ASIO example has no unit test; its change is checked by compiling it.
+  Stereo input moved to P3, see section 3.
 - P1: ports default to port 0; an edge on port 1 routes port 1's samples;
   `compile()` refuses an edge to a port the node does not declare. Golden files
   for every existing product stay bit-identical.
@@ -184,7 +187,7 @@ lands with its changelog line and its manual pages, as `documentation` requires.
 
 | Phase | Content | Acceptance |
 | --- | --- | --- |
-| P0 | Stereo rig on the ASIO host | A stereo input pair reaches the rig; the stereo output path is tested |
+| P0 | Stereo output on the ASIO example | The example's rig is as wide as the device; the test in section 10 passes |
 | P1 | Output ports on `AudioNode` and `RigGraph` | Section 10, P1 tests; goldens bit-identical |
 | P2 | Channel strip and bus, mixer split | Section 10, P2 tests; mixer panel shows the strips |
 | P3 | Parallel path and DI path | Section 10, P3 tests; path builder covers all four types |
