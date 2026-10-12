@@ -111,3 +111,16 @@ TEST(Unit_Dsp, RoomLayoutPairSceneCarriesBothPoses)
     EXPECT_DOUBLE_EQ(scene.source_position.x, 1.5);
     EXPECT_DOUBLE_EQ(scene.microphone_position.x, 2.5);
 }
+
+TEST(Unit_Dsp, RoomLayoutRestoredMicrophonesKeepTheirIdsAndTheNextIdClearsThem)
+{
+    RoomLayout layout;
+    std::string reason;
+    MicrophoneSpot spot;
+    spot.id = 5;
+
+    EXPECT_TRUE(layout.restore_microphone(spot, reason));
+    EXPECT_FALSE(layout.restore_microphone(spot, reason));
+    EXPECT_NE(layout.add_microphone(MicrophoneSpot{}, reason), 5u);
+    EXPECT_NE(layout.find_microphone(5), nullptr);
+}

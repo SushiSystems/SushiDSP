@@ -27,6 +27,8 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
+#include <map>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -62,6 +64,22 @@ class TopologyApplier
         /// @throws std::runtime_error when the rewired graph does not compile; everything is rolled
         /// back first.
         void set_di(RigTopology& topology, RigController& rig, bool enabled);
+
+        /// @brief The hidden slots the mixer shows: the room's strips and bus, the DI strip and the master
+        /// bus, and one microphone slot per layout microphone. Empty members mean the slot is not built.
+        struct MixerSlots
+        {
+                std::optional<ui::SlotId> room_left;   ///< The listener's left-ear strip.
+                std::optional<ui::SlotId> room_right;  ///< The listener's right-ear strip.
+                std::optional<ui::SlotId> room_bus;    ///< The bus that joins the room's outputs.
+                std::optional<ui::SlotId> di_strip;    ///< The DI strip, while DI is open.
+                std::optional<ui::SlotId> master_bus;  ///< The master bus, while DI is open.
+                std::map<std::uint32_t, ui::SlotId> microphones; ///< Microphone slots by layout id.
+        };
+
+        /// @brief Reads the hidden slots the mixer shows.
+        /// @return The slots as the last apply left them.
+        MixerSlots mixer_slots() const;
 
         /// @brief Opens or closes the cabinet section and rewires the rig to match, in one step.
         /// @param topology The model to change.
