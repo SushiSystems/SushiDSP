@@ -437,8 +437,7 @@ TEST(Unit_Dsp, RigGraphCompileRefusesABindingBeyondTheHostChannels)
 
 TEST(Unit_Dsp, RigGraphRoutesEveryPortOfANodeThatDeclaresTheLimit)
 {
-    // Nine ports feed nine recorders. The recorders join in two steps, because one node takes at
-    // most K_MAX_FAN_IN_OUT inputs.
+    // The recorders join in two steps, because one node takes at most K_MAX_FAN_IN_OUT inputs.
     const std::uint32_t ports = SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS;
     SushiDSP::RigGraph graph(256, 64);
     const auto source = graph.add_node(std::make_unique<EveryPortSourceNode>());
