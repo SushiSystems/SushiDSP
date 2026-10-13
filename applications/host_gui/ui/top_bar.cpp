@@ -84,115 +84,41 @@ namespace ui
     } // namespace
 
     void DrawTopBar(Session* session, bool connected, const std::string& device_label,
-                    bool& open_device_settings, std::string& status, bool& rig_replaced,
-                    SessionBounce& bounce, const std::string& hrtf_path)
+                    bool& open_device_settings, std::string& status, bool& rig_replaced)
     {
         static char preset_path[256] = "preset.json";
-        static char export_path[256] = "mix.wav";
-        static int export_format = 0;
 
         rig_replaced = false;
 
         const float window_width = ImGui::GetWindowWidth();
 
-        std::string finished;
-        if (bounce.take_result(finished))
-        {
-            status = finished.empty() ? std::string("Exported ") + export_path
-                                      : "Export failed: " + finished;
-        }
-
-        // Left column: preset path, Save, Load and the last status; see applications/host_gui/ui/README.md.
+        // Left column: the rig's preset path, Save, Load and the last status.
         if (session != nullptr)
         {
-            ImGui::SetNextItemWidth(220.0f);
+            ImGui::SetNextItemWidth(280.0f);
             ImGui::InputText("##preset_path", preset_path, sizeof(preset_path));
             ImGui::SameLine();
 
+            std::string refusal;
             if (ImGui::Button("Save"))
             {
-                try
-                {
-                    // The session is serialized before the file is opened, which truncates it.
-                    const std::string json_text = session_to_json(*session);
-                    std::string refusal;
-                    status = write_text_file(preset_path, json_text, refusal)
-                                 ? std::string("Saved ") + preset_path
-                                 : "Save failed: " + refusal;
-                }
-                catch (const std::exception& error)
-                {
-                    status = std::string("Save failed: ") + error.what();
-                }
+                status = save_track_rig(*session, session->selected(), preset_path, refusal)
+                             ? std::string("Saved the rig to ") + preset_path
+                             : "Save failed: " + refusal;
             }
             ImGui::SameLine();
 
             if (ImGui::Button("Load"))
             {
-                try
+                if (load_track_rig(*session, session->selected(), preset_path, refusal))
                 {
-                    std::string json_text;
-                    std::string refusal;
-                    if (!read_text_file(preset_path, json_text, refusal))
-                    {
-                        throw std::runtime_error(refusal);
-                    }
-                    session_from_json(*session, json_text);
                     rig_replaced = true;
-                    status = std::string("Loaded ") + preset_path;
+                    status = std::string("Loaded the rig from ") + preset_path;
                 }
-                catch (const std::exception& error)
+                else
                 {
-                    status = std::string("Load failed: ") + error.what();
+                    status = "Load failed: " + refusal;
                 }
-            }
-            ImGui::SameLine();
-
-            if (bounce.running())
-            {
-                ImGui::ProgressBar(bounce.progress(), ImVec2(110.0f, 0.0f), "Exporting");
-            }
-            else if (ImGui::Button("Export"))
-            {
-                ImGui::OpenPopup("export_mix");
-            }
-            if (ImGui::BeginPopup("export_mix"))
-            {
-                ImGui::TextUnformatted("Export the mix of every track");
-                ImGui::SetNextItemWidth(280.0f);
-                ImGui::InputText("file", export_path, sizeof(export_path));
-                ImGui::SetNextItemWidth(280.0f);
-                ImGui::Combo("format", &export_format,
-                             "WAV, 16-bit\0WAV, 32-bit float\0MP3, 320 kbit/s\0MP3, 192 kbit/s\0");
-                if (ImGui::Button("Export"))
-                {
-                    try
-                    {
-                        BounceRequest request;
-                        request.session_json = session_to_json(*session);
-                        request.path = export_path;
-                        request.hrtf_path = hrtf_path;
-                        request.info = session->info();
-                        request.format = export_format == 0   ? BounceFormat::Wav16
-                                         : export_format == 1 ? BounceFormat::Wav32Float
-                                                              : BounceFormat::Mp3;
-                        request.mp3_kilobits_per_second = export_format == 3 ? 192 : 320;
-                        status = bounce.start(std::move(request))
-                                     ? std::string("Exporting ") + export_path
-                                     : std::string("An export is already running.");
-                    }
-                    catch (const std::exception& error)
-                    {
-                        status = std::string("Export failed: ") + error.what();
-                    }
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Cancel"))
-                {
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::EndPopup();
             }
 
             if (!status.empty())

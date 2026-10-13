@@ -29,6 +29,7 @@
 
 #include "session_file.hpp"
 
+#include <utility>
 #include <exception>
 #include <algorithm>
 #include <array>
@@ -229,71 +230,135 @@ namespace ui
             }
         }
 
-        /// @brief Draws the popup a track's rig button opens: the rig's preset file and the
-        /// track's own file, each loaded and saved by path.
-        void draw_track_files(Session& session, std::size_t index, std::string& error_out)
+        /// @brief Draws the project row: the project's path with New, Open and Save, and the
+        /// export of the mix with its file and format.
+        /// @param status In/out: the last refusal or the last thing done.
+        void draw_project_row(Session& session, SessionBounce& bounce,
+                              const std::string& hrtf_path, std::string& status)
         {
-            static char rig_path[256] = "rig.json";
-            static char track_path[256] = "track.sdtrack";
-            if (!ImGui::BeginPopup("track_files"))
+            static char project_path[256] = "project.sdproject";
+            static char export_path[256] = "mix.wav";
+            static int export_format = 0;
+
+            std::string finished;
+            if (bounce.take_result(finished))
             {
-                return;
+                status = finished.empty() ? std::string("Exported ") + export_path
+                                          : "Export failed: " + finished;
             }
-            ImGui::TextUnformatted("This track's rig");
-            ImGui::SetNextItemWidth(260.0f);
-            ImGui::InputText("##rig_path", rig_path, sizeof(rig_path));
-            if (ImGui::Button("Load rig"))
+
+            ImGui::TextUnformatted("Project");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(240.0f);
+            ImGui::InputText("##project_path", project_path, sizeof(project_path));
+            ImGui::SameLine();
+            if (ImGui::Button("New"))
             {
-                if (load_track_rig(session, index, rig_path, error_out))
+                ImGui::OpenPopup("new_project");
+            }
+            if (ImGui::BeginPopup("new_project"))
+            {
+                ImGui::TextUnformatted("Start a new project? What is not saved is lost.");
+                if (ImGui::Button("Start new"))
                 {
-                    error_out.clear();
-                    session.select(index);
+                    new_project(session);
+                    status.clear();
+                    ImGui::CloseCurrentPopup();
                 }
-                ImGui::CloseCurrentPopup();
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel"))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Save rig"))
-            {
-                if (save_track_rig(session, index, rig_path, error_out))
-                {
-                    error_out.clear();
-                }
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::Separator();
-            ImGui::TextUnformatted("The whole track: rig, strip and clips");
-            ImGui::SetNextItemWidth(260.0f);
-            ImGui::InputText("##track_path", track_path, sizeof(track_path));
-            if (ImGui::Button("Save track"))
+            if (ImGui::Button("Open"))
             {
                 try
                 {
-                    if (write_text_file(track_path, track_to_json(session, index), error_out))
+                    std::string text;
+                    if (read_text_file(project_path, text, status))
                     {
-                        error_out.clear();
+                        session_from_json(session, text);
+                        status = std::string("Opened ") + project_path;
                     }
                 }
                 catch (const std::exception& refusal)
                 {
-                    error_out = refusal.what();
+                    status = std::string("Open failed: ") + refusal.what();
                 }
-                ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Load as a new track"))
+            if (ImGui::Button("Save"))
             {
-                std::string text;
-                if (read_text_file(track_path, text, error_out))
+                try
                 {
-                    track_from_json(session, text, error_out);
+                    // The project is serialized before the file is opened, which truncates it.
+                    const std::string text = session_to_json(session);
+                    if (write_text_file(project_path, text, status))
+                    {
+                        status = std::string("Saved ") + project_path;
+                    }
                 }
-                ImGui::CloseCurrentPopup();
+                catch (const std::exception& refusal)
+                {
+                    status = std::string("Save failed: ") + refusal.what();
+                }
             }
-            ImGui::EndPopup();
+
+            ImGui::SameLine(0.0f, 24.0f);
+            if (bounce.running())
+            {
+                ImGui::ProgressBar(bounce.progress(), ImVec2(140.0f, 0.0f), "Exporting");
+                return;
+            }
+            if (ImGui::Button("Export"))
+            {
+                ImGui::OpenPopup("export_mix");
+            }
+            if (ImGui::BeginPopup("export_mix"))
+            {
+                ImGui::TextUnformatted("Export the mix of every track");
+                ImGui::SetNextItemWidth(280.0f);
+                ImGui::InputText("file", export_path, sizeof(export_path));
+                ImGui::SetNextItemWidth(280.0f);
+                ImGui::Combo("format", &export_format,
+                             "WAV, 16-bit\0WAV, 32-bit float\0MP3, 320 kbit/s\0MP3, 192 kbit/s\0");
+                if (ImGui::Button("Export"))
+                {
+                    try
+                    {
+                        BounceRequest request;
+                        request.session_json = session_to_json(session);
+                        request.path = export_path;
+                        request.hrtf_path = hrtf_path;
+                        request.info = session.info();
+                        request.format = export_format == 0   ? BounceFormat::Wav16
+                                         : export_format == 1 ? BounceFormat::Wav32Float
+                                                              : BounceFormat::Mp3;
+                        request.mp3_kilobits_per_second = export_format == 3 ? 192 : 320;
+                        status = bounce.start(std::move(request))
+                                     ? std::string("Exporting ") + export_path
+                                     : std::string("An export is already running.");
+                    }
+                    catch (const std::exception& refusal)
+                    {
+                        status = std::string("Export failed: ") + refusal.what();
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel"))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
         }
 
-        /// @brief Draws one track's header: the name, the rig button that selects the track and
-        /// opens its files, the rig bypass, the level, the arm, mute and solo buttons and the pan.
+        /// @brief Draws one track's header: the name, the rig button that selects the track, the
+        /// rig bypass, the level, the arm, mute and solo buttons and the pan.
         /// @param session The session whose track the header drives.
         /// @param index The track.
         /// @param origin The strip's top-left in screen pixels.
@@ -376,16 +441,15 @@ namespace ui
             if (ImGui::Button("rig"))
             {
                 session.select(index);
-                ImGui::OpenPopup("track_files");
             }
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
             {
                 const std::string& preset = session.preset_path(index);
-                ImGui::SetTooltip("Select this track and open its rig and track files.\n%s",
+                ImGui::SetTooltip("Select this track: the rig view shows its rig, and the preset "
+                                  "in the top bar saves and loads it.\n%s",
                                   preset.empty() ? "No preset loaded." : preset.c_str());
             }
-            draw_track_files(session, index, error_out);
 
             ImGui::SameLine(0.0f, 4.0f);
             ImGui::PushStyleColor(ImGuiCol_Button, to_imvec4(strip.rig_bypassed ? rgba(120, 120, 130)
@@ -606,7 +670,8 @@ namespace ui
     void DrawArrangementView(Session& session, TimelineScale& scale, SnapMode& snap,
                              SushiDSP::host::AudioImportQueue& imports,
                              std::string& arrangement_error, LaneGeometry& geometry_out,
-                             float& header_width)
+                             float& header_width, SessionBounce& bounce,
+                             const std::string& hrtf_path)
     {
         static std::array<std::array<char, K_NAME_CAPACITY>, K_LANE_COUNT> names{};
         static ClipDrag drag;
@@ -615,6 +680,7 @@ namespace ui
         // Every track's rig forwards to the one timeline, so the selected one stands for it.
         RigController& rig = session.selected_rig();
 
+        draw_project_row(session, bounce, hrtf_path, arrangement_error);
         draw_toolbar(rig, scale, snap);
 
         const SushiDSP::MusicalClock& clock = rig.musical_clock();

@@ -35,24 +35,25 @@
 #include "audio_import_queue.hpp"
 #include "rig_controller.hpp"
 #include "session.hpp"
+#include "session_bounce.hpp"
 
 #include "ui/arrangement_layout.hpp"
 #include "ui/timeline_scale.hpp"
 
 namespace ui
 {
-    /// @brief Draws the bar ruler, the playhead, the track headers and each track's clip canvas;
-    /// a header selects its track, bypasses its rig, opens its files and holds its strip.
+    /// @brief Draws the project row, the bar ruler, the playhead, the track headers and each
+    /// track's clip canvas; applications/host_gui/ui/README.md describes each parameter.
     /// @param session The session whose tracks are drawn and edited.
-    /// @param scale In/out: the zoom and the scroll every lane and the ruler share.
-    /// @param snap In/out: what a dropped or dragged clip's frame is rounded to.
     /// @param arrangement_error In/out: the last refusal, shown until an action succeeds.
+    /// @param bounce The export; started here and polled every frame.
+    /// @param hrtf_path The HRTF set an export's rooms read; empty for none.
     /// @pre Called on the control thread.
-    /// @see applications/host_gui/ui/README.md
     void DrawArrangementView(Session& session, TimelineScale& scale, SnapMode& snap,
                              SushiDSP::host::AudioImportQueue& imports,
                              std::string& arrangement_error, LaneGeometry& geometry_out,
-                             float& header_width);
+                             float& header_width, SessionBounce& bounce,
+                             const std::string& hrtf_path);
 
     /// @brief Places a file on a lane as a clip beginning at the frame a canvas position names.
     /// @param path The file to load; one the tree cannot read is queued for decoding instead.

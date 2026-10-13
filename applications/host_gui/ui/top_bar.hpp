@@ -30,18 +30,16 @@
 #include <string>
 
 #include "session.hpp"
-#include "session_bounce.hpp"
 
 namespace ui
 {
-    /// @brief Draws the top bar: the session's Save and Load, the Export list, the brand mark
-    /// and the device group; applications/host_gui/ui/README.md describes each parameter.
-    /// @param session The session; null draws the disconnected left group.
-    /// @param status Out: describes the last Save, Load or Export.
+    /// @brief Draws the top bar: the rig's preset path with Save and Load, the brand mark and
+    /// the device group. The preset is the selected track's rig, alone.
+    /// @param session The session whose selected rig is saved and loaded; null draws the
+    /// disconnected left group.
+    /// @param status Out: describes the last Save or Load, empty when neither has run.
     /// @param rig_replaced Out: true on the frame a Load succeeded; drop every held SlotId then.
-    /// @param bounce The export; started here and polled every frame.
-    /// @param hrtf_path The HRTF set an export's rooms read; empty for none.
+    /// @see applications/host_gui/ui/README.md
     void DrawTopBar(Session* session, bool connected, const std::string& device_label,
-                    bool& open_device_settings, std::string& status, bool& rig_replaced,
-                    SessionBounce& bounce, const std::string& hrtf_path);
+                    bool& open_device_settings, std::string& status, bool& rig_replaced);
 } // namespace ui

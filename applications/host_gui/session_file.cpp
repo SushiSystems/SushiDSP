@@ -21,7 +21,7 @@
 
 /**
  *  @file session_file.cpp
- *  @brief Implements the session document, the track document and a track's rig preset file.
+ *  @brief Implements the project document and a track's rig preset file.
  *  @author Mustafa Garip & Sushi Systems
  */
 
@@ -38,12 +38,6 @@
 
 namespace
 {
-    /// @brief Holds the format number a track document is written with.
-    constexpr int K_TRACK_FORMAT = 1;
-
-    /// @brief Names what a track document is, so another JSON file is not taken for one.
-    constexpr const char* K_TRACK_KIND = "sushidsp.track";
-
     /// @brief Writes a strip as a JSON object.
     nlohmann::json strip_to_json(const TrackStrip& strip)
     {
@@ -145,103 +139,21 @@ void session_from_json(Session& session, const std::string& json_text)
     session.touch_rigs();
 }
 
-std::string track_to_json(const Session& session, std::size_t index)
+void new_project(Session& session)
 {
-    const SessionTimeline& timeline = session.timeline();
-    nlohmann::json document = nlohmann::json::object();
-    document["kind"] = K_TRACK_KIND;
-    document["format"] = K_TRACK_FORMAT;
-    document["name"] = timeline.track_name(index);
-    document["color"] = timeline.track_color(index);
-    document["strip"] = strip_to_json(session.strip(index));
-    document["preset_path"] = session.preset_path(index);
-    document["rig"] = nlohmann::json::parse(session.rig(index).save_rig_to_json());
-
-    nlohmann::json clips = nlohmann::json::array();
-    for (std::size_t clip = 0; clip < timeline.clip_count(index); ++clip)
+    std::string ignored;
+    while (session.track_count() > 1)
     {
-        const SessionTimeline::ClipPlacement placement = timeline.clip(index, clip);
-        nlohmann::json row = nlohmann::json::object();
-        row["path"] = placement.path;
-        row["start_frame"] = placement.start_frame;
-        row["take_offset"] = placement.take_offset;
-        row["length_frames"] = placement.length_frames;
-        clips.push_back(row);
+        session.remove_track(session.track_count() - 1, false, ignored);
     }
-    document["clips"] = clips;
-    return document.dump(2);
-}
-
-bool track_from_json(Session& session, const std::string& json_text, std::string& error_out)
-{
-    nlohmann::json document;
-    std::vector<SessionTimeline::ClipPlacement> clips;
-    try
-    {
-        document = nlohmann::json::parse(json_text);
-        if (document.value("kind", std::string()) != K_TRACK_KIND)
-        {
-            error_out = "The file is not a SushiDSP track.";
-            return false;
-        }
-        if (document.value("format", 0) > K_TRACK_FORMAT)
-        {
-            error_out = "The track file is newer than this build reads.";
-            return false;
-        }
-        for (const nlohmann::json& row : document.value("clips", nlohmann::json::array()))
-        {
-            SessionTimeline::ClipPlacement placement;
-            placement.path = row.at("path").get<std::string>();
-            placement.start_frame = row.value("start_frame", std::uint64_t{0});
-            placement.take_offset = row.value("take_offset", std::uint64_t{0});
-            placement.length_frames = row.value("length_frames", std::uint64_t{0});
-            clips.push_back(placement);
-        }
-    }
-    catch (const std::exception& refusal)
-    {
-        error_out = refusal.what();
-        return false;
-    }
-
-    if (!session.add_track(error_out))
-    {
-        return false;
-    }
-    const std::size_t index = session.track_count() - 1;
     SessionTimeline& timeline = session.timeline();
-    try
-    {
-        if (document.contains("rig"))
-        {
-            session.rig(index).load_rig_from_json(document.at("rig").dump());
-        }
-    }
-    catch (const std::exception& refusal)
-    {
-        std::string ignored;
-        session.remove_track(index, false, ignored);
-        error_out = refusal.what();
-        return false;
-    }
-    timeline.set_track_name(index, document.value("name", timeline.track_name(index)));
-    if (document.contains("color"))
-    {
-        timeline.set_track_color(index, document.at("color").get<SessionTimeline::TrackColor>());
-    }
-    session.set_strip(index, document.contains("strip") ? strip_from_json(document.at("strip"))
-                                                         : TrackStrip());
-    session.set_preset_path(index, document.value("preset_path", std::string()));
-    session.select(index);
+    timeline.clear_track(0);
+    timeline.set_track_name(0, SessionTimeline::default_track_name(0));
+    session.rig(0).load_rig_from_json(R"({"nodes":[]})");
+    session.set_strip(0, TrackStrip());
+    session.set_preset_path(0, std::string());
+    session.select(0);
     session.touch_rigs();
-    // The track stands even when a clip's file is gone; the reason is handed back.
-    error_out.clear();
-    if (!clips.empty())
-    {
-        timeline.publish_lane(index, clips, error_out);
-    }
-    return true;
 }
 
 bool load_track_rig(Session& session, std::size_t index, const std::string& path,

@@ -143,3 +143,15 @@ CLAP 1.2.2 is MIT, header-only, fetched by tag, private to the plugin target.
 - The re-amp leg and the input-source choice are not removed from the timeline in this work;
   the host stops using them.
 - Eight rigs cost eight times one. Nothing here makes a rig cheaper.
+
+## 6. Corrected by the owner, 2026-10-13
+
+Section 4.4 read "save a track" as a file for one track. The owner meant two other things, and
+the tree now follows them:
+
+- **A rig is saved as a preset from the top bar**, as AmpliTube 5's Save Preset saves the
+  current setup. The top bar's path, Save and Load act on the selected track's rig alone.
+- **The work in the mini-DAW is saved as a project**, as AmpliTube 5's File menu does. The
+  mini-DAW has a project row with New, Open and Save for the whole session, and the export.
+
+The track file, `.sdtrack`, and the popup on a track's rig button are removed.

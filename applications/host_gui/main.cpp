@@ -559,7 +559,7 @@ int main(int argc, char** argv)
             bool rig_replaced = false;
             ui::DrawTopBar(session_storage.has_value() ? &*session_storage : nullptr,
                            session_storage.has_value(), device_label, open_device_settings,
-                           status, rig_replaced, session_bounce, default_hrtf_path);
+                           status, rig_replaced);
             if (rig_replaced && session_storage.has_value())
             {
                 // A load numbers the new rig's slots from zero, so nothing may carry across.
@@ -600,7 +600,8 @@ int main(int argc, char** argv)
             {
                 ui::DrawArrangementView(*session_storage, timeline_scale, snap_mode,
                                         audio_imports, arrangement_error, lane_geometry,
-                                        arrangement_header_width);
+                                        arrangement_header_width,
+                                        session_bounce, default_hrtf_path);
             }
             ImGui::End();
         }
