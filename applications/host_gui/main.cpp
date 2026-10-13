@@ -292,7 +292,7 @@ int main(int argc, char** argv)
     ui::TimelineScale timeline_scale;
     ui::SnapMode snap_mode = ui::SnapMode::Bar;
     ui::LaneGeometry lane_geometry;
-    float arrangement_header_width = 196.0f;
+    float arrangement_header_width = 260.0f;
 
     // Pane sizes the dividers drag; each is re-fitted to the window every frame.
     float bottom_bar_height = 96.0f;

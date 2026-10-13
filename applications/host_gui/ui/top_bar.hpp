@@ -35,17 +35,12 @@
 namespace ui
 {
     /// @brief Draws the top bar: the session's Save and Load, the Export list, the brand mark
-    /// and the device group.
-    /// @param session The session to save from, load into and export; null draws the
-    /// disconnected left group.
-    /// @param connected Whether an audio device is connected.
-    /// @param device_label Names the connected device; read only when connected is true.
-    /// @param open_device_settings Out: set to true on the frame the settings button is clicked.
+    /// and the device group; applications/host_gui/ui/README.md describes each parameter.
+    /// @param session The session; null draws the disconnected left group.
     /// @param status Out: describes the last Save, Load or Export.
     /// @param rig_replaced Out: true on the frame a Load succeeded; drop every held SlotId then.
     /// @param bounce The export; started here and polled every frame.
     /// @param hrtf_path The HRTF set an export's rooms read; empty for none.
-    /// @see applications/host_gui/ui/README.md
     void DrawTopBar(Session* session, bool connected, const std::string& device_label,
                     bool& open_device_settings, std::string& status, bool& rig_replaced,
                     SessionBounce& bounce, const std::string& hrtf_path);
