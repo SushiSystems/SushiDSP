@@ -550,6 +550,7 @@ void TopologyApplier::reconcile_room(const RigTopology& topology, RigController&
                 before.find_microphone(placement.id))
         {
             placement.pose = known->pose;
+            placement.kind = known->kind;
         }
         else if (index < before.microphones().size() &&
                  !std::any_of(state_.microphones.begin(), state_.microphones.end(),
@@ -922,6 +923,21 @@ void TopologyApplier::roll_back(const Journal& journal, RigTopology topology_bef
                     "keeps playing",
                     journal.removed.size());
     }
+}
+
+JoinContent TopologyApplier::join_content(const RigTopology& topology,
+                                          const RigController& rig) const
+{
+    const std::size_t paths = RigTopology::branch_count(topology.chain_type());
+    std::size_t cabinets = 0;
+    for (std::size_t path = 0; path < paths; ++path)
+    {
+        if (cabinet_of(rig, topology.stage(StageAddress{StageKind::Branch, path})).has_value())
+        {
+            ++cabinets;
+        }
+    }
+    return join_content_of(cabinets, paths);
 }
 
 TopologyApplier::MixerSlots TopologyApplier::mixer_slots() const

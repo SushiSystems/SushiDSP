@@ -29,6 +29,7 @@
 
 #include <optional>
 
+#include "cabinet_section_wiring.hpp"
 #include "rig_controller.hpp"
 #include "rig_shape.hpp"
 #include "ui/geometry.hpp"
@@ -43,12 +44,14 @@ namespace ui
             std::optional<SlotId> remove_microphone; ///< The microphone whose remove button was pressed.
     };
 
-    /// @brief Draws the mixer: one vertical strip per microphone, then Room, Listener, Cabinet,
-    /// Bus, DI and Master, each with the controls its slot has. The panel does not rewire and does
+    /// @brief Draws the mixer: one vertical strip per microphone, then Room, Listener, Cabinet or
+    /// Line, Bus, DI and Master, each with the controls its slot has. The panel does not rewire and does
     /// not publish.
     /// @param id The ImGui id of the panel.
     /// @param rig The rig that owns the slots.
     /// @param slots The hidden slots to show; a strip whose slot is not built is not drawn.
+    /// @param join What the chain's join carries, which names its strip.
     /// @return What the edit asks of the caller.
-    MixerEdit draw_mixer_panel(const char* id, RigController& rig, const HiddenSlots& slots);
+    MixerEdit draw_mixer_panel(const char* id, RigController& rig, const HiddenSlots& slots,
+                               JoinContent join);
 } // namespace ui

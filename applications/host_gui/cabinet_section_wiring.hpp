@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <utility>
@@ -34,6 +35,20 @@
 
 #include "rig_topology.hpp"
 #include "ui/geometry.hpp"
+
+/// @brief Says what the chain's join carries into the amp bus beside the room.
+enum class JoinContent : std::uint8_t
+{
+    Cabinets, ///< Every path ends in a cabinet: the cabinets' own signal.
+    Line,     ///< No path holds a cabinet: a line signal no speaker has voiced.
+    Mixed     ///< Some paths hold a cabinet and some do not, already summed by the chain.
+};
+
+/// @brief Works out what a join carries from how many of the chain's paths hold a cabinet.
+/// @param cabinet_paths The paths that hold a cabinet.
+/// @param paths The paths the chain opens.
+/// @return The content; a chain with no path carries a line signal.
+JoinContent join_content_of(std::size_t cabinet_paths, std::size_t paths);
 
 /// @brief One microphone as the cabinet section wires it.
 struct MicrophoneWire

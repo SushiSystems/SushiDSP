@@ -44,6 +44,15 @@ namespace
     }
 } // namespace
 
+JoinContent join_content_of(std::size_t cabinet_paths, std::size_t paths)
+{
+    if (cabinet_paths == 0)
+    {
+        return JoinContent::Line;
+    }
+    return cabinet_paths >= paths ? JoinContent::Cabinets : JoinContent::Mixed;
+}
+
 CabinetSectionNeeds CabinetSectionNeeds::of(const std::vector<MicrophoneWire>& microphones,
                                             bool di, DiPosition di_position)
 {

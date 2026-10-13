@@ -330,3 +330,29 @@ TEST(Unit_Dsp, MixerModelIsEmptyForARigWithNoCabinetSection)
 {
     EXPECT_TRUE(ui::mixer_strips(HiddenSlots{}).empty());
 }
+
+TEST(Unit_Dsp, JoinContentNamesTheStripByWhetherACabinetFeedsIt)
+{
+    EXPECT_EQ(join_content_of(1, 1), JoinContent::Cabinets);
+    EXPECT_EQ(join_content_of(3, 3), JoinContent::Cabinets);
+    EXPECT_EQ(join_content_of(0, 1), JoinContent::Line);
+    EXPECT_EQ(join_content_of(0, 0), JoinContent::Line);
+    EXPECT_EQ(join_content_of(1, 3), JoinContent::Mixed);
+
+    HiddenSlots slots;
+    slots.amp_bus = 9;
+    slots.join = 4;
+    slots.amp_bus_feeders = {4};
+    const auto join_strip = [&slots](JoinContent content)
+    {
+        return ui::mixer_strips(slots, content).front();
+    };
+    EXPECT_EQ(join_strip(JoinContent::Cabinets).label, "Cabinet");
+    EXPECT_EQ(join_strip(JoinContent::Cabinets).kind, ui::MixerStripKind::Cabinet);
+    EXPECT_EQ(join_strip(JoinContent::Line).label, "Line");
+    EXPECT_EQ(join_strip(JoinContent::Line).kind, ui::MixerStripKind::Line);
+    EXPECT_EQ(join_strip(JoinContent::Mixed).label, "Cabinet + Line");
+    // Whatever it is called, the strip's mute and solo are the join's input of the amp bus.
+    ASSERT_TRUE(join_strip(JoinContent::Line).flags.has_value());
+    EXPECT_EQ(join_strip(JoinContent::Line).flags->bus, 9u);
+}
