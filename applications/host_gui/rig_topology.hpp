@@ -54,6 +54,13 @@ enum class StageKind : std::uint8_t
     Post
 };
 
+/// @brief Where the DI path joins the rig, relative to the post effects.
+enum class DiPosition : std::uint8_t
+{
+    BeforeEffects, ///< The DI signal passes the post effects with the amplifiers' sum.
+    AfterEffects   ///< The DI signal joins after the post effects, untouched by them.
+};
+
 /// @brief Names one stage: the master bus, or a path picked out by index.
 struct StageAddress
 {
@@ -148,24 +155,22 @@ class RigTopology
         /// @param enabled True to open the path.
         void set_di(bool enabled) noexcept;
 
-        /// @brief Reports whether the cabinet section is open. Then every path ends in the room, and the
-        /// room's microphones and listener join a bus in place of the chain's own join.
-        /// @return True when the room is open.
-        bool room() const noexcept;
+        /// @brief Reads where the DI path joins the rig.
+        /// @return The position; AfterEffects until set otherwise.
+        DiPosition di_position() const noexcept;
 
-        /// @brief Opens or closes the cabinet section. The applier builds the room's slots and wiring
-        /// from this choice; the paths stay as they are.
-        /// @param enabled True to open the room.
-        void set_room(bool enabled) noexcept;
+        /// @brief Sets where the DI path joins the rig. The applier rewires from this choice.
+        /// @param position Before or after the post effects.
+        void set_di_position(DiPosition position) noexcept;
+
+        /// @brief Reads the post stage's slots when the active chain type routes them.
+        /// @return The post slots in stage order, or an empty list for a single path.
+        std::vector<SlotId> active_post() const;
 
         /// @brief Lists every slot the active chain type routes, in signal order.
         /// @return Each path's slots in path order, then the master bus's.
         std::vector<SlotId> active_slots() const;
 
-        /// @brief Builds the edge list the active chain type compiles to.
-        /// @param splitter The splitter slot; required while more than one path is open.
-        /// @param mixer The mixer slot; required while more than one path is open.
-        /// @return The edges, first occurrence kept when a slot repeats an edge.
         /// @brief Builds the edge list of the Parallel chain: two mono paths, each panned to its side
         /// by a channel strip, joined by the bus.
         /// @param left_strip The strip the left path ends in; required while the Parallel type is active.
@@ -182,6 +187,17 @@ class RigTopology
         std::vector<std::pair<SlotId, SlotId>> edges(std::optional<SlotId> splitter,
                                                      std::optional<SlotId> mixer) const;
 
+        /// @brief Builds a topology from the stages a preset names.
+        /// @param type The chain type.
+        /// @param branches Each path's slots; paths the type does not open are dropped and paths
+        /// it opens but the list lacks start empty.
+        /// @param post The post stage's slots.
+        /// @param di True while the DI path is on.
+        /// @param di_position Where the DI path joins.
+        /// @return The topology.
+        static RigTopology from_stages(ChainType type, std::vector<std::vector<SlotId>> branches,
+                                       std::vector<SlotId> post, bool di, DiPosition di_position);
+
         /// @brief Builds a single-path topology from a linear slot order, for loading a preset.
         /// @param order The slots, in signal order.
         /// @return A RigTopology whose main path is `order`.
@@ -190,7 +206,7 @@ class RigTopology
     private:
         ChainType type_ = ChainType::Single;
         bool di_ = false;
-        bool room_ = false;
+        DiPosition di_position_ = DiPosition::AfterEffects;
         std::vector<SlotId> post_;
         std::vector<std::vector<SlotId>> branches_{1};
 };

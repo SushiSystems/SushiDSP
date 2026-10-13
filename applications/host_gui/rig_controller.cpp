@@ -151,6 +151,17 @@ SushiDSP::room::RoomHost* RigController::room_host(SlotId slot)
     return graph_.room_host(slot);
 }
 
+SushiDSP::Room::Arrangement RigController::room_arrangement(SlotId slot) const
+{
+    return graph_.room_arrangement(slot);
+}
+
+bool RigController::set_room_arrangement(SlotId slot, const SushiDSP::Room::Arrangement& arrangement,
+                                         std::string& error_out)
+{
+    return graph_.set_room_arrangement(slot, arrangement, error_out);
+}
+
 SushiDSP::room::RoomScene RigController::room_scene(SlotId slot) const
 {
     return graph_.room_scene(slot);
@@ -187,14 +198,19 @@ std::vector<std::pair<RigController::SlotId, RigController::SlotId>> RigControll
     return graph_.edges();
 }
 
-RoomLayout& RigController::room_layout() noexcept
+void RigController::set_shape(const RigShape& shape)
 {
-    return graph_.room_layout();
+    graph_.set_shape(shape);
 }
 
-const RoomLayout& RigController::room_layout() const noexcept
+const std::optional<RigShape>& RigController::shape() const noexcept
 {
-    return graph_.room_layout();
+    return graph_.shape();
+}
+
+std::optional<LegacyRoom> RigController::take_legacy_room()
+{
+    return graph_.take_legacy_room();
 }
 
 std::vector<SlotGraph::EdgeRecord> RigController::edge_records() const

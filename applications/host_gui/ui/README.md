@@ -75,16 +75,64 @@ given. A chain with more than one path puts each path in its own row, then the m
 
 ## `room_panel.hpp`
 
-`DrawRoomPanel` draws a room slot's controls in three layers and a mix group. Shell holds the
-shoebox's dimensions and a top-down plan where the cabinet, the head and the microphone drag,
-with each pose's height and facing and the microphone's pattern. Finishes holds a material and
-a scattering word per surface. Furnishings holds a list of furniture rows with a quantity each.
-The mix group holds the node's mix, level, listener and direct-delay parameters.
+`DrawRoomPanel` draws a room's shell. Shell holds the shoebox's dimensions and its openings and
+coverings. Finishes holds a material and a scattering word per surface. Furnishings holds a list
+of furniture rows with a quantity each. Under them sit the node's direct-delay choice, the
+Schroeder frequency the node split its last set at, Weyl's estimate of the modes under it, and
+where the HRTF came from.
 
-Beside them the panel reads out the Schroeder frequency the node split its last set at, Weyl's
-estimate of the modes under it, and where the HRTF came from. Every edit goes through
-`RigController::set_room_scene`, which paces a drag. The design is
+Where the cabinets, the listener and the microphones stand is the room scene's to edit. The panel
+only keeps them inside the shell when a dimension shrinks under one of them, and writes the whole
+arrangement through `RigController::set_room_arrangement`, which paces a drag. The design is
 `docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md` §9.2 and §14, decision DE6.
+
+## `scene_camera.hpp` and `scene_interaction.hpp`
+
+`SceneCamera` is an orbit camera over the room: it circles a target at a distance and projects a
+room point onto a screen rectangle in perspective. `unproject_onto_plane` is the inverse for one
+horizontal plane, which is what turns a pointer into a place on the floor or at an item's own
+height. The elevation is kept between 0.10 and 1.50 rad, so the camera never looks straight down
+or along the floor and both directions always have an answer.
+
+`scene_interaction.hpp` is the arithmetic of the scene's mouse: `pick_item` finds the marker
+under the pointer, the nearer one when two share a pixel; `drag_across` moves an item over the
+room at its own height; `drag_height` raises or lowers it by a vertical drag scaled by its depth;
+`drag_turn` turns it. Each keeps the item 5 cm inside the walls. Neither file includes ImGui, so
+`tests/functional/unit/test_scene_camera.cpp` checks both against hand-computed coordinates.
+
+## `room_scene_view.hpp`
+
+`draw_room_scene` draws the room through a `SceneCamera`: the floor's grid at one line a metre,
+the shoebox's twelve edges, and one marker per cabinet (`C1`..), microphone (`M1`..) and the
+listener (`L`), each with a stem down to the floor and a line along its facing. A drag on a
+marker moves it across the room; with Shift it changes its height; with Alt it turns it. A drag
+on empty space orbits the camera and the wheel zooms. The view writes a moved item back into the
+`Room::Arrangement` it was given and says so; the caller hands the arrangement to the rig.
+
+## `mixer_model.hpp` and `mixer_panel.hpp`
+
+`mixer_strips` turns the rig's `HiddenSlots` into the list of strips the mixer shows, in drawing
+order: each microphone, Room, Listener, Cabinet, Bus, DI and Master. A strip names the slot that
+holds its level and where its mute and solo live, which is one input of one bus: a microphone's
+are on the bus, or on the Room sum when it is marked room; the listener's, Cabinet's and the
+Bus's are on the amp bus; the DI's are on the amp bus or the master bus, by its position. The
+function is pure and `tests/functional/unit/test_cabinet_section_wiring.cpp` checks it.
+
+`draw_mixer_panel` draws each strip as a column: a level fader, pan and delay for a mono strip or
+balance and width for a stereo one, mute and solo, and for a microphone its polarity, its room
+flag and a remove button. Cabinet and Bus have no fader, since nothing but a bus input stands
+behind them. Levels, pans and flags are written through the rig as they change. The panel
+returns a `MixerEdit` for the two edits that change wiring, a changed room flag and a removed
+microphone, and leaves them to the caller.
+
+## `cabinet_section_pane.hpp`
+
+`DrawCabinetSectionPane` lays the cabinet section out over the workspace: a row with the Add
+microphone button and the DI path's switch and position, the room scene, an inspector beside it,
+and the mixer under both. The inspector shows the selected marker's coordinates and facing, and
+for a microphone its pattern and proximity switch, which it writes to the microphone's slot and
+to the arrangement together; under them a collapsed Room header opens `DrawRoomPanel`. A refused
+edit's reason is shown in the row at the top until an edit lands.
 
 ## `SplitLayout`
 

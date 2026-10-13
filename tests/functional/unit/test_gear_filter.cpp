@@ -68,7 +68,8 @@ TEST(Unit_Dsp, GearFilterAllTabKeepsEveryNonRoutingItem)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
     const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::All, "");
-    EXPECT_EQ(total_items(groups), catalog.size() - 3u);
+    // The splitter, the mixer and the room are placed by the rig itself.
+    EXPECT_EQ(total_items(groups), catalog.size() - 4u);
 }
 
 TEST(Unit_Dsp, GearFilterAmpsTabKeepsOnlyAmps)
@@ -92,12 +93,11 @@ TEST(Unit_Dsp, GearFilterGroupsKeepFirstSeenCategoryOrder)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
     const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::All, "");
-    ASSERT_EQ(groups.size(), 5u);
+    ASSERT_EQ(groups.size(), 4u);
     EXPECT_EQ(groups[0].category, "Distortion");
     EXPECT_EQ(groups[1].category, "Amp");
     EXPECT_EQ(groups[2].category, "Delay");
-    EXPECT_EQ(groups[3].category, "Room");
-    EXPECT_EQ(groups[4].category, "Cabinet");
+    EXPECT_EQ(groups[3].category, "Cabinet");
 }
 
 TEST(Unit_Dsp, GearFilterNeverListsSplitterOrMixer)

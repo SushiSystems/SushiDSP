@@ -154,10 +154,12 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/applications/host_gui/audio_import_cache.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/audio_import_queue.cpp
     functional/unit/test_rig_topology.cpp
-    functional/unit/test_room_layout.cpp
-    functional/unit/test_room_layout_codec.cpp
-    ${CMAKE_SOURCE_DIR}/applications/host_gui/room_layout_codec.cpp
-    ${CMAKE_SOURCE_DIR}/applications/host_gui/room_layout.cpp
+    functional/unit/test_cabinet_section_wiring.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/cabinet_section_wiring.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/mixer_model.cpp
+    functional/unit/test_scene_camera.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/scene_camera.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/scene_interaction.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_topology.cpp
     functional/unit/test_topology_applier.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/topology_applier.cpp

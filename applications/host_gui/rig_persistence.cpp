@@ -43,10 +43,14 @@
 #include "SushiDSP/node_registry/node_registry.hpp"
 #include "SushiDSP/rig_preset/rig_preset.hpp"
 #include "SushiDSP/room/furniture.hpp"
+#include "SushiDSP/log/log.hpp"
 #include "SushiDSP/room/materials.hpp"
+#include "SushiDSP/room/room_arrangement.hpp"
 #include "SushiDSP/room/room_scene.hpp"
-#include "room_layout_codec.hpp"
 #include "SushiDSP/room/starter_scene.hpp"
+
+#include "host_gui_log_category.hpp"
+#include "rig_shape.hpp"
 
 namespace
 {
@@ -501,6 +505,309 @@ namespace
         }
         return scene;
     }
+    /// @brief Holds the preset format this build writes. Format 1 carried a room as a slot of the
+    /// chain; format 2 carries the cabinet section: the rig's shape, its edges with their ports,
+    /// and the room's arrangement.
+    constexpr int K_PRESET_FORMAT = 2;
+
+    /// @brief Names the descriptor of the room.
+    constexpr const char* K_ROOM_TYPE = "sushidsp.room";
+
+    /// @brief Maps each slot to the id its node carries in the preset being written.
+    using PresetIdBySlot = std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle>;
+
+    /// @brief Maps each node id of the preset being read to the slot built for it.
+    using SlotByPresetId = std::unordered_map<int, SlotGraph::SlotId>;
+
+    /// @brief Names each chain type as a preset writes it.
+    constexpr Word<ChainType> K_CHAIN_WORDS[] = {
+        {ChainType::Single, "single"},
+        {ChainType::TwoWay, "two_way"},
+        {ChainType::ThreeWay, "three_way"},
+        {ChainType::Parallel, "parallel"},
+    };
+
+    /// @brief Names each DI position as a preset writes it.
+    constexpr Word<DiPosition> K_DI_POSITION_WORDS[] = {
+        {DiPosition::BeforeEffects, "before_effects"},
+        {DiPosition::AfterEffects, "after_effects"},
+    };
+
+    /// @brief Pairs one hidden slot with the key a preset writes it under.
+    struct HiddenSlotKey
+    {
+            const char* key;
+            std::optional<ui::SlotId> HiddenSlots::* slot;
+    };
+
+    /// @brief Names each single hidden slot as a preset writes it.
+    constexpr HiddenSlotKey K_HIDDEN_SLOT_KEYS[] = {
+        {"splitter", &HiddenSlots::splitter},
+        {"mixer", &HiddenSlots::mixer},
+        {"left_strip", &HiddenSlots::left_strip},
+        {"right_strip", &HiddenSlots::right_strip},
+        {"di_strip", &HiddenSlots::di_strip},
+        {"master_bus", &HiddenSlots::master_bus},
+        {"room", &HiddenSlots::room},
+        {"listener_strip", &HiddenSlots::listener_strip},
+        {"bus", &HiddenSlots::bus},
+        {"room_sum", &HiddenSlots::room_sum},
+        {"room_strip", &HiddenSlots::room_strip},
+        {"amp_bus", &HiddenSlots::amp_bus},
+        {"master_strip", &HiddenSlots::master_strip},
+        {"join", &HiddenSlots::join},
+    };
+
+    /// @brief Pairs one feeder list with the key a preset writes it under.
+    struct FeederListKey
+    {
+            const char* key;
+            std::vector<ui::SlotId> HiddenSlots::* list;
+    };
+
+    /// @brief Names each feeder list as a preset writes it.
+    constexpr FeederListKey K_FEEDER_LIST_KEYS[] = {
+        {"bus_feeders", &HiddenSlots::bus_feeders},
+        {"room_sum_feeders", &HiddenSlots::room_sum_feeders},
+        {"amp_bus_feeders", &HiddenSlots::amp_bus_feeders},
+        {"master_bus_feeders", &HiddenSlots::master_bus_feeders},
+    };
+
+    /// @brief Writes a list of slots as their preset ids; a slot the preset does not hold is
+    /// left out.
+    nlohmann::json slots_to_json(const std::vector<ui::SlotId>& slots, const PresetIdBySlot& ids)
+    {
+        nlohmann::json list = nlohmann::json::array();
+        for (const ui::SlotId slot : slots)
+        {
+            const auto found = ids.find(slot);
+            if (found != ids.end())
+            {
+                list.push_back(found->second);
+            }
+        }
+        return list;
+    }
+
+    /// @brief Reads a list of preset ids as slots; an id the preset does not hold is left out.
+    std::vector<ui::SlotId> slots_from_json(const nlohmann::json& list, const SlotByPresetId& slots)
+    {
+        std::vector<ui::SlotId> result;
+        if (!list.is_array())
+        {
+            return result;
+        }
+        for (const nlohmann::json& id : list)
+        {
+            const auto found = id.is_number_integer() ? slots.find(id.get<int>()) : slots.end();
+            if (found != slots.end())
+            {
+                result.push_back(found->second);
+            }
+        }
+        return result;
+    }
+
+    /// @brief Writes an arrangement as the "room" object of a preset's room node: the shell and
+    /// the listener as a scene writes them, then one row per cabinet and per microphone. A row
+    /// names the node it stands for when the preset holds that node.
+    nlohmann::json arrangement_to_json(const SushiDSP::Room::Arrangement& arrangement,
+                                       const PresetIdBySlot& ids)
+    {
+        SushiDSP::room::RoomScene scene = arrangement.shell();
+        scene.listener_position = arrangement.listener().position;
+        scene.listener_yaw_rad = arrangement.listener().yaw_rad;
+        if (!arrangement.sources().empty())
+        {
+            scene.source_position = arrangement.sources().front().pose.position;
+            scene.source_yaw_rad = arrangement.sources().front().pose.yaw_rad;
+        }
+        nlohmann::json room = room_scene_to_json(scene);
+
+        const auto name_node = [&ids](nlohmann::json& row, std::uint64_t id)
+        {
+            row["id"] = id;
+            const auto found = ids.find(static_cast<SlotGraph::SlotId>(id));
+            if (id <= 0xFFFFFFFFu && found != ids.end())
+            {
+                row["node"] = found->second;
+            }
+        };
+        nlohmann::json sources = nlohmann::json::array();
+        for (const SushiDSP::Room::SourcePlacement& source : arrangement.sources())
+        {
+            nlohmann::json row = pose_to_json(source.pose.position, source.pose.yaw_rad);
+            name_node(row, source.id);
+            sources.push_back(row);
+        }
+        room["sources"] = sources;
+
+        nlohmann::json microphones = nlohmann::json::array();
+        for (const SushiDSP::Room::MicrophonePlacement& microphone : arrangement.microphones())
+        {
+            nlohmann::json row = pose_to_json(microphone.pose.position, microphone.pose.yaw_rad);
+            row["pattern"] = word_of(K_PATTERN_WORDS, microphone.pattern);
+            row["proximity"] = microphone.proximity;
+            name_node(row, microphone.id);
+            microphones.push_back(row);
+        }
+        room["microphones"] = microphones;
+        return room;
+    }
+
+    /// @brief Reads a "room" object written by arrangement_to_json. A row that names a node the
+    /// preset holds takes that node's slot as its identity; any other row keeps the identity it
+    /// was written with.
+    /// @throws std::runtime_error when the object is malformed or holds more cabinets or
+    /// microphones than a room takes.
+    SushiDSP::Room::Arrangement arrangement_from_json(const nlohmann::json& room,
+                                                      const SlotByPresetId& slots)
+    {
+        const SushiDSP::room::RoomScene scene = room_scene_from_json(room);
+        SushiDSP::Room::Arrangement arrangement;
+        arrangement.set_shell(scene);
+        arrangement.set_listener({scene.listener_position, scene.listener_yaw_rad});
+
+        const auto identity = [&slots](const nlohmann::json& row, std::size_t index)
+        {
+            if (row.contains("node") && row.at("node").is_number_integer())
+            {
+                const auto found = slots.find(row.at("node").get<int>());
+                if (found != slots.end())
+                {
+                    return static_cast<std::uint64_t>(found->second);
+                }
+            }
+            return row.value("id", static_cast<std::uint64_t>(index));
+        };
+        std::string reason;
+        std::size_t index = 0;
+        for (const nlohmann::json& row : room.value("sources", nlohmann::json::array()))
+        {
+            SushiDSP::Room::SourcePlacement source;
+            source.pose = {scene.source_position, scene.source_yaw_rad};
+            pose_from_json(row, "source", source.pose.position, source.pose.yaw_rad);
+            source.id = identity(row, index++);
+            if (!arrangement.add_source(source, reason))
+            {
+                throw std::runtime_error("RigController: a preset's room: " + reason);
+            }
+        }
+        index = 0;
+        for (const nlohmann::json& row : room.value("microphones", nlohmann::json::array()))
+        {
+            SushiDSP::Room::MicrophonePlacement microphone;
+            microphone.pose = {scene.microphone_position, scene.microphone_yaw_rad};
+            pose_from_json(row, "microphone", microphone.pose.position, microphone.pose.yaw_rad);
+            if (row.contains("pattern"))
+            {
+                microphone.pattern =
+                    value_of(K_PATTERN_WORDS, row.at("pattern").get<std::string>(), "pattern");
+            }
+            microphone.proximity = row.value("proximity", true);
+            microphone.id = identity(row, index++);
+            if (!arrangement.add_microphone(microphone, reason))
+            {
+                throw std::runtime_error("RigController: a preset's room: " + reason);
+            }
+        }
+        return arrangement;
+    }
+
+    /// @brief Writes a rig's shape as the "shape" object of a preset, every slot as its node id.
+    nlohmann::json shape_to_json(const RigShape& shape, const PresetIdBySlot& ids)
+    {
+        nlohmann::json json = nlohmann::json::object();
+        json["chain_type"] = word_of(K_CHAIN_WORDS, shape.chain_type);
+        nlohmann::json branches = nlohmann::json::array();
+        for (const std::vector<ui::SlotId>& branch : shape.branches)
+        {
+            branches.push_back(slots_to_json(branch, ids));
+        }
+        json["branches"] = branches;
+        json["post"] = slots_to_json(shape.post, ids);
+        json["di"] = shape.di;
+        json["di_position"] = word_of(K_DI_POSITION_WORDS, shape.di_position);
+
+        nlohmann::json hidden = nlohmann::json::object();
+        for (const HiddenSlotKey& row : K_HIDDEN_SLOT_KEYS)
+        {
+            const std::optional<ui::SlotId>& slot = shape.hidden.*(row.slot);
+            const auto found = slot.has_value() ? ids.find(*slot) : ids.end();
+            if (found != ids.end())
+            {
+                hidden[row.key] = found->second;
+            }
+        }
+        nlohmann::json microphones = nlohmann::json::array();
+        for (const MicrophoneSlots& slots : shape.hidden.microphones)
+        {
+            const auto microphone = ids.find(slots.microphone);
+            const auto strip = ids.find(slots.strip);
+            if (microphone != ids.end() && strip != ids.end())
+            {
+                nlohmann::json row = nlohmann::json::object();
+                row["microphone"] = microphone->second;
+                row["strip"] = strip->second;
+                microphones.push_back(row);
+            }
+        }
+        hidden["microphones"] = microphones;
+        for (const FeederListKey& row : K_FEEDER_LIST_KEYS)
+        {
+            hidden[row.key] = slots_to_json(shape.hidden.*(row.list), ids);
+        }
+        json["hidden"] = hidden;
+        return json;
+    }
+
+    /// @brief Reads a "shape" object written by shape_to_json. A node id the preset does not
+    /// hold is dropped, so a hand-edited preset loses a slot rather than naming a wrong one.
+    /// @throws std::runtime_error for a chain type or a DI position no word names.
+    RigShape shape_from_json(const nlohmann::json& json, const SlotByPresetId& slots)
+    {
+        RigShape shape;
+        shape.chain_type = value_of(K_CHAIN_WORDS, json.value("chain_type", std::string("single")),
+                                    "chain type");
+        for (const nlohmann::json& branch : json.value("branches", nlohmann::json::array()))
+        {
+            shape.branches.push_back(slots_from_json(branch, slots));
+        }
+        shape.post = slots_from_json(json.value("post", nlohmann::json::array()), slots);
+        shape.di = json.value("di", false);
+        shape.di_position =
+            value_of(K_DI_POSITION_WORDS, json.value("di_position", std::string("after_effects")),
+                     "DI position");
+
+        const nlohmann::json hidden = json.value("hidden", nlohmann::json::object());
+        for (const HiddenSlotKey& row : K_HIDDEN_SLOT_KEYS)
+        {
+            if (hidden.contains(row.key) && hidden.at(row.key).is_number_integer())
+            {
+                const auto found = slots.find(hidden.at(row.key).get<int>());
+                if (found != slots.end())
+                {
+                    shape.hidden.*(row.slot) = found->second;
+                }
+            }
+        }
+        for (const nlohmann::json& row : hidden.value("microphones", nlohmann::json::array()))
+        {
+            const auto microphone = slots.find(row.value("microphone", -1));
+            const auto strip = slots.find(row.value("strip", -1));
+            if (microphone != slots.end() && strip != slots.end())
+            {
+                shape.hidden.microphones.push_back(
+                    MicrophoneSlots{microphone->second, strip->second});
+            }
+        }
+        for (const FeederListKey& row : K_FEEDER_LIST_KEYS)
+        {
+            shape.hidden.*(row.list) =
+                slots_from_json(hidden.value(row.key, nlohmann::json::array()), slots);
+        }
+        return shape;
+    }
 } // namespace
 
 RigPersistence::RigPersistence(const SushiDSP::PrepareInfo& info, SlotGraph& graph,
@@ -509,25 +816,27 @@ RigPersistence::RigPersistence(const SushiDSP::PrepareInfo& info, SlotGraph& gra
 {
 }
 
-std::string RigPersistence::serialize_nodes() const
+std::string RigPersistence::serialize_nodes(
+    std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle>& handles_out) const
 {
+    handles_out.clear();
     if (graph_.slot_order().empty())
     {
         return "{\"nodes\":[]}";
     }
 
-    std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle> handles;
-    const std::unique_ptr<SushiDSP::RigGraph> graph = graph_.build_graph(false, handles);
+    const std::unique_ptr<SushiDSP::RigGraph> graph = graph_.build_graph(false, handles_out);
 
     std::unordered_map<SushiDSP::NodeHandle, SlotGraph::SlotId> slot_by_handle;
-    for (const auto& [slot, handle] : handles)
+    for (const auto& [slot, handle] : handles_out)
     {
         slot_by_handle[handle] = slot;
     }
 
     return SushiDSP::serialize_rig_to_json(
         *graph,
-        [this, &slot_by_handle](SushiDSP::NodeHandle handle, nlohmann::json& node_json)
+        [this, &slot_by_handle, &handles_out](SushiDSP::NodeHandle handle,
+                                              nlohmann::json& node_json)
         {
             const auto it = slot_by_handle.find(handle);
             if (it == slot_by_handle.end())
@@ -551,9 +860,9 @@ std::string RigPersistence::serialize_nodes() const
             {
                 node_json["cabinet_ir"] = slot->cabinet_path;
             }
-            if (slot->room_scene.has_value())
+            if (slot->room_arrangement.has_value())
             {
-                node_json["room"] = room_scene_to_json(*slot->room_scene);
+                node_json["room"] = arrangement_to_json(*slot->room_arrangement, handles_out);
             }
             if (slot->bypassed)
             {
@@ -564,7 +873,9 @@ std::string RigPersistence::serialize_nodes() const
 
 std::string RigPersistence::save_to_json() const
 {
-    nlohmann::json document = nlohmann::json::parse(serialize_nodes());
+    std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle> handles;
+    nlohmann::json document = nlohmann::json::parse(serialize_nodes(handles));
+    document["format"] = K_PRESET_FORMAT;
     if (!graph_.ir_folder().empty())
     {
         document["ir_folder"] = graph_.ir_folder();
@@ -573,9 +884,28 @@ std::string RigPersistence::save_to_json() const
     {
         document["take_folder"] = session_.take_folder();
     }
-    // The room section's open switch lives in the chain's topology, which a preset does not carry yet,
-    // so it is written closed and ignored on load.
-    document["cabinet_section"] = room_layout_to_json(graph_.room_layout(), false);
+
+    // The nodes' own "inputs" carry no port, so the edges are written again with theirs.
+    nlohmann::json edges_json = nlohmann::json::array();
+    for (const SlotGraph::EdgeRecord& edge : graph_.edge_records())
+    {
+        const auto from = handles.find(edge.from);
+        const auto to = handles.find(edge.to);
+        if (from == handles.end() || to == handles.end())
+        {
+            continue;
+        }
+        nlohmann::json edge_json = nlohmann::json::object();
+        edge_json["from"] = from->second;
+        edge_json["to"] = to->second;
+        edge_json["port"] = edge.from_port;
+        edges_json.push_back(edge_json);
+    }
+    document["edges"] = edges_json;
+    if (graph_.shape().has_value())
+    {
+        document["shape"] = shape_to_json(*graph_.shape(), handles);
+    }
 
     const SushiDSP::TrackPlayer& player = session_.player();
     document["track_count"] = session_.track_count();
@@ -644,39 +974,94 @@ void RigPersistence::load_from_json(const std::string& json_text)
                               SessionTimeline::K_MAX_TRACKS);
     const std::vector<TrackRow> track_rows = track_rows_from_json(document, track_count);
 
-    // The cabinet section is read before the rig is touched, so a refused section leaves the rig as it was.
-    const RoomLayout section_layout =
-        document.contains("cabinet_section")
-            ? room_layout_from_json(document.at("cabinet_section")).layout
-            : RoomLayout();
+    // Format 2 is read node by node, with its own edges; format 1 is read whole and compiled.
+    const int format = document.value("format", 1);
+    if (format > K_PRESET_FORMAT || format < 1)
+    {
+        throw std::runtime_error("RigController: the preset is format " + std::to_string(format) +
+                                 "; this build reads formats 1 to " +
+                                 std::to_string(K_PRESET_FORMAT));
+    }
+    const bool with_shape = format >= 2;
+    std::string nodes_text = json_text;
+    if (with_shape)
+    {
+        nlohmann::json nodes_only = nlohmann::json::object();
+        nodes_only["nodes"] = document.at("nodes");
+        for (nlohmann::json& node_json : nodes_only["nodes"])
+        {
+            node_json["inputs"] = nlohmann::json::array();
+        }
+        nodes_text = nodes_only.dump();
+    }
 
     const std::size_t node_count = document.at("nodes").size();
     SushiDSP::RigGraph scratch(info_.max_block, static_cast<std::uint32_t>(node_count + 1));
     std::unordered_map<SushiDSP::NodeHandle, std::string> cabinet_paths_by_handle;
     std::unordered_map<SushiDSP::NodeHandle, bool> bypassed_by_handle;
-    std::unordered_map<SushiDSP::NodeHandle, SushiDSP::room::RoomScene> room_scenes_by_handle;
+    std::unordered_map<SushiDSP::NodeHandle, nlohmann::json> rooms_by_handle;
+    std::unordered_map<int, SushiDSP::NodeHandle> handle_by_preset_id;
+    std::vector<SushiDSP::NodeHandle> legacy_rooms;
+    std::optional<LegacyRoom> legacy;
     SushiDSP::deserialize_rig_from_json(
-        scratch, json_text, info_,
-        [&cabinet_paths_by_handle, &bypassed_by_handle,
-         &room_scenes_by_handle](SushiDSP::NodeHandle handle, const nlohmann::json& node_json)
+        scratch, nodes_text, info_,
+        [&](SushiDSP::NodeHandle handle, const nlohmann::json& node_json)
         {
+            handle_by_preset_id[node_json.at("id").get<int>()] = handle;
             if (node_json.contains("cabinet_ir"))
             {
                 cabinet_paths_by_handle[handle] = node_json.at("cabinet_ir").get<std::string>();
-            }
-            if (node_json.contains("room"))
-            {
-                room_scenes_by_handle[handle] = room_scene_from_json(node_json.at("room"));
             }
             if (node_json.contains("bypassed"))
             {
                 bypassed_by_handle[handle] = node_json.at("bypassed").get<bool>();
             }
+            const bool is_room = node_json.at("type").get<std::string>() == K_ROOM_TYPE;
+            if (is_room && with_shape && node_json.contains("room"))
+            {
+                rooms_by_handle[handle] = node_json.at("room");
+            }
+            if (is_room && !with_shape)
+            {
+                // A format 1 room was a slot of the chain with its listener, level and mix.
+                legacy_rooms.push_back(handle);
+                if (!legacy.has_value())
+                {
+                    const nlohmann::json& params = node_json.at("params");
+                    LegacyRoom room;
+                    room.scene = node_json.contains("room")
+                                     ? room_scene_from_json(node_json.at("room"))
+                                     : SushiDSP::room::starter_scene();
+                    room.ears = params.value("listener", 0.0f) < 0.5f;
+                    room.level_db = params.value("level", 0.0f);
+                    room.mix = params.value("mix", 1.0f);
+                    legacy = room;
+                }
+            }
         });
-    scratch.compile(info_);
+    if (!with_shape)
+    {
+        scratch.compile(info_);
+    }
+    if (legacy_rooms.size() > 1)
+    {
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "the preset holds {} rooms; the first becomes the cabinet section's room and "
+                    "the others are dropped",
+                    legacy_rooms.size());
+    }
+
+    // Every room is read and checked here, before the rig is touched.
+    for (const auto& [handle, room_json] : rooms_by_handle)
+    {
+        std::string reason;
+        if (!arrangement_from_json(room_json, SlotByPresetId{}).is_valid(reason))
+        {
+            throw std::runtime_error("RigController: a preset's room: " + reason);
+        }
+    }
 
     graph_.clear();
-    graph_.room_layout() = section_layout;
     graph_.set_ir_folder(document.contains("ir_folder")
                              ? document.at("ir_folder").get<std::string>()
                              : std::string());
@@ -736,9 +1121,18 @@ void RigPersistence::load_from_json(const std::string& json_text)
     session_.metronome().set_level(tempo_json.value("metronome_level", 0.5f));
     session_.transport().set_speed(tempo_json.value("playback_speed", 1.0));
 
+    const auto is_legacy_room = [&legacy_rooms](SushiDSP::NodeHandle handle)
+    {
+        return std::find(legacy_rooms.begin(), legacy_rooms.end(), handle) != legacy_rooms.end();
+    };
+
     std::unordered_map<SushiDSP::NodeHandle, SlotGraph::SlotId> handle_to_slot;
     for (SushiDSP::NodeHandle handle : scratch.nodes())
     {
+        if (is_legacy_room(handle))
+        {
+            continue;
+        }
         SushiDSP::AudioNode* node = scratch.node(handle);
         SlotGraph::SlotSnapshot snapshot;
         snapshot.descriptor_id = node->type_id();
@@ -764,18 +1158,89 @@ void RigPersistence::load_from_json(const std::string& json_text)
         {
             snapshot.bypassed = bypass_it->second;
         }
-        const auto room_it = room_scenes_by_handle.find(handle);
-        if (room_it != room_scenes_by_handle.end())
-        {
-            snapshot.room_scene = room_it->second;
-        }
         handle_to_slot[handle] = graph_.restore(snapshot, false);
     }
-    for (SushiDSP::NodeHandle handle : scratch.nodes())
+
+    SlotByPresetId slot_by_preset_id;
+    for (const auto& [preset_id, handle] : handle_by_preset_id)
     {
-        for (SushiDSP::NodeHandle upstream_handle : scratch.upstream_of(handle))
+        const auto slot = handle_to_slot.find(handle);
+        if (slot != handle_to_slot.end())
         {
-            graph_.connect(handle_to_slot.at(upstream_handle), handle_to_slot.at(handle), false);
+            slot_by_preset_id[preset_id] = slot->second;
+        }
+    }
+
+    // A room's rows name their nodes, so its arrangement waits for every slot to have its id.
+    for (const auto& [handle, room_json] : rooms_by_handle)
+    {
+        std::string reason;
+        graph_.set_room_arrangement(handle_to_slot.at(handle),
+                                    arrangement_from_json(room_json, slot_by_preset_id), reason);
+    }
+
+    if (with_shape && !document.contains("edges"))
+    {
+        for (const nlohmann::json& node_json : document.at("nodes"))
+        {
+            const auto to = slot_by_preset_id.find(node_json.at("id").get<int>());
+            for (const nlohmann::json& input_id : node_json.at("inputs"))
+            {
+                const auto from = slot_by_preset_id.find(input_id.get<int>());
+                if (from != slot_by_preset_id.end() && to != slot_by_preset_id.end())
+                {
+                    graph_.connect(from->second, to->second, false);
+                }
+            }
+        }
+    }
+    if (with_shape)
+    {
+        for (const nlohmann::json& edge : document.value("edges", nlohmann::json::array()))
+        {
+            const auto from = slot_by_preset_id.find(edge.value("from", -1));
+            const auto to = slot_by_preset_id.find(edge.value("to", -1));
+            if (from != slot_by_preset_id.end() && to != slot_by_preset_id.end())
+            {
+                graph_.connect(from->second, to->second, false,
+                               edge.value("port", std::uint32_t{0}));
+            }
+        }
+        if (document.contains("shape"))
+        {
+            graph_.set_shape(shape_from_json(document.at("shape"), slot_by_preset_id));
+        }
+    }
+    else
+    {
+        // A room that left the chain is bridged: what fed it feeds what it fed.
+        for (SushiDSP::NodeHandle handle : scratch.nodes())
+        {
+            if (is_legacy_room(handle))
+            {
+                continue;
+            }
+            for (SushiDSP::NodeHandle upstream_handle : scratch.upstream_of(handle))
+            {
+                if (!is_legacy_room(upstream_handle))
+                {
+                    graph_.connect(handle_to_slot.at(upstream_handle), handle_to_slot.at(handle),
+                                   false);
+                    continue;
+                }
+                for (SushiDSP::NodeHandle before_room : scratch.upstream_of(upstream_handle))
+                {
+                    if (!is_legacy_room(before_room))
+                    {
+                        graph_.connect(handle_to_slot.at(before_room), handle_to_slot.at(handle),
+                                       false);
+                    }
+                }
+            }
+        }
+        if (legacy.has_value())
+        {
+            graph_.set_legacy_room(*legacy);
         }
     }
 

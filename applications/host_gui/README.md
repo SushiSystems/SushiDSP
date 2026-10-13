@@ -244,23 +244,98 @@ applier binds each path's head slot to its channel through `RigController::set_i
 `SlotGraph::build_graph` passes to `RigGraph::bind_input`. A path left behind by a switch to another
 chain type is rebound to channel 0.
 
-Not yet built: the DI path. AmpliTube 5's DI track, a parallel input strip that bypasses the
-amplifier, is not in this model.
+## The DI path
+
+`RigTopology::di()` turns the DI path on: a channel strip that reads the rig's input directly and
+joins the rig without passing an amplifier or a cabinet. `RigTopology::di_position()` says where it
+joins. `DiPosition::BeforeEffects` puts it on the amp bus, so it passes the post effects with the
+amplifiers' sum; `DiPosition::AfterEffects` puts it on a master bus of its own after them. A rig
+with no gear has no cabinet section, and there the DI strip and the chain's sink meet in that
+master bus whatever the position says.
 
 ## The cabinet section
 
-`RoomLayout` (`room_layout.cpp`) records the cabinet section: the shell room, the listener, one
-placement per path and the microphones with their ids. It holds data and checks only. A preset
-stores it as the `"cabinet_section"` object (`room_layout_codec.cpp`, version 1). The room's open
-switch is not stored yet, because the chain's topology is not stored either; a loaded layout starts
-with the room closed.
+The cabinet section is the part of the rig after the cabinets: one room, its microphones, the
+strips and the buses. `TopologyApplier` builds it whenever the topology routes at least one slot
+and takes it away with the last one, so an empty rig still passes its input through. Its slots are
+hidden: no stage of the chain shows them and the gear browser does not list them
+(`ui/gear_filter.cpp`).
 
-With the room open, every path ends in the room environment, whose listener ears and microphones
-reach a bus through channel strips and microphone rig elements, and the chain's own joins are not
-built. Each path must hold at least one slot, and each path needs a placed cabinet. The microphones
-are limited to six, because the bus takes eight inputs and the listener takes two.
+```
+path k:  ... -> cabinet k -> ... --+--> room, input k
+                                   +--> the chain's own join --> Cabinet
 
-The "Cabinet section" window (`ui/cabinet_section_window.cpp`) holds the switches, places missing
-cabinets, draws the plan view (`ui/cabinet_section_view.cpp`, top-down, not perspective), and shows the
-mixer (`ui/mixer_panel.cpp`). Parameter edits in the mixer are not published; structural edits go
-through `TopologyApplier`.
+room:    port 0      listener (stereo) --> Listener strip
+         port 1 + m  microphone m      --> microphone slot --> Mic strip
+
+Mic strips, room flag clear --> Bus
+Mic strips, room flag set   --> Room sum --> Room strip --> Bus
+
+Cabinet + Bus + Listener (+ DI before the effects) --> amp bus --> post stage
+post stage --> master bus (with the DI after the effects) --> Master strip
+```
+
+- **Cabinet** is the chain's join as it always was: the single path's last slot, the mixer of a
+  split chain, or the Parallel chain's bus. A cabinet's impulse response is already a close
+  microphone's capture, so this input is a signal in its own right. A new rig starts with Cabinet
+  on and the listener muted, and sounds as its cabinets do until the room is brought in.
+- **A source** is a path that holds a `sushidsp.cabinet` slot. The room hears the path at its
+  last slot and keeps the source under the cabinet slot's id. A path with no cabinet reaches the
+  join only.
+- **A microphone** is two slots the applier owns: a `sushidsp.microphone`, which carries the
+  pattern, the proximity switch, the polarity and the room flag, and a `sushidsp.channel_strip`.
+  `TopologyApplier::add_microphone` and `remove_microphone` are the only way they come and go; a
+  ninth is refused with a reason and the rig is left as it was.
+- **The strips.** A microphone and the DI use the mono `sushidsp.channel_strip`. The listener, the
+  Room sum and the master use `sushidsp.stereo_strip`.
+
+`cabinet_section_wiring.cpp` holds the wiring as a pure function: `CabinetSectionNeeds::of` says
+which optional slots the section needs for its microphones and its DI choice, and
+`wire_cabinet_section` returns every edge with its port, in connect order, plus what feeds each
+input of each bus. The applier creates the slots, connects the edges and moves each bus's mute and
+solo flags to the input its feeder now holds (`TopologyApplier::remap_flags`), because a bus keeps
+those flags by input index and an added or removed microphone shifts the indexes.
+
+The room's placements live in the room slot's `SushiDSP::Room::Arrangement`
+(`RigController::room_arrangement`, `set_room_arrangement`). On every apply the applier brings the
+arrangement in line with the rig: one source per path that carries a cabinet, one microphone per
+microphone slot, each new one at a default pose, each known one where it stood. It copies a
+microphone's pattern and proximity switch from its slot into the arrangement, since the room's
+solve reads them; `TopologyApplier::refresh_room` does the same without rewiring. A failed apply
+puts the arrangement back with everything else.
+
+After each apply the applier records the rig's `RigShape` (`rig_shape.hpp`) through
+`RigController::set_shape`: the chain type, each stage's slots, the DI choice and every hidden
+slot. A preset carries it, and a loaded rig hands it back, so `TopologyApplier::adopt` keeps the
+hidden slots a preset saved with their levels, pans and flags.
+
+On screen the section is a pane of the main layout, chosen by the switch under the top bar
+(`ui/cabinet_section_pane.cpp`). It holds the room scene (`ui/room_scene_view.cpp`), an inspector
+for the selected marker and for the room's shell (`ui/room_panel.cpp`), the DI switches and the
+mixer (`ui/mixer_panel.cpp`). `ui/README.md` describes each.
+
+## Preset format
+
+A preset is the `"nodes"` document `SushiDSP::rig_preset` writes, with the host's own keys beside
+it. `"format"` names the host's format; this build writes 2 and reads 1 and 2, and refuses a
+higher number before it touches the rig.
+
+| Key | Format | Holds |
+| --- | --- | --- |
+| `"format"` | 2 | The format number. A preset without it is format 1. |
+| `"edges"` | 2 | Every edge as `{"from", "to", "port"}`, because a node's own `"inputs"` carries no port. |
+| `"shape"` | 2 | The `RigShape`: `"chain_type"`, `"branches"`, `"post"`, `"di"`, `"di_position"` and `"hidden"`, every slot as its node id. |
+| A room node's `"room"` | 2 | The arrangement: the shell and the listener as a scene writes them, then `"sources"` and `"microphones"`, each row a pose with the `"node"` it stands for. A microphone row adds `"pattern"` and `"proximity"`. |
+| A room node's `"room"` | 1 | One scene: the shell and the poses of one cabinet, the listener and one microphone. |
+
+A format 2 preset's nodes are read alone and its edges come from `"edges"`, so the rig's own
+publish is what checks the graph. A format 1 preset is read whole and compiled first.
+
+A format 1 room was a slot of the chain with `listener`, `level` and `mix` parameters. Loading
+one takes the room out of the chain, bridges what fed it to what it fed, and keeps it as a
+`LegacyRoom` for `RigController::take_legacy_room`. `TopologyApplier::migrate_legacy_room` turns
+that into the section's terms: the room's shell and poses, the listener or one microphone as its
+receiver, the old level on that receiver's strip, and Cabinet muted, because the old chain ended
+in the room. A microphone's strip gets 3 dB more than the old level, since a centred strip is
+3 dB down a side and the old room put its microphone on both channels at full level. The old
+`mix` is not carried: the room has no dry path. Each step is logged.

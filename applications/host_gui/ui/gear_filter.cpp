@@ -35,12 +35,15 @@ namespace ui
 {
     namespace
     {
-        /// @brief The routing slot ids §16 keeps off every tab, regardless of category.
-        /// @param id The item's descriptor id.
-        /// @return True for the hidden splitter and mixer slots.
+        /// @brief The slot ids no tab lists, regardless of category: the chain's joins and the
+        /// cabinet section's room, microphones, strips and buses, which the rig places itself.
+        /// @param id The registry id to test.
+        /// @return True for a slot the rig places itself.
         bool is_hidden_routing_slot(const std::string& id)
         {
-            return id == "sushidsp.splitter" || id == "sushidsp.mixer";
+            return id == "sushidsp.splitter" || id == "sushidsp.mixer" || id == "sushidsp.bus" ||
+                   id == "sushidsp.channel_strip" || id == "sushidsp.stereo_strip" ||
+                   id == "sushidsp.room" || id == "sushidsp.microphone";
         }
 
         /// @brief Lowercases a string for a case-insensitive comparison.

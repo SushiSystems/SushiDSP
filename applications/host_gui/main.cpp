@@ -67,7 +67,7 @@
 #include "ui/gear_browser.hpp"
 #include "ui/level_probe.hpp"
 #include "ui/meter_bar.hpp"
-#include "ui/cabinet_section_window.hpp"
+#include "ui/cabinet_section_pane.hpp"
 #include "ui/rig_chain_view.hpp"
 #include "ui/room_panel.hpp"
 #include "ui/stage_panel.hpp"
@@ -181,49 +181,38 @@ namespace
         }
     }
 
-    /// @brief Reports whether the rig's edges are exactly the linear run of its slot order.
-    /// @param rig The rig to inspect.
-    /// @return True when every consecutive pair of slot_order() is an edge and no other edge exists.
-    bool rig_is_linear(const RigController& rig)
-    {
-        const std::vector<RigController::SlotId> order = rig.slot_order();
-        const std::vector<std::pair<RigController::SlotId, RigController::SlotId>> edges =
-            rig.edges();
-        const std::size_t expected = order.empty() ? 0 : order.size() - 1;
-        if (edges.size() != expected)
-        {
-            return false;
-        }
-        for (std::size_t index = 0; index < expected; ++index)
-        {
-            const std::pair<RigController::SlotId, RigController::SlotId> link(order[index],
-                                                                               order[index + 1]);
-            if (std::find(edges.begin(), edges.end(), link) == edges.end())
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /// @brief Resets the chain view's state to a Series chain of the rig's slot order.
-    /// @param rig The rig the state now describes; flattened to series when its graph is not linear.
+    /// @brief Resets the chain view's state to the rig the controller holds and lays it out.
+    ///
+    /// A rig that carries its shape, which every preset this build writes does, comes back with
+    /// its stages, its DI choice and its hidden slots. Any other rig is taken as one path in slot
+    /// order; a room such a preset carried is moved into the cabinet section.
+    /// @param rig The rig the state now describes.
     /// @param state The chain view state to reset.
-    /// @param status Out: a message when the rig's shape was flattened or flattening failed.
+    /// @param status Out: a message when the layout was refused.
     void seed_rig_chain(RigController& rig, ui::RigChainState& state, std::string& status)
     {
-        state.topology = RigTopology::from_linear_order(rig.slot_order());
         state.applier = TopologyApplier();
         state.selected = std::nullopt;
         state.edit_error.clear();
-        if (rig_is_linear(rig))
+        if (rig.shape().has_value())
         {
-            return;
+            const RigShape shape = *rig.shape();
+            state.topology = RigTopology::from_stages(shape.chain_type, shape.branches, shape.post,
+                                                      shape.di, shape.di_position);
+            state.applier.adopt(shape.hidden, rig);
+        }
+        else
+        {
+            state.topology = RigTopology::from_linear_order(rig.slot_order());
         }
         try
         {
             state.applier.apply(state.topology, rig);
-            status = "Preset had a parallel shape; loaded as a series chain.";
+            if (const std::optional<LegacyRoom> legacy = rig.take_legacy_room())
+            {
+                state.applier.migrate_legacy_room(state.topology, rig, *legacy);
+                status = "The preset's room was moved into the cabinet section.";
+            }
         }
         catch (const std::exception& error)
         {
@@ -288,7 +277,9 @@ int main(int argc, char** argv)
     std::string transport_error;
     std::string arrangement_error;
     std::string room_error;
-    std::string cabinet_error;
+    ui::CabinetSectionState cabinet_section_state;
+    // The workspace shows the rig or the cabinet section; the choice is view state.
+    bool cabinet_section_open = false;
     bool open_device_settings = true;
     // The mini-DAW (arrangement view + meter bar) starts hidden.
     bool mini_daw_open = false;
@@ -444,8 +435,7 @@ int main(int argc, char** argv)
                                                                   transport);
                     }
 
-                    // The second channel is the device's other input; a mono device, or a re-amp
-                    // source, repeats the first so both paths hear the same signal.
+                    // A mono device, or a re-amp source, repeats the first channel on the second.
                     if (source == RigInputSource::LiveInput && is_multi_channel_input && inputs != nullptr)
                     {
                         const std::size_t other_index = input_index == 0 ? 1u : 0u;
@@ -607,15 +597,12 @@ int main(int argc, char** argv)
         const ui::DividerLimits settings_limits{120.0f, 140.0f};
         const ui::DividerLimits gear_limits{220.0f, 360.0f};
 
-        const float vertical_available = std::max(height - top_bar_height - seam_thickness, 0.0f);
+        // The mini-DAW takes the whole workspace, so the workspace switch is drawn without it.
+        const float switch_height = mini_daw_open ? 0.0f : 30.0f;
+        const float vertical_available =
+            std::max(height - top_bar_height - switch_height - seam_thickness, 0.0f);
         bottom_bar_height = ui::fit_pane_size(bottom_bar_height, vertical_available, bottom_limits);
         const float workspace_height = std::max(vertical_available - bottom_bar_height, 0.0f);
-
-        if (rig_controller_storage.has_value())
-        {
-            ui::DrawCabinetSectionWindow(*rig_controller_storage, rig_chain_state.topology,
-                                         rig_chain_state.applier, cabinet_error);
-        }
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(width, top_bar_height));
@@ -630,11 +617,31 @@ int main(int argc, char** argv)
                 // A load numbers the new rig's slots from zero, so nothing may carry across.
                 seed_rig_chain(*rig_controller_storage, rig_chain_state, status);
                 room_error.clear();
+                cabinet_section_state = ui::CabinetSectionState();
             }
         }
         ImGui::End();
 
-        ImGui::SetNextWindowPos(ImVec2(0.0f, top_bar_height));
+        if (!mini_daw_open)
+        {
+            ImGui::SetNextWindowPos(ImVec2(0.0f, top_bar_height));
+            ImGui::SetNextWindowSize(ImVec2(width, switch_height));
+            ImGui::Begin("##workspace_switch", nullptr,
+                         region_flags | ImGuiWindowFlags_NoScrollbar |
+                             ImGuiWindowFlags_NoScrollWithMouse);
+            if (ImGui::RadioButton("Rig", !cabinet_section_open))
+            {
+                cabinet_section_open = false;
+            }
+            ImGui::SameLine(0.0f, 16.0f);
+            if (ImGui::RadioButton("Cabinet section", cabinet_section_open))
+            {
+                cabinet_section_open = true;
+            }
+            ImGui::End();
+        }
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, top_bar_height + switch_height));
         ImGui::SetNextWindowSize(ImVec2(width, workspace_height));
         if (mini_daw_open)
         {
@@ -646,6 +653,16 @@ int main(int argc, char** argv)
                 ui::DrawArrangementView(*rig_controller_storage, timeline_scale, snap_mode,
                                         audio_imports, arrangement_error, lane_geometry,
                                         arrangement_header_width);
+            }
+            ImGui::End();
+        }
+        else if (cabinet_section_open)
+        {
+            ImGui::Begin("##cabinet_section", nullptr, region_flags);
+            if (rig_controller_storage.has_value())
+            {
+                ui::DrawCabinetSectionPane(*rig_controller_storage, rig_chain_state.topology,
+                                           rig_chain_state.applier, cabinet_section_state);
             }
             ImGui::End();
         }
@@ -736,7 +753,7 @@ int main(int argc, char** argv)
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, no_spacing);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, no_spacing);
-        ImGui::SetNextWindowPos(ImVec2(0.0f, top_bar_height + workspace_height));
+        ImGui::SetNextWindowPos(ImVec2(0.0f, top_bar_height + switch_height + workspace_height));
         ImGui::SetNextWindowSize(ImVec2(width, seam_thickness));
         ImGui::Begin("##bottom_divider", nullptr,
                      region_flags | ImGuiWindowFlags_NoScrollbar |

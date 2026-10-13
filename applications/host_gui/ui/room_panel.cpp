@@ -42,6 +42,7 @@
 #include "SushiDSP/room/materials.hpp"
 #include "SushiDSP/room/microphone_model.hpp"
 #include "SushiDSP/room/modal_solver.hpp"
+#include "SushiDSP/room/room_arrangement.hpp"
 #include "SushiDSP/room/room_node.hpp"
 #include "SushiDSP/room/room_scene.hpp"
 
@@ -58,12 +59,6 @@ namespace ui
 
         /// @brief Holds the plan's inset from the window edge and between groups, in pixels.
         constexpr float K_PADDING = 8.0f;
-
-        /// @brief Holds a marker's radius in pixels.
-        constexpr float K_MARKER_RADIUS = 8.0f;
-
-        /// @brief Holds the plan's largest side in pixels.
-        constexpr float K_PLAN_SIDE = 260.0f;
 
         /// @brief Keeps a dragged pose this far inside the walls, in metres.
         constexpr double K_WALL_MARGIN = 0.05;
@@ -92,12 +87,6 @@ namespace ui
 
         /// @brief Lists the scattering words for the combo, in Scattering order.
         constexpr const char* K_SCATTERING_ITEMS = "Flat\0Textured\0Cluttered\0";
-
-        /// @brief Lists the polar patterns for the combo, in PolarPattern order.
-        constexpr const char* K_PATTERN_ITEMS = "Omni\0Cardioid\0Supercardioid\0Figure eight\0";
-
-        /// @brief Lists the listener choices for the combo, in the parameter's order.
-        constexpr const char* K_LISTENER_ITEMS = "Ears\0Microphone\0";
 
         /// @brief Lists the direct-delay choices for the combo, in the parameter's order.
         constexpr const char* K_DIRECT_DELAY_ITEMS = "Compensated\0Physical\0";
@@ -188,120 +177,6 @@ namespace ui
             position.x = clamp_inside(position.x, dimensions.x);
             position.y = clamp_inside(position.y, dimensions.y);
             position.z = clamp_inside(position.z, dimensions.z);
-        }
-
-        /// @brief Maps the plan's screen rectangle onto the room's floor, y up the screen.
-        struct PlanFrame
-        {
-                /// @brief Stores the plan's top-left corner in screen pixels.
-                ImVec2 origin;
-
-                /// @brief Stores the plan's size in screen pixels.
-                ImVec2 size;
-
-                /// @brief Stores the room's floor, in metres.
-                Vec3 dimensions;
-
-                /// @brief Returns the screen point of a floor position.
-                ImVec2 to_screen(const Vec3& position) const
-                {
-                    const float u = static_cast<float>(position.x / dimensions.x);
-                    const float v = static_cast<float>(position.y / dimensions.y);
-                    return ImVec2(origin.x + u * size.x, origin.y + (1.0f - v) * size.y);
-                }
-
-                /// @brief Returns the floor position of a screen point, kept inside the walls.
-                void to_floor(ImVec2 point, Vec3& position) const
-                {
-                    const double u = static_cast<double>((point.x - origin.x) / size.x);
-                    const double v = static_cast<double>(1.0f - (point.y - origin.y) / size.y);
-                    position.x = clamp_inside(u * dimensions.x, dimensions.x);
-                    position.y = clamp_inside(v * dimensions.y, dimensions.y);
-                }
-        };
-
-        /// @brief Draws one draggable marker on the plan and moves the pose under a drag.
-        /// @param id The ImGui id, unique within the plan.
-        /// @param frame The plan's mapping.
-        /// @param position In/out: the pose's floor position.
-        /// @param yaw_rad The pose's facing, drawn as a short line.
-        /// @param color The marker's fill.
-        /// @param label The letter drawn on the marker.
-        /// @return True on the frames the position moved.
-        bool drag_marker(const char* id, const PlanFrame& frame, Vec3& position, double yaw_rad,
-                         Color color, const char* label)
-        {
-            const ImVec2 centre = frame.to_screen(position);
-            ImGui::SetCursorScreenPos(
-                ImVec2(centre.x - K_MARKER_RADIUS, centre.y - K_MARKER_RADIUS));
-            ImGui::InvisibleButton(id, ImVec2(2.0f * K_MARKER_RADIUS, 2.0f * K_MARKER_RADIUS));
-
-            bool moved = false;
-            if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
-            {
-                const Vec3 before = position;
-                frame.to_floor(ImGui::GetMousePos(), position);
-                moved = position.x != before.x || position.y != before.y;
-            }
-
-            ImDrawList* draw = ImGui::GetWindowDrawList();
-            const ImU32 fill = to_imu32(color);
-            const ImU32 ink = to_imu32(palette().text);
-            draw->AddCircleFilled(centre, K_MARKER_RADIUS, fill);
-            const float facing_x = static_cast<float>(std::cos(yaw_rad));
-            const float facing_y = static_cast<float>(-std::sin(yaw_rad));
-            draw->AddLine(centre,
-                          ImVec2(centre.x + facing_x * K_MARKER_RADIUS * 2.0f,
-                                 centre.y + facing_y * K_MARKER_RADIUS * 2.0f),
-                          fill, 2.0f);
-            const ImVec2 text_size = ImGui::CalcTextSize(label);
-            draw->AddText(ImVec2(centre.x - text_size.x * 0.5f, centre.y - text_size.y * 0.5f), ink,
-                          label);
-            if (ImGui::IsItemHovered())
-            {
-                ImGui::SetTooltip("%s at (%.2f, %.2f, %.2f) m", label, position.x, position.y,
-                                  position.z);
-            }
-            return moved;
-        }
-
-        /// @brief Draws the plan: the floor's outline scaled to the room and the three markers.
-        /// @return True on the frames a marker moved.
-        bool draw_plan(RoomScene& scene)
-        {
-            const float scale =
-                K_PLAN_SIDE / static_cast<float>(std::max(scene.dimensions.x, scene.dimensions.y));
-            PlanFrame frame;
-            frame.origin = ImGui::GetCursorScreenPos();
-            frame.origin.x += K_MARKER_RADIUS;
-            frame.origin.y += K_MARKER_RADIUS;
-            frame.size = ImVec2(static_cast<float>(scene.dimensions.x) * scale,
-                                static_cast<float>(scene.dimensions.y) * scale);
-            frame.dimensions = scene.dimensions;
-
-            ImDrawList* draw = ImGui::GetWindowDrawList();
-            draw->AddRectFilled(
-                frame.origin, ImVec2(frame.origin.x + frame.size.x, frame.origin.y + frame.size.y),
-                to_imu32(palette().panel_background));
-            draw->AddRect(frame.origin,
-                          ImVec2(frame.origin.x + frame.size.x, frame.origin.y + frame.size.y),
-                          to_imu32(palette().muted_text));
-
-            bool moved = false;
-            moved = drag_marker("cabinet", frame, scene.source_position, scene.source_yaw_rad,
-                                rgba(214, 168, 74), "C") ||
-                    moved;
-            moved = drag_marker("head", frame, scene.listener_position, scene.listener_yaw_rad,
-                                rgba(96, 160, 220), "H") ||
-                    moved;
-            moved = drag_marker("microphone", frame, scene.microphone_position,
-                                scene.microphone_yaw_rad, rgba(120, 200, 120), "M") ||
-                    moved;
-
-            ImGui::SetCursorScreenPos(ImVec2(frame.origin.x - K_MARKER_RADIUS,
-                                             frame.origin.y + frame.size.y + K_MARKER_RADIUS));
-            ImGui::Dummy(ImVec2(frame.size.x + 2.0f * K_MARKER_RADIUS, 1.0f));
-            return moved;
         }
 
         /// @brief Draws the three dimension fields and keeps every pose inside the new box.
@@ -505,64 +380,6 @@ namespace ui
             return changed;
         }
 
-        /// @brief Draws one pose's height field and facing slider.
-        /// @return True on the frames either changed.
-        bool draw_pose_fields(const char* id, const char* name, Vec3& position, double& yaw_rad,
-                              const Vec3& dimensions)
-        {
-            ImGui::PushID(id);
-            bool changed = false;
-            ImGui::TextUnformatted(name);
-            ImGui::SameLine(110.0f);
-            ImGui::SetNextItemWidth(90.0f);
-            if (ImGui::InputDouble("height (m)", &position.z, 0.05, 0.5, "%.2f"))
-            {
-                position.z = clamp_inside(position.z, dimensions.z);
-                changed = true;
-            }
-            ImGui::SameLine();
-            float yaw = static_cast<float>(yaw_rad);
-            ImGui::SetNextItemWidth(120.0f);
-            if (ImGui::SliderAngle("facing", &yaw, -180.0f, 180.0f))
-            {
-                yaw_rad = static_cast<double>(yaw);
-                changed = true;
-            }
-            ImGui::PopID();
-            return changed;
-        }
-
-        /// @brief Draws the microphone's pattern combo.
-        /// @return True on the frames the pattern changed.
-        bool draw_microphone(RoomScene& scene)
-        {
-            int pattern = static_cast<int>(scene.microphone_pattern);
-            ImGui::SetNextItemWidth(140.0f);
-            if (ImGui::Combo("Microphone pattern", &pattern, K_PATTERN_ITEMS))
-            {
-                scene.microphone_pattern = static_cast<SushiDSP::room::PolarPattern>(pattern);
-                return true;
-            }
-            return false;
-        }
-
-        /// @brief Draws one of the node's continuous parameters as a slider over its range.
-        void draw_parameter_slider(RigController& rig, RigController::SlotId slot,
-                                   const char* param_id, const char* format)
-        {
-            const SushiDSP::ParameterDescriptor* param = room_parameter(param_id);
-            if (param == nullptr)
-            {
-                return;
-            }
-            float value = rig.get_parameter(slot, param_id);
-            ImGui::SetNextItemWidth(200.0f);
-            if (ImGui::SliderFloat(param->label, &value, param->min, param->max, format))
-            {
-                rig.set_parameter(slot, param_id, value);
-            }
-        }
-
         /// @brief Draws one of the node's two-way choices as a combo.
         void draw_parameter_choice(RigController& rig, RigController::SlotId slot,
                                    const char* param_id, const char* items)
@@ -590,13 +407,24 @@ namespace ui
             ImGui::Dummy(ImVec2(K_SECTION_WIDTH, K_PADDING * 0.5f));
         }
 
-        /// @brief Draws the mix group: the node's four parameters.
-        void draw_mix(RigController& rig, RigController::SlotId slot)
+        /// @brief Keeps the listener, every cabinet and every microphone inside the shell, after
+        /// a dimension shrank under one of them.
+        void keep_inside(SushiDSP::Room::Arrangement& arrangement)
         {
-            draw_parameter_slider(rig, slot, "mix", "%.2f");
-            draw_parameter_slider(rig, slot, "level", "%.1f dB");
-            draw_parameter_choice(rig, slot, "listener", K_LISTENER_ITEMS);
-            draw_parameter_choice(rig, slot, "direct_delay", K_DIRECT_DELAY_ITEMS);
+            const Vec3 dimensions = arrangement.shell().dimensions;
+            SushiDSP::Room::Pose listener = arrangement.listener();
+            clamp_pose(listener.position, dimensions);
+            arrangement.set_listener(listener);
+            for (SushiDSP::Room::SourcePlacement source : arrangement.sources())
+            {
+                clamp_pose(source.pose.position, dimensions);
+                arrangement.move_source(source.id, source.pose);
+            }
+            for (SushiDSP::Room::MicrophonePlacement microphone : arrangement.microphones())
+            {
+                clamp_pose(microphone.pose.position, dimensions);
+                arrangement.update_microphone(microphone);
+            }
         }
 
         /// @brief Draws the Schroeder frequency, Weyl's mode estimate under it and the HRTF
@@ -631,34 +459,16 @@ namespace ui
     void DrawRoomPanel(RigController& rig, RigController::SlotId slot, std::string& room_error)
     {
         ImGui::PushID(static_cast<int>(slot));
-        RoomScene scene = rig.room_scene(slot);
+        SushiDSP::Room::Arrangement arrangement = rig.room_arrangement(slot);
+        RoomScene scene = arrangement.shell();
         bool changed = false;
 
         ImGui::BeginGroup();
         draw_section_heading("Shell");
-        ImGui::BeginGroup();
         changed = draw_dimensions(scene) || changed;
         ImGui::Spacing();
         ImGui::TextUnformatted("Openings and coverings");
         changed = draw_patches(scene) || changed;
-        ImGui::EndGroup();
-
-        ImGui::SameLine(0.0f, 3.0f * K_PADDING);
-
-        ImGui::BeginGroup();
-        ImGui::TextUnformatted("Plan: drag the cabinet, the head and the microphone");
-        changed = draw_plan(scene) || changed;
-        changed = draw_pose_fields("cabinet", "Cabinet", scene.source_position,
-                                   scene.source_yaw_rad, scene.dimensions) ||
-                  changed;
-        changed = draw_pose_fields("head", "Head", scene.listener_position, scene.listener_yaw_rad,
-                                   scene.dimensions) ||
-                  changed;
-        changed = draw_pose_fields("microphone", "Microphone", scene.microphone_position,
-                                   scene.microphone_yaw_rad, scene.dimensions) ||
-                  changed;
-        changed = draw_microphone(scene) || changed;
-        ImGui::EndGroup();
 
         ImGui::Spacing();
         draw_section_heading("Finishes");
@@ -673,21 +483,20 @@ namespace ui
         ImGui::Spacing();
         draw_section_heading("Furnishings");
         changed = draw_furnishings(scene) || changed;
-        ImGui::EndGroup();
 
-        ImGui::SameLine(0.0f, 3.0f * K_PADDING);
-
-        ImGui::BeginGroup();
-        ImGui::TextUnformatted("Mix");
-        draw_mix(rig, slot);
+        ImGui::Spacing();
+        draw_section_heading("Direct sound");
+        draw_parameter_choice(rig, slot, "direct_delay", K_DIRECT_DELAY_ITEMS);
         ImGui::Spacing();
         draw_readouts(rig, slot, scene);
         ImGui::EndGroup();
 
         if (changed)
         {
+            arrangement.set_shell(scene);
+            keep_inside(arrangement);
             std::string error;
-            if (rig.set_room_scene(slot, scene, error))
+            if (rig.set_room_arrangement(slot, arrangement, error))
             {
                 room_error.clear();
             }
@@ -698,7 +507,7 @@ namespace ui
         }
         if (!room_error.empty())
         {
-            ImGui::TextColored(to_imvec4(rgba(220, 72, 60)), "Scene refused: %s",
+            ImGui::TextColored(to_imvec4(rgba(220, 72, 60)), "Room refused: %s",
                                room_error.c_str());
         }
         ImGui::PopID();

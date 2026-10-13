@@ -1523,7 +1523,7 @@ TEST(Unit_Dsp, RigControllerRoundTripsARoomSceneThroughJson)
 
 TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoRoomAsTheStarterScene)
 {
-    const std::string preset = R"({"nodes":[
+    const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
         {"id":1,"type":"sushidsp.room","params":{},"inputs":[0]}
     ]})";
@@ -1869,7 +1869,7 @@ TEST(Unit_Dsp, RigControllerWritesNoFurnishingsFieldForABareRoom)
 
 TEST(Unit_Dsp, RigControllerLoadsARoomWithoutFurnishingsAsAnUnfurnishedScene)
 {
-    const std::string preset = R"({"nodes":[
+    const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
          "room":{"dimensions":[4.0,3.0,2.5]}}
     ]})";
@@ -1886,7 +1886,7 @@ TEST(Unit_Dsp, RigControllerLoadsARoomWithoutFurnishingsAsAnUnfurnishedScene)
 
 TEST(Unit_Dsp, RigControllerRefusesAFurnishingNoTableRowNames)
 {
-    const std::string preset = R"({"nodes":[
+    const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
          "room":{"furnishings":[{"item":"no_such_row","quantity":1.0}]}}
     ]})";
@@ -1903,6 +1903,7 @@ TEST(Unit_Dsp, RigControllerRefusesMoreFurnishingRowsThanARoomCarries)
         rows.push_back({{"item", "sofa_two_seat"}, {"quantity", 1.0}});
     }
     const nlohmann::json preset = {
+        {"format", 2},
         {"nodes", nlohmann::json::array({{{"id", 0},
                                           {"type", "sushidsp.room"},
                                           {"params", nlohmann::json::object()},
@@ -1938,7 +1939,7 @@ TEST(Unit_Dsp, RigControllerRoundTripsTheBuiltRoomLossThroughJson)
 
 TEST(Unit_Dsp, RigControllerLoadsARoomWithoutTheBuiltRoomLossFieldWithTheLossOff)
 {
-    const std::string preset = R"({"nodes":[
+    const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
          "room":{"dimensions":[4.0,3.0,2.5]}}
     ]})";
@@ -1950,11 +1951,158 @@ TEST(Unit_Dsp, RigControllerLoadsARoomWithoutTheBuiltRoomLossFieldWithTheLossOff
 
 TEST(Unit_Dsp, RigControllerRefusesABuiltRoomLossThatIsNotABoolean)
 {
-    const std::string preset = R"({"nodes":[
+    const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
          "room":{"built_room_loss":1}}
     ]})";
 
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
     EXPECT_THROW(controller.load_from_json(preset), std::runtime_error);
+}
+
+TEST(Unit_Dsp, RigControllerWritesFormatTwoWithItsEdgesAndTheirPorts)
+{
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
+    const RigController::SlotId drive = controller.append("sushidsp.tubescreamer");
+    const RigController::SlotId room = controller.append("sushidsp.room");
+    const RigController::SlotId microphone = controller.add_node("sushidsp.microphone", false);
+    controller.connect(room, microphone, true, 1);
+
+    const nlohmann::json parsed = nlohmann::json::parse(controller.save_to_json());
+
+    EXPECT_EQ(parsed.at("format").get<int>(), 2);
+    ASSERT_EQ(parsed.at("edges").size(), 2u);
+    EXPECT_EQ(parsed.at("edges").at(1).at("port").get<int>(), 1);
+    (void)drive;
+}
+
+TEST(Unit_Dsp, RigControllerRefusesAPresetOfANewerFormat)
+{
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
+    controller.append("sushidsp.tubescreamer");
+
+    EXPECT_THROW(controller.load_from_json(R"({"format":3,"nodes":[]})"), std::runtime_error);
+
+    // The refusal came before the rig was touched.
+    EXPECT_EQ(controller.slot_order().size(), 1u);
+}
+
+TEST(Unit_Dsp, RigControllerTakesTheRoomOfAFormatOnePresetOutOfTheChain)
+{
+    const std::string preset = R"({"nodes":[
+        {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+        {"id":1,"type":"sushidsp.room","params":{"listener":1.0,"level":-4.0,"mix":0.5},
+         "inputs":[0],"room":{"dimensions":[4.0,3.0,2.5]}},
+        {"id":2,"type":"sushidsp.tubescreamer","params":{},"inputs":[1]}
+    ]})";
+
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
+    controller.load_from_json(preset);
+
+    // The room is gone from the slots and what fed it feeds what it fed.
+    const std::vector<RigController::SlotId> order = controller.slot_order();
+    ASSERT_EQ(order.size(), 2u);
+    EXPECT_EQ(controller.descriptor_id(order[0]), "sushidsp.tubescreamer");
+    EXPECT_EQ(controller.descriptor_id(order[1]), "sushidsp.tubescreamer");
+    ASSERT_EQ(controller.edges().size(), 1u);
+    EXPECT_EQ(controller.edges().front(), std::make_pair(order[0], order[1]));
+
+    // What the room was is kept for whoever lays the rig out, once.
+    const std::optional<LegacyRoom> legacy = controller.take_legacy_room();
+    ASSERT_TRUE(legacy.has_value());
+    EXPECT_FALSE(legacy->ears);
+    EXPECT_FLOAT_EQ(legacy->level_db, -4.0f);
+    EXPECT_FLOAT_EQ(legacy->mix, 0.5f);
+    EXPECT_EQ(legacy->scene.dimensions.x, 4.0);
+    EXPECT_FALSE(controller.take_legacy_room().has_value());
+    EXPECT_FALSE(controller.shape().has_value());
+}
+
+TEST(Unit_Dsp, RigControllerRoundTripsARoomsArrangementThroughJson)
+{
+    RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
+    const RigController::SlotId cabinet = source.append("sushidsp.cabinet");
+    const RigController::SlotId room = source.append("sushidsp.room");
+    const RigController::SlotId microphone = source.add_node("sushidsp.microphone", false);
+    source.connect(room, microphone, true, 1);
+
+    SushiDSP::Room::Arrangement arrangement;
+    arrangement.set_listener({{4.0, 2.5, 1.3}, 0.4});
+    std::string reason;
+    ASSERT_TRUE(arrangement.add_source({cabinet, {{1.2, 1.5, 0.6}, 0.2}}, reason)) << reason;
+    SushiDSP::Room::MicrophonePlacement placement;
+    placement.id = microphone;
+    placement.pose = {{1.6, 1.5, 0.7}, 3.0};
+    placement.pattern = SushiDSP::room::PolarPattern::FigureEight;
+    placement.proximity = false;
+    ASSERT_TRUE(arrangement.add_microphone(placement, reason)) << reason;
+    ASSERT_TRUE(source.set_room_arrangement(room, arrangement, reason)) << reason;
+
+    const std::string saved = source.save_to_json();
+    RigController target(SushiDSP::PrepareInfo{48000.0, 64, 2});
+    target.load_from_json(saved);
+
+    // The rows named their nodes, so the identities are the reloaded slots'.
+    RigController::SlotId loaded_room = 0;
+    RigController::SlotId loaded_cabinet = 0;
+    RigController::SlotId loaded_microphone = 0;
+    for (const RigController::SlotId slot : target.slot_order())
+    {
+        if (target.descriptor_id(slot) == "sushidsp.room")
+        {
+            loaded_room = slot;
+        }
+        if (target.descriptor_id(slot) == "sushidsp.cabinet")
+        {
+            loaded_cabinet = slot;
+        }
+        if (target.descriptor_id(slot) == "sushidsp.microphone")
+        {
+            loaded_microphone = slot;
+        }
+    }
+    const SushiDSP::Room::Arrangement loaded = target.room_arrangement(loaded_room);
+    ASSERT_EQ(loaded.sources().size(), 1u);
+    EXPECT_EQ(loaded.sources()[0].id, loaded_cabinet);
+    EXPECT_EQ(loaded.sources()[0].pose.position.x, 1.2);
+    EXPECT_EQ(loaded.sources()[0].pose.yaw_rad, 0.2);
+    EXPECT_EQ(loaded.listener().position.y, 2.5);
+    ASSERT_EQ(loaded.microphones().size(), 1u);
+    EXPECT_EQ(loaded.microphones()[0].id, loaded_microphone);
+    EXPECT_EQ(loaded.microphones()[0].pose.position.z, 0.7);
+    EXPECT_EQ(loaded.microphones()[0].pattern, SushiDSP::room::PolarPattern::FigureEight);
+    EXPECT_FALSE(loaded.microphones()[0].proximity);
+    EXPECT_EQ(target.save_to_json(), saved);
+}
+
+TEST(Unit_Dsp, RigControllerRoundTripsTheRigsShapeThroughJson)
+{
+    RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
+    const RigController::SlotId amp = source.append("sushidsp.tubescreamer");
+    const RigController::SlotId strip = source.append("sushidsp.channel_strip");
+    RigShape shape;
+    shape.chain_type = ChainType::Single;
+    shape.branches = {{amp}};
+    shape.di = true;
+    shape.di_position = DiPosition::BeforeEffects;
+    shape.hidden.di_strip = strip;
+    shape.hidden.join = amp;
+    shape.hidden.amp_bus_feeders = {amp, strip};
+    source.set_shape(shape);
+
+    RigController target(SushiDSP::PrepareInfo{48000.0, 64, 2});
+    target.load_from_json(source.save_to_json());
+
+    ASSERT_TRUE(target.shape().has_value());
+    const RigShape loaded = *target.shape();
+    const std::vector<RigController::SlotId> order = target.slot_order();
+    ASSERT_EQ(order.size(), 2u);
+    EXPECT_EQ(loaded.chain_type, ChainType::Single);
+    ASSERT_EQ(loaded.branches.size(), 1u);
+    EXPECT_EQ(loaded.branches[0], (std::vector<RigController::SlotId>{order[0]}));
+    EXPECT_TRUE(loaded.di);
+    EXPECT_EQ(loaded.di_position, DiPosition::BeforeEffects);
+    EXPECT_EQ(loaded.hidden.di_strip, std::optional<RigController::SlotId>(order[1]));
+    EXPECT_EQ(loaded.hidden.amp_bus_feeders,
+              (std::vector<RigController::SlotId>{order[0], order[1]}));
 }
