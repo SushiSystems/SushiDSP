@@ -28,12 +28,16 @@
 #include "ui/room_scene_view.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <string>
 #include <vector>
 
+#include "SushiDSP/room/furniture.hpp"
+#include "ui/scene_solids.hpp"
 #include "ui/theme.hpp"
 
 namespace ui
@@ -73,6 +77,8 @@ namespace ui
                 return rgba(214, 168, 74);
             case SceneItemKind::Microphone:
                 return rgba(120, 200, 120);
+            case SceneItemKind::Furnishing:
+                return rgba(168, 146, 190);
             case SceneItemKind::Listener:
                 break;
             }
@@ -118,6 +124,34 @@ namespace ui
                               edge);
                     draw_line(draw, camera, Point3{xs[a], ys[b], 0.0}, Point3{xs[a], ys[b], size.z},
                               edge);
+                }
+            }
+        }
+
+        /// @brief Draws a box's twelve edges.
+        void draw_box(ImDrawList* draw, const SceneCamera& camera, const SceneBox& box, ImU32 color,
+                      float thickness)
+        {
+            for (const std::array<std::uint8_t, 2>& edge : K_BOX_EDGES)
+            {
+                draw_line(draw, camera, box[edge[0]], box[edge[1]], color, thickness);
+            }
+        }
+
+        /// @brief Draws one cabinet's box and the rim of each of its cones.
+        void draw_cabinet(ImDrawList* draw, const SceneCamera& camera,
+                          const SushiDSP::Room::SourcePlacement& source, bool selected)
+        {
+            const ImU32 color = to_imu32(fill_of(SceneItemKind::Cabinet));
+            draw_box(draw, camera, cabinet_box(source.pose, source.cabinet), color,
+                     selected ? 2.0f : 1.0f);
+            for (std::uint32_t driver = 0; driver < source.cabinet.driver_count(); ++driver)
+            {
+                const std::array<Point3, K_CONE_OUTLINE_POINTS> rim =
+                    cone_outline(source.pose, source.cabinet, driver);
+                for (std::size_t point = 0; point < rim.size(); ++point)
+                {
+                    draw_line(draw, camera, rim[point], rim[(point + 1) % rim.size()], color, 1.5f);
                 }
             }
         }
@@ -173,6 +207,19 @@ namespace ui
             case SceneItemKind::Listener:
                 arrangement.set_listener(pose);
                 break;
+            case SceneItemKind::Furnishing:
+            {
+                SushiDSP::room::RoomScene shell = arrangement.shell();
+                if (item.id < shell.furnishing_count)
+                {
+                    SushiDSP::room::RoomScene::Furnishing& entry = shell.furnishings[item.id];
+                    entry.x_m = item.position.x;
+                    entry.y_m = item.position.y;
+                    entry.yaw_rad = item.yaw_rad;
+                    arrangement.set_shell(shell);
+                }
+                break;
+            }
             }
         }
 
@@ -213,6 +260,20 @@ namespace ui
         items.push_back(SceneItem{SceneItemKind::Listener, 0u,
                                   point_of(arrangement.listener().position),
                                   arrangement.listener().yaw_rad});
+        const SushiDSP::room::RoomScene& shell = arrangement.shell();
+        for (std::uint32_t index = 0; index < shell.furnishing_count; ++index)
+        {
+            const SushiDSP::room::RoomScene::Furnishing& entry = shell.furnishings[index];
+            if (!entry.placed)
+            {
+                continue;
+            }
+            // The marker sits at half the item's height, where its box is centred.
+            const double height =
+                static_cast<double>(SushiDSP::room::furniture(entry.item).box_m[2]);
+            items.push_back(SceneItem{SceneItemKind::Furnishing, index,
+                                      Point3{entry.x_m, entry.y_m, 0.5 * height}, entry.yaw_rad});
+        }
         return items;
     }
 
@@ -264,7 +325,11 @@ namespace ui
             SceneItem& item = items[*selected];
             if (io.KeyShift)
             {
-                item.position = drag_height(state.camera, item, io.MouseDelta.y, dimensions);
+                // A furnishing stands on the floor and has no height to drag.
+                if (item.kind != SceneItemKind::Furnishing)
+                {
+                    item.position = drag_height(state.camera, item, io.MouseDelta.y, dimensions);
+                }
             }
             else if (io.KeyAlt)
             {
@@ -294,6 +359,26 @@ namespace ui
                             to_imu32(palette().panel_background));
         draw_shell(draw, state.camera, dimensions);
 
+        for (const SushiDSP::Room::SourcePlacement& source : arrangement.sources())
+        {
+            const bool chosen = state.selected.has_value() &&
+                                state.selected->kind == SceneItemKind::Cabinet &&
+                                state.selected->id == source.id;
+            draw_cabinet(draw, state.camera, source, chosen);
+        }
+        const SushiDSP::room::RoomScene& shell = arrangement.shell();
+        for (std::uint32_t index = 0; index < shell.furnishing_count; ++index)
+        {
+            if (shell.furnishings[index].placed)
+            {
+                const bool chosen = state.selected.has_value() &&
+                                    state.selected->kind == SceneItemKind::Furnishing &&
+                                    state.selected->id == index;
+                draw_box(draw, state.camera, furnishing_box(shell.furnishings[index]),
+                         to_imu32(fill_of(SceneItemKind::Furnishing)), chosen ? 2.0f : 1.0f);
+            }
+        }
+
         std::size_t cabinet = 0;
         std::size_t microphone = 0;
         for (std::size_t index = 0; index < items.size(); ++index)
@@ -309,6 +394,10 @@ namespace ui
                 break;
             case SceneItemKind::Listener:
                 std::snprintf(label, sizeof(label), "L");
+                break;
+            case SceneItemKind::Furnishing:
+                std::snprintf(label, sizeof(label), "F%u",
+                              static_cast<unsigned>(items[index].id + 1u));
                 break;
             }
             draw_item(draw, state.camera, items[index], label, selected == index);

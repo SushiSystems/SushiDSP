@@ -522,10 +522,12 @@ void TopologyApplier::reconcile_room(const RigTopology& topology, RigController&
         if (const SushiDSP::Room::SourcePlacement* known = before.find_source(*cabinet))
         {
             source.pose = known->pose;
+            source.cabinet = known->cabinet;
         }
         else if (index < before.sources().size())
         {
             source.pose = before.sources()[index].pose;
+            source.cabinet = before.sources()[index].cabinet;
         }
         else
         {
@@ -985,6 +987,7 @@ void TopologyApplier::migrate_legacy_room(RigTopology& topology, RigController& 
     {
         arrangement.move_source(arrangement.sources().front().id,
                                 {legacy.scene.source_position, legacy.scene.source_yaw_rad});
+        arrangement.set_source_cabinet(arrangement.sources().front().id, legacy.scene.cabinet);
     }
     if (!legacy.ears && !state_.microphones.empty())
     {

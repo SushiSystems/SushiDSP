@@ -38,7 +38,10 @@
 #include "SushiDSP/room/room_arrangement.hpp"
 
 #include "ui/mixer_panel.hpp"
+#include "SushiDSP/room/cabinet_geometry.hpp"
+#include "SushiDSP/room/furniture.hpp"
 #include "ui/room_panel.hpp"
+#include "ui/scene_solids.hpp"
 #include "ui/theme.hpp"
 
 namespace ui
@@ -56,6 +59,9 @@ namespace ui
 
         /// @brief Lists the polar patterns for the combo, in the microphone's parameter order.
         constexpr const char* K_PATTERN_ITEMS = "Omni\0Cardioid\0Supercardioid\0Figure eight\0";
+
+        /// @brief Lists the shipped cabinets for the combo, in CabinetKind order.
+        constexpr const char* K_CABINET_ITEMS = "1x12\0" "2x12\0" "4x12\0";
 
         /// @brief Lists the DI positions for the combo, in DiPosition order.
         constexpr const char* K_DI_POSITION_ITEMS = "Before the effects\0After the effects\0";
@@ -174,12 +180,56 @@ namespace ui
                 }
                 ImGui::TextUnformatted("Cabinet");
                 SushiDSP::Room::Pose pose = held->pose;
+                bool changed = false;
                 if (draw_pose(pose))
                 {
                     arrangement.move_source(selected.id, pose);
-                    return true;
+                    changed = true;
                 }
-                return false;
+                SushiDSP::room::CabinetKind kind = SushiDSP::room::CabinetKind::FourByTwelve;
+                const bool shipped = SushiDSP::room::cabinet_kind_of(held->cabinet, kind);
+                int chosen = shipped ? static_cast<int>(kind) : -1;
+                ImGui::SetNextItemWidth(160.0f);
+                if (ImGui::Combo("cones", &chosen, K_CABINET_ITEMS) && chosen >= 0)
+                {
+                    arrangement.set_source_cabinet(
+                        selected.id,
+                        SushiDSP::room::cabinet_preset(
+                                static_cast<SushiDSP::room::CabinetKind>(chosen))
+                            .geometry);
+                    changed = true;
+                }
+                return changed;
+            }
+            if (selected.kind == SceneItemKind::Furnishing)
+            {
+                SushiDSP::room::RoomScene shell = arrangement.shell();
+                if (selected.id >= shell.furnishing_count || !shell.furnishings[selected.id].placed)
+                {
+                    state.scene.selected.reset();
+                    return false;
+                }
+                SushiDSP::room::RoomScene::Furnishing& entry = shell.furnishings[selected.id];
+                ImGui::TextUnformatted(SushiDSP::room::furniture(entry.item).name);
+                bool changed = false;
+                ImGui::SetNextItemWidth(90.0f);
+                changed = ImGui::InputDouble("x (m)", &entry.x_m, 0.05, 0.5, "%.2f") || changed;
+                ImGui::SetNextItemWidth(90.0f);
+                changed = ImGui::InputDouble("y (m)", &entry.y_m, 0.05, 0.5, "%.2f") || changed;
+                float yaw = static_cast<float>(entry.yaw_rad);
+                ImGui::SetNextItemWidth(160.0f);
+                if (ImGui::SliderAngle("turned", &yaw, -180.0f, 180.0f))
+                {
+                    entry.yaw_rad = static_cast<double>(yaw);
+                    changed = true;
+                }
+                ImGui::TextColored(to_imvec4(palette().muted_text),
+                                   "Absorbs around where it stands.\nIt casts no shadow.");
+                if (changed)
+                {
+                    arrangement.set_shell(shell);
+                }
+                return changed;
             }
 
             const SushiDSP::Room::MicrophonePlacement* held =
@@ -192,6 +242,15 @@ namespace ui
             ImGui::TextUnformatted("Microphone");
             SushiDSP::Room::MicrophonePlacement microphone = *held;
             bool changed = draw_pose(microphone.pose);
+            if (const std::optional<MicrophoneAim> aim =
+                    nearest_cone(arrangement, microphone.pose.position))
+            {
+                ImGui::TextColored(to_imvec4(palette().muted_text),
+                                   "Cabinet %zu, cone %u: %.0f cm away,\n%.0f cm off its axis%s",
+                                   aim->source + 1, aim->driver + 1u, aim->distance_m * 100.0,
+                                   aim->off_axis_m * 100.0,
+                                   aim->in_front_m < 0.0 ? ", behind the baffle" : "");
+            }
             const SlotId slot = static_cast<SlotId>(selected.id);
             int pattern = static_cast<int>(microphone.pattern);
             ImGui::SetNextItemWidth(160.0f);

@@ -27,6 +27,7 @@
 
 #include "ui/furnishing_list.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace ui
@@ -81,5 +82,32 @@ namespace ui
     double default_furnishing_quantity(FurnitureId) noexcept
     {
         return 1.0;
+    }
+
+    bool place_furnishing(RoomScene& scene, std::uint32_t index, double x_m, double y_m) noexcept
+    {
+        if (index >= scene.furnishing_count || !std::isfinite(x_m) || !std::isfinite(y_m))
+        {
+            return false;
+        }
+        RoomScene::Furnishing& entry = scene.furnishings[index];
+        entry.placed = true;
+        entry.x_m = std::clamp(x_m, 0.0, scene.dimensions.x);
+        entry.y_m = std::clamp(y_m, 0.0, scene.dimensions.y);
+        return true;
+    }
+
+    bool unplace_furnishing(RoomScene& scene, std::uint32_t index) noexcept
+    {
+        if (index >= scene.furnishing_count)
+        {
+            return false;
+        }
+        RoomScene::Furnishing& entry = scene.furnishings[index];
+        entry.placed = false;
+        entry.x_m = 0.0;
+        entry.y_m = 0.0;
+        entry.yaw_rad = 0.0;
+        return true;
     }
 } // namespace ui

@@ -613,6 +613,7 @@ SushiDSP::room::RoomScene SlotGraph::room_scene(SlotId slot) const
     {
         scene.source_position = arrangement.sources().front().pose.position;
         scene.source_yaw_rad = arrangement.sources().front().pose.yaw_rad;
+        scene.cabinet = arrangement.sources().front().cabinet;
     }
     return scene;
 }
@@ -637,6 +638,7 @@ bool SlotGraph::set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& sce
     {
         arrangement.move_source(arrangement.sources().front().id,
                                 {scene.source_position, scene.source_yaw_rad});
+        arrangement.set_source_cabinet(arrangement.sources().front().id, scene.cabinet);
     }
     return set_room_arrangement(slot, arrangement, error_out);
 }

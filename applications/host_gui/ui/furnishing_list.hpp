@@ -62,4 +62,19 @@ namespace ui
     /// @param item The furniture row.
     /// @return 1.0, one item.
     double default_furnishing_quantity(SushiDSP::room::FurnitureId item) noexcept;
+
+    /// @brief Gives a furnishing a place on the floor, kept inside the room.
+    /// @param scene The scene the list belongs to.
+    /// @param index The furnishing, below the scene's count.
+    /// @param x_m Where its centre stands along x, in metres.
+    /// @param y_m Where its centre stands along y, in metres.
+    /// @return False when the index is past the list or a coordinate is not finite.
+    bool place_furnishing(SushiDSP::room::RoomScene& scene, std::uint32_t index, double x_m,
+                          double y_m) noexcept;
+
+    /// @brief Takes a furnishing's place away, so it absorbs evenly over the room.
+    /// @param scene The scene the list belongs to.
+    /// @param index The furnishing, below the scene's count.
+    /// @return False when the index is past the list.
+    bool unplace_furnishing(SushiDSP::room::RoomScene& scene, std::uint32_t index) noexcept;
 } // namespace ui
