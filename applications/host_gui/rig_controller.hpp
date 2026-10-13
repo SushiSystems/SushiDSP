@@ -36,6 +36,7 @@
 #include "SushiDSP/core/audio_node.hpp"
 #include "SushiDSP/core/rig_graph.hpp"
 #include "SushiDSP/core/rt_graph_slot.hpp"
+#include "SushiDSP/room/room_arrangement.hpp"
 #include "SushiDSP/room/room_host.hpp"
 #include "SushiDSP/room/room_scene.hpp"
 
@@ -204,13 +205,29 @@ class RigController
         /// bypassed. Control thread only.
         SushiDSP::room::RoomHost* room_host(SlotId slot);
 
-        /// @brief The scene a slot's room carries, the stored one whether or not the last drag has
-        /// reached the node yet; a slot with no scene reads the default scene.
+        /// @brief The arrangement a slot's room carries, the stored one whether or not the last
+        /// drag has reached the node yet; a slot with none reads the bare starter room.
+        /// @param slot The slot.
+        /// @return The arrangement.
+        SushiDSP::Room::Arrangement room_arrangement(SlotId slot) const;
+
+        /// @brief Stores an arrangement for a slot and publishes it at most K_ROOM_PUBLISH_HZ times
+        /// a second, keeping the newest for reclaim() when a publish lands inside the interval.
+        /// Control thread.
+        /// @param slot The slot.
+        /// @param arrangement The shell, the listener, the cabinets and the microphones.
+        /// @param error_out Receives the reason when the arrangement is refused; "" otherwise.
+        /// @return True when the arrangement was stored, which needs it to be valid.
+        bool set_room_arrangement(SlotId slot, const SushiDSP::Room::Arrangement& arrangement,
+                                  std::string& error_out);
+
+        /// @brief The shell a slot's room carries, with the listener's pose and the first
+        /// cabinet's; a slot with no arrangement reads the default scene.
         SushiDSP::room::RoomScene room_scene(SlotId slot) const;
 
-        /// @brief Stores a scene for a slot and publishes it at most K_ROOM_PUBLISH_HZ times a second,
-        /// keeping the newest for reclaim() when a publish lands inside the interval. A bypassed
-        /// slot keeps the scene and takes it on the publish that brings it back. Control thread.
+        /// @brief Replaces the shell, the listener's pose and the first cabinet's pose of a slot's
+        /// arrangement from one scene and publishes as set_room_arrangement() does. Microphones
+        /// and further cabinets are left as they are. Control thread.
         /// @param error_out Receives the reason when the scene is refused; "" otherwise.
         /// @return True when the scene was stored, which needs the scene to be valid.
         bool set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& scene,
@@ -236,13 +253,17 @@ class RigController
         /// @brief Every edge the rig holds, in stored (connect() call) order.
         std::vector<std::pair<SlotId, SlotId>> edges() const;
 
-        /// @brief Reads the cabinet section's layout. Publish after an edit so the room is rebuilt.
-        /// @return The layout.
-        RoomLayout& room_layout() noexcept;
+        /// @brief Records the rig's shape: its stages, its DI choice and its hidden slots.
+        /// @param shape The shape, naming this rig's slot ids.
+        void set_shape(const RigShape& shape);
 
-        /// @brief Reads the cabinet section's layout.
-        /// @return The layout.
-        const RoomLayout& room_layout() const noexcept;
+        /// @brief Reads the shape last recorded, or loaded from a preset.
+        /// @return The shape, or nullopt for a rig nothing has laid out.
+        const std::optional<RigShape>& shape() const noexcept;
+
+        /// @brief Hands over the room a preset written before the cabinet section carried, once.
+        /// @return The old room, or nullopt when there is none left to hand over.
+        std::optional<LegacyRoom> take_legacy_room();
 
         /// @brief Every edge the rig holds with the upstream port it reads, in stored order.
         /// @return The records.

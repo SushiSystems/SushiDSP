@@ -33,10 +33,12 @@
 
 namespace ui
 {
-    /// @brief Draws a room slot's shell, finishes, furnishings and mix controls.
+    /// @brief Draws a room's shell: its dimensions, openings, finishes and furnishings, and the
+    /// direct-delay choice. Where the cabinets, the listener and the microphones stand is the
+    /// scene view's to edit; this panel keeps them inside the shell when it shrinks.
     /// @param rig The rig that owns the slot.
     /// @param slot The room slot to draw.
-    /// @param room_error In/out: the last refused scene's reason, shown until an edit lands.
+    /// @param room_error In/out: the last refused room's reason, shown until an edit lands.
     /// @see applications/host_gui/ui/README.md
     void DrawRoomPanel(RigController& rig, RigController::SlotId slot, std::string& room_error);
 } // namespace ui

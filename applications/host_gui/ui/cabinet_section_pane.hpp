@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* cabinet_section_window.hpp                                             */
+/* cabinet_section_pane.hpp                                               */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -20,10 +20,9 @@
 /**************************************************************************/
 
 /**
- * @file cabinet_section_window.hpp
- * @brief Declares the cabinet section window: the room and DI switches, the cabinet placements, the
- * plan view and the mixer.
- * @author Mustafa Garip
+ * @file cabinet_section_pane.hpp
+ * @brief Declares the cabinet section's pane: the room scene, the inspector and the mixer.
+ * @author Mustafa Garip & Sushi Systems
  */
 
 #pragma once
@@ -33,15 +32,27 @@
 #include "rig_controller.hpp"
 #include "rig_topology.hpp"
 #include "topology_applier.hpp"
+#include "ui/room_scene_view.hpp"
 
 namespace ui
 {
-    /// @brief Draws the cabinet section window. Structural edits go through the applier, which
-    /// rewires and publishes the rig; parameter edits go through the mixer panel and are not published.
-    /// @param rig The rig to edit.
-    /// @param topology The chain's topology, changed by the room and DI switches.
-    /// @param applier The applier that rewires the rig.
-    /// @param error In/out: holds why the last structural edit was refused, or "".
-    void DrawCabinetSectionWindow(RigController& rig, RigTopology& topology,
-                                  TopologyApplier& applier, std::string& error);
+    /// @brief Holds what the cabinet section keeps between frames: the scene's camera and
+    /// selection, and the last refused edit's reasons.
+    struct CabinetSectionState
+    {
+            RoomSceneState scene;   ///< The room scene's camera, selection and drag.
+            std::string error;      ///< Why the last edit of the section was refused, or "".
+            std::string room_error; ///< Why the last edit of the room's shell was refused, or "".
+    };
+
+    /// @brief Draws the cabinet section over the region it is given: the room scene with its
+    /// cabinets, microphones and listener, an inspector for the selected one and for the room's
+    /// shell, the DI path's switches, and the mixer. Every edit is applied through the rig or the
+    /// applier on the frame it is made.
+    /// @param rig The rig to draw and edit.
+    /// @param topology The model the rig follows.
+    /// @param applier The owner of the section's hidden slots.
+    /// @param state In/out: the camera, the selection and the refusal reasons.
+    void DrawCabinetSectionPane(RigController& rig, RigTopology& topology,
+                                TopologyApplier& applier, CabinetSectionState& state);
 } // namespace ui

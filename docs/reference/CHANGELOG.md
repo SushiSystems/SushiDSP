@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 2026-10-13 — host: Added preset format 2: the rig's shape, edges with their ports and the room's arrangement; a format 1 room moves into the cabinet section on load (`rig_persistence.cpp`, `rig_shape.hpp`).
+- 2026-10-13 — host: Added the room scene in perspective, the strip mixer and the cabinet section pane (`room_scene_view.cpp`, `scene_camera.cpp`, `mixer_panel.cpp`, `cabinet_section_pane.cpp`).
+- 2026-10-13 — host: Rebuilt the cabinet section on one room with a Cabinet input, a strip per microphone, a Room strip and a master strip (`cabinet_section_wiring.cpp`, `topology_applier.cpp`).
+- 2026-10-13 — host: Removed `RoomLayout`, the cabinet section window, the room switch and the room's entry in the gear browser (`topology_applier.hpp`, `rig_topology.hpp`, `gear_filter.cpp`).
 - 2026-10-13 — bench: Added the cabinet section's gate, three JCM800 chains into a room of eight microphones under 2.67 ms (`tests/benchmark/main.cpp`).
 - 2026-10-13 — microphone: Moved the microphone element to its own module and added its `pattern` and `proximity` parameters (`modules/nodes/microphone`, `MicrophoneNode`).
 - 2026-10-13 — room: Removed the room environment node and the room node's mix, level and listener parameters; a preset or host that sets them breaks (`room_node.hpp`, `RoomNode::parameters`).

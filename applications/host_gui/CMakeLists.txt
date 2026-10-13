@@ -19,8 +19,7 @@ add_executable(sushidsp_host_gui
     ui/panel_library.cpp
     ui/rig_chain_view.cpp
     rig_topology.cpp
-    room_layout.cpp
-    room_layout_codec.cpp
+    cabinet_section_wiring.cpp
     topology_applier.cpp
     ui/divider.cpp
     ui/split_layout.cpp
@@ -37,11 +36,12 @@ add_executable(sushidsp_host_gui
     ui/directory_listing.cpp
     ui/file_browser.cpp
     ui/room_panel.cpp
-    ui/cabinet_section_view.cpp
+    ui/scene_camera.cpp
+    ui/scene_interaction.cpp
+    ui/room_scene_view.cpp
+    ui/mixer_model.cpp
     ui/mixer_panel.cpp
-    ui/cabinet_section_window.cpp
-    ui/furnishing_list.cpp
-    ui/patch_list.cpp
+    ui/cabinet_section_pane.cpp
     ui/furnishing_list.cpp
     ui/patch_list.cpp
     ui/transport_bar.cpp
@@ -64,6 +64,7 @@ target_link_libraries(sushidsp_host_gui PRIVATE
     SushiDSP::rig_preset
     SushiDSP::capture
     SushiDSP::room
+    SushiDSP::microphone
     imgui
     nlohmann_json::nlohmann_json
     OpenGL::GL

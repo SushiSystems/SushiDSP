@@ -112,14 +112,19 @@ void RigTopology::set_di(bool enabled) noexcept
     di_ = enabled;
 }
 
-bool RigTopology::room() const noexcept
+DiPosition RigTopology::di_position() const noexcept
 {
-    return room_;
+    return di_position_;
 }
 
-void RigTopology::set_room(bool enabled) noexcept
+void RigTopology::set_di_position(DiPosition position) noexcept
 {
-    room_ = enabled;
+    di_position_ = position;
+}
+
+std::vector<RigTopology::SlotId> RigTopology::active_post() const
+{
+    return branches_.size() > 1 ? post_ : std::vector<SlotId>{};
 }
 
 const std::vector<RigTopology::SlotId>& RigTopology::stage(const StageAddress& address) const
@@ -348,6 +353,19 @@ RigTopology::parallel_edges(SlotId left_strip, SlotId right_strip, SlotId bus) c
     push_chain(result, post_);
 
     return result;
+}
+
+RigTopology RigTopology::from_stages(ChainType type, std::vector<std::vector<SlotId>> branches,
+                                      std::vector<SlotId> post, bool di, DiPosition di_position)
+{
+    RigTopology topology;
+    topology.type_ = type;
+    branches.resize(branch_count(type));
+    topology.branches_ = std::move(branches);
+    topology.post_ = std::move(post);
+    topology.di_ = di;
+    topology.di_position_ = di_position;
+    return topology;
 }
 
 RigTopology RigTopology::from_linear_order(std::vector<SlotId> order)

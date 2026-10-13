@@ -43,7 +43,8 @@
 #include "SushiDSP/core/rt_graph_slot.hpp"
 #include "SushiDSP/room/hrtf_set.hpp"
 #include "SushiDSP/room/room_host.hpp"
-#include "room_layout.hpp"
+#include "SushiDSP/room/room_arrangement.hpp"
+#include "rig_shape.hpp"
 #include "SushiDSP/room/room_scene.hpp"
 
 #include "ui/geometry.hpp"
@@ -78,7 +79,7 @@ class SlotGraph
                 std::map<std::string, float> parameters;
                 std::string cabinet_path;
                 bool bypassed = false;
-                std::optional<SushiDSP::room::RoomScene> room_scene;
+                std::optional<SushiDSP::Room::Arrangement> room_arrangement;
         };
 
         explicit SlotGraph(const SushiDSP::PrepareInfo& info);
@@ -229,13 +230,30 @@ class SlotGraph
         /// bypassed. Control thread only.
         SushiDSP::room::RoomHost* room_host(SlotId slot);
 
-        /// @brief The scene a slot's room carries, the stored one whether or not the last drag has
-        /// reached the node yet; a slot with no scene reads the default scene.
+        /// @brief The arrangement a slot's room carries, the stored one whether or not the last
+        /// drag has reached the node yet; a slot with none reads the bare starter room.
+        /// @param slot The slot.
+        /// @return The arrangement.
+        SushiDSP::Room::Arrangement room_arrangement(SlotId slot) const;
+
+        /// @brief Stores an arrangement for a slot and publishes it at most K_ROOM_PUBLISH_HZ times
+        /// a second, keeping the newest for reclaim() when a publish lands inside the interval. A
+        /// bypassed slot keeps the arrangement and takes it on the publish that brings it back.
+        /// Control thread.
+        /// @param slot The slot.
+        /// @param arrangement The shell, the listener, the cabinets and the microphones.
+        /// @param error_out Receives the reason when the arrangement is refused; "" otherwise.
+        /// @return True when the arrangement was stored, which needs it to be valid.
+        bool set_room_arrangement(SlotId slot, const SushiDSP::Room::Arrangement& arrangement,
+                                  std::string& error_out);
+
+        /// @brief The shell a slot's room carries, with the listener's pose and the first
+        /// cabinet's; a slot with no arrangement reads the default scene.
         SushiDSP::room::RoomScene room_scene(SlotId slot) const;
 
-        /// @brief Stores a scene for a slot and publishes it at most K_ROOM_PUBLISH_HZ times a second,
-        /// keeping the newest for reclaim() when a publish lands inside the interval. A bypassed
-        /// slot keeps the scene and takes it on the publish that brings it back. Control thread.
+        /// @brief Replaces the shell, the listener's pose and the first cabinet's pose of a slot's
+        /// arrangement from one scene, and publishes as set_room_arrangement() does. Microphones
+        /// and further cabinets are left as they are. Control thread.
         /// @param error_out Receives the reason when the scene is refused; "" otherwise.
         /// @return True when the scene was stored, which needs the scene to be valid.
         bool set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& scene,
@@ -273,15 +291,23 @@ class SlotGraph
         /// @return The records.
         std::vector<EdgeRecord> edge_records() const;
 
-        /// @brief Reads the cabinet section's layout: the room, the listener, the cabinets and the
-        /// microphones. Publish after an edit so the room environment is rebuilt from it.
-        /// @return The layout.
-        RoomLayout& room_layout() noexcept;
 
-        /// @brief Reads the cabinet section's layout.
-        /// @return The layout.
-        const RoomLayout& room_layout() const noexcept;
+        /// @brief Records the rig's shape: its stages, its DI choice and its hidden slots. Whoever
+        /// lays the rig out writes it after each layout, and a preset carries it.
+        /// @param shape The shape, naming this graph's slot ids.
+        void set_shape(const RigShape& shape);
 
+        /// @brief Reads the shape last recorded, or loaded from a preset.
+        /// @return The shape, or nullopt for a rig nothing has laid out.
+        const std::optional<RigShape>& shape() const noexcept;
+
+        /// @brief Records the room a preset written before the cabinet section carried.
+        /// @param legacy The old room.
+        void set_legacy_room(const LegacyRoom& legacy);
+
+        /// @brief Hands over the old room a loaded preset carried, once.
+        /// @return The old room, or nullopt when there is none left to hand over.
+        std::optional<LegacyRoom> take_legacy_room();
 
         /// @brief Captures what a live slot needs to be rebuilt.
         /// @param slot The slot to capture.
@@ -364,11 +390,11 @@ class SlotGraph
                 /// @brief Records that the node this slot last published implements RoomHost.
                 bool hosts_room = false;
 
-                /// @brief Holds the scene the slot's room renders, once one was set or loaded.
-                std::optional<SushiDSP::room::RoomScene> room_scene;
+                /// @brief Holds the arrangement the slot's room renders, once one was set or loaded.
+                std::optional<SushiDSP::Room::Arrangement> room_arrangement;
 
-                /// @brief Records that room_scene changed since the node last took it.
-                bool room_scene_pending = false;
+                /// @brief Records that room_arrangement changed since the node last took it.
+                bool room_pending = false;
 
                 /// @brief Stamps the last scene handed to the node, for the publish interval.
                 std::optional<Clock::time_point> room_published_at;
@@ -406,14 +432,14 @@ class SlotGraph
         void apply_cabinet_to_live_node(SlotId slot);
         void seed_defaults(Slot& slot) const;
 
-        /// @brief Hands a slot's stored scene to its live room node when the interval since the
-        /// last publish has run, or when force is set, and stamps the publish.
-        /// @param error_out Receives the node's reason when it refuses the scene.
-        /// @return False when the node refused the scene; true when it took it or nothing was due.
-        bool publish_room_scene(SlotId slot, bool force, std::string& error_out);
+        /// @brief Hands a slot's stored arrangement to its live room node when the interval since
+        /// the last publish has run, or when force is set, and stamps the publish.
+        /// @param error_out Receives the node's reason when it refuses the arrangement.
+        /// @return False when the node refused it; true when it took it or nothing was due.
+        bool publish_room(SlotId slot, bool force, std::string& error_out);
 
-        /// @brief Installs the HRTF set in place and the stored scene into a freshly built room
-        /// node, adopting the node's own scene when the slot stores none.
+        /// @brief Installs the HRTF set in place and the stored arrangement into a freshly built
+        /// room node, adopting the node's own arrangement when the slot stores none.
         void apply_room_to_live_node(SlotId slot);
 
         /// @brief Lists every edge whose endpoints both reached the graph. Duplicate edges are
@@ -432,16 +458,15 @@ class SlotGraph
         bridged_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const;
 
         SushiDSP::PrepareInfo info_;
-        /// @brief Configures a room environment node from the layout. Throws when the room refuses it.
-        /// @param node The node the room slot built.
-        void configure_room(SushiDSP::AudioNode& node) const;
-
         /// @brief Finds the upstream port the stored edge from `from` to `to` reads.
         /// @return The port, or 0 when no stored edge joins the pair.
         std::uint32_t port_of(SlotId from, SlotId to) const;
 
-        /// @brief Holds the cabinet section's layout, read when the room environment is built.
-        RoomLayout room_layout_;
+        /// @brief Holds the shape last recorded or loaded.
+        std::optional<RigShape> shape_;
+
+        /// @brief Holds the old room a loaded preset carried, until a host takes it.
+        std::optional<LegacyRoom> legacy_room_;
 
         std::unordered_map<SlotId, Slot> slots_;
         std::vector<Edge> edges_;

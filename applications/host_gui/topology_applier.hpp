@@ -30,22 +30,39 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
+#include "SushiDSP/room/room_arrangement.hpp"
+
 #include "rig_controller.hpp"
+#include "rig_shape.hpp"
 #include "rig_topology.hpp"
 
-/// @brief Rewires a RigController to match a RigTopology and owns the hidden routing slots.
-/// GUI thread only.
+/// @brief Rewires a RigController to match a RigTopology and owns the hidden routing slots: the
+/// chain's own joins, and the cabinet section with its room, microphones, strips and buses.
+///
+/// The cabinet section exists while the topology routes at least one slot. Its room holds one
+/// source per path that carries a cabinet, keyed by the cabinet's slot, and one microphone per
+/// microphone slot this applier owns. GUI thread only.
 class TopologyApplier
 {
     public:
+        using SlotId = RigController::SlotId;
+
+        /// @brief Names one microphone's two slots.
+        using MicrophoneSlots = ::MicrophoneSlots;
+
+        /// @brief The hidden slots the mixer and the scene show.
+        using MixerSlots = HiddenSlots;
+
         /// @brief Rewires the rig to match the topology and publishes once.
         /// @param topology The model to apply.
         /// @param rig The controller to rewire; a slot the topology does not hold is removed.
-        /// @throws std::runtime_error when the rewired graph does not compile; the rig, the topology
-        /// and this applier are rolled back first.
+        /// @throws std::runtime_error when the rewired graph does not compile or the room refuses
+        /// its arrangement; the rig, the topology and this applier are rolled back first.
         void apply(RigTopology& topology, RigController& rig);
 
         /// @brief Switches the chain type and rewires the rig to match, in one step.
@@ -65,35 +82,61 @@ class TopologyApplier
         /// back first.
         void set_di(RigTopology& topology, RigController& rig, bool enabled);
 
-        /// @brief The hidden slots the mixer shows: the room's strips and bus, the DI strip and the master
-        /// bus, and one microphone slot per layout microphone. Empty members mean the slot is not built.
-        struct MixerSlots
-        {
-                std::optional<ui::SlotId> room_left;   ///< The listener's left-ear strip.
-                std::optional<ui::SlotId> room_right;  ///< The listener's right-ear strip.
-                std::optional<ui::SlotId> room_bus;    ///< The bus that joins the room's outputs.
-                std::optional<ui::SlotId> di_strip;    ///< The DI strip, while DI is open.
-                std::optional<ui::SlotId> master_bus;  ///< The master bus, while DI is open.
-                std::vector<std::pair<std::uint32_t, ui::SlotId>>
-                    microphones; ///< Microphone slots in layout order, with their layout ids.
-        };
+        /// @brief Moves the DI path before or after the post effects and rewires, in one step.
+        /// @param topology The model to change.
+        /// @param rig The controller to rewire.
+        /// @param position Where the DI path joins.
+        /// @throws std::runtime_error when the rewired graph does not compile; everything is rolled
+        /// back first.
+        void set_di_position(RigTopology& topology, RigController& rig, DiPosition position);
 
-        /// @brief Reads the hidden slots the mixer shows.
+        /// @brief Adds a microphone to the room, in front of the first cabinet, and rewires.
+        /// @param topology The model the rig follows.
+        /// @param rig The controller to rewire.
+        /// @return The new microphone's slot.
+        /// @throws std::runtime_error when the room is full, when the rig holds no gear, or when
+        /// the rewired graph does not compile; everything is rolled back first.
+        SlotId add_microphone(RigTopology& topology, RigController& rig);
+
+        /// @brief Removes a microphone and its strip from the room and rewires.
+        /// @param topology The model the rig follows.
+        /// @param rig The controller to rewire.
+        /// @param microphone The microphone's slot.
+        /// @throws std::runtime_error when the slot is not one of the room's microphones or the
+        /// rewired graph does not compile; everything is rolled back first.
+        void remove_microphone(RigTopology& topology, RigController& rig, SlotId microphone);
+
+        /// @brief Copies every microphone's pattern and proximity switch into the room's
+        /// arrangement, without rewiring. Called after one of those parameters changes.
+        /// @param rig The controller that holds the room.
+        /// @param error_out Receives the reason when the room refuses the arrangement.
+        /// @return False when the room refused; true otherwise, or when no room is built.
+        bool refresh_room(RigController& rig, std::string& error_out) const;
+
+        /// @brief Reads the hidden slots the mixer and the scene show.
         /// @return The slots as the last apply left them.
         MixerSlots mixer_slots() const;
 
-        /// @brief Opens or closes the cabinet section and rewires the rig to match, in one step.
-        /// @param topology The model to change.
-        /// @param rig The controller to rewire; its room layout is read when the room is built.
-        /// @param enabled True to open the room.
-        /// @throws std::runtime_error when the room cannot be built, or the rewired graph does not
-        /// compile; everything is rolled back first.
-        void set_room(RigTopology& topology, RigController& rig, bool enabled);
+        /// @brief Takes over hidden slots a loaded rig already holds, so the next apply keeps them
+        /// and their settings. A slot the rig does not hold under the expected descriptor is
+        /// dropped from the list.
+        /// @param slots The slots to adopt, as a preset named them.
+        /// @param rig The controller that holds them.
+        void adopt(const HiddenSlots& slots, const RigController& rig);
+
+        /// @brief Turns the room of a preset written before the cabinet section into the section's
+        /// own terms: the room's shell and poses, one receiver, its level on that receiver's
+        /// strip, and Cabinet muted. Logs what it carried over and what it could not.
+        /// @param topology The model the rig follows.
+        /// @param rig The controller to change.
+        /// @param legacy The old room.
+        /// @throws std::runtime_error when the room refuses the arrangement or the rewired graph
+        /// does not compile; everything is rolled back first.
+        void migrate_legacy_room(RigTopology& topology, RigController& rig,
+                                 const LegacyRoom& legacy);
 
     private:
-        using SlotId = RigController::SlotId;
-
-        /// @brief Records every slot edit one apply made, so a failed apply can undo them.
+        /// @brief Records every edit one apply made, so a failed apply can undo them.
         struct Journal
         {
                 std::vector<SlotGraph::EdgeRecord>
@@ -101,46 +144,51 @@ class TopologyApplier
                 std::vector<SlotId> added; ///< Holds the slots the apply created.
                 std::vector<std::pair<SlotId, RigController::SlotSnapshot>>
                     removed; ///< Holds the slots the apply removed.
+
+                /// @brief Holds each bus flag the apply wrote, with the value it replaced.
+                std::vector<std::tuple<SlotId, std::string, float>> flags;
+
+                /// @brief Holds the room's slot and arrangement before the apply, when it had one.
+                std::optional<std::pair<SlotId, SushiDSP::Room::Arrangement>> arrangement;
+        };
+
+        /// @brief Names an edit of the room's microphones one apply carries out.
+        struct MicrophoneEdit
+        {
+                bool add = false;             ///< True to add one microphone.
+                std::optional<SlotId> remove; ///< Holds the microphone to remove.
         };
 
         /// @brief Holds this applier's own state, so a failed apply can put it back.
-        struct State
-        {
-                std::optional<SlotId> splitter; ///< Holds the hidden splitter slot.
-                std::optional<SlotId> mixer;    ///< Holds the hidden mixer slot.
-                std::optional<SlotId> left_strip;  ///< Holds the Parallel left path's strip.
-                std::optional<SlotId> right_strip; ///< Holds the Parallel right path's strip.
-                std::optional<SlotId> di_strip;    ///< Holds the DI path's strip, while DI is open.
-                std::optional<SlotId> master_bus;  ///< Holds the bus that sums the chain and DI.
-                std::optional<SlotId> environment; ///< Holds the room environment, while the room is open.
-                std::optional<SlotId> room_left;   ///< Holds the strip that pans the listener's left ear.
-                std::optional<SlotId> room_right;  ///< Holds the strip that pans the listener's right ear.
-                std::optional<SlotId> room_bus;    ///< Holds the bus that joins the room's outputs.
-                std::map<std::uint32_t, SlotId> microphones; ///< Holds one microphone slot per layout id.
-                std::vector<std::uint32_t> microphone_order; ///< Holds the layout ids in layout order.
-        };
+        using State = HiddenSlots;
+
+        /// @brief Runs one apply with a microphone edit folded in.
+        void apply_with(RigTopology& topology, RigController& rig, const MicrophoneEdit& edit);
 
         /// @brief Creates the splitter and mixer while a split is open, or removes them for one path.
         void place_routing(const RigTopology& topology, RigController& rig, Journal& journal);
 
-        /// @brief Creates the room environment, its strips, its bus and one microphone slot per layout
-        /// microphone, and removes the chain's own joins.
-        void place_room(const RigTopology& topology, RigController& rig, Journal& journal);
+        /// @brief Creates the cabinet section's slots while the topology routes a slot, carrying out
+        /// the microphone edit, or removes every one of them.
+        void place_section(const RigTopology& topology, RigController& rig, Journal& journal,
+                           const MicrophoneEdit& edit);
 
-        /// @brief Removes the room's slots, when the room is closed or being rebuilt.
-        void remove_room(RigController& rig, Journal& journal);
-
-        /// @brief Wires the room: every path ends in the environment, its outputs reach the room bus.
-        void connect_room(const RigTopology& topology, RigController& rig) const;
-
-        /// @brief Creates the DI strip and the master bus while DI is open, or removes them.
+        /// @brief Creates the DI strip and, where the DI joins a bus of its own, that bus; or
+        /// removes them.
         void place_di(const RigTopology& topology, RigController& rig, Journal& journal);
+
+        /// @brief Brings the room's arrangement in line with the topology: one source per path
+        /// that carries a cabinet, one microphone per microphone slot, each new one at a default
+        /// pose.
+        /// @throws std::runtime_error when the room refuses the arrangement.
+        void reconcile_room(const RigTopology& topology, RigController& rig, Journal& journal) const;
 
         /// @brief Removes every rig slot the topology does not route and that is not a routing slot.
         void remove_strays(const RigTopology& topology, RigController& rig, Journal& journal);
 
-        /// @brief Replaces every rig edge with the topology's edges.
-        void connect(const RigTopology& topology, RigController& rig) const;
+        /// @brief Replaces every rig edge with the topology's edges and the section's, and moves
+        /// each bus's mute and solo flags to the input its feeder now holds.
+        void connect(const RigTopology& topology, RigController& rig, Journal& journal);
 
         /// @brief Binds each root slot to the host input channel its path reads: the Parallel
         /// chain's two paths read channels 0 and 1, every other root reads channel 0.
@@ -151,8 +199,18 @@ class TopologyApplier
         static SlotId ensure_slot(std::optional<SlotId> slot, const char* descriptor_id,
                                   RigController& rig, Journal& journal);
 
+        /// @brief Removes a routing slot when it is live, and forgets it.
+        static void release_slot(std::optional<SlotId>& slot, RigController& rig, Journal& journal);
+
         /// @brief Snapshots a live slot into the journal and removes it without publishing.
         static void remove_journaled(SlotId slot, RigController& rig, Journal& journal);
+
+        /// @brief Moves one bus's mute and solo flags from the inputs its feeders held to the
+        /// inputs they hold now. A feeder the bus did not have starts unmuted, or muted when it is
+        /// the one named.
+        static void remap_flags(RigController& rig, SlotId bus, const std::vector<SlotId>& before,
+                                const std::vector<SlotId>& after,
+                                std::optional<SlotId> muted_at_first, Journal& journal);
 
         /// @brief Undoes a journal's edits and puts the topology and this applier back.
         void roll_back(const Journal& journal, RigTopology topology_before, State state_before,

@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <cstring>
 #include <exception>
+#include <map>
 #include <memory>
 #include <set>
 #include <stdexcept>
@@ -39,7 +40,6 @@
 #include "SushiDSP/log/log.hpp"
 #include "SushiDSP/node_registry/node_registry.hpp"
 #include "SushiDSP/room/hrtf_set_loader.hpp"
-#include "SushiDSP/room/room_environment_node.hpp"
 #include "SushiDSP/room/starter_scene.hpp"
 #include "SushiDSP/routing/mixer_node.hpp"
 #include "SushiDSP/routing/splitter_node.hpp"
@@ -524,7 +524,7 @@ void SlotGraph::reclaim()
         {
             room->reclaim_rooms();
             std::string reason;
-            publish_room_scene(slot, false, reason);
+            publish_room(slot, false, reason);
         }
     }
 }
@@ -573,18 +573,18 @@ SushiDSP::room::RoomHost* SlotGraph::room_host(SlotId slot)
     return dynamic_cast<SushiDSP::room::RoomHost*>(active_graph_->node(handle_it->second));
 }
 
-SushiDSP::room::RoomScene SlotGraph::room_scene(SlotId slot) const
+SushiDSP::Room::Arrangement SlotGraph::room_arrangement(SlotId slot) const
 {
     const auto it = slots_.find(slot);
-    if (it == slots_.end() || !it->second.room_scene.has_value())
+    if (it == slots_.end() || !it->second.room_arrangement.has_value())
     {
-        return SushiDSP::room::starter_scene();
+        return SushiDSP::Room::Arrangement::from_scene(SushiDSP::room::starter_scene());
     }
-    return *it->second.room_scene;
+    return *it->second.room_arrangement;
 }
 
-bool SlotGraph::set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& scene,
-                               std::string& error_out)
+bool SlotGraph::set_room_arrangement(SlotId slot, const SushiDSP::Room::Arrangement& arrangement,
+                                     std::string& error_out)
 {
     error_out.clear();
     const auto it = slots_.find(slot);
@@ -593,14 +593,52 @@ bool SlotGraph::set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& sce
         error_out = "no slot with that id";
         return false;
     }
-    // The scene is refused here, on the frame of the drag; see applications/host_gui/README.md.
+    // The arrangement is refused here, on the frame of the drag; see applications/host_gui/README.md.
+    if (!arrangement.is_valid(error_out))
+    {
+        return false;
+    }
+    it->second.room_arrangement = arrangement;
+    it->second.room_pending = true;
+    return publish_room(slot, false, error_out);
+}
+
+SushiDSP::room::RoomScene SlotGraph::room_scene(SlotId slot) const
+{
+    const SushiDSP::Room::Arrangement arrangement = room_arrangement(slot);
+    SushiDSP::room::RoomScene scene = arrangement.shell();
+    scene.listener_position = arrangement.listener().position;
+    scene.listener_yaw_rad = arrangement.listener().yaw_rad;
+    if (!arrangement.sources().empty())
+    {
+        scene.source_position = arrangement.sources().front().pose.position;
+        scene.source_yaw_rad = arrangement.sources().front().pose.yaw_rad;
+    }
+    return scene;
+}
+
+bool SlotGraph::set_room_scene(SlotId slot, const SushiDSP::room::RoomScene& scene,
+                               std::string& error_out)
+{
+    error_out.clear();
+    if (slots_.find(slot) == slots_.end())
+    {
+        error_out = "no slot with that id";
+        return false;
+    }
     if (!scene.is_valid(error_out))
     {
         return false;
     }
-    it->second.room_scene = scene;
-    it->second.room_scene_pending = true;
-    return publish_room_scene(slot, false, error_out);
+    SushiDSP::Room::Arrangement arrangement = room_arrangement(slot);
+    arrangement.set_shell(scene);
+    arrangement.set_listener({scene.listener_position, scene.listener_yaw_rad});
+    if (!arrangement.sources().empty())
+    {
+        arrangement.move_source(arrangement.sources().front().id,
+                                {scene.source_position, scene.source_yaw_rad});
+    }
+    return set_room_arrangement(slot, arrangement, error_out);
 }
 
 std::size_t SlotGraph::room_publishes(SlotId slot) const
@@ -609,10 +647,10 @@ std::size_t SlotGraph::room_publishes(SlotId slot) const
     return it != slots_.end() ? it->second.room_publishes : 0u;
 }
 
-bool SlotGraph::publish_room_scene(SlotId slot, bool force, std::string& error_out)
+bool SlotGraph::publish_room(SlotId slot, bool force, std::string& error_out)
 {
     const auto it = slots_.find(slot);
-    if (it == slots_.end() || !it->second.room_scene_pending)
+    if (it == slots_.end() || !it->second.room_pending)
     {
         return true;
     }
@@ -632,10 +670,10 @@ bool SlotGraph::publish_room_scene(SlotId slot, bool force, std::string& error_o
         }
     }
 
-    it->second.room_scene_pending = false;
+    it->second.room_pending = false;
     it->second.room_published_at = now;
     ++it->second.room_publishes;
-    return host->set_scene(*it->second.room_scene, error_out);
+    return host->set_arrangement(*it->second.room_arrangement, error_out);
 }
 
 void SlotGraph::apply_room_to_live_node(SlotId slot)
@@ -650,17 +688,17 @@ void SlotGraph::apply_room_to_live_node(SlotId slot)
     {
         host->set_hrtf(hrtf_);
     }
-    if (!it->second.room_scene.has_value())
+    if (!it->second.room_arrangement.has_value())
     {
-        it->second.room_scene = host->scene();
+        it->second.room_arrangement = host->arrangement();
         return;
     }
     std::string reason;
-    it->second.room_scene_pending = true;
-    if (!publish_room_scene(slot, true, reason))
+    it->second.room_pending = true;
+    if (!publish_room(slot, true, reason))
     {
-        // A stored scene the fresh node refuses is dropped; see applications/host_gui/README.md.
-        it->second.room_scene = host->scene();
+        // A stored arrangement the fresh node refuses is dropped; see applications/host_gui/README.md.
+        it->second.room_arrangement = host->arrangement();
     }
 }
 
@@ -728,49 +766,6 @@ std::vector<std::pair<SlotGraph::SlotId, SlotGraph::SlotId>> SlotGraph::edges() 
     return result;
 }
 
-RoomLayout& SlotGraph::room_layout() noexcept
-{
-    return room_layout_;
-}
-
-const RoomLayout& SlotGraph::room_layout() const noexcept
-{
-    return room_layout_;
-}
-
-void SlotGraph::configure_room(SushiDSP::AudioNode& node) const
-{
-    auto* const room = dynamic_cast<SushiDSP::Room::RoomEnvironmentNode*>(&node);
-    if (room == nullptr)
-    {
-        throw std::runtime_error("SlotGraph::configure_room: the node is not a room environment");
-    }
-
-    using Environment = SushiDSP::Room::RoomEnvironmentNode;
-    const auto to_placement = [](const RoomPlacement& place)
-    {
-        return Environment::Placement{place.position, place.yaw_rad};
-    };
-
-    std::vector<Environment::Placement> sources;
-    for (const RoomPlacement& cabinet : room_layout_.cabinets())
-    {
-        sources.push_back(to_placement(cabinet));
-    }
-    std::vector<Environment::Microphone> microphones;
-    for (const MicrophoneSpot& spot : room_layout_.microphones())
-    {
-        microphones.push_back(Environment::Microphone{to_placement(spot.place), spot.pattern});
-    }
-
-    std::string reason;
-    if (!room->configure(room_layout_.shell(), sources, to_placement(room_layout_.listener()),
-                         microphones, reason))
-    {
-        throw std::runtime_error("SlotGraph::configure_room: " + reason);
-    }
-}
-
 std::uint32_t SlotGraph::port_of(SlotId from, SlotId to) const
 {
     for (const Edge& edge : edges_)
@@ -806,7 +801,7 @@ std::optional<SlotGraph::SlotSnapshot> SlotGraph::snapshot(SlotId slot) const
     result.parameters = it->second.parameters;
     result.cabinet_path = it->second.cabinet_path;
     result.bypassed = it->second.bypassed;
-    result.room_scene = it->second.room_scene;
+    result.room_arrangement = it->second.room_arrangement;
     return result;
 }
 
@@ -821,7 +816,7 @@ SlotGraph::SlotId SlotGraph::restore(const SlotSnapshot& snapshot, bool publish_
     }
     slot.cabinet_path = snapshot.cabinet_path;
     slot.bypassed = snapshot.bypassed;
-    slot.room_scene = snapshot.room_scene;
+    slot.room_arrangement = snapshot.room_arrangement;
     if (publish_now)
     {
         publish();
@@ -844,6 +839,30 @@ void SlotGraph::clear()
     edges_.clear();
     slot_order_.clear();
     next_slot_id_ = 0;
+    shape_.reset();
+    legacy_room_.reset();
+}
+
+void SlotGraph::set_shape(const RigShape& shape)
+{
+    shape_ = shape;
+}
+
+const std::optional<RigShape>& SlotGraph::shape() const noexcept
+{
+    return shape_;
+}
+
+void SlotGraph::set_legacy_room(const LegacyRoom& legacy)
+{
+    legacy_room_ = legacy;
+}
+
+std::optional<LegacyRoom> SlotGraph::take_legacy_room()
+{
+    std::optional<LegacyRoom> taken = std::move(legacy_room_);
+    legacy_room_.reset();
+    return taken;
 }
 
 SushiDSP::RigGraph* SlotGraph::active_graph()
@@ -892,22 +911,19 @@ SlotGraph::build_graph(bool apply_bypass,
         {
             continue;
         }
-        SushiDSP::AudioNode* const raw = node.get();
         handles_out[id] = graph->add_node(std::move(node));
-        if (slot.descriptor_id == "sushidsp.room_environment")
-        {
-            configure_room(*raw);
-        }
     }
 
     const std::vector<std::pair<SlotId, SlotId>> resolved =
         apply_bypass ? bridged_edges(handles_out) : direct_edges(handles_out);
 
-    std::unordered_map<SlotId, std::size_t> fan_out;
+    // Fan-out is counted per output port, as RigGraph::connect() counts it.
+    std::map<std::pair<SlotId, std::uint32_t>, std::size_t> fan_out;
     std::unordered_map<SlotId, std::size_t> fan_in;
     for (const auto& edge : resolved)
     {
-        if (++fan_out[edge.first] > SushiDSP::RigGraph::K_MAX_FAN_IN_OUT ||
+        if (++fan_out[{edge.first, port_of(edge.first, edge.second)}] >
+                SushiDSP::RigGraph::K_MAX_FAN_IN_OUT ||
             ++fan_in[edge.second] > SushiDSP::RigGraph::K_MAX_FAN_IN_OUT)
         {
             throw std::runtime_error(
