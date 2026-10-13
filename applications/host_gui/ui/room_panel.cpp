@@ -328,20 +328,14 @@ namespace ui
                 RoomScene::Furnishing& entry = scene.furnishings[index];
 
                 int item = static_cast<int>(entry.item);
-                ImGui::SetNextItemWidth(K_FURNISHING_ITEM_WIDTH);
+                // The row is two lines, so a pane narrower than its fields still shows them all.
+                ImGui::SetNextItemWidth(
+                    std::min(K_FURNISHING_ITEM_WIDTH, ImGui::GetContentRegionAvail().x));
                 if (ImGui::Combo("##item", &item, furniture_items().c_str()))
                 {
                     entry.item = static_cast<SushiDSP::room::FurnitureId>(item);
                     changed = true;
                 }
-                ImGui::SameLine();
-                double quantity = entry.quantity;
-                ImGui::SetNextItemWidth(K_FURNISHING_QUANTITY_WIDTH);
-                if (ImGui::InputDouble("##quantity", &quantity, 0.5, 1.0, "%.2f"))
-                {
-                    changed = set_furnishing_quantity(scene, index, quantity) || changed;
-                }
-                ImGui::SameLine();
                 bool placed = entry.placed;
                 if (ImGui::Checkbox("In the room", &placed))
                 {
@@ -349,6 +343,13 @@ namespace ui
                                                          0.5 * scene.dimensions.y)
                                       : unplace_furnishing(scene, index)) ||
                               changed;
+                }
+                ImGui::SameLine();
+                double quantity = entry.quantity;
+                ImGui::SetNextItemWidth(K_FURNISHING_QUANTITY_WIDTH);
+                if (ImGui::InputDouble("##quantity", &quantity, 0.5, 1.0, "%.2f"))
+                {
+                    changed = set_furnishing_quantity(scene, index, quantity) || changed;
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Remove"))
@@ -367,12 +368,12 @@ namespace ui
             const ImGuiID chosen_key = ImGui::GetID("add_item");
             int chosen = std::clamp(storage->GetInt(chosen_key, 0), 0,
                                     static_cast<int>(SushiDSP::room::K_FURNITURE_COUNT) - 1);
-            ImGui::SetNextItemWidth(K_FURNISHING_ITEM_WIDTH);
+            ImGui::SetNextItemWidth(
+                std::min(K_FURNISHING_ITEM_WIDTH, ImGui::GetContentRegionAvail().x));
             if (ImGui::Combo("##add_item", &chosen, furniture_items().c_str()))
             {
                 storage->SetInt(chosen_key, chosen);
             }
-            ImGui::SameLine();
             const bool full = scene.furnishing_count >= RoomScene::K_MAX_FURNISHINGS;
             ImGui::BeginDisabled(full);
             if (ImGui::Button("Add"))

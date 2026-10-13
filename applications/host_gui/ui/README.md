@@ -145,7 +145,8 @@ microphone, and leaves them to the caller.
 ## `cabinet_section_pane.hpp`
 
 `DrawCabinetSectionPane` lays the cabinet section out over the workspace: a row with the Add
-microphone button and the DI path's switch and position, the room scene, an inspector beside it,
+microphone button, an Add furniture list that stands the chosen row at the room's centre and
+selects it, and the DI path's switch and position, the room scene, an inspector beside it,
 and the mixer under both. The inspector shows the selected marker's coordinates and facing. For
 a cabinet it adds the choice of 1x12, 2x12 or 4x12. For a microphone it opens with the list of
 shipped microphones, each named with how it transduces, such as "Flat reference (condenser)",
@@ -157,7 +158,7 @@ baffle, aside of the cone's axis and above it, each in centimetres. Choosing a c
 capsule on its axis, and `microphone_on_cone` turns the three numbers into a pose that faces
 the baffle. Under them are the pattern and the proximity switch, which it writes to the
 microphone's slot and to the arrangement together. For a
-furnishing it shows the place and the turn. Under them a collapsed Room header opens
+furnishing it shows the place, the turn and the quantity, with a button that removes it. Under them a collapsed Room header opens
 `DrawRoomPanel`, whose furnishing rows each carry an "In the room" switch: on, the row stands at
 a place, first the room's centre; off, it absorbs evenly. A refused
 edit's reason is shown in the row at the top until an edit lands.

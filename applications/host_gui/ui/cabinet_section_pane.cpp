@@ -39,6 +39,7 @@
 
 #include "SushiDSP/room/room_arrangement.hpp"
 
+#include "ui/furnishing_list.hpp"
 #include "ui/mixer_panel.hpp"
 #include "SushiDSP/room/cabinet_geometry.hpp"
 #include "SushiDSP/room/furniture.hpp"
@@ -83,7 +84,54 @@ namespace ui
             }
         }
 
-        /// @brief Draws the row above the scene: the microphone button and the DI path's switches.
+        /// @brief Draws the furniture list of the toolbar. A chosen row is added to the room at its
+        /// centre, on the floor, and becomes the selected item.
+        void draw_add_furniture(RigController& rig, TopologyApplier& applier,
+                                CabinetSectionState& state)
+        {
+            const std::optional<SlotId> room = applier.mixer_slots().room;
+            ImGui::BeginDisabled(!room.has_value());
+            ImGui::SetNextItemWidth(150.0f);
+            if (ImGui::BeginCombo("##add_furniture", "Add furniture"))
+            {
+                for (std::size_t index = 0; index < SushiDSP::room::K_FURNITURE_COUNT; ++index)
+                {
+                    const auto item = static_cast<SushiDSP::room::FurnitureId>(index);
+                    if (!ImGui::Selectable(SushiDSP::room::furniture(item).name) ||
+                        !room.has_value())
+                    {
+                        continue;
+                    }
+                    SushiDSP::Room::Arrangement arrangement = rig.room_arrangement(*room);
+                    SushiDSP::room::RoomScene shell = arrangement.shell();
+                    if (!add_furnishing(shell, item, default_furnishing_quantity(item)))
+                    {
+                        state.error = "The room holds as many furnishings as it takes.";
+                        continue;
+                    }
+                    const std::uint32_t added = shell.furnishing_count - 1u;
+                    place_furnishing(shell, added, 0.5 * shell.dimensions.x,
+                                     0.5 * shell.dimensions.y);
+                    arrangement.set_shell(shell);
+                    std::string reason;
+                    if (rig.set_room_arrangement(*room, arrangement, reason))
+                    {
+                        state.error.clear();
+                        state.scene.selected =
+                            SceneItem{SceneItemKind::Furnishing, added, Point3{}, 0.0};
+                    }
+                    else
+                    {
+                        state.error = reason;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::EndDisabled();
+        }
+
+        /// @brief Draws the row above the scene: the microphone button, the furniture list and
+        /// the DI path's switches.
         void draw_toolbar(RigController& rig, RigTopology& topology, TopologyApplier& applier,
                           CabinetSectionState& state)
         {
@@ -96,6 +144,8 @@ namespace ui
                                 SceneItem{SceneItemKind::Microphone, added, Point3{}, 0.0};
                         });
             }
+            ImGui::SameLine();
+            draw_add_furniture(rig, applier, state);
             ImGui::SameLine(0.0f, 24.0f);
             bool di = topology.di();
             if (ImGui::Checkbox("DI path", &di))
@@ -329,8 +379,23 @@ namespace ui
                     entry.yaw_rad = static_cast<double>(yaw);
                     changed = true;
                 }
+                ImGui::SetNextItemWidth(90.0f);
+                double quantity = entry.quantity;
+                if (ImGui::InputDouble("quantity", &quantity, 0.5, 1.0, "%.2f"))
+                {
+                    changed = set_furnishing_quantity(shell, static_cast<std::uint32_t>(selected.id),
+                                                      quantity) ||
+                              changed;
+                }
                 ImGui::TextColored(to_imvec4(palette().muted_text),
                                    "Absorbs around where it stands.\nIt casts no shadow.");
+                if (ImGui::Button("Remove from the room"))
+                {
+                    remove_furnishing(shell, static_cast<std::uint32_t>(selected.id));
+                    arrangement.set_shell(shell);
+                    state.scene.selected.reset();
+                    return true;
+                }
                 if (changed)
                 {
                     arrangement.set_shell(shell);
@@ -411,7 +476,8 @@ namespace ui
                   changed;
         ImGui::EndGroup();
         ImGui::SameLine(0.0f, 8.0f);
-        ImGui::BeginChild("##inspector", ImVec2(0.0f, scene_height), true);
+        ImGui::BeginChild("##inspector", ImVec2(0.0f, scene_height), true,
+                          ImGuiWindowFlags_HorizontalScrollbar);
         changed = draw_inspector(rig, arrangement, state) || changed;
         if (changed)
         {
