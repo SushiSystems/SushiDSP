@@ -148,6 +148,9 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/applications/host_gui/slot_graph.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_timeline.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_persistence.cpp
+    functional/unit/test_rig_adapter.cpp
+    ${CMAKE_SOURCE_DIR}/applications/plugin/rig_adapter.cpp
+    ${CMAKE_SOURCE_DIR}/applications/plugin/parameter_routing.cpp
     functional/unit/test_session.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_renderer.cpp
@@ -264,6 +267,7 @@ target_compile_definitions(sushidsp_tests PRIVATE
 )
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/host)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/host_gui)
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/plugin)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
 # The generated resampler kernel is private to the math module; this test checks the table itself.
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/modules/foundation/math/source)

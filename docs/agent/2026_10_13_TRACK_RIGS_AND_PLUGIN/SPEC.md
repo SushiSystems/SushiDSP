@@ -1,6 +1,6 @@
 # Track rigs, export and the first plugin
 
-**Status:** Open. The session part, sections 4.1 to 4.6, is written, built and tested; nothing was heard or seen on screen. The plugin, section 4.7, is with its worker. PLAN.md holds the results.
+**Status:** Written, built and tested. Nothing was heard or seen on screen, and no DAW has opened the plugin. PLAN.md holds the results.
 
 ## 1. What the owner asked for
 

@@ -160,5 +160,17 @@ endif()
 
 add_subdirectory(modules/session/rig_preset)
 
+# The plugin. CLAP is headers only, MIT, and private to applications/plugin.
+option(SUSHIDSP_BUILD_PLUGIN "Build the CLAP plugin (applications/plugin)" ON)
+if(SUSHIDSP_BUILD_PLUGIN)
+    FetchContent_Declare(
+        clap
+        GIT_REPOSITORY https://github.com/free-audio/clap.git
+        GIT_TAG        1.2.2
+    )
+    FetchContent_MakeAvailable(clap)
+    add_subdirectory(applications/plugin)
+endif()
+
 enable_testing()
 add_subdirectory(tests)

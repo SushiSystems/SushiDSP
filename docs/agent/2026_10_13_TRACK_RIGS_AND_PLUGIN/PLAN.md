@@ -2,7 +2,7 @@
 
 **Goal:** Build what [`SPEC.md`](SPEC.md) describes.
 
-**State on 2026-10-13.** D1 to D8 are written, built and tested; P1 is with its worker. The session writes the DAW inline; one worker, on
+**State on 2026-10-13.** Every task is written, built and tested. Nothing was heard, the screen was not checked, and the plugin has not met a DAW. The session writes the DAW inline; one worker, on
 `opus` at `low`, writes the plugin and builds nothing.
 
 ## Constraints
@@ -50,3 +50,18 @@ Not done, and not claimed:
 - The MP3 writer has no test: the test target is built without LAME, and there the export
   refuses MP3, which is what the test asserts.
 - The benchmark was not run; the device callback now goes through `SessionRenderer`.
+
+## Result of P1, 2026-10-13
+
+The worker, on `opus` at `low`, wrote `applications/plugin` and the adapter's test without
+building; its report carried the syntax checks of the adapter and the test, and said the CLAP
+shell was unchecked, since no CLAP header was on the machine. The session wired CLAP 1.2.2 and
+the plugin into the build.
+
+| Check | Result |
+| --- | --- |
+| `sd build` | `SushiDSP.clap` compiled and linked against the real CLAP headers at the first build. |
+| `sd test -s unit` | 1289 of 1289 passed, the adapter's fifteen among them. |
+
+Not done: no CLAP host has loaded the plugin; nothing installs it; `RigAdapter::process` has no
+allocation trap.

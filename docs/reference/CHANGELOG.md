@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-13 — host: Laid a track's header out in three rows that span it and follow the font, and widened it (`arrangement_view.cpp`, `main.cpp`).
+- 2026-10-13 — plugin: Added the first plugin, a CLAP shell with state, latency and parameters over a rig adapter that knows no plugin format (`applications/plugin`, `RigAdapter`, `clap_plugin.cpp`).
 - 2026-10-13 — host: Added the export of the mix as a 16-bit or 32-bit float WAV or an MP3, rendered offline (`session_bounce.cpp`, `mp3_encoder.cpp`, `top_bar.cpp`, `cmake/SushiDSPLame.cmake`).
 - 2026-10-13 — host: Added the track file and a rig preset per track, and wrote every track's rig and strip into the session (`session_file.cpp`, `arrangement_view.cpp`).
 - 2026-10-13 — host: Gave each track a rig of its own: up to eight live rigs, the selected one on show and fed the live input; removed the input-source choice from the transport bar (`session.cpp`, `session_renderer.cpp`, `main.cpp`).
