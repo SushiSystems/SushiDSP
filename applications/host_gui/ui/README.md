@@ -11,7 +11,7 @@ directory cite the sections below.
 `DrawArrangementView` draws the bar ruler, the playhead, the lane headers and the clip canvas
 beside each header, into the current window. It replaced `DrawTrackPanel`, so one unit owns a
 track's whole appearance. It allocates and it draws, which is why it runs on the control thread
-only. `rig` is the rig whose player, clips, transport and musical clock the view drives.
+only. `session` is the session whose tracks, clips, transport and musical clock the view drives.
 `imports` is the queue a dropped mp3 is sent to, and the view also reports what that queue is
 decoding. `geometry_out` exists so that a drop arriving outside the ImGui frame can be resolved
 to a lane on the next frame. `header_width` is resized by a divider drawn between the header
@@ -24,6 +24,13 @@ are the zoom, the scroll and the rounding the position is read through. A file t
 read is sent to `imports` for decoding and not loaded, and its clip appears on the frame the
 decode finishes. Of `canvas_position`, only the x names a frame. `error_out` receives the
 message when the file will not load or the lane refuses the clip.
+
+A track's header holds its name, a rig button, a bypass button, its level in decibels, record
+arm, mute, solo and its balance. The rig button selects the track, which puts its rig in the
+rig view and the live input on it, and opens a popup with two files: the rig's preset, loaded
+into this track or saved from it, and the track file, saved from this track or loaded as a new
+one. The selected track's header is outlined. The bypass passes the track's audio by its rig,
+for a play-along track.
 
 In a lane header, the track's own color runs down the leading edge. A click on that strip opens
 the palette, and a right-click anywhere on the header offers to remove the track. Removing a
@@ -185,8 +192,10 @@ under one. `upper` is then that frame and the rounding finds zero distance to it
 
 ## `TopBar`
 
-`DrawTopBar` draws three columns into the current window. The left column holds the preset path
-box, Save and Load, which mean something only with a rig, then the last Save or Load status,
+`DrawTopBar` draws three columns into the current window. The left column holds the session's
+path box, Save and Load, which write and read the whole session, then Export, which opens a
+popup for the mix's file and format and becomes a progress bar while `SessionBounce` runs, then
+the last Save, Load or Export status,
 elided so it never runs into the brand mark. The centre column is the "SushiDSP" brand mark,
 placed at (window width - its width) / 2 whatever either side group drew. The right column
 holds the connection pill, or the "No device connected." label when there is no device, and the
@@ -202,8 +211,7 @@ drop it on that frame.
 `DrawTransportBar` draws, into the current window: record, play, stop and rewind, the loop
 switch, the transport position, the metronome's switch, the tempo, the time signature, TAP, the
 playback speed, the disabled Pitch field, the Mini-DAW toggle and, pinned to the right, the
-input and output level meters. The take folder and name boxes, the rig's input source, the loop
-range, the metronome's level and the recorder's dropped-block count are not in the mockup this
+input and output level meters. The take folder and name boxes, the loop range, the metronome's level and the recorder's dropped-block count are not in the mockup this
 bar follows; they stay, wrapped into a second row after Speed. The Mini-DAW button toggles
 `mini_daw_active` and reads "Mini-DAW" or "Back to Rig" accordingly. The design is
 `docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md` §5a and §6 and

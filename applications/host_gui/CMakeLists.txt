@@ -51,6 +51,10 @@ add_executable(sushidsp_host_gui
     ui/arrangement_layout.cpp
     ui/tap_tempo.cpp
     ui/musical_time_text.cpp
+    session.cpp
+    session_renderer.cpp
+    session_file.cpp
+    session_bounce.cpp
 )
 # ui/*.cpp include their own headers as "ui/<Name>.hpp" and reach rig_controller.hpp beside them,
 # so the app directory itself has to be on the include path.
@@ -97,4 +101,16 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/assets/hrtf")
             "$<TARGET_FILE_DIR:sushidsp_host_gui>/assets/hrtf"
         COMMENT "Copying assets/hrtf next to sushidsp_host_gui"
     )
+endif()
+
+# MP3 export is LAME's, linked dynamically; its DLL has to sit beside the executable.
+if(SUSHIDSP_LAME_AVAILABLE)
+    target_sources(sushidsp_host_gui PRIVATE mp3_encoder.cpp)
+    target_link_libraries(sushidsp_host_gui PRIVATE mp3lame)
+    target_compile_definitions(sushidsp_host_gui PRIVATE SUSHIDSP_HAVE_LAME=1)
+    add_custom_command(TARGET sushidsp_host_gui POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:mp3lame>"
+            "$<TARGET_FILE_DIR:sushidsp_host_gui>"
+        COMMENT "Copying the LAME library next to sushidsp_host_gui")
 endif()

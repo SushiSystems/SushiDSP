@@ -656,3 +656,32 @@ TEST(Unit_Dsp, TrackPlayerFreesATakeOnceBothLanesUsingItAreCleared)
     player.reclaim();
     EXPECT_EQ(player.takes().size(), 0u);
 }
+
+TEST(Unit_Dsp, TrackPlayerRendersOneLaneAloneBeforeItsFader)
+{
+    SushiDSP::Transport transport;
+    SushiDSP::TrackPlayer player;
+    player.set_take(0, ramp_take(256));
+    player.set_take(1, ramp_take(256, 100.0f));
+    // The lane's own fader says silence; a lane rendered alone does not read it.
+    player.set_gain(1, 0.0f);
+    player.set_pan(1, -1.0f);
+    player.set_mute(1, true);
+    player.set_solo(0, true);
+
+    std::vector<float> left(64, 0.0f);
+    std::vector<float> right(64, 0.0f);
+    float* outputs[2] = {left.data(), right.data()};
+    player.process_lane(1, outputs, 2u, 64u, transport);
+
+    for (std::size_t frame = 0; frame < left.size(); ++frame)
+    {
+        // A mono take lands on both channels at unity, and lane 0 adds nothing.
+        EXPECT_FLOAT_EQ(left[frame], 100.0f * (1.0f + static_cast<float>(frame)));
+        EXPECT_FLOAT_EQ(right[frame], left[frame]);
+    }
+
+    std::fill(left.begin(), left.end(), 0.0f);
+    player.process_lane(SushiDSP::TrackPlayer::K_MAX_TRACKS, outputs, 2u, 64u, transport);
+    EXPECT_FLOAT_EQ(left[0], 0.0f);
+}

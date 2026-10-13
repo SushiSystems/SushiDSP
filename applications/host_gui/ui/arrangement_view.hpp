@@ -34,13 +34,17 @@
 
 #include "audio_import_queue.hpp"
 #include "rig_controller.hpp"
+#include "session.hpp"
 
 #include "ui/arrangement_layout.hpp"
 #include "ui/timeline_scale.hpp"
 
 namespace ui
 {
-    /// @brief Draws the bar ruler, the playhead, the lane headers and each lane's clip canvas.
+    /// @brief Draws the bar ruler, the playhead, the track headers and each track's clip canvas.
+    /// A header selects its track, bypasses its rig, opens its rig and track files, and holds
+    /// its strip.
+    /// @param session The session whose tracks are drawn and edited.
     /// @param scale In/out: the zoom and the scroll every lane and the ruler share.
     /// @param snap In/out: what a dropped or dragged clip's frame is rounded to.
     /// @param arrangement_error In/out: the last refusal, shown until an action succeeds.
@@ -48,7 +52,7 @@ namespace ui
     /// @param header_width In/out: the lane-header column's width.
     /// @pre Called on the control thread.
     /// @see applications/host_gui/ui/README.md
-    void DrawArrangementView(RigController& rig, TimelineScale& scale, SnapMode& snap,
+    void DrawArrangementView(Session& session, TimelineScale& scale, SnapMode& snap,
                              SushiDSP::host::AudioImportQueue& imports,
                              std::string& arrangement_error, LaneGeometry& geometry_out,
                              float& header_width);

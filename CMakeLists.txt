@@ -152,6 +152,9 @@ if(SUSHIDSP_BUILD_GUI AND SUSHIDSP_BUILD_SDL2)
     )
     target_link_libraries(imgui PUBLIC glfw)
 
+    # The host's MP3 export; see cmake/SushiDSPLame.cmake for why LAME is a shared library.
+    include(cmake/SushiDSPLame.cmake)
+
     add_subdirectory(applications/host_gui)
 endif()
 

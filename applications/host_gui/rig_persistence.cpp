@@ -922,7 +922,7 @@ std::string RigPersistence::serialize_nodes(
         });
 }
 
-std::string RigPersistence::save_to_json() const
+std::string RigPersistence::save_to_json(PresetScope scope) const
 {
     std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle> handles;
     nlohmann::json document = nlohmann::json::parse(serialize_nodes(handles));
@@ -931,7 +931,7 @@ std::string RigPersistence::save_to_json() const
     {
         document["ir_folder"] = graph_.ir_folder();
     }
-    if (!session_.take_folder().empty())
+    if (scope == PresetScope::Session && !session_.take_folder().empty())
     {
         document["take_folder"] = session_.take_folder();
     }
@@ -958,63 +958,67 @@ std::string RigPersistence::save_to_json() const
         document["shape"] = shape_to_json(*graph_.shape(), handles);
     }
 
-    const SushiDSP::TrackPlayer& player = session_.player();
-    document["track_count"] = session_.track_count();
-    nlohmann::json tracks_json = nlohmann::json::array();
-    for (std::size_t index = 0; index < session_.track_count(); ++index)
+    // A rig alone carries no lane, no loop and no tempo: those are the session's.
+    if (scope == PresetScope::Session)
     {
-        nlohmann::json track_json = nlohmann::json::object();
-        track_json["index"] = index;
-        track_json["name"] = session_.track_name(index);
-        track_json["color"] = color_to_json(session_.track_color(index));
-        track_json["path"] = session_.track_path(index);
-        track_json["gain"] = player.gain(index);
-        track_json["pan"] = player.pan(index);
-        track_json["muted"] = player.muted(index);
-        track_json["soloed"] = player.soloed(index);
-
-        nlohmann::json clips_json = nlohmann::json::array();
-        for (std::size_t clip_index = 0; clip_index < session_.clip_count(index); ++clip_index)
+        const SushiDSP::TrackPlayer& player = session_.player();
+        document["track_count"] = session_.track_count();
+        nlohmann::json tracks_json = nlohmann::json::array();
+        for (std::size_t index = 0; index < session_.track_count(); ++index)
         {
-            const SessionTimeline::ClipPlacement placement = session_.clip(index, clip_index);
-            nlohmann::json clip_json = nlohmann::json::object();
-            clip_json["path"] = placement.path;
-            clip_json["start_frame"] = placement.start_frame;
-            clip_json["take_offset"] = placement.take_offset;
-            clip_json["length_frames"] = placement.length_frames;
-            clips_json.push_back(clip_json);
+            nlohmann::json track_json = nlohmann::json::object();
+            track_json["index"] = index;
+            track_json["name"] = session_.track_name(index);
+            track_json["color"] = color_to_json(session_.track_color(index));
+            track_json["path"] = session_.track_path(index);
+            track_json["gain"] = player.gain(index);
+            track_json["pan"] = player.pan(index);
+            track_json["muted"] = player.muted(index);
+            track_json["soloed"] = player.soloed(index);
+
+            nlohmann::json clips_json = nlohmann::json::array();
+            for (std::size_t clip_index = 0; clip_index < session_.clip_count(index); ++clip_index)
+            {
+                const SessionTimeline::ClipPlacement placement = session_.clip(index, clip_index);
+                nlohmann::json clip_json = nlohmann::json::object();
+                clip_json["path"] = placement.path;
+                clip_json["start_frame"] = placement.start_frame;
+                clip_json["take_offset"] = placement.take_offset;
+                clip_json["length_frames"] = placement.length_frames;
+                clips_json.push_back(clip_json);
+            }
+            track_json["clips"] = clips_json;
+            tracks_json.push_back(track_json);
         }
-        track_json["clips"] = clips_json;
-        tracks_json.push_back(track_json);
-    }
-    if (!tracks_json.empty())
-    {
-        document["tracks"] = tracks_json;
-    }
+        if (!tracks_json.empty())
+        {
+            document["tracks"] = tracks_json;
+        }
 
-    const SushiDSP::Transport& transport = session_.transport();
-    if (transport.has_loop())
-    {
-        nlohmann::json loop_json = nlohmann::json::object();
-        loop_json["begin_frames"] = transport.loop_begin_frames();
-        loop_json["end_frames"] = transport.loop_end_frames();
-        document["loop"] = loop_json;
-    }
+        const SushiDSP::Transport& transport = session_.transport();
+        if (transport.has_loop())
+        {
+            nlohmann::json loop_json = nlohmann::json::object();
+            loop_json["begin_frames"] = transport.loop_begin_frames();
+            loop_json["end_frames"] = transport.loop_end_frames();
+            document["loop"] = loop_json;
+        }
 
-    // The playback speed is written nowhere; see applications/host_gui/README.md.
-    nlohmann::json tempo_json = nlohmann::json::object();
-    tempo_json["bpm"] = session_.musical_clock().beats_per_minute();
-    tempo_json["beats_per_bar"] = session_.musical_clock().beats_per_bar();
-    tempo_json["beat_unit"] = session_.musical_clock().beat_unit();
-    tempo_json["metronome_enabled"] = session_.metronome().enabled();
-    tempo_json["metronome_level"] = session_.metronome().level();
-    tempo_json["playback_speed"] = transport.speed();
-    document["tempo"] = tempo_json;
+        // The playback speed is written nowhere; see applications/host_gui/README.md.
+        nlohmann::json tempo_json = nlohmann::json::object();
+        tempo_json["bpm"] = session_.musical_clock().beats_per_minute();
+        tempo_json["beats_per_bar"] = session_.musical_clock().beats_per_bar();
+        tempo_json["beat_unit"] = session_.musical_clock().beat_unit();
+        tempo_json["metronome_enabled"] = session_.metronome().enabled();
+        tempo_json["metronome_level"] = session_.metronome().level();
+        tempo_json["playback_speed"] = transport.speed();
+        document["tempo"] = tempo_json;
+    }
 
     return document.dump(2);
 }
 
-void RigPersistence::load_from_json(const std::string& json_text)
+void RigPersistence::load_from_json(const std::string& json_text, PresetScope scope)
 {
     // The scratch graph's pool is sized from the preset's node count; see applications/host_gui/README.md.
     const nlohmann::json document = nlohmann::json::parse(json_text);
@@ -1116,61 +1120,65 @@ void RigPersistence::load_from_json(const std::string& json_text)
     graph_.set_ir_folder(document.contains("ir_folder")
                              ? document.at("ir_folder").get<std::string>()
                              : std::string());
-    session_.set_take_folder(document.contains("take_folder")
-                                 ? document.at("take_folder").get<std::string>()
-                                 : std::string());
-
-    // A preset with no "track_count" carries the fixed set of lanes the host used to open with.
-    std::string lane_error;
-    while (session_.track_count() > track_count)
+    // A rig loaded alone leaves the lanes, the loop and the tempo as they are.
+    if (scope == PresetScope::Session)
     {
-        session_.remove_track(session_.track_count() - 1, lane_error);
-    }
-    while (session_.track_count() < track_count)
-    {
-        session_.add_track(lane_error);
-    }
+        session_.set_take_folder(document.contains("take_folder")
+                                     ? document.at("take_folder").get<std::string>()
+                                     : std::string());
 
-    // Every track is emptied to its defaults first, so a preset brings its own mixer state.
-    for (std::size_t index = 0; index < session_.track_count(); ++index)
-    {
-        session_.clear_track(index);
-    }
-    for (const TrackRow& row : track_rows)
-    {
-        session_.publish_lane(row.index, row.clips, lane_error);
-        session_.set_track_name(
-            row.index,
-            row.has_name ? row.name : SessionTimeline::path_stem(session_.track_path(row.index)));
-        session_.set_track_color(
-            row.index, row.has_color ? row.color : SessionTimeline::palette_color(row.index));
-        session_.player().set_gain(row.index, row.gain);
-        session_.player().set_pan(row.index, row.pan);
-        session_.player().set_mute(row.index, row.muted);
-        session_.player().set_solo(row.index, row.soloed);
-    }
+        // A preset with no "track_count" carries the fixed set of lanes the host used to open with.
+        std::string lane_error;
+        while (session_.track_count() > track_count)
+        {
+            session_.remove_track(session_.track_count() - 1, lane_error);
+        }
+        while (session_.track_count() < track_count)
+        {
+            session_.add_track(lane_error);
+        }
 
-    session_.transport().clear_loop();
-    if (document.contains("loop"))
-    {
-        const nlohmann::json& loop_json = document.at("loop");
-        session_.transport().set_loop(loop_json.value("begin_frames", std::uint64_t{0}),
-                                      loop_json.value("end_frames", std::uint64_t{0}));
+        // Every track is emptied to its defaults first, so a preset brings its own mixer state.
+        for (std::size_t index = 0; index < session_.track_count(); ++index)
+        {
+            session_.clear_track(index);
+        }
+        for (const TrackRow& row : track_rows)
+        {
+            session_.publish_lane(row.index, row.clips, lane_error);
+            session_.set_track_name(
+                row.index,
+                row.has_name ? row.name : SessionTimeline::path_stem(session_.track_path(row.index)));
+            session_.set_track_color(
+                row.index, row.has_color ? row.color : SessionTimeline::palette_color(row.index));
+            session_.player().set_gain(row.index, row.gain);
+            session_.player().set_pan(row.index, row.pan);
+            session_.player().set_mute(row.index, row.muted);
+            session_.player().set_solo(row.index, row.soloed);
+        }
+
+        session_.transport().clear_loop();
+        if (document.contains("loop"))
+        {
+            const nlohmann::json& loop_json = document.at("loop");
+            session_.transport().set_loop(loop_json.value("begin_frames", std::uint64_t{0}),
+                                          loop_json.value("end_frames", std::uint64_t{0}));
+        }
+
+        // A session carries no playback speed, so every session opens at 1.0. Spec §8.
+        session_.transport().set_speed(1.0);
+
+        // A preset with no tempo object means 120 BPM in 4/4, click off; see applications/host_gui/README.md.
+        const nlohmann::json tempo_json =
+            document.contains("tempo") ? document.at("tempo") : nlohmann::json::object();
+        session_.musical_clock().set_tempo(tempo_json.value("bpm", 120.0));
+        session_.musical_clock().set_meter(tempo_json.value("beats_per_bar", std::uint32_t{4}),
+                                           tempo_json.value("beat_unit", std::uint32_t{4}));
+        session_.musical_clock().set_sample_rate(info_.sample_rate);
+        session_.metronome().set_enabled(tempo_json.value("metronome_enabled", false));
+        session_.metronome().set_level(tempo_json.value("metronome_level", 0.5f));
+        session_.transport().set_speed(tempo_json.value("playback_speed", 1.0));
     }
-
-    // A session carries no playback speed, so every session opens at 1.0. Spec §8.
-    session_.transport().set_speed(1.0);
-
-    // A preset with no tempo object means 120 BPM in 4/4, click off; see applications/host_gui/README.md.
-    const nlohmann::json tempo_json =
-        document.contains("tempo") ? document.at("tempo") : nlohmann::json::object();
-    session_.musical_clock().set_tempo(tempo_json.value("bpm", 120.0));
-    session_.musical_clock().set_meter(tempo_json.value("beats_per_bar", std::uint32_t{4}),
-                                       tempo_json.value("beat_unit", std::uint32_t{4}));
-    session_.musical_clock().set_sample_rate(info_.sample_rate);
-    session_.metronome().set_enabled(tempo_json.value("metronome_enabled", false));
-    session_.metronome().set_level(tempo_json.value("metronome_level", 0.5f));
-    session_.transport().set_speed(tempo_json.value("playback_speed", 1.0));
 
     const auto is_legacy_room = [&legacy_rooms](SushiDSP::NodeHandle handle)
     {

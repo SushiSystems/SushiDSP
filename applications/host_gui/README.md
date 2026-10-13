@@ -13,7 +13,11 @@ code in this directory does.
 | The rig's slots, the edges between them, and the node work hanging off a slot | `SlotGraph` |
 | Tracks, clips, the recorders and the players the audio callback drives | `SessionTimeline` |
 | Reading and writing a preset that carries both of the above | `RigPersistence` |
-| The single handle the GUI reaches all three through | `RigController` |
+| The single handle the GUI reaches all three through, for one rig | `RigController` |
+| The tracks: up to eight, each a lane of the timeline with a rig and a strip of its own | `Session` |
+| One block of the session, for the device and for the export alike | `SessionRenderer` |
+| The session's documents: the whole session, one track, one track's rig preset | `session_file.hpp` |
+| The mix rendered offline into a WAV or an MP3 | `SessionBounce`, `Mp3Encoder` |
 | The chain shape, one linear run, or a split into two or three branches | `RigTopology` |
 | Compiling a chain type into slots and edges | `TopologyApplier` |
 | Opening the device, running the frame loop, owning every UI state struct | `main.cpp` |
@@ -26,9 +30,48 @@ that wants only the graph includes `slot_graph.hpp` and links nothing extra.
 A preset records the rig as a flat list, so a parallel chain saved today loads back as a series
 chain. `docs/design/REMAINING_WORK.md` carries that and the rest of the host's open work.
 
+## Tracks and their rigs
+
+A session is up to eight tracks and starts with one. A track is a lane of the one
+`SessionTimeline`, a `RigController` of its own built on that timeline, and a `TrackStrip`:
+level, balance, mute, solo and a rig bypass. Eight tracks are eight live rigs. The rig view, the
+cabinet section and the gear browser show the selected track's rig, and `Session::rig_revision()`
+moves whenever that rig is another one, so `main.cpp` lays the rig view out again and drops every
+slot id it held.
+
+`SessionRenderer::render` is the one place a block is rendered. For each track it takes the
+lane's clips through `TrackPlayer::process_lane`, adds the live input when the track is the
+selected one, runs the result through the track's rig unless the rig is bypassed or empty,
+scales it by the strip's two gains and adds it to the master. Then the recorder takes the block,
+the click is added and the transport advances. A track that is neither rolling nor being played
+into is skipped, so a stopped session costs one rig.
+
+The audio thread reads the tracks through `Session::audio()`, eight entries of atomics. A
+removed track's rig is taken out of that table at once and freed two blocks later.
+
+A take is recorded dry onto the armed track, and arming a track selects it: what is played is
+heard through the rig that will render the take.
+
+`session_to_json` writes the first track's rig and the timeline as a preset always did, and
+every track's strip, preset path and rig under `"track_rigs"`. A preset without that key is one
+rig: its rig becomes the first track's and its other lanes become tracks that pass their audio
+by an empty rig, which is how they played before. A clip on the first lane of such a preset now
+runs through the rig.
+
+A track file, `.sdtrack`, holds one track: its name, colour, strip, clips and rig. Loading one
+adds a track. `load_track_rig` loads a rig preset into one track and leaves its lane alone,
+through `RigController::load_rig_from_json`, which reads the rig and none of the session.
+
+`SessionBounce` renders the mix on a thread of its own. It builds a session of its own from
+`session_to_json`'s text, so the device keeps playing the live one, renders from frame zero
+to the end of the last clip, and stops when the output has stayed under -90 dBFS for half a
+second or ten seconds after the last clip. It writes a 16-bit or a 32-bit float WAV, or an MP3
+through `Mp3Encoder`, the one class that touches LAME. LAME is LGPL and is linked as a DLL that
+sits beside the executable; `cmake/SushiDSPLame.cmake` builds it, on Windows only.
+
 ## The audio thread's boundary
 
-The GUI thread never touches the graph the callback is rendering. `RigController` publishes a
+The GUI thread never touches a graph the callback is rendering. Each track's `RigController` publishes a
 compiled `RigGraph` into an `RtGraphSlot`, and the callback acquires from that slot once per
 block. Every edit, adding a slot, connecting an edge, loading a preset, rebuilds a graph on the
 GUI thread and publishes it; the callback picks it up at the next block boundary or keeps

@@ -321,6 +321,23 @@ namespace SushiDSP
     void TrackPlayer::process(float* const* outputs, std::uint32_t channels, std::uint32_t frames,
                               Transport& transport)
     {
+        mix_lanes(0, K_MAX_TRACKS, true, outputs, channels, frames, transport);
+    }
+
+    void TrackPlayer::process_lane(std::size_t track, float* const* outputs,
+                                   std::uint32_t channels, std::uint32_t frames,
+                                   Transport& transport)
+    {
+        if (track < K_MAX_TRACKS)
+        {
+            mix_lanes(track, track + 1, false, outputs, channels, frames, transport);
+        }
+    }
+
+    void TrackPlayer::mix_lanes(std::size_t first, std::size_t last, bool with_fader,
+                                float* const* outputs, std::uint32_t channels,
+                                std::uint32_t frames, Transport& transport)
+    {
         DenormalGuard guard;
 
         if (outputs == nullptr || channels == 0 || frames == 0)
@@ -352,11 +369,12 @@ namespace SushiDSP
 
         const bool unity = speed_q32 == K_UNITY_SPEED_Q32;
 
-        for (std::size_t index = 0; index < K_MAX_TRACKS; ++index)
+        for (std::size_t index = first; index < last; ++index)
         {
             Track& track = tracks_[index];
-            const bool audible = any_soloed ? track.soloed.load(std::memory_order_acquire)
-                                            : !track.muted.load(std::memory_order_acquire);
+            const bool audible = !with_fader ||
+                                 (any_soloed ? track.soloed.load(std::memory_order_acquire)
+                                             : !track.muted.load(std::memory_order_acquire));
             if (!audible || timelines[index] == nullptr)
             {
                 continue;
@@ -366,8 +384,10 @@ namespace SushiDSP
             const float pan_value = track.pan.load(std::memory_order_acquire);
             const float track_gain = track.gain.load(std::memory_order_acquire);
             const float theta = (pan_value + 1.0f) * K_QUARTER_PI;
-            const MixGains gains{std::cos(theta) * track_gain, std::sin(theta) * track_gain,
-                                 track_gain};
+            const MixGains gains = with_fader
+                                       ? MixGains{std::cos(theta) * track_gain,
+                                                  std::sin(theta) * track_gain, track_gain}
+                                       : MixGains{1.0f, 1.0f, 1.0f};
 
             std::uint64_t position = block_position;
             std::uint32_t written = 0;

@@ -119,6 +119,15 @@ namespace SushiDSP
             void process(float* const* outputs, std::uint32_t channels, std::uint32_t frames,
                          Transport& transport);
 
+            /// @brief Adds one lane's clips into the output at the transport's position, before the
+            /// lane's fader: at unity gain, a mono take on every channel, whatever the lane's gain,
+            /// pan, mute and solo say. This is what feeds a lane into a rig of its own.
+            /// @param track Lane index; out of range adds nothing.
+            /// @param outputs One writable buffer of at least frames samples per output channel.
+            /// @pre Each lane is rendered at most once a block, by this call or by process().
+            void process_lane(std::size_t track, float* const* outputs, std::uint32_t channels,
+                              std::uint32_t frames, Transport& transport);
+
             /// @brief Reports a track's gain. Either thread.
             /// @param index Track index.
             /// @return The linear gain, or 0 for an index out of range.
@@ -189,6 +198,13 @@ namespace SushiDSP
                     float
                         mono; ///< Holds the track gain alone, used when the output has no right channel.
             };
+
+            /// @brief Adds the lanes in [first, last) into the output. With the fader, a lane is
+            /// mixed at its gain and pan when mute and solo leave it audible; without, every lane
+            /// in the range is added at unity.
+            void mix_lanes(std::size_t first, std::size_t last, bool with_fader,
+                           float* const* outputs, std::uint32_t channels, std::uint32_t frames,
+                           Transport& transport);
 
             /// @brief Returns a clip's de-click gain, leaving flat whichever edge is the take's own
             /// boundary rather than a cut. The ramp shape stays TrackTimeline::edge_gain's and is

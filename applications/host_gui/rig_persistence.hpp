@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 
@@ -33,6 +34,13 @@
 
 #include "session_timeline.hpp"
 #include "slot_graph.hpp"
+
+/// @brief Says how much of a preset a save writes and a load reads.
+enum class PresetScope : std::uint8_t
+{
+    Session, ///< The rig and the session beside it: the lanes, their clips, the loop and the tempo.
+    Rig      ///< The rig alone; the session is neither written nor touched.
+};
 
 /// @brief Writes a preset from a SlotGraph and a SessionTimeline and reads one back into them.
 /// It reads both; neither knows it exists, so a preset field is added here and nowhere else.
@@ -55,7 +63,7 @@ class RigPersistence
         /// `"ir_folder"`.
         /// @throws std::runtime_error if the unbypassed graph does not compile, which is what the
         /// preset records; a caller writing to a file must serialize before it truncates the file.
-        std::string save_to_json() const;
+        std::string save_to_json(PresetScope scope = PresetScope::Session) const;
 
         /// @brief Replaces the entire rig from JSON and republishes. Fresh SlotIds are assigned in the
         /// preset's node order. A format 1 preset loads with its room taken out of the chain and kept
@@ -63,7 +71,8 @@ class RigPersistence
         /// @throws std::runtime_error if json_text is malformed, if its format is newer than this build
         /// reads, or if a room it carries is refused.
         /// @see applications/host_gui/README.md, "Preset format"
-        void load_from_json(const std::string& json_text);
+        void load_from_json(const std::string& json_text,
+                            PresetScope scope = PresetScope::Session);
 
     private:
         /// @brief Serializes the slots and edges through SushiDSP::serialize_rig_to_json(), with no

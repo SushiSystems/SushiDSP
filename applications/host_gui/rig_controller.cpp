@@ -26,10 +26,18 @@
 
 #include "rig_controller.hpp"
 
+#include <memory>
 #include <utility>
 
 RigController::RigController(const SushiDSP::PrepareInfo& info)
-    : info_(info), graph_(info), session_(info), persistence_(info, graph_, session_)
+    : RigController(info, std::make_shared<SessionTimeline>(info))
+{
+}
+
+RigController::RigController(const SushiDSP::PrepareInfo& info,
+                             std::shared_ptr<SessionTimeline> session)
+    : info_(info), graph_(info), session_owner_(std::move(session)), session_(*session_owner_),
+      persistence_(info, graph_, session_)
 {
 }
 
@@ -393,4 +401,14 @@ std::string RigController::save_to_json() const
 void RigController::load_from_json(const std::string& json_text)
 {
     persistence_.load_from_json(json_text);
+}
+
+std::string RigController::save_rig_to_json() const
+{
+    return persistence_.save_to_json(PresetScope::Rig);
+}
+
+void RigController::load_rig_from_json(const std::string& json_text)
+{
+    persistence_.load_from_json(json_text, PresetScope::Rig);
 }

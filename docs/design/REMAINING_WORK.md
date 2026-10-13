@@ -203,3 +203,24 @@ gave a cabinet its cones and a furnishing its place. What it leaves:
   by less than the pattern says, and a per-cone direct path costs an HRIR pair each.
 - **The room README is past its ceiling.** `modules/nodes/room/README.md` is over 800 lines and
   should be split by subject.
+
+## Opened 2026-10-13: track rigs, export and the first plugin
+
+[`docs/agent/2026_10_13_TRACK_RIGS_AND_PLUGIN/SPEC.md`](../agent/2026_10_13_TRACK_RIGS_AND_PLUGIN/SPEC.md)
+gave each track a rig and the session an export. What it leaves:
+
+- **The re-amp leg is dead weight.** `SessionTimeline` still carries the re-amp player, its
+  track and the input-source choice in `SlotGraph`; the host no longer reads them, since every
+  track is rendered through its own rig. They and their tests can go.
+- **A track's strip has no EQ.** AmpliTube 5's has three bands.
+- **Clips are only moved and removed.** No split, copy, paste, crop, fade or gain trim, and no
+  punch region.
+- **The export writes no 24-bit WAV and no AIFF.** `WavWriter` knows 16-bit and float.
+- **MP3 export is Windows only.** `cmake/SushiDSPLame.cmake` uses the configuration header LAME
+  ships for Windows.
+- **Removing a track can play one block of a lane through its neighbour's rig.** The lanes move
+  down in the timeline before the table of rigs does.
+- **Eight rigs cost eight times one.** A track is skipped only while it is neither rolling nor
+  played into.
+- **The host's rig sources are a list, not a library.** The tests and the plugin compile
+  `applications/host_gui`'s non-GUI sources by naming them.
