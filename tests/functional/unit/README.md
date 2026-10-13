@@ -2990,19 +2990,6 @@ room.
 The direct tap arrives 363 frames in, so the room is silent for the first block and the energy
 check starts at the second.
 
-### `RoomNodeMixesDryAndWet`
-
-`// prepare() snaps the smoothers to their targets.`
-
-prepare() snaps the smoothers to their targets, so a mix set before it holds from the first
-frame; the ears' dry waits the same alignment delay the wet does.
-
-`// A fully wet node is silent for the first 14 frames.`
-
-A microphone 0.1 m from the cabinet is 14 frames away, so a fully wet node leaves the frames
-before that at zero: no dry path reaches the output. The dead room keeps the modal layer off; a
-standing wave has no propagation delay and would ring from frame 0.
-
 ### `RoomNodeTakesTheDirectImageOutOfTheEarsBankAndLeavesTheMicrophones`
 
 `// Tap 0 of a solved set is the direct image.`
@@ -3267,38 +3254,6 @@ near ear 3 dB below 5 kHz and 6 dB above, far ear 10 (assets/hrtf/README.md).
 
 Spec 9.5 as measured: the ears facing away from the cabinet, the source at 180 degrees, hear the
 left ear's rear notch within 1 dB of the set's own (assets/hrtf/README.md).
-
-### `RoomNodeListenerChangeGoesThroughTheCrossfade`
-
-`// Only the dead room's figures are bounded.`
-
-Switching the parameter mid-tone swaps every tap at once, with no state to carry, and the tail's
-design with them; the ears' fade starts one partition after the edit. In physical mode nothing
-else moves. In the garage, a cardioid 1 m off the cone against the ears 2.6 m away, the tail's
-input gain is 0.42 for the ears' set and 0.24 for the cardioid's, a third of the field, and the
-lines carry the old listener's stored energy into the new set at the room's own decay, where the
-reference blend has no memory; so both the residual and the step ratio against that blend read
-the tail's own level rather than a discontinuity, and both are recorded, not bounded: 1.044 and
--22.6 dB to the ears. The step ratio stayed under a scene publish's 1.01 while the tail sat 12
-dB under its diffuse-field level. The dead room, whose tail is at the floor of its design,
-0.0075 of input gain for the ears against the garage's 0.42, measures the tap crossfade with
-that faint tail behind it: 1.0105 and -38.1 dB, bounded at 1.02 and -36 dB of the peak; it read
-1.0 and -43.4 dB with the tail nil, and the ears' reflections come through the decoder at the
-head's gain now, where they came through channel 0 at unity, so a zero-started reflection's
-transient weighs more than it did. In compensated mode the ears' tail is read 280 frames earlier
-than the microphone's, so the switch also moves the tail's input under the fade and the tail
-rings with the old timing at the room's decay; that residual is recorded for both rooms and
-bounded in neither.
-
-### `RoomNodeAppliesAListenerWrittenByIndexAtTheNextPublish`
-
-`// The index path stores a target for the next publish.`
-
-The index path is the audio thread's and stores a target only, so an ears node whose listener is
-written by index to the microphone keeps rendering the ears, 2 m away with the direct peak at
-the alignment delay, 127.88 frames compensated; the next publish, here a scene, builds the set
-of the microphone 0.1 m off the cone, whose direct sound lands at frame 14. The id path
-publishes at once. reset() between renders re-adopts the set in place from silence.
 
 ## `test_room_records.cpp`
 
@@ -3581,14 +3536,6 @@ up, start the crossfade and run it to its end. The node renders the microphone, 
 publishes walk the modal bank through each of its paths: a moved microphone ramps the gains read
 at it, a moved listener changes nothing the microphone hears, a changed dimension blends the
 spare bank in from zero.
-
-### `RoomNodeProcessPerformsNoHeapAllocationForEitherListener`
-
-`// The index path stores the choice and nothing else.`
-
-The listener parameter's id path publishes on the control thread, outside the trap; the blocks
-that adopt each set and fade it in are trapped, first for the ears, then for the microphone, and
-the index path inside the trap stores the choice and nothing else.
 
 ### `ModalBankProcessPerformsNoHeapAllocation`
 

@@ -70,8 +70,11 @@ namespace SushiDSP::room
     {
         public:
             /// @brief Builds the model for one pattern and one on-axis curve.
-            MicrophoneModel(PolarPattern pattern,
-                            const std::array<float, K_BAND_COUNT>& on_axis_db) noexcept;
+            /// @param pattern The capsule's polar pattern.
+            /// @param on_axis_db The on-axis response per band, in decibels.
+            /// @param proximity False leaves the gradient share at its far-field level.
+            MicrophoneModel(PolarPattern pattern, const std::array<float, K_BAND_COUNT>& on_axis_db,
+                            bool proximity = true) noexcept;
 
             /// @brief Returns pattern times proximity times the on-axis curve, per band, relative to
             /// the far-field on-axis response.
@@ -88,6 +91,9 @@ namespace SushiDSP::room
         private:
             /// @brief Stores the pressure share a of the pattern.
             double pressure_share_;
+
+            /// @brief Records that the gradient share takes the spherical-wave boost.
+            bool proximity_;
 
             /// @brief Stores the on-axis curve as linear pressure gains.
             BandResponse on_axis_;

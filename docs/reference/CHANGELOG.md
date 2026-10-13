@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- 2026-10-13 — bench: Added the cabinet section's gate, three JCM800 chains into a room of eight microphones under 2.67 ms (`tests/benchmark/main.cpp`).
+- 2026-10-13 — microphone: Moved the microphone element to its own module and added its `pattern` and `proximity` parameters (`modules/nodes/microphone`, `MicrophoneNode`).
+- 2026-10-13 — room: Removed the room environment node and the room node's mix, level and listener parameters; a preset or host that sets them breaks (`room_node.hpp`, `RoomNode::parameters`).
+- 2026-10-13 — room: Rebuilt `RoomNode` as the room itself: three cabinet inputs, the listener on port 0, a microphone per port, one render set (`room_node.cpp`, `source_stage.cpp`, `pair_stage.cpp`).
+- 2026-10-13 — room: Added `Room::Arrangement` and `RoomHost::set_arrangement`, with a pair solved again only when it changed (`room_arrangement.cpp`, `environment_render_set.cpp`, `room_host.hpp`).
+- 2026-10-13 — room: Added the tail's raw sums and row read-outs of the modal bank, so both run once per cabinet (`LateReverb::process_sums`, `ModalBank::process`).
+- 2026-10-13 — room: Added the microphone's proximity switch to the scene and the model (`room_scene.hpp`, `microphone_model.cpp`).
 - 2026-10-13 — routing: Added the stereo strip, with level, balance and width (`stereo_strip_node.cpp`).
 - 2026-10-13 — routing: Fixed a bus letting a muted input through while its gate closed after a rebuild (`bus_node.cpp`).
 - 2026-10-13 — core: Raised the output port limit to nine and counted fan-out per output port (`rig_graph.cpp`, `RigGraph::K_MAX_OUTPUT_PORTS`).

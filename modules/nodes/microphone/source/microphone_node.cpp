@@ -22,16 +22,24 @@
 /**
  * @file microphone_node.cpp
  * @brief Implements the microphone rig element.
- * @author Mustafa Garip
+ * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/microphone_node.hpp"
+#include "SushiDSP/microphone/microphone_node.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 
-namespace SushiDSP::Room
+namespace SushiDSP
 {
+    namespace
+    {
+        /// @brief Holds the index of the last pattern the "pattern" parameter counts.
+        constexpr float K_LAST_PATTERN = 3.0f;
+    } // namespace
+
     MicrophoneNode::MicrophoneNode() {}
 
     void MicrophoneNode::prepare(const PrepareInfo&) {}
@@ -54,9 +62,28 @@ namespace SushiDSP::Room
 
     void MicrophoneNode::reset() {}
 
-    const ParameterTable<MicrophoneNode, 2>& MicrophoneNode::parameters()
+    const ParameterTable<MicrophoneNode, 4>& MicrophoneNode::parameters()
     {
-        static const ParameterTable<MicrophoneNode, 2> table{{{
+        static const ParameterTable<MicrophoneNode, 4> table{{{
+            {{"pattern", "Pattern", 0.0f, K_LAST_PATTERN, 1.0f, ParamKind::Choice, ""},
+             [](MicrophoneNode& n, float v)
+             {
+                 n.pattern_ = static_cast<Pattern>(
+                     static_cast<std::uint8_t>(std::clamp(std::round(v), 0.0f, K_LAST_PATTERN)));
+             },
+             [](const MicrophoneNode& n)
+             {
+                 return static_cast<float>(static_cast<std::uint8_t>(n.pattern_));
+             }},
+            {{"proximity", "Proximity", 0.0f, 1.0f, 1.0f, ParamKind::Boolean, ""},
+             [](MicrophoneNode& n, float v)
+             {
+                 n.proximity_ = v >= 0.5f;
+             },
+             [](const MicrophoneNode& n)
+             {
+                 return n.proximity_ ? 1.0f : 0.0f;
+             }},
             {{"polarity", "Polarity", 0.0f, 1.0f, 0.0f, ParamKind::Boolean, ""},
              [](MicrophoneNode& n, float v)
              {
@@ -99,6 +126,16 @@ namespace SushiDSP::Room
         return "sushidsp.microphone";
     }
 
+    MicrophoneNode::Pattern MicrophoneNode::pattern() const noexcept
+    {
+        return pattern_;
+    }
+
+    bool MicrophoneNode::proximity() const noexcept
+    {
+        return proximity_;
+    }
+
     bool MicrophoneNode::is_room_microphone() const noexcept
     {
         return room_;
@@ -124,4 +161,4 @@ namespace SushiDSP::Room
         };
         return descriptor;
     }
-} // namespace SushiDSP::Room
+} // namespace SushiDSP

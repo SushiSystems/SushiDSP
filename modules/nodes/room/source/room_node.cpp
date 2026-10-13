@@ -21,13 +21,14 @@
 
 /**
  * @file room_node.cpp
- * @brief The room's topology: the acquire, the seam, the three paths, the swap and the mix.
+ * @brief Implements the room node: its stages, its one render set and the crossfade between sets.
  * @author Mustafa Garip & Sushi Systems
  */
 
 #include "SushiDSP/room/room_node.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -38,46 +39,59 @@
 #include "SushiDSP/log/log.hpp"
 #include "SushiDSP/math/streaming_convolution.hpp"
 #include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/starter_scene.hpp"
 #include "SushiDSP/room/room_log_category.hpp"
+#include "SushiDSP/room/starter_scene.hpp"
 
 namespace SushiDSP::room
 {
     namespace
     {
-        /// @brief Holds the time constant of the mix and level smoothers, in milliseconds.
-        constexpr float K_SMOOTHING_MS = 20.0f;
-
-        constexpr float K_DEFAULT_MIX = 1.0f;
-        constexpr float K_DEFAULT_LEVEL_DB = 0.0f;
-        constexpr float K_DEFAULT_LISTENER = 0.0f;
         constexpr float K_DEFAULT_DIRECT_DELAY = 0.0f;
-        constexpr float K_MIN_LEVEL_DB = -24.0f;
-        constexpr float K_MAX_LEVEL_DB = 24.0f;
 
-        /// @brief Returns 10^(dB / 20).
-        float decibels_to_gain(float decibels) noexcept
-        {
-            return std::pow(10.0f, decibels / 20.0f);
-        }
+        /// @brief Counts the receivers behind one cabinet at the limits.
+        constexpr std::uint32_t K_RECEIVERS =
+            static_cast<std::uint32_t>(Room::Arrangement::K_MAX_RECEIVERS);
     } // namespace
 
-    RoomNode::RoomNode()
+    struct RoomNode::Stages
     {
-        scene_ = starter_scene();
-        schroeder_hz_ = EyringDecay::schroeder_frequency_hz(scene_);
+            /// @brief Renders what each cabinet puts into the room.
+            std::array<Room::SourceStage, K_MAX_SOURCES> sources;
+
+            /// @brief Renders each pair, indexed [cabinet][receiver]; receiver 0 is the listener.
+            std::array<std::array<Room::PairStage, K_RECEIVERS>, K_MAX_SOURCES> pairs;
+
+            /// @brief Sums the listener's pairs at the two ears.
+            Room::EarsOutput ears;
+
+            /// @brief Sums each microphone's pairs.
+            std::array<Room::MicrophoneOutput, K_MAX_MICROPHONES> microphones;
+    };
+
+    RoomNode::RoomNode()
+        : arrangement_(Room::Arrangement::from_scene(starter_scene())),
+          stages_(std::make_unique<Stages>())
+    {
+        schroeder_hz_ = EyringDecay::schroeder_frequency_hz(arrangement_.pair_scene(0, 0));
     }
+
+    RoomNode::~RoomNode() = default;
 
     bool RoomNode::same_resonators(const ModalDesign& retiring,
                                    const ModalDesign& arriving) noexcept
     {
-        return ModalPath::same_resonators(retiring, arriving);
+        return Room::SourceStage::same_resonators(retiring, arriving);
     }
 
     bool RoomNode::take_direct_image(const RoomRenderSet& set, EarlyTapSet& reflections,
                                      EarlyTap& direct) noexcept
     {
-        return GeometricPath::take_direct_image(set, reflections, direct);
+        return Room::PairStage::take_direct_image(set, reflections, direct);
+    }
+
+    void RoomNode::compensate_direct_delay(RoomRenderSet& set) noexcept
+    {
+        Room::compensate_direct_delay(set);
     }
 
     void RoomNode::prepare(const PrepareInfo& info)
@@ -85,20 +99,29 @@ namespace SushiDSP::room
         sample_rate_ = info.sample_rate;
         max_block_ = std::max<std::uint32_t>(info.max_block, 1u);
         alignment_frames_ = StreamingConvolution::partition_size_for(sample_rate_);
-        dry_delay_.prepare(std::max(alignment_frames_, 1u), max_block_);
-        dry_delay_buffer_.assign(max_block_, 0.0f);
+        scratch_.assign(max_block_, 0.0f);
 
-        modal_.prepare(max_block_);
-        geometric_.prepare(sample_rate_, alignment_frames_, max_block_);
-        binaural_.prepare(alignment_frames_, max_block_);
+        Stages& stages = *stages_;
+        for (std::uint32_t source = 0; source < K_MAX_SOURCES; ++source)
+        {
+            stages.sources[source].prepare(sample_rate_, alignment_frames_, max_block_);
+            for (std::uint32_t receiver = 0; receiver < K_RECEIVERS; ++receiver)
+            {
+                const ListenerKind kind =
+                    receiver == 0 ? ListenerKind::Ears : ListenerKind::Microphone;
+                stages.pairs[source][receiver].prepare(kind, sample_rate_, alignment_frames_,
+                                                       max_block_);
+            }
+        }
+        stages.ears.prepare(alignment_frames_, max_block_);
+        for (Room::MicrophoneOutput& microphone : stages.microphones)
+        {
+            microphone.prepare(alignment_frames_, max_block_);
+        }
 
-        mix_.prepare(sample_rate_, K_SMOOTHING_MS);
-        level_.prepare(sample_rate_, K_SMOOTHING_MS);
-        mix_.snap(mix_.target());
-        level_.snap(level_.target());
-
-        binaural_.refresh_head(sample_rate_);
-        publish_decoder();
+        head_.refresh_head(sample_rate_);
+        head_.publish_decoder(sample_rate_, max_block_);
+        builder_.invalidate();
 
         prepared_ = true;
         reset();
@@ -111,169 +134,184 @@ namespace SushiDSP::room
     {
         const DenormalGuard guard;
         const std::uint32_t frames = std::min(context.frames, max_block_);
-        const float* input = context.inputs[0];
 
         // One atomic acquire per slot is this thread's share; see modules/nodes/room/README.md.
-        const RoomRenderSet* const set = slot_.acquire_for_audio_thread();
-        BinauralDecoder* const decoder = binaural_.acquire_decoder();
-        if (set != nullptr && set != adopted_)
+        const Room::EnvironmentRenderSet* const set = slot_.acquire_for_audio_thread();
+        BinauralDecoder* const decoder = head_.acquire_decoder();
+        if (set == nullptr)
+        {
+            write_silence(context, frames);
+            return;
+        }
+        if (set != adopted_)
         {
             adopt(*set);
             adopted_ = set;
         }
-        split_input(input, frames);
-        geometric_.write_input(frames);
 
-        if (set == nullptr)
-        {
-            binaural_.silence();
-            write_outputs(input, context.outputs, frames);
-            return;
-        }
-
-        // Every layer fades under one window read at the output, so the seam sees one weight.
+        // Every stage fades under one window read at the output, so the seam sees one weight.
+        Stages& stages = *stages_;
         const FadeWindow window{fade_total_ - fade_remaining_, std::min(frames, fade_remaining_),
                                 fade_lag_};
-        apply_pending_when_due(window);
-        geometric_.render_early(frames, window);
-        geometric_.render_tail(frames, window);
-        modal_.render(frames, window, geometric_.any_microphone());
-        geometric_.render_direct(frames, window);
-        if (const float* const* channels = geometric_.route_early(frames, window))
+        for (std::uint32_t source = 0; source < source_count_; ++source)
         {
-            binaural_.decode(decoder, channels, frames);
+            Room::SourceStage& stage = stages.sources[source];
+            const float* const input =
+                context.inputs != nullptr ? context.inputs[K_SLOT_CHANNELS * source] : nullptr;
+            stage.apply_pending_when_due(window);
+            stage.write_input(input, frames);
+            stage.render_tail(frames);
+            stage.render_modal(frames, window);
+            for (std::uint32_t receiver = 0; receiver <= microphone_count_; ++receiver)
+            {
+                stages.pairs[source][receiver].write_input(stage.high(), frames);
+            }
         }
-        else
+
+        const bool has_ports = context.port_outputs != nullptr;
+        float* const left =
+            has_ports ? context.port_outputs[K_LISTENER_PORT][0] : context.outputs[0];
+        float* const right =
+            has_ports ? context.port_outputs[K_LISTENER_PORT][1] : context.outputs[1];
+        stages.ears.apply_pending_when_due(window);
+        stages.ears.begin();
+        for (std::uint32_t source = 0; source < source_count_; ++source)
         {
-            binaural_.clear_decoded(frames);
+            Room::SourceStage& stage = stages.sources[source];
+            Room::PairStage& pair = stages.pairs[source][0];
+            pair.render(stage.ring(), stage.tail_ring(0), stage.tail_ring(1), frames, window);
+            stages.ears.add(pair, stage.modal(0), stage.modal(1), frames);
         }
-        const BinauralStage::EarSources sources{{geometric_.direct(0), geometric_.direct(1)},
-                                                {geometric_.tail(0), geometric_.tail(1)},
-                                                {modal_.field(0), modal_.field(1)},
-                                                geometric_.early_mono()};
-        binaural_.align(sources, frames);
-        binaural_.join(sources, frames, window, geometric_.active_is_ears(),
-                       window.fading > 0 && geometric_.listeners_differ());
+        stages.ears.finish(decoder, left, right, frames);
+
+        for (std::uint32_t microphone = 0; microphone < K_MAX_MICROPHONES; ++microphone)
+        {
+            // With no port table a microphone still renders, so its state is current for a graph.
+            float* const output =
+                has_ports ? context.port_outputs[microphone_port(microphone)][0] : scratch_.data();
+            if (microphone >= microphone_count_)
+            {
+                std::fill_n(output, frames, 0.0f);
+                continue;
+            }
+            Room::MicrophoneOutput& sum = stages.microphones[microphone];
+            sum.begin();
+            for (std::uint32_t source = 0; source < source_count_; ++source)
+            {
+                Room::SourceStage& stage = stages.sources[source];
+                Room::PairStage& pair = stages.pairs[source][1u + microphone];
+                pair.render(stage.ring(), stage.tail_ring(0), stage.tail_ring(1), frames, window);
+                sum.add(pair, stage.modal(2u + microphone), frames);
+            }
+            sum.finish(output, frames);
+        }
+
         fade_remaining_ -= window.fading;
         if (fade_remaining_ == 0)
         {
-            modal_.settle();
+            for (std::uint32_t source = 0; source < source_count_; ++source)
+            {
+                stages.sources[source].settle();
+            }
         }
-
-        write_outputs(input, context.outputs, frames);
     }
 
-    void RoomNode::apply_pending_when_due(const FadeWindow& window) noexcept
+    void RoomNode::write_silence(ProcessContext& context, std::uint32_t frames) noexcept
     {
-        if (!pending_ || window.done < window.lag)
+        if (context.port_outputs == nullptr)
         {
+            std::fill_n(context.outputs[0], frames, 0.0f);
+            std::fill_n(context.outputs[1], frames, 0.0f);
             return;
         }
-        geometric_.apply_pending();
-        binaural_.apply_pending();
-        pending_ = false;
+        std::fill_n(context.port_outputs[K_LISTENER_PORT][0], frames, 0.0f);
+        std::fill_n(context.port_outputs[K_LISTENER_PORT][1], frames, 0.0f);
+        for (std::uint32_t microphone = 0; microphone < K_MAX_MICROPHONES; ++microphone)
+        {
+            std::fill_n(context.port_outputs[microphone_port(microphone)][0], frames, 0.0f);
+        }
     }
 
-    void RoomNode::adopt(const RoomRenderSet& set) noexcept
+    void RoomNode::adopt(const Room::EnvironmentRenderSet& set) noexcept
     {
-        // The microphone carries no decoder partition, so only the ears' dry waits with it.
-        dry_delay_frames_ = set.listener == ListenerKind::Ears ? alignment_frames_ : 0u;
-        input_crossover_.set_crossover(sample_rate_, set.crossover_hz);
+        Stages& stages = *stages_;
         const bool first = adopted_ == nullptr;
-        geometric_.stage_tail(set, first);
-        binaural_.stage_diffuse(set);
-        pending_ = true;
+        const std::uint32_t sources = std::min(set.source_count, K_MAX_SOURCES);
+        const std::uint32_t microphones = std::min(set.microphone_count, K_MAX_MICROPHONES);
+
+        if (sources > 0)
+        {
+            stages.ears.stage_diffuse(set.pairs[0][0].diffuse_left.data(),
+                                      set.pairs[0][0].diffuse_right.data());
+        }
+        for (std::uint32_t source = 0; source < K_MAX_SOURCES; ++source)
+        {
+            const bool held = source < sources;
+            if (held)
+            {
+                stages.sources[source].adopt(set, source);
+            }
+            else if (stages.sources[source].live())
+            {
+                stages.sources[source].reset();
+            }
+            for (std::uint32_t receiver = 0; receiver < K_RECEIVERS; ++receiver)
+            {
+                Room::PairStage& pair = stages.pairs[source][receiver];
+                if (held && receiver <= microphones)
+                {
+                    pair.adopt(set.pairs[source][receiver]);
+                }
+                else if (pair.live())
+                {
+                    // A pair that left the room starts from silence when it comes back.
+                    pair.reset();
+                }
+            }
+        }
+        for (std::uint32_t microphone = microphones; microphone < microphone_count_; ++microphone)
+        {
+            stages.microphones[microphone].reset();
+        }
+        source_count_ = sources;
+        microphone_count_ = microphones;
+
         if (first)
         {
-            geometric_.adopt_first(set);
-            modal_.adopt_first(set.modal);
             fade_remaining_ = 0;
             fade_total_ = 0;
             fade_lag_ = 0;
-            apply_pending_when_due(FadeWindow{0, 0, 0});
+            stages.ears.apply_pending_when_due(FadeWindow{0, 0, 0});
             return;
         }
-        const bool ears_involved = geometric_.adopt(set);
-        modal_.adopt(set.modal);
-        fade_lag_ = ears_involved ? alignment_frames_ : 0u;
+        // The ears' fade starts when the decoder's first partition of the set comes out.
+        fade_lag_ = alignment_frames_;
         fade_total_ = K_CROSSFADE_FRAMES + fade_lag_;
         fade_remaining_ = fade_total_;
     }
 
-    void RoomNode::split_input(const float* input, std::uint32_t frames) noexcept
-    {
-        float* const __restrict low = modal_.low_buffer();
-        float* const __restrict high = geometric_.high_buffer();
-        for (std::uint32_t frame = 0; frame < frames; ++frame)
-        {
-            input_crossover_.process_sample(input[frame], low[frame], high[frame]);
-        }
-    }
-
-    void RoomNode::write_outputs(const float* input, float* const* outputs,
-                                 std::uint32_t frames) noexcept
-    {
-        dry_delay_.write(input, frames);
-        const float* dry_source = input;
-        if (dry_delay_frames_ > 0u)
-        {
-            dry_delay_.read(static_cast<double>(dry_delay_frames_), 1.0f, dry_delay_buffer_.data(),
-                            frames);
-            dry_source = dry_delay_buffer_.data();
-        }
-        float* const __restrict left = outputs[0];
-        float* const __restrict right = outputs[1];
-        const float* const __restrict dry_input = dry_source;
-        const float* const __restrict wet_left = binaural_.ear(0);
-        const float* const __restrict wet_right = binaural_.ear(1);
-        for (std::uint32_t frame = 0; frame < frames; ++frame)
-        {
-            const float mix = mix_.next();
-            const float gain = level_.next();
-            const float dry = (1.0f - mix) * dry_input[frame];
-            left[frame] = gain * (dry + mix * wet_left[frame]);
-            right[frame] = gain * (dry + mix * wet_right[frame]);
-        }
-    }
-
     PortLayout RoomNode::ports() const
     {
-        return {1, 2};
+        return {K_MAX_SOURCES * K_SLOT_CHANNELS, 2};
     }
 
-    const ParameterTable<RoomNode, 4>& RoomNode::parameters()
+    std::uint32_t RoomNode::output_port_count() const
     {
-        static const ParameterTable<RoomNode, 4> table{{{
-            {{"mix", "Mix", 0.0f, 1.0f, K_DEFAULT_MIX, ParamKind::Linear, ""},
-             [](RoomNode& n, float v)
-             {
-                 n.mix_.set_target(std::clamp(v, 0.0f, 1.0f));
-             },
-             [](const RoomNode& n)
-             {
-                 return n.mix_.target();
-             }},
-            {{"level", "Level", K_MIN_LEVEL_DB, K_MAX_LEVEL_DB, K_DEFAULT_LEVEL_DB,
-              ParamKind::Decibel, "dB"},
-             [](RoomNode& n, float v)
-             {
-                 n.level_db_ = std::clamp(v, K_MIN_LEVEL_DB, K_MAX_LEVEL_DB);
-                 n.level_.set_target(decibels_to_gain(n.level_db_));
-             },
-             [](const RoomNode& n)
-             {
-                 return n.level_db_;
-             }},
-            {{"listener", "Listener", 0.0f, 1.0f, K_DEFAULT_LISTENER, ParamKind::Choice, ""},
-             [](RoomNode& n, float v)
-             {
-                 n.listener_.store(std::clamp(std::round(v), 0.0f, 1.0f),
-                                   std::memory_order_relaxed);
-             },
-             [](const RoomNode& n)
-             {
-                 return n.listener_.load(std::memory_order_relaxed);
-             }},
+        return K_OUTPUT_PORTS;
+    }
+
+    std::uint32_t RoomNode::output_port_channels(std::uint32_t port) const
+    {
+        if (port == K_LISTENER_PORT)
+        {
+            return 2u;
+        }
+        return port < K_OUTPUT_PORTS ? 1u : 0u;
+    }
+
+    const ParameterTable<RoomNode, 1>& RoomNode::parameters()
+    {
+        static const ParameterTable<RoomNode, 1> table{{{
             {{"direct_delay", "Direct delay", 0.0f, 1.0f, K_DEFAULT_DIRECT_DELAY, ParamKind::Choice,
               ""},
              [](RoomNode& n, float v)
@@ -297,11 +335,9 @@ namespace SushiDSP::room
     void RoomNode::set_parameter_for_control_thread(const char* id, float value)
     {
         parameters().write(*this, id, value);
-        const bool listener_moved =
-            std::strcmp(id, "listener") == 0 && listener_kind() != published_listener_;
         const bool delay_moved =
             std::strcmp(id, "direct_delay") == 0 && direct_delay_physical() != published_physical_;
-        if (prepared_ && (listener_moved || delay_moved))
+        if (prepared_ && delay_moved)
         {
             std::string reason;
             publish(reason);
@@ -315,36 +351,65 @@ namespace SushiDSP::room
 
     void RoomNode::reset()
     {
-        modal_.reset();
-        geometric_.reset();
-        binaural_.reset();
-        input_crossover_.reset();
-        dry_delay_.reset();
-        dry_delay_frames_ = 0;
+        Stages& stages = *stages_;
+        if (prepared_)
+        {
+            for (std::uint32_t source = 0; source < K_MAX_SOURCES; ++source)
+            {
+                stages.sources[source].reset();
+                for (Room::PairStage& pair : stages.pairs[source])
+                {
+                    pair.reset();
+                }
+            }
+            stages.ears.reset();
+            for (Room::MicrophoneOutput& microphone : stages.microphones)
+            {
+                microphone.reset();
+            }
+            head_.reset_decoder();
+        }
         fade_remaining_ = 0;
         fade_total_ = 0;
         fade_lag_ = 0;
-        pending_ = false;
         adopted_ = nullptr;
-        if (prepared_)
-        {
-            mix_.snap(mix_.target());
-            level_.snap(level_.target());
-        }
+        source_count_ = 0;
+        microphone_count_ = 0;
     }
 
     std::uint32_t RoomNode::latency_samples() const
     {
-        if (!prepared_ || published_listener_ != ListenerKind::Ears)
-        {
-            return 0u;
-        }
-        return alignment_frames_ + published_direct_delay_frames_;
+        return prepared_ ? alignment_frames_ + published_direct_delay_frames_ : 0u;
     }
 
     const char* RoomNode::type_id() const
     {
         return "sushidsp.room";
+    }
+
+    bool RoomNode::set_arrangement(const Room::Arrangement& arrangement, std::string& reason_out)
+    {
+        if (!arrangement.is_valid(reason_out))
+        {
+            return false;
+        }
+        Room::Arrangement previous = arrangement_;
+        arrangement_ = arrangement;
+        if (prepared_ && !publish(reason_out))
+        {
+            arrangement_ = std::move(previous);
+            return false;
+        }
+        if (!prepared_)
+        {
+            schroeder_hz_ = EyringDecay::schroeder_frequency_hz(arrangement_.pair_scene(0, 0));
+        }
+        return true;
+    }
+
+    Room::Arrangement RoomNode::arrangement() const
+    {
+        return arrangement_;
     }
 
     bool RoomNode::set_scene(const RoomScene& scene, std::string& reason_out)
@@ -353,34 +418,44 @@ namespace SushiDSP::room
         {
             return false;
         }
-        const RoomScene previous = scene_;
-        scene_ = scene;
-        if (prepared_ && !publish(reason_out))
+        Room::Arrangement next = arrangement_;
+        next.set_shell(scene);
+        next.set_listener(Room::Pose{scene.listener_position, scene.listener_yaw_rad});
+        const Room::Pose cabinet{scene.source_position, scene.source_yaw_rad};
+        if (next.sources().empty())
         {
-            scene_ = previous;
-            return false;
+            next.add_source(Room::SourcePlacement{0u, cabinet}, reason_out);
         }
-        if (!prepared_)
+        else
         {
-            schroeder_hz_ = EyringDecay::schroeder_frequency_hz(scene_);
+            next.move_source(next.sources().front().id, cabinet);
         }
-        return true;
+        return set_arrangement(next, reason_out);
     }
 
     RoomScene RoomNode::scene() const
     {
-        return scene_;
+        RoomScene scene = arrangement_.shell();
+        scene.listener_position = arrangement_.listener().position;
+        scene.listener_yaw_rad = arrangement_.listener().yaw_rad;
+        if (!arrangement_.sources().empty())
+        {
+            scene.source_position = arrangement_.sources().front().pose.position;
+            scene.source_yaw_rad = arrangement_.sources().front().pose.yaw_rad;
+        }
+        return scene;
     }
 
     bool RoomNode::set_hrtf(HrtfSet set)
     {
         if (set.empty())
         {
-            binaural_.set_source(HrtfSource::SphericalHead);
+            head_.set_source(HrtfSource::SphericalHead);
             if (prepared_)
             {
-                binaural_.refresh_head(sample_rate_);
-                publish_decoder();
+                head_.refresh_head(sample_rate_);
+                head_.publish_decoder(sample_rate_, max_block_);
+                builder_.invalidate();
                 std::string reason;
                 publish(reason);
             }
@@ -408,27 +483,28 @@ namespace SushiDSP::room
                 return false;
             }
         }
-        HrtfSet previous = binaural_.take_hrtf();
-        const HrtfSource previous_source = binaural_.source();
-        binaural_.set_hrtf(std::move(set));
-        binaural_.set_source(HrtfSource::Measured);
+        HrtfSet previous = head_.take_hrtf();
+        const HrtfSource previous_source = head_.source();
+        head_.set_hrtf(std::move(set));
+        head_.set_source(HrtfSource::Measured);
+        builder_.invalidate();
         std::string reason;
         if (prepared_ && !publish(reason))
         {
-            binaural_.set_hrtf(std::move(previous));
-            binaural_.set_source(previous_source);
+            head_.set_hrtf(std::move(previous));
+            head_.set_source(previous_source);
             return false;
         }
         if (decoder)
         {
-            binaural_.publish_decoder(std::move(decoder));
+            head_.publish_decoder(std::move(decoder));
         }
         return true;
     }
 
     HrtfSource RoomNode::hrtf_source() const
     {
-        return binaural_.source();
+        return head_.source();
     }
 
     double RoomNode::schroeder_frequency_hz() const
@@ -439,13 +515,7 @@ namespace SushiDSP::room
     void RoomNode::reclaim_rooms()
     {
         slot_.reclaim();
-        binaural_.reclaim();
-    }
-
-    ListenerKind RoomNode::listener_kind() const noexcept
-    {
-        return listener_.load(std::memory_order_relaxed) >= 0.5f ? ListenerKind::Microphone
-                                                                 : ListenerKind::Ears;
+        head_.reclaim();
     }
 
     bool RoomNode::direct_delay_physical() const noexcept
@@ -453,43 +523,24 @@ namespace SushiDSP::room
         return direct_delay_.load(std::memory_order_relaxed) >= 0.5f;
     }
 
-    void RoomNode::compensate_direct_delay(RoomRenderSet& set) noexcept
-    {
-        if (set.listener != ListenerKind::Ears || set.early.count == 0)
-        {
-            return;
-        }
-        const float shift = set.direct_delay_frames;
-        // Tap 0 may land under a frame: the direct path reads it past the alignment delay.
-        set.early.taps[0].delay_frames -= shift;
-        for (std::uint32_t index = 1; index < set.early.count; ++index)
-        {
-            EarlyTap& tap = set.early.taps[index];
-            tap.delay_frames = std::max(tap.delay_frames - shift, 1.0f);
-        }
-        set.late.delay_to_crossover_frames =
-            std::max(set.late.delay_to_crossover_frames - shift, 0.0f);
-    }
-
     bool RoomNode::publish(std::string& reason_out)
     {
         try
         {
-            const ListenerKind listener = listener_kind();
             const bool physical = direct_delay_physical();
-            std::unique_ptr<RoomRenderSet> set =
-                build_render_set(scene_, binaural_.hrtf(), sample_rate_, listener);
-            if (!physical)
-            {
-                compensate_direct_delay(*set);
-            }
+            std::unique_ptr<Room::EnvironmentRenderSet> set = builder_.build(
+                arrangement_, head_.hrtf(), sample_rate_, physical, slot_.active_for_publisher());
             // The report is the split the set renders at, or Eyring's figure with the layer off.
-            schroeder_hz_ = set->modal.count > 0u ? static_cast<double>(set->crossover_hz)
-                                                  : EyringDecay::schroeder_frequency_hz(scene_);
+            const bool modal_runs = set->source_count > 0u && set->pairs[0][0].modal.count > 0u;
+            schroeder_hz_ =
+                modal_runs
+                    ? static_cast<double>(set->pairs[0][0].crossover_hz)
+                    : EyringDecay::schroeder_frequency_hz(arrangement_.pair_scene(0, 0));
             const auto propagation =
-                static_cast<std::uint32_t>(std::lround(set->direct_delay_frames));
+                set->source_count > 0u
+                    ? static_cast<std::uint32_t>(std::lround(set->pairs[0][0].direct_delay_frames))
+                    : 0u;
             slot_.publish(std::move(set));
-            published_listener_ = listener;
             published_physical_ = physical;
             published_direct_delay_frames_ = physical ? propagation : 0u;
             return true;
@@ -499,11 +550,6 @@ namespace SushiDSP::room
             reason_out = error.what();
             return false;
         }
-    }
-
-    void RoomNode::publish_decoder()
-    {
-        binaural_.publish_decoder(sample_rate_, max_block_);
     }
 
     namespace
@@ -521,7 +567,7 @@ namespace SushiDSP::room
             "Room",
             RoomNode::parameters().descriptors(),
             RoomNode::parameters().count(),
-            PortLayout{1, 2},
+            PortLayout{RoomNode::K_MAX_SOURCES * RoomNode::K_SLOT_CHANNELS, 2},
             &make_room,
         };
         return descriptor;

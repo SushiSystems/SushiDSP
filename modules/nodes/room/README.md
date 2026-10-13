@@ -1,10 +1,16 @@
-# `modules/nodes/room`, one cabinet in one room
+# `modules/nodes/room`, cabinets, a listener and microphones in one room
 
-One `AudioNode`, mono in and two channels out, registered as `sushidsp.room` under the `Room`
-category with four parameters: `mix`, `level`, `listener` and `direct_delay`. The node solves a
-shoebox room on the control thread and renders its standing waves, its direct sound, its early
-reflections and its late tail on the audio thread, for two ears under a head or for one
-microphone. The module depends on `SushiDSP::sushi_dsp` alone.
+One `AudioNode`, registered as `sushidsp.room` under the `Room` category with one parameter,
+`direct_delay`. It holds up to three cabinets, one listener and up to eight microphones in one
+shoebox room. Each cabinet is an input slot; the listener's two ears leave on output port 0 and
+microphone `m` leaves, mono, on port `1 + m`. The node solves the room on the control thread
+and renders its standing waves, its direct sound, its early reflections and its late tail on the
+audio thread, for every cabinet at every receiver. The module depends on `SushiDSP::sushi_dsp`
+alone.
+
+"The room as an environment" below describes how the node is put together; the sections after it
+describe each layer of one cabinet heard at one receiver, which is what every pair of the
+environment renders.
 
 Intent, the physics behind each solver and the acceptance list live in
 [`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../../docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md);
@@ -43,24 +49,95 @@ knowingly left open.
 | Sixteen Ambisonic channels to two ears | `BinauralDecoder` |
 | The power-complementary Butterworth pair at the modal seam | `CrossoverPair` |
 | Up to 512 second-order resonators | `ModalBank` |
-| Everything the audio thread reads for one scene | `RoomRenderSet`, `build_render_set` |
-| What a host calls to install a scene or an HRTF | `RoomHost` |
+| Everything the audio thread reads for one cabinet at one receiver | `RoomRenderSet`, `build_render_set` |
+| The shell, the listener, the cabinets and the microphones, with the limits checked on every edit | `Room::Arrangement` |
+| Every pair's render set, built as one and published as one | `Room::EnvironmentRenderSet`, `Room::EnvironmentBuilder` |
+| What a host calls to install an arrangement, a scene or an HRTF | `RoomHost` |
 | One input ring, up to 128 fractional taps, two biquad state banks, sixteen channels out | `EarlyReflectionRenderer` |
 | The 16-line Hadamard feedback delay network | `LateReverb` |
-| The crossover's low half: the standing waves and their two banks | `ModalPath` |
-| The crossover's high half: the direct sound, the taps and the tail | `GeometricPath` |
-| Where the two halves meet: the head, the decoder, the alignment and each ear's sum | `BinauralStage` |
-| The topology, the seam, the swap, the crossfade, the mix and the level | `RoomNode` |
+| What one cabinet puts into the room: the split at the seam, the tail's network, the modal bank | `Room::SourceStage` |
+| What one receiver hears of one cabinet above the seam: the direct sound, the taps, the tail's output | `Room::PairStage` |
+| The listener's sum: one decode, the diffuse pair, the alignment delays | `Room::EarsOutput` |
+| One microphone's sum, held back to line up with the listener | `Room::MicrophoneOutput` |
+| The HRTF set and the decoder published for it | `Room::HeadHolder` |
+| The topology, the one render set, the swap and the crossfade | `RoomNode` |
 
 The direct path's renderer, the 128-tap FIR, the fixed frame delay and the fractional-delay ring
 the ears need are files of their own beside `EarlyReflectionRenderer` (`DirectPath`, `FirFilter`,
-`FrameDelay`, `DelayRing`), each owned by the path that drives it. `FadeWindow` carries the one
-crossfade window all three paths read.
+`FrameDelay`, `DelayRing`), each owned by the stage that drives it. `FadeWindow` carries the one
+crossfade window every stage reads, and `CascadeFilter` is the fourth-order filter the tail's
+output cascades run through.
+
+The classes named `Room::` are in the namespace `SushiDSP::Room`; the rest of the module is in
+`SushiDSP::room`.
 
 `RoomNode` is the only class here that knows the topology. `ImageSourceSolver` and
 `LateReverbDesign` consume the materials, the fits, the air and the directivity; the renderers
 consume the records the solvers publish and nothing else, so a renderer is tested with a
 hand-written record and a solver with arrival times alone.
+
+## The room as an environment
+
+`RoomNode` declares `PortLayout{6, 2}`: three input slots as wide as its main output, of which it
+reads the first channel, so a mono cabinet is copied into its slot by the graph's own adaptation
+rule. It declares nine output ports: port 0, the listener, is two channels wide, and ports 1 to 8
+are one channel each. A port with no microphone behind it carries silence, and a node run outside
+a `RigGraph`, with no port table, renders the listener into its two outputs.
+
+What is placed in the room is a `Room::Arrangement`: the shell (a `RoomScene`'s dimensions,
+materials, patches, furnishings and cabinet geometry), the listener's pose, up to three sources
+and up to eight microphones. A source and a microphone each carry the identity the host gave
+them, a pose, and for a microphone the polar pattern and the proximity switch. A source's index
+is the node's input slot and a microphone's index plus one is its port, so the order of each list
+is part of the arrangement. Every edit checks the limits and answers a refusal with a reason; a
+fourth cabinet and a ninth microphone are refused and leave the arrangement as it was
+(`ArrangementRefusesAFourthCabinetAndStaysAsItWas`).
+
+`RoomHost::set_arrangement` validates every pair's scene, builds one `Room::EnvironmentRenderSet`
+that holds a `RoomRenderSet` per (cabinet, receiver) pair, and publishes it through one
+`RtSwapSlot`. The audio thread therefore adopts a placement whole: it never renders some pairs of
+the new arrangement beside others of the old. `Room::EnvironmentBuilder` keeps the scene each pair
+was built from, so a pair whose cabinet, receiver and shell did not change is copied from the set
+in place and not solved again: dragging one microphone solves one pair per cabinet.
+`RoomHost::set_scene` stays for the bare room. It replaces the shell, the listener's pose and the
+first cabinet's pose, and leaves the microphones as they are.
+
+On the audio thread the work is split by what each piece of state is a function of.
+
+| Stage | Count | What it renders |
+| --- | --- | --- |
+| `Room::SourceStage` | one per cabinet | The split at the seam, the high half held in a ring, the tail's network, and the modal resonators read at every receiver |
+| `Room::PairStage` | one per cabinet and receiver | The direct sound, the image-source taps, and the tail read at this pair's delay and level |
+| `Room::EarsOutput` | one | The listener's pairs summed, decoded once, with the tail through the diffuse pair |
+| `Room::MicrophoneOutput` | one per microphone | A microphone's pairs summed into one mono block |
+
+**The tail is rendered once per cabinet.** `LateReverb::process_sums` runs the network at unit
+gain with no input delay and hands back its two output sums, A and B, before the tone correction
+and the coherence pair. The source stage writes both into rings. Each pair reads them at its own
+delay to the crossover time and its own level, which a set calls `input_gain`: the network is
+linear, so a gain and a delay at its input and the same gain and delay at its output are the same
+signal. The pair then runs the tone correction, and for the ears the coherence pair, over what it
+read. The line lengths and the per-line absorption depend on the shell alone and are taken from
+the cabinet's listener pair.
+
+**The modal resonators run once per cabinet.** A resonator's state depends on the cabinet's
+signal and its mode shape at the cabinet. `ModalBank::process` takes a list of read-outs, each a
+row of one gain per mode and a block to add into, and advances the resonators once whatever the
+count. The source stage holds rows 0 and 1 for the listener's two ears and row `2 + m` for
+microphone `m`. A row is the same sum the bank made when it read two ears alone, in the same
+order (`ModalBankReadsEveryRowAsItReadsTheTwoEars`).
+
+**Every port carries the decoder's partition.** The listener's reflections come out of the
+decoder one partition late, 128 frames at 48 kHz, and its direct sound, tail and modal field wait
+that long to meet them. A microphone has no decoder, so `Room::MicrophoneOutput` holds its block
+back by the same partition and the ports line up. `latency_samples()` reports the partition, plus
+the first cabinet's propagation delay to the listener when `direct_delay` is physical.
+
+Solving stays one pair at a time: `build_render_set` is called for each pair's own scene, the
+shell with that cabinet's pose and that receiver's. The shell's part of a pair's set, the tail's
+lines and the modal resonators, is therefore designed once per pair though it is equal across
+them; [`docs/design/REMAINING_WORK.md`](../../../docs/design/REMAINING_WORK.md) carries splitting
+those designs. Each pair stage also keeps its own copy of the early renderer's input ring.
 
 ## What a scene has to clear
 
@@ -185,44 +262,38 @@ entry and `docs/design/ROOM_FURNISHINGS.md` section 11 the evidence.
 The audio thread calls `RoomNode::process`, and through it `CrossoverPair::process_sample`,
 `EarlyReflectionRenderer::write`, `EarlyReflectionRenderer::render`,
 `EarlyReflectionRenderer::clear_bank`, `LateReverb::process`, `ModalBank::process`,
-`BinauralDecoder::process` and, through `ModalPath`, `GeometricPath` and `BinauralStage`,
-`DirectPath`, `FirFilter`, `FrameDelay` and `DelayRing`; at the block that adopts a set it also
+`BinauralDecoder::process` and, through `Room::SourceStage`, `Room::PairStage` and the two
+output stages, `DirectPath`, `FirFilter`, `FrameDelay` and `DelayRing`; at the block that adopts a set it also
 calls `CrossoverPair::set_crossover`,
 `ModalBank::reset` and `BinauralDecoder::reset`, all arithmetic. None of them allocates, locks,
 opens a file or throws after `prepare()`; `tests/functional/unit/test_rt_safety.cpp` traps
 `operator new` around each of them, and around `RoomNode::process` while publishes land that
-move the microphone, move the listener, widen the room, switch the listener, switch
-`direct_delay` and re-install the fallback HRTF, so each path the node can take runs under the
-trap.
+move a microphone, move the listener, widen the room, take cabinets and microphones away and
+bring them back, and switch `direct_delay`, so each path the node can take runs under the trap
+(`RoomNodeProcessPerformsNoHeapAllocationAtTheLimits`).
 
-Everything else runs on the control thread. `RoomNode::set_scene` validates the scene, calls
-`build_render_set` for the listener the parameter names, which solves the images, designs the
-tail, finds the Schroeder frequency, designs the modal bank and takes the direct HRIR pair from
-the HRTF set, re-times an ears set for `direct_delay`, places the modal receiver, and publishes
-the finished `RoomRenderSet` through one `RtSwapSlot`. A scene the validator refuses is not built
-and the previous scene stays in place. `prepare()` and `set_hrtf` build a `BinauralDecoder` from
+Everything else runs on the control thread. `RoomNode::set_arrangement` validates the
+arrangement and, for each pair that changed, calls `build_render_set` for that pair's receiver,
+which solves the images, designs the tail, finds the Schroeder frequency, designs the modal bank
+and takes the direct HRIR pair from the HRTF set. It re-times each listener pair for
+`direct_delay` and publishes the finished `Room::EnvironmentRenderSet` through one `RtSwapSlot`.
+An arrangement the validator refuses is not built and the previous one stays in place. `prepare()` and `set_hrtf` build a `BinauralDecoder` from
 the HRTF set in place and publish it through a second slot; a set the decoder refuses, one with
 no third-order decoder, is refused whole and the set in place stays. `reclaim_rooms()` frees
 every set and every decoder the audio thread has moved past; the host calls it once per GUI
 frame, as it does `reclaim_cabinets()`.
 
-The `listener` parameter has two paths. `set_parameter("listener", …)`, the id path, is control
-thread only: it stores the choice and, when the set published last was built for the other
-listener, publishes a new one through the path `set_scene` uses. `set_parameter(index, …)`, the
-index path `RigGraph` drains on the audio thread, stores the choice and nothing else; the next
-publish, whatever triggers it, builds for the stored choice.
-`RoomNodeAppliesAListenerWrittenByIndexAtTheNextPublish` checks both.
-
 `process()` does one `acquire_for_audio_thread()` per slot per block. The set pointer it gets
-back is compared against the one adopted last and read inside that block only: the taps, the
-direct tap and its pair, the tail's design and the diffuse pair are copied into the node's own
-banks the first block a set is seen, so no set is ever read after the block that acquired it, and
+back is compared against the one adopted last and read inside that block only: each pair's taps,
+direct tap and HRIR pair, the tail's design, every modal row and the diffuse pair are copied into
+the stages' own banks the first block a set is seen, so no set is ever read after the block that acquired it, and
 a reclaim can free a retired set at any time. The decoder pointer is used inside the block alone.
 
 ## The two-bank crossfade
 
-`EarlyReflectionRenderer` holds two banks of biquad state and `RoomNode` holds two copies of
-`EarlyTapSet`, one per bank. A set that is not the one adopted last goes into the spare bank: its
+Each `Room::PairStage` owns an `EarlyReflectionRenderer`, which holds two banks of biquad state,
+and two copies of `EarlyTapSet`, one per bank. What follows is one pair; every pair of the room
+does the same under the one window `RoomNode` keeps. A set that is not the one adopted last goes into the spare bank: its
 taps are copied in, the bank's state is zeroed, every tap that matches its retiring counterpart
 takes that tap's filter state through `carry_tap`, and a 512-frame raised-cosine fade starts.
 During the fade both banks render every block, the retiring bank's sixteen channels are blended
@@ -230,23 +301,24 @@ into the arriving bank's, and when the fade ends the retiring bank is the next s
 arrives mid-fade restarts the fade from the bank that was arriving; the node never holds more than
 two. The direct path has two banks of its own, loaded and carried under the same match rule as the
 taps and blended after rendering. The tail's coefficients are not crossfaded: `LateReverb` adopts
-a design at the block the node hands it over and runs its own 512-frame fade only when the line
-lengths move; its delay to t_c, though, is read out of the node's ring and blended between the
-retiring and the arriving delay under the fade, so a re-timed set never jumps the tail's input.
+a design at the block the stage hands it over and runs its own 512-frame fade only when the line
+lengths move. A pair's delay to t_c and its level, though, are read out of the cabinet's two tail
+rings and blended between the retiring and the arriving values under the fade, so a re-timed or
+re-levelled set never steps the tail.
 
-When the ears take part in a fade, the fade starts one decoder partition, 128 frames at 48 kHz,
-after the set is adopted, when the decoder's first partition of the arriving set comes out. The
-paths the decoder or the alignment delay hold back read the fade's window unlagged, the paths
-that blend at the output, the direct pair, the microphone's channel 0, the tail's read delay and
-the presentations of the tail and the modal field, read it at the lag, and the tail's
-coefficients switch at the block the lag runs out; so every path comes out in step and nothing at
-the output moves before the fade begins. A fade between two microphone sets has no lag. The
-ears' reference blend in the tests is delayed the same 128 frames.
+The fade starts one decoder partition, 128 frames at 48 kHz, after the set is adopted, when the
+decoder's first partition of the arriving set comes out. The paths something downstream holds
+back read the fade's window unlagged: the ambisonic channels, which the decoder holds; the modal
+rows, which an alignment delay holds; and everything of a microphone pair, whose whole block
+`Room::MicrophoneOutput` holds. The listener's paths that blend at the output, its direct pair
+and its tail's read, take the window at the lag, and its tail's cascades switch at the block the
+lag runs out. So every path comes out in step and nothing at a port moves before the fade
+begins. The ears' reference blend in the tests is delayed the same 128 frames.
 
 Taps pair by index, the arrival order `ImageSourceSolver` returns. An arriving tap past the
 retiring count starts from zero; a retiring tap past the arriving count is dropped. A pair
 matches when the delay moved by at most 2 frames and none of the ten coefficients moved by more
-than 0.2 (`K_MATCH_DELAY_FRAMES`, `K_MATCH_COEFFICIENT_MOVE` in `geometric_path.cpp`). A tap that does not
+than 0.2 (`K_MATCH_DELAY_FRAMES`, `K_MATCH_COEFFICIENT_MOVE` in `pair_stage.cpp`). A tap that does not
 match starts from zero, because a retiring state run through a different filter is further from
 that filter's steady state than zero is: carrying every tap regardless measured -15.4 dBFS for a
 one-centimetre move against -32.0 dBFS from zero.
@@ -306,7 +378,7 @@ blend of the two steady renders, where the input split measured -52.1 dBFS with 
 then stood.
 
 The modal bank has its own state, two banks of it, and a published set is adopted under a match
-rule shaped like the early renderer's `carry_tap`. `ModalPath::same_resonators` compares the
+rule shaped like the early renderer's `carry_tap`. `Room::SourceStage::same_resonators` compares the
 arriving design's sections with the active bank's, bit for bit: one room designs one set of
 resonators whatever the poses, so a moved cabinet or listener leaves every section equal and
 changes `source_gain` and `ear_gain` alone (spec §9a.2; `RoomNodePublishesNewModalGainsWithoutRebuildingAResonator`
@@ -439,10 +511,11 @@ The pair is power-complementary, a fourth-order Butterworth low-pass and high-pa
 corner with section Q 0.5412 and 1.3066, because the two halves carry uncorrelated fields and
 their powers add; until 2026-09-09 it was Linkwitz-Riley and the seam dipped 3 dB at f_s.
 
-## The listener, and where the standing waves are read
+## The receivers, and where the standing waves are read
 
-`listener` 0 is the ears and 1 the microphone, and one of them renders at a time (spec §8). The
-set is built for that listener: the image solver ends its paths at `listener_position` or at
+A receiver is the listener or a microphone, and its port fixes which: receiver 0 of every cabinet
+is the listener and receiver `1 + m` is microphone `m` (spec §8). Each pair's set is built for its
+receiver: the image solver ends its paths at `listener_position` or at
 `microphone_position`, encodes each tap to sixteen Ambisonic channels for the ears or to channel
 0 alone for the microphone, folds the microphone's pattern and proximity into the microphone's
 taps, and the tail's design carries the coherence pair for the ears and unity for the microphone.
@@ -452,14 +525,10 @@ kind: for the ears it evaluates psi at two points 8.5 cm to either side of `list
 for the microphone at `microphone_position` in both ear gains, and the resonators, the count,
 the crossover and the level are the room's whatever the receiver
 (`ModalSolverReadsTheMicrophoneAtOnePoint`, `BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver`).
-Until 2026-09-09 the solver knew only the listener and `RoomNode::place_modal_receiver` rewrote a
-microphone set's gains after the build; that rule and its count check are gone, since nothing
-is rewritten any more.
 
-The microphone fills both outputs with one signal: channel 0 of the early set, the tail read
-once, and the modal field at one point, so the two channels are equal bit for bit whatever the
-listener does (`RoomNodeMicrophoneListenerFillsBothChannelsIdentically`), at physical timing and
-with no latency. The ears hear the binaural path of the next section.
+A microphone's port carries one signal: channel 0 of the early set, the tail read once, and
+the modal field at one point, at physical timing, held back by the decoder's partition so it
+lines up with the listener's port. The ears hear the binaural path of the next section.
 
 Measured through the node, impulse responses at 48 kHz over the direct-path window of a 12 m
 carpeted room with four open faces, the cabinet at its centre:
@@ -503,8 +572,8 @@ through the set's third-order decoder, and the tail through the set's diffuse-fi
 `applications/host_gui` installs it through `RigController::set_hrtf_path` at start-up.
 
 **The direct path.** Tap 0 of an ears set, the (0, 0, 0) image, is taken out of the bank at the
-block the set is adopted (`GeometricPath::take_direct_image`) and rendered by `DirectPath`: read out
-of the node's ring at the alignment delay plus the tap's, through the tap's fitted filter and 1/r
+block the set is adopted (`Room::PairStage::take_direct_image`) and rendered by `DirectPath`: read out
+of the cabinet's ring at the alignment delay plus the tap's, through the tap's fitted filter and 1/r
 in the early renderer's own arithmetic, then convolved with the set's minimum-phase HRIR for its
 ear, the far ear read the interaural delay later. `RoomNodeEarsHearTheDirectSoundThroughTheHrirPair`
 renders the dead room and matches that chain, built in the test from the render set, to
@@ -543,18 +612,10 @@ reflections and the tail keep their spacing to it; `latency_samples()` reports 1
 leaves the set as solved and reports 128 plus the propagation delay: 408 for the dead room's 2 m,
 491 for `RoomScene{}`'s 2.596 m, the 363 frames the plan's 280 assumed a 2 m scene for
 (`RoomNodeDefaultsDirectDelayToCompensated`). `RoomNodeDirectOnsetMovesWithTheDirectDelayChoice`
-sees the direct onset and the floor image's onset both move by 280. The choice is an ears
-choice: the microphone renders at physical timing with no partition in its path and reports 0,
-whatever the parameter says. A changed choice publishes through the crossfade like a changed
-listener; the index path stores it for the next publish.
-
-`write_outputs` reads the dry side of `mix` out of its own ring, delayed by `dry_delay_frames_`:
-the alignment delay for the ears, matching the wet's decoder partition so the two blends stay in
-step, and zero for the microphone, which carries no partition. Without it a fully dry node's own
-mix ran the dry side 128 frames ahead of the wet, audible as the wet trailing every note
-(`RoomNodeMixesDryAndWet`, `RoomNodeLeavesTheMicrophonesDryUndelayed`). Physical's extra
-propagation delay is left out of the dry side on purpose: it stands for the time a distant
-cabinet's sound actually takes to arrive, which the dry input was never subject to.
+sees the direct onset and the floor image's onset both move by 280. The choice is the
+listener's: a microphone pair renders at physical timing whatever the parameter says. A changed
+choice publishes through the crossfade like a moved receiver; the index path stores it for the
+next publish.
 
 Measured cost at 48 kHz and 256 frames on a Release build, best of 200, the garage with the
 cabinet at (0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0), every layer running
@@ -562,19 +623,29 @@ cabinet at (0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0), every layer runn
 
 | Row | ns/sample | One core | Per 256 frames |
 | --- | --- | --- | --- |
-| `RoomNode`, ears, steady state | 931.6 | 4.47 % | 0.238 ms |
-| `RoomNode`, ears, a scene republished every block | 8495.7 | 40.78 % | 2.175 ms |
-| `RoomNode`, microphone, steady state | 440.2 | 2.11 % | 0.113 ms |
-| `EarlyReflectionRenderer::render` | 207.0 | 0.99 % | 0.053 ms |
-| `ModalBank::process` | 153.5 | 0.74 % | 0.039 ms |
-| `BinauralDecoder::process` | 350.0 | 1.68 % | 0.090 ms |
-| JCM800 into `RoomNode` | 3490.2 | 16.75 % | 0.893 ms |
-| the room's share of that chain | 936.7 | 4.50 % | 0.240 ms |
+| `RoomNode`, one cabinet, ears, steady state | 936.3 | 4.49 % | 0.240 ms |
+| `RoomNode`, one cabinet, ears, a scene republished every block | 9621.1 | 46.18 % | 2.463 ms |
+| `RoomNode`, one cabinet, ears and one microphone, steady state | 1136.7 | 5.46 % | 0.291 ms |
+| `EarlyReflectionRenderer::render` | 205.1 | 0.98 % | 0.052 ms |
+| `ModalBank::process` | 167.2 | 0.80 % | 0.043 ms |
+| `BinauralDecoder::process` | 348.4 | 1.67 % | 0.089 ms |
+| JCM800 into `RoomNode` | 3505.9 | 16.83 % | 0.897 ms |
+| the room's share of that chain | 952.3 | 4.57 % | 0.244 ms |
+| `RoomNode`, three cabinets, ears and eight microphones | 7040.2 | 33.79 % | 1.802 ms |
+| three JCM800 into that room | 15218.4 | 73.05 % | 3.896 ms |
 
 The swap row is a bound and not a working figure: it republishes a scene on every block, which
 nothing does. A slider drag republishes at 30 Hz, one block in six at this rate and block size,
 and the blocks between it run the steady-state row. Spec §10 budgeted 1.63 ms and 2.57 ms scalar
-for the ears, and the 0.893 ms the whole chain costs is what leaves DE7's AVX2 lanes unopened.
+for the ears, and the 0.897 ms the one-cabinet chain costs is what leaves DE7's AVX2 lanes
+unopened.
+
+The room at its limits renders 27 pairs in 1.802 ms. A microphone added to one cabinet costs
+0.051 ms, which is one more `EarlyReflectionRenderer::render`: the taps are the part of a pair
+nothing shares, and 24 microphone pairs of them are about 1.25 ms of the row. The last row is
+the cabinet section's gate, set at 2.67 ms, half the block, and it does not pass: three JCM800
+amplifiers alone cost 1.96 ms, so the gate leaves the room 0.71 ms.
+[`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) carries it.
 
 ## Sizes fixed at `prepare()`
 
@@ -734,32 +805,3 @@ frequency returns exactly the modes the design carries.
 
 In `room_scene.cpp` a patch replaces area on its face and does not add to it, so its own material's
 area is subtracted from the face before either is weighted.
-
-## The cabinet section: environment and microphones
-
-`SushiDSP::Room::RoomEnvironmentNode` (`sushidsp.room_environment`, in `source/room_environment_node.cpp`)
-puts up to three cabinets and up to eight microphones in one room, with the listener. Its
-configuration is a shell scene plus a placement for each source, the listener and each microphone.
-Each cabinet is one mono input slot. Every (cabinet, receiver) pair is one `RoomNode`, so the
-solvers above run unchanged, and the pair outputs are summed per receiver.
-
-Its output ports are all mono: port 0 is the listener's left ear, port 1 its right ear, and port
-`2 + m` is microphone `m`. A port with no receiver behind it is silent. The two ears go to two
-channel strips, one hard left and one hard right, because a node's output port is one channel wide.
-
-The layout is fixed for the life of the node: all `3 x 9` pairs exist from construction, and
-`configure()` chooses which are active and where they stand. A move is a control-thread solve, not
-a graph rebuild. `configure()` validates every pair's scene before it changes any, so a refusal leaves
-the previous placement in place.
-
-Two limits follow from the design, and neither is measured yet. Cost grows with the number of
-active pairs; the benchmark gate in the AmpliTube 5 spec is still to be run. And the microphones
-and the listener are not latency-aligned with each other: the ears carry a decoder partition and
-the microphones do not.
-
-`SushiDSP::Room::MicrophoneNode` (`sushidsp.microphone`, in `source/microphone_node.cpp`) is the
-gear of one microphone in the rig: it carries polarity and the room flag. Its position and polar
-pattern belong to the room's placement, because they change what the room computes.
-
-Both classes are in `SushiDSP::Room`. The rest of this module is still in `SushiDSP::room`, the
-namespace the migration to PascalCase has not yet reached.

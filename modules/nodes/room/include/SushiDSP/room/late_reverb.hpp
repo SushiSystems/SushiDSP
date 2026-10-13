@@ -32,7 +32,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/math/biquad.hpp"
+#include "SushiDSP/room/cascade_filter.hpp"
 #include "SushiDSP/room/fdn_design.hpp"
 
 namespace SushiDSP::room
@@ -62,6 +62,15 @@ namespace SushiDSP::room
             /// @pre prepare() has run; every line length lies in [1, max_line_frames].
             void process(const FdnDesign& design, const float* input, float* left, float* right,
                          std::uint32_t frames) noexcept;
+
+            /// @brief Renders one block of the network alone: the input enters at unit gain with no delay
+            /// and the two output sums leave before the tone correction and the coherence pair. Only the
+            /// design's line lengths and absorption sections are read.
+            /// @param sum_a Receives the A sum, the one the left ear and a microphone read.
+            /// @param sum_b Receives the B sum, orthogonal to A.
+            /// @pre prepare() has run; sum_a and sum_b do not alias each other or the input.
+            void process_sums(const FdnDesign& design, const float* input, float* sum_a,
+                              float* sum_b, std::uint32_t frames) noexcept;
 
             /// @brief Applies the orthonormal 16-point Walsh-Hadamard transform in place, 64
             /// additions and one scale by 1/4.
@@ -110,28 +119,8 @@ namespace SushiDSP::room
                     void reset() noexcept;
             };
 
-            /// @brief Runs one fourth-order output filter as its two sections in order.
-            struct OutputFilter
-            {
-                    /// @brief Stores the two sections, run first to last.
-                    std::array<Biquad, FdnDesign::K_OUTPUT_SECTIONS> sections;
-
-                    /// @brief Advances both sections by one sample and returns the second's output.
-                    float process_sample(float input) noexcept
-                    {
-                        for (Biquad& section : sections)
-                        {
-                            input = section.process_sample(input);
-                        }
-                        return input;
-                    }
-
-                    /// @brief Copies one design cascade into the two sections.
-                    void load(const FdnDesign::Cascade& cascade) noexcept;
-
-                    /// @brief Clears both sections' state.
-                    void reset() noexcept;
-            };
+            /// @brief Names the fourth-order filter each output cascade runs through.
+            using OutputFilter = Room::CascadeFilter;
 
             /// @brief Adopts the design's lengths, starting a crossfade when they differ from the
             /// lengths in use.
@@ -142,14 +131,16 @@ namespace SushiDSP::room
 
             /// @brief Runs the network over a run of frames, blending two read heads while
             /// kFading and reading one otherwise; kTwoEars writes both ear outputs, its absence
-            /// writes the plain A sum to left alone.
-            template <bool kFading, bool kTwoEars>
+            /// writes the plain A sum to left alone. kSums overrides both: the input enters at
+            /// unit gain and the raw A and B sums go to left and right.
+            template <bool kFading, bool kTwoEars, bool kSums>
             void render(const float* input, float* left, float* right,
                         std::uint32_t frames) noexcept;
 
-            /// @brief Picks the render instantiation for a run of frames.
-            void render_run(bool fading, bool two_ears, const float* input, float* left,
-                            float* right, std::uint32_t frames) noexcept;
+            /// @brief Runs the fading part of a block, then the rest, through one render choice.
+            template <bool kTwoEars, bool kSums>
+            void render_block(const float* input, float* left, float* right,
+                              std::uint32_t frames) noexcept;
 
             /// @brief Stores the sixteen lines back to back, K_LINE_COUNT * capacity_ floats.
             std::vector<float> lines_;

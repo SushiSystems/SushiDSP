@@ -29,9 +29,9 @@
 #include <gtest/gtest.h>
 
 #include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/room/microphone_node.hpp"
+#include "SushiDSP/microphone/microphone_node.hpp"
 
-using SushiDSP::Room::MicrophoneNode;
+using SushiDSP::MicrophoneNode;
 
 TEST(Unit_Dsp, MicrophonePassesItsInputThroughUnchanged)
 {
@@ -74,6 +74,41 @@ TEST(Unit_Dsp, MicrophoneRoomFlagReadsBackAndMarksAnOverhead)
 
     EXPECT_TRUE(mic.is_room_microphone());
     EXPECT_FLOAT_EQ(mic.get_parameter("room"), 1.0f);
+}
+
+TEST(Unit_Dsp, MicrophoneDefaultsToACardioidWithProximity)
+{
+    MicrophoneNode mic;
+
+    EXPECT_EQ(mic.pattern(), MicrophoneNode::Pattern::Cardioid);
+    EXPECT_TRUE(mic.proximity());
+    EXPECT_FLOAT_EQ(mic.get_parameter("pattern"), 1.0f);
+    EXPECT_FLOAT_EQ(mic.get_parameter("proximity"), 1.0f);
+}
+
+TEST(Unit_Dsp, MicrophonePatternReadsBackAndIsClampedToTheFourPatterns)
+{
+    MicrophoneNode mic;
+
+    mic.set_parameter_for_control_thread("pattern", 3.0f);
+    EXPECT_EQ(mic.pattern(), MicrophoneNode::Pattern::FigureEight);
+    EXPECT_FLOAT_EQ(mic.get_parameter("pattern"), 3.0f);
+
+    mic.set_parameter_for_control_thread("pattern", 9.0f);
+    EXPECT_EQ(mic.pattern(), MicrophoneNode::Pattern::FigureEight);
+
+    mic.set_parameter_for_control_thread("pattern", -2.0f);
+    EXPECT_EQ(mic.pattern(), MicrophoneNode::Pattern::Omni);
+}
+
+TEST(Unit_Dsp, MicrophoneProximitySwitchReadsBack)
+{
+    MicrophoneNode mic;
+
+    mic.set_parameter_for_control_thread("proximity", 0.0f);
+
+    EXPECT_FALSE(mic.proximity());
+    EXPECT_FLOAT_EQ(mic.get_parameter("proximity"), 0.0f);
 }
 
 TEST(Unit_Dsp, MicrophoneDeclaresOneChannelInAndOut)

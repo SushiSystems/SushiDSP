@@ -20,8 +20,9 @@ tier and the ones below it; `tools/layering/check_layering.py` holds the order i
 | [`jcm800`](../../modules/nodes/jcm800/README.md) | `sushidsp.jcm800` | Marshall JCM800 2203 |
 | [`mesa_mark2c`](../../modules/nodes/mesa_mark2c/README.md) | `sushidsp.mesa_mark2c` | Mesa/Boogie Mark IIC+, lead mode |
 | [`peavey5150`](../../modules/nodes/peavey5150/README.md) | `sushidsp.peavey5150` | Peavey 5150, lead channel |
-| [`room`](../../modules/nodes/room/README.md) | `sushidsp.room` | One cabinet in one room |
-| [`routing`](../../modules/nodes/routing/README.md) | `sushidsp.splitter`, `sushidsp.mixer`, `sushidsp.pan` | The rig graph's routing nodes |
+| [`microphone`](../../modules/nodes/microphone/README.md) | `sushidsp.microphone` | A microphone as a rig element: pattern, proximity, polarity and the room flag |
+| [`room`](../../modules/nodes/room/README.md) | `sushidsp.room` | One room holding up to three cabinets, a listener and up to eight microphones |
+| [`routing`](../../modules/nodes/routing/README.md) | `sushidsp.splitter`, `sushidsp.mixer`, `sushidsp.pan`, `sushidsp.channel_strip`, `sushidsp.stereo_strip`, `sushidsp.bus` | The rig graph's routing nodes and the mixer's strips and buses |
 | [`tubescreamer`](../../modules/nodes/tubescreamer/README.md) | `sushidsp.tubescreamer` | Ibanez Tube Screamer |
 
 ## `catalog`

@@ -55,6 +55,7 @@ add_subdirectory(modules/nodes/diezel_vh4)
 add_subdirectory(modules/nodes/mesa_mark2c)
 add_subdirectory(modules/nodes/capture)
 add_subdirectory(modules/nodes/room)
+add_subdirectory(modules/nodes/microphone)
 add_subdirectory(modules/nodes/cabinet)
 
 # Nothing in the test suite links SDL2, so this can be turned off to configure

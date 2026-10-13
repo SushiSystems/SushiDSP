@@ -270,3 +270,51 @@ TEST(Unit_Dsp, ModalBankResetSilencesEveryResonator)
         EXPECT_EQ(right[frame], 0.0f) << "frame " << frame;
     }
 }
+
+TEST(Unit_Dsp, ModalBankReadsEveryRowAsItReadsTheTwoEars)
+{
+    // Seven modes spill into a second lane group, so a row is summed across groups too.
+    auto design = std::make_unique<SushiDSP::room::ModalDesign>();
+    design->count = 7u;
+    std::vector<float> left_gains(SushiDSP::room::ModalDesign::K_MAX_MODES, 0.0f);
+    std::vector<float> right_gains(SushiDSP::room::ModalDesign::K_MAX_MODES, 0.0f);
+    for (std::uint32_t index = 0; index < design->count; ++index)
+    {
+        set_resonator(design->modes[index], 40.0 + 23.0 * index, 0.4 + 0.1 * index);
+        design->modes[index].source_gain = 0.3f + 0.1f * static_cast<float>(index);
+        design->modes[index].ear_gain = {1.0f - 0.2f * static_cast<float>(index),
+                                         -0.5f + 0.15f * static_cast<float>(index)};
+        left_gains[index] = design->modes[index].ear_gain[0];
+        right_gains[index] = design->modes[index].ear_gain[1];
+    }
+
+    constexpr std::size_t K_FRAMES = 4 * K_BLOCK_FRAMES;
+    SushiDSP::room::ModalBank two_ears;
+    two_ears.prepare(K_BLOCK_FRAMES);
+    const StereoRender reference = render_impulse(two_ears, *design, K_FRAMES);
+
+    SushiDSP::room::ModalBank rows;
+    rows.prepare(K_BLOCK_FRAMES);
+    std::vector<float> input(K_FRAMES, 0.0f);
+    input[0] = 1.0f;
+    std::vector<float> first(K_FRAMES, 0.0f);
+    std::vector<float> second(K_FRAMES, 0.0f);
+    std::vector<float> third(K_FRAMES, 0.0f);
+    for (std::size_t start = 0; start < K_FRAMES; start += K_BLOCK_FRAMES)
+    {
+        const SushiDSP::room::ModalBank::ReadOut read_outs[3] = {
+            {left_gains.data(), first.data() + start},
+            {right_gains.data(), second.data() + start},
+            {left_gains.data(), third.data() + start},
+        };
+        rows.process(*design, input.data() + start, read_outs, 3u, K_BLOCK_FRAMES);
+    }
+
+    for (std::size_t frame = 0; frame < K_FRAMES; ++frame)
+    {
+        ASSERT_EQ(first[frame], reference.left[frame]) << "frame " << frame;
+        ASSERT_EQ(second[frame], reference.right[frame]) << "frame " << frame;
+        ASSERT_EQ(third[frame], first[frame]) << "frame " << frame;
+    }
+    EXPECT_GT(window_rms(first, 0, K_FRAMES), 0.0);
+}

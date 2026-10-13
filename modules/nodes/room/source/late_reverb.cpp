@@ -96,24 +96,6 @@ namespace SushiDSP::room
         y2.fill(0.0);
     }
 
-    void LateReverb::OutputFilter::load(const FdnDesign::Cascade& cascade) noexcept
-    {
-        for (std::size_t index = 0; index < FdnDesign::K_OUTPUT_SECTIONS; ++index)
-        {
-            const FdnDesign::Section& section = cascade[index];
-            sections[index].set_coefficients(section[0], section[1], section[2], section[3],
-                                             section[4]);
-        }
-    }
-
-    void LateReverb::OutputFilter::reset() noexcept
-    {
-        for (Biquad& section : sections)
-        {
-            section.reset();
-        }
-    }
-
     void LateReverb::hadamard_transform(std::array<double, K_LINE_COUNT>& values) noexcept
     {
         double* const __restrict v = values.data();
@@ -196,7 +178,7 @@ namespace SushiDSP::room
         coherence_b_.load(design.coherence_b);
     }
 
-    template <bool kFading, bool kTwoEars>
+    template <bool kFading, bool kTwoEars, bool kSums>
     void LateReverb::render(const float* input, float* left, float* right,
                             std::uint32_t frames) noexcept
     {
@@ -209,7 +191,7 @@ namespace SushiDSP::room
         const std::uint32_t* const __restrict previous = previous_length_.data();
         const std::uint32_t capacity = capacity_;
         const std::uint32_t delay_frames = input_delay_frames_;
-        const double gain = input_gain_;
+        const double gain = kSums ? 1.0 : input_gain_;
         const double fade_step = 1.0 / static_cast<double>(K_CROSSFADE_FRAMES);
         std::uint32_t write = write_;
         double weight = fade_weight_;
@@ -257,42 +239,42 @@ namespace SushiDSP::room
                 weight += fade_step;
             }
 
-            const float left_sample = tone_left_.process_sample(static_cast<float>(sum_a));
-            if constexpr (kTwoEars)
+            if constexpr (kSums)
             {
-                const float mixed = coherence_a_.process_sample(static_cast<float>(sum_a)) +
-                                    coherence_b_.process_sample(static_cast<float>(sum_b));
-                out_right[frame] = tone_right_.process_sample(mixed);
+                out_left[frame] = static_cast<float>(sum_a);
+                out_right[frame] = static_cast<float>(sum_b);
             }
-            out_left[frame] = left_sample;
+            else
+            {
+                const float left_sample = tone_left_.process_sample(static_cast<float>(sum_a));
+                if constexpr (kTwoEars)
+                {
+                    const float mixed = coherence_a_.process_sample(static_cast<float>(sum_a)) +
+                                        coherence_b_.process_sample(static_cast<float>(sum_b));
+                    out_right[frame] = tone_right_.process_sample(mixed);
+                }
+                out_left[frame] = left_sample;
+            }
         }
 
         write_ = write;
         fade_weight_ = weight;
     }
 
-    void LateReverb::render_run(bool fading, bool two_ears, const float* input, float* left,
-                                float* right, std::uint32_t frames) noexcept
+    template <bool kTwoEars, bool kSums>
+    void LateReverb::render_block(const float* input, float* left, float* right,
+                                  std::uint32_t frames) noexcept
     {
-        if (fading)
+        std::uint32_t offset = 0;
+        if (fade_remaining_ > 0)
         {
-            if (two_ears)
-            {
-                render<true, true>(input, left, right, frames);
-            }
-            else
-            {
-                render<true, false>(input, left, right, frames);
-            }
+            const std::uint32_t fading = std::min(frames, fade_remaining_);
+            render<true, kTwoEars, kSums>(input, left, right, fading);
+            fade_remaining_ -= fading;
+            offset = fading;
         }
-        else if (two_ears)
-        {
-            render<false, true>(input, left, right, frames);
-        }
-        else
-        {
-            render<false, false>(input, left, right, frames);
-        }
+        render<false, kTwoEars, kSums>(input + offset, left + offset, right + offset,
+                                       frames - offset);
     }
 
     void LateReverb::process(const FdnDesign& design, const float* input, float* left, float* right,
@@ -306,15 +288,24 @@ namespace SushiDSP::room
         input_delay_frames_ =
             std::min<std::uint32_t>(static_cast<std::uint32_t>(delay), capacity_ - 1u);
 
-        const bool two_ears = left != right;
-        std::uint32_t offset = 0;
-        if (fade_remaining_ > 0)
+        if (left != right)
         {
-            const std::uint32_t fading = std::min(frames, fade_remaining_);
-            render_run(true, two_ears, input, left, right, fading);
-            fade_remaining_ -= fading;
-            offset = fading;
+            render_block<true, false>(input, left, right, frames);
         }
-        render_run(false, two_ears, input + offset, left + offset, right + offset, frames - offset);
+        else
+        {
+            render_block<false, false>(input, left, right, frames);
+        }
+    }
+
+    void LateReverb::process_sums(const FdnDesign& design, const float* input, float* sum_a,
+                                  float* sum_b, std::uint32_t frames) noexcept
+    {
+        DenormalGuard guard;
+        adopt_lengths(design);
+        section_a_.load(design.line_section_a);
+        section_b_.load(design.line_section_b);
+        input_delay_frames_ = 0;
+        render_block<false, true>(input, sum_a, sum_b, frames);
     }
 } // namespace SushiDSP::room
