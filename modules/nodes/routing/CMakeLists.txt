@@ -10,6 +10,7 @@ add_library(routing STATIC
     source/pan_node.cpp
     source/sample_delay_line.cpp
     source/channel_strip_node.cpp
+    source/stereo_strip_node.cpp
     source/bus_node.cpp
 )
 add_library(SushiDSP::routing ALIAS routing)

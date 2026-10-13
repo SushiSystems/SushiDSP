@@ -70,7 +70,9 @@ namespace SushiDSP
             const float* in_right = context.inputs[2 * slot + 1];
             const bool audible = in_left != nullptr && !mute_[slot] && (!any_solo || solo_[slot]);
             const float target = audible ? 1.0f : 0.0f;
-            float gate = gate_[slot];
+            // The first block starts each gate at its target, so a muted input never leaks.
+            float gate = started_ ? gate_[slot] : target;
+            gate_[slot] = gate;
 
             if (gate == 0.0f && target == 0.0f)
             {
@@ -88,6 +90,7 @@ namespace SushiDSP
             }
             gate_[slot] = gate;
         }
+        started_ = true;
     }
 
     PortLayout BusNode::ports() const
@@ -98,6 +101,7 @@ namespace SushiDSP
     void BusNode::reset()
     {
         gate_.fill(1.0f);
+        started_ = false;
     }
 
     const ParameterTable<BusNode, 2 * BusNode::K_MAX_INPUTS>& BusNode::parameters()
