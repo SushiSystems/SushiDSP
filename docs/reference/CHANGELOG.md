@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-13 — host: Added an Add furniture list to the cabinet section's toolbar and a remove button and quantity to a furnishing's inspector (`cabinet_section_pane.cpp`).
 - 2026-10-13 — host: Named the join's strip Line when no path holds a cabinet and Cabinet + Line when some do, with a note that such a path moves no air (`mixer_model.cpp`, `cabinet_section_wiring.cpp`, `TopologyApplier::join_content`).
 - 2026-10-13 — host: Added the choice of microphone to the inspector and a microphone's `"model"` to a preset's room (`cabinet_section_pane.cpp`, `rig_persistence.cpp`).
 - 2026-10-13 — room: Added the table of shipped microphones and a microphone's kind to its placement; removed `K_MICROPHONE_PRESET_COUNT` (`microphone_model.hpp`, `MicrophoneKind`, `microphone_preset`, `Room::MicrophonePlacement`).

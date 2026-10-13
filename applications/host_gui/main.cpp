@@ -753,6 +753,8 @@ int main(int argc, char** argv)
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, no_spacing);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, no_spacing);
+        // A window is never shorter than the style's minimum, which would lay the seam over the bar.
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1.0f, 1.0f));
         ImGui::SetNextWindowPos(ImVec2(0.0f, top_bar_height + switch_height + workspace_height));
         ImGui::SetNextWindowSize(ImVec2(width, seam_thickness));
         ImGui::Begin("##bottom_divider", nullptr,
@@ -760,7 +762,7 @@ int main(int argc, char** argv)
                          ImGuiWindowFlags_NoScrollWithMouse);
         ui::DrawPaneSeparator(ui::DividerAxis::Horizontal, seam_thickness);
         ImGui::End();
-        ImGui::PopStyleVar(2);
+        ImGui::PopStyleVar(3);
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, height - bottom_bar_height));
         ImGui::SetNextWindowSize(ImVec2(width, bottom_bar_height));
