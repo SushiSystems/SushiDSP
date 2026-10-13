@@ -88,6 +88,8 @@ namespace ui
             double distance_m = 0.0;    ///< From the capsule to the cone's centre.
             double off_axis_m = 0.0;    ///< From the capsule to the cone's axis.
             double in_front_m = 0.0;    ///< From the baffle's plane; negative behind it.
+            double aside_m = 0.0;       ///< From the cone's axis toward the cabinet's left.
+            double above_m = 0.0;       ///< From the cone's axis upward.
     };
 
     /// @brief Finds the cone nearest a point among every cabinet in the room.
@@ -96,4 +98,19 @@ namespace ui
     /// @return The aim, or nullopt when the room holds no cabinet.
     std::optional<MicrophoneAim> nearest_cone(const SushiDSP::Room::Arrangement& arrangement,
                                               const SushiDSP::room::Vec3& position);
+
+    /// @brief Names one cone as someone facing the baffle sees it: "top left", "right", "centre".
+    /// @param driver The cone, below geometry.driver_count().
+    const char* cone_label(const SushiDSP::room::CabinetGeometry& geometry, std::uint32_t driver);
+
+    /// @brief Returns the pose of a microphone placed against one cone and facing the baffle.
+    /// @param pose The cabinet's baffle centre and facing.
+    /// @param driver The cone, below geometry.driver_count().
+    /// @param in_front_m How far in front of the baffle's plane the capsule stands.
+    /// @param aside_m How far from the cone's axis toward the cabinet's left.
+    /// @param above_m How far above the cone's axis.
+    SushiDSP::Room::Pose microphone_on_cone(const SushiDSP::Room::Pose& pose,
+                                            const SushiDSP::room::CabinetGeometry& geometry,
+                                            std::uint32_t driver, double in_front_m,
+                                            double aside_m, double above_m);
 } // namespace ui

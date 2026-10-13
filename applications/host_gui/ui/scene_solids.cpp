@@ -135,11 +135,55 @@ namespace ui
                 }
                 const double in_front = dx * forward_x + dy * forward_y;
                 const double off_axis_squared = distance * distance - in_front * in_front;
-                nearest = MicrophoneAim{source, driver, distance,
+                // The cabinet's left is its forward turned a quarter turn counter-clockwise.
+                const double aside = dy * forward_x - dx * forward_y;
+                nearest = MicrophoneAim{source,
+                                        driver,
+                                        distance,
                                         std::sqrt(off_axis_squared > 0.0 ? off_axis_squared : 0.0),
-                                        in_front};
+                                        in_front,
+                                        aside,
+                                        dz};
             }
         }
         return nearest;
+    }
+
+    const char* cone_label(const SushiDSP::room::CabinetGeometry& geometry, std::uint32_t driver)
+    {
+        // The cabinet's own left is the right of someone facing its baffle.
+        const bool viewers_right = geometry.driver_left_m(driver) > 0.0;
+        const bool top = geometry.driver_up_m(driver) > 0.0;
+        if (geometry.driver_columns < 2u && geometry.driver_rows < 2u)
+        {
+            return "centre";
+        }
+        if (geometry.driver_rows < 2u)
+        {
+            return viewers_right ? "right" : "left";
+        }
+        if (geometry.driver_columns < 2u)
+        {
+            return top ? "top" : "bottom";
+        }
+        if (top)
+        {
+            return viewers_right ? "top right" : "top left";
+        }
+        return viewers_right ? "bottom right" : "bottom left";
+    }
+
+    SushiDSP::Room::Pose microphone_on_cone(const SushiDSP::Room::Pose& pose,
+                                            const SushiDSP::room::CabinetGeometry& geometry,
+                                            std::uint32_t driver, double in_front_m,
+                                            double aside_m, double above_m)
+    {
+        const Point3 at = on_baffle(pose, geometry.driver_left_m(driver) + aside_m,
+                                    geometry.driver_up_m(driver) + above_m);
+        // The capsule looks back along the cabinet's forward.
+        const double facing = std::remainder(pose.yaw_rad + K_PI, 2.0 * K_PI);
+        return SushiDSP::Room::Pose{{at.x + std::cos(pose.yaw_rad) * in_front_m,
+                                     at.y + std::sin(pose.yaw_rad) * in_front_m, at.z},
+                                    facing};
     }
 } // namespace ui
