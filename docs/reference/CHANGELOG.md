@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-13 — core: Raised the output port limit to nine and counted fan-out per output port (`rig_graph.cpp`, `RigGraph::K_MAX_OUTPUT_PORTS`).
 - 2026-10-13 — host: Added the cabinet section: the room environment wired into the rig, a layout saved in presets, and a window with the plan view and the mixer (`room_layout.cpp`, `room_layout_codec.cpp`, `cabinet_section_window.cpp`).
 - 2026-10-13 — host: Added the DI path as a master bus that sums the chain's sink and the DI strip (`topology_applier.cpp`).
 

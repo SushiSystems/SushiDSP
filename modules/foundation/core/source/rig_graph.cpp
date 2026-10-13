@@ -72,7 +72,7 @@ namespace SushiDSP
         std::size_t fan_in = 0;
         for (const Edge& edge : edges_)
         {
-            if (edge.from == from)
+            if (edge.from == from && edge.from_port == from_port)
             {
                 ++fan_out;
             }
