@@ -71,8 +71,31 @@ namespace ui
         /// @brief The height of the bar ruler above the lanes, in pixels.
         constexpr float K_RULER_HEIGHT = 26.0f;
 
-        /// @brief The height of one lane, in pixels.
-        constexpr float K_LANE_HEIGHT = 66.0f;
+        /// @brief Holds the gap between two rows of a track's header, in pixels.
+        constexpr float K_HEADER_ROW_GAP = 4.0f;
+
+        /// @brief Holds the space above the first and under the last row of a header, in pixels.
+        constexpr float K_HEADER_PADDING = 6.0f;
+
+        /// @brief Returns a lane's height: three rows of controls at the font in use.
+        float lane_height()
+        {
+            return 3.0f * ImGui::GetFrameHeight() + 2.0f * K_HEADER_ROW_GAP +
+                   2.0f * K_HEADER_PADDING;
+        }
+
+        /// @brief Returns the top of one of a header's three rows, from the header's own top.
+        float header_row_y(int row)
+        {
+            return K_HEADER_PADDING +
+                   static_cast<float>(row) * (ImGui::GetFrameHeight() + K_HEADER_ROW_GAP);
+        }
+
+        /// @brief Returns the width a button of one label takes.
+        float button_width(const char* label)
+        {
+            return ImGui::CalcTextSize(label).x + 2.0f * ImGui::GetStyle().FramePadding.x;
+        }
 
         /// @brief The gap between two lanes, in pixels.
         constexpr float K_LANE_GAP = 2.0f;
@@ -288,20 +311,20 @@ namespace ui
             const bool is_selected = session.selected() == index;
             ImDrawList* draw = ImGui::GetWindowDrawList();
 
-            draw->AddRectFilled(origin, ImVec2(origin.x + header_width, origin.y + K_LANE_HEIGHT),
+            draw->AddRectFilled(origin, ImVec2(origin.x + header_width, origin.y + lane_height()),
                                 to_imu32(is_selected ? rgba(52, 52, 62) : rgba(38, 38, 44)), 4.0f);
             if (is_selected)
             {
-                draw->AddRect(origin, ImVec2(origin.x + header_width, origin.y + K_LANE_HEIGHT),
+                draw->AddRect(origin, ImVec2(origin.x + header_width, origin.y + lane_height()),
                               to_imu32(rgba(214, 168, 74)), 4.0f);
             }
 
             // Strip click: palette; header right-click: removal; see applications/host_gui/ui/README.md.
             ImGui::SetCursorScreenPos(origin);
-            ImGui::InvisibleButton("color", ImVec2(K_COLOR_STRIP_WIDTH, K_LANE_HEIGHT));
+            ImGui::InvisibleButton("color", ImVec2(K_COLOR_STRIP_WIDTH, lane_height()));
             const bool color_hovered = ImGui::IsItemHovered();
             draw->AddRectFilled(origin,
-                                ImVec2(origin.x + K_COLOR_STRIP_WIDTH, origin.y + K_LANE_HEIGHT),
+                                ImVec2(origin.x + K_COLOR_STRIP_WIDTH, origin.y + lane_height()),
                                 rig.track_color(index), 4.0f);
             if (color_hovered)
             {
@@ -334,18 +357,23 @@ namespace ui
                 ImGui::EndPopup();
             }
 
-            ImGui::SetCursorScreenPos(ImVec2(origin.x + K_HEADER_INSET, origin.y + 5.0f));
-            ImGui::SetNextItemWidth(84.0f);
+            // Every row spans the header: the name takes what the three buttons leave.
+            const float row_width = header_width - K_HEADER_INSET - 8.0f;
+            const float buttons_width =
+                button_width("rig") + button_width("byp") + button_width("x") + 3.0f * 4.0f;
+            ImGui::SetCursorScreenPos(
+                ImVec2(origin.x + K_HEADER_INSET, origin.y + header_row_y(0)));
+            ImGui::SetNextItemWidth(std::max(row_width - buttons_width, 40.0f));
             if (TextField("##name", names[index].data(), K_NAME_CAPACITY, rig.track_name(index)))
             {
                 rig.set_track_name(index, names[index].data());
             }
 
             // The rig button selects the track, so the rig view shows this track's rig.
-            ImGui::SetCursorScreenPos(ImVec2(origin.x + K_HEADER_INSET + 90.0f, origin.y + 6.0f));
+            ImGui::SameLine(0.0f, 4.0f);
             ImGui::PushStyleColor(ImGuiCol_Button,
                                   to_imvec4(is_selected ? rgba(150, 118, 52) : rgba(52, 52, 60)));
-            if (ImGui::SmallButton("rig"))
+            if (ImGui::Button("rig"))
             {
                 session.select(index);
                 ImGui::OpenPopup("track_files");
@@ -362,7 +390,7 @@ namespace ui
             ImGui::SameLine(0.0f, 4.0f);
             ImGui::PushStyleColor(ImGuiCol_Button, to_imvec4(strip.rig_bypassed ? rgba(120, 120, 130)
                                                                                : rgba(52, 52, 60)));
-            if (ImGui::SmallButton("byp"))
+            if (ImGui::Button("byp"))
             {
                 strip.rig_bypassed = !strip.rig_bypassed;
                 strip_changed = true;
@@ -374,7 +402,7 @@ namespace ui
             }
 
             ImGui::SameLine(0.0f, 4.0f);
-            if (ImGui::SmallButton("x"))
+            if (ImGui::Button("x"))
             {
                 remove_request = index;
             }
@@ -383,18 +411,20 @@ namespace ui
                 ImGui::SetTooltip("Remove this track");
             }
 
-            ImGui::SetCursorScreenPos(ImVec2(origin.x + K_HEADER_INSET, origin.y + 26.0f));
-            ImGui::SetNextItemWidth(184.0f);
+            ImGui::SetCursorScreenPos(
+                ImVec2(origin.x + K_HEADER_INSET, origin.y + header_row_y(1)));
+            ImGui::SetNextItemWidth(row_width);
             if (ImGui::SliderFloat("##level", &strip.level_db, -60.0f, 12.0f, "%+.1f dB"))
             {
                 strip_changed = true;
             }
 
-            ImGui::SetCursorScreenPos(ImVec2(origin.x + K_HEADER_INSET, origin.y + 46.0f));
+            ImGui::SetCursorScreenPos(
+                ImVec2(origin.x + K_HEADER_INSET, origin.y + header_row_y(2)));
             const bool armed = rig.record_track().has_value() && *rig.record_track() == index;
             ImGui::PushStyleColor(ImGuiCol_Button,
                                   to_imvec4(armed ? rgba(196, 54, 46) : rgba(52, 52, 60)));
-            if (ImGui::SmallButton("R"))
+            if (ImGui::Button("R"))
             {
                 rig.set_record_track(armed ? std::optional<std::size_t>()
                                            : std::optional<std::size_t>(index));
@@ -409,7 +439,7 @@ namespace ui
             ImGui::SameLine(0.0f, 4.0f);
             ImGui::PushStyleColor(ImGuiCol_Button,
                                   to_imvec4(strip.muted ? rgba(184, 148, 40) : rgba(52, 52, 60)));
-            if (ImGui::SmallButton("M"))
+            if (ImGui::Button("M"))
             {
                 strip.muted = !strip.muted;
                 strip_changed = true;
@@ -419,7 +449,7 @@ namespace ui
             ImGui::SameLine(0.0f, 4.0f);
             ImGui::PushStyleColor(ImGuiCol_Button,
                                   to_imvec4(strip.soloed ? rgba(64, 152, 196) : rgba(52, 52, 60)));
-            if (ImGui::SmallButton("S"))
+            if (ImGui::Button("S"))
             {
                 strip.soloed = !strip.soloed;
                 strip_changed = true;
@@ -427,7 +457,9 @@ namespace ui
             ImGui::PopStyleColor();
 
             ImGui::SameLine(0.0f, 8.0f);
-            ImGui::SetNextItemWidth(92.0f);
+            ImGui::SetNextItemWidth(std::max(
+                row_width - button_width("R") - button_width("M") - button_width("S") - 16.0f,
+                40.0f));
             if (ImGui::SliderFloat("##pan", &strip.pan, -1.0f, 1.0f, "pan %.2f"))
             {
                 strip_changed = true;
@@ -473,7 +505,7 @@ namespace ui
                 const float left = std::max(span.left, 0.0f);
                 const float right = std::min(std::max(span.right, left + 2.0f), canvas_width);
                 const ImVec2 top_left(origin.x + left, origin.y + 3.0f);
-                const ImVec2 bottom_right(origin.x + right, origin.y + K_LANE_HEIGHT - 3.0f);
+                const ImVec2 bottom_right(origin.x + right, origin.y + lane_height() - 3.0f);
 
                 draw->AddRectFilled(top_left, bottom_right,
                                     to_imu32(dragged ? rgba(96, 132, 176) : rgba(64, 96, 136)),
@@ -595,7 +627,7 @@ namespace ui
             std::max(total_width - header_width - K_HEADER_DIVIDER_THICKNESS, 32.0f);
         const float lanes_top = origin.y + K_RULER_HEIGHT;
         const float lanes_bottom =
-            lanes_top + static_cast<float>(rig.track_count()) * (K_LANE_HEIGHT + K_LANE_GAP);
+            lanes_top + static_cast<float>(rig.track_count()) * (lane_height() + K_LANE_GAP);
 
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
         ImGui::SetCursorScreenPos(ImVec2(origin.x + header_width, origin.y));
@@ -610,8 +642,8 @@ namespace ui
         geometry_out.canvas_left = canvas_x;
         geometry_out.canvas_top = lanes_top;
         geometry_out.canvas_width = canvas_width;
-        geometry_out.lane_height = K_LANE_HEIGHT;
-        geometry_out.lane_stride = K_LANE_HEIGHT + K_LANE_GAP;
+        geometry_out.lane_height = lane_height();
+        geometry_out.lane_stride = lane_height() + K_LANE_GAP;
         geometry_out.lane_count = rig.track_count();
 
         draw->AddRectFilled(ImVec2(canvas_x, origin.y),
@@ -634,7 +666,7 @@ namespace ui
         for (std::size_t index = 0; index < lane_count; ++index)
         {
             const float lane_y =
-                lanes_top + static_cast<float>(index) * (K_LANE_HEIGHT + K_LANE_GAP);
+                lanes_top + static_cast<float>(index) * (lane_height() + K_LANE_GAP);
 
             ImGui::PushID(static_cast<int>(index));
             draw_lane_header(session, index, ImVec2(origin.x, lane_y), header_width, names,
@@ -642,7 +674,7 @@ namespace ui
 
             ImGui::SetCursorScreenPos(ImVec2(canvas_x, lane_y));
             ImGui::SetNextItemAllowOverlap();
-            ImGui::InvisibleButton("canvas", ImVec2(canvas_width, K_LANE_HEIGHT));
+            ImGui::InvisibleButton("canvas", ImVec2(canvas_width, lane_height()));
             if (ImGui::BeginDragDropTarget())
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TAKE_FILE_PATH"))
@@ -662,15 +694,15 @@ namespace ui
                             arrangement_error);
             ImGui::PopID();
 
-            draw->AddLine(ImVec2(canvas_x, lane_y + K_LANE_HEIGHT),
-                          ImVec2(canvas_x + canvas_width, lane_y + K_LANE_HEIGHT),
+            draw->AddLine(ImVec2(canvas_x, lane_y + lane_height()),
+                          ImVec2(canvas_x + canvas_width, lane_y + lane_height()),
                           to_imu32(rgba(46, 46, 54)));
         }
 
         // Removing a track asks about its files every time; see applications/host_gui/ui/README.md.
         ImGui::SetCursorScreenPos(ImVec2(
             origin.x,
-            lanes_top + static_cast<float>(lane_count) * (K_LANE_HEIGHT + K_LANE_GAP) + 4.0f));
+            lanes_top + static_cast<float>(lane_count) * (lane_height() + K_LANE_GAP) + 4.0f));
         if (ImGui::SmallButton("+ Add track"))
         {
             std::string error;

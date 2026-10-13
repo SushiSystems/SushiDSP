@@ -41,15 +41,12 @@
 
 namespace ui
 {
-    /// @brief Draws the bar ruler, the playhead, the track headers and each track's clip canvas.
-    /// A header selects its track, bypasses its rig, opens its rig and track files, and holds
-    /// its strip.
+    /// @brief Draws the bar ruler, the playhead, the track headers and each track's clip canvas;
+    /// a header selects its track, bypasses its rig, opens its files and holds its strip.
     /// @param session The session whose tracks are drawn and edited.
     /// @param scale In/out: the zoom and the scroll every lane and the ruler share.
     /// @param snap In/out: what a dropped or dragged clip's frame is rounded to.
     /// @param arrangement_error In/out: the last refusal, shown until an action succeeds.
-    /// @param geometry_out Receives where the lane canvases were drawn.
-    /// @param header_width In/out: the lane-header column's width.
     /// @pre Called on the control thread.
     /// @see applications/host_gui/ui/README.md
     void DrawArrangementView(Session& session, TimelineScale& scale, SnapMode& snap,
