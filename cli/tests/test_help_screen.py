@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from typer.testing import CliRunner
 
@@ -17,13 +19,14 @@ K_GROUPS = {
     "Environment": ["config", "env", "setup", "doctor", "link", "unlink"],
     "Application": ["host"],
 }
+K_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _run(*args: str) -> str:
-    """Return the output of one sd invocation, asserting it exited zero."""
+    """Return the output of one sd invocation without colour codes, asserting it exited zero."""
     result = CliRunner().invoke(app, list(args))
     assert result.exit_code == 0, result.output
-    return result.output
+    return K_ANSI_ESCAPE.sub("", result.output)
 
 
 def _commands_by_heading(page: str) -> dict[str, list[str]]:
@@ -33,7 +36,7 @@ def _commands_by_heading(page: str) -> dict[str, list[str]]:
     """
     grouped: dict[str, list[str]] = {}
     heading = ""
-    for line in page.splitlines():
+    for line in K_ANSI_ESCAPE.sub("", page).splitlines():
         if line and not line.startswith(" "):
             heading = line.rstrip()
             grouped[heading] = []
