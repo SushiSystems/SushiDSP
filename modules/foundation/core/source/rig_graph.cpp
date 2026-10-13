@@ -275,11 +275,19 @@ namespace SushiDSP
             for (std::uint32_t port = 0; port < count; ++port)
             {
                 const std::uint32_t width = node.output_port_channels(port);
-                if (width == 0 || width > K_MAX_CHANNELS)
+                if (width == 0)
                 {
                     throw std::runtime_error("RigGraph::compile: output port " +
                                              std::to_string(port) + " of node " +
                                              std::to_string(handle) + " has no channel width");
+                }
+                if (width > K_MAX_CHANNELS)
+                {
+                    throw std::runtime_error("RigGraph::compile: output port " +
+                                             std::to_string(port) + " of node " +
+                                             std::to_string(handle) + " is " +
+                                             std::to_string(width) + " channels wide, the limit is " +
+                                             std::to_string(K_MAX_CHANNELS));
                 }
                 port_widths_[handle * K_MAX_OUTPUT_PORTS + port] = width;
             }
