@@ -31,6 +31,8 @@
 #include <cstddef>
 #include <exception>
 #include <functional>
+#include <cstdio>
+#include <cstdint>
 #include <optional>
 
 #include <imgui.h>
@@ -130,18 +132,84 @@ namespace ui
         {
             bool changed = false;
             ImGui::SetNextItemWidth(90.0f);
-            changed = ImGui::InputDouble("x (m)", &pose.position.x, 0.05, 0.5, "%.2f") || changed;
+            changed = ImGui::InputDouble("x (m)", &pose.position.x, 0.01, 0.1, "%.3f") || changed;
             ImGui::SetNextItemWidth(90.0f);
-            changed = ImGui::InputDouble("y (m)", &pose.position.y, 0.05, 0.5, "%.2f") || changed;
+            changed = ImGui::InputDouble("y (m)", &pose.position.y, 0.01, 0.1, "%.3f") || changed;
             ImGui::SetNextItemWidth(90.0f);
             changed =
-                ImGui::InputDouble("height (m)", &pose.position.z, 0.05, 0.5, "%.2f") || changed;
+                ImGui::InputDouble("height (m)", &pose.position.z, 0.01, 0.1, "%.3f") || changed;
             float yaw = static_cast<float>(pose.yaw_rad);
             ImGui::SetNextItemWidth(160.0f);
             if (ImGui::SliderAngle("facing", &yaw, -180.0f, 180.0f))
             {
                 pose.yaw_rad = static_cast<double>(yaw);
                 changed = true;
+            }
+            return changed;
+        }
+
+        /// @brief Draws a microphone's place against a cone: which cone, how far in front of the
+        /// baffle, and how far aside of and above the cone's axis, each to the centimetre.
+        /// @return True on the frames the pose changed.
+        bool draw_cone_placement(const SushiDSP::Room::Arrangement& arrangement,
+                                 SushiDSP::Room::Pose& pose)
+        {
+            const std::optional<MicrophoneAim> aim = nearest_cone(arrangement, pose.position);
+            if (!aim.has_value())
+            {
+                return false;
+            }
+            const auto& sources = arrangement.sources();
+            std::size_t source = aim->source;
+            std::uint32_t driver = aim->driver;
+            double in_front_cm = aim->in_front_m * 100.0;
+            double aside_cm = aim->aside_m * 100.0;
+            double above_cm = aim->above_m * 100.0;
+            bool changed = false;
+
+            ImGui::Separator();
+            char current[48];
+            std::snprintf(current, sizeof(current), "Cabinet %zu, %s", source + 1,
+                          cone_label(sources[source].cabinet, driver));
+            ImGui::SetNextItemWidth(200.0f);
+            if (ImGui::BeginCombo("cone", current))
+            {
+                for (std::size_t cabinet = 0; cabinet < sources.size(); ++cabinet)
+                {
+                    const SushiDSP::room::CabinetGeometry& geometry = sources[cabinet].cabinet;
+                    for (std::uint32_t cone = 0; cone < geometry.driver_count(); ++cone)
+                    {
+                        char label[48];
+                        std::snprintf(label, sizeof(label), "Cabinet %zu, %s", cabinet + 1,
+                                      cone_label(geometry, cone));
+                        if (ImGui::Selectable(label, cabinet == source && cone == driver))
+                        {
+                            // A newly chosen cone is taken on its axis, at the distance held.
+                            source = cabinet;
+                            driver = cone;
+                            in_front_cm = std::max(in_front_cm, 1.0);
+                            aside_cm = 0.0;
+                            above_cm = 0.0;
+                            changed = true;
+                        }
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::SetNextItemWidth(110.0f);
+            changed = ImGui::InputDouble("in front (cm)", &in_front_cm, 1.0, 5.0, "%.1f") || changed;
+            ImGui::SetNextItemWidth(110.0f);
+            changed = ImGui::InputDouble("aside (cm)", &aside_cm, 0.5, 2.0, "%.1f") || changed;
+            ImGui::SetNextItemWidth(110.0f);
+            changed = ImGui::InputDouble("above (cm)", &above_cm, 0.5, 2.0, "%.1f") || changed;
+            ImGui::TextColored(to_imvec4(palette().muted_text),
+                               "0 aside and 0 above is the dust cap;\n%.1f cm aside is the cone's "
+                               "edge.",
+                               sources[source].cabinet.cone_radius_m * 100.0);
+            if (changed)
+            {
+                pose = microphone_on_cone(sources[source].pose, sources[source].cabinet, driver,
+                                          in_front_cm * 0.01, aside_cm * 0.01, above_cm * 0.01);
             }
             return changed;
         }
@@ -239,18 +307,16 @@ namespace ui
                 state.scene.selected.reset();
                 return false;
             }
-            ImGui::TextUnformatted("Microphone");
+            ImGui::TextUnformatted("Microphone: flat condenser");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("An ideal capsule with a flat response, as a measurement "
+                                  "condenser has.\nIt carries no dynamic microphone's curve: it is "
+                                  "not an SM57.");
+            }
             SushiDSP::Room::MicrophonePlacement microphone = *held;
             bool changed = draw_pose(microphone.pose);
-            if (const std::optional<MicrophoneAim> aim =
-                    nearest_cone(arrangement, microphone.pose.position))
-            {
-                ImGui::TextColored(to_imvec4(palette().muted_text),
-                                   "Cabinet %zu, cone %u: %.0f cm away,\n%.0f cm off its axis%s",
-                                   aim->source + 1, aim->driver + 1u, aim->distance_m * 100.0,
-                                   aim->off_axis_m * 100.0,
-                                   aim->in_front_m < 0.0 ? ", behind the baffle" : "");
-            }
+            changed = draw_cone_placement(arrangement, microphone.pose) || changed;
             const SlotId slot = static_cast<SlotId>(selected.id);
             int pattern = static_cast<int>(microphone.pattern);
             ImGui::SetNextItemWidth(160.0f);

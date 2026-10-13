@@ -115,8 +115,9 @@ empty space orbits the camera and the wheel zooms. The view writes a moved item 
 
 The scene's solid geometry, with no ImGui in it: `cabinet_box` runs a cabinet's box back from
 its baffle, `cone_centre` and `cone_outline` place a cone on the baffle, `furnishing_box` stands
-a furniture row's nominal box on the floor, and `nearest_cone` says which cone a point is
-nearest, how far from its centre and how far off its axis.
+a furniture row's nominal box on the floor, `nearest_cone` says which cone a point is nearest
+and where it stands to it, `microphone_on_cone` is its inverse, and `cone_label` names a cone
+as someone facing the baffle sees it.
 `tests/functional/unit/test_scene_solids.cpp` checks each against hand-computed coordinates.
 
 ## `mixer_model.hpp` and `mixer_panel.hpp`
@@ -140,9 +141,13 @@ microphone, and leaves them to the caller.
 `DrawCabinetSectionPane` lays the cabinet section out over the workspace: a row with the Add
 microphone button and the DI path's switch and position, the room scene, an inspector beside it,
 and the mixer under both. The inspector shows the selected marker's coordinates and facing. For
-a cabinet it adds the choice of 1x12, 2x12 or 4x12. For a microphone it adds the cone it is
-nearest, its distance to that cone's centre and to its axis, and its pattern and proximity
-switch, which it writes to the microphone's slot and to the arrangement together. For a
+a cabinet it adds the choice of 1x12, 2x12 or 4x12. For a microphone, which it titles a flat
+condenser since the capsule carries no dynamic microphone's curve, it adds the place against a
+cone: a list of every cone named as seen from the front, and the distance in front of the
+baffle, aside of the cone's axis and above it, each in centimetres. Choosing a cone puts the
+capsule on its axis, and `microphone_on_cone` turns the three numbers into a pose that faces
+the baffle. Under them are the pattern and the proximity switch, which it writes to the
+microphone's slot and to the arrangement together. For a
 furnishing it shows the place and the turn. Under them a collapsed Room header opens
 `DrawRoomPanel`, whose furnishing rows each carry an "In the room" switch: on, the row stands at
 a place, first the room's centre; off, it absorbs evenly. A refused

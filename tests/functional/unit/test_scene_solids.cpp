@@ -155,3 +155,45 @@ TEST(Unit_Dsp, NearestConeIsEmptyInARoomWithoutACabinet)
     const Arrangement arrangement;
     EXPECT_FALSE(ui::nearest_cone(arrangement, {1.0, 1.0, 1.0}).has_value());
 }
+
+TEST(Unit_Dsp, ConeLabelNamesEachConeAsSeenFromTheFront)
+{
+    const SushiDSP::room::CabinetGeometry& four = SushiDSP::room::K_CABINET4X12;
+    // Facing +x the cabinet's left is +y, which someone facing the baffle has on their right.
+    const Pose pose{{2.0, 2.0, 0.5}, 0.0};
+    for (std::uint32_t driver = 0; driver < 4; ++driver)
+    {
+        const ui::Point3 centre = ui::cone_centre(pose, four, driver);
+        const std::string label = ui::cone_label(four, driver);
+        EXPECT_EQ(label.find("top") != std::string::npos, centre.z > 0.5) << label;
+        EXPECT_EQ(label.find("right") != std::string::npos, centre.y > 2.0) << label;
+    }
+    EXPECT_STREQ(ui::cone_label(SushiDSP::room::K_CABINET1X12, 0), "centre");
+    EXPECT_STRNE(ui::cone_label(SushiDSP::room::K_CABINET2X12, 0),
+                 ui::cone_label(SushiDSP::room::K_CABINET2X12, 1));
+}
+
+TEST(Unit_Dsp, MicrophoneOnConeStandsWhereNearestConeThenReadsIt)
+{
+    Arrangement arrangement;
+    std::string reason;
+    SourcePlacement source;
+    source.id = 3;
+    source.pose = Pose{{2.0, 2.0, 0.6}, 0.7};
+    ASSERT_TRUE(arrangement.add_source(source, reason)) << reason;
+
+    for (std::uint32_t driver = 0; driver < 4; ++driver)
+    {
+        const Pose placed =
+            ui::microphone_on_cone(source.pose, source.cabinet, driver, 0.04, 0.03, -0.02);
+        const std::optional<ui::MicrophoneAim> aim =
+            ui::nearest_cone(arrangement, placed.position);
+        ASSERT_TRUE(aim.has_value());
+        EXPECT_EQ(aim->driver, driver);
+        EXPECT_NEAR(aim->in_front_m, 0.04, 1e-12);
+        EXPECT_NEAR(aim->aside_m, 0.03, 1e-12);
+        EXPECT_NEAR(aim->above_m, -0.02, 1e-12);
+        // The capsule looks back at the baffle.
+        EXPECT_NEAR(std::cos(placed.yaw_rad - source.pose.yaw_rad), -1.0, 1e-12);
+    }
+}
