@@ -75,6 +75,9 @@ namespace SushiDSP::Room
 
             /// @brief Records that the capsule's gradient share takes the proximity effect.
             bool proximity = true;
+
+            /// @brief Names the shipped microphone the capsule is.
+            room::MicrophoneKind kind = room::MicrophoneKind::FlatCondenser;
     };
 
     /// @brief Holds everything placed in one room: the shell, the listener, the cabinets and the

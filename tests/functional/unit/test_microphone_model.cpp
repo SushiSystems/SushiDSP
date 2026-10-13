@@ -143,7 +143,7 @@ TEST(Unit_Dsp, MicrophoneModelAppliesTheOnAxisCurve)
 
 TEST(Unit_Dsp, MicrophoneModelShipsOneFlatPreset)
 {
-    EXPECT_EQ(SushiDSP::room::K_MICROPHONE_PRESET_COUNT, 1u);
+    EXPECT_EQ(SushiDSP::room::K_MICROPHONE_KIND_COUNT, 1u);
     EXPECT_EQ(SushiDSP::room::K_MICROPHONE_FLAT_CARDIOID.pattern,
               SushiDSP::room::PolarPattern::Cardioid);
     for (std::size_t band = 0; band < 6u; ++band)
@@ -158,4 +158,24 @@ TEST(Unit_Dsp, MicrophoneModelShipsOneFlatPreset)
         SushiDSP::room::pattern_pressure_share(SushiDSP::room::PolarPattern::Supercardioid), 0.366);
     EXPECT_DOUBLE_EQ(
         SushiDSP::room::pattern_pressure_share(SushiDSP::room::PolarPattern::FigureEight), 0.0);
+}
+
+TEST(Unit_Dsp, MicrophoneTableFindsEveryRowByItsOwnKeyAndNamesHowItTransduces)
+{
+    for (std::size_t index = 0; index < SushiDSP::room::K_MICROPHONE_KIND_COUNT; ++index)
+    {
+        const auto kind = static_cast<SushiDSP::room::MicrophoneKind>(index);
+        const SushiDSP::room::MicrophonePreset& preset = SushiDSP::room::microphone_preset(kind);
+        SushiDSP::room::MicrophoneKind found{};
+        ASSERT_TRUE(SushiDSP::room::find_microphone(preset.key, found)) << preset.key;
+        EXPECT_EQ(found, kind);
+        EXPECT_STRNE(preset.name, "");
+        EXPECT_STRNE(preset.transducer, "");
+        EXPECT_STRNE(preset.citation, "");
+    }
+    SushiDSP::room::MicrophoneKind untouched = SushiDSP::room::MicrophoneKind::FlatCondenser;
+    EXPECT_FALSE(SushiDSP::room::find_microphone("sm57", untouched));
+    EXPECT_STREQ(
+        SushiDSP::room::microphone_preset(SushiDSP::room::MicrophoneKind::FlatCondenser).transducer,
+        "condenser");
 }
