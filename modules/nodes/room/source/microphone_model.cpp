@@ -28,6 +28,7 @@
 #include "SushiDSP/room/microphone_model.hpp"
 
 #include <cmath>
+#include <cstring>
 
 namespace SushiDSP::room
 {
@@ -36,9 +37,32 @@ namespace SushiDSP::room
         /// @brief Holds pi.
         constexpr double K_PI = 3.14159265358979323846;
 
+        /// @brief Holds the shipped microphones, ordered as MicrophoneKind.
+        constexpr std::array<MicrophonePreset, K_MICROPHONE_KIND_COUNT> K_PRESETS = {
+            K_MICROPHONE_FLAT_CARDIOID};
+
         /// @brief Holds the pressure share of each PolarPattern in enumeration order.
         constexpr std::array<double, 4> K_PRESSURE_SHARE = {1.0, 0.5, 0.366, 0.0};
     } // namespace
+
+    const MicrophonePreset& microphone_preset(MicrophoneKind kind) noexcept
+    {
+        const auto index = static_cast<std::size_t>(kind);
+        return K_PRESETS[index < K_MICROPHONE_KIND_COUNT ? index : 0u];
+    }
+
+    bool find_microphone(const char* key, MicrophoneKind& kind) noexcept
+    {
+        for (std::size_t index = 0; index < K_MICROPHONE_KIND_COUNT; ++index)
+        {
+            if (std::strcmp(K_PRESETS[index].key, key) == 0)
+            {
+                kind = static_cast<MicrophoneKind>(index);
+                return true;
+            }
+        }
+        return false;
+    }
 
     double pattern_pressure_share(PolarPattern pattern) noexcept
     {

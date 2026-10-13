@@ -48,13 +48,24 @@ namespace SushiDSP::room
     /// 0.
     double pattern_pressure_share(PolarPattern pattern) noexcept;
 
-    /// @brief Holds one named microphone: its pattern and its transcribed on-axis curve.
+    /// @brief Names each microphone the module ships, in the order of the table in
+    /// microphone_model.cpp. A new microphone is one more name here and one more row there.
+    enum class MicrophoneKind : std::uint8_t
+    {
+        FlatCondenser = 0
+    };
+
+    /// @brief Counts the shipped microphones.
+    inline constexpr std::size_t K_MICROPHONE_KIND_COUNT = 1;
+
+    /// @brief Holds one shipped microphone: what it is called, how it transduces, the pattern it
+    /// starts with and its transcribed on-axis curve.
     struct MicrophonePreset
     {
-            /// @brief Names the microphone.
+            /// @brief Names the microphone on screen.
             const char* name;
 
-            /// @brief Stores the capsule's polar pattern.
+            /// @brief Stores the pattern a microphone of this kind starts with.
             PolarPattern pattern;
 
             /// @brief Stores the on-axis response per band, in decibels, from the maker's sheet.
@@ -62,7 +73,22 @@ namespace SushiDSP::room
 
             /// @brief Names the sheet the curve was transcribed from.
             const char* citation;
+
+            /// @brief Names the microphone as a preset file spells it.
+            const char* key;
+
+            /// @brief Names how the capsule transduces: "condenser", "dynamic" or "ribbon".
+            const char* transducer;
     };
+
+    /// @brief Returns one shipped microphone; a kind past the table returns the first.
+    const MicrophonePreset& microphone_preset(MicrophoneKind kind) noexcept;
+
+    /// @brief Finds the shipped microphone whose key equals the given text exactly.
+    /// @param key A null-terminated preset word.
+    /// @param kind Written only when a microphone carries the key.
+    /// @return true when a microphone carries the key.
+    bool find_microphone(const char* key, MicrophoneKind& kind) noexcept;
 
     /// @brief Evaluates a first-order pattern with its proximity effect, on the control thread.
     /// Spec §8.
@@ -99,10 +125,9 @@ namespace SushiDSP::room
             BandResponse on_axis_;
     };
 
-    /// @brief Names the one shipped preset: a cardioid with a flat curve.
+    /// @brief Names the flat condenser: an ideal capsule with no curve of its own, which starts
+    /// as a cardioid.
     inline constexpr MicrophonePreset K_MICROPHONE_FLAT_CARDIOID{
-        "Cardioid, flat", PolarPattern::Cardioid, {0, 0, 0, 0, 0, 0}, "no maker's curve"};
-
-    /// @brief Counts the shipped presets.
-    inline constexpr std::size_t K_MICROPHONE_PRESET_COUNT = 1;
+        "Flat reference", PolarPattern::Cardioid, {0, 0, 0, 0, 0, 0}, "no maker's curve",
+        "flat_condenser", "condenser"};
 } // namespace SushiDSP::room

@@ -173,6 +173,9 @@ namespace SushiDSP::room
             /// @brief Stores the microphone's polar pattern.
             PolarPattern microphone_pattern = PolarPattern::Cardioid;
 
+            /// @brief Names the shipped microphone whose on-axis curve the capsule has.
+            MicrophoneKind microphone_kind = MicrophoneKind::FlatCondenser;
+
             /// @brief Applies the proximity effect to the microphone's gradient share when set.
             bool microphone_proximity = true;
 

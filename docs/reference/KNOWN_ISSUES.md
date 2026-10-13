@@ -201,8 +201,9 @@ from the same source with a citation each, which is data and no code.
 curve". Spec §8 asks for a Shure SM57: a cardioid with a presence rise near 6 kHz and a low-end
 roll-off, which the flat preset does not have, so a microphone render is missing the colour the
 capsule itself contributes. The six numbers were not invented, which is why the preset says so in
-its own citation. Closes when the SM57's published frequency response is read off Shure's sheet
-into a second `MicrophonePreset`.
+its own citation, and the host lists it as "Flat reference (condenser)". Closes when the SM57's
+published frequency response is read off Shure's sheet into a second row of the table in
+`microphone_model.cpp`, with a second `MicrophoneKind`.
 
 ## Modal damping at a soft boundary is about 30 % wrong
 

@@ -248,6 +248,7 @@ namespace SushiDSP::Room
             scene.microphone_yaw_rad = microphone.pose.yaw_rad;
             scene.microphone_pattern = microphone.pattern;
             scene.microphone_proximity = microphone.proximity;
+            scene.microphone_kind = microphone.kind;
         }
         return scene;
     }
@@ -318,6 +319,7 @@ namespace SushiDSP::Room
                same_point(left.microphone_position, right.microphone_position) &&
                left.microphone_yaw_rad == right.microphone_yaw_rad &&
                left.microphone_pattern == right.microphone_pattern &&
-               left.microphone_proximity == right.microphone_proximity;
+               left.microphone_proximity == right.microphone_proximity &&
+               left.microphone_kind == right.microphone_kind;
     }
 } // namespace SushiDSP::Room

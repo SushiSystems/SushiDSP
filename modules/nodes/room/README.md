@@ -39,6 +39,7 @@ knowingly left open.
 | ISO 9613-1 air attenuation over a path length | `AirAbsorption` |
 | Four pistons in a baffle: gain per band for an outgoing direction | `CabinetDirectivity` |
 | A first-order pattern and its proximity effect | `MicrophoneModel` |
+| The shipped microphones, one row each: name, transducer, starting pattern, on-axis curve and its source | `MicrophonePreset`, `microphone_preset`, `find_microphone` |
 | Mirror images to order 4, each reduced to one tap | `ImageSourceSolver` |
 | The taps one scene publishes | `EarlyTapSet` |
 | Eyring's decay per band and the Schroeder frequency | `EyringDecay` |

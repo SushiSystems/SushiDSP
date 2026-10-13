@@ -366,7 +366,7 @@ namespace SushiDSP::room
         const CabinetDirectivity cabinet(scene.cabinet);
         const FurnishingField furnishings(scene);
         const MicrophoneModel microphone(scene.microphone_pattern,
-                                         K_MICROPHONE_FLAT_CARDIOID.on_axis_db,
+                                         microphone_preset(scene.microphone_kind).on_axis_db,
                                          scene.microphone_proximity);
         const double forward_x = std::cos(receiver.yaw_rad);
         const double forward_y = std::sin(receiver.yaw_rad);
