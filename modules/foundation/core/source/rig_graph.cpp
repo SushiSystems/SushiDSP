@@ -561,8 +561,7 @@ namespace SushiDSP
                 }
             }
 
-            // A root node reads the live input through slot 0 of the gather array (modules/foundation/core/README.md).
-            // A one-channel root reads the host channel it is bound to; a two-channel root reads host channels 0 and 1.
+            // A mono root reads the host channel it is bound to; a stereo root reads 0 and 1.
             if (edge_index == 0 && context.inputs != nullptr)
             {
                 const std::uint32_t first_channel = width == 1 ? input_binding_[handle] : 0u;
