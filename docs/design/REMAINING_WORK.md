@@ -224,3 +224,14 @@ gave each track a rig and the session an export. What it leaves:
   played into.
 - **The host's rig sources are a list, not a library.** The tests and the plugin compile
   `applications/host_gui`'s non-GUI sources by naming them.
+- **The plugin has never met a DAW.** `SushiDSP.clap` links and its adapter's tests pass; no CLAP
+  host has loaded it, and nothing installs it into a CLAP folder.
+- **The plugin has no editor and no VST3 shell.** Its rig comes from the file
+  `SUSHIDSP_PLUGIN_RIG` names, or from the DAW session's state.
+- **The plugin's rooms use the spherical head.** The HRTF set is given to a rig outside its
+  preset, and the plugin gives none.
+- **A plugin parameter is applied at the block's start**, not at its event's sample, and the
+  adapter finds a slot's node by pairing slot order with node order, since `RigController` has
+  no lookup from a slot to its node.
+- **Nothing traps an allocation in `RigAdapter::process`.** The trap in `test_rt_safety.cpp` is
+  private to that file.

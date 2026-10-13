@@ -73,9 +73,8 @@ module allowed to depend on every product at once, `node_registry()` and `make_n
 the id-to-instance catalog every host in `applications/` builds a rig from today. Adding a product
 adds one entry there; the host GUI still names products by id in
 `applications/host_gui/ui/panel_library.cpp`, `ui/gear_filter.cpp` and `topology_applier.cpp`, which
-[`KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md) records. A future plugin wrapper would
-draw from the same catalog (see "What is spec-only, not yet built" below), but none exists in
-the tree yet. `rig_preset` serializes
+[`KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md) records. The plugin in `applications/plugin`
+draws from the same catalog through the host's `RigController`. `rig_preset` serializes
 a rig (descriptor id plus parameter values) to and from JSON. This is the dependency rule
 design spec §8 states for `modules/`; what is verified here is that `modules/catalog/node_registry/`
 and `modules/session/rig_preset/` exist in the tree and match that description, alongside the six
@@ -87,9 +86,9 @@ product modules and `cabinet`/`routing`/`capture`/`room` under `modules/nodes/`.
 counterpart; `applications/host_gui` is the full rig-editing GUI, with its own audio import, resampling
 and MP3-decode support classes alongside `RigController` and the UI tree under
 `applications/host_gui/ui/`. All three sit above `modules/` and `core/`: they own an `AudioDevice`,
-build a `RigGraph` from `node_registry()`, and drive `process()` per audio callback. A VST/CLAP
-plugin wrapper is design intent only, design spec §3 ("Product contract") and §8's `applications/plugin`
-layout entry describe it, but no `applications/plugin` directory exists in the tree yet.
+build a `RigGraph` from `node_registry()`, and drive `process()` per audio callback.
+`applications/plugin` is the fourth: a CLAP plugin that owns no device and renders one rig for a
+DAW, through `RigAdapter`, which knows no plugin format, and a CLAP shell around it.
 
 ## What is spec-only, not yet built
 
@@ -97,7 +96,7 @@ The following are described in `docs/design/SUSHIDSP.md` as intent and were not 
 `include/`, `src/`, `modules/` or `applications/` during this review, read them from the spec, not as
 current fact:
 
-- The VST3/CLAP plugin wrapper and its `applications/plugin` directory (design spec §3, §8).
+- A VST3 shell and a plugin editor (design spec §3, §8); the CLAP shell exists.
 - Any packaging step beyond what `sd build`/`sd test` already exercise (design spec §8,
   "Targets & dependency rules").
 - Roadmap phases beyond what the changelog records as shipped (design spec §9); check

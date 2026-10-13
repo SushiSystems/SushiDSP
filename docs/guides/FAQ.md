@@ -112,10 +112,12 @@ no SushiRuntime, no SYCL and no game engine.
 
 ## Is there a VST or CLAP plugin?
 
-No. A VST3/CLAP plugin wrapper is design intent only: no `applications/plugin` directory exists in the
-tree. The same holds for any packaging step beyond what `sd build` and `sd test` exercise.
+There is a CLAP plugin and no VST3 one. `applications/plugin` builds `SushiDSP.clap`, which runs
+one rig in a DAW with no editor; [`applications/plugin/README.md`](../../applications/plugin/README.md)
+says how its rig is chosen. It has been built and its adapter is tested; it has not been opened
+in a DAW. Nothing installs it: copy the file to a CLAP folder by hand.
 
-What the tree holds today is three standalone hosts: `applications/host`, a minimal SDL2-backed host;
+Beside it the tree holds three standalone hosts: `applications/host`, a minimal SDL2-backed host;
 `applications/host_asio`, its ASIO-backed counterpart; and `applications/host_gui`, the rig-editing GUI.
 [Architecture overview](../architecture/OVERVIEW.md) lists what is specified and not yet built.
 
