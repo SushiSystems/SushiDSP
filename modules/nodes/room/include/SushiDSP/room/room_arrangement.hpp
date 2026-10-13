@@ -53,8 +53,11 @@ namespace SushiDSP::Room
             /// @brief Stores the host's identity for the cabinet; unique among the sources.
             std::uint64_t id = 0;
 
-            /// @brief Stores where the cabinet stands and faces.
+            /// @brief Stores where the baffle's centre stands and which way it faces.
             Pose pose;
+
+            /// @brief Stores the cabinet's box and cones.
+            room::CabinetGeometry cabinet = room::K_CABINET4X12;
     };
 
     /// @brief Holds one microphone in the room, keyed by the identity of the rig element behind it,
@@ -102,8 +105,8 @@ namespace SushiDSP::Room
             /// @return The arrangement.
             static Arrangement from_scene(const room::RoomScene& scene);
 
-            /// @brief Reads the shell: dimensions, materials, patches, furnishings and the cabinet
-            /// geometry. Its pose fields are not the arrangement's.
+            /// @brief Reads the shell: dimensions, materials, patches and furnishings. Its pose
+            /// fields and its cabinet geometry are not the arrangement's.
             /// @return The shell scene.
             const room::RoomScene& shell() const noexcept;
 
@@ -134,6 +137,12 @@ namespace SushiDSP::Room
             /// @param pose The new pose.
             /// @return False when no cabinet has that identity.
             bool move_source(std::uint64_t id, const Pose& pose) noexcept;
+
+            /// @brief Replaces a cabinet's box and cones.
+            /// @param id The cabinet's identity.
+            /// @param cabinet The new geometry.
+            /// @return False when no cabinet has that identity.
+            bool set_source_cabinet(std::uint64_t id, const room::CabinetGeometry& cabinet) noexcept;
 
             /// @brief Removes a cabinet; the cabinets after it move one slot down.
             /// @param id The cabinet's identity.
@@ -177,7 +186,7 @@ namespace SushiDSP::Room
             void rename(std::uint64_t from, std::uint64_t to) noexcept;
 
             /// @brief Builds the scene one (cabinet, receiver) pair stands in: the shell with the
-            /// cabinet's pose and the receiver's.
+            /// cabinet's pose and geometry and the receiver's pose.
             /// @param source The cabinet's index, below sources().size().
             /// @param receiver 0 for the listener, 1 + m for microphone m.
             /// @return The scene for that pair.
@@ -202,6 +211,13 @@ namespace SushiDSP::Room
             /// @brief Stores the microphones in port order.
             std::vector<MicrophonePlacement> microphones_;
     };
+
+    /// @brief Reports whether two scenes describe the same room and the same cabinet geometry,
+    /// whatever stands where: every field a pose-free design reads.
+    /// @param left One scene.
+    /// @param right The other scene.
+    /// @return True when the two rooms are equal.
+    bool shells_equal(const room::RoomScene& left, const room::RoomScene& right) noexcept;
 
     /// @brief Reports whether two scenes describe the same room and the same poses, field by field.
     /// @param left One scene.

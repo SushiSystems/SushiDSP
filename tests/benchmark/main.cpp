@@ -576,19 +576,24 @@ namespace
             });
     }
 
-    /// @brief Times EarlyReflectionRenderer::render alone, fed the garage's own taps, so DE7's
-    /// decision reads the heaviest brick's own cost rather than the node's total. Plan Task 29
-    /// step 4.
-    SushiDSP::bench::Result measure_early_reflection_renderer()
+    /// @brief Times EarlyReflectionRenderer::render alone, fed the garage's own taps for one
+    /// listener kind, so the taps' own cost is read apart from the node's total: sixteen channels
+    /// of encode for the ears, one for a microphone.
+    /// @param name The row's name; it outlives the call.
+    SushiDSP::bench::Result measure_early_reflection_renderer(const char* name,
+                                                              SushiDSP::room::ListenerKind listener)
     {
         const SushiDSP::room::HrtfSet hrtf =
             SushiDSP::room::SphericalHeadHrtf::build(K_SAMPLE_RATE);
         const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
-            garage_every_layer_scene(), hrtf, K_SAMPLE_RATE, SushiDSP::room::ListenerKind::Ears);
+            garage_every_layer_scene(), hrtf, K_SAMPLE_RATE, listener);
+        std::printf("%s renders %u taps\n", name, static_cast<unsigned>(set->early.count));
 
         SushiDSP::room::EarlyReflectionRenderer renderer;
         constexpr std::uint32_t K_MAX_DELAY_FRAMES = 8397;
         renderer.prepare(K_MAX_DELAY_FRAMES, K_BLOCK_SIZE);
+        SushiDSP::room::DelayRing ring;
+        ring.prepare(K_MAX_DELAY_FRAMES, K_BLOCK_SIZE);
 
         const std::vector<float> input = make_test_tone(K_BLOCK_SIZE);
         std::vector<float> channels(
@@ -601,12 +606,12 @@ namespace
             channel_pointers[channel] = channels.data() + channel * K_BLOCK_SIZE;
         }
 
-        renderer.write(input.data(), K_BLOCK_SIZE);
+        ring.write(input.data(), K_BLOCK_SIZE);
         return SushiDSP::bench::measure(
-            "EarlyReflectionRenderer::render", K_BLOCK_SIZE, K_SAMPLE_RATE,
+            name, K_BLOCK_SIZE, K_SAMPLE_RATE,
             [&]
             {
-                renderer.render(set->early, 0, channel_pointers.data(), K_BLOCK_SIZE);
+                renderer.render(ring, set->early, 0, channel_pointers.data(), K_BLOCK_SIZE);
             });
     }
 
@@ -983,7 +988,10 @@ int main(int argc, char** argv)
         print(measure_room_ears_steady_state(), 1.8);
         print(measure_room_ears_swap(), 2.8);
         print(measure_room_microphone_steady_state());
-        print(measure_early_reflection_renderer());
+        print(measure_early_reflection_renderer("EarlyReflectionRenderer::render",
+                                                SushiDSP::room::ListenerKind::Ears));
+        print(measure_early_reflection_renderer("EarlyReflectionRenderer::render (microphone)",
+                                                SushiDSP::room::ListenerKind::Microphone));
         print(measure_modal_bank());
         print(measure_binaural_decoder());
         print(measure_room_beside_jcm800(), 2.0);

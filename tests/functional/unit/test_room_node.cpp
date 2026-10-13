@@ -629,6 +629,13 @@ namespace
         return scene;
     }
 
+    /// @brief Returns a cabinet small enough to act as a point: one 1 cm cone that never breaks
+    /// up, so its seven elements stand within a centimetre and the far-field pattern is flat.
+    SushiDSP::room::CabinetGeometry point_cabinet()
+    {
+        return SushiDSP::room::CabinetGeometry{0.01, 0.0, 0.05, 20000.0, 1, 1, 0.05, 0.05};
+    }
+
     /// @brief Counts the frames of the direct-path window in centred_dead_room().
     constexpr std::size_t K_DIRECT_WINDOW = 1500;
 
@@ -906,7 +913,7 @@ TEST(Unit_Dsp, RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid)
 {
     // Nothing but taps reaches the first 1749 frames. See tests/functional/unit/README.md.
     SushiDSP::room::RoomScene scene = microphone_scene();
-    scene.cabinet = SushiDSP::room::CabinetGeometry{0.01, 0.0, 0.05, 20000.0};
+    scene.cabinet = point_cabinet();
     std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, K_LISTENER_MICROPHONE);
 
     std::vector<float> impulse(2048, 0.0f);
@@ -1091,7 +1098,11 @@ TEST(Unit_Dsp, RoomNodeTakesTheDirectImageOutOfTheEarsBankAndLeavesTheMicrophone
     EXPECT_FALSE(SushiDSP::room::RoomNode::take_direct_image(*microphone, reflections, direct_tap));
     EXPECT_EQ(reflections.count, microphone->early.count);
     EXPECT_FLOAT_EQ(direct_tap.delay_frames, -1.0f);
-    EXPECT_NEAR(reflections.taps[0].delay_frames, 363.3098f, 1e-2f);
+    // The bank opens with the cabinet's elements, the nearest nearer than the baffle's centre.
+    EXPECT_EQ(reflections.direct_count, microphone->early.direct_count);
+    EXPECT_EQ(microphone->early.direct_count, 28u);
+    EXPECT_LT(reflections.taps[0].delay_frames, 363.3098f);
+    EXPECT_GT(reflections.taps[0].delay_frames, 350.0f);
 }
 
 TEST(Unit_Dsp, RoomNodeCompensatesAnEarsSetByItsRoundedPropagationDelay)
@@ -1362,6 +1373,8 @@ TEST(Unit_Dsp, RoomNodeSwitchesTheWaveLayerOffInADeadRoom)
     constexpr std::uint32_t K_BLOCKS = 40;
     SushiDSP::room::EarlyReflectionRenderer early;
     early.prepare(8397, K_BLOCK);
+    SushiDSP::room::DelayRing early_ring;
+    early_ring.prepare(8397, K_BLOCK);
     SushiDSP::room::LateReverb late;
     late.prepare(25200);
     std::array<std::vector<float>, SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS>
@@ -1387,8 +1400,8 @@ TEST(Unit_Dsp, RoomNodeSwitchesTheWaveLayerOffInADeadRoom)
         {
             std::fill(channel.begin(), channel.end(), 0.0f);
         }
-        early.write(block_input, K_BLOCK);
-        early.render(set->early, 0, pointers.data(), K_BLOCK);
+        early_ring.write(block_input, K_BLOCK);
+        early.render(early_ring, set->early, 0, pointers.data(), K_BLOCK);
         late.process(set->late, block_input, tail.data(), tail.data(), K_BLOCK);
         for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
         {
@@ -1631,10 +1644,12 @@ TEST(Unit_Dsp, RoomNodeMicrophoneListenerFillsBothChannelsIdentically)
 
 TEST(Unit_Dsp, RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd)
 {
-    // The tilt is expected at 13.68 dB and measures 13.34. See tests/functional/unit/README.md.
+    // The tilt is expected at 13.68 dB against a point source. See tests/functional/unit/README.md.
     SushiDSP::room::RoomScene close_up = centred_dead_room();
+    close_up.cabinet = point_cabinet();
     close_up.microphone_position = {6.05, 6.0, 6.0};
-    const SushiDSP::room::RoomScene distant = centred_dead_room();
+    SushiDSP::room::RoomScene distant = centred_dead_room();
+    distant.cabinet = point_cabinet();
     const std::vector<double> close_db = direct_power_db(close_up, K_LISTENER_MICROPHONE);
     const std::vector<double> distant_db = direct_power_db(distant, K_LISTENER_MICROPHONE);
 
@@ -1672,7 +1687,7 @@ TEST(Unit_Dsp, RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd)
 
 TEST(Unit_Dsp, RoomNodeMicrophoneHearsLessRoomThanTheEars)
 {
-    // The two ratios differ by at least 20 dB. See tests/functional/unit/README.md.
+    // The two ratios differ by at least 11.5 dB. See tests/functional/unit/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.source_position = {1.5, 2.0, 0.5};
     scene.microphone_position = {1.55, 2.0, 0.5};
@@ -1691,18 +1706,19 @@ TEST(Unit_Dsp, RoomNodeMicrophoneHearsLessRoomThanTheEars)
         direct_to_reverberant_db(ears, compensated_direct_frames(std::sqrt(4.0 + 0.49)));
     RecordProperty("microphone_db", microphone_db);
     RecordProperty("ears_db", ears_db);
-    // The difference measures 19.95 dB. See tests/functional/unit/README.md.
-    EXPECT_GE(microphone_db - ears_db, 19.5);
+    // Between the four cones the difference measures 12.20 dB. See tests/functional/unit/README.md.
+    EXPECT_GE(microphone_db - ears_db, 11.5);
 }
 
 TEST(Unit_Dsp, RoomNodeCarriesOneOverROnTheCabinetsAxis)
 {
-    // An omni capsule on axis in the dead room reads 1 / r. See tests/functional/unit/README.md.
+    // An omni capsule on a point source's axis reads 1 / r. See tests/functional/unit/README.md.
     std::array<double, 3> measured{};
     const std::array<double, 3> distance = {1.0, 2.0, 4.0};
     for (std::size_t step = 0; step < distance.size(); ++step)
     {
         SushiDSP::room::RoomScene scene = centred_dead_room();
+        scene.cabinet = point_cabinet();
         scene.microphone_position = {6.0 + distance[step], 6.0, 6.0};
         scene.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
         std::vector<float> impulse(8 * K_BLOCK, 0.0f);

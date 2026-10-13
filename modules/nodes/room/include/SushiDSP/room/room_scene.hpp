@@ -97,7 +97,8 @@ namespace SushiDSP::room
             /// @brief Counts the furnishings a scene may carry.
             static constexpr std::size_t K_MAX_FURNISHINGS = 16;
 
-            /// @brief A quantity of one furniture row standing in the room.
+            /// @brief A quantity of one furniture row standing in the room. One that has a place
+            /// absorbs around it; one that has none absorbs evenly over the room.
             struct Furnishing
             {
                     /// @brief Names the furniture row.
@@ -105,6 +106,18 @@ namespace SushiDSP::room
 
                     /// @brief Counts items, or square metres, as the row's unit says.
                     double quantity;
+
+                    /// @brief Records that x_m, y_m and yaw_rad say where the item stands.
+                    bool placed = false;
+
+                    /// @brief Stores where the item's centre stands along x, in metres.
+                    double x_m = 0.0;
+
+                    /// @brief Stores where the item's centre stands along y, in metres.
+                    double y_m = 0.0;
+
+                    /// @brief Stores the item's yaw, in radians, zero with its width along x.
+                    double yaw_rad = 0.0;
             };
 
             /// @brief Stores the shoebox's width, depth and height, in metres.

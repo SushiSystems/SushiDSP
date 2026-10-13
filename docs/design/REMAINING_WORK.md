@@ -125,14 +125,6 @@ The copy of AmpliTube 5's signal architecture
 is written through its last phase; its plan in the same folder holds what is verified and what is
 not. What it leaves:
 
-- **Solve the shell once per arrangement.** `Room::EnvironmentBuilder` calls `build_render_set`
-  per pair, so the tail's lines and the modal resonators, which depend on the shell alone, are
-  designed again for every receiver. Splitting `LateReverbDesign::design` and
-  `ModalSolver::design` into a shell part and a pair part removes that; an unchanged pair is
-  already copied, so the cost is paid only when the shell or a cabinet moves.
-- **One early ring per cabinet.** Each `Room::PairStage` keeps its own copy of the high half in
-  its `EarlyReflectionRenderer`. Letting the renderer read a ring it is handed, as `DirectPath`
-  does, leaves one ring per cabinet.
 - **Start a rebuilt strip where its level is.** Every publish builds fresh nodes and then writes
   their parameters, so a smoothed parameter glides from its default to its value over 20 ms on
   each structural edit. The Parallel chain's pans and every strip's level do this.
@@ -189,3 +181,25 @@ Mechanical work that follows:
   tests and `tools/spice/export.py` that read and write them.
 - Correct `assets/ir/README.md`: the impulse response it names is not shipped, and its
   admission rule still names the Apache licence.
+
+## Opened 2026-10-13: cabinet drivers and placed furniture
+
+[`docs/agent/2026_10_13_CABINET_DRIVERS_AND_FURNITURE/SPEC.md`](../agent/2026_10_13_CABINET_DRIVERS_AND_FURNITURE/SPEC.md)
+gave a cabinet its cones and a furnishing its place. What it leaves:
+
+- **The cabinet section has not been heard with cones.** A microphone against a cone, at its
+  edge and between two cones must be listened to against a real cabinet's behaviour, and the
+  scene's boxes and cones must be looked at on screen. Neither was done.
+- **An electromechanical driver.** The cones are radiating geometry only. The driver's
+  resonance, its impedance as the power amplifier's load, cone breakup as a response and
+  compression at level are not modelled; the cabinet's voice is still `CabinetNode`'s impulse
+  response.
+- **Furniture that shadows and reflects.** A placed furnishing absorbs around where it stands.
+  It does not block the line of sight and has no image of its own
+  ([`ROOM_FURNISHINGS.md`](ROOM_FURNISHINGS.md) section 9).
+- **The starter room's furniture has no place.** Placing it changes that room's reflections,
+  which the owner ear-checked on 2026-09-23, so it waits for the owner's ear.
+- **The listener's line of sight is one far-field tap.** At listening distance the cones differ
+  by less than the pattern says, and a per-cone direct path costs an HRIR pair each.
+- **The room README is past its ceiling.** `modules/nodes/room/README.md` is over 800 lines and
+  should be split by subject.

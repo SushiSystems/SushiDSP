@@ -80,6 +80,27 @@ namespace SushiDSP::room
             static double mode_shape(const Mode& mode, const RoomScene& scene,
                                      const Vec3& position) noexcept;
 
+            /// @brief Holds what the bank takes from the room alone: the modes kept and a design
+            /// whose resonators, count, crossover and level are final and whose gains are unset.
+            struct Shell
+            {
+                    /// @brief Stores the modes the design keeps, sorted by frequency.
+                    std::vector<Mode> modes;
+
+                    /// @brief Stores the resonators; every source_gain and ear_gain is zero.
+                    ModalDesign design;
+            };
+
+            /// @brief Returns the room's part of the bank. No pose enters it.
+            /// @pre crossover_hz is under half of sample_rate.
+            static Shell shell(const RoomScene& scene, double sample_rate, double crossover_hz);
+
+            /// @brief Returns the whole bank from a room's part: every mode's shape at the cabinet
+            /// and at the listener's receiver.
+            /// @pre shell was built from this scene's room.
+            static ModalDesign design(const Shell& shell, const RoomScene& scene,
+                                      ListenerKind listener);
+
             /// @brief Returns the whole bank, its octave below the crossover scaled to DiffuseField.
             /// A crossover under K_MIN_CROSSOVER_HZ returns count = 0 and crossover_hz = 0; a count past
             /// K_MAX_MODES lowers crossover_hz to the first mode left out. Every section's numerator

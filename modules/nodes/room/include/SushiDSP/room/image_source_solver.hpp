@@ -66,8 +66,10 @@ namespace SushiDSP::room
             /// incomplete.
             static double crossover_time_s(const RoomScene& scene, std::uint32_t order) noexcept;
 
-            /// @brief Returns the whole tap set, sorted by arrival, with nothing past
-            /// crossover_time_s and never more than EarlyTapSet::K_MAX_EARLY_TAPS entries.
+            /// @brief Returns the whole tap set, the line of sight first and the reflections after
+            /// it sorted by arrival, with nothing past crossover_time_s and never more than
+            /// EarlyTapSet::K_MAX_EARLY_TAPS entries. A microphone's line of sight is one tap per
+            /// radiating element of the cabinet; the ears' is one tap.
             /// @pre scene.is_valid() holds and options.sample_rate exceeds 8 kHz.
             static EarlyTapSet solve(const RoomScene& scene, const Options& options);
     };

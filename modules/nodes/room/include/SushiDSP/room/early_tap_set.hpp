@@ -52,7 +52,9 @@ namespace SushiDSP::room
             std::array<float, 16> encode;
     };
 
-    /// @brief Holds every early tap of one scene and the seam where the tail takes over.
+    /// @brief Holds every early tap of one scene and the seam where the tail takes over. The
+    /// first direct_count taps are the line of sight; the taps after them are the reflections,
+    /// sorted by arrival.
     struct EarlyTapSet
     {
             /// @brief Bounds the taps one set carries.
@@ -63,6 +65,10 @@ namespace SushiDSP::room
 
             /// @brief Counts the taps in use.
             std::uint32_t count;
+
+            /// @brief Counts the leading taps that are the line of sight: one for the ears, one
+            /// per radiating element of the cabinet for a microphone.
+            std::uint32_t direct_count = 1;
 
             /// @brief Stores t_c in seconds, where the tail takes over.
             float crossover_time_s;

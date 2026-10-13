@@ -27,7 +27,10 @@ knowingly left open.
 | --- | --- |
 | The shoebox, its six materials, patches, and the source, listener and microphone poses | `RoomScene` |
 | Six-band absorption per material, with a citation per row | `materials.hpp` |
-| Six-band equivalent absorption area per item of furniture, with a citation per row | `furniture.hpp` |
+| Six-band equivalent absorption area and a nominal box per item of furniture, with a citation per row | `furniture.hpp` |
+| Where a placed furnishing's absorption lies, for a reflected path and for a mode | `FurnishingField` |
+| A cabinet's box, its cones on the baffle and the three shipped cabinets | `CabinetGeometry`, `cabinet_preset` |
+| The cones as radiating elements and what reaches a point from each | `DriverField` |
 | The room's volumetric loss per metre: the air's ISO 9613-1 figure plus the furnishings', the one seam `EyringDecay`, `ImageSourceSolver` and `ModalSolver` all read | `MediumAbsorption` |
 | The absorption a built room adds to every surface, per band | `built_room_loss.hpp` |
 | The room a fresh room slot loads | `StarterScene` |
@@ -53,7 +56,7 @@ knowingly left open.
 | The shell, the listener, the cabinets and the microphones, with the limits checked on every edit | `Room::Arrangement` |
 | Every pair's render set, built as one and published as one | `Room::EnvironmentRenderSet`, `Room::EnvironmentBuilder` |
 | What a host calls to install an arrangement, a scene or an HRTF | `RoomHost` |
-| One input ring, up to 128 fractional taps, two biquad state banks, sixteen channels out | `EarlyReflectionRenderer` |
+| Up to 128 fractional taps read from a ring it is handed, two biquad state banks, sixteen channels out | `EarlyReflectionRenderer` |
 | The 16-line Hadamard feedback delay network | `LateReverb` |
 | What one cabinet puts into the room: the split at the seam, the tail's network, the modal bank | `Room::SourceStage` |
 | What one receiver hears of one cabinet above the seam: the direct sound, the taps, the tail's output | `Room::PairStage` |
@@ -133,11 +136,37 @@ that long to meet them. A microphone has no decoder, so `Room::MicrophoneOutput`
 back by the same partition and the ports line up. `latency_samples()` reports the partition, plus
 the first cabinet's propagation delay to the listener when `direct_delay` is physical.
 
-Solving stays one pair at a time: `build_render_set` is called for each pair's own scene, the
-shell with that cabinet's pose and that receiver's. The shell's part of a pair's set, the tail's
-lines and the modal resonators, is therefore designed once per pair though it is equal across
-them; [`docs/design/REMAINING_WORK.md`](../../../docs/design/REMAINING_WORK.md) carries splitting
-those designs. Each pair stage also keeps its own copy of the early renderer's input ring.
+Solving stays one pair at a time, and the room's own part is solved once. `design_shell` designs
+what no pose enters, the tail's lines with their filters and the modal resonators, and
+`build_render_set` takes it for each pair's own scene: the shell with that cabinet's pose and
+geometry and that receiver's pose. `Room::EnvironmentBuilder` keeps one `ShellDesign` per distinct
+room and cabinet geometry, so a drag that moves a microphone or a cabinet solves images and
+designs nothing else (`RoomShellDesignDoesNotReadThePoses`). Every pair of a cabinet reads the
+one ring its `Room::SourceStage` writes.
+
+## The cones in the near field
+
+A cabinet is a box with one, two or four cones on its baffle, and a source's pose is the baffle's
+centre. `Room::SourcePlacement` carries the geometry, so two cabinets in one room can differ.
+
+Far from the cabinet the cones act as one source with a pattern, which is what
+`CabinetDirectivity` gives and what every reflection and the listener's line of sight use. Against
+the grille they do not. `DriverField` breaks each cone into seven elements, its centre and six
+points on a ring at 0.72 of its radius, and `ImageSourceSolver` writes a microphone's line of
+sight as one tap per element: the element's own delay and 1/r, its share of the cabinet's
+pressure per band, the air, and the capsule's pattern and proximity boost at that element's
+distance and direction. `EarlyTapSet::direct_count` says how many leading taps those are: 7, 14
+or 28 for a microphone, one for the ears.
+
+The shares follow the model the far field already has. A cone's effective radius shrinks above
+the breakup frequency, and the centre element carries the centre disc's part of that shrinking
+piston's area: a seventh at 125 Hz, half at 4 kHz. The shares of a cabinet sum to one in every
+band, so on axis and far away the elements add up to the far field's unit gain
+(`DriverFieldAddsUpToOneOverTheDistanceFarOnAxis`). Close in, a capsule on the dust cap is nearest
+the element that holds the highs, one at the cone's edge is nearest the ring, and one between two
+cones takes two arrivals that comb (`DriverFieldIsBrighterOnTheDustCapThanAtTheConesEdge`). An
+element is never heard from nearer than 2 cm, and one behind the baffle plane takes the rear
+shelf.
 
 ## What a scene has to clear
 
@@ -185,6 +214,18 @@ absorption of the surface under it, so both are `Materials` rows that enter a sc
 which takes its area out of its face. Counting a curtain as an area added on top of the untouched
 window would count the glass twice: 49 % too much absorption at 500 Hz for 3 m2 of heavy velour
 over a glass window (design section 3).
+
+A furnishing may have a place: a point on the floor and a yaw. One without a place absorbs
+evenly over the room, which is everything below. One with a place keeps the room's total and
+moves who pays it. `FurnishingField` spreads its absorption as a bell around its box, normalised
+to one over the room, and answers twice. A reflected path loses by the density it runs through,
+sampled every 25 cm along the unfolded path and folded back into the room, so a reflection past
+the sofa loses more than one across the empty half (`FurnishingFieldWeighsAPathPastTheFurnishingAboveOneThatMissesIt`).
+A mode loses by its pressure squared over the density against its mean, so a bed at an antinode
+damps that mode more than the same bed at its node
+(`FurnishingFieldDampsAModeMoreAtItsAntinodeThanAtItsNode`). Eyring's time and the tail do not
+change, and the line of sight is still not thinned: a furnishing casts no shadow and reflects
+nothing.
 
 `MediumAbsorption` is the one seam the three layers read. It returns the air's ISO 9613-1
 coefficient plus `A_f(f) / 4V` for the furnishings, per metre and per band, and `EyringDecay`,
@@ -260,7 +301,7 @@ entry and `docs/design/ROOM_FURNISHINGS.md` section 11 the evidence.
 ## Which thread runs what
 
 The audio thread calls `RoomNode::process`, and through it `CrossoverPair::process_sample`,
-`EarlyReflectionRenderer::write`, `EarlyReflectionRenderer::render`,
+`EarlyReflectionRenderer::render`,
 `EarlyReflectionRenderer::clear_bank`, `LateReverb::process`, `ModalBank::process`,
 `BinauralDecoder::process` and, through `Room::SourceStage`, `Room::PairStage` and the two
 output stages, `DirectPath`, `FirFilter`, `FrameDelay` and `DelayRing`; at the block that adopts a set it also
@@ -623,35 +664,40 @@ cabinet at (0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0), every layer runn
 
 | Row | ns/sample | One core | Per 256 frames |
 | --- | --- | --- | --- |
-| `RoomNode`, one cabinet, ears, steady state | 936.3 | 4.49 % | 0.240 ms |
-| `RoomNode`, one cabinet, ears, a scene republished every block | 9621.1 | 46.18 % | 2.463 ms |
-| `RoomNode`, one cabinet, ears and one microphone, steady state | 1136.7 | 5.46 % | 0.291 ms |
-| `EarlyReflectionRenderer::render` | 205.1 | 0.98 % | 0.052 ms |
-| `ModalBank::process` | 167.2 | 0.80 % | 0.043 ms |
-| `BinauralDecoder::process` | 348.4 | 1.67 % | 0.089 ms |
-| JCM800 into `RoomNode` | 3505.9 | 16.83 % | 0.897 ms |
-| the room's share of that chain | 952.3 | 4.57 % | 0.244 ms |
-| `RoomNode`, three cabinets, ears and eight microphones | 7040.2 | 33.79 % | 1.802 ms |
-| three JCM800 into that room | 15218.4 | 73.05 % | 3.896 ms |
+| `RoomNode`, one cabinet, ears, steady state | 880.1 | 4.22 % | 0.225 ms |
+| `RoomNode`, one cabinet, ears, a scene republished every block | 9415.2 | 45.19 % | 2.410 ms |
+| `RoomNode`, one cabinet, ears and one microphone, steady state | 1006.6 | 4.83 % | 0.258 ms |
+| `EarlyReflectionRenderer::render`, the ears' 84 taps | 107.4 | 0.52 % | 0.028 ms |
+| `EarlyReflectionRenderer::render`, a microphone's 111 taps | 97.3 | 0.47 % | 0.025 ms |
+| `ModalBank::process` | 171.9 | 0.83 % | 0.044 ms |
+| `BinauralDecoder::process` | 368.4 | 1.77 % | 0.094 ms |
+| JCM800 into `RoomNode` | 3683.2 | 17.68 % | 0.943 ms |
+| the room's share of that chain | 858.6 | 4.12 % | 0.220 ms |
+| `RoomNode`, three cabinets, ears and eight microphones | 5002.0 | 24.01 % | 1.280 ms |
+| three JCM800 into that room | 13915.6 | 66.80 % | 3.562 ms |
 
 The swap row is a bound and not a working figure: it republishes a scene on every block, which
 nothing does. A slider drag republishes at 30 Hz, one block in six at this rate and block size,
 and the blocks between it run the steady-state row. Spec §10 budgeted 1.63 ms and 2.57 ms scalar
-for the ears, and the 0.897 ms the one-cabinet chain costs is what leaves DE7's AVX2 lanes
-unopened.
+for the ears.
 
-The room at its limits renders 27 pairs in 1.802 ms. A microphone added to one cabinet costs
-0.051 ms, which is one more `EarlyReflectionRenderer::render`: the taps are the part of a pair
-nothing shares, and 24 microphone pairs of them are about 1.25 ms of the row. The last row is
-the cabinet section's gate, set at 2.67 ms, half the block, and it does not pass: three JCM800
-amplifiers alone cost 1.96 ms, so the gate leaves the room 0.71 ms.
+The taps are filtered four to a vector. A tap's two biquads are a chain no core can overlap with
+itself, about 2 ns a frame, so one tap after another the 84 taps cost 0.052 ms; four chains side
+by side in one AVX register cost 0.028 ms. The loop is written with intrinsics because the same
+loop left to the compiler's vectoriser ran no faster than the scalar one. A build without AVX
+runs the taps one lane after another to the same samples.
+
+The room at its limits renders 27 pairs in 1.280 ms, with a 4x12's 28 element taps at the head
+of every microphone pair. A microphone added to one cabinet costs 0.033 ms. The last row is the
+cabinet section's gate, set at 2.67 ms, half the block, and it does not pass: three JCM800
+amplifiers alone cost 2.03 ms, so the gate leaves the room 0.64 ms.
 [`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) carries it.
 
 ## Sizes fixed at `prepare()`
 
-The early renderer's ring holds the longest crossover time the scene bounds allow,
-`(4 + 1) * 12.0 / 343` s, 8397 frames at 48 kHz; the node's own ring, which the direct path and
-the tail read, holds that plus the alignment delay plus 128 frames for the far ear's ITD, rounded
+A tap's delay is bounded by the longest crossover time the scene bounds allow,
+`(4 + 1) * 12.0 / 343` s, 8397 frames at 48 kHz; a cabinet's ring, which its taps and its direct
+paths read, holds that plus the alignment delay plus 128 frames for the far ear's ITD, rounded
 up to 16384. The tail's lines hold `FdnDesign::K_MAX_LINE_SECONDS`, 0.525 s or 25200 frames at
 48 kHz, which is also the ceiling the designer spreads the lines under. The accumulation buffers are two sets of sixteen channels of one block; the two modal
 banks hold `K_MAX_MODES` resonators each and one block of lane partials, and the node keeps four
@@ -664,7 +710,16 @@ fallback at the next `prepare()`.
 
 ## Approximations, named as such
 
-- **The piston array.** `CabinetDirectivity` is four rigid pistons in an infinite baffle, and the
+- **Seven elements a cone.** `DriverField` samples a cone at its centre and on one ring, with
+  the ring's radius fixed while the effective piston shrinks, so off axis and far away the
+  elements only approximate the pattern they sum to on axis. The listener's line of sight and
+  every reflection keep the far-field pattern, whatever the distance. Every cone of a cabinet is
+  the same cone, and the grille cloth is not modelled.
+- **A furnishing is a bell, not a box.** `FurnishingField` spreads a placed furnishing over half
+  its box's size, round in plan, so its yaw turns the drawing and not the sound, and a path that
+  misses the bell loses nothing to it. The mode weight is tabulated to index 48; past it a
+  furnishing damps evenly.
+- **The piston array.** `CabinetDirectivity` is the cabinet's rigid pistons in an infinite baffle, and the
   cone's effective radius shrinks above the 2.5 kHz breakup frequency in `K_CABINET4X12`. No cone
   is a rigid piston; the model gives the off-axis roll-off its shape, not a measured polar plot.
   Each band is the energy mean of the closed form over its octave, sixteen log-spaced points,
@@ -781,8 +836,11 @@ centre times root two.
 
 ### The interpolation window
 
-In `early_reflection_renderer.cpp` the window starts two frames behind the integer delay and never
-wraps: the mirror region holds what lies past the ring's end.
+In `delay_ring.cpp` the window starts two frames behind the integer delay. The frames whose four
+samples end inside the ring are read without the mask, in one run the compiler vectorises; the
+few that wrap are read through it. `EarlyReflectionRenderer` then filters four taps side by side,
+each lane with the arithmetic one tap alone would run
+(`EarlyReflectionRendererRendersATapTheSameAloneAndInAGroup`).
 
 ### Loading an HRTF set
 

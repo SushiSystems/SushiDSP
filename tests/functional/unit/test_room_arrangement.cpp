@@ -234,3 +234,41 @@ TEST(Unit_Dsp, ScenesEqualComparesEveryFieldASolveReads)
     close_up.microphone_proximity = false;
     EXPECT_FALSE(SushiDSP::Room::scenes_equal(scene, close_up));
 }
+
+TEST(Unit_Dsp, ArrangementGivesEachCabinetItsOwnGeometry)
+{
+    Arrangement arrangement;
+    std::string reason;
+    SourcePlacement first{1u, Pose{{1.5, 1.0, 0.5}, 0.0}};
+    SourcePlacement second{2u, Pose{{1.5, 3.0, 0.5}, 0.0}, SushiDSP::room::K_CABINET1X12};
+    ASSERT_TRUE(arrangement.add_source(first, reason)) << reason;
+    ASSERT_TRUE(arrangement.add_source(second, reason)) << reason;
+
+    EXPECT_TRUE(SushiDSP::room::same_geometry(arrangement.pair_scene(0, 0).cabinet,
+                                              SushiDSP::room::K_CABINET4X12));
+    EXPECT_TRUE(SushiDSP::room::same_geometry(arrangement.pair_scene(1, 0).cabinet,
+                                              SushiDSP::room::K_CABINET1X12));
+    EXPECT_FALSE(SushiDSP::Room::shells_equal(arrangement.pair_scene(0, 0),
+                                              arrangement.pair_scene(1, 0)));
+
+    ASSERT_TRUE(arrangement.set_source_cabinet(1u, SushiDSP::room::K_CABINET2X12));
+    EXPECT_EQ(arrangement.pair_scene(0, 0).cabinet.driver_rows, 1u);
+    EXPECT_FALSE(arrangement.set_source_cabinet(9u, SushiDSP::room::K_CABINET2X12));
+}
+
+TEST(Unit_Dsp, ShellsEqualIgnoresWhoStandsWhereAndReadsAFurnishingsPlace)
+{
+    SushiDSP::room::RoomScene left = SushiDSP::room::starter_scene();
+    SushiDSP::room::RoomScene right = left;
+    right.source_position.x += 0.5;
+    right.listener_yaw_rad += 0.3;
+    right.microphone_position.z += 0.2;
+    EXPECT_TRUE(SushiDSP::Room::shells_equal(left, right));
+    EXPECT_FALSE(SushiDSP::Room::scenes_equal(left, right));
+
+    right.furnishing_count = 1;
+    left.furnishing_count = 1;
+    left.furnishings[0] = {SushiDSP::room::FurnitureId::Desk, 1.0};
+    right.furnishings[0] = {SushiDSP::room::FurnitureId::Desk, 1.0, true, 2.0, 2.0};
+    EXPECT_FALSE(SushiDSP::Room::shells_equal(left, right));
+}

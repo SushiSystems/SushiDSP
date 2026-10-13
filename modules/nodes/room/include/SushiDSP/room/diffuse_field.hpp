@@ -71,14 +71,14 @@ namespace SushiDSP::room
             /// @brief Holds Sabine's constant 24 ln(10) / c at 20 degrees, in seconds per metre.
             static constexpr double K_SABINE_CONSTANT = 0.161;
 
+            /// @brief Counts the geometries whose answer cabinet_mean_power() remembers.
+            static constexpr std::size_t K_REMEMBERED_GEOMETRIES = 4;
+
             /// @brief Returns 10^(-DI / 10) per band for one geometry, the cabinet's mean radiated
-            /// power relative to on axis, remembering the last geometry's answer: the integral over
-            /// the 2562-direction grid costs about 18 ms and a scene drag never changes it.
+            /// power relative to on axis, remembering the last few geometries' answers: the
+            /// integral over the 2562-direction grid costs about 18 ms and a drag never changes it.
             static std::array<double, K_BAND_COUNT>
             cabinet_mean_power(const CabinetGeometry& geometry);
-
-            /// @brief Returns whether two geometries are the same four numbers.
-            static bool same_geometry(const CabinetGeometry& a, const CabinetGeometry& b) noexcept;
 
             /// @brief Integrates a + b ln(f) over [lower, upper].
             static double integrate_log_line(double a, double b, double lower,
@@ -156,30 +156,31 @@ namespace SushiDSP::room
     DiffuseField::cabinet_mean_power(const CabinetGeometry& geometry)
     {
         static std::mutex mutex;
-        static bool cached = false;
-        static CabinetGeometry key{};
-        static std::array<double, K_BAND_COUNT> value{};
+        static std::array<CabinetGeometry, K_REMEMBERED_GEOMETRIES> keys{};
+        static std::array<std::array<double, K_BAND_COUNT>, K_REMEMBERED_GEOMETRIES> values{};
+        static std::size_t remembered = 0;
+        static std::size_t next = 0;
         const std::lock_guard<std::mutex> lock(mutex);
-        if (!cached || !same_geometry(key, geometry))
+        for (std::size_t slot = 0; slot < remembered; ++slot)
         {
-            const std::array<float, K_BAND_COUNT> index =
-                CabinetDirectivity(geometry).directivity_index_db();
-            for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
+            if (same_geometry(keys[slot], geometry))
             {
-                value[band] = std::pow(10.0, -0.1 * static_cast<double>(index[band]));
+                return values[slot];
             }
-            key = geometry;
-            cached = true;
         }
-        return value;
-    }
-
-    inline bool DiffuseField::same_geometry(const CabinetGeometry& a,
-                                            const CabinetGeometry& b) noexcept
-    {
-        return a.cone_radius_m == b.cone_radius_m && a.driver_spacing_m == b.driver_spacing_m &&
-               a.baffle_width_m == b.baffle_width_m &&
-               a.breakup_frequency_hz == b.breakup_frequency_hz;
+        const std::array<float, K_BAND_COUNT> index =
+            CabinetDirectivity(geometry).directivity_index_db();
+        std::array<double, K_BAND_COUNT>& value = values[next];
+        for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
+        {
+            value[band] = std::pow(10.0, -0.1 * static_cast<double>(index[band]));
+        }
+        keys[next] = geometry;
+        const std::array<double, K_BAND_COUNT> answer = value;
+        // The oldest answer is the one a fifth geometry replaces.
+        next = (next + 1u) % K_REMEMBERED_GEOMETRIES;
+        remembered = std::min(remembered + 1u, K_REMEMBERED_GEOMETRIES);
+        return answer;
     }
 
     inline double DiffuseField::integrate_log_line(double a, double b, double lower,

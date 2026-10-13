@@ -202,9 +202,33 @@ twice the measurement and prints the rest. Measurement 0003, carpet with four sh
 from the RIRs and not modelled: the shelves have no row. What the figures mean for the rows is
 section 11.
 
+## 8a. Furniture with a place
+
+Added 2026-10-13. A `RoomScene::Furnishing` may carry a place: `placed`, `x_m`, `y_m` and
+`yaw_rad`. Each furniture row carries a nominal box, `FurnitureItem::box_m`, which is what the
+host draws and what the absorption is spread around.
+
+The room's total is untouched, so sections 3 and 8 stand: Eyring's time, the tail and the fit
+against the two measured rooms read `A_f` as before. A placed furnishing changes who pays it.
+`FurnishingField` holds a bell around the item, half its box wide and half its height tall,
+normalised to one over the shoebox with the walls' cut taken out in closed form.
+
+- A reflected path's loss per metre is the item's `A / 4V` times the room's volume times the mean
+  density along the path. Over the paths of a diffuse field that weight averages one, which is
+  the uniform figure of section 3.
+- A mode's loss is the item's `A / 4V` times the mean of the mode's pressure squared over the
+  bell, against the mode's own mean. For each axis with a non-zero index that is one plus the
+  bell's mean of the cosine at twice the mode's wavenumber.
+
+A furnishing with no place answers exactly as section 3 does, bit for bit, so a scene from before
+this section renders as it did. `starter_scene()` places nothing: the owner ear-checked that room
+on 2026-09-23, and placing its furniture changes its reflections.
+
+What this leaves out is in section 9: a furnishing casts no shadow and reflects nothing.
+
 ## 9. What this does not do
 
-- No object occludes or shadows anything. See section 3.
+- No object occludes or shadows anything, with or without a place. See sections 3 and 8a.
 - No scattering by furniture. The module's `Scattering` words stay per surface.
 - Below 125 Hz the furniture area is held at the 125 Hz band, as the modal solver holds its
   surface rows.

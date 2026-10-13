@@ -36,6 +36,8 @@
 #include "SushiDSP/room/ambisonic_encoder.hpp"
 #include "SushiDSP/room/band_response_fit.hpp"
 #include "SushiDSP/room/cabinet_directivity.hpp"
+#include "SushiDSP/room/driver_field.hpp"
+#include "SushiDSP/room/furnishing_field.hpp"
 #include "SushiDSP/room/materials.hpp"
 #include "SushiDSP/room/medium_absorption.hpp"
 #include "SushiDSP/room/microphone_model.hpp"
@@ -260,14 +262,57 @@ namespace SushiDSP::room
             return candidate.counts[0] == 0 && candidate.counts[1] == 0 && candidate.counts[2] == 0;
         }
 
-        /// @brief Returns the volumetric loss a candidate's path suffers: the air alone for the
-        /// line of sight, which furniture does not thin, and the air with the furnishings for a
-        /// reflected path.
-        BandResponse path_loss(const Candidate& candidate, const MediumAbsorption& medium,
-                               double distance) noexcept
+        /// @brief Fits a band product into a tap's two sections.
+        void fit_sections(EarlyTap& tap, const std::array<double, K_BAND_COUNT>& product,
+                          double sample_rate)
         {
-            return is_direct(candidate) ? AirAbsorption::over_path(distance)
-                                        : medium.over_path(distance);
+            BandResponse target{};
+            for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
+            {
+                target.gain[band] = static_cast<float>(product[band]);
+            }
+            const BandResponseFit::Result fit = BandResponseFit::fit(target, sample_rate);
+            tap.section_a = fit.coefficients.section_a;
+            tap.section_b = fit.coefficients.section_b;
+        }
+
+        /// @brief Writes a microphone's line of sight as one tap per radiating element of the
+        /// cabinet: the element's share, the air, and the capsule's pattern and proximity at the
+        /// element's own distance and direction.
+        /// @return The number of taps written, at the head of the set.
+        std::uint32_t write_element_taps(EarlyTapSet& set, const RoomScene& scene,
+                                         const Receiver& receiver,
+                                         const MicrophoneModel& microphone, double sample_rate)
+        {
+            const DriverField::Field field = DriverField(scene.cabinet)
+                                                 .toward(scene.source_position,
+                                                         scene.source_yaw_rad, receiver.position);
+            const double forward_x = std::cos(receiver.yaw_rad);
+            const double forward_y = std::sin(receiver.yaw_rad);
+            for (std::uint32_t index = 0; index < field.count; ++index)
+            {
+                const DriverField::Arrival& arrival = field.arrivals[index];
+                std::array<double, K_BAND_COUNT> product{};
+                for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
+                {
+                    product[band] = static_cast<double>(arrival.gain.gain[band]);
+                }
+                fold(product, AirAbsorption::over_path(arrival.distance_m));
+                // The capsule sees the element along the path reversed.
+                const double cosine = std::clamp(
+                    -(arrival.direction.x * forward_x + arrival.direction.y * forward_y), -1.0,
+                    1.0);
+                fold(product, microphone.gain_for(std::acos(cosine), arrival.distance_m));
+
+                EarlyTap& tap = set.taps[index];
+                fit_sections(tap, product, sample_rate);
+                tap.delay_frames =
+                    static_cast<float>(arrival.distance_m * sample_rate / K_SPEED_OF_SOUND);
+                tap.gain = static_cast<float>(1.0 / arrival.distance_m);
+                tap.encode.fill(0.0f);
+                tap.encode[0] = 1.0f;
+            }
+            return field.count;
         }
 
         /// @brief Returns the mean band power of a product, what a diffuse field receives.
@@ -318,11 +363,8 @@ namespace SushiDSP::room
                          {
                              return a.delay_frames < b.delay_frames;
                          });
-        // The set never grows past its fixed capacity; the latest arrivals are the ones left out.
-        const std::size_t kept = std::min(candidates.size(), EarlyTapSet::K_MAX_EARLY_TAPS);
-
         const CabinetDirectivity cabinet(scene.cabinet);
-        const MediumAbsorption medium(scene);
+        const FurnishingField furnishings(scene);
         const MicrophoneModel microphone(scene.microphone_pattern,
                                          K_MICROPHONE_FLAT_CARDIOID.on_axis_db,
                                          scene.microphone_proximity);
@@ -334,9 +376,25 @@ namespace SushiDSP::room
         set.crossover_time_s = static_cast<float>(crossover_s);
         double scattered_energy = 0.0;
 
-        for (std::size_t index = 0; index < kept; ++index)
+        const bool to_microphone = options.listener == ListenerKind::Microphone;
+        if (to_microphone)
         {
-            const Candidate& candidate = candidates[index];
+            set.count = write_element_taps(set, scene, receiver, microphone, options.sample_rate);
+            set.direct_count = set.count;
+        }
+
+        for (const Candidate& candidate : candidates)
+        {
+            // A microphone's line of sight is the element taps already written.
+            if (to_microphone && is_direct(candidate))
+            {
+                continue;
+            }
+            // The set never grows past its capacity; the latest arrivals are the ones left out.
+            if (set.count >= EarlyTapSet::K_MAX_EARLY_TAPS)
+            {
+                break;
+            }
             const AxisEntry& x = tables[0].at(candidate.counts[0], order);
             const AxisEntry& y = tables[1].at(candidate.counts[1], order);
             const AxisEntry& z = tables[2].at(candidate.counts[2], order);
@@ -348,14 +406,18 @@ namespace SushiDSP::room
             outgoing_direction(x, y, z, receiver.position, distance, scene.source_yaw_rad, azimuth,
                                elevation);
             fold(product, cabinet.gain_for(azimuth, elevation));
-            fold(product, path_loss(candidate, medium, distance));
+            // Furniture does not thin the line of sight; a reflected path loses by where it runs.
+            const Vec3 image{x.coordinate, y.coordinate, z.coordinate};
+            fold(product, is_direct(candidate)
+                              ? AirAbsorption::over_path(distance)
+                              : furnishings.over_path(image, receiver.position, distance));
 
             const double arrival_x = (x.coordinate - receiver.position.x) / distance;
             const double arrival_y = (y.coordinate - receiver.position.y) / distance;
             const double arrival_z =
                 std::clamp((z.coordinate - receiver.position.z) / distance, -1.0, 1.0);
-            EarlyTap& tap = set.taps[index];
-            if (options.listener == ListenerKind::Microphone)
+            EarlyTap& tap = set.taps[set.count];
+            if (to_microphone)
             {
                 const double cosine =
                     std::clamp(arrival_x * forward_x + arrival_y * forward_y, -1.0, 1.0);
@@ -369,14 +431,7 @@ namespace SushiDSP::room
                                          std::asin(arrival_z), tap.encode);
             }
 
-            BandResponse target{};
-            for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
-            {
-                target.gain[band] = static_cast<float>(product[band]);
-            }
-            const BandResponseFit::Result fit = BandResponseFit::fit(target, options.sample_rate);
-            tap.section_a = fit.coefficients.section_a;
-            tap.section_b = fit.coefficients.section_b;
+            fit_sections(tap, product, options.sample_rate);
 
             const double specular_share = x.specular_share * y.specular_share * z.specular_share;
             tap.delay_frames = static_cast<float>(candidate.delay_frames);

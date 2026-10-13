@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- 2026-10-13 — host: Drew cabinets with their cones and placed furnishings as boxes, with a cabinet's cone count and a microphone's nearest cone in the inspector (`scene_solids.cpp`, `room_scene_view.cpp`, `cabinet_section_pane.cpp`).
+- 2026-10-13 — host: Added a source's cabinet and a furnishing's position and yaw to a preset's room (`rig_persistence.cpp`).
+- 2026-10-13 — host: Added an "In the room" switch to each furnishing row (`room_panel.cpp`, `furnishing_list.cpp`).
+- 2026-10-13 — room: Added a place to a furnishing: its absorption lies around it for a reflected path and for a mode, the room's total unchanged (`FurnishingField`, `RoomScene::Furnishing`, `furniture.hpp`).
+- 2026-10-13 — room: Rendered a microphone's line of sight as one tap per cone element, so a capsule near the baffle hears cones and not a point (`DriverField`, `image_source_solver.cpp`, `EarlyTapSet::direct_count`).
+- 2026-10-13 — room: Moved the cabinet's geometry to each source and gave the 1x12 and 2x12 their own cone layouts; a 2x12's vertical pattern changes (`cabinet_geometry.hpp`, `Room::SourcePlacement`, `CabinetDirectivity`).
+- 2026-10-13 — room: Filtered the early taps four to an AVX vector and read them from the cabinet's one ring; removed `PairStage::write_input` and `EarlyReflectionRenderer::write` (`early_reflection_renderer.cpp`, `delay_ring.cpp`).
+- 2026-10-13 — room: Designed the tail's lines and the modal resonators once per room instead of once per pair (`design_shell`, `LateReverbDesign::network`, `ModalSolver::shell`, `EnvironmentBuilder`).
+- 2026-10-13 — bench: Added the microphone's tap row and the tap counts to the room's benchmark (`tests/benchmark/main.cpp`).
 - 2026-10-13 — host: Added preset format 2: the rig's shape, edges with their ports and the room's arrangement; a format 1 room moves into the cabinet section on load (`rig_persistence.cpp`, `rig_shape.hpp`).
 - 2026-10-13 — host: Added the room scene in perspective, the strip mixer and the cabinet section pane (`room_scene_view.cpp`, `scene_camera.cpp`, `mixer_panel.cpp`, `cabinet_section_pane.cpp`).
 - 2026-10-13 — host: Rebuilt the cabinet section on one room with a Cabinet input, a strip per microphone, a Room strip and a master strip (`cabinet_section_wiring.cpp`, `topology_applier.cpp`).

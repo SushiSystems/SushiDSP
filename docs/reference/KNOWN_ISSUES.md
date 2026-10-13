@@ -288,13 +288,13 @@ and touches no module.
 
 The gate the cabinet section was planned against is three JCM800 chains into one room with
 three cabinets, the listener and eight microphones, under 2.67 ms per 256-frame block at 48 kHz,
-half the block. On a Release build the row reads 3.896 ms, 73 % of one core
-(`tests/benchmark/main.cpp`, "3 x JCM800 + RoomNode"). The three amplifiers cost 1.96 ms of it
-and the room 1.80 ms, so the rig still fits the 5.33 ms block with 1.4 ms to spare, but not the
-gate. Of the room's share about 1.25 ms is the early reflections of the 24 microphone pairs, up
-to 128 taps of two biquads each, which no two pairs can share. Closes when the taps of a
-microphone pair are thinned or vectorised, or when the owner moves the gate: with the amplifiers
-at 1.96 ms it leaves the room 0.71 ms.
+half the block. On a Release build the row reads 3.562 ms, 67 % of one core
+(`tests/benchmark/main.cpp`, "3 x JCM800 + RoomNode"). The three amplifiers cost 2.03 ms of it
+and the room 1.28 ms, so the rig fits the 5.33 ms block with 1.8 ms to spare, but not the gate.
+The taps are already filtered four to a vector, and a microphone pair's own taps are down to
+0.025 ms; what remains of a pair is its tail read, its modal row and its output stage. Closes
+when the owner moves the gate, since with the amplifiers at 2.03 ms it leaves the room 0.64 ms,
+or when the amplifier itself gets cheaper.
 
 ## A post effect sums the cabinet section to mono
 

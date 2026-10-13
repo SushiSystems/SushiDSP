@@ -11,6 +11,9 @@ add_library(room STATIC
     source/medium_absorption.cpp
     source/band_response_fit.cpp
     source/cabinet_directivity.cpp
+    source/cabinet_geometry.cpp
+    source/driver_field.cpp
+    source/furnishing_field.cpp
     source/microphone_model.cpp
     source/crossover_pair.cpp
     source/hrtf_set.cpp

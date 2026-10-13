@@ -240,8 +240,11 @@ TEST(Unit_Dsp, ImageSourceSolverEncodesEarsAndMicrophoneDifferently)
                 << "tap " << tap << " channel " << channel;
         }
     }
-    // The microphone sits 0.1 m from the source and the ears 2.596 m, so the direct taps differ.
-    EXPECT_NEAR(microphone.taps[0].delay_frames, 0.1 * K_FRAMES_PER_METRE, 1e-3);
+    // The microphone's line of sight is one tap per element of the 4x12, the nearest first.
+    EXPECT_EQ(ears.direct_count, 1u);
+    EXPECT_EQ(microphone.direct_count, 28u);
+    EXPECT_LT(microphone.taps[0].delay_frames, 0.3 * K_FRAMES_PER_METRE);
+    EXPECT_LT(microphone.taps[0].delay_frames, ears.taps[0].delay_frames);
     EXPECT_GT(microphone.taps[0].gain, ears.taps[0].gain);
 }
 

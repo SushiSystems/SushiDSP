@@ -117,12 +117,25 @@ namespace SushiDSP::room
                                     mask_;
         const float* const ring = ring_.data();
         const std::uint32_t mask = mask_;
-        for (std::uint32_t frame = 0; frame < frames; ++frame)
+        // The frames whose four-sample window ends inside the ring are read without the mask.
+        const std::uint32_t size = static_cast<std::uint32_t>(ring_.size());
+        const std::uint32_t straight = start + 3u < size ? std::min(frames, size - 3u - start) : 0u;
+        const float* const __restrict source = ring + start;
+        float* const __restrict destination = output;
+        const float c0 = kernel.c0;
+        const float c1 = kernel.c1;
+        const float c2 = kernel.c2;
+        const float c3 = kernel.c3;
+        for (std::uint32_t frame = 0; frame < straight; ++frame)
+        {
+            destination[frame] = c0 * source[frame] + c1 * source[frame + 1u] +
+                                 c2 * source[frame + 2u] + c3 * source[frame + 3u];
+        }
+        for (std::uint32_t frame = straight; frame < frames; ++frame)
         {
             const std::uint32_t index = start + frame;
-            output[frame] = kernel.c0 * ring[index & mask] + kernel.c1 * ring[(index + 1u) & mask] +
-                            kernel.c2 * ring[(index + 2u) & mask] +
-                            kernel.c3 * ring[(index + 3u) & mask];
+            output[frame] = c0 * ring[index & mask] + c1 * ring[(index + 1u) & mask] +
+                            c2 * ring[(index + 2u) & mask] + c3 * ring[(index + 3u) & mask];
         }
     }
 } // namespace SushiDSP::room

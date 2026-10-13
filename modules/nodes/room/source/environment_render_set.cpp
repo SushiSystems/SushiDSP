@@ -29,6 +29,10 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace SushiDSP::Room
 {
@@ -63,6 +67,8 @@ namespace SushiDSP::Room
         const std::size_t sources = arrangement.sources().size();
         const std::size_t receivers = 1 + arrangement.microphones().size();
         decltype(keys_) keys{};
+        std::vector<Shell> shells;
+        shells.reserve(Arrangement::K_MAX_SOURCES);
 
         for (std::size_t source = 0; source < sources; ++source)
         {
@@ -88,7 +94,8 @@ namespace SushiDSP::Room
                 const room::ListenerKind kind = receiver == 0 ? room::ListenerKind::Ears
                                                               : room::ListenerKind::Microphone;
                 const std::unique_ptr<room::RoomRenderSet> pair =
-                    room::build_render_set(key.scene, hrtf, sample_rate, kind);
+                    room::build_render_set(key.scene, shell_for(key.scene, sample_rate, shells),
+                                           hrtf, sample_rate, kind);
                 if (!physical_delay)
                 {
                     compensate_direct_delay(*pair);
@@ -100,12 +107,46 @@ namespace SushiDSP::Room
         set->source_count = static_cast<std::uint32_t>(sources);
         set->microphone_count = static_cast<std::uint32_t>(receivers - 1);
         keys_ = keys;
+        // A build that solved no pair read no room; the designs it could reuse are kept.
+        if (!shells.empty())
+        {
+            shells_ = std::move(shells);
+        }
         sample_rate_ = sample_rate;
         return set;
     }
 
+    const room::ShellDesign& EnvironmentBuilder::shell_for(const room::RoomScene& scene,
+                                                           double sample_rate,
+                                                           std::vector<Shell>& kept)
+    {
+        for (const Shell& shell : kept)
+        {
+            if (shells_equal(shell.scene, scene))
+            {
+                return shell.design;
+            }
+        }
+        for (const Shell& shell : shells_)
+        {
+            if (shells_equal(shell.scene, scene))
+            {
+                kept.push_back(shell);
+                return kept.back().design;
+            }
+        }
+        std::string reason;
+        if (!scene.is_valid(reason))
+        {
+            throw std::runtime_error("EnvironmentBuilder: " + reason);
+        }
+        kept.push_back(Shell{scene, room::design_shell(scene, sample_rate)});
+        return kept.back().design;
+    }
+
     void EnvironmentBuilder::invalidate() noexcept
     {
+        shells_.clear();
         for (auto& row : keys_)
         {
             for (Key& key : row)

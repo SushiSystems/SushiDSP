@@ -32,9 +32,12 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <utility>
+#include <vector>
 
 #include "SushiDSP/room/band_response.hpp"
 #include "SushiDSP/room/diffuse_field.hpp"
+#include "SushiDSP/room/furnishing_field.hpp"
 #include "SushiDSP/room/medium_absorption.hpp"
 
 namespace SushiDSP::room
@@ -108,11 +111,13 @@ namespace SushiDSP::room
         /// @brief Holds the furnishings' energy attenuation per metre at K_LOW_BAND and K_HIGH_BAND.
         using FurnishingRow = std::array<double, 2>;
 
-        /// @brief Returns the furnishings' energy attenuation per metre at the two low bands.
-        FurnishingRow furnishing_row(const MediumAbsorption& medium) noexcept
+        /// @brief Returns the furnishings' energy attenuation per metre at the two low bands, as
+        /// one mode sees it from where the furnishings stand.
+        FurnishingRow furnishing_row(const FurnishingField& field, std::uint32_t nx,
+                                     std::uint32_t ny, std::uint32_t nz) noexcept
         {
-            return {medium.furnishing_coefficient_per_metre(K_LOW_BAND),
-                    medium.furnishing_coefficient_per_metre(K_HIGH_BAND)};
+            return {field.mode_coefficient_per_metre(K_LOW_BAND, nx, ny, nz),
+                    field.mode_coefficient_per_metre(K_HIGH_BAND, nx, ny, nz)};
         }
 
         /// @brief Interpolates one row of two band values in log frequency to frequency_hz, held
@@ -248,7 +253,7 @@ namespace SushiDSP::room
     {
         const Lengths lengths = lengths_of(scene);
         const FaceRows rows = face_rows(scene);
-        const FurnishingRow furnishing = furnishing_row(MediumAbsorption(scene));
+        const FurnishingField field(scene);
         std::vector<Mode> modes;
         modes.reserve(
             static_cast<std::size_t>(std::max(0.0, estimated_count(scene, max_frequency_hz))) +
@@ -279,7 +284,8 @@ namespace SushiDSP::room
                     }
                     Mode mode{nx, ny, nz, frequency, 0.0};
                     mode.decay_seconds =
-                        K_DECAY_NEPERS / damping_constant(scene, rows, furnishing, mode);
+                        K_DECAY_NEPERS /
+                        damping_constant(scene, rows, furnishing_row(field, nx, ny, nz), mode);
                     modes.push_back(mode);
                 }
             }
@@ -321,14 +327,37 @@ namespace SushiDSP::room
     ModalDesign ModalSolver::design(const RoomScene& scene, double sample_rate, double crossover_hz,
                                     ListenerKind listener)
     {
-        ModalDesign result{};
+        return design(shell(scene, sample_rate, crossover_hz), scene, listener);
+    }
+
+    ModalDesign ModalSolver::design(const Shell& shell, const RoomScene& scene,
+                                    ListenerKind listener)
+    {
+        ModalDesign result = shell.design;
+        const std::array<Vec3, 2> receiver = receiver_points(scene, listener);
+        for (std::size_t index = 0; index < shell.modes.size(); ++index)
+        {
+            const Mode& mode = shell.modes[index];
+            ModalDesign::Mode& entry = result.modes[index];
+            entry.source_gain = static_cast<float>(mode_shape(mode, scene, scene.source_position));
+            entry.ear_gain = {static_cast<float>(mode_shape(mode, scene, receiver[0])),
+                              static_cast<float>(mode_shape(mode, scene, receiver[1]))};
+        }
+        return result;
+    }
+
+    ModalSolver::Shell ModalSolver::shell(const RoomScene& scene, double sample_rate,
+                                          double crossover_hz)
+    {
+        Shell shell{};
+        ModalDesign& result = shell.design;
         if (crossover_hz < K_MIN_CROSSOVER_HZ)
         {
-            return result;
+            return shell;
         }
 
         const double ceiling = std::min(crossover_hz, enumeration_ceiling(scene));
-        const std::vector<Mode> modes = enumerate(scene, ceiling);
+        std::vector<Mode> modes = enumerate(scene, ceiling);
         float crossover = static_cast<float>(crossover_hz);
         std::size_t count = modes.size();
         if (count > ModalDesign::K_MAX_MODES)
@@ -374,7 +403,6 @@ namespace SushiDSP::room
                 ? std::sqrt(diffuse_band_power(scene, sample_rate, lower, upper) / power_sum)
                 : 0.0;
 
-        const std::array<Vec3, 2> receiver = receiver_points(scene, listener);
         for (std::size_t index = 0; index < count; ++index)
         {
             const Mode& mode = modes[index];
@@ -383,13 +411,12 @@ namespace SushiDSP::room
             ModalDesign::Mode& entry = result.modes[index];
             entry.section = {feed, 0.0, -feed, -2.0 * radius[index] * std::cos(theta),
                              radius[index] * radius[index]};
-            entry.source_gain = static_cast<float>(mode_shape(mode, scene, scene.source_position));
-            entry.ear_gain = {static_cast<float>(mode_shape(mode, scene, receiver[0])),
-                              static_cast<float>(mode_shape(mode, scene, receiver[1]))};
         }
         result.count = static_cast<std::uint32_t>(count);
         result.crossover_hz = crossover;
         result.level_scale = static_cast<float>(level_scale);
-        return result;
+        modes.resize(count);
+        shell.modes = std::move(modes);
+        return shell;
     }
 } // namespace SushiDSP::room

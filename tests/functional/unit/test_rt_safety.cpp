@@ -1474,6 +1474,8 @@ TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer;
     renderer.prepare(8397, 256);
+    SushiDSP::room::DelayRing renderer_ring;
+    renderer_ring.prepare(8397, 256);
 
     SushiDSP::room::EarlyTapSet set{};
     set.count = SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS;
@@ -1501,9 +1503,9 @@ TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
     trap.arm();
     for (int block = 0; block < 8; ++block)
     {
-        renderer.write(input.data(), 256);
-        renderer.render(set, 0, outputs.data(), 256);
-        renderer.render(set, 1, outputs.data(), 256);
+        renderer_ring.write(input.data(), 256);
+        renderer.render(renderer_ring, set, 0, outputs.data(), 256);
+        renderer.render(renderer_ring, set, 1, outputs.data(), 256);
         renderer.carry_tap(0, 1, static_cast<std::uint32_t>(block));
         renderer.clear_bank(static_cast<std::uint32_t>(block % 2));
     }

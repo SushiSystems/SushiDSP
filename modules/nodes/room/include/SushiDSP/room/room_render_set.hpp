@@ -34,7 +34,9 @@
 #include "SushiDSP/room/fdn_design.hpp"
 #include "SushiDSP/room/hrtf_set.hpp"
 #include "SushiDSP/room/image_source_solver.hpp"
+#include "SushiDSP/room/late_reverb_design.hpp"
 #include "SushiDSP/room/modal_design.hpp"
+#include "SushiDSP/room/modal_solver.hpp"
 #include "SushiDSP/room/room_scene.hpp"
 
 namespace SushiDSP::room
@@ -84,6 +86,29 @@ namespace SushiDSP::room
             /// @brief Names the listener the taps, the tail and the direct path are encoded for.
             ListenerKind listener;
     };
+
+    /// @brief Holds what a set takes from the room alone, whoever stands in it: the tail's
+    /// network and the modal resonators. Control thread.
+    struct ShellDesign
+    {
+            /// @brief Stores the tail's lines and their filters.
+            LateReverbDesign::Network network;
+
+            /// @brief Stores the modal resonators.
+            ModalSolver::Shell modal;
+    };
+
+    /// @brief Designs the room's part of a set: the scene's poses are not read.
+    /// @pre scene.is_valid() holds and sample_rate exceeds 8 kHz.
+    ShellDesign design_shell(const RoomScene& scene, double sample_rate);
+
+    /// @brief Builds one set from a room's part already designed: solves the images and takes
+    /// the rest from shell, so a pose that moves designs no tail and no resonator.
+    /// @pre shell was designed from this scene's room at sample_rate.
+    /// @throw std::runtime_error as the overload without a shell does.
+    std::unique_ptr<RoomRenderSet> build_render_set(const RoomScene& scene,
+                                                    const ShellDesign& shell, const HrtfSet& hrtf,
+                                                    double sample_rate, ListenerKind listener);
 
     /// @brief Builds one set on the control thread: validates the scene, solves the images,
     /// designs the tail, finds the Schroeder frequency, designs the modal bank read at the
