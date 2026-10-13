@@ -103,7 +103,7 @@ TEST(Unit_Log, LogLineQueueRefusesALineWhenFullAndTakesOneAgainAfterAPop)
 TEST(Unit_Log, LogLineQueueKeepsEveryLineOfSeveralProducersInEachProducersOrder)
 {
     constexpr std::size_t K_PRODUCERS = 4;
-    constexpr std::size_t K_LINES_EACH = 2000;
+    static constexpr std::size_t K_LINES_EACH = 2000;
 
     SushiDSP::LogLineQueue queue(64);
     std::vector<std::thread> producers;
