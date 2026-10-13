@@ -81,6 +81,7 @@ namespace SushiDSP::Room
         // For the ears the direct sound is the HRIR pair's alone; the bank holds reflections.
         direct = set.early.taps[0];
         reflections.count = set.early.count - 1u;
+        reflections.direct_count = 0;
         reflections.crossover_time_s = set.early.crossover_time_s;
         reflections.scattered_energy = set.early.scattered_energy;
         std::copy(set.early.taps.begin() + 1,
@@ -211,17 +212,12 @@ namespace SushiDSP::Room
         pending_waiting_ = false;
     }
 
-    void PairStage::write_input(const float* high, std::uint32_t frames) noexcept
-    {
-        early_.write(high, frames);
-    }
-
     void PairStage::render(const room::DelayRing& ring, const room::DelayRing& tail_a,
                            const room::DelayRing& tail_b, std::uint32_t frames,
                            const room::FadeWindow& window) noexcept
     {
         apply_pending_when_due(window);
-        render_early(frames, window);
+        render_early(ring, frames, window);
         render_tail(tail_a, tail_b, frames, window);
         if (kind_ == room::ListenerKind::Ears)
         {
@@ -229,10 +225,11 @@ namespace SushiDSP::Room
         }
     }
 
-    void PairStage::render_early(std::uint32_t frames, const room::FadeWindow& window) noexcept
+    void PairStage::render_early(const room::DelayRing& ring, std::uint32_t frames,
+                                 const room::FadeWindow& window) noexcept
     {
         clear_accumulation(active_bank_, frames);
-        early_.render(bank_taps_[active_bank_], active_bank_,
+        early_.render(ring, bank_taps_[active_bank_], active_bank_,
                       accumulation_pointers_[active_bank_].data(), frames);
         float* const* const active = accumulation_pointers_[active_bank_].data();
         const bool ears = kind_ == room::ListenerKind::Ears;
@@ -240,7 +237,7 @@ namespace SushiDSP::Room
         {
             const std::uint32_t retiring = active_bank_ == 0 ? 1u : 0u;
             clear_accumulation(retiring, frames);
-            early_.render(bank_taps_[retiring], retiring,
+            early_.render(ring, bank_taps_[retiring], retiring,
                           accumulation_pointers_[retiring].data(), frames);
             float* const* const old = accumulation_pointers_[retiring].data();
             // Unlagged: the decoder or the microphone's delay holds it back.

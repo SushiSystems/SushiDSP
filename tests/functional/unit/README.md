@@ -3130,7 +3130,11 @@ nothing the microphone hears.
 
 ### `RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd`
 
-`// The tilt is expected at 13.68 dB and measures 13.34.`
+`// The tilt is expected at 13.68 dB against a point source.`
+
+The cabinet is `point_cabinet()`, one 1 cm cone that never breaks up, so the seven elements of
+its line of sight stand within a centimetre and the capsule hears a point. A 4x12's cones are
+20 cm from a capsule at the baffle's centre, and its tilt there is under half this figure.
 
 Spec 8: a cardioid's gradient half gains sqrt(1 + (c / (2 pi f r))^2) on a spherical wave, 14.2
 dB at 125 Hz for r = 5 cm and 0.1 dB at r = 3 m. The whole chain carries 1 / r as well, 35.6 dB
@@ -3144,22 +3148,25 @@ Hz third octave reads 13.79 dB, recorded here and not bounded.
 
 ### `RoomNodeMicrophoneHearsLessRoomThanTheEars`
 
-`// The two ratios differ by at least 20 dB.`
+`// The two ratios differ by at least 11.5 dB.`
 
 The garage with the cabinet at (1.5, 2.0, 0.5). A cardioid 5 cm off the cone hears the direct
 path at 1 / 0.05 and the nearest reflection, off the floor, at 1 / 1.0 and 140 frames later; the
 ears at (3.5, 2.0, 1.2), 2.12 m away, hear the direct path at 1 / 2.12 through the HRIR pair at
 the alignment delay, the propagation compensated, and the floor at 1 / 2.63, 71 frames later.
-The direct-to-reverberant ratios must differ by at least 20 dB.
+The capsule stands on the baffle's axis, between the four cones, so its direct sound comes from
+cones 21 cm away and not from a point 5 cm away.
 
-`// The difference measures 19.95 dB.`
+`// Between the four cones the difference measures 12.20 dB.`
 
-19.95 dB since the tail hands over at t_c: the network's shortest line used to be its handover
-time again, so both windows caught 36 ms less room than the design asks for.
+12.20 dB with the cones in place. A single point at the baffle's centre would read 19.95 dB.
 
 ### `RoomNodeCarriesOneOverROnTheCabinetsAxis`
 
-`// An omni capsule on axis in the dead room reads 1 / r.`
+`// An omni capsule on a point source's axis reads 1 / r.`
+
+The cabinet is `point_cabinet()`. A 4x12's impulse energy on the baffle's axis falls short of
+1 / r at these distances, because above a few kilohertz its 28 elements arrive apart.
 
 The one level in the module that comes from geometry rather than from DiffuseField: an omni
 capsule on the cabinet's axis in the dead room reads 1 / r, so its direct window is 0 dB at 1 m

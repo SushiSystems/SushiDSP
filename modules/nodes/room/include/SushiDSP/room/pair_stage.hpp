@@ -80,11 +80,6 @@ namespace SushiDSP::Room
             /// @param set The pair's set, built for this stage's receiver kind.
             void adopt(const room::RoomRenderSet& set) noexcept;
 
-            /// @brief Writes one block of the cabinet's high half into the early renderer.
-            /// @param high The block.
-            /// @param frames The block length.
-            void write_input(const float* high, std::uint32_t frames) noexcept;
-
             /// @brief Renders one block: the taps of the active bank and, under a fade, of the
             /// retiring one; the direct sound; and the tail read out of the cabinet's two rings.
             /// @param ring The cabinet's high-half ring.
@@ -144,9 +139,11 @@ namespace SushiDSP::Room
             /// pair, which waits no lag, loads them at once.
             void apply_pending_when_due(const room::FadeWindow& window) noexcept;
 
-            /// @brief Renders the active bank's taps and, under a fade, the retiring bank's, then
-            /// blends them: sixteen channels for the ears, channel 0 for a microphone.
-            void render_early(std::uint32_t frames, const room::FadeWindow& window) noexcept;
+            /// @brief Renders the active bank's taps and, under a fade, the retiring bank's, out of
+            /// the cabinet's ring, then blends them: sixteen channels for the ears, channel 0 for a
+            /// microphone.
+            void render_early(const room::DelayRing& ring, std::uint32_t frames,
+                              const room::FadeWindow& window) noexcept;
 
             /// @brief Renders the active bank's direct sound, blended with the retiring bank's.
             void render_direct(const room::DelayRing& ring, std::uint32_t frames,
@@ -170,7 +167,7 @@ namespace SushiDSP::Room
             /// @brief Records that a set has been adopted since the last reset.
             bool live_ = false;
 
-            /// @brief Reads the taps out of its own input ring.
+            /// @brief Reads the taps out of the cabinet's ring.
             room::EarlyReflectionRenderer early_;
 
             /// @brief Renders the ears' direct sound.

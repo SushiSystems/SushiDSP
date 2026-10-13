@@ -68,8 +68,9 @@ namespace SushiDSP::room
             return true;
         }
 
-        /// @brief Checks the live furnishings' count, rows and quantities.
-        /// @return true when every live furnishing is a known row with a positive quantity.
+        /// @brief Checks the live furnishings' count, rows, quantities and places.
+        /// @return true when every live furnishing is a known row with a positive quantity and,
+        /// when it has a place, stands inside the room.
         bool furnishings_valid(const RoomScene& scene, std::string& reason)
         {
             if (scene.furnishing_count > RoomScene::K_MAX_FURNISHINGS)
@@ -89,6 +90,15 @@ namespace SushiDSP::room
                 if (!std::isfinite(entry.quantity) || !(entry.quantity > 0.0))
                 {
                     reason = "furnishing " + std::to_string(index) + " has a non-positive quantity";
+                    return false;
+                }
+                const bool inside = std::isfinite(entry.x_m) && std::isfinite(entry.y_m) &&
+                                    std::isfinite(entry.yaw_rad) && entry.x_m >= 0.0 &&
+                                    entry.x_m <= scene.dimensions.x && entry.y_m >= 0.0 &&
+                                    entry.y_m <= scene.dimensions.y;
+                if (entry.placed && !inside)
+                {
+                    reason = "furnishing " + std::to_string(index) + " stands outside the room";
                     return false;
                 }
             }

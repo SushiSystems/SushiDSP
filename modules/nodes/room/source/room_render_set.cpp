@@ -119,7 +119,28 @@ namespace SushiDSP::room
         }
     } // namespace
 
+    ShellDesign design_shell(const RoomScene& scene, double sample_rate)
+    {
+        ShellDesign shell;
+        // The early set stores its crossover as a float, and the tail reads it back from there.
+        const auto crossover_time_s =
+            static_cast<float>(ImageSourceSolver::crossover_time_s(scene, K_IMAGE_ORDER));
+        shell.network = LateReverbDesign::network(scene, crossover_time_s, sample_rate);
+        shell.modal =
+            ModalSolver::shell(scene, sample_rate, EyringDecay::schroeder_frequency_hz(scene));
+        return shell;
+    }
+
     std::unique_ptr<RoomRenderSet> build_render_set(const RoomScene& scene, const HrtfSet& hrtf,
+                                                    double sample_rate, ListenerKind listener)
+    {
+        validate(scene, hrtf, sample_rate);
+        return build_render_set(scene, design_shell(scene, sample_rate), hrtf, sample_rate,
+                                listener);
+    }
+
+    std::unique_ptr<RoomRenderSet> build_render_set(const RoomScene& scene,
+                                                    const ShellDesign& shell, const HrtfSet& hrtf,
                                                     double sample_rate, ListenerKind listener)
     {
         validate(scene, hrtf, sample_rate);
@@ -130,10 +151,8 @@ namespace SushiDSP::room
         options.listener = listener;
         options.sample_rate = sample_rate;
         set->early = ImageSourceSolver::solve(scene, options);
-        set->late = LateReverbDesign::design(scene, set->early, sample_rate, listener);
-
-        const double schroeder_hz = EyringDecay::schroeder_frequency_hz(scene);
-        set->modal = ModalSolver::design(scene, sample_rate, schroeder_hz, listener);
+        set->late = LateReverbDesign::design(shell.network, scene, set->early, sample_rate, listener);
+        set->modal = ModalSolver::design(shell.modal, scene, listener);
         set->crossover_hz = set->modal.crossover_hz;
 
         fill_direct_path(*set, scene, hrtf, sample_rate, receiver_for(scene, listener));

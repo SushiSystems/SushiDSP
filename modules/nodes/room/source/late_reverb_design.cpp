@@ -123,13 +123,13 @@ namespace SushiDSP::room
 
         /// @brief Returns the energy the taps past the direct sound carry per band: each tap's
         /// gain squared times its fitted filter's power at the band centre, summed.
-        /// @pre The taps are sorted by arrival, so tap 0 is the direct sound whenever count > 0.
+        /// @pre The set's first direct_count taps are the direct sound.
         BandEnergy reflected_band_energy(const EarlyTapSet& early, double sample_rate)
         {
             BandEnergy energy{};
             const std::uint32_t count =
                 std::min(early.count, static_cast<std::uint32_t>(EarlyTapSet::K_MAX_EARLY_TAPS));
-            for (std::uint32_t index = 1; index < count; ++index)
+            for (std::uint32_t index = early.direct_count; index < count; ++index)
             {
                 const EarlyTap& tap = early.taps[index];
                 const BandResponseFit::Coefficients coefficients{tap.section_a, tap.section_b};
@@ -319,14 +319,15 @@ namespace SushiDSP::room
         return frames;
     }
 
-    FdnDesign LateReverbDesign::design(const RoomScene& scene, const EarlyTapSet& early,
-                                       double sample_rate, ListenerKind listener)
+    LateReverbDesign::Network LateReverbDesign::network(const RoomScene& scene,
+                                                        float crossover_time_s,
+                                                        double sample_rate)
     {
         const std::array<double, K_BAND_COUNT> rt60 = EyringDecay::rt60_seconds(scene);
         const double rt60_mid = rt60[K_MID_BAND];
         const double total_frames = K_OVERLAP_RATIO * rt60_mid * sample_rate;
         const double handover_frames =
-            std::round(static_cast<double>(early.crossover_time_s) * sample_rate);
+            std::round(static_cast<double>(crossover_time_s) * sample_rate);
 
         // The handover time bounds the shortest line; see modules/nodes/room/README.md.
         double shortest_frames = std::max(handover_frames, 1.0);
@@ -344,7 +345,8 @@ namespace SushiDSP::room
             spread = spread_for(wanted, K_MIN_SPREAD, widest);
         }
 
-        FdnDesign design{};
+        Network result{};
+        FdnDesign& design = result.design;
         design.line_frames = line_frames(shortest_frames / sample_rate, spread, sample_rate);
         for (std::size_t line = 0; line < K_LINES; ++line)
         {
@@ -354,13 +356,30 @@ namespace SushiDSP::room
             design.line_section_a[line] = fit.coefficients.section_a;
             design.line_section_b[line] = fit.coefficients.section_b;
         }
+        result.energy = network_band_energy(design.line_frames, sample_rate, rt60);
+        result.handover_frames = handover_frames;
+        return result;
+    }
+
+    FdnDesign LateReverbDesign::design(const RoomScene& scene, const EarlyTapSet& early,
+                                       double sample_rate, ListenerKind listener)
+    {
+        return design(network(scene, early.crossover_time_s, sample_rate), scene, early,
+                      sample_rate, listener);
+    }
+
+    FdnDesign LateReverbDesign::design(const Network& network, const RoomScene& scene,
+                                       const EarlyTapSet& early, double sample_rate,
+                                       ListenerKind listener)
+    {
+        FdnDesign design = network.design;
+        const double handover_frames = network.handover_frames;
 
         const DiffuseField field(scene);
         const BandEnergy remainder =
             remainder_of(field.band_power(), receiver_efficiency(scene, listener),
                          reflected_band_energy(early, sample_rate));
-        const TailLevel level =
-            tail_level(remainder, network_band_energy(design.line_frames, sample_rate, rt60));
+        const TailLevel level = tail_level(remainder, network.energy);
         const BandResponseFit::Coefficients output =
             BandResponseFit::fit(level.output, sample_rate).coefficients;
         design.tone_correction = {output.section_a, output.section_b};

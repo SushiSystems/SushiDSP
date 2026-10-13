@@ -30,6 +30,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "SushiDSP/room/hrtf_set.hpp"
 #include "SushiDSP/room/room_arrangement.hpp"
@@ -98,6 +99,24 @@ namespace SushiDSP::Room
                     /// @brief Records that the key describes a pair of the last set.
                     bool valid = false;
             };
+
+            /// @brief Holds the room's part of a set and the scene it was designed from.
+            struct Shell
+            {
+                    /// @brief Stores the scene whose room the design reads.
+                    room::RoomScene scene;
+
+                    /// @brief Stores the design.
+                    room::ShellDesign design;
+            };
+
+            /// @brief Returns the room's part for a scene, from the designs kept by the last
+            /// build when one matches, else designed now. The design is kept for the next build.
+            const room::ShellDesign& shell_for(const room::RoomScene& scene, double sample_rate,
+                                               std::vector<Shell>& kept);
+
+            /// @brief Stores the room designs the last build read, one per distinct room.
+            std::vector<Shell> shells_;
 
             /// @brief Stores the keys of the set built last, indexed [cabinet][receiver].
             std::array<std::array<Key, Arrangement::K_MAX_RECEIVERS>, Arrangement::K_MAX_SOURCES>

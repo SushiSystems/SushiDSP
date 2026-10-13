@@ -162,10 +162,6 @@ namespace SushiDSP::room
             stage.write_input(input, frames);
             stage.render_tail(frames);
             stage.render_modal(frames, window);
-            for (std::uint32_t receiver = 0; receiver <= microphone_count_; ++receiver)
-            {
-                stages.pairs[source][receiver].write_input(stage.high(), frames);
-            }
         }
 
         const bool has_ports = context.port_outputs != nullptr;
@@ -424,11 +420,12 @@ namespace SushiDSP::room
         const Room::Pose cabinet{scene.source_position, scene.source_yaw_rad};
         if (next.sources().empty())
         {
-            next.add_source(Room::SourcePlacement{0u, cabinet}, reason_out);
+            next.add_source(Room::SourcePlacement{0u, cabinet, scene.cabinet}, reason_out);
         }
         else
         {
             next.move_source(next.sources().front().id, cabinet);
+            next.set_source_cabinet(next.sources().front().id, scene.cabinet);
         }
         return set_arrangement(next, reason_out);
     }
@@ -442,6 +439,7 @@ namespace SushiDSP::room
         {
             scene.source_position = arrangement_.sources().front().pose.position;
             scene.source_yaw_rad = arrangement_.sources().front().pose.yaw_rad;
+            scene.cabinet = arrangement_.sources().front().cabinet;
         }
         return scene;
     }

@@ -32,36 +32,12 @@
 #include <vector>
 
 #include "SushiDSP/room/band_response.hpp"
+#include "SushiDSP/room/cabinet_geometry.hpp"
 
 namespace SushiDSP::room
 {
-    /// @brief Holds the three lengths and one frequency the piston model needs. Spec §7.
-    struct CabinetGeometry
-    {
-            /// @brief Stores the effective cone radius of one driver, in metres.
-            double cone_radius_m;
-
-            /// @brief Stores the centre-to-centre driver spacing, in metres; zero for one driver.
-            double driver_spacing_m;
-
-            /// @brief Stores the baffle width, in metres.
-            double baffle_width_m;
-
-            /// @brief Stores the cone breakup frequency that shrinks the effective radius, in hertz.
-            double breakup_frequency_hz;
-    };
-
-    /// @brief Describes a 4x12 cabinet.
-    inline constexpr CabinetGeometry K_CABINET4X12{0.125, 0.30, 0.75, 2500.0};
-
-    /// @brief Describes a 2x12 cabinet.
-    inline constexpr CabinetGeometry K_CABINET2X12{0.125, 0.30, 0.75, 2500.0};
-
-    /// @brief Describes a 1x12 cabinet.
-    inline constexpr CabinetGeometry K_CABINET1X12{0.125, 0.00, 0.40, 2500.0};
-
-    /// @brief Evaluates four rigid pistons in an infinite baffle in front of a closed box, as an
-    /// energy mean over each octave band, on the control thread. Spec §7.
+    /// @brief Evaluates a cabinet's rigid pistons in an infinite baffle in front of a closed box,
+    /// as an energy mean over each octave band, on the control thread. Spec §7.
     class CabinetDirectivity
     {
         public:
@@ -80,6 +56,14 @@ namespace SushiDSP::room
 
             /// @brief Returns 2*J1(x)/x, the rigid-piston factor, with the x -> 0 limit of 1.
             static double piston_factor(double x) noexcept;
+
+            /// @brief Returns the effective cone radius at one frequency, in metres: the cone's
+            /// own radius below the breakup frequency, shrinking above it.
+            double effective_radius(double frequency_hz) const noexcept;
+
+            /// @brief Returns the pressure gain behind the baffle plane at each band centre,
+            /// relative to in front of it.
+            BandResponse rear_response() const noexcept;
 
         private:
             /// @brief Holds one unit direction of the spherical grid.
@@ -102,9 +86,6 @@ namespace SushiDSP::room
             /// the off-axis angle is given.
             double factor_at(double frequency_hz, const Direction& direction,
                              double sine_theta) const noexcept;
-
-            /// @brief Returns the effective cone radius at one frequency, in metres.
-            double effective_radius(double frequency_hz) const noexcept;
 
             /// @brief Returns the rear shelf's pressure gain at one frequency.
             double rear_shelf(double frequency_hz) const noexcept;

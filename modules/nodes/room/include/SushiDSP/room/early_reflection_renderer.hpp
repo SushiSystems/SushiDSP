@@ -31,12 +31,14 @@
 #include <cstdint>
 #include <vector>
 
+#include "SushiDSP/room/delay_ring.hpp"
 #include "SushiDSP/room/early_tap_set.hpp"
 
 namespace SushiDSP::room
 {
-    /// @brief Reads up to 128 fractional taps out of one input ring, filters each through two
-    /// biquads from one of two state banks and encodes it into sixteen channels. Audio thread:
+    /// @brief Reads up to 128 fractional taps out of a ring it is handed, filters each through two
+    /// biquads from one of two state banks, four taps side by side, and encodes it into sixteen
+    /// channels. Audio thread:
     /// allocation-free after prepare(). Spec §5.1.
     class EarlyReflectionRenderer
     {
@@ -47,26 +49,22 @@ namespace SushiDSP::room
             /// @brief Counts the state banks, one per side of a set crossfade.
             static constexpr std::uint32_t K_BANK_COUNT = 2;
 
-            /// @brief Allocates the ring, the scratch and both state banks; control thread.
-            /// @param max_delay_frames Sized for the longest t_c the scene bounds allow: 5 * 12.0 /
-            /// 343.0 s, which is 8397 frames at 48 kHz.
-            /// @param max_block_frames The longest block write() and render() will ever see.
+            /// @brief Allocates the scratch and both state banks; control thread.
+            /// @param max_delay_frames Bounds a tap's delay: 5 * 12.0 / 343.0 s for the longest
+            /// t_c the scene bounds allow, which is 8397 frames at 48 kHz.
+            /// @param max_block_frames The longest block render() will ever see.
             void prepare(std::uint32_t max_delay_frames, std::uint32_t max_block_frames);
 
-            /// @brief Silences the ring and both state banks.
+            /// @brief Silences both state banks.
             void reset() noexcept;
 
-            /// @brief Writes one block into the ring. Call once per block, before render().
-            /// @pre frames <= max_block_frames.
-            void write(const float* input, std::uint32_t frames) noexcept;
-
             /// @brief Adds this set's contribution into K_OUTPUT_CHANNELS accumulation buffers.
+            /// @param ring The ring the taps are read from, sized for max_delay_frames or more.
             /// @param bank 0 or 1: which biquad state bank to run, so a crossfade renders both.
             /// @param outputs K_OUTPUT_CHANNELS pointers to buffers of at least frames samples.
-            /// @pre frames matches the block last given to write(); a tap's delay_frames lies in
-            /// [1, max_delay_frames], the one frame being the Lagrange kernel's forward neighbour.
-            void render(const EarlyTapSet& set, std::uint32_t bank, float* const* outputs,
-                        std::uint32_t frames) noexcept;
+            /// @pre frames matches the block last written to the ring.
+            void render(const DelayRing& ring, const EarlyTapSet& set, std::uint32_t bank,
+                        float* const* outputs, std::uint32_t frames) noexcept;
 
             /// @brief Zeroes one state bank, for the set arriving into a crossfade. Audio thread.
             void clear_bank(std::uint32_t bank) noexcept;
@@ -80,47 +78,42 @@ namespace SushiDSP::room
             /// @brief Counts the doubles one tap's two biquad histories take in a bank.
             static constexpr std::size_t K_STATE_PER_TAP = 8;
 
-            /// @brief Counts the frames the Lagrange kernel reads beyond the block: two behind the
-            /// integer delay and one ahead of it.
-            static constexpr std::uint32_t K_KERNEL_MARGIN = 4;
-
             /// @brief Returns the first double of one bank's state; a bank past K_BANK_COUNT reads
             /// the last.
             double* bank_state(std::uint32_t bank) noexcept;
 
-            /// @brief Reads one tap's four-point Lagrange interpolation, scaled by its gain, into
-            /// the scratch buffer.
-            void read_tap(const EarlyTap& tap, std::uint32_t frames) noexcept;
+            /// @brief Counts the taps one pass of the filters advances side by side.
+            static constexpr std::uint32_t K_LANES = 4;
 
-            /// @brief Runs the scratch buffer through both of one tap's sections, in place, from
-            /// one bank's state.
-            void filter_tap(const EarlyTap& tap, double* state, std::uint32_t frames) noexcept;
+            /// @brief Reads one tap out of the ring at its delay, scaled by its gain, into one lane
+            /// of the scratch buffer.
+            void read_tap(const DelayRing& ring, const EarlyTap& tap, std::uint32_t lane,
+                          std::uint32_t frames) noexcept;
 
-            /// @brief Multiply-adds the scratch buffer into every channel the tap encodes to.
-            void encode_tap(const EarlyTap& tap, float* const* outputs,
+            /// @brief Runs the first lanes of the scratch buffer through both sections of as many
+            /// consecutive taps into the filtered buffer, each lane from its own tap's state:
+            /// four lanes to a vector where the build has AVX, one lane after another where not.
+            /// @param taps The first tap of the group.
+            /// @param lanes The taps in the group, at most K_LANES.
+            /// @param state The first tap's state; the others follow it.
+            void filter_group(const EarlyTap* taps, std::uint32_t lanes, double* state,
+                              std::uint32_t frames) noexcept;
+
+            /// @brief Multiply-adds one lane of the filtered buffer into every channel the tap
+            /// encodes to.
+            void encode_tap(const EarlyTap& tap, std::uint32_t lane, float* const* outputs,
                             std::uint32_t frames) noexcept;
 
-            /// @brief Stores the input history followed by a mirror of its head, so every read
-            /// window is contiguous.
-            std::vector<float> ring_;
-
-            /// @brief Stores one tap's block between its read, its filters and its encode.
+            /// @brief Stores K_LANES blocks, one tap each, between the read and the filters;
+            /// lane-major.
             std::vector<float> scratch_;
+
+            /// @brief Stores K_LANES blocks, one tap each, between the filters and the encode;
+            /// lane-major. The filters do not write where they read.
+            std::vector<float> filtered_;
 
             /// @brief Stores K_BANK_COUNT banks of K_STATE_PER_TAP doubles per tap, bank-major.
             std::vector<double> state_;
-
-            /// @brief Counts the frames of history the ring keeps before the mirror region.
-            std::uint32_t ring_length_ = 0;
-
-            /// @brief Counts the frames the mirror region duplicates from the ring's start.
-            std::uint32_t mirror_length_ = 0;
-
-            /// @brief Indexes the ring frame the last written block started at.
-            std::uint32_t block_start_ = 0;
-
-            /// @brief Indexes the ring frame the next write lands on.
-            std::uint32_t write_head_ = 0;
 
             /// @brief Bounds the integer delay a tap may ask for.
             std::uint32_t max_delay_frames_ = 0;

@@ -30,6 +30,7 @@
 #include <array>
 #include <cstdint>
 
+#include "SushiDSP/room/band_response.hpp"
 #include "SushiDSP/room/early_tap_set.hpp"
 #include "SushiDSP/room/fdn_design.hpp"
 #include "SushiDSP/room/image_source_solver.hpp"
@@ -43,6 +44,34 @@ namespace SushiDSP::room
     class LateReverbDesign
     {
         public:
+            /// @brief Holds what the tail takes from the room alone: the lines, their absorptive
+            /// filters and the energy the network carries per band. No pose enters it.
+            struct Network
+            {
+                    /// @brief Stores the line lengths and the line filters; the rest is unset.
+                    FdnDesign design;
+
+                    /// @brief Stores the network's energy per band for a unit input.
+                    std::array<double, K_BAND_COUNT> energy;
+
+                    /// @brief Stores the time the tail takes over at, in frames.
+                    double handover_frames;
+            };
+
+            /// @brief Returns the room's part of the design.
+            /// @param crossover_time_s The time the early set hands over at, as the set stores it.
+            /// @pre sample_rate exceeds 2 * K_BAND_CENTRES_HZ[K_BAND_COUNT - 1].
+            static Network network(const RoomScene& scene, float crossover_time_s,
+                                   double sample_rate);
+
+            /// @brief Returns the whole FDN design from a room's network, for one early set and
+            /// one listener: the level, the tone correction and the coherence filters.
+            /// @pre network was built from this scene's room at early.crossover_time_s; the early
+            /// taps are sorted by arrival.
+            static FdnDesign design(const Network& network, const RoomScene& scene,
+                                    const EarlyTapSet& early, double sample_rate,
+                                    ListenerKind listener);
+
             /// @brief Returns the whole FDN design for one scene, its early set and one listener.
             /// @pre sample_rate exceeds 2 * K_BAND_CENTRES_HZ[K_BAND_COUNT - 1]; the early taps are
             /// sorted by arrival, so tap 0 is the direct sound whenever count > 0.

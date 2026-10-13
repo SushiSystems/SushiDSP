@@ -64,6 +64,10 @@ namespace SushiDSP::room
 
             /// @brief Names the source the row was transcribed from.
             const char* citation;
+
+            /// @brief Stores the item's nominal width, depth and height, in metres: the box it is
+            /// drawn as and its absorption is spread around.
+            std::array<float, 3> box_m;
     };
 
     /// @brief Returns the transcribed row of the given furnishing.

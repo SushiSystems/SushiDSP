@@ -109,6 +109,16 @@ namespace SushiDSP::room
         return std::sqrt((1.0 + zero_ratio * zero_ratio) / (1.0 + pole_ratio * pole_ratio));
     }
 
+    BandResponse CabinetDirectivity::rear_response() const noexcept
+    {
+        BandResponse response{};
+        for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
+        {
+            response.gain[band] = static_cast<float>(rear_shelf(K_BAND_CENTRES_HZ[band]));
+        }
+        return response;
+    }
+
     double CabinetDirectivity::factor_at(double frequency_hz, const Direction& direction,
                                          double sine_theta) const noexcept
     {
@@ -116,8 +126,13 @@ namespace SushiDSP::room
         const double piston =
             piston_factor(wavenumber * effective_radius(frequency_hz) * sine_theta);
         const double half_spacing = 0.5 * wavenumber * geometry_.driver_spacing_m;
-        const double array = std::fabs(std::cos(half_spacing * direction.left)) *
-                             std::fabs(std::cos(half_spacing * direction.up));
+        // An axis with one cone has no array factor; two cones give the cosine.
+        const double across = geometry_.driver_columns > 1u
+                                  ? std::fabs(std::cos(half_spacing * direction.left))
+                                  : 1.0;
+        const double upward =
+            geometry_.driver_rows > 1u ? std::fabs(std::cos(half_spacing * direction.up)) : 1.0;
+        const double array = across * upward;
         const double rear = direction.forward < 0.0 ? rear_shelf(frequency_hz) : 1.0;
         return std::fabs(piston) * array * rear;
     }

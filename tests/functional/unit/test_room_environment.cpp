@@ -413,3 +413,24 @@ TEST(Unit_Dsp, RoomEnvironmentRendersEveryPortThroughARigGraph)
         EXPECT_GT(sinks[microphone]->peak_, 1e-5f) << "microphone " << microphone;
     }
 }
+
+TEST(Unit_Dsp, RoomShellDesignDoesNotReadThePoses)
+{
+    const SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+    SushiDSP::room::RoomScene moved = scene;
+    moved.source_position.x += 0.4;
+    moved.listener_position.y -= 0.3;
+    moved.microphone_position.z += 0.2;
+
+    const SushiDSP::room::ShellDesign here = SushiDSP::room::design_shell(scene, 48000.0);
+    const SushiDSP::room::ShellDesign there = SushiDSP::room::design_shell(moved, 48000.0);
+
+    EXPECT_EQ(here.network.design.line_frames, there.network.design.line_frames);
+    EXPECT_EQ(here.network.energy, there.network.energy);
+    ASSERT_EQ(here.modal.design.count, there.modal.design.count);
+    ASSERT_GT(here.modal.design.count, 0u);
+    for (std::uint32_t mode = 0; mode < here.modal.design.count; ++mode)
+    {
+        EXPECT_EQ(here.modal.design.modes[mode].section, there.modal.design.modes[mode].section);
+    }
+}

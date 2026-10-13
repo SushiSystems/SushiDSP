@@ -129,7 +129,7 @@ namespace
     Bands reflected_energy(const EarlyTapSet& early)
     {
         Bands energy{};
-        for (std::uint32_t index = 1; index < early.count; ++index)
+        for (std::uint32_t index = early.direct_count; index < early.count; ++index)
         {
             const BandResponseFit::Coefficients coefficients{early.taps[index].section_a,
                                                              early.taps[index].section_b};

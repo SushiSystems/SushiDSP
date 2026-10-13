@@ -65,7 +65,7 @@ namespace SushiDSP::Room
         arrangement.shell_ = scene;
         arrangement.listener_ = Pose{scene.listener_position, scene.listener_yaw_rad};
         arrangement.sources_.push_back(
-            SourcePlacement{0u, Pose{scene.source_position, scene.source_yaw_rad}});
+            SourcePlacement{0u, Pose{scene.source_position, scene.source_yaw_rad}, scene.cabinet});
         return arrangement;
     }
 
@@ -119,6 +119,20 @@ namespace SushiDSP::Room
         }
         found->pose = pose;
         return true;
+    }
+
+    bool Arrangement::set_source_cabinet(std::uint64_t id,
+                                         const room::CabinetGeometry& cabinet) noexcept
+    {
+        for (SourcePlacement& source : sources_)
+        {
+            if (source.id == id)
+            {
+                source.cabinet = cabinet;
+                return true;
+            }
+        }
+        return false;
     }
 
     bool Arrangement::remove_source(std::uint64_t id) noexcept
@@ -220,6 +234,7 @@ namespace SushiDSP::Room
         {
             scene.source_position = sources_[source].pose.position;
             scene.source_yaw_rad = sources_[source].pose.yaw_rad;
+            scene.cabinet = sources_[source].cabinet;
         }
         else
         {
@@ -261,7 +276,7 @@ namespace SushiDSP::Room
         return true;
     }
 
-    bool scenes_equal(const room::RoomScene& left, const room::RoomScene& right) noexcept
+    bool shells_equal(const room::RoomScene& left, const room::RoomScene& right) noexcept
     {
         if (!same_point(left.dimensions, right.dimensions) || left.surfaces != right.surfaces ||
             left.scattering != right.scattering || left.patch_count != right.patch_count ||
@@ -283,20 +298,20 @@ namespace SushiDSP::Room
         {
             const room::RoomScene::Furnishing& a = left.furnishings[index];
             const room::RoomScene::Furnishing& b = right.furnishings[index];
-            if (a.item != b.item || a.quantity != b.quantity)
+            const bool same_place =
+                a.placed == b.placed && a.x_m == b.x_m && a.y_m == b.y_m && a.yaw_rad == b.yaw_rad;
+            if (a.item != b.item || a.quantity != b.quantity || !same_place)
             {
                 return false;
             }
         }
-        const room::CabinetGeometry& a = left.cabinet;
-        const room::CabinetGeometry& b = right.cabinet;
-        if (a.cone_radius_m != b.cone_radius_m || a.driver_spacing_m != b.driver_spacing_m ||
-            a.baffle_width_m != b.baffle_width_m ||
-            a.breakup_frequency_hz != b.breakup_frequency_hz)
-        {
-            return false;
-        }
-        return same_point(left.source_position, right.source_position) &&
+        return room::same_geometry(left.cabinet, right.cabinet);
+    }
+
+    bool scenes_equal(const room::RoomScene& left, const room::RoomScene& right) noexcept
+    {
+        return shells_equal(left, right) &&
+               same_point(left.source_position, right.source_position) &&
                left.source_yaw_rad == right.source_yaw_rad &&
                same_point(left.listener_position, right.listener_position) &&
                left.listener_yaw_rad == right.listener_yaw_rad &&
