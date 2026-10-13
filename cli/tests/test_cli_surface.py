@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,6 +27,7 @@ from sushidsp.services.project import BuildType
 
 K_DISTRIBUTION = "sushidsp-cli"
 K_SUBCOMMANDS = ["docs bundle"]
+K_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 K_GIT = (
     "git", "-c", "user.name=tests", "-c", "user.email=tests@example.invalid",
     "-c", "commit.gpgsign=false",
@@ -96,7 +98,7 @@ def test_docs_runs_the_api_build_and_bundle_is_its_subcommand(monkeypatch, tmp_p
     assert runner.invoke(app, ["doxygen"]).exit_code == 6
     missing = runner.invoke(app, ["docs", "bundle"])
     assert missing.exit_code == 2
-    assert "--release" in missing.output
+    assert "--release" in K_ANSI_ESCAPE.sub("", missing.output)
 
 
 def test_the_command_set_is_the_documented_one():
