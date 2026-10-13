@@ -33,12 +33,12 @@ add_library(room STATIC
     source/frame_delay.cpp
     source/delay_ring.cpp
     source/direct_path.cpp
-    source/modal_path.cpp
-    source/geometric_path.cpp
-    source/binaural_stage.cpp
+    source/room_arrangement.cpp
+    source/environment_render_set.cpp
+    source/source_stage.cpp
+    source/pair_stage.cpp
+    source/receiver_output.cpp
     source/room_node.cpp
-    source/room_environment_node.cpp
-    source/microphone_node.cpp
 )
 add_library(SushiDSP::room ALIAS room)
 target_link_libraries(room PUBLIC SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math)

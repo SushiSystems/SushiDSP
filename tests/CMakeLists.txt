@@ -50,7 +50,6 @@ add_executable(sushidsp_tests
     functional/unit/test_channel_strip_node.cpp
     functional/unit/test_stereo_strip_node.cpp
     functional/unit/test_bus_node.cpp
-    functional/unit/test_room_environment_node.cpp
     functional/unit/test_microphone_node.cpp
     functional/unit/test_splitter_node.cpp
     functional/unit/test_mixer_node.cpp
@@ -225,6 +224,8 @@ add_executable(sushidsp_tests
     functional/unit/test_modal_solver.cpp
     functional/unit/test_room_render_set.cpp
     functional/unit/test_room_node.cpp
+    functional/unit/test_room_environment.cpp
+    functional/unit/test_room_arrangement.cpp
     functional/unit/test_channel_resampler.cpp
     functional/unit/test_audio_import_cache.cpp
     functional/unit/test_audio_import_queue.cpp
@@ -271,6 +272,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::routing
     SushiDSP::capture
     SushiDSP::room
+    SushiDSP::microphone
     SushiDSP::rig_preset
     GTest::gtest
     # Known limitation: nlohmann_json::nlohmann_json is only available here because

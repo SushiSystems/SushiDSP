@@ -46,8 +46,9 @@ namespace SushiDSP::room
     }
 
     MicrophoneModel::MicrophoneModel(PolarPattern pattern,
-                                     const std::array<float, K_BAND_COUNT>& on_axis_db) noexcept
-        : pressure_share_(pattern_pressure_share(pattern)),
+                                     const std::array<float, K_BAND_COUNT>& on_axis_db,
+                                     bool proximity) noexcept
+        : pressure_share_(pattern_pressure_share(pattern)), proximity_(proximity),
           on_axis_(BandResponse::from_decibels(on_axis_db))
     {
     }
@@ -65,7 +66,8 @@ namespace SushiDSP::room
         BandResponse response{};
         for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
         {
-            const double boost = proximity_boost(K_BAND_CENTRES_HZ[band], distance_m);
+            const double boost =
+                proximity_ ? proximity_boost(K_BAND_CENTRES_HZ[band], distance_m) : 1.0;
             const double pattern = pressure_share_ + gradient * boost;
             response.gain[band] =
                 static_cast<float>(std::fabs(pattern) * static_cast<double>(on_axis_.gain[band]));

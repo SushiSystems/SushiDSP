@@ -28,6 +28,7 @@
 #include "SushiDSP/room/modal_bank.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -58,12 +59,6 @@ namespace SushiDSP::room
 
                 /// @brief Stores a2 per lane.
                 double pole_second[K_LANES];
-
-                /// @brief Stores psi_n at the left ear per lane.
-                double ear_left[K_LANES];
-
-                /// @brief Stores psi_n at the right ear per lane.
-                double ear_right[K_LANES];
         };
 
         /// @brief Fills a group from the design's modes starting at first, zeroing every lane at
@@ -81,17 +76,14 @@ namespace SushiDSP::room
                 group.feed_oldest[lane] = live ? mode.section[2] * source : 0.0;
                 group.pole_first[lane] = live ? mode.section[3] : 0.0;
                 group.pole_second[lane] = live ? mode.section[4] : 0.0;
-                group.ear_left[lane] = live ? static_cast<double>(mode.ear_gain[0]) : 0.0;
-                group.ear_right[lane] = live ? static_cast<double>(mode.ear_gain[1]) : 0.0;
             }
         }
 
         /// @brief Advances one group's K_LANES resonators over frames samples in transposed direct
-        /// form II, adding each lane's output times its ear gains into the lane partials.
+        /// form II, writing each lane's output per frame.
         void run_group(const LaneGroup& group, double* const __restrict state_first,
                        double* const __restrict state_second, const float* const __restrict input,
-                       double* const __restrict partial_left,
-                       double* const __restrict partial_right, std::uint32_t frames) noexcept
+                       double* const __restrict lane_output, std::uint32_t frames) noexcept
         {
             double first[K_LANES];
             double second[K_LANES];
@@ -103,8 +95,7 @@ namespace SushiDSP::room
             for (std::uint32_t frame = 0; frame < frames; ++frame)
             {
                 const double sample = static_cast<double>(input[frame]);
-                double* const left = partial_left + static_cast<std::size_t>(frame) * K_LANES;
-                double* const right = partial_right + static_cast<std::size_t>(frame) * K_LANES;
+                double* const out = lane_output + static_cast<std::size_t>(frame) * K_LANES;
                 for (std::size_t lane = 0; lane < K_LANES; ++lane)
                 {
                     const double output = group.feed_now[lane] * sample + first[lane];
@@ -112,8 +103,7 @@ namespace SushiDSP::room
                                   group.pole_first[lane] * output + second[lane];
                     second[lane] =
                         group.feed_oldest[lane] * sample - group.pole_second[lane] * output;
-                    left[lane] += output * group.ear_left[lane];
-                    right[lane] += output * group.ear_right[lane];
+                    out[lane] = output;
                 }
             }
             for (std::size_t lane = 0; lane < K_LANES; ++lane)
@@ -123,7 +113,23 @@ namespace SushiDSP::room
             }
         }
 
-        /// @brief Sums the K_LANES partials of every frame into the ear's output buffer.
+        /// @brief Adds one group's lane outputs, each times the receiver's gain for its mode, into
+        /// one read-out's lane partials.
+        void read_group(const double* const __restrict lane_output, const double* const gain,
+                        double* const __restrict partial, std::uint32_t frames) noexcept
+        {
+            for (std::uint32_t frame = 0; frame < frames; ++frame)
+            {
+                const double* const out = lane_output + static_cast<std::size_t>(frame) * K_LANES;
+                double* const sum = partial + static_cast<std::size_t>(frame) * K_LANES;
+                for (std::size_t lane = 0; lane < K_LANES; ++lane)
+                {
+                    sum[lane] += out[lane] * gain[lane];
+                }
+            }
+        }
+
+        /// @brief Sums the K_LANES partials of every frame into the read-out's output buffer.
         void reduce_lanes(const double* const __restrict partial, float* const __restrict output,
                           std::uint32_t frames) noexcept
         {
@@ -145,10 +151,11 @@ namespace SushiDSP::room
         // The state holds whole groups; the last group's spare lanes read real storage.
         const std::size_t padded_modes =
             (ModalDesign::K_MAX_MODES + K_LANES - 1) / K_LANES * K_LANES;
+        const std::size_t block_lanes = static_cast<std::size_t>(max_block_frames) * K_LANES;
         state_first_.assign(padded_modes, 0.0);
         state_second_.assign(padded_modes, 0.0);
-        partial_left_.assign(static_cast<std::size_t>(max_block_frames) * K_LANES, 0.0);
-        partial_right_.assign(static_cast<std::size_t>(max_block_frames) * K_LANES, 0.0);
+        lane_output_.assign(block_lanes, 0.0);
+        partial_.assign(block_lanes * K_MAX_READ_OUTS, 0.0);
         max_block_frames_ = max_block_frames;
     }
 
@@ -165,32 +172,71 @@ namespace SushiDSP::room
         {
             return;
         }
+        std::array<float, ModalDesign::K_MAX_MODES> left_gains;
+        std::array<float, ModalDesign::K_MAX_MODES> right_gains;
+        for (std::size_t index = 0; index < ModalDesign::K_MAX_MODES; ++index)
+        {
+            const bool live = index < design.count;
+            left_gains[index] = live ? design.modes[index].ear_gain[0] : 0.0f;
+            right_gains[index] = live ? design.modes[index].ear_gain[1] : 0.0f;
+        }
+        const ReadOut read_outs[2] = {{left_gains.data(), left}, {right_gains.data(), right}};
+        process(design, input, read_outs, 2u, frames);
+    }
+
+    void ModalBank::process(const ModalDesign& design, const float* input,
+                            const ReadOut* read_outs, std::uint32_t count,
+                            std::uint32_t frames) noexcept
+    {
+        if (design.count == 0u || max_block_frames_ == 0u)
+        {
+            return;
+        }
         const DenormalGuard guard;
+        const std::uint32_t rows = std::min(count, K_MAX_READ_OUTS);
         std::uint32_t done = 0;
         while (done < frames)
         {
             const std::uint32_t chunk = std::min(frames - done, max_block_frames_);
-            render_block(design, input + done, left + done, right + done, chunk);
+            render_block(design, input + done, read_outs, rows, done, chunk);
             done += chunk;
         }
     }
 
-    void ModalBank::render_block(const ModalDesign& design, const float* input, float* left,
-                                 float* right, std::uint32_t frames) noexcept
+    void ModalBank::render_block(const ModalDesign& design, const float* input,
+                                 const ReadOut* read_outs, std::uint32_t count,
+                                 std::uint32_t offset, std::uint32_t frames) noexcept
     {
+        const std::size_t block_lanes = static_cast<std::size_t>(max_block_frames_) * K_LANES;
         const std::size_t partial_count = static_cast<std::size_t>(frames) * K_LANES;
-        std::fill_n(partial_left_.data(), partial_count, 0.0);
-        std::fill_n(partial_right_.data(), partial_count, 0.0);
-        const std::uint32_t count = std::min<std::uint32_t>(
+        for (std::uint32_t row = 0; row < count; ++row)
+        {
+            std::fill_n(partial_.data() + row * block_lanes, partial_count, 0.0);
+        }
+        const std::uint32_t modes = std::min<std::uint32_t>(
             design.count, static_cast<std::uint32_t>(ModalDesign::K_MAX_MODES));
         LaneGroup group;
-        for (std::uint32_t first = 0; first < count; first += static_cast<std::uint32_t>(K_LANES))
+        for (std::uint32_t first = 0; first < modes; first += static_cast<std::uint32_t>(K_LANES))
         {
             gather_group(design, first, group);
             run_group(group, state_first_.data() + first, state_second_.data() + first, input,
-                      partial_left_.data(), partial_right_.data(), frames);
+                      lane_output_.data(), frames);
+            for (std::uint32_t row = 0; row < count; ++row)
+            {
+                double gain[K_LANES];
+                for (std::size_t lane = 0; lane < K_LANES; ++lane)
+                {
+                    const std::uint32_t index = first + static_cast<std::uint32_t>(lane);
+                    gain[lane] =
+                        index < modes ? static_cast<double>(read_outs[row].gains[index]) : 0.0;
+                }
+                read_group(lane_output_.data(), gain, partial_.data() + row * block_lanes, frames);
+            }
         }
-        reduce_lanes(partial_left_.data(), left, frames);
-        reduce_lanes(partial_right_.data(), right, frames);
+        for (std::uint32_t row = 0; row < count; ++row)
+        {
+            reduce_lanes(partial_.data() + row * block_lanes, read_outs[row].output + offset,
+                         frames);
+        }
     }
 } // namespace SushiDSP::room

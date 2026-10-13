@@ -21,27 +21,41 @@
 
 /**
  * @file microphone_node.hpp
- * @brief Declares the microphone rig element: polarity and the room flag for one room microphone.
- * @author Mustafa Garip
+ * @brief Declares the microphone rig element: pattern, proximity, polarity and the room flag.
+ * @author Mustafa Garip & Sushi Systems
  */
 
 #pragma once
+
+#include <cstdint>
 
 #include "SushiDSP/core/audio_node.hpp"
 #include "SushiDSP/core/node_descriptor.hpp"
 #include "SushiDSP/core/parameter_table.hpp"
 
-namespace SushiDSP::Room
+namespace SushiDSP
 {
-    /// @brief One room microphone as a rig element. The room places it and computes what it hears;
-    /// this node carries the gear's own settings and passes the room's signal on.
+    /// @brief One microphone as a rig element. A room places it and computes what it hears; this
+    /// node carries the gear's own settings and passes the room's signal on, inverted when its
+    /// polarity is reversed.
     ///
-    /// The room flag marks an overhead microphone. A rig routes flagged microphones to the Room
-    /// strip and the rest to their own Mic strips, as AmpliTube 5 does.
+    /// The pattern and the proximity switch are gear data the room's solve reads; the node only
+    /// stores them. The room flag marks an overhead microphone, which a rig sums on its Room strip.
     class MicrophoneNode final : public AudioNode
     {
         public:
-            /// @brief Constructs the microphone with normal polarity and no room flag.
+            /// @brief Names the capsule's first-order polar pattern, in the order the "pattern"
+            /// parameter counts them.
+            enum class Pattern : std::uint8_t
+            {
+                Omni = 0,
+                Cardioid,
+                Supercardioid,
+                FigureEight
+            };
+
+            /// @brief Constructs a cardioid with its proximity effect on, normal polarity and no
+            /// room flag.
             MicrophoneNode();
 
             /// @brief Holds no per-rate state; present to satisfy AudioNode.
@@ -60,18 +74,18 @@ namespace SushiDSP::Room
             void reset() override;
 
             /// @brief Reads a parameter by string id.
-            /// @param id One of "polarity" or "room".
+            /// @param id One of "pattern", "proximity", "polarity" or "room".
             /// @return The value, or 0.0f for an unknown id.
             float get_parameter(const char* id) const override;
 
             /// @brief Sets a parameter by string id.
-            /// @param id One of "polarity" or "room".
-            /// @param value Values of 0.5 or more set the flag; others clear it.
+            /// @param id One of "pattern", "proximity", "polarity" or "room".
+            /// @param value The pattern's index, or 0.5 and above to set a switch.
             void set_parameter_for_control_thread(const char* id, float value) override;
 
             /// @brief Sets a parameter by descriptor index.
             /// @param index The parameter's index in the descriptor table.
-            /// @param value Values of 0.5 or more set the flag; others clear it.
+            /// @param value The pattern's index, or 0.5 and above to set a switch.
             void set_parameter_for_audio_thread(std::uint16_t index, float value) override;
 
             /// @brief This microphone's registered type id.
@@ -80,13 +94,27 @@ namespace SushiDSP::Room
 
             /// @brief This node's parameters, one row each.
             /// @return The table, built once on first use.
-            static const ParameterTable<MicrophoneNode, 2>& parameters();
+            static const ParameterTable<MicrophoneNode, 4>& parameters();
+
+            /// @brief Reads the capsule's polar pattern.
+            /// @return The pattern.
+            Pattern pattern() const noexcept;
+
+            /// @brief Reports whether the capsule's gradient share takes the proximity effect.
+            /// @return True when proximity is on.
+            bool proximity() const noexcept;
 
             /// @brief Reports whether this microphone is an overhead (room) microphone.
             /// @return True when the room flag is set.
             bool is_room_microphone() const noexcept;
 
         private:
+            /// @brief Stores the capsule's polar pattern.
+            Pattern pattern_ = Pattern::Cardioid;
+
+            /// @brief True when the capsule's gradient share takes the proximity effect.
+            bool proximity_ = true;
+
             /// @brief True when the signal is inverted.
             bool polarity_inverted_ = false;
 
@@ -97,4 +125,4 @@ namespace SushiDSP::Room
     /// @brief The microphone's registration entry point.
     /// @return The static NodeDescriptor for "sushidsp.microphone".
     const NodeDescriptor& microphone_descriptor();
-} // namespace SushiDSP::Room
+} // namespace SushiDSP

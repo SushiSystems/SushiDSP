@@ -67,6 +67,7 @@
 
 #include "circuits/jcm_v1a_netlist.hpp"
 #include "common/room_fixtures.hpp"
+#include "common/room_ports.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -483,18 +484,27 @@ namespace
         return scene;
     }
 
-    /// @brief Returns a prepared, full-wet RoomNode rendering the garage for one listener.
-    /// @param listener 0.0f for the ears, 1.0f for the microphone.
-    std::unique_ptr<SushiDSP::room::RoomNode> prepared_room_node(float listener)
+    /// @brief Returns a prepared RoomNode rendering the garage with one cabinet and the listener.
+    /// @param with_microphone True also places the scene's microphone, so the node renders two
+    /// receivers.
+    std::unique_ptr<SushiDSP::room::RoomNode> prepared_room_node(bool with_microphone)
     {
         auto node = std::make_unique<SushiDSP::room::RoomNode>();
-        node->set_parameter_for_control_thread("mix", 1.0f);
-        node->set_parameter_for_control_thread("listener", listener);
         node->prepare({K_SAMPLE_RATE, K_BLOCK_SIZE, 2});
+        const SushiDSP::room::RoomScene scene = garage_every_layer_scene();
+        SushiDSP::Room::Arrangement arrangement = SushiDSP::Room::Arrangement::from_scene(scene);
         std::string reason;
-        if (!node->set_scene(garage_every_layer_scene(), reason))
+        if (with_microphone)
         {
-            std::printf("RoomNode set_scene failed: %s\n", reason.c_str());
+            SushiDSP::Room::MicrophonePlacement microphone;
+            microphone.id = 1;
+            microphone.pose = {scene.microphone_position, scene.microphone_yaw_rad};
+            microphone.pattern = scene.microphone_pattern;
+            arrangement.add_microphone(microphone, reason);
+        }
+        if (!node->set_arrangement(arrangement, reason))
+        {
+            std::printf("RoomNode set_arrangement failed: %s\n", reason.c_str());
         }
         return node;
     }
@@ -503,7 +513,7 @@ namespace
     /// running. Plan Task 29 step 1; spec §12 item 10 budgets 1.8 ms.
     SushiDSP::bench::Result measure_room_ears_steady_state()
     {
-        auto node = prepared_room_node(0.0f);
+        auto node = prepared_room_node(false);
         const std::vector<float> input = make_test_tone(K_BLOCK_SIZE);
         std::vector<float> left(K_BLOCK_SIZE, 0.0f);
         std::vector<float> right(K_BLOCK_SIZE, 0.0f);
@@ -523,7 +533,7 @@ namespace
     /// banks. Plan Task 29 step 2; spec §12 item 10 budgets 2.8 ms.
     SushiDSP::bench::Result measure_room_ears_swap()
     {
-        auto node = prepared_room_node(0.0f);
+        auto node = prepared_room_node(false);
         SushiDSP::room::RoomScene alternate = garage_every_layer_scene();
         alternate.source_position.x += 0.05;
         const std::vector<float> input = make_test_tone(K_BLOCK_SIZE);
@@ -547,17 +557,18 @@ namespace
             });
     }
 
-    /// @brief Times the microphone's steady-state block. Plan Task 29 step 3.
+    /// @brief Times the steady-state block of one cabinet heard by the listener and one
+    /// microphone.
     SushiDSP::bench::Result measure_room_microphone_steady_state()
     {
-        auto node = prepared_room_node(1.0f);
+        auto node = prepared_room_node(true);
         const std::vector<float> input = make_test_tone(K_BLOCK_SIZE);
         std::vector<float> left(K_BLOCK_SIZE, 0.0f);
         std::vector<float> right(K_BLOCK_SIZE, 0.0f);
         const float* inputs[1] = {input.data()};
         float* outputs[2] = {left.data(), right.data()};
         return SushiDSP::bench::measure(
-            "RoomNode microphone (steady state)", K_BLOCK_SIZE, K_SAMPLE_RATE,
+            "RoomNode ears + 1 microphone (steady state)", K_BLOCK_SIZE, K_SAMPLE_RATE,
             [&]
             {
                 SushiDSP::ProcessContext context{outputs, inputs, K_BLOCK_SIZE, 0.0};
@@ -684,6 +695,71 @@ namespace
             std::vector<float> tone_;
     };
 
+    /// @brief Holds the gate of the cabinet section: three cabinets and eight microphones behind
+    /// three JCM800 chains stay under half of the 5.33 ms block.
+    constexpr double K_CABINET_SECTION_GATE_MS = 2.67;
+
+    /// @brief Times the room alone at its limits: three cabinets, the listener and eight
+    /// microphones, every port rendered.
+    SushiDSP::bench::Result measure_room_at_the_limits()
+    {
+        auto node = std::make_unique<SushiDSP::room::RoomNode>();
+        node->prepare({K_SAMPLE_RATE, K_BLOCK_SIZE, 2});
+        std::string reason;
+        if (!node->set_arrangement(
+                SushiDSP::test::spread_arrangement(garage_every_layer_scene(), 3, 8), reason))
+        {
+            std::printf("RoomNode set_arrangement failed: %s\n", reason.c_str());
+        }
+        const std::vector<float> input = make_test_tone(K_BLOCK_SIZE);
+        const float* inputs[6] = {input.data(), input.data(), input.data(),
+                                  input.data(), input.data(), input.data()};
+        SushiDSP::test::RoomPorts ports(K_BLOCK_SIZE);
+        return SushiDSP::bench::measure("RoomNode 3 cabinets, ears + 8 microphones", K_BLOCK_SIZE,
+                                        K_SAMPLE_RATE,
+                                        [&]
+                                        {
+                                            SushiDSP::ProcessContext context =
+                                                ports.context(inputs, K_BLOCK_SIZE);
+                                            node->process(context);
+                                        });
+    }
+
+    /// @brief Times the cabinet section's gate: three JCM800 chains, each into its own input of
+    /// one room that holds eight microphones and the listener.
+    SushiDSP::bench::Result measure_cabinet_section_gate()
+    {
+        SushiDSP::RigGraph graph(K_BLOCK_SIZE, 64);
+        auto room_handle = graph.add_node(std::make_unique<SushiDSP::room::RoomNode>());
+        for (int path = 0; path < 3; ++path)
+        {
+            auto source_handle = graph.add_node(std::make_unique<ToneSourceNode>());
+            auto amp_handle = graph.add_node(std::make_unique<SushiDSP::Jcm800>());
+            graph.connect(source_handle, amp_handle);
+            graph.connect(amp_handle, room_handle);
+        }
+        graph.compile({K_SAMPLE_RATE, K_BLOCK_SIZE, 2});
+
+        auto* room = static_cast<SushiDSP::room::RoomNode*>(graph.node(room_handle));
+        std::string reason;
+        if (!room->set_arrangement(
+                SushiDSP::test::spread_arrangement(garage_every_layer_scene(), 3, 8), reason))
+        {
+            std::printf("RoomNode set_arrangement failed: %s\n", reason.c_str());
+        }
+
+        std::vector<float> left(K_BLOCK_SIZE, 0.0f);
+        std::vector<float> right(K_BLOCK_SIZE, 0.0f);
+        float* outputs[2] = {left.data(), right.data()};
+        return SushiDSP::bench::measure(
+            "3 x JCM800 + RoomNode (3 cabinets, 8 microphones)", K_BLOCK_SIZE, K_SAMPLE_RATE,
+            [&]
+            {
+                SushiDSP::ProcessContext context{outputs, nullptr, K_BLOCK_SIZE, 0.0};
+                graph.process(context);
+            });
+    }
+
     /// @brief Times the room's own share of one block in a JCM800-into-room `RigGraph`, the
     /// shape DE7's decision is made against. Plan Task 29 step 5; over 2.0 ms opens DE7.
     SushiDSP::bench::Result measure_room_beside_jcm800()
@@ -705,8 +781,6 @@ namespace
         amp->set_presence(0.5f);
 
         auto* room = static_cast<SushiDSP::room::RoomNode*>(graph.node(room_handle));
-        room->set_parameter_for_control_thread("mix", 1.0f);
-        room->set_parameter_for_control_thread("listener", 0.0f);
         std::string reason;
         if (!room->set_scene(garage_every_layer_scene(), reason))
         {
@@ -913,6 +987,8 @@ int main(int argc, char** argv)
         print(measure_modal_bank());
         print(measure_binaural_decoder());
         print(measure_room_beside_jcm800(), 2.0);
+        print(measure_room_at_the_limits());
+        print(measure_cabinet_section_gate(), K_CABINET_SECTION_GATE_MS);
     }
     return 0;
 }
