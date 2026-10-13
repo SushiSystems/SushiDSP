@@ -48,6 +48,7 @@ add_executable(sushidsp_tests
     functional/unit/test_rig_graph_output_ports.cpp
     functional/unit/test_sample_delay_line.cpp
     functional/unit/test_channel_strip_node.cpp
+    functional/unit/test_stereo_strip_node.cpp
     functional/unit/test_bus_node.cpp
     functional/unit/test_room_environment_node.cpp
     functional/unit/test_microphone_node.cpp

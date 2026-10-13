@@ -64,7 +64,8 @@ namespace SushiDSP
             /// @return Two channels per input slot, for K_MAX_INPUTS slots; two output channels.
             PortLayout ports() const override;
 
-            /// @brief Opens every gate again. Control thread only.
+            /// @brief Opens every gate again; the next block starts each gate at its target.
+            /// Control thread only.
             void reset() override;
 
             /// @brief Reads a parameter by string id.
@@ -103,6 +104,10 @@ namespace SushiDSP
 
             /// @brief Holds the fraction of the remaining gate distance covered per sample.
             float gate_coefficient_ = 1.0f;
+
+            /// @brief Records that a block has run since construction or the last reset, so the
+            /// gates move from where they are and no longer start at their targets.
+            bool started_ = false;
     };
 
     /// @brief The bus's product registration entry point.

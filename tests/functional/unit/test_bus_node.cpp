@@ -176,6 +176,23 @@ TEST(Unit_Dsp, BusGateMovesOverFiveMillisecondsNotInAStep)
     EXPECT_LT(left[K_BLOCK - 1], 0.5f);
 }
 
+TEST(Unit_Dsp, BusStartsAMutedInputSilentOnItsFirstBlock)
+{
+    // A bus built with an input already muted never lets it through while a gate closes.
+    SushiDSP::BusNode bus;
+    prepare(bus);
+    bus.set_parameter_for_control_thread("mute_0", 1.0f);
+    const StereoBlock a(1.0f, 1.0f);
+    const StereoBlock b(0.25f, 0.5f);
+    std::vector<float> left(K_BLOCK), right(K_BLOCK);
+
+    run_bus(bus, {&a, &b}, left, right);
+
+    EXPECT_FLOAT_EQ(left[0], 0.25f);
+    EXPECT_FLOAT_EQ(right[0], 0.5f);
+    EXPECT_FLOAT_EQ(left[K_BLOCK - 1], 0.25f);
+}
+
 TEST(Unit_Dsp, BusParametersReadBackAndRejectUnknownNames)
 {
     SushiDSP::BusNode bus;
@@ -188,8 +205,7 @@ TEST(Unit_Dsp, BusParametersReadBackAndRejectUnknownNames)
 
 TEST(Unit_Dsp, BusRoutesEachStripToItsOwnSlotThroughRigGraph)
 {
-    // Strip A is hard left and strip B hard right; both read the live mono input. Each must arrive
-    // at its own bus slot, so the bus output is left from A and right from B.
+    // Strip A is hard left and strip B hard right, so the bus is left from A and right from B.
     SushiDSP::RigGraph graph(K_BLOCK, 8);
     auto strip_a = std::make_unique<SushiDSP::ChannelStripNode>();
     strip_a->set_parameter_for_control_thread("pan", -1.0f);
