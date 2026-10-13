@@ -9,19 +9,12 @@ Order inside a section is the order the work should be taken in, not a priority 
 
 ## Waiting on the maintainer's ears
 
-The room's mix control has not been played since the tail's handover moved. Before
-2026-09-09 the first tail energy arrived 5198 frames after the direct sound, 108 ms at 48 kHz,
-because the input delay carried the handover time on top of the shortest line; the shortest line
-is the handover now. The maintainer played the old build at `mix = 0.09` with +6 dB of make-up
-and called anything above that "gaipten geliyor". Two questions close this: whether the gap is
-gone, and whether `mix = 1.0` is usable.
-
-If it is still unusable, the level is not the suspect. The direct path measures within air
-absorption of `1/r` and `DiffuseField` reproduces the classical critical-distance formula
-algebraically, both anchored against hand arithmetic. What is left is the shape of the control:
-`mix` blends dry against a wet path that carries the room's own direct sound, so the honest
-control may be the listener's distance to the cabinet rather than a dry/wet ratio. No work
-starts on that without the verdict.
+The cabinet section has not been played. A rig now carries its cabinets' own signal on the
+Cabinet input and the room on the Listener, Mic and Room strips, each with a level of its own, so
+the old question of how far the room's dry/wet mix could be turned up is replaced by a plainer
+one: with Cabinet muted, does a microphone 30 cm in front of the cabinet, or the listener across
+the room, sound like one. `docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/PLAN.md`, task G6, lists
+what to try on screen. No change to the levels the room renders at starts without that verdict.
 
 ## Room, opened by the DE phase
 
@@ -55,8 +48,6 @@ starts on that without the verdict.
   track playback only.
 - **Phase 2 manual acceptance.** The seven checks in Task 14 of
   `docs/archive/superpowers/plans/2026-09-14-host-gui-phase2.md` have not been run in the GUI.
-- **Parallel topology in presets.** A preset with a parallel shape loads flattened to a
-  series chain (`applications/host_gui/main.cpp`, `seed_rig_chain`); §19 leaves persistence open.
 - **`SlotGraph::add_branch` has no caller** since the splitter picker was removed;
   `RigController` still forwards to it.
 - **`SlotGraph::publish()` rebuilds every node.** One structural edit builds the node set
@@ -129,13 +120,26 @@ but not modelled, and item 17's SPICE decks are unblocked by the same reading.
 
 ## Opened 2026-10-13: AmpliTube 5 channels and cabinet section
 
-The copy of AmpliTube 5's signal architecture, in the phases its spec names
-([`docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md`](../agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md),
-section 11): stereo rig on the ASIO host (P0), output ports on `AudioNode` (P1), channel strips and
-the bus (P2), the Parallel and DI paths (P3), the cabinet section with the microphone node, the room
-environment and the 3D scene (P4), the preset format (P5), and the mixer view (P6). Open decisions
-the spec lists in section 12 are taken before the phase that depends on them. Nothing in this entry
-has started; the spec awaits the owner's review.
+The copy of AmpliTube 5's signal architecture
+([`docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md`](../agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md))
+is written through its last phase; its plan in the same folder holds what is verified and what is
+not. What it leaves:
+
+- **Solve the shell once per arrangement.** `Room::EnvironmentBuilder` calls `build_render_set`
+  per pair, so the tail's lines and the modal resonators, which depend on the shell alone, are
+  designed again for every receiver. Splitting `LateReverbDesign::design` and
+  `ModalSolver::design` into a shell part and a pair part removes that; an unchanged pair is
+  already copied, so the cost is paid only when the shell or a cabinet moves.
+- **One early ring per cabinet.** Each `Room::PairStage` keeps its own copy of the high half in
+  its `EarlyReflectionRenderer`. Letting the renderer read a ring it is handed, as `DirectPath`
+  does, leaves one ring per cabinet.
+- **Start a rebuilt strip where its level is.** Every publish builds fresh nodes and then writes
+  their parameters, so a smoothed parameter glides from its default to its value over 20 ms on
+  each structural edit. The Parallel chain's pans and every strip's level do this.
+- **A stereo post stage.** A post effect is mono, so it sums the amp bus's two channels and the
+  listener's stereo image is lost behind it (`docs/reference/KNOWN_ISSUES.md`).
+- **Loop FX sends and the VIRTM view** stay out; the spec's section 3 records why.
+- **A shared rig-width rule** for the two hosts waits for the owner (spec section 12).
 
 ## Opened by the 2026-10-05 estate audit
 

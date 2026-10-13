@@ -1,6 +1,6 @@
 # AmpliTube 5 channels, cabinet section and room
 
-**Status:** Open. P0 to P3 are built and tested. The cabinet section (P4 to P6) is being rebuilt to this spec; PLAN.md holds the tasks.
+**Status:** Open. Every phase is written, built and tested; the P4 benchmark gate fails at 3.896 ms against 2.67 ms, and the screen has not been checked with the owner. PLAN.md holds the build status.
 
 ## 1. Goal
 
@@ -60,6 +60,9 @@ Each row is an owner decision, recorded with its date.
 | VIRTM view left out | 2026-10-13 | Closes open item 3. The 3D scene shows distance and angle; there is no per-speaker data to draw. |
 | Loop FX sends left out | 2026-10-13 | Closes open item 4. |
 | Presets save the chain's topology | 2026-10-13 | A three-cabinet section cannot round-trip without the chain type and the stages' slots, so P5 saves them with the placements. |
+| The cabinet section exists while the rig holds gear | 2026-10-13 | A rig with no slot passes its input through and has no section. A path with no cabinet gives the room no source and reaches the Cabinet input only. |
+| Each pair is solved from its own scene | 2026-10-13 | The solvers keep their signatures. The tail's network and the modal resonators still run once per cabinet on the audio thread; only the control-thread design repeats per pair, and an unchanged pair is copied. |
+| One build at the end of the plan, in Release | 2026-10-13 | Owner decision. Tasks are checked with `clang++ -fsyntax-only` until then. |
 | Room namespace for the new room classes | 2026-10-13 | Owner request: the new classes are in SushiDSP::Room. The rest of the room module stays SushiDSP::room until the migration renames it. |
 | Parallel path as two mono amplifier chains | 2026-10-13 | Matches AmpliTube 5. Reuses the existing 1-to-2 copy and 2-to-1 sum rules. |
 | The 3D scene is built with the first placeable items | 2026-10-13 | Not after the audio work. Phase P4 carries a visible scene. |

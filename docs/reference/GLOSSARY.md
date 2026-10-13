@@ -8,6 +8,16 @@ gives it a narrower meaning than a reader would assume, not because it is unfami
 **descriptor**: a `NodeDescriptor`: the id, name, parameters, ports and `make()` function a
 product exposes, so a host builds the node without naming its class.
 
+**arrangement**: a `Room::Arrangement`: everything placed in one room, which is its shell, its
+listener, its cabinets and its microphones. The room node holds it; a host keeps no second copy.
+
+**cabinet section**: the part of a rig after its cabinets: the room, the microphones, the strips
+and the buses. The GUI host builds it around whatever gear the rig holds.
+
+**channel strip**: one mono source's level, pan, polarity and delay on its way to a bus;
+AmpliTube 5 calls it a channel. A **stereo strip** is the same for a source that is already
+stereo, with balance and width in place of pan.
+
 **node**: an `AudioNode`: one processing block with `prepare()`, `process()`, `ports()` and
 `reset()`. A product, a routing block and the graph itself are all nodes.
 
