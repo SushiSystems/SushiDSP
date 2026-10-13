@@ -12,6 +12,7 @@
 - 2026-10-13 — core: Added `RigGraph::bind_input`, so a root node reads the host channel it is bound to; the default keeps channel 0 (`rig_graph.cpp`).
 
 - 2026-10-13 — routing: Added the channel strip and the bus, which holds mute and solo for the mixer's inputs (`channel_strip_node.cpp`, `bus_node.cpp`, `sample_delay_line.cpp`).
+- 2026-10-13 — core: Refused at compile an output port wider than the two channels a route carries, which would have written past its buffers (`rig_graph.cpp`).
 - 2026-10-13 — core: Added named output ports, breaking because `ProcessContext` gained `port_outputs` (`audio_node.hpp`, `rig_graph.cpp`).
 - 2026-10-13 — host: Rendered the ASIO example rig at the device's width, up to two channels, so a stereo device hears the chain in both outputs (`applications/host_asio/main.cpp`, `README.md`).
 - 2026-10-13 — room: Opened the AmpliTube 5 channel and cabinet section work and wrote its spec (`docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md`).

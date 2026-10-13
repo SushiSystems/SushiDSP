@@ -796,7 +796,7 @@ namespace
             float gain_;
     };
 
-    /// @brief Declares three output channels, a width the adaptation table has no rule for.
+    /// @brief Declares three output channels, wider than the two the graph routes per port.
     class ThreeChannelSourceNode : public SushiDSP::AudioNode
     {
         public:
@@ -913,8 +913,9 @@ TEST(Unit_Dsp, RigGraphWritesEveryOutputChannelTheHostAsksFor)
     }
 }
 
-TEST(Unit_Dsp, RigGraphCompileRefusesAnEdgeWithNoAdaptationRule)
+TEST(Unit_Dsp, RigGraphCompileRefusesAPortWiderThanTheRoute)
 {
+    // A port's buffers hold K_MAX_CHANNELS channels, so a wider port would write past them.
     SushiDSP::RigGraph graph(256, 8);
     const auto source = graph.add_node(std::make_unique<ThreeChannelSourceNode>());
     const auto stereo = graph.add_node(std::make_unique<StereoGainNode>(1.0f));
@@ -923,15 +924,14 @@ TEST(Unit_Dsp, RigGraphCompileRefusesAnEdgeWithNoAdaptationRule)
     try
     {
         graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 2});
-        FAIL() << "compile() accepted an edge with no adaptation rule";
+        FAIL() << "compile() accepted a port wider than the route";
     }
     catch (const std::runtime_error& refusal)
     {
         const std::string message = refusal.what();
         EXPECT_NE(message.find("node " + std::to_string(source)), std::string::npos) << message;
-        EXPECT_NE(message.find("node " + std::to_string(stereo)), std::string::npos) << message;
-        EXPECT_NE(message.find("3 channels"), std::string::npos) << message;
-        EXPECT_NE(message.find("2 channels"), std::string::npos) << message;
+        EXPECT_NE(message.find("3 channels wide"), std::string::npos) << message;
+        EXPECT_NE(message.find("the limit is 2"), std::string::npos) << message;
     }
 }
 
