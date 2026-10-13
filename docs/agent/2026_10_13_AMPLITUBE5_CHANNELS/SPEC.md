@@ -1,6 +1,6 @@
 # AmpliTube 5 channels, cabinet section and room
 
-**Status:** Draft, awaiting the owner's review. No implementation has started.
+**Status:** Open. P0 to P3 are built and tested. The cabinet section (P4 to P6) is being rebuilt to this spec; PLAN.md holds the tasks.
 
 ## 1. Goal
 
@@ -28,8 +28,6 @@ Out of scope for this work:
 - A Space mode. The owner dropped it on 2026-10-13. A room is always present
   in the cabinet section, as it is in AmpliTube 5.
 
-Open within scope, see section 12: Loop FX sends, the VIRTM view.
-
 ## 3. Decisions
 
 Each row is an owner decision, recorded with its date.
@@ -46,8 +44,22 @@ Each row is an owner decision, recorded with its date.
 | Limits: 3 cabinets, 8 microphones | 2026-10-13 | Matches the 3-way splitter, and the existing fan-in limit `K_MAX_FAN_IN_OUT = 8`. Over-limit placements are refused on the control thread, with a reason. |
 | Mixer split into a channel strip and a bus | 2026-10-13 | `MixerNode` keeps summing; the strip is a new brick. |
 | Solo and mute live on the bus, not the strip | 2026-10-13 | Owner decision. Only the bus sees every input, so only it can make solo silence its neighbours. The strip keeps level, pan, polarity and delay. Width moves to P4 with the room's stereo sum. |
-| The P2 mixer panel moves to P4 | 2026-10-13 | Proposed in the phase plan, not yet approved by the owner. The panel is UI, and P4 builds the scene the strips sit in. |
-| Engineering decisions taken without the owner, under the instruction to finish | 2026-10-13 | (a) Each (cabinet, receiver) pair is its own RoomNode; the tail is not shared, so the spec's open item 2 is closed as "per pair". (b) Benchmark threshold: a block of 3 cabinets and 8 microphones must take under half of the 5.33 ms budget. Not measured; the benchmark case is not written yet. The tree builds and the unit and regression suites pass (see PLAN.md, build status). (c) VIRTM view is a plane with distance and angle only; no per-speaker bleed. (d) Loop FX stays out. (e) The microphone holds polarity and the room flag; its position and pattern stay with the room's placement, because the pattern changes what the room computes. (f) The master is two-level: a bus of the eight microphone strips and the two listener strips, a head bus, and the DI strip, all summed in a master bus of three inputs. Solo applies within each bus, not across them. (g) Parallel uses one root per channel, bound with RigGraph::bind_input, and a channel strip per branch panned hard left and right. |
+| The mixer panel is built with the cabinet section | 2026-10-13 | The panel is UI, and the cabinet section builds the scene the strips sit in. |
+| The owner delegated the open engineering decisions | 2026-10-13 | The rows below were taken by the engineer under that delegation. They replace the choices of the unattended run. |
+| `RoomNode` is the environment | 2026-10-13 | One node: three mono source inputs, port 0 the listener's stereo pair, ports 1 to 8 one microphone each. No wrapper node. `RigGraph::K_MAX_OUTPUT_PORTS` becomes 9 and the fan-out limit applies per port. |
+| The tail is per source, its level per pair | 2026-10-13 | Closes open item 2. The tail's network runs once per source; each receiver reads it through its own gain, tone and delay. The modal resonators run once per source as well, read through one gain row per receiver. |
+| One render set for the whole room | 2026-10-13 | A placement change is published whole, through one swap slot. |
+| The room has no `listener`, `mix` or `level` parameter | 2026-10-13 | The port names the receiver and the strips hold level. Breaking change. `direct_delay` stays. |
+| Placement is a `Room::Arrangement` held by the room | 2026-10-13 | `RoomHost` gains `set_arrangement` and `arrangement`. The host keeps no second copy. A source is keyed by its cabinet slot, a microphone by its microphone slot. |
+| The microphone node holds pattern, proximity, polarity and the room flag | 2026-10-13 | Closes open item 5. It lives in `modules/nodes/microphone`. The host copies pattern and proximity into the arrangement, because the room's solve needs them. |
+| The cabinet's own output stays in the mix as the Cabinet input | 2026-10-13 | The impulse response is already a close-microphone capture. A new rig starts with Cabinet on, the listener muted and no microphone, so existing rigs and the JCM800 tone anchor sound as they did. |
+| Mixer: Mic strips and the Room strip into the Bus; Cabinet, Bus and Listener into the amp bus; the Post stage; then the Master with the DI | 2026-10-13 | Flagged microphones leave the Bus for the Room sum, so the Bus never exceeds eight inputs with eight microphones. The listener and the master use a new stereo strip with level, balance and width. |
+| The DI position is before or after the Post stage | 2026-10-13 | Before: the DI joins the amp bus. After: it joins the Master. |
+| The cabinet section is a pane of the main layout | 2026-10-13 | It holds a perspective 3D scene with an orbit camera, an inspector and the mixer. There is no room switch and no room entry in the gear browser. |
+| Benchmark threshold: 2.67 ms | 2026-10-13 | Closes open item 1. Three cabinets and eight microphones behind three JCM800 chains stay under half the block budget on Release. |
+| VIRTM view left out | 2026-10-13 | Closes open item 3. The 3D scene shows distance and angle; there is no per-speaker data to draw. |
+| Loop FX sends left out | 2026-10-13 | Closes open item 4. |
+| Presets save the chain's topology | 2026-10-13 | A three-cabinet section cannot round-trip without the chain type and the stages' slots, so P5 saves them with the placements. |
 | Room namespace for the new room classes | 2026-10-13 | Owner request: the new classes are in SushiDSP::Room. The rest of the room module stays SushiDSP::room until the migration renames it. |
 | Parallel path as two mono amplifier chains | 2026-10-13 | Matches AmpliTube 5. Reuses the existing 1-to-2 copy and 2-to-1 sum rules. |
 | The 3D scene is built with the first placeable items | 2026-10-13 | Not after the audio work. Phase P4 carries a visible scene. |
@@ -59,22 +71,26 @@ Each row is an owner decision, recorded with its date.
 input (mono or stereo, from ChannelSelection)
   -> path split (Single | 2-way | 3-way | Parallel), each path a mono chain
        amp -> effects -> cabinet                       (one per path)
+  -> each cabinet feeds two places
+       the chain's join                                (the Cabinet input)
+       the room, one input per cabinet (at most 3)
   -> room environment
-       sources: cabinet outputs, one input port each (at most 3)
-       receivers: microphones (at most 8) and the listener
-       outputs: one output port per receiver
-  -> channel strips
-       Mic 1..N   (each microphone port)
-       Room       (microphones marked as room)
-       DI         (DI path)
+       receivers: the listener and the microphones (at most 8)
+       outputs: port 0 the listener's stereo pair, one mono port per microphone
+  -> strips
+       Mic 1..N   (each microphone, through its microphone node)
+       Room       (the sum of the microphones marked as room)
+       Listener   (the room's stereo pair)
   -> bus (Mic and Room strips)
-  -> master (Bus + DI)
+  -> amp bus (Cabinet, Bus, Listener)
+  -> post effects
+  -> master (amp bus + DI)
   -> stereo output
 ```
 
 The DI path runs beside the main chain. It takes the rig input directly and
-cannot hold an amplifier or a cabinet. Its position relative to the main path's
-effects is a setting.
+cannot hold an amplifier or a cabinet. A setting places it before the post
+effects, where it joins the amp bus, or after them, where it joins the master.
 
 ## 5. Bricks
 
@@ -84,18 +100,23 @@ effects is a setting.
 | `AudioNode` output ports | Declares named output ports and their channel counts | `modules/foundation/core` | Changed (public) |
 | `ChannelSelection` stereo | Maps a stereo device pair to the rig input | `modules/foundation/audio_format` | Changed |
 | `MicrophoneNode` | Holds microphone data: pattern, proximity, polarity, room flag. No position. | `modules/nodes/microphone` | New |
+| `Room::Arrangement` | The shell, the listener's pose, the sources and the microphones, with the limits checked on every edit | `modules/nodes/room` | New |
 | `CabinetNode` | Cabinet impulse response and convolution. No position. | `modules/nodes/cabinet` | Existing |
-| `RoomNode` | Environment: sources, receivers, placements, one output port per receiver | `modules/nodes/room` | Rewritten interface, existing solvers kept |
-| `RoomHost` | Control-thread placement and registration by node identity | `modules/nodes/room` | Extended |
-| `ChannelStripNode` | Level, pan, mute, solo, polarity, delay, stereo width for one strip | `modules/nodes/routing` | New |
+| `RoomNode` | Environment: three source inputs, one output port per receiver, built from a source stage, a pair stage and an output stage per receiver | `modules/nodes/room` | Rewritten, existing solvers kept |
+| `RoomHost` | Takes and returns the arrangement on the control thread | `modules/nodes/room` | Extended |
+| `ChannelStripNode` | Level, pan, polarity and delay for one mono strip | `modules/nodes/routing` | New |
+| `StereoStripNode` | Level, balance and width for a stereo strip: the listener and the master | `modules/nodes/routing` | New |
+| `BusNode` | Sums eight stereo inputs, each with mute and solo | `modules/nodes/routing` | New |
 | `MixerNode` | Sums its inputs. Used by the bus and the master. | `modules/nodes/routing` | Existing, narrowed |
 | Path builder | Builds the path graph for each chain type, including Parallel and DI | `applications/host_gui` (`RigTopology`, `TopologyApplier`) | Changed |
-| Room scene view | 3D placement of cabinets, microphones and the listener | `applications/host_gui/ui` | New |
+| `CabinetSectionWiring` | Turns the topology, the arrangement and the room flags into the section's hidden slots and edges, as data | `applications/host_gui` | New |
+| Room scene view | 3D placement of cabinets, microphones and the listener, on an orbit camera | `applications/host_gui/ui` | New |
 | Channel strip panel | Strip controls, Mixer view | `applications/host_gui/ui` | New |
 
 The room solvers (`ImageSourceSolver`, `ModalSolver`, `LateReverb`,
-`DiffuseField`, `BinauralDecoder`) are reused. Their per-source and per-receiver
-calls are wrapped by the room node; they are not rewritten.
+`DiffuseField`, `BinauralDecoder`) are reused. Their mathematics stays; their
+entry points take a source and a receiver, and the tail and the modal design
+each split into the part the source decides and the part the pair decides.
 
 ## 6. Interface changes
 
@@ -107,10 +128,13 @@ phase and in the changelog entry that lands it.
    behaviour.
 2. `RigGraph::connect`: an edge may name the producer's output port. Edges
    without a port use port 0.
-3. `RoomHost`: adds source and receiver registration by node identity, and
-   placement setters. Existing `set_scene` remains for the bare room.
+3. `RoomHost`: adds `set_arrangement` and `arrangement`. Existing `set_scene`
+   remains for the bare room. `RoomNode` loses its `listener`, `mix` and `level`
+   parameters.
 4. `ChannelSelection`: accepts a stereo pair as the rig input.
 5. `K_MAX_CHANNELS` stays 2. Ports, not wider buses, carry several receivers.
+6. `RigGraph::K_MAX_OUTPUT_PORTS` becomes 9, and the fan-out limit of
+   `K_MAX_FAN_IN_OUT` applies to each output port.
 
 ## 7. Room model
 
@@ -120,12 +144,14 @@ phase and in the changelog entry that lands it.
 - Receivers are microphones and the listener, each a point with a direction.
 - For every source-receiver pair the room computes the direct path, the early
   reflections from the image-source solver, and the standing-wave contribution.
-- The late reverberant tail is computed per source and shared across
-  receivers. Its level is set by the source's power and the room's
-  reverberation, as `DiffuseField` already does. This sharing is an
-  approximation; section 12 records it.
+- The late reverberant tail's network runs once per source. Each receiver
+  reads it through its own level, tone and delay, set as `DiffuseField` and the
+  pair's early energy set them today. The standing-wave resonators run once per
+  source too, and each receiver reads them through its own gains.
 - Cost grows as sources times receivers for the early and modal parts. The
   performance gate (section 9) decides whether this is acceptable at the limits.
+- A placement change is published whole: the audio thread never renders half of
+  one.
 - The listener receiver produces the binaural pair. Microphone receivers
   produce one mono signal each.
 - A room with no cabinet produces silence on every receiver.
@@ -134,12 +160,14 @@ phase and in the changelog entry that lands it.
 
 - Rig presets are JSON and follow `file-formats`: a version field, a
   documented schema, and a reader that rejects unknown versions.
-- Phase P5 adds the room's placements, the microphone nodes and the strip
-  settings.
+- Phase P5 adds the chain's topology, the room's arrangement, the microphone
+  nodes and the strip settings.
 - A preset written before P5 loads as: one cabinet, the existing room object
   as the room, one listener receiver where the old `listener` value was ears,
-  and one microphone receiver where it was microphone. The loader records the
-  migration in the log.
+  and one microphone receiver where it was microphone. The room's old `level`
+  becomes that strip's level, and Cabinet is muted. A preset with no room loads
+  with Cabinet on and the listener muted. The loader records the migration in
+  the log.
 - Placements are stored under the node identity, not the node's position in
   the chain. Reordering the chain does not move a microphone.
 
@@ -148,9 +176,9 @@ phase and in the changelog entry that lands it.
 - Budget: a 256-frame block at 48 kHz is 5.33 ms. The benchmark harness is
   `sd test -t release -s benchmark`.
 - Gate, before P4 is implemented: a benchmark of 3 cabinets and 8 microphones
-  in one room, with the amplifiers in the graph, must stay under a threshold
-  the owner sets (section 12). The benchmark is written in P4's first step and
-  its figures go in the commit message.
+  in one room, with the amplifiers in the graph, must stay under 2.67 ms, half
+  the block budget, on Release. The benchmark runs as soon as the room renders
+  an arrangement, and its figures go in the commit message.
 - The reference point: the JCM800 with one room costs 0.893 ms per block
   (commit 78a798f).
 - Everything on the audio thread allocates nothing, locks nothing, makes no
@@ -201,22 +229,11 @@ lands with its changelog line and its manual pages, as `documentation` requires.
 
 ## 12. Open items
 
-These need an owner decision before the phase that depends on them.
-
-1. **Benchmark threshold** for the P4 gate, as a share of the 5.33 ms block
-   budget. Needed before P4.
-2. **Tail sharing** (section 7): accept a tail shared per source, or compute a
-   tail per receiver. Needed before P4.
-3. **VIRTM view.** AmpliTube 5 places microphones on a speaker plane with
-   bleed indicators. Our model has no per-speaker data. Include a plane view
-   with distance and angle only, or leave it out. Needed before P4's scene.
-4. **Loop FX sends** on the amplifiers. AmpliTube 5 has them; this spec leaves
-   them out. Needed before P3.
-5. **Room microphone flag.** Whether the room flag belongs to the microphone
-   node (as written here) or to the room placement. Needed before P2.
-6. **Standards migration.** `docs/agent/2026_10_12_SUSHI_STANDARDS_MIGRATION`
+1. **Standards migration.** `docs/agent/2026_10_12_SUSHI_STANDARDS_MIGRATION`
    is open. New code in this work follows what the tree does until that
    migration's phase 3 changes both at once.
+2. **A shared rig-width rule.** Both hosts compute the rig's width from the
+   device. One function for it is a public addition and waits for the owner.
 
 ## 13. What this spec does not claim
 
@@ -228,11 +245,3 @@ These need an owner decision before the phase that depends on them.
 - It does not change the JCM800 tone anchor. Amplifier and cabinet modules are
   not modified by P0 to P3, and a change to them would come with its own
   listening check.
-
-## 14. Decisions taken in the final run, 2026-10-13
-
-- **Six microphones on the host, eight in the engine.** The room environment still accepts eight, but the host layout takes six: the master bus has eight inputs and the listener ears take two. This changes the limit the owner approved in section 3; the owner should confirm it.
-- **Presets save the cabinet section without the open switch.** The switch lives in the chain's topology, which presets do not save yet.
-- **The mixer follows the bus wiring.** Room bus inputs are labelled in layout order, the order the applier connects them.
-- **The plan view is top-down.** The spec's "3D scene" is a plan with draggable markers; a perspective view is a later change.
-
