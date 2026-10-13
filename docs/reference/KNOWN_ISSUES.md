@@ -277,11 +277,33 @@ buys a higher cap at the cost the fit pays now.
 constructed afresh whenever a node is added, removed, connected or disconnected. The new
 `RoomNode` gets its parameters and its scene back through `apply_room_to_live_node`, and its
 delay lines, its FDN and its modal resonators start at zero, so the room's tail stops at the edit
-and rebuilds over the next RT60. A drag inside the room panel goes through
-`publish_room_scene` instead, which crossfades; only an edit to the graph's shape rebuilds the
-node. Closes when a rebuild
+and rebuilds over the next RT60. A drag in the room scene or the room panel goes through
+`publish_room` instead, which crossfades; only an edit to the graph's shape rebuilds the
+node. Adding or removing a microphone, marking one as a room microphone and switching the DI path
+are such edits. Closes when a rebuild
 carries surviving nodes across instead of reconstructing them, which is a `RigController` change
 and touches no module.
+
+## The cabinet section at its limits misses its gate
+
+The gate the cabinet section was planned against is three JCM800 chains into one room with
+three cabinets, the listener and eight microphones, under 2.67 ms per 256-frame block at 48 kHz,
+half the block. On a Release build the row reads 3.896 ms, 73 % of one core
+(`tests/benchmark/main.cpp`, "3 x JCM800 + RoomNode"). The three amplifiers cost 1.96 ms of it
+and the room 1.80 ms, so the rig still fits the 5.33 ms block with 1.4 ms to spare, but not the
+gate. Of the room's share about 1.25 ms is the early reflections of the 24 microphone pairs, up
+to 128 taps of two biquads each, which no two pairs can share. Closes when the taps of a
+microphone pair are thinned or vectorised, or when the owner moves the gate: with the amplifiers
+at 1.96 ms it leaves the room 0.71 ms.
+
+## A post effect sums the cabinet section to mono
+
+The cabinet section's amp bus is stereo: the listener's two ears and every panned microphone
+strip arrive on it. A slot in the post stage is mono in, so `RigGraph` sums the bus's two channels
+into it and everything behind the post stage is one signal on both sides. A split chain with a
+delay in its post stage therefore loses the listener's image and every strip's pan. The same rule
+is the one "A stereo branch collapses back to mono at a `MixerNode`" describes. Closes when an
+effect can declare a stereo input, or the post stage runs one instance per channel.
 
 ## The HRTF converter counts every measured direction equally
 

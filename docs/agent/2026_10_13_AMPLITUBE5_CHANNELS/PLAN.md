@@ -103,144 +103,57 @@ State is split by what it is a function of.
 
 The cabinet section is a pane of the main layout, chosen by a workspace switch beside the mini-DAW toggle. It holds the 3D scene, an inspector for the selected item, and the mixer. The floating window, the plan view, the room switch and the room's entry in the gear browser are removed.
 
-## Tasks
+## Tasks, as built
 
-Hierarchy order. Each task names its files, its acceptance criterion and its build. "Room tests" means every `tests/functional/unit/test_room_*.cpp` and the room cases of `test_rt_safety.cpp`.
+The owner asked on 2026-10-13 for one build at the end of the plan, in Release, in place of a
+build per task. Every task below was therefore written against `clang++ -fsyntax-only` with the
+flags of `build/compile_commands.json`, over all 330 sources of the tree, and is verified only by
+the build status at the end of this file.
 
-### A. Graph limits
+| Task | State | What differs from the plan |
+| --- | --- | --- |
+| A1 Nine ports, per-port fan-out | Written | Nothing. |
+| B0 Pin today's output | Not done | A golden of the old node needs the old node built, and there was one build. The node's own tests, adapted, stand in for it. |
+| B1 Solvers take a source and a receiver | Not done | The solvers keep their signatures. Each pair is solved from its own scene, and the shell's part of a design repeats per pair; an unchanged pair is copied. Backlog: "Solve the shell once per arrangement". |
+| B2 The tail's network and its output | Written | `LateReverb::process_sums` gives the raw sums; the pair's gain, tone and coherence live in `Room::PairStage`, read out of two rings per cabinet. No separate `TailOutput` class. |
+| B3 Modal bank with read-out rows | Written | Nothing. |
+| B4 Early renderer reads a shared ring | Not done | Each pair keeps its renderer's ring. Backlog: "One early ring per cabinet". |
+| B5 The stages | Written | `Room::SourceStage`, `Room::PairStage`, `Room::EarsOutput`, `Room::MicrophoneOutput`, `Room::HeadHolder`. `GeometricPath`, `ModalPath` and `BinauralStage` are deleted. |
+| B6 Arrangement and the environment render set | Written | `room_render_set` stays: a pair's set is still a `RoomRenderSet`. |
+| B7 `RoomNode` as the environment | Written | The port layout is `{6, 2}`: three slots as wide as the main output, of which the first channel is read. |
+| B8 Delete `RoomEnvironmentNode` | Done | Nothing. |
+| B9 The benchmark gate | Run, failed | 3.896 ms against 2.67 ms; see the build status. |
+| C1 Microphone module | Written | The module does not link the room; its pattern is its own enumeration. |
+| D1 Stereo strip | Written | Also: a bus now starts each gate at its target on its first block, because every publish builds a fresh bus and a muted listener would otherwise leak for 5 ms. |
+| E1 Topology | Written | Nothing. |
+| E2 Wiring | Written | Nothing. |
+| E3 Applier and rig | Written | The section exists while the rig holds any gear, not only while it holds a cabinet; a path with no cabinet gives the room no source. The rig's shape is recorded after every apply. |
+| E4 Limits | Written | Nothing. |
+| F1 Preset format 2 | Written | The codec is in `rig_persistence.cpp`; there is no separate arrangement codec file. |
+| G1 to G5 Screen | Written | The workspace switch sits in its own row under the top bar. |
+| G6 On screen, with the owner | Not done | Needs the build. |
+| H1 Close | Done | `check_changelog`, `check_docs_layout` and `check_source_comments` are clean for the files this work touched; `check_docs_truth` reports only findings that predate it. |
 
-- [ ] **A1. Nine output ports and a per-port fan-out limit.**
-  Files: `modules/foundation/core/include/SushiDSP/core/rig_graph.hpp`, `modules/foundation/core/source/rig_graph.cpp`, `tests/functional/unit/test_rig_graph_output_ports.cpp`, `modules/foundation/core/README.md`.
-  Acceptance: a node with nine ports, each feeding one consumer, compiles and renders each port's samples at its consumer; a tenth port and a ninth edge from one port are refused with a reason.
-  Build: `sd build`, `sd test -s unit -f RigGraph`.
+## Build status, 2026-10-13
 
-### B. Room engine
+One full build: `sd build -D CMAKE_BUILD_TYPE=Release` at four parallel jobs, 600 steps, exit 0,
+no error and no warning in a file this work touched. After the first test run three files were
+changed and rebuilt incrementally; nothing else was built.
 
-`RoomNode` keeps working after every task in this group, as one source and one receiver, so its existing tests guard each step.
-
-- [ ] **B0. Pin today's output.**
-  Files: `tests/functional/unit/test_room_reference.cpp`, `tests/golden/` (two new files), `tests/golden/README.md`, `tests/CMakeLists.txt`.
-  Renders the starter scene through `RoomNode` for the ears and for the microphone, 2 s of a fixed input, and stores both as goldens.
-  Acceptance: the test passes against the goldens it wrote, on two consecutive runs.
-  Build: `sd build`, `sd test -s unit -f RoomReference`.
-
-- [ ] **B1. Solvers take a source and a receiver.**
-  Files: `image_source_solver.hpp/.cpp`, `modal_solver.hpp/.cpp`, `late_reverb_design.hpp/.cpp`, `fdn_design.hpp`, `modal_design.hpp`, `room_render_set.cpp`, new `room_placement.hpp` (`Room::Pose`, `Room::Source`, `Room::Receiver`), the three solver tests.
-  `ImageSourceSolver::solve(shell, source, receiver)`. `ModalSolver` splits into the resonators with their source gains and a receiver gain row. `LateReverbDesign` splits into the shell's network and the pair's output. `build_render_set` calls the new entry points.
-  Acceptance: B0 goldens bit-identical; room tests pass unchanged; new tests show each split equals the whole.
-  Build: `sd build`, `sd test -s unit -f Room`.
-
-- [ ] **B2. The tail's network and its output filter.**
-  Files: `late_reverb.hpp/.cpp`, new `tail_output.hpp/.cpp`, `geometric_path.hpp/.cpp`, `test_late_reverb.cpp`, new `test_tail_output.cpp`, room `CMakeLists.txt`, room README.
-  Acceptance: B0 goldens within 1e-6 relative; the goldens are regenerated once with a row in `tests/golden/README.md` naming the moved gain.
-  Build: as B1.
-
-- [ ] **B3. Modal bank with receiver read-out rows.**
-  Files: `modal_bank.hpp/.cpp`, `modal_path.hpp/.cpp`, `test_modal_bank.cpp`.
-  `ModalBank::process` takes the feed, N gain rows and N output pairs.
-  Acceptance: B0 goldens unchanged; a two-row render equals two one-row renders sample for sample.
-  Build: as B1.
-
-- [ ] **B4. Early renderer reads a shared ring; direct path takes its filters.**
-  Files: `early_reflection_renderer.hpp/.cpp`, `direct_path.hpp/.cpp`, `geometric_path.cpp`, their tests.
-  The renderer's `render` reads a ring passed in, as `DirectPath` already does. `DirectPath::load_bank` takes the HRIR pair and the ITD, not a whole render set. The duplicate ring in `GeometricPath` goes.
-  Acceptance: B0 goldens unchanged.
-  Build: as B1.
-
-- [ ] **B5a. `Room::SourceStage`.** Files: new `source_stage.hpp/.cpp`, `test_source_stage.cpp`. Acceptance: its high half, tail sums and modal read-out match what `GeometricPath` and `ModalPath` produce for the same input. Build: as B1.
-- [ ] **B5b. `Room::PairStage`.** Files: new `pair_stage.hpp/.cpp`, `test_pair_stage.cpp`. Acceptance: one pair's ambisonic block, direct pair and tail pair match `GeometricPath`'s. Build: as B1.
-- [ ] **B5c. `Room::EarsOutput`, `Room::MicrophoneOutput`, `Room::HeadHolder`.** Files: three new header and source pairs, their tests. Acceptance: fed one pair, each output matches `BinauralStage::join` for its kind. Build: as B1.
-- [ ] **B5d. `RoomNode` on the stages.** Files: `room_node.hpp/.cpp`, `test_room_node.cpp`; deletes `geometric_path`, `modal_path`, `binaural_stage` and their tests' cases, which move to the stage tests. Acceptance: B0 goldens unchanged; `test_room_node.cpp` passes. Build: as B1.
-
-- [ ] **B6. `Room::Arrangement` and the environment render set.**
-  Files: new `room_arrangement.hpp/.cpp`, `environment_render_set.hpp/.cpp`, their tests; `room_render_set.hpp/.cpp` is folded in and deleted.
-  Acceptance: a fourth source and a ninth microphone are refused with a reason and leave the arrangement unchanged; the set built for one source and one receiver holds the same coefficients as B1's set.
-  Build: as B1.
-
-- [ ] **B7. `RoomNode` becomes the environment.**
-  Files: `room_node.hpp/.cpp`, `room_host.hpp`, `test_room_node.cpp`, new `test_room_environment.cpp`, `test_rt_safety.cpp`, `test_rig_controller.cpp` where it sets the removed parameters, room README, `docs/reference/CHANGELOG.md` (breaking), the manual pages `git grep` finds for `listener`, `mix` and `level`.
-  Acceptance, the spec's P4 tests: one source and one receiver reproduce B0's goldens on port 0 and on port 1; two sources and three receivers equal the sum of the six one-pair renders; a moved microphone is heard at the next publish with no audio-thread allocation; a room with no source is silent on every port; the whole node renders through a `RigGraph`.
-  Build: `sd build`, `sd test -s unit`, `sd test -s regression`.
-
-- [ ] **B8. Delete `RoomEnvironmentNode`.**
-  Files: `room_environment_node.hpp/.cpp`, `test_room_environment_node.cpp`, `node_registry.cpp`, room README, `tests/CMakeLists.txt`, room `CMakeLists.txt`.
-  Acceptance: `git grep RoomEnvironmentNode` and `git grep room_environment` return nothing; the tree builds.
-  Build: `sd build`. The host does not compile between B8 and E3, so B8 lands in the same build as E3.
-
-- [ ] **B9. The benchmark gate.**
-  Files: `tests/benchmark/main.cpp`, room README.
-  Two rows: three sources and eight microphones with the listener; the same behind three JCM800 amplifiers and cabinets.
-  Acceptance: the second row is under 2.67 ms per 256-frame block on Release. The figures go in the commit message. If the row fails, work stops and the owner is told.
-  Build: `sd test -t release -s benchmark`. Needs a Release tree, see the note on `sd build` types.
-
-### C. Microphone module
-
-- [ ] **C1. `modules/nodes/microphone`.**
-  Files: new `modules/nodes/microphone/` (`CMakeLists.txt`, `README.md`, `include/SushiDSP/microphone/microphone_node.hpp`, `source/microphone_node.cpp`), `modules/nodes/CMakeLists.txt` or its equivalent, `node_registry.cpp`, `test_microphone_node.cpp`, `test_rt_safety.cpp`; deletes the copies under the room module.
-  Parameters: `pattern`, `proximity`, `polarity`, `room`. The module links the room module for `PolarPattern`; if `tools/` forbids a node module depending on another, the enum moves to the microphone module and the room links it.
-  Acceptance: each parameter reads back what was written; polarity inverts the block; the node allocates nothing in `process()`.
-  Build: `sd build`, `sd test -s unit -f Microphone`.
-
-### D. Routing
-
-- [ ] **D1. `StereoStripNode`.**
-  Files: new `stereo_strip_node.hpp/.cpp` in `modules/nodes/routing`, `test_stereo_strip_node.cpp`, `node_registry.cpp`, routing README, `docs/reference/GLOSSARY.md`.
-  Stereo in, stereo out: `level` (dB), `balance`, `width`. Used by the Listener and Master strips.
-  Acceptance: level, balance and width against hand arithmetic; width 0 is mono, width 1 is the input.
-  Build: `sd build`, `sd test -s unit -f StereoStrip`.
-
-### E. Host model
-
-- [ ] **E1. `RigTopology` without the room switch, with the DI position.**
-  Files: `applications/host_gui/rig_topology.hpp/.cpp`, `tests/functional/unit/test_rig_topology.cpp`.
-  `room()` and `set_room()` go. `di_position()` is `BeforeEffects` or `AfterEffects`.
-  Acceptance: the DI path still refuses an amplifier and a cabinet with a reason; both positions round-trip.
-  Build: with E3.
-
-- [ ] **E2. `CabinetSectionWiring`.**
-  Files: new `applications/host_gui/cabinet_section_wiring.hpp/.cpp`, `test_cabinet_section_wiring.cpp`.
-  A pure function from the topology, the arrangement and the microphones' room flags to the hidden slots the section needs and the edges between them, as data. No rig is touched.
-  Acceptance: the edge lists for Single, 2-way, 3-way and Parallel, with zero, one flagged and eight unflagged microphones, match the diagram in the Design section; no node receives more than eight inputs.
-  Build: with E3.
-
-- [ ] **E3. The applier and the rig on the wiring.**
-  Files: `topology_applier.hpp/.cpp`, `slot_graph.hpp/.cpp`, `rig_controller.hpp/.cpp`, `test_topology_applier.cpp`, `test_rig_controller.cpp`; deletes `room_layout.hpp/.cpp` and `test_room_layout.cpp`; host README.
-  The applier owns the one room slot and applies the wiring's plan with the journal it has. The rig exposes `room_arrangement()` and `set_room_arrangement()`, and copies each microphone's pattern and proximity into the arrangement. A slot snapshot of the room carries the arrangement; a restore renames the ids it holds.
-  Acceptance: a new rig with one cabinet renders the same samples as the rig before this plan; adding a microphone and unmuting it changes the output; a failed apply rolls back to the previous graph and arrangement.
-  Build: `sd build`, `sd test -s unit`.
-
-- [ ] **E4. Limits on the control thread.**
-  Files: `rig_controller.cpp`, `test_rig_controller.cpp`.
-  Acceptance: a fourth cabinet path and a ninth microphone are refused with the reason shown to the user, and the rig is unchanged.
-  Build: `sd build`, `sd test -s unit -f RigController`.
-
-### F. Presets
-
-- [ ] **F1. Preset format with the cabinet section.**
-  Files: `rig_persistence.hpp/.cpp`, new `room_arrangement_codec.hpp/.cpp` (replaces `room_layout_codec`), `test_rig_persistence.cpp`, `test_room_arrangement_codec.cpp`, a pre-P5 preset fixture under `tests/`, the preset page of the manual.
-  The version field rises by one. The preset holds the chain type and each stage's slots, the DI switch and position, the arrangement, the microphone nodes and every strip's settings. The reader rejects an unknown version.
-  Migration of an older preset, logged once: its room slot becomes the room, with one listener when `listener` was ears and one microphone when it was microphone; its `level` becomes that strip's level; a `mix` below 1 is named in the log as not carried; Cabinet is muted. A preset with no room slot loads with Cabinet on and the listener muted.
-  Acceptance: a three-cabinet, eight-microphone rig round-trips to an equal rig; the fixture loads with the migration above.
-  Build: `sd build`, `sd test -s unit -f Persistence`.
-
-### G. Screen
-
-- [ ] **G1. `SceneCamera`.** Files: new `ui/scene_camera.hpp/.cpp`, `test_scene_camera.cpp`. An orbit camera: world to screen, and a screen point back onto a horizontal plane. Acceptance: both directions against hand-computed coordinates. Build: `sd build`, `sd test -s unit -f SceneCamera`.
-- [ ] **G2. `SceneInteraction`.** Files: new `ui/scene_interaction.hpp/.cpp`, `test_scene_interaction.cpp`. Picking the nearest marker under a point and turning a drag into a pose, kept inside the shoebox. No ImGui. Acceptance: pick and drag cases against hand-computed poses. Build: as G1.
-- [ ] **G3. `RoomSceneView`.** Files: new `ui/room_scene_view.hpp/.cpp`; deletes `ui/cabinet_section_view.hpp/.cpp`. Draws the shoebox, the floor grid, the cabinets, microphones and listener with their facing, and applies `SceneInteraction`. Acceptance: compiles and links; seen on screen in G6. Build: with G5.
-- [ ] **G4. Mixer panel as strips.** Files: `ui/mixer_panel.hpp/.cpp`, `test_mixer_panel_model.cpp`. Vertical strips in order: Mic 1..N, Room, Listener, Cabinet, Bus, DI, Master; the room flag sits on the microphone's strip. The strip list is built by a pure function. Acceptance: the list for the E2 cases matches the wiring. Build: with G5.
-- [ ] **G5. The cabinet section pane.** Files: new `ui/cabinet_section_pane.hpp/.cpp`, `ui/room_panel.hpp/.cpp` (its shell editors serve the inspector), `ui/gear_browser.cpp`, `ui/transport_bar.cpp`, `main.cpp`, `CMakeLists.txt` (also drops the two files listed twice), `ui/README.md`; deletes `ui/cabinet_section_window.hpp/.cpp`. Acceptance: `sd build` passes and `sd test -s unit` is green. Build: those two.
-- [ ] **G6. On screen, with the owner.** `sd host`. Place three cabinets and eight microphones, drag each, flag one as room, switch the DI position, save and reload. Every refusal shows its reason. Not closed until the owner has seen it.
-
-### H. Close
-
-- [ ] **H1.** `sd check`; a `humanizer` and `source-comments` pass over every comment this plan wrote; the spec's status line, `docs/design/REMAINING_WORK.md` and `docs/reference/KNOWN_ISSUES.md` brought to what is true.
-
-## Builds the owner is asked for
-
-In order: A1, B0, B1, B2, B3, B4, B5a to B5d, B6, B7, C1, D1, B8 with E1 to E3, E4, F1, G1 with G2, G3 to G5, then B9 on a Release tree and G6 on screen. B9 runs as soon as B7 is in, before the host work, so a failed gate stops the plan early.
-
-`sd build` configures only an unconfigured tree, so `--type release` is ignored on the existing RelWithDebInfo tree. B9 needs the tree's type checked in `build/CMakeCache.txt` first.
+- `sd test -s unit`: 1227 tests. The first run passed 1223. The four failures and what they were:
+  a hand-written format 2 preset with no `"edges"` key loaded with no edges, a defect in the
+  loader, fixed by wiring such a preset from its nodes' own inputs; two gear filter cases still
+  counted the room as a listed item; and one room case compared the microphone's tail bit for bit
+  against a network that applies its gain before the lines, where the node applies it after. The
+  second run passed 1227 of 1227. Three cases are skipped by the harness, as before this work.
+- `sd test -s regression`: 23 of 23.
+- `sd test -s benchmark`: ran. One cabinet heard by the listener costs 0.240 ms per 256-frame
+  block, against 0.238 ms before this work. The room at its limits, three cabinets, the listener
+  and eight microphones, costs 1.802 ms. **The gate fails:** three JCM800 chains into that room
+  cost 3.896 ms against 2.67 ms. The amplifiers are 1.96 ms of it. The plan said work stops here
+  and the owner is told; `docs/reference/KNOWN_ISSUES.md` holds the figures.
+- Not done: G6, the check on screen with the owner. The host was built and linked; it has not
+  been opened.
 
 ## Open
 
