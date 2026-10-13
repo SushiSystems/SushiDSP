@@ -121,3 +121,12 @@ Everything below is written and syntax-checked with `clang++ -fsyntax-only`. Not
 - **P4** room environment, microphone node and host wiring: done as code and tests. The benchmark gate is not run; it needs a build.
 - **P5** preset format for the cabinet section: done (`room_layout_codec.cpp`, `rig_persistence.cpp`). The room's open switch and the chain topology are not saved yet.
 - **P6** mixer view and plan view: done as a plan (top-down) with draggable markers, and a mixer panel. Not checked on screen.
+
+## Build status, 2026-10-13
+
+Built with `sd build` at 4 parallel jobs (`CMAKE_BUILD_PARALLEL_LEVEL=4`, RelWithDebInfo tree): exit 0, 120 steps, no error lines, no warnings in the files this work touched.
+
+- `sd test -s unit`: 1175 tests, 1175 passed after one fix. The first run failed `RigGraphCompileRefusesAnEdgeWithNoAdaptationRule`: the new port check refused a 3-channel port before the adaptation check. The refusal is needed, since port buffers hold two channels. Fixed in `1a00bac`, which also renames the test to `RigGraphCompileRefusesAPortWiderThanTheRoute`.
+- `sd test -s regression`: 23 of 23 passed.
+- Not run: `sd test -s benchmark`. The P4 benchmark case (3 cabinets, 8 microphones) is not written, and the threshold is still open (section 12 of the spec).
+- Not checked: the UI on screen; the mixer and plan view.
