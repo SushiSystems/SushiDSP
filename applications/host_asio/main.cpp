@@ -199,8 +199,7 @@ int main(int argc, char** argv)
         rig.connect(jcm800_handle, cabinet_handle);
     }
 
-    // The rig is as wide as the device, up to RigGraph::K_MAX_CHANNELS. A mono chain is copied to
-    // every output channel by the graph, so both outputs of a stereo device carry it.
+    // Rig width follows the device, capped at RigGraph::K_MAX_CHANNELS; the graph fans out mono.
     const std::uint32_t rig_channels =
         std::min(std::max(1u, actual.output_channels), SushiDSP::RigGraph::K_MAX_CHANNELS);
     SushiDSP::PrepareInfo info{actual.sample_rate, actual.block_size, rig_channels};
@@ -225,9 +224,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // rig_output holds one block per rig channel. The two pointer arrays name those blocks, one
-    // mutable for the rig to render into and one const for the device write. All of it is sized
-    // here, off the audio thread, so the callback allocates nothing.
+    // rig_output and its pointer arrays are sized here, off the audio thread.
     const std::size_t block = actual.block_size;
     std::vector<float> rig_output(static_cast<std::size_t>(rig_channels) * block, 0.0f);
     std::vector<float*> rig_output_pointers(rig_channels);
