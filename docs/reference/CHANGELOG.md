@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-13 — host: Named the join's strip Line when no path holds a cabinet and Cabinet + Line when some do, with a note that such a path moves no air (`mixer_model.cpp`, `cabinet_section_wiring.cpp`, `TopologyApplier::join_content`).
+- 2026-10-13 — host: Added the choice of microphone to the inspector and a microphone's `"model"` to a preset's room (`cabinet_section_pane.cpp`, `rig_persistence.cpp`).
+- 2026-10-13 — room: Added the table of shipped microphones and a microphone's kind to its placement; removed `K_MICROPHONE_PRESET_COUNT` (`microphone_model.hpp`, `MicrophoneKind`, `microphone_preset`, `Room::MicrophonePlacement`).
 - 2026-10-13 — host: Added placing a microphone against a chosen cone to the centimetre, and titled the capsule a flat condenser (`cabinet_section_pane.cpp`, `scene_solids.cpp`, `microphone_node.cpp`).
 - 2026-10-13 — host: Drew cabinets with their cones and placed furnishings as boxes, with a cabinet's cone count and a microphone's nearest cone in the inspector (`scene_solids.cpp`, `room_scene_view.cpp`, `cabinet_section_pane.cpp`).
 - 2026-10-13 — host: Added a source's cabinet and a furnishing's position and yaw to a preset's room (`rig_persistence.cpp`).

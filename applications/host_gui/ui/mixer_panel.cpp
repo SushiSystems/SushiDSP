@@ -180,10 +180,11 @@ namespace ui
         }
     } // namespace
 
-    MixerEdit draw_mixer_panel(const char* id, RigController& rig, const HiddenSlots& slots)
+    MixerEdit draw_mixer_panel(const char* id, RigController& rig, const HiddenSlots& slots,
+                               JoinContent join)
     {
         MixerEdit edit;
-        const std::vector<MixerStrip> strips = mixer_strips(slots);
+        const std::vector<MixerStrip> strips = mixer_strips(slots, join);
         ImGui::PushID(id);
         if (strips.empty())
         {

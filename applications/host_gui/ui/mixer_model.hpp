@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 
+#include "cabinet_section_wiring.hpp"
 #include "rig_shape.hpp"
 #include "ui/geometry.hpp"
 
@@ -45,6 +46,7 @@ namespace ui
         Room,
         Listener,
         Cabinet,
+        Line,
         Bus,
         Di,
         Master
@@ -71,9 +73,12 @@ namespace ui
     };
 
     /// @brief Lists the mixer's strips in the order they are drawn: each microphone, the Room
-    /// strip, the Listener, Cabinet, the Bus, the DI and the Master. A strip whose slot is not
-    /// built is left out.
+    /// strip, the Listener, the join, the Bus, the DI and the Master. A strip whose slot is not
+    /// built is left out. The join's strip is Cabinet when every path holds a cabinet, Line when
+    /// none does, and Cabinet + Line when the chain has summed both.
     /// @param slots The rig's hidden slots, as the applier last wired them.
+    /// @param join What the chain's join carries.
     /// @return The strips.
-    std::vector<MixerStrip> mixer_strips(const HiddenSlots& slots);
+    std::vector<MixerStrip> mixer_strips(const HiddenSlots& slots,
+                                         JoinContent join = JoinContent::Cabinets);
 } // namespace ui

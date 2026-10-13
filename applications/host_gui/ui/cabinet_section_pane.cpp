@@ -42,6 +42,7 @@
 #include "ui/mixer_panel.hpp"
 #include "SushiDSP/room/cabinet_geometry.hpp"
 #include "SushiDSP/room/furniture.hpp"
+#include "SushiDSP/room/microphone_model.hpp"
 #include "ui/room_panel.hpp"
 #include "ui/scene_solids.hpp"
 #include "ui/theme.hpp"
@@ -145,6 +146,43 @@ namespace ui
                 pose.yaw_rad = static_cast<double>(yaw);
                 changed = true;
             }
+            return changed;
+        }
+
+        /// @brief Draws the list of shipped microphones, each named with how it transduces, and
+        /// the chosen one's source under it.
+        /// @return True on the frames another microphone was chosen.
+        bool draw_microphone_kind(SushiDSP::room::MicrophoneKind& kind)
+        {
+            const auto label_of = [](const SushiDSP::room::MicrophonePreset& preset, char* into,
+                                     std::size_t size)
+            {
+                std::snprintf(into, size, "%s (%s)", preset.name, preset.transducer);
+            };
+            const SushiDSP::room::MicrophonePreset& current =
+                SushiDSP::room::microphone_preset(kind);
+            char label[64];
+            label_of(current, label, sizeof(label));
+            bool changed = false;
+            ImGui::SetNextItemWidth(220.0f);
+            if (ImGui::BeginCombo("microphone", label))
+            {
+                for (std::size_t index = 0; index < SushiDSP::room::K_MICROPHONE_KIND_COUNT;
+                     ++index)
+                {
+                    const auto candidate = static_cast<SushiDSP::room::MicrophoneKind>(index);
+                    char row[64];
+                    label_of(SushiDSP::room::microphone_preset(candidate), row, sizeof(row));
+                    if (ImGui::Selectable(row, candidate == kind) && candidate != kind)
+                    {
+                        kind = candidate;
+                        changed = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::TextColored(to_imvec4(palette().muted_text), "On-axis curve: %s.",
+                               current.citation);
             return changed;
         }
 
@@ -307,15 +345,9 @@ namespace ui
                 state.scene.selected.reset();
                 return false;
             }
-            ImGui::TextUnformatted("Microphone: flat condenser");
-            if (ImGui::IsItemHovered())
-            {
-                ImGui::SetTooltip("An ideal capsule with a flat response, as a measurement "
-                                  "condenser has.\nIt carries no dynamic microphone's curve: it is "
-                                  "not an SM57.");
-            }
             SushiDSP::Room::MicrophonePlacement microphone = *held;
-            bool changed = draw_pose(microphone.pose);
+            bool changed = draw_microphone_kind(microphone.kind);
+            changed = draw_pose(microphone.pose) || changed;
             changed = draw_cone_placement(arrangement, microphone.pose) || changed;
             const SlotId slot = static_cast<SlotId>(selected.id);
             int pattern = static_cast<int>(microphone.pattern);
@@ -357,6 +389,19 @@ namespace ui
         const float scene_height =
             std::max(available.y - K_MIXER_HEIGHT - 8.0f, K_MIN_SCENE_HEIGHT);
 
+        const JoinContent join = applier.join_content(topology, rig);
+        if (join != JoinContent::Cabinets)
+        {
+            ImGui::TextColored(to_imvec4(rgba(214, 168, 74)), "%s",
+                               join == JoinContent::Line
+                                   ? "No cabinet in the rig. An amplifier with no speaker moves "
+                                     "no air: the room and its microphones are silent, and the "
+                                     "chain is heard as a line signal on the Line strip."
+                                   : "A path has no cabinet. It moves no air, so the room does "
+                                     "not hear it; it is heard as a line signal, summed with the "
+                                     "cabinets on the Cabinet + Line strip.");
+        }
+
         SushiDSP::Room::Arrangement arrangement = rig.room_arrangement(*slots.room);
         bool changed = false;
 
@@ -389,7 +434,7 @@ namespace ui
 
         ImGui::BeginChild("##mixer", ImVec2(0.0f, 0.0f), false,
                           ImGuiWindowFlags_HorizontalScrollbar);
-        const MixerEdit edit = draw_mixer_panel("##strips", rig, slots);
+        const MixerEdit edit = draw_mixer_panel("##strips", rig, slots, join);
         ImGui::EndChild();
         if (edit.remove_microphone.has_value())
         {

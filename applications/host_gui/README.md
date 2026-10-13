@@ -325,7 +325,7 @@ higher number before it touches the rig.
 | `"format"` | 2 | The format number. A preset without it is format 1. |
 | `"edges"` | 2 | Every edge as `{"from", "to", "port"}`, because a node's own `"inputs"` carries no port. |
 | `"shape"` | 2 | The `RigShape`: `"chain_type"`, `"branches"`, `"post"`, `"di"`, `"di_position"` and `"hidden"`, every slot as its node id. |
-| A room node's `"room"` | 2 | The arrangement: the shell and the listener as a scene writes them, then `"sources"` and `"microphones"`, each row a pose with the `"node"` it stands for. A source row adds `"cabinet"`, one of `"1x12"`, `"2x12"` and `"4x12"`, and without it is the shell's cabinet. A microphone row adds `"pattern"` and `"proximity"`. A furnishing row that has a place adds `"position"`, its x and y in metres, and `"yaw"`. |
+| A room node's `"room"` | 2 | The arrangement: the shell and the listener as a scene writes them, then `"sources"` and `"microphones"`, each row a pose with the `"node"` it stands for. A source row adds `"cabinet"`, one of `"1x12"`, `"2x12"` and `"4x12"`, and without it is the shell's cabinet. A microphone row adds `"pattern"`, `"proximity"` and `"model"`, the key of a shipped microphone, which is the flat reference when left out. A furnishing row that has a place adds `"position"`, its x and y in metres, and `"yaw"`. |
 | A room node's `"room"` | 1 | One scene: the shell and the poses of one cabinet, the listener and one microphone. |
 
 A format 2 preset's nodes are read alone and its edges come from `"edges"`, so the rig's own

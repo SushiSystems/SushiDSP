@@ -53,7 +53,7 @@ namespace ui
         }
     } // namespace
 
-    std::vector<MixerStrip> mixer_strips(const HiddenSlots& slots)
+    std::vector<MixerStrip> mixer_strips(const HiddenSlots& slots, JoinContent join)
     {
         std::vector<MixerStrip> strips;
         if (!slots.amp_bus.has_value())
@@ -103,8 +103,11 @@ namespace ui
 
         {
             MixerStrip strip;
-            strip.kind = MixerStripKind::Cabinet;
-            strip.label = "Cabinet";
+            // A join no cabinet feeds is a line signal, and is named so.
+            strip.kind = join == JoinContent::Line ? MixerStripKind::Line : MixerStripKind::Cabinet;
+            strip.label = join == JoinContent::Line
+                              ? "Line"
+                              : join == JoinContent::Mixed ? "Cabinet + Line" : "Cabinet";
             strip.flags = flags_of(slots.amp_bus, slots.amp_bus_feeders, slots.join);
             strips.push_back(strip);
         }

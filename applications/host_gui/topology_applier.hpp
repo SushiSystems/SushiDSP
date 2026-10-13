@@ -37,6 +37,7 @@
 
 #include "SushiDSP/room/room_arrangement.hpp"
 
+#include "cabinet_section_wiring.hpp"
 #include "rig_controller.hpp"
 #include "rig_shape.hpp"
 #include "rig_topology.hpp"
@@ -112,6 +113,13 @@ class TopologyApplier
         /// @param error_out Receives the reason when the room refuses the arrangement.
         /// @return False when the room refused; true otherwise, or when no room is built.
         bool refresh_room(RigController& rig, std::string& error_out) const;
+
+        /// @brief Says what the chain's join carries: the cabinets' signal, a line signal when no
+        /// path holds a cabinet, or both already summed.
+        /// @param topology The model the rig follows.
+        /// @param rig The controller that holds the paths.
+        /// @return The join's content.
+        JoinContent join_content(const RigTopology& topology, const RigController& rig) const;
 
         /// @brief Reads the hidden slots the mixer and the scene show.
         /// @return The slots as the last apply left them.

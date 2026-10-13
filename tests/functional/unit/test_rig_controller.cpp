@@ -2084,6 +2084,8 @@ TEST(Unit_Dsp, RigControllerRoundTripsARoomsArrangementThroughJson)
     EXPECT_EQ(loaded.microphones()[0].pose.position.z, 0.7);
     EXPECT_EQ(loaded.microphones()[0].pattern, SushiDSP::room::PolarPattern::FigureEight);
     EXPECT_FALSE(loaded.microphones()[0].proximity);
+    EXPECT_EQ(loaded.microphones()[0].kind, SushiDSP::room::MicrophoneKind::FlatCondenser);
+    EXPECT_NE(saved.find("flat_condenser"), std::string::npos);
     EXPECT_TRUE(SushiDSP::room::same_geometry(loaded.sources()[0].cabinet,
                                               SushiDSP::room::K_CABINET2X12));
     ASSERT_GE(loaded.shell().furnishing_count, 1u);

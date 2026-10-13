@@ -677,6 +677,7 @@ namespace
             nlohmann::json row = pose_to_json(microphone.pose.position, microphone.pose.yaw_rad);
             row["pattern"] = word_of(K_PATTERN_WORDS, microphone.pattern);
             row["proximity"] = microphone.proximity;
+            row["model"] = SushiDSP::room::microphone_preset(microphone.kind).key;
             name_node(row, microphone.id);
             microphones.push_back(row);
         }
@@ -746,6 +747,15 @@ namespace
                     value_of(K_PATTERN_WORDS, row.at("pattern").get<std::string>(), "pattern");
             }
             microphone.proximity = row.value("proximity", true);
+            if (row.contains("model"))
+            {
+                const std::string word = row.at("model").get<std::string>();
+                if (!SushiDSP::room::find_microphone(word.c_str(), microphone.kind))
+                {
+                    throw std::runtime_error("RigController: unknown microphone '" + word +
+                                             "' in a preset's room");
+                }
+            }
             microphone.id = identity(row, index++);
             if (!arrangement.add_microphone(microphone, reason))
             {

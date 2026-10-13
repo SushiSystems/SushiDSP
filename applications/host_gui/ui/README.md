@@ -122,6 +122,12 @@ as someone facing the baffle sees it.
 
 ## `mixer_model.hpp` and `mixer_panel.hpp`
 
+The strip of the chain's join is named for what it carries, a `JoinContent` the applier works
+out from the paths: "Cabinet" when every path holds a cabinet, "Line" when none does, and
+"Cabinet + Line" when the chain has already summed a path with a cabinet and one without. A
+path with no cabinet moves no air, so the room never hears it; the pane says so in a line above
+the scene.
+
 `mixer_strips` turns the rig's `HiddenSlots` into the list of strips the mixer shows, in drawing
 order: each microphone, Room, Listener, Cabinet, Bus, DI and Master. A strip names the slot that
 holds its level and where its mute and solo live, which is one input of one bus: a microphone's
@@ -141,8 +147,11 @@ microphone, and leaves them to the caller.
 `DrawCabinetSectionPane` lays the cabinet section out over the workspace: a row with the Add
 microphone button and the DI path's switch and position, the room scene, an inspector beside it,
 and the mixer under both. The inspector shows the selected marker's coordinates and facing. For
-a cabinet it adds the choice of 1x12, 2x12 or 4x12. For a microphone, which it titles a flat
-condenser since the capsule carries no dynamic microphone's curve, it adds the place against a
+a cabinet it adds the choice of 1x12, 2x12 or 4x12. For a microphone it opens with the list of
+shipped microphones, each named with how it transduces, such as "Flat reference (condenser)",
+and the source of the chosen one's curve, so nobody takes the flat capsule for a dynamic
+microphone. The list is `microphone_preset` over `K_MICROPHONE_KIND_COUNT`, so a row added to
+the room module's table appears here with no change to the pane. Under it is the place against a
 cone: a list of every cone named as seen from the front, and the distance in front of the
 baffle, aside of the cone's axis and above it, each in centimetres. Choosing a cone puts the
 capsule on its axis, and `microphone_on_cone` turns the three numbers into a pose that faces

@@ -153,7 +153,7 @@ namespace SushiDSP
     {
         static const NodeDescriptor descriptor{
             "sushidsp.microphone",
-            "Condenser microphone (flat)",
+            "Microphone",
             MicrophoneNode::parameters().descriptors(),
             MicrophoneNode::parameters().count(),
             PortLayout{1, 1},
