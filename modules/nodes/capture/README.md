@@ -139,6 +139,11 @@ needs. `TrackPlayerProcessPerformsNoHeapAllocation` and
 
 Spec §6 carries the intent behind all of it.
 
+`TrackPlayer::process_lane` renders one lane alone and before its fader: at unity gain, a mono
+take on every channel, whatever the lane's gain, pan, mute and solo say. A host that runs each
+lane through a processor of its own reads its lanes this way and mixes them itself. A lane is
+rendered once a block, by this call or by `process`, never by both.
+
 ## Playing a take back at another speed
 
 `VariRateReader` reads a take at a speed between 0.5 and 2.0, and the pitch falls with the speed

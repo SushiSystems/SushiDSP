@@ -148,6 +148,11 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/applications/host_gui/slot_graph.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_timeline.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_persistence.cpp
+    functional/unit/test_session.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/session.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/session_renderer.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/session_file.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/session_bounce.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/file_drop_queue.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/mp3_decoder.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/channel_resampler.cpp

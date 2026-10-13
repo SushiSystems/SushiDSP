@@ -16,6 +16,8 @@ licence was read from the licence file in the fetched source.
 | GLFW | fetched by `CMakeLists.txt`; linked by `applications/host_gui` | https://github.com/glfw/glfw | 3.4 | zlib, Copyright (c) 2002-2006 Marcus Geelnard, Copyright (c) 2006-2019 Camilla Löwy |
 | Dear ImGui | fetched by `CMakeLists.txt`; linked by `applications/host_gui` | https://github.com/ocornut/imgui | v1.90.9 | MIT, Copyright (c) 2014-2024 Omar Cornut |
 | GoogleTest | fetched by `tests/CMakeLists.txt` | https://github.com/google/googletest | v1.14.0 | BSD-3-Clause, Copyright 2008, Google Inc. |
+| LAME | fetched by `cmake/SushiDSPLame.cmake`; built as `libmp3lame.dll` and linked dynamically by `applications/host_gui` | https://lame.sourceforge.io | 3.100 | LGPL-2.0-or-later, Copyright (c) 1999-2017 The LAME Project |
+| CLAP | fetched by `CMakeLists.txt`; headers used by `applications/plugin` | https://github.com/free-audio/clap | 1.2.2 | MIT, Copyright (c) 2021 Alexandre Bique |
 
 GoogleTest is fetched for the test suite and is not part of a shipped build.
 

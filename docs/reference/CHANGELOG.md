@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- 2026-10-13 — host: Added the export of the mix as a 16-bit or 32-bit float WAV or an MP3, rendered offline (`session_bounce.cpp`, `mp3_encoder.cpp`, `top_bar.cpp`, `cmake/SushiDSPLame.cmake`).
+- 2026-10-13 — host: Added the track file and a rig preset per track, and wrote every track's rig and strip into the session (`session_file.cpp`, `arrangement_view.cpp`).
+- 2026-10-13 — host: Gave each track a rig of its own: up to eight live rigs, the selected one on show and fed the live input; removed the input-source choice from the transport bar (`session.cpp`, `session_renderer.cpp`, `main.cpp`).
+- 2026-10-13 — host: Added `RigController::save_rig_to_json` and `load_rig_from_json`, and a controller built on a shared timeline (`rig_controller.hpp`, `rig_persistence.cpp`, `PresetScope`).
+- 2026-10-13 — capture: Added a lane rendered alone before its fader (`TrackPlayer::process_lane`).
 - 2026-10-13 — host: Added an Add furniture list to the cabinet section's toolbar and a remove button and quantity to a furnishing's inspector (`cabinet_section_pane.cpp`).
 - 2026-10-13 — host: Named the join's strip Line when no path holds a cabinet and Cabinet + Line when some do, with a note that such a path moves no air (`mixer_model.cpp`, `cabinet_section_wiring.cpp`, `TopologyApplier::join_content`).
 - 2026-10-13 — host: Added the choice of microphone to the inspector and a microphone's `"model"` to a preset's room (`cabinet_section_pane.cpp`, `rig_persistence.cpp`).

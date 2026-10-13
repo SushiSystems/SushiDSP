@@ -31,9 +31,13 @@
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
+#include <utility>
+#include <string>
+#include <exception>
 
 #include <imgui.h>
 
+#include "session_file.hpp"
 #include "ui/theme.hpp"
 
 namespace ui
@@ -79,19 +83,29 @@ namespace ui
         }
     } // namespace
 
-    void DrawTopBar(RigController* rig, bool connected, const std::string& device_label,
-                    bool& open_device_settings, std::string& status, bool& rig_replaced)
+    void DrawTopBar(Session* session, bool connected, const std::string& device_label,
+                    bool& open_device_settings, std::string& status, bool& rig_replaced,
+                    SessionBounce& bounce, const std::string& hrtf_path)
     {
         static char preset_path[256] = "preset.json";
+        static char export_path[256] = "mix.wav";
+        static int export_format = 0;
 
         rig_replaced = false;
 
         const float window_width = ImGui::GetWindowWidth();
 
-        // Left column: preset path, Save, Load and the last status; see applications/host_gui/ui/README.md.
-        if (rig != nullptr)
+        std::string finished;
+        if (bounce.take_result(finished))
         {
-            ImGui::SetNextItemWidth(280.0f);
+            status = finished.empty() ? std::string("Exported ") + export_path
+                                      : "Export failed: " + finished;
+        }
+
+        // Left column: preset path, Save, Load and the last status; see applications/host_gui/ui/README.md.
+        if (session != nullptr)
+        {
+            ImGui::SetNextItemWidth(220.0f);
             ImGui::InputText("##preset_path", preset_path, sizeof(preset_path));
             ImGui::SameLine();
 
@@ -99,16 +113,12 @@ namespace ui
             {
                 try
                 {
-                    // Opening the stream truncates the file, and save_to_json() can throw.
-                    const std::string json_text = rig->save_to_json();
-                    std::ofstream out(preset_path);
-                    if (!out)
-                    {
-                        throw std::runtime_error("could not open '" + std::string(preset_path) +
-                                                 "' for writing");
-                    }
-                    out << json_text;
-                    status = std::string("Saved ") + preset_path;
+                    // The session is serialized before the file is opened, which truncates it.
+                    const std::string json_text = session_to_json(*session);
+                    std::string refusal;
+                    status = write_text_file(preset_path, json_text, refusal)
+                                 ? std::string("Saved ") + preset_path
+                                 : "Save failed: " + refusal;
                 }
                 catch (const std::exception& error)
                 {
@@ -121,15 +131,13 @@ namespace ui
             {
                 try
                 {
-                    std::ifstream in(preset_path);
-                    if (!in)
+                    std::string json_text;
+                    std::string refusal;
+                    if (!read_text_file(preset_path, json_text, refusal))
                     {
-                        throw std::runtime_error("could not open '" + std::string(preset_path) +
-                                                 "' for reading");
+                        throw std::runtime_error(refusal);
                     }
-                    const std::string json_text((std::istreambuf_iterator<char>(in)),
-                                                std::istreambuf_iterator<char>());
-                    rig->load_from_json(json_text);
+                    session_from_json(*session, json_text);
                     rig_replaced = true;
                     status = std::string("Loaded ") + preset_path;
                 }
@@ -137,6 +145,54 @@ namespace ui
                 {
                     status = std::string("Load failed: ") + error.what();
                 }
+            }
+            ImGui::SameLine();
+
+            if (bounce.running())
+            {
+                ImGui::ProgressBar(bounce.progress(), ImVec2(110.0f, 0.0f), "Exporting");
+            }
+            else if (ImGui::Button("Export"))
+            {
+                ImGui::OpenPopup("export_mix");
+            }
+            if (ImGui::BeginPopup("export_mix"))
+            {
+                ImGui::TextUnformatted("Export the mix of every track");
+                ImGui::SetNextItemWidth(280.0f);
+                ImGui::InputText("file", export_path, sizeof(export_path));
+                ImGui::SetNextItemWidth(280.0f);
+                ImGui::Combo("format", &export_format,
+                             "WAV, 16-bit\0WAV, 32-bit float\0MP3, 320 kbit/s\0MP3, 192 kbit/s\0");
+                if (ImGui::Button("Export"))
+                {
+                    try
+                    {
+                        BounceRequest request;
+                        request.session_json = session_to_json(*session);
+                        request.path = export_path;
+                        request.hrtf_path = hrtf_path;
+                        request.info = session->info();
+                        request.format = export_format == 0   ? BounceFormat::Wav16
+                                         : export_format == 1 ? BounceFormat::Wav32Float
+                                                              : BounceFormat::Mp3;
+                        request.mp3_kilobits_per_second = export_format == 3 ? 192 : 320;
+                        status = bounce.start(std::move(request))
+                                     ? std::string("Exporting ") + export_path
+                                     : std::string("An export is already running.");
+                    }
+                    catch (const std::exception& error)
+                    {
+                        status = std::string("Export failed: ") + error.what();
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel"))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
             }
 
             if (!status.empty())

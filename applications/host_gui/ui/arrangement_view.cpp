@@ -27,6 +27,9 @@
 
 #include "ui/arrangement_view.hpp"
 
+#include "session_file.hpp"
+
+#include <exception>
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -203,24 +206,95 @@ namespace ui
             }
         }
 
-        /// @brief Draws one lane's header strip: the name, the level, the arm, mute and solo
-        /// buttons, the pan and the re-amp button.
-        /// @param rig The rig whose player and re-amp leg the strip drives.
-        /// @param index The lane.
+        /// @brief Draws the popup a track's rig button opens: the rig's preset file and the
+        /// track's own file, each loaded and saved by path.
+        void draw_track_files(Session& session, std::size_t index, std::string& error_out)
+        {
+            static char rig_path[256] = "rig.json";
+            static char track_path[256] = "track.sdtrack";
+            if (!ImGui::BeginPopup("track_files"))
+            {
+                return;
+            }
+            ImGui::TextUnformatted("This track's rig");
+            ImGui::SetNextItemWidth(260.0f);
+            ImGui::InputText("##rig_path", rig_path, sizeof(rig_path));
+            if (ImGui::Button("Load rig"))
+            {
+                if (load_track_rig(session, index, rig_path, error_out))
+                {
+                    error_out.clear();
+                    session.select(index);
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Save rig"))
+            {
+                if (save_track_rig(session, index, rig_path, error_out))
+                {
+                    error_out.clear();
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::Separator();
+            ImGui::TextUnformatted("The whole track: rig, strip and clips");
+            ImGui::SetNextItemWidth(260.0f);
+            ImGui::InputText("##track_path", track_path, sizeof(track_path));
+            if (ImGui::Button("Save track"))
+            {
+                try
+                {
+                    if (write_text_file(track_path, track_to_json(session, index), error_out))
+                    {
+                        error_out.clear();
+                    }
+                }
+                catch (const std::exception& refusal)
+                {
+                    error_out = refusal.what();
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Load as a new track"))
+            {
+                std::string text;
+                if (read_text_file(track_path, text, error_out))
+                {
+                    track_from_json(session, text, error_out);
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
+        /// @brief Draws one track's header: the name, the rig button that selects the track and
+        /// opens its files, the rig bypass, the level, the arm, mute and solo buttons and the pan.
+        /// @param session The session whose track the header drives.
+        /// @param index The track.
         /// @param origin The strip's top-left in screen pixels.
         /// @param header_width The header strip's width.
         /// @param names In/out: the name boxes' character buffers.
         /// @param error_out In/out: the last refusal.
-        void draw_lane_header(RigController& rig, std::size_t index, ImVec2 origin,
+        void draw_lane_header(Session& session, std::size_t index, ImVec2 origin,
                               float header_width,
                               std::array<std::array<char, K_NAME_CAPACITY>, K_LANE_COUNT>& names,
                               std::optional<std::size_t>& remove_request, std::string& error_out)
         {
-            SushiDSP::TrackPlayer& player = rig.player();
+            RigController& rig = session.selected_rig();
+            TrackStrip strip = session.strip(index);
+            bool strip_changed = false;
+            const bool is_selected = session.selected() == index;
             ImDrawList* draw = ImGui::GetWindowDrawList();
 
             draw->AddRectFilled(origin, ImVec2(origin.x + header_width, origin.y + K_LANE_HEIGHT),
-                                to_imu32(rgba(38, 38, 44)), 4.0f);
+                                to_imu32(is_selected ? rgba(52, 52, 62) : rgba(38, 38, 44)), 4.0f);
+            if (is_selected)
+            {
+                draw->AddRect(origin, ImVec2(origin.x + header_width, origin.y + K_LANE_HEIGHT),
+                              to_imu32(rgba(214, 168, 74)), 4.0f);
+            }
 
             // Strip click: palette; header right-click: removal; see applications/host_gui/ui/README.md.
             ImGui::SetCursorScreenPos(origin);
@@ -261,26 +335,42 @@ namespace ui
             }
 
             ImGui::SetCursorScreenPos(ImVec2(origin.x + K_HEADER_INSET, origin.y + 5.0f));
-            ImGui::SetNextItemWidth(100.0f);
+            ImGui::SetNextItemWidth(84.0f);
             if (TextField("##name", names[index].data(), K_NAME_CAPACITY, rig.track_name(index)))
             {
                 rig.set_track_name(index, names[index].data());
             }
 
-            const bool is_reamp_source =
-                rig.reamp_track().has_value() && *rig.reamp_track() == index;
-            ImGui::SetCursorScreenPos(ImVec2(origin.x + K_HEADER_INSET + 106.0f, origin.y + 6.0f));
-            if (ImGui::SmallButton(is_reamp_source ? "RE-AMP" : "re-amp"))
+            // The rig button selects the track, so the rig view shows this track's rig.
+            ImGui::SetCursorScreenPos(ImVec2(origin.x + K_HEADER_INSET + 90.0f, origin.y + 6.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button,
+                                  to_imvec4(is_selected ? rgba(150, 118, 52) : rgba(52, 52, 60)));
+            if (ImGui::SmallButton("rig"))
             {
-                if (is_reamp_source)
-                {
-                    rig.clear_reamp_track();
-                    rig.set_input_source(RigInputSource::LiveInput);
-                }
-                else if (rig.set_reamp_track(index, error_out))
-                {
-                    rig.set_input_source(RigInputSource::Track);
-                }
+                session.select(index);
+                ImGui::OpenPopup("track_files");
+            }
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered())
+            {
+                const std::string& preset = session.preset_path(index);
+                ImGui::SetTooltip("Select this track and open its rig and track files.\n%s",
+                                  preset.empty() ? "No preset loaded." : preset.c_str());
+            }
+            draw_track_files(session, index, error_out);
+
+            ImGui::SameLine(0.0f, 4.0f);
+            ImGui::PushStyleColor(ImGuiCol_Button, to_imvec4(strip.rig_bypassed ? rgba(120, 120, 130)
+                                                                               : rgba(52, 52, 60)));
+            if (ImGui::SmallButton("byp"))
+            {
+                strip.rig_bypassed = !strip.rig_bypassed;
+                strip_changed = true;
+            }
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Pass this track's audio by its rig, for a play-along track");
             }
 
             ImGui::SameLine(0.0f, 4.0f);
@@ -295,10 +385,9 @@ namespace ui
 
             ImGui::SetCursorScreenPos(ImVec2(origin.x + K_HEADER_INSET, origin.y + 26.0f));
             ImGui::SetNextItemWidth(184.0f);
-            float level = player.gain(index);
-            if (ImGui::SliderFloat("##level", &level, 0.0f, 2.0f, "%.2f"))
+            if (ImGui::SliderFloat("##level", &strip.level_db, -60.0f, 12.0f, "%+.1f dB"))
             {
-                player.set_gain(index, level);
+                strip_changed = true;
             }
 
             ImGui::SetCursorScreenPos(ImVec2(origin.x + K_HEADER_INSET, origin.y + 46.0f));
@@ -309,35 +398,43 @@ namespace ui
             {
                 rig.set_record_track(armed ? std::optional<std::size_t>()
                                            : std::optional<std::size_t>(index));
+                // What is played is heard through the rig of the track it is recorded onto.
+                if (!armed)
+                {
+                    session.select(index);
+                }
             }
             ImGui::PopStyleColor();
 
             ImGui::SameLine(0.0f, 4.0f);
-            const bool muted = player.muted(index);
             ImGui::PushStyleColor(ImGuiCol_Button,
-                                  to_imvec4(muted ? rgba(184, 148, 40) : rgba(52, 52, 60)));
+                                  to_imvec4(strip.muted ? rgba(184, 148, 40) : rgba(52, 52, 60)));
             if (ImGui::SmallButton("M"))
             {
-                player.set_mute(index, !muted);
+                strip.muted = !strip.muted;
+                strip_changed = true;
             }
             ImGui::PopStyleColor();
 
             ImGui::SameLine(0.0f, 4.0f);
-            const bool soloed = player.soloed(index);
             ImGui::PushStyleColor(ImGuiCol_Button,
-                                  to_imvec4(soloed ? rgba(64, 152, 196) : rgba(52, 52, 60)));
+                                  to_imvec4(strip.soloed ? rgba(64, 152, 196) : rgba(52, 52, 60)));
             if (ImGui::SmallButton("S"))
             {
-                player.set_solo(index, !soloed);
+                strip.soloed = !strip.soloed;
+                strip_changed = true;
             }
             ImGui::PopStyleColor();
 
             ImGui::SameLine(0.0f, 8.0f);
             ImGui::SetNextItemWidth(92.0f);
-            float pan = player.pan(index);
-            if (ImGui::SliderFloat("##pan", &pan, -1.0f, 1.0f, "pan %.2f"))
+            if (ImGui::SliderFloat("##pan", &strip.pan, -1.0f, 1.0f, "pan %.2f"))
             {
-                player.set_pan(index, pan);
+                strip_changed = true;
+            }
+            if (strip_changed)
+            {
+                session.set_strip(index, strip);
             }
         }
 
@@ -474,7 +571,7 @@ namespace ui
         return rig.place_clip(track, path, start, error_out);
     }
 
-    void DrawArrangementView(RigController& rig, TimelineScale& scale, SnapMode& snap,
+    void DrawArrangementView(Session& session, TimelineScale& scale, SnapMode& snap,
                              SushiDSP::host::AudioImportQueue& imports,
                              std::string& arrangement_error, LaneGeometry& geometry_out,
                              float& header_width)
@@ -483,6 +580,8 @@ namespace ui
         static ClipDrag drag;
         static std::optional<std::size_t> pending_removal;
         std::optional<std::size_t> remove_request;
+        // Every track's rig forwards to the one timeline, so the selected one stands for it.
+        RigController& rig = session.selected_rig();
 
         draw_toolbar(rig, scale, snap);
 
@@ -538,7 +637,7 @@ namespace ui
                 lanes_top + static_cast<float>(index) * (K_LANE_HEIGHT + K_LANE_GAP);
 
             ImGui::PushID(static_cast<int>(index));
-            draw_lane_header(rig, index, ImVec2(origin.x, lane_y), header_width, names,
+            draw_lane_header(session, index, ImVec2(origin.x, lane_y), header_width, names,
                              remove_request, arrangement_error);
 
             ImGui::SetCursorScreenPos(ImVec2(canvas_x, lane_y));
@@ -575,7 +674,7 @@ namespace ui
         if (ImGui::SmallButton("+ Add track"))
         {
             std::string error;
-            if (!rig.add_track(error))
+            if (!session.add_track(error))
             {
                 arrangement_error = error;
             }
@@ -592,7 +691,8 @@ namespace ui
             std::string error;
             if (ImGui::Button("Lane only"))
             {
-                if (pending_removal.has_value() && !rig.remove_track(*pending_removal, error))
+                if (pending_removal.has_value() &&
+                    !session.remove_track(*pending_removal, false, error))
                 {
                     arrangement_error = error;
                 }
@@ -603,7 +703,7 @@ namespace ui
             if (ImGui::Button("Lane and files"))
             {
                 if (pending_removal.has_value() &&
-                    !rig.remove_track_and_files(*pending_removal, error))
+                    !session.remove_track(*pending_removal, true, error))
                 {
                     arrangement_error = error;
                 }

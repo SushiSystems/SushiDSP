@@ -73,6 +73,10 @@
 #include "ui/stage_panel.hpp"
 #include "ui/theme.hpp"
 #include "ui/top_bar.hpp"
+#include "session.hpp"
+#include "session_bounce.hpp"
+#include "session_file.hpp"
+#include "session_renderer.hpp"
 #include "ui/transport_bar.hpp"
 
 #if defined(SUSHIDSP_HAVE_ASIO)
@@ -135,10 +139,10 @@ namespace
     /// line on stderr names the path that was looked for. See assets/hrtf/README.md.
     /// @param controller The rig to act on.
     /// @param default_hrtf_path Path to the bundled set.
-    void apply_default_hrtf(RigController& controller, const std::string& default_hrtf_path)
+    void apply_default_hrtf(Session& session, const std::string& default_hrtf_path)
     {
         std::string error;
-        if (controller.set_hrtf_path(default_hrtf_path, error))
+        if (session.set_hrtf_path(default_hrtf_path, error))
         {
             return;
         }
@@ -314,14 +318,18 @@ int main(int argc, char** argv)
     ui::LevelProbe input_probe;
     ui::LevelProbe output_probe;
 
-    // rig_controller_storage outlives device by declaration order; see applications/host_gui/README.md.
-    std::optional<RigController> rig_controller_storage;
+    // session_storage outlives device by declaration order; see applications/host_gui/README.md.
+    std::optional<Session> session_storage;
+    SessionRenderer session_renderer;
+    SessionBounce session_bounce;
+    // The rig view is laid out again whenever the session shows it another rig.
+    std::uint64_t seeded_rig_revision = ~std::uint64_t{0};
     std::unique_ptr<SushiDSP::AudioDevice> device;
 
     /// @brief Opens the chosen device, builds a rig for its format and starts the audio callback.
     /// Records the failure in connect_error and leaves the previous rig gone on any exception.
     auto connect_device = [&device, &device_choice, &asio_drivers, &connect_error,
-                           &rig_controller_storage, &rig_input, &rig_input_second, &rig_output, &rig_output_pointers,
+                           &session_storage, &session_renderer, &rig_input, &rig_input_second, &rig_output, &rig_output_pointers,
                            &rig_output_const_pointers, &callback_silence, &input_probe,
                            &output_probe, &device_label, &rig_chain_state, &status,
                            &open_device_settings, &default_hrtf_path]()
@@ -353,9 +361,10 @@ int main(int argc, char** argv)
             const std::uint32_t rig_channels = std::min<std::uint32_t>(
                 std::max(1u, actual.output_channels), SushiDSP::RigGraph::K_MAX_CHANNELS);
             SushiDSP::PrepareInfo info{actual.sample_rate, actual.block_size, rig_channels};
-            rig_controller_storage.emplace(info);
-            apply_default_hrtf(*rig_controller_storage, default_hrtf_path);
-            seed_rig_chain(*rig_controller_storage, rig_chain_state, status);
+            session_storage.emplace(info);
+            session_renderer.prepare(actual.block_size);
+            apply_default_hrtf(*session_storage, default_hrtf_path);
+            seed_rig_chain(session_storage->selected_rig(), rig_chain_state, status);
 
             const std::size_t input_index =
                 SushiDSP::channel_selection_input_index(device_choice.input);
@@ -372,10 +381,12 @@ int main(int argc, char** argv)
             // The buffers are sized once here and never resized; see applications/host_gui/README.md.
             rig_input.assign(actual.block_size, 0.0f);
             rig_input_second.assign(actual.block_size, 0.0f);
-            rig_output.assign(static_cast<std::size_t>(actual.block_size) * rig_channels, 0.0f);
-            rig_output_pointers.resize(rig_channels);
-            rig_output_const_pointers.resize(rig_channels);
-            for (std::uint32_t channel = 0; channel < rig_channels; ++channel)
+            // The session renders two channels whatever the device takes of them.
+            const std::uint32_t mix_channels = SessionRenderer::K_CHANNELS;
+            rig_output.assign(static_cast<std::size_t>(actual.block_size) * mix_channels, 0.0f);
+            rig_output_pointers.resize(mix_channels);
+            rig_output_const_pointers.resize(mix_channels);
+            for (std::uint32_t channel = 0; channel < mix_channels; ++channel)
             {
                 float* start =
                     rig_output.data() + static_cast<std::size_t>(channel) * actual.block_size;
@@ -384,9 +395,9 @@ int main(int argc, char** argv)
             }
             callback_silence.assign(actual.block_size, 0.0f);
 
-            RigController& rig_controller_ref = *rig_controller_storage;
+            Session& session_ref = *session_storage;
             device->start(
-                [&rig_controller_ref, &rig_input, &rig_input_second, &rig_output, &rig_output_pointers,
+                [&session_ref, &session_renderer, &rig_input, &rig_output_pointers,
                  &rig_output_const_pointers, &callback_silence, &input_probe, &output_probe,
                  input_index, output_selection, is_multi_channel_input, device_output_channels,
                  rig_channels](const float* const* inputs, float* const* outputs,
@@ -396,9 +407,6 @@ int main(int argc, char** argv)
                     {
                         return;
                     }
-                    SushiDSP::RigGraph* active =
-                        rig_controller_ref.graph_slot().acquire_for_audio_thread();
-
                     const float* selected_channel[1];
                     if (inputs == nullptr)
                     {
@@ -416,84 +424,16 @@ int main(int argc, char** argv)
 
                     input_probe.report(selected_channel[0], frames);
 
-                    SushiDSP::Transport& transport = rig_controller_ref.transport();
-                    const bool rolling = transport.state() != SushiDSP::TransportState::Stopped;
-                    const RigInputSource source = rig_controller_ref.input_source();
-
-                    float* rig_input_pointer[1] = {rig_input.data()};
-                    if (source == RigInputSource::Track)
+                    // A mono device repeats its channel; a stereo one gives the other input.
+                    const float* second_channel = selected_channel[0];
+                    if (is_multi_channel_input && inputs != nullptr)
                     {
-                        std::memset(rig_input.data(), 0, frames * sizeof(float));
+                        second_channel = inputs[input_index == 0 ? 1u : 0u];
                     }
-                    else
-                    {
-                        std::memcpy(rig_input.data(), selected_channel[0], frames * sizeof(float));
-                    }
-                    if (source != RigInputSource::LiveInput && rolling)
-                    {
-                        rig_controller_ref.reamp_player().process(rig_input_pointer, 1, frames,
-                                                                  transport);
-                    }
-
-                    // A mono device, or a re-amp source, repeats the first channel on the second.
-                    if (source == RigInputSource::LiveInput && is_multi_channel_input && inputs != nullptr)
-                    {
-                        const std::size_t other_index = input_index == 0 ? 1u : 0u;
-                        std::memcpy(rig_input_second.data(), inputs[other_index], frames * sizeof(float));
-                    }
-                    else
-                    {
-                        std::memcpy(rig_input_second.data(), rig_input.data(), frames * sizeof(float));
-                    }
-
-                    const float* rig_input_const_pointer[2] = {rig_input.data(), rig_input_second.data()};
-                    SushiDSP::ProcessContext context{rig_output_pointers.data(),
-                                                     rig_input_const_pointer, frames, 0.0};
-                    if (active == nullptr)
-                    {
-                        for (std::uint32_t channel = 0; channel < rig_channels; ++channel)
-                        {
-                            std::memset(rig_output_pointers[channel], 0, frames * sizeof(float));
-                        }
-                    }
-                    else if (active->is_empty())
-                    {
-                        // An empty or all-bypassed rack passes the input; see applications/host_gui/README.md.
-                        for (std::uint32_t channel = 0; channel < rig_channels; ++channel)
-                        {
-                            std::memcpy(rig_output_pointers[channel], rig_input.data(),
-                                        frames * sizeof(float));
-                        }
-                    }
-                    else
-                    {
-                        active->process(context);
-                    }
-
-                    if (rolling)
-                    {
-                        rig_controller_ref.player().process(rig_output_pointers.data(),
-                                                            rig_channels, frames, transport);
-                    }
-
+                    const float* const live[SessionRenderer::K_CHANNELS] = {selected_channel[0],
+                                                                           second_channel};
+                    session_renderer.render(session_ref, live, rig_output_pointers.data(), frames);
                     output_probe.report(rig_output_pointers[0], frames);
-
-                    SushiDSP::RecordingBus& bus = rig_controller_ref.recording_bus();
-                    if (bus.is_recording())
-                    {
-                        // The dry leg is the buffer that actually drove the rig, re-amp included.
-                        bus.write(rig_output_const_pointers.data(), rig_input.data(), frames);
-                    }
-
-                    // The click is added after both recorder legs; see applications/host_gui/README.md.
-                    rig_controller_ref.metronome().process(rig_output_pointers.data(), rig_channels,
-                                                           frames, transport,
-                                                           rig_controller_ref.musical_clock());
-
-                    if (rolling)
-                    {
-                        transport.advance(frames);
-                    }
 
                     SushiDSP::write_rig_output_to_device(
                         rig_output_const_pointers.data(), rig_channels, outputs,
@@ -518,16 +458,24 @@ int main(int argc, char** argv)
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        if (rig_controller_storage.has_value())
+        if (session_storage.has_value())
         {
-            rig_controller_storage->reclaim();
+            session_storage->reclaim();
+            if (session_storage->rig_revision() != seeded_rig_revision)
+            {
+                // Another rig is on show: every slot id the views hold belongs to the last one.
+                seed_rig_chain(session_storage->selected_rig(), rig_chain_state, status);
+                cabinet_section_state = ui::CabinetSectionState();
+                room_error.clear();
+                seeded_rig_revision = session_storage->rig_revision();
+            }
         }
 
         // Drops resolve against the previous frame's lane rectangles; see applications/host_gui/README.md.
         file_drops.drain(drained_drops);
         for (const SushiDSP::host::FileDrop& drop : drained_drops)
         {
-            if (!rig_controller_storage.has_value())
+            if (!session_storage.has_value())
             {
                 continue;
             }
@@ -542,7 +490,7 @@ int main(int argc, char** argv)
             }
 
             const ImVec2 landed(ui::canvas_x_of(lane_geometry, screen_x), 0.0f);
-            if (ui::route_file_drop(*rig_controller_storage, timeline_scale, snap_mode, drop.path,
+            if (ui::route_file_drop(session_storage->selected_rig(), timeline_scale, snap_mode, drop.path,
                                     landed, *lane, audio_imports, arrangement_error))
             {
                 arrangement_error.clear();
@@ -554,7 +502,7 @@ int main(int argc, char** argv)
         audio_imports.drain(finished_imports);
         for (const SushiDSP::host::AudioImport& import : finished_imports)
         {
-            if (!rig_controller_storage.has_value())
+            if (!session_storage.has_value())
             {
                 continue;
             }
@@ -563,7 +511,7 @@ int main(int argc, char** argv)
                 arrangement_error = import.error;
                 continue;
             }
-            if (rig_controller_storage->place_clip(import.track, import.wav_path,
+            if (session_storage->selected_rig().place_clip(import.track, import.wav_path,
                                                    import.start_frame, arrangement_error))
             {
                 arrangement_error.clear();
@@ -609,13 +557,13 @@ int main(int argc, char** argv)
         ImGui::Begin("##top", nullptr, region_flags);
         {
             bool rig_replaced = false;
-            ui::DrawTopBar(rig_controller_storage.has_value() ? &*rig_controller_storage : nullptr,
-                           rig_controller_storage.has_value(), device_label, open_device_settings,
-                           status, rig_replaced);
-            if (rig_replaced && rig_controller_storage.has_value())
+            ui::DrawTopBar(session_storage.has_value() ? &*session_storage : nullptr,
+                           session_storage.has_value(), device_label, open_device_settings,
+                           status, rig_replaced, session_bounce, default_hrtf_path);
+            if (rig_replaced && session_storage.has_value())
             {
                 // A load numbers the new rig's slots from zero, so nothing may carry across.
-                seed_rig_chain(*rig_controller_storage, rig_chain_state, status);
+                seed_rig_chain(session_storage->selected_rig(), rig_chain_state, status);
                 room_error.clear();
                 cabinet_section_state = ui::CabinetSectionState();
             }
@@ -648,9 +596,9 @@ int main(int argc, char** argv)
             // The wheel belongs to the timeline's own scroll and zoom.
             ImGui::Begin("##arrangement", nullptr,
                          region_flags | ImGuiWindowFlags_NoScrollWithMouse);
-            if (rig_controller_storage.has_value())
+            if (session_storage.has_value())
             {
-                ui::DrawArrangementView(*rig_controller_storage, timeline_scale, snap_mode,
+                ui::DrawArrangementView(*session_storage, timeline_scale, snap_mode,
                                         audio_imports, arrangement_error, lane_geometry,
                                         arrangement_header_width);
             }
@@ -659,9 +607,9 @@ int main(int argc, char** argv)
         else if (cabinet_section_open)
         {
             ImGui::Begin("##cabinet_section", nullptr, region_flags);
-            if (rig_controller_storage.has_value())
+            if (session_storage.has_value())
             {
-                ui::DrawCabinetSectionPane(*rig_controller_storage, rig_chain_state.topology,
+                ui::DrawCabinetSectionPane(session_storage->selected_rig(), rig_chain_state.topology,
                                            rig_chain_state.applier, cabinet_section_state);
             }
             ImGui::End();
@@ -688,16 +636,16 @@ int main(int argc, char** argv)
             ImGui::BeginChild("##settings", ImVec2(0.0f, settings_height), false,
                               ImGuiWindowFlags_AlwaysUseWindowPadding);
             ImGui::PopStyleVar(3);
-            if (rig_controller_storage.has_value())
+            if (session_storage.has_value())
             {
                 const std::optional<RigController::SlotId>& selected = rig_chain_state.selected;
-                if (selected.has_value() && rig_controller_storage->hosts_room(*selected))
+                if (selected.has_value() && session_storage->selected_rig().hosts_room(*selected))
                 {
-                    ui::DrawRoomPanel(*rig_controller_storage, *selected, room_error);
+                    ui::DrawRoomPanel(session_storage->selected_rig(), *selected, room_error);
                 }
                 else
                 {
-                    ui::DrawStagePanel(*rig_controller_storage, selected, default_ir_directory);
+                    ui::DrawStagePanel(session_storage->selected_rig(), selected, default_ir_directory);
                 }
             }
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, no_spacing);
@@ -712,13 +660,13 @@ int main(int argc, char** argv)
                               ImGuiWindowFlags_AlwaysUseWindowPadding |
                                   ImGuiWindowFlags_HorizontalScrollbar);
             ImGui::PopStyleVar(3);
-            if (rig_controller_storage.has_value())
+            if (session_storage.has_value())
             {
                 std::optional<RigController::SlotId> created_slot;
-                ui::DrawRigChainView(*rig_controller_storage, rig_chain_state, created_slot);
+                ui::DrawRigChainView(session_storage->selected_rig(), rig_chain_state, created_slot);
                 if (created_slot.has_value())
                 {
-                    apply_default_cabinet(*rig_controller_storage, *created_slot, default_ir_path);
+                    apply_default_cabinet(session_storage->selected_rig(), *created_slot, default_ir_path);
                 }
                 if (!rig_chain_state.edit_error.empty())
                 {
@@ -767,14 +715,14 @@ int main(int argc, char** argv)
         ImGui::SetNextWindowPos(ImVec2(0.0f, height - bottom_bar_height));
         ImGui::SetNextWindowSize(ImVec2(width, bottom_bar_height));
         ImGui::Begin("##bottom", nullptr, region_flags);
-        if (rig_controller_storage.has_value())
+        if (session_storage.has_value())
         {
-            ui::DrawTransportBar(*rig_controller_storage, input_probe, output_probe, mini_daw_open,
+            ui::DrawTransportBar(session_storage->selected_rig(), input_probe, output_probe, mini_daw_open,
                                  transport_error);
         }
         ImGui::End();
 
-        if (ui::DrawDeviceSettings(asio_drivers, device_choice, rig_controller_storage.has_value(),
+        if (ui::DrawDeviceSettings(asio_drivers, device_choice, session_storage.has_value(),
                                    connect_error, open_device_settings))
         {
             connect_device();

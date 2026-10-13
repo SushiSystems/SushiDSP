@@ -28,6 +28,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -64,6 +65,18 @@ class RigController
         using ClipPlacement = SessionTimeline::ClipPlacement;
 
         explicit RigController(const SushiDSP::PrepareInfo& info);
+
+        /// @brief Builds a rig on a timeline another owner shares with it, so several rigs read
+        /// one arrangement, one transport and one set of recorders.
+        /// @param info The sample rate, block size and channel count the rig is prepared at.
+        /// @param session The shared timeline; never null.
+        RigController(const SushiDSP::PrepareInfo& info, std::shared_ptr<SessionTimeline> session);
+
+        /// @brief Returns the timeline this rig reads, shared or its own.
+        const std::shared_ptr<SessionTimeline>& session() const noexcept
+        {
+            return session_owner_;
+        }
 
         /// @brief Adds a new, unconnected slot and republishes.
         /// @param descriptor_id The NodeDescriptor id to construct.
@@ -573,6 +586,17 @@ class RigController
         /// preset records; a caller writing to a file must serialize before it truncates the file.
         std::string save_to_json() const;
 
+        /// @brief Serializes the rig alone, with none of the session beside it.
+        /// @return The rig as preset text a track or a plugin carries.
+        /// @throws std::runtime_error as save_to_json() does.
+        std::string save_rig_to_json() const;
+
+        /// @brief Replaces the rig from preset text and leaves the lanes, the loop and the tempo
+        /// as they are.
+        /// @param json_text A preset; its session keys are not read.
+        /// @throws std::runtime_error as load_from_json() does.
+        void load_rig_from_json(const std::string& json_text);
+
         /// @brief Replaces the entire rig from JSON via SushiDSP::deserialize_rig_from_json() and
         /// republishes. Fresh SlotIds are assigned in the parsed graph's node order — preset-local
         /// continuity across a save/load round trip is not preserved (the JSON schema was never
@@ -589,8 +613,12 @@ class RigController
         /// @brief Owns the slots, the edges and the graph published to the audio thread.
         SlotGraph graph_;
 
-        /// @brief Owns the lanes, the clips, the re-amp leg and the take recorders.
-        SessionTimeline session_;
+        /// @brief Keeps the timeline alive: the one this rig made, or the one it was handed.
+        std::shared_ptr<SessionTimeline> session_owner_;
+
+        /// @brief Names the timeline every call forwards to: the lanes, the clips, the re-amp leg
+        /// and the take recorders.
+        SessionTimeline& session_;
 
         /// @brief Reads and writes the other two as a preset; declared last so both outlive it.
         RigPersistence persistence_;

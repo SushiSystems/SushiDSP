@@ -224,19 +224,6 @@ namespace ui
             ImGui::InputText("##take_name", take_name, take_name_capacity);
         }
 
-        /// @brief Draws the rig's input source combo; not in the mockup, kept in the wrapping
-        /// row of controls it does not show.
-        /// @param rig The rig whose input source the combo writes.
-        void draw_input_source(RigController& rig)
-        {
-            int source = static_cast<int>(rig.input_source());
-            ImGui::SetNextItemWidth(96.0f);
-            if (ImGui::Combo("##rig_input", &source, "Live\0Track\0Live + Track\0"))
-            {
-                rig.set_input_source(static_cast<RigInputSource>(source));
-            }
-        }
-
         /// @brief Draws the transport position, in bars-beats-sixteenths and in seconds.
         /// @param rig The rig whose transport and musical clock the readout follows.
         void draw_position(RigController& rig)
@@ -436,8 +423,6 @@ namespace ui
         draw_take_fields(rig, take_name, sizeof(take_name));
         ImGui::SameLine();
         draw_loop_range(rig, loop);
-        ImGui::SameLine();
-        draw_input_source(rig);
         ImGui::SameLine();
         draw_metronome_level(rig);
 
