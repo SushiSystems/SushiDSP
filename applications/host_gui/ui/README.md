@@ -103,11 +103,21 @@ room at its own height; `drag_height` raises or lowers it by a vertical drag sca
 ## `room_scene_view.hpp`
 
 `draw_room_scene` draws the room through a `SceneCamera`: the floor's grid at one line a metre,
-the shoebox's twelve edges, and one marker per cabinet (`C1`..), microphone (`M1`..) and the
-listener (`L`), each with a stem down to the floor and a line along its facing. A drag on a
-marker moves it across the room; with Shift it changes its height; with Alt it turns it. A drag
-on empty space orbits the camera and the wheel zooms. The view writes a moved item back into the
+the shoebox's twelve edges, and one marker per cabinet (`C1`..), microphone (`M1`..), placed
+furnishing (`F1`..) and the listener (`L`), each with a stem down to the floor and a line along
+its facing. A cabinet is also drawn as its box with the rim of each cone on the baffle, and a
+placed furnishing as its box. A drag on a marker moves it across the room; with Shift it changes
+its height, except a furnishing, which stands on the floor; with Alt it turns it. A drag on
+empty space orbits the camera and the wheel zooms. The view writes a moved item back into the
 `Room::Arrangement` it was given and says so; the caller hands the arrangement to the rig.
+
+## `scene_solids.hpp`
+
+The scene's solid geometry, with no ImGui in it: `cabinet_box` runs a cabinet's box back from
+its baffle, `cone_centre` and `cone_outline` place a cone on the baffle, `furnishing_box` stands
+a furniture row's nominal box on the floor, and `nearest_cone` says which cone a point is
+nearest, how far from its centre and how far off its axis.
+`tests/functional/unit/test_scene_solids.cpp` checks each against hand-computed coordinates.
 
 ## `mixer_model.hpp` and `mixer_panel.hpp`
 
@@ -129,9 +139,13 @@ microphone, and leaves them to the caller.
 
 `DrawCabinetSectionPane` lays the cabinet section out over the workspace: a row with the Add
 microphone button and the DI path's switch and position, the room scene, an inspector beside it,
-and the mixer under both. The inspector shows the selected marker's coordinates and facing, and
-for a microphone its pattern and proximity switch, which it writes to the microphone's slot and
-to the arrangement together; under them a collapsed Room header opens `DrawRoomPanel`. A refused
+and the mixer under both. The inspector shows the selected marker's coordinates and facing. For
+a cabinet it adds the choice of 1x12, 2x12 or 4x12. For a microphone it adds the cone it is
+nearest, its distance to that cone's centre and to its axis, and its pattern and proximity
+switch, which it writes to the microphone's slot and to the arrangement together. For a
+furnishing it shows the place and the turn. Under them a collapsed Room header opens
+`DrawRoomPanel`, whose furnishing rows each carry an "In the room" switch: on, the row stands at
+a place, first the room's centre; off, it absorbs evenly. A refused
 edit's reason is shown in the row at the top until an edit lands.
 
 ## `SplitLayout`

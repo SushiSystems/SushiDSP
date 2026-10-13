@@ -2036,6 +2036,18 @@ TEST(Unit_Dsp, RigControllerRoundTripsARoomsArrangementThroughJson)
     placement.pattern = SushiDSP::room::PolarPattern::FigureEight;
     placement.proximity = false;
     ASSERT_TRUE(arrangement.add_microphone(placement, reason)) << reason;
+    ASSERT_TRUE(arrangement.set_source_cabinet(cabinet, SushiDSP::room::K_CABINET2X12));
+    SushiDSP::room::RoomScene shell = arrangement.shell();
+    if (shell.furnishing_count == 0)
+    {
+        shell.furnishing_count = 1;
+        shell.furnishings[0] = {SushiDSP::room::FurnitureId::SofaTwoSeat, 1.0};
+    }
+    shell.furnishings[0].placed = true;
+    shell.furnishings[0].x_m = 3.0;
+    shell.furnishings[0].y_m = 1.0;
+    shell.furnishings[0].yaw_rad = 0.5;
+    arrangement.set_shell(shell);
     ASSERT_TRUE(source.set_room_arrangement(room, arrangement, reason)) << reason;
 
     const std::string saved = source.save_to_json();
@@ -2072,6 +2084,13 @@ TEST(Unit_Dsp, RigControllerRoundTripsARoomsArrangementThroughJson)
     EXPECT_EQ(loaded.microphones()[0].pose.position.z, 0.7);
     EXPECT_EQ(loaded.microphones()[0].pattern, SushiDSP::room::PolarPattern::FigureEight);
     EXPECT_FALSE(loaded.microphones()[0].proximity);
+    EXPECT_TRUE(SushiDSP::room::same_geometry(loaded.sources()[0].cabinet,
+                                              SushiDSP::room::K_CABINET2X12));
+    ASSERT_GE(loaded.shell().furnishing_count, 1u);
+    EXPECT_TRUE(loaded.shell().furnishings[0].placed);
+    EXPECT_EQ(loaded.shell().furnishings[0].x_m, 3.0);
+    EXPECT_EQ(loaded.shell().furnishings[0].y_m, 1.0);
+    EXPECT_EQ(loaded.shell().furnishings[0].yaw_rad, 0.5);
     EXPECT_EQ(target.save_to_json(), saved);
 }
 

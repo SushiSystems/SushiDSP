@@ -353,6 +353,11 @@ namespace
                 nlohmann::json row = nlohmann::json::object();
                 row["item"] = furniture_word(entry.item);
                 row["quantity"] = entry.quantity;
+                if (entry.placed)
+                {
+                    row["position"] = nlohmann::json::array({entry.x_m, entry.y_m});
+                    row["yaw"] = entry.yaw_rad;
+                }
                 furnishings.push_back(row);
             }
             room["furnishings"] = furnishings;
@@ -453,6 +458,24 @@ namespace
                     scene.furnishings[scene.furnishing_count++];
                 entry.item = furniture_from_word(row.at("item").get<std::string>(), "furnishing");
                 entry.quantity = quantity.get<double>();
+                entry.placed = false;
+                entry.x_m = 0.0;
+                entry.y_m = 0.0;
+                entry.yaw_rad = 0.0;
+                if (row.contains("position"))
+                {
+                    const nlohmann::json& position = row.at("position");
+                    if (!position.is_array() || position.size() != 2 ||
+                        !position[0].is_number() || !position[1].is_number())
+                    {
+                        throw std::runtime_error(
+                            "RigController: a preset's furnishing position is not two numbers");
+                    }
+                    entry.placed = true;
+                    entry.x_m = position[0].get<double>();
+                    entry.y_m = position[1].get<double>();
+                    entry.yaw_rad = row.value("yaw", 0.0);
+                }
             }
         }
         else
@@ -638,6 +661,12 @@ namespace
         {
             nlohmann::json row = pose_to_json(source.pose.position, source.pose.yaw_rad);
             name_node(row, source.id);
+            // A geometry that is no shipped cabinet is the shell's, which the room object holds.
+            SushiDSP::room::CabinetKind kind{};
+            if (SushiDSP::room::cabinet_kind_of(source.cabinet, kind))
+            {
+                row["cabinet"] = SushiDSP::room::cabinet_preset(kind).key;
+            }
             sources.push_back(row);
         }
         room["sources"] = sources;
@@ -688,6 +717,18 @@ namespace
             source.pose = {scene.source_position, scene.source_yaw_rad};
             pose_from_json(row, "source", source.pose.position, source.pose.yaw_rad);
             source.id = identity(row, index++);
+            source.cabinet = scene.cabinet;
+            if (row.contains("cabinet"))
+            {
+                SushiDSP::room::CabinetKind kind{};
+                const std::string word = row.at("cabinet").get<std::string>();
+                if (!SushiDSP::room::find_cabinet(word.c_str(), kind))
+                {
+                    throw std::runtime_error("RigController: unknown cabinet '" + word +
+                                             "' in a preset's room");
+                }
+                source.cabinet = SushiDSP::room::cabinet_preset(kind).geometry;
+            }
             if (!arrangement.add_source(source, reason))
             {
                 throw std::runtime_error("RigController: a preset's room: " + reason);

@@ -42,14 +42,15 @@ namespace ui
     {
         Cabinet,
         Microphone,
-        Listener
+        Listener,
+        Furnishing
     };
 
     /// @brief One thing placed in the room, as the scene draws and moves it.
     struct SceneItem
     {
             SceneItemKind kind = SceneItemKind::Listener; ///< What the marker stands for.
-            std::uint64_t id = 0;   ///< The arrangement's identity for it; unused for the listener.
+            std::uint64_t id = 0;   ///< Its identity; a furnishing's index; unused for the listener.
             Point3 position{};      ///< Where it stands, in metres.
             double yaw_rad = 0.0;   ///< Which way it faces, zero facing +x.
     };

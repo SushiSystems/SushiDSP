@@ -183,3 +183,22 @@ TEST(Unit_Dsp, FurnishingListDefaultsToOneItemForEveryRow)
         EXPECT_DOUBLE_EQ(ui::default_furnishing_quantity(static_cast<FurnitureId>(index)), 1.0);
     }
 }
+
+TEST(Unit_Dsp, FurnishingListPlacesAnEntryInsideTheRoomAndTakesItsPlaceAway)
+{
+    SushiDSP::room::RoomScene scene;
+    scene.furnishing_count = 0;
+    ASSERT_TRUE(ui::add_furnishing(scene, SushiDSP::room::FurnitureId::Desk, 1.0));
+    EXPECT_FALSE(scene.furnishings[0].placed);
+
+    ASSERT_TRUE(ui::place_furnishing(scene, 0, 100.0, 1.5));
+    EXPECT_TRUE(scene.furnishings[0].placed);
+    EXPECT_EQ(scene.furnishings[0].x_m, scene.dimensions.x);
+    EXPECT_EQ(scene.furnishings[0].y_m, 1.5);
+    EXPECT_FALSE(ui::place_furnishing(scene, 1, 1.0, 1.0));
+
+    ASSERT_TRUE(ui::unplace_furnishing(scene, 0));
+    EXPECT_FALSE(scene.furnishings[0].placed);
+    EXPECT_EQ(scene.furnishings[0].x_m, 0.0);
+    EXPECT_FALSE(ui::unplace_furnishing(scene, 1));
+}

@@ -50,13 +50,14 @@ namespace ui
     };
 
     /// @brief Lists everything an arrangement places, in the order the scene draws it: the
-    /// cabinets, the microphones, then the listener.
+    /// cabinets, the microphones, the listener, then the furnishings that have a place.
     /// @param arrangement The room.
     /// @return The items.
     std::vector<SceneItem> scene_items(const SushiDSP::Room::Arrangement& arrangement);
 
-    /// @brief Draws the room in perspective with its cabinets, microphones and listener, and moves
-    /// them under the pointer; applications/host_gui/ui/README.md lists the drags.
+    /// @brief Draws the room in perspective with its cabinets as boxes with their cones, its
+    /// furnishings as boxes, its microphones and its listener, and moves them under the pointer;
+    /// applications/host_gui/ui/README.md lists the drags.
     /// @param id The ImGui id of the view.
     /// @param arrangement In/out: the room; a moved item is written back into it.
     /// @param state In/out: the camera, the selection and the drag.

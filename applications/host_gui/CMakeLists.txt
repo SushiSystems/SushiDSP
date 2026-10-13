@@ -38,6 +38,7 @@ add_executable(sushidsp_host_gui
     ui/room_panel.cpp
     ui/scene_camera.cpp
     ui/scene_interaction.cpp
+    ui/scene_solids.cpp
     ui/room_scene_view.cpp
     ui/mixer_model.cpp
     ui/mixer_panel.cpp

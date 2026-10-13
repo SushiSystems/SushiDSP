@@ -160,6 +160,8 @@ add_executable(sushidsp_tests
     functional/unit/test_scene_camera.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/scene_camera.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/scene_interaction.cpp
+    functional/unit/test_scene_solids.cpp
+    ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/scene_solids.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_topology.cpp
     functional/unit/test_topology_applier.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/topology_applier.cpp
@@ -228,6 +230,8 @@ add_executable(sushidsp_tests
     functional/unit/test_room_node.cpp
     functional/unit/test_room_environment.cpp
     functional/unit/test_room_arrangement.cpp
+    functional/unit/test_driver_field.cpp
+    functional/unit/test_furnishing_field.cpp
     functional/unit/test_channel_resampler.cpp
     functional/unit/test_audio_import_cache.cpp
     functional/unit/test_audio_import_queue.cpp

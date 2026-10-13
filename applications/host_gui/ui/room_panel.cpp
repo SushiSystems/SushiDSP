@@ -342,6 +342,15 @@ namespace ui
                     changed = set_furnishing_quantity(scene, index, quantity) || changed;
                 }
                 ImGui::SameLine();
+                bool placed = entry.placed;
+                if (ImGui::Checkbox("In the room", &placed))
+                {
+                    changed = (placed ? place_furnishing(scene, index, 0.5 * scene.dimensions.x,
+                                                         0.5 * scene.dimensions.y)
+                                      : unplace_furnishing(scene, index)) ||
+                              changed;
+                }
+                ImGui::SameLine();
                 if (ImGui::Button("Remove"))
                 {
                     removed = index;
@@ -370,7 +379,12 @@ namespace ui
             {
                 const SushiDSP::room::FurnitureId item =
                     static_cast<SushiDSP::room::FurnitureId>(chosen);
-                changed = add_furnishing(scene, item, default_furnishing_quantity(item)) || changed;
+                if (add_furnishing(scene, item, default_furnishing_quantity(item)))
+                {
+                    place_furnishing(scene, scene.furnishing_count - 1u, 0.5 * scene.dimensions.x,
+                                     0.5 * scene.dimensions.y);
+                    changed = true;
+                }
             }
             ImGui::EndDisabled();
             ImGui::SameLine();
@@ -407,7 +421,7 @@ namespace ui
             ImGui::Dummy(ImVec2(K_SECTION_WIDTH, K_PADDING * 0.5f));
         }
 
-        /// @brief Keeps the listener, every cabinet and every microphone inside the shell, after
+        /// @brief Keeps the listener, every cabinet, microphone and placed furnishing inside the shell, after
         /// a dimension shrank under one of them.
         void keep_inside(SushiDSP::Room::Arrangement& arrangement)
         {
@@ -425,6 +439,16 @@ namespace ui
                 clamp_pose(microphone.pose.position, dimensions);
                 arrangement.update_microphone(microphone);
             }
+            RoomScene shell = arrangement.shell();
+            for (std::uint32_t index = 0; index < shell.furnishing_count; ++index)
+            {
+                if (shell.furnishings[index].placed)
+                {
+                    place_furnishing(shell, index, shell.furnishings[index].x_m,
+                                     shell.furnishings[index].y_m);
+                }
+            }
+            arrangement.set_shell(shell);
         }
 
         /// @brief Draws the Schroeder frequency, Weyl's mode estimate under it and the HRTF
