@@ -16,7 +16,7 @@ code in this directory does.
 | The single handle the GUI reaches all three through, for one rig | `RigController` |
 | The tracks: up to eight, each a lane of the timeline with a rig and a strip of its own | `Session` |
 | One block of the session, for the device and for the export alike | `SessionRenderer` |
-| The session's documents: the whole session, one track, one track's rig preset | `session_file.hpp` |
+| The project file, a new project, and one track's rig preset | `session_file.hpp` |
 | The mix rendered offline into a WAV or an MP3 | `SessionBounce`, `Mp3Encoder` |
 | The chain shape, one linear run, or a split into two or three branches | `RigTopology` |
 | Compiling a chain type into slots and edges | `TopologyApplier` |
@@ -52,15 +52,17 @@ removed track's rig is taken out of that table at once and freed two blocks late
 A take is recorded dry onto the armed track, and arming a track selects it: what is played is
 heard through the rig that will render the take.
 
-`session_to_json` writes the first track's rig and the timeline as a preset always did, and
-every track's strip, preset path and rig under `"track_rigs"`. A preset without that key is one
-rig: its rig becomes the first track's and its other lanes become tracks that pass their audio
-by an empty rig, which is how they played before. A clip on the first lane of such a preset now
-runs through the rig.
+Two things are saved, and they are not the same thing. A rig is saved as a preset, from the
+top bar: `save_track_rig` and `load_track_rig` write and read the selected track's rig alone,
+through `RigController::save_rig_to_json` and `load_rig_from_json`, and leave every lane, the
+loop and the tempo as they are. The work in the mini-DAW is saved as a project, from the
+mini-DAW's own row: `session_to_json` writes the first track's rig and the timeline as a preset
+always did, and every track's strip, preset path and rig under `"track_rigs"`. `new_project`
+empties the session to one track with an empty rig.
 
-A track file, `.sdtrack`, holds one track: its name, colour, strip, clips and rig. Loading one
-adds a track. `load_track_rig` loads a rig preset into one track and leaves its lane alone,
-through `RigController::load_rig_from_json`, which reads the rig and none of the session.
+A file without `"track_rigs"` opened as a project is one rig: its rig becomes the first track's
+and its other lanes become tracks that pass their audio by an empty rig, which is how they
+played before. A clip on the first lane of such a file now runs through the rig.
 
 `SessionBounce` renders the mix on a thread of its own. It builds a session of its own from
 `session_to_json`'s text, so the device keeps playing the live one, renders from frame zero

@@ -314,33 +314,50 @@ TEST(Unit_Dsp, RigControllerLoadsARigAloneAndLeavesTheTimelineAsItIs)
     EXPECT_DOUBLE_EQ(session.timeline().musical_clock().beats_per_minute(), 97.0);
 }
 
-TEST(Unit_Dsp, TrackDocumentRoundTripsARigAStripAndItsClips)
+TEST(Unit_Dsp, TrackRigPresetIsSavedFromAndLoadedIntoOneTrackAlone)
 {
-    const std::string wav = write_constant_wav("sushidsp_track_document.wav", 4800, 0.5f);
-    Session source(K_INFO);
+    const std::string path =
+        (std::filesystem::temp_directory_path() / "sushidsp_track_rig.json").string();
+    Session session(K_INFO);
     std::string error;
-    source.rig(0).append("sushidsp.tubescreamer");
-    ASSERT_TRUE(source.timeline().place_clip(0, wav, 9600, error)) << error;
-    source.timeline().set_track_name(0, "Rhythm");
+    ASSERT_TRUE(session.add_track(error));
+    session.rig(0).append("sushidsp.tubescreamer");
+    session.rig(1).append("sushidsp.dd3");
+
+    ASSERT_TRUE(save_track_rig(session, 1, path, error)) << error;
+    EXPECT_EQ(session.preset_path(1), path);
+    const std::uint64_t before = session.rig_revision();
+    ASSERT_TRUE(load_track_rig(session, 0, path, error)) << error;
+
+    // The first track now holds the second one's rig; the lanes are as they were.
+    ASSERT_EQ(session.rig(0).slot_order().size(), 1u);
+    EXPECT_EQ(session.rig(0).descriptor_id(session.rig(0).slot_order()[0]), "sushidsp.dd3");
+    EXPECT_EQ(session.track_count(), 2u);
+    EXPECT_NE(session.rig_revision(), before);
+    EXPECT_FALSE(load_track_rig(session, 0, path + ".missing", error));
+    std::filesystem::remove(path);
+}
+
+TEST(Unit_Dsp, NewProjectLeavesOneEmptyTrack)
+{
+    const std::string wav = write_constant_wav("sushidsp_new_project.wav", 4800, 0.5f);
+    Session session(K_INFO);
+    std::string error;
+    ASSERT_TRUE(session.add_track(error));
+    session.rig(0).append("sushidsp.tubescreamer");
+    ASSERT_TRUE(session.timeline().place_clip(0, wav, 0, error)) << error;
     TrackStrip strip;
-    strip.level_db = -9.0f;
-    source.set_strip(0, strip);
+    strip.muted = true;
+    session.set_strip(0, strip);
+    session.select(1);
 
-    const std::string document = track_to_json(source, 0);
-    Session target(K_INFO);
-    ASSERT_TRUE(track_from_json(target, document, error)) << error;
-    EXPECT_TRUE(error.empty()) << error;
+    new_project(session);
 
-    ASSERT_EQ(target.track_count(), 2u);
-    EXPECT_EQ(target.selected(), 1u);
-    EXPECT_EQ(target.timeline().track_name(1), "Rhythm");
-    EXPECT_FLOAT_EQ(target.strip(1).level_db, -9.0f);
-    EXPECT_EQ(target.rig(1).slot_order().size(), 1u);
-    ASSERT_EQ(target.timeline().clip_count(1), 1u);
-    EXPECT_EQ(target.timeline().clip(1, 0).start_frame, 9600u);
-
-    EXPECT_FALSE(track_from_json(target, "{\"kind\":\"something else\"}", error));
-    EXPECT_EQ(target.track_count(), 2u);
+    EXPECT_EQ(session.track_count(), 1u);
+    EXPECT_EQ(session.selected(), 0u);
+    EXPECT_TRUE(session.rig(0).slot_order().empty());
+    EXPECT_EQ(session.timeline().clip_count(0), 0u);
+    EXPECT_FALSE(session.strip(0).muted);
     std::filesystem::remove(wav);
 }
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-13 — host: Made the top bar save and load the selected track's rig as a preset, and moved the project's New, Open and Save and the export to the mini-DAW (`top_bar.cpp`, `arrangement_view.cpp`, `session_file.cpp`).
+- 2026-10-13 — host: Removed the track file and its popup; `track_to_json` and `track_from_json` are gone (`session_file.hpp`).
 - 2026-10-13 — host: Laid a track's header out in three rows that span it and follow the font, and widened it (`arrangement_view.cpp`, `main.cpp`).
 - 2026-10-13 — plugin: Added the first plugin, a CLAP shell with state, latency and parameters over a rig adapter that knows no plugin format (`applications/plugin`, `RigAdapter`, `clap_plugin.cpp`).
 - 2026-10-13 — host: Added the export of the mix as a 16-bit or 32-bit float WAV or an MP3, rendered offline (`session_bounce.cpp`, `mp3_encoder.cpp`, `top_bar.cpp`, `cmake/SushiDSPLame.cmake`).

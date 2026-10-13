@@ -21,7 +21,7 @@
 
 /**
  *  @file session_file.hpp
- *  @brief Declares the session's documents: the whole session, one track, and one track's rig preset.
+ *  @brief Declares the session's documents: the project, and one track's rig preset.
  *  @author Mustafa Garip & Sushi Systems
  */
 
@@ -32,10 +32,10 @@
 
 #include "session.hpp"
 
-/// @brief Holds the extension a track file is written with.
-inline constexpr const char* K_TRACK_FILE_EXTENSION = ".sdtrack";
+/// @brief Holds the extension a project file is written with.
+inline constexpr const char* K_PROJECT_FILE_EXTENSION = ".sdproject";
 
-/// @brief Writes the whole session as one document: the first track's rig and the timeline as a
+/// @brief Writes the whole session as one document, which is what a project file holds: the first track's rig and the timeline as a
 /// preset writes them, and every track's strip, preset path and rig under `"track_rigs"`.
 /// @throws std::runtime_error when a rig does not serialize.
 std::string session_to_json(const Session& session);
@@ -45,16 +45,9 @@ std::string session_to_json(const Session& session);
 /// @throws std::runtime_error when the document is malformed or a rig in it is refused.
 void session_from_json(Session& session, const std::string& json_text);
 
-/// @brief Writes one track as a document: its name, colour, strip, clips and rig.
-/// @param index The track, below session.track_count().
-/// @throws std::runtime_error when the rig does not serialize.
-std::string track_to_json(const Session& session, std::size_t index);
-
-/// @brief Adds a track from a document track_to_json() wrote.
-/// @param error_out Receives the reason when no track is added, or when the track is added and
-/// one of its clips' files would not load.
-/// @return True when the session carries the new track.
-bool track_from_json(Session& session, const std::string& json_text, std::string& error_out);
+/// @brief Empties the session into a new project: one track, no clip, an empty rig and a
+/// default strip. The tempo and the loop are left as they are.
+void new_project(Session& session);
 
 /// @brief Loads a rig preset file into a track's rig and remembers the path. The track's lane is
 /// left as it is.

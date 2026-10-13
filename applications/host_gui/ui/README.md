@@ -25,11 +25,15 @@ read is sent to `imports` for decoding and not loaded, and its clip appears on t
 decode finishes. Of `canvas_position`, only the x names a frame. `error_out` receives the
 message when the file will not load or the lane refuses the clip.
 
+Above the ruler sits the project row: the project's path with New, Open and Save, which empty,
+read and write the whole session, and Export, which opens a popup for the mix's file and format
+and becomes a progress bar while `SessionBounce` runs. New asks first, since what is not saved
+is lost.
+
 A track's header holds its name, a rig button, a bypass button, its level in decibels, record
-arm, mute, solo and its balance. The rig button selects the track, which puts its rig in the
-rig view and the live input on it, and opens a popup with two files: the rig's preset, loaded
-into this track or saved from it, and the track file, saved from this track or loaded as a new
-one. The selected track's header is outlined. The bypass passes the track's audio by its rig,
+arm, mute, solo and its balance, in three rows that span the header and follow the font's
+height. The rig button selects the track, which puts its rig in the rig view, the live input on
+it, and the top bar's preset on it. The selected track's header is outlined. The bypass passes the track's audio by its rig,
 for a play-along track.
 
 In a lane header, the track's own color runs down the leading edge. A click on that strip opens
@@ -192,10 +196,9 @@ under one. `upper` is then that frame and the rounding finds zero distance to it
 
 ## `TopBar`
 
-`DrawTopBar` draws three columns into the current window. The left column holds the session's
-path box, Save and Load, which write and read the whole session, then Export, which opens a
-popup for the mix's file and format and becomes a progress bar while `SessionBounce` runs, then
-the last Save, Load or Export status,
+`DrawTopBar` draws three columns into the current window. The left column holds the rig
+preset's path box, Save and Load, which write and read the selected track's rig and nothing of
+the project, then the last Save or Load status,
 elided so it never runs into the brand mark. The centre column is the "SushiDSP" brand mark,
 placed at (window width - its width) / 2 whatever either side group drew. The right column
 holds the connection pill, or the "No device connected." label when there is no device, and the
