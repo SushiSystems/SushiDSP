@@ -115,7 +115,8 @@ channel width of each (`AudioNode::output_port_channels(port)`). Port 0 is the n
 its width is `PortLayout::output_channels`; `compile()` refuses a node whose two answers disagree.
 `RigGraph::connect(from, to, from_port)` names the port an edge reads, and `compile()` refuses a port
 the upstream node does not declare, a count above `RigGraph::K_MAX_OUTPUT_PORTS`, and a port with no
-width.
+width. `connect()` counts fan-out per output port: each port feeds at most
+`RigGraph::K_MAX_FAN_IN_OUT` consumers, whatever the node's other ports feed.
 
 `process()` gives a node its ports through `ProcessContext::port_outputs`, where `port_outputs[p]`
 holds the channel pointers of port `p` and `port_outputs[0]` is `outputs`. The graph sets both on

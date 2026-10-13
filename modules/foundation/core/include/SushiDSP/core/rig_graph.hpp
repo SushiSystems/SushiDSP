@@ -46,8 +46,9 @@ namespace SushiDSP
             /// @brief Maximum parameter changes that may be pending between two process() calls.
             static constexpr std::size_t K_PARAMETER_RING_CAPACITY = 1024;
 
-            /// @brief Maximum outgoing edges from, or incoming edges into, any single node.
-            /// Bounds the fixed-size input-gather array RigGraph::process() uses per node.
+            /// @brief Maximum outgoing edges from one output port of a node, and maximum incoming
+            /// edges into a node. Bounds the fixed-size input-gather array RigGraph::process() uses
+            /// per node.
             static constexpr std::size_t K_MAX_FAN_IN_OUT = 8;
 
             /// @brief Maximum channels a node may declare on either side of its PortLayout.
@@ -56,7 +57,7 @@ namespace SushiDSP
 
             /// @brief Maximum output ports a node may declare. Bounds the fixed-size port tables
             /// RigGraph::process() fills for each node.
-            static constexpr std::uint32_t K_MAX_OUTPUT_PORTS = 8;
+            static constexpr std::uint32_t K_MAX_OUTPUT_PORTS = 9;
 
             /// @brief Reports whether the adaptation table covers a producer/consumer channel pair.
             /// The table is 1 into 2 (copied), 2 into 1 (summed and halved), and n into n.
