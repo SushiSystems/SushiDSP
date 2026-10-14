@@ -25,11 +25,11 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/medium_absorption.hpp"
+#include <SushiDSP/nodes/room/medium_absorption.hpp>
 
 #include <cmath>
 
-#include "SushiDSP/room/air_absorption.hpp"
+#include <SushiDSP/nodes/room/air_absorption.hpp>
 
 namespace SushiDSP::room
 {

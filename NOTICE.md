@@ -77,7 +77,7 @@ The converted HRTF file and the two fixtures stay under the licences in the tabl
 | Work | Where | Source | Licence of the source |
 | --- | --- | --- | --- |
 | TS808 tone and level stage, traced | `docs/reference/spice/ts_tone/ts_tone.asc` | ElectroSmash, TS808 tone/volume schematic; R.G. Keen, "The Technology of the Tube Screamer" (geofex.com) | unverified |
-| Mark IIC+ component values | `modules/nodes/mesa_mark2c/`, `modules/foundation/circuits/include/SushiDSP/circuits/power_amp_feedback.hpp` | jrb32's trace of a chassis; the 1983 Mesa/Boogie factory drawing | unverified |
+| Mark IIC+ component values | `modules/nodes/mesa_mark2c/`, `modules/foundation/circuits/include/SushiDSP/foundation/circuits/power_amp_feedback.hpp` | jrb32's trace of a chassis; the 1983 Mesa/Boogie factory drawing | unverified |
 
 ## Trademarks
 

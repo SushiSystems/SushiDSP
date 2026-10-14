@@ -20,7 +20,7 @@ the first thing in the translation unit. GCC and Clang, through libstdc++ and li
 
 `test_log_formatter.cpp`, `test_log_compile_time_cut.cpp`, `test_logger.cpp`,
 `test_log_line_queue.cpp` and `test_async_log_sink.cpp` cover the logger of
-`modules/foundation/log/include/SushiDSP/log/`. The compile-time cut has a file of its own because it sets
+`modules/foundation/log/include/SushiDSP/foundation/log/`. The compile-time cut has a file of its own because it sets
 `SD_LOG_MIN_LEVEL` before including `log.hpp`. `test_track_recorder_logging.cpp`,
 `test_room_node_logging.cpp` and `test_directory_listing_logging.cpp` each provoke one
 handled failure and read the single line it logs through a capturing sink.
@@ -2114,7 +2114,7 @@ noise) and 12.3 dB below what a host-rate rectifier produces (still catching the
 The tail bound and Ne570RectifierRippleReachesTheSignalAtLowFrequencies's floor are the
 invariant pair: the genuine 100 Hz ripple a 50 Hz tone makes must survive, and it does, unmoved
 at -23.75 dB. Driven at 2.0 V, the project-wide full-scale peak (SushiDSP::K_FULL_SCALE_VOLTS,
-modules/foundation/core/include/SushiDSP/core/calibration.hpp), to catch the fold at the loudest stimulus the converter
+modules/foundation/core/include/SushiDSP/foundation/core/calibration.hpp), to catch the fold at the loudest stimulus the converter
 passes; the ripple test above drives K_REFERENCE_VOLTS because it is exercising the 2:1 law's own
 pivot point instead.
 

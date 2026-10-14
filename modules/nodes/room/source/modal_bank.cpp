@@ -25,14 +25,14 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/modal_bank.hpp"
+#include <SushiDSP/nodes/room/modal_bank.hpp>
 
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
-#include "SushiDSP/core/denormal_guard.hpp"
+#include <SushiDSP/foundation/core/denormal_guard.hpp>
 
 namespace SushiDSP::room
 {

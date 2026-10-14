@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/newton_raphson_solver.hpp"
+#include <SushiDSP/foundation/math/newton_raphson_solver.hpp>
 
 TEST(Unit_Dsp, NewtonRaphsonSolverFindsSquareRootOfTwo)
 {

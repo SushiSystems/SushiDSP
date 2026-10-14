@@ -35,7 +35,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/peavey5150/peavey5150.hpp"
+#include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
 #include "golden/golden_file.hpp"
 
 #ifndef M_PI

@@ -146,7 +146,7 @@ Decisions the owner takes first:
 - **Say whether SushiDSP is in hub's catalogue**, then correct `docs/design/SUSHIDSP.md` §11a
   to match `sushi-module.toml`.
 - **Choose one error model**, since it is public interface. The logger landed on 2026-10-07
-  (`modules/foundation/log/include/SushiDSP/log/`).
+  (`modules/foundation/log/include/SushiDSP/foundation/log/`).
 - **Logger follow-ups.** No test provokes the writer-thread start or the append failure in
   `TrackRecorder`, nor the `TopologyApplier` and `SlotGraph` sites; the `list_directory` test
   skips on Windows, where a 40 000-character path raises nothing; `StderrLogSink` has no test;

@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/routing/splitter_node.hpp"
+#include <SushiDSP/nodes/routing/splitter_node.hpp>
 
 #include <memory>
 

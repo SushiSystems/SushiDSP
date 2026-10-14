@@ -37,7 +37,7 @@
 #include <cstdio>
 #include <vector>
 
-#include "SushiDSP/dd3/ne570_compander.hpp"
+#include <SushiDSP/nodes/dd3/ne570_compander.hpp>
 #include "measure/spectrum.hpp"
 #include "measure/thd.hpp"
 

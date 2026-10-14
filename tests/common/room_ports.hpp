@@ -32,10 +32,10 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/room/room_arrangement.hpp"
-#include "SushiDSP/room/room_node.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
+#include <SushiDSP/nodes/room/room_node.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 namespace SushiDSP::test
 {

@@ -25,12 +25,12 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/circuits/stages/pentode_stage.hpp"
+#include <SushiDSP/foundation/circuits/stages/pentode_stage.hpp>
 
 #include <cmath>
 
-#include "SushiDSP/circuits/models/soft_transition.hpp"
-#include "SushiDSP/math/newton_raphson_solver.hpp"
+#include <SushiDSP/foundation/circuits/models/soft_transition.hpp>
+#include <SushiDSP/foundation/math/newton_raphson_solver.hpp>
 
 namespace
 {

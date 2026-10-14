@@ -31,8 +31,8 @@
 #include <cstdint>
 #include <limits>
 
-#include "SushiDSP/room/furniture.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/furniture.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 #include "ui/furnishing_list.hpp"
 

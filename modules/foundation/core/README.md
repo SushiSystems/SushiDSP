@@ -4,20 +4,20 @@ The node and device interfaces, `RigGraph`, the real-time slots and the buffer p
 
 ## Owns
 
-- `modules/foundation/core/include/SushiDSP/core/buffer_pool.hpp`
-- `modules/foundation/core/include/SushiDSP/core/calibration.hpp`
-- `modules/foundation/core/include/SushiDSP/core/denormal_guard.hpp`
-- `modules/foundation/core/include/SushiDSP/core/audio_device.hpp`
-- `modules/foundation/core/include/SushiDSP/core/audio_node.hpp`
-- `modules/foundation/core/include/SushiDSP/core/cabinet_host.hpp`
-- `modules/foundation/core/include/SushiDSP/core/node_descriptor.hpp`
-- `modules/foundation/core/include/SushiDSP/core/parameter_change.hpp`
-- `modules/foundation/core/include/SushiDSP/core/parameter_table.hpp`
-- `modules/foundation/core/include/SushiDSP/core/port_layout.hpp`
-- `modules/foundation/core/include/SushiDSP/core/rig_graph.hpp`
-- `modules/foundation/core/include/SushiDSP/core/rt_graph_slot.hpp`
-- `modules/foundation/core/include/SushiDSP/core/rt_swap_slot.hpp`
-- `modules/foundation/core/include/SushiDSP/core/spsc_ring.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/buffer_pool.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/calibration.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/denormal_guard.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/audio_device.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/audio_node.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/cabinet_host.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/node_descriptor.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/parameter_change.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/parameter_table.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/port_layout.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/rig_graph.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/rt_graph_slot.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/rt_swap_slot.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/spsc_ring.hpp`
 
 ## Depends on
 
@@ -28,7 +28,7 @@ The node and device interfaces, `RigGraph`, the real-time slots and the buffer p
 A comment in this module's files states one invariant and names this file. The reasoning
 behind each invariant follows, under the name of the file that cites it.
 
-### `modules/foundation/core/include/SushiDSP/core/denormal_guard.hpp`
+### `modules/foundation/core/include/SushiDSP/foundation/core/denormal_guard.hpp`
 
 Every decaying state on the audio path (the halfband delay lines, the biquads, the coupling
 capacitors, the `exp()` tails of the tube residuals) drifts through the denormal range on its way
@@ -37,7 +37,7 @@ microcode assist. Flushing denormals to zero is inaudible, since they sit near 1
 scale, and it removes a CPU spike that shows up exactly when the signal is quiet. The mode is per
 thread, so a guard on the audio thread changes nothing for the rest of the process.
 
-### `modules/foundation/core/include/SushiDSP/core/cabinet_host.hpp`
+### `modules/foundation/core/include/SushiDSP/foundation/core/cabinet_host.hpp`
 
 `set_cabinet` builds the convolver in full on the control thread and hands it to the audio thread
 as one atomic pointer swap, so `process()` never sees a partially built cabinet and never blocks.
@@ -45,7 +45,7 @@ The node retains the samples so that a later `prepare()` rebuilds the cabinet. I
 them, so a `prepare()` at a different rate needs a fresh `set_cabinet()`. In every failing case
 nothing is installed and nothing is retained.
 
-### `modules/foundation/core/include/SushiDSP/core/rt_swap_slot.hpp` and `modules/foundation/core/include/SushiDSP/core/rt_graph_slot.hpp`
+### `modules/foundation/core/include/SushiDSP/foundation/core/rt_swap_slot.hpp` and `modules/foundation/core/include/SushiDSP/foundation/core/rt_graph_slot.hpp`
 
 `RtGraphSlot` is the same mechanism as `RtSwapSlot<T>` with `RigGraph` in place of `T`; its
 functions are defined in `modules/foundation/core/source/rt_graph_slot.cpp` and the notes below cover both.

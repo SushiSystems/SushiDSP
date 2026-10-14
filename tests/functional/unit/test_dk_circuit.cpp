@@ -34,10 +34,10 @@
 #include <limits>
 #include <vector>
 
-#include "SushiDSP/circuits/models/silicon_diode.hpp"
+#include <SushiDSP/foundation/circuits/models/silicon_diode.hpp>
 
-#include "SushiDSP/math/dk/dk_circuit.hpp"
-#include "SushiDSP/math/dk/dk_netlist.hpp"
+#include <SushiDSP/foundation/math/dk/dk_circuit.hpp>
+#include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
 
 namespace
 {

@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/models/silicon_diode.hpp"
+#include <SushiDSP/foundation/circuits/models/silicon_diode.hpp>
 
 TEST(Unit_Dsp, SiliconDiodeMatchesShockleyAtThreeOperatingPoints)
 {

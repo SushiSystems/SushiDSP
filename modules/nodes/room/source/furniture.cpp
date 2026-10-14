@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/furniture.hpp"
+#include <SushiDSP/nodes/room/furniture.hpp>
 
 #include <cstring>
 

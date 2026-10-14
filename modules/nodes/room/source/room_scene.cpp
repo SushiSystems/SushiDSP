@@ -25,13 +25,13 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <string>
 
-#include "SushiDSP/room/built_room_loss.hpp"
+#include <SushiDSP/nodes/room/built_room_loss.hpp>
 
 namespace SushiDSP::room
 {

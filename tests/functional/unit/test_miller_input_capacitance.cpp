@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/miller_input_capacitance.hpp"
+#include <SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp>
 
 namespace
 {

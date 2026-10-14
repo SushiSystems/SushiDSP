@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/circuits/stages/long_tailed_pair.hpp"
+#include <SushiDSP/foundation/circuits/stages/long_tailed_pair.hpp>
 
 #include <algorithm>
 #include <cassert>

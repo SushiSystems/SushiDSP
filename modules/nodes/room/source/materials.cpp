@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/materials.hpp"
+#include <SushiDSP/nodes/room/materials.hpp>
 
 #include <cmath>
 #include <cstring>

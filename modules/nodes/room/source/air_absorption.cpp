@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/air_absorption.hpp"
+#include <SushiDSP/nodes/room/air_absorption.hpp>
 
 #include <array>
 #include <cmath>

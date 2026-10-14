@@ -7,7 +7,7 @@
 
 Usage:  python tools/dsp/design_resampler.py
 
-Writes modules/foundation/math/include/SushiDSP/math/resampler_design.hpp and modules/foundation/math/source/resampler_kernel.hpp, both relative
+Writes modules/foundation/math/include/SushiDSP/foundation/math/resampler_design.hpp and modules/foundation/math/source/resampler_kernel.hpp, both relative
 to the repository root. The design choices are in tools/dsp/README.md, "design_resampler.py".
 """
 import sys
@@ -103,7 +103,7 @@ def measure_interpolation_bound(kernel):
     return np.abs(second_difference).max() / 8.0
 
 
-DESIGN_HEADER_PATH = "modules/foundation/math/include/SushiDSP/math/resampler_design.hpp"
+DESIGN_HEADER_PATH = "modules/foundation/math/include/SushiDSP/foundation/math/resampler_design.hpp"
 KERNEL_HEADER_PATH = "modules/foundation/math/source/resampler_kernel.hpp"
 LICENCE_BLOCK_LINES = 7
 
@@ -117,7 +117,7 @@ def licence_block(file_name):
     Returns:
         The licence block as a newline-terminated string.
     """
-    header = open("modules/foundation/core/include/SushiDSP/core/port_layout.hpp", encoding="utf-8").read().split("\n")
+    header = open("modules/foundation/core/include/SushiDSP/foundation/core/port_layout.hpp", encoding="utf-8").read().split("\n")
     licence = header[:LICENCE_BLOCK_LINES]
     name_line = f"/* {file_name}"
     licence[1] = name_line + " " * (len(licence[0]) - len(name_line) - 2) + "*/"
@@ -229,7 +229,7 @@ def emit_kernel(out, kernel, measurements):
     out.write(licence_block("resampler_kernel.hpp") + "\n")
     out.write(banner_block(measurements) + "\n")
     out.write("#pragma once\n\n")
-    out.write('#include "SushiDSP/math/resampler_design.hpp"\n\nnamespace SushiDSP\n{\n')
+    out.write('#include <SushiDSP/foundation/math/resampler_design.hpp>\n\nnamespace SushiDSP\n{\n')
     out.write("    /// @brief Right wing of the even Kaiser-windowed sinc kernel: K_RESAMPLER_KERNEL[i]\n")
     out.write("    /// is h(i / K_RESAMPLER_PHASES_PER_ZERO_CROSSING) in input samples. Entry 0 is the peak,\n")
     out.write("    /// which is 2*K_RESAMPLER_CUTOFF (the centre tap of a sub-Nyquist lowpass impulse\n")

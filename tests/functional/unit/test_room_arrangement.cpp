@@ -29,8 +29,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/room/room_arrangement.hpp"
-#include "SushiDSP/room/starter_scene.hpp"
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
+#include <SushiDSP/nodes/room/starter_scene.hpp>
 
 #include "room_fixtures.hpp"
 

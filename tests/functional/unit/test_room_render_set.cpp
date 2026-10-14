@@ -39,15 +39,15 @@
 
 #include "room_fixtures.hpp"
 #include "timing_gate.hpp"
-#include "SushiDSP/room/early_tap_set.hpp"
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/hrtf_set.hpp"
-#include "SushiDSP/room/image_source_solver.hpp"
-#include "SushiDSP/room/room_host.hpp"
-#include "SushiDSP/room/modal_solver.hpp"
-#include "SushiDSP/room/room_render_set.hpp"
-#include "SushiDSP/room/room_scene.hpp"
-#include "SushiDSP/room/spherical_head_hrtf.hpp"
+#include <SushiDSP/nodes/room/early_tap_set.hpp>
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/hrtf_set.hpp>
+#include <SushiDSP/nodes/room/image_source_solver.hpp>
+#include <SushiDSP/nodes/room/room_host.hpp>
+#include <SushiDSP/nodes/room/modal_solver.hpp>
+#include <SushiDSP/nodes/room/room_render_set.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
+#include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
 namespace
 {

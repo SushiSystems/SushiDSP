@@ -32,7 +32,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/math/fft.hpp"
+#include <SushiDSP/foundation/math/fft.hpp>
 #include "measure/window.hpp"
 
 namespace SushiDSP::measure

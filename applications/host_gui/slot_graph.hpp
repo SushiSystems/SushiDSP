@@ -38,14 +38,14 @@
 #include <utility>
 #include <vector>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/core/rt_graph_slot.hpp"
-#include "SushiDSP/room/hrtf_set.hpp"
-#include "SushiDSP/room/room_host.hpp"
-#include "SushiDSP/room/room_arrangement.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/core/rt_graph_slot.hpp>
+#include <SushiDSP/nodes/room/hrtf_set.hpp>
+#include <SushiDSP/nodes/room/room_host.hpp>
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
 #include "rig_shape.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 #include "ui/geometry.hpp"
 

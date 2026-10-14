@@ -33,7 +33,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "SushiDSP/room/furniture.hpp"
+#include <SushiDSP/nodes/room/furniture.hpp>
 
 TEST(Unit_Dsp, FurnitureRowsAreNamedAndCited)
 {

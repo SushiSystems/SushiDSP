@@ -33,10 +33,10 @@
 #include <stdexcept>
 #include <vector>
 
-#include "SushiDSP/math/streaming_convolution.hpp"
-#include "SushiDSP/room/ambisonic_encoder.hpp"
-#include "SushiDSP/room/binaural_decoder.hpp"
-#include "SushiDSP/room/hrtf_set.hpp"
+#include <SushiDSP/foundation/math/streaming_convolution.hpp>
+#include <SushiDSP/nodes/room/ambisonic_encoder.hpp>
+#include <SushiDSP/nodes/room/binaural_decoder.hpp>
+#include <SushiDSP/nodes/room/hrtf_set.hpp>
 
 namespace
 {

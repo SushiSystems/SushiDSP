@@ -31,9 +31,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/capturing_log_sink.hpp"
-#include "SushiDSP/log/log.hpp"
-#include "SushiDSP/log/scoped_log_sink.hpp"
+#include <SushiDSP/foundation/log/capturing_log_sink.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
 
 namespace
 {

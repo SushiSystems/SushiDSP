@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/audio_device.hpp"
+#include <SushiDSP/foundation/core/audio_device.hpp>
 
 namespace
 {

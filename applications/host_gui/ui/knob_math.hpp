@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "SushiDSP/core/node_descriptor.hpp"
+#include <SushiDSP/foundation/core/node_descriptor.hpp>
 
 namespace ui
 {

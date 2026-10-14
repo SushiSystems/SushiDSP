@@ -25,9 +25,9 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/device/sdl2_audio_device.hpp"
+#include <SushiDSP/foundation/device/sdl2_audio_device.hpp>
 
-#include "SushiDSP/core/denormal_guard.hpp"
+#include <SushiDSP/foundation/core/denormal_guard.hpp>
 
 #include <cstring>
 #include <stdexcept>

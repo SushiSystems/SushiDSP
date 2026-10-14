@@ -29,7 +29,7 @@
 
 #include <algorithm>
 
-#include "SushiDSP/room/room_node.hpp"
+#include <SushiDSP/nodes/room/room_node.hpp>
 
 namespace
 {

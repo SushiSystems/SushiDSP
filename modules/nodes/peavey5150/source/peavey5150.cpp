@@ -28,11 +28,11 @@
 // _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 
-#include "SushiDSP/peavey5150/peavey5150.hpp"
+#include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
 
-#include "SushiDSP/circuits/output_safety_clamp.hpp"
-#include "SushiDSP/circuits/stages/miller_input_capacitance.hpp"
-#include "SushiDSP/circuits/stages/power_tube_presets.hpp"
+#include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
+#include <SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp>
+#include <SushiDSP/foundation/circuits/stages/power_tube_presets.hpp>
 
 #include <algorithm>
 #include <cstddef>

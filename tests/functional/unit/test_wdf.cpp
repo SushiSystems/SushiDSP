@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/wdf.hpp"
+#include <SushiDSP/foundation/math/wdf.hpp>
 
 TEST(Unit_Dsp, WdfResistorReportsConfiguredPortResistance)
 {

@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/room_render_set.hpp"
+#include <SushiDSP/nodes/room/room_render_set.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -33,10 +33,10 @@
 #include <stdexcept>
 #include <string>
 
-#include "SushiDSP/room/band_response.hpp"
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/late_reverb_design.hpp"
-#include "SushiDSP/room/modal_solver.hpp"
+#include <SushiDSP/nodes/room/band_response.hpp>
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/late_reverb_design.hpp>
+#include <SushiDSP/nodes/room/modal_solver.hpp>
 
 namespace SushiDSP::room
 {

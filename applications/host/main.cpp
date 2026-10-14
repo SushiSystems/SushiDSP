@@ -31,14 +31,14 @@
 #include <thread>
 
 #include "sine_tone_node.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/device/sdl2_audio_device.hpp"
-#include "SushiDSP/jcm800/jcm800.hpp"
-#include "SushiDSP/log/async_log_sink.hpp"
-#include "SushiDSP/log/default_logger.hpp"
-#include "SushiDSP/log/scoped_log_sink.hpp"
-#include "SushiDSP/log/stderr_log_sink.hpp"
-#include "SushiDSP/tubescreamer/tube_screamer.hpp"
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/device/sdl2_audio_device.hpp>
+#include <SushiDSP/nodes/jcm800/jcm800.hpp>
+#include <SushiDSP/foundation/log/async_log_sink.hpp>
+#include <SushiDSP/foundation/log/default_logger.hpp>
+#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
+#include <SushiDSP/foundation/log/stderr_log_sink.hpp>
+#include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 
 int main()
 {

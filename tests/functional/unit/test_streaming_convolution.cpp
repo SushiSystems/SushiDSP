@@ -28,7 +28,7 @@
 #include <cmath>
 #include <vector>
 #include <gtest/gtest.h>
-#include "SushiDSP/math/streaming_convolution.hpp"
+#include <SushiDSP/foundation/math/streaming_convolution.hpp>
 
 namespace
 {

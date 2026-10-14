@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/log_formatter.hpp"
+#include <SushiDSP/foundation/log/log_formatter.hpp>
 
 namespace
 {

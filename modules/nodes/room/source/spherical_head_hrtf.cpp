@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/spherical_head_hrtf.hpp"
+#include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
 #include <algorithm>
 #include <array>
@@ -36,8 +36,8 @@
 #include <utility>
 #include <vector>
 
-#include "SushiDSP/math/fft.hpp"
-#include "SushiDSP/room/ambisonic_encoder.hpp"
+#include <SushiDSP/foundation/math/fft.hpp>
+#include <SushiDSP/nodes/room/ambisonic_encoder.hpp>
 
 namespace SushiDSP::room
 {

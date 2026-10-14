@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/early_reflection_renderer.hpp"
+#include <SushiDSP/nodes/room/early_reflection_renderer.hpp>
 
 #if defined(__AVX__)
 #include <immintrin.h>
@@ -35,7 +35,7 @@
 #include <array>
 #include <cmath>
 
-#include "SushiDSP/core/denormal_guard.hpp"
+#include <SushiDSP/foundation/core/denormal_guard.hpp>
 
 namespace SushiDSP::room
 {

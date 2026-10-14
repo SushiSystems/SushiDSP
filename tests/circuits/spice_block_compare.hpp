@@ -31,7 +31,7 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/math/biquad.hpp"
+#include <SushiDSP/foundation/math/biquad.hpp>
 
 #include "measure/spice_csv.hpp"
 

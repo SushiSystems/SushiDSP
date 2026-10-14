@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/buffer_pool.hpp"
+#include <SushiDSP/foundation/core/buffer_pool.hpp>
 
 TEST(Unit_Dsp, BufferPoolAcquireReturnsDistinctBuffersUpToCapacity)
 {

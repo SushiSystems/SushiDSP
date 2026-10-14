@@ -20,8 +20,8 @@ in [`docs/design/GUI_UX_REDESIGN.md`](../../../docs/design/GUI_UX_REDESIGN.md) Â
 | Block | Class |
 | --- | --- |
 | The `AudioNode` / `CabinetHost` contract | `CabinetNode` |
-| Impulse-response loading | `Ir`, `IrLoader` (`modules/foundation/io/include/SushiDSP/io/`) |
-| The convolution itself | `StreamingConvolution` (`modules/foundation/math/include/SushiDSP/math/`) |
+| Impulse-response loading | `Ir`, `IrLoader` (`modules/foundation/io/include/SushiDSP/foundation/io/`) |
+| The convolution itself | `StreamingConvolution` (`modules/foundation/math/include/SushiDSP/foundation/math/`) |
 
 `CabinetNode::set_cabinet`, `::has_cabinet` and `::reclaim_cabinets` match `CabinetHost`'s
 signatures exactly, so `RigController` reaches this node through the same `CabinetHost*`

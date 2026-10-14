@@ -37,8 +37,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/calibration.hpp"
-#include "SushiDSP/diezel_vh4/diezel_vh4.hpp"
+#include <SushiDSP/foundation/core/calibration.hpp>
+#include <SushiDSP/nodes/diezel_vh4/diezel_vh4.hpp>
 #include "measure/frequency_response.hpp"
 #include "measure/render.hpp"
 #include "measure/thd.hpp"

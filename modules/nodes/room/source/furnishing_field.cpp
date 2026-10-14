@@ -25,13 +25,13 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/furnishing_field.hpp"
+#include <SushiDSP/nodes/room/furnishing_field.hpp>
 
 #include <algorithm>
 #include <cmath>
 
-#include "SushiDSP/room/air_absorption.hpp"
-#include "SushiDSP/room/furniture.hpp"
+#include <SushiDSP/nodes/room/air_absorption.hpp>
+#include <SushiDSP/nodes/room/furniture.hpp>
 
 namespace SushiDSP::room
 {

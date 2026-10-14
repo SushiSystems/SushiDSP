@@ -35,7 +35,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/tubescreamer/tube_screamer.hpp"
+#include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 #include "golden/golden_file.hpp"
 
 #ifndef M_PI

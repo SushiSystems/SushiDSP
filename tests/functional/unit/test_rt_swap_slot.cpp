@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/rt_swap_slot.hpp"
+#include <SushiDSP/foundation/core/rt_swap_slot.hpp>
 
 namespace
 {

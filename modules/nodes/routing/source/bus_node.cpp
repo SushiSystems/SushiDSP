@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/routing/bus_node.hpp"
+#include <SushiDSP/nodes/routing/bus_node.hpp>
 
 #include <algorithm>
 #include <cmath>

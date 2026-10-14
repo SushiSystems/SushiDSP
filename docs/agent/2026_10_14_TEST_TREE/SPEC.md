@@ -18,7 +18,7 @@ Re-read the SushiSkills rules and refactor `tests/` to match them. The rules tha
 | Shared test support | Five responsibility-named internal modules, as proposed in PLAN.md T5 (2026-10-15) |
 | `timing_gate` and the benchmark program | `timing_gate` is an internal module of the foundation tier. Benchmark programs stay with the owner of the unit they time (2026-10-15) |
 | Commit of T1 | Commit now, staged by path (2026-10-15) |
-| Include path form | Move to the tier form, `<Project>/<tier>/<module>/<name>.hpp` (2026-10-15). Where the headers sit is still open; see PLAN.md T0. |
+| Include path form | Move to the tier form, `<Project>/<tier>/<module>/<name>.hpp`, and move the headers with it (2026-10-15). See PLAN.md T0. |
 
 The first answer for the untested units assumed 28 headers. The count is 99 (section 3).
 
@@ -60,10 +60,8 @@ Taken from `TESTS.md` and `SKILL.md`, as they read on 2026-10-15:
 - Include paths take the tier form, `<Project>/<tier>/<module>/<name>.hpp`, with angle brackets,
   as `repository-layout` (Names) and `cpp-code-style` (Includes) state. This is task T0 and runs
   before the test moves, so the moved files are written in their final form.
-  - The include form is decided. The header location is not: the module tree in
-    `repository-layout` shows the header path without the tier, which does not match the include
-    form. PLAN.md T0 names the two readings. The plan assumes the one that makes the include line
-    equal the path below `include/`, and the owner confirms it before T0 starts.
+  - The headers move with the form, so each include line equals the header's path below `include/`
+    (2026-10-15). PLAN.md T0 lists the steps.
 
 ## 5. Tools drift, recorded
 

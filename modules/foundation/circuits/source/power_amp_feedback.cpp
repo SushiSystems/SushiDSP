@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/circuits/power_amp_feedback.hpp"
+#include <SushiDSP/foundation/circuits/power_amp_feedback.hpp>
 
 #include <algorithm>
 #include <array>

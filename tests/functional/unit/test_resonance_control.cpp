@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/resonance_control.hpp"
+#include <SushiDSP/foundation/circuits/stages/resonance_control.hpp>
 
 namespace
 {

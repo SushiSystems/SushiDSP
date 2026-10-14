@@ -34,7 +34,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/sinc_resampler.hpp"
+#include <SushiDSP/foundation/math/sinc_resampler.hpp>
 
 TEST(Unit_Dsp, SincResamplerPreservesAOneKilohertzToneWithinMinusEightyDb)
 {

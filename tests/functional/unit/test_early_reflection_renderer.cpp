@@ -33,8 +33,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/room/delay_ring.hpp"
-#include "SushiDSP/room/early_reflection_renderer.hpp"
+#include <SushiDSP/nodes/room/delay_ring.hpp>
+#include <SushiDSP/nodes/room/early_reflection_renderer.hpp>
 
 namespace
 {

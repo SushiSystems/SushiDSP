@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/frame_delay.hpp"
+#include <SushiDSP/nodes/room/frame_delay.hpp>
 
 #include <algorithm>
 

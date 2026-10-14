@@ -31,8 +31,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/dk/damped_newton_solver.hpp"
-#include "SushiDSP/math/dk/dense_lu.hpp"
+#include <SushiDSP/foundation/math/dk/damped_newton_solver.hpp>
+#include <SushiDSP/foundation/math/dk/dense_lu.hpp>
 
 namespace
 {

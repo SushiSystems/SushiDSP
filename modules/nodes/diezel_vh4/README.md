@@ -162,14 +162,14 @@ as a plain common-cathode `TriodeStage` hands it a window it does not have.
 
 The VH4's inverter is not established (§5), so it stands in for the 2203's pair, and since
 2026-09-21 it **reads the corpus preset rather than re-deriving it**:
-`K_TRIODE12_AX7_INVERTER82K_PLATE` in `modules/foundation/circuits/include/SushiDSP/circuits/stages/phase_inverter_presets.hpp`, whose
+`K_TRIODE12_AX7_INVERTER82K_PLATE` in `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp`, whose
 `cathode_bias_volts` is −1.346012 V, `plate_swing` { 117.418041, 89.548144 }, `gain` 61.927402, one
 triode's full load-line gain, not half of it, because the pair's split is already in the factor , 
 and `input_degeneration` **1.888775**, which `diezel_vh4.cpp` divides the inverter's input by. Its tail is the 10.47 kΩ both
 cathodes share, `jcm_ltp`'s 470 Ω and 10 kΩ in series to ground, and its grid leaks return to
 their junction as the 2203's do, which is what puts the pair at 1.432 mA per half with 117.4 V of
 plate headroom where the deck's grounded leaks gave 0.188 mA and 15.4 V (DA5 part 2). A product
-module may not include another, so both modules read one preset in `modules/foundation/circuits/include/SushiDSP/circuits/`;
+module may not include another, so both modules read one preset in `modules/foundation/circuits/include/SushiDSP/foundation/circuits/`;
 the derivation lives beside it in `phase_inverter_presets.hpp`, from `jcm_ltp`'s 82 kΩ plate, its shared
 470 Ω + 10 kΩ tail and the Koren Jacobian at that pair's idle point. Before this the module derived
 its own figure, got 4.140398 out of a formula with no cathode shunt in it, and disagreed with the
@@ -184,7 +184,7 @@ in volts.
 
 Each `PlateSwing` is `{ 367 − Va, Va − Va_bottom }`. `Va` is the dossier's §6 idle plate voltage;
 `Va_bottom` is the plate solved at `Vgk = 0` on the stage's 120 kΩ load line against the Koren
-12AX7 of `modules/foundation/circuits/include/SushiDSP/circuits/models/triode12_ax7.hpp`, by bisection, with the cathode held at
+12AX7 of `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/triode12_ax7.hpp`, by bisection, with the cathode held at
 its idle voltage. V4a's 640 Ω cathode is unbypassed, so holding its cathode at the idle 0.98 V and
 reading `Vgk = 0` as the conduction limit is a simplification: the real cathode rises as the stage
 conducts, which would put the bottom a little higher. The phase inverter is a modelling choice like
@@ -252,7 +252,7 @@ rolloff at all.
 The grid capacitances are Cgk 1.6 pF and Cgp 1.7 pF from
 `docs/reference/spice/models/12ax7_koren.sub`, plus 10 pF of stray wiring. This module holds all
 three at double precision and computes the pole itself, where
-`modules/foundation/circuits/include/SushiDSP/circuits/stages/miller_input_capacitance.hpp` holds them as floats; the two
+`modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp` holds them as floats; the two
 disagree by 2.6·10⁻⁸ of the corner, which is why the module did not adopt the brick. The
 driving resistance is per grid, because §3.3 and §3.4 draw the two stoppers this channel has and
 §3.4 computes V3a's pole from R26 itself. The dossier reads that pole at about 2.9 kHz from 115 pF;
@@ -312,7 +312,7 @@ is a high shelf at 4 kHz, which is Diezel's figure (S2), at the JCM800's ±9 dB,
 
 ### The power tube is an EL34
 
-`K_DIEZEL_VH4_POWER_EL34` (`modules/foundation/circuits/include/SushiDSP/circuits/stages/power_tube_presets.hpp`) is that row of the
+`K_DIEZEL_VH4_POWER_EL34` (`modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/power_tube_presets.hpp`) is that row of the
 Philips EL34 datasheet in full, since DA5 part 2 made `PentodeStage` volt-true: page 3, "Class B,
 two tubes in push-pull", the Vba 500 V column, Va 495 V, Vg2 400 V, Vg1 −36 V, Ia 2 × 30 mA at
 zero signal, Raa 4 kΩ, Vi 25.8 Vrms, Wo 70 W. The VH4 runs ~500 V on the OT primary (S7) and

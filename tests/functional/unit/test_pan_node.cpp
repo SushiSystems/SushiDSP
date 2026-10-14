@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/routing/pan_node.hpp"
+#include <SushiDSP/nodes/routing/pan_node.hpp>
 
 namespace
 {

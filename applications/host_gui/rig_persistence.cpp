@@ -39,15 +39,15 @@
 
 #include <nlohmann/json.hpp>
 
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/node_registry/node_registry.hpp"
-#include "SushiDSP/rig_preset/rig_preset.hpp"
-#include "SushiDSP/room/furniture.hpp"
-#include "SushiDSP/log/log.hpp"
-#include "SushiDSP/room/materials.hpp"
-#include "SushiDSP/room/room_arrangement.hpp"
-#include "SushiDSP/room/room_scene.hpp"
-#include "SushiDSP/room/starter_scene.hpp"
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
+#include <SushiDSP/session/rig_preset/rig_preset.hpp>
+#include <SushiDSP/nodes/room/furniture.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/nodes/room/materials.hpp>
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
+#include <SushiDSP/nodes/room/starter_scene.hpp>
 
 #include "host_gui_log_category.hpp"
 #include "rig_shape.hpp"

@@ -37,9 +37,9 @@
 #include <cstdio>
 #include <functional>
 
-#include "SushiDSP/room/air_absorption.hpp"
-#include "SushiDSP/room/band_response_fit.hpp"
-#include "SushiDSP/room/materials.hpp"
+#include <SushiDSP/nodes/room/air_absorption.hpp>
+#include <SushiDSP/nodes/room/band_response_fit.hpp>
+#include <SushiDSP/nodes/room/materials.hpp>
 
 namespace
 {

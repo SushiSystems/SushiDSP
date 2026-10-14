@@ -37,11 +37,11 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/circuits/models/silicon_diode.hpp"
-#include "SushiDSP/core/calibration.hpp"
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/math/resampler.hpp"
-#include "SushiDSP/tubescreamer/tube_screamer_circuits.hpp"
+#include <SushiDSP/foundation/circuits/models/silicon_diode.hpp>
+#include <SushiDSP/foundation/core/calibration.hpp>
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/math/resampler.hpp>
+#include <SushiDSP/nodes/tubescreamer/tube_screamer_circuits.hpp>
 
 #include "circuits/dk_block_node.hpp"
 #include "circuits/spice_block_compare.hpp"

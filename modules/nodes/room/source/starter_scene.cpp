@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/starter_scene.hpp"
+#include <SushiDSP/nodes/room/starter_scene.hpp>
 
 namespace SushiDSP::room
 {

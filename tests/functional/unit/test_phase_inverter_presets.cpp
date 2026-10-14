@@ -27,8 +27,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/phase_inverter_presets.hpp"
-#include "SushiDSP/circuits/stages/triode_stage.hpp"
+#include <SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp>
+#include <SushiDSP/foundation/circuits/stages/triode_stage.hpp>
 
 TEST(Unit_Dsp, Triode12AX7Inverter82kPlateHoldsItsSolvedOperatingPoint)
 {

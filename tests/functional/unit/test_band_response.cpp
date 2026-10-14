@@ -31,7 +31,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/band_response.hpp"
+#include <SushiDSP/nodes/room/band_response.hpp>
 
 TEST(Unit_Dsp, BandResponseUnityIsOneInEveryBand)
 {

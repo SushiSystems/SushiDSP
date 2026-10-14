@@ -30,8 +30,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
 
 namespace
 {

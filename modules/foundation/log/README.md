@@ -4,21 +4,21 @@ The logger, its sinks, the `{}` formatter and the `SD_LOG` macros.
 
 ## Owns
 
-- `modules/foundation/log/include/SushiDSP/log/async_log_sink.hpp`
-- `modules/foundation/log/include/SushiDSP/log/capturing_log_sink.hpp`
-- `modules/foundation/log/include/SushiDSP/log/default_logger.hpp`
-- `modules/foundation/log/include/SushiDSP/log/log_sink.hpp`
-- `modules/foundation/log/include/SushiDSP/log/log.hpp`
-- `modules/foundation/log/include/SushiDSP/log/log_argument.hpp`
-- `modules/foundation/log/include/SushiDSP/log/log_category.hpp`
-- `modules/foundation/log/include/SushiDSP/log/log_formatter.hpp`
-- `modules/foundation/log/include/SushiDSP/log/log_level.hpp`
-- `modules/foundation/log/include/SushiDSP/log/log_line_queue.hpp`
-- `modules/foundation/log/include/SushiDSP/log/log_record.hpp`
-- `modules/foundation/log/include/SushiDSP/log/logger.hpp`
-- `modules/foundation/log/include/SushiDSP/log/scoped_log_sink.hpp`
-- `modules/foundation/log/include/SushiDSP/log/stderr_log_sink.hpp`
-- `modules/foundation/log/include/SushiDSP/log/log_log_category.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/async_log_sink.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/capturing_log_sink.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/default_logger.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log_sink.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log_argument.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log_category.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log_formatter.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log_level.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log_line_queue.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log_record.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/logger.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/scoped_log_sink.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/stderr_log_sink.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log_log_category.hpp`
 
 ## Depends on
 
@@ -52,7 +52,7 @@ below `Logger::minimum_level()` is skipped at run time, again without evaluating
 The logger of the process starts at `LogLevel::Info` with a `StderrLogSink`, so a line logged
 before an application installs a sink still reaches stderr.
 
-### `modules/foundation/log/include/SushiDSP/log/logger.hpp` and `modules/foundation/log/include/SushiDSP/log/async_log_sink.hpp`
+### `modules/foundation/log/include/SushiDSP/foundation/log/logger.hpp` and `modules/foundation/log/include/SushiDSP/foundation/log/async_log_sink.hpp`
 
 The audio thread never logs. `Logger::log` formats on the caller's stack and takes a mutex for
 the length of one `shared_ptr` copy, which is cheap and still not something a real-time callback

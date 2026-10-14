@@ -46,11 +46,11 @@
 #include "session_timeline.hpp"
 #include "slot_graph.hpp"
 #include "slot_selection.hpp"
-#include "SushiDSP/capture/transport.hpp"
-#include "SushiDSP/node_registry/node_registry.hpp"
-#include "SushiDSP/room/room_host.hpp"
-#include "SushiDSP/room/room_scene.hpp"
-#include "SushiDSP/room/starter_scene.hpp"
+#include <SushiDSP/nodes/capture/transport.hpp>
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
+#include <SushiDSP/nodes/room/room_host.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
+#include <SushiDSP/nodes/room/starter_scene.hpp>
 
 namespace
 {

@@ -150,7 +150,7 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
     add/remove control, capped at 8. Code inspection found the track count is already a
     fixed compile-time constant of exactly 8 throughout the host
     (`SushiDSP::TrackPlayer::K_MAX_TRACKS = 8` in
-    `modules/nodes/capture/include/SushiDSP/capture/track_player.hpp:51`, mirrored by
+    `modules/nodes/capture/include/SushiDSP/nodes/capture/track_player.hpp:51`, mirrored by
     `SessionTimeline::tracks_` as `std::array<TrackInfo, TrackPlayer::K_MAX_TRACKS>` in
     `applications/host_gui/session_timeline.hpp`), with no add/remove-track API anywhere in
     `RigController` or `ArrangementView`, `ArrangementView` always draws exactly eight
@@ -172,13 +172,13 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
   pedals, draggable into the rig chain the same way.
 - It loads an impulse response (IR) and convolves it into the signal path, the role the
   amp-embedded cabinet used to play before this section shipped.
-- **Former mechanism:** `modules/foundation/core/include/SushiDSP/core/cabinet_host.hpp` defined the cabinet
+- **Former mechanism:** `modules/foundation/core/include/SushiDSP/foundation/core/cabinet_host.hpp` defined the cabinet
   contract (`set_cabinet` / `has_cabinet` / `reclaim_cabinets`) that amp node classes
   (`modules/nodes/jcm800`, `modules/nodes/peavey5150`, `modules/nodes/diezel_vh4`, `modules/nodes/mesa_mark2c`)
   implemented directly. There was no standalone cabinet `AudioNode`; IR loading
-  (`modules/foundation/io/include/SushiDSP/io/ir.hpp`, `ir_loader.hpp`) and convolution
-  (`modules/foundation/math/include/SushiDSP/math/partitioned_convolution.hpp`,
-  `modules/foundation/math/include/SushiDSP/math/streaming_convolution.hpp`) were owned by whichever amp hosted them.
+  (`modules/foundation/io/include/SushiDSP/foundation/io/ir.hpp`, `ir_loader.hpp`) and convolution
+  (`modules/foundation/math/include/SushiDSP/foundation/math/partitioned_convolution.hpp`,
+  `modules/foundation/math/include/SushiDSP/foundation/math/streaming_convolution.hpp`) were owned by whichever amp hosted them.
 - **Decision (owner, 2026-09-10), implemented:** `sushidsp.cabinet` is now the only cabinet
   path, delivered by `docs/archive/superpowers/plans/2026-09-10-cabinet-node.md` (all 8 tasks
   complete). The amp node classes (`modules/nodes/jcm800`, `modules/nodes/peavey5150`,

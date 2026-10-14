@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/capture/recording_bus.hpp"
+#include <SushiDSP/nodes/capture/recording_bus.hpp>
 
 namespace SushiDSP
 {

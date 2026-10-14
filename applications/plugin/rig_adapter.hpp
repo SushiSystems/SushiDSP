@@ -36,8 +36,8 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/core/rt_swap_slot.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/rt_swap_slot.hpp>
 
 #include "parameter_routing.hpp"
 #include "rig_parameter.hpp"

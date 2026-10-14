@@ -4,8 +4,8 @@ The ASIO and SDL2 audio devices. Their backend targets are built by this module'
 
 ## Owns
 
-- `modules/foundation/device/include/SushiDSP/device/asio_audio_device.hpp`
-- `modules/foundation/device/include/SushiDSP/device/sdl2_audio_device.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_device.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/sdl2_audio_device.hpp`
 
 ## Depends on
 
@@ -16,7 +16,7 @@ The ASIO and SDL2 audio devices. Their backend targets are built by this module'
 A comment in this module's files states one invariant and names this file. The reasoning
 behind each invariant follows, under the name of the file that cites it.
 
-### `modules/foundation/device/include/SushiDSP/device/asio_audio_device.hpp`
+### `modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_device.hpp`
 
 `active_instance_` is the target of the trampolines ASIO's free-function callbacks go through. The
 SDK assumes one open driver process-wide. A second `AsioAudioDevice` open at the same time is a

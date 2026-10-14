@@ -30,9 +30,9 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "SushiDSP/room/early_tap_set.hpp"
-#include "SushiDSP/room/fdn_design.hpp"
-#include "SushiDSP/room/modal_design.hpp"
+#include <SushiDSP/nodes/room/early_tap_set.hpp>
+#include <SushiDSP/nodes/room/fdn_design.hpp>
+#include <SushiDSP/nodes/room/modal_design.hpp>
 
 TEST(Unit_Dsp, RoomRecordsAreTriviallyCopyable)
 {

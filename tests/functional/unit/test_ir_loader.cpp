@@ -33,7 +33,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/io/ir_loader.hpp"
+#include <SushiDSP/foundation/io/ir_loader.hpp>
 
 namespace
 {

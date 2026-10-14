@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/routing/mixer_node.hpp"
+#include <SushiDSP/nodes/routing/mixer_node.hpp>
 
 #include <algorithm>
 #include <memory>

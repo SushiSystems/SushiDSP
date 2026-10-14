@@ -37,7 +37,7 @@
 #include <utility>
 #include <vector>
 
-#include "SushiDSP/io/wav_writer.hpp"
+#include <SushiDSP/foundation/io/wav_writer.hpp>
 
 #include "channel_resampler.hpp"
 #include "mp3_decoder.hpp"

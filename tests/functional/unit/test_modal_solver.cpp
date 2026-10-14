@@ -36,16 +36,16 @@
 #include <vector>
 
 #include "room_fixtures.hpp"
-#include "SushiDSP/room/band_response.hpp"
-#include "SushiDSP/room/cabinet_directivity.hpp"
-#include "SushiDSP/room/diffuse_field.hpp"
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/furniture.hpp"
-#include "SushiDSP/room/image_source_solver.hpp"
-#include "SushiDSP/room/materials.hpp"
-#include "SushiDSP/room/modal_design.hpp"
-#include "SushiDSP/room/modal_solver.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/band_response.hpp>
+#include <SushiDSP/nodes/room/cabinet_directivity.hpp>
+#include <SushiDSP/nodes/room/diffuse_field.hpp>
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/furniture.hpp>
+#include <SushiDSP/nodes/room/image_source_solver.hpp>
+#include <SushiDSP/nodes/room/materials.hpp>
+#include <SushiDSP/nodes/room/modal_design.hpp>
+#include <SushiDSP/nodes/room/modal_solver.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 namespace
 {

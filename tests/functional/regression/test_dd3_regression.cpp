@@ -36,7 +36,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/dd3/dd3_delay.hpp"
+#include <SushiDSP/nodes/dd3/dd3_delay.hpp>
 #include "golden/golden_file.hpp"
 
 #ifndef M_PI

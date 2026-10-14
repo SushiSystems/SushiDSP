@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/models/pentode_el34.hpp"
+#include <SushiDSP/foundation/circuits/models/pentode_el34.hpp>
 
 TEST(Unit_Dsp, PentodeEL34MatchesKorenAtThreeOperatingPoints)
 {

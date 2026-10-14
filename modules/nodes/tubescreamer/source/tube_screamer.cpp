@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/tubescreamer/tube_screamer.hpp"
+#include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 
 #include <algorithm>
 #include <array>

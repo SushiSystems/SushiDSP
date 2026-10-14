@@ -35,7 +35,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/diezel_vh4/diezel_vh4.hpp"
+#include <SushiDSP/nodes/diezel_vh4/diezel_vh4.hpp>
 #include "golden/golden_file.hpp"
 
 #ifndef M_PI

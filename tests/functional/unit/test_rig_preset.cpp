@@ -34,9 +34,9 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/node_registry/node_registry.hpp"
-#include "SushiDSP/rig_preset/rig_preset.hpp"
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
+#include <SushiDSP/session/rig_preset/rig_preset.hpp>
 
 namespace
 {

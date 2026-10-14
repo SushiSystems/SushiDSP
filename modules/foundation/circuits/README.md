@@ -4,27 +4,27 @@ Circuit blocks: tone stacks, the equaliser, feedback, the clamp, the tube stages
 
 ## Owns
 
-- `modules/foundation/circuits/include/SushiDSP/circuits/audio_taper_pot.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/fmv_tone_stack.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/graphic_equalizer.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/output_safety_clamp.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/power_amp_feedback.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/models/pentode_el34.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/models/silicon_diode.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/models/soft_transition.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/models/triode12_ax7.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/antiderivative_antialiaser.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/grid_conduction_law.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/long_tailed_pair.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/miller_input_capacitance.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/output_transformer_stage.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/pentode_stage.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/phase_inverter_presets.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/plate_swing.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/power_supply_sag_stage.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/power_tube_presets.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/resonance_control.hpp`
-- `modules/foundation/circuits/include/SushiDSP/circuits/stages/triode_stage.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/audio_taper_pot.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/fmv_tone_stack.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/graphic_equalizer.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/output_safety_clamp.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/power_amp_feedback.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/pentode_el34.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/silicon_diode.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/soft_transition.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/triode12_ax7.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/antiderivative_antialiaser.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/grid_conduction_law.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/long_tailed_pair.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/output_transformer_stage.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/pentode_stage.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/plate_swing.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/power_supply_sag_stage.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/power_tube_presets.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/resonance_control.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/triode_stage.hpp`
 
 ## Depends on
 
@@ -35,7 +35,7 @@ Circuit blocks: tone stacks, the equaliser, feedback, the clamp, the tube stages
 A comment in this module's files states one invariant and names this file. The reasoning
 behind each invariant follows, under the name of the file that cites it.
 
-### `modules/foundation/circuits/include/SushiDSP/circuits/models/pentode_el34.hpp`
+### `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/pentode_el34.hpp`
 
 `current_and_jacobian` clamps the screen voltage at `K_SCREEN_FLOOR_VOLTS` before dividing by it.
 Below the floor the voltage the model sees no longer varies with `v[1]`, so the whole Vg2k column
@@ -50,7 +50,7 @@ continuously as their arguments reach zero. The two `max(0, .)` clamps are there
 slope discontinuities, and the single guard on each power carries its whole branch, current and
 derivative alike.
 
-### `modules/foundation/circuits/include/SushiDSP/circuits/models/silicon_diode.hpp`
+### `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/silicon_diode.hpp`
 
 The defaults (Is = 2.52 nA, n = 1.752, Vt = 0.025864 V) match the 1N914 small-signal diode as
 modelled in `docs/reference/spice/models/d1n914.sub`. `current()` and `jacobian()` implement
@@ -88,7 +88,7 @@ Model corrections D6c C2). An antiparallel pair wants both quantities at both po
 pairing them costs one exponential per side where separate calls would cost two, exactly as
 `current_and_jacobian()` pairs the Newton quantities.
 
-### `modules/foundation/circuits/include/SushiDSP/circuits/models/soft_transition.hpp`
+### `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/soft_transition.hpp`
 
 `softplus_and_logistic` returns `t` itself for `t >= 30`. `ln(1 + exp(t)) - t` is 9.24e-14 at
 `t = 30` and falls from there, so the linear branch is exact to double precision and keeps

@@ -32,11 +32,11 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/denormal_guard.hpp"
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/core/node_descriptor.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/node_registry/node_registry.hpp"
+#include <SushiDSP/foundation/core/denormal_guard.hpp>
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/node_descriptor.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
 namespace
 {

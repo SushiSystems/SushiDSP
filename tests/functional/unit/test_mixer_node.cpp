@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/routing/mixer_node.hpp"
+#include <SushiDSP/nodes/routing/mixer_node.hpp>
 
 TEST(Unit_Dsp, MixerNodeSumsTwoInputsWithDefaultUnityGain)
 {

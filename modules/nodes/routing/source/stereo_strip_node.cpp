@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/routing/stereo_strip_node.hpp"
+#include <SushiDSP/nodes/routing/stereo_strip_node.hpp>
 
 #include <algorithm>
 #include <cmath>

@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/environment_render_set.hpp"
+#include <SushiDSP/nodes/room/environment_render_set.hpp>
 
 #include <algorithm>
 #include <cstddef>

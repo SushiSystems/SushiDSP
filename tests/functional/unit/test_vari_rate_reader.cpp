@@ -34,8 +34,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/take.hpp"
-#include "SushiDSP/capture/vari_rate_reader.hpp"
+#include <SushiDSP/nodes/capture/take.hpp>
+#include <SushiDSP/nodes/capture/vari_rate_reader.hpp>
 #include "measure/spectrum.hpp"
 
 #ifndef M_PI

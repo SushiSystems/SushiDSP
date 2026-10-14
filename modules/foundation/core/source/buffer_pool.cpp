@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/core/buffer_pool.hpp"
+#include <SushiDSP/foundation/core/buffer_pool.hpp>
 
 namespace SushiDSP
 {

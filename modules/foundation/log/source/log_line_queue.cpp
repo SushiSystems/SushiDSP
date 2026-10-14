@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/log/log_line_queue.hpp"
+#include <SushiDSP/foundation/log/log_line_queue.hpp>
 
 #include <algorithm>
 #include <cstdint>

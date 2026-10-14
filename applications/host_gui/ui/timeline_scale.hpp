@@ -29,7 +29,7 @@
 
 #include <cstdint>
 
-#include "SushiDSP/capture/musical_clock.hpp"
+#include <SushiDSP/nodes/capture/musical_clock.hpp>
 
 namespace ui
 {

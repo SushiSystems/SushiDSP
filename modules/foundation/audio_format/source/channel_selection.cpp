@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/audio_format/channel_selection.hpp"
+#include <SushiDSP/foundation/audio_format/channel_selection.hpp>
 
 #include <cstring>
 

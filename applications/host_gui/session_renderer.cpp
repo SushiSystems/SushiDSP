@@ -31,8 +31,8 @@
 #include <cstddef>
 #include <cstring>
 
-#include "SushiDSP/capture/transport.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
+#include <SushiDSP/nodes/capture/transport.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
 
 void SessionRenderer::prepare(std::uint32_t max_block_frames)
 {

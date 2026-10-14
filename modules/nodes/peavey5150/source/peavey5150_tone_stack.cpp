@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/peavey5150/peavey5150_tone_stack.hpp"
+#include <SushiDSP/nodes/peavey5150/peavey5150_tone_stack.hpp>
 
 namespace SushiDSP
 {

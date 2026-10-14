@@ -34,8 +34,8 @@
 #include <stdexcept>
 #include <string>
 
-#include "SushiDSP/log/log.hpp"
-#include "SushiDSP/room/microphone_model.hpp"
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/nodes/room/microphone_model.hpp>
 
 #include "cabinet_section_wiring.hpp"
 #include "host_gui_log_category.hpp"

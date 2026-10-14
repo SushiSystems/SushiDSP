@@ -28,7 +28,7 @@
 // M_PI requires _USE_MATH_DEFINES before any <cmath>.
 #define _USE_MATH_DEFINES
 
-#include "SushiDSP/routing/pan_node.hpp"
+#include <SushiDSP/nodes/routing/pan_node.hpp>
 
 #include <algorithm>
 #include <cmath>

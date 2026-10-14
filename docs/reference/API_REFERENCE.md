@@ -19,5 +19,5 @@ design lives in the prose docs, and those are the better place to start:
 | Build a rig graph | `SushiDSP::RigGraph`, `SushiDSP::AudioNode`, `rig_graph.hpp`, `audio_node.hpp` |
 | Register a product | `SushiDSP::NodeDescriptor`, `node_descriptor.hpp` |
 | Do FFT / convolution / filtering | `SushiDSP::Fft`, `SushiDSP::PartitionedConvolution`, `SushiDSP::Biquad`, `math/` |
-| Model a nonlinear circuit stage | `SushiDSP::WdfResistor`, `SushiDSP::WdfCapacitor`, `SushiDSP::NewtonRaphsonSolver`, `modules/foundation/math/include/SushiDSP/math/wdf.hpp`, `modules/foundation/math/include/SushiDSP/math/newton_raphson_solver.hpp` |
-| Play audio out a real device | `SushiDSP::AudioDevice`, `SushiDSP::Sdl2AudioDevice`, `modules/foundation/core/include/SushiDSP/core/audio_device.hpp`, `modules/foundation/device/include/SushiDSP/device/sdl2_audio_device.hpp` |
+| Model a nonlinear circuit stage | `SushiDSP::WdfResistor`, `SushiDSP::WdfCapacitor`, `SushiDSP::NewtonRaphsonSolver`, `modules/foundation/math/include/SushiDSP/foundation/math/wdf.hpp`, `modules/foundation/math/include/SushiDSP/foundation/math/newton_raphson_solver.hpp` |
+| Play audio out a real device | `SushiDSP::AudioDevice`, `SushiDSP::Sdl2AudioDevice`, `modules/foundation/core/include/SushiDSP/foundation/core/audio_device.hpp`, `modules/foundation/device/include/SushiDSP/foundation/device/sdl2_audio_device.hpp` |

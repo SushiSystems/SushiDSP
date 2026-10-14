@@ -35,7 +35,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "SushiDSP/room/hrtf_set.hpp"
+#include <SushiDSP/nodes/room/hrtf_set.hpp>
 
 namespace
 {

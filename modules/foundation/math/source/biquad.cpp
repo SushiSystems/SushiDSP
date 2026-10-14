@@ -28,7 +28,7 @@
 // _USE_MATH_DEFINES precedes every include: it makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 
-#include "SushiDSP/math/biquad.hpp"
+#include <SushiDSP/foundation/math/biquad.hpp>
 
 #include <cmath>
 

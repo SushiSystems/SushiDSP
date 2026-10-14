@@ -36,8 +36,8 @@
 #include <cstdio>
 #include <vector>
 
-#include "SushiDSP/dd3/dd3_delay.hpp"
-#include "SushiDSP/dd3/wet_fifo.hpp"
+#include <SushiDSP/nodes/dd3/dd3_delay.hpp>
+#include <SushiDSP/nodes/dd3/wet_fifo.hpp>
 #include "measure/render.hpp"
 
 #ifndef M_PI

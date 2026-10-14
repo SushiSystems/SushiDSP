@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/capture/musical_clock.hpp"
+#include <SushiDSP/nodes/capture/musical_clock.hpp>
 
 #include <cmath>
 #include <limits>

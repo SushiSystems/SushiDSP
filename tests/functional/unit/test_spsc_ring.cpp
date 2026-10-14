@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/spsc_ring.hpp"
+#include <SushiDSP/foundation/core/spsc_ring.hpp>
 
 TEST(Unit_Dsp, SpscRingPushThenPopReturnsSameValue)
 {

@@ -30,7 +30,7 @@
 #include <optional>
 #include <vector>
 
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 #include "rig_topology.hpp"
 #include "ui/geometry.hpp"

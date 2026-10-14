@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/cabinet_geometry.hpp"
+#include <SushiDSP/nodes/room/cabinet_geometry.hpp>
 
 #include <array>
 #include <cstring>

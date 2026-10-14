@@ -36,7 +36,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/dd3/dd3_analog_filters.hpp"
+#include <SushiDSP/nodes/dd3/dd3_analog_filters.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

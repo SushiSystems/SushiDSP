@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/rig_preset/rig_preset.hpp"
+#include <SushiDSP/session/rig_preset/rig_preset.hpp>
 
 #include <cstring>
 #include <map>
@@ -35,7 +35,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "SushiDSP/node_registry/node_registry.hpp"
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
 namespace SushiDSP
 {

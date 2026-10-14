@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/math/streaming_convolution.hpp"
+#include <SushiDSP/foundation/math/streaming_convolution.hpp>
 #include <algorithm>
 namespace SushiDSP
 {

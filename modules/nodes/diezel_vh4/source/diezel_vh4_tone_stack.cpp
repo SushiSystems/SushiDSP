@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/diezel_vh4/diezel_vh4_tone_stack.hpp"
+#include <SushiDSP/nodes/diezel_vh4/diezel_vh4_tone_stack.hpp>
 
 namespace SushiDSP
 {

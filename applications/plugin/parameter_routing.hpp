@@ -32,7 +32,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/core/rig_graph.hpp"
+#include <SushiDSP/foundation/core/rig_graph.hpp>
 
 namespace SushiDSP::Plugin
 {

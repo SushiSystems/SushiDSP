@@ -33,7 +33,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/core/audio_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

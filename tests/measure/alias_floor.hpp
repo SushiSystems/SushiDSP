@@ -32,7 +32,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/core/audio_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
 #include "measure/render.hpp"
 #include "measure/spectrum.hpp"
 

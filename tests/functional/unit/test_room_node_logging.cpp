@@ -32,13 +32,13 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/log/capturing_log_sink.hpp"
-#include "SushiDSP/log/default_logger.hpp"
-#include "SushiDSP/log/scoped_log_sink.hpp"
-#include "SushiDSP/room/hrtf_set.hpp"
-#include "SushiDSP/room/hrtf_set_loader.hpp"
-#include "SushiDSP/room/room_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/log/capturing_log_sink.hpp>
+#include <SushiDSP/foundation/log/default_logger.hpp>
+#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
+#include <SushiDSP/nodes/room/hrtf_set.hpp>
+#include <SushiDSP/nodes/room/hrtf_set_loader.hpp>
+#include <SushiDSP/nodes/room/room_node.hpp>
 
 TEST(Unit_Dsp, RoomNodeLogsOneErrorNamingTheCauseWhenTheDecoderCannotBePrepared)
 {

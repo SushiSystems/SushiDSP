@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/io/wav_writer.hpp"
+#include <SushiDSP/foundation/io/wav_writer.hpp>
 
 #include <algorithm>
 #include <cmath>

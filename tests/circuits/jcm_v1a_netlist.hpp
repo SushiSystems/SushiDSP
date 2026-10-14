@@ -30,7 +30,7 @@
 #include <array>
 #include <cstddef>
 
-#include "SushiDSP/circuits/models/triode12_ax7.hpp"
+#include <SushiDSP/foundation/circuits/models/triode12_ax7.hpp>
 
 namespace SushiDSP::test_circuits
 {

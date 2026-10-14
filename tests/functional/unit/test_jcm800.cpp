@@ -38,8 +38,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/calibration.hpp"
-#include "SushiDSP/jcm800/jcm800.hpp"
+#include <SushiDSP/foundation/core/calibration.hpp>
+#include <SushiDSP/nodes/jcm800/jcm800.hpp>
 #include "measure/render.hpp"
 #include "measure/thd.hpp"
 

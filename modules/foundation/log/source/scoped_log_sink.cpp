@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/log/scoped_log_sink.hpp"
+#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
 
 #include <utility>
 

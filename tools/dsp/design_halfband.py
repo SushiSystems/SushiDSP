@@ -5,7 +5,7 @@
 # Commercial use requires a licence from Sushi Systems.
 """Design the three SushiDSP halfband stages with Parks-McClellan and emit the C++ header.
 
-Usage:  python tools/dsp/design_halfband.py > modules/foundation/math/include/SushiDSP/math/halfband_coefficients.hpp
+Usage:  python tools/dsp/design_halfband.py > modules/foundation/math/include/SushiDSP/foundation/math/halfband_coefficients.hpp
 
 The halfband structure is enforced after the equiripple design and the response is measured
 again; see tools/dsp/README.md, "design_halfband.py".
@@ -66,7 +66,7 @@ LICENCE_BLOCK_LINES = 7
 
 
 def emit(out):
-    header = open("modules/foundation/core/include/SushiDSP/core/port_layout.hpp", encoding="utf-8").read().split("\n")
+    header = open("modules/foundation/core/include/SushiDSP/foundation/core/port_layout.hpp", encoding="utf-8").read().split("\n")
     licence = header[:LICENCE_BLOCK_LINES]
     name_line = "/* halfband_coefficients.hpp"
     licence[1] = name_line + " " * (len(licence[0]) - len(name_line) - 2) + "*/"

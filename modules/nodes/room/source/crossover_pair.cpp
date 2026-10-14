@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/crossover_pair.hpp"
+#include <SushiDSP/nodes/room/crossover_pair.hpp>
 
 namespace SushiDSP::room
 {

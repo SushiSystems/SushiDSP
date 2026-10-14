@@ -29,7 +29,7 @@
 
 #include <cmath>
 
-#include "SushiDSP/room/furniture.hpp"
+#include <SushiDSP/nodes/room/furniture.hpp>
 
 namespace ui
 {

@@ -33,13 +33,13 @@
 #include <cstdint>
 #include <string>
 
-#include "SushiDSP/room/band_response.hpp"
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/furniture.hpp"
-#include "SushiDSP/room/materials.hpp"
-#include "SushiDSP/room/room_node.hpp"
-#include "SushiDSP/room/room_scene.hpp"
-#include "SushiDSP/room/starter_scene.hpp"
+#include <SushiDSP/nodes/room/band_response.hpp>
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/furniture.hpp>
+#include <SushiDSP/nodes/room/materials.hpp>
+#include <SushiDSP/nodes/room/room_node.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
+#include <SushiDSP/nodes/room/starter_scene.hpp>
 
 namespace
 {

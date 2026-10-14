@@ -26,7 +26,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/band_response_fit.hpp"
+#include <SushiDSP/nodes/room/band_response_fit.hpp>
 
 #include <algorithm>
 #include <cmath>

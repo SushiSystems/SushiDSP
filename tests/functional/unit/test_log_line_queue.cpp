@@ -33,7 +33,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/log_line_queue.hpp"
+#include <SushiDSP/foundation/log/log_line_queue.hpp>
 
 namespace
 {

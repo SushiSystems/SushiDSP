@@ -35,7 +35,7 @@
 #include <utility>
 #include <vector>
 
-#include "SushiDSP/io/wav_writer.hpp"
+#include <SushiDSP/foundation/io/wav_writer.hpp>
 #if defined(SUSHIDSP_HAVE_LAME)
 #include "mp3_encoder.hpp"
 #endif

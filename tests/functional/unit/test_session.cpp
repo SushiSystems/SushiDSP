@@ -36,9 +36,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/take.hpp"
-#include "SushiDSP/io/wav_file.hpp"
-#include "SushiDSP/io/wav_writer.hpp"
+#include <SushiDSP/nodes/capture/take.hpp>
+#include <SushiDSP/foundation/io/wav_file.hpp>
+#include <SushiDSP/foundation/io/wav_writer.hpp>
 #include "session.hpp"
 #include "session_bounce.hpp"
 #include "session_file.hpp"

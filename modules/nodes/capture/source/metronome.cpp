@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/capture/metronome.hpp"
+#include <SushiDSP/nodes/capture/metronome.hpp>
 
 #include <cmath>
 

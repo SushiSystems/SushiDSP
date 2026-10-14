@@ -30,8 +30,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/node_registry/node_registry.hpp"
-#include "SushiDSP/routing/mixer_node.hpp"
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
+#include <SushiDSP/nodes/routing/mixer_node.hpp>
 
 TEST(Unit_Dsp, NodeRegistryListsTubeScreamerAndJcm800)
 {

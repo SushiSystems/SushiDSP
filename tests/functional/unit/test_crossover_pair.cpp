@@ -33,8 +33,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/math/fft.hpp"
-#include "SushiDSP/room/crossover_pair.hpp"
+#include <SushiDSP/foundation/math/fft.hpp>
+#include <SushiDSP/nodes/room/crossover_pair.hpp>
 
 namespace
 {

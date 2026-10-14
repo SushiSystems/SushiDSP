@@ -32,7 +32,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/fmv_tone_stack.hpp"
+#include <SushiDSP/foundation/circuits/fmv_tone_stack.hpp>
 #include "measure/spice_csv.hpp"
 
 namespace

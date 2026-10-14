@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/output_transformer_stage.hpp"
+#include <SushiDSP/foundation/circuits/stages/output_transformer_stage.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

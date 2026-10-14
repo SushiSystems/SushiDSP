@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/math/smoothed_parameter.hpp"
+#include <SushiDSP/foundation/math/smoothed_parameter.hpp>
 
 #include <cmath>
 

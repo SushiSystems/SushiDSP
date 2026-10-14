@@ -37,13 +37,13 @@
 
 #include <imgui.h>
 
-#include "SushiDSP/room/room_arrangement.hpp"
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
 
 #include "ui/furnishing_list.hpp"
 #include "ui/mixer_panel.hpp"
-#include "SushiDSP/room/cabinet_geometry.hpp"
-#include "SushiDSP/room/furniture.hpp"
-#include "SushiDSP/room/microphone_model.hpp"
+#include <SushiDSP/nodes/room/cabinet_geometry.hpp>
+#include <SushiDSP/nodes/room/furniture.hpp>
+#include <SushiDSP/nodes/room/microphone_model.hpp>
 #include "ui/room_panel.hpp"
 #include "ui/scene_solids.hpp"
 #include "ui/theme.hpp"

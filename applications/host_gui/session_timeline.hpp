@@ -34,14 +34,14 @@
 #include <unordered_map>
 #include <vector>
 
-#include "SushiDSP/capture/metronome.hpp"
-#include "SushiDSP/capture/musical_clock.hpp"
-#include "SushiDSP/capture/recording_bus.hpp"
-#include "SushiDSP/capture/take.hpp"
-#include "SushiDSP/capture/track_player.hpp"
-#include "SushiDSP/capture/track_timeline.hpp"
-#include "SushiDSP/capture/transport.hpp"
-#include "SushiDSP/core/audio_node.hpp"
+#include <SushiDSP/nodes/capture/metronome.hpp>
+#include <SushiDSP/nodes/capture/musical_clock.hpp>
+#include <SushiDSP/nodes/capture/recording_bus.hpp>
+#include <SushiDSP/nodes/capture/take.hpp>
+#include <SushiDSP/nodes/capture/track_player.hpp>
+#include <SushiDSP/nodes/capture/track_timeline.hpp>
+#include <SushiDSP/nodes/capture/transport.hpp>
+#include <SushiDSP/foundation/core/audio_node.hpp>
 
 /// @brief Owns the host's arrangement - the playback lanes, their clips, the re-amp leg, the
 /// tempo and the take recorders - and keeps the audible players in step with it. App-local

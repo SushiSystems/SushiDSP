@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/log/log_argument.hpp"
+#include <SushiDSP/foundation/log/log_argument.hpp>
 
 #include <algorithm>
 #include <charconv>

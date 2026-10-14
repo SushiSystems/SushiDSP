@@ -30,7 +30,7 @@
 #include <cstddef>
 #include <vector>
 
-#include "SushiDSP/core/node_descriptor.hpp"
+#include <SushiDSP/foundation/core/node_descriptor.hpp>
 
 #include "ui/geometry.hpp"
 

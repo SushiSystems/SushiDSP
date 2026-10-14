@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/circuits/graphic_equalizer.hpp"
+#include <SushiDSP/foundation/circuits/graphic_equalizer.hpp>
 
 #include <algorithm>
 

@@ -32,8 +32,8 @@
 #include <limits>
 #include <string>
 
-#include "SushiDSP/room/materials.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/materials.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 #include "ui/patch_list.hpp"
 

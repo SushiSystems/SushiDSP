@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/mesa_mark2c/mesa_mark2c_tone_stack.hpp"
+#include <SushiDSP/nodes/mesa_mark2c/mesa_mark2c_tone_stack.hpp>
 
 namespace SushiDSP
 {

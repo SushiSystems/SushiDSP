@@ -33,7 +33,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/room/ambisonic_encoder.hpp"
+#include <SushiDSP/nodes/room/ambisonic_encoder.hpp>
 
 namespace
 {

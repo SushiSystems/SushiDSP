@@ -38,8 +38,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/calibration.hpp"
-#include "SushiDSP/mesa_mark2c/mesa_mark2c.hpp"
+#include <SushiDSP/foundation/core/calibration.hpp>
+#include <SushiDSP/nodes/mesa_mark2c/mesa_mark2c.hpp>
 #include "measure/thd.hpp"
 
 #ifndef M_PI

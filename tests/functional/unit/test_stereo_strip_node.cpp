@@ -29,8 +29,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/routing/stereo_strip_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/nodes/routing/stereo_strip_node.hpp>
 
 namespace
 {

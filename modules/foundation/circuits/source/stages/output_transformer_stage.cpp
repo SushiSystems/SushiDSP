@@ -28,7 +28,7 @@
 // _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 
-#include "SushiDSP/circuits/stages/output_transformer_stage.hpp"
+#include <SushiDSP/foundation/circuits/stages/output_transformer_stage.hpp>
 
 #include <cmath>
 

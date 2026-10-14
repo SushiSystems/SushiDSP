@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/power_amp_feedback.hpp"
+#include <SushiDSP/foundation/circuits/power_amp_feedback.hpp>
 
 namespace
 {

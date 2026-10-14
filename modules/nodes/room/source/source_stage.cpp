@@ -25,13 +25,13 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/source_stage.hpp"
+#include <SushiDSP/nodes/room/source_stage.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/stage_limits.hpp"
+#include <SushiDSP/nodes/room/stage_limits.hpp>
 
 namespace SushiDSP::Room
 {

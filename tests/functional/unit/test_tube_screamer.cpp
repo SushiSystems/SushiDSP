@@ -38,8 +38,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/biquad.hpp"
-#include "SushiDSP/tubescreamer/tube_screamer.hpp"
+#include <SushiDSP/foundation/math/biquad.hpp>
+#include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

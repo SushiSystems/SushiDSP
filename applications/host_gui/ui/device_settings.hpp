@@ -30,7 +30,7 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/audio_format/channel_selection.hpp"
+#include <SushiDSP/foundation/audio_format/channel_selection.hpp>
 
 namespace ui
 {

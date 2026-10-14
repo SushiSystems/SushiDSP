@@ -25,11 +25,11 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/log/default_logger.hpp"
+#include <SushiDSP/foundation/log/default_logger.hpp>
 
 #include <memory>
 
-#include "SushiDSP/log/stderr_log_sink.hpp"
+#include <SushiDSP/foundation/log/stderr_log_sink.hpp>
 
 namespace SushiDSP
 {
