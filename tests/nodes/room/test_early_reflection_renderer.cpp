@@ -194,7 +194,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, EarlyReflectionRendererPutsAnImpulseAtTheTapsDelay)
+TEST(EarlyReflectionRenderer, EarlyReflectionRendererPutsAnImpulseAtTheTapsDelay)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -216,7 +216,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererPutsAnImpulseAtTheTapsDelay)
     }
 }
 
-TEST(Unit_Dsp, EarlyReflectionRendererInterpolatesAFractionalDelay)
+TEST(EarlyReflectionRenderer, EarlyReflectionRendererInterpolatesAFractionalDelay)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -234,7 +234,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererInterpolatesAFractionalDelay)
     EXPECT_NEAR(lag_frames(whole_sine, half_sine, 512, 2016), 0.5, 0.01);
 }
 
-TEST(Unit_Dsp, EarlyReflectionRendererSumsOneHundredAndTwentyEightTaps)
+TEST(EarlyReflectionRenderer, EarlyReflectionRendererSumsOneHundredAndTwentyEightTaps)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -265,7 +265,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererSumsOneHundredAndTwentyEightTaps)
     EXPECT_NEAR(sum, 1.0, 1e-5);
 }
 
-TEST(Unit_Dsp, EarlyReflectionRendererEncodesIntoSixteenChannels)
+TEST(EarlyReflectionRenderer, EarlyReflectionRendererEncodesIntoSixteenChannels)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -290,7 +290,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererEncodesIntoSixteenChannels)
     }
 }
 
-TEST(Unit_Dsp, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
+TEST(EarlyReflectionRenderer, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -334,7 +334,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
     EXPECT_TRUE(differs);
 }
 
-TEST(Unit_Dsp, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
+TEST(EarlyReflectionRenderer, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
 {
     // Only tap 0's state is carried into bank 1. See tests/nodes/room/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
@@ -377,7 +377,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
     EXPECT_TRUE(rings);
 }
 
-TEST(Unit_Dsp, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
+TEST(EarlyReflectionRenderer, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
 {
     // A carry onto the same bank is a copy onto itself. See tests/nodes/room/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
@@ -409,7 +409,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
     }
 }
 
-TEST(Unit_Dsp, EarlyReflectionRendererCarriesATailAcrossBlockBoundaries)
+TEST(EarlyReflectionRenderer, EarlyReflectionRendererCarriesATailAcrossBlockBoundaries)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -441,7 +441,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererCarriesATailAcrossBlockBoundaries)
     }
 }
 
-TEST(Unit_Dsp, EarlyReflectionRendererRendersATapTheSameAloneAndInAGroup)
+TEST(EarlyReflectionRenderer, EarlyReflectionRendererRendersATapTheSameAloneAndInAGroup)
 {
     // Each tap encodes to a channel of its own, so the group's lanes can be read apart.
     for (const std::uint32_t count : {1u, 4u, 5u, 7u, 16u})

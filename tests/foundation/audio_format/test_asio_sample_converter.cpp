@@ -32,7 +32,7 @@
 
 #include <SushiDSP/foundation/audio_format/asio_sample_converter.hpp>
 
-TEST(Unit_Dsp, AsioSampleConverterInt32RoundTripsKnownValues)
+TEST(AsioSampleConverter, AsioSampleConverterInt32RoundTripsKnownValues)
 {
     // Int32LSB: full-scale is +/-2147483648.
     const std::int32_t half_scale_positive = 1073741824; // 0.5 * INT32_MAX+1
@@ -50,7 +50,7 @@ TEST(Unit_Dsp, AsioSampleConverterInt32RoundTripsKnownValues)
     EXPECT_NEAR(re_encoded_value, half_scale_positive, 2); // rounding tolerance
 }
 
-TEST(Unit_Dsp, AsioSampleConverterInt32ClampsFullScaleNegative)
+TEST(AsioSampleConverter, AsioSampleConverterInt32ClampsFullScaleNegative)
 {
     const std::int32_t full_scale_negative = -2147483647 - 1; // INT32_MIN, avoids UB literal
     std::uint8_t bytes[4];
@@ -61,7 +61,7 @@ TEST(Unit_Dsp, AsioSampleConverterInt32ClampsFullScaleNegative)
     EXPECT_NEAR(decoded, -1.0f, 1e-6f);
 }
 
-TEST(Unit_Dsp, AsioSampleConverterFloat32PassesThroughUnchanged)
+TEST(AsioSampleConverter, AsioSampleConverterFloat32PassesThroughUnchanged)
 {
     const float original = -0.375f;
     std::uint8_t bytes[4];
@@ -78,7 +78,7 @@ TEST(Unit_Dsp, AsioSampleConverterFloat32PassesThroughUnchanged)
     EXPECT_FLOAT_EQ(re_encoded_value, 0.25f);
 }
 
-TEST(Unit_Dsp, AsioSampleConverterInt16RoundTripsKnownValues)
+TEST(AsioSampleConverter, AsioSampleConverterInt16RoundTripsKnownValues)
 {
     const std::int16_t quarter_scale = 8192; // 0.25 * 32768
     std::uint8_t bytes[2];
@@ -89,7 +89,7 @@ TEST(Unit_Dsp, AsioSampleConverterInt16RoundTripsKnownValues)
     EXPECT_NEAR(decoded, 0.25f, 1e-4f);
 }
 
-TEST(Unit_Dsp, AsioSampleConverterFloatToSampleClampsOutOfRangeInput)
+TEST(AsioSampleConverter, AsioSampleConverterFloatToSampleClampsOutOfRangeInput)
 {
     // Out-of-range input clamps to full scale. See tests/foundation/audio_format/README.md.
     std::uint8_t bytes[4];

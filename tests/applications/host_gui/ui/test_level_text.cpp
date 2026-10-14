@@ -32,23 +32,23 @@
 #include <cmath>
 #include <limits>
 
-TEST(Unit_Dsp, LevelTextUnityPeakReadsZeroDecibels)
+TEST(LevelText, LevelTextUnityPeakReadsZeroDecibels)
 {
     EXPECT_NEAR(ui::peak_to_decibels(1.0f), 0.0f, 1e-4f);
 }
 
-TEST(Unit_Dsp, LevelTextHalfPeakReadsMinusSixDecibels)
+TEST(LevelText, LevelTextHalfPeakReadsMinusSixDecibels)
 {
     EXPECT_NEAR(ui::peak_to_decibels(0.5f), -6.0206f, 1e-3f);
 }
 
-TEST(Unit_Dsp, LevelTextZeroPeakReadsNegativeInfinity)
+TEST(LevelText, LevelTextZeroPeakReadsNegativeInfinity)
 {
     EXPECT_TRUE(std::isinf(ui::peak_to_decibels(0.0f)));
     EXPECT_LT(ui::peak_to_decibels(0.0f), 0.0f);
 }
 
-TEST(Unit_Dsp, LevelTextFillClampsAtBothEnds)
+TEST(LevelText, LevelTextFillClampsAtBothEnds)
 {
     EXPECT_FLOAT_EQ(ui::decibels_to_fill(0.0f, -60.0f), 1.0f);
     EXPECT_FLOAT_EQ(ui::decibels_to_fill(10.0f, -60.0f), 1.0f);
@@ -57,7 +57,7 @@ TEST(Unit_Dsp, LevelTextFillClampsAtBothEnds)
     EXPECT_FLOAT_EQ(ui::decibels_to_fill(-30.0f, -60.0f), 0.5f);
 }
 
-TEST(Unit_Dsp, LevelTextDecibelLabelFormatsOneDecimalOrNegativeInfinity)
+TEST(LevelText, LevelTextDecibelLabelFormatsOneDecimalOrNegativeInfinity)
 {
     EXPECT_EQ(ui::decibel_label(0.0f), "0.0 dB");
     EXPECT_EQ(ui::decibel_label(-12.34f), "-12.3 dB");

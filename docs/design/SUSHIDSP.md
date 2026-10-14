@@ -617,7 +617,7 @@ constructor are gone. The solver's grid bounds sit where the plate `tanh` has sa
 so no fence holds a grid short of its ceiling: the V5A stage's DC transfer reaches its full
 90.74 V, where the 160·Vt fence held it at 74.3 V. Alone in an 8× region the same stage folds at
 −81.2 dB at 3× its window and −53.7 dB at 12× (−37.3 and −13.7 dB before), which
-`Regression_Dsp.TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow` pins under −60 and −40 dB.
+`Measure.TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow` pins under −60 and −40 dB.
 All four amplifiers pin their unity constant at 82 Hz, the low E (JCM800 0.3105599, 5150
 0.2400876, IIC+ 0.3343019, VH4 0.3543949); the 5150's inverter runs at its solved point
 (Vgk −1.174528 V, gain 63.51, degeneration 1.9145, swing 113.7 / 79.6 V) and its PRE GAIN is an
@@ -769,7 +769,7 @@ sushidsp/
     host/                      the standalone rig host (SDL2, AudioDevice, rig editor UI)
     plugin/                    the VST3/CLAP rig wrapper
   examples/  rig_demo
-  tests/     Unit_Dsp golden-vector + RT-safety
+  tests/     unit suites: golden-vector + RT-safety
   cli/       the `sd` CLI
 ```
 
@@ -779,7 +779,7 @@ sushidsp/
 - **`SushiDSP::jcm800`, `SushiDSP::peavey5150`, `SushiDSP::mesa_mark2c`, `SushiDSP::diezel_vh4`, `SushiDSP::tubescreamer`, `SushiDSP::dd3`**: product libs, each depending only on `sushi_dsp`. Fully separable; a product can graduate to its own repo with no code change, because it couples to the core only through headers and to consumers only through its `NodeDescriptor`.
 - **Exported & namespaced**: SushiDSP ships install/export rules producing `SushiDSP::*` targets and a `SushiDSPConfig.cmake`.
 
-Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical correctness (golden-vector), rig compile/recompile, RT-safety (no-alloc trap); per-product physical-plausibility tests (DC stability, frequency response, THD sweep) in their module. Perceptual A/B validation against real hardware captures is deferred, no reference captures available yet. **As built in D6a:** `modules/foundation/signal_measure/` is a test-side-only measurement library (`render`, `thd`, `alias_floor`, `frequency_response`, `null_test`) that every product's plausibility and alias-floor test builds on, so those numbers come from one audited implementation instead of each test computing its own FFT/THD by hand. The golden files, one folder per unit under `tests/<tier>/<module>/goldens/`, replace the old five-sample-snapshot regression tests with 1-second rendered `.f32` files at 48 kHz and 96 kHz, compared at −80 dB RMS residual; regenerate them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row to `modules/foundation/golden_compare/README.md` recording why. A SPICE reference corpus is staged under `docs/reference/spice/` (netlist-directive `.asc` files, Koren/Norman `.sub` models, `tools/spice/export.py`, `modules/foundation/spice_reference/include/SushiDSP/foundation/spice_reference/spice_csv.hpp`) but nothing has been simulated yet, LTspice is not installed in this environment, so producing the golden CSVs (`python tools/spice/export.py --all`, then commit) is a user-side step, not something this repo's tests currently check against.
+Tests: `TEST(<unit>, …)` for FFT/convolution/filter/WDF-solver numerical correctness (golden-vector), rig compile/recompile, RT-safety (no-alloc trap); per-product physical-plausibility tests (DC stability, frequency response, THD sweep) in their module. Perceptual A/B validation against real hardware captures is deferred, no reference captures available yet. **As built in D6a:** `modules/foundation/signal_measure/` is a test-side-only measurement library (`render`, `thd`, `alias_floor`, `frequency_response`, `null_test`) that every product's plausibility and alias-floor test builds on, so those numbers come from one audited implementation instead of each test computing its own FFT/THD by hand. The golden files, one folder per unit under `tests/<tier>/<module>/goldens/`, replace the old five-sample-snapshot regression tests with 1-second rendered `.f32` files at 48 kHz and 96 kHz, compared at −80 dB RMS residual; regenerate them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row to `modules/foundation/golden_compare/README.md` recording why. A SPICE reference corpus is staged under `docs/reference/spice/` (netlist-directive `.asc` files, Koren/Norman `.sub` models, `tools/spice/export.py`, `modules/foundation/spice_reference/include/SushiDSP/foundation/spice_reference/spice_csv.hpp`) but nothing has been simulated yet, LTspice is not installed in this environment, so producing the golden CSVs (`python tools/spice/export.py --all`, then commit) is a user-side step, not something this repo's tests currently check against.
 
 ---
 

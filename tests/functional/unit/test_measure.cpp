@@ -425,7 +425,7 @@ namespace
         SushiDSP::PlateSwing{25.5f, 280.2777f}};
 } // namespace
 
-TEST(Unit_Dsp, MeasureSpectrumFloorOfPureSineIsBelowMinus110dB)
+TEST(Measure, MeasureSpectrumFloorOfPureSineIsBelowMinus110dB)
 {
     const double sample_rate = 48000.0;
     const double f0 =
@@ -446,7 +446,7 @@ TEST(Unit_Dsp, MeasureSpectrumFloorOfPureSineIsBelowMinus110dB)
     EXPECT_LE(worst, -110.0);
 }
 
-TEST(Unit_Dsp, MeasureThdOfPureSineIsNegligible)
+TEST(Measure, MeasureThdOfPureSineIsNegligible)
 {
     const double sample_rate = 48000.0;
     const double f0 =
@@ -459,7 +459,7 @@ TEST(Unit_Dsp, MeasureThdOfPureSineIsNegligible)
     EXPECT_LT(result.per_harmonic_db[1], -100.0);
 }
 
-TEST(Unit_Dsp, MeasureThdOfCubicMatchesAnalyticThirdHarmonic)
+TEST(Measure, MeasureThdOfCubicMatchesAnalyticThirdHarmonic)
 {
     // A = 0.5: third harmonic 0.010417 / 0.46875 = 2.2222 % of the fundamental.
     const double sample_rate = 48000.0;
@@ -475,20 +475,20 @@ TEST(Unit_Dsp, MeasureThdOfCubicMatchesAnalyticThirdHarmonic)
     EXPECT_NEAR(result.per_harmonic_db[2], 20.0 * std::log10(0.022222), 0.05);
 }
 
-TEST(Unit_Dsp, MeasureAliasFloorOfIdentityIsAtTheAnalysisFloor)
+TEST(Measure, MeasureAliasFloorOfIdentityIsAtTheAnalysisFloor)
 {
     IdentityNode node;
     EXPECT_LE(SushiDSP::measure::alias_floor(node, 48000.0), -110.0);
 }
 
-TEST(Unit_Dsp, MeasureAliasFloorOfUnoversampledTanhIsPoor)
+TEST(Measure, MeasureAliasFloorOfUnoversampledTanhIsPoor)
 {
     // Folded harmonics count as aliases. See tests/functional/unit/README.md.
     TanhNode node(4.0f);
     EXPECT_GT(SushiDSP::measure::alias_floor(node, 48000.0), -40.0);
 }
 
-TEST(Unit_Dsp, MeasureFrequencyResponseOfIdentityIsFlat)
+TEST(Measure, MeasureFrequencyResponseOfIdentityIsFlat)
 {
     IdentityNode node;
     const auto response =
@@ -500,7 +500,7 @@ TEST(Unit_Dsp, MeasureFrequencyResponseOfIdentityIsFlat)
     }
 }
 
-TEST(Unit_Dsp, MeasureFrequencyResponseTracksAOnePoleLowpass)
+TEST(Measure, MeasureFrequencyResponseTracksAOnePoleLowpass)
 {
     OnePoleNode node;
     const auto response = SushiDSP::measure::frequency_response(node, 48000.0, {1000.0, 10000.0});
@@ -509,7 +509,7 @@ TEST(Unit_Dsp, MeasureFrequencyResponseTracksAOnePoleLowpass)
     EXPECT_NEAR(response[1].magnitude_db, -19.415, 0.1);
 }
 
-TEST(Unit_Dsp, MeasureNullTestAlignsDelayAndGain)
+TEST(Measure, MeasureNullTestAlignsDelayAndGain)
 {
     const double sample_rate = 48000.0;
     const auto a = SushiDSP::measure::sine_stimulus(440.0, sample_rate, 48000, 0.5f);
@@ -521,7 +521,7 @@ TEST(Unit_Dsp, MeasureNullTestAlignsDelayAndGain)
     EXPECT_LT(SushiDSP::measure::null_test(a, b, 64), -120.0);
 }
 
-TEST(Unit_Dsp, MeasureNullTestHandlesPolarityInversion)
+TEST(Measure, MeasureNullTestHandlesPolarityInversion)
 {
     // The lag search matches on correlation magnitude. See tests/functional/unit/README.md.
     const double sample_rate = 48000.0;
@@ -534,7 +534,7 @@ TEST(Unit_Dsp, MeasureNullTestHandlesPolarityInversion)
     EXPECT_LT(SushiDSP::measure::null_test(a, b, 64), -120.0);
 }
 
-TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
+TEST(Measure, MeasureNullTestReportsARealDifference)
 {
     const double sample_rate = 48000.0;
     const auto a = SushiDSP::measure::sine_stimulus(440.0, sample_rate, 48000, 0.5f);
@@ -550,7 +550,7 @@ TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
 // K_D5B_JCM800_ALIAS_FLOOR_DB is the D5b baseline of -3.8 dB. See tests/functional/unit/README.md.
 constexpr double K_D5B_JCM800_ALIAS_FLOOR_DB = -3.8;
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, TubeScreamerAliasFloorDoesNotRegress)
+SUSHIDSP_REGRESSION_TEST(Measure, TubeScreamerAliasFloorDoesNotRegress)
 {
     // The floor is the measured -18.6 dB with 1 dB of slack. See tests/functional/unit/README.md.
     SushiDSP::TubeScreamer node;
@@ -561,7 +561,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, TubeScreamerAliasFloorDoesNotRegress)
     EXPECT_LE(floor, -17.6);
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
+SUSHIDSP_REGRESSION_TEST(Measure, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
 {
     // The case is skipped as a known issue but still prints. See tests/functional/unit/README.md.
     SushiDSP::Jcm800 node;
@@ -584,7 +584,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOver
     EXPECT_LE(floor, K_D5B_JCM800_ALIAS_FLOOR_DB - 30.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb)
+SUSHIDSP_REGRESSION_TEST(Measure, Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb)
 {
     // The case is skipped as a known issue but still prints. See tests/functional/unit/README.md.
     SushiDSP::Peavey5150 node;
@@ -596,7 +596,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Peavey5150AliasFloorAtItsDefaultIsUnder
     EXPECT_LT(floor, -30.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
+SUSHIDSP_REGRESSION_TEST(Measure, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
 {
     // V5A alone folds under -60 dB at 6 V and -40 dB at 24 V. See tests/functional/unit/README.md.
     auto v5a = []
@@ -617,7 +617,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, TriodeStageAliasFloorAtThreeAndTwelveTi
     EXPECT_LT(at_twelve_times, -40.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, PentodeStageAliasFloorInsideAndAtItsWindow)
+SUSHIDSP_REGRESSION_TEST(Measure, PentodeStageAliasFloorInsideAndAtItsWindow)
 {
     // The EL34 folds under -80 dB at 8 V and -50 dB at 38 V. See tests/functional/unit/README.md.
     OversampledPentodeStageNode inside(SushiDSP::PentodeStage(K_REFERENCE_PENTODE), 8.0f, 300.0f);
@@ -633,7 +633,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, PentodeStageAliasFloorInsideAndAtItsWin
     EXPECT_LT(window_floor, -50.0);
 }
 
-TEST(Unit_Dsp, MeasureFrequencyResponseIsAccurateAtTheBottomOfTheAudioBand)
+TEST(Measure, MeasureFrequencyResponseIsAccurateAtTheBottomOfTheAudioBand)
 {
     // The sweep starts at 5 Hz, two octaves below the band. See tests/functional/unit/README.md.
     constexpr double K_RUN_RATE = 192000.0;

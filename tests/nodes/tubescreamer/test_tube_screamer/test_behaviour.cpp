@@ -45,7 +45,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Unit_Dsp, TubeScreamerProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
+TEST(TubeScreamer, TubeScreamerProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
     SushiDSP::TubeScreamer node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -75,7 +75,7 @@ TEST(Unit_Dsp, TubeScreamerProcessesABlockWithoutCrashingOrProducingNonFiniteOut
     }
 }
 
-TEST(Unit_Dsp, TubeScreamerPortsAreMonoInMonoOut)
+TEST(TubeScreamer, TubeScreamerPortsAreMonoInMonoOut)
 {
     SushiDSP::TubeScreamer node;
     SushiDSP::PortLayout ports = node.ports();
@@ -83,7 +83,7 @@ TEST(Unit_Dsp, TubeScreamerPortsAreMonoInMonoOut)
     EXPECT_EQ(ports.output_channels, 1u);
 }
 
-TEST(Unit_Dsp, TubeScreamerMinimumLevelProducesNearSilenceAfterSettling)
+TEST(TubeScreamer, TubeScreamerMinimumLevelProducesNearSilenceAfterSettling)
 {
     SushiDSP::TubeScreamer node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -109,7 +109,7 @@ TEST(Unit_Dsp, TubeScreamerMinimumLevelProducesNearSilenceAfterSettling)
     }
 }
 
-TEST(Unit_Dsp, TubeScreamerDescriptorExposesFourParametersInContractOrder)
+TEST(TubeScreamer, TubeScreamerDescriptorExposesFourParametersInContractOrder)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::tube_screamer_descriptor();
 
@@ -123,7 +123,7 @@ TEST(Unit_Dsp, TubeScreamerDescriptorExposesFourParametersInContractOrder)
     EXPECT_EQ(descriptor.parameters[3].kind, SushiDSP::ParamKind::Decibel);
 }
 
-TEST(Unit_Dsp, TubeScreamerIndexSetParameterMatchesStringSetParameter)
+TEST(TubeScreamer, TubeScreamerIndexSetParameterMatchesStringSetParameter)
 {
     SushiDSP::TubeScreamer by_name, by_index;
 
@@ -136,7 +136,7 @@ TEST(Unit_Dsp, TubeScreamerIndexSetParameterMatchesStringSetParameter)
     EXPECT_FLOAT_EQ(by_name.get_parameter("input_trim"), by_index.get_parameter("input_trim"));
 }
 
-TEST(Unit_Dsp, TubeScreamerLevelAndInputTrimClampToTheirDescriptorRange)
+TEST(TubeScreamer, TubeScreamerLevelAndInputTrimClampToTheirDescriptorRange)
 {
     SushiDSP::TubeScreamer node;
 
@@ -150,7 +150,7 @@ TEST(Unit_Dsp, TubeScreamerLevelAndInputTrimClampToTheirDescriptorRange)
     EXPECT_FLOAT_EQ(node.get_parameter("input_trim"), -24.0f);
 }
 
-TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
+TEST(TubeScreamer, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
 {
     auto settled_peak_at_trim = [](float trim_decibels)
     {
@@ -193,7 +193,7 @@ TEST(Unit_Dsp, TubeScreamerInputTrimScalesTheSignalIntoTheClipper)
     EXPECT_LT(settled_peak_at_trim(-12.0f), unity * 0.5);
 }
 
-TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
+TEST(TubeScreamer, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
 {
     // The 63 % crossing must not depend on the block size. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     constexpr double sample_rate = 48000.0;
@@ -272,7 +272,7 @@ TEST(Unit_Dsp, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
     EXPECT_NEAR(at_64, at_4096, 0.05 * at_64);
 }
 
-TEST(Unit_Dsp, TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseLag)
+TEST(TubeScreamer, TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseLag)
 {
     // Only the 4x oversampler's round trip is latency. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     static constexpr std::uint32_t block = 64;
@@ -325,7 +325,7 @@ TEST(Unit_Dsp, TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseL
     }
 }
 
-TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
+TEST(TubeScreamer, TubeScreamerDescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::tube_screamer_descriptor();
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -350,7 +350,7 @@ TEST(Unit_Dsp, TubeScreamerDescriptorMakeProducesAWorkingNode)
     }
 }
 
-TEST(Unit_Dsp, TubeScreamerIsDcStableAcrossManyBlocksAtHighDrive)
+TEST(TubeScreamer, TubeScreamerIsDcStableAcrossManyBlocksAtHighDrive)
 {
     SushiDSP::TubeScreamer node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -375,7 +375,7 @@ TEST(Unit_Dsp, TubeScreamerIsDcStableAcrossManyBlocksAtHighDrive)
     }
 }
 
-TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
+TEST(TubeScreamer, TubeScreamerThdIncreasesWithDrive)
 {
     auto measure_thd_proxy = [](float drive) -> float
     {
@@ -434,7 +434,7 @@ TEST(Unit_Dsp, TubeScreamerThdIncreasesWithDrive)
     EXPECT_LT(thd_low_drive, thd_high_drive);
 }
 
-TEST(Unit_Dsp, TubeScreamerToneControlsHighFrequencyBalance)
+TEST(TubeScreamer, TubeScreamerToneControlsHighFrequencyBalance)
 {
     auto measure_high_frequency_rms = [](float tone) -> double
     {
@@ -490,7 +490,7 @@ TEST(Unit_Dsp, TubeScreamerToneControlsHighFrequencyBalance)
     EXPECT_GT(bright_high_frequency_rms, dark_high_frequency_rms * 2.0);
 }
 
-TEST(Unit_Dsp, TubeScreamerGenericParameterRoundTrip)
+TEST(TubeScreamer, TubeScreamerGenericParameterRoundTrip)
 {
     SushiDSP::TubeScreamer node;
     node.set_parameter_for_control_thread("drive", 0.25f);
@@ -504,14 +504,14 @@ TEST(Unit_Dsp, TubeScreamerGenericParameterRoundTrip)
     EXPECT_FLOAT_EQ(node.get_parameter("input_trim"), 6.0f);
 }
 
-TEST(Unit_Dsp, TubeScreamerUnknownParameterIsSafeNoOp)
+TEST(TubeScreamer, TubeScreamerUnknownParameterIsSafeNoOp)
 {
     SushiDSP::TubeScreamer node;
     node.set_parameter_for_control_thread("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
-TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelveDbfsInput)
+TEST(TubeScreamer, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelveDbfsInput)
 {
     // At default drive the pedal is near unity at 82 Hz. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     SushiDSP::TubeScreamer node;
@@ -548,7 +548,7 @@ TEST(Unit_Dsp, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelve
     EXPECT_LT(peak_decibels, -10.0f) << "measured peak " << peak_decibels << " dBFS";
 }
 
-TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
+TEST(TubeScreamer, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
 {
     // The input corner is 0.312069 Hz, so 20 Hz is flat. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     auto settled_rms_at = [](double frequency)
@@ -601,7 +601,7 @@ TEST(Unit_Dsp, TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved)
         << "30 Hz " << rms_at_30_hz << ", 10 Hz " << rms_at_10_hz;
 }
 
-TEST(Unit_Dsp, TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicking)
+TEST(TubeScreamer, TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicking)
 {
     // A drive sweep must not produce a sample-to-sample step. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     static constexpr std::uint32_t block = 256;

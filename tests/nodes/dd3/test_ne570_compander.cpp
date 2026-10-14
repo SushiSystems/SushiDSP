@@ -75,7 +75,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, Ne570CompressorFollowsTheTwoToOneLaw)
+TEST(Ne570Compander, Ne570CompressorFollowsTheTwoToOneLaw)
 {
     // V_out = sqrt(V_ref * V_in) with V_ref = 6.6125 V. See tests/nodes/dd3/README.md.
     struct Point
@@ -93,7 +93,7 @@ TEST(Unit_Dsp, Ne570CompressorFollowsTheTwoToOneLaw)
     }
 }
 
-TEST(Unit_Dsp, Ne570ExpanderFollowsTheOneToTwoLaw)
+TEST(Ne570Compander, Ne570ExpanderFollowsTheOneToTwoLaw)
 {
     // V_out = V_in^2 / V_ref. See tests/nodes/dd3/README.md.
     struct Point
@@ -111,7 +111,7 @@ TEST(Unit_Dsp, Ne570ExpanderFollowsTheOneToTwoLaw)
     }
 }
 
-TEST(Unit_Dsp, Ne570RoundTripIsTheIdentityInTheStaticLimit)
+TEST(Ne570Compander, Ne570RoundTripIsTheIdentityInTheStaticLimit)
 {
     // The two halves are exact inverses on a steady tone: expander(compressor(x)) = x.
     for (const double input : {0.066125, 0.66125, 2.0910639, 6.6125, 13.225})
@@ -134,7 +134,7 @@ TEST(Unit_Dsp, Ne570RoundTripIsTheIdentityInTheStaticLimit)
     }
 }
 
-TEST(Unit_Dsp, Ne570EnvelopeReachesSixtyThreePercentAtSixPointEightMilliseconds)
+TEST(Ne570Compander, Ne570EnvelopeReachesSixtyThreePercentAtSixPointEightMilliseconds)
 {
     // tau = 10k * 0.68u = 6.8 ms, 326.4 samples at 48 kHz. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Ne570Compander expander(SushiDSP::dd3::CompanderHalf::Expander);
@@ -155,7 +155,7 @@ TEST(Unit_Dsp, Ne570EnvelopeReachesSixtyThreePercentAtSixPointEightMilliseconds)
     EXPECT_NEAR(SushiDSP::dd3::Ne570Compander::K_RIPPLE_CORNER_HZ, 23.4051, 1e-3);
 }
 
-TEST(Unit_Dsp, Ne570CompressorGainSaturatesAtTheEnvelopeFloor)
+TEST(Ne570Compander, Ne570CompressorGainSaturatesAtTheEnvelopeFloor)
 {
     // Below 6.6125e-4 V the gain stops at 1e4. See tests/nodes/dd3/README.md.
     const double tiny = 1e-9;
@@ -163,7 +163,7 @@ TEST(Unit_Dsp, Ne570CompressorGainSaturatesAtTheEnvelopeFloor)
     EXPECT_NEAR(output / tiny, 1.0e4, 1.0e2);
 }
 
-TEST(Unit_Dsp, Ne570RectifierRippleReachesTheSignalAtLowFrequencies)
+TEST(Ne570Compander, Ne570RectifierRippleReachesTheSignalAtLowFrequencies)
 {
     // The third harmonic has a floor, not a ceiling. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Ne570Compander compressor(SushiDSP::dd3::CompanderHalf::Compressor);
@@ -182,7 +182,7 @@ TEST(Unit_Dsp, Ne570RectifierRippleReachesTheSignalAtLowFrequencies)
     EXPECT_GT(result.per_harmonic_db[2], -40.0);
 }
 
-TEST(Unit_Dsp, Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier)
+TEST(Ne570Compander, Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier)
 {
     // The -70 dB bound covers the comb's tail from bin 4. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Ne570Compander compressor(SushiDSP::dd3::CompanderHalf::Compressor);
@@ -214,7 +214,7 @@ TEST(Unit_Dsp, Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier)
     EXPECT_LE(worst, -70.0);
 }
 
-TEST(Unit_Dsp, Ne570HalvesDoNotShareState)
+TEST(Ne570Compander, Ne570HalvesDoNotShareState)
 {
     // The expander is open-loop; instances share no state. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Ne570Compander first(SushiDSP::dd3::CompanderHalf::Expander);

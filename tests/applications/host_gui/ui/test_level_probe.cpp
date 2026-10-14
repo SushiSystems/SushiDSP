@@ -29,7 +29,7 @@
 
 #include "ui/level_probe.hpp"
 
-TEST(Unit_Dsp, LevelProbeReportsTheLargestMagnitudeIncludingNegativeSamples)
+TEST(LevelProbe, LevelProbeReportsTheLargestMagnitudeIncludingNegativeSamples)
 {
     ui::LevelProbe probe;
     const float block[] = {0.1f, -0.8f, 0.3f};
@@ -38,7 +38,7 @@ TEST(Unit_Dsp, LevelProbeReportsTheLargestMagnitudeIncludingNegativeSamples)
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.8f);
 }
 
-TEST(Unit_Dsp, LevelProbeKeepsTheHighestPeakAcrossSeveralBlocks)
+TEST(LevelProbe, LevelProbeKeepsTheHighestPeakAcrossSeveralBlocks)
 {
     ui::LevelProbe probe;
     const float quiet[] = {0.2f};
@@ -50,7 +50,7 @@ TEST(Unit_Dsp, LevelProbeKeepsTheHighestPeakAcrossSeveralBlocks)
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.9f);
 }
 
-TEST(Unit_Dsp, LevelProbeResetsAfterEachRead)
+TEST(LevelProbe, LevelProbeResetsAfterEachRead)
 {
     ui::LevelProbe probe;
     const float block[] = {0.5f};
@@ -60,7 +60,7 @@ TEST(Unit_Dsp, LevelProbeResetsAfterEachRead)
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.0f);
 }
 
-TEST(Unit_Dsp, LevelProbeReportsZeroForAnEmptyBlock)
+TEST(LevelProbe, LevelProbeReportsZeroForAnEmptyBlock)
 {
     ui::LevelProbe probe;
     probe.report(nullptr, 0);

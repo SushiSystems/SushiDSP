@@ -46,7 +46,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, StreamingConvolutionMatchesDirectFormForIrregularBlockSizes)
+TEST(StreamingConvolution, StreamingConvolutionMatchesDirectFormForIrregularBlockSizes)
 {
     std::vector<float> ir(300);
     for (std::size_t i = 0; i < ir.size(); ++i)
@@ -83,7 +83,7 @@ TEST(Unit_Dsp, StreamingConvolutionMatchesDirectFormForIrregularBlockSizes)
     }
 }
 
-TEST(Unit_Dsp, StreamingConvolutionPartitionSizeFollowsSampleRate)
+TEST(StreamingConvolution, StreamingConvolutionPartitionSizeFollowsSampleRate)
 {
     EXPECT_EQ(SushiDSP::StreamingConvolution::partition_size_for(44100.0), 128u);
     EXPECT_EQ(SushiDSP::StreamingConvolution::partition_size_for(48000.0), 128u);

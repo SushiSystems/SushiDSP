@@ -54,14 +54,14 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Log, LogLineQueueRoundsItsCapacityUpToAPowerOfTwo)
+TEST(LogLineQueue, LogLineQueueRoundsItsCapacityUpToAPowerOfTwo)
 {
     EXPECT_EQ(SushiDSP::LogLineQueue(0).capacity(), 2u);
     EXPECT_EQ(SushiDSP::LogLineQueue(3).capacity(), 4u);
     EXPECT_EQ(SushiDSP::LogLineQueue(256).capacity(), 256u);
 }
 
-TEST(Unit_Log, LogLineQueuePopsLinesInPushOrderWithTheirLevelAndCategory)
+TEST(LogLineQueue, LogLineQueuePopsLinesInPushOrderWithTheirLevelAndCategory)
 {
     SushiDSP::LogLineQueue queue(4);
     const auto line = std::make_unique<SushiDSP::QueuedLogLine>();
@@ -81,7 +81,7 @@ TEST(Unit_Log, LogLineQueuePopsLinesInPushOrderWithTheirLevelAndCategory)
     EXPECT_FALSE(queue.pop(*line));
 }
 
-TEST(Unit_Log, LogLineQueueRefusesALineWhenFullAndTakesOneAgainAfterAPop)
+TEST(LogLineQueue, LogLineQueueRefusesALineWhenFullAndTakesOneAgainAfterAPop)
 {
     SushiDSP::LogLineQueue queue(2);
     const auto line = std::make_unique<SushiDSP::QueuedLogLine>();
@@ -100,7 +100,7 @@ TEST(Unit_Log, LogLineQueueRefusesALineWhenFullAndTakesOneAgainAfterAPop)
     EXPECT_EQ(text_of(*line), "d");
 }
 
-TEST(Unit_Log, LogLineQueueKeepsEveryLineOfSeveralProducersInEachProducersOrder)
+TEST(LogLineQueue, LogLineQueueKeepsEveryLineOfSeveralProducersInEachProducersOrder)
 {
     constexpr std::size_t K_PRODUCERS = 4;
     static constexpr std::size_t K_LINES_EACH = 2000;

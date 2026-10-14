@@ -38,7 +38,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Unit_Dsp, FftOfDcSignalHasEnergyOnlyInBinZero)
+TEST(Fft, FftOfDcSignalHasEnergyOnlyInBinZero)
 {
     constexpr std::uint32_t size = 64;
     SushiDSP::Fft fft(size);
@@ -57,7 +57,7 @@ TEST(Unit_Dsp, FftOfDcSignalHasEnergyOnlyInBinZero)
     }
 }
 
-TEST(Unit_Dsp, FftOfSingleBinSineMatchesKnownBin)
+TEST(Fft, FftOfSingleBinSineMatchesKnownBin)
 {
     constexpr std::uint32_t size = 64;
     constexpr std::uint32_t target_bin = 4;
@@ -79,7 +79,7 @@ TEST(Unit_Dsp, FftOfSingleBinSineMatchesKnownBin)
     EXPECT_NEAR(magnitude_at_target, expected_magnitude, 1e-2f);
 }
 
-TEST(Unit_Dsp, FftMatchesBruteForceDftAcrossSizes)
+TEST(Fft, FftMatchesBruteForceDftAcrossSizes)
 {
     for (std::uint32_t transform_size : {1u, 2u, 8u, 256u})
     {
@@ -123,7 +123,7 @@ TEST(Unit_Dsp, FftMatchesBruteForceDftAcrossSizes)
     }
 }
 
-TEST(Unit_Dsp, ForwardThenInverseFftIsIdentity)
+TEST(Fft, ForwardThenInverseFftIsIdentity)
 {
     constexpr std::uint32_t size = 64;
     SushiDSP::Fft fft(size);

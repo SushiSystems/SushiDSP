@@ -143,14 +143,14 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, RigAdapterStartsEmptyWithNoParametersAndNoLatency)
+TEST(RigAdapter, RigAdapterStartsEmptyWithNoParametersAndNoLatency)
 {
     RigAdapter adapter;
     EXPECT_TRUE(adapter.parameters().empty());
     EXPECT_EQ(adapter.latency_frames(), 0u);
 }
 
-TEST(Unit_Dsp, RigAdapterWithAnEmptyRigPassesEachChannelThrough)
+TEST(RigAdapter, RigAdapterWithAnEmptyRigPassesEachChannelThrough)
 {
     RigAdapter adapter;
     std::string error;
@@ -163,7 +163,7 @@ TEST(Unit_Dsp, RigAdapterWithAnEmptyRigPassesEachChannelThrough)
     EXPECT_EQ(output[1], input[1]);
 }
 
-TEST(Unit_Dsp, RigAdapterWithAnEmptyRigPassesThroughWhenRenderingInPlace)
+TEST(RigAdapter, RigAdapterWithAnEmptyRigPassesThroughWhenRenderingInPlace)
 {
     RigAdapter adapter;
     std::string error;
@@ -181,7 +181,7 @@ TEST(Unit_Dsp, RigAdapterWithAnEmptyRigPassesThroughWhenRenderingInPlace)
     }
 }
 
-TEST(Unit_Dsp, RigAdapterRendersWhatTheControllerThatSavedThePresetRenders)
+TEST(RigAdapter, RigAdapterRendersWhatTheControllerThatSavedThePresetRenders)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);
@@ -209,7 +209,7 @@ TEST(Unit_Dsp, RigAdapterRendersWhatTheControllerThatSavedThePresetRenders)
     EXPECT_EQ(adapter.latency_frames(), controller.active_graph()->latency_samples());
 }
 
-TEST(Unit_Dsp, RigAdapterListsEveryParameterOfEverySlotInRigOrder)
+TEST(RigAdapter, RigAdapterListsEveryParameterOfEverySlotInRigOrder)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);
@@ -238,7 +238,7 @@ TEST(Unit_Dsp, RigAdapterListsEveryParameterOfEverySlotInRigOrder)
     EXPECT_FLOAT_EQ(*value, 0.77f);
 }
 
-TEST(Unit_Dsp, RigAdapterStateRoundTripsThroughASecondAdapter)
+TEST(RigAdapter, RigAdapterStateRoundTripsThroughASecondAdapter)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);
@@ -267,7 +267,7 @@ TEST(Unit_Dsp, RigAdapterStateRoundTripsThroughASecondAdapter)
     }
 }
 
-TEST(Unit_Dsp, RigAdapterKeepsItsRigAcrossAChangeOfSampleRate)
+TEST(RigAdapter, RigAdapterKeepsItsRigAcrossAChangeOfSampleRate)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);
@@ -283,7 +283,7 @@ TEST(Unit_Dsp, RigAdapterKeepsItsRigAcrossAChangeOfSampleRate)
     EXPECT_EQ(adapter.parameters().size(), parameter_count);
 }
 
-TEST(Unit_Dsp, RigAdapterReadsBackAParameterSetOnTheControlThread)
+TEST(RigAdapter, RigAdapterReadsBackAParameterSetOnTheControlThread)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);
@@ -301,7 +301,7 @@ TEST(Unit_Dsp, RigAdapterReadsBackAParameterSetOnTheControlThread)
     EXPECT_FLOAT_EQ(*value, target);
 }
 
-TEST(Unit_Dsp, RigAdapterClampsAParameterToItsRange)
+TEST(RigAdapter, RigAdapterClampsAParameterToItsRange)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);
@@ -318,7 +318,7 @@ TEST(Unit_Dsp, RigAdapterClampsAParameterToItsRange)
     EXPECT_FLOAT_EQ(*value, parameter.maximum);
 }
 
-TEST(Unit_Dsp, RigAdapterRefusesAParameterTheRigDoesNotHold)
+TEST(RigAdapter, RigAdapterRefusesAParameterTheRigDoesNotHold)
 {
     RigAdapter adapter;
     const std::uint32_t missing = SushiDSP::Plugin::rig_parameter_id(3, 0);
@@ -327,7 +327,7 @@ TEST(Unit_Dsp, RigAdapterRefusesAParameterTheRigDoesNotHold)
     EXPECT_FALSE(adapter.parameter_value(missing).has_value());
 }
 
-TEST(Unit_Dsp, RigAdapterAppliesAParameterQueuedOnTheAudioThreadAndSavesIt)
+TEST(RigAdapter, RigAdapterAppliesAParameterQueuedOnTheAudioThreadAndSavesIt)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);
@@ -356,7 +356,7 @@ TEST(Unit_Dsp, RigAdapterAppliesAParameterQueuedOnTheAudioThreadAndSavesIt)
     EXPECT_FLOAT_EQ(*carried, target);
 }
 
-TEST(Unit_Dsp, RigAdapterAudioThreadParameterChangesWhatTheRigRenders)
+TEST(RigAdapter, RigAdapterAudioThreadParameterChangesWhatTheRigRenders)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);
@@ -375,7 +375,7 @@ TEST(Unit_Dsp, RigAdapterAudioThreadParameterChangesWhatTheRigRenders)
     EXPECT_NE(render_through_adapter(changed, input), render_through_adapter(untouched, input));
 }
 
-TEST(Unit_Dsp, RigAdapterRefusesAMalformedPresetAndKeepsItsRig)
+TEST(RigAdapter, RigAdapterRefusesAMalformedPresetAndKeepsItsRig)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);
@@ -392,7 +392,7 @@ TEST(Unit_Dsp, RigAdapterRefusesAMalformedPresetAndKeepsItsRig)
     EXPECT_EQ(adapter.parameters().size(), parameter_count);
 }
 
-TEST(Unit_Dsp, RigAdapterRefusesAFormatWithNoFrames)
+TEST(RigAdapter, RigAdapterRefusesAFormatWithNoFrames)
 {
     RigAdapter adapter;
     std::string error;
@@ -401,7 +401,7 @@ TEST(Unit_Dsp, RigAdapterRefusesAFormatWithNoFrames)
     EXPECT_FALSE(error.empty());
 }
 
-TEST(Unit_Dsp, RigAdapterClearsTheOutputsOfABlockLongerThanItWasPreparedFor)
+TEST(RigAdapter, RigAdapterClearsTheOutputsOfABlockLongerThanItWasPreparedFor)
 {
     RigAdapter adapter;
     std::string error;

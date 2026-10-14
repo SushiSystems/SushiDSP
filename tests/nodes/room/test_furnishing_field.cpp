@@ -76,7 +76,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, FurnishingFieldAnswersAsTheMediumWhenNothingHasAPlace)
+TEST(FurnishingField, FurnishingFieldAnswersAsTheMediumWhenNothingHasAPlace)
 {
     const RoomScene scene = room_with_sofa(false, 0.0, 0.0);
     const FurnishingField field(scene);
@@ -94,7 +94,7 @@ TEST(Unit_Dsp, FurnishingFieldAnswersAsTheMediumWhenNothingHasAPlace)
     }
 }
 
-TEST(Unit_Dsp, FurnishingFieldDensityIntegratesToOneOverTheRoom)
+TEST(FurnishingField, FurnishingFieldDensityIntegratesToOneOverTheRoom)
 {
     // One sofa in the open and one pushed into a corner, where the walls cut the density.
     for (const RoomScene& scene : {room_with_sofa(true, 3.0, 2.0), room_with_sofa(true, 0.2, 0.1)})
@@ -121,7 +121,7 @@ TEST(Unit_Dsp, FurnishingFieldDensityIntegratesToOneOverTheRoom)
     }
 }
 
-TEST(Unit_Dsp, FurnishingFieldWeighsAPathPastTheFurnishingAboveOneThatMissesIt)
+TEST(FurnishingField, FurnishingFieldWeighsAPathPastTheFurnishingAboveOneThatMissesIt)
 {
     const RoomScene scene = room_with_sofa(true, 1.0, 1.0);
     const FurnishingField field(scene);
@@ -142,7 +142,7 @@ TEST(Unit_Dsp, FurnishingFieldWeighsAPathPastTheFurnishingAboveOneThatMissesIt)
     }
 }
 
-TEST(Unit_Dsp, FurnishingFieldWeighsRandomPathsToOneOnAverage)
+TEST(FurnishingField, FurnishingFieldWeighsRandomPathsToOneOnAverage)
 {
     const RoomScene scene = room_with_sofa(true, 2.0, 1.5);
     const FurnishingField field(scene);
@@ -170,7 +170,7 @@ TEST(Unit_Dsp, FurnishingFieldWeighsRandomPathsToOneOnAverage)
     EXPECT_NEAR(weighted / length, 1.0, 0.15);
 }
 
-TEST(Unit_Dsp, FurnishingFieldDampsAModeMoreAtItsAntinodeThanAtItsNode)
+TEST(FurnishingField, FurnishingFieldDampsAModeMoreAtItsAntinodeThanAtItsNode)
 {
     // The (1, 0, 0) mode has its pressure antinodes at the x walls and its node at mid-room.
     const RoomScene at_wall = room_with_sofa(true, 0.3, 2.0);
@@ -189,7 +189,7 @@ TEST(Unit_Dsp, FurnishingFieldDampsAModeMoreAtItsAntinodeThanAtItsNode)
               1.3 * medium.furnishing_coefficient_per_metre(0));
 }
 
-TEST(Unit_Dsp, FurnishingFieldLeavesTheRoomsDecayTimeAsItWas)
+TEST(FurnishingField, FurnishingFieldLeavesTheRoomsDecayTimeAsItWas)
 {
     const std::array<double, K_BAND_COUNT> placed =
         SushiDSP::room::EyringDecay::rt60_seconds(room_with_sofa(true, 1.0, 1.0));
@@ -201,7 +201,7 @@ TEST(Unit_Dsp, FurnishingFieldLeavesTheRoomsDecayTimeAsItWas)
     }
 }
 
-TEST(Unit_Dsp, RoomSceneRefusesAFurnishingPlacedOutsideTheRoom)
+TEST(FurnishingField, RoomSceneRefusesAFurnishingPlacedOutsideTheRoom)
 {
     std::string reason;
     EXPECT_TRUE(room_with_sofa(true, 3.0, 2.0).is_valid(reason)) << reason;

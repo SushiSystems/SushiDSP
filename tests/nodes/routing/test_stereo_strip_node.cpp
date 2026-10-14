@@ -66,7 +66,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, StereoStripAtItsDefaultsPassesTheInput)
+TEST(StereoStripNode, StereoStripAtItsDefaultsPassesTheInput)
 {
     const StereoBlock block = render(0.0f, 0.0f, 1.0f, 0.75f, -0.25f);
 
@@ -74,7 +74,7 @@ TEST(Unit_Dsp, StereoStripAtItsDefaultsPassesTheInput)
     EXPECT_NEAR(block.right[0], -0.25f, 1e-6f);
 }
 
-TEST(Unit_Dsp, StereoStripLevelSetsTheLinearGain)
+TEST(StereoStripNode, StereoStripLevelSetsTheLinearGain)
 {
     // -20 dB is a gain of 0.1.
     const StereoBlock block = render(-20.0f, 0.0f, 1.0f, 1.0f, 0.5f);
@@ -83,7 +83,7 @@ TEST(Unit_Dsp, StereoStripLevelSetsTheLinearGain)
     EXPECT_NEAR(block.right[0], 0.05f, 1e-5f);
 }
 
-TEST(Unit_Dsp, StereoStripBalanceTurnsTheFarSideDownAndKeepsTheNearSide)
+TEST(StereoStripNode, StereoStripBalanceTurnsTheFarSideDownAndKeepsTheNearSide)
 {
     // Balance +0.5 keeps the right at unity and scales the left by 1 - 0.5.
     const StereoBlock right_leaning = render(0.0f, 0.5f, 1.0f, 1.0f, 1.0f);
@@ -95,7 +95,7 @@ TEST(Unit_Dsp, StereoStripBalanceTurnsTheFarSideDownAndKeepsTheNearSide)
     EXPECT_NEAR(hard_left.right[0], 0.0f, 1e-6f);
 }
 
-TEST(Unit_Dsp, StereoStripWidthZeroIsTheMonoSumOnBothSides)
+TEST(StereoStripNode, StereoStripWidthZeroIsTheMonoSumOnBothSides)
 {
     // Mid of (1.0, 0.0) is 0.5.
     const StereoBlock block = render(0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
@@ -104,7 +104,7 @@ TEST(Unit_Dsp, StereoStripWidthZeroIsTheMonoSumOnBothSides)
     EXPECT_NEAR(block.right[0], 0.5f, 1e-6f);
 }
 
-TEST(Unit_Dsp, StereoStripHalfWidthHalvesTheSideSignal)
+TEST(StereoStripNode, StereoStripHalfWidthHalvesTheSideSignal)
 {
     // Mid 0.5, side 0.5 * 0.5 = 0.25: left 0.75, right 0.25.
     const StereoBlock block = render(0.0f, 0.0f, 0.5f, 1.0f, 0.0f);
@@ -113,7 +113,7 @@ TEST(Unit_Dsp, StereoStripHalfWidthHalvesTheSideSignal)
     EXPECT_NEAR(block.right[0], 0.25f, 1e-6f);
 }
 
-TEST(Unit_Dsp, StereoStripReadsItsParametersBackClamped)
+TEST(StereoStripNode, StereoStripReadsItsParametersBackClamped)
 {
     SushiDSP::StereoStripNode strip;
     strip.set_parameter_for_control_thread("level", 40.0f);

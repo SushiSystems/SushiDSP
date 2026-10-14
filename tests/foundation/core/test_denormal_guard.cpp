@@ -43,7 +43,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, DenormalGuardFlushesResultsToZeroWhileAlive)
+TEST(DenormalGuard, DenormalGuardFlushesResultsToZeroWhileAlive)
 {
     if (!SushiDSP::DenormalGuard::is_supported())
     {
@@ -56,7 +56,7 @@ TEST(Unit_Dsp, DenormalGuardFlushesResultsToZeroWhileAlive)
     }
 }
 
-TEST(Unit_Dsp, DenormalGuardRestoresPreviousModeOnDestruction)
+TEST(DenormalGuard, DenormalGuardRestoresPreviousModeOnDestruction)
 {
     if (!SushiDSP::DenormalGuard::is_supported())
     {

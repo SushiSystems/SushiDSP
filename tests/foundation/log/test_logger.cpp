@@ -42,7 +42,7 @@ namespace
         SushiDSP::make_log_category("logger_test");
 } // namespace
 
-TEST(Unit_Log, CapturingSinkReceivesTheCategoryTheLevelAndTheFormattedLine)
+TEST(Logger, CapturingSinkReceivesTheCategoryTheLevelAndTheFormattedLine)
 {
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::Logger logger(capture, SushiDSP::LogLevel::Trace);
@@ -57,7 +57,7 @@ TEST(Unit_Log, CapturingSinkReceivesTheCategoryTheLevelAndTheFormattedLine)
     EXPECT_EQ(lines[0].message, "slot 3 refused 'cab.wav'");
 }
 
-TEST(Unit_Log, LoggerDiscardsLinesBelowTheRuntimeMinimum)
+TEST(Logger, LoggerDiscardsLinesBelowTheRuntimeMinimum)
 {
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::Logger logger(capture, SushiDSP::LogLevel::Warn);
@@ -79,7 +79,7 @@ TEST(Unit_Log, LoggerDiscardsLinesBelowTheRuntimeMinimum)
     EXPECT_EQ(lines[2].message, "info again");
 }
 
-TEST(Unit_Log, MacroBelowTheRuntimeMinimumDoesNotEvaluateItsArguments)
+TEST(Logger, MacroBelowTheRuntimeMinimumDoesNotEvaluateItsArguments)
 {
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::Logger& logger = SushiDSP::default_logger();
@@ -104,7 +104,7 @@ TEST(Unit_Log, MacroBelowTheRuntimeMinimumDoesNotEvaluateItsArguments)
     EXPECT_EQ(lines[0].message, "error 1");
 }
 
-TEST(Unit_Log, LoggerCutsAMessageAtTheMaximumLength)
+TEST(Logger, LoggerCutsAMessageAtTheMaximumLength)
 {
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::Logger logger(capture, SushiDSP::LogLevel::Trace);
@@ -117,7 +117,7 @@ TEST(Unit_Log, LoggerCutsAMessageAtTheMaximumLength)
     EXPECT_EQ(lines[0].message, std::string(SushiDSP::K_MAX_LOG_MESSAGE_LENGTH, 'a'));
 }
 
-TEST(Unit_Log, LoggerFlushesTheSinkAfterAFatalLine)
+TEST(Logger, LoggerFlushesTheSinkAfterAFatalLine)
 {
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::Logger logger(capture, SushiDSP::LogLevel::Trace);
@@ -129,7 +129,7 @@ TEST(Unit_Log, LoggerFlushesTheSinkAfterAFatalLine)
     EXPECT_EQ(capture->flush_count(), 1u);
 }
 
-TEST(Unit_Log, ScopedSinkTakesTheLinesOfItsScopeAndThenRestoresTheOldSink)
+TEST(Logger, ScopedSinkTakesTheLinesOfItsScopeAndThenRestoresTheOldSink)
 {
     const auto outer = std::make_shared<SushiDSP::CapturingLogSink>();
     const auto inner = std::make_shared<SushiDSP::CapturingLogSink>();

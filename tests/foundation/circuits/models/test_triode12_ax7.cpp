@@ -33,7 +33,7 @@
 
 #include <SushiDSP/foundation/circuits/models/triode12_ax7.hpp>
 
-TEST(Unit_Dsp, Triode12AX7PlateCurrentMatchesKorenAtThreeOperatingPoints)
+TEST(Triode12Ax7, Triode12AX7PlateCurrentMatchesKorenAtThreeOperatingPoints)
 {
     // The three points are hand-computed from Koren's law. See tests/foundation/circuits/models/README.md.
     const SushiDSP::Triode12AX7 triode;
@@ -63,7 +63,7 @@ TEST(Unit_Dsp, Triode12AX7PlateCurrentMatchesKorenAtThreeOperatingPoints)
     }
 }
 
-TEST(Unit_Dsp, Triode12AX7GridCurrentFollowsNormansSoftLaw)
+TEST(Triode12Ax7, Triode12AX7GridCurrentFollowsNormansSoftLaw)
 {
     // Ig = 1e-6 * ln(1 + exp((Vgk - 0.5)/0.15)). See tests/foundation/circuits/models/README.md.
     const SushiDSP::Triode12AX7 triode;
@@ -89,7 +89,7 @@ TEST(Unit_Dsp, Triode12AX7GridCurrentFollowsNormansSoftLaw)
     }
 }
 
-TEST(Unit_Dsp, Triode12AX7JacobianMatchesCentredDifferencesEverywhere)
+TEST(Triode12Ax7, Triode12AX7JacobianMatchesCentredDifferencesEverywhere)
 {
     const SushiDSP::Triode12AX7 triode;
     for (const double vgk : {-8.0, -3.0, -1.0, 0.0, 1.0})
@@ -122,7 +122,7 @@ TEST(Unit_Dsp, Triode12AX7JacobianMatchesCentredDifferencesEverywhere)
     }
 }
 
-TEST(Unit_Dsp, Triode12AX7IsCutOffAndCOneAtNonPositivePlateVoltage)
+TEST(Triode12Ax7, Triode12AX7IsCutOffAndCOneAtNonPositivePlateVoltage)
 {
     const SushiDSP::Triode12AX7 triode;
     std::array<double, 2> currents{};
@@ -142,7 +142,7 @@ TEST(Unit_Dsp, Triode12AX7IsCutOffAndCOneAtNonPositivePlateVoltage)
     }
 }
 
-TEST(Unit_Dsp, Triode12AX7JointFormAgreesWithTheSeparateEntryPoints)
+TEST(Triode12Ax7, Triode12AX7JointFormAgreesWithTheSeparateEntryPoints)
 {
     // current() and jacobian() forward to the joint form. See tests/foundation/circuits/models/README.md.
     const SushiDSP::Triode12AX7 triode;
@@ -181,7 +181,7 @@ TEST(Unit_Dsp, Triode12AX7JointFormAgreesWithTheSeparateEntryPoints)
     EXPECT_NEAR(jacobian[1][1], 2.58169362129e-5, 1e-13);
 }
 
-TEST(Unit_Dsp, Triode12AX7StaysFiniteUnderAbsurdInputs)
+TEST(Triode12Ax7, Triode12AX7StaysFiniteUnderAbsurdInputs)
 {
     const SushiDSP::Triode12AX7 triode;
     for (const double vgk : {-1e4, -50.0, 50.0, 1e4})

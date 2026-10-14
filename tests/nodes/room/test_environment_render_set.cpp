@@ -194,7 +194,7 @@ namespace
     };
 } // namespace
 
-TEST(Unit_Dsp, RoomEnvironmentListenerPortCarriesWhatTheBareNodeRenders)
+TEST(EnvironmentRenderSet, RoomEnvironmentListenerPortCarriesWhatTheBareNodeRenders)
 {
     // One cabinet, one receiver: the port table changes where the block lands, not the block.
     const Arrangement arrangement =
@@ -226,7 +226,7 @@ TEST(Unit_Dsp, RoomEnvironmentListenerPortCarriesWhatTheBareNodeRenders)
     EXPECT_GT(peak(ported[0]), 1e-4f);
 }
 
-TEST(Unit_Dsp, RoomEnvironmentRendersTheSumOfItsCabinets)
+TEST(EnvironmentRenderSet, RoomEnvironmentRendersTheSumOfItsCabinets)
 {
     // Two cabinets and three receivers: every port equals the sum of each cabinet played alone.
     const Arrangement arrangement =
@@ -255,7 +255,7 @@ TEST(Unit_Dsp, RoomEnvironmentRendersTheSumOfItsCabinets)
     EXPECT_GT(peak_difference(together[2], alone_first[2]), 1e-4f);
 }
 
-TEST(Unit_Dsp, RoomEnvironmentHearsEachMicrophoneTheSameWhateverElseIsPlaced)
+TEST(EnvironmentRenderSet, RoomEnvironmentHearsEachMicrophoneTheSameWhateverElseIsPlaced)
 {
     // A pair is solved from its own cabinet and its own receiver alone.
     const SushiDSP::room::RoomScene shell = SushiDSP::test::garage_scene();
@@ -275,7 +275,7 @@ TEST(Unit_Dsp, RoomEnvironmentHearsEachMicrophoneTheSameWhateverElseIsPlaced)
     EXPECT_LT(peak_difference(in_crowd[0], by_itself[0]), 1e-6f);
 }
 
-TEST(Unit_Dsp, RoomEnvironmentIsSilentWithNoCabinet)
+TEST(EnvironmentRenderSet, RoomEnvironmentIsSilentWithNoCabinet)
 {
     const Arrangement arrangement =
         SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 0, 3);
@@ -289,7 +289,7 @@ TEST(Unit_Dsp, RoomEnvironmentIsSilentWithNoCabinet)
     }
 }
 
-TEST(Unit_Dsp, RoomEnvironmentLeavesAPortWithNoMicrophoneSilent)
+TEST(EnvironmentRenderSet, RoomEnvironmentLeavesAPortWithNoMicrophoneSilent)
 {
     const Arrangement arrangement =
         SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 1, 2);
@@ -305,7 +305,7 @@ TEST(Unit_Dsp, RoomEnvironmentLeavesAPortWithNoMicrophoneSilent)
     }
 }
 
-TEST(Unit_Dsp, RoomEnvironmentHearsAMovedMicrophoneAtTheNextPublish)
+TEST(EnvironmentRenderSet, RoomEnvironmentHearsAMovedMicrophoneAtTheNextPublish)
 {
     const SushiDSP::room::RoomScene shell = SushiDSP::test::garage_scene();
     Arrangement arrangement = SushiDSP::test::spread_arrangement(shell, 1, 1);
@@ -330,7 +330,7 @@ TEST(Unit_Dsp, RoomEnvironmentHearsAMovedMicrophoneAtTheNextPublish)
     EXPECT_LT(peak_difference(after_moved[0], after_steady[0]), 1e-6f);
 }
 
-TEST(Unit_Dsp, RoomEnvironmentRefusesAnArrangementOutsideTheShellAndKeepsTheOldOne)
+TEST(EnvironmentRenderSet, RoomEnvironmentRefusesAnArrangementOutsideTheShellAndKeepsTheOldOne)
 {
     Arrangement arrangement =
         SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 1, 1);
@@ -346,7 +346,7 @@ TEST(Unit_Dsp, RoomEnvironmentRefusesAnArrangementOutsideTheShellAndKeepsTheOldO
     EXPECT_LT(node->arrangement().microphones()[0].pose.position.z, 3.0);
 }
 
-TEST(Unit_Dsp, RoomEnvironmentSetSceneKeepsTheMicrophonesAndMovesTheFirstCabinet)
+TEST(EnvironmentRenderSet, RoomEnvironmentSetSceneKeepsTheMicrophonesAndMovesTheFirstCabinet)
 {
     const Arrangement arrangement =
         SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 2, 2);
@@ -367,7 +367,7 @@ TEST(Unit_Dsp, RoomEnvironmentSetSceneKeepsTheMicrophonesAndMovesTheFirstCabinet
     EXPECT_EQ(node->scene().source_position.x, 2.5);
 }
 
-TEST(Unit_Dsp, RoomEnvironmentRendersEveryPortThroughARigGraph)
+TEST(EnvironmentRenderSet, RoomEnvironmentRendersEveryPortThroughARigGraph)
 {
     // The listener's port is the graph's output; each microphone port feeds its own consumer.
     SushiDSP::RigGraph graph(K_BLOCK, 64);
@@ -414,7 +414,7 @@ TEST(Unit_Dsp, RoomEnvironmentRendersEveryPortThroughARigGraph)
     }
 }
 
-TEST(Unit_Dsp, RoomShellDesignDoesNotReadThePoses)
+TEST(EnvironmentRenderSet, RoomShellDesignDoesNotReadThePoses)
 {
     const SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     SushiDSP::room::RoomScene moved = scene;

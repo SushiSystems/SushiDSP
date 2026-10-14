@@ -36,7 +36,7 @@
 #include <SushiDSP/nodes/jcm800/jcm800.hpp>
 #include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
-TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForAKnownNodeType)
+TEST(PanelLibrary, PanelLibraryReturnsAHandAuthoredPanelForAKnownNodeType)
 {
     const ui::PanelDescriptor* panel = ui::panel_for("sushidsp.jcm800");
     ASSERT_NE(panel, nullptr);
@@ -44,7 +44,7 @@ TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForAKnownNodeType)
     EXPECT_GT(panel->aspect.x, panel->aspect.y);
 }
 
-TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForEveryAmplifier)
+TEST(PanelLibrary, PanelLibraryReturnsAHandAuthoredPanelForEveryAmplifier)
 {
     std::size_t amplifiers = 0;
     for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
@@ -64,7 +64,7 @@ TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForEveryAmplifier)
     EXPECT_GT(amplifiers, 0u);
 }
 
-TEST(Unit_Dsp, PanelLibraryDrawsTheMarkTwoCPlusEqualizerBandsAsFaders)
+TEST(PanelLibrary, PanelLibraryDrawsTheMarkTwoCPlusEqualizerBandsAsFaders)
 {
     const ui::PanelDescriptor* panel = ui::panel_for("sushidsp.mesa_mark2c");
     ASSERT_NE(panel, nullptr);
@@ -82,12 +82,12 @@ TEST(Unit_Dsp, PanelLibraryDrawsTheMarkTwoCPlusEqualizerBandsAsFaders)
     EXPECT_EQ(fader_ids, expected);
 }
 
-TEST(Unit_Dsp, PanelLibraryReturnsNullForANodeTypeWithNoEntry)
+TEST(PanelLibrary, PanelLibraryReturnsNullForANodeTypeWithNoEntry)
 {
     EXPECT_EQ(ui::panel_for("sushidsp.not_a_real_node"), nullptr);
 }
 
-TEST(Unit_Dsp, PanelLibraryTableNamesOnlyParametersTheDescriptorDeclares)
+TEST(PanelLibrary, PanelLibraryTableNamesOnlyParametersTheDescriptorDeclares)
 {
     for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
     {
@@ -113,7 +113,7 @@ TEST(Unit_Dsp, PanelLibraryTableNamesOnlyParametersTheDescriptorDeclares)
     }
 }
 
-TEST(Unit_Dsp, PanelLibraryTablePlacesAControlForEveryParameterTheDescriptorDeclares)
+TEST(PanelLibrary, PanelLibraryTablePlacesAControlForEveryParameterTheDescriptorDeclares)
 {
     for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
     {
@@ -140,7 +140,7 @@ TEST(Unit_Dsp, PanelLibraryTablePlacesAControlForEveryParameterTheDescriptorDecl
     }
 }
 
-TEST(Unit_Dsp, PanelLibraryEveryTableEntryNamesARegisteredNodeType)
+TEST(PanelLibrary, PanelLibraryEveryTableEntryNamesARegisteredNodeType)
 {
     for (const ui::PanelDescriptor& panel : ui::panel_table())
     {
@@ -158,7 +158,7 @@ TEST(Unit_Dsp, PanelLibraryEveryTableEntryNamesARegisteredNodeType)
     }
 }
 
-TEST(Unit_Dsp, PanelLibraryAutoPanelPlacesOneControlPerParameterInASquareGrid)
+TEST(PanelLibrary, PanelLibraryAutoPanelPlacesOneControlPerParameterInASquareGrid)
 {
     const SushiDSP::NodeDescriptor& jcm = SushiDSP::jcm800_descriptor();
     std::vector<ui::ControlPlacement> storage;
@@ -181,7 +181,7 @@ TEST(Unit_Dsp, PanelLibraryAutoPanelPlacesOneControlPerParameterInASquareGrid)
     EXPECT_EQ(distinct_rows, 3u);
 }
 
-TEST(Unit_Dsp, PanelLibraryAutoPanelPicksTheControlKindFromTheParameterKind)
+TEST(PanelLibrary, PanelLibraryAutoPanelPicksTheControlKindFromTheParameterKind)
 {
     constexpr SushiDSP::ParameterDescriptor params[] = {
         {"a", "A", 0.0f, 1.0f, 0.0f, SushiDSP::ParamKind::Linear, ""},
@@ -199,7 +199,7 @@ TEST(Unit_Dsp, PanelLibraryAutoPanelPicksTheControlKindFromTheParameterKind)
     EXPECT_EQ(storage[2].kind, ui::ControlKind::Readout);
 }
 
-TEST(Unit_Dsp, PanelLibraryMixerShowsOneGainKnobPerConnectedInput)
+TEST(PanelLibrary, PanelLibraryMixerShowsOneGainKnobPerConnectedInput)
 {
     const ui::PanelDescriptor* panel = ui::panel_for("sushidsp.mixer");
     ASSERT_NE(panel, nullptr);
@@ -211,7 +211,7 @@ TEST(Unit_Dsp, PanelLibraryMixerShowsOneGainKnobPerConnectedInput)
     EXPECT_FALSE(panel->is_control_visible(0, 0));
 }
 
-TEST(Unit_Dsp, PanelLibraryLeavesTheVisibilityRuleUnsetForEveryPanelButTheMixer)
+TEST(PanelLibrary, PanelLibraryLeavesTheVisibilityRuleUnsetForEveryPanelButTheMixer)
 {
     for (const ui::PanelDescriptor& panel : ui::panel_table())
     {
@@ -223,7 +223,7 @@ TEST(Unit_Dsp, PanelLibraryLeavesTheVisibilityRuleUnsetForEveryPanelButTheMixer)
     }
 }
 
-TEST(Unit_Dsp, PanelLibraryGivesEveryRegisteredNodeAPanelWithAControlPerParameter)
+TEST(PanelLibrary, PanelLibraryGivesEveryRegisteredNodeAPanelWithAControlPerParameter)
 {
     for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
     {

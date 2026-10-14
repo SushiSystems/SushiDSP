@@ -54,7 +54,7 @@ namespace
         -SushiDSP::gain_to_decibels(SushiDSP::Jcm800::K_MASTER_UNITY_GAIN);
 } // namespace
 
-TEST(Unit_Dsp, Jcm800ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
+TEST(Jcm800, Jcm800ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -87,7 +87,7 @@ TEST(Unit_Dsp, Jcm800ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
     }
 }
 
-TEST(Unit_Dsp, Jcm800OutputNeverExceedsFullScaleUnderHotGainStaging)
+TEST(Jcm800, Jcm800OutputNeverExceedsFullScaleUnderHotGainStaging)
 {
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -120,7 +120,7 @@ TEST(Unit_Dsp, Jcm800OutputNeverExceedsFullScaleUnderHotGainStaging)
     }
 }
 
-TEST(Unit_Dsp, Jcm800PortsAreMonoInMonoOut)
+TEST(Jcm800, Jcm800PortsAreMonoInMonoOut)
 {
     SushiDSP::Jcm800 node;
     SushiDSP::PortLayout ports = node.ports();
@@ -128,7 +128,7 @@ TEST(Unit_Dsp, Jcm800PortsAreMonoInMonoOut)
     EXPECT_EQ(ports.output_channels, 1u);
 }
 
-TEST(Unit_Dsp, Jcm800MasterAtMinimumProducesSilenceAfterSettling)
+TEST(Jcm800, Jcm800MasterAtMinimumProducesSilenceAfterSettling)
 {
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -157,7 +157,7 @@ TEST(Unit_Dsp, Jcm800MasterAtMinimumProducesSilenceAfterSettling)
     }
 }
 
-TEST(Unit_Dsp, Jcm800PreampIncreasesOutputEnergy)
+TEST(Jcm800, Jcm800PreampIncreasesOutputEnergy)
 {
     auto measure_rms = [](float preamp) -> float
     {
@@ -211,7 +211,7 @@ TEST(Unit_Dsp, Jcm800PreampIncreasesOutputEnergy)
     EXPECT_GE(high_preamp_rms, low_preamp_rms * 0.99f);
 }
 
-TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
+TEST(Jcm800, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
 {
     // The knob is read at 0.02; at zero there is no output. See tests/nodes/jcm800/test_jcm800/README.md.
     auto measure_peak = [](float input_amplitude) -> float
@@ -265,7 +265,7 @@ TEST(Unit_Dsp, Jcm800OutputTracksInputLevelRatherThanPinningToTheSolverClamp)
     EXPECT_GT(loud_peak, quiet_peak * 2.0f);
 }
 
-TEST(Unit_Dsp, Jcm800DescriptorExposesEightParametersInContractOrder)
+TEST(Jcm800, Jcm800DescriptorExposesEightParametersInContractOrder)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::jcm800_descriptor();
 
@@ -292,7 +292,7 @@ TEST(Unit_Dsp, Jcm800DescriptorExposesEightParametersInContractOrder)
     EXPECT_FLOAT_EQ(descriptor.parameters[7].max, 12.0f);
 }
 
-TEST(Unit_Dsp, Jcm800ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
+TEST(Jcm800, Jcm800ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
 {
     SushiDSP::Jcm800 node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
@@ -321,7 +321,7 @@ TEST(Unit_Dsp, Jcm800ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
     EXPECT_FALSE(node.tone_stack_is_dirty());
 }
 
-TEST(Unit_Dsp, Jcm800IndexedParameterSetMatchesTheDescriptorOrder)
+TEST(Jcm800, Jcm800IndexedParameterSetMatchesTheDescriptorOrder)
 {
     SushiDSP::Jcm800 node;
     const float values[8] = {0.2f, -6.0f, 0.4f, 0.45f, 0.6f, 0.7f, 12.0f, -3.0f};
@@ -339,7 +339,7 @@ TEST(Unit_Dsp, Jcm800IndexedParameterSetMatchesTheDescriptorOrder)
     node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 1.0f);
 }
 
-TEST(Unit_Dsp, Jcm800DecibelParametersClampToTheirDescriptorRange)
+TEST(Jcm800, Jcm800DecibelParametersClampToTheirDescriptorRange)
 {
     SushiDSP::Jcm800 node;
     node.set_master(100.0f);
@@ -351,7 +351,7 @@ TEST(Unit_Dsp, Jcm800DecibelParametersClampToTheirDescriptorRange)
     EXPECT_FLOAT_EQ(node.get_parameter("output"), 12.0f);
 }
 
-TEST(Unit_Dsp, Jcm800InputTrimAndOutputScaleTheSignalInDecibels)
+TEST(Jcm800, Jcm800InputTrimAndOutputScaleTheSignalInDecibels)
 {
     auto measure_rms = [](float input_trim_db, float output_db) -> double
     {
@@ -404,7 +404,7 @@ TEST(Unit_Dsp, Jcm800InputTrimAndOutputScaleTheSignalInDecibels)
     EXPECT_GT(trimmed_up, reference);
 }
 
-TEST(Unit_Dsp, Jcm800DescriptorMakeProducesAWorkingNode)
+TEST(Jcm800, Jcm800DescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::jcm800_descriptor();
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -426,7 +426,7 @@ TEST(Unit_Dsp, Jcm800DescriptorMakeProducesAWorkingNode)
     }
 }
 
-TEST(Unit_Dsp, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
+TEST(Jcm800, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
 {
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -454,7 +454,7 @@ TEST(Unit_Dsp, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
     }
 }
 
-TEST(Unit_Dsp, Jcm800ThdDoesNotFallAsPreampRises)
+TEST(Jcm800, Jcm800ThdDoesNotFallAsPreampRises)
 {
     // THD must not fall as the preamp knob rises. See tests/nodes/jcm800/test_jcm800/README.md.
     const double f0 =
@@ -485,7 +485,7 @@ TEST(Unit_Dsp, Jcm800ThdDoesNotFallAsPreampRises)
     EXPECT_GT(highest_so_far, 20.0);
 }
 
-TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
+TEST(Jcm800, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
 {
     // The sign of the difference is pinned at 1e-5. See tests/nodes/jcm800/test_jcm800/README.md.
     constexpr double sample_rate = 48000.0;
@@ -553,7 +553,7 @@ TEST(Unit_Dsp, Jcm800PowerTubeBiasMismatchShapesTheEvenHarmonicContent)
     EXPECT_LT(active_ratio - zeroed_ratio, -1e-5);
 }
 
-TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)
+TEST(Jcm800, Jcm800GenericParameterRoundTrip)
 {
     SushiDSP::Jcm800 node;
     node.set_parameter_for_control_thread("preamp", 0.2f);
@@ -575,14 +575,14 @@ TEST(Unit_Dsp, Jcm800GenericParameterRoundTrip)
     EXPECT_FLOAT_EQ(node.get_parameter("output"), -3.0f);
 }
 
-TEST(Unit_Dsp, Jcm800UnknownParameterIsSafeNoOp)
+TEST(Jcm800, Jcm800UnknownParameterIsSafeNoOp)
 {
     SushiDSP::Jcm800 node;
     node.set_parameter_for_control_thread("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
-TEST(Unit_Dsp, Jcm800NeverExceedsFullScaleWithoutALimiter)
+TEST(Jcm800, Jcm800NeverExceedsFullScaleWithoutALimiter)
 {
     // The output stays in [-1, 1] and reaches the rail. See tests/nodes/jcm800/test_jcm800/README.md.
     SushiDSP::Jcm800 node;
@@ -618,7 +618,7 @@ TEST(Unit_Dsp, Jcm800NeverExceedsFullScaleWithoutALimiter)
     EXPECT_TRUE(clamped_at_least_once);
 }
 
-TEST(Unit_Dsp, Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
+TEST(Jcm800, Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
 {
     // A -12 dBFS low-E sine comes out at about -6 dBFS. See tests/nodes/jcm800/test_jcm800/README.md.
     SushiDSP::Jcm800 node;
@@ -656,7 +656,7 @@ TEST(Unit_Dsp, Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput
     EXPECT_LT(peak_decibels, -4.0f);
 }
 
-TEST(Unit_Dsp, Jcm800DryLatencyIsOneOversampledRegion)
+TEST(Jcm800, Jcm800DryLatencyIsOneOversampledRegion)
 {
     // The latency is one Oversampler8x round trip. See tests/nodes/jcm800/test_jcm800/README.md.
     SushiDSP::Jcm800 node;
@@ -666,7 +666,7 @@ TEST(Unit_Dsp, Jcm800DryLatencyIsOneOversampledRegion)
     EXPECT_EQ(node.latency_samples(), reference.latency_samples());
 }
 
-TEST(Unit_Dsp, Jcm800HasACleanEndAtMinimumGain)
+TEST(Jcm800, Jcm800HasACleanEndAtMinimumGain)
 {
     // The knob is read at 0.01 because 0.0 passes no signal. See tests/nodes/jcm800/test_jcm800/README.md.
     const double f0 =
@@ -684,7 +684,7 @@ TEST(Unit_Dsp, Jcm800HasACleanEndAtMinimumGain)
     EXPECT_LT(clean_thd, 10.0);
 }
 
-TEST(Unit_Dsp, Jcm800GridProbesReportEveryStageInSignalOrder)
+TEST(Jcm800, Jcm800GridProbesReportEveryStageInSignalOrder)
 {
     // The probe hooks are pinned, not their figures. See tests/nodes/jcm800/test_jcm800/README.md.
     SushiDSP::Jcm800 node;

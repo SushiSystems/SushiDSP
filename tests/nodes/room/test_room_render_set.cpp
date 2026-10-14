@@ -82,7 +82,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, BuildRenderSetFillsEveryLayerForTheGarage)
+TEST(RoomRenderSet, BuildRenderSetFillsEveryLayerForTheGarage)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
@@ -113,7 +113,7 @@ TEST(Unit_Dsp, BuildRenderSetFillsEveryLayerForTheGarage)
     EXPECT_EQ(set->listener, SushiDSP::room::ListenerKind::Ears);
 }
 
-TEST(Unit_Dsp, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
+TEST(RoomRenderSet, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
 {
     // 2.596151 m is 363 frames and a gain of 0.385186. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
@@ -132,7 +132,7 @@ TEST(Unit_Dsp, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
     EXPECT_NEAR(set->direct_itd_frames, 0.0, 1e-6);
 }
 
-TEST(Unit_Dsp, BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone)
+TEST(RoomRenderSet, BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone)
 {
     // 0.1 m is 14 frames and a gain of 10. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
@@ -145,7 +145,7 @@ TEST(Unit_Dsp, BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone)
     EXPECT_FLOAT_EQ(set->early.taps[0].encode[0], 1.0f);
 }
 
-TEST(Unit_Dsp, BuildRenderSetRefusesAnInvalidSceneAndSaysWhy)
+TEST(RoomRenderSet, BuildRenderSetRefusesAnInvalidSceneAndSaysWhy)
 {
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.dimensions.x = 15.0;
@@ -163,7 +163,7 @@ TEST(Unit_Dsp, BuildRenderSetRefusesAnInvalidSceneAndSaysWhy)
     }
 }
 
-TEST(Unit_Dsp, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
+TEST(RoomRenderSet, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     EXPECT_THROW(SushiDSP::room::build_render_set(garage, SushiDSP::room::HrtfSet(), K_SAMPLE_RATE,
@@ -174,7 +174,7 @@ TEST(Unit_Dsp, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
                  std::runtime_error);
 }
 
-TEST(Unit_Dsp, BuildRenderSetTakesTheDirectPairFromTheHrtfSet)
+TEST(RoomRenderSet, BuildRenderSetTakesTheDirectPairFromTheHrtfSet)
 {
     // The interaural delay is 0.0006558 s, 31.48 frames. See tests/nodes/room/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
@@ -195,7 +195,7 @@ TEST(Unit_Dsp, BuildRenderSetTakesTheDirectPairFromTheHrtfSet)
     EXPECT_EQ(set->direct_right, pair.right);
 }
 
-TEST(Unit_Dsp, BuildRenderSetCarriesTheDiffuseFieldPair)
+TEST(RoomRenderSet, BuildRenderSetCarriesTheDiffuseFieldPair)
 {
     SushiDSP::room::HrtfSet hrtf = fallback_hrtf();
     std::array<float, SushiDSP::room::HrtfSet::K_DIFFUSE_TAPS> left{};
@@ -213,7 +213,7 @@ TEST(Unit_Dsp, BuildRenderSetCarriesTheDiffuseFieldPair)
     EXPECT_EQ(set->diffuse_right, right);
 }
 
-TEST(Unit_Dsp, BuildRenderSetCostsUnderOnePublishBudget)
+TEST(RoomRenderSet, BuildRenderSetCostsUnderOnePublishBudget)
 {
     SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
@@ -228,7 +228,7 @@ TEST(Unit_Dsp, BuildRenderSetCostsUnderOnePublishBudget)
         << "taps " << set->early.count << " modes " << set->modal.count;
 }
 
-TEST(Unit_Dsp, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)
+TEST(RoomRenderSet, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)
 {
     // The modal field is read at the set's receiver. See tests/nodes/room/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
@@ -264,7 +264,7 @@ TEST(Unit_Dsp, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)
     EXPECT_EQ(ears->modal.modes[0].section, microphone->modal.modes[0].section);
 }
 
-TEST(Unit_Dsp, RoomRenderSetIsTriviallyCopyable)
+TEST(RoomRenderSet, RoomRenderSetIsTriviallyCopyable)
 {
     static_assert(std::is_trivially_copyable<SushiDSP::room::RoomRenderSet>::value,
                   "it crosses to the audio thread");

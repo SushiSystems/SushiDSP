@@ -46,30 +46,30 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Log, FormatterReplacesMarkersWithArgumentsInOrder)
+TEST(LogFormatter, FormatterReplacesMarkersWithArgumentsInOrder)
 {
     EXPECT_EQ(formatted("{} + {} = {}", 1, 2, 3), "1 + 2 = 3");
     EXPECT_EQ(formatted("{}{}", "left", "right"), "leftright");
 }
 
-TEST(Unit_Log, FormatterKeepsAMarkerThatHasNoArgument)
+TEST(LogFormatter, FormatterKeepsAMarkerThatHasNoArgument)
 {
     EXPECT_EQ(formatted("a {} b {}", 7), "a 7 b {}");
     EXPECT_EQ(formatted("plain {}"), "plain {}");
 }
 
-TEST(Unit_Log, FormatterDoesNotPrintAnArgumentThatHasNoMarker)
+TEST(LogFormatter, FormatterDoesNotPrintAnArgumentThatHasNoMarker)
 {
     EXPECT_EQ(formatted("a {}", 1, 2), "a 1");
     EXPECT_EQ(formatted("no marker", 1), "no marker");
 }
 
-TEST(Unit_Log, FormatterCopiesBracesThatAreNotAMarker)
+TEST(LogFormatter, FormatterCopiesBracesThatAreNotAMarker)
 {
     EXPECT_EQ(formatted("{ } }{ {x}", 1), "{ } }{ {x}");
 }
 
-TEST(Unit_Log, FormatterPrintsBoolCharacterAndIntegers)
+TEST(LogFormatter, FormatterPrintsBoolCharacterAndIntegers)
 {
     EXPECT_EQ(formatted("{} {}", true, false), "true false");
     EXPECT_EQ(formatted("{}", 'x'), "x");
@@ -79,14 +79,14 @@ TEST(Unit_Log, FormatterPrintsBoolCharacterAndIntegers)
     EXPECT_EQ(formatted("{}", static_cast<short>(-7)), "-7");
 }
 
-TEST(Unit_Log, FormatterPrintsRealsWithSixSignificantDigits)
+TEST(LogFormatter, FormatterPrintsRealsWithSixSignificantDigits)
 {
     EXPECT_EQ(formatted("{}", 0.5), "0.5");
     EXPECT_EQ(formatted("{}", 48000.0f), "48000");
     EXPECT_EQ(formatted("{}", 3.14159265), "3.14159");
 }
 
-TEST(Unit_Log, FormatterPrintsTextOfEveryKind)
+TEST(LogFormatter, FormatterPrintsTextOfEveryKind)
 {
     const std::string owned = "owned";
     const std::string_view view = "view";
@@ -98,7 +98,7 @@ TEST(Unit_Log, FormatterPrintsTextOfEveryKind)
     EXPECT_EQ(formatted("{}", missing), "(null)");
 }
 
-TEST(Unit_Log, FormatterCutsTheTextAtTheCapacity)
+TEST(LogFormatter, FormatterCutsTheTextAtTheCapacity)
 {
     char buffer[8];
 

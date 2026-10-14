@@ -49,7 +49,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, TakeLibraryKeepsATakeAliveWhileSomethingHoldsIt)
+TEST(TakeLibrary, TakeLibraryKeepsATakeAliveWhileSomethingHoldsIt)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -60,7 +60,7 @@ TEST(Unit_Dsp, TakeLibraryKeepsATakeAliveWhileSomethingHoldsIt)
     EXPECT_EQ(library.reference_count(take), 1u);
 }
 
-TEST(Unit_Dsp, TakeLibraryFreesATakeOnlyWhenTheLastHolderReleasesIt)
+TEST(TakeLibrary, TakeLibraryFreesATakeOnlyWhenTheLastHolderReleasesIt)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -75,7 +75,7 @@ TEST(Unit_Dsp, TakeLibraryFreesATakeOnlyWhenTheLastHolderReleasesIt)
     EXPECT_EQ(library.size(), 0u);
 }
 
-TEST(Unit_Dsp, TakeLibraryDropsATakeNothingEverHeld)
+TEST(TakeLibrary, TakeLibraryDropsATakeNothingEverHeld)
 {
     SushiDSP::TakeLibrary library;
     library.insert(std::make_unique<const SushiDSP::Take>(1u, 48000.0, 128u));
@@ -83,7 +83,7 @@ TEST(Unit_Dsp, TakeLibraryDropsATakeNothingEverHeld)
     EXPECT_EQ(library.size(), 0u);
 }
 
-TEST(Unit_Dsp, TakeLibraryGivesTwoHoldersOneCopyOfTheSamples)
+TEST(TakeLibrary, TakeLibraryGivesTwoHoldersOneCopyOfTheSamples)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* first =
@@ -95,7 +95,7 @@ TEST(Unit_Dsp, TakeLibraryGivesTwoHoldersOneCopyOfTheSamples)
     EXPECT_EQ(library.size(), 1u);
 }
 
-TEST(Unit_Dsp, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
+TEST(TakeLibrary, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
 {
     SushiDSP::TakeLibrary library;
     SushiDSP::RtSwapSlot<const SushiDSP::TrackTimeline> lane;
@@ -118,7 +118,7 @@ TEST(Unit_Dsp, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
     EXPECT_EQ(lane.active_for_publisher()->clip(0).take->channel(0), take->channel(0));
 }
 
-TEST(Unit_Dsp, TakeLibraryFreesATakeOnlyAfterEveryLaneHasBeenReclaimed)
+TEST(TakeLibrary, TakeLibraryFreesATakeOnlyAfterEveryLaneHasBeenReclaimed)
 {
     SushiDSP::TakeLibrary library;
     SushiDSP::RtSwapSlot<const SushiDSP::TrackTimeline> lane;

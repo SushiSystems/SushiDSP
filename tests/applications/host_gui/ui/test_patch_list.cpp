@@ -56,7 +56,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, PatchListAddFillsToTheLimitAndRefusesTheNext)
+TEST(PatchList, PatchListAddFillsToTheLimitAndRefusesTheNext)
 {
     RoomScene scene;
     for (std::size_t index = 0; index < RoomScene::K_MAX_PATCHES; ++index)
@@ -77,7 +77,7 @@ TEST(Unit_Dsp, PatchListAddFillsToTheLimitAndRefusesTheNext)
     }
 }
 
-TEST(Unit_Dsp, PatchListAddRecordsTheFaceTheMaterialAndTheArea)
+TEST(PatchList, PatchListAddRecordsTheFaceTheMaterialAndTheArea)
 {
     RoomScene scene;
     ASSERT_TRUE(ui::add_patch(scene, Surface::Ceiling, MaterialId::OpenDoorway, 3.5));
@@ -87,7 +87,7 @@ TEST(Unit_Dsp, PatchListAddRecordsTheFaceTheMaterialAndTheArea)
     EXPECT_DOUBLE_EQ(scene.patches[0].area_m2, 3.5);
 }
 
-TEST(Unit_Dsp, PatchListAddRefusesZeroNegativeNaNAndInfinity)
+TEST(PatchList, PatchListAddRefusesZeroNegativeNaNAndInfinity)
 {
     const double refused[] = {0.0,
                               -0.0,
@@ -106,7 +106,7 @@ TEST(Unit_Dsp, PatchListAddRefusesZeroNegativeNaNAndInfinity)
     }
 }
 
-TEST(Unit_Dsp, PatchListRemoveShiftsTheTailDownAndKeepsTheOrder)
+TEST(PatchList, PatchListRemoveShiftsTheTailDownAndKeepsTheOrder)
 {
     RoomScene scene = scene_with(4);
     ui::remove_patch(scene, 1);
@@ -128,7 +128,7 @@ TEST(Unit_Dsp, PatchListRemoveShiftsTheTailDownAndKeepsTheOrder)
     EXPECT_DOUBLE_EQ(scene.patches[0].area_m2, 3.0);
 }
 
-TEST(Unit_Dsp, PatchListRemoveIgnoresAnIndexAtOrPastTheCount)
+TEST(PatchList, PatchListRemoveIgnoresAnIndexAtOrPastTheCount)
 {
     RoomScene scene = scene_with(3);
     ui::remove_patch(scene, 3);
@@ -145,7 +145,7 @@ TEST(Unit_Dsp, PatchListRemoveIgnoresAnIndexAtOrPastTheCount)
     EXPECT_EQ(empty.patch_count, 0u);
 }
 
-TEST(Unit_Dsp, PatchListRemoveFreesASlotForTheNextAdd)
+TEST(PatchList, PatchListRemoveFreesASlotForTheNextAdd)
 {
     RoomScene scene = scene_with(static_cast<std::uint32_t>(RoomScene::K_MAX_PATCHES));
     ui::remove_patch(scene, 0);
@@ -154,7 +154,7 @@ TEST(Unit_Dsp, PatchListRemoveFreesASlotForTheNextAdd)
     EXPECT_EQ(scene.patch_count, RoomScene::K_MAX_PATCHES);
 }
 
-TEST(Unit_Dsp, PatchListSetChangesTheAreaOfOneEntry)
+TEST(PatchList, PatchListSetChangesTheAreaOfOneEntry)
 {
     RoomScene scene = scene_with(3);
     EXPECT_TRUE(ui::set_patch_area(scene, 1, 7.25));
@@ -165,7 +165,7 @@ TEST(Unit_Dsp, PatchListSetChangesTheAreaOfOneEntry)
     EXPECT_EQ(scene.patch_count, 3u);
 }
 
-TEST(Unit_Dsp, PatchListSetRefusesABadIndexOrABadArea)
+TEST(PatchList, PatchListSetRefusesABadIndexOrABadArea)
 {
     RoomScene scene = scene_with(2);
 
@@ -182,7 +182,7 @@ TEST(Unit_Dsp, PatchListSetRefusesABadIndexOrABadArea)
     EXPECT_DOUBLE_EQ(scene.patches[2].area_m2, 0.0);
 }
 
-TEST(Unit_Dsp, PatchListDefaultAreaIsATenthOfTheDefaultFace)
+TEST(PatchList, PatchListDefaultAreaIsATenthOfTheDefaultFace)
 {
     const RoomScene defaults;
     for (std::size_t face = 0; face < SushiDSP::room::K_SURFACE_COUNT; ++face)
@@ -193,7 +193,7 @@ TEST(Unit_Dsp, PatchListDefaultAreaIsATenthOfTheDefaultFace)
     }
 }
 
-TEST(Unit_Dsp, PatchListAddAcceptsAnAreaLargerThanItsFaceAndTheSceneRefusesIt)
+TEST(PatchList, PatchListAddAcceptsAnAreaLargerThanItsFaceAndTheSceneRefusesIt)
 {
     RoomScene scene;
     const double too_large = scene.face_area_m2(Surface::PlusX) + 1.0;

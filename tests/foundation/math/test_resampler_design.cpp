@@ -43,7 +43,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Unit_Dsp, ResamplerKernelHasTheCommittedShape)
+TEST(ResamplerDesign, ResamplerKernelHasTheCommittedShape)
 {
     // 34 * 512 + 1 endpoint + 1 guard = 17410. See tests/foundation/math/README.md.
     EXPECT_EQ(SushiDSP::K_RESAMPLER_KERNEL_LENGTH, 17410u);
@@ -59,7 +59,7 @@ TEST(Unit_Dsp, ResamplerKernelHasTheCommittedShape)
     EXPECT_GT(SushiDSP::K_RESAMPLER_KERNEL[1280], 0.0f); // 2.5 input samples out
 }
 
-TEST(Unit_Dsp, ResamplerKernelSumsToOnePerPhase)
+TEST(ResamplerDesign, ResamplerKernelSumsToOnePerPhase)
 {
     // Branch p is h(p/512 + k) for integer k. See tests/foundation/math/README.md.
     for (std::uint32_t phase = 0; phase < SushiDSP::K_RESAMPLER_PHASES_PER_ZERO_CROSSING; ++phase)
@@ -81,7 +81,7 @@ TEST(Unit_Dsp, ResamplerKernelSumsToOnePerPhase)
     }
 }
 
-TEST(Unit_Dsp, ResamplerKernelMeetsItsPassbandAndStopbandTargets)
+TEST(ResamplerDesign, ResamplerKernelMeetsItsPassbandAndStopbandTargets)
 {
     // The passband is |f| <= 0.400, the stopband >= 0.500. See tests/foundation/math/README.md.
     auto magnitude_db = [](double frequency_cycles_per_input_sample)
@@ -110,7 +110,7 @@ TEST(Unit_Dsp, ResamplerKernelMeetsItsPassbandAndStopbandTargets)
     }
 }
 
-TEST(Unit_Dsp, ResamplerKernelIsSmoothEnoughForLinearInterpolation)
+TEST(ResamplerDesign, ResamplerKernelIsSmoothEnoughForLinearInterpolation)
 {
     // The predicted interpolation error bound is 3.8127e-6. See tests/foundation/math/README.md.
     double worst = 0.0;

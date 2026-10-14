@@ -31,7 +31,7 @@
 
 #include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
 
-TEST(Unit_Dsp, OutputSafetyClampAppliesTheGainBeforeTheRail)
+TEST(OutputSafetyClamp, OutputSafetyClampAppliesTheGainBeforeTheRail)
 {
     std::vector<float> block{0.25f, -0.25f, 0.0f};
     SushiDSP::apply_output_safety_clamp(block.data(), 3, 2.0f);
@@ -40,7 +40,7 @@ TEST(Unit_Dsp, OutputSafetyClampAppliesTheGainBeforeTheRail)
     EXPECT_FLOAT_EQ(block[2], 0.0f);
 }
 
-TEST(Unit_Dsp, OutputSafetyClampHoldsBothRails)
+TEST(OutputSafetyClamp, OutputSafetyClampHoldsBothRails)
 {
     std::vector<float> block{4.0f, -4.0f, 1.0f, -1.0f};
     SushiDSP::apply_output_safety_clamp(block.data(), 4, 1.0f);
@@ -50,7 +50,7 @@ TEST(Unit_Dsp, OutputSafetyClampHoldsBothRails)
     EXPECT_FLOAT_EQ(block[3], -1.0f);
 }
 
-TEST(Unit_Dsp, OutputSafetyClampLeavesTheTailOfTheBufferAlone)
+TEST(OutputSafetyClamp, OutputSafetyClampLeavesTheTailOfTheBufferAlone)
 {
     std::vector<float> block{4.0f, 4.0f, 4.0f};
     SushiDSP::apply_output_safety_clamp(block.data(), 1, 1.0f);
@@ -59,7 +59,7 @@ TEST(Unit_Dsp, OutputSafetyClampLeavesTheTailOfTheBufferAlone)
     EXPECT_FLOAT_EQ(block[2], 4.0f);
 }
 
-TEST(Unit_Dsp, OutputSafetyClampAtZeroFramesTouchesNothing)
+TEST(OutputSafetyClamp, OutputSafetyClampAtZeroFramesTouchesNothing)
 {
     std::vector<float> block{4.0f};
     SushiDSP::apply_output_safety_clamp(block.data(), 0, 1.0f);

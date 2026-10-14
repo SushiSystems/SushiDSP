@@ -31,19 +31,19 @@
 
 #include <SushiDSP/foundation/circuits/audio_taper_pot.hpp>
 
-TEST(Unit_Dsp, AudioTaperPotSpansZeroToUnity)
+TEST(AudioTaperPot, AudioTaperPotSpansZeroToUnity)
 {
     EXPECT_FLOAT_EQ(SushiDSP::audio_taper_pot(0.0f), 0.0f);
     EXPECT_FLOAT_EQ(SushiDSP::audio_taper_pot(1.0f), 1.0f);
 }
 
-TEST(Unit_Dsp, AudioTaperPotIsPositionToTheThreeHalves)
+TEST(AudioTaperPot, AudioTaperPotIsPositionToTheThreeHalves)
 {
     EXPECT_FLOAT_EQ(SushiDSP::audio_taper_pot(0.5f), 0.5f * std::sqrt(0.5f));
     EXPECT_FLOAT_EQ(SushiDSP::audio_taper_pot(0.25f), 0.25f * std::sqrt(0.25f));
 }
 
-TEST(Unit_Dsp, AudioTaperPotRisesMonotonicallyAndSitsUnderALinearPot)
+TEST(AudioTaperPot, AudioTaperPotRisesMonotonicallyAndSitsUnderALinearPot)
 {
     float previous = -1.0f;
     for (int step = 0; step <= 100; ++step)

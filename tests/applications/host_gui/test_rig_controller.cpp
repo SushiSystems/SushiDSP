@@ -237,14 +237,14 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, RigControllerStartsEmpty)
+TEST(RigController, RigControllerStartsEmpty)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
     EXPECT_TRUE(controller.slot_order().empty());
 }
 
-TEST(Unit_Dsp, RigControllerAppendAddsNodeToEndOfChain)
+TEST(RigController, RigControllerAppendAddsNodeToEndOfChain)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -260,7 +260,7 @@ TEST(Unit_Dsp, RigControllerAppendAddsNodeToEndOfChain)
     ASSERT_NE(controller.active_graph(), nullptr);
 }
 
-TEST(Unit_Dsp, RigControllerInsertBeforePlacesNewSlotImmediatelyBeforeAnchor)
+TEST(RigController, RigControllerInsertBeforePlacesNewSlotImmediatelyBeforeAnchor)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -276,7 +276,7 @@ TEST(Unit_Dsp, RigControllerInsertBeforePlacesNewSlotImmediatelyBeforeAnchor)
     EXPECT_EQ(order[2], c);
 }
 
-TEST(Unit_Dsp, RigControllerInsertBeforeNoAnchorPlacesNewSlotAtFront)
+TEST(RigController, RigControllerInsertBeforeNoAnchorPlacesNewSlotAtFront)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -291,7 +291,7 @@ TEST(Unit_Dsp, RigControllerInsertBeforeNoAnchorPlacesNewSlotAtFront)
     EXPECT_EQ(order[1], a);
 }
 
-TEST(Unit_Dsp, RigControllerMoveBeforeReordersChain)
+TEST(RigController, RigControllerMoveBeforeReordersChain)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -308,7 +308,7 @@ TEST(Unit_Dsp, RigControllerMoveBeforeReordersChain)
     EXPECT_EQ(order[1], a);
 }
 
-TEST(Unit_Dsp, RigControllerRemoveDropsFromChainAndReconnectsSurvivors)
+TEST(RigController, RigControllerRemoveDropsFromChainAndReconnectsSurvivors)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -328,7 +328,7 @@ TEST(Unit_Dsp, RigControllerRemoveDropsFromChainAndReconnectsSurvivors)
     ASSERT_EQ(handles.size(), 2u);
 }
 
-TEST(Unit_Dsp, RigControllerBuildsSplitterTwoBranchMixerShapeAndProcessesCorrectly)
+TEST(RigController, RigControllerBuildsSplitterTwoBranchMixerShapeAndProcessesCorrectly)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -357,7 +357,7 @@ TEST(Unit_Dsp, RigControllerBuildsSplitterTwoBranchMixerShapeAndProcessesCorrect
     EXPECT_NO_THROW(controller.active_graph()->process(context));
 }
 
-TEST(Unit_Dsp, RigControllerAddBranchBuildsTheParallelShapeTheGuiOffers)
+TEST(RigController, RigControllerAddBranchBuildsTheParallelShapeTheGuiOffers)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -397,7 +397,7 @@ TEST(Unit_Dsp, RigControllerAddBranchBuildsTheParallelShapeTheGuiOffers)
     EXPECT_NO_THROW(controller.active_graph()->process(context));
 }
 
-TEST(Unit_Dsp, RigControllerAddBranchTwiceReusesTheOneMixer)
+TEST(RigController, RigControllerAddBranchTwiceReusesTheOneMixer)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -424,7 +424,7 @@ TEST(Unit_Dsp, RigControllerAddBranchTwiceReusesTheOneMixer)
     EXPECT_TRUE(contains(into_mixer, *branch_c));
 }
 
-TEST(Unit_Dsp, RigControllerAddBranchOnADanglingSplitterCreatesNoMixer)
+TEST(RigController, RigControllerAddBranchOnADanglingSplitterCreatesNoMixer)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -439,7 +439,7 @@ TEST(Unit_Dsp, RigControllerAddBranchOnADanglingSplitterCreatesNoMixer)
     EXPECT_EQ(controller.upstream_of(*branch), std::vector<RigController::SlotId>{splitter});
 }
 
-TEST(Unit_Dsp, RigControllerAddBranchOnASlotThatIsNotASplitterIsRefused)
+TEST(RigController, RigControllerAddBranchOnASlotThatIsNotASplitterIsRefused)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -452,7 +452,7 @@ TEST(Unit_Dsp, RigControllerAddBranchOnASlotThatIsNotASplitterIsRefused)
     EXPECT_EQ(controller.upstream_of(amp), std::vector<RigController::SlotId>{screamer});
 }
 
-TEST(Unit_Dsp, RigControllerAddBranchWithAnUnregisteredDescriptorIdIsRefused)
+TEST(RigController, RigControllerAddBranchWithAnUnregisteredDescriptorIdIsRefused)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -465,7 +465,7 @@ TEST(Unit_Dsp, RigControllerAddBranchWithAnUnregisteredDescriptorIdIsRefused)
     EXPECT_EQ(count_slots_of_type(controller, "sushidsp.mixer"), 0u);
 }
 
-TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsAParallelBranch)
+TEST(RigController, RigControllerSaveAndLoadJsonRoundTripsAParallelBranch)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController original(info);
@@ -488,7 +488,7 @@ TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsAParallelBranch)
     EXPECT_EQ(reloaded.upstream_of(*mixer).size(), 2u);
 }
 
-TEST(Unit_Dsp, RigControllerAppendWithUnknownDescriptorIdIsSafeNoOp)
+TEST(RigController, RigControllerAppendWithUnknownDescriptorIdIsSafeNoOp)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -501,7 +501,7 @@ TEST(Unit_Dsp, RigControllerAppendWithUnknownDescriptorIdIsSafeNoOp)
     ASSERT_NE(controller.active_graph(), nullptr);
 }
 
-TEST(Unit_Dsp, RigControllerPreservesParameterValuesAcrossReorder)
+TEST(RigController, RigControllerPreservesParameterValuesAcrossReorder)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -515,7 +515,7 @@ TEST(Unit_Dsp, RigControllerPreservesParameterValuesAcrossReorder)
     EXPECT_FLOAT_EQ(controller.get_parameter(ts, "drive"), 0.42f);
 }
 
-TEST(Unit_Dsp, RigControllerGetParameterReturnsDescriptorDefaultBeforeAnySet)
+TEST(RigController, RigControllerGetParameterReturnsDescriptorDefaultBeforeAnySet)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -543,7 +543,7 @@ TEST(Unit_Dsp, RigControllerGetParameterReturnsDescriptorDefaultBeforeAnySet)
     EXPECT_FLOAT_EQ(controller.get_parameter(ts, "drive"), expected_default);
 }
 
-TEST(Unit_Dsp, RigControllerSetParameterReachesNodeOnlyAfterProcess)
+TEST(RigController, RigControllerSetParameterReachesNodeOnlyAfterProcess)
 {
     SushiDSP::PrepareInfo info{48000.0, 64, 1};
     RigController controller(info);
@@ -566,7 +566,7 @@ TEST(Unit_Dsp, RigControllerSetParameterReachesNodeOnlyAfterProcess)
     EXPECT_EQ(controller.dropped_parameter_changes(), 0u);
 }
 
-TEST(Unit_Dsp, RigControllerSetParameterStillMirroredByGetParameterImmediately)
+TEST(RigController, RigControllerSetParameterStillMirroredByGetParameterImmediately)
 {
     SushiDSP::PrepareInfo info{48000.0, 64, 1};
     RigController controller(info);
@@ -576,7 +576,7 @@ TEST(Unit_Dsp, RigControllerSetParameterStillMirroredByGetParameterImmediately)
     EXPECT_FLOAT_EQ(controller.get_parameter(ts, "tone"), 0.9f);
 }
 
-TEST(Unit_Dsp, RigControllerRebuildSeedsFreshNodesWithStoredParameters)
+TEST(RigController, RigControllerRebuildSeedsFreshNodesWithStoredParameters)
 {
     SushiDSP::PrepareInfo info{48000.0, 64, 1};
     RigController controller(info);
@@ -590,7 +590,7 @@ TEST(Unit_Dsp, RigControllerRebuildSeedsFreshNodesWithStoredParameters)
     EXPECT_FLOAT_EQ(node->get_parameter("tone"), 0.9f);
 }
 
-TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsChainAndParameters)
+TEST(RigController, RigControllerSaveAndLoadJsonRoundTripsChainAndParameters)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController original(info);
@@ -610,7 +610,7 @@ TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsChainAndParameters)
     EXPECT_FLOAT_EQ(reloaded.get_parameter(order[0], "drive"), 0.77f);
 }
 
-TEST(Unit_Dsp, RigControllerSaveToJsonUsesOwnStoredValueNotLiveNodeState)
+TEST(RigController, RigControllerSaveToJsonUsesOwnStoredValueNotLiveNodeState)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     RigController controller(info);
@@ -624,7 +624,7 @@ TEST(Unit_Dsp, RigControllerSaveToJsonUsesOwnStoredValueNotLiveNodeState)
     EXPECT_FLOAT_EQ(root.at("nodes")[0].at("params").at("drive").get<float>(), 0.9f);
 }
 
-TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsCabinetIr)
+TEST(RigController, RigControllerSaveAndLoadJsonRoundTripsCabinetIr)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     const std::string ir_path = write_temp_impulse_wav();
@@ -646,7 +646,7 @@ TEST(Unit_Dsp, RigControllerSaveAndLoadJsonRoundTripsCabinetIr)
     std::remove(ir_path.c_str());
 }
 
-TEST(Unit_Dsp, RigControllerRefusesACabinetOnAnAmplifierSlot)
+TEST(RigController, RigControllerRefusesACabinetOnAnAmplifierSlot)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     const std::string ir_path = write_temp_impulse_wav();
@@ -660,7 +660,7 @@ TEST(Unit_Dsp, RigControllerRefusesACabinetOnAnAmplifierSlot)
     std::remove(ir_path.c_str());
 }
 
-TEST(Unit_Dsp, RigControllerRefusesACabinetOnANodeThatHostsNone)
+TEST(RigController, RigControllerRefusesACabinetOnANodeThatHostsNone)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     const std::string ir_path = write_temp_impulse_wav();
@@ -675,7 +675,7 @@ TEST(Unit_Dsp, RigControllerRefusesACabinetOnANodeThatHostsNone)
 
 // A bypassed slot keeps its place, parameters and edges. See tests/applications/host_gui/README.md.
 
-TEST(Unit_Dsp, RigControllerBypassBridgesTheSlotsNeighbours)
+TEST(RigController, RigControllerBypassBridgesTheSlotsNeighbours)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     const RigController::SlotId first = controller.append("sushidsp.tubescreamer");
@@ -694,7 +694,7 @@ TEST(Unit_Dsp, RigControllerBypassBridgesTheSlotsNeighbours)
     (void)first;
 }
 
-TEST(Unit_Dsp, RigControllerUnbypassRestoresTheOriginalGraph)
+TEST(RigController, RigControllerUnbypassRestoresTheOriginalGraph)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     controller.append("sushidsp.tubescreamer");
@@ -709,7 +709,7 @@ TEST(Unit_Dsp, RigControllerUnbypassRestoresTheOriginalGraph)
     EXPECT_EQ(controller.active_graph()->nodes().size(), 3u);
 }
 
-TEST(Unit_Dsp, RigControllerBridgesTwoBypassedSlotsInARow)
+TEST(RigController, RigControllerBridgesTwoBypassedSlotsInARow)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     controller.append("sushidsp.tubescreamer");
@@ -724,7 +724,7 @@ TEST(Unit_Dsp, RigControllerBridgesTwoBypassedSlotsInARow)
     EXPECT_EQ(controller.active_graph()->nodes().size(), 2u);
 }
 
-TEST(Unit_Dsp, RigControllerBypassingTheHeadSlotLeavesAWorkingGraph)
+TEST(RigController, RigControllerBypassingTheHeadSlotLeavesAWorkingGraph)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     const RigController::SlotId head = controller.append("sushidsp.tubescreamer");
@@ -737,7 +737,7 @@ TEST(Unit_Dsp, RigControllerBypassingTheHeadSlotLeavesAWorkingGraph)
     EXPECT_FALSE(controller.active_graph()->is_empty());
 }
 
-TEST(Unit_Dsp, RigControllerBypassingEverySlotLeavesAnEmptyGraph)
+TEST(RigController, RigControllerBypassingEverySlotLeavesAnEmptyGraph)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     const RigController::SlotId only = controller.append("sushidsp.tubescreamer");
@@ -748,7 +748,7 @@ TEST(Unit_Dsp, RigControllerBypassingEverySlotLeavesAnEmptyGraph)
     EXPECT_TRUE(controller.active_graph()->is_empty());
 }
 
-TEST(Unit_Dsp, RigControllerSaveToJsonKeepsABypassedNodeAndFlagsIt)
+TEST(RigController, RigControllerSaveToJsonKeepsABypassedNodeAndFlagsIt)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     controller.append("sushidsp.tubescreamer");
@@ -770,7 +770,7 @@ TEST(Unit_Dsp, RigControllerSaveToJsonKeepsABypassedNodeAndFlagsIt)
     EXPECT_EQ(flagged, 1);
 }
 
-TEST(Unit_Dsp, RigControllerLoadFromJsonRestoresTheBypassFlag)
+TEST(RigController, RigControllerLoadFromJsonRestoresTheBypassFlag)
 {
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 1});
     source.append("sushidsp.tubescreamer");
@@ -797,7 +797,7 @@ TEST(Unit_Dsp, RigControllerLoadFromJsonRestoresTheBypassFlag)
     EXPECT_EQ(target.active_graph()->nodes().size(), 2u);
 }
 
-TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoBypassFieldWithEverySlotActive)
+TEST(RigController, RigControllerLoadsAPresetWithNoBypassFieldWithEverySlotActive)
 {
     const std::string preset = R"({"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
@@ -815,13 +815,13 @@ TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoBypassFieldWithEverySlotActive)
     EXPECT_EQ(controller.active_graph()->nodes().size(), 2u);
 }
 
-TEST(Unit_Dsp, RigControllerIsBypassedIsFalseForASlotThatIsNotLive)
+TEST(RigController, RigControllerIsBypassedIsFalseForASlotThatIsNotLive)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     EXPECT_FALSE(controller.is_bypassed(9999));
 }
 
-TEST(Unit_Dsp, RigControllerRemembersTheIrFolder)
+TEST(RigController, RigControllerRemembersTheIrFolder)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     EXPECT_EQ(controller.ir_folder(), "");
@@ -831,7 +831,7 @@ TEST(Unit_Dsp, RigControllerRemembersTheIrFolder)
     EXPECT_EQ(controller.ir_folder(), "D:/irs/marshall");
 }
 
-TEST(Unit_Dsp, RigControllerSaveToJsonWritesTheIrFolderWhenOneIsSet)
+TEST(RigController, RigControllerSaveToJsonWritesTheIrFolderWhenOneIsSet)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     controller.append("sushidsp.tubescreamer");
@@ -844,7 +844,7 @@ TEST(Unit_Dsp, RigControllerSaveToJsonWritesTheIrFolderWhenOneIsSet)
     EXPECT_EQ(parsed.at("ir_folder").get<std::string>(), "D:/irs/marshall");
 }
 
-TEST(Unit_Dsp, RigControllerSaveToJsonOmitsTheIrFolderWhenNoneIsSet)
+TEST(RigController, RigControllerSaveToJsonOmitsTheIrFolderWhenNoneIsSet)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     controller.append("sushidsp.tubescreamer");
@@ -855,7 +855,7 @@ TEST(Unit_Dsp, RigControllerSaveToJsonOmitsTheIrFolderWhenNoneIsSet)
     EXPECT_FALSE(parsed.contains("ir_folder"));
 }
 
-TEST(Unit_Dsp, RigControllerLoadFromJsonRestoresTheIrFolder)
+TEST(RigController, RigControllerLoadFromJsonRestoresTheIrFolder)
 {
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 1});
     source.append("sushidsp.tubescreamer");
@@ -869,7 +869,7 @@ TEST(Unit_Dsp, RigControllerLoadFromJsonRestoresTheIrFolder)
     EXPECT_EQ(target.ir_folder(), "D:/irs/marshall");
 }
 
-TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoIrFolderKeyWithAnEmptyFolder)
+TEST(RigController, RigControllerLoadsAPresetWithNoIrFolderKeyWithAnEmptyFolder)
 {
     const std::string preset = R"({"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
@@ -885,32 +885,32 @@ TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoIrFolderKeyWithAnEmptyFolder)
 
 // A SlotId stays valid across insert, move and remove. See tests/applications/host_gui/README.md.
 
-TEST(Unit_Dsp, SlotSelectionStillValidReturnsTrueWhenSlotIsInTheList)
+TEST(RigController, SlotSelectionStillValidReturnsTrueWhenSlotIsInTheList)
 {
     std::vector<RigController::SlotId> order{3, 7, 9};
     EXPECT_TRUE(slot_selection::still_valid(std::optional<RigController::SlotId>(7), order));
 }
 
-TEST(Unit_Dsp, SlotSelectionStillValidReturnsFalseWhenSlotWasRemoved)
+TEST(RigController, SlotSelectionStillValidReturnsFalseWhenSlotWasRemoved)
 {
     std::vector<RigController::SlotId> order{3, 9};
     EXPECT_FALSE(slot_selection::still_valid(std::optional<RigController::SlotId>(7), order));
 }
 
-TEST(Unit_Dsp, SlotSelectionStillValidReturnsFalseForNoSelection)
+TEST(RigController, SlotSelectionStillValidReturnsFalseForNoSelection)
 {
     std::vector<RigController::SlotId> order{3, 7, 9};
     EXPECT_FALSE(slot_selection::still_valid(std::nullopt, order));
 }
 
-TEST(Unit_Dsp, RigControllerStartsWithTheLiveInputAsItsSource)
+TEST(RigController, RigControllerStartsWithTheLiveInputAsItsSource)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
 
     EXPECT_EQ(controller.input_source(), RigInputSource::LiveInput);
 }
 
-TEST(Unit_Dsp, RigControllerRemembersTheInputSourceItWasGiven)
+TEST(RigController, RigControllerRemembersTheInputSourceItWasGiven)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
 
@@ -919,7 +919,7 @@ TEST(Unit_Dsp, RigControllerRemembersTheInputSourceItWasGiven)
     EXPECT_EQ(controller.input_source(), RigInputSource::Both);
 }
 
-TEST(Unit_Dsp, RigControllerNamesALoadedTrackAfterItsFile)
+TEST(RigController, RigControllerNamesALoadedTrackAfterItsFile)
 {
     const std::string path = write_temp_float_wav("track.wav", make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -933,7 +933,7 @@ TEST(Unit_Dsp, RigControllerNamesALoadedTrackAfterItsFile)
     EXPECT_EQ(controller.track_path(0), path);
 }
 
-TEST(Unit_Dsp, RigControllerRefusesATrackFileItCannotRead)
+TEST(RigController, RigControllerRefusesATrackFileItCannotRead)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
 
@@ -943,7 +943,7 @@ TEST(Unit_Dsp, RigControllerRefusesATrackFileItCannotRead)
     EXPECT_FALSE(error.empty());
 }
 
-TEST(Unit_Dsp, RigControllerClearingATrackEmptiesItsNameAndPath)
+TEST(RigController, RigControllerClearingATrackEmptiesItsNameAndPath)
 {
     const std::string path = write_temp_float_wav("track.wav", make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -957,7 +957,7 @@ TEST(Unit_Dsp, RigControllerClearingATrackEmptiesItsNameAndPath)
     EXPECT_EQ(controller.track_path(1), "");
 }
 
-TEST(Unit_Dsp, RigControllerSendsALoadedTrackToTheReampLeg)
+TEST(RigController, RigControllerSendsALoadedTrackToTheReampLeg)
 {
     const std::string path = write_temp_float_wav("track.wav", make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -970,7 +970,7 @@ TEST(Unit_Dsp, RigControllerSendsALoadedTrackToTheReampLeg)
     EXPECT_EQ(*controller.reamp_track(), 2u);
 }
 
-TEST(Unit_Dsp, RigControllerRefusesToReampAnEmptyTrack)
+TEST(RigController, RigControllerRefusesToReampAnEmptyTrack)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
 
@@ -979,7 +979,7 @@ TEST(Unit_Dsp, RigControllerRefusesToReampAnEmptyTrack)
     EXPECT_FALSE(controller.reamp_track().has_value());
 }
 
-TEST(Unit_Dsp, RigControllerDropsTheReampLegWhenItsTrackIsCleared)
+TEST(RigController, RigControllerDropsTheReampLegWhenItsTrackIsCleared)
 {
     const std::string path = write_temp_float_wav("track.wav", make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -992,7 +992,7 @@ TEST(Unit_Dsp, RigControllerDropsTheReampLegWhenItsTrackIsCleared)
     EXPECT_FALSE(controller.reamp_track().has_value());
 }
 
-TEST(Unit_Dsp, RigControllerReampLegAddsTheTakeIntoAnEmptyInputBuffer)
+TEST(RigController, RigControllerReampLegAddsTheTakeIntoAnEmptyInputBuffer)
 {
     const std::uint32_t block = 64;
     const std::vector<float> signal = make_test_signal(block);
@@ -1014,7 +1014,7 @@ TEST(Unit_Dsp, RigControllerReampLegAddsTheTakeIntoAnEmptyInputBuffer)
     }
 }
 
-TEST(Unit_Dsp, RigControllerPresetCarriesTheTrackListAndTheLoopRange)
+TEST(RigController, RigControllerPresetCarriesTheTrackListAndTheLoopRange)
 {
     const std::string path = write_temp_float_wav("track.wav", make_test_signal(256), 48000);
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -1043,7 +1043,7 @@ TEST(Unit_Dsp, RigControllerPresetCarriesTheTrackListAndTheLoopRange)
     EXPECT_EQ(target.take_folder(), "D:/takes");
 }
 
-TEST(Unit_Dsp, RigControllerPresetWithNoTrackKeyLoadsWithAnEmptyTrackList)
+TEST(RigController, RigControllerPresetWithNoTrackKeyLoadsWithAnEmptyTrackList)
 {
     const std::string preset = R"({"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]}
@@ -1061,7 +1061,7 @@ TEST(Unit_Dsp, RigControllerPresetWithNoTrackKeyLoadsWithAnEmptyTrackList)
     EXPECT_FALSE(controller.transport().has_loop());
 }
 
-TEST(Unit_Dsp, RigControllerPresetBringsItsOwnMixerStateOverASession)
+TEST(RigController, RigControllerPresetBringsItsOwnMixerStateOverASession)
 {
     const std::string preset = R"({"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]}
@@ -1084,7 +1084,7 @@ TEST(Unit_Dsp, RigControllerPresetBringsItsOwnMixerStateOverASession)
     EXPECT_FALSE(controller.player().soloed(0));
 }
 
-TEST(Unit_Dsp, RigControllerReampingADryTakeReproducesTheRigsOwnOutput)
+TEST(RigController, RigControllerReampingADryTakeReproducesTheRigsOwnOutput)
 {
     const std::uint32_t block = 64;
     const std::vector<float> dry = make_test_signal(block * 8);
@@ -1126,7 +1126,7 @@ TEST(Unit_Dsp, RigControllerReampingADryTakeReproducesTheRigsOwnOutput)
     }
 }
 
-TEST(Unit_Dsp, RigControllerPlacesAClipAtTheFrameAsked)
+TEST(RigController, RigControllerPlacesAClipAtTheFrameAsked)
 {
     const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -1143,7 +1143,7 @@ TEST(Unit_Dsp, RigControllerPlacesAClipAtTheFrameAsked)
     EXPECT_EQ(controller.track_name(1), path_stem_of(path));
 }
 
-TEST(Unit_Dsp, RigControllerRefusesAFileThatWillNotParseWithTheBrowsersMessage)
+TEST(RigController, RigControllerRefusesAFileThatWillNotParseWithTheBrowsersMessage)
 {
     const std::string path = temp_fixture_path("not_a_wav.wav");
     std::ofstream out(path, std::ios::binary);
@@ -1158,7 +1158,7 @@ TEST(Unit_Dsp, RigControllerRefusesAFileThatWillNotParseWithTheBrowsersMessage)
     EXPECT_FALSE(controller.track_is_loaded(0));
 }
 
-TEST(Unit_Dsp, RigControllerRefusesASeventeenthClipOnALane)
+TEST(RigController, RigControllerRefusesASeventeenthClipOnALane)
 {
     const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -1175,7 +1175,7 @@ TEST(Unit_Dsp, RigControllerRefusesASeventeenthClipOnALane)
     EXPECT_EQ(controller.clip_count(0), SushiDSP::TrackTimeline::K_MAX_CLIPS);
 }
 
-TEST(Unit_Dsp, RigControllerPlacesTwoClipsFromOneFileWithOneTakeInMemory)
+TEST(RigController, RigControllerPlacesTwoClipsFromOneFileWithOneTakeInMemory)
 {
     const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -1188,7 +1188,7 @@ TEST(Unit_Dsp, RigControllerPlacesTwoClipsFromOneFileWithOneTakeInMemory)
     EXPECT_EQ(controller.player().takes().size(), 1u);
 }
 
-TEST(Unit_Dsp, RigControllerRefusesAClipThatOverlapsOneTheLaneHolds)
+TEST(RigController, RigControllerRefusesAClipThatOverlapsOneTheLaneHolds)
 {
     const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -1201,7 +1201,7 @@ TEST(Unit_Dsp, RigControllerRefusesAClipThatOverlapsOneTheLaneHolds)
     EXPECT_EQ(controller.clip(0, 0).start_frame, 1000u);
 }
 
-TEST(Unit_Dsp, RigControllerMovesAClipAndKeepsTheLaneSortedByStartFrame)
+TEST(RigController, RigControllerMovesAClipAndKeepsTheLaneSortedByStartFrame)
 {
     const std::string path = write_temp_float_wav("clip.wav", make_test_signal(256), 48000);
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -1223,7 +1223,7 @@ TEST(Unit_Dsp, RigControllerMovesAClipAndKeepsTheLaneSortedByStartFrame)
     EXPECT_EQ(controller.clip(0, 0).start_frame, 5000u);
 }
 
-TEST(Unit_Dsp, RigControllerStopsARecordingIntoAClipAtTheArmedFrame)
+TEST(RigController, RigControllerStopsARecordingIntoAClipAtTheArmedFrame)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
     controller.set_take_folder(::testing::TempDir());
@@ -1252,7 +1252,7 @@ TEST(Unit_Dsp, RigControllerStopsARecordingIntoAClipAtTheArmedFrame)
     EXPECT_NE(controller.clip(2, 0).path.find("-dry.wav"), std::string::npos);
 }
 
-TEST(Unit_Dsp, RigControllerReAmpsARecordedTakeFromTheBarItWasRecordedAt)
+TEST(RigController, RigControllerReAmpsARecordedTakeFromTheBarItWasRecordedAt)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
     controller.set_take_folder(::testing::TempDir());
@@ -1299,7 +1299,7 @@ TEST(Unit_Dsp, RigControllerReAmpsARecordedTakeFromTheBarItWasRecordedAt)
     EXPECT_NEAR(assembled[1], -0.25f, 1e-6f);
 }
 
-TEST(Unit_Dsp, RigControllerRoundTripsATempoAndItsClipsThroughJson)
+TEST(RigController, RigControllerRoundTripsATempoAndItsClipsThroughJson)
 {
     const std::string first = write_temp_float_wav("clip_a.wav", make_test_signal(256), 48000);
     const std::string second = write_temp_float_wav("clip_b.wav", make_test_signal(128), 48000);
@@ -1343,7 +1343,7 @@ TEST(Unit_Dsp, RigControllerRoundTripsATempoAndItsClipsThroughJson)
     EXPECT_EQ(target.transport().loop_end_frames(), 9600u);
 }
 
-TEST(Unit_Dsp, RigControllerLoadsAPreDtPresetAsOneClipAtFrameZeroAtOneTwentyBpm)
+TEST(RigController, RigControllerLoadsAPreDtPresetAsOneClipAtFrameZeroAtOneTwentyBpm)
 {
     const std::string path = write_temp_float_wav("legacy.wav", make_test_signal(256), 48000);
 
@@ -1379,7 +1379,7 @@ TEST(Unit_Dsp, RigControllerLoadsAPreDtPresetAsOneClipAtFrameZeroAtOneTwentyBpm)
     EXPECT_FALSE(controller.metronome().enabled());
 }
 
-TEST(Unit_Dsp, RigControllerSavesThePlaybackSpeed)
+TEST(RigController, RigControllerSavesThePlaybackSpeed)
 {
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
     source.append("sushidsp.tubescreamer");
@@ -1395,7 +1395,7 @@ TEST(Unit_Dsp, RigControllerSavesThePlaybackSpeed)
     EXPECT_NEAR(target.transport().speed(), 0.5, 1e-9);
 }
 
-TEST(Unit_Dsp, RigControllerLoadsAPresetWithoutASpeedAtUnity)
+TEST(RigController, RigControllerLoadsAPresetWithoutASpeedAtUnity)
 {
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
     source.append("sushidsp.tubescreamer");
@@ -1486,7 +1486,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, RigControllerRoundTripsARoomSceneThroughJson)
+TEST(RigController, RigControllerRoundTripsARoomSceneThroughJson)
 {
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
     source.append("sushidsp.tubescreamer");
@@ -1521,7 +1521,7 @@ TEST(Unit_Dsp, RigControllerRoundTripsARoomSceneThroughJson)
     EXPECT_TRUE(same_scene(target.room_host(order[1])->scene(), scene));
 }
 
-TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoRoomAsTheStarterScene)
+TEST(RigController, RigControllerLoadsAPresetWithNoRoomAsTheStarterScene)
 {
     const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
@@ -1545,7 +1545,7 @@ TEST(Unit_Dsp, RigControllerLoadsAPresetWithNoRoomAsTheStarterScene)
     EXPECT_EQ(controller.room_publishes(order[1]), 0u);
 }
 
-TEST(Unit_Dsp, RigControllerCoalescesADragToThirtyPublishesPerSecond)
+TEST(RigController, RigControllerCoalescesADragToThirtyPublishesPerSecond)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
     const RigController::SlotId room = controller.append("sushidsp.room");
@@ -1588,7 +1588,7 @@ TEST(Unit_Dsp, RigControllerCoalescesADragToThirtyPublishesPerSecond)
     EXPECT_EQ(controller.room_publishes(room), published + 1u);
 }
 
-TEST(Unit_Dsp, RigControllerRefusesASceneOutsideTheRoomWithoutPublishing)
+TEST(RigController, RigControllerRefusesASceneOutsideTheRoomWithoutPublishing)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
     const RigController::SlotId room = controller.append("sushidsp.room");
@@ -1602,7 +1602,7 @@ TEST(Unit_Dsp, RigControllerRefusesASceneOutsideTheRoomWithoutPublishing)
     EXPECT_TRUE(same_scene(controller.room_scene(room), SushiDSP::room::starter_scene()));
 }
 
-TEST(Unit_Dsp, RigControllerInstallsAMeasuredHrtfIntoEveryRoomAndKeepsItAcrossARebuild)
+TEST(RigController, RigControllerInstallsAMeasuredHrtfIntoEveryRoomAndKeepsItAcrossARebuild)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
     const RigController::SlotId first = controller.append("sushidsp.room");
@@ -1625,7 +1625,7 @@ TEST(Unit_Dsp, RigControllerInstallsAMeasuredHrtfIntoEveryRoomAndKeepsItAcrossAR
     EXPECT_EQ(controller.room_host(second)->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
 }
 
-TEST(Unit_Dsp, RigControllerReportsAMissingHrtfAndLeavesEveryRoomOnTheFallback)
+TEST(RigController, RigControllerReportsAMissingHrtfAndLeavesEveryRoomOnTheFallback)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
     const RigController::SlotId room = controller.append("sushidsp.room");
@@ -1645,7 +1645,7 @@ TEST(Unit_Dsp, RigControllerReportsAMissingHrtfAndLeavesEveryRoomOnTheFallback)
     EXPECT_EQ(controller.room_host(room)->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 }
 
-TEST(Unit_Dsp, RigControllerSnapshotRestoreKeepsParametersAndCabinetPath)
+TEST(RigController, RigControllerSnapshotRestoreKeepsParametersAndCabinetPath)
 {
     const std::string ir_path = write_temp_impulse_wav();
 
@@ -1675,7 +1675,7 @@ TEST(Unit_Dsp, RigControllerSnapshotRestoreKeepsParametersAndCabinetPath)
     std::remove(ir_path.c_str());
 }
 
-TEST(Unit_Dsp, RigControllerEdgesListsStoredEdgesInOrder)
+TEST(RigController, RigControllerEdgesListsStoredEdgesInOrder)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     const RigController::SlotId a = controller.append("sushidsp.tubescreamer");
@@ -1690,7 +1690,7 @@ TEST(Unit_Dsp, RigControllerEdgesListsStoredEdgesInOrder)
     EXPECT_EQ(edges[1], (std::pair<RigController::SlotId, RigController::SlotId>{b, c}));
 }
 
-TEST(Unit_Dsp, RigControllerClearEdgesLeavesSlotsLive)
+TEST(RigController, RigControllerClearEdgesLeavesSlotsLive)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
     controller.append("sushidsp.tubescreamer");
@@ -1703,7 +1703,7 @@ TEST(Unit_Dsp, RigControllerClearEdgesLeavesSlotsLive)
     EXPECT_EQ(controller.slot_order().size(), 2u);
 }
 
-TEST(Unit_Dsp, SessionTimelineAddAfterRemoveReturnsTheCountToWhereItStarted)
+TEST(RigController, SessionTimelineAddAfterRemoveReturnsTheCountToWhereItStarted)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SessionTimeline session(info);
@@ -1724,7 +1724,7 @@ TEST(Unit_Dsp, SessionTimelineAddAfterRemoveReturnsTheCountToWhereItStarted)
     EXPECT_EQ(session.track_count(), before);
 }
 
-TEST(Unit_Dsp, SessionTimelineRemovingTheMiddleTrackMovesTheOthersDownWithTheirNamesAndColors)
+TEST(RigController, SessionTimelineRemovingTheMiddleTrackMovesTheOthersDownWithTheirNamesAndColors)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SessionTimeline session(info);
@@ -1746,7 +1746,7 @@ TEST(Unit_Dsp, SessionTimelineRemovingTheMiddleTrackMovesTheOthersDownWithTheirN
     EXPECT_EQ(session.track_color(3), color_of_four);
 }
 
-TEST(Unit_Dsp, SessionTimelineTrackColorAndCountSurviveAPresetRoundTrip)
+TEST(RigController, SessionTimelineTrackColorAndCountSurviveAPresetRoundTrip)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SlotGraph graph(info);
@@ -1771,7 +1771,7 @@ TEST(Unit_Dsp, SessionTimelineTrackColorAndCountSurviveAPresetRoundTrip)
     EXPECT_EQ(reloaded.track_color(1), 0x123456FFu);
 }
 
-TEST(Unit_Dsp, SessionTimelinePresetWithoutColorsLoadsThePaletteColors)
+TEST(RigController, SessionTimelinePresetWithoutColorsLoadsThePaletteColors)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SlotGraph graph(info);
@@ -1800,7 +1800,7 @@ TEST(Unit_Dsp, SessionTimelinePresetWithoutColorsLoadsThePaletteColors)
     }
 }
 
-TEST(Unit_Dsp, SessionTimelinePresetWithAMalformedColorLeavesTheTimelineAlone)
+TEST(RigController, SessionTimelinePresetWithAMalformedColorLeavesTheTimelineAlone)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SlotGraph graph(info);
@@ -1819,7 +1819,7 @@ TEST(Unit_Dsp, SessionTimelinePresetWithAMalformedColorLeavesTheTimelineAlone)
     EXPECT_EQ(session.track_count(), SessionTimeline::K_MAX_TRACKS);
 }
 
-TEST(Unit_Dsp, RigControllerRoundTripsThreeFurnishingsThroughJson)
+TEST(RigController, RigControllerRoundTripsThreeFurnishingsThroughJson)
 {
     using SushiDSP::room::FurnitureId;
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
@@ -1856,7 +1856,7 @@ TEST(Unit_Dsp, RigControllerRoundTripsThreeFurnishingsThroughJson)
     }
 }
 
-TEST(Unit_Dsp, RigControllerWritesNoFurnishingsFieldForABareRoom)
+TEST(RigController, RigControllerWritesNoFurnishingsFieldForABareRoom)
 {
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
     const RigController::SlotId room = source.append("sushidsp.room");
@@ -1867,7 +1867,7 @@ TEST(Unit_Dsp, RigControllerWritesNoFurnishingsFieldForABareRoom)
     EXPECT_FALSE(parsed.at("nodes").at(0).at("room").contains("furnishings"));
 }
 
-TEST(Unit_Dsp, RigControllerLoadsARoomWithoutFurnishingsAsAnUnfurnishedScene)
+TEST(RigController, RigControllerLoadsARoomWithoutFurnishingsAsAnUnfurnishedScene)
 {
     const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
@@ -1884,7 +1884,7 @@ TEST(Unit_Dsp, RigControllerLoadsARoomWithoutFurnishingsAsAnUnfurnishedScene)
     EXPECT_EQ(loaded.furnishing_count, 0u);
 }
 
-TEST(Unit_Dsp, RigControllerRefusesAFurnishingNoTableRowNames)
+TEST(RigController, RigControllerRefusesAFurnishingNoTableRowNames)
 {
     const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
@@ -1895,7 +1895,7 @@ TEST(Unit_Dsp, RigControllerRefusesAFurnishingNoTableRowNames)
     EXPECT_THROW(controller.load_from_json(preset), std::runtime_error);
 }
 
-TEST(Unit_Dsp, RigControllerRefusesMoreFurnishingRowsThanARoomCarries)
+TEST(RigController, RigControllerRefusesMoreFurnishingRowsThanARoomCarries)
 {
     nlohmann::json rows = nlohmann::json::array();
     for (std::size_t index = 0; index <= SushiDSP::room::RoomScene::K_MAX_FURNISHINGS; ++index)
@@ -1914,7 +1914,7 @@ TEST(Unit_Dsp, RigControllerRefusesMoreFurnishingRowsThanARoomCarries)
     EXPECT_THROW(controller.load_from_json(preset.dump()), std::runtime_error);
 }
 
-TEST(Unit_Dsp, RigControllerRoundTripsTheBuiltRoomLossThroughJson)
+TEST(RigController, RigControllerRoundTripsTheBuiltRoomLossThroughJson)
 {
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
     const RigController::SlotId room = source.append("sushidsp.room");
@@ -1937,7 +1937,7 @@ TEST(Unit_Dsp, RigControllerRoundTripsTheBuiltRoomLossThroughJson)
     EXPECT_TRUE(target.room_scene(target.slot_order().at(0)).built_room_loss);
 }
 
-TEST(Unit_Dsp, RigControllerLoadsARoomWithoutTheBuiltRoomLossFieldWithTheLossOff)
+TEST(RigController, RigControllerLoadsARoomWithoutTheBuiltRoomLossFieldWithTheLossOff)
 {
     const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
@@ -1949,7 +1949,7 @@ TEST(Unit_Dsp, RigControllerLoadsARoomWithoutTheBuiltRoomLossFieldWithTheLossOff
     EXPECT_FALSE(controller.room_scene(controller.slot_order().at(0)).built_room_loss);
 }
 
-TEST(Unit_Dsp, RigControllerRefusesABuiltRoomLossThatIsNotABoolean)
+TEST(RigController, RigControllerRefusesABuiltRoomLossThatIsNotABoolean)
 {
     const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
@@ -1960,7 +1960,7 @@ TEST(Unit_Dsp, RigControllerRefusesABuiltRoomLossThatIsNotABoolean)
     EXPECT_THROW(controller.load_from_json(preset), std::runtime_error);
 }
 
-TEST(Unit_Dsp, RigControllerWritesFormatTwoWithItsEdgesAndTheirPorts)
+TEST(RigController, RigControllerWritesFormatTwoWithItsEdgesAndTheirPorts)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
     const RigController::SlotId drive = controller.append("sushidsp.tubescreamer");
@@ -1976,7 +1976,7 @@ TEST(Unit_Dsp, RigControllerWritesFormatTwoWithItsEdgesAndTheirPorts)
     (void)drive;
 }
 
-TEST(Unit_Dsp, RigControllerRefusesAPresetOfANewerFormat)
+TEST(RigController, RigControllerRefusesAPresetOfANewerFormat)
 {
     RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
     controller.append("sushidsp.tubescreamer");
@@ -1987,7 +1987,7 @@ TEST(Unit_Dsp, RigControllerRefusesAPresetOfANewerFormat)
     EXPECT_EQ(controller.slot_order().size(), 1u);
 }
 
-TEST(Unit_Dsp, RigControllerTakesTheRoomOfAFormatOnePresetOutOfTheChain)
+TEST(RigController, RigControllerTakesTheRoomOfAFormatOnePresetOutOfTheChain)
 {
     const std::string preset = R"({"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
@@ -2018,7 +2018,7 @@ TEST(Unit_Dsp, RigControllerTakesTheRoomOfAFormatOnePresetOutOfTheChain)
     EXPECT_FALSE(controller.shape().has_value());
 }
 
-TEST(Unit_Dsp, RigControllerRoundTripsARoomsArrangementThroughJson)
+TEST(RigController, RigControllerRoundTripsARoomsArrangementThroughJson)
 {
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
     const RigController::SlotId cabinet = source.append("sushidsp.cabinet");
@@ -2096,7 +2096,7 @@ TEST(Unit_Dsp, RigControllerRoundTripsARoomsArrangementThroughJson)
     EXPECT_EQ(target.save_to_json(), saved);
 }
 
-TEST(Unit_Dsp, RigControllerRoundTripsTheRigsShapeThroughJson)
+TEST(RigController, RigControllerRoundTripsTheRigsShapeThroughJson)
 {
     RigController source(SushiDSP::PrepareInfo{48000.0, 64, 2});
     const RigController::SlotId amp = source.append("sushidsp.tubescreamer");

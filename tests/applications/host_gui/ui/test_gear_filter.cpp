@@ -64,7 +64,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, GearFilterAllTabKeepsEveryNonRoutingItem)
+TEST(GearFilter, GearFilterAllTabKeepsEveryNonRoutingItem)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
     const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::All, "");
@@ -72,7 +72,7 @@ TEST(Unit_Dsp, GearFilterAllTabKeepsEveryNonRoutingItem)
     EXPECT_EQ(total_items(groups), catalog.size() - 4u);
 }
 
-TEST(Unit_Dsp, GearFilterAmpsTabKeepsOnlyAmps)
+TEST(GearFilter, GearFilterAmpsTabKeepsOnlyAmps)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
     const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::Amps, "");
@@ -81,7 +81,7 @@ TEST(Unit_Dsp, GearFilterAmpsTabKeepsOnlyAmps)
     EXPECT_EQ(groups[0].items.size(), 4u);
 }
 
-TEST(Unit_Dsp, GearFilterSearchIgnoresCase)
+TEST(GearFilter, GearFilterSearchIgnoresCase)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
     const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::All, "jcm800");
@@ -89,7 +89,7 @@ TEST(Unit_Dsp, GearFilterSearchIgnoresCase)
     EXPECT_EQ(groups[0].items[0]->id, "sushidsp.jcm800");
 }
 
-TEST(Unit_Dsp, GearFilterGroupsKeepFirstSeenCategoryOrder)
+TEST(GearFilter, GearFilterGroupsKeepFirstSeenCategoryOrder)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
     const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::All, "");
@@ -100,7 +100,7 @@ TEST(Unit_Dsp, GearFilterGroupsKeepFirstSeenCategoryOrder)
     EXPECT_EQ(groups[3].category, "Cabinet");
 }
 
-TEST(Unit_Dsp, GearFilterNeverListsSplitterOrMixer)
+TEST(GearFilter, GearFilterNeverListsSplitterOrMixer)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
     const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::All, "");

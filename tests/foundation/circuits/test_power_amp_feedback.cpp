@@ -120,7 +120,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, PowerAmpFeedbackMatchesTheLadderSolvedByHand)
+TEST(PowerAmpFeedback, PowerAmpFeedbackMatchesTheLadderSolvedByHand)
 {
     for (const double presence : {0.0, 0.25, 0.5, 1.0})
     {
@@ -136,7 +136,7 @@ TEST(Unit_Dsp, PowerAmpFeedbackMatchesTheLadderSolvedByHand)
     }
 }
 
-TEST(Unit_Dsp, PowerAmpFeedbackOpeningPresenceRemovesMoreTrebleThanBass)
+TEST(PowerAmpFeedback, PowerAmpFeedbackOpeningPresenceRemovesMoreTrebleThanBass)
 {
     SushiDSP::PowerAmpFeedback shut(K_RATE, SushiDSP::K_MARK2C_FEEDBACK,
                                     SushiDSP::PowerAmpFeedbackTermination{K_TAIL_IMPEDANCE_OHMS});

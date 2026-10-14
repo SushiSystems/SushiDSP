@@ -116,7 +116,7 @@ namespace
     };
 } // namespace
 
-TEST(Unit_Dsp, DkTsClipBlockPreparesAtEveryDrivePositionIncludingBothEndStops)
+TEST(TubeScreamerCircuits, DkTsClipBlockPreparesAtEveryDrivePositionIncludingBothEndStops)
 {
     ClipNetlist netlist;
     const std::size_t drive = build_clip_block(netlist);
@@ -139,7 +139,7 @@ TEST(Unit_Dsp, DkTsClipBlockPreparesAtEveryDrivePositionIncludingBothEndStops)
     EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
 }
 
-TEST(Unit_Dsp, DkTsClipBlockSmallSignalResponseMatchesItsClosedForm)
+TEST(TubeScreamerCircuits, DkTsClipBlockSmallSignalResponseMatchesItsClosedForm)
 {
     // At 1e-4 V the diodes stay on zero-bias conductance. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 384000.0;
@@ -178,7 +178,7 @@ TEST(Unit_Dsp, DkTsClipBlockSmallSignalResponseMatchesItsClosedForm)
     }
 }
 
-TEST(Unit_Dsp, DkTsClipBlockClipsAtTheReferencePeakVoltage)
+TEST(TubeScreamerCircuits, DkTsClipBlockClipsAtTheReferencePeakVoltage)
 {
     // The diode pair, not Rf, sets the peak above threshold. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 192000.0;
@@ -276,13 +276,13 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
+TEST(TubeScreamerCircuits, DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
 {
     // The stimulus is a sweep and three bursts at 384 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     EXPECT_LE(clip_convergence_percentage<DiodePairPort>("plain"), 0.01);
 }
 
-TEST(Unit_Dsp, DkTsClipBlockAdaaPortAlmostDoublesTheNewtonMissRate)
+TEST(TubeScreamerCircuits, DkTsClipBlockAdaaPortAlmostDoublesTheNewtonMissRate)
 {
     // The ADAA port measures 0.0105 % against 0.0054 %. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     EXPECT_LE(clip_convergence_percentage<AdaaDiodePairPort>("adaa"), 0.02);
@@ -375,18 +375,18 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, DkTsClipBlockNullsAgainstTheLtspiceTransientReference)
+TEST(TubeScreamerCircuits, DkTsClipBlockNullsAgainstTheLtspiceTransientReference)
 {
     run_clip_transient_null<DiodePairPort>("plain", -60.0);
 }
 
-TEST(Unit_Dsp, DkTsClipBlockAdaaPortFallsShortOfTheLtspiceTransientReferenceByItsOwnBandLimiting)
+TEST(TubeScreamerCircuits, DkTsClipBlockAdaaPortFallsShortOfTheLtspiceTransientReferenceByItsOwnBandLimiting)
 {
     // The bound is a regression floor, not an acceptance. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     run_clip_transient_null<AdaaDiodePairPort>("adaa", -28.0);
 }
 
-TEST(Unit_Dsp, DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged)
+TEST(TubeScreamerCircuits, DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged)
 {
     // The adapter scales by input_scale_volts both ways. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 192000.0;
@@ -430,7 +430,7 @@ TEST(Unit_Dsp, DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged)
     }
 }
 
-TEST(Unit_Dsp, DkTsClipBlockLeavesItsCurrentsInStepWithItsVoltagesAfterAFailedSolve)
+TEST(TubeScreamerCircuits, DkTsClipBlockLeavesItsCurrentsInStepWithItsVoltagesAfterAFailedSolve)
 {
     // A stiff diode and a flipping input exhaust the budget. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 48000.0;
@@ -591,7 +591,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, DkTsClipBlockDiodePairPortIsOneScalarPortInDisguise)
+TEST(TubeScreamerCircuits, DkTsClipBlockDiodePairPortIsOneScalarPortInDisguise)
 {
     // Branch 1 is branch 0 reversed, to the last bit. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 192000.0;
@@ -617,7 +617,7 @@ TEST(Unit_Dsp, DkTsClipBlockDiodePairPortIsOneScalarPortInDisguise)
     EXPECT_LT(port.last_impedance, 0.0);
 }
 
-TEST(Unit_Dsp, AdaaDiodePairPortAntiderivativeDividesBackToThePairCurrent)
+TEST(TubeScreamerCircuits, AdaaDiodePairPortAntiderivativeDividesBackToThePairCurrent)
 {
     // d/dp of H(v) - F00*h(v)^2/2 comes back as h(v). See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     const SushiDSP::SiliconDiode diode;
@@ -659,7 +659,7 @@ TEST(Unit_Dsp, AdaaDiodePairPortAntiderivativeDividesBackToThePairCurrent)
     }
 }
 
-TEST(Unit_Dsp, AdaaDiodePairPortSinksTheFoldedHarmonicThatSetsTheAliasFloor)
+TEST(TubeScreamerCircuits, AdaaDiodePairPortSinksTheFoldedHarmonicThatSetsTheAliasFloor)
 {
     // The 13th harmonic of 15 kHz folds to 3 kHz at 192 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr std::size_t K_FRAMES = 16384;
@@ -684,7 +684,7 @@ TEST(Unit_Dsp, AdaaDiodePairPortSinksTheFoldedHarmonicThatSetsTheAliasFloor)
     EXPECT_LE(antialiased_db, -50.0);
 }
 
-TEST(Unit_Dsp, AdaaDiodePairPortResetDropsItsSampleIntervalHistory)
+TEST(TubeScreamerCircuits, AdaaDiodePairPortResetDropsItsSampleIntervalHistory)
 {
     // A port with no history stamps the plain pair current. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     const SushiDSP::SiliconDiode diode;
@@ -788,7 +788,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheReferenceDecimatedToTheShippingRunRate)
+TEST(TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstTheReferenceDecimatedToTheShippingRunRate)
 {
     // Both ports null against LTspice decimated to 192 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     const std::string path = spice_path("ts_clip", "tran");
@@ -893,7 +893,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases)
+TEST(TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases)
 {
     // The reference is the block's own model at 1.92 MHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_TONE = 15000.0;

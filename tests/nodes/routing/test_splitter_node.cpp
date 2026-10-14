@@ -33,7 +33,7 @@
 
 #include <SushiDSP/nodes/routing/splitter_node.hpp>
 
-TEST(Unit_Dsp, SplitterNodeCopiesInputToOutput)
+TEST(SplitterNode, SplitterNodeCopiesInputToOutput)
 {
     SushiDSP::SplitterNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -52,7 +52,7 @@ TEST(Unit_Dsp, SplitterNodeCopiesInputToOutput)
     }
 }
 
-TEST(Unit_Dsp, SplitterNodeHasNoParameters)
+TEST(SplitterNode, SplitterNodeHasNoParameters)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::splitter_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.splitter");

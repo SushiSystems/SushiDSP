@@ -48,7 +48,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, LongTailedPairSplitsASingleEndedInputNearlyInHalf)
+TEST(LongTailedPair, LongTailedPairSplitsASingleEndedInputNearlyInHalf)
 {
     SushiDSP::LongTailedPair pair = mark2c_inverter();
 
@@ -57,7 +57,7 @@ TEST(Unit_Dsp, LongTailedPairSplitsASingleEndedInputNearlyInHalf)
     EXPECT_LT(pair.cathode_coupling(), 0.5);
 }
 
-TEST(Unit_Dsp, LongTailedPairDrivesItsTwoPlatesInOppositeDirections)
+TEST(LongTailedPair, LongTailedPairDrivesItsTwoPlatesInOppositeDirections)
 {
     SushiDSP::LongTailedPair pair = mark2c_inverter();
 
@@ -70,7 +70,7 @@ TEST(Unit_Dsp, LongTailedPairDrivesItsTwoPlatesInOppositeDirections)
     EXPECT_GT(std::fabs(plates.b), 0.0f);
 }
 
-TEST(Unit_Dsp, LongTailedPairRejectsACommonModeMove)
+TEST(LongTailedPair, LongTailedPairRejectsACommonModeMove)
 {
     SushiDSP::LongTailedPair pair = mark2c_inverter();
 
@@ -80,7 +80,7 @@ TEST(Unit_Dsp, LongTailedPairRejectsACommonModeMove)
     EXPECT_NEAR(static_cast<double>(plates.a - plates.b), 0.0, 0.05);
 }
 
-TEST(Unit_Dsp, LongTailedPairBoundsBothPlatesByTheirOwnSwings)
+TEST(LongTailedPair, LongTailedPairBoundsBothPlatesByTheirOwnSwings)
 {
     SushiDSP::LongTailedPair pair = mark2c_inverter();
 
@@ -96,7 +96,7 @@ TEST(Unit_Dsp, LongTailedPairBoundsBothPlatesByTheirOwnSwings)
     }
 }
 
-TEST(Unit_Dsp, LongTailedPairResetClearsBothHalves)
+TEST(LongTailedPair, LongTailedPairResetClearsBothHalves)
 {
     SushiDSP::LongTailedPair pair = mark2c_inverter();
 

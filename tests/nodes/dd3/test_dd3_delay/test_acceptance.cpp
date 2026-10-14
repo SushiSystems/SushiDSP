@@ -201,7 +201,7 @@ namespace
     }
 } // namespace
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceClockCurveMatchesThePublishedRange)
+SUSHIDSP_REGRESSION_TEST(Dd3Delay, Dd3AcceptanceClockCurveMatchesThePublishedRange)
 {
     // Row 1 checks fs, which the service note publishes. See tests/nodes/dd3/test_dd3_delay/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
@@ -242,7 +242,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceClockCurveMatchesThePublis
     }
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceMeasuredEchoLandsWhereTheClockCurveSaysItWill)
+SUSHIDSP_REGRESSION_TEST(Dd3Delay, Dd3AcceptanceMeasuredEchoLandsWhereTheClockCurveSaysItWill)
 {
     // An impulse's echo cannot agree with a wrong fs. See tests/nodes/dd3/test_dd3_delay/README.md.
     struct Mode
@@ -279,7 +279,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceMeasuredEchoLandsWhereTheC
     }
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptancePitchSlursRatherThanJumping)
+SUSHIDSP_REGRESSION_TEST(Dd3Delay, Dd3AcceptancePitchSlursRatherThanJumping)
 {
     // HOLD freezes the ring so only the clock moves the pitch. See tests/nodes/dd3/test_dd3_delay/README.md.
     using Converter = SushiDSP::dd3::Dd3Converter;
@@ -348,7 +348,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptancePitchSlursRatherThanJumpin
     EXPECT_GT(periods.back(), 3.5 * periods.front());
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceProducesNoNonFiniteSampleUnderTheStimulusBattery)
+SUSHIDSP_REGRESSION_TEST(Dd3Delay, Dd3AcceptanceProducesNoNonFiniteSampleUnderTheStimulusBattery)
 {
     // HOLD runs twice: from a cold ring and entered halfway. See tests/nodes/dd3/test_dd3_delay/README.md.
     struct Case
@@ -398,7 +398,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceProducesNoNonFiniteSampleU
                 stimulus.size() * 15u, loudest);
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceReportsZeroLatencyAndDelaysOnlyItsWetPath)
+SUSHIDSP_REGRESSION_TEST(Dd3Delay, Dd3AcceptanceReportsZeroLatencyAndDelaysOnlyItsWetPath)
 {
     // The dry path is sample-aligned; only the wet one delays. See tests/nodes/dd3/test_dd3_delay/README.md.
     SushiDSP::Dd3Delay node;
@@ -407,7 +407,7 @@ SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceReportsZeroLatencyAndDelay
     EXPECT_GT(node.wet_delay_seconds(), 0.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceAliasFloorIsMeasuredNotAssumed)
+SUSHIDSP_REGRESSION_TEST(Dd3Delay, Dd3AcceptanceAliasFloorIsMeasuredNotAssumed)
 {
     // The sweep runs at the service note's stimulus level. See tests/nodes/dd3/test_dd3_delay/README.md.
     SushiDSP::Dd3Delay node;

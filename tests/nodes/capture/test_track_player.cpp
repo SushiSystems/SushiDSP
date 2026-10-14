@@ -180,7 +180,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, TrackPlayerUnityTrackReproducesItsTakeSampleForSample)
+TEST(TrackPlayer, TrackPlayerUnityTrackReproducesItsTakeSampleForSample)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -204,7 +204,7 @@ TEST(Unit_Dsp, TrackPlayerUnityTrackReproducesItsTakeSampleForSample)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerMutedTrackContributesNothing)
+TEST(TrackPlayer, TrackPlayerMutedTrackContributesNothing)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -222,7 +222,7 @@ TEST(Unit_Dsp, TrackPlayerMutedTrackContributesNothing)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerSoloSilencesTheOtherTracks)
+TEST(TrackPlayer, TrackPlayerSoloSilencesTheOtherTracks)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -242,7 +242,7 @@ TEST(Unit_Dsp, TrackPlayerSoloSilencesTheOtherTracks)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerTwoTracksSum)
+TEST(TrackPlayer, TrackPlayerTwoTracksSum)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -261,7 +261,7 @@ TEST(Unit_Dsp, TrackPlayerTwoTracksSum)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerPanLawMatchesPanNodeWithinAHundredthOfADecibel)
+TEST(TrackPlayer, TrackPlayerPanLawMatchesPanNodeWithinAHundredthOfADecibel)
 {
     for (int step = 0; step < 9; ++step)
     {
@@ -292,7 +292,7 @@ TEST(Unit_Dsp, TrackPlayerPanLawMatchesPanNodeWithinAHundredthOfADecibel)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerMonoOutputIgnoresPan)
+TEST(TrackPlayer, TrackPlayerMonoOutputIgnoresPan)
 {
     for (int step = 0; step < 9; ++step)
     {
@@ -316,7 +316,7 @@ TEST(Unit_Dsp, TrackPlayerMonoOutputIgnoresPan)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerPlayingPastTheEndYieldsSilence)
+TEST(TrackPlayer, TrackPlayerPlayingPastTheEndYieldsSilence)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -345,7 +345,7 @@ TEST(Unit_Dsp, TrackPlayerPlayingPastTheEndYieldsSilence)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerLoopWrapsAtExactlyTheLoopEnd)
+TEST(TrackPlayer, TrackPlayerLoopWrapsAtExactlyTheLoopEnd)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -372,7 +372,7 @@ TEST(Unit_Dsp, TrackPlayerLoopWrapsAtExactlyTheLoopEnd)
     }
 }
 
-TEST(Unit_Dsp, TransportAdvanceWrapsAtTheLoopEnd)
+TEST(TrackPlayer, TransportAdvanceWrapsAtTheLoopEnd)
 {
     SushiDSP::Transport transport;
     transport.set_loop(10, 50);
@@ -390,7 +390,7 @@ TEST(Unit_Dsp, TransportAdvanceWrapsAtTheLoopEnd)
     EXPECT_EQ(transport.position_frames(), 115u);
 }
 
-TEST(Unit_Dsp, TransportStateAndPositionRoundTrip)
+TEST(TrackPlayer, TransportStateAndPositionRoundTrip)
 {
     SushiDSP::Transport transport;
     EXPECT_EQ(transport.state(), SushiDSP::TransportState::Stopped);
@@ -428,7 +428,7 @@ TEST(Unit_Dsp, TransportStateAndPositionRoundTrip)
     EXPECT_EQ(transport.loop_end_frames(), 0x1'0000'0000ull);
 }
 
-TEST(Unit_Dsp, TrackPlayerPlaysAClipAtItsStartFrame)
+TEST(TrackPlayer, TrackPlayerPlaysAClipAtItsStartFrame)
 {
     for (std::uint64_t start : {std::uint64_t{0}, std::uint64_t{12345}, std::uint64_t{1000000}})
     {
@@ -456,7 +456,7 @@ TEST(Unit_Dsp, TrackPlayerPlaysAClipAtItsStartFrame)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerPlaysTwoClipsOnOneLane)
+TEST(TrackPlayer, TrackPlayerPlaysTwoClipsOnOneLane)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -480,7 +480,7 @@ TEST(Unit_Dsp, TrackPlayerPlaysTwoClipsOnOneLane)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerIsSilentBetweenClips)
+TEST(TrackPlayer, TrackPlayerIsSilentBetweenClips)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -518,7 +518,7 @@ TEST(Unit_Dsp, TrackPlayerIsSilentBetweenClips)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerFadesAClipEdge)
+TEST(TrackPlayer, TrackPlayerFadesAClipEdge)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -550,7 +550,7 @@ TEST(Unit_Dsp, TrackPlayerFadesAClipEdge)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
+TEST(TrackPlayer, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -574,7 +574,7 @@ TEST(Unit_Dsp, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerAtHalfSpeedDropsAnOctave)
+TEST(TrackPlayer, TrackPlayerAtHalfSpeedDropsAnOctave)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -605,7 +605,7 @@ TEST(Unit_Dsp, TrackPlayerAtHalfSpeedDropsAnOctave)
     EXPECT_NEAR(peak, 1.0, 0.01);
 }
 
-TEST(Unit_Dsp, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
+TEST(TrackPlayer, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -629,7 +629,7 @@ TEST(Unit_Dsp, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
     EXPECT_EQ(player.takes().size(), 0u);
 }
 
-TEST(Unit_Dsp, TrackPlayerFreesATakeOnceBothLanesUsingItAreCleared)
+TEST(TrackPlayer, TrackPlayerFreesATakeOnceBothLanesUsingItAreCleared)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -657,7 +657,7 @@ TEST(Unit_Dsp, TrackPlayerFreesATakeOnceBothLanesUsingItAreCleared)
     EXPECT_EQ(player.takes().size(), 0u);
 }
 
-TEST(Unit_Dsp, TrackPlayerRendersOneLaneAloneBeforeItsFader)
+TEST(TrackPlayer, TrackPlayerRendersOneLaneAloneBeforeItsFader)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;

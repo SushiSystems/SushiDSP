@@ -100,7 +100,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, AmbisonicEncoderMatchesTheAcnSn3dHarmonicsInFront)
+TEST(AmbisonicEncoder, AmbisonicEncoderMatchesTheAcnSn3dHarmonicsInFront)
 {
     std::array<float, 16> gains{};
     SushiDSP::room::AmbisonicEncoder::encode(0.0, 0.0, gains);
@@ -113,7 +113,7 @@ TEST(Unit_Dsp, AmbisonicEncoderMatchesTheAcnSn3dHarmonicsInFront)
     }
 }
 
-TEST(Unit_Dsp, AmbisonicEncoderMatchesTheAcnSn3dHarmonicsToTheLeft)
+TEST(AmbisonicEncoder, AmbisonicEncoderMatchesTheAcnSn3dHarmonicsToTheLeft)
 {
     std::array<float, 16> gains{};
     SushiDSP::room::AmbisonicEncoder::encode(K_PI / 2.0, 0.0, gains);
@@ -126,7 +126,7 @@ TEST(Unit_Dsp, AmbisonicEncoderMatchesTheAcnSn3dHarmonicsToTheLeft)
     }
 }
 
-TEST(Unit_Dsp, AmbisonicEncoderKeepsChannelZeroAtOneEverywhere)
+TEST(AmbisonicEncoder, AmbisonicEncoderKeepsChannelZeroAtOneEverywhere)
 {
     std::uint32_t state = 2026u;
     auto next_unit = [&state]()
@@ -144,7 +144,7 @@ TEST(Unit_Dsp, AmbisonicEncoderKeepsChannelZeroAtOneEverywhere)
     }
 }
 
-TEST(Unit_Dsp, AmbisonicEncoderIsOrthonormalOverTheSphere)
+TEST(AmbisonicEncoder, AmbisonicEncoderIsOrthonormalOverTheSphere)
 {
     // The quadrature is exact here; the residual is rounding. See tests/nodes/room/README.md.
     const std::vector<QuadratureNode> latitudes = gauss_legendre(K_LATITUDE_NODES);

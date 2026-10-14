@@ -187,7 +187,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, MotusReferenceParsesToEighteenPositiveRows)
+TEST(BuiltRoomLoss, MotusReferenceParsesToEighteenPositiveRows)
 {
     const std::vector<MotusRow> rows = load_motus_reference();
     ASSERT_EQ(rows.size(), K_EXPECTED_ROW_COUNT);
@@ -199,7 +199,7 @@ TEST(Unit_Dsp, MotusReferenceParsesToEighteenPositiveRows)
     }
 }
 
-TEST(Unit_Dsp, MotusEmptyRoomDecayIsNotShorterThanMeasuredAndAtMostTwiceAsLong)
+TEST(BuiltRoomLoss, MotusEmptyRoomDecayIsNotShorterThanMeasuredAndAtMostTwiceAsLong)
 {
     const std::vector<MotusRow> rows = load_motus_reference();
     ASSERT_EQ(rows.size(), K_EXPECTED_ROW_COUNT);
@@ -233,7 +233,7 @@ TEST(Unit_Dsp, MotusEmptyRoomDecayIsNotShorterThanMeasuredAndAtMostTwiceAsLong)
     }
 }
 
-TEST(Unit_Dsp, MotusCarpetShortensTheModelAndTheMeasurementAtOneToFourKilohertz)
+TEST(BuiltRoomLoss, MotusCarpetShortensTheModelAndTheMeasurementAtOneToFourKilohertz)
 {
     const std::vector<MotusRow> rows = load_motus_reference();
     ASSERT_EQ(rows.size(), K_EXPECTED_ROW_COUNT);
@@ -263,7 +263,7 @@ TEST(Unit_Dsp, MotusCarpetShortensTheModelAndTheMeasurementAtOneToFourKilohertz)
     }
 }
 
-TEST(Unit_Dsp, MotusEmptyRoomWithTheBuiltRoomLossDecaysWithinAFifthOfMeasured)
+TEST(BuiltRoomLoss, MotusEmptyRoomWithTheBuiltRoomLossDecaysWithinAFifthOfMeasured)
 {
     const std::vector<MotusRow> rows = load_motus_reference();
     ASSERT_EQ(rows.size(), K_EXPECTED_ROW_COUNT);

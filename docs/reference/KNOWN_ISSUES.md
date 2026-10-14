@@ -19,8 +19,8 @@ transformer's tanh, the sag envelope or the solver's iteration count, each measu
 line is the 20 kHz tone's 19th harmonic folding about 384 kHz to 3995 Hz, made by the stages
 after the first, which receive an already-clipped waveform whose content reaches the oversampled
 Nyquist and so breaks the linear-between-samples assumption first-order ADAA rests on. Documented
-by `Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` and
-`Regression_Dsp.Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb`
+by `Measure.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` and
+`Measure.Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb`
 (`tests/functional/unit/test_measure.cpp`), both skipped with the measured figure printed. 16× was
 measured without ADAA in part 3 (JCM800 default −35.0 dB, 5150 −19.9, IIC+ −14.3, VH4 −27.3 at
 1.9 to 2.0× the CPU); 16× on top of the antialiaser, measured in part 4, reads JCM800 default

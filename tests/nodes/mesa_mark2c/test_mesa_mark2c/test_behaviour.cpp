@@ -84,7 +84,7 @@ namespace
 
 } // namespace
 
-TEST(Unit_Dsp, MesaMark2cProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
+TEST(MesaMark2c, MesaMark2cProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
     const std::vector<float> rendered =
         render_mesa_mark2c([](SushiDSP::MesaMark2c&) {}, 0.2, 220.0, 20);
@@ -94,7 +94,7 @@ TEST(Unit_Dsp, MesaMark2cProcessesABlockWithoutCrashingOrProducingNonFiniteOutpu
     }
 }
 
-TEST(Unit_Dsp, MesaMark2cPortsAreMonoInMonoOut)
+TEST(MesaMark2c, MesaMark2cPortsAreMonoInMonoOut)
 {
     SushiDSP::MesaMark2c node;
     const SushiDSP::PortLayout ports = node.ports();
@@ -102,7 +102,7 @@ TEST(Unit_Dsp, MesaMark2cPortsAreMonoInMonoOut)
     EXPECT_EQ(ports.output_channels, 1u);
 }
 
-TEST(Unit_Dsp, MesaMark2cDescriptorExposesEighteenParametersInContractOrder)
+TEST(MesaMark2c, MesaMark2cDescriptorExposesEighteenParametersInContractOrder)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::mesa_mark2c_descriptor();
 
@@ -140,7 +140,7 @@ TEST(Unit_Dsp, MesaMark2cDescriptorExposesEighteenParametersInContractOrder)
     }
 }
 
-TEST(Unit_Dsp, MesaMark2cIndexedParameterSetMatchesTheDescriptorOrder)
+TEST(MesaMark2c, MesaMark2cIndexedParameterSetMatchesTheDescriptorOrder)
 {
     SushiDSP::MesaMark2c node;
     const float values[K_PARAMETER_COUNT] = {
@@ -162,7 +162,7 @@ TEST(Unit_Dsp, MesaMark2cIndexedParameterSetMatchesTheDescriptorOrder)
     node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 1.0f);
 }
 
-TEST(Unit_Dsp, MesaMark2cDecibelParametersClampToTheirDescriptorRange)
+TEST(MesaMark2c, MesaMark2cDecibelParametersClampToTheirDescriptorRange)
 {
     SushiDSP::MesaMark2c node;
     node.set_master_1(100.0f);
@@ -174,7 +174,7 @@ TEST(Unit_Dsp, MesaMark2cDecibelParametersClampToTheirDescriptorRange)
     EXPECT_FLOAT_EQ(node.get_parameter("output"), 12.0f);
 }
 
-TEST(Unit_Dsp, MesaMark2cGenericParameterRoundTrip)
+TEST(MesaMark2c, MesaMark2cGenericParameterRoundTrip)
 {
     SushiDSP::MesaMark2c node;
     node.set_parameter_for_control_thread("volume_1", 0.2f);
@@ -210,7 +210,7 @@ TEST(Unit_Dsp, MesaMark2cGenericParameterRoundTrip)
     EXPECT_FLOAT_EQ(node.get_parameter("output"), -3.0f);
 }
 
-TEST(Unit_Dsp, MesaMark2cUnknownParameterIsSafeNoOp)
+TEST(MesaMark2c, MesaMark2cUnknownParameterIsSafeNoOp)
 {
     SushiDSP::MesaMark2c node;
     node.set_parameter_for_control_thread("does_not_exist", 1.0f);
@@ -218,7 +218,7 @@ TEST(Unit_Dsp, MesaMark2cUnknownParameterIsSafeNoOp)
     node.set_equalizer_band(99, 1.0f);
 }
 
-TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
+TEST(MesaMark2c, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
 {
     // The settled DC stays under -40 dBFS and stops moving. See tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md.
     for (float extreme : {0.0f, 1.0f})
@@ -264,7 +264,7 @@ TEST(Unit_Dsp, MesaMark2cIsDcStableAcrossManyBlocksAtHighGain)
     }
 }
 
-TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
+TEST(MesaMark2c, MesaMark2cGridProbesReportEveryStageInSignalOrder)
 {
     // Seven stages report; an out-of-range index answers 0. See tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md.
     SushiDSP::MesaMark2c node;
@@ -306,7 +306,7 @@ TEST(Unit_Dsp, MesaMark2cGridProbesReportEveryStageInSignalOrder)
     }
 }
 
-TEST(Unit_Dsp, MesaMark2cThdDoesNotFallAsLeadDriveRises)
+TEST(MesaMark2c, MesaMark2cThdDoesNotFallAsLeadDriveRises)
 {
     // The sweep starts at 0.05, where the knob passes signal. See tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md.
     const double frequency =
@@ -332,7 +332,7 @@ TEST(Unit_Dsp, MesaMark2cThdDoesNotFallAsLeadDriveRises)
     EXPECT_GT(previous, 20.0);
 }
 
-TEST(Unit_Dsp, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
+TEST(MesaMark2c, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
 {
     // The output stays in [-1, 1] and reaches the rail. See tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md.
     SushiDSP::MesaMark2c node;
@@ -368,7 +368,7 @@ TEST(Unit_Dsp, MesaMark2cNeverExceedsFullScaleWithoutALimiter)
     EXPECT_TRUE(clamped_at_least_once);
 }
 
-TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
+TEST(MesaMark2c, MesaMark2cHasACleanEndAtMinimumGain)
 {
     // Lead Drive 0.02 at -40 dBFS reads 0.20 % THD. See tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md.
     const double frequency =
@@ -384,7 +384,7 @@ TEST(Unit_Dsp, MesaMark2cHasACleanEndAtMinimumGain)
     EXPECT_LT(thd_percent, 10.0) << "THD " << thd_percent << " %";
 }
 
-TEST(Unit_Dsp, MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
+TEST(MesaMark2c, MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
 {
     // A -12 dBFS 82 Hz sine comes out at about -6 dBFS. See tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md.
     const std::vector<float> rendered =
@@ -401,7 +401,7 @@ TEST(Unit_Dsp, MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsI
     EXPECT_LT(peak_decibels, -5.0f);
 }
 
-TEST(Unit_Dsp, MesaMark2cDescriptorMakeProducesAWorkingNode)
+TEST(MesaMark2c, MesaMark2cDescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::mesa_mark2c_descriptor();
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -423,7 +423,7 @@ TEST(Unit_Dsp, MesaMark2cDescriptorMakeProducesAWorkingNode)
     }
 }
 
-TEST(Unit_Dsp, MesaMark2cDryLatencyIsOneOversampledRegion)
+TEST(MesaMark2c, MesaMark2cDryLatencyIsOneOversampledRegion)
 {
     // The latency is one Oversampler8x round trip. See tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md.
     SushiDSP::MesaMark2c node;
@@ -433,7 +433,7 @@ TEST(Unit_Dsp, MesaMark2cDryLatencyIsOneOversampledRegion)
     EXPECT_EQ(node.latency_samples(), reference.latency_samples());
 }
 
-TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
+TEST(MesaMark2c, MesaMark2cToneStackSitsBeforeTheLeadStages)
 {
     // The stack is ahead of the distortion: treble moves THD. See tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md.
     const double frequency =
@@ -457,7 +457,7 @@ TEST(Unit_Dsp, MesaMark2cToneStackSitsBeforeTheLeadStages)
     EXPECT_GT(bright - dark, 2.5);
 }
 
-TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
+TEST(MesaMark2c, MesaMark2cEqBandBoostsItsCentre)
 {
     // At Master 1 -20 dB the power section is linear. See tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md.
     static constexpr double centre_hz = 723.43;
@@ -490,7 +490,7 @@ TEST(Unit_Dsp, MesaMark2cEqBandBoostsItsCentre)
     EXPECT_NEAR(level_at(1.0f) - level_at(0.0f), 17.0, 1.0);
 }
 
-TEST(Unit_Dsp, MesaMark2cFallsSilentAtEveryPresencePositionWhenTheDriveStops)
+TEST(MesaMark2c, MesaMark2cFallsSilentAtEveryPresencePositionWhenTheDriveStops)
 {
     for (float presence : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f})
     {
@@ -568,7 +568,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, MesaMark2cSweepSoundsTheSameWhateverTheHostBlockSize)
+TEST(MesaMark2c, MesaMark2cSweepSoundsTheSameWhateverTheHostBlockSize)
 {
     const std::vector<float> in_256 = render_equalizer_sweep(256);
     const std::vector<float> in_32 = render_equalizer_sweep(32);
@@ -640,7 +640,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, MesaMark2cPullDeepStopsV2bRemovingBass)
+TEST(MesaMark2c, MesaMark2cPullDeepStopsV2bRemovingBass)
 {
     const auto deep = [](bool engaged)
     {
@@ -657,7 +657,7 @@ TEST(Unit_Dsp, MesaMark2cPullDeepStopsV2bRemovingBass)
     EXPECT_NEAR(mark2c_gain_db(deep(true), 3000.0) - mark2c_gain_db(deep(false), 3000.0), 0.0, 0.1);
 }
 
-TEST(Unit_Dsp, MesaMark2cEqualizerOutTakesTheSlidersOutOfThePath)
+TEST(MesaMark2c, MesaMark2cEqualizerOutTakesTheSlidersOutOfThePath)
 {
     using Mode = SushiDSP::MesaMark2c::EqualizerMode;
     const auto with = [](Mode mode, float slider)
@@ -682,7 +682,7 @@ TEST(Unit_Dsp, MesaMark2cEqualizerOutTakesTheSlidersOutOfThePath)
                 mark2c_gain_db(with(Mode::In, 1.0f), 80.0), 0.01);
 }
 
-TEST(Unit_Dsp, MesaMark2cPullBrightLiftsTrebleAtBothOfItsCapacitors)
+TEST(MesaMark2c, MesaMark2cPullBrightLiftsTrebleAtBothOfItsCapacitors)
 {
     const auto bright = [](bool engaged)
     {

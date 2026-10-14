@@ -31,13 +31,13 @@
 
 #include <SushiDSP/foundation/math/wdf.hpp>
 
-TEST(Unit_Dsp, WdfResistorReportsConfiguredPortResistance)
+TEST(Wdf, WdfResistorReportsConfiguredPortResistance)
 {
     SushiDSP::WdfResistor resistor(1000.0f);
     EXPECT_FLOAT_EQ(resistor.port_resistance(), 1000.0f);
 }
 
-TEST(Unit_Dsp, WdfResistorAlwaysReflectsZero)
+TEST(Wdf, WdfResistorAlwaysReflectsZero)
 {
     SushiDSP::WdfResistor resistor(1000.0f);
     EXPECT_FLOAT_EQ(resistor.reflect(5.0f), 0.0f);
@@ -45,7 +45,7 @@ TEST(Unit_Dsp, WdfResistorAlwaysReflectsZero)
     EXPECT_FLOAT_EQ(resistor.reflect(0.0f), 0.0f);
 }
 
-TEST(Unit_Dsp, WdfCapacitorPortResistanceMatchesBilinearFormula)
+TEST(Wdf, WdfCapacitorPortResistanceMatchesBilinearFormula)
 {
     constexpr double sample_rate = 48000.0;
     constexpr float capacitance = 1e-6f; // 1 microfarad
@@ -55,7 +55,7 @@ TEST(Unit_Dsp, WdfCapacitorPortResistanceMatchesBilinearFormula)
     EXPECT_NEAR(capacitor.port_resistance(), expected_resistance, expected_resistance * 1e-4f);
 }
 
-TEST(Unit_Dsp, WdfCapacitorReflectsPreviousIncidentWave)
+TEST(Wdf, WdfCapacitorReflectsPreviousIncidentWave)
 {
     SushiDSP::WdfCapacitor capacitor(48000.0, 1e-6f);
 
@@ -65,7 +65,7 @@ TEST(Unit_Dsp, WdfCapacitorReflectsPreviousIncidentWave)
     EXPECT_FLOAT_EQ(capacitor.reflect(-1.0f), 3.0f); // b[3] = a[2] = 3
 }
 
-TEST(Unit_Dsp, WdfCapacitorResetClearsState)
+TEST(Wdf, WdfCapacitorResetClearsState)
 {
     SushiDSP::WdfCapacitor capacitor(48000.0, 1e-6f);
     capacitor.reflect(5.0f);

@@ -89,19 +89,19 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, MediumAbsorptionOfAnUnfurnishedSceneIsTheAirsOwn)
+TEST(MediumAbsorption, MediumAbsorptionOfAnUnfurnishedSceneIsTheAirsOwn)
 {
     expect_matches_air(MediumAbsorption(RoomScene{}));
 }
 
-TEST(Unit_Dsp, MediumAbsorptionTreatsACountOfZeroAsUnfurnished)
+TEST(MediumAbsorption, MediumAbsorptionTreatsACountOfZeroAsUnfurnished)
 {
     RoomScene scene = furnished_scene();
     scene.furnishing_count = 0;
     expect_matches_air(MediumAbsorption(scene));
 }
 
-TEST(Unit_Dsp, MediumAbsorptionFurnishingCoefficientIsAreaOverFourVolumes)
+TEST(MediumAbsorption, MediumAbsorptionFurnishingCoefficientIsAreaOverFourVolumes)
 {
     const MediumAbsorption medium(furnished_scene());
     for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
@@ -112,7 +112,7 @@ TEST(Unit_Dsp, MediumAbsorptionFurnishingCoefficientIsAreaOverFourVolumes)
     }
 }
 
-TEST(Unit_Dsp, MediumAbsorptionEnergyCoefficientIsTheAirPlusTheFurnishings)
+TEST(MediumAbsorption, MediumAbsorptionEnergyCoefficientIsTheAirPlusTheFurnishings)
 {
     const MediumAbsorption medium(furnished_scene());
     for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
@@ -124,7 +124,7 @@ TEST(Unit_Dsp, MediumAbsorptionEnergyCoefficientIsTheAirPlusTheFurnishings)
     }
 }
 
-TEST(Unit_Dsp, MediumAbsorptionPathGainIsTheAirsTimesHalfTheFurnishingDecay)
+TEST(MediumAbsorption, MediumAbsorptionPathGainIsTheAirsTimesHalfTheFurnishingDecay)
 {
     const MediumAbsorption medium(furnished_scene());
     for (const double metres : {2.6, 12.0})
@@ -141,7 +141,7 @@ TEST(Unit_Dsp, MediumAbsorptionPathGainIsTheAirsTimesHalfTheFurnishingDecay)
     }
 }
 
-TEST(Unit_Dsp, MediumAbsorptionOverZeroMetresIsUnityInEveryBand)
+TEST(MediumAbsorption, MediumAbsorptionOverZeroMetresIsUnityInEveryBand)
 {
     const BandResponse none = MediumAbsorption(furnished_scene()).over_path(0.0);
     for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
@@ -150,7 +150,7 @@ TEST(Unit_Dsp, MediumAbsorptionOverZeroMetresIsUnityInEveryBand)
     }
 }
 
-TEST(Unit_Dsp, MediumAbsorptionGainNeverRisesWithDistance)
+TEST(MediumAbsorption, MediumAbsorptionGainNeverRisesWithDistance)
 {
     const MediumAbsorption medium(furnished_scene());
     std::array<float, K_BAND_COUNT> previous = medium.over_path(0.0).gain;

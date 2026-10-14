@@ -34,7 +34,7 @@
 
 #include <SushiDSP/nodes/room/materials.hpp>
 
-TEST(Unit_Dsp, MaterialsShipFifteenRowsAndNoMore)
+TEST(Materials, MaterialsShipFifteenRowsAndNoMore)
 {
     EXPECT_EQ(SushiDSP::room::K_MATERIAL_COUNT, 15u);
     for (std::size_t id = 0; id < SushiDSP::room::K_MATERIAL_COUNT; ++id)
@@ -55,7 +55,7 @@ TEST(Unit_Dsp, MaterialsShipFifteenRowsAndNoMore)
     }
 }
 
-TEST(Unit_Dsp, MaterialsCarryTheFinishRowsExactly)
+TEST(Materials, MaterialsCarryTheFinishRowsExactly)
 {
     using SushiDSP::room::MaterialId;
     struct Expected
@@ -92,7 +92,7 @@ TEST(Unit_Dsp, MaterialsCarryTheFinishRowsExactly)
     }
 }
 
-TEST(Unit_Dsp, MaterialsCarryTheCurtainRowsExactly)
+TEST(Materials, MaterialsCarryTheCurtainRowsExactly)
 {
     using SushiDSP::room::MaterialId;
     struct Expected
@@ -124,7 +124,7 @@ TEST(Unit_Dsp, MaterialsCarryTheCurtainRowsExactly)
     }
 }
 
-TEST(Unit_Dsp, MaterialsAppendTheFinishRowsAfterTheOriginalSix)
+TEST(Materials, MaterialsAppendTheFinishRowsAfterTheOriginalSix)
 {
     using SushiDSP::room::MaterialId;
     EXPECT_EQ(static_cast<std::uint8_t>(MaterialId::OpenDoorway), 5u);
@@ -134,7 +134,7 @@ TEST(Unit_Dsp, MaterialsAppendTheFinishRowsAfterTheOriginalSix)
     EXPECT_EQ(static_cast<std::uint8_t>(MaterialId::CurtainLight), 14u);
 }
 
-TEST(Unit_Dsp, MaterialsCarryTheTranscribedCoefficients)
+TEST(Materials, MaterialsCarryTheTranscribedCoefficients)
 {
     using SushiDSP::room::MaterialId;
     const std::array<float, 6> concrete = {0.01f, 0.01f, 0.02f, 0.02f, 0.02f, 0.03f};
@@ -159,7 +159,7 @@ TEST(Unit_Dsp, MaterialsCarryTheTranscribedCoefficients)
     }
 }
 
-TEST(Unit_Dsp, MaterialsReflectionFactorIsTheSquareRootOfWhatIsLeft)
+TEST(Materials, MaterialsReflectionFactorIsTheSquareRootOfWhatIsLeft)
 {
     const SushiDSP::room::BandResponse gypsum =
         SushiDSP::room::reflection_factor(SushiDSP::room::MaterialId::GypsumBoardOnStuds);
@@ -170,7 +170,7 @@ TEST(Unit_Dsp, MaterialsReflectionFactorIsTheSquareRootOfWhatIsLeft)
     EXPECT_NEAR(carpet.gain[5], 0.591608f, 1e-6f); // sqrt(1 - 0.65)
 }
 
-TEST(Unit_Dsp, MaterialsOpenDoorwayReflectsNothing)
+TEST(Materials, MaterialsOpenDoorwayReflectsNothing)
 {
     const SushiDSP::room::BandResponse open =
         SushiDSP::room::reflection_factor(SushiDSP::room::MaterialId::OpenDoorway);
@@ -180,7 +180,7 @@ TEST(Unit_Dsp, MaterialsOpenDoorwayReflectsNothing)
     }
 }
 
-TEST(Unit_Dsp, MaterialsScatteringIsThreeWords)
+TEST(Materials, MaterialsScatteringIsThreeWords)
 {
     EXPECT_FLOAT_EQ(SushiDSP::room::scattering_coefficient(SushiDSP::room::Scattering::Flat),
                     0.10f);
@@ -190,7 +190,7 @@ TEST(Unit_Dsp, MaterialsScatteringIsThreeWords)
                     0.40f);
 }
 
-TEST(Unit_Dsp, MaterialsKeysAreNonEmptyAndUnique)
+TEST(Materials, MaterialsKeysAreNonEmptyAndUnique)
 {
     for (std::size_t id = 0; id < SushiDSP::room::K_MATERIAL_COUNT; ++id)
     {
@@ -205,7 +205,7 @@ TEST(Unit_Dsp, MaterialsKeysAreNonEmptyAndUnique)
     }
 }
 
-TEST(Unit_Dsp, MaterialsFindReturnsTheRowsOwnIdForItsKey)
+TEST(Materials, MaterialsFindReturnsTheRowsOwnIdForItsKey)
 {
     for (std::size_t id = 0; id < SushiDSP::room::K_MATERIAL_COUNT; ++id)
     {
@@ -216,7 +216,7 @@ TEST(Unit_Dsp, MaterialsFindReturnsTheRowsOwnIdForItsKey)
     }
 }
 
-TEST(Unit_Dsp, MaterialsFindRefusesAnUnknownKeyAndLeavesTheIdUntouched)
+TEST(Materials, MaterialsFindRefusesAnUnknownKeyAndLeavesTheIdUntouched)
 {
     SushiDSP::room::MaterialId found = SushiDSP::room::MaterialId::GlassWindow;
     EXPECT_FALSE(SushiDSP::room::find_material("no_such_row", found));

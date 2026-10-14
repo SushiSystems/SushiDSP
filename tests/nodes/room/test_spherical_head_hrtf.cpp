@@ -125,7 +125,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, SphericalHeadHrtfMatchesWoodworthsInterauralDelay)
+TEST(SphericalHeadHrtf, SphericalHeadHrtfMatchesWoodworthsInterauralDelay)
 {
     // (a / c) * (theta + sin theta) with a = 0.0875 m and c = 343 m/s.
     EXPECT_NEAR(SushiDSP::room::SphericalHeadHrtf::interaural_time_difference(K_PI / 6.0),
@@ -136,14 +136,14 @@ TEST(Unit_Dsp, SphericalHeadHrtfMatchesWoodworthsInterauralDelay)
                 0.0006558, 2e-6);
 }
 
-TEST(Unit_Dsp, SphericalHeadHrtfPutsZeroDelayStraightAhead)
+TEST(SphericalHeadHrtf, SphericalHeadHrtfPutsZeroDelayStraightAhead)
 {
     EXPECT_DOUBLE_EQ(SushiDSP::room::SphericalHeadHrtf::interaural_time_difference(0.0), 0.0);
     const SushiDSP::room::HrtfSet::Pair front = set().interpolate(0.0, 0.0);
     EXPECT_EQ(front.itd_frames, 0.0f);
 }
 
-TEST(Unit_Dsp, SphericalHeadHrtfIsSymmetricAboutTheMedianPlane)
+TEST(SphericalHeadHrtf, SphericalHeadHrtfIsSymmetricAboutTheMedianPlane)
 {
     const SushiDSP::room::HrtfSet::Pair left = set().interpolate(K_PI / 3.0, 0.0);
     const SushiDSP::room::HrtfSet::Pair right = set().interpolate(-K_PI / 3.0, 0.0);
@@ -153,7 +153,7 @@ TEST(Unit_Dsp, SphericalHeadHrtfIsSymmetricAboutTheMedianPlane)
     EXPECT_GT(left.itd_frames, 0.0f);
 }
 
-TEST(Unit_Dsp, SphericalHeadHrtfCannotTellFrontFromBack)
+TEST(SphericalHeadHrtf, SphericalHeadHrtfCannotTellFrontFromBack)
 {
     // This is the model's documented limit and the reason the measured asset exists.
     const SushiDSP::room::HrtfSet::Pair front = set().interpolate(0.0, 0.0);
@@ -163,7 +163,7 @@ TEST(Unit_Dsp, SphericalHeadHrtfCannotTellFrontFromBack)
     EXPECT_NEAR(front.itd_frames, back.itd_frames, K_TAP_TOLERANCE);
 }
 
-TEST(Unit_Dsp, SphericalHeadHrtfShadowsTheFarEarAboveOneKilohertz)
+TEST(SphericalHeadHrtf, SphericalHeadHrtfShadowsTheFarEarAboveOneKilohertz)
 {
     // The far ear sits at the sphere's bright spot. See tests/nodes/room/README.md.
     const SushiDSP::room::HrtfSet::Pair side = set().interpolate(K_PI / 2.0, 0.0);
@@ -178,7 +178,7 @@ TEST(Unit_Dsp, SphericalHeadHrtfShadowsTheFarEarAboveOneKilohertz)
     }
 }
 
-TEST(Unit_Dsp, SphericalHeadHrtfBuildsAGridThatCoversTheSphere)
+TEST(SphericalHeadHrtf, SphericalHeadHrtfBuildsAGridThatCoversTheSphere)
 {
     EXPECT_EQ(set().direction_count(), 614u);
     std::mt19937 generator(7);
@@ -194,7 +194,7 @@ TEST(Unit_Dsp, SphericalHeadHrtfBuildsAGridThatCoversTheSphere)
     }
 }
 
-TEST(Unit_Dsp, SphericalHeadHrtfFillsTheDiffuseFieldPair)
+TEST(SphericalHeadHrtf, SphericalHeadHrtfFillsTheDiffuseFieldPair)
 {
     for (const std::uint32_t ear : {0u, 1u})
     {
@@ -207,13 +207,13 @@ TEST(Unit_Dsp, SphericalHeadHrtfFillsTheDiffuseFieldPair)
     }
 }
 
-TEST(Unit_Dsp, SphericalHeadHrtfHearsTheSameDiffuseFieldAtBothEars)
+TEST(SphericalHeadHrtf, SphericalHeadHrtfHearsTheSameDiffuseFieldAtBothEars)
 {
     // The grid mirrors about the median plane. See tests/nodes/room/README.md.
     EXPECT_LE(max_difference(set().diffuse_field(0), set().diffuse_field(1)), K_TAP_TOLERANCE);
 }
 
-TEST(Unit_Dsp, SphericalHeadHrtfDiffuseFieldCarriesTheRigidSpheresDiffuseGain)
+TEST(SphericalHeadHrtf, SphericalHeadHrtfDiffuseFieldCarriesTheRigidSpheresDiffuseGain)
 {
     // The sphere's mean diffuse power is 1.8472, +2.67 dB. See tests/nodes/room/README.md.
     for (const std::uint32_t ear : {0u, 1u})

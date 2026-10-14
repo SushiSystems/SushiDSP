@@ -54,7 +54,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, TrackRecorderRecordsARampSampleForSample)
+TEST(TrackRecorder, TrackRecorderRecordsARampSampleForSample)
 {
     const std::filesystem::path root = make_fixture("ramp");
     const std::string path = (root / "ramp.wav").string();
@@ -98,7 +98,7 @@ TEST(Unit_Dsp, TrackRecorderRecordsARampSampleForSample)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, TrackRecorderDropsBlocksLargerThanTheRing)
+TEST(TrackRecorder, TrackRecorderDropsBlocksLargerThanTheRing)
 {
     const std::filesystem::path root = make_fixture("undersized");
     const std::string path = (root / "undersized.wav").string();
@@ -125,7 +125,7 @@ TEST(Unit_Dsp, TrackRecorderDropsBlocksLargerThanTheRing)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, TrackRecorderWriteAfterStopIsANoOp)
+TEST(TrackRecorder, TrackRecorderWriteAfterStopIsANoOp)
 {
     const std::filesystem::path root = make_fixture("after_stop");
     const std::string path = (root / "after_stop.wav").string();
@@ -148,7 +148,7 @@ TEST(Unit_Dsp, TrackRecorderWriteAfterStopIsANoOp)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, RecordingBusWritesTwoFilesOfEqualLength)
+TEST(TrackRecorder, RecordingBusWritesTwoFilesOfEqualLength)
 {
     const std::filesystem::path root = make_fixture("bus");
 
@@ -185,7 +185,7 @@ TEST(Unit_Dsp, RecordingBusWritesTwoFilesOfEqualLength)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, RecordingBusKeepsBothFilesEqualWhenOneRingFills)
+TEST(TrackRecorder, RecordingBusKeepsBothFilesEqualWhenOneRingFills)
 {
     const std::filesystem::path root = make_fixture("bus_drop");
 
@@ -214,7 +214,7 @@ TEST(Unit_Dsp, RecordingBusKeepsBothFilesEqualWhenOneRingFills)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, RecordingBusArmOnAnUnwritableFolderReturnsFalse)
+TEST(TrackRecorder, RecordingBusArmOnAnUnwritableFolderReturnsFalse)
 {
     const std::filesystem::path root = make_fixture("unwritable");
     const std::filesystem::path missing = root / "no_such_directory";
@@ -230,7 +230,7 @@ TEST(Unit_Dsp, RecordingBusArmOnAnUnwritableFolderReturnsFalse)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, TakeAllocatesItsChannelsAndReportsItsShape)
+TEST(TrackRecorder, TakeAllocatesItsChannelsAndReportsItsShape)
 {
     SushiDSP::Take take(2u, 96000.0, 512);
 

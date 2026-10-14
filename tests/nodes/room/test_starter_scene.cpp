@@ -64,13 +64,13 @@ namespace
     constexpr double K_LOWER_BOUND_SECONDS = 0.5;
 } // namespace
 
-TEST(Unit_Dsp, StarterSceneIsValid)
+TEST(StarterScene, StarterSceneIsValid)
 {
     std::string reason;
     EXPECT_TRUE(starter_scene().is_valid(reason)) << reason;
 }
 
-TEST(Unit_Dsp, StarterSceneIsTheTokiRoomOfTheDesign)
+TEST(StarterScene, StarterSceneIsTheTokiRoomOfTheDesign)
 {
     const RoomScene scene = starter_scene();
 
@@ -88,7 +88,7 @@ TEST(Unit_Dsp, StarterSceneIsTheTokiRoomOfTheDesign)
     }
 }
 
-TEST(Unit_Dsp, StarterSceneCarriesACurtainARugAndADoor)
+TEST(StarterScene, StarterSceneCarriesACurtainARugAndADoor)
 {
     const RoomScene scene = starter_scene();
     ASSERT_EQ(scene.patch_count, 3u);
@@ -106,7 +106,7 @@ TEST(Unit_Dsp, StarterSceneCarriesACurtainARugAndADoor)
     EXPECT_EQ(scene.patches[2].area_m2, 1.9);
 }
 
-TEST(Unit_Dsp, StarterSceneCarriesABedADeskAWardrobeAndAChairButNoSofa)
+TEST(StarterScene, StarterSceneCarriesABedADeskAWardrobeAndAChairButNoSofa)
 {
     const RoomScene scene = starter_scene();
     ASSERT_EQ(scene.furnishing_count, 4u);
@@ -126,7 +126,7 @@ TEST(Unit_Dsp, StarterSceneCarriesABedADeskAWardrobeAndAChairButNoSofa)
     }
 }
 
-TEST(Unit_Dsp, StarterSceneKeepsTheDefaultPosesAndScattering)
+TEST(StarterScene, StarterSceneKeepsTheDefaultPosesAndScattering)
 {
     const RoomScene starter = starter_scene();
     const RoomScene bare;
@@ -144,7 +144,7 @@ TEST(Unit_Dsp, StarterSceneKeepsTheDefaultPosesAndScattering)
     EXPECT_EQ(starter.microphone_pattern, bare.microphone_pattern);
 }
 
-TEST(Unit_Dsp, RoomNodeStartsFromTheStarterScene)
+TEST(StarterScene, RoomNodeStartsFromTheStarterScene)
 {
     SushiDSP::room::RoomNode node;
     const RoomScene starter = starter_scene();
@@ -158,7 +158,7 @@ TEST(Unit_Dsp, RoomNodeStartsFromTheStarterScene)
     EXPECT_DOUBLE_EQ(node.schroeder_frequency_hz(), EyringDecay::schroeder_frequency_hz(starter));
 }
 
-TEST(Unit_Dsp, StarterSceneDecaysInsideTheRecordedBandAndShorterThanTheBareDefault)
+TEST(StarterScene, StarterSceneDecaysInsideTheRecordedBandAndShorterThanTheBareDefault)
 {
     const std::array<double, K_BAND_COUNT> starter = EyringDecay::rt60_seconds(starter_scene());
     const std::array<double, K_BAND_COUNT> bare = EyringDecay::rt60_seconds(RoomScene{});
@@ -171,7 +171,7 @@ TEST(Unit_Dsp, StarterSceneDecaysInsideTheRecordedBandAndShorterThanTheBareDefau
     EXPECT_LT(starter[K_BAND500_HZ], bare[K_BAND500_HZ]);
 }
 
-TEST(Unit_Dsp, StarterSceneWithoutItsFurnishingsDecaysLongerInEveryBand)
+TEST(StarterScene, StarterSceneWithoutItsFurnishingsDecaysLongerInEveryBand)
 {
     const RoomScene furnished = starter_scene();
     RoomScene empty = furnished;
@@ -185,7 +185,7 @@ TEST(Unit_Dsp, StarterSceneWithoutItsFurnishingsDecaysLongerInEveryBand)
     }
 }
 
-TEST(Unit_Dsp, StarterSceneCarriesTheBuiltRoomLossAndTheBareSceneDoesNot)
+TEST(StarterScene, StarterSceneCarriesTheBuiltRoomLossAndTheBareSceneDoesNot)
 {
     EXPECT_TRUE(starter_scene().built_room_loss);
     EXPECT_FALSE(RoomScene{}.built_room_loss);

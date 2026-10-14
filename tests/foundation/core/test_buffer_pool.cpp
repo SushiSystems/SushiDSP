@@ -29,7 +29,7 @@
 
 #include <SushiDSP/foundation/core/buffer_pool.hpp>
 
-TEST(Unit_Dsp, BufferPoolAcquireReturnsDistinctBuffersUpToCapacity)
+TEST(BufferPool, BufferPoolAcquireReturnsDistinctBuffersUpToCapacity)
 {
     SushiDSP::BufferPool pool(256, 2);
 
@@ -41,7 +41,7 @@ TEST(Unit_Dsp, BufferPoolAcquireReturnsDistinctBuffersUpToCapacity)
     EXPECT_NE(a, b);
 }
 
-TEST(Unit_Dsp, BufferPoolCapacityReportsMaxLiveBuffers)
+TEST(BufferPool, BufferPoolCapacityReportsMaxLiveBuffers)
 {
     SushiDSP::BufferPool pool(256, 3);
 
@@ -54,7 +54,7 @@ TEST(Unit_Dsp, BufferPoolCapacityReportsMaxLiveBuffers)
     EXPECT_EQ(pool.capacity(), 3u);
 }
 
-TEST(Unit_Dsp, BufferPoolReusesReleasedBuffer)
+TEST(BufferPool, BufferPoolReusesReleasedBuffer)
 {
     SushiDSP::BufferPool pool(256, 1);
 

@@ -66,14 +66,14 @@ namespace
     std::atomic<int> Counted::live_count{0};
 } // namespace
 
-TEST(Unit_Dsp, RtSwapSlotStartsWithNoActiveObject)
+TEST(RtSwapSlot, RtSwapSlotStartsWithNoActiveObject)
 {
     SushiDSP::RtSwapSlot<int> slot;
     EXPECT_EQ(slot.acquire_for_audio_thread(), nullptr);
     EXPECT_FALSE(slot.has_active());
 }
 
-TEST(Unit_Dsp, RtSwapSlotPublishMakesObjectActive)
+TEST(RtSwapSlot, RtSwapSlotPublishMakesObjectActive)
 {
     SushiDSP::RtSwapSlot<int> slot;
     auto object = std::make_unique<int>(42);
@@ -86,7 +86,7 @@ TEST(Unit_Dsp, RtSwapSlotPublishMakesObjectActive)
     EXPECT_EQ(*slot.acquire_for_audio_thread(), 42);
 }
 
-TEST(Unit_Dsp, RtSwapSlotReclaimFreesOldObjectAfterAudioThreadMovesOn)
+TEST(RtSwapSlot, RtSwapSlotReclaimFreesOldObjectAfterAudioThreadMovesOn)
 {
     SushiDSP::RtSwapSlot<int> slot;
     slot.publish(std::make_unique<int>(1));
@@ -102,7 +102,7 @@ TEST(Unit_Dsp, RtSwapSlotReclaimFreesOldObjectAfterAudioThreadMovesOn)
     EXPECT_EQ(slot.acquire_for_audio_thread(), second_raw);
 }
 
-TEST(Unit_Dsp, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMovedPast)
+TEST(RtSwapSlot, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMovedPast)
 {
     Counted::live_count.store(0, std::memory_order_relaxed);
 
@@ -132,7 +132,7 @@ TEST(Unit_Dsp, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMove
     EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
 }
 
-TEST(Unit_Dsp, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
+TEST(RtSwapSlot, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
 {
     Counted::live_count.store(0, std::memory_order_relaxed);
 
@@ -167,7 +167,7 @@ TEST(Unit_Dsp, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
     EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
 }
 
-TEST(Unit_Dsp, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
+TEST(RtSwapSlot, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
 {
     // Reading the active object must not move the watermark. See tests/foundation/core/README.md.
     Counted::live_count.store(0, std::memory_order_relaxed);

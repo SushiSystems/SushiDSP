@@ -72,7 +72,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, ListDirectoryPutsSubdirectoriesBeforeMatchingFilesAndSortsEachGroup)
+TEST(DirectoryListing, ListDirectoryPutsSubdirectoriesBeforeMatchingFilesAndSortsEachGroup)
 {
     const std::filesystem::path root = make_fixture("ordering");
     std::filesystem::create_directory(root / "sub");
@@ -91,7 +91,7 @@ TEST(Unit_Dsp, ListDirectoryPutsSubdirectoriesBeforeMatchingFilesAndSortsEachGro
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, ListDirectoryMatchesTheExtensionIgnoringCase)
+TEST(DirectoryListing, ListDirectoryMatchesTheExtensionIgnoringCase)
 {
     const std::filesystem::path root = make_fixture("case");
     write_file(root / "Cab.WAV");
@@ -103,7 +103,7 @@ TEST(Unit_Dsp, ListDirectoryMatchesTheExtensionIgnoringCase)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, ListDirectoryWithAnEmptyExtensionKeepsEveryFile)
+TEST(DirectoryListing, ListDirectoryWithAnEmptyExtensionKeepsEveryFile)
 {
     const std::filesystem::path root = make_fixture("every_file");
     write_file(root / "a.wav");
@@ -117,7 +117,7 @@ TEST(Unit_Dsp, ListDirectoryWithAnEmptyExtensionKeepsEveryFile)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, ListDirectoryKeepsEveryExtensionItIsGiven)
+TEST(DirectoryListing, ListDirectoryKeepsEveryExtensionItIsGiven)
 {
     const std::filesystem::path root = make_fixture("several_extensions");
     write_file(root / "take.wav");
@@ -132,7 +132,7 @@ TEST(Unit_Dsp, ListDirectoryKeepsEveryExtensionItIsGiven)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, ListDirectoryReturnsNothingForADirectoryThatDoesNotExist)
+TEST(DirectoryListing, ListDirectoryReturnsNothingForADirectoryThatDoesNotExist)
 {
     const std::filesystem::path root = make_fixture("missing");
     std::filesystem::remove_all(root);
@@ -140,7 +140,7 @@ TEST(Unit_Dsp, ListDirectoryReturnsNothingForADirectoryThatDoesNotExist)
     EXPECT_TRUE(ui::list_directory(root.string(), ".wav").empty());
 }
 
-TEST(Unit_Dsp, ListDirectoryReturnsNothingForAPathThatNamesAFile)
+TEST(DirectoryListing, ListDirectoryReturnsNothingForAPathThatNamesAFile)
 {
     const std::filesystem::path root = make_fixture("not_a_directory");
     const std::filesystem::path file = root / "a.wav";

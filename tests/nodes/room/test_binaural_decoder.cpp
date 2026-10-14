@@ -112,7 +112,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, BinauralDecoderWithDeltaFiltersPassesChannelZeroThrough)
+TEST(BinauralDecoder, BinauralDecoderWithDeltaFiltersPassesChannelZeroThrough)
 {
     SushiDSP::room::BinauralDecoder decoder;
     decoder.prepare(delta_set({0}), K_SAMPLE_RATE, K_BLOCK);
@@ -134,7 +134,7 @@ TEST(Unit_Dsp, BinauralDecoderWithDeltaFiltersPassesChannelZeroThrough)
     }
 }
 
-TEST(Unit_Dsp, BinauralDecoderReportsOnePartitionOfLatency)
+TEST(BinauralDecoder, BinauralDecoderReportsOnePartitionOfLatency)
 {
     SushiDSP::room::BinauralDecoder decoder;
     decoder.prepare(delta_set({0}), K_SAMPLE_RATE, K_BLOCK);
@@ -143,7 +143,7 @@ TEST(Unit_Dsp, BinauralDecoderReportsOnePartitionOfLatency)
     EXPECT_EQ(decoder.latency_frames(), 128u);
 }
 
-TEST(Unit_Dsp, BinauralDecoderSumsSixteenChannelsIntoEachEar)
+TEST(BinauralDecoder, BinauralDecoderSumsSixteenChannelsIntoEachEar)
 {
     std::vector<std::uint32_t> all_channels;
     for (std::uint32_t channel = 0; channel < K_CHANNELS; ++channel)
@@ -171,7 +171,7 @@ TEST(Unit_Dsp, BinauralDecoderSumsSixteenChannelsIntoEachEar)
     EXPECT_EQ(right[decoder.latency_frames()], 0.0f);
 }
 
-TEST(Unit_Dsp, BinauralDecoderRefusesASetWithNoDecoder)
+TEST(BinauralDecoder, BinauralDecoderRefusesASetWithNoDecoder)
 {
     SushiDSP::room::BinauralDecoder decoder;
     EXPECT_THROW(decoder.prepare(SushiDSP::room::HrtfSet{}, K_SAMPLE_RATE, 256u),
@@ -180,7 +180,7 @@ TEST(Unit_Dsp, BinauralDecoderRefusesASetWithNoDecoder)
     EXPECT_EQ(decoder.latency_frames(), 0u);
 }
 
-TEST(Unit_Dsp, BinauralDecoderResetClearsTheHistory)
+TEST(BinauralDecoder, BinauralDecoderResetClearsTheHistory)
 {
     SushiDSP::room::BinauralDecoder decoder;
     decoder.prepare(delta_set({0}), K_SAMPLE_RATE, K_BLOCK);

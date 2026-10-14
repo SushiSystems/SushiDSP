@@ -69,7 +69,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, AudioImportCacheImportsOnlyMp3)
+TEST(AudioImportCache, AudioImportCacheImportsOnlyMp3)
 {
     EXPECT_TRUE(SushiDSP::host::AudioImportCache::can_import("C:/songs/track.mp3"));
     EXPECT_TRUE(SushiDSP::host::AudioImportCache::can_import("C:/songs/track.MP3"));
@@ -78,7 +78,7 @@ TEST(Unit_Dsp, AudioImportCacheImportsOnlyMp3)
     EXPECT_FALSE(SushiDSP::host::AudioImportCache::can_import("C:/songs/take.flac"));
 }
 
-TEST(Unit_Dsp, AudioImportCacheNamesOneEntryPerSourceAndRate)
+TEST(AudioImportCache, AudioImportCacheNamesOneEntryPerSourceAndRate)
 {
     const std::filesystem::path root = make_fixture("names");
     const std::string source = (root / "song.mp3").string();
@@ -94,7 +94,7 @@ TEST(Unit_Dsp, AudioImportCacheNamesOneEntryPerSourceAndRate)
     EXPECT_NE(at_44.find("_44100.wav"), std::string::npos);
 }
 
-TEST(Unit_Dsp, AudioImportCacheNamesANewEntryWhenTheSourceChanges)
+TEST(AudioImportCache, AudioImportCacheNamesANewEntryWhenTheSourceChanges)
 {
     const std::filesystem::path root = make_fixture("changed");
     const std::string source = (root / "song.mp3").string();
@@ -107,7 +107,7 @@ TEST(Unit_Dsp, AudioImportCacheNamesANewEntryWhenTheSourceChanges)
     EXPECT_NE(before, after);
 }
 
-TEST(Unit_Dsp, AudioImportCacheKeepsOnlySafeCharactersFromTheStem)
+TEST(AudioImportCache, AudioImportCacheKeepsOnlySafeCharactersFromTheStem)
 {
     const std::filesystem::path root = make_fixture("stem");
     const std::string source = (root / "Peace Sells! (320 Kbps).mp3").string();
@@ -118,7 +118,7 @@ TEST(Unit_Dsp, AudioImportCacheKeepsOnlySafeCharactersFromTheStem)
     EXPECT_EQ(name.rfind("Peace_Sells___320_Kbps__", 0), 0u);
 }
 
-TEST(Unit_Dsp, AudioImportCachePutsItsEntriesInItsOwnFolder)
+TEST(AudioImportCache, AudioImportCachePutsItsEntriesInItsOwnFolder)
 {
     const std::filesystem::path root = make_fixture("folder");
     const std::string source = (root / "song.mp3").string();
@@ -132,7 +132,7 @@ TEST(Unit_Dsp, AudioImportCachePutsItsEntriesInItsOwnFolder)
               SushiDSP::host::AudioImportCache::entry_name(source, 48000.0));
 }
 
-TEST(Unit_Dsp, AudioImportCacheReusesTheWavItAlreadyHolds)
+TEST(AudioImportCache, AudioImportCacheReusesTheWavItAlreadyHolds)
 {
     const std::filesystem::path root = make_fixture("reuse");
     const std::string source = (root / "song.mp3").string();
@@ -148,7 +148,7 @@ TEST(Unit_Dsp, AudioImportCacheReusesTheWavItAlreadyHolds)
     EXPECT_EQ(read_file(entry), "kept");
 }
 
-TEST(Unit_Dsp, AudioImportCacheRefusesAFileThatIsNotAnMp3AndLeavesNothingBehind)
+TEST(AudioImportCache, AudioImportCacheRefusesAFileThatIsNotAnMp3AndLeavesNothingBehind)
 {
     const std::filesystem::path root = make_fixture("refuse");
     const std::string source = (root / "song.mp3").string();

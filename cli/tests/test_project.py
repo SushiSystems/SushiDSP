@@ -65,10 +65,10 @@ def test_test_passes_the_filter_as_a_ctest_name_regex(project):
     """--filter reaches ctest as -R, beside the suite label and the configuration."""
     project.configure_tree("Debug")
 
-    assert project_svc.test(None, Suite.unit, filter="Unit_Dsp.*") == 0
+    assert project_svc.test(None, Suite.unit, filter="Jcm800.*") == 0
 
     ctest = project.runner.commands[-1]
-    assert ctest[ctest.index("-R") + 1] == "Unit_Dsp.*"
+    assert ctest[ctest.index("-R") + 1] == "Jcm800.*"
     assert ctest[ctest.index("-L") + 1] == "^unit$"
     assert ctest[ctest.index("-C") + 1] == "Debug"
 

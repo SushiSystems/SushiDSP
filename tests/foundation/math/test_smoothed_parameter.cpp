@@ -29,7 +29,7 @@
 #include <gtest/gtest.h>
 #include <SushiDSP/foundation/math/smoothed_parameter.hpp>
 
-TEST(Unit_Dsp, SmoothedParameterReachesSixtyThreePercentAtOneTimeConstant)
+TEST(SmoothedParameter, SmoothedParameterReachesSixtyThreePercentAtOneTimeConstant)
 {
     SushiDSP::SmoothedParameter parameter(0.0f);
     parameter.prepare(48000.0, 20.0f);
@@ -42,7 +42,7 @@ TEST(Unit_Dsp, SmoothedParameterReachesSixtyThreePercentAtOneTimeConstant)
     EXPECT_NEAR(value, 1.0f - std::exp(-1.0f), 2e-3f);
 }
 
-TEST(Unit_Dsp, SmoothedParameterSkipMatchesRepeatedNext)
+TEST(SmoothedParameter, SmoothedParameterSkipMatchesRepeatedNext)
 {
     SushiDSP::SmoothedParameter a(0.0f), b(0.0f);
     a.prepare(48000.0, 20.0f);
@@ -58,7 +58,7 @@ TEST(Unit_Dsp, SmoothedParameterSkipMatchesRepeatedNext)
     EXPECT_NEAR(via_next, via_skip, 1e-5f);
 }
 
-TEST(Unit_Dsp, SmoothedParameterTimeConstantIsSampleRateIndependent)
+TEST(SmoothedParameter, SmoothedParameterTimeConstantIsSampleRateIndependent)
 {
     SushiDSP::SmoothedParameter a(0.0f), b(0.0f);
     a.prepare(48000.0, 20.0f);
@@ -70,7 +70,7 @@ TEST(Unit_Dsp, SmoothedParameterTimeConstantIsSampleRateIndependent)
     EXPECT_NEAR(at_48k, at_96k, 1e-4f);
 }
 
-TEST(Unit_Dsp, SmoothedParameterSnapSettlesImmediately)
+TEST(SmoothedParameter, SmoothedParameterSnapSettlesImmediately)
 {
     SushiDSP::SmoothedParameter parameter(0.0f);
     parameter.prepare(48000.0, 20.0f);
