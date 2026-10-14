@@ -61,7 +61,7 @@ TEST(Unit_Dsp, Dd3ClockIsMonotoneAndStaysInsideItsRange)
 
 TEST(Unit_Dsp, Dd3ClockDelayTimesLandOnThePublishedRanges)
 {
-    // The delay-time errors are printed, not asserted. See tests/functional/unit/README.md.
+    // The delay-time errors are printed, not asserted. See tests/nodes/dd3/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
     struct Mode
     {
@@ -90,7 +90,7 @@ TEST(Unit_Dsp, Dd3ClockDelayTimesLandOnThePublishedRanges)
 
 TEST(Unit_Dsp, Dd3ClockSlewMatchesTheR56C52Pole)
 {
-    // After one tau the clock reads 33681.4 Hz. See tests/functional/unit/README.md.
+    // After one tau the clock reads 33681.4 Hz. See tests/nodes/dd3/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
     EXPECT_NEAR(Clock::K_SLEW_TIME_CONSTANT_SECONDS, 5.94e-4, 1e-12);
     SushiDSP::dd3::Dd3Clock clock;
@@ -106,7 +106,7 @@ TEST(Unit_Dsp, Dd3ClockSlewMatchesTheR56C52Pole)
 
 TEST(Unit_Dsp, Dd3ClockAdvancesOneQuarterOfTheRemainingDistancePerSubBlock)
 {
-    // The pole closes 0.2446570 of the rest per sub-block. See tests/functional/unit/README.md.
+    // The pole closes 0.2446570 of the rest per sub-block. See tests/nodes/dd3/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
     SushiDSP::dd3::Dd3Clock clock;
     clock.prepare(48000.0);

@@ -36,7 +36,7 @@
 
 #include <SushiDSP/nodes/capture/take.hpp>
 #include <SushiDSP/nodes/capture/vari_rate_reader.hpp>
-#include <SushiDSP/foundation/signal_measure/spectrum.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/spectrum.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -219,7 +219,7 @@ TEST(Unit_Dsp, VariRateReaderResetStartsFromSilence)
 
 TEST(Unit_Dsp, VariRateReaderDoesNotDriftFarDownTheTake)
 {
-    // At half speed 256 outputs cost 128 take frames. See tests/functional/unit/README.md.
+    // At half speed 256 outputs cost 128 take frames. See tests/nodes/capture/README.md.
     const SushiDSP::Take take = sine_take(440.0, 4096u, 48000.0);
 
     SushiDSP::VariRateReader reader;

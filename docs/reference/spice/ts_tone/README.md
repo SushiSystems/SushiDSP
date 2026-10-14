@@ -14,7 +14,7 @@ this directory. Regenerate them with:
 python tools/spice/export.py ts_tone --ltspice "%LOCALAPPDATA%/Programs/ADI/LTspice/LTspice.exe"
 ```
 
-Until that runs, the block tests in `tests/functional/unit/test_ts_tone_stage.cpp` compare
+Until that runs, the block tests in `tests/nodes/tubescreamer/test_tube_screamer_circuits/test_tone_stage.cpp` compare
 against the closed form only and skip both SPICE nulls.
 
 **LTspice version:** LTspice 24, the only detail 2bdbf91 records; the exact build is not

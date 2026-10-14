@@ -35,8 +35,8 @@
 #include <cstdint>
 #include <string>
 
-#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
-#include <SushiDSP/foundation/timing_gate/timing_gate.hpp.hpp>
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
+#include <SushiDSP/foundation/timing_gate/timing_gate.hpp>
 #include <SushiDSP/nodes/room/band_response_fit.hpp>
 #include <SushiDSP/nodes/room/image_source_solver.hpp>
 #include <SushiDSP/nodes/room/medium_absorption.hpp>
@@ -61,7 +61,7 @@ namespace
     /// arrival order: direct, floor, ceiling, -y, +y, -x, +x.
     std::array<double, 7> first_order_metres()
     {
-        // These are the seven first-order path lengths. See tests/functional/unit/README.md.
+        // These are the seven first-order path lengths. See tests/nodes/room/README.md.
         return {std::sqrt(2.5 * 2.5 + 0.7 * 0.7),
                 std::sqrt(2.5 * 2.5 + 1.7 * 1.7),
                 std::sqrt(2.5 * 2.5 + 3.3 * 3.3),
@@ -119,7 +119,7 @@ TEST(Unit_Dsp, ImageSourceSolverCountsTheLatticePoints)
 
 TEST(Unit_Dsp, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
 {
-    // The two y images share one arrival. See tests/functional/unit/README.md.
+    // The two y images share one arrival. See tests/nodes/room/README.md.
     const SushiDSP::room::EarlyTapSet set =
         SushiDSP::room::ImageSourceSolver::solve(example_scene(), {});
     const std::array<double, 7> metres = first_order_metres();
@@ -145,7 +145,7 @@ TEST(Unit_Dsp, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
 
 TEST(Unit_Dsp, ImageSourceSolverCutsTheFirstOrderSetAtItsOwnHandover)
 {
-    // At order 1 t_c is 699.708 frames, so five taps remain. See tests/functional/unit/README.md.
+    // At order 1 t_c is 699.708 frames, so five taps remain. See tests/nodes/room/README.md.
     SushiDSP::room::ImageSourceSolver::Options options;
     options.max_order = 1u;
     const SushiDSP::room::EarlyTapSet set =
@@ -191,7 +191,7 @@ TEST(Unit_Dsp, ImageSourceSolverDropsEveryTapPastTheHandoverTime)
     {
         EXPECT_LE(set.taps[tap].delay_frames, crossover * 48000.0) << "tap " << tap;
     }
-    // Order 4 enumerates 129 images; some arrive after t_c. See tests/functional/unit/README.md.
+    // Order 4 enumerates 129 images; some arrive after t_c. See tests/nodes/room/README.md.
     EXPECT_LT(set.count, 129u);
 }
 
@@ -258,7 +258,7 @@ TEST(Unit_Dsp, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
     // The direct tap crosses no wall and keeps 1 / r whatever the scattering.
     EXPECT_NEAR(flat.taps[0].gain, 1.0 / metres[0], 1e-6);
     EXPECT_NEAR(cluttered.taps[0].gain, 1.0 / metres[0], 1e-6);
-    // Cluttered keeps sqrt(0.60 / 0.90) = 0.816497 of Flat. See tests/functional/unit/README.md.
+    // Cluttered keeps sqrt(0.60 / 0.90) = 0.816497 of Flat. See tests/nodes/room/README.md.
     constexpr std::array<std::size_t, 4> single_arrivals = {1, 2, 5, 6};
     for (const std::size_t tap : single_arrivals)
     {
@@ -277,7 +277,7 @@ TEST(Unit_Dsp, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
 TEST(Unit_Dsp, ImageSourceSolverSolvesTheGarageInsideThePublishBudget)
 {
     SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
-    // A Release solve measures 1 ms; the margin is deliberate. See tests/functional/unit/README.md.
+    // A Release solve measures 1 ms; the margin is deliberate. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const auto start = std::chrono::steady_clock::now();
     const SushiDSP::room::EarlyTapSet set = SushiDSP::room::ImageSourceSolver::solve(garage, {});

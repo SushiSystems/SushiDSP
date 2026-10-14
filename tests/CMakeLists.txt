@@ -64,8 +64,8 @@ add_executable(sushidsp_tests
     foundation/core/test_audio_device.cpp
     foundation/core/test_buffer_pool.cpp
     foundation/core/test_denormal_guard.cpp
-    foundation/core/test_rig_graph.cpp
-    functional/unit/test_rig_graph_output_ports.cpp
+    foundation/core/test_rig_graph/test_behaviour.cpp
+    foundation/core/test_rig_graph/test_output_ports.cpp
     nodes/routing/test_sample_delay_line.cpp
     nodes/routing/test_channel_strip_node.cpp
     nodes/routing/test_stereo_strip_node.cpp
@@ -74,7 +74,7 @@ add_executable(sushidsp_tests
     nodes/routing/test_splitter_node.cpp
     nodes/routing/test_mixer_node.cpp
     nodes/routing/test_pan_node.cpp
-    nodes/capture/test_track_recorder.cpp
+    nodes/capture/test_track_recorder/test_behaviour.cpp
     nodes/capture/test_track_player.cpp
     applications/host_gui/test_file_drop_queue.cpp
     nodes/capture/test_transport.cpp
@@ -93,26 +93,26 @@ add_executable(sushidsp_tests
 
     # --- Log ---
     foundation/log/test_log_formatter.cpp
-    functional/unit/test_log_compile_time_cut.cpp
+    foundation/log/test_log.cpp
     foundation/log/test_logger.cpp
     foundation/log/test_log_line_queue.cpp
     foundation/log/test_async_log_sink.cpp
-    functional/unit/test_track_recorder_logging.cpp
-    functional/unit/test_room_node_logging.cpp
-    functional/unit/test_directory_listing_logging.cpp
+    nodes/capture/test_track_recorder/test_logging.cpp
+    nodes/room/test_room_node/test_logging.cpp
+    applications/host_gui/ui/test_directory_listing/test_logging.cpp
 
     # --- Circuits ---
     foundation/circuits/models/test_silicon_diode.cpp
-    functional/unit/test_triode_12ax7.cpp
+    foundation/circuits/models/test_triode12_ax7.cpp
     foundation/circuits/models/test_pentode_el34.cpp
-    foundation/math/dk/test_dk_circuit.cpp
-    functional/unit/test_dk_triode_stage.cpp
-    functional/unit/test_dk_op_amp.cpp
-    functional/unit/test_ts_clip_stage.cpp
-    functional/unit/test_ts_tone_stage.cpp
+    foundation/math/dk/test_dk_circuit/test_behaviour.cpp
+    foundation/circuits/stages/test_triode_stage/test_dk_netlist.cpp
+    foundation/math/dk/test_dk_circuit/test_op_amp.cpp
+    nodes/tubescreamer/test_tube_screamer_circuits/test_clip_stage.cpp
+    nodes/tubescreamer/test_tube_screamer_circuits/test_tone_stage.cpp
 
     # --- Circuits: stages ---
-    foundation/circuits/stages/test_triode_stage.cpp
+    foundation/circuits/stages/test_triode_stage/test_behaviour.cpp
     foundation/circuits/stages/test_pentode_stage.cpp
     foundation/circuits/stages/test_output_transformer_stage.cpp
     foundation/circuits/stages/test_power_supply_sag_stage.cpp
@@ -127,13 +127,13 @@ add_executable(sushidsp_tests
     foundation/circuits/test_audio_taper_pot.cpp
 
     # --- Products ---
-    nodes/tubescreamer/test_tube_screamer.cpp
+    nodes/tubescreamer/test_tube_screamer/test_behaviour.cpp
     nodes/jcm800/test_jcm_tone_stack.cpp
-    nodes/jcm800/test_jcm800.cpp
+    nodes/jcm800/test_jcm800/test_behaviour.cpp
     nodes/cabinet/test_cabinet_node.cpp
-    nodes/peavey5150/test_peavey5150.cpp
-    nodes/diezel_vh4/test_diezel_vh4.cpp
-    nodes/mesa_mark2c/test_mesa_mark2c.cpp
+    nodes/peavey5150/test_peavey5150/test_behaviour.cpp
+    nodes/diezel_vh4/test_diezel_vh4/test_behaviour.cpp
+    nodes/mesa_mark2c/test_mesa_mark2c/test_behaviour.cpp
 
     # --- Math ---
     foundation/math/test_biquad.cpp
@@ -142,11 +142,11 @@ add_executable(sushidsp_tests
     foundation/math/dk/test_damped_newton_solver.cpp
     foundation/math/test_oversampler.cpp
     functional/unit/test_measure.cpp
-    functional/unit/test_spice_csv.cpp
+    foundation/spice_reference/test_spice_csv.cpp
     foundation/math/test_partitioned_convolution.cpp
     foundation/math/test_streaming_convolution.cpp
     foundation/math/test_sinc_resampler.cpp
-    functional/unit/test_resampler_coefficients.cpp
+    foundation/math/test_resampler_design.cpp
     foundation/math/test_resampler.cpp
     foundation/math/test_smoothed_parameter.cpp
     foundation/math/test_wdf.cpp
@@ -158,7 +158,7 @@ add_executable(sushidsp_tests
     foundation/io/test_wav_writer.cpp
 
     # --- Real-time safety ---
-    functional/unit/test_rt_safety.cpp
+    foundation/core/test_audio_node/test_rt_safety.cpp
 
     # --- Host diagnostics ---
     applications/host/test_sine_tone_node.cpp
@@ -200,7 +200,7 @@ add_executable(sushidsp_tests
     applications/host_gui/ui/test_knob_math.cpp
     applications/host_gui/ui/test_panel_library.cpp
     applications/host_gui/ui/test_level_probe.cpp
-    applications/host_gui/ui/test_directory_listing.cpp
+    applications/host_gui/ui/test_directory_listing/test_behaviour.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/knob_math.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/panel_library.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/directory_listing.cpp
@@ -224,26 +224,26 @@ add_executable(sushidsp_tests
     nodes/dd3/test_ne570_compander.cpp
     nodes/dd3/test_dd3_converter.cpp
     nodes/dd3/test_dd3_clock.cpp
-    nodes/dd3/test_dd3_delay.cpp
+    nodes/dd3/test_dd3_delay/test_behaviour.cpp
     nodes/room/test_band_response.cpp
-    functional/unit/test_room_materials.cpp
-    functional/unit/test_room_furniture.cpp
+    nodes/room/test_materials.cpp
+    nodes/room/test_furniture.cpp
     nodes/room/test_air_absorption.cpp
     nodes/room/test_medium_absorption.cpp
     nodes/room/test_band_response_fit.cpp
     nodes/room/test_cabinet_directivity.cpp
     nodes/room/test_microphone_model.cpp
-    functional/unit/test_room_records.cpp
+    nodes/room/test_room_scene/test_records.cpp
     nodes/room/test_crossover_pair.cpp
     nodes/room/test_hrtf_set.cpp
     nodes/room/test_ambisonic_encoder.cpp
-    nodes/room/test_room_scene.cpp
-    functional/unit/test_room_scene_furnishings.cpp
-    functional/unit/test_room_starter_scene.cpp
+    nodes/room/test_room_scene/test_behaviour.cpp
+    nodes/room/test_room_scene/test_furnishings.cpp
+    nodes/room/test_starter_scene.cpp
     applications/host_gui/ui/test_furnishing_list.cpp
     applications/host_gui/ui/test_patch_list.cpp
-    functional/unit/test_room_motus.cpp
-    functional/unit/test_room_bras.cpp
+    nodes/room/test_built_room_loss/test_motus_reference.cpp
+    nodes/room/test_built_room_loss/test_bras_reference.cpp
     nodes/room/test_early_reflection_renderer.cpp
     nodes/room/test_late_reverb.cpp
     nodes/room/test_modal_bank.cpp
@@ -255,8 +255,8 @@ add_executable(sushidsp_tests
     nodes/room/test_late_reverb_design.cpp
     nodes/room/test_modal_solver.cpp
     nodes/room/test_room_render_set.cpp
-    nodes/room/test_room_node.cpp
-    functional/unit/test_room_environment.cpp
+    nodes/room/test_room_node/test_behaviour.cpp
+    nodes/room/test_environment_render_set.cpp
     nodes/room/test_room_arrangement.cpp
     nodes/room/test_driver_field.cpp
     nodes/room/test_furnishing_field.cpp
@@ -266,20 +266,18 @@ add_executable(sushidsp_tests
     applications/host_gui/ui/test_arrangement_layout.cpp
     applications/host_gui/ui/test_tap_tempo.cpp
     applications/host_gui/ui/test_musical_time_text.cpp
-    functional/unit/test_dd3_acceptance.cpp
+    nodes/dd3/test_dd3_delay/test_acceptance.cpp
 
     # --- Regression ---
-    functional/regression/test_dd3_regression.cpp
-    functional/regression/test_tube_screamer_regression.cpp
-    functional/regression/test_jcm800_regression.cpp
-    functional/regression/test_peavey5150_regression.cpp
-    functional/regression/test_diezel_vh4_regression.cpp
-    functional/regression/test_mesa_mark2c_regression.cpp
+    nodes/dd3/test_dd3_delay/test_output.cpp
+    nodes/tubescreamer/test_tube_screamer/test_output.cpp
+    nodes/jcm800/test_jcm800/test_output.cpp
+    nodes/peavey5150/test_peavey5150/test_output.cpp
+    nodes/diezel_vh4/test_diezel_vh4/test_output.cpp
+    nodes/mesa_mark2c/test_mesa_mark2c/test_output.cpp
 )
 
 target_compile_definitions(sushidsp_tests PRIVATE
-    SUSHIDSP_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden"
-    SUSHIDSP_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
     SUSHIDSP_SPICE_DIR="${CMAKE_SOURCE_DIR}/docs/reference/spice"
 )
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/host)
@@ -325,6 +323,30 @@ target_link_libraries(sushidsp_tests PRIVATE
 )
 sushidsp_apply_optimization_flags(sushidsp_tests)
 
+# Each regression case names its golden folder; the folder sits beside the unit's tests.
+set_source_files_properties(nodes/dd3/test_dd3_delay/test_output.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_GOLDEN_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/dd3/goldens/dd3_delay\"")
+set_source_files_properties(nodes/diezel_vh4/test_diezel_vh4/test_output.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_GOLDEN_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/diezel_vh4/goldens/diezel_vh4\"")
+set_source_files_properties(nodes/jcm800/test_jcm800/test_output.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_GOLDEN_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/jcm800/goldens/jcm800\"")
+set_source_files_properties(nodes/mesa_mark2c/test_mesa_mark2c/test_output.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_GOLDEN_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/mesa_mark2c/goldens/mesa_mark2c\"")
+set_source_files_properties(nodes/peavey5150/test_peavey5150/test_output.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_GOLDEN_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/peavey5150/goldens/peavey5150\"")
+set_source_files_properties(nodes/tubescreamer/test_tube_screamer/test_output.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_GOLDEN_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/tubescreamer/goldens/tube_screamer\"")
+
+# Each test that reads a fixture names the folder of its owner's fixtures.
+set_source_files_properties(nodes/room/test_built_room_loss/test_bras_reference.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/built_room_loss\"")
+set_source_files_properties(nodes/room/test_built_room_loss/test_motus_reference.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/built_room_loss\"")
+set_source_files_properties(applications/host_gui/test_rig_controller.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/applications/host_gui/fixtures/rig_controller\"")
+set_source_files_properties(foundation/spice_reference/test_spice_csv.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/foundation/spice_reference/fixtures/spice_csv\"")
+
 # Every test file of the binary is registered. A test file is named test_<name>.cpp; the
 # application and support sources compiled into the binary are not.
 get_target_property(_sushidsp_test_sources sushidsp_tests SOURCES)
@@ -334,8 +356,28 @@ foreach(_source IN LISTS _sushidsp_test_sources)
     endif()
 endforeach()
 
-# The timing harness (bench/, see tests/benchmark/CMakeLists.txt for why it is a plain
+# The timing harness (bench/, see tests/foundation/core/CMakeLists.txt for why it is a plain
 # executable rather than a GTest binary): registered here, not from the root CMakeLists.txt,
 # so it lives under the same "tests" umbrella `sd test` builds and ctest discovers everything
 # under.
-add_subdirectory(benchmark)
+# The timing harness: one executable, labelled benchmark, beside the core module's tests.
+add_executable(sushidsp_bench
+    foundation/core/benchmark_audio_path.cpp
+)
+target_link_libraries(sushidsp_bench PRIVATE
+    SushiDSP::sushi_dsp
+    SushiDSP::tubescreamer
+    SushiDSP::jcm800
+    SushiDSP::mesa_mark2c
+    SushiDSP::peavey5150
+    SushiDSP::diezel_vh4
+    SushiDSP::capture
+    SushiDSP::dd3
+    SushiDSP::room
+    SushiDSP::sushi_dsp_circuit_blocks
+    SushiDSP::room_scenes
+)
+sushidsp_apply_optimization_flags(sushidsp_bench)
+
+add_test(NAME Benchmark.AudioPath COMMAND sushidsp_bench)
+set_tests_properties(Benchmark.AudioPath PROPERTIES LABELS "benchmark")

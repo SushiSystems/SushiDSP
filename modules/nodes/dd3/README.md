@@ -97,7 +97,7 @@ something a host should compensate.
   `Dd3Converter`.
 - **Oversampling of the analog chain.** The Sallen–Key cascades, the companders and the emphasis
   shelves all run at the host rate (plan Ruling 7). DR2's acceptance battery
-  (`tests/functional/unit/test_dd3_acceptance.cpp`) prints the alias floor that leaves, so the
+  (`tests/nodes/dd3/test_dd3_delay/test_acceptance.cpp`) prints the alias floor that leaves, so the
   deferral carries a number.
 - **The DD-3A and everything after it.** Deleting Q2, C1 0.027 → 0.047 µF, deleting C18 and
   dropping the top clock to 80 kHz would cover the DD-3A's deltas that change the sound. Its gate

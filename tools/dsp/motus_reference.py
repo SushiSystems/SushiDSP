@@ -6,7 +6,7 @@
 """Measure octave-band decay figures from a Motus spherical-harmonic room impulse response.
 
 Usage:  python tools/dsp/motus_reference.py --rir 0001_1_sh_rirs.wav 0002_1_sh_rirs.wav \
-            0003_1_sh_rirs.wav --csv tests/fixtures/motus_reference.csv
+            0003_1_sh_rirs.wav --csv tests/nodes/room/fixtures/built_room_loss/motus_reference.csv
 The input, the method and every fixed parameter are in tools/dsp/README.md, "motus_reference.py".
 """
 from __future__ import annotations

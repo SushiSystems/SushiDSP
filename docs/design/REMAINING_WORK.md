@@ -94,7 +94,7 @@ what to try on screen. No change to the levels the room renders at starts withou
 - **Transcribe the remaining four material rows**, and measure the SM57's curve.
 - **Give `sd test` a test filter.** Without one, `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`
   rewrites all twelve golden files, so re-pinning one node means overwriting the JCM800 anchor's and
-  restoring it by hand afterwards (`tests/golden/README.md`).
+  restoring it by hand afterwards (`modules/foundation/golden_compare/README.md`).
 
 ## The Mark IIC+ questions only a real amplifier answers
 
@@ -159,7 +159,7 @@ Mechanical work that follows:
 - Rewrite `docs/archive/README.md` as an index of what the archive holds, and say there
   which of the two standards phase 1 plans is the record.
 - Give the five placeless changelog entries of 2026-09-05 and 2026-09-07 their places.
-- Write the READMEs for `applications/host/`, `applications/host_asio/`, `modules/foundation/signal_measure/`, `tests/benchmark/`
+- Write the READMEs for `applications/host/`, `applications/host_asio/`, `modules/foundation/signal_measure/`, `tests/foundation/core/`
   and each area under `include/SushiDSP/`.
 - Rewrite the CLI guide, the design spec's opening block and the first known issue in the
   `humanizer` register.
@@ -168,7 +168,7 @@ Mechanical work that follows:
 - Build the test layout the repository-layout skill names: `tests/unit/` and `tests/regression/`
   in place of `tests/functional/`, module tests under each module's `tests/`, one test program per
   module. Blocked: it changes the test binaries and their labels, which needs a build to verify.
-- Split `tests/functional/unit/README.md`, 4447 lines against the 800-line ceiling, with the test
+- Split `tests/README.md`, 4447 lines against the 800-line ceiling, with the test
   layout above.
 - Replace the paragraphs of the docs-truth findings still open: 21 named symbols the source does
   not hold (`TopBar`, `StagePanel`, `Mp3Decoder`, ...), 28 history words, and two duplicated

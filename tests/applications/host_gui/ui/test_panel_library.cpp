@@ -60,7 +60,7 @@ TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForEveryAmplifier)
         EXPECT_GT(panel->aspect.x, panel->aspect.y) << entry.descriptor->id;
     }
 
-    // The registry says which products are amplifiers. See tests/functional/unit/README.md.
+    // The registry says which products are amplifiers. See tests/applications/host_gui/ui/README.md.
     EXPECT_GT(amplifiers, 0u);
 }
 
@@ -233,7 +233,7 @@ TEST(Unit_Dsp, PanelLibraryGivesEveryRegisteredNodeAPanelWithAControlPerParamete
         const ui::PanelDescriptor panel =
             hand_authored != nullptr ? *hand_authored : ui::auto_panel(node, storage);
 
-        // Every parameter of every node has a control. See tests/functional/unit/README.md.
+        // Every parameter of every node has a control. See tests/applications/host_gui/ui/README.md.
         for (std::uint16_t i = 0; i < node.parameter_count; ++i)
         {
             const char* id = node.parameters[i].id;

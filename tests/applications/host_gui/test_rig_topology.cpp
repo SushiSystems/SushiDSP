@@ -59,7 +59,7 @@ TEST(Unit_Dsp, RigTopologyOpeningAPathReportsItForTheCallerToFill)
     EXPECT_EQ(to_two.opened, (std::vector<std::size_t>{1}));
     EXPECT_TRUE(to_two.discarded.empty());
 
-    // The path the model opens starts empty. See tests/functional/unit/README.md.
+    // The path the model opens starts empty. See tests/applications/host_gui/README.md.
     EXPECT_TRUE(topology.stage({StageKind::Branch, 1}).empty());
 
     const ChainTypeChange to_three = topology.set_chain_type(ChainType::ThreeWay);

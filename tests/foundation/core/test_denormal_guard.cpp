@@ -34,7 +34,7 @@
 
 namespace
 {
-    // A volatile read stops the compiler folding the product. See tests/functional/unit/README.md.
+    // A volatile read stops the compiler folding the product. See tests/foundation/core/README.md.
     float decay_toward_zero(float start)
     {
         volatile float value = start;

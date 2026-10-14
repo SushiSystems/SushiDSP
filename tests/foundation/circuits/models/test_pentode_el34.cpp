@@ -35,7 +35,7 @@
 
 TEST(Unit_Dsp, PentodeEL34MatchesKorenAtThreeOperatingPoints)
 {
-    // The three points are hand-computed from Koren's law. See tests/functional/unit/README.md.
+    // The three points are hand-computed from Koren's law. See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
     struct Point
     {
@@ -82,7 +82,7 @@ TEST(Unit_Dsp, PentodeEL34MatchesKorenAtThreeOperatingPoints)
 
 TEST(Unit_Dsp, PentodeEL34GridCurrentFollowsNormansSoftLaw)
 {
-    // Ig1 = 1e-6 * ln(1 + exp((Vg1k - 0.5)/0.15)). See tests/functional/unit/README.md.
+    // Ig1 = 1e-6 * ln(1 + exp((Vg1k - 0.5)/0.15)). See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
     struct Point
     {
@@ -115,7 +115,7 @@ TEST(Unit_Dsp, PentodeEL34JacobianMatchesCentredDifferencesEverywhere)
         {
             for (const double vpk : {20.0, 100.0, 250.0, 450.0})
             {
-                // The screen law kinks at z = 0; skip it. See tests/functional/unit/README.md.
+                // The screen law kinks at z = 0; skip it. See tests/foundation/circuits/models/README.md.
                 if (std::abs(vg2k / SushiDSP::PentodeEL34::K_MU + vg1k) < 1e-3)
                 {
                     continue;
@@ -150,7 +150,7 @@ TEST(Unit_Dsp, PentodeEL34JacobianMatchesCentredDifferencesEverywhere)
 
 TEST(Unit_Dsp, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
 {
-    // kx > 1, so the screen current is C1 at z = 0. See tests/functional/unit/README.md.
+    // kx > 1, so the screen current is C1 at z = 0. See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
     const double vg2k = 400.0;
     const double kink = -vg2k / SushiDSP::PentodeEL34::K_MU;
@@ -178,7 +178,7 @@ TEST(Unit_Dsp, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
 
 TEST(Unit_Dsp, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
 {
-    // Ip factors into a grid term times atan(Vpk/kvb). See tests/functional/unit/README.md.
+    // Ip factors into a grid term times atan(Vpk/kvb). See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
     std::array<double, 3> high{};
     std::array<double, 3> low{};
@@ -191,7 +191,7 @@ TEST(Unit_Dsp, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
 
 TEST(Unit_Dsp, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
 {
-    // current() and jacobian() forward to the joint form. See tests/functional/unit/README.md.
+    // current() and jacobian() forward to the joint form. See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
     for (const double vg1k : {-45.0, -37.0, -20.0, -5.0, 0.0})
     {

@@ -38,7 +38,7 @@
 namespace
 {
     /// @brief Declares a node whose virtual ports() returns a fixed, checkable value.
-    /// @see tests/functional/unit/README.md
+    /// @see tests/foundation/core/README.md
     class CanaryNode : public SushiDSP::AudioNode
     {
         public:
@@ -112,7 +112,7 @@ TEST(Unit_Dsp, RtGraphSlotConcurrentPublishAndAcquireDoesNotRace)
                 SushiDSP::RigGraph* graph = slot.acquire_for_audio_thread();
                 ASSERT_NE(graph, nullptr);
 
-                // A virtual call catches a dangling graph pointer. See tests/functional/unit/README.md.
+                // A virtual call catches a dangling graph pointer. See tests/foundation/core/README.md.
                 auto handles = graph->nodes();
                 ASSERT_EQ(handles.size(), 1u);
                 SushiDSP::AudioNode* node = graph->node(handles[0]);

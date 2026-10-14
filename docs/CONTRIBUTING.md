@@ -33,7 +33,7 @@ A change is finished when these land in the same commit as the code:
 | Work opened or closed | [`design/REMAINING_WORK.md`](design/REMAINING_WORK.md) |
 | A defect measured and left open, or one closed | [`reference/KNOWN_ISSUES.md`](reference/KNOWN_ISSUES.md) |
 | Anything at all | One line under `## Unreleased` in [`reference/CHANGELOG.md`](reference/CHANGELOG.md) |
-| A golden file | A row in `tests/golden/README.md` saying what changed |
+| A golden file | A row in `modules/foundation/golden_compare/README.md` saying what changed |
 
 Before a commit that touches `docs/`, both of these print nothing:
 
@@ -79,7 +79,7 @@ both at once. The rules below are the tree today.
 | Real-time path | `AudioNode::process()` and everything it calls allocates nothing, locks nothing, makes no system call and throws nothing |
 
 A class that will sit on the audio path gets a `*ProcessPerformsNoHeapAllocation` case in
-`tests/functional/unit/test_rt_safety.cpp`, which replaces `operator new` and fails when the
+`tests/foundation/core/test_audio_node/test_rt_safety.cpp`, which replaces `operator new` and fails when the
 audio path reaches it. Every scratch buffer is sized in the constructor or in `prepare()`.
 
 ## 5. Tests
@@ -89,12 +89,12 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 | Folder | Holds |
 | --- | --- |
 | `tests/<tier>/<module>/`, `tests/applications/<app>/` | One `test_<snake_case_name>.cpp` per unit, at the path of the unit's header |
-| `tests/functional/` | Tests not yet moved to their mirror path, and the golden-file regression per product; see `docs/agent/2026_10_14_TEST_TREE/PLAN.md` |
-| `tests/golden/` | The pinned `.f32` renders and the record of each regeneration |
-| `tests/fixtures/` | Reference data from measured rooms, each with its own README |
+| `tests/functional/unit/` | The one test still waiting for its owner: `test_measure.cpp`, which covers `signal_measure`; see `docs/agent/2026_10_14_TEST_TREE/PLAN.md` |
+| `tests/<tier>/<module>/goldens/` | The pinned `.f32` renders, one folder per unit; the record of each regeneration is in `modules/foundation/golden_compare/README.md` |
+| `tests/nodes/room/fixtures/built_room_loss/` | Reference data from measured rooms, each with its own README |
 | `modules/foundation/{signal_measure,spice_reference,circuit_blocks,golden_compare,timing_gate,regression_test}/`, `modules/nodes/room_scenes/` | Shared test code, each an internal module: measurement, SPICE comparison, circuit blocks, golden comparison, the timing gate, the regression macro, the room scenes |
 | `tests/` | `main.cpp`, the entry point of `sushidsp_tests`; `README.md` |
-| `tests/benchmark/` | The timing harness, one CTest case under the `benchmark` label |
+| `tests/foundation/core/` | The timing harness, one CTest case under the `benchmark` label |
 
 - A test carries its label through the macro it is written with: `TEST(Logger, SomeCase)` runs
   under `sd test -s unit`, `SUSHIDSP_REGRESSION_TEST(Logger, SomeCase)` (from

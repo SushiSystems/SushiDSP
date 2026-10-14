@@ -38,8 +38,8 @@
 #include <vector>
 
 #include <SushiDSP/nodes/dd3/ne570_compander.hpp>
-#include <SushiDSP/foundation/signal_measure/spectrum.hpp.hpp>
-#include <SushiDSP/foundation/signal_measure/thd.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/spectrum.hpp>
+#include <SushiDSP/foundation/signal_measure/thd.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -77,7 +77,7 @@ namespace
 
 TEST(Unit_Dsp, Ne570CompressorFollowsTheTwoToOneLaw)
 {
-    // V_out = sqrt(V_ref * V_in) with V_ref = 6.6125 V. See tests/functional/unit/README.md.
+    // V_out = sqrt(V_ref * V_in) with V_ref = 6.6125 V. See tests/nodes/dd3/README.md.
     struct Point
     {
             double input;
@@ -95,7 +95,7 @@ TEST(Unit_Dsp, Ne570CompressorFollowsTheTwoToOneLaw)
 
 TEST(Unit_Dsp, Ne570ExpanderFollowsTheOneToTwoLaw)
 {
-    // V_out = V_in^2 / V_ref. See tests/functional/unit/README.md.
+    // V_out = V_in^2 / V_ref. See tests/nodes/dd3/README.md.
     struct Point
     {
             double input;
@@ -136,7 +136,7 @@ TEST(Unit_Dsp, Ne570RoundTripIsTheIdentityInTheStaticLimit)
 
 TEST(Unit_Dsp, Ne570EnvelopeReachesSixtyThreePercentAtSixPointEightMilliseconds)
 {
-    // tau = 10k * 0.68u = 6.8 ms, 326.4 samples at 48 kHz. See tests/functional/unit/README.md.
+    // tau = 10k * 0.68u = 6.8 ms, 326.4 samples at 48 kHz. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Ne570Compander expander(SushiDSP::dd3::CompanderHalf::Expander);
     expander.prepare(48000.0);
     const double target = 1.0; // a 1 V DC step reads 1 V * pi/2 rectified...
@@ -144,7 +144,7 @@ TEST(Unit_Dsp, Ne570EnvelopeReachesSixtyThreePercentAtSixPointEightMilliseconds)
     for (std::size_t n = 0; n < 4800; ++n)
     {
         expander.process_sample(static_cast<float>(target));
-        // The 63.21 % point is 0.6321206 * pi/2 = 0.9929407. See tests/functional/unit/README.md.
+        // The 63.21 % point is 0.6321206 * pi/2 = 0.9929407. See tests/nodes/dd3/README.md.
         if (crossing == 0 && expander.envelope_volts() >= 0.6321206 * M_PI / 2.0)
         {
             crossing = n + 1;
@@ -157,7 +157,7 @@ TEST(Unit_Dsp, Ne570EnvelopeReachesSixtyThreePercentAtSixPointEightMilliseconds)
 
 TEST(Unit_Dsp, Ne570CompressorGainSaturatesAtTheEnvelopeFloor)
 {
-    // Below 6.6125e-4 V the gain stops at 1e4. See tests/functional/unit/README.md.
+    // Below 6.6125e-4 V the gain stops at 1e4. See tests/nodes/dd3/README.md.
     const double tiny = 1e-9;
     const double output = settled_peak(SushiDSP::dd3::CompanderHalf::Compressor, tiny, 1000.0);
     EXPECT_NEAR(output / tiny, 1.0e4, 1.0e2);
@@ -165,7 +165,7 @@ TEST(Unit_Dsp, Ne570CompressorGainSaturatesAtTheEnvelopeFloor)
 
 TEST(Unit_Dsp, Ne570RectifierRippleReachesTheSignalAtLowFrequencies)
 {
-    // The third harmonic has a floor, not a ceiling. See tests/functional/unit/README.md.
+    // The third harmonic has a floor, not a ceiling. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Ne570Compander compressor(SushiDSP::dd3::CompanderHalf::Compressor);
     compressor.prepare(48000.0);
     const double f0 =
@@ -184,7 +184,7 @@ TEST(Unit_Dsp, Ne570RectifierRippleReachesTheSignalAtLowFrequencies)
 
 TEST(Unit_Dsp, Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier)
 {
-    // The -70 dB bound covers the comb's tail from bin 4. See tests/functional/unit/README.md.
+    // The -70 dB bound covers the comb's tail from bin 4. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Ne570Compander compressor(SushiDSP::dd3::CompanderHalf::Compressor);
     compressor.prepare(48000.0);
     const double f0 =
@@ -216,7 +216,7 @@ TEST(Unit_Dsp, Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier)
 
 TEST(Unit_Dsp, Ne570HalvesDoNotShareState)
 {
-    // The expander is open-loop; instances share no state. See tests/functional/unit/README.md.
+    // The expander is open-loop; instances share no state. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Ne570Compander first(SushiDSP::dd3::CompanderHalf::Expander);
     SushiDSP::dd3::Ne570Compander second(SushiDSP::dd3::CompanderHalf::Expander);
     first.prepare(48000.0);

@@ -65,7 +65,7 @@ TEST(Unit_Dsp, LongTailedPairDrivesItsTwoPlatesInOppositeDirections)
 
     EXPECT_LT(plates.a, 0.0f);
     EXPECT_GT(plates.b, 0.0f);
-    // Matched amplitudes are not asserted. See tests/functional/unit/README.md.
+    // Matched amplitudes are not asserted. See tests/foundation/circuits/stages/README.md.
     EXPECT_GT(std::fabs(plates.a), 0.0f);
     EXPECT_GT(std::fabs(plates.b), 0.0f);
 }

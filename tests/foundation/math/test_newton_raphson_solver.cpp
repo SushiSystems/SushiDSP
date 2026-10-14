@@ -100,7 +100,7 @@ TEST(Unit_Dsp, NewtonRaphsonSolverWarmStartConvergesInFewerIterationsThanColdSta
 
 TEST(Unit_Dsp, NewtonRaphsonSolverJointOverloadMatchesSplitOverloadBitForBit)
 {
-    // Both overloads must walk identical iterates. See tests/functional/unit/README.md.
+    // Both overloads must walk identical iterates. See tests/foundation/math/README.md.
     auto function = [](float x)
     {
         return std::exp(x) - 3.0f;

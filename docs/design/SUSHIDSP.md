@@ -199,7 +199,7 @@ armed in one call, which is what makes the two files sample-aligned), `Transport
 `SushiDSP::WavWriter`, in the core's `io/`, is the streaming write half of `WavFile`: 16-bit PCM or
 32-bit float, the float path carrying a `fact` chunk and an 18-byte `fmt `. `TrackRecorder::write`
 and `TrackPlayer::process` are the module's two audio-thread entry points and both are trapped in
-`tests/functional/unit/test_rt_safety.cpp`. `Transport` packs the loop range into one 64-bit word,
+`tests/foundation/core/test_audio_node/test_rt_safety.cpp`. `Transport` packs the loop range into one 64-bit word,
 begin in the high half and length in the low, so a block reads both ends in one load and cannot see
 a half-applied range; the cost is that a loop must lie inside the first 2^32 frames, 24.8 hours at
 48 kHz. `modules/nodes/capture/README.md` carries the rest.
@@ -465,7 +465,7 @@ Every buffer is sized in `prepare(source_rate, target_rate, max_input_frames, mi
 `minimum_ratio` is what fixes the history length: the kernel's span in input samples grows as
 1/ratio when decimating. `set_rates` moves the accumulator's step and the kernel's time scale and
 allocates nothing, which is what lets the DD-3 re-clock 32 times per 256-frame block on the audio
-thread. `tests/functional/unit/test_rt_safety.cpp` traps both `process` and `set_rates`.
+thread. `tests/foundation/core/test_audio_node/test_rt_safety.cpp` traps both `process` and `set_rates`.
 
 ### Fixed capacities
 
@@ -779,7 +779,7 @@ sushidsp/
 - **`SushiDSP::jcm800`, `SushiDSP::peavey5150`, `SushiDSP::mesa_mark2c`, `SushiDSP::diezel_vh4`, `SushiDSP::tubescreamer`, `SushiDSP::dd3`**: product libs, each depending only on `sushi_dsp`. Fully separable; a product can graduate to its own repo with no code change, because it couples to the core only through headers and to consumers only through its `NodeDescriptor`.
 - **Exported & namespaced**: SushiDSP ships install/export rules producing `SushiDSP::*` targets and a `SushiDSPConfig.cmake`.
 
-Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical correctness (golden-vector), rig compile/recompile, RT-safety (no-alloc trap); per-product physical-plausibility tests (DC stability, frequency response, THD sweep) in their module. Perceptual A/B validation against real hardware captures is deferred, no reference captures available yet. **As built in D6a:** `modules/foundation/signal_measure/` is a test-side-only measurement library (`render`, `thd`, `alias_floor`, `frequency_response`, `null_test`) that every product's plausibility and alias-floor test builds on, so those numbers come from one audited implementation instead of each test computing its own FFT/THD by hand. `tests/golden/` replaces the old five-sample-snapshot regression tests with 1-second rendered `.f32` files at 48 kHz and 96 kHz, compared at −80 dB RMS residual; regenerate them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row to `tests/golden/README.md` recording why. A SPICE reference corpus is staged under `docs/reference/spice/` (netlist-directive `.asc` files, Koren/Norman `.sub` models, `tools/spice/export.py`, `modules/foundation/spice_reference/include/SushiDSP/foundation/spice_reference/spice_csv.hpp`) but nothing has been simulated yet, LTspice is not installed in this environment, so producing the golden CSVs (`python tools/spice/export.py --all`, then commit) is a user-side step, not something this repo's tests currently check against.
+Tests: `TEST(Unit_Dsp, …)` for FFT/convolution/filter/WDF-solver numerical correctness (golden-vector), rig compile/recompile, RT-safety (no-alloc trap); per-product physical-plausibility tests (DC stability, frequency response, THD sweep) in their module. Perceptual A/B validation against real hardware captures is deferred, no reference captures available yet. **As built in D6a:** `modules/foundation/signal_measure/` is a test-side-only measurement library (`render`, `thd`, `alias_floor`, `frequency_response`, `null_test`) that every product's plausibility and alias-floor test builds on, so those numbers come from one audited implementation instead of each test computing its own FFT/THD by hand. The golden files, one folder per unit under `tests/<tier>/<module>/goldens/`, replace the old five-sample-snapshot regression tests with 1-second rendered `.f32` files at 48 kHz and 96 kHz, compared at −80 dB RMS residual; regenerate them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression` and add a row to `modules/foundation/golden_compare/README.md` recording why. A SPICE reference corpus is staged under `docs/reference/spice/` (netlist-directive `.asc` files, Koren/Norman `.sub` models, `tools/spice/export.py`, `modules/foundation/spice_reference/include/SushiDSP/foundation/spice_reference/spice_csv.hpp`) but nothing has been simulated yet, LTspice is not installed in this environment, so producing the golden CSVs (`python tools/spice/export.py --all`, then commit) is a user-side step, not something this repo's tests currently check against.
 
 ---
 
@@ -880,4 +880,4 @@ None of this touches `sushi_dsp`'s C++ link graph. A checkout of this repo with 
 Known work with no phase attached. An item leaves this list when it lands, not when it is planned.
 
 - **The comment-shape check is outside the gate.** `tools/documentation/check_source_comments.py` exists and `sd check` does not run it; its `--report` counted 1106 findings on 2026-10-05, listed by rule in `docs/reference/KNOWN_ISSUES.md`.
-- **DR2 shipped without a single measured number.** The build was locked while the DD-3 was written, so the 0.15 ms benchmark budget is unjudged, every acceptance row is unrun, and `tests/golden/dd3_48k.f32` and `dd3_96k.f32` do not exist, which fails the two regression cases. The changelog's DR2 "Not yet measured" paragraph names the three commands that close this.
+- **DR2 shipped without a single measured number.** The build was locked while the DD-3 was written, so the 0.15 ms benchmark budget is unjudged, every acceptance row is unrun, and the pinned `dd3_48k.f32` and `dd3_96k.f32` were not yet committed, which failed the two regression cases. The changelog's DR2 "Not yet measured" paragraph names the three commands that close this.

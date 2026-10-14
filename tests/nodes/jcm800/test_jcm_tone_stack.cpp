@@ -141,7 +141,7 @@ TEST(Unit_Dsp, JcmToneStackResetClearsState)
 
 TEST(Unit_Dsp, JcmToneStackAtEightTimesRateMatchesBaseRateWithinFifthOfADecibel)
 {
-    // Float coefficient quantisation stays within 0.2 dB. See tests/functional/unit/README.md.
+    // Float coefficient quantisation stays within 0.2 dB. See tests/nodes/jcm800/README.md.
     for (const double frequency : {80.0, 250.0, 1000.0, 4000.0, 10000.0})
     {
         double gain[2] = {0.0, 0.0};

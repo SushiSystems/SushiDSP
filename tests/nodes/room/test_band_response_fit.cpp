@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/timing_gate/timing_gate.hpp.hpp>
+#include <SushiDSP/foundation/timing_gate/timing_gate.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -191,7 +191,7 @@ TEST(Unit_Dsp, BandResponseFitPutsTheWholeGainInTheFirstSection)
 
 TEST(Unit_Dsp, BandResponseFitReachesADipBetweenFlatBands)
 {
-    // Each section has a peak, since two shelves cannot dip. See tests/functional/unit/README.md.
+    // Each section has a peak, since two shelves cannot dip. See tests/nodes/room/README.md.
     const std::array<std::array<float, 6>, 3> targets = {{
         {0.0f, 0.0f, 0.0f, -8.0f, 0.0f, 0.0f},
         {0.0f, 0.0f, 0.0f, 0.0f, -20.0f, 0.0f},

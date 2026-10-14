@@ -127,7 +127,7 @@ TEST(Unit_Dsp, DeserializeRigFromJsonRebuildsBranchingTopologyAndParameters)
     EXPECT_TRUE(found_drive_075);
     EXPECT_TRUE(found_drive_010);
 
-    // The mixer's inputs are handles 2 and 3, in that order. See tests/functional/unit/README.md.
+    // The mixer's inputs are handles 2 and 3, in that order. See tests/session/rig_preset/README.md.
     const std::vector<SushiDSP::NodeHandle> mixer_inputs = graph.upstream_of(4);
     ASSERT_EQ(mixer_inputs.size(), 2u);
     EXPECT_EQ(mixer_inputs[0], 2u);
@@ -172,7 +172,7 @@ TEST(Unit_Dsp, SerializeThenDeserializeRoundTripsABranchingGraph)
     }
     EXPECT_TRUE(found_mixer_with_gains);
 
-    // Rebuilt handles line up 1:1 with the original's. See tests/functional/unit/README.md.
+    // Rebuilt handles line up 1:1 with the original's. See tests/session/rig_preset/README.md.
     for (SushiDSP::NodeHandle handle : original.nodes())
     {
         EXPECT_EQ(rebuilt.upstream_of(handle), original.upstream_of(handle))
@@ -197,7 +197,7 @@ TEST(Unit_Dsp, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheGr
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
 
-    // A rejected preset leaves the graph unmodified. See tests/functional/unit/README.md.
+    // A rejected preset leaves the graph unmodified. See tests/session/rig_preset/README.md.
     const std::vector<std::string> malformed = {
         // Missing "id" — the shape of a host_gui-format preset, the likeliest wrong file.
         R"({"nodes":[{"type":"sushidsp.tubescreamer","params":{},"inputs":[]}]})",
@@ -210,7 +210,7 @@ TEST(Unit_Dsp, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheGr
         // Duplicate id.
         R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
                     {"id":0,"type":"sushidsp.jcm800","params":{},"inputs":[]}]})",
-        // Id 7 is declared by no entry. See tests/functional/unit/README.md.
+        // Id 7 is declared by no entry. See tests/session/rig_preset/README.md.
         R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
                     {"id":1,"type":"sushidsp.jcm800","params":{},"inputs":[7]}]})",
         // A valid first entry followed by a broken one: the first must NOT be added.
@@ -290,7 +290,7 @@ TEST(Unit_Dsp, DeserializeRigFromJsonCallsOnNodeLoadedWithFullEntry)
 
 TEST(Unit_Dsp, SerializeAndDeserializeStillWorkWithNoCallback)
 {
-    // Call sites without a callback behave unchanged. See tests/functional/unit/README.md.
+    // Call sites without a callback behave unchanged. See tests/session/rig_preset/README.md.
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SushiDSP::RigGraph graph(256, 4);
     graph.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));

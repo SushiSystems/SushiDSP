@@ -69,7 +69,7 @@ TEST(Unit_Dsp, Dd3ConverterSaturatesRatherThanWrapping)
 
 TEST(Unit_Dsp, Dd3ConverterQuantisationNoiseMatchesTwelveBits)
 {
-    // An ideal 12-bit converter gives 74.008 dB of SNR. See tests/functional/unit/README.md.
+    // An ideal 12-bit converter gives 74.008 dB of SNR. See tests/nodes/dd3/README.md.
     using Converter = SushiDSP::dd3::Dd3Converter;
     double signal_power = 0.0;
     double error_power = 0.0;
@@ -119,7 +119,7 @@ TEST(Unit_Dsp, Dd3ConverterRingDelaysByExactlyNSamples)
 
 TEST(Unit_Dsp, Dd3ConverterHoldKeepsTheLoopAndInhibitsWrites)
 {
-    // Long and Hold share N, so the ring is not cleared. See tests/functional/unit/README.md.
+    // Long and Hold share N, so the ring is not cleared. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Dd3Converter converter;
     converter.prepare();
     converter.set_mode(SushiDSP::dd3::Dd3Mode::Long);
@@ -128,7 +128,7 @@ TEST(Unit_Dsp, Dd3ConverterHoldKeepsTheLoopAndInhibitsWrites)
         converter.process_sample(n == 100u ? 1.0f : 0.0f);
     }
     converter.set_mode(SushiDSP::dd3::Dd3Mode::Hold);
-    // The stored impulse returns each lap; writes are dropped. See tests/functional/unit/README.md.
+    // The stored impulse returns each lap; writes are dropped. See tests/nodes/dd3/README.md.
     for (std::uint32_t lap = 0; lap < 3u; ++lap)
     {
         for (std::uint32_t n = 0; n < 16384u; ++n)

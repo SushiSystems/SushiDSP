@@ -87,8 +87,8 @@ at is the session's fact rather than the recorder's, so `RigController::arm_reco
 position before the bus opens and `stop_recording` places the dry file as a clip at that frame.
 
 Files are 32-bit IEEE float, so a recorded ramp reads back bit-identical;
-`tests/nodes/capture/test_track_recorder.cpp` asserts exactly that, and
-`TrackRecorderWritePerformsNoHeapAllocation` in `tests/functional/unit/test_rt_safety.cpp` holds
+`tests/nodes/capture/test_track_recorder/test_behaviour.cpp` asserts exactly that, and
+`TrackRecorderWritePerformsNoHeapAllocation` in `tests/foundation/core/test_audio_node/test_rt_safety.cpp` holds
 the RT bar.
 
 ## Playing a take back
@@ -134,7 +134,7 @@ clears the loop rather than setting a bad one when its arguments do not fit or d
 the two, and the header says so as a `@pre` rather than paying for a generation counter no caller
 needs. `TrackPlayerProcessPerformsNoHeapAllocation` and
 `TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread` in
-`tests/functional/unit/test_rt_safety.cpp` hold the RT bar, and
+`tests/foundation/core/test_audio_node/test_rt_safety.cpp` hold the RT bar, and
 `tests/nodes/capture/test_track_player.cpp` covers the mix.
 
 Spec §6 carries the intent behind all of it.
@@ -157,7 +157,7 @@ push of one input frame and a smallest ratio of `1 / K_MAX_SPEED`. `read()` clam
 the exact block the caller asked for, zero-filling past the take's last frame. Every output costs
 `speed` take frames, so the push loop is bounded by `output_frames * K_MAX_SPEED` plus the kernel's
 half span, and it allocates nothing;
-`VariRateReaderReadPerformsNoHeapAllocation` in `tests/functional/unit/test_rt_safety.cpp` holds
+`VariRateReaderReadPerformsNoHeapAllocation` in `tests/foundation/core/test_audio_node/test_rt_safety.cpp` holds
 that bar.
 
 `read()` returns the take frame the next call should start at, so the caller carries the cursor

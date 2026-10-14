@@ -112,7 +112,7 @@ TEST(Unit_Dsp, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
     lane.reclaim();
     library.collect();
 
-    // A retired timeline still names the take. See tests/functional/unit/README.md.
+    // A retired timeline still names the take. See tests/nodes/capture/README.md.
     EXPECT_EQ(library.size(), 1u);
     EXPECT_EQ(library.reference_count(take), 2u);
     EXPECT_EQ(lane.active_for_publisher()->clip(0).take->channel(0), take->channel(0));

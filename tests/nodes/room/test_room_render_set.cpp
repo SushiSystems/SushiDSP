@@ -37,8 +37,8 @@
 #include <type_traits>
 #include <vector>
 
-#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
-#include <SushiDSP/foundation/timing_gate/timing_gate.hpp.hpp>
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
+#include <SushiDSP/foundation/timing_gate/timing_gate.hpp>
 #include <SushiDSP/nodes/room/early_tap_set.hpp>
 #include <SushiDSP/nodes/room/eyring_decay.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
@@ -89,7 +89,7 @@ TEST(Unit_Dsp, BuildRenderSetFillsEveryLayerForTheGarage)
         garage, fallback_hrtf(), K_SAMPLE_RATE, SushiDSP::room::ListenerKind::Ears);
     ASSERT_NE(set, nullptr);
 
-    // The garage keeps 96 of the 129 order-4 images. See tests/functional/unit/README.md.
+    // The garage keeps 96 of the 129 order-4 images. See tests/nodes/room/README.md.
     SushiDSP::room::ImageSourceSolver::Options options;
     options.max_order = 4;
     options.listener = SushiDSP::room::ListenerKind::Ears;
@@ -115,7 +115,7 @@ TEST(Unit_Dsp, BuildRenderSetFillsEveryLayerForTheGarage)
 
 TEST(Unit_Dsp, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
 {
-    // 2.596151 m is 363 frames and a gain of 0.385186. See tests/functional/unit/README.md.
+    // 2.596151 m is 363 frames and a gain of 0.385186. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
         garage, fallback_hrtf(), K_SAMPLE_RATE, SushiDSP::room::ListenerKind::Ears);
@@ -134,7 +134,7 @@ TEST(Unit_Dsp, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
 
 TEST(Unit_Dsp, BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone)
 {
-    // 0.1 m is 14 frames and a gain of 10. See tests/functional/unit/README.md.
+    // 0.1 m is 14 frames and a gain of 10. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
         garage, fallback_hrtf(), K_SAMPLE_RATE, SushiDSP::room::ListenerKind::Microphone);
@@ -176,7 +176,7 @@ TEST(Unit_Dsp, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
 
 TEST(Unit_Dsp, BuildRenderSetTakesTheDirectPairFromTheHrtfSet)
 {
-    // The interaural delay is 0.0006558 s, 31.48 frames. See tests/functional/unit/README.md.
+    // The interaural delay is 0.0006558 s, 31.48 frames. See tests/nodes/room/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.listener_position = {4.0, 2.0, 1.2};
     scene.listener_yaw_rad = 0.0;
@@ -230,7 +230,7 @@ TEST(Unit_Dsp, BuildRenderSetCostsUnderOnePublishBudget)
 
 TEST(Unit_Dsp, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)
 {
-    // The modal field is read at the set's receiver. See tests/functional/unit/README.md.
+    // The modal field is read at the set's receiver. See tests/nodes/room/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.source_position = {0.4, 0.5, 0.5};
     scene.listener_position = {5.4, 3.4, 2.0};

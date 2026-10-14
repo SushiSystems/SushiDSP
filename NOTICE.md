@@ -67,8 +67,8 @@ None. The repository tracks no executable or library.
 | Data | Where | Source | Version | Licence |
 | --- | --- | --- | --- | --- |
 | SADIE II head-related transfer functions, converted by `tools/dsp/convert_hrtf.py` | `assets/hrtf/sadie2_ku100_48k.hrtf` | https://www.york.ac.uk/sadie-project/database.html | subject D1 (Neumann KU100), 48 kHz, 256-tap SOFA | Apache-2.0, Copyright 2018, University of York; text in `third_party/licenses/Apache-2.0.txt`; notice and citation in `assets/hrtf/README.md` |
-| T30 figures computed from the Benchmark for Room Acoustical Simulation (BRAS), room CR2 | `tests/fixtures/bras_cr2_reference.csv` | doi 10.14279/depositonce-6726.3 | version 3 of the deposit | CC-BY-SA-4.0, as `tests/fixtures/bras_cr2_reference.README.md` states it |
-| Decay figures computed from the Motus dataset | `tests/fixtures/motus_reference.csv` | doi 10.5281/zenodo.4923187 | Zenodo record 4923187 | CC-BY-4.0, as `tests/fixtures/motus_reference.README.md` states it |
+| T30 figures computed from the Benchmark for Room Acoustical Simulation (BRAS), room CR2 | `tests/nodes/room/fixtures/built_room_loss/bras_cr2_reference.csv` | doi 10.14279/depositonce-6726.3 | version 3 of the deposit | CC-BY-SA-4.0, as `tests/nodes/room/fixtures/built_room_loss/bras_cr2_reference.README.md` states it |
+| Decay figures computed from the Motus dataset | `tests/nodes/room/fixtures/built_room_loss/motus_reference.csv` | doi 10.5281/zenodo.4923187 | Zenodo record 4923187 | CC-BY-4.0, as `tests/nodes/room/fixtures/built_room_loss/motus_reference.README.md` states it |
 
 The converted HRTF file and the two fixtures stay under the licences in the table.
 

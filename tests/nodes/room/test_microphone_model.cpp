@@ -49,9 +49,9 @@ namespace
 
 TEST(Unit_Dsp, MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointFiveDecibels)
 {
-    // At 100 Hz the two distances differ by 15.47 dB. See tests/functional/unit/README.md.
+    // At 100 Hz the two distances differ by 15.47 dB. See tests/nodes/room/README.md.
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.05) - cardioid_on_axis_db(100.0, 3.0), 15.47, 0.05);
-    // At 125 Hz the two distances differ by 13.75 dB. See tests/functional/unit/README.md.
+    // At 125 Hz the two distances differ by 13.75 dB. See tests/nodes/room/README.md.
     const SushiDSP::room::MicrophoneModel cardioid(SushiDSP::room::PolarPattern::Cardioid,
                                                    {0, 0, 0, 0, 0, 0});
     const float near_db = cardioid.gain_for(0.0, 0.05).decibels()[0];
@@ -62,7 +62,7 @@ TEST(Unit_Dsp, MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointFiveDeci
 
 TEST(Unit_Dsp, MicrophoneModelProximityBoostIsTheSphericalWaveTerm)
 {
-    // sqrt(1 + 10.9180^2) = 10.9637 at 100 Hz and 5 cm. See tests/functional/unit/README.md.
+    // sqrt(1 + 10.9180^2) = 10.9637 at 100 Hz and 5 cm. See tests/nodes/room/README.md.
     EXPECT_NEAR(SushiDSP::room::MicrophoneModel::proximity_boost(100.0, 0.05), 10.9637, 1e-4);
     // 343 / (2 pi * 100 * 0.30) = 1.81967, sqrt(1 + 3.31120) = 2.07634.
     EXPECT_NEAR(SushiDSP::room::MicrophoneModel::proximity_boost(100.0, 0.30), 2.07634, 1e-4);
@@ -72,10 +72,10 @@ TEST(Unit_Dsp, MicrophoneModelProximityBoostIsTheSphericalWaveTerm)
 
 TEST(Unit_Dsp, MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointSevenDecibels)
 {
-    // At 100 Hz and 30 cm the capsule gains 3.74 dB. See tests/functional/unit/README.md.
+    // At 100 Hz and 30 cm the capsule gains 3.74 dB. See tests/nodes/room/README.md.
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.30), 3.74, 0.02);
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.30) - cardioid_on_axis_db(100.0, 3.0), 3.67, 0.02);
-    // At 125 Hz and 30 cm the capsule gains 2.82 dB. See tests/functional/unit/README.md.
+    // At 125 Hz and 30 cm the capsule gains 2.82 dB. See tests/nodes/room/README.md.
     const SushiDSP::room::MicrophoneModel cardioid(SushiDSP::room::PolarPattern::Cardioid,
                                                    {0, 0, 0, 0, 0, 0});
     const float thirty_db = cardioid.gain_for(0.0, 0.30).decibels()[0];
@@ -86,7 +86,7 @@ TEST(Unit_Dsp, MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointSevenDec
 
 TEST(Unit_Dsp, MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecibels)
 {
-    // The pattern term floors at K_DECIBEL_FLOOR, never a NaN. See tests/functional/unit/README.md.
+    // The pattern term floors at K_DECIBEL_FLOOR, never a NaN. See tests/nodes/room/README.md.
     const SushiDSP::room::MicrophoneModel eight(SushiDSP::room::PolarPattern::FigureEight,
                                                 {0, 0, 0, 0, 0, 0});
     const SushiDSP::room::BandResponse side = eight.gain_for(K_PI / 2.0, 1.0);

@@ -231,7 +231,7 @@ TEST(Unit_Dsp, BiquadResetClearsState)
 
 TEST(Unit_Dsp, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
 {
-    // A one-pole loses 6 dB per octave, not 12. See tests/functional/unit/README.md.
+    // A one-pole loses 6 dB per octave, not 12. See tests/foundation/math/README.md.
     constexpr double sample_rate = 384000.0;
     constexpr double corner = 13800.0;
     SushiDSP::Biquad filter;
@@ -261,7 +261,7 @@ TEST(Unit_Dsp, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
         return -10.0 * std::log10(1.0 + (frequency / corner) * (frequency / corner));
     };
 
-    // Bilinear warping pulls the response down above fs/8. See tests/functional/unit/README.md.
+    // Bilinear warping pulls the response down above fs/8. See tests/foundation/math/README.md.
     for (const double frequency : {1000.0, 13800.0, 27600.0})
     {
         EXPECT_NEAR(gain_db_at(frequency), analytic_db(frequency), 0.15) << frequency << " Hz";
@@ -300,7 +300,7 @@ namespace
 
 TEST(Unit_Dsp, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
 {
-    // The goldens are the post-warp readings at 96 kHz. See tests/functional/unit/README.md.
+    // The goldens are the post-warp readings at 96 kHz. See tests/foundation/math/README.md.
     SushiDSP::Biquad shelf;
     shelf.set_first_order_shelf(96000.0, 594.07, 3386.28, 33.0 / 47.0);
     EXPECT_NEAR(biquad_magnitude(shelf, 20.0, 96000.0), 0.7025132, 2e-3);
@@ -310,7 +310,7 @@ TEST(Unit_Dsp, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
 
 TEST(Unit_Dsp, BiquadFirstOrderShelfPairCancelsExactly)
 {
-    // The shelf pair cancels to a null below -120 dB. See tests/functional/unit/README.md.
+    // The shelf pair cancels to a null below -120 dB. See tests/foundation/math/README.md.
     SushiDSP::Biquad pre, de;
     pre.set_first_order_shelf(48000.0, 594.07, 3386.28, 33.0 / 47.0);
     de.set_first_order_shelf(48000.0, 3386.28, 594.07, 47.0 / 33.0);
@@ -379,7 +379,7 @@ namespace
 
 TEST(Unit_Dsp, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
 {
-    // A single RC reads -0.04 dB a decade above its corner. See tests/functional/unit/README.md.
+    // A single RC reads -0.04 dB a decade above its corner. See tests/foundation/math/README.md.
     SushiDSP::Biquad filter;
     filter.set_first_order_high_pass(48000.0, 100.0);
 
@@ -393,7 +393,7 @@ TEST(Unit_Dsp, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
 
 TEST(Unit_Dsp, BiquadFirstOrderHighPassStaysCleanAtLowCornersAtHighRates)
 {
-    // The one-pole's real pole stays inside the unit circle. See tests/functional/unit/README.md.
+    // The one-pole's real pole stays inside the unit circle. See tests/foundation/math/README.md.
     constexpr double sample_rate = 384000.0;
     for (const double cutoff_hz : {2.0, 5.0, 7.23, 10.58})
     {
@@ -426,7 +426,7 @@ TEST(Unit_Dsp, BiquadSetCoefficientsLoadsThemVerbatim)
     EXPECT_FLOAT_EQ(average.process_sample(0.0f), 0.5f);
     EXPECT_FLOAT_EQ(average.process_sample(0.0f), 0.0f);
 
-    // The impulse response is 1, 1/2, 1/4, 1/8. See tests/functional/unit/README.md.
+    // The impulse response is 1, 1/2, 1/4, 1/8. See tests/foundation/math/README.md.
     SushiDSP::Biquad one_pole;
     one_pole.set_coefficients(1.0, 0.0, 0.0, -0.5, 0.0);
     EXPECT_FLOAT_EQ(one_pole.process_sample(1.0f), 1.0f);

@@ -34,7 +34,7 @@
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
-#include <SushiDSP/foundation/signal_measure/render.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/render.hpp>
 
 namespace SushiDSP::measure
 {

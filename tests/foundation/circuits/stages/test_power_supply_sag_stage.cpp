@@ -63,7 +63,7 @@ TEST(Unit_Dsp, PowerSupplySagStageRecoversTowardUnityAfterSilence)
         recovered_output = stage.process_sample(0.0f);
     }
 
-    // The sag envelope decays over silence. See tests/functional/unit/README.md.
+    // The sag envelope decays over silence. See tests/foundation/circuits/stages/README.md.
     const float post_silence_output = stage.process_sample(1.0f);
     EXPECT_GT(std::abs(post_silence_output), std::abs(sagged_output));
     (void)recovered_output;

@@ -34,7 +34,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <SushiDSP/foundation/regression_test/regression_test.hpp.hpp>
+#include <SushiDSP/foundation/regression_test/regression_test.hpp>
 
 #include <SushiDSP/foundation/circuits/stages/pentode_stage.hpp>
 #include <SushiDSP/foundation/circuits/stages/triode_stage.hpp>
@@ -43,12 +43,12 @@
 #include <SushiDSP/foundation/math/oversampler.hpp>
 #include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
-#include <SushiDSP/foundation/signal_measure/alias_floor.hpp.hpp>
-#include <SushiDSP/foundation/signal_measure/frequency_response.hpp.hpp>
-#include <SushiDSP/foundation/signal_measure/null_test.hpp.hpp>
-#include <SushiDSP/foundation/signal_measure/render.hpp.hpp>
-#include <SushiDSP/foundation/signal_measure/spectrum.hpp.hpp>
-#include <SushiDSP/foundation/signal_measure/thd.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/alias_floor.hpp>
+#include <SushiDSP/foundation/signal_measure/frequency_response.hpp>
+#include <SushiDSP/foundation/signal_measure/null_test.hpp>
+#include <SushiDSP/foundation/signal_measure/render.hpp>
+#include <SushiDSP/foundation/signal_measure/spectrum.hpp>
+#include <SushiDSP/foundation/signal_measure/thd.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

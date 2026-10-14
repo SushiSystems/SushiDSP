@@ -165,7 +165,7 @@ TEST(Unit_Dsp, SphericalHeadHrtfCannotTellFrontFromBack)
 
 TEST(Unit_Dsp, SphericalHeadHrtfShadowsTheFarEarAboveOneKilohertz)
 {
-    // The far ear sits at the sphere's bright spot. See tests/functional/unit/README.md.
+    // The far ear sits at the sphere's bright spot. See tests/nodes/room/README.md.
     const SushiDSP::room::HrtfSet::Pair side = set().interpolate(K_PI / 2.0, 0.0);
     EXPECT_GE(interaural_level_db(side, 4000.0), 4.0);
     EXPECT_LE(std::fabs(interaural_level_db(side, 125.0)), 2.0);
@@ -209,13 +209,13 @@ TEST(Unit_Dsp, SphericalHeadHrtfFillsTheDiffuseFieldPair)
 
 TEST(Unit_Dsp, SphericalHeadHrtfHearsTheSameDiffuseFieldAtBothEars)
 {
-    // The grid mirrors about the median plane. See tests/functional/unit/README.md.
+    // The grid mirrors about the median plane. See tests/nodes/room/README.md.
     EXPECT_LE(max_difference(set().diffuse_field(0), set().diffuse_field(1)), K_TAP_TOLERANCE);
 }
 
 TEST(Unit_Dsp, SphericalHeadHrtfDiffuseFieldCarriesTheRigidSpheresDiffuseGain)
 {
-    // The sphere's mean diffuse power is 1.8472, +2.67 dB. See tests/functional/unit/README.md.
+    // The sphere's mean diffuse power is 1.8472, +2.67 dB. See tests/nodes/room/README.md.
     for (const std::uint32_t ear : {0u, 1u})
     {
         const Taps& taps = set().diffuse_field(ear);

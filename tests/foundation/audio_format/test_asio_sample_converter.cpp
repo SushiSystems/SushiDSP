@@ -91,7 +91,7 @@ TEST(Unit_Dsp, AsioSampleConverterInt16RoundTripsKnownValues)
 
 TEST(Unit_Dsp, AsioSampleConverterFloatToSampleClampsOutOfRangeInput)
 {
-    // Out-of-range input clamps to full scale. See tests/functional/unit/README.md.
+    // Out-of-range input clamps to full scale. See tests/foundation/audio_format/README.md.
     std::uint8_t bytes[4];
     SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, 2.0f, bytes);
     std::int32_t decoded_value = 0;
