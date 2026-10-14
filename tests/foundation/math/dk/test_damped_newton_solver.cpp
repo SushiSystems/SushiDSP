@@ -68,7 +68,7 @@ TEST(Unit_Dsp, DenseLuSolvesAHandCheckedThreeByThreeSystem)
 
 TEST(Unit_Dsp, DenseLuPivotsWhenTheLeadingEntryIsZero)
 {
-    // Without partial pivoting the first step divides by zero. See tests/functional/unit/README.md.
+    // Without partial pivoting the first step divides by zero. See tests/foundation/math/dk/README.md.
     std::array<std::array<double, 2>, 2> matrix{{{0.0, 1.0}, {1.0, 0.0}}};
     SushiDSP::dk::DenseLu<2> lu;
     ASSERT_TRUE(lu.factorise(matrix));
@@ -99,7 +99,7 @@ TEST(Unit_Dsp, DenseLuOneByOneSolvesByDivision)
 
 TEST(Unit_Dsp, DenseLuSolvesTheLeadingBlockOfAnOversizedArray)
 {
-    // Only the leading 3x3 block may be touched. See tests/functional/unit/README.md.
+    // Only the leading 3x3 block may be touched. See tests/foundation/math/dk/README.md.
     std::array<std::array<double, 5>, 5> matrix{};
     for (std::size_t row = 0; row < 3; ++row)
     {
@@ -225,7 +225,7 @@ TEST(Unit_Dsp, DampedNewtonConvergesWhereUndampedNewtonDiverges)
 
 TEST(Unit_Dsp, DampedNewtonWithHalvingDisabledFailsOnTheDivergentStart)
 {
-    // With no halving, every iteration takes the full step. See tests/functional/unit/README.md.
+    // With no halving, every iteration takes the full step. See tests/foundation/math/dk/README.md.
     SushiDSP::dk::DampedNewtonSolver<1> solver;
     solver.set_maximum_halvings(0);
     solver.set_maximum_iterations(20);
@@ -260,7 +260,7 @@ TEST(Unit_Dsp, DampedNewtonCountsANonConvergedCallAndLeavesTheIterateFinite)
 
 TEST(Unit_Dsp, DampedNewtonWarmStartConvergesInOneIterationOnASmoothTrack)
 {
-    // A warm start needs at most a couple of iterations. See tests/functional/unit/README.md.
+    // A warm start needs at most a couple of iterations. See tests/foundation/math/dk/README.md.
     SushiDSP::dk::DampedNewtonSolver<1> solver;
     std::array<double, 1> v{0.0};
     for (int step = 0; step < 100; ++step)
@@ -291,7 +291,7 @@ TEST(Unit_Dsp, DampedNewtonWarmStartConvergesInOneIterationOnASmoothTrack)
 
 TEST(Unit_Dsp, DampedNewtonReturnsTheBestIterateWhenItFailsToConverge)
 {
-    // A failed solve returns its lowest-residual iterate. See tests/functional/unit/README.md.
+    // A failed solve returns its lowest-residual iterate. See tests/foundation/math/dk/README.md.
     SushiDSP::dk::DampedNewtonSolver<1> solver;
     solver.set_maximum_halvings(0);
     solver.set_maximum_iterations(1);
@@ -311,7 +311,7 @@ TEST(Unit_Dsp, DampedNewtonReturnsTheBestIterateWhenItFailsToConverge)
 
 TEST(Unit_Dsp, DenseLuTwoByTwoSolvesTheSameSystemsAsTheGeneralTemplate)
 {
-    // [[4, 3], [6, 3]] x = [10, 12] has the answer x = [1, 2]. See tests/functional/unit/README.md.
+    // [[4, 3], [6, 3]] x = [10, 12] has the answer x = [1, 2]. See tests/foundation/math/dk/README.md.
     std::array<std::array<double, 2>, 2> matrix{{{4.0, 3.0}, {6.0, 3.0}}};
     SushiDSP::dk::DenseLu<2> lu;
     ASSERT_TRUE(lu.factorise(matrix));
@@ -358,7 +358,7 @@ namespace
 TEST(Unit_Dsp, DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturns)
 {
     SushiDSP::dk::DampedNewtonSolver<1> solver;
-    // The default budget of 8 iterations is too tight here. See tests/functional/unit/README.md.
+    // The default budget of 8 iterations is too tight here. See tests/foundation/math/dk/README.md.
     solver.set_maximum_iterations(32);
     for (const double start : {0.0, 5.0, -5.0, 12.0, 0.2499999})
     {

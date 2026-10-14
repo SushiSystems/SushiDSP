@@ -52,7 +52,7 @@ TEST(Unit_Dsp, OutputTransformerStageBlocksDc)
 
 TEST(Unit_Dsp, OutputTransformerStageSecondaryCarriesNoMean)
 {
-    // A transformer's secondary passes no mean. See tests/functional/unit/README.md.
+    // A transformer's secondary passes no mean. See tests/foundation/circuits/stages/README.md.
     SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);
 
     double sum = 0.0;

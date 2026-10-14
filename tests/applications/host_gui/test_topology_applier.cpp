@@ -217,7 +217,7 @@ TEST(Unit_Dsp, TopologyApplierOpeningAPathCopiesTheMainPathWithItsParameters)
 
     applier.switch_chain_type(topology, rig, ChainType::TwoWay);
 
-    // The opened path carries a copy of the main path. See tests/functional/unit/README.md.
+    // The opened path carries a copy of the main path. See tests/applications/host_gui/README.md.
     EXPECT_EQ(topology.stage({StageKind::Branch, 0}), (std::vector<SlotId>{amp}));
     const std::vector<SlotId> copied = topology.stage({StageKind::Branch, 1});
     ASSERT_EQ(copied.size(), 1u);

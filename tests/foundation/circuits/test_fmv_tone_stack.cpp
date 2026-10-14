@@ -33,7 +33,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/circuits/fmv_tone_stack.hpp>
-#include <SushiDSP/foundation/spice_reference/spice_csv.hpp.hpp>
+#include <SushiDSP/foundation/spice_reference/spice_csv.hpp>
 
 namespace
 {
@@ -159,7 +159,7 @@ namespace
     /// @param middle Middle position in [0, 1].
     /// @param frequency_hz The frequency to evaluate at.
     /// @return The magnitude in decibels.
-    /// @see tests/functional/unit/README.md
+    /// @see tests/foundation/circuits/README.md
     double closed_form_gain_db(const SushiDSP::FmvComponents& components, double treble,
                                double bass, double middle, double frequency_hz)
     {
@@ -206,7 +206,7 @@ namespace
 
 TEST(Unit_Dsp, FmvToneStackNetlistReproducesTheClosedFormItReplaced)
 {
-    // 192 kHz keeps bilinear warping inside the tolerance. See tests/functional/unit/README.md.
+    // 192 kHz keeps bilinear warping inside the tolerance. See tests/foundation/circuits/README.md.
     const double sample_rate = 192000.0;
     const double treble_positions[3] = {0.1, 0.5, 0.9};
     const double bass_positions[2] = {0.2, 0.8};
@@ -239,7 +239,7 @@ TEST(Unit_Dsp, FmvToneStackNetlistReproducesTheClosedFormItReplaced)
 
 TEST(Unit_Dsp, FmvToneStackLoadingCostIsTheDecksOwnAndNotOneFigure)
 {
-    // The same termination costs each deck a different tilt. See tests/functional/unit/README.md.
+    // The same termination costs each deck a different tilt. See tests/foundation/circuits/README.md.
     const double sample_rate = 192000.0;
     const SushiDSP::FmvSourceLoad termination{44.0e3f, 1.0e6f};
 

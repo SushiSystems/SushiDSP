@@ -31,7 +31,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <SushiDSP/foundation/signal_measure/spectrum.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/spectrum.hpp>
 
 namespace SushiDSP::measure
 {

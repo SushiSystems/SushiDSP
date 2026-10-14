@@ -36,7 +36,7 @@
 
 #include <SushiDSP/foundation/math/halfband_coefficients.hpp>
 #include <SushiDSP/foundation/math/oversampler.hpp>
-#include <SushiDSP/foundation/signal_measure/spectrum.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/spectrum.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -116,7 +116,7 @@ TEST(Unit_Dsp, HalfbandDesignsHaveExactZeroTapsAndUnityDcGain)
         double sum = 0.0;
         for (std::uint32_t i = 0; i < design->tap_count; ++i)
         {
-            // The halfband zeros sit at even centre distances. See tests/functional/unit/README.md.
+            // The halfband zeros sit at even centre distances. See tests/foundation/math/README.md.
             if (i != centre && (i > centre ? i - centre : centre - i) % 2 == 0)
             {
                 EXPECT_EQ(design->taps[i], 0.0f) << i;
@@ -161,7 +161,7 @@ TEST(Unit_Dsp, HalfbandDownsamplerMatchesDirectForm)
 
 TEST(Unit_Dsp, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
 {
-    // A tone's images sit at k*f_base +- f. See tests/functional/unit/README.md.
+    // A tone's images sit at k*f_base +- f. See tests/foundation/math/README.md.
     const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE / 8;
     for (const double fraction : {0.30, 0.35, 0.40, 0.45})
     {
@@ -194,13 +194,13 @@ TEST(Unit_Dsp, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
 
 TEST(Unit_Dsp, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
 {
-    // Folds into (0.45..0.5)*f_base are skipped. See tests/functional/unit/README.md.
+    // Folds into (0.45..0.5)*f_base are skipped. See tests/foundation/math/README.md.
     const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE;
-    // The reference tone is bin-exact, as the aliases are. See tests/functional/unit/README.md.
+    // The reference tone is bin-exact, as the aliases are. See tests/foundation/math/README.md.
     const double reference_cycles = std::round(0.1 * base_frames) / base_frames;
     const double reference = peak_db(SushiDSP::measure::magnitude_spectrum_db(
         sine(reference_cycles, base_frames * 2, 0.5f), base_frames));
-    // The sweep steps in integers; += 0.05 drifts. See tests/functional/unit/README.md.
+    // The sweep steps in integers; += 0.05 drifts. See tests/foundation/math/README.md.
     for (int step = 11; step <= 79; ++step)
     {
         const double fraction = step * 0.05;
@@ -282,7 +282,7 @@ TEST(Unit_Dsp, Oversampler8xLatencyMatchesMeasuredImpulseDelay)
 
 TEST(Unit_Dsp, Oversampler4xRoundTripDroopAt20kIsWithinTenthOfADecibel)
 {
-    // 20 kHz is 0.4167*f_base, inside the 0.45 passband. See tests/functional/unit/README.md.
+    // 20 kHz is 0.4167*f_base, inside the 0.45 passband. See tests/foundation/math/README.md.
     const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE;
     const double cycles = std::round(20000.0 / 48000.0 * base_frames) / base_frames;
     const auto input = sine(cycles, base_frames * 2, 0.5f);
@@ -321,7 +321,7 @@ TEST(Unit_Dsp, Oversampler4xLatencyMatchesMeasuredImpulseDelay)
             peak = i;
         }
     }
-    // The round trip is 63.5 base-rate samples. See tests/functional/unit/README.md.
+    // The round trip is 63.5 base-rate samples. See tests/foundation/math/README.md.
     const long difference =
         static_cast<long>(peak) - static_cast<long>(oversampler.latency_samples());
     EXPECT_GE(difference, 0);
@@ -343,7 +343,7 @@ TEST(Unit_Dsp, Oversampler8xPassesDcAtUnity)
 
 TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
 {
-    // A reset instance matches a never-used one bit for bit. See tests/functional/unit/README.md.
+    // A reset instance matches a never-used one bit for bit. See tests/foundation/math/README.md.
     const auto burst = sine(0.1913, 512, 0.9f);
     const auto probe = sine(0.0611, 128, 0.6f);
 
@@ -381,7 +381,7 @@ TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
             used.downsample(up, 512, scratch.data());
         }
         used.reset();
-        // The 4x buffer is reused, so each block is copied. See tests/functional/unit/README.md.
+        // The 4x buffer is reused, so each block is copied. See tests/foundation/math/README.md.
         std::vector<float> after_reset_up(512, 0.0f), never_used_up(512, 0.0f);
         std::vector<float> after_reset(128, 0.0f), never_used(128, 0.0f);
         const float* used_up = used.upsample(probe.data(), 128);
@@ -404,7 +404,7 @@ TEST(Unit_Dsp, ResetReturnsEveryStageToItsAsConstructedState)
             used.downsample(up, 1024, scratch.data());
         }
         used.reset();
-        // The 8x buffer is reused, so each block is copied. See tests/functional/unit/README.md.
+        // The 8x buffer is reused, so each block is copied. See tests/foundation/math/README.md.
         std::vector<float> after_reset_up(1024, 0.0f), never_used_up(1024, 0.0f);
         std::vector<float> after_reset(128, 0.0f), never_used(128, 0.0f);
         const float* used_up = used.upsample(probe.data(), 128);

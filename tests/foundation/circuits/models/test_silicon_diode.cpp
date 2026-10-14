@@ -33,7 +33,7 @@
 
 TEST(Unit_Dsp, SiliconDiodeMatchesShockleyAtThreeOperatingPoints)
 {
-    // 1N914: Is = 2.52e-9 A, n = 1.752, Vt = 0.025864 V. See tests/functional/unit/README.md.
+    // 1N914: Is = 2.52e-9 A, n = 1.752, Vt = 0.025864 V. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
     EXPECT_NEAR(diode.current(0.4), 1.71792785943e-5, 1e-16);
     EXPECT_NEAR(diode.jacobian(0.4), 3.79174244818e-4, 1e-15);
@@ -45,7 +45,7 @@ TEST(Unit_Dsp, SiliconDiodeMatchesShockleyAtThreeOperatingPoints)
 
 TEST(Unit_Dsp, SiliconDiodeReverseCurrentApproachesMinusSaturationCurrent)
 {
-    // At v = -0.5 V the current is -2.51995932614e-9 A. See tests/functional/unit/README.md.
+    // At v = -0.5 V the current is -2.51995932614e-9 A. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
     EXPECT_NEAR(diode.current(-0.5), -2.51995932614e-9, 1e-20);
     EXPECT_NEAR(diode.jacobian(-0.5), 8.97605786067e-13, 1e-24);
@@ -74,7 +74,7 @@ TEST(Unit_Dsp, SiliconDiodeStaysFiniteAndCOneAcrossTheLinearExtrapolation)
         EXPECT_TRUE(std::isfinite(diode.current(voltage))) << voltage;
         EXPECT_TRUE(std::isfinite(diode.jacobian(voltage))) << voltage;
     }
-    // The knee sits at v_max = 40 * n * Vt = 1.81254912 V. See tests/functional/unit/README.md.
+    // The knee sits at v_max = 40 * n * Vt = 1.81254912 V. See tests/foundation/circuits/models/README.md.
     const double knee = 40.0 * 1.752 * 0.025864;
     const double jacobian_at_knee = diode.jacobian(knee);
     EXPECT_NEAR(diode.jacobian(knee - 1e-7), diode.jacobian(knee + 1e-7), 1e-5 * jacobian_at_knee);
@@ -109,7 +109,7 @@ TEST(Unit_Dsp, SiliconDiodeJointFormAgreesWithTheSeparateEntryPoints)
 
 TEST(Unit_Dsp, SiliconDiodeAntiparallelPairMatchesTwoTimesSaturationCurrentTimesSinh)
 {
-    // The pair's total current is 2 Is sinh(w / nVt). See tests/functional/unit/README.md.
+    // The pair's total current is 2 Is sinh(w / nVt). See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
     struct Point
     {
@@ -140,7 +140,7 @@ TEST(Unit_Dsp, SiliconDiodeAntiparallelPairMatchesTwoTimesSaturationCurrentTimes
 
 TEST(Unit_Dsp, SiliconDiodeHonoursANonDefaultIdealityFactor)
 {
-    // n = 1 makes n*Vt = 0.025864 V. See tests/functional/unit/README.md.
+    // n = 1 makes n*Vt = 0.025864 V. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode ideal(2.52e-9, 1.0, 0.025864);
     const SushiDSP::SiliconDiode part;
     EXPECT_GT(ideal.current(0.6), 100.0 * part.current(0.6));
@@ -148,7 +148,7 @@ TEST(Unit_Dsp, SiliconDiodeHonoursANonDefaultIdealityFactor)
 
 TEST(Unit_Dsp, SiliconDiodeAntiderivativeDifferentiatesBackToTheDiodeCurrent)
 {
-    // The antiderivative's slope is the diode current. See tests/functional/unit/README.md.
+    // The antiderivative's slope is the diode current. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
     const double delta = 1.0e-7;
     for (double voltage = -2.2; voltage <= 2.2; voltage += 0.01)
@@ -163,7 +163,7 @@ TEST(Unit_Dsp, SiliconDiodeAntiderivativeDifferentiatesBackToTheDiodeCurrent)
 
 TEST(Unit_Dsp, SiliconDiodeAntiderivativeHasNoStepAtEitherKnee)
 {
-    // The bound is the largest slope times the width. See tests/functional/unit/README.md.
+    // The bound is the largest slope times the width. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
     const double knee = 40.0 * 1.752 * 0.025864;
     const double delta = 1.0e-9;
@@ -179,7 +179,7 @@ TEST(Unit_Dsp, SiliconDiodeAntiderivativeHasNoStepAtEitherKnee)
 
 TEST(Unit_Dsp, SiliconDiodeJointAntiderivativeFormAgreesWithTheSeparateEntryPoints)
 {
-    // The joint form must match the two entry points. See tests/functional/unit/README.md.
+    // The joint form must match the two entry points. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
     for (const double voltage : {-2.5, -0.7, -0.05, 0.0, 0.05, 0.7, 2.5})
     {
@@ -193,7 +193,7 @@ TEST(Unit_Dsp, SiliconDiodeJointAntiderivativeFormAgreesWithTheSeparateEntryPoin
 
 TEST(Unit_Dsp, SiliconDiodeReverseExtrapolationContinuesTheShockleyLawRatherThanMirroringForward)
 {
-    // Below the lower knee the current stays at -Is. See tests/functional/unit/README.md.
+    // Below the lower knee the current stays at -Is. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
     const double knee = 40.0 * 1.752 * 0.025864;
     const double saturation = 2.52e-9;

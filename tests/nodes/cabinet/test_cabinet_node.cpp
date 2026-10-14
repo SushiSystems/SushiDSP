@@ -87,7 +87,7 @@ TEST(Unit_Dsp, CabinetNodeInstallsAndAppliesAnImpulseResponse)
 
     node.process(context);
 
-    // An identity IR makes the cabinet a one-partition delay. See tests/functional/unit/README.md.
+    // An identity IR makes the cabinet a one-partition delay. See tests/nodes/cabinet/README.md.
     const std::uint32_t latency = node.latency_samples();
     for (std::uint32_t i = latency; i < input.size(); ++i)
     {
@@ -97,7 +97,7 @@ TEST(Unit_Dsp, CabinetNodeInstallsAndAppliesAnImpulseResponse)
 
 TEST(Unit_Dsp, CabinetNodeSurvivesVariableBlockSizes)
 {
-    // An identity IR must survive any host block size. See tests/functional/unit/README.md.
+    // An identity IR must survive any host block size. See tests/nodes/cabinet/README.md.
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{48000.0, 512, 1};
     node.prepare(info);

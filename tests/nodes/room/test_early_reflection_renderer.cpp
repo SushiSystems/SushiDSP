@@ -336,7 +336,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
 
 TEST(Unit_Dsp, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
 {
-    // Only tap 0's state is carried into bank 1. See tests/functional/unit/README.md.
+    // Only tap 0's state is carried into bank 1. See tests/nodes/room/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
     const double radius = 0.999;
@@ -379,7 +379,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
 
 TEST(Unit_Dsp, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
 {
-    // A carry onto the same bank is a copy onto itself. See tests/functional/unit/README.md.
+    // A carry onto the same bank is a copy onto itself. See tests/nodes/room/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
     const double radius = 0.999;

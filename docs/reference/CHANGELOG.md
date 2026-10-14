@@ -4,6 +4,7 @@
 
 - 2026-10-15 — layering: Moved every module header under its tier, so each include of one changes to `<SushiDSP/<tier>/<module>/...>` (`check_layering.py`).
 - 2026-10-15 — tests: Moved the shared test code into seven internal modules, one per responsibility, and removed `tests/measure`, `tests/circuits` and `tests/common` (`cmake/SushiDSPLayers.cmake`).
+- 2026-10-15 — tests: Moved the remaining unit and regression tests, the fixtures and the benchmark to their owners, and split the functional READMEs among them (`tests/CMakeLists.txt`).
 - 2026-10-15 — tests: Moved 125 unit test files to the mirror of their header, `tests/<tier>/<module>/` and `tests/applications/<app>/` (`tests/CMakeLists.txt`).
 - 2026-10-15 — tests: Labelled each test by the macro it is written with, `SUSHIDSP_REGRESSION_TEST` or `TEST`, in place of the name prefix (`tests/CMakeLists.txt`, `regression_test.hpp`).
 - 2026-10-13 — host: Made the top bar save and load the selected track's rig as a preset, and moved the project's New, Open and Save and the export to the mini-DAW (`top_bar.cpp`, `arrangement_view.cpp`, `session_file.cpp`).

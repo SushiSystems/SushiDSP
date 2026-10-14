@@ -123,7 +123,7 @@ namespace
 
 TEST(Unit_Dsp, Dd3SectionConstantsMatchTheComponentValues)
 {
-    // f0 = 1/(2*pi*R*sqrt(C1*C2)) and Q = 0.5*sqrt(C1/C2). See tests/functional/unit/README.md.
+    // f0 = 1/(2*pi*R*sqrt(C1*C2)) and Q = 0.5*sqrt(C1/C2). See tests/nodes/dd3/README.md.
     struct Section
     {
             double c1;
@@ -161,7 +161,7 @@ TEST(Unit_Dsp, Dd3SectionConstantsMatchTheComponentValues)
 
 TEST(Unit_Dsp, Dd3EmitterFollowerDampingLowersEveryQ)
 {
-    // Q = 1/(1/q + 2*(1-K)*q) for a buffer of gain K. See tests/functional/unit/README.md.
+    // Q = 1/(1/q + 2*(1-K)*q) for a buffer of gain K. See tests/nodes/dd3/README.md.
     const double damped_anti_alias[3] = {0.6347216596, 1.4333063892, 1.5876726071};
     const double damped_reconstruction[2] = {0.7137168140, 1.6630691464};
     for (std::size_t i = 0; i < 3; ++i)
@@ -184,7 +184,7 @@ TEST(Unit_Dsp, Dd3EmitterFollowerDampingLowersEveryQ)
 
 TEST(Unit_Dsp, Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAlike)
 {
-    // One prewarp reference serves the whole cascade. See tests/functional/unit/README.md.
+    // One prewarp reference serves the whole cascade. See tests/nodes/dd3/README.md.
     for (const double sample_rate : {48000.0, 96000.0, 192000.0})
     {
         EXPECT_NEAR(
@@ -206,7 +206,7 @@ TEST(Unit_Dsp, Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAlike)
 
 TEST(Unit_Dsp, Dd3AntiAliasCascadeMatchesItsDampedPrototype)
 {
-    // The prewarp holds the passband within 0.4 %. See tests/functional/unit/README.md.
+    // The prewarp holds the passband within 0.4 %. See tests/nodes/dd3/README.md.
     for (const double sample_rate : {48000.0, 96000.0, 192000.0})
     {
         SushiDSP::dd3::Dd3AntiAliasFilter filter;
@@ -250,14 +250,14 @@ TEST(Unit_Dsp, Dd3ReconstructionCascadeMatchesItsDampedPrototype)
                 << sample_rate << " Hz rate, " << frequency << " Hz";
         }
     }
-    // The 4th-order filter is still rising at the band edge. See tests/functional/unit/README.md.
+    // The 4th-order filter is still rising at the band edge. See tests/nodes/dd3/README.md.
     EXPECT_NEAR(reconstruction_prototype(1000.0), 1.003462, 1e-5);
     EXPECT_NEAR(reconstruction_prototype(7000.0), 1.010033, 1e-5);
 }
 
 TEST(Unit_Dsp, Dd3DelayPathMeetsThePublishedResponseWindow)
 {
-    // The window is +1/-3 dB of 1 kHz from 40 Hz to 7 kHz. See tests/functional/unit/README.md.
+    // The window is +1/-3 dB of 1 kHz from 40 Hz to 7 kHz. See tests/nodes/dd3/README.md.
     for (const double sample_rate : {48000.0, 96000.0})
     {
         SushiDSP::dd3::Dd3AntiAliasFilter anti_alias;
@@ -316,7 +316,7 @@ TEST(Unit_Dsp, Dd3DelayPathMeetsThePublishedResponseWindow)
 
 TEST(Unit_Dsp, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
 {
-    // 20 kHz is further down at 48 kHz than at 96 kHz. See tests/functional/unit/README.md.
+    // 20 kHz is further down at 48 kHz than at 96 kHz. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Dd3AntiAliasFilter filter;
     const auto run = [&](double frequency, double sample_rate)
     {
@@ -329,7 +329,7 @@ TEST(Unit_Dsp, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
             frequency, sample_rate);
     };
 
-    // The thresholds sit just above the measured readings. See tests/functional/unit/README.md.
+    // The thresholds sit just above the measured readings. See tests/nodes/dd3/README.md.
     filter.prepare(48000.0);
     EXPECT_LT(run(10000.0, 48000.0), 0.15);
     EXPECT_LT(run(20000.0, 48000.0), 1e-4);
@@ -341,7 +341,7 @@ TEST(Unit_Dsp, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
 
 TEST(Unit_Dsp, Dd3EmphasisPairIsTheIdentity)
 {
-    // The pair is unity by construction: 33/47 * 47/33 = 1. See tests/functional/unit/README.md.
+    // The pair is unity by construction: 33/47 * 47/33 = 1. See tests/nodes/dd3/README.md.
     for (const double sample_rate : {48000.0, 96000.0})
     {
         SushiDSP::dd3::Dd3PreEmphasis pre;
@@ -368,7 +368,7 @@ TEST(Unit_Dsp, Dd3EmphasisPairIsTheIdentity)
 
 TEST(Unit_Dsp, Dd3PreEmphasisHitsItsThreeDerivedGains)
 {
-    // The probe stays at fs/16; fs/4 hides both errors. See tests/functional/unit/README.md.
+    // The probe stays at fs/16; fs/4 hides both errors. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Dd3PreEmphasis pre;
     pre.prepare(96000.0);
     const auto run = [&](double frequency)
@@ -391,7 +391,7 @@ TEST(Unit_Dsp, Dd3PreEmphasisHitsItsThreeDerivedGains)
 
 TEST(Unit_Dsp, Dd3DeEmphasisIsTheReciprocalOfThePreEmphasis)
 {
-    // The tolerance is the bilinear warp, not the estimator. See tests/functional/unit/README.md.
+    // The tolerance is the bilinear warp, not the estimator. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Dd3DeEmphasis de;
     de.prepare(96000.0);
     for (const double frequency : {20.0, 1000.0, 5000.0})

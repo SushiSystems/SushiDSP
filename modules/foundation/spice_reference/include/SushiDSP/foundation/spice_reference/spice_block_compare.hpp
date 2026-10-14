@@ -33,7 +33,7 @@
 
 #include <SushiDSP/foundation/math/biquad.hpp>
 
-#include <SushiDSP/foundation/spice_reference/spice_csv.hpp.hpp>
+#include <SushiDSP/foundation/spice_reference/spice_csv.hpp>
 
 namespace SushiDSP::test_circuits
 {

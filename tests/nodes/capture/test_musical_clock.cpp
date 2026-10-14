@@ -114,7 +114,7 @@ TEST(Unit_Dsp, MusicalClockPublishesTheStepTheTempoAndMeterName)
     EXPECT_EQ(clock.beat_step_q32(), 90025515374672ull);
     EXPECT_EQ(clock.beat_step_q32() >> 32, 20960u);
 
-    // An eighth-note beat is exactly half the quarter. See tests/functional/unit/README.md.
+    // An eighth-note beat is exactly half the quarter. See tests/nodes/capture/README.md.
     clock.set_meter(7, 8);
     EXPECT_EQ(clock.beat_step_q32(), 45012757687336ull);
 }
@@ -131,7 +131,7 @@ TEST(Unit_Dsp, MusicalClockPlacesAnAwkwardMeterAtAHandComputedFrame)
     const SushiDSP::BarBeat at = clock.position_of(2955458u + 5000u);
     EXPECT_EQ(at.bar, 41u);
     EXPECT_EQ(at.beat, 3u);
-    // The frame sits 4999.484 into a 10480.349 frame beat. See tests/functional/unit/README.md.
+    // The frame sits 4999.484 into a 10480.349 frame beat. See tests/nodes/capture/README.md.
     EXPECT_NEAR(at.fraction, 0.4770341666682013, 1e-9);
 }
 
@@ -141,7 +141,7 @@ TEST(Unit_Dsp, MusicalClockKeepsBarStartsWithinOneSampleFarDownTheTimeline)
     clock.set_sample_rate(48000.0);
     clock.set_tempo(137.4);
     clock.set_meter(4, 4);
-    // Every start derives from the absolute beat index. See tests/functional/unit/README.md.
+    // Every start derives from the absolute beat index. See tests/nodes/capture/README.md.
     const double frames_per_beat = 48000.0 * 60.0 / 137.4;
     for (const std::uint64_t bar : {2ull, 100ull, 1000ull, 20000ull})
     {

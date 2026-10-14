@@ -176,8 +176,8 @@ Tier 2, a tool and a small table checked in: the Motus dataset (Zenodo 4923187, 
 files hold the geometry, the object quantities and assumed textbook coefficients, and no
 measured decay time; the measured figures come from the RIRs. `tools/dsp/motus_reference.py`
 reads the empty room (measurement 0001), carpet only (0002) and carpet with shelves (0003) and
-writes T20, T30, EDT, DRR and C50 per octave into `tests/fixtures/motus_reference.csv`, and
-`tests/functional/unit/test_room_motus.cpp` builds the same scenes from the module's rows and
+writes T20, T30, EDT, DRR and C50 per octave into `tests/nodes/room/fixtures/built_room_loss/motus_reference.csv`, and
+`tests/nodes/room/test_built_room_loss/test_motus_reference.cpp` builds the same scenes from the module's rows and
 prints both. The dataset's own object areas are mesh areas with occluded faces counted, not
 measured object absorption, so it tests the empty room, the covering and the method, not the
 household rows. The raw set is tens of gigabytes (a 461 MB `best_of` subset exists) and stays out
@@ -251,7 +251,7 @@ What this leaves out is in section 9: a furnishing casts no shadow and reflects 
   room's absorption. Measured minus modelled mean absorption, 125 Hz to 4 kHz, is +0.007, +0.020,
   +0.018, +0.018, +0.021 and +0.018 in the empty Motus room and +0.062, +0.046, +0.030, +0.027,
   +0.030 and +0.012 in the empty BRAS CR2 seminar room (146 m3, T30 from its ten dodecahedron
-  responses, `tests/fixtures/bras_cr2_reference.csv`). The BRAS CR1 reverberation chamber, sealed
+  responses, `tests/nodes/room/fixtures/built_room_loss/bras_cr2_reference.csv`). The BRAS CR1 reverberation chamber, sealed
   and purpose-built, shows no excess: its fitted concrete absorption is 0.009 to 0.019, below the
   database's initial estimate. The excess therefore comes from what a built room carries (doors,
   windows, radiators, ducts, seams, leakage), not from the surface materials, and it is a scene

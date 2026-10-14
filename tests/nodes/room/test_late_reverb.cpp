@@ -199,7 +199,7 @@ namespace
 
 TEST(Unit_Dsp, LateReverbHadamardPreservesEnergy)
 {
-    // The normalised Hadamard matrix is orthogonal. See tests/functional/unit/README.md.
+    // The normalised Hadamard matrix is orthogonal. See tests/nodes/room/README.md.
     std::array<double, K_LINES> values{};
     double start = 0.0;
     for (std::size_t line = 0; line < K_LINES; ++line)
@@ -219,7 +219,7 @@ TEST(Unit_Dsp, LateReverbHadamardPreservesEnergy)
         EXPECT_NEAR(current / start, 1.0, 1e-5);
     }
 
-    // The left ear reads 0 and 4 in turn without decaying. See tests/functional/unit/README.md.
+    // The left ear reads 0 and 4 in turn without decaying. See tests/nodes/room/README.md.
     std::array<std::uint32_t, K_LINES> ones{};
     ones.fill(1u);
     const FdnDesign design = make_design(ones, uniform_gains(1.0));
@@ -271,7 +271,7 @@ TEST(Unit_Dsp, LateReverbEarsDifferButShareTheirEnergy)
 
 TEST(Unit_Dsp, LateReverbRunsBothSectionsOfEveryOutputFilter)
 {
-    // Two sections of gain 0.5 scale the output by 0.25. See tests/functional/unit/README.md.
+    // Two sections of gain 0.5 scale the output by 0.25. See tests/nodes/room/README.md.
     const FdnDesign plain = make_design(K_SHORT_LINES, uniform_gains(0.5));
     FdnDesign quarter_tone = plain;
     quarter_tone.tone_correction = half_twice();
@@ -313,7 +313,7 @@ TEST(Unit_Dsp, LateReverbResetSilencesTheLines)
 
 TEST(Unit_Dsp, LateReverbSurvivesALineLengthChangeWithoutAClick)
 {
-    // A 50 Hz sine steps at most 0.0065 of peak per sample. See tests/functional/unit/README.md.
+    // A 50 Hz sine steps at most 0.0065 of peak per sample. See tests/nodes/room/README.md.
     constexpr std::size_t K_BLOCK = 1024;
     std::vector<float> sine(2 * K_BLOCK);
     for (std::size_t frame = 0; frame < sine.size(); ++frame)

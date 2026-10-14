@@ -88,15 +88,15 @@ TEST(Unit_Dsp, CabinetDirectivityBeamsAtTwoKilohertzAndNotAtOneTwentyFive)
 {
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
     const SushiDSP::room::BandResponse off = cabinet.gain_for(K_PI / 3.0, 0.0); // 60 degrees
-    // The 2 kHz band's energy mean reads -15.29 dB. See tests/functional/unit/README.md.
+    // The 2 kHz band's energy mean reads -15.29 dB. See tests/nodes/room/README.md.
     EXPECT_NEAR(off.decibels()[4], -15.29f, 0.05f);
-    // The 125 Hz band's energy mean reads -0.49 dB. See tests/functional/unit/README.md.
+    // The 125 Hz band's energy mean reads -0.49 dB. See tests/nodes/room/README.md.
     EXPECT_NEAR(off.decibels()[0], -0.49f, 0.05f);
 }
 
 TEST(Unit_Dsp, CabinetDirectivityAveragesTheArrayNullOverTheOctave)
 {
-    // The row null at 2120 Hz averages to -11.48 dB. See tests/functional/unit/README.md.
+    // The row null at 2120 Hz averages to -11.48 dB. See tests/nodes/room/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
     const double elevation = std::atan2(0.7, 2.5);
     const std::array<float, 6> direct = cabinet.gain_for(0.0, elevation).decibels();
@@ -107,7 +107,7 @@ TEST(Unit_Dsp, CabinetDirectivityAveragesTheArrayNullOverTheOctave)
 
 TEST(Unit_Dsp, CabinetDirectivityMatchesTheOctaveMeanOfItsClosedForm)
 {
-    // Sixteen points per octave match 1024 within 0.05 dB. See tests/functional/unit/README.md.
+    // Sixteen points per octave match 1024 within 0.05 dB. See tests/nodes/room/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
     for (const double elevation : {0.0, std::atan2(0.7, 2.5), std::atan2(3.3, 2.5)})
     {
@@ -133,7 +133,7 @@ TEST(Unit_Dsp, CabinetDirectivityPistonFactorMatchesTheBesselSeries)
 
 TEST(Unit_Dsp, CabinetDirectivityIndexIsSmallWhereTheConeIsOmnidirectional)
 {
-    // The index stays under 1.5 dB at 125 Hz. See tests/functional/unit/README.md.
+    // The index stays under 1.5 dB at 125 Hz. See tests/nodes/room/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
     const std::array<float, 6> index = cabinet.directivity_index_db();
     EXPECT_GT(index[0], 0.5f);
@@ -161,7 +161,7 @@ TEST(Unit_Dsp, CabinetDirectivityIsSymmetricLeftAndRight)
 
 TEST(Unit_Dsp, CabinetDirectivityFallsSixDecibelsBehindTheBaffleAboveTheStep)
 {
-    // Straight behind, only the rear shelf remains. See tests/functional/unit/README.md.
+    // Straight behind, only the rear shelf remains. See tests/nodes/room/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
     const std::array<float, 6> behind = cabinet.gain_for(K_PI, 0.0).decibels();
     EXPECT_NEAR(behind[5], -6.00f, 0.05f);

@@ -73,7 +73,7 @@ TEST(Unit_Dsp, PentodeStageIsDcStableForConstantInput)
 
 TEST(Unit_Dsp, PentodeStageSaturatesInsideItsPlateSwing)
 {
-    // The plate is bounded by the tube's swing on each side. See tests/functional/unit/README.md.
+    // The plate is bounded by the tube's swing on each side. See tests/foundation/circuits/stages/README.md.
     SushiDSP::PentodeStage cut_off(K_REFERENCE_PENTODE);
     SushiDSP::PentodeStage conducting(K_REFERENCE_PENTODE);
     const float toward_supply = settled(cut_off, -400.0f);
@@ -91,7 +91,7 @@ TEST(Unit_Dsp, PentodeStageSaturatesInsideItsPlateSwing)
 
 TEST(Unit_Dsp, PentodeStageIsNearlyLinearForSmallInput)
 {
-    // The grid sits at 0.867 of the input inside the window. See tests/functional/unit/README.md.
+    // The grid sits at 0.867 of the input inside the window. See tests/foundation/circuits/stages/README.md.
     SushiDSP::PentodeStage stage(K_REFERENCE_PENTODE);
     const float output = settled(stage, 0.1f, 50);
     const float grid_divider = K_REFERENCE_PENTODE.grid_leak_resistance_ohms /
@@ -103,7 +103,7 @@ TEST(Unit_Dsp, PentodeStageIsNearlyLinearForSmallInput)
 
 TEST(Unit_Dsp, PentodeStageGridConductsAtTheCathodeNotAtTheBiasPoint)
 {
-    // The grid law is referenced to the cathode. See tests/functional/unit/README.md.
+    // The grid law is referenced to the cathode. See tests/foundation/circuits/stages/README.md.
     SushiDSP::PentodeStage inside(K_REFERENCE_PENTODE);
     SushiDSP::PentodeStage crossed(K_REFERENCE_PENTODE.source_resistance_ohms,
                                    K_REFERENCE_PENTODE.grid_leak_resistance_ohms, -20.0f,
@@ -132,7 +132,7 @@ TEST(Unit_Dsp, PentodeStageResetClearsWarmStartState)
 
 TEST(Unit_Dsp, PentodePairIsOddSymmetricInsideTheWindowAndABiasDifferenceMovesTheHandover)
 {
-    // The composite is odd while both grids stay in window. See tests/functional/unit/README.md.
+    // The composite is odd while both grids stay in window. See tests/foundation/circuits/stages/README.md.
     auto composite = [](float bias_a, float bias_b, float u)
     {
         SushiDSP::PentodeStage a(K_REFERENCE_PENTODE.source_resistance_ohms,
@@ -179,7 +179,7 @@ TEST(Unit_Dsp, PentodeStagePresetConstructorMatchesTheSixArgumentOne)
 
 TEST(Unit_Dsp, PentodeStageAntialiaserAntiderivativeDifferentiatesBackToTheTransfer)
 {
-    // dG/du = bound(-gain u) dg/du on the EL34's table. See tests/functional/unit/README.md.
+    // dG/du = bound(-gain u) dg/du on the EL34's table. See tests/foundation/circuits/stages/README.md.
     const SushiDSP::PowerTubePreset& preset = K_REFERENCE_PENTODE;
     const SushiDSP::AntiderivativeAntialiaser antialiaser(
         preset.source_resistance_ohms, preset.grid_leak_resistance_ohms, preset.cathode_bias_volts,

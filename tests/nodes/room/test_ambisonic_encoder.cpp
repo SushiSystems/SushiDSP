@@ -146,7 +146,7 @@ TEST(Unit_Dsp, AmbisonicEncoderKeepsChannelZeroAtOneEverywhere)
 
 TEST(Unit_Dsp, AmbisonicEncoderIsOrthonormalOverTheSphere)
 {
-    // The quadrature is exact here; the residual is rounding. See tests/functional/unit/README.md.
+    // The quadrature is exact here; the residual is rounding. See tests/nodes/room/README.md.
     const std::vector<QuadratureNode> latitudes = gauss_legendre(K_LATITUDE_NODES);
     std::array<std::array<double, 16>, 16> mean{};
     for (const QuadratureNode& node : latitudes)

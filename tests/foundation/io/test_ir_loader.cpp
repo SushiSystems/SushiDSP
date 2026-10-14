@@ -92,7 +92,7 @@ namespace
     }
 
     /// @brief Returns the mean magnitude in dB over a band by a direct DFT of the samples.
-    /// @see tests/functional/unit/README.md
+    /// @see tests/foundation/io/README.md
     double band_mean_decibels(const std::vector<float>& samples, double sample_rate,
                               std::uint32_t fft_size, double low_hz, double high_hz)
     {
@@ -142,7 +142,7 @@ TEST(Unit_Dsp, IrLoaderNormalisesBandAverageToZeroDb)
 
 TEST(Unit_Dsp, IrLoaderNormalisesShapedBandAverageToZeroDb)
 {
-    // A two-tap comb makes the band selection matter. See tests/functional/unit/README.md.
+    // A two-tap comb makes the band selection matter. See tests/foundation/io/README.md.
     std::vector<float> samples(4096, 0.0f);
     samples[0] = 1.0f;
     samples[64] = 0.9f;

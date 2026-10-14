@@ -45,7 +45,7 @@ ports each sample.
 schematics, their sources and the questions they leave open.
 
 **golden file**: one second of mono float32 rendered by one node at one sample rate, stored
-under `tests/golden/` and compared against a fresh render at −80 dB RMS residual.
+under the unit's `goldens/` folder and compared against a fresh render at −80 dB RMS residual.
 
 **phase**: a step of the roadmap in `docs/design/SUSHIDSP.md` §9, named by a prefix and a
 number, such as `D4`, `DS2` or `DE`.

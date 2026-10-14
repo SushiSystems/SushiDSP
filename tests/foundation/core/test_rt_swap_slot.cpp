@@ -36,7 +36,7 @@
 namespace
 {
     /// @brief Declares a payload whose destructor is observable through a live count.
-    /// @see tests/functional/unit/README.md
+    /// @see tests/foundation/core/README.md
     class Counted
     {
         public:
@@ -114,7 +114,7 @@ TEST(Unit_Dsp, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMove
 
         slot.publish(std::make_unique<Counted>(2));
 
-        // Generation 1 stays alive while the thread is on it. See tests/functional/unit/README.md.
+        // Generation 1 stays alive while the thread is on it. See tests/foundation/core/README.md.
         slot.reclaim();
         EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 2);
 
@@ -169,7 +169,7 @@ TEST(Unit_Dsp, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
 
 TEST(Unit_Dsp, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
 {
-    // Reading the active object must not move the watermark. See tests/functional/unit/README.md.
+    // Reading the active object must not move the watermark. See tests/foundation/core/README.md.
     Counted::live_count.store(0, std::memory_order_relaxed);
     {
         SushiDSP::RtSwapSlot<Counted> slot;
@@ -183,17 +183,17 @@ TEST(Unit_Dsp, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark
 
         EXPECT_EQ(slot.active_for_publisher(), slot.acquire_for_audio_thread());
 
-        // The read alone moves nothing. See tests/functional/unit/README.md.
+        // The read alone moves nothing. See tests/foundation/core/README.md.
         EXPECT_EQ(slot.active_for_publisher()->value(), 2);
 
         slot.publish(std::make_unique<Counted>(3));
         EXPECT_EQ(slot.active_for_publisher()->value(), 3);
 
-        // Only object 1 may be freed here. See tests/functional/unit/README.md.
+        // Only object 1 may be freed here. See tests/foundation/core/README.md.
         slot.reclaim();
         EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 2);
 
-        // Only acquire_for_audio_thread() moves the watermark. See tests/functional/unit/README.md.
+        // Only acquire_for_audio_thread() moves the watermark. See tests/foundation/core/README.md.
         ASSERT_EQ(slot.acquire_for_audio_thread()->value(), 3);
         slot.reclaim();
         EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 1);

@@ -227,7 +227,7 @@ TEST(Unit_Dsp, WavFileThrowsOnTruncatedHeader)
 
 TEST(Unit_Dsp, WavFileLoadsMonoPcm24SamplesWithSignExtension)
 {
-    // The samples cover zero, both extremes and -1 LSB. See tests/functional/unit/README.md.
+    // The samples cover zero, both extremes and -1 LSB. See tests/foundation/io/README.md.
     const std::vector<int32_t> samples = {0x000000, 0x400000, 0x7FFFFF,
                                           static_cast<int32_t>(0xFFFFFFFF),
                                           static_cast<int32_t>(0xFF800000)};
@@ -275,7 +275,7 @@ TEST(Unit_Dsp, WavFileLoadsMonoIeeeFloatSamplesUnscaled)
 
 TEST(Unit_Dsp, WavFileDownmixesStereoAsAverageOfChannels)
 {
-    // Same-sign values make a sum twice the average. See tests/functional/unit/README.md.
+    // Same-sign values make a sum twice the average. See tests/foundation/io/README.md.
     const std::vector<int16_t> left = {0, 16384, 8000, 20000};
     const std::vector<int16_t> right = {0, 8192, 12000, 10000};
     const std::string path =

@@ -260,9 +260,9 @@ leakage. A bare `RoomScene{}` leaves it off, as does a preset room object withou
 
 Two real rooms are checked in. The first: 4.9 x 4.4 x 2.9 m of concrete, 61.13 m3, from the Motus dataset
 (Zenodo 4923187). `tools/dsp/motus_reference.py` computes T20, T30, EDT, DRR and C50 per octave
-from three of its ambisonic impulse responses into `tests/fixtures/motus_reference.csv`, whose
-method and provenance are in `tests/fixtures/motus_reference.README.md`;
-`tests/functional/unit/test_room_motus.cpp` builds the same scenes here and prints both figures.
+from three of its ambisonic impulse responses into `tests/nodes/room/fixtures/built_room_loss/motus_reference.csv`, whose
+method and provenance are in `tests/nodes/room/fixtures/built_room_loss/motus_reference.README.md`;
+`tests/nodes/room/test_built_room_loss/test_motus_reference.cpp` builds the same scenes here and prints both figures.
 The empty room (measurement 0001) and the room with a carpet (0002):
 
 | Band | Measured T30, empty | Model, empty | Ratio | Measured T30, carpet | Model, carpet | Ratio |
@@ -281,7 +281,7 @@ shortens both, and the model's reduction is the larger one: 39.2 % against 32.6 
 The second is the empty BRAS CR2 seminar room at RWTH Aachen, 146.1 m3 and 202.5 m2 of linoleum,
 concrete, plaster and windows (TU Berlin DepositOnce, doi 10.14279/depositonce-6726.3).
 `tools/dsp/bras_reference.py` averages the T30 of its ten dodecahedron responses into
-`tests/fixtures/bras_cr2_reference.csv`, and `tests/functional/unit/test_room_bras.cpp` models it
+`tests/nodes/room/fixtures/built_room_loss/bras_cr2_reference.csv`, and `tests/nodes/room/test_built_room_loss/test_bras_reference.cpp` models it
 as a box with the same volume and area per material. With `built_room_loss` set, the model's
 decay against the measured one:
 
@@ -308,7 +308,7 @@ The audio thread calls `RoomNode::process`, and through it `CrossoverPair::proce
 output stages, `DirectPath`, `FirFilter`, `FrameDelay` and `DelayRing`; at the block that adopts a set it also
 calls `CrossoverPair::set_crossover`,
 `ModalBank::reset` and `BinauralDecoder::reset`, all arithmetic. None of them allocates, locks,
-opens a file or throws after `prepare()`; `tests/functional/unit/test_rt_safety.cpp` traps
+opens a file or throws after `prepare()`; `tests/foundation/core/test_audio_node/test_rt_safety.cpp` traps
 `operator new` around each of them, and around `RoomNode::process` while publishes land that
 move a microphone, move the listener, widen the room, take cabinets and microphones away and
 bring them back, and switch `direct_delay`, so each path the node can take runs under the trap
@@ -661,7 +661,7 @@ next publish.
 
 Measured cost at 48 kHz and 256 frames on a Release build, best of 200, the garage with the
 cabinet at (0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0), every layer running
-(`tests/benchmark/main.cpp`):
+(`tests/foundation/core/benchmark_audio_path.cpp`):
 
 | Row | ns/sample | One core | Per 256 frames |
 | --- | --- | --- | --- |

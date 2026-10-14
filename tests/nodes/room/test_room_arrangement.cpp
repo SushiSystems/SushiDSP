@@ -32,7 +32,7 @@
 #include <SushiDSP/nodes/room/room_arrangement.hpp>
 #include <SushiDSP/nodes/room/starter_scene.hpp>
 
-#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
 
 using SushiDSP::Room::Arrangement;
 using SushiDSP::Room::MicrophonePlacement;

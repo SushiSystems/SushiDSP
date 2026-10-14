@@ -116,7 +116,7 @@ namespace
 
 TEST(Unit_Dsp, CrossoverPairSumsToUnityPowerEverywhere)
 {
-    // The pair's powers sum to one at every frequency. See tests/functional/unit/README.md.
+    // The pair's powers sum to one at every frequency. See tests/nodes/room/README.md.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
     const std::vector<double> low_db = magnitude_db(responses.low);
     const std::vector<double> high_db = magnitude_db(responses.high);
@@ -142,14 +142,14 @@ TEST(Unit_Dsp, CrossoverPairIsMinusThreeDecibelsPerHalfAtTheCrossover)
 
 TEST(Unit_Dsp, CrossoverPairAmplitudeSumPeaksThreeDecibelsAtTheCrossover)
 {
-    // The amplitude sum reads +3.01 dB at the corner. See tests/functional/unit/README.md.
+    // The amplitude sum reads +3.01 dB at the corner. See tests/nodes/room/README.md.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
     EXPECT_NEAR(magnitude_db_at(responses.sum, K_CROSSOVER_HZ), 3.01, 0.05);
 }
 
 TEST(Unit_Dsp, CrossoverPairFallsTwentyFourDecibelsPerOctave)
 {
-    // The closed form two octaves up is -48.16 dB. See tests/functional/unit/README.md.
+    // The closed form two octaves up is -48.16 dB. See tests/nodes/room/README.md.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
     const double passband_db = magnitude_db_at(responses.low, 5.0);
     const double two_octaves_up_db = magnitude_db_at(responses.low, 4.0 * K_CROSSOVER_HZ);

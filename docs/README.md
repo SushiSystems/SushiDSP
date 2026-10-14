@@ -45,9 +45,9 @@ Each module's README is linked from [Modules](architecture/MODULES.md). The othe
 | [`tools`](../tools/README.md) | The checkers, the license block writer and their tests |
 | [`tools/dsp`](../tools/dsp/README.md) | The scripts that generate filter tables, the HRTF asset and the room fixtures |
 | [`tools/spice`](../tools/spice/README.md) | The exporter that turns an LTspice run into the corpus CSVs |
-| [`tests/golden`](../tests/golden/README.md) | The golden files and every regeneration of one |
-| [`tests/fixtures`, BRAS](../tests/fixtures/bras_cr2_reference.README.md) | Where `bras_cr2_reference.csv` comes from |
-| [`tests/fixtures`, Motus](../tests/fixtures/motus_reference.README.md) | Where `motus_reference.csv` comes from |
+| [`golden_compare`](../modules/foundation/golden_compare/README.md) | The golden files and every regeneration of one |
+| [`tests/nodes/room/fixtures`, BRAS](../tests/nodes/room/fixtures/built_room_loss/bras_cr2_reference.README.md) | Where `bras_cr2_reference.csv` comes from |
+| [`tests/nodes/room/fixtures`, Motus](../tests/nodes/room/fixtures/built_room_loss/motus_reference.README.md) | Where `motus_reference.csv` comes from |
 | [`third_party/dr_libs`](../third_party/dr_libs/README.md) | The vendored MP3 decoder and its version |
 
 The [code of conduct](../.github/CODE_OF_CONDUCT.md) and the

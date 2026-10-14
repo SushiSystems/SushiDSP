@@ -110,7 +110,7 @@ TEST(Unit_Dsp, HrtfSetInterpolationAtAGridPointReturnsThatPointExactly)
 
 TEST(Unit_Dsp, HrtfSetInterpolationBetweenThreePointsIsABarycentricBlend)
 {
-    // By symmetry each of the three points carries one third. See tests/functional/unit/README.md.
+    // By symmetry each of the three points carries one third. See tests/nodes/room/README.md.
     const SushiDSP::room::HrtfSet set = six_axis_set();
     const SushiDSP::room::HrtfSet::Pair pair =
         set.interpolate(K_PI / 4.0, std::atan(1.0 / std::sqrt(2.0)));
@@ -129,7 +129,7 @@ TEST(Unit_Dsp, HrtfSetInterpolationBetweenThreePointsIsABarycentricBlend)
 
 TEST(Unit_Dsp, HrtfSetInterpolationWeightsSumToOne)
 {
-    // Each weight is a coordinate's magnitude over the sum. See tests/functional/unit/README.md.
+    // Each weight is a coordinate's magnitude over the sum. See tests/nodes/room/README.md.
     const SushiDSP::room::HrtfSet set = six_axis_set();
     std::uint32_t state = 12345u;
     auto next_unit = [&state]()
