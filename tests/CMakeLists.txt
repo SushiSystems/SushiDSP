@@ -63,117 +63,117 @@ add_executable(sushidsp_tests
     common/test_main.cpp
 
     # --- Core ---
-    functional/unit/test_audio_device.cpp
-    functional/unit/test_buffer_pool.cpp
-    functional/unit/test_denormal_guard.cpp
-    functional/unit/test_rig_graph.cpp
+    foundation/core/test_audio_device.cpp
+    foundation/core/test_buffer_pool.cpp
+    foundation/core/test_denormal_guard.cpp
+    foundation/core/test_rig_graph.cpp
     functional/unit/test_rig_graph_output_ports.cpp
-    functional/unit/test_sample_delay_line.cpp
-    functional/unit/test_channel_strip_node.cpp
-    functional/unit/test_stereo_strip_node.cpp
-    functional/unit/test_bus_node.cpp
-    functional/unit/test_microphone_node.cpp
-    functional/unit/test_splitter_node.cpp
-    functional/unit/test_mixer_node.cpp
-    functional/unit/test_pan_node.cpp
-    functional/unit/test_track_recorder.cpp
-    functional/unit/test_track_player.cpp
-    functional/unit/test_file_drop_queue.cpp
-    functional/unit/test_transport.cpp
-    functional/unit/test_take_library.cpp
-    functional/unit/test_musical_clock.cpp
-    functional/unit/test_vari_rate_reader.cpp
-    functional/unit/test_metronome.cpp
-    functional/unit/test_track_timeline.cpp
-    functional/unit/test_timeline_scale.cpp
-    functional/unit/test_rig_preset.cpp
-    functional/unit/test_rt_graph_slot.cpp
-    functional/unit/test_rt_swap_slot.cpp
-    functional/unit/test_channel_selection.cpp
-    functional/unit/test_node_registry.cpp
-    functional/unit/test_spsc_ring.cpp
+    nodes/routing/test_sample_delay_line.cpp
+    nodes/routing/test_channel_strip_node.cpp
+    nodes/routing/test_stereo_strip_node.cpp
+    nodes/routing/test_bus_node.cpp
+    nodes/microphone/test_microphone_node.cpp
+    nodes/routing/test_splitter_node.cpp
+    nodes/routing/test_mixer_node.cpp
+    nodes/routing/test_pan_node.cpp
+    nodes/capture/test_track_recorder.cpp
+    nodes/capture/test_track_player.cpp
+    applications/host_gui/test_file_drop_queue.cpp
+    nodes/capture/test_transport.cpp
+    nodes/capture/test_take_library.cpp
+    nodes/capture/test_musical_clock.cpp
+    nodes/capture/test_vari_rate_reader.cpp
+    nodes/capture/test_metronome.cpp
+    nodes/capture/test_track_timeline.cpp
+    applications/host_gui/ui/test_timeline_scale.cpp
+    session/rig_preset/test_rig_preset.cpp
+    foundation/core/test_rt_graph_slot.cpp
+    foundation/core/test_rt_swap_slot.cpp
+    foundation/audio_format/test_channel_selection.cpp
+    catalog/node_registry/test_node_registry.cpp
+    foundation/core/test_spsc_ring.cpp
 
     # --- Log ---
-    functional/unit/test_log_formatter.cpp
+    foundation/log/test_log_formatter.cpp
     functional/unit/test_log_compile_time_cut.cpp
-    functional/unit/test_logger.cpp
-    functional/unit/test_log_line_queue.cpp
-    functional/unit/test_async_log_sink.cpp
+    foundation/log/test_logger.cpp
+    foundation/log/test_log_line_queue.cpp
+    foundation/log/test_async_log_sink.cpp
     functional/unit/test_track_recorder_logging.cpp
     functional/unit/test_room_node_logging.cpp
     functional/unit/test_directory_listing_logging.cpp
 
     # --- Circuits ---
-    functional/unit/test_silicon_diode.cpp
+    foundation/circuits/models/test_silicon_diode.cpp
     functional/unit/test_triode_12ax7.cpp
-    functional/unit/test_pentode_el34.cpp
-    functional/unit/test_dk_circuit.cpp
+    foundation/circuits/models/test_pentode_el34.cpp
+    foundation/math/dk/test_dk_circuit.cpp
     functional/unit/test_dk_triode_stage.cpp
     functional/unit/test_dk_op_amp.cpp
     functional/unit/test_ts_clip_stage.cpp
     functional/unit/test_ts_tone_stage.cpp
 
     # --- Circuits: stages ---
-    functional/unit/test_triode_stage.cpp
-    functional/unit/test_pentode_stage.cpp
-    functional/unit/test_output_transformer_stage.cpp
-    functional/unit/test_power_supply_sag_stage.cpp
-    functional/unit/test_resonance_control.cpp
-    functional/unit/test_graphic_equalizer.cpp
-    functional/unit/test_fmv_tone_stack.cpp
-    functional/unit/test_long_tailed_pair.cpp
-    functional/unit/test_power_amp_feedback.cpp
-    functional/unit/test_miller_input_capacitance.cpp
-    functional/unit/test_phase_inverter_presets.cpp
-    functional/unit/test_output_safety_clamp.cpp
-    functional/unit/test_audio_taper_pot.cpp
+    foundation/circuits/stages/test_triode_stage.cpp
+    foundation/circuits/stages/test_pentode_stage.cpp
+    foundation/circuits/stages/test_output_transformer_stage.cpp
+    foundation/circuits/stages/test_power_supply_sag_stage.cpp
+    foundation/circuits/stages/test_resonance_control.cpp
+    foundation/circuits/test_graphic_equalizer.cpp
+    foundation/circuits/test_fmv_tone_stack.cpp
+    foundation/circuits/stages/test_long_tailed_pair.cpp
+    foundation/circuits/test_power_amp_feedback.cpp
+    foundation/circuits/stages/test_miller_input_capacitance.cpp
+    foundation/circuits/stages/test_phase_inverter_presets.cpp
+    foundation/circuits/test_output_safety_clamp.cpp
+    foundation/circuits/test_audio_taper_pot.cpp
 
     # --- Products ---
-    functional/unit/test_tube_screamer.cpp
-    functional/unit/test_jcm_tone_stack.cpp
-    functional/unit/test_jcm800.cpp
-    functional/unit/test_cabinet_node.cpp
-    functional/unit/test_peavey5150.cpp
-    functional/unit/test_diezel_vh4.cpp
-    functional/unit/test_mesa_mark2c.cpp
+    nodes/tubescreamer/test_tube_screamer.cpp
+    nodes/jcm800/test_jcm_tone_stack.cpp
+    nodes/jcm800/test_jcm800.cpp
+    nodes/cabinet/test_cabinet_node.cpp
+    nodes/peavey5150/test_peavey5150.cpp
+    nodes/diezel_vh4/test_diezel_vh4.cpp
+    nodes/mesa_mark2c/test_mesa_mark2c.cpp
 
     # --- Math ---
-    functional/unit/test_biquad.cpp
-    functional/unit/test_fft.cpp
-    functional/unit/test_newton_raphson_solver.cpp
-    functional/unit/test_damped_newton_solver.cpp
-    functional/unit/test_oversampler.cpp
+    foundation/math/test_biquad.cpp
+    foundation/math/test_fft.cpp
+    foundation/math/test_newton_raphson_solver.cpp
+    foundation/math/dk/test_damped_newton_solver.cpp
+    foundation/math/test_oversampler.cpp
     functional/unit/test_measure.cpp
     functional/unit/test_spice_csv.cpp
-    functional/unit/test_partitioned_convolution.cpp
-    functional/unit/test_streaming_convolution.cpp
-    functional/unit/test_sinc_resampler.cpp
+    foundation/math/test_partitioned_convolution.cpp
+    foundation/math/test_streaming_convolution.cpp
+    foundation/math/test_sinc_resampler.cpp
     functional/unit/test_resampler_coefficients.cpp
-    functional/unit/test_resampler.cpp
-    functional/unit/test_smoothed_parameter.cpp
-    functional/unit/test_wdf.cpp
+    foundation/math/test_resampler.cpp
+    foundation/math/test_smoothed_parameter.cpp
+    foundation/math/test_wdf.cpp
 
     # --- IO ---
-    functional/unit/test_asio_sample_converter.cpp
-    functional/unit/test_ir_loader.cpp
-    functional/unit/test_wav_file.cpp
-    functional/unit/test_wav_writer.cpp
+    foundation/audio_format/test_asio_sample_converter.cpp
+    foundation/io/test_ir_loader.cpp
+    foundation/io/test_wav_file.cpp
+    foundation/io/test_wav_writer.cpp
 
     # --- Real-time safety ---
     functional/unit/test_rt_safety.cpp
 
     # --- Host diagnostics ---
-    functional/unit/test_sine_tone_node.cpp
+    applications/host/test_sine_tone_node.cpp
     ${CMAKE_SOURCE_DIR}/applications/host/sine_tone_node.cpp
-    functional/unit/test_rig_controller.cpp
+    applications/host_gui/test_rig_controller.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_controller.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/slot_graph.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_timeline.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_persistence.cpp
-    functional/unit/test_rig_adapter.cpp
+    applications/plugin/test_rig_adapter.cpp
     ${CMAKE_SOURCE_DIR}/applications/plugin/rig_adapter.cpp
     ${CMAKE_SOURCE_DIR}/applications/plugin/parameter_routing.cpp
-    functional/unit/test_session.cpp
+    applications/host_gui/test_session.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_renderer.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_file.cpp
@@ -183,26 +183,26 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/applications/host_gui/channel_resampler.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/audio_import_cache.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/audio_import_queue.cpp
-    functional/unit/test_rig_topology.cpp
-    functional/unit/test_cabinet_section_wiring.cpp
+    applications/host_gui/test_rig_topology.cpp
+    applications/host_gui/test_cabinet_section_wiring.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/cabinet_section_wiring.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/mixer_model.cpp
-    functional/unit/test_scene_camera.cpp
+    applications/host_gui/ui/test_scene_camera.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/scene_camera.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/scene_interaction.cpp
-    functional/unit/test_scene_solids.cpp
+    applications/host_gui/ui/test_scene_solids.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/scene_solids.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_topology.cpp
-    functional/unit/test_topology_applier.cpp
+    applications/host_gui/test_topology_applier.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/topology_applier.cpp
 
     # --- host_gui view layer ---
     # Only the three ImGui-free units are compiled here: sushidsp_tests does not link imgui, and
     # the imgui target only exists when SUSHIDSP_BUILD_GUI is ON.
-    functional/unit/test_knob_math.cpp
-    functional/unit/test_panel_library.cpp
-    functional/unit/test_level_probe.cpp
-    functional/unit/test_directory_listing.cpp
+    applications/host_gui/ui/test_knob_math.cpp
+    applications/host_gui/ui/test_panel_library.cpp
+    applications/host_gui/ui/test_level_probe.cpp
+    applications/host_gui/ui/test_directory_listing.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/knob_math.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/panel_library.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/directory_listing.cpp
@@ -210,10 +210,10 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/arrangement_layout.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/tap_tempo.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/musical_time_text.cpp
-    functional/unit/test_split_layout.cpp
-    functional/unit/test_divider_math.cpp
-    functional/unit/test_gear_filter.cpp
-    functional/unit/test_level_text.cpp
+    applications/host_gui/ui/test_split_layout.cpp
+    applications/host_gui/ui/test_divider_math.cpp
+    applications/host_gui/ui/test_gear_filter.cpp
+    applications/host_gui/ui/test_level_text.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/split_layout.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/divider_math.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/gear_filter.cpp
@@ -222,52 +222,52 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/applications/host_gui/ui/patch_list.cpp
 
     # --- DD-3 ---
-    functional/unit/test_dd3_analog_filters.cpp
-    functional/unit/test_ne570_compander.cpp
-    functional/unit/test_dd3_converter.cpp
-    functional/unit/test_dd3_clock.cpp
-    functional/unit/test_dd3_delay.cpp
-    functional/unit/test_band_response.cpp
+    nodes/dd3/test_dd3_analog_filters.cpp
+    nodes/dd3/test_ne570_compander.cpp
+    nodes/dd3/test_dd3_converter.cpp
+    nodes/dd3/test_dd3_clock.cpp
+    nodes/dd3/test_dd3_delay.cpp
+    nodes/room/test_band_response.cpp
     functional/unit/test_room_materials.cpp
     functional/unit/test_room_furniture.cpp
-    functional/unit/test_air_absorption.cpp
-    functional/unit/test_medium_absorption.cpp
-    functional/unit/test_band_response_fit.cpp
-    functional/unit/test_cabinet_directivity.cpp
-    functional/unit/test_microphone_model.cpp
+    nodes/room/test_air_absorption.cpp
+    nodes/room/test_medium_absorption.cpp
+    nodes/room/test_band_response_fit.cpp
+    nodes/room/test_cabinet_directivity.cpp
+    nodes/room/test_microphone_model.cpp
     functional/unit/test_room_records.cpp
-    functional/unit/test_crossover_pair.cpp
-    functional/unit/test_hrtf_set.cpp
-    functional/unit/test_ambisonic_encoder.cpp
-    functional/unit/test_room_scene.cpp
+    nodes/room/test_crossover_pair.cpp
+    nodes/room/test_hrtf_set.cpp
+    nodes/room/test_ambisonic_encoder.cpp
+    nodes/room/test_room_scene.cpp
     functional/unit/test_room_scene_furnishings.cpp
     functional/unit/test_room_starter_scene.cpp
-    functional/unit/test_furnishing_list.cpp
-    functional/unit/test_patch_list.cpp
+    applications/host_gui/ui/test_furnishing_list.cpp
+    applications/host_gui/ui/test_patch_list.cpp
     functional/unit/test_room_motus.cpp
     functional/unit/test_room_bras.cpp
-    functional/unit/test_early_reflection_renderer.cpp
-    functional/unit/test_late_reverb.cpp
-    functional/unit/test_modal_bank.cpp
-    functional/unit/test_spherical_head_hrtf.cpp
-    functional/unit/test_hrtf_set_loader.cpp
-    functional/unit/test_binaural_decoder.cpp
-    functional/unit/test_eyring_decay.cpp
-    functional/unit/test_image_source_solver.cpp
-    functional/unit/test_late_reverb_design.cpp
-    functional/unit/test_modal_solver.cpp
-    functional/unit/test_room_render_set.cpp
-    functional/unit/test_room_node.cpp
+    nodes/room/test_early_reflection_renderer.cpp
+    nodes/room/test_late_reverb.cpp
+    nodes/room/test_modal_bank.cpp
+    nodes/room/test_spherical_head_hrtf.cpp
+    nodes/room/test_hrtf_set_loader.cpp
+    nodes/room/test_binaural_decoder.cpp
+    nodes/room/test_eyring_decay.cpp
+    nodes/room/test_image_source_solver.cpp
+    nodes/room/test_late_reverb_design.cpp
+    nodes/room/test_modal_solver.cpp
+    nodes/room/test_room_render_set.cpp
+    nodes/room/test_room_node.cpp
     functional/unit/test_room_environment.cpp
-    functional/unit/test_room_arrangement.cpp
-    functional/unit/test_driver_field.cpp
-    functional/unit/test_furnishing_field.cpp
-    functional/unit/test_channel_resampler.cpp
-    functional/unit/test_audio_import_cache.cpp
-    functional/unit/test_audio_import_queue.cpp
-    functional/unit/test_arrangement_layout.cpp
-    functional/unit/test_tap_tempo.cpp
-    functional/unit/test_musical_time_text.cpp
+    nodes/room/test_room_arrangement.cpp
+    nodes/room/test_driver_field.cpp
+    nodes/room/test_furnishing_field.cpp
+    applications/host_gui/test_channel_resampler.cpp
+    applications/host_gui/test_audio_import_cache.cpp
+    applications/host_gui/test_audio_import_queue.cpp
+    applications/host_gui/ui/test_arrangement_layout.cpp
+    applications/host_gui/ui/test_tap_tempo.cpp
+    applications/host_gui/ui/test_musical_time_text.cpp
     functional/unit/test_dd3_acceptance.cpp
 
     # --- Regression ---
@@ -323,11 +323,11 @@ target_link_libraries(sushidsp_tests PRIVATE
 )
 sushidsp_apply_optimization_flags(sushidsp_tests)
 
-# Every test source of the binary is registered. Only functional/ holds test cases; the
-# application sources compiled into the binary are not read.
+# Every test file of the binary is registered. A test file is named test_<name>.cpp; the
+# application and support sources compiled into the binary are not.
 get_target_property(_sushidsp_test_sources sushidsp_tests SOURCES)
 foreach(_source IN LISTS _sushidsp_test_sources)
-    if(_source MATCHES "^functional/")
+    if(_source MATCHES "(^|/)test_[^/]*\\.cpp$")
         sushidsp_register_tests(sushidsp_tests "${_source}")
     endif()
 endforeach()

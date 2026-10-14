@@ -88,8 +88,8 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 
 | Folder | Holds |
 | --- | --- |
-| `tests/functional/unit/` | One `test_<snake_case_name>.cpp` per class or behaviour |
-| `tests/functional/regression/` | One golden-file comparison per product |
+| `tests/<tier>/<module>/`, `tests/applications/<app>/` | One `test_<snake_case_name>.cpp` per unit, at the path of the unit's header |
+| `tests/functional/` | Tests not yet moved to their mirror path, and the golden-file regression per product; see `docs/agent/2026_10_14_TEST_TREE/PLAN.md` |
 | `tests/golden/` | The pinned `.f32` renders and the record of each regeneration |
 | `tests/fixtures/` | Reference data from measured rooms, each with its own README |
 | `tests/measure/` | Headers that measure THD, alias floor, frequency response and nulls |

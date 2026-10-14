@@ -87,7 +87,7 @@ at is the session's fact rather than the recorder's, so `RigController::arm_reco
 position before the bus opens and `stop_recording` places the dry file as a clip at that frame.
 
 Files are 32-bit IEEE float, so a recorded ramp reads back bit-identical;
-`tests/functional/unit/test_track_recorder.cpp` asserts exactly that, and
+`tests/nodes/capture/test_track_recorder.cpp` asserts exactly that, and
 `TrackRecorderWritePerformsNoHeapAllocation` in `tests/functional/unit/test_rt_safety.cpp` holds
 the RT bar.
 
@@ -135,7 +135,7 @@ the two, and the header says so as a `@pre` rather than paying for a generation 
 needs. `TrackPlayerProcessPerformsNoHeapAllocation` and
 `TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread` in
 `tests/functional/unit/test_rt_safety.cpp` hold the RT bar, and
-`tests/functional/unit/test_track_player.cpp` covers the mix.
+`tests/nodes/capture/test_track_player.cpp` covers the mix.
 
 Spec §6 carries the intent behind all of it.
 

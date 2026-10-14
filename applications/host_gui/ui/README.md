@@ -109,7 +109,7 @@ or along the floor and both directions always have an answer.
 under the pointer, the nearer one when two share a pixel; `drag_across` moves an item over the
 room at its own height; `drag_height` raises or lowers it by a vertical drag scaled by its depth;
 `drag_turn` turns it. Each keeps the item 5 cm inside the walls. Neither file includes ImGui, so
-`tests/functional/unit/test_scene_camera.cpp` checks both against hand-computed coordinates.
+`tests/applications/host_gui/ui/test_scene_camera.cpp` checks both against hand-computed coordinates.
 
 ## `room_scene_view.hpp`
 
@@ -129,7 +129,7 @@ its baffle, `cone_centre` and `cone_outline` place a cone on the baffle, `furnis
 a furniture row's nominal box on the floor, `nearest_cone` says which cone a point is nearest
 and where it stands to it, `microphone_on_cone` is its inverse, and `cone_label` names a cone
 as someone facing the baffle sees it.
-`tests/functional/unit/test_scene_solids.cpp` checks each against hand-computed coordinates.
+`tests/applications/host_gui/ui/test_scene_solids.cpp` checks each against hand-computed coordinates.
 
 ## `mixer_model.hpp` and `mixer_panel.hpp`
 
@@ -144,7 +144,7 @@ order: each microphone, Room, Listener, Cabinet, Bus, DI and Master. A strip nam
 holds its level and where its mute and solo live, which is one input of one bus: a microphone's
 are on the bus, or on the Room sum when it is marked room; the listener's, Cabinet's and the
 Bus's are on the amp bus; the DI's are on the amp bus or the master bus, by its position. The
-function is pure and `tests/functional/unit/test_cabinet_section_wiring.cpp` checks it.
+function is pure and `tests/applications/host_gui/test_cabinet_section_wiring.cpp` checks it.
 
 `draw_mixer_panel` draws each strip as a column: a level fader, pan and delay for a mono strip or
 balance and width for a stereo one, mute and solo, and for a microphone its polarity, its room

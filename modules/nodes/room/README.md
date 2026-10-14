@@ -466,7 +466,7 @@ frequency between the centres (spec §6.3). `diffuse_field.hpp` is header-only; 
 directivity index of the last cabinet geometry behind a mutex, since the 2562-direction integral
 costs 18 ms against a 2 ms build, both measured on an unoptimised binary, and a drag never
 changes the geometry. Its cases live in
-`tests/functional/unit/test_modal_solver.cpp` (`DiffuseFieldIsEyringOverTheCabinetsDirectivity`)
+`tests/nodes/room/test_modal_solver.cpp` (`DiffuseFieldIsEyringOverTheCabinetsDirectivity`)
 until the test list can take a file of its own. The index is the
 directivity of `CabinetDirectivity`, 1.1, 3.0, 7.6, 12.0, 15.7 and 18.8 dB for the 4x12, and it
 is what keeps a beaming cabinet's room quieter than a monopole's: the garage's octave under f_s
