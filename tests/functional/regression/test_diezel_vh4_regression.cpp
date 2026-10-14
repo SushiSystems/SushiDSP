@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "common/regression_test.hpp"
 
 #include <SushiDSP/nodes/diezel_vh4/diezel_vh4.hpp>
 #include "golden/golden_file.hpp"
@@ -74,13 +75,13 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md
-TEST(Regression_Dsp, DiezelVh4GoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, DiezelVh4GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("diezel_vh4_48k", render_diezel_vh4(48000.0)),
               -80.0);
 }
 
-TEST(Regression_Dsp, DiezelVh4GoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, DiezelVh4GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("diezel_vh4_96k", render_diezel_vh4(96000.0)),
               -80.0);

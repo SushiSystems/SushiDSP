@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "common/regression_test.hpp"
 
 #include <SushiDSP/foundation/circuits/stages/pentode_stage.hpp>
 #include <SushiDSP/foundation/circuits/stages/triode_stage.hpp>
@@ -549,7 +550,7 @@ TEST(Unit_Dsp, MeasureNullTestReportsARealDifference)
 // K_D5B_JCM800_ALIAS_FLOOR_DB is the D5b baseline of -3.8 dB. See tests/functional/unit/README.md.
 constexpr double K_D5B_JCM800_ALIAS_FLOOR_DB = -3.8;
 
-TEST(Regression_Dsp, TubeScreamerAliasFloorDoesNotRegress)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, TubeScreamerAliasFloorDoesNotRegress)
 {
     // The floor is the measured -18.6 dB with 1 dB of slack. See tests/functional/unit/README.md.
     SushiDSP::TubeScreamer node;
@@ -560,7 +561,7 @@ TEST(Regression_Dsp, TubeScreamerAliasFloorDoesNotRegress)
     EXPECT_LE(floor, -17.6);
 }
 
-TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
 {
     // The case is skipped as a known issue but still prints. See tests/functional/unit/README.md.
     SushiDSP::Jcm800 node;
@@ -583,7 +584,7 @@ TEST(Regression_Dsp, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
     EXPECT_LE(floor, K_D5B_JCM800_ALIAS_FLOOR_DB - 30.0);
 }
 
-TEST(Regression_Dsp, Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb)
 {
     // The case is skipped as a known issue but still prints. See tests/functional/unit/README.md.
     SushiDSP::Peavey5150 node;
@@ -595,7 +596,7 @@ TEST(Regression_Dsp, Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb)
     EXPECT_LT(floor, -30.0);
 }
 
-TEST(Regression_Dsp, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
 {
     // V5A alone folds under -60 dB at 6 V and -40 dB at 24 V. See tests/functional/unit/README.md.
     auto v5a = []
@@ -616,7 +617,7 @@ TEST(Regression_Dsp, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
     EXPECT_LT(at_twelve_times, -40.0);
 }
 
-TEST(Regression_Dsp, PentodeStageAliasFloorInsideAndAtItsWindow)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, PentodeStageAliasFloorInsideAndAtItsWindow)
 {
     // The EL34 folds under -80 dB at 8 V and -50 dB at 38 V. See tests/functional/unit/README.md.
     OversampledPentodeStageNode inside(SushiDSP::PentodeStage(K_REFERENCE_PENTODE), 8.0f, 300.0f);

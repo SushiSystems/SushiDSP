@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "common/regression_test.hpp"
 
 #include <SushiDSP/nodes/jcm800/jcm800.hpp>
 #include "golden/golden_file.hpp"
@@ -72,12 +73,12 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md
-TEST(Regression_Dsp, Jcm800GoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Jcm800GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("jcm800_48k", render_jcm800(48000.0)), -80.0);
 }
 
-TEST(Regression_Dsp, Jcm800GoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Jcm800GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("jcm800_96k", render_jcm800(96000.0)), -80.0);
 }

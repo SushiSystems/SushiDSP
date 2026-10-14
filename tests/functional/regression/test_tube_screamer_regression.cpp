@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "common/regression_test.hpp"
 
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 #include "golden/golden_file.hpp"
@@ -70,7 +71,7 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md
-TEST(Regression_Dsp, TubeScreamerGoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, TubeScreamerGoldenFile48k)
 {
     EXPECT_LE(
         SushiDSP::golden::compare_or_regenerate("tube_screamer_48k", render_tube_screamer(48000.0)),
@@ -79,7 +80,7 @@ TEST(Regression_Dsp, TubeScreamerGoldenFile48k)
 
 /// @brief Tests that the 96 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md
-TEST(Regression_Dsp, TubeScreamerGoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, TubeScreamerGoldenFile96k)
 {
     EXPECT_LE(
         SushiDSP::golden::compare_or_regenerate("tube_screamer_96k", render_tube_screamer(96000.0)),

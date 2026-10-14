@@ -320,11 +320,11 @@ is too tight for either start.
 
 ### `File scope`
 
-`// Every case renders seconds, hence the Regression_Dsp prefix.`
+`// Every case renders seconds, hence SUSHIDSP_REGRESSION_TEST.`
 
-Every case here carries the Regression_Dsp prefix although the file sits under unit/: each one
-renders seconds of audio, and docs/CONTRIBUTING.md section 4 keeps `sd test -s unit` a fast edit
-loop. tests/functional/unit/test_measure.cpp's alias-floor cases do the same.
+Every case here is written with SUSHIDSP_REGRESSION_TEST although the file sits under unit/: each
+one renders seconds of audio, and docs/CONTRIBUTING.md keeps `sd test -s unit` a fast edit loop.
+tests/functional/unit/test_measure.cpp's alias-floor cases do the same.
 
 ### `Dd3AcceptanceClockCurveMatchesThePublishedRange`
 

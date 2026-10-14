@@ -35,6 +35,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "common/regression_test.hpp"
 
 #include <SushiDSP/nodes/dd3/dd3_delay.hpp>
 #include "golden/golden_file.hpp"
@@ -76,12 +77,12 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md
-TEST(Regression_Dsp, Dd3GoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("dd3_48k", render_dd3(48000.0)), -80.0);
 }
 
-TEST(Regression_Dsp, Dd3GoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("dd3_96k", render_dd3(96000.0)), -80.0);
 }

@@ -97,15 +97,17 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 | `tests/common/` | `test_main.cpp` and fixtures shared across suites |
 | `tests/benchmark/` | The timing harness, one CTest case under the `benchmark` label |
 
-- A GoogleTest suite name carries its label as a prefix: `TEST(Unit_Dsp, SomeCase)` runs under
-  `sd test -s unit`, `TEST(Regression_Dsp, SomeCase)` under `sd test -s regression`.
+- A test carries its label through the macro it is written with: `TEST(Logger, SomeCase)` runs
+  under `sd test -s unit`, `SUSHIDSP_REGRESSION_TEST(Logger, SomeCase)` (from
+  `tests/common/regression_test.hpp`) under `sd test -s regression`.
 - A golden file is one second of mono float32 per node at 48 kHz and at 96 kHz, compared
   against a fresh render at −80 dB RMS residual. A deliberate behaviour change regenerates
   them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`; a golden file is never
   regenerated to silence a failure whose cause is unknown.
 - A numerical test compares against a value derived independently of the implementation.
-- The alias-floor cases in `tests/functional/unit/test_measure.cpp` carry the `Regression_Dsp`
-  prefix, because each renders several seconds of audio and `sd test -s unit` is the edit loop.
+- The alias-floor cases in `tests/functional/unit/test_measure.cpp` are written with
+  `SUSHIDSP_REGRESSION_TEST`, because each renders several seconds of audio and `sd test -s unit`
+  is the edit loop.
 - Run `sd test` before every commit, and `sd test --suite all` before a change to the audio
   path lands.
 - A change to the audio path is timed before and after with `sd test -t release -s benchmark`,

@@ -7,14 +7,16 @@
 # ============================================================================
 # SushiDSP test pipeline
 #
-# One binary, sushidsp_tests, covering functional/{unit,integration,
-# regression}. Tests are grouped into CTest labels from the GTest suite-name
-# prefix convention (Unit_* / Integration_* / Regression_*), matching
-# sushiruntime/sushiengine/sushiblas, so `ctest -L unit` selects a sub-suite
-# and new tests are picked up automatically as long as they follow it.
+# One binary, sushidsp_tests, built from the test files listed below. Each test
+# is one CTest test, labelled by the macro it is written with: TEST is a `unit`
+# test, SUSHIDSP_REGRESSION_TEST (tests/common/regression_test.hpp) a
+# `regression`. The labels are what `ctest -L` selects, so `sd test -s unit`
+# and `sd test -s regression` keep their meaning.
 #
-# "unit" and "regression" discovery calls exist here; the "integration" call
-# arrives with the first such test file.
+# The labels come from the test sources at configure time (see
+# sushidsp_register_tests below), so a test that is added to an existing file
+# is registered the next time CMake runs. Test names follow the suite and test
+# names in the source, and they must be unique across the binary.
 #
 # GoogleTest is sourced via FetchContent rather than vcpkg's
 # find_package(GTest CONFIG REQUIRED) that sushiblas uses: SushiDSP has no
@@ -22,7 +24,7 @@
 # standalone.
 # ============================================================================
 
-cmake_minimum_required(VERSION 3.22) # gtest_discover_tests(TEST_FILTER ...)
+cmake_minimum_required(VERSION 3.22)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -33,7 +35,27 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-include(GoogleTest)
+# Registers every TEST and SUSHIDSP_REGRESSION_TEST of one test source as a CTest test.
+# The source is read as text: each case is one line of the form TEST(Suite, Name). A case
+# written any other way is missed, so every case keeps that form.
+function(sushidsp_register_tests target source)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
+    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/${source}" _cases
+        REGEX "^[ \t]*(TEST|TEST_F|SUSHIDSP_REGRESSION_TEST)[ \t]*\\(")
+    foreach(_case IN LISTS _cases)
+        if(_case MATCHES "^[ \t]*(TEST|TEST_F|SUSHIDSP_REGRESSION_TEST)[ \t]*\\([ \t]*([A-Za-z0-9_]+)[ \t]*,[ \t]*([A-Za-z0-9_]+)[ \t]*\\)")
+            set(_macro "${CMAKE_MATCH_1}")
+            set(_test "${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+            if(_macro STREQUAL "SUSHIDSP_REGRESSION_TEST")
+                set(_label "regression")
+            else()
+                set(_label "unit")
+            endif()
+            add_test(NAME "${_test}" COMMAND ${target} "--gtest_filter=${_test}")
+            set_tests_properties("${_test}" PROPERTIES LABELS "${_label}")
+        endif()
+    endforeach()
+endfunction()
 
 set(SD_TEST_COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/common")
 
@@ -301,21 +323,14 @@ target_link_libraries(sushidsp_tests PRIVATE
 )
 sushidsp_apply_optimization_flags(sushidsp_tests)
 
-# One label per group; the "functional" umbrella is expressed by the consumer
-# as a label regex (`ctest -L 'unit|integration|regression'`) rather than a
-# second baked-in label, which does not survive gtest_discover_tests on
-# current CMake.
-gtest_discover_tests(sushidsp_tests
-    DISCOVERY_MODE PRE_TEST
-    TEST_FILTER "Unit_*"
-    PROPERTIES LABELS "unit"
-)
-
-gtest_discover_tests(sushidsp_tests
-    DISCOVERY_MODE PRE_TEST
-    TEST_FILTER "Regression_*"
-    PROPERTIES LABELS "regression"
-)
+# Every test source of the binary is registered. Only functional/ holds test cases; the
+# application sources compiled into the binary are not read.
+get_target_property(_sushidsp_test_sources sushidsp_tests SOURCES)
+foreach(_source IN LISTS _sushidsp_test_sources)
+    if(_source MATCHES "^functional/")
+        sushidsp_register_tests(sushidsp_tests "${_source}")
+    endif()
+endforeach()
 
 # The timing harness (bench/, see tests/benchmark/CMakeLists.txt for why it is a plain
 # executable rather than a GTest binary): registered here, not from the root CMakeLists.txt,

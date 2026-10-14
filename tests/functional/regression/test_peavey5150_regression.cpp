@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "common/regression_test.hpp"
 
 #include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
 #include "golden/golden_file.hpp"
@@ -73,13 +74,13 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md
-TEST(Regression_Dsp, Peavey5150GoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Peavey5150GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("peavey5150_48k", render_peavey5150(48000.0)),
               -80.0);
 }
 
-TEST(Regression_Dsp, Peavey5150GoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Peavey5150GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate("peavey5150_96k", render_peavey5150(96000.0)),
               -80.0);
