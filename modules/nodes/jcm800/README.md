@@ -200,7 +200,7 @@ Measured 2026-09-07, all at 48 kHz with a 256-frame block:
 
 ## Known issue: the alias floor
 
-`Regression_Dsp.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` is skipped, and the measurement still
+`Measure.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` is skipped, and the measurement still
 runs and still prints its figure. The amp measures −23.4 dB at preamp 1.0 and −12 dBFS, against
 −43.4 dB before DA4 removed the level staging. Every stage clips at the level its own circuit
 puts it at, every stage's composite transfer is antialiased (DA5 part 4, `AntiderivativeAntialiaser`),
