@@ -14,7 +14,7 @@ least-contaminated estimate of what the audio thread pays.
 ### The JCM800 V1a block
 
 The netlist, its component constants and the triode glue live in
-`tests/circuits/jcm_v1a_netlist.hpp`, shared with the D6b stage test and the RT-safety traps.
+`modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp`, shared with the D6b stage test and the RT-safety traps.
 `build_jcm_v1a(netlist, true)` appends the series RC that takes the block from the SPICE
 stage's six reactive states to the seven the D6b budget is written against.
 

@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_main.cpp                                                          */
+/* main.cpp                                                               */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -20,7 +20,7 @@
 /**************************************************************************/
 
 /**
- * @file test_main.cpp
+ * @file main.cpp
  * @brief Runs the SushiDSP test suite under GoogleTest.
  * @author Mustafa Garip
  */

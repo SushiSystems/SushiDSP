@@ -38,11 +38,11 @@
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/nodes/tubescreamer/tube_screamer_circuits.hpp>
 
-#include "circuits/dk_block_node.hpp"
-#include "circuits/spice_block_compare.hpp"
-#include "measure/frequency_response.hpp"
-#include "measure/null_test.hpp"
-#include "measure/spice_csv.hpp"
+#include <SushiDSP/foundation/circuit_blocks/dk_block_node.hpp.hpp>
+#include <SushiDSP/foundation/spice_reference/spice_block_compare.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/frequency_response.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/null_test.hpp.hpp>
+#include <SushiDSP/foundation/spice_reference/spice_csv.hpp.hpp>
 
 namespace
 {

@@ -9,7 +9,7 @@
 #
 # One binary, sushidsp_tests, built from the test files listed below. Each test
 # is one CTest test, labelled by the macro it is written with: TEST is a `unit`
-# test, SUSHIDSP_REGRESSION_TEST (tests/common/regression_test.hpp) a
+# test, SUSHIDSP_REGRESSION_TEST (modules/foundation/regression_test/include/SushiDSP/foundation/regression_test/regression_test.hpp) a
 # `regression`. The labels are what `ctest -L` selects, so `sd test -s unit`
 # and `sd test -s regression` keep their meaning.
 #
@@ -57,10 +57,8 @@ function(sushidsp_register_tests target source)
     endforeach()
 endfunction()
 
-set(SD_TEST_COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/common")
-
 add_executable(sushidsp_tests
-    common/test_main.cpp
+    main.cpp
 
     # --- Core ---
     foundation/core/test_audio_device.cpp
@@ -279,9 +277,6 @@ add_executable(sushidsp_tests
     functional/regression/test_mesa_mark2c_regression.cpp
 )
 
-target_include_directories(sushidsp_tests PRIVATE ${SD_TEST_COMMON_DIR})
-# tests/measure/ and tests/golden/ are header-only and test-side only: never linked into a product.
-target_include_directories(sushidsp_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(sushidsp_tests PRIVATE
     SUSHIDSP_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden"
     SUSHIDSP_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
@@ -311,6 +306,13 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::room
     SushiDSP::microphone
     SushiDSP::rig_preset
+    SushiDSP::sushi_dsp_signal_measure
+    SushiDSP::sushi_dsp_spice_reference
+    SushiDSP::sushi_dsp_circuit_blocks
+    SushiDSP::sushi_dsp_golden_compare
+    SushiDSP::sushi_dsp_timing_gate
+    SushiDSP::sushi_dsp_regression_test
+    SushiDSP::room_scenes
     GTest::gtest
     # Known limitation: nlohmann_json::nlohmann_json is only available here because
     # enable_testing()/add_subdirectory(tests) in the root CMakeLists.txt runs after the

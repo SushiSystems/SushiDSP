@@ -33,7 +33,7 @@
 
 #include <SushiDSP/foundation/math/biquad.hpp>
 
-#include "measure/spice_csv.hpp"
+#include <SushiDSP/foundation/spice_reference/spice_csv.hpp.hpp>
 
 namespace SushiDSP::test_circuits
 {
@@ -50,7 +50,7 @@ namespace SushiDSP::test_circuits
     /// @param signal The signal to filter, modified in place.
     /// @param sample_rate Sample rate in hertz.
     /// @param cutoff_hz Corner frequency in hertz.
-    /// @see tests/circuits/README.md, "spice_block_compare.hpp", for what the filter removes.
+    /// @see modules/foundation/circuit_blocks/README.md, "spice_block_compare.hpp", for what the filter removes.
     inline void band_limit(std::vector<float>& signal, double sample_rate, double cutoff_hz)
     {
         Biquad first;

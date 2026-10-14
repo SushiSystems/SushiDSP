@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include "timing_gate.hpp"
+#include <SushiDSP/foundation/timing_gate/timing_gate.hpp.hpp>
 
 #include <algorithm>
 #include <chrono>

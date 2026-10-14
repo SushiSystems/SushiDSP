@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "measure/spice_csv.hpp"
+#include <SushiDSP/foundation/spice_reference/spice_csv.hpp.hpp>
 
 TEST(Unit_Dsp, SpiceCsvLoadsAcSweepColumns)
 {

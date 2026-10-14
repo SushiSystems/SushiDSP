@@ -39,15 +39,15 @@
 #include <SushiDSP/foundation/math/dk/dk_circuit.hpp>
 #include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
 
-#include "circuits/jcm_v1a_netlist.hpp"
-#include "circuits/spice_block_compare.hpp"
-#include "measure/frequency_response.hpp"
-#include "measure/null_test.hpp"
-#include "measure/spice_csv.hpp"
+#include <SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp.hpp>
+#include <SushiDSP/foundation/spice_reference/spice_block_compare.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/frequency_response.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/null_test.hpp.hpp>
+#include <SushiDSP/foundation/spice_reference/spice_csv.hpp.hpp>
 
 namespace
 {
-    // The netlist lives in tests/circuits/jcm_v1a_netlist.hpp. See tests/functional/unit/README.md.
+    // The netlist lives in modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp. See tests/functional/unit/README.md.
     using namespace SushiDSP::test_circuits;
 
     /// @brief The stage's DK shape: six capacitors, two triode branches, two sources, one probe.

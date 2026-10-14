@@ -29,7 +29,7 @@
 #define _USE_MATH_DEFINES
 
 #include <gtest/gtest.h>
-#include "common/regression_test.hpp"
+#include <SushiDSP/foundation/regression_test/regression_test.hpp.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -39,8 +39,8 @@
 #include <vector>
 
 #include <SushiDSP/nodes/dd3/dd3_delay.hpp>
-#include "measure/alias_floor.hpp"
-#include "measure/render.hpp"
+#include <SushiDSP/foundation/signal_measure/alias_floor.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/render.hpp.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

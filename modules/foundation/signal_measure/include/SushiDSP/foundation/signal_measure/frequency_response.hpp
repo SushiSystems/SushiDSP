@@ -34,7 +34,7 @@
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
-#include "measure/render.hpp"
+#include <SushiDSP/foundation/signal_measure/render.hpp.hpp>
 
 namespace SushiDSP::measure
 {
@@ -49,7 +49,7 @@ namespace SushiDSP::measure
     /// @param node The node under test, knobs already set.
     /// @param frequencies_hz Frequencies to report.
     /// @return One point per requested frequency.
-    /// @see tests/measure/README.md, "frequency_response.hpp", for the sweep and its measured error.
+    /// @see modules/foundation/signal_measure/README.md, "frequency_response.hpp", for the sweep and its measured error.
     inline std::vector<ResponsePoint> frequency_response(AudioNode& node, double sample_rate,
                                                          const std::vector<double>& frequencies_hz)
     {

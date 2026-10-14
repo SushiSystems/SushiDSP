@@ -159,7 +159,7 @@ Mechanical work that follows:
 - Rewrite `docs/archive/README.md` as an index of what the archive holds, and say there
   which of the two standards phase 1 plans is the record.
 - Give the five placeless changelog entries of 2026-09-05 and 2026-09-07 their places.
-- Write the READMEs for `applications/host/`, `applications/host_asio/`, `tests/measure/`, `tests/benchmark/`
+- Write the READMEs for `applications/host/`, `applications/host_asio/`, `modules/foundation/signal_measure/`, `tests/benchmark/`
   and each area under `include/SushiDSP/`.
 - Rewrite the CLI guide, the design spec's opening block and the first known issue in the
   `humanizer` register.

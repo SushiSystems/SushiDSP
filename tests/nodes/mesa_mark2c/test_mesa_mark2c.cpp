@@ -40,7 +40,7 @@
 
 #include <SushiDSP/foundation/core/calibration.hpp>
 #include <SushiDSP/nodes/mesa_mark2c/mesa_mark2c.hpp>
-#include "measure/thd.hpp"
+#include <SushiDSP/foundation/signal_measure/thd.hpp.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

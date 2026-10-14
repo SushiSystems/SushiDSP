@@ -36,7 +36,7 @@
 
 #include <SushiDSP/nodes/capture/take.hpp>
 #include <SushiDSP/nodes/capture/vari_rate_reader.hpp>
-#include "measure/spectrum.hpp"
+#include <SushiDSP/foundation/signal_measure/spectrum.hpp.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

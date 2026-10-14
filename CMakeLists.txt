@@ -28,6 +28,12 @@ add_subdirectory(modules/foundation/core)
 add_subdirectory(modules/foundation/io)
 add_subdirectory(modules/foundation/log)
 add_subdirectory(modules/foundation/math)
+add_subdirectory(modules/foundation/signal_measure)
+add_subdirectory(modules/foundation/spice_reference)
+add_subdirectory(modules/foundation/circuit_blocks)
+add_subdirectory(modules/foundation/golden_compare)
+add_subdirectory(modules/foundation/timing_gate)
+add_subdirectory(modules/foundation/regression_test)
 
 # sushi_dsp bundles the foundation for consumers. A consumer that needs one module links it
 # directly instead.
@@ -55,6 +61,7 @@ add_subdirectory(modules/nodes/diezel_vh4)
 add_subdirectory(modules/nodes/mesa_mark2c)
 add_subdirectory(modules/nodes/capture)
 add_subdirectory(modules/nodes/room)
+add_subdirectory(modules/nodes/room_scenes)
 add_subdirectory(modules/nodes/microphone)
 add_subdirectory(modules/nodes/cabinet)
 

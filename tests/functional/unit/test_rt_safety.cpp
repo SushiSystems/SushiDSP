@@ -83,9 +83,9 @@
 #include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 
-#include "room_fixtures.hpp"
-#include "room_ports.hpp"
-#include "circuits/jcm_v1a_netlist.hpp"
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
+#include <SushiDSP/nodes/room_scenes/room_ports.hpp.hpp>
+#include <SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp.hpp>
 #include "ui/level_probe.hpp"
 
 #ifndef M_PI
@@ -831,7 +831,7 @@ TEST(Unit_Dsp, CabinetNodeSetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 
 namespace
 {
-    // The netlist lives in tests/circuits/jcm_v1a_netlist.hpp. See tests/functional/unit/README.md.
+    // The netlist lives in modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp. See tests/functional/unit/README.md.
     using namespace SushiDSP::test_circuits;
 
     using DkStageCircuit = SushiDSP::dk::DkCircuit<6, 2, 2, 1>;

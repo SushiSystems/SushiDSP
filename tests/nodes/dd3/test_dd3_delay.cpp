@@ -38,7 +38,7 @@
 
 #include <SushiDSP/nodes/dd3/dd3_delay.hpp>
 #include <SushiDSP/nodes/dd3/wet_fifo.hpp>
-#include "measure/render.hpp"
+#include <SushiDSP/foundation/signal_measure/render.hpp.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

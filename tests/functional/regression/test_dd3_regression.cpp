@@ -35,10 +35,10 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "common/regression_test.hpp"
+#include <SushiDSP/foundation/regression_test/regression_test.hpp.hpp>
 
 #include <SushiDSP/nodes/dd3/dd3_delay.hpp>
-#include "golden/golden_file.hpp"
+#include <SushiDSP/foundation/golden_compare/golden_file.hpp.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -79,10 +79,10 @@ namespace
 /// @see tests/functional/regression/README.md
 SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3GoldenFile48k)
 {
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("dd3_48k", render_dd3(48000.0)), -80.0);
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "dd3_48k", render_dd3(48000.0)), -80.0);
 }
 
 SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3GoldenFile96k)
 {
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("dd3_96k", render_dd3(96000.0)), -80.0);
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "dd3_96k", render_dd3(96000.0)), -80.0);
 }

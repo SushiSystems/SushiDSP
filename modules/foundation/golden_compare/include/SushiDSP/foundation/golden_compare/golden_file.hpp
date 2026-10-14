@@ -77,14 +77,16 @@ namespace SushiDSP::golden
         return 10.0 * std::log10(difference / reference);
     }
 
-    /// @brief Compares rendered output with tests/golden/<name>.f32, or rewrites that file
+    /// @brief Compares rendered output with <directory>/<name>.f32, or rewrites that file
     /// when SUSHIDSP_REGENERATE_GOLDEN is set in the environment.
+    /// @param directory Folder that holds the reference files.
     /// @param name File stem, e.g. "jcm800_48k".
     /// @param rendered The node's output for stimulus().
     /// @return Residual in dB; -200 after a regeneration; 0 when the file is missing or short.
-    inline double compare_or_regenerate(const char* name, const std::vector<float>& rendered)
+    inline double compare_or_regenerate(const std::string& directory, const char* name,
+                                        const std::vector<float>& rendered)
     {
-        const std::string path = std::string(SUSHIDSP_GOLDEN_DIR) + "/" + name + ".f32";
+        const std::string path = directory + "/" + name + ".f32";
         if (std::getenv("SUSHIDSP_REGENERATE_GOLDEN") != nullptr)
         {
             std::FILE* file = std::fopen(path.c_str(), "wb");

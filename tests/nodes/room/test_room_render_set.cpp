@@ -37,8 +37,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "room_fixtures.hpp"
-#include "timing_gate.hpp"
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
+#include <SushiDSP/foundation/timing_gate/timing_gate.hpp.hpp>
 #include <SushiDSP/nodes/room/early_tap_set.hpp>
 #include <SushiDSP/nodes/room/eyring_decay.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>

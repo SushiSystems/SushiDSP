@@ -65,9 +65,9 @@
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 #include <SushiDSP/nodes/tubescreamer/tube_screamer_circuits.hpp>
 
-#include "circuits/jcm_v1a_netlist.hpp"
-#include "common/room_fixtures.hpp"
-#include "common/room_ports.hpp"
+#include <SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp.hpp>
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
+#include <SushiDSP/nodes/room_scenes/room_ports.hpp.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

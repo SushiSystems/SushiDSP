@@ -32,7 +32,7 @@
 #include <limits>
 #include <string>
 
-#include "room_fixtures.hpp"
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
 #include <SushiDSP/nodes/room/built_room_loss.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>
 

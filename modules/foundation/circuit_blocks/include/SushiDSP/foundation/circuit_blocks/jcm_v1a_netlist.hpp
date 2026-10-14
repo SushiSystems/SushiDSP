@@ -107,7 +107,7 @@ namespace SushiDSP::test_circuits
     /// @param netlist Receives the description; any previous contents are overwritten.
     /// @param with_rc_tail True to append the seventh-state RC tail and probe node 9.
     /// @return The preamp potentiometer's index, for DkCircuit::set_potentiometer.
-    /// @see tests/circuits/README.md, "jcm_v1a_netlist.hpp", for the two shapes of the block.
+    /// @see modules/foundation/circuit_blocks/README.md, "jcm_v1a_netlist.hpp", for the two shapes of the block.
     template <typename Netlist>
     std::size_t build_jcm_v1a(Netlist& netlist, bool with_rc_tail = false)
     {

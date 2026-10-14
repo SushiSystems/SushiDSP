@@ -103,7 +103,7 @@ namespace SushiDSP
  * @brief Loads an AC sweep CSV produced by `tools/spice/export.py`.
  * @param path Path to a `<block>_ac.csv` file.
  * @return The parsed sweep, empty when the file is absent or contains no data rows.
- * @see tests/measure/README.md, "spice_csv.hpp", for the rows the loader skips.
+ * @see modules/foundation/signal_measure/README.md, "spice_csv.hpp", for the rows the loader skips.
  */
         inline AcSweep load_ac_csv(const std::string& path)
         {
@@ -144,7 +144,7 @@ namespace SushiDSP
  * @brief Loads a transient CSV produced by `tools/spice/export.py`.
  * @param path Path to a `<block>_tran.csv` file.
  * @return The parsed transient, empty with a 0 sample rate when the file is absent.
- * @see tests/measure/README.md, "spice_csv.hpp", for how the sample rate is derived.
+ * @see modules/foundation/signal_measure/README.md, "spice_csv.hpp", for how the sample rate is derived.
  */
         inline Transient load_transient_csv(const std::string& path)
         {

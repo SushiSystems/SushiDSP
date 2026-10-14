@@ -92,14 +92,13 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 | `tests/functional/` | Tests not yet moved to their mirror path, and the golden-file regression per product; see `docs/agent/2026_10_14_TEST_TREE/PLAN.md` |
 | `tests/golden/` | The pinned `.f32` renders and the record of each regeneration |
 | `tests/fixtures/` | Reference data from measured rooms, each with its own README |
-| `tests/measure/` | Headers that measure THD, alias floor, frequency response and nulls |
-| `tests/circuits/` | Netlists and block wrappers the SPICE comparisons share |
-| `tests/common/` | `test_main.cpp` and fixtures shared across suites |
+| `modules/foundation/{signal_measure,spice_reference,circuit_blocks,golden_compare,timing_gate,regression_test}/`, `modules/nodes/room_scenes/` | Shared test code, each an internal module: measurement, SPICE comparison, circuit blocks, golden comparison, the timing gate, the regression macro, the room scenes |
+| `tests/` | `main.cpp`, the entry point of `sushidsp_tests`; `README.md` |
 | `tests/benchmark/` | The timing harness, one CTest case under the `benchmark` label |
 
 - A test carries its label through the macro it is written with: `TEST(Logger, SomeCase)` runs
   under `sd test -s unit`, `SUSHIDSP_REGRESSION_TEST(Logger, SomeCase)` (from
-  `tests/common/regression_test.hpp`) under `sd test -s regression`.
+  `modules/foundation/regression_test/include/SushiDSP/foundation/regression_test/regression_test.hpp`) under `sd test -s regression`.
 - A golden file is one second of mono float32 per node at 48 kHz and at 96 kHz, compared
   against a fresh render at −80 dB RMS residual. A deliberate behaviour change regenerates
   them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`; a golden file is never

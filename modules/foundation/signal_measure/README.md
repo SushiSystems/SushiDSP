@@ -1,8 +1,13 @@
-# tests/measure
+# signal_measure
 
-Header-only measurement helpers that the functional tests and the block tests share. Each one
-drives an `AudioNode` or reads a signal and returns a figure in dB or percent. No product
-includes these headers.
+Internal module: the measurement helpers that the test programs share. Each helper drives an
+`AudioNode` or reads a signal and returns a figure in dB or percent. Its headers are never
+installed, and no product links it.
+
+It depends on `core`, for `AudioNode`, and on `math`, for the FFT. Both same-tier edges are listed
+in `cmake/SushiDSPLayers.cmake`.
+
+## Entry points
 
 | File | What it holds |
 | --- | --- |
@@ -13,7 +18,6 @@ includes these headers.
 | `alias_floor.hpp` | The worst non-harmonic line across 1 to 20 kHz tones |
 | `frequency_response.hpp` | Magnitude response by exponential sine sweep |
 | `null_test.hpp` | The residual of one signal against another after alignment |
-| `spice_csv.hpp` | Loaders for the CSVs `tools/spice/export.py` writes |
 
 ## alias_floor.hpp
 
@@ -68,15 +72,3 @@ leaves without a partner in `b` say nothing about how well the two signals match
 them would floor the result at the ratio of the lag to the length.
 
 The cost is O(length * max_lag), so pass a small `max_lag` when the delay is known to be small.
-
-## spice_csv.hpp
-
-`split_csv_line` strips carriage returns so that `std::stod` never sees one. They appear when a
-file authored on Windows is read in text mode elsewhere.
-
-`load_ac_csv` and `load_transient_csv` skip the single header line, blank lines and any line
-with fewer than four fields. A missing or unreadable file is not an error. It yields an empty
-result, which lets a test that needs the corpus skip cleanly instead of aborting.
-
-`load_transient_csv` derives the sample rate as `1 / (t[1] - t[0])` and leaves it at 0 when
-fewer than two rows are present or the first two time stamps coincide.

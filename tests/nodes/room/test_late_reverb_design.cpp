@@ -34,7 +34,7 @@
 #include <set>
 #include <vector>
 
-#include "room_fixtures.hpp"
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
 #include <SushiDSP/nodes/room/band_response.hpp>
 #include <SushiDSP/nodes/room/band_response_fit.hpp>
