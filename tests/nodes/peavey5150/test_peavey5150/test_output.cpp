@@ -74,13 +74,13 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/nodes/peavey5150/test_peavey5150/README.md
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Peavey5150GoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Peavey5150, Peavey5150GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "peavey5150_48k", render_peavey5150(48000.0)),
               -80.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Peavey5150GoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Peavey5150, Peavey5150GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "peavey5150_96k", render_peavey5150(96000.0)),
               -80.0);

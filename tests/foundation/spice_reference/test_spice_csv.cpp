@@ -31,7 +31,7 @@
 
 #include <SushiDSP/foundation/spice_reference/spice_csv.hpp>
 
-TEST(Unit_Dsp, SpiceCsvLoadsAcSweepColumns)
+TEST(SpiceCsv, SpiceCsvLoadsAcSweepColumns)
 {
     const auto sweep =
         SushiDSP::measure::load_ac_csv(std::string(SUSHIDSP_FIXTURE_DIR) + "/example_ac.csv");
@@ -42,7 +42,7 @@ TEST(Unit_Dsp, SpiceCsvLoadsAcSweepColumns)
     EXPECT_DOUBLE_EQ(sweep.phase_degrees[4], -45.0);
 }
 
-TEST(Unit_Dsp, SpiceCsvLoadsTransientAtItsRate)
+TEST(SpiceCsv, SpiceCsvLoadsTransientAtItsRate)
 {
     const auto transient = SushiDSP::measure::load_transient_csv(std::string(SUSHIDSP_FIXTURE_DIR) +
                                                                  "/example_tran.csv");
@@ -51,7 +51,7 @@ TEST(Unit_Dsp, SpiceCsvLoadsTransientAtItsRate)
     EXPECT_FLOAT_EQ(transient.output[7], 0.125f);
 }
 
-TEST(Unit_Dsp, SpiceCsvMissingFileYieldsEmptySweep)
+TEST(SpiceCsv, SpiceCsvMissingFileYieldsEmptySweep)
 {
     const auto sweep = SushiDSP::measure::load_ac_csv(std::string(SUSHIDSP_FIXTURE_DIR) +
                                                       "/does_not_exist.csv");

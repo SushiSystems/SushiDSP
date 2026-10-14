@@ -50,7 +50,7 @@ namespace
     constexpr double K_QUARTER_TURN = 0.5 * 3.14159265358979323846;
 } // namespace
 
-TEST(Unit_Dsp, OrientedBoxSpansItsThreeSizesAboutItsCentre)
+TEST(SceneSolids, OrientedBoxSpansItsThreeSizesAboutItsCentre)
 {
     const ui::SceneBox box = ui::oriented_box(ui::Point3{1.0, 2.0, 3.0}, 0.0, 4.0, 2.0, 1.0);
 
@@ -63,7 +63,7 @@ TEST(Unit_Dsp, OrientedBoxSpansItsThreeSizesAboutItsCentre)
     EXPECT_LT(box[0].z, box[4].z);
 }
 
-TEST(Unit_Dsp, OrientedBoxTurnsItsLengthWithItsYaw)
+TEST(SceneSolids, OrientedBoxTurnsItsLengthWithItsYaw)
 {
     const ui::SceneBox box =
         ui::oriented_box(ui::Point3{0.0, 0.0, 0.0}, K_QUARTER_TURN, 4.0, 2.0, 1.0);
@@ -75,7 +75,7 @@ TEST(Unit_Dsp, OrientedBoxTurnsItsLengthWithItsYaw)
     }
 }
 
-TEST(Unit_Dsp, CabinetBoxRunsBackFromTheBaffle)
+TEST(SceneSolids, CabinetBoxRunsBackFromTheBaffle)
 {
     const SushiDSP::room::CabinetGeometry& geometry = SushiDSP::room::K_CABINET4X12;
     const Pose pose{{2.0, 2.0, 0.5}, 0.0};
@@ -94,7 +94,7 @@ TEST(Unit_Dsp, CabinetBoxRunsBackFromTheBaffle)
     EXPECT_NEAR(back, 2.0 - geometry.depth_m, 1e-12);
 }
 
-TEST(Unit_Dsp, ConeOutlineLiesOnTheBaffleAtTheConesRadius)
+TEST(SceneSolids, ConeOutlineLiesOnTheBaffleAtTheConesRadius)
 {
     const SushiDSP::room::CabinetGeometry& geometry = SushiDSP::room::K_CABINET4X12;
     const Pose pose{{2.0, 2.0, 0.5}, 0.0};
@@ -111,7 +111,7 @@ TEST(Unit_Dsp, ConeOutlineLiesOnTheBaffleAtTheConesRadius)
     }
 }
 
-TEST(Unit_Dsp, FurnishingBoxStandsOnTheFloorAtItsPlace)
+TEST(SceneSolids, FurnishingBoxStandsOnTheFloorAtItsPlace)
 {
     SushiDSP::room::RoomScene::Furnishing bed{SushiDSP::room::FurnitureId::BedDouble, 1.0, true,
                                               3.0, 2.0};
@@ -127,7 +127,7 @@ TEST(Unit_Dsp, FurnishingBoxStandsOnTheFloorAtItsPlace)
     }
 }
 
-TEST(Unit_Dsp, NearestConeFindsTheConeAMicrophoneIsPointedAt)
+TEST(SceneSolids, NearestConeFindsTheConeAMicrophoneIsPointedAt)
 {
     Arrangement arrangement;
     std::string reason;
@@ -150,13 +150,13 @@ TEST(Unit_Dsp, NearestConeFindsTheConeAMicrophoneIsPointedAt)
     EXPECT_NEAR(aim->distance_m, std::hypot(0.05, 0.02), 1e-12);
 }
 
-TEST(Unit_Dsp, NearestConeIsEmptyInARoomWithoutACabinet)
+TEST(SceneSolids, NearestConeIsEmptyInARoomWithoutACabinet)
 {
     const Arrangement arrangement;
     EXPECT_FALSE(ui::nearest_cone(arrangement, {1.0, 1.0, 1.0}).has_value());
 }
 
-TEST(Unit_Dsp, ConeLabelNamesEachConeAsSeenFromTheFront)
+TEST(SceneSolids, ConeLabelNamesEachConeAsSeenFromTheFront)
 {
     const SushiDSP::room::CabinetGeometry& four = SushiDSP::room::K_CABINET4X12;
     // Facing +x the cabinet's left is +y, which someone facing the baffle has on their right.
@@ -173,7 +173,7 @@ TEST(Unit_Dsp, ConeLabelNamesEachConeAsSeenFromTheFront)
                  ui::cone_label(SushiDSP::room::K_CABINET2X12, 1));
 }
 
-TEST(Unit_Dsp, MicrophoneOnConeStandsWhereNearestConeThenReadsIt)
+TEST(SceneSolids, MicrophoneOnConeStandsWhereNearestConeThenReadsIt)
 {
     Arrangement arrangement;
     std::string reason;

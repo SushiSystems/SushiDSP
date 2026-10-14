@@ -896,7 +896,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, RoomNodeDeclaresThreeInputSlotsAndOnePortPerReceiver)
+TEST(RoomNode, RoomNodeDeclaresThreeInputSlotsAndOnePortPerReceiver)
 {
     SushiDSP::room::RoomNode node;
     EXPECT_EQ(node.ports().input_channels, 6u);
@@ -909,7 +909,7 @@ TEST(Unit_Dsp, RoomNodeDeclaresThreeInputSlotsAndOnePortPerReceiver)
     EXPECT_STREQ(node.type_id(), "sushidsp.room");
 }
 
-TEST(Unit_Dsp, RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid)
+TEST(RoomNode, RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid)
 {
     // Nothing but taps reaches the first 1749 frames. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomScene scene = microphone_scene();
@@ -936,7 +936,7 @@ TEST(Unit_Dsp, RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid)
     }
 }
 
-TEST(Unit_Dsp, RoomNodeCrossfadesAPublishWithoutAStep)
+TEST(RoomNode, RoomNodeCrossfadesAPublishWithoutAStep)
 {
     // The arriving bank starts from zero after a 0.36 m move. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomScene moved = microphone_scene();
@@ -947,7 +947,7 @@ TEST(Unit_Dsp, RoomNodeCrossfadesAPublishWithoutAStep)
     EXPECT_LT(to_decibels(measure.residual), -44.0);
 }
 
-TEST(Unit_Dsp, RoomNodeCrossfadesASmallMoveFromTheCarriedState)
+TEST(RoomNode, RoomNodeCrossfadesASmallMoveFromTheCarriedState)
 {
     // 78 of the 96 taps carry their state over one centimetre. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomScene nudged = microphone_scene();
@@ -958,7 +958,7 @@ TEST(Unit_Dsp, RoomNodeCrossfadesASmallMoveFromTheCarriedState)
     EXPECT_LT(to_decibels(measure.residual), -58.0);
 }
 
-TEST(Unit_Dsp, RoomNodeRepublishesTheSameSceneWithoutAResidual)
+TEST(RoomNode, RoomNodeRepublishesTheSameSceneWithoutAResidual)
 {
     // The same scene refits to the same taps: zero residual. See tests/nodes/room/test_room_node/README.md.
     const CrossfadeMeasure measure = measure_crossfade(microphone_scene(), microphone_scene());
@@ -967,7 +967,7 @@ TEST(Unit_Dsp, RoomNodeRepublishesTheSameSceneWithoutAResidual)
     EXPECT_LT(to_decibels(measure.residual), -120.0);
 }
 
-TEST(Unit_Dsp, RoomNodeKeepsRenderingTheOldSetWhileASetIsBuilt)
+TEST(RoomNode, RoomNodeKeepsRenderingTheOldSetWhileASetIsBuilt)
 {
     std::unique_ptr<SushiDSP::room::RoomNode> node =
         prepared_node(microphone_scene(), K_LISTENER_MICROPHONE);
@@ -1009,7 +1009,7 @@ TEST(Unit_Dsp, RoomNodeKeepsRenderingTheOldSetWhileASetIsBuilt)
     EXPECT_GT(to_decibels(quietest_rms), -80.0);
 }
 
-TEST(Unit_Dsp, RoomNodeReclaimsARetiredSetOnlyAfterTheAudioThreadMovedOn)
+TEST(RoomNode, RoomNodeReclaimsARetiredSetOnlyAfterTheAudioThreadMovedOn)
 {
     // The node never reads a slot pointer past its block. See tests/nodes/room/test_room_node/README.md.
     std::unique_ptr<SushiDSP::room::RoomNode> node =
@@ -1049,7 +1049,7 @@ TEST(Unit_Dsp, RoomNodeReclaimsARetiredSetOnlyAfterTheAudioThreadMovedOn)
     EXPECT_EQ(node->scene().microphone_position.x, 3.0);
 }
 
-TEST(Unit_Dsp, RoomNodeRefusesAnInvalidSceneAndKeepsTheOldOne)
+TEST(RoomNode, RoomNodeRefusesAnInvalidSceneAndKeepsTheOldOne)
 {
     std::unique_ptr<SushiDSP::room::RoomNode> node =
         prepared_node(microphone_scene(), K_LISTENER_MICROPHONE);
@@ -1068,7 +1068,7 @@ TEST(Unit_Dsp, RoomNodeRefusesAnInvalidSceneAndKeepsTheOldOne)
     EXPECT_EQ(fresh.scene().dimensions.x, 6.0);
 }
 
-TEST(Unit_Dsp, RoomNodeTakesTheDirectImageOutOfTheEarsBankAndLeavesTheMicrophones)
+TEST(RoomNode, RoomNodeTakesTheDirectImageOutOfTheEarsBankAndLeavesTheMicrophones)
 {
     // Tap 0 of a solved set is the direct image. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(K_SAMPLE_RATE);
@@ -1105,7 +1105,7 @@ TEST(Unit_Dsp, RoomNodeTakesTheDirectImageOutOfTheEarsBankAndLeavesTheMicrophone
     EXPECT_GT(reflections.taps[0].delay_frames, 350.0f);
 }
 
-TEST(Unit_Dsp, RoomNodeCompensatesAnEarsSetByItsRoundedPropagationDelay)
+TEST(RoomNode, RoomNodeCompensatesAnEarsSetByItsRoundedPropagationDelay)
 {
     // The ears' render moves earlier by round(d / c * fs). See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(K_SAMPLE_RATE);
@@ -1134,7 +1134,7 @@ TEST(Unit_Dsp, RoomNodeCompensatesAnEarsSetByItsRoundedPropagationDelay)
     EXPECT_FLOAT_EQ(microphone->late.delay_to_crossover_frames, microphone_tail);
 }
 
-TEST(Unit_Dsp, RoomNodeIsRegisteredUnderRoom)
+TEST(RoomNode, RoomNodeIsRegisteredUnderRoom)
 {
     bool found = false;
     for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
@@ -1160,7 +1160,7 @@ TEST(Unit_Dsp, RoomNodeIsRegisteredUnderRoom)
     EXPECT_NE(dynamic_cast<SushiDSP::room::RoomHost*>(node.get()), nullptr);
 }
 
-TEST(Unit_Dsp, RoomNodeRingsAtTheGaragesEigenfrequencies)
+TEST(RoomNode, RoomNodeRingsAtTheGaragesEigenfrequencies)
 {
     // The first six modes lie between 28.583 and 71.458 Hz. See tests/nodes/room/test_room_node/README.md.
     const std::vector<double> power = power_spectrum_db(wave_response(wave_scene()), K_WAVE_FFT);
@@ -1174,7 +1174,7 @@ TEST(Unit_Dsp, RoomNodeRingsAtTheGaragesEigenfrequencies)
     }
 }
 
-TEST(Unit_Dsp, RoomNodeModeWidthsMatchTheirDamping)
+TEST(RoomNode, RoomNodeModeWidthsMatchTheirDamping)
 {
     // A resonator's -3 dB width is 2.199 / T60 Hz. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::RoomScene scene = wave_scene();
@@ -1192,7 +1192,7 @@ TEST(Unit_Dsp, RoomNodeModeWidthsMatchTheirDamping)
     }
 }
 
-TEST(Unit_Dsp, RoomNodePressesTheBassIntoTheCorner)
+TEST(RoomNode, RoomNodePressesTheBassIntoTheCorner)
 {
     // Every mode with an odd index has a node at the centre. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomScene corner = wave_scene();
@@ -1336,7 +1336,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, RoomNodeIsContinuousAcrossTheSchroederFrequency)
+TEST(RoomNode, RoomNodeIsContinuousAcrossTheSchroederFrequency)
 {
     // Both layers carry DiffuseField's level at f_s. See tests/nodes/room/test_room_node/README.md.
     const std::array<SushiDSP::room::RoomScene, 3> rooms = {SushiDSP::test::garage_scene(),
@@ -1358,7 +1358,7 @@ TEST(Unit_Dsp, RoomNodeIsContinuousAcrossTheSchroederFrequency)
     }
 }
 
-TEST(Unit_Dsp, RoomNodeSwitchesTheWaveLayerOffInADeadRoom)
+TEST(RoomNode, RoomNodeSwitchesTheWaveLayerOffInADeadRoom)
 {
     // f_s under 40 Hz switches the modal layer off. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::RoomScene scene = dead_room_scene();
@@ -1420,7 +1420,7 @@ TEST(Unit_Dsp, RoomNodeSwitchesTheWaveLayerOffInADeadRoom)
     EXPECT_LT(worst, 1e-5 * std::max(peak, 1.0));
 }
 
-TEST(Unit_Dsp, RoomNodePublishesNewModalGainsWithoutRebuildingAResonator)
+TEST(RoomNode, RoomNodePublishesNewModalGainsWithoutRebuildingAResonator)
 {
     // A moved cabinet or listener rebuilds no resonator. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(K_SAMPLE_RATE);
@@ -1549,7 +1549,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, RoomNodeCarriesTheStandingWavesAcrossAMovedCabinet)
+TEST(RoomNode, RoomNodeCarriesTheStandingWavesAcrossAMovedCabinet)
 {
     // The bank keeps its state; only the source gains ramp. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::RoomScene scene = wave_scene();
@@ -1561,7 +1561,7 @@ TEST(Unit_Dsp, RoomNodeCarriesTheStandingWavesAcrossAMovedCabinet)
     EXPECT_NEAR(measure.settled_db, 0.0, 0.5);
 }
 
-TEST(Unit_Dsp, RoomNodeRampsTheEarGainsAsTheOutputBlendWould)
+TEST(RoomNode, RoomNodeRampsTheEarGainsAsTheOutputBlendWould)
 {
     // The bank's output is linear in the ear gains. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::RoomScene scene = wave_scene();
@@ -1573,7 +1573,7 @@ TEST(Unit_Dsp, RoomNodeRampsTheEarGainsAsTheOutputBlendWould)
     EXPECT_LT(measure.residual_db, -70.0);
 }
 
-TEST(Unit_Dsp, RoomNodeRebuildsTheStandingWavesInAChangedRoom)
+TEST(RoomNode, RoomNodeRebuildsTheStandingWavesInAChangedRoom)
 {
     // A changed room starts the spare bank from zero. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::RoomScene scene = wave_scene();
@@ -1584,7 +1584,7 @@ TEST(Unit_Dsp, RoomNodeRebuildsTheStandingWavesInAChangedRoom)
     EXPECT_LT(measure.settled_db, -6.0);
 }
 
-TEST(Unit_Dsp, RoomNodeReportsTheCrossoverTheSetSplitsAt)
+TEST(RoomNode, RoomNodeReportsTheCrossoverTheSetSplitsAt)
 {
     // The node reports the crossover its seam sits at. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::RoomScene garage = wave_scene();
@@ -1618,7 +1618,7 @@ TEST(Unit_Dsp, RoomNodeReportsTheCrossoverTheSetSplitsAt)
     EXPECT_DOUBLE_EQ(fresh.schroeder_frequency_hz(), eyring);
 }
 
-TEST(Unit_Dsp, RoomNodeMicrophoneListenerFillsBothChannelsIdentically)
+TEST(RoomNode, RoomNodeMicrophoneListenerFillsBothChannelsIdentically)
 {
     // The microphone's two outputs are equal bit for bit. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomScene scene = wave_scene();
@@ -1642,7 +1642,7 @@ TEST(Unit_Dsp, RoomNodeMicrophoneListenerFillsBothChannelsIdentically)
     EXPECT_GT(peak, 0.0);
 }
 
-TEST(Unit_Dsp, RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd)
+TEST(RoomNode, RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd)
 {
     // The tilt is expected at 13.68 dB against a point source. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomScene close_up = centred_dead_room();
@@ -1685,7 +1685,7 @@ TEST(Unit_Dsp, RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd)
     EXPECT_GT(at_100_hz, measured);
 }
 
-TEST(Unit_Dsp, RoomNodeMicrophoneHearsLessRoomThanTheEars)
+TEST(RoomNode, RoomNodeMicrophoneHearsLessRoomThanTheEars)
 {
     // The two ratios differ by at least 11.5 dB. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
@@ -1710,7 +1710,7 @@ TEST(Unit_Dsp, RoomNodeMicrophoneHearsLessRoomThanTheEars)
     EXPECT_GE(microphone_db - ears_db, 11.5);
 }
 
-TEST(Unit_Dsp, RoomNodeCarriesOneOverROnTheCabinetsAxis)
+TEST(RoomNode, RoomNodeCarriesOneOverROnTheCabinetsAxis)
 {
     // An omni capsule on a point source's axis reads 1 / r. See tests/nodes/room/test_room_node/README.md.
     std::array<double, 3> measured{};
@@ -1739,7 +1739,7 @@ TEST(Unit_Dsp, RoomNodeCarriesOneOverROnTheCabinetsAxis)
     EXPECT_NEAR(measured[1] - measured[2], 6.02, 1.0);
 }
 
-TEST(Unit_Dsp, RoomNodeMovingAroundTheCabinetChangesTheTone)
+TEST(RoomNode, RoomNodeMovingAroundTheCabinetChangesTheTone)
 {
     // The listener faces the cabinet at both spots. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomScene on_axis = centred_dead_room();
@@ -1767,7 +1767,7 @@ TEST(Unit_Dsp, RoomNodeMovingAroundTheCabinetChangesTheTone)
     EXPECT_NEAR(move_125, model_125, 1.0);
 }
 
-TEST(Unit_Dsp, RoomNodeEarsHearTheDirectSoundThroughTheHrirPair)
+TEST(RoomNode, RoomNodeEarsHearTheDirectSoundThroughTheHrirPair)
 {
     // The floor image follows at frame 1551. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::RoomScene scene = centred_dead_room();
@@ -1802,7 +1802,7 @@ TEST(Unit_Dsp, RoomNodeEarsHearTheDirectSoundThroughTheHrirPair)
     EXPECT_LE(onset(ears[0], 1500, 4096, 1e-3), 1560);
 }
 
-TEST(Unit_Dsp, RoomNodeDefaultsDirectDelayToCompensated)
+TEST(RoomNode, RoomNodeDefaultsDirectDelayToCompensated)
 {
     // Physical timing adds round(d / c * fs) frames. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomNode node;
@@ -1825,7 +1825,7 @@ TEST(Unit_Dsp, RoomNodeDefaultsDirectDelayToCompensated)
     EXPECT_EQ(fresh.latency_samples(), 0u);
 }
 
-TEST(Unit_Dsp, RoomNodeDirectOnsetMovesWithTheDirectDelayChoice)
+TEST(RoomNode, RoomNodeDirectOnsetMovesWithTheDirectDelayChoice)
 {
     // The choice shifts the whole render by 280 frames. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::RoomScene scene = centred_dead_room();
@@ -1859,7 +1859,7 @@ TEST(Unit_Dsp, RoomNodeDirectOnsetMovesWithTheDirectDelayChoice)
     EXPECT_EQ(onset(render(*node, impulse), 0, 1500, 1e-4), compensated_direct);
 }
 
-TEST(Unit_Dsp, RoomNodeReproducesWoodworthsInterauralDelayOnTheFallback)
+TEST(RoomNode, RoomNodeReproducesWoodworthsInterauralDelayOnTheFallback)
 {
     // Woodworth's delay is (a / c)(theta + sin theta). See tests/nodes/room/test_room_node/README.md.
     const std::array<double, 3> degrees = {30.0, 60.0, 90.0};
@@ -1886,7 +1886,7 @@ TEST(Unit_Dsp, RoomNodeReproducesWoodworthsInterauralDelayOnTheFallback)
     }
 }
 
-TEST(Unit_Dsp, RoomNodeReportsSphericalHeadWithNoAssetAndMeasuredWithOne)
+TEST(RoomNode, RoomNodeReportsSphericalHeadWithNoAssetAndMeasuredWithOne)
 {
     // An empty HRTF set restores the spherical head. See tests/nodes/room/test_room_node/README.md.
     std::unique_ptr<SushiDSP::room::RoomNode> node =
@@ -1920,7 +1920,7 @@ TEST(Unit_Dsp, RoomNodeReportsSphericalHeadWithNoAssetAndMeasuredWithOne)
     EXPECT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 }
 
-TEST(Unit_Dsp, RoomNodeTailIsCoherentLowAndIncoherentHigh)
+TEST(RoomNode, RoomNodeTailIsCoherentLowAndIncoherentHigh)
 {
     // A window 1024 frames after t_c holds the tail alone. See tests/nodes/room/test_room_node/README.md.
     const SushiDSP::room::RoomScene scene = centred_dead_room();
@@ -1973,7 +1973,7 @@ namespace
     constexpr double K_MEDIAN_PLANE_SINE = 0.1;
 } // namespace
 
-TEST(Unit_Dsp, RoomNodeDecoderMagnitudeMatchesTheMeasuredSet)
+TEST(RoomNode, RoomNodeDecoderMagnitudeMatchesTheMeasuredSet)
 {
     // The case runs only with the SADIE II set present. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::HrtfSet set;
@@ -2019,7 +2019,7 @@ TEST(Unit_Dsp, RoomNodeDecoderMagnitudeMatchesTheMeasuredSet)
     }
 }
 
-TEST(Unit_Dsp, RoomNodeCarriesTheRearNotchWithAMeasuredSet)
+TEST(RoomNode, RoomNodeCarriesTheRearNotchWithAMeasuredSet)
 {
     // The rear notch is within 1 dB of the set's own. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::HrtfSet set;

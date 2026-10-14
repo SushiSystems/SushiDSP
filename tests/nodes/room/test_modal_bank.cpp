@@ -117,7 +117,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, ModalBankRingsAtEachModesFrequency)
+TEST(ModalBank, ModalBankRingsAtEachModesFrequency)
 {
     constexpr std::uint32_t K_FFT_SIZE = 65536;
     const auto design = single_mode_design();
@@ -148,7 +148,7 @@ TEST(Unit_Dsp, ModalBankRingsAtEachModesFrequency)
     EXPECT_NEAR(peak_hz, K_GARAGE_AXIAL_HZ, 0.005 * K_GARAGE_AXIAL_HZ);
 }
 
-TEST(Unit_Dsp, ModalBankDecaysAtTheDampingItWasGiven)
+TEST(ModalBank, ModalBankDecaysAtTheDampingItWasGiven)
 {
     // The slope between two windows is the 60 dB time. See tests/nodes/room/README.md.
     constexpr std::size_t K_FRAMES = 96000;
@@ -173,7 +173,7 @@ TEST(Unit_Dsp, ModalBankDecaysAtTheDampingItWasGiven)
     EXPECT_NEAR(decay_seconds, K_DECAY_SECONDS, 0.05 * K_DECAY_SECONDS);
 }
 
-TEST(Unit_Dsp, ModalBankScalesEachModeByItsSourceAndEarGains)
+TEST(ModalBank, ModalBankScalesEachModeByItsSourceAndEarGains)
 {
     constexpr std::size_t K_FRAMES = 4096;
     const auto unit_design = single_mode_design();
@@ -195,7 +195,7 @@ TEST(Unit_Dsp, ModalBankScalesEachModeByItsSourceAndEarGains)
     }
 }
 
-TEST(Unit_Dsp, ModalBankRunsFiveHundredAndTwelveModesWithoutDenormals)
+TEST(ModalBank, ModalBankRunsFiveHundredAndTwelveModesWithoutDenormals)
 {
     constexpr std::size_t K_FRAMES = 96000;
     constexpr double K_LOWEST_HZ = 20.0;
@@ -223,7 +223,7 @@ TEST(Unit_Dsp, ModalBankRunsFiveHundredAndTwelveModesWithoutDenormals)
     EXPECT_NE(render.left[1], 0.0f);
 }
 
-TEST(Unit_Dsp, ModalBankWithNoModesAddsNothing)
+TEST(ModalBank, ModalBankWithNoModesAddsNothing)
 {
     constexpr std::uint32_t K_FRAMES = 512;
     auto design = std::make_unique<SushiDSP::room::ModalDesign>();
@@ -250,7 +250,7 @@ TEST(Unit_Dsp, ModalBankWithNoModesAddsNothing)
     }
 }
 
-TEST(Unit_Dsp, ModalBankResetSilencesEveryResonator)
+TEST(ModalBank, ModalBankResetSilencesEveryResonator)
 {
     constexpr std::uint32_t K_FRAMES = 4096;
     const auto design = single_mode_design();
@@ -271,7 +271,7 @@ TEST(Unit_Dsp, ModalBankResetSilencesEveryResonator)
     }
 }
 
-TEST(Unit_Dsp, ModalBankReadsEveryRowAsItReadsTheTwoEars)
+TEST(ModalBank, ModalBankReadsEveryRowAsItReadsTheTwoEars)
 {
     // Seven modes spill into a second lane group, so a row is summed across groups too.
     auto design = std::make_unique<SushiDSP::room::ModalDesign>();

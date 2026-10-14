@@ -31,7 +31,7 @@
 
 #include <SushiDSP/nodes/capture/transport.hpp>
 
-TEST(Unit_Dsp, TransportAtHalfSpeedAdvancesHalfAsFar)
+TEST(Transport, TransportAtHalfSpeedAdvancesHalfAsFar)
 {
     SushiDSP::Transport transport;
     transport.play();
@@ -43,7 +43,7 @@ TEST(Unit_Dsp, TransportAtHalfSpeedAdvancesHalfAsFar)
     EXPECT_EQ(transport.position_frames(), 12800u);
 }
 
-TEST(Unit_Dsp, TransportCarriesTheSpeedFractionAcrossBlocks)
+TEST(Transport, TransportCarriesTheSpeedFractionAcrossBlocks)
 {
     SushiDSP::Transport transport;
     transport.play();
@@ -55,7 +55,7 @@ TEST(Unit_Dsp, TransportCarriesTheSpeedFractionAcrossBlocks)
     EXPECT_EQ(transport.position_frames(), 38400u); // exactly 0.6 * 64000, no drift
 }
 
-TEST(Unit_Dsp, TransportHoldsTheSpeedExactlyOverAHundredThousandBlocks)
+TEST(Transport, TransportHoldsTheSpeedExactlyOverAHundredThousandBlocks)
 {
     SushiDSP::Transport transport;
     transport.play();
@@ -67,7 +67,7 @@ TEST(Unit_Dsp, TransportHoldsTheSpeedExactlyOverAHundredThousandBlocks)
     EXPECT_EQ(transport.position_frames(), 33280000u); // 1.3 * 25600000, to the frame
 }
 
-TEST(Unit_Dsp, TransportWrapsTheLoopOnTheMusicalPositionAtASpeed)
+TEST(Transport, TransportWrapsTheLoopOnTheMusicalPositionAtASpeed)
 {
     SushiDSP::Transport transport;
     transport.play();
@@ -81,7 +81,7 @@ TEST(Unit_Dsp, TransportWrapsTheLoopOnTheMusicalPositionAtASpeed)
     EXPECT_EQ(transport.position_frames(), 1224u); // 1000 + (11 * 384) % 4000
 }
 
-TEST(Unit_Dsp, TransportClampsASpeedOutsideItsRange)
+TEST(Transport, TransportClampsASpeedOutsideItsRange)
 {
     SushiDSP::Transport transport;
     transport.set_speed(10.0);
@@ -90,7 +90,7 @@ TEST(Unit_Dsp, TransportClampsASpeedOutsideItsRange)
     EXPECT_DOUBLE_EQ(transport.speed(), SushiDSP::Transport::K_MIN_SPEED);
 }
 
-TEST(Unit_Dsp, TransportSeekClearsTheSpeedFraction)
+TEST(Transport, TransportSeekClearsTheSpeedFraction)
 {
     SushiDSP::Transport transport;
     transport.play();
@@ -101,7 +101,7 @@ TEST(Unit_Dsp, TransportSeekClearsTheSpeedFraction)
     EXPECT_EQ(transport.position_frames(), 1000u);
 }
 
-TEST(Unit_Dsp, TransportAtUnitySpeedAdvancesExactlyAsBefore)
+TEST(Transport, TransportAtUnitySpeedAdvancesExactlyAsBefore)
 {
     SushiDSP::Transport transport;
     transport.play();

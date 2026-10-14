@@ -73,12 +73,12 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/nodes/jcm800/test_jcm800/README.md
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Jcm800GoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Jcm800, Jcm800GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "jcm800_48k", render_jcm800(48000.0)), -80.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Jcm800GoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Jcm800, Jcm800GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "jcm800_96k", render_jcm800(96000.0)), -80.0);
 }

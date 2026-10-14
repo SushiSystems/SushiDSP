@@ -50,7 +50,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, PartitionedConvolutionOfImpulseReproducesImpulseResponse)
+TEST(PartitionedConvolution, PartitionedConvolutionOfImpulseReproducesImpulseResponse)
 {
     constexpr std::uint32_t partition_size = 64;
     std::vector<float> impulse_response(100);
@@ -85,7 +85,7 @@ TEST(Unit_Dsp, PartitionedConvolutionOfImpulseReproducesImpulseResponse)
     }
 }
 
-TEST(Unit_Dsp, PartitionedConvolutionMatchesDirectConvolutionForWhiteNoise)
+TEST(PartitionedConvolution, PartitionedConvolutionMatchesDirectConvolutionForWhiteNoise)
 {
     constexpr std::uint32_t partition_size = 64;
     constexpr std::uint32_t impulse_length = 150; // spans 3 partitions, last one padded
@@ -128,7 +128,7 @@ TEST(Unit_Dsp, PartitionedConvolutionMatchesDirectConvolutionForWhiteNoise)
     }
 }
 
-TEST(Unit_Dsp, PartitionedConvolutionResetClearsTail)
+TEST(PartitionedConvolution, PartitionedConvolutionResetClearsTail)
 {
     const float ir[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     SushiDSP::PartitionedConvolution convolution(4, ir, 4);

@@ -181,7 +181,7 @@ namespace
 
 /// @brief Tests that the jcm_v1a stage settles at the hand-computed bias point.
 /// @see tests/foundation/circuits/stages/test_triode_stage/README.md
-TEST(Unit_Dsp, DkTriodeStageSettlesAtTheHandComputedBiasPoint)
+TEST(TriodeStage, DkTriodeStageSettlesAtTheHandComputedBiasPoint)
 {
     constexpr double K_RUN_RATE = 384000.0;
 
@@ -211,7 +211,7 @@ TEST(Unit_Dsp, DkTriodeStageSettlesAtTheHandComputedBiasPoint)
     EXPECT_NEAR(circuit.nonlinear_voltages()[0], -cathode_volts, 1.0e-4);
 }
 
-TEST(Unit_Dsp, DkTriodeStageNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
+TEST(TriodeStage, DkTriodeStageNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
 {
     // The stimulus set is a sweep and three bursts at 384 kHz. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     constexpr double K_RUN_RATE = 384000.0;
@@ -271,7 +271,7 @@ TEST(Unit_Dsp, DkTriodeStageNewtonConvergesOnNinetyNinePointNineNinePercentOfSam
     EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
 }
 
-TEST(Unit_Dsp, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
+TEST(TriodeStage, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
 {
     const std::string path = spice_path("jcm_v1a", "tran");
     const auto reference = SushiDSP::measure::load_transient_csv(path);
@@ -339,7 +339,7 @@ TEST(Unit_Dsp, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
     }
 }
 
-TEST(Unit_Dsp, DkTriodeStageMatchesTheLtspiceAcSweepWithinHalfADecibel)
+TEST(TriodeStage, DkTriodeStageMatchesTheLtspiceAcSweepWithinHalfADecibel)
 {
     const std::string path = spice_path("jcm_v1a", "ac");
     const auto reference = SushiDSP::measure::load_ac_csv(path);

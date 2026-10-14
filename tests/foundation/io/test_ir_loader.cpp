@@ -118,7 +118,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, IrLoaderTrimsAndFadesToMaxLength)
+TEST(IrLoader, IrLoaderTrimsAndFadesToMaxLength)
 {
     std::vector<float> samples(48000, 1.0f);
     const auto ir = SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0,
@@ -129,7 +129,7 @@ TEST(Unit_Dsp, IrLoaderTrimsAndFadesToMaxLength)
     EXPECT_NEAR(ir.samples[9600 - 240 - 1], 1.0f, 1e-3f);
 }
 
-TEST(Unit_Dsp, IrLoaderNormalisesBandAverageToZeroDb)
+TEST(IrLoader, IrLoaderNormalisesBandAverageToZeroDb)
 {
     std::vector<float> samples(4096, 0.0f);
     samples[0] = 0.1f;
@@ -140,7 +140,7 @@ TEST(Unit_Dsp, IrLoaderNormalisesBandAverageToZeroDb)
     EXPECT_DOUBLE_EQ(ir.sample_rate, 48000.0);
 }
 
-TEST(Unit_Dsp, IrLoaderNormalisesShapedBandAverageToZeroDb)
+TEST(IrLoader, IrLoaderNormalisesShapedBandAverageToZeroDb)
 {
     // A two-tap comb makes the band selection matter. See tests/foundation/io/README.md.
     std::vector<float> samples(4096, 0.0f);
@@ -157,7 +157,7 @@ TEST(Unit_Dsp, IrLoaderNormalisesShapedBandAverageToZeroDb)
     EXPECT_NEAR(ir.samples[64] / ir.samples[0], 0.9f, 1e-5f);
 }
 
-TEST(Unit_Dsp, IrLoaderLoadResamplesAWavFileToTheTargetRate)
+TEST(IrLoader, IrLoaderLoadResamplesAWavFileToTheTargetRate)
 {
     std::vector<std::int16_t> source(441);
     for (std::size_t i = 0; i < source.size(); ++i)

@@ -33,7 +33,7 @@
 #include <SushiDSP/catalog/node_registry/node_registry.hpp>
 #include <SushiDSP/nodes/routing/mixer_node.hpp>
 
-TEST(Unit_Dsp, NodeRegistryListsTubeScreamerAndJcm800)
+TEST(NodeRegistry, NodeRegistryListsTubeScreamerAndJcm800)
 {
     const auto& entries = SushiDSP::node_registry();
     ASSERT_GE(entries.size(), 2u);
@@ -56,7 +56,7 @@ TEST(Unit_Dsp, NodeRegistryListsTubeScreamerAndJcm800)
     EXPECT_TRUE(found_jcm800);
 }
 
-TEST(Unit_Dsp, MakeNodeConstructsTubeScreamerById)
+TEST(NodeRegistry, MakeNodeConstructsTubeScreamerById)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     auto node = SushiDSP::make_node("sushidsp.tubescreamer", info);
@@ -67,7 +67,7 @@ TEST(Unit_Dsp, MakeNodeConstructsTubeScreamerById)
     EXPECT_FLOAT_EQ(node->get_parameter("drive"), 0.3f);
 }
 
-TEST(Unit_Dsp, MakeNodeConstructsJcm800ById)
+TEST(NodeRegistry, MakeNodeConstructsJcm800ById)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     auto node = SushiDSP::make_node("sushidsp.jcm800", info);
@@ -76,7 +76,7 @@ TEST(Unit_Dsp, MakeNodeConstructsJcm800ById)
     EXPECT_FLOAT_EQ(node->get_parameter("preamp"), 0.4f);
 }
 
-TEST(Unit_Dsp, NodeRegistryListsAndBuildsTheThreeHighGainAmplifiers)
+TEST(NodeRegistry, NodeRegistryListsAndBuildsTheThreeHighGainAmplifiers)
 {
     const SushiDSP::PrepareInfo info{48000.0, 256, 1};
     static const char* K_AMPLIFIER_IDS[] = {"sushidsp.peavey5150", "sushidsp.mesa_mark2c",
@@ -102,13 +102,13 @@ TEST(Unit_Dsp, NodeRegistryListsAndBuildsTheThreeHighGainAmplifiers)
     }
 }
 
-TEST(Unit_Dsp, MakeNodeReturnsNullForUnknownId)
+TEST(NodeRegistry, MakeNodeReturnsNullForUnknownId)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     EXPECT_EQ(SushiDSP::make_node("does.not.exist", info), nullptr);
 }
 
-TEST(Unit_Dsp, NodeRegistryIncludesRoutingNodes)
+TEST(NodeRegistry, NodeRegistryIncludesRoutingNodes)
 {
     const SushiDSP::PrepareInfo info{48000.0, 64, 1};
 
@@ -131,7 +131,7 @@ TEST(Unit_Dsp, NodeRegistryIncludesRoutingNodes)
     EXPECT_TRUE(found_routing_category);
 }
 
-TEST(Unit_Dsp, NodeRegistryBuildsTheCabinet)
+TEST(NodeRegistry, NodeRegistryBuildsTheCabinet)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     auto node = SushiDSP::make_node("sushidsp.cabinet", info);

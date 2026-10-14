@@ -70,7 +70,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, PanNodeCentreIsMinus3Point01DbOnBothChannels)
+TEST(PanNode, PanNodeCentreIsMinus3Point01DbOnBothChannels)
 {
     SushiDSP::PanNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -82,7 +82,7 @@ TEST(Unit_Dsp, PanNodeCentreIsMinus3Point01DbOnBothChannels)
     EXPECT_NEAR(to_db(right), -3.01f, 0.01f);
 }
 
-TEST(Unit_Dsp, PanNodeHardLeftIsUnityLeftAndDeepNullRight)
+TEST(PanNode, PanNodeHardLeftIsUnityLeftAndDeepNullRight)
 {
     SushiDSP::PanNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -94,7 +94,7 @@ TEST(Unit_Dsp, PanNodeHardLeftIsUnityLeftAndDeepNullRight)
     EXPECT_LE(to_db(right), -80.0f);
 }
 
-TEST(Unit_Dsp, PanNodeHardRightIsUnityRightAndDeepNullLeft)
+TEST(PanNode, PanNodeHardRightIsUnityRightAndDeepNullLeft)
 {
     SushiDSP::PanNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -106,7 +106,7 @@ TEST(Unit_Dsp, PanNodeHardRightIsUnityRightAndDeepNullLeft)
     EXPECT_LE(to_db(left), -80.0f);
 }
 
-TEST(Unit_Dsp, PanNodeSumOfSquaredGainsStaysUnityAcrossItsRange)
+TEST(PanNode, PanNodeSumOfSquaredGainsStaysUnityAcrossItsRange)
 {
     SushiDSP::PanNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -122,7 +122,7 @@ TEST(Unit_Dsp, PanNodeSumOfSquaredGainsStaysUnityAcrossItsRange)
     }
 }
 
-TEST(Unit_Dsp, PanNodeDescriptorDeclaresOnePanParameterInContractOrder)
+TEST(PanNode, PanNodeDescriptorDeclaresOnePanParameterInContractOrder)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::pan_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.pan");
@@ -134,7 +134,7 @@ TEST(Unit_Dsp, PanNodeDescriptorDeclaresOnePanParameterInContractOrder)
     EXPECT_FLOAT_EQ(descriptor.parameters[0].default_value, 0.0f);
 }
 
-TEST(Unit_Dsp, PanNodeIndexedSetterAgreesWithNamedSetter)
+TEST(PanNode, PanNodeIndexedSetterAgreesWithNamedSetter)
 {
     SushiDSP::PanNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -146,7 +146,7 @@ TEST(Unit_Dsp, PanNodeIndexedSetterAgreesWithNamedSetter)
     EXPECT_FLOAT_EQ(node.get_parameter("pan"), -0.25f);
 }
 
-TEST(Unit_Dsp, PanNodePortsAreOneInputTwoOutputs)
+TEST(PanNode, PanNodePortsAreOneInputTwoOutputs)
 {
     SushiDSP::PanNode node;
     const SushiDSP::PortLayout ports = node.ports();

@@ -70,7 +70,7 @@ namespace
     };
 } // namespace
 
-TEST(Unit_Dsp, NullAudioDeviceReportsConfiguredFormat)
+TEST(AudioDevice, NullAudioDeviceReportsConfiguredFormat)
 {
     SushiDSP::DeviceFormat expected{48000.0, 256, 0, 1};
     NullAudioDevice device(expected, 0);
@@ -83,7 +83,7 @@ TEST(Unit_Dsp, NullAudioDeviceReportsConfiguredFormat)
     EXPECT_EQ(actual.output_channels, expected.output_channels);
 }
 
-TEST(Unit_Dsp, NullAudioDeviceInvokesCallbackOncePerBlock)
+TEST(AudioDevice, NullAudioDeviceInvokesCallbackOncePerBlock)
 {
     NullAudioDevice device({48000.0, 256, 0, 1}, 5);
 
@@ -97,7 +97,7 @@ TEST(Unit_Dsp, NullAudioDeviceInvokesCallbackOncePerBlock)
     EXPECT_EQ(call_count, 5);
 }
 
-TEST(Unit_Dsp, NullAudioDeviceCallbackReceivesRequestedFrameCount)
+TEST(AudioDevice, NullAudioDeviceCallbackReceivesRequestedFrameCount)
 {
     NullAudioDevice device({48000.0, 128, 0, 2}, 1);
 

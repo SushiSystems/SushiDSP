@@ -36,7 +36,7 @@
 
 #include <SushiDSP/foundation/math/sinc_resampler.hpp>
 
-TEST(Unit_Dsp, SincResamplerPreservesAOneKilohertzToneWithinMinusEightyDb)
+TEST(SincResampler, SincResamplerPreservesAOneKilohertzToneWithinMinusEightyDb)
 {
     std::vector<float> in(44100);
     for (std::size_t i = 0; i < in.size(); ++i)
@@ -60,7 +60,7 @@ TEST(Unit_Dsp, SincResamplerPreservesAOneKilohertzToneWithinMinusEightyDb)
     EXPECT_LT(10.0 * std::log10(error / energy), -80.0);
 }
 
-TEST(Unit_Dsp, SincResamplerLowpassesAboveTheNewNyquistWhenDownsampling)
+TEST(SincResampler, SincResamplerLowpassesAboveTheNewNyquistWhenDownsampling)
 {
     const auto tone_energy_after_halving_the_rate = [](double frequency_hz)
     {

@@ -135,7 +135,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, MetronomeAddsNothingWhenDisabled)
+TEST(Metronome, MetronomeAddsNothingWhenDisabled)
 {
     SushiDSP::MusicalClock clock;
     SushiDSP::Metronome metronome(48000.0);
@@ -150,7 +150,7 @@ TEST(Unit_Dsp, MetronomeAddsNothingWhenDisabled)
     }
 }
 
-TEST(Unit_Dsp, MetronomeAddsNothingWhenTheTransportIsStopped)
+TEST(Metronome, MetronomeAddsNothingWhenTheTransportIsStopped)
 {
     SushiDSP::MusicalClock clock;
     SushiDSP::Metronome metronome(48000.0);
@@ -167,7 +167,7 @@ TEST(Unit_Dsp, MetronomeAddsNothingWhenTheTransportIsStopped)
     }
 }
 
-TEST(Unit_Dsp, MetronomeStartsAClickOnEveryBeatFrame)
+TEST(Metronome, MetronomeStartsAClickOnEveryBeatFrame)
 {
     SushiDSP::MusicalClock clock;
     clock.set_tempo(137.4);
@@ -194,7 +194,7 @@ TEST(Unit_Dsp, MetronomeStartsAClickOnEveryBeatFrame)
     }
 }
 
-TEST(Unit_Dsp, MetronomeKeepsTheGridAcrossASeek)
+TEST(Metronome, MetronomeKeepsTheGridAcrossASeek)
 {
     SushiDSP::MusicalClock clock;
     clock.set_tempo(137.4);
@@ -237,7 +237,7 @@ TEST(Unit_Dsp, MetronomeKeepsTheGridAcrossASeek)
     EXPECT_EQ(onsets, expected);
 }
 
-TEST(Unit_Dsp, MetronomeAccentsTheDownbeat)
+TEST(Metronome, MetronomeAccentsTheDownbeat)
 {
     SushiDSP::MusicalClock clock;
     SushiDSP::Metronome metronome(48000.0);
@@ -254,7 +254,7 @@ TEST(Unit_Dsp, MetronomeAccentsTheDownbeat)
     EXPECT_EQ(peak_bin(rendered, 24000u), 75u); // 878.9 Hz, the 880 Hz beat
 }
 
-TEST(Unit_Dsp, MetronomeCarriesABurstAcrossABlockBoundary)
+TEST(Metronome, MetronomeCarriesABurstAcrossABlockBoundary)
 {
     SushiDSP::MusicalClock clock;
 

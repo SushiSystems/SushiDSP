@@ -65,13 +65,13 @@ namespace
         SushiDSP::PlateSwing{25.5f, 280.2777f}};
 } // namespace
 
-TEST(Unit_Dsp, PentodeStageIsDcStableForConstantInput)
+TEST(PentodeStage, PentodeStageIsDcStableForConstantInput)
 {
     SushiDSP::PentodeStage stage(K_REFERENCE_PENTODE);
     EXPECT_TRUE(std::isfinite(settled(stage, 1.0f, 1000)));
 }
 
-TEST(Unit_Dsp, PentodeStageSaturatesInsideItsPlateSwing)
+TEST(PentodeStage, PentodeStageSaturatesInsideItsPlateSwing)
 {
     // The plate is bounded by the tube's swing on each side. See tests/foundation/circuits/stages/README.md.
     SushiDSP::PentodeStage cut_off(K_REFERENCE_PENTODE);
@@ -89,7 +89,7 @@ TEST(Unit_Dsp, PentodeStageSaturatesInsideItsPlateSwing)
     EXPECT_LT(toward_bottom, -0.99f * K_REFERENCE_PENTODE.plate_swing.headroom_to_bottom_volts);
 }
 
-TEST(Unit_Dsp, PentodeStageIsNearlyLinearForSmallInput)
+TEST(PentodeStage, PentodeStageIsNearlyLinearForSmallInput)
 {
     // The grid sits at 0.867 of the input inside the window. See tests/foundation/circuits/stages/README.md.
     SushiDSP::PentodeStage stage(K_REFERENCE_PENTODE);
@@ -101,7 +101,7 @@ TEST(Unit_Dsp, PentodeStageIsNearlyLinearForSmallInput)
     EXPECT_NEAR(output, linear_prediction, std::abs(linear_prediction) * 0.02f);
 }
 
-TEST(Unit_Dsp, PentodeStageGridConductsAtTheCathodeNotAtTheBiasPoint)
+TEST(PentodeStage, PentodeStageGridConductsAtTheCathodeNotAtTheBiasPoint)
 {
     // The grid law is referenced to the cathode. See tests/foundation/circuits/stages/README.md.
     SushiDSP::PentodeStage inside(K_REFERENCE_PENTODE);
@@ -119,7 +119,7 @@ TEST(Unit_Dsp, PentodeStageGridConductsAtTheCathodeNotAtTheBiasPoint)
     EXPECT_GT(settled(crossed, 30.0f), through_tanh + 2.0f);
 }
 
-TEST(Unit_Dsp, PentodeStageResetClearsWarmStartState)
+TEST(PentodeStage, PentodeStageResetClearsWarmStartState)
 {
     SushiDSP::PentodeStage stage_a(K_REFERENCE_PENTODE);
     SushiDSP::PentodeStage stage_b(K_REFERENCE_PENTODE);
@@ -130,7 +130,7 @@ TEST(Unit_Dsp, PentodeStageResetClearsWarmStartState)
     EXPECT_NEAR(stage_a.process_sample(0.5f), stage_b.process_sample(0.5f), 1e-4f);
 }
 
-TEST(Unit_Dsp, PentodePairIsOddSymmetricInsideTheWindowAndABiasDifferenceMovesTheHandover)
+TEST(PentodeStage, PentodePairIsOddSymmetricInsideTheWindowAndABiasDifferenceMovesTheHandover)
 {
     // The composite is odd while both grids stay in window. See tests/foundation/circuits/stages/README.md.
     auto composite = [](float bias_a, float bias_b, float u)
@@ -163,7 +163,7 @@ TEST(Unit_Dsp, PentodePairIsOddSymmetricInsideTheWindowAndABiasDifferenceMovesTh
     EXPECT_GT(peak_even_part(-38.0f, -25.0f, 60.0f), 0.01f * odd_reference);
 }
 
-TEST(Unit_Dsp, PentodeStagePresetConstructorMatchesTheSixArgumentOne)
+TEST(PentodeStage, PentodeStagePresetConstructorMatchesTheSixArgumentOne)
 {
     SushiDSP::PentodeStage from_preset(K_REFERENCE_PENTODE);
     SushiDSP::PentodeStage from_fields(
@@ -177,7 +177,7 @@ TEST(Unit_Dsp, PentodeStagePresetConstructorMatchesTheSixArgumentOne)
     }
 }
 
-TEST(Unit_Dsp, PentodeStageAntialiaserAntiderivativeDifferentiatesBackToTheTransfer)
+TEST(PentodeStage, PentodeStageAntialiaserAntiderivativeDifferentiatesBackToTheTransfer)
 {
     // dG/du = bound(-gain u) dg/du on the EL34's table. See tests/foundation/circuits/stages/README.md.
     const SushiDSP::PowerTubePreset& preset = K_REFERENCE_PENTODE;

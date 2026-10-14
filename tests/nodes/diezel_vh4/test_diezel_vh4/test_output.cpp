@@ -75,13 +75,13 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/nodes/diezel_vh4/test_diezel_vh4/README.md
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, DiezelVh4GoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(DiezelVh4, DiezelVh4GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "diezel_vh4_48k", render_diezel_vh4(48000.0)),
               -80.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Regression_Dsp, DiezelVh4GoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(DiezelVh4, DiezelVh4GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "diezel_vh4_96k", render_diezel_vh4(96000.0)),
               -80.0);

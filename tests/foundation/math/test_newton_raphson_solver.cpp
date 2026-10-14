@@ -31,7 +31,7 @@
 
 #include <SushiDSP/foundation/math/newton_raphson_solver.hpp>
 
-TEST(Unit_Dsp, NewtonRaphsonSolverFindsSquareRootOfTwo)
+TEST(NewtonRaphsonSolver, NewtonRaphsonSolverFindsSquareRootOfTwo)
 {
     auto function = [](float x)
     {
@@ -47,7 +47,7 @@ TEST(Unit_Dsp, NewtonRaphsonSolverFindsSquareRootOfTwo)
     EXPECT_NEAR(root, std::sqrt(2.0f), 1e-4f);
 }
 
-TEST(Unit_Dsp, NewtonRaphsonSolverConvergesFromNegativeGuess)
+TEST(NewtonRaphsonSolver, NewtonRaphsonSolverConvergesFromNegativeGuess)
 {
     auto function = [](float x)
     {
@@ -63,7 +63,7 @@ TEST(Unit_Dsp, NewtonRaphsonSolverConvergesFromNegativeGuess)
     EXPECT_NEAR(root, -std::sqrt(2.0f), 1e-4f);
 }
 
-TEST(Unit_Dsp, NewtonRaphsonSolverHandlesNearZeroDerivativeWithoutDivergingToNanOrInf)
+TEST(NewtonRaphsonSolver, NewtonRaphsonSolverHandlesNearZeroDerivativeWithoutDivergingToNanOrInf)
 {
     // f(x) = x^3, root at 0, derivative 3x^2 vanishes exactly at the root.
     auto function = [](float x)
@@ -80,7 +80,7 @@ TEST(Unit_Dsp, NewtonRaphsonSolverHandlesNearZeroDerivativeWithoutDivergingToNan
     EXPECT_TRUE(std::isfinite(result));
 }
 
-TEST(Unit_Dsp, NewtonRaphsonSolverWarmStartConvergesInFewerIterationsThanColdStart)
+TEST(NewtonRaphsonSolver, NewtonRaphsonSolverWarmStartConvergesInFewerIterationsThanColdStart)
 {
     auto function = [](float x)
     {
@@ -98,7 +98,7 @@ TEST(Unit_Dsp, NewtonRaphsonSolverWarmStartConvergesInFewerIterationsThanColdSta
     EXPECT_LT(std::abs(warm - target), std::abs(cold - target));
 }
 
-TEST(Unit_Dsp, NewtonRaphsonSolverJointOverloadMatchesSplitOverloadBitForBit)
+TEST(NewtonRaphsonSolver, NewtonRaphsonSolverJointOverloadMatchesSplitOverloadBitForBit)
 {
     // Both overloads must walk identical iterates. See tests/foundation/math/README.md.
     auto function = [](float x)
@@ -124,7 +124,7 @@ TEST(Unit_Dsp, NewtonRaphsonSolverJointOverloadMatchesSplitOverloadBitForBit)
     }
 }
 
-TEST(Unit_Dsp, NewtonRaphsonSolverJointOverloadEvaluatesOncePerIteration)
+TEST(NewtonRaphsonSolver, NewtonRaphsonSolverJointOverloadEvaluatesOncePerIteration)
 {
     int evaluations = 0;
     auto joint = [&evaluations](float x)

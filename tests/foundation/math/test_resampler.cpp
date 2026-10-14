@@ -110,7 +110,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, ResamplerHoldsADcLevelAtEveryRatio)
+TEST(Resampler, ResamplerHoldsADcLevelAtEveryRatio)
 {
     // Every polyphase branch has unity DC gain. See tests/foundation/math/README.md.
     for (const double target : {20000.0, 31250.0, 48000.0, 82500.0, 96000.0})
@@ -127,7 +127,7 @@ TEST(Unit_Dsp, ResamplerHoldsADcLevelAtEveryRatio)
     }
 }
 
-TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3SlowClock)
+TEST(Resampler, ResamplerRoundTripNullsAtTheDd3SlowClock)
 {
     // The 7 kHz content sits inside the 8000 Hz passband. See tests/foundation/math/README.md.
     const std::vector<float> input = multitone({100.0, 1000.0, 3000.0, 7000.0}, 48000.0, 96000u);
@@ -141,7 +141,7 @@ TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3SlowClock)
     EXPECT_LE(residual, -80.0);
 }
 
-TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3FastClockAndTheSpx90Ratio)
+TEST(Resampler, ResamplerRoundTripNullsAtTheDd3FastClockAndTheSpx90Ratio)
 {
     // 12 kHz content survives at the SPX90 ratio. See tests/foundation/math/README.md.
     struct Case
@@ -168,7 +168,7 @@ TEST(Unit_Dsp, ResamplerRoundTripNullsAtTheDd3FastClockAndTheSpx90Ratio)
     }
 }
 
-TEST(Unit_Dsp, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
+TEST(Resampler, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
 {
     // The history is sized on min(1, minimum_ratio). See tests/foundation/math/README.md.
     const std::vector<float> input = multitone({100.0, 1000.0, 7000.0}, 48000.0, 24000u);
@@ -182,7 +182,7 @@ TEST(Unit_Dsp, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
     EXPECT_LE(residual, -80.0);
 }
 
-TEST(Unit_Dsp, ResamplerRejectsAToneAboveTheOutputNyquist)
+TEST(Resampler, ResamplerRejectsAToneAboveTheOutputNyquist)
 {
     // 15 kHz into 20 kHz would fold to 5000 Hz. See tests/foundation/math/README.md.
     SushiDSP::Resampler resampler;
@@ -209,7 +209,7 @@ TEST(Unit_Dsp, ResamplerRejectsAToneAboveTheOutputNyquist)
     EXPECT_LE(image - reference, -90.0);
 }
 
-TEST(Unit_Dsp, ResamplerOutputCountFollowsTheRatioWithoutDrift)
+TEST(Resampler, ResamplerOutputCountFollowsTheRatioWithoutDrift)
 {
     // The output count stays within two samples of the ratio. See tests/foundation/math/README.md.
     SushiDSP::Resampler resampler;
@@ -226,7 +226,7 @@ TEST(Unit_Dsp, ResamplerOutputCountFollowsTheRatioWithoutDrift)
     EXPECT_NEAR(static_cast<double>(produced), 426666.67, 80.0);
 }
 
-TEST(Unit_Dsp, ResamplerResumesAfterAnUnderSizedOutputBuffer)
+TEST(Resampler, ResamplerResumesAfterAnUnderSizedOutputBuffer)
 {
     // Deferred outputs come out on the next call. See tests/foundation/math/README.md.
     const std::vector<float> input = multitone({100.0, 1000.0, 7000.0}, 48000.0, 8192u);
@@ -252,7 +252,7 @@ TEST(Unit_Dsp, ResamplerResumesAfterAnUnderSizedOutputBuffer)
     }
 }
 
-TEST(Unit_Dsp, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
+TEST(Resampler, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
 {
     // process() drops the backlog instead of wrapping. See tests/foundation/math/README.md.
     const std::vector<float> input = multitone({100.0, 1000.0, 7000.0}, 48000.0, 65536u);
@@ -287,7 +287,7 @@ TEST(Unit_Dsp, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
     EXPECT_LE(residual, -60.0);
 }
 
-TEST(Unit_Dsp, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
+TEST(Resampler, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
 {
     // y[n-1] + y[n+1] = 2*cos(w)*y[n] for a sampled sinusoid. See tests/foundation/math/README.md.
     std::vector<float> input(262144u, 0.0f);
@@ -334,7 +334,7 @@ TEST(Unit_Dsp, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
     EXPECT_LE(worst, 1e-5);
 }
 
-TEST(Unit_Dsp, ResamplerLatencyIsThirtyFourSamplesOfTheLowerRate)
+TEST(Resampler, ResamplerLatencyIsThirtyFourSamplesOfTheLowerRate)
 {
     // The delay is 34 / min(source, target) seconds. See tests/foundation/math/README.md.
     struct Case
@@ -361,7 +361,7 @@ TEST(Unit_Dsp, ResamplerLatencyIsThirtyFourSamplesOfTheLowerRate)
     }
 }
 
-TEST(Unit_Dsp, ResamplerKeepsAToneAtItsFrequency)
+TEST(Resampler, ResamplerKeepsAToneAtItsFrequency)
 {
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
@@ -391,7 +391,7 @@ TEST(Unit_Dsp, ResamplerKeepsAToneAtItsFrequency)
     EXPECT_NEAR(best_bin, static_cast<double>(expected_bin), 1.0);
 }
 
-TEST(Unit_Dsp, ResamplerRateChangeMidStreamIsContinuous)
+TEST(Resampler, ResamplerRateChangeMidStreamIsContinuous)
 {
     // At 20 kHz a 100 Hz sine steps at most 0.0314. See tests/foundation/math/README.md.
     SushiDSP::Resampler resampler;
@@ -425,7 +425,7 @@ TEST(Unit_Dsp, ResamplerRateChangeMidStreamIsContinuous)
     EXPECT_GT(output.size(), 10000u);
 }
 
-TEST(Unit_Dsp, ResamplerResetReturnsItToSilence)
+TEST(Resampler, ResamplerResetReturnsItToSilence)
 {
     SushiDSP::Resampler resampler;
     resampler.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);

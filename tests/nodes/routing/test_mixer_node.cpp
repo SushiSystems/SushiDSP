@@ -31,7 +31,7 @@
 
 #include <SushiDSP/nodes/routing/mixer_node.hpp>
 
-TEST(Unit_Dsp, MixerNodeSumsTwoInputsWithDefaultUnityGain)
+TEST(MixerNode, MixerNodeSumsTwoInputsWithDefaultUnityGain)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -52,7 +52,7 @@ TEST(Unit_Dsp, MixerNodeSumsTwoInputsWithDefaultUnityGain)
     }
 }
 
-TEST(Unit_Dsp, MixerNodeAppliesPerInputGain)
+TEST(MixerNode, MixerNodeAppliesPerInputGain)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -76,7 +76,7 @@ TEST(Unit_Dsp, MixerNodeAppliesPerInputGain)
     }
 }
 
-TEST(Unit_Dsp, MixerNodeGetParameterRoundTripsEveryGain)
+TEST(MixerNode, MixerNodeGetParameterRoundTripsEveryGain)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -85,7 +85,7 @@ TEST(Unit_Dsp, MixerNodeGetParameterRoundTripsEveryGain)
     EXPECT_FLOAT_EQ(node.get_parameter("gain_0"), 1.0f); // untouched slots default to 1.0
 }
 
-TEST(Unit_Dsp, MixerNodeUnknownParameterIdIsSafeNoOp)
+TEST(MixerNode, MixerNodeUnknownParameterIdIsSafeNoOp)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -93,7 +93,7 @@ TEST(Unit_Dsp, MixerNodeUnknownParameterIdIsSafeNoOp)
     EXPECT_FLOAT_EQ(node.get_parameter("not_a_real_id"), 0.0f);
 }
 
-TEST(Unit_Dsp, MixerNodeDescriptorDeclaresEightGainParameters)
+TEST(MixerNode, MixerNodeDescriptorDeclaresEightGainParameters)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::mixer_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.mixer");

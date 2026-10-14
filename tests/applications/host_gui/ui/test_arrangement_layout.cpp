@@ -46,7 +46,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, ArrangementLayoutPlacesBarAndBeatLines)
+TEST(ArrangementLayout, ArrangementLayoutPlacesBarAndBeatLines)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -76,7 +76,7 @@ TEST(Unit_Dsp, ArrangementLayoutPlacesBarAndBeatLines)
     EXPECT_EQ(lines.back().bar, 5u);
 }
 
-TEST(Unit_Dsp, ArrangementLayoutDropsTheBeatsWhenTheyCrowd)
+TEST(ArrangementLayout, ArrangementLayoutDropsTheBeatsWhenTheyCrowd)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -95,7 +95,7 @@ TEST(Unit_Dsp, ArrangementLayoutDropsTheBeatsWhenTheyCrowd)
     EXPECT_FLOAT_EQ(lines[1].x, 19.2f);
 }
 
-TEST(Unit_Dsp, ArrangementLayoutStartsTheGridAtTheScrollOrigin)
+TEST(ArrangementLayout, ArrangementLayoutStartsTheGridAtTheScrollOrigin)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -113,7 +113,7 @@ TEST(Unit_Dsp, ArrangementLayoutStartsTheGridAtTheScrollOrigin)
     EXPECT_EQ(lines[0].beat, 2u);
 }
 
-TEST(Unit_Dsp, ArrangementLayoutGivesAClipItsRectangle)
+TEST(ArrangementLayout, ArrangementLayoutGivesAClipItsRectangle)
 {
     ui::TimelineScale scale;
     scale.set_pixels_per_frame(0.002);
@@ -124,7 +124,7 @@ TEST(Unit_Dsp, ArrangementLayoutGivesAClipItsRectangle)
     EXPECT_FLOAT_EQ(span.right, 288.0f);
 }
 
-TEST(Unit_Dsp, ArrangementLayoutLandsADropOnTheSnappedBar)
+TEST(ArrangementLayout, ArrangementLayoutLandsADropOnTheSnappedBar)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -140,7 +140,7 @@ TEST(Unit_Dsp, ArrangementLayoutLandsADropOnTheSnappedBar)
     EXPECT_EQ(ui::dropped_frame(scale, ui::SnapMode::Bar, clock, -80.0f), 0u);
 }
 
-TEST(Unit_Dsp, ArrangementLayoutMovesADraggedClipByItsPixels)
+TEST(ArrangementLayout, ArrangementLayoutMovesADraggedClipByItsPixels)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -154,7 +154,7 @@ TEST(Unit_Dsp, ArrangementLayoutMovesADraggedClipByItsPixels)
     EXPECT_EQ(ui::dragged_start_frame(scale, ui::SnapMode::Bar, clock, 96000u, -1000.0f), 0u);
 }
 
-TEST(Unit_Dsp, ArrangementLayoutNamesTheLaneAScreenPositionFallsOn)
+TEST(ArrangementLayout, ArrangementLayoutNamesTheLaneAScreenPositionFallsOn)
 {
     ui::LaneGeometry geometry;
     geometry.canvas_left = 200.0f;
@@ -172,7 +172,7 @@ TEST(Unit_Dsp, ArrangementLayoutNamesTheLaneAScreenPositionFallsOn)
     EXPECT_EQ(*ui::lane_at(geometry, 200.0f, 576.0f), 7u);
 }
 
-TEST(Unit_Dsp, ArrangementLayoutRefusesAPositionOutsideEveryLane)
+TEST(ArrangementLayout, ArrangementLayoutRefusesAPositionOutsideEveryLane)
 {
     ui::LaneGeometry geometry;
     geometry.canvas_left = 200.0f;
@@ -190,7 +190,7 @@ TEST(Unit_Dsp, ArrangementLayoutRefusesAPositionOutsideEveryLane)
     EXPECT_FALSE(ui::lane_at(ui::LaneGeometry{}, 0.0f, 0.0f).has_value());
 }
 
-TEST(Unit_Dsp, ArrangementLayoutReadsADropXAgainstTheCanvasOrigin)
+TEST(ArrangementLayout, ArrangementLayoutReadsADropXAgainstTheCanvasOrigin)
 {
     ui::LaneGeometry geometry;
     geometry.canvas_left = 200.0f;

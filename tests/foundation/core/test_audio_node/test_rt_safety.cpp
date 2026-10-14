@@ -204,7 +204,7 @@ void operator delete[](void* ptr, std::size_t) noexcept
     std::free(ptr);
 }
 
-TEST(Unit_Dsp, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
+TEST(AudioNode, RigGraphProcessPerformsNoHeapAllocationAcrossManyBlocks)
 {
     SushiDSP::RigGraph graph(256, 4);
     graph.add_node(std::make_unique<SumNode>());
@@ -294,7 +294,7 @@ namespace
     };
 } // namespace
 
-TEST(Unit_Dsp, RigGraphStereoProcessPerformsNoHeapAllocation)
+TEST(AudioNode, RigGraphStereoProcessPerformsNoHeapAllocation)
 {
     // The graph covers every path of the edge adaptation. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::RigGraph graph(256, 4);
@@ -326,7 +326,7 @@ TEST(Unit_Dsp, RigGraphStereoProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, FftForwardAndInverseRoundTripPerformsNoHeapAllocation)
+TEST(AudioNode, FftForwardAndInverseRoundTripPerformsNoHeapAllocation)
 {
     const std::uint32_t size = 256;
     SushiDSP::Fft fft(size);
@@ -358,7 +358,7 @@ TEST(Unit_Dsp, FftForwardAndInverseRoundTripPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, Oversampler8xRoundTripPerformsNoHeapAllocation)
+TEST(AudioNode, Oversampler8xRoundTripPerformsNoHeapAllocation)
 {
     const std::uint32_t block_size = 64;
     SushiDSP::Oversampler8x oversampler(block_size);
@@ -384,7 +384,7 @@ TEST(Unit_Dsp, Oversampler8xRoundTripPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, PartitionedConvolutionProcessPerformsNoHeapAllocation)
+TEST(AudioNode, PartitionedConvolutionProcessPerformsNoHeapAllocation)
 {
     const std::uint32_t partition_size = 64;
 
@@ -418,7 +418,7 @@ TEST(Unit_Dsp, PartitionedConvolutionProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, StreamingConvolutionProcessPerformsNoHeapAllocation)
+TEST(AudioNode, StreamingConvolutionProcessPerformsNoHeapAllocation)
 {
     const std::uint32_t partition_size = 128;
 
@@ -453,7 +453,7 @@ TEST(Unit_Dsp, StreamingConvolutionProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
+TEST(AudioNode, TubeScreamerProcessPerformsNoHeapAllocation)
 {
     SushiDSP::TubeScreamer node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -489,7 +489,7 @@ TEST(Unit_Dsp, TubeScreamerProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, SplitterNodeProcessPerformsNoHeapAllocation)
+TEST(AudioNode, SplitterNodeProcessPerformsNoHeapAllocation)
 {
     SushiDSP::SplitterNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
@@ -511,7 +511,7 @@ TEST(Unit_Dsp, SplitterNodeProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, MixerNodeProcessPerformsNoHeapAllocation)
+TEST(AudioNode, MixerNodeProcessPerformsNoHeapAllocation)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
@@ -535,7 +535,7 @@ TEST(Unit_Dsp, MixerNodeProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, PanNodeProcessPerformsNoHeapAllocation)
+TEST(AudioNode, PanNodeProcessPerformsNoHeapAllocation)
 {
     // apply_pan()'s cos/sin recompute runs on stack values only: no heap, lock, syscall, throw.
     SushiDSP::PanNode node;
@@ -560,7 +560,7 @@ TEST(Unit_Dsp, PanNodeProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
+TEST(AudioNode, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     // The per-block set_high_shelf() is pure arithmetic. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::Jcm800 node;
@@ -596,7 +596,7 @@ TEST(Unit_Dsp, Jcm800ProcessPerformsNoHeapAllocationWithoutCabinet)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithoutCabinet)
+TEST(AudioNode, Peavey5150ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     SushiDSP::Peavey5150 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -632,7 +632,7 @@ TEST(Unit_Dsp, Peavey5150ProcessPerformsNoHeapAllocationWithoutCabinet)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithoutCabinet)
+TEST(AudioNode, MesaMark2cProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     SushiDSP::MesaMark2c node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -674,7 +674,7 @@ TEST(Unit_Dsp, MesaMark2cProcessPerformsNoHeapAllocationWithoutCabinet)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithoutCabinet)
+TEST(AudioNode, DiezelVh4ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     SushiDSP::DiezelVh4 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -711,7 +711,7 @@ TEST(Unit_Dsp, DiezelVh4ProcessPerformsNoHeapAllocationWithoutCabinet)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, CabinetNodeProcessPerformsNoHeapAllocationWithCabinet)
+TEST(AudioNode, CabinetNodeProcessPerformsNoHeapAllocationWithCabinet)
 {
     // 500 blocks wrap the spectrum history at least once. See tests/foundation/core/test_audio_node/README.md.
     std::vector<float> impulse_response(200, 0.0f);
@@ -749,7 +749,7 @@ TEST(Unit_Dsp, CabinetNodeProcessPerformsNoHeapAllocationWithCabinet)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, AsioSampleConverterPerformsNoHeapAllocation)
+TEST(AudioNode, AsioSampleConverterPerformsNoHeapAllocation)
 {
     std::uint8_t bytes[4] = {0, 0, 0, 0};
 
@@ -768,7 +768,7 @@ TEST(Unit_Dsp, AsioSampleConverterPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
+TEST(AudioNode, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
 {
     SushiDSP::RtSwapSlot<int> slot;
     slot.publish(std::make_unique<int>(3));
@@ -789,7 +789,7 @@ TEST(Unit_Dsp, RtSwapSlotAcquireForAudioThreadPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, CabinetNodeSetCabinetSwapsWithoutAllocatingOnTheAudioThread)
+TEST(AudioNode, CabinetNodeSetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 {
     // The trap is armed around the blocks, not set_cabinet(). See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::CabinetNode node;
@@ -864,7 +864,7 @@ namespace
     };
 } // namespace
 
-TEST(Unit_Dsp, LevelProbeReportPerformsNoHeapAllocation)
+TEST(AudioNode, LevelProbeReportPerformsNoHeapAllocation)
 {
     ui::LevelProbe probe;
     std::vector<float> block(256, 0.25f);
@@ -880,7 +880,7 @@ TEST(Unit_Dsp, LevelProbeReportPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
+TEST(AudioNode, DkCircuitProcessPerformsNoHeapAllocation)
 {
     DkStageNetlist netlist;
     build_jcm_v1a(netlist);
@@ -913,7 +913,7 @@ TEST(Unit_Dsp, DkCircuitProcessPerformsNoHeapAllocation)
     EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
 }
 
-TEST(Unit_Dsp, DkCircuitPotentiometerUpdatePerformsNoHeapAllocation)
+TEST(AudioNode, DkCircuitPotentiometerUpdatePerformsNoHeapAllocation)
 {
     // A pot move rebuilds the DK matrices on the audio thread. See tests/foundation/core/test_audio_node/README.md.
     DkStageNetlist netlist;
@@ -949,7 +949,7 @@ TEST(Unit_Dsp, DkCircuitPotentiometerUpdatePerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, DampedNewtonSolverPerformsNoHeapAllocation)
+TEST(AudioNode, DampedNewtonSolverPerformsNoHeapAllocation)
 {
     SushiDSP::dk::DampedNewtonSolver<2> solver;
     ExponentialPairSystem system;
@@ -974,7 +974,7 @@ TEST(Unit_Dsp, DampedNewtonSolverPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, ResamplerProcessPerformsNoHeapAllocation)
+TEST(AudioNode, ResamplerProcessPerformsNoHeapAllocation)
 {
     // At the slowest clock interpolate() touches 164 taps. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::Resampler resampler;
@@ -1001,7 +1001,7 @@ TEST(Unit_Dsp, ResamplerProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, ResamplerRateChangePerformsNoHeapAllocation)
+TEST(AudioNode, ResamplerRateChangePerformsNoHeapAllocation)
 {
     // One 256-frame block calls set_rates 32 times. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::Resampler resampler;
@@ -1034,7 +1034,7 @@ TEST(Unit_Dsp, ResamplerRateChangePerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
+TEST(AudioNode, Dd3DelayProcessPerformsNoHeapAllocation)
 {
     // Both MODE changes below move N and pay the std::fill. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::Dd3Delay node;
@@ -1075,7 +1075,7 @@ TEST(Unit_Dsp, Dd3DelayProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, TrackRecorderWritePerformsNoHeapAllocation)
+TEST(AudioNode, TrackRecorderWritePerformsNoHeapAllocation)
 {
     // The trap sees the ring copy and the drop counter. See tests/foundation/core/test_audio_node/README.md.
     const std::filesystem::path root =
@@ -1115,7 +1115,7 @@ TEST(Unit_Dsp, TrackRecorderWritePerformsNoHeapAllocation)
     std::filesystem::remove_all(root);
 }
 
-TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
+TEST(AudioNode, TrackPlayerProcessPerformsNoHeapAllocation)
 {
     // Timelines and converters exist before the trap opens. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::TrackPlayer player;
@@ -1178,7 +1178,7 @@ TEST(Unit_Dsp, TrackPlayerProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
+TEST(AudioNode, TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
 {
     // The trap covers the pick-up of a changed lane. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::TrackPlayer player;
@@ -1239,7 +1239,7 @@ TEST(Unit_Dsp, TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
     }
 }
 
-TEST(Unit_Dsp, VariRateReaderReadPerformsNoHeapAllocation)
+TEST(AudioNode, VariRateReaderReadPerformsNoHeapAllocation)
 {
     // The converters are sized before the trap opens. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::Take take(2u, 48000.0, 48000u);
@@ -1283,7 +1283,7 @@ TEST(Unit_Dsp, VariRateReaderReadPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, MetronomeProcessPerformsNoHeapAllocation)
+TEST(AudioNode, MetronomeProcessPerformsNoHeapAllocation)
 {
     // The bursts are built before the trap opens. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::MusicalClock clock;
@@ -1344,7 +1344,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocation)
+TEST(AudioNode, RoomNodeProcessPerformsNoHeapAllocation)
 {
     // The first trapped block adopts the published set. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::room::RoomNode node;
@@ -1377,7 +1377,7 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
+TEST(AudioNode, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
 {
     // Only the audio thread's half of a publish is trapped. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::room::RoomNode node;
@@ -1422,7 +1422,7 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAcrossAPublish)
     }
 }
 
-TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAtTheLimits)
+TEST(AudioNode, RoomNodeProcessPerformsNoHeapAllocationAtTheLimits)
 {
     // Three cabinets and eight microphones, with placements coming and going between blocks.
     SushiDSP::room::RoomNode node;
@@ -1470,7 +1470,7 @@ TEST(Unit_Dsp, RoomNodeProcessPerformsNoHeapAllocationAtTheLimits)
     }
 }
 
-TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
+TEST(AudioNode, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer;
     renderer.prepare(8397, 256);
@@ -1518,7 +1518,7 @@ TEST(Unit_Dsp, EarlyReflectionRendererRenderPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, ModalBankProcessPerformsNoHeapAllocation)
+TEST(AudioNode, ModalBankProcessPerformsNoHeapAllocation)
 {
     // All K_MAX_MODES resonators run at 68.6 Hz, 1 s decay. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::room::ModalBank bank;
@@ -1561,7 +1561,7 @@ TEST(Unit_Dsp, ModalBankProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, CrossoverPairProcessPerformsNoHeapAllocation)
+TEST(AudioNode, CrossoverPairProcessPerformsNoHeapAllocation)
 {
     // set_crossover is arithmetic on the audio thread. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::room::CrossoverPair pair;
@@ -1599,7 +1599,7 @@ TEST(Unit_Dsp, CrossoverPairProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, LateReverbProcessPerformsNoHeapAllocation)
+TEST(AudioNode, LateReverbProcessPerformsNoHeapAllocation)
 {
     // The trapped blocks include the 512-frame crossfade. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::room::LateReverb reverb;
@@ -1649,7 +1649,7 @@ TEST(Unit_Dsp, LateReverbProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, BinauralDecoderProcessPerformsNoHeapAllocation)
+TEST(AudioNode, BinauralDecoderProcessPerformsNoHeapAllocation)
 {
     // Sixteen blocks cross the 128-frame partition 32 times. See tests/foundation/core/test_audio_node/README.md.
     const SushiDSP::room::HrtfSet set = SushiDSP::room::SphericalHeadHrtf::build(48000.0);
@@ -1684,7 +1684,7 @@ TEST(Unit_Dsp, BinauralDecoderProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(Unit_Dsp, RoomNodeBinauralProcessPerformsNoHeapAllocation)
+TEST(AudioNode, RoomNodeBinauralProcessPerformsNoHeapAllocation)
 {
     // The ears render every binaural path inside the trap. See tests/foundation/core/test_audio_node/README.md.
     SushiDSP::room::RoomNode node;

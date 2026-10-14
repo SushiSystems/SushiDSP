@@ -39,7 +39,7 @@ namespace
     constexpr double K_PI = 3.14159265358979323846;
 } // namespace
 
-TEST(Unit_Dsp, CabinetDirectivityIsUnityOnAxis)
+TEST(CabinetDirectivity, CabinetDirectivityIsUnityOnAxis)
 {
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
     const SushiDSP::room::BandResponse on_axis = cabinet.gain_for(0.0, 0.0);
@@ -84,7 +84,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, CabinetDirectivityBeamsAtTwoKilohertzAndNotAtOneTwentyFive)
+TEST(CabinetDirectivity, CabinetDirectivityBeamsAtTwoKilohertzAndNotAtOneTwentyFive)
 {
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
     const SushiDSP::room::BandResponse off = cabinet.gain_for(K_PI / 3.0, 0.0); // 60 degrees
@@ -94,7 +94,7 @@ TEST(Unit_Dsp, CabinetDirectivityBeamsAtTwoKilohertzAndNotAtOneTwentyFive)
     EXPECT_NEAR(off.decibels()[0], -0.49f, 0.05f);
 }
 
-TEST(Unit_Dsp, CabinetDirectivityAveragesTheArrayNullOverTheOctave)
+TEST(CabinetDirectivity, CabinetDirectivityAveragesTheArrayNullOverTheOctave)
 {
     // The row null at 2120 Hz averages to -11.48 dB. See tests/nodes/room/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
@@ -105,7 +105,7 @@ TEST(Unit_Dsp, CabinetDirectivityAveragesTheArrayNullOverTheOctave)
     EXPECT_NEAR(direct[5], -3.49f, 0.05f);
 }
 
-TEST(Unit_Dsp, CabinetDirectivityMatchesTheOctaveMeanOfItsClosedForm)
+TEST(CabinetDirectivity, CabinetDirectivityMatchesTheOctaveMeanOfItsClosedForm)
 {
     // Sixteen points per octave match 1024 within 0.05 dB. See tests/nodes/room/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
@@ -123,7 +123,7 @@ TEST(Unit_Dsp, CabinetDirectivityMatchesTheOctaveMeanOfItsClosedForm)
     }
 }
 
-TEST(Unit_Dsp, CabinetDirectivityPistonFactorMatchesTheBesselSeries)
+TEST(CabinetDirectivity, CabinetDirectivityPistonFactorMatchesTheBesselSeries)
 {
     EXPECT_NEAR(SushiDSP::room::CabinetDirectivity::piston_factor(0.0), 1.0, 1e-12);
     EXPECT_NEAR(SushiDSP::room::CabinetDirectivity::piston_factor(1.0), 0.880101, 1e-6);
@@ -131,7 +131,7 @@ TEST(Unit_Dsp, CabinetDirectivityPistonFactorMatchesTheBesselSeries)
     EXPECT_NEAR(SushiDSP::room::CabinetDirectivity::piston_factor(-1.0), 0.880101, 1e-6);
 }
 
-TEST(Unit_Dsp, CabinetDirectivityIndexIsSmallWhereTheConeIsOmnidirectional)
+TEST(CabinetDirectivity, CabinetDirectivityIndexIsSmallWhereTheConeIsOmnidirectional)
 {
     // The index stays under 1.5 dB at 125 Hz. See tests/nodes/room/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
@@ -145,7 +145,7 @@ TEST(Unit_Dsp, CabinetDirectivityIndexIsSmallWhereTheConeIsOmnidirectional)
     }
 }
 
-TEST(Unit_Dsp, CabinetDirectivityIsSymmetricLeftAndRight)
+TEST(CabinetDirectivity, CabinetDirectivityIsSymmetricLeftAndRight)
 {
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
     for (const double azimuth : {0.2, 0.7, 1.4, 2.4})
@@ -159,7 +159,7 @@ TEST(Unit_Dsp, CabinetDirectivityIsSymmetricLeftAndRight)
     }
 }
 
-TEST(Unit_Dsp, CabinetDirectivityFallsSixDecibelsBehindTheBaffleAboveTheStep)
+TEST(CabinetDirectivity, CabinetDirectivityFallsSixDecibelsBehindTheBaffleAboveTheStep)
 {
     // Straight behind, only the rear shelf remains. See tests/nodes/room/README.md.
     const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);

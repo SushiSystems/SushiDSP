@@ -32,7 +32,7 @@
 
 #include "sine_tone_node.hpp"
 
-TEST(Unit_Dsp, SineToneNodeOutputStaysWithinUnitRange)
+TEST(SineToneNode, SineToneNodeOutputStaysWithinUnitRange)
 {
     SushiDSP::SineToneNode node(440.0f);
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -50,7 +50,7 @@ TEST(Unit_Dsp, SineToneNodeOutputStaysWithinUnitRange)
     }
 }
 
-TEST(Unit_Dsp, SineToneNodeProducesExpectedFrequency)
+TEST(SineToneNode, SineToneNodeProducesExpectedFrequency)
 {
     constexpr double sample_rate = 48000.0;
     constexpr float frequency = 1000.0f;
@@ -77,7 +77,7 @@ TEST(Unit_Dsp, SineToneNodeProducesExpectedFrequency)
     EXPECT_NEAR(zero_crossings, expected_crossings, 2.0);
 }
 
-TEST(Unit_Dsp, SineToneNodeResetRestartsPhaseFromZero)
+TEST(SineToneNode, SineToneNodeResetRestartsPhaseFromZero)
 {
     SushiDSP::SineToneNode node(440.0f);
     SushiDSP::PrepareInfo info{48000.0, 8, 1};

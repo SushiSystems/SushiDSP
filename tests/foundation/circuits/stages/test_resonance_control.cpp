@@ -55,7 +55,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, ResonanceControlAtZeroDepthIsUnity)
+TEST(ResonanceControl, ResonanceControlAtZeroDepthIsUnity)
 {
     SushiDSP::ResonanceControl control(48000.0, 120.0f, 9.0f);
     control.set_depth(0.0f);
@@ -63,7 +63,7 @@ TEST(Unit_Dsp, ResonanceControlAtZeroDepthIsUnity)
     EXPECT_NEAR(steady_gain_db(control, 48000.0, 4000.0), 0.0f, 0.05f);
 }
 
-TEST(Unit_Dsp, ResonanceControlAtFullDepthBoostsLowsByMaximumAndLeavesHighsAlone)
+TEST(ResonanceControl, ResonanceControlAtFullDepthBoostsLowsByMaximumAndLeavesHighsAlone)
 {
     SushiDSP::ResonanceControl control(48000.0, 120.0f, 9.0f);
     control.set_depth(1.0f);
@@ -71,7 +71,7 @@ TEST(Unit_Dsp, ResonanceControlAtFullDepthBoostsLowsByMaximumAndLeavesHighsAlone
     EXPECT_NEAR(steady_gain_db(control, 48000.0, 4000.0), 0.0f, 0.1f);
 }
 
-TEST(Unit_Dsp, ResonanceControlClampsDepthAndReportsBoost)
+TEST(ResonanceControl, ResonanceControlClampsDepthAndReportsBoost)
 {
     SushiDSP::ResonanceControl control(48000.0, 120.0f, 9.0f);
     control.set_depth(2.0f);

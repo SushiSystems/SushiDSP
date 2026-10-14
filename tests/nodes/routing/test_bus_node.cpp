@@ -84,7 +84,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, BusSumsTwoConnectedStereoInputs)
+TEST(BusNode, BusSumsTwoConnectedStereoInputs)
 {
     SushiDSP::BusNode bus;
     prepare(bus);
@@ -98,7 +98,7 @@ TEST(Unit_Dsp, BusSumsTwoConnectedStereoInputs)
     EXPECT_FLOAT_EQ(right[K_BLOCK - 1], 0.75f);
 }
 
-TEST(Unit_Dsp, BusMuteSilencesItsInput)
+TEST(BusNode, BusMuteSilencesItsInput)
 {
     SushiDSP::BusNode bus;
     prepare(bus);
@@ -114,7 +114,7 @@ TEST(Unit_Dsp, BusMuteSilencesItsInput)
     EXPECT_NEAR(right[K_BLOCK - 1], 0.25f, 1e-3f);
 }
 
-TEST(Unit_Dsp, BusSoloPassesOnlyTheSoloedInput)
+TEST(BusNode, BusSoloPassesOnlyTheSoloedInput)
 {
     SushiDSP::BusNode bus;
     prepare(bus);
@@ -129,7 +129,7 @@ TEST(Unit_Dsp, BusSoloPassesOnlyTheSoloedInput)
     EXPECT_NEAR(right[K_BLOCK - 1], 0.25f, 1e-3f);
 }
 
-TEST(Unit_Dsp, BusMuteWinsOverSolo)
+TEST(BusNode, BusMuteWinsOverSolo)
 {
     SushiDSP::BusNode bus;
     prepare(bus);
@@ -146,7 +146,7 @@ TEST(Unit_Dsp, BusMuteWinsOverSolo)
     EXPECT_NEAR(right[K_BLOCK - 1], 0.0f, 1e-3f);
 }
 
-TEST(Unit_Dsp, BusSoloOnAnUnconnectedSlotDoesNotSilenceTheRest)
+TEST(BusNode, BusSoloOnAnUnconnectedSlotDoesNotSilenceTheRest)
 {
     SushiDSP::BusNode bus;
     prepare(bus);
@@ -160,7 +160,7 @@ TEST(Unit_Dsp, BusSoloOnAnUnconnectedSlotDoesNotSilenceTheRest)
     EXPECT_FLOAT_EQ(right[K_BLOCK - 1], 0.5f);
 }
 
-TEST(Unit_Dsp, BusGateMovesOverFiveMillisecondsNotInAStep)
+TEST(BusNode, BusGateMovesOverFiveMillisecondsNotInAStep)
 {
     SushiDSP::BusNode bus;
     prepare(bus);
@@ -176,7 +176,7 @@ TEST(Unit_Dsp, BusGateMovesOverFiveMillisecondsNotInAStep)
     EXPECT_LT(left[K_BLOCK - 1], 0.5f);
 }
 
-TEST(Unit_Dsp, BusStartsAMutedInputSilentOnItsFirstBlock)
+TEST(BusNode, BusStartsAMutedInputSilentOnItsFirstBlock)
 {
     // A bus built with an input already muted never lets it through while a gate closes.
     SushiDSP::BusNode bus;
@@ -193,7 +193,7 @@ TEST(Unit_Dsp, BusStartsAMutedInputSilentOnItsFirstBlock)
     EXPECT_FLOAT_EQ(left[K_BLOCK - 1], 0.25f);
 }
 
-TEST(Unit_Dsp, BusParametersReadBackAndRejectUnknownNames)
+TEST(BusNode, BusParametersReadBackAndRejectUnknownNames)
 {
     SushiDSP::BusNode bus;
     bus.set_parameter_for_control_thread("solo_3", 1.0f);
@@ -203,7 +203,7 @@ TEST(Unit_Dsp, BusParametersReadBackAndRejectUnknownNames)
     EXPECT_FLOAT_EQ(bus.get_parameter("no_such_parameter"), 0.0f);
 }
 
-TEST(Unit_Dsp, BusRoutesEachStripToItsOwnSlotThroughRigGraph)
+TEST(BusNode, BusRoutesEachStripToItsOwnSlotThroughRigGraph)
 {
     // Strip A is hard left and strip B hard right, so the bus is left from A and right from B.
     SushiDSP::RigGraph graph(K_BLOCK, 8);

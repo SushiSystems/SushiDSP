@@ -242,7 +242,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, DiffuseFieldIsEyringOverTheCabinetsDirectivity)
+TEST(ModalSolver, DiffuseFieldIsEyringOverTheCabinetsDirectivity)
 {
     // The field is Eyring over the 4x12's directivity. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
@@ -277,7 +277,7 @@ TEST(Unit_Dsp, DiffuseFieldIsEyringOverTheCabinetsDirectivity)
                 1e-9 * single_field.band_power()[2]);
 }
 
-TEST(Unit_Dsp, ModalSolverFindsTheGaragesEigenfrequencies)
+TEST(ModalSolver, ModalSolverFindsTheGaragesEigenfrequencies)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const std::vector<SushiDSP::room::ModalSolver::Mode> modes =
@@ -303,7 +303,7 @@ TEST(Unit_Dsp, ModalSolverFindsTheGaragesEigenfrequencies)
     }
 }
 
-TEST(Unit_Dsp, ModalSolverCountsOneHundredAndEightySevenModesBelowTheGaragesSchroederFrequency)
+TEST(ModalSolver, ModalSolverCountsOneHundredAndEightySevenModesBelowTheGaragesSchroederFrequency)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     EXPECT_EQ(SushiDSP::room::ModalSolver::enumerate(garage, 278.2).size(), 187u);
@@ -313,7 +313,7 @@ TEST(Unit_Dsp, ModalSolverCountsOneHundredAndEightySevenModesBelowTheGaragesSchr
     EXPECT_NEAR(SushiDSP::room::ModalSolver::estimated_count(garage, 278.2), 190.0, 1.0);
 }
 
-TEST(Unit_Dsp, ModalSolverStaysUnderTheModeCap)
+TEST(ModalSolver, ModalSolverStaysUnderTheModeCap)
 {
     const std::array<SushiDSP::room::RoomScene, 3> rooms = {SushiDSP::test::garage_scene(),
                                                             SushiDSP::test::bedroom_scene(),
@@ -331,7 +331,7 @@ TEST(Unit_Dsp, ModalSolverStaysUnderTheModeCap)
     }
 }
 
-TEST(Unit_Dsp, ModalSolverLowersTheCrossoverWhenTheCountWouldOverflow)
+TEST(ModalSolver, ModalSolverLowersTheCrossoverWhenTheCountWouldOverflow)
 {
     const SushiDSP::room::RoomScene room = small_concrete_room();
     ASSERT_GT(SushiDSP::room::ModalSolver::enumerate(room, 900.0).size(),
@@ -346,7 +346,7 @@ TEST(Unit_Dsp, ModalSolverLowersTheCrossoverWhenTheCountWouldOverflow)
               SushiDSP::room::ModalDesign::K_MAX_MODES);
 }
 
-TEST(Unit_Dsp, ModalSolverSwitchesOffUnderFortyHertz)
+TEST(ModalSolver, ModalSolverSwitchesOffUnderFortyHertz)
 {
     const auto design = std::make_unique<SushiDSP::room::ModalDesign>(
         SushiDSP::room::ModalSolver::design(SushiDSP::test::garage_scene(), K_SAMPLE_RATE, 39.0,
@@ -356,7 +356,7 @@ TEST(Unit_Dsp, ModalSolverSwitchesOffUnderFortyHertz)
     EXPECT_EQ(design->level_scale, 0.0f);
 }
 
-TEST(Unit_Dsp, ModalSolverPutsThePressureInTheCorners)
+TEST(ModalSolver, ModalSolverPutsThePressureInTheCorners)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const SushiDSP::room::ModalSolver::Mode axial{1, 0, 0, 0.0, 0.0};
@@ -374,7 +374,7 @@ TEST(Unit_Dsp, ModalSolverPutsThePressureInTheCorners)
     EXPECT_NEAR(design->modes[0].source_gain, std::cos(K_PI * 0.05 / 6.0), 1e-6);
 }
 
-TEST(Unit_Dsp, ModalSolverDampsAnAxialModeByTheTwoWallsItBouncesBetween)
+TEST(ModalSolver, ModalSolverDampsAnAxialModeByTheTwoWallsItBouncesBetween)
 {
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::Surface;
@@ -396,7 +396,7 @@ TEST(Unit_Dsp, ModalSolverDampsAnAxialModeByTheTwoWallsItBouncesBetween)
     EXPECT_GT(decay_z / decay_x, 1.5);
 }
 
-TEST(Unit_Dsp, ModalSolverGivesTheTwoEarsDifferentGains)
+TEST(ModalSolver, ModalSolverGivesTheTwoEarsDifferentGains)
 {
     SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     // Facing +y puts the two ears 0.17 m apart along x, across the (1, 0, 0) gradient.
@@ -418,7 +418,7 @@ TEST(Unit_Dsp, ModalSolverGivesTheTwoEarsDifferentGains)
     }
 }
 
-TEST(Unit_Dsp, ModalSolverWritesEachModesResonatorFromItsFrequencyAndDecay)
+TEST(ModalSolver, ModalSolverWritesEachModesResonatorFromItsFrequencyAndDecay)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const double crossover = 278.2;
@@ -444,7 +444,7 @@ TEST(Unit_Dsp, ModalSolverWritesEachModesResonatorFromItsFrequencyAndDecay)
     }
 }
 
-TEST(Unit_Dsp, ModalSolverMatchesTheOctaveBelowTheCrossoverToTheDiffuseField)
+TEST(ModalSolver, ModalSolverMatchesTheOctaveBelowTheCrossoverToTheDiffuseField)
 {
     // The octave below f_s holds the diffuse field's power. See tests/nodes/room/README.md.
     const std::array<SushiDSP::room::RoomScene, 3> rooms = {SushiDSP::test::garage_scene(),
@@ -499,7 +499,7 @@ TEST(Unit_Dsp, ModalSolverMatchesTheOctaveBelowTheCrossoverToTheDiffuseField)
     EXPECT_LT(garage_octave / eyring_alone, std::pow(10.0, -0.112));
 }
 
-TEST(Unit_Dsp, ModalSolverReadsTheMicrophoneAtOnePoint)
+TEST(ModalSolver, ModalSolverReadsTheMicrophoneAtOnePoint)
 {
     // The ears sit 8.5 cm to either side of the listener. See tests/nodes/room/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
@@ -546,7 +546,7 @@ TEST(Unit_Dsp, ModalSolverReadsTheMicrophoneAtOnePoint)
     EXPECT_GT(differing, modes.size() / 2);
 }
 
-TEST(Unit_Dsp, ModalSolverLeavesAnUnfurnishedRoomAlone)
+TEST(ModalSolver, ModalSolverLeavesAnUnfurnishedRoomAlone)
 {
     const SushiDSP::room::RoomScene bare = SushiDSP::test::garage_scene();
     SushiDSP::room::RoomScene junk = bare;
@@ -580,7 +580,7 @@ TEST(Unit_Dsp, ModalSolverLeavesAnUnfurnishedRoomAlone)
     }
 }
 
-TEST(Unit_Dsp, ModalSolverKeepsTheModeFrequenciesWhenFurnished)
+TEST(ModalSolver, ModalSolverKeepsTheModeFrequenciesWhenFurnished)
 {
     const SushiDSP::room::RoomScene bare = SushiDSP::test::garage_scene();
     const SushiDSP::room::RoomScene furnished = furnished_garage();
@@ -615,7 +615,7 @@ TEST(Unit_Dsp, ModalSolverKeepsTheModeFrequenciesWhenFurnished)
     }
 }
 
-TEST(Unit_Dsp, ModalSolverAddsTheFurnishingDampingToEveryMode)
+TEST(ModalSolver, ModalSolverAddsTheFurnishingDampingToEveryMode)
 {
     const SushiDSP::room::RoomScene bare = SushiDSP::test::garage_scene();
     const SushiDSP::room::RoomScene furnished = furnished_garage();

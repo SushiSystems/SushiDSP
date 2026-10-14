@@ -33,7 +33,7 @@
 
 #include "ui/timeline_scale.hpp"
 
-TEST(Unit_Dsp, TimelineScaleRoundTripsAFrameThroughAPixel)
+TEST(TimelineScale, TimelineScaleRoundTripsAFrameThroughAPixel)
 {
     ui::TimelineScale scale;
     scale.set_pixels_per_frame(0.01);
@@ -44,7 +44,7 @@ TEST(Unit_Dsp, TimelineScaleRoundTripsAFrameThroughAPixel)
     EXPECT_EQ(scale.frame_of_x(scale.x_of(123400u)), 123400u);
 }
 
-TEST(Unit_Dsp, TimelineScalePutsTheScrollOriginAtXZero)
+TEST(TimelineScale, TimelineScalePutsTheScrollOriginAtXZero)
 {
     ui::TimelineScale scale;
     scale.set_pixels_per_frame(0.01);
@@ -55,7 +55,7 @@ TEST(Unit_Dsp, TimelineScalePutsTheScrollOriginAtXZero)
     EXPECT_EQ(scale.scroll_frames(), 96000u);
 }
 
-TEST(Unit_Dsp, TimelineScaleSnapsToTheNearestBar)
+TEST(TimelineScale, TimelineScaleSnapsToTheNearestBar)
 {
     SushiDSP::MusicalClock clock; // 120 BPM, 4/4, 48 kHz: a bar is 96000 frames
     ui::TimelineScale scale;
@@ -70,7 +70,7 @@ TEST(Unit_Dsp, TimelineScaleSnapsToTheNearestBar)
     EXPECT_EQ(scale.snap(0u, ui::SnapMode::Bar, clock), 0u);
 }
 
-TEST(Unit_Dsp, TimelineScaleSnapsToTheNearestBeat)
+TEST(TimelineScale, TimelineScaleSnapsToTheNearestBeat)
 {
     SushiDSP::MusicalClock clock; // 120 BPM, 4/4, 48 kHz: a beat is 24000 frames
     ui::TimelineScale scale;
@@ -81,7 +81,7 @@ TEST(Unit_Dsp, TimelineScaleSnapsToTheNearestBeat)
     EXPECT_EQ(scale.snap(12000u, ui::SnapMode::Beat, clock), 0u); // a tie takes the earlier
 }
 
-TEST(Unit_Dsp, TimelineScaleSnapModeNoneReturnsTheFrameUnchanged)
+TEST(TimelineScale, TimelineScaleSnapModeNoneReturnsTheFrameUnchanged)
 {
     SushiDSP::MusicalClock clock;
     ui::TimelineScale scale;
@@ -90,7 +90,7 @@ TEST(Unit_Dsp, TimelineScaleSnapModeNoneReturnsTheFrameUnchanged)
     EXPECT_EQ(scale.snap(1u, ui::SnapMode::None, clock), 1u);
 }
 
-TEST(Unit_Dsp, TimelineScaleDoesNotUnderflowBeforeFrameZero)
+TEST(TimelineScale, TimelineScaleDoesNotUnderflowBeforeFrameZero)
 {
     ui::TimelineScale scale;
     scale.set_pixels_per_frame(0.01);

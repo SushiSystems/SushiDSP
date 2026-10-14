@@ -197,7 +197,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, LateReverbHadamardPreservesEnergy)
+TEST(LateReverb, LateReverbHadamardPreservesEnergy)
 {
     // The normalised Hadamard matrix is orthogonal. See tests/nodes/room/README.md.
     std::array<double, K_LINES> values{};
@@ -233,7 +233,7 @@ TEST(Unit_Dsp, LateReverbHadamardPreservesEnergy)
     }
 }
 
-TEST(Unit_Dsp, LateReverbDecaysAtTheRateItsFiltersAsk)
+TEST(LateReverb, LateReverbDecaysAtTheRateItsFiltersAsk)
 {
     const FdnDesign design = make_design(K_MID_LINES, decay_gains(K_MID_LINES, 1.0));
     LateReverb reverb;
@@ -242,7 +242,7 @@ TEST(Unit_Dsp, LateReverbDecaysAtTheRateItsFiltersAsk)
     EXPECT_NEAR(schroeder_t60(out.left), 1.0, 0.05);
 }
 
-TEST(Unit_Dsp, LateReverbIsSilentBeforeItsInputDelay)
+TEST(LateReverb, LateReverbIsSilentBeforeItsInputDelay)
 {
     FdnDesign design = make_design(K_SHORT_LINES, uniform_gains(0.5));
     design.delay_to_crossover_frames = 1749.0f;
@@ -258,7 +258,7 @@ TEST(Unit_Dsp, LateReverbIsSilentBeforeItsInputDelay)
     EXPECT_NE(out.left[1749 + 293], 0.0f);
 }
 
-TEST(Unit_Dsp, LateReverbEarsDifferButShareTheirEnergy)
+TEST(LateReverb, LateReverbEarsDifferButShareTheirEnergy)
 {
     const FdnDesign design = make_design(K_MID_LINES, decay_gains(K_MID_LINES, 1.0));
     LateReverb reverb;
@@ -269,7 +269,7 @@ TEST(Unit_Dsp, LateReverbEarsDifferButShareTheirEnergy)
     EXPECT_NEAR(ratio_db, 0.0, 0.5);
 }
 
-TEST(Unit_Dsp, LateReverbRunsBothSectionsOfEveryOutputFilter)
+TEST(LateReverb, LateReverbRunsBothSectionsOfEveryOutputFilter)
 {
     // Two sections of gain 0.5 scale the output by 0.25. See tests/nodes/room/README.md.
     const FdnDesign plain = make_design(K_SHORT_LINES, uniform_gains(0.5));
@@ -296,7 +296,7 @@ TEST(Unit_Dsp, LateReverbRunsBothSectionsOfEveryOutputFilter)
     }
 }
 
-TEST(Unit_Dsp, LateReverbResetSilencesTheLines)
+TEST(LateReverb, LateReverbResetSilencesTheLines)
 {
     const FdnDesign design = make_design(K_SHORT_LINES, uniform_gains(0.9));
     LateReverb reverb;
@@ -311,7 +311,7 @@ TEST(Unit_Dsp, LateReverbResetSilencesTheLines)
     }
 }
 
-TEST(Unit_Dsp, LateReverbSurvivesALineLengthChangeWithoutAClick)
+TEST(LateReverb, LateReverbSurvivesALineLengthChangeWithoutAClick)
 {
     // A 50 Hz sine steps at most 0.0065 of peak per sample. See tests/nodes/room/README.md.
     constexpr std::size_t K_BLOCK = 1024;

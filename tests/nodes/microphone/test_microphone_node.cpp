@@ -33,7 +33,7 @@
 
 using SushiDSP::MicrophoneNode;
 
-TEST(Unit_Dsp, MicrophonePassesItsInputThroughUnchanged)
+TEST(MicrophoneNode, MicrophonePassesItsInputThroughUnchanged)
 {
     MicrophoneNode mic;
     const std::vector<float> input(4, 0.5f);
@@ -50,7 +50,7 @@ TEST(Unit_Dsp, MicrophonePassesItsInputThroughUnchanged)
     }
 }
 
-TEST(Unit_Dsp, MicrophonePolarityInvertsItsOutput)
+TEST(MicrophoneNode, MicrophonePolarityInvertsItsOutput)
 {
     MicrophoneNode mic;
     mic.set_parameter_for_control_thread("polarity", 1.0f);
@@ -65,7 +65,7 @@ TEST(Unit_Dsp, MicrophonePolarityInvertsItsOutput)
     EXPECT_FLOAT_EQ(output[0], -0.5f);
 }
 
-TEST(Unit_Dsp, MicrophoneRoomFlagReadsBackAndMarksAnOverhead)
+TEST(MicrophoneNode, MicrophoneRoomFlagReadsBackAndMarksAnOverhead)
 {
     MicrophoneNode mic;
     EXPECT_FALSE(mic.is_room_microphone());
@@ -76,7 +76,7 @@ TEST(Unit_Dsp, MicrophoneRoomFlagReadsBackAndMarksAnOverhead)
     EXPECT_FLOAT_EQ(mic.get_parameter("room"), 1.0f);
 }
 
-TEST(Unit_Dsp, MicrophoneDefaultsToACardioidWithProximity)
+TEST(MicrophoneNode, MicrophoneDefaultsToACardioidWithProximity)
 {
     MicrophoneNode mic;
 
@@ -86,7 +86,7 @@ TEST(Unit_Dsp, MicrophoneDefaultsToACardioidWithProximity)
     EXPECT_FLOAT_EQ(mic.get_parameter("proximity"), 1.0f);
 }
 
-TEST(Unit_Dsp, MicrophonePatternReadsBackAndIsClampedToTheFourPatterns)
+TEST(MicrophoneNode, MicrophonePatternReadsBackAndIsClampedToTheFourPatterns)
 {
     MicrophoneNode mic;
 
@@ -101,7 +101,7 @@ TEST(Unit_Dsp, MicrophonePatternReadsBackAndIsClampedToTheFourPatterns)
     EXPECT_EQ(mic.pattern(), MicrophoneNode::Pattern::Omni);
 }
 
-TEST(Unit_Dsp, MicrophoneProximitySwitchReadsBack)
+TEST(MicrophoneNode, MicrophoneProximitySwitchReadsBack)
 {
     MicrophoneNode mic;
 
@@ -111,7 +111,7 @@ TEST(Unit_Dsp, MicrophoneProximitySwitchReadsBack)
     EXPECT_FLOAT_EQ(mic.get_parameter("proximity"), 0.0f);
 }
 
-TEST(Unit_Dsp, MicrophoneDeclaresOneChannelInAndOut)
+TEST(MicrophoneNode, MicrophoneDeclaresOneChannelInAndOut)
 {
     MicrophoneNode mic;
 

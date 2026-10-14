@@ -34,7 +34,7 @@
 #include <SushiDSP/nodes/room/fdn_design.hpp>
 #include <SushiDSP/nodes/room/modal_design.hpp>
 
-TEST(Unit_Dsp, RoomRecordsAreTriviallyCopyable)
+TEST(RoomScene, RoomRecordsAreTriviallyCopyable)
 {
     static_assert(std::is_trivially_copyable<SushiDSP::room::EarlyTap>::value,
                   "the audio thread reads it");
@@ -47,14 +47,14 @@ TEST(Unit_Dsp, RoomRecordsAreTriviallyCopyable)
     SUCCEED();
 }
 
-TEST(Unit_Dsp, RoomRecordsCarryTheSpecsCapacities)
+TEST(RoomScene, RoomRecordsCarryTheSpecsCapacities)
 {
     EXPECT_EQ(SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS, 128u);
     EXPECT_EQ(SushiDSP::room::FdnDesign::K_LINE_COUNT, 16u);
     EXPECT_EQ(SushiDSP::room::ModalDesign::K_MAX_MODES, 512u);
 }
 
-TEST(Unit_Dsp, RoomRecordsAreSmallEnoughToPublishPerGuiFrame)
+TEST(RoomScene, RoomRecordsAreSmallEnoughToPublishPerGuiFrame)
 {
     // One EarlyTap is 152 bytes and one Mode is 56. See tests/nodes/room/test_room_scene/README.md.
     EXPECT_EQ(sizeof(SushiDSP::room::EarlyTap), 152u);

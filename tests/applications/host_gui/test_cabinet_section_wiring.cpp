@@ -112,7 +112,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, CabinetSectionNeedsFollowTheMicrophonesAndTheDiChoice)
+TEST(CabinetSectionWiring, CabinetSectionNeedsFollowTheMicrophonesAndTheDiChoice)
 {
     const std::vector<MicrophoneWire> none;
     const std::vector<MicrophoneWire> close{{20, 40, false}};
@@ -137,7 +137,7 @@ TEST(Unit_Dsp, CabinetSectionNeedsFollowTheMicrophonesAndTheDiChoice)
     EXPECT_FALSE(before.master_bus);
 }
 
-TEST(Unit_Dsp, CabinetSectionWiresOneCabinetAndTheListenerWithNoMicrophone)
+TEST(CabinetSectionWiring, CabinetSectionWiresOneCabinetAndTheListenerWithNoMicrophone)
 {
     CabinetSectionRequest request = base_request();
     request.chain_edges = {{30, K_JOIN}};
@@ -156,7 +156,7 @@ TEST(Unit_Dsp, CabinetSectionWiresOneCabinetAndTheListenerWithNoMicrophone)
     EXPECT_TRUE(wiring.bus_feeders.empty());
 }
 
-TEST(Unit_Dsp, CabinetSectionFeedsTheRoomOneSourcePerPathInOrder)
+TEST(CabinetSectionWiring, CabinetSectionFeedsTheRoomOneSourcePerPathInOrder)
 {
     CabinetSectionRequest request = base_request();
     request.sources = {10, 11, 12};
@@ -174,7 +174,7 @@ TEST(Unit_Dsp, CabinetSectionFeedsTheRoomOneSourcePerPathInOrder)
     EXPECT_EQ(into_room, (std::vector<Slot>{10, 11, 12}));
 }
 
-TEST(Unit_Dsp, CabinetSectionGivesEachMicrophoneItsPortItsStripAndTheBus)
+TEST(CabinetSectionWiring, CabinetSectionGivesEachMicrophoneItsPortItsStripAndTheBus)
 {
     CabinetSectionRequest request = base_request();
     request.sources = {K_JOIN};
@@ -193,7 +193,7 @@ TEST(Unit_Dsp, CabinetSectionGivesEachMicrophoneItsPortItsStripAndTheBus)
     EXPECT_EQ(wiring.amp_bus_feeders, (std::vector<Slot>{K_JOIN, K_BUS, K_LISTENER}));
 }
 
-TEST(Unit_Dsp, CabinetSectionSumsRoomMicrophonesOnTheRoomStrip)
+TEST(CabinetSectionWiring, CabinetSectionSumsRoomMicrophonesOnTheRoomStrip)
 {
     CabinetSectionRequest request = base_request();
     request.sources = {K_JOIN};
@@ -210,7 +210,7 @@ TEST(Unit_Dsp, CabinetSectionSumsRoomMicrophonesOnTheRoomStrip)
     EXPECT_EQ(wiring.bus_feeders, (std::vector<Slot>{41, 42, K_ROOM_STRIP}));
 }
 
-TEST(Unit_Dsp, CabinetSectionNeverGivesANodeMoreThanEightInputs)
+TEST(CabinetSectionWiring, CabinetSectionNeverGivesANodeMoreThanEightInputs)
 {
     for (std::uint32_t room_count = 0; room_count <= 8; ++room_count)
     {
@@ -228,7 +228,7 @@ TEST(Unit_Dsp, CabinetSectionNeverGivesANodeMoreThanEightInputs)
     }
 }
 
-TEST(Unit_Dsp, CabinetSectionPutsThePostStageAfterTheAmpBus)
+TEST(CabinetSectionWiring, CabinetSectionPutsThePostStageAfterTheAmpBus)
 {
     CabinetSectionRequest request = base_request();
     request.sources = {K_JOIN};
@@ -242,7 +242,7 @@ TEST(Unit_Dsp, CabinetSectionPutsThePostStageAfterTheAmpBus)
     EXPECT_FALSE(has_edge(wiring, K_AMP_BUS, K_MASTER_STRIP));
 }
 
-TEST(Unit_Dsp, CabinetSectionJoinsTheDiBeforeOrAfterTheEffects)
+TEST(CabinetSectionWiring, CabinetSectionJoinsTheDiBeforeOrAfterTheEffects)
 {
     CabinetSectionRequest before = base_request();
     before.post = {50};
@@ -267,7 +267,7 @@ TEST(Unit_Dsp, CabinetSectionJoinsTheDiBeforeOrAfterTheEffects)
     EXPECT_EQ(late.master_bus_feeders, (std::vector<Slot>{50, K_DI_STRIP}));
 }
 
-TEST(Unit_Dsp, MixerModelListsTheStripsInDrawingOrderWithTheirFlags)
+TEST(CabinetSectionWiring, MixerModelListsTheStripsInDrawingOrderWithTheirFlags)
 {
     HiddenSlots slots;
     slots.room = K_ROOM;
@@ -326,12 +326,12 @@ TEST(Unit_Dsp, MixerModelListsTheStripsInDrawingOrderWithTheirFlags)
     EXPECT_FALSE(strips[7].flags.has_value());
 }
 
-TEST(Unit_Dsp, MixerModelIsEmptyForARigWithNoCabinetSection)
+TEST(CabinetSectionWiring, MixerModelIsEmptyForARigWithNoCabinetSection)
 {
     EXPECT_TRUE(ui::mixer_strips(HiddenSlots{}).empty());
 }
 
-TEST(Unit_Dsp, JoinContentNamesTheStripByWhetherACabinetFeedsIt)
+TEST(CabinetSectionWiring, JoinContentNamesTheStripByWhetherACabinetFeedsIt)
 {
     EXPECT_EQ(join_content_of(1, 1), JoinContent::Cabinets);
     EXPECT_EQ(join_content_of(3, 3), JoinContent::Cabinets);

@@ -118,7 +118,7 @@ build first; without a `build/` it names `sd build` and exits 1.
   first name containing `TARGET` runs. No match is one error line and exit code 1.
 - `--sort`, lists the executables under `build/` and prompts for one.
 - `-- <args>...`, everything after `--` reaches the executable unchanged:
-  `sd run sushidsp_tests -- --gtest_filter='Unit_Dsp.*'`.
+  `sd run sushidsp_tests -- --gtest_filter='Jcm800.*'`.
 
 Until 2026-10-05 `sd run` launched the host GUI. With neither `TARGET` nor `--sort` it still
 does what `sd host` does, `--type` included, and says so once on a terminal. `sd run -- <args>`

@@ -64,13 +64,13 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, RtGraphSlotStartsWithNoActiveGraph)
+TEST(RtGraphSlot, RtGraphSlotStartsWithNoActiveGraph)
 {
     SushiDSP::RtGraphSlot slot;
     EXPECT_EQ(slot.acquire_for_audio_thread(), nullptr);
 }
 
-TEST(Unit_Dsp, RtGraphSlotPublishMakesGraphActive)
+TEST(RtGraphSlot, RtGraphSlotPublishMakesGraphActive)
 {
     SushiDSP::RtGraphSlot slot;
     auto graph = std::make_unique<SushiDSP::RigGraph>(256, 4);
@@ -81,7 +81,7 @@ TEST(Unit_Dsp, RtGraphSlotPublishMakesGraphActive)
     EXPECT_EQ(slot.acquire_for_audio_thread(), raw);
 }
 
-TEST(Unit_Dsp, RtGraphSlotReclaimFreesOldGraphAfterAudioThreadMovesOn)
+TEST(RtGraphSlot, RtGraphSlotReclaimFreesOldGraphAfterAudioThreadMovesOn)
 {
     SushiDSP::RtGraphSlot slot;
     slot.publish(std::make_unique<SushiDSP::RigGraph>(256, 4));
@@ -97,7 +97,7 @@ TEST(Unit_Dsp, RtGraphSlotReclaimFreesOldGraphAfterAudioThreadMovesOn)
     EXPECT_EQ(slot.acquire_for_audio_thread(), second_raw);
 }
 
-TEST(Unit_Dsp, RtGraphSlotConcurrentPublishAndAcquireDoesNotRace)
+TEST(RtGraphSlot, RtGraphSlotConcurrentPublishAndAcquireDoesNotRace)
 {
     SushiDSP::RtGraphSlot slot;
     slot.publish(make_canary_graph());

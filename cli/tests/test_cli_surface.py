@@ -140,10 +140,10 @@ def test_test_hands_the_filter_to_the_project_service(monkeypatch):
     monkeypatch.setattr(project_svc, "test", fake_test)
     runner = CliRunner()
 
-    assert runner.invoke(app, ["test", "-f", "Unit_Dsp.*"]).exit_code == 0
+    assert runner.invoke(app, ["test", "-f", "Jcm800.*"]).exit_code == 0
     assert runner.invoke(app, ["test", "--filter", "A"]).exit_code == 0
     assert runner.invoke(app, ["test"]).exit_code == 0
-    assert seen == ["Unit_Dsp.*", "A", None]
+    assert seen == ["Jcm800.*", "A", None]
 
 
 @pytest.fixture

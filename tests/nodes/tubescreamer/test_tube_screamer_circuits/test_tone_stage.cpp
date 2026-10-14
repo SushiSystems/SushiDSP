@@ -112,7 +112,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, DkTsToneBlockResponseMatchesItsClosedForm)
+TEST(TubeScreamerCircuits, DkTsToneBlockResponseMatchesItsClosedForm)
 {
     // The 0.25 dB tolerance is the sweep's own accuracy. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 384000.0;
@@ -137,14 +137,14 @@ TEST(Unit_Dsp, DkTsToneBlockResponseMatchesItsClosedForm)
     }
 }
 
-TEST(Unit_Dsp, DkTsToneBlockClosedFormCostsUnderOneDecibelAtOneHundredHertzAtNoon)
+TEST(TubeScreamerCircuits, DkTsToneBlockClosedFormCostsUnderOneDecibelAtOneHundredHertzAtNoon)
 {
     // The stage costs under 1 dB at 100 Hz at noon. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     EXPECT_NEAR(tone_closed_form_db(100.0, 0.5), -0.9946, 0.001);
     EXPECT_GT(tone_closed_form_db(100.0, 0.5), -1.0);
 }
 
-TEST(Unit_Dsp, DkTsToneBlockClosedFormSweepsSixteenDecibelsAtTheLegsTurnoverFrequency)
+TEST(TubeScreamerCircuits, DkTsToneBlockClosedFormSweepsSixteenDecibelsAtTheLegsTurnoverFrequency)
 {
     // The wiper leg's turnover sits at about 3.2 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     const double dark = tone_closed_form_db(3200.0, 0.0 + 1.0e-9);
@@ -155,7 +155,7 @@ TEST(Unit_Dsp, DkTsToneBlockClosedFormSweepsSixteenDecibelsAtTheLegsTurnoverFreq
     EXPECT_GT(tone_closed_form_db(1000.0, 1.0 - 1.0e-9), 0.0);
 }
 
-TEST(Unit_Dsp, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAtNoon)
+TEST(TubeScreamerCircuits, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAtNoon)
 {
     // The real network cannot notch above 723 Hz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 384000.0;
@@ -183,7 +183,7 @@ TEST(Unit_Dsp, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAt
     }
 }
 
-TEST(Unit_Dsp, DkTsToneBlockKnobMapsOntoTheReferencesSteppedRange)
+TEST(TubeScreamerCircuits, DkTsToneBlockKnobMapsOntoTheReferencesSteppedRange)
 {
     // TONE = 1 is bright and the mapping is the identity. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     EXPECT_DOUBLE_EQ(tone_to_position(0.0), 0.0);
@@ -191,7 +191,7 @@ TEST(Unit_Dsp, DkTsToneBlockKnobMapsOntoTheReferencesSteppedRange)
     EXPECT_DOUBLE_EQ(tone_to_position(1.0), 1.0);
 }
 
-TEST(Unit_Dsp, DkTsToneBlockPreparesAtEveryTonePositionIncludingBothEndStops)
+TEST(TubeScreamerCircuits, DkTsToneBlockPreparesAtEveryTonePositionIncludingBothEndStops)
 {
     // Both end stops are ordinary settings. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     ToneNetlist netlist;
@@ -217,7 +217,7 @@ TEST(Unit_Dsp, DkTsToneBlockPreparesAtEveryTonePositionIncludingBothEndStops)
     EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
 }
 
-TEST(Unit_Dsp, DkTsToneBlockMatchesTheLtspiceAcSweepWithinHalfADecibel)
+TEST(TubeScreamerCircuits, DkTsToneBlockMatchesTheLtspiceAcSweepWithinHalfADecibel)
 {
     if (!K_SPICE_REFERENCE_MATCHES_SCHEMATIC)
     {
@@ -259,7 +259,7 @@ TEST(Unit_Dsp, DkTsToneBlockMatchesTheLtspiceAcSweepWithinHalfADecibel)
     }
 }
 
-TEST(Unit_Dsp, DkTsToneBlockNullsAgainstTheLtspiceTransientReference)
+TEST(TubeScreamerCircuits, DkTsToneBlockNullsAgainstTheLtspiceTransientReference)
 {
     if (!K_SPICE_REFERENCE_MATCHES_SCHEMATIC)
     {

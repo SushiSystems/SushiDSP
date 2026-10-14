@@ -71,7 +71,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, DiezelVh4ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
+TEST(DiezelVh4, DiezelVh4ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
     SushiDSP::DiezelVh4 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -100,7 +100,7 @@ TEST(Unit_Dsp, DiezelVh4ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput
     }
 }
 
-TEST(Unit_Dsp, DiezelVh4PortsAreMonoInMonoOut)
+TEST(DiezelVh4, DiezelVh4PortsAreMonoInMonoOut)
 {
     SushiDSP::DiezelVh4 node;
     SushiDSP::PortLayout ports = node.ports();
@@ -108,7 +108,7 @@ TEST(Unit_Dsp, DiezelVh4PortsAreMonoInMonoOut)
     EXPECT_EQ(ports.output_channels, 1u);
 }
 
-TEST(Unit_Dsp, DiezelVh4DescriptorExposesTenParametersInContractOrder)
+TEST(DiezelVh4, DiezelVh4DescriptorExposesTenParametersInContractOrder)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::diezel_vh4_descriptor();
 
@@ -141,7 +141,7 @@ TEST(Unit_Dsp, DiezelVh4DescriptorExposesTenParametersInContractOrder)
     EXPECT_FLOAT_EQ(descriptor.parameters[9].max, 12.0f);
 }
 
-TEST(Unit_Dsp, DiezelVh4IndexedParameterSetMatchesTheDescriptorOrder)
+TEST(DiezelVh4, DiezelVh4IndexedParameterSetMatchesTheDescriptorOrder)
 {
     SushiDSP::DiezelVh4 node;
     const float values[10] = {0.2f, 0.3f, 0.4f, 0.45f, 0.6f, 0.7f, 0.8f, -6.0f, 12.0f, -3.0f};
@@ -159,7 +159,7 @@ TEST(Unit_Dsp, DiezelVh4IndexedParameterSetMatchesTheDescriptorOrder)
     node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 1.0f);
 }
 
-TEST(Unit_Dsp, DiezelVh4DecibelParametersClampToTheirDescriptorRange)
+TEST(DiezelVh4, DiezelVh4DecibelParametersClampToTheirDescriptorRange)
 {
     SushiDSP::DiezelVh4 node;
     node.set_master(100.0f);
@@ -171,7 +171,7 @@ TEST(Unit_Dsp, DiezelVh4DecibelParametersClampToTheirDescriptorRange)
     EXPECT_FLOAT_EQ(node.get_parameter("output"), 12.0f);
 }
 
-TEST(Unit_Dsp, DiezelVh4GenericParameterRoundTrip)
+TEST(DiezelVh4, DiezelVh4GenericParameterRoundTrip)
 {
     SushiDSP::DiezelVh4 node;
     node.set_parameter_for_control_thread("gain", 0.2f);
@@ -197,14 +197,14 @@ TEST(Unit_Dsp, DiezelVh4GenericParameterRoundTrip)
     EXPECT_FLOAT_EQ(node.get_parameter("output"), -3.0f);
 }
 
-TEST(Unit_Dsp, DiezelVh4UnknownParameterIsSafeNoOp)
+TEST(DiezelVh4, DiezelVh4UnknownParameterIsSafeNoOp)
 {
     SushiDSP::DiezelVh4 node;
     node.set_parameter_for_control_thread("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
-TEST(Unit_Dsp, DiezelVh4IsDcStableAcrossManyBlocksAtHighGain)
+TEST(DiezelVh4, DiezelVh4IsDcStableAcrossManyBlocksAtHighGain)
 {
     // Each knob visits both extremes in turn: ten settings. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     const char* const knobs[5] = {"gain", "bass", "middle", "treble", "volume"};
@@ -253,7 +253,7 @@ TEST(Unit_Dsp, DiezelVh4IsDcStableAcrossManyBlocksAtHighGain)
     }
 }
 
-TEST(Unit_Dsp, DiezelVh4ThdDoesNotFallAsGainRises)
+TEST(DiezelVh4, DiezelVh4ThdDoesNotFallAsGainRises)
 {
     // The THD reading must not fall as the gain knob rises. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     constexpr double sample_rate = 48000.0;
@@ -284,7 +284,7 @@ TEST(Unit_Dsp, DiezelVh4ThdDoesNotFallAsGainRises)
     EXPECT_GT(high, 10.0);
 }
 
-TEST(Unit_Dsp, DiezelVh4NeverExceedsFullScaleWithoutALimiter)
+TEST(DiezelVh4, DiezelVh4NeverExceedsFullScaleWithoutALimiter)
 {
     // The output stays in [-1, 1] and reaches the rail. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     SushiDSP::DiezelVh4 node;
@@ -320,7 +320,7 @@ TEST(Unit_Dsp, DiezelVh4NeverExceedsFullScaleWithoutALimiter)
     EXPECT_TRUE(clamped_at_least_once);
 }
 
-TEST(Unit_Dsp, DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
+TEST(DiezelVh4, DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
 {
     // A -12 dBFS 82 Hz sine comes out at about -6 dBFS. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     SushiDSP::DiezelVh4 node;
@@ -359,7 +359,7 @@ TEST(Unit_Dsp, DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsIn
     EXPECT_LT(peak_decibels, -5.0f);
 }
 
-TEST(Unit_Dsp, DiezelVh4HasACleanEndAtMinimumGain)
+TEST(DiezelVh4, DiezelVh4HasACleanEndAtMinimumGain)
 {
     // The knob is read at 0.01 because 0.0 is a short. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     constexpr double sample_rate = 48000.0;
@@ -378,7 +378,7 @@ TEST(Unit_Dsp, DiezelVh4HasACleanEndAtMinimumGain)
     EXPECT_LT(thd_percent, 10.0);
 }
 
-TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
+TEST(DiezelVh4, DiezelVh4GridProbesReportEveryStageInSignalOrder)
 {
     // The probes cover all five stages in signal order. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     SushiDSP::DiezelVh4 node;
@@ -425,7 +425,7 @@ TEST(Unit_Dsp, DiezelVh4GridProbesReportEveryStageInSignalOrder)
     }
 }
 
-TEST(Unit_Dsp, DiezelVh4DescriptorMakeProducesAWorkingNode)
+TEST(DiezelVh4, DiezelVh4DescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::diezel_vh4_descriptor();
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -447,7 +447,7 @@ TEST(Unit_Dsp, DiezelVh4DescriptorMakeProducesAWorkingNode)
     }
 }
 
-TEST(Unit_Dsp, DiezelVh4DryLatencyIsOneOversampledRegion)
+TEST(DiezelVh4, DiezelVh4DryLatencyIsOneOversampledRegion)
 {
     // The latency is one Oversampler8x round trip. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     SushiDSP::DiezelVh4 node;
@@ -457,7 +457,7 @@ TEST(Unit_Dsp, DiezelVh4DryLatencyIsOneOversampledRegion)
     EXPECT_EQ(node.latency_samples(), reference.latency_samples());
 }
 
-TEST(Unit_Dsp, DiezelVh4GainKnobMovesTheInputHighPassCorner)
+TEST(DiezelVh4, DiezelVh4GainKnobMovesTheInputHighPassCorner)
 {
     // The knob's travel is worth 3.0 dB at 300 Hz. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     auto response_for = [](float gain)
@@ -479,7 +479,7 @@ TEST(Unit_Dsp, DiezelVh4GainKnobMovesTheInputHighPassCorner)
     EXPECT_GT(high_knob_tilt - low_knob_tilt, 2.5);
 }
 
-TEST(Unit_Dsp, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
+TEST(DiezelVh4, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
 {
     // A shelf carries half its decibels at its corner. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     auto response_for = [](float deep)
@@ -501,7 +501,7 @@ TEST(Unit_Dsp, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
     EXPECT_NEAR(lift_at_eighty, 5.0, 0.5);
 }
 
-TEST(Unit_Dsp, DiezelVh4MixBusAttenuationIsApplied)
+TEST(DiezelVh4, DiezelVh4MixBusAttenuationIsApplied)
 {
     // The chain is linear end to end at -120 dBFS. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     constexpr double K_EXPECTED_SMALL_SIGNAL_GAIN_DB = 73.114;

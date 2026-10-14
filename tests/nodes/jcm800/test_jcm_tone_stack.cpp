@@ -38,7 +38,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Unit_Dsp, JcmToneStackAtFlatSettingsIsApproximatelyUnityGainAtMidFrequency)
+TEST(JcmToneStack, JcmToneStackAtFlatSettingsIsApproximatelyUnityGainAtMidFrequency)
 {
     SushiDSP::JcmToneStack tone_stack(48000.0);
     tone_stack.set_bass(0.5f);
@@ -61,7 +61,7 @@ TEST(Unit_Dsp, JcmToneStackAtFlatSettingsIsApproximatelyUnityGainAtMidFrequency)
     EXPECT_NEAR(max_output, 1.0f, 0.15f);
 }
 
-TEST(Unit_Dsp, JcmToneStackBassKnobChangesLowFrequencyLevel)
+TEST(JcmToneStack, JcmToneStackBassKnobChangesLowFrequencyLevel)
 {
     SushiDSP::JcmToneStack dark(48000.0);
     dark.set_bass(0.0f);
@@ -90,7 +90,7 @@ TEST(Unit_Dsp, JcmToneStackBassKnobChangesLowFrequencyLevel)
     EXPECT_GT(bright_max, dark_max * 1.5f);
 }
 
-TEST(Unit_Dsp, JcmToneStackMiddleKnobChangesMidFrequencyLevel)
+TEST(JcmToneStack, JcmToneStackMiddleKnobChangesMidFrequencyLevel)
 {
     SushiDSP::JcmToneStack scooped(48000.0);
     scooped.set_bass(0.5f);
@@ -119,7 +119,7 @@ TEST(Unit_Dsp, JcmToneStackMiddleKnobChangesMidFrequencyLevel)
     EXPECT_GT(boosted_max, scooped_max * 1.5f);
 }
 
-TEST(Unit_Dsp, JcmToneStackResetClearsState)
+TEST(JcmToneStack, JcmToneStackResetClearsState)
 {
     SushiDSP::JcmToneStack stack_a(48000.0);
     stack_a.set_bass(0.8f);
@@ -139,7 +139,7 @@ TEST(Unit_Dsp, JcmToneStackResetClearsState)
     EXPECT_NEAR(from_reset, from_fresh, 1e-5f);
 }
 
-TEST(Unit_Dsp, JcmToneStackAtEightTimesRateMatchesBaseRateWithinFifthOfADecibel)
+TEST(JcmToneStack, JcmToneStackAtEightTimesRateMatchesBaseRateWithinFifthOfADecibel)
 {
     // Float coefficient quantisation stays within 0.2 dB. See tests/nodes/jcm800/README.md.
     for (const double frequency : {80.0, 250.0, 1000.0, 4000.0, 10000.0})

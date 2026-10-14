@@ -41,7 +41,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, CabinetNodeIsAPassthroughWithNoCabinetInstalled)
+TEST(CabinetNode, CabinetNodeIsAPassthroughWithNoCabinetInstalled)
 {
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -67,7 +67,7 @@ TEST(Unit_Dsp, CabinetNodeIsAPassthroughWithNoCabinetInstalled)
     EXPECT_FALSE(node.has_cabinet());
 }
 
-TEST(Unit_Dsp, CabinetNodeInstallsAndAppliesAnImpulseResponse)
+TEST(CabinetNode, CabinetNodeInstallsAndAppliesAnImpulseResponse)
 {
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -95,7 +95,7 @@ TEST(Unit_Dsp, CabinetNodeInstallsAndAppliesAnImpulseResponse)
     }
 }
 
-TEST(Unit_Dsp, CabinetNodeSurvivesVariableBlockSizes)
+TEST(CabinetNode, CabinetNodeSurvivesVariableBlockSizes)
 {
     // An identity IR must survive any host block size. See tests/nodes/cabinet/README.md.
     SushiDSP::CabinetNode node;
@@ -131,7 +131,7 @@ TEST(Unit_Dsp, CabinetNodeSurvivesVariableBlockSizes)
     }
 }
 
-TEST(Unit_Dsp, CabinetNodeRejectsAnImpulseResponseAtTheWrongSampleRate)
+TEST(CabinetNode, CabinetNodeRejectsAnImpulseResponseAtTheWrongSampleRate)
 {
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -141,7 +141,7 @@ TEST(Unit_Dsp, CabinetNodeRejectsAnImpulseResponseAtTheWrongSampleRate)
     EXPECT_FALSE(node.has_cabinet());
 }
 
-TEST(Unit_Dsp, CabinetNodeRejectsAnImpulseResponseBeforePrepare)
+TEST(CabinetNode, CabinetNodeRejectsAnImpulseResponseBeforePrepare)
 {
     SushiDSP::CabinetNode node;
 
@@ -149,7 +149,7 @@ TEST(Unit_Dsp, CabinetNodeRejectsAnImpulseResponseBeforePrepare)
     EXPECT_FALSE(node.has_cabinet());
 }
 
-TEST(Unit_Dsp, CabinetNodeDescriptorMatchesTypeId)
+TEST(CabinetNode, CabinetNodeDescriptorMatchesTypeId)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::cabinet_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.cabinet");

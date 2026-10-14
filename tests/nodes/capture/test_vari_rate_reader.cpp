@@ -84,7 +84,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, VariRateReaderAtHalfSpeedLastsTwiceAsLong)
+TEST(VariRateReader, VariRateReaderAtHalfSpeedLastsTwiceAsLong)
 {
     const SushiDSP::Take take = sine_take(440.0, 48000u, 48000.0);
 
@@ -98,7 +98,7 @@ TEST(Unit_Dsp, VariRateReaderAtHalfSpeedLastsTwiceAsLong)
     EXPECT_NEAR(static_cast<double>(cursor), 48000.0, 64.0);
 }
 
-TEST(Unit_Dsp, VariRateReaderAtHalfSpeedDropsAnOctave)
+TEST(VariRateReader, VariRateReaderAtHalfSpeedDropsAnOctave)
 {
     const double heard =
         SushiDSP::measure::bin_exact_frequency(220.0, 48000.0, SushiDSP::measure::K_FFT_SIZE);
@@ -132,7 +132,7 @@ TEST(Unit_Dsp, VariRateReaderAtHalfSpeedDropsAnOctave)
               SushiDSP::measure::peak_near(spectrum, source_bin) + 80.0);
 }
 
-TEST(Unit_Dsp, VariRateReaderReturnsExactlyTheFramesAsked)
+TEST(VariRateReader, VariRateReaderReturnsExactlyTheFramesAsked)
 {
     const SushiDSP::Take take = sine_take(440.0, 48000u, 48000.0);
     const float sentinel = 12345.0f;
@@ -165,7 +165,7 @@ TEST(Unit_Dsp, VariRateReaderReturnsExactlyTheFramesAsked)
     }
 }
 
-TEST(Unit_Dsp, VariRateReaderClampsASpeedOutsideItsRange)
+TEST(VariRateReader, VariRateReaderClampsASpeedOutsideItsRange)
 {
     const SushiDSP::Take take = sine_take(440.0, 48000u, 48000.0);
     std::vector<float> output;
@@ -185,7 +185,7 @@ TEST(Unit_Dsp, VariRateReaderClampsASpeedOutsideItsRange)
               read_run(fastest, take, SushiDSP::VariRateReader::K_MAX_SPEED, 256u, 64u, output));
 }
 
-TEST(Unit_Dsp, VariRateReaderResetStartsFromSilence)
+TEST(VariRateReader, VariRateReaderResetStartsFromSilence)
 {
     SushiDSP::Take loud(1u, 48000.0, 48000u);
     float* samples = loud.mutable_channel(0);
@@ -217,7 +217,7 @@ TEST(Unit_Dsp, VariRateReaderResetStartsFromSilence)
     EXPECT_LT(20.0 * std::log10(std::max(peak, 1e-30)), -120.0);
 }
 
-TEST(Unit_Dsp, VariRateReaderDoesNotDriftFarDownTheTake)
+TEST(VariRateReader, VariRateReaderDoesNotDriftFarDownTheTake)
 {
     // At half speed 256 outputs cost 128 take frames. See tests/nodes/capture/README.md.
     const SushiDSP::Take take = sine_take(440.0, 4096u, 48000.0);
@@ -242,7 +242,7 @@ TEST(Unit_Dsp, VariRateReaderDoesNotDriftFarDownTheTake)
     EXPECT_EQ(cursor - after_settling, 5900ull * 128ull);
 }
 
-TEST(Unit_Dsp, VariRateReaderHoldsItsRatioAtEveryLegalSpeed)
+TEST(VariRateReader, VariRateReaderHoldsItsRatioAtEveryLegalSpeed)
 {
     const SushiDSP::Take take = sine_take(440.0, 4096u, 48000.0);
 

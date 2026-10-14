@@ -89,7 +89,7 @@ namespace
     }
 } // namespace
 
-TEST(Unit_Dsp, StripGainsAreAFaderABalanceAndSilenceUnderMuteOrAnotherSolo)
+TEST(Session, StripGainsAreAFaderABalanceAndSilenceUnderMuteOrAnotherSolo)
 {
     TrackStrip strip;
     EXPECT_FLOAT_EQ(strip_gains(strip, false)[0], 1.0f);
@@ -116,7 +116,7 @@ TEST(Unit_Dsp, StripGainsAreAFaderABalanceAndSilenceUnderMuteOrAnotherSolo)
     EXPECT_FLOAT_EQ(strip_gains(strip, true)[0], 1.0f);
 }
 
-TEST(Unit_Dsp, SessionStartsWithOneTrackAndGivesEachTrackARigOfItsOwn)
+TEST(Session, SessionStartsWithOneTrackAndGivesEachTrackARigOfItsOwn)
 {
     Session session(K_INFO);
     EXPECT_EQ(session.track_count(), 1u);
@@ -138,7 +138,7 @@ TEST(Unit_Dsp, SessionStartsWithOneTrackAndGivesEachTrackARigOfItsOwn)
     EXPECT_TRUE(session.rig(0).slot_order().empty());
 }
 
-TEST(Unit_Dsp, SessionRemovesATrackMovesTheOthersDownAndKeepsTheLast)
+TEST(Session, SessionRemovesATrackMovesTheOthersDownAndKeepsTheLast)
 {
     Session session(K_INFO);
     std::string error;
@@ -162,7 +162,7 @@ TEST(Unit_Dsp, SessionRemovesATrackMovesTheOthersDownAndKeepsTheLast)
     EXPECT_FALSE(session.remove_track(5, false, error));
 }
 
-TEST(Unit_Dsp, SessionRefusesANinthTrack)
+TEST(Session, SessionRefusesANinthTrack)
 {
     Session session(K_INFO);
     std::string error;
@@ -174,7 +174,7 @@ TEST(Unit_Dsp, SessionRefusesANinthTrack)
     EXPECT_EQ(session.track_count(), Session::K_MAX_TRACKS);
 }
 
-TEST(Unit_Dsp, SessionRendererHearsTheLiveInputOnTheSelectedTrackWhileStopped)
+TEST(Session, SessionRendererHearsTheLiveInputOnTheSelectedTrackWhileStopped)
 {
     Session session(K_INFO);
     SessionRenderer renderer;
@@ -192,7 +192,7 @@ TEST(Unit_Dsp, SessionRendererHearsTheLiveInputOnTheSelectedTrackWhileStopped)
     EXPECT_EQ(session.audio().blocks.load(), 2u);
 }
 
-TEST(Unit_Dsp, SessionRendererSumsEveryTracksLaneThroughItsStripWhileRolling)
+TEST(Session, SessionRendererSumsEveryTracksLaneThroughItsStripWhileRolling)
 {
     Session session(K_INFO);
     std::string error;
@@ -221,7 +221,7 @@ TEST(Unit_Dsp, SessionRendererSumsEveryTracksLaneThroughItsStripWhileRolling)
     EXPECT_FLOAT_EQ(out[0][10], 0.5f);
 }
 
-TEST(Unit_Dsp, SessionRendererPassesALaneByABypassedRig)
+TEST(Session, SessionRendererPassesALaneByABypassedRig)
 {
     Session session(K_INFO);
     SessionRenderer renderer;
@@ -247,7 +247,7 @@ TEST(Unit_Dsp, SessionRendererPassesALaneByABypassedRig)
     EXPECT_NE(through[0][40], 0.5f);
 }
 
-TEST(Unit_Dsp, SessionDocumentRoundTripsEveryTracksRigAndStrip)
+TEST(Session, SessionDocumentRoundTripsEveryTracksRigAndStrip)
 {
     Session source(K_INFO);
     std::string error;
@@ -279,7 +279,7 @@ TEST(Unit_Dsp, SessionDocumentRoundTripsEveryTracksRigAndStrip)
     EXPECT_EQ(session_to_json(target), saved);
 }
 
-TEST(Unit_Dsp, SessionLoadsAOneRigPresetAsATrackWithItsLanesBesideIt)
+TEST(Session, SessionLoadsAOneRigPresetAsATrackWithItsLanesBesideIt)
 {
     RigController alone(K_INFO);
     alone.append("sushidsp.tubescreamer");
@@ -296,7 +296,7 @@ TEST(Unit_Dsp, SessionLoadsAOneRigPresetAsATrackWithItsLanesBesideIt)
     EXPECT_TRUE(session.strip(1).rig_bypassed);
 }
 
-TEST(Unit_Dsp, RigControllerLoadsARigAloneAndLeavesTheTimelineAsItIs)
+TEST(Session, RigControllerLoadsARigAloneAndLeavesTheTimelineAsItIs)
 {
     RigController source(K_INFO);
     source.append("sushidsp.dd3");
@@ -314,7 +314,7 @@ TEST(Unit_Dsp, RigControllerLoadsARigAloneAndLeavesTheTimelineAsItIs)
     EXPECT_DOUBLE_EQ(session.timeline().musical_clock().beats_per_minute(), 97.0);
 }
 
-TEST(Unit_Dsp, TrackRigPresetIsSavedFromAndLoadedIntoOneTrackAlone)
+TEST(Session, TrackRigPresetIsSavedFromAndLoadedIntoOneTrackAlone)
 {
     const std::string path =
         (std::filesystem::temp_directory_path() / "sushidsp_track_rig.json").string();
@@ -338,7 +338,7 @@ TEST(Unit_Dsp, TrackRigPresetIsSavedFromAndLoadedIntoOneTrackAlone)
     std::filesystem::remove(path);
 }
 
-TEST(Unit_Dsp, NewProjectLeavesOneEmptyTrack)
+TEST(Session, NewProjectLeavesOneEmptyTrack)
 {
     const std::string wav = write_constant_wav("sushidsp_new_project.wav", 4800, 0.5f);
     Session session(K_INFO);
@@ -361,7 +361,7 @@ TEST(Unit_Dsp, NewProjectLeavesOneEmptyTrack)
     std::filesystem::remove(wav);
 }
 
-TEST(Unit_Dsp, SessionBounceWritesTheRenderedMixToAWav)
+TEST(Session, SessionBounceWritesTheRenderedMixToAWav)
 {
     const std::string wav = write_constant_wav("sushidsp_bounce_source.wav", 4800, 0.5f);
     const std::string out =
@@ -395,7 +395,7 @@ TEST(Unit_Dsp, SessionBounceWritesTheRenderedMixToAWav)
     std::filesystem::remove(out);
 }
 
-TEST(Unit_Dsp, SessionBounceRefusesASessionWithNoClip)
+TEST(Session, SessionBounceRefusesASessionWithNoClip)
 {
     Session session(K_INFO);
     BounceRequest request;

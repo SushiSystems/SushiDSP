@@ -115,7 +115,7 @@ def build(
     rich_help_panel=K_BUILD,
     epilog="sd test\n"
            "sd test --suite regression\n"
-           "sd test --filter 'Unit_Dsp.*'  # Match Suite.Case test names\n"
+           "sd test --filter 'Jcm800.*'  # Match Suite.Case test names\n"
            "sd test --clean  # Delete the build tree before configuring",
 )
 def test(
@@ -137,7 +137,7 @@ def test(
     rich_help_panel=K_BUILD,
     epilog="sd run sushidsp_tests\n"
            "sd run --sort  # Pick an executable from a list\n"
-           "sd run sushidsp_tests -- --gtest_filter='Unit_Dsp.*'  # Flags after -- go to it",
+           "sd run sushidsp_tests -- --gtest_filter='Jcm800.*'  # Flags after -- go to it",
 )
 def run(
     ctx: typer.Context,
