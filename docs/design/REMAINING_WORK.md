@@ -165,11 +165,10 @@ Mechanical work that follows:
   `humanizer` register.
 - Route CI through `sd` and split the workflow by trigger. Blocked: the CLI depends on the
   `sushicore` package, and CI needs a decided way to install it on the runners.
-- Build the test layout the repository-layout skill names: `tests/unit/` and `tests/regression/`
-  in place of `tests/functional/`, module tests under each module's `tests/`, one test program per
-  module. Blocked: it changes the test binaries and their labels, which needs a build to verify.
-- Split `tests/README.md`, 4447 lines against the 800-line ceiling, with the test
-  layout above.
+- Finish the test tree to `repository-layout` (`docs/agent/2026_10_14_TEST_TREE/PLAN.md`): 104 units
+  still have no test of their own (T6), `test_measure.cpp` waits for its seven `signal_measure`
+  units (T6), and the single Release build that verifies every commit of the plan is T10. The
+  labels, the folders, the suite names and the README split are in place; none of them is built yet.
 - Replace the paragraphs of the docs-truth findings still open: 21 named symbols the source does
   not hold (`TopBar`, `StagePanel`, `Mp3Decoder`, ...), 28 history words, and two duplicated
   passages in the SPICE READMEs. Read each against the source before editing.
