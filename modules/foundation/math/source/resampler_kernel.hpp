@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "SushiDSP/math/resampler_design.hpp"
+#include <SushiDSP/foundation/math/resampler_design.hpp>
 
 namespace SushiDSP
 {

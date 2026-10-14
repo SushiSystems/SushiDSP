@@ -25,9 +25,9 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/device/asio_audio_device.hpp"
+#include <SushiDSP/foundation/device/asio_audio_device.hpp>
 
-#include "SushiDSP/core/denormal_guard.hpp"
+#include <SushiDSP/foundation/core/denormal_guard.hpp>
 
 #include <cstring>
 #include <stdexcept>

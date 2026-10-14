@@ -31,7 +31,7 @@
 #include <cctype>
 #include <filesystem>
 
-#include "SushiDSP/log/log.hpp"
+#include <SushiDSP/foundation/log/log.hpp>
 
 #include "host_gui_log_category.hpp"
 

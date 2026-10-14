@@ -32,7 +32,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/partitioned_convolution.hpp"
+#include <SushiDSP/foundation/math/partitioned_convolution.hpp>
 
 namespace
 {

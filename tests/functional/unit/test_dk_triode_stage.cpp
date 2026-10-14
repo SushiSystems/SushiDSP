@@ -34,10 +34,10 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/core/calibration.hpp"
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/math/dk/dk_circuit.hpp"
-#include "SushiDSP/math/dk/dk_netlist.hpp"
+#include <SushiDSP/foundation/core/calibration.hpp>
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/math/dk/dk_circuit.hpp>
+#include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
 
 #include "circuits/jcm_v1a_netlist.hpp"
 #include "circuits/spice_block_compare.hpp"

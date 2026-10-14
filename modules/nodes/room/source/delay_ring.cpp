@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/delay_ring.hpp"
+#include <SushiDSP/nodes/room/delay_ring.hpp>
 
 #include <algorithm>
 #include <cmath>

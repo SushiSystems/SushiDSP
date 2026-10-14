@@ -33,9 +33,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/take.hpp"
-#include "SushiDSP/capture/take_library.hpp"
-#include "SushiDSP/capture/track_timeline.hpp"
+#include <SushiDSP/nodes/capture/take.hpp>
+#include <SushiDSP/nodes/capture/take_library.hpp>
+#include <SushiDSP/nodes/capture/track_timeline.hpp>
 
 namespace
 {

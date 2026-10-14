@@ -26,7 +26,7 @@ include+src: math/     Biquad, Fft, Resampler, Oversampler, Wdf, dk/, the DSP ke
 ```
 
 `device/`, `io/` and `audio_format/` sit beside `core/` at the same tier: `device/` (
-`AsioAudioDevice`, `Sdl2AudioDevice`) implements `modules/foundation/core/include/SushiDSP/core/audio_device.hpp`; `io/` (`ir.hpp`,
+`AsioAudioDevice`, `Sdl2AudioDevice`) implements `modules/foundation/core/include/SushiDSP/foundation/core/audio_device.hpp`; `io/` (`ir.hpp`,
 `ir_loader.hpp`, `wav_file.hpp`, `wav_writer.hpp`) and `audio_format/`
 (`asio_sample_converter.hpp`, `channel_selection.hpp`) supply device- and cabinet-adjacent
 utilities that products and hosts both use. None of the four sit above `core/` or `math/` in
@@ -36,21 +36,21 @@ the dependency order; a lower tier never includes a higher one.
 standard library only, and every module and host may include it. The audio thread never calls
 it; [`modules/foundation/README.md`](../../modules/foundation/README.md) says what it does instead.
 
-## Core interfaces (`modules/foundation/core/include/SushiDSP/core/`)
+## Core interfaces (`modules/foundation/core/include/SushiDSP/foundation/core/`)
 
 `audio_node.hpp` declares `prepare()`/`process()`/`ports()`/`reset()`, the one interface every
 processing block in the tree implements, a product module, a routing node, or the graph
 itself. `rig_graph.hpp` holds a `std::vector` of nodes and topologically sorts and replays them
 per block; `node_descriptor.hpp` is the POD factory contract (id, name, parameters, ports,
 `make()`) a product exposes so a host can instantiate it without knowing its concrete type.
-`audio_device.hpp` is the device seam `modules/foundation/device/include/SushiDSP/device/asio_audio_device.hpp` and
-`modules/foundation/device/include/SushiDSP/device/sdl2_audio_device.hpp` implement. `buffer_pool.hpp`, `rt_graph_slot.hpp`, `rt_swap_slot.hpp`
+`audio_device.hpp` is the device seam `modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_device.hpp` and
+`modules/foundation/device/include/SushiDSP/foundation/device/sdl2_audio_device.hpp` implement. `buffer_pool.hpp`, `rt_graph_slot.hpp`, `rt_swap_slot.hpp`
 and `spsc_ring.hpp` are the RT-safe plumbing underneath: block-sized buffer reuse, and the
 control-thread-to-audio-thread handoff for a recompiled graph or a parameter change. This
 matches the interfaces design spec §3 describes; the header contents above are what is
-actually checked into `modules/foundation/core/include/SushiDSP/core/` today.
+actually checked into `modules/foundation/core/include/SushiDSP/foundation/core/` today.
 
-## Math and circuit kernels (`modules/foundation/math/include/SushiDSP/math/`, `modules/foundation/circuits/include/SushiDSP/circuits/`)
+## Math and circuit kernels (`modules/foundation/math/include/SushiDSP/foundation/math/`, `modules/foundation/circuits/include/SushiDSP/foundation/circuits/`)
 
 `math/` holds the portable numerical kernels, `Biquad`, `Fft`, `Oversampler`,
 `PartitionedConvolution`, `StreamingConvolution`, `Resampler`/`SincResampler`, `Wdf`,

@@ -31,7 +31,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/cabinet_directivity.hpp"
+#include <SushiDSP/nodes/room/cabinet_directivity.hpp>
 
 namespace
 {

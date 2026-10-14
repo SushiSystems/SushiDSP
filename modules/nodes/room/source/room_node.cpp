@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/room_node.hpp"
+#include <SushiDSP/nodes/room/room_node.hpp>
 
 #include <algorithm>
 #include <array>
@@ -35,12 +35,12 @@
 #include <stdexcept>
 #include <utility>
 
-#include "SushiDSP/core/denormal_guard.hpp"
-#include "SushiDSP/log/log.hpp"
-#include "SushiDSP/math/streaming_convolution.hpp"
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/room_log_category.hpp"
-#include "SushiDSP/room/starter_scene.hpp"
+#include <SushiDSP/foundation/core/denormal_guard.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/foundation/math/streaming_convolution.hpp>
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/room_log_category.hpp>
+#include <SushiDSP/nodes/room/starter_scene.hpp>
 
 namespace SushiDSP::room
 {

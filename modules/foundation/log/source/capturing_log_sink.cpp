@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/log/capturing_log_sink.hpp"
+#include <SushiDSP/foundation/log/capturing_log_sink.hpp>
 
 namespace SushiDSP
 {

@@ -33,17 +33,17 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/cabinet/cabinet_node.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/device/asio_audio_device.hpp"
-#include "SushiDSP/audio_format/channel_selection.hpp"
-#include "SushiDSP/io/ir_loader.hpp"
-#include "SushiDSP/jcm800/jcm800.hpp"
-#include "SushiDSP/log/async_log_sink.hpp"
-#include "SushiDSP/log/default_logger.hpp"
-#include "SushiDSP/log/scoped_log_sink.hpp"
-#include "SushiDSP/log/stderr_log_sink.hpp"
-#include "SushiDSP/tubescreamer/tube_screamer.hpp"
+#include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/device/asio_audio_device.hpp>
+#include <SushiDSP/foundation/audio_format/channel_selection.hpp>
+#include <SushiDSP/foundation/io/ir_loader.hpp>
+#include <SushiDSP/nodes/jcm800/jcm800.hpp>
+#include <SushiDSP/foundation/log/async_log_sink.hpp>
+#include <SushiDSP/foundation/log/default_logger.hpp>
+#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
+#include <SushiDSP/foundation/log/stderr_log_sink.hpp>
+#include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 
 namespace
 {

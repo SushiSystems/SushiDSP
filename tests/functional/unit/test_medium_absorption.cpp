@@ -31,10 +31,10 @@
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/air_absorption.hpp"
-#include "SushiDSP/room/furniture.hpp"
-#include "SushiDSP/room/medium_absorption.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/air_absorption.hpp>
+#include <SushiDSP/nodes/room/furniture.hpp>
+#include <SushiDSP/nodes/room/medium_absorption.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 namespace
 {

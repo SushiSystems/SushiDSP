@@ -30,8 +30,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/audio_format/channel_selection.hpp"
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/audio_format/channel_selection.hpp>
 
 TEST(Unit_Dsp, ParseChannelSelectionAcceptsLRAndStereo)
 {

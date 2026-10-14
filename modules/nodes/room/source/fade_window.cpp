@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/fade_window.hpp"
+#include <SushiDSP/nodes/room/fade_window.hpp>
 
 namespace SushiDSP::room
 {

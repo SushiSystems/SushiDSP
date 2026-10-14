@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/audio_format/asio_sample_converter.hpp"
+#include <SushiDSP/foundation/audio_format/asio_sample_converter.hpp>
 
 TEST(Unit_Dsp, AsioSampleConverterInt32RoundTripsKnownValues)
 {

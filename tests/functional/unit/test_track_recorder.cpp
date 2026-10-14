@@ -32,10 +32,10 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/recording_bus.hpp"
-#include "SushiDSP/capture/take.hpp"
-#include "SushiDSP/capture/track_recorder.hpp"
-#include "SushiDSP/io/wav_file.hpp"
+#include <SushiDSP/nodes/capture/recording_bus.hpp>
+#include <SushiDSP/nodes/capture/take.hpp>
+#include <SushiDSP/nodes/capture/track_recorder.hpp>
+#include <SushiDSP/foundation/io/wav_file.hpp>
 
 namespace
 {

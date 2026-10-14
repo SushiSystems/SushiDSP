@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/audio_taper_pot.hpp"
+#include <SushiDSP/foundation/circuits/audio_taper_pot.hpp>
 
 TEST(Unit_Dsp, AudioTaperPotSpansZeroToUnity)
 {

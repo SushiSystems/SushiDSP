@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/ambisonic_encoder.hpp"
+#include <SushiDSP/nodes/room/ambisonic_encoder.hpp>
 
 #include <cmath>
 

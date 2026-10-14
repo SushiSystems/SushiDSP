@@ -25,12 +25,12 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/mesa_mark2c/mesa_mark2c.hpp"
+#include <SushiDSP/nodes/mesa_mark2c/mesa_mark2c.hpp>
 
-#include "SushiDSP/circuits/audio_taper_pot.hpp"
-#include "SushiDSP/circuits/output_safety_clamp.hpp"
-#include "SushiDSP/circuits/stages/miller_input_capacitance.hpp"
-#include "SushiDSP/circuits/stages/power_tube_presets.hpp"
+#include <SushiDSP/foundation/circuits/audio_taper_pot.hpp>
+#include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
+#include <SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp>
+#include <SushiDSP/foundation/circuits/stages/power_tube_presets.hpp>
 
 #include <algorithm>
 #include <array>

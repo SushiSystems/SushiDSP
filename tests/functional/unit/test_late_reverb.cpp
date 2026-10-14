@@ -34,8 +34,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/room/fdn_design.hpp"
-#include "SushiDSP/room/late_reverb.hpp"
+#include <SushiDSP/nodes/room/fdn_design.hpp>
+#include <SushiDSP/nodes/room/late_reverb.hpp>
 
 namespace
 {

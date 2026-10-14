@@ -34,8 +34,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/halfband_coefficients.hpp"
-#include "SushiDSP/math/oversampler.hpp"
+#include <SushiDSP/foundation/math/halfband_coefficients.hpp>
+#include <SushiDSP/foundation/math/oversampler.hpp>
 #include "measure/spectrum.hpp"
 
 #ifndef M_PI

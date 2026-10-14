@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/jcm800/jcm_tone_stack.hpp"
+#include <SushiDSP/nodes/jcm800/jcm_tone_stack.hpp>
 
 #include <algorithm>
 

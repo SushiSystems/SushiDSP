@@ -35,7 +35,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/resampler_design.hpp"
+#include <SushiDSP/foundation/math/resampler_design.hpp>
 
 #include "resampler_kernel.hpp"
 

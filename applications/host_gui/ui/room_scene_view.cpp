@@ -36,7 +36,7 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/room/furniture.hpp"
+#include <SushiDSP/nodes/room/furniture.hpp>
 #include "ui/scene_solids.hpp"
 #include "ui/theme.hpp"
 

@@ -25,13 +25,13 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/eyring_decay.hpp"
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/medium_absorption.hpp"
+#include <SushiDSP/nodes/room/medium_absorption.hpp>
 
 namespace SushiDSP::room
 {

@@ -32,8 +32,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/math/fft.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/math/fft.hpp>
 #include "measure/render.hpp"
 
 namespace SushiDSP::measure

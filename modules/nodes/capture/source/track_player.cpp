@@ -25,13 +25,13 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/capture/track_player.hpp"
+#include <SushiDSP/nodes/capture/track_player.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
-#include "SushiDSP/core/denormal_guard.hpp"
+#include <SushiDSP/foundation/core/denormal_guard.hpp>
 
 namespace SushiDSP
 {

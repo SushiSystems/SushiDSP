@@ -38,8 +38,8 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 namespace
 {

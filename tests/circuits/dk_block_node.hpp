@@ -31,8 +31,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/math/dk/dk_netlist.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
 
 namespace SushiDSP::test_circuits
 {

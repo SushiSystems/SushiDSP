@@ -35,7 +35,7 @@
 #include <utility>
 #include <vector>
 
-#include "SushiDSP/room/room_arrangement.hpp"
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
 
 #include "cabinet_section_wiring.hpp"
 #include "rig_controller.hpp"

@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/cabinet/cabinet_node.hpp"
+#include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
 
 #include <memory>
 

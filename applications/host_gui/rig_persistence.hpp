@@ -30,7 +30,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "SushiDSP/core/audio_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
 
 #include "session_timeline.hpp"
 #include "slot_graph.hpp"

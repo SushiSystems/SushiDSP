@@ -26,17 +26,17 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/late_reverb_design.hpp"
+#include <SushiDSP/nodes/room/late_reverb_design.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/band_response.hpp"
-#include "SushiDSP/room/band_response_fit.hpp"
-#include "SushiDSP/room/diffuse_field.hpp"
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/microphone_model.hpp"
+#include <SushiDSP/nodes/room/band_response.hpp>
+#include <SushiDSP/nodes/room/band_response_fit.hpp>
+#include <SushiDSP/nodes/room/diffuse_field.hpp>
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/microphone_model.hpp>
 
 namespace SushiDSP::room
 {

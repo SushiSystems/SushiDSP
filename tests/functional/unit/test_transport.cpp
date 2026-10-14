@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/transport.hpp"
+#include <SushiDSP/nodes/capture/transport.hpp>
 
 TEST(Unit_Dsp, TransportAtHalfSpeedAdvancesHalfAsFar)
 {

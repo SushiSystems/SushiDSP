@@ -35,7 +35,7 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "SushiDSP/dd3/dd3_converter.hpp"
+#include <SushiDSP/nodes/dd3/dd3_converter.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

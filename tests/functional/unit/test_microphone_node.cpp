@@ -28,8 +28,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/microphone/microphone_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/nodes/microphone/microphone_node.hpp>
 
 using SushiDSP::MicrophoneNode;
 

@@ -2,9 +2,9 @@
 
 **Goal:** Build what [`SPEC.md`](SPEC.md) describes.
 
-**State on 2026-10-15.** T1 is committed with this folder. The owner decided the open points in
-SPEC section 2. T0 waits for one answer (section T0 below). Nothing else is built. Build and test
-wait for the owner's permission.
+**State on 2026-10-15.** T1 is committed. T0 is done in the tree and not committed: its headers,
+includes, layering checker and changelog line are written, and the checkers pass. It is not built;
+the one Release build waits for the owner's permission. T2 to T10 are planned.
 
 ## Constraints
 
@@ -27,7 +27,7 @@ path.
 
 | Task | Files | Accepts when |
 | --- | --- | --- |
-| T0 Include path to tier form | every project `#include "SushiDSP/..."` under `modules/`, `applications/`, `tests/`, `tools/`; the module headers, if the open point in T0 says they move; `tools/layering/check_layering.py` for the new form; the module `CMakeLists.txt` include roots | Every project include is `<SushiDSP/<tier>/<module>/<name>.hpp>` with angle brackets; `git grep` finds no `#include "SushiDSP/` outside `docs/archive/`; the layering check reports nothing; one Release build at the end, after the owner allows it. |
+| T0 Include path to tier form | Done in the tree, not committed: 20 module header folders moved under their tier; 1,040 includes in 407 files rewritten; `tools/layering/check_layering.py` reads the tier form; `tools/tests/test_check_layering.py` added; one changelog line | Every project include is `<SushiDSP/<tier>/<module>/<name>.hpp>` with angle brackets; `git grep` finds no `#include "SushiDSP/` outside `docs/archive/`; the layering check reports nothing; the docs-truth findings equal the HEAD copy's 57; one Release build at the end, after the owner allows it. |
 | T1 Mirror checker | `tools/checking/`, `tools/check_all.py`, `tools/testing/check_test_mirror.py`, `tools/tests/test_check_test_mirror.py`, `tools/tests/test_ignored_paths.py`, `tools/documentation/check_source_comments.py`, `tools/README.md` | Done and committed. Tools tests pass (72 of 72). The mirror checker runs and reports 387 findings on the tree before T2 to T7. |
 | T2 Labels per test | `tests/CMakeLists.txt` | Every test has one label from `unit`, `regression`, `golden`, `benchmark`, `device`; no label comes from a name prefix; the count per label is the same as before. |
 | T3 Names read as behaviour | every `test_*.cpp` under `tests/functional/` | No `Unit_` or `Regression_` prefix remains; each test name starts with the unit it tests; 1313 tests in all. |
@@ -49,16 +49,14 @@ Measured: 1,235 include lines in 425 files over the whole repository, counting t
 under `docs/archive/`. The archive is frozen and keeps its text. The source and test count is
 taken in T0 before any edit.
 
-**Open point, for the owner before T0 starts.** `repository-layout` shows a module's header at
+**Decided 2026-10-15: the headers move too.** `repository-layout` shows a module's header at
 `modules/<tier>/<module>/include/<Project>/<module>/<name>.hpp`, which has no tier, while its
-include form has one. Two readings:
+include form has one. The owner chose reading (a): the header moves to
+`modules/<tier>/<module>/include/<Project>/<tier>/<module>/<name>.hpp`, so the include line equals
+the path below `include/`. Reading (b), which moves only the include lines, was not taken; it would
+leave the include line and the path unequal, which the rule's own tree does not describe.
 
-- (a) The headers move: `modules/<tier>/<module>/include/<Project>/<tier>/<module>/<name>.hpp`.
-  The include line then equals the path below `include/`. The plan assumes this reading.
-- (b) The headers stay where they are and only the include line gains the tier. The include line
-  then no longer equals the path, which the rule's own tree does not describe.
-
-Steps, once (a) is confirmed:
+Steps:
 
 1. Count the include lines per module and per application, and the header moves.
 2. Move each header by path with `git mv`, then rewrite the include lines with a one-off script
@@ -162,14 +160,13 @@ Taken on 2026-10-15:
 - Benchmark programs stay with the owner of the unit they time.
 - The 99 units are written layer by layer: foundation, nodes, applications.
 - T1 is committed now, staged by path.
-- The include form moves to the tier form (T0).
+- The include form moves to the tier form, and the headers move with it (T0).
 
 Still open:
 
-1. T0: the header location, reading (a) or (b). The plan assumes (a) until the owner says otherwise.
-2. Build permission: T0 and T2 to T9 are verified by the checkers and reading, not by a build. The
-   one Release build at the end (T10) needs the owner's go-ahead.
-3. T7: the unit named for `test_rt_safety`.
+1. Build permission: T0 and T2 to T9 are verified by the checkers, grep and reading, not by a build.
+   The one Release build at the end (T10) needs the owner's go-ahead.
+2. T7: the unit named for `test_rt_safety`.
 
 ## Result
 

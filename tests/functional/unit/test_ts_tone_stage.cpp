@@ -35,8 +35,8 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/tubescreamer/tube_screamer_circuits.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/nodes/tubescreamer/tube_screamer_circuits.hpp>
 
 #include "circuits/dk_block_node.hpp"
 #include "circuits/spice_block_compare.hpp"

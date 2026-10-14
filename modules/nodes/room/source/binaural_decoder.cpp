@@ -25,14 +25,14 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/binaural_decoder.hpp"
+#include <SushiDSP/nodes/room/binaural_decoder.hpp>
 
 #include <algorithm>
 #include <cstddef>
 #include <stdexcept>
 #include <utility>
 
-#include "SushiDSP/math/streaming_convolution.hpp"
+#include <SushiDSP/foundation/math/streaming_convolution.hpp>
 
 namespace SushiDSP::room
 {

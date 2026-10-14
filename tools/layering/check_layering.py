@@ -22,8 +22,8 @@ from checking.checker import Checker, Issue, run  # noqa: E402
 
 K_TIER_ORDER: tuple[str, ...] = ("foundation", "nodes", "catalog", "session")
 K_SOURCE_SUFFIXES = frozenset({".h", ".hpp", ".cpp", ".glsl", ".comp", ".vert", ".frag"})
-K_ANGLE_INCLUDE = re.compile(r'^\s*#\s*include\s*<[^/>]+/([^/>]+)/[^>]+>')
-K_QUOTED_INCLUDE = re.compile(r'^\s*#\s*include\s*"([^"]+)"')
+K_TIER_INCLUDE = re.compile(r'^\s*#\s*include\s*<[^/>]+/([^/>]+)/([^/>]+)/[^>]+>')
+K_LOCAL_INCLUDE = re.compile(r'^\s*#\s*include\s*[<"]([^>"]+)[>"]')
 K_CMAKE_SOURCE_REACH = re.compile(r"(?:^|[/\s\"'])([A-Za-z0-9_]+)/source\b")
 
 
@@ -87,13 +87,16 @@ def rule_declared_tiers(tree: ModuleTree) -> Iterator[Issue]:
 
 
 def rule_upward_includes(tree: ModuleTree) -> Iterator[Issue]:
-    """Yields an issue for each include of a module that sits in a higher tier."""
+    """Yields an issue for each include that names the wrong tier or reaches up a tier."""
     for module in tree.modules.values():
         own = tree.rank(module.tier)
         for path, number, line in _source_lines(module):
-            match = K_ANGLE_INCLUDE.match(line)
-            target = tree.modules.get(match.group(1)) if match else None
+            match = K_TIER_INCLUDE.match(line)
+            target = tree.modules.get(match.group(2)) if match else None
             if own is None or target is None:
+                continue
+            if match.group(1) != target.tier:
+                yield Issue(path, number, f"include names tier '{match.group(1)}' but {target.name} is in '{target.tier}'")
                 continue
             other = tree.rank(target.tier)
             if other is not None and other > own:
@@ -104,9 +107,9 @@ def rule_private_reach(tree: ModuleTree) -> Iterator[Issue]:
     """Yields an issue for each include or build line that reaches another module's source/."""
     for module in tree.modules.values():
         for path, number, line in _source_lines(module):
-            match = K_QUOTED_INCLUDE.match(line)
+            match = K_LOCAL_INCLUDE.match(line)
             if match and ("../" in match.group(1) or "source/" in match.group(1)):
-                yield Issue(path, number, "quoted include leaves the module or names a source/ folder")
+                yield Issue(path, number, "include leaves the module or names a source/ folder")
         build_file = module.folder / "CMakeLists.txt"
         if not build_file.is_file():
             continue

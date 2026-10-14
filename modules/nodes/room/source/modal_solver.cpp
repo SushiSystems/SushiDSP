@@ -26,7 +26,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/modal_solver.hpp"
+#include <SushiDSP/nodes/room/modal_solver.hpp>
 
 #include <algorithm>
 #include <array>
@@ -35,10 +35,10 @@
 #include <utility>
 #include <vector>
 
-#include "SushiDSP/room/band_response.hpp"
-#include "SushiDSP/room/diffuse_field.hpp"
-#include "SushiDSP/room/furnishing_field.hpp"
-#include "SushiDSP/room/medium_absorption.hpp"
+#include <SushiDSP/nodes/room/band_response.hpp>
+#include <SushiDSP/nodes/room/diffuse_field.hpp>
+#include <SushiDSP/nodes/room/furnishing_field.hpp>
+#include <SushiDSP/nodes/room/medium_absorption.hpp>
 
 namespace SushiDSP::room
 {

@@ -33,10 +33,10 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/track_player.hpp"
-#include "SushiDSP/capture/track_timeline.hpp"
-#include "SushiDSP/capture/transport.hpp"
-#include "SushiDSP/routing/pan_node.hpp"
+#include <SushiDSP/nodes/capture/track_player.hpp>
+#include <SushiDSP/nodes/capture/track_timeline.hpp>
+#include <SushiDSP/nodes/capture/transport.hpp>
+#include <SushiDSP/nodes/routing/pan_node.hpp>
 
 namespace
 {

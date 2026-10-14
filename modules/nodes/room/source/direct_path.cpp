@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/direct_path.hpp"
+#include <SushiDSP/nodes/room/direct_path.hpp>
 
 #include <algorithm>
 

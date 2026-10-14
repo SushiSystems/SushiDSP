@@ -31,7 +31,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/microphone_model.hpp"
+#include <SushiDSP/nodes/room/microphone_model.hpp>
 
 namespace
 {

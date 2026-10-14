@@ -28,11 +28,11 @@
 // _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 
-#include "SushiDSP/diezel_vh4/diezel_vh4.hpp"
+#include <SushiDSP/nodes/diezel_vh4/diezel_vh4.hpp>
 
-#include "SushiDSP/circuits/output_safety_clamp.hpp"
-#include "SushiDSP/circuits/stages/phase_inverter_presets.hpp"
-#include "SushiDSP/circuits/stages/power_tube_presets.hpp"
+#include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
+#include <SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp>
+#include <SushiDSP/foundation/circuits/stages/power_tube_presets.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -137,7 +137,7 @@ namespace SushiDSP
         constexpr float K_PHASE_INVERTER_GRID_LEAK_OHMS = 1000000.0f;
 
         /// @brief The pair this chain stands in for, derived in
-        /// modules/foundation/circuits/include/SushiDSP/circuits/stages/phase_inverter_presets.hpp.
+        /// modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp.
         constexpr SingleTriodeInverter K_PHASE_INVERTER = K_TRIODE12_AX7_INVERTER82K_PLATE;
 
         /// @brief The level the output transformer stage receives at the pair's full clip: the

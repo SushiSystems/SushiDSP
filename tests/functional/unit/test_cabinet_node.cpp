@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/cabinet/cabinet_node.hpp"
+#include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
 
 namespace
 {

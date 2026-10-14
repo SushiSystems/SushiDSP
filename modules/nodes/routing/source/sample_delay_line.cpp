@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/routing/sample_delay_line.hpp"
+#include <SushiDSP/nodes/routing/sample_delay_line.hpp>
 
 #include <algorithm>
 

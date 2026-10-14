@@ -43,15 +43,15 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 
-#include "SushiDSP/core/audio_device.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/core/rt_graph_slot.hpp"
-#include "SushiDSP/audio_format/channel_selection.hpp"
-#include "SushiDSP/device/sdl2_audio_device.hpp"
-#include "SushiDSP/log/async_log_sink.hpp"
-#include "SushiDSP/log/default_logger.hpp"
-#include "SushiDSP/log/scoped_log_sink.hpp"
-#include "SushiDSP/log/stderr_log_sink.hpp"
+#include <SushiDSP/foundation/core/audio_device.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/core/rt_graph_slot.hpp>
+#include <SushiDSP/foundation/audio_format/channel_selection.hpp>
+#include <SushiDSP/foundation/device/sdl2_audio_device.hpp>
+#include <SushiDSP/foundation/log/async_log_sink.hpp>
+#include <SushiDSP/foundation/log/default_logger.hpp>
+#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
+#include <SushiDSP/foundation/log/stderr_log_sink.hpp>
 
 #include "audio_import_cache.hpp"
 #include "audio_import_queue.hpp"
@@ -80,7 +80,7 @@
 #include "ui/transport_bar.hpp"
 
 #if defined(SUSHIDSP_HAVE_ASIO)
-#include "SushiDSP/device/asio_audio_device.hpp"
+#include <SushiDSP/foundation/device/asio_audio_device.hpp>
 #endif
 
 namespace

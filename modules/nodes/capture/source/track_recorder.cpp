@@ -25,14 +25,14 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/capture/track_recorder.hpp"
+#include <SushiDSP/nodes/capture/track_recorder.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <exception>
 
-#include "SushiDSP/capture/capture_log_category.hpp"
-#include "SushiDSP/log/log.hpp"
+#include <SushiDSP/nodes/capture/capture_log_category.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
 
 namespace SushiDSP
 {

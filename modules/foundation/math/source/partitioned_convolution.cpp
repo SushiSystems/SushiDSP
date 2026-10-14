@@ -28,7 +28,7 @@
 #include <algorithm>
 #include <cassert>
 
-#include "SushiDSP/math/partitioned_convolution.hpp"
+#include <SushiDSP/foundation/math/partitioned_convolution.hpp>
 
 namespace SushiDSP
 {

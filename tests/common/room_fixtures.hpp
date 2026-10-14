@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 namespace SushiDSP::test
 {

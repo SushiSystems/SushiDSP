@@ -35,7 +35,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/mesa_mark2c/mesa_mark2c.hpp"
+#include <SushiDSP/nodes/mesa_mark2c/mesa_mark2c.hpp>
 #include "golden/golden_file.hpp"
 
 #ifndef M_PI

@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "SushiDSP/core/audio_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
 
 namespace SushiDSP
 {

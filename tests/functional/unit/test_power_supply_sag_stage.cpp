@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/power_supply_sag_stage.hpp"
+#include <SushiDSP/foundation/circuits/stages/power_supply_sag_stage.hpp>
 
 TEST(Unit_Dsp, PowerSupplySagStageReducesGainUnderSustainedLoudInput)
 {

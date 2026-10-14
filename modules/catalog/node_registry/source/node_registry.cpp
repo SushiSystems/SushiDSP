@@ -25,25 +25,25 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/node_registry/node_registry.hpp"
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
 #include <cstring>
 
-#include "SushiDSP/cabinet/cabinet_node.hpp"
-#include "SushiDSP/dd3/dd3_delay.hpp"
-#include "SushiDSP/diezel_vh4/diezel_vh4.hpp"
-#include "SushiDSP/jcm800/jcm800.hpp"
-#include "SushiDSP/mesa_mark2c/mesa_mark2c.hpp"
-#include "SushiDSP/peavey5150/peavey5150.hpp"
-#include "SushiDSP/microphone/microphone_node.hpp"
-#include "SushiDSP/room/room_node.hpp"
-#include "SushiDSP/tubescreamer/tube_screamer.hpp"
-#include "SushiDSP/routing/bus_node.hpp"
-#include "SushiDSP/routing/channel_strip_node.hpp"
-#include "SushiDSP/routing/mixer_node.hpp"
-#include "SushiDSP/routing/pan_node.hpp"
-#include "SushiDSP/routing/splitter_node.hpp"
-#include "SushiDSP/routing/stereo_strip_node.hpp"
+#include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
+#include <SushiDSP/nodes/dd3/dd3_delay.hpp>
+#include <SushiDSP/nodes/diezel_vh4/diezel_vh4.hpp>
+#include <SushiDSP/nodes/jcm800/jcm800.hpp>
+#include <SushiDSP/nodes/mesa_mark2c/mesa_mark2c.hpp>
+#include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
+#include <SushiDSP/nodes/microphone/microphone_node.hpp>
+#include <SushiDSP/nodes/room/room_node.hpp>
+#include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
+#include <SushiDSP/nodes/routing/bus_node.hpp>
+#include <SushiDSP/nodes/routing/channel_strip_node.hpp>
+#include <SushiDSP/nodes/routing/mixer_node.hpp>
+#include <SushiDSP/nodes/routing/pan_node.hpp>
+#include <SushiDSP/nodes/routing/splitter_node.hpp>
+#include <SushiDSP/nodes/routing/stereo_strip_node.hpp>
 
 namespace SushiDSP
 {

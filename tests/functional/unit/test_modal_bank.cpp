@@ -34,8 +34,8 @@
 #include <memory>
 #include <vector>
 
-#include "SushiDSP/math/fft.hpp"
-#include "SushiDSP/room/modal_bank.hpp"
+#include <SushiDSP/foundation/math/fft.hpp>
+#include <SushiDSP/nodes/room/modal_bank.hpp>
 
 namespace
 {

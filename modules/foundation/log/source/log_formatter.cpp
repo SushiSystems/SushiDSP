@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/log/log_formatter.hpp"
+#include <SushiDSP/foundation/log/log_formatter.hpp>
 
 #include <algorithm>
 #include <cstring>

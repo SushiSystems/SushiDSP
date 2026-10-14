@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/circuits/fmv_tone_stack.hpp"
+#include <SushiDSP/foundation/circuits/fmv_tone_stack.hpp>
 
 #include <algorithm>
 #include <array>

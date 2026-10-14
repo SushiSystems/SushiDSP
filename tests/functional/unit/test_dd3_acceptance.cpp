@@ -37,7 +37,7 @@
 #include <cstdio>
 #include <vector>
 
-#include "SushiDSP/dd3/dd3_delay.hpp"
+#include <SushiDSP/nodes/dd3/dd3_delay.hpp>
 #include "measure/alias_floor.hpp"
 #include "measure/render.hpp"
 

@@ -241,7 +241,7 @@ Simul-Class is the ceiling difference, not a level difference.
 
 **The output section.** §5.3 establishes the tubes, the printed −45 V grid voltage, the 2.2 kΩ
 stoppers and the 220 kΩ leak at V8, and leaves the idle current and the primary impedance
-unprinted. The two presets (`modules/foundation/circuits/include/SushiDSP/circuits/stages/power_tube_presets.hpp`) therefore
+unprinted. The two presets (`modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/power_tube_presets.hpp`) therefore
 stand on the tubes' datasheet operating points and on Mesa's own power figures, and the table
 says which field is the amplifier's and which is the datasheet's:
 

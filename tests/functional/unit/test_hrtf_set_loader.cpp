@@ -34,8 +34,8 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/room/hrtf_set.hpp"
-#include "SushiDSP/room/hrtf_set_loader.hpp"
+#include <SushiDSP/nodes/room/hrtf_set.hpp>
+#include <SushiDSP/nodes/room/hrtf_set_loader.hpp>
 
 namespace
 {

@@ -33,10 +33,10 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/room/cabinet_geometry.hpp"
-#include "SushiDSP/room/furniture.hpp"
-#include "SushiDSP/room/room_arrangement.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/cabinet_geometry.hpp>
+#include <SushiDSP/nodes/room/furniture.hpp>
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 #include "ui/scene_solids.hpp"
 

@@ -32,9 +32,9 @@
 #include <exception>
 #include <utility>
 
-#include "SushiDSP/core/node_descriptor.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/node_registry/node_registry.hpp"
+#include <SushiDSP/foundation/core/node_descriptor.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
 #include "rig_controller.hpp"
 

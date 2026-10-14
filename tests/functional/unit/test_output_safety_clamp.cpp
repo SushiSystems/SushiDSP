@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/output_safety_clamp.hpp"
+#include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
 
 TEST(Unit_Dsp, OutputSafetyClampAppliesTheGainBeforeTheRail)
 {

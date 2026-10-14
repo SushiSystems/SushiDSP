@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/hrtf_set.hpp"
+#include <SushiDSP/nodes/room/hrtf_set.hpp>
 
 #include <algorithm>
 #include <cmath>

@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/dd3/dd3_delay.hpp"
+#include <SushiDSP/nodes/dd3/dd3_delay.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -33,7 +33,7 @@
 #include <cstring>
 #include <memory>
 
-#include "SushiDSP/core/calibration.hpp"
+#include <SushiDSP/foundation/core/calibration.hpp>
 
 namespace SushiDSP
 {

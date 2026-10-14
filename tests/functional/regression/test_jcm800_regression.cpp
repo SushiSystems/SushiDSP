@@ -35,7 +35,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/jcm800/jcm800.hpp"
+#include <SushiDSP/nodes/jcm800/jcm800.hpp>
 #include "golden/golden_file.hpp"
 
 #ifndef M_PI

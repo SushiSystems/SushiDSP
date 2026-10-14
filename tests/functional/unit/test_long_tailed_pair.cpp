@@ -29,7 +29,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/long_tailed_pair.hpp"
+#include <SushiDSP/foundation/circuits/stages/long_tailed_pair.hpp>
 
 namespace
 {

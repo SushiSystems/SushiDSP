@@ -31,12 +31,12 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/room/band_response.hpp"
-#include "SushiDSP/room/cabinet_geometry.hpp"
-#include "SushiDSP/room/driver_field.hpp"
-#include "SushiDSP/room/image_source_solver.hpp"
-#include "SushiDSP/room/room_scene.hpp"
-#include "SushiDSP/room/starter_scene.hpp"
+#include <SushiDSP/nodes/room/band_response.hpp>
+#include <SushiDSP/nodes/room/cabinet_geometry.hpp>
+#include <SushiDSP/nodes/room/driver_field.hpp>
+#include <SushiDSP/nodes/room/image_source_solver.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
+#include <SushiDSP/nodes/room/starter_scene.hpp>
 
 using SushiDSP::room::DriverField;
 using SushiDSP::room::K_BAND_COUNT;

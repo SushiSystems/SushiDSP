@@ -32,10 +32,10 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/metronome.hpp"
-#include "SushiDSP/capture/musical_clock.hpp"
-#include "SushiDSP/capture/transport.hpp"
-#include "SushiDSP/math/fft.hpp"
+#include <SushiDSP/nodes/capture/metronome.hpp>
+#include <SushiDSP/nodes/capture/musical_clock.hpp>
+#include <SushiDSP/nodes/capture/transport.hpp>
+#include <SushiDSP/foundation/math/fft.hpp>
 
 namespace
 {

@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/capture/musical_clock.hpp"
+#include <SushiDSP/nodes/capture/musical_clock.hpp>
 
 TEST(Unit_Dsp, MusicalClockPlacesBarOneHundredAtTheExactFrame)
 {

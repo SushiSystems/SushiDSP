@@ -25,11 +25,11 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/room_arrangement.hpp"
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
 
 #include <algorithm>
 
-#include "SushiDSP/room/starter_scene.hpp"
+#include <SushiDSP/nodes/room/starter_scene.hpp>
 
 namespace SushiDSP::Room
 {

@@ -33,8 +33,8 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/jcm800/jcm800.hpp"
-#include "SushiDSP/node_registry/node_registry.hpp"
+#include <SushiDSP/nodes/jcm800/jcm800.hpp>
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
 TEST(Unit_Dsp, PanelLibraryReturnsAHandAuthoredPanelForAKnownNodeType)
 {

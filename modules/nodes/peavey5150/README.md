@@ -59,7 +59,7 @@ that wants one places the standalone `sushidsp.cabinet` node after this one (see
 | 25 | Output level, full-scale clamp | `std::clamp` |, |
 
 Each grid after V1A also carries a one-pole Miller rolloff, from
-`modules/foundation/circuits/include/SushiDSP/circuits/stages/miller_input_capacitance.hpp`: `C_in = Cgk + Cgp·(1 + |A|) + stray`
+`modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp`: `C_in = Cgk + Cgp·(1 + |A|) + stray`
 with the 12AX7 model's 1.6 pF and 1.7 pF and 10 pF of stray wiring, against the driving stage's
 plate load.
 The corners land at 5.83 kHz (V1B), 93.3 kHz (V2A), 11.0 kHz (V2B), 8.65 kHz (V5B), 12.8 kHz
@@ -137,7 +137,7 @@ calibrated for. The **screen sag** §5 argues for, one shared 400 Ω feeding fou
 modelled as a shared node; the generic sag stage stands in for it.
 
 **The power tubes.** Since DA5 part 2 `PentodeStage` is volt-true, and `K_PEAVEY5150_POWER6_L6_GC`
-(`modules/foundation/circuits/include/SushiDSP/circuits/stages/power_tube_presets.hpp`) describes one push-pull *side*, the two
+(`modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/power_tube_presets.hpp`) describes one push-pull *side*, the two
 6L6GCs in parallel there, on the RCA 6L6-GC sheet's class AB₁ fixed-bias point (S7: 450 V plate,
 400 V screen, −37 V, 2 × 58 mA at zero signal, Raa 5600 Ω, 55 W) doubled. Four tubes making twice
 the power halve the primary impedance, so each side sees the row's per-tube load, Raa/4 = 1400 Ω
@@ -179,7 +179,7 @@ full scale, the one number left in the chain that is a level choice rather than 
 **The plate swings.** Each is `B+ − Va` on the cutoff side and `Va − Va_bottom` on the conduction
 side. `Va` and the idle current are §3's DC table at the 340 V rail; `Va_bottom` is the plate
 voltage at `Vgk = 0` on the same load line, `Va = 340 − Ra·Ip(0, Va − Vk)` solved by bisection with
-the Koren 12AX7 of `modules/foundation/circuits/include/SushiDSP/circuits/models/triode12_ax7.hpp`. Solving the idle point the
+the Koren 12AX7 of `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/triode12_ax7.hpp`. Solving the idle point the
 same way reproduces §3's three columns to their printed precision, so both sides of every swing
 come from one model. `Vk` is held at the idle cathode voltage through the swing; on the five
 unbypassed cathodes the real `Vk` rises with plate current, so the true bottom sits a few volts
@@ -204,7 +204,7 @@ cathode-grounded stage's would.
 pair's resistors and no gain row, so all three come from one solved point. Both grid leaks return
 to node X, the junction below R52 470 Ω, so with the pair's 2·Ia through the tail the driven
 grid sits at Vgk = −2·Ia·470 and the cathode at Vk = 2·Ia·15170. The Koren 12AX7 of
-`modules/foundation/circuits/include/SushiDSP/circuits/models/triode12_ax7.hpp` closes on that against the average of R46
+`modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/triode12_ax7.hpp` closes on that against the average of R46
 82 kΩ and R58 100 kΩ, 91 kΩ, at B+ 340 V: Ia 1.249497 mA, Vk 37.910 V, Vgk −1.174528 V, plate
 226.296 V above ground and 188.386 V above the cathode. The Jacobian there gives `gm` 2.12024 mA/V
 and `r_a` 44.655 kΩ, so `µ` = `gm`·`r_a` = 94.679.

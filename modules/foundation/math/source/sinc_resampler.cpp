@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/math/sinc_resampler.hpp"
+#include <SushiDSP/foundation/math/sinc_resampler.hpp>
 
 #include <cmath>
 #include <cstddef>

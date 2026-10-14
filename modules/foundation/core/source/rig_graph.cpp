@@ -25,9 +25,9 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/core/rig_graph.hpp"
+#include <SushiDSP/foundation/core/rig_graph.hpp>
 
-#include "SushiDSP/core/denormal_guard.hpp"
+#include <SushiDSP/foundation/core/denormal_guard.hpp>
 
 #include <algorithm>
 #include <cassert>

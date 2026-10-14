@@ -35,13 +35,13 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/pentode_stage.hpp"
-#include "SushiDSP/circuits/stages/triode_stage.hpp"
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/jcm800/jcm800.hpp"
-#include "SushiDSP/math/oversampler.hpp"
-#include "SushiDSP/peavey5150/peavey5150.hpp"
-#include "SushiDSP/tubescreamer/tube_screamer.hpp"
+#include <SushiDSP/foundation/circuits/stages/pentode_stage.hpp>
+#include <SushiDSP/foundation/circuits/stages/triode_stage.hpp>
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/nodes/jcm800/jcm800.hpp>
+#include <SushiDSP/foundation/math/oversampler.hpp>
+#include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
+#include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 #include "measure/alias_floor.hpp"
 #include "measure/frequency_response.hpp"
 #include "measure/null_test.hpp"

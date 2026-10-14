@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/audio_format/asio_sample_converter.hpp"
+#include <SushiDSP/foundation/audio_format/asio_sample_converter.hpp>
 
 #include <algorithm>
 #include <cstring>

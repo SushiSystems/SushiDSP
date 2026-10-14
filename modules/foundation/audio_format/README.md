@@ -4,8 +4,8 @@ Hardware sample formats and device channel selection.
 
 ## Owns
 
-- `modules/foundation/audio_format/include/SushiDSP/audio_format/asio_sample_converter.hpp`
-- `modules/foundation/audio_format/include/SushiDSP/audio_format/channel_selection.hpp`
+- `modules/foundation/audio_format/include/SushiDSP/foundation/audio_format/asio_sample_converter.hpp`
+- `modules/foundation/audio_format/include/SushiDSP/foundation/audio_format/channel_selection.hpp`
 
 ## Depends on
 

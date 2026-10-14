@@ -40,26 +40,26 @@
 #include <vector>
 
 #include "room_fixtures.hpp"
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/math/fft.hpp"
-#include "SushiDSP/node_registry/node_registry.hpp"
-#include "SushiDSP/room/ambisonic_encoder.hpp"
-#include "SushiDSP/room/binaural_decoder.hpp"
-#include "SushiDSP/room/cabinet_directivity.hpp"
-#include "SushiDSP/room/diffuse_field.hpp"
-#include "SushiDSP/room/hrtf_set.hpp"
-#include "SushiDSP/room/hrtf_set_loader.hpp"
-#include "SushiDSP/room/early_reflection_renderer.hpp"
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/image_source_solver.hpp"
-#include "SushiDSP/room/air_absorption.hpp"
-#include "SushiDSP/room/late_reverb.hpp"
-#include "SushiDSP/room/microphone_model.hpp"
-#include "SushiDSP/room/modal_solver.hpp"
-#include "SushiDSP/room/room_node.hpp"
-#include "SushiDSP/room/room_arrangement.hpp"
-#include "SushiDSP/room/room_render_set.hpp"
-#include "SushiDSP/room/spherical_head_hrtf.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/math/fft.hpp>
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
+#include <SushiDSP/nodes/room/ambisonic_encoder.hpp>
+#include <SushiDSP/nodes/room/binaural_decoder.hpp>
+#include <SushiDSP/nodes/room/cabinet_directivity.hpp>
+#include <SushiDSP/nodes/room/diffuse_field.hpp>
+#include <SushiDSP/nodes/room/hrtf_set.hpp>
+#include <SushiDSP/nodes/room/hrtf_set_loader.hpp>
+#include <SushiDSP/nodes/room/early_reflection_renderer.hpp>
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/image_source_solver.hpp>
+#include <SushiDSP/nodes/room/air_absorption.hpp>
+#include <SushiDSP/nodes/room/late_reverb.hpp>
+#include <SushiDSP/nodes/room/microphone_model.hpp>
+#include <SushiDSP/nodes/room/modal_solver.hpp>
+#include <SushiDSP/nodes/room/room_node.hpp>
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
+#include <SushiDSP/nodes/room/room_render_set.hpp>
+#include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
 namespace
 {

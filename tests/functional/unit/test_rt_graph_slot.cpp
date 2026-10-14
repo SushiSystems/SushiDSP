@@ -31,9 +31,9 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/core/rt_graph_slot.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/core/rt_graph_slot.hpp>
 
 namespace
 {

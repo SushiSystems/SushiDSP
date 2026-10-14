@@ -35,7 +35,7 @@
 #include <string>
 #include <vector>
 
-#include "SushiDSP/core/audio_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
 #include "rig_controller.hpp"
 #include "session_timeline.hpp"
 

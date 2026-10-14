@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/io/ir_loader.hpp"
+#include <SushiDSP/foundation/io/ir_loader.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -33,9 +33,9 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "SushiDSP/io/wav_file.hpp"
-#include "SushiDSP/math/fft.hpp"
-#include "SushiDSP/math/sinc_resampler.hpp"
+#include <SushiDSP/foundation/io/wav_file.hpp>
+#include <SushiDSP/foundation/math/fft.hpp>
+#include <SushiDSP/foundation/math/sinc_resampler.hpp>
 
 namespace SushiDSP
 {

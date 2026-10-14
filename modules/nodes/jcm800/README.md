@@ -24,7 +24,7 @@ networks, and each one says so.
 ## The stages and their plate swings
 
 Every triode runs on `TriodeStage`'s seven-argument constructor. The bias and swing figures come
-from the Koren 12AX7 model in `modules/foundation/circuits/include/SushiDSP/circuits/models/triode12_ax7.hpp` solved on each
+from the Koren 12AX7 model in `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/triode12_ax7.hpp` solved on each
 block's own load line at B+ 360 V: the idle point from `Vk = Rk·Ia` with the grid at DC ground,
 and the plate bottom from `Va = 360 − Ra·Ia` at `Vgk = 0` with the cathode held at its idle
 voltage.
@@ -129,7 +129,7 @@ above.
 
 ## The EL34 pair
 
-`K_EL34` (`modules/foundation/circuits/include/SushiDSP/circuits/stages/power_tube_presets.hpp`) is the Philips EL34
+`K_EL34` (`modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/power_tube_presets.hpp`) is the Philips EL34
 datasheet's operating point for the tube in the 2203's arrangement, and every one of its fields
 is that row or the deck. The January 1969 sheet's page 3, "Class B, two tubes in push-pull",
 first column: grid No. 2 series resistor 1000 Ω, Vg1 −38 V, Vb 425 V, Va 420 V, Ia 2 × 30 mA at

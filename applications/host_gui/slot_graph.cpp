@@ -35,14 +35,14 @@
 #include <stdexcept>
 #include <utility>
 
-#include "SushiDSP/core/cabinet_host.hpp"
-#include "SushiDSP/io/ir_loader.hpp"
-#include "SushiDSP/log/log.hpp"
-#include "SushiDSP/node_registry/node_registry.hpp"
-#include "SushiDSP/room/hrtf_set_loader.hpp"
-#include "SushiDSP/room/starter_scene.hpp"
-#include "SushiDSP/routing/mixer_node.hpp"
-#include "SushiDSP/routing/splitter_node.hpp"
+#include <SushiDSP/foundation/core/cabinet_host.hpp>
+#include <SushiDSP/foundation/io/ir_loader.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
+#include <SushiDSP/nodes/room/hrtf_set_loader.hpp>
+#include <SushiDSP/nodes/room/starter_scene.hpp>
+#include <SushiDSP/nodes/routing/mixer_node.hpp>
+#include <SushiDSP/nodes/routing/splitter_node.hpp>
 
 #include "host_gui_log_category.hpp"
 

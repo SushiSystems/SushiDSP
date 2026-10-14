@@ -28,7 +28,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "SushiDSP/math/oversampler.hpp"
+#include <SushiDSP/foundation/math/oversampler.hpp>
 
 namespace SushiDSP
 {

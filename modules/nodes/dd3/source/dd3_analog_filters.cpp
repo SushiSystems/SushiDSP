@@ -28,7 +28,7 @@
 // _USE_MATH_DEFINES must precede every include: it is what makes MSVC's <cmath> declare M_PI.
 #define _USE_MATH_DEFINES
 
-#include "SushiDSP/dd3/dd3_analog_filters.hpp"
+#include <SushiDSP/nodes/dd3/dd3_analog_filters.hpp>
 
 #include <cmath>
 #include <cstddef>

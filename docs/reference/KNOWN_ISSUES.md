@@ -347,7 +347,7 @@ were not re-checked for this list. The work that closes a row is in
 | The `## v0.1.0, 2026-10-03` heading has no tag behind it; `git tag -l` prints nothing | `docs/reference/CHANGELOG.md`, git |
 | The entry that folded the untagged headings cites `docs/archive/changelog/`, which does not exist | `docs/reference/CHANGELOG.md`, 2026-10-03 |
 | Five `docs` entries of 2026-09-05 and 2026-09-07 name no place | `docs/reference/CHANGELOG.md` |
-| Three entries cite files that no longer exist: `cli/sushidsp/services/setup.py`, `applications/host_gui/ui/TrackPanel.cpp`, `modules/foundation/math/include/SushiDSP/math/ResamplerCoefficients.hpp` | `docs/reference/CHANGELOG.md` |
+| Three entries cite files that no longer exist: `cli/sushidsp/services/setup.py`, `applications/host_gui/ui/TrackPanel.cpp`, `modules/foundation/math/include/SushiDSP/foundation/math/ResamplerCoefficients.hpp` | `docs/reference/CHANGELOG.md` |
 | The archive's README says the archive is empty; it holds 56 other files | `docs/archive/README.md` |
 | Archived plans, specs, dossiers and notes carry dated lower-case names, not `UPPER_SNAKE_CASE.md` | `docs/archive/superpowers/`, `docs/archive/research/`, `docs/archive/notes/` |
 | The standards phase 1 work has two plans in the archive, a 288-line plan and a 10-line checklist | `docs/archive/superpowers/plans/2026-09-15-sushi-standards-phase-1.md`, `docs/archive/agent/2026_09_15_SUSHI_STANDARDS_PHASE_1/PLAN.md` |
@@ -358,7 +358,7 @@ were not re-checked for this list. The work that closes a row is in
 | No README beside the code | `applications/host/`, `applications/host_asio/`, `tests/measure/`, `tests/benchmark/`, each area under `include/SushiDSP/` |
 | Two READMEs cite `assets/ir/default_4x12.wav`, which the tree does not hold | `assets/ir/README.md`, `applications/host_gui/README.md` |
 | The admission rule for a bundled impulse response still names the Apache License 2.0 | `assets/ir/README.md` |
-| Two comments and one issue template cite module paths from before the tiers: `modules/session/rig_preset`, `modules/nodes/dd3`, `modules/nodes/mesa_mark2c` | `modules/session/rig_preset/include/SushiDSP/rig_preset/rig_preset.hpp` line 22, `tests/functional/unit/test_biquad.cpp` line 290, `.github/ISSUE_TEMPLATE/model_accuracy.yml` line 17 |
+| Two comments and one issue template cite module paths from before the tiers: `modules/session/rig_preset`, `modules/nodes/dd3`, `modules/nodes/mesa_mark2c` | `modules/session/rig_preset/include/SushiDSP/session/rig_preset/rig_preset.hpp` line 22, `tests/functional/unit/test_biquad.cpp` line 290, `.github/ISSUE_TEMPLATE/model_accuracy.yml` line 17 |
 | The front door's count of 1007 tests could not be reproduced without a build and was removed on 2026-10-05; no document states the count | `README.md` |
 
 ### Layout
@@ -379,11 +379,11 @@ were not re-checked for this list. The work that closes a row is in
 
 | Issue | Where |
 | --- | --- |
-| Exceptions, `bool` with an error string and bare `bool` coexist as error models; no function is `[[nodiscard]]` | `modules/foundation/io/source/wav_file.cpp`, `applications/host_gui/rig_controller.hpp`, `modules/nodes/room/include/SushiDSP/room/room_node.hpp` |
+| Exceptions, `bool` with an error string and bare `bool` coexist as error models; no function is `[[nodiscard]]` | `modules/foundation/io/source/wav_file.cpp`, `applications/host_gui/rig_controller.hpp`, `modules/nodes/room/include/SushiDSP/nodes/room/room_node.hpp` |
 | `RigController` forwards `SlotGraph`'s surface one for one; `main()` owns setup and the frame loop | `applications/host_gui/rig_controller.hpp`, `applications/host_gui/slot_graph.hpp`, `applications/host_gui/main.cpp` |
 | The host names products by id, so adding a product edits the GUI | `applications/host_gui/ui/panel_library.cpp`, `applications/host_gui/ui/gear_filter.cpp`, `applications/host_gui/topology_applier.cpp` |
-| `nlohmann::json` is part of the preset module's public interface | `modules/session/rig_preset/include/SushiDSP/rig_preset/rig_preset.hpp` |
+| `nlohmann::json` is part of the preset module's public interface | `modules/session/rig_preset/include/SushiDSP/session/rig_preset/rig_preset.hpp` |
 | The four amplifier modules repeat the same helpers and constants | `modules/nodes/jcm800/source/jcm800.cpp`, `peavey5150.cpp`, `diezel_vh4.cpp`, `mesa_mark2c.cpp` |
-| `Wdf` is built into the library and no production code uses it | `modules/foundation/math/include/SushiDSP/math/wdf.hpp` |
+| `Wdf` is built into the library and no production code uses it | `modules/foundation/math/include/SushiDSP/foundation/math/wdf.hpp` |
 | One header lacks `#pragma once` | `tests/common/timing_gate.hpp` |
 | The device backends, the GUI views and the scripts under `tools/dsp/` and `tools/spice/` have no tests | `modules/foundation/device/source/`, `applications/host_gui/ui/`, `tools/` |

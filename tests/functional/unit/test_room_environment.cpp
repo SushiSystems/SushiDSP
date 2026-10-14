@@ -35,10 +35,10 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/room/room_arrangement.hpp"
-#include "SushiDSP/room/room_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
+#include <SushiDSP/nodes/room/room_node.hpp>
 
 #include "room_fixtures.hpp"
 #include "room_ports.hpp"

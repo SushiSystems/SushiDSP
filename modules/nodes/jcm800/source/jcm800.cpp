@@ -25,13 +25,13 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/jcm800/jcm800.hpp"
+#include <SushiDSP/nodes/jcm800/jcm800.hpp>
 
-#include "SushiDSP/circuits/audio_taper_pot.hpp"
-#include "SushiDSP/circuits/output_safety_clamp.hpp"
-#include "SushiDSP/circuits/stages/miller_input_capacitance.hpp"
-#include "SushiDSP/circuits/stages/phase_inverter_presets.hpp"
-#include "SushiDSP/circuits/stages/power_tube_presets.hpp"
+#include <SushiDSP/foundation/circuits/audio_taper_pot.hpp>
+#include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
+#include <SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp>
+#include <SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp>
+#include <SushiDSP/foundation/circuits/stages/power_tube_presets.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -97,7 +97,7 @@ namespace SushiDSP
         /// @brief The 2203's long-tailed pair, modelled as one triode on jcm_ltp's 82 kOhm plate
         /// over the 470 Ohm and 10 kOhm tail both cathodes share, with both grid leaks returned to
         /// the junction between them as the 2203 wires them; every figure is derived in
-        /// modules/foundation/circuits/include/SushiDSP/circuits/stages/phase_inverter_presets.hpp.
+        /// modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp.
         constexpr SingleTriodeInverter K_PHASE_INVERTER = K_TRIODE12_AX7_INVERTER82K_PLATE;
 
         /// @brief The class-AB bias mismatch between the two output tubes, an input-referred grid

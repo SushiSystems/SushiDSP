@@ -30,10 +30,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "SushiDSP/math/resampler_design.hpp"
+#include <SushiDSP/foundation/math/resampler_design.hpp>
 
-#include "SushiDSP/capture/transport.hpp"
-#include "SushiDSP/capture/vari_rate_reader.hpp"
+#include <SushiDSP/nodes/capture/transport.hpp>
+#include <SushiDSP/nodes/capture/vari_rate_reader.hpp>
 
 namespace SushiDSP
 {

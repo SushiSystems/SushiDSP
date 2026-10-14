@@ -30,8 +30,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/stages/antiderivative_antialiaser.hpp"
-#include "SushiDSP/circuits/stages/pentode_stage.hpp"
+#include <SushiDSP/foundation/circuits/stages/antiderivative_antialiaser.hpp>
+#include <SushiDSP/foundation/circuits/stages/pentode_stage.hpp>
 
 namespace
 {

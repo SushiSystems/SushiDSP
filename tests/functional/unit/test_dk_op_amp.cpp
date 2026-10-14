@@ -31,8 +31,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/math/dk/dk_circuit.hpp"
-#include "SushiDSP/math/dk/dk_netlist.hpp"
+#include <SushiDSP/foundation/math/dk/dk_circuit.hpp>
+#include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
 
 namespace
 {

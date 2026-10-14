@@ -33,7 +33,7 @@
 #include <cstdint>
 #include <random>
 
-#include "SushiDSP/room/spherical_head_hrtf.hpp"
+#include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
 namespace
 {

@@ -29,8 +29,8 @@
 
 #include <cstdint>
 
-#include "SushiDSP/room/furniture.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/furniture.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 namespace ui
 {

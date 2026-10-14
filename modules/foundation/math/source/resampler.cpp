@@ -31,8 +31,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "SushiDSP/math/resampler.hpp"
-#include "SushiDSP/math/resampler_design.hpp"
+#include <SushiDSP/foundation/math/resampler.hpp>
+#include <SushiDSP/foundation/math/resampler_design.hpp>
 
 #include "resampler_kernel.hpp"
 

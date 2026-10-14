@@ -34,12 +34,12 @@
 #include <utility>
 #include <vector>
 
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
-#include "SushiDSP/core/rt_graph_slot.hpp"
-#include "SushiDSP/room/room_arrangement.hpp"
-#include "SushiDSP/room/room_host.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/core/rt_graph_slot.hpp>
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
+#include <SushiDSP/nodes/room/room_host.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 #include "rig_persistence.hpp"
 #include "session_timeline.hpp"

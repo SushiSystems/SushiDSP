@@ -32,7 +32,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "SushiDSP/room/materials.hpp"
+#include <SushiDSP/nodes/room/materials.hpp>
 
 TEST(Unit_Dsp, MaterialsShipFifteenRowsAndNoMore)
 {

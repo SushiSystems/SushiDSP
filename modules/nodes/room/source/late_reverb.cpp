@@ -25,11 +25,11 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/late_reverb.hpp"
+#include <SushiDSP/nodes/room/late_reverb.hpp>
 
 #include <algorithm>
 
-#include "SushiDSP/core/denormal_guard.hpp"
+#include <SushiDSP/foundation/core/denormal_guard.hpp>
 
 namespace SushiDSP::room
 {

@@ -33,8 +33,8 @@
 #include <string>
 
 #include "room_fixtures.hpp"
-#include "SushiDSP/room/built_room_loss.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/built_room_loss.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 TEST(Unit_Dsp, RoomSceneComputesTheGaragesVolumeAndArea)
 {

@@ -32,7 +32,7 @@
 #include <string>
 #include <thread>
 
-#include "SushiDSP/core/audio_node.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
 
 /// @brief Names the file an export writes.
 enum class BounceFormat : std::uint8_t

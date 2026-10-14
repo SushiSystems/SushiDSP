@@ -37,7 +37,7 @@
 
 #include <imgui.h>
 
-#include "SushiDSP/node_registry/node_registry.hpp"
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
 #include "slot_selection.hpp"
 #include "ui/split_layout.hpp"

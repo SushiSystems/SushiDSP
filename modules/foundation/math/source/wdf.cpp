@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/math/wdf.hpp"
+#include <SushiDSP/foundation/math/wdf.hpp>
 
 namespace SushiDSP
 {

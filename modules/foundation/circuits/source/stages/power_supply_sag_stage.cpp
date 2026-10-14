@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/circuits/stages/power_supply_sag_stage.hpp"
+#include <SushiDSP/foundation/circuits/stages/power_supply_sag_stage.hpp>
 
 #include <algorithm>
 #include <cmath>

@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/dd3/dd3_converter.hpp"
+#include <SushiDSP/nodes/dd3/dd3_converter.hpp>
 
 #include <algorithm>
 #include <cassert>

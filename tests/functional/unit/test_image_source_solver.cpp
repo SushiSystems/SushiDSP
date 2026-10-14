@@ -37,10 +37,10 @@
 
 #include "room_fixtures.hpp"
 #include "timing_gate.hpp"
-#include "SushiDSP/room/band_response_fit.hpp"
-#include "SushiDSP/room/image_source_solver.hpp"
-#include "SushiDSP/room/medium_absorption.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/band_response_fit.hpp>
+#include <SushiDSP/nodes/room/image_source_solver.hpp>
+#include <SushiDSP/nodes/room/medium_absorption.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 namespace
 {

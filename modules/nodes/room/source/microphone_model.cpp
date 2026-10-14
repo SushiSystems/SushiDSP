@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/microphone_model.hpp"
+#include <SushiDSP/nodes/room/microphone_model.hpp>
 
 #include <cmath>
 #include <cstring>

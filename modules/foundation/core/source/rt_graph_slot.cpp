@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/core/rt_graph_slot.hpp"
+#include <SushiDSP/foundation/core/rt_graph_slot.hpp>
 
 #include <algorithm>
 

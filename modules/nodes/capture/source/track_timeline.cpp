@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/capture/track_timeline.hpp"
+#include <SushiDSP/nodes/capture/track_timeline.hpp>
 
 #include <algorithm>
 #include <stdexcept>

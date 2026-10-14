@@ -34,7 +34,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/io/wav_file.hpp"
+#include <SushiDSP/foundation/io/wav_file.hpp>
 
 namespace
 {

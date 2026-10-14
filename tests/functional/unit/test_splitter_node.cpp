@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/routing/splitter_node.hpp"
+#include <SushiDSP/nodes/routing/splitter_node.hpp>
 
 TEST(Unit_Dsp, SplitterNodeCopiesInputToOutput)
 {

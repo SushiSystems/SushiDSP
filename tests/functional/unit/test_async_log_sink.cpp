@@ -37,8 +37,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/log/async_log_sink.hpp"
-#include "SushiDSP/log/capturing_log_sink.hpp"
+#include <SushiDSP/foundation/log/async_log_sink.hpp>
+#include <SushiDSP/foundation/log/capturing_log_sink.hpp>
 
 namespace
 {

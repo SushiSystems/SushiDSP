@@ -32,7 +32,7 @@
 
 #include <imgui.h>
 
-#include "SushiDSP/room/room_arrangement.hpp"
+#include <SushiDSP/nodes/room/room_arrangement.hpp>
 
 #include "ui/scene_camera.hpp"
 #include "ui/scene_interaction.hpp"

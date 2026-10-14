@@ -25,22 +25,22 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/image_source_solver.hpp"
+#include <SushiDSP/nodes/room/image_source_solver.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>
 
-#include "SushiDSP/room/air_absorption.hpp"
-#include "SushiDSP/room/ambisonic_encoder.hpp"
-#include "SushiDSP/room/band_response_fit.hpp"
-#include "SushiDSP/room/cabinet_directivity.hpp"
-#include "SushiDSP/room/driver_field.hpp"
-#include "SushiDSP/room/furnishing_field.hpp"
-#include "SushiDSP/room/materials.hpp"
-#include "SushiDSP/room/medium_absorption.hpp"
-#include "SushiDSP/room/microphone_model.hpp"
+#include <SushiDSP/nodes/room/air_absorption.hpp>
+#include <SushiDSP/nodes/room/ambisonic_encoder.hpp>
+#include <SushiDSP/nodes/room/band_response_fit.hpp>
+#include <SushiDSP/nodes/room/cabinet_directivity.hpp>
+#include <SushiDSP/nodes/room/driver_field.hpp>
+#include <SushiDSP/nodes/room/furnishing_field.hpp>
+#include <SushiDSP/nodes/room/materials.hpp>
+#include <SushiDSP/nodes/room/medium_absorption.hpp>
+#include <SushiDSP/nodes/room/microphone_model.hpp>
 
 namespace SushiDSP::room
 {

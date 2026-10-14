@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/fir_filter.hpp"
+#include <SushiDSP/nodes/room/fir_filter.hpp>
 
 #include <algorithm>
 

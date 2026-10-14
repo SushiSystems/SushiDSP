@@ -37,7 +37,7 @@
 
 #include <imgui.h>
 
-#include "SushiDSP/node_registry/node_registry.hpp"
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
 #include "ui/file_browser.hpp"
 #include "ui/panel_library.hpp"

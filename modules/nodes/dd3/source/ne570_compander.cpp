@@ -25,7 +25,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/dd3/ne570_compander.hpp"
+#include <SushiDSP/nodes/dd3/ne570_compander.hpp>
 
 #include <algorithm>
 #include <cmath>

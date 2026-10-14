@@ -25,11 +25,11 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/capture/take.hpp"
+#include <SushiDSP/nodes/capture/take.hpp>
 
 #include <algorithm>
 
-#include "SushiDSP/io/wav_file.hpp"
+#include <SushiDSP/foundation/io/wav_file.hpp>
 
 namespace SushiDSP
 {

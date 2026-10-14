@@ -31,7 +31,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "SushiDSP/room/air_absorption.hpp"
+#include <SushiDSP/nodes/room/air_absorption.hpp>
 
 TEST(Unit_Dsp, AirAbsorptionMatchesIso9613AtTwentyDegreesAndFiftyPercent)
 {

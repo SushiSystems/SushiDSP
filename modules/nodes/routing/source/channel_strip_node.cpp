@@ -27,7 +27,7 @@
 
 // M_PI requires _USE_MATH_DEFINES before any <cmath>.
 #define _USE_MATH_DEFINES
-#include "SushiDSP/routing/channel_strip_node.hpp"
+#include <SushiDSP/nodes/routing/channel_strip_node.hpp>
 
 #include <algorithm>
 #include <cmath>

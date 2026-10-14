@@ -39,8 +39,8 @@
 #include "rig_adapter.hpp"
 #include "rig_controller.hpp"
 #include "rig_parameter.hpp"
-#include "SushiDSP/core/audio_node.hpp"
-#include "SushiDSP/core/rig_graph.hpp"
+#include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/rig_graph.hpp>
 
 namespace
 {

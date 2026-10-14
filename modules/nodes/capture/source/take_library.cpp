@@ -27,7 +27,7 @@
 
 #include <algorithm>
 
-#include "SushiDSP/capture/take_library.hpp"
+#include <SushiDSP/nodes/capture/take_library.hpp>
 
 namespace SushiDSP
 {

@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/circuits/stages/resonance_control.hpp"
+#include <SushiDSP/foundation/circuits/stages/resonance_control.hpp>
 
 #include <algorithm>
 

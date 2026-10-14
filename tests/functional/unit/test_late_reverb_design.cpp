@@ -35,17 +35,17 @@
 #include <vector>
 
 #include "room_fixtures.hpp"
-#include "SushiDSP/math/fft.hpp"
-#include "SushiDSP/room/band_response.hpp"
-#include "SushiDSP/room/band_response_fit.hpp"
-#include "SushiDSP/room/diffuse_field.hpp"
-#include "SushiDSP/room/early_tap_set.hpp"
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/fdn_design.hpp"
-#include "SushiDSP/room/late_reverb.hpp"
-#include "SushiDSP/room/image_source_solver.hpp"
-#include "SushiDSP/room/late_reverb_design.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/foundation/math/fft.hpp>
+#include <SushiDSP/nodes/room/band_response.hpp>
+#include <SushiDSP/nodes/room/band_response_fit.hpp>
+#include <SushiDSP/nodes/room/diffuse_field.hpp>
+#include <SushiDSP/nodes/room/early_tap_set.hpp>
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/fdn_design.hpp>
+#include <SushiDSP/nodes/room/late_reverb.hpp>
+#include <SushiDSP/nodes/room/image_source_solver.hpp>
+#include <SushiDSP/nodes/room/late_reverb_design.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 namespace
 {

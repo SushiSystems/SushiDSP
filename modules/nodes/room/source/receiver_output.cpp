@@ -25,13 +25,13 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include "SushiDSP/room/receiver_output.hpp"
+#include <SushiDSP/nodes/room/receiver_output.hpp>
 
 #include <algorithm>
 #include <cstddef>
 #include <utility>
 
-#include "SushiDSP/room/spherical_head_hrtf.hpp"
+#include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
 namespace SushiDSP::Room
 {

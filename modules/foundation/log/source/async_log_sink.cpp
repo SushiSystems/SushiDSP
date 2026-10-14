@@ -25,13 +25,13 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/log/async_log_sink.hpp"
+#include <SushiDSP/foundation/log/async_log_sink.hpp>
 
 #include <chrono>
 #include <utility>
 
-#include "SushiDSP/log/log_formatter.hpp"
-#include "SushiDSP/log/log_log_category.hpp"
+#include <SushiDSP/foundation/log/log_formatter.hpp>
+#include <SushiDSP/foundation/log/log_log_category.hpp>
 
 namespace SushiDSP
 {

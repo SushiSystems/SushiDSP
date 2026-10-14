@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include "SushiDSP/capture/transport.hpp"
+#include <SushiDSP/nodes/capture/transport.hpp>
 
 #include <algorithm>
 #include <cmath>

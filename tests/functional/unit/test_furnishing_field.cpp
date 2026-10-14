@@ -35,13 +35,13 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/room/band_response.hpp"
-#include "SushiDSP/room/eyring_decay.hpp"
-#include "SushiDSP/room/furnishing_field.hpp"
-#include "SushiDSP/room/furniture.hpp"
-#include "SushiDSP/room/medium_absorption.hpp"
-#include "SushiDSP/room/modal_solver.hpp"
-#include "SushiDSP/room/room_scene.hpp"
+#include <SushiDSP/nodes/room/band_response.hpp>
+#include <SushiDSP/nodes/room/eyring_decay.hpp>
+#include <SushiDSP/nodes/room/furnishing_field.hpp>
+#include <SushiDSP/nodes/room/furniture.hpp>
+#include <SushiDSP/nodes/room/medium_absorption.hpp>
+#include <SushiDSP/nodes/room/modal_solver.hpp>
+#include <SushiDSP/nodes/room/room_scene.hpp>
 
 using SushiDSP::room::FurnishingField;
 using SushiDSP::room::FurnitureId;

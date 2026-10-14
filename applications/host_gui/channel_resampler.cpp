@@ -31,7 +31,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "SushiDSP/math/resampler.hpp"
+#include <SushiDSP/foundation/math/resampler.hpp>
 
 namespace SushiDSP::host
 {

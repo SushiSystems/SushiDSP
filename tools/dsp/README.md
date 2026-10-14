@@ -2,12 +2,12 @@
 
 Design-time scripts. Nothing here runs in CI or at build time; their outputs are committed.
 
-- `design_halfband.py`, regenerates `modules/foundation/math/include/SushiDSP/math/halfband_coefficients.hpp`.
+- `design_halfband.py`, regenerates `modules/foundation/math/include/SushiDSP/foundation/math/halfband_coefficients.hpp`.
   Needs `numpy` and `scipy` (`pip install numpy scipy`). Run from the repo root:
-  `python tools/dsp/design_halfband.py > modules/foundation/math/include/SushiDSP/math/halfband_coefficients.hpp`
+  `python tools/dsp/design_halfband.py > modules/foundation/math/include/SushiDSP/foundation/math/halfband_coefficients.hpp`
   (write the file without a BOM). The band edges and stopband targets live in the script's
   `STAGES` table; the rationale is spec D6a.3 and the D6a plan's "Rulings" section.
-- `design_resampler.py`, regenerates `modules/foundation/math/include/SushiDSP/math/resampler_design.hpp`, the six
+- `design_resampler.py`, regenerates `modules/foundation/math/include/SushiDSP/foundation/math/resampler_design.hpp`, the six
   constants that describe the prototype's shape, and `modules/foundation/math/source/resampler_kernel.hpp`, the
   Kaiser-windowed-sinc table the arbitrary-ratio resampler polyphase-interpolates against.
   Needs `numpy` and `scipy` (`pip install numpy scipy`). Run from the repo root:

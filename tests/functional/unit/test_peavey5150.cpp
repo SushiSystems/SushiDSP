@@ -38,8 +38,8 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/core/calibration.hpp"
-#include "SushiDSP/peavey5150/peavey5150.hpp"
+#include <SushiDSP/foundation/core/calibration.hpp>
+#include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
 #include "measure/frequency_response.hpp"
 #include "measure/render.hpp"
 #include "measure/thd.hpp"

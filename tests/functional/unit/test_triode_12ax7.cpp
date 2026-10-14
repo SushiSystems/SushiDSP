@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "SushiDSP/circuits/models/triode12_ax7.hpp"
+#include <SushiDSP/foundation/circuits/models/triode12_ax7.hpp>
 
 TEST(Unit_Dsp, Triode12AX7PlateCurrentMatchesKorenAtThreeOperatingPoints)
 {
