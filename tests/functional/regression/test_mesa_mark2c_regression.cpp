@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "common/regression_test.hpp"
 
 #include <SushiDSP/nodes/mesa_mark2c/mesa_mark2c.hpp>
 #include "golden/golden_file.hpp"
@@ -78,14 +79,14 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/functional/regression/README.md
-TEST(Regression_Dsp, MesaMark2cGoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, MesaMark2cGoldenFile48k)
 {
     EXPECT_LE(
         SushiDSP::golden::compare_or_regenerate("mesa_mark2c_48k", render_mesa_mark2c(48000.0)),
         -80.0);
 }
 
-TEST(Regression_Dsp, MesaMark2cGoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, MesaMark2cGoldenFile96k)
 {
     EXPECT_LE(
         SushiDSP::golden::compare_or_regenerate("mesa_mark2c_96k", render_mesa_mark2c(96000.0)),

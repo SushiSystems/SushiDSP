@@ -233,7 +233,7 @@ def test(build_type: BuildType | None, suite: Suite, clean: bool = False,
     """Builds when needed, then runs ctest over the tests *suite* and *filter* select.
 
     Args:
-        filter: A ctest -R regex over the `Suite.Case` names gtest_discover_tests registers.
+        filter: A ctest -R regex over the `Suite.Case` names the test build registers.
     """
     build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
     rc = build(build_type, clean=clean)

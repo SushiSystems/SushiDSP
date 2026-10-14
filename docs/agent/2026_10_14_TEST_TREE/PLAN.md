@@ -2,9 +2,8 @@
 
 **Goal:** Build what [`SPEC.md`](SPEC.md) describes.
 
-**State on 2026-10-15.** T1 is committed. T0 is done in the tree and not committed: its headers,
-includes, layering checker and changelog line are written, and the checkers pass. It is not built;
-the one Release build waits for the owner's permission. T2 to T10 are planned.
+**State on 2026-10-15.** T0, T1 and T2 are committed by this change set. The checkers pass for each.
+Nothing is built: the owner allows the one Release build at T10 only. T3 to T9 are planned.
 
 ## Constraints
 
@@ -29,7 +28,7 @@ path.
 | --- | --- | --- |
 | T0 Include path to tier form | Done in the tree, not committed: 20 module header folders moved under their tier; 1,040 includes in 407 files rewritten; `tools/layering/check_layering.py` reads the tier form; `tools/tests/test_check_layering.py` added; one changelog line | Every project include is `<SushiDSP/<tier>/<module>/<name>.hpp>` with angle brackets; `git grep` finds no `#include "SushiDSP/` outside `docs/archive/`; the layering check reports nothing; the docs-truth findings equal the HEAD copy's 57; one Release build at the end, after the owner allows it. |
 | T1 Mirror checker | `tools/checking/`, `tools/check_all.py`, `tools/testing/check_test_mirror.py`, `tools/tests/test_check_test_mirror.py`, `tools/tests/test_ignored_paths.py`, `tools/documentation/check_source_comments.py`, `tools/README.md` | Done and committed. Tools tests pass (72 of 72). The mirror checker runs and reports 387 findings on the tree before T2 to T7. |
-| T2 Labels per test | `tests/CMakeLists.txt` | Every test has one label from `unit`, `regression`, `golden`, `benchmark`, `device`; no label comes from a name prefix; the count per label is the same as before. |
+| T2 Labels per test | Done: `tests/CMakeLists.txt` reads each test source at configure time; `tests/common/regression_test.hpp` adds `SUSHIDSP_REGRESSION_TEST`; 23 regression cases use it. | Every test has one label; no label comes from a name prefix. Checked: 1313 cases, 1290 `unit`, 23 `regression`, none missed by the pattern, no duplicate `Suite.Case`. `golden`, `benchmark` and `device` are not assigned yet; the benchmark keeps its own CMake. |
 | T3 Names read as behaviour | every `test_*.cpp` under `tests/functional/` | No `Unit_` or `Regression_` prefix remains; each test name starts with the unit it tests; 1313 tests in all. |
 | T5 Shared test code as modules | new internal modules (table below), their `CMakeLists.txt` and READMEs, `cmake/SushiDSPLayers.cmake` for the same-tier edge | Each module names what it owns and depends on; its headers are not installed; the layering check reports nothing for it; `tests/measure`, `tests/circuits`, `tests/common` and the test-side `tests/golden` helper are gone. |
 | T4 Move to the mirror | `tests/functional/**` to `tests/<tier>/<module>/` and `tests/applications/<app>/`; the golden, fixture and benchmark folders to their owners | The checker reports no misplaced file and no folder without a counterpart; `tests/functional/` and `tests/golden/` are gone. |

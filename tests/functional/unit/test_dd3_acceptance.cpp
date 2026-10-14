@@ -29,6 +29,7 @@
 #define _USE_MATH_DEFINES
 
 #include <gtest/gtest.h>
+#include "common/regression_test.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -45,7 +46,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// Every case renders seconds, hence the Regression_Dsp prefix. See tests/functional/unit/README.md.
+// Every case renders seconds, hence SUSHIDSP_REGRESSION_TEST. See tests/functional/unit/README.md.
 
 namespace
 {
@@ -200,7 +201,7 @@ namespace
     }
 } // namespace
 
-TEST(Regression_Dsp, Dd3AcceptanceClockCurveMatchesThePublishedRange)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceClockCurveMatchesThePublishedRange)
 {
     // Row 1 checks fs, which the service note publishes. See tests/functional/unit/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
@@ -241,7 +242,7 @@ TEST(Regression_Dsp, Dd3AcceptanceClockCurveMatchesThePublishedRange)
     }
 }
 
-TEST(Regression_Dsp, Dd3AcceptanceMeasuredEchoLandsWhereTheClockCurveSaysItWill)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceMeasuredEchoLandsWhereTheClockCurveSaysItWill)
 {
     // An impulse's echo cannot agree with a wrong fs. See tests/functional/unit/README.md.
     struct Mode
@@ -278,7 +279,7 @@ TEST(Regression_Dsp, Dd3AcceptanceMeasuredEchoLandsWhereTheClockCurveSaysItWill)
     }
 }
 
-TEST(Regression_Dsp, Dd3AcceptancePitchSlursRatherThanJumping)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptancePitchSlursRatherThanJumping)
 {
     // HOLD freezes the ring so only the clock moves the pitch. See tests/functional/unit/README.md.
     using Converter = SushiDSP::dd3::Dd3Converter;
@@ -347,7 +348,7 @@ TEST(Regression_Dsp, Dd3AcceptancePitchSlursRatherThanJumping)
     EXPECT_GT(periods.back(), 3.5 * periods.front());
 }
 
-TEST(Regression_Dsp, Dd3AcceptanceProducesNoNonFiniteSampleUnderTheStimulusBattery)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceProducesNoNonFiniteSampleUnderTheStimulusBattery)
 {
     // HOLD runs twice: from a cold ring and entered halfway. See tests/functional/unit/README.md.
     struct Case
@@ -397,7 +398,7 @@ TEST(Regression_Dsp, Dd3AcceptanceProducesNoNonFiniteSampleUnderTheStimulusBatte
                 stimulus.size() * 15u, loudest);
 }
 
-TEST(Regression_Dsp, Dd3AcceptanceReportsZeroLatencyAndDelaysOnlyItsWetPath)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceReportsZeroLatencyAndDelaysOnlyItsWetPath)
 {
     // The dry path is sample-aligned; only the wet one delays. See tests/functional/unit/README.md.
     SushiDSP::Dd3Delay node;
@@ -406,7 +407,7 @@ TEST(Regression_Dsp, Dd3AcceptanceReportsZeroLatencyAndDelaysOnlyItsWetPath)
     EXPECT_GT(node.wet_delay_seconds(), 0.0);
 }
 
-TEST(Regression_Dsp, Dd3AcceptanceAliasFloorIsMeasuredNotAssumed)
+SUSHIDSP_REGRESSION_TEST(Regression_Dsp, Dd3AcceptanceAliasFloorIsMeasuredNotAssumed)
 {
     // The sweep runs at the service note's stimulus level. See tests/functional/unit/README.md.
     SushiDSP::Dd3Delay node;
