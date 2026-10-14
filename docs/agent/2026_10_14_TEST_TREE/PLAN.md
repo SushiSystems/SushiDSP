@@ -2,8 +2,7 @@
 
 **Goal:** Build what [`SPEC.md`](SPEC.md) describes.
 
-**State on 2026-10-15.** T0, T1 and T2 are committed by this change set. The checkers pass for each.
-Nothing is built: the owner allows the one Release build at T10 only. T3 to T9 are planned.
+**State on 2026-10-15.** Committed: T0 (include path), T1 (checker), T2 (labels), T3 (suite names), T4 (125 unit moves), T5 (seven internal modules), T7 (regression, fixtures, goldens, benchmark, the remaining moves) and T8 (README split). Left: T6, 104 units without a test, and `test_measure.cpp` waiting for its seven units; then T10, the one Release build, which needs the owner's go-ahead. Nothing is built yet.
 
 ## Constraints
 
