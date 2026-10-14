@@ -67,13 +67,13 @@ without a catalog entry.
 
 The suite runs under `sd test`. It holds twelve golden files: one second of mono float32 per
 node per sample rate, compared against a pinned render, failing when the RMS residual rises above
--80 dB. `tests/golden/README.md` records every time one was regenerated and what changed to
+-80 dB. `modules/foundation/golden_compare/README.md` records every time one was regenerated and what changed to
 justify it, so a model's history reads as a list of deliberate decisions rather than a drifting
 file.
 
 The real-time path carries a harder rule: `AudioNode::process()`, and everything it calls,
 allocates nothing, locks nothing, makes no system call and throws nothing. Thirty-nine tests in
-`tests/functional/unit/test_rt_safety.cpp` enforce the first of those four by replacing
+`tests/foundation/core/test_audio_node/test_rt_safety.cpp` enforce the first of those four by replacing
 `operator new` and failing the test if the audio path reaches it. The other three are held by
 review.
 
