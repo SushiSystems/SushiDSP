@@ -1025,12 +1025,12 @@ prepare() must say so rather than derive nonsense.
 
 ### `File scope`
 
-`// The netlist lives in tests/circuits/jcm_v1a_netlist.hpp.`
+`// The netlist lives in modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp.`
 
 The netlist, its component constants and the triode glue live in
-tests/circuits/jcm_v1a_netlist.hpp: the RT-safety traps and the benchmark build the same block,
+modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp: the RT-safety traps and the benchmark build the same block,
 and one description of it is the only way the three stay the same circuit. The same namespace
-carries tests/circuits/spice_block_compare.hpp's spice_path, band_limit and interpolate_magnitude,
+carries modules/foundation/spice_reference/include/SushiDSP/foundation/spice_reference/spice_block_compare.hpp's spice_path, band_limit and interpolate_magnitude,
 which the Tube Screamer block tests use unchanged.
 
 ### `DkTriodeStageSettlesAtTheHandComputedBiasPoint`
@@ -3442,10 +3442,10 @@ allocates nothing.
 
 ### `File scope`
 
-`// The netlist lives in tests/circuits/jcm_v1a_netlist.hpp.`
+`// The netlist lives in modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp.`
 
 The netlist, its component constants and the triode glue live in
-tests/circuits/jcm_v1a_netlist.hpp, shared with the D6b stage test and the benchmark.
+modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp, shared with the D6b stage test and the benchmark.
 
 ### `DkCircuitPotentiometerUpdatePerformsNoHeapAllocation`
 
@@ -4079,7 +4079,7 @@ an acceptance.
 
 `// The adapter scales by input_scale_volts both ways.`
 
-tests/circuits/dk_block_node.hpp is the adapter every block-level measurement runs through, and
+modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/dk_block_node.hpp is the adapter every block-level measurement runs through, and
 Task 7's product node follows the same rule, so what it owes is exact: the buffer sample times
 input_scale_volts is what the block solves, and the block's answer divided by the same constant
 is what lands in the output buffer. A non-unity scale is used so a dropped multiply on either

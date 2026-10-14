@@ -15,7 +15,7 @@
 add_executable(sushidsp_bench
     main.cpp
 )
-# tests/circuits/ is header-only and test-side only, never linked into a product: the benchmark
+# modules/foundation/circuit_blocks/ is header-only and test-side only, never linked into a product: the benchmark
 # builds the same jcm_v1a block the unit tests do, from the one description of it.
 target_include_directories(sushidsp_bench PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
 target_link_libraries(sushidsp_bench PRIVATE
@@ -28,6 +28,8 @@ target_link_libraries(sushidsp_bench PRIVATE
     SushiDSP::capture
     SushiDSP::dd3
     SushiDSP::room
+    SushiDSP::sushi_dsp_circuit_blocks
+    SushiDSP::room_scenes
 )
 sushidsp_apply_optimization_flags(sushidsp_bench)
 

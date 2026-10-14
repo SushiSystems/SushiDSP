@@ -39,7 +39,7 @@ namespace SushiDSP::measure
     /// @param b Signal under test.
     /// @param max_lag Largest delay searched, in samples; the cost is O(length * max_lag).
     /// @return Residual in dB (negative; -200 when the residual is exactly zero).
-    /// @see tests/measure/README.md, "null_test.hpp", for the lag, gain and overlap rules.
+    /// @see modules/foundation/signal_measure/README.md, "null_test.hpp", for the lag, gain and overlap rules.
     inline double null_test(const std::vector<float>& a, const std::vector<float>& b,
                             std::uint32_t max_lag = 4096)
     {

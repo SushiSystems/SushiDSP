@@ -355,7 +355,7 @@ were not re-checked for this list. The work that closes a row is in
 | §11a says SushiDSP is in hub's catalogue and that `cli/pyproject.toml` does not list sushicore; the manifest says it is not in the catalogue and `pyproject.toml` requires `sushicore>=0.7.0` | `docs/design/SUSHIDSP.md`, `sushi-module.toml`, `cli/pyproject.toml` |
 | Em dashes used as punctuation throughout: 106 lines in the design spec, 45 in the GUI redesign, 35 in the CLI guide | `docs/design/SUSHIDSP.md`, `docs/design/GUI_UX_REDESIGN.md`, `docs/guides/COMMAND_LINE_INTERFACE.md` |
 | The first entry of this page is one paragraph of nested figures | `docs/reference/KNOWN_ISSUES.md`, "Alias floor at 8×" |
-| No README beside the code | `applications/host/`, `applications/host_asio/`, `tests/measure/`, `tests/benchmark/`, each area under `include/SushiDSP/` |
+| No README beside the code | `applications/host/`, `applications/host_asio/`, `modules/foundation/signal_measure/`, `tests/benchmark/`, each area under `include/SushiDSP/` |
 | Two READMEs cite `assets/ir/default_4x12.wav`, which the tree does not hold | `assets/ir/README.md`, `applications/host_gui/README.md` |
 | The admission rule for a bundled impulse response still names the Apache License 2.0 | `assets/ir/README.md` |
 | Two comments and one issue template cite module paths from before the tiers: `modules/session/rig_preset`, `modules/nodes/dd3`, `modules/nodes/mesa_mark2c` | `modules/session/rig_preset/include/SushiDSP/session/rig_preset/rig_preset.hpp` line 22, `tests/foundation/math/test_biquad.cpp` line 290, `.github/ISSUE_TEMPLATE/model_accuracy.yml` line 17 |
@@ -385,5 +385,5 @@ were not re-checked for this list. The work that closes a row is in
 | `nlohmann::json` is part of the preset module's public interface | `modules/session/rig_preset/include/SushiDSP/session/rig_preset/rig_preset.hpp` |
 | The four amplifier modules repeat the same helpers and constants | `modules/nodes/jcm800/source/jcm800.cpp`, `peavey5150.cpp`, `diezel_vh4.cpp`, `mesa_mark2c.cpp` |
 | `Wdf` is built into the library and no production code uses it | `modules/foundation/math/include/SushiDSP/foundation/math/wdf.hpp` |
-| One header lacks `#pragma once` | `tests/common/timing_gate.hpp` |
+| One header lacks `#pragma once` | `modules/foundation/timing_gate/include/SushiDSP/foundation/timing_gate/timing_gate.hpp` |
 | The device backends, the GUI views and the scripts under `tools/dsp/` and `tools/spice/` have no tests | `modules/foundation/device/source/`, `applications/host_gui/ui/`, `tools/` |

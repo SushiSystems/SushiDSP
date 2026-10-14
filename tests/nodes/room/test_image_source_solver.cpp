@@ -35,8 +35,8 @@
 #include <cstdint>
 #include <string>
 
-#include "room_fixtures.hpp"
-#include "timing_gate.hpp"
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
+#include <SushiDSP/foundation/timing_gate/timing_gate.hpp.hpp>
 #include <SushiDSP/nodes/room/band_response_fit.hpp>
 #include <SushiDSP/nodes/room/image_source_solver.hpp>
 #include <SushiDSP/nodes/room/medium_absorption.hpp>

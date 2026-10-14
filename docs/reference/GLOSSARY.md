@@ -33,7 +33,7 @@ first. A module includes its own tier and the ones below it.
 
 ## Models and their evidence
 
-**alias floor**: what `measure::alias_floor()` in `tests/measure/alias_floor.hpp` returns: the
+**alias floor**: what `measure::alias_floor()` in `modules/foundation/signal_measure/include/SushiDSP/foundation/signal_measure/alias_floor.hpp` returns: the
 worst non-harmonic spectral line a node produces across 1 to 20 kHz test tones, in dB relative
 to the fundamental. A harmonic that folds back from above Nyquist counts as one.
 

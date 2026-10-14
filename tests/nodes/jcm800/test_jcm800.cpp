@@ -40,8 +40,8 @@
 
 #include <SushiDSP/foundation/core/calibration.hpp>
 #include <SushiDSP/nodes/jcm800/jcm800.hpp>
-#include "measure/render.hpp"
-#include "measure/thd.hpp"
+#include <SushiDSP/foundation/signal_measure/render.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/thd.hpp.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

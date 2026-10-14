@@ -33,8 +33,8 @@
 #include <vector>
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
-#include "measure/render.hpp"
-#include "measure/spectrum.hpp"
+#include <SushiDSP/foundation/signal_measure/render.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/spectrum.hpp.hpp>
 
 namespace SushiDSP::measure
 {
@@ -42,7 +42,7 @@ namespace SushiDSP::measure
     /// @param node The node under test, knobs already set.
     /// @param amplitude Peak stimulus in full-scale units; -12 dBFS by default.
     /// @return Worst alias level in dB relative to the fundamental (more negative is better).
-    /// @see tests/measure/README.md, "alias_floor.hpp", for the masking rule and the level caveat.
+    /// @see modules/foundation/signal_measure/README.md, "alias_floor.hpp", for the masking rule and the level caveat.
     inline double alias_floor(AudioNode& node, double sample_rate, float amplitude = 0.251189f)
     {
         const std::size_t settle = static_cast<std::size_t>(sample_rate);

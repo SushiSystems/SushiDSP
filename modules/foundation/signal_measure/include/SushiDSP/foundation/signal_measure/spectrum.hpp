@@ -33,7 +33,7 @@
 #include <vector>
 
 #include <SushiDSP/foundation/math/fft.hpp>
-#include "measure/window.hpp"
+#include <SushiDSP/foundation/signal_measure/window.hpp.hpp>
 
 namespace SushiDSP::measure
 {

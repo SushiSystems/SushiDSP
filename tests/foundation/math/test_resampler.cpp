@@ -36,8 +36,8 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/math/resampler.hpp>
-#include "measure/null_test.hpp"
-#include "measure/spectrum.hpp"
+#include <SushiDSP/foundation/signal_measure/null_test.hpp.hpp>
+#include <SushiDSP/foundation/signal_measure/spectrum.hpp.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

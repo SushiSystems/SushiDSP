@@ -17,6 +17,13 @@ set(SUSHIDSP_SAME_TIER_EDGES
     core:io
     device:core
     device:audio_format
+    signal_measure:core
+    signal_measure:math
+    spice_reference:math
+    circuit_blocks:core
+    circuit_blocks:math
+    circuit_blocks:circuits
+    room_scenes:room
 )
 
 # Refuses a same-tier dependency that SUSHIDSP_SAME_TIER_EDGES does not list.

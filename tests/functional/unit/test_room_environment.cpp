@@ -40,8 +40,8 @@
 #include <SushiDSP/nodes/room/room_arrangement.hpp>
 #include <SushiDSP/nodes/room/room_node.hpp>
 
-#include "room_fixtures.hpp"
-#include "room_ports.hpp"
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
+#include <SushiDSP/nodes/room_scenes/room_ports.hpp.hpp>
 
 using SushiDSP::Room::Arrangement;
 using SushiDSP::room::RoomNode;

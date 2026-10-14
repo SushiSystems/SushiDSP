@@ -34,10 +34,10 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "common/regression_test.hpp"
+#include <SushiDSP/foundation/regression_test/regression_test.hpp.hpp>
 
 #include <SushiDSP/nodes/diezel_vh4/diezel_vh4.hpp>
-#include "golden/golden_file.hpp"
+#include <SushiDSP/foundation/golden_compare/golden_file.hpp.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -77,12 +77,12 @@ namespace
 /// @see tests/functional/regression/README.md
 SUSHIDSP_REGRESSION_TEST(Regression_Dsp, DiezelVh4GoldenFile48k)
 {
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("diezel_vh4_48k", render_diezel_vh4(48000.0)),
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "diezel_vh4_48k", render_diezel_vh4(48000.0)),
               -80.0);
 }
 
 SUSHIDSP_REGRESSION_TEST(Regression_Dsp, DiezelVh4GoldenFile96k)
 {
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate("diezel_vh4_96k", render_diezel_vh4(96000.0)),
+    EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "diezel_vh4_96k", render_diezel_vh4(96000.0)),
               -80.0);
 }

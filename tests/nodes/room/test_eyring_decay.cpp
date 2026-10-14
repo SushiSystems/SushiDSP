@@ -31,7 +31,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "room_fixtures.hpp"
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
 #include <SushiDSP/nodes/room/air_absorption.hpp>
 #include <SushiDSP/nodes/room/eyring_decay.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>

@@ -39,7 +39,7 @@
 #include <string>
 #include <vector>
 
-#include "room_fixtures.hpp"
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp.hpp>
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
 #include <SushiDSP/catalog/node_registry/node_registry.hpp>
