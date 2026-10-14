@@ -210,7 +210,7 @@ playback with the switch thrown. The dry leg records the buffer that actually dr
 than the raw device input, which departs from spec §5's letter so that the dry file matches the
 processed file beside it whatever the input source is.
 `RigControllerReampingADryTakeReproducesTheRigsOwnOutput`
-(`tests/functional/unit/test_rig_controller.cpp`) renders a Tube Screamer rig, writes a float WAV,
+(`tests/applications/host_gui/test_rig_controller.cpp`) renders a Tube Screamer rig, writes a float WAV,
 re-amps it through an identical rig in the host's own callback order, and asserts every sample
 within 1e-6. The preset carries the track list and the transport's loop range.
 

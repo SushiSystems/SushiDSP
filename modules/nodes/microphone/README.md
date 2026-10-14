@@ -27,5 +27,5 @@ enumeration, in the order `room::PolarPattern` counts the same four patterns.
 
 ## Tests
 
-`tests/functional/unit/test_microphone_node.cpp`: the pass-through, the inversion, each parameter
+`tests/nodes/microphone/test_microphone_node.cpp`: the pass-through, the inversion, each parameter
 read back, and the port layout.

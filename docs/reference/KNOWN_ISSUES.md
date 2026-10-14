@@ -66,7 +66,7 @@ part: V2A's plate drives
 V2B's grid window about twenty-one times past it, and the node limits at every input level with
 no clean end on the knob. Three tests are skipped, not weakened: `MesaMark2cHasACleanEndAtMinimumGain`,
 `MesaMark2cToneStackSitsBeforeTheLeadStages` and `MesaMark2cEqBandBoostsItsCentre`
-(`tests/functional/unit/test_mesa_mark2c.cpp`), each printing what it measures today against
+(`tests/nodes/mesa_mark2c/test_mesa_mark2c.cpp`), each printing what it measures today against
 what it will re-assert. Closes when the send/return network is read off the schematic, dossier
 open questions 19 and 20.
 
@@ -104,7 +104,7 @@ so the rig is never wider than the device and the sum-and-halve branch of
 `ChannelSelection` carries the whole `RigGraph::channels_adapt` table rather than the part one
 caller happens to reach, and
 `WriteRigOutputSumsAndHalvesTwoRigChannelsIntoAMonoDevice`
-(`tests/functional/unit/test_channel_selection.cpp`) is the only thing that exercises it. It stops
+(`tests/foundation/audio_format/test_channel_selection.cpp`) is the only thing that exercises it. It stops
 being dead the first time a rig's width is set by something other than the device, a fixed stereo
 rig, or a preset that pins the width.
 
@@ -358,7 +358,7 @@ were not re-checked for this list. The work that closes a row is in
 | No README beside the code | `applications/host/`, `applications/host_asio/`, `tests/measure/`, `tests/benchmark/`, each area under `include/SushiDSP/` |
 | Two READMEs cite `assets/ir/default_4x12.wav`, which the tree does not hold | `assets/ir/README.md`, `applications/host_gui/README.md` |
 | The admission rule for a bundled impulse response still names the Apache License 2.0 | `assets/ir/README.md` |
-| Two comments and one issue template cite module paths from before the tiers: `modules/session/rig_preset`, `modules/nodes/dd3`, `modules/nodes/mesa_mark2c` | `modules/session/rig_preset/include/SushiDSP/session/rig_preset/rig_preset.hpp` line 22, `tests/functional/unit/test_biquad.cpp` line 290, `.github/ISSUE_TEMPLATE/model_accuracy.yml` line 17 |
+| Two comments and one issue template cite module paths from before the tiers: `modules/session/rig_preset`, `modules/nodes/dd3`, `modules/nodes/mesa_mark2c` | `modules/session/rig_preset/include/SushiDSP/session/rig_preset/rig_preset.hpp` line 22, `tests/foundation/math/test_biquad.cpp` line 290, `.github/ISSUE_TEMPLATE/model_accuracy.yml` line 17 |
 | The front door's count of 1007 tests could not be reproduced without a build and was removed on 2026-10-05; no document states the count | `README.md` |
 
 ### Layout

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - 2026-10-15 — layering: Moved every module header under its tier, so each include of one changes to `<SushiDSP/<tier>/<module>/...>` (`check_layering.py`).
+- 2026-10-15 — tests: Moved 125 unit test files to the mirror of their header, `tests/<tier>/<module>/` and `tests/applications/<app>/` (`tests/CMakeLists.txt`).
 - 2026-10-15 — tests: Labelled each test by the macro it is written with, `SUSHIDSP_REGRESSION_TEST` or `TEST`, in place of the name prefix (`tests/CMakeLists.txt`, `regression_test.hpp`).
 - 2026-10-13 — host: Made the top bar save and load the selected track's rig as a preset, and moved the project's New, Open and Save and the export to the mini-DAW (`top_bar.cpp`, `arrangement_view.cpp`, `session_file.cpp`).
 - 2026-10-13 — host: Removed the track file and its popup; `track_to_json` and `track_from_json` are gone (`session_file.hpp`).
