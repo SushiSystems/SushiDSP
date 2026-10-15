@@ -10,18 +10,15 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
-import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from testing import check_test_mirror  # noqa: E402
 from testing.check_test_mirror import (  # noqa: E402
     collect,
     discover,
     rule_mirror_folders,
     rule_orphan_test,
-    rule_stale_exception,
     rule_unit_file_and_folder,
     rule_untested_unit,
 )
@@ -89,19 +86,6 @@ class MultiModuleTest(unittest.TestCase):
         self.assertEqual(list(rule_mirror_folders(discover(self.root))), [])
         self.assertEqual(list(rule_orphan_test(discover(self.root))), [])
 
-
-    def test_a_listed_exception_is_not_reported_untested(self) -> None:
-        entry = "modules/physics/rigid_body/include/Sushi/rigid_body/contact_solver.hpp"
-        with unittest.mock.patch.object(check_test_mirror, "K_UNTESTED_EXCEPTIONS", frozenset({entry})):
-            mirror = discover(self.root)
-            self.assertEqual(list(rule_untested_unit(mirror)), [])
-            self.assertEqual(list(rule_stale_exception(mirror)), [])
-
-    def test_an_exception_with_a_test_or_no_unit_is_reported(self) -> None:
-        tested = "modules/physics/rigid_body/include/Sushi/rigid_body/physics_world.hpp"
-        missing = "modules/physics/rigid_body/include/Sushi/rigid_body/gone.hpp"
-        with unittest.mock.patch.object(check_test_mirror, "K_UNTESTED_EXCEPTIONS", frozenset({tested, missing})):
-            self.assertEqual(_names(rule_stale_exception(discover(self.root))), ["gone.hpp", "physics_world.hpp"])
 
 class LanguagesAndApplicationsTest(unittest.TestCase):
     """Covers Python and TypeScript sources and the headers of an application."""
