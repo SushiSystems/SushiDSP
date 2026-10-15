@@ -29,7 +29,7 @@
 
 #include "rig_topology.hpp"
 
-TEST(RigTopology, RigTopologySinglePathEdgesJoinNeighboursInOrder)
+TEST(Small_RigTopology, RigTopologySinglePathEdgesJoinNeighboursInOrder)
 {
     RigTopology topology = RigTopology::from_linear_order({4, 7, 9});
     const auto edges = topology.edges(std::nullopt, std::nullopt);
@@ -38,7 +38,7 @@ TEST(RigTopology, RigTopologySinglePathEdgesJoinNeighboursInOrder)
     EXPECT_EQ(edges[1], std::make_pair(RigTopology::SlotId{7}, RigTopology::SlotId{9}));
 }
 
-TEST(RigTopology, RigTopologyMainPathSurvivesEverySwitch)
+TEST(Small_RigTopology, RigTopologyMainPathSurvivesEverySwitch)
 {
     RigTopology topology = RigTopology::from_linear_order({1, 2});
     const std::vector<RigTopology::SlotId> main_path{1, 2};
@@ -51,7 +51,7 @@ TEST(RigTopology, RigTopologyMainPathSurvivesEverySwitch)
     }
 }
 
-TEST(RigTopology, RigTopologyOpeningAPathReportsItForTheCallerToFill)
+TEST(Small_RigTopology, RigTopologyOpeningAPathReportsItForTheCallerToFill)
 {
     RigTopology topology = RigTopology::from_linear_order({1});
 
@@ -66,7 +66,7 @@ TEST(RigTopology, RigTopologyOpeningAPathReportsItForTheCallerToFill)
     EXPECT_EQ(to_three.opened, (std::vector<std::size_t>{2}));
 }
 
-TEST(RigTopology, RigTopologyClosingAPathDiscardsOnlyItsOwnSlots)
+TEST(Small_RigTopology, RigTopologyClosingAPathDiscardsOnlyItsOwnSlots)
 {
     RigTopology topology = RigTopology::from_linear_order({10});
     topology.set_chain_type(ChainType::ThreeWay);
@@ -83,7 +83,7 @@ TEST(RigTopology, RigTopologyClosingAPathDiscardsOnlyItsOwnSlots)
     EXPECT_TRUE(topology.is_visible({StageKind::Post}));
 }
 
-TEST(RigTopology, RigTopologySplitEdgesRouteThroughSplitterAndMixer)
+TEST(Small_RigTopology, RigTopologySplitEdgesRouteThroughSplitterAndMixer)
 {
     RigTopology topology;
     topology.set_chain_type(ChainType::TwoWay);
@@ -94,7 +94,7 @@ TEST(RigTopology, RigTopologySplitEdgesRouteThroughSplitterAndMixer)
     EXPECT_EQ(topology.edges(100, 101), expected);
 }
 
-TEST(RigTopology, RigTopologySinglePathIsTheWholeChain)
+TEST(Small_RigTopology, RigTopologySinglePathIsTheWholeChain)
 {
     RigTopology topology = RigTopology::from_linear_order({1, 2});
 
@@ -107,7 +107,7 @@ TEST(RigTopology, RigTopologySinglePathIsTheWholeChain)
     EXPECT_EQ(topology.edges(std::nullopt, std::nullopt), expected);
 }
 
-TEST(RigTopology, RigTopologyInsertIntoAPathThatIsNotOpenIsRefused)
+TEST(Small_RigTopology, RigTopologyInsertIntoAPathThatIsNotOpenIsRefused)
 {
     RigTopology topology;
     EXPECT_TRUE(topology.is_visible({StageKind::Branch, 0}));
@@ -118,7 +118,7 @@ TEST(RigTopology, RigTopologyInsertIntoAPathThatIsNotOpenIsRefused)
     EXPECT_FALSE(topology.insert({StageKind::Branch, 2}, 0, 1));
 }
 
-TEST(RigTopology, RigTopologyTheMasterBusOpensWithTheSecondPath)
+TEST(Small_RigTopology, RigTopologyTheMasterBusOpensWithTheSecondPath)
 {
     RigTopology topology;
     EXPECT_FALSE(topology.is_visible({StageKind::Post}));
@@ -133,14 +133,14 @@ TEST(RigTopology, RigTopologyTheMasterBusOpensWithTheSecondPath)
     EXPECT_FALSE(topology.is_visible({StageKind::Post}));
 }
 
-TEST(RigTopology, RigTopologyMoveWithinAStageAdjustsTheIndexAfterRemoval)
+TEST(Small_RigTopology, RigTopologyMoveWithinAStageAdjustsTheIndexAfterRemoval)
 {
     RigTopology topology = RigTopology::from_linear_order({1, 2, 3});
     EXPECT_TRUE(topology.move(1, {StageKind::Branch, 0}, 2));
     EXPECT_EQ(topology.stage({StageKind::Branch, 0}), (std::vector<RigTopology::SlotId>{2, 3, 1}));
 }
 
-TEST(RigTopology, RigTopologyMoveAcrossBranchesKeepsTheSlot)
+TEST(Small_RigTopology, RigTopologyMoveAcrossBranchesKeepsTheSlot)
 {
     RigTopology topology;
     topology.set_chain_type(ChainType::TwoWay);
@@ -154,7 +154,7 @@ TEST(RigTopology, RigTopologyMoveAcrossBranchesKeepsTheSlot)
     EXPECT_EQ(address->branch, 1u);
 }
 
-TEST(RigTopology, RigTopologyRemoveFindsTheSlotInAnyVisibleStage)
+TEST(Small_RigTopology, RigTopologyRemoveFindsTheSlotInAnyVisibleStage)
 {
     RigTopology topology;
     topology.set_chain_type(ChainType::TwoWay);
@@ -171,7 +171,7 @@ TEST(RigTopology, RigTopologyRemoveFindsTheSlotInAnyVisibleStage)
     EXPECT_FALSE(topology.remove(99));
 }
 
-TEST(RigTopology, RigTopologyTwoEmptyBranchesYieldOneSplitterToMixerEdge)
+TEST(Small_RigTopology, RigTopologyTwoEmptyBranchesYieldOneSplitterToMixerEdge)
 {
     RigTopology topology;
     topology.set_chain_type(ChainType::TwoWay);
@@ -180,7 +180,7 @@ TEST(RigTopology, RigTopologyTwoEmptyBranchesYieldOneSplitterToMixerEdge)
     EXPECT_EQ(edges[0], std::make_pair(RigTopology::SlotId{100}, RigTopology::SlotId{101}));
 }
 
-TEST(RigTopology, RigTopologyReplaceRenamesASlotInPlace)
+TEST(Small_RigTopology, RigTopologyReplaceRenamesASlotInPlace)
 {
     RigTopology topology;
     topology.set_chain_type(ChainType::TwoWay);
@@ -191,7 +191,7 @@ TEST(RigTopology, RigTopologyReplaceRenamesASlotInPlace)
     EXPECT_FALSE(topology.replace(5, 66));
 }
 
-TEST(RigTopology, ParallelChainJoinsEachPathThroughItsStripAndTheBus)
+TEST(Small_RigTopology, ParallelChainJoinsEachPathThroughItsStripAndTheBus)
 {
     RigTopology topology;
     topology.set_chain_type(ChainType::Parallel);
@@ -205,7 +205,7 @@ TEST(RigTopology, ParallelChainJoinsEachPathThroughItsStripAndTheBus)
     EXPECT_EQ(edges, expected);
 }
 
-TEST(RigTopology, ParallelChainHasTwoPaths)
+TEST(Small_RigTopology, ParallelChainHasTwoPaths)
 {
     EXPECT_EQ(RigTopology::branch_count(ChainType::Parallel), 2u);
 }

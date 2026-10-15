@@ -120,7 +120,7 @@ namespace
     };
 } // namespace
 
-TEST(RigGraph, ProcessPerformsNoHeapAllocationAcrossManyBlocks)
+TEST(Small_RigGraph, ProcessPerformsNoHeapAllocationAcrossManyBlocks)
 {
     SushiDSP::RigGraph graph(256, 4);
     graph.add_node(std::make_unique<SumNode>());
@@ -151,7 +151,7 @@ TEST(RigGraph, ProcessPerformsNoHeapAllocationAcrossManyBlocks)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(RigGraph, StereoProcessPerformsNoHeapAllocation)
+TEST(Small_RigGraph, StereoProcessPerformsNoHeapAllocation)
 {
     // The graph covers every path of the edge adaptation. See tests/foundation/core/test_rig_graph/README.md.
     SushiDSP::RigGraph graph(256, 4);

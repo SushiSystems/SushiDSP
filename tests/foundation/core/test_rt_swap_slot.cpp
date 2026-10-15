@@ -67,14 +67,14 @@ namespace
     std::atomic<int> Counted::live_count{0};
 } // namespace
 
-TEST(RtSwapSlot, RtSwapSlotStartsWithNoActiveObject)
+TEST(Medium_RtSwapSlot, RtSwapSlotStartsWithNoActiveObject)
 {
     SushiDSP::RtSwapSlot<int> slot;
     EXPECT_EQ(slot.acquire_for_audio_thread(), nullptr);
     EXPECT_FALSE(slot.has_active());
 }
 
-TEST(RtSwapSlot, RtSwapSlotPublishMakesObjectActive)
+TEST(Medium_RtSwapSlot, RtSwapSlotPublishMakesObjectActive)
 {
     SushiDSP::RtSwapSlot<int> slot;
     auto object = std::make_unique<int>(42);
@@ -87,7 +87,7 @@ TEST(RtSwapSlot, RtSwapSlotPublishMakesObjectActive)
     EXPECT_EQ(*slot.acquire_for_audio_thread(), 42);
 }
 
-TEST(RtSwapSlot, RtSwapSlotReclaimFreesOldObjectAfterAudioThreadMovesOn)
+TEST(Medium_RtSwapSlot, RtSwapSlotReclaimFreesOldObjectAfterAudioThreadMovesOn)
 {
     SushiDSP::RtSwapSlot<int> slot;
     slot.publish(std::make_unique<int>(1));
@@ -103,7 +103,7 @@ TEST(RtSwapSlot, RtSwapSlotReclaimFreesOldObjectAfterAudioThreadMovesOn)
     EXPECT_EQ(slot.acquire_for_audio_thread(), second_raw);
 }
 
-TEST(RtSwapSlot, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMovedPast)
+TEST(Medium_RtSwapSlot, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMovedPast)
 {
     Counted::live_count.store(0, std::memory_order_relaxed);
 
@@ -133,7 +133,7 @@ TEST(RtSwapSlot, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMo
     EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
 }
 
-TEST(RtSwapSlot, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
+TEST(Medium_RtSwapSlot, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
 {
     Counted::live_count.store(0, std::memory_order_relaxed);
 
@@ -168,7 +168,7 @@ TEST(RtSwapSlot, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
     EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
 }
 
-TEST(RtSwapSlot, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
+TEST(Medium_RtSwapSlot, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
 {
     // Reading the active object must not move the watermark. See tests/foundation/core/README.md.
     Counted::live_count.store(0, std::memory_order_relaxed);
@@ -202,7 +202,7 @@ TEST(RtSwapSlot, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWaterma
     EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
 }
 
-TEST(RtSwapSlot, AcquireForAudioThreadPerformsNoHeapAllocation)
+TEST(Medium_RtSwapSlot, AcquireForAudioThreadPerformsNoHeapAllocation)
 {
     SushiDSP::RtSwapSlot<int> slot;
     slot.publish(std::make_unique<int>(3));

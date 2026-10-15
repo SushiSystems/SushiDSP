@@ -50,7 +50,7 @@ namespace
     }
 } // namespace
 
-TEST(SceneCamera, SceneCameraProjectsTheTargetToTheCentreOfTheViewport)
+TEST(Small_SceneCamera, SceneCameraProjectsTheTargetToTheCentreOfTheViewport)
 {
     const ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.5);
 
@@ -62,7 +62,7 @@ TEST(SceneCamera, SceneCameraProjectsTheTargetToTheCentreOfTheViewport)
     EXPECT_NEAR(centre.depth, 2.0, 1e-9);
 }
 
-TEST(SceneCamera, SceneCameraProjectsAgainstHandComputedCoordinates)
+TEST(Small_SceneCamera, SceneCameraProjectsAgainstHandComputedCoordinates)
 {
     // From azimuth -pi/2 the right axis is +x: 1 m right at 2 m depth is 100 px / 2 = 50 px.
     const ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.1);
@@ -82,7 +82,7 @@ TEST(SceneCamera, SceneCameraProjectsAgainstHandComputedCoordinates)
     EXPECT_NEAR(above.screen.y, 50.0f, 1e-3f);
 }
 
-TEST(SceneCamera, SceneCameraHidesAPointBehindIt)
+TEST(Small_SceneCamera, SceneCameraHidesAPointBehindIt)
 {
     const ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.1);
 
@@ -90,7 +90,7 @@ TEST(SceneCamera, SceneCameraHidesAPointBehindIt)
     EXPECT_FALSE(camera.project(ui::Point3{0.0, -10.0, 0.0}).visible);
 }
 
-TEST(SceneCamera, SceneCameraFindsTheFloorPointUnderTheCentre)
+TEST(Small_SceneCamera, SceneCameraFindsTheFloorPointUnderTheCentre)
 {
     const ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.25 * K_PI);
 
@@ -102,7 +102,7 @@ TEST(SceneCamera, SceneCameraFindsTheFloorPointUnderTheCentre)
     EXPECT_EQ(floor.z, 0.0);
 }
 
-TEST(SceneCamera, SceneCameraUnprojectsWhatItProjects)
+TEST(Small_SceneCamera, SceneCameraUnprojectsWhatItProjects)
 {
     const ui::SceneCamera camera = square_camera(-1.1, 0.6);
     const ui::Point3 point{0.7, -0.4, 0.9};
@@ -116,7 +116,7 @@ TEST(SceneCamera, SceneCameraUnprojectsWhatItProjects)
     EXPECT_NEAR(back.y, point.y, 1e-4);
 }
 
-TEST(SceneCamera, SceneCameraRefusesAPlaneTheRayRunsAwayFrom)
+TEST(Small_SceneCamera, SceneCameraRefusesAPlaneTheRayRunsAwayFrom)
 {
     const ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.25 * K_PI);
 
@@ -125,7 +125,7 @@ TEST(SceneCamera, SceneCameraRefusesAPlaneTheRayRunsAwayFrom)
     EXPECT_FALSE(camera.unproject_onto_plane(ui::Vec2{100.0f, 100.0f}, 50.0, unused));
 }
 
-TEST(SceneCamera, SceneCameraClampsItsElevationAndItsDistance)
+TEST(Small_SceneCamera, SceneCameraClampsItsElevationAndItsDistance)
 {
     ui::SceneCamera camera = square_camera(0.0, 0.5);
 
@@ -142,7 +142,7 @@ TEST(SceneCamera, SceneCameraClampsItsElevationAndItsDistance)
     EXPECT_NEAR(centre.screen.y, 100.0f, 1e-3f);
 }
 
-TEST(SceneCamera, SceneCameraScalesPixelsToMetresByDepth)
+TEST(Small_SceneCamera, SceneCameraScalesPixelsToMetresByDepth)
 {
     const ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.1);
 
@@ -150,7 +150,7 @@ TEST(SceneCamera, SceneCameraScalesPixelsToMetresByDepth)
     EXPECT_NEAR(camera.metres_per_pixel(ui::Point3{0.0, 0.0, 0.0}), 0.02, 1e-9);
 }
 
-TEST(SceneCamera, SceneInteractionPicksTheMarkerUnderThePointer)
+TEST(Small_SceneCamera, SceneInteractionPicksTheMarkerUnderThePointer)
 {
     const ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.1);
     std::vector<ui::SceneItem> items(2);
@@ -162,7 +162,7 @@ TEST(SceneCamera, SceneInteractionPicksTheMarkerUnderThePointer)
     EXPECT_FALSE(ui::pick_item(camera, items, ui::Vec2{125.0f, 100.0f}, 10.0f).has_value());
 }
 
-TEST(SceneCamera, SceneInteractionPicksTheNearerOfTwoMarkersOnOnePixel)
+TEST(Small_SceneCamera, SceneInteractionPicksTheNearerOfTwoMarkersOnOnePixel)
 {
     const ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.1);
     // Both lie on the view axis, so both land on the centre; the second is 1 m nearer.
@@ -173,7 +173,7 @@ TEST(SceneCamera, SceneInteractionPicksTheNearerOfTwoMarkersOnOnePixel)
     EXPECT_EQ(ui::pick_item(camera, items, ui::Vec2{100.0f, 100.0f}, 10.0f), 1u);
 }
 
-TEST(SceneCamera, SceneInteractionDragsAcrossTheRoomAtTheItemsHeightAndStaysInside)
+TEST(Small_SceneCamera, SceneInteractionDragsAcrossTheRoomAtTheItemsHeightAndStaysInside)
 {
     ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.25 * K_PI);
     camera.look_at(ui::Point3{3.0, 2.0, 0.0}, 6.0);
@@ -197,7 +197,7 @@ TEST(SceneCamera, SceneInteractionDragsAcrossTheRoomAtTheItemsHeightAndStaysInsi
     EXPECT_NEAR(kept.y, ui::K_SCENE_WALL_MARGIN, 1e-9);
 }
 
-TEST(SceneCamera, SceneInteractionRaisesAnItemByAnUpwardDragAndStopsAtTheCeiling)
+TEST(Small_SceneCamera, SceneInteractionRaisesAnItemByAnUpwardDragAndStopsAtTheCeiling)
 {
     const ui::SceneCamera camera = square_camera(-0.5 * K_PI, 0.1);
     const ui::Point3 dimensions{6.0, 4.0, 2.5};
@@ -214,7 +214,7 @@ TEST(SceneCamera, SceneInteractionRaisesAnItemByAnUpwardDragAndStopsAtTheCeiling
     EXPECT_NEAR(stopped.z, 2.5 - ui::K_SCENE_WALL_MARGIN, 1e-9);
 }
 
-TEST(SceneCamera, SceneInteractionTurnsAnItemAndWrapsItsYaw)
+TEST(Small_SceneCamera, SceneInteractionTurnsAnItemAndWrapsItsYaw)
 {
     ui::SceneItem item;
     item.yaw_rad = 0.0;

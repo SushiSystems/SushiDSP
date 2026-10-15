@@ -29,31 +29,31 @@
 
 #include "ui/divider_math.hpp"
 
-TEST(DividerMath, DividerMathDragGrowsWithinLimits)
+TEST(Small_DividerMath, DividerMathDragGrowsWithinLimits)
 {
     const float size = ui::drag_pane_size(100.0f, 20.0f, 400.0f, {80.0f, 80.0f});
     EXPECT_FLOAT_EQ(size, 120.0f);
 }
 
-TEST(DividerMath, DividerMathDragStopsAtTheOtherPanesMinimum)
+TEST(Small_DividerMath, DividerMathDragStopsAtTheOtherPanesMinimum)
 {
     const float size = ui::drag_pane_size(300.0f, 100.0f, 400.0f, {80.0f, 80.0f});
     EXPECT_FLOAT_EQ(size, 320.0f);
 }
 
-TEST(DividerMath, DividerMathDragStopsAtItsOwnMinimum)
+TEST(Small_DividerMath, DividerMathDragStopsAtItsOwnMinimum)
 {
     const float size = ui::drag_pane_size(100.0f, -200.0f, 400.0f, {80.0f, 80.0f});
     EXPECT_FLOAT_EQ(size, 80.0f);
 }
 
-TEST(DividerMath, DividerMathFitShrinksWithTheWindow)
+TEST(Small_DividerMath, DividerMathFitShrinksWithTheWindow)
 {
     const float size = ui::fit_pane_size(300.0f, 350.0f, {80.0f, 80.0f});
     EXPECT_FLOAT_EQ(size, 270.0f);
 }
 
-TEST(DividerMath, DividerMathTooSmallWindowKeepsTheMinimum)
+TEST(Small_DividerMath, DividerMathTooSmallWindowKeepsTheMinimum)
 {
     const float size = ui::fit_pane_size(300.0f, 100.0f, {80.0f, 80.0f});
     EXPECT_FLOAT_EQ(size, 80.0f);

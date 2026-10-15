@@ -31,7 +31,7 @@
 
 #include <cmath>
 
-TEST(CascadeFilter, SilenceStaysFinite)
+TEST(Small_CascadeFilter, SilenceStaysFinite)
 {
     SushiDSP::Room::CascadeFilter filter;
     for (int i = 0; i < 32; ++i)

@@ -31,7 +31,7 @@
 
 #include <array>
 
-TEST(FrameDelay, DelaysAnImpulseByItsFrameCount)
+TEST(Small_FrameDelay, DelaysAnImpulseByItsFrameCount)
 {
     SushiDSP::room::FrameDelay delay;
     delay.prepare(3u, 8u);
@@ -45,7 +45,7 @@ TEST(FrameDelay, DelaysAnImpulseByItsFrameCount)
     EXPECT_FLOAT_EQ(output[3], 1.0f);
 }
 
-TEST(FrameDelay, ResetForgetsThePreviousBlock)
+TEST(Small_FrameDelay, ResetForgetsThePreviousBlock)
 {
     SushiDSP::room::FrameDelay delay;
     delay.prepare(3u, 8u);

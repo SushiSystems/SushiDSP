@@ -31,7 +31,7 @@
 
 #include <array>
 
-TEST(LinearPort, CurrentsAndJacobianAcceptNoBranches)
+TEST(Small_LinearPort, CurrentsAndJacobianAcceptNoBranches)
 {
     const SushiDSP::dk::LinearPort port;
     const std::array<double, 0> voltages{};

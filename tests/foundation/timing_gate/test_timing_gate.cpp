@@ -29,7 +29,7 @@
 
 #include <SushiDSP/foundation/timing_gate/timing_gate.hpp>
 
-TEST(TimingGate, ReportsOptimisationFromNdebug)
+TEST(Small_TimingGate, ReportsOptimisationFromNdebug)
 {
 #ifdef NDEBUG
     EXPECT_TRUE(SushiDSP::test::is_optimised_build());

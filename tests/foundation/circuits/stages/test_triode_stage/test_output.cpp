@@ -109,7 +109,7 @@ namespace
     };
 } // namespace
 
-SUSHIDSP_REGRESSION_TEST(TriodeStage, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
+SUSHIDSP_REGRESSION_TEST(Small_TriodeStage, TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow)
 {
     // V5A alone folds under -60 dB at 6 V and -40 dB at 24 V. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     auto v5a = []

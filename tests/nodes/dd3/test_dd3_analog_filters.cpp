@@ -121,7 +121,7 @@ namespace
     }
 } // namespace
 
-TEST(Dd3AnalogFilters, Dd3SectionConstantsMatchTheComponentValues)
+TEST(Small_Dd3AnalogFilters, Dd3SectionConstantsMatchTheComponentValues)
 {
     // f0 = 1/(2*pi*R*sqrt(C1*C2)) and Q = 0.5*sqrt(C1/C2). See tests/nodes/dd3/README.md.
     struct Section
@@ -159,7 +159,7 @@ TEST(Dd3AnalogFilters, Dd3SectionConstantsMatchTheComponentValues)
                 1e-15);
 }
 
-TEST(Dd3AnalogFilters, Dd3EmitterFollowerDampingLowersEveryQ)
+TEST(Small_Dd3AnalogFilters, Dd3EmitterFollowerDampingLowersEveryQ)
 {
     // Q = 1/(1/q + 2*(1-K)*q) for a buffer of gain K. See tests/nodes/dd3/README.md.
     const double damped_anti_alias[3] = {0.6347216596, 1.4333063892, 1.5876726071};
@@ -182,7 +182,7 @@ TEST(Dd3AnalogFilters, Dd3EmitterFollowerDampingLowersEveryQ)
                      1.0 / (1.0 + 2.0 * (1.0 - SushiDSP::dd3::K_EMITTER_FOLLOWER_GAIN)));
 }
 
-TEST(Dd3AnalogFilters, Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAlike)
+TEST(Small_Dd3AnalogFilters, Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAlike)
 {
     // One prewarp reference serves the whole cascade. See tests/nodes/dd3/README.md.
     for (const double sample_rate : {48000.0, 96000.0, 192000.0})
@@ -204,7 +204,7 @@ TEST(Dd3AnalogFilters, Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAli
     }
 }
 
-TEST(Dd3AnalogFilters, Dd3AntiAliasCascadeMatchesItsDampedPrototype)
+TEST(Small_Dd3AnalogFilters, Dd3AntiAliasCascadeMatchesItsDampedPrototype)
 {
     // The prewarp holds the passband within 0.4 %. See tests/nodes/dd3/README.md.
     for (const double sample_rate : {48000.0, 96000.0, 192000.0})
@@ -230,7 +230,7 @@ TEST(Dd3AnalogFilters, Dd3AntiAliasCascadeMatchesItsDampedPrototype)
     EXPECT_NEAR(anti_alias_prototype(7000.0), 0.871989, 1e-5);
 }
 
-TEST(Dd3AnalogFilters, Dd3ReconstructionCascadeMatchesItsDampedPrototype)
+TEST(Small_Dd3AnalogFilters, Dd3ReconstructionCascadeMatchesItsDampedPrototype)
 {
     for (const double sample_rate : {48000.0, 96000.0, 192000.0})
     {
@@ -255,7 +255,7 @@ TEST(Dd3AnalogFilters, Dd3ReconstructionCascadeMatchesItsDampedPrototype)
     EXPECT_NEAR(reconstruction_prototype(7000.0), 1.010033, 1e-5);
 }
 
-TEST(Dd3AnalogFilters, Dd3DelayPathMeetsThePublishedResponseWindow)
+TEST(Small_Dd3AnalogFilters, Dd3DelayPathMeetsThePublishedResponseWindow)
 {
     // The window is +1/-3 dB of 1 kHz from 40 Hz to 7 kHz. See tests/nodes/dd3/README.md.
     for (const double sample_rate : {48000.0, 96000.0})
@@ -314,7 +314,7 @@ TEST(Dd3AnalogFilters, Dd3DelayPathMeetsThePublishedResponseWindow)
     }
 }
 
-TEST(Dd3AnalogFilters, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
+TEST(Small_Dd3AnalogFilters, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
 {
     // 20 kHz is further down at 48 kHz than at 96 kHz. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Dd3AntiAliasFilter filter;
@@ -339,7 +339,7 @@ TEST(Dd3AnalogFilters, Dd3AntiAliasCascadeRejectsAboveTheBandEdge)
     EXPECT_LT(run(20000.0, 96000.0), 2e-3);
 }
 
-TEST(Dd3AnalogFilters, Dd3EmphasisPairIsTheIdentity)
+TEST(Small_Dd3AnalogFilters, Dd3EmphasisPairIsTheIdentity)
 {
     // The pair is unity by construction: 33/47 * 47/33 = 1. See tests/nodes/dd3/README.md.
     for (const double sample_rate : {48000.0, 96000.0})
@@ -366,7 +366,7 @@ TEST(Dd3AnalogFilters, Dd3EmphasisPairIsTheIdentity)
     }
 }
 
-TEST(Dd3AnalogFilters, Dd3PreEmphasisHitsItsThreeDerivedGains)
+TEST(Small_Dd3AnalogFilters, Dd3PreEmphasisHitsItsThreeDerivedGains)
 {
     // The probe stays at fs/16; fs/4 hides both errors. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Dd3PreEmphasis pre;
@@ -389,7 +389,7 @@ TEST(Dd3AnalogFilters, Dd3PreEmphasisHitsItsThreeDerivedGains)
     EXPECT_NEAR(SushiDSP::dd3::K_PRE_EMPHASIS_LOW_GAIN * 5.7, 4.0021277, 1e-6);
 }
 
-TEST(Dd3AnalogFilters, Dd3DeEmphasisIsTheReciprocalOfThePreEmphasis)
+TEST(Small_Dd3AnalogFilters, Dd3DeEmphasisIsTheReciprocalOfThePreEmphasis)
 {
     // The tolerance is the bilinear warp, not the estimator. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Dd3DeEmphasis de;
@@ -407,7 +407,7 @@ TEST(Dd3AnalogFilters, Dd3DeEmphasisIsTheReciprocalOfThePreEmphasis)
     }
 }
 
-TEST(Dd3AnalogFilters, Dd3FiltersResetClearsEverySection)
+TEST(Small_Dd3AnalogFilters, Dd3FiltersResetClearsEverySection)
 {
     SushiDSP::dd3::Dd3AntiAliasFilter anti_alias;
     SushiDSP::dd3::Dd3ReconstructionFilter reconstruction;

@@ -29,7 +29,7 @@
 
 #include <SushiDSP/foundation/benchmark_harness/benchmark_harness.hpp>
 
-TEST(BenchmarkHarness, BenchmarkHarnessRunsTheBodyForEveryWarmupAndTimedRepetition)
+TEST(Small_BenchmarkHarness, BenchmarkHarnessRunsTheBodyForEveryWarmupAndTimedRepetition)
 {
     int calls = 0;
     const SushiDSP::bench::Result result =
@@ -38,7 +38,7 @@ TEST(BenchmarkHarness, BenchmarkHarnessRunsTheBodyForEveryWarmupAndTimedRepetiti
     EXPECT_STREQ(result.name, "count");
 }
 
-TEST(BenchmarkHarness, BenchmarkHarnessCostsTheResultAgainstOneSamplePeriod)
+TEST(Small_BenchmarkHarness, BenchmarkHarnessCostsTheResultAgainstOneSamplePeriod)
 {
     const SushiDSP::bench::Result result{"fixed", 2083.333333, 0.0};
     // 2083.33 ns per sample over a 256-frame block is 0.5333 ms.

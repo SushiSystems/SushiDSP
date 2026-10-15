@@ -119,7 +119,7 @@ namespace
     }
 } // namespace
 
-TEST(CrossoverPair, CrossoverPairSumsToUnityPowerEverywhere)
+TEST(Small_CrossoverPair, CrossoverPairSumsToUnityPowerEverywhere)
 {
     // The pair's powers sum to one at every frequency. See tests/nodes/room/README.md.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
@@ -137,7 +137,7 @@ TEST(CrossoverPair, CrossoverPairSumsToUnityPowerEverywhere)
     }
 }
 
-TEST(CrossoverPair, CrossoverPairIsMinusThreeDecibelsPerHalfAtTheCrossover)
+TEST(Small_CrossoverPair, CrossoverPairIsMinusThreeDecibelsPerHalfAtTheCrossover)
 {
     // Each half is a fourth-order Butterworth, at half power at its corner: -3.01 dB.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
@@ -145,14 +145,14 @@ TEST(CrossoverPair, CrossoverPairIsMinusThreeDecibelsPerHalfAtTheCrossover)
     EXPECT_NEAR(magnitude_db_at(responses.high, K_CROSSOVER_HZ), -3.01, 0.05);
 }
 
-TEST(CrossoverPair, CrossoverPairAmplitudeSumPeaksThreeDecibelsAtTheCrossover)
+TEST(Small_CrossoverPair, CrossoverPairAmplitudeSumPeaksThreeDecibelsAtTheCrossover)
 {
     // The amplitude sum reads +3.01 dB at the corner. See tests/nodes/room/README.md.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
     EXPECT_NEAR(magnitude_db_at(responses.sum, K_CROSSOVER_HZ), 3.01, 0.05);
 }
 
-TEST(CrossoverPair, CrossoverPairFallsTwentyFourDecibelsPerOctave)
+TEST(Small_CrossoverPair, CrossoverPairFallsTwentyFourDecibelsPerOctave)
 {
     // The closed form two octaves up is -48.16 dB. See tests/nodes/room/README.md.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
@@ -162,7 +162,7 @@ TEST(CrossoverPair, CrossoverPairFallsTwentyFourDecibelsPerOctave)
     EXPECT_NEAR(two_octaves_up_db - passband_db, -48.16, 0.1);
 }
 
-TEST(CrossoverPair, CrossoverPairResetClearsItsState)
+TEST(Small_CrossoverPair, CrossoverPairResetClearsItsState)
 {
     SushiDSP::room::CrossoverPair crossover;
     crossover.set_crossover(K_SAMPLE_RATE, K_CROSSOVER_HZ);
@@ -178,7 +178,7 @@ TEST(CrossoverPair, CrossoverPairResetClearsItsState)
     }
 }
 
-TEST(CrossoverPair, CrossoverPairAtZeroCrossoverPassesEverythingHigh)
+TEST(Small_CrossoverPair, CrossoverPairAtZeroCrossoverPassesEverythingHigh)
 {
     SushiDSP::room::CrossoverPair crossover;
     crossover.set_crossover(K_SAMPLE_RATE, 0.0);
@@ -206,7 +206,7 @@ namespace
     }
 } // namespace
 
-TEST(CrossoverPair, ProcessPerformsNoHeapAllocation)
+TEST(Small_CrossoverPair, ProcessPerformsNoHeapAllocation)
 {
     // set_crossover is arithmetic on the audio thread. See tests/nodes/room/README.md.
     SushiDSP::room::CrossoverPair pair;

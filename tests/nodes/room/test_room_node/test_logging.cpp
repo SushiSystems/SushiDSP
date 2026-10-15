@@ -40,7 +40,7 @@
 #include <SushiDSP/nodes/room/hrtf_set_loader.hpp>
 #include <SushiDSP/nodes/room/room_node.hpp>
 
-TEST(RoomNode, RoomNodeLogsOneErrorNamingTheCauseWhenTheDecoderCannotBePrepared)
+TEST(Medium_RoomNode, RoomNodeLogsOneErrorNamingTheCauseWhenTheDecoderCannotBePrepared)
 {
     constexpr double K_SAMPLE_RATE = 48000.0;
 

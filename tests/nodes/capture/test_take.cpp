@@ -29,7 +29,7 @@
 
 #include <SushiDSP/nodes/capture/take.hpp>
 
-TEST(Take, KeepsItsChannelsFramesAndRate)
+TEST(Small_Take, KeepsItsChannelsFramesAndRate)
 {
     const SushiDSP::Take take(2u, 48000.0, 128u);
     EXPECT_EQ(take.channels(), 2u);
@@ -37,7 +37,7 @@ TEST(Take, KeepsItsChannelsFramesAndRate)
     EXPECT_EQ(take.sample_rate(), 48000.0);
 }
 
-TEST(Take, ReturnsTheSamplesWrittenToAChannel)
+TEST(Small_Take, ReturnsTheSamplesWrittenToAChannel)
 {
     SushiDSP::Take take(2u, 48000.0, 128u);
     take.mutable_channel(1)[5] = 0.25f;

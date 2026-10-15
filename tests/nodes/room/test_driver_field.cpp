@@ -74,14 +74,14 @@ namespace
     }
 } // namespace
 
-TEST(DriverField, DriverFieldCountsSevenElementsPerCone)
+TEST(Small_DriverField, DriverFieldCountsSevenElementsPerCone)
 {
     EXPECT_EQ(DriverField(SushiDSP::room::K_CABINET1X12).element_count(), 7u);
     EXPECT_EQ(DriverField(SushiDSP::room::K_CABINET2X12).element_count(), 14u);
     EXPECT_EQ(DriverField(SushiDSP::room::K_CABINET4X12).element_count(), 28u);
 }
 
-TEST(DriverField, DriverFieldSharesSumToOneInEveryBand)
+TEST(Small_DriverField, DriverFieldSharesSumToOneInEveryBand)
 {
     for (const SushiDSP::room::CabinetGeometry& geometry :
          {SushiDSP::room::K_CABINET1X12, SushiDSP::room::K_CABINET2X12,
@@ -100,7 +100,7 @@ TEST(DriverField, DriverFieldSharesSumToOneInEveryBand)
     }
 }
 
-TEST(DriverField, DriverFieldGivesTheCentreMoreOfTheHighsThanOfTheLows)
+TEST(Small_DriverField, DriverFieldGivesTheCentreMoreOfTheHighsThanOfTheLows)
 {
     const DriverField field(SushiDSP::room::K_CABINET1X12);
     const float centre_low = field.element_share(0).gain[0];
@@ -114,7 +114,7 @@ TEST(DriverField, DriverFieldGivesTheCentreMoreOfTheHighsThanOfTheLows)
     EXPECT_NEAR(centre_low, ring_low, 0.01f);
 }
 
-TEST(DriverField, DriverFieldPlacesAFourByTwelvesConesInASquareOnTheBaffle)
+TEST(Small_DriverField, DriverFieldPlacesAFourByTwelvesConesInASquareOnTheBaffle)
 {
     const SushiDSP::room::CabinetGeometry& geometry = SushiDSP::room::K_CABINET4X12;
     const DriverField field(geometry);
@@ -135,7 +135,7 @@ TEST(DriverField, DriverFieldPlacesAFourByTwelvesConesInASquareOnTheBaffle)
     EXPECT_NEAR(std::fabs(first.z - last.z), geometry.driver_spacing_m, 1e-12);
 }
 
-TEST(DriverField, DriverFieldTurnsWithTheCabinet)
+TEST(Small_DriverField, DriverFieldTurnsWithTheCabinet)
 {
     const DriverField field(SushiDSP::room::K_CABINET2X12);
     const Vec3 source{2.0, 2.0, 0.5};
@@ -148,7 +148,7 @@ TEST(DriverField, DriverFieldTurnsWithTheCabinet)
     EXPECT_NEAR(right.x - left.x, SushiDSP::room::K_CABINET2X12.driver_spacing_m, 1e-12);
 }
 
-TEST(DriverField, DriverFieldAddsUpToOneOverTheDistanceFarOnAxis)
+TEST(Small_DriverField, DriverFieldAddsUpToOneOverTheDistanceFarOnAxis)
 {
     const DriverField field(SushiDSP::room::K_CABINET4X12);
     const Vec3 source{0.0, 0.0, 0.0};
@@ -161,7 +161,7 @@ TEST(DriverField, DriverFieldAddsUpToOneOverTheDistanceFarOnAxis)
     }
 }
 
-TEST(DriverField, DriverFieldIsBrighterOnTheDustCapThanAtTheConesEdge)
+TEST(Small_DriverField, DriverFieldIsBrighterOnTheDustCapThanAtTheConesEdge)
 {
     const SushiDSP::room::CabinetGeometry& geometry = SushiDSP::room::K_CABINET1X12;
     const DriverField field(geometry);
@@ -176,7 +176,7 @@ TEST(DriverField, DriverFieldIsBrighterOnTheDustCapThanAtTheConesEdge)
     EXPECT_GT(cap_tilt, 1.5 * edge_tilt);
 }
 
-TEST(DriverField, DriverFieldStaysFiniteWithTheReceiverOnAnElement)
+TEST(Small_DriverField, DriverFieldStaysFiniteWithTheReceiverOnAnElement)
 {
     const DriverField field(SushiDSP::room::K_CABINET1X12);
     const Vec3 source{1.0, 1.0, 1.0};
@@ -191,7 +191,7 @@ TEST(DriverField, DriverFieldStaysFiniteWithTheReceiverOnAnElement)
     }
 }
 
-TEST(DriverField, DriverFieldDullsTheHighsBehindTheBaffle)
+TEST(Small_DriverField, DriverFieldDullsTheHighsBehindTheBaffle)
 {
     const DriverField field(SushiDSP::room::K_CABINET1X12);
     const Vec3 source{0.0, 0.0, 0.0};
@@ -201,7 +201,7 @@ TEST(DriverField, DriverFieldDullsTheHighsBehindTheBaffle)
     EXPECT_LT(band_sum(behind, K_TOP_BAND), 0.75 * band_sum(front, K_TOP_BAND));
 }
 
-TEST(DriverField, ImageSourceSolverOpensAMicrophonesSetWithOneTapPerElement)
+TEST(Small_DriverField, ImageSourceSolverOpensAMicrophonesSetWithOneTapPerElement)
 {
     SushiDSP::room::RoomScene scene = SushiDSP::room::starter_scene();
     scene.cabinet = SushiDSP::room::K_CABINET2X12;

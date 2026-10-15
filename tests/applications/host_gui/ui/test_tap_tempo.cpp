@@ -29,7 +29,7 @@
 
 #include "ui/tap_tempo.hpp"
 
-TEST(TapTempo, TapTempoReadsFourEvenTapsAsTheirTempo)
+TEST(Small_TapTempo, TapTempoReadsFourEvenTapsAsTheirTempo)
 {
     ui::TapTempo taps;
 
@@ -44,7 +44,7 @@ TEST(TapTempo, TapTempoReadsFourEvenTapsAsTheirTempo)
     EXPECT_EQ(taps.tap_count(), ui::TapTempo::K_TAP_COUNT);
 }
 
-TEST(TapTempo, TapTempoAveragesOverTheLastFourTapsOnly)
+TEST(Small_TapTempo, TapTempoAveragesOverTheLastFourTapsOnly)
 {
     ui::TapTempo taps;
 
@@ -58,7 +58,7 @@ TEST(TapTempo, TapTempoAveragesOverTheLastFourTapsOnly)
     EXPECT_DOUBLE_EQ(*taps.tap(4.0), 90.0);
 }
 
-TEST(TapTempo, TapTempoStartsAgainAfterAGapOverTwoSeconds)
+TEST(Small_TapTempo, TapTempoStartsAgainAfterAGapOverTwoSeconds)
 {
     ui::TapTempo taps;
 
@@ -70,7 +70,7 @@ TEST(TapTempo, TapTempoStartsAgainAfterAGapOverTwoSeconds)
     EXPECT_NEAR(*taps.tap(10.4), 150.0, 1e-9);
 }
 
-TEST(TapTempo, TapTempoHoldsItsTempoInsideTheRange)
+TEST(Small_TapTempo, TapTempoHoldsItsTempoInsideTheRange)
 {
     ui::TapTempo taps;
 

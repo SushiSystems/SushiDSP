@@ -54,7 +54,7 @@ namespace
     constexpr double K_PI = 3.14159265358979323846;
 } // namespace
 
-TEST(DkCircuit, DkCircuitIdealOpAmpInvertingAmplifierHasGainMinusRfOverRin)
+TEST(Small_DkCircuit, DkCircuitIdealOpAmpInvertingAmplifierHasGainMinusRfOverRin)
 {
     // V(3) = -(Rf/Rin) V(1) = -10 V(1) at every frequency. See tests/foundation/math/dk/test_dk_circuit/README.md.
     SushiDSP::dk::DkNetlist<0, 0, 1, 1> netlist;
@@ -78,7 +78,7 @@ TEST(DkCircuit, DkCircuitIdealOpAmpInvertingAmplifierHasGainMinusRfOverRin)
     EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
 }
 
-TEST(DkCircuit, DkCircuitIdealOpAmpNonInvertingAmplifierHasGainOnePlusRfOverRg)
+TEST(Small_DkCircuit, DkCircuitIdealOpAmpNonInvertingAmplifierHasGainOnePlusRfOverRg)
 {
     // 1 + 51000/4700 = 11.851063829787234 exactly. See tests/foundation/math/dk/test_dk_circuit/README.md.
     SushiDSP::dk::DkNetlist<0, 0, 1, 1> netlist;
@@ -98,7 +98,7 @@ TEST(DkCircuit, DkCircuitIdealOpAmpNonInvertingAmplifierHasGainOnePlusRfOverRg)
     EXPECT_NEAR(outputs[0], 11.851063829787234, 1e-11);
 }
 
-TEST(DkCircuit, DkCircuitIdealOpAmpVoltageFollowerPassesItsInputThrough)
+TEST(Small_DkCircuit, DkCircuitIdealOpAmpVoltageFollowerPassesItsInputThrough)
 {
     // The degenerate case: the sensed node and the driven node are the same one.
     SushiDSP::dk::DkNetlist<0, 0, 1, 1> netlist;
@@ -117,7 +117,7 @@ TEST(DkCircuit, DkCircuitIdealOpAmpVoltageFollowerPassesItsInputThrough)
     EXPECT_NEAR(outputs[0], 0.7, 1e-12);
 }
 
-TEST(DkCircuit, DkCircuitIdealOpAmpLowPassMatchesTheBilinearTransformExactly)
+TEST(Small_DkCircuit, DkCircuitIdealOpAmpLowPassMatchesTheBilinearTransformExactly)
 {
     // The pole is 95/97 and the DC gain is -10 exactly. See tests/foundation/math/dk/test_dk_circuit/README.md.
     constexpr double K_INPUT_OHMS = 10.0e3;
@@ -156,7 +156,7 @@ TEST(DkCircuit, DkCircuitIdealOpAmpLowPassMatchesTheBilinearTransformExactly)
     }
 }
 
-TEST(DkCircuit, DkCircuitRejectsAnOpAmpWithNoFeedbackPath)
+TEST(Small_DkCircuit, DkCircuitRejectsAnOpAmpWithNoFeedbackPath)
 {
     // Without a feedback path the system is rank deficient. See tests/foundation/math/dk/test_dk_circuit/README.md.
     SushiDSP::dk::DkNetlist<0, 0, 1, 1> netlist;

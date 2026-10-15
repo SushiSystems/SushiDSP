@@ -29,7 +29,7 @@
 
 #include <SushiDSP/foundation/log/default_logger.hpp>
 
-TEST(DefaultLogger, ReturnsTheSameLoggerEveryTime)
+TEST(Small_DefaultLogger, ReturnsTheSameLoggerEveryTime)
 {
     EXPECT_EQ(&SushiDSP::default_logger(), &SushiDSP::default_logger());
 }

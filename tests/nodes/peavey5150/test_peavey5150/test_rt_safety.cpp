@@ -40,7 +40,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Peavey5150, ProcessPerformsNoHeapAllocationWithoutCabinet)
+TEST(Small_Peavey5150, ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     SushiDSP::Peavey5150 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};

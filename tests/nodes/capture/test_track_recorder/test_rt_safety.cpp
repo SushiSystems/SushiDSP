@@ -35,7 +35,7 @@
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/capture/track_recorder.hpp>
 
-TEST(TrackRecorder, WritePerformsNoHeapAllocation)
+TEST(Medium_TrackRecorder, WritePerformsNoHeapAllocation)
 {
     // The trap sees the ring copy and the drop counter. See tests/nodes/capture/test_track_recorder/README.md.
     const std::filesystem::path root =

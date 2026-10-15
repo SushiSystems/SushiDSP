@@ -42,7 +42,7 @@ namespace
                                                          [] { g_ran.push_back("Alpha"); }};
 } // namespace
 
-TEST(BenchmarkRegistry, BenchmarkRegistryKeepsEveryRegisteredCase)
+TEST(Small_BenchmarkRegistry, BenchmarkRegistryKeepsEveryRegisteredCase)
 {
     int found = 0;
     for (const SushiDSP::bench::BenchmarkCase& item : SushiDSP::bench::registered_cases())
@@ -53,20 +53,20 @@ TEST(BenchmarkRegistry, BenchmarkRegistryKeepsEveryRegisteredCase)
     EXPECT_EQ(found, 2);
 }
 
-TEST(BenchmarkRegistry, BenchmarkRegistrySelectsEveryGroupWithoutArguments)
+TEST(Small_BenchmarkRegistry, BenchmarkRegistrySelectsEveryGroupWithoutArguments)
 {
     const char* argv[] = {"bench"};
     EXPECT_TRUE(SushiDSP::bench::is_selected("Anything", 1, argv));
 }
 
-TEST(BenchmarkRegistry, BenchmarkRegistrySelectsAGroupThatHoldsAnArgument)
+TEST(Small_BenchmarkRegistry, BenchmarkRegistrySelectsAGroupThatHoldsAnArgument)
 {
     const char* argv[] = {"bench", "Screamer"};
     EXPECT_TRUE(SushiDSP::bench::is_selected("TubeScreamerBlock", 2, argv));
     EXPECT_FALSE(SushiDSP::bench::is_selected("Jcm800", 2, argv));
 }
 
-TEST(BenchmarkRegistry, BenchmarkRegistryRunsTheSelectedGroupsInNameOrder)
+TEST(Small_BenchmarkRegistry, BenchmarkRegistryRunsTheSelectedGroupsInNameOrder)
 {
     g_ran.clear();
     const char* argv[] = {"bench", "RegistryTest"};

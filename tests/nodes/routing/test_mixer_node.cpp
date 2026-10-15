@@ -36,7 +36,7 @@
 #include <SushiDSP/nodes/routing/mixer_node.hpp>
 #include <SushiDSP/nodes/routing/splitter_node.hpp>
 
-TEST(MixerNode, MixerNodeSumsTwoInputsWithDefaultUnityGain)
+TEST(Small_MixerNode, MixerNodeSumsTwoInputsWithDefaultUnityGain)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -57,7 +57,7 @@ TEST(MixerNode, MixerNodeSumsTwoInputsWithDefaultUnityGain)
     }
 }
 
-TEST(MixerNode, MixerNodeAppliesPerInputGain)
+TEST(Small_MixerNode, MixerNodeAppliesPerInputGain)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -81,7 +81,7 @@ TEST(MixerNode, MixerNodeAppliesPerInputGain)
     }
 }
 
-TEST(MixerNode, MixerNodeGetParameterRoundTripsEveryGain)
+TEST(Small_MixerNode, MixerNodeGetParameterRoundTripsEveryGain)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -90,7 +90,7 @@ TEST(MixerNode, MixerNodeGetParameterRoundTripsEveryGain)
     EXPECT_FLOAT_EQ(node.get_parameter("gain_0"), 1.0f); // untouched slots default to 1.0
 }
 
-TEST(MixerNode, MixerNodeUnknownParameterIdIsSafeNoOp)
+TEST(Small_MixerNode, MixerNodeUnknownParameterIdIsSafeNoOp)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -98,7 +98,7 @@ TEST(MixerNode, MixerNodeUnknownParameterIdIsSafeNoOp)
     EXPECT_FLOAT_EQ(node.get_parameter("not_a_real_id"), 0.0f);
 }
 
-TEST(MixerNode, MixerNodeDescriptorDeclaresEightGainParameters)
+TEST(Small_MixerNode, MixerNodeDescriptorDeclaresEightGainParameters)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::mixer_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.mixer");
@@ -107,7 +107,7 @@ TEST(MixerNode, MixerNodeDescriptorDeclaresEightGainParameters)
     EXPECT_FLOAT_EQ(descriptor.parameters[0].default_value, 1.0f);
 }
 
-TEST(MixerNode, ProcessPerformsNoHeapAllocation)
+TEST(Small_MixerNode, ProcessPerformsNoHeapAllocation)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
@@ -222,7 +222,7 @@ namespace
     };
 } // namespace
 
-TEST(MixerNode, MixerNodeJoinsTwoBranchesASplitterFedInARigGraph)
+TEST(Small_MixerNode, MixerNodeJoinsTwoBranchesASplitterFedInARigGraph)
 {
     SushiDSP::RigGraph graph(256, 6);
     const auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));

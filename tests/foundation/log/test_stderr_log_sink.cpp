@@ -31,7 +31,7 @@
 
 #include <gtest/gtest-spi.h>
 
-TEST(StderrLogSink, WritesLevelCategoryAndMessageOnOneLine)
+TEST(Small_StderrLogSink, WritesLevelCategoryAndMessageOnOneLine)
 {
     testing::internal::CaptureStderr();
     SushiDSP::StderrLogSink sink;

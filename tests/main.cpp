@@ -25,14 +25,51 @@
  * @author Mustafa Garip
  */
 
+#include <cstdio>
+#include <cstring>
+
 #include <gtest/gtest.h>
 
+namespace
+{
+    /// @brief Reports whether a suite name starts with a size: Small_, Medium_ or Large_.
+    bool has_size_prefix(const char* suite)
+    {
+        for (const char* prefix : {"Small_", "Medium_", "Large_"})
+        {
+            if (std::strncmp(suite, prefix, std::strlen(prefix)) == 0)
+                return true;
+        }
+        return false;
+    }
+
+    /// @brief Prints every suite whose name carries no size.
+    /// @return The number of such suites.
+    int report_unsized_suites()
+    {
+        const ::testing::UnitTest& unit_test = *::testing::UnitTest::GetInstance();
+        int unsized = 0;
+        for (int index = 0; index < unit_test.total_test_suite_count(); ++index)
+        {
+            const char* suite = unit_test.GetTestSuite(index)->name();
+            if (has_size_prefix(suite))
+                continue;
+            std::fprintf(stderr, "test suite '%s' has no size prefix: Small_, Medium_ or Large_\n",
+                         suite);
+            ++unsized;
+        }
+        return unsized;
+    }
+} // namespace
+
 /**
- * @brief Runs every registered GoogleTest case.
- * @return 0 on success, non-zero if any test fails.
+ * @brief Runs every registered GoogleTest case, after refusing a suite with no size.
+ * @return 0 on success, non-zero if any test fails or a suite carries no size.
  */
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
+    if (report_unsized_suites() > 0)
+        return 2;
     return RUN_ALL_TESTS();
 }

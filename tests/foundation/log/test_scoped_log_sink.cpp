@@ -38,7 +38,7 @@ namespace
     const SushiDSP::LogCategory K_CATEGORY = SushiDSP::make_log_category("scope_test");
 } // namespace
 
-TEST(ScopedLogSink, LinesGoToTheScopedSinkWhileItLives)
+TEST(Small_ScopedLogSink, LinesGoToTheScopedSinkWhileItLives)
 {
     const auto outer = std::make_shared<SushiDSP::CapturingLogSink>();
     const auto inner = std::make_shared<SushiDSP::CapturingLogSink>();
@@ -51,7 +51,7 @@ TEST(ScopedLogSink, LinesGoToTheScopedSinkWhileItLives)
     EXPECT_TRUE(outer->lines().empty());
 }
 
-TEST(ScopedLogSink, PreviousSinkReceivesLinesAgainAfterTheScope)
+TEST(Small_ScopedLogSink, PreviousSinkReceivesLinesAgainAfterTheScope)
 {
     const auto outer = std::make_shared<SushiDSP::CapturingLogSink>();
     const auto inner = std::make_shared<SushiDSP::CapturingLogSink>();
@@ -63,7 +63,7 @@ TEST(ScopedLogSink, PreviousSinkReceivesLinesAgainAfterTheScope)
     EXPECT_EQ(outer->lines().size(), 1u);
 }
 
-TEST(ScopedLogSink, FlushesTheScopedSinkWhenItEnds)
+TEST(Small_ScopedLogSink, FlushesTheScopedSinkWhenItEnds)
 {
     const auto outer = std::make_shared<SushiDSP::CapturingLogSink>();
     const auto inner = std::make_shared<SushiDSP::CapturingLogSink>();

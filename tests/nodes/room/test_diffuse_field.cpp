@@ -32,20 +32,20 @@
 
 #include <cstddef>
 
-TEST(DiffuseField, HasOnePowerPerBand)
+TEST(Small_DiffuseField, HasOnePowerPerBand)
 {
     const SushiDSP::room::DiffuseField field(SushiDSP::test::garage_scene());
     EXPECT_EQ(field.band_power().size(), 6u);
 }
 
-TEST(DiffuseField, PowerIsNonNegativeAcrossTheBand)
+TEST(Small_DiffuseField, PowerIsNonNegativeAcrossTheBand)
 {
     const SushiDSP::room::DiffuseField field(SushiDSP::test::garage_scene());
     EXPECT_GE(field.power_at(1000.0), 0.0);
     EXPECT_GE(field.power_between(125.0, 4000.0), 0.0);
 }
 
-TEST(DiffuseField, WiderBandCarriesAtLeastAsMuchPower)
+TEST(Small_DiffuseField, WiderBandCarriesAtLeastAsMuchPower)
 {
     const SushiDSP::room::DiffuseField field(SushiDSP::test::garage_scene());
     EXPECT_GE(field.power_between(125.0, 8000.0), field.power_between(125.0, 1000.0));

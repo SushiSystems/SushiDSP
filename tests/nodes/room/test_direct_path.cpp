@@ -31,13 +31,13 @@
 
 #include <cstdint>
 
-TEST(DirectPath, BankCountMatchesTheEarlyReflectionRenderer)
+TEST(Small_DirectPath, BankCountMatchesTheEarlyReflectionRenderer)
 {
     EXPECT_EQ(SushiDSP::room::DirectPath::K_BANKS,
               SushiDSP::room::EarlyReflectionRenderer::K_BANK_COUNT);
 }
 
-TEST(DirectPath, ClearingAPreparedBankIsSafe)
+TEST(Small_DirectPath, ClearingAPreparedBankIsSafe)
 {
     SushiDSP::room::DirectPath path;
     path.prepare(16u, 64u);

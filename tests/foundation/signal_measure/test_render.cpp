@@ -70,7 +70,7 @@ namespace
     };
 } // namespace
 
-TEST(Render, EverySampleOfAPartialLastBlockIsProcessed)
+TEST(Small_Render, EverySampleOfAPartialLastBlockIsProcessed)
 {
     GainNode node(0.5f);
     const std::vector<float> stimulus(1000, 1.0f);
@@ -82,7 +82,7 @@ TEST(Render, EverySampleOfAPartialLastBlockIsProcessed)
     }
 }
 
-TEST(Render, OutputKeepsTheStimulusOrder)
+TEST(Small_Render, OutputKeepsTheStimulusOrder)
 {
     GainNode node(1.0f);
     std::vector<float> stimulus(300);
@@ -94,7 +94,7 @@ TEST(Render, OutputKeepsTheStimulusOrder)
     EXPECT_EQ(output, stimulus);
 }
 
-TEST(Render, SineStimulusHasTheRequestedLengthAndPeak)
+TEST(Small_Render, SineStimulusHasTheRequestedLengthAndPeak)
 {
     const std::vector<float> sine = SushiDSP::measure::sine_stimulus(1000.0, 48000.0, 4800, 0.25f);
     ASSERT_EQ(sine.size(), 4800u);

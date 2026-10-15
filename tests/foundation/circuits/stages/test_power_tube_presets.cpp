@@ -30,7 +30,7 @@
 #include <SushiDSP/foundation/circuits/stages/power_tube_presets.hpp>
 #include <SushiDSP/foundation/circuits/models/pentode_el34.hpp>
 
-TEST(PowerTubePresets, El34GridConductionMatchesThePentodeModel)
+TEST(Small_PowerTubePresets, El34GridConductionMatchesThePentodeModel)
 {
     using SushiDSP::PentodeEL34;
     const SushiDSP::GridConductionLaw& law = SushiDSP::K_PENTODE_EL34_GRID_CONDUCTION;

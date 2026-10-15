@@ -32,7 +32,7 @@
 #include <cmath>
 #include <cstdio>
 
-TEST(Dd3Clock, Dd3ClockHitsThePublishedEndpointsAndTheDerivedMidpoint)
+TEST(Small_Dd3Clock, Dd3ClockHitsThePublishedEndpointsAndTheDerivedMidpoint)
 {
     // N5: fs(TIME) = 82500 * 4.125^(-TIME); 4.125^0.5 = 2.0310096, so fs(0.5) = 40620.4 Hz.
     using Clock = SushiDSP::dd3::Dd3Clock;
@@ -45,7 +45,7 @@ TEST(Dd3Clock, Dd3ClockHitsThePublishedEndpointsAndTheDerivedMidpoint)
     EXPECT_LE(std::abs(Clock::clock_for_time(1.0) - 20000.0) / 20000.0, 0.02);
 }
 
-TEST(Dd3Clock, Dd3ClockIsMonotoneAndStaysInsideItsRange)
+TEST(Small_Dd3Clock, Dd3ClockIsMonotoneAndStaysInsideItsRange)
 {
     using Clock = SushiDSP::dd3::Dd3Clock;
     double previous = 1e9;
@@ -59,7 +59,7 @@ TEST(Dd3Clock, Dd3ClockIsMonotoneAndStaysInsideItsRange)
     }
 }
 
-TEST(Dd3Clock, Dd3ClockDelayTimesLandOnThePublishedRanges)
+TEST(Small_Dd3Clock, Dd3ClockDelayTimesLandOnThePublishedRanges)
 {
     // The delay-time errors are printed, not asserted. See tests/nodes/dd3/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
@@ -88,7 +88,7 @@ TEST(Dd3Clock, Dd3ClockDelayTimesLandOnThePublishedRanges)
     EXPECT_NEAR(1000.0 * 16384.0 / Clock::clock_for_time(1.0), 819.2, 1e-4);
 }
 
-TEST(Dd3Clock, Dd3ClockSlewMatchesTheR56C52Pole)
+TEST(Small_Dd3Clock, Dd3ClockSlewMatchesTheR56C52Pole)
 {
     // After one tau the clock reads 33681.4 Hz. See tests/nodes/dd3/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
@@ -104,7 +104,7 @@ TEST(Dd3Clock, Dd3ClockSlewMatchesTheR56C52Pole)
     EXPECT_NEAR(after_one_tau, 33681.4, 400.0);
 }
 
-TEST(Dd3Clock, Dd3ClockAdvancesOneQuarterOfTheRemainingDistancePerSubBlock)
+TEST(Small_Dd3Clock, Dd3ClockAdvancesOneQuarterOfTheRemainingDistancePerSubBlock)
 {
     // The pole closes 0.2446570 of the rest per sub-block. See tests/nodes/dd3/README.md.
     using Clock = SushiDSP::dd3::Dd3Clock;
@@ -119,7 +119,7 @@ TEST(Dd3Clock, Dd3ClockAdvancesOneQuarterOfTheRemainingDistancePerSubBlock)
     EXPECT_NEAR((after - start_log) / (end_log - start_log), 0.2446570, 5e-3);
 }
 
-TEST(Dd3Clock, Dd3ClockResetSnapsWithoutGliding)
+TEST(Small_Dd3Clock, Dd3ClockResetSnapsWithoutGliding)
 {
     SushiDSP::dd3::Dd3Clock clock;
     clock.prepare(48000.0);

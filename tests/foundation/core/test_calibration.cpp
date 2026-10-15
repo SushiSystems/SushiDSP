@@ -31,23 +31,23 @@
 
 #include <cmath>
 
-TEST(Calibration, FullScaleIsTwoVolts)
+TEST(Small_Calibration, FullScaleIsTwoVolts)
 {
     EXPECT_FLOAT_EQ(SushiDSP::K_FULL_SCALE_VOLTS, 2.0f);
 }
 
-TEST(Calibration, ZeroDecibelsIsUnityGain)
+TEST(Small_Calibration, ZeroDecibelsIsUnityGain)
 {
     EXPECT_NEAR(SushiDSP::decibels_to_gain(0.0f), 1.0f, 1e-6f);
 }
 
-TEST(Calibration, TwentyDecibelsIsTenTimesTheGain)
+TEST(Small_Calibration, TwentyDecibelsIsTenTimesTheGain)
 {
     EXPECT_NEAR(SushiDSP::decibels_to_gain(20.0f), 10.0f, 1e-4f);
     EXPECT_NEAR(SushiDSP::decibels_to_gain(-20.0f), 0.1f, 1e-6f);
 }
 
-TEST(Calibration, GainAndDecibelsConvertBothWays)
+TEST(Small_Calibration, GainAndDecibelsConvertBothWays)
 {
     for (float db : {-60.0f, -6.0f, 0.0f, 3.0f, 12.0f})
     {
@@ -55,7 +55,7 @@ TEST(Calibration, GainAndDecibelsConvertBothWays)
     }
 }
 
-TEST(Calibration, ZeroGainIsClampedInsteadOfBecomingMinusInfinity)
+TEST(Small_Calibration, ZeroGainIsClampedInsteadOfBecomingMinusInfinity)
 {
     const float db = SushiDSP::gain_to_decibels(0.0f);
     EXPECT_TRUE(std::isfinite(db));

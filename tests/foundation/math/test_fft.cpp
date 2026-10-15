@@ -39,7 +39,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Fft, FftOfDcSignalHasEnergyOnlyInBinZero)
+TEST(Small_Fft, FftOfDcSignalHasEnergyOnlyInBinZero)
 {
     constexpr std::uint32_t size = 64;
     SushiDSP::Fft fft(size);
@@ -58,7 +58,7 @@ TEST(Fft, FftOfDcSignalHasEnergyOnlyInBinZero)
     }
 }
 
-TEST(Fft, FftOfSingleBinSineMatchesKnownBin)
+TEST(Small_Fft, FftOfSingleBinSineMatchesKnownBin)
 {
     constexpr std::uint32_t size = 64;
     constexpr std::uint32_t target_bin = 4;
@@ -80,7 +80,7 @@ TEST(Fft, FftOfSingleBinSineMatchesKnownBin)
     EXPECT_NEAR(magnitude_at_target, expected_magnitude, 1e-2f);
 }
 
-TEST(Fft, FftMatchesBruteForceDftAcrossSizes)
+TEST(Small_Fft, FftMatchesBruteForceDftAcrossSizes)
 {
     for (std::uint32_t transform_size : {1u, 2u, 8u, 256u})
     {
@@ -124,7 +124,7 @@ TEST(Fft, FftMatchesBruteForceDftAcrossSizes)
     }
 }
 
-TEST(Fft, ForwardThenInverseFftIsIdentity)
+TEST(Small_Fft, ForwardThenInverseFftIsIdentity)
 {
     constexpr std::uint32_t size = 64;
     SushiDSP::Fft fft(size);
@@ -148,7 +148,7 @@ TEST(Fft, ForwardThenInverseFftIsIdentity)
     }
 }
 
-TEST(Fft, ForwardAndInverseRoundTripPerformsNoHeapAllocation)
+TEST(Small_Fft, ForwardAndInverseRoundTripPerformsNoHeapAllocation)
 {
     const std::uint32_t size = 256;
     SushiDSP::Fft fft(size);

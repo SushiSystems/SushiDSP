@@ -31,7 +31,7 @@
 
 #include <cstdint>
 
-TEST(NodeDescriptor, ParameterKindsAreFiveDistinctValues)
+TEST(Small_NodeDescriptor, ParameterKindsAreFiveDistinctValues)
 {
     const std::uint8_t kinds[] = {
         static_cast<std::uint8_t>(SushiDSP::ParamKind::Linear),
@@ -49,7 +49,7 @@ TEST(NodeDescriptor, ParameterKindsAreFiveDistinctValues)
     }
 }
 
-TEST(NodeDescriptor, ParameterRowKeepsItsRangeAndDefault)
+TEST(Small_NodeDescriptor, ParameterRowKeepsItsRangeAndDefault)
 {
     const SushiDSP::ParameterDescriptor gain{"gain", "Gain", 0.0f, 10.0f, 5.0f,
                                              SushiDSP::ParamKind::Linear, ""};

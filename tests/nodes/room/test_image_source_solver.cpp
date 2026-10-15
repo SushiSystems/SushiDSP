@@ -108,7 +108,7 @@ namespace
     }
 } // namespace
 
-TEST(ImageSourceSolver, ImageSourceSolverCountsTheLatticePoints)
+TEST(Small_ImageSourceSolver, ImageSourceSolverCountsTheLatticePoints)
 {
     EXPECT_EQ(SushiDSP::room::ImageSourceSolver::image_count(0u), 1u);
     EXPECT_EQ(SushiDSP::room::ImageSourceSolver::image_count(1u), 7u);
@@ -117,7 +117,7 @@ TEST(ImageSourceSolver, ImageSourceSolverCountsTheLatticePoints)
     EXPECT_EQ(SushiDSP::room::ImageSourceSolver::image_count(4u), 129u);
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
+TEST(Small_ImageSourceSolver, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
 {
     // The two y images share one arrival. See tests/nodes/room/README.md.
     const SushiDSP::room::EarlyTapSet set =
@@ -143,7 +143,7 @@ TEST(ImageSourceSolver, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
     EXPECT_NEAR(set.taps[1].delay_frames, expected_frames[1], 1e-3);
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverCutsTheFirstOrderSetAtItsOwnHandover)
+TEST(Small_ImageSourceSolver, ImageSourceSolverCutsTheFirstOrderSetAtItsOwnHandover)
 {
     // At order 1 t_c is 699.708 frames, so five taps remain. See tests/nodes/room/README.md.
     SushiDSP::room::ImageSourceSolver::Options options;
@@ -160,7 +160,7 @@ TEST(ImageSourceSolver, ImageSourceSolverCutsTheFirstOrderSetAtItsOwnHandover)
     EXPECT_NEAR(set.crossover_time_s, 2.0 * 2.5 / 343.0, 1e-6);
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverSortsItsTapsByArrival)
+TEST(Small_ImageSourceSolver, ImageSourceSolverSortsItsTapsByArrival)
 {
     const std::array<SushiDSP::room::RoomScene, 3> rooms = {SushiDSP::test::garage_scene(),
                                                             SushiDSP::test::bedroom_scene(),
@@ -179,7 +179,7 @@ TEST(ImageSourceSolver, ImageSourceSolverSortsItsTapsByArrival)
     }
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverDropsEveryTapPastTheHandoverTime)
+TEST(Small_ImageSourceSolver, ImageSourceSolverDropsEveryTapPastTheHandoverTime)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     // (4 + 1) * 2.5 / 343 = 0.0364431 s, 1749.27 frames at 48 kHz.
@@ -195,7 +195,7 @@ TEST(ImageSourceSolver, ImageSourceSolverDropsEveryTapPastTheHandoverTime)
     EXPECT_LT(set.count, 129u);
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverFallsOffAsOneOverDistance)
+TEST(Small_ImageSourceSolver, ImageSourceSolverFallsOffAsOneOverDistance)
 {
     SushiDSP::room::RoomScene scene = example_scene();
     scene.surfaces.fill(SushiDSP::room::MaterialId::OpenDoorway);
@@ -208,7 +208,7 @@ TEST(ImageSourceSolver, ImageSourceSolverFallsOffAsOneOverDistance)
     EXPECT_NEAR(set.scattered_energy, 0.0f, 1e-12f);
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverEncodesEarsAndMicrophoneDifferently)
+TEST(Small_ImageSourceSolver, ImageSourceSolverEncodesEarsAndMicrophoneDifferently)
 {
     SushiDSP::room::ImageSourceSolver::Options options;
     options.max_order = 2u;
@@ -248,7 +248,7 @@ TEST(ImageSourceSolver, ImageSourceSolverEncodesEarsAndMicrophoneDifferently)
     EXPECT_GT(microphone.taps[0].gain, ears.taps[0].gain);
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
+TEST(Small_ImageSourceSolver, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
 {
     const SushiDSP::room::EarlyTapSet flat = example_with(SushiDSP::room::Scattering::Flat);
     const SushiDSP::room::EarlyTapSet cluttered =
@@ -274,7 +274,7 @@ TEST(ImageSourceSolver, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
     EXPECT_GT(cluttered.scattered_energy, flat.scattered_energy);
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverSolvesTheGarageInsideThePublishBudget)
+TEST(Small_ImageSourceSolver, ImageSourceSolverSolvesTheGarageInsideThePublishBudget)
 {
     SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
     // A Release solve measures 1 ms; the margin is deliberate. See tests/nodes/room/README.md.
@@ -286,7 +286,7 @@ TEST(ImageSourceSolver, ImageSourceSolverSolvesTheGarageInsideThePublishBudget)
     EXPECT_LT(milliseconds, 25.0) << "taps " << set.count;
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverLeavesTheDirectTapAloneWhenFurnished)
+TEST(Small_ImageSourceSolver, ImageSourceSolverLeavesTheDirectTapAloneWhenFurnished)
 {
     const SushiDSP::room::EarlyTapSet bare =
         SushiDSP::room::ImageSourceSolver::solve(SushiDSP::room::RoomScene{}, {});
@@ -300,7 +300,7 @@ TEST(ImageSourceSolver, ImageSourceSolverLeavesTheDirectTapAloneWhenFurnished)
     EXPECT_EQ(bare.taps[0].delay_frames, furnished.taps[0].delay_frames);
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverKeepsEveryDelayAndGainWhenFurnished)
+TEST(Small_ImageSourceSolver, ImageSourceSolverKeepsEveryDelayAndGainWhenFurnished)
 {
     const SushiDSP::room::EarlyTapSet bare =
         SushiDSP::room::ImageSourceSolver::solve(SushiDSP::room::RoomScene{}, {});
@@ -314,7 +314,7 @@ TEST(ImageSourceSolver, ImageSourceSolverKeepsEveryDelayAndGainWhenFurnished)
     }
 }
 
-TEST(ImageSourceSolver, ImageSourceSolverThinsAReflectedTapByTheFurnishingLoss)
+TEST(Small_ImageSourceSolver, ImageSourceSolverThinsAReflectedTapByTheFurnishingLoss)
 {
     // Measured worst miss over these taps is 0.68 dB against an expected reduction of up to 3.65 dB.
     constexpr double K_TOLERANCE_DB = 1.0;

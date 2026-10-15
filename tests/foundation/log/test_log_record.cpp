@@ -31,12 +31,12 @@
 
 #include <string_view>
 
-TEST(LogRecord, MessageLengthCeilingIsOneKibibyte)
+TEST(Small_LogRecord, MessageLengthCeilingIsOneKibibyte)
 {
     EXPECT_EQ(SushiDSP::K_MAX_LOG_MESSAGE_LENGTH, 1024u);
 }
 
-TEST(LogRecord, HoldsTheLevelCategoryAndMessageItWasMadeWith)
+TEST(Small_LogRecord, HoldsTheLevelCategoryAndMessageItWasMadeWith)
 {
     const SushiDSP::LogRecord record{SushiDSP::LogLevel::Error, SushiDSP::make_log_category("room"),
                                      std::string_view("failed")};

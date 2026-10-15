@@ -116,7 +116,7 @@ namespace
     }
 } // namespace
 
-TEST(BuiltRoomLoss, BrasCr2ReferenceParsesToSixPositiveBands)
+TEST(Medium_BuiltRoomLoss, BrasCr2ReferenceParsesToSixPositiveBands)
 {
     const std::vector<double> measured = load_cr2_reference();
     ASSERT_EQ(measured.size(), K_BAND_COUNT);
@@ -126,7 +126,7 @@ TEST(BuiltRoomLoss, BrasCr2ReferenceParsesToSixPositiveBands)
     }
 }
 
-TEST(BuiltRoomLoss, BrasCr2SceneMatchesTheModelsVolumeAndSurface)
+TEST(Medium_BuiltRoomLoss, BrasCr2SceneMatchesTheModelsVolumeAndSurface)
 {
     const RoomScene scene = cr2_scene();
     std::string reason;
@@ -135,7 +135,7 @@ TEST(BuiltRoomLoss, BrasCr2SceneMatchesTheModelsVolumeAndSurface)
     EXPECT_NEAR(scene.surface_area_m2(), 202.53, 0.5);
 }
 
-TEST(BuiltRoomLoss, BrasCr2WithTheBuiltRoomLossDecaysWithinAQuarterOfMeasured)
+TEST(Medium_BuiltRoomLoss, BrasCr2WithTheBuiltRoomLossDecaysWithinAQuarterOfMeasured)
 {
     const std::vector<double> measured = load_cr2_reference();
     ASSERT_EQ(measured.size(), K_BAND_COUNT);

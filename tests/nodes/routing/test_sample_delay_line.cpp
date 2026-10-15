@@ -28,7 +28,7 @@
 
 #include <SushiDSP/nodes/routing/sample_delay_line.hpp>
 
-TEST(SampleDelayLine, SampleDelayLineZeroDelayPassesTheSampleThrough)
+TEST(Small_SampleDelayLine, SampleDelayLineZeroDelayPassesTheSampleThrough)
 {
     SushiDSP::SampleDelayLine line;
     line.prepare(4);
@@ -38,7 +38,7 @@ TEST(SampleDelayLine, SampleDelayLineZeroDelayPassesTheSampleThrough)
     EXPECT_FLOAT_EQ(line.process(-0.25f), -0.25f);
 }
 
-TEST(SampleDelayLine, SampleDelayLineReturnsTheSampleFromNSamplesEarlier)
+TEST(Small_SampleDelayLine, SampleDelayLineReturnsTheSampleFromNSamplesEarlier)
 {
     SushiDSP::SampleDelayLine line;
     line.prepare(8);
@@ -52,7 +52,7 @@ TEST(SampleDelayLine, SampleDelayLineReturnsTheSampleFromNSamplesEarlier)
     }
 }
 
-TEST(SampleDelayLine, SampleDelayLineClampsTheDelayToItsPreparedMaximum)
+TEST(Small_SampleDelayLine, SampleDelayLineClampsTheDelayToItsPreparedMaximum)
 {
     SushiDSP::SampleDelayLine line;
     line.prepare(4);
@@ -67,7 +67,7 @@ TEST(SampleDelayLine, SampleDelayLineClampsTheDelayToItsPreparedMaximum)
     EXPECT_FLOAT_EQ(line.process(0.0f), 1.0f);
 }
 
-TEST(SampleDelayLine, SampleDelayLineResetClearsTheStoredSamples)
+TEST(Small_SampleDelayLine, SampleDelayLineResetClearsTheStoredSamples)
 {
     SushiDSP::SampleDelayLine line;
     line.prepare(4);

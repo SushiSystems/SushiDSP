@@ -79,14 +79,14 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/nodes/mesa_mark2c/test_mesa_mark2c/README.md
-SUSHIDSP_REGRESSION_TEST(MesaMark2c, MesaMark2cGoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Medium_MesaMark2c, MesaMark2cGoldenFile48k)
 {
     EXPECT_LE(
         SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "mesa_mark2c_48k", render_mesa_mark2c(48000.0)),
         -80.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(MesaMark2c, MesaMark2cGoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Medium_MesaMark2c, MesaMark2cGoldenFile96k)
 {
     EXPECT_LE(
         SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "mesa_mark2c_96k", render_mesa_mark2c(96000.0)),

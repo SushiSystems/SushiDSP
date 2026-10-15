@@ -65,7 +65,7 @@ namespace
     }
 } // namespace
 
-TEST(EyringDecay, EyringDecayReproducesTheGaragesSixBandDecay)
+TEST(Small_EyringDecay, EyringDecayReproducesTheGaragesSixBandDecay)
 {
     // V = 60 and S = 98 give these six decay times. See tests/nodes/room/README.md.
     const std::array<double, 6> expected = {1.342, 1.333, 1.161, 1.146, 1.108, 0.893};
@@ -73,7 +73,7 @@ TEST(EyringDecay, EyringDecayReproducesTheGaragesSixBandDecay)
                       expected, 0.002);
 }
 
-TEST(EyringDecay, EyringDecayReproducesTheBedroomsSixBandDecay)
+TEST(Small_EyringDecay, EyringDecayReproducesTheBedroomsSixBandDecay)
 {
     // V = 36.4 and S = 67 give these six decay times. See tests/nodes/room/README.md.
     const std::array<double, 6> expected = {0.326, 0.871, 1.154, 0.731, 0.428, 0.356};
@@ -81,7 +81,7 @@ TEST(EyringDecay, EyringDecayReproducesTheBedroomsSixBandDecay)
                       expected, 0.002);
 }
 
-TEST(EyringDecay, EyringDecayReproducesTheBlockRoomsSixBandDecay)
+TEST(Small_EyringDecay, EyringDecayReproducesTheBlockRoomsSixBandDecay)
 {
     // V = 54 and S = 88.6 give these six decay times. See tests/nodes/room/README.md.
     const std::array<double, 6> expected = {0.929, 1.886, 1.548, 1.305, 0.983, 0.981};
@@ -89,7 +89,7 @@ TEST(EyringDecay, EyringDecayReproducesTheBlockRoomsSixBandDecay)
                       expected, 0.002);
 }
 
-TEST(EyringDecay, EyringDecayComputesTheSchroederFrequency)
+TEST(Small_EyringDecay, EyringDecayComputesTheSchroederFrequency)
 {
     // Schroeder frequency = 2000 * sqrt(RT60(500 Hz) / V). See tests/nodes/room/README.md.
     EXPECT_NEAR(SushiDSP::room::EyringDecay::schroeder_frequency_hz(SushiDSP::test::garage_scene()),
@@ -102,7 +102,7 @@ TEST(EyringDecay, EyringDecayComputesTheSchroederFrequency)
         338.6, 0.5);
 }
 
-TEST(EyringDecay, EyringDecayDivergesFromSabineOnlyInAnAbsorbentRoom)
+TEST(Small_EyringDecay, EyringDecayDivergesFromSabineOnlyInAnAbsorbentRoom)
 {
     // Without air, Sabine / Eyring is -ln(1 - a) / a. See tests/nodes/room/README.md.
     const double volume = 60.0;
@@ -141,7 +141,7 @@ TEST(EyringDecay, EyringDecayDivergesFromSabineOnlyInAnAbsorbentRoom)
     EXPECT_GT(bedroom_ratio, 1.10);
 }
 
-TEST(EyringDecay, EyringDecayHandlesAFullyAbsorbentRoom)
+TEST(Small_EyringDecay, EyringDecayHandlesAFullyAbsorbentRoom)
 {
     // A mean alpha of 1 gives 0 s, not a NaN. See tests/nodes/room/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::block_room_scene();
@@ -155,7 +155,7 @@ TEST(EyringDecay, EyringDecayHandlesAFullyAbsorbentRoom)
     EXPECT_DOUBLE_EQ(SushiDSP::room::EyringDecay::schroeder_frequency_hz(scene), 0.0);
 }
 
-TEST(EyringDecay, EyringDecayOfAnUnfurnishedSceneIsUnchanged)
+TEST(Small_EyringDecay, EyringDecayOfAnUnfurnishedSceneIsUnchanged)
 {
     // With nothing furnished the six values equal the air-only hand formula bit for bit.
     const SushiDSP::room::RoomScene scene;
@@ -169,7 +169,7 @@ TEST(EyringDecay, EyringDecayOfAnUnfurnishedSceneIsUnchanged)
     }
 }
 
-TEST(EyringDecay, EyringDecayAddsTheFurnishingAreaToTheDenominator)
+TEST(Small_EyringDecay, EyringDecayAddsTheFurnishingAreaToTheDenominator)
 {
     using SushiDSP::room::FurnitureId;
 
@@ -194,7 +194,7 @@ TEST(EyringDecay, EyringDecayAddsTheFurnishingAreaToTheDenominator)
     }
 }
 
-TEST(EyringDecay, EyringDecayShortensWithEveryFurnishing)
+TEST(Small_EyringDecay, EyringDecayShortensWithEveryFurnishing)
 {
     using SushiDSP::room::FurnitureId;
 

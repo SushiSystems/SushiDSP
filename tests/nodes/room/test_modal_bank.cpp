@@ -123,7 +123,7 @@ namespace
     }
 } // namespace
 
-TEST(ModalBank, ModalBankRingsAtEachModesFrequency)
+TEST(Small_ModalBank, ModalBankRingsAtEachModesFrequency)
 {
     constexpr std::uint32_t K_FFT_SIZE = 65536;
     const auto design = single_mode_design();
@@ -154,7 +154,7 @@ TEST(ModalBank, ModalBankRingsAtEachModesFrequency)
     EXPECT_NEAR(peak_hz, K_GARAGE_AXIAL_HZ, 0.005 * K_GARAGE_AXIAL_HZ);
 }
 
-TEST(ModalBank, ModalBankDecaysAtTheDampingItWasGiven)
+TEST(Small_ModalBank, ModalBankDecaysAtTheDampingItWasGiven)
 {
     // The slope between two windows is the 60 dB time. See tests/nodes/room/README.md.
     constexpr std::size_t K_FRAMES = 96000;
@@ -179,7 +179,7 @@ TEST(ModalBank, ModalBankDecaysAtTheDampingItWasGiven)
     EXPECT_NEAR(decay_seconds, K_DECAY_SECONDS, 0.05 * K_DECAY_SECONDS);
 }
 
-TEST(ModalBank, ModalBankScalesEachModeByItsSourceAndEarGains)
+TEST(Small_ModalBank, ModalBankScalesEachModeByItsSourceAndEarGains)
 {
     constexpr std::size_t K_FRAMES = 4096;
     const auto unit_design = single_mode_design();
@@ -201,7 +201,7 @@ TEST(ModalBank, ModalBankScalesEachModeByItsSourceAndEarGains)
     }
 }
 
-TEST(ModalBank, ModalBankRunsFiveHundredAndTwelveModesWithoutDenormals)
+TEST(Small_ModalBank, ModalBankRunsFiveHundredAndTwelveModesWithoutDenormals)
 {
     constexpr std::size_t K_FRAMES = 96000;
     constexpr double K_LOWEST_HZ = 20.0;
@@ -229,7 +229,7 @@ TEST(ModalBank, ModalBankRunsFiveHundredAndTwelveModesWithoutDenormals)
     EXPECT_NE(render.left[1], 0.0f);
 }
 
-TEST(ModalBank, ModalBankWithNoModesAddsNothing)
+TEST(Small_ModalBank, ModalBankWithNoModesAddsNothing)
 {
     constexpr std::uint32_t K_FRAMES = 512;
     auto design = std::make_unique<SushiDSP::room::ModalDesign>();
@@ -256,7 +256,7 @@ TEST(ModalBank, ModalBankWithNoModesAddsNothing)
     }
 }
 
-TEST(ModalBank, ModalBankResetSilencesEveryResonator)
+TEST(Small_ModalBank, ModalBankResetSilencesEveryResonator)
 {
     constexpr std::uint32_t K_FRAMES = 4096;
     const auto design = single_mode_design();
@@ -277,7 +277,7 @@ TEST(ModalBank, ModalBankResetSilencesEveryResonator)
     }
 }
 
-TEST(ModalBank, ModalBankReadsEveryRowAsItReadsTheTwoEars)
+TEST(Small_ModalBank, ModalBankReadsEveryRowAsItReadsTheTwoEars)
 {
     // Seven modes spill into a second lane group, so a row is summed across groups too.
     auto design = std::make_unique<SushiDSP::room::ModalDesign>();
@@ -338,7 +338,7 @@ namespace
     }
 } // namespace
 
-TEST(ModalBank, ProcessPerformsNoHeapAllocation)
+TEST(Small_ModalBank, ProcessPerformsNoHeapAllocation)
 {
     // All K_MAX_MODES resonators run at 68.6 Hz, 1 s decay. See tests/nodes/room/README.md.
     SushiDSP::room::ModalBank bank;

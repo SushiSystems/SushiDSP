@@ -51,7 +51,7 @@ namespace
     using DkStageNetlist = SushiDSP::dk::DkNetlist<6, 2, 2, 1>;
 } // namespace
 
-TEST(DkCircuit, ProcessPerformsNoHeapAllocation)
+TEST(Small_DkCircuit, ProcessPerformsNoHeapAllocation)
 {
     DkStageNetlist netlist;
     build_jcm_v1a(netlist);
@@ -84,7 +84,7 @@ TEST(DkCircuit, ProcessPerformsNoHeapAllocation)
     EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
 }
 
-TEST(DkCircuit, PotentiometerUpdatePerformsNoHeapAllocation)
+TEST(Small_DkCircuit, PotentiometerUpdatePerformsNoHeapAllocation)
 {
     // A pot move rebuilds the DK matrices on the audio thread. See tests/foundation/math/dk/test_dk_circuit/README.md.
     DkStageNetlist netlist;

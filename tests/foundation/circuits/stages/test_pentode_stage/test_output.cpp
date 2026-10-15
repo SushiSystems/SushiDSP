@@ -122,7 +122,7 @@ namespace
     };
 } // namespace
 
-SUSHIDSP_REGRESSION_TEST(PentodeStage, PentodeStageAliasFloorInsideAndAtItsWindow)
+SUSHIDSP_REGRESSION_TEST(Small_PentodeStage, PentodeStageAliasFloorInsideAndAtItsWindow)
 {
     // The EL34 folds under -80 dB at 8 V and -50 dB at 38 V. See tests/foundation/circuits/stages/test_pentode_stage/README.md.
     OversampledPentodeStageNode inside(SushiDSP::PentodeStage(K_REFERENCE_PENTODE), 8.0f, 300.0f);

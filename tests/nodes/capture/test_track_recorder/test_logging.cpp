@@ -37,7 +37,7 @@
 #include <SushiDSP/foundation/log/default_logger.hpp>
 #include <SushiDSP/foundation/log/scoped_log_sink.hpp>
 
-TEST(TrackRecorder, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFileCannotBeOpened)
+TEST(Medium_TrackRecorder, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFileCannotBeOpened)
 {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "sushidsp_recorder_logging";

@@ -31,18 +31,18 @@
 
 #include <cstdint>
 
-TEST(FadeWindow, CrossfadeIsTwoEarsOfFiveHundredTwelveFrames)
+TEST(Small_FadeWindow, CrossfadeIsTwoEarsOfFiveHundredTwelveFrames)
 {
     EXPECT_EQ(SushiDSP::room::K_CROSSFADE_FRAMES, 512u);
     EXPECT_EQ(SushiDSP::room::K_EARS, 2u);
 }
 
-TEST(FadeWindow, WeightEndsAtOne)
+TEST(Small_FadeWindow, WeightEndsAtOne)
 {
     EXPECT_FLOAT_EQ(SushiDSP::room::fade_weight(511u, 512u), 1.0f);
 }
 
-TEST(FadeWindow, WeightRisesMonotonicallyAndStaysInUnitRange)
+TEST(Small_FadeWindow, WeightRisesMonotonicallyAndStaysInUnitRange)
 {
     float previous = 0.0f;
     for (std::uint32_t frame = 0; frame < 512u; ++frame)

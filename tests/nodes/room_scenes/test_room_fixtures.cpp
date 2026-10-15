@@ -29,7 +29,7 @@
 
 #include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
 
-TEST(RoomFixtures, GarageIsConcreteAllRoundWithFlatScattering)
+TEST(Small_RoomFixtures, GarageIsConcreteAllRoundWithFlatScattering)
 {
     const SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     for (const SushiDSP::room::MaterialId material : scene.surfaces)
@@ -42,7 +42,7 @@ TEST(RoomFixtures, GarageIsConcreteAllRoundWithFlatScattering)
     }
 }
 
-TEST(RoomFixtures, BlockRoomIsPaintedConcreteBlockAllRound)
+TEST(Small_RoomFixtures, BlockRoomIsPaintedConcreteBlockAllRound)
 {
     const SushiDSP::room::RoomScene scene = SushiDSP::test::block_room_scene();
     for (const SushiDSP::room::MaterialId material : scene.surfaces)
@@ -51,7 +51,7 @@ TEST(RoomFixtures, BlockRoomIsPaintedConcreteBlockAllRound)
     }
 }
 
-TEST(RoomFixtures, BedroomFloorIsNotTheGarageConcrete)
+TEST(Small_RoomFixtures, BedroomFloorIsNotTheGarageConcrete)
 {
     const SushiDSP::room::RoomScene bedroom = SushiDSP::test::bedroom_scene();
     const std::size_t floor = static_cast<std::size_t>(SushiDSP::room::Surface::Floor);

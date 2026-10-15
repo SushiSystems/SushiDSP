@@ -31,7 +31,7 @@
 
 #include <array>
 
-TEST(DenseLu, SolvesAKnownThreeByThreeSystem)
+TEST(Small_DenseLu, SolvesAKnownThreeByThreeSystem)
 {
     const std::array<std::array<double, 3>, 3> matrix{{{4.0, 1.0, 0.0}, {1.0, 3.0, 1.0}, {0.0, 1.0, 2.0}}};
     const std::array<double, 3> expected{{1.0, 2.0, 3.0}};
@@ -47,7 +47,7 @@ TEST(DenseLu, SolvesAKnownThreeByThreeSystem)
     }
 }
 
-TEST(DenseLu, PivotsWhenTheLeadingEntryIsZero)
+TEST(Small_DenseLu, PivotsWhenTheLeadingEntryIsZero)
 {
     const std::array<std::array<double, 2>, 2> matrix{{{0.0, 1.0}, {1.0, 0.0}}};
     SushiDSP::dk::DenseLu<2> lu;
@@ -58,7 +58,7 @@ TEST(DenseLu, PivotsWhenTheLeadingEntryIsZero)
     EXPECT_NEAR(solution[1], 3.0, 1e-12);
 }
 
-TEST(DenseLu, RejectsASingularMatrix)
+TEST(Small_DenseLu, RejectsASingularMatrix)
 {
     const std::array<std::array<double, 2>, 2> singular{{{1.0, 2.0}, {2.0, 4.0}}};
     SushiDSP::dk::DenseLu<2> lu;

@@ -43,27 +43,27 @@ namespace
         "freq", "Freq", 0.0f, 20000.0f, 1000.0f, SushiDSP::ParamKind::Logarithmic, "Hz"};
 } // namespace
 
-TEST(KnobMath, KnobMathMapsLinearParameterEndpointsAndMidpoint)
+TEST(Small_KnobMath, KnobMathMapsLinearParameterEndpointsAndMidpoint)
 {
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, 0.0f), 0.0f);
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, 1.0f), 1.0f);
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, 0.5f), 0.5f);
 }
 
-TEST(KnobMath, KnobMathMapsDecibelParameterLinearlyInItsOwnUnit)
+TEST(Small_KnobMath, KnobMathMapsDecibelParameterLinearlyInItsOwnUnit)
 {
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_DECIBEL, -60.0f), 0.0f);
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_DECIBEL, 12.0f), 1.0f);
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_DECIBEL, -24.0f), 0.5f);
 }
 
-TEST(KnobMath, KnobMathClampsValuesOutsideTheParameterRange)
+TEST(Small_KnobMath, KnobMathClampsValuesOutsideTheParameterRange)
 {
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, -3.0f), 0.0f);
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, 4.0f), 1.0f);
 }
 
-TEST(KnobMath, KnobMathRoundTripsValueThroughNormalized)
+TEST(Small_KnobMath, KnobMathRoundTripsValueThroughNormalized)
 {
     for (float value : {-60.0f, -33.0f, 0.0f, 11.5f})
     {
@@ -72,39 +72,39 @@ TEST(KnobMath, KnobMathRoundTripsValueThroughNormalized)
     }
 }
 
-TEST(KnobMath, KnobMathGivesLogarithmicParameterAGeometricMidpoint)
+TEST(Small_KnobMath, KnobMathGivesLogarithmicParameterAGeometricMidpoint)
 {
     EXPECT_NEAR(ui::normalized_to_value(K_LOG, 0.5f), std::sqrt(20.0f * 20000.0f), 1e-2f);
     EXPECT_NEAR(ui::value_to_normalized(K_LOG, 20000.0f), 1.0f, 1e-5f);
 }
 
-TEST(KnobMath, KnobMathFallsBackToLinearWhenALogarithmicRangeStartsAtZero)
+TEST(Small_KnobMath, KnobMathFallsBackToLinearWhenALogarithmicRangeStartsAtZero)
 {
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LOG_BAD_MIN, 10000.0f), 0.5f);
     EXPECT_FLOAT_EQ(ui::normalized_to_value(K_LOG_BAD_MIN, 0.5f), 10000.0f);
 }
 
-TEST(KnobMath, KnobMathDragMovesUpwardPointerTravelTowardTheMaximum)
+TEST(Small_KnobMath, KnobMathDragMovesUpwardPointerTravelTowardTheMaximum)
 {
     // ImGui's y grows downward, so an upward drag is a negative delta.
     EXPECT_GT(ui::apply_drag(0.5f, -20.0f, false), 0.5f);
     EXPECT_LT(ui::apply_drag(0.5f, 20.0f, false), 0.5f);
 }
 
-TEST(KnobMath, KnobMathDragClampsAtBothEnds)
+TEST(Small_KnobMath, KnobMathDragClampsAtBothEnds)
 {
     EXPECT_FLOAT_EQ(ui::apply_drag(0.9f, -1000.0f, false), 1.0f);
     EXPECT_FLOAT_EQ(ui::apply_drag(0.1f, 1000.0f, false), 0.0f);
 }
 
-TEST(KnobMath, KnobMathFineDragTravelsExactlyOneQuarterAsFar)
+TEST(Small_KnobMath, KnobMathFineDragTravelsExactlyOneQuarterAsFar)
 {
     const float coarse = ui::apply_drag(0.0f, -50.0f, false);
     const float fine = ui::apply_drag(0.0f, -50.0f, true);
     EXPECT_NEAR(fine * 4.0f, coarse, 1e-6f);
 }
 
-TEST(KnobMath, KnobMathPointsDownLeftAtZeroStraightUpAtHalfAndDownRightAtOne)
+TEST(Small_KnobMath, KnobMathPointsDownLeftAtZeroStraightUpAtHalfAndDownRightAtOne)
 {
     // ImGui's y grows downward, so a positive sine points down the screen.
     constexpr float K_DIAGONAL = 0.70710678f;

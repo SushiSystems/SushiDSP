@@ -44,14 +44,14 @@ namespace
     }
 } // namespace
 
-TEST(HalfbandCoefficients, TapCountsMatchTheStageDesigns)
+TEST(Small_HalfbandCoefficients, TapCountsMatchTheStageDesigns)
 {
     EXPECT_EQ(SushiDSP::K_HALFBAND_STAGE1.tap_count, 115u);
     EXPECT_EQ(SushiDSP::K_HALFBAND_STAGE2.tap_count, 27u);
     EXPECT_EQ(SushiDSP::K_HALFBAND_STAGE3.tap_count, 15u);
 }
 
-TEST(HalfbandCoefficients, EachDesignIsSymmetricAboutItsCentre)
+TEST(Small_HalfbandCoefficients, EachDesignIsSymmetricAboutItsCentre)
 {
     for (const SushiDSP::HalfbandDesign* design :
          {&SushiDSP::K_HALFBAND_STAGE1, &SushiDSP::K_HALFBAND_STAGE2, &SushiDSP::K_HALFBAND_STAGE3})
@@ -63,7 +63,7 @@ TEST(HalfbandCoefficients, EachDesignIsSymmetricAboutItsCentre)
     }
 }
 
-TEST(HalfbandCoefficients, EveryOtherTapAwayFromCentreIsZero)
+TEST(Small_HalfbandCoefficients, EveryOtherTapAwayFromCentreIsZero)
 {
     const SushiDSP::HalfbandDesign& design = SushiDSP::K_HALFBAND_STAGE1;
     const std::uint32_t centre = (design.tap_count - 1) / 2;
@@ -74,7 +74,7 @@ TEST(HalfbandCoefficients, EveryOtherTapAwayFromCentreIsZero)
     }
 }
 
-TEST(HalfbandCoefficients, EachDesignHasUnityDcGain)
+TEST(Small_HalfbandCoefficients, EachDesignHasUnityDcGain)
 {
     EXPECT_NEAR(sum_of(SushiDSP::K_HALFBAND_STAGE1), 1.0, 1e-4);
     EXPECT_NEAR(sum_of(SushiDSP::K_HALFBAND_STAGE2), 1.0, 1e-4);

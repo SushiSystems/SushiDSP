@@ -62,7 +62,7 @@ namespace
     }
 } // namespace
 
-TEST(GraphicEqualizer, GraphicEqualizerHoldsFiveBandsAndIsFlatAtRest)
+TEST(Small_GraphicEqualizer, GraphicEqualizerHoldsFiveBandsAndIsFlatAtRest)
 {
     SushiDSP::GraphicEqualizer equalizer(48000.0, {80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f}, 1.4f,
                                          12.0f);
@@ -70,7 +70,7 @@ TEST(GraphicEqualizer, GraphicEqualizerHoldsFiveBandsAndIsFlatAtRest)
     EXPECT_NEAR(steady_gain_db(equalizer, 48000.0, 750.0), 0.0f, 0.05f);
 }
 
-TEST(GraphicEqualizer, GraphicEqualizerBoostsOneBandAtItsCentre)
+TEST(Small_GraphicEqualizer, GraphicEqualizerBoostsOneBandAtItsCentre)
 {
     SushiDSP::GraphicEqualizer equalizer(48000.0, {80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f}, 1.4f,
                                          12.0f);
@@ -79,7 +79,7 @@ TEST(GraphicEqualizer, GraphicEqualizerBoostsOneBandAtItsCentre)
     EXPECT_NEAR(steady_gain_db(equalizer, 48000.0, 80.0), 0.0f, 0.5f);
 }
 
-TEST(GraphicEqualizer, GraphicEqualizerCutsOneBandAndClampsSliders)
+TEST(Small_GraphicEqualizer, GraphicEqualizerCutsOneBandAndClampsSliders)
 {
     SushiDSP::GraphicEqualizer equalizer(48000.0, {80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f}, 1.4f,
                                          12.0f);
@@ -89,7 +89,7 @@ TEST(GraphicEqualizer, GraphicEqualizerCutsOneBandAndClampsSliders)
     EXPECT_EQ(equalizer.band_count(), 5u);
 }
 
-TEST(GraphicEqualizer, GraphicEqualizerPerBandQNarrowsOneBandOnly)
+TEST(Small_GraphicEqualizer, GraphicEqualizerPerBandQNarrowsOneBandOnly)
 {
     SushiDSP::GraphicEqualizer equalizer(48000.0, {87.61f, 371.74f, 723.43f, 1575.87f, 4822.88f},
                                          {1.171f, 1.938f, 2.128f, 0.673f, 1.0f}, 17.0f);

@@ -31,7 +31,7 @@
 
 #include <cstdint>
 
-TEST(CabinetGeometry, AtMostFourDriversPerCabinet)
+TEST(Small_CabinetGeometry, AtMostFourDriversPerCabinet)
 {
     EXPECT_EQ(SushiDSP::room::CabinetGeometry::K_MAX_DRIVERS, 4u);
 }

@@ -31,14 +31,14 @@
 
 #include <cmath>
 
-TEST(DiezelVh4ToneStack, SilenceGivesSilence)
+TEST(Small_DiezelVh4ToneStack, SilenceGivesSilence)
 {
     SushiDSP::DiezelVh4ToneStack stack(48000.0);
     stack.reset();
     EXPECT_NEAR(stack.process_sample(0.0f), 0.0f, 1e-6f);
 }
 
-TEST(DiezelVh4ToneStack, ToneStaysFiniteAcrossTheControls)
+TEST(Small_DiezelVh4ToneStack, ToneStaysFiniteAcrossTheControls)
 {
     SushiDSP::DiezelVh4ToneStack stack(48000.0);
     stack.set_bass(0.8f);
@@ -52,7 +52,7 @@ TEST(DiezelVh4ToneStack, ToneStaysFiniteAcrossTheControls)
     }
 }
 
-TEST(DiezelVh4ToneStack, InputResistorAttenuatesWithinUnity)
+TEST(Small_DiezelVh4ToneStack, InputResistorAttenuatesWithinUnity)
 {
     EXPECT_GT(SushiDSP::DiezelVh4ToneStack::input_resistor_attenuation(), 0.0f);
     EXPECT_LE(SushiDSP::DiezelVh4ToneStack::input_resistor_attenuation(), 1.0f);

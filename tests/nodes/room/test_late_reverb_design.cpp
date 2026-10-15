@@ -215,7 +215,7 @@ namespace
     }
 } // namespace
 
-TEST(LateReverbDesign, LateReverbDesignMeetsTheModalOverlapRule)
+TEST(Small_LateReverbDesign, LateReverbDesignMeetsTheModalOverlapRule)
 {
     // The lines total at least 1.4 * RT60(500 Hz). See tests/nodes/room/README.md.
     const FdnDesign design = garage_design();
@@ -239,7 +239,7 @@ TEST(LateReverbDesign, LateReverbDesignMeetsTheModalOverlapRule)
     }
 }
 
-TEST(LateReverbDesign, LateReverbDesignUsesSixteenDistinctPrimes)
+TEST(Small_LateReverbDesign, LateReverbDesignUsesSixteenDistinctPrimes)
 {
     // The garage's primes run from 1753 to 10211. See tests/nodes/room/README.md.
     const FdnDesign design = garage_design();
@@ -273,7 +273,7 @@ TEST(LateReverbDesign, LateReverbDesignUsesSixteenDistinctPrimes)
     EXPECT_EQ(shortest, first_primes);
 }
 
-TEST(LateReverbDesign, LateReverbDesignFitsTheDecayEachBandAsks)
+TEST(Small_LateReverbDesign, LateReverbDesignFitsTheDecayEachBandAsks)
 {
     // The cascade lands within 1 dB of each wanted gain. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
@@ -296,7 +296,7 @@ TEST(LateReverbDesign, LateReverbDesignFitsTheDecayEachBandAsks)
                 0.001);
 }
 
-TEST(LateReverbDesign, LateReverbDesignDelaysTheTailToTheHandoverTime)
+TEST(Small_LateReverbDesign, LateReverbDesignDelaysTheTailToTheHandoverTime)
 {
     // The delay is the handover time less the shortest line. See tests/nodes/room/README.md.
     const EarlyTapSet early = garage_early_taps();
@@ -322,7 +322,7 @@ TEST(LateReverbDesign, LateReverbDesignDelaysTheTailToTheHandoverTime)
     }
 }
 
-TEST(LateReverbDesign, LateReverbDesignPutsEachBandsRemainderIntoTheTail)
+TEST(Small_LateReverbDesign, LateReverbDesignPutsEachBandsRemainderIntoTheTail)
 {
     // Each band's share is floored at -30 dB of the largest. See tests/nodes/room/README.md.
     for (const SushiDSP::room::RoomScene& scene :
@@ -383,7 +383,7 @@ TEST(LateReverbDesign, LateReverbDesignPutsEachBandsRemainderIntoTheTail)
     EXPECT_GT(alone.input_gain, half.input_gain);
 }
 
-TEST(LateReverbDesign, LateReverbDesignRendersEachBandsRemainder)
+TEST(Small_LateReverbDesign, LateReverbDesignRendersEachBandsRemainder)
 {
     // Each band renders within 1 dB, or 2 dB at 125 Hz. See tests/nodes/room/README.md.
     for (const SushiDSP::room::RoomScene& scene :
@@ -412,7 +412,7 @@ TEST(LateReverbDesign, LateReverbDesignRendersEachBandsRemainder)
     }
 }
 
-TEST(LateReverbDesign, LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh)
+TEST(Small_LateReverbDesign, LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh)
 {
     // Coherence is above 0.85 at 125 Hz, below 0.20 at 4 kHz. See tests/nodes/room/README.md.
     const FdnDesign design = garage_design();
@@ -422,7 +422,7 @@ TEST(LateReverbDesign, LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh)
     EXPECT_GT(cascade_gain(design.coherence_b, 4000.0), 0.95);
 }
 
-TEST(LateReverbDesign, LateReverbDesignKeepsTheCoherencePairPowerComplementary)
+TEST(Small_LateReverbDesign, LateReverbDesignKeepsTheCoherencePairPowerComplementary)
 {
     // |A|^2 + |B|^2 = 1 within 1e-9. See tests/nodes/room/README.md.
     const FdnDesign design = garage_design();
@@ -434,7 +434,7 @@ TEST(LateReverbDesign, LateReverbDesignKeepsTheCoherencePairPowerComplementary)
     }
 }
 
-TEST(LateReverbDesign, LateReverbDesignShapesTheOutputWithBothSections)
+TEST(Small_LateReverbDesign, LateReverbDesignShapesTheOutputWithBothSections)
 {
     // The second section carries part of the fall to 4 kHz. See tests/nodes/room/README.md.
     const FdnDesign design = garage_design();
@@ -447,7 +447,7 @@ TEST(LateReverbDesign, LateReverbDesignShapesTheOutputWithBothSections)
                 std::pow(10.0, (4.7 + 12.1) / 20.0), 0.6);
 }
 
-TEST(LateReverbDesign, LateReverbDesignGivesTheMicrophoneOneOutput)
+TEST(Small_LateReverbDesign, LateReverbDesignGivesTheMicrophoneOneOutput)
 {
     // A microphone's coherence filters are pass-throughs. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
@@ -463,7 +463,7 @@ TEST(LateReverbDesign, LateReverbDesignGivesTheMicrophoneOneOutput)
     EXPECT_EQ(design.line_frames, garage_design().line_frames);
 }
 
-TEST(LateReverbDesign, LateReverbDesignHandsAMicrophoneItsShareOfTheField)
+TEST(Small_LateReverbDesign, LateReverbDesignHandsAMicrophoneItsShareOfTheField)
 {
     // A microphone picks up a^2 + (1 - a)^2 / 3 of the field. See tests/nodes/room/README.md.
     SushiDSP::room::RoomScene omni = SushiDSP::test::garage_scene();

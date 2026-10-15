@@ -89,7 +89,7 @@ namespace
     }
 } // namespace
 
-TEST(RoomScene, RoomSceneBoundUsesTheExactFormNotTheLinearOne)
+TEST(Small_RoomScene, RoomSceneBoundUsesTheExactFormNotTheLinearOne)
 {
     const RoomScene cube = concrete_cube();
     const double per_sofa = row_area(FurnitureId::SofaTwoSeat, 0);
@@ -113,7 +113,7 @@ TEST(RoomScene, RoomSceneBoundUsesTheExactFormNotTheLinearOne)
     }
 }
 
-TEST(RoomScene, RoomSceneAcceptsExactlyTheMaximumFurnishings)
+TEST(Small_RoomScene, RoomSceneAcceptsExactlyTheMaximumFurnishings)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
     for (std::size_t index = 0; index < RoomScene::K_MAX_FURNISHINGS; ++index)
@@ -128,7 +128,7 @@ TEST(RoomScene, RoomSceneAcceptsExactlyTheMaximumFurnishings)
     EXPECT_FALSE(scene.is_valid(reason));
 }
 
-TEST(RoomScene, RoomSceneRefusesABadFurnishingAfterAGoodOne)
+TEST(Small_RoomScene, RoomSceneRefusesABadFurnishingAfterAGoodOne)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
     scene.furnishings[0] = {FurnitureId::SofaTwoSeat, 1.0};
@@ -139,7 +139,7 @@ TEST(RoomScene, RoomSceneRefusesABadFurnishingAfterAGoodOne)
     EXPECT_NE(reason.find("furnishing 1 "), std::string::npos) << reason;
 }
 
-TEST(RoomScene, RoomSceneAcceptsEveryReferenceRoomUnchangedWhenUnfurnished)
+TEST(Small_RoomScene, RoomSceneAcceptsEveryReferenceRoomUnchangedWhenUnfurnished)
 {
     const std::array<RoomScene, 3> rooms = {SushiDSP::test::garage_scene(),
                                             SushiDSP::test::bedroom_scene(),
@@ -157,7 +157,7 @@ TEST(RoomScene, RoomSceneAcceptsEveryReferenceRoomUnchangedWhenUnfurnished)
     }
 }
 
-TEST(RoomScene, FurnishingAreaIgnoresEntriesBeyondTheCount)
+TEST(Small_RoomScene, FurnishingAreaIgnoresEntriesBeyondTheCount)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
     scene.furnishings[0] = {FurnitureId::SofaTwoSeat, 1.0};
@@ -183,7 +183,7 @@ TEST(RoomScene, FurnishingAreaIgnoresEntriesBeyondTheCount)
     }
 }
 
-TEST(RoomScene, MediumAbsorptionIgnoresALiveLookingEntryPastTheCount)
+TEST(Small_RoomScene, MediumAbsorptionIgnoresALiveLookingEntryPastTheCount)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
     scene.furnishings[0] = {FurnitureId::SofaTwoSeat, 1.0};

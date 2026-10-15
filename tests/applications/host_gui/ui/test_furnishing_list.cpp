@@ -54,7 +54,7 @@ namespace
     }
 } // namespace
 
-TEST(FurnishingList, FurnishingListAddFillsToTheLimitAndRefusesTheNext)
+TEST(Small_FurnishingList, FurnishingListAddFillsToTheLimitAndRefusesTheNext)
 {
     RoomScene scene;
     for (std::size_t index = 0; index < RoomScene::K_MAX_FURNISHINGS; ++index)
@@ -74,7 +74,7 @@ TEST(FurnishingList, FurnishingListAddFillsToTheLimitAndRefusesTheNext)
     }
 }
 
-TEST(FurnishingList, FurnishingListAddRecordsTheItemAndTheQuantity)
+TEST(Small_FurnishingList, FurnishingListAddRecordsTheItemAndTheQuantity)
 {
     RoomScene scene;
     ASSERT_TRUE(ui::add_furnishing(scene, FurnitureId::WardrobeModule, 3.5));
@@ -83,7 +83,7 @@ TEST(FurnishingList, FurnishingListAddRecordsTheItemAndTheQuantity)
     EXPECT_DOUBLE_EQ(scene.furnishings[0].quantity, 3.5);
 }
 
-TEST(FurnishingList, FurnishingListAddRefusesZeroNegativeNaNAndInfinity)
+TEST(Small_FurnishingList, FurnishingListAddRefusesZeroNegativeNaNAndInfinity)
 {
     const double refused[] = {0.0,
                               -0.0,
@@ -102,7 +102,7 @@ TEST(FurnishingList, FurnishingListAddRefusesZeroNegativeNaNAndInfinity)
     }
 }
 
-TEST(FurnishingList, FurnishingListRemoveShiftsTheTailDownAndKeepsTheOrder)
+TEST(Small_FurnishingList, FurnishingListRemoveShiftsTheTailDownAndKeepsTheOrder)
 {
     RoomScene scene = scene_with(4);
     ui::remove_furnishing(scene, 1);
@@ -122,7 +122,7 @@ TEST(FurnishingList, FurnishingListRemoveShiftsTheTailDownAndKeepsTheOrder)
     EXPECT_DOUBLE_EQ(scene.furnishings[0].quantity, 3.0);
 }
 
-TEST(FurnishingList, FurnishingListRemoveIgnoresAnIndexAtOrPastTheCount)
+TEST(Small_FurnishingList, FurnishingListRemoveIgnoresAnIndexAtOrPastTheCount)
 {
     RoomScene scene = scene_with(3);
     ui::remove_furnishing(scene, 3);
@@ -139,7 +139,7 @@ TEST(FurnishingList, FurnishingListRemoveIgnoresAnIndexAtOrPastTheCount)
     EXPECT_EQ(empty.furnishing_count, 0u);
 }
 
-TEST(FurnishingList, FurnishingListRemoveFreesASlotForTheNextAdd)
+TEST(Small_FurnishingList, FurnishingListRemoveFreesASlotForTheNextAdd)
 {
     RoomScene scene = scene_with(static_cast<std::uint32_t>(RoomScene::K_MAX_FURNISHINGS));
     ui::remove_furnishing(scene, 0);
@@ -148,7 +148,7 @@ TEST(FurnishingList, FurnishingListRemoveFreesASlotForTheNextAdd)
     EXPECT_EQ(scene.furnishing_count, RoomScene::K_MAX_FURNISHINGS);
 }
 
-TEST(FurnishingList, FurnishingListSetChangesTheQuantityOfOneEntry)
+TEST(Small_FurnishingList, FurnishingListSetChangesTheQuantityOfOneEntry)
 {
     RoomScene scene = scene_with(3);
     EXPECT_TRUE(ui::set_furnishing_quantity(scene, 1, 7.25));
@@ -159,7 +159,7 @@ TEST(FurnishingList, FurnishingListSetChangesTheQuantityOfOneEntry)
     EXPECT_EQ(scene.furnishing_count, 3u);
 }
 
-TEST(FurnishingList, FurnishingListSetRefusesABadIndexOrABadQuantity)
+TEST(Small_FurnishingList, FurnishingListSetRefusesABadIndexOrABadQuantity)
 {
     RoomScene scene = scene_with(2);
 
@@ -176,7 +176,7 @@ TEST(FurnishingList, FurnishingListSetRefusesABadIndexOrABadQuantity)
     EXPECT_DOUBLE_EQ(scene.furnishings[2].quantity, 0.0);
 }
 
-TEST(FurnishingList, FurnishingListDefaultsToOneItemForEveryRow)
+TEST(Small_FurnishingList, FurnishingListDefaultsToOneItemForEveryRow)
 {
     for (std::size_t index = 0; index < SushiDSP::room::K_FURNITURE_COUNT; ++index)
     {
@@ -184,7 +184,7 @@ TEST(FurnishingList, FurnishingListDefaultsToOneItemForEveryRow)
     }
 }
 
-TEST(FurnishingList, FurnishingListPlacesAnEntryInsideTheRoomAndTakesItsPlaceAway)
+TEST(Small_FurnishingList, FurnishingListPlacesAnEntryInsideTheRoomAndTakesItsPlaceAway)
 {
     SushiDSP::room::RoomScene scene;
     scene.furnishing_count = 0;

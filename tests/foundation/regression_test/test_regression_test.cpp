@@ -29,7 +29,7 @@
 
 #include <SushiDSP/foundation/regression_test/regression_test.hpp>
 
-SUSHIDSP_REGRESSION_TEST(RegressionTest, DeclaresAGoogleTestCase)
+SUSHIDSP_REGRESSION_TEST(Small_RegressionTest, DeclaresAGoogleTestCase)
 {
     EXPECT_TRUE(true);
 }

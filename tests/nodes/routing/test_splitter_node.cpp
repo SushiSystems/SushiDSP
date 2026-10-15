@@ -34,7 +34,7 @@
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/routing/splitter_node.hpp>
 
-TEST(SplitterNode, SplitterNodeCopiesInputToOutput)
+TEST(Small_SplitterNode, SplitterNodeCopiesInputToOutput)
 {
     SushiDSP::SplitterNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
@@ -53,14 +53,14 @@ TEST(SplitterNode, SplitterNodeCopiesInputToOutput)
     }
 }
 
-TEST(SplitterNode, SplitterNodeHasNoParameters)
+TEST(Small_SplitterNode, SplitterNodeHasNoParameters)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::splitter_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.splitter");
     EXPECT_EQ(descriptor.parameter_count, 0u);
 }
 
-TEST(SplitterNode, ProcessPerformsNoHeapAllocation)
+TEST(Small_SplitterNode, ProcessPerformsNoHeapAllocation)
 {
     SushiDSP::SplitterNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});

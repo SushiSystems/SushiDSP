@@ -31,13 +31,13 @@
 
 #include <string_view>
 
-TEST(LogCategory, NameIsTheNameItWasMadeWith)
+TEST(Small_LogCategory, NameIsTheNameItWasMadeWith)
 {
     constexpr SushiDSP::LogCategory category = SushiDSP::make_log_category("room");
     EXPECT_EQ(category.name(), std::string_view("room"));
 }
 
-TEST(LogCategory, ConstructorAndFactoryAgree)
+TEST(Small_LogCategory, ConstructorAndFactoryAgree)
 {
     const SushiDSP::LogCategory direct("rig");
     const SushiDSP::LogCategory made = SushiDSP::make_log_category("rig");

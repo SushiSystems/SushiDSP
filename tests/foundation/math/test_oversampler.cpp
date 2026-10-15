@@ -107,7 +107,7 @@ namespace
     }
 } // namespace
 
-TEST(Oversampler, HalfbandDesignsHaveExactZeroTapsAndUnityDcGain)
+TEST(Small_Oversampler, HalfbandDesignsHaveExactZeroTapsAndUnityDcGain)
 {
     for (const SushiDSP::HalfbandDesign* design :
          {&SushiDSP::K_HALFBAND_STAGE1, &SushiDSP::K_HALFBAND_STAGE2, &SushiDSP::K_HALFBAND_STAGE3})
@@ -131,7 +131,7 @@ TEST(Oversampler, HalfbandDesignsHaveExactZeroTapsAndUnityDcGain)
     }
 }
 
-TEST(Oversampler, HalfbandUpsamplerMatchesDirectFormOfZeroStuffedInput)
+TEST(Small_Oversampler, HalfbandUpsamplerMatchesDirectFormOfZeroStuffedInput)
 {
     const auto input = sine(0.0731, 4096, 0.7f);
     SushiDSP::HalfbandUpsampler2x upsampler(SushiDSP::K_HALFBAND_STAGE1);
@@ -146,7 +146,7 @@ TEST(Oversampler, HalfbandUpsamplerMatchesDirectFormOfZeroStuffedInput)
     }
 }
 
-TEST(Oversampler, HalfbandDownsamplerMatchesDirectForm)
+TEST(Small_Oversampler, HalfbandDownsamplerMatchesDirectForm)
 {
     const auto input = sine(0.0377, 8192, 0.7f);
     SushiDSP::HalfbandDownsampler2x downsampler(SushiDSP::K_HALFBAND_STAGE1);
@@ -160,7 +160,7 @@ TEST(Oversampler, HalfbandDownsamplerMatchesDirectForm)
     }
 }
 
-TEST(Oversampler, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
+TEST(Small_Oversampler, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
 {
     // A tone's images sit at k*f_base +- f. See tests/foundation/math/README.md.
     const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE / 8;
@@ -193,7 +193,7 @@ TEST(Oversampler, Oversampler8xImagesOfInBandTonesAreBelowMinus90dB)
     }
 }
 
-TEST(Oversampler, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
+TEST(Small_Oversampler, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
 {
     // Folds into (0.45..0.5)*f_base are skipped. See tests/foundation/math/README.md.
     const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE;
@@ -233,7 +233,7 @@ TEST(Oversampler, Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB)
     }
 }
 
-TEST(Oversampler, Oversampler8xRoundTripDroopAt20kIsWithinTenthOfADecibel)
+TEST(Small_Oversampler, Oversampler8xRoundTripDroopAt20kIsWithinTenthOfADecibel)
 {
     // 20 kHz at 48 kHz is 0.4167*f_base, inside the 0.45 passband; round trip through six stages.
     const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE;
@@ -255,7 +255,7 @@ TEST(Oversampler, Oversampler8xRoundTripDroopAt20kIsWithinTenthOfADecibel)
     EXPECT_NEAR(10.0 * std::log10(output_rms / input_rms), 0.0, 0.1);
 }
 
-TEST(Oversampler, Oversampler8xLatencyMatchesMeasuredImpulseDelay)
+TEST(Small_Oversampler, Oversampler8xLatencyMatchesMeasuredImpulseDelay)
 {
     SushiDSP::Oversampler8x oversampler(256);
     std::vector<float> input(2048, 0.0f);
@@ -281,7 +281,7 @@ TEST(Oversampler, Oversampler8xLatencyMatchesMeasuredImpulseDelay)
     EXPECT_LE(difference, 1);
 }
 
-TEST(Oversampler, Oversampler4xRoundTripDroopAt20kIsWithinTenthOfADecibel)
+TEST(Small_Oversampler, Oversampler4xRoundTripDroopAt20kIsWithinTenthOfADecibel)
 {
     // 20 kHz is 0.4167*f_base, inside the 0.45 passband. See tests/foundation/math/README.md.
     const std::size_t base_frames = SushiDSP::measure::K_FFT_SIZE;
@@ -303,7 +303,7 @@ TEST(Oversampler, Oversampler4xRoundTripDroopAt20kIsWithinTenthOfADecibel)
     EXPECT_NEAR(10.0 * std::log10(output_rms / input_rms), 0.0, 0.1);
 }
 
-TEST(Oversampler, Oversampler4xLatencyMatchesMeasuredImpulseDelay)
+TEST(Small_Oversampler, Oversampler4xLatencyMatchesMeasuredImpulseDelay)
 {
     SushiDSP::Oversampler4x oversampler(256);
     std::vector<float> input(2048, 0.0f);
@@ -329,7 +329,7 @@ TEST(Oversampler, Oversampler4xLatencyMatchesMeasuredImpulseDelay)
     EXPECT_LE(difference, 1);
 }
 
-TEST(Oversampler, Oversampler8xPassesDcAtUnity)
+TEST(Small_Oversampler, Oversampler8xPassesDcAtUnity)
 {
     SushiDSP::Oversampler8x oversampler(256);
     std::vector<float> input(256, 1.0f);
@@ -342,7 +342,7 @@ TEST(Oversampler, Oversampler8xPassesDcAtUnity)
     EXPECT_NEAR(output[255], 1.0f, 1e-4f);
 }
 
-TEST(Oversampler, ResetReturnsEveryStageToItsAsConstructedState)
+TEST(Small_Oversampler, ResetReturnsEveryStageToItsAsConstructedState)
 {
     // A reset instance matches a never-used one bit for bit. See tests/foundation/math/README.md.
     const auto burst = sine(0.1913, 512, 0.9f);
@@ -419,7 +419,7 @@ TEST(Oversampler, ResetReturnsEveryStageToItsAsConstructedState)
     }
 }
 
-TEST(Oversampler, Oversampler8xRoundTripPerformsNoHeapAllocation)
+TEST(Small_Oversampler, Oversampler8xRoundTripPerformsNoHeapAllocation)
 {
     const std::uint32_t block_size = 64;
     SushiDSP::Oversampler8x oversampler(block_size);

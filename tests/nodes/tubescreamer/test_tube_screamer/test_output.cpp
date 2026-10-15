@@ -73,7 +73,7 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/nodes/tubescreamer/test_tube_screamer/README.md
-SUSHIDSP_REGRESSION_TEST(TubeScreamer, TubeScreamerGoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Medium_TubeScreamer, TubeScreamerGoldenFile48k)
 {
     EXPECT_LE(
         SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "tube_screamer_48k", render_tube_screamer(48000.0)),
@@ -82,14 +82,14 @@ SUSHIDSP_REGRESSION_TEST(TubeScreamer, TubeScreamerGoldenFile48k)
 
 /// @brief Tests that the 96 kHz render matches its golden file within -80 dB.
 /// @see tests/nodes/tubescreamer/test_tube_screamer/README.md
-SUSHIDSP_REGRESSION_TEST(TubeScreamer, TubeScreamerGoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Medium_TubeScreamer, TubeScreamerGoldenFile96k)
 {
     EXPECT_LE(
         SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "tube_screamer_96k", render_tube_screamer(96000.0)),
         -80.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(TubeScreamer, TubeScreamerAliasFloorDoesNotRegress)
+SUSHIDSP_REGRESSION_TEST(Medium_TubeScreamer, TubeScreamerAliasFloorDoesNotRegress)
 {
     // The floor is the measured -18.6 dB with 1 dB of slack. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     SushiDSP::TubeScreamer node;

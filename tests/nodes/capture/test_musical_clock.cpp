@@ -32,7 +32,7 @@
 
 #include <SushiDSP/nodes/capture/musical_clock.hpp>
 
-TEST(MusicalClock, MusicalClockPlacesBarOneHundredAtTheExactFrame)
+TEST(Small_MusicalClock, MusicalClockPlacesBarOneHundredAtTheExactFrame)
 {
     SushiDSP::MusicalClock clock;
     clock.set_sample_rate(48000.0);
@@ -45,7 +45,7 @@ TEST(MusicalClock, MusicalClockPlacesBarOneHundredAtTheExactFrame)
     EXPECT_NEAR(at.fraction, 0.0, 1e-9);
 }
 
-TEST(MusicalClock, MusicalClockRoundTripsEveryFrameToItsOwnBeat)
+TEST(Small_MusicalClock, MusicalClockRoundTripsEveryFrameToItsOwnBeat)
 {
     for (const double rate : {44100.0, 48000.0, 96000.0, 192000.0})
     {
@@ -67,7 +67,7 @@ TEST(MusicalClock, MusicalClockRoundTripsEveryFrameToItsOwnBeat)
     }
 }
 
-TEST(MusicalClock, MusicalClockCountsTheBeatTheMeterNames)
+TEST(Small_MusicalClock, MusicalClockCountsTheBeatTheMeterNames)
 {
     SushiDSP::MusicalClock clock;
     clock.set_sample_rate(48000.0);
@@ -78,7 +78,7 @@ TEST(MusicalClock, MusicalClockCountsTheBeatTheMeterNames)
     EXPECT_EQ(clock.frame_of(2, 1), 72000u);
 }
 
-TEST(MusicalClock, MusicalClockDoesNotAccumulateErrorAcrossFiveMinutes)
+TEST(Small_MusicalClock, MusicalClockDoesNotAccumulateErrorAcrossFiveMinutes)
 {
     SushiDSP::MusicalClock clock;
     clock.set_sample_rate(48000.0);
@@ -94,7 +94,7 @@ TEST(MusicalClock, MusicalClockDoesNotAccumulateErrorAcrossFiveMinutes)
     }
 }
 
-TEST(MusicalClock, MusicalClockPublishesTheStepTheTempoAndMeterName)
+TEST(Small_MusicalClock, MusicalClockPublishesTheStepTheTempoAndMeterName)
 {
     SushiDSP::MusicalClock clock;
     clock.set_sample_rate(48000.0);
@@ -119,7 +119,7 @@ TEST(MusicalClock, MusicalClockPublishesTheStepTheTempoAndMeterName)
     EXPECT_EQ(clock.beat_step_q32(), 45012757687336ull);
 }
 
-TEST(MusicalClock, MusicalClockPlacesAnAwkwardMeterAtAHandComputedFrame)
+TEST(Small_MusicalClock, MusicalClockPlacesAnAwkwardMeterAtAHandComputedFrame)
 {
     SushiDSP::MusicalClock clock;
     clock.set_sample_rate(48000.0);
@@ -135,7 +135,7 @@ TEST(MusicalClock, MusicalClockPlacesAnAwkwardMeterAtAHandComputedFrame)
     EXPECT_NEAR(at.fraction, 0.4770341666682013, 1e-9);
 }
 
-TEST(MusicalClock, MusicalClockKeepsBarStartsWithinOneSampleFarDownTheTimeline)
+TEST(Small_MusicalClock, MusicalClockKeepsBarStartsWithinOneSampleFarDownTheTimeline)
 {
     SushiDSP::MusicalClock clock;
     clock.set_sample_rate(48000.0);
@@ -154,7 +154,7 @@ TEST(MusicalClock, MusicalClockKeepsBarStartsWithinOneSampleFarDownTheTimeline)
     EXPECT_EQ(clock.frame_of(1000, 1), 83758951u);
 }
 
-TEST(MusicalClock, MusicalClockIgnoresATempoMeterOrRateThatCannotBeUsed)
+TEST(Small_MusicalClock, MusicalClockIgnoresATempoMeterOrRateThatCannotBeUsed)
 {
     SushiDSP::MusicalClock clock;
     clock.set_sample_rate(48000.0);
@@ -176,7 +176,7 @@ TEST(MusicalClock, MusicalClockIgnoresATempoMeterOrRateThatCannotBeUsed)
     EXPECT_EQ(clock.sample_rate(), 48000.0);
 }
 
-TEST(MusicalClock, MusicalClockReadsAFrameInsideTheFirstBeat)
+TEST(Small_MusicalClock, MusicalClockReadsAFrameInsideTheFirstBeat)
 {
     SushiDSP::MusicalClock clock;
     clock.set_sample_rate(48000.0);

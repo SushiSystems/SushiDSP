@@ -29,7 +29,7 @@
 
 #include <SushiDSP/foundation/circuits/stages/grid_conduction_law.hpp>
 
-TEST(GridConductionLaw, KeepsScaleThresholdAndTransitionAsGiven)
+TEST(Small_GridConductionLaw, KeepsScaleThresholdAndTransitionAsGiven)
 {
     const SushiDSP::GridConductionLaw law{1.0e-6f, 0.5f, 0.15f};
     EXPECT_FLOAT_EQ(law.scale_amps, 1.0e-6f);

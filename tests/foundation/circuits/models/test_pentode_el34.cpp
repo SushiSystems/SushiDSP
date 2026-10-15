@@ -33,7 +33,7 @@
 
 #include <SushiDSP/foundation/circuits/models/pentode_el34.hpp>
 
-TEST(PentodeEl34, PentodeEL34MatchesKorenAtThreeOperatingPoints)
+TEST(Small_PentodeEl34, PentodeEL34MatchesKorenAtThreeOperatingPoints)
 {
     // The three points are hand-computed from Koren's law. See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
@@ -80,7 +80,7 @@ TEST(PentodeEl34, PentodeEL34MatchesKorenAtThreeOperatingPoints)
     }
 }
 
-TEST(PentodeEl34, PentodeEL34GridCurrentFollowsNormansSoftLaw)
+TEST(Small_PentodeEl34, PentodeEL34GridCurrentFollowsNormansSoftLaw)
 {
     // Ig1 = 1e-6 * ln(1 + exp((Vg1k - 0.5)/0.15)). See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
@@ -106,7 +106,7 @@ TEST(PentodeEl34, PentodeEL34GridCurrentFollowsNormansSoftLaw)
     }
 }
 
-TEST(PentodeEl34, PentodeEL34JacobianMatchesCentredDifferencesEverywhere)
+TEST(Small_PentodeEl34, PentodeEL34JacobianMatchesCentredDifferencesEverywhere)
 {
     const SushiDSP::PentodeEL34 pentode;
     for (const double vg1k : {-45.0, -30.0, -15.0, -5.0, 0.0})
@@ -148,7 +148,7 @@ TEST(PentodeEl34, PentodeEL34JacobianMatchesCentredDifferencesEverywhere)
     }
 }
 
-TEST(PentodeEl34, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
+TEST(Small_PentodeEl34, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
 {
     // kx > 1, so the screen current is C1 at z = 0. See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
@@ -176,7 +176,7 @@ TEST(PentodeEl34, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
     EXPECT_DOUBLE_EQ(jacobian_at_kink[1][1], 0.0);
 }
 
-TEST(PentodeEl34, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
+TEST(Small_PentodeEl34, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
 {
     // Ip factors into a grid term times atan(Vpk/kvb). See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
@@ -189,7 +189,7 @@ TEST(PentodeEl34, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
     EXPECT_DOUBLE_EQ(high[0], low[0]);
 }
 
-TEST(PentodeEl34, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
+TEST(Small_PentodeEl34, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
 {
     // current() and jacobian() forward to the joint form. See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
@@ -233,7 +233,7 @@ TEST(PentodeEl34, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
     EXPECT_DOUBLE_EQ(currents[1], 0.0);
 }
 
-TEST(PentodeEl34, PentodeEL34StaysFiniteUnderAbsurdInputs)
+TEST(Small_PentodeEl34, PentodeEL34StaysFiniteUnderAbsurdInputs)
 {
     const SushiDSP::PentodeEL34 pentode;
     for (const double vg1k : {-1e4, -50.0, 0.0, 50.0, 1e4})

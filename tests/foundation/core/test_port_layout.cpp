@@ -29,14 +29,14 @@
 
 #include <SushiDSP/foundation/core/port_layout.hpp>
 
-TEST(PortLayout, KeepsTheInputAndOutputChannelCounts)
+TEST(Small_PortLayout, KeepsTheInputAndOutputChannelCounts)
 {
     const SushiDSP::PortLayout stereo{2u, 2u};
     EXPECT_EQ(stereo.input_channels, 2u);
     EXPECT_EQ(stereo.output_channels, 2u);
 }
 
-TEST(PortLayout, AMonoToStereoLayoutHasOneInputAndTwoOutputs)
+TEST(Small_PortLayout, AMonoToStereoLayoutHasOneInputAndTwoOutputs)
 {
     const SushiDSP::PortLayout pan{1u, 2u};
     EXPECT_EQ(pan.input_channels, 1u);

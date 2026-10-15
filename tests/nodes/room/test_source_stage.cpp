@@ -31,14 +31,14 @@
 
 #include <cstdint>
 
-TEST(SourceStage, IsNotLiveAfterReset)
+TEST(Small_SourceStage, IsNotLiveAfterReset)
 {
     SushiDSP::Room::SourceStage stage;
     stage.reset();
     EXPECT_FALSE(stage.live());
 }
 
-TEST(SourceStage, HasTwoBanks)
+TEST(Small_SourceStage, HasTwoBanks)
 {
     EXPECT_EQ(SushiDSP::Room::SourceStage::K_BANKS, 2u);
 }

@@ -35,7 +35,7 @@
 #include <SushiDSP/nodes/routing/mixer_node.hpp>
 #include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
-TEST(NodeRegistry, NodeRegistryListsTubeScreamerAndJcm800)
+TEST(Small_NodeRegistry, NodeRegistryListsTubeScreamerAndJcm800)
 {
     const auto& entries = SushiDSP::node_registry();
     ASSERT_GE(entries.size(), 2u);
@@ -58,7 +58,7 @@ TEST(NodeRegistry, NodeRegistryListsTubeScreamerAndJcm800)
     EXPECT_TRUE(found_jcm800);
 }
 
-TEST(NodeRegistry, MakeNodeConstructsTubeScreamerById)
+TEST(Small_NodeRegistry, MakeNodeConstructsTubeScreamerById)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     auto node = SushiDSP::make_node("sushidsp.tubescreamer", info);
@@ -69,7 +69,7 @@ TEST(NodeRegistry, MakeNodeConstructsTubeScreamerById)
     EXPECT_FLOAT_EQ(node->get_parameter("drive"), 0.3f);
 }
 
-TEST(NodeRegistry, MakeNodeConstructsJcm800ById)
+TEST(Small_NodeRegistry, MakeNodeConstructsJcm800ById)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     auto node = SushiDSP::make_node("sushidsp.jcm800", info);
@@ -78,7 +78,7 @@ TEST(NodeRegistry, MakeNodeConstructsJcm800ById)
     EXPECT_FLOAT_EQ(node->get_parameter("preamp"), 0.4f);
 }
 
-TEST(NodeRegistry, NodeRegistryListsAndBuildsTheThreeHighGainAmplifiers)
+TEST(Small_NodeRegistry, NodeRegistryListsAndBuildsTheThreeHighGainAmplifiers)
 {
     const SushiDSP::PrepareInfo info{48000.0, 256, 1};
     static const char* K_AMPLIFIER_IDS[] = {"sushidsp.peavey5150", "sushidsp.mesa_mark2c",
@@ -104,13 +104,13 @@ TEST(NodeRegistry, NodeRegistryListsAndBuildsTheThreeHighGainAmplifiers)
     }
 }
 
-TEST(NodeRegistry, MakeNodeReturnsNullForUnknownId)
+TEST(Small_NodeRegistry, MakeNodeReturnsNullForUnknownId)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     EXPECT_EQ(SushiDSP::make_node("does.not.exist", info), nullptr);
 }
 
-TEST(NodeRegistry, NodeRegistryIncludesRoutingNodes)
+TEST(Small_NodeRegistry, NodeRegistryIncludesRoutingNodes)
 {
     const SushiDSP::PrepareInfo info{48000.0, 64, 1};
 
@@ -133,7 +133,7 @@ TEST(NodeRegistry, NodeRegistryIncludesRoutingNodes)
     EXPECT_TRUE(found_routing_category);
 }
 
-TEST(NodeRegistry, NodeRegistryBuildsTheCabinet)
+TEST(Small_NodeRegistry, NodeRegistryBuildsTheCabinet)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     auto node = SushiDSP::make_node("sushidsp.cabinet", info);
@@ -141,7 +141,7 @@ TEST(NodeRegistry, NodeRegistryBuildsTheCabinet)
     EXPECT_STREQ(node->type_id(), "sushidsp.cabinet");
 }
 
-TEST(NodeRegistry, NodeRegistryListsTheRoomUnderRoomAndBuildsIt)
+TEST(Small_NodeRegistry, NodeRegistryListsTheRoomUnderRoomAndBuildsIt)
 {
     bool found = false;
     for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())

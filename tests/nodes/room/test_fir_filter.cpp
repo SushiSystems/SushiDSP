@@ -33,7 +33,7 @@
 #include <array>
 #include <vector>
 
-TEST(FirFilter, UnitImpulseTapPassesTheInputUnchanged)
+TEST(Small_FirFilter, UnitImpulseTapPassesTheInputUnchanged)
 {
     std::vector<float> taps(SushiDSP::room::FirFilter::K_TAPS, 0.0f);
     taps[0] = 1.0f;
@@ -52,7 +52,7 @@ TEST(FirFilter, UnitImpulseTapPassesTheInputUnchanged)
     }
 }
 
-TEST(FirFilter, TapCountIsTheHrtfTapCount)
+TEST(Small_FirFilter, TapCountIsTheHrtfTapCount)
 {
     EXPECT_EQ(SushiDSP::room::FirFilter::K_TAPS, SushiDSP::room::HrtfSet::K_TAP_COUNT);
 }

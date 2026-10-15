@@ -136,7 +136,7 @@ namespace
     }
 } // namespace
 
-TEST(Metronome, MetronomeAddsNothingWhenDisabled)
+TEST(Small_Metronome, MetronomeAddsNothingWhenDisabled)
 {
     SushiDSP::MusicalClock clock;
     SushiDSP::Metronome metronome(48000.0);
@@ -151,7 +151,7 @@ TEST(Metronome, MetronomeAddsNothingWhenDisabled)
     }
 }
 
-TEST(Metronome, MetronomeAddsNothingWhenTheTransportIsStopped)
+TEST(Small_Metronome, MetronomeAddsNothingWhenTheTransportIsStopped)
 {
     SushiDSP::MusicalClock clock;
     SushiDSP::Metronome metronome(48000.0);
@@ -168,7 +168,7 @@ TEST(Metronome, MetronomeAddsNothingWhenTheTransportIsStopped)
     }
 }
 
-TEST(Metronome, MetronomeStartsAClickOnEveryBeatFrame)
+TEST(Small_Metronome, MetronomeStartsAClickOnEveryBeatFrame)
 {
     SushiDSP::MusicalClock clock;
     clock.set_tempo(137.4);
@@ -195,7 +195,7 @@ TEST(Metronome, MetronomeStartsAClickOnEveryBeatFrame)
     }
 }
 
-TEST(Metronome, MetronomeKeepsTheGridAcrossASeek)
+TEST(Small_Metronome, MetronomeKeepsTheGridAcrossASeek)
 {
     SushiDSP::MusicalClock clock;
     clock.set_tempo(137.4);
@@ -238,7 +238,7 @@ TEST(Metronome, MetronomeKeepsTheGridAcrossASeek)
     EXPECT_EQ(onsets, expected);
 }
 
-TEST(Metronome, MetronomeAccentsTheDownbeat)
+TEST(Small_Metronome, MetronomeAccentsTheDownbeat)
 {
     SushiDSP::MusicalClock clock;
     SushiDSP::Metronome metronome(48000.0);
@@ -255,7 +255,7 @@ TEST(Metronome, MetronomeAccentsTheDownbeat)
     EXPECT_EQ(peak_bin(rendered, 24000u), 75u); // 878.9 Hz, the 880 Hz beat
 }
 
-TEST(Metronome, MetronomeCarriesABurstAcrossABlockBoundary)
+TEST(Small_Metronome, MetronomeCarriesABurstAcrossABlockBoundary)
 {
     SushiDSP::MusicalClock clock;
 
@@ -300,7 +300,7 @@ TEST(Metronome, MetronomeCarriesABurstAcrossABlockBoundary)
               largest_step);
 }
 
-TEST(Metronome, ProcessPerformsNoHeapAllocation)
+TEST(Small_Metronome, ProcessPerformsNoHeapAllocation)
 {
     // The bursts are built before the trap opens. See tests/nodes/capture/README.md.
     SushiDSP::MusicalClock clock;

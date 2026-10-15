@@ -59,7 +59,7 @@ namespace
     };
 } // namespace
 
-TEST(SolverCounters, SolverCountersPrintsEveryCounterAndTheNonConvergedShare)
+TEST(Small_SolverCounters, SolverCountersPrintsEveryCounterAndTheNonConvergedShare)
 {
     testing::internal::CaptureStdout();
     SushiDSP::bench::print_solver_counters(FixedCounters{});

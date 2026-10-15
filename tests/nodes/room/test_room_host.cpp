@@ -31,7 +31,7 @@
 
 #include <type_traits>
 
-TEST(RoomHost, IsAbstract)
+TEST(Small_RoomHost, IsAbstract)
 {
     EXPECT_TRUE(std::is_abstract<SushiDSP::room::RoomHost>::value);
 }

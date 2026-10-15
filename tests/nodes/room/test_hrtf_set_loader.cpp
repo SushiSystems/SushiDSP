@@ -69,7 +69,7 @@ namespace
     }
 } // namespace
 
-TEST(HrtfSetLoader, HrtfSetLoaderReadsEveryFieldOfTheFixture)
+TEST(Medium_HrtfSetLoader, HrtfSetLoaderReadsEveryFieldOfTheFixture)
 {
     SushiDSP::room::HrtfSet set;
     std::string error;
@@ -87,7 +87,7 @@ TEST(HrtfSetLoader, HrtfSetLoaderReadsEveryFieldOfTheFixture)
     EXPECT_EQ(set.decoder_filters().size(), 32u * 256u);
 }
 
-TEST(HrtfSetLoader, HrtfSetLoaderRefusesAMissingFileAndNamesThePath)
+TEST(Medium_HrtfSetLoader, HrtfSetLoaderRefusesAMissingFileAndNamesThePath)
 {
     SushiDSP::room::HrtfSet set;
     std::string error;
@@ -98,7 +98,7 @@ TEST(HrtfSetLoader, HrtfSetLoaderRefusesAMissingFileAndNamesThePath)
     EXPECT_TRUE(set.empty());
 }
 
-TEST(HrtfSetLoader, HrtfSetLoaderRefusesTheWrongMagic)
+TEST(Medium_HrtfSetLoader, HrtfSetLoaderRefusesTheWrongMagic)
 {
     std::vector<unsigned char> bytes = read_file(fixture_path());
     bytes[0] = static_cast<unsigned char>(bytes[0] + 1u);
@@ -113,7 +113,7 @@ TEST(HrtfSetLoader, HrtfSetLoaderRefusesTheWrongMagic)
     std::remove(path.c_str());
 }
 
-TEST(HrtfSetLoader, HrtfSetLoaderRefusesARateMismatch)
+TEST(Medium_HrtfSetLoader, HrtfSetLoaderRefusesARateMismatch)
 {
     SushiDSP::room::HrtfSet set;
     std::string error;
@@ -123,7 +123,7 @@ TEST(HrtfSetLoader, HrtfSetLoaderRefusesARateMismatch)
     EXPECT_TRUE(set.empty());
 }
 
-TEST(HrtfSetLoader, HrtfSetLoaderRefusesATruncatedFile)
+TEST(Medium_HrtfSetLoader, HrtfSetLoaderRefusesATruncatedFile)
 {
     std::vector<unsigned char> bytes = read_file(fixture_path());
     bytes.resize(bytes.size() / 2);

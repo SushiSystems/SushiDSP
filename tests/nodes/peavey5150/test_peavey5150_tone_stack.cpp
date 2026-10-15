@@ -31,14 +31,14 @@
 
 #include <cmath>
 
-TEST(Peavey5150ToneStack, SilenceGivesSilence)
+TEST(Small_Peavey5150ToneStack, SilenceGivesSilence)
 {
     SushiDSP::Peavey5150ToneStack stack(48000.0);
     stack.reset();
     EXPECT_NEAR(stack.process_sample(0.0f), 0.0f, 1e-6f);
 }
 
-TEST(Peavey5150ToneStack, ToneStaysFiniteAcrossTheControls)
+TEST(Small_Peavey5150ToneStack, ToneStaysFiniteAcrossTheControls)
 {
     SushiDSP::Peavey5150ToneStack stack(48000.0);
     stack.set_low(0.7f);

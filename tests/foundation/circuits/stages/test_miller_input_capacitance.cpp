@@ -42,14 +42,14 @@ namespace
     }
 } // namespace
 
-TEST(MillerInputCapacitance, MillerInputCapacitanceCarriesThe12AX7ModelsOwnFigures)
+TEST(Small_MillerInputCapacitance, MillerInputCapacitanceCarriesThe12AX7ModelsOwnFigures)
 {
     EXPECT_FLOAT_EQ(SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE.grid_cathode_picofarads, 1.6f);
     EXPECT_FLOAT_EQ(SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE.grid_plate_picofarads, 1.7f);
     EXPECT_FLOAT_EQ(SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE.stray_wiring_picofarads, 10.0f);
 }
 
-TEST(MillerInputCapacitance, MillerInputCapacitanceCornerMatchesTheHandComputedPole)
+TEST(Small_MillerInputCapacitance, MillerInputCapacitanceCornerMatchesTheHandComputedPole)
 {
     const SushiDSP::MillerInputCapacitance& c = SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE;
     EXPECT_DOUBLE_EQ(c.corner_hz(55.432497, 100000.0),
@@ -58,7 +58,7 @@ TEST(MillerInputCapacitance, MillerInputCapacitanceCornerMatchesTheHandComputedP
                      corner_by_hand(1.6f, 1.7f, 10.0f, 7.774305, 100000.0));
 }
 
-TEST(MillerInputCapacitance, MillerInputCapacitanceCornerFallsWithGainAndWithDrivingResistance)
+TEST(Small_MillerInputCapacitance, MillerInputCapacitanceCornerFallsWithGainAndWithDrivingResistance)
 {
     const SushiDSP::MillerInputCapacitance& c = SushiDSP::K_TRIODE12_AX7_MILLER_CAPACITANCE;
     EXPECT_LT(c.corner_hz(70.0, 100000.0), c.corner_hz(10.0, 100000.0));
@@ -66,7 +66,7 @@ TEST(MillerInputCapacitance, MillerInputCapacitanceCornerFallsWithGainAndWithDri
     EXPECT_TRUE(std::isfinite(c.corner_hz(0.0, 100000.0)));
 }
 
-TEST(MillerInputCapacitance, MillerInputCapacitanceAtZeroGainIsTheUnmultipliedSum)
+TEST(Small_MillerInputCapacitance, MillerInputCapacitanceAtZeroGainIsTheUnmultipliedSum)
 {
     const SushiDSP::MillerInputCapacitance c{2.0f, 3.0f, 5.0f};
     EXPECT_DOUBLE_EQ(c.corner_hz(0.0, 100000.0), corner_by_hand(2.0, 3.0, 5.0, 0.0, 100000.0));

@@ -61,7 +61,7 @@ namespace
     }
 } // namespace
 
-TEST(ChannelStripNode, ChannelStripCentreSplitsEachSideAtConstantPower)
+TEST(Small_ChannelStripNode, ChannelStripCentreSplitsEachSideAtConstantPower)
 {
     SushiDSP::ChannelStripNode strip;
     strip.prepare(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 2});
@@ -74,7 +74,7 @@ TEST(ChannelStripNode, ChannelStripCentreSplitsEachSideAtConstantPower)
     EXPECT_NEAR(right[0], K_CENTRE_GAIN, 1e-4f);
 }
 
-TEST(ChannelStripNode, ChannelStripLevelSetsTheLinearGain)
+TEST(Small_ChannelStripNode, ChannelStripLevelSetsTheLinearGain)
 {
     SushiDSP::ChannelStripNode strip;
     strip.prepare(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 2});
@@ -88,7 +88,7 @@ TEST(ChannelStripNode, ChannelStripLevelSetsTheLinearGain)
     EXPECT_NEAR(left[K_BLOCK - 1], 0.1f * K_CENTRE_GAIN, 1e-3f);
 }
 
-TEST(ChannelStripNode, ChannelStripFullLeftSilencesTheRight)
+TEST(Small_ChannelStripNode, ChannelStripFullLeftSilencesTheRight)
 {
     SushiDSP::ChannelStripNode strip;
     strip.prepare(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 2});
@@ -103,7 +103,7 @@ TEST(ChannelStripNode, ChannelStripFullLeftSilencesTheRight)
     EXPECT_NEAR(right[K_BLOCK - 1], 0.0f, 1e-4f);
 }
 
-TEST(ChannelStripNode, ChannelStripPolarityInvertsTheSignal)
+TEST(Small_ChannelStripNode, ChannelStripPolarityInvertsTheSignal)
 {
     SushiDSP::ChannelStripNode strip;
     strip.prepare(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 2});
@@ -117,7 +117,7 @@ TEST(ChannelStripNode, ChannelStripPolarityInvertsTheSignal)
     EXPECT_NEAR(left[0], -K_CENTRE_GAIN, 1e-4f);
 }
 
-TEST(ChannelStripNode, ChannelStripDelayShiftsTheSignalByWholeSamples)
+TEST(Small_ChannelStripNode, ChannelStripDelayShiftsTheSignalByWholeSamples)
 {
     SushiDSP::ChannelStripNode strip;
     strip.prepare(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 2});
@@ -132,7 +132,7 @@ TEST(ChannelStripNode, ChannelStripDelayShiftsTheSignalByWholeSamples)
     EXPECT_NEAR(left[96], K_CENTRE_GAIN, 1e-4f);
 }
 
-TEST(ChannelStripNode, ChannelStripDelayIsClampedToFiftyMilliseconds)
+TEST(Small_ChannelStripNode, ChannelStripDelayIsClampedToFiftyMilliseconds)
 {
     SushiDSP::ChannelStripNode strip;
     strip.prepare(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 2});
@@ -141,7 +141,7 @@ TEST(ChannelStripNode, ChannelStripDelayIsClampedToFiftyMilliseconds)
     EXPECT_FLOAT_EQ(strip.get_parameter("delay"), SushiDSP::ChannelStripNode::K_MAX_DELAY_MS);
 }
 
-TEST(ChannelStripNode, ChannelStripParametersReadBackWhatWasSet)
+TEST(Small_ChannelStripNode, ChannelStripParametersReadBackWhatWasSet)
 {
     SushiDSP::ChannelStripNode strip;
     strip.prepare(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 2});

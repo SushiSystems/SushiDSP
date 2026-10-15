@@ -31,13 +31,13 @@
 
 #include <cstddef>
 
-TEST(FdnDesign, SixteenLinesAndTwoOutputSections)
+TEST(Small_FdnDesign, SixteenLinesAndTwoOutputSections)
 {
     EXPECT_EQ(SushiDSP::room::FdnDesign::K_LINE_COUNT, 16u);
     EXPECT_EQ(SushiDSP::room::FdnDesign::K_OUTPUT_SECTIONS, 2u);
 }
 
-TEST(FdnDesign, LongestLineBoundIsPositiveAndBelowOneSecond)
+TEST(Small_FdnDesign, LongestLineBoundIsPositiveAndBelowOneSecond)
 {
     EXPECT_LT(SushiDSP::room::FdnDesign::K_MAX_LINE_SECONDS, 1.0);
     EXPECT_GT(SushiDSP::room::FdnDesign::K_MAX_LINE_SECONDS, 0.0);

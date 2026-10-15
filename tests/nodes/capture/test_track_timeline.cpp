@@ -47,7 +47,7 @@ namespace
     }
 } // namespace
 
-TEST(TrackTimeline, TrackTimelineSortsItsClipsByStartFrame)
+TEST(Small_TrackTimeline, TrackTimelineSortsItsClipsByStartFrame)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -64,7 +64,7 @@ TEST(TrackTimeline, TrackTimelineSortsItsClipsByStartFrame)
     EXPECT_EQ(timeline.clip(2).start_frame, 96000u);
 }
 
-TEST(TrackTimeline, TrackTimelineRefusesTwoOverlappingClipsAndNamesThem)
+TEST(Small_TrackTimeline, TrackTimelineRefusesTwoOverlappingClipsAndNamesThem)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -88,7 +88,7 @@ TEST(TrackTimeline, TrackTimelineRefusesTwoOverlappingClipsAndNamesThem)
     EXPECT_EQ(library.reference_count(take), 0u);
 }
 
-TEST(TrackTimeline, TrackTimelineRefusesMoreThanSixteenClips)
+TEST(Small_TrackTimeline, TrackTimelineRefusesMoreThanSixteenClips)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -105,7 +105,7 @@ TEST(TrackTimeline, TrackTimelineRefusesMoreThanSixteenClips)
     EXPECT_EQ(library.reference_count(take), 0u);
 }
 
-TEST(TrackTimeline, TrackTimelineFindsTheFirstClipPastAFrame)
+TEST(Small_TrackTimeline, TrackTimelineFindsTheFirstClipPastAFrame)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -124,7 +124,7 @@ TEST(TrackTimeline, TrackTimelineFindsTheFirstClipPastAFrame)
     EXPECT_EQ(timeline.first_clip_at_or_after(10000u), 3u); // clip_count(), nothing reaches past
 }
 
-TEST(TrackTimeline, TrackTimelineRetainsEachDistinctTakeOnce)
+TEST(Small_TrackTimeline, TrackTimelineRetainsEachDistinctTakeOnce)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -143,7 +143,7 @@ TEST(TrackTimeline, TrackTimelineRetainsEachDistinctTakeOnce)
     EXPECT_EQ(library.size(), 0u);
 }
 
-TEST(TrackTimeline, TrackTimelineFadesFiveMillisecondsAtEachEdge)
+TEST(Small_TrackTimeline, TrackTimelineFadesFiveMillisecondsAtEachEdge)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -160,7 +160,7 @@ TEST(TrackTimeline, TrackTimelineFadesFiveMillisecondsAtEachEdge)
     EXPECT_FLOAT_EQ(SushiDSP::TrackTimeline::edge_gain(clip, 48000u), 0.0f);
 }
 
-TEST(TrackTimeline, TrackTimelineFadesAShortClipWithoutOverlappingItsOwnRamps)
+TEST(Small_TrackTimeline, TrackTimelineFadesAShortClipWithoutOverlappingItsOwnRamps)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =

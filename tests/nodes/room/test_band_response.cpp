@@ -33,7 +33,7 @@
 
 #include <SushiDSP/nodes/room/band_response.hpp>
 
-TEST(BandResponse, BandResponseUnityIsOneInEveryBand)
+TEST(Small_BandResponse, BandResponseUnityIsOneInEveryBand)
 {
     const SushiDSP::room::BandResponse unity = SushiDSP::room::BandResponse::unity();
     for (std::size_t band = 0; band < SushiDSP::room::K_BAND_COUNT; ++band)
@@ -42,7 +42,7 @@ TEST(BandResponse, BandResponseUnityIsOneInEveryBand)
     }
 }
 
-TEST(BandResponse, BandResponseMultipliesBandByBand)
+TEST(Small_BandResponse, BandResponseMultipliesBandByBand)
 {
     SushiDSP::room::BandResponse first{{0.5f, 0.5f, 0.25f, 1.0f, 2.0f, 4.0f}};
     const SushiDSP::room::BandResponse second{{2.0f, 4.0f, 4.0f, 1.0f, 0.5f, 0.25f}};
@@ -54,7 +54,7 @@ TEST(BandResponse, BandResponseMultipliesBandByBand)
     }
 }
 
-TEST(BandResponse, BandResponsePowerOfFourIsFourMultiplications)
+TEST(Small_BandResponse, BandResponsePowerOfFourIsFourMultiplications)
 {
     const SushiDSP::room::BandResponse one{{0.9f, 0.8f, 0.7f, 0.6f, 0.5f, 0.4f}};
     const SushiDSP::room::BandResponse four = one.powered(4.0);
@@ -65,7 +65,7 @@ TEST(BandResponse, BandResponsePowerOfFourIsFourMultiplications)
     }
 }
 
-TEST(BandResponse, BandResponseDecibelsRoundTrip)
+TEST(Small_BandResponse, BandResponseDecibelsRoundTrip)
 {
     const std::array<float, 6> decibels = {-6.0f, -3.0f, 0.0f, 3.0f, 6.0f, -20.0f};
     const SushiDSP::room::BandResponse response =
@@ -79,7 +79,7 @@ TEST(BandResponse, BandResponseDecibelsRoundTrip)
     }
 }
 
-TEST(BandResponse, BandResponsePowerMeanIsTheRootMeanSquare)
+TEST(Small_BandResponse, BandResponsePowerMeanIsTheRootMeanSquare)
 {
     const SushiDSP::room::BandResponse flat{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}};
     EXPECT_NEAR(flat.power_mean(), 1.0f, 1e-6f);
@@ -87,7 +87,7 @@ TEST(BandResponse, BandResponsePowerMeanIsTheRootMeanSquare)
     EXPECT_NEAR(mixed.power_mean(), std::sqrt(2.0f), 1e-6f); // sqrt((3 * 4) / 6)
 }
 
-TEST(BandResponse, BandResponseZeroGainReadsAsTheDecibelFloor)
+TEST(Small_BandResponse, BandResponseZeroGainReadsAsTheDecibelFloor)
 {
     const SushiDSP::room::BandResponse silent{{0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}};
     const std::array<float, 6> decibels = silent.decibels();
@@ -95,7 +95,7 @@ TEST(BandResponse, BandResponseZeroGainReadsAsTheDecibelFloor)
     EXPECT_NEAR(decibels[1], 0.0f, 1e-6f);
 }
 
-TEST(BandResponse, BandCentresAreTheSixIsoOctaves)
+TEST(Small_BandResponse, BandCentresAreTheSixIsoOctaves)
 {
     const std::array<double, 6> expected = {125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0};
     for (std::size_t band = 0; band < 6u; ++band)

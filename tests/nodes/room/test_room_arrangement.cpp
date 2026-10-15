@@ -51,7 +51,7 @@ namespace
     }
 } // namespace
 
-TEST(RoomArrangement, ArrangementStartsWithTheStarterRoomAndNothingPlaced)
+TEST(Small_RoomArrangement, ArrangementStartsWithTheStarterRoomAndNothingPlaced)
 {
     const Arrangement arrangement;
 
@@ -62,7 +62,7 @@ TEST(RoomArrangement, ArrangementStartsWithTheStarterRoomAndNothingPlaced)
     EXPECT_TRUE(arrangement.is_valid(reason)) << reason;
 }
 
-TEST(RoomArrangement, ArrangementFromASceneHoldsItsCabinetAndListener)
+TEST(Small_RoomArrangement, ArrangementFromASceneHoldsItsCabinetAndListener)
 {
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.source_position = {1.0, 1.5, 0.5};
@@ -79,7 +79,7 @@ TEST(RoomArrangement, ArrangementFromASceneHoldsItsCabinetAndListener)
     EXPECT_TRUE(arrangement.microphones().empty());
 }
 
-TEST(RoomArrangement, ArrangementRefusesAFourthCabinetAndStaysAsItWas)
+TEST(Small_RoomArrangement, ArrangementRefusesAFourthCabinetAndStaysAsItWas)
 {
     Arrangement arrangement;
     std::string reason;
@@ -96,7 +96,7 @@ TEST(RoomArrangement, ArrangementRefusesAFourthCabinetAndStaysAsItWas)
     EXPECT_EQ(arrangement.find_source(9), nullptr);
 }
 
-TEST(RoomArrangement, ArrangementRefusesANinthMicrophoneAndStaysAsItWas)
+TEST(Small_RoomArrangement, ArrangementRefusesANinthMicrophoneAndStaysAsItWas)
 {
     Arrangement arrangement;
     std::string reason;
@@ -112,7 +112,7 @@ TEST(RoomArrangement, ArrangementRefusesANinthMicrophoneAndStaysAsItWas)
     EXPECT_EQ(arrangement.find_microphone(99), nullptr);
 }
 
-TEST(RoomArrangement, ArrangementRefusesAnIdentityItAlreadyHolds)
+TEST(Small_RoomArrangement, ArrangementRefusesAnIdentityItAlreadyHolds)
 {
     Arrangement arrangement;
     std::string reason;
@@ -125,7 +125,7 @@ TEST(RoomArrangement, ArrangementRefusesAnIdentityItAlreadyHolds)
     EXPECT_EQ(arrangement.microphones().size(), 1u);
 }
 
-TEST(RoomArrangement, ArrangementMovesUpdatesAndRemovesByIdentity)
+TEST(Small_RoomArrangement, ArrangementMovesUpdatesAndRemovesByIdentity)
 {
     Arrangement arrangement;
     std::string reason;
@@ -157,7 +157,7 @@ TEST(RoomArrangement, ArrangementMovesUpdatesAndRemovesByIdentity)
     EXPECT_EQ(arrangement.microphones()[0].id, 6u);
 }
 
-TEST(RoomArrangement, ArrangementRenamesAnIdentityWhereverItIsHeld)
+TEST(Small_RoomArrangement, ArrangementRenamesAnIdentityWhereverItIsHeld)
 {
     Arrangement arrangement;
     std::string reason;
@@ -173,7 +173,7 @@ TEST(RoomArrangement, ArrangementRenamesAnIdentityWhereverItIsHeld)
     EXPECT_EQ(arrangement.find_microphone(4), nullptr);
 }
 
-TEST(RoomArrangement, ArrangementBuildsEachPairsSceneFromTheShellAndTheTwoPoses)
+TEST(Small_RoomArrangement, ArrangementBuildsEachPairsSceneFromTheShellAndTheTwoPoses)
 {
     Arrangement arrangement;
     arrangement.set_shell(SushiDSP::test::garage_scene());
@@ -200,7 +200,7 @@ TEST(RoomArrangement, ArrangementBuildsEachPairsSceneFromTheShellAndTheTwoPoses)
     EXPECT_FALSE(capsule.microphone_proximity);
 }
 
-TEST(RoomArrangement, ArrangementIsRefusedWhenAMicrophoneStandsOutsideTheShell)
+TEST(Small_RoomArrangement, ArrangementIsRefusedWhenAMicrophoneStandsOutsideTheShell)
 {
     Arrangement arrangement;
     arrangement.set_shell(SushiDSP::test::garage_scene());
@@ -217,7 +217,7 @@ TEST(RoomArrangement, ArrangementIsRefusedWhenAMicrophoneStandsOutsideTheShell)
     EXPECT_NE(reason.find("microphone 1"), std::string::npos) << reason;
 }
 
-TEST(RoomArrangement, ScenesEqualComparesEveryFieldASolveReads)
+TEST(Small_RoomArrangement, ScenesEqualComparesEveryFieldASolveReads)
 {
     const SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     EXPECT_TRUE(SushiDSP::Room::scenes_equal(scene, scene));
@@ -235,7 +235,7 @@ TEST(RoomArrangement, ScenesEqualComparesEveryFieldASolveReads)
     EXPECT_FALSE(SushiDSP::Room::scenes_equal(scene, close_up));
 }
 
-TEST(RoomArrangement, ArrangementGivesEachCabinetItsOwnGeometry)
+TEST(Small_RoomArrangement, ArrangementGivesEachCabinetItsOwnGeometry)
 {
     Arrangement arrangement;
     std::string reason;
@@ -256,7 +256,7 @@ TEST(RoomArrangement, ArrangementGivesEachCabinetItsOwnGeometry)
     EXPECT_FALSE(arrangement.set_source_cabinet(9u, SushiDSP::room::K_CABINET2X12));
 }
 
-TEST(RoomArrangement, ShellsEqualIgnoresWhoStandsWhereAndReadsAFurnishingsPlace)
+TEST(Small_RoomArrangement, ShellsEqualIgnoresWhoStandsWhereAndReadsAFurnishingsPlace)
 {
     SushiDSP::room::RoomScene left = SushiDSP::room::starter_scene();
     SushiDSP::room::RoomScene right = left;

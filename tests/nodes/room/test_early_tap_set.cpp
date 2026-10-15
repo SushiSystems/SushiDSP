@@ -31,12 +31,12 @@
 
 #include <array>
 
-TEST(EarlyTapSet, HoldsAtMostOneHundredTwentyEightTaps)
+TEST(Small_EarlyTapSet, HoldsAtMostOneHundredTwentyEightTaps)
 {
     EXPECT_EQ(SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS, 128u);
 }
 
-TEST(EarlyTap, KeepsItsDelayGainAndFirstSection)
+TEST(Small_EarlyTap, KeepsItsDelayGainAndFirstSection)
 {
     const SushiDSP::room::EarlyTap tap{24.0f, 0.5f, {{1.0, 0.0, 0.0, 0.0, 0.0}}};
     EXPECT_FLOAT_EQ(tap.delay_frames, 24.0f);

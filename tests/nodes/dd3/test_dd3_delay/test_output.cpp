@@ -77,12 +77,12 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/nodes/dd3/test_dd3_delay/README.md
-SUSHIDSP_REGRESSION_TEST(Dd3Delay, Dd3GoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Medium_Dd3Delay, Dd3GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "dd3_48k", render_dd3(48000.0)), -80.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Dd3Delay, Dd3GoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Medium_Dd3Delay, Dd3GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "dd3_96k", render_dd3(96000.0)), -80.0);
 }

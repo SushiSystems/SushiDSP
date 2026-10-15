@@ -33,14 +33,14 @@
 
 #include <SushiDSP/foundation/benchmark_harness/reference_tone.hpp>
 
-TEST(ReferenceTone, ReferenceToneHasTheRequestedLengthAndStartsAtZero)
+TEST(Small_ReferenceTone, ReferenceToneHasTheRequestedLengthAndStartsAtZero)
 {
     const std::vector<float> tone = SushiDSP::bench::reference_tone(256);
     ASSERT_EQ(tone.size(), 256u);
     EXPECT_FLOAT_EQ(tone[0], 0.0f);
 }
 
-TEST(ReferenceTone, ReferenceTonePeaksAtAQuarterOfFullScale)
+TEST(Small_ReferenceTone, ReferenceTonePeaksAtAQuarterOfFullScale)
 {
     // One 220 Hz period at 48 kHz is 218.18 samples, so a second's worth reaches its peak.
     const std::vector<float> tone = SushiDSP::bench::reference_tone(48000);
@@ -49,7 +49,7 @@ TEST(ReferenceTone, ReferenceTonePeaksAtAQuarterOfFullScale)
     EXPECT_NEAR(*low, -0.25f, 1e-4f);
 }
 
-TEST(ReferenceTone, ReferenceToneCompletesTwoHundredTwentyCyclesASecond)
+TEST(Small_ReferenceTone, ReferenceToneCompletesTwoHundredTwentyCyclesASecond)
 {
     const std::vector<float> tone = SushiDSP::bench::reference_tone(48000);
     int rising = 0;
