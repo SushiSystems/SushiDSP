@@ -59,6 +59,79 @@ endfunction()
 
 add_executable(sushidsp_tests
     main.cpp
+    # --- Unit tests written for the units that had none ---
+    nodes/room/test_room_log_category.cpp
+    nodes/room/test_fade_window.cpp
+    nodes/room/test_stage_limits.cpp
+    nodes/room/test_delay_ring.cpp
+    nodes/room/test_frame_delay.cpp
+    nodes/room/test_fir_filter.cpp
+    nodes/room/test_diffuse_field.cpp
+    nodes/room/test_cabinet_geometry.cpp
+    nodes/room/test_early_tap_set.cpp
+    nodes/room/test_fdn_design.cpp
+    nodes/room/test_modal_design.cpp
+    nodes/room/test_room_host.cpp
+    nodes/room/test_pair_stage.cpp
+    nodes/room/test_source_stage.cpp
+    nodes/room/test_direct_path.cpp
+    nodes/room/test_cascade_filter.cpp
+    nodes/room/test_receiver_output.cpp
+    # --- Unit tests written for the units that had none ---
+    nodes/capture/test_capture_log_category.cpp
+    nodes/capture/test_recording_bus.cpp
+    nodes/capture/test_take.cpp
+    nodes/dd3/test_wet_fifo.cpp
+    nodes/diezel_vh4/test_diezel_vh4_tone_stack.cpp
+    nodes/mesa_mark2c/test_mesa_mark2c_tone_stack.cpp
+    nodes/peavey5150/test_peavey5150_tone_stack.cpp
+    nodes/room_scenes/test_room_fixtures.cpp
+    nodes/room_scenes/test_room_ports.cpp
+    # --- Unit tests written for the units that had none ---
+    foundation/circuit_blocks/test_jcm_v1a_netlist.cpp
+    foundation/spice_reference/test_spice_block_compare.cpp
+    # --- Unit tests written for the units that had none ---
+    foundation/signal_measure/test_render.cpp
+    foundation/signal_measure/test_window.cpp
+    foundation/signal_measure/test_spectrum.cpp
+    foundation/signal_measure/test_thd.cpp
+    foundation/signal_measure/test_frequency_response.cpp
+    foundation/signal_measure/test_alias_floor.cpp
+    foundation/signal_measure/test_null_test.cpp
+    # --- Unit tests written for the units that had none ---
+    foundation/circuits/models/test_soft_transition.cpp
+    foundation/circuits/stages/test_plate_swing.cpp
+    foundation/circuits/stages/test_grid_conduction_law.cpp
+    foundation/circuits/stages/test_antiderivative_antialiaser.cpp
+    foundation/circuits/stages/test_power_tube_presets.cpp
+    # --- Unit tests written for the units that had none ---
+    foundation/math/dk/test_dense_lu.cpp
+    foundation/math/dk/test_dk_netlist.cpp
+    foundation/math/dk/test_linear_port.cpp
+    foundation/math/test_halfband_coefficients.cpp
+    # --- Unit tests written for the units that had none ---
+    foundation/io/test_ir.cpp
+    foundation/regression_test/test_regression_test.cpp
+    foundation/timing_gate/test_timing_gate.cpp
+    foundation/golden_compare/test_golden_file.cpp
+    # --- Unit tests written for the units that had none ---
+    foundation/core/test_cabinet_host.cpp
+    foundation/core/test_calibration.cpp
+    foundation/core/test_node_descriptor.cpp
+    foundation/core/test_parameter_change.cpp
+    foundation/core/test_parameter_table.cpp
+    foundation/core/test_port_layout.cpp
+    # --- Unit tests written for the units that had none ---
+    foundation/log/test_log_level.cpp
+    foundation/log/test_log_category.cpp
+    foundation/log/test_log_argument.cpp
+    foundation/log/test_log_log_category.cpp
+    foundation/log/test_log_record.cpp
+    foundation/log/test_log_sink.cpp
+    foundation/log/test_scoped_log_sink.cpp
+    foundation/log/test_stderr_log_sink.cpp
+    foundation/log/test_default_logger.cpp
+    foundation/log/test_capturing_log_sink.cpp
 
     # --- Core ---
     foundation/core/test_audio_device.cpp
@@ -343,9 +416,18 @@ set_source_files_properties(nodes/room/test_built_room_loss/test_bras_reference.
 set_source_files_properties(nodes/room/test_built_room_loss/test_motus_reference.cpp PROPERTIES COMPILE_DEFINITIONS
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/built_room_loss\"")
 set_source_files_properties(applications/host_gui/test_rig_controller.cpp PROPERTIES COMPILE_DEFINITIONS
-    "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/applications/host_gui/fixtures/rig_controller\"")
+    "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")
+set_source_files_properties(nodes/room/test_hrtf_set_loader.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")
+set_source_files_properties(nodes/room/test_room_node/test_behaviour.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")
+set_source_files_properties(nodes/room/test_room_node/test_logging.cpp PROPERTIES COMPILE_DEFINITIONS
+    "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")
 set_source_files_properties(foundation/spice_reference/test_spice_csv.cpp PROPERTIES COMPILE_DEFINITIONS
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/foundation/spice_reference/fixtures/spice_csv\"")
+
+# The repository assets folder, for the tests that read a shipped asset.
+target_compile_definitions(sushidsp_tests PRIVATE SUSHIDSP_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
 
 # Every test file of the binary is registered. A test file is named test_<name>.cpp; the
 # application and support sources compiled into the binary are not.

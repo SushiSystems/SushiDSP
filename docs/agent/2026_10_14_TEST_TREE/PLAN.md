@@ -2,7 +2,7 @@
 
 **Goal:** Build what [`SPEC.md`](SPEC.md) describes.
 
-**State on 2026-10-15.** Committed: T0 (include path), T1 (checker), T2 (labels), T3 (suite names), T4 (125 unit moves), T5 (seven internal modules), T7 (regression, fixtures, goldens, benchmark, the remaining moves) and T8 (README split). Left: T6, 104 units without a test, and `test_measure.cpp` waiting for its seven units; then T10, the one Release build, which needs the owner's go-ahead. Nothing is built yet.
+**State on 2026-10-15.** Written and committed: T0 to T5, T7 and T8, and T3 (suite names). T6 is written for 64 of its 104 units: 38 with a test of their own, 17 room units, 9 capture, dd3 and tone-stack units, and the two room scene units; the 37 application units and the two device units are open. `dk_block_node` is open: its test needs a netlist fixture that the circuit-blocks tier cannot take from the tubescreamer tier. `test_measure.cpp` (16 cases) waits for the decision on where its shared test nodes live. The one Release build (T10) is run once the tree is complete; see the result below.
 
 ## Constraints
 
