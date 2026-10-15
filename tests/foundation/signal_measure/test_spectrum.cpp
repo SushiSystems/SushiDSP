@@ -21,7 +21,7 @@
 
 /**
  * @file test_spectrum.cpp
- * @brief Tests the bin helpers and the magnitude spectrum of a pure tone.
+ * @brief Tests the bin helpers, the magnitude spectrum of a pure tone and its leakage floor.
  * @author Mustafa Garip
  */
 
@@ -30,8 +30,10 @@
 #include <SushiDSP/foundation/signal_measure/render.hpp>
 #include <SushiDSP/foundation/signal_measure/spectrum.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 TEST(Spectrum, BinOfMapsAFrequencyToItsFftBin)
@@ -62,4 +64,25 @@ TEST(Spectrum, PureToneSpectrumPeaksAtItsBin)
         }
     }
     EXPECT_LE(std::abs(static_cast<long>(peak) - static_cast<long>(SushiDSP::measure::bin_of(1000.0, 48000.0))), 1L);
+}
+
+TEST(Spectrum, FloorOfPureSineIsBelowMinus110dB)
+{
+    const double sample_rate = 48000.0;
+    const double f0 =
+        SushiDSP::measure::bin_exact_frequency(1000.0, sample_rate, SushiDSP::measure::K_FFT_SIZE);
+    const std::vector<float> signal =
+        SushiDSP::measure::sine_stimulus(f0, sample_rate, SushiDSP::measure::K_FFT_SIZE, 0.5f);
+    const std::vector<double> spectrum = SushiDSP::measure::magnitude_spectrum_db(signal, 0);
+    const std::uint32_t fundamental_bin = SushiDSP::measure::bin_of(f0, sample_rate);
+    double worst = -300.0;
+    for (std::uint32_t bin = 8; bin < spectrum.size(); ++bin)
+    {
+        if (bin + 8 > fundamental_bin && bin < fundamental_bin + 8)
+        {
+            continue;
+        }
+        worst = std::max(worst, spectrum[bin] - spectrum[fundamental_bin]);
+    }
+    EXPECT_LE(worst, -110.0);
 }

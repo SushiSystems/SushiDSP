@@ -88,6 +88,7 @@ add_executable(sushidsp_tests
     nodes/room_scenes/test_room_fixtures.cpp
     nodes/room_scenes/test_room_ports.cpp
     # --- Unit tests written for the units that had none ---
+    foundation/circuit_blocks/test_dk_block_node.cpp
     foundation/circuit_blocks/test_jcm_v1a_netlist.cpp
     foundation/spice_reference/test_spice_block_compare.cpp
     # --- Unit tests written for the units that had none ---
@@ -186,7 +187,7 @@ add_executable(sushidsp_tests
 
     # --- Circuits: stages ---
     foundation/circuits/stages/test_triode_stage/test_behaviour.cpp
-    foundation/circuits/stages/test_pentode_stage.cpp
+    foundation/circuits/stages/test_pentode_stage/test_behaviour.cpp
     foundation/circuits/stages/test_output_transformer_stage.cpp
     foundation/circuits/stages/test_power_supply_sag_stage.cpp
     foundation/circuits/stages/test_resonance_control.cpp
@@ -214,7 +215,6 @@ add_executable(sushidsp_tests
     foundation/math/test_newton_raphson_solver.cpp
     foundation/math/dk/test_damped_newton_solver.cpp
     foundation/math/test_oversampler.cpp
-    functional/unit/test_measure.cpp
     foundation/spice_reference/test_spice_csv.cpp
     foundation/math/test_partitioned_convolution.cpp
     foundation/math/test_streaming_convolution.cpp
@@ -348,6 +348,8 @@ add_executable(sushidsp_tests
     nodes/peavey5150/test_peavey5150/test_output.cpp
     nodes/diezel_vh4/test_diezel_vh4/test_output.cpp
     nodes/mesa_mark2c/test_mesa_mark2c/test_output.cpp
+    foundation/circuits/stages/test_triode_stage/test_output.cpp
+    foundation/circuits/stages/test_pentode_stage/test_output.cpp
 )
 
 target_compile_definitions(sushidsp_tests PRIVATE

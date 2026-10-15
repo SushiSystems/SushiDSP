@@ -168,9 +168,7 @@ Mechanical work that follows:
 - Finish the test tree to `repository-layout` (`docs/agent/2026_10_14_TEST_TREE/PLAN.md`). Still open: 37 application
   units under `applications/host_gui` and `applications/plugin` that need a test of their own (most depend on ImGui
   or on the host, and their sources are not all in the test binary), the two device units `asio_audio_device` and
-  `sdl2_audio_device` (device-bound, optional modules), `dk_block_node` (its test needs a netlist fixture, which the
-  circuit-blocks tier cannot take from the tubescreamer tier), and `test_measure.cpp`, whose sixteen cases wait for the
-  decision on where the shared test nodes live.
+  `sdl2_audio_device` (device-bound, optional modules).
 - Replace the paragraphs of the docs-truth findings still open: 21 named symbols the source does
   not hold (`TopBar`, `StagePanel`, `Mp3Decoder`, ...), 28 history words, and two duplicated
   passages in the SPICE READMEs. Read each against the source before editing.

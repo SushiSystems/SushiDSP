@@ -2,7 +2,7 @@
 
 **Goal:** Build what [`SPEC.md`](SPEC.md) describes.
 
-**State on 2026-10-15.** Written and committed: T0 to T5, T7 and T8, and T3 (suite names). T6 is written for 64 of its 104 units: 38 with a test of their own, 17 room units, 9 capture, dd3 and tone-stack units, and the two room scene units; the 37 application units and the two device units are open. `dk_block_node` is open: its test needs a netlist fixture that the circuit-blocks tier cannot take from the tubescreamer tier. `test_measure.cpp` (16 cases) waits for the decision on where its shared test nodes live. The one Release build (T10) is run once the tree is complete; see the result below.
+**State on 2026-10-15.** Written and committed: T0 to T5, T7 and T8, and T3 (suite names). T6 is written for 64 of its 104 units: 38 with a test of their own, 17 room units, 9 capture, dd3 and tone-stack units, and the two room scene units; the 37 application units and the two device units are open. `dk_block_node` is tested on an RC low-pass its test builds itself, so no fixture crosses a tier. `test_measure.cpp` is split: its eleven unit cases joined the five `signal_measure` test files, each test node living in the one file that uses it, and its five alias-floor cases joined the `test_output.cpp` of TubeScreamer, Jcm800, Peavey5150, TriodeStage and PentodeStage. `tests/functional/` is gone. The one Release build (T10) is run once the tree is complete; see the result below.
 
 ## Constraints
 
@@ -175,5 +175,4 @@ build linked `tests/sushidsp_tests.exe` and the application and GUI targets.
 
 Not run: `sd test -s unit` and `sd test -s regression`. The owner has not yet allowed a test run.
 
-Open, as listed under "Still open" in REMAINING_WORK: 37 application units, 2 device units,
-`dk_block_node`, and `test_measure.cpp` (waits for the shared-node decision).
+Open, as listed in REMAINING_WORK: 37 application units and 2 device units.
