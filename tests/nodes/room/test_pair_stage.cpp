@@ -38,7 +38,8 @@ TEST(PairStage, IsNotLiveAfterReset)
     EXPECT_FALSE(stage.live());
 }
 
-TEST(PairStage, HasTwoChannels)
+TEST(PairStage, AccumulatesIntoEveryChannelOfTheEarlyRenderer)
 {
-    EXPECT_EQ(SushiDSP::Room::PairStage::K_CHANNELS, 2u);
+    EXPECT_EQ(SushiDSP::Room::PairStage::K_CHANNELS,
+              SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS);
 }
