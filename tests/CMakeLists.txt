@@ -8,12 +8,10 @@
 # SushiDSP test pipeline
 #
 # One binary, sushidsp_tests, built from the test files listed below. Each test
-# is one CTest test, labelled by the macro it is written with: TEST is a `unit`
-# test, SUSHIDSP_REGRESSION_TEST (modules/foundation/regression_test/include/SushiDSP/foundation/regression_test/regression_test.hpp) a
-# `regression`. The labels are what `ctest -L` selects, so `sd test -s unit`
-# and `sd test -s regression` keep their meaning.
+# is one CTest test labelled with its size, small, medium or large, which also
+# sets its timeout. `sd test --label <size>` selects a size.
 #
-# The labels come from the test sources at configure time (see
+# The tests come from the test sources at configure time (see
 # sushidsp_register_tests below), so a test that is added to an existing file
 # is registered the next time CMake runs. Test names follow the suite and test
 # names in the source, and they must be unique across the binary.
@@ -35,24 +33,29 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Registers every TEST and SUSHIDSP_REGRESSION_TEST of one test source as a CTest test.
-# The source is read as text: each case is one line of the form TEST(Suite, Name). A case
-# written any other way is missed, so every case keeps that form.
-function(sushidsp_register_tests target source)
+# The timeout of each size, in seconds. What each size allows a test to use is in
+# docs/CONTRIBUTING.md, section 5.
+set(SUSHIDSP_TEST_TIMEOUT_small 60)
+set(SUSHIDSP_TEST_TIMEOUT_medium 300)
+set(SUSHIDSP_TEST_TIMEOUT_large 900)
+
+# Registers every TEST and SUSHIDSP_REGRESSION_TEST of one test source as a CTest test of
+# one size. The source is read as text: each case is one line of the form TEST(Suite, Name).
+# A case written any other way is missed, so every case keeps that form.
+function(sushidsp_register_tests target source size)
+    if(NOT DEFINED SUSHIDSP_TEST_TIMEOUT_${size})
+        message(FATAL_ERROR "${source}: size '${size}' is not small, medium or large")
+    endif()
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
     file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/${source}" _cases
         REGEX "^[ \t]*(TEST|TEST_F|SUSHIDSP_REGRESSION_TEST)[ \t]*\\(")
     foreach(_case IN LISTS _cases)
         if(_case MATCHES "^[ \t]*(TEST|TEST_F|SUSHIDSP_REGRESSION_TEST)[ \t]*\\([ \t]*([A-Za-z0-9_]+)[ \t]*,[ \t]*([A-Za-z0-9_]+)[ \t]*\\)")
-            set(_macro "${CMAKE_MATCH_1}")
             set(_test "${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
-            if(_macro STREQUAL "SUSHIDSP_REGRESSION_TEST")
-                set(_label "regression")
-            else()
-                set(_label "unit")
-            endif()
             add_test(NAME "${_test}" COMMAND ${target} "--gtest_filter=${_test}")
-            set_tests_properties("${_test}" PROPERTIES LABELS "${_label}")
+            set_tests_properties("${_test}" PROPERTIES
+                LABELS "${size}"
+                TIMEOUT "${SUSHIDSP_TEST_TIMEOUT_${size}}")
         endif()
     endforeach()
 endfunction()
@@ -410,6 +413,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     nlohmann_json::nlohmann_json
 )
 sushidsp_apply_optimization_flags(sushidsp_tests)
+sushidsp_apply_sanitizers(sushidsp_tests)
 
 # Each regression case names its golden folder; the folder sits beside the unit's tests.
 set_source_files_properties(nodes/dd3/test_dd3_delay/test_output.cpp PROPERTIES COMPILE_DEFINITIONS
@@ -444,17 +448,66 @@ set_source_files_properties(foundation/spice_reference/test_spice_csv.cpp PROPER
 # The repository assets folder, for the tests that read a shipped asset.
 target_compile_definitions(sushidsp_tests PRIVATE SUSHIDSP_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
 
-# Every test file of the binary is registered. A test file is named test_<name>.cpp; the
-# application and support sources compiled into the binary are not.
+# The test files whose tests need more than one thread, or read or write a file outside the
+# build tree: a fixture, a golden, a shipped asset or a temporary folder. They are medium.
+set(SUSHIDSP_MEDIUM_TEST_SOURCES
+    applications/host_gui/test_audio_import_cache.cpp
+    applications/host_gui/test_audio_import_queue.cpp
+    applications/host_gui/test_file_drop_queue.cpp
+    applications/host_gui/test_rig_controller.cpp
+    applications/host_gui/test_session.cpp
+    applications/host_gui/ui/test_directory_listing/test_behaviour.cpp
+    applications/host_gui/ui/test_directory_listing/test_logging.cpp
+    foundation/allocation_trap/test_allocation_trap.cpp
+    foundation/circuits/test_fmv_tone_stack.cpp
+    foundation/core/test_rt_graph_slot.cpp
+    foundation/core/test_rt_swap_slot.cpp
+    foundation/core/test_spsc_ring.cpp
+    foundation/io/test_ir_loader.cpp
+    foundation/io/test_wav_file.cpp
+    foundation/io/test_wav_writer.cpp
+    foundation/log/test_async_log_sink.cpp
+    foundation/log/test_log_line_queue.cpp
+    foundation/spice_reference/test_spice_block_compare.cpp
+    foundation/spice_reference/test_spice_csv.cpp
+    nodes/capture/test_track_recorder/test_behaviour.cpp
+    nodes/capture/test_track_recorder/test_logging.cpp
+    nodes/capture/test_track_recorder/test_rt_safety.cpp
+    nodes/dd3/test_dd3_delay/test_output.cpp
+    nodes/diezel_vh4/test_diezel_vh4/test_output.cpp
+    nodes/jcm800/test_jcm800/test_output.cpp
+    nodes/mesa_mark2c/test_mesa_mark2c/test_output.cpp
+    nodes/peavey5150/test_peavey5150/test_output.cpp
+    nodes/room/test_hrtf_set_loader.cpp
+    nodes/room/test_built_room_loss/test_bras_reference.cpp
+    nodes/room/test_built_room_loss/test_motus_reference.cpp
+    nodes/room/test_room_node/test_behaviour.cpp
+    nodes/room/test_room_node/test_logging.cpp
+    nodes/tubescreamer/test_tube_screamer/test_output.cpp
+)
+
+# Every test file of the binary is registered, medium when it is listed above and small
+# otherwise. A test file is named test_<name>.cpp; the application and support sources
+# compiled into the binary are not.
 get_target_property(_sushidsp_test_sources sushidsp_tests SOURCES)
+foreach(_source IN LISTS SUSHIDSP_MEDIUM_TEST_SOURCES)
+    if(NOT _source IN_LIST _sushidsp_test_sources)
+        message(FATAL_ERROR "${_source} is listed as medium but sushidsp_tests does not build it")
+    endif()
+endforeach()
 foreach(_source IN LISTS _sushidsp_test_sources)
     if(_source MATCHES "(^|/)test_[^/]*\\.cpp$")
-        sushidsp_register_tests(sushidsp_tests "${_source}")
+        if(_source IN_LIST SUSHIDSP_MEDIUM_TEST_SOURCES)
+            sushidsp_register_tests(sushidsp_tests "${_source}" medium)
+        else()
+            sushidsp_register_tests(sushidsp_tests "${_source}" small)
+        endif()
     endif()
 endforeach()
 
-# The benchmark program: one executable, labelled benchmark, built from every unit's
-# benchmark_<name>.cpp. Each file registers its own cases; benchmark_main.cpp runs them.
+# The benchmark program: one executable built from every unit's benchmark_<name>.cpp, run by
+# `sd bench` and never by `sd test`. Each file registers its own cases; benchmark_main.cpp
+# runs them.
 add_executable(sushidsp_bench
     benchmark_main.cpp
     foundation/circuits/stages/benchmark_triode_stage.cpp
@@ -490,6 +543,3 @@ target_link_libraries(sushidsp_bench PRIVATE
     SushiDSP::room_scenes
 )
 sushidsp_apply_optimization_flags(sushidsp_bench)
-
-add_test(NAME Benchmark.AudioPath COMMAND sushidsp_bench)
-set_tests_properties(Benchmark.AudioPath PROPERTIES LABELS "benchmark")

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-15 — tests: Labelled every test small or medium with its timeout in place of unit and regression, and stopped registering the benchmark as a test (`tests/CMakeLists.txt`).
+- 2026-10-15 — cli: Replaced the suite option of sd test with a size label, and added sd bench and a sanitizer option (`project.py`, `cli.py`, `Sanitizers.cmake`).
+- 2026-10-15 — ci: Ran every job through `sd` behind one `gate`, with ASan on pull requests, TSan after merge, benchmarks nightly and pinned actions (`ci.yml`, `nightly.yml`, `release.yml`).
 - 2026-10-15 — tests: Moved each of the 39 allocation traps into the test file of the unit it guards, counted by the new `allocation_trap` module (`allocation_trap.hpp`, `test_audio_node.cpp`).
 - 2026-10-15 — tests: Split the audio-path benchmark into one `benchmark_<name>.cpp` per unit, registered with the new `benchmark_harness` module (`benchmark_registry.hpp`, `benchmark_main.cpp`).
 - 2026-10-15 — tests: Moved the registry checks out of the RigGraph and RoomNode tests and tested the resampler kernel through `Resampler` (`test_node_registry.cpp`, `test_mixer_node.cpp`, `test_resampler.cpp`).

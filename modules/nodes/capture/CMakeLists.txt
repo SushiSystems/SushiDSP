@@ -19,6 +19,7 @@ add_library(capture STATIC
 add_library(SushiDSP::capture ALIAS capture)
 target_link_libraries(capture PUBLIC SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_io SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math)
 sushidsp_apply_optimization_flags(capture)
+sushidsp_apply_sanitizers(capture)
 target_include_directories(capture PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )

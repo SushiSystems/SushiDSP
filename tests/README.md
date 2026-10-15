@@ -38,7 +38,7 @@ rule.
 Regenerate deliberately, never to make a red test green:
 
 ```text
-SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression
+SUSHIDSP_REGENERATE_GOLDEN=1 sd test --label medium
 ```
 
 Say why in the commit message and in `modules/foundation/golden_compare/README.md`.

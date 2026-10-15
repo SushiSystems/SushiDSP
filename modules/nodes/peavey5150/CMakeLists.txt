@@ -11,6 +11,7 @@ add_library(peavey5150 STATIC
 add_library(SushiDSP::peavey5150 ALIAS peavey5150)
 target_link_libraries(peavey5150 PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math)
 sushidsp_apply_optimization_flags(peavey5150)
+sushidsp_apply_sanitizers(peavey5150)
 target_include_directories(peavey5150 PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )

@@ -29,19 +29,31 @@ Configures the tree if it isn't already, then builds every CMake target.
 - `--clean`, deletes the build tree before configuring.
 - `--define` / `-D VAR=VALUE`, passes a CMake cache variable to configure. On a tree that is
   already configured it runs configure again with the variable, then builds. Repeatable.
+- `--sanitize address | thread`, builds with AddressSanitizer and UndefinedBehaviorSanitizer,
+  or with ThreadSanitizer, through `SUSHIDSP_SANITIZE`. Clang and GCC only; MSVC ignores it.
 
-A variable set with `-D` stays in the build tree's cache, so a later `sd build` without the
-flag keeps it. `-D VAR=` clears one; `--clean` starts over.
+A variable set with `-D` or `--sanitize` stays in the build tree's cache, so a later `sd build`
+without the flag keeps it. `-D VAR=` clears one; `--clean` starts over.
 
 ## `sd test`
 
 Builds the tree if it isn't already, then runs `ctest`.
 
 - `--type` / `-t`, same values and default as `sd configure`.
-- `--suite` / `-s unit | regression | benchmark | all`, which CTest label to run. Defaults to
-  `unit`.
+- `--label` / `-l small | medium | large`, the test size to run. Repeatable; without it every
+  size runs. `docs/CONTRIBUTING.md` says what each size allows.
 - `--filter` / `-f <regex>`, a `ctest -R` regex over the `Suite.Case` test names, applied
-  inside the chosen suite.
+  inside the chosen sizes.
+- `--sanitize address | thread`, the same as `sd build --sanitize`, before the tests run.
+- `--clean`, deletes the build tree before configuring.
+
+## `sd bench`
+
+Builds the tree if it isn't already, then runs `sushidsp_bench` and prints its table.
+
+- `GROUP...`, substrings of the case groups to run, such as `Room` or `Jcm800`. Without one
+  every group runs.
+- `--type` / `-t`, same values and default as `sd configure`. A timing is a Release figure.
 - `--clean`, deletes the build tree before configuring.
 
 ## `sd clean`

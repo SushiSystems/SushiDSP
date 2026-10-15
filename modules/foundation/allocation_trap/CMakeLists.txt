@@ -17,3 +17,4 @@ target_include_directories(sushi_dsp_allocation_trap PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 target_compile_features(sushi_dsp_allocation_trap PUBLIC cxx_std_17)
+sushidsp_apply_sanitizers(sushi_dsp_allocation_trap)

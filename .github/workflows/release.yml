@@ -1,6 +1,6 @@
 name: Release
 
-# On a pushed version tag: the whole of ci.yml, then the documentation bundle, attached to the
+# On a pushed version tag: the whole of nightly.yml, then the documentation bundle, attached to the
 # tag's GitHub release. The bundle is what docs.sushisystems.io compiles this repository's pages
 # from; docs/reference/DOCS_BUNDLE.md in the SushiCore repository describes it.
 #
@@ -12,19 +12,22 @@ on:
     tags: ["v*"]
 
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yml
+  nightly:
+    uses: ./.github/workflows/nightly.yml
     secrets: inherit
 
   docs-bundle:
     name: Documentation bundle
-    needs: ci
+    needs: nightly
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Command
+        run: echo "sd docs bundle --release <version>"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
       - name: Check the tag against the version in CMakeLists.txt
