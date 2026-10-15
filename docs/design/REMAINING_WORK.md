@@ -165,10 +165,12 @@ Mechanical work that follows:
   `humanizer` register.
 - Route CI through `sd` and split the workflow by trigger. Blocked: the CLI depends on the
   `sushicore` package, and CI needs a decided way to install it on the runners.
-- Finish the test tree to `repository-layout` (`docs/agent/2026_10_14_TEST_TREE/PLAN.md`): 104 units
-  still have no test of their own (T6), `test_measure.cpp` waits for its seven `signal_measure`
-  units (T6), and the single Release build that verifies every commit of the plan is T10. The
-  labels, the folders, the suite names and the README split are in place; none of them is built yet.
+- Finish the test tree to `repository-layout` (`docs/agent/2026_10_14_TEST_TREE/PLAN.md`). Still open: 37 application
+  units under `applications/host_gui` and `applications/plugin` that need a test of their own (most depend on ImGui
+  or on the host, and their sources are not all in the test binary), the two device units `asio_audio_device` and
+  `sdl2_audio_device` (device-bound, optional modules), `dk_block_node` (its test needs a netlist fixture, which the
+  circuit-blocks tier cannot take from the tubescreamer tier), and `test_measure.cpp`, whose sixteen cases wait for the
+  decision on where the shared test nodes live.
 - Replace the paragraphs of the docs-truth findings still open: 21 named symbols the source does
   not hold (`TopBar`, `StagePanel`, `Mp3Decoder`, ...), 28 history words, and two duplicated
   passages in the SPICE READMEs. Read each against the source before editing.

@@ -846,7 +846,7 @@ namespace
     /// fixtures; the cases that need it skip when it is absent.
     std::string measured_set_path()
     {
-        return std::string(SUSHIDSP_FIXTURE_DIR) + "/../../assets/hrtf/sadie2_ku100_48k.hrtf";
+        return std::string(SUSHIDSP_ASSETS_DIR) + "/hrtf/sadie2_ku100_48k.hrtf";
     }
 
     /// @brief Returns the path of the six-direction fixture convert_hrtf.py's self-test writes.
