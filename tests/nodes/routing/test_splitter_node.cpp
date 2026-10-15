@@ -31,6 +31,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/routing/splitter_node.hpp>
 
 TEST(SplitterNode, SplitterNodeCopiesInputToOutput)
@@ -57,4 +58,26 @@ TEST(SplitterNode, SplitterNodeHasNoParameters)
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::splitter_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.splitter");
     EXPECT_EQ(descriptor.parameter_count, 0u);
+}
+
+TEST(SplitterNode, ProcessPerformsNoHeapAllocation)
+{
+    SushiDSP::SplitterNode node;
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
+
+    std::vector<float> input(256, 1.0f);
+    std::vector<float> output(256, 0.0f);
+    const float* inputs[1] = {input.data()};
+    float* outputs[1] = {output.data()};
+    SushiDSP::ProcessContext context{outputs, inputs, 256, 0.0};
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 100; ++block)
+    {
+        node.process(context);
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

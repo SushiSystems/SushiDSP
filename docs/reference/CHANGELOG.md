@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-15 — tests: Moved each of the 39 allocation traps into the test file of the unit it guards, counted by the new `allocation_trap` module (`allocation_trap.hpp`, `test_audio_node.cpp`).
+- 2026-10-15 — tests: Split the audio-path benchmark into one `benchmark_<name>.cpp` per unit, registered with the new `benchmark_harness` module (`benchmark_registry.hpp`, `benchmark_main.cpp`).
+- 2026-10-15 — tests: Moved the registry checks out of the RigGraph and RoomNode tests and tested the resampler kernel through `Resampler` (`test_node_registry.cpp`, `test_mixer_node.cpp`, `test_resampler.cpp`).
 - 2026-10-15 — tools: Copied the shared checkers from SushiSkills 6071952 and moved the tier order and same-tier edges into `tools/settings.py` (`check_layering.py`, `check_test_mirror.py`).
 - 2026-10-15 — tests: Recorded the 39 untested host, plugin and device headers as a known issue and planned their tests (`KNOWN_ISSUES.md`, `REMAINING_WORK.md`).
 - 2026-10-15 — tests: Split `test_measure.cpp` among the `signal_measure` tests and the alias-floor owners, removed `tests/functional`, and tested `DkBlockNode` on an RC low-pass (`test_dk_block_node.cpp`).

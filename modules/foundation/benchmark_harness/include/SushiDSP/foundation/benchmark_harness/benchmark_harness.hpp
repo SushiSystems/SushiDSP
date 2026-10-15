@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* benchmark_harness.hpp                                                          */
+/* benchmark_harness.hpp                                                  */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -31,8 +31,15 @@
 #include <cstdint>
 #include <cstdio>
 
+/// @brief Holds the timing harness the benchmark programs share.
 namespace SushiDSP::bench
 {
+    /// @brief Holds the reference sample rate every case is costed against.
+    inline constexpr double K_SAMPLE_RATE = 48000.0;
+
+    /// @brief Holds the block length a device callback hands the audio thread.
+    inline constexpr std::uint32_t K_BLOCK_SIZE = 256;
+
     /// @brief One timed case: what one output sample costs, and what share of one core that
     /// would take to keep up in real time at the reference sample rate.
     struct Result
@@ -55,7 +62,7 @@ namespace SushiDSP::bench
     /// @param samples_per_call Output samples produced by one invocation of `body`.
     /// @param sample_rate Reference rate for the real-time budget column.
     /// @param body Callable invoked once per repetition; must not allocate.
-    /// @see tests/foundation/core/README.md, "benchmark.hpp", for the choice of the minimum.
+    /// @see modules/foundation/benchmark_harness/README.md for the choice of the minimum.
     template <typename Body>
     Result measure(const char* name, std::uint32_t samples_per_call, double sample_rate,
                    Body&& body)

@@ -34,8 +34,13 @@
 #include <cstdint>
 #include <vector>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/room/fdn_design.hpp>
 #include <SushiDSP/nodes/room/late_reverb.hpp>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace
 {
@@ -341,5 +346,68 @@ TEST(LateReverb, LateReverbSurvivesALineLengthChangeWithoutAClick)
     {
         const float step = std::fabs(left[frame] - left[frame - 1]);
         EXPECT_LE(step, 0.05f * peak) << "frame " << frame;
+    }
+}
+
+namespace
+{
+    /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
+    void fill_room_tone(std::vector<float>& block)
+    {
+        for (std::size_t i = 0; i < block.size(); ++i)
+        {
+            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f *
+                                       static_cast<float>(i) / 48000.0f);
+        }
+    }
+} // namespace
+
+TEST(LateReverb, ProcessPerformsNoHeapAllocation)
+{
+    // The trapped blocks include the 512-frame crossfade. See tests/nodes/room/README.md.
+    SushiDSP::room::LateReverb reverb;
+    reverb.prepare(25200);
+
+    SushiDSP::room::FdnDesign design{};
+    const SushiDSP::room::FdnDesign::Section unity = {1.0, 0.0, 0.0, 0.0, 0.0};
+    const SushiDSP::room::FdnDesign::Section damped = {0.9, 0.0, 0.0, 0.0, 0.0};
+    for (std::size_t line = 0; line < SushiDSP::room::FdnDesign::K_LINE_COUNT; ++line)
+    {
+        design.line_frames[line] = static_cast<std::uint32_t>(1000 + 97 * line);
+        design.line_section_a[line] = damped;
+        design.line_section_b[line] = unity;
+    }
+    design.tone_correction = {unity, unity};
+    design.coherence_a = {unity, unity};
+    design.coherence_b = {unity, unity};
+    design.input_gain = 0.5f;
+    design.delay_to_crossover_frames = 1749.0f;
+
+    SushiDSP::room::FdnDesign moved = design;
+    for (std::uint32_t& frames : moved.line_frames)
+    {
+        frames += 37u;
+    }
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 8; ++block)
+    {
+        const SushiDSP::room::FdnDesign& current = block < 4 ? design : moved;
+        reverb.process(current, input.data(), left.data(), right.data(), 256);
+        reverb.process(current, input.data(), left.data(), left.data(), 256);
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+        EXPECT_TRUE(std::isfinite(right[i]));
     }
 }

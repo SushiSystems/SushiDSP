@@ -88,8 +88,8 @@ position before the bus opens and `stop_recording` places the dry file as a clip
 
 Files are 32-bit IEEE float, so a recorded ramp reads back bit-identical;
 `tests/nodes/capture/test_track_recorder/test_behaviour.cpp` asserts exactly that, and
-`TrackRecorderWritePerformsNoHeapAllocation` in `tests/foundation/core/test_audio_node/test_rt_safety.cpp` holds
-the RT bar.
+`TrackRecorder.WritePerformsNoHeapAllocation` in
+`tests/nodes/capture/test_track_recorder/test_rt_safety.cpp` holds the RT bar.
 
 ## Playing a take back
 
@@ -132,10 +132,9 @@ cost is that a loop must lie inside the first 2^32 frames, 24.8 hours at 48 kHz,
 clears the loop rather than setting a bad one when its arguments do not fit or do not increase.
 `seek()` concurrent with `advance()` can be overwritten by that block's store; the host serialises
 the two, and the header says so as a `@pre` rather than paying for a generation counter no caller
-needs. `TrackPlayerProcessPerformsNoHeapAllocation` and
-`TrackPlayerTimelineSwapPerformsNoHeapAllocationOnTheAudioThread` in
-`tests/foundation/core/test_audio_node/test_rt_safety.cpp` hold the RT bar, and
-`tests/nodes/capture/test_track_player.cpp` covers the mix.
+needs. `tests/nodes/capture/test_track_player.cpp` covers the mix, and its
+`ProcessPerformsNoHeapAllocation` and `TimelineSwapPerformsNoHeapAllocationOnTheAudioThread`
+hold the RT bar.
 
 Spec §6 carries the intent behind all of it.
 
@@ -157,8 +156,8 @@ push of one input frame and a smallest ratio of `1 / K_MAX_SPEED`. `read()` clam
 the exact block the caller asked for, zero-filling past the take's last frame. Every output costs
 `speed` take frames, so the push loop is bounded by `output_frames * K_MAX_SPEED` plus the kernel's
 half span, and it allocates nothing;
-`VariRateReaderReadPerformsNoHeapAllocation` in `tests/foundation/core/test_audio_node/test_rt_safety.cpp` holds
-that bar.
+`VariRateReader.ReadPerformsNoHeapAllocation` in `tests/nodes/capture/test_vari_rate_reader.cpp`
+holds that bar.
 
 `read()` returns the take frame the next call should start at, so the caller carries the cursor
 and the reader carries the phase. A seek, a speed change or a move to another clip invalidates the

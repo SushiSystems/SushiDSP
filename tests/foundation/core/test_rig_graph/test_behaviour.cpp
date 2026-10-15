@@ -36,7 +36,6 @@
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/core/node_descriptor.hpp>
 #include <SushiDSP/foundation/core/rig_graph.hpp>
-#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
 namespace
 {
@@ -610,42 +609,6 @@ TEST(RigGraph, RigGraphProcessFansOutOneNodeToTwoDownstreamNodes)
     }
 }
 
-TEST(RigGraph, RigGraphSplitterAndMixerRoundTripThroughTwoEffectBranches)
-{
-    SushiDSP::RigGraph graph(256, 6);
-    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
-    auto splitter =
-        SushiDSP::make_node("sushidsp.splitter", SushiDSP::PrepareInfo{48000.0, 256, 1});
-    auto splitter_handle = graph.add_node(std::move(splitter));
-    auto branch_a = graph.add_node(std::make_unique<GainNode>(2.0f));
-    auto branch_b = graph.add_node(std::make_unique<GainNode>(3.0f));
-    auto mixer = SushiDSP::make_node("sushidsp.mixer", SushiDSP::PrepareInfo{48000.0, 256, 1});
-    auto mixer_handle = graph.add_node(std::move(mixer));
-
-    graph.connect(source, splitter_handle);
-    graph.connect(splitter_handle, branch_a);
-    graph.connect(splitter_handle, branch_b);
-    graph.connect(branch_a, mixer_handle);
-    graph.connect(branch_b, mixer_handle);
-
-    graph.node(mixer_handle)->set_parameter_for_control_thread("gain_0", 0.5f);
-    graph.node(mixer_handle)->set_parameter_for_control_thread("gain_1", 1.0f);
-
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    graph.compile(info);
-
-    std::vector<float> output_buffer(256, 0.0f);
-    float* output_channels[1] = {output_buffer.data()};
-    SushiDSP::ProcessContext context{output_channels, nullptr, 256, 0.0};
-    graph.process(context);
-
-    // source(1.0) -split-> branch_a(*2=2.0), branch_b(*3=3.0) -> mixer(2.0*0.5 + 3.0*1.0 = 4.0)
-    for (float sample : output_buffer)
-    {
-        EXPECT_FLOAT_EQ(sample, 4.0f);
-    }
-}
-
 TEST(RigGraph, GainNodeTypeIdDefaultsToEmptyString)
 {
     GainNode node(1.0f);
@@ -668,12 +631,60 @@ TEST(RigGraph, RigGraphUpstreamOfListsEdgesInConnectOrder)
     EXPECT_TRUE(graph.upstream_of(a).empty());
 }
 
+namespace
+{
+    /// @brief Sums every non-null input of the full gather array, as a mixer reads it.
+    class FullWidthSumNode : public SushiDSP::AudioNode
+    {
+        public:
+            void prepare(const SushiDSP::PrepareInfo&) override
+            {
+
+            }
+
+            void process(SushiDSP::ProcessContext& context) override
+            {
+                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                {
+                    float sum = 0.0f;
+                    for (std::size_t input = 0; input < SushiDSP::RigGraph::K_MAX_FAN_IN_OUT;
+                         ++input)
+                    {
+                        if (context.inputs[input] != nullptr)
+                            sum += context.inputs[input][frame];
+                    }
+                    context.outputs[0][frame] = sum;
+                }
+            }
+
+            SushiDSP::PortLayout ports() const override
+            {
+                return {1, 1};
+            }
+
+            void reset() override
+            {
+
+            }
+
+            float get_parameter(const char*) const override
+            {
+                return 0.0f;
+            }
+
+            void set_parameter_for_control_thread(const char*, float) override
+            {
+
+            }
+    };
+} // namespace
+
 TEST(RigGraph, RigGraphFeedsRootNodeExternalInputThroughAFullWidthGatherArray)
 {
     // Every node receives a K_MAX_FAN_IN_OUT-sized array. See tests/foundation/core/test_rig_graph/README.md.
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(SushiDSP::make_node("sushidsp.mixer", info));
+    graph.add_node(std::make_unique<FullWidthSumNode>());
     graph.compile(info);
 
     // A realistic host-shaped call: exactly one input channel, as applications/host* all pass.
@@ -709,8 +720,7 @@ TEST(RigGraph, RigGraphStaysEmptyAfterCompilingAGraphWithNoNode)
 TEST(RigGraph, RigGraphIsNotEmptyOnceItHoldsACompiledNode)
 {
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(
-        SushiDSP::make_node("sushidsp.tubescreamer", SushiDSP::PrepareInfo{48000.0, 256, 1}));
+    graph.add_node(std::make_unique<GainNode>(1.0f));
     const SushiDSP::PrepareInfo info{48000.0, 256, 1};
     graph.compile(info);
 

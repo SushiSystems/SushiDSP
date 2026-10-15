@@ -33,8 +33,14 @@
 #include <cstdint>
 #include <vector>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/room/delay_ring.hpp>
 #include <SushiDSP/nodes/room/early_reflection_renderer.hpp>
+#include <SushiDSP/nodes/room/early_tap_set.hpp>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace
 {
@@ -480,5 +486,66 @@ TEST(EarlyReflectionRenderer, EarlyReflectionRendererRendersATapTheSameAloneAndI
                     << "count " << count << " tap " << index << " frame " << frame;
             }
         }
+    }
+}
+
+namespace
+{
+    /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
+    void fill_room_tone(std::vector<float>& block)
+    {
+        for (std::size_t i = 0; i < block.size(); ++i)
+        {
+            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f *
+                                       static_cast<float>(i) / 48000.0f);
+        }
+    }
+} // namespace
+
+TEST(EarlyReflectionRenderer, RenderPerformsNoHeapAllocation)
+{
+    SushiDSP::room::EarlyReflectionRenderer renderer;
+    renderer.prepare(8397, 256);
+    SushiDSP::room::DelayRing renderer_ring;
+    renderer_ring.prepare(8397, 256);
+
+    SushiDSP::room::EarlyTapSet set{};
+    set.count = SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS;
+    for (std::uint32_t tap = 0; tap < set.count; ++tap)
+    {
+        set.taps[tap].delay_frames = 1.5f + 60.0f * static_cast<float>(tap);
+        set.taps[tap].gain = 1.0f / (1.0f + static_cast<float>(tap));
+        set.taps[tap].section_a = {0.5, 0.25, 0.0, -0.25, 0.0};
+        set.taps[tap].section_b = {1.0, 0.0, 0.0, 0.0, 0.0};
+        set.taps[tap].encode.fill(0.1f);
+    }
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::array<std::vector<float>, SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS>
+        buffers;
+    std::array<float*, SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS> outputs{};
+    for (std::size_t channel = 0; channel < buffers.size(); ++channel)
+    {
+        buffers[channel].assign(256, 0.0f);
+        outputs[channel] = buffers[channel].data();
+    }
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 8; ++block)
+    {
+        renderer_ring.write(input.data(), 256);
+        renderer.render(renderer_ring, set, 0, outputs.data(), 256);
+        renderer.render(renderer_ring, set, 1, outputs.data(), 256);
+        renderer.carry_tap(0, 1, static_cast<std::uint32_t>(block));
+        renderer.clear_bank(static_cast<std::uint32_t>(block % 2));
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (float sample : buffers[0])
+    {
+        EXPECT_TRUE(std::isfinite(sample));
     }
 }

@@ -231,7 +231,23 @@ add_executable(sushidsp_tests
     foundation/io/test_wav_writer.cpp
 
     # --- Real-time safety ---
-    foundation/core/test_audio_node/test_rt_safety.cpp
+    foundation/allocation_trap/test_allocation_trap.cpp
+    foundation/benchmark_harness/test_benchmark_harness.cpp
+    foundation/benchmark_harness/test_benchmark_registry.cpp
+    foundation/benchmark_harness/test_node_benchmark.cpp
+    foundation/benchmark_harness/test_reference_tone.cpp
+    foundation/benchmark_harness/test_solver_counters.cpp
+    foundation/core/test_audio_node.cpp
+    foundation/core/test_rig_graph/test_rt_safety.cpp
+    foundation/math/dk/test_dk_circuit/test_rt_safety.cpp
+    nodes/tubescreamer/test_tube_screamer/test_rt_safety.cpp
+    nodes/jcm800/test_jcm800/test_rt_safety.cpp
+    nodes/peavey5150/test_peavey5150/test_rt_safety.cpp
+    nodes/mesa_mark2c/test_mesa_mark2c/test_rt_safety.cpp
+    nodes/diezel_vh4/test_diezel_vh4/test_rt_safety.cpp
+    nodes/dd3/test_dd3_delay/test_rt_safety.cpp
+    nodes/capture/test_track_recorder/test_rt_safety.cpp
+    nodes/room/test_room_node/test_rt_safety.cpp
 
     # --- Host diagnostics ---
     applications/host/test_sine_tone_node.cpp
@@ -359,11 +375,6 @@ target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applicatio
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/host_gui)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/plugin)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
-# The generated resampler kernel is private to the math module; this test checks the table itself.
-target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/modules/foundation/math/source)
-# Lets the coefficient tests reach headers the library keeps private, such as the generated
-# resampler kernel table.
-target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
@@ -385,6 +396,8 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp_golden_compare
     SushiDSP::sushi_dsp_timing_gate
     SushiDSP::sushi_dsp_regression_test
+    SushiDSP::sushi_dsp_allocation_trap
+    SushiDSP::sushi_dsp_benchmark_harness
     SushiDSP::room_scenes
     GTest::gtest
     # Known limitation: nlohmann_json::nlohmann_json is only available here because
@@ -440,15 +453,30 @@ foreach(_source IN LISTS _sushidsp_test_sources)
     endif()
 endforeach()
 
-# The timing harness (bench/, see tests/foundation/core/CMakeLists.txt for why it is a plain
-# executable rather than a GTest binary): registered here, not from the root CMakeLists.txt,
-# so it lives under the same "tests" umbrella `sd test` builds and ctest discovers everything
-# under.
-# The timing harness: one executable, labelled benchmark, beside the core module's tests.
+# The benchmark program: one executable, labelled benchmark, built from every unit's
+# benchmark_<name>.cpp. Each file registers its own cases; benchmark_main.cpp runs them.
 add_executable(sushidsp_bench
-    foundation/core/benchmark_audio_path.cpp
+    benchmark_main.cpp
+    foundation/circuits/stages/benchmark_triode_stage.cpp
+    foundation/math/benchmark_oversampler.cpp
+    foundation/math/benchmark_partitioned_convolution.cpp
+    foundation/math/benchmark_resampler.cpp
+    foundation/math/dk/benchmark_dk_circuit.cpp
+    nodes/capture/benchmark_track_player.cpp
+    nodes/dd3/benchmark_dd3_delay.cpp
+    nodes/diezel_vh4/benchmark_diezel_vh4.cpp
+    nodes/jcm800/benchmark_jcm800.cpp
+    nodes/mesa_mark2c/benchmark_mesa_mark2c.cpp
+    nodes/peavey5150/benchmark_peavey5150.cpp
+    nodes/room/benchmark_binaural_decoder.cpp
+    nodes/room/benchmark_early_reflection_renderer.cpp
+    nodes/room/benchmark_modal_bank.cpp
+    nodes/room/benchmark_room_node.cpp
+    nodes/tubescreamer/benchmark_tube_screamer.cpp
+    nodes/tubescreamer/benchmark_tube_screamer_circuits.cpp
 )
 target_link_libraries(sushidsp_bench PRIVATE
+    SushiDSP::sushi_dsp_benchmark_harness
     SushiDSP::sushi_dsp
     SushiDSP::tubescreamer
     SushiDSP::jcm800

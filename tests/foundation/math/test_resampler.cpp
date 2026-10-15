@@ -28,6 +28,7 @@
 #define _USE_MATH_DEFINES
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -35,6 +36,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/resampler.hpp>
 #include <SushiDSP/foundation/signal_measure/null_test.hpp>
 #include <SushiDSP/foundation/signal_measure/spectrum.hpp>
@@ -207,6 +209,60 @@ TEST(Resampler, ResamplerRejectsAToneAboveTheOutputNyquist)
     std::printf("[ measure ] resampler 15 kHz -> 20 kHz image at 5 kHz: %.2f dB\n",
                 image - reference);
     EXPECT_LE(image - reference, -90.0);
+}
+
+TEST(Resampler, ResamplerPassesAToneAtThePassbandEdgeAtItsLevel)
+{
+    // 0.399 of the source rate is inside the 0.4 passband edge. See tests/foundation/math/README.md.
+    SushiDSP::Resampler resampler;
+    resampler.prepare(48000.0, 96000.0, 256u, 1.0);
+    const double frequency =
+        SushiDSP::measure::bin_exact_frequency(19152.0, 96000.0, SushiDSP::measure::K_FFT_SIZE);
+    std::vector<float> input(400000u, 0.0f);
+    for (std::size_t n = 0; n < input.size(); ++n)
+    {
+        input[n] = 0.5f * static_cast<float>(
+                              std::sin(2.0 * M_PI * frequency * static_cast<double>(n) / 48000.0));
+    }
+    const std::vector<float> output = stream(resampler, input, 256u);
+    ASSERT_GT(output.size(), 2u * SushiDSP::measure::K_FFT_SIZE);
+    const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(
+        output, output.size() - SushiDSP::measure::K_FFT_SIZE);
+    const double level =
+        SushiDSP::measure::peak_near(spectrum, SushiDSP::measure::bin_of(frequency, 96000.0));
+    const auto reference_spectrum = SushiDSP::measure::magnitude_spectrum_db(
+        input, input.size() - SushiDSP::measure::K_FFT_SIZE);
+    const double reference = SushiDSP::measure::peak_near(
+        reference_spectrum, SushiDSP::measure::bin_of(frequency, 48000.0));
+    std::printf("[ measure ] resampler 19.15 kHz passband edge, 48k -> 96k: %.3f dB\n",
+                level - reference);
+    EXPECT_NEAR(level - reference, 0.0, 0.10);
+}
+
+TEST(Resampler, ResamplerSuppressesTheImageOfAnUpsampledTone)
+{
+    // The image of f sits at 48000 - f, inside the stopband. See tests/foundation/math/README.md.
+    SushiDSP::Resampler resampler;
+    resampler.prepare(48000.0, 96000.0, 256u, 1.0);
+    const double frequency =
+        SushiDSP::measure::bin_exact_frequency(14400.0, 96000.0, SushiDSP::measure::K_FFT_SIZE);
+    std::vector<float> input(400000u, 0.0f);
+    for (std::size_t n = 0; n < input.size(); ++n)
+    {
+        input[n] = 0.5f * static_cast<float>(
+                              std::sin(2.0 * M_PI * frequency * static_cast<double>(n) / 48000.0));
+    }
+    const std::vector<float> output = stream(resampler, input, 256u);
+    ASSERT_GT(output.size(), 2u * SushiDSP::measure::K_FFT_SIZE);
+    const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(
+        output, output.size() - SushiDSP::measure::K_FFT_SIZE);
+    const double tone =
+        SushiDSP::measure::peak_near(spectrum, SushiDSP::measure::bin_of(frequency, 96000.0));
+    const double image = SushiDSP::measure::peak_near(
+        spectrum, SushiDSP::measure::bin_of(48000.0 - frequency, 96000.0));
+    std::printf("[ measure ] resampler 14.4 kHz image at 33.6 kHz, 48k -> 96k: %.2f dB\n",
+                image - tone);
+    EXPECT_LE(image - tone, -95.0);
 }
 
 TEST(Resampler, ResamplerOutputCountFollowsTheRatioWithoutDrift)
@@ -437,4 +493,64 @@ TEST(Resampler, ResamplerResetReturnsItToSilence)
     {
         EXPECT_FLOAT_EQ(sample, 0.0f);
     }
+}
+
+TEST(Resampler, ProcessPerformsNoHeapAllocation)
+{
+    // At the slowest clock interpolate() touches 164 taps. See tests/foundation/math/README.md.
+    SushiDSP::Resampler resampler;
+    resampler.prepare(48000.0, 20000.0, 256u, 20000.0 / 48000.0);
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 440.0f * i / 48000.0f);
+    }
+    std::vector<float> output(resampler.maximum_output_frames(256u) + 16u, 0.0f);
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    for (int block = 0; block < 200; ++block)
+    {
+        resampler.process(input.data(), 256u, output.data(),
+                          static_cast<std::uint32_t>(output.size()));
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+}
+
+TEST(Resampler, RateChangePerformsNoHeapAllocation)
+{
+    // One 256-frame block calls set_rates 32 times. See tests/foundation/math/README.md.
+    SushiDSP::Resampler resampler;
+    resampler.prepare(48000.0, 82500.0, 8u, 20000.0 / 48000.0);
+
+    std::vector<float> input(8);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 440.0f * i / 48000.0f);
+    }
+    std::array<float, 64> output{};
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    for (int block = 0; block < 200; ++block)
+    {
+        for (int sub_block = 0; sub_block < 32; ++sub_block)
+        {
+            const double clock_hz =
+                20000.0 + (82500.0 - 20000.0) * static_cast<double>(sub_block) / 31.0;
+            resampler.set_rates(48000.0, clock_hz);
+            resampler.process(input.data(), 8u, output.data(),
+                              static_cast<std::uint32_t>(output.size()));
+        }
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

@@ -177,3 +177,16 @@ whole wet path is 89.1 ms, several repeats inside the stimulus. F.BACK 0.45 sits
 loop's stable region while still recirculating: a change to either resampler, to the compander
 or to the converter moves the file. Every knob is set before `prepare()` so the smoothers snap
 and the file holds the settled pedal rather than its ramp.
+
+## `test_rt_safety.cpp`
+
+### `ProcessPerformsNoHeapAllocation`
+
+`// Both MODE changes below move N and pay the std::fill.`
+
+Two things happen inside this trap window that no other node does. process() drives both
+Resamplers' set_rates 32 times per block through the 8-frame clock grid, and a MODE change
+clears the ring (plan Ruling 14) - once through set_parameter by index, which only records the
+mode so that process() applies it at the next block start, and once through set_mode, which
+applies it on the spot. Middle holds 4096 samples and Long 16384, so both changes below move N
+and both pay the std::fill.

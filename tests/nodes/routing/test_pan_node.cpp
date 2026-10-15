@@ -30,6 +30,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/routing/pan_node.hpp>
 
 namespace
@@ -152,4 +153,29 @@ TEST(PanNode, PanNodePortsAreOneInputTwoOutputs)
     const SushiDSP::PortLayout ports = node.ports();
     EXPECT_EQ(ports.input_channels, 1u);
     EXPECT_EQ(ports.output_channels, 2u);
+}
+
+TEST(PanNode, ProcessPerformsNoHeapAllocation)
+{
+    // apply_pan()'s cos/sin recompute runs on stack values only: no heap, lock, syscall, throw.
+    SushiDSP::PanNode node;
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
+    node.set_parameter_for_control_thread("pan", 0.5f);
+
+    std::vector<float> input(256, 1.0f);
+    std::vector<float> out_left(256, 0.0f);
+    std::vector<float> out_right(256, 0.0f);
+    const float* inputs[1] = {input.data()};
+    float* outputs[2] = {out_left.data(), out_right.data()};
+    SushiDSP::ProcessContext context{outputs, inputs, 256, 0.0};
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 100; ++block)
+    {
+        node.process(context);
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

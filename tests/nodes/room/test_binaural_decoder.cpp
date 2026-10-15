@@ -28,15 +28,22 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <vector>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/streaming_convolution.hpp>
 #include <SushiDSP/nodes/room/ambisonic_encoder.hpp>
 #include <SushiDSP/nodes/room/binaural_decoder.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
+#include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace
 {
@@ -195,5 +202,53 @@ TEST(BinauralDecoder, BinauralDecoderResetClearsTheHistory)
     {
         EXPECT_EQ(left[frame], 0.0f) << "left frame " << frame;
         EXPECT_EQ(right[frame], 0.0f) << "right frame " << frame;
+    }
+}
+
+namespace
+{
+    /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
+    void fill_room_tone(std::vector<float>& block)
+    {
+        for (std::size_t i = 0; i < block.size(); ++i)
+        {
+            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f *
+                                       static_cast<float>(i) / 48000.0f);
+        }
+    }
+} // namespace
+
+TEST(BinauralDecoder, ProcessPerformsNoHeapAllocation)
+{
+    // Sixteen blocks cross the 128-frame partition 32 times. See tests/nodes/room/README.md.
+    const SushiDSP::room::HrtfSet set = SushiDSP::room::SphericalHeadHrtf::build(48000.0);
+    SushiDSP::room::BinauralDecoder decoder;
+    decoder.prepare(set, 48000.0, 256);
+    ASSERT_TRUE(decoder.ready());
+
+    std::array<std::vector<float>, SushiDSP::room::BinauralDecoder::K_CHANNELS> channels;
+    std::array<const float*, SushiDSP::room::BinauralDecoder::K_CHANNELS> inputs{};
+    for (std::size_t channel = 0; channel < channels.size(); ++channel)
+    {
+        channels[channel].assign(256, 0.0f);
+        fill_room_tone(channels[channel]);
+        inputs[channel] = channels[channel].data();
+    }
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 16; ++block)
+    {
+        decoder.process(inputs.data(), left.data(), right.data(), 256);
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+        EXPECT_TRUE(std::isfinite(right[i]));
     }
 }

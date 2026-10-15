@@ -72,10 +72,10 @@ justify it, so a model's history reads as a list of deliberate decisions rather 
 file.
 
 The real-time path carries a harder rule: `AudioNode::process()`, and everything it calls,
-allocates nothing, locks nothing, makes no system call and throws nothing. Thirty-nine tests in
-`tests/foundation/core/test_audio_node/test_rt_safety.cpp` enforce the first of those four by replacing
-`operator new` and failing the test if the audio path reaches it. The other three are held by
-review.
+allocates nothing, locks nothing, makes no system call and throws nothing. Thirty-nine
+`*PerformsNoHeapAllocation` tests, each beside the other tests of the unit it guards, enforce the
+first of those four: `modules/foundation/allocation_trap` replaces `operator new` and the test
+fails if the audio path reaches it. The other three are held by review.
 
 ## Where to go next
 

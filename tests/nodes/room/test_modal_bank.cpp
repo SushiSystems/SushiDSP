@@ -34,8 +34,14 @@
 #include <memory>
 #include <vector>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
 #include <SushiDSP/nodes/room/modal_bank.hpp>
+#include <SushiDSP/nodes/room/modal_design.hpp>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace
 {
@@ -317,4 +323,60 @@ TEST(ModalBank, ModalBankReadsEveryRowAsItReadsTheTwoEars)
         ASSERT_EQ(third[frame], first[frame]) << "frame " << frame;
     }
     EXPECT_GT(window_rms(first, 0, K_FRAMES), 0.0);
+}
+
+namespace
+{
+    /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
+    void fill_room_tone(std::vector<float>& block)
+    {
+        for (std::size_t i = 0; i < block.size(); ++i)
+        {
+            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f *
+                                       static_cast<float>(i) / 48000.0f);
+        }
+    }
+} // namespace
+
+TEST(ModalBank, ProcessPerformsNoHeapAllocation)
+{
+    // All K_MAX_MODES resonators run at 68.6 Hz, 1 s decay. See tests/nodes/room/README.md.
+    SushiDSP::room::ModalBank bank;
+    bank.prepare(256);
+
+    auto design = std::make_unique<SushiDSP::room::ModalDesign>();
+    const double radius = std::pow(10.0, -3.0 / 48000.0);
+    const double theta = 2.0 * M_PI * 68.6 / 48000.0;
+    design->count = static_cast<std::uint32_t>(SushiDSP::room::ModalDesign::K_MAX_MODES);
+    for (std::uint32_t mode = 0; mode < design->count; ++mode)
+    {
+        design->modes[mode].section = {1e-3, 0.0, -1e-3, -2.0 * radius * std::cos(theta),
+                                       radius * radius};
+        design->modes[mode].source_gain = 0.5f;
+        design->modes[mode].ear_gain = {0.7f, -0.7f};
+    }
+    design->crossover_hz = 278.18f;
+    design->level_scale = 1.0f;
+
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    for (int block = 0; block < 8; ++block)
+    {
+        bank.process(*design, input.data(), left.data(), right.data(), 256);
+        bank.process(*design, input.data(), left.data(), right.data(), 1);
+    }
+    bank.reset();
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < left.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(left[i]));
+        EXPECT_TRUE(std::isfinite(right[i]));
+    }
 }

@@ -63,6 +63,24 @@ crosses zero twice.
 The audio thread's watermark still names the generation the first timeline was published at, so
 that timeline is alive and its take is not collectable.
 
+### `ProcessPerformsNoHeapAllocation`
+
+`// Timelines and converters exist before the trap opens.`
+
+Every timeline is published and every converter sized before the trap window opens, so what is
+measured is the mix itself: eight slot acquisitions, eight lanes of sixteen clips walked, the
+pan trigonometry, a loop range that splits each block into two runs, and both the unity copy
+path and the converted one.
+
+### `TimelineSwapPerformsNoHeapAllocationOnTheAudioThread`
+
+`// The trap covers the pick-up of a changed lane.`
+
+Every replacement timeline is built before the run, and the window is opened only around
+process(), so what is measured is the audio thread picking up a lane that changed under it: one
+acquire of a new generation and a converter that has to restart on a clip it was not inside a
+block ago.
+
 ## `test_vari_rate_reader.cpp`
 
 ### `VariRateReaderDoesNotDriftFarDownTheTake`
@@ -72,3 +90,19 @@ that timeline is alive and its take is not collectable.
 At half speed the step is exactly 0.5, so 256 outputs cost exactly 128 take frames once the
 kernel has filled. An accumulator that loses the fraction across a block boundary shows up here
 and not in the first bar.
+
+### `ReadPerformsNoHeapAllocation`
+
+`// The converters are sized before the trap opens.`
+
+The converters are sized before the trap window opens, so what is measured is the read itself: a
+set_rates() on every speed change and one push per take frame consumed.
+
+## `test_metronome.cpp`
+
+### `ProcessPerformsNoHeapAllocation`
+
+`// The bursts are built before the trap opens.`
+
+The bursts are built before the trap window opens, so what is measured is the block: two atomic
+loads, a beat index and a copy out of a vector already sized.

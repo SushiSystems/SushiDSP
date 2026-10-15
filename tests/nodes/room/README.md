@@ -101,6 +101,13 @@ sums a correlated signal through the pair; this records the cost.
 Two octaves above the crossover a fourth-order Butterworth sits 48 dB under the passband; the
 closed form 10 log10(1 / (1 + 4^8)) is -48.16 dB.
 
+### `ProcessPerformsNoHeapAllocation`
+
+`// set_crossover is arithmetic on the audio thread.`
+
+The pair is placed, run, moved and bypassed inside the trap, as the node does at every adopt;
+set_crossover is arithmetic on the audio thread and must stay so.
+
 ## `test_early_reflection_renderer.cpp`
 
 ### `EarlyReflectionRendererCarriesOneTapsStateBetweenBanks`
@@ -265,6 +272,13 @@ pair in coherence_b scales the right ear alone, since the left ear is A alone.
 A 50 Hz sine at 48 kHz steps by at most 2 pi 50 / 48000 = 0.0065 of its peak per sample; a read
 head that jumped between lines hundreds of frames apart would step by up to twice the peak, and
 the 512-frame crossfade spreads that over 512 samples.
+
+### `ProcessPerformsNoHeapAllocation`
+
+`// The trapped blocks include the 512-frame crossfade.`
+
+The second design moves every line by 37 frames, so the trapped blocks include the 512-frame
+length crossfade as well as the steady network.
 
 ## `test_late_reverb_design.cpp`
 
@@ -447,6 +461,13 @@ The parabola through the three bins around the maximum places the peak between b
 The RMS of equal windows falls linearly in decibels along r^n; the slope between two windows
 inside the ring is the 60 dB time.
 
+### `ProcessPerformsNoHeapAllocation`
+
+`// All K_MAX_MODES resonators run at 68.6 Hz, 1 s decay.`
+
+Every one of K_MAX_MODES resonators runs, at the garage's 68.6 Hz mode with a 1 s decay: r =
+10^(-3 / 48000) = 0.99985610, a1 = -2 r cos(2 pi 68.6 / 48000), a2 = r^2.
+
 ## `test_modal_solver.cpp`
 
 ### `DiffuseFieldIsEyringOverTheCabinetsDirectivity`
@@ -576,3 +597,30 @@ By Legendre orthogonality the sphere's power averaged over every direction is su
 (mu^4 |h_m'(mu)|^2): 1 at DC, 1.7765 at 4 kHz, rising to 2 at high mu. Its mean over 0 to 48 kHz
 is 1.8472, +2.67 dB; the 10-degree grid weighted by solid angle gives 1.8477, and 128 taps hold
 all of it to 1e-10.
+
+## `test_binaural_decoder.cpp`
+
+### `ProcessPerformsNoHeapAllocation`
+
+`// Sixteen blocks cross the 128-frame partition 32 times.`
+
+prepare() builds the 32 partitioned convolvers from the spherical head's decoder outside the
+trap; sixteen blocks of 256 frames, which cross the 128-frame partition thirty-two times, run
+inside it.
+
+## `benchmark_room_node.cpp`
+
+### `measure_room_beside_jcm800`
+
+`// The room's share is the chain less the amplifier alone.`
+
+The graph's own per-block cost is not the sum of its nodes' isolated costs, because the gather
+and the buffer pool add their own share. The room's reported share is therefore the whole chain
+less the amplifier measured on its own. That is the best estimate the harness can give without
+instrumenting `RigGraph::process()` itself.
+
+## `garage_benchmark_scene.hpp`
+
+| Helper | Shared by |
+| --- | --- |
+| `garage_benchmark_scene()` | `benchmark_room_node.cpp`, `benchmark_early_reflection_renderer.cpp`, `benchmark_modal_bank.cpp` |

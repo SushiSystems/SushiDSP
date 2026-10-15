@@ -44,7 +44,7 @@ into a cabinet therefore runs near 38 % of one core steady and past 60 % on a sl
 underruns at the smallest USB buffer while leaving a larger one alone. What closes it is a
 decision the maintainer owns: dropping this model to 4x, which halves the cost against the alias
 floor the entry above measures, or a cheaper triode solve. Measured by `sushidsp_bench`
-(`tests/foundation/core/benchmark_audio_path.cpp`), which times each amplifier node.
+(`tests/nodes/<amplifier>/benchmark_<amplifier>.cpp`), which times each amplifier node.
 
 ## Removing a track can double one block of audio
 
@@ -290,7 +290,7 @@ and touches no module.
 The gate the cabinet section was planned against is three JCM800 chains into one room with
 three cabinets, the listener and eight microphones, under 2.67 ms per 256-frame block at 48 kHz,
 half the block. On a Release build the row reads 3.562 ms, 67 % of one core
-(`tests/foundation/core/benchmark_audio_path.cpp`, "3 x JCM800 + RoomNode"). The three amplifiers cost 2.03 ms of it
+(`tests/nodes/room/benchmark_room_node.cpp`, "3 x JCM800 + RoomNode"). The three amplifiers cost 2.03 ms of it
 and the room 1.28 ms, so the rig fits the 5.33 ms block with 1.8 ms to spare, but not the gate.
 The taps are already filtered four to a vector, and a microphone pair's own taps are down to
 0.025 ms; what remains of a pair is its tail read, its modal row and its output stage. Closes

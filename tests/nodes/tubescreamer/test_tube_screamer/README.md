@@ -107,3 +107,16 @@ calibration - a hot humbucker, and a level the TS808 is meant to clip at. Unlike
 there is no mismeasured rail clipping to back off from: 0.2512 full scale reads -18.6 dB, 0.05
 reads -21.6 and 0.025 reads -25.3, so 6.7 dB covers the whole plausible range from a hard pick
 to a weak one and none of it changes the mechanism.
+
+## `test_rt_safety.cpp`
+
+### `ProcessPerformsNoHeapAllocation`
+
+`// A moved knob re-derives the matrices inside process().`
+
+Moving a knob before every block is the path the plain loop misses: a wiper that has changed
+marks the block dirty and update_matrices_if_dirty() re-derives inside process(), which is where
+a solver would allocate if it were going to. This is the D6c instance of the trap D6b's
+DkCircuitPotentiometerUpdatePerformsNoHeapAllocation established, now on a shipping node rather
+than on a bare circuit. Both knobs sweep their full travel so every derivation sees a genuinely
+new matrix.

@@ -25,7 +25,11 @@
  * @author Mustafa Garip
  */
 
+#include <vector>
+
 #include <gtest/gtest.h>
+
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 
 #include "ui/level_probe.hpp"
 
@@ -66,4 +70,20 @@ TEST(LevelProbe, LevelProbeReportsZeroForAnEmptyBlock)
     probe.report(nullptr, 0);
 
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.0f);
+}
+
+TEST(LevelProbe, ReportPerformsNoHeapAllocation)
+{
+    ui::LevelProbe probe;
+    std::vector<float> block(256, 0.25f);
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    for (int i = 0; i < 64; ++i)
+    {
+        probe.report(block.data(), 256);
+    }
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

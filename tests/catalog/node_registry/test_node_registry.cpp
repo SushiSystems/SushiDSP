@@ -26,12 +26,14 @@
  */
 
 #include <cstring>
+#include <memory>
 #include <string>
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/catalog/node_registry/node_registry.hpp>
+#include <SushiDSP/nodes/room/room_host.hpp>
 #include <SushiDSP/nodes/routing/mixer_node.hpp>
+#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
 TEST(NodeRegistry, NodeRegistryListsTubeScreamerAndJcm800)
 {
@@ -137,4 +139,31 @@ TEST(NodeRegistry, NodeRegistryBuildsTheCabinet)
     auto node = SushiDSP::make_node("sushidsp.cabinet", info);
     ASSERT_NE(node, nullptr);
     EXPECT_STREQ(node->type_id(), "sushidsp.cabinet");
+}
+
+TEST(NodeRegistry, NodeRegistryListsTheRoomUnderRoomAndBuildsIt)
+{
+    bool found = false;
+    for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
+    {
+        if (std::strcmp(entry.descriptor->id, "sushidsp.room") == 0)
+        {
+            found = true;
+            EXPECT_STREQ(entry.category.name, "Room");
+            EXPECT_EQ(entry.descriptor->parameter_count, 1u);
+            EXPECT_STREQ(entry.descriptor->parameters[0].id, "direct_delay");
+            EXPECT_FLOAT_EQ(entry.descriptor->parameters[0].default_value, 0.0f);
+        }
+    }
+    EXPECT_TRUE(found);
+
+    std::unique_ptr<SushiDSP::AudioNode> node =
+        SushiDSP::make_node("sushidsp.room", SushiDSP::PrepareInfo{48000.0, 256, 1});
+    ASSERT_NE(node, nullptr);
+    EXPECT_EQ(node->ports().input_channels, 6u);
+    EXPECT_EQ(node->ports().output_channels, 2u);
+    EXPECT_FLOAT_EQ(node->get_parameter("direct_delay"), 0.0f);
+    node->set_parameter_for_control_thread("direct_delay", 1.0f);
+    EXPECT_FLOAT_EQ(node->get_parameter("direct_delay"), 1.0f);
+    EXPECT_NE(dynamic_cast<SushiDSP::room::RoomHost*>(node.get()), nullptr);
 }

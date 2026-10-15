@@ -308,11 +308,11 @@ The audio thread calls `RoomNode::process`, and through it `CrossoverPair::proce
 output stages, `DirectPath`, `FirFilter`, `FrameDelay` and `DelayRing`; at the block that adopts a set it also
 calls `CrossoverPair::set_crossover`,
 `ModalBank::reset` and `BinauralDecoder::reset`, all arithmetic. None of them allocates, locks,
-opens a file or throws after `prepare()`; `tests/foundation/core/test_audio_node/test_rt_safety.cpp` traps
-`operator new` around each of them, and around `RoomNode::process` while publishes land that
-move a microphone, move the listener, widen the room, take cabinets and microphones away and
-bring them back, and switch `direct_delay`, so each path the node can take runs under the trap
-(`RoomNodeProcessPerformsNoHeapAllocationAtTheLimits`).
+opens a file or throws after `prepare()`. Each one's test file traps `operator new` around it,
+and `tests/nodes/room/test_room_node/test_rt_safety.cpp` traps it around `RoomNode::process`
+while publishes land that move a microphone, move the listener, widen the room, take cabinets
+and microphones away and bring them back, and switch `direct_delay`, so each path the node can
+take runs under the trap (`ProcessPerformsNoHeapAllocationAtTheLimits`).
 
 Everything else runs on the control thread. `RoomNode::set_arrangement` validates the
 arrangement and, for each pair that changed, calls `build_render_set` for that pair's receiver,
@@ -661,7 +661,7 @@ next publish.
 
 Measured cost at 48 kHz and 256 frames on a Release build, best of 200, the garage with the
 cabinet at (0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0), every layer running
-(`tests/foundation/core/benchmark_audio_path.cpp`):
+(`tests/nodes/room/benchmark_*.cpp`):
 
 | Row | ns/sample | One core | Per 256 frames |
 | --- | --- | --- | --- |

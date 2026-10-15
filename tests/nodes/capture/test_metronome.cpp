@@ -32,6 +32,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/capture/metronome.hpp>
 #include <SushiDSP/nodes/capture/musical_clock.hpp>
 #include <SushiDSP/nodes/capture/transport.hpp>
@@ -297,4 +298,42 @@ TEST(Metronome, MetronomeCarriesABurstAcrossABlockBoundary)
     EXPECT_NEAR(largest_step, 0.199471109, 1e-6); // inside the attack, across frame 54
     EXPECT_LT(std::fabs(static_cast<double>(in_six[256]) - static_cast<double>(in_six[255])),
               largest_step);
+}
+
+TEST(Metronome, ProcessPerformsNoHeapAllocation)
+{
+    // The bursts are built before the trap opens. See tests/nodes/capture/README.md.
+    SushiDSP::MusicalClock clock;
+    clock.set_tempo(137.4);
+
+    SushiDSP::Metronome metronome(48000.0);
+    metronome.set_enabled(true);
+    metronome.set_level(0.5f);
+
+    SushiDSP::Transport transport;
+    transport.play();
+
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float* outputs[2] = {left.data(), right.data()};
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    for (int block = 0; block < 400; ++block)
+    {
+        std::fill(left.begin(), left.end(), 0.0f);
+        std::fill(right.begin(), right.end(), 0.0f);
+        metronome.process(outputs, 2u, 256u, transport, clock);
+        transport.advance(256u);
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t frame = 0; frame < left.size(); ++frame)
+    {
+        EXPECT_TRUE(std::isfinite(left[frame]));
+        EXPECT_TRUE(std::isfinite(right[frame]));
+    }
 }
