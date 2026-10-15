@@ -2,7 +2,7 @@
 
 **Goal:** Build what [`SPEC.md`](SPEC.md) describes.
 
-**State on 2026-10-15.** Written and committed: T0 to T5, T7 and T8, and T3 (suite names). T6 is written for 64 of its 104 units: 38 with a test of their own, 17 room units, 9 capture, dd3 and tone-stack units, and the two room scene units; the 37 application units and the two device units are an accepted exception, recorded in `KNOWN_ISSUES.md`. `dk_block_node` is tested on an RC low-pass its test builds itself, so no fixture crosses a tier. `test_measure.cpp` is split: its eleven unit cases joined the five `signal_measure` test files, each test node living in the one file that uses it, and its five alias-floor cases joined the `test_output.cpp` of TubeScreamer, Jcm800, Peavey5150, TriodeStage and PentodeStage. `tests/functional/` is gone. The one Release build (T10) is run once the tree is complete; see the result below.
+**State on 2026-10-15.** Written and committed: T0 to T5, T7 and T8, and T3 (suite names). T6 is written for 64 of its 104 units: 38 with a test of their own, 17 room units, 9 capture, dd3 and tone-stack units, and the two room scene units; the 37 application units and the two device units are planned as their own work in `REMAINING_WORK.md`, recorded in `KNOWN_ISSUES.md`. `dk_block_node` is tested on an RC low-pass its test builds itself, so no fixture crosses a tier. `test_measure.cpp` is split: its eleven unit cases joined the five `signal_measure` test files, each test node living in the one file that uses it, and its five alias-floor cases joined the `test_output.cpp` of TubeScreamer, Jcm800, Peavey5150, TriodeStage and PentodeStage. `tests/functional/` is gone. The one Release build (T10) is run once the tree is complete; see the result below.
 
 ## Constraints
 
@@ -175,4 +175,4 @@ build linked `tests/sushidsp_tests.exe` and the application and GUI targets.
 
 Run: `sd test -s unit` passes 1445 of 1445 and `sd test -s regression` 24 of 24, after two room tests were corrected in `09fb34d`.
 
-The 37 application units and the 2 device units are an accepted exception, recorded in `docs/reference/KNOWN_ISSUES.md`.
+The 37 application units and the 2 device units are planned as their own work in `docs/design/REMAINING_WORK.md`.
