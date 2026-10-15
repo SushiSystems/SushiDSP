@@ -37,6 +37,21 @@ if(SUSHIDSP_ENABLE_LTO AND NOT _sushidsp_ipo_supported)
     message(STATUS "SushiDSP: LTO requested but unsupported by this toolchain: ${_sushidsp_ipo_message}")
 endif()
 
+# Clang emits LTO objects as LLVM bitcode, which the GNU linker cannot read without the LLVM
+# gold plugin. On Linux, Clang LTO links with lld, or LTO is turned off.
+set(_sushidsp_lto_link_option "")
+if(SUSHIDSP_ENABLE_LTO AND _sushidsp_ipo_supported
+   AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+   AND UNIX AND NOT APPLE)
+    find_program(SUSHIDSP_LLD_LINKER NAMES ld.lld)
+    if(SUSHIDSP_LLD_LINKER)
+        set(_sushidsp_lto_link_option "-fuse-ld=lld")
+    else()
+        message(STATUS "SushiDSP: LTO turned off: Clang LTO needs ld.lld, which is not on PATH")
+        set(_sushidsp_ipo_supported OFF)
+    endif()
+endif()
+
 set(_sushidsp_optimized "$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>")
 
 function(sushidsp_apply_optimization_flags target)
@@ -60,5 +75,9 @@ function(sushidsp_apply_optimization_flags target)
         set_target_properties(${target} PROPERTIES
             INTERPROCEDURAL_OPTIMIZATION_RELEASE ON
             INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO ON)
+        if(_sushidsp_lto_link_option)
+            target_link_options(${target} PRIVATE
+                "$<${_sushidsp_optimized}:${_sushidsp_lto_link_option}>")
+        endif()
     endif()
 endfunction()

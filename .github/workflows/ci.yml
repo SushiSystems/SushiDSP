@@ -69,7 +69,7 @@ jobs:
         # builds the standalone host and the GUI, which no other lane compiles.
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build ccache pkg-config \
+          sudo apt-get install -y --no-install-recommends cmake ninja-build ccache lld pkg-config \
             libasound2-dev libpulse-dev libwayland-dev libwayland-bin wayland-protocols \
             libxkbcommon-dev xorg-dev libgl1-mesa-dev libegl1-mesa-dev
           python -m pip install -e ./cli
@@ -137,7 +137,7 @@ jobs:
         if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build clang ccache
+          sudo apt-get install -y --no-install-recommends cmake ninja-build clang lld ccache
           python -m pip install -e ./cli
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
