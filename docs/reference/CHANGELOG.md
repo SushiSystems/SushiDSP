@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-15 — tools: Copied the shared checkers from SushiSkills 6071952 and moved the tier order and same-tier edges into `tools/settings.py` (`check_layering.py`, `check_test_mirror.py`).
 - 2026-10-15 — tests: Recorded the 39 untested host, plugin and device headers as a known issue and planned their tests (`KNOWN_ISSUES.md`, `REMAINING_WORK.md`).
 - 2026-10-15 — tests: Split `test_measure.cpp` among the `signal_measure` tests and the alias-floor owners, removed `tests/functional`, and tested `DkBlockNode` on an RC low-pass (`test_dk_block_node.cpp`).
 - 2026-10-15 — tests: Wrote unit tests for 64 of the 104 units that had none, each under its mirror path in `tests/` (`test_*.cpp`, `tests/CMakeLists.txt`).
