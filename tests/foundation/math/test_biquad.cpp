@@ -41,7 +41,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Biquad, BiquadLowPassPassesDcAtUnityGain)
+TEST(Small_Biquad, BiquadLowPassPassesDcAtUnityGain)
 {
     SushiDSP::Biquad filter;
     filter.set_low_pass(48000.0, 1000.0, 0.707);
@@ -55,7 +55,7 @@ TEST(Biquad, BiquadLowPassPassesDcAtUnityGain)
     EXPECT_NEAR(output, 1.0f, 1e-3f);
 }
 
-TEST(Biquad, BiquadLowPassAttenuatesWellAboveCutoff)
+TEST(Small_Biquad, BiquadLowPassAttenuatesWellAboveCutoff)
 {
     SushiDSP::Biquad filter;
     constexpr double sample_rate = 48000.0;
@@ -77,7 +77,7 @@ TEST(Biquad, BiquadLowPassAttenuatesWellAboveCutoff)
     EXPECT_LT(max_output, 0.1f);
 }
 
-TEST(Biquad, BiquadHighPassBlocksDcCompletely)
+TEST(Small_Biquad, BiquadHighPassBlocksDcCompletely)
 {
     SushiDSP::Biquad filter;
     filter.set_high_pass(48000.0, 1000.0, 0.707);
@@ -91,7 +91,7 @@ TEST(Biquad, BiquadHighPassBlocksDcCompletely)
     EXPECT_NEAR(output, 0.0f, 1e-3f);
 }
 
-TEST(Biquad, BiquadHighPassPassesWellAboveCutoffAtUnityGain)
+TEST(Small_Biquad, BiquadHighPassPassesWellAboveCutoffAtUnityGain)
 {
     SushiDSP::Biquad filter;
     constexpr double sample_rate = 48000.0;
@@ -113,7 +113,7 @@ TEST(Biquad, BiquadHighPassPassesWellAboveCutoffAtUnityGain)
     EXPECT_NEAR(max_output, 1.0f, 0.1f);
 }
 
-TEST(Biquad, BiquadLowShelfBoostsDcByApproximatelyGainDb)
+TEST(Small_Biquad, BiquadLowShelfBoostsDcByApproximatelyGainDb)
 {
     SushiDSP::Biquad filter;
     filter.set_low_shelf(48000.0, 200.0, 6.0, 0.707);
@@ -128,7 +128,7 @@ TEST(Biquad, BiquadLowShelfBoostsDcByApproximatelyGainDb)
     EXPECT_NEAR(output, expected_linear_gain, 0.05f);
 }
 
-TEST(Biquad, BiquadLowShelfLeavesHighFrequenciesNearUnity)
+TEST(Small_Biquad, BiquadLowShelfLeavesHighFrequenciesNearUnity)
 {
     SushiDSP::Biquad filter;
     constexpr double sample_rate = 48000.0;
@@ -149,7 +149,7 @@ TEST(Biquad, BiquadLowShelfLeavesHighFrequenciesNearUnity)
     EXPECT_NEAR(max_output, 1.0f, 0.1f);
 }
 
-TEST(Biquad, BiquadHighShelfBoostsHighFrequencyByApproximatelyGainDb)
+TEST(Small_Biquad, BiquadHighShelfBoostsHighFrequencyByApproximatelyGainDb)
 {
     SushiDSP::Biquad filter;
     constexpr double sample_rate = 48000.0;
@@ -171,7 +171,7 @@ TEST(Biquad, BiquadHighShelfBoostsHighFrequencyByApproximatelyGainDb)
     EXPECT_NEAR(max_output, expected_linear_gain, 0.15f);
 }
 
-TEST(Biquad, BiquadPeakingBoostsCenterFrequency)
+TEST(Small_Biquad, BiquadPeakingBoostsCenterFrequency)
 {
     SushiDSP::Biquad filter;
     constexpr double sample_rate = 48000.0;
@@ -193,7 +193,7 @@ TEST(Biquad, BiquadPeakingBoostsCenterFrequency)
     EXPECT_NEAR(max_output, expected_linear_gain, 0.1f);
 }
 
-TEST(Biquad, BiquadPeakingLeavesFarFrequenciesNearUnity)
+TEST(Small_Biquad, BiquadPeakingLeavesFarFrequenciesNearUnity)
 {
     SushiDSP::Biquad filter;
     constexpr double sample_rate = 48000.0;
@@ -214,7 +214,7 @@ TEST(Biquad, BiquadPeakingLeavesFarFrequenciesNearUnity)
     EXPECT_NEAR(max_output, 1.0f, 0.15f);
 }
 
-TEST(Biquad, BiquadResetClearsState)
+TEST(Small_Biquad, BiquadResetClearsState)
 {
     SushiDSP::Biquad filter;
     filter.set_low_pass(48000.0, 1000.0, 0.707);
@@ -229,7 +229,7 @@ TEST(Biquad, BiquadResetClearsState)
     EXPECT_NEAR(output, 0.0f, 1e-3f);
 }
 
-TEST(Biquad, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
+TEST(Small_Biquad, BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse)
 {
     // A one-pole loses 6 dB per octave, not 12. See tests/foundation/math/README.md.
     constexpr double sample_rate = 384000.0;
@@ -298,7 +298,7 @@ namespace
     }
 } // namespace
 
-TEST(Biquad, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
+TEST(Small_Biquad, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
 {
     // The goldens are the post-warp readings at 96 kHz. See tests/foundation/math/README.md.
     SushiDSP::Biquad shelf;
@@ -308,7 +308,7 @@ TEST(Biquad, BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly)
     EXPECT_NEAR(biquad_magnitude(shelf, 6000.0, 96000.0), 3.5023974, 3e-2);
 }
 
-TEST(Biquad, BiquadFirstOrderShelfPairCancelsExactly)
+TEST(Small_Biquad, BiquadFirstOrderShelfPairCancelsExactly)
 {
     // The shelf pair cancels to a null below -120 dB. See tests/foundation/math/README.md.
     SushiDSP::Biquad pre, de;
@@ -331,7 +331,7 @@ TEST(Biquad, BiquadFirstOrderShelfPairCancelsExactly)
     EXPECT_LE(10.0 * std::log10(error_power / signal_power), -120.0);
 }
 
-TEST(Biquad, BiquadFirstOrderShelfWithEqualCornersIsAFlatGain)
+TEST(Small_Biquad, BiquadFirstOrderShelfWithEqualCornersIsAFlatGain)
 {
     // A degenerate but reachable configuration: zero == pole cancels, leaving a plain gain.
     SushiDSP::Biquad shelf;
@@ -377,7 +377,7 @@ namespace
     }
 } // namespace
 
-TEST(Biquad, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
+TEST(Small_Biquad, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
 {
     // A single RC reads -0.04 dB a decade above its corner. See tests/foundation/math/README.md.
     SushiDSP::Biquad filter;
@@ -391,7 +391,7 @@ TEST(Biquad, BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner)
     EXPECT_NEAR(a_decade_up, -0.04, 0.1);
 }
 
-TEST(Biquad, BiquadFirstOrderHighPassStaysCleanAtLowCornersAtHighRates)
+TEST(Small_Biquad, BiquadFirstOrderHighPassStaysCleanAtLowCornersAtHighRates)
 {
     // The one-pole's real pole stays inside the unit circle. See tests/foundation/math/README.md.
     constexpr double sample_rate = 384000.0;
@@ -417,7 +417,7 @@ TEST(Biquad, BiquadFirstOrderHighPassStaysCleanAtLowCornersAtHighRates)
     }
 }
 
-TEST(Biquad, BiquadSetCoefficientsLoadsThemVerbatim)
+TEST(Small_Biquad, BiquadSetCoefficientsLoadsThemVerbatim)
 {
     // b = {0.5, 0.5, 0}, a = {0, 0} is a two-tap average whose impulse response is 0.5, 0.5, 0.
     SushiDSP::Biquad average;

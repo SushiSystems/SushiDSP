@@ -29,14 +29,14 @@
 
 #include <SushiDSP/foundation/log/capturing_log_sink.hpp>
 
-TEST(CapturingLogSink, StartsEmptyWithNoFlushes)
+TEST(Small_CapturingLogSink, StartsEmptyWithNoFlushes)
 {
     const SushiDSP::CapturingLogSink sink;
     EXPECT_TRUE(sink.lines().empty());
     EXPECT_EQ(sink.flush_count(), 0u);
 }
 
-TEST(CapturingLogSink, KeepsTheCategoryAndMessageOfEachLine)
+TEST(Small_CapturingLogSink, KeepsTheCategoryAndMessageOfEachLine)
 {
     SushiDSP::CapturingLogSink sink;
     sink.write(SushiDSP::LogRecord{SushiDSP::LogLevel::Info, SushiDSP::make_log_category("room"),
@@ -47,7 +47,7 @@ TEST(CapturingLogSink, KeepsTheCategoryAndMessageOfEachLine)
     EXPECT_EQ(lines[0].message, "ready");
 }
 
-TEST(CapturingLogSink, CountsEachFlush)
+TEST(Small_CapturingLogSink, CountsEachFlush)
 {
     SushiDSP::CapturingLogSink sink;
     sink.flush();

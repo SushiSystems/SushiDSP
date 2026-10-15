@@ -70,7 +70,7 @@ namespace
     }
 } // namespace
 
-TEST(RoomNode, ProcessPerformsNoHeapAllocation)
+TEST(Small_RoomNode, ProcessPerformsNoHeapAllocation)
 {
     // The first trapped block adopts the published set. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomNode node;
@@ -103,7 +103,7 @@ TEST(RoomNode, ProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(RoomNode, ProcessPerformsNoHeapAllocationAcrossAPublish)
+TEST(Small_RoomNode, ProcessPerformsNoHeapAllocationAcrossAPublish)
 {
     // Only the audio thread's half of a publish is trapped. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomNode node;
@@ -148,7 +148,7 @@ TEST(RoomNode, ProcessPerformsNoHeapAllocationAcrossAPublish)
     }
 }
 
-TEST(RoomNode, ProcessPerformsNoHeapAllocationAtTheLimits)
+TEST(Small_RoomNode, ProcessPerformsNoHeapAllocationAtTheLimits)
 {
     // Three cabinets and eight microphones, with placements coming and going between blocks.
     SushiDSP::room::RoomNode node;
@@ -196,7 +196,7 @@ TEST(RoomNode, ProcessPerformsNoHeapAllocationAtTheLimits)
     }
 }
 
-TEST(RoomNode, BinauralProcessPerformsNoHeapAllocation)
+TEST(Small_RoomNode, BinauralProcessPerformsNoHeapAllocation)
 {
     // The ears render every binaural path inside the trap. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomNode node;

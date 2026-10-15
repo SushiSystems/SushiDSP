@@ -46,7 +46,7 @@ namespace
     }
 } // namespace
 
-TEST(MusicalTimeText, MusicalTimeTextReadsFrameZeroAsBarOneBeatOneSixteenthOne)
+TEST(Small_MusicalTimeText, MusicalTimeTextReadsFrameZeroAsBarOneBeatOneSixteenthOne)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -54,7 +54,7 @@ TEST(MusicalTimeText, MusicalTimeTextReadsFrameZeroAsBarOneBeatOneSixteenthOne)
     EXPECT_EQ(ui::bar_beat_sixteenth_text(0u, clock), "1 · 1 · 1");
 }
 
-TEST(MusicalTimeText, MusicalTimeTextReadsBarOneHundredAtItsExactFrame)
+TEST(Small_MusicalTimeText, MusicalTimeTextReadsBarOneHundredAtItsExactFrame)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -63,7 +63,7 @@ TEST(MusicalTimeText, MusicalTimeTextReadsBarOneHundredAtItsExactFrame)
     EXPECT_EQ(ui::bar_beat_sixteenth_text(9504000u, clock), "100 · 1 · 1");
 }
 
-TEST(MusicalTimeText, MusicalTimeTextCountsTheSixteenthInsideABeat)
+TEST(Small_MusicalTimeText, MusicalTimeTextCountsTheSixteenthInsideABeat)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -74,7 +74,7 @@ TEST(MusicalTimeText, MusicalTimeTextCountsTheSixteenthInsideABeat)
     EXPECT_EQ(ui::bar_beat_sixteenth_text(96000u, clock), "2 · 1 · 1");
 }
 
-TEST(MusicalTimeText, MusicalTimeTextLabelsAClipWithItsBarAndBeat)
+TEST(Small_MusicalTimeText, MusicalTimeTextLabelsAClipWithItsBarAndBeat)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);

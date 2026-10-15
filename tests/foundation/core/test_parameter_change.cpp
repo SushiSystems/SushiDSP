@@ -31,7 +31,7 @@
 
 #include <cstdint>
 
-TEST(ParameterChange, KeepsTheNodeParameterAndValueItWasMadeWith)
+TEST(Small_ParameterChange, KeepsTheNodeParameterAndValueItWasMadeWith)
 {
     const SushiDSP::ParameterChange change{7u, static_cast<std::uint16_t>(2), 0.25f};
     EXPECT_EQ(change.node, 7u);
@@ -39,7 +39,7 @@ TEST(ParameterChange, KeepsTheNodeParameterAndValueItWasMadeWith)
     EXPECT_FLOAT_EQ(change.value, 0.25f);
 }
 
-TEST(ParameterChange, NodeHandleIsThirtyTwoBits)
+TEST(Small_ParameterChange, NodeHandleIsThirtyTwoBits)
 {
     EXPECT_EQ(sizeof(SushiDSP::NodeHandle), 4u);
 }

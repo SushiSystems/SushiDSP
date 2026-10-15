@@ -29,12 +29,12 @@
 
 #include <SushiDSP/nodes/capture/recording_bus.hpp>
 
-TEST(RecordingBus, RingHoldsSixtyFiveThousandFramesByDefault)
+TEST(Small_RecordingBus, RingHoldsSixtyFiveThousandFramesByDefault)
 {
     EXPECT_EQ(SushiDSP::RecordingBus::K_RING_CAPACITY_FRAMES, 65536u);
 }
 
-TEST(RecordingBus, StartsIdleAndWithoutFailure)
+TEST(Small_RecordingBus, StartsIdleAndWithoutFailure)
 {
     const SushiDSP::RecordingBus bus(2u, 48000.0);
     EXPECT_FALSE(bus.is_recording());

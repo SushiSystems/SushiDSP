@@ -35,7 +35,7 @@
 
 // An unused new-expression may be removed by the optimiser; a direct call to operator new may not.
 
-TEST(AllocationTrap, CountsAnAllocationMadeWhileArmed)
+TEST(Medium_AllocationTrap, CountsAnAllocationMadeWhileArmed)
 {
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
@@ -46,7 +46,7 @@ TEST(AllocationTrap, CountsAnAllocationMadeWhileArmed)
     EXPECT_EQ(trap.count(), 1);
 }
 
-TEST(AllocationTrap, CountsAnArrayAllocationMadeWhileArmed)
+TEST(Medium_AllocationTrap, CountsAnArrayAllocationMadeWhileArmed)
 {
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
@@ -57,7 +57,7 @@ TEST(AllocationTrap, CountsAnArrayAllocationMadeWhileArmed)
     EXPECT_EQ(trap.count(), 1);
 }
 
-TEST(AllocationTrap, IgnoresAllocationsOutsideItsWindow)
+TEST(Medium_AllocationTrap, IgnoresAllocationsOutsideItsWindow)
 {
     SushiDSP::test::AllocationTrap trap;
     std::vector<int> before(32, 1);
@@ -68,7 +68,7 @@ TEST(AllocationTrap, IgnoresAllocationsOutsideItsWindow)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(AllocationTrap, StartsEachTrapFromZero)
+TEST(Medium_AllocationTrap, StartsEachTrapFromZero)
 {
     {
         SushiDSP::test::AllocationTrap first;
@@ -83,7 +83,7 @@ TEST(AllocationTrap, StartsEachTrapFromZero)
     EXPECT_EQ(second.count(), 0);
 }
 
-TEST(AllocationTrap, ClosesItsWindowWhenDestroyed)
+TEST(Medium_AllocationTrap, ClosesItsWindowWhenDestroyed)
 {
     {
         SushiDSP::test::AllocationTrap armed;
@@ -96,7 +96,7 @@ TEST(AllocationTrap, ClosesItsWindowWhenDestroyed)
     EXPECT_EQ(reader.count(), 0);
 }
 
-TEST(AllocationTrap, IgnoresAllocationsOfAnotherThread)
+TEST(Medium_AllocationTrap, IgnoresAllocationsOfAnotherThread)
 {
     std::atomic<bool> go{false};
     std::atomic<bool> done{false};

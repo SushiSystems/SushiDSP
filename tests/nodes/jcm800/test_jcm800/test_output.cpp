@@ -75,12 +75,12 @@ namespace
 
 /// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
 /// @see tests/nodes/jcm800/test_jcm800/README.md
-SUSHIDSP_REGRESSION_TEST(Jcm800, Jcm800GoldenFile48k)
+SUSHIDSP_REGRESSION_TEST(Medium_Jcm800, Jcm800GoldenFile48k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "jcm800_48k", render_jcm800(48000.0)), -80.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Jcm800, Jcm800GoldenFile96k)
+SUSHIDSP_REGRESSION_TEST(Medium_Jcm800, Jcm800GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "jcm800_96k", render_jcm800(96000.0)), -80.0);
 }
@@ -88,7 +88,7 @@ SUSHIDSP_REGRESSION_TEST(Jcm800, Jcm800GoldenFile96k)
 // K_D5B_JCM800_ALIAS_FLOOR_DB is the D5b baseline of -3.8 dB. See tests/nodes/jcm800/test_jcm800/README.md.
 constexpr double K_D5B_JCM800_ALIAS_FLOOR_DB = -3.8;
 
-SUSHIDSP_REGRESSION_TEST(Jcm800, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
+SUSHIDSP_REGRESSION_TEST(Medium_Jcm800, Jcm800AliasFloorImprovedAtLeast30dBOverD5b)
 {
     // The case is skipped as a known issue but still prints. See tests/nodes/jcm800/test_jcm800/README.md.
     SushiDSP::Jcm800 node;

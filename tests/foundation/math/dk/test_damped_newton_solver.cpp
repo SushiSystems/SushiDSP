@@ -48,7 +48,7 @@ namespace
     constexpr double K_MATRIX[3][3] = {{2.0, 1.0, -1.0}, {-3.0, -1.0, 2.0}, {-2.0, 1.0, 2.0}};
 } // namespace
 
-TEST(DampedNewtonSolver, DenseLuSolvesAHandCheckedThreeByThreeSystem)
+TEST(Small_DampedNewtonSolver, DenseLuSolvesAHandCheckedThreeByThreeSystem)
 {
     std::array<std::array<double, 3>, 3> matrix{};
     for (std::size_t row = 0; row < 3; ++row)
@@ -67,7 +67,7 @@ TEST(DampedNewtonSolver, DenseLuSolvesAHandCheckedThreeByThreeSystem)
     EXPECT_NEAR(solution[2], -1.0, 1e-12);
 }
 
-TEST(DampedNewtonSolver, DenseLuPivotsWhenTheLeadingEntryIsZero)
+TEST(Small_DampedNewtonSolver, DenseLuPivotsWhenTheLeadingEntryIsZero)
 {
     // Without partial pivoting the first step divides by zero. See tests/foundation/math/dk/README.md.
     std::array<std::array<double, 2>, 2> matrix{{{0.0, 1.0}, {1.0, 0.0}}};
@@ -79,14 +79,14 @@ TEST(DampedNewtonSolver, DenseLuPivotsWhenTheLeadingEntryIsZero)
     EXPECT_NEAR(solution[1], 3.0, 1e-12);
 }
 
-TEST(DampedNewtonSolver, DenseLuReportsASingularMatrix)
+TEST(Small_DampedNewtonSolver, DenseLuReportsASingularMatrix)
 {
     std::array<std::array<double, 2>, 2> matrix{{{1.0, 2.0}, {2.0, 4.0}}};
     SushiDSP::dk::DenseLu<2> lu;
     EXPECT_FALSE(lu.factorise(matrix));
 }
 
-TEST(DampedNewtonSolver, DenseLuOneByOneSolvesByDivision)
+TEST(Small_DampedNewtonSolver, DenseLuOneByOneSolvesByDivision)
 {
     std::array<std::array<double, 1>, 1> matrix{{{4.0}}};
     SushiDSP::dk::DenseLu<1> lu;
@@ -98,7 +98,7 @@ TEST(DampedNewtonSolver, DenseLuOneByOneSolvesByDivision)
     EXPECT_FALSE(lu.factorise(matrix));
 }
 
-TEST(DampedNewtonSolver, DenseLuSolvesTheLeadingBlockOfAnOversizedArray)
+TEST(Small_DampedNewtonSolver, DenseLuSolvesTheLeadingBlockOfAnOversizedArray)
 {
     // Only the leading 3x3 block may be touched. See tests/foundation/math/dk/README.md.
     std::array<std::array<double, 5>, 5> matrix{};
@@ -119,7 +119,7 @@ TEST(DampedNewtonSolver, DenseLuSolvesTheLeadingBlockOfAnOversizedArray)
     EXPECT_NEAR(solution[2], -1.0, 1e-12);
 }
 
-TEST(DampedNewtonSolver, DenseLuReportsASingularLeadingBlock)
+TEST(Small_DampedNewtonSolver, DenseLuReportsASingularLeadingBlock)
 {
     std::array<std::array<double, 4>, 4> matrix{};
     matrix[0][0] = 1.0;
@@ -133,7 +133,7 @@ TEST(DampedNewtonSolver, DenseLuReportsASingularLeadingBlock)
     EXPECT_TRUE(lu.factorise(matrix, 1));
 }
 
-TEST(DampedNewtonSolver, DenseLuTreatsAnEmptyLeadingBlockAsANoOperation)
+TEST(Small_DampedNewtonSolver, DenseLuTreatsAnEmptyLeadingBlockAsANoOperation)
 {
     const std::array<std::array<double, 2>, 2> matrix{{{1.0, 0.0}, {0.0, 1.0}}};
     SushiDSP::dk::DenseLu<2> lu;
@@ -202,7 +202,7 @@ namespace
     };
 } // namespace
 
-TEST(DampedNewtonSolver, DampedNewtonFindsTheIntersectionOfACircleAndALine)
+TEST(Small_DampedNewtonSolver, DampedNewtonFindsTheIntersectionOfACircleAndALine)
 {
     SushiDSP::dk::DampedNewtonSolver<2> solver;
     std::array<double, 2> v{1.0, 1.0};
@@ -214,7 +214,7 @@ TEST(DampedNewtonSolver, DampedNewtonFindsTheIntersectionOfACircleAndALine)
     EXPECT_LE(solver.maximum_iterations_seen(), 8u);
 }
 
-TEST(DampedNewtonSolver, DampedNewtonConvergesWhereUndampedNewtonDiverges)
+TEST(Small_DampedNewtonSolver, DampedNewtonConvergesWhereUndampedNewtonDiverges)
 {
     SushiDSP::dk::DampedNewtonSolver<1> solver;
     std::array<double, 1> v{2.0};
@@ -224,7 +224,7 @@ TEST(DampedNewtonSolver, DampedNewtonConvergesWhereUndampedNewtonDiverges)
     EXPECT_EQ(solver.non_converged_count(), 0u);
 }
 
-TEST(DampedNewtonSolver, DampedNewtonWithHalvingDisabledFailsOnTheDivergentStart)
+TEST(Small_DampedNewtonSolver, DampedNewtonWithHalvingDisabledFailsOnTheDivergentStart)
 {
     // With no halving, every iteration takes the full step. See tests/foundation/math/dk/README.md.
     SushiDSP::dk::DampedNewtonSolver<1> solver;
@@ -236,7 +236,7 @@ TEST(DampedNewtonSolver, DampedNewtonWithHalvingDisabledFailsOnTheDivergentStart
     EXPECT_TRUE(std::isfinite(v[0]));
 }
 
-TEST(DampedNewtonSolver, DampedNewtonSurvivesASteepStartWithALargeInitialResidual)
+TEST(Small_DampedNewtonSolver, DampedNewtonSurvivesASteepStartWithALargeInitialResidual)
 {
     SushiDSP::dk::DampedNewtonSolver<1> solver;
     std::array<double, 1> v{12.0};
@@ -246,7 +246,7 @@ TEST(DampedNewtonSolver, DampedNewtonSurvivesASteepStartWithALargeInitialResidua
     EXPECT_EQ(solver.non_converged_count(), 0u);
 }
 
-TEST(DampedNewtonSolver, DampedNewtonCountsANonConvergedCallAndLeavesTheIterateFinite)
+TEST(Small_DampedNewtonSolver, DampedNewtonCountsANonConvergedCallAndLeavesTheIterateFinite)
 {
     SushiDSP::dk::DampedNewtonSolver<1> solver;
     solver.set_maximum_iterations(1);
@@ -259,7 +259,7 @@ TEST(DampedNewtonSolver, DampedNewtonCountsANonConvergedCallAndLeavesTheIterateF
     EXPECT_EQ(solver.call_count(), 0u);
 }
 
-TEST(DampedNewtonSolver, DampedNewtonWarmStartConvergesInOneIterationOnASmoothTrack)
+TEST(Small_DampedNewtonSolver, DampedNewtonWarmStartConvergesInOneIterationOnASmoothTrack)
 {
     // A warm start needs at most a couple of iterations. See tests/foundation/math/dk/README.md.
     SushiDSP::dk::DampedNewtonSolver<1> solver;
@@ -290,7 +290,7 @@ TEST(DampedNewtonSolver, DampedNewtonWarmStartConvergesInOneIterationOnASmoothTr
     EXPECT_LE(solver.maximum_iterations_seen(), 3u);
 }
 
-TEST(DampedNewtonSolver, DampedNewtonReturnsTheBestIterateWhenItFailsToConverge)
+TEST(Small_DampedNewtonSolver, DampedNewtonReturnsTheBestIterateWhenItFailsToConverge)
 {
     // A failed solve returns its lowest-residual iterate. See tests/foundation/math/dk/README.md.
     SushiDSP::dk::DampedNewtonSolver<1> solver;
@@ -310,7 +310,7 @@ TEST(DampedNewtonSolver, DampedNewtonReturnsTheBestIterateWhenItFailsToConverge)
     EXPECT_LE(std::fabs(r[0]), starting_norm);
 }
 
-TEST(DampedNewtonSolver, DenseLuTwoByTwoSolvesTheSameSystemsAsTheGeneralTemplate)
+TEST(Small_DampedNewtonSolver, DenseLuTwoByTwoSolvesTheSameSystemsAsTheGeneralTemplate)
 {
     // [[4, 3], [6, 3]] x = [10, 12] has the answer x = [1, 2]. See tests/foundation/math/dk/README.md.
     std::array<std::array<double, 2>, 2> matrix{{{4.0, 3.0}, {6.0, 3.0}}};
@@ -356,7 +356,7 @@ namespace
     };
 } // namespace
 
-TEST(DampedNewtonSolver, DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturns)
+TEST(Small_DampedNewtonSolver, DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturns)
 {
     SushiDSP::dk::DampedNewtonSolver<1> solver;
     // The default budget of 8 iterations is too tight here. See tests/foundation/math/dk/README.md.
@@ -400,7 +400,7 @@ namespace
     };
 } // namespace
 
-TEST(DampedNewtonSolver, SolvePerformsNoHeapAllocation)
+TEST(Small_DampedNewtonSolver, SolvePerformsNoHeapAllocation)
 {
     SushiDSP::dk::DampedNewtonSolver<2> solver;
     ExponentialPairSystem system;

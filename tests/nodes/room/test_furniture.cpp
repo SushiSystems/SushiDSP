@@ -35,7 +35,7 @@
 
 #include <SushiDSP/nodes/room/furniture.hpp>
 
-TEST(Furniture, FurnitureRowsAreNamedAndCited)
+TEST(Small_Furniture, FurnitureRowsAreNamedAndCited)
 {
     EXPECT_EQ(SushiDSP::room::K_FURNITURE_COUNT, 7u);
     for (std::size_t id = 0; id < SushiDSP::room::K_FURNITURE_COUNT; ++id)
@@ -49,7 +49,7 @@ TEST(Furniture, FurnitureRowsAreNamedAndCited)
     }
 }
 
-TEST(Furniture, FurnitureAreasAreFiniteAndNonNegative)
+TEST(Small_Furniture, FurnitureAreasAreFiniteAndNonNegative)
 {
     for (std::size_t id = 0; id < SushiDSP::room::K_FURNITURE_COUNT; ++id)
     {
@@ -63,7 +63,7 @@ TEST(Furniture, FurnitureAreasAreFiniteAndNonNegative)
     }
 }
 
-TEST(Furniture, FurnitureLookupReturnsTheRowOfTheId)
+TEST(Small_Furniture, FurnitureLookupReturnsTheRowOfTheId)
 {
     using SushiDSP::room::FurnitureId;
     const SushiDSP::room::FurnitureItem& sofa = SushiDSP::room::furniture(FurnitureId::SofaTwoSeat);
@@ -72,7 +72,7 @@ TEST(Furniture, FurnitureLookupReturnsTheRowOfTheId)
     EXPECT_STREQ(bed.name, "Bed, double, with mattress");
 }
 
-TEST(Furniture, FurnitureCarriesTheTranscribedAreas)
+TEST(Small_Furniture, FurnitureCarriesTheTranscribedAreas)
 {
     using SushiDSP::room::FurnitureId;
     const std::array<float, 6> sofa = {2.6f, 3.5f, 3.4f, 3.6f, 3.2f, 3.8f};
@@ -83,7 +83,7 @@ TEST(Furniture, FurnitureCarriesTheTranscribedAreas)
     }
 }
 
-TEST(Furniture, FurnitureCarriesTheHouseholdRowsExactly)
+TEST(Small_Furniture, FurnitureCarriesTheHouseholdRowsExactly)
 {
     using SushiDSP::room::FurnitureId;
     struct Expected
@@ -117,7 +117,7 @@ TEST(Furniture, FurnitureCarriesTheHouseholdRowsExactly)
     }
 }
 
-TEST(Furniture, FurnitureKeepsItsRowsInEnumerationOrder)
+TEST(Small_Furniture, FurnitureKeepsItsRowsInEnumerationOrder)
 {
     using SushiDSP::room::FurnitureId;
     EXPECT_EQ(static_cast<std::uint8_t>(FurnitureId::SofaTwoSeat), 0u);
@@ -125,7 +125,7 @@ TEST(Furniture, FurnitureKeepsItsRowsInEnumerationOrder)
     EXPECT_EQ(static_cast<std::uint8_t>(FurnitureId::Person), 6u);
 }
 
-TEST(Furniture, FurnitureKeysAreNonEmptyAndUnique)
+TEST(Small_Furniture, FurnitureKeysAreNonEmptyAndUnique)
 {
     for (std::size_t id = 0; id < SushiDSP::room::K_FURNITURE_COUNT; ++id)
     {
@@ -142,7 +142,7 @@ TEST(Furniture, FurnitureKeysAreNonEmptyAndUnique)
     }
 }
 
-TEST(Furniture, FurnitureFindReturnsTheRowsOwnIdForItsKey)
+TEST(Small_Furniture, FurnitureFindReturnsTheRowsOwnIdForItsKey)
 {
     for (std::size_t id = 0; id < SushiDSP::room::K_FURNITURE_COUNT; ++id)
     {
@@ -154,7 +154,7 @@ TEST(Furniture, FurnitureFindReturnsTheRowsOwnIdForItsKey)
     }
 }
 
-TEST(Furniture, FurnitureFindRefusesAnUnknownKeyAndLeavesTheIdUntouched)
+TEST(Small_Furniture, FurnitureFindRefusesAnUnknownKeyAndLeavesTheIdUntouched)
 {
     SushiDSP::room::FurnitureId found = SushiDSP::room::FurnitureId::SofaTwoSeat;
     EXPECT_FALSE(SushiDSP::room::find_furniture("no_such_row", found));

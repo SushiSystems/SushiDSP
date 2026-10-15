@@ -32,7 +32,7 @@
 
 #include <SushiDSP/foundation/circuits/stages/power_supply_sag_stage.hpp>
 
-TEST(PowerSupplySagStage, PowerSupplySagStageReducesGainUnderSustainedLoudInput)
+TEST(Small_PowerSupplySagStage, PowerSupplySagStageReducesGainUnderSustainedLoudInput)
 {
     SushiDSP::PowerSupplySagStage stage(48000.0, 0.5f, 0.05f);
 
@@ -47,7 +47,7 @@ TEST(PowerSupplySagStage, PowerSupplySagStageReducesGainUnderSustainedLoudInput)
     EXPECT_LT(std::abs(last_output), std::abs(first_output));
 }
 
-TEST(PowerSupplySagStage, PowerSupplySagStageRecoversTowardUnityAfterSilence)
+TEST(Small_PowerSupplySagStage, PowerSupplySagStageRecoversTowardUnityAfterSilence)
 {
     SushiDSP::PowerSupplySagStage stage(48000.0, 0.5f, 0.05f);
 
@@ -69,7 +69,7 @@ TEST(PowerSupplySagStage, PowerSupplySagStageRecoversTowardUnityAfterSilence)
     (void)recovered_output;
 }
 
-TEST(PowerSupplySagStage, PowerSupplySagStageNeverProducesNonFiniteOutput)
+TEST(Small_PowerSupplySagStage, PowerSupplySagStageNeverProducesNonFiniteOutput)
 {
     SushiDSP::PowerSupplySagStage stage(48000.0, 0.9f, 0.01f);
 
@@ -80,7 +80,7 @@ TEST(PowerSupplySagStage, PowerSupplySagStageNeverProducesNonFiniteOutput)
     }
 }
 
-TEST(PowerSupplySagStage, PowerSupplySagStageResetClearsEnvelope)
+TEST(Small_PowerSupplySagStage, PowerSupplySagStageResetClearsEnvelope)
 {
     SushiDSP::PowerSupplySagStage stage_a(48000.0, 0.5f, 0.05f);
     SushiDSP::PowerSupplySagStage stage_b(48000.0, 0.5f, 0.05f);

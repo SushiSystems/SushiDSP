@@ -33,7 +33,7 @@
 
 #include "ui/timeline_scale.hpp"
 
-TEST(TimelineScale, TimelineScaleRoundTripsAFrameThroughAPixel)
+TEST(Small_TimelineScale, TimelineScaleRoundTripsAFrameThroughAPixel)
 {
     ui::TimelineScale scale;
     scale.set_pixels_per_frame(0.01);
@@ -44,7 +44,7 @@ TEST(TimelineScale, TimelineScaleRoundTripsAFrameThroughAPixel)
     EXPECT_EQ(scale.frame_of_x(scale.x_of(123400u)), 123400u);
 }
 
-TEST(TimelineScale, TimelineScalePutsTheScrollOriginAtXZero)
+TEST(Small_TimelineScale, TimelineScalePutsTheScrollOriginAtXZero)
 {
     ui::TimelineScale scale;
     scale.set_pixels_per_frame(0.01);
@@ -55,7 +55,7 @@ TEST(TimelineScale, TimelineScalePutsTheScrollOriginAtXZero)
     EXPECT_EQ(scale.scroll_frames(), 96000u);
 }
 
-TEST(TimelineScale, TimelineScaleSnapsToTheNearestBar)
+TEST(Small_TimelineScale, TimelineScaleSnapsToTheNearestBar)
 {
     SushiDSP::MusicalClock clock; // 120 BPM, 4/4, 48 kHz: a bar is 96000 frames
     ui::TimelineScale scale;
@@ -70,7 +70,7 @@ TEST(TimelineScale, TimelineScaleSnapsToTheNearestBar)
     EXPECT_EQ(scale.snap(0u, ui::SnapMode::Bar, clock), 0u);
 }
 
-TEST(TimelineScale, TimelineScaleSnapsToTheNearestBeat)
+TEST(Small_TimelineScale, TimelineScaleSnapsToTheNearestBeat)
 {
     SushiDSP::MusicalClock clock; // 120 BPM, 4/4, 48 kHz: a beat is 24000 frames
     ui::TimelineScale scale;
@@ -81,7 +81,7 @@ TEST(TimelineScale, TimelineScaleSnapsToTheNearestBeat)
     EXPECT_EQ(scale.snap(12000u, ui::SnapMode::Beat, clock), 0u); // a tie takes the earlier
 }
 
-TEST(TimelineScale, TimelineScaleSnapModeNoneReturnsTheFrameUnchanged)
+TEST(Small_TimelineScale, TimelineScaleSnapModeNoneReturnsTheFrameUnchanged)
 {
     SushiDSP::MusicalClock clock;
     ui::TimelineScale scale;
@@ -90,7 +90,7 @@ TEST(TimelineScale, TimelineScaleSnapModeNoneReturnsTheFrameUnchanged)
     EXPECT_EQ(scale.snap(1u, ui::SnapMode::None, clock), 1u);
 }
 
-TEST(TimelineScale, TimelineScaleDoesNotUnderflowBeforeFrameZero)
+TEST(Small_TimelineScale, TimelineScaleDoesNotUnderflowBeforeFrameZero)
 {
     ui::TimelineScale scale;
     scale.set_pixels_per_frame(0.01);

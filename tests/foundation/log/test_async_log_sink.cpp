@@ -118,7 +118,7 @@ namespace
     };
 } // namespace
 
-TEST(AsyncLogSink, AsyncSinkDeliversEveryLineInOrderBeforeFlushReturns)
+TEST(Medium_AsyncLogSink, AsyncSinkDeliversEveryLineInOrderBeforeFlushReturns)
 {
     constexpr std::size_t K_LINES = 500;
 
@@ -143,7 +143,7 @@ TEST(AsyncLogSink, AsyncSinkDeliversEveryLineInOrderBeforeFlushReturns)
     EXPECT_GE(capture->flush_count(), 1u);
 }
 
-TEST(AsyncLogSink, AsyncSinkFlushReturnsWhenNothingIsQueued)
+TEST(Medium_AsyncLogSink, AsyncSinkFlushReturnsWhenNothingIsQueued)
 {
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     SushiDSP::AsyncLogSink sink(capture, 16);
@@ -155,7 +155,7 @@ TEST(AsyncLogSink, AsyncSinkFlushReturnsWhenNothingIsQueued)
     EXPECT_GE(capture->flush_count(), 1u);
 }
 
-TEST(AsyncLogSink, AsyncSinkDeliversWhatIsQueuedWhenItIsDestroyed)
+TEST(Medium_AsyncLogSink, AsyncSinkDeliversWhatIsQueuedWhenItIsDestroyed)
 {
     constexpr std::size_t K_LINES = 100;
 
@@ -175,7 +175,7 @@ TEST(AsyncLogSink, AsyncSinkDeliversWhatIsQueuedWhenItIsDestroyed)
     EXPECT_GE(capture->flush_count(), 1u);
 }
 
-TEST(AsyncLogSink, AsyncSinkDropsAndCountsWhenTheQueueIsFullInsteadOfBlocking)
+TEST(Medium_AsyncLogSink, AsyncSinkDropsAndCountsWhenTheQueueIsFullInsteadOfBlocking)
 {
     const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
     const auto gate = std::make_shared<GatedLogSink>(capture);

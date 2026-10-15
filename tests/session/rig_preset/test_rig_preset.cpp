@@ -63,7 +63,7 @@ namespace
     };
 } // namespace
 
-TEST(RigPreset, SerializeRigToJsonProducesOneEntryPerNodeWithInputs)
+TEST(Small_RigPreset, SerializeRigToJsonProducesOneEntryPerNodeWithInputs)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SushiDSP::RigGraph graph(256, 4);
@@ -88,7 +88,7 @@ TEST(RigPreset, SerializeRigToJsonProducesOneEntryPerNodeWithInputs)
     EXPECT_TRUE(found_amp_with_one_input);
 }
 
-TEST(RigPreset, DeserializeRigFromJsonRebuildsBranchingTopologyAndParameters)
+TEST(Small_RigPreset, DeserializeRigFromJsonRebuildsBranchingTopologyAndParameters)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
 
@@ -134,7 +134,7 @@ TEST(RigPreset, DeserializeRigFromJsonRebuildsBranchingTopologyAndParameters)
     EXPECT_EQ(mixer_inputs[1], 3u);
 }
 
-TEST(RigPreset, SerializeThenDeserializeRoundTripsABranchingGraph)
+TEST(Small_RigPreset, SerializeThenDeserializeRoundTripsABranchingGraph)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SushiDSP::RigGraph original(256, 6);
@@ -180,7 +180,7 @@ TEST(RigPreset, SerializeThenDeserializeRoundTripsABranchingGraph)
     }
 }
 
-TEST(RigPreset, DeserializeRigFromJsonThrowsOnUnknownNodeType)
+TEST(Small_RigPreset, DeserializeRigFromJsonThrowsOnUnknownNodeType)
 {
     const std::string json_text = R"({
         "nodes": [
@@ -193,7 +193,7 @@ TEST(RigPreset, DeserializeRigFromJsonThrowsOnUnknownNodeType)
     EXPECT_THROW(SushiDSP::deserialize_rig_from_json(graph, json_text, info), std::runtime_error);
 }
 
-TEST(RigPreset, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheGraph)
+TEST(Small_RigPreset, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheGraph)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
 
@@ -228,7 +228,7 @@ TEST(RigPreset, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheG
     }
 }
 
-TEST(RigPreset, SerializeRigToJsonThrowsWhenNodeTypeIsNotRegistered)
+TEST(Small_RigPreset, SerializeRigToJsonThrowsWhenNodeTypeIsNotRegistered)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SushiDSP::RigGraph graph(256, 4);
@@ -238,7 +238,7 @@ TEST(RigPreset, SerializeRigToJsonThrowsWhenNodeTypeIsNotRegistered)
     EXPECT_THROW(SushiDSP::serialize_rig_to_json(graph), std::runtime_error);
 }
 
-TEST(RigPreset, SerializeRigToJsonCallsAnnotateNodeOncePerNode)
+TEST(Small_RigPreset, SerializeRigToJsonCallsAnnotateNodeOncePerNode)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SushiDSP::RigGraph graph(256, 4);
@@ -264,7 +264,7 @@ TEST(RigPreset, SerializeRigToJsonCallsAnnotateNodeOncePerNode)
     }
 }
 
-TEST(RigPreset, DeserializeRigFromJsonCallsOnNodeLoadedWithFullEntry)
+TEST(Small_RigPreset, DeserializeRigFromJsonCallsOnNodeLoadedWithFullEntry)
 {
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     const std::string json_text = R"({
@@ -288,7 +288,7 @@ TEST(RigPreset, DeserializeRigFromJsonCallsOnNodeLoadedWithFullEntry)
     EXPECT_EQ(seen_marker, "hello");
 }
 
-TEST(RigPreset, SerializeAndDeserializeStillWorkWithNoCallback)
+TEST(Small_RigPreset, SerializeAndDeserializeStillWorkWithNoCallback)
 {
     // Call sites without a callback behave unchanged. See tests/session/rig_preset/README.md.
     SushiDSP::PrepareInfo info{48000.0, 256, 1};

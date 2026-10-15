@@ -29,7 +29,7 @@
 
 #include <SushiDSP/nodes/dd3/wet_fifo.hpp>
 
-TEST(WetFifo, StartsPrimingAndPopsSilence)
+TEST(Small_WetFifo, StartsPrimingAndPopsSilence)
 {
     SushiDSP::dd3::WetFifo fifo;
     fifo.reset();
@@ -37,7 +37,7 @@ TEST(WetFifo, StartsPrimingAndPopsSilence)
     EXPECT_EQ(fifo.pop(), 0.0f);
 }
 
-TEST(WetFifo, PopsTheOldestSampleOnceTheFifoIsPrimed)
+TEST(Small_WetFifo, PopsTheOldestSampleOnceTheFifoIsPrimed)
 {
     SushiDSP::dd3::WetFifo fifo;
     fifo.reset();
@@ -49,7 +49,7 @@ TEST(WetFifo, PopsTheOldestSampleOnceTheFifoIsPrimed)
     EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::K_PRIME_FRAMES - 1u);
 }
 
-TEST(WetFifo, DepthNeverExceedsItsCapacity)
+TEST(Small_WetFifo, DepthNeverExceedsItsCapacity)
 {
     SushiDSP::dd3::WetFifo fifo;
     fifo.reset();
@@ -60,7 +60,7 @@ TEST(WetFifo, DepthNeverExceedsItsCapacity)
     EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::K_CAPACITY);
 }
 
-TEST(WetFifo, StarvedFifoPopsSilence)
+TEST(Small_WetFifo, StarvedFifoPopsSilence)
 {
     SushiDSP::dd3::WetFifo fifo;
     fifo.reset();

@@ -122,7 +122,7 @@ namespace
     }
 } // namespace
 
-TEST(Peavey5150, Peavey5150ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
+TEST(Small_Peavey5150, Peavey5150ProcessesABlockWithoutCrashingOrProducingNonFiniteOutput)
 {
     auto node = prepared_node();
     const std::vector<float> output = render_sine(*node, 220.0, 0.2f, 20);
@@ -132,7 +132,7 @@ TEST(Peavey5150, Peavey5150ProcessesABlockWithoutCrashingOrProducingNonFiniteOut
     }
 }
 
-TEST(Peavey5150, Peavey5150PortsAreMonoInMonoOut)
+TEST(Small_Peavey5150, Peavey5150PortsAreMonoInMonoOut)
 {
     SushiDSP::Peavey5150 node;
     const SushiDSP::PortLayout ports = node.ports();
@@ -140,7 +140,7 @@ TEST(Peavey5150, Peavey5150PortsAreMonoInMonoOut)
     EXPECT_EQ(ports.output_channels, 1u);
 }
 
-TEST(Peavey5150, Peavey5150DescriptorExposesNineParametersInContractOrder)
+TEST(Small_Peavey5150, Peavey5150DescriptorExposesNineParametersInContractOrder)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::peavey5150_descriptor();
 
@@ -169,7 +169,7 @@ TEST(Peavey5150, Peavey5150DescriptorExposesNineParametersInContractOrder)
     EXPECT_FLOAT_EQ(descriptor.parameters[8].max, 12.0f);
 }
 
-TEST(Peavey5150, Peavey5150IndexedParameterSetMatchesTheDescriptorOrder)
+TEST(Small_Peavey5150, Peavey5150IndexedParameterSetMatchesTheDescriptorOrder)
 {
     SushiDSP::Peavey5150 node;
     const float values[K_PARAMETER_COUNT] = {0.2f, 0.4f, 0.45f, 0.6f, -6.0f,
@@ -188,7 +188,7 @@ TEST(Peavey5150, Peavey5150IndexedParameterSetMatchesTheDescriptorOrder)
     node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(99), 1.0f);
 }
 
-TEST(Peavey5150, Peavey5150DecibelParametersClampToTheirDescriptorRange)
+TEST(Small_Peavey5150, Peavey5150DecibelParametersClampToTheirDescriptorRange)
 {
     SushiDSP::Peavey5150 node;
     node.set_post_gain(100.0f);
@@ -200,7 +200,7 @@ TEST(Peavey5150, Peavey5150DecibelParametersClampToTheirDescriptorRange)
     EXPECT_FLOAT_EQ(node.get_parameter("output"), 12.0f);
 }
 
-TEST(Peavey5150, Peavey5150GenericParameterRoundTrip)
+TEST(Small_Peavey5150, Peavey5150GenericParameterRoundTrip)
 {
     SushiDSP::Peavey5150 node;
     node.set_parameter_for_control_thread("pre_gain", 0.2f);
@@ -224,14 +224,14 @@ TEST(Peavey5150, Peavey5150GenericParameterRoundTrip)
     EXPECT_FLOAT_EQ(node.get_parameter("output"), -3.0f);
 }
 
-TEST(Peavey5150, Peavey5150UnknownParameterIsSafeNoOp)
+TEST(Small_Peavey5150, Peavey5150UnknownParameterIsSafeNoOp)
 {
     SushiDSP::Peavey5150 node;
     node.set_parameter_for_control_thread("does_not_exist", 1.0f);
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
-TEST(Peavey5150, Peavey5150ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
+TEST(Small_Peavey5150, Peavey5150ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
 {
     auto node = prepared_node();
 
@@ -253,7 +253,7 @@ TEST(Peavey5150, Peavey5150ToneChangeDoesNotRebuildFiltersOffTheAudioThread)
     EXPECT_FALSE(node->tone_stack_is_dirty());
 }
 
-TEST(Peavey5150, Peavey5150IsDcStableAcrossManyBlocksAtHighGain)
+TEST(Small_Peavey5150, Peavey5150IsDcStableAcrossManyBlocksAtHighGain)
 {
     // A stuck operating point shows as a drifting offset. See tests/nodes/peavey5150/test_peavey5150/README.md.
     for (float extreme : {0.0f, 1.0f})
@@ -292,7 +292,7 @@ TEST(Peavey5150, Peavey5150IsDcStableAcrossManyBlocksAtHighGain)
     }
 }
 
-TEST(Peavey5150, Peavey5150ThdDoesNotFallAsPreGainRises)
+TEST(Small_Peavey5150, Peavey5150ThdDoesNotFallAsPreGainRises)
 {
     // The sweep starts at 0.02, where the knob passes signal. See tests/nodes/peavey5150/test_peavey5150/README.md.
     const float positions[] = {0.02f, 0.05f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f};
@@ -314,7 +314,7 @@ TEST(Peavey5150, Peavey5150ThdDoesNotFallAsPreGainRises)
     EXPECT_GT(previous, 3.0);
 }
 
-TEST(Peavey5150, Peavey5150EvenHarmonicsRiseFromLowToFullPreGain)
+TEST(Small_Peavey5150, Peavey5150EvenHarmonicsRiseFromLowToFullPreGain)
 {
     // The two points are drive levels, not knob positions. See tests/nodes/peavey5150/test_peavey5150/README.md.
     auto even_harmonic_ratio = [](float pre_gain)
@@ -338,7 +338,7 @@ TEST(Peavey5150, Peavey5150EvenHarmonicsRiseFromLowToFullPreGain)
     EXPECT_GT(driven, quiet * 2.0);
 }
 
-TEST(Peavey5150, Peavey5150GridProbesReportEveryStageInSignalOrder)
+TEST(Small_Peavey5150, Peavey5150GridProbesReportEveryStageInSignalOrder)
 {
     // The probe hooks are pinned, not their figures. See tests/nodes/peavey5150/test_peavey5150/README.md.
     auto node = prepared_node();
@@ -366,7 +366,7 @@ TEST(Peavey5150, Peavey5150GridProbesReportEveryStageInSignalOrder)
     }
 }
 
-TEST(Peavey5150, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
+TEST(Small_Peavey5150, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
 {
     // Presence at maximum lifts 2 kHz by 9.90 dB. See tests/nodes/peavey5150/test_peavey5150/README.md.
     auto flat = small_signal_node();
@@ -381,7 +381,7 @@ TEST(Peavey5150, Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels)
     EXPECT_NEAR(boosted - reference, 10.0, 1.0);
 }
 
-TEST(Peavey5150, Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels)
+TEST(Small_Peavey5150, Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels)
 {
     // Resonance at maximum lifts 100 Hz by 9.90 dB. See tests/nodes/peavey5150/test_peavey5150/README.md.
     auto flat = small_signal_node();
@@ -397,7 +397,7 @@ TEST(Peavey5150, Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels)
     EXPECT_NEAR(boosted - reference, 10.0, 1.0);
 }
 
-TEST(Peavey5150, Peavey5150NeverExceedsFullScaleWithoutALimiter)
+TEST(Small_Peavey5150, Peavey5150NeverExceedsFullScaleWithoutALimiter)
 {
     // The output stays in [-1, 1] and reaches the rail. See tests/nodes/peavey5150/test_peavey5150/README.md.
     auto node = prepared_node();
@@ -418,7 +418,7 @@ TEST(Peavey5150, Peavey5150NeverExceedsFullScaleWithoutALimiter)
     EXPECT_TRUE(clamped_at_least_once);
 }
 
-TEST(Peavey5150, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
+TEST(Small_Peavey5150, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput)
 {
     // A -12 dBFS 82 Hz sine comes out at about -6 dBFS. See tests/nodes/peavey5150/test_peavey5150/README.md.
     auto node = prepared_node();
@@ -457,7 +457,7 @@ TEST(Peavey5150, Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbf
     EXPECT_LT(peak_decibels, -5.0f);
 }
 
-TEST(Peavey5150, Peavey5150HasACleanEndAtMinimumGain)
+TEST(Small_Peavey5150, Peavey5150HasACleanEndAtMinimumGain)
 {
     // The nominal lead input is -83.01 dBFS. See tests/nodes/peavey5150/test_peavey5150/README.md.
     constexpr float K_LOWEST_TESTED_POSITION = 0.02f;
@@ -487,7 +487,7 @@ TEST(Peavey5150, Peavey5150HasACleanEndAtMinimumGain)
                 guitar_level_thd);
 }
 
-TEST(Peavey5150, Peavey5150DescriptorMakeProducesAWorkingNode)
+TEST(Small_Peavey5150, Peavey5150DescriptorMakeProducesAWorkingNode)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::peavey5150_descriptor();
     const SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -508,7 +508,7 @@ TEST(Peavey5150, Peavey5150DescriptorMakeProducesAWorkingNode)
     }
 }
 
-TEST(Peavey5150, Peavey5150DryLatencyIsOneOversampledRegion)
+TEST(Small_Peavey5150, Peavey5150DryLatencyIsOneOversampledRegion)
 {
     // The latency is one Oversampler8x round trip. See tests/nodes/peavey5150/test_peavey5150/README.md.
     auto node = prepared_node();

@@ -46,30 +46,30 @@ namespace
     }
 } // namespace
 
-TEST(LogFormatter, FormatterReplacesMarkersWithArgumentsInOrder)
+TEST(Small_LogFormatter, FormatterReplacesMarkersWithArgumentsInOrder)
 {
     EXPECT_EQ(formatted("{} + {} = {}", 1, 2, 3), "1 + 2 = 3");
     EXPECT_EQ(formatted("{}{}", "left", "right"), "leftright");
 }
 
-TEST(LogFormatter, FormatterKeepsAMarkerThatHasNoArgument)
+TEST(Small_LogFormatter, FormatterKeepsAMarkerThatHasNoArgument)
 {
     EXPECT_EQ(formatted("a {} b {}", 7), "a 7 b {}");
     EXPECT_EQ(formatted("plain {}"), "plain {}");
 }
 
-TEST(LogFormatter, FormatterDoesNotPrintAnArgumentThatHasNoMarker)
+TEST(Small_LogFormatter, FormatterDoesNotPrintAnArgumentThatHasNoMarker)
 {
     EXPECT_EQ(formatted("a {}", 1, 2), "a 1");
     EXPECT_EQ(formatted("no marker", 1), "no marker");
 }
 
-TEST(LogFormatter, FormatterCopiesBracesThatAreNotAMarker)
+TEST(Small_LogFormatter, FormatterCopiesBracesThatAreNotAMarker)
 {
     EXPECT_EQ(formatted("{ } }{ {x}", 1), "{ } }{ {x}");
 }
 
-TEST(LogFormatter, FormatterPrintsBoolCharacterAndIntegers)
+TEST(Small_LogFormatter, FormatterPrintsBoolCharacterAndIntegers)
 {
     EXPECT_EQ(formatted("{} {}", true, false), "true false");
     EXPECT_EQ(formatted("{}", 'x'), "x");
@@ -79,14 +79,14 @@ TEST(LogFormatter, FormatterPrintsBoolCharacterAndIntegers)
     EXPECT_EQ(formatted("{}", static_cast<short>(-7)), "-7");
 }
 
-TEST(LogFormatter, FormatterPrintsRealsWithSixSignificantDigits)
+TEST(Small_LogFormatter, FormatterPrintsRealsWithSixSignificantDigits)
 {
     EXPECT_EQ(formatted("{}", 0.5), "0.5");
     EXPECT_EQ(formatted("{}", 48000.0f), "48000");
     EXPECT_EQ(formatted("{}", 3.14159265), "3.14159");
 }
 
-TEST(LogFormatter, FormatterPrintsTextOfEveryKind)
+TEST(Small_LogFormatter, FormatterPrintsTextOfEveryKind)
 {
     const std::string owned = "owned";
     const std::string_view view = "view";
@@ -98,7 +98,7 @@ TEST(LogFormatter, FormatterPrintsTextOfEveryKind)
     EXPECT_EQ(formatted("{}", missing), "(null)");
 }
 
-TEST(LogFormatter, FormatterCutsTheTextAtTheCapacity)
+TEST(Small_LogFormatter, FormatterCutsTheTextAtTheCapacity)
 {
     char buffer[8];
 

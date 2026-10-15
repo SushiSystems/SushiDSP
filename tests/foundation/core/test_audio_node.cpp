@@ -69,39 +69,39 @@ namespace
     };
 } // namespace
 
-TEST(AudioNode, DeclaresOneOutputPortByDefault)
+TEST(Small_AudioNode, DeclaresOneOutputPortByDefault)
 {
     const MinimalNode node;
     EXPECT_EQ(node.output_port_count(), 1u);
 }
 
-TEST(AudioNode, PortZeroTakesItsWidthFromPorts)
+TEST(Small_AudioNode, PortZeroTakesItsWidthFromPorts)
 {
     const MinimalNode node;
     EXPECT_EQ(node.output_port_channels(0), 2u);
 }
 
-TEST(AudioNode, PortsPastZeroHaveNoChannelsByDefault)
+TEST(Small_AudioNode, PortsPastZeroHaveNoChannelsByDefault)
 {
     const MinimalNode node;
     EXPECT_EQ(node.output_port_channels(1), 0u);
     EXPECT_EQ(node.output_port_channels(7), 0u);
 }
 
-TEST(AudioNode, ReportsNoLatencyByDefault)
+TEST(Small_AudioNode, ReportsNoLatencyByDefault)
 {
     const MinimalNode node;
     EXPECT_EQ(node.latency_samples(), 0u);
 }
 
-TEST(AudioNode, ReportsAnEmptyTypeIDByDefault)
+TEST(Small_AudioNode, ReportsAnEmptyTypeIDByDefault)
 {
     const MinimalNode node;
     ASSERT_NE(node.type_id(), nullptr);
     EXPECT_EQ(std::strlen(node.type_id()), 0u);
 }
 
-TEST(AudioNode, IgnoresAParameterWrittenByIndexByDefault)
+TEST(Small_AudioNode, IgnoresAParameterWrittenByIndexByDefault)
 {
     MinimalNode node;
     node.set_parameter_for_audio_thread(0, 0.75f);

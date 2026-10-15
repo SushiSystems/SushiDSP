@@ -33,7 +33,7 @@
 
 using SushiDSP::MicrophoneNode;
 
-TEST(MicrophoneNode, MicrophonePassesItsInputThroughUnchanged)
+TEST(Small_MicrophoneNode, MicrophonePassesItsInputThroughUnchanged)
 {
     MicrophoneNode mic;
     const std::vector<float> input(4, 0.5f);
@@ -50,7 +50,7 @@ TEST(MicrophoneNode, MicrophonePassesItsInputThroughUnchanged)
     }
 }
 
-TEST(MicrophoneNode, MicrophonePolarityInvertsItsOutput)
+TEST(Small_MicrophoneNode, MicrophonePolarityInvertsItsOutput)
 {
     MicrophoneNode mic;
     mic.set_parameter_for_control_thread("polarity", 1.0f);
@@ -65,7 +65,7 @@ TEST(MicrophoneNode, MicrophonePolarityInvertsItsOutput)
     EXPECT_FLOAT_EQ(output[0], -0.5f);
 }
 
-TEST(MicrophoneNode, MicrophoneRoomFlagReadsBackAndMarksAnOverhead)
+TEST(Small_MicrophoneNode, MicrophoneRoomFlagReadsBackAndMarksAnOverhead)
 {
     MicrophoneNode mic;
     EXPECT_FALSE(mic.is_room_microphone());
@@ -76,7 +76,7 @@ TEST(MicrophoneNode, MicrophoneRoomFlagReadsBackAndMarksAnOverhead)
     EXPECT_FLOAT_EQ(mic.get_parameter("room"), 1.0f);
 }
 
-TEST(MicrophoneNode, MicrophoneDefaultsToACardioidWithProximity)
+TEST(Small_MicrophoneNode, MicrophoneDefaultsToACardioidWithProximity)
 {
     MicrophoneNode mic;
 
@@ -86,7 +86,7 @@ TEST(MicrophoneNode, MicrophoneDefaultsToACardioidWithProximity)
     EXPECT_FLOAT_EQ(mic.get_parameter("proximity"), 1.0f);
 }
 
-TEST(MicrophoneNode, MicrophonePatternReadsBackAndIsClampedToTheFourPatterns)
+TEST(Small_MicrophoneNode, MicrophonePatternReadsBackAndIsClampedToTheFourPatterns)
 {
     MicrophoneNode mic;
 
@@ -101,7 +101,7 @@ TEST(MicrophoneNode, MicrophonePatternReadsBackAndIsClampedToTheFourPatterns)
     EXPECT_EQ(mic.pattern(), MicrophoneNode::Pattern::Omni);
 }
 
-TEST(MicrophoneNode, MicrophoneProximitySwitchReadsBack)
+TEST(Small_MicrophoneNode, MicrophoneProximitySwitchReadsBack)
 {
     MicrophoneNode mic;
 
@@ -111,7 +111,7 @@ TEST(MicrophoneNode, MicrophoneProximitySwitchReadsBack)
     EXPECT_FLOAT_EQ(mic.get_parameter("proximity"), 0.0f);
 }
 
-TEST(MicrophoneNode, MicrophoneDeclaresOneChannelInAndOut)
+TEST(Small_MicrophoneNode, MicrophoneDeclaresOneChannelInAndOut)
 {
     MicrophoneNode mic;
 

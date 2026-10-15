@@ -40,7 +40,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(DiezelVh4, ProcessPerformsNoHeapAllocationWithoutCabinet)
+TEST(Small_DiezelVh4, ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     SushiDSP::DiezelVh4 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};

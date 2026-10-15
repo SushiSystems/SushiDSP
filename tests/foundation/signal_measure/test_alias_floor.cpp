@@ -138,13 +138,13 @@ namespace
     };
 } // namespace
 
-TEST(AliasFloor, IdentityIsAtTheAnalysisFloor)
+TEST(Small_AliasFloor, IdentityIsAtTheAnalysisFloor)
 {
     GainNode node(1.0f);
     EXPECT_LE(SushiDSP::measure::alias_floor(node, 48000.0), -110.0);
 }
 
-TEST(AliasFloor, UnoversampledTanhIsPoor)
+TEST(Small_AliasFloor, UnoversampledTanhIsPoor)
 {
     // Folded harmonics count as aliases. See tests/foundation/signal_measure/README.md.
     TanhNode node(4.0f);

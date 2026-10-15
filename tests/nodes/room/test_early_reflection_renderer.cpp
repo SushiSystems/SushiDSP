@@ -200,7 +200,7 @@ namespace
     }
 } // namespace
 
-TEST(EarlyReflectionRenderer, EarlyReflectionRendererPutsAnImpulseAtTheTapsDelay)
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererPutsAnImpulseAtTheTapsDelay)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -222,7 +222,7 @@ TEST(EarlyReflectionRenderer, EarlyReflectionRendererPutsAnImpulseAtTheTapsDelay
     }
 }
 
-TEST(EarlyReflectionRenderer, EarlyReflectionRendererInterpolatesAFractionalDelay)
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererInterpolatesAFractionalDelay)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -240,7 +240,7 @@ TEST(EarlyReflectionRenderer, EarlyReflectionRendererInterpolatesAFractionalDela
     EXPECT_NEAR(lag_frames(whole_sine, half_sine, 512, 2016), 0.5, 0.01);
 }
 
-TEST(EarlyReflectionRenderer, EarlyReflectionRendererSumsOneHundredAndTwentyEightTaps)
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererSumsOneHundredAndTwentyEightTaps)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -271,7 +271,7 @@ TEST(EarlyReflectionRenderer, EarlyReflectionRendererSumsOneHundredAndTwentyEigh
     EXPECT_NEAR(sum, 1.0, 1e-5);
 }
 
-TEST(EarlyReflectionRenderer, EarlyReflectionRendererEncodesIntoSixteenChannels)
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererEncodesIntoSixteenChannels)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -296,7 +296,7 @@ TEST(EarlyReflectionRenderer, EarlyReflectionRendererEncodesIntoSixteenChannels)
     }
 }
 
-TEST(EarlyReflectionRenderer, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -340,7 +340,7 @@ TEST(EarlyReflectionRenderer, EarlyReflectionRendererKeepsTwoIndependentStateBan
     EXPECT_TRUE(differs);
 }
 
-TEST(EarlyReflectionRenderer, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
 {
     // Only tap 0's state is carried into bank 1. See tests/nodes/room/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
@@ -383,7 +383,7 @@ TEST(EarlyReflectionRenderer, EarlyReflectionRendererCarriesOneTapsStateBetweenB
     EXPECT_TRUE(rings);
 }
 
-TEST(EarlyReflectionRenderer, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
 {
     // A carry onto the same bank is a copy onto itself. See tests/nodes/room/README.md.
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
@@ -415,7 +415,7 @@ TEST(EarlyReflectionRenderer, EarlyReflectionRendererCarriesATapOntoItselfWithou
     }
 }
 
-TEST(EarlyReflectionRenderer, EarlyReflectionRendererCarriesATailAcrossBlockBoundaries)
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererCarriesATailAcrossBlockBoundaries)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
     SushiDSP::room::DelayRing renderer_ring = prepared_ring();
@@ -447,7 +447,7 @@ TEST(EarlyReflectionRenderer, EarlyReflectionRendererCarriesATailAcrossBlockBoun
     }
 }
 
-TEST(EarlyReflectionRenderer, EarlyReflectionRendererRendersATapTheSameAloneAndInAGroup)
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererRendersATapTheSameAloneAndInAGroup)
 {
     // Each tap encodes to a channel of its own, so the group's lanes can be read apart.
     for (const std::uint32_t count : {1u, 4u, 5u, 7u, 16u})
@@ -502,7 +502,7 @@ namespace
     }
 } // namespace
 
-TEST(EarlyReflectionRenderer, RenderPerformsNoHeapAllocation)
+TEST(Small_EarlyReflectionRenderer, RenderPerformsNoHeapAllocation)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer;
     renderer.prepare(8397, 256);

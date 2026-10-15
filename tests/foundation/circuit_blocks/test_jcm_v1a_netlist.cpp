@@ -30,20 +30,20 @@
 #include <SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp>
 #include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
 
-TEST(JcmV1aNetlist, SupplyAndGridLeakAreTheSchematicValues)
+TEST(Small_JcmV1aNetlist, SupplyAndGridLeakAreTheSchematicValues)
 {
     EXPECT_DOUBLE_EQ(SushiDSP::test_circuits::K_SUPPLY_VOLTS, 360.0);
     EXPECT_DOUBLE_EQ(SushiDSP::test_circuits::K_GRID_LEAK_OHMS, 1.0e6);
 }
 
-TEST(JcmV1aNetlist, SixStateBlockBuildsAndNamesAPotentiometer)
+TEST(Small_JcmV1aNetlist, SixStateBlockBuildsAndNamesAPotentiometer)
 {
     SushiDSP::dk::DkNetlist<7, 2, 2, 1> netlist;
     const std::size_t pot = SushiDSP::test_circuits::build_jcm_v1a(netlist);
     EXPECT_LT(pot, SushiDSP::dk::K_MAXIMUM_POTENTIOMETERS);
 }
 
-TEST(JcmV1aNetlist, SevenStateBlockWithItsRcTailBuildsAndNamesAPotentiometer)
+TEST(Small_JcmV1aNetlist, SevenStateBlockWithItsRcTailBuildsAndNamesAPotentiometer)
 {
     SushiDSP::dk::DkNetlist<7, 2, 2, 1> netlist;
     const std::size_t pot = SushiDSP::test_circuits::build_jcm_v1a(netlist, true);

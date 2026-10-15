@@ -152,7 +152,7 @@ namespace
     }
 } // namespace
 
-TEST(Dd3Delay, Dd3DelayDeclaresItselfCorrectly)
+TEST(Small_Dd3Delay, Dd3DelayDeclaresItselfCorrectly)
 {
     SushiDSP::Dd3Delay node;
     node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
@@ -163,7 +163,7 @@ TEST(Dd3Delay, Dd3DelayDeclaresItselfCorrectly)
     EXPECT_EQ(node.latency_samples(), 0u);
 }
 
-TEST(Dd3Delay, Dd3DelayAtZeroLevelIsAWire)
+TEST(Small_Dd3Delay, Dd3DelayAtZeroLevelIsAWire)
 {
     // Ruling 9: the dry branch carries no shelf and no trim. With E.LEVEL down, in == out.
     SushiDSP::Dd3Delay node;
@@ -177,7 +177,7 @@ TEST(Dd3Delay, Dd3DelayAtZeroLevelIsAWire)
     }
 }
 
-TEST(Dd3Delay, Dd3DelayWetDelayMatchesThePlansArithmetic)
+TEST(Small_Dd3Delay, Dd3DelayWetDelayMatchesThePlansArithmetic)
 {
     // The two conversions cost 68 / min(fs, 48000), not 64. See tests/nodes/dd3/test_dd3_delay/README.md.
     struct Case
@@ -221,7 +221,7 @@ TEST(Dd3Delay, Dd3DelayWetDelayMatchesThePlansArithmetic)
     }
 }
 
-TEST(Dd3Delay, Dd3DelayFillsEveryBlockSizeAndStaysFinite)
+TEST(Small_Dd3Delay, Dd3DelayFillsEveryBlockSizeAndStaysFinite)
 {
     for (const std::uint32_t block : {1u, 7u, 8u, 9u, 64u, 255u, 256u})
     {
@@ -239,7 +239,7 @@ TEST(Dd3Delay, Dd3DelayFillsEveryBlockSizeAndStaysFinite)
     }
 }
 
-TEST(Dd3Delay, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
+TEST(Small_Dd3Delay, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
 {
     // Splitting the same input differently must not move a sample while the clock glides.
     const auto input = SushiDSP::measure::sine_stimulus(220.0, K_SAMPLE_RATE, 24000u, 0.8f);
@@ -282,7 +282,7 @@ TEST(Dd3Delay, Dd3DelayGlidesIdenticallyAtEveryBlockSize)
         worst);
 }
 
-TEST(Dd3Delay, Dd3DelayResetReturnsItToSilence)
+TEST(Small_Dd3Delay, Dd3DelayResetReturnsItToSilence)
 {
     SushiDSP::Dd3Delay node;
     node.set_level(1.0f);
@@ -306,7 +306,7 @@ TEST(Dd3Delay, Dd3DelayResetReturnsItToSilence)
     }
 }
 
-TEST(Dd3Delay, Dd3DelayRepeatsDecayAndDarkenWithFeedback)
+TEST(Small_Dd3Delay, Dd3DelayRepeatsDecayAndDarkenWithFeedback)
 {
     // Each repeat loses level and treble together. See tests/nodes/dd3/test_dd3_delay/README.md.
     SushiDSP::Dd3Delay node;
@@ -330,7 +330,7 @@ TEST(Dd3Delay, Dd3DelayRepeatsDecayAndDarkenWithFeedback)
     EXPECT_LT(third_centroid, 0.95 * first_centroid);
 }
 
-TEST(Dd3Delay, Dd3DelaySelfOscillatesOnlyAtTheTopOfTheKnob)
+TEST(Small_Dd3Delay, Dd3DelaySelfOscillatesOnlyAtTheTopOfTheKnob)
 {
     // The tail sustains only at the top of the knob. See tests/nodes/dd3/test_dd3_delay/README.md.
     const auto input = burst_stimulus(static_cast<std::size_t>(2.0 * K_SAMPLE_RATE));
@@ -352,7 +352,7 @@ TEST(Dd3Delay, Dd3DelaySelfOscillatesOnlyAtTheTopOfTheKnob)
     EXPECT_GT(tails[1], 5e-3);
 }
 
-TEST(Dd3Delay, Dd3DelayHoldKeepsRepeatingWithNoInput)
+TEST(Small_Dd3Delay, Dd3DelayHoldKeepsRepeatingWithNoInput)
 {
     SushiDSP::Dd3Delay node;
     node.set_mode(SushiDSP::dd3::Dd3Mode::Long);
@@ -380,7 +380,7 @@ TEST(Dd3Delay, Dd3DelayHoldKeepsRepeatingWithNoInput)
     EXPECT_GT(energy, 1e-4);
 }
 
-TEST(Dd3Delay, Dd3DelayHitsCheckPointFive)
+TEST(Small_Dd3Delay, Dd3DelayHitsCheckPointFive)
 {
     // 0.025 full scale in gives 0.035 full scale of wet out. See tests/nodes/dd3/test_dd3_delay/README.md.
     SushiDSP::Dd3Delay wet_node, dry_node;
@@ -404,7 +404,7 @@ TEST(Dd3Delay, Dd3DelayHitsCheckPointFive)
     EXPECT_NEAR(peak, 0.035, 0.05 * 0.035);
 }
 
-TEST(Dd3Delay, Dd3DelayParametersRoundTripByNameAndByIndex)
+TEST(Small_Dd3Delay, Dd3DelayParametersRoundTripByNameAndByIndex)
 {
     SushiDSP::Dd3Delay node;
     node.set_parameter_for_control_thread("time", 0.8f);
@@ -428,7 +428,7 @@ TEST(Dd3Delay, Dd3DelayParametersRoundTripByNameAndByIndex)
     EXPECT_EQ(descriptor.ports.output_channels, 1u);
 }
 
-TEST(Dd3Delay, Dd3DelayDefersAModeChangeMadeByIndex)
+TEST(Small_Dd3Delay, Dd3DelayDefersAModeChangeMadeByIndex)
 {
     // Swapping N clears up to 16384 samples, so the index overload only records the request.
     SushiDSP::Dd3Delay node;
@@ -462,7 +462,7 @@ TEST(Dd3Delay, Dd3DelayDefersAModeChangeMadeByIndex)
     EXPECT_NEAR(node.wet_delay_seconds(), 0.200177273, 1e-6);
 }
 
-TEST(Dd3Delay, WetFifoPrimesThenDropsTheOldestWhenFull)
+TEST(Small_Dd3Delay, WetFifoPrimesThenDropsTheOldestWhenFull)
 {
     SushiDSP::dd3::WetFifo fifo;
     fifo.reset();

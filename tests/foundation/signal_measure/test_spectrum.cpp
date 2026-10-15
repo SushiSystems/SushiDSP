@@ -36,20 +36,20 @@
 #include <cstdint>
 #include <vector>
 
-TEST(Spectrum, BinOfMapsAFrequencyToItsFftBin)
+TEST(Small_Spectrum, BinOfMapsAFrequencyToItsFftBin)
 {
     EXPECT_EQ(SushiDSP::measure::bin_of(1000.0, 48000.0), 1365u);
     EXPECT_EQ(SushiDSP::measure::bin_of(0.0, 48000.0), 0u);
 }
 
-TEST(Spectrum, BinExactFrequencyIsWithinHalfABinOfTheRequest)
+TEST(Small_Spectrum, BinExactFrequencyIsWithinHalfABinOfTheRequest)
 {
     const double bin_width = 48000.0 / static_cast<double>(SushiDSP::measure::K_FFT_SIZE);
     const double exact = SushiDSP::measure::bin_exact_frequency(1000.0, 48000.0, SushiDSP::measure::K_FFT_SIZE);
     EXPECT_LE(std::fabs(exact - 1000.0), 0.5 * bin_width + 1e-9);
 }
 
-TEST(Spectrum, PureToneSpectrumPeaksAtItsBin)
+TEST(Small_Spectrum, PureToneSpectrumPeaksAtItsBin)
 {
     const std::vector<float> tone = SushiDSP::measure::sine_stimulus(1000.0, 48000.0,
                                                                      SushiDSP::measure::K_FFT_SIZE, 0.5f);
@@ -66,7 +66,7 @@ TEST(Spectrum, PureToneSpectrumPeaksAtItsBin)
     EXPECT_LE(std::abs(static_cast<long>(peak) - static_cast<long>(SushiDSP::measure::bin_of(1000.0, 48000.0))), 1L);
 }
 
-TEST(Spectrum, FloorOfPureSineIsBelowMinus110dB)
+TEST(Small_Spectrum, FloorOfPureSineIsBelowMinus110dB)
 {
     const double sample_rate = 48000.0;
     const double f0 =

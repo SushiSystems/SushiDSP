@@ -47,7 +47,7 @@ namespace
     }
 } // namespace
 
-TEST(CabinetNode, CabinetNodeIsAPassthroughWithNoCabinetInstalled)
+TEST(Small_CabinetNode, CabinetNodeIsAPassthroughWithNoCabinetInstalled)
 {
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -73,7 +73,7 @@ TEST(CabinetNode, CabinetNodeIsAPassthroughWithNoCabinetInstalled)
     EXPECT_FALSE(node.has_cabinet());
 }
 
-TEST(CabinetNode, CabinetNodeInstallsAndAppliesAnImpulseResponse)
+TEST(Small_CabinetNode, CabinetNodeInstallsAndAppliesAnImpulseResponse)
 {
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -101,7 +101,7 @@ TEST(CabinetNode, CabinetNodeInstallsAndAppliesAnImpulseResponse)
     }
 }
 
-TEST(CabinetNode, CabinetNodeSurvivesVariableBlockSizes)
+TEST(Small_CabinetNode, CabinetNodeSurvivesVariableBlockSizes)
 {
     // An identity IR must survive any host block size. See tests/nodes/cabinet/README.md.
     SushiDSP::CabinetNode node;
@@ -137,7 +137,7 @@ TEST(CabinetNode, CabinetNodeSurvivesVariableBlockSizes)
     }
 }
 
-TEST(CabinetNode, CabinetNodeRejectsAnImpulseResponseAtTheWrongSampleRate)
+TEST(Small_CabinetNode, CabinetNodeRejectsAnImpulseResponseAtTheWrongSampleRate)
 {
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -147,7 +147,7 @@ TEST(CabinetNode, CabinetNodeRejectsAnImpulseResponseAtTheWrongSampleRate)
     EXPECT_FALSE(node.has_cabinet());
 }
 
-TEST(CabinetNode, CabinetNodeRejectsAnImpulseResponseBeforePrepare)
+TEST(Small_CabinetNode, CabinetNodeRejectsAnImpulseResponseBeforePrepare)
 {
     SushiDSP::CabinetNode node;
 
@@ -155,7 +155,7 @@ TEST(CabinetNode, CabinetNodeRejectsAnImpulseResponseBeforePrepare)
     EXPECT_FALSE(node.has_cabinet());
 }
 
-TEST(CabinetNode, CabinetNodeDescriptorMatchesTypeId)
+TEST(Small_CabinetNode, CabinetNodeDescriptorMatchesTypeId)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::cabinet_descriptor();
     EXPECT_STREQ(descriptor.id, "sushidsp.cabinet");
@@ -169,7 +169,7 @@ TEST(CabinetNode, CabinetNodeDescriptorMatchesTypeId)
     EXPECT_STREQ(node->type_id(), "sushidsp.cabinet");
 }
 
-TEST(CabinetNode, ProcessPerformsNoHeapAllocationWithCabinet)
+TEST(Small_CabinetNode, ProcessPerformsNoHeapAllocationWithCabinet)
 {
     // 500 blocks wrap the spectrum history at least once. See tests/nodes/cabinet/README.md.
     std::vector<float> impulse_response(200, 0.0f);
@@ -207,7 +207,7 @@ TEST(CabinetNode, ProcessPerformsNoHeapAllocationWithCabinet)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(CabinetNode, SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
+TEST(Small_CabinetNode, SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 {
     // The trap is armed around the blocks, not set_cabinet(). See tests/nodes/cabinet/README.md.
     SushiDSP::CabinetNode node;

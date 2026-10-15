@@ -36,7 +36,7 @@ namespace
     using SushiDSP::LogLevel;
 } // namespace
 
-TEST(LogLevel, LevelsRiseFromTraceToFatal)
+TEST(Small_LogLevel, LevelsRiseFromTraceToFatal)
 {
     EXPECT_LT(LogLevel::Trace, LogLevel::Debug);
     EXPECT_LT(LogLevel::Debug, LogLevel::Info);
@@ -45,13 +45,13 @@ TEST(LogLevel, LevelsRiseFromTraceToFatal)
     EXPECT_LT(LogLevel::Error, LogLevel::Fatal);
 }
 
-TEST(LogLevel, ValuesAreTheFixedZeroToFiveSequence)
+TEST(Small_LogLevel, ValuesAreTheFixedZeroToFiveSequence)
 {
     EXPECT_EQ(static_cast<std::uint8_t>(LogLevel::Trace), 0);
     EXPECT_EQ(static_cast<std::uint8_t>(LogLevel::Fatal), 5);
 }
 
-TEST(LogLevel, NameIsTheUpperCaseWordOfEachLevel)
+TEST(Small_LogLevel, NameIsTheUpperCaseWordOfEachLevel)
 {
     EXPECT_STREQ(SushiDSP::log_level_name(LogLevel::Trace), "TRACE");
     EXPECT_STREQ(SushiDSP::log_level_name(LogLevel::Warn), "WARN");

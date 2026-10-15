@@ -30,7 +30,7 @@
 #include <SushiDSP/nodes/room/receiver_output.hpp>
 #include <SushiDSP/nodes/room/room_host.hpp>
 
-TEST(ReceiverOutput, HeadHolderKeepsTheSourceItWasGiven)
+TEST(Small_ReceiverOutput, HeadHolderKeepsTheSourceItWasGiven)
 {
     SushiDSP::Room::HeadHolder holder;
     const auto before = holder.source();

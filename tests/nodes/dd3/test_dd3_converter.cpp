@@ -41,7 +41,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Dd3Converter, Dd3ConverterQuantisesOnItsExactCodeBoundaries)
+TEST(Small_Dd3Converter, Dd3ConverterQuantisesOnItsExactCodeBoundaries)
 {
     // step = 2 * 2.5 / 4096 = 5/4096 = 1.220703125e-3 V exactly  (DR1+DR2 plan, N8).
     using Converter = SushiDSP::dd3::Dd3Converter;
@@ -57,7 +57,7 @@ TEST(Dd3Converter, Dd3ConverterQuantisesOnItsExactCodeBoundaries)
     EXPECT_DOUBLE_EQ(Converter::quantise(-0.5 * Converter::K_STEP_VOLTS), -Converter::K_STEP_VOLTS);
 }
 
-TEST(Dd3Converter, Dd3ConverterSaturatesRatherThanWrapping)
+TEST(Small_Dd3Converter, Dd3ConverterSaturatesRatherThanWrapping)
 {
     // Ruling 15. Code 2047 is 2047 * 1.220703125e-3 = 2.4987793 V; code -2048 is exactly -2.5 V.
     using Converter = SushiDSP::dd3::Dd3Converter;
@@ -67,7 +67,7 @@ TEST(Dd3Converter, Dd3ConverterSaturatesRatherThanWrapping)
     EXPECT_NEAR(2047.0 * Converter::K_STEP_VOLTS, 2.4987793, 1e-6);
 }
 
-TEST(Dd3Converter, Dd3ConverterQuantisationNoiseMatchesTwelveBits)
+TEST(Small_Dd3Converter, Dd3ConverterQuantisationNoiseMatchesTwelveBits)
 {
     // An ideal 12-bit converter gives 74.008 dB of SNR. See tests/nodes/dd3/README.md.
     using Converter = SushiDSP::dd3::Dd3Converter;
@@ -88,7 +88,7 @@ TEST(Dd3Converter, Dd3ConverterQuantisationNoiseMatchesTwelveBits)
     EXPECT_NEAR(snr_db, 74.008, 1.0);
 }
 
-TEST(Dd3Converter, Dd3ConverterRingDelaysByExactlyNSamples)
+TEST(Small_Dd3Converter, Dd3ConverterRingDelaysByExactlyNSamples)
 {
     using SushiDSP::dd3::Dd3Mode;
     struct Case
@@ -117,7 +117,7 @@ TEST(Dd3Converter, Dd3ConverterRingDelaysByExactlyNSamples)
     }
 }
 
-TEST(Dd3Converter, Dd3ConverterHoldKeepsTheLoopAndInhibitsWrites)
+TEST(Small_Dd3Converter, Dd3ConverterHoldKeepsTheLoopAndInhibitsWrites)
 {
     // Long and Hold share N, so the ring is not cleared. See tests/nodes/dd3/README.md.
     SushiDSP::dd3::Dd3Converter converter;
@@ -147,7 +147,7 @@ TEST(Dd3Converter, Dd3ConverterHoldKeepsTheLoopAndInhibitsWrites)
     EXPECT_EQ(converter.ring_length(), 16384u);
 }
 
-TEST(Dd3Converter, Dd3ConverterModeChangeClearsTheRingWhenNChanges)
+TEST(Small_Dd3Converter, Dd3ConverterModeChangeClearsTheRingWhenNChanges)
 {
     // Spec: "MODE changes swap N and clear the ring" - which is exactly the S/M/L case.
     SushiDSP::dd3::Dd3Converter converter;

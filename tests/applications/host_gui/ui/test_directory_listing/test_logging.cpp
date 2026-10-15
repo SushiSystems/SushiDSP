@@ -36,7 +36,7 @@
 #include <SushiDSP/foundation/log/scoped_log_sink.hpp>
 #include "ui/directory_listing.hpp"
 
-TEST(DirectoryListing, ListDirectoryLogsOneWarningNamingTheCauseWhenTheFileSystemRefusesThePath)
+TEST(Medium_DirectoryListing, ListDirectoryLogsOneWarningNamingTheCauseWhenTheFileSystemRefusesThePath)
 {
     // A name of 40 000 characters is longer than any file system here accepts.
     const std::string overlong(40000, 'a');

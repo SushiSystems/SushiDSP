@@ -88,7 +88,7 @@ position before the bus opens and `stop_recording` places the dry file as a clip
 
 Files are 32-bit IEEE float, so a recorded ramp reads back bit-identical;
 `tests/nodes/capture/test_track_recorder/test_behaviour.cpp` asserts exactly that, and
-`TrackRecorder.WritePerformsNoHeapAllocation` in
+`Medium_TrackRecorder.WritePerformsNoHeapAllocation` in
 `tests/nodes/capture/test_track_recorder/test_rt_safety.cpp` holds the RT bar.
 
 ## Playing a take back
@@ -156,7 +156,7 @@ push of one input frame and a smallest ratio of `1 / K_MAX_SPEED`. `read()` clam
 the exact block the caller asked for, zero-filling past the take's last frame. Every output costs
 `speed` take frames, so the push loop is bounded by `output_frames * K_MAX_SPEED` plus the kernel's
 half span, and it allocates nothing;
-`VariRateReader.ReadPerformsNoHeapAllocation` in `tests/nodes/capture/test_vari_rate_reader.cpp`
+`Small_VariRateReader.ReadPerformsNoHeapAllocation` in `tests/nodes/capture/test_vari_rate_reader.cpp`
 holds that bar.
 
 `read()` returns the take frame the next call should start at, so the caller carries the cursor

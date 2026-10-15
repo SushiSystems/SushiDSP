@@ -31,28 +31,28 @@
 
 #include <cmath>
 
-TEST(SoftTransition, SoftplusOfZeroIsLnTwo)
+TEST(Small_SoftTransition, SoftplusOfZeroIsLnTwo)
 {
     EXPECT_NEAR(SushiDSP::models::softplus(0.0), std::log(2.0), 1e-12);
 }
 
-TEST(SoftTransition, SoftplusIsTheIdentityAboveThirty)
+TEST(Small_SoftTransition, SoftplusIsTheIdentityAboveThirty)
 {
     EXPECT_EQ(SushiDSP::models::softplus(40.0), 40.0);
 }
 
-TEST(SoftTransition, LogisticOfZeroIsOneHalf)
+TEST(Small_SoftTransition, LogisticOfZeroIsOneHalf)
 {
     EXPECT_NEAR(SushiDSP::models::logistic(0.0), 0.5, 1e-12);
 }
 
-TEST(SoftTransition, LogisticApproachesOneAndZeroAtTheExtremes)
+TEST(Small_SoftTransition, LogisticApproachesOneAndZeroAtTheExtremes)
 {
     EXPECT_NEAR(SushiDSP::models::logistic(50.0), 1.0, 1e-12);
     EXPECT_NEAR(SushiDSP::models::logistic(-50.0), 0.0, 1e-12);
 }
 
-TEST(SoftTransition, LogisticIsTheDerivativeOfSoftplus)
+TEST(Small_SoftTransition, LogisticIsTheDerivativeOfSoftplus)
 {
     const double t = 1.3;
     const double h = 1e-5;
@@ -60,7 +60,7 @@ TEST(SoftTransition, LogisticIsTheDerivativeOfSoftplus)
     EXPECT_NEAR(slope, SushiDSP::models::logistic(t), 1e-7);
 }
 
-TEST(SoftTransition, JointFormAgreesWithTheSeparateFunctions)
+TEST(Small_SoftTransition, JointFormAgreesWithTheSeparateFunctions)
 {
     for (double t : {-4.0, -0.5, 0.0, 2.5, 35.0})
     {

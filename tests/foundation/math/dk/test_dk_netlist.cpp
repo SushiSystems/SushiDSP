@@ -29,7 +29,7 @@
 
 #include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
 
-TEST(DkNetlist, SizeLimitsAreTheDocumentedCeilings)
+TEST(Small_DkNetlist, SizeLimitsAreTheDocumentedCeilings)
 {
     EXPECT_EQ(SushiDSP::dk::K_MAXIMUM_NODES, 16u);
     EXPECT_EQ(SushiDSP::dk::K_MAXIMUM_RESISTORS, 32u);
@@ -37,13 +37,13 @@ TEST(DkNetlist, SizeLimitsAreTheDocumentedCeilings)
     EXPECT_EQ(SushiDSP::dk::K_MAXIMUM_NULLORS, 4u);
 }
 
-TEST(DkNetlist, StartsWithNoNodesAboveGround)
+TEST(Small_DkNetlist, StartsWithNoNodesAboveGround)
 {
     const SushiDSP::dk::DkNetlist<0, 1, 1, 1> netlist;
     EXPECT_EQ(netlist.node_count, 0u);
 }
 
-TEST(DkNetlist, BranchDefaultsToGroundWithNoValue)
+TEST(Small_DkNetlist, BranchDefaultsToGroundWithNoValue)
 {
     const SushiDSP::dk::Branch branch;
     EXPECT_EQ(branch.positive_node, 0u);

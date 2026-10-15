@@ -36,26 +36,26 @@ namespace
     const SushiDSP::PlateSwing K_SWING{100.0f, 50.0f};
 } // namespace
 
-TEST(PlateSwing, ZeroLinearVoltageGivesZeroPlate)
+TEST(Small_PlateSwing, ZeroLinearVoltageGivesZeroPlate)
 {
     EXPECT_NEAR(K_SWING.bound(0.0), 0.0, 1e-12);
     EXPECT_NEAR(K_SWING.bound(0.0f), 0.0f, 1e-6f);
 }
 
-TEST(PlateSwing, LargeExcursionsSaturateAtTheirOwnHeadroom)
+TEST(Small_PlateSwing, LargeExcursionsSaturateAtTheirOwnHeadroom)
 {
     EXPECT_NEAR(K_SWING.bound(1000.0), 100.0, 1e-6);
     EXPECT_NEAR(K_SWING.bound(-1000.0), -50.0, 1e-6);
 }
 
-TEST(PlateSwing, OutputIsMonotonicAcrossZero)
+TEST(Small_PlateSwing, OutputIsMonotonicAcrossZero)
 {
     EXPECT_LT(K_SWING.bound(-2.0), K_SWING.bound(-1.0));
     EXPECT_LT(K_SWING.bound(-1.0), K_SWING.bound(0.5));
     EXPECT_LT(K_SWING.bound(0.5), K_SWING.bound(1.0));
 }
 
-TEST(PlateSwing, AntiderivativeIsTheIntegralOfTheBound)
+TEST(Small_PlateSwing, AntiderivativeIsTheIntegralOfTheBound)
 {
     const double h = 1e-4;
     for (double x : {-120.0, -20.0, 0.0, 20.0, 120.0})

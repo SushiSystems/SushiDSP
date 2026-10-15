@@ -65,7 +65,7 @@ namespace
     }
 } // namespace
 
-TEST(NullTest, AlignedDelayedCopyNullsCompletely)
+TEST(Small_NullTest, AlignedDelayedCopyNullsCompletely)
 {
     const std::vector<float> a = pseudo_random(4096);
     std::vector<float> b(a.size(), 0.0f);
@@ -76,7 +76,7 @@ TEST(NullTest, AlignedDelayedCopyNullsCompletely)
     EXPECT_LT(SushiDSP::measure::null_test(a, b, 5), -60.0);
 }
 
-TEST(NullTest, UnalignedDelayedCopyLeavesAResidual)
+TEST(Small_NullTest, UnalignedDelayedCopyLeavesAResidual)
 {
     const std::vector<float> a = pseudo_random(4096);
     std::vector<float> b(a.size(), 0.0f);
@@ -87,20 +87,20 @@ TEST(NullTest, UnalignedDelayedCopyLeavesAResidual)
     EXPECT_GT(SushiDSP::measure::null_test(a, b, 0), -20.0);
 }
 
-TEST(NullTest, AlignsDelayAndGain)
+TEST(Small_NullTest, AlignsDelayAndGain)
 {
     const std::vector<float> a = SushiDSP::measure::sine_stimulus(440.0, 48000.0, 48000, 0.5f);
     EXPECT_LT(SushiDSP::measure::null_test(a, delayed_copy(a, 0.25f), 64), -120.0);
 }
 
-TEST(NullTest, HandlesPolarityInversion)
+TEST(Small_NullTest, HandlesPolarityInversion)
 {
     // The lag search matches on correlation magnitude. See tests/foundation/signal_measure/README.md.
     const std::vector<float> a = SushiDSP::measure::sine_stimulus(440.0, 48000.0, 48000, 0.5f);
     EXPECT_LT(SushiDSP::measure::null_test(a, delayed_copy(a, -0.25f), 64), -120.0);
 }
 
-TEST(NullTest, ReportsARealDifference)
+TEST(Small_NullTest, ReportsARealDifference)
 {
     const double sample_rate = 48000.0;
     const std::vector<float> a = SushiDSP::measure::sine_stimulus(440.0, sample_rate, 48000, 0.5f);

@@ -87,7 +87,7 @@ namespace
     }
 } // namespace
 
-TEST(WavWriter, WavWriterFloat32RoundTripsSampleForSample)
+TEST(Medium_WavWriter, WavWriterFloat32RoundTripsSampleForSample)
 {
     const TempWavFile fixture("sushidsp_wav_writer_float32.wav");
     const std::string& path = fixture.path();
@@ -111,7 +111,7 @@ TEST(WavWriter, WavWriterFloat32RoundTripsSampleForSample)
     }
 }
 
-TEST(WavWriter, WavWriterPcm16RoundTripsWithinOneQuantisationStep)
+TEST(Medium_WavWriter, WavWriterPcm16RoundTripsWithinOneQuantisationStep)
 {
     const TempWavFile fixture("sushidsp_wav_writer_pcm16.wav");
     const std::string& path = fixture.path();
@@ -135,7 +135,7 @@ TEST(WavWriter, WavWriterPcm16RoundTripsWithinOneQuantisationStep)
     }
 }
 
-TEST(WavWriter, WavWriterTwoChannelsDownmixToTheMeanOnReadback)
+TEST(Medium_WavWriter, WavWriterTwoChannelsDownmixToTheMeanOnReadback)
 {
     const TempWavFile fixture("sushidsp_wav_writer_stereo.wav");
     const std::string& path = fixture.path();
@@ -162,7 +162,7 @@ TEST(WavWriter, WavWriterTwoChannelsDownmixToTheMeanOnReadback)
     }
 }
 
-TEST(WavWriter, WavWriterCloseTwiceIsSafeAndLeavesTheFileValid)
+TEST(Medium_WavWriter, WavWriterCloseTwiceIsSafeAndLeavesTheFileValid)
 {
     const TempWavFile fixture("sushidsp_wav_writer_double_close.wav");
     const std::string& path = fixture.path();
@@ -182,7 +182,7 @@ TEST(WavWriter, WavWriterCloseTwiceIsSafeAndLeavesTheFileValid)
     }
 }
 
-TEST(WavWriter, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
+TEST(Medium_WavWriter, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
 {
     const TempWavFile fixture("sushidsp_wav_writer_sizes.wav");
     const std::string& path = fixture.path();
@@ -218,7 +218,7 @@ TEST(WavWriter, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
     EXPECT_EQ(bytes.size(), 44 + expected_data_bytes);
 }
 
-TEST(WavWriter, WavWriterFloat32HeaderCarriesAnExtensibleFmtChunkAndAFactChunk)
+TEST(Medium_WavWriter, WavWriterFloat32HeaderCarriesAnExtensibleFmtChunkAndAFactChunk)
 {
     const TempWavFile fixture("sushidsp_wav_writer_fact_chunk.wav");
     const std::string& path = fixture.path();
@@ -275,7 +275,7 @@ TEST(WavWriter, WavWriterFloat32HeaderCarriesAnExtensibleFmtChunkAndAFactChunk)
     }
 }
 
-TEST(WavWriter, WavWriterThrowsWhenThePathCannotBeOpened)
+TEST(Medium_WavWriter, WavWriterThrowsWhenThePathCannotBeOpened)
 {
     const TempWavFile fixture("sushidsp_wav_writer_no_such_dir/take.wav");
     const std::string& path = fixture.path();

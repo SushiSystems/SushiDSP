@@ -47,7 +47,7 @@ namespace
     }
 } // namespace
 
-TEST(MicrophoneModel, MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointFiveDecibels)
+TEST(Small_MicrophoneModel, MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointFiveDecibels)
 {
     // At 100 Hz the two distances differ by 15.47 dB. See tests/nodes/room/README.md.
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.05) - cardioid_on_axis_db(100.0, 3.0), 15.47, 0.05);
@@ -60,7 +60,7 @@ TEST(MicrophoneModel, MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointF
     EXPECT_NEAR(near_db - far_db, 13.75f, 0.05f);
 }
 
-TEST(MicrophoneModel, MicrophoneModelProximityBoostIsTheSphericalWaveTerm)
+TEST(Small_MicrophoneModel, MicrophoneModelProximityBoostIsTheSphericalWaveTerm)
 {
     // sqrt(1 + 10.9180^2) = 10.9637 at 100 Hz and 5 cm. See tests/nodes/room/README.md.
     EXPECT_NEAR(SushiDSP::room::MicrophoneModel::proximity_boost(100.0, 0.05), 10.9637, 1e-4);
@@ -70,7 +70,7 @@ TEST(MicrophoneModel, MicrophoneModelProximityBoostIsTheSphericalWaveTerm)
     EXPECT_NEAR(SushiDSP::room::MicrophoneModel::proximity_boost(1000.0, 3.0), 1.000166, 1e-6);
 }
 
-TEST(MicrophoneModel, MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointSevenDecibels)
+TEST(Small_MicrophoneModel, MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointSevenDecibels)
 {
     // At 100 Hz and 30 cm the capsule gains 3.74 dB. See tests/nodes/room/README.md.
     EXPECT_NEAR(cardioid_on_axis_db(100.0, 0.30), 3.74, 0.02);
@@ -84,7 +84,7 @@ TEST(MicrophoneModel, MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointS
     EXPECT_NEAR(thirty_db - far_db, 2.77f, 0.02f);
 }
 
-TEST(MicrophoneModel, MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecibels)
+TEST(Small_MicrophoneModel, MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecibels)
 {
     // The pattern term floors at K_DECIBEL_FLOOR, never a NaN. See tests/nodes/room/README.md.
     const SushiDSP::room::MicrophoneModel eight(SushiDSP::room::PolarPattern::FigureEight,
@@ -102,7 +102,7 @@ TEST(MicrophoneModel, MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecib
     }
 }
 
-TEST(MicrophoneModel, MicrophoneModelOmniIgnoresIncidenceAndDistanceColour)
+TEST(Small_MicrophoneModel, MicrophoneModelOmniIgnoresIncidenceAndDistanceColour)
 {
     const SushiDSP::room::MicrophoneModel omni(SushiDSP::room::PolarPattern::Omni,
                                                {0, 0, 0, 0, 0, 0});
@@ -122,7 +122,7 @@ TEST(MicrophoneModel, MicrophoneModelOmniIgnoresIncidenceAndDistanceColour)
     }
 }
 
-TEST(MicrophoneModel, MicrophoneModelAppliesTheOnAxisCurve)
+TEST(Small_MicrophoneModel, MicrophoneModelAppliesTheOnAxisCurve)
 {
     const SushiDSP::room::MicrophoneModel flat(SushiDSP::room::PolarPattern::Cardioid,
                                                {0, 0, 0, 0, 0, 0});
@@ -141,7 +141,7 @@ TEST(MicrophoneModel, MicrophoneModelAppliesTheOnAxisCurve)
     }
 }
 
-TEST(MicrophoneModel, MicrophoneModelShipsOneFlatPreset)
+TEST(Small_MicrophoneModel, MicrophoneModelShipsOneFlatPreset)
 {
     EXPECT_EQ(SushiDSP::room::K_MICROPHONE_KIND_COUNT, 1u);
     EXPECT_EQ(SushiDSP::room::K_MICROPHONE_FLAT_CARDIOID.pattern,
@@ -160,7 +160,7 @@ TEST(MicrophoneModel, MicrophoneModelShipsOneFlatPreset)
         SushiDSP::room::pattern_pressure_share(SushiDSP::room::PolarPattern::FigureEight), 0.0);
 }
 
-TEST(MicrophoneModel, MicrophoneTableFindsEveryRowByItsOwnKeyAndNamesHowItTransduces)
+TEST(Small_MicrophoneModel, MicrophoneTableFindsEveryRowByItsOwnKeyAndNamesHowItTransduces)
 {
     for (std::size_t index = 0; index < SushiDSP::room::K_MICROPHONE_KIND_COUNT; ++index)
     {

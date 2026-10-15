@@ -31,7 +31,7 @@
 
 #include <array>
 
-TEST(DelayRing, ReadAfterResetGivesSilence)
+TEST(Small_DelayRing, ReadAfterResetGivesSilence)
 {
     SushiDSP::room::DelayRing ring;
     ring.prepare(64u, 16u);
@@ -44,7 +44,7 @@ TEST(DelayRing, ReadAfterResetGivesSilence)
     }
 }
 
-TEST(DelayRing, WriteFollowedByResetLeavesNoEcho)
+TEST(Small_DelayRing, WriteFollowedByResetLeavesNoEcho)
 {
     SushiDSP::room::DelayRing ring;
     ring.prepare(64u, 16u);

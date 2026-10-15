@@ -31,7 +31,7 @@
 
 #include <SushiDSP/foundation/circuits/models/silicon_diode.hpp>
 
-TEST(SiliconDiode, SiliconDiodeMatchesShockleyAtThreeOperatingPoints)
+TEST(Small_SiliconDiode, SiliconDiodeMatchesShockleyAtThreeOperatingPoints)
 {
     // 1N914: Is = 2.52e-9 A, n = 1.752, Vt = 0.025864 V. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
@@ -43,7 +43,7 @@ TEST(SiliconDiode, SiliconDiodeMatchesShockleyAtThreeOperatingPoints)
     EXPECT_NEAR(diode.jacobian(0.7), 2.84504993167e-1, 1e-12);
 }
 
-TEST(SiliconDiode, SiliconDiodeReverseCurrentApproachesMinusSaturationCurrent)
+TEST(Small_SiliconDiode, SiliconDiodeReverseCurrentApproachesMinusSaturationCurrent)
 {
     // At v = -0.5 V the current is -2.51995932614e-9 A. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
@@ -52,7 +52,7 @@ TEST(SiliconDiode, SiliconDiodeReverseCurrentApproachesMinusSaturationCurrent)
     EXPECT_NEAR(diode.current(0.0), 0.0, 1e-24);
 }
 
-TEST(SiliconDiode, SiliconDiodeJacobianMatchesACentredDifference)
+TEST(Small_SiliconDiode, SiliconDiodeJacobianMatchesACentredDifference)
 {
     const SushiDSP::SiliconDiode diode;
     for (const double voltage : {-0.3, 0.0, 0.3, 0.55, 0.65})
@@ -66,7 +66,7 @@ TEST(SiliconDiode, SiliconDiodeJacobianMatchesACentredDifference)
     }
 }
 
-TEST(SiliconDiode, SiliconDiodeStaysFiniteAndCOneAcrossTheLinearExtrapolation)
+TEST(Small_SiliconDiode, SiliconDiodeStaysFiniteAndCOneAcrossTheLinearExtrapolation)
 {
     const SushiDSP::SiliconDiode diode;
     for (const double voltage : {-60.0, -2.0, 2.0, 60.0, 1000.0})
@@ -82,7 +82,7 @@ TEST(SiliconDiode, SiliconDiodeStaysFiniteAndCOneAcrossTheLinearExtrapolation)
                 1e-12 * diode.current(knee + 0.5));
 }
 
-TEST(SiliconDiode, SiliconDiodeJointFormAgreesWithTheSeparateEntryPoints)
+TEST(Small_SiliconDiode, SiliconDiodeJointFormAgreesWithTheSeparateEntryPoints)
 {
     const SushiDSP::SiliconDiode diode;
     for (const double voltage : {-60.0, -0.5, 0.0, 0.4, 0.6, 0.7, 1.81254912, 60.0})
@@ -107,7 +107,7 @@ TEST(SiliconDiode, SiliconDiodeJointFormAgreesWithTheSeparateEntryPoints)
     EXPECT_NEAR(conductance, 2.84504993167e-1, 1e-12);
 }
 
-TEST(SiliconDiode, SiliconDiodeAntiparallelPairMatchesTwoTimesSaturationCurrentTimesSinh)
+TEST(Small_SiliconDiode, SiliconDiodeAntiparallelPairMatchesTwoTimesSaturationCurrentTimesSinh)
 {
     // The pair's total current is 2 Is sinh(w / nVt). See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
@@ -138,7 +138,7 @@ TEST(SiliconDiode, SiliconDiodeAntiparallelPairMatchesTwoTimesSaturationCurrentT
     }
 }
 
-TEST(SiliconDiode, SiliconDiodeHonoursANonDefaultIdealityFactor)
+TEST(Small_SiliconDiode, SiliconDiodeHonoursANonDefaultIdealityFactor)
 {
     // n = 1 makes n*Vt = 0.025864 V. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode ideal(2.52e-9, 1.0, 0.025864);
@@ -146,7 +146,7 @@ TEST(SiliconDiode, SiliconDiodeHonoursANonDefaultIdealityFactor)
     EXPECT_GT(ideal.current(0.6), 100.0 * part.current(0.6));
 }
 
-TEST(SiliconDiode, SiliconDiodeAntiderivativeDifferentiatesBackToTheDiodeCurrent)
+TEST(Small_SiliconDiode, SiliconDiodeAntiderivativeDifferentiatesBackToTheDiodeCurrent)
 {
     // The antiderivative's slope is the diode current. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
@@ -161,7 +161,7 @@ TEST(SiliconDiode, SiliconDiodeAntiderivativeDifferentiatesBackToTheDiodeCurrent
     }
 }
 
-TEST(SiliconDiode, SiliconDiodeAntiderivativeHasNoStepAtEitherKnee)
+TEST(Small_SiliconDiode, SiliconDiodeAntiderivativeHasNoStepAtEitherKnee)
 {
     // The bound is the largest slope times the width. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
@@ -177,7 +177,7 @@ TEST(SiliconDiode, SiliconDiodeAntiderivativeHasNoStepAtEitherKnee)
     }
 }
 
-TEST(SiliconDiode, SiliconDiodeJointAntiderivativeFormAgreesWithTheSeparateEntryPoints)
+TEST(Small_SiliconDiode, SiliconDiodeJointAntiderivativeFormAgreesWithTheSeparateEntryPoints)
 {
     // The joint form must match the two entry points. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;
@@ -191,7 +191,7 @@ TEST(SiliconDiode, SiliconDiodeJointAntiderivativeFormAgreesWithTheSeparateEntry
     }
 }
 
-TEST(SiliconDiode, SiliconDiodeReverseExtrapolationContinuesTheShockleyLawRatherThanMirroringForward)
+TEST(Small_SiliconDiode, SiliconDiodeReverseExtrapolationContinuesTheShockleyLawRatherThanMirroringForward)
 {
     // Below the lower knee the current stays at -Is. See tests/foundation/circuits/models/README.md.
     const SushiDSP::SiliconDiode diode;

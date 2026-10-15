@@ -31,7 +31,7 @@
 
 #include <cstddef>
 
-TEST(ModalDesign, HoldsAtMostFiveHundredTwelveModes)
+TEST(Small_ModalDesign, HoldsAtMostFiveHundredTwelveModes)
 {
     EXPECT_EQ(SushiDSP::room::ModalDesign::K_MAX_MODES, 512u);
 }

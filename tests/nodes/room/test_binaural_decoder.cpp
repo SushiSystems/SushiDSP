@@ -119,7 +119,7 @@ namespace
     }
 } // namespace
 
-TEST(BinauralDecoder, BinauralDecoderWithDeltaFiltersPassesChannelZeroThrough)
+TEST(Small_BinauralDecoder, BinauralDecoderWithDeltaFiltersPassesChannelZeroThrough)
 {
     SushiDSP::room::BinauralDecoder decoder;
     decoder.prepare(delta_set({0}), K_SAMPLE_RATE, K_BLOCK);
@@ -141,7 +141,7 @@ TEST(BinauralDecoder, BinauralDecoderWithDeltaFiltersPassesChannelZeroThrough)
     }
 }
 
-TEST(BinauralDecoder, BinauralDecoderReportsOnePartitionOfLatency)
+TEST(Small_BinauralDecoder, BinauralDecoderReportsOnePartitionOfLatency)
 {
     SushiDSP::room::BinauralDecoder decoder;
     decoder.prepare(delta_set({0}), K_SAMPLE_RATE, K_BLOCK);
@@ -150,7 +150,7 @@ TEST(BinauralDecoder, BinauralDecoderReportsOnePartitionOfLatency)
     EXPECT_EQ(decoder.latency_frames(), 128u);
 }
 
-TEST(BinauralDecoder, BinauralDecoderSumsSixteenChannelsIntoEachEar)
+TEST(Small_BinauralDecoder, BinauralDecoderSumsSixteenChannelsIntoEachEar)
 {
     std::vector<std::uint32_t> all_channels;
     for (std::uint32_t channel = 0; channel < K_CHANNELS; ++channel)
@@ -178,7 +178,7 @@ TEST(BinauralDecoder, BinauralDecoderSumsSixteenChannelsIntoEachEar)
     EXPECT_EQ(right[decoder.latency_frames()], 0.0f);
 }
 
-TEST(BinauralDecoder, BinauralDecoderRefusesASetWithNoDecoder)
+TEST(Small_BinauralDecoder, BinauralDecoderRefusesASetWithNoDecoder)
 {
     SushiDSP::room::BinauralDecoder decoder;
     EXPECT_THROW(decoder.prepare(SushiDSP::room::HrtfSet{}, K_SAMPLE_RATE, 256u),
@@ -187,7 +187,7 @@ TEST(BinauralDecoder, BinauralDecoderRefusesASetWithNoDecoder)
     EXPECT_EQ(decoder.latency_frames(), 0u);
 }
 
-TEST(BinauralDecoder, BinauralDecoderResetClearsTheHistory)
+TEST(Small_BinauralDecoder, BinauralDecoderResetClearsTheHistory)
 {
     SushiDSP::room::BinauralDecoder decoder;
     decoder.prepare(delta_set({0}), K_SAMPLE_RATE, K_BLOCK);
@@ -218,7 +218,7 @@ namespace
     }
 } // namespace
 
-TEST(BinauralDecoder, ProcessPerformsNoHeapAllocation)
+TEST(Small_BinauralDecoder, ProcessPerformsNoHeapAllocation)
 {
     // Sixteen blocks cross the 128-frame partition 32 times. See tests/nodes/room/README.md.
     const SushiDSP::room::HrtfSet set = SushiDSP::room::SphericalHeadHrtf::build(48000.0);

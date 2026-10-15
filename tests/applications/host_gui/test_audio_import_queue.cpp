@@ -62,7 +62,7 @@ namespace
     }
 } // namespace
 
-TEST(AudioImportQueue, AudioImportQueueStartsIdle)
+TEST(Medium_AudioImportQueue, AudioImportQueueStartsIdle)
 {
     SushiDSP::host::AudioImportQueue queue{SushiDSP::host::AudioImportCache(
         (std::filesystem::temp_directory_path() / "sushidsp_import_idle").string())};
@@ -75,7 +75,7 @@ TEST(AudioImportQueue, AudioImportQueueStartsIdle)
     EXPECT_TRUE(queue.decoding().empty());
 }
 
-TEST(AudioImportQueue, AudioImportQueueReportsAFailureAndKeepsThePlacementItWasGiven)
+TEST(Medium_AudioImportQueue, AudioImportQueueReportsAFailureAndKeepsThePlacementItWasGiven)
 {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "sushidsp_import_queue";
@@ -96,7 +96,7 @@ TEST(AudioImportQueue, AudioImportQueueReportsAFailureAndKeepsThePlacementItWasG
     EXPECT_FALSE(drained[0].error.empty());
 }
 
-TEST(AudioImportQueue, AudioImportQueueHandsBackOneResultPerRequest)
+TEST(Medium_AudioImportQueue, AudioImportQueueHandsBackOneResultPerRequest)
 {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "sushidsp_import_queue_many";

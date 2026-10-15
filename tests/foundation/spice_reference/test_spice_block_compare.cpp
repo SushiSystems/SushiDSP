@@ -33,20 +33,20 @@
 #include <string>
 #include <vector>
 
-TEST(SpiceBlockCompare, SpicePathNamesTheBlockFolderAndItsKind)
+TEST(Medium_SpiceBlockCompare, SpicePathNamesTheBlockFolderAndItsKind)
 {
     EXPECT_EQ(SushiDSP::test_circuits::spice_path("ts_tone", "ac"),
               std::string(SUSHIDSP_SPICE_DIR) + "/ts_tone/ts_tone_ac.csv");
 }
 
-TEST(SpiceBlockCompare, BandLimitKeepsADcSignalAtItsLevel)
+TEST(Medium_SpiceBlockCompare, BandLimitKeepsADcSignalAtItsLevel)
 {
     std::vector<float> signal(20000, 0.5f);
     SushiDSP::test_circuits::band_limit(signal, 48000.0, 1000.0);
     EXPECT_NEAR(signal.back(), 0.5f, 1e-3f);
 }
 
-TEST(SpiceBlockCompare, BandLimitRemovesNearNyquistContent)
+TEST(Medium_SpiceBlockCompare, BandLimitRemovesNearNyquistContent)
 {
     std::vector<float> signal(20000);
     for (std::size_t i = 0; i < signal.size(); ++i)

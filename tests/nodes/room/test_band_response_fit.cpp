@@ -111,7 +111,7 @@ namespace
     }
 } // namespace
 
-TEST(BandResponseFit, BandResponseFitClearsOneDecibelForEveryMaterialToEveryOrder)
+TEST(Small_BandResponseFit, BandResponseFitClearsOneDecibelForEveryMaterialToEveryOrder)
 {
     for (std::uint8_t id = 0; id < SushiDSP::room::K_MATERIAL_COUNT; ++id)
     {
@@ -143,7 +143,7 @@ TEST(BandResponseFit, BandResponseFitClearsOneDecibelForEveryMaterialToEveryOrde
     }
 }
 
-TEST(BandResponseFit, BandResponseFitReproducesAFlatTargetExactly)
+TEST(Small_BandResponseFit, BandResponseFitReproducesAFlatTargetExactly)
 {
     const SushiDSP::room::BandResponseFit::Result result =
         SushiDSP::room::BandResponseFit::fit(SushiDSP::room::BandResponse::unity(), 48000.0);
@@ -152,7 +152,7 @@ TEST(BandResponseFit, BandResponseFitReproducesAFlatTargetExactly)
                 0.0, 0.01);
 }
 
-TEST(BandResponseFit, BandResponseFitKeepsEveryPoleInsideTheUnitCircle)
+TEST(Small_BandResponseFit, BandResponseFitKeepsEveryPoleInsideTheUnitCircle)
 {
     for (std::uint8_t id = 0; id < SushiDSP::room::K_MATERIAL_COUNT; ++id)
     {
@@ -178,7 +178,7 @@ TEST(BandResponseFit, BandResponseFitKeepsEveryPoleInsideTheUnitCircle)
     }
 }
 
-TEST(BandResponseFit, BandResponseFitPutsTheWholeGainInTheFirstSection)
+TEST(Small_BandResponseFit, BandResponseFitPutsTheWholeGainInTheFirstSection)
 {
     for_every_target(
         [](const SushiDSP::room::BandResponse& target, double rate, const char* label)
@@ -189,7 +189,7 @@ TEST(BandResponseFit, BandResponseFitPutsTheWholeGainInTheFirstSection)
         });
 }
 
-TEST(BandResponseFit, BandResponseFitReachesADipBetweenFlatBands)
+TEST(Small_BandResponseFit, BandResponseFitReachesADipBetweenFlatBands)
 {
     // Each section has a peak, since two shelves cannot dip. See tests/nodes/room/README.md.
     const std::array<std::array<float, 6>, 3> targets = {{
@@ -216,7 +216,7 @@ TEST(BandResponseFit, BandResponseFitReachesADipBetweenFlatBands)
     }
 }
 
-TEST(BandResponseFit, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
+TEST(Small_BandResponseFit, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
 {
     // The 0.05 dB bound is the node's carry threshold; the worst measured is 0.128, at 96 kHz.
     for_every_target(
@@ -238,7 +238,7 @@ TEST(BandResponseFit, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
         });
 }
 
-TEST(BandResponseFit, BandResponseFitCostsUnderTenMillisecondsForOneHundredAndFiftyFits)
+TEST(Small_BandResponseFit, BandResponseFitCostsUnderTenMillisecondsForOneHundredAndFiftyFits)
 {
     SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
     const SushiDSP::room::BandResponse carpet =

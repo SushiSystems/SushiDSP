@@ -40,7 +40,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(TubeScreamer, ProcessPerformsNoHeapAllocation)
+TEST(Small_TubeScreamer, ProcessPerformsNoHeapAllocation)
 {
     SushiDSP::TubeScreamer node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};

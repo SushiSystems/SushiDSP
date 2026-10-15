@@ -31,14 +31,14 @@
 
 #include <cmath>
 
-TEST(MesaMark2cToneStack, SilenceGivesSilence)
+TEST(Small_MesaMark2cToneStack, SilenceGivesSilence)
 {
     SushiDSP::MesaMark2cToneStack stack(48000.0);
     stack.reset();
     EXPECT_NEAR(stack.process_sample(0.0f), 0.0f, 1e-6f);
 }
 
-TEST(MesaMark2cToneStack, BrightSwitchKeepsTheOutputFinite)
+TEST(Small_MesaMark2cToneStack, BrightSwitchKeepsTheOutputFinite)
 {
     SushiDSP::MesaMark2cToneStack stack(48000.0);
     stack.set_bright(true);

@@ -49,7 +49,7 @@ namespace
     }
 } // namespace
 
-TEST(TakeLibrary, TakeLibraryKeepsATakeAliveWhileSomethingHoldsIt)
+TEST(Small_TakeLibrary, TakeLibraryKeepsATakeAliveWhileSomethingHoldsIt)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -60,7 +60,7 @@ TEST(TakeLibrary, TakeLibraryKeepsATakeAliveWhileSomethingHoldsIt)
     EXPECT_EQ(library.reference_count(take), 1u);
 }
 
-TEST(TakeLibrary, TakeLibraryFreesATakeOnlyWhenTheLastHolderReleasesIt)
+TEST(Small_TakeLibrary, TakeLibraryFreesATakeOnlyWhenTheLastHolderReleasesIt)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -75,7 +75,7 @@ TEST(TakeLibrary, TakeLibraryFreesATakeOnlyWhenTheLastHolderReleasesIt)
     EXPECT_EQ(library.size(), 0u);
 }
 
-TEST(TakeLibrary, TakeLibraryDropsATakeNothingEverHeld)
+TEST(Small_TakeLibrary, TakeLibraryDropsATakeNothingEverHeld)
 {
     SushiDSP::TakeLibrary library;
     library.insert(std::make_unique<const SushiDSP::Take>(1u, 48000.0, 128u));
@@ -83,7 +83,7 @@ TEST(TakeLibrary, TakeLibraryDropsATakeNothingEverHeld)
     EXPECT_EQ(library.size(), 0u);
 }
 
-TEST(TakeLibrary, TakeLibraryGivesTwoHoldersOneCopyOfTheSamples)
+TEST(Small_TakeLibrary, TakeLibraryGivesTwoHoldersOneCopyOfTheSamples)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* first =
@@ -95,7 +95,7 @@ TEST(TakeLibrary, TakeLibraryGivesTwoHoldersOneCopyOfTheSamples)
     EXPECT_EQ(library.size(), 1u);
 }
 
-TEST(TakeLibrary, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
+TEST(Small_TakeLibrary, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
 {
     SushiDSP::TakeLibrary library;
     SushiDSP::RtSwapSlot<const SushiDSP::TrackTimeline> lane;
@@ -118,7 +118,7 @@ TEST(TakeLibrary, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
     EXPECT_EQ(lane.active_for_publisher()->clip(0).take->channel(0), take->channel(0));
 }
 
-TEST(TakeLibrary, TakeLibraryFreesATakeOnlyAfterEveryLaneHasBeenReclaimed)
+TEST(Small_TakeLibrary, TakeLibraryFreesATakeOnlyAfterEveryLaneHasBeenReclaimed)
 {
     SushiDSP::TakeLibrary library;
     SushiDSP::RtSwapSlot<const SushiDSP::TrackTimeline> lane;

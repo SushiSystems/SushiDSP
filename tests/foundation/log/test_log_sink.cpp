@@ -54,7 +54,7 @@ namespace
     const SushiDSP::LogCategory K_CATEGORY = SushiDSP::make_log_category("sink_test");
 } // namespace
 
-TEST(LogSink, LoggerWritesEachEnabledLineOnce)
+TEST(Small_LogSink, LoggerWritesEachEnabledLineOnce)
 {
     const auto sink = std::make_shared<CountingSink>();
     SushiDSP::Logger logger(sink, SushiDSP::LogLevel::Info);
@@ -63,7 +63,7 @@ TEST(LogSink, LoggerWritesEachEnabledLineOnce)
     EXPECT_EQ(sink->writes, 2);
 }
 
-TEST(LogSink, LoggerDiscardsLinesBelowItsMinimumLevel)
+TEST(Small_LogSink, LoggerDiscardsLinesBelowItsMinimumLevel)
 {
     const auto sink = std::make_shared<CountingSink>();
     SushiDSP::Logger logger(sink, SushiDSP::LogLevel::Warn);

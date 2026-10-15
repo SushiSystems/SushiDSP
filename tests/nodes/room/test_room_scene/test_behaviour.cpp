@@ -36,14 +36,14 @@
 #include <SushiDSP/nodes/room/built_room_loss.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>
 
-TEST(RoomScene, RoomSceneComputesTheGaragesVolumeAndArea)
+TEST(Small_RoomScene, RoomSceneComputesTheGaragesVolumeAndArea)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     EXPECT_NEAR(garage.volume_m3(), 60.0, 1e-9);
     EXPECT_NEAR(garage.surface_area_m2(), 98.0, 1e-9);
 }
 
-TEST(RoomScene, RoomSceneWeightsAPatchByItsArea)
+TEST(Small_RoomScene, RoomSceneWeightsAPatchByItsArea)
 {
     // 92 m2 of concrete and 6 m2 of doorway over 98 m2. See tests/nodes/room/test_room_scene/README.md.
     const std::array<double, 6> absorption = SushiDSP::test::garage_scene().mean_absorption();
@@ -51,13 +51,13 @@ TEST(RoomScene, RoomSceneWeightsAPatchByItsArea)
     EXPECT_NEAR(absorption[2], 0.080000, 1e-6);
 }
 
-TEST(RoomScene, RoomSceneComputesTheBedroomsWeightedAbsorption)
+TEST(Small_RoomScene, RoomSceneComputesTheBedroomsWeightedAbsorption)
 {
     // At 500 Hz the bedroom's mean absorption is 0.071716. See tests/nodes/room/test_room_scene/README.md.
     EXPECT_NEAR(SushiDSP::test::bedroom_scene().mean_absorption()[2], 0.071716, 1e-6);
 }
 
-TEST(RoomScene, RoomSceneRefusesADimensionOutsideItsBounds)
+TEST(Small_RoomScene, RoomSceneRefusesADimensionOutsideItsBounds)
 {
     using SushiDSP::room::RoomScene;
 
@@ -78,7 +78,7 @@ TEST(RoomScene, RoomSceneRefusesADimensionOutsideItsBounds)
     EXPECT_NE(reason.find("12"), std::string::npos);
 }
 
-TEST(RoomScene, RoomSceneRefusesAPoseOutsideTheRoom)
+TEST(Small_RoomScene, RoomSceneRefusesAPoseOutsideTheRoom)
 {
     using SushiDSP::room::RoomScene;
 
@@ -97,7 +97,7 @@ TEST(RoomScene, RoomSceneRefusesAPoseOutsideTheRoom)
     EXPECT_NE(reason.find('x'), std::string::npos);
 }
 
-TEST(RoomScene, RoomSceneRefusesAPatchLargerThanItsFace)
+TEST(Small_RoomScene, RoomSceneRefusesAPatchLargerThanItsFace)
 {
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::RoomScene;
@@ -111,7 +111,7 @@ TEST(RoomScene, RoomSceneRefusesAPatchLargerThanItsFace)
     EXPECT_NE(reason.find("10"), std::string::npos);
 }
 
-TEST(RoomScene, RoomSceneAcceptsEveryReferenceRoom)
+TEST(Small_RoomScene, RoomSceneAcceptsEveryReferenceRoom)
 {
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::RoomScene;
@@ -155,7 +155,7 @@ TEST(RoomScene, RoomSceneAcceptsEveryReferenceRoom)
     EXPECT_NEAR(small_concrete.min_mean_absorption(), 0.005816, 1e-6);
 }
 
-TEST(RoomScene, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
+TEST(Small_RoomScene, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
 {
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::RoomScene;
@@ -196,7 +196,7 @@ TEST(RoomScene, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
     EXPECT_LT(shoebox.min_mean_absorption(), over.min_mean_absorption());
 }
 
-TEST(RoomScene, RoomSceneSumsItsFurnishingAreaByQuantity)
+TEST(Small_RoomScene, RoomSceneSumsItsFurnishingAreaByQuantity)
 {
     using SushiDSP::room::furniture;
     using SushiDSP::room::FurnitureId;
@@ -217,7 +217,7 @@ TEST(RoomScene, RoomSceneSumsItsFurnishingAreaByQuantity)
     }
 }
 
-TEST(RoomScene, RoomSceneWithoutFurnishingsHasNoFurnishingArea)
+TEST(Small_RoomScene, RoomSceneWithoutFurnishingsHasNoFurnishingArea)
 {
     const std::array<double, 6> area = SushiDSP::test::garage_scene().furnishing_absorption_area();
     for (std::size_t band = 0; band < area.size(); ++band)
@@ -226,7 +226,7 @@ TEST(RoomScene, RoomSceneWithoutFurnishingsHasNoFurnishingArea)
     }
 }
 
-TEST(RoomScene, RoomSceneRefusesABadFurnishing)
+TEST(Small_RoomScene, RoomSceneRefusesABadFurnishing)
 {
     using SushiDSP::room::FurnitureId;
     using SushiDSP::room::RoomScene;
@@ -259,7 +259,7 @@ TEST(RoomScene, RoomSceneRefusesABadFurnishing)
     EXPECT_NE(reason.find("16"), std::string::npos) << reason;
 }
 
-TEST(RoomScene, RoomSceneCountsFurnitureTowardTheDecayBound)
+TEST(Small_RoomScene, RoomSceneCountsFurnitureTowardTheDecayBound)
 {
     using SushiDSP::room::FurnitureId;
     using SushiDSP::room::MaterialId;
@@ -277,7 +277,7 @@ TEST(RoomScene, RoomSceneCountsFurnitureTowardTheDecayBound)
     EXPECT_TRUE(cube.is_valid(reason)) << reason;
 }
 
-TEST(RoomScene, RoomSceneKeepsItsAbsorptionWhenFurnished)
+TEST(Small_RoomScene, RoomSceneKeepsItsAbsorptionWhenFurnished)
 {
     using SushiDSP::room::FurnitureId;
     using SushiDSP::room::RoomScene;
@@ -295,7 +295,7 @@ TEST(RoomScene, RoomSceneKeepsItsAbsorptionWhenFurnished)
     }
 }
 
-TEST(RoomScene, RoomSceneRefusesPatchesThatTogetherOverfillAFace)
+TEST(Small_RoomScene, RoomSceneRefusesPatchesThatTogetherOverfillAFace)
 {
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::RoomScene;
@@ -313,7 +313,7 @@ TEST(RoomScene, RoomSceneRefusesPatchesThatTogetherOverfillAFace)
     EXPECT_TRUE(garage.is_valid(reason)) << reason;
 }
 
-TEST(RoomScene, RoomSceneRefusesABadPatchAreaAndTooManyPatches)
+TEST(Small_RoomScene, RoomSceneRefusesABadPatchAreaAndTooManyPatches)
 {
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::RoomScene;
@@ -336,7 +336,7 @@ TEST(RoomScene, RoomSceneRefusesABadPatchAreaAndTooManyPatches)
     EXPECT_NE(reason.find("patches"), std::string::npos);
 }
 
-TEST(RoomScene, RoomSceneAddsTheBuiltRoomLossToEveryFaceWhenSet)
+TEST(Small_RoomScene, RoomSceneAddsTheBuiltRoomLossToEveryFaceWhenSet)
 {
     SushiDSP::room::RoomScene plain;
     SushiDSP::room::RoomScene built = plain;
@@ -355,7 +355,7 @@ TEST(RoomScene, RoomSceneAddsTheBuiltRoomLossToEveryFaceWhenSet)
     }
 }
 
-TEST(RoomScene, RoomSceneCapsTheBuiltRoomLossAtFullAbsorption)
+TEST(Small_RoomScene, RoomSceneCapsTheBuiltRoomLossAtFullAbsorption)
 {
     SushiDSP::room::RoomScene scene;
     scene.surfaces.fill(SushiDSP::room::MaterialId::OpenDoorway);

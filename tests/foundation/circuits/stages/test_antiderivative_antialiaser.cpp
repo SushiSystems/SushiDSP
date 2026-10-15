@@ -44,7 +44,7 @@ namespace
     }
 } // namespace
 
-TEST(AntiderivativeAntialiaser, OutputStaysFiniteAndInsideThePlateSwing)
+TEST(Small_AntiderivativeAntialiaser, OutputStaysFiniteAndInsideThePlateSwing)
 {
     SushiDSP::AntiderivativeAntialiaser stage = make_stage();
     for (int i = -50; i <= 50; ++i)
@@ -56,7 +56,7 @@ TEST(AntiderivativeAntialiaser, OutputStaysFiniteAndInsideThePlateSwing)
     }
 }
 
-TEST(AntiderivativeAntialiaser, ResetMakesTheNextSampleAFreshTransfer)
+TEST(Small_AntiderivativeAntialiaser, ResetMakesTheNextSampleAFreshTransfer)
 {
     SushiDSP::AntiderivativeAntialiaser fresh = make_stage();
     const float first = fresh.process(1.0f);
@@ -68,7 +68,7 @@ TEST(AntiderivativeAntialiaser, ResetMakesTheNextSampleAFreshTransfer)
     EXPECT_FLOAT_EQ(used.process(1.0f), first);
 }
 
-TEST(AntiderivativeAntialiaser, RepeatedExcursionGivesTheSameOutput)
+TEST(Small_AntiderivativeAntialiaser, RepeatedExcursionGivesTheSameOutput)
 {
     SushiDSP::AntiderivativeAntialiaser stage = make_stage();
     const float a = stage.process(0.75f);

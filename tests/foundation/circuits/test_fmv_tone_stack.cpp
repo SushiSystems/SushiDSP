@@ -76,7 +76,7 @@ namespace
     }
 } // namespace
 
-TEST(FmvToneStack, FmvToneStackMatchesSpiceMidSweepWithinFiveHundredthsOfADecibel)
+TEST(Medium_FmvToneStack, FmvToneStackMatchesSpiceMidSweepWithinFiveHundredthsOfADecibel)
 {
     const auto sweep = SushiDSP::measure::load_ac_csv(spice_path("jcm_fmv", "ac"));
     const float mid_positions[3] = {0.1f, 0.5f, 0.9f};
@@ -101,7 +101,7 @@ TEST(FmvToneStack, FmvToneStackMatchesSpiceMidSweepWithinFiveHundredthsOfADecibe
     }
 }
 
-TEST(FmvToneStack, FmvToneStackMidScoopDeepensAsMiddleCloses)
+TEST(Medium_FmvToneStack, FmvToneStackMidScoopDeepensAsMiddleCloses)
 {
     SushiDSP::FmvToneStack open(48000.0, SushiDSP::K_JCM2203_TONE_STACK);
     SushiDSP::FmvToneStack closed(48000.0, SushiDSP::K_JCM2203_TONE_STACK);
@@ -111,7 +111,7 @@ TEST(FmvToneStack, FmvToneStackMidScoopDeepensAsMiddleCloses)
               steady_gain_db(open, 48000.0, 1000.0) - 6.0f);
 }
 
-TEST(FmvToneStack, FmvToneStackAtEveryKnobZeroIsFiniteAndQuiet)
+TEST(Medium_FmvToneStack, FmvToneStackAtEveryKnobZeroIsFiniteAndQuiet)
 {
     SushiDSP::FmvToneStack stack(48000.0, SushiDSP::K_JCM2203_TONE_STACK);
     stack.set_bass(0.0f);
@@ -128,7 +128,7 @@ TEST(FmvToneStack, FmvToneStackAtEveryKnobZeroIsFiniteAndQuiet)
     EXPECT_LT(20.0f * std::log10(std::max(peak, 1e-12f)), -60.0f);
 }
 
-TEST(FmvToneStack, FmvToneStackIsStableAtEveryKnobExtreme)
+TEST(Medium_FmvToneStack, FmvToneStackIsStableAtEveryKnobExtreme)
 {
     const float positions[2] = {0.0f, 1.0f};
     for (float b : positions)
@@ -204,7 +204,7 @@ namespace
     }
 } // namespace
 
-TEST(FmvToneStack, FmvToneStackNetlistReproducesTheClosedFormItReplaced)
+TEST(Medium_FmvToneStack, FmvToneStackNetlistReproducesTheClosedFormItReplaced)
 {
     // 192 kHz keeps bilinear warping inside the tolerance. See tests/foundation/circuits/README.md.
     const double sample_rate = 192000.0;
@@ -237,7 +237,7 @@ TEST(FmvToneStack, FmvToneStackNetlistReproducesTheClosedFormItReplaced)
     }
 }
 
-TEST(FmvToneStack, FmvToneStackLoadingCostIsTheDecksOwnAndNotOneFigure)
+TEST(Medium_FmvToneStack, FmvToneStackLoadingCostIsTheDecksOwnAndNotOneFigure)
 {
     // The same termination costs each deck a different tilt. See tests/foundation/circuits/README.md.
     const double sample_rate = 192000.0;

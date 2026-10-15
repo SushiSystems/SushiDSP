@@ -31,14 +31,14 @@
 
 #include <vector>
 
-TEST(Ir, DefaultIsEmptyWithNoSampleRate)
+TEST(Small_Ir, DefaultIsEmptyWithNoSampleRate)
 {
     const SushiDSP::Ir ir;
     EXPECT_TRUE(ir.samples.empty());
     EXPECT_EQ(ir.sample_rate, 0.0);
 }
 
-TEST(Ir, HoldsTheSamplesAndRateItWasGiven)
+TEST(Small_Ir, HoldsTheSamplesAndRateItWasGiven)
 {
     SushiDSP::Ir ir;
     ir.samples = std::vector<float>{1.0f, 0.25f, -0.5f};

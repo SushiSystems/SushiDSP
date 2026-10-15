@@ -186,7 +186,7 @@ namespace
     }
 } // namespace
 
-TEST(TrackPlayer, TrackPlayerUnityTrackReproducesItsTakeSampleForSample)
+TEST(Small_TrackPlayer, TrackPlayerUnityTrackReproducesItsTakeSampleForSample)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -210,7 +210,7 @@ TEST(TrackPlayer, TrackPlayerUnityTrackReproducesItsTakeSampleForSample)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerMutedTrackContributesNothing)
+TEST(Small_TrackPlayer, TrackPlayerMutedTrackContributesNothing)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -228,7 +228,7 @@ TEST(TrackPlayer, TrackPlayerMutedTrackContributesNothing)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerSoloSilencesTheOtherTracks)
+TEST(Small_TrackPlayer, TrackPlayerSoloSilencesTheOtherTracks)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -248,7 +248,7 @@ TEST(TrackPlayer, TrackPlayerSoloSilencesTheOtherTracks)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerTwoTracksSum)
+TEST(Small_TrackPlayer, TrackPlayerTwoTracksSum)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -267,7 +267,7 @@ TEST(TrackPlayer, TrackPlayerTwoTracksSum)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerPanLawMatchesPanNodeWithinAHundredthOfADecibel)
+TEST(Small_TrackPlayer, TrackPlayerPanLawMatchesPanNodeWithinAHundredthOfADecibel)
 {
     for (int step = 0; step < 9; ++step)
     {
@@ -298,7 +298,7 @@ TEST(TrackPlayer, TrackPlayerPanLawMatchesPanNodeWithinAHundredthOfADecibel)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerMonoOutputIgnoresPan)
+TEST(Small_TrackPlayer, TrackPlayerMonoOutputIgnoresPan)
 {
     for (int step = 0; step < 9; ++step)
     {
@@ -322,7 +322,7 @@ TEST(TrackPlayer, TrackPlayerMonoOutputIgnoresPan)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerPlayingPastTheEndYieldsSilence)
+TEST(Small_TrackPlayer, TrackPlayerPlayingPastTheEndYieldsSilence)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -351,7 +351,7 @@ TEST(TrackPlayer, TrackPlayerPlayingPastTheEndYieldsSilence)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerLoopWrapsAtExactlyTheLoopEnd)
+TEST(Small_TrackPlayer, TrackPlayerLoopWrapsAtExactlyTheLoopEnd)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -378,7 +378,7 @@ TEST(TrackPlayer, TrackPlayerLoopWrapsAtExactlyTheLoopEnd)
     }
 }
 
-TEST(TrackPlayer, TransportAdvanceWrapsAtTheLoopEnd)
+TEST(Small_TrackPlayer, TransportAdvanceWrapsAtTheLoopEnd)
 {
     SushiDSP::Transport transport;
     transport.set_loop(10, 50);
@@ -396,7 +396,7 @@ TEST(TrackPlayer, TransportAdvanceWrapsAtTheLoopEnd)
     EXPECT_EQ(transport.position_frames(), 115u);
 }
 
-TEST(TrackPlayer, TransportStateAndPositionRoundTrip)
+TEST(Small_TrackPlayer, TransportStateAndPositionRoundTrip)
 {
     SushiDSP::Transport transport;
     EXPECT_EQ(transport.state(), SushiDSP::TransportState::Stopped);
@@ -434,7 +434,7 @@ TEST(TrackPlayer, TransportStateAndPositionRoundTrip)
     EXPECT_EQ(transport.loop_end_frames(), 0x1'0000'0000ull);
 }
 
-TEST(TrackPlayer, TrackPlayerPlaysAClipAtItsStartFrame)
+TEST(Small_TrackPlayer, TrackPlayerPlaysAClipAtItsStartFrame)
 {
     for (std::uint64_t start : {std::uint64_t{0}, std::uint64_t{12345}, std::uint64_t{1000000}})
     {
@@ -462,7 +462,7 @@ TEST(TrackPlayer, TrackPlayerPlaysAClipAtItsStartFrame)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerPlaysTwoClipsOnOneLane)
+TEST(Small_TrackPlayer, TrackPlayerPlaysTwoClipsOnOneLane)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -486,7 +486,7 @@ TEST(TrackPlayer, TrackPlayerPlaysTwoClipsOnOneLane)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerIsSilentBetweenClips)
+TEST(Small_TrackPlayer, TrackPlayerIsSilentBetweenClips)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -524,7 +524,7 @@ TEST(TrackPlayer, TrackPlayerIsSilentBetweenClips)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerFadesAClipEdge)
+TEST(Small_TrackPlayer, TrackPlayerFadesAClipEdge)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -556,7 +556,7 @@ TEST(TrackPlayer, TrackPlayerFadesAClipEdge)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
+TEST(Small_TrackPlayer, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -580,7 +580,7 @@ TEST(TrackPlayer, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
     }
 }
 
-TEST(TrackPlayer, TrackPlayerAtHalfSpeedDropsAnOctave)
+TEST(Small_TrackPlayer, TrackPlayerAtHalfSpeedDropsAnOctave)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -611,7 +611,7 @@ TEST(TrackPlayer, TrackPlayerAtHalfSpeedDropsAnOctave)
     EXPECT_NEAR(peak, 1.0, 0.01);
 }
 
-TEST(TrackPlayer, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
+TEST(Small_TrackPlayer, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -635,7 +635,7 @@ TEST(TrackPlayer, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
     EXPECT_EQ(player.takes().size(), 0u);
 }
 
-TEST(TrackPlayer, TrackPlayerFreesATakeOnceBothLanesUsingItAreCleared)
+TEST(Small_TrackPlayer, TrackPlayerFreesATakeOnceBothLanesUsingItAreCleared)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
@@ -663,7 +663,7 @@ TEST(TrackPlayer, TrackPlayerFreesATakeOnceBothLanesUsingItAreCleared)
     EXPECT_EQ(player.takes().size(), 0u);
 }
 
-TEST(TrackPlayer, TrackPlayerRendersOneLaneAloneBeforeItsFader)
+TEST(Small_TrackPlayer, TrackPlayerRendersOneLaneAloneBeforeItsFader)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
@@ -692,7 +692,7 @@ TEST(TrackPlayer, TrackPlayerRendersOneLaneAloneBeforeItsFader)
     EXPECT_FLOAT_EQ(left[0], 0.0f);
 }
 
-TEST(TrackPlayer, ProcessPerformsNoHeapAllocation)
+TEST(Small_TrackPlayer, ProcessPerformsNoHeapAllocation)
 {
     // Timelines and converters exist before the trap opens. See tests/nodes/capture/README.md.
     SushiDSP::TrackPlayer player;
@@ -755,7 +755,7 @@ TEST(TrackPlayer, ProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(TrackPlayer, TimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
+TEST(Small_TrackPlayer, TimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
 {
     // The trap covers the pick-up of a changed lane. See tests/nodes/capture/README.md.
     SushiDSP::TrackPlayer player;

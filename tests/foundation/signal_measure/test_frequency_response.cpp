@@ -221,7 +221,7 @@ namespace
     };
 } // namespace
 
-TEST(FrequencyResponse, IdentityIsFlat)
+TEST(Small_FrequencyResponse, IdentityIsFlat)
 {
     GainNode node(1.0f);
     const std::vector<SushiDSP::measure::ResponsePoint> response =
@@ -233,7 +233,7 @@ TEST(FrequencyResponse, IdentityIsFlat)
     }
 }
 
-TEST(FrequencyResponse, HalfGainReadsAsMinusSixDecibels)
+TEST(Small_FrequencyResponse, HalfGainReadsAsMinusSixDecibels)
 {
     GainNode node(0.5f);
     const std::vector<SushiDSP::measure::ResponsePoint> points =
@@ -242,7 +242,7 @@ TEST(FrequencyResponse, HalfGainReadsAsMinusSixDecibels)
     EXPECT_NEAR(points[0].magnitude_db, 20.0 * std::log10(0.5), 0.5);
 }
 
-TEST(FrequencyResponse, TracksAOnePoleLowpass)
+TEST(Small_FrequencyResponse, TracksAOnePoleLowpass)
 {
     OnePoleNode node;
     const std::vector<SushiDSP::measure::ResponsePoint> response =
@@ -253,7 +253,7 @@ TEST(FrequencyResponse, TracksAOnePoleLowpass)
     EXPECT_NEAR(response[1].magnitude_db, -19.415, 0.1);
 }
 
-TEST(FrequencyResponse, IsAccurateAtTheBottomOfTheAudioBand)
+TEST(Small_FrequencyResponse, IsAccurateAtTheBottomOfTheAudioBand)
 {
     // The sweep starts at 5 Hz, two octaves below the band. See tests/foundation/signal_measure/README.md.
     constexpr double K_RUN_RATE = 192000.0;

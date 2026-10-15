@@ -112,7 +112,7 @@ namespace
     }
 } // namespace
 
-TEST(CabinetSectionWiring, CabinetSectionNeedsFollowTheMicrophonesAndTheDiChoice)
+TEST(Small_CabinetSectionWiring, CabinetSectionNeedsFollowTheMicrophonesAndTheDiChoice)
 {
     const std::vector<MicrophoneWire> none;
     const std::vector<MicrophoneWire> close{{20, 40, false}};
@@ -137,7 +137,7 @@ TEST(CabinetSectionWiring, CabinetSectionNeedsFollowTheMicrophonesAndTheDiChoice
     EXPECT_FALSE(before.master_bus);
 }
 
-TEST(CabinetSectionWiring, CabinetSectionWiresOneCabinetAndTheListenerWithNoMicrophone)
+TEST(Small_CabinetSectionWiring, CabinetSectionWiresOneCabinetAndTheListenerWithNoMicrophone)
 {
     CabinetSectionRequest request = base_request();
     request.chain_edges = {{30, K_JOIN}};
@@ -156,7 +156,7 @@ TEST(CabinetSectionWiring, CabinetSectionWiresOneCabinetAndTheListenerWithNoMicr
     EXPECT_TRUE(wiring.bus_feeders.empty());
 }
 
-TEST(CabinetSectionWiring, CabinetSectionFeedsTheRoomOneSourcePerPathInOrder)
+TEST(Small_CabinetSectionWiring, CabinetSectionFeedsTheRoomOneSourcePerPathInOrder)
 {
     CabinetSectionRequest request = base_request();
     request.sources = {10, 11, 12};
@@ -174,7 +174,7 @@ TEST(CabinetSectionWiring, CabinetSectionFeedsTheRoomOneSourcePerPathInOrder)
     EXPECT_EQ(into_room, (std::vector<Slot>{10, 11, 12}));
 }
 
-TEST(CabinetSectionWiring, CabinetSectionGivesEachMicrophoneItsPortItsStripAndTheBus)
+TEST(Small_CabinetSectionWiring, CabinetSectionGivesEachMicrophoneItsPortItsStripAndTheBus)
 {
     CabinetSectionRequest request = base_request();
     request.sources = {K_JOIN};
@@ -193,7 +193,7 @@ TEST(CabinetSectionWiring, CabinetSectionGivesEachMicrophoneItsPortItsStripAndTh
     EXPECT_EQ(wiring.amp_bus_feeders, (std::vector<Slot>{K_JOIN, K_BUS, K_LISTENER}));
 }
 
-TEST(CabinetSectionWiring, CabinetSectionSumsRoomMicrophonesOnTheRoomStrip)
+TEST(Small_CabinetSectionWiring, CabinetSectionSumsRoomMicrophonesOnTheRoomStrip)
 {
     CabinetSectionRequest request = base_request();
     request.sources = {K_JOIN};
@@ -210,7 +210,7 @@ TEST(CabinetSectionWiring, CabinetSectionSumsRoomMicrophonesOnTheRoomStrip)
     EXPECT_EQ(wiring.bus_feeders, (std::vector<Slot>{41, 42, K_ROOM_STRIP}));
 }
 
-TEST(CabinetSectionWiring, CabinetSectionNeverGivesANodeMoreThanEightInputs)
+TEST(Small_CabinetSectionWiring, CabinetSectionNeverGivesANodeMoreThanEightInputs)
 {
     for (std::uint32_t room_count = 0; room_count <= 8; ++room_count)
     {
@@ -228,7 +228,7 @@ TEST(CabinetSectionWiring, CabinetSectionNeverGivesANodeMoreThanEightInputs)
     }
 }
 
-TEST(CabinetSectionWiring, CabinetSectionPutsThePostStageAfterTheAmpBus)
+TEST(Small_CabinetSectionWiring, CabinetSectionPutsThePostStageAfterTheAmpBus)
 {
     CabinetSectionRequest request = base_request();
     request.sources = {K_JOIN};
@@ -242,7 +242,7 @@ TEST(CabinetSectionWiring, CabinetSectionPutsThePostStageAfterTheAmpBus)
     EXPECT_FALSE(has_edge(wiring, K_AMP_BUS, K_MASTER_STRIP));
 }
 
-TEST(CabinetSectionWiring, CabinetSectionJoinsTheDiBeforeOrAfterTheEffects)
+TEST(Small_CabinetSectionWiring, CabinetSectionJoinsTheDiBeforeOrAfterTheEffects)
 {
     CabinetSectionRequest before = base_request();
     before.post = {50};
@@ -267,7 +267,7 @@ TEST(CabinetSectionWiring, CabinetSectionJoinsTheDiBeforeOrAfterTheEffects)
     EXPECT_EQ(late.master_bus_feeders, (std::vector<Slot>{50, K_DI_STRIP}));
 }
 
-TEST(CabinetSectionWiring, MixerModelListsTheStripsInDrawingOrderWithTheirFlags)
+TEST(Small_CabinetSectionWiring, MixerModelListsTheStripsInDrawingOrderWithTheirFlags)
 {
     HiddenSlots slots;
     slots.room = K_ROOM;
@@ -326,12 +326,12 @@ TEST(CabinetSectionWiring, MixerModelListsTheStripsInDrawingOrderWithTheirFlags)
     EXPECT_FALSE(strips[7].flags.has_value());
 }
 
-TEST(CabinetSectionWiring, MixerModelIsEmptyForARigWithNoCabinetSection)
+TEST(Small_CabinetSectionWiring, MixerModelIsEmptyForARigWithNoCabinetSection)
 {
     EXPECT_TRUE(ui::mixer_strips(HiddenSlots{}).empty());
 }
 
-TEST(CabinetSectionWiring, JoinContentNamesTheStripByWhetherACabinetFeedsIt)
+TEST(Small_CabinetSectionWiring, JoinContentNamesTheStripByWhetherACabinetFeedsIt)
 {
     EXPECT_EQ(join_content_of(1, 1), JoinContent::Cabinets);
     EXPECT_EQ(join_content_of(3, 3), JoinContent::Cabinets);

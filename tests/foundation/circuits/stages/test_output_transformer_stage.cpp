@@ -37,7 +37,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(OutputTransformerStage, OutputTransformerStageBlocksDc)
+TEST(Small_OutputTransformerStage, OutputTransformerStageBlocksDc)
 {
     SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);
 
@@ -50,7 +50,7 @@ TEST(OutputTransformerStage, OutputTransformerStageBlocksDc)
     EXPECT_NEAR(output, 0.0f, 1e-2f);
 }
 
-TEST(OutputTransformerStage, OutputTransformerStageSecondaryCarriesNoMean)
+TEST(Small_OutputTransformerStage, OutputTransformerStageSecondaryCarriesNoMean)
 {
     // A transformer's secondary passes no mean. See tests/foundation/circuits/stages/README.md.
     SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);
@@ -72,7 +72,7 @@ TEST(OutputTransformerStage, OutputTransformerStageSecondaryCarriesNoMean)
     EXPECT_LT(std::abs(sum / static_cast<double>(counted)), 1e-3);
 }
 
-TEST(OutputTransformerStage, OutputTransformerStageSaturatesLargeSignalsToFiniteOutput)
+TEST(Small_OutputTransformerStage, OutputTransformerStageSaturatesLargeSignalsToFiniteOutput)
 {
     SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);
 
@@ -94,7 +94,7 @@ TEST(OutputTransformerStage, OutputTransformerStageSaturatesLargeSignalsToFinite
     EXPECT_LT(max_output, 1.0f / 0.3f + 1.0f);
 }
 
-TEST(OutputTransformerStage, OutputTransformerStageResetClearsFilterState)
+TEST(Small_OutputTransformerStage, OutputTransformerStageResetClearsFilterState)
 {
     SushiDSP::OutputTransformerStage stage_a(48000.0, 60.0f, 8000.0f, 0.3f);
     SushiDSP::OutputTransformerStage stage_b(48000.0, 60.0f, 8000.0f, 0.3f);

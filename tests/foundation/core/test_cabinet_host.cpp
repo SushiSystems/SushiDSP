@@ -56,14 +56,14 @@ namespace
     };
 } // namespace
 
-TEST(CabinetHost, RefusesAnEmptyImpulseResponse)
+TEST(Small_CabinetHost, RefusesAnEmptyImpulseResponse)
 {
     SingleSlotCabinetHost host;
     EXPECT_FALSE(host.set_cabinet(SushiDSP::Ir{}));
     EXPECT_FALSE(host.has_cabinet());
 }
 
-TEST(CabinetHost, AcceptsANonEmptyImpulseResponse)
+TEST(Small_CabinetHost, AcceptsANonEmptyImpulseResponse)
 {
     SingleSlotCabinetHost host;
     SushiDSP::Ir ir;
@@ -73,7 +73,7 @@ TEST(CabinetHost, AcceptsANonEmptyImpulseResponse)
     EXPECT_TRUE(host.has_cabinet());
 }
 
-TEST(CabinetHost, ReclaimLeavesNoCabinetLoaded)
+TEST(Small_CabinetHost, ReclaimLeavesNoCabinetLoaded)
 {
     SingleSlotCabinetHost host;
     SushiDSP::Ir ir;

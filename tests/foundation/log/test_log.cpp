@@ -44,7 +44,7 @@ namespace
         SushiDSP::make_log_category("cut_test");
 } // namespace
 
-TEST(Log, CallBelowTheCompileTimeMinimumDoesNotEvaluateItsArguments)
+TEST(Small_Log, CallBelowTheCompileTimeMinimumDoesNotEvaluateItsArguments)
 {
     const std::shared_ptr<SushiDSP::CapturingLogSink> capture =
         std::make_shared<SushiDSP::CapturingLogSink>();

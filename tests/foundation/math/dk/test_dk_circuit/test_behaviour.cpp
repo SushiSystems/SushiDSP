@@ -164,7 +164,7 @@ namespace
 
 /// @brief Tests that every DkCircuit shape D6c and D6d need compiles, prepares and steps.
 /// @see tests/foundation/math/dk/test_dk_circuit/README.md
-TEST(DkCircuit, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
+TEST(Small_DkCircuit, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
 {
     static constexpr double K_SAMPLE_RATE = 48000.0;
 
@@ -284,7 +284,7 @@ TEST(DkCircuit, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
     }
 }
 
-TEST(DkCircuit, DkCircuitRcLowpassMatchesTheBilinearTransformExactly)
+TEST(Small_DkCircuit, DkCircuitRcLowpassMatchesTheBilinearTransformExactly)
 {
     // Trapezoidal DK reproduces the bilinear transform. See tests/foundation/math/dk/test_dk_circuit/README.md.
     constexpr double K_RESISTANCE = 1000.0;
@@ -328,7 +328,7 @@ TEST(DkCircuit, DkCircuitRcLowpassMatchesTheBilinearTransformExactly)
     EXPECT_EQ(circuit.non_converged_samples(), 0u);
 }
 
-TEST(DkCircuit, DkCircuitSeriesRlcResonatesWhereTheAnalogueCircuitDoes)
+TEST(Small_DkCircuit, DkCircuitSeriesRlcResonatesWhereTheAnalogueCircuitDoes)
 {
     // The magnitude peak sits at w0*sqrt(1 - 2*zeta^2). See tests/foundation/math/dk/test_dk_circuit/README.md.
     constexpr double K_RESISTANCE = 100.0;
@@ -370,7 +370,7 @@ TEST(DkCircuit, DkCircuitSeriesRlcResonatesWhereTheAnalogueCircuitDoes)
                 0.005 * K_EXPECTED_PEAK_MAGNITUDE);
 }
 
-TEST(DkCircuit, DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation)
+TEST(Small_DkCircuit, DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation)
 {
     // The oracle is the bisected root of the diode equation. See tests/foundation/math/dk/test_dk_circuit/README.md.
     constexpr double K_SOURCE_RESISTANCE = 2200.0;
@@ -428,7 +428,7 @@ TEST(DkCircuit, DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation)
     EXPECT_LT(worst_dk_error, K_DIODE_SOLUTION_ERROR_VOLTS);
 }
 
-TEST(DkCircuit, DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhenUnchanged)
+TEST(Small_DkCircuit, DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhenUnchanged)
 {
     // The DC gain from source to wiper is the position. See tests/foundation/math/dk/test_dk_circuit/README.md.
     constexpr double K_TRACK_OHMS = 10000.0;
@@ -484,7 +484,7 @@ TEST(DkCircuit, DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhenUncha
     EXPECT_TRUE(circuit.update_matrices_if_dirty());
 }
 
-TEST(DkCircuit, DkCircuitNeverEmitsANonFiniteSampleAndCountsItsFallbacks)
+TEST(Small_DkCircuit, DkCircuitNeverEmitsANonFiniteSampleAndCountsItsFallbacks)
 {
     // One inf sample must not poison the capacitor's state. See tests/foundation/math/dk/test_dk_circuit/README.md.
     static constexpr double K_RESISTANCE = 1000.0;
@@ -551,7 +551,7 @@ TEST(DkCircuit, DkCircuitNeverEmitsANonFiniteSampleAndCountsItsFallbacks)
     EXPECT_EQ(reference.nan_fallback_samples(), 0u);
 }
 
-TEST(DkCircuit, DkCircuitClampsItsStateUnderAnAbsurdInputAndStaysFinite)
+TEST(Small_DkCircuit, DkCircuitClampsItsStateUnderAnAbsurdInputAndStaysFinite)
 {
     // The output stays finite and the state stops at a limit. See tests/foundation/math/dk/test_dk_circuit/README.md.
     constexpr double K_RESISTANCE = 1000.0;

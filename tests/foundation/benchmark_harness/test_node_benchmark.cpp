@@ -76,7 +76,7 @@ namespace
     };
 } // namespace
 
-TEST(NodeBenchmark, NodeBenchmarkPreparesConfiguresAndProcessesOneBlockPerRepetition)
+TEST(Small_NodeBenchmark, NodeBenchmarkPreparesConfiguresAndProcessesOneBlockPerRepetition)
 {
     bool configured_after_prepare = false;
     const SushiDSP::bench::Result result = SushiDSP::bench::measure_node<RecordingNode>(

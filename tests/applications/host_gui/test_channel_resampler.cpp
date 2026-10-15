@@ -73,7 +73,7 @@ namespace
     }
 } // namespace
 
-TEST(ChannelResampler, ResampledFrameCountRoundsTheRatio)
+TEST(Small_ChannelResampler, ResampledFrameCountRoundsTheRatio)
 {
     // 9093888 frames at 44.1 kHz are 9898109 at 48 kHz. See tests/applications/host_gui/README.md.
     EXPECT_EQ(SushiDSP::host::resampled_frame_count(1000, 44100.0, 48000.0), 1088u);
@@ -81,21 +81,21 @@ TEST(ChannelResampler, ResampledFrameCountRoundsTheRatio)
     EXPECT_EQ(SushiDSP::host::resampled_frame_count(48000, 48000.0, 44100.0), 44100u);
 }
 
-TEST(ChannelResampler, ResampledFrameCountKeepsTheLengthWhenNoConversionIsAsked)
+TEST(Small_ChannelResampler, ResampledFrameCountKeepsTheLengthWhenNoConversionIsAsked)
 {
     EXPECT_EQ(SushiDSP::host::resampled_frame_count(777, 48000.0, 48000.0), 777u);
     EXPECT_EQ(SushiDSP::host::resampled_frame_count(777, 0.0, 48000.0), 777u);
     EXPECT_EQ(SushiDSP::host::resampled_frame_count(777, 48000.0, -1.0), 777u);
 }
 
-TEST(ChannelResampler, ResampleChannelsReturnsTheInputWhenTheRatesMatch)
+TEST(Small_ChannelResampler, ResampleChannelsReturnsTheInputWhenTheRatesMatch)
 {
     const std::vector<std::vector<float>> channels{sine(64, 500.0, 8000.0)};
     EXPECT_EQ(SushiDSP::host::resample_channels(channels, 48000.0, 48000.0), channels);
     EXPECT_EQ(SushiDSP::host::resample_channels(channels, 0.0, 48000.0), channels);
 }
 
-TEST(ChannelResampler, ResampleChannelsDoublesTheRateAndKeepsTheWave)
+TEST(Small_ChannelResampler, ResampleChannelsDoublesTheRateAndKeepsTheWave)
 {
     const std::vector<float> tone = sine(400, 500.0, 8000.0);
     const std::vector<std::vector<float>> channels{tone, tone};
@@ -112,7 +112,7 @@ TEST(ChannelResampler, ResampleChannelsDoublesTheRateAndKeepsTheWave)
     EXPECT_LT(worst_error(converted[0], 500.0, 16000.0, 0), 0.05);
 }
 
-TEST(ChannelResampler, ResampleChannelsAcceptsAnEmptyInput)
+TEST(Small_ChannelResampler, ResampleChannelsAcceptsAnEmptyInput)
 {
     const std::vector<std::vector<float>> nothing;
     EXPECT_TRUE(SushiDSP::host::resample_channels(nothing, 44100.0, 48000.0).empty());

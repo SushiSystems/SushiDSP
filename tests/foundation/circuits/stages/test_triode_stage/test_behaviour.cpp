@@ -129,7 +129,7 @@ namespace
         SushiDSP::Triode12AX7::K_GRID_THRESHOLD_VOLTS - K_CATHODE_BIAS;
 } // namespace
 
-TEST(TriodeStage, TriodeStageIsDcStableForConstantInput)
+TEST(Small_TriodeStage, TriodeStageIsDcStableForConstantInput)
 {
     SushiDSP::TriodeStage stage = make_stage();
 
@@ -142,13 +142,13 @@ TEST(TriodeStage, TriodeStageIsDcStableForConstantInput)
     EXPECT_TRUE(std::isfinite(output));
 }
 
-TEST(TriodeStage, TriodeStageIsInvertingForSmallSignal)
+TEST(Small_TriodeStage, TriodeStageIsInvertingForSmallSignal)
 {
     SushiDSP::TriodeStage stage = make_stage();
     EXPECT_LT(settled_plate(stage, 0.05f), 0.0f);
 }
 
-TEST(TriodeStage, TriodeStageGridFollowsTheSourceDividerBelowTheCathode)
+TEST(Small_TriodeStage, TriodeStageGridFollowsTheSourceDividerBelowTheCathode)
 {
     // 3 V in is 2.9703 V of grid excursion. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     SushiDSP::TriodeStage stage = make_stage();
@@ -158,7 +158,7 @@ TEST(TriodeStage, TriodeStageGridFollowsTheSourceDividerBelowTheCathode)
                 1e-3f);
 }
 
-TEST(TriodeStage, TriodeStageGridConductsOnTheNormanLaw)
+TEST(Small_TriodeStage, TriodeStageGridConductsOnTheNormanLaw)
 {
     // The root is checked against an independent bisection. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     for (float input_voltage : {0.1f, 1.5f, 3.0f, 8.0f})
@@ -171,7 +171,7 @@ TEST(TriodeStage, TriodeStageGridConductsOnTheNormanLaw)
     }
 }
 
-TEST(TriodeStage, TriodeStageResetReturnsToCathodeBiasWarmStart)
+TEST(Small_TriodeStage, TriodeStageResetReturnsToCathodeBiasWarmStart)
 {
     SushiDSP::TriodeStage stage_a = make_stage();
     SushiDSP::TriodeStage stage_b = make_stage();
@@ -182,7 +182,7 @@ TEST(TriodeStage, TriodeStageResetReturnsToCathodeBiasWarmStart)
     EXPECT_NEAR(stage_a.process_sample(0.01f), stage_b.process_sample(0.01f), 1e-4f);
 }
 
-TEST(TriodeStage, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
+TEST(Small_TriodeStage, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
 {
     SushiDSP::TriodeStage stage = make_stage();
     float positive_peak = 0.0f;
@@ -202,7 +202,7 @@ TEST(TriodeStage, TriodeStagePlateSwingBoundsBothSidesAsymmetrically)
     EXPECT_GT(negative_peak, -K_SWING.headroom_to_bottom_volts);
 }
 
-TEST(TriodeStage, TriodeStageCutoffIsThePlateCeiling)
+TEST(Small_TriodeStage, TriodeStageCutoffIsThePlateCeiling)
 {
     // No solver fence holds the grid short of the ceiling. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     SushiDSP::TriodeStage v5a(671730.0f, 1000000.0f, -2.0f, 25.3f,
@@ -212,7 +212,7 @@ TEST(TriodeStage, TriodeStageCutoffIsThePlateCeiling)
     EXPECT_LE(settled_plate(v5a, -30.0f), 90.742f);
 }
 
-TEST(TriodeStage, TriodeStageSmallSignalGainIsUnchangedByThePlateSwing)
+TEST(Small_TriodeStage, TriodeStageSmallSignalGainIsUnchangedByThePlateSwing)
 {
     SushiDSP::TriodeStage stage = make_stage();
     float peak = 0.0f;
@@ -227,7 +227,7 @@ TEST(TriodeStage, TriodeStageSmallSignalGainIsUnchangedByThePlateSwing)
     EXPECT_NEAR(peak, 0.6f, 0.012f);
 }
 
-TEST(TriodeStage, TriodeStageReportsThePeakGridExcursionSinceReset)
+TEST(Small_TriodeStage, TriodeStageReportsThePeakGridExcursionSinceReset)
 {
     SushiDSP::TriodeStage stage = make_stage();
     EXPECT_FLOAT_EQ(stage.peak_grid_excursion_volts(), 0.0f);
@@ -240,7 +240,7 @@ TEST(TriodeStage, TriodeStageReportsThePeakGridExcursionSinceReset)
     EXPECT_FLOAT_EQ(stage.peak_grid_excursion_volts(), 0.0f);
 }
 
-TEST(TriodeStage, TriodeStageGridLawIsTheTriode12AX7Model)
+TEST(Small_TriodeStage, TriodeStageGridLawIsTheTriode12AX7Model)
 {
     // The stage's constants are read from Triode12AX7, so the two cannot drift apart.
     EXPECT_FLOAT_EQ(SushiDSP::K_TRIODE12_AX7_GRID_CONDUCTION.scale_amps,
@@ -251,7 +251,7 @@ TEST(TriodeStage, TriodeStageGridLawIsTheTriode12AX7Model)
                     static_cast<float>(SushiDSP::Triode12AX7::K_GRID_TRANSITION_VOLTS));
 }
 
-TEST(TriodeStage, AntiderivativeAntialiaserInputMapInvertsTheGridSolve)
+TEST(Small_TriodeStage, AntiderivativeAntialiaserInputMapInvertsTheGridSolve)
 {
     // g(u) composed with the bisected solve is the identity. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     const SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
@@ -263,7 +263,7 @@ TEST(TriodeStage, AntiderivativeAntialiaserInputMapInvertsTheGridSolve)
     }
 }
 
-TEST(TriodeStage, AntiderivativeAntialiaserAntiderivativeDifferentiatesBackToTheTransfer)
+TEST(Small_TriodeStage, AntiderivativeAntialiaserAntiderivativeDifferentiatesBackToTheTransfer)
 {
     // dG/du equals bound(-gain u) times dg/du everywhere. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     const SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
@@ -284,7 +284,7 @@ TEST(TriodeStage, AntiderivativeAntialiaserAntiderivativeDifferentiatesBackToThe
     }
 }
 
-TEST(TriodeStage, AntiderivativeAntialiaserTransferMatchesThePlateBoundBetweenKnots)
+TEST(Small_TriodeStage, AntiderivativeAntialiaserTransferMatchesThePlateBoundBetweenKnots)
 {
     // Between knots only the Hermite slope error remains. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     const SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
@@ -300,7 +300,7 @@ TEST(TriodeStage, AntiderivativeAntialiaserTransferMatchesThePlateBoundBetweenKn
     }
 }
 
-TEST(TriodeStage, AntiderivativeAntialiaserDividedDifferenceIsTheMeanOfTheCompositeTransfer)
+TEST(Small_TriodeStage, AntiderivativeAntialiaserDividedDifferenceIsTheMeanOfTheCompositeTransfer)
 {
     // The divided difference of G is the mean transfer. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     const SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
@@ -327,7 +327,7 @@ TEST(TriodeStage, AntiderivativeAntialiaserDividedDifferenceIsTheMeanOfTheCompos
     }
 }
 
-TEST(TriodeStage, AntiderivativeAntialiaserIsContinuousWhereConsecutiveSamplesNearlyCoincide)
+TEST(Small_TriodeStage, AntiderivativeAntialiaserIsContinuousWhereConsecutiveSamplesNearlyCoincide)
 {
     // Near-equal samples fall back to the midpoint transfer. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
@@ -363,7 +363,7 @@ TEST(TriodeStage, AntiderivativeAntialiaserIsContinuousWhereConsecutiveSamplesNe
     EXPECT_LT(largest_step, 4.0 * tolerance);
 }
 
-TEST(TriodeStage, AntiderivativeAntialiaserResetDropsItsPreviousSample)
+TEST(Small_TriodeStage, AntiderivativeAntialiaserResetDropsItsPreviousSample)
 {
     // The first sample after reset() is the plain transfer. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     SushiDSP::AntiderivativeAntialiaser antialiaser = make_antialiaser();
@@ -378,7 +378,7 @@ TEST(TriodeStage, AntiderivativeAntialiaserResetDropsItsPreviousSample)
     EXPECT_NEAR(antialiaser.process(second), static_cast<float>(plate_at(second)), 1e-4f);
 }
 
-TEST(TriodeStage, TriodeStageOutputIsTheAntialiaserOfItsOwnGridSolve)
+TEST(Small_TriodeStage, TriodeStageOutputIsTheAntialiaserOfItsOwnGridSolve)
 {
     // The stage's output is its antialiaser's output. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     SushiDSP::TriodeStage stage = make_stage();

@@ -31,14 +31,14 @@
 
 #include <cstdint>
 
-TEST(PairStage, IsNotLiveAfterReset)
+TEST(Small_PairStage, IsNotLiveAfterReset)
 {
     SushiDSP::Room::PairStage stage;
     stage.reset();
     EXPECT_FALSE(stage.live());
 }
 
-TEST(PairStage, AccumulatesIntoEveryChannelOfTheEarlyRenderer)
+TEST(Small_PairStage, AccumulatesIntoEveryChannelOfTheEarlyRenderer)
 {
     EXPECT_EQ(SushiDSP::Room::PairStage::K_CHANNELS,
               SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS);

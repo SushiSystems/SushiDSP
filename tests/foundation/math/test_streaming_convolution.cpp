@@ -47,7 +47,7 @@ namespace
     }
 } // namespace
 
-TEST(StreamingConvolution, StreamingConvolutionMatchesDirectFormForIrregularBlockSizes)
+TEST(Small_StreamingConvolution, StreamingConvolutionMatchesDirectFormForIrregularBlockSizes)
 {
     std::vector<float> ir(300);
     for (std::size_t i = 0; i < ir.size(); ++i)
@@ -84,14 +84,14 @@ TEST(StreamingConvolution, StreamingConvolutionMatchesDirectFormForIrregularBloc
     }
 }
 
-TEST(StreamingConvolution, StreamingConvolutionPartitionSizeFollowsSampleRate)
+TEST(Small_StreamingConvolution, StreamingConvolutionPartitionSizeFollowsSampleRate)
 {
     EXPECT_EQ(SushiDSP::StreamingConvolution::partition_size_for(44100.0), 128u);
     EXPECT_EQ(SushiDSP::StreamingConvolution::partition_size_for(48000.0), 128u);
     EXPECT_EQ(SushiDSP::StreamingConvolution::partition_size_for(96000.0), 256u);
 }
 
-TEST(StreamingConvolution, ProcessPerformsNoHeapAllocation)
+TEST(Small_StreamingConvolution, ProcessPerformsNoHeapAllocation)
 {
     const std::uint32_t partition_size = 128;
 

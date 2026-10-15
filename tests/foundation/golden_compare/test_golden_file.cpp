@@ -32,24 +32,24 @@
 #include <cmath>
 #include <vector>
 
-TEST(GoldenFile, StimulusHasOneSecondOfSamples)
+TEST(Small_GoldenFile, StimulusHasOneSecondOfSamples)
 {
     EXPECT_EQ(SushiDSP::golden::stimulus(48000.0).size(), 48000u);
     EXPECT_EQ(SushiDSP::golden::stimulus(96000.0).size(), 96000u);
 }
 
-TEST(GoldenFile, StimulusIsDeterministic)
+TEST(Small_GoldenFile, StimulusIsDeterministic)
 {
     EXPECT_EQ(SushiDSP::golden::stimulus(4800.0), SushiDSP::golden::stimulus(4800.0));
 }
 
-TEST(GoldenFile, IdenticalSignalsGiveTheFloorResidual)
+TEST(Small_GoldenFile, IdenticalSignalsGiveTheFloorResidual)
 {
     const std::vector<float> signal = SushiDSP::golden::stimulus(4800.0);
     EXPECT_EQ(SushiDSP::golden::residual_db(signal, signal), -200.0);
 }
 
-TEST(GoldenFile, HalfAmplitudeGivesMinusSixDecibels)
+TEST(Small_GoldenFile, HalfAmplitudeGivesMinusSixDecibels)
 {
     const std::vector<float> signal = SushiDSP::golden::stimulus(4800.0);
     std::vector<float> half(signal.size());
@@ -60,7 +60,7 @@ TEST(GoldenFile, HalfAmplitudeGivesMinusSixDecibels)
     EXPECT_NEAR(SushiDSP::golden::residual_db(signal, half), 10.0 * std::log10(0.25), 1e-3);
 }
 
-TEST(GoldenFile, SilentReferenceGivesTheFloorResidual)
+TEST(Small_GoldenFile, SilentReferenceGivesTheFloorResidual)
 {
     const std::vector<float> silence(100, 0.0f);
     const std::vector<float> other(100, 0.1f);

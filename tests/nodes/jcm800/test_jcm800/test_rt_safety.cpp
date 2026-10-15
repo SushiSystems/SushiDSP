@@ -40,7 +40,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Jcm800, ProcessPerformsNoHeapAllocationWithoutCabinet)
+TEST(Small_Jcm800, ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     // The per-block set_high_shelf() is pure arithmetic. See tests/nodes/jcm800/test_jcm800/README.md.
     SushiDSP::Jcm800 node;

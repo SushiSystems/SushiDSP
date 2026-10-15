@@ -32,7 +32,7 @@
 
 #include <SushiDSP/foundation/math/resampler_design.hpp>
 
-TEST(ResamplerDesign, ResamplerDesignKernelLengthHoldsTheWingThePeakAndOneGuard)
+TEST(Small_ResamplerDesign, ResamplerDesignKernelLengthHoldsTheWingThePeakAndOneGuard)
 {
     // 34 * 512 + 1 endpoint + 1 guard = 17410. See tests/foundation/math/README.md.
     EXPECT_EQ(SushiDSP::K_RESAMPLER_HALF_WIDTH_ZERO_CROSSINGS *
@@ -44,13 +44,13 @@ TEST(ResamplerDesign, ResamplerDesignKernelLengthHoldsTheWingThePeakAndOneGuard)
                   2u);
 }
 
-TEST(ResamplerDesign, ResamplerDesignCutoffSitsBetweenThePassbandEdgeAndNyquist)
+TEST(Small_ResamplerDesign, ResamplerDesignCutoffSitsBetweenThePassbandEdgeAndNyquist)
 {
     EXPECT_LT(SushiDSP::K_RESAMPLER_PASSBAND_EDGE, SushiDSP::K_RESAMPLER_CUTOFF);
     EXPECT_LT(SushiDSP::K_RESAMPLER_CUTOFF, 0.5f);
 }
 
-TEST(ResamplerDesign, ResamplerDesignStopbandMeetsTheHundredDecibelTarget)
+TEST(Small_ResamplerDesign, ResamplerDesignStopbandMeetsTheHundredDecibelTarget)
 {
     EXPECT_LE(SushiDSP::K_RESAMPLER_STOPBAND_DECIBELS, -100.0f);
 }

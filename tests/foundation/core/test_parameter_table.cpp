@@ -52,13 +52,13 @@ namespace
     }};
 } // namespace
 
-TEST(ParameterTable, CountIsTheNumberOfRows)
+TEST(Small_ParameterTable, CountIsTheNumberOfRows)
 {
     const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
     EXPECT_EQ(table.count(), 2u);
 }
 
-TEST(ParameterTable, WritesAndReadsARowByItsIdentifier)
+TEST(Small_ParameterTable, WritesAndReadsARowByItsIdentifier)
 {
     const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
     Pedal pedal;
@@ -67,7 +67,7 @@ TEST(ParameterTable, WritesAndReadsARowByItsIdentifier)
     EXPECT_FLOAT_EQ(table.read(pedal, "tone"), 0.75f);
 }
 
-TEST(ParameterTable, WritesARowByItsIndex)
+TEST(Small_ParameterTable, WritesARowByItsIndex)
 {
     const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
     Pedal pedal;
@@ -75,7 +75,7 @@ TEST(ParameterTable, WritesARowByItsIndex)
     EXPECT_FLOAT_EQ(pedal.gain, 4.0f);
 }
 
-TEST(ParameterTable, AnUnknownIdentifierChangesNothingAndReadsZero)
+TEST(Small_ParameterTable, AnUnknownIdentifierChangesNothingAndReadsZero)
 {
     const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
     Pedal pedal;
@@ -85,7 +85,7 @@ TEST(ParameterTable, AnUnknownIdentifierChangesNothingAndReadsZero)
     EXPECT_FLOAT_EQ(table.read(pedal, "missing"), 0.0f);
 }
 
-TEST(ParameterTable, DescriptorsFollowTheRowOrder)
+TEST(Small_ParameterTable, DescriptorsFollowTheRowOrder)
 {
     const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
     const SushiDSP::ParameterDescriptor* descriptors = table.descriptors();

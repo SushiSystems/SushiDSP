@@ -31,13 +31,13 @@
 
 #include <cstdint>
 
-TEST(StageLimits, ImageOrderAndItdMarginAreTheDocumentedValues)
+TEST(Small_StageLimits, ImageOrderAndItdMarginAreTheDocumentedValues)
 {
     EXPECT_EQ(SushiDSP::Room::K_IMAGE_ORDER, 4u);
     EXPECT_EQ(SushiDSP::Room::K_ITD_MARGIN_FRAMES, 128u);
 }
 
-TEST(StageLimits, EarlyDelayCeilingScalesWithTheSampleRate)
+TEST(Small_StageLimits, EarlyDelayCeilingScalesWithTheSampleRate)
 {
     const std::uint32_t at_48k = SushiDSP::Room::max_early_delay_frames(48000.0);
     const std::uint32_t at_96k = SushiDSP::Room::max_early_delay_frames(96000.0);

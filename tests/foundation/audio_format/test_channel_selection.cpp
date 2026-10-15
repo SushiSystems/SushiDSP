@@ -33,7 +33,7 @@
 #include <SushiDSP/foundation/core/rig_graph.hpp>
 #include <SushiDSP/foundation/audio_format/channel_selection.hpp>
 
-TEST(ChannelSelection, ParseChannelSelectionAcceptsLRAndStereo)
+TEST(Small_ChannelSelection, ParseChannelSelectionAcceptsLRAndStereo)
 {
     EXPECT_EQ(SushiDSP::parse_channel_selection("L", "--input"), SushiDSP::ChannelSelection::Left);
     EXPECT_EQ(SushiDSP::parse_channel_selection("l", "--input"), SushiDSP::ChannelSelection::Left);
@@ -43,25 +43,25 @@ TEST(ChannelSelection, ParseChannelSelectionAcceptsLRAndStereo)
               SushiDSP::ChannelSelection::Stereo);
 }
 
-TEST(ChannelSelection, ParseChannelSelectionRejectsGarbage)
+TEST(Small_ChannelSelection, ParseChannelSelectionRejectsGarbage)
 {
     EXPECT_THROW(SushiDSP::parse_channel_selection("banana", "--input"), std::runtime_error);
 }
 
-TEST(ChannelSelection, ChannelSelectionInputIndexMatchesLeftRight)
+TEST(Small_ChannelSelection, ChannelSelectionInputIndexMatchesLeftRight)
 {
     EXPECT_EQ(SushiDSP::channel_selection_input_index(SushiDSP::ChannelSelection::Left), 0u);
     EXPECT_EQ(SushiDSP::channel_selection_input_index(SushiDSP::ChannelSelection::Right), 1u);
 }
 
-TEST(ChannelSelection, ChannelSelectionLabelsAreHumanReadable)
+TEST(Small_ChannelSelection, ChannelSelectionLabelsAreHumanReadable)
 {
     EXPECT_STREQ(SushiDSP::channel_selection_label(SushiDSP::ChannelSelection::Left), "L");
     EXPECT_STREQ(SushiDSP::channel_selection_label(SushiDSP::ChannelSelection::Right), "R");
     EXPECT_STREQ(SushiDSP::channel_selection_label(SushiDSP::ChannelSelection::Stereo), "stereo");
 }
 
-TEST(ChannelSelection, RigOutputAdaptsToDeviceCoversTheGraphsTable)
+TEST(Small_ChannelSelection, RigOutputAdaptsToDeviceCoversTheGraphsTable)
 {
     EXPECT_TRUE(SushiDSP::rig_output_adapts_to_device(1u, 1u));
     EXPECT_TRUE(SushiDSP::rig_output_adapts_to_device(1u, 2u));
@@ -78,7 +78,7 @@ TEST(ChannelSelection, RigOutputAdaptsToDeviceCoversTheGraphsTable)
               SushiDSP::RigGraph::channels_adapt(2u, 2u));
 }
 
-TEST(ChannelSelection, RigOutputAdaptsToDeviceRefusesWidthsWithNoRule)
+TEST(Small_ChannelSelection, RigOutputAdaptsToDeviceRefusesWidthsWithNoRule)
 {
     EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(2u, 4u));
     EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(1u, 3u));
@@ -87,14 +87,14 @@ TEST(ChannelSelection, RigOutputAdaptsToDeviceRefusesWidthsWithNoRule)
     EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(0u, 0u));
 }
 
-TEST(ChannelSelection, RigOutputAdaptsToDeviceRefusesEqualWidthsTheWriterCannotWrite)
+TEST(Small_ChannelSelection, RigOutputAdaptsToDeviceRefusesEqualWidthsTheWriterCannotWrite)
 {
     EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(4u, 4u));
     EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(8u, 8u));
     EXPECT_TRUE(SushiDSP::RigGraph::channels_adapt(4u, 4u));
 }
 
-TEST(ChannelSelection, WriteRigOutputCopiesOneRigChannelToBothDeviceChannels)
+TEST(Small_ChannelSelection, WriteRigOutputCopiesOneRigChannelToBothDeviceChannels)
 {
     std::vector<float> mono{1.0f, 2.0f, 3.0f};
     const float* rig_outputs[1] = {mono.data()};
@@ -108,7 +108,7 @@ TEST(ChannelSelection, WriteRigOutputCopiesOneRigChannelToBothDeviceChannels)
     EXPECT_EQ(right, mono);
 }
 
-TEST(ChannelSelection, WriteRigOutputZeroesTheChannelTheSelectionExcludesForOneRigChannel)
+TEST(Small_ChannelSelection, WriteRigOutputZeroesTheChannelTheSelectionExcludesForOneRigChannel)
 {
     std::vector<float> mono{1.0f, 2.0f, 3.0f};
     const float* rig_outputs[1] = {mono.data()};
@@ -134,7 +134,7 @@ TEST(ChannelSelection, WriteRigOutputZeroesTheChannelTheSelectionExcludesForOneR
     EXPECT_EQ(right, mono);
 }
 
-TEST(ChannelSelection, WriteRigOutputPassesTwoRigChannelsStraightThrough)
+TEST(Small_ChannelSelection, WriteRigOutputPassesTwoRigChannelsStraightThrough)
 {
     std::vector<float> rig_left{1.0f, 2.0f, 3.0f};
     std::vector<float> rig_right{-1.0f, -2.0f, -3.0f};
@@ -149,7 +149,7 @@ TEST(ChannelSelection, WriteRigOutputPassesTwoRigChannelsStraightThrough)
     EXPECT_EQ(right, rig_right);
 }
 
-TEST(ChannelSelection, WriteRigOutputZeroesTheChannelTheSelectionExcludes)
+TEST(Small_ChannelSelection, WriteRigOutputZeroesTheChannelTheSelectionExcludes)
 {
     std::vector<float> rig_left{1.0f, 2.0f, 3.0f};
     std::vector<float> rig_right{-1.0f, -2.0f, -3.0f};
@@ -176,7 +176,7 @@ TEST(ChannelSelection, WriteRigOutputZeroesTheChannelTheSelectionExcludes)
     EXPECT_EQ(right, rig_right);
 }
 
-TEST(ChannelSelection, WriteRigOutputSumsAndHalvesTwoRigChannelsIntoAMonoDevice)
+TEST(Small_ChannelSelection, WriteRigOutputSumsAndHalvesTwoRigChannelsIntoAMonoDevice)
 {
     std::vector<float> rig_left{1.0f, 2.0f, 3.0f};
     std::vector<float> rig_right{3.0f, 0.0f, -1.0f};
@@ -192,7 +192,7 @@ TEST(ChannelSelection, WriteRigOutputSumsAndHalvesTwoRigChannelsIntoAMonoDevice)
     EXPECT_FLOAT_EQ(device[2], 1.0f);
 }
 
-TEST(ChannelSelection, WriteRigOutputIgnoresTheSelectionOnAMonoDevice)
+TEST(Small_ChannelSelection, WriteRigOutputIgnoresTheSelectionOnAMonoDevice)
 {
     std::vector<float> mono{1.0f, 2.0f, 3.0f};
     const float* rig_outputs[1] = {mono.data()};

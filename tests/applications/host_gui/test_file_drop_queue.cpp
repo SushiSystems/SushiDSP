@@ -36,7 +36,7 @@
 using SushiDSP::host::FileDrop;
 using SushiDSP::host::FileDropQueue;
 
-TEST(FileDropQueue, FileDropQueueDrainsInTheOrderPushed)
+TEST(Medium_FileDropQueue, FileDropQueueDrainsInTheOrderPushed)
 {
     FileDropQueue queue;
     queue.push("first.wav", 1.0, 2.0);
@@ -56,7 +56,7 @@ TEST(FileDropQueue, FileDropQueueDrainsInTheOrderPushed)
     EXPECT_DOUBLE_EQ(drained[2].screen_y, 6.0);
 }
 
-TEST(FileDropQueue, FileDropQueueIsEmptyAfterADrain)
+TEST(Medium_FileDropQueue, FileDropQueueIsEmptyAfterADrain)
 {
     FileDropQueue queue;
     queue.push("only.wav", 0.0, 0.0);
@@ -72,7 +72,7 @@ TEST(FileDropQueue, FileDropQueueIsEmptyAfterADrain)
     EXPECT_TRUE(second_drain.empty());
 }
 
-TEST(FileDropQueue, FileDropQueueDrainAppendsToACallerSVector)
+TEST(Medium_FileDropQueue, FileDropQueueDrainAppendsToACallerSVector)
 {
     FileDropQueue queue;
     queue.push("dropped.wav", 10.0, 20.0);
@@ -86,7 +86,7 @@ TEST(FileDropQueue, FileDropQueueDrainAppendsToACallerSVector)
     EXPECT_EQ(drained[1].path, "dropped.wav");
 }
 
-TEST(FileDropQueue, FileDropQueueSurvivesConcurrentPushAndDrain)
+TEST(Medium_FileDropQueue, FileDropQueueSurvivesConcurrentPushAndDrain)
 {
     static constexpr int K_PATH_COUNT = 1000;
     FileDropQueue queue;

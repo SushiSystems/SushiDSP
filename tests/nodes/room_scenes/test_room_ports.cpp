@@ -31,13 +31,13 @@
 
 #include <type_traits>
 
-TEST(RoomPorts, CannotBeCopied)
+TEST(Small_RoomPorts, CannotBeCopied)
 {
     EXPECT_FALSE(std::is_copy_constructible<SushiDSP::test::RoomPorts>::value);
     EXPECT_FALSE(std::is_copy_assignable<SushiDSP::test::RoomPorts>::value);
 }
 
-TEST(RoomPorts, ConstructsForAGivenBlockSize)
+TEST(Small_RoomPorts, ConstructsForAGivenBlockSize)
 {
     const SushiDSP::test::RoomPorts ports(256u);
     (void)ports;

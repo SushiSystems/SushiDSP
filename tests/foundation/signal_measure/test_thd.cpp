@@ -81,7 +81,7 @@ namespace
     };
 } // namespace
 
-TEST(Thd, PureToneHasNegligibleDistortion)
+TEST(Small_Thd, PureToneHasNegligibleDistortion)
 {
     const std::vector<float> tone = SushiDSP::measure::sine_stimulus(1000.0, 48000.0,
                                                                      SushiDSP::measure::K_FFT_SIZE, 0.5f);
@@ -89,7 +89,7 @@ TEST(Thd, PureToneHasNegligibleDistortion)
     EXPECT_LT(result.thd_percent, 0.01);
 }
 
-TEST(Thd, PureSineOnAnExactBinIsNegligible)
+TEST(Small_Thd, PureSineOnAnExactBinIsNegligible)
 {
     const double sample_rate = 48000.0;
     const double f0 =
@@ -102,7 +102,7 @@ TEST(Thd, PureSineOnAnExactBinIsNegligible)
     EXPECT_LT(result.per_harmonic_db[1], -100.0);
 }
 
-TEST(Thd, CubicMatchesAnalyticThirdHarmonic)
+TEST(Small_Thd, CubicMatchesAnalyticThirdHarmonic)
 {
     // A = 0.5: third harmonic 0.010417 / 0.46875 = 2.2222 % of the fundamental.
     const double sample_rate = 48000.0;
@@ -117,7 +117,7 @@ TEST(Thd, CubicMatchesAnalyticThirdHarmonic)
     EXPECT_NEAR(result.per_harmonic_db[2], 20.0 * std::log10(0.022222), 0.05);
 }
 
-TEST(Thd, ReportsOneEntryPerRequestedHarmonic)
+TEST(Small_Thd, ReportsOneEntryPerRequestedHarmonic)
 {
     const std::vector<float> tone = SushiDSP::measure::sine_stimulus(1000.0, 48000.0,
                                                                      SushiDSP::measure::K_FFT_SIZE, 0.5f);
@@ -126,7 +126,7 @@ TEST(Thd, ReportsOneEntryPerRequestedHarmonic)
     EXPECT_NEAR(result.per_harmonic_db[0], 0.0, 1e-9);
 }
 
-TEST(Thd, ShortSignalIsRefusedAsZero)
+TEST(Small_Thd, ShortSignalIsRefusedAsZero)
 {
     const std::vector<float> short_signal(100, 0.1f);
     const SushiDSP::measure::ThdResult result = SushiDSP::measure::thd(short_signal, 1000.0, 48000.0);

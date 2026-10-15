@@ -33,7 +33,7 @@
 
 #include "ui/level_probe.hpp"
 
-TEST(LevelProbe, LevelProbeReportsTheLargestMagnitudeIncludingNegativeSamples)
+TEST(Small_LevelProbe, LevelProbeReportsTheLargestMagnitudeIncludingNegativeSamples)
 {
     ui::LevelProbe probe;
     const float block[] = {0.1f, -0.8f, 0.3f};
@@ -42,7 +42,7 @@ TEST(LevelProbe, LevelProbeReportsTheLargestMagnitudeIncludingNegativeSamples)
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.8f);
 }
 
-TEST(LevelProbe, LevelProbeKeepsTheHighestPeakAcrossSeveralBlocks)
+TEST(Small_LevelProbe, LevelProbeKeepsTheHighestPeakAcrossSeveralBlocks)
 {
     ui::LevelProbe probe;
     const float quiet[] = {0.2f};
@@ -54,7 +54,7 @@ TEST(LevelProbe, LevelProbeKeepsTheHighestPeakAcrossSeveralBlocks)
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.9f);
 }
 
-TEST(LevelProbe, LevelProbeResetsAfterEachRead)
+TEST(Small_LevelProbe, LevelProbeResetsAfterEachRead)
 {
     ui::LevelProbe probe;
     const float block[] = {0.5f};
@@ -64,7 +64,7 @@ TEST(LevelProbe, LevelProbeResetsAfterEachRead)
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.0f);
 }
 
-TEST(LevelProbe, LevelProbeReportsZeroForAnEmptyBlock)
+TEST(Small_LevelProbe, LevelProbeReportsZeroForAnEmptyBlock)
 {
     ui::LevelProbe probe;
     probe.report(nullptr, 0);
@@ -72,7 +72,7 @@ TEST(LevelProbe, LevelProbeReportsZeroForAnEmptyBlock)
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.0f);
 }
 
-TEST(LevelProbe, ReportPerformsNoHeapAllocation)
+TEST(Small_LevelProbe, ReportPerformsNoHeapAllocation)
 {
     ui::LevelProbe probe;
     std::vector<float> block(256, 0.25f);

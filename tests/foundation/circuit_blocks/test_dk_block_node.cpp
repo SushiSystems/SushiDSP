@@ -86,7 +86,7 @@ namespace
     }
 } // namespace
 
-TEST(DkBlockNode, ReportsOneInputAndOneOutput)
+TEST(Small_DkBlockNode, ReportsOneInputAndOneOutput)
 {
     RcNode node;
     const SushiDSP::PortLayout ports = node.ports();
@@ -94,7 +94,7 @@ TEST(DkBlockNode, ReportsOneInputAndOneOutput)
     EXPECT_EQ(ports.output_channels, 1u);
 }
 
-TEST(DkBlockNode, PreparesAWellFormedBlock)
+TEST(Small_DkBlockNode, PreparesAWellFormedBlock)
 {
     RcNode node;
     build_rc_low_pass(node);
@@ -102,14 +102,14 @@ TEST(DkBlockNode, PreparesAWellFormedBlock)
     EXPECT_TRUE(node.prepared());
 }
 
-TEST(DkBlockNode, EmptyNetlistIsNotPrepared)
+TEST(Small_DkBlockNode, EmptyNetlistIsNotPrepared)
 {
     RcNode node;
     prepare(node, 64);
     EXPECT_FALSE(node.prepared());
 }
 
-TEST(DkBlockNode, LowPassSettlesOnADcInput)
+TEST(Small_DkBlockNode, LowPassSettlesOnADcInput)
 {
     RcNode node;
     build_rc_low_pass(node);
@@ -118,7 +118,7 @@ TEST(DkBlockNode, LowPassSettlesOnADcInput)
     EXPECT_NEAR(output.back(), 0.5f, 1e-4f);
 }
 
-TEST(DkBlockNode, InputScaleCancelsAcrossTheBoundary)
+TEST(Small_DkBlockNode, InputScaleCancelsAcrossTheBoundary)
 {
     RcNode node;
     build_rc_low_pass(node);
@@ -128,7 +128,7 @@ TEST(DkBlockNode, InputScaleCancelsAcrossTheBoundary)
     EXPECT_NEAR(output.back(), 0.5f, 1e-4f);
 }
 
-TEST(DkBlockNode, LowPassRemovesANyquistInput)
+TEST(Small_DkBlockNode, LowPassRemovesANyquistInput)
 {
     RcNode node;
     build_rc_low_pass(node);
@@ -147,7 +147,7 @@ TEST(DkBlockNode, LowPassRemovesANyquistInput)
     EXPECT_LT(tail_peak, 0.01f);
 }
 
-TEST(DkBlockNode, ResetReturnsTheBlockToRest)
+TEST(Small_DkBlockNode, ResetReturnsTheBlockToRest)
 {
     RcNode node;
     build_rc_low_pass(node);

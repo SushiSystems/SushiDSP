@@ -82,7 +82,7 @@ namespace
     }
 } // namespace
 
-TEST(RoomRenderSet, BuildRenderSetFillsEveryLayerForTheGarage)
+TEST(Small_RoomRenderSet, BuildRenderSetFillsEveryLayerForTheGarage)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
@@ -113,7 +113,7 @@ TEST(RoomRenderSet, BuildRenderSetFillsEveryLayerForTheGarage)
     EXPECT_EQ(set->listener, SushiDSP::room::ListenerKind::Ears);
 }
 
-TEST(RoomRenderSet, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
+TEST(Small_RoomRenderSet, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
 {
     // 2.596151 m is 363 frames and a gain of 0.385186. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
@@ -132,7 +132,7 @@ TEST(RoomRenderSet, BuildRenderSetPutsTheDirectPathAtItsPropagationDelay)
     EXPECT_NEAR(set->direct_itd_frames, 0.0, 1e-6);
 }
 
-TEST(RoomRenderSet, BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone)
+TEST(Small_RoomRenderSet, BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone)
 {
     // 0.1 m is 14 frames and a gain of 10. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
@@ -145,7 +145,7 @@ TEST(RoomRenderSet, BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone)
     EXPECT_FLOAT_EQ(set->early.taps[0].encode[0], 1.0f);
 }
 
-TEST(RoomRenderSet, BuildRenderSetRefusesAnInvalidSceneAndSaysWhy)
+TEST(Small_RoomRenderSet, BuildRenderSetRefusesAnInvalidSceneAndSaysWhy)
 {
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
     scene.dimensions.x = 15.0;
@@ -163,7 +163,7 @@ TEST(RoomRenderSet, BuildRenderSetRefusesAnInvalidSceneAndSaysWhy)
     }
 }
 
-TEST(RoomRenderSet, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
+TEST(Small_RoomRenderSet, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
 {
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     EXPECT_THROW(SushiDSP::room::build_render_set(garage, SushiDSP::room::HrtfSet(), K_SAMPLE_RATE,
@@ -174,7 +174,7 @@ TEST(RoomRenderSet, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
                  std::runtime_error);
 }
 
-TEST(RoomRenderSet, BuildRenderSetTakesTheDirectPairFromTheHrtfSet)
+TEST(Small_RoomRenderSet, BuildRenderSetTakesTheDirectPairFromTheHrtfSet)
 {
     // The interaural delay is 0.0006558 s, 31.48 frames. See tests/nodes/room/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
@@ -195,7 +195,7 @@ TEST(RoomRenderSet, BuildRenderSetTakesTheDirectPairFromTheHrtfSet)
     EXPECT_EQ(set->direct_right, pair.right);
 }
 
-TEST(RoomRenderSet, BuildRenderSetCarriesTheDiffuseFieldPair)
+TEST(Small_RoomRenderSet, BuildRenderSetCarriesTheDiffuseFieldPair)
 {
     SushiDSP::room::HrtfSet hrtf = fallback_hrtf();
     std::array<float, SushiDSP::room::HrtfSet::K_DIFFUSE_TAPS> left{};
@@ -213,7 +213,7 @@ TEST(RoomRenderSet, BuildRenderSetCarriesTheDiffuseFieldPair)
     EXPECT_EQ(set->diffuse_right, right);
 }
 
-TEST(RoomRenderSet, BuildRenderSetCostsUnderOnePublishBudget)
+TEST(Small_RoomRenderSet, BuildRenderSetCostsUnderOnePublishBudget)
 {
     SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
@@ -228,7 +228,7 @@ TEST(RoomRenderSet, BuildRenderSetCostsUnderOnePublishBudget)
         << "taps " << set->early.count << " modes " << set->modal.count;
 }
 
-TEST(RoomRenderSet, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)
+TEST(Small_RoomRenderSet, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)
 {
     // The modal field is read at the set's receiver. See tests/nodes/room/README.md.
     SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
@@ -264,7 +264,7 @@ TEST(RoomRenderSet, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)
     EXPECT_EQ(ears->modal.modes[0].section, microphone->modal.modes[0].section);
 }
 
-TEST(RoomRenderSet, RoomRenderSetIsTriviallyCopyable)
+TEST(Small_RoomRenderSet, RoomRenderSetIsTriviallyCopyable)
 {
     static_assert(std::is_trivially_copyable<SushiDSP::room::RoomRenderSet>::value,
                   "it crosses to the audio thread");

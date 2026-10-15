@@ -202,7 +202,7 @@ namespace
     }
 } // namespace
 
-TEST(LateReverb, LateReverbHadamardPreservesEnergy)
+TEST(Small_LateReverb, LateReverbHadamardPreservesEnergy)
 {
     // The normalised Hadamard matrix is orthogonal. See tests/nodes/room/README.md.
     std::array<double, K_LINES> values{};
@@ -238,7 +238,7 @@ TEST(LateReverb, LateReverbHadamardPreservesEnergy)
     }
 }
 
-TEST(LateReverb, LateReverbDecaysAtTheRateItsFiltersAsk)
+TEST(Small_LateReverb, LateReverbDecaysAtTheRateItsFiltersAsk)
 {
     const FdnDesign design = make_design(K_MID_LINES, decay_gains(K_MID_LINES, 1.0));
     LateReverb reverb;
@@ -247,7 +247,7 @@ TEST(LateReverb, LateReverbDecaysAtTheRateItsFiltersAsk)
     EXPECT_NEAR(schroeder_t60(out.left), 1.0, 0.05);
 }
 
-TEST(LateReverb, LateReverbIsSilentBeforeItsInputDelay)
+TEST(Small_LateReverb, LateReverbIsSilentBeforeItsInputDelay)
 {
     FdnDesign design = make_design(K_SHORT_LINES, uniform_gains(0.5));
     design.delay_to_crossover_frames = 1749.0f;
@@ -263,7 +263,7 @@ TEST(LateReverb, LateReverbIsSilentBeforeItsInputDelay)
     EXPECT_NE(out.left[1749 + 293], 0.0f);
 }
 
-TEST(LateReverb, LateReverbEarsDifferButShareTheirEnergy)
+TEST(Small_LateReverb, LateReverbEarsDifferButShareTheirEnergy)
 {
     const FdnDesign design = make_design(K_MID_LINES, decay_gains(K_MID_LINES, 1.0));
     LateReverb reverb;
@@ -274,7 +274,7 @@ TEST(LateReverb, LateReverbEarsDifferButShareTheirEnergy)
     EXPECT_NEAR(ratio_db, 0.0, 0.5);
 }
 
-TEST(LateReverb, LateReverbRunsBothSectionsOfEveryOutputFilter)
+TEST(Small_LateReverb, LateReverbRunsBothSectionsOfEveryOutputFilter)
 {
     // Two sections of gain 0.5 scale the output by 0.25. See tests/nodes/room/README.md.
     const FdnDesign plain = make_design(K_SHORT_LINES, uniform_gains(0.5));
@@ -301,7 +301,7 @@ TEST(LateReverb, LateReverbRunsBothSectionsOfEveryOutputFilter)
     }
 }
 
-TEST(LateReverb, LateReverbResetSilencesTheLines)
+TEST(Small_LateReverb, LateReverbResetSilencesTheLines)
 {
     const FdnDesign design = make_design(K_SHORT_LINES, uniform_gains(0.9));
     LateReverb reverb;
@@ -316,7 +316,7 @@ TEST(LateReverb, LateReverbResetSilencesTheLines)
     }
 }
 
-TEST(LateReverb, LateReverbSurvivesALineLengthChangeWithoutAClick)
+TEST(Small_LateReverb, LateReverbSurvivesALineLengthChangeWithoutAClick)
 {
     // A 50 Hz sine steps at most 0.0065 of peak per sample. See tests/nodes/room/README.md.
     constexpr std::size_t K_BLOCK = 1024;
@@ -362,7 +362,7 @@ namespace
     }
 } // namespace
 
-TEST(LateReverb, ProcessPerformsNoHeapAllocation)
+TEST(Small_LateReverb, ProcessPerformsNoHeapAllocation)
 {
     // The trapped blocks include the 512-frame crossfade. See tests/nodes/room/README.md.
     SushiDSP::room::LateReverb reverb;

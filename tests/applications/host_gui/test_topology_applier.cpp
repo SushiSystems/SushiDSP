@@ -167,7 +167,7 @@ namespace
     };
 } // namespace
 
-TEST(TopologyApplier, TopologyApplierSinglePathWiresALinearChain)
+TEST(Small_TopologyApplier, TopologyApplierSinglePathWiresALinearChain)
 {
     RigController rig(test_info());
     const SlotId a = rig.add_node("sushidsp.tubescreamer", false);
@@ -182,7 +182,7 @@ TEST(TopologyApplier, TopologyApplierSinglePathWiresALinearChain)
     EXPECT_EQ(gear_slots(rig, applier).size(), 3u);
 }
 
-TEST(TopologyApplier, TopologyApplierTwoWayAddsOneSplitterAndOneMixer)
+TEST(Small_TopologyApplier, TopologyApplierTwoWayAddsOneSplitterAndOneMixer)
 {
     RigController rig(test_info());
     const SlotId drive = rig.add_node("sushidsp.tubescreamer", false);
@@ -207,7 +207,7 @@ TEST(TopologyApplier, TopologyApplierTwoWayAddsOneSplitterAndOneMixer)
                                      {copied[1], mixer}}));
 }
 
-TEST(TopologyApplier, TopologyApplierOpeningAPathCopiesTheMainPathWithItsParameters)
+TEST(Small_TopologyApplier, TopologyApplierOpeningAPathCopiesTheMainPathWithItsParameters)
 {
     RigController rig(test_info());
     const SlotId amp = rig.append("sushidsp.jcm800");
@@ -227,7 +227,7 @@ TEST(TopologyApplier, TopologyApplierOpeningAPathCopiesTheMainPathWithItsParamet
     EXPECT_FLOAT_EQ(rig.get_parameter(amp, "preamp"), 0.9f);
 }
 
-TEST(TopologyApplier, TopologyApplierClosingAPathKeepsTheMainPathAndDropsTheCopy)
+TEST(Small_TopologyApplier, TopologyApplierClosingAPathKeepsTheMainPathAndDropsTheCopy)
 {
     RigController rig(test_info());
     const SlotId amp = rig.append("sushidsp.jcm800");
@@ -245,7 +245,7 @@ TEST(TopologyApplier, TopologyApplierClosingAPathKeepsTheMainPathAndDropsTheCopy
     EXPECT_EQ(gear_slots(rig, applier), (std::vector<SlotId>{amp}));
 }
 
-TEST(TopologyApplier, TopologyApplierDiscardedBranchSlotsAreRemovedFromTheRig)
+TEST(Small_TopologyApplier, TopologyApplierDiscardedBranchSlotsAreRemovedFromTheRig)
 {
     RigController rig(test_info());
     const SlotId branch_slot = rig.add_node("sushidsp.jcm800", false);
@@ -263,7 +263,7 @@ TEST(TopologyApplier, TopologyApplierDiscardedBranchSlotsAreRemovedFromTheRig)
     EXPECT_TRUE(rig.slot_order().empty());
 }
 
-TEST(TopologyApplier, TopologyApplierEmptyTopologiesApplyWithoutThrowing)
+TEST(Small_TopologyApplier, TopologyApplierEmptyTopologiesApplyWithoutThrowing)
 {
     RigController rig(test_info());
     RigTopology topology;
@@ -279,7 +279,7 @@ TEST(TopologyApplier, TopologyApplierEmptyTopologiesApplyWithoutThrowing)
     EXPECT_EQ(rig.edges(), (EdgeList{{splitter, mixer}}));
 }
 
-TEST(TopologyApplier, TopologyApplierLeavesThePreviousGraphWhenApplyThrows)
+TEST(Small_TopologyApplier, TopologyApplierLeavesThePreviousGraphWhenApplyThrows)
 {
     RigController rig(test_info());
     const SlotId a = rig.append("sushidsp.tubescreamer");
@@ -298,7 +298,7 @@ TEST(TopologyApplier, TopologyApplierLeavesThePreviousGraphWhenApplyThrows)
     EXPECT_EQ(rig.edges(), (EdgeList{{a, b}}));
 }
 
-TEST(TopologyApplier, TopologyApplierRollbackRestoresRemovedSlotsUnderNewIds)
+TEST(Small_TopologyApplier, TopologyApplierRollbackRestoresRemovedSlotsUnderNewIds)
 {
     RigController rig(test_info());
     const SlotId a = rig.append("sushidsp.tubescreamer");
@@ -318,7 +318,7 @@ TEST(TopologyApplier, TopologyApplierRollbackRestoresRemovedSlotsUnderNewIds)
     EXPECT_EQ(rig.edges(), (EdgeList{{a, b}, {b, order[2]}}));
 }
 
-TEST(TopologyApplier, TopologyApplierBuildsTheCabinetSectionAroundACabinet)
+TEST(Small_TopologyApplier, TopologyApplierBuildsTheCabinetSectionAroundACabinet)
 {
     CabinetRig built;
     const HiddenSlots hidden = built.applier.mixer_slots();
@@ -350,7 +350,7 @@ TEST(TopologyApplier, TopologyApplierBuildsTheCabinetSectionAroundACabinet)
     EXPECT_FLOAT_EQ(built.rig.get_parameter(*hidden.amp_bus, "mute_1"), 1.0f);
 }
 
-TEST(TopologyApplier, TopologyApplierGivesTheRoomNoSourceForAPathWithNoCabinet)
+TEST(Small_TopologyApplier, TopologyApplierGivesTheRoomNoSourceForAPathWithNoCabinet)
 {
     RigController rig(test_info());
     const SlotId amp = rig.add_node("sushidsp.tubescreamer", false);
@@ -366,7 +366,7 @@ TEST(TopologyApplier, TopologyApplierGivesTheRoomNoSourceForAPathWithNoCabinet)
     EXPECT_TRUE(has_edge(rig, amp, *hidden.amp_bus));
 }
 
-TEST(TopologyApplier, TopologyApplierAddsAMicrophoneWithItsStripAndItsPort)
+TEST(Small_TopologyApplier, TopologyApplierAddsAMicrophoneWithItsStripAndItsPort)
 {
     CabinetRig built;
 
@@ -396,7 +396,7 @@ TEST(TopologyApplier, TopologyApplierAddsAMicrophoneWithItsStripAndItsPort)
     EXPECT_FLOAT_EQ(built.rig.get_parameter(*hidden.amp_bus, "mute_2"), 1.0f);
 }
 
-TEST(TopologyApplier, TopologyApplierRefusesANinthMicrophoneAndLeavesTheRigAsItWas)
+TEST(Small_TopologyApplier, TopologyApplierRefusesANinthMicrophoneAndLeavesTheRigAsItWas)
 {
     CabinetRig built;
     for (int index = 0; index < 8; ++index)
@@ -420,7 +420,7 @@ TEST(TopologyApplier, TopologyApplierRefusesANinthMicrophoneAndLeavesTheRigAsItW
     EXPECT_EQ(built.applier.mixer_slots().microphones.size(), 8u);
 }
 
-TEST(TopologyApplier, TopologyApplierRefusesAMicrophoneForARigWithNoGear)
+TEST(Small_TopologyApplier, TopologyApplierRefusesAMicrophoneForARigWithNoGear)
 {
     RigController rig(test_info());
     RigTopology topology;
@@ -431,7 +431,7 @@ TEST(TopologyApplier, TopologyApplierRefusesAMicrophoneForARigWithNoGear)
     EXPECT_TRUE(rig.slot_order().empty());
 }
 
-TEST(TopologyApplier, TopologyApplierMovesARoomMicrophoneToTheRoomStrip)
+TEST(Small_TopologyApplier, TopologyApplierMovesARoomMicrophoneToTheRoomStrip)
 {
     CabinetRig built;
     const SlotId close = built.applier.add_microphone(built.topology, built.rig);
@@ -459,7 +459,7 @@ TEST(TopologyApplier, TopologyApplierMovesARoomMicrophoneToTheRoomStrip)
     EXPECT_EQ(count_descriptor(built.rig, "sushidsp.stereo_strip"), 2u);
 }
 
-TEST(TopologyApplier, TopologyApplierRemovesAMicrophoneAndKeepsTheOthersPlaced)
+TEST(Small_TopologyApplier, TopologyApplierRemovesAMicrophoneAndKeepsTheOthersPlaced)
 {
     CabinetRig built;
     const SlotId first = built.applier.add_microphone(built.topology, built.rig);
@@ -489,7 +489,7 @@ TEST(TopologyApplier, TopologyApplierRemovesAMicrophoneAndKeepsTheOthersPlaced)
                  std::runtime_error);
 }
 
-TEST(TopologyApplier, TopologyApplierPlacesOneSourcePerPathThatCarriesACabinet)
+TEST(Small_TopologyApplier, TopologyApplierPlacesOneSourcePerPathThatCarriesACabinet)
 {
     CabinetRig built;
 
@@ -511,7 +511,7 @@ TEST(TopologyApplier, TopologyApplierPlacesOneSourcePerPathThatCarriesACabinet)
     EXPECT_EQ(hidden.amp_bus_feeders.front(), *hidden.mixer);
 }
 
-TEST(TopologyApplier, TopologyApplierJoinsTheDiBeforeOrAfterThePostEffects)
+TEST(Small_TopologyApplier, TopologyApplierJoinsTheDiBeforeOrAfterThePostEffects)
 {
     CabinetRig built;
 
@@ -533,7 +533,7 @@ TEST(TopologyApplier, TopologyApplierJoinsTheDiBeforeOrAfterThePostEffects)
     EXPECT_FALSE(built.applier.mixer_slots().di_strip.has_value());
 }
 
-TEST(TopologyApplier, TopologyApplierTakesTheSectionAwayWithTheLastSlot)
+TEST(Small_TopologyApplier, TopologyApplierTakesTheSectionAwayWithTheLastSlot)
 {
     CabinetRig built;
     built.applier.add_microphone(built.topology, built.rig);
@@ -546,7 +546,7 @@ TEST(TopologyApplier, TopologyApplierTakesTheSectionAwayWithTheLastSlot)
     EXPECT_FALSE(built.applier.mixer_slots().room.has_value());
 }
 
-TEST(TopologyApplier, TopologyApplierRecordsTheRigsShapeAndAdoptsItBack)
+TEST(Small_TopologyApplier, TopologyApplierRecordsTheRigsShapeAndAdoptsItBack)
 {
     CabinetRig built;
     built.applier.add_microphone(built.topology, built.rig);
@@ -569,7 +569,7 @@ TEST(TopologyApplier, TopologyApplierRecordsTheRigsShapeAndAdoptsItBack)
     EXPECT_EQ(fresh.mixer_slots().microphones.size(), 1u);
 }
 
-TEST(TopologyApplier, TopologyApplierMigratesAnOldRoomHeardByTheListener)
+TEST(Small_TopologyApplier, TopologyApplierMigratesAnOldRoomHeardByTheListener)
 {
     CabinetRig built;
     LegacyRoom legacy;
@@ -594,7 +594,7 @@ TEST(TopologyApplier, TopologyApplierMigratesAnOldRoomHeardByTheListener)
     EXPECT_FLOAT_EQ(built.rig.get_parameter(*hidden.amp_bus, "mute_1"), 0.0f);
 }
 
-TEST(TopologyApplier, TopologyApplierMigratesAnOldRoomHeardByAMicrophone)
+TEST(Small_TopologyApplier, TopologyApplierMigratesAnOldRoomHeardByAMicrophone)
 {
     CabinetRig built;
     LegacyRoom legacy;

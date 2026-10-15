@@ -33,7 +33,7 @@
 
 #include <SushiDSP/foundation/core/spsc_ring.hpp>
 
-TEST(SpscRing, SpscRingPushThenPopReturnsSameValue)
+TEST(Medium_SpscRing, SpscRingPushThenPopReturnsSameValue)
 {
     SushiDSP::SpscRing<int> ring(4);
 
@@ -44,7 +44,7 @@ TEST(SpscRing, SpscRingPushThenPopReturnsSameValue)
     EXPECT_EQ(value, 42);
 }
 
-TEST(SpscRing, SpscRingPopOnEmptyReturnsFalse)
+TEST(Medium_SpscRing, SpscRingPopOnEmptyReturnsFalse)
 {
     SushiDSP::SpscRing<int> ring(4);
 
@@ -52,7 +52,7 @@ TEST(SpscRing, SpscRingPopOnEmptyReturnsFalse)
     EXPECT_FALSE(ring.pop(value));
 }
 
-TEST(SpscRing, SpscRingPushBeyondCapacityReturnsFalse)
+TEST(Medium_SpscRing, SpscRingPushBeyondCapacityReturnsFalse)
 {
     SushiDSP::SpscRing<int> ring(2);
 
@@ -61,7 +61,7 @@ TEST(SpscRing, SpscRingPushBeyondCapacityReturnsFalse)
     EXPECT_FALSE(ring.push(3));
 }
 
-TEST(SpscRing, SpscRingPreservesFifoOrder)
+TEST(Medium_SpscRing, SpscRingPreservesFifoOrder)
 {
     SushiDSP::SpscRing<int> ring(4);
 
@@ -79,7 +79,7 @@ TEST(SpscRing, SpscRingPreservesFifoOrder)
     EXPECT_EQ(c, 3);
 }
 
-TEST(SpscRing, SpscRingConcurrentProducerConsumerDeliversAllValuesInOrder)
+TEST(Medium_SpscRing, SpscRingConcurrentProducerConsumerDeliversAllValuesInOrder)
 {
     constexpr int total = 100000;
     SushiDSP::SpscRing<int> ring(64);

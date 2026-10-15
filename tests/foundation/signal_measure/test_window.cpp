@@ -33,19 +33,19 @@
 #include <cstdint>
 #include <vector>
 
-TEST(Window, HasTheRequestedSize)
+TEST(Small_Window, HasTheRequestedSize)
 {
     EXPECT_EQ(SushiDSP::measure::blackman_harris(1024).size(), 1024u);
 }
 
-TEST(Window, IsNearZeroAtBothEnds)
+TEST(Small_Window, IsNearZeroAtBothEnds)
 {
     const std::vector<float> window = SushiDSP::measure::blackman_harris(1024);
     EXPECT_NEAR(window.front(), 0.0f, 1e-4f);
     EXPECT_NEAR(window.back(), 0.0f, 1e-4f);
 }
 
-TEST(Window, IsSymmetricAboutItsCentre)
+TEST(Small_Window, IsSymmetricAboutItsCentre)
 {
     const std::vector<float> window = SushiDSP::measure::blackman_harris(513);
     for (std::size_t i = 0; i < window.size() / 2; ++i)
@@ -54,7 +54,7 @@ TEST(Window, IsSymmetricAboutItsCentre)
     }
 }
 
-TEST(Window, PeaksAtUnityInTheMiddle)
+TEST(Small_Window, PeaksAtUnityInTheMiddle)
 {
     const std::vector<float> window = SushiDSP::measure::blackman_harris(513);
     EXPECT_NEAR(window[256], 1.0f, 1e-4f);

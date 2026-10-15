@@ -185,7 +185,7 @@ namespace
     }
 } // namespace
 
-TEST(WavFile, WavFileLoadsMonoPcm16SamplesInCorrectRange)
+TEST(Medium_WavFile, WavFileLoadsMonoPcm16SamplesInCorrectRange)
 {
     const std::vector<int16_t> samples = {0, 16384, -16384, 32767, -32768};
     const std::string path = write_temp_wav(build_pcm16_wav(48000, samples), "wav_pcm16.wav");
@@ -200,7 +200,7 @@ TEST(WavFile, WavFileLoadsMonoPcm16SamplesInCorrectRange)
     EXPECT_NEAR(loaded[4], -1.0f, 1e-3f);
 }
 
-TEST(WavFile, WavFileReportsTheFileSampleRate)
+TEST(Medium_WavFile, WavFileReportsTheFileSampleRate)
 {
     const std::vector<int16_t> samples = {0, 0};
     const std::string path = write_temp_wav(build_pcm16_wav(44100, samples), "wav_rate.wav");
@@ -211,13 +211,13 @@ TEST(WavFile, WavFileReportsTheFileSampleRate)
     EXPECT_EQ(sample_rate, 44100.0);
 }
 
-TEST(WavFile, WavFileThrowsOnMissingFile)
+TEST(Medium_WavFile, WavFileThrowsOnMissingFile)
 {
     EXPECT_THROW(SushiDSP::WavFile::load_mono("this_file_does_not_exist_12345.wav"),
                  std::runtime_error);
 }
 
-TEST(WavFile, WavFileThrowsOnTruncatedHeader)
+TEST(Medium_WavFile, WavFileThrowsOnTruncatedHeader)
 {
     std::vector<uint8_t> truncated = {'R', 'I', 'F', 'F', 0, 0};
     const std::string path = write_temp_wav(truncated, "wav_truncated.wav");
@@ -225,7 +225,7 @@ TEST(WavFile, WavFileThrowsOnTruncatedHeader)
     EXPECT_THROW(SushiDSP::WavFile::load_mono(path), std::runtime_error);
 }
 
-TEST(WavFile, WavFileLoadsMonoPcm24SamplesWithSignExtension)
+TEST(Medium_WavFile, WavFileLoadsMonoPcm24SamplesWithSignExtension)
 {
     // The samples cover zero, both extremes and -1 LSB. See tests/foundation/io/README.md.
     const std::vector<int32_t> samples = {0x000000, 0x400000, 0x7FFFFF,
@@ -243,7 +243,7 @@ TEST(WavFile, WavFileLoadsMonoPcm24SamplesWithSignExtension)
     EXPECT_NEAR(loaded[4], -1.0f, 1e-6f);
 }
 
-TEST(WavFile, WavFileLoadsMonoPcm32SamplesInCorrectRange)
+TEST(Medium_WavFile, WavFileLoadsMonoPcm32SamplesInCorrectRange)
 {
     const std::vector<int32_t> samples = {0, 1073741824, -1073741824, 2147483647, -2147483647 - 1};
     const std::string path = write_temp_wav(build_pcm32_wav(48000, samples), "wav_pcm32.wav");
@@ -258,7 +258,7 @@ TEST(WavFile, WavFileLoadsMonoPcm32SamplesInCorrectRange)
     EXPECT_NEAR(loaded[4], -1.0f, 1e-6f);
 }
 
-TEST(WavFile, WavFileLoadsMonoIeeeFloatSamplesUnscaled)
+TEST(Medium_WavFile, WavFileLoadsMonoIeeeFloatSamplesUnscaled)
 {
     const std::vector<float> samples = {0.0f, 0.5f, -0.5f, 1.0f, -1.0f, 2.0f};
     const std::string path = write_temp_wav(build_float32_wav(48000, samples), "wav_float32.wav");
@@ -273,7 +273,7 @@ TEST(WavFile, WavFileLoadsMonoIeeeFloatSamplesUnscaled)
     }
 }
 
-TEST(WavFile, WavFileDownmixesStereoAsAverageOfChannels)
+TEST(Medium_WavFile, WavFileDownmixesStereoAsAverageOfChannels)
 {
     // Same-sign values make a sum twice the average. See tests/foundation/io/README.md.
     const std::vector<int16_t> left = {0, 16384, 8000, 20000};

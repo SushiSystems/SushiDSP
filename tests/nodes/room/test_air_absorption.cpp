@@ -33,7 +33,7 @@
 
 #include <SushiDSP/nodes/room/air_absorption.hpp>
 
-TEST(AirAbsorption, AirAbsorptionMatchesIso9613AtTwentyDegreesAndFiftyPercent)
+TEST(Small_AirAbsorption, AirAbsorptionMatchesIso9613AtTwentyDegreesAndFiftyPercent)
 {
     const std::array<double, 6> expected = {0.00044, 0.00131, 0.00273, 0.00466, 0.00989, 0.02967};
     for (std::size_t band = 0; band < 6u; ++band)
@@ -45,7 +45,7 @@ TEST(AirAbsorption, AirAbsorptionMatchesIso9613AtTwentyDegreesAndFiftyPercent)
     EXPECT_NEAR(SushiDSP::room::AirAbsorption::attenuation_db_per_metre(8000.0), 0.1053, 0.006);
 }
 
-TEST(AirAbsorption, AirAbsorptionEnergyCoefficientIsTheDecibelFigureOverFourPointThreeFourThree)
+TEST(Small_AirAbsorption, AirAbsorptionEnergyCoefficientIsTheDecibelFigureOverFourPointThreeFourThree)
 {
     const double four_kilohertz = SushiDSP::room::AirAbsorption::attenuation_db_per_metre(4000.0);
     EXPECT_NEAR(SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(5u),
@@ -54,14 +54,14 @@ TEST(AirAbsorption, AirAbsorptionEnergyCoefficientIsTheDecibelFigureOverFourPoin
     EXPECT_NEAR(SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(0u), 1.01e-4, 5.1e-6);
 }
 
-TEST(AirAbsorption, AirAbsorptionOverThirtyMetresCostsUnderOneDecibel)
+TEST(Small_AirAbsorption, AirAbsorptionOverThirtyMetresCostsUnderOneDecibel)
 {
     const SushiDSP::room::BandResponse thirty = SushiDSP::room::AirAbsorption::over_path(30.0);
     EXPECT_NEAR(thirty.decibels()[5], -0.89f, 0.05f); // 30 * 0.02967
     EXPECT_GT(thirty.decibels()[0], -0.02f);
 }
 
-TEST(AirAbsorption, AirAbsorptionOverZeroMetresIsUnity)
+TEST(Small_AirAbsorption, AirAbsorptionOverZeroMetresIsUnity)
 {
     const SushiDSP::room::BandResponse none = SushiDSP::room::AirAbsorption::over_path(0.0);
     for (std::size_t band = 0; band < 6u; ++band)
@@ -70,7 +70,7 @@ TEST(AirAbsorption, AirAbsorptionOverZeroMetresIsUnity)
     }
 }
 
-TEST(AirAbsorption, AirAbsorptionGrowsWithFrequencyAndDistance)
+TEST(Small_AirAbsorption, AirAbsorptionGrowsWithFrequencyAndDistance)
 {
     const SushiDSP::room::BandResponse ten = SushiDSP::room::AirAbsorption::over_path(10.0);
     const SushiDSP::room::BandResponse twenty = SushiDSP::room::AirAbsorption::over_path(20.0);

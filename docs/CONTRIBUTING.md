@@ -95,10 +95,13 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 | `tests/` | `main.cpp`, the entry point of `sushidsp_tests`; `README.md` |
 | `tests/benchmark_main.cpp`, `tests/<owner>/benchmark_<name>.cpp` | The benchmark program `sushidsp_bench`, run by `sd bench` and never by `sd test` |
 
-- Every test carries one size, which `tests/CMakeLists.txt` sets as its CTest label and its
-  timeout: `small` (one thread, no file outside the build tree, 60 s), `medium` (threads, a
-  temporary folder, a fixture, a golden or a shipped asset, 300 s) or `large` (a real audio
-  device, 900 s). A file is small unless `SUSHIDSP_MEDIUM_TEST_SOURCES` lists it.
+- Every test carries one size, written as its suite-name prefix: `Small_` (one thread, no file
+  outside the build tree, 60 s), `Medium_` (threads, a temporary folder, a fixture, a golden
+  or a shipped asset, 300 s) or `Large_` (a real audio device, 900 s), as in
+  `TEST(Small_Fft, ForwardAndInverseRoundTripPerformsNoHeapAllocation)`. `tests/CMakeLists.txt` turns the prefix into
+  the CTest label and the timeout; `tests/main.cpp` refuses a suite with none. A flaky test is
+  named in `SUSHIDSP_QUARANTINED_TESTS` with its entry in `KNOWN_ISSUES.md`, and gains the
+  `quarantined` label.
   `SUSHIDSP_REGRESSION_TEST`, from
   `modules/foundation/regression_test/include/SushiDSP/foundation/regression_test/regression_test.hpp`,
   names a case that keeps a fixed defect fixed; it carries a size like any other.

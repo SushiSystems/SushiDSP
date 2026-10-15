@@ -29,7 +29,7 @@
 
 #include "ui/split_layout.hpp"
 
-TEST(SplitLayout, SplitLayoutSeriesPlacesNodesLeftToRightWithOneGapMore)
+TEST(Small_SplitLayout, SplitLayoutSeriesPlacesNodesLeftToRightWithOneGapMore)
 {
     const ui::SplitMetrics metrics;
     const ui::SplitGeometry geometry = ui::layout_split(2, 0, {}, 0, metrics);
@@ -54,7 +54,7 @@ TEST(SplitLayout, SplitLayoutSeriesPlacesNodesLeftToRightWithOneGapMore)
     EXPECT_FLOAT_EQ(geometry.size.y, 86.0f);
 }
 
-TEST(SplitLayout, SplitLayoutThreeWayStacksRowsAroundTheMainLine)
+TEST(Small_SplitLayout, SplitLayoutThreeWayStacksRowsAroundTheMainLine)
 {
     const ui::SplitMetrics metrics;
     const ui::SplitGeometry geometry = ui::layout_split(0, 0, {1, 1, 1}, 0, metrics);
@@ -84,7 +84,7 @@ TEST(SplitLayout, SplitLayoutThreeWayStacksRowsAroundTheMainLine)
                     metrics.row_gap);
 }
 
-TEST(SplitLayout, SplitLayoutCablesStartAtSplitterAndEndAtMixer)
+TEST(Small_SplitLayout, SplitLayoutCablesStartAtSplitterAndEndAtMixer)
 {
     const ui::SplitMetrics metrics;
     const ui::SplitGeometry geometry = ui::layout_split(0, 0, {1, 1}, 0, metrics);
@@ -113,7 +113,7 @@ TEST(SplitLayout, SplitLayoutCablesStartAtSplitterAndEndAtMixer)
     EXPECT_FLOAT_EQ(geometry.cables[3].back().x, mixer_left_x);
 }
 
-TEST(SplitLayout, SplitLayoutEmptyBranchStillOffersOneGap)
+TEST(Small_SplitLayout, SplitLayoutEmptyBranchStillOffersOneGap)
 {
     const ui::SplitMetrics metrics;
     const ui::SplitGeometry geometry = ui::layout_split(0, 0, {0}, 0, metrics);
@@ -125,7 +125,7 @@ TEST(SplitLayout, SplitLayoutEmptyBranchStillOffersOneGap)
                     metrics.empty_slot_width);
 }
 
-TEST(SplitLayout, SplitLayoutNearestGapPicksTheClosestCentre)
+TEST(Small_SplitLayout, SplitLayoutNearestGapPicksTheClosestCentre)
 {
     const ui::SplitMetrics metrics;
     const ui::SplitGeometry geometry = ui::layout_split(2, 0, {}, 0, metrics);
@@ -136,7 +136,7 @@ TEST(SplitLayout, SplitLayoutNearestGapPicksTheClosestCentre)
     EXPECT_EQ(*index, 1u);
 }
 
-TEST(SplitLayout, SplitLayoutNearestGapRejectsAPointOutsideTheStage)
+TEST(Small_SplitLayout, SplitLayoutNearestGapRejectsAPointOutsideTheStage)
 {
     const ui::SplitMetrics metrics;
     const ui::SplitGeometry geometry = ui::layout_split(2, 0, {}, 0, metrics);

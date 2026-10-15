@@ -46,7 +46,7 @@ namespace
     }
 } // namespace
 
-TEST(ArrangementLayout, ArrangementLayoutPlacesBarAndBeatLines)
+TEST(Small_ArrangementLayout, ArrangementLayoutPlacesBarAndBeatLines)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -76,7 +76,7 @@ TEST(ArrangementLayout, ArrangementLayoutPlacesBarAndBeatLines)
     EXPECT_EQ(lines.back().bar, 5u);
 }
 
-TEST(ArrangementLayout, ArrangementLayoutDropsTheBeatsWhenTheyCrowd)
+TEST(Small_ArrangementLayout, ArrangementLayoutDropsTheBeatsWhenTheyCrowd)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -95,7 +95,7 @@ TEST(ArrangementLayout, ArrangementLayoutDropsTheBeatsWhenTheyCrowd)
     EXPECT_FLOAT_EQ(lines[1].x, 19.2f);
 }
 
-TEST(ArrangementLayout, ArrangementLayoutStartsTheGridAtTheScrollOrigin)
+TEST(Small_ArrangementLayout, ArrangementLayoutStartsTheGridAtTheScrollOrigin)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -113,7 +113,7 @@ TEST(ArrangementLayout, ArrangementLayoutStartsTheGridAtTheScrollOrigin)
     EXPECT_EQ(lines[0].beat, 2u);
 }
 
-TEST(ArrangementLayout, ArrangementLayoutGivesAClipItsRectangle)
+TEST(Small_ArrangementLayout, ArrangementLayoutGivesAClipItsRectangle)
 {
     ui::TimelineScale scale;
     scale.set_pixels_per_frame(0.002);
@@ -124,7 +124,7 @@ TEST(ArrangementLayout, ArrangementLayoutGivesAClipItsRectangle)
     EXPECT_FLOAT_EQ(span.right, 288.0f);
 }
 
-TEST(ArrangementLayout, ArrangementLayoutLandsADropOnTheSnappedBar)
+TEST(Small_ArrangementLayout, ArrangementLayoutLandsADropOnTheSnappedBar)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -140,7 +140,7 @@ TEST(ArrangementLayout, ArrangementLayoutLandsADropOnTheSnappedBar)
     EXPECT_EQ(ui::dropped_frame(scale, ui::SnapMode::Bar, clock, -80.0f), 0u);
 }
 
-TEST(ArrangementLayout, ArrangementLayoutMovesADraggedClipByItsPixels)
+TEST(Small_ArrangementLayout, ArrangementLayoutMovesADraggedClipByItsPixels)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
@@ -154,7 +154,7 @@ TEST(ArrangementLayout, ArrangementLayoutMovesADraggedClipByItsPixels)
     EXPECT_EQ(ui::dragged_start_frame(scale, ui::SnapMode::Bar, clock, 96000u, -1000.0f), 0u);
 }
 
-TEST(ArrangementLayout, ArrangementLayoutNamesTheLaneAScreenPositionFallsOn)
+TEST(Small_ArrangementLayout, ArrangementLayoutNamesTheLaneAScreenPositionFallsOn)
 {
     ui::LaneGeometry geometry;
     geometry.canvas_left = 200.0f;
@@ -172,7 +172,7 @@ TEST(ArrangementLayout, ArrangementLayoutNamesTheLaneAScreenPositionFallsOn)
     EXPECT_EQ(*ui::lane_at(geometry, 200.0f, 576.0f), 7u);
 }
 
-TEST(ArrangementLayout, ArrangementLayoutRefusesAPositionOutsideEveryLane)
+TEST(Small_ArrangementLayout, ArrangementLayoutRefusesAPositionOutsideEveryLane)
 {
     ui::LaneGeometry geometry;
     geometry.canvas_left = 200.0f;
@@ -190,7 +190,7 @@ TEST(ArrangementLayout, ArrangementLayoutRefusesAPositionOutsideEveryLane)
     EXPECT_FALSE(ui::lane_at(ui::LaneGeometry{}, 0.0f, 0.0f).has_value());
 }
 
-TEST(ArrangementLayout, ArrangementLayoutReadsADropXAgainstTheCanvasOrigin)
+TEST(Small_ArrangementLayout, ArrangementLayoutReadsADropXAgainstTheCanvasOrigin)
 {
     ui::LaneGeometry geometry;
     geometry.canvas_left = 200.0f;

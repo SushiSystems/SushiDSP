@@ -42,25 +42,25 @@ namespace
     }
 } // namespace
 
-TEST(LogArgument, IntegerWritesItsDecimalDigits)
+TEST(Small_LogArgument, IntegerWritesItsDecimalDigits)
 {
     EXPECT_EQ(render(SushiDSP::LogArgument(42), 16), "42");
     EXPECT_EQ(render(SushiDSP::LogArgument(-7), 16), "-7");
 }
 
-TEST(LogArgument, BooleanWritesTrueOrFalse)
+TEST(Small_LogArgument, BooleanWritesTrueOrFalse)
 {
     EXPECT_EQ(render(SushiDSP::LogArgument(true), 16), "true");
     EXPECT_EQ(render(SushiDSP::LogArgument(false), 16), "false");
 }
 
-TEST(LogArgument, TextWritesItsCharacters)
+TEST(Small_LogArgument, TextWritesItsCharacters)
 {
     EXPECT_EQ(render(SushiDSP::LogArgument("track"), 16), "track");
     EXPECT_EQ(render(SushiDSP::LogArgument(std::string("take")), 16), "take");
 }
 
-TEST(LogArgument, WriteStopsAtTheBufferCapacity)
+TEST(Small_LogArgument, WriteStopsAtTheBufferCapacity)
 {
     EXPECT_EQ(render(SushiDSP::LogArgument("abcdef"), 3), "abc");
 }

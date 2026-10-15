@@ -93,7 +93,7 @@ namespace
     }
 } // namespace
 
-TEST(HrtfSet, HrtfSetInterpolationAtAGridPointReturnsThatPointExactly)
+TEST(Small_HrtfSet, HrtfSetInterpolationAtAGridPointReturnsThatPointExactly)
 {
     const SushiDSP::room::HrtfSet set = six_axis_set();
     ASSERT_EQ(set.direction_count(), K_AXIS_COUNT);
@@ -108,7 +108,7 @@ TEST(HrtfSet, HrtfSetInterpolationAtAGridPointReturnsThatPointExactly)
     EXPECT_EQ(pair.itd_frames, itd_of(3));
 }
 
-TEST(HrtfSet, HrtfSetInterpolationBetweenThreePointsIsABarycentricBlend)
+TEST(Small_HrtfSet, HrtfSetInterpolationBetweenThreePointsIsABarycentricBlend)
 {
     // By symmetry each of the three points carries one third. See tests/nodes/room/README.md.
     const SushiDSP::room::HrtfSet set = six_axis_set();
@@ -127,7 +127,7 @@ TEST(HrtfSet, HrtfSetInterpolationBetweenThreePointsIsABarycentricBlend)
                 1e-6);
 }
 
-TEST(HrtfSet, HrtfSetInterpolationWeightsSumToOne)
+TEST(Small_HrtfSet, HrtfSetInterpolationWeightsSumToOne)
 {
     // Each weight is a coordinate's magnitude over the sum. See tests/nodes/room/README.md.
     const SushiDSP::room::HrtfSet set = six_axis_set();
@@ -160,7 +160,7 @@ TEST(HrtfSet, HrtfSetInterpolationWeightsSumToOne)
     }
 }
 
-TEST(HrtfSet, HrtfSetIsEmptyWhenDefaultConstructed)
+TEST(Small_HrtfSet, HrtfSetIsEmptyWhenDefaultConstructed)
 {
     const SushiDSP::room::HrtfSet set;
     EXPECT_TRUE(set.empty());
@@ -168,7 +168,7 @@ TEST(HrtfSet, HrtfSetIsEmptyWhenDefaultConstructed)
     EXPECT_THROW(set.interpolate(0.0, 0.0), std::runtime_error);
 }
 
-TEST(HrtfSet, HrtfSetKeepsItsDecoderAndDiffuseFilters)
+TEST(Small_HrtfSet, HrtfSetKeepsItsDecoderAndDiffuseFilters)
 {
     SushiDSP::room::HrtfSet set = six_axis_set();
     set.set_decoder(3, std::vector<float>(32 * SushiDSP::room::HrtfSet::K_DECODER_TAPS));
@@ -185,7 +185,7 @@ TEST(HrtfSet, HrtfSetKeepsItsDecoderAndDiffuseFilters)
     EXPECT_DOUBLE_EQ(set.sample_rate(), 48000.0);
 }
 
-TEST(HrtfSet, HrtfSetRefusesTwoDirectionsCloserThanOneDegree)
+TEST(Small_HrtfSet, HrtfSetRefusesTwoDirectionsCloserThanOneDegree)
 {
     const auto half_pi = static_cast<float>(K_PI / 2.0);
     const auto pi = static_cast<float>(K_PI);
