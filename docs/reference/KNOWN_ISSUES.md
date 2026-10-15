@@ -387,3 +387,16 @@ were not re-checked for this list. The work that closes a row is in
 | `Wdf` is built into the library and no production code uses it | `modules/foundation/math/include/SushiDSP/foundation/math/wdf.hpp` |
 | One header lacks `#pragma once` | `modules/foundation/timing_gate/include/SushiDSP/foundation/timing_gate/timing_gate.hpp` |
 | The device backends, the GUI views and the scripts under `tools/dsp/` and `tools/spice/` have no tests | `modules/foundation/device/source/`, `applications/host_gui/ui/`, `tools/` |
+
+## The host, the plugin and the two device backends have no unit tests
+
+`tools/testing/check_test_mirror.py` reports 39 public headers with no test file: 31 under
+`applications/host_gui/` (20 of them in `ui/`), 6 under `applications/plugin/`, and
+`asio_audio_device.hpp` and `sdl2_audio_device.hpp` in `modules/foundation/device/`. The `ui/`
+headers draw through ImGui and need its context to run, the `clap_*` headers need a CLAP host,
+and the two device backends need sound hardware, so they would carry the `device` label and be
+skipped on a machine without it. SushiDSP accepts these 39 findings as an exception: the
+checker keeps reporting them, and a new header under these folders is held to the mirror like
+any other. What closes the entry is a test file for a header, starting with the ones that hold
+logic and no drawing, such as `session_file.hpp`, `slot_graph.hpp`, `parameter_routing.hpp`
+and `mixer_model.hpp`.
