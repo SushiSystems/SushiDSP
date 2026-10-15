@@ -168,4 +168,12 @@ Still open:
 
 ## Result
 
-T1 committed. T0 and T2 to T10 planned. No test moved or written, no CMake edited, no build run.
+Committed: T0, T1, T2, T3, T4, T5, T7, T8 and T6 for 64 units (`f8c733f` is the last commit).
+
+Build (T10, first part): `sd build --type release` with `CMAKE_BUILD_PARALLEL_LEVEL=4`, exit 0. The
+build linked `tests/sushidsp_tests.exe` and the application and GUI targets.
+
+Not run: `sd test -s unit` and `sd test -s regression`. The owner has not yet allowed a test run.
+
+Open, as listed under "Still open" in REMAINING_WORK: 37 application units, 2 device units,
+`dk_block_node`, and `test_measure.cpp` (waits for the shared-node decision).
