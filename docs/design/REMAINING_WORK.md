@@ -165,6 +165,10 @@ Mechanical work that follows:
   `humanizer` register.
 - Route CI through `sd` and split the workflow by trigger. Blocked: the CLI depends on the
   `sushicore` package, and CI needs a decided way to install it on the runners.
+- Test the 39 units `check_test_mirror.py` reports, as their own piece of work (`KNOWN_ISSUES.md`):
+  31 under `applications/host_gui`, 6 under `applications/plugin` and the two device backends
+  `asio_audio_device` and `sdl2_audio_device`. Device backends carry the `device` label, the CLAP
+  boundary runs behind a fake host, the ImGui panels run ImGui without a window.
 - Replace the paragraphs of the docs-truth findings still open: 21 named symbols the source does
   not hold (`TopBar`, `StagePanel`, `Mp3Decoder`, ...), 28 history words, and two duplicated
   passages in the SPICE READMEs. Read each against the source before editing.

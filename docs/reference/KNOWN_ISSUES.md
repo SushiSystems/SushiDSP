@@ -395,8 +395,8 @@ were not re-checked for this list. The work that closes a row is in
 `asio_audio_device.hpp` and `sdl2_audio_device.hpp` in `modules/foundation/device/`. The `ui/`
 headers draw through ImGui and need its context to run, the `clap_*` headers need a CLAP host,
 and the two device backends need sound hardware, so they would carry the `device` label and be
-skipped on a machine without it. SushiDSP accepts these 39 findings as an exception: the
-checker keeps reporting them, and a new header under these folders is held to the mirror like
-any other. What closes the entry is a test file for a header, starting with the ones that hold
-logic and no drawing, such as `session_file.hpp`, `slot_graph.hpp`, `parameter_routing.hpp`
-and `mixer_model.hpp`.
+skipped on a machine without it. Every unit gets a test, so the checker keeps reporting these
+39 until theirs land: the device backends under the `device` label, the CLAP boundary behind a
+fake host that calls its entry points, and the ImGui panels with ImGui run without a window. A
+panel that cannot be tested that way has logic that belongs in its own unit. What closes the
+entry is the 39 tests, planned in `docs/design/REMAINING_WORK.md`.
