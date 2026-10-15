@@ -7,5 +7,5 @@ The header includes `gtest.h`, so a test that includes it links GoogleTest itsel
 
 ## regression_test.hpp
 
-Defines `SUSHIDSP_REGRESSION_TEST(suite, name)`, which expands to `TEST`. The test build reads the
-macro name to label the case `regression`; a plain `TEST` is labelled `unit`.
+Defines `SUSHIDSP_REGRESSION_TEST(suite, name)`, which expands to `TEST`. The name says the case
+keeps a fixed defect fixed; the test build registers it like a `TEST`, with its file's size.

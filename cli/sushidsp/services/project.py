@@ -5,7 +5,7 @@
 # Commercial use requires a licence from Sushi Systems.
 """Drives SushiDSP's configure, build, test, clean, docs, check, host and run steps.
 
-Holds the build policy: the cache variables, the suites and their CTest labels, the checkers
+Holds the build policy: the cache variables, the test sizes and their CTest labels, the checkers
 and the host GUI's place in the tree. cmake and ctest run through
 ``sushicore.cmake_driver.CMakeDriver`` under the environment ``sushidsp.env`` assembles.
 """
@@ -39,20 +39,34 @@ class BuildType(str, enum.Enum):
     relwithdebinfo = "relwithdebinfo"
 
 
-class Suite(str, enum.Enum):
-    """Names the test suites `--suite` accepts."""
+class Size(str, enum.Enum):
+    """Names the test sizes `--label` accepts; each is the CTest label tests/CMakeLists.txt sets."""
 
-    unit = "unit"
-    regression = "regression"
-    benchmark = "benchmark"
-    all = "all"
+    small = "small"
+    medium = "medium"
+    large = "large"
 
 
-_SUITE_LABEL_REGEX = {
-    Suite.unit: "^unit$",
-    Suite.regression: "^regression$",
-    Suite.benchmark: "^benchmark$",
-}
+class Sanitizer(str, enum.Enum):
+    """Names the sanitizer builds `--sanitize` accepts; each is a SUSHIDSP_SANITIZE value."""
+
+    address = "address"
+    thread = "thread"
+
+
+_BENCHMARK = "sushidsp_bench"
+
+
+def size_label_regex(sizes: Sequence[Size]) -> str | None:
+    """Returns the ctest -L regex that selects *sizes*, or None for every size."""
+    if not sizes:
+        return None
+    return "^(" + "|".join(sorted({size.value for size in sizes})) + ")$"
+
+
+def sanitizer_defines(sanitizer: Sanitizer | None) -> list[str]:
+    """Returns the cache variable that turns *sanitizer* on, or nothing."""
+    return [f"SUSHIDSP_SANITIZE={sanitizer.value}"] if sanitizer is not None else []
 
 _CMAKE_BUILD_TYPE = {
     BuildType.debug: "Debug",
@@ -187,13 +201,16 @@ def configure(build_type: BuildType | None, defines: Sequence[str] | None = None
 
 
 def build(build_type: BuildType | None, clean: bool = False,
-          defines: Sequence[str] | None = None) -> int:
+          defines: Sequence[str] | None = None, sanitizer: Sanitizer | None = None) -> int:
     """Configures when the tree needs it or *defines* are given, then compiles every target.
 
     Args:
         clean: Removes the build tree first.
         defines: `VAR=VALUE` cache variables; any of them reconfigures a configured tree.
+        sanitizer: Builds with this sanitizer; it stays in the tree until `SUSHIDSP_SANITIZE=`
+            or --clean clears it.
     """
+    defines = [*sanitizer_defines(sanitizer), *(defines or ())] or None
     # --clean removes the tree, so there is no cached type left to inherit from.
     build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
     root = find_project_root()
@@ -218,22 +235,37 @@ def build(build_type: BuildType | None, clean: bool = False,
                            config=_CMAKE_BUILD_TYPE[build_type])
 
 
-def _benchmark_ctest_args(cfg: Config, build_dir: Path, config: str,
-                          filter: str | None) -> list[str]:
-    """Returns the ctest command line of the benchmark suite, whose timing table needs -V."""
-    args = [_DRIVER.ctest(cfg), "--test-dir", str(build_dir), "-C", config,
-            "--output-on-failure", "-V", "-L", _SUITE_LABEL_REGEX[Suite.benchmark]]
-    if filter:
-        args += ["-R", filter]
-    return args
-
-
-def test(build_type: BuildType | None, suite: Suite, clean: bool = False,
-         filter: str | None = None) -> int:
-    """Builds when needed, then runs ctest over the tests *suite* and *filter* select.
+def test(build_type: BuildType | None, sizes: Sequence[Size] = (), clean: bool = False,
+         filter: str | None = None, sanitizer: Sanitizer | None = None) -> int:
+    """Builds when needed, then runs ctest over the tests *sizes* and *filter* select.
 
     Args:
+        sizes: The sizes to run; none runs every size.
         filter: A ctest -R regex over the `Suite.Case` names the test build registers.
+        sanitizer: Builds with this sanitizer first.
+    """
+    build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
+    rc = build(build_type, clean=clean, sanitizer=sanitizer)
+    if rc != 0:
+        return rc
+
+    root = find_project_root()
+    build_dir = _build_dir(root)
+    cfg = load_config()
+    return _DRIVER.ctest_run(cfg, build_dir, _env(cfg, build_dir),
+                             label_regex=size_label_regex(sizes), filter=filter,
+                             config=_CMAKE_BUILD_TYPE[build_type])
+
+
+def bench(build_type: BuildType | None, groups: Sequence[str] = (), clean: bool = False) -> int:
+    """Builds when needed, then runs the benchmark program over the groups *groups* name.
+
+    Args:
+        groups: Substrings of the case groups to run; none runs every group.
+
+    Returns:
+        The build's code when it fails, 1 when the tree holds no benchmark program, else the
+        program's own code.
     """
     build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
     rc = build(build_type, clean=clean)
@@ -241,17 +273,13 @@ def test(build_type: BuildType | None, suite: Suite, clean: bool = False,
         return rc
 
     root = find_project_root()
-    build_dir = _build_dir(root)
     cfg = load_config()
-    env = _env(cfg, build_dir)
-    config = _CMAKE_BUILD_TYPE[build_type]
-
-    # CMakeDriver.ctest_run has no verbose switch, so the benchmark suite builds its own argv.
-    if suite is Suite.benchmark:
-        return _RUNNER.run(_benchmark_ctest_args(cfg, build_dir, config, filter), root, env)
-    return _DRIVER.ctest_run(cfg, build_dir, env, label_regex=_SUITE_LABEL_REGEX.get(suite),
-                             filter=filter, config=config)
-
+    build_dir = _build_dir(root)
+    exe = discovery.resolve(build_dir, console, target=_BENCHMARK, sort=False, default=None)
+    if exe is None:
+        return 1
+    console.header(f"Benchmark ({_CMAKE_BUILD_TYPE[build_type]})")
+    return _RUNNER.run([str(exe), *groups], root, _env(cfg, build_dir))
 
 def clean() -> int:
     """Removes the build tree and reports what happened.

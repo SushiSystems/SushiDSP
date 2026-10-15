@@ -27,7 +27,7 @@ from .aliases import ALIASES
 from .config import PROFILE, find_project_root, load_config
 from .services import diag as diag_svc
 from .services import project as project_svc
-from .services.project import BuildType, Suite
+from .services.project import BuildType, Sanitizer, Size
 
 K_PROGRAM = "sd"
 K_DISTRIBUTION = "sushidsp-cli"
@@ -69,6 +69,12 @@ def _define_option() -> Any:
     return typer.Option(None, "--define", "-D", metavar="VAR=VALUE", help=K_DEFINE_HELP)
 
 
+def _sanitize_option() -> Any:
+    """Returns the default of a `--sanitize` parameter."""
+    return typer.Option(None, "--sanitize", case_sensitive=False,
+                        help="Sanitizer build: address (ASan and UBSan) | thread (TSan).")
+
+
 def _clean_option() -> Any:
     """Returns the default of a `--clean` parameter."""
     return typer.Option(False, "--clean", help=K_CLEAN_HELP)
@@ -95,40 +101,60 @@ def configure(
     epilog="sd build\n"
            "sd build --type release\n"
            "sd build --clean  # Delete the build tree before configuring\n"
-           "sd build -D FOO=1  # Reconfigure with a CMake cache variable, then build",
+           "sd build -D FOO=1  # Reconfigure with a CMake cache variable, then build\n"
+           "sd build --sanitize address  # ASan and UBSan; thread for TSan",
 )
 def build(
     type: Optional[BuildType] = _type_option(),
     clean: bool = _clean_option(),
     define: Optional[list[str]] = _define_option(),
+    sanitize: Optional[Sanitizer] = _sanitize_option(),
 ) -> None:
     """Configure if needed, then build every CMake target.
 
     A cache variable set with -D stays in the build tree, so a later run without the
     flag keeps it; pass VAR= to clear one, or --clean to start over.
     """
-    raise typer.Exit(project_svc.build(type, clean=clean, defines=define))
+    raise typer.Exit(project_svc.build(type, clean=clean, defines=define, sanitizer=sanitize))
 
 
 @app.command(
     "test",
     rich_help_panel=K_BUILD,
-    epilog="sd test\n"
-           "sd test --suite regression\n"
+    epilog="sd test  # Every size\n"
+           "sd test --label small --label medium  # What a pull request runs\n"
            "sd test --filter 'Jcm800.*'  # Match Suite.Case test names\n"
-           "sd test --clean  # Delete the build tree before configuring",
+           "sd test --label small --sanitize address  # Small tests under ASan and UBSan",
 )
 def test(
     type: Optional[BuildType] = _type_option(),
-    suite: Suite = typer.Option(
-        Suite.unit, "--suite", "-s", case_sensitive=False,
-        help="Test suite to run: unit | regression | benchmark | all."),
+    label: Optional[list[Size]] = typer.Option(
+        None, "--label", "-l", case_sensitive=False,
+        help="Test size to run: small | medium | large; repeat for more. Default: every size."),
     filter: Optional[str] = typer.Option(
         None, "--filter", "-f", help="ctest -R regex over 'Suite.Case' test names."),
     clean: bool = _clean_option(),
+    sanitize: Optional[Sanitizer] = _sanitize_option(),
 ) -> None:
-    """Build if needed, then run ctest over the suite and the filter."""
-    raise typer.Exit(project_svc.test(type, suite, clean=clean, filter=filter))
+    """Build if needed, then run ctest over the sizes and the filter."""
+    raise typer.Exit(project_svc.test(type, label or (), clean=clean, filter=filter,
+                                      sanitizer=sanitize))
+
+
+@app.command(
+    "bench",
+    rich_help_panel=K_BUILD,
+    epilog="sd bench  # Every group\n"
+           "sd bench Room Jcm800  # Groups whose name holds an argument",
+)
+def bench(
+    group: Optional[list[str]] = typer.Argument(
+        None, help="Substrings of the case groups to run. Default: every group."),
+    type: Optional[BuildType] = _type_option(),
+    clean: bool = _clean_option(),
+) -> None:
+    """Build if needed, then run the benchmark program and print its table."""
+    raise typer.Exit(project_svc.bench(type, group or (), clean=clean))
 
 
 @app.command(

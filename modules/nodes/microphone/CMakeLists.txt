@@ -10,6 +10,7 @@ add_library(microphone STATIC
 add_library(SushiDSP::microphone ALIAS microphone)
 target_link_libraries(microphone PUBLIC SushiDSP::sushi_dsp_core)
 sushidsp_apply_optimization_flags(microphone)
+sushidsp_apply_sanitizers(microphone)
 target_include_directories(microphone PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )

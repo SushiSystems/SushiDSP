@@ -6,9 +6,9 @@
 
 `// Every case renders seconds, hence SUSHIDSP_REGRESSION_TEST.`
 
-Every case here is written with SUSHIDSP_REGRESSION_TEST: each one renders seconds of audio, and
-docs/CONTRIBUTING.md keeps `sd test -s unit` a fast edit loop. The alias-floor cases in each
-amplifier's and stage's `test_output.cpp` do the same.
+Every case here is written with SUSHIDSP_REGRESSION_TEST: each one keeps a measured behaviour
+from drifting. The alias-floor cases in each amplifier's and stage's `test_output.cpp` do the
+same.
 
 ### `Dd3AcceptanceClockCurveMatchesThePublishedRange`
 

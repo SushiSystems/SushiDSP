@@ -16,6 +16,7 @@ add_library(routing STATIC
 add_library(SushiDSP::routing ALIAS routing)
 target_link_libraries(routing PUBLIC SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math)
 sushidsp_apply_optimization_flags(routing)
+sushidsp_apply_sanitizers(routing)
 target_include_directories(routing PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )

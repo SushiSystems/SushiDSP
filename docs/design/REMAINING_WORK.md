@@ -92,9 +92,6 @@ what to try on screen. No change to the levels the room renders at starts withou
 - **Close the alias floor.** The maintainer's call between 16×, a band limit between the stages,
   or a higher-order antiderivative; part 4's measurements for all three are in KNOWN_ISSUES.
 - **Transcribe the remaining four material rows**, and measure the SM57's curve.
-- **Give `sd test` a test filter.** Without one, `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`
-  rewrites all twelve golden files, so re-pinning one node means overwriting the JCM800 anchor's and
-  restoring it by hand afterwards (`modules/foundation/golden_compare/README.md`).
 
 ## The Mark IIC+ questions only a real amplifier answers
 
@@ -152,7 +149,7 @@ Decisions the owner takes first:
   skips on Windows, where a 40 000-character path raises nothing; `StderrLogSink` has no test;
   a line carries no timestamp or thread id; `sushi_dsp` uses `std::thread` without linking
   `Threads::Threads`.
-- **State the test count with its suite** in `README.md`, after one `sd test --suite all` run.
+- **State the test count with its sizes** in `README.md`, after one `sd test` run.
 
 Mechanical work that follows:
 
@@ -163,12 +160,14 @@ Mechanical work that follows:
   and each area under `include/SushiDSP/`.
 - Rewrite the CLI guide, the design spec's opening block and the first known issue in the
   `humanizer` register.
-- Route CI through `sd` and split the workflow by trigger. Blocked: the CLI depends on the
-  `sushicore` package, and CI needs a decided way to install it on the runners.
 - Test the 39 units `check_test_mirror.py` reports, as their own piece of work (`KNOWN_ISSUES.md`):
   31 under `applications/host_gui`, 6 under `applications/plugin` and the two device backends
-  `asio_audio_device` and `sdl2_audio_device`. Device backends carry the `device` label, the CLAP
-  boundary runs behind a fake host, the ImGui panels run ImGui without a window.
+  `asio_audio_device` and `sdl2_audio_device`. The CLAP boundary runs behind a fake host and the
+  ImGui panels run ImGui without a window, both `medium`; a device backend runs `medium` on SDL's
+  dummy audio driver where it can, and `large` against a real device.
+- Run the workflows once on GitHub: `ci.yml`, `nightly.yml` and `release.yml` were written on a
+  machine with no runner, and the first run is what proves the `sd` lanes, the ASan and TSan
+  builds and the caches.
 - Replace the paragraphs of the docs-truth findings still open: 21 named symbols the source does
   not hold (`TopBar`, `StagePanel`, `Mp3Decoder`, ...), 28 history words, and two duplicated
   passages in the SPICE READMEs. Read each against the source before editing.

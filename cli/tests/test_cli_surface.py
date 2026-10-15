@@ -104,7 +104,7 @@ def test_docs_runs_the_api_build_and_bundle_is_its_subcommand(monkeypatch, tmp_p
 def test_the_command_set_is_the_documented_one():
     """sd answers to the fourteen commands its guide describes."""
     assert _visible_commands() == sorted([
-        "configure", "build", "test", "clean", "docs", "check", "run", "host",
+        "configure", "build", "test", "bench", "clean", "docs", "check", "run", "host",
         "config", "env", "setup", "doctor", "link", "unlink"])
 
 
@@ -132,7 +132,7 @@ def test_test_hands_the_filter_to_the_project_service(monkeypatch):
     """sd test -f passes its regex through, and no filter when the flag is absent."""
     seen: list[str | None] = []
 
-    def fake_test(build_type, suite, clean=False, filter=None):
+    def fake_test(build_type, sizes, clean=False, filter=None, sanitizer=None):
         """Records the filter the command passed."""
         seen.append(filter)
         return 0

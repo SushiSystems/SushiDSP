@@ -1,149 +1,174 @@
 name: CI
 
-# Functional suite on every push / PR. Modelled on sushiblas/sushiengine's
-# ci.yml, which is the stack's house style, but dramatically simpler: SushiDSP
-# has no SYCL toolchain, no sibling-module dependency, and no vcpkg-provisioned
-# tree to stand up on a runner — GoogleTest and (optionally) SDL2 are both
-# CMake FetchContent, so a stock Ubuntu runner with a C++17 compiler and cmake
-# is the whole toolchain this needs.
+# Pre-merge on every pull request, post-merge on every push to main. Every job calls the project
+# CLI, `sd`, and prints the command it runs first. `gate` is the one check main requires.
 #
-# ---------------------------------------------------------------------------
-# Why this file calls cmake/ctest directly instead of `sd`
-# ---------------------------------------------------------------------------
-# docs/CLAUDE.md requires every build to go through `sd` and never to invoke
-# cmake directly; docs/CONTRIBUTING.md documents `sd build` / `sd test` as the
-# way the project is built. This workflow is the one exception, matching
-# sushiblas/sushiengine's own precedent: `sd` resolves cmake/ctest from PATH
-# or `cli/config.local.toml` and expects a normal developer shell, not a
-# container with no prior setup. The steps below are the CI-side expression
-# of what `sd build`/`sd test` do locally (see cli/sushidsp/services/
-# project.py's configure()/build()/test()).
-#
-# SUSHIDSP_BUILD_SDL2=OFF on the functional job: the unit/regression suites
-# never link sushi_dsp_sdl2 or applications/host (see tests/CMakeLists.txt), so
-# fetching and building SDL2 on every CI run would cost real time for zero
-# coverage. A second job builds WITH SDL2 on to catch a build break in
-# applications/host/sushi_dsp_sdl2 specifically, since that path has no test coverage
-# of its own (D1's plan documents why: it opens real audio hardware).
+# Pre-merge: the checkers, the build and the small and medium tests on Linux and Windows, and the
+# small tests again under ASan and UBSan on Linux. Post-merge adds ThreadSanitizer.
+# Large tests need an audio device and run on no runner; benchmarks and quarantined tests run in
+# nightly.yml.
+
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
   workflow_call:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The suites never link the SDL2 host or the GUI; building them here costs time for no test.
+  SD_DEFINES: -D SUSHIDSP_BUILD_SDL2=OFF
+
 jobs:
-  functional:
-    name: Functional tests (Linux)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build
-
-      - name: Configure, build, and run the functional suite
-        run: |
-          set -e
-          cmake -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DSUSHIDSP_BUILD_SDL2=OFF
-          cmake --build build
-          # The umbrella label regex `sd test --suite all` uses.
-          ctest --test-dir build -L "unit|regression" --output-on-failure
-
-  host-build:
-    name: Standalone host build (SDL2 on, Linux)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          # SDL2 needs the ALSA and PulseAudio headers; GLFW needs Wayland, X11 and EGL.
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build pkg-config libasound2-dev libpulse-dev \
-            libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev \
-            xorg-dev libgl1-mesa-dev libegl1-mesa-dev
-
-      - name: Configure and build (SDL2 on, applications/host and applications/host_gui included)
-        run: |
-          set -e
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --target sushidsp_host sushidsp_host_gui
-
-  windows:
-    name: Functional tests (Windows)
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # One command per step: pwsh reports only the last command's exit code.
-      - name: Configure
-        shell: pwsh
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSUSHIDSP_BUILD_SDL2=OFF
-
-      - name: Build
-        shell: pwsh
-        run: cmake --build build --config Debug
-
-      - name: Run the functional suite
-        shell: pwsh
-        run: ctest --test-dir build -C Debug -L "unit|regression" --output-on-failure
-
-# ---------------------------------------------------------------------------
-# Deliberately absent
-# ---------------------------------------------------------------------------
-# * A sibling-module checkout step. SushiDSP has no code dependency on any
-#   other SushiStack module (spec §11/§11a) — nothing to check out.
-# * A SYCL/oneAPI container image. The core has no GPU/SYCL dependency at all.
-# * ThreadSanitizer job. The repo's only cross-thread surface as of D0-D4 is
-#   RigGraph's documented off-RT-thread compile/atomic-swap (not yet built)
-#   and SpscRing<T> (D1), which already has a dedicated 100k-item concurrent
-#   stress test run under the normal functional suite. Add a TSan lane if a
-#   future phase adds a synchronization primitive that test doesn't cover.
-# * A doxygen job. `sd doxygen` exists and reads `.config/doxygen/Doxyfile`
-#   (committed, unlike sushiblas's), so this is a natural future addition —
-#   left out for now to keep this workflow's first version minimal and
-#   focused on the suite that actually gates correctness.
-
-  checkers:
-    name: Checkers (${{ matrix.os }})
+  checks:
+    name: Checks (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Command
+        shell: bash
+        run: echo "python tools/check_all.py . && python -m pytest cli/tests -q"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
-      - name: python tools/documentation/check_source_comments.py .
-        run: python tools/documentation/check_source_comments.py .
-      - name: python tools/documentation/check_docs_layout.py .
-        run: python tools/documentation/check_docs_layout.py .
-      - name: python tools/documentation/check_changelog.py .
-        run: python tools/documentation/check_changelog.py .
-      - name: python tools/layering/check_layering.py .
-        run: python tools/layering/check_layering.py .
-      - name: python -m unittest discover -s tools/tests
-        run: python -m unittest discover -s tools/tests
+          cache: pip
+          cache-dependency-path: cli/pyproject.toml
+      - name: Install the CLI
+        run: python -m pip install -e ./cli pytest
+      - name: Run every checker
+        run: python tools/check_all.py .
+      - name: Run the CLI's own tests
+        run: python -m pytest cli/tests -q
 
-  cli:
-    name: Python CLI (tests)
+  linux:
+    name: Build and small and medium tests (Linux)
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Command
+        run: echo "sd test --type release --label small --label medium"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
-      - name: Install tooling
+          cache: pip
+          cache-dependency-path: cli/pyproject.toml
+      - name: Install the toolchain and the CLI
+        # SDL2 needs the ALSA and PulseAudio headers; GLFW needs Wayland, X11 and EGL. This lane
+        # builds the standalone host and the GUI, which no other lane compiles.
         run: |
-          python -m pip install --upgrade pip pytest
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build ccache pkg-config \
+            libasound2-dev libpulse-dev libwayland-dev libwayland-bin wayland-protocols \
+            libxkbcommon-dev xorg-dev libgl1-mesa-dev libegl1-mesa-dev
           python -m pip install -e ./cli
-      - name: Run CLI unit tests
-        working-directory: cli
-        run: python -m pytest tests -q
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-linux-gcc-release-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-${{ github.sha }}
+          restore-keys: ccache-linux-gcc-release-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-
+      - name: Build every target, the host and the GUI included
+        run: sd build --type release -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Run the small and medium tests
+        run: sd test --type release --label small --label medium
+
+  windows:
+    name: Build and small and medium tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Command
+        shell: bash
+        run: echo "sd test --type release --label small --label medium"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: cli/pyproject.toml
+      - name: Install the CLI
+        run: python -m pip install -e ./cli
+      # One command per step: pwsh reports only the last command's exit code.
+      - name: Build
+        shell: pwsh
+        run: sd build --type release -D SUSHIDSP_BUILD_SDL2=OFF
+      - name: Run the small and medium tests
+        shell: pwsh
+        run: sd test --type release --label small --label medium
+
+  sanitize:
+    name: Small tests under ${{ matrix.sanitizer }} (Linux, Clang)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sanitizer: address
+            labels: --label small
+            post_merge_only: false
+          - sanitizer: thread
+            labels: --label small --label medium
+            post_merge_only: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Command
+        if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
+        run: echo "sd test --type relwithdebinfo --sanitize ${{ matrix.sanitizer }} ${{ matrix.labels }}"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: cli/pyproject.toml
+      - name: Install the toolchain and the CLI
+        if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build clang ccache
+          python -m pip install -e ./cli
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
+        with:
+          path: ~/.cache/ccache
+          key: ccache-linux-clang-${{ matrix.sanitizer }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-${{ github.sha }}
+          restore-keys: ccache-linux-clang-${{ matrix.sanitizer }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-
+      - name: Build
+        if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
+        run: >-
+          sd build --type relwithdebinfo --sanitize ${{ matrix.sanitizer }} $SD_DEFINES
+          -D CMAKE_CXX_COMPILER=clang++ -D CMAKE_C_COMPILER=clang
+          -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Run the tests
+        if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
+        run: sd test --type relwithdebinfo ${{ matrix.labels }}
+
+  gate:
+    name: Gate
+    if: always()
+    needs: [checks, linux, windows, sanitize]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Command
+        run: echo "test every pre-merge job result is success"
+      - name: Require every pre-merge job
+        env:
+          RESULTS: ${{ needs.checks.result }} ${{ needs.linux.result }} ${{ needs.windows.result }} ${{ needs.sanitize.result }}
+        run: |
+          echo "results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = "success" ] || exit 1
+          done

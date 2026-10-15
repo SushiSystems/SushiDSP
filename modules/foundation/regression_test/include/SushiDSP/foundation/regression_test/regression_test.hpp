@@ -32,7 +32,6 @@
 /**
  * @brief Declares a regression test: a case that keeps a fixed defect fixed.
  *
- * Expands to TEST. The test build reads the macro name to label the case
- * `regression`; a plain TEST is labelled `unit`.
+ * Expands to TEST, and is registered with its file's size like any TEST.
  */
 #define SUSHIDSP_REGRESSION_TEST(suite, name) TEST(suite, name)

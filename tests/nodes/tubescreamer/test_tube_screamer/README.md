@@ -72,7 +72,7 @@ The source carried this line above both `TubeScreamerGoldenFile48k` and
 `TubeScreamerGoldenFile96k`: "Expected red until Task 8 re-pins against the DK chain at 4x - see
 the D6c plan." `modules/foundation/golden_compare/README.md` lists a tube_screamer pin by D6c Task 8 dated
 2026-09-07, so the note is out of date for both cases. Neither case was run for this page;
-`sd test -s regression` shows whether they are green.
+`sd test --label medium` shows whether they are green.
 
 ### `TubeScreamerAliasFloorDoesNotRegress`
 

@@ -93,23 +93,31 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 | `tests/nodes/room/fixtures/built_room_loss/` | Reference data from measured rooms, each with its own README |
 | `modules/foundation/{signal_measure,spice_reference,circuit_blocks,golden_compare,timing_gate,regression_test,allocation_trap,benchmark_harness}/`, `modules/nodes/room_scenes/` | Shared test code, each an internal module: measurement, SPICE comparison, circuit blocks, golden comparison, the timing gate, the regression macro, the allocation trap, the benchmark harness, the room scenes |
 | `tests/` | `main.cpp`, the entry point of `sushidsp_tests`; `README.md` |
-| `tests/foundation/core/` | The timing harness, one CTest case under the `benchmark` label |
+| `tests/benchmark_main.cpp`, `tests/<owner>/benchmark_<name>.cpp` | The benchmark program `sushidsp_bench`, run by `sd bench` and never by `sd test` |
 
-- A test carries its label through the macro it is written with: `TEST(Logger, SomeCase)` runs
-  under `sd test -s unit`, `SUSHIDSP_REGRESSION_TEST(Logger, SomeCase)` (from
-  `modules/foundation/regression_test/include/SushiDSP/foundation/regression_test/regression_test.hpp`) under `sd test -s regression`.
+- Every test carries one size, which `tests/CMakeLists.txt` sets as its CTest label and its
+  timeout: `small` (one thread, no file outside the build tree, 60 s), `medium` (threads, a
+  temporary folder, a fixture, a golden or a shipped asset, 300 s) or `large` (a real audio
+  device, 900 s). A file is small unless `SUSHIDSP_MEDIUM_TEST_SOURCES` lists it.
+  `SUSHIDSP_REGRESSION_TEST`, from
+  `modules/foundation/regression_test/include/SushiDSP/foundation/regression_test/regression_test.hpp`,
+  names a case that keeps a fixed defect fixed; it carries a size like any other.
 - A golden file is one second of mono float32 per node at 48 kHz and at 96 kHz, compared
   against a fresh render at −80 dB RMS residual. A deliberate behaviour change regenerates
-  them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`; a golden file is never
+  them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test --label medium`; a golden file is never
   regenerated to silence a failure whose cause is unknown.
 - A numerical test compares against a value derived independently of the implementation.
-- The alias-floor cases in the `test_output.cpp` of each amplifier and stage are written with
-  `SUSHIDSP_REGRESSION_TEST`, because each renders several seconds of audio and `sd test -s unit`
-  is the edit loop.
-- Run `sd test` before every commit, and `sd test --suite all` before a change to the audio
-  path lands.
-- A change to the audio path is timed before and after with `sd test -t release -s benchmark`,
-  and the figures go in the commit message. A change meant to cost nothing keeps the golden
+- `sd test --label small` is the edit loop. Run `sd test --label small --label medium`, what a
+  pull request runs, before every commit, and `sd test` with every size before a change to
+  the audio path lands.
+- A change to the audio path is timed before and after with `sd bench --type release`, and
+  the figures go in the commit message.
+- CI runs the sizes by stage. A pull request runs `python tools/check_all.py .`, the build on
+  Linux and Windows, `small` and `medium` tests on both, and `small` again under
+  `--sanitize address`; `gate` is the check `main` requires. A push to `main` adds the
+  ThreadSanitizer lane. `nightly.yml` adds `sd bench`, and `release.yml` runs nightly before it
+  packages. `large` tests run on no runner: before a release they are run with
+  `sd test --label large` on a machine with the device, and the proposal carries the output. A change meant to cost nothing keeps the golden
   files bit-identical.
 
 ## 6. Commit messages
