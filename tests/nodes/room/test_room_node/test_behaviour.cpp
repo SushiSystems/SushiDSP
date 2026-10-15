@@ -33,7 +33,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <memory>
 #include <string>
@@ -42,7 +41,6 @@
 #include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
-#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 #include <SushiDSP/nodes/room/ambisonic_encoder.hpp>
 #include <SushiDSP/nodes/room/binaural_decoder.hpp>
 #include <SushiDSP/nodes/room/cabinet_directivity.hpp>
@@ -1132,32 +1130,6 @@ TEST(RoomNode, RoomNodeCompensatesAnEarsSetByItsRoundedPropagationDelay)
     SushiDSP::room::RoomNode::compensate_direct_delay(*microphone);
     EXPECT_FLOAT_EQ(microphone->early.taps[0].delay_frames, microphone_direct);
     EXPECT_FLOAT_EQ(microphone->late.delay_to_crossover_frames, microphone_tail);
-}
-
-TEST(RoomNode, RoomNodeIsRegisteredUnderRoom)
-{
-    bool found = false;
-    for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
-    {
-        if (std::strcmp(entry.descriptor->id, "sushidsp.room") == 0)
-        {
-            found = true;
-            EXPECT_STREQ(entry.category.name, "Room");
-            EXPECT_EQ(entry.descriptor->parameter_count, 1u);
-            EXPECT_STREQ(entry.descriptor->parameters[0].id, "direct_delay");
-            EXPECT_FLOAT_EQ(entry.descriptor->parameters[0].default_value, 0.0f);
-        }
-    }
-    EXPECT_TRUE(found);
-
-    std::unique_ptr<SushiDSP::AudioNode> node = SushiDSP::make_node("sushidsp.room", K_INFO);
-    ASSERT_NE(node, nullptr);
-    EXPECT_EQ(node->ports().input_channels, 6u);
-    EXPECT_EQ(node->ports().output_channels, 2u);
-    EXPECT_FLOAT_EQ(node->get_parameter("direct_delay"), 0.0f);
-    node->set_parameter_for_control_thread("direct_delay", 1.0f);
-    EXPECT_FLOAT_EQ(node->get_parameter("direct_delay"), 1.0f);
-    EXPECT_NE(dynamic_cast<SushiDSP::room::RoomHost*>(node.get()), nullptr);
 }
 
 TEST(RoomNode, RoomNodeRingsAtTheGaragesEigenfrequencies)

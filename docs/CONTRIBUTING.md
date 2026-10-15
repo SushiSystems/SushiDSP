@@ -78,9 +78,9 @@ both at once. The rules below are the tree today.
 | Comments | Doxygen, as `source-comments` states: what a thing does, never why |
 | Real-time path | `AudioNode::process()` and everything it calls allocates nothing, locks nothing, makes no system call and throws nothing |
 
-A class that will sit on the audio path gets a `*ProcessPerformsNoHeapAllocation` case in
-`tests/foundation/core/test_audio_node/test_rt_safety.cpp`, which replaces `operator new` and fails when the
-audio path reaches it. Every scratch buffer is sized in the constructor or in `prepare()`.
+A class that will sit on the audio path gets a `ProcessPerformsNoHeapAllocation` case in its own
+test file, armed with `SushiDSP::test::AllocationTrap` from `modules/foundation/allocation_trap`,
+which replaces `operator new` and fails the case when the audio path reaches it. Every scratch buffer is sized in the constructor or in `prepare()`.
 
 ## 5. Tests
 
@@ -91,7 +91,7 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 | `tests/<tier>/<module>/`, `tests/applications/<app>/` | One `test_<snake_case_name>.cpp` per unit, at the path of the unit's header |
 | `tests/<tier>/<module>/goldens/` | The pinned `.f32` renders, one folder per unit; the record of each regeneration is in `modules/foundation/golden_compare/README.md` |
 | `tests/nodes/room/fixtures/built_room_loss/` | Reference data from measured rooms, each with its own README |
-| `modules/foundation/{signal_measure,spice_reference,circuit_blocks,golden_compare,timing_gate,regression_test}/`, `modules/nodes/room_scenes/` | Shared test code, each an internal module: measurement, SPICE comparison, circuit blocks, golden comparison, the timing gate, the regression macro, the room scenes |
+| `modules/foundation/{signal_measure,spice_reference,circuit_blocks,golden_compare,timing_gate,regression_test,allocation_trap,benchmark_harness}/`, `modules/nodes/room_scenes/` | Shared test code, each an internal module: measurement, SPICE comparison, circuit blocks, golden comparison, the timing gate, the regression macro, the allocation trap, the benchmark harness, the room scenes |
 | `tests/` | `main.cpp`, the entry point of `sushidsp_tests`; `README.md` |
 | `tests/foundation/core/` | The timing harness, one CTest case under the `benchmark` label |
 

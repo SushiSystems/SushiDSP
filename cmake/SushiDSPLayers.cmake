@@ -23,6 +23,7 @@ set(SUSHIDSP_SAME_TIER_EDGES
     circuit_blocks:core
     circuit_blocks:math
     circuit_blocks:circuits
+    benchmark_harness:core
     room_scenes:room
 )
 

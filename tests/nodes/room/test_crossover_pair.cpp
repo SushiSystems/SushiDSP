@@ -33,8 +33,13 @@
 #include <cstdint>
 #include <vector>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
 #include <SushiDSP/nodes/room/crossover_pair.hpp>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace
 {
@@ -185,5 +190,56 @@ TEST(CrossoverPair, CrossoverPairAtZeroCrossoverPassesEverythingHigh)
         crossover.process_sample(input, low, high);
         EXPECT_EQ(low, 0.0f) << "frame " << frame;
         EXPECT_EQ(high, input) << "frame " << frame;
+    }
+}
+
+namespace
+{
+    /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
+    void fill_room_tone(std::vector<float>& block)
+    {
+        for (std::size_t i = 0; i < block.size(); ++i)
+        {
+            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f *
+                                       static_cast<float>(i) / 48000.0f);
+        }
+    }
+} // namespace
+
+TEST(CrossoverPair, ProcessPerformsNoHeapAllocation)
+{
+    // set_crossover is arithmetic on the audio thread. See tests/nodes/room/README.md.
+    SushiDSP::room::CrossoverPair pair;
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> low(256, 0.0f);
+    std::vector<float> high(256, 0.0f);
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    pair.set_crossover(48000.0, 278.18);
+    for (int block = 0; block < 8; ++block)
+    {
+        if (block == 4)
+        {
+            pair.set_crossover(48000.0, 356.1);
+        }
+        if (block == 6)
+        {
+            pair.set_crossover(48000.0, 0.0);
+        }
+        for (std::size_t i = 0; i < input.size(); ++i)
+        {
+            pair.process_sample(input[i], low[i], high[i]);
+        }
+    }
+    pair.reset();
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::size_t i = 0; i < low.size(); ++i)
+    {
+        EXPECT_TRUE(std::isfinite(low[i]));
+        EXPECT_TRUE(std::isfinite(high[i]));
     }
 }

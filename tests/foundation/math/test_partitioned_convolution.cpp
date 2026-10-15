@@ -32,6 +32,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/partitioned_convolution.hpp>
 
 namespace
@@ -142,4 +143,38 @@ TEST(PartitionedConvolution, PartitionedConvolutionResetClearsTail)
     {
         EXPECT_NEAR(sample, 0.0f, 1e-7f);
     }
+}
+
+TEST(PartitionedConvolution, ProcessPerformsNoHeapAllocation)
+{
+    const std::uint32_t partition_size = 64;
+
+    std::vector<float> impulse_response(160, 0.0f);
+    for (std::size_t i = 0; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 1.0f / (1.0f + static_cast<float>(i));
+    }
+
+    SushiDSP::PartitionedConvolution convolution(
+        partition_size, impulse_response.data(),
+        static_cast<std::uint32_t>(impulse_response.size()));
+
+    std::vector<float> input(partition_size, 0.0f);
+    std::vector<float> output(partition_size, 0.0f);
+    for (std::uint32_t i = 0; i < partition_size; ++i)
+    {
+        input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
+    }
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    for (int block = 0; block < 1000; ++block)
+    {
+        convolution.process(input.data(), output.data());
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

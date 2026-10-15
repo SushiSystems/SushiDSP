@@ -35,6 +35,7 @@ path.
 | T7 Unmatched test files | 29 files (list below) | Each is renamed to the unit it tests, moved, or merged; the checker reports no orphan. |
 | T8 Split the README | `tests/functional/unit/README.md` (4401 lines) into the READMEs of the owners it describes | Each README is at most 800 lines; every section of the old file lands in one of them. |
 | T9 Manual and backlog | `docs/guides/`, `tests/` READMEs, `docs/reference/CHANGELOG.md`, `docs/design/REMAINING_WORK.md` (the item at line 168 closes), `docs/reference/KNOWN_ISSUES.md` if a test is quarantined | `check_docs_layout.py`, `check_changelog.py` and `check_docs_truth.py` report nothing for the files this change touches. |
+| T11 Owners after the shared checkers | Done in the tree: `modules/foundation/allocation_trap/` and `modules/foundation/benchmark_harness/`; the 39 allocation traps moved into their units' test files; the benchmark split into 17 `benchmark_<name>.cpp`; two registry checks moved to `test_node_registry.cpp` and `test_mixer_node.cpp`; the resampler kernel tested through `Resampler`; `test_audio_node.cpp` | The layering check reports nothing; the mirror check reports only the 39 planned application and device units; one Release build and `sd test -s unit` green after the owner allows it. |
 | T10 Verification | none | After the owner allows it: one Release build; `sd test -s unit` and `sd test -s regression` green with their counts; `python tools/check_all.py .` reports the mirror checker clean. `check_docs_truth.py` findings that predate this work are reported, not fixed here. |
 
 ## T0: include paths to the tier form
@@ -142,8 +143,7 @@ do not:
   `test_room_starter_scene`. Several cover one header each under a different name, or a scene.
 - Logging and runtime: `test_dd3_acceptance`, `test_directory_listing_logging`,
   `test_log_compile_time_cut`, `test_room_node_logging`, `test_track_recorder_logging`,
-  `test_rig_graph_output_ports`, `test_rt_safety`. `test_rt_safety` is the allocation trap; it
-  stays one file and its unit is named in T7 when the owner decides.
+  `test_rig_graph_output_ports`, `test_rt_safety`. `test_rt_safety` is split by T11.
 
 ## Who does what
 
@@ -159,12 +159,14 @@ Taken on 2026-10-15:
 - The 99 units are written layer by layer: foundation, nodes, applications.
 - T1 is committed now, staged by path.
 - The include form moves to the tier form, and the headers move with it (T0).
+- Each allocation trap moves into the test file of the unit it guards, counted by the new
+  `allocation_trap` module; the benchmark splits per unit on the new `benchmark_harness` module
+  (T11).
 
 Still open:
 
-1. Build permission: T0 and T2 to T9 are verified by the checkers, grep and reading, not by a build.
-   The one Release build at the end (T10) needs the owner's go-ahead.
-2. T7: the unit named for `test_rt_safety`.
+1. Build permission: T11 is verified by the checkers, grep and reading, not by a build. Its
+   Release build and test run need the owner's go-ahead.
 
 ## Result
 

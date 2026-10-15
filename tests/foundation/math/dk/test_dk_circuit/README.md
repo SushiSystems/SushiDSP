@@ -196,3 +196,21 @@ corner is 1/(2 pi Rf Cf) = 159.154943 Hz.
 
 An op-amp whose output does not reach its own input leaves the augmented system rank deficient.
 prepare() must say so rather than derive nonsense.
+
+## `test_rt_safety.cpp`
+
+### `File scope`
+
+`// The netlist lives in modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp.`
+
+The netlist, its component constants and the triode glue live in
+modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp, shared with the D6b stage test and the benchmark.
+
+### `PotentiometerUpdatePerformsNoHeapAllocation`
+
+`// A pot move rebuilds the DK matrices on the audio thread.`
+
+The one audio-thread path that re-runs a derivation (plan Ruling 3): a pot move invalidates the
+DK matrices and update_matrices_if_dirty() rebuilds them at the top of the next block. If
+anything in that rebuild allocated, Ruling 3 would have to be replaced by a control- thread
+rebuild plus an RtSwapSlot hand-off, so this case is the one that decides it.

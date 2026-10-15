@@ -32,6 +32,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
 
 #ifndef M_PI
@@ -144,5 +145,37 @@ TEST(Fft, ForwardThenInverseFftIsIdentity)
     for (std::uint32_t n = 0; n < size; ++n)
     {
         EXPECT_NEAR(reconstructed[n], original[n], 1e-3f);
+    }
+}
+
+TEST(Fft, ForwardAndInverseRoundTripPerformsNoHeapAllocation)
+{
+    const std::uint32_t size = 256;
+    SushiDSP::Fft fft(size);
+
+    std::vector<float> time_domain(size, 0.0f);
+    std::vector<float> real_bins(size, 0.0f);
+    std::vector<float> imag_bins(size, 0.0f);
+    std::vector<float> reconstructed(size, 0.0f);
+    for (std::uint32_t i = 0; i < size; ++i)
+    {
+        time_domain[i] = static_cast<float>(i % 7) - 3.0f;
+    }
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    for (int block = 0; block < 1000; ++block)
+    {
+        fft.forward(time_domain.data(), real_bins.data(), imag_bins.data());
+        fft.inverse(real_bins.data(), imag_bins.data(), reconstructed.data());
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    for (std::uint32_t i = 0; i < size; ++i)
+    {
+        EXPECT_NEAR(reconstructed[i], time_domain[i], 1e-3f);
     }
 }

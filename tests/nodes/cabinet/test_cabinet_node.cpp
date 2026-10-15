@@ -31,7 +31,13 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
+#include <SushiDSP/foundation/io/ir.hpp>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace
 {
@@ -161,4 +167,82 @@ TEST(CabinetNode, CabinetNodeDescriptorMatchesTypeId)
     auto node = descriptor.make(info);
     ASSERT_NE(node, nullptr);
     EXPECT_STREQ(node->type_id(), "sushidsp.cabinet");
+}
+
+TEST(CabinetNode, ProcessPerformsNoHeapAllocationWithCabinet)
+{
+    // 500 blocks wrap the spectrum history at least once. See tests/nodes/cabinet/README.md.
+    std::vector<float> impulse_response(200, 0.0f);
+    impulse_response[0] = 1.0f;
+    for (std::size_t i = 1; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 0.5f * impulse_response[i - 1];
+    }
+
+    SushiDSP::CabinetNode node;
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
+    node.prepare(info);
+    ASSERT_TRUE(node.set_cabinet(SushiDSP::Ir{impulse_response, 48000.0}));
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    for (int block = 0; block < 500; ++block)
+    {
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
+        node.process(context);
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+}
+
+TEST(CabinetNode, SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
+{
+    // The trap is armed around the blocks, not set_cabinet(). See tests/nodes/cabinet/README.md.
+    SushiDSP::CabinetNode node;
+    SushiDSP::PrepareInfo info{48000.0, 256, 1};
+    node.prepare(info);
+
+    SushiDSP::Ir impulse_response;
+    impulse_response.sample_rate = 48000.0;
+    impulse_response.samples.assign(2048, 0.0f);
+    impulse_response.samples[0] = 1.0f;
+
+    std::vector<float> input(256);
+    for (std::size_t i = 0; i < input.size(); ++i)
+    {
+        input[i] = 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
+    }
+    std::vector<float> output(256, 0.0f);
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[1] = {output.data()};
+
+    SushiDSP::test::AllocationTrap trap;
+
+    for (int block = 0; block < 4; ++block)
+    {
+        impulse_response.samples[0] = 1.0f - 0.1f * static_cast<float>(block);
+        ASSERT_TRUE(node.set_cabinet(impulse_response));
+        ASSERT_TRUE(node.has_cabinet());
+
+        trap.arm();
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
+        node.process(context);
+        trap.disarm();
+    }
+
+    EXPECT_EQ(trap.count(), 0);
+
+    node.reclaim_cabinets();
 }

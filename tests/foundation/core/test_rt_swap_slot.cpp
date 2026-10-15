@@ -31,6 +31,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/core/rt_swap_slot.hpp>
 
 namespace
@@ -199,4 +200,25 @@ TEST(RtSwapSlot, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWaterma
         EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 1);
     }
     EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
+}
+
+TEST(RtSwapSlot, AcquireForAudioThreadPerformsNoHeapAllocation)
+{
+    SushiDSP::RtSwapSlot<int> slot;
+    slot.publish(std::make_unique<int>(3));
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    int accumulator = 0;
+    for (int i = 0; i < 10000; ++i)
+    {
+        const int* object = slot.acquire_for_audio_thread();
+        accumulator += (object != nullptr && slot.has_active()) ? *object : 0;
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(accumulator, 30000);
+    EXPECT_EQ(trap.count(), 0);
 }

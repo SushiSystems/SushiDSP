@@ -201,3 +201,14 @@ Skipped as a known issue; the measurement below still runs and still prints its 
 region cost 11.6 dB of that back because region A's decimator had been acting as an unplanned
 interstage band-limit, and the Miller grid poles took that bandwidth away again for a physical
 reason rather than a filtering one.
+
+## `test_rt_safety.cpp`
+
+### `ProcessPerformsNoHeapAllocationWithoutCabinet`
+
+`// The per-block set_high_shelf() is pure arithmetic.`
+
+This is also the trap for Jcm800::process()'s per-block set_high_shelf() call: recomputing the
+presence shelf's RBJ coefficients every block looks expensive, but it is pure double arithmetic
+(pow/sin/cos/sqrt) with no heap, lock, syscall, or throw behind it, so it must not register
+here.

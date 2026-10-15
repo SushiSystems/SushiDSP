@@ -39,8 +39,9 @@ performance.
 
 The DSP core runs on the real-time audio thread. `AudioNode::process()`, and everything called
 from it, allocates nothing, locks nothing, makes no system call and throws nothing. The
-allocation rule is enforced by the trap tests in `tests/foundation/core/test_audio_node/test_rt_safety.cpp`;
-the other three are held by review. Outside the real-time path, treat wasted cycles as a real
+allocation rule is enforced by the `*PerformsNoHeapAllocation` trap tests, each in the test file
+of the unit it guards and counted by `modules/foundation/allocation_trap`; the other three are
+held by review. Outside the real-time path, treat wasted cycles as a real
 cost: engineer it once carefully, run it a thousand times cheaply.
 
 ### Quality bar

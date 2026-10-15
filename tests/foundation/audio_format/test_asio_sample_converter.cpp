@@ -30,6 +30,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/audio_format/asio_sample_converter.hpp>
 
 TEST(AsioSampleConverter, AsioSampleConverterInt32RoundTripsKnownValues)
@@ -97,4 +98,23 @@ TEST(AsioSampleConverter, AsioSampleConverterFloatToSampleClampsOutOfRangeInput)
     std::int32_t decoded_value = 0;
     std::memcpy(&decoded_value, bytes, 4);
     EXPECT_EQ(decoded_value, 2147483647);
+}
+
+TEST(AsioSampleConverter, ConversionPerformsNoHeapAllocation)
+{
+    std::uint8_t bytes[4] = {0, 0, 0, 0};
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    for (int i = 0; i < 10000; ++i)
+    {
+        const float decoded =
+            SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
+        SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, decoded, bytes);
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

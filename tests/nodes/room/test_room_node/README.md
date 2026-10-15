@@ -344,3 +344,32 @@ near ear 3 dB below 5 kHz and 6 dB above, far ear 10 (assets/hrtf/README.md).
 
 Spec 9.5 as measured: the ears facing away from the cabinet, the source at 180 degrees, hear the
 left ear's rear notch within 1 dB of the set's own (assets/hrtf/README.md).
+
+## `test_rt_safety.cpp`
+
+### `ProcessPerformsNoHeapAllocation`
+
+`// The first trapped block adopts the published set.`
+
+prepare() builds the spherical head and publishes the first set outside the trap; the first
+trapped block is the one that adopts it, a copy into the node's own bank.
+
+### `ProcessPerformsNoHeapAllocationAcrossAPublish`
+
+`// Only the audio thread's half of a publish is trapped.`
+
+Only the audio thread's half of a publish is trapped: set_scene solves and allocates on the
+control thread, so the trap closes around it and opens around the blocks that pick the new set
+up, start the crossfade and run it to its end. The node renders the microphone, and the four
+publishes walk the modal bank through each of its paths: a moved microphone ramps the gains read
+at it, a moved listener changes nothing the microphone hears, a changed dimension blends the
+spare bank in from zero.
+
+### `BinauralProcessPerformsNoHeapAllocation`
+
+`// The ears render every binaural path inside the trap.`
+
+The ears render every binaural path: the direct pair, the decoder, the diffuse pair and the
+alignment delays. set_scene, the direct_delay switch and the fallback's re-install each publish
+on the control thread outside the trap; the blocks that adopt each set, fade it in and decode it
+run inside, and the index path stores the delay choice alone.

@@ -199,7 +199,8 @@ armed in one call, which is what makes the two files sample-aligned), `Transport
 `SushiDSP::WavWriter`, in the core's `io/`, is the streaming write half of `WavFile`: 16-bit PCM or
 32-bit float, the float path carrying a `fact` chunk and an 18-byte `fmt `. `TrackRecorder::write`
 and `TrackPlayer::process` are the module's two audio-thread entry points and both are trapped in
-`tests/foundation/core/test_audio_node/test_rt_safety.cpp`. `Transport` packs the loop range into one 64-bit word,
+their own tests, `tests/nodes/capture/test_track_recorder/test_rt_safety.cpp` and
+`tests/nodes/capture/test_track_player.cpp`. `Transport` packs the loop range into one 64-bit word,
 begin in the high half and length in the low, so a block reads both ends in one load and cannot see
 a half-applied range; the cost is that a loop must lie inside the first 2^32 frames, 24.8 hours at
 48 kHz. `modules/nodes/capture/README.md` carries the rest.
@@ -465,7 +466,7 @@ Every buffer is sized in `prepare(source_rate, target_rate, max_input_frames, mi
 `minimum_ratio` is what fixes the history length: the kernel's span in input samples grows as
 1/ratio when decimating. `set_rates` moves the accumulator's step and the kernel's time scale and
 allocates nothing, which is what lets the DD-3 re-clock 32 times per 256-frame block on the audio
-thread. `tests/foundation/core/test_audio_node/test_rt_safety.cpp` traps both `process` and `set_rates`.
+thread. `tests/foundation/math/test_resampler.cpp` traps both `process` and `set_rates`.
 
 ### Fixed capacities
 

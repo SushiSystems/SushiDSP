@@ -24,6 +24,7 @@ K_SAME_TIER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ("circuit_blocks", "core"),
     ("circuit_blocks", "math"),
     ("circuit_blocks", "circuits"),
+    ("benchmark_harness", "core"),
     ("room_scenes", "room"),
 })
 K_MODULE_FUNCTION = ""

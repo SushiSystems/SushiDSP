@@ -28,6 +28,7 @@
 #include <cmath>
 #include <vector>
 #include <gtest/gtest.h>
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/streaming_convolution.hpp>
 
 namespace
@@ -88,4 +89,39 @@ TEST(StreamingConvolution, StreamingConvolutionPartitionSizeFollowsSampleRate)
     EXPECT_EQ(SushiDSP::StreamingConvolution::partition_size_for(44100.0), 128u);
     EXPECT_EQ(SushiDSP::StreamingConvolution::partition_size_for(48000.0), 128u);
     EXPECT_EQ(SushiDSP::StreamingConvolution::partition_size_for(96000.0), 256u);
+}
+
+TEST(StreamingConvolution, ProcessPerformsNoHeapAllocation)
+{
+    const std::uint32_t partition_size = 128;
+
+    std::vector<float> impulse_response(300, 0.0f);
+    for (std::size_t i = 0; i < impulse_response.size(); ++i)
+    {
+        impulse_response[i] = 1.0f / (1.0f + static_cast<float>(i));
+    }
+
+    SushiDSP::StreamingConvolution convolution(partition_size, impulse_response.data(),
+                                               static_cast<std::uint32_t>(impulse_response.size()),
+                                               4096);
+
+    const std::uint32_t frames = 37;
+    std::vector<float> input(frames, 0.0f);
+    std::vector<float> output(frames, 0.0f);
+    for (std::uint32_t i = 0; i < frames; ++i)
+    {
+        input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
+    }
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    for (int block = 0; block < 200; ++block)
+    {
+        convolution.process(input.data(), output.data(), frames);
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

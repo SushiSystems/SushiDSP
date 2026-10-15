@@ -52,16 +52,16 @@ than leaving sink_handle_ pointing at a stale/default handle for process() to mi
 
 `// Every node receives a K_MAX_FAN_IN_OUT-sized array.`
 
-Regression: a multi-input node (MixerNode reads all K_MAX_FAN_IN_OUT slots) placed as a ROOT node , 
-no incoming edges, reachable via a hand-authored or rig_preset-loaded JSON whose mixer has an
-empty "inputs", used to be handed the host's raw context.inputs pointer. Hosts pass a 1-element
-array, so the mixer read 7 pointers past the end of it and dereferenced whatever garbage
-followed. Every node must now receive a K_MAX_FAN_IN_OUT-sized array whose unused slots are nullptr.
+A multi-input node placed as a root node, with no incoming edges, reads all K_MAX_FAN_IN_OUT
+slots of its input array; MixerNode is such a node. Hosts pass a one-element array, so a graph
+that handed a root node the host's raw context.inputs pointer would let it read seven pointers
+past the end. Every node receives a K_MAX_FAN_IN_OUT-sized array whose unused slots are nullptr.
+FullWidthSumNode reads every slot the way a mixer does.
 
 `// Unused slots are nullptr, never garbage.`
 
-gain_0 defaults to 1.0 and every other slot must be silent (nullptr), never garbage, so the
-output is exactly the external input.
+Every slot past the first must be nullptr, never garbage, so the sum is exactly the external
+input.
 
 ### `RigGraphSumsFanInPerChannel`
 
@@ -69,3 +69,12 @@ output is exactly the external input.
 
 Two producers reach a consumer that declares one input slot, so the surplus edge is summed into
 that slot channel for channel rather than dropped.
+
+## `test_rt_safety.cpp`
+
+### `StereoProcessPerformsNoHeapAllocation`
+
+`// The graph covers every path of the edge adaptation.`
+
+Exercises every arithmetic path of the edge adaptation: a stereo producer summed into a mono
+consumer, a fan-in summed per channel, and a mono sink widened to a stereo host.

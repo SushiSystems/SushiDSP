@@ -34,6 +34,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/halfband_coefficients.hpp>
 #include <SushiDSP/foundation/math/oversampler.hpp>
 #include <SushiDSP/foundation/signal_measure/spectrum.hpp>
@@ -416,4 +417,30 @@ TEST(Oversampler, ResetReturnsEveryStageToItsAsConstructedState)
         EXPECT_EQ(after_reset_up, never_used_up);
         EXPECT_EQ(after_reset, never_used);
     }
+}
+
+TEST(Oversampler, Oversampler8xRoundTripPerformsNoHeapAllocation)
+{
+    const std::uint32_t block_size = 64;
+    SushiDSP::Oversampler8x oversampler(block_size);
+
+    std::vector<float> input(block_size, 0.0f);
+    std::vector<float> output(block_size, 0.0f);
+    for (std::uint32_t i = 0; i < block_size; ++i)
+    {
+        input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
+    }
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    for (int block = 0; block < 500; ++block)
+    {
+        const float* oversampled = oversampler.upsample(input.data(), block_size);
+        oversampler.downsample(oversampled, block_size * 8, output.data());
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

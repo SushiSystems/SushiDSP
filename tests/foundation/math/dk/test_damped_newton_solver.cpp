@@ -31,6 +31,7 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/dk/damped_newton_solver.hpp>
 #include <SushiDSP/foundation/math/dk/dense_lu.hpp>
 
@@ -368,4 +369,58 @@ TEST(DampedNewtonSolver, DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturn
         EXPECT_DOUBLE_EQ(system.last_evaluated[0], v[0]) << start;
         EXPECT_NEAR(v[0], 0.25, 1e-9) << start;
     }
+}
+
+namespace
+{
+    /// @brief A two-variable nonlinear system with a known root, for the solver trap.
+    ///
+    /// The pair (exp(v0) - 1 + v1/2, v0/2 + exp(v1) - 1) has its root at v0 = v1 = 0, where its
+    /// Jacobian is [[1, 1/2], [1/2, 1]] and so comfortably non-singular. The exponentials make
+    /// the line search do real work from a distant start rather than converging in one step.
+    struct ExponentialPairSystem
+    {
+            /// @brief Evaluates the residual and its Jacobian at one iterate.
+            /// @param v The iterate.
+            /// @param residual Receives the residual.
+            /// @param jacobian Receives the 2x2 Jacobian.
+            void residual_and_jacobian(const std::array<double, 2>& v,
+                                       std::array<double, 2>& residual,
+                                       std::array<std::array<double, 2>, 2>& jacobian) const
+            {
+                const double first = std::exp(v[0]);
+                const double second = std::exp(v[1]);
+                residual[0] = first - 1.0 + 0.5 * v[1];
+                residual[1] = 0.5 * v[0] + second - 1.0;
+                jacobian[0][0] = first;
+                jacobian[0][1] = 0.5;
+                jacobian[1][0] = 0.5;
+                jacobian[1][1] = second;
+            }
+    };
+} // namespace
+
+TEST(DampedNewtonSolver, SolvePerformsNoHeapAllocation)
+{
+    SushiDSP::dk::DampedNewtonSolver<2> solver;
+    ExponentialPairSystem system;
+    std::array<double, 2> v{0.0, 0.0};
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+
+    int converged = 0;
+    for (int solve = 0; solve < 256; ++solve)
+    {
+        v[0] = 2.0;
+        v[1] = -1.0;
+        converged += solver.solve(system, v) ? 1 : 0;
+    }
+
+    trap.disarm();
+
+    EXPECT_EQ(converged, 256);
+    EXPECT_NEAR(v[0], 0.0, 1e-9);
+    EXPECT_NEAR(v[1], 0.0, 1e-9);
+    EXPECT_EQ(trap.count(), 0);
 }

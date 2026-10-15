@@ -34,6 +34,8 @@ add_subdirectory(modules/foundation/circuit_blocks)
 add_subdirectory(modules/foundation/golden_compare)
 add_subdirectory(modules/foundation/timing_gate)
 add_subdirectory(modules/foundation/regression_test)
+add_subdirectory(modules/foundation/allocation_trap)
+add_subdirectory(modules/foundation/benchmark_harness)
 
 # sushi_dsp bundles the foundation for consumers. A consumer that needs one module links it
 # directly instead.

@@ -200,6 +200,25 @@ land below -90 dB relative to the input tone.
 0 dB reference: what the same tone would read if it had passed unattenuated. Use the input
 itself, analysed at its own rate, so the two spectra share a window and a length.
 
+### `ResamplerPassesAToneAtThePassbandEdgeAtItsLevel`
+
+`// 0.399 of the source rate is inside the 0.4 passband edge.`
+
+Upsampling 48 kHz to 96 kHz runs the kernel at its own time scale, so the response a tone sees
+is the prototype's. 19.15 kHz is 0.399 cycles per input sample, just inside
+K_RESAMPLER_PASSBAND_EDGE, and must keep its level to 0.1 dB against the input analysed at its
+own rate. The frequency sits on a bin of both rates' transforms, so neither reading scallops.
+
+### `ResamplerSuppressesTheImageOfAnUpsampledTone`
+
+`// The image of f sits at 48000 - f, inside the stopband.`
+
+Upsampling 48 kHz to 96 kHz leaves an image of every input tone mirrored about 24 kHz, which
+only the kernel's stopband removes. 14.4 kHz images to 33.6 kHz, 0.7 cycles per input sample,
+deep in the stopband. The kernel's stopband measures K_RESAMPLER_STOPBAND_DECIBELS = -100.5 dB
+and linear interpolation between its entries adds an error near -108 dB, so the image must sit
+95 dB under the tone.
+
 ### `ResamplerOutputCountFollowsTheRatioWithoutDrift`
 
 `// The output count stays within two samples of the ratio.`
@@ -251,48 +270,46 @@ reset or a bank rebuild shows up here as a step; a correct accumulator does not.
 100 Hz unit sine sampled at 20 kHz moves at most 2\*pi\*100/20000 = 0.0314 per sample, so 0.05
 leaves room for the sweep's own rate change and none for a click.
 
+### `ProcessPerformsNoHeapAllocation`
+
+`// At the slowest clock interpolate() touches 164 taps.`
+
+The DD-3's decimating leg at the VCO's slowest clock, which is where the Resampler is widest:
+the prototype's half width of 34 (input samples; true crossings are fewer at fc = 0.45)
+stretches to 34 / (20000 / 48000) = 81.6, so interpolate() runs two loops of 82 and touches 164
+taps per output, and prepare() sizes the history ring for exactly that.
+
+### `RateChangePerformsNoHeapAllocation`
+
+`// One 256-frame block calls set_rates 32 times.`
+
+The case plan Ruling 3 rests on. The DD-3 re-clocks every 8 frames, so one 256-frame block calls
+set_rates 32 times; a ratio change that rebuilt a filter bank would put the node off the audio
+thread entirely. The sweep runs the VCO's whole 20-82.5 kHz range, so the ratio reaches both
+ends of the clamp prepare() was given.
+
 ## `test_resampler_design.cpp`
 
-### `ResamplerKernelHasTheCommittedShape`
+### `ResamplerDesignKernelLengthHoldsTheWingThePeakAndOneGuard`
 
 `// 34 * 512 + 1 endpoint + 1 guard = 17410.`
 
-34 zero crossings \* 512 entries + 1 endpoint + 1 guard = 17410  (DR1+DR2 plan, Task 1.1
-controller ruling: HALF_WIDTH grew from the planned 32 to clear the -100 dB stopband target with
-margin).
+34 zero crossings \* 512 entries + 1 endpoint + 1 guard = 17410. HALF_WIDTH is 34 rather than
+32 so the stopband clears its -100 dB target with margin. The table's own properties, a unity
+DC sum on every polyphase branch and a linear-interpolation error bound of 3.8127e-6, are
+measured by `tools/dsp/design_resampler.py` when it writes the table, and reach the tests through
+`Resampler` in `test_resampler.cpp`.
 
-`// The centre tap of the kernel is 2*fc, not 1.`
+## `benchmark_resampler.cpp`
 
-The centre tap of a sub-Nyquist lowpass impulse response is 2\*fc, not 1: at t = 0 the ideal
-kernel is 2\*cutoff\*sinc(0) = 2\*cutoff, and the polyphase-DC-sum normalisation (which targets
-the branch sums, already \~1 by Poisson summation) barely moves it.
+### `measure_resampler_round_trip`
 
-### `ResamplerKernelSumsToOnePerPhase`
+48 kHz down to 20 kHz and back is the resampler pair's worst case. The decimating stage's half
+span is 34 / (20000 / 48000) = 81.6 input samples, so `interpolate()` runs two loops of 82 and
+touches 164 taps per output. Both resamplers are prepared outside the timed body, since
+`prepare()` is where every buffer is allocated.
 
-`// Branch p is h(p/512 + k) for integer k.`
-
-Every polyphase branch must have unity DC gain, or a rate conversion would change the level of a
-constant. Branch p is h(p/512 + k) for integer k, over both wings.
-
-### `ResamplerKernelMeetsItsPassbandAndStopbandTargets`
-
-`// The passband is |f| <= 0.400, the stopband >= 0.500.`
-
-The full symmetric kernel, evaluated as a filter running at 512x the input rate. Its passband is
-|f| \<= 0.400 input-rate cycles/sample and its stopband |f| >= 0.500. DFT directly at the
-frequencies of interest - the full kernel is too many taps for a naive FFT here, and only a
-handful of frequencies matter.
-
-`// The kernel is even and real, so is its transform.`
-
-The kernel is even and real, so the transform is real; the 1/512 factor turns the sum into the
-continuous-time integral the interpolating filter actually applies.
-
-### `ResamplerKernelIsSmoothEnoughForLinearInterpolation`
-
-`// The predicted interpolation error bound is 3.8127e-6.`
-
-N1: the linear-interpolation error is bounded by |h''| \* step^2 / 8, and the committed table's
-second difference already carries the step^2 factor. The predicted bound is 3.8127e-6 (-108.4
-dB); assert it against 4.0e-6 so a table designed at half the density fails here rather than
-quietly setting the noise floor.
+The case prices the resampler pair in isolation at that clock. It does not decompose the DD-3's
+own number. The node pushes 256 single frames per block where this case pushes one block of
+256, and the node's clock follows D.TIME instead of sitting at 20 kHz, so the kernel span
+differs as well. That is why the 0.10 ms the case prints against is advisory.
