@@ -89,7 +89,6 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 | Folder | Holds |
 | --- | --- |
 | `tests/<tier>/<module>/`, `tests/applications/<app>/` | One `test_<snake_case_name>.cpp` per unit, at the path of the unit's header |
-| `tests/functional/unit/` | The one test still waiting for its owner: `test_measure.cpp`, which covers `signal_measure`; see `docs/agent/2026_10_14_TEST_TREE/PLAN.md` |
 | `tests/<tier>/<module>/goldens/` | The pinned `.f32` renders, one folder per unit; the record of each regeneration is in `modules/foundation/golden_compare/README.md` |
 | `tests/nodes/room/fixtures/built_room_loss/` | Reference data from measured rooms, each with its own README |
 | `modules/foundation/{signal_measure,spice_reference,circuit_blocks,golden_compare,timing_gate,regression_test}/`, `modules/nodes/room_scenes/` | Shared test code, each an internal module: measurement, SPICE comparison, circuit blocks, golden comparison, the timing gate, the regression macro, the room scenes |
@@ -104,7 +103,7 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
   them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test -s regression`; a golden file is never
   regenerated to silence a failure whose cause is unknown.
 - A numerical test compares against a value derived independently of the implementation.
-- The alias-floor cases in `tests/functional/unit/test_measure.cpp` are written with
+- The alias-floor cases in the `test_output.cpp` of each amplifier and stage are written with
   `SUSHIDSP_REGRESSION_TEST`, because each renders several seconds of audio and `sd test -s unit`
   is the edit loop.
 - Run `sd test` before every commit, and `sd test --suite all` before a change to the audio

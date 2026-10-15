@@ -169,3 +169,16 @@ modules/nodes/peavey5150/README.md, "The clean end", carries the table.
 
 The whole amplifier is one 8x region, so the reported dry latency is one Oversampler8x round
 trip. A host compensates by this number, so it is pinned against the oversampler itself.
+
+## `test_output.cpp`
+
+### `Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb`
+
+`// The case is skipped as a known issue but still prints.`
+
+Skipped as a known issue; the measurement below still runs and still prints its figure.
+
+DA5 spec section 11's second acceptance for the 5150: pre gain 0.5 at -12 dBFS under -30 dB. It
+read +26.0 dB before DA5 part 1, -17.2 dB after it, -11.4 dB after part 2 and -26.8 dB with
+every stage antialiased (part 4); the worst line is the 20 kHz tone's 19th harmonic folding
+about 384 kHz to 3995 Hz, made by stages fed an already-clipped waveform.

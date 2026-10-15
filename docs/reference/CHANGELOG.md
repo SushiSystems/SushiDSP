@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-15 — tests: Split `test_measure.cpp` among the `signal_measure` tests and the alias-floor owners, removed `tests/functional`, and tested `DkBlockNode` on an RC low-pass (`test_dk_block_node.cpp`).
 - 2026-10-15 — tests: Wrote unit tests for 64 of the 104 units that had none, each under its mirror path in `tests/` (`test_*.cpp`, `tests/CMakeLists.txt`).
 - 2026-10-15 — layering: Moved every module header under its tier, so each include of one changes to `<SushiDSP/<tier>/<module>/...>` (`check_layering.py`).
 - 2026-10-15 — tests: Moved the shared test code into seven internal modules, one per responsibility, and removed `tests/measure`, `tests/circuits` and `tests/common` (`cmake/SushiDSPLayers.cmake`).

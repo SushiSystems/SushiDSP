@@ -160,3 +160,15 @@ reset() is the plain transfer at that excursion; the stages lean on that to rest
 The stage's plate output is its antialiaser fed with the grid excursion its solver found: the
 same excursions through a bare antialiaser reproduce the stage sample for sample, to the Newton
 solver's four-iteration tolerance.
+
+## `test_output.cpp`
+
+### `TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow`
+
+`// V5A alone folds under -60 dB at 6 V and -40 dB at 24 V.`
+
+DA5 spec section 11's first acceptance: the 5150's V5A stage alone in an 8x region, its 2.0 V
+window driven 3x and 12x past, folds under -60 dB and -40 dB. On the Norman grid law it measured
+-81.2 dB at 6 V and -53.7 dB at 24 V on 2026-09-07, and -102.4 and -79.8 dB once the stage's
+composite transfer was antialiased (DA5 part 4); the room-temperature Shockley knee read -37.3
+dB and -13.7 dB at the same drives.

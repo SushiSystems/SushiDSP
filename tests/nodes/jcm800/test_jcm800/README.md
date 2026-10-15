@@ -83,7 +83,7 @@ is a short to ground and there is no signal to measure.
 Guards the power-tube bias mismatch (jcm800.cpp's K_POWER_TUBE_GRID_BIAS_MISMATCH_VOLTS) against being
 dropped or neutralized. It is asserted at the amp's output rather than at the pair because the
 pair itself is not reachable from here; what an input-referred offset does to the pair's
-composite is pinned in test_pentode_stage.cpp.
+composite is pinned in `tests/foundation/circuits/stages/test_pentode_stage/test_behaviour.cpp`.
 
 The claim is self-checking: the same stimulus is rendered twice, once as shipped and once with
 set_power_tube_grid_bias_mismatch_volts(0), so the gate is the comparison between the two rather
@@ -152,3 +152,52 @@ first position that passes signal.
 
 The probe accessors themselves, which no other case exercises: spec section 4 asks for the
 readings to be recorded rather than asserted, so this pins the hooks and not the figures.
+
+## `test_output.cpp`
+
+### `K_D5B_JCM800_ALIAS_FLOOR_DB`
+
+`// K_D5B_JCM800_ALIAS_FLOOR_DB is the D5b baseline of -3.8 dB.`
+
+D5b baseline, measured by Task 2 of the D6a plan at commit eec6499 with the 15-tap Hamming
+halfbands: TubeScreamer drive=1 -8.3 dB, Jcm800 preamp=10 -3.8 dB. Spec D6a requires the pre-DK
+chain to improve by >= 30 dB once the oversampler is replaced.
+
+Measured after D6a Task 4 replaced the halfbands with the >= 90 dB Parks-McClellan designs:
+TubeScreamer -9.6 dB (1.3 dB better), Jcm800 -32.0 dB (28.2 dB better). Both assertions
+therefore still fail, and deliberately so - the bar is the spec's and is not to be lowered here.
+What the redesign fixed is resampling aliasing; what remains is the nonlinearities' own
+aliasing, which no anti-imaging filter can touch:
+
+- Jcm800 came within 1.8 dB of the target, so its floor was filter-dominated. The rest is
+  expected to fall to the post-cab clamp (deferred to D6d) and the two-region topology with the
+  tone stack between them (Task 5).
+- TubeScreamer barely moved, so its floor was never filter-dominated. A per-tone sweep at 48
+  kHz puts the worst alias at 6.0 kHz for an 18 kHz tone: that is the 21st harmonic of 18 kHz
+  (378 kHz) folding about the 8x Nyquist of 192 kHz, inside the oversampled domain where the
+  halfbands cannot see it. A hard diode clipper's harmonics decay as 1/n, so the floor sits near
+  -20 dB whatever the filters do, and it barely tracks the drive knob (-18.1 dB at drive 0, -6.1
+  dB at drive 0.5, -9.6 dB at drive 1). Closing this needs an antialiased nonlinearity (ADAA) or
+  a higher oversampling factor, neither in Task 4.
+
+Measured again after D6a Task 5 collapsed the JCM800 into a single 8x region. Collapsing it
+alone made the floor worse, not better - -20.4 dB - because region A's decimator had silently
+been band-limiting V1b's output before the later clipping stages saw it. Restoring the
+interstage bandwidth the model was actually missing (the 12AX7's Miller input capacitance, in
+jcm800.cpp) took it to -43.4 dB, 39.6 dB better than D5b and clear of the spec bar. DA4 then
+removed the JCM800's level staging and the floor went to -6.7 dB, so that case is skipped as a
+known issue and its own comment carries the reason. The TubeScreamer's floor is aliasing
+generated inside the oversampled domain, and D6c's rebuild moved it to -18.6 dB without reaching
+the bar, so it stays a regression floor. The case's own comment carries that number.
+
+### `Jcm800AliasFloorImprovedAtLeast30dBOverD5b`
+
+`// The case is skipped as a known issue but still prints.`
+
+Skipped as a known issue; the measurement below still runs and still prints its figure.
+
+-43.4 dB before DA4. Two D6a changes had got it there, pulling in opposite directions: Task 4's
+>= 90 dB halfbands took the resampling aliasing out (-3.8 -> -32.0 dB), Task 5's single 8x
+region cost 11.6 dB of that back because region A's decimator had been acting as an unplanned
+interstage band-limit, and the Miller grid poles took that bandwidth away again for a physical
+reason rather than a filtering one.

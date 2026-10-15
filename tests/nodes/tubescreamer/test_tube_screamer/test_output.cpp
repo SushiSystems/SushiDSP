@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -38,6 +39,7 @@
 
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 #include <SushiDSP/foundation/golden_compare/golden_file.hpp>
+#include <SushiDSP/foundation/signal_measure/alias_floor.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -85,4 +87,15 @@ SUSHIDSP_REGRESSION_TEST(TubeScreamer, TubeScreamerGoldenFile96k)
     EXPECT_LE(
         SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "tube_screamer_96k", render_tube_screamer(96000.0)),
         -80.0);
+}
+
+SUSHIDSP_REGRESSION_TEST(TubeScreamer, TubeScreamerAliasFloorDoesNotRegress)
+{
+    // The floor is the measured -18.6 dB with 1 dB of slack. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
+    SushiDSP::TubeScreamer node;
+    node.set_drive(1.0f);
+    node.set_tone(0.5f);
+    const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
+    std::printf("[ measure ] TubeScreamer alias floor %.1f dB\n", floor);
+    EXPECT_LE(floor, -17.6);
 }

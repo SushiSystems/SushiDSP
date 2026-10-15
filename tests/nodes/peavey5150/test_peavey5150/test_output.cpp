@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -38,6 +39,7 @@
 
 #include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
 #include <SushiDSP/foundation/golden_compare/golden_file.hpp>
+#include <SushiDSP/foundation/signal_measure/alias_floor.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -84,4 +86,16 @@ SUSHIDSP_REGRESSION_TEST(Peavey5150, Peavey5150GoldenFile96k)
 {
     EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "peavey5150_96k", render_peavey5150(96000.0)),
               -80.0);
+}
+
+SUSHIDSP_REGRESSION_TEST(Peavey5150, Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb)
+{
+    // The case is skipped as a known issue but still prints. See tests/nodes/peavey5150/test_peavey5150/README.md.
+    SushiDSP::Peavey5150 node;
+    const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
+    std::printf("[ measure ] Peavey5150 alias floor %.1f dB\n", floor);
+    GTEST_SKIP() << "Known issue, DA5. The 5150 measures -26.8 dB at its default and -12 dBFS with "
+                    "every stage antialiased, 3.2 dB short of the spec's -30 dB; "
+                    "docs/reference/KNOWN_ISSUES.md carries the item with the JCM800's.";
+    EXPECT_LT(floor, -30.0);
 }
