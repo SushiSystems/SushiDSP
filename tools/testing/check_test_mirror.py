@@ -30,6 +30,48 @@ K_UNITY_NOT_PRODUCTS = frozenset({
 })
 K_PACKAGE_FOLDER = "package"
 K_APPLICATIONS_FOLDER = "applications"
+# Units with no test, accepted as an exception; docs/reference/KNOWN_ISSUES.md names why.
+K_UNTESTED_EXCEPTIONS = frozenset({
+    "applications/host_gui/host_gui_log_category.hpp",
+    "applications/host_gui/mp3_decoder.hpp",
+    "applications/host_gui/mp3_encoder.hpp",
+    "applications/host_gui/rig_persistence.hpp",
+    "applications/host_gui/rig_shape.hpp",
+    "applications/host_gui/session_bounce.hpp",
+    "applications/host_gui/session_file.hpp",
+    "applications/host_gui/session_renderer.hpp",
+    "applications/host_gui/session_timeline.hpp",
+    "applications/host_gui/slot_graph.hpp",
+    "applications/host_gui/slot_selection.hpp",
+    "applications/host_gui/ui/arrangement_view.hpp",
+    "applications/host_gui/ui/cabinet_section_pane.hpp",
+    "applications/host_gui/ui/device_settings.hpp",
+    "applications/host_gui/ui/divider.hpp",
+    "applications/host_gui/ui/file_browser.hpp",
+    "applications/host_gui/ui/gear_browser.hpp",
+    "applications/host_gui/ui/geometry.hpp",
+    "applications/host_gui/ui/meter_bar.hpp",
+    "applications/host_gui/ui/mixer_model.hpp",
+    "applications/host_gui/ui/mixer_panel.hpp",
+    "applications/host_gui/ui/rig_chain_view.hpp",
+    "applications/host_gui/ui/room_panel.hpp",
+    "applications/host_gui/ui/room_scene_view.hpp",
+    "applications/host_gui/ui/scene_interaction.hpp",
+    "applications/host_gui/ui/stage_panel.hpp",
+    "applications/host_gui/ui/text_field.hpp",
+    "applications/host_gui/ui/theme.hpp",
+    "applications/host_gui/ui/top_bar.hpp",
+    "applications/host_gui/ui/transport_bar.hpp",
+    "applications/host_gui/ui/widgets.hpp",
+    "applications/plugin/clap_boundary.hpp",
+    "applications/plugin/clap_extensions.hpp",
+    "applications/plugin/clap_plugin.hpp",
+    "applications/plugin/parameter_routing.hpp",
+    "applications/plugin/rig_parameter.hpp",
+    "applications/plugin/startup_rig.hpp",
+    "modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_device.hpp",
+    "modules/foundation/device/include/SushiDSP/foundation/device/sdl2_audio_device.hpp",
+})
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,12 +246,32 @@ def collect(paths: list[Path]) -> Iterable[TestMirror]:
     return mirrors
 
 
+def _is_exception(mirror: TestMirror, unit: Path) -> bool:
+    """Says whether a unit is listed in K_UNTESTED_EXCEPTIONS."""
+    return unit.relative_to(mirror.root).as_posix() in K_UNTESTED_EXCEPTIONS
+
+
 def rule_untested_unit(mirror: TestMirror) -> Iterator[Issue]:
     """Yields an issue for each header or source file whose test file does not exist."""
     for test, header in sorted(mirror.expected.items(), key=lambda item: str(item[1])):
+        if _is_exception(mirror, header):
+            continue
         if not test.is_file() and not _aspect_files(unit_folder(test)):
             shown = test.relative_to(mirror.root).as_posix()
             yield Issue(header, 1, f"no test file; expected {shown}")
+
+
+def rule_stale_exception(mirror: TestMirror) -> Iterator[Issue]:
+    """Yields an issue for each K_UNTESTED_EXCEPTIONS entry that names no unit or whose unit has a test."""
+    if mirror.root / "tests" != mirror.tests:
+        return
+    units = {header.relative_to(mirror.root).as_posix(): test for test, header in mirror.expected.items()}
+    for entry in sorted(K_UNTESTED_EXCEPTIONS):
+        test = units.get(entry)
+        if test is None:
+            yield Issue(mirror.root / entry, 1, "listed in K_UNTESTED_EXCEPTIONS but no such unit exists")
+        elif test.is_file() or _aspect_files(unit_folder(test)):
+            yield Issue(mirror.root / entry, 1, "listed in K_UNTESTED_EXCEPTIONS but has a test; remove the entry")
 
 
 def rule_orphan_test(mirror: TestMirror) -> Iterator[Issue]:
@@ -246,6 +308,7 @@ K_CHECKER = Checker(
         "rule_orphan_test": rule_orphan_test,
         "rule_mirror_folders": rule_mirror_folders,
         "rule_unit_file_and_folder": rule_unit_file_and_folder,
+        "rule_stale_exception": rule_stale_exception,
     },
 )
 
