@@ -37,7 +37,7 @@ jobs:
       - name: Install the toolchain and the CLI
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build ccache
+          sudo apt-get install -y --no-install-recommends cmake ninja-build ccache lld
           python -m pip install -e ./cli
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
