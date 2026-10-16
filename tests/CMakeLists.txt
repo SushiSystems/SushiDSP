@@ -87,6 +87,7 @@ add_executable(sushidsp_tests
     foundation/io/test_ir.cpp
     foundation/regression_test/test_regression_test.cpp
     foundation/timing_gate/test_timing_gate.cpp
+    foundation/golden_compare/test_golden_compare_log_category.cpp
     foundation/golden_compare/test_golden_file.cpp
     # --- Unit tests written for the units that had none ---
     foundation/core/test_cabinet_host.cpp

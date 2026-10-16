@@ -25,6 +25,7 @@ set(SUSHIDSP_SAME_TIER_EDGES
     circuit_blocks:circuits
     benchmark_harness:core
     room_scenes:room
+    golden_compare:log
 )
 
 # Refuses a same-tier dependency that SUSHIDSP_SAME_TIER_EDGES does not list.

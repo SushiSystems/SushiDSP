@@ -5,6 +5,7 @@
 - 2026-10-16 — cli: Gave each CLI test the timeout of its size through pytest-timeout, a test dependency installed by CI (`conftest.py`, `pyproject.toml`, `ci.yml`).
 - 2026-10-16 — cli: Marked every CLI test small or medium and failed collection on a test with no size or two, checked by the copied check_test_sizes (`conftest.py`, `pyproject.toml`, `check_test_sizes.py`).
 - 2026-10-16 — cli: Added `sd test --jobs`, which caps how many tests ctest runs at once (`cli.py`, `project.py`).
+- 2026-10-16 — golden_compare: Logged an unopenable or short golden file as an ERROR and a regeneration as an INFO under its own category, over an edge to log (`golden_file.hpp`, `SushiDSPLayers.cmake`).
 - 2026-10-16 — log: Offered the shared logger interface: project categories, records with project.module, time and thread, a Delegate sink, log_forward_sink and the sd_ C calls (`default_logger.hpp`, `log_record.hpp`, `sushi_log_record.h`).
 - 2026-10-16 — docs: Named the real symbols in the manual, stated what is in place of history words, and moved the room's implementation notes to its source README (`room/source/README.md`).
 

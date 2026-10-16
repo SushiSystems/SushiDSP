@@ -13,6 +13,11 @@ example `tests/nodes/jcm800/goldens/jcm800/`. Their record is the table below.
 and returns the RMS residual in dB. The caller passes the folder that holds the file. Setting
 `SUSHIDSP_REGENERATE_GOLDEN` rewrites the file instead.
 
+The module depends on `log` and logs under `K_GOLDEN_COMPARE_LOG_CATEGORY`, declared in
+`golden_compare_log_category.hpp`. A file it cannot open or that holds too few samples is an
+`ERROR` and reads as a 0 dB residual; a regeneration is an `INFO`, shown with
+`SD_LOG_LEVEL=warn,golden_compare=info`.
+
 ## Pins
 
 Raw little-endian float32, one second, mono, named `<node>_<rate>.f32`. Stimulus and comparison
