@@ -7,9 +7,9 @@
 # [[dependency]] tables until 2026-09-22, which the reader skipped without a
 # word, so nothing here was ever provisioned.
 #
-# SushiDSP has no [module] depends_on entry: unlike sushiblas (which rides on
-# sushiruntime), SushiDSP's core is dependency-free by design (see
-# docs/design/SUSHIDSP.md §0/§11) and links no other SushiStack module.
+# SushiDSP depends on one SushiStack module, SushiLog, the logger every Sushi
+# library links. It is pinned below and resolved by sushicore; CMake never
+# downloads it.
 #
 # GoogleTest is resolved via CMake FetchContent (see the root CMakeLists.txt),
 # not a system/vcpkg port, so there is nothing to declare for it here.
@@ -20,6 +20,13 @@
 #   linux_apt      apt package names; empty list = not an apt/vcpkg package.
 #   windows_vcpkg  vcpkg port names; empty list = not an apt/vcpkg package.
 #   check_cmd      Optional command; exit 0 means "already installed".
+
+[module]
+depends_on = ["sushilog"]
+
+[sushi.sushilog]
+version = "v0.1.1"
+commit = "f7379d3ebdcbfdffa2f4a297ef9837f28b23a42f"
 
 [intel-llvm]
 description = "intel/llvm clang++ (the workspace's shared toolchain). Optional: when present `sd` builds with it, otherwise with the platform compiler. SushiDSP compiles no SYCL; this is a C++ compiler preference."

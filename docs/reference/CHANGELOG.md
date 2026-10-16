@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+-
 - 2026-10-16 — cli: Read each checker's rules from its --list-rules, copied from SushiSkills 52b614a, in place of importing the checker (`project.py`, `checker.py`).
 - 2026-10-16 — cli: Sent `sd check --rule` only to the checkers whose rule table names the rule (`project.py`).
 - 2026-10-16 — tools: Copied the shared checkers and their tests from SushiSkills 16ff88b, and added `K_PRIVATE_DEPENDS_ALSO` to `settings.py`, which the copied layering checker imports (`settings.py`, `check_all.py`, `check_layering.py`).
