@@ -29,23 +29,26 @@
 
 #include <SushiDSP/foundation/log/capturing_log_sink.hpp>
 #include <SushiDSP/foundation/log/logger.hpp>
+#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 #include <SushiDSP/foundation/log/scoped_log_sink.hpp>
+#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 #include <memory>
 
 namespace
 {
-    const SushiDSP::LogCategory K_CATEGORY = SushiDSP::make_log_category("scope_test");
+    const SushiDSP::LogCategory K_CATEGORY =
+        SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "scope_test");
 } // namespace
 
 TEST(Small_ScopedLogSink, LinesGoToTheScopedSinkWhileItLives)
 {
     const auto outer = std::make_shared<SushiDSP::CapturingLogSink>();
     const auto inner = std::make_shared<SushiDSP::CapturingLogSink>();
-    SushiDSP::Logger logger(outer, SushiDSP::LogLevel::Trace);
+    SushiDSP::Logger logger(outer, SushiDSP::LogLevel::Trace, SushiDSP::LogDelivery::Synchronous);
     {
         SushiDSP::ScopedLogSink guard(logger, inner);
-        logger.log(SushiDSP::LogLevel::Info, K_CATEGORY, "inside");
+        logger.log(SushiDSP::LogLevel::Info, K_CATEGORY, SushiDSP::LogSite{__FILE__, __LINE__}, "inside");
     }
     EXPECT_EQ(inner->lines().size(), 1u);
     EXPECT_TRUE(outer->lines().empty());
@@ -55,11 +58,11 @@ TEST(Small_ScopedLogSink, PreviousSinkReceivesLinesAgainAfterTheScope)
 {
     const auto outer = std::make_shared<SushiDSP::CapturingLogSink>();
     const auto inner = std::make_shared<SushiDSP::CapturingLogSink>();
-    SushiDSP::Logger logger(outer, SushiDSP::LogLevel::Trace);
+    SushiDSP::Logger logger(outer, SushiDSP::LogLevel::Trace, SushiDSP::LogDelivery::Synchronous);
     {
         SushiDSP::ScopedLogSink guard(logger, inner);
     }
-    logger.log(SushiDSP::LogLevel::Info, K_CATEGORY, "after");
+    logger.log(SushiDSP::LogLevel::Info, K_CATEGORY, SushiDSP::LogSite{__FILE__, __LINE__}, "after");
     EXPECT_EQ(outer->lines().size(), 1u);
 }
 
@@ -67,7 +70,7 @@ TEST(Small_ScopedLogSink, FlushesTheScopedSinkWhenItEnds)
 {
     const auto outer = std::make_shared<SushiDSP::CapturingLogSink>();
     const auto inner = std::make_shared<SushiDSP::CapturingLogSink>();
-    SushiDSP::Logger logger(outer, SushiDSP::LogLevel::Trace);
+    SushiDSP::Logger logger(outer, SushiDSP::LogLevel::Trace, SushiDSP::LogDelivery::Synchronous);
     {
         SushiDSP::ScopedLogSink guard(logger, inner);
         EXPECT_EQ(inner->flush_count(), 0u);

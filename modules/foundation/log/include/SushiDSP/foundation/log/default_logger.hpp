@@ -21,18 +21,41 @@
 
 /**
  * @file default_logger.hpp
- * @brief Declares the one logger of the process, the one the SD_LOG macros write through.
+ * @brief Declares the one logger of the process and the calls that configure it.
  * @author Mustafa Garip
  */
 
 #pragma once
 
+#include <SushiDSP/foundation/log/log_project.hpp>
+#include <SushiDSP/foundation/log/log_sink.hpp>
 #include <SushiDSP/foundation/log/logger.hpp>
 
 namespace SushiDSP
 {
-    /// @brief Returns the logger of the process.
-    /// It starts with a StderrLogSink and LogLevel::Info, so a line logged before an application
-    /// installs its own sink still reaches stderr.
+    /// @brief Returns the logger of the process, the one the SD_LOG macros write through.
+    /// It starts at LogLevel::Warn with a StderrLogSink and a logger thread, reads SD_LOG_LEVEL at
+    /// its first call, and is never destroyed: at static destruction it delivers what is queued.
     Logger& default_logger() noexcept;
+
+    /// @brief Sets every category of one project; this logger holds SushiDSP's only.
+    void set_log_level(LogProject project, LogLevel level) noexcept;
+
+    /// @brief Returns the level of a project's categories that no module setting overrides.
+    [[nodiscard]] LogLevel log_level(LogProject project) noexcept;
+
+    /// @brief Sets one category.
+    void set_log_level(LogCategory category, LogLevel level) noexcept;
+
+    /// @brief Returns one category's level.
+    [[nodiscard]] LogLevel log_level(LogCategory category) noexcept;
+
+    /// @brief Replaces the sink; an empty sink restores stderr.
+    void set_log_sink(LogSink sink);
+
+    /// @brief True waits for the queue, then delivers each record on the calling thread.
+    void set_log_synchronous(bool synchronous) noexcept;
+
+    /// @brief Returns a sink that enters another logger's record into this logger's queue.
+    [[nodiscard]] LogSink log_forward_sink() noexcept;
 } // namespace SushiDSP

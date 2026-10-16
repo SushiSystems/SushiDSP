@@ -33,5 +33,5 @@
 
 TEST(Small_LogLogCategory, IsNamedLog)
 {
-    EXPECT_EQ(K_LOG_LOG_CATEGORY.name(), std::string_view("log"));
+    EXPECT_EQ(K_LOG_LOG_CATEGORY.module(), std::string_view("log"));
 }

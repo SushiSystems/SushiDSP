@@ -34,17 +34,19 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/log/log_line_queue.hpp>
+#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 namespace
 {
     /// @brief Names the lines this file queues.
     inline constexpr SushiDSP::LogCategory K_QUEUE_TEST_LOG_CATEGORY =
-        SushiDSP::make_log_category("queue_test");
+        SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "queue_test");
 
     /// @brief Returns a record that carries a text; the text must outlive the record.
     SushiDSP::LogRecord record_of(const std::string& text)
     {
-        return SushiDSP::LogRecord{SushiDSP::LogLevel::Info, K_QUEUE_TEST_LOG_CATEGORY, text};
+        return SushiDSP::LogRecord{SushiDSP::LogLevel::Info, "sushidsp", "queue_test", "a.cpp", 1, 1, 0,
+                                   text, text};
     }
 
     /// @brief Returns the text of a queued line.
@@ -69,12 +71,13 @@ TEST(Medium_LogLineQueue, LogLineQueuePopsLinesInPushOrderWithTheirLevelAndCateg
     EXPECT_FALSE(queue.pop(*line));
     ASSERT_TRUE(queue.push(record_of("first")));
     ASSERT_TRUE(queue.push(
-        SushiDSP::LogRecord{SushiDSP::LogLevel::Error, K_QUEUE_TEST_LOG_CATEGORY, "second"}));
+        SushiDSP::LogRecord{SushiDSP::LogLevel::Error, "sushidsp", "queue_test", "a.cpp", 1, 1,
+                            0, "second", "second"}));
 
     ASSERT_TRUE(queue.pop(*line));
     EXPECT_EQ(text_of(*line), "first");
     EXPECT_EQ(line->level, SushiDSP::LogLevel::Info);
-    EXPECT_EQ(line->category.name(), "queue_test");
+    EXPECT_EQ(line->record().module, "queue_test");
     ASSERT_TRUE(queue.pop(*line));
     EXPECT_EQ(text_of(*line), "second");
     EXPECT_EQ(line->level, SushiDSP::LogLevel::Error);
@@ -154,4 +157,24 @@ TEST(Medium_LogLineQueue, LogLineQueueKeepsEveryLineOfSeveralProducersInEachProd
         EXPECT_EQ(index, next_index[producer]);
         next_index[producer] = index + 1;
     }
+}
+
+TEST(Medium_LogLineQueue, LogLineQueueCarriesAWholeLineAndFindsTheMessageAtItsEnd)
+{
+    SushiDSP::LogLineQueue queue(2);
+    const auto line = std::make_unique<SushiDSP::QueuedLogLine>();
+    const std::string whole = "[12:00:00.000] [INFO] [queue_test] [t1] [a.cpp:1] ready";
+
+    ASSERT_TRUE(queue.push(SushiDSP::LogRecord{SushiDSP::LogLevel::Info, "sushidsp", "queue_test",
+                                               "a.cpp", 1, 1, 7,
+                                               std::string_view(whole).substr(whole.size() - 5),
+                                               whole}));
+    ASSERT_TRUE(queue.pop(*line));
+
+    const SushiDSP::LogRecord record = line->record();
+    EXPECT_EQ(record.text, whole);
+    EXPECT_EQ(record.project, "sushidsp");
+    EXPECT_EQ(record.file, "a.cpp");
+    EXPECT_EQ(record.time_ns, 7);
+    EXPECT_EQ(record.message, "ready");
 }

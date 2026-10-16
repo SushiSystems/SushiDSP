@@ -27,7 +27,8 @@
 
 #pragma once
 
-#include <SushiDSP/foundation/log/log_category.hpp>
+#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 /// @brief Names the lines the log folder writes about itself, such as dropped lines.
-inline constexpr SushiDSP::LogCategory K_LOG_LOG_CATEGORY = SushiDSP::make_log_category("log");
+inline constexpr SushiDSP::LogCategory K_LOG_LOG_CATEGORY =
+    SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "log");

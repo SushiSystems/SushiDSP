@@ -28,6 +28,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/log/capturing_log_sink.hpp>
+#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 TEST(Small_CapturingLogSink, StartsEmptyWithNoFlushes)
 {
@@ -39,8 +40,8 @@ TEST(Small_CapturingLogSink, StartsEmptyWithNoFlushes)
 TEST(Small_CapturingLogSink, KeepsTheCategoryAndMessageOfEachLine)
 {
     SushiDSP::CapturingLogSink sink;
-    sink.write(SushiDSP::LogRecord{SushiDSP::LogLevel::Info, SushiDSP::make_log_category("room"),
-                                   std::string_view("ready")});
+    sink.write(SushiDSP::LogRecord{SushiDSP::LogLevel::Info, "sushidsp", "room", "a.cpp", 1, 1, 0,
+                                   "ready", "ready"});
     const std::vector<SushiDSP::CapturedLogLine> lines = sink.lines();
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_EQ(lines[0].category, "room");
@@ -53,4 +54,15 @@ TEST(Small_CapturingLogSink, CountsEachFlush)
     sink.flush();
     sink.flush();
     EXPECT_EQ(sink.flush_count(), 2u);
+}
+
+TEST(Small_CapturingLogSink, KeepsTheWholeLineOfEachRecord)
+{
+    SushiDSP::CapturingLogSink sink;
+    sink.write(SushiDSP::LogRecord{SushiDSP::LogLevel::Warn, "sushidsp", "room", "a.cpp", 1, 1, 0,
+                                   "ready", "[WARN] ready"});
+    const std::vector<SushiDSP::CapturedLogLine> lines = sink.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiDSP::LogLevel::Warn);
+    EXPECT_EQ(lines[0].line, "[WARN] ready");
 }

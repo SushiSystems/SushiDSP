@@ -26,6 +26,7 @@ K_SAME_TIER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ("circuit_blocks", "circuits"),
     ("benchmark_harness", "core"),
     ("room_scenes", "room"),
+    ("golden_compare", "log"),
 })
 K_MODULE_FUNCTION = ""
 K_PUBLIC_DEPENDS = "DEPENDS"
@@ -34,4 +35,4 @@ K_INTERNAL_MARK = "INTERNAL"
 K_CLOSED = False
 K_MACRO_PREFIXES: tuple[str, ...] = ()
 K_LOG_PREFIX = "SD"
-K_CONSOLE_PATHS: tuple[str, ...] = ("modules/foundation/benchmark_harness",)
+K_CONSOLE_PATHS: tuple[str, ...] = ("modules/foundation/benchmark_harness", "modules/foundation/log")

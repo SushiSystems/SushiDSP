@@ -27,24 +27,18 @@
 
 #include <SushiDSP/foundation/log/stderr_log_sink.hpp>
 
+#include <algorithm>
 #include <cstdio>
-
-#include <SushiDSP/foundation/log/log_formatter.hpp>
+#include <cstring>
 
 namespace SushiDSP
 {
-    namespace
-    {
-        /// @brief Sizes the room a line needs beyond its message: brackets, names and the newline.
-        constexpr std::size_t K_LINE_PREFIX_ROOM = 96;
-    } // namespace
-
     void StderrLogSink::write(const LogRecord& record) noexcept
     {
-        char line[K_MAX_LOG_MESSAGE_LENGTH + K_LINE_PREFIX_ROOM];
-        const std::size_t length =
-            format_log_message(line, sizeof(line) - 1, "[{}] [{}] {}", log_level_name(record.level),
-                               record.category.name(), record.message);
+        char line[K_MAX_LOG_LINE_LENGTH + 1];
+        const std::string_view text = record.text.empty() ? record.message : record.text;
+        const std::size_t length = std::min(text.size(), K_MAX_LOG_LINE_LENGTH);
+        std::memcpy(line, text.data(), length);
         line[length] = '\n';
         std::fwrite(line, 1, length + 1, stderr);
     }

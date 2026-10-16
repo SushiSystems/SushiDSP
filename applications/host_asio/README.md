@@ -26,8 +26,8 @@ The rig renders into `rig_output`, one block per rig channel, a buffer `main()` 
 before the device starts. Two pointer arrays name those blocks. The callback maps them onto the
 device's channels and allocates nothing.
 
-`main()` installs an `AsyncLogSink` over a `StderrLogSink` through a `ScopedLogSink`, which
-flushes the sink on every return path. What `main()` prints with `printf` is its own output and
+`main()` logs through `default_logger()`, whose logger thread writes to stderr and delivers
+what is queued when the process exits. What `main()` prints with `printf` is its own output and
 does not go through the logger.
 
 ## Dependencies

@@ -101,11 +101,22 @@ add_executable(sushidsp_tests
     foundation/log/test_log_argument.cpp
     foundation/log/test_log_log_category.cpp
     foundation/log/test_log_record.cpp
+    foundation/log/test_log_record_sink.cpp
     foundation/log/test_log_sink.cpp
+    foundation/log/test_delegate.cpp
+    foundation/log/test_log_project.cpp
+    foundation/log/test_sushidsp_log_project.cpp
+    foundation/log/test_sushi_log_record.cpp
     foundation/log/test_scoped_log_sink.cpp
     foundation/log/test_stderr_log_sink.cpp
     foundation/log/test_default_logger.cpp
     foundation/log/test_capturing_log_sink.cpp
+    foundation/log/test_log_delivery.cpp
+    foundation/log/test_log_level_setting.cpp
+    foundation/log/test_log_level_table.cpp
+    foundation/log/test_log_line.cpp
+    foundation/log/test_log_site.cpp
+    foundation/log/test_log_thread.cpp
 
     # --- Core ---
     foundation/core/test_audio_device.cpp

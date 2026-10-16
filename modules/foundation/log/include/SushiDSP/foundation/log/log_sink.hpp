@@ -21,27 +21,18 @@
 
 /**
  * @file log_sink.hpp
- * @brief Declares the interface a logger writes its lines through.
+ * @brief Declares the callable that receives each record of the process logger.
  * @author Mustafa Garip
  */
 
 #pragma once
 
+#include <SushiDSP/foundation/log/delegate.hpp>
 #include <SushiDSP/foundation/log/log_record.hpp>
 
 namespace SushiDSP
 {
-    /// @brief Receives formatted log lines and puts them somewhere.
-    class LogSink
-    {
-        public:
-            virtual ~LogSink() = default;
-
-            /// @brief Takes one line. Any thread may call it, several at once.
-            /// @param record Its message is valid only during the call; a sink that keeps it copies it.
-            virtual void write(const LogRecord& record) noexcept = 0;
-
-            /// @brief Returns once every line written before the call has reached its destination.
-            virtual void flush() noexcept = 0;
-    };
+    /// @brief Receives each record; an empty sink means stderr.
+    /// A sink never logs, and never sets the sink, a level or the delivery.
+    using LogSink = Delegate<void(const LogRecord&), 48>;
 } // namespace SushiDSP

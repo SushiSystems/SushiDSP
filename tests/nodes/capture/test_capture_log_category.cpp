@@ -33,5 +33,5 @@
 
 TEST(Small_CaptureLogCategory, IsNamedCapture)
 {
-    EXPECT_EQ(K_CAPTURE_LOG_CATEGORY.name(), std::string_view("capture"));
+    EXPECT_EQ(K_CAPTURE_LOG_CATEGORY.module(), std::string_view("capture"));
 }

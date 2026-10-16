@@ -31,7 +31,7 @@
 
 namespace SushiDSP
 {
-    ScopedLogSink::ScopedLogSink(Logger& logger, std::shared_ptr<LogSink> sink) noexcept
+    ScopedLogSink::ScopedLogSink(Logger& logger, std::shared_ptr<LogRecordSink> sink) noexcept
         : logger_(logger), previous_(logger.set_sink(std::move(sink)))
     {
     }

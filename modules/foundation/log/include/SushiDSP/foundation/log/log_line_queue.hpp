@@ -29,6 +29,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 
 #include <SushiDSP/foundation/log/log_record.hpp>
@@ -38,10 +39,19 @@ namespace SushiDSP
     /// @brief Holds one line by value while it waits in the queue.
     struct QueuedLogLine
     {
-            LogLevel level = LogLevel::Trace;             /**< The severity of the line. */
-            LogCategory category = make_log_category(""); /**< The module the line comes from. */
-            std::size_t length = 0;                       /**< The characters of text in use. */
-            char text[K_MAX_LOG_MESSAGE_LENGTH];          /**< The message, with no terminator. */
+            LogLevel level = LogLevel::Trace; /**< The severity of the record. */
+            std::uint32_t line = 0;           /**< The call's line. */
+            std::uint32_t thread = 0;         /**< The thread number of the record. */
+            std::int64_t time_ns = 0;         /**< The time of the call. */
+            std::size_t project_length = 0;   /**< The characters of project in use. */
+            std::size_t module_length = 0;    /**< The characters of module in use. */
+            std::size_t file_length = 0;      /**< The characters of file in use. */
+            std::size_t length = 0;           /**< The characters of text in use. */
+            std::size_t message_offset = 0;   /**< Where the message starts in text. */
+            char project[K_MAX_LOG_NAME_LENGTH]; /**< The project name, with no terminator. */
+            char module[K_MAX_LOG_NAME_LENGTH];  /**< The module name, with no terminator. */
+            char file[K_MAX_LOG_NAME_LENGTH];    /**< The file name, with no terminator. */
+            char text[K_MAX_LOG_LINE_LENGTH];             /**< The line, with no terminator. */
 
             /// @brief Returns the line as the record a sink takes; it points into this object.
             LogRecord record() const noexcept;

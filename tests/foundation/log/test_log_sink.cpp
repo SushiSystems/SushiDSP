@@ -21,52 +21,25 @@
 
 /**
  * @file test_log_sink.cpp
- * @brief Tests that a logger hands its lines to the sink it was given.
+ * @brief Tests the callable that receives each record of the process logger.
  * @author Mustafa Garip
  */
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/log/log.hpp>
-#include <SushiDSP/foundation/log/logger.hpp>
+#include <string>
 
-#include <memory>
+#include <SushiDSP/foundation/log/log_sink.hpp>
 
-namespace
+TEST(Small_LogSink, ReceivesTheRecordItIsCalledWith)
 {
-    class CountingSink final : public SushiDSP::LogSink
-    {
-        public:
-            void write(const SushiDSP::LogRecord&) noexcept override
-            {
-                ++writes;
-            }
-
-            void flush() noexcept override
-            {
-                ++flushes;
-            }
-
-            int writes = 0;
-            int flushes = 0;
-    };
-
-    const SushiDSP::LogCategory K_CATEGORY = SushiDSP::make_log_category("sink_test");
-} // namespace
-
-TEST(Small_LogSink, LoggerWritesEachEnabledLineOnce)
-{
-    const auto sink = std::make_shared<CountingSink>();
-    SushiDSP::Logger logger(sink, SushiDSP::LogLevel::Info);
-    logger.log(SushiDSP::LogLevel::Info, K_CATEGORY, "one");
-    logger.log(SushiDSP::LogLevel::Warn, K_CATEGORY, "two");
-    EXPECT_EQ(sink->writes, 2);
-}
-
-TEST(Small_LogSink, LoggerDiscardsLinesBelowItsMinimumLevel)
-{
-    const auto sink = std::make_shared<CountingSink>();
-    SushiDSP::Logger logger(sink, SushiDSP::LogLevel::Warn);
-    logger.log(SushiDSP::LogLevel::Debug, K_CATEGORY, "quiet");
-    EXPECT_EQ(sink->writes, 0);
+    std::string seen;
+    const SushiDSP::LogSink sink(
+        [&seen](const SushiDSP::LogRecord& record)
+        {
+            seen = std::string(record.message);
+        });
+    sink(SushiDSP::LogRecord{SushiDSP::LogLevel::Info, "sushidsp", "room", "a.cpp", 1, 1, 0,
+                             "ready", "ready"});
+    EXPECT_EQ(seen, "ready");
 }

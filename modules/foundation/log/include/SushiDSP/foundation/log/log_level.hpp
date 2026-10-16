@@ -21,7 +21,7 @@
 
 /**
  * @file log_level.hpp
- * @brief Declares the six severities a log line carries and their printed names.
+ * @brief Declares the six severities a log line carries, the Off setting and their printed names.
  * @author Mustafa Garip
  */
 
@@ -40,6 +40,7 @@ namespace SushiDSP
         Warn = 3,  /**< The program recovered or fell back. */
         Error = 4, /**< An operation failed and its caller sees a failure. */
         Fatal = 5, /**< The process cannot continue. */
+        Off = 6,   /**< A setting that passes nothing; never the level of a call. */
     };
 
     /// @brief Returns the upper-case name a sink prints for a level.
@@ -60,6 +61,8 @@ namespace SushiDSP
             return "ERROR";
         case LogLevel::Fatal:
             return "FATAL";
+        case LogLevel::Off:
+            return "OFF";
         }
         return "UNKNOWN";
     }

@@ -40,7 +40,7 @@ namespace SushiDSP
             /// @brief Installs the sink.
             /// @param logger Must outlive the guard.
             /// @param sink Must not be null.
-            ScopedLogSink(Logger& logger, std::shared_ptr<LogSink> sink) noexcept;
+            ScopedLogSink(Logger& logger, std::shared_ptr<LogRecordSink> sink) noexcept;
 
             /// @brief Flushes the logger and restores the sink that was in place before.
             ~ScopedLogSink();
@@ -55,6 +55,6 @@ namespace SushiDSP
             Logger& logger_;
 
             /// @brief Holds the sink to restore.
-            std::shared_ptr<LogSink> previous_;
+            std::shared_ptr<LogRecordSink> previous_;
     };
 } // namespace SushiDSP

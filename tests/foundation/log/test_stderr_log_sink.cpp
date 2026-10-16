@@ -28,15 +28,27 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/log/stderr_log_sink.hpp>
+#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 #include <gtest/gtest-spi.h>
 
-TEST(Small_StderrLogSink, WritesLevelCategoryAndMessageOnOneLine)
+TEST(Small_StderrLogSink, WritesTheRecordLineAndANewline)
 {
     testing::internal::CaptureStderr();
     SushiDSP::StderrLogSink sink;
-    const SushiDSP::LogRecord record{SushiDSP::LogLevel::Warn, SushiDSP::make_log_category("room"),
-                                     std::string_view("slow")};
+    const SushiDSP::LogRecord record{SushiDSP::LogLevel::Warn, "sushidsp", "room", "a.cpp", 1, 1, 0,
+                                     std::string_view("slow"),
+                                     std::string_view("[12:00:00.000] [WARN] [room] [t1] [a.cpp:1] slow")};
     sink.write(record);
-    EXPECT_EQ(testing::internal::GetCapturedStderr(), "[WARN] [room] slow\n");
+    EXPECT_EQ(testing::internal::GetCapturedStderr(),
+              "[12:00:00.000] [WARN] [room] [t1] [a.cpp:1] slow\n");
+}
+
+TEST(Small_StderrLogSink, WritesTheMessageWhenTheRecordHasNoLine)
+{
+    testing::internal::CaptureStderr();
+    SushiDSP::StderrLogSink sink;
+    sink.write(SushiDSP::LogRecord{SushiDSP::LogLevel::Warn, "sushidsp", "room", "a.cpp", 1, 1, 0,
+                                   std::string_view("slow"), std::string_view()});
+    EXPECT_EQ(testing::internal::GetCapturedStderr(), "slow\n");
 }

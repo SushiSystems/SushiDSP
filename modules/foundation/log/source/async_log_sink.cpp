@@ -31,7 +31,10 @@
 #include <utility>
 
 #include <SushiDSP/foundation/log/log_formatter.hpp>
+#include <SushiDSP/foundation/log/log_line.hpp>
 #include <SushiDSP/foundation/log/log_log_category.hpp>
+#include <SushiDSP/foundation/log/log_site.hpp>
+#include <SushiDSP/foundation/log/log_thread.hpp>
 
 namespace SushiDSP
 {
@@ -44,7 +47,7 @@ namespace SushiDSP
         constexpr std::size_t K_DROP_REPORT_LENGTH = 128;
     } // namespace
 
-    AsyncLogSink::AsyncLogSink(std::shared_ptr<LogSink> downstream, std::size_t queue_capacity)
+    AsyncLogSink::AsyncLogSink(std::shared_ptr<LogRecordSink> downstream, std::size_t queue_capacity)
         : downstream_(std::move(downstream)), queue_(queue_capacity),
           worker_(&AsyncLogSink::run, this)
     {
@@ -52,12 +55,18 @@ namespace SushiDSP
 
     AsyncLogSink::~AsyncLogSink()
     {
+        stop();
+    }
+
+    void AsyncLogSink::stop() noexcept
+    {
         {
             const std::lock_guard<std::mutex> lock(wake_mutex_);
             running_ = false;
         }
         wake_.notify_one();
-        worker_.join();
+        if (worker_.joinable())
+            worker_.join();
     }
 
     void AsyncLogSink::write(const LogRecord& record) noexcept
@@ -110,7 +119,6 @@ namespace SushiDSP
 
             // The request count was read before the drain, so the drain covers every line it promises.
             drain();
-            report_drops();
 
             if (flush_wanted || stopping)
             {
@@ -133,6 +141,7 @@ namespace SushiDSP
         while (queue_.pop(scratch_))
         {
             taken_.fetch_add(1, std::memory_order_release);
+            report_drops();
             downstream_->write(scratch_.record());
         }
     }
@@ -151,10 +160,24 @@ namespace SushiDSP
             "the log queue of {} lines was full; {} lines were dropped and are not written",
             queue_.capacity(), dropped - reported_drops_);
         reported_drops_ = dropped;
-        downstream_->write(
-            LogRecord{LogLevel::Warn, K_LOG_LOG_CATEGORY, std::string_view(text, length)});
-    }
+        const std::string_view message(text, length);
+        const std::string_view file = log_site_file_name(__FILE__);
+        const std::uint32_t at = __LINE__;
 
+        const auto now = std::chrono::system_clock::now();
+        const std::uint32_t thread = current_log_thread_number();
+        char line[K_MAX_LOG_PREFIX_LENGTH + K_DROP_REPORT_LENGTH];
+        const std::size_t line_length = format_log_line(
+            line, sizeof(line),
+            LogLineFields{now, LogLevel::Warn, K_LOG_LOG_CATEGORY.project().name(),
+                          K_LOG_LOG_CATEGORY.module(), thread, file, at, message});
+        const std::string_view whole(line, line_length);
+        downstream_->write(LogRecord{
+            LogLevel::Warn, K_LOG_LOG_CATEGORY.project().name(), K_LOG_LOG_CATEGORY.module(),
+            file, at, thread,
+            std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count(),
+            whole.substr(line_length - message.size()), whole});
+    }
     bool AsyncLogSink::has_work() const noexcept
     {
         return !running_ || flush_requests_ != flushes_served_ ||

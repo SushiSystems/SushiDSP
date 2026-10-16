@@ -57,3 +57,10 @@ TEST(Small_LogLevel, NameIsTheUpperCaseWordOfEachLevel)
     EXPECT_STREQ(SushiDSP::log_level_name(LogLevel::Warn), "WARN");
     EXPECT_STREQ(SushiDSP::log_level_name(LogLevel::Fatal), "FATAL");
 }
+
+TEST(Small_LogLevel, OffSitsAboveFatalAndIsNamedOff)
+{
+    EXPECT_LT(LogLevel::Fatal, LogLevel::Off);
+    EXPECT_EQ(static_cast<std::uint8_t>(LogLevel::Off), 6);
+    EXPECT_STREQ(SushiDSP::log_level_name(LogLevel::Off), "OFF");
+}

@@ -16,8 +16,8 @@ The rig stops at the amplifier. `sushidsp.cabinet` is a separate node and this d
 wire one in, so what reaches the device is the amplifier's dry signal. `applications/host_asio/main.cpp`
 builds a rig that adds a cabinet.
 
-`main()` installs an `AsyncLogSink` over a `StderrLogSink` through a `ScopedLogSink`, which
-flushes the sink on every return path. What `main()` prints with `printf` is its own output and
+`main()` logs through `default_logger()`, whose logger thread writes to stderr and delivers
+what is queued when the process exits. What `main()` prints with `printf` is its own output and
 does not go through the logger.
 
 ## Dependencies

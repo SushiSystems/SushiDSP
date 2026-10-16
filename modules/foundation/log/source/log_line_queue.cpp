@@ -48,11 +48,31 @@ namespace SushiDSP
             }
             return power;
         }
+
+        /// @brief Copies a name into a queued field, cut at K_MAX_LOG_NAME_LENGTH.
+        std::size_t copy_name(char* out, std::string_view name) noexcept
+        {
+            const std::size_t length = std::min(name.size(), K_MAX_LOG_NAME_LENGTH);
+            if (length != 0)
+            {
+                std::memcpy(out, name.data(), length);
+            }
+            return length;
+        }
     } // namespace
 
     LogRecord QueuedLogLine::record() const noexcept
     {
-        return LogRecord{level, category, std::string_view(text, length)};
+        const std::string_view whole(text, length);
+        return LogRecord{level,
+                         std::string_view(project, project_length),
+                         std::string_view(module, module_length),
+                         std::string_view(file, file_length),
+                         line,
+                         thread,
+                         time_ns,
+                         whole.substr(message_offset),
+                         whole};
     }
 
     LogLineQueue::LogLineQueue(std::size_t capacity)
@@ -91,12 +111,20 @@ namespace SushiDSP
             }
         }
 
-        cell->line.level = record.level;
-        cell->line.category = record.category;
-        cell->line.length = std::min(record.message.size(), K_MAX_LOG_MESSAGE_LENGTH);
-        if (cell->line.length != 0)
+        QueuedLogLine& stored = cell->line;
+        stored.level = record.level;
+        stored.line = record.line;
+        stored.thread = record.thread;
+        stored.time_ns = record.time_ns;
+        stored.project_length = copy_name(stored.project, record.project);
+        stored.module_length = copy_name(stored.module, record.module);
+        stored.file_length = copy_name(stored.file, record.file);
+        stored.length = std::min(record.text.size(), K_MAX_LOG_LINE_LENGTH);
+        stored.message_offset =
+            record.message.size() <= stored.length ? stored.length - record.message.size() : 0;
+        if (stored.length != 0)
         {
-            std::memcpy(cell->line.text, record.message.data(), cell->line.length);
+            std::memcpy(stored.text, record.text.data(), stored.length);
         }
         cell->sequence.store(position + 1, std::memory_order_release);
         return true;
@@ -110,11 +138,20 @@ namespace SushiDSP
             return false;
         }
 
-        out.level = cell.line.level;
-        out.category = cell.line.category;
-        out.length = cell.line.length;
-        std::memcpy(out.text, cell.line.text, cell.line.length);
-
+        const QueuedLogLine& stored = cell.line;
+        out.level = stored.level;
+        out.line = stored.line;
+        out.thread = stored.thread;
+        out.time_ns = stored.time_ns;
+        out.project_length =
+            copy_name(out.project, std::string_view(stored.project, stored.project_length));
+        out.module_length =
+            copy_name(out.module, std::string_view(stored.module, stored.module_length));
+        out.file_length =
+            copy_name(out.file, std::string_view(stored.file, stored.file_length));
+        out.length = stored.length;
+        out.message_offset = stored.message_offset;
+        std::memcpy(out.text, stored.text, stored.length);
         cell.sequence.store(dequeue_position_ + mask_ + 1, std::memory_order_release);
         ++dequeue_position_;
         return true;
