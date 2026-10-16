@@ -65,7 +65,7 @@ number §9.5's 3 dB bound is read from. Finally it rewrites the licence block be
 download's own documents, and prints the SHA-256 of what it wrote.
 
 A WAV release must name each file with its azimuth and elevation in degrees, the way SADIE's
-own release does, `azi_15,0_ele_0,0.wav`, comma or full stop as the decimal mark. The tool
+own release does, azi_15,0_ele_0,0.wav, comma or full stop as the decimal mark. The tool
 refuses a name it cannot read rather than guessing a direction.
 
 To check a file already in the tree, compare `sha256sum` against the hash in the licence block,

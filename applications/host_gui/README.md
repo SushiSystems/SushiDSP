@@ -85,16 +85,16 @@ rendering the previous one. Parameter edits do not go that way: a knob writes th
 
 A node's front panel comes from `ui::PanelLibrary`. `panel_for()` returns a hand-authored layout
 for a node type when one exists, a list of placements, each a control id, a widget kind and a
-centre in `[0, 1]` on both axes, and `generic_panel_for()` lays the node's declared parameters
+centre in `[0, 1]` on both axes, and `auto_panel()` lays the node's declared parameters
 out on a grid when it does not. A product that registers in `node_registry()` therefore draws
 something the day it registers, and gains a designed panel later by adding one entry here.
-`StagePanel` reads whichever of the two it is handed; it knows no node types.
+`DrawStagePanel` reads whichever of the two it is handed; it knows no node types.
 
 ## Dropped files
 
 A song dropped on the window is decoded off the GUI thread. `FileDropQueue` carries GLFW's paths
-into the frame, `AudioImportQueue` runs the decode on a worker, `Mp3Decoder` and
-`ChannelResampler` turn the file into the rig's own rate and channel count, and
+into the frame, `AudioImportQueue` runs the decode on a worker, `decode_mp3()` and
+`resample_channels()` turn the file into the rig's own rate and channel count, and
 `AudioImportCache` keeps the result as a WAV beside the executable so the same drop decodes once.
 The frame loop collects finished imports and places them as clips.
 
@@ -147,8 +147,8 @@ resized afterwards, so the callback allocates nothing. `applications/host_asio/m
 scratch buffer the same way. The two level probes sit in the same scope for the same reason:
 the callback reports a peak into each of them on every block.
 
-`rig_controller_storage` is declared before `device`. C++ destroys locals in reverse
-declaration order, so `device` is destroyed before the controller and the `RigGraph`s it owns,
+`session_storage` is declared before `device`. C++ destroys locals in reverse
+declaration order, so `device` is destroyed before the session, its controller and the `RigGraph`s they own,
 by construction and without relying on the explicit `device->stop()` call. `RigController`'s
 constructor needs a `PrepareInfo` derived from `device->format()`, so it cannot be constructed
 until the device exists; `std::optional` fixes the declaration order, and with it the
@@ -262,7 +262,7 @@ the pacing interval allows.
 `restore()` writes a snapshot's values over the defaults `add_node()` already seeded, the way a
 preset's values layer over a fresh slot's defaults.
 
-`publish()` drops a slot the registry no longer knows. It does so itself and not inside
+`publish()` drops a slot whose node type the registry does not know. It does so itself and not inside
 `build_graph()`, which stays `const` so that a preset save can call it too.
 
 ### `TopologyApplier`

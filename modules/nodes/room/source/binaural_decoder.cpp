@@ -104,7 +104,7 @@ namespace SushiDSP::room
         {
             const std::uint32_t count = std::min(frames - done, partition_size - fill_);
 
-            // One cursor reads output and writes input; see modules/nodes/room/README.md.
+            // One cursor reads output and writes input; see modules/nodes/room/source/README.md.
             std::copy_n(output_partition + fill_, count, left + done);
             std::copy_n(output_partition + partition_size + fill_, count, right + done);
             for (std::uint32_t channel = 0; channel < K_CHANNELS; ++channel)
@@ -131,7 +131,7 @@ namespace SushiDSP::room
         float* const output_partition = output_partition_.data();
         float* const scratch = scratch_.data();
 
-        // Each of the sixteen channels is transformed twice; see modules/nodes/room/README.md.
+        // Every channel is transformed twice; see modules/nodes/room/source/README.md.
         for (std::uint32_t ear = 0; ear < K_EARS; ++ear)
         {
             float* const ear_output =

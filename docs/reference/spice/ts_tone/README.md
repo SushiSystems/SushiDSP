@@ -7,7 +7,7 @@ op-amp, and the level pot with its output cap.
 
 **Status: schematic corrected, CSVs stale.** Commit 2bdbf91 ran the previous netlist and
 committed its CSVs. That netlist was a mistranscription (see "The 2026-09-06 correction"
-below), so `ts_tone_ac.csv` and `ts_tone_tran.csv` describe a circuit that is no longer in
+below), so `ts_tone_ac.csv` and `ts_tone_tran.csv` describe a circuit that is not the one in
 this directory. Regenerate them with:
 
 ```

@@ -170,8 +170,7 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
 
 - A new `sushidsp.cabinet` entry appears in the gear browser (§3) alongside amps and
   pedals, draggable into the rig chain the same way.
-- It loads an impulse response (IR) and convolves it into the signal path, the role the
-  amp-embedded cabinet used to play before this section shipped.
+- It loads an impulse response (IR) and convolves it into the signal path.
 - **Former mechanism:** `modules/foundation/core/include/SushiDSP/foundation/core/cabinet_host.hpp` defined the cabinet
   contract (`set_cabinet` / `has_cabinet` / `reclaim_cabinets`) that amp node classes
   (`modules/nodes/jcm800`, `modules/nodes/peavey5150`, `modules/nodes/diezel_vh4`, `modules/nodes/mesa_mark2c`)
@@ -235,7 +234,7 @@ its neighbors by dragging the divider between them (§18):
   regardless of which workspace view is showing (§12).
 
 This replaces §3's "top-left preset / center split / bottom transport+chain" arrangement:
-the transport bar is no longer beside the rig chain, it is its own permanent strip below
+the transport bar sits apart from the rig chain, in its own permanent strip below
 everything, and the rig chain now lives inside the same resizable block as the node
 settings and gear browser.
 

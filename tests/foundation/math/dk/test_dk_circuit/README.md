@@ -94,7 +94,7 @@ pair, not a single symmetric element, so D6c can make it asymmetric later. Using
 with n = 1 and the same Vt reproduces that law exactly except for its -1 offsets, which cancel
 between the two antiparallel branches.
 
-D6b's DiodeClipperCircuit used to sit here too, as a second, independently written
+D6b's DiodeClipperCircuit is not here, as a second, independently written
 implementation to agree with. D6c's plan (docs/archive/superpowers/plans/
 2026-09-05-d6c-tubescreamer-on-dk.md, Task 10) retired it: it ran four fixed float Newton
 iterations with no convergence test and drifted up to 2.8 mV from the root at high slew, so

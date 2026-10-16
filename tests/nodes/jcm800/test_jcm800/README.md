@@ -7,8 +7,8 @@
 `// unity_master_db is derived from K_MASTER_UNITY_GAIN.`
 
 The master level whose linear multiplier is exactly 1.0. Master is a dB control whose 0 dB
-reference is K_MASTER_UNITY_GAIN, so the tests that used to ask for "master fully up at 1.0 linear"
-ask for this instead and keep measuring the same signal - including across the D5b recalibration
+reference is K_MASTER_UNITY_GAIN, so the tests that want "master at 1.0 linear"
+ask for this and keep measuring the same signal - including across the D5b recalibration
 of that reference, which is why it is derived from the constant rather than written out as a
 number.
 
@@ -16,7 +16,7 @@ number.
 
 `// The preamp knob never costs level; 1 % is sag drift.`
 
-The claim used to be 6 dB between preamp 0.1 and 1.0. DA4 removed the interstage staging scalars
+The claim is not 6 dB between preamp 0.1 and 1.0. DA4 removed the interstage staging scalars
 and gave the chain the losses the decks document, and the cascade saturates below preamp 0.1, so
 the knob moves output level by 5.3 % rather than 6 dB: 0.201164 RMS at 0.1 against 0.211904 at
 1.0, measured 2026-09-07. What survives is that the knob never costs level, so that is what is

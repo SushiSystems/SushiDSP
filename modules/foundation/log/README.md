@@ -32,10 +32,10 @@ behind each invariant follows, under the name of the file that cites it.
 ### `log/`
 
 One brick per header. `LogLevel`, `LogCategory` and `LogRecord` are the values a line is made
-of. `LogArgument` prints one value and `LogFormatter` walks the `{}` markers. `LogSink` is the
+of. `LogArgument` prints one value and `format_log_message` walks the `{}` markers. `LogSink` is the
 interface a line leaves through, and `StderrLogSink`, `AsyncLogSink` and `CapturingLogSink`
 implement it. `LogLineQueue` is the bounded queue inside `AsyncLogSink`. `Logger` owns the
-current sink and the runtime minimum level, `DefaultLogger` builds the logger of the process,
+current sink and the runtime minimum level, `default_logger()` returns the logger of the process,
 `ScopedLogSink` installs a sink for a scope, and `Log.hpp` defines the macros.
 
 A call reads `SD_LOG_WARN(K_ROOM_LOG_CATEGORY, "format {}", value)`. Each module that logs

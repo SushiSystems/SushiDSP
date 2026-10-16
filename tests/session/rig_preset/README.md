@@ -30,7 +30,7 @@ next compile() throw "no sink node found".
 
 `// Id 7 is declared by no entry.`
 
-Dangling "inputs" reference: id 7 is declared by no entry. Previously this escaped as
+Dangling "inputs" reference: id 7 is declared by no entry. Without the check this escapes as
 std::out_of_range from std::map::at(), which does not derive from std::runtime_error.
 
 ### `SerializeAndDeserializeStillWorkWithNoCallback`

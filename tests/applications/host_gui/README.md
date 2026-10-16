@@ -27,8 +27,7 @@ last samples read a filter that has silence on one side of it, and stay within 0
 
 ## `test_rig_controller.cpp`
 
-The file holds five groups of cases under one test binary. Separator lines used to mark them;
-the groups are listed here and the file is reported as a candidate for splitting, not split:
+The file holds five groups of cases under one test binary. The groups are listed here and the file is reported as a candidate for splitting, not split:
 
 - Per-slot bypass, from `RigControllerBypassBridgesTheSlotsNeighbours`.
 - The impulse-response folder, from `RigControllerRemembersTheIrFolder`. The folder is
@@ -89,7 +88,7 @@ graph leaves it out, wiring its upstream neighbours straight to its downstream o
 Rack-list selection tracking (applications/host_gui/slot_selection.hpp).
 
 A SlotId stays valid across insert/move/remove, unlike the old int-index scheme, so the only
-remaining job is dropping a selection that no longer names a live slot.
+remaining job is dropping a selection that names no live slot.
 
 ### `RigControllerReAmpsARecordedTakeFromTheBarItWasRecordedAt`
 

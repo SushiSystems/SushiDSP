@@ -329,13 +329,13 @@ namespace SushiDSP::room
         const double handover_frames =
             std::round(static_cast<double>(crossover_time_s) * sample_rate);
 
-        // The handover time bounds the shortest line; see modules/nodes/room/README.md.
+        // The handover time bounds the shortest line; see modules/nodes/room/source/README.md.
         double shortest_frames = std::max(handover_frames, 1.0);
         double spread = K_MIN_SPREAD;
         const double wanted = total_frames / shortest_frames;
         if (wanted <= spread_sum(K_MIN_SPREAD))
         {
-            // The delay budget caps the shortest line; see modules/nodes/room/README.md.
+            // The delay budget caps the shortest line; see modules/nodes/room/source/README.md.
             shortest_frames = total_frames / spread_sum(K_MIN_SPREAD);
         }
         else
@@ -387,7 +387,7 @@ namespace SushiDSP::room
 
         if (listener == ListenerKind::Ears)
         {
-            // A Butterworth pair is power complementary; see modules/nodes/room/README.md.
+            // A Butterworth pair is power complementary; see modules/nodes/room/source/README.md.
             const double corner_hz = coherence_corner_hz();
             design.coherence_a = {butterworth(corner_hz, sample_rate, true), K_UNITY_SECTION};
             design.coherence_b = {butterworth(corner_hz, sample_rate, false), K_UNITY_SECTION};
@@ -398,7 +398,7 @@ namespace SushiDSP::room
             design.coherence_b = K_UNITY_CASCADE;
         }
 
-        // The shortest line is the network's own latency; see modules/nodes/room/README.md.
+        // The shortest line is the network's own latency; see modules/nodes/room/source/README.md.
         design.delay_to_crossover_frames = static_cast<float>(
             std::max(handover_frames - static_cast<double>(design.line_frames[0]), 0.0));
         return design;

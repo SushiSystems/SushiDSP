@@ -72,7 +72,7 @@ both at once. The rules below are the tree today.
 | Braces | Allman |
 | Names | Types `PascalCase`, functions and variables `snake_case`, members with a trailing underscore |
 | Interfaces | No `I` prefix: `AudioNode`, `AudioDevice`, `CabinetHost`, `LogSink`, `RoomHost` |
-| Constants | `K_UPPER_SNAKE`, such as `RigGraph::K_MAX_CHANNELS` |
+| Constants | `K_` and upper snake case, such as `RigGraph::K_MAX_CHANNELS` |
 | Files | `snake_case`, named after the one primary symbol, `rig_graph.hpp` |
 | License block | Written by `tools/licensing/write_license_block.py`, never typed by hand |
 | Comments | Doxygen, as `source-comments` states: what a thing does, never why |

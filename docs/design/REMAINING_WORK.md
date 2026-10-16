@@ -19,9 +19,8 @@ what to try on screen. No change to the levels the room renders at starts withou
 ## Room, opened by the DE phase
 
 - **Bound the output.** Nothing between `RoomNode` and the device limits what the room can
-  produce; `AsioSampleConverter::clamp_unit` is the only clamp in the path. The decision number
-  used to be the corner-cube's +36 dB, but `RoomScene`'s absorption gate refuses that scene now,
-  and the loudest a still-valid scene reaches has not been measured. Measure it first, then
+  produce; `float_to_asio_sample()` is the only clamp in the path. `RoomScene`'s
+  absorption gate refuses the corner-cube's +36 dB scene, and the loudest a still-valid scene reaches has not been measured. Measure it first, then
   decide whether a guard belongs in the node, the rig or neither.
 - **Weight the converter's diffuse average by solid angle**, now that the SADIE II set ships and
   the host loads it; and decide whether the near ear's 5.1 dB above 5 kHz wants a higher decoder
@@ -199,8 +198,6 @@ gave a cabinet its cones and a furnishing its place. What it leaves:
   which the owner ear-checked on 2026-09-23, so it waits for the owner's ear.
 - **The listener's line of sight is one far-field tap.** At listening distance the cones differ
   by less than the pattern says, and a per-cone direct path costs an HRIR pair each.
-- **The room README is past its ceiling.** `modules/nodes/room/README.md` is over 800 lines and
-  should be split by subject.
 
 ## Opened 2026-10-13: track rigs, export and the first plugin
 
@@ -208,7 +205,7 @@ gave a cabinet its cones and a furnishing its place. What it leaves:
 gave each track a rig and the session an export. What it leaves:
 
 - **The re-amp leg is dead weight.** `SessionTimeline` still carries the re-amp player, its
-  track and the input-source choice in `SlotGraph`; the host no longer reads them, since every
+  track and the input-source choice in `SlotGraph`; the host does not read them, since every
   track is rendered through its own rig. They and their tests can go.
 - **A track's strip has no EQ.** AmpliTube 5's has three bands.
 - **Clips are only moved and removed.** No split, copy, paste, crop, fade or gain trim, and no

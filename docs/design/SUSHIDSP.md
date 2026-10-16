@@ -590,7 +590,7 @@ the bias point, so a stage's clean swing matches its bias voltage the way the re
 six-argument constructor is unchanged and stays bit-identical. With a physical ceiling in place,
 all four amplifier modules dropped the level-staging devices (JCM800's five scalars, the 5150's
 seven `k*LevelStaging` constants and its derived power-grid lift, the VH4's four staging
-constants, the IIC+'s per-stage normalisation) that used to keep every following grid off its
+constants, the IIC+'s per-stage normalisation) that kept every following grid off its
 solver bound; each dossier's own dividers now run at face value, in volts, from the first grid to
 the power tubes. Two circuit facts came with that change, applied by every module: the phase
 inverter is a long-tailed pair, so its grid-cathode window is the input divided by the tail
@@ -640,7 +640,7 @@ Shockley pair and the saturation drive, and every preset stands on a datasheet r
 Philips EL34 sheet's class B push-pull point at −38 V, 3.4 kΩ and 2 × 30 mA (swing 25.5 / 280.3 V,
 gain 6.88), the VH4's is the same sheet's 500 V row at Diezel's 35 mA, the 5150's and the IIC+'s
 6L6GCs are the RCA sheet's class AB₁ row, and the IIC+'s outer pair is Mesa's 25 W split as a
-class A stage. The bias-invariance the D4 section above records no longer holds: a cathode-bias
+class A stage. The bias-invariance the D4 section above records does not hold here: a cathode-bias
 difference between two halves moves their handover, and the modules keep the input-referred offset
 they had, converted through the deleted grid scales (JCM800 0.24 V, 5150 0.4752 V). The JCM800's
 gains are the Koren Jacobian at each idle point (V1a 55.43, V1b 7.774 unbypassed, V2a 67.00), its

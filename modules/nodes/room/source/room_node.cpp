@@ -135,7 +135,7 @@ namespace SushiDSP::room
         const DenormalGuard guard;
         const std::uint32_t frames = std::min(context.frames, max_block_);
 
-        // One atomic acquire per slot is this thread's share; see modules/nodes/room/README.md.
+        // One acquire per slot is this thread's share; see modules/nodes/room/source/README.md.
         const Room::EnvironmentRenderSet* const set = slot_.acquire_for_audio_thread();
         BinauralDecoder* const decoder = head_.acquire_decoder();
         if (set == nullptr)

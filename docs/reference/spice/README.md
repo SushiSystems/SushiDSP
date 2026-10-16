@@ -130,8 +130,8 @@ block is regenerated:
   the loop turns out positive (oscillation, or gain rising as `Rnfb` is reduced), swap the
   secondary: write `Ls 0 sec` instead of `Ls sec 0`.
 - **Zero-valued pot sections** at `LEVEL = 1` (`ts_tone`). LTspice shorts a 0 Ω resistor
-  and warns; that is the intended behaviour, not an error. `jcm_fmv` no longer has a master
-  volume, so it no longer reaches this case.
+  and warns; that is the intended behaviour, not an error. `jcm_fmv` has no master
+  volume, so it does not reach this case.
 
 ## Checklist for generating the CSVs
 

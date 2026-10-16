@@ -64,8 +64,4 @@ This block has no control, so per the D6a brief the input level is stepped inste
 
 ## Note on the AC runs
 
-`AMP` scales only the `SINE(...)` stimulus; the `AC 1` magnitude is fixed. Stepping `AMP`
-therefore produces three *identical* AC sweeps (`setting` 0, 1 and 2) in `<block>_ac.csv`.
-Only the transient CSV carries three genuinely different runs. That is intentional: the
-acceptance criterion for this block is a transient null, and keeping one `.step` line for
-both analyses keeps the export path uniform.
+The three AC sweeps are identical, for the reason [`jcm_cf`](../jcm_cf/README.md#note-on-the-ac-runs) gives.
