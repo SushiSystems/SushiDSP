@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+-
 - 2026-10-16 — cli: Gave each CLI test the timeout of its size through pytest-timeout, a test dependency installed by CI (`conftest.py`, `pyproject.toml`, `ci.yml`).
 - 2026-10-16 — cli: Marked every CLI test small or medium and failed collection on a test with no size or two, checked by the copied check_test_sizes (`conftest.py`, `pyproject.toml`, `check_test_sizes.py`).
 - 2026-10-16 — cli: Added `sd test --jobs`, which caps how many tests ctest runs at once (`cli.py`, `project.py`).
