@@ -21,6 +21,7 @@ K_CHECKERS = (
     "documentation/check_changelog.py",
     "documentation/check_docs_truth.py",
     "layering/check_layering.py",
+    "logs/check_logging.py",
     "testing/check_test_mirror.py",
 )
 
