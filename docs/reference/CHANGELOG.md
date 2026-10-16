@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-16 — cli: Marked every CLI test small or medium and failed collection on a test with no size or two, checked by the copied check_test_sizes (`conftest.py`, `pyproject.toml`, `check_test_sizes.py`).
 - 2026-10-16 — cli: Added `sd test --jobs`, which caps how many tests ctest runs at once (`cli.py`, `project.py`).
 - 2026-10-16 — docs: Named the real symbols in the manual, stated what is in place of history words, and moved the room's implementation notes to its source README (`room/source/README.md`).
 

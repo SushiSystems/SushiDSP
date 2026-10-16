@@ -52,6 +52,22 @@ def _ensure_sushicore() -> None:
 _ensure_sushicore()
 
 
+K_SIZES = ("small", "medium", "large")
+
+
+def _sizes_of(item: pytest.Item) -> list[str]:
+    """Returns the size labels *item* carries, one entry per label."""
+    return [mark.name for mark in item.iter_markers() if mark.name in K_SIZES]
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Fails collection when a test carries no size or more than one."""
+    wrong = [f"{item.nodeid}: {_sizes_of(item) or 'no size'}"
+             for item in items if len(_sizes_of(item)) != 1]
+    if wrong:
+        raise pytest.UsageError(f"every test carries exactly one size: {', '.join(wrong)}")
+
+
 class RecordingRunner:
     """Records every command line it is handed and starts none of them."""
 

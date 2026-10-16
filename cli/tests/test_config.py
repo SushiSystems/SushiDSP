@@ -12,6 +12,9 @@ import pytest
 from sushidsp import config
 
 
+pytestmark = pytest.mark.medium
+
+
 def test_find_project_root_raises_outside_checkout(tmp_path):
     """No CMakeLists.txt anywhere above -> a clear SystemExit, not a crash."""
     with pytest.raises(SystemExit):

@@ -23,6 +23,7 @@ K_CHECKERS = (
     "layering/check_layering.py",
     "logs/check_logging.py",
     "testing/check_test_mirror.py",
+    "testing/check_test_sizes.py",
 )
 
 

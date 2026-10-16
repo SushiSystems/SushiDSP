@@ -7,11 +7,15 @@
 
 from __future__ import annotations
 
+import pytest
 from typer.testing import CliRunner
 
 from sushicore.provision.config import ProvisionSettings
 from sushidsp.cli import app
 from sushidsp.config import Config
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_sd_registers_the_four_provision_commands():

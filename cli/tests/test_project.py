@@ -21,6 +21,9 @@ from sushidsp.services import project as project_svc
 from sushidsp.services.project import BuildType, Sanitizer, Size
 
 
+pytestmark = pytest.mark.medium
+
+
 def _is_configure(command: list[str]) -> bool:
     """Tells whether a recorded command is a cmake configure."""
     return "-S" in command

@@ -26,3 +26,11 @@ include = ["sushidsp*"]
 
 [tool.setuptools.package-data]
 sushidsp = ["py.typed"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = [
+    "small: one process and one thread, no network, no sleep, no file outside the build tree",
+    "medium: threads and processes, localhost, files in a temporary folder",
+    "large: real hardware, or a run longer than medium allows",
+]

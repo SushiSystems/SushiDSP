@@ -13,6 +13,9 @@ from sushidsp.services import project as project_svc
 from sushidsp.services.project import BuildType
 
 
+pytestmark = pytest.mark.medium
+
+
 @pytest.fixture
 def tree(tmp_path, monkeypatch):
     """A project root whose build/ holds a cache naming one build type."""

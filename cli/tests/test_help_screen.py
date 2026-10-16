@@ -14,6 +14,9 @@ from typer.testing import CliRunner
 
 from sushidsp.cli import app
 
+
+pytestmark = pytest.mark.small
+
 K_GROUPS = {
     "Build": ["configure", "build", "test", "bench", "run", "clean", "check", "docs"],
     "Environment": ["config", "env", "setup", "doctor", "link", "unlink"],
