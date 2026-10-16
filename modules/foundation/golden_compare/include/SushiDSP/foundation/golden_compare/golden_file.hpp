@@ -34,6 +34,9 @@
 #include <string>
 #include <vector>
 
+#include <SushiDSP/foundation/golden_compare/golden_compare_log_category.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -92,16 +95,21 @@ namespace SushiDSP::golden
             std::FILE* file = std::fopen(path.c_str(), "wb");
             if (file == nullptr)
             {
+                SD_LOG_ERROR(K_GOLDEN_COMPARE_LOG_CATEGORY,
+                             "cannot open {} to regenerate it; reporting a 0 dB residual", path);
                 return 0.0;
             }
             std::fwrite(rendered.data(), sizeof(float), rendered.size(), file);
             std::fclose(file);
-            std::fprintf(stderr, "[golden] regenerated %s\n", path.c_str());
+            SD_LOG_INFO(K_GOLDEN_COMPARE_LOG_CATEGORY, "regenerated {} from {} samples", path,
+                        rendered.size());
             return -200.0;
         }
         std::FILE* file = std::fopen(path.c_str(), "rb");
         if (file == nullptr)
         {
+            SD_LOG_ERROR(K_GOLDEN_COMPARE_LOG_CATEGORY,
+                         "cannot open golden file {}; reporting a 0 dB residual", path);
             return 0.0;
         }
         std::vector<float> stored(rendered.size(), 0.0f);
@@ -109,6 +117,9 @@ namespace SushiDSP::golden
         std::fclose(file);
         if (read != rendered.size())
         {
+            SD_LOG_ERROR(K_GOLDEN_COMPARE_LOG_CATEGORY,
+                         "golden file {} holds {} samples, not {}; reporting a 0 dB residual",
+                         path, read, rendered.size());
             return 0.0;
         }
         return residual_db(stored, rendered);

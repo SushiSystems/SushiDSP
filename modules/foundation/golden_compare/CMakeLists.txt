@@ -12,3 +12,5 @@ add_library(SushiDSP::sushi_dsp_golden_compare ALIAS sushi_dsp_golden_compare)
 target_include_directories(sushi_dsp_golden_compare INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
+sushidsp_require_same_tier_edge(golden_compare log)
+target_link_libraries(sushi_dsp_golden_compare INTERFACE SushiDSP::sushi_dsp_log)
