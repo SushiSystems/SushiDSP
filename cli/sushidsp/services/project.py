@@ -236,13 +236,15 @@ def build(build_type: BuildType | None, clean: bool = False,
 
 
 def test(build_type: BuildType | None, sizes: Sequence[Size] = (), clean: bool = False,
-         filter: str | None = None, sanitizer: Sanitizer | None = None) -> int:
+         filter: str | None = None, sanitizer: Sanitizer | None = None,
+         jobs: int | None = None) -> int:
     """Builds when needed, then runs ctest over the tests *sizes* and *filter* select.
 
     Args:
         sizes: The sizes to run; none runs every size.
         filter: A ctest -R regex over the `Suite.Case` names the test build registers.
         sanitizer: Builds with this sanitizer first.
+        jobs: Tests run at once; none leaves the count to ctest.
     """
     build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
     rc = build(build_type, clean=clean, sanitizer=sanitizer)
@@ -254,7 +256,7 @@ def test(build_type: BuildType | None, sizes: Sequence[Size] = (), clean: bool =
     cfg = load_config()
     return _DRIVER.ctest_run(cfg, build_dir, _env(cfg, build_dir),
                              label_regex=size_label_regex(sizes), filter=filter,
-                             config=_CMAKE_BUILD_TYPE[build_type])
+                             jobs=jobs, config=_CMAKE_BUILD_TYPE[build_type])
 
 
 def bench(build_type: BuildType | None, groups: Sequence[str] = (), clean: bool = False) -> int:

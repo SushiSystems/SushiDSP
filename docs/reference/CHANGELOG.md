@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-16 — cli: Added `sd test --jobs`, which caps how many tests ctest runs at once (`cli.py`, `project.py`).
 - 2026-10-16 — docs: Named the real symbols in the manual, stated what is in place of history words, and moved the room's implementation notes to its source README (`room/source/README.md`).
 
 - 2026-10-16 — tools: Copied the logging checker from SushiSkills and ran it from check_all, with SD as the log prefix and the benchmark harness as the one console path (`check_logging.py`, `settings.py`).

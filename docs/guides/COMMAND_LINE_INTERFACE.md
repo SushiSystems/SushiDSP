@@ -44,6 +44,8 @@ Builds the tree if it isn't already, then runs `ctest`.
   size runs. `docs/CONTRIBUTING.md` says what each size allows.
 - `--filter` / `-f <regex>`, a `ctest -R` regex over the `Suite.Case` test names, applied
   inside the chosen sizes.
+- `--jobs` / `-j <count>`, how many tests run at once, passed to `ctest --parallel`. Without it
+  ctest decides and honours `CTEST_PARALLEL_LEVEL`.
 - `--sanitize address | thread`, the same as `sd build --sanitize`, before the tests run.
 - `--clean`, deletes the build tree before configuring.
 
