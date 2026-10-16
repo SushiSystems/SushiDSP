@@ -2,7 +2,10 @@
 
 ## Unreleased
 
--
+- 2026-10-16 — cli: Sent `sd check --rule` only to the checkers whose rule table names the rule (`project.py`).
+- 2026-10-16 — tools: Copied the shared checkers and their tests from SushiSkills 16ff88b, and added `K_PRIVATE_DEPENDS_ALSO` to `settings.py`, which the copied layering checker imports (`settings.py`, `check_all.py`, `check_layering.py`).
+- 2026-10-16 — cli: Made `sd check` run the eight shared checkers, adding the test mirror, test sizes and logging checkers (`project.py`, `cli.py`, `test_project.py`).
+- 2026-10-16 — docs: Counted eight checkers in the contributing guide, the README and the command guide, and corrected what `tools/README.md` said about the copies (`tools/README.md`, `CONTRIBUTING.md`, `COMMAND_LINE_INTERFACE.md`).
 - 2026-10-16 — cli: Gave each CLI test the timeout of its size through pytest-timeout, a test dependency installed by CI (`conftest.py`, `pyproject.toml`, `ci.yml`).
 - 2026-10-16 — cli: Marked every CLI test small or medium and failed collection on a test with no size or two, checked by the copied check_test_sizes (`conftest.py`, `pyproject.toml`, `check_test_sizes.py`).
 - 2026-10-16 — cli: Added `sd test --jobs`, which caps how many tests ctest runs at once (`cli.py`, `project.py`).

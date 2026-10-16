@@ -13,6 +13,7 @@ and the host GUI's place in the tree. cmake and ctest run through
 from __future__ import annotations
 
 import enum
+import importlib.util
 import os
 import shutil
 import stat
@@ -82,6 +83,9 @@ _CHECKERS = (
     Path("tools", "documentation", "check_docs_truth.py"),
     Path("tools", "documentation", "check_source_comments.py"),
     Path("tools", "layering", "check_layering.py"),
+    Path("tools", "testing", "check_test_mirror.py"),
+    Path("tools", "testing", "check_test_sizes.py"),
+    Path("tools", "logs", "check_logging.py"),
 )
 
 _HOST_GUI = "sushidsp_host_gui"
@@ -311,19 +315,37 @@ def docs() -> int:
 
 
 def check(report: bool = False, rule: str | None = None) -> int:
-    """Runs the layout, changelog and layering checkers under tools/.
+    """Runs the eight shared checkers under tools/, the set check_all.py runs before its tests.
 
     Args:
         report: Makes each checker print issue counts and exit zero.
-        rule: The one rule to run; it is forwarded to every checker.
+        rule: The one rule to run; only the checkers whose rule table names it run.
 
     Returns:
-        The highest exit code among the checkers.
+        The highest exit code among the checkers that ran, or 1 when no checker names *rule*.
     """
     root = find_project_root()
+    checkers = [checker for checker in _CHECKERS
+                if rule is None or rule in _rules_of(root / checker)]
+    if not checkers:
+        console.error(f"no checker under tools/ has the rule {rule}")
+        return 1
     arguments = (["--report"] if report else []) + (["--rule", rule] if rule else [])
     return max(_RUNNER.run([sys.executable, str(root / checker), *arguments], root)
-               for checker in _CHECKERS)
+               for checker in checkers)
+
+
+def _rules_of(checker: Path) -> frozenset[str]:
+    """Returns the rule names in the K_CHECKER table of the checker at *checker*."""
+    spec = importlib.util.spec_from_file_location(f"_sd_checker_{checker.stem}", checker)
+    module = importlib.util.module_from_spec(spec)
+    # A dataclass in the checker looks its module up in sys.modules while it is being defined.
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+        return frozenset(module.K_CHECKER.rules)
+    finally:
+        del sys.modules[spec.name]
 
 
 def _locate_host_gui(cfg: Config, build_dir: Path, config: str) -> Path | None:

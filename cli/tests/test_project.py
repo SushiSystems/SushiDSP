@@ -252,9 +252,31 @@ def test_check_runs_every_checker_through_the_runner(project):
 
     assert [Path(command[1]).name for command in project.runner.commands] == [
         "check_docs_layout.py", "check_changelog.py", "check_docs_truth.py",
-            "check_source_comments.py", "check_layering.py"]
+        "check_source_comments.py", "check_layering.py", "check_test_mirror.py",
+        "check_test_sizes.py", "check_logging.py"]
     for command in project.runner.commands:
         assert command[0] == sys.executable and command[2:] == ["--report"]
+
+
+def test_check_sends_a_rule_only_to_the_checkers_whose_table_names_it(project, monkeypatch):
+    """--rule reaches the checker that has it, and a rule no checker has fails with no run."""
+    tables = {"check_test_mirror.py": {"rule_untested_unit"}}
+    monkeypatch.setattr(project_svc, "_rules_of",
+                        lambda checker: frozenset(tables.get(checker.name, set())))
+
+    assert project_svc.check(rule="rule_untested_unit") == 0
+    assert [Path(command[1]).name for command in project.runner.commands] == ["check_test_mirror.py"]
+    assert project.runner.commands[0][2:] == ["--rule", "rule_untested_unit"]
+
+    assert project_svc.check(rule="rule_nowhere") == 1
+    assert len(project.runner.commands) == 1
+
+
+def test_rules_of_reads_the_rule_table_of_a_real_checker():
+    """_rules_of imports a checker of this checkout and returns its rule names."""
+    root = Path(__file__).resolve().parents[2]
+    rules = project_svc._rules_of(root / "tools" / "testing" / "check_test_mirror.py")
+    assert "rule_untested_unit" in rules
 
 
 def test_check_outside_a_checkout_fails_like_every_other_command(monkeypatch):
