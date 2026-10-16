@@ -18,6 +18,9 @@ from sushidsp import config as config_module
 from sushidsp.config import Config
 
 
+pytestmark = pytest.mark.medium
+
+
 def _clang_name() -> str:
     return "clang++.exe" if Config().is_windows else "clang++"
 

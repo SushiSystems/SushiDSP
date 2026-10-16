@@ -15,6 +15,9 @@ import importlib
 import pytest
 
 
+pytestmark = pytest.mark.medium
+
+
 def _fresh_console_module():
     """Import (or re-import) sushidsp.console with a clean module state."""
     import sushidsp.console as console_mod

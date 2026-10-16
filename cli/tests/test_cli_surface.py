@@ -25,6 +25,9 @@ from sushidsp.services import diag as diag_svc
 from sushidsp.services import project as project_svc
 from sushidsp.services.project import BuildType
 
+
+pytestmark = pytest.mark.medium
+
 K_DISTRIBUTION = "sushidsp-cli"
 K_SUBCOMMANDS = ["docs bundle"]
 K_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")

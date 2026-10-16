@@ -9,6 +9,7 @@ repository copies this folder whole; a rule is fixed here first and copied out.
 | `checking/checker.py` | Nothing itself; runs a checker's rule table and prints findings | |
 | `checking/ignored_paths.py` | Nothing itself; names the files and folders git ignores, which no checker reads | |
 | `testing/check_test_mirror.py` | `tests/` mirrors the source: one `test_<name>` file per header or source file, no test without a unit, no folder without a counterpart | Repository root |
+| `testing/check_test_sizes.py` | Every test names one size: a `Small_`, `Medium_` or `Large_` C++ suite prefix, a pytest size mark, a TypeScript `describe` prefix | Repository root |
 | `documentation/check_source_comments.py` | C++, GLSL, TypeScript and Python: license block, file header, block ceiling, `//` and `#` runs, separators, history words, `@date` | Files or folders |
 | `documentation/check_docs_layout.py` | `docs/` entries, required documents, document names, work folders, status lines, design ceiling, links under `docs/`, reachability from `docs/README.md`, READMEs under `modules/<tier>/`, archive candidates | Repository root |
 | `documentation/check_changelog.py` | Headings and entry shape, releases kept live, length, one sentence, nesting, cited places | Repository root |

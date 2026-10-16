@@ -7,11 +7,15 @@
 
 from __future__ import annotations
 
+import pytest
 from typer.testing import CliRunner
 
 from sushidsp.cli import app
 from sushidsp.services import project
 from sushidsp.services.project import Sanitizer, Size, sanitizer_defines, size_label_regex
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_no_size_selects_every_test():
