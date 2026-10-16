@@ -16,6 +16,9 @@ dependencies = [
     "tomli>=2.0; python_version < '3.11'",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pytest-timeout>=2.3"]
+
 [project.scripts]
 sd = "sushidsp.cli:main"
 sushidsp = "sushidsp.cli:main"
@@ -30,7 +33,7 @@ sushidsp = ["py.typed"]
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
 markers = [
-    "small: one process and one thread, no network, no sleep, no file outside the build tree",
-    "medium: threads and processes, localhost, files in a temporary folder",
-    "large: real hardware, or a run longer than medium allows",
+    "small: one process and one thread, no network, no sleep, no file outside the build tree (60 s)",
+    "medium: threads and processes, localhost, files in a temporary folder (300 s)",
+    "large: real hardware, or a run longer than medium allows (900 s)",
 ]
