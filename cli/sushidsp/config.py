@@ -17,7 +17,7 @@ from pathlib import Path
 from sushicore.module_config import ModuleConfig
 from sushicore.profile import ModuleProfile
 from sushicore.provision import home as provision_home
-from sushicore.provision.config import ProvisionSettings
+from sushicore.stack_config import StackConfig
 
 #: How SushiDSP describes itself to the shared machinery.
 PROFILE = ModuleProfile(
@@ -46,11 +46,11 @@ _INTEL_LLVM_BUNDLE_DIRS = ("llvm-sycl-nightly", "llvm-sycl")
 
 
 @dataclass
-class Config(ProvisionSettings):
+class Config(StackConfig):
     """Resolved, platform-specific tool configuration for the SushiDSP build.
 
     Inherits every field (cmake/ninja paths, cxx, generator, vs_vcvars, ...) from
-    :class:`ProvisionSettings`, including the intel/llvm bundle root ``llvm_root``.
+    :class:`StackConfig`, including the intel/llvm bundle root ``llvm_root``.
     """
 
     target_bin: str = "sushidsp_host"

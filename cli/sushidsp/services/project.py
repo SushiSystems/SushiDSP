@@ -198,6 +198,7 @@ def configure(build_type: BuildType | None, defines: Sequence[str] | None = None
                 f"-DCMAKE_C_COMPILER={c_compiler_for(compiler)}"]
     else:
         console.info(f"Compiler: {cfg.compiler_source()}")
+    cmd += cfg.sushi_definitions(root)
     for define in defines or ():
         cmd += ["-D", define]
 

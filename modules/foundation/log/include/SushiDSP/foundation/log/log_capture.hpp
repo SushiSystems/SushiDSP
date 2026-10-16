@@ -1,0 +1,52 @@
+/**
+ * @file log_capture.hpp
+ * @brief Declares the scope that collects every SushiLog record, for tests.
+ * @author Mustafa Garip
+ */
+
+#pragma once
+
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
+
+namespace SushiDSP
+{
+    /// @brief Holds one record a LogCapture collected.
+    struct CapturedLogLine
+    {
+            LogLevel level;       /**< The severity of the record. */
+            std::string category; /**< The module of the record's category. */
+            std::string message;  /**< The formatted message. */
+            std::string line;     /**< The whole record line. */
+    };
+
+    /// @brief Delivers every record synchronously into a list for its lifetime, then restores
+    /// stderr. One capture at a time; it replaces whatever sink was set.
+    class LogCapture final
+    {
+        public:
+            /// @brief Starts collecting.
+            LogCapture();
+
+            /// @brief Stops collecting and restores the stderr sink.
+            ~LogCapture();
+
+            LogCapture(const LogCapture&) = delete;
+            LogCapture& operator=(const LogCapture&) = delete;
+            LogCapture(LogCapture&&) = delete;
+            LogCapture& operator=(LogCapture&&) = delete;
+
+            /// @brief Returns a copy of every record collected so far, oldest first.
+            [[nodiscard]] std::vector<CapturedLogLine> lines() const;
+
+        private:
+            /// @brief Guards lines_.
+            mutable std::mutex mutex_;
+
+            /// @brief Holds the collected records.
+            std::vector<CapturedLogLine> lines_;
+    };
+} // namespace SushiDSP

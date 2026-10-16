@@ -4,21 +4,11 @@
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
 
+# The SD_LOG front over SushiLog. A target whose SUSHIDSP_LOG_STATIC property is ON, such as a
+# plug-in a host may load twice, links SushiLog::SushiLogStatic; everything else links the shared
+# SushiLog::SushiLog, which a process loads once.
 add_library(sushi_dsp_log STATIC
-    source/async_log_sink.cpp
-    source/capturing_log_sink.cpp
-    source/default_logger.cpp
-    source/log_argument.cpp
-    source/log_formatter.cpp
-    source/log_level_setting.cpp
-    source/log_level_table.cpp
-    source/log_line.cpp
-    source/log_line_queue.cpp
-    source/log_thread.cpp
-    source/logger.cpp
-    source/scoped_log_sink.cpp
-    source/stderr_log_sink.cpp
-    source/sushi_log_record.cpp
+    source/log_capture.cpp
 )
 add_library(SushiDSP::sushi_dsp_log ALIAS sushi_dsp_log)
 sushidsp_apply_optimization_flags(sushi_dsp_log)
@@ -27,4 +17,6 @@ sushidsp_apply_sanitizers(sushi_dsp_log)
 target_include_directories(sushi_dsp_log PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_include_directories(sushi_dsp_log PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/source)
+target_link_libraries(sushi_dsp_log PUBLIC
+    $<IF:$<BOOL:$<TARGET_PROPERTY:SUSHIDSP_LOG_STATIC>>,SushiLog::SushiLogStatic,SushiLog::SushiLog>
+)
