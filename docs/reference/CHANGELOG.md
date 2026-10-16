@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-16 — tools: Copied the logging checker from SushiSkills and ran it from check_all, with SD as the log prefix and the benchmark harness as the one console path (`check_logging.py`, `settings.py`).
+
 - 2026-10-16 — build: Linked Clang LTO builds on Linux with lld, turning LTO off when ld.lld is missing, and installed lld on the Linux CI lanes (`cmake/SushiDSPCompilerFlags.cmake`, `ci.yml`, `nightly.yml`).
 - 2026-10-15 — tests: Wrote each test's size as its suite prefix, Small_ or Medium_, and registered the tests through gtest_discover_tests by prefix, with a quarantine list (`tests/CMakeLists.txt`, `tests/main.cpp`).
 - 2026-10-15 — tests: Labelled every test small or medium with its timeout in place of unit and regression, and stopped registering the benchmark as a test (`tests/CMakeLists.txt`).

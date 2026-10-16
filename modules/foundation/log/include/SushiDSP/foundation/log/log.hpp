@@ -68,7 +68,7 @@ static_assert(static_cast<int>(SushiDSP::LogLevel::Trace) == SD_LOG_LEVEL_TRACE 
     } while (false)
 
 #if SD_LOG_MIN_LEVEL <= SD_LOG_LEVEL_TRACE
-/// @brief Logs step-by-step flow: `SD_LOG_TRACE(category, "format {}", values...)`.
+/// @brief Logs step-by-step flow, for a developer chasing one bug.
 #define SD_LOG_TRACE(category, ...) SD_LOG_WRITE(::SushiDSP::LogLevel::Trace, category, __VA_ARGS__)
 #else
 /// @brief Compiles to nothing; the arguments are not evaluated.

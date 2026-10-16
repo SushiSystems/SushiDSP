@@ -1,11 +1,11 @@
 # tools
 
-Reference implementations of the six checkers every Sushi Systems repository carries. A
+Reference implementations of the seven checkers every Sushi Systems repository carries. A
 repository copies this folder whole; a rule is fixed here first and copied out.
 
 | Path | Checks | Takes |
 | --- | --- | --- |
-| `check_all.py` | Nothing itself; runs the six checkers and the checker tests, prints only what failed | Repository root |
+| `check_all.py` | Nothing itself; runs the seven checkers and the checker tests, prints only what failed | Repository root |
 | `checking/checker.py` | Nothing itself; runs a checker's rule table and prints findings | |
 | `checking/ignored_paths.py` | Nothing itself; names the files and folders git ignores, which no checker reads | |
 | `testing/check_test_mirror.py` | `tests/` mirrors the source: one `test_<name>` file per header or source file, no test without a unit, no folder without a counterpart | Repository root |
@@ -13,6 +13,7 @@ repository copies this folder whole; a rule is fixed here first and copied out.
 | `documentation/check_docs_layout.py` | `docs/` entries, required documents, document names, work folders, status lines, design ceiling, links under `docs/`, reachability from `docs/README.md`, READMEs under `modules/<tier>/`, archive candidates | Repository root |
 | `documentation/check_changelog.py` | Headings and entry shape, releases kept live, length, one sentence, nesting, cited places | Repository root |
 | `layering/check_layering.py` | Declared tiers, upward includes, reaches into another module's `source/` | Repository root |
+| `logs/check_logging.py` | Library code: console writes outside `K_CONSOLE_PATHS`, empty `catch` and pass-only `except`, a log call without its module's `K_<MODULE>_LOG_CATEGORY`, a logging module without its category header, Python root and f-string logging | Repository root |
 | `licensing/write_license_block.py` | Nothing; writes the license block of `source-comments` into every tracked source file, or lists the files that lack it with `--report` | Repository root, `--project` |
 | `tests/` | Unit tests for the checker rules; run `python -m unittest discover -s tools/tests` | |
 
@@ -38,8 +39,8 @@ repository sets `K_LICENSE_LINES` to `("All rights reserved. No licence is grant
 
 Everything above is copied from SushiSkills, where a rule changes first. This repository sets
 `K_TIER_ORDER` to `("foundation", "nodes", "catalog", "session")` and adds `.superpowers` to
-`K_SKIPPED_FOLDERS` in `check_source_comments.py`. `sd check` runs `check_docs_layout.py`,
-`check_changelog.py` and `check_layering.py`; `check_all.py` runs all six checkers and the tests.
+`K_SKIPPED_FOLDERS` in `check_source_comments.py`. In `settings.py`, `K_LOG_PREFIX` is `SD` and`nK_CONSOLE_PATHS` names `modules/foundation/benchmark_harness`, whose table is the bench's output. `sd check` runs `check_docs_layout.py`,
+`check_changelog.py` and `check_layering.py`; `check_all.py` runs all seven checkers and the tests.
 
 `check_docs_truth.py` and `check_layering.py` still differ from the SushiSkills reference in
 behaviour: the reference skips git-ignored and rule folders, and checks layering by module owner.
