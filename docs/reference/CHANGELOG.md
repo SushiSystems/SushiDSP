@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-17 — cli: Pinned SushiLog v0.1.2, which keeps a project level set before the project's first log call (`sushistack.deps.toml`, `NOTICE.md`).
 - 2026-10-17 — log: Compiled SushiDSP code against SushiLog without dllimport so the static plug-in resolves every call, named SushiLog types directly and moved LogCapture into its own test module (`log/CMakeLists.txt`, `log_capture.hpp`).
 - 2026-10-17 — log: Replaced SushiDSP's own logger with a front over SushiLog v0.1.1, pinned in the dependency fragment; the plug-in links SushiLogStatic and exports sushidsp_join_log (`log.hpp`, `log_capture.hpp`, `log_join.hpp`).
 - 2026-10-17 — cli: Moved to sushicore 0.9.1 and handed CMake each pinned Sushi library's directory (`config.py`, `project.py`, `sushistack.deps.toml`).
