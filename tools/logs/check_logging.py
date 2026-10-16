@@ -1,5 +1,5 @@
 # check_logging.py
-# SushiDSP - https://github.com/SushiSystems/SushiDSP
+# SushiSkills - https://github.com/SushiSystems/SushiSkills
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
@@ -95,10 +95,11 @@ def _log_call() -> re.Pattern[str] | None:
 
 
 def _calls(pattern: re.Pattern[str], text: str) -> Iterator[re.Match[str]]:
-    """Yields each log call outside a preprocessor line, so the logger's own macros are left out."""
+    """Yields each log call outside a preprocessor or comment line, so the logger's own macros are left out."""
     for match in pattern.finditer(text):
         start = text.rfind("\n", 0, match.start()) + 1
-        if not text[start:match.start()].lstrip().startswith("#"):
+        before = text[start:match.start()]
+        if not before.lstrip().startswith(K_COMMENT_STARTS) and "//" not in before:
             yield match
 
 
