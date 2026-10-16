@@ -1,0 +1,49 @@
+/**************************************************************************/
+/* log_record_sink.hpp                                                    */
+/**************************************************************************/
+/*                          This file is part of:                         */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                         https://sushisystems.io                        */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the PolyForm Noncommercial License 1.0.0 (the           */
+/* "License"); you may not use this file except in compliance with the    */
+/* License. You may obtain a copy of the License at                       */
+/*                                                                        */
+/*     https://polyformproject.org/licenses/noncommercial/1.0.0           */
+/*                                                                        */
+/* Noncommercial use is free. Commercial use requires a separate licence  */
+/* from Sushi Systems; see COMMERCIAL.md. The software is provided        */
+/* "as is", without warranty of any kind.                                 */
+/**************************************************************************/
+
+/**
+ * @file log_record_sink.hpp
+ * @brief Declares the interface a logger writes its lines through.
+ * @author Mustafa Garip
+ */
+
+#pragma once
+
+#include <SushiDSP/foundation/log/log_record.hpp>
+
+namespace SushiDSP
+{
+    /// @brief Receives formatted log records and puts them somewhere.
+    /// A sink never logs, and never sets the logger's sink, levels or delivery.
+    class LogRecordSink
+    {
+        public:
+            virtual ~LogRecordSink() = default;
+
+            /// @brief Takes one record. Any thread may call it, several at once.
+            /// An exception it throws reaches the logger, which writes it and the record to stderr.
+            /// @param record Its views are valid only during the call; a sink that keeps one copies it.
+            virtual void write(const LogRecord& record) = 0;
+
+            /// @brief Returns once every line written before the call has reached its destination.
+            virtual void flush() noexcept = 0;
+    };
+} // namespace SushiDSP

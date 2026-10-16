@@ -39,26 +39,28 @@
 
 #include <SushiDSP/foundation/log/async_log_sink.hpp>
 #include <SushiDSP/foundation/log/capturing_log_sink.hpp>
+#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 namespace
 {
     /// @brief Names the lines this file writes.
     constexpr SushiDSP::LogCategory K_ASYNC_TEST_LOG_CATEGORY =
-        SushiDSP::make_log_category("async_test");
+        SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "async_test");
 
     /// @brief Writes one numbered line to a sink.
-    void write_line(SushiDSP::LogSink& sink, std::size_t index)
+    void write_line(SushiDSP::LogRecordSink& sink, std::size_t index)
     {
         const std::string text = "line " + std::to_string(index);
-        sink.write(SushiDSP::LogRecord{SushiDSP::LogLevel::Info, K_ASYNC_TEST_LOG_CATEGORY, text});
+        sink.write(SushiDSP::LogRecord{SushiDSP::LogLevel::Info, "sushidsp", "async_test", "a.cpp", 1, 1, 0,
+                                       text, text});
     }
 
     /// @brief Holds every write() until open() is called, then passes the lines on.
-    class GatedLogSink final : public SushiDSP::LogSink
+    class GatedLogSink final : public SushiDSP::LogRecordSink
     {
         public:
             /// @brief Starts closed, passing lines on to a sink once opened.
-            explicit GatedLogSink(std::shared_ptr<SushiDSP::LogSink> downstream)
+            explicit GatedLogSink(std::shared_ptr<SushiDSP::LogRecordSink> downstream)
                 : downstream_(std::move(downstream))
             {
             }
@@ -102,7 +104,7 @@ namespace
 
         private:
             /// @brief Receives the lines once the gate is open.
-            std::shared_ptr<SushiDSP::LogSink> downstream_;
+            std::shared_ptr<SushiDSP::LogRecordSink> downstream_;
 
             /// @brief Guards open_.
             std::mutex mutex_;
@@ -199,12 +201,28 @@ TEST(Medium_AsyncLogSink, AsyncSinkDropsAndCountsWhenTheQueueIsFullInsteadOfBloc
     gate->open();
     sink.flush();
 
+    // The drops were counted while line 0 was at the gate, so the report comes before line 1.
     const std::vector<SushiDSP::CapturedLogLine> lines = capture->lines();
     ASSERT_EQ(lines.size(), 4u);
     EXPECT_EQ(lines[0].message, "line 0");
-    EXPECT_EQ(lines[1].message, "line 1");
-    EXPECT_EQ(lines[2].message, "line 2");
-    EXPECT_EQ(lines[3].level, SushiDSP::LogLevel::Warn);
-    EXPECT_EQ(lines[3].category, "log");
-    EXPECT_NE(lines[3].message.find("3 lines were dropped"), std::string::npos) << lines[3].message;
+    EXPECT_EQ(lines[1].level, SushiDSP::LogLevel::Warn);
+    EXPECT_EQ(lines[1].category, "log");
+    EXPECT_NE(lines[1].message.find("3 lines were dropped"), std::string::npos) << lines[1].message;
+    EXPECT_NE(lines[1].line.find("[WARN] [sushidsp.log] [t"), std::string::npos) << lines[1].line;
+    EXPECT_EQ(lines[2].message, "line 1");
+    EXPECT_EQ(lines[3].message, "line 2");
+}
+
+TEST(Medium_AsyncLogSink, AsyncSinkStopDeliversTheQueueAndIsSafeToCallTwice)
+{
+    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    SushiDSP::AsyncLogSink sink(capture, 16);
+    write_line(sink, 0);
+
+    sink.stop();
+    sink.stop();
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture->lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].message, "line 0");
 }

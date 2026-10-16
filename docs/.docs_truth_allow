@@ -11,3 +11,4 @@ cli/sushidsp/services/setup\.py # file the 2026-10-05 audit found missing, cited
 applications/host_gui/ui/TrackPanel\.cpp # file the 2026-10-05 audit found missing, cited as a finding
 modules/foundation/math/include/SushiDSP/foundation/math/ResamplerCoefficients\.hpp # file the 2026-10-05 audit found missing, cited as a finding
 Files/LTC/LTspiceXVII/XVIIx64\.exe # LTspice install path on the developer's machine
+SD_(CMAKE|CTEST|NINJA|VCVARS|TARGET_BIN|NO_DEPRECATION_NOTICE) # environment variables SushiCore's sd reads, owned by SushiCore

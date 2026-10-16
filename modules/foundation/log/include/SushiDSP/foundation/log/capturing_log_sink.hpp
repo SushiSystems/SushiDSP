@@ -32,7 +32,7 @@
 #include <string>
 #include <vector>
 
-#include <SushiDSP/foundation/log/log_sink.hpp>
+#include <SushiDSP/foundation/log/log_record_sink.hpp>
 
 namespace SushiDSP
 {
@@ -41,15 +41,16 @@ namespace SushiDSP
     {
             LogLevel level;       /**< The severity of the line. */
             std::string category; /**< The name of the category the line was logged under. */
-            std::string message;  /**< The formatted text. */
+            std::string message;  /**< The formatted message. */
+            std::string line;     /**< The whole record line; empty when the record had none. */
     };
 
     /// @brief Keeps every line it receives, in arrival order, before write() returns.
-    class CapturingLogSink final : public LogSink
+    class CapturingLogSink final : public LogRecordSink
     {
         public:
-            /// @brief Appends a copy of the line.
-            void write(const LogRecord& record) noexcept override;
+            /// @brief Appends a copy of the record.
+            void write(const LogRecord& record) override;
 
             /// @brief Counts the call; the lines are already stored.
             void flush() noexcept override;

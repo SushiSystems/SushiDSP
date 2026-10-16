@@ -10,10 +10,15 @@ add_library(sushi_dsp_log STATIC
     source/default_logger.cpp
     source/log_argument.cpp
     source/log_formatter.cpp
+    source/log_level_setting.cpp
+    source/log_level_table.cpp
+    source/log_line.cpp
     source/log_line_queue.cpp
+    source/log_thread.cpp
     source/logger.cpp
     source/scoped_log_sink.cpp
     source/stderr_log_sink.cpp
+    source/sushi_log_record.cpp
 )
 add_library(SushiDSP::sushi_dsp_log ALIAS sushi_dsp_log)
 sushidsp_apply_optimization_flags(sushi_dsp_log)

@@ -35,7 +35,7 @@
 #include <mutex>
 #include <thread>
 
-#include <SushiDSP/foundation/log/log_sink.hpp>
+#include <SushiDSP/foundation/log/log_record_sink.hpp>
 #include <SushiDSP/foundation/log/log_line_queue.hpp>
 
 namespace SushiDSP
@@ -45,14 +45,14 @@ namespace SushiDSP
 
     /// @brief Queues each line and lets a worker thread write it to another sink, in order.
     /// write() neither blocks nor allocates: a line that finds the queue full is dropped and
-    /// counted, and the worker reports the count downstream. See modules/foundation/log/README.md.
-    class AsyncLogSink final : public LogSink
+    /// counted, and the next line delivered follows a WARN naming the count.
+    class AsyncLogSink final : public LogRecordSink
     {
         public:
             /// @brief Allocates the queue and starts the worker thread.
             /// @param downstream Receives every line on the worker thread; must not be null.
             /// @param queue_capacity Lines the queue holds; rounded up to a power of two.
-            AsyncLogSink(std::shared_ptr<LogSink> downstream, std::size_t queue_capacity);
+            AsyncLogSink(std::shared_ptr<LogRecordSink> downstream, std::size_t queue_capacity);
 
             /// @brief Writes every queued line downstream, flushes it and joins the worker.
             ~AsyncLogSink() override;
@@ -69,6 +69,10 @@ namespace SushiDSP
             /// @pre The caller is not the worker thread.
             void flush() noexcept override;
 
+            /// @brief Delivers what is queued, flushes downstream and joins the worker; idempotent.
+            /// A line written after it stays in the queue undelivered.
+            void stop() noexcept;
+
             /// @brief Returns how many lines a full queue has refused.
             std::uint64_t dropped_count() const noexcept;
 
@@ -79,7 +83,7 @@ namespace SushiDSP
             /// @brief Writes every line now in the queue downstream.
             void drain() noexcept;
 
-            /// @brief Writes one line naming the drops counted since the last such line.
+            /// @brief Writes one line naming the drops counted since the last such line, if any.
             void report_drops() noexcept;
 
             /// @brief Reports whether the worker has a reason to leave its wait.
@@ -87,7 +91,7 @@ namespace SushiDSP
             bool has_work() const noexcept;
 
             /// @brief Receives the lines on the worker thread.
-            std::shared_ptr<LogSink> downstream_;
+            std::shared_ptr<LogRecordSink> downstream_;
 
             /// @brief Carries the lines from the callers to the worker.
             LogLineQueue queue_;

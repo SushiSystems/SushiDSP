@@ -28,18 +28,36 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/log/log_category.hpp>
+#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 #include <string_view>
 
-TEST(Small_LogCategory, NameIsTheNameItWasMadeWith)
+TEST(Small_LogCategory, HoldsTheProjectAndModuleItWasMadeWith)
 {
-    constexpr SushiDSP::LogCategory category = SushiDSP::make_log_category("room");
-    EXPECT_EQ(category.name(), std::string_view("room"));
+    constexpr SushiDSP::LogCategory category =
+        SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "room");
+    EXPECT_EQ(category.module(), std::string_view("room"));
+    EXPECT_EQ(category.project().name(), std::string_view("sushidsp"));
 }
 
 TEST(Small_LogCategory, ConstructorAndFactoryAgree)
 {
-    const SushiDSP::LogCategory direct("rig");
-    const SushiDSP::LogCategory made = SushiDSP::make_log_category("rig");
-    EXPECT_EQ(direct.name(), made.name());
+    const SushiDSP::LogCategory direct(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "rig");
+    const SushiDSP::LogCategory made =
+        SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "rig");
+    EXPECT_EQ(direct.module(), made.module());
+}
+
+TEST(Small_LogCategory, HashIgnoresLetterCaseAndTellsTwoNamesApart)
+{
+    constexpr SushiDSP::LogCategory room =
+        SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "room");
+    static_assert(room.hash() == SushiDSP::log_category_hash("ROOM"), "the hash ignores case");
+    EXPECT_NE(room.hash(), SushiDSP::log_category_hash("rooms"));
+    EXPECT_NE(SushiDSP::log_category_hash(""), 0u);
+}
+
+TEST(Small_LogCategory, HashOfTheEmptyNameIsTheFnvOffsetBasis)
+{
+    EXPECT_EQ(SushiDSP::log_category_hash(""), 14695981039346656037ull);
 }

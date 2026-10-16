@@ -121,8 +121,8 @@ holds the same for `ui/`.
 
 ### `main.cpp`
 
-`main()` installs an `AsyncLogSink` over a `StderrLogSink` through a `ScopedLogSink`, which
-flushes the sink on every return path. The host logs under `K_HOST_GUI_LOG_CATEGORY`, declared
+`main()` logs through `default_logger()`, whose logger thread writes to stderr and delivers
+what is queued when the process exits. The host logs under `K_HOST_GUI_LOG_CATEGORY`, declared
 in `host_gui_log_category.hpp`. The messages `main()` prints with `fprintf` are its
 command-line output and do not go through the logger.
 

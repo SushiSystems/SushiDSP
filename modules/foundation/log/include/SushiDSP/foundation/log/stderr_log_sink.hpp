@@ -27,15 +27,15 @@
 
 #pragma once
 
-#include <SushiDSP/foundation/log/log_sink.hpp>
+#include <SushiDSP/foundation/log/log_record_sink.hpp>
 
 namespace SushiDSP
 {
-    /// @brief Writes `[LEVEL] [category] message` to stderr before write() returns.
-    class StderrLogSink final : public LogSink
+    /// @brief Writes each record's line, or its message when it has none, to stderr.
+    class StderrLogSink final : public LogRecordSink
     {
         public:
-            /// @brief Writes one line with a single call, so lines of two threads never interleave.
+            /// @brief Writes the line and its newline with one call, so two threads never interleave.
             void write(const LogRecord& record) noexcept override;
 
             /// @brief Flushes stderr.

@@ -30,6 +30,8 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/log/default_logger.hpp>
+
 namespace
 {
     /// @brief Reports whether a suite name starts with a size: Small_, Medium_ or Large_.
@@ -64,11 +66,13 @@ namespace
 
 /**
  * @brief Runs every registered GoogleTest case, after refusing a suite with no size.
+ * Records reach a test's sink before the call that logs them returns.
  * @return 0 on success, non-zero if any test fails or a suite carries no size.
  */
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
+    SushiDSP::set_log_synchronous(true);
     if (report_unsized_suites() > 0)
         return 2;
     return RUN_ALL_TESTS();

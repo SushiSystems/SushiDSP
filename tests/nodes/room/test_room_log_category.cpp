@@ -33,5 +33,5 @@
 
 TEST(Small_RoomLogCategory, IsNamedRoom)
 {
-    EXPECT_EQ(K_ROOM_LOG_CATEGORY.name(), std::string_view("room"));
+    EXPECT_EQ(K_ROOM_LOG_CATEGORY.module(), std::string_view("room"));
 }

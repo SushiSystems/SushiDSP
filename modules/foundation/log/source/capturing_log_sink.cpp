@@ -29,11 +29,11 @@
 
 namespace SushiDSP
 {
-    void CapturingLogSink::write(const LogRecord& record) noexcept
+    void CapturingLogSink::write(const LogRecord& record)
     {
         const std::lock_guard<std::mutex> lock(mutex_);
-        lines_.push_back(CapturedLogLine{record.level, std::string(record.category.name()),
-                                         std::string(record.message)});
+        lines_.push_back(CapturedLogLine{record.level, std::string(record.module),
+                                         std::string(record.message), std::string(record.text)});
     }
 
     void CapturingLogSink::flush() noexcept
