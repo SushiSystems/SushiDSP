@@ -318,8 +318,8 @@ at 0.1 and 0.9, because the old netlist muted at TONE = 1.
 `// Both end stops are ordinary settings.`
 
 The old netlist muted at wiper position 1 - the pot shorted the wiper to the op-amp output and
-the summing junction's equation collapsed - which is why tone_to_position used to stop short of
-its own track. On the corrected network both ends are ordinary settings: at 0 the wiper leg
+the summing junction's equation collapsed - which is why tone_to_position stopped short of
+its own track there. On the corrected network both ends are ordinary settings: at 0 the wiper leg
 loads the passive filter, at 1 it is the whole gain leg, and neither is degenerate. This is the
 case that fails first if someone reinstates the clamp.
 

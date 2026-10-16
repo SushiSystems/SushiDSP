@@ -214,11 +214,11 @@ starting at offset `span - 1`.
 ### `modules/foundation/math/source/oversampler.cpp`
 
 `HalfbandUpsampler2x::process` never forms the zero-stuffed signal. With `tap_count = 4M-1`, the
-centre index is `c = 2M-1`, and the zero-stuffed input has `x_s[2n] = 2x[n]` with its odd samples
+centre index is `c = 2M-1`, and the zero-stuffed input has `xs[2n] = 2x[n]` with its odd samples
 zero. Output sample m only sees taps `h[k]` with k congruent to m modulo 2.
 
 Output `2n+1` needs odd k, an even distance `k-c` from the centre, and every one of those taps is
-an exact zero except the centre itself. So `y[2n+1] = 0.5 * x_s[2n+1-c] = x[n - (M-1)]`, a pure
+an exact zero except the centre itself. So `y[2n+1] = 0.5 * xs[2n+1-c] = x[n - (M-1)]`, a pure
 delay of `centre_delay_ = (tap_count-1)/4 = M-1` base-rate samples.
 
 Output `2n` needs even k, an odd distance `d = 2k+1` from the centre, which is exactly the
@@ -229,7 +229,7 @@ The pair sum is accumulated in float. The 1e-6 equivalence with the direct form 
 is empirical. It holds because these designs' taps decay fast, so a handful of terms dominate the
 sum; it is not a worst-case error bound.
 
-`HalfbandDownsampler2x::process` computes only the retained outputs `y[m] = sum_k h[k] u[2m-k]`.
+`HalfbandDownsampler2x::process` computes only the retained outputs `y[m] = Σ h[k] u[2m-k]`.
 The discarded input samples still enter the history so that it stays continuous. Within a retained
 output only the non-zero taps are touched: the centre, at history offset `centre_offset_`, and the
 symmetric pairs at odd distances 1, 3, 5 and so on either side of it.
@@ -248,7 +248,7 @@ In `process`, the copy of the input block overwrites the whole lower half of the
 so only the upper half needs clearing, and that half is already zero on every call after the
 first.
 
-The accumulation is `Y = sum_k X[i-k] * H[k]`: impulse-response partition k lines up with the
+The accumulation is `Y = Σ X[i-k] * H[k]`: impulse-response partition k lines up with the
 input block received k calls ago, which is the history slot k steps behind the one just written.
 
 ### `modules/foundation/math/source/resampler.cpp`

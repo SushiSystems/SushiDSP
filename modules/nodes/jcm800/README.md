@@ -116,10 +116,9 @@ in the descriptor.
 
 ## Level staging
 
-The module used to carry three interstage scalars, `K_V1B_TO_V2A_ATTENUATION`,
+The module carries none of the three interstage scalars, `K_V1B_TO_V2A_ATTENUATION`,
 `kV2aToPhaseInverterAttenuation` and `K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION`, at 1/50, 1/50 and
-1/32, whose job was to keep each grid inside its solver bound. They were not circuit values, and
-the plate-swing spec removed them. `K_PREAMP_POT_MAX_ATTENUATION` stays because it is the preamp pot,
+1/32, that would keep each grid inside its solver bound: they are not circuit values. `K_PREAMP_POT_MAX_ATTENUATION` stays because it is the preamp pot,
 and `K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION` stays as the output trim from the EL34 plates to the
 transformer's units: the pair's full swing, `K_EL34`'s two headrooms summed (305.778 V), lands at
 the 2.0 the transformer stage received at full clip before DA5 part 2 (2 × 20 model volts × 0.05),
@@ -148,7 +147,7 @@ place of the deck's 360 V, which the deck's README calls the D6a brief's figure.
 | `grid_leak_resistance_ohms` | 220 kΩ | the deck's grid leaks |
 | `grid_conduction` | IG0 1 µA, VGAMMA 0.5 V, VTG 0.15 V | `el34_koren.sub` through `PentodeEL34`, the corpus's grid law |
 
-The pair's composite, `el34_a(u) − el34_b(−u)`, is odd in the drive while both grids are inside
+The pair's composite, *a*(u) − *b*(−u), one EL34 per half, is odd in the drive while both grids are inside
 their windows and reaches ±305.8 V: the conducting tube's 280 V and the cut-off tube's 25.5 V.
 The cut-off side saturates at 25.5/6.88 = 3.7 V of grid drive, which is the class-AB handover; past
 it one tube carries the signal alone. The repository's Koren EL34 fit reads gm 5.61 mA/V and

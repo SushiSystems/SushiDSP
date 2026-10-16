@@ -69,7 +69,7 @@ exactly one of them per run:
 - The stack is driven from an ideal source. In the amp it is driven by the cathode follower
   (`jcm_cf`), whose output impedance is low but not zero; the two blocks are deliberately
   measured separately so the null test isolates each one.
-- The mid pot is a rheostat, so its top node is its wiper. `FmvToneStack` used to carry Yeh &
+- The mid pot is a rheostat, so its top node is its wiper. Yeh &
   Smith's closed form, which taps the mid cap at the wiper of a three-terminal pot, and that
   cost up to 0.13 dB at MID = 0.1. DA2 rederived the coefficients from this netlist, so the
   model and the deck now describe the same circuit and the residual against the sweep is

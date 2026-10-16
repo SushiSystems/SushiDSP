@@ -54,8 +54,7 @@ not compress the comparison.
 
 The measurement window is truncated to whole cycles of the tone under test. Blocks 100 to 199
 hold 25600 samples, which is 16 cycles at 30 Hz but 5.33 at 10 Hz. The partial cycle biased the
-10 Hz RMS low by 1.2 %, and the ratio above with it, from 1.11 to the 1.1233 this case used to
-read.
+10 Hz RMS low by 1.2 %, and the ratio above with it, from 1.11 to 1.1233.
 
 ### `TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicking`
 

@@ -299,7 +299,7 @@ capacitor between the inverter and the EL34 grids (§5 establishes none, and add
 reaches the grids as a shift of both tubes' operating points; `OutputTransformerStage` removes the
 pair's mean with its rolloff, and since DA5 part 3 its secondary carries no mean either, so the
 saturation's own rectification of the unequal halves, 0.021 of full scale here, the source of the
-0.0152 `DiezelVh4IsDcStableAcrossManyBlocksAtHighGain` read at bass 0, no longer reaches the
+0.0152 `DiezelVh4IsDcStableAcrossManyBlocksAtHighGain` read at bass 0, does not reach the
 output. What remains at that setting is 0.0010, made where the ±1 output clamp cuts the unequal
 halves of a 1.06 peak.
 

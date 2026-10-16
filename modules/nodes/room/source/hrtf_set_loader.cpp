@@ -221,7 +221,7 @@ namespace SushiDSP::room
         read_floats(bytes.data(), cursor, HrtfSet::K_DIFFUSE_TAPS, diffuse_left_vector);
         read_floats(bytes.data(), cursor, HrtfSet::K_DIFFUSE_TAPS, diffuse_right_vector);
 
-        // A failure leaves the caller's set as it was; see modules/nodes/room/README.md.
+        // A failure leaves the caller's set as it was; see modules/nodes/room/source/README.md.
         try
         {
             HrtfSet loaded(static_cast<double>(header.sample_rate_hz), std::move(directions),

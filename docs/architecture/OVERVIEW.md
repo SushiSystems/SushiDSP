@@ -65,8 +65,8 @@ kernels down from here, never the reverse.
 
 Each of `jcm800`, `tubescreamer`, `dd3`, `peavey5150`, `mesa_mark2c` and `diezel_vh4` is a
 library that composes `math`/`circuits` kernels behind one `AudioNode` implementation and
-exposes exactly one `NodeDescriptor`. `cabinet` is the impulse-response convolution the
-amplifiers used to carry themselves, now a node of its own. `routing` supplies the rig graph's own
+exposes exactly one `NodeDescriptor`. `cabinet` is the impulse-response convolution, a node of its
+own that follows the amplifier. `routing` supplies the rig graph's own
 `SplitterNode`/`MixerNode`/`PanNode` as ordinary products rather than `RigGraph` special
 cases; `capture` and `room` are DS/D-phase modules the same way. `node_registry` is the one
 module allowed to depend on every product at once, `node_registry()` and `make_node()` are

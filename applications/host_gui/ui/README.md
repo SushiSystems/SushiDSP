@@ -6,10 +6,10 @@ Every widget, panel, browser and view the host draws. The units that only do ari
 [`../README.md`](../README.md) describes the host as a whole. The source comments in this
 directory cite the sections below.
 
-## `ArrangementView`
+## `DrawArrangementView`
 
 `DrawArrangementView` draws the bar ruler, the playhead, the lane headers and the clip canvas
-beside each header, into the current window. It replaced `DrawTrackPanel`, so one unit owns a
+beside each header, into the current window. One unit owns a
 track's whole appearance. It allocates and it draws, which is why it runs on the control thread
 only. `session` is the session whose tracks, clips, transport and musical clock the view drives.
 `imports` is the queue a dropped mp3 is sent to, and the view also reports what that queue is
@@ -194,7 +194,7 @@ source's right edge, halfway across the gap, into the target's left edge.
 so a frame that is itself a grid frame can be placed on the beat before it with a fraction just
 under one. `upper` is then that frame and the rounding finds zero distance to it.
 
-## `TopBar`
+## `DrawTopBar`
 
 `DrawTopBar` draws three columns into the current window. The left column holds the rig
 preset's path box, Save and Load, which write and read the selected track's rig and nothing of
@@ -209,7 +209,7 @@ its channel selection.
 zero, so ids that survive the load name different gear; every caller holding a `SlotId` must
 drop it on that frame.
 
-## `TransportBar`
+## `DrawTransportBar`
 
 `DrawTransportBar` draws, into the current window: record, play, stop and rewind, the loop
 switch, the transport position, the metronome's switch, the tempo, the time signature, TAP, the

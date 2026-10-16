@@ -155,7 +155,7 @@ namespace SushiDSP::room
 
     std::array<double, K_BAND_COUNT> RoomScene::face_absorption(Surface surface) const
     {
-        // A patch replaces area on its face; see modules/nodes/room/README.md.
+        // A patch replaces area on its face; see modules/nodes/room/source/README.md.
         const double face_area = face_area_m2(surface);
         std::array<double, K_BAND_COUNT> weighted{};
         double patch_area = 0.0;

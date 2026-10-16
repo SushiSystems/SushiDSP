@@ -171,7 +171,7 @@ namespace SushiDSP::Room
             return;
         }
 
-        // A set arriving mid-fade restarts from the active bank; see modules/nodes/room/README.md.
+        // A mid-fade set restarts from the active bank; see modules/nodes/room/source/README.md.
         const std::uint32_t arriving = active_bank_ == 0 ? 1u : 0u;
         const bool has_direct = take_direct_image(set, bank_taps_[arriving], direct);
         const room::EarlyTapSet& retiring = bank_taps_[active_bank_];

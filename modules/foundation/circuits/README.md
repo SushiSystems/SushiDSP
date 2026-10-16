@@ -38,7 +38,7 @@ behind each invariant follows, under the name of the file that cites it.
 ### `modules/foundation/circuits/include/SushiDSP/foundation/circuits/models/pentode_el34.hpp`
 
 `current_and_jacobian` clamps the screen voltage at `K_SCREEN_FLOOR_VOLTS` before dividing by it.
-Below the floor the voltage the model sees no longer varies with `v[1]`, so the whole Vg2k column
+Below the floor the voltage the model sees does not vary with `v[1]`, so the whole Vg2k column
 of the Jacobian is zero there. The clamp makes that column one-sided at exactly
 `v[1] == K_SCREEN_FLOOR_VOLTS`: the derivative reported at that point is the right-hand one, the
 unclamped column, while the left-hand one is zero. A 1 mV screen supply is nonphysical, so no

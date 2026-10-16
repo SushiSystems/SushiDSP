@@ -246,7 +246,7 @@ every band has to clear the floor a 12 s decay asks of the room's volume over it
 the loudest a scene that now passes can get has not been measured.
 
 What the gate does not do is police the audio. No stage between `RoomNode` and the device bounds
-the output; `AsioSampleConverter::clamp_unit` clips at full scale for the integer formats and a
+the output; `float_to_asio_sample()` clips at full scale for the integer formats and a
 float format passes the value through. Whether a guard belongs there is the maintainer's call.
 
 ## The raw octave step at the seam is not bounded

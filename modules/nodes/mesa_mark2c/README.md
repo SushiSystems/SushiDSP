@@ -63,7 +63,7 @@ Read down; everything from V1A to the sag stage runs inside one 8x oversampled r
 A host block is rendered as a run of 32-frame control periods, and every knob is advanced and
 every coefficient that moved is rebuilt at each period's start. Rebuilding per sample would mean
 re-solving the tone stack's and the equaliser's matrices at 384 kHz, so a knob's travel is
-quantised to 0.67 ms at 48 kHz instead. What this buys is that the output no longer depends on
+quantised to 0.67 ms at 48 kHz instead. What this buys is that the output does not depend on
 the host's block size, which `MesaMark2cSweepSoundsTheSameWhateverTheHostBlockSize` pins by
 rendering the same slider sweep in 256-frame and 32-frame blocks and comparing them.
 
@@ -96,7 +96,7 @@ rendering the same slider sweep in 256-frame and 32-frame blocks and comparing t
 
 The six Miller poles land at 9.0 kHz (V1B), 14.5 kHz (V3B), 14.7 kHz (V4A), 11.6 kHz (V2A),
 11.6 kHz (V2B) and 15.2 kHz (the inverter). Each is computed from the 12AX7 Koren model's capacitances
-and the plate load that drives the grid. V2B's is the one that no longer describes the circuit:
+and the plate load that drives the grid. V2B's is the one that does not describe the circuit:
 its grid is driven from the loop's 5.9 k, which puts the real corner near 196 kHz, above the
 oversampled Nyquist, so the 100 k pole the model keeps there is a placeholder the band does not
 reach; deleting it is the maintainer's call.
@@ -189,8 +189,8 @@ grid conduction long before the signal reaches V2A. V2B is the one lead-chain st
 clip, as §3.8 predicts: the network hands it 1.19 V against its 1.26 V window. Before the network
 and Master 1's move (2026-09-08) V2A read 16.2602 V, V2B 27.9001 V and the inverter 21.1133 V.
 
-**The interstage drive normalisation, removed.** The model used to divide each triode's output
-by that stage's own dossier gain and multiply by one measured figure, `kGridDriveNormalisation`,
+**The interstage drive normalisation, removed.** The model does not divide each triode's output
+by that stage's own dossier gain and multiply by one measured figure. That normalisation existed
 because a cascade fed dossier §3.8's numbers ran into `TriodeStage`'s solver bound instead of into
 a plate. `TriodeStage` now takes a `PlateSwing` and bounds each plate by its own headroom, so the
 spec at docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md deleted

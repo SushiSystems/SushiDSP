@@ -85,7 +85,7 @@ namespace SushiDSP::room
 
     BandResponse MicrophoneModel::gain_for(double incidence_rad, double distance_m) const noexcept
     {
-        // The boost scales only the gradient share; see modules/nodes/room/README.md.
+        // The boost scales only the gradient share; see modules/nodes/room/source/README.md.
         const double gradient = (1.0 - pressure_share_) * std::cos(incidence_rad);
         BandResponse response{};
         for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
