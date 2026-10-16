@@ -26,9 +26,9 @@ The rig renders into `rig_output`, one block per rig channel, a buffer `main()` 
 before the device starts. Two pointer arrays name those blocks. The callback maps them onto the
 device's channels and allocates nothing.
 
-`main()` logs through `default_logger()`, whose logger thread writes to stderr and delivers
-what is queued when the process exits. What `main()` prints with `printf` is its own output and
-does not go through the logger.
+`main()` logs through SushiLog, which writes each record to stderr from its own thread and
+delivers what is queued when the process exits. What `main()` prints with `printf` is its own
+output and does not go through the logger.
 
 ## Dependencies
 

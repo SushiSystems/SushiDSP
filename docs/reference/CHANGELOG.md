@@ -2,7 +2,9 @@
 
 ## Unreleased
 
--
+- 2026-10-17 — log: Replaced SushiDSP's own logger with a front over SushiLog v0.1.1, pinned in the dependency fragment; the plug-in links SushiLogStatic and exports sushidsp_join_log (`log.hpp`, `log_capture.hpp`, `log_join.hpp`).
+- 2026-10-17 — cli: Moved to sushicore 0.9.1 and handed CMake each pinned Sushi library's directory (`config.py`, `project.py`, `sushistack.deps.toml`).
+- 2026-10-16 — log: Split the environment reading and the sink holder out of Logger, and warned when a level names a project the logger does not hold (`log_environment.hpp`, `log_sink_holder.hpp`).
 - 2026-10-16 — cli: Read each checker's rules from its --list-rules, copied from SushiSkills 52b614a, in place of importing the checker (`project.py`, `checker.py`).
 - 2026-10-16 — cli: Sent `sd check --rule` only to the checkers whose rule table names the rule (`project.py`).
 - 2026-10-16 — tools: Copied the shared checkers and their tests from SushiSkills 16ff88b, and added `K_PRIVATE_DEPENDS_ALSO` to `settings.py`, which the copied layering checker imports (`settings.py`, `check_all.py`, `check_layering.py`).

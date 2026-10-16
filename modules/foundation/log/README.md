@@ -1,8 +1,8 @@
 # `modules/foundation/log`
 
 SushiDSP's front over SushiLog: the `SD_LOG` macros, the `sushidsp` log project and a capture
-for tests. SushiLog holds the logger, its levels, its queue and its sinks; its
-`docs/guides/LOGGING_GUIDE.md` says how to use them.
+for tests. SushiLog holds the logger, its levels, its queue and its sinks; its logging
+guide says how to use them.
 
 ## Owns
 

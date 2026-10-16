@@ -16,9 +16,9 @@ The rig stops at the amplifier. `sushidsp.cabinet` is a separate node and this d
 wire one in, so what reaches the device is the amplifier's dry signal. `applications/host_asio/main.cpp`
 builds a rig that adds a cabinet.
 
-`main()` logs through `default_logger()`, whose logger thread writes to stderr and delivers
-what is queued when the process exits. What `main()` prints with `printf` is its own output and
-does not go through the logger.
+`main()` logs through SushiLog, which writes each record to stderr from its own thread and
+delivers what is queued when the process exits. What `main()` prints with `printf` is its own
+output and does not go through the logger.
 
 ## Dependencies
 

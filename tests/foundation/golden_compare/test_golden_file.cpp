@@ -28,8 +28,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/golden_compare/golden_file.hpp>
-#include <SushiDSP/foundation/log/capturing_log_sink.hpp>
-#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
+#include <SushiDSP/foundation/log/log_capture.hpp>
 
 #include <cmath>
 #include <vector>
@@ -71,16 +70,15 @@ TEST(Small_GoldenFile, SilentReferenceGivesTheFloorResidual)
 
 TEST(Small_GoldenFile, MissingGoldenFileIsLoggedAsAnErrorAndReadsAsZeroDecibels)
 {
-    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    SushiDSP::LogCapture capture;
     double residual = -1.0;
     {
-        const SushiDSP::ScopedLogSink guard(SushiDSP::default_logger(), capture);
         residual = SushiDSP::golden::compare_or_regenerate("no_such_folder", "absent",
                                                            SushiDSP::golden::stimulus(4800.0));
     }
 
     EXPECT_EQ(residual, 0.0);
-    const std::vector<SushiDSP::CapturedLogLine> lines = capture->lines();
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_EQ(lines[0].level, SushiDSP::LogLevel::Error);
     EXPECT_EQ(lines[0].category, "golden_compare");

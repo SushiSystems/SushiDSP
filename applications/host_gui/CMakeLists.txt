@@ -114,3 +114,6 @@ if(SUSHIDSP_LAME_AVAILABLE)
             "$<TARGET_FILE_DIR:sushidsp_host_gui>"
         COMMENT "Copying the LAME library next to sushidsp_host_gui")
 endif()
+
+# On Windows sushilog.dll has to sit beside the program.
+sushilog_copy_runtime_files(sushidsp_host_gui)

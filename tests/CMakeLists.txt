@@ -97,27 +97,9 @@ add_executable(sushidsp_tests
     foundation/core/test_parameter_table.cpp
     foundation/core/test_port_layout.cpp
     # --- Unit tests written for the units that had none ---
-    foundation/log/test_log_level.cpp
-    foundation/log/test_log_category.cpp
-    foundation/log/test_log_argument.cpp
-    foundation/log/test_log_log_category.cpp
-    foundation/log/test_log_record.cpp
-    foundation/log/test_log_record_sink.cpp
-    foundation/log/test_log_sink.cpp
-    foundation/log/test_delegate.cpp
-    foundation/log/test_log_project.cpp
+    foundation/log/test_log.cpp
+    foundation/log/test_log_capture.cpp
     foundation/log/test_sushidsp_log_project.cpp
-    foundation/log/test_sushi_log_record.cpp
-    foundation/log/test_scoped_log_sink.cpp
-    foundation/log/test_stderr_log_sink.cpp
-    foundation/log/test_default_logger.cpp
-    foundation/log/test_capturing_log_sink.cpp
-    foundation/log/test_log_delivery.cpp
-    foundation/log/test_log_level_setting.cpp
-    foundation/log/test_log_level_table.cpp
-    foundation/log/test_log_line.cpp
-    foundation/log/test_log_site.cpp
-    foundation/log/test_log_thread.cpp
 
     # --- Core ---
     foundation/core/test_audio_device.cpp
@@ -150,12 +132,6 @@ add_executable(sushidsp_tests
     catalog/node_registry/test_node_registry.cpp
     foundation/core/test_spsc_ring.cpp
 
-    # --- Log ---
-    foundation/log/test_log_formatter.cpp
-    foundation/log/test_log.cpp
-    foundation/log/test_logger.cpp
-    foundation/log/test_log_line_queue.cpp
-    foundation/log/test_async_log_sink.cpp
     nodes/capture/test_track_recorder/test_logging.cpp
     nodes/room/test_room_node/test_logging.cpp
     applications/host_gui/ui/test_directory_listing/test_logging.cpp
@@ -243,6 +219,8 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_timeline.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_persistence.cpp
     applications/plugin/test_rig_adapter.cpp
+    applications/plugin/test_log_join.cpp
+    ${CMAKE_SOURCE_DIR}/applications/plugin/log_join.cpp
     ${CMAKE_SOURCE_DIR}/applications/plugin/rig_adapter.cpp
     ${CMAKE_SOURCE_DIR}/applications/plugin/parameter_routing.cpp
     applications/host_gui/test_session.cpp
@@ -505,3 +483,9 @@ target_link_libraries(sushidsp_bench PRIVATE
     SushiDSP::room_scenes
 )
 sushidsp_apply_optimization_flags(sushidsp_bench)
+
+# On Windows sushilog.dll has to sit beside the program.
+sushilog_copy_runtime_files(sushidsp_tests)
+
+# On Windows sushilog.dll has to sit beside the program.
+sushilog_copy_runtime_files(sushidsp_bench)

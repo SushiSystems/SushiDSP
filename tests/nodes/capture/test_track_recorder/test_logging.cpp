@@ -33,9 +33,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/capture/track_recorder.hpp>
-#include <SushiDSP/foundation/log/capturing_log_sink.hpp>
-#include <SushiDSP/foundation/log/default_logger.hpp>
-#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
+#include <SushiDSP/foundation/log/log_capture.hpp>
 
 TEST(Medium_TrackRecorder, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFileCannotBeOpened)
 {
@@ -46,15 +44,14 @@ TEST(Medium_TrackRecorder, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFile
     // No directory named "missing" exists under root, so the take file cannot be created.
     const std::string path = (root / "missing" / "take.wav").string();
 
-    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    SushiDSP::LogCapture capture;
     {
-        const SushiDSP::ScopedLogSink guard(SushiDSP::default_logger(), capture);
         SushiDSP::TrackRecorder recorder(1u, 48000.0, 8192);
         EXPECT_FALSE(recorder.arm(path));
         EXPECT_FALSE(recorder.is_recording());
     }
 
-    const std::vector<SushiDSP::CapturedLogLine> lines = capture->lines();
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_EQ(lines[0].level, SushiDSP::LogLevel::Error);
     EXPECT_EQ(lines[0].category, "capture");

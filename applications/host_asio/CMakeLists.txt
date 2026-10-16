@@ -8,3 +8,6 @@ add_executable(sushidsp_host_asio
     main.cpp
 )
 target_link_libraries(sushidsp_host_asio PRIVATE SushiDSP::sushi_dsp_asio SushiDSP::tubescreamer SushiDSP::jcm800 SushiDSP::cabinet)
+
+# On Windows sushilog.dll has to sit beside the program.
+sushilog_copy_runtime_files(sushidsp_host_asio)

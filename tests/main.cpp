@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/log/default_logger.hpp>
+#include <SushiLog/log/log_calls.hpp>
 
 namespace
 {
@@ -72,7 +72,7 @@ namespace
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
-    SushiDSP::set_log_synchronous(true);
+    SushiLog::set_log_synchronous(true);
     if (report_unsized_suites() > 0)
         return 2;
     return RUN_ALL_TESTS();

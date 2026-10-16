@@ -22,6 +22,14 @@ include(cmake/SushiDSPLayers.cmake)
 
 # The core areas are foundation modules. Each declares its own sources, and each same-tier
 # dependency it has is listed in cmake/SushiDSPLayers.cmake.
+# SushiLog, the logger every Sushi library links. sd resolves the version cli/sushistack.deps.toml
+# pins and hands its checkout as SUSHILOG_DIR; CMake never downloads it.
+if(NOT SUSHILOG_DIR)
+    message(FATAL_ERROR "SUSHILOG_DIR is not set. Configure through sd, which resolves the "
+                        "SushiLog cli/sushistack.deps.toml pins, or pass -DSUSHILOG_DIR=<checkout>.")
+endif()
+set(SL_INSTALL OFF CACHE BOOL "Add SushiLog's install rules" FORCE)
+add_subdirectory(${SUSHILOG_DIR} ${CMAKE_BINARY_DIR}/sushilog EXCLUDE_FROM_ALL)
 add_subdirectory(modules/foundation/audio_format)
 add_subdirectory(modules/foundation/circuits)
 add_subdirectory(modules/foundation/core)
