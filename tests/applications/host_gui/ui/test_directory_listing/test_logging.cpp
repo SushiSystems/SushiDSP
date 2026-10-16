@@ -31,9 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/log/capturing_log_sink.hpp>
-#include <SushiDSP/foundation/log/default_logger.hpp>
-#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
+#include <SushiDSP/foundation/log/log_capture.hpp>
 #include "ui/directory_listing.hpp"
 
 TEST(Medium_DirectoryListing, ListDirectoryLogsOneWarningNamingTheCauseWhenTheFileSystemRefusesThePath)
@@ -41,15 +39,14 @@ TEST(Medium_DirectoryListing, ListDirectoryLogsOneWarningNamingTheCauseWhenTheFi
     // A name of 40 000 characters is longer than any file system here accepts.
     const std::string overlong(40000, 'a');
 
-    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    SushiDSP::LogCapture capture;
     std::vector<ui::DirectoryEntry> entries;
     {
-        const SushiDSP::ScopedLogSink guard(SushiDSP::default_logger(), capture);
         entries = ui::list_directory(overlong, ".wav");
     }
     EXPECT_TRUE(entries.empty());
 
-    const std::vector<SushiDSP::CapturedLogLine> lines = capture->lines();
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     if (lines.empty())
     {
         GTEST_SKIP() << "this platform reports an overlong path as missing instead of raising "

@@ -15,6 +15,7 @@ add_library(sushidsp_clap MODULE
     rig_adapter.cpp
     parameter_routing.cpp
     startup_rig.cpp
+    log_join.cpp
     ${SUSHIDSP_PLUGIN_HOST_DIR}/rig_controller.cpp
     ${SUSHIDSP_PLUGIN_HOST_DIR}/slot_graph.cpp
     ${SUSHIDSP_PLUGIN_HOST_DIR}/session_timeline.cpp
@@ -44,6 +45,7 @@ target_link_libraries(sushidsp_clap PRIVATE
 )
 # A CLAP host loads a file named <plugin>.clap; on every platform it is a shared library.
 set_target_properties(sushidsp_clap PROPERTIES
+    SUSHIDSP_LOG_STATIC ON
     OUTPUT_NAME "SushiDSP"
     PREFIX ""
     SUFFIX ".clap"

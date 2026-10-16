@@ -33,9 +33,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
-#include <SushiDSP/foundation/log/capturing_log_sink.hpp>
-#include <SushiDSP/foundation/log/default_logger.hpp>
-#include <SushiDSP/foundation/log/scoped_log_sink.hpp>
+#include <SushiDSP/foundation/log/log_capture.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 #include <SushiDSP/nodes/room/hrtf_set_loader.hpp>
 #include <SushiDSP/nodes/room/room_node.hpp>
@@ -56,14 +54,13 @@ TEST(Medium_RoomNode, RoomNodeLogsOneErrorNamingTheCauseWhenTheDecoderCannotBePr
     set.set_decoder(1, std::vector<float>(2 * 4 * SushiDSP::room::HrtfSet::K_DECODER_TAPS));
     const std::string directions = std::to_string(set.direction_count());
 
-    const auto capture = std::make_shared<SushiDSP::CapturingLogSink>();
+    SushiDSP::LogCapture capture;
     {
-        const SushiDSP::ScopedLogSink guard(SushiDSP::default_logger(), capture);
         EXPECT_FALSE(node.set_hrtf(std::move(set)));
     }
     EXPECT_EQ(node.hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 
-    const std::vector<SushiDSP::CapturedLogLine> lines = capture->lines();
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_EQ(lines[0].level, SushiDSP::LogLevel::Error);
     EXPECT_EQ(lines[0].category, "room");

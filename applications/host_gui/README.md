@@ -121,9 +121,9 @@ holds the same for `ui/`.
 
 ### `main.cpp`
 
-`main()` logs through `default_logger()`, whose logger thread writes to stderr and delivers
-what is queued when the process exits. The host logs under `K_HOST_GUI_LOG_CATEGORY`, declared
-in `host_gui_log_category.hpp`. The messages `main()` prints with `fprintf` are its
+`main()` logs through SushiLog, which writes each record to stderr from its own thread and
+delivers what is queued when the process exits. The host logs under `K_HOST_GUI_LOG_CATEGORY`,
+declared in `host_gui_log_category.hpp`. The messages `main()` prints with `fprintf` are its
 command-line output and do not go through the logger.
 
 The zoom, the scroll and the snap mode belong to the GUI loop and not to the rig: they are how
