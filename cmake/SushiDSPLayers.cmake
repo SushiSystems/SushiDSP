@@ -26,6 +26,7 @@ set(SUSHIDSP_SAME_TIER_EDGES
     benchmark_harness:core
     room_scenes:room
     golden_compare:log
+    log_capture:log
 )
 
 # Refuses a same-tier dependency that SUSHIDSP_SAME_TIER_EDGES does not list.

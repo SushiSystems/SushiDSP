@@ -33,7 +33,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
-#include <SushiDSP/foundation/log/log_capture.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 #include <SushiDSP/nodes/room/hrtf_set_loader.hpp>
 #include <SushiDSP/nodes/room/room_node.hpp>
@@ -62,7 +62,7 @@ TEST(Medium_RoomNode, RoomNodeLogsOneErrorNamingTheCauseWhenTheDecoderCannotBePr
 
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
-    EXPECT_EQ(lines[0].level, SushiDSP::LogLevel::Error);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
     EXPECT_EQ(lines[0].category, "room");
     EXPECT_NE(lines[0].message.find("no third-order decoder"), std::string::npos)
         << lines[0].message;

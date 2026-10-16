@@ -31,21 +31,21 @@
 #include <string>
 #include <vector>
 
-#include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
+#include <SushiLog/log/log_level.hpp>
 
 namespace SushiDSP
 {
     /// @brief Holds one record a LogCapture collected.
     struct CapturedLogLine
     {
-            LogLevel level;       /**< The severity of the record. */
+            SushiLog::LogLevel level; /**< The severity of the record. */
             std::string category; /**< The module of the record's category. */
             std::string message;  /**< The formatted message. */
             std::string line;     /**< The whole record line. */
     };
 
     /// @brief Delivers every record synchronously into a list for its lifetime, then restores
-    /// stderr. One capture at a time; it replaces whatever sink was set.
+    /// stderr. For tests only: one capture at a time, and a sink set before it is not restored.
     class LogCapture final
     {
         public:

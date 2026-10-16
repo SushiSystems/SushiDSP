@@ -98,7 +98,7 @@ add_executable(sushidsp_tests
     foundation/core/test_port_layout.cpp
     # --- Unit tests written for the units that had none ---
     foundation/log/test_log.cpp
-    foundation/log/test_log_capture.cpp
+    foundation/log_capture/test_log_capture.cpp
     foundation/log/test_sushidsp_log_project.cpp
 
     # --- Core ---
@@ -357,6 +357,7 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp_spice_reference
     SushiDSP::sushi_dsp_circuit_blocks
     SushiDSP::sushi_dsp_golden_compare
+    SushiDSP::sushi_dsp_log_capture
     SushiDSP::sushi_dsp_timing_gate
     SushiDSP::sushi_dsp_regression_test
     SushiDSP::sushi_dsp_allocation_trap

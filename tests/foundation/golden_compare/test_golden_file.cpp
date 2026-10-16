@@ -28,7 +28,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/golden_compare/golden_file.hpp>
-#include <SushiDSP/foundation/log/log_capture.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 #include <cmath>
 #include <vector>
@@ -80,7 +80,7 @@ TEST(Small_GoldenFile, MissingGoldenFileIsLoggedAsAnErrorAndReadsAsZeroDecibels)
     EXPECT_EQ(residual, 0.0);
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
-    EXPECT_EQ(lines[0].level, SushiDSP::LogLevel::Error);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
     EXPECT_EQ(lines[0].category, "golden_compare");
     EXPECT_EQ(lines[0].message,
               "cannot open golden file no_such_folder/absent.f32; reporting a 0 dB residual");
