@@ -13,10 +13,10 @@ and the host GUI's place in the tree. cmake and ctest run through
 from __future__ import annotations
 
 import enum
-import importlib.util
 import os
 import shutil
 import stat
+import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -336,17 +336,10 @@ def check(report: bool = False, rule: str | None = None) -> int:
 
 
 def _rules_of(checker: Path) -> frozenset[str]:
-    """Returns the rule names in the K_CHECKER table of the checker at *checker*."""
-    spec = importlib.util.spec_from_file_location(f"_sd_checker_{checker.stem}", checker)
-    module = importlib.util.module_from_spec(spec)
-    # A dataclass in the checker looks its module up in sys.modules while it is being defined.
-    sys.modules[spec.name] = module
-    try:
-        spec.loader.exec_module(module)
-        return frozenset(module.K_CHECKER.rules)
-    finally:
-        del sys.modules[spec.name]
-
+    """Returns the rule names the checker at *checker* prints for --list-rules."""
+    listed = subprocess.run([sys.executable, str(checker), "--list-rules"],
+                            capture_output=True, text=True, check=False)
+    return frozenset(listed.stdout.split()) if listed.returncode == 0 else frozenset()
 
 def _locate_host_gui(cfg: Config, build_dir: Path, config: str) -> Path | None:
     """Returns the host GUI binary the tree holds for *config*, or None.
