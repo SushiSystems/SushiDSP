@@ -84,6 +84,18 @@ def test_test_without_a_filter_or_a_size_runs_everything(project):
     assert "-R" not in ctest and "-L" not in ctest
 
 
+def test_test_passes_jobs_to_ctest_as_parallel(project):
+    """--jobs reaches ctest as --parallel, and no --parallel is passed without it."""
+    project.configure_tree("Debug")
+
+    assert project_svc.test(None, jobs=1) == 0
+    ctest = project.runner.commands[-1]
+    assert ctest[ctest.index("--parallel") + 1] == "1"
+
+    assert project_svc.test(None) == 0
+    assert "--parallel" not in project.runner.commands[-1]
+
+
 def test_a_sanitizer_reconfigures_with_its_cache_variable(project):
     """--sanitize reaches cmake as SUSHIDSP_SANITIZE before the tests run."""
     project.configure_tree("Debug")

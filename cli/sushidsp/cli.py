@@ -133,12 +133,16 @@ def test(
         help="Test size to run: small | medium | large; repeat for more. Default: every size."),
     filter: Optional[str] = typer.Option(
         None, "--filter", "-f", help="ctest -R regex over 'Suite.Case' test names."),
+    jobs: Optional[int] = typer.Option(
+        None, "--jobs", "-j", min=1,
+        help="Tests run at once. When omitted ctest decides, and CTEST_PARALLEL_LEVEL is "
+             "honoured."),
     clean: bool = _clean_option(),
     sanitize: Optional[Sanitizer] = _sanitize_option(),
 ) -> None:
     """Build if needed, then run ctest over the sizes and the filter."""
     raise typer.Exit(project_svc.test(type, label or (), clean=clean, filter=filter,
-                                      sanitizer=sanitize))
+                                      sanitizer=sanitize, jobs=jobs))
 
 
 @app.command(

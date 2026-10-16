@@ -35,7 +35,7 @@ def test_the_suite_option_is_gone():
 def test_test_command_passes_each_label(monkeypatch):
     seen = {}
 
-    def fake_test(build_type, sizes, clean=False, filter=None, sanitizer=None):
+    def fake_test(build_type, sizes, clean=False, filter=None, sanitizer=None, jobs=None):
         seen["sizes"] = list(sizes)
         seen["sanitizer"] = sanitizer
         return 0
