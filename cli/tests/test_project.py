@@ -273,7 +273,7 @@ def test_check_sends_a_rule_only_to_the_checkers_whose_table_names_it(project, m
 
 
 def test_rules_of_reads_the_rule_table_of_a_real_checker():
-    """_rules_of imports a checker of this checkout and returns its rule names."""
+    """_rules_of reads the rules a checker of this checkout lists."""
     root = Path(__file__).resolve().parents[2]
     rules = project_svc._rules_of(root / "tools" / "testing" / "check_test_mirror.py")
     assert "rule_untested_unit" in rules
