@@ -235,7 +235,7 @@ def check(
         False, "--report", "-r", help="Report issue counts without failing."),
     rule: Optional[str] = typer.Option(None, "--rule", help="Run only the specified rule."),
 ) -> None:
-    """Run the repository's layout, changelog and layering checkers."""
+    """Run the repository's eight shared checkers under tools/."""
     raise typer.Exit(project_svc.check(report=report, rule=rule))
 
 

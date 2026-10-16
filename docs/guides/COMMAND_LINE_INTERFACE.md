@@ -106,11 +106,14 @@ help, and says so once on a terminal; it is removed after 2027-03-25.
 
 ## `sd check`
 
-Runs repository layout, changelog, and layering checkers from `tools/`, each through this
-Python interpreter, and exits with the highest of their exit codes.
+Runs the eight shared checkers from `tools/`: source comments, docs layout, changelog, docs
+truth, layering, test mirror, test sizes and logging. Each runs through this Python interpreter,
+and the command exits with the highest of their exit codes. It does not run the checker unit
+tests; `python tools/check_all.py .` does.
 
 - `--report` / `-r`, prints issue counts without returning an error exit code.
-- `--rule <name>`, runs only the specified rule function.
+- `--rule <name>`, runs only that rule, in the checkers whose rule table names it. A rule no
+  checker names is an error.
 
 ## `sd host`
 

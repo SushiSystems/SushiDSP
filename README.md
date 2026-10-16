@@ -32,7 +32,7 @@ first, then `python -m pip install -e ./cli`.
 ```bash
 sd build      # configure if needed, then build every target
 sd test       # build if needed, then run the suite
-sd check      # documentation layout, changelog shape and layer boundaries
+sd check      # the eight checkers under tools/: docs, changelog, layers, tests, logging
 sd host       # build if needed, then start the standalone host GUI
 sd run NAME   # run an executable the build tree already holds
 sd clean      # remove the build tree

@@ -42,8 +42,8 @@ python tools/documentation/check_docs_layout.py .
 python tools/documentation/check_changelog.py .
 ```
 
-`sd check` runs all five checkers under `tools/`; [`tools/README.md`](../tools/README.md) describes
-them.
+`sd check` runs the eight shared checkers under `tools/`; `python tools/check_all.py .` runs them
+too, with the checker unit tests. [`tools/README.md`](../tools/README.md) describes them.
 
 ## 3. Before you start coding
 

@@ -15,7 +15,7 @@ Phase 1 establishes the canonical verification checkers, root pointer files, and
 ### 1. Canonical Verification Tooling
 
 The canonical checkers from `sushisystemsprogramming/tools` are vendored into `tools/`:
-- `tools/common/checker.py`: Shared checker framework and finding reporter.
+- `tools/checking/checker.py`: Shared checker framework and finding reporter.
 - `tools/documentation/check_source_comments.py`: Source comment and Doxygen block checker.
 - `tools/documentation/check_docs_layout.py`: Documentation tree and naming validator.
 - `tools/documentation/check_changelog.py`: CHANGELOG entry formatting and line validator.
@@ -26,8 +26,8 @@ The `sd` developer CLI (`cli/sushidsp/cli.py`) adds a `check` subcommand:
 ```
 sd check [--report] [--rule NAME]
 ```
-Running `sd check` executes `check_docs_layout.py`, `check_changelog.py`, and `check_layering.py`,
-returning a non-zero exit code if any checker reports violations.
+Running `sd check` executes the eight shared checkers under `tools/`, returning a non-zero exit
+code if any checker reports violations.
 
 ### 2. Root Directory and Agent Entry Points
 

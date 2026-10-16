@@ -167,9 +167,10 @@ Mechanical work that follows:
 - Run the workflows once on GitHub: `ci.yml`, `nightly.yml` and `release.yml` were written on a
   machine with no runner, and the first run is what proves the `sd` lanes, the ASan and TSan
   builds and the caches.
-- Replace the paragraphs of the docs-truth findings still open: 21 named symbols the source does
-  not hold (`TopBar`, `StagePanel`, `Mp3Decoder`, ...), 28 history words, and two duplicated
-  passages in the SPICE READMEs. Read each against the source before editing.
+- The forward-sink example in `modules/foundation/log/README.md` ends in `Source: not compiled`,
+  because `SushiRuntime::log_forward_sink()` lives in another repository. `check_docs_truth.py
+  --report` counts it as the one unverified example. Closes when that repository's sink is built
+  here, or the example is cut to what this repository compiles.
 - Reserve the error model, `[[nodiscard]]` and the `RigController` and `SlotGraph` split for an
   owner decision, since they change public interfaces (see `docs/agent/2026_10_12_SUSHI_STANDARDS_MIGRATION/SPEC.md`).
 - Rewrite the em dash replacements of 2026-10-12 in the `humanizer` register. They replaced each
