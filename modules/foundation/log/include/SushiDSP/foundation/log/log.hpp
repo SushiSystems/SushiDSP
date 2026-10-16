@@ -40,7 +40,7 @@ namespace SushiDSP
 {
     /// @brief Holds this translation unit's ceiling: ERROR when logging is off, DEBUG under
     /// NDEBUG, TRACE otherwise.
-    [[maybe_unused]] static constexpr LogLevel K_SUSHIDSP_LOG_CEILING =
+    [[maybe_unused]] static constexpr SushiLog::LogLevel K_SUSHIDSP_LOG_CEILING =
         SushiLog::log_level_ceiling(SD_ENABLE_LOGGING != 0);
 } // namespace SushiDSP
 

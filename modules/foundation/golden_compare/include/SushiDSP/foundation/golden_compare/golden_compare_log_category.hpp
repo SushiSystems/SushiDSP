@@ -27,8 +27,10 @@
 
 #pragma once
 
+#include <SushiLog/log/log_category.hpp>
+
 #include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 /// @brief Names the lines golden_compare writes, such as a regenerated golden file.
-inline constexpr SushiDSP::LogCategory K_GOLDEN_COMPARE_LOG_CATEGORY =
-    SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "golden_compare");
+inline constexpr SushiLog::LogCategory K_GOLDEN_COMPARE_LOG_CATEGORY =
+    SushiLog::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "golden_compare");

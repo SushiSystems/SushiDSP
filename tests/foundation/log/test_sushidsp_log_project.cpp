@@ -29,6 +29,8 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiLog/log/log_category.hpp>
+
 #include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 TEST(Small_SushidspLogProject, IsSushidspSetBySdLogLevel)
@@ -39,8 +41,8 @@ TEST(Small_SushidspLogProject, IsSushidspSetBySdLogLevel)
 
 TEST(Small_SushidspLogProject, CategoryCarriesTheProjectAndItsModule)
 {
-    constexpr SushiDSP::LogCategory category =
-        SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "room");
+    constexpr SushiLog::LogCategory category =
+        SushiLog::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "room");
     EXPECT_EQ(category.project().name(), std::string_view("sushidsp"));
     EXPECT_EQ(category.module(), std::string_view("room"));
 }

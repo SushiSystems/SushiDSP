@@ -27,8 +27,10 @@
 
 #pragma once
 
+#include <SushiLog/log/log_category.hpp>
+
 #include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 /// @brief Names the lines the host GUI writes.
-inline constexpr SushiDSP::LogCategory K_HOST_GUI_LOG_CATEGORY =
-    SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "host_gui");
+inline constexpr SushiLog::LogCategory K_HOST_GUI_LOG_CATEGORY =
+    SushiLog::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "host_gui");

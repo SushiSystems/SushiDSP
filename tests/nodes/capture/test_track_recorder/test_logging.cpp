@@ -33,7 +33,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/capture/track_recorder.hpp>
-#include <SushiDSP/foundation/log/log_capture.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 TEST(Medium_TrackRecorder, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFileCannotBeOpened)
 {
@@ -53,7 +53,7 @@ TEST(Medium_TrackRecorder, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFile
 
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
-    EXPECT_EQ(lines[0].level, SushiDSP::LogLevel::Error);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
     EXPECT_EQ(lines[0].category, "capture");
     EXPECT_NE(lines[0].message.find(path), std::string::npos) << lines[0].message;
     EXPECT_NE(lines[0].message.find("could not open"), std::string::npos) << lines[0].message;

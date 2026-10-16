@@ -25,7 +25,7 @@
  * @author Mustafa Garip
  */
 
-#include <SushiDSP/foundation/log/log_capture.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 #include <SushiLog/log/log_calls.hpp>
 #include <SushiLog/log/log_record.hpp>

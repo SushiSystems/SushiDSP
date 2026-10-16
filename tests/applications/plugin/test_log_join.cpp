@@ -36,8 +36,8 @@
 namespace
 {
     /// @brief Names the records this file logs.
-    constexpr SushiDSP::LogCategory K_JOIN_TEST_LOG_CATEGORY =
-        SushiDSP::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "plugin");
+    constexpr SushiLog::LogCategory K_JOIN_TEST_LOG_CATEGORY =
+        SushiLog::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "plugin");
 
     /// @brief Copies the message of a forwarded record into the string the user pointer names.
     void keep_message(const SushiLogRecord* record, void* user)

@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/log/log_capture.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include "ui/directory_listing.hpp"
 
 TEST(Medium_DirectoryListing, ListDirectoryLogsOneWarningNamingTheCauseWhenTheFileSystemRefusesThePath)
@@ -53,7 +53,7 @@ TEST(Medium_DirectoryListing, ListDirectoryLogsOneWarningNamingTheCauseWhenTheFi
                         "filesystem_error, so the logged path cannot be provoked here";
     }
     ASSERT_EQ(lines.size(), 1u);
-    EXPECT_EQ(lines[0].level, SushiDSP::LogLevel::Warn);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
     EXPECT_EQ(lines[0].category, "host_gui");
 
     const std::string prefix = "could not list a directory: ";
