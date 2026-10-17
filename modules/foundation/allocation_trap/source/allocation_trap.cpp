@@ -31,11 +31,49 @@
 #include <cstdlib>
 #include <new>
 
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#define SUSHIDSP_TRAP_USES_SANITIZER_HOOKS 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer)
+#define SUSHIDSP_TRAP_USES_SANITIZER_HOOKS 1
+#endif
+#endif
+
+#if defined(SUSHIDSP_TRAP_USES_SANITIZER_HOOKS)
+#include <sanitizer/allocator_interface.h>
+#endif
+
 namespace
 {
     // Each thread carries its own trap, so a case only ever counts the thread that opened its window.
     thread_local std::atomic<bool> g_trap_allocations{false};
     thread_local std::atomic<int> g_trapped_allocation_count{0};
+
+    /// @brief Counts one allocation when the calling thread's trap is armed.
+    void countAllocation() noexcept
+    {
+        if (g_trap_allocations.load(std::memory_order_relaxed))
+        {
+            g_trapped_allocation_count.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+
+#if defined(SUSHIDSP_TRAP_USES_SANITIZER_HOOKS)
+    /// @brief Counts through the sanitizer runtime, which owns operator new under ASan and TSan.
+    void onSanitizerAllocation(const volatile void*, std::size_t) noexcept
+    {
+        countAllocation();
+    }
+
+    /// @brief Sanitizer free hook; frees are not counted.
+    void onSanitizerFree(const volatile void*) noexcept
+    {
+    }
+
+    /// @brief Installs the sanitizer hooks during static initialization.
+    const int g_sanitizer_hooks_installed =
+        __sanitizer_install_malloc_and_free_hooks(onSanitizerAllocation, onSanitizerFree);
+#endif
 } // namespace
 
 namespace SushiDSP::test
@@ -66,16 +104,14 @@ namespace SushiDSP::test
     }
 } // namespace SushiDSP::test
 
+#if !defined(SUSHIDSP_TRAP_USES_SANITIZER_HOOKS)
 /**
  * @brief Allocates through malloc, counting the allocation when the calling thread's trap is armed.
  * @param size Bytes requested; zero is served as one byte.
  */
 void* operator new(std::size_t size)
 {
-    if (g_trap_allocations.load(std::memory_order_relaxed))
-    {
-        g_trapped_allocation_count.fetch_add(1, std::memory_order_relaxed);
-    }
+    countAllocation();
     void* ptr = std::malloc(size != 0 ? size : 1);
     if (ptr == nullptr)
     {
@@ -113,3 +149,4 @@ void operator delete[](void* ptr, std::size_t) noexcept
 {
     std::free(ptr);
 }
+#endif
