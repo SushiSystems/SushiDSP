@@ -57,6 +57,12 @@ what to try on screen. No change to the levels the room renders at starts withou
   downmix has one live caller**, the GUI host on a mono device (KNOWN_ISSUES, both entries). The
   ASIO example renders stereo since 2026-10-13; the mixer and the downmix are the open part.
 - **DS5, the OGG export.** A five-minute stereo take is 115 MB of float on disk today.
+- **39 units owe a test file.** `tools/testing/untested_units.txt` lists them: 31 in
+  `applications/host_gui` and its `ui/` folder, 6 in `applications/plugin`, and the ASIO and
+  SDL2 audio devices. `check_test_mirror.py` skips the listed units and fails on an entry whose
+  unit has gained a test, so each test written drops one line. The two devices need hardware;
+  for them the work is a fake backend or a recorded reason they stay listed
+  (KNOWN_ISSUES, "39 units have no test file").
 
 ## Products
 

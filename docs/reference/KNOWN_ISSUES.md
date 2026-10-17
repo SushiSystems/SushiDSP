@@ -46,6 +46,16 @@ decision the maintainer owns: dropping this model to 4x, which halves the cost a
 floor the entry above measures, or a cheaper triode solve. Measured by `sushidsp_bench`
 (`tests/nodes/<amplifier>/benchmark_<amplifier>.cpp`), which times each amplifier node.
 
+## 39 units have no test file
+
+`check_test_mirror.py` asks for one test file per header. 39 headers have none: 31 in
+`applications/host_gui` and `applications/host_gui/ui`, 6 in `applications/plugin`, and
+`asio_audio_device.hpp` and `sdl2_audio_device.hpp`. They are listed in
+`tools/testing/untested_units.txt`, which the checker treats as an exception, so CI passes
+while the debt stays visible. A regression in any of them reaches no test. Closes when the
+list is empty; the checker fails on an entry that has gained a test, so the list cannot
+outlive its debt.
+
 ## Removing a track can double one block of audio
 
 `SessionTimeline::remove_track` republishes lanes *index* through *n-1* one at a time, each

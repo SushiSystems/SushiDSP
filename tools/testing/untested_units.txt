@@ -1,0 +1,42 @@
+# Units that owe a test file. check_test_mirror.py skips them for rule_untested_unit and
+# reports an entry once its unit gains a test or disappears, so this list only shrinks.
+# Recorded in docs/design/REMAINING_WORK.md and docs/reference/KNOWN_ISSUES.md.
+applications/host_gui/host_gui_log_category.hpp
+applications/host_gui/mp3_decoder.hpp
+applications/host_gui/mp3_encoder.hpp
+applications/host_gui/rig_persistence.hpp
+applications/host_gui/rig_shape.hpp
+applications/host_gui/session_bounce.hpp
+applications/host_gui/session_file.hpp
+applications/host_gui/session_renderer.hpp
+applications/host_gui/session_timeline.hpp
+applications/host_gui/slot_graph.hpp
+applications/host_gui/slot_selection.hpp
+applications/host_gui/ui/arrangement_view.hpp
+applications/host_gui/ui/cabinet_section_pane.hpp
+applications/host_gui/ui/device_settings.hpp
+applications/host_gui/ui/divider.hpp
+applications/host_gui/ui/file_browser.hpp
+applications/host_gui/ui/gear_browser.hpp
+applications/host_gui/ui/geometry.hpp
+applications/host_gui/ui/meter_bar.hpp
+applications/host_gui/ui/mixer_model.hpp
+applications/host_gui/ui/mixer_panel.hpp
+applications/host_gui/ui/rig_chain_view.hpp
+applications/host_gui/ui/room_panel.hpp
+applications/host_gui/ui/room_scene_view.hpp
+applications/host_gui/ui/scene_interaction.hpp
+applications/host_gui/ui/stage_panel.hpp
+applications/host_gui/ui/text_field.hpp
+applications/host_gui/ui/theme.hpp
+applications/host_gui/ui/top_bar.hpp
+applications/host_gui/ui/transport_bar.hpp
+applications/host_gui/ui/widgets.hpp
+applications/plugin/clap_boundary.hpp
+applications/plugin/clap_extensions.hpp
+applications/plugin/clap_plugin.hpp
+applications/plugin/parameter_routing.hpp
+applications/plugin/rig_parameter.hpp
+applications/plugin/startup_rig.hpp
+modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_device.hpp
+modules/foundation/device/include/SushiDSP/foundation/device/sdl2_audio_device.hpp
