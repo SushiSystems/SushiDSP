@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-17 — cli: Pinned SushiLog v0.2.1, which marks missing and extra format arguments and adds `SushiLog::log_at` (`sushistack.deps.toml`, `NOTICE.md`).
 - 2026-10-17 — cli: Pinned SushiLog v0.2.0, which adds the header-only `SushiLog::text` formatter (`sushistack.deps.toml`, `NOTICE.md`).
 - 2026-10-17 — ci: Cloned SushiLog for every build lane, at the pinned commit before merge and at its main after merge (`.github/actions/sushilog/action.yml`, `ci.yml`, `nightly.yml`).
 - 2026-10-17 — cli: Pinned SushiLog v0.1.2, which keeps a project level set before the project's first log call (`sushistack.deps.toml`, `NOTICE.md`).
