@@ -25,8 +25,8 @@
 depends_on = ["sushilog"]
 
 [sushi.sushilog]
-version = "v0.1.2"
-commit = "01da0e7464040a02025f44e50cfca64579215a22"
+version = "v0.2.0"
+commit = "74b0c79a49183c225f51190e04da05c0653686cb"
 
 [intel-llvm]
 description = "intel/llvm clang++ (the workspace's shared toolchain). Optional: when present `sd` builds with it, otherwise with the platform compiler. SushiDSP compiles no SYCL; this is a C++ compiler preference."
