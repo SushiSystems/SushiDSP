@@ -74,6 +74,9 @@ target_link_libraries(sushidsp_host_gui PRIVATE
     nlohmann_json::nlohmann_json
     OpenGL::GL
 )
+# The GUI links the DSP core, so it takes the same ISA and LTO policy as sushidsp_host. Without
+# it, the link does not use ld.lld and the GNU linker rejects the LTO objects in the libraries.
+sushidsp_apply_optimization_flags(sushidsp_host_gui)
 if(TARGET SushiDSP::sushi_dsp_asio)
     target_link_libraries(sushidsp_host_gui PRIVATE SushiDSP::sushi_dsp_asio)
     target_compile_definitions(sushidsp_host_gui PRIVATE SUSHIDSP_HAVE_ASIO=1)
