@@ -484,6 +484,7 @@ target_link_libraries(sushidsp_bench PRIVATE
     SushiDSP::room_scenes
 )
 sushidsp_apply_optimization_flags(sushidsp_bench)
+sushidsp_apply_sanitizers(sushidsp_bench)
 
 # On Windows sushilog.dll has to sit beside the program.
 sushilog_copy_runtime_files(sushidsp_tests)
