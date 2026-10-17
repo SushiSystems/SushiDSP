@@ -15,6 +15,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# The static libraries are linked into the CLAP module, a shared library, and into the PIE test
+# programs. Those links fail on any object that is not position-independent.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 include(cmake/SushiDSPCompilerFlags.cmake)
 include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)
