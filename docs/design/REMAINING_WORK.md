@@ -63,6 +63,12 @@ what to try on screen. No change to the levels the room renders at starts withou
   unit has gained a test, so each test written drops one line. The two devices need hardware;
   for them the work is a fake backend or a recorded reason they stay listed
   (KNOWN_ISSUES, "39 units have no test file").
+- **Move the untested-unit exception upstream.** The exception lives in a local edit of the
+  shared `tools/testing/check_test_mirror.py` and reads `tools/testing/untested_units.txt`;
+  `project-tools` forbids both. The rule and its stale-entry check go into SushiSkills' checker
+  first, reading the list from `tools/settings.py`; then the shared file is copied back and the
+  text file removed (KNOWN_ISSUES, "The test mirror exception is a local edit of a shared
+  checker").
 
 ## Products
 

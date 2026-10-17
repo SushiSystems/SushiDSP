@@ -56,6 +56,16 @@ while the debt stays visible. A regression in any of them reaches no test. Close
 list is empty; the checker fails on an entry that has gained a test, so the list cannot
 outlive its debt.
 
+## The test mirror exception is a local edit of a shared checker
+
+`tools/testing/check_test_mirror.py` is shared from SushiSkills, and this repository changed
+it to skip the units in `tools/testing/untested_units.txt` and to add `rule_stale_untested_entry`.
+`project-tools` forbids editing a shared checker in place and any checker configuration outside
+`tools/settings.py`. `copy_shared_tools.py --report` lists the file as differing, and the next
+copy from SushiSkills drops the exception and turns CI red on the 39 untested units. Closes
+when SushiSkills' checker carries the exception, read from `tools/settings.py`, and the copy
+here matches it.
+
 ## Removing a track can double one block of audio
 
 `SessionTimeline::remove_track` republishes lanes *index* through *n-1* one at a time, each
