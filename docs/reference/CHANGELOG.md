@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-17 — ci: Cloned SushiLog for every build lane, at the pinned commit before merge and at its main after merge (`.github/actions/sushilog/action.yml`, `ci.yml`, `nightly.yml`).
 - 2026-10-17 — cli: Pinned SushiLog v0.1.2, which keeps a project level set before the project's first log call (`sushistack.deps.toml`, `NOTICE.md`).
 - 2026-10-17 — log: Compiled SushiDSP code against SushiLog without dllimport so the static plug-in resolves every call, named SushiLog types directly and moved LogCapture into its own test module (`log/CMakeLists.txt`, `log_capture.hpp`).
 - 2026-10-17 — log: Replaced SushiDSP's own logger with a front over SushiLog v0.1.1, pinned in the dependency fragment; the plug-in links SushiLogStatic and exports sushidsp_join_log (`log.hpp`, `log_capture.hpp`, `log_join.hpp`).

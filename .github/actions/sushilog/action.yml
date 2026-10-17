@@ -1,0 +1,26 @@
+name: SushiLog checkout
+description: >-
+  Clones SushiLog beside the workspace and exports SUSHILOG_DIR for the configure. A pull request
+  builds against the commit pinned in cli/sushistack.deps.toml; every other event builds against
+  SushiLog's main, so an upstream change that breaks this repository shows before the pin moves.
+
+runs:
+  using: composite
+  steps:
+    - name: Clone SushiLog
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+      run: |
+        if [ "$EVENT" = "pull_request" ]; then
+          ref=$(python -c "import tomllib; print(tomllib.load(open('cli/sushistack.deps.toml', 'rb'))['sushi']['sushilog']['commit'])")
+        else
+          ref=main
+        fi
+        # Python prints a native path, which CMake on Windows needs.
+        target=$(python -c "import os; print(os.path.join(os.path.dirname(os.environ['GITHUB_WORKSPACE']), 'sushilog'))")
+        echo "sushilog ref: $ref"
+        git init -q "$target"
+        git -C "$target" fetch -q --depth 1 https://github.com/SushiSystems/SushiLog.git "$ref"
+        git -C "$target" checkout -q FETCH_HEAD
+        echo "SUSHILOG_DIR=$target" >> "$GITHUB_ENV"

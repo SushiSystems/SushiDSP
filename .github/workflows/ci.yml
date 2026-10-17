@@ -5,6 +5,8 @@ name: CI
 #
 # Pre-merge: the checkers, the build and the small and medium tests on Linux and Windows, and the
 # small tests again under ASan and UBSan on Linux. Post-merge adds ThreadSanitizer.
+# Every build lane takes SushiLog from .github/actions/sushilog: the pinned commit before merge,
+# SushiLog's main after it.
 # Large tests need an audio device and run on no runner; benchmarks and quarantined tests run in
 # nightly.yml.
 
@@ -64,6 +66,7 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: cli/pyproject.toml
+      - uses: ./.github/actions/sushilog
       - name: Install the toolchain and the CLI
         # SDL2 needs the ALSA and PulseAudio headers; GLFW needs Wayland, X11 and EGL. This lane
         # builds the standalone host and the GUI, which no other lane compiles.
@@ -97,6 +100,7 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: cli/pyproject.toml
+      - uses: ./.github/actions/sushilog
       - name: Install the CLI
         run: python -m pip install -e ./cli
       # One command per step: pwsh reports only the last command's exit code.
@@ -133,6 +137,8 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: cli/pyproject.toml
+      - uses: ./.github/actions/sushilog
+        if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
       - name: Install the toolchain and the CLI
         if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
         run: |
