@@ -61,7 +61,7 @@ int main()
     auto tube_screamer = std::make_unique<SushiDSP::TubeScreamer>();
     tube_screamer->set_drive(0.7f);
     tube_screamer->set_tone(0.5f);
-    tube_screamer->set_level(0.0f); // Level is now in dB; 0 dB is the pedal's unity-ish output
+    tube_screamer->set_level(0.0f); // Level is in dB; 0 dB is the pedal's unity-ish output
 
     // The rig ends at the amplifier with no cabinet node; see applications/host/README.md.
     auto jcm800 = std::make_unique<SushiDSP::Jcm800>();
