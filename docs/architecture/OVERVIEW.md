@@ -90,6 +90,26 @@ build a `RigGraph` from `node_registry()`, and drive `process()` per audio callb
 `applications/plugin` is the fourth: a CLAP plugin that owns no device and renders one rig for a
 DAW, through `RigAdapter`, which knows no plugin format, and a CLAP shell around it.
 
+## Where a model's constants come from
+
+Every constant in a model comes from somewhere, and each module's README says where. A figure read
+off a schematic is marked as read; a figure derived from it shows the arithmetic; a figure nobody
+has published is listed in that module's stand-in table, with what would settle it.
+`modules/nodes/mesa_mark2c/README.md` is the longest of these: it records, among other things,
+that the output transformer's primary impedance appears on no sheet and in no published source,
+and which of the model's constants stand in for it.
+
+## How the models are held in place
+
+The suite holds golden files: one second of mono float32 per node per sample rate, compared
+against a pinned render, failing when the RMS residual rises above -80 dB.
+`modules/foundation/golden_compare/README.md` records every regeneration and what justified it.
+
+The real-time path allocates nothing, locks nothing, makes no system call and throws nothing.
+The `*PerformsNoHeapAllocation` tests, each beside the other tests of the unit it guards, enforce
+the first of those four through `modules/foundation/allocation_trap`, which counts every heap
+allocation the audio path makes; the other three are held by review.
+
 ## What is spec-only, not yet built
 
 The following are described in `docs/design/SUSHIDSP.md` as intent and were not found under
