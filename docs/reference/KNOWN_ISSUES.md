@@ -1,422 +1,419 @@
 # Known issues
 
-Defects the team has measured, understood, and deliberately left open, with the test that
-documents each one and what closes it. This is not a bug tracker for the unmeasured; an entry
-here has a figure, a mechanism, and a named exit.
-
-## Alias floor at 8× after volt-true grid staging
-
-The JCM800 measures −23.4 dB through `measure::alias_floor()` at preamp 1.0 and a −12 dBFS input,
-against the −33.8 dB bound (−43.4 dB before DA4, −6.7 dB before DA5 part 1, −15.1 dB before
-part 2, −13.4 dB before part 4), and −24.9 dB at its default (−16.3 dB before part 4); the 5150
-at its default and the same input measures −26.8 dB against the spec's −30 dB (−11.4 dB before
-part 4), the IIC+ −14.8 dB (−0.1 dB) and the VH4 −23.0 dB (−13.3 dB). DA5 part 4 antialiased
-every `TriodeStage` and `PentodeStage` with a first-order antiderivative of the composite
-grid-and-plate transfer (`AntiderivativeAntialiaser`, spec section 15): one stage alone now folds
-at −102.4 dB at 3× past its window and −79.8 dB at 12× (−81.2 and −53.7 dB before), and the
-EL34 at −101.2 and −84.4 dB (−88.1 and −55.1 dB). What remains in the amplifiers is not the
-transformer's tanh, the sag envelope or the solver's iteration count, each measured and ruled out: at every default the worst
-line is the 20 kHz tone's 19th harmonic folding about 384 kHz to 3995 Hz, made by the stages
-after the first, which receive an already-clipped waveform whose content reaches the oversampled
-Nyquist and so breaks the linear-between-samples assumption first-order ADAA rests on. Documented
-by `Jcm800.Jcm800AliasFloorImprovedAtLeast30dBOverD5b` and
-`Peavey5150.Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb`
-(the `test_output.cpp` of `tests/nodes/jcm800/test_jcm800/` and `tests/nodes/peavey5150/test_peavey5150/`), both skipped with the measured figure printed. 16× was
-measured without ADAA in part 3 (JCM800 default −35.0 dB, 5150 −19.9, IIC+ −14.3, VH4 −27.3 at
-1.9 to 2.0× the CPU); 16× on top of the antialiaser, measured in part 4, reads JCM800 default
-−45.3 dB, preamp 1.0 −32.7 dB, 5150 −36.2 dB, IIC+ −36.9 dB and VH4 −35.3 dB at 2.0× the CPU,
-which puts the 5150 and the IIC+ at 167 % of the block at `-O0` and 99 to 102 % at `-O2`. What
-closes the rest is the maintainer's: that 16×, a band limit between the stages that lets 8× stay,
-or a higher-order antiderivative.
-
-## The IIC+ and the 5150 leave little headroom at the smallest device buffer
-
-`sushidsp_bench` measures the IIC+ at 7236 ns per output sample and the 5150 at 6286, against
-the JCM800's 2587 and the VH4's 3875, so a 256-frame block costs the IIC+ 1.852 ms against the
-1.5 ms budget that block is allowed at 48 kHz. The cost is the valve count solved at 8x: the
-IIC+ runs six single triodes, a long-tailed pair and four power tubes, and a single `TriodeStage`
-at the base rate measures 69.9 ns. Nothing else in a guitarist's chain is close - the Tube
-Screamer costs 594.9 ns and a 4096-tap cabinet convolution 15.6 ns. Per-sample cost does not move
-with the block size (7356 ns at 16 frames, 7243 at 256), so a small buffer adds no penalty of its
-own; what a small buffer removes is the slack that absorbs a slow block, and the same node
-measures 34.8 % of one core at its best and 57.6 % at its worst. A Tube Screamer into the IIC+
-into a cabinet therefore runs near 38 % of one core steady and past 60 % on a slow block, which
-underruns at the smallest USB buffer while leaving a larger one alone. What closes it is a
-decision the maintainer owns: dropping this model to 4x, which halves the cost against the alias
-floor the entry above measures, or a cheaper triode solve. Measured by `sushidsp_bench`
-(`tests/nodes/<amplifier>/benchmark_<amplifier>.cpp`), which times each amplifier node.
-
-## 39 units have no test file
-
-`check_test_mirror.py` asks for one test file per header. 39 headers have none: 31 in
-`applications/host_gui` and `applications/host_gui/ui`, 6 in `applications/plugin`, and
-`asio_audio_device.hpp` and `sdl2_audio_device.hpp`. They are listed in
-`tools/testing/untested_units.txt`, which the checker treats as an exception, so CI passes
-while the debt stays visible. A regression in any of them reaches no test. Closes when the
-list is empty; the checker fails on an entry that has gained a test, so the list cannot
-outlive its debt.
-
-## The test mirror exception is a local edit of a shared checker
-
-`tools/testing/check_test_mirror.py` is shared from SushiSkills, and this repository changed
-it to skip the units in `tools/testing/untested_units.txt` and to add `rule_stale_untested_entry`.
-`project-tools` forbids editing a shared checker in place and any checker configuration outside
-`tools/settings.py`. `copy_shared_tools.py --report` lists the file as differing, and the next
-copy from SushiSkills drops the exception and turns CI red on the 39 untested units. Closes
-when SushiSkills' checker carries the exception, read from `tools/settings.py`, and the copy
-here matches it.
-
-## Removing a track can double one block of audio
-
-`SessionTimeline::remove_track` republishes lanes *index* through *n-1* one at a time, each
-through its own `RtSwapSlot`, so the removal is not atomic across lanes. A callback that lands
-between two of those publishes renders one block in which lane 3 already holds lane 4's clips
-while lane 4 still holds its own, and that block carries the same clip twice. Nothing on the
-audio thread allocates, locks or throws, and no memory is raced; what the seam costs is one
-block, 5.33 ms at 48 kHz and a 256-frame buffer. What closes it is a generation counter the
-callback reads once per block, or refusing the removal while the transport runs; both are the
-maintainer's call, and neither is worth doing before the removal is something people use.
-
-## Mesa Mark IIC+ has no clean setting
-
-The dossier's §2 places an EFFECTS SEND / RETURN network between V2A's plate and V2B's grid,
-and its §3.7 gives no value for that link, so the model has no loop network at all, neither the
-series path nor the shunt one, of which the missing return capacitor's 7.23 Hz corner is only a
-part: V2A's plate drives
-V2B's grid window about twenty-one times past it, and the node limits at every input level with
-no clean end on the knob. Three tests are skipped, not weakened: `MesaMark2cHasACleanEndAtMinimumGain`,
-`MesaMark2cToneStackSitsBeforeTheLeadStages` and `MesaMark2cEqBandBoostsItsCentre`
-(`tests/nodes/mesa_mark2c/test_mesa_mark2c/test_behaviour.cpp`), each printing what it measures today against
-what it will re-assert. Closes when the send/return network is read off the schematic, dossier
-open questions 19 and 20.
-
-## Diezel VH4's phase inverter and power section are a JCM800 stand-in
-
-The dossier establishes nothing about the VH4's phase inverter or power section (§5: "nothing
-established"), so the module keeps the JCM800's long-tailed-pair degeneration and power-tube
-grid figures in their place rather than a VH4-specific derivation. Every number downstream of
-that link is borrowed, not measured from the VH4 itself. Closes when a VH4 power-amp schematic
-becomes available.
-
-## OGG export is deferred, so a take leaves the host as WAV only
-
-DS5 of `docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md` puts `libvorbis` and `libogg`
-inside `applications/host_gui` and nowhere else, and DS0 through DS4 shipped without it. A five-minute
-stereo take at 48 kHz is 115 MB of 32-bit float on disk, which is what the host writes and what a
-user copies out. No test is skipped for this; nothing is broken, the phase is unwritten. Closes
-with DS5.
-
-## DS0, DS2 and DS3 are committed under each other's names
-
-Three sessions worked this checkout at once and each committed by explicit path, so 394a605 ("DS0:
-RigGraph routes as many channels as its nodes declare") also carries Task 5's `Transport`,
-`TrackPlayer` and `test_track_player.cpp`, and 18eb040 ("DS2: Take, TrackRecorder and
-RecordingBus") carries the rest of that task. The content of every file is the one its own task
-wrote and reviewed; only the commit each landed in is wrong. The task's
-review ruled against rewriting history in a shared checkout, so `git log` stays as it is and this entry is the record. Closes as recorded here,
-not by a repair.
-
-## `write_rig_output_to_device`'s 2 into 1 downmix has no live caller
-
-`applications/host_gui/main.cpp` prepares the rig at `min(device output channels, RigGraph::K_MAX_CHANNELS)`,
-so the rig is never wider than the device and the sum-and-halve branch of
-`write_rig_output_to_device` cannot run from the host. The branch exists because
-`ChannelSelection` carries the whole `RigGraph::channels_adapt` table rather than the part one
-caller happens to reach, and
-`WriteRigOutputSumsAndHalvesTwoRigChannelsIntoAMonoDevice`
-(`tests/foundation/audio_format/test_channel_selection.cpp`) is the only thing that exercises it. It stops
-being dead the first time a rig's width is set by something other than the device, a fixed stereo
-rig, or a preset that pins the width.
-
-## `Transport::seek` racing `advance` can be lost
-
-`seek()` and `advance()` both store to `position_`, so a seek issued while the audio thread is
-inside a block can be overwritten by that block's store, leaving the transport a block-length away
-from where the user put it. The host serialises the two, and `Transport::seek`'s `@pre` states the
-rule rather than paying for a generation counter no caller needs today. Raised in the stereo-tracks
-review. Closes when a caller appears
-that cannot serialise them.
-
-## A stereo branch collapses back to mono at a `MixerNode`
-
-`routing::MixerNode` declares `PortLayout{8, 1}`, so `RigGraph::channels_of` reads its input width
-as 1 and the graph's gather averages any two-channel producer down to one channel before the mixer
-sees it. A `PanNode` inside a parallel branch therefore loses its width the moment the branch
-rejoins. This is what spec §2's adaptation table says should happen, 2 into 1 sums and halves , 
-and no test or user asks for anything else, so the behaviour stays. Closes when a mixer that keeps
-its inputs' width exists, which needs a `PortLayout` that can say "eight slots, two channels each".
-
-## A take's own sample rate is never read
-
-`Take` carries the rate it was captured at, and neither `TrackPlayer` nor `TrackTimeline` asks
-for it: a clip is read frame for frame against the rig's rate. A 44.1 kHz WAV dropped on a
-48 kHz rig therefore plays 8.8 % slow and a semitone's fifth flat. Imported mp3 files are not
-affected, `AudioImportCache` converts a decoded song to the rig's rate before the clip ever
-points at it, which is why the defect survived the mp3 work. Closes when a clip carries the
-ratio between its take's rate and the rig's into `VariRateReader`, which already reads at an
-arbitrary speed.
-
-## The imported-audio cache is never pruned
-
-Every mp3 dropped on a lane leaves a float32 WAV under the executable's `cache/imported_audio/`
-and nothing ever deletes one; a 3.4-minute song costs about 79 MB. The cache is what makes a
-second drop of the same file cost 0 ms against the first drop's 3128 ms, and what lets a saved
-session find its clip again, so it is kept rather than made optional. Closes when the cache
-carries a size cap and evicts by last use.
-
-## The built room's loss fits neither measured room below 500 Hz
-
-`RoomScene::built_room_loss` adds one absorption figure per band to every surface
-(`built_room_loss.hpp`). From 500 Hz to 2 kHz it brings the model to 0.96 to 1.04 times the
-measured decay of the Motus room and 1.14 to 1.21 times that of the BRAS CR2 seminar room
-(`test_room_motus.cpp`, `test_room_bras.cpp`). Below 500 Hz the two rooms want different figures:
-at 125 Hz the model reads 1.917 s against Motus's measured 2.572 s, a ratio of 0.745, and
-2.991 s against CR2's 1.402 s, a ratio of 2.133; at 250 Hz 0.913 and 1.476. The 0.020 and 0.025
-chosen for those bands sit between the two rooms. A fresh room's low end is therefore uncertain
-by about a factor of two either way. Closes when a third measured room, or a low-frequency term
-tied to windows and other lightweight elements, settles the low bands
-(`docs/design/ROOM_FURNISHINGS.md` section 11).
-
-## Four furnishing and covering rows carry no measurement of their own
-
-`docs/agent/2026_09_22_ROOM_FURNISHINGS/REPORT.md`'s "What was not found" records that no ISO 354
-or JIS A 1409 test of a household desk, a double bed with its bedding, a filled bookcase or a
-flat-woven kilim on a hard floor could be sourced. `furniture.cpp`'s desk row is therefore the
-Korean apartment study's 0.0131 m2 per m3 taken at 30 m3, 0.4 m2 flat across the bands, and its
-bookcase row is EN 12354-6 formula 4 on an assumed 0.8 x 0.3 x 1.8 m volume, 0.57 m2 flat; the
-double bed is the one measured single bed without bedding scaled by the mattress perimeter ratio
-1.22; and a rug enters a scene as `ThinCarpetOnConcrete`, a fitted woven carpet row standing in
-for a kilim and probably an upper bound. Each row's citation names its kind, so nothing is
-presented as measured that is not, and the room-level cross-check in the same report puts the sum
-inside the 0.16 to 0.35 m2 per m3 the furnished-room studies measure. Closes when a per-object
-measurement of each is published or made.
-
-## The measured HRTF's decoder misses the near ear by up to 5.1 dB above 5 kHz
-
-`assets/hrtf/sadie2_ku100_48k.hrtf` is the SADIE II KU100 set, thinned to 1531 directions at
-3 degrees and truncated to 128 taps with a worst loss of -31 dB. Its third-order
-magnitude-least-squares decoder matches the measured set within 0.56 dB at the median over every
-direction, ear and third octave from 200 Hz to 8 kHz, 2.61 dB at the 95th percentile and 17.75 dB
-at the worst, a far-ear notch near 5 kHz. On the 24 directions of
-`RoomNodeDecoderMagnitudeMatchesTheMeasuredSet` the near ear misses by up to 5.1 dB at 5 to 8 kHz,
-so that test holds the near ear to 3 dB below 5 kHz, 6 dB above, and the far ear to 10 dB. The
-KU100's notch straight behind is 2.7 dB deep in the raw measurement, not the 6 dB the spec
-assumed, and `RoomNodeCarriesTheRearNotchWithAMeasuredSet` now checks the rendered notch against
-the set's own within 1 dB. Closes with a higher decoder order or a decoder that trades the far
-ear for the near one (`assets/hrtf/README.md`).
-
-## Four of the spec's fourteen material rows are not transcribed
-
-`materials.hpp` ships fifteen rows, nine of them added on 2026-09-22, and §4.2's brick, acoustic
-foam, steel garage door and carpet on underlay are not among them. A user whose garage has a
-steel door or a foam panel picks the nearest row instead, and the room's decay is wrong by the
-difference between the two, which across §4.2's table reaches 0.4 in absorption at 500 Hz.
-Nothing is skipped; the code takes any row the table holds. Closes by transcribing the other four
-from the same source with a citation each, which is data and no code.
-
-## The SM57 preset has no measured curve
-
-`MicrophoneModel` evaluates any on-axis curve it is handed, and the module ships one preset,
-`K_MICROPHONE_FLAT_CARDIOID`, whose six band values are zero and whose citation reads "no maker's
-curve". Spec §8 asks for a Shure SM57: a cardioid with a presence rise near 6 kHz and a low-end
-roll-off, which the flat preset does not have, so a microphone render is missing the colour the
-capsule itself contributes. The six numbers were not invented, which is why the preset says so in
-its own citation, and the host lists it as "Flat reference (condenser)". Closes when the SM57's
-published frequency response is read off Shure's sheet into a second row of the table in
-`microphone_model.cpp`, with a second `MicrophoneKind`.
-
-## Modal damping at a soft boundary is about 30 % wrong
-
-`ModalSolver::damping_constant` damps each mode by the first-order perturbation of spec §9a.2,
-which is linear in the absorption coefficient and so right to a few percent while α stays under
-about 0.1. Gypsum board on studs absorbs 0.29 at 125 Hz (`materials.cpp`), and a mode bounded by
-it decays about 30 % away from the true rate. The mode's frequency is right either way, so the
-room's pitch is right and its low-end decay time is not. Solving the damped eigenproblem against
-a complex wall impedance costs what §9a.2 measures FDTD at, for an error inside a layer that did
-not exist before 2026-09-08. Closes when someone judges that cost worth paying.
-
-## The FDN's own modes below the Schroeder frequency are crossed out, not corrected
-
-A 16-line feedback delay network has its own modal structure, and below f_s that structure is not
-the room's. `CrossoverPair` low-passes the modal bank and high-passes the tail at f_s in both
-quality modes, so the FDN carries no low end and its line lengths are designed for the band above
-f_s alone. The room's low end therefore comes entirely from `ModalSolver`'s eigenmodes, and the
-tail contributes nothing under f_s that a longer reverberation would fill in. This is the design's
-choice rather than a defect to repair, recorded because a reader measuring the tail alone below
-f_s will find it empty and should not go looking for the bug.
-
-## A compensated ears set's tail lands after its direct sound
-
-`RoomNode::compensate_direct_delay` moves an ears set earlier by the propagation delay, and it
-moves the tail's read delay with everything else. The network's shortest line is the handover
-time, so that delay is already zero for all three reference rooms and the subtraction floors
-there: the tail keeps its physical timing while the rest of the render moves up, 363 frames or
-7.6 ms for the default scene. Below the 20 ms a listener resolves as a separate arrival, and
-inaudible against the 70 ms hole the old timing left, so it is recorded rather than repaired.
-Closes when the designer is told the compensation and shortens its lines to absorb it.
-
-## Nothing between the node and the device bounds the output
-
-A 12 m unpainted-concrete cube used to be a scene the panel could reach: 1728 m3, an Eyring RT60
-of 12.8 s at 500 Hz, 1068 modes under f_s, a slowest modal decay of 48 s, and +36 dB of steady
-gain through the node at its 32 Hz mode after 20 s with the cabinet and the capsule in one
-corner, still rising. Since 2026-09-10 `RoomScene::is_valid` refuses it: the mean absorption of
-every band has to clear the floor a 12 s decay asks of the room's volume over its area (spec
-§4.1). The three reference rooms reach +9.7 dB, which is what a room booming at a mode does, and
-the loudest a scene that now passes can get has not been measured.
-
-What the gate does not do is police the audio. No stage between `RoomNode` and the device bounds
-the output; `float_to_asio_sample()` clips at full scale for the integer formats and a
-float format passes the value through. Whether a guard belongs there is the maintainer's call.
-
-## The raw octave step at the seam is not bounded
-
-`RoomNodeIsContinuousAcrossTheSchroederFrequency` measures each layer against the shared
-`DiffuseField` reference and holds both within 2 dB, which is what the spec asks. The raw step
-between the octave under f_s and the octave over it is recorded and not bounded: it reads
-+0.16 dB for the garage, +1.29 dB for the bedroom and +3.75 dB for the block room. The step
-cannot be zero, because the reference itself changes across the seam: the 4x12's directivity
-index rises 4.6 dB between 250 and 500 Hz, the block room's absorption halves from 125 to 250 Hz,
-and the poses a room is used at sit 2 to 4 dB under the volume average in the octave below f_s.
-An earlier run recorded −0.3, +0.6 and +3.1 dB; those are the figures the Linkwitz-Riley pair
-gave before `CrossoverPair` became power complementary, and each half then lost 2.4 dB at the
-seam. Closes when a bound follows from the reference's own step rather than from a measurement.
-
-## `BandResponseFit` stops at eight steps on about 60 % of fits
-
-`K_MAX_STEPS` in `band_response_fit.cpp` bounds the refinement at eight accepted steps, and about
-three fits in five reach it rather than converging, so those tap filters sit at whatever the
-eighth step reached. The fit still holds the direct path within 0.1 dB and a one-band 20 dB cut
-within 0.5 dB, so the cap is not what the module's accuracy is limited by today; it is what a
-tighter tolerance would run into first. The refinement differentiates its residual numerically,
-so each step costs six extra evaluations. Closes when the Jacobian is written analytically, which
-buys a higher cap at the cost the fit pays now.
-
-## A structural rig edit empties the room's tail
-
-`RigController::publish()` rebuilds the graph from the slot list, so every node in the rig is
-constructed afresh whenever a node is added, removed, connected or disconnected. The new
-`RoomNode` gets its parameters and its scene back through `apply_room_to_live_node`, and its
-delay lines, its FDN and its modal resonators start at zero, so the room's tail stops at the edit
-and rebuilds over the next RT60. A drag in the room scene or the room panel goes through
-`publish_room` instead, which crossfades; only an edit to the graph's shape rebuilds the
-node. Adding or removing a microphone, marking one as a room microphone and switching the DI path
-are such edits. Closes when a rebuild
-carries surviving nodes across instead of reconstructing them, which is a `RigController` change
-and touches no module.
-
-## The cabinet section at its limits misses its gate
-
-The gate the cabinet section was planned against is three JCM800 chains into one room with
-three cabinets, the listener and eight microphones, under 2.67 ms per 256-frame block at 48 kHz,
-half the block. On a Release build the row reads 3.562 ms, 67 % of one core
-(`tests/nodes/room/benchmark_room_node.cpp`, "3 x JCM800 + RoomNode"). The three amplifiers cost 2.03 ms of it
-and the room 1.28 ms, so the rig fits the 5.33 ms block with 1.8 ms to spare, but not the gate.
-The taps are already filtered four to a vector, and a microphone pair's own taps are down to
-0.025 ms; what remains of a pair is its tail read, its modal row and its output stage. Closes
-when the owner moves the gate, since with the amplifiers at 2.03 ms it leaves the room 0.64 ms,
-or when the amplifier itself gets cheaper.
-
-## A post effect sums the cabinet section to mono
-
-The cabinet section's amp bus is stereo: the listener's two ears and every panned microphone
-strip arrive on it. A slot in the post stage is mono in, so `RigGraph` sums the bus's two channels
-into it and everything behind the post stage is one signal on both sides. A split chain with a
-delay in its post stage therefore loses the listener's image and every strip's pan. The same rule
-is the one "A stereo branch collapses back to mono at a `MixerNode`" describes. Closes when an
-effect can declare a stereo input, or the post stage runs one instance per channel.
-
-## The HRTF converter counts every measured direction equally
-
-`tools/dsp/convert_hrtf.py`'s `diffuse_field_average` sums the magnitude responses of the
-directions a measurement file carries without weighting each by the solid angle it stands for,
-while `SphericalHeadHrtf` weights its own grid by `4*pi*cos(e)*sin(delta/2)/36` per ring point.
-On a latitude-longitude grid the two disagree: at ten degree spacing the rings near the poles
-stand for about a fifth of the solid angle of a ring at the equator, so they carry up to 5.8
-times the weight they should, and the tail through a converted set is coloured towards whatever
-the poles measured. Nothing in the tree hits this today because `assets/hrtf/sadie2_ku100_48k.hrtf`
-is not in the repository and the fallback set is what every rig loads. Closes when the converter
-derives each direction's solid angle from the grid it finds in the file.
-
-## A publish steps the tail's output filter on its running state
-
-`LateReverbDesign` fits the tail's output cascade to what the early taps leave of the diffuse
-field in each band, so a moved microphone or listener refits it, by 3 % in the second section's
-coefficients for a 0.36 m move in the garage, and `RoomNode` loads the new coefficients into the
-one `LateReverb` at the block the fade begins, on the network's stored energy. With the tail at
-its diffuse-field level, 12 dB above where it sat before 2026-09-09, the residual against the
-blend of the two steady renders reads -45.8 dBFS for that move where it read -52.1 dBFS, and the
-ears' 0.3 m listener move reads -72.3 dB where it read -88.3 dB; the step ratios are unchanged,
-so nothing clicks (`RoomNodeCrossfadesAPublishWithoutAStep`,
-`RoomNodeRampsTheEarGainsAsTheOutputBlendWould`). Closes when the tail's output cascade is run
-twice under the fade, the retiring coefficients and the arriving ones on the same line sum,
-blended under the raised cosine, which is two more biquads per ear in `LateReverb`.
-
-## Open findings of the 2026-10-05 estate audit
-
-`docs/agent/2026_10_05_ESTATE_AUDIT/REPORT.md` is the audit. This table lists its documentation,
-layout and code shape findings that were still open on 2026-10-05, each re-checked against the
-tree that day. The licence and command line findings were worked on in their own programmes and
-were not re-checked for this list. The work that closes a row is in
-[`docs/design/REMAINING_WORK.md`](../design/REMAINING_WORK.md).
-
-### Documentation
-
-| Issue | Where |
-| --- | --- |
-| The `## v0.1.0, 2026-10-03` heading has no tag behind it; `git tag -l` prints nothing | `docs/reference/CHANGELOG.md`, git |
-| The entry that folded the untagged headings cites `docs/archive/changelog/`, which does not exist | `docs/reference/CHANGELOG.md`, 2026-10-03 |
-| Five `docs` entries of 2026-09-05 and 2026-09-07 name no place | `docs/reference/CHANGELOG.md` |
-| Three entries cite files that no longer exist: `cli/sushidsp/services/setup.py`, `applications/host_gui/ui/TrackPanel.cpp`, `modules/foundation/math/include/SushiDSP/foundation/math/ResamplerCoefficients.hpp` | `docs/reference/CHANGELOG.md` |
-| The archive's README says the archive is empty; it holds 56 other files | `docs/archive/README.md` |
-| Archived plans, specs, dossiers and notes carry dated lower-case names, not `UPPER_SNAKE_CASE.md` | `docs/archive/superpowers/`, `docs/archive/research/`, `docs/archive/notes/` |
-| The standards phase 1 work has two plans in the archive, a 288-line plan and a 10-line checklist | `docs/archive/superpowers/plans/2026-09-15-sushi-standards-phase-1.md`, `docs/archive/agent/2026_09_15_SUSHI_STANDARDS_PHASE_1/PLAN.md` |
-| The report in the v0.1.0 release work folder records what jrb32's traced schematic settles, not the release | `docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md` |
-| §11a says SushiDSP is in hub's catalogue and that `cli/pyproject.toml` does not list sushicore; the manifest says it is not in the catalogue and `pyproject.toml` requires `sushicore>=0.7.0` | `docs/design/SUSHIDSP.md`, `sushi-module.toml`, `cli/pyproject.toml` |
-| Em dashes used as punctuation throughout: 106 lines in the design spec, 45 in the GUI redesign, 35 in the CLI guide | `docs/design/SUSHIDSP.md`, `docs/design/GUI_UX_REDESIGN.md`, `docs/guides/COMMAND_LINE_INTERFACE.md` |
-| The first entry of this page is one paragraph of nested figures | `docs/reference/KNOWN_ISSUES.md`, "Alias floor at 8×" |
-| No README beside the code | `applications/host/`, `applications/host_asio/`, `modules/foundation/signal_measure/`, `tests/foundation/core/`, each area under `include/SushiDSP/` |
-| Two READMEs cite `assets/ir/default_4x12.wav`, which the tree does not hold | `assets/ir/README.md`, `applications/host_gui/README.md` |
-| The admission rule for a bundled impulse response still names the Apache License 2.0 | `assets/ir/README.md` |
-| Two comments and one issue template cite module paths from before the tiers: `modules/session/rig_preset`, `modules/nodes/dd3`, `modules/nodes/mesa_mark2c` | `modules/session/rig_preset/include/SushiDSP/session/rig_preset/rig_preset.hpp` line 22, `tests/foundation/math/test_biquad.cpp` line 290, `.github/ISSUE_TEMPLATE/model_accuracy.yml` line 17 |
-| The front door's count of 1007 tests could not be reproduced without a build and was removed on 2026-10-05; no document states the count | `README.md` |
-
-### Layout
-
-| Issue | Where |
-| --- | --- |
-| CI calls `cmake` and `ctest` directly, runs no checker and has no job for the CLI's tests; its comments cite `docs/CLAUDE.md` and sushicore 0.6.0 | `.github/workflows/ci.yml` |
-| One workflow file for every trigger; no release workflow | `.github/workflows/` |
-| Tests are not grouped as unit, integration, regression and common; no module has its own `tests/`; 24 `applications/host_gui` sources are compiled into the test binary | `tests/`, `tests/CMakeLists.txt` |
-| `*.f32` is not marked binary; 3.1 MB of transient CSVs sit inside the manual | `.gitattributes`, `docs/reference/spice/*/*_tran.csv` |
-| Eight remote-tracking refs under `refs/remotes/local/` have no remote configured | git |
-| The root build file defines targets and fetches dependencies | `CMakeLists.txt` |
-| No generated version header; the version is kept by hand in two files and absent from the manifest | `CMakeLists.txt`, `cli/pyproject.toml`, `sushi-module.toml` |
-| The ignore file ignores `docs/api-site/html/`, where nothing is written, names `sd doxygen` and carries paragraphs of comment | `.gitignore` |
-| The host writes `imgui.ini` into the working directory | `applications/host_gui/` |
-
-### Code shape
-
-| Issue | Where |
-| --- | --- |
-| Exceptions, `bool` with an error string and bare `bool` coexist as error models; no function is `[[nodiscard]]` | `modules/foundation/io/source/wav_file.cpp`, `applications/host_gui/rig_controller.hpp`, `modules/nodes/room/include/SushiDSP/nodes/room/room_node.hpp` |
-| `RigController` forwards `SlotGraph`'s surface one for one; `main()` owns setup and the frame loop | `applications/host_gui/rig_controller.hpp`, `applications/host_gui/slot_graph.hpp`, `applications/host_gui/main.cpp` |
-| The host names products by id, so adding a product edits the GUI | `applications/host_gui/ui/panel_library.cpp`, `applications/host_gui/ui/gear_filter.cpp`, `applications/host_gui/topology_applier.cpp` |
-| `nlohmann::json` is part of the preset module's public interface | `modules/session/rig_preset/include/SushiDSP/session/rig_preset/rig_preset.hpp` |
-| The four amplifier modules repeat the same helpers and constants | `modules/nodes/jcm800/source/jcm800.cpp`, `peavey5150.cpp`, `diezel_vh4.cpp`, `mesa_mark2c.cpp` |
-| `Wdf` is built into the library and no production code uses it | `modules/foundation/math/include/SushiDSP/foundation/math/wdf.hpp` |
-| One header lacks `#pragma once` | `modules/foundation/timing_gate/include/SushiDSP/foundation/timing_gate/timing_gate.hpp` |
-| The device backends, the GUI views and the scripts under `tools/dsp/` and `tools/spice/` have no tests | `modules/foundation/device/source/`, `applications/host_gui/ui/`, `tools/` |
-
-## The host, the plugin and the two device backends have no unit tests
-
-`tools/testing/check_test_mirror.py` reports 39 public headers with no test file: 31 under
-`applications/host_gui/` (20 of them in `ui/`), 6 under `applications/plugin/`, and
-`asio_audio_device.hpp` and `sdl2_audio_device.hpp` in `modules/foundation/device/`. The `ui/`
-headers draw through ImGui and need its context to run, the `clap_*` headers need a CLAP host,
-and the two device backends need sound hardware, so they would carry the `device` label and be
-skipped on a machine without it. Every unit gets a test, so the checker keeps reporting these
-39 until theirs land: the device backends under the `device` label, the CLAP boundary behind a
-fake host that calls its entry points, and the ImGui panels with ImGui run without a window. A
-panel that cannot be tested that way has logic that belongs in its own unit. What closes the
-entry is the 39 tests, planned in `docs/design/REMAINING_WORK.md`.
+Next id: KI-46
+
+## Amplifiers
+
+### KI-1 The amplifiers alias above their bounds at 8×
+- Origin: own
+- Where: `modules/foundation/circuits/include/SushiDSP/foundation/circuits/stages/antiderivative_antialiaser.hpp`,
+  `tests/nodes/jcm800/test_jcm800/test_output.cpp`
+- Cause: the stages after the first receive an already-clipped waveform whose content reaches the
+  oversampled Nyquist, which breaks the assumption first-order antiderivative antialiasing rests
+  on; the transformer's tanh, the sag and the solver's iterations are measured and ruled out
+- Recognise: at a −12 dBFS input `measure::alias_floor()` reads the JCM800 at −23.4 dB at preamp
+  1.0 against −33.8 dB, the 5150 at −26.8 dB against −30 dB, the IIC+ at −14.8 dB, the VH4 at
+  −23.0 dB; the worst line is the 20 kHz tone's 19th harmonic folding to 3995 Hz. Two tests are
+  skipped with the figure printed
+- Workaround: none
+- Fix: RW-4
+
+One stage alone folds at −102.4 dB at 3×. 16× without the antialiaser read JCM800 −35.0, 5150
+−19.9, IIC+ −14.3, VH4 −27.3 dB; 16× with it reads JCM800 −45.3 (−32.7 at preamp 1.0), 5150
+−36.2, IIC+ −36.9, VH4 −35.3 dB at twice the CPU, which puts the 5150 and the IIC+ at 99 to 102 %
+of the block at `-O2`.
+
+### KI-2 The IIC+ and the 5150 leave little headroom at the smallest device buffer
+- Origin: own
+- Where: `tests/nodes/mesa_mark2c/benchmark_mesa_mark2c.cpp`
+- Cause: the valve count solved at 8×: six triodes, a long-tailed pair and four power tubes
+- Recognise: the IIC+ costs 7236 ns a sample and the 5150 6286, against the JCM800's 2587; a
+  256-frame block costs the IIC+ 1.852 ms of a 1.5 ms budget, and a chain with it underruns at
+  the smallest USB buffer on a slow block
+- Workaround: use a larger device buffer
+- Fix: RW-5
+
+### KI-3 The Mesa Mark IIC+ has no clean setting
+- Origin: own
+- Where: `tests/nodes/mesa_mark2c/test_mesa_mark2c/test_behaviour.cpp`
+- Cause: the dossier gives no value for the effects send and return link, so the model has no
+  loop network and V2A's plate drives V2B's grid about twenty-one times past it
+- Recognise: the node limits at every input level; three tests are skipped with what they
+  measure printed
+- Workaround: none
+- Fix: RW-44
+
+### KI-4 The Diezel VH4's phase inverter and power section are the JCM800's
+- Origin: own
+- Where: `modules/nodes/jcm800/source/jcm800.cpp`
+- Cause: the dossier establishes nothing about the VH4's power section
+- Recognise: every figure after the phase inverter is borrowed from the JCM800
+- Workaround: none
+- Fix: RW-42
+
+## Room
+
+### KI-5 The built room's loss fits neither measured room below 500 Hz
+- Origin: own
+- Where: `modules/nodes/room/include/SushiDSP/nodes/room/built_room_loss.hpp`
+- Cause: one absorption figure per band suits Motus and BRAS CR2 from 500 Hz up; below, they want
+  different figures and 0.020 and 0.025 sit between them
+- Recognise: at 125 Hz the model reads 0.745 of Motus's decay and 2.133 of CR2's; at 250 Hz 0.913
+  and 1.476. A fresh room's low end is uncertain by about a factor of two
+- Workaround: none
+- Fix: RW-18
+
+### KI-6 Four furnishing and covering rows carry no measurement of their own
+- Origin: own
+- Where: `modules/nodes/room/source/furniture.cpp`
+- Cause: no ISO 354 or JIS A 1409 test of a household desk, a double bed with bedding, a filled
+  bookcase or a kilim on a hard floor could be sourced
+- Recognise: each row's citation names what it stands in for; the room-level sum sits inside the
+  0.16 to 0.35 m² per m³ furnished-room studies measure
+- Workaround: none
+- Fix: none, until a per-object measurement is published
+
+### KI-7 The measured HRTF's decoder misses the near ear by up to 5.1 dB above 5 kHz
+- Origin: own
+- Where: `assets/hrtf/README.md`
+- Cause: the third-order magnitude-least-squares decoder of the SADIE II KU100 set
+- Recognise: within 0.56 dB at the median and 2.61 dB at the 95th percentile, but up to 5.1 dB
+  on the near ear at 5 to 8 kHz; the test holds the near ear to 6 dB above 5 kHz
+- Workaround: none
+- Fix: RW-15
+
+### KI-8 Four of the spec's fourteen material rows are not transcribed
+- Origin: own
+- Where: `modules/nodes/room/include/SushiDSP/nodes/room/materials.hpp`
+- Cause: brick, acoustic foam, the steel garage door and carpet on underlay were not copied
+- Recognise: a user picks the nearest row; the decay is off by up to 0.4 in absorption at 500 Hz
+- Workaround: pick the nearest row
+- Fix: RW-22
+
+### KI-9 The SM57 preset has no measured curve
+- Origin: own
+- Where: `modules/nodes/room/source/microphone_model.cpp`
+- Cause: the one preset, `K_MICROPHONE_FLAT_CARDIOID`, has six zero bands and cites no curve
+- Recognise: a microphone render lacks the capsule's presence rise and low roll-off
+- Workaround: none
+- Fix: RW-23
+
+### KI-10 Modal damping at a soft boundary is about 30 % wrong
+- Origin: own
+- Where: `modules/nodes/room/include/SushiDSP/nodes/room/modal_solver.hpp`
+- Cause: `ModalSolver::damping_constant` is linear in the absorption, right while it stays under
+  about 0.1; gypsum board absorbs 0.29 at 125 Hz
+- Recognise: the room's pitch is right and its low-end decay time is not
+- Workaround: none
+- Fix: none, the damped eigenproblem costs what FDTD does
+
+### KI-11 The tail carries nothing below the Schroeder frequency
+- Origin: own
+- Where: `modules/nodes/room/include/SushiDSP/nodes/room/late_reverb.hpp`
+- Cause: `CrossoverPair` hands the band under f_s to the modal bank, and the FDN's lines are
+  designed for the band above
+- Recognise: the tail measured alone below f_s is empty
+- Workaround: none needed
+- Fix: none, the design gives the low end to the eigenmodes
+
+### KI-12 A compensated ears set's tail lands after its direct sound
+- Origin: own
+- Where: `modules/nodes/room/include/SushiDSP/nodes/room/room_node.hpp`
+- Cause: `RoomNode::compensate_direct_delay` moves the render earlier, and the tail's read delay
+  is already zero, so the tail keeps its physical timing
+- Recognise: 363 frames, 7.6 ms, for the default scene; below what a listener resolves
+- Workaround: none needed
+- Fix: RW-26
+
+### KI-13 Nothing between the node and the device bounds the output
+- Origin: own
+- Where: `modules/nodes/room/include/SushiDSP/nodes/room/room_node.hpp`
+- Cause: `float_to_asio_sample()` clips the integer formats at full scale and passes a float
+  format through; `RoomScene::is_valid` refuses the +36 dB scenes, and the loudest valid one is
+  not measured
+- Recognise: the three reference rooms reach +9.7 dB
+- Workaround: keep a limiter after the rig
+- Fix: RW-6
+
+### KI-14 The raw octave step at the Schroeder frequency is not bounded
+- Origin: own
+- Where: `modules/nodes/room/include/SushiDSP/nodes/room/room_node.hpp`
+- Cause: the reference itself changes across the seam
+- Recognise: +0.16 dB for the garage, +1.29 for the bedroom, +3.75 for the block room; each layer
+  holds within 2 dB of the shared reference
+- Workaround: none
+- Fix: RW-25
+
+### KI-15 `BandResponseFit` stops at eight steps on about 60 % of fits
+- Origin: own
+- Where: `modules/nodes/room/source/band_response_fit.cpp`
+- Cause: `K_MAX_STEPS` caps the refinement, which differentiates numerically at six evaluations
+  a step
+- Recognise: the direct path holds within 0.1 dB and a one-band 20 dB cut within 0.5 dB; a
+  tighter tolerance hits the cap first
+- Workaround: none
+- Fix: RW-17
+
+### KI-16 The HRTF converter counts every measured direction equally
+- Origin: own
+- Where: `tools/dsp/convert_hrtf.py`
+- Cause: `diffuse_field_average` sums directions without weighting by solid angle
+- Recognise: on a ten-degree latitude-longitude grid the polar rings carry up to 5.8 times their
+  weight; nothing hits it while the fallback set is what every rig loads
+- Workaround: none
+- Fix: RW-14
+
+### KI-17 A publish steps the tail's output filter on its running state
+- Origin: own
+- Where: `modules/nodes/room/include/SushiDSP/nodes/room/late_reverb.hpp`
+- Cause: a moved microphone or listener refits the cascade, and the new coefficients load at the
+  block the fade begins
+- Recognise: the residual reads −45.8 dBFS for a 0.36 m move in the garage; the step ratios are
+  unchanged, so nothing clicks
+- Workaround: none needed
+- Fix: RW-16
+
+### KI-18 The cabinet section at its limits misses its gate
+- Origin: own
+- Where: `modules/nodes/room/include/SushiDSP/nodes/room/room_node.hpp`
+- Cause: three JCM800s cost 2.03 ms and the room 1.28 ms of a 256-frame block
+- Recognise: the benchmark row "3 x JCM800 + RoomNode" reads 3.562 ms against a 2.67 ms gate
+- Workaround: none needed; the rig fits the 5.33 ms block
+- Fix: RW-9
+
+## Host and sessions
+
+### KI-19 Removing a track can double one block of audio
+- Origin: own
+- Where: `applications/host_gui/session_timeline.cpp`
+- Cause: `SessionTimeline::remove_track` republishes the lanes one at a time
+- Recognise: one 5.33 ms block carries a clip twice
+- Workaround: remove tracks while the transport is stopped
+- Fix: RW-10
+
+### KI-20 A structural rig edit empties the room's tail
+- Origin: own
+- Where: `applications/host_gui/rig_controller.cpp`
+- Cause: `RigController::publish()` builds every node afresh, the room's lines at zero
+- Recognise: the tail stops at the edit and rebuilds over the next RT60; "No bundled HRTF set"
+  prints three times
+- Workaround: none
+- Fix: RW-30
+
+### KI-21 A stereo branch collapses to mono at a `MixerNode`
+- Origin: own
+- Where: `modules/nodes/routing/include/SushiDSP/nodes/routing/mixer_node.hpp`
+- Cause: `MixerNode` declares one channel per slot, so the gather averages a stereo producer
+- Recognise: a `PanNode` in a parallel branch loses its width at the mixer
+- Workaround: none
+- Fix: RW-31
+
+### KI-22 A post effect sums the cabinet section to mono
+- Origin: own
+- Where: `applications/host_gui/slot_graph.hpp`
+- Cause: a post-stage slot is mono in, so `RigGraph` sums the amp bus
+- Recognise: the listener's image and every strip's pan are lost behind the post stage
+- Workaround: none
+- Fix: RW-38
+
+### KI-23 The 2-into-1 downmix has no live caller
+- Origin: own
+- Where: `modules/foundation/audio_format/include/SushiDSP/foundation/audio_format/channel_selection.hpp`
+- Cause: the host prepares the rig no wider than the device
+- Recognise: only `WriteRigOutputSumsAndHalvesTwoRigChannelsIntoAMonoDevice` runs the branch
+- Workaround: none needed
+- Fix: none, the branch completes the adaptation table for a rig whose width is fixed
+
+### KI-24 `Transport::seek` racing `advance` can be lost
+- Origin: own
+- Where: `modules/nodes/capture/source/transport.cpp`
+- Cause: both store to `position_`
+- Recognise: a seek during a block lands a block-length away
+- Workaround: serialise the two, as the host and `seek`'s `@pre` do
+- Fix: none, no caller needs a generation counter
+
+### KI-25 A take's own sample rate is never read
+- Origin: own
+- Where: `modules/nodes/capture/include/SushiDSP/nodes/capture/track_player.hpp`
+- Cause: a clip is read frame for frame against the rig's rate
+- Recognise: a 44.1 kHz WAV on a 48 kHz rig plays 8.8 % slow; imported MP3s are converted and
+  unaffected
+- Workaround: convert a WAV to the rig's rate before dropping it
+- Fix: RW-35
+
+### KI-26 The imported-audio cache is never pruned
+- Origin: own
+- Where: `applications/host_gui/audio_import_cache.hpp`
+- Cause: every dropped MP3 leaves a float WAV under `cache/imported_audio/`
+- Recognise: about 79 MB for a 3.4-minute song
+- Workaround: delete the folder between sessions
+- Fix: RW-36
+
+### KI-27 A take leaves the host as WAV only
+- Origin: own
+- Where: `modules/foundation/io/include/SushiDSP/foundation/io/wav_writer.hpp`
+- Cause: DS5, the OGG export, is unwritten
+- Recognise: a five-minute stereo take is 115 MB of float
+- Workaround: convert outside the host
+- Fix: RW-32
+
+### KI-28 The host writes `imgui.ini` into the working directory
+- Origin: own
+- Where: `applications/host_gui/README.md`
+- Cause: ImGui's default ini path is left in place
+- Recognise: an `imgui.ini` appears where the host was started
+- Workaround: start the host from its own folder
+- Fix: RW-72
+
+## Tests and CI
+
+### KI-29 39 units have no test file
+- Origin: own
+- Where: `tools/testing/untested_units.txt`
+- Cause: the host, the plugin and the two device backends need ImGui, a CLAP host or sound
+  hardware to run
+- Recognise: the list names them; the checker fails on an entry that gains a test
+- Workaround: none
+- Fix: RW-33
+
+### KI-30 The test mirror exception is a local edit of a shared checker
+- Origin: own
+- Where: `tools/testing/check_test_mirror.py`
+- Cause: this repository changed it to skip the listed units and to add `rule_stale_untested_entry`
+- Recognise: `copy_shared_tools.py --report` lists the file; a copy drops the exception and turns
+  CI red
+- Workaround: restore this repository's version after a copy
+- Fix: RW-34
+
+### KI-31 The small tests fail under ThreadSanitizer on CI
+- Origin: own
+- Where: `.github/workflows/ci.yml`
+- Cause: unknown
+- Recognise: the job "Small tests under thread (Linux, Clang)" fails on every push since
+  2026-10-18
+- Workaround: none
+- Fix: RW-65
+
+### KI-32 24 host sources are compiled into the test binary
+- Origin: own
+- Where: `tests/CMakeLists.txt`
+- Cause: the host's rig sources are a list, not a library
+- Recognise: the tests and the plugin name the sources one by one
+- Workaround: none
+- Fix: RW-52
+
+## Documentation and layout
+
+### KI-33 The `## v0.1.0` heading has no tag behind it
+- Origin: own
+- Where: `docs/reference/CHANGELOG.md`
+- Cause: the release was declared and not tagged
+- Recognise: `git tag -l` prints nothing
+- Workaround: none
+- Fix: RW-1
+
+### KI-34 Changelog entries cite places that do not exist or none
+- Origin: own
+- Where: `docs/reference/CHANGELOG.md`
+- Cause: the entry of 2026-10-03 cites `docs/archive/changelog/`, three entries cite removed
+  files, and five of 2026-09-05 and 2026-09-07 name no place
+- Recognise: the cited paths resolve nowhere
+- Workaround: read `git log`
+- Fix: RW-62
+
+### KI-35 The archive's README says the archive is empty
+- Origin: own
+- Where: `docs/archive/README.md`
+- Cause: it was written before anything was archived; the archive holds 56 other files under
+  dated lower-case names, and two plans of the standards phase 1 work
+- Recognise: the README and the folder disagree
+- Workaround: list the folder
+- Fix: RW-8
+
+### KI-36 The design and the manifest disagree on the hub catalogue
+- Origin: own
+- Where: `docs/design/SUSHIDSP.md`, `sushi-module.toml`
+- Cause: the design calls SushiDSP a registered member; the manifest says it is not catalogued
+- Recognise: the two files contradict
+- Workaround: trust the manifest
+- Fix: RW-2
+
+### KI-37 Two READMEs cite an impulse response that does not ship
+- Origin: own
+- Where: `assets/ir/README.md`, `applications/host_gui/README.md`
+- Cause: `default_4x12.wav` is not in the tree, and the admission rule names the Apache licence
+- Recognise: the file is absent beside the executable
+- Workaround: give the host an impulse response of your own
+- Fix: RW-68
+
+### KI-38 No document states the test count
+- Origin: own
+- Where: `README.md`
+- Cause: the count of 1007 could not be reproduced without a build and was removed
+- Recognise: the root README gives no count
+- Workaround: run `sd test`
+- Fix: RW-60
+
+### KI-39 3.1 MB of transient CSVs sit inside the manual
+- Origin: own
+- Where: `docs/reference/spice`
+- Cause: the SPICE exports were written beside the reference pages
+- Recognise: `*_tran.csv` files under `docs/reference/spice/`
+- Workaround: none needed
+- Fix: RW-67
+
+### KI-40 The root build file defines targets and fetches dependencies
+- Origin: own
+- Where: `CMakeLists.txt`
+- Cause: the logic was never moved into `cmake/`
+- Recognise: `add_library` and `FetchContent` in the root file
+- Workaround: none needed
+- Fix: RW-70
+
+### KI-41 The version is kept by hand in two files
+- Origin: own
+- Where: `CMakeLists.txt`, `cli/pyproject.toml`, `sushi-module.toml`
+- Cause: no generated version header; the manifest states none
+- Recognise: a release edits two files by hand
+- Workaround: none
+- Fix: RW-69
+
+### KI-42 The ignore file names an output nothing writes
+- Origin: own
+- Where: `.gitignore`
+- Cause: it ignores `docs/api-site/html/`, names `sd doxygen` and carries paragraphs of comment
+- Recognise: the rules and their comments
+- Workaround: none needed
+- Fix: RW-71
+
+## Code shape
+
+### KI-43 Three error models coexist
+- Origin: own
+- Where: `modules/foundation/io/source/wav_file.cpp`, `applications/host_gui/rig_controller.hpp`,
+  `modules/nodes/room/include/SushiDSP/nodes/room/room_node.hpp`
+- Cause: exceptions, `bool` with an error string and bare `bool` were each chosen locally
+- Recognise: a caller handles failure three ways; `RigController` forwards `SlotGraph` one for
+  one and `main()` owns setup and the frame loop
+- Workaround: none
+- Fix: RW-3
+
+### KI-44 The host names products by id, and `nlohmann::json` is public
+- Origin: own
+- Where: `applications/host_gui/ui/panel_library.cpp`,
+  `modules/session/rig_preset/include/SushiDSP/session/rig_preset/rig_preset.hpp`
+- Cause: the panels, the filter and the topology applier list products; the preset header
+  includes the JSON library
+- Recognise: adding a product edits the GUI; a preset user compiles against nlohmann
+- Workaround: none
+- Fix: RW-73
+
+### KI-45 The amplifier modules repeat helpers, and `Wdf` is unused
+- Origin: own
+- Where: `modules/nodes/jcm800/source/jcm800.cpp`,
+  `modules/foundation/math/include/SushiDSP/foundation/math/wdf.hpp`
+- Cause: the four amplifiers each carry the same helpers and constants; `Wdf` has no production
+  user
+- Recognise: the same helper in four files; `wdf.cpp` built and unused
+- Workaround: none
+- Fix: RW-75

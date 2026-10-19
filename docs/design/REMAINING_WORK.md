@@ -1,245 +1,407 @@
 # Remaining work
 
-The single backlog. An entry here names work that is not started or not finished; a defect that
-is measured, understood and deliberately left alone lives in
-[`docs/reference/KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md) instead, and the entries below
-link to it rather than repeat its figures.
+Next id: RW-78
 
-Order inside a section is the order the work should be taken in, not a priority ranking.
+## Decisions waiting for the owner
+
+### RW-1 Tag v0.1.0 or fold its heading back into Unreleased
+- State: decision
+- Done when: the `## v0.1.0` heading of the changelog has a tag behind it, or is folded into
+  `## Unreleased`
+
+The changelog and commit `de235ac` declare the release and no tag exists.
+
+### RW-2 Say whether SushiDSP is in hub's catalogue
+- State: decision
+- Done when: `docs/design/SUSHIDSP.md` and `sushi-module.toml` agree on it
+- Source: `docs/design/SUSHIDSP.md`
+
+The design calls the repository a registered SushiStack member; the manifest says it is not in
+hub's catalogue.
+
+### RW-3 Choose one error model and the host's split
+- State: decision
+- Done when: the owner has chosen one error model, where `[[nodiscard]]` goes, and how
+  `RigController`, `SlotGraph` and `main()` divide the host
+- Source: `docs/design/SUSHI_STANDARDS_MIGRATION.md`
+
+Each changes a public interface; see `docs/agent/2026_10_12_SUSHI_STANDARDS_MIGRATION/SPEC.md`.
+
+### RW-4 Choose how the alias floor closes
+- State: decision
+- Done when: the owner has chosen 16× oversampling, a band limit between the stages that lets 8×
+  stay, or a higher-order antiderivative, and the amplifiers meet their bounds
+
+Part 4's measurements for the three are in `KI-1`.
+
+### RW-5 Choose how the IIC+ and the 5150 fit the smallest buffer
+- State: decision
+- Done when: the owner has chosen 4× for these models or a cheaper triode solve
+
+### RW-7 Rule a shared rig-width rule for the two hosts
+- State: decision
+- Done when: the owner has ruled it (spec section 12)
+- Source: `docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md`
+
+### RW-8 Decide what the archive's index and names become
+- State: decision
+- Done when: the owner has ruled whether `docs/archive/README.md` becomes an index naming which
+  of the two standards phase 1 plans is the record, and whether the dated lower-case names under
+  `docs/archive/` move to `UPPER_SNAKE_CASE.md`
+
+The archive is frozen; both edit it.
+
+### RW-9 Move the cabinet section's gate, or make the amplifier cheaper
+- State: decision
+- Done when: three JCM800 chains into one room with eight microphones meet the gate, or the
+  owner has moved the gate from half the block
+
+### RW-10 Choose how a track removal stays atomic
+- State: decision
+- Done when: a generation counter the callback reads once per block, or a refusal of the removal
+  while the transport runs, is chosen and built
+
+### RW-76 Decide whether `Wdf` stays
+- State: decision
+- Done when: `Wdf` has a production user, or it leaves the library
 
 ## Waiting on the maintainer's ears
 
-The cabinet section has not been played. A rig now carries its cabinets' own signal on the
-Cabinet input and the room on the Listener, Mic and Room strips, each with a level of its own, so
-the old question of how far the room's dry/wet mix could be turned up is replaced by a plainer
-one: with Cabinet muted, does a microphone 30 cm in front of the cabinet, or the listener across
-the room, sound like one. `docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/PLAN.md`, task G6, lists
-what to try on screen. No change to the levels the room renders at starts without that verdict.
+### RW-11 Hear the cabinet section with Cabinet muted
+- State: unmeasured
+- Done when: the owner has ruled whether a microphone 30 cm in front of the cabinet, or the
+  listener across the room, sounds like one
+- Source: `docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/PLAN.md`
 
-## Room, opened by the DE phase
+Task G6 lists what to try on screen. No change to the levels the room renders at starts without
+that verdict.
 
-- **Bound the output.** Nothing between `RoomNode` and the device limits what the room can
-  produce; `float_to_asio_sample()` is the only clamp in the path. `RoomScene`'s
-  absorption gate refuses the corner-cube's +36 dB scene, and the loudest a still-valid scene reaches has not been measured. Measure it first, then
-  decide whether a guard belongs in the node, the rig or neither.
-- **Weight the converter's diffuse average by solid angle**, now that the SADIE II set ships and
-  the host loads it; and decide whether the near ear's 5.1 dB above 5 kHz wants a higher decoder
-  order (KNOWN_ISSUES).
-- **Run the tail's output cascade twice under a fade**, so a listener or microphone move stops
-  stepping the filter on the network's stored energy.
-- **Give `BandResponseFit` an analytic Jacobian.** It stops at its eight-step cap on about 60 %
-  of fits and costs 4.33 ms for 150 fits, against the 30 Hz republish budget.
-- **Settle the built room's loss below 500 Hz.** It fits Motus and BRAS CR2 from 500 Hz up; at
-  125 Hz it reads 0.75 of one and 2.1 of the other (KNOWN_ISSUES). A third measured room, or a
-  low-frequency term tied to lightweight elements, decides it.
-- **Rebuild the room's spec section 6.2.** Its line-allocation sentence sizes the delay lines for
-  an RT60 of 3 s, and `FdnDesign::K_MAX_LINE_SECONDS` is the 0.525 s that follows from it, while
-  `RoomScene::K_MAX_DECAY_SECONDS` admits scenes up to 12 s. The lines do not lengthen with the
-  gate, so a scene between the two decays at the echo density 0.525 s lines give. Whether that
-  thins audibly is not measured.
+### RW-12 Hear and see the cabinet section with cones
+- State: unmeasured
+- Done when: a microphone against a cone, at its edge and between two cones has been heard
+  against a real cabinet, and the scene's boxes and cones have been looked at on screen
+- Source: `docs/agent/2026_10_13_CABINET_DRIVERS_AND_FURNITURE/SPEC.md`
+
+### RW-13 Place the starter room's furniture
+- State: unmeasured
+- Done when: the owner has heard the starter room with its furniture placed; it changes the
+  reflections the owner ear-checked on 2026-09-23
+
+## Room
+
+### RW-6 Measure the loudest valid scene, then decide on a guard
+- State: unmeasured
+- Done when: the loudest scene `RoomScene::is_valid` admits is measured, and the owner has ruled
+  whether a guard belongs in the node, the rig or neither
+
+### RW-14 Weight the HRTF converter's diffuse average by solid angle
+- State: open
+- Done when: `tools/dsp/convert_hrtf.py` derives each direction's solid angle from the grid it
+  finds
+
+### RW-15 Close the near ear's miss above 5 kHz
+- State: open
+- Done when: a higher decoder order, or a decoder that trades the far ear for the near one,
+  brings the near ear within 3 dB above 5 kHz
+
+### RW-16 Run the tail's output cascade twice under a fade
+- State: open
+- Done when: a listener or microphone move blends the retiring and arriving coefficients on one
+  line sum, two more biquads per ear in `LateReverb`
+
+### RW-17 Give `BandResponseFit` an analytic Jacobian
+- State: open
+- Done when: the fit converges inside a higher cap; it stops at eight steps on about 60 % of fits
+  and costs 4.33 ms for 150 fits against the 30 Hz republish budget
+
+### RW-18 Settle the built room's loss below 500 Hz
+- State: open
+- Done when: a third measured room, or a low-frequency term tied to lightweight elements, sets
+  the 125 Hz and 250 Hz figures
+- Source: `docs/design/ROOM_FURNISHINGS.md` §11
+
+### RW-19 Rebuild the room's line allocation for long decays
+- State: open
+- Done when: spec section 6.2 sizes the delay lines for the 12 s `RoomScene::K_MAX_DECAY_SECONDS`
+  admits, or a measurement shows the 0.525 s lines do not thin audibly
+- Source: `docs/design/SUSHIDSP.md`
+
+### RW-20 Let furniture shadow and reflect
+- State: open
+- Done when: a placed furnishing blocks the line of sight and has an image of its own
+- Source: `docs/design/ROOM_FURNISHINGS.md` §9
+
+### RW-21 Give the listener one direct path per cone
+- State: open
+- Done when: each cone has its own direct path to the ears, at an HRIR pair each
+
+### RW-22 Transcribe the remaining four material rows
+- State: open
+- Done when: brick, acoustic foam, the steel garage door and carpet on underlay join the table
+  with a citation each
+
+### RW-23 Give the SM57 its measured curve
+- State: open
+- Done when: Shure's published response is a second row of `microphone_model.cpp` with its own
+  `MicrophoneKind`
+
+### RW-25 Bound the raw octave step at the seam
+- State: open
+- Done when: a bound derived from the reference's own step holds the raw step across f_s
+
+### RW-26 Shorten the tail's lines by the direct-delay compensation
+- State: open
+- Done when: the designer is told the compensation and the tail lands with the direct sound
 
 ## Host
 
-- **Track playback pitch shift.** The bottom bar's Pitch field
-  (`docs/design/GUI_UX_REDESIGN.md` §12) is drawn disabled. It needs a semitone shift of
-  track playback that leaves speed alone; today `VariRateReader` moves pitch with speed and
-  nothing in the tree stretches time. Owner decision 2026-09-14: its own plan, applied to
-  track playback only.
-- **Phase 2 manual acceptance.** The seven checks in Task 14 of
-  `docs/archive/superpowers/plans/2026-09-14-host-gui-phase2.md` have not been run in the GUI.
-- **`SlotGraph::add_branch` has no caller** since the splitter picker was removed;
-  `RigController` still forwards to it.
-- **`SlotGraph::publish()` rebuilds every node.** One structural edit builds the node set
-  three times, which is why "No bundled HRTF set" prints three times on a graph change and why a
-  room edit through the graph empties the tail (KNOWN_ISSUES, "A structural rig edit empties the
-  room's tail"). Carrying surviving nodes across a rebuild closes both and touches no module.
-- **A stereo branch collapses at a `MixerNode`**, and **`write_rig_output_to_device`'s 2-into-1
-  downmix has one live caller**, the GUI host on a mono device (KNOWN_ISSUES, both entries). The
-  ASIO example renders stereo since 2026-10-13; the mixer and the downmix are the open part.
-- **DS5, the OGG export.** A five-minute stereo take is 115 MB of float on disk today.
-- **39 units owe a test file.** `tools/testing/untested_units.txt` lists them: 31 in
-  `applications/host_gui` and its `ui/` folder, 6 in `applications/plugin`, and the ASIO and
-  SDL2 audio devices. `check_test_mirror.py` skips the listed units and fails on an entry whose
-  unit has gained a test, so each test written drops one line. The two devices need hardware;
-  for them the work is a fake backend or a recorded reason they stay listed
-  (KNOWN_ISSUES, "39 units have no test file").
-- **Move the untested-unit exception upstream.** The exception lives in a local edit of the
-  shared `tools/testing/check_test_mirror.py` and reads `tools/testing/untested_units.txt`;
-  `project-tools` forbids both. The rule and its stale-entry check go into SushiSkills' checker
-  first, reading the list from `tools/settings.py`; then the shared file is copied back and the
-  text file removed (KNOWN_ISSUES, "The test mirror exception is a local edit of a shared
-  checker").
+### RW-27 Shift the pitch of track playback
+- State: open
+- Done when: the bottom bar's Pitch field shifts track playback by semitones and leaves speed
+  alone, in a plan of its own (owner decision of 2026-09-14)
+- Source: `docs/design/GUI_UX_REDESIGN.md` §12
+
+### RW-28 Run the phase 2 manual acceptance
+- State: unmeasured
+- Done when: the seven checks of task 14 of
+  `docs/archive/superpowers/plans/2026-09-14-host-gui-phase2.md` have been run in the GUI
+
+### RW-29 Remove `SlotGraph::add_branch`
+- State: open
+- Done when: neither `SlotGraph` nor `RigController` carries it; it has no caller since the
+  splitter picker went
+
+### RW-30 Carry surviving nodes across a rebuild
+- State: open
+- Done when: `SlotGraph::publish()` keeps the nodes a structural edit leaves in place, so the
+  room's tail survives the edit and the node set is built once per edit
+
+### RW-31 Keep a stereo branch stereo through a mixer
+- State: open
+- Done when: a `PortLayout` can say eight slots of two channels and `MixerNode` keeps its inputs'
+  width
+
+### RW-32 Export OGG, DS5
+- State: open
+- Done when: a take leaves the host as OGG; a five-minute stereo take is 115 MB of float today
+
+### RW-33 Test the 39 units without a test file
+- State: open
+- Done when: `tools/testing/untested_units.txt` is empty: 31 units in `applications/host_gui`, 6
+  in `applications/plugin`, and the ASIO and SDL2 device backends
+
+The CLAP boundary runs behind a fake host and the ImGui panels without a window, both `medium`; a
+device backend runs `medium` on SDL's dummy driver where it can and `large` against a device.
+
+### RW-34 Take the untested-unit exception from SushiSkills
+- State: blocked
+- Blocked by: sushiskills RW-20
+- Done when: the shared `check_test_mirror.py` matches SushiSkills', the list is read from
+  `tools/settings.py`, and `tools/testing/untested_units.txt` is gone
+
+### RW-35 Read a take's own sample rate
+- State: open
+- Done when: a clip carries its take's rate over the rig's into `VariRateReader`
+
+### RW-36 Cap the imported-audio cache
+- State: open
+- Done when: `cache/imported_audio/` has a size cap and evicts by last use
+
+### RW-37 Start a rebuilt strip where its level is
+- State: open
+- Done when: a structural edit leaves no 20 ms glide from a parameter's default to its value
+
+### RW-38 Give the post stage a stereo input
+- State: open
+- Done when: an effect can declare a stereo input, or the post stage runs one instance per
+  channel
+
+### RW-72 Write `imgui.ini` outside the working directory
+- State: open
+- Done when: the host sets ImGui's ini path to a folder of its own
+
+### RW-73 Let the host find products without naming them
+- State: open
+- Done when: adding a product edits no file under `applications/host_gui/`
 
 ## Products
 
-- **Calibrate the power amplifier's feedback depth, after the output transformer is the Mesa's.**
-  The leg's own response is solved from S8 (`modules/foundation/circuits/source/power_amp_feedback.cpp`) and the forward
-  gain is measured: 38.33 dB at 80 Hz, 39.56 at 600 Hz, 61.59 at 3 kHz and 53.31 at 10 kHz, with
-  the loop open. Depth cannot be set from those numbers yet. At the depth that sweeps presence the
-  18 dB the shelf it replaced did, the amplifier oscillates at 11.8 kHz, which is the 8 kHz pole of
-  an output transformer still borrowed from the JCM800; at the deepest depth that does not ring,
-  `K_TAP_TO_FEEDBACK_VOLTS` 14.0, a 9 dB resonance sits at 10 kHz and presence runs backwards above
-  it. What the loop does is decided by the phase of what it loops around, so this item waits on the
-  transformer below. The 14.0 in the tree is a holding value, not a calibration.
-- **The Mesa Mark IIC+'s remaining accuracy work.** Planned in
-  [`docs/agent/2026_09_20_V0_1_0_RELEASE/PLAN.md`](../agent/2026_09_20_V0_1_0_RELEASE/PLAN.md)
-  phase A. Coefficients became a 32-frame control period on 2026-09-21, and PULL BRIGHT, PULL DEEP
-  and the equaliser's three-position switch landed the same day. Three switches stay out because
-  the schematic does not settle them: PULL BRIGHT's V4A cathode resistor is illegible (§8 question
-  9), CLASS A does not say which pair it takes out (question 12), and BASS SHIFT's sheet gives
-  neither the capacitor's value nor which leg the switch lifts. The JCM800's
-  citations left the module on 2026-09-21, but the output transformer's two corners, its core drive
-  and both sag figures remain stand-ins, because neither sheet prints the primary impedance and the
-  dossier's calibration targets carry no supply figure. Those five are listed in the module README's
-  table; the leakage corner is the one that now decides whether the feedback loop is stable. A
-  search outside the repository on 2026-09-21 established that the transformer's figures are
-  unpublished rather than merely unread, so this waits on a bench measurement of a real chassis or
-  on Mercury Magnetics characterising one. The tone stack's termination landed 2026-09-20, the
-  equaliser's centres were corrected the same day, and presence became the traced feedback loop
-  around a real long-tailed pair. The equaliser as its trap network is deferred past 0.1.0: S8 draws
-  the active stage, but four transistors are a Newton solve of their own size.
-- **Find a Diezel VH4 power-amp schematic.** Its phase inverter and power section are the
-  JCM800's, borrowed whole.
-- **Close the alias floor.** The maintainer's call between 16×, a band limit between the stages,
-  or a higher-order antiderivative; part 4's measurements for all three are in KNOWN_ISSUES.
-- **Transcribe the remaining four material rows**, and measure the SM57's curve.
+### RW-40 Calibrate the power amplifier's feedback depth
+- State: blocked
+- Blocked by: RW-41
+- Done when: the depth that sweeps presence leaves the loop stable; `K_TAP_TO_FEEDBACK_VOLTS`
+  14.0 is a holding value
 
-## The Mark IIC+ questions only a real amplifier answers
+Forward gain with the loop open: 38.33 dB at 80 Hz, 39.56 at 600 Hz, 61.59 at 3 kHz, 53.31 at
+10 kHz. At the depth that sweeps 18 dB the amplifier oscillates at 11.8 kHz, the 8 kHz pole of a
+transformer still borrowed from the JCM800; at 14.0, a 9 dB resonance sits at 10 kHz.
 
-Twelve of the dossier's §8 items need an LCR meter, a voltmeter or a better scan of the 1983
-factory sheet, and no line of code closes one. Each is listed against the constant it holds up in
-[`modules/nodes/mesa_mark2c/README.md`](../../modules/nodes/mesa_mark2c/README.md). The two that carry the
-most audible weight, in order:
+### RW-41 Measure the Mesa Mark IIC+'s output transformer
+- State: blocked
+- Blocked by: external: a bench measurement of a real chassis, or one published
+- Done when: the transformer's two corners, its core drive and both sag figures are measured
+- Source: `docs/agent/2026_09_20_V0_1_0_RELEASE/PLAN.md`
 
-- **The lead output divider's shunt** (item 21). 100 K on S1, 3.3 K on S8, and 26.5 dB of V2A's
-  drive between them. An ohmmeter across R30 on any IIC+ settles it.
-- **Where V4A's 0.047 µF sits** (item 18). Across the 170 K or in parallel with the 68 K, worth
-  10.9 dB across the guitar band. A photograph of that corner of the board settles it.
+A search on 2026-09-21 found the figures unpublished. Three switches also wait on the schematic:
+PULL BRIGHT's V4A cathode resistor (question 9), which pair CLASS A takes out (question 12), and
+BASS SHIFT's capacitor and leg. The equaliser as its trap network is deferred past 0.1.0.
 
-Item 15 is the one nothing in this repository can fix: no bench measurement of a Mark IIC+ appears
-to have been published. The model is calibrated against arithmetic until someone puts one on an
-analyser.
+### RW-42 Find a Diezel VH4 power-amp schematic
+- State: blocked
+- Blocked by: external: a published schematic
+- Done when: the phase inverter and power section are the VH4's
 
-Items 1, 2, 11 and 16 closed on 2026-09-20 against jrb32's traced schematic, which reads as a
-vector drawing rather than a scan; the readings and the corrections they make to the dossier are in
-[`docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md`](../agent/2026_09_20_V0_1_0_RELEASE/REPORT.md).
-The two EQ inductors moved two band centres in the model. The equaliser's active stage is now drawn
-but not modelled, and item 17's SPICE decks are unblocked by the same reading.
+### RW-43 Answer the Mark IIC+ questions only a real amplifier answers
+- State: blocked
+- Blocked by: external: a Mark IIC+ on a bench
+- Done when: the dossier's twelve §8 bench items are measured
+- Source: `modules/nodes/mesa_mark2c/README.md`
 
-## Opened 2026-10-13: AmpliTube 5 channels and cabinet section
+First: the lead output divider's shunt (item 21, 100 K or 3.3 K, 26.5 dB of V2A's drive), and
+where V4A's 0.047 µF sits (item 18, 10.9 dB across the guitar band). Item 15, a published bench
+measurement, does not exist.
 
-The copy of AmpliTube 5's signal architecture
-([`docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md`](../agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md))
-is written through its last phase; its plan in the same folder holds what is verified and what is
-not. What it leaves:
+### RW-44 Read the IIC+'s effects send and return network
+- State: blocked
+- Blocked by: external: a schematic that gives the link's values
+- Done when: the network is modelled and the three skipped tests of `test_behaviour.cpp` assert
+  again (dossier questions 19 and 20)
 
-- **Start a rebuilt strip where its level is.** Every publish builds fresh nodes and then writes
-  their parameters, so a smoothed parameter glides from its default to its value over 20 ms on
-  each structural edit. The Parallel chain's pans and every strip's level do this.
-- **A stereo post stage.** A post effect is mono, so it sums the amp bus's two channels and the
-  listener's stereo image is lost behind it (`docs/reference/KNOWN_ISSUES.md`).
-- **Loop FX sends and the VIRTM view** stay out; the spec's section 3 records why.
-- **A shared rig-width rule** for the two hosts waits for the owner (spec section 12).
+## Track rigs and the plugin
 
-## Opened by the 2026-10-05 estate audit
+### RW-45 Remove the re-amp leg
+- State: open
+- Done when: `SessionTimeline` and `SlotGraph` carry no re-amp player, track or input-source
+  choice, and their tests go
+- Source: `docs/agent/2026_10_13_TRACK_RIGS_AND_PLUGIN/SPEC.md`
 
-The defects are listed in
-[`docs/reference/KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md), "Open findings of the
-2026-10-05 estate audit". The work that closes them, in the order it should be taken.
+### RW-46 Give a track's strip an EQ
+- State: open
+- Done when: the strip has three bands, as AmpliTube 5's does
 
-Decisions the owner takes first:
+### RW-47 Edit clips
+- State: open
+- Done when: a clip can be split, copied, pasted, cropped, faded and gain-trimmed, and a punch
+  region exists
 
-- **Tag v0.1.0 or fold its heading back into Unreleased.** The changelog and commit `de235ac`
-  declare the release and no tag exists.
-- **Say whether SushiDSP is in hub's catalogue**, then correct `docs/design/SUSHIDSP.md` §11a
-  to match `sushi-module.toml`.
-- **Choose one error model**, since it is public interface. The logger landed on 2026-10-07
-  (`modules/foundation/log/include/SushiDSP/foundation/log/`).
-- **Logger follow-ups.** No test provokes the writer-thread start or the append failure in
-  `TrackRecorder`, nor the `TopologyApplier` and `SlotGraph` sites; the `list_directory` test
-  skips on Windows, where a 40 000-character path raises nothing; `StderrLogSink` has no test;
-  a line carries no timestamp or thread id; `sushi_dsp` uses `std::thread` without linking
-  `Threads::Threads`.
-- **State the test count with its sizes** in `README.md`, after one `sd test` run.
+### RW-48 Export 24-bit WAV and AIFF
+- State: open
+- Done when: `WavWriter` writes 24-bit and an AIFF writer exists
 
-Mechanical work that follows:
+### RW-49 Export MP3 on Linux
+- State: open
+- Done when: `cmake/SushiDSPLame.cmake` configures LAME on Linux
 
-- Rewrite `docs/archive/README.md` as an index of what the archive holds, and say there
-  which of the two standards phase 1 plans is the record.
-- Give the five placeless changelog entries of 2026-09-05 and 2026-09-07 their places.
-- Write the READMEs for `applications/host/`, `applications/host_asio/`, `modules/foundation/signal_measure/`, `tests/foundation/core/`
-  and each area under `include/SushiDSP/`.
-- Rewrite the CLI guide, the design spec's opening block and the first known issue in the
-  `humanizer` register.
-- Test the 39 units `check_test_mirror.py` reports, as their own piece of work (`KNOWN_ISSUES.md`):
-  31 under `applications/host_gui`, 6 under `applications/plugin` and the two device backends
-  `asio_audio_device` and `sdl2_audio_device`. The CLAP boundary runs behind a fake host and the
-  ImGui panels run ImGui without a window, both `medium`; a device backend runs `medium` on SDL's
-  dummy audio driver where it can, and `large` against a real device.
-- Run the workflows once on GitHub: `ci.yml`, `nightly.yml` and `release.yml` were written on a
-  machine with no runner, and the first run is what proves the `sd` lanes, the ASan and TSan
-  builds and the caches.
-- The forward-sink example in `modules/foundation/log/README.md` ends in `Source: not compiled`,
-  because `SushiRuntime::log_forward_sink()` lives in another repository. `check_docs_truth.py
-  --report` counts it as the one unverified example. Closes when that repository's sink is built
-  here, or the example is cut to what this repository compiles.
-- Reserve the error model, `[[nodiscard]]` and the `RigController` and `SlotGraph` split for an
-  owner decision, since they change public interfaces (see `docs/agent/2026_10_12_SUSHI_STANDARDS_MIGRATION/SPEC.md`).
-- Rewrite the em dash replacements of 2026-10-12 in the `humanizer` register. They replaced each
-  dash with a comma, a colon or a stop by its context, and no page was read after that pass.
-- Move the SPICE transient CSVs out of `docs/reference/spice/` to a fixture folder, with the
-  tests and `tools/spice/export.py` that read and write them.
-- Correct `assets/ir/README.md`: the impulse response it names is not shipped, and its
-  admission rule still names the Apache licence.
+### RW-50 Keep a removed track's lane out of its neighbour's rig
+- State: open
+- Done when: removing a track moves the lanes and the table of rigs in one step
 
-## Opened 2026-10-13: cabinet drivers and placed furniture
+### RW-51 Skip a rig that has nothing to play
+- State: open
+- Done when: eight idle rigs cost less than eight times one
 
-[`docs/agent/2026_10_13_CABINET_DRIVERS_AND_FURNITURE/SPEC.md`](../agent/2026_10_13_CABINET_DRIVERS_AND_FURNITURE/SPEC.md)
-gave a cabinet its cones and a furnishing its place. What it leaves:
+### RW-52 Make the host's rig sources a library
+- State: open
+- Done when: the tests and the plugin link a library in place of naming 24
+  `applications/host_gui` sources
 
-- **The cabinet section has not been heard with cones.** A microphone against a cone, at its
-  edge and between two cones must be listened to against a real cabinet's behaviour, and the
-  scene's boxes and cones must be looked at on screen. Neither was done.
-- **An electromechanical driver.** The cones are radiating geometry only. The driver's
-  resonance, its impedance as the power amplifier's load, cone breakup as a response and
-  compression at level are not modelled; the cabinet's voice is still `CabinetNode`'s impulse
-  response.
-- **Furniture that shadows and reflects.** A placed furnishing absorbs around where it stands.
-  It does not block the line of sight and has no image of its own
-  ([`ROOM_FURNISHINGS.md`](ROOM_FURNISHINGS.md) section 9).
-- **The starter room's furniture has no place.** Placing it changes that room's reflections,
-  which the owner ear-checked on 2026-09-23, so it waits for the owner's ear.
-- **The listener's line of sight is one far-field tap.** At listening distance the cones differ
-  by less than the pattern says, and a per-cone direct path costs an HRIR pair each.
+### RW-53 Load the plugin in a DAW and install it
+- State: unmeasured
+- Done when: a CLAP host has loaded `SushiDSP.clap` and an install puts it in a CLAP folder
 
-## Opened 2026-10-13: track rigs, export and the first plugin
+### RW-54 Give the plugin an editor and a VST3 shell
+- State: open
+- Done when: both exist
 
-[`docs/agent/2026_10_13_TRACK_RIGS_AND_PLUGIN/SPEC.md`](../agent/2026_10_13_TRACK_RIGS_AND_PLUGIN/SPEC.md)
-gave each track a rig and the session an export. What it leaves:
+### RW-55 Give the plugin's rooms the HRTF set
+- State: open
+- Done when: a plugin rig loads the measured set, not the spherical head
 
-- **The re-amp leg is dead weight.** `SessionTimeline` still carries the re-amp player, its
-  track and the input-source choice in `SlotGraph`; the host does not read them, since every
-  track is rendered through its own rig. They and their tests can go.
-- **A track's strip has no EQ.** AmpliTube 5's has three bands.
-- **Clips are only moved and removed.** No split, copy, paste, crop, fade or gain trim, and no
-  punch region.
-- **The export writes no 24-bit WAV and no AIFF.** `WavWriter` knows 16-bit and float.
-- **MP3 export is Windows only.** `cmake/SushiDSPLame.cmake` uses the configuration header LAME
-  ships for Windows.
-- **Removing a track can play one block of a lane through its neighbour's rig.** The lanes move
-  down in the timeline before the table of rigs does.
-- **Eight rigs cost eight times one.** A track is skipped only while it is neither rolling nor
-  played into.
-- **The host's rig sources are a list, not a library.** The tests and the plugin compile
-  `applications/host_gui`'s non-GUI sources by naming them.
-- **The plugin has never met a DAW.** `SushiDSP.clap` links and its adapter's tests pass; no CLAP
-  host has loaded it, and nothing installs it into a CLAP folder.
-- **The plugin has no editor and no VST3 shell.** Its rig comes from the file
-  `SUSHIDSP_PLUGIN_RIG` names, or from the DAW session's state.
-- **The plugin's rooms use the spherical head.** The HRTF set is given to a rig outside its
-  preset, and the plugin gives none.
-- **A plugin parameter is applied at the block's start**, not at its event's sample, and the
-  adapter finds a slot's node by pairing slot order with node order, since `RigController` has
-  no lookup from a slot to its node.
-- **Nothing traps an allocation in `RigAdapter::process`.** The trap in `test_rt_safety.cpp` is
-  private to that file.
+### RW-56 Apply a plugin parameter at its event's sample
+- State: open
+- Done when: parameters apply at the event, and `RigController` maps a slot to its node
+
+### RW-57 Trap an allocation in `RigAdapter::process`
+- State: open
+- Done when: the allocation trap of `test_rt_safety.cpp` is shared and covers the adapter
+
+### RW-58 Model the cabinet's drivers
+- State: open
+- Done when: a driver's resonance, its impedance as the power amplifier's load, cone breakup and
+  compression at level are modelled
+- Source: `docs/agent/2026_10_13_CABINET_DRIVERS_AND_FURNITURE/SPEC.md`
+
+## Logging, tests and CI
+
+### RW-59 Finish the logger's tests and lines
+- State: open
+- Done when: tests provoke the writer-thread start, the append failure in `TrackRecorder` and the
+  `TopologyApplier` and `SlotGraph` sites; `list_directory` fails on Windows in its test;
+  `StderrLogSink` has a test; a line carries a timestamp and a thread id; `sushi_dsp` links
+  `Threads::Threads`
+
+### RW-60 State the test count with its sizes in the README
+- State: unmeasured
+- Done when: one `sd test` run gives the count and `README.md` states it
+
+### RW-64 Run the release workflow once
+- State: unmeasured
+- Done when: `.github/workflows/release.yml` has run on GitHub; CI and Nightly have
+
+### RW-65 Make the small tests pass under ThreadSanitizer
+- State: open
+- Done when: the CI job "Small tests under thread (Linux, Clang)" passes
+
+### RW-66 Compile the forward-sink example
+- State: open
+- Done when: the example in `modules/foundation/log/README.md` comes from a file this tree
+  compiles, or is cut to what it compiles; `SushiRuntime::log_forward_sink()` lives elsewhere
+
+### RW-77 Test the scripts under `tools/dsp/` and `tools/spice/`
+- State: open
+- Done when: each script has tests
+
+## Documentation and layout
+
+### RW-62 Correct the changelog's places
+- State: open
+- Done when: the five placeless entries of 2026-09-05 and 2026-09-07 have places, and the
+  entries citing `docs/archive/changelog/` and three removed files cite what exists
+
+### RW-63 Read the pages the em dash pass changed
+- State: open
+- Done when: the CLI guide, the design spec's opening block and the pages the 2026-10-12 pass
+  changed read in the `humanizer` register
+
+### RW-67 Move the SPICE transient CSVs out of the manual
+- State: open
+- Done when: `docs/reference/spice/*/*_tran.csv` move to a fixture folder with the tests and
+  `tools/spice/export.py` that read and write them
+
+### RW-68 Correct the impulse response pages
+- State: open
+- Done when: `assets/ir/README.md` and `applications/host_gui/README.md` name what ships, and the
+  admission rule names this repository's licence
+
+### RW-69 Generate the version
+- State: open
+- Done when: a generated header carries the version, `cli/pyproject.toml` reads it, and
+  `sushi-module.toml` states it
+
+### RW-70 Move the root build file's logic into `cmake/`
+- State: open
+- Done when: the root `CMakeLists.txt` defines no target and fetches no dependency itself
+
+### RW-71 Clean the ignore file
+- State: open
+- Done when: `.gitignore` names nothing nobody writes, says `sd docs`, and carries rules, not
+  paragraphs
+
+### RW-74 Keep `nlohmann::json` out of the preset module's interface
+- State: open
+- Done when: `rig_preset.hpp` includes no JSON header
+
+### RW-75 Give the four amplifier modules their shared helpers once
+- State: open
+- Done when: the helpers and constants `jcm800.cpp`, `peavey5150.cpp`, `diezel_vh4.cpp` and
+  `mesa_mark2c.cpp` repeat live in one module

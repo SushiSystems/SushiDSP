@@ -1,7 +1,6 @@
 # SushiSkills conformance migration
 
-**Status:** Open, work in progress. The design phase this work carries out is
-[`docs/design/SUSHI_STANDARDS_MIGRATION.md`](../../design/SUSHI_STANDARDS_MIGRATION.md).
+**Status:** Open — the owner's decisions of RW-3.
 
 ## Decisions
 

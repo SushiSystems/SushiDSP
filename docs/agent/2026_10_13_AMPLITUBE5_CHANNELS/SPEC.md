@@ -1,6 +1,6 @@
 # AmpliTube 5 channels, cabinet section and room
 
-**Status:** Open. Every phase is written, built and tested; the P4 benchmark gate fails at 3.896 ms against 2.67 ms, and the screen has not been checked with the owner. PLAN.md holds the build status.
+**Status:** Open — built and tested; the gate is RW-9 and the listening RW-11.
 
 ## 1. Goal
 

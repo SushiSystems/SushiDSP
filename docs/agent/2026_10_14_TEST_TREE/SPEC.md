@@ -1,7 +1,6 @@
 # Test tree to the testing skill
 
-**Status:** Open. Decisions taken on 2026-10-15 (section 2). T1 is committed with this folder.
-T0 (include path) and T2 to T10 are planned in PLAN.md. No test is moved or written yet.
+**Status:** Shipped — 2026-10-15. The untested units are RW-33.
 
 ## 1. What the owner asked
 

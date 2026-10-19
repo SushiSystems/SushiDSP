@@ -1,9 +1,6 @@
 # Plan: room furnishings and finishes
 
-**Status:** open, written 2026-09-22. The design it implements is
-[`docs/design/ROOM_FURNISHINGS.md`](../../design/ROOM_FURNISHINGS.md); every section number below
-points there. The backlog entries this work creates live in
-[`docs/design/REMAINING_WORK.md`](../../design/REMAINING_WORK.md).
+**Status:** Shipped — 2026-09-22. The design's open sections are RW-18 and RW-20.
 
 Order is hierarchy first: the data brick, then the scene that holds it, then the seam that reads
 the scene, then the three layers that read the seam, then the node's acceptance, then the

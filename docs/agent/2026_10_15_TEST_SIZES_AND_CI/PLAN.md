@@ -1,6 +1,6 @@
 # Test sizes and staged CI
 
-**Status:** Open: S1 to S6 done inline, as the owner chose; the workflows have not run on GitHub
+**Status:** Shipped — 2026-10-16. The red ThreadSanitizer job is KI-31.
 
 Adopts SushiSkills `ac2242a` in SushiDSP: `testing` "Sizes, scopes and names",
 `continuous-integration` "Stages" and "Shape", and `repository-layout/TESTS.md` "Sizes are labels".

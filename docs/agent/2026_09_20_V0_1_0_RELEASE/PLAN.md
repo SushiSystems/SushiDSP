@@ -1,8 +1,6 @@
 # Plan: the Mark IIC+ model, the SOLID debt, and v0.1.0
 
-**Status:** open, written 2026-09-20. Supersedes nothing. The backlog entries it creates live in
-[`docs/design/REMAINING_WORK.md`](../../design/REMAINING_WORK.md); the bench-blocked questions it
-cannot close stay in the dossier's §8.
+**Status:** Open — phase A waits on the bench, RW-41 and RW-43.
 
 The owner's hard requirement for v0.1.0 is the accuracy of the Mesa/Boogie Mark IIC+ model. This
 plan puts that first, then pays the SOLID debt the audit found, then clears the release blockers.

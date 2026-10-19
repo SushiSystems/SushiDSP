@@ -1,6 +1,6 @@
 # Track rigs, export and the first plugin
 
-**Status:** Written, built and tested. Nothing was heard or seen on screen, and no DAW has opened the plugin. PLAN.md holds the results.
+**Status:** Open — built and tested; RW-45 to RW-57 are left. PLAN.md holds the results.
 
 ## 1. What the owner asked for
 

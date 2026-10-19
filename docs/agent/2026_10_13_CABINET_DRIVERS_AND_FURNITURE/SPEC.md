@@ -1,6 +1,6 @@
 # Cabinet drivers and placed furniture
 
-**Status:** Written, built and tested on 2026-10-13. Not heard and not seen on screen; the gate still fails. Section 8 lists where the tree departs from the text above it.
+**Status:** Open — built and tested; RW-12 and RW-58 are left. Section 8 lists where the tree departs from the text.
 
 ## 1. What the owner asked for
 

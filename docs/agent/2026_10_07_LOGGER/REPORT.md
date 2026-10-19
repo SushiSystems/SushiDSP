@@ -1,6 +1,6 @@
 # Logger report
 
-**Status:** Shipped on 2026-10-07.
+**Status:** Shipped — 2026-10-07
 
 SushiDSP had no logger. The core library has one under `include/SushiDSP/log/` and `src/log/`,
 and the handled failures the estate audit found dropped are logged.
