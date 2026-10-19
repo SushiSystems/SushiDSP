@@ -8,6 +8,7 @@ The header includes `gtest.h`, so a test that includes it links GoogleTest itsel
 ## timing_gate.hpp
 
 Defines `SUSHIDSP_REQUIRE_OPTIMISED_BUILD()`, which skips the calling test unless `NDEBUG` is
-defined, and `SushiDSP::test::is_optimised_build()`, which reports the same condition. A wall-clock
-budget is a Release figure: asserting it against an unoptimised binary compares two different
-programs.
+defined and no sanitiser is on, and `SushiDSP::test::is_optimised_build()` and
+`is_sanitised_build()`, which report the two conditions. A wall-clock
+budget is a Release figure: asserting it against an unoptimised or sanitised binary compares two
+different programs.

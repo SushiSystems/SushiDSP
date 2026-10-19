@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-19 — tests: Skipped wall-clock bounds in sanitiser builds as well as unoptimised ones, so the ThreadSanitizer lane stops failing the room render-set budget (`timing_gate.hpp`, `test_timing_gate.cpp`).
 - 2026-10-19 — docs: Moved the backlog and the known issues to the SushiSkills entry format and took the backlog checker with the shared tools (`REMAINING_WORK.md`, `KNOWN_ISSUES.md`, `check_backlog.py`).
 - 2026-10-17 — cli: Pinned SushiLog v0.2.1, which marks missing and extra format arguments and adds `SushiLog::log_at` (`sushistack.deps.toml`, `NOTICE.md`).
 - 2026-10-17 — cli: Pinned SushiLog v0.2.0, which adds the header-only `SushiLog::text` formatter (`sushistack.deps.toml`, `NOTICE.md`).
