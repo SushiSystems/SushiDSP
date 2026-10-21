@@ -83,7 +83,7 @@ Shockley branch integrates to `Is*(n*Vt*exp(v/(n*Vt)) - v)`, and beyond either k
 line integrates to the quadratic matched to it in value there, so the antiderivative is C^1
 wherever the current is C^0. Its constant of integration is the Shockley branch's own and cancels
 in any difference of two evaluations, which is the only way antiderivative antialiasing reads it
-([`2026-08-26-aaa-audio-quality-design.md`](../../docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md),
+(`2026-08-26-aaa-audio-quality-design.md`,
 Model corrections D6c C2). An antiparallel pair wants both quantities at both polarities, so
 pairing them costs one exponential per side where separate calls would cost two, exactly as
 `current_and_jacobian()` pairs the Newton quantities.
@@ -116,3 +116,9 @@ bounds handed to the solver mark where the plate ceiling has already saturated.
 Newton's first step from a bound leaves the iterate on it whenever the residual there has the sign
 that points past the bound. The conduction current is never negative, which settles the cutoff
 bound from the linear part alone, and at the conduction bound softplus equals its argument.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

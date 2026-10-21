@@ -1,6 +1,8 @@
 # Sushi Systems Programming Standards Migration
 
 **Status:** Open — P1 built, P2 under way, P3 not started
+**About:** Bringing the repository to the Sushi Systems programming standards: tooling, module tiers, code style and comments.
+**Modules:** none
 
 ## Problem
 
@@ -71,8 +73,6 @@ docs/
         superpowers/
 ```
 
-- `docs/archive/superpowers/plans/` and `docs/archive/superpowers/specs/` live under
-  `docs/archive/superpowers/`.
 - The module index is `docs/architecture/MODULES.md`; the Doxygen main page is
   `docs/reference/API_REFERENCE.md`.
 - Design documents are `UPPER_SNAKE_CASE.md` with a status line, and `docs/design/README.md`
@@ -93,8 +93,7 @@ docs/
 - Ensure Allman braces and 100-character line width across all C++ translation units.
 - Populate license and `@file` blocks matching `source-comments`.
 
-The work folder of phase 1 is archived at
-`docs/archive/agent/2026_09_15_SUSHI_STANDARDS_PHASE_1/`.
+The work folder of phase 1 is in the version history.
 
 ## Phases
 
@@ -103,6 +102,12 @@ The work folder of phase 1 is archived at
 | P1 | Foundational tooling and documentation layout | built |
 | P2 | Module tier restructuring: the checker's half has landed, `src/` and `include/SushiDSP/` have not moved | building |
 | P3 | Code style and comment compliance | planned |
+
+### Work
+
+<!-- work:begin -->
+- [2026_10_12_SUSHI_STANDARDS_MIGRATION](../agent/2026_10_12_SUSHI_STANDARDS_MIGRATION/SPEC.md): P2
+<!-- work:end -->
 
 ## Open questions
 

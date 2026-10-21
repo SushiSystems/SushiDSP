@@ -33,7 +33,7 @@ namespace SushiDSP
 {
     /// @brief How far a stage's plate can swing from its idle point before it saturates, and the
     /// two-sided tanh ceiling that bounds a linear plate output by it
-    /// (docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md section 3).
+    /// (the triode plate swing design spec in the version history section 3).
     struct PlateSwing
     {
             /// @brief The swing toward the supply, the cutoff side: idle plate current times the load.

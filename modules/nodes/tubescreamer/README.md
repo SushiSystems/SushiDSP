@@ -44,7 +44,7 @@ latency.
 `LinearPort`-style port. At the shipping 4x rate, `AdaaDiodePairPort` nulls further from the
 reference circuit than the plain port does, so the smaller alias floor it would buy costs more
 total error than it saves, see
-[`docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md`](../../../docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md),
+the aaa audio quality design spec in the version history,
 "Model corrections D6c C2, The verdict". Wiring it in would need one more line in `reset()`
 (`clip_port_.reset()`) beyond the declaration already present. The measured gap is 14 dB. The
 reset line is needed because the ADAA port keeps a sample interval of history, and `DkCircuit`
@@ -128,3 +128,9 @@ it once per block would make the audible smoothing time a function of the host's
 
 Zeroing the state vectors is the whole of `reset()`. A pedal has no bias point to settle, so
 unlike `JcmV1aStageNode::reset()` there is no warm-up loop to run.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

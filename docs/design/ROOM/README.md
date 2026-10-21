@@ -1,18 +1,17 @@
-# Room furnishings and finishes
+# Room
 
 **Status:** Open — P4 under way, the low-band built-room loss unresolved
+**About:** The room a cabinet is heard in: the shell, its finishes and its furnishings, and the node that renders them.
+**Modules:** modules/nodes/room, modules/nodes/room_scenes
 
 ## Problem
 
 The room module (`modules/nodes/room`) models a shoebox from six surface materials. It has no
 furniture, so the room a musician plays in, with a bed, a desk and a wardrobe, cannot be
 described, and the default scene decays about three times longer than the furnished rooms it
-stands for. This document records the design that closes the gap. The task order is
-[`docs/agent/2026_09_22_ROOM_FURNISHINGS/PLAN.md`](../agent/2026_09_22_ROOM_FURNISHINGS/PLAN.md).
-The physics of the module as built is in
-[`modules/nodes/room/README.md`](../../modules/nodes/room/README.md); the original spec is
-archived at
-[`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../archive/superpowers/specs/2026-09-08-room-acoustics-design.md).
+stands for. This document records the design that closes the gap. The physics of the module as
+built is in [`modules/nodes/room/README.md`](../../../modules/nodes/room/README.md), and the room node
+as it stands, one cabinet in one room, is [the room path](PATH.md).
 
 A user builds a garage, a bathroom, a living room or a bedroom in three layers, and the module
 renders the decay, the early reflections and the standing waves that room really has:
@@ -62,7 +61,7 @@ largest single step (0.76 to 0.58 s), the desk the smallest (0.81 to 0.76 s).
 - Tabulated surface coefficients under-predict a built room's absorption, so a scene carries a
   `RoomScene::built_room_loss` flag, which adds `K_BUILT_ROOM_LOSS` to every face. The starter
   scene sets it and a bare scene does not. The measured figures behind the constant are in
-  [the record](../agent/2026_10_21_ROOM_FURNISHINGS_RECORD/REPORT.md).
+  the record.
 
 ## Design
 
@@ -200,7 +199,7 @@ measured object absorption, so it tests the empty room, the covering and the met
 household rows. The raw set is tens of gigabytes (a 461 MB `best_of` subset exists) and stays out
 of the tree.
 
-The measured results are in [the record](../agent/2026_10_21_ROOM_FURNISHINGS_RECORD/REPORT.md).
+The measured results are in the record.
 The model decays 1.10 to 1.80 times longer than the Motus room, worst at 250 Hz, and the 10 %
 bound asked for at 500 Hz and 1 kHz is not met. The test bounds the model at twice the
 measurement and prints the rest. Measurement 0003, carpet with four shelves, is read from the
@@ -249,7 +248,13 @@ What this leaves out is under "What this does not do": a furnishing casts no sha
 | P4 | Tier 2 comparison against Motus and BRAS CR2, the built room's loss, the module README and known issues. Done from 500 Hz up; below 500 Hz the two rooms disagree | building |
 
 The task order is
-[`docs/agent/2026_09_22_ROOM_FURNISHINGS/PLAN.md`](../agent/2026_09_22_ROOM_FURNISHINGS/PLAN.md).
+the room furnishings plan in the version history.
+
+### Work
+
+<!-- work:begin -->
+No open work.
+<!-- work:end -->
 
 ## Open questions
 

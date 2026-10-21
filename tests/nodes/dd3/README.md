@@ -49,7 +49,7 @@ rising at the band edge, which is why the 6th-order one carries the roll-off.
 `// The window is +1/-3 dB of 1 kHz from 40 Hz to 7 kHz.`
 
 The acceptance: 40 Hz - 7 kHz within +1/-3 dB of 1 kHz, from the DD-3's published delay-path
-figure (docs/archive/research/2026-08-26-boss-dd3-design-dossier.md section 3). Both the
+figure (the boss dd3 design dossier research note in the version history section 3). Both the
 anti-alias cascade alone and the two cascades in series are held to it, because on the board the
 wet signal passes through both.
 

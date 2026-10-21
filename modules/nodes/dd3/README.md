@@ -5,9 +5,9 @@ D.TIME, F.BACK, E.LEVEL and MODE. The direct/wet mix stays inside the node, as t
 E.LEVEL pot does.
 
 Intent, the rulings behind the fitted constants and the acceptance table live in
-[`docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`](../../../docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md).
+the dd3 spx90 design spec in the version history.
 The schematic values come from
-[`docs/archive/research/2026-08-26-boss-dd3-design-dossier.md`](../../../docs/archive/research/2026-08-26-boss-dd3-design-dossier.md).
+the boss dd3 design dossier research note in the version history.
 This file records what the code in this directory does.
 
 ## Which pedal
@@ -135,7 +135,7 @@ sample of lag is 0.3 % of one time constant at 48 kHz.
 The rectifier and its pole run at `K_RECTIFIER_OVERSAMPLING` times the host rate; the gain cell
 does not. Rectification is the one nonlinearity here whose aliasing is a discretisation artefact
 and not modelled hardware.
-`docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`, "Model corrections", carries the
+the dd3 spx90 design spec in the version history, "Model corrections", carries the
 ruling and the measurements.
 
 ### The rectifier's oversampling
@@ -163,3 +163,9 @@ Eight sub-steps of the rectifier's pole in `ne570_compander.cpp` compose to the 
 coefficient exactly: `exp(-1/(8*fs*tau))^8` is `exp(-1/(fs*tau))`, so `tau` does not move with the
 sub-stepping. Under a changing input the sub-stepped map differs from the host-rate one by about
 0.4 samples of envelope lag, which is negligible against `tau`'s 326.4-sample time constant.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

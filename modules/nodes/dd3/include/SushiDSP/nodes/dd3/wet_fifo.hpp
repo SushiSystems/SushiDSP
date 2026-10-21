@@ -38,7 +38,7 @@ namespace SushiDSP::dd3
     /// consumer needs a cushion. @ref pop returns silence until @ref K_PRIME_FRAMES samples have
     /// arrived and the FIFO then sits at that depth; priming on real samples rather than on
     /// zeros written at reset is what survives the resamplers' start-up lag, and
-    /// docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections, has the
+    /// the dd3 spx90 design spec in the version history, Model corrections, has the
     /// measurement. Every call is allocation-, lock- and throw-free.
     class WetFifo
     {

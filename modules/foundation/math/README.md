@@ -86,7 +86,7 @@ linear-interpolation bound of 1.1471e-06.
 
 `HALF_WIDTH` is 34. The plan called for 32, and the DR1+DR2 plan's Task 1.1 ruling grew it to
 clear -100 dB with margin
-([`2026-09-05-dr1-dr2-resampler-and-dd3.md`](../../docs/archive/superpowers/plans/2026-09-05-dr1-dr2-resampler-and-dd3.md)).
+(`2026-09-05-dr1-dr2-resampler-and-dd3.md`).
 The latency floor is 0.7083 ms per stage at 48.0 kHz.
 
 The comments in the committed file differ from what the generator writes. On 2026-10-05 the file
@@ -125,7 +125,7 @@ compile-time-maximum array and factorise only the leading block it filled.
 
 `DkCircuit` implements the nodal DK method (Holters and Zoelzer) with the trapezoidal rule, as
 transcribed in the
-[D6b plan](../../docs/archive/superpowers/plans/2026-08-26-d6b-dk-circuit-core.md). `prepare()`
+D6b plan. `prepare()`
 runs the derivation once. After that each sample costs one Newton solve on the N-dimensional
 nonlinear port plus the five small matrix products of the state-space update. Potentiometers are
 re-derived and not carried as Newton branches (D6b plan, ruling 3), which is what makes a knob
@@ -150,7 +150,7 @@ operating point without `DkCircuit` knowing what. The port is handed the open-ci
 the solved port voltage v and the port impedance matrix F, which together are the whole of the
 memoryless map from p to i that the block's linear part sees. Antiderivative antialiasing is the
 reason the hook exists
-([`2026-08-26-aaa-audio-quality-design.md`](../../docs/archive/superpowers/specs/2026-08-26-aaa-audio-quality-design.md),
+(`2026-08-26-aaa-audio-quality-design.md`,
 Model corrections D6c C2).
 
 The reactive companion conductance `Gx` follows the D6b plan's "Reactive companion" section.
@@ -172,7 +172,7 @@ would save noise, and the rank-two update is far harder to keep correct.
 A nullor's row in the augmented system is its nullator (V(p) - V(q) = 0, right-hand side zero) and
 its column is its norator (an unknown current into the driven pair). Unlike a source, the two are
 different node pairs, which is exactly why an op-amp cannot be spelled with `voltage_source()`
-([D6c plan](../../docs/archive/superpowers/plans/2026-09-05-d6c-tubescreamer-on-dk.md), ruling 1).
+(D6c plan, ruling 1).
 
 Every nullor puts a zero on the diagonal: its row touches only the sensed nodes and its column
 only the driven ones. `DenseLu`'s partial pivoting takes the largest magnitude in each column and
@@ -289,3 +289,9 @@ in the two committed files differ from what the generator writes.
 `output_fifo_[fifo_fill_ ..)` is the not-yet-emitted result of the previous partition, so reading
 one output sample and writing one input sample keep the same cursor. Starting from a zero
 `output_fifo_` is what makes the latency exactly one partition.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

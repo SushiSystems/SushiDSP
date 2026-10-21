@@ -46,3 +46,9 @@ name.
 `make_node` returns `nullptr` for an id with no matching entry rather than throwing;
 `modules/session/rig_preset`'s deserializer is the caller that turns a lookup miss into a diagnosed
 error, since it has the JSON context needed to name the offending node.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

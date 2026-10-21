@@ -62,3 +62,9 @@ mid-stream clock change is a driver-level event this device does not chase.
 Once stopped, the device must not keep a reference to whatever the caller's callback captured.
 `SDL_PauseAudioDevice` waits for any in-flight callback to finish, so `stop` clears the callback
 right after it.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

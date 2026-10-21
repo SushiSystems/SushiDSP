@@ -87,8 +87,8 @@ namespace SushiDSP
             /// @brief Linear gain the power section is scaled by when the master knob reads 0 dB.
             /// Pinned by Jcm800DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput: an
             /// untouched amp turns a -12 dBFS 82 Hz sine into a -6.00 dBFS peak, the calibration
-            /// point all four amplifiers share (docs/archive/superpowers/specs/
-            /// 2026-09-07-grid-knee-antialiasing-design.md section 6). Re-measured 2026-09-07 on the
+            /// point all four amplifiers share (the grid knee antialiasing design spec in the
+            /// version history, section 6). Re-measured 2026-09-07 on the
             /// Norman grid law, on the volt-true power stage and on the transformer whose secondary
             /// carries no mean; 0.2534701, 0.3105599 and 0.3101991 before those. It multiplies the
             /// signal after the last nonlinearity, so it scales the output and nothing else.

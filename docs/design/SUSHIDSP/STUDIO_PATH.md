@@ -1,8 +1,8 @@
 # The studio path: channels, takes and the transport
 
 The DS phase (spec
-[`docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../../archive/superpowers/specs/2026-09-07-stereo-tracks-design.md),
-plan [`docs/archive/superpowers/plans/2026-09-07-stereo-tracks.md`](../../archive/superpowers/plans/2026-09-07-stereo-tracks.md))
+the stereo tracks design spec in the version history,
+plan the stereo tracks plan in the version history)
 made the graph channel-aware, added a capture module beside the products, and gave the standalone
 host a transport, a track list and a re-amp path.
 

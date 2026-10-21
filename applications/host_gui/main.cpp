@@ -97,7 +97,7 @@ namespace
     /// @param window The window the files were dropped on; its user pointer is the queue.
     /// @param count How many paths were dropped.
     /// @param paths The dropped paths, owned by GLFW for the duration of the call.
-    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §7
+    /// @see the arrangement view design spec in the version history §7
     void queue_dropped_files(GLFWwindow* window, int count, const char** paths)
     {
         auto* queue = static_cast<SushiDSP::host::FileDropQueue*>(glfwGetWindowUserPointer(window));

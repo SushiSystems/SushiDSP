@@ -36,7 +36,7 @@ namespace ui
     /// @brief Turns a run of taps into a tempo. It holds the times of the last few taps and
     /// reports the tempo their spacing implies; a pause longer than K_MAXIMUM_GAP_SECONDS starts
     /// the run again, so a tap left over from a minute ago never drags the average.
-    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §6
+    /// @see the arrangement view design spec in the version history §6
     class TapTempo
     {
         public:

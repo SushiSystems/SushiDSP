@@ -114,7 +114,7 @@ solver bound; each dossier's own dividers now run at face value, in volts, from 
 the power tubes. Two circuit facts came with that change, applied by every module: the phase
 inverter is a long-tailed pair, so its grid-cathode window is the input divided by the tail
 degeneration `1 + (R_tail ∥ Z_shunt) / Z_k` of the spec's section 4
-(`docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`), not the full swing a
+(the triode plate swing design spec in the version history), not the full swing a
 common-cathode stage would see; and `PentodeStage`'s grid is not volt-true, so the link from a preamp stage's volts into its
 grid carries a derived `kPowerTubeGridScale` bridge until `PentodeStage` is rebuilt in DA5. Every
 coupling capacitor moved to `Biquad::set_first_order_high_pass`, the numerically stable one-pole
@@ -207,15 +207,15 @@ cannot see, so dependencies's −33.8 dB stays a known issue. The cost at the bu
 
 ## Amplifier family
 
-The DA phase (plans `docs/archive/superpowers/plans/2026-09-06-high-gain-amps-part1.md` and
-`docs/archive/superpowers/plans/2026-09-06-high-gain-amps-part2.md`) grew the
+The DA phase (plans the high gain amps part1 plan in the version history and
+the high gain amps part2 plan in the version history) grew the
 single JCM800 into four sibling amplifier modules sharing the stage classes above.
 
 | Module | Channel | Dossier | Module path | Status |
 | --- | --- | --- | --- | --- |
 | JCM800 | Marshall JCM800 2203, one channel |, | `modules/nodes/jcm800/` | White-box, see "As built" above. DA4: plate-swing chain. |
-| Peavey 5150 | Block-letter 1992 5150, lead channel | `docs/archive/research/2026-09-06-peavey-5150-design-dossier.md` | `modules/nodes/peavey5150/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
-| Mesa/Boogie Mark IIC+ | Lead mode | `docs/archive/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md` | `modules/nodes/mesa_mark2c/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
-| Diezel VH4 | Channel 3 ("Mega") | `docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md` | `modules/nodes/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. DA4: plate-swing chain. |
+| Peavey 5150 | Block-letter 1992 5150, lead channel | the peavey 5150 design dossier research note in the version history | `modules/nodes/peavey5150/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
+| Mesa/Boogie Mark IIC+ | Lead mode | the mesa mark iic plus design dossier research note in the version history | `modules/nodes/mesa_mark2c/` | White-box against the dossier's schematic set. DA4: plate-swing chain. |
+| Diezel VH4 | Channel 3 ("Mega") | the diezel vh4 design dossier research note in the version history | `modules/nodes/diezel_vh4/` | Documented approximation: the gain chain is a reverse-engineering drawing, the tone stack's interconnection is a reconstruction, and the power section is built from prose alone. DA4: plate-swing chain. |
 
 Each module's own README lists exactly where its model departs from its dossier.

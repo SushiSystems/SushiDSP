@@ -5,9 +5,9 @@ A product-independent module: it models no pedal and no amplifier, and depends o
 `AudioNode`.
 
 Intent and the acceptance list live in
-[`docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`](../../../docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md)
+the stereo tracks design spec in the version history
 §5 for recording and §6 for playback, and in
-[`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`](../../../docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md)
+the arrangement view design spec in the version history
 §3 to §5a for musical time, clips and the playback speed. This file records what the code in this
 directory does.
 
@@ -147,7 +147,7 @@ rendered once a block, by this call or by `process`, never by both.
 
 `VariRateReader` reads a take at a speed between 0.5 and 2.0, and the pitch falls with the speed
 the way a tape machine's does. Half speed is an octave down. Nothing here stretches time, and
-[spec §5a](../../../docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md) states that as the
+spec §5a states that as the
 behaviour the maintainer asked for.
 
 Each channel gets its own `SushiDSP::Resampler`, sized in `prepare()` on the control thread for a
@@ -255,3 +255,9 @@ refuses is counted in `dropped_blocks()`.
 In a `VariRateReader`, every channel's converter carries the same rates and the same push count,
 so they all emit the same number of outputs on every push. Channel 0's count speaks for all of
 them.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

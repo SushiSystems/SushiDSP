@@ -137,20 +137,11 @@ Next id: KI-46
 ### KI-34 Changelog entries cite places that do not exist or none
 - Origin: own
 - Where: `docs/reference/CHANGELOG.md`
-- Cause: the entry of 2026-10-03 cites `docs/archive/changelog/`, three entries cite removed
+- Cause: the entry of 2026-10-03 cites a changelog folder that does not exist, three entries cite removed
   files, and five of 2026-09-05 and 2026-09-07 name no place
 - Recognise: the cited paths resolve nowhere
 - Workaround: read `git log`
 - Fix: RW-62
-
-### KI-35 The archive's README says the archive is empty
-- Origin: own
-- Where: `docs/archive/README.md`
-- Cause: it was written before anything was archived; the archive holds 56 other files under
-  dated lower-case names, and two plans of the standards phase 1 work
-- Recognise: the README and the folder disagree
-- Workaround: list the folder
-- Fix: RW-8
 
 ### KI-36 The design and the manifest disagree on the hub catalogue
 - Origin: own

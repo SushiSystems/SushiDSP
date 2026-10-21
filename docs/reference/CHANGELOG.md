@@ -115,7 +115,7 @@
 - 2026-10-06 — licence: Restored the three-section license box and named both holders in the copyright line of every source file (`tools/licensing/write_license_block.py`, `tools/documentation/check_source_comments.py`).
 - 2026-10-05 — build: Skipped the GUI when the SDL2 backend is off and linked OpenGL through `OpenGL::GL`, so a configure with `SUSHIDSP_BUILD_SDL2=OFF` no longer fails (`CMakeLists.txt`, `applications/host_gui/CMakeLists.txt`).
 - 2026-10-05 — docs: Moved design reasoning out of source comments into module and folder READMEs and gave every source file its file block (`modules/`, `applications/`, `include/`, `src/`, `tests/`).
-- 2026-10-05 — docs: Indexed every manual page, repointed the module READMEs' links, archived the standards phase 1 work folder and copied the SushiSkills tools (`docs/README.md`, `modules/`, `docs/archive/agent/`, `tools/`).
+- 2026-10-05 — docs: Indexed every manual page, repointed the module READMEs' links, archived the standards phase 1 work folder and copied the SushiSkills tools (`docs/README.md`, `modules/`, `tools/`).
 - 2026-10-05 — cli: Moved the host GUI launch to `sd host`, a bare `sd run` staying its hidden alias until 2027-03-25 (`cli/sushidsp/cli.py`, `services/project.py`).
 - 2026-10-05 — cli: Made `sd run TARGET` run any built executable (`cli/sushidsp/cli.py`, `services/project.py`).
 - 2026-10-05 — cli: Renamed `sd doxygen` to `sd docs`, the old word staying as a hidden alias until 2027-03-25 (`cli/sushidsp/cli.py`, `cli/sushidsp/aliases.py`).
@@ -128,7 +128,7 @@
 
 ## v0.1.0 — 2026-10-03
 
-- 2026-10-03 — docs: Folded the untagged v0.1.0, v0.2.0 and v0.3.0 headings into Unreleased (`CHANGELOG.md`, `docs/archive/changelog/`).
+- 2026-10-03 — docs: Folded the untagged v0.1.0, v0.2.0 and v0.3.0 headings into Unreleased (`CHANGELOG.md`).
 - 2026-10-03 — ci: Removed the Python CLI job (`.github/workflows/ci.yml`, `README.md`).
 - 2026-10-03 — docs: Repointed the cited paths that no longer resolve to the archive or the renamed spec (`CONTRIBUTING.md`, `OVERVIEW.md`, `KNOWN_ISSUES.md`).
 - 2026-09-25 — cli: Grouped sd's help under Build, Application and Environment panels with per-command examples (`cli/sushidsp/cli.py`, `test_help_screen.py`).
@@ -208,7 +208,7 @@
 - 2026-09-14 — host_gui: Added tabs and grid view to the gear browser (`applications/host_gui/ui/gear_browser.cpp`, `applications/host_gui/ui/gear_filter.cpp`).
 - 2026-09-10 — cabinet: Added sushidsp.cabinet and retired the amp-embedded cabinet path (`modules/cabinet`, `modules/jcm800`, `modules/peavey5150`, `modules/diezel_vh4`, `modules/mesa_mark2c`).
 - 2026-09-10 — docs: Added remaining work backlog tracking open items (`docs/design/REMAINING_WORK.md`, `docs/README.md`).
-- 2026-09-10 — docs: Added documentation skeleton for style guide and manual (`docs/DOCUMENTATION_STYLE_GUIDE.md`, `docs/getting_started/`, `docs/architecture/`, `docs/guides/`, `docs/archive/`).
+- 2026-09-10 — docs: Added documentation skeleton for style guide and manual (`docs/DOCUMENTATION_STYLE_GUIDE.md`, `docs/getting_started/`, `docs/architecture/`, `docs/guides/`).
 - 2026-09-10 — build: Added compiler warnings, opt-in sanitizers and build presets (`cmake/CompilerWarnings.cmake`, `cmake/Sanitizers.cmake`, `CMakePresets.json`).
 - 2026-09-10 — room: Fixed tail handover to use crossover time on shortest delay line (`late_reverb_design.cpp`, `fdn_design.hpp`).
 - 2026-09-10 — tests: Added absolute-level test reading reciprocal distance on cabinet axis (`tests/functional/unit/test_room_node.cpp`).
@@ -234,7 +234,7 @@
 - 2026-09-09 — room: Added `ImageSourceSolver` converting shoebox scenes into early reflection taps (`image_source_solver.hpp`, `image_source_solver.cpp`).
 - 2026-09-09 — room: Added `LateReverbDesign` feedback delay network parameter synthesis (`late_reverb_design.hpp`, `late_reverb_design.cpp`).
 - 2026-09-09 — room: Added `ModalSolver` eigenmode resonance calculation below Schroeder frequency (`modal_solver.hpp`, `modal_solver.cpp`).
-- 2026-09-09 — docs: Corrected drafted absorption areas, arrival roundings, modal coefficients, tail lengths and sphere shadow against code (`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`).
+- 2026-09-09 — docs: Corrected drafted absorption areas, arrival roundings, modal coefficients, tail lengths and sphere shadow against code (the room acoustics plan in the version history).
 - 2026-09-09 — room: Made tail coherence pair complementary rather than fitted (`fdn_design.hpp`, `late_reverb_design.hpp`).
 - 2026-09-09 — room: Added render set synthesis and host interface for audio thread (`room_render_set.hpp`, `room_render_set.cpp`, `room_host.hpp`).
 - 2026-09-09 — room: Made `SphericalHeadHrtf` populate diffuse-field pairs (`spherical_head_hrtf.cpp`).
@@ -265,7 +265,7 @@
 - 2026-09-08 — room: Added `CrossoverPair` Schroeder frequency phase-aligned crossover (`crossover_pair.hpp`, `crossover_pair.cpp`).
 - 2026-09-08 — room: Added `HrtfSet` minimum-phase HRIR dataset and interpolation (`hrtf_set.hpp`, `hrtf_set.cpp`).
 - 2026-09-08 — room: Added `AmbisonicEncoder` third-order spherical harmonics encoder (`ambisonic_encoder.hpp`, `ambisonic_encoder.cpp`).
-- 2026-09-08 — docs: Corrected self-test asset size to 37 968 bytes and band-fit budget to 4.33 ms (`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`).
+- 2026-09-08 — docs: Corrected self-test asset size to 37 968 bytes and band-fit budget to 4.33 ms (the room acoustics plan in the version history).
 - 2026-09-08 — capture: Added `MusicalClock` frame to bar-and-beat fixed-point map (`modules/nodes/capture/include/SushiDSP/capture/musical_clock.hpp`, `musical_clock.cpp`).
 - 2026-09-08 — capture: Added `TakeLibrary` control-thread audio take container (`take_library.hpp`, `take_library.cpp`).
 - 2026-09-08 — capture: Added `VariRateReader` resampling take playback between 0.5x and 2.0x (`vari_rate_reader.hpp`, `vari_rate_reader.cpp`).
@@ -357,7 +357,7 @@
 - 2026-09-07 — docs: Created known issues register for alias floors and loop networks (`docs/reference/KNOWN_ISSUES.md`).
 - 2026-09-07 — tests: Skipped incomplete Mark IIC+ loop return test cases with logged values (`test_mesa_mark2c.cpp`).
 - 2026-09-07 — tests: Skipped JCM800 alias floor assertion at measured value (`test_measure.cpp`).
-- 2026-09-07 — docs: Documented open questions regarding Mark IIC+ loop circuit design (`docs/archive/research/`).
+- 2026-09-07 — docs: Documented open questions regarding Mark IIC+ loop circuit design.
 - 2026-09-07 — tests: Set Peavey 5150 clean input test level to nominal rating (`test_peavey5150.cpp`).
 - 2026-09-07 — docs: Documented malformed commit message hashes across DA4 development.
 - 2026-09-07 — core: Unified cabinet IR management under `CabinetHost` interface (`modules/foundation/core/include/SushiDSP/core/cabinet_host.hpp`, `applications/host_gui/rig_controller.cpp`).
@@ -381,7 +381,7 @@
 - 2026-09-06 — circuits: Added `FmvToneStack` Fender-Marshall-Vox stack model (`fmv_tone_stack.hpp`, `fmv_tone_stack.cpp`).
 - 2026-09-06 — spice: Corrected FMV tone stack schematic return node in SPICE (`docs/reference/spice/jcm_fmv/`).
 - 2026-09-06 — spice: Verified eight circuit blocks against LTspice simulation benchmarks (`docs/reference/spice/`).
-- 2026-09-06 — docs: Created amplifier design dossiers for 5150, Mark IIC+ and VH4 (`docs/archive/research/`).
+- 2026-09-06 — docs: Created amplifier design dossiers for 5150, Mark IIC+ and VH4.
 - 2026-09-06 — circuits: Wired tone stack middle potentiometer as variable resistance rheostat (`fmv_tone_stack.hpp`, `fmv_tone_stack.cpp`).
 - 2026-09-06 — circuits: Added power-tube preset constructors to `PentodeStage` (`pentode_stage.hpp`, `power_tube_presets.hpp`).
 - 2026-09-06 — circuits: Added per-band quality factor override to `GraphicEqualizer` (`graphic_equalizer.hpp`, `graphic_equalizer.cpp`).
@@ -472,5 +472,5 @@
 - 2026-08-25 — core: Added allocation-free transient `BufferPool` (`buffer_pool.hpp`, `buffer_pool.cpp`).
 - 2026-08-25 — math: Added real `Fft` and RBJ biquad filter implementations (`fft.hpp`, `biquad.hpp`).
 - 2026-08-25 — tests: Added real-time safety operator new trap harness for regression suites (`tests/functional/unit/test_rt_safety.cpp`).
-- 2026-07-24 — docs: Pivoted design scope from game audio to standalone amp and pedal DSP framework (`docs/design/SUSHIDSP.md`).
+- 2026-07-24 — docs: Pivoted design scope from game audio to standalone amp and pedal DSP framework (`docs/design/SUSHIDSP/README.md`).
 - 2026-07-24 — cli: Registered `sushidsp` as a SushiStack module with `sd` alias (`sushicore`).

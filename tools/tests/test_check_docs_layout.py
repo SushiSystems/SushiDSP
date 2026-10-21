@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import subprocess
 import sys
@@ -289,6 +290,14 @@ class ClosedWorkTest(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as folder:
             self.assertEqual(_names(rule_closed_work(_repository(folder, files))), ["agent/2026_01_01_DONE"])
+
+    def test_a_grace_of_zero_lists_work_closed_today(self) -> None:
+        """Lists a work folder closed today when the repository deletes at close."""
+        files = {"agent/2026_10_21_NOW/SPEC.md": f"# W\n\n**Status:** Shipped — {_days_ago(0)}\n"}
+        with tempfile.TemporaryDirectory() as folder:
+            repository = dataclasses.replace(_repository(folder, files), closed_grace_days=0)
+            self.assertEqual(_names(rule_closed_work(repository)), ["agent/2026_10_21_NOW"])
+            self.assertEqual(_names(rule_closed_work(dataclasses.replace(repository, closed_grace_days=90))), [])
 
     def test_a_fresh_commit_does_not_reset_the_clock(self) -> None:
         """Lists a document withdrawn 91 days ago that a commit touched today."""

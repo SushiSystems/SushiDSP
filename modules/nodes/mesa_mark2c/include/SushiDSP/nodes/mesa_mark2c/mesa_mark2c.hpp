@@ -100,10 +100,10 @@ namespace SushiDSP
             /// @brief Linear gain node F is scaled by when Master 1 reads 0 dB, the pot's fraction
             /// ahead of the equaliser and the phase inverter. Measured so an untouched amp turns a
             /// -12 dBFS 82 Hz sine into a -6.00 dBFS peak, the calibration point all four amplifiers
-            /// share (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 6),
+            /// share (the grid knee antialiasing design spec in the version history section 6),
             /// and pinned by MesaMark2cDefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput.
             /// Re-measured 2026-09-08 with Master 1 at node F and the loop network in place
-            /// (docs/archive/superpowers/specs/2026-09-08-iicplus-loop-network-design.md); 0.2349335,
+            /// (the iicplus loop network design spec in the version history); 0.2349335,
             /// 0.2402319, 0.3343019 and 0.6907759 before, when it scaled the output, the last at 1 kHz.
             static constexpr float K_MASTER_UNITY_GAIN = 0.0038289f;
 

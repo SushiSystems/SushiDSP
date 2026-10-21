@@ -95,6 +95,18 @@ class RepairTest(unittest.TestCase):
             self.assertEqual((root / "docs/guides/use.md").read_text(encoding="utf-8"), "See docs/design/AUDIO/MIXER.md.\n")
 
 
+class FixtureTest(unittest.TestCase):
+    """Covers the checker tests, which hold fake citations on purpose."""
+
+    def test_leaves_the_fixtures_of_the_checker_tests_alone(self) -> None:
+        """Reports and writes nothing for a citation inside tools/tests."""
+        files = {**K_TOPICS, "tools/tests/test_x.py": 'TEXT = "docs/design/AUDIO.md"\n'}
+        with tempfile.TemporaryDirectory() as folder:
+            root = _root(folder, files)
+            self.assertEqual(run(root, True), [])
+            self.assertIn("docs/design/AUDIO.md", (root / "tools/tests/test_x.py").read_text(encoding="utf-8"))
+
+
 class MoveTest(unittest.TestCase):
     """Covers an explicit move of a design file."""
 

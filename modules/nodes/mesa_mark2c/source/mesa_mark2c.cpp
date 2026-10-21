@@ -269,7 +269,7 @@ namespace SushiDSP
 
         /// @brief V2A's plate swing on the 58.746 k AC load line at Lead Master maximum: 1.2902 mA
         /// x 58.746 k toward the supply, and 263.0 V down to Vgk = 0; dossier 3.6. The stage holds
-        /// both at the knob's maximum (docs/archive/superpowers/specs/2026-09-08-iicplus-loop-network-design.md
+        /// both at the knob's maximum (the iicplus loop network design spec in the version history
         /// section 5).
         constexpr PlateSwing K_V2A_PLATE_SWING{75.795f, 114.171f};
 

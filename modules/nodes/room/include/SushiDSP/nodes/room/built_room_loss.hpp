@@ -35,7 +35,7 @@ namespace SushiDSP::room
 {
     /// @brief Holds the absorption coefficient a built room adds to every surface, per octave band
     /// 125 Hz to 4 kHz, fitted to the Motus room and the BRAS CR2 seminar room.
-    /// Design: docs/design/ROOM_FURNISHINGS.md section 11.
+    /// Design: docs/design/ROOM/README.md section 11.
     inline constexpr std::array<double, K_BAND_COUNT> K_BUILT_ROOM_LOSS{0.020, 0.025, 0.020,
                                                                         0.020, 0.020, 0.015};
 } // namespace SushiDSP::room

@@ -43,7 +43,7 @@ namespace SushiDSP
     /// the grid's own coordinate u = Vg - Vk: y = (G(u1) - G(u0)) / (g(u1) - g(u0)), where g(u) is
     /// the input that puts the grid at u and G is the antiderivative of the plate output with
     /// respect to that input. The tables are filled at construction and only read afterwards.
-    /// Derived in docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md
+    /// Derived in the grid knee antialiasing design spec in the version history
     /// section 15.
     class AntiderivativeAntialiaser
     {

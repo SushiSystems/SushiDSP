@@ -44,8 +44,8 @@ namespace SushiDSP
     /// a Norman grid-conduction law referenced to the cathode, an inverting linear plate gain,
     /// and a two-sided tanh plate ceiling from the stage's PlateSwing, the composite transfer
     /// antialiased by an AntiderivativeAntialiaser. Specified by
-    /// docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md section 3 and
-    /// docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md sections 3 and 15.
+    /// the triode plate swing design spec in the version history section 3 and
+    /// the grid knee antialiasing design spec in the version history sections 3 and 15.
     class TriodeStage
     {
         public:

@@ -45,7 +45,7 @@ namespace SushiDSP
     /// control thread moves it, all through atomics, so neither side ever waits on the
     /// other. The loop range lives in one 64-bit word, which bounds a loop to the first
     /// 2^32 frames of the timeline.
-    /// @see docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md §6
+    /// @see the stereo tracks design spec in the version history §6
     class Transport
     {
         public:

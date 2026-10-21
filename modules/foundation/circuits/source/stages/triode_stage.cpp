@@ -37,7 +37,7 @@ namespace
 {
     /// @brief The tanh argument past which the plate ceiling reads 1.0 in float; the solver's
     /// grid bounds sit where the plate can no longer move
-    /// (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 3).
+    /// (the grid knee antialiasing design spec in the version history section 3).
     constexpr float K_PLATE_REACH = 10.0f;
 
     /// @brief Newton iterations per sample from the previous sample's root.

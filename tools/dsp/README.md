@@ -34,14 +34,14 @@ Design-time scripts. Nothing here runs in CI or at build time; their outputs are
   --csv tests/nodes/room/fixtures/built_room_loss/motus_reference.csv`. The RIRs are three members of the 16.1 GB `sh_rirs.zip`;
   they are not in the repository. The bands, filter, noise truncation and every fit range are
   listed below under `motus_reference.py`, and `tests/nodes/room/fixtures/built_room_loss/motus_reference.README.md` gives the
-  provenance and the citation. Design intent: `docs/design/ROOM_FURNISHINGS.md` section 8.
+  provenance and the citation. Design intent: `docs/design/ROOM/README.md` section 8.
 
 ## convert_hrtf.py
 
 The reference input is SADIE II, University of York, Neumann KU100 subject, 48 kHz. Nothing in
 the C++ tree reads SOFA or HDF5. The script runs once on a developer's machine, and the module
 reads only the file it writes. The byte layout is fixed by the DE plan's Task 2 and by
-`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md` section 9.3.
+the room acoustics design spec in the version history section 9.3.
 
 Each direction is stored as a minimum-phase pair plus a separate interaural delay, so the
 loader can blend neighbouring directions without comb filtering. The licence and citation block
@@ -68,7 +68,7 @@ normalised.
 `HALF_WIDTH` is 34 zero crossings each side, not the plan's 32. 33 clears -100 dB with only
 0.08 dB of margin at the true worst frequency, and 34 gives about 0.45 dB. The ruling on the
 stopband conflict is Task 1.1 of
-`docs/archive/superpowers/plans/2026-09-05-dr1-dr2-resampler-and-dd3.md`.
+the dr1 dr2 resampler and dd3 plan in the version history.
 
 In `design`, the last table entry (t equal to `HALF_WIDTH`) sits at the Kaiser window's tapered
 edge and is already negligible. It is the interpolator's outermost table point, so it is forced

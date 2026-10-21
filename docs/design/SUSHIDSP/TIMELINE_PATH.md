@@ -1,8 +1,8 @@
 # The timeline path: bars, clips and playback speed
 
 The DT phase (spec
-[`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`](../../archive/superpowers/specs/2026-09-08-arrangement-view-design.md),
-plan [`docs/archive/superpowers/plans/2026-09-08-arrangement-view.md`](../../archive/superpowers/plans/2026-09-08-arrangement-view.md))
+the arrangement view design spec in the version history,
+plan the arrangement view plan in the version history)
 put musical time under the studio path. Before it, a take started at transport frame 0 and the
 only tempo in the tree was the guitarist's. After it, a lane holds clips at frames, the host
 draws a bar grid, and a recording re-amps at the bar it was played at.

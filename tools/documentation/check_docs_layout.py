@@ -64,6 +64,7 @@ class Repository:
     """Holds the root of one repository whose documentation is checked."""
 
     root: Path
+    closed_grace_days: int = K_CLOSED_GRACE_DAYS
 
     @property
     def docs(self) -> Path:
@@ -94,7 +95,8 @@ class Repository:
 
 def collect(paths: list[Path]) -> Iterable[Repository]:
     """Returns each given folder that holds a docs/ tree."""
-    return [Repository(path) for path in paths if (path / "docs").is_dir()]
+    grace = int(getattr(settings, "K_CLOSED_GRACE_DAYS", K_CLOSED_GRACE_DAYS))
+    return [Repository(path, grace) for path in paths if (path / "docs").is_dir()]
 
 
 def _prose(path: Path) -> str:
@@ -280,10 +282,10 @@ def rule_closed_work(repository: Repository) -> Iterator[Issue]:
     A shipped design stays: it is the record of its decisions and graduates in size, not in place.
     """
     today = datetime.date.today()
-    grace = int(getattr(settings, "K_CLOSED_GRACE_DAYS", K_CLOSED_GRACE_DAYS))
+    grace = repository.closed_grace_days
     for path in status_documents(repository.docs):
         status = read_status(path)
-        if status.closed_on is None or (today - status.closed_on).days <= grace:
+        if status.closed_on is None or (today - status.closed_on).days < grace:
             continue
         work = path.parent.parent == repository.docs / "agent"
         if status.is_shipped and not work:

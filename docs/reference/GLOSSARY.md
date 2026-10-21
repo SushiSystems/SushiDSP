@@ -41,7 +41,7 @@ to the fundamental. A harmonic that folds back from above Nyquist counts as one.
 describes a circuit, `DkCircuit` discretises it and `DampedNewtonSolver` solves its nonlinear
 ports each sample.
 
-**dossier**: a research document on one piece of gear under `docs/archive/research/`: its
+**dossier**: a research document on one piece of gear: its
 schematics, their sources and the questions they leave open.
 
 **golden file**: one second of mono float32 rendered by one node at one sample rate, stored
@@ -91,3 +91,20 @@ speed, and `TrackPlayer` converts to output frames at each run's own base.
 The timeline classes live in [`modules/nodes/capture/`](../../modules/nodes/capture/) and are described in
 its [`README.md`](../../modules/nodes/capture/README.md); the intent behind them is in
 [`docs/design/SUSHIDSP/TIMELINE_PATH.md`](../design/SUSHIDSP/TIMELINE_PATH.md).
+
+## Design topics
+
+A topic is a module or a subject that spans modules, and it has one design document. The list is
+generated in [`docs/design/README.md`](../design/README.md).
+
+**SUSHIDSP**: the framework as a whole: the rig graph, the DSP math library, the amplifiers and the
+studio, timeline and room paths. See [the design](../design/SUSHIDSP/README.md).
+
+**GUI UX redesign**: the standalone host window, from the device panel to the rig chain editor. See
+[the design](../design/GUI_UX_REDESIGN.md).
+
+**room**: the space a cabinet is heard in, built from a shell, finishes and furnishings. See
+[the design](../design/ROOM/README.md).
+
+**Sushi standards migration**: bringing the repository to the Sushi Systems programming standards. See
+[the design](../design/SUSHI_STANDARDS_MIGRATION.md).

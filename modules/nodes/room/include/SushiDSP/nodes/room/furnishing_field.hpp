@@ -42,7 +42,7 @@ namespace SushiDSP::room
     /// and answers what a reflected path and a room mode lose to it. The room's total is the one
     /// MediumAbsorption gives; a scene with no placed furnishing answers exactly as it does.
     /// Control thread.
-    /// @see docs/design/ROOM_FURNISHINGS.md, "Furniture with a place"
+    /// @see docs/design/ROOM/README.md, "Furniture with a place"
     class FurnishingField
     {
         public:

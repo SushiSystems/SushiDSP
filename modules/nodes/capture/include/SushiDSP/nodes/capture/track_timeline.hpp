@@ -56,7 +56,7 @@ namespace SushiDSP
     /// and the take pointers a clip names stay valid because the constructor retained each of
     /// them in the library and the destructor, which a slot's reclaim() calls, is the only place
     /// they are released.
-    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §5
+    /// @see the arrangement view design spec in the version history §5
     class TrackTimeline
     {
         public:

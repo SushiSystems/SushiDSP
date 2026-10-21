@@ -1,6 +1,8 @@
 # Host GUI/UX redesign
 
 **Status:** Open — P1 built; P2 built except the Pitch field, which is drawn disabled
+**About:** The standalone host window: the device panel, the transport, the rig chain editor and the workspace.
+**Modules:** applications/host_gui
 
 ## Problem
 
@@ -44,7 +46,7 @@ you drop mid-chain.
 References: `image.png` and `image1.png` (AmpliTube 5, the layout model), `image4.png` to
 `image6.png` (the states before phase 1), `image7.png` to `image11.png` (AmpliTube's chain
 templates and the four chain-type icons), all at the repository root, and the raw findings in
-`docs/archive/notes/2026-09-10-gui-ux-session-notes.md`. Phase 2's working reference is an
+the gui ux session notes note in the version history. Phase 2's working reference is an
 interactive HTML mockup, iterated live with the maintainer:
 <https://claude.ai/code/artifact/86c82259-6c54-4fcf-be65-424903fd5c90>. Every phase 2 rule
 describes what that mockup does; read it alongside the mockup, since the mockup is the source of
@@ -185,7 +187,7 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
   (`modules/foundation/math/include/SushiDSP/foundation/math/partitioned_convolution.hpp`,
   `modules/foundation/math/include/SushiDSP/foundation/math/streaming_convolution.hpp`) were owned by whichever amp hosted them.
 - **Decision (owner):** `sushidsp.cabinet` is now the only cabinet
-  path, delivered by `docs/archive/superpowers/plans/2026-09-10-cabinet-node.md` (all 8 tasks
+  path, delivered by the cabinet node plan in the version history (all 8 tasks
   complete). The amp node classes (`modules/nodes/jcm800`, `modules/nodes/peavey5150`,
   `modules/nodes/diezel_vh4`, `modules/nodes/mesa_mark2c`) dropped their `CabinetHost` implementation
   and the built-in convolution it drove; `CabinetHost` is now the interface
@@ -374,8 +376,14 @@ is layout and interaction only.
 | P2 | Rig chain editor and workspace redesign: resizable workspace, chain types, gear browser grid. The Pitch field of the bottom bar is drawn disabled until the track pitch-shift plan lands | building |
 
 The plans that built each part are in
-[the record](../agent/2026_10_21_GUI_UX_REDESIGN_RECORD/REPORT.md). The manual acceptance and the
+the record. The manual acceptance and the
 other open items are in `docs/design/REMAINING_WORK.md`'s Host section.
+
+### Work
+
+<!-- work:begin -->
+No open work.
+<!-- work:end -->
 
 ## Open questions
 

@@ -175,7 +175,7 @@ namespace SushiDSP
 
             /// @brief Derives the widths and slot count RigGraph routes by from a node's PortLayout.
             /// @param layout The node's declared layout.
-            /// @return The derived widths; see docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md §3.
+            /// @return The derived widths; see the stereo tracks design spec in the version history §3.
             static NodeChannels channels_of(const PortLayout& layout);
 
             std::uint32_t block_size_;

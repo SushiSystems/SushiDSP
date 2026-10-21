@@ -13,10 +13,10 @@ describe each layer of one cabinet heard at one receiver, which is what every pa
 environment renders.
 
 Intent, the physics behind each solver and the acceptance list live in
-[`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../../docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md);
+the room acoustics design spec in the version history;
 the task order is
-[`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`](../../../docs/archive/superpowers/plans/2026-09-08-room-acoustics.md).
-This file records what the code in this directory does. `docs/design/SUSHIDSP/ROOM_PATH.md` places the
+the room acoustics plan in the version history.
+This file records what the code in this directory does. `docs/design/ROOM/PATH.md` places the
 module in the tree and §9 carries its roadmap rows;
 [`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) holds what the phase
 knowingly left open.
@@ -207,7 +207,7 @@ a geometry: the increase in the room's equivalent absorption area one bed, one w
 one chair brings, the floor and the walls under it included (ISO 354 object absorption, ISO
 20189). `furniture.hpp` carries seven rows, each with its citation, and
 `RoomScene::furnishing_absorption_area()` sums quantity times area over the scene's live
-furnishings. `docs/design/ROOM_FURNISHINGS.md` section 6 says which rows are measured, which are
+furnishings. `docs/design/ROOM/README.md` section 6 says which rows are measured, which are
 tabulated and which are derived.
 
 A covering is not a furniture row. A curtain over a window or a rug on a floor replaces the
@@ -297,7 +297,7 @@ decay against the measured one:
 The tests bound 500 Hz to 2 kHz: within a fifth for Motus, within a quarter for CR2. Below
 500 Hz the two rooms disagree, Motus wanting less loss and CR2 more, so no single figure fits
 both there; [`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) carries that
-entry and `docs/design/ROOM_FURNISHINGS.md` section 11 the evidence.
+entry and `docs/design/ROOM/README.md` section 11 the evidence.
 
 ## Which thread runs what
 
@@ -789,3 +789,9 @@ state, were written when the change that caused them landed.
 ## Implementation notes
 
 The invariants the source files cite are in [`source/README.md`](source/README.md).
+
+## Designs
+
+<!-- designs:begin -->
+- [ROOM](../../../docs/design/ROOM/README.md): The room a cabinet is heard in: the shell, its finishes and its furnishings, and the node that renders them.
+<!-- designs:end -->

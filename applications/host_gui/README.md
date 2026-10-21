@@ -171,7 +171,7 @@ A rack holding nothing and a rack whose every slot is bypassed are both a cable,
 callback copies the input to every output channel untouched.
 
 The metronome's click is added to the output after both recorder legs are written, so it
-reaches no recorded file. `docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`
+reaches no recorded file. the arrangement view design spec in the version history
 §4 specifies this.
 
 GLFW delivers an Explorer drop outside the ImGui frame. The frame loop resolves each one
@@ -208,7 +208,7 @@ A lane converts a clip only through a sized reader, so the constructor prepares 
 and no caller can set a speed on an unprepared one.
 
 The re-amp leg mirrors the lane's frames, so a take recorded at a bar drives the rig at that
-bar (`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md` §5).
+bar (the arrangement view design spec in the version history §5).
 
 When a recording is armed, the transport position is read before the recording bus opens. No
 block the bus accepts then belongs to an earlier frame than the one the stopped recording's
@@ -216,7 +216,7 @@ clip begins at.
 
 ### `rig_persistence.cpp`
 
-These follow `docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md` §8.
+These follow the arrangement view design spec in the version history §8.
 
 A preset written before the timeline existed names one file per track row, and the loader reads
 that as one clip at frame 0. Such a preset carries no tempo either, which meant 120 BPM in 4/4
@@ -384,3 +384,9 @@ receiver, the old level on that receiver's strip, and Cabinet muted, because the
 in the room. A microphone's strip gets 3 dB more than the old level, since a centred strip is
 3 dB down a side and the old room put its microphone on both channels at full level. The old
 `mix` is not carried: the room has no dry path. Each step is logged.
+
+## Designs
+
+<!-- designs:begin -->
+- [GUI_UX_REDESIGN](../../docs/design/GUI_UX_REDESIGN.md): The standalone host window: the device panel, the transport, the rig chain editor and the workspace.
+<!-- designs:end -->

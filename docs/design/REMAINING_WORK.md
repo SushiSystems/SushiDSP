@@ -69,14 +69,6 @@ of the block at `-O2`.
 - Done when: the owner has ruled it (spec section 12)
 - Source: `docs/agent/2026_10_13_AMPLITUBE5_CHANNELS/SPEC.md`
 
-### RW-8 Decide what the archive's index and names become
-- State: decision
-- Done when: the owner has ruled whether `docs/archive/README.md` becomes an index naming which
-  of the two standards phase 1 plans is the record, and whether the dated lower-case names under
-  `docs/archive/` move to `UPPER_SNAKE_CASE.md`
-
-The archive is frozen; both edit it.
-
 ### RW-9 Move the cabinet section's gate, or make the amplifier cheaper
 - State: decision
 - Done when: three JCM800 chains into one room with eight microphones meet the gate, or the
@@ -171,7 +163,7 @@ caps the refinement, which differentiates numerically at six evaluations a step.
 - State: open
 - Done when: a third measured room, or a low-frequency term tied to lightweight elements, sets
   the 125 Hz and 250 Hz figures
-- Source: `docs/design/ROOM_FURNISHINGS.md` §11
+- Source: `docs/design/ROOM/README.md` §11
 - Where: `modules/nodes/room/include/SushiDSP/nodes/room/built_room_loss.hpp`
 
 The built room's loss fits neither measured room below 500 Hz. At 125 Hz the model reads 0.745 of
@@ -188,7 +180,7 @@ up; below, they want different figures and 0.020 and 0.025 sit between them.
 ### RW-20 Let furniture shadow and reflect
 - State: open
 - Done when: a placed furnishing blocks the line of sight and has an image of its own
-- Source: `docs/design/ROOM_FURNISHINGS.md` §9
+- Source: `docs/design/ROOM/README.md` §9
 
 ### RW-21 Give the listener one direct path per cone
 - State: open
@@ -238,7 +230,7 @@ earlier, and the tail's read delay is already zero, so the tail keeps its physic
 ### RW-28 Run the phase 2 manual acceptance
 - State: unmeasured
 - Done when: the seven checks of task 14 of
-  `docs/archive/superpowers/plans/2026-09-14-host-gui-phase2.md` have been run in the GUI
+  the host gui phase2 plan in the version history have been run in the GUI
 
 ### RW-29 Remove `SlotGraph::add_branch`
 - State: open
@@ -484,7 +476,7 @@ fails on every push since 2026-10-18. Cause: unknown.
 ### RW-62 Correct the changelog's places
 - State: open
 - Done when: the five placeless entries of 2026-09-05 and 2026-09-07 have places, and the
-  entries citing `docs/archive/changelog/` and three removed files cite what exists
+  entries citing a changelog folder that does not exist and three removed files cite what exists
 
 ### RW-63 Read the pages the em dash pass changed
 - State: open

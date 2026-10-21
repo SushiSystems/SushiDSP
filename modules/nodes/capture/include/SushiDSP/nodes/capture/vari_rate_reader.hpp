@@ -39,7 +39,7 @@ namespace SushiDSP
     /// @brief Reads a Take at a chosen speed, one Resampler per channel, in exact output counts.
     ///
     /// The pitch falls with the speed and nothing here stretches time, which
-    /// docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §5a states as the behaviour
+    /// the arrangement view design spec in the version history §5a states as the behaviour
     /// wanted rather than a limitation. Every buffer is sized in prepare(); read() and reset()
     /// are allocation-, lock-, syscall- and throw-free.
     class VariRateReader

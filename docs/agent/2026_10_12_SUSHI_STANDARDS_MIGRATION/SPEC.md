@@ -1,6 +1,7 @@
 # SushiSkills conformance migration
 
 **Status:** Open — the owner's decisions of RW-3.
+**Implements:** SUSHI_STANDARDS_MIGRATION#P2
 
 ## Decisions
 

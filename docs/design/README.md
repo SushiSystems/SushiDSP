@@ -1,13 +1,18 @@
 # Design map
 
-One document per topic. Each row's status is the status line of the document it names; a
-document that changes its status changes this row in the same commit.
+One document per topic: a module or a subject that spans modules. The table below is written from each
+topic's `About` line and status by `tools/documentation/generate_design_views.py`; nobody edits it by hand.
+A new idea about an existing topic is a page and a phase in that topic, not a new document.
 
-| Topic | Document | Status |
+## Topics
+
+<!-- topics:begin -->
+| Topic | State | About |
 | --- | --- | --- |
-| The DSP core, the circuit method, the products and the roadmap | [SUSHIDSP/](SUSHIDSP/README.md) | Open: D6, D7, DR3 and DR4 not built |
-| The host's window, rig view and gear browser | [GUI_UX_REDESIGN.md](GUI_UX_REDESIGN.md) | Open, phase 2 of 2 |
-| Furniture and finishes in the room module | [ROOM_FURNISHINGS.md](ROOM_FURNISHINGS.md) | Open, phase 4 of 4, the low-band built-room loss unresolved |
-| Bringing the repository onto the SushiSkills rules | [SUSHI_STANDARDS_MIGRATION.md](SUSHI_STANDARDS_MIGRATION.md) | Open, phase 2 of 3 |
+| [GUI_UX_REDESIGN](GUI_UX_REDESIGN.md) | Open | The standalone host window: the device panel, the transport, the rig chain editor and the workspace. |
+| [ROOM](ROOM/README.md) | Open | The room a cabinet is heard in: the shell, its finishes and its furnishings, and the node that renders them. |
+| [SUSHIDSP](SUSHIDSP/README.md) | Open | The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths. |
+| [SUSHI_STANDARDS_MIGRATION](SUSHI_STANDARDS_MIGRATION.md) | Open | Bringing the repository to the Sushi Systems programming standards: tooling, module tiers, code style and comments. |
+<!-- topics:end -->
 
 [REMAINING_WORK.md](REMAINING_WORK.md) is the single backlog.

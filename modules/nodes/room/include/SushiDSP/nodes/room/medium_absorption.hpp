@@ -37,7 +37,7 @@ namespace SushiDSP::room
 {
     /// @brief Evaluates the volumetric loss of one scene's medium: the air's ISO 9613-1 figure
     /// plus A_f(f) / 4V for the furnishings, on the control thread. Design:
-    /// docs/design/ROOM_FURNISHINGS.md section 3.
+    /// docs/design/ROOM/README.md section 3.
     class MediumAbsorption
     {
         public:

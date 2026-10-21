@@ -31,3 +31,9 @@ three discrete capacitors plus the triode's three interelectrode capacitances, a
 stage output at node 6. With the tail it has seven states and the probe moves to the tail's
 load, node 9. The nonlinear branches, the sources and the potentiometer are identical either
 way, so the two shapes differ only in what the plan calls S.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

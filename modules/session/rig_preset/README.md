@@ -92,3 +92,9 @@ Parameters are applied in `std::map` order, which is alphabetical by parameter i
 designed that ordering. Every `set_parameter_for_control_thread()` implementation today is
 order-independent; if one ever becomes order-dependent, the function must switch to preserving
 descriptor order or JSON-file order.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

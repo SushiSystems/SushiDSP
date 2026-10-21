@@ -49,7 +49,7 @@
 /// the preset codec, and forwards to whichever of the three owns the call. GUI thread only.
 /// A slot is named by a SlotId, stable across every insert, move and remove, and unrelated to
 /// the SushiDSP::NodeHandle RigGraph::add_node() assigns fresh on each rebuild.
-/// @see docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md
+/// @see the stereo tracks design spec in the version history
 class RigController
 {
     public:

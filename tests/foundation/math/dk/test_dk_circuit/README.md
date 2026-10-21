@@ -95,8 +95,8 @@ with n = 1 and the same Vt reproduces that law exactly except for its -1 offsets
 between the two antiparallel branches.
 
 D6b's DiodeClipperCircuit is not here, as a second, independently written
-implementation to agree with. D6c's plan (docs/archive/superpowers/plans/
-2026-09-05-d6c-tubescreamer-on-dk.md, Task 10) retired it: it ran four fixed float Newton
+implementation to agree with. D6c's plan (the d6c tubescreamer on dk plan in the version history, Task 10)
+retired it: it ran four fixed float Newton
 iterations with no convergence test and drifted up to 2.8 mV from the root at high slew, so
 agreeing with it was a weaker claim than agreeing with the equation. Bisecting the scalar
 equation itself, in double precision, is an independently written \*root\* rather than an

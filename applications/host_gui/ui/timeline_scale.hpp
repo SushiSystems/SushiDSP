@@ -44,7 +44,7 @@ namespace ui
     /// @brief Converts between timeline frames and canvas pixels, and rounds a frame to the
     /// musical grid. The ruler, a clip's rectangle and a dropped file's landing frame all go
     /// through this one object, so a clip is never drawn a pixel off the bar it plays on.
-    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md §6
+    /// @see the arrangement view design spec in the version history §6
     class TimelineScale
     {
         public:

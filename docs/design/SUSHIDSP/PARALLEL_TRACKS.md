@@ -4,8 +4,8 @@ The parallel tracks run beside the D phases because nothing in them touches the 
 
 ## DS: stereo, tracks and playback
 
-Spec `docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md`, plan
-`docs/archive/superpowers/plans/2026-09-07-stereo-tracks.md`. It is the graph's channel routing, a
+Spec the stereo tracks design spec in the version history, plan
+the stereo tracks plan in the version history. It is the graph's channel routing, a
 capture module and the host. "The studio path" describes what it built.
 
 | Id | What it builds | State |
@@ -19,8 +19,8 @@ capture module and the host. "The studio path" describes what it built.
 
 ## DT: the arrangement view
 
-Spec `docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md`, plan
-`docs/archive/superpowers/plans/2026-09-08-arrangement-view.md`. It continues DS with musical time: a
+Spec the arrangement view design spec in the version history, plan
+the arrangement view plan in the version history. It continues DS with musical time: a
 tempo grid, clips on lanes and a playback speed. "The timeline path" describes what it built.
 
 | Id | What it builds | State |
@@ -35,8 +35,8 @@ tempo grid, clips on lanes and a playback speed. "The timeline path" describes w
 
 ## DE: room acoustics
 
-Spec `docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`, plan
-`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`. `modules/nodes/room` needs the
+Spec the room acoustics design spec in the version history, plan
+the room acoustics plan in the version history. `modules/nodes/room` needs the
 graph's stereo routing and nothing from the circuit core. "The room path" describes what it built.
 
 | Id | What it builds | State |
@@ -53,7 +53,7 @@ graph's stereo routing and nothing from the circuit core. "The room path" descri
 
 ## DR: delay and reverb
 
-Spec `docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`. It runs beside the D phases
+Spec the dd3 spx90 design spec in the version history. It runs beside the D phases
 because neither unit needs the DK core: no block in either is a nonlinear network wanting a Newton
 solve. DR1 built `math/Resampler`, DR2 built the DD-3 (`modules/nodes/dd3/`), DR3 builds the SPX90
 engine and the eight programs that calibrate against the Surefyre IR pack, and DR4 adds the

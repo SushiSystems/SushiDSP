@@ -290,7 +290,7 @@ namespace SushiDSP
 
         /// @brief The fraction of its travel an audio-taper pot passes at the middle of its
         /// rotation, the datasheet figure for a 10 % "A" taper
-        /// (docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 6).
+        /// (the grid knee antialiasing design spec in the version history section 6).
         constexpr float K_PRE_GAIN_TAPER_MIDPOINT_FRACTION = 0.10f;
 
         /// @brief The base of the exponential taper, ((1 - m) / m)^2, which puts the law exactly

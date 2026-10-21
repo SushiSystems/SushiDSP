@@ -1,6 +1,7 @@
 # AmpliTube 5 channels, cabinet section and room
 
 **Status:** Open — built and tested; the gate is RW-9 and the listening RW-11.
+**Designs:** SUSHIDSP
 
 ## 1. Goal
 

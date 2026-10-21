@@ -5,7 +5,7 @@
 > approximation.**
 
 That is the verdict of
-[`docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md`](../../../docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md),
+the diezel vh4 design dossier research note in the version history,
 and this module is built from that dossier and nothing else. Every section number below points
 into it. One `AudioNode`, mono in and mono out, registered as `sushidsp.diezel_vh4` with ten
 parameters: Gain, Bass, Middle, Treble, Volume, Deep, Presence, Master, Input Trim and Output.
@@ -145,7 +145,7 @@ dossier's §8 question 13 says so in those terms.
 The four staging factors this module carried until 2026-09-07 , 
 `kV1aToV2aLevelStaging`, `kV2aToV3aLevelStaging`, `kFollowerToMixBusLevelStaging` and
 `kV4bToPhaseInverterLevelStaging`, were removed by
-[the plate-swing spec](../../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md), which
+the plate-swing spec, which
 gave `TriodeStage` the plate ceiling the table above lists and left the dossier's own dividers
 (×0.4996, the volume divider, ×0.0660 and the two follower scalars) as the only interstage factors
 in the chain. `K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION` stays, this chain's one output trim to full
@@ -208,7 +208,7 @@ knobs untouched and a −12 dBFS 1 kHz sine in, they read (2026-09-07):
 | V4a | 1.1443 V |
 | Phase inverter | 15.9062 V |
 
-Since DA5 (`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` §3) no solver
+Since DA5 (the grid knee antialiasing design spec in the version history §3) no solver
 fence holds a grid: V3a's 25.3 V is 180.8 V of headroom to the supply over its gain of 71.4, the
 point at which its plate ceiling has saturated, and the inverter's 15.9 V is its grid pulled
 through the 470 kΩ source into the 150 kΩ conducting slope of the Norman law, with its 117.4 V
@@ -434,7 +434,7 @@ which. The class exposes `diezel_vh4_descriptor()`.
 `K_MASTER_UNITY_GAIN` multiplies the signal after the last nonlinearity, so it scales the output and
 nothing else. The calibration point is the one all four amplifiers share: every knob at its
 default and a -12 dBFS 82 Hz input peaks at -6.00 dBFS
-(`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, section 6), pinned
+(the grid knee antialiasing design spec in the version history, section 6), pinned
 by `DiezelVh4DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`. The value 0.2319680 was
 measured on 2026-09-07 on the Norman grid law, on the volt-true power stage and on the transformer
 whose secondary carries no mean. The values before those three changes were 0.2365060, 0.3543949
@@ -443,7 +443,7 @@ and 0.627263, the last pinned at 1 kHz. "Calibration" above carries the derivati
 ### Dossier citations
 
 Every constant in `diezel_vh4.cpp` cites the section of
-`docs/archive/research/2026-09-06-diezel-vh4-design-dossier.md` it comes from. A constant the
+the diezel vh4 design dossier research note in the version history it comes from. A constant the
 dossier marks "not established", or that this module chose for itself, says so on its own line and
 is listed again in this README.
 
@@ -528,3 +528,9 @@ member of the closed form and is carried by `DiezelVh4ToneStack::K_INPUT_RESISTO
 
 Section 3.4 gives V3a an R26 470 kOhm grid stopper, the 500 kOhm R24'/R25' pair as the grid leak,
 Vgk -1.02 V, and Rk 680 Ohm with C19 2.2 uF.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

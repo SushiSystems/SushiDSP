@@ -30,3 +30,9 @@ pointer.
 
 Links only `SushiDSP::sushi_dsp` (`modules/nodes/cabinet/CMakeLists.txt`), no amp module, no device
 backend, no host.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

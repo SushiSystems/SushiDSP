@@ -1,6 +1,8 @@
 # SushiDSP design
 
 **Status:** Open — the core, four amplifiers and the studio, timeline and room paths are built; D6, D7, DR3 and DR4 are open
+**About:** The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+**Modules:** modules/foundation/core, modules/foundation/math, modules/foundation/circuits, modules/foundation/circuit_blocks, modules/foundation/io, modules/foundation/device, modules/catalog/node_registry, modules/nodes/routing, modules/nodes/jcm800, modules/nodes/tubescreamer, modules/nodes/dd3, modules/nodes/diezel_vh4, modules/nodes/mesa_mark2c, modules/nodes/peavey5150, modules/nodes/cabinet, modules/nodes/capture, modules/nodes/microphone, modules/session/rig_preset
 
 ## Problem
 
@@ -81,7 +83,7 @@ None of this touches `sushi_dsp`'s C++ link graph. A checkout of this repo with 
 ## Design
 
 The pages below hold the detail: [the studio path](STUDIO_PATH.md),
-[the timeline path](TIMELINE_PATH.md), [the room path](ROOM_PATH.md),
+[the timeline path](TIMELINE_PATH.md), [the room path](../ROOM/PATH.md),
 [the DSP math library](DSP_MATH_LIBRARY.md), [the amplifiers](AMPLIFIERS.md),
 [the Tube Screamer](TUBE_SCREAMER.md) and [the parallel tracks](PARALLEL_TRACKS.md).
 
@@ -181,7 +183,7 @@ namespace SushiDSP
 
 A **product module** is a self-contained library (its own DSP) that exposes one `NodeDescriptor` (the rig graph) and nothing else. It never references a device or a host.
 
-Three products exist: `jcm800` (the amplifiers), `tubescreamer` (the Tube Screamer), and `dd3`, the Boss DD-3 delay, specified in `docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md`. The DD-3 has no section of its own here; `modules/nodes/dd3/README.md` carries its block table, the three constants that are calibrations rather than component values, and what it leaves unmodelled, and the spec carries the rulings behind them. The SPX90 joins them behind the same seam.
+Three products exist: `jcm800` (the amplifiers), `tubescreamer` (the Tube Screamer), and `dd3`, the Boss DD-3 delay, specified in the dd3 spx90 design spec in the version history. The DD-3 has no section of its own here; `modules/nodes/dd3/README.md` carries its block table, the three constants that are calibrations rather than component values, and what it leaves unmodelled, and the spec carries the rulings behind them. The SPX90 joins them behind the same seam.
 
 From these modules, two consumers are built by generic (non-product-specific) code:
 
@@ -238,16 +240,22 @@ Tests: `TEST(<unit>, …)` for FFT/convolution/filter/WDF-solver numerical corre
 | D6 | VST3/CLAP wrapper: `applications/plugin` hosts the rig graph as a DAW plugin with its own rig-editor UI | planned |
 | D7 | Hardening and packaging: namespaced export and Config finalized, perceptual A/B validation once reference captures exist | planned |
 | DA | High-gain amplifiers: three sibling amp modules (`peavey5150`, `mesa_mark2c`, `diezel_vh4`) on the shared stage classes | built |
-| DA4 | Plate-swing `TriodeStage`, spec `docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md` | built |
-| DA5 | The grid knee, antialiasing and the volt-true power stage, spec `docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`; the -33.8 dB alias bound stays a known issue | building |
+| DA4 | Plate-swing `TriodeStage`, spec the triode plate swing design spec in the version history | built |
+| DA5 | The grid knee, antialiasing and the volt-true power stage, spec the grid knee antialiasing design spec in the version history; the -33.8 dB alias bound stays a known issue | building |
 | DS | Stereo, tracks and playback; see [the parallel tracks](PARALLEL_TRACKS.md) | built |
 | DT | The arrangement view | built |
 | DE | Room acoustics; DE7 and DE8 are not built | building |
 | DR | Delay and reverb; DR3 and DR4 are not built | building |
 
 The dates and commits of the landed phases are in
-[the record](../../agent/2026_10_21_SUSHIDSP_PHASE_RECORD/REPORT.md). The states above are read
+the record. The states above are read
 from the status text of each phase, not verified against the tree; the owner confirms them.
+
+### Work
+
+<!-- work:begin -->
+- [2026_10_13_TRACK_RIGS_AND_PLUGIN](../../agent/2026_10_13_TRACK_RIGS_AND_PLUGIN/SPEC.md): D6
+<!-- work:end -->
 
 ## Open questions
 

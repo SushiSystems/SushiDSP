@@ -126,3 +126,9 @@ port ignores the table. A node with more than one must run under `RigGraph`.
 Each edge adapts its own port's width to the consumer's input with the rule of `channels_adapt`, so
 a port 1 of two channels summed into a mono consumer arrives at half level, exactly as a main output
 would. `disconnect(from, to)` removes every edge between the two nodes, whichever ports they read.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

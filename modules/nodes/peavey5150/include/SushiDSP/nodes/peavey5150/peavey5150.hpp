@@ -53,7 +53,7 @@ namespace SushiDSP
     /// transformer, power sag, the feedback network's resonance and presence shelves, followed by
     /// a plain full-scale clamp. Cabinet convolution lives in the standalone sushidsp.cabinet
     /// node. Component values come from
-    /// docs/archive/research/2026-09-06-peavey-5150-design-dossier.md and every departure from
+    /// the peavey 5150 design dossier research note in the version history and every departure from
     /// it is listed in modules/nodes/peavey5150/README.md. Exposes peavey5150_descriptor().
     class Peavey5150 : public AudioNode
     {

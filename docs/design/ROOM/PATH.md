@@ -3,9 +3,9 @@
 `modules/nodes/room` is the DE phase's module: one `AudioNode`, `sushidsp.room`, mono in and two
 channels out, declaring `PortLayout{1, 2}` on the routing DS0 built. It puts the cabinet in a
 shoebox room and hands back what a head or a microphone hears there. Spec
-[`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../../archive/superpowers/specs/2026-09-08-room-acoustics-design.md),
+the room acoustics design spec in the version history,
 plan
-[`docs/archive/superpowers/plans/2026-09-08-room-acoustics.md`](../../archive/superpowers/plans/2026-09-08-room-acoustics.md).
+the room acoustics plan in the version history.
 
 The control thread solves and the audio thread renders, with one `RtSwapSlot` between them. A
 scene, six faces with a material each, the cabinet's pose, the listener's, the microphone's , 

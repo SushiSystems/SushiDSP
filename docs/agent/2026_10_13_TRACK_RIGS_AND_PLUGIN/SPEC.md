@@ -1,6 +1,7 @@
 # Track rigs, export and the first plugin
 
 **Status:** Open — built and tested; RW-45 to RW-57 are left. PLAN.md holds the results.
+**Implements:** SUSHIDSP#D6
 
 ## 1. What the owner asked for
 

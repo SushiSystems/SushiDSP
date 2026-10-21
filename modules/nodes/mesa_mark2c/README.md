@@ -6,7 +6,7 @@ graphic-equaliser sliders, Input Trim and Output. The PULL switches on the pots 
 every one of them is fixed at the position the dossier reads for Lead mode.
 
 Every component value, every gain and every operating point comes from
-[`docs/archive/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md`](../../../docs/archive/research/2026-09-06-mesa-mark-iic-plus-design-dossier.md).
+the mesa mark iic plus design dossier research note in the version history.
 A number that is not in that file is marked below as a modelling choice. Nobody has published a
 bench measurement of a Mark IIC+, so the whole module is calibrated against arithmetic on a 1983
 drawing and on jrb32's trace of a real chassis (dossier S8).
@@ -132,7 +132,7 @@ at the default and −12 dBFS −14.8 → −19.8 dB and at Lead Drive 0.02 −2
 tests this cost are back: `MesaMark2cHasACleanEndAtMinimumGain` at its own point,
 `MesaMark2cToneStackSitsBeforeTheLeadStages` at Lead Drive 0.05 and a 0.01 input, and
 `MesaMark2cEqBandBoostsItsCentre` with Master 1 at −20 dB, where the power section is linear.
-Design: `docs/archive/superpowers/specs/2026-09-08-iicplus-loop-network-design.md`.
+Design: the iicplus loop network design spec in the version history.
 
 Four stand-ins remain in that network, each labelled in the design's section 5. The Lead
 Master's taper: the pot is a rheostat and no source states its law, so it takes the model's
@@ -193,7 +193,7 @@ and Master 1's move (2026-09-08) V2A read 16.2602 V, V2B 27.9001 V and the inver
 by that stage's own dossier gain and multiply by one measured figure. That normalisation existed
 because a cascade fed dossier §3.8's numbers ran into `TriodeStage`'s solver bound instead of into
 a plate. `TriodeStage` now takes a `PlateSwing` and bounds each plate by its own headroom, so the
-spec at docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md deleted
+spec at the triode plate swing design spec in the version history deleted
 `kGridDriveNormalisation` and the seven `k*GridDrive` constants along with the JCM800's and the
 VH4's equivalents. The dossier's dividers and pots are now the only things that change the drive
 as it moves down the cascade. `K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION` went with them, replaced by
@@ -419,3 +419,9 @@ of the path; it does not centre them.
 
 `mesa_mark2c_tone_stack.cpp` takes its values from dossier section 4.1: 250 pF treble, 0.1 uF bass,
 0.047 uF mid, 100 k slope, 250 k bass, 10 k mid, 250 k treble.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

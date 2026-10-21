@@ -1,6 +1,7 @@
 # Plan: the Mark IIC+ model, the SOLID debt, and v0.1.0
 
 **Status:** Open — phase A waits on the bench, RW-41 and RW-43.
+**Designs:** SUSHIDSP
 
 The owner's hard requirement for v0.1.0 is the accuracy of the Mesa/Boogie Mark IIC+ model. This
 plan puts that first, then pays the SOLID debt the audit found, then clears the release blockers.
@@ -256,9 +257,9 @@ and declare `K_TIER_ORDER`.
 
 ## Phase C — v0.1.0
 
-- **C1.** Fix the broken cited paths. `design/sushidsp.md` against `docs/design/SUSHIDSP.md` in
+- **C1.** Fix the broken cited paths. `design/sushidsp.md` against `docs/design/SUSHIDSP/README.md` in
   `CONTRIBUTING.md:11,68,124` and `OVERVIEW.md:6,86`, then the `docs/superpowers/` and
-  `docs/reference/research/` paths that commit `2e65f33` moved under `docs/archive/`. The audit put
+  `docs/reference/research/` paths that commit `2e65f33` moved under the archive. The audit put
   the second group at 25; a full sweep of `modules/`, `src/`, `include/`, `apps/`, `tests/` and the
   manual counts 105 references in 60 files, in source comments as well as in links. Also retire the
   `.superpowers/sdd/` paths cited from source, which are not in the repository at all.

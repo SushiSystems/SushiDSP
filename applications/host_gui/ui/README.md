@@ -16,7 +16,7 @@ only. `session` is the session whose tracks, clips, transport and musical clock 
 decoding. `geometry_out` exists so that a drop arriving outside the ImGui frame can be resolved
 to a lane on the next frame. `header_width` is resized by a divider drawn between the header
 column and the grid. The design is
-`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md` §6.
+the arrangement view design spec in the version history §6.
 
 `route_file_drop` is the one route both an ImGui payload drop and an Explorer drop take, so the
 two land a file on the same frame. `rig` is the rig the clip is placed on; `scale` and `snap`
@@ -95,7 +95,7 @@ where the HRTF came from.
 Where the cabinets, the listener and the microphones stand is the room scene's to edit. The panel
 only keeps them inside the shell when a dimension shrinks under one of them, and writes the whole
 arrangement through `RigController::set_room_arrangement`, which paces a drag. The design is
-`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md` §9.2 and §14, decision DE6.
+the room acoustics design spec in the version history §9.2 and §14, decision DE6.
 
 ## `scene_camera.hpp` and `scene_interaction.hpp`
 
@@ -217,7 +217,7 @@ playback speed, the disabled Pitch field, the Mini-DAW toggle and, pinned to the
 input and output level meters. The take folder and name boxes, the loop range, the metronome's level and the recorder's dropped-block count are not in the mockup this
 bar follows; they stay, wrapped into a second row after Speed. The Mini-DAW button toggles
 `mini_daw_active` and reads "Mini-DAW" or "Back to Rig" accordingly. The design is
-`docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md` §5a and §6 and
+the arrangement view design spec in the version history §5a and §6 and
 `docs/design/GUI_UX_REDESIGN.md` §12.
 
 A tempo typed by hand ends whatever tap run was in progress, so the next tap opens a run of its

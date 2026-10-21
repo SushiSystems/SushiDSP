@@ -95,7 +95,7 @@ remaining job is dropping a selection that names no live slot.
 `// The re-amp leg is silent before the take's bar.`
 
 The re-amp leg is silent before the bar the take was recorded at, which is the whole point of
-the stamp: docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md Â§5.
+the stamp: the arrangement view design spec in the version history Â§5.
 
 ### `RigControllerLoadsAPresetWithNoRoomAsTheStarterScene`
 

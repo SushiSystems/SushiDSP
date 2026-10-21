@@ -121,7 +121,7 @@ folded to 1.46 Hz, inside the rectifier's own 23.4 Hz pole. The Ruling 7 revisit
 reading and bought Ne570Compander::K_RECTIFIER_OVERSAMPLING with it, which moved this row from
 -35.86 dB to -55.32 dB. The number still misses the -60 dB the printf names, by 4.7 dB; 16
 sub-steps would reach -65.13 dB, and the cost curve that chose 8 is in
-docs/archive/superpowers/specs/2026-09-05-dd3-spx90-design.md, Model corrections.
+the dd3 spx90 design spec in the version history, Model corrections.
 
 ## `test_behaviour.cpp`
 

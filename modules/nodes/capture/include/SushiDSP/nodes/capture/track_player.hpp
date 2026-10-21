@@ -47,7 +47,7 @@ namespace SushiDSP
     /// and solo; the control thread sets all five and the audio thread only reads them, so a
     /// lane can be replaced under a running mix without a lock. process() adds into the output
     /// rather than overwriting it, so the caller clears or fills the buffer first.
-    /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md sections 5 and 5a
+    /// @see the arrangement view design spec in the version history sections 5 and 5a
     class TrackPlayer
     {
         public:
@@ -109,7 +109,7 @@ namespace SushiDSP
             /// first and only then collects the library: the other order would free a take a retired
             /// timeline still names. Control thread; call it periodically, for instance once per GUI
             /// frame.
-            /// @see docs/archive/superpowers/specs/2026-09-08-arrangement-view-design.md section 5
+            /// @see the arrangement view design spec in the version history section 5
             void reclaim();
 
             /// @brief Adds every audible lane's clips into the output at the transport's position.

@@ -57,7 +57,7 @@ namespace
     ///
     /// Page 2 of the notes takes its whole check-point ladder at 1 kHz and 100 mVp-p in, i.e.
     /// 0.05 V peak; against the core's 2 V peak full scale that is 0.025 of full scale (dossier
-    /// docs/archive/research/2026-08-26-boss-dd3-design-dossier.md, check-point levels).
+    /// the boss dd3 design dossier research note in the version history, check-point levels).
     constexpr double K_SERVICE_NOTE_STIMULUS = 0.025;
 
     /// @brief Half the resampler prototype's width, counted in zero crossings, so the two

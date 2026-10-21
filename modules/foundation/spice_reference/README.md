@@ -35,4 +35,4 @@ fourth-order Butterworth.
 test, so the band-limiting cannot flatter either signal. It removes the top octave, where
 LTspice's variable-step integrator and the fixed-step trapezoidal rule of `DkCircuit` are known
 to disagree (D6b plan, Risks:
-`docs/archive/superpowers/plans/2026-08-26-d6b-dk-circuit-core.md`).
+the d6b dk circuit core plan in the version history).

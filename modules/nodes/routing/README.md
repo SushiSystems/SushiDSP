@@ -40,3 +40,9 @@ with no special-casing anywhere else in the tree.
 
 Links only `SushiDSP::sushi_dsp` (`modules/nodes/routing/CMakeLists.txt`), no product module, no
 device backend. `PanNode` additionally uses `SmoothedParameter` from the core's `math` library.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

@@ -38,7 +38,7 @@ namespace SushiDSP
     /// a Norman grid-conduction law referenced to the cathode, an inverting gain from grid to
     /// plate, and a two-sided tanh plate ceiling from the tube's PlateSwing, all in real volts,
     /// the composite transfer antialiased by an AntiderivativeAntialiaser. Specified by
-    /// docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md sections 5 and 15.
+    /// the grid knee antialiasing design spec in the version history sections 5 and 15.
     class PentodeStage
     {
         public:

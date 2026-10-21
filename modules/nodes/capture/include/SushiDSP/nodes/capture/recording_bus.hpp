@@ -41,7 +41,7 @@ namespace SushiDSP
     /// call is what makes the two files sample-aligned, because they begin on the same block, and
     /// stopping disarms both before either closes for the same reason. A block reaches both
     /// recorders or neither, so the two files hold the same frame count under any drop.
-    /// @see docs/archive/superpowers/specs/2026-09-07-stereo-tracks-design.md §5
+    /// @see the stereo tracks design spec in the version history §5
     class RecordingBus
     {
         public:

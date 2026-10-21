@@ -5,7 +5,7 @@ PRE GAIN, LOW, MID, HIGH, POST GAIN, RESONANCE, PRESENCE, plus the input trim an
 every amplifier module carries.
 
 Every component value comes from
-[`docs/archive/research/2026-09-06-peavey-5150-design-dossier.md`](../../../docs/archive/research/2026-09-06-peavey-5150-design-dossier.md),
+the peavey 5150 design dossier research note in the version history,
 and the code cites the section each one is read from. This file records what the module does and,
 more to the point, every place where it does something the dossier does not say outright.
 
@@ -169,7 +169,7 @@ frequency, so each corner is placed where the plateau has already arrived. Prese
 
 **Interstage level staging, removed.** The module carried seven scalars, one per link, plus an
 eighth that lifted the phase inverter's output by 28.62 into the power tubes. All eight are gone,
-deleted by `docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`. Each `TriodeStage` now
+deleted by the triode plate swing design spec in the version history. Each `TriodeStage` now
 runs the seven-argument constructor with a `PlateSwing` solved from §3's DC table, so the plate
 saturates where the real plate does instead of running to ±320 V, and the dossier's dividers reach
 the 6L6GC grids at face value in volts. `K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION` 0.8617 is the last
@@ -386,7 +386,7 @@ selector, and the screen node's shared sag.
 
 `K_POST_GAIN_UNITY_GAIN` scales the finished signal so an untouched amp turns a -12 dBFS 82 Hz input
 into a -6.00 dBFS peak, the calibration point all four amplifiers share
-(`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md`, section 6). The
+(the grid knee antialiasing design spec in the version history, section 6). The
 value 0.1710120 was measured on 2026-09-07 on the Norman grid law, the solved inverter bias and
 the audio-taper PRE GAIN, on the volt-true power stage and on the transformer whose secondary
 carries no mean. The values before those changes were 0.1730211, 0.2400876 and 0.6114945, the
@@ -403,7 +403,7 @@ the two together would make a calibration change a tone change.
 ### Dossier citations
 
 Every number in the constant block of `peavey5150.cpp` cites the section of
-`docs/archive/research/2026-09-06-peavey-5150-design-dossier.md` it is read from or derived from.
+the peavey 5150 design dossier research note in the version history it is read from or derived from.
 A value the dossier marks not established, or that is a modelling choice the dossier does not
 carry, says so in the source and appears in this README.
 
@@ -505,3 +505,9 @@ input shelf's gain at DC.
 
 `peavey5150_tone_stack.cpp` takes the deck from dossier section 4: C16 470 pF || C60 100 pF, C18 and
 C21 0.022 uF, R28 47 kOhm slope, VR3 1 MOhm LOW, VR4 50 kOhm MID, VR5 250 kOhm HIGH.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

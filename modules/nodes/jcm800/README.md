@@ -8,7 +8,7 @@ after this one (see [`modules/nodes/cabinet/README.md`](../cabinet/README.md)).
 Intent and the phase rulings live in
 [`docs/design/SUSHIDSP/AMPLIFIERS.md`](../../../docs/design/SUSHIDSP/AMPLIFIERS.md); the plate-swing change this file
 describes is specified in
-[`docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md`](../../../docs/archive/superpowers/specs/2026-09-07-triode-plate-swing-design.md).
+the triode plate swing design spec in the version history.
 The component values come from the `jcm_*` SPICE decks under
 [`docs/reference/spice/`](../../../docs/reference/spice/). This file records what the code in this
 directory does.
@@ -172,7 +172,7 @@ measured 2026-09-07. These are measurements, not assertions; no test pins them.
 | Phase inverter | 18.9606 V |
 
 V1a, V1b and V2a stay below the 0.5 V knee of the Norman grid law `TriodeStage` carries since
-DA5 (`docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md` §3), V2a because V1b
+DA5 (the grid knee antialiasing design spec in the version history §3), V2a because V1b
 now drives it at the cold clipper's 7.77 rather than 60. The inverter's grid travels 19.0 V,
 where it travelled 63.6 V against the deck-biased pair's 15.38 V plate ceiling: with 117.4 V of
 headroom the pair's ceiling is reached at a fifth of the drive it took before, and the grid's
@@ -395,3 +395,9 @@ land outside [-1, 1]. The clamp is what makes that safe. It is deliberately not 
 limiter: a waveshaper there would need its own oversampled region to avoid aliasing its own
 harmonics back down, and the amp's saturation character already comes from the tube and
 transformer stages that model it.
+
+## Designs
+
+<!-- designs:begin -->
+- [SUSHIDSP](../../../docs/design/SUSHIDSP/README.md): The standalone amp and pedal simulation framework: the rig graph, the DSP math library, the amplifiers and the studio, timeline and room paths.
+<!-- designs:end -->

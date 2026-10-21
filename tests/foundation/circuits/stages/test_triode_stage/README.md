@@ -105,7 +105,7 @@ tanh(453 / 115) is -114.99 V. The two sides differ by the swing alone.
 
 No solver fence holds the grid short of the ceiling: at -30 V in, the 5150's V5A stage reaches
 its 90.742 V headroom to the supply, where a 4.136 V fence held it at 74.3 V
-(docs/archive/superpowers/specs/2026-09-07-grid-knee-antialiasing-design.md section 3).
+(the grid knee antialiasing design spec in the version history section 3).
 
 ### `AntiderivativeAntialiaserInputMapInvertsTheGridSolve`
 

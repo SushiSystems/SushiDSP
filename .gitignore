@@ -28,3 +28,4 @@ third_party/asio/
 # host_gui session - developer-machine state, not SushiDSP's to redistribute.
 /*.png
 /imgui.ini
+docs/archive/
