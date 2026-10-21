@@ -17,8 +17,8 @@ declared and not tagged.
 
 ### RW-2 Say whether SushiDSP is in hub's catalogue
 - State: decision
-- Done when: `docs/design/SUSHIDSP.md` and `sushi-module.toml` agree on it
-- Source: `docs/design/SUSHIDSP.md`
+- Done when: `docs/design/SUSHIDSP/README.md` and `sushi-module.toml` agree on it
+- Source: `docs/design/SUSHIDSP/README.md`
 
 The design calls the repository a registered SushiStack member; the manifest says it is not in
 hub's catalogue.
@@ -183,7 +183,7 @@ up; below, they want different figures and 0.020 and 0.025 sit between them.
 - State: open
 - Done when: spec section 6.2 sizes the delay lines for the 12 s `RoomScene::K_MAX_DECAY_SECONDS`
   admits, or a measurement shows the 0.525 s lines do not thin audibly
-- Source: `docs/design/SUSHIDSP.md`
+- Source: `docs/design/SUSHIDSP/README.md`
 
 ### RW-20 Let furniture shadow and reflect
 - State: open

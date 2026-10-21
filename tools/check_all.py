@@ -1,5 +1,5 @@
 # check_all.py
-# SushiDSP - https://github.com/SushiSystems/SushiDSP
+# SushiSkills - https://github.com/SushiSystems/SushiSkills
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
@@ -24,6 +24,7 @@ K_CHECKERS = (
     "documentation/check_docs_layout.py",
     "documentation/check_changelog.py",
     "documentation/check_backlog.py",
+    "documentation/check_design_format.py",
     "documentation/check_docs_truth.py",
     "layering/check_layering.py",
     "testing/check_test_mirror.py",

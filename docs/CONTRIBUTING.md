@@ -126,4 +126,4 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 ## 6. Commit messages
 
 The `commits` skill is the rule. Name the roadmap phase (`D0`, `DS2`, `DE`) in the body when a
-change belongs to one; the phases are listed in [`design/SUSHIDSP.md`](design/SUSHIDSP.md) §9.
+change belongs to one; the phases are listed in [`design/SUSHIDSP/README.md`](design/SUSHIDSP/README.md), under Phases.

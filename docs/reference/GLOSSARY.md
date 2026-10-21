@@ -47,7 +47,7 @@ schematics, their sources and the questions they leave open.
 **golden file**: one second of mono float32 rendered by one node at one sample rate, stored
 under the unit's `goldens/` folder and compared against a fresh render at −80 dB RMS residual.
 
-**phase**: a step of the roadmap in `docs/design/SUSHIDSP.md` §9, named by a prefix and a
+**phase**: a step of the roadmap in `docs/design/SUSHIDSP/README.md`, under Phases, named by a prefix and a
 number, such as `D4`, `DS2` or `DE`.
 
 **stand-in**: a constant nobody has published, listed in its module README's stand-in table
@@ -90,4 +90,4 @@ speed, and `TrackPlayer` converts to output frames at each run's own base.
 
 The timeline classes live in [`modules/nodes/capture/`](../../modules/nodes/capture/) and are described in
 its [`README.md`](../../modules/nodes/capture/README.md); the intent behind them is in
-[`docs/design/SUSHIDSP.md`](../design/SUSHIDSP.md) §3b.
+[`docs/design/SUSHIDSP/TIMELINE_PATH.md`](../design/SUSHIDSP/TIMELINE_PATH.md).

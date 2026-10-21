@@ -3,7 +3,7 @@
 Five plain `AudioNode`s a user places directly in the rig graph, registered under the
 "Routing" gear-panel category: `SplitterNode`, `MixerNode`, `PanNode`, `ChannelStripNode` and
 `BusNode`.
-[`docs/design/SUSHIDSP.md`](../../../docs/design/SUSHIDSP.md) §3a describes `RigGraph`'s own
+[`docs/design/SUSHIDSP/STUDIO_PATH.md`](../../../docs/design/SUSHIDSP/STUDIO_PATH.md) describes `RigGraph`'s own
 edge-width adaptation (one-into-two copied, two-into-one summed and scaled); these nodes are the
 user-visible complement to that, things a rig can name and place, not things the graph does
 silently at an edge. This file records what the code in this directory does.

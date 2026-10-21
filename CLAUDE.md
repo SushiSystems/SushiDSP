@@ -10,7 +10,7 @@ When starting work on this project:
    `humanizer`.
 2. Read `docs/CONTRIBUTING.md` first and follow it.
 3. Then read `docs/README.md`, the manual's index, and follow it into what your task touches.
-4. `docs/design/SUSHIDSP.md` is the design spec. It records intent, so it may describe work
+4. `docs/design/SUSHIDSP/README.md` is the design spec. It records intent, so it may describe work
    that does not exist yet; read it before changing the subsystem it covers, and never treat it
    as a description of the tree as it stands. `build/docs/api-site/`, once `sd docs` has
    generated it, is Doxygen output and is never edited by hand.

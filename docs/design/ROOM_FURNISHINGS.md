@@ -1,5 +1,8 @@
-# Room Furnishings and Finishes
-**Status:** Open — phase 4 of 4, the low-band built-room loss unresolved
+# Room furnishings and finishes
+
+**Status:** Open — P4 under way, the low-band built-room loss unresolved
+
+## Problem
 
 The room module (`modules/nodes/room`) models a shoebox from six surface materials. It has no
 furniture, so the room a musician plays in, with a bed, a desk and a wardrobe, cannot be
@@ -10,8 +13,6 @@ The physics of the module as built is in
 [`modules/nodes/room/README.md`](../../modules/nodes/room/README.md); the original spec is
 archived at
 [`docs/archive/superpowers/specs/2026-09-08-room-acoustics-design.md`](../archive/superpowers/specs/2026-09-08-room-acoustics-design.md).
-
-## 1. Goal
 
 A user builds a garage, a bathroom, a living room or a bedroom in three layers, and the module
 renders the decay, the early reflections and the standing waves that room really has:
@@ -32,7 +33,7 @@ each.
 "Correct" means the module's decay time and direct-to-reverberant ratio agree with measured
 rooms of the same kind, not that the tail was turned down until it sounded right.
 
-## 2. What the measurements say
+### What the measurements say
 
 The shipped default (gypsum board on studs, carpet, no furniture, 60 m3) decays for 1.3 s at
 500 Hz. Measured furnished rooms of this size do not.
@@ -49,7 +50,23 @@ The last row is the closest to a TOKI room: concrete shell, furniture doing the 
 Korean row gives the order of contribution: of the desk, the bed and the sofa the bed is the
 largest single step (0.76 to 0.58 s), the desk the smallest (0.81 to 0.76 s).
 
-## 3. Representation
+## Decision
+
+- Furniture is an equivalent absorption area per band, not geometry. The scene sums it, and the
+  one number `m_f = A_f / (4 V)` is read by the Eyring decay, the image-source taps and the modal
+  damping, so the layers agree.
+- The direct path is never attenuated, and absorption is uniform: placement, occlusion and
+  shadowing are out of scope.
+- A covering (a curtain, a rug) is a material used as a patch, never a furniture row.
+- A row lands only with a citation, and a derived row states its formula.
+- Tabulated surface coefficients under-predict a built room's absorption, so a scene carries a
+  `RoomScene::built_room_loss` flag, which adds `K_BUILT_ROOM_LOSS` to every face. The starter
+  scene sets it and a bare scene does not. The measured figures behind the constant are in
+  [the record](../agent/2026_10_21_ROOM_FURNISHINGS_RECORD/REPORT.md).
+
+## Design
+
+### Representation
 
 Furniture is an equivalent absorption area, not geometry. Each object carries a per-band area
 in square metres: the increase in a room's equivalent absorption area the object brings, floor
@@ -87,7 +104,7 @@ area on top of the untouched window would count the glass twice: 49 % too much a
 The per-metre loss is a statistical mean over many mean free paths. A single early tap loses
 what a path of its length loses on average, not what its own path meets. The direction is right
 and the error is largest on the first few taps, which set the direct-to-reverberant ratio; the
-Motus comparison of section 8 is where it is measured.
+Motus comparison under "Validation against measured rooms" is where it is measured.
 
 Two consequences are decided here.
 
@@ -98,7 +115,7 @@ Two consequences are decided here.
   Placement, occlusion and shadowing are out of scope, as they were in spec section 11; a
   geometric object needs visibility tests at ten to a hundred times the control-thread cost.
 
-## 4. Bricks
+### Bricks
 
 | Concern | Brick | Shape it copies |
 | --- | --- | --- |
@@ -111,13 +128,13 @@ Two consequences are decided here.
 `MediumAbsorption` is the seam the three consumers call. It returns the air's coefficient plus
 `m_f`, so a further loss adds inside it and no consumer changes. `AirAbsorption` is untouched.
 `RoomScene` cannot call `MediumAbsorption`, which reads `RoomScene`, so the validator's bound
-(section 5) is computed in the scene from `furnishing_absorption_area()`, as
+("The validator") is computed in the scene from `furnishing_absorption_area()`, as
 `min_mean_absorption()` already is.
 
 Every furniture row is per item: a bed, a wardrobe module, a chair. `Furnishing` is
 `{ FurnitureId item; double quantity; }`.
 
-## 5. The validator
+### The validator
 
 `RoomScene::is_valid` refuses a non-positive or non-finite quantity and more than
 `K_MAX_FURNISHINGS` (16) entries. The 12 s decay bound counts furniture, since furniture is real
@@ -132,7 +149,7 @@ consumers assume a scene that passed `is_valid`; none of them checks a furniture
 A scene with no furnishings is the scene of today. Every existing test, golden and preset
 renders bit for bit the same: `A_f = 0` adds exactly `0` to each sum.
 
-## 6. Data and its provenance
+### Data and its provenance
 
 A row lands only with a citation. Three kinds of row exist, and the citation says which.
 
@@ -144,7 +161,7 @@ A row lands only with a citation. Three kinds of row exist, and the citation say
   enter a scene as patches.
 - **Derived**: a bed, a desk and a wardrobe. No measured per-object figure was found for
   household versions of the three. A derived row states its formula and inputs in the citation
-  and is bounded by the room-level figures in section 2.
+  and is bounded by the room-level figures under "What the measurements say".
 
 Surface finishes needed for the shell layer: plaster on masonry (smooth, 0.013 to 0.05 across
 the bands), painted brick, ceramic tile, parquet on concrete. Every one lies between 0.01 and
@@ -152,7 +169,7 @@ the bands), painted brick, ceramic tile, parquet on concrete. Every one lies bet
 reprints of Everest and Pohlmann; each row is checked against the book or EN 12354-6 before it
 lands.
 
-## 7. Persistence and panel
+### Persistence and panel
 
 - `RigPersistence` writes `"furnishings": [{ "item": "bed", "quantity": 1 }]` in a room's JSON.
   A preset without the field loads as no furnishings. It also writes `"built_room_loss": true`
@@ -164,12 +181,12 @@ lands.
   editor for openings and coverings (door, window, curtain, rug): a face, a material and an area.
   Without it a curtain cannot enter a scene from the panel.
 
-## 8. Validation against measured rooms
+### Validation against measured rooms
 
 Tier 1, in the unit suite: the Eyring figure with furnishings against hand arithmetic; a tap's
 gain against `exp(-m_f d / 2)`; the seam of `RoomNodeIsContinuousAcrossTheSchroederFrequency`
 repeated in a furnished room; a furnished 60 m3 room's mid-band decay inside the band the
-measurements of section 2 give.
+measurements under "What the measurements say" give.
 
 Tier 2, a tool and a small table checked in: the Motus dataset (Zenodo 4923187, one 4.9 x 4.4 x
 2.9 m concrete room in 830 furniture configurations, ambisonic RIRs and 3D models). Its small
@@ -183,52 +200,38 @@ measured object absorption, so it tests the empty room, the covering and the met
 household rows. The raw set is tens of gigabytes (a 461 MB `best_of` subset exists) and stays out
 of the tree.
 
-The empty room, measured T30 against the model's, and the same room with the carpet down:
+The measured results are in [the record](../agent/2026_10_21_ROOM_FURNISHINGS_RECORD/REPORT.md).
+The model decays 1.10 to 1.80 times longer than the Motus room, worst at 250 Hz, and the 10 %
+bound asked for at 500 Hz and 1 kHz is not met. The test bounds the model at twice the
+measurement and prints the rest. Measurement 0003, carpet with four shelves, is read from the
+RIRs and not modelled: the shelves have no row.
 
-| Band | Measured, empty | Model, empty | Ratio | Measured, carpet | Model, carpet | Ratio |
-| --- | --- | --- | --- | --- | --- | --- |
-| 125 Hz | 2.572 s | 3.123 s | 1.214 | 2.704 s | 2.989 s | 1.105 |
-| 250 Hz | 2.147 s | 3.856 s | 1.796 | 2.057 s | 3.473 s | 1.689 |
-| 500 Hz | 2.009 s | 3.180 s | 1.583 | 1.635 s | 2.688 s | 1.644 |
-| 1 kHz | 2.119 s | 3.429 s | 1.618 | 1.428 s | 2.087 s | 1.461 |
-| 2 kHz | 1.958 s | 3.410 s | 1.741 | 1.166 s | 1.427 s | 1.224 |
-| 4 kHz | 1.508 s | 2.080 s | 1.380 | 0.998 s | 0.973 s | 0.975 |
+### Furniture with a place
 
-The model decays 1.10 to 1.80 times longer than the room, worst at 250 Hz, and the 10 % bound
-this section asked for at 500 Hz and 1 kHz is not met. The carpet shortens both, and it shortens
-the model further than it shortens the room: 39.2 % against a measured 32.6 % at 1 kHz, 58.2 %
-against 40.4 % at 2 kHz, 53.2 % against 33.8 % at 4 kHz. The test therefore bounds the model at
-twice the measurement and prints the rest. Measurement 0003, carpet with four shelves, is read
-from the RIRs and not modelled: the shelves have no row. What the figures mean for the rows is
-section 11.
-
-## 8a. Furniture with a place
-
-Added 2026-10-13. A `RoomScene::Furnishing` may carry a place: `placed`, `x_m`, `y_m` and
+A `RoomScene::Furnishing` may carry a place: `placed`, `x_m`, `y_m` and
 `yaw_rad`. Each furniture row carries a nominal box, `FurnitureItem::box_m`, which is what the
 host draws and what the absorption is spread around.
 
-The room's total is untouched, so sections 3 and 8 stand: Eyring's time, the tail and the fit
+The room's total is untouched, so "Representation" and "Validation against measured rooms" stand: Eyring's time, the tail and the fit
 against the two measured rooms read `A_f` as before. A placed furnishing changes who pays it.
 `FurnishingField` holds a bell around the item, half its box wide and half its height tall,
 normalised to one over the shoebox with the walls' cut taken out in closed form.
 
 - A reflected path's loss per metre is the item's `A / 4V` times the room's volume times the mean
   density along the path. Over the paths of a diffuse field that weight averages one, which is
-  the uniform figure of section 3.
+  the uniform figure of "Representation".
 - A mode's loss is the item's `A / 4V` times the mean of the mode's pressure squared over the
   bell, against the mode's own mean. For each axis with a non-zero index that is one plus the
   bell's mean of the cosine at twice the mode's wavenumber.
 
-A furnishing with no place answers exactly as section 3 does, bit for bit, so a scene from before
-this section renders as it did. `starter_scene()` places nothing: the owner ear-checked that room
-on 2026-09-23, and placing its furniture changes its reflections.
+A furnishing with no place answers exactly as "Representation" does, bit for bit, so a scene from before
+this section renders as it did. `starter_scene()` places nothing: the owner ear-checked that room, and placing its furniture changes its reflections.
 
-What this leaves out is in section 9: a furnishing casts no shadow and reflects nothing.
+What this leaves out is under "What this does not do": a furnishing casts no shadow and reflects nothing.
 
-## 9. What this does not do
+### What this does not do
 
-- No object occludes or shadows anything, with or without a place. See sections 3 and 8a.
+- No object occludes or shadows anything, with or without a place. See "Representation" and "Furniture with a place".
 - No scattering by furniture. The module's `Scattering` words stay per surface.
 - Below 125 Hz the furniture area is held at the 125 Hz band, as the modal solver holds its
   surface rows.
@@ -236,31 +239,23 @@ What this leaves out is in section 9: a furnishing casts no shadow and reflects 
   paint) is not modelled: for a rigid wall the outermost finish sets the absorption, and for a
   light wall the measured absorption of the whole assembly is the honest input.
 
-## 10. Phases
+## Phases
 
-| Phase | Content | State |
+| Id | Phase | State |
 | --- | --- | --- |
-| 1 | Furniture table, scene field, `MediumAbsorption`, the three consumers, tier 1 tests | Done |
-| 2 | Preset keys and `furnishings` JSON, the layered panel with its furnishing and patch lists | Done |
-| 3 | Coverings as materials, finish rows, `starter_scene()` as what a fresh slot loads | Done |
-| 4 | Tier 2 comparison against Motus and BRAS CR2, the built room's loss, the module README and known issues | Done from 500 Hz up; below 500 Hz the two rooms disagree |
+| P1 | Furniture table, scene field, `MediumAbsorption`, the three consumers, tier 1 tests | built |
+| P2 | Preset keys and `furnishings` JSON, the layered panel with its furnishing and patch lists | built |
+| P3 | Coverings as materials, finish rows, `starter_scene()` as what a fresh slot loads | built |
+| P4 | Tier 2 comparison against Motus and BRAS CR2, the built room's loss, the module README and known issues. Done from 500 Hz up; below 500 Hz the two rooms disagree | building |
 
-## 11. Open items
+The task order is
+[`docs/agent/2026_09_22_ROOM_FURNISHINGS/PLAN.md`](../agent/2026_09_22_ROOM_FURNISHINGS/PLAN.md).
 
-- **The built room's loss, decided 2026-09-23.** Tabulated coefficients under-predict a built
-  room's absorption. Measured minus modelled mean absorption, 125 Hz to 4 kHz, is +0.007, +0.020,
-  +0.018, +0.018, +0.021 and +0.018 in the empty Motus room and +0.062, +0.046, +0.030, +0.027,
-  +0.030 and +0.012 in the empty BRAS CR2 seminar room (146 m3, T30 from its ten dodecahedron
-  responses, `tests/nodes/room/fixtures/built_room_loss/bras_cr2_reference.csv`). The BRAS CR1 reverberation chamber, sealed
-  and purpose-built, shows no excess: its fitted concrete absorption is 0.009 to 0.019, below the
-  database's initial estimate. The excess therefore comes from what a built room carries (doors,
-  windows, radiators, ducts, seams, leakage), not from the surface materials, and it is a scene
-  property, `RoomScene::built_room_loss`, adding `K_BUILT_ROOM_LOSS` = 0.020, 0.025, 0.020, 0.020,
-  0.020 and 0.015 to every face; the starter scene sets it, a bare scene does not. With it the
-  model reads 0.96 to 1.04 of Motus and 1.14 to 1.21 of CR2 from 500 Hz to 2 kHz.
-- **Below 500 Hz the two rooms disagree.** Motus asks for +0.007 at 125 Hz and CR2 for +0.062,
-  so the model reads 0.75 of Motus and 2.1 of CR2 there. CR2's large windows, radiators and
-  ribbed ceiling are the likely low-frequency absorbers, but that is not measured. Closing it
-  wants a third room, or a low-frequency term tied to lightweight elements rather than to area.
-- Whether the panel should read out the room's decay per band. It needs a read on `RoomHost`,
-  a public interface, so it is a separate decision.
+## Open questions
+
+- Below 500 Hz the two measured rooms disagree: the model reads 0.75 of Motus and 2.1 of CR2
+  there. CR2's large windows, radiators and ribbed ceiling are the likely low-frequency
+  absorbers, but that is not measured. Closing it wants a third room, or a low-frequency term
+  tied to lightweight elements rather than to area.
+- Whether the panel should read out the room's decay per band. It needs a read on `RoomHost`, a
+  public interface, so it is a separate decision.

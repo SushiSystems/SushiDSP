@@ -1,26 +1,8 @@
-# Host GUI/UX Redesign
-**Status:** Open — phase 2 of 2
+# Host GUI/UX redesign
 
-Phase 1 (§2-§9) implemented in full. §8 (cabinet node) by
-`docs/archive/superpowers/plans/2026-09-10-cabinet-node.md`; §2-§7 by
-`docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`. Phase 2 (§10-§18) implemented by
-`docs/archive/superpowers/plans/2026-09-14-host-gui-phase2.md`, except §12's Pitch field, which is
-drawn disabled until the track pitch-shift plan lands; its manual acceptance and the other
-open items are in `docs/design/REMAINING_WORK.md`'s Host section.
+**Status:** Open — P1 built; P2 built except the Pitch field, which is drawn disabled
 
-Raw findings this spec is built from: `docs/archive/notes/2026-09-10-gui-ux-session-notes.md`.
-Reference screenshots for Phase 1: `image.png`, `image1.png` (AmpliTube 5, the layout
-model), `image4.png`, `image5.png`, `image6.png` (`sushidsp_host_gui.exe` states before
-Phase 1), all at the repository root. Reference screenshots for Phase 2: `image1.png`
-(signal-flow cable style), `image7.png`–`image10.png` (AmpliTube's series/parallel chain
-templates), `image11.png` (the four chain-type icons). Phase 2's working reference is an
-interactive HTML mockup, iterated live with the maintainer:
-<https://claude.ai/code/artifact/86c82259-6c54-4fcf-be65-424903fd5c90>, every rule in
-§10-§19 describes what that mockup does; read it alongside the mockup, not instead of it,
-since the mockup is the source of truth for exact spacing, color and interaction feel and
-this text is the source of truth for the data model and rules an ImGui port must preserve.
-
-## §1 Goal
+## Problem
 
 The current host GUI (`applications/host_gui`) has no coherent layout: the audio-device dialog opens
 pinned to a corner, the device list hardcodes a device name instead of enumerating real
@@ -30,12 +12,49 @@ AmpliTube-5-style layout, removes the hardcoded device entry, automates splitter
 wiring, promotes the cabinet to a first-class rig component, and turns the mini-DAW into a
 collapsible panel with a bounded track count.
 
-## §2 Audio-device panel
+Phase 1 gave the host a coherent AmpliTube-style shell but left three things unresolved:
+the transport bar and the rig chain were separate panels instead of one working surface,
+the splitter/mixer automation from "Splitter and mixer automation" rendered as full-size nodes indistinguishable from
+an amp or a pedal, and no panel could be resized, every split between areas was a fixed
+ratio. Phase 2 replaces the "Main window layout"/"Splitter and mixer automation"/"Transport bar"/"Mini-DAW panel" layout with a single resizable workspace built
+around how a signal actually branches and rejoins, and turns the splitter picker from "insert
+a routing node at the cursor" into "pick the whole rig's topology," which is what the
+AmpliTube reference (`image7.png`-`image11.png`) actually shows: the four left-rail icons
+choose between a straight run and two- or three-way parallel racks, they are not something
+you drop mid-chain.
 
-**Implemented** by Task 1 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+## Decision
+
+- Phase 1 rebuilds the main window in full to an AmpliTube-5-style layout; the old arrangement is
+  not adjusted incrementally.
+- Two assumptions of the first draft were dropped after code inspection. The device list was
+  never hardcoded: `applications/host_gui/main.cpp` enumerates the real drivers with
+  `SushiDSP::AsioAudioDevice::enumerate_drivers()`, and `Roland Rubix` in the screenshot was a
+  driver name from the machine it was captured on. The track count is already a fixed constant of
+  8, which matches the intended cap, so no add or remove track control is built.
+- The owner decided that `sushidsp.cabinet` is the only cabinet path: the amp nodes lost their
+  built-in convolution, so an amp rig that relied on it needs an explicit cabinet node to sound
+  the same. The break is intentional and one-time.
+- Phase 2 makes the chain type a topology choice for the whole rig, not a routing node inserted
+  at the cursor. The maintainer confirmed that switching between split types may discard branch
+  gear, and that the two 2-way presets stay two distinct buttons.
+
+## Design
+
+References: `image.png` and `image1.png` (AmpliTube 5, the layout model), `image4.png` to
+`image6.png` (the states before phase 1), `image7.png` to `image11.png` (AmpliTube's chain
+templates and the four chain-type icons), all at the repository root, and the raw findings in
+`docs/archive/notes/2026-09-10-gui-ux-session-notes.md`. Phase 2's working reference is an
+interactive HTML mockup, iterated live with the maintainer:
+<https://claude.ai/code/artifact/86c82259-6c54-4fcf-be65-424903fd5c90>. Every phase 2 rule
+describes what that mockup does; read it alongside the mockup, since the mockup is the source of
+truth for exact spacing, color and interaction feel and this text is the source of truth for the
+data model and rules an ImGui port must preserve.
+
+### Phase 1: Audio-device panel
 
 - Opens **centered** in the main window, not pinned to the top-left corner.
-- **Correction (2026-09-10):** the device list was assumed to hardcode a device name
+- **Correction:** the device list was assumed to hardcode a device name
     (`Roland Rubix`) based on what the panel showed during the walkthrough. Code
     inspection found no such hardcoding: `applications/host_gui/main.cpp:211-217` already calls
     `SushiDSP::AsioAudioDevice::enumerate_drivers()` and `applications/host_gui/ui/device_settings.cpp`
@@ -50,9 +69,7 @@ collapsible panel with a bounded track count.
   `SetNextWindowSize`, so the panel opens centered each time it transitions from closed to
   open.
 
-## §3 Main window layout (AmpliTube-5-style)
-
-**Implemented** by Tasks 3 and 4 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+### Phase 1: Main window layout
 
 Reference: `image1.png`.
 
@@ -67,18 +84,16 @@ Reference: `image1.png`.
     plan; the grid layout described in an earlier draft of this section was never built and
     is tracked separately in `docs/design/REMAINING_WORK.md`.
 - **Bottom:**
-  - The transport/metronome bar (§5).
+  - The transport/metronome bar ("Transport bar").
   - The rig design (chain) view, with the splitter-style picker at its far left edge,
     matching AmpliTube's left-side routing icons.
 - This layout replaces the current arrangement in full; the present default screen
   (`image4.png`) is not incrementally adjusted; it is rebuilt to this structure.
 
-## §4 Splitter / mixer automation
-
-**Implemented** by Task 5 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+### Phase 1: Splitter and mixer automation
 
 - The user never adds a splitter or mixer node by hand.
-- The rig design view's splitter-style picker (§3, bottom) offers the available splitter
+- The rig design view's splitter-style picker ("Main window layout", bottom) offers the available splitter
   styles. Selecting one:
   1. Inserts the matching splitter node (`sushidsp.splitter`, see
      `modules/nodes/routing/README.md`) at that point in the chain.
@@ -90,10 +105,7 @@ Reference: `image1.png`.
   rig nodes (per `docs/README.md`); this feature is GUI automation over node placement and
   wiring, not a new node type.
 
-## §4a Chain types and what a change does to the gear
-
-**Implemented** 2026-09-22, against AmpliTube 5's own behaviour as its user manual chapter 3
-describes it; the research this is built from is in this session's report.
+### Phase 1: Chain types
 
 The rail offers three chain types, named after the manual's:
 
@@ -123,14 +135,12 @@ through the rig's own snapshot and restore. This is why the two are one call at 
 site, a caller that switched the type without filling the paths would leave a split running
 silent on every branch but the first, which is what the rail did before this section existed.
 
-## §5 Transport / metronome bar
-
-**Implemented** by Tasks 2 and 4 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+### Phase 1: Transport bar
 
 Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
 
 - Moves from the top of the window (current) to the bottom, beside/above the rig design
-  view per §3.
+  view per "Main window layout".
 - Redesigned to prefer icon/symbol controls over text buttons wherever a clear symbol
   exists (record dot, play/stop/loop transport glyphs, a metronome icon for Click), for a
   visually clean, uncluttered bar. Controls with no natural symbol (BPM number entry, time
@@ -138,15 +148,13 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
 - No functional change to transport behavior in this pass, this is a presentation and
   placement change only.
 
-## §6 Mini-DAW panel
-
-**Implemented** by Task 6 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+### Phase 1: Mini-DAW panel
 
 - Functionally unchanged from the current REC/Play/Stop/Loop/lane-view behavior
   (`image4.png`).
 - Becomes a **collapsible panel**, hidden by default, toggled by one clearly-labeled
   button. Its internal layout is not redesigned in this pass.
-- **Correction (2026-09-10):** track count was assumed to need a user-facing
+- **Correction:** track count was assumed to need a user-facing
     add/remove control, capped at 8. Code inspection found the track count is already a
     fixed compile-time constant of exactly 8 throughout the host
     (`SushiDSP::TrackPlayer::K_MAX_TRACKS = 8` in
@@ -157,18 +165,16 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
     lane headers. Fixed-8 already matches the intended cap; **no add/remove-track
     feature is added in this pass.**
 
-## §7 Remove the file/folder browser panel
-
-**Implemented** by Task 3 of `docs/archive/superpowers/plans/2026-09-10-host-gui-redesign.md`.
+### Phase 1: File browser removal
 
 - The panel shown in `image5.png` ("Drag a take or a song onto a lane, or c[lick...]" /
   "(no folder)" file browser, currently under the gear list in `image4.png`) is **removed
   entirely**, not hidden, not collapsed. No replacement panel takes its place; the space
-  it occupied is reclaimed by the redesigned layout in §3.
+  it occupied is reclaimed by the redesigned layout in "Main window layout".
 
-## §8 Cabinet as a first-class rig component
+### Phase 1: Cabinet node
 
-- A new `sushidsp.cabinet` entry appears in the gear browser (§3) alongside amps and
+- A new `sushidsp.cabinet` entry appears in the gear browser ("Main window layout") alongside amps and
   pedals, draggable into the rig chain the same way.
 - It loads an impulse response (IR) and convolves it into the signal path.
 - **Former mechanism:** `modules/foundation/core/include/SushiDSP/foundation/core/cabinet_host.hpp` defined the cabinet
@@ -178,7 +184,7 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
   (`modules/foundation/io/include/SushiDSP/foundation/io/ir.hpp`, `ir_loader.hpp`) and convolution
   (`modules/foundation/math/include/SushiDSP/foundation/math/partitioned_convolution.hpp`,
   `modules/foundation/math/include/SushiDSP/foundation/math/streaming_convolution.hpp`) were owned by whichever amp hosted them.
-- **Decision (owner, 2026-09-10), implemented:** `sushidsp.cabinet` is now the only cabinet
+- **Decision (owner):** `sushidsp.cabinet` is now the only cabinet
   path, delivered by `docs/archive/superpowers/plans/2026-09-10-cabinet-node.md` (all 8 tasks
   complete). The amp node classes (`modules/nodes/jcm800`, `modules/nodes/peavey5150`,
   `modules/nodes/diezel_vh4`, `modules/nodes/mesa_mark2c`) dropped their `CabinetHost` implementation
@@ -191,60 +197,43 @@ Reference: `image6.png` (current), `image1.png`'s bottom bar (target style).
   `sushidsp.cabinet` node added to sound the same, which was an intentional, one-time break
   tracked as part of this redesign, not a regression to avoid.
 
-## §9 Out of scope
+### Phase 1: Out of scope
 
-- No new audio backend or device-enumeration API is introduced; §2 only replaces the
+- No new audio backend or device-enumeration API is introduced; "Audio-device panel" only replaces the
   hardcoded list with an existing backend's enumeration call.
 - No functional change to transport/metronome or mini-DAW behavior, both passes are
   presentation/placement/lifecycle (collapsible, track cap) only.
-- No change to `sushidsp.splitter` / `sushidsp.mixer` node behavior, §4 automates their
+- No change to `sushidsp.splitter` / `sushidsp.mixer` node behavior, "Splitter and mixer automation" automates their
   placement in the GUI, not their DSP.
 
----
-
-# Phase 2, rig chain editor & workspace redesign
-
-## §10 Goal
-
-Phase 1 gave the host a coherent AmpliTube-style shell but left three things unresolved:
-the transport bar and the rig chain were separate panels instead of one working surface,
-the splitter/mixer automation from §4 rendered as full-size nodes indistinguishable from
-an amp or a pedal, and no panel could be resized, every split between areas was a fixed
-ratio. Phase 2 replaces the §3/§4/§5/§6 layout with a single resizable workspace built
-around how a signal actually branches and rejoins, and turns the splitter picker from "insert
-a routing node at the cursor" into "pick the whole rig's topology," which is what the
-AmpliTube reference (`image7.png`-`image11.png`) actually shows: the four left-rail icons
-choose between a straight run and two- or three-way parallel racks, they are not something
-you drop mid-chain.
-
-## §11 Workspace layout
+### Phase 2: Workspace layout
 
 The window is three fixed regions stacked vertically, each independently resizable against
-its neighbors by dragging the divider between them (§18):
+its neighbors by dragging the divider between them ("Resizable regions"):
 
-- **Top bar**: unchanged from §3's top-left preset controls, plus the audio-device
+- **Top bar**: unchanged from "Main window layout"'s top-left preset controls, plus the audio-device
   connection pill and a settings button, now moved to a right-hand group; **"SushiDSP"**
   is centered in the bar as a fixed brand mark, independent of how wide the left/right
   groups are (a three-column layout: left group, centered brand, right group, the brand
   never shifts off-center when the side groups change width).
-- **Workspace**: the single resizable area described in §13-§17. It swaps between two
+- **Workspace**: the single resizable area described in "Settings, gear browser and rig chain" to "Pre and post stages". It swaps between two
   mutually exclusive views, never both at once: the rig editor (node settings + gear
-  browser + rig chain) and the mini-DAW (§15).
+  browser + rig chain) and the mini-DAW ("Mini-DAW workspace swap").
 - **Bottom transport bar**: fixed at the very bottom of the window, always visible
-  regardless of which workspace view is showing (§12).
+  regardless of which workspace view is showing ("Bottom transport bar").
 
-This replaces §3's "top-left preset / center split / bottom transport+chain" arrangement:
+This replaces "Main window layout"'s "top-left preset / center split / bottom transport+chain" arrangement:
 the transport bar sits apart from the rig chain, in its own permanent strip below
 everything, and the rig chain now lives inside the same resizable block as the node
 settings and gear browser.
 
-## §12 Bottom transport bar
+### Phase 2: Bottom transport bar
 
-Holds exactly what §5 specified (record/play/stop/loop, click, BPM, time signature, tap
+Holds exactly what "Transport bar" specified (record/play/stop/loop, click, BPM, time signature, tap
 tempo, playback speed) plus two additions:
 
 - **Pitch**: a semitone offset field (`0 st`), beside Speed, same numeric-field treatment
-  as BPM/time-signature (no natural icon, so it stays a text field per §5's rule).
+  as BPM/time-signature (no natural icon, so it stays a text field per "Transport bar"'s rule).
 - **Live input/output level meters**: two small horizontal meters at the bar's right edge,
   each with a numeric dB readout beside it, refreshing continuously while the bar is
   visible. This is the first place in the host GUI a live audio measurement is shown
@@ -252,50 +241,50 @@ tempo, playback speed) plus two additions:
   `applications/host_gui` already computes for its own level display, if one exists, or is
   scoped as its own small addition if not, the mockup drives its meters with synthetic
   sine-plus-noise data and that is not a behavior to preserve, only the visual.
-- A **Mini-DAW** toggle button, replacing §6's separate collapsible panel, see §15.
+- A **Mini-DAW** toggle button, replacing "Mini-DAW panel"'s separate collapsible panel, see "Mini-DAW workspace swap".
 
-The bar's height is user-resizable (§18) but never disappears; it is the one region always
+The bar's height is user-resizable ("Resizable regions") but never disappears; it is the one region always
 present regardless of which workspace view is active.
 
-## §13 Node settings + gear browser + rig chain merge
+### Phase 2: Settings, gear browser and rig chain
 
-§3's "settings panel left of center, gear browser right of center" split is gone. The rig
+"Main window layout"'s "settings panel left of center, gear browser right of center" split is gone. The rig
 editor view is now three parts in an L-shape:
 
-- **Right:** the gear browser (§14), full pane height, resizable width.
+- **Right:** the gear browser ("Gear browser view"), full pane height, resizable width.
 - **Left, split horizontally:** node settings on top (resizable height), the rig chain
   view on the bottom (fills what's left).
 
 Node settings shows the currently selected chain element's controls (knobs, matching the
 element's type, amp/pedal/cabinet) or an empty-state prompt when nothing is selected.
-Selection comes from clicking any node in the rig chain below, in a branch (§16), or in the
-pre/post stage around a split (§17); dragging a gear card onto the chain also selects the
-node it creates. This is unchanged from §3's node-settings behavior, only its position
+Selection comes from clicking any node in the rig chain below, in a branch ("Chain type topology"), or in the
+pre/post stage around a split ("Pre and post stages"); dragging a gear card onto the chain also selects the
+node it creates. This is unchanged from "Main window layout"'s node-settings behavior, only its position
 (now top-left instead of left-of-center) and the fact that gear browser and chain now share
 the same column group have changed.
 
-## §14 Gear browser: list or grid, user's choice
+### Phase 2: Gear browser view
 
 Closes the open item in `docs/design/REMAINING_WORK.md`'s Host section ("gear-browser grid").
-The browser keeps §3's search field and type tabs (All/Amps/Pedals/Cabs) and adds a
-two-button toggle in its header: **list** (§3's original vertical, full-width card per row)
+The browser keeps "Main window layout"'s search field and type tabs (All/Amps/Pedals/Cabs) and adds a
+two-button toggle in its header: **list** ("Main window layout"'s original vertical, full-width card per row)
 and **grid** (a wrapping grid of compact icon tiles, name only, no subtitle). Both modes
 show the same category grouping and the same drag source, only the card layout changes.
 The choice is a pure view preference with no effect on the rig; default is list, matching
-what §3 already shipped.
+what "Main window layout" already shipped.
 
-## §15 Mini-DAW as a full workspace swap, not a drawer
+### Phase 2: Mini-DAW workspace swap
 
-§6 made the mini-DAW a collapsible panel stacked below the rig chain. Phase 2 replaces
-that: the **Mini-DAW** button in the bottom bar (§12) swaps the entire workspace's content
+"Mini-DAW panel" made the mini-DAW a collapsible panel stacked below the rig chain. Phase 2 replaces
+that: the **Mini-DAW** button in the bottom bar ("Bottom transport bar") swaps the entire workspace's content
 ,  node settings, gear browser and rig chain disappear together, for the arrangement view
-(§6's unchanged REC/Play/Stop/Loop/lane behavior, fixed 8 tracks, per-track mute/solo).
+("Mini-DAW panel"'s unchanged REC/Play/Stop/Loop/lane behavior, fixed 8 tracks, per-track mute/solo).
 The same button, now reading "Back to Rig," swaps back. Only one of the two views is ever
-mounted; there is no partial/collapsed state as there was in §6. The arrangement view's own
+mounted; there is no partial/collapsed state as there was in "Mini-DAW panel". The arrangement view's own
 internal layout is one further resizable split: a fixed-position lane-header column against
 the scrolling grid, its width draggable independently of every other divider in the window.
 
-## §16 Chain type: a topology choice, not an inserted node
+### Phase 2: Chain type topology
 
 This is the behavioral core of Phase 2 and the part most likely to be misread from the
 AmpliTube screenshots. The splitter picker (the four icons at the rig chain's left edge,
@@ -303,7 +292,7 @@ AmpliTube screenshots. The splitter picker (the four icons at the rig chain's le
 is, the way an earlier draft of this section modeled it. It selects **one of four topologies
 for the entire chain**, matching `image7.png`-`image10.png`:
 
-1. **Series** (`image7.png`), a single straight run, exactly what §3/§4 already built:
+1. **Series** (`image7.png`), a single straight run, exactly what "Main window layout"/"Splitter and mixer automation" already built:
    IN → node → node → … → OUT, gear dragged from the browser and reordered freely.
 2. **2-Way Split** (`image8.png`), IN branches into two fully independent parallel racks
    that rejoin before OUT.
@@ -318,7 +307,7 @@ for the entire chain**, matching `image7.png`-`image10.png`:
 Choosing a non-series type is a **destructive switch**: each branch starts empty, and the
 maintainer confirmed (in the session that produced this doc) that switching between the two
 2-way variants or between 2-way and 3-way is allowed to discard whatever gear was in the
-branches, the pre/post stages (§17) are the one thing that survives every chain-type
+branches, the pre/post stages ("Pre and post stages") are the one thing that survives every chain-type
 switch. Switching back to Series does not discard the series chain that was active before
 switching away from it: the host should keep `chain` (series) and `branches` (parallel)
 as separate state, so toggling to a split type and back to Series round-trips the original
@@ -336,7 +325,7 @@ and from each branch row to the mixer glyph, matching the AmpliTube reference's 
 orange/teal wire style, not the small dashed-slot abstraction an earlier draft of this
 section used.
 
-## §17 Pre/post stages around a split
+### Phase 2: Pre and post stages
 
 When a non-series chain type is active, the region between IN and the splitter glyph, and
 the region between the mixer glyph and OUT, are themselves small editable chains (gear can
@@ -344,10 +333,10 @@ be dragged in, reordered, removed), not static gaps. This is where a DI box, tun
 input gain stage goes before the split, and where a final EQ or output stage goes after the
 mixer, matching what `image8.png`'s DI box and `image1.png`'s post-amp EQ/output icons show.
 These two stages are shared across all three non-series chain types (switching between
-2-Way, 3-Way and 2-Way-Alt keeps them intact, per §16) and are simply not rendered while
+2-Way, 3-Way and 2-Way-Alt keeps them intact, per "Chain type topology") and are simply not rendered while
 Series is active, Series has no split, so there is nothing before or after one.
 
-## §18 Everything is resizable
+### Phase 2: Resizable regions
 
 Every fixed split in Phase 1 becomes a user-draggable divider in Phase 2:
 
@@ -361,18 +350,37 @@ sane minimum and the remaining available space, and the chosen sizes are not req
 persist across a restart unless a later phase adds preset/window-state persistence, Phase 2
 is layout and interaction only.
 
-## §19 Out of scope
+### Phase 2: Out of scope
 
-- No change to what a node's settings panel shows or how its knobs behave, §13 only moves
-  the panel, exactly as §9 said for Phase 1's settings-panel move.
+- No change to what a node's settings panel shows or how its knobs behave, "Settings, gear browser and rig chain" only moves
+  the panel, exactly as "Phase 1 out of scope" said for Phase 1's settings-panel move.
 - No new gear/node types. The gear browser's catalog (amps, pedals, cabinets) is unchanged;
-  §14 only adds a second way to browse the same catalog.
-- No change to `sushidsp.splitter` / `sushidsp.mixer` DSP behavior, same boundary §9 drew
-  for Phase 1, §16 changes how the GUI presents and edits a parallel topology, not what
+  "Gear browser view" only adds a second way to browse the same catalog.
+- No change to `sushidsp.splitter` / `sushidsp.mixer` DSP behavior, same boundary "Phase 1 out of scope" drew
+  for Phase 1, "Chain type topology" changes how the GUI presents and edits a parallel topology, not what
   `SplitterNode`/`MixerNode` compute.
-- No audio-engine wiring for the live meters (§12) or for saving/loading a rig that uses a
+- No audio-engine wiring for the live meters ("Bottom transport bar") or for saving/loading a rig that uses a
   non-series chain type, Phase 2 is the GUI and its data model; persisting a parallel
   topology through `modules/session/rig_preset/` is separate work, not committed to by this
   document.
-- No window-state persistence (§18's divider positions, chosen gear-browser view mode,
+- No window-state persistence ("Resizable regions"'s divider positions, chosen gear-browser view mode,
   or last-used chain type) across a restart.
+
+## Phases
+
+| Id | Phase | State |
+| --- | --- | --- |
+| P1 | Audio-device panel, main window layout, splitter automation, transport bar, mini-DAW panel, cabinet node | built |
+| P2 | Rig chain editor and workspace redesign: resizable workspace, chain types, gear browser grid. The Pitch field of the bottom bar is drawn disabled until the track pitch-shift plan lands | building |
+
+The plans that built each part are in
+[the record](../agent/2026_10_21_GUI_UX_REDESIGN_RECORD/REPORT.md). The manual acceptance and the
+other open items are in `docs/design/REMAINING_WORK.md`'s Host section.
+
+## Open questions
+
+- The Pitch field waits on the track pitch-shift plan.
+- The AmpliTube chain type **Parallel**, stereo in and stereo out, waits until the rig renders in
+  stereo.
+- The gear browser's grid layout and a persisted topology through `modules/session/rig_preset/`
+  are backlog items.

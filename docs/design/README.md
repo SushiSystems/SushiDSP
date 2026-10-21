@@ -5,7 +5,7 @@ document that changes its status changes this row in the same commit.
 
 | Topic | Document | Status |
 | --- | --- | --- |
-| The DSP core, the circuit method, the products and the roadmap | [SUSHIDSP.md](SUSHIDSP.md) | Open, phase 2 of 4 |
+| The DSP core, the circuit method, the products and the roadmap | [SUSHIDSP/](SUSHIDSP/README.md) | Open: D6, D7, DR3 and DR4 not built |
 | The host's window, rig view and gear browser | [GUI_UX_REDESIGN.md](GUI_UX_REDESIGN.md) | Open, phase 2 of 2 |
 | Furniture and finishes in the room module | [ROOM_FURNISHINGS.md](ROOM_FURNISHINGS.md) | Open, phase 4 of 4, the low-band built-room loss unresolved |
 | Bringing the repository onto the SushiSkills rules | [SUSHI_STANDARDS_MIGRATION.md](SUSHI_STANDARDS_MIGRATION.md) | Open, phase 2 of 3 |

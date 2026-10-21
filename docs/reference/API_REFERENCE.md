@@ -9,7 +9,7 @@ This is the generated API reference. It documents what the headers say; the reas
 design lives in the prose docs, and those are the better place to start:
 
 - `docs/README.md`, the manual index; `docs/getting_started/INTRODUCTION.md` says how to build.
-- `docs/design/SUSHIDSP.md`, the design spec: architecture, math, and the product roadmap.
+- `docs/design/SUSHIDSP/README.md`, the design spec: architecture, math, and the product roadmap.
 - `docs/CONTRIBUTING.md`, the build rules (`sd build`, never cmake directly) and coding conventions.
 
 ## Where to start reading

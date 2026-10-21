@@ -2,7 +2,7 @@
 
 One `AudioNode`, mono in and mono out, registered as `sushidsp.tubescreamer` with four
 parameters: drive, tone, level, input trim.
-[`docs/design/SUSHIDSP.md`](../../../docs/design/SUSHIDSP.md) §6 describes it as an input buffer
+[`docs/design/SUSHIDSP/TUBE_SCREAMER.md`](../../../docs/design/SUSHIDSP/TUBE_SCREAMER.md) describes it as an input buffer
 stage, an op-amp soft-clipping stage with a diode feedback pair, and a passive tone/output
 stage, all via WDF/DK-method on the same solver as JCM800 (§4.5); as built, the pedal runs at
 4x oversampling, not the 8x the spec names, and this file records that discrepancy rather than

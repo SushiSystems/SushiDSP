@@ -154,7 +154,7 @@ Next id: KI-46
 
 ### KI-36 The design and the manifest disagree on the hub catalogue
 - Origin: own
-- Where: `docs/design/SUSHIDSP.md`, `sushi-module.toml`
+- Where: `docs/design/SUSHIDSP/README.md`, `sushi-module.toml`
 - Cause: the design calls SushiDSP a registered member; the manifest says it is not catalogued
 - Recognise: the two files contradict
 - Workaround: trust the manifest

@@ -3,7 +3,7 @@
 This page describes SushiDSP's layering as built, verified against the tree under
 `include/SushiDSP/`, `src/`, `modules/` and `applications/`. It is not the design spec: where a claim
 comes from intent rather than code, it says so and cites
-[`docs/design/SUSHIDSP.md`](../design/SUSHIDSP.md) by section instead of restating the intent
+[`docs/design/SUSHIDSP/README.md`](../design/SUSHIDSP/README.md) by section instead of restating the intent
 as fact.
 
 ## The four layers
@@ -112,7 +112,7 @@ allocation the audio path makes; the other three are held by review.
 
 ## What is spec-only, not yet built
 
-The following are described in `docs/design/SUSHIDSP.md` as intent and were not found under
+The following are described in `docs/design/SUSHIDSP/README.md` as intent and were not found under
 `include/`, `src/`, `modules/` or `applications/` during this review, read them from the spec, not as
 current fact:
 
