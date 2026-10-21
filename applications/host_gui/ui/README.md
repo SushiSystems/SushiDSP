@@ -218,7 +218,7 @@ input and output level meters. The take folder and name boxes, the loop range, t
 bar follows; they stay, wrapped into a second row after Speed. The Mini-DAW button toggles
 `mini_daw_active` and reads "Mini-DAW" or "Back to Rig" accordingly. The design is
 the arrangement view design spec in the version history §5a and §6 and
-`docs/design/GUI_UX_REDESIGN.md` §12.
+`docs/design/GUI_UX_REDESIGN/README.md` §12.
 
 A tempo typed by hand ends whatever tap run was in progress, so the next tap opens a run of its
 own and does not average across the change.

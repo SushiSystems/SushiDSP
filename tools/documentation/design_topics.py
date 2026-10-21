@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 from documentation.design_status import (
+    K_DESIGN_INDEXES,
     K_TABLE_RULE,
     K_TABLE_ROW,
     K_WORK_FILES_IN_ORDER,
@@ -73,6 +74,14 @@ def phase_ids(path: Path) -> set[str]:
         if not K_TABLE_RULE.match(line):
             found.add(table_cells(line)[0].strip("`* "))
     return found
+
+
+def loose_documents(root: Path) -> list[Path]:
+    """Returns each design document that sits directly in docs/design and is not an index."""
+    design = root / "docs" / "design"
+    if not design.is_dir():
+        return []
+    return [path for path in sorted(design.glob("*.md")) if path.name not in K_DESIGN_INDEXES]
 
 
 def work_documents(docs: Path) -> list[Path]:

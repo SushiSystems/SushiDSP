@@ -38,7 +38,7 @@
 ///
 /// The names follow AmpliTube 5's own, which is the behaviour this model reproduces; the
 /// routing rules and what a path change does to the gear already placed are recorded in
-/// docs/design/GUI_UX_REDESIGN.md.
+/// docs/design/GUI_UX_REDESIGN/README.md.
 enum class ChainType : std::uint8_t
 {
     Single,

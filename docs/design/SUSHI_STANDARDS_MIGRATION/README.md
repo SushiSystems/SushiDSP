@@ -106,7 +106,7 @@ The work folder of phase 1 is in the version history.
 ### Work
 
 <!-- work:begin -->
-- [2026_10_12_SUSHI_STANDARDS_MIGRATION](../agent/2026_10_12_SUSHI_STANDARDS_MIGRATION/SPEC.md): P2
+- [2026_10_12_SUSHI_STANDARDS_MIGRATION](../../agent/2026_10_12_SUSHI_STANDARDS_MIGRATION/SPEC.md): P2
 <!-- work:end -->
 
 ## Open questions

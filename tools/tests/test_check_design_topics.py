@@ -26,6 +26,7 @@ from documentation.check_design_topics import (  # noqa: E402
     rule_implements_resolve,
     rule_modules_exist,
     rule_modules_required,
+    rule_topic_folder,
     rule_views_current,
     rule_views_present,
 )
@@ -115,16 +116,34 @@ class RegistrationTest(unittest.TestCase):
                 "rule_implements_resolve",
                 "rule_modules_exist",
                 "rule_modules_required",
+                "rule_topic_folder",
                 "rule_views_current",
                 "rule_views_present",
             ],
         )
 
     def test_reports_nothing_for_valid_files_with_every_rule_on(self) -> None:
-        """Runs every rule over the valid files with the strict settings on."""
-        glossary = {"docs/reference/GLOSSARY.md": "# Glossary\n\n**audio**: the sound of the engine.\n"}
+        """Runs every rule over the valid files, the topic in its folder, with the strict settings on."""
+        files = {key: value for key, value in K_FILES.items() if key != "docs/design/AUDIO.md"}
+        files["docs/design/AUDIO/README.md"] = K_TOPIC
+        files["docs/reference/GLOSSARY.md"] = "# Glossary\n\n**audio**: the sound of the engine.\n"
         for name, rule in K_CHECKER.rules.items():
-            self.assertEqual(_check(rule, glossary, True, 10, True), [], name)
+            with tempfile.TemporaryDirectory() as folder:
+                self.assertEqual(_messages(rule(_repository(folder, files, True, 10, True))), [], name)
+
+
+class TopicFolderTest(unittest.TestCase):
+    """Covers the rule that a topic is a folder."""
+
+    def test_is_silent_when_not_asked(self) -> None:
+        """Reports nothing for a loose document while the repository does not ask for topics."""
+        self.assertEqual(_check(rule_topic_folder), [])
+
+    def test_reports_a_loose_document_when_asked(self) -> None:
+        """Reports the document that sits directly in docs/design, and not the indexes."""
+        files = {"docs/design/README.md": "# Design\n", "docs/design/REMAINING_WORK.md": "# Work\n"}
+        messages = _check(rule_topic_folder, files, True)
+        self.assertEqual(messages, ["a topic is a folder: move it to AUDIO/README.md with fold_design_topics.py"])
 
 
 class ModulesExistTest(unittest.TestCase):

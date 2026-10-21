@@ -25,8 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from documentation.citation_files import citing_files  # noqa: E402
 from documentation.design_topics import topics  # noqa: E402
 
-K_PATH = re.compile(r"docs/design/(?P<tail>[A-Za-z0-9_]+(?:\.md)?(?:/[A-Za-z0-9_.-]+)*)")
-K_LINK = re.compile(r"\]\((?P<target>(?:\.\./|\./)*[A-Za-z0-9_./-]*design/[A-Za-z0-9_]+(?:/[A-Za-z0-9_.-]+)*\.md)(?P<anchor>#[^)\s]*)?\)")
+K_PATH = re.compile(r"(?<![A-Za-z0-9_.-])(?P<docs>docs/)?design/(?P<tail>[A-Za-z0-9_]+(?:\.md)?(?:/[A-Za-z0-9_.-]+)*)")
+K_LINK = re.compile(r"\]\((?P<target>[A-Za-z0-9_./-]+\.md)(?P<anchor>#[^)\s]*)?\)")
 K_EXIT_CLEAN = 0
 K_EXIT_FINDINGS = 1
 
@@ -78,15 +78,17 @@ def repair_text(
         """Returns the replacement for a path citation and records it when it was wrong."""
         tail = match["tail"].rstrip(".")
         suffix = match["tail"][len(tail):]
-        cited = f"docs/design/{tail}"
-        if cited in moved:
-            found.append(Repair(path, line_of(match), cited, moved[cited]))
-            return f"{moved[cited]}{suffix}"
+        prefix = match["docs"] or ""
+        cited = f"{prefix}design/{tail}"
+        if f"docs/design/{tail}" in moved:
+            new = moved[f"docs/design/{tail}"] if prefix else moved[f"docs/design/{tail}"].removeprefix("docs/")
+            found.append(Repair(path, line_of(match), cited, new))
+            return f"{new}{suffix}"
         fixed = _fixed(tail, root, known)
         if fixed == tail:
             return match.group(0)
-        found.append(Repair(path, line_of(match), cited, None if fixed is None else f"docs/design/{fixed}"))
-        return match.group(0) if fixed is None else f"docs/design/{fixed}{suffix}"
+        found.append(Repair(path, line_of(match), cited, None if fixed is None else f"{prefix}design/{fixed}"))
+        return match.group(0) if fixed is None else f"{prefix}design/{fixed}{suffix}"
 
     def fix_link(match: re.Match[str]) -> str:
         """Returns the replacement for a link to a design document and records it when it was wrong."""
@@ -120,7 +122,7 @@ def run(root: Path, apply: bool, moves: dict[str, str] | None = None) -> list[Re
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        if "design/" not in text:
+        if not moves and "design/" not in text:
             continue
         fixed, repairs = repair_text(path, text, root, known, moves)
         found += repairs

@@ -27,7 +27,7 @@ hub's catalogue.
 - State: decision
 - Done when: the owner has chosen one error model, where `[[nodiscard]]` goes, and how
   `RigController`, `SlotGraph` and `main()` divide the host
-- Source: `docs/design/SUSHI_STANDARDS_MIGRATION.md`
+- Source: `docs/design/SUSHI_STANDARDS_MIGRATION/README.md`
 - Where: `modules/foundation/io/source/wav_file.cpp`, `applications/host_gui/rig_controller.hpp`,
   `modules/nodes/room/include/SushiDSP/nodes/room/room_node.hpp`
 
@@ -225,7 +225,7 @@ earlier, and the tail's read delay is already zero, so the tail keeps its physic
 - State: open
 - Done when: the bottom bar's Pitch field shifts track playback by semitones and leaves speed
   alone, in a plan of its own (owner decision of 2026-09-14)
-- Source: `docs/design/GUI_UX_REDESIGN.md` §12
+- Source: `docs/design/GUI_UX_REDESIGN/README.md` §12
 
 ### RW-28 Run the phase 2 manual acceptance
 - State: unmeasured

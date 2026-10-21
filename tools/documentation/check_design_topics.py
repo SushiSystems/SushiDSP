@@ -28,6 +28,7 @@ from documentation.design_topics import (  # noqa: E402
     K_DESIGNS_FIELD,
     K_IMPLEMENTS_FIELD,
     K_MODULES_FIELD,
+    loose_documents,
     metadata,
     phase_ids,
     split_reference,
@@ -68,6 +69,13 @@ def collect(paths: list[Path]) -> Iterable[Repository]:
 def _normal(name: str) -> str:
     """Returns a name in lower case with its separators as single spaces."""
     return K_NAME_SEPARATOR.sub(" ", name).strip().lower()
+
+
+def rule_topic_folder(repository: Repository) -> Iterator[Issue]:
+    """Yields an issue for a design document that sits loose in docs/design, when the repository asks for topics."""
+    if repository.is_required:
+        for path in loose_documents(repository.root):
+            yield Issue(path, 1, f"a topic is a folder: move it to {path.stem}/README.md with fold_design_topics.py")
 
 
 def rule_modules_exist(repository: Repository) -> Iterator[Issue]:
@@ -175,6 +183,7 @@ K_CHECKER = Checker(
     description="Checks the topic metadata of design documents, the phases work folders name and the folder limits.",
     collect=collect,
     rules={
+        "rule_topic_folder": rule_topic_folder,
         "rule_modules_exist": rule_modules_exist,
         "rule_modules_required": rule_modules_required,
         "rule_implements_resolve": rule_implements_resolve,

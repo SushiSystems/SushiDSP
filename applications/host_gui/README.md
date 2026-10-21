@@ -273,7 +273,7 @@ publishes compiled once before the edit, so a failure there leaves the old graph
 
 `switch_chain_type` fills a path that opens with a copy of the main path's gear, parameter
 values included, so a split starts from what was already being heard and not from silence.
-`docs/design/GUI_UX_REDESIGN.md` records that behaviour. A path that closes leaves its slots
+`docs/design/GUI_UX_REDESIGN/README.md` records that behaviour. A path that closes leaves its slots
 behind as strays, and the apply removes them.
 
 ## The Parallel chain
@@ -388,5 +388,5 @@ in the room. A microphone's strip gets 3 dB more than the old level, since a cen
 ## Designs
 
 <!-- designs:begin -->
-- [GUI_UX_REDESIGN](../../docs/design/GUI_UX_REDESIGN.md): The standalone host window: the device panel, the transport, the rig chain editor and the workspace.
+- [GUI_UX_REDESIGN](../../docs/design/GUI_UX_REDESIGN/README.md): The standalone host window: the device panel, the transport, the rig chain editor and the workspace.
 <!-- designs:end -->

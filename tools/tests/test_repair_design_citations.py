@@ -95,6 +95,19 @@ class RepairTest(unittest.TestCase):
             self.assertEqual((root / "docs/guides/use.md").read_text(encoding="utf-8"), "See docs/design/AUDIO/MIXER.md.\n")
 
 
+class RelativeFormTest(unittest.TestCase):
+    """Covers a citation written without the leading docs/."""
+
+    def test_repairs_a_path_that_starts_at_design(self) -> None:
+        """Rewrites `design/AUDIO.md` and `../design/AUDIO.md` in prose, keeping the form the author used."""
+        files = {**K_TOPICS, "docs/guides/use.md": "Read `design/AUDIO.md`, then ../design/AUDIO.md and redesign/AUDIO.md.\n"}
+        with tempfile.TemporaryDirectory() as folder:
+            root = _root(folder, files)
+            run(root, True)
+            text = (root / "docs/guides/use.md").read_text(encoding="utf-8")
+            self.assertEqual(text, "Read `design/AUDIO/README.md`, then ../design/AUDIO/README.md and redesign/AUDIO.md.\n")
+
+
 class FixtureTest(unittest.TestCase):
     """Covers the checker tests, which hold fake citations on purpose."""
 

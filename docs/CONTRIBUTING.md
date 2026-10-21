@@ -63,7 +63,7 @@ The `cpp-code-style`, `python-code-style` and `source-comments` skills are the r
 tree differs from them today, the difference is listed here and in
 [`reference/KNOWN_ISSUES.md`](reference/KNOWN_ISSUES.md); new code follows what the tree does
 until the migration in
-[`design/SUSHI_STANDARDS_MIGRATION.md`](design/SUSHI_STANDARDS_MIGRATION.md) phase 3 changes
+[`design/SUSHI_STANDARDS_MIGRATION/README.md`](design/SUSHI_STANDARDS_MIGRATION/README.md) phase 3 changes
 both at once. The rules below are the tree today.
 
 | Rule | In this tree |

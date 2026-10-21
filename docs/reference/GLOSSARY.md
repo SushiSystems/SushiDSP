@@ -101,10 +101,10 @@ generated in [`docs/design/README.md`](../design/README.md).
 studio, timeline and room paths. See [the design](../design/SUSHIDSP/README.md).
 
 **GUI UX redesign**: the standalone host window, from the device panel to the rig chain editor. See
-[the design](../design/GUI_UX_REDESIGN.md).
+[the design](../design/GUI_UX_REDESIGN/README.md).
 
 **room**: the space a cabinet is heard in, built from a shell, finishes and furnishings. See
 [the design](../design/ROOM/README.md).
 
 **Sushi standards migration**: bringing the repository to the Sushi Systems programming standards. See
-[the design](../design/SUSHI_STANDARDS_MIGRATION.md).
+[the design](../design/SUSHI_STANDARDS_MIGRATION/README.md).
