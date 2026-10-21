@@ -1,6 +1,6 @@
 # Remaining work
 
-Next id: RW-78
+Next id: RW-79
 
 ## Decisions waiting for the owner
 
@@ -537,3 +537,11 @@ The ignore file names an output nothing writes. The rules and their comments. Ca
 The amplifier modules repeat helpers, and `Wdf` is unused. The same helper in four files; `wdf.cpp`
 built and unused. Cause: the four amplifiers each carry the same helpers and constants; `Wdf` has no
 production user.
+
+## Documentation architecture
+
+### RW-78 Write the About line of each design topic by hand
+- State: open
+- Done when: each topic has an `**About:**` line of one sentence written for a cold reader
+
+The topic model generated the lines from the first sentence of each document or from its title.
