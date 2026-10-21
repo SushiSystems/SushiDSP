@@ -95,6 +95,37 @@ class RepairTest(unittest.TestCase):
             self.assertEqual((root / "docs/guides/use.md").read_text(encoding="utf-8"), "See docs/design/AUDIO/MIXER.md.\n")
 
 
+class MoveTest(unittest.TestCase):
+    """Covers an explicit move of a design file."""
+
+    MOVES = {"docs/design/AUDIO/MIXER.md": "docs/design/SOUND/MIXER.md"}
+
+    def test_rewrites_a_path_and_a_link_to_the_new_file(self) -> None:
+        """Rewrites a path citation and a link to a file the caller moved, keeping the link's anchor."""
+        files = {**K_TOPICS, "docs/guides/use.md": "See docs/design/AUDIO/MIXER.md and [m](../design/AUDIO/MIXER.md#gain).\n"}
+        with tempfile.TemporaryDirectory() as folder:
+            root = _root(folder, files)
+            run(root, True, self.MOVES)
+            text = (root / "docs/guides/use.md").read_text(encoding="utf-8")
+            self.assertEqual(text, "See docs/design/SOUND/MIXER.md and [m](../design/SOUND/MIXER.md#gain).\n")
+
+    def test_leaves_other_files_of_the_topic_alone(self) -> None:
+        """Does not touch a citation of a file that was not named."""
+        files = {**K_TOPICS, "docs/guides/use.md": "See docs/design/AUDIO/README.md.\n"}
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(run(_root(folder, files), False, self.MOVES), [])
+
+    def test_the_command_reads_each_pair(self) -> None:
+        """Takes --move twice and applies both pairs."""
+        files = {**K_TOPICS, "docs/guides/use.md": "docs/design/AUDIO/MIXER.md docs/design/AUDIO/README.md\n"}
+        with tempfile.TemporaryDirectory() as folder:
+            root = _root(folder, files)
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = main([str(root), "--apply", "--move", "docs/design/AUDIO/MIXER.md", "docs/design/S/M.md", "--move", "docs/design/AUDIO/README.md", "docs/design/S/R.md"])
+            self.assertEqual(code, 0)
+            self.assertEqual((root / "docs/guides/use.md").read_text(encoding="utf-8"), "docs/design/S/M.md docs/design/S/R.md\n")
+
+
 class CommandTest(unittest.TestCase):
     """Covers the exit code."""
 
