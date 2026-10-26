@@ -1,6 +1,6 @@
 # SushiProfiler adoption and the logging gaps
 
-**Status:** Open — analysis written 2026-10-26; parked until SushiAI's inference profile ships, then its decisions are taken against SushiProfiler v0.2.0 or later.
+**Status:** Open — analysis written 2026-10-26; section 9 holds the decisions; implementation runs with every build at the end.
 **Designs:** SUSHIDSP
 
 ## 1. What this is
@@ -497,3 +497,32 @@ top of (b). Under Q1(b) the harness is how the benchmark program reaches SushiPr
 - No build, test or benchmark ran, so no cost in this file is measured here.
 - `docs/design/SUSHIDSP/README.md` and the manual pages the work will make false are listed in
   `PLAN.md`, not read for their other claims.
+
+## 9. Decisions
+
+The owner delegated every question of section 7 to the orchestrator on 2026-10-26, asking for the
+engineering choice that holds as the stack grows, all code written first and every build at the end.
+
+| # | Decision |
+| --- | --- |
+| Q1 | (a) The libraries link SushiProfiler, now a shared library (v0.2.0), with zones in `core`, `device` and the nodes |
+| Q2 | `SD_ENABLE_PROFILER` on in every product except the CLAP plug-in, which ships into other people's hosts; the plug-in, when built with it, links `SushiProfiler::SushiProfilerStatic` |
+| Q3 | A new module `modules/foundation/profile`, shaped like `foundation/log`, the only includer of SushiProfiler below the products |
+| Q4 | (d) The device layer marks the `dsp.block` timeline on arrival (arrival and jitter); a `dsp.process` zone in `RigGraph::process` and `SessionRenderer::render` measures load |
+| Q5 | (a) Node and region zones only; per-stage cost stays with the isolated stage benchmarks |
+| Q6 | (b) Atomics owned by SushiDSP in `core`, read and logged by the hosts on the control thread; `DkCircuit`'s counters are flushed once per block; `apply_output_safety_clamp` returns the number of samples it clipped or found non-finite |
+| Q7 | (a) An optional report parameter on `NewtonRaphsonSolver::solve_joint` and a step count in `BandResponseFit::Result` |
+| Q8 | (c) Tests assert deterministic counters only; time is a benchmark verdict from a checks file, never a test failure |
+| Q9 | Budgets stay as written; the rows over budget are listed in `KNOWN_ISSUES.md` with the measured value, and the benchmark reports them red |
+| Q10 | A dropout is an arrival gap over 1.5 blocks, a callback whose processing passes its block period, or a driver-reported under- or overrun; a clipped or non-finite sample is a warning |
+| Q11 | (a) Count and log only; the driver's time info is SushiProfiler RW-11's |
+| Q12 | (a) `CabinetHost::set_cabinet` and `RoomHost::set_hrtf` return a status enum naming the reason in place of `bool` |
+| Q13 | (a) `prepare()` throws, as `RigGraph::compile` does |
+| Q14 | (b) `RigGraph::process` processes a larger block in pieces of `block_size` |
+| Q15 | (c) Records go to stderr; an environment variable sets a level and a file, and only then is a file written |
+| Q16 | Out of this work |
+| Q17 | (a) `SlotGraph` takes an injected clock, so the rate-limit test reads no wall clock |
+| Q18 | (a) A phase row in `docs/design/SUSHIDSP/README.md` |
+| Q19 | Tasks that need a SushiLog feature use the local counter of Q6 now; nothing waits |
+| Q20 | (a) A status is logged where it is created, with no signature change beyond Q12 |
+| Q21 | (a) `bench::measure` keeps its signatures and runs the `Session` inside |
