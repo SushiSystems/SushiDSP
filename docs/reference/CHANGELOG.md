@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- 2026-10-26 — deps: Upgraded sushicore to 0.9.3 and moved the Sushi library pins to `[sushisystems.<name>]` tables (`cli/sushistack.deps.toml`).
+- 2026-10-26 — deps: Upgraded sushicore to 0.9.5 and moved the Sushi library pins to `[sushisystems.<name>]` tables (`cli/sushistack.deps.toml`).
 - 2026-10-21 — docs: Reshaped the five design documents into the five sections with a phase table, split the SushiDSP design into a topic folder and moved the phase records to work folders (`docs/design/`, `docs/agent/`).
 - 2026-10-20 — docs: Moved 26 known issues with a scheduled fix and no workaround into the backlog entries that fix them (`KNOWN_ISSUES.md`, `REMAINING_WORK.md`).
 - 2026-10-19 — tests: Skipped wall-clock bounds in sanitiser builds as well as unoptimised ones, so the ThreadSanitizer lane stops failing the room render-set budget (`timing_gate.hpp`, `test_timing_gate.cpp`).
