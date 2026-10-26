@@ -108,10 +108,12 @@ class RecordingConsole:
 
 
 class FakePackages:
-    """Stands in for the resolver: records each request and returns one SushiLog package."""
+    """Stands in for the resolver: records each request and returns the SushiLog and SushiProfiler packages."""
 
     config_dir = "/store/sushilog/abc/prefix/lib/cmake/SushiLog"
+    profiler_config_dir = "/store/sushiprofiler/def/prefix/lib/cmake/SushiProfiler"
     run_dir = "/store/sushilog/abc/prefix/lib"
+    left_out: frozenset[str] = frozenset()
 
     def __init__(self) -> None:
         """Starts with no request recorded."""
@@ -119,11 +121,12 @@ class FakePackages:
 
     def names(self) -> list[str]:
         """Returns the library names."""
-        return ["sushilog"]
+        return ["sushilog", "sushiprofiler"]
 
     def definitions(self) -> list[str]:
         """Returns the config folder definition."""
-        return [f"-DSushiLog_DIR={self.config_dir}"]
+        return [f"-DSushiLog_DIR={self.config_dir}",
+                f"-DSushiProfiler_DIR={self.profiler_config_dir}"]
 
     def run_dirs(self, platform: str) -> list[str]:
         """Returns the run-time folder."""

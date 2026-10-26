@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-26 — ci: Removed `.github/actions/sushilog` and its uses, since the CLI clones the pinned SushiLog and SushiProfiler and builds their packages (`.github/workflows/`).
 - 2026-10-26 — build: Took SushiLog with `find_package(SushiLog CONFIG REQUIRED)` and dropped the added subdirectory and `SUSHILOG_DIR` (`CMakeLists.txt`).
 - 2026-10-26 — build: Dropped `sushilog_copy_runtime_files`, since the CLI puts the package folders on the search path (`tests/CMakeLists.txt`).
 - 2026-10-26 — build: Added `SD_ENABLE_PROFILER`, `SD_PROFILE_LEVEL` and `find_package(SushiProfiler CONFIG REQUIRED)` (`CMakeLists.txt`).
