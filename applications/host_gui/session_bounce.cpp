@@ -37,8 +37,8 @@
 
 #include <SushiDSP/foundation/io/wav_writer.hpp>
 #include <SushiDSP/foundation/log/log.hpp>
-#if defined(SUSHIDSP_HAVE_LAME)
 #include "host_gui_log_category.hpp"
+#if defined(SUSHIDSP_HAVE_LAME)
 #include "mp3_encoder.hpp"
 #endif
 #include "session.hpp"
