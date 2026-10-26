@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-26 — cli: Made `sd build` and `sd configure` take SushiLog as a built package and pass its config folder to CMake (`library_packages.py`, `project.py`).
+- 2026-10-26 — cli: Put the run-time folders of the packages first on the search path of every command that runs the tree (`project.py`).
 - 2026-10-26 — profile: Added the `foundation/profile` module: the `SD_ZONE` macros over SushiProfiler, compiled out by `SD_ENABLE_PROFILER`, and `ProfileSession` and `ProfileRecord` over its session.
 - 2026-10-26 — profile: Named the timelines, zones, groups and counters SushiDSP records, the contract between its code and its checks files (`sushidsp_profile_names.hpp`).
 - 2026-10-26 — core: Added `RtCounter` and `RtCounterReporter`: a real-time failure is counted on the audio thread and written as one `WARN` per interval from the control thread (`rt_counter.hpp`).

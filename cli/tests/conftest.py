@@ -107,6 +107,36 @@ class RecordingConsole:
         return [text for printed, text in self.lines if printed == kind]
 
 
+class FakePackages:
+    """Stands in for the resolver: records each request and returns one SushiLog package."""
+
+    config_dir = "/store/sushilog/abc/prefix/lib/cmake/SushiLog"
+    run_dir = "/store/sushilog/abc/prefix/lib"
+
+    def __init__(self) -> None:
+        """Starts with no request recorded."""
+        self.asked: list[dict] = []
+
+    def names(self) -> list[str]:
+        """Returns the library names."""
+        return ["sushilog"]
+
+    def definitions(self) -> list[str]:
+        """Returns the config folder definition."""
+        return [f"-DSushiLog_DIR={self.config_dir}"]
+
+    def run_dirs(self, platform: str) -> list[str]:
+        """Returns the run-time folder."""
+        return [self.run_dir]
+
+    def sushi_packages(self, root, build_type, options=None, report=print, warn=print,
+                       compiler=""):
+        """Records the request and returns this object as the package set."""
+        self.asked.append({"root": root, "build_type": build_type,
+                           "options": dict(options or {}), "compiler": compiler})
+        return self
+
+
 @dataclass
 class Project:
     """Holds a scratch checkout and what the project service did to it."""
@@ -114,6 +144,7 @@ class Project:
     root: Path
     runner: RecordingRunner
     console: RecordingConsole
+    packages: FakePackages
     build_dir: Path = field(init=False)
 
     def __post_init__(self) -> None:
@@ -152,6 +183,8 @@ def project(tmp_path, monkeypatch) -> Project:
     (tmp_path / "CMakeLists.txt").write_text("project(x)\n", encoding="utf-8")
     runner, console = RecordingRunner(), RecordingConsole()
     cfg = Config(cxx="clang++", generator="Ninja", ninja_exe="ninja")
+    packages = FakePackages()
+    monkeypatch.setattr(cfg, "sushi_packages", packages.sushi_packages)
     monkeypatch.setattr(project_svc, "find_project_root", lambda: tmp_path)
     monkeypatch.setattr(project_svc, "load_config", lambda: cfg)
     monkeypatch.setattr(project_svc, "load_build_env", lambda cfg, build_dir: {})
@@ -159,4 +192,4 @@ def project(tmp_path, monkeypatch) -> Project:
     monkeypatch.setattr(project_svc, "_RUNNER", runner)
     monkeypatch.setattr(project_svc, "_APP_RUNNER", runner, raising=False)
     monkeypatch.setattr(project_svc, "_DRIVER", CMakeDriver(console, runner))
-    return Project(tmp_path, runner, console)
+    return Project(tmp_path, runner, console, packages)

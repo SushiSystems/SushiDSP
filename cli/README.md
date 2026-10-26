@@ -28,6 +28,7 @@ name and `python -m sushidsp` as a third way in.
 | `env.py` | The environment `cmake`, `ctest` and the host GUI run under. |
 | `console.py` | The console, built from `config.toml` on first use. |
 | `services/project.py` | Configure, build, test, clean, docs, check, host and run. |
+| `services/library_packages.py` | SushiLog as a built package: the request, the configure arguments and the run-time folders. |
 | `services/discovery.py` | The executable search behind `sd run`, over sushicore's index. |
 | `services/diag.py` | The diagnostics object behind `sd config` and `sd env`. |
 
@@ -105,6 +106,22 @@ on Linux its `lib` directory, ahead on `PATH`.
 
 With no compiler found nothing is snapshotted and the current environment is used as is. A
 plain checkout with MSVC or g++ already reachable needs no help.
+
+### services/library_packages.py
+
+SushiDSP links SushiLog as a built package and never compiles it. Every `sd build` asks
+`cfg.sushi_packages` for the packages of its closure, with the compiler `resolved_compiler`
+finds and the build type of the command, builds a missing one through SushiLog's own CLI, and
+prints one `reused` or `built` line. The configure passes `-DSushiLog_DIR` and no
+`-DSUSHILOG_DIR`. The packages are chosen on every build, so a changed SushiLog reaches the
+link and the path without a reconfigure. A package that cannot be chosen ends the command with
+one error line. With no compiler found there is nothing to build a package with, so the
+resolver refuses.
+
+The run-time folders of the packages go first on `PATH` (Windows) or `LD_LIBRARY_PATH` (Linux)
+in `env.py`'s result for every command. `build` records them in `.sushidsp_package_dirs.json`
+in the tree, and `sd run`, `sd host` and `sd test` read the file, so a program starts with the
+same folders the build linked.
 
 ### tests/test_console_lazy.py
 

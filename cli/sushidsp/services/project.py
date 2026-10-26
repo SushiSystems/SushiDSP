@@ -24,12 +24,13 @@ from pathlib import Path
 from sushicore import cmake_cache
 from sushicore.cmake_driver import CMakeDriver
 from sushicore.proc import Runner
+from sushicore.provision.sushi_packages import PackageError, PackageSet
 from sushicore.toolchain_args import c_compiler_for
 
 from .. import console
 from ..config import Config, PROFILE, find_project_root, load_config
 from ..env import load_build_env
-from . import discovery
+from . import discovery, library_packages
 
 
 class BuildType(str, enum.Enum):
@@ -108,8 +109,30 @@ def _build_dir(root: Path) -> Path:
 
 
 def _env(cfg: Config, build_dir: Path) -> dict[str, str]:
-    """Returns the environment cmake, ctest and the host GUI run under."""
-    return load_build_env(cfg, build_dir)
+    """Returns the environment cmake, ctest and the host GUI run under.
+
+    The run-time folders of the library packages the tree linked go first on the search path.
+    """
+    env = load_build_env(cfg, build_dir)
+    library_packages.prepend_run_dirs(cfg, env, library_packages.read_run_dirs(build_dir))
+    return env
+
+
+def _link_packages(cfg: Config, root: Path, build_dir: Path,
+                   build_type: BuildType) -> PackageSet | None:
+    """Returns the library packages of this build and records their run-time folders.
+
+    Returns:
+        None, after one error line, when a package cannot be chosen or built.
+    """
+    try:
+        packages = library_packages.resolve(cfg, root, build_type.value, console.info,
+                                            console.warn)
+    except PackageError as error:
+        console.error(str(error))
+        return None
+    library_packages.record_run_dirs(build_dir, packages.run_dirs(cfg.platform))
+    return packages
 
 
 def resolve_build_type(requested: BuildType | None) -> BuildType:
@@ -170,17 +193,26 @@ def _needs_configure(cfg: Config, build_dir: Path, expect: dict[str, str] | None
                for key, value in (expect or {}).items())
 
 
-def configure(build_type: BuildType | None, defines: Sequence[str] | None = None) -> int:
+def configure(build_type: BuildType | None, defines: Sequence[str] | None = None,
+              packages: PackageSet | None = None) -> int:
     """Runs `cmake -S . -B build` with the detected compiler, generator and build type.
+
+    SushiLog is linked as a built package: its config folder reaches CMake as
+    `-DSushiLog_DIR`, and no checkout directory does.
 
     Args:
         defines: `VAR=VALUE` cache variables, passed after every flag this function sets.
+        packages: The packages `build` already resolved; resolved here when None.
     """
     build_type = resolve_build_type(build_type)
     root = find_project_root()
     cfg = load_config()
     build_dir = _build_dir(root)
     build_dir.mkdir(parents=True, exist_ok=True)
+    if packages is None:
+        packages = _link_packages(cfg, root, build_dir, build_type)
+        if packages is None:
+            return 1
 
     cmd = [
         _DRIVER.cmake(cfg), "-S", str(root), "-B", str(build_dir),
@@ -198,7 +230,7 @@ def configure(build_type: BuildType | None, defines: Sequence[str] | None = None
                 f"-DCMAKE_C_COMPILER={c_compiler_for(compiler)}"]
     else:
         console.info(f"Compiler: {cfg.compiler_source()}")
-    cmd += cfg.sushi_definitions(root)
+    cmd += library_packages.configure_arguments(cfg, root, packages)
     for define in defines or ():
         cmd += ["-D", define]
 
@@ -229,10 +261,15 @@ def build(build_type: BuildType | None, clean: bool = False,
         if not _remove_tree(build_dir):
             return 1
 
+    # The packages are chosen on every build, so a changed library reaches the link and the path.
+    packages = _link_packages(cfg, root, build_dir, build_type)
+    if packages is None:
+        return 1
+
     # A single-config generator bakes CMAKE_BUILD_TYPE into the tree; Visual Studio does not.
     expect = None if cfg.is_multi_config() else {"CMAKE_BUILD_TYPE": _CMAKE_BUILD_TYPE[build_type]}
     if defines or _needs_configure(cfg, build_dir, expect):
-        rc = configure(build_type, defines)
+        rc = configure(build_type, defines, packages)
         if rc != 0:
             return rc
 

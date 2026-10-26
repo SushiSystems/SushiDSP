@@ -45,15 +45,13 @@ def test_build_passes_a_define_to_an_already_configured_tree(project):
     assert configure[configure.index("FOO=1") - 1] == "-D"
 
 
-def test_configure_hands_cmake_each_resolved_sushi_library(project, monkeypatch):
-    """The SushiLog the fragment pins reaches cmake as SUSHILOG_DIR."""
-    from sushidsp.config import Config
-    monkeypatch.setattr(Config, "sushi_definitions",
-                        lambda self, root: ["-DSUSHILOG_DIR=/stack/sushilog"])
-
+def test_configure_hands_cmake_the_sushilog_package(project):
+    """SushiLog reaches cmake as its package config folder, and no checkout directory does."""
     assert project_svc.build(BuildType.release) == 0
 
-    assert "-DSUSHILOG_DIR=/stack/sushilog" in project.runner.commands[0]
+    configure = project.runner.commands[0]
+    assert f"-DSushiLog_DIR={project.packages.config_dir}" in configure
+    assert not [item for item in configure if item.startswith("-DSUSHILOG_DIR")]
 
 
 def test_build_leaves_a_configured_tree_alone_without_a_define(project):

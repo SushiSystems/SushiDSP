@@ -8,8 +8,9 @@
 # word, so nothing here was ever provisioned.
 #
 # SushiDSP depends on one SushiStack module, SushiLog, the logger every Sushi
-# library links. It is pinned below and resolved by sushicore; CMake never
-# downloads it.
+# library links. It is pinned below; the CLI builds or reuses its package through
+# sushicore and hands CMake the package's config folder, so CMake never downloads
+# or compiles it.
 #
 # GoogleTest is resolved via CMake FetchContent (see the root CMakeLists.txt),
 # not a system/vcpkg port, so there is nothing to declare for it here.
