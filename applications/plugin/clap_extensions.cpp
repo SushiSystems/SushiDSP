@@ -90,7 +90,7 @@ namespace SushiDSP::Plugin
             {
                 return false;
             }
-            return guarded(false,
+            return guarded("audio_ports.get", false,
                            [is_input, info]
                            {
                                info->id = K_MAIN_PORT_ID;
@@ -106,7 +106,7 @@ namespace SushiDSP::Plugin
         /// @brief Writes the rig's preset text to the host's stream, whole.
         bool CLAP_ABI state_save(const clap_plugin_t* plugin, const clap_ostream_t* stream)
         {
-            return guarded(false,
+            return guarded("state.save", false,
                            [plugin, stream]
                            {
                                std::string text;
@@ -132,7 +132,7 @@ namespace SushiDSP::Plugin
         /// @brief Reads the host's stream to its end and loads the text as the rig's preset.
         bool CLAP_ABI state_load(const clap_plugin_t* plugin, const clap_istream_t* stream)
         {
-            return guarded(false,
+            return guarded("state.load", false,
                            [plugin, stream]
                            {
                                if (stream == nullptr)
@@ -154,7 +154,7 @@ namespace SushiDSP::Plugin
         /// @brief Reports the rig's latency in frames.
         std::uint32_t CLAP_ABI latency_get(const clap_plugin_t* plugin)
         {
-            return guarded(std::uint32_t{0},
+            return guarded("latency.get", std::uint32_t{0},
                            [plugin] { return ClapRigPlugin::of(plugin).latency(); });
         }
 
@@ -168,7 +168,7 @@ namespace SushiDSP::Plugin
         bool CLAP_ABI params_get_info(const clap_plugin_t* plugin, std::uint32_t index,
                                       clap_param_info_t* info)
         {
-            return guarded(false,
+            return guarded("params.get_info", false,
                            [plugin, index, info]
                            {
                                const std::vector<RigParameter>& parameters =
@@ -197,7 +197,7 @@ namespace SushiDSP::Plugin
         /// @brief Reads one parameter's current value.
         bool CLAP_ABI params_get_value(const clap_plugin_t* plugin, clap_id id, double* value)
         {
-            return guarded(false,
+            return guarded("params.get_value", false,
                            [plugin, id, value]
                            {
                                const std::optional<float> current =
@@ -215,7 +215,7 @@ namespace SushiDSP::Plugin
         bool CLAP_ABI params_value_to_text(const clap_plugin_t* plugin, clap_id id, double value,
                                            char* text, std::uint32_t capacity)
         {
-            return guarded(false,
+            return guarded("params.value_to_text", false,
                            [plugin, id, value, text, capacity]
                            {
                                const RigParameter* parameter = find_parameter(plugin, id);
@@ -240,7 +240,7 @@ namespace SushiDSP::Plugin
         bool CLAP_ABI params_text_to_value(const clap_plugin_t* plugin, clap_id id,
                                            const char* text, double* value)
         {
-            return guarded(false,
+            return guarded("params.text_to_value", false,
                            [plugin, id, text, value]
                            {
                                if (find_parameter(plugin, id) == nullptr || text == nullptr ||
@@ -264,7 +264,7 @@ namespace SushiDSP::Plugin
                                    const clap_output_events_t* out)
         {
             static_cast<void>(out);
-            guarded(false,
+            guarded("params.flush", false,
                     [plugin, in]
                     {
                         ClapRigPlugin::of(plugin).flush_parameters(in);

@@ -33,7 +33,9 @@
 #include <cstdint>
 #include <stdexcept>
 
+#include <SushiDSP/foundation/io/io_log_category.hpp>
 #include <SushiDSP/foundation/io/wav_file.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
 #include <SushiDSP/foundation/math/sinc_resampler.hpp>
 
@@ -139,6 +141,8 @@ namespace SushiDSP
 
         if (std::abs(source_rate - target_sample_rate) > 1e-6)
         {
+            SD_LOG_INFO(K_IO_LOG_CATEGORY, "impulse response resampled from {} Hz to {} Hz",
+                        source_rate, target_sample_rate);
             samples = SincResampler::resample(samples, source_rate, target_sample_rate);
         }
 
@@ -146,6 +150,11 @@ namespace SushiDSP
             static_cast<double>(options.max_length_ms) * target_sample_rate / 1000.0);
         if (max_length > 0 && samples.size() > max_length)
         {
+            SD_LOG_WARN(K_IO_LOG_CATEGORY,
+                        "impulse response of {} ms is longer than the limit of {} ms; the tail is "
+                        "cut",
+                        1000.0 * static_cast<double>(samples.size()) / target_sample_rate,
+                        options.max_length_ms);
             samples.resize(max_length);
         }
 

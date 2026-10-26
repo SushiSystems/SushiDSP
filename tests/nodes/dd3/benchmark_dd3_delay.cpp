@@ -36,7 +36,7 @@ namespace
         "Dd3",
         []
         {
-            SushiDSP::bench::print(SushiDSP::bench::measure_node<SushiDSP::Dd3Delay>(
+            SushiDSP::bench::report(SushiDSP::bench::measure_node<SushiDSP::Dd3Delay>(
                                        "DD-3 Delay",
                                        [](SushiDSP::Dd3Delay& node)
                                        {
@@ -45,6 +45,6 @@ namespace
                                         node.set_feedback(0.45f);
                                         node.set_level(0.5f);
                                        }),
-                                   0.15);
+                                   0.15, "nodes/dd3/dd3_delay.checks.json", "KI-47");
         }};
 } // namespace

@@ -233,15 +233,14 @@ One bounce keeps sqrt(1 - s) of the pressure: sqrt(0.90) / r for Flat and sqrt(0
 Cluttered, so Cluttered is sqrt(0.60 / 0.90) = 0.816497 of Flat. The two y images share an
 arrival, so the floor, ceiling, -x and +x taps are the ones looked up.
 
-### `ImageSourceSolverSolvesTheGarageInsideThePublishBudget`
+### `ImageSourceSolverSolvesTheGarageToTheSameTapsEveryTimeInsideTheCapacity`
 
-`// A Release solve measures 1 ms; the margin is deliberate.`
-
-A solve is the band fits plus the lattice, and it is the largest part of the render set whose
-own test bounds the whole build at the 33 ms a 30 Hz republish allows. The bound here is that
-budget less the tail design and the modal solve, which measure well under a millisecond each. A
-Release solve measures 1 ms; the margin is deliberate, because a tighter one measures how loaded
-the machine is rather than how the solver scales.
+A solve is the band fits plus the lattice, and it is the largest part of the render set. The
+case asserts what is deterministic: the tap count is positive, inside
+`EarlyTapSet::K_MAX_EARLY_TAPS`, and the same on a second solve. How long a solve takes is a
+benchmark verdict, not a test: `benchmark_image_source_solver.cpp` runs it and
+`image_source_solver.checks.json` bounds its median at 25 ms, the 33 ms a 30 Hz republish
+allows less the tail design and the modal solve.
 
 ## `test_late_reverb.cpp`
 
@@ -618,6 +617,13 @@ The graph's own per-block cost is not the sum of its nodes' isolated costs, beca
 and the buffer pool add their own share. The room's reported share is therefore the whole chain
 less the amplifier measured on its own. That is the best estimate the harness can give without
 instrumenting `RigGraph::process()` itself.
+
+## `benchmark_band_response_fit.cpp`, `benchmark_image_source_solver.cpp`, `benchmark_room_render_set.cpp`
+
+Each times the code of one hand-timed test, which is now a counter test: 150 band fits against a
+10 ms bound, one image-source solve against 25 ms and one render-set build against 33 ms, the
+budget of one 30 Hz publish. The bound lives in the case's `.checks.json` beside the benchmark
+and is judged as a verdict by `sd bench`, so no test fails on a time.
 
 ## `garage_benchmark_scene.hpp`
 

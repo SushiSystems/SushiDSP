@@ -4,6 +4,7 @@ Impulse responses and WAV files.
 
 ## Owns
 
+- `modules/foundation/io/include/SushiDSP/foundation/io/io_log_category.hpp`
 - `modules/foundation/io/include/SushiDSP/foundation/io/ir.hpp`
 - `modules/foundation/io/include/SushiDSP/foundation/io/ir_loader.hpp`
 - `modules/foundation/io/include/SushiDSP/foundation/io/wav_file.hpp`
@@ -11,7 +12,14 @@ Impulse responses and WAV files.
 
 ## Depends on
 
-`math` (same tier).
+`math` and `log` (same tier).
+
+## Logging
+
+The module logs under `K_IO_LOG_CATEGORY`. `IrLoader::prepare` writes one `INFO` naming both
+rates when it resamples an impulse response, and one `WARN` naming the impulse response's length
+and the limit when `max_length_ms` cuts its tail. A response at the target rate and inside the
+limit writes nothing.
 
 ## Notes cited from the source
 

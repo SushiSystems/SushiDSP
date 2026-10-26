@@ -27,8 +27,15 @@
 
 #include "clap_plugin.hpp"
 
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/profile_runtime.hpp>
+#include <SushiDSP/foundation/profile/profile_session.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
+
 #include "clap_boundary.hpp"
 #include "clap_extensions.hpp"
+#include "plugin_log_category.hpp"
 #include "startup_rig.hpp"
 
 namespace SushiDSP::Plugin
@@ -80,7 +87,8 @@ namespace SushiDSP::Plugin
         /// @brief Forwards clap_plugin.init to the instance.
         bool CLAP_ABI plugin_init(const clap_plugin_t* plugin)
         {
-            return guarded(false, [plugin] { return ClapRigPlugin::of(plugin).init(); });
+            return guarded("plugin.init", false,
+                           [plugin] { return ClapRigPlugin::of(plugin).init(); });
         }
 
         /// @brief Frees the instance clap_plugin.destroy names.
@@ -94,7 +102,7 @@ namespace SushiDSP::Plugin
                                       std::uint32_t min_frames, std::uint32_t max_frames)
         {
             static_cast<void>(min_frames);
-            return guarded(false,
+            return guarded("plugin.activate", false,
                            [plugin, sample_rate, max_frames]
                            {
                                return ClapRigPlugin::of(plugin).activate(sample_rate, max_frames);
@@ -104,7 +112,7 @@ namespace SushiDSP::Plugin
         /// @brief Forwards clap_plugin.deactivate to the instance.
         void CLAP_ABI plugin_deactivate(const clap_plugin_t* plugin)
         {
-            guarded(false,
+            guarded("plugin.deactivate", false,
                     [plugin]
                     {
                         ClapRigPlugin::of(plugin).deactivate();
@@ -148,7 +156,7 @@ namespace SushiDSP::Plugin
         /// @brief Forwards clap_plugin.on_main_thread to the instance.
         void CLAP_ABI plugin_on_main_thread(const clap_plugin_t* plugin)
         {
-            guarded(false,
+            guarded("plugin.on_main_thread", false,
                     [plugin]
                     {
                         ClapRigPlugin::of(plugin).on_main_thread();
@@ -164,7 +172,7 @@ namespace SushiDSP::Plugin
 
     const clap_plugin_t* ClapRigPlugin::create(const clap_host_t* host) noexcept
     {
-        return guarded(static_cast<const clap_plugin_t*>(nullptr),
+        return guarded("plugin.create", static_cast<const clap_plugin_t*>(nullptr),
                        [host]() -> const clap_plugin_t*
                        {
                            return &(new ClapRigPlugin(host))->plugin_;
@@ -190,7 +198,11 @@ namespace SushiDSP::Plugin
         plugin_.process = plugin_process;
         plugin_.get_extension = plugin_get_extension;
         plugin_.on_main_thread = plugin_on_main_thread;
+        adapter_.add_counters_to(counter_reporter_);
+        counter_reporter_.add("bad_block", bad_block_);
     }
+
+    ClapRigPlugin::~ClapRigPlugin() = default;
 
     bool ClapRigPlugin::init()
     {
@@ -204,7 +216,12 @@ namespace SushiDSP::Plugin
         {
             // A refused startup rig leaves the empty rig in place, which passes audio through.
             std::string error;
-            static_cast<void>(adapter_.load_state(*startup, error));
+            if (adapter_.load_state(*startup, error) != RigStateStatus::Ok)
+            {
+                SD_LOG_WARN(K_PLUGIN_LOG_CATEGORY,
+                            "the startup rig was refused: {}; the plugin starts on the empty rig",
+                            error);
+            }
         }
         return true;
     }
@@ -214,8 +231,14 @@ namespace SushiDSP::Plugin
         std::string error;
         if (adapter_.prepare(sample_rate, max_frames, error) != RigStateStatus::Ok)
         {
+            SD_LOG_ERROR(K_PLUGIN_LOG_CATEGORY,
+                         "activate() could not prepare the rig at {} Hz with blocks of {} frames: "
+                         "{}; the host sees a failed activation",
+                         sample_rate, max_frames, error);
             return false;
         }
+        sample_rate_ = sample_rate;
+        start_profiling();
         const std::uint32_t latency = adapter_.latency_frames();
         if (latency != announced_latency_ && host_latency_ != nullptr)
         {
@@ -226,9 +249,39 @@ namespace SushiDSP::Plugin
         return true;
     }
 
+    void ClapRigPlugin::start_profiling()
+    {
+        if (profile_session_ != nullptr)
+        {
+            return;
+        }
+        auto session = std::make_unique<profile::ProfileSession>();
+        const profile::ProfileStart started = session->start_from_environment();
+        if (started.started())
+        {
+            profile_session_ = std::move(session);
+        }
+        else if (started.status != profile::ProfileStartStatus::NotRequested)
+        {
+            SD_LOG_WARN(K_PLUGIN_LOG_CATEGORY,
+                        "profiling was asked for and did not start: {}; the plugin runs without "
+                        "it",
+                        started.message);
+        }
+    }
+
     void ClapRigPlugin::deactivate()
     {
         is_active_.store(false, std::memory_order_release);
+        if (profile_session_ != nullptr)
+        {
+            const profile::ProfileFinish finished = profile_session_->finish();
+            for (const std::string& problem : finished.problems)
+            {
+                SD_LOG_WARN(K_PLUGIN_LOG_CATEGORY, "the profiling session reported: {}", problem);
+            }
+            profile_session_.reset();
+        }
         adapter_.reclaim();
         if (rescan_is_due_)
         {
@@ -242,8 +295,17 @@ namespace SushiDSP::Plugin
 
     clap_process_status ClapRigPlugin::process(const clap_process_t& block) noexcept
     {
+        profile::register_this_thread();
+        profile::mark_block(block.frames_count, sample_rate_);
+        SD_ZONE_GROUP(profile::names::K_PROCESS_ZONE, profile::names::K_SESSION_GROUP);
+        if (++blocks_since_request_ >= K_BLOCKS_PER_CALLBACK_REQUEST)
+        {
+            blocks_since_request_ = 0;
+            host_->request_callback(host_);
+        }
         if (block.audio_inputs_count < 1 || block.audio_outputs_count < 1)
         {
+            bad_block_.increment();
             return CLAP_PROCESS_ERROR;
         }
         const clap_audio_buffer_t& input = block.audio_inputs[0];
@@ -252,6 +314,7 @@ namespace SushiDSP::Plugin
             output.channel_count != RigAdapter::K_CHANNELS || input.data32 == nullptr ||
             output.data32 == nullptr)
         {
+            bad_block_.increment();
             return CLAP_PROCESS_ERROR;
         }
 
@@ -267,6 +330,11 @@ namespace SushiDSP::Plugin
     void ClapRigPlugin::on_main_thread()
     {
         adapter_.reclaim();
+        const std::string line = counter_reporter_.poll(RtCounterReporter::Clock::now());
+        if (!line.empty())
+        {
+            SD_LOG_WARN(K_PLUGIN_LOG_CATEGORY, "{}", line);
+        }
     }
 
     bool ClapRigPlugin::load_rig(const std::string& json_text)
@@ -274,6 +342,9 @@ namespace SushiDSP::Plugin
         std::string error;
         if (adapter_.load_state(json_text, error) != RigStateStatus::Ok)
         {
+            SD_LOG_ERROR(K_PLUGIN_LOG_CATEGORY,
+                         "the saved state could not be loaded: {}; the rig stands as it was",
+                         error);
             return false;
         }
         if (is_active_.load(std::memory_order_acquire))
@@ -293,7 +364,13 @@ namespace SushiDSP::Plugin
     bool ClapRigPlugin::save_rig(std::string& json_text_out)
     {
         std::string error;
-        return adapter_.save_state(json_text_out, error) == RigStateStatus::Ok;
+        if (adapter_.save_state(json_text_out, error) != RigStateStatus::Ok)
+        {
+            SD_LOG_ERROR(K_PLUGIN_LOG_CATEGORY,
+                         "the rig could not be saved: {}; the host gets no state", error);
+            return false;
+        }
+        return true;
     }
 
     std::uint32_t ClapRigPlugin::latency()

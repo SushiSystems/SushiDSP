@@ -1,7 +1,7 @@
 # SushiProfiler adoption and the logging gaps
 
-**Status:** Open — analysis written 2026-10-26; section 9 holds the decisions; implementation runs with every build at the end.
-**Designs:** SUSHIDSP
+**Status:** Open — analysis written 2026-10-26; section 9 holds the decisions; the code is written and waits for the first build.
+**Implements:** SUSHIDSP#DP
 
 ## 1. What this is
 
@@ -464,7 +464,7 @@ writes and the GUI reads, or a live read from SushiProfiler (SPG-5).
 that reaches `RigController`. (b) Leave the test. (c) Quarantine it under `KNOWN_ISSUES.md`.
 
 **Q18. The design record.** `docs/design/SUSHIDSP/README.md` has no phase for this. (a) Add a phase
-row to it, so this folder can say `**Implements:**`. (b) Leave the work under `**Designs:**`.
+row to it, so this folder can say `**Implements:**`. (b) Leave the work under `**Designs:**` (ruled (a); the phase is DP).
 
 **Q19. When a gap in another repository blocks a task.** SLG-1 to SLG-8 are the owner's to build in
 SushiLog; SPG-1 to SPG-8 are SushiProfiler's. For each, SushiDSP can wait, use the workaround

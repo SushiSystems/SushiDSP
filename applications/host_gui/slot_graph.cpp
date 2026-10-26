@@ -93,9 +93,15 @@ namespace
     }
 } // namespace
 
-SlotGraph::SlotGraph(const SushiDSP::PrepareInfo& info) : info_(info)
+SlotGraph::SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock)
+    : info_(info), clock_(std::move(clock))
 {
     publish();
+}
+
+SlotGraph::Clock::time_point SlotGraph::now() const
+{
+    return clock_ ? clock_() : Clock::now();
 }
 
 void SlotGraph::seed_defaults(Slot& slot) const
@@ -413,6 +419,14 @@ void SlotGraph::set_parameter(SlotId slot, const char* param_id, float value)
     const auto it = slots_.find(slot);
     if (it == slots_.end())
     {
+        if (!unknown_slot_reported_)
+        {
+            unknown_slot_reported_ = true;
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "set_parameter('{}') named slot {}, which does not exist; the write is "
+                        "ignored, and further misses stay quiet until a write lands",
+                        param_id, slot);
+        }
         return;
     }
     it->second.parameters[param_id] = value;
@@ -420,8 +434,19 @@ void SlotGraph::set_parameter(SlotId slot, const char* param_id, float value)
     std::uint16_t parameter_index = 0;
     if (!find_parameter_index(it->second.descriptor_id, param_id, parameter_index))
     {
+        if (!unknown_parameter_reported_)
+        {
+            unknown_parameter_reported_ = true;
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "slot {} ({}) has no parameter '{}'; the value is stored for a preset and "
+                        "the node never hears it, and further misses stay quiet until a write "
+                        "lands",
+                        slot, it->second.descriptor_id, param_id);
+        }
         return;
     }
+    unknown_slot_reported_ = false;
+    unknown_parameter_reported_ = false;
 
     const auto handle_it = slot_to_handle_.find(slot);
     if (active_graph_ != nullptr && handle_it != slot_to_handle_.end())
@@ -447,9 +472,20 @@ float SlotGraph::get_parameter(SlotId slot, const char* param_id) const
 
 bool SlotGraph::set_cabinet(SlotId slot, const std::string& path)
 {
+    std::string reason;
+    return set_cabinet(slot, path, reason);
+}
+
+bool SlotGraph::set_cabinet(SlotId slot, const std::string& path, std::string& reason_out)
+{
+    reason_out.clear();
     const auto it = slots_.find(slot);
     if (it == slots_.end())
     {
+        reason_out = "no slot " + std::to_string(slot);
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "set_cabinet('{}') named slot {}, which does not exist; nothing is installed",
+                    path, slot);
         return false;
     }
 
@@ -459,8 +495,25 @@ bool SlotGraph::set_cabinet(SlotId slot, const std::string& path)
     if (handle_it != slot_to_handle_.end() && active_graph_ != nullptr)
     {
         auto* host = dynamic_cast<SushiDSP::CabinetHost*>(active_graph_->node(handle_it->second));
-        if (host == nullptr || !host->set_cabinet(std::move(impulse_response)))
+        if (host == nullptr)
         {
+            reason_out = "the node of slot " + std::to_string(slot) + " hosts no cabinet";
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "set_cabinet('{}') named slot {} ({}), whose node hosts no cabinet; "
+                        "nothing is installed",
+                        path, slot, it->second.descriptor_id);
+            return false;
+        }
+        const SushiDSP::CabinetStatus status = host->set_cabinet(std::move(impulse_response));
+        if (status != SushiDSP::CabinetStatus::Installed)
+        {
+            // The node wrote its own record of the cause; this names the slot and the file.
+            reason_out = std::string("the cabinet was refused: ") +
+                         SushiDSP::cabinet_status_text(status);
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "slot {} refused cabinet IR '{}' at {} Hz: {}; the slot keeps its "
+                        "cabinet",
+                        slot, path, info_.sample_rate, SushiDSP::cabinet_status_text(status));
             return false;
         }
     }
@@ -487,8 +540,9 @@ void SlotGraph::apply_cabinet_to_live_node(SlotId slot)
     }
     try
     {
-        if (!host->set_cabinet(
-                SushiDSP::IrLoader::load(it->second.cabinet_path, info_.sample_rate)))
+        if (host->set_cabinet(SushiDSP::IrLoader::load(it->second.cabinet_path,
+                                                       info_.sample_rate)) !=
+            SushiDSP::CabinetStatus::Installed)
         {
             SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
                         "the node of slot {} refused cabinet IR '{}' at {} Hz; the slot forgets "
@@ -524,7 +578,24 @@ void SlotGraph::reclaim()
         {
             room->reclaim_rooms();
             std::string reason;
-            publish_room(slot, false, reason);
+            const auto owner = slots_.find(slot);
+            const bool published = publish_room(slot, false, reason);
+            if (owner != slots_.end())
+            {
+                if (published)
+                {
+                    owner->second.room_reclaim_failing = false;
+                }
+                else if (!owner->second.room_reclaim_failing)
+                {
+                    owner->second.room_reclaim_failing = true;
+                    SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                                "slot {} could not publish its pending room scene: {}; the "
+                                "publish is retried each frame and this line is the only record "
+                                "of the streak",
+                                slot, reason);
+                }
+            }
         }
     }
 }
@@ -662,7 +733,7 @@ bool SlotGraph::publish_room(SlotId slot, bool force, std::string& error_out)
         return true;
     }
 
-    const Clock::time_point now = Clock::now();
+    const Clock::time_point now = this->now();
     if (!force && it->second.room_published_at.has_value())
     {
         const std::chrono::duration<double> since = now - *it->second.room_published_at;
@@ -688,7 +759,14 @@ void SlotGraph::apply_room_to_live_node(SlotId slot)
     }
     if (!hrtf_.empty())
     {
-        host->set_hrtf(hrtf_);
+        const SushiDSP::room::HrtfStatus status = host->set_hrtf(hrtf_);
+        if (status != SushiDSP::room::HrtfStatus::Installed)
+        {
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "the room of slot {} refused the HRTF set: {}; it keeps the HRTF it "
+                        "had",
+                        slot, SushiDSP::room::hrtf_status_text(status));
+        }
     }
     if (!it->second.room_arrangement.has_value())
     {
@@ -700,6 +778,10 @@ void SlotGraph::apply_room_to_live_node(SlotId slot)
     if (!publish_room(slot, true, reason))
     {
         // A stored arrangement the fresh node refuses is dropped; see applications/host_gui/README.md.
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "the room of slot {} refused its stored arrangement: {}; the slot takes the "
+                    "node's own arrangement",
+                    slot, reason);
         it->second.room_arrangement = host->arrangement();
     }
 }
@@ -712,13 +794,19 @@ bool SlotGraph::set_hrtf_path(const std::string& path, std::string& error_out)
     {
         hrtf_ = SushiDSP::room::HrtfSet{};
         hrtf_path_.clear();
+        std::size_t reset_rooms = 0;
         for (SlotId slot : slot_order_)
         {
             if (SushiDSP::room::RoomHost* host = room_host(slot))
             {
-                host->set_hrtf(SushiDSP::room::HrtfSet{});
+                static_cast<void>(host->set_hrtf(SushiDSP::room::HrtfSet{}));
+                ++reset_rooms;
             }
         }
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "the HRTF set '{}' did not load ({}); {} live room(s) went back to the "
+                    "spherical-head fallback",
+                    path, error_out, reset_rooms);
         return false;
     }
 
@@ -729,7 +817,16 @@ bool SlotGraph::set_hrtf_path(const std::string& path, std::string& error_out)
     {
         if (SushiDSP::room::RoomHost* host = room_host(slot))
         {
-            every_room_took_it = host->set_hrtf(hrtf_) && every_room_took_it;
+            const SushiDSP::room::HrtfStatus status = host->set_hrtf(hrtf_);
+            if (status != SushiDSP::room::HrtfStatus::Installed)
+            {
+                SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                            "the room of slot {} refused the HRTF set '{}': {}; it keeps the HRTF "
+                            "it had",
+                            slot, path, SushiDSP::room::hrtf_status_text(status));
+            }
+            every_room_took_it = status == SushiDSP::room::HrtfStatus::Installed &&
+                                 every_room_took_it;
         }
     }
     if (!every_room_took_it)

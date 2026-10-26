@@ -28,15 +28,25 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include <clap/clap.h>
 
+#include <SushiDSP/foundation/core/rt_counter.hpp>
+#include <SushiDSP/foundation/core/rt_counter_report.hpp>
+
 #include "rig_adapter.hpp"
 #include "rig_parameter.hpp"
+
+namespace SushiDSP::profile
+{
+    class ProfileSession;
+} // namespace SushiDSP::profile
 
 namespace SushiDSP::Plugin
 {
@@ -67,7 +77,7 @@ namespace SushiDSP::Plugin
             ClapRigPlugin& operator=(const ClapRigPlugin&) = delete;
             ClapRigPlugin(ClapRigPlugin&&) = delete;
             ClapRigPlugin& operator=(ClapRigPlugin&&) = delete;
-            ~ClapRigPlugin() = default;
+            ~ClapRigPlugin();
 
             /// @brief Reads the host's extensions and loads the startup rig when one is named.
             /// @return True; a startup rig that will not load leaves the empty rig in place.
@@ -86,8 +96,15 @@ namespace SushiDSP::Plugin
             /// stereo 32-bit input and one stereo 32-bit output.
             clap_process_status process(const clap_process_t& block) noexcept;
 
-            /// @brief Frees what the audio thread has moved past. Main thread.
+            /// @brief Frees what the audio thread has moved past and writes the counters of the
+            /// real-time path as one WARN per interval when any moved. Main thread.
             void on_main_thread();
+
+            /// @brief Returns the blocks answered with CLAP_PROCESS_ERROR; read it off the audio thread.
+            [[nodiscard]] const RtCounter& bad_block_count() const noexcept
+            {
+                return bad_block_;
+            }
 
             /// @brief Replaces the rig from preset text and tells the host what changed.
             /// @return False when the adapter refuses the preset; the rig then stands as it was.
@@ -113,6 +130,15 @@ namespace SushiDSP::Plugin
             void flush_parameters(const clap_input_events_t* events);
 
         private:
+            /// @brief How often the main thread reports the counters of the real-time path.
+            static constexpr std::chrono::seconds K_REPORT_INTERVAL{5};
+
+            /// @brief How many blocks pass between two requests for a main-thread callback.
+            static constexpr std::uint32_t K_BLOCKS_PER_CALLBACK_REQUEST = 512;
+
+            /// @brief Starts the profiling session the environment asks for, once.
+            void start_profiling();
+
             /// @brief Names the host that owns this instance.
             const clap_host_t* host_;
 
@@ -136,5 +162,20 @@ namespace SushiDSP::Plugin
 
             /// @brief Holds the latency the host last read or was told to read again.
             std::uint32_t announced_latency_ = 0;
+
+            /// @brief Counts the blocks answered with CLAP_PROCESS_ERROR.
+            RtCounter bad_block_;
+
+            /// @brief Reads the counters of the adapter and of this instance once per interval.
+            RtCounterReporter counter_reporter_{K_REPORT_INTERVAL};
+
+            /// @brief Holds the rate the plugin was activated at, for the block's budget.
+            double sample_rate_ = RigAdapter::K_DEFAULT_SAMPLE_RATE;
+
+            /// @brief Counts the blocks since the last request for a main-thread callback.
+            std::uint32_t blocks_since_request_ = 0;
+
+            /// @brief Runs the profiling session the environment asks for, or none.
+            std::unique_ptr<profile::ProfileSession> profile_session_;
     };
 } // namespace SushiDSP::Plugin

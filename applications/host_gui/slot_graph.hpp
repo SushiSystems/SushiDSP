@@ -30,6 +30,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -82,7 +83,13 @@ class SlotGraph
                 std::optional<SushiDSP::Room::Arrangement> room_arrangement;
         };
 
-        explicit SlotGraph(const SushiDSP::PrepareInfo& info);
+        /// @brief Names where the room publish interval reads the time; tests inject their own.
+        using ClockSource = std::function<std::chrono::steady_clock::time_point()>;
+
+        /// @brief Builds a graph prepared at @p info.
+        /// @param clock Returns the present time for the room publish interval; empty reads the
+        /// steady clock.
+        explicit SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock = {});
 
         /// @brief Adds a new, unconnected slot and republishes.
         /// @param descriptor_id The NodeDescriptor id to construct.
@@ -190,6 +197,13 @@ class SlotGraph
         /// @return True when the node took the impulse response, or the bypassed slot stored it.
         /// @throws std::runtime_error if the file cannot be opened or parsed.
         bool set_cabinet(SlotId slot, const std::string& path);
+
+        /// @brief Installs a cabinet as the two-argument form does and says why it did not.
+        /// @param reason_out Receives the reason when the result is false: no such slot, a node
+        /// that hosts no cabinet, or the node's own refusal.
+        /// @return True when the node took the impulse response, or the bypassed slot stored it.
+        /// @throws std::runtime_error if the file cannot be opened or parsed.
+        bool set_cabinet(SlotId slot, const std::string& path, std::string& reason_out);
 
         /// @brief Reclaims retired graphs and the retired cabinets of every live node that hosts
         /// one. Control thread only; call once per GUI frame.
@@ -396,6 +410,10 @@ class SlotGraph
                 /// @brief Records that room_arrangement changed since the node last took it.
                 bool room_pending = false;
 
+                /// @brief Records that a failed publish in reclaim() has been logged and the
+                /// streak has not ended.
+                bool room_reclaim_failing = false;
+
                 /// @brief Stamps the last scene handed to the node, for the publish interval.
                 std::optional<Clock::time_point> room_published_at;
 
@@ -483,5 +501,18 @@ class SlotGraph
         SushiDSP::RtGraphSlot graph_slot_;
         SushiDSP::RigGraph* active_graph_ = nullptr;
         std::size_t dropped_parameter_changes_ = 0;
+
+        /// @brief Returns the present time on the injected clock, or the steady clock.
+        Clock::time_point now() const;
+
+        /// @brief Holds the injected clock; empty reads the steady clock.
+        ClockSource clock_;
+
+        /// @brief Records that a write to an unknown slot has been logged since the last good one.
+        bool unknown_slot_reported_ = false;
+
+        /// @brief Records that a write to an unknown parameter has been logged since the last
+        /// good one.
+        bool unknown_parameter_reported_ = false;
         std::atomic<RigInputSource> input_source_{RigInputSource::LiveInput};
 };

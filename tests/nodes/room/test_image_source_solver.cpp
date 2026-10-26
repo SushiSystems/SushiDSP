@@ -29,14 +29,14 @@
 
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
-#include <SushiDSP/foundation/timing_gate/timing_gate.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include <SushiDSP/nodes/room/band_response_fit.hpp>
 #include <SushiDSP/nodes/room/image_source_solver.hpp>
 #include <SushiDSP/nodes/room/medium_absorption.hpp>
@@ -274,16 +274,16 @@ TEST(Small_ImageSourceSolver, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
     EXPECT_GT(cluttered.scattered_energy, flat.scattered_energy);
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverSolvesTheGarageInsideThePublishBudget)
+TEST(Small_ImageSourceSolver, ImageSourceSolverSolvesTheGarageToTheSameTapsEveryTimeInsideTheCapacity)
 {
-    SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
-    // A Release solve measures 1 ms; the margin is deliberate. See tests/nodes/room/README.md.
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
-    const auto start = std::chrono::steady_clock::now();
-    const SushiDSP::room::EarlyTapSet set = SushiDSP::room::ImageSourceSolver::solve(garage, {});
-    const auto stop = std::chrono::steady_clock::now();
-    const double milliseconds = std::chrono::duration<double, std::milli>(stop - start).count();
-    EXPECT_LT(milliseconds, 25.0) << "taps " << set.count;
+    const SushiDSP::room::EarlyTapSet first = SushiDSP::room::ImageSourceSolver::solve(garage, {});
+    const SushiDSP::room::EarlyTapSet second = SushiDSP::room::ImageSourceSolver::solve(garage, {});
+
+    EXPECT_GT(first.count, 0u);
+    EXPECT_LE(first.count, SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS);
+    EXPECT_EQ(second.count, first.count);
+    EXPECT_FLOAT_EQ(second.crossover_time_s, first.crossover_time_s);
 }
 
 TEST(Small_ImageSourceSolver, ImageSourceSolverLeavesTheDirectTapAloneWhenFurnished)
@@ -352,4 +352,34 @@ TEST(Small_ImageSourceSolver, ImageSourceSolverThinsAReflectedTapByTheFurnishing
     }
     EXPECT_GT(largest_reduction_db, 3.0 * K_TOLERANCE_DB);
     EXPECT_LT(worst_miss_db, K_TOLERANCE_DB);
+}
+
+TEST(Small_ImageSourceSolverLogging, SolveWarnsOnceWhenTheTapsAreCutAtTheCapacity)
+{
+    SushiDSP::room::ImageSourceSolver::Options options;
+    options.max_order = 8u;
+
+    SushiDSP::LogCapture capture;
+    const SushiDSP::room::EarlyTapSet set =
+        SushiDSP::room::ImageSourceSolver::solve(SushiDSP::test::garage_scene(), options);
+
+    EXPECT_EQ(set.count, SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS);
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[0].category, "room");
+    EXPECT_NE(lines[0].message.find("kept 128 early taps"), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_ImageSourceSolverLogging, SolveWritesNothingWhenNoTapIsLeftOut)
+{
+    SushiDSP::room::ImageSourceSolver::Options options;
+    options.max_order = 1u;
+
+    SushiDSP::LogCapture capture;
+    const SushiDSP::room::EarlyTapSet set =
+        SushiDSP::room::ImageSourceSolver::solve(example_scene(), options);
+
+    EXPECT_EQ(set.count, 5u);
+    EXPECT_TRUE(capture.lines().empty());
 }

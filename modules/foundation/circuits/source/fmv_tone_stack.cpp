@@ -26,10 +26,12 @@
  */
 
 #include <SushiDSP/foundation/circuits/fmv_tone_stack.hpp>
+#include <SushiDSP/foundation/circuits/circuits_log_category.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
 
 #include <algorithm>
 #include <array>
-#include <cassert>
+#include <stdexcept>
 
 namespace SushiDSP
 {
@@ -104,9 +106,13 @@ namespace SushiDSP
         }
         netlist.output(node.output, 0);
 
-        const bool prepared = circuit_.prepare(netlist, sample_rate_);
-        assert(prepared);
-        static_cast<void>(prepared);
+        if (!circuit_.prepare(netlist, sample_rate_))
+        {
+            SD_LOG_ERROR(K_CIRCUITS_LOG_CATEGORY,
+                         "FmvToneStack could not derive its DK matrices at {} Hz; the constructor throws",
+                         sample_rate_);
+            throw std::runtime_error("FmvToneStack: the DK derivation failed at the requested rate");
+        }
 
         circuit_.set_potentiometer(treble_pot_, 1.0 - static_cast<double>(treble_));
         circuit_.set_potentiometer(bass_pot_, static_cast<double>(bass_));

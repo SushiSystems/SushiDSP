@@ -32,6 +32,8 @@
 
 namespace SushiDSP
 {
+    class RtCounterReporter;
+
     /// @brief The sample rate, block size, and channel counts a device is configured for.
     struct DeviceFormat
     {
@@ -65,5 +67,13 @@ namespace SushiDSP
 
             /// @brief Stops playback and joins the audio thread.
             virtual void stop() = 0;
+
+            /// @brief Adds the counters the device's real-time thread raises to @p reporter. A
+            /// device with none adds nothing. Control thread only.
+            /// @pre The device outlives @p reporter.
+            virtual void add_counters_to(RtCounterReporter& reporter) const
+            {
+                static_cast<void>(reporter);
+            }
     };
 } // namespace SushiDSP

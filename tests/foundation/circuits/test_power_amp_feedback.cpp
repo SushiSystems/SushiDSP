@@ -27,10 +27,14 @@
 
 #include <cmath>
 #include <complex>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/circuits/power_amp_feedback.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 namespace
 {
@@ -161,4 +165,18 @@ TEST(Small_PowerAmpFeedback, PowerAmpFeedbackOpeningPresenceRemovesMoreTrebleTha
     EXPECT_NEAR(bass_travel, 14.15, 0.2);
     EXPECT_NEAR(treble_travel, 34.38, 0.2);
     EXPECT_GT(treble_travel, bass_travel + 15.0);
+}
+
+TEST(Small_PowerAmpFeedback, PowerAmpFeedbackThrowsAndLogsOneErrorWhenTheDerivationFails)
+{
+    SushiDSP::LogCapture capture;
+
+    EXPECT_THROW(SushiDSP::PowerAmpFeedback(0.0, SushiDSP::K_MARK2C_FEEDBACK),
+                 std::runtime_error);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
+    EXPECT_EQ(lines[0].category, "circuits");
+    EXPECT_NE(lines[0].message.find("PowerAmpFeedback"), std::string::npos) << lines[0].message;
 }

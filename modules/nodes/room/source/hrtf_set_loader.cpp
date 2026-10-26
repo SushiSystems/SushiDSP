@@ -37,6 +37,9 @@
 #include <sstream>
 #include <vector>
 
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/nodes/room/room_log_category.hpp>
+
 namespace SushiDSP::room
 {
     namespace
@@ -132,6 +135,11 @@ namespace SushiDSP::room
                    static_cast<std::uint64_t>(header.direction_count) * direction_record +
                    decoder_bytes + diffuse_bytes;
         }
+        /// @brief Writes the ERROR that goes with a refused file.
+        void log_refusal(const std::string& message)
+        {
+            SD_LOG_ERROR(K_ROOM_LOG_CATEGORY, "{}; the HRTF set is not loaded", message);
+        }
     } // namespace
 
     bool HrtfSetLoader::load(const std::string& path, double expected_sample_rate, HrtfSet& set,
@@ -141,16 +149,19 @@ namespace SushiDSP::room
         if (!read_whole_file(path, bytes))
         {
             error_out = "HrtfSetLoader: cannot open '" + path + "'";
+            log_refusal(error_out);
             return false;
         }
         if (bytes.size() < K_HEADER_BYTES)
         {
             error_out = "HrtfSetLoader: '" + path + "' is too short to hold a header";
+            log_refusal(error_out);
             return false;
         }
         if (std::memcmp(bytes.data(), K_MAGIC, sizeof(K_MAGIC)) != 0)
         {
             error_out = "HrtfSetLoader: '" + path + "' has the wrong magic";
+            log_refusal(error_out);
             return false;
         }
         Header header{};
@@ -166,6 +177,7 @@ namespace SushiDSP::room
             message << "HrtfSetLoader: '" << path << "' is format version " << header.version
                     << ", expected " << K_FORMAT_VERSION;
             error_out = message.str();
+            log_refusal(error_out);
             return false;
         }
         if (header.tap_count != HrtfSet::K_TAP_COUNT)
@@ -174,6 +186,7 @@ namespace SushiDSP::room
             message << "HrtfSetLoader: '" << path << "' carries " << header.tap_count
                     << " taps per HRIR, expected " << HrtfSet::K_TAP_COUNT;
             error_out = message.str();
+            log_refusal(error_out);
             return false;
         }
         if (static_cast<double>(header.sample_rate_hz) != expected_sample_rate)
@@ -182,11 +195,13 @@ namespace SushiDSP::room
             message << "HrtfSetLoader: '" << path << "' was measured at " << header.sample_rate_hz
                     << " Hz, but " << expected_sample_rate << " Hz was asked for";
             error_out = message.str();
+            log_refusal(error_out);
             return false;
         }
         if (bytes.size() != expected_length(header))
         {
             error_out = "HrtfSetLoader: '" + path + "' is truncated or malformed";
+            log_refusal(error_out);
             return false;
         }
 
@@ -238,6 +253,7 @@ namespace SushiDSP::room
         catch (const std::exception& error)
         {
             error_out = "HrtfSetLoader: '" + path + "' " + std::string(error.what());
+            log_refusal(error_out);
             return false;
         }
         return true;

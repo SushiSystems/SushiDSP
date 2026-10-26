@@ -35,6 +35,8 @@
 #include <SushiDSP/foundation/core/buffer_pool.hpp>
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/core/parameter_change.hpp>
+#include <SushiDSP/foundation/core/rt_counter.hpp>
+#include <SushiDSP/foundation/core/rt_counter_report.hpp>
 #include <SushiDSP/foundation/core/spsc_ring.hpp>
 
 namespace SushiDSP
@@ -58,6 +60,26 @@ namespace SushiDSP
             /// @brief Maximum output ports a node may declare. Bounds the fixed-size port tables
             /// RigGraph::process() fills for each node.
             static constexpr std::uint32_t K_MAX_OUTPUT_PORTS = 9;
+
+            /// @brief Holds what every graph's process() counts instead of logging. The counters
+            /// are shared by every RigGraph of the process, so a graph that a host replaces leaves
+            /// its counts behind and a reporter holds one object for the whole run.
+            struct Counters
+            {
+                    /// @brief Parameter changes dropped because their node was removed.
+                    RtCounter missing_node_change;
+
+                    /// @brief Blocks longer than block_size, processed in pieces; the peak is the
+                    /// longest block asked.
+                    RtCounter oversize_block;
+
+                    /// @brief Adds both counters to @p reporter under their names.
+                    void add_to(RtCounterReporter& reporter) const
+                    {
+                        reporter.add("missing_node_change", missing_node_change);
+                        reporter.add("oversize_block", oversize_block);
+                    }
+            };
 
             /// @brief Reports whether the adaptation table covers a producer/consumer channel pair.
             /// The table is 1 into 2 (copied), 2 into 1 (summed and halved), and n into n.
@@ -135,8 +157,14 @@ namespace SushiDSP
             bool push_parameter_change(const ParameterChange& change);
 
             /// @brief Processes one block through every node in topological order. Real-time safe.
+            /// A block longer than block_size is processed in pieces of block_size and counted in
+            /// counters().oversize_block; the output and the parameter changes are those of the
+            /// pieces in order.
             /// @param context The block's output buffers and frame count.
             void process(ProcessContext& context);
+
+            /// @brief Returns what every graph's process() counted; read it on the control thread.
+            [[nodiscard]] static const Counters& counters() noexcept;
 
             /// @brief Longest path through the compiled graph, in base-rate samples: a node's latency
             /// plus the largest latency among its upstream paths, taken at the sink. Allocation-free;
@@ -172,6 +200,21 @@ namespace SushiDSP
                     /// @brief Holds how many separate inputs the node reads.
                     std::uint32_t input_slots;
             };
+
+            /// @brief Processes one block of at most block_size frames. Real-time safe.
+            void process_block(ProcessContext& context);
+
+            /// @brief Points gathered_inputs_ at the producers feeding @p handle, summing a
+            /// fan-in into pool buffers it borrows.
+            /// @param width The channels one input slot of the node carries.
+            /// @param slots The input slots of the node.
+            /// @return The edges gathered, or 1 for a root that reads the host's input; 0 when
+            /// the node has no input at all.
+            std::uint32_t gather_inputs(NodeHandle handle, std::uint32_t width,
+                                        std::uint32_t slots, const ProcessContext& context);
+
+            /// @brief Processes a block longer than block_size as consecutive pieces.
+            void process_pieces(ProcessContext& context);
 
             /// @brief Derives the widths and slot count RigGraph routes by from a node's PortLayout.
             /// @param layout The node's declared layout.
@@ -223,5 +266,20 @@ namespace SushiDSP
             /// @brief Holds the pool buffers the current gather borrowed, for release after the node runs.
             float* gather_scratch_[K_MAX_FAN_IN_OUT * K_MAX_CHANNELS] = {};
             SpscRing<ParameterChange> parameter_ring_{K_PARAMETER_RING_CAPACITY};
+
+            /// @brief Holds what every graph's process() counted.
+            static Counters counters_;
+
+            /// @brief Holds the sample rate compile() was given, for the time of a later piece.
+            double sample_rate_ = 0.0;
+
+            /// @brief Holds the interned type_id() of each node, indexed by handle, for its zone.
+            std::vector<std::uint32_t> node_zone_names_;
+
+            /// @brief Holds the host output channel pointers of the piece process_pieces() runs.
+            std::vector<float*> piece_outputs_;
+
+            /// @brief Holds the host input channel pointers of the piece process_pieces() runs.
+            std::vector<const float*> piece_inputs_;
     };
 } // namespace SushiDSP

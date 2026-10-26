@@ -27,12 +27,19 @@
 
 #include <chrono>
 #include <cstdio>
+#include <iostream>
 #include <memory>
 #include <thread>
 
 #include "sine_tone_node.hpp"
 #include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/core/core_counter_report.hpp>
+#include <SushiDSP/foundation/core/counter_poll_thread.hpp>
+#include <SushiDSP/foundation/device/device_counter_report.hpp>
 #include <SushiDSP/foundation/device/sdl2_audio_device.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/profile_session.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/nodes/jcm800/jcm800.hpp>
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 
@@ -82,9 +89,30 @@ int main()
     SushiDSP::PrepareInfo info{actual.sample_rate, actual.block_size, actual.output_channels};
     rig.compile(info);
 
+    // SD_PROFILE_CONFIG names a profiler configuration; without it nothing is recorded.
+    SushiDSP::profile::ProfileSession profiling(std::cout);
+    const SushiDSP::profile::ProfileStart profile_start = profiling.start_from_environment();
+    if (!profile_start.started() &&
+        profile_start.status != SushiDSP::profile::ProfileStartStatus::NotRequested)
+    {
+        std::fprintf(stderr, "Profiling did not start: %s\n", profile_start.message.c_str());
+    }
+
+    SushiDSP::DeviceCounterReport device_report;
+    device_report.add_device(*device);
+    SushiDSP::CoreCounterReport core_report;
+    SushiDSP::CounterPollThread counter_poller(
+        [&]
+        {
+            device_report.poll();
+            core_report.poll();
+        });
+
     device->start(
         [&rig](const float* const* inputs, float* const* outputs, std::uint32_t frames)
         {
+            SD_ZONE_GROUP(SushiDSP::profile::names::K_PROCESS_ZONE,
+                          SushiDSP::profile::names::K_SESSION_GROUP);
             SushiDSP::ProcessContext context{outputs, inputs, frames, 0.0};
             rig.process(context);
         });
@@ -94,6 +122,7 @@ int main()
     std::this_thread::sleep_for(std::chrono::seconds(3));
 
     device->stop();
+    static_cast<void>(profiling.finish());
     std::printf("Stopped.\n");
 
     return 0;

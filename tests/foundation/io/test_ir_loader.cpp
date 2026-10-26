@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/io/ir_loader.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 namespace
 {
@@ -172,4 +173,49 @@ TEST(Medium_IrLoader, IrLoaderLoadResamplesAWavFileToTheTargetRate)
     EXPECT_DOUBLE_EQ(ir.sample_rate, 48000.0);
     const auto expected_length = static_cast<double>(source.size()) * 48000.0 / 44100.0;
     EXPECT_NEAR(static_cast<double>(ir.samples.size()), expected_length, 2.0);
+}
+
+TEST(Small_IrLoaderLogging, IrLoaderLogsOneInfoNamingBothRatesWhenItResamples)
+{
+    const std::vector<float> samples(441, 0.1f);
+
+    SushiDSP::LogCapture capture;
+    const auto ir = SushiDSP::IrLoader::prepare(samples, 44100.0, 48000.0);
+
+    EXPECT_DOUBLE_EQ(ir.sample_rate, 48000.0);
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Info);
+    EXPECT_EQ(lines[0].category, "io");
+    EXPECT_NE(lines[0].message.find("44100"), std::string::npos) << lines[0].message;
+    EXPECT_NE(lines[0].message.find("48000"), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_IrLoaderLogging, IrLoaderLogsOneWarnNamingBothLengthsWhenItCutsTheTail)
+{
+    const std::vector<float> samples(9600, 0.1f);
+    SushiDSP::IrLoadOptions options;
+    options.max_length_ms = 100.0f;
+
+    SushiDSP::LogCapture capture;
+    const auto ir = SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0, options);
+
+    EXPECT_EQ(ir.samples.size(), 4800u);
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[0].category, "io");
+    EXPECT_NE(lines[0].message.find("200 ms"), std::string::npos) << lines[0].message;
+    EXPECT_NE(lines[0].message.find("100 ms"), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_IrLoaderLogging, IrLoaderWritesNothingForAMatchingRateAndAShortResponse)
+{
+    const std::vector<float> samples(4800, 0.1f);
+
+    SushiDSP::LogCapture capture;
+    const auto ir = SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0);
+
+    EXPECT_EQ(ir.samples.size(), 4800u);
+    EXPECT_TRUE(capture.lines().empty());
 }

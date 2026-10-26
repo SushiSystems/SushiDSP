@@ -26,11 +26,13 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -47,11 +49,19 @@
 #include <SushiDSP/foundation/core/rig_graph.hpp>
 #include <SushiDSP/foundation/core/rt_graph_slot.hpp>
 #include <SushiDSP/foundation/audio_format/channel_selection.hpp>
+#include <SushiDSP/foundation/core/rt_counter.hpp>
+#include <SushiDSP/foundation/core/core_counter_report.hpp>
+#include <SushiDSP/foundation/core/rt_counter_report.hpp>
+#include <SushiDSP/foundation/device/device_counter_report.hpp>
 #include <SushiDSP/foundation/device/sdl2_audio_device.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/foundation/profile/profile_session.hpp>
+#include <SushiDSP/nodes/room/room_node.hpp>
 
 #include "audio_import_cache.hpp"
 #include "audio_import_queue.hpp"
 #include "file_drop_queue.hpp"
+#include "host_gui_log_category.hpp"
 #include "rig_controller.hpp"
 #include "rig_topology.hpp"
 #include "topology_applier.hpp"
@@ -132,7 +142,7 @@ namespace
 
     /// @brief Installs the bundled HRTF set into a fresh rig, so every room the rig builds from
     /// then on takes it; without the file the rooms keep their spherical-head fallback and one
-    /// line on stderr names the path that was looked for. See assets/hrtf/README.md.
+    /// WARN names the path that was looked for. See assets/hrtf/README.md.
     /// @param controller The rig to act on.
     /// @param default_hrtf_path Path to the bundled set.
     void apply_default_hrtf(Session& session, const std::string& default_hrtf_path)
@@ -142,11 +152,10 @@ namespace
         {
             return;
         }
-        std::fprintf(
-            stderr,
-            "No bundled HRTF set: %s - rooms use the spherical-head fallback, so front and back "
-            "sound alike. See assets/hrtf/README.md.\n",
-            error.c_str());
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "no bundled HRTF set: {}; rooms use the spherical-head fallback, so front and "
+                    "back sound alike (see assets/hrtf/README.md)",
+                    error);
     }
 
     /// @brief Installs the bundled cabinet impulse response on a freshly-created slot that hosts
@@ -176,8 +185,10 @@ namespace
         }
         catch (const std::exception& error)
         {
-            std::fprintf(stderr, "Bundled cabinet impulse response failed to load: %s\n",
-                         error.what());
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "the bundled cabinet impulse response '{}' failed to load: {}; the slot "
+                        "starts with no cabinet",
+                        default_ir_path, error.what());
         }
     }
 
@@ -244,6 +255,17 @@ int main(int argc, char** argv)
     }
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
+
+    // SD_PROFILE_CONFIG names a profiler configuration; without it nothing is recorded.
+    SushiDSP::profile::ProfileSession profiling(std::cout);
+    const SushiDSP::profile::ProfileStart profile_start = profiling.start_from_environment();
+    if (!profile_start.started() &&
+        profile_start.status != SushiDSP::profile::ProfileStartStatus::NotRequested)
+    {
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "profiling was asked for and did not start: {}; the host runs without it",
+                    profile_start.message);
+    }
 
     SushiDSP::host::FileDropQueue file_drops;
     glfwSetWindowUserPointer(window, &file_drops);
@@ -314,11 +336,17 @@ int main(int argc, char** argv)
     SessionBounce session_bounce;
     // The rig view is laid out again whenever the session shows it another rig.
     std::uint64_t seeded_rig_revision = ~std::uint64_t{0};
+    // The counters of the audio path; connect_device rebuilds the reporters that read them.
+    SushiDSP::RtCounter oversize_callback;
+    std::optional<SushiDSP::DeviceCounterReport> device_report;
+    SushiDSP::CoreCounterReport core_report;
+    std::optional<SushiDSP::RtCounterReporter> host_report;
     std::unique_ptr<SushiDSP::AudioDevice> device;
 
     /// @brief Opens the chosen device, builds a rig for its format and starts the audio callback.
     /// Records the failure in connect_error and leaves the previous rig gone on any exception.
-    auto connect_device = [&device, &device_choice, &asio_drivers, &connect_error,
+    auto connect_device = [&device, &device_report, &host_report, &oversize_callback,
+                           &device_choice, &asio_drivers, &connect_error,
                            &session_storage, &session_renderer, &rig_input, &rig_input_second, &rig_output, &rig_output_pointers,
                            &rig_output_const_pointers, &callback_silence, &input_probe,
                            &output_probe, &device_label, &rig_chain_state, &status,
@@ -327,6 +355,8 @@ int main(int argc, char** argv)
         connect_error.clear();
 
         // The previous device is destroyed before the next is built; see applications/host_gui/README.md.
+        device_report.reset();
+        host_report.reset();
         device.reset();
 
         try
@@ -389,12 +419,14 @@ int main(int argc, char** argv)
             device->start(
                 [&session_ref, &session_renderer, &rig_input, &rig_output_pointers,
                  &rig_output_const_pointers, &callback_silence, &input_probe, &output_probe,
+                 &oversize_callback,
                  input_index, output_selection, is_multi_channel_input, device_output_channels,
                  rig_channels](const float* const* inputs, float* const* outputs,
                                std::uint32_t frames)
                 {
                     if (frames > rig_input.size())
                     {
+                        oversize_callback.note(frames);
                         return;
                     }
                     const float* selected_channel[1];
@@ -430,6 +462,19 @@ int main(int argc, char** argv)
                         device_output_channels, frames, output_selection);
                 });
 
+            device_report.emplace();
+            device_report->add_device(*device);
+            host_report.emplace(std::chrono::seconds(5));
+            session_renderer.counters().add_to(*host_report);
+            session_ref.timeline().player().counters().add_to(*host_report);
+            SushiDSP::room::RoomNode::counters().add_to(*host_report);
+            host_report->add("oversize_callback", oversize_callback);
+            host_report->add("recorder_dropped_blocks",
+                             [&session_ref]
+                             {
+                                 return session_ref.timeline().recording_bus().dropped_blocks();
+                             });
+
             device_label =
                 std::string("Connected: ") +
                 (device_choice.device_index == 0
@@ -442,12 +487,31 @@ int main(int argc, char** argv)
         catch (const std::exception& error)
         {
             connect_error = error.what();
+            SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY,
+                         "the audio device could not be opened or the session built: {}; no "
+                         "device is connected",
+                         error.what());
         }
     };
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+        const SushiDSP::RtCounterReporter::Clock::time_point now =
+            SushiDSP::RtCounterReporter::Clock::now();
+        if (device_report.has_value())
+        {
+            device_report->poll(now);
+        }
+        core_report.poll(now);
+        if (host_report.has_value())
+        {
+            const std::string line = host_report->poll(now);
+            if (!line.empty())
+            {
+                SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY, "{}", line);
+            }
+        }
         if (session_storage.has_value())
         {
             session_storage->reclaim();
@@ -730,6 +794,10 @@ int main(int argc, char** argv)
     if (device)
     {
         device->stop();
+    }
+    for (const std::string& problem : profiling.finish().problems)
+    {
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY, "the profiling session reported: {}", problem);
     }
 
     ImGui_ImplOpenGL3_Shutdown();

@@ -28,6 +28,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 #include <SushiDSP/nodes/room/band_response.hpp>
 
@@ -50,6 +51,14 @@ namespace SushiDSP::room
                     std::array<double, 5> section_b;
             };
 
+            /// @brief Names why the fit stopped stepping.
+            enum class Ending : std::uint8_t
+            {
+                Converged,      /**< The last accepted step was shorter than the tolerance. */
+                NoAcceptedStep, /**< No damped step lowered the cost; the best point stays. */
+                StepCap         /**< The step cap was reached with the steps still long. */
+            };
+
             /// @brief Holds a fit and how far it misses.
             struct Result
             {
@@ -58,6 +67,12 @@ namespace SushiDSP::room
 
                     /// @brief Stores the largest absolute error over the six centres, in decibels.
                     double worst_error_db;
+
+                    /// @brief Stores how many steps were accepted.
+                    std::uint32_t steps = 0;
+
+                    /// @brief Stores why the fit stopped.
+                    Ending ending = Ending::Converged;
             };
 
             /// @brief Fits the cascade to the target's six band gains at the given sample rate,

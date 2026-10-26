@@ -1,0 +1,7 @@
+[
+  {
+    "subject": "timeline:bench.block",
+    "statistic": "median",
+    "at_most_ns": 25000000
+  }
+]

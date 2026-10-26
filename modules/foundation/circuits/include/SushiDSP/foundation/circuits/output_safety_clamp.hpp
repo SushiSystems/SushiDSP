@@ -28,6 +28,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace SushiDSP
@@ -37,12 +38,20 @@ namespace SushiDSP
     /// @param samples The block to scale and clamp.
     /// @param frames How many samples the block holds.
     /// @param gain The output gain applied before the clamp.
+    /// @return How many samples were clipped to the rail or were not a number; a NaN is counted
+    /// and passes through unchanged.
     /// @pre samples addresses frames writable floats.
-    inline void apply_output_safety_clamp(float* samples, std::uint32_t frames, float gain)
+    [[nodiscard]] inline std::uint32_t apply_output_safety_clamp(float* samples,
+                                                                 std::uint32_t frames, float gain)
     {
+        std::uint32_t cut = 0;
         for (std::uint32_t i = 0; i < frames; ++i)
         {
-            samples[i] = std::clamp(samples[i] * gain, -1.0f, 1.0f);
+            const float scaled = samples[i] * gain;
+            cut += static_cast<std::uint32_t>(std::isnan(scaled) | (scaled > 1.0f) |
+                                              (scaled < -1.0f));
+            samples[i] = std::clamp(scaled, -1.0f, 1.0f);
         }
+        return cut;
     }
 } // namespace SushiDSP

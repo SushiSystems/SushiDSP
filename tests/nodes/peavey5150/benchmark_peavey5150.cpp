@@ -36,7 +36,7 @@ namespace
         "Peavey5150",
         []
         {
-            SushiDSP::bench::print(SushiDSP::bench::measure_node<SushiDSP::Peavey5150>(
+            SushiDSP::bench::report(SushiDSP::bench::measure_node<SushiDSP::Peavey5150>(
                                        "Peavey5150 (no cabinet)",
                                        [](SushiDSP::Peavey5150& node)
                                        {
@@ -46,6 +46,6 @@ namespace
                                         node.set_parameter_for_control_thread("high", 0.7f);
                                         node.set_parameter_for_control_thread("presence", 0.5f);
                                        }),
-                                   1.5);
+                                   1.5, "nodes/peavey5150/peavey5150.checks.json");
         }};
 } // namespace

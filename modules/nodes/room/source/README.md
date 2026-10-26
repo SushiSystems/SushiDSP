@@ -66,8 +66,13 @@ on success, so a failure anywhere leaves the caller's set exactly as it was.
 
 `RoomNode::set_hrtf()` runs on the control thread. When `BinauralDecoder::prepare` throws on a
 set, it logs one `ERROR` under `K_ROOM_LOG_CATEGORY`, declared in `room_log_category.hpp`, with
-the set's direction count, the sample rate and the decoder's message, and returns false with the
-HRTF in place untouched.
+the set's direction count, the sample rate and the decoder's message, and returns
+`HrtfStatus::DecoderRefused` with the HRTF in place untouched. A set at another rate writes one
+`WARN` naming both rates and returns `SampleRateMismatch`. A publish that fails after a new set
+writes one `WARN` and restores the previous set, and `prepare()` and a direct delay change that
+cannot publish write one `ERROR`, because the node then renders silence or keeps the old set.
+`ImageSourceSolver::solve` writes one `WARN` when the early taps reach `K_MAX_EARLY_TAPS`, and
+`ModalSolver::shell` one when the modes pass `K_MAX_MODES` and the crossover moves down.
 
 ## The reported crossover
 
@@ -78,3 +83,13 @@ frequency returns exactly the modes the design carries.
 
 In `room_scene.cpp` a patch replaces area on its face and does not add to it, so its own material's
 area is subtracted from the face before either is weighted.
+
+## Counters, zones and the HRTF status
+
+`RoomNode::counters()` counts the blocks answered with silence because no render set was published,
+shared by every room node of the process. `process()` writes the zones `room.tail`, `room.modal` and
+`room.pair` once per source, and `room.ears` and `room.microphones` once per block, under the group
+`Room`; the names are in `sushidsp_profile_names.hpp`.
+
+`RoomHost::set_hrtf` returns an `HrtfStatus`: `Installed`, `SampleRateMismatch`, `DecoderRefused` or
+`PublishRefused`, with `hrtf_status_text` for the sentence. A refused set leaves the HRTF in place.

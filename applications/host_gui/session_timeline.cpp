@@ -26,7 +26,12 @@
 
 #include "session_timeline.hpp"
 
+#include <SushiDSP/foundation/log/log.hpp>
+
+#include "host_gui_log_category.hpp"
+
 #include <algorithm>
+#include <cmath>
 #include <exception>
 #include <filesystem>
 #include <iterator>
@@ -52,6 +57,7 @@ SessionTimeline::SessionTimeline(const SushiDSP::PrepareInfo& info)
     {
         tracks_[index].color = palette_color(index);
     }
+    sample_rate_ = info.sample_rate;
     musical_clock_.set_sample_rate(info.sample_rate);
     // Both players are prepared here, before any speed is set; see applications/host_gui/README.md.
     player_.prepare(info.max_block);
@@ -75,6 +81,8 @@ std::unique_ptr<SushiDSP::Take> SessionTimeline::load_take(const std::string& pa
     catch (const std::exception& error)
     {
         error_out = error.what();
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY, "take '{}' could not be loaded: {}; it is not placed",
+                     path, error_out);
         return nullptr;
     }
 }
@@ -166,6 +174,16 @@ bool SessionTimeline::publish_lane(std::size_t track, std::vector<ClipPlacement>
             return false;
         }
 
+        // The take is read frame for frame against the session's rate (KI-25).
+        if (std::abs(take->sample_rate() - sample_rate_) > 0.5)
+        {
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "take '{}' was recorded at {} Hz and the session runs at {} Hz; the clip "
+                        "plays at {} % of its speed (KI-25)",
+                        placement.path, take->sample_rate(), sample_rate_,
+                        100.0 * sample_rate_ / take->sample_rate());
+        }
+
         // A zero length means the take's whole remainder; see applications/host_gui/README.md.
         const std::uint64_t frames = static_cast<std::uint64_t>(take->frames());
         placement.take_offset = std::min(placement.take_offset, frames);
@@ -185,6 +203,9 @@ bool SessionTimeline::publish_lane(std::size_t track, std::vector<ClipPlacement>
     catch (const std::exception& error)
     {
         error_out = error.what();
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY,
+                     "lane {} could not be built from {} clips: {}; the lane stays as it was",
+                     track, lane.size(), error_out);
         forget_unused_takes();
         return false;
     }
@@ -591,6 +612,10 @@ bool SessionTimeline::set_reamp_track(std::size_t index, std::string& error_out)
     catch (const std::exception& error)
     {
         error_out = error.what();
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY,
+                     "the re-amp lane of track {} could not be built from {} clips: {}; no "
+                     "re-amp track is set",
+                     index, lane.size(), error_out);
         reamp_takes_by_path_.clear();
         return false;
     }
@@ -638,6 +663,9 @@ bool SessionTimeline::arm_recording(const std::string& take_name, std::string& e
     if (!recording_bus_.arm(take_folder_, take_name))
     {
         error_out = "could not open the take files in '" + take_folder_ + "'";
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY,
+                     "recording '{}' could not open its take files in '{}'; nothing is armed",
+                     take_name, take_folder_);
         return false;
     }
     armed_frame_ = armed_at;

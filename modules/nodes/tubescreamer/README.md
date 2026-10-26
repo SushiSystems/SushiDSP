@@ -95,10 +95,12 @@ C1).
 
 ### A failed derivation
 
-When a DK derivation fails in `prepare()` it never recovers, so `process()` degrades to what the
-pedal's own bypass would give: the dry signal, copied. No solver runs and the input is already
-bounded, so that path cannot alias or blow up. The guard sits above every `skip()` so all four
-smoothers advance together or not at all.
+When a DK derivation fails in `prepare()`, the node writes one `ERROR` under
+`K_TUBESCREAMER_LOG_CATEGORY` naming the rate and throws `std::runtime_error`, as `RigGraph::compile`
+does, so the caller learns the node is unusable. A node that has not been prepared copies the dry
+signal in `process()`: no solver runs and the input is already bounded, so that path cannot alias
+or blow up. The guard sits above every `skip()` so all four smoothers advance together or not at
+all.
 
 ### Potentiometer updates
 
@@ -128,6 +130,15 @@ it once per block would make the audible smoothing time a function of the host's
 
 Zeroing the state vectors is the whole of `reset()`. A pedal has no bias point to settle, so
 unlike `JcmV1aStageNode::reset()` there is no warm-up loop to run.
+
+## Profiler regions and counters
+
+`TubeScreamer::process` writes the zones `tubescreamer.input`, `.upsample`, `.oversampled_loop`,
+`.downsample` and `.output` under the group `TubeScreamer`. At the end of each block it moves the
+clip circuit's solves, non-converged solves, NaN fallbacks and worst iteration count into the
+counters `solver.solves`, `solver.non_converged`, `solver.nan_fallback` and
+`solver.worst_iterations`, then clears the circuit's statistics. The statistics are plain
+integers the audio thread writes, so the flush runs on that thread.
 
 ## Designs
 

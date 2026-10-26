@@ -31,6 +31,10 @@
 #include <iterator>
 #include <utility>
 
+#include <SushiDSP/foundation/log/log.hpp>
+
+#include "host_gui_log_category.hpp"
+
 namespace SushiDSP::host
 {
     AudioImportQueue::AudioImportQueue(AudioImportCache cache)
@@ -98,6 +102,9 @@ namespace SushiDSP::host
         catch (const std::exception& failure)
         {
             result.error = failure.what();
+            SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY,
+                         "importing '{}' at {} Hz failed: {}; the file is not placed",
+                         job.source_path, job.target_rate, result.error);
         }
         return result;
     }

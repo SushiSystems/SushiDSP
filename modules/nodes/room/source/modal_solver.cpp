@@ -35,10 +35,12 @@
 #include <utility>
 #include <vector>
 
+#include <SushiDSP/foundation/log/log.hpp>
 #include <SushiDSP/nodes/room/band_response.hpp>
 #include <SushiDSP/nodes/room/diffuse_field.hpp>
 #include <SushiDSP/nodes/room/furnishing_field.hpp>
 #include <SushiDSP/nodes/room/medium_absorption.hpp>
+#include <SushiDSP/nodes/room/room_log_category.hpp>
 
 namespace SushiDSP::room
 {
@@ -364,6 +366,10 @@ namespace SushiDSP::room
         {
             // The crossover is the first mode left out; see modules/nodes/room/source/README.md.
             crossover = floor_to_float(modes[ModalDesign::K_MAX_MODES].frequency_hz);
+            SD_LOG_WARN(K_ROOM_LOG_CATEGORY,
+                        "the room has {} modes below {} Hz and the design holds {}; the crossover "
+                        "moves down to {} Hz",
+                        modes.size(), crossover_hz, ModalDesign::K_MAX_MODES, crossover);
             count = static_cast<std::size_t>(
                 std::lower_bound(modes.begin(), modes.end(), static_cast<double>(crossover),
                                  [](const Mode& mode, double limit) noexcept

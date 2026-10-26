@@ -27,10 +27,14 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/core/parameter_table.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 #include <array>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 namespace
 {
@@ -91,4 +95,45 @@ TEST(Small_ParameterTable, DescriptorsFollowTheRowOrder)
     const SushiDSP::ParameterDescriptor* descriptors = table.descriptors();
     EXPECT_STREQ(descriptors[0].id, "gain");
     EXPECT_STREQ(descriptors[1].id, "tone");
+}
+
+TEST(Small_ParameterTableLogging, AnUnknownIdentifierWritesOneWarnNamingTheId)
+{
+    const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
+    Pedal pedal;
+
+    SushiDSP::LogCapture capture;
+    table.write(pedal, "missing", 9.0f);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[0].category, "core");
+    EXPECT_NE(lines[0].message.find("'missing'"), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_ParameterTableLogging, AKnownIdentifierWritesNothing)
+{
+    const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
+    Pedal pedal;
+
+    SushiDSP::LogCapture capture;
+    table.write(pedal, "gain", 2.0f);
+
+    EXPECT_TRUE(capture.lines().empty());
+}
+
+TEST(Small_ParameterTableLogging, TheIndexWriteStaysSilentAndAllocationFreeOutOfRange)
+{
+    const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
+    Pedal pedal;
+
+    SushiDSP::LogCapture capture;
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    table.write(pedal, static_cast<std::uint16_t>(7), 1.0f);
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
+    EXPECT_TRUE(capture.lines().empty());
 }

@@ -22,14 +22,17 @@ in [`docs/design/GUI_UX_REDESIGN/README.md`](../../../docs/design/GUI_UX_REDESIG
 | Impulse-response loading | `Ir`, `IrLoader` (`modules/foundation/io/include/SushiDSP/foundation/io/`) |
 | The convolution itself | `StreamingConvolution` (`modules/foundation/math/include/SushiDSP/foundation/math/`) |
 
-`CabinetNode::set_cabinet`, `::has_cabinet` and `::reclaim_cabinets` match `CabinetHost`'s
+`CabinetNode::set_cabinet` returns a `CabinetStatus` and writes one `WARN` under
+`K_CABINET_LOG_CATEGORY` for each of its three refusals: an impulse response with no samples, a
+node that is not prepared, and an impulse response whose rate differs from the node's, naming
+both rates. `::has_cabinet` and `::reclaim_cabinets` match `CabinetHost`'s
 signatures exactly, so `RigController` reaches this node through a `CabinetHost*`
 pointer.
 
 ## Dependencies
 
-Links only `SushiDSP::sushi_dsp` (`modules/nodes/cabinet/CMakeLists.txt`), no amp module, no device
-backend, no host.
+Links `SushiDSP::sushi_dsp` and `SushiDSP::sushi_dsp_log` (`modules/nodes/cabinet/CMakeLists.txt`), no
+amp module, no device backend, no host.
 
 ## Designs
 

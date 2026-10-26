@@ -32,6 +32,7 @@
 #include <cstddef>
 #include <vector>
 
+#include <SushiDSP/foundation/log/log.hpp>
 #include <SushiDSP/nodes/room/air_absorption.hpp>
 #include <SushiDSP/nodes/room/ambisonic_encoder.hpp>
 #include <SushiDSP/nodes/room/band_response_fit.hpp>
@@ -41,6 +42,7 @@
 #include <SushiDSP/nodes/room/materials.hpp>
 #include <SushiDSP/nodes/room/medium_absorption.hpp>
 #include <SushiDSP/nodes/room/microphone_model.hpp>
+#include <SushiDSP/nodes/room/room_log_category.hpp>
 
 namespace SushiDSP::room
 {
@@ -393,6 +395,12 @@ namespace SushiDSP::room
             // The set never grows past its capacity; the latest arrivals are the ones left out.
             if (set.count >= EarlyTapSet::K_MAX_EARLY_TAPS)
             {
+                const std::size_t left_out =
+                    candidates.size() - static_cast<std::size_t>(&candidate - candidates.data());
+                SD_LOG_WARN(K_ROOM_LOG_CATEGORY,
+                            "the image-source solve kept {} early taps, the capacity; {} later "
+                            "arrivals of the {} candidate images are left out",
+                            set.count, left_out, candidates.size());
                 break;
             }
             const AxisEntry& x = tables[0].at(candidate.counts[0], order);

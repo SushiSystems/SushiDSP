@@ -28,11 +28,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/circuits/fmv_tone_stack.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include <SushiDSP/foundation/spice_reference/spice_csv.hpp>
 
 namespace
@@ -277,4 +280,17 @@ TEST(Medium_FmvToneStack, FmvToneStackLoadingCostIsTheDecksOwnAndNotOneFigure)
             << deck.name << " tilt across 41 Hz to 10 kHz";
         EXPECT_GT(std::fabs(deviation_db[1]), 1.0) << deck.name << " level cost at 1 kHz";
     }
+}
+
+TEST(Small_FmvToneStack, FmvToneStackThrowsAndLogsOneErrorWhenTheDerivationFails)
+{
+    SushiDSP::LogCapture capture;
+
+    EXPECT_THROW(SushiDSP::FmvToneStack(0.0, SushiDSP::K_JCM2203_TONE_STACK), std::runtime_error);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
+    EXPECT_EQ(lines[0].category, "circuits");
+    EXPECT_NE(lines[0].message.find("FmvToneStack"), std::string::npos) << lines[0].message;
 }

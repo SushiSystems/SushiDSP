@@ -27,6 +27,9 @@
 
 #include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
 
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/nodes/cabinet/cabinet_log_category.hpp>
+
 #include <memory>
 
 namespace SushiDSP
@@ -90,18 +93,36 @@ namespace SushiDSP
         return "sushidsp.cabinet";
     }
 
-    bool CabinetNode::set_cabinet(Ir impulse_response)
+    CabinetStatus CabinetNode::set_cabinet(Ir impulse_response)
     {
-        if (impulse_response.samples.empty() || cabinet_partition_ == 0 ||
-            impulse_response.sample_rate != sample_rate_)
+        if (impulse_response.samples.empty())
         {
-            return false;
+            SD_LOG_WARN(K_CABINET_LOG_CATEGORY,
+                        "set_cabinet() refused an impulse response of no samples; the active "
+                        "cabinet stays");
+            return CabinetStatus::EmptyImpulseResponse;
+        }
+        if (cabinet_partition_ == 0)
+        {
+            SD_LOG_WARN(K_CABINET_LOG_CATEGORY,
+                        "set_cabinet() refused an impulse response of {} samples because the node "
+                        "is not prepared; the active cabinet stays",
+                        impulse_response.samples.size());
+            return CabinetStatus::NotPrepared;
+        }
+        if (impulse_response.sample_rate != sample_rate_)
+        {
+            SD_LOG_WARN(K_CABINET_LOG_CATEGORY,
+                        "set_cabinet() refused an impulse response at {} Hz for a node at {} Hz; "
+                        "the active cabinet stays",
+                        impulse_response.sample_rate, sample_rate_);
+            return CabinetStatus::SampleRateMismatch;
         }
         cabinet_impulse_response_ = std::move(impulse_response.samples);
         cabinet_slot_.publish(std::make_unique<StreamingConvolution>(
             cabinet_partition_, cabinet_impulse_response_.data(),
             static_cast<std::uint32_t>(cabinet_impulse_response_.size()), max_block_));
-        return true;
+        return CabinetStatus::Installed;
     }
 
     void CabinetNode::reclaim_cabinets()

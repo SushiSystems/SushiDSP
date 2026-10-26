@@ -36,7 +36,7 @@ namespace
         "TubeScreamer",
         []
         {
-            SushiDSP::bench::print(SushiDSP::bench::measure_node<SushiDSP::TubeScreamer>(
+            SushiDSP::bench::report(SushiDSP::bench::measure_node<SushiDSP::TubeScreamer>(
                                        "TubeScreamer",
                                        [](SushiDSP::TubeScreamer& node)
                                        {
@@ -44,6 +44,6 @@ namespace
                                         node.set_tone(0.5f);
                                         node.set_level(0.8f);
                                        }),
-                                   0.25);
+                                   0.25, "nodes/tubescreamer/tube_screamer.checks.json");
         }};
 } // namespace

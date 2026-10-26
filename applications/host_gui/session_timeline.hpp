@@ -417,6 +417,9 @@ class SessionTimeline
         /// @brief Holds the click the host adds after both recorder legs are written.
         SushiDSP::Metronome metronome_;
 
+        /// @brief Holds the rate the session was prepared at, in hertz.
+        double sample_rate_ = 0.0;
+
         /// @brief Holds the lane a stopped recording's dry file becomes a clip on.
         std::optional<std::size_t> record_track_;
 

@@ -208,14 +208,29 @@ namespace
             std::vector<SessionTimeline::ClipPlacement> clips; ///< Holds the lane's clips.
     };
 
+    /// @brief Counts what a load took a default for or dropped, to be written as one record.
+    struct LoadDefaults
+    {
+            std::size_t skipped_rows = 0;    ///< Holds the track rows whose index no lane carries.
+            std::size_t defaulted_keys = 0;  ///< Holds the track keys a row left out.
+            std::size_t dropped_clips = 0;   ///< Holds the clips dropped for an empty path.
+
+            /// @brief Returns whether anything was counted.
+            [[nodiscard]] bool any() const noexcept
+            {
+                return skipped_rows != 0 || defaulted_keys != 0 || dropped_clips != 0;
+            }
+    };
+
     /// @brief Reads every "tracks" row of a preset, dropping a row whose index no lane of the
     /// coming arrangement carries.
     /// @param document The preset.
     /// @param track_count How many lanes the arrangement will carry.
+    /// @param defaults Counts the rows skipped, the keys defaulted and the clips dropped.
     /// @return The rows, in the order the preset wrote them.
     /// @throws std::runtime_error for a row the codec does not read.
     std::vector<TrackRow> track_rows_from_json(const nlohmann::json& document,
-                                               std::size_t track_count)
+                                               std::size_t track_count, LoadDefaults& defaults)
     {
         std::vector<TrackRow> rows;
         if (!document.contains("tracks"))
@@ -227,7 +242,12 @@ namespace
             const std::size_t index = track_json.value("index", track_count);
             if (index >= track_count)
             {
+                ++defaults.skipped_rows;
                 continue;
+            }
+            for (const char* key : {"name", "gain", "pan", "muted", "soloed"})
+            {
+                defaults.defaulted_keys += track_json.contains(key) ? 0 : 1;
             }
 
             TrackRow row;
@@ -256,6 +276,10 @@ namespace
                     if (!placement.path.empty())
                     {
                         row.clips.push_back(placement);
+                    }
+                    else
+                    {
+                        ++defaults.dropped_clips;
                     }
                 }
             }
@@ -1024,12 +1048,28 @@ void RigPersistence::load_from_json(const std::string& json_text, PresetScope sc
     const nlohmann::json document = nlohmann::json::parse(json_text);
 
     // Every track row is read and checked here, before the session is touched.
+    const std::size_t asked_track_count =
+        document.value("track_count", SessionTimeline::K_MAX_TRACKS);
     const std::size_t track_count =
-        std::min<std::size_t>(document.value("track_count", SessionTimeline::K_MAX_TRACKS),
-                              SessionTimeline::K_MAX_TRACKS);
-    const std::vector<TrackRow> track_rows = track_rows_from_json(document, track_count);
+        std::min<std::size_t>(asked_track_count, SessionTimeline::K_MAX_TRACKS);
+    LoadDefaults defaults;
+    const std::vector<TrackRow> track_rows = track_rows_from_json(document, track_count, defaults);
+    if (defaults.any() || asked_track_count != track_count)
+    {
+        SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                    "the preset left gaps the load filled: {} track row(s) named no lane and were "
+                    "skipped, {} track key(s) took a default, {} clip(s) with no path were "
+                    "dropped, and a track count of {} was held to {}",
+                    defaults.skipped_rows, defaults.defaulted_keys, defaults.dropped_clips,
+                    asked_track_count, track_count);
+    }
 
     // Format 2 is read node by node, with its own edges; format 1 is read whole and compiled.
+    if (!document.contains("format"))
+    {
+        SD_LOG_INFO(K_HOST_GUI_LOG_CATEGORY,
+                    "the preset names no format; it is read as format 1");
+    }
     const int format = document.value("format", 1);
     if (format > K_PRESET_FORMAT || format < 1)
     {

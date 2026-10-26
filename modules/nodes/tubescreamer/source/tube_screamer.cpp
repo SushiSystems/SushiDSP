@@ -27,12 +27,21 @@
 
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 
+#include <SushiDSP/foundation/core/node_counters.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
+#include <SushiDSP/nodes/tubescreamer/tubescreamer_log_category.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <stdexcept>
 
 namespace SushiDSP
 {
+    namespace regions = profile::names::tubescreamer;
+
     namespace
     {
         // Four is where the alias floor was measured; see modules/nodes/tubescreamer/README.md.
@@ -62,8 +71,17 @@ namespace SushiDSP
 
         // The DK blocks are discretised at the oversampled run rate, not at the host rate.
         const double run_rate = sample_rate_ * static_cast<double>(K_OVERSAMPLING_FACTOR);
-        circuits_ready_ = clip_circuit_.prepare(clip_netlist, run_rate) &&
-                          tone_circuit_.prepare(tone_netlist, run_rate);
+        circuits_ready_ = false;
+        if (!(clip_circuit_.prepare(clip_netlist, run_rate) &&
+              tone_circuit_.prepare(tone_netlist, run_rate)))
+        {
+            SD_LOG_ERROR(K_TUBESCREAMER_LOG_CATEGORY,
+                         "TubeScreamer could not derive its clip and tone circuits at {} Hz; "
+                         "prepare() throws and the node stays unprepared",
+                         run_rate);
+            throw std::runtime_error("TubeScreamer::prepare: the DK derivation failed");
+        }
+        circuits_ready_ = true;
 
         clip_circuit_.set_potentiometer(drive_pot_,
                                         tube_screamer_circuits::drive_to_position(drive_.target()));
@@ -96,7 +114,7 @@ namespace SushiDSP
 
         if (!circuits_ready_)
         {
-            // A failed derivation copies the dry signal; see modules/nodes/tubescreamer/README.md.
+            // A node that is not prepared copies the dry signal (tubescreamer/README.md).
             std::copy(input, input + context.frames, output);
             return;
         }
@@ -114,30 +132,44 @@ namespace SushiDSP
         tone_circuit_.update_matrices_if_dirty();
 
         // The loop works in volts in and volts out; see modules/nodes/tubescreamer/README.md.
-        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
         {
-            oversampled_scratch_[frame] = input[frame] * input_gain * K_FULL_SCALE_VOLTS;
+            SD_ZONE_GROUP(regions::K_INPUT_ZONE, regions::K_GROUP);
+            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+            {
+                oversampled_scratch_[frame] = input[frame] * input_gain * K_FULL_SCALE_VOLTS;
+            }
         }
 
-        const float* upsampled =
-            oversampler_->upsample(oversampled_scratch_.data(), context.frames);
+        const float* upsampled = nullptr;
+        {
+            SD_ZONE_GROUP(regions::K_UPSAMPLE_ZONE, regions::K_GROUP);
+            upsampled = oversampler_->upsample(oversampled_scratch_.data(), context.frames);
+        }
 
         const std::uint32_t frames_oversampled = context.frames * K_OVERSAMPLING_FACTOR;
-        for (std::uint32_t index = 0; index < frames_oversampled; ++index)
         {
-            std::array<double, 1> clipped{};
-            std::array<double, 1> toned{};
-            clip_circuit_.process_sample(clip_port_, {static_cast<double>(upsampled[index])},
-                                         clipped);
-            // Cascading both blocks in a sample is exact; see modules/nodes/tubescreamer/README.md.
-            tone_circuit_.process_sample(tone_port_, clipped, toned);
-            clipped_scratch_[index] = static_cast<float>(toned[0]);
+            SD_ZONE_GROUP(regions::K_LOOP_ZONE, regions::K_GROUP);
+            for (std::uint32_t index = 0; index < frames_oversampled; ++index)
+            {
+                std::array<double, 1> clipped{};
+                std::array<double, 1> toned{};
+                clip_circuit_.process_sample(clip_port_, {static_cast<double>(upsampled[index])},
+                                             clipped);
+                // Cascading both blocks in a sample is exact (tubescreamer/README.md).
+                tone_circuit_.process_sample(tone_port_, clipped, toned);
+                clipped_scratch_[index] = static_cast<float>(toned[0]);
+            }
+        }
+        flush_dk_statistics(clip_circuit_);
+
+        {
+            SD_ZONE_GROUP(regions::K_DOWNSAMPLE_ZONE, regions::K_GROUP);
+            // downsample() overwrites [0, frames) of oversampled_scratch_ before the read-back.
+            oversampler_->downsample(clipped_scratch_.data(), frames_oversampled,
+                                     oversampled_scratch_.data());
         }
 
-        // downsample() overwrites all of [0, frames) in oversampled_scratch_ before the read-back.
-        oversampler_->downsample(clipped_scratch_.data(), frames_oversampled,
-                                 oversampled_scratch_.data());
-
+        SD_ZONE_GROUP(regions::K_OUTPUT_ZONE, regions::K_GROUP);
         for (std::uint32_t frame = 0; frame < context.frames; ++frame)
         {
             // Level alone ramps per sample; see modules/nodes/tubescreamer/README.md.

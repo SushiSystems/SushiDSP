@@ -31,6 +31,9 @@
 #include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
 
 #include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
+#include <SushiDSP/foundation/core/node_counters.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp>
 #include <SushiDSP/foundation/circuits/stages/power_tube_presets.hpp>
 
@@ -46,6 +49,8 @@
 
 namespace SushiDSP
 {
+    namespace regions = profile::names::peavey5150;
+
     namespace
     {
         /// @brief Peavey 5150 lead, two 6L6GC per push-pull side: the RCA 6L6GC sheet's class AB1
@@ -469,72 +474,107 @@ namespace SushiDSP
 
         const float pre_gain_scalar = pre_gain_attenuation(pre_gain);
 
-        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            scratch_base_[i] = input[i] * input_gain;
+            SD_ZONE_GROUP(regions::K_INPUT_ZONE, regions::K_GROUP);
+            for (std::uint32_t i = 0; i < frames; ++i)
+            {
+                scratch_base_[i] = input[i] * input_gain;
+            }
         }
 
-        const float* upsampled = oversampler_->upsample(scratch_base_.data(), frames);
-        for (std::uint32_t i = 0; i < oversampled_frames; ++i)
+        const float* upsampled = nullptr;
         {
-            const float v1a_out = v1a_cathode_shelf_.process_sample(
-                v1a_.process_sample(input_low_pass_.process_sample(upsampled[i])));
-
-            const float v1b_in = v1b_grid_miller_.process_sample(
-                pre_gain_peaker_.process_sample(c6_coupling_.process_sample(v1a_out)) *
-                pre_gain_scalar);
-            const float v1b_out = v1b_cathode_shelf_.process_sample(v1b_.process_sample(v1b_in));
-
-            const float v2a_in = v2a_grid_miller_.process_sample(
-                c2_coupling_.process_sample(v1b_out) * K_V1B_TO_V2A_ATTENUATION);
-            const float v2a_out = v2a_.process_sample(v2a_in);
-
-            const float v2b_in = v2b_grid_miller_.process_sample(
-                c48_low_pass_.process_sample(c1_coupling_.process_sample(v2a_out)) *
-                K_V2A_TO_V2B_ATTENUATION);
-            const float v2b_out = v2b_cathode_shelf_.process_sample(v2b_.process_sample(v2b_in));
-
-            const float v5b_in = v5b_grid_miller_.process_sample(
-                c57_coupling_.process_sample(v2b_out) * K_V2B_TO_V5B_ATTENUATION);
-            const float v5b_out = v5b_.process_sample(v5b_in);
-
-            const float v5a_in = v5a_grid_miller_.process_sample(
-                c56_coupling_.process_sample(v5b_out) * K_V5B_TO_V5A_ATTENUATION);
-            const float v5a_out = v5a_.process_sample(v5a_in);
-
-            // The tone stack carries R24's loss and the C59/R94 leg, so no divider precedes it.
-            const float post_gain_node = tone_stack_.process_sample(v5a_out) * post_gain;
-
-            // V3B is a scalar and its coupling capacitor; see modules/nodes/peavey5150/README.md.
-            const float follower_out =
-                c52_coupling_.process_sample(post_gain_node) * K_CATHODE_FOLLOWER_GAIN;
-
-            const float v3a_in =
-                v3a_grid_miller_.process_sample(c11_coupling_.process_sample(follower_out));
-            const float v3a_out = v3a_cathode_shelf_.process_sample(v3a_.process_sample(v3a_in));
-
-            const float pair_in = phase_inverter_grid_miller_.process_sample(
-                c49_coupling_.process_sample(v3a_out) / K_PHASE_INVERTER_DEGENERATION);
-            const float pair_out = phase_inverter_.process_sample(pair_in) *
-                                   K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION;
-
-            const float power_a = power_tube_a_.process_sample(pair_out);
-            const float power_b =
-                power_tube_b_.process_sample(-pair_out - power_tube_grid_bias_mismatch_volts_);
-            const float power_out = (power_a - power_b) * K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION;
-
-            // The transformer and the sag stage are nonlinear, so both stay in the 8x region.
-            scratch_oversampled_[i] =
-                sag_.process_sample(output_transformer_.process_sample(power_out));
+            SD_ZONE_GROUP(regions::K_UPSAMPLE_ZONE, regions::K_GROUP);
+            upsampled = oversampler_->upsample(scratch_base_.data(), frames);
         }
-        oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames,
-                                 scratch_base_.data());
-
-        // Both feedback shelves are linear, so they run after the decimator.
-        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            const float shelved = presence_shelf_.process_sample(scratch_base_[i]);
-            scratch_base_[i] = resonance_shelf_.process_sample(shelved) * K_POST_GAIN_UNITY_GAIN;
+            SD_ZONE_GROUP(regions::K_LOOP_ZONE, regions::K_GROUP);
+            for (std::uint32_t i = 0; i < oversampled_frames; ++i)
+            {
+                const float v1a_out = v1a_cathode_shelf_.process_sample(
+                    v1a_.process_sample(input_low_pass_.process_sample(upsampled[i])));
+
+                const float v1b_in = v1b_grid_miller_.process_sample(
+                    pre_gain_peaker_.process_sample(c6_coupling_.process_sample(v1a_out)) *
+                    pre_gain_scalar);
+                const float v1b_out =
+                    v1b_cathode_shelf_.process_sample(v1b_.process_sample(v1b_in));
+
+                const float v2a_in = v2a_grid_miller_.process_sample(
+                    c2_coupling_.process_sample(v1b_out) * K_V1B_TO_V2A_ATTENUATION);
+                const float v2a_out = v2a_.process_sample(v2a_in);
+
+                const float v2b_in = v2b_grid_miller_.process_sample(
+                    c48_low_pass_.process_sample(c1_coupling_.process_sample(v2a_out)) *
+                    K_V2A_TO_V2B_ATTENUATION);
+                const float v2b_out =
+                    v2b_cathode_shelf_.process_sample(v2b_.process_sample(v2b_in));
+
+                const float v5b_in = v5b_grid_miller_.process_sample(
+                    c57_coupling_.process_sample(v2b_out) * K_V2B_TO_V5B_ATTENUATION);
+                const float v5b_out = v5b_.process_sample(v5b_in);
+
+                const float v5a_in = v5a_grid_miller_.process_sample(
+                    c56_coupling_.process_sample(v5b_out) * K_V5B_TO_V5A_ATTENUATION);
+                const float v5a_out = v5a_.process_sample(v5a_in);
+
+                // The tone stack carries R24's loss and the C59/R94 leg, so no divider precedes it.
+                const float post_gain_node = tone_stack_.process_sample(v5a_out) * post_gain;
+
+                // V3B is a scalar and its coupling capacitor (peavey5150/README.md).
+                const float follower_out =
+                    c52_coupling_.process_sample(post_gain_node) * K_CATHODE_FOLLOWER_GAIN;
+
+                const float v3a_in =
+                    v3a_grid_miller_.process_sample(c11_coupling_.process_sample(follower_out));
+                const float v3a_out =
+                    v3a_cathode_shelf_.process_sample(v3a_.process_sample(v3a_in));
+
+                const float pair_in = phase_inverter_grid_miller_.process_sample(
+                    c49_coupling_.process_sample(v3a_out) / K_PHASE_INVERTER_DEGENERATION);
+                const float pair_out = phase_inverter_.process_sample(pair_in) *
+                                       K_PHASE_INVERTER_TO_POWER_TUBE_ATTENUATION;
+
+                const float power_a = power_tube_a_.process_sample(pair_out);
+                const float power_b =
+                    power_tube_b_.process_sample(-pair_out - power_tube_grid_bias_mismatch_volts_);
+                const float power_out =
+                    (power_a - power_b) * K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION;
+
+                // The transformer and the sag stage are nonlinear, so both stay in the 8x region.
+                scratch_oversampled_[i] =
+                    sag_.process_sample(output_transformer_.process_sample(power_out));
+            }
+        }
+        NewtonRaphsonSolver::Tally newton_tally;
+        v1a_.take_newton_tally(newton_tally);
+        v1b_.take_newton_tally(newton_tally);
+        v2a_.take_newton_tally(newton_tally);
+        v2b_.take_newton_tally(newton_tally);
+        v5b_.take_newton_tally(newton_tally);
+        v5a_.take_newton_tally(newton_tally);
+        v3a_.take_newton_tally(newton_tally);
+        phase_inverter_.take_newton_tally(newton_tally);
+        power_tube_a_.take_newton_tally(newton_tally);
+        power_tube_b_.take_newton_tally(newton_tally);
+        note_newton_solves(newton_tally.solves, newton_tally.iteration_caps,
+                           newton_tally.non_finite_steps,
+                           newton_tally.worst_iterations);
+        {
+            SD_ZONE_GROUP(regions::K_DOWNSAMPLE_ZONE, regions::K_GROUP);
+            oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames,
+                                     scratch_base_.data());
+        }
+
+        {
+            SD_ZONE_GROUP(regions::K_POST_ZONE, regions::K_GROUP);
+            // Both feedback shelves are linear, so they run after the decimator.
+            for (std::uint32_t i = 0; i < frames; ++i)
+            {
+                const float shelved = presence_shelf_.process_sample(scratch_base_[i]);
+                scratch_base_[i] =
+                    resonance_shelf_.process_sample(shelved) * K_POST_GAIN_UNITY_GAIN;
+            }
         }
 
         // Cabinet convolution is the sushidsp.cabinet node's; the dry signal goes straight out.
@@ -544,7 +584,10 @@ namespace SushiDSP
         }
 
         // The clamp is a safety rail on the output; see modules/nodes/peavey5150/README.md.
-        apply_output_safety_clamp(output, frames, output_gain);
+        {
+            SD_ZONE_GROUP(regions::K_CLAMP_ZONE, regions::K_GROUP);
+            note_output_clamp(apply_output_safety_clamp(output, frames, output_gain));
+        }
     }
 
     std::uint32_t Peavey5150::latency_samples() const

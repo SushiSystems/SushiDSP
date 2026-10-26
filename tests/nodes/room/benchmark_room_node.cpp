@@ -307,11 +307,15 @@ namespace
         "RoomNode",
         []
         {
-            SushiDSP::bench::print(measure_room_ears_steady_state(), 1.8);
-            SushiDSP::bench::print(measure_room_ears_swap(), 2.8);
+            SushiDSP::bench::report(measure_room_ears_steady_state(), 1.8,
+                                    "nodes/room/room_ears.checks.json");
+            SushiDSP::bench::report(measure_room_ears_swap(), 2.8,
+                                    "nodes/room/room_ears_swap.checks.json");
             SushiDSP::bench::print(measure_room_microphone_steady_state());
-            SushiDSP::bench::print(measure_room_beside_jcm800(), 2.0);
+            SushiDSP::bench::report(measure_room_beside_jcm800(), 2.0,
+                                    "nodes/room/room_beside_jcm800.checks.json");
             SushiDSP::bench::print(measure_room_at_the_limits());
-            SushiDSP::bench::print(measure_cabinet_section_gate(), K_CABINET_SECTION_GATE_MS);
+            SushiDSP::bench::report(measure_cabinet_section_gate(), K_CABINET_SECTION_GATE_MS,
+                                    "nodes/room/room_cabinet_section.checks.json", "RW-9");
         }};
 } // namespace

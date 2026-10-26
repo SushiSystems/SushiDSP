@@ -1,6 +1,6 @@
 # Known issues
 
-Next id: KI-46
+Next id: KI-48
 
 ## Amplifiers
 
@@ -166,3 +166,24 @@ Next id: KI-46
 - Recognise: the root README gives no count
 - Workaround: run `sd test`
 - Fix: RW-60
+
+## Performance budgets
+
+### KI-46 The seven-state DK block at 8x misses its benchmark budget
+- Origin: own
+- Where: `tests/foundation/math/dk/benchmark_dk_circuit.cpp`, `tests/foundation/math/dk/dk_circuit_8x.checks.json`
+- Cause: the plan's 0.12 ms was written for a four-state block; the shape grew to seven states for
+  reference-topology parity (`docs/design/SUSHIDSP/DSP_MATH_LIBRARY.md`)
+- Recognise: the row reads 0.963 ms against its 0.12 ms check, and `sd bench` labels the failure KI-46
+- Workaround: none; the row stays red
+- Fix: none, until the owner speeds the block up or moves the check
+
+### KI-47 The DD-3 benchmark budget has never been judged
+- Origin: own
+- Where: `tests/nodes/dd3/benchmark_dd3_delay.cpp`, `tests/nodes/dd3/dd3_delay.checks.json`
+- Cause: the build was locked while the DD-3 was written, so no run of its benchmark exists
+  (`docs/design/SUSHIDSP/README.md`, open questions)
+- Recognise: the first `sd bench Dd3` prints a verdict against the 0.15 ms check, and a failure is
+  labelled KI-47
+- Workaround: none
+- Fix: none, until the first run; a passing run deletes this entry

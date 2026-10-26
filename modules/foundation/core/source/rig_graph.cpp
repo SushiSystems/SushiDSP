@@ -28,6 +28,9 @@
 #include <SushiDSP/foundation/core/rig_graph.hpp>
 
 #include <SushiDSP/foundation/core/denormal_guard.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/profile_runtime.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -258,6 +261,25 @@ namespace SushiDSP
             }
         }
 
+        // The host input channels a piece must offset: the widest any root node reads.
+        std::vector<bool> is_root(nodes_.size(), true);
+        for (const Edge& edge : edges_)
+        {
+            is_root[edge.to] = false;
+        }
+        std::uint32_t host_input_channels = 0;
+        for (NodeHandle handle : topological_order_)
+        {
+            if (!is_root[handle])
+            {
+                continue;
+            }
+            const std::uint32_t root_width = std::max(node_channels_[handle].input_width, 1u);
+            host_input_channels = std::max(
+                host_input_channels, root_width == 1 ? input_binding_[handle] + 1u : root_width);
+        }
+        piece_inputs_.assign(host_input_channels, nullptr);
+
         port_count_.assign(nodes_.size(), 0);
         port_widths_.assign(nodes_.size() * K_MAX_OUTPUT_PORTS, 0);
         for (NodeHandle handle : topological_order_)
@@ -321,6 +343,8 @@ namespace SushiDSP
         }
 
         host_output_channels_ = std::max(1u, info.channels);
+        sample_rate_ = info.sample_rate;
+        piece_outputs_.assign(host_output_channels_, nullptr);
         if (!topological_order_.empty())
         {
             const std::uint32_t sink_channels = node_channels_[sink_handle_].output_width;
@@ -368,6 +392,12 @@ namespace SushiDSP
             }
         }
 
+        node_zone_names_.assign(nodes_.size(), 0);
+        for (NodeHandle handle : topological_order_)
+        {
+            node_zone_names_[handle] = profile::intern_name(nodes_[handle]->type_id());
+        }
+
         std::vector<std::uint32_t> latency_at(nodes_.size(), 0);
         for (NodeHandle handle : topological_order_)
         {
@@ -404,7 +434,172 @@ namespace SushiDSP
         return parameter_ring_.push(change);
     }
 
+    RigGraph::Counters RigGraph::counters_;
+
+    const RigGraph::Counters& RigGraph::counters() noexcept
+    {
+        return counters_;
+    }
+
     void RigGraph::process(ProcessContext& context)
+    {
+        SD_ZONE_GROUP(profile::names::K_GRAPH_PROCESS_ZONE, profile::names::K_GRAPH_GROUP);
+        if (context.frames <= block_size_ || block_size_ == 0)
+        {
+            process_block(context);
+            return;
+        }
+        counters_.oversize_block.note(context.frames);
+        process_pieces(context);
+    }
+
+    void RigGraph::process_pieces(ProcessContext& context)
+    {
+        std::uint32_t done = 0;
+        while (done < context.frames)
+        {
+            const std::uint32_t piece = std::min(block_size_, context.frames - done);
+            for (std::size_t channel = 0; channel < piece_outputs_.size(); ++channel)
+            {
+                piece_outputs_[channel] = context.outputs[channel] + done;
+            }
+            if (context.inputs != nullptr)
+            {
+                for (std::size_t channel = 0; channel < piece_inputs_.size(); ++channel)
+                {
+                    piece_inputs_[channel] = context.inputs[channel] + done;
+                }
+            }
+            ProcessContext slice{piece_outputs_.data(),
+                                 context.inputs != nullptr ? piece_inputs_.data() : nullptr, piece,
+                                 context.time_seconds +
+                                     static_cast<double>(done) / std::max(sample_rate_, 1.0),
+                                 nullptr};
+            process_block(slice);
+            done += piece;
+        }
+    }
+
+    std::uint32_t RigGraph::gather_inputs(NodeHandle handle, std::uint32_t width,
+                                          std::uint32_t slots,
+                                          const ProcessContext& context)
+    {
+        SD_ZONE_GROUP(profile::names::K_GATHER_ZONE, profile::names::K_GRAPH_GROUP);
+        auto& node_output = node_output_scratch_;
+        std::uint32_t edge_index = 0;
+        for (const Edge& edge : edges_)
+        {
+            if (edge.to != handle)
+            {
+                continue;
+            }
+
+            // Edges past the consumer's last slot fold into that slot rather than being dropped.
+            const std::uint32_t slot = std::min(edge_index, slots - 1);
+            ++edge_index;
+
+            const std::size_t producer_slot = edge.from * K_MAX_OUTPUT_PORTS + edge.from_port;
+            const std::uint32_t producer_width = port_widths_[producer_slot];
+            const float* producer[K_MAX_CHANNELS] = {};
+            for (std::uint32_t channel = 0; channel < producer_width; ++channel)
+            {
+                producer[channel] = node_output[producer_slot * max_output_channels_ + channel];
+            }
+
+            const std::uint32_t base = slot * width;
+            if (gathered_inputs_[base] == nullptr)
+            {
+                if (producer_width == width)
+                {
+                    for (std::uint32_t channel = 0; channel < width; ++channel)
+                    {
+                        gathered_inputs_[base + channel] = producer[channel];
+                    }
+                }
+                else if (producer_width == 1)
+                {
+                    for (std::uint32_t channel = 0; channel < width; ++channel)
+                    {
+                        gathered_inputs_[base + channel] = producer[0];
+                    }
+                }
+                else
+                {
+                    float* summed = buffer_pool_.acquire(context.frames);
+                    assert(summed != nullptr &&
+                           "RigGraph: BufferPool exhausted during input gather");
+                    for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                    {
+                        summed[frame] = (producer[0][frame] + producer[1][frame]) * 0.5f;
+                    }
+                    gather_scratch_[base] = summed;
+                    gathered_inputs_[base] = summed;
+                }
+            }
+            else
+            {
+                for (std::uint32_t channel = 0; channel < width; ++channel)
+                {
+                    if (gather_scratch_[base + channel] == nullptr)
+                    {
+                        float* accumulator = buffer_pool_.acquire(context.frames);
+                        assert(accumulator != nullptr &&
+                               "RigGraph: BufferPool exhausted during fan-in sum");
+                        const float* existing = gathered_inputs_[base + channel];
+                        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                        {
+                            accumulator[frame] = existing != nullptr ? existing[frame] : 0.0f;
+                        }
+                        gather_scratch_[base + channel] = accumulator;
+                        gathered_inputs_[base + channel] = accumulator;
+                    }
+                }
+
+                if (producer_width == width)
+                {
+                    for (std::uint32_t channel = 0; channel < width; ++channel)
+                    {
+                        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                        {
+                            gather_scratch_[base + channel][frame] += producer[channel][frame];
+                        }
+                    }
+                }
+                else if (producer_width == 1)
+                {
+                    for (std::uint32_t channel = 0; channel < width; ++channel)
+                    {
+                        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                        {
+                            gather_scratch_[base + channel][frame] += producer[0][frame];
+                        }
+                    }
+                }
+                else
+                {
+                    for (std::uint32_t frame = 0; frame < context.frames; ++frame)
+                    {
+                        gather_scratch_[base][frame] +=
+                            (producer[0][frame] + producer[1][frame]) * 0.5f;
+                    }
+                }
+            }
+        }
+
+        // A mono root reads the host channel it is bound to; a stereo root reads 0 and 1.
+        if (edge_index == 0 && context.inputs != nullptr)
+        {
+            const std::uint32_t first_channel = width == 1 ? input_binding_[handle] : 0u;
+            for (std::uint32_t channel = 0; channel < width; ++channel)
+            {
+                gathered_inputs_[channel] = context.inputs[first_channel + channel];
+            }
+            edge_index = 1;
+        }
+        return edge_index;
+    }
+
+    void RigGraph::process_block(ProcessContext& context)
     {
         DenormalGuard guard;
 
@@ -415,6 +610,10 @@ namespace SushiDSP
             {
                 nodes_[change.node]->set_parameter_for_audio_thread(change.parameter_index,
                                                                     change.value);
+            }
+            else
+            {
+                counters_.missing_node_change.increment();
             }
         }
 
@@ -461,121 +660,16 @@ namespace SushiDSP
                 gather_scratch_[slot_channel] = nullptr;
             }
 
-            std::uint32_t edge_index = 0;
-            for (const Edge& edge : edges_)
-            {
-                if (edge.to != handle)
-                {
-                    continue;
-                }
-
-                // Edges past the consumer's last slot fold into that slot rather than being dropped.
-                const std::uint32_t slot = std::min(edge_index, slots - 1);
-                ++edge_index;
-
-                const std::size_t producer_slot = edge.from * K_MAX_OUTPUT_PORTS + edge.from_port;
-                const std::uint32_t producer_width = port_widths_[producer_slot];
-                const float* producer[K_MAX_CHANNELS] = {};
-                for (std::uint32_t channel = 0; channel < producer_width; ++channel)
-                {
-                    producer[channel] = node_output[producer_slot * max_output_channels_ + channel];
-                }
-
-                const std::uint32_t base = slot * width;
-                if (gathered_inputs_[base] == nullptr)
-                {
-                    if (producer_width == width)
-                    {
-                        for (std::uint32_t channel = 0; channel < width; ++channel)
-                        {
-                            gathered_inputs_[base + channel] = producer[channel];
-                        }
-                    }
-                    else if (producer_width == 1)
-                    {
-                        for (std::uint32_t channel = 0; channel < width; ++channel)
-                        {
-                            gathered_inputs_[base + channel] = producer[0];
-                        }
-                    }
-                    else
-                    {
-                        float* summed = buffer_pool_.acquire(context.frames);
-                        assert(summed != nullptr &&
-                               "RigGraph: BufferPool exhausted during input gather");
-                        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                        {
-                            summed[frame] = (producer[0][frame] + producer[1][frame]) * 0.5f;
-                        }
-                        gather_scratch_[base] = summed;
-                        gathered_inputs_[base] = summed;
-                    }
-                }
-                else
-                {
-                    for (std::uint32_t channel = 0; channel < width; ++channel)
-                    {
-                        if (gather_scratch_[base + channel] == nullptr)
-                        {
-                            float* accumulator = buffer_pool_.acquire(context.frames);
-                            assert(accumulator != nullptr &&
-                                   "RigGraph: BufferPool exhausted during fan-in sum");
-                            const float* existing = gathered_inputs_[base + channel];
-                            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                            {
-                                accumulator[frame] = existing != nullptr ? existing[frame] : 0.0f;
-                            }
-                            gather_scratch_[base + channel] = accumulator;
-                            gathered_inputs_[base + channel] = accumulator;
-                        }
-                    }
-
-                    if (producer_width == width)
-                    {
-                        for (std::uint32_t channel = 0; channel < width; ++channel)
-                        {
-                            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                            {
-                                gather_scratch_[base + channel][frame] += producer[channel][frame];
-                            }
-                        }
-                    }
-                    else if (producer_width == 1)
-                    {
-                        for (std::uint32_t channel = 0; channel < width; ++channel)
-                        {
-                            for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                            {
-                                gather_scratch_[base + channel][frame] += producer[0][frame];
-                            }
-                        }
-                    }
-                    else
-                    {
-                        for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                        {
-                            gather_scratch_[base][frame] +=
-                                (producer[0][frame] + producer[1][frame]) * 0.5f;
-                        }
-                    }
-                }
-            }
-
-            // A mono root reads the host channel it is bound to; a stereo root reads 0 and 1.
-            if (edge_index == 0 && context.inputs != nullptr)
-            {
-                const std::uint32_t first_channel = width == 1 ? input_binding_[handle] : 0u;
-                for (std::uint32_t channel = 0; channel < width; ++channel)
-                {
-                    gathered_inputs_[channel] = context.inputs[first_channel + channel];
-                }
-                edge_index = 1;
-            }
+            const std::uint32_t edge_index = gather_inputs(handle, width, slots, context);
             const float* const* node_inputs = (edge_index > 0) ? gathered_inputs_ : nullptr;
 
             ProcessContext node_context{port_output_ptrs_[0], node_inputs, context.frames,
                                         context.time_seconds, port_output_table_};
-            nodes_[handle]->process(node_context);
+            {
+                SD_ZONE_NAMED(profile::names::K_NODE_ZONE, profile::names::K_NODE_GROUP,
+                              node_zone_names_[handle]);
+                nodes_[handle]->process(node_context);
+            }
 
             for (std::uint32_t slot_channel = 0; slot_channel < slots * width; ++slot_channel)
             {

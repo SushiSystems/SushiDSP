@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -41,6 +42,7 @@
 #include "rig_parameter.hpp"
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/core/rt_counter_report.hpp>
 
 namespace
 {
@@ -417,4 +419,90 @@ TEST(Small_RigAdapter, RigAdapterClearsTheOutputsOfABlockLongerThanItWasPrepared
 
     EXPECT_EQ(left, std::vector<float>(2 * K_BLOCK, 0.0f));
     EXPECT_EQ(right, std::vector<float>(2 * K_BLOCK, 0.0f));
+}
+
+TEST(Small_RigAdapterCounters, ABlockWithTheWrongChannelCountIsCountedWithItsFrames)
+{
+    RigAdapter adapter;
+    std::string error;
+    ASSERT_EQ(adapter.prepare(K_SAMPLE_RATE, K_BLOCK, error), RigStateStatus::Ok) << error;
+    const std::vector<float> input(K_BLOCK, 0.5f);
+    std::vector<float> output(K_BLOCK, 1.0f);
+    const float* inputs[1] = {input.data()};
+    float* outputs[1] = {output.data()};
+
+    adapter.process(inputs, outputs, 1u, K_BLOCK);
+
+    EXPECT_EQ(adapter.counters().format_mismatch.value(), 1U);
+    EXPECT_EQ(adapter.counters().format_mismatch.peak(), K_BLOCK);
+}
+
+TEST(Small_RigAdapterCounters, ABlockLongerThanThePreparedSizeIsCounted)
+{
+    RigAdapter adapter;
+    std::string error;
+    ASSERT_EQ(adapter.prepare(K_SAMPLE_RATE, K_BLOCK, error), RigStateStatus::Ok) << error;
+    const std::vector<float> input(2 * K_BLOCK, 0.5f);
+    std::vector<float> left(2 * K_BLOCK, 1.0f);
+    std::vector<float> right(2 * K_BLOCK, 1.0f);
+    const float* inputs[2] = {input.data(), input.data()};
+    float* outputs[2] = {left.data(), right.data()};
+
+    adapter.process(inputs, outputs, RigAdapter::K_CHANNELS, 2 * K_BLOCK);
+
+    EXPECT_EQ(adapter.counters().format_mismatch.value(), 1U);
+}
+
+TEST(Small_RigAdapterCounters, AParameterChangeForAnUnknownIdIsCountedWhenTheBlockRuns)
+{
+    RigAdapter adapter;
+    std::string error;
+    ASSERT_EQ(adapter.prepare(K_SAMPLE_RATE, K_BLOCK, error), RigStateStatus::Ok) << error;
+    adapter.queue_parameter_for_audio_thread(SushiDSP::Plugin::rig_parameter_id(3, 0), 0.5f);
+    const std::vector<float> input(K_BLOCK, 0.5f);
+    std::vector<float> left(K_BLOCK, 0.0f);
+    std::vector<float> right(K_BLOCK, 0.0f);
+    const float* inputs[2] = {input.data(), input.data()};
+    float* outputs[2] = {left.data(), right.data()};
+
+    adapter.process(inputs, outputs, RigAdapter::K_CHANNELS, K_BLOCK);
+
+    // The change reaches no route or meets the wrong graph; one of the two counters holds it.
+    EXPECT_EQ(adapter.counters().unknown_parameter.value() + adapter.counters().stale_routing.value(),
+              1U);
+}
+
+TEST(Small_RigAdapterCounters, AFullQueueIsReportedThroughTheReporter)
+{
+    RigAdapter adapter;
+    std::string error;
+    ASSERT_EQ(adapter.prepare(K_SAMPLE_RATE, K_BLOCK, error), RigStateStatus::Ok) << error;
+    SushiDSP::RtCounterReporter reporter(std::chrono::seconds(5));
+    adapter.add_counters_to(reporter);
+    static_cast<void>(reporter.poll(SushiDSP::RtCounterReporter::Clock::time_point{}));
+    for (std::size_t index = 0; index < RigAdapter::K_PENDING_CAPACITY + 3; ++index)
+        adapter.queue_parameter_for_audio_thread(1u, 0.5f);
+
+    const std::string line = reporter.poll(SushiDSP::RtCounterReporter::Clock::time_point{} +
+                                           std::chrono::seconds(5));
+
+    EXPECT_EQ(line, "3 dropped_parameter_changes in 5 s");
+}
+
+TEST(Small_RigAdapterCounters, APlainBlockCountsNothing)
+{
+    RigAdapter adapter;
+    std::string error;
+    ASSERT_EQ(adapter.prepare(K_SAMPLE_RATE, K_BLOCK, error), RigStateStatus::Ok) << error;
+    const std::vector<float> input(K_BLOCK, 0.5f);
+    std::vector<float> left(K_BLOCK, 0.0f);
+    std::vector<float> right(K_BLOCK, 0.0f);
+    const float* inputs[2] = {input.data(), input.data()};
+    float* outputs[2] = {left.data(), right.data()};
+
+    adapter.process(inputs, outputs, RigAdapter::K_CHANNELS, K_BLOCK);
+
+    EXPECT_EQ(adapter.counters().format_mismatch.value(), 0U);
+    EXPECT_EQ(adapter.counters().stale_routing.value(), 0U);
+    EXPECT_EQ(adapter.counters().unknown_parameter.value(), 0U);
 }

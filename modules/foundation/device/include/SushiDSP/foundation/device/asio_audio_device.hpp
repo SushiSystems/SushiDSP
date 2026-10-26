@@ -33,6 +33,9 @@
 #include <vector>
 
 #include <SushiDSP/foundation/core/audio_device.hpp>
+#include <SushiDSP/foundation/core/rt_counter.hpp>
+#include <SushiDSP/foundation/device/block_monitor.hpp>
+#include <SushiDSP/foundation/device/device_counters.hpp>
 #include <SushiDSP/foundation/audio_format/asio_sample_converter.hpp>
 
 namespace SushiDSP
@@ -76,6 +79,15 @@ namespace SushiDSP
             /// @brief Stops the driver's real-time stream and releases the callback.
             void stop() override;
 
+            /// @brief Adds this device's counters to @p reporter.
+            void add_counters_to(RtCounterReporter& reporter) const override;
+
+            /// @brief Returns what the driver's thread counted; read it on the control thread.
+            [[nodiscard]] const DeviceCounters& counters() const noexcept;
+
+            /// @brief Returns the buffer switches that arrived while no device was open.
+            [[nodiscard]] static const RtCounter& orphan_switches() noexcept;
+
         private:
             /// @brief Holds every ASIO-SDK-typed member (buffer infos, the callback struct)
             /// and the static SDK trampolines, so no ASIO header is needed to include this file.
@@ -86,6 +98,13 @@ namespace SushiDSP
 
             DeviceFormat format_;
             DeviceCallback callback_;
+
+            /// @brief Counts the blocks the driver thread could not serve, the dropouts and the
+            /// driver's own messages.
+            DeviceCounters counters_;
+
+            /// @brief Marks each block on the timeline and counts the dropouts.
+            BlockMonitor monitor_;
 
             AsioSampleFormat input_sample_format_;
             AsioSampleFormat output_sample_format_;
@@ -100,6 +119,9 @@ namespace SushiDSP
             /// @brief Points at the one open device the ASIO free-function callbacks forward to.
             /// @pre At most one AsioAudioDevice is open at a time (modules/foundation/device/README.md).
             static AsioAudioDevice* active_instance_;
+
+            /// @brief Counts the buffer switches the driver sent while active_instance_ was null.
+            static RtCounter orphan_switches_;
 
             /// @brief The real-time buffer-switch body. Allocation-, lock-, syscall- and
             /// throw-free: every buffer it touches was sized in the constructor.

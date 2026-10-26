@@ -28,7 +28,10 @@
 #include <SushiDSP/foundation/device/asio_audio_device.hpp>
 
 #include <SushiDSP/foundation/core/denormal_guard.hpp>
+#include <SushiDSP/foundation/device/device_log_category.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
 
+#include <cmath>
 #include <cstring>
 #include <stdexcept>
 #include <utility>
@@ -52,6 +55,18 @@ namespace SushiDSP
         /// @brief More ASIO drivers than any machine plausibly registers; the enumeration
         /// buffer is stack-allocated, so it needs a fixed bound.
         constexpr int K_MAX_ASIO_DRIVERS = 64;
+
+        /// @brief Writes one WARN when ASIOStop returned an error; the stream is then treated as
+        /// stopped.
+        void log_stop_error(ASIOError error)
+        {
+            if (error != ASE_OK)
+            {
+                SD_LOG_WARN(K_DEVICE_LOG_CATEGORY,
+                            "ASIOStop failed (ASIOError {}); the stream is treated as stopped",
+                            static_cast<long>(error));
+            }
+        }
 
         void throw_on_error(ASIOError error, const char* what)
         {
@@ -123,11 +138,19 @@ namespace SushiDSP
                 {
                     self->on_buffer_switch(buffer_index);
                 }
+                else
+                {
+                    AsioAudioDevice::orphan_switches_.increment();
+                }
             }
 
             static void sample_rate_did_change(ASIOSampleRate /*sample_rate*/)
             {
-                // format() keeps the rate negotiated at construction; a clock change is not followed.
+                // A clock change is counted and not followed; format() keeps the first rate.
+                if (AsioAudioDevice* self = AsioAudioDevice::active_instance_)
+                {
+                    self->counters_.driver_message.increment();
+                }
             }
 
             static long asio_message(long selector, long value, void* /*message*/, double* /*opt*/)
@@ -143,14 +166,16 @@ namespace SushiDSP
                 case kAsioEngineVersion:
                     return 2L;
 
-                // Acknowledged and not acted on: reopening the driver is the host application's call.
+                // Acknowledged and counted, not acted on; reopening is the host's call.
                 case kAsioResyncRequest:
                 case kAsioLatenciesChanged:
                 case kAsioOverload:
+                    count_driver_message();
                     return 1L;
 
                 // Answers 0, not handled: this device never rebuilds its buffers (modules/foundation/device/README.md).
                 case kAsioResetRequest:
+                    count_driver_message();
                     return 0L;
 
                 // Declining time info keeps the driver on the plain bufferSwitch path.
@@ -159,6 +184,15 @@ namespace SushiDSP
 
                 default:
                     return 0L;
+                }
+            }
+
+            /// @brief Counts a driver message on the open device, if there is one.
+            static void count_driver_message() noexcept
+            {
+                if (AsioAudioDevice* self = AsioAudioDevice::active_instance_)
+                {
+                    self->counters_.driver_message.increment();
                 }
             }
 
@@ -172,6 +206,13 @@ namespace SushiDSP
     };
 
     AsioAudioDevice* AsioAudioDevice::active_instance_ = nullptr;
+
+    RtCounter AsioAudioDevice::orphan_switches_;
+
+    const RtCounter& AsioAudioDevice::orphan_switches() noexcept
+    {
+        return orphan_switches_;
+    }
 
     std::vector<std::string> AsioAudioDevice::enumerate_drivers()
     {
@@ -199,7 +240,7 @@ namespace SushiDSP
 
     AsioAudioDevice::AsioAudioDevice(const std::string& driver_name,
                                      const DeviceFormat& requested_format)
-        : impl_(std::make_unique<Impl>()), format_(requested_format),
+        : impl_(std::make_unique<Impl>()), format_(requested_format), monitor_(counters_),
           input_sample_format_(AsioSampleFormat::Float32LSB),
           output_sample_format_(AsioSampleFormat::Float32LSB)
     {
@@ -245,6 +286,13 @@ namespace SushiDSP
                 is_supported_buffer_size(requested_block, min_size, max_size, granularity)
                     ? requested_block
                     : preferred_size;
+            if (block_size != requested_block)
+            {
+                SD_LOG_WARN(K_DEVICE_LOG_CATEGORY,
+                            "ASIO driver '{}' cannot run blocks of {} frames (it accepts {} to {}); "
+                            "using its preferred {} frames",
+                            driver_name, requested_block, min_size, max_size, block_size);
+            }
 
             // The rate is set only once ASIOCanSampleRate confirms it (modules/foundation/device/README.md).
             if (requested_format.sample_rate > 0.0 && ASIOCanSampleRate(static_cast<ASIOSampleRate>(
@@ -261,6 +309,15 @@ namespace SushiDSP
             {
                 throw std::runtime_error("ASIO driver '" + driver_name +
                                          "' reports no valid sample rate (no clock)");
+            }
+
+            if (requested_format.sample_rate > 0.0 &&
+                std::abs(static_cast<double>(actual_rate) - requested_format.sample_rate) > 0.5)
+            {
+                SD_LOG_WARN(K_DEVICE_LOG_CATEGORY,
+                            "ASIO driver '{}' cannot run at {} Hz; using its own clock at {} Hz",
+                            driver_name, requested_format.sample_rate,
+                            static_cast<double>(actual_rate));
             }
 
             format_.sample_rate = static_cast<double>(actual_rate);
@@ -354,7 +411,7 @@ namespace SushiDSP
     {
         if (running_)
         {
-            ASIOStop();
+            log_stop_error(ASIOStop());
             running_ = false;
         }
         ASIODisposeBuffers();
@@ -394,15 +451,27 @@ namespace SushiDSP
         }
 
         // ASIOStop returns with no further bufferSwitch to come, so the callback is released after it.
-        ASIOStop();
+        log_stop_error(ASIOStop());
         running_ = false;
         callback_ = {};
+    }
+
+    void AsioAudioDevice::add_counters_to(RtCounterReporter& reporter) const
+    {
+        counters_.add_to(reporter);
+        reporter.add("orphan_switch", orphan_switches_);
+    }
+
+    const DeviceCounters& AsioAudioDevice::counters() const noexcept
+    {
+        return counters_;
     }
 
     void AsioAudioDevice::on_buffer_switch(long buffer_index)
     {
         DenormalGuard denormal_guard;
         const std::uint32_t frames = format_.block_size;
+        const BlockScope block_scope(monitor_, frames, format_.sample_rate);
         const std::size_t index = static_cast<std::size_t>(buffer_index);
 
         const std::size_t input_bytes = sample_size_bytes(input_sample_format_);
@@ -427,6 +496,7 @@ namespace SushiDSP
         }
         else
         {
+            counters_.no_callback.increment();
             for (std::uint32_t channel = 0; channel < format_.output_channels; ++channel)
             {
                 std::memset(output_scratch_[channel].data(), 0, frames * sizeof(float));
@@ -447,9 +517,9 @@ namespace SushiDSP
             }
         }
 
-        if (impl_->post_output)
+        if (impl_->post_output && ASIOOutputReady() != ASE_OK)
         {
-            ASIOOutputReady();
+            counters_.driver_error.increment();
         }
     }
 } // namespace SushiDSP

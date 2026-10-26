@@ -51,7 +51,11 @@ Builds the tree if it isn't already, then runs `ctest`.
 
 ## `sd bench`
 
-Builds the tree if it isn't already, then runs `sushidsp_bench` and prints its table.
+Builds the tree if it isn't already, then runs `sushidsp_bench` and prints its table. A case
+that carries a checks file prints a verdict line under its row, `check pass` or `check FAIL`
+with the reason, and a failure that a known issue explains is labelled with its id. Each
+row is the median of 2000 repetitions on a profiler timeline, with the 99th percentile, the
+maximum and the jitter beside it. A verdict never changes the exit code.
 
 - `GROUP...`, substrings of the case groups to run, such as `Room` or `Jcm800`. Without one
   every group runs.

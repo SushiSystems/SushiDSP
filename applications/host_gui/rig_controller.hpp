@@ -64,13 +64,22 @@ class RigController
         /// lands, where in the take it starts and how much of the take it plays.
         using ClipPlacement = SessionTimeline::ClipPlacement;
 
-        explicit RigController(const SushiDSP::PrepareInfo& info);
+        /// @brief Names where the room publish interval reads the time; tests inject their own.
+        using ClockSource = SlotGraph::ClockSource;
+
+        /// @brief Builds a rig with a timeline of its own.
+        /// @param clock Returns the present time for the room publish interval; empty reads the
+        /// steady clock.
+        explicit RigController(const SushiDSP::PrepareInfo& info, ClockSource clock = {});
 
         /// @brief Builds a rig on a timeline another owner shares with it, so several rigs read
         /// one arrangement, one transport and one set of recorders.
         /// @param info The sample rate, block size and channel count the rig is prepared at.
         /// @param session The shared timeline; never null.
-        RigController(const SushiDSP::PrepareInfo& info, std::shared_ptr<SessionTimeline> session);
+        /// @param clock Returns the present time for the room publish interval; empty reads the
+        /// steady clock.
+        RigController(const SushiDSP::PrepareInfo& info, std::shared_ptr<SessionTimeline> session,
+                      ClockSource clock = {});
 
         /// @brief Returns the timeline this rig reads, shared or its own.
         const std::shared_ptr<SessionTimeline>& session() const noexcept
@@ -178,6 +187,12 @@ class RigController
         /// @return True when the node took the impulse response, or the bypassed slot stored it.
         /// @throws std::runtime_error if the file cannot be opened or parsed.
         bool set_cabinet(SlotId slot, const std::string& path);
+
+        /// @brief Installs a cabinet as the two-argument form does and says why it did not.
+        /// @param reason_out Receives the reason when the result is false.
+        /// @return True when the node took the impulse response, or the bypassed slot stored it.
+        /// @throws std::runtime_error if the file cannot be opened or parsed.
+        bool set_cabinet(SlotId slot, const std::string& path, std::string& reason_out);
 
         /// @brief Reclaims retired graphs, the retired cabinets of every live node that hosts one,
         /// and the takes both players have retired. Control thread only; call once per GUI frame.

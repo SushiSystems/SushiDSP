@@ -29,6 +29,9 @@
 
 #include <SushiDSP/foundation/circuits/audio_taper_pot.hpp>
 #include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
+#include <SushiDSP/foundation/core/node_counters.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp>
 #include <SushiDSP/foundation/circuits/stages/power_tube_presets.hpp>
 
@@ -41,6 +44,8 @@
 
 namespace SushiDSP
 {
+    namespace regions = profile::names::mesa_mark2c;
+
     namespace
     {
         /// @brief Mesa Mark IIC+ Simul-Class inner pair, 6L6GC pentode: the RCA class AB1 point at its
@@ -567,62 +572,92 @@ namespace SushiDSP
         const float loop_gain = loop_network_gain(lead_master);
         const float master_gain = master * MesaMark2c::K_MASTER_UNITY_GAIN;
 
-        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            scratch_base_[i] = input[i] * input_gain;
+            SD_ZONE_GROUP(regions::K_INPUT_ZONE, regions::K_GROUP);
+            for (std::uint32_t i = 0; i < frames; ++i)
+            {
+                scratch_base_[i] = input[i] * input_gain;
+            }
         }
 
-        const float* upsampled = oversampler_->upsample(scratch_base_.data(), frames);
-        for (std::uint32_t i = 0; i < oversampled_frames; ++i)
+        const float* upsampled = nullptr;
         {
-            const float v1a_out = v1a_.process_sample(upsampled[i]);
-            const float toned = tone_stack_.process_sample(v1a_out);
-            const float v1b_input = volume_1_bright_.process_sample(toned * volume_1_gain);
-            const float v1b_out = v1b_.process_sample(v1b_grid_miller_.process_sample(v1b_input));
-
-            const float lead_input =
-                lead_drive_bright_.process_sample(v1b_coupling_.process_sample(v1b_out)) *
-                lead_drive_gain;
-            const float v3b_out = v3b_.process_sample(v3b_grid_miller_.process_sample(lead_input));
-
-            const float v4a_input =
-                v4a_interstage_shelf_.process_sample(v3b_coupling_.process_sample(v3b_out));
-            const float v4a_out = v4a_cathode_shelf_.process_sample(
-                v4a_.process_sample(v4a_grid_miller_.process_sample(v4a_input)));
-
-            const float v2a_input =
-                lead_output_divider_.process_sample(v4a_coupling_.process_sample(v4a_out));
-            const float v2a_out = v2a_.process_sample(v2a_grid_miller_.process_sample(v2a_input));
-            const float v2b_out = v2b_cathode_shelf_.process_sample(
-                v2b_.process_sample(v2b_grid_miller_.process_sample(
-                    v2b_loop_return_coupling_.process_sample(v2a_out) * loop_gain)));
-
-            // Master 1 sits at node F, ahead of the phase inverter (dossier 2).
-            const float master_out = v2b_coupling_.process_sample(v2b_out) * master_gain;
-            // EQ OUT lifts the slider bus off ground and takes the five traps out of the path.
-            const float equalised = equalizer_mode_ == EqualizerMode::Out
-                                        ? master_out
-                                        : equalizer_bank_.process_sample(master_out);
-            // The loop closes on the previous sample; see modules/nodes/mesa_mark2c/README.md.
-            const float feedback_grid =
-                feedback_.process_sample(tap_feedback_ * K_TAP_TO_FEEDBACK_VOLTS);
-            const LongTailedPair::Plates plates = phase_inverter_.process_sample(
-                phase_inverter_grid_miller_.process_sample(equalised), feedback_grid);
-
-            // Both pairs share one transformer; see modules/nodes/mesa_mark2c/README.md.
-            const float inner_pair =
-                power_inner_a_.process_sample(plates.a) - power_inner_b_.process_sample(plates.b);
-            const float outer_pair =
-                power_outer_a_.process_sample(plates.a) - power_outer_b_.process_sample(plates.b);
-            const float power_tube_out = (inner_pair + outer_pair) * K_SIMUL_CLASS_PAIR_WEIGHT *
-                                         K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION;
-
-            const float transformer_out = output_transformer_.process_sample(power_tube_out);
-            tap_feedback_ = transformer_out;
-            scratch_oversampled_[i] = sag_.process_sample(transformer_out);
+            SD_ZONE_GROUP(regions::K_UPSAMPLE_ZONE, regions::K_GROUP);
+            upsampled = oversampler_->upsample(scratch_base_.data(), frames);
         }
-        oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames,
-                                 scratch_base_.data());
+        {
+            SD_ZONE_GROUP(regions::K_LOOP_ZONE, regions::K_GROUP);
+            for (std::uint32_t i = 0; i < oversampled_frames; ++i)
+            {
+                const float v1a_out = v1a_.process_sample(upsampled[i]);
+                const float toned = tone_stack_.process_sample(v1a_out);
+                const float v1b_input = volume_1_bright_.process_sample(toned * volume_1_gain);
+                const float v1b_out =
+                    v1b_.process_sample(v1b_grid_miller_.process_sample(v1b_input));
+
+                const float lead_input =
+                    lead_drive_bright_.process_sample(v1b_coupling_.process_sample(v1b_out)) *
+                    lead_drive_gain;
+                const float v3b_out =
+                    v3b_.process_sample(v3b_grid_miller_.process_sample(lead_input));
+
+                const float v4a_input =
+                    v4a_interstage_shelf_.process_sample(v3b_coupling_.process_sample(v3b_out));
+                const float v4a_out = v4a_cathode_shelf_.process_sample(
+                    v4a_.process_sample(v4a_grid_miller_.process_sample(v4a_input)));
+
+                const float v2a_input =
+                    lead_output_divider_.process_sample(v4a_coupling_.process_sample(v4a_out));
+                const float v2a_out =
+                    v2a_.process_sample(v2a_grid_miller_.process_sample(v2a_input));
+                const float v2b_out = v2b_cathode_shelf_.process_sample(
+                    v2b_.process_sample(v2b_grid_miller_.process_sample(
+                        v2b_loop_return_coupling_.process_sample(v2a_out) * loop_gain)));
+
+                // Master 1 sits at node F, ahead of the phase inverter (dossier 2).
+                const float master_out = v2b_coupling_.process_sample(v2b_out) * master_gain;
+                // EQ OUT lifts the slider bus off ground and takes the five traps out of the path.
+                const float equalised = equalizer_mode_ == EqualizerMode::Out
+                                            ? master_out
+                                            : equalizer_bank_.process_sample(master_out);
+                // The loop closes on the previous sample; see modules/nodes/mesa_mark2c/README.md.
+                const float feedback_grid =
+                    feedback_.process_sample(tap_feedback_ * K_TAP_TO_FEEDBACK_VOLTS);
+                const LongTailedPair::Plates plates = phase_inverter_.process_sample(
+                    phase_inverter_grid_miller_.process_sample(equalised), feedback_grid);
+
+                // Both pairs share one transformer; see modules/nodes/mesa_mark2c/README.md.
+                const float inner_pair = power_inner_a_.process_sample(plates.a) -
+                                         power_inner_b_.process_sample(plates.b);
+                const float outer_pair = power_outer_a_.process_sample(plates.a) -
+                                         power_outer_b_.process_sample(plates.b);
+                const float power_tube_out = (inner_pair + outer_pair) * K_SIMUL_CLASS_PAIR_WEIGHT *
+                                             K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION;
+
+                const float transformer_out = output_transformer_.process_sample(power_tube_out);
+                tap_feedback_ = transformer_out;
+                scratch_oversampled_[i] = sag_.process_sample(transformer_out);
+            }
+        }
+        NewtonRaphsonSolver::Tally newton_tally;
+        v1a_.take_newton_tally(newton_tally);
+        v1b_.take_newton_tally(newton_tally);
+        v3b_.take_newton_tally(newton_tally);
+        v4a_.take_newton_tally(newton_tally);
+        v2a_.take_newton_tally(newton_tally);
+        v2b_.take_newton_tally(newton_tally);
+        power_inner_a_.take_newton_tally(newton_tally);
+        power_inner_b_.take_newton_tally(newton_tally);
+        power_outer_a_.take_newton_tally(newton_tally);
+        power_outer_b_.take_newton_tally(newton_tally);
+        note_newton_solves(newton_tally.solves, newton_tally.iteration_caps,
+                           newton_tally.non_finite_steps,
+                           newton_tally.worst_iterations);
+        {
+            SD_ZONE_GROUP(regions::K_DOWNSAMPLE_ZONE, regions::K_GROUP);
+            oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames,
+                                     scratch_base_.data());
+        }
 
         // Cabinet convolution is the sushidsp.cabinet node's; the dry signal goes straight out.
         for (std::uint32_t i = 0; i < frames; ++i)
@@ -631,7 +666,10 @@ namespace SushiDSP
         }
 
         // The clamp is a safety rail for the DAC's range; see modules/nodes/mesa_mark2c/README.md.
-        apply_output_safety_clamp(output, frames, output_gain);
+        {
+            SD_ZONE_GROUP(regions::K_CLAMP_ZONE, regions::K_GROUP);
+            note_output_clamp(apply_output_safety_clamp(output, frames, output_gain));
+        }
     }
 
     std::uint32_t MesaMark2c::latency_samples() const

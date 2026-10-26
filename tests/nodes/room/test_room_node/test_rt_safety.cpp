@@ -36,6 +36,9 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
+#include <SushiDSP/foundation/profile/profile_runtime.hpp>
+#include <SushiDSP/foundation/profile/profile_session.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/nodes/room/room_node.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 #include <SushiDSP/nodes/room/room_arrangement.hpp>
@@ -221,7 +224,8 @@ TEST(Small_RoomNode, BinauralProcessPerformsNoHeapAllocation)
         }
         if (publish == 2)
         {
-            ASSERT_TRUE(node.set_hrtf(SushiDSP::room::HrtfSet{}));
+            ASSERT_EQ(node.set_hrtf(SushiDSP::room::HrtfSet{}),
+                      SushiDSP::room::HrtfStatus::Installed);
         }
         trap.arm();
         for (int block = 0; block < 4; ++block)
@@ -239,4 +243,74 @@ TEST(Small_RoomNode, BinauralProcessPerformsNoHeapAllocation)
         EXPECT_TRUE(std::isfinite(left[i]));
         EXPECT_TRUE(std::isfinite(right[i]));
     }
+}
+
+TEST(Small_RoomNodeCounters, AnUnpreparedNodeCountsABlockWithNoRenderSet)
+{
+    SushiDSP::room::RoomNode node;
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    float* output_channels[2] = {left.data(), right.data()};
+    SushiDSP::ProcessContext context{output_channels, nullptr, 256, 0.0};
+    const std::uint64_t before = SushiDSP::room::RoomNode::counters().no_render_set.value();
+
+    node.process(context);
+
+    EXPECT_EQ(SushiDSP::room::RoomNode::counters().no_render_set.value(), before + 1U);
+}
+
+TEST(Small_RoomNodeCounters, APreparedNodeWithASetCountsNothing)
+{
+    SushiDSP::room::RoomNode node;
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[2] = {left.data(), right.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
+    const std::uint64_t before = SushiDSP::room::RoomNode::counters().no_render_set.value();
+
+    node.process(context);
+
+    EXPECT_EQ(SushiDSP::room::RoomNode::counters().no_render_set.value(), before);
+}
+
+TEST(Medium_RoomNodeProfile, ProcessWritesTheRegionZonesUnderTheRoomGroup)
+{
+    if (!SushiDSP::profile::K_PROFILER_BUILT)
+        GTEST_SKIP() << "this build records nothing";
+    constexpr std::uint32_t K_WARMUP = 2;
+    constexpr std::uint32_t K_ACTIVE = 4;
+    SushiDSP::room::RoomNode node;
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
+    std::string reason;
+    ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
+    std::vector<float> input(256);
+    fill_room_tone(input);
+    std::vector<float> left(256, 0.0f);
+    std::vector<float> right(256, 0.0f);
+    const float* input_channels[1] = {input.data()};
+    float* output_channels[2] = {left.data(), right.data()};
+
+    SushiDSP::profile::ProfileSession session;
+    ASSERT_TRUE(session
+                    .start_window(SushiDSP::profile::names::K_BENCH_TIMELINE, K_WARMUP, K_ACTIVE)
+                    .started());
+    for (std::uint32_t period = 0; period < K_WARMUP + K_ACTIVE; ++period)
+    {
+        session.mark(SushiDSP::profile::names::K_BENCH_TIMELINE, 0U);
+        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
+        node.process(context);
+    }
+    session.mark(SushiDSP::profile::names::K_BENCH_TIMELINE, 0U);
+    const SushiDSP::profile::ProfileFinish finished = session.finish();
+
+    EXPECT_EQ(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_EARS_ZONE), K_ACTIVE);
+    EXPECT_EQ(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_MICROPHONES_ZONE),
+              K_ACTIVE);
+    EXPECT_GE(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_TAIL_ZONE), K_ACTIVE);
+    EXPECT_GE(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_MODAL_ZONE), K_ACTIVE);
+    EXPECT_GE(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_PAIR_ZONE), K_ACTIVE);
 }

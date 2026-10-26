@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <SushiDSP/foundation/math/newton_raphson_solver.hpp>
 #include <SushiDSP/foundation/circuits/models/triode12_ax7.hpp>
 #include <SushiDSP/foundation/circuits/stages/antiderivative_antialiaser.hpp>
 #include <SushiDSP/foundation/circuits/stages/grid_conduction_law.hpp>
@@ -74,6 +75,10 @@ namespace SushiDSP
                 return peak_grid_excursion_;
             }
 
+            /// @brief Adds the Newton solves run since the last call to @p into and clears them.
+            /// Audio thread; an amplifier calls it once per block for each stage it owns.
+            void take_newton_tally(NewtonRaphsonSolver::Tally& into) noexcept;
+
             /// @brief Resets the Newton-Raphson warm start to the bias point, clears the peak and
             /// drops the antialiaser's previous sample.
             void reset();
@@ -108,6 +113,9 @@ namespace SushiDSP
 
             /// @brief The antialiaser of the composite grid-and-plate transfer.
             AntiderivativeAntialiaser antialiaser_;
+
+            /// @brief The Newton solves run since the last take_newton_tally().
+            NewtonRaphsonSolver::Tally newton_tally_;
 
             /// @brief The largest |Vg - Vk| reached since the last reset().
             float peak_grid_excursion_ = 0.0f;

@@ -91,7 +91,7 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
 | `tests/<tier>/<module>/`, `tests/applications/<app>/` | One `test_<snake_case_name>.cpp` per unit, at the path of the unit's header |
 | `tests/<tier>/<module>/goldens/` | The pinned `.f32` renders, one folder per unit; the record of each regeneration is in `modules/foundation/golden_compare/README.md` |
 | `tests/nodes/room/fixtures/built_room_loss/` | Reference data from measured rooms, each with its own README |
-| `modules/foundation/{signal_measure,spice_reference,circuit_blocks,golden_compare,timing_gate,regression_test,allocation_trap,benchmark_harness}/`, `modules/nodes/room_scenes/` | Shared test code, each an internal module: measurement, SPICE comparison, circuit blocks, golden comparison, the timing gate, the regression macro, the allocation trap, the benchmark harness, the room scenes |
+| `modules/foundation/{signal_measure,spice_reference,circuit_blocks,golden_compare,regression_test,allocation_trap,benchmark_harness}/`, `modules/nodes/room_scenes/` | Shared test code, each an internal module: measurement, SPICE comparison, circuit blocks, golden comparison, the regression macro, the allocation trap, the benchmark harness, the room scenes |
 | `tests/` | `main.cpp`, the entry point of `sushidsp_tests`; `README.md` |
 | `tests/benchmark_main.cpp`, `tests/<owner>/benchmark_<name>.cpp` | The benchmark program `sushidsp_bench`, run by `sd bench` and never by `sd test` |
 

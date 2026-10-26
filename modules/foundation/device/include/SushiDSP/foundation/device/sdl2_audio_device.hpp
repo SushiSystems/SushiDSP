@@ -28,6 +28,8 @@
 #pragma once
 
 #include <SushiDSP/foundation/core/audio_device.hpp>
+#include <SushiDSP/foundation/device/block_monitor.hpp>
+#include <SushiDSP/foundation/device/device_counters.hpp>
 
 #include <cstdint>
 #include <vector>
@@ -53,6 +55,12 @@ namespace SushiDSP
 
             void stop() override;
 
+            /// @brief Adds this device's counters to @p reporter.
+            void add_counters_to(RtCounterReporter& reporter) const override;
+
+            /// @brief Returns what the audio thread counted; read it on the control thread.
+            [[nodiscard]] const DeviceCounters& counters() const noexcept;
+
         private:
             /// @brief Holds the format the device actually opened at.
             DeviceFormat format_;
@@ -62,6 +70,12 @@ namespace SushiDSP
 
             /// @brief Holds the caller's per-block callback, empty while the device is stopped.
             DeviceCallback callback_;
+
+            /// @brief Counts the blocks the callback could not serve and the dropouts.
+            DeviceCounters counters_;
+
+            /// @brief Marks each block on the timeline and counts the dropouts.
+            BlockMonitor monitor_;
 
             /// @brief Holds one deinterleaved output channel after another, block_size frames each.
             /// Empty for a one-channel device, which writes SDL2's buffer directly.

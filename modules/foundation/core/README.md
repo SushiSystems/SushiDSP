@@ -10,18 +10,53 @@ The node and device interfaces, `RigGraph`, the real-time slots and the buffer p
 - `modules/foundation/core/include/SushiDSP/foundation/core/audio_device.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/audio_node.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/cabinet_host.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/core_counter_report.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/core_log_category.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/counter_poll_thread.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/node_counters.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/node_descriptor.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/parameter_change.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/parameter_table.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/port_layout.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/rig_graph.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/rt_counter.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/rt_counter_report.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/rt_graph_slot.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/rt_swap_slot.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/spsc_ring.hpp`
 
 ## Depends on
 
-`io` (same tier).
+`io`, `log` and `profile` (same tier).
+
+## Counters and their reports
+
+The audio thread never logs. It raises an `RtCounter`, one relaxed atomic add, and the control
+thread reads it. An `RtCounterReporter` holds a group of counters, and `poll(now)` returns one
+line, such as `3 no_callback, 1 oversize_block (largest 1024) in 5 s`, when the interval has
+passed and a counter moved, and an empty string otherwise. The clock is an argument, so a test
+drives it without waiting. A module that owns counters writes the line as one `WARN` under its
+own category: `CoreCounterReport` does it for the graph's and the nodes' counters, and a host
+writes its own under its own. `CounterPollThread` polls a function twice a second for a host
+whose main thread blocks.
+
+`RigGraph::counters()` counts the parameter changes dropped because their node was removed and
+the blocks longer than `block_size`, which `process()` now runs in pieces of `block_size`.
+`node_counters()` holds what the amplifiers and the tube screamer count at the end of a block: the
+samples their output clamp cut, the DK solves that did not converge or fell back, and the Newton
+solves of the tube stages that stopped at their cap. These counters are shared by every graph and
+node of the process, because a host replaces graphs and nodes and a reporter must hold one object
+whose count survives the swap. Each is also recorded in every block as a profiler counter, as 0
+when nothing happened, so a `counter:` check always has samples.
+
+`ParameterTable::write` by id writes one `WARN` under `K_CORE_LOG_CATEGORY` for an id no row
+carries. The write by index is the audio thread's and stays silent.
+
+## Zones
+
+`RigGraph::process` writes the zone `graph.process`, one `dsp.gather` zone per node for the
+fan-in and fan-out sums and one `dsp.node` zone per node, named by the node's `type_id()`, which
+`compile()` interns once.
 
 ## Notes cited from the source
 
@@ -39,7 +74,9 @@ thread, so a guard on the audio thread changes nothing for the rest of the proce
 
 ### `modules/foundation/core/include/SushiDSP/foundation/core/cabinet_host.hpp`
 
-`set_cabinet` builds the convolver in full on the control thread and hands it to the audio thread
+`set_cabinet` returns a `CabinetStatus`: `Installed`, or the reason it refused, which is an
+empty impulse response, a node not yet prepared or a sample rate that differs from the node's.
+`cabinet_status_text` gives the sentence. It builds the convolver in full on the control thread and hands it to the audio thread
 as one atomic pointer swap, so `process()` never sees a partially built cabinet and never blocks.
 The node retains the samples so that a later `prepare()` rebuilds the cabinet. It never resamples
 them, so a `prepare()` at a different rate needs a fresh `set_cabinet()`. In every failing case

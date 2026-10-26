@@ -92,6 +92,7 @@ namespace SushiDSP
             /// @param sample_rate The rate the leg runs at, in hertz.
             /// @param components The leg's component values.
             /// @param termination What the inverter presents at the tail node.
+            /// @throws std::runtime_error if the DK derivation fails at @p sample_rate.
             PowerAmpFeedback(double sample_rate, const PowerAmpFeedbackComponents& components,
                              const PowerAmpFeedbackTermination& termination = {});
 

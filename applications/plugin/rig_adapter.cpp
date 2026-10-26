@@ -271,6 +271,20 @@ namespace SushiDSP::Plugin
         return dropped_parameter_changes_.load(std::memory_order_relaxed);
     }
 
+    const RigAdapter::Counters& RigAdapter::counters() const noexcept
+    {
+        return counters_;
+    }
+
+    void RigAdapter::add_counters_to(RtCounterReporter& reporter) const
+    {
+        reporter.add("adapter_format_mismatch", counters_.format_mismatch);
+        reporter.add("stale_routing", counters_.stale_routing);
+        reporter.add("unknown_parameter", counters_.unknown_parameter);
+        reporter.add("dropped_parameter_changes",
+                     [this] { return static_cast<std::uint64_t>(dropped_parameter_changes()); });
+    }
+
     void RigAdapter::queue_parameter_for_audio_thread(std::uint32_t id, float value) noexcept
     {
         if (pending_count_ == pending_.size())
@@ -296,6 +310,7 @@ namespace SushiDSP::Plugin
 
         if (channels != K_CHANNELS || frames > info_.max_block)
         {
+            counters_.format_mismatch.note(frames);
             clear_outputs(outputs, channels, frames);
             return;
         }
@@ -414,6 +429,7 @@ namespace SushiDSP::Plugin
         // A routing published for another graph names that graph's handles; its block is skipped.
         if (routing == nullptr || routing->graph() != graph)
         {
+            counters_.stale_routing.increment(count);
             return;
         }
         for (std::size_t entry = 0; entry < count; ++entry)
@@ -421,6 +437,7 @@ namespace SushiDSP::Plugin
             ParameterRouting::Route* route = routing->find(pending_[entry].id);
             if (route == nullptr)
             {
+                counters_.unknown_parameter.increment();
                 continue;
             }
             const float value = std::clamp(pending_[entry].value, route->minimum, route->maximum);

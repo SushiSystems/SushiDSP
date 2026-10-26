@@ -246,6 +246,7 @@ Tests: `TEST(<unit>, …)` for FFT/convolution/filter/WDF-solver numerical corre
 | DT | The arrangement view | built |
 | DE | Room acoustics; DE7 and DE8 are not built | building |
 | DR | Delay and reverb; DR3 and DR4 are not built | building |
+| DP | The stack profiler and the logging gaps: the `profile` front, zones and counters in the block path, a benchmark on a timeline with checks, a counter and a record for every place the audio thread fails silently, and the status enums of a refused cabinet or HRTF set | building |
 
 The dates and commits of the landed phases are in
 the record. The states above are read
@@ -255,6 +256,7 @@ from the status text of each phase, not verified against the tree; the owner con
 
 <!-- work:begin -->
 - [2026_10_13_TRACK_RIGS_AND_PLUGIN](../../agent/2026_10_13_TRACK_RIGS_AND_PLUGIN/SPEC.md): D6
+- [2026_10_26_PROFILER_AND_LOG_ADOPTION](../../agent/2026_10_26_PROFILER_AND_LOG_ADOPTION/SPEC.md): DP
 <!-- work:end -->
 
 ## Open questions

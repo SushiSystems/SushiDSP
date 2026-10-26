@@ -33,6 +33,7 @@
 #include <cstring>
 
 #include <SushiDSP/foundation/core/node_descriptor.hpp>
+#include <SushiDSP/foundation/core/parameter_report.hpp>
 
 namespace SushiDSP
 {
@@ -69,7 +70,7 @@ namespace SushiDSP
             /// @brief Writes a parameter found by its id. Control thread only: the lookup compares
             /// strings.
             /// @param node The node to write to.
-            /// @param id The parameter's id; an unrecognised id is a no-op.
+            /// @param id The parameter's id; an unrecognised id is a no-op that logs one WARN.
             /// @param value The value to write.
             void write(Node& node, const char* id, float value) const
             {
@@ -77,7 +78,9 @@ namespace SushiDSP
                 if (index < K_COUNT)
                 {
                     rows_[index].write(node, value);
+                    return;
                 }
+                report_unknown_parameter(id, value);
             }
 
             /// @brief Writes a parameter by index. Audio-thread safe: an index is a subscript.

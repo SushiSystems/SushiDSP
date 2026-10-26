@@ -36,7 +36,7 @@ namespace
         "MesaMark2c",
         []
         {
-            SushiDSP::bench::print(SushiDSP::bench::measure_node<SushiDSP::MesaMark2c>(
+            SushiDSP::bench::report(SushiDSP::bench::measure_node<SushiDSP::MesaMark2c>(
                                        "MesaMark2c (no cabinet)",
                                        [](SushiDSP::MesaMark2c& node)
                                        {
@@ -46,6 +46,6 @@ namespace
                                         node.set_parameter_for_control_thread("treble", 0.7f);
                                         node.set_parameter_for_control_thread("presence", 0.5f);
                                        }),
-                                   1.5);
+                                   1.5, "nodes/mesa_mark2c/mesa_mark2c.checks.json", "KI-2");
         }};
 } // namespace

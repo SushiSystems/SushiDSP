@@ -27,22 +27,41 @@
 
 #pragma once
 
+#include <SushiDSP/foundation/log/log.hpp>
+
+#include "plugin_log_category.hpp"
+
+#include <exception>
 #include <utility>
 
 namespace SushiDSP::Plugin
 {
-    /// @brief Runs a call and turns any exception it throws into the callback's failure value.
+    /// @brief Runs a call and turns any exception it throws into the callback's failure value,
+    /// after writing one ERROR that names the callback and what was thrown.
+    /// @param callback The name of the CLAP callback, such as "state.load".
     /// @param fallback The value the C callback returns when the call throws.
     /// @param call The work of one control-thread callback.
     /// @return The call's own result, or fallback.
-    template <typename Result, typename Call> Result guarded(Result fallback, Call&& call) noexcept
+    template <typename Result, typename Call>
+    Result guarded(const char* callback, Result fallback, Call&& call) noexcept
     {
         try
         {
             return std::forward<Call>(call)();
         }
+        catch (const std::exception& error)
+        {
+            SD_LOG_ERROR(K_PLUGIN_LOG_CATEGORY,
+                         "the {} callback threw '{}'; it returns its failure value", callback,
+                         error.what());
+            return fallback;
+        }
         catch (...)
         {
+            SD_LOG_ERROR(K_PLUGIN_LOG_CATEGORY,
+                         "the {} callback threw something that is not a std::exception; it "
+                         "returns its failure value",
+                         callback);
             return fallback;
         }
     }

@@ -32,12 +32,17 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/benchmark_harness/reference_tone.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
+#include <SushiDSP/foundation/profile/profile_run.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/foundation/math/biquad.hpp>
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 
@@ -651,4 +656,68 @@ TEST(Small_TubeScreamer, TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicki
     const double still = largest_first_difference(false);
     const double swept = largest_first_difference(true);
     EXPECT_LT(swept, still * 2.0) << "swept " << swept << ", still " << still;
+}
+
+TEST(Small_TubeScreamer, TubeScreamerPrepareThrowsAndLogsOneErrorWhenTheDerivationFails)
+{
+    SushiDSP::TubeScreamer node;
+    SushiDSP::PrepareInfo info{0.0, 256, 1};
+
+    SushiDSP::LogCapture capture;
+    EXPECT_THROW(node.prepare(info), std::runtime_error);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
+    EXPECT_EQ(lines[0].category, "tubescreamer");
+    EXPECT_NE(lines[0].message.find("prepare() throws"), std::string::npos) << lines[0].message;
+}
+
+TEST(Medium_TubeScreamer, TubeScreamerClipStageNeverFallsBackOrCapsOverTheReferenceTone)
+{
+    // Bounds from docs/design/SUSHIDSP/DSP_MATH_LIBRARY.md: 0.01 %, no fallback, eight iterations.
+    constexpr double K_MAX_NON_CONVERGED_SHARE = 0.0001;
+    constexpr double K_ITERATION_CAP = 8.0;
+    SushiDSP::TubeScreamer node;
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
+    node.set_drive(0.7f);
+    node.set_tone(0.5f);
+    node.set_level(0.0f);
+    const std::vector<float> input = SushiDSP::bench::reference_tone(256);
+    std::vector<float> output(256, 0.0f);
+    const float* inputs[1] = {input.data()};
+    float* outputs[1] = {output.data()};
+
+    const SushiDSP::profile::ProfiledRun run = SushiDSP::profile::run_profiled(
+        SushiDSP::profile::names::K_BENCH_TIMELINE, 4, 40, 0U,
+        [&]
+        {
+            SushiDSP::ProcessContext context{outputs, inputs, 256, 0.0};
+            node.process(context);
+        });
+    if (!run.start.started())
+        GTEST_SKIP() << "this build records nothing";
+
+    const SushiDSP::profile::ProfileSubject* const solves = run.record.find("counter:solver.solves");
+    const SushiDSP::profile::ProfileSubject* const non_converged =
+        run.record.find("counter:solver.non_converged");
+    const SushiDSP::profile::ProfileSubject* const fallbacks =
+        run.record.find("counter:solver.nan_fallback");
+    const SushiDSP::profile::ProfileSubject* const worst =
+        run.record.find("counter:solver.worst_iterations");
+    ASSERT_NE(solves, nullptr);
+    ASSERT_NE(non_converged, nullptr);
+    ASSERT_NE(fallbacks, nullptr);
+    ASSERT_NE(worst, nullptr);
+    double total_solves = 0.0;
+    double total_non_converged = 0.0;
+    for (std::size_t period = 0; period < solves->samples.size(); ++period)
+    {
+        total_solves += solves->samples[period];
+        total_non_converged += non_converged->samples[period];
+        EXPECT_DOUBLE_EQ(fallbacks->samples[period], 0.0) << "period " << period;
+        EXPECT_LE(worst->samples[period], K_ITERATION_CAP) << "period " << period;
+    }
+    EXPECT_GT(total_solves, 0.0);
+    EXPECT_LE(total_non_converged, K_MAX_NON_CONVERGED_SHARE * total_solves);
 }

@@ -30,9 +30,13 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
+#include <string>
 
 #include <SushiDSP/nodes/capture/transport.hpp>
 #include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/profile_runtime.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 
 void SessionRenderer::prepare(std::uint32_t max_block_frames)
 {
@@ -40,6 +44,15 @@ void SessionRenderer::prepare(std::uint32_t max_block_frames)
     input_.assign(static_cast<std::size_t>(K_CHANNELS) * max_block_frames, 0.0f);
     rig_out_.assign(static_cast<std::size_t>(K_CHANNELS) * max_block_frames, 0.0f);
     dry_.assign(max_block_frames, 0.0f);
+    for (std::size_t index = 0; index < track_lanes_.size(); ++index)
+    {
+        track_lanes_[index] = SushiDSP::profile::intern_name("track." + std::to_string(index));
+    }
+}
+
+const SessionRenderer::Counters& SessionRenderer::counters() const noexcept
+{
+    return counters_;
 }
 
 float* SessionRenderer::channel(std::vector<float>& bus, std::uint32_t index) noexcept
@@ -50,6 +63,12 @@ float* SessionRenderer::channel(std::vector<float>& bus, std::uint32_t index) no
 void SessionRenderer::render(Session& session, const float* const* live, float* const* outputs,
                              std::uint32_t frames) noexcept
 {
+    SD_ZONE_GROUP(SushiDSP::profile::names::K_PROCESS_ZONE,
+                  SushiDSP::profile::names::K_SESSION_GROUP);
+    if (frames > max_block_)
+    {
+        counters_.cut_block.note(frames);
+    }
     frames = std::min(frames, max_block_);
     const std::size_t bytes = static_cast<std::size_t>(frames) * sizeof(float);
     for (std::uint32_t index = 0; index < K_CHANNELS; ++index)
@@ -77,6 +96,7 @@ void SessionRenderer::render(Session& session, const float* const* live, float* 
         {
             continue;
         }
+        SD_LANE(track_lanes_[index]);
 
         for (std::uint32_t side = 0; side < K_CHANNELS; ++side)
         {
@@ -91,6 +111,8 @@ void SessionRenderer::render(Session& session, const float* const* live, float* 
         }
         if (rolling)
         {
+            SD_ZONE_GROUP(SushiDSP::profile::names::K_SESSION_LANE_ZONE,
+                          SushiDSP::profile::names::K_SESSION_GROUP);
             timeline.player().process_lane(index, input, K_CHANNELS, frames, transport);
         }
 
@@ -100,6 +122,8 @@ void SessionRenderer::render(Session& session, const float* const* live, float* 
                                  graph != nullptr && !graph->is_empty();
         if (through_rig)
         {
+            SD_ZONE_GROUP(SushiDSP::profile::names::K_SESSION_RIG_ZONE,
+                          SushiDSP::profile::names::K_SESSION_GROUP);
             SushiDSP::ProcessContext context{rig_out, input_const, frames, 0.0};
             graph->process(context);
             // A rig prepared for one channel writes one; it is heard on both sides.
@@ -110,6 +134,8 @@ void SessionRenderer::render(Session& session, const float* const* live, float* 
             heard = rig_out;
         }
 
+        SD_ZONE_GROUP(SushiDSP::profile::names::K_SESSION_MIX_ZONE,
+                      SushiDSP::profile::names::K_SESSION_GROUP);
         const float gains[K_CHANNELS] = {track.gain_left.load(std::memory_order_acquire),
                                          track.gain_right.load(std::memory_order_acquire)};
         for (std::uint32_t side = 0; side < K_CHANNELS; ++side)
@@ -127,6 +153,8 @@ void SessionRenderer::render(Session& session, const float* const* live, float* 
     SushiDSP::RecordingBus& bus = timeline.recording_bus();
     if (bus.is_recording())
     {
+        SD_ZONE_GROUP(SushiDSP::profile::names::K_SESSION_RECORDER_ZONE,
+                      SushiDSP::profile::names::K_SESSION_GROUP);
         // The dry leg is what was played, so the armed track's rig renders it again on playback.
         if (live != nullptr)
         {
@@ -141,7 +169,12 @@ void SessionRenderer::render(Session& session, const float* const* live, float* 
     }
 
     // The click is added after both recorder legs; see applications/host_gui/README.md.
-    timeline.metronome().process(outputs, K_CHANNELS, frames, transport, timeline.musical_clock());
+    {
+        SD_ZONE_GROUP(SushiDSP::profile::names::K_SESSION_METRONOME_ZONE,
+                      SushiDSP::profile::names::K_SESSION_GROUP);
+        timeline.metronome().process(outputs, K_CHANNELS, frames, transport,
+                                     timeline.musical_clock());
+    }
     if (rolling)
     {
         transport.advance(frames);

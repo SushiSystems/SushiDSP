@@ -94,6 +94,7 @@ namespace
         []
         {
             // 256 frames at 48 kHz leave the audio thread 5.33 ms for everything in the block.
-            SushiDSP::bench::print(measure_eight_track_mix(), 5.33);
+            SushiDSP::bench::report(measure_eight_track_mix(), 5.33,
+                                    "nodes/capture/track_player.checks.json");
         }};
 } // namespace

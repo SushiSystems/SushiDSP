@@ -36,6 +36,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include <SushiDSP/foundation/log/log.hpp>
+
+#include "host_gui_log_category.hpp"
+
 namespace
 {
     /// @brief Writes a strip as a JSON object.
@@ -171,6 +175,9 @@ bool load_track_rig(Session& session, std::size_t index, const std::string& path
     catch (const std::exception& refusal)
     {
         error_out = refusal.what();
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY,
+                     "rig preset '{}' for track {} was refused: {}; the track keeps its rig", path,
+                     index, error_out);
         return false;
     }
     session.set_preset_path(index, path);
@@ -194,6 +201,9 @@ bool save_track_rig(Session& session, std::size_t index, const std::string& path
     catch (const std::exception& refusal)
     {
         error_out = refusal.what();
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY,
+                     "the rig of track {} could not be serialized for '{}': {}; no file is written",
+                     index, path, error_out);
         return false;
     }
     if (!write_text_file(path, text, error_out))
@@ -210,6 +220,7 @@ bool read_text_file(const std::string& path, std::string& text_out, std::string&
     if (!in)
     {
         error_out = "Cannot open " + path + ".";
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY, "'{}' could not be opened for reading", path);
         return false;
     }
     std::ostringstream buffer;
@@ -224,6 +235,7 @@ bool write_text_file(const std::string& path, const std::string& text, std::stri
     if (!out)
     {
         error_out = "Cannot write " + path + ".";
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY, "'{}' could not be opened for writing", path);
         return false;
     }
     out << text;

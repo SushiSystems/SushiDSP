@@ -35,10 +35,11 @@ namespace
     class SingleSlotCabinetHost final : public SushiDSP::CabinetHost
     {
         public:
-            bool set_cabinet(SushiDSP::Ir impulse_response) override
+            SushiDSP::CabinetStatus set_cabinet(SushiDSP::Ir impulse_response) override
             {
                 loaded_ = !impulse_response.samples.empty();
-                return loaded_;
+                return loaded_ ? SushiDSP::CabinetStatus::Installed
+                               : SushiDSP::CabinetStatus::EmptyImpulseResponse;
             }
 
             void reclaim_cabinets() override
@@ -59,7 +60,7 @@ namespace
 TEST(Small_CabinetHost, RefusesAnEmptyImpulseResponse)
 {
     SingleSlotCabinetHost host;
-    EXPECT_FALSE(host.set_cabinet(SushiDSP::Ir{}));
+    EXPECT_EQ(host.set_cabinet(SushiDSP::Ir{}), SushiDSP::CabinetStatus::EmptyImpulseResponse);
     EXPECT_FALSE(host.has_cabinet());
 }
 
@@ -69,7 +70,7 @@ TEST(Small_CabinetHost, AcceptsANonEmptyImpulseResponse)
     SushiDSP::Ir ir;
     ir.samples = {1.0f, 0.5f};
     ir.sample_rate = 48000.0;
-    EXPECT_TRUE(host.set_cabinet(ir));
+    EXPECT_EQ(host.set_cabinet(ir), SushiDSP::CabinetStatus::Installed);
     EXPECT_TRUE(host.has_cabinet());
 }
 
@@ -78,7 +79,16 @@ TEST(Small_CabinetHost, ReclaimLeavesNoCabinetLoaded)
     SingleSlotCabinetHost host;
     SushiDSP::Ir ir;
     ir.samples = {1.0f};
-    host.set_cabinet(ir);
+    static_cast<void>(host.set_cabinet(ir));
     host.reclaim_cabinets();
     EXPECT_FALSE(host.has_cabinet());
+}
+
+TEST(Small_CabinetHost, EachStatusHasItsOwnText)
+{
+    EXPECT_STREQ(SushiDSP::cabinet_status_text(SushiDSP::CabinetStatus::Installed), "installed");
+    EXPECT_STRNE(SushiDSP::cabinet_status_text(SushiDSP::CabinetStatus::EmptyImpulseResponse),
+                 SushiDSP::cabinet_status_text(SushiDSP::CabinetStatus::NotPrepared));
+    EXPECT_STRNE(SushiDSP::cabinet_status_text(SushiDSP::CabinetStatus::NotPrepared),
+                 SushiDSP::cabinet_status_text(SushiDSP::CabinetStatus::SampleRateMismatch));
 }

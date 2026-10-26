@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <iostream>
 #include <cstring>
 #include <memory>
 #include <stdexcept>
@@ -36,6 +37,12 @@
 #include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
 #include <SushiDSP/foundation/core/rig_graph.hpp>
 #include <SushiDSP/foundation/device/asio_audio_device.hpp>
+#include <SushiDSP/foundation/core/core_counter_report.hpp>
+#include <SushiDSP/foundation/core/counter_poll_thread.hpp>
+#include <SushiDSP/foundation/device/device_counter_report.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/profile_session.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/foundation/audio_format/channel_selection.hpp>
 #include <SushiDSP/foundation/io/ir_loader.hpp>
 #include <SushiDSP/nodes/jcm800/jcm800.hpp>
@@ -199,9 +206,12 @@ int main(int argc, char** argv)
     if (has_cabinet)
     {
         auto* const cabinet_node = static_cast<SushiDSP::CabinetNode*>(rig.node(cabinet_handle));
-        if (!cabinet_node->set_cabinet(SushiDSP::Ir{cabinet_ir, actual.sample_rate}))
+        const SushiDSP::CabinetStatus cabinet_status =
+            cabinet_node->set_cabinet(SushiDSP::Ir{cabinet_ir, actual.sample_rate});
+        if (cabinet_status != SushiDSP::CabinetStatus::Installed)
         {
-            std::fprintf(stderr, "Cabinet IR did not install (rate mismatch or empty IR).\n");
+            std::fprintf(stderr, "Cabinet IR did not install: %s.\n",
+                         SushiDSP::cabinet_status_text(cabinet_status));
         }
     }
 
@@ -225,11 +235,32 @@ int main(int argc, char** argv)
         rig_output_const_pointers[channel] = rig_output_pointers[channel];
     }
 
+    // SD_PROFILE_CONFIG names a profiler configuration; without it nothing is recorded.
+    SushiDSP::profile::ProfileSession profiling(std::cout);
+    const SushiDSP::profile::ProfileStart profile_start = profiling.start_from_environment();
+    if (!profile_start.started() &&
+        profile_start.status != SushiDSP::profile::ProfileStartStatus::NotRequested)
+    {
+        std::fprintf(stderr, "Profiling did not start: %s\n", profile_start.message.c_str());
+    }
+
+    SushiDSP::DeviceCounterReport device_report;
+    device_report.add_device(*device);
+    SushiDSP::CoreCounterReport core_report;
+    SushiDSP::CounterPollThread counter_poller(
+        [&]
+        {
+            device_report.poll();
+            core_report.poll();
+        });
+
     device->start(
         [&rig, &rig_output_pointers, &rig_output_const_pointers, rig_channels, input_index,
          output_selection, device_output_channels](const float* const* inputs,
                                                    float* const* outputs, std::uint32_t frames)
         {
+            SD_ZONE_GROUP(SushiDSP::profile::names::K_PROCESS_ZONE,
+                          SushiDSP::profile::names::K_SESSION_GROUP);
             const float* selected_input[1] = {inputs[input_index]};
             SushiDSP::ProcessContext context{rig_output_pointers.data(), selected_input, frames,
                                              0.0};
@@ -244,6 +275,7 @@ int main(int argc, char** argv)
     std::getchar();
 
     device->stop();
+    static_cast<void>(profiling.finish());
     std::printf("Stopped.\n");
 
     return 0;

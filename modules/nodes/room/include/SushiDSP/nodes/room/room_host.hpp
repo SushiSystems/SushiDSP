@@ -44,6 +44,32 @@ namespace SushiDSP::room
         Measured
     };
 
+    /// @brief Names how RoomHost::set_hrtf ended.
+    enum class HrtfStatus : std::uint8_t
+    {
+        Installed,          /**< The set, or the spherical-head fallback, is in place. */
+        SampleRateMismatch, /**< The set's rate differs from the node's; nothing changed. */
+        DecoderRefused,     /**< The binaural decoder could not be prepared from the set. */
+        PublishRefused      /**< The render set could not be rebuilt; the previous set is back. */
+    };
+
+    /// @brief Returns a sentence fragment naming why @p status refused a set, or "installed".
+    [[nodiscard]] inline const char* hrtf_status_text(HrtfStatus status) noexcept
+    {
+        switch (status)
+        {
+        case HrtfStatus::Installed:
+            return "installed";
+        case HrtfStatus::SampleRateMismatch:
+            return "the set's sample rate differs from the node's";
+        case HrtfStatus::DecoderRefused:
+            return "the binaural decoder could not be prepared from the set";
+        case HrtfStatus::PublishRefused:
+            return "the render set could not be rebuilt with the set";
+        }
+        return "unknown";
+    }
+
     /// @brief A node that renders a room and takes its arrangement and its HRTF from a host. A
     /// host discovers it with dynamic_cast<RoomHost*> on an AudioNode, as it does with
     /// CabinetHost, so no host names a concrete room type. Spec §5.2 and §9.2.
@@ -76,8 +102,9 @@ namespace SushiDSP::room
 
             /// @brief Installs a measured set and republishes. An empty set restores the
             /// spherical-head fallback. Control thread only.
-            /// @return False when the set is refused and the previous set stays in place.
-            virtual bool set_hrtf(HrtfSet set) = 0;
+            /// @return Installed, or the reason the set is refused, and then the previous set stays
+            /// in place.
+            [[nodiscard]] virtual HrtfStatus set_hrtf(HrtfSet set) = 0;
 
             /// @brief Returns where the set in place came from.
             virtual HrtfSource hrtf_source() const = 0;

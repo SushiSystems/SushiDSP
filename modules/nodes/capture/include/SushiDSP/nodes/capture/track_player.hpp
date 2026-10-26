@@ -38,6 +38,8 @@
 #include <SushiDSP/nodes/capture/track_timeline.hpp>
 #include <SushiDSP/nodes/capture/transport.hpp>
 #include <SushiDSP/nodes/capture/vari_rate_reader.hpp>
+#include <SushiDSP/foundation/core/rt_counter.hpp>
+#include <SushiDSP/foundation/core/rt_counter_report.hpp>
 #include <SushiDSP/foundation/core/rt_swap_slot.hpp>
 
 namespace SushiDSP
@@ -59,6 +61,25 @@ namespace SushiDSP
 
             /// @brief Marks the playback speed at which a clip is copied rather than converted.
             static constexpr std::uint64_t K_UNITY_SPEED_Q32 = 1ull << 32;
+
+            /// @brief Holds what the audio thread counts instead of logging.
+            struct Counters
+            {
+                    /// @brief Calls that arrived with no output buffer or no channel and wrote
+                    /// nothing.
+                    RtCounter empty_call;
+
+                    /// @brief Blocks played at unity speed because they were longer than the
+                    /// prepared size, or because the transport's speed was 0.
+                    RtCounter forced_unity_speed;
+
+                    /// @brief Adds both counters to @p reporter under their names.
+                    void add_to(RtCounterReporter& reporter) const
+                    {
+                        reporter.add("player_empty_call", empty_call);
+                        reporter.add("player_forced_unity_speed", forced_unity_speed);
+                    }
+            };
 
             TrackPlayer() = default;
 
@@ -147,6 +168,9 @@ namespace SushiDSP
             /// @param index Track index.
             /// @return True when the track is soloed; false for an index out of range.
             bool soloed(std::size_t index) const;
+
+            /// @brief Returns what the audio thread counted; read it on the control thread.
+            [[nodiscard]] const Counters& counters() const noexcept;
 
         private:
             /// @brief One lane's clips, its speed converter and its four mix controls.
@@ -271,6 +295,9 @@ namespace SushiDSP
 
             /// @brief Holds every lane's clips, converter and mix controls.
             std::array<Track, K_MAX_TRACKS> tracks_;
+
+            /// @brief Holds what the audio thread counted.
+            Counters counters_;
 
             /// @brief Receives one converted run before it is mixed, so no lane allocates.
             std::array<std::array<float, K_MAX_BLOCK_FRAMES>, 2> scratch_{};

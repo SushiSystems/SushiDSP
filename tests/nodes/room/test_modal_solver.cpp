@@ -33,8 +33,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
 #include <SushiDSP/nodes/room/band_response.hpp>
 #include <SushiDSP/nodes/room/cabinet_directivity.hpp>
@@ -666,4 +668,33 @@ TEST(Small_ModalSolver, ModalSolverAddsTheFurnishingDampingToEveryMode)
     EXPECT_TRUE(below_low_band);
     EXPECT_TRUE(between_bands);
     EXPECT_TRUE(above_high_band);
+}
+
+TEST(Small_ModalSolverLogging, DesignWarnsOnceWhenTheModesOverflowAndTheCrossoverMovesDown)
+{
+    const SushiDSP::room::RoomScene room = small_concrete_room();
+
+    SushiDSP::LogCapture capture;
+    const auto design =
+        std::make_unique<SushiDSP::room::ModalDesign>(SushiDSP::room::ModalSolver::design(
+            room, K_SAMPLE_RATE, 900.0, SushiDSP::room::ListenerKind::Ears));
+
+    EXPECT_EQ(design->count, SushiDSP::room::ModalDesign::K_MAX_MODES);
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[0].category, "room");
+    EXPECT_NE(lines[0].message.find("the design holds 512"), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_ModalSolverLogging, DesignWritesNothingWhenEveryModeFits)
+{
+    SushiDSP::LogCapture capture;
+    const auto design =
+        std::make_unique<SushiDSP::room::ModalDesign>(SushiDSP::room::ModalSolver::design(
+            SushiDSP::test::garage_scene(), K_SAMPLE_RATE, 120.0,
+            SushiDSP::room::ListenerKind::Ears));
+
+    EXPECT_LT(design->count, SushiDSP::room::ModalDesign::K_MAX_MODES);
+    EXPECT_TRUE(capture.lines().empty());
 }

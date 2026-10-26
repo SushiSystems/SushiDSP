@@ -38,6 +38,8 @@
 #include <SushiDSP/foundation/core/denormal_guard.hpp>
 #include <SushiDSP/foundation/log/log.hpp>
 #include <SushiDSP/foundation/math/streaming_convolution.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/nodes/room/eyring_decay.hpp>
 #include <SushiDSP/nodes/room/room_log_category.hpp>
 #include <SushiDSP/nodes/room/starter_scene.hpp>
@@ -127,7 +129,20 @@ namespace SushiDSP::room
         reset();
 
         std::string reason;
-        publish(reason);
+        if (!publish(reason))
+        {
+            SD_LOG_ERROR(K_ROOM_LOG_CATEGORY,
+                         "prepare() could not publish the first render set: {}; the node renders "
+                         "silence until a publish succeeds",
+                         reason);
+        }
+    }
+
+    RoomNode::Counters RoomNode::counters_;
+
+    const RoomNode::Counters& RoomNode::counters() noexcept
+    {
+        return counters_;
     }
 
     void RoomNode::process(ProcessContext& context)
@@ -140,6 +155,7 @@ namespace SushiDSP::room
         BinauralDecoder* const decoder = head_.acquire_decoder();
         if (set == nullptr)
         {
+            counters_.no_render_set.increment();
             write_silence(context, frames);
             return;
         }
@@ -160,8 +176,14 @@ namespace SushiDSP::room
                 context.inputs != nullptr ? context.inputs[K_SLOT_CHANNELS * source] : nullptr;
             stage.apply_pending_when_due(window);
             stage.write_input(input, frames);
-            stage.render_tail(frames);
-            stage.render_modal(frames, window);
+            {
+                SD_ZONE_GROUP(profile::names::K_ROOM_TAIL_ZONE, profile::names::K_ROOM_GROUP);
+                stage.render_tail(frames);
+            }
+            {
+                SD_ZONE_GROUP(profile::names::K_ROOM_MODAL_ZONE, profile::names::K_ROOM_GROUP);
+                stage.render_modal(frames, window);
+            }
         }
 
         const bool has_ports = context.port_outputs != nullptr;
@@ -175,31 +197,42 @@ namespace SushiDSP::room
         {
             Room::SourceStage& stage = stages.sources[source];
             Room::PairStage& pair = stages.pairs[source][0];
-            pair.render(stage.ring(), stage.tail_ring(0), stage.tail_ring(1), frames, window);
+            {
+                SD_ZONE_GROUP(profile::names::K_ROOM_PAIR_ZONE, profile::names::K_ROOM_GROUP);
+                pair.render(stage.ring(), stage.tail_ring(0), stage.tail_ring(1), frames, window);
+            }
             stages.ears.add(pair, stage.modal(0), stage.modal(1), frames);
         }
-        stages.ears.finish(decoder, left, right, frames);
-
-        for (std::uint32_t microphone = 0; microphone < K_MAX_MICROPHONES; ++microphone)
         {
-            // With no port table a microphone still renders, so its state is current for a graph.
-            float* const output =
-                has_ports ? context.port_outputs[microphone_port(microphone)][0] : scratch_.data();
-            if (microphone >= microphone_count_)
+            SD_ZONE_GROUP(profile::names::K_ROOM_EARS_ZONE, profile::names::K_ROOM_GROUP);
+            stages.ears.finish(decoder, left, right, frames);
+        }
+
+        {
+            SD_ZONE_GROUP(profile::names::K_ROOM_MICROPHONES_ZONE, profile::names::K_ROOM_GROUP);
+            for (std::uint32_t microphone = 0; microphone < K_MAX_MICROPHONES; ++microphone)
             {
-                std::fill_n(output, frames, 0.0f);
-                continue;
+                // With no port table a microphone still renders, so its state stays current.
+                float* const output = has_ports
+                                          ? context.port_outputs[microphone_port(microphone)][0]
+                                          : scratch_.data();
+                if (microphone >= microphone_count_)
+                {
+                    std::fill_n(output, frames, 0.0f);
+                    continue;
+                }
+                Room::MicrophoneOutput& sum = stages.microphones[microphone];
+                sum.begin();
+                for (std::uint32_t source = 0; source < source_count_; ++source)
+                {
+                    Room::SourceStage& stage = stages.sources[source];
+                    Room::PairStage& pair = stages.pairs[source][1u + microphone];
+                    pair.render(stage.ring(), stage.tail_ring(0), stage.tail_ring(1), frames,
+                                window);
+                    sum.add(pair, stage.modal(2u + microphone), frames);
+                }
+                sum.finish(output, frames);
             }
-            Room::MicrophoneOutput& sum = stages.microphones[microphone];
-            sum.begin();
-            for (std::uint32_t source = 0; source < source_count_; ++source)
-            {
-                Room::SourceStage& stage = stages.sources[source];
-                Room::PairStage& pair = stages.pairs[source][1u + microphone];
-                pair.render(stage.ring(), stage.tail_ring(0), stage.tail_ring(1), frames, window);
-                sum.add(pair, stage.modal(2u + microphone), frames);
-            }
-            sum.finish(output, frames);
         }
 
         fade_remaining_ -= window.fading;
@@ -336,7 +369,13 @@ namespace SushiDSP::room
         if (prepared_ && delay_moved)
         {
             std::string reason;
-            publish(reason);
+            if (!publish(reason))
+            {
+                SD_LOG_ERROR(K_ROOM_LOG_CATEGORY,
+                             "the direct delay change could not be published: {}; the previous "
+                             "render set keeps playing",
+                             reason);
+            }
         }
     }
 
@@ -444,7 +483,7 @@ namespace SushiDSP::room
         return scene;
     }
 
-    bool RoomNode::set_hrtf(HrtfSet set)
+    HrtfStatus RoomNode::set_hrtf(HrtfSet set)
     {
         if (set.empty())
         {
@@ -455,13 +494,23 @@ namespace SushiDSP::room
                 head_.publish_decoder(sample_rate_, max_block_);
                 builder_.invalidate();
                 std::string reason;
-                publish(reason);
+                if (!publish(reason))
+                {
+                    SD_LOG_WARN(K_ROOM_LOG_CATEGORY,
+                                "the spherical head is back but its render set could not be "
+                                "published: {}; the previous render set keeps playing",
+                                reason);
+                }
             }
-            return true;
+            return HrtfStatus::Installed;
         }
         if (prepared_ && set.sample_rate() != sample_rate_)
         {
-            return false;
+            SD_LOG_WARN(K_ROOM_LOG_CATEGORY,
+                        "set_hrtf() refused a set at {} Hz for a node at {} Hz; the HRTF in place "
+                        "stays",
+                        set.sample_rate(), sample_rate_);
+            return HrtfStatus::SampleRateMismatch;
         }
         // A set the decoder refuses is refused whole, before anything in place is touched.
         std::unique_ptr<BinauralDecoder> decoder;
@@ -478,7 +527,7 @@ namespace SushiDSP::room
                              "set_hrtf() could not prepare a decoder for the set of {} directions "
                              "at {} Hz: {}; the set is refused and the HRTF in place stays",
                              set.direction_count(), sample_rate_, error.what());
-                return false;
+                return HrtfStatus::DecoderRefused;
             }
         }
         HrtfSet previous = head_.take_hrtf();
@@ -489,15 +538,19 @@ namespace SushiDSP::room
         std::string reason;
         if (prepared_ && !publish(reason))
         {
+            SD_LOG_WARN(K_ROOM_LOG_CATEGORY,
+                        "set_hrtf() could not publish a render set with the new HRTF: {}; the "
+                        "previous HRTF is restored",
+                        reason);
             head_.set_hrtf(std::move(previous));
             head_.set_source(previous_source);
-            return false;
+            return HrtfStatus::PublishRefused;
         }
         if (decoder)
         {
             head_.publish_decoder(std::move(decoder));
         }
-        return true;
+        return HrtfStatus::Installed;
     }
 
     HrtfSource RoomNode::hrtf_source() const

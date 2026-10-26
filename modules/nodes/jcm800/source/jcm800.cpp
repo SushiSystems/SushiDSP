@@ -29,6 +29,9 @@
 
 #include <SushiDSP/foundation/circuits/audio_taper_pot.hpp>
 #include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
+#include <SushiDSP/foundation/core/node_counters.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/foundation/circuits/stages/miller_input_capacitance.hpp>
 #include <SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp>
 #include <SushiDSP/foundation/circuits/stages/power_tube_presets.hpp>
@@ -40,6 +43,8 @@
 
 namespace SushiDSP
 {
+    namespace regions = profile::names::jcm800;
+
     namespace
     {
         /// @brief EL34 as the JCM800 2203 runs it: the Philips EL34 datasheet's class B push-pull
@@ -314,41 +319,69 @@ namespace SushiDSP
         const float preamp_gain = preamp_attenuation(preamp);
         const float master_gain = master * Jcm800::K_MASTER_UNITY_GAIN;
 
-        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            scratch_base_[i] = bright_cap_.process_sample(input[i] * input_gain);
+            SD_ZONE_GROUP(regions::K_INPUT_ZONE, regions::K_GROUP);
+            for (std::uint32_t i = 0; i < frames; ++i)
+            {
+                scratch_base_[i] = bright_cap_.process_sample(input[i] * input_gain);
+            }
         }
 
-        const float* upsampled = oversampler_->upsample(scratch_base_.data(), frames);
-        for (std::uint32_t i = 0; i < oversampled_frames; ++i)
+        const float* upsampled = nullptr;
         {
-            const float v1a_out = v1a_.process_sample(upsampled[i]);
-            const float v1b_in = v1b_grid_miller_.process_sample(v1b_treble_peaker_.process_sample(
-                coupling_cap_.process_sample(v1a_out) * preamp_gain * K_V1B_TREBLE_PEAKER_DIVIDER));
-            const float v1b_out = v1b_.process_sample(v1b_in);
-            const float toned = v2a_grid_miller_.process_sample(
-                tone_stack_.process_sample(v1b_out) * K_TONE_STACK_INSERTION_LOSS);
-            const float phase_split =
-                v2a_.process_sample(toned) / K_PHASE_INVERTER.input_degeneration;
-            const float phase_inverted = phase_inverter_.process_sample(
-                phase_inverter_grid_miller_.process_sample(phase_split));
-            const float el34_a_out = el34_a_.process_sample(phase_inverted);
-            const float el34_b_out =
-                el34_b_.process_sample(-phase_inverted - power_tube_grid_bias_mismatch_volts_);
-            const float power_tube_out =
-                (el34_a_out - el34_b_out) * K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION;
-
-            // Both nonlinear stages stay in the 8x region; see modules/nodes/jcm800/README.md.
-            const float transformer_out = output_transformer_.process_sample(power_tube_out);
-            scratch_oversampled_[i] = sag_.process_sample(transformer_out);
+            SD_ZONE_GROUP(regions::K_UPSAMPLE_ZONE, regions::K_GROUP);
+            upsampled = oversampler_->upsample(scratch_base_.data(), frames);
         }
-        oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames,
-                                 scratch_base_.data());
-
-        // Presence and master run after the decimator; see modules/nodes/jcm800/README.md.
-        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]) * master_gain;
+            SD_ZONE_GROUP(regions::K_LOOP_ZONE, regions::K_GROUP);
+            for (std::uint32_t i = 0; i < oversampled_frames; ++i)
+            {
+                const float v1a_out = v1a_.process_sample(upsampled[i]);
+                const float v1b_in = v1b_grid_miller_.process_sample(
+                    v1b_treble_peaker_.process_sample(coupling_cap_.process_sample(v1a_out) *
+                                                      preamp_gain *
+                                                      K_V1B_TREBLE_PEAKER_DIVIDER));
+                const float v1b_out = v1b_.process_sample(v1b_in);
+                const float toned = v2a_grid_miller_.process_sample(
+                    tone_stack_.process_sample(v1b_out) * K_TONE_STACK_INSERTION_LOSS);
+                const float phase_split =
+                    v2a_.process_sample(toned) / K_PHASE_INVERTER.input_degeneration;
+                const float phase_inverted = phase_inverter_.process_sample(
+                    phase_inverter_grid_miller_.process_sample(phase_split));
+                const float el34_a_out = el34_a_.process_sample(phase_inverted);
+                const float el34_b_out =
+                    el34_b_.process_sample(-phase_inverted - power_tube_grid_bias_mismatch_volts_);
+                const float power_tube_out =
+                    (el34_a_out - el34_b_out) * K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION;
+
+                // Both nonlinear stages stay in the 8x region; see modules/nodes/jcm800/README.md.
+                const float transformer_out = output_transformer_.process_sample(power_tube_out);
+                scratch_oversampled_[i] = sag_.process_sample(transformer_out);
+            }
+        }
+        NewtonRaphsonSolver::Tally newton_tally;
+        v1a_.take_newton_tally(newton_tally);
+        v1b_.take_newton_tally(newton_tally);
+        v2a_.take_newton_tally(newton_tally);
+        phase_inverter_.take_newton_tally(newton_tally);
+        el34_a_.take_newton_tally(newton_tally);
+        el34_b_.take_newton_tally(newton_tally);
+        note_newton_solves(newton_tally.solves, newton_tally.iteration_caps,
+                           newton_tally.non_finite_steps,
+                           newton_tally.worst_iterations);
+        {
+            SD_ZONE_GROUP(regions::K_DOWNSAMPLE_ZONE, regions::K_GROUP);
+            oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames,
+                                     scratch_base_.data());
+        }
+
+        {
+            SD_ZONE_GROUP(regions::K_POST_ZONE, regions::K_GROUP);
+            // Presence and master run after the decimator; see modules/nodes/jcm800/README.md.
+            for (std::uint32_t i = 0; i < frames; ++i)
+            {
+                scratch_base_[i] = presence_shelf_.process_sample(scratch_base_[i]) * master_gain;
+            }
         }
 
         // Cabinet convolution is the sushidsp.cabinet node's; see modules/nodes/jcm800/README.md.
@@ -358,7 +391,10 @@ namespace SushiDSP
         }
 
         // The clamp is a safety rail for the DAC's range; see modules/nodes/jcm800/README.md.
-        apply_output_safety_clamp(output, frames, output_gain);
+        {
+            SD_ZONE_GROUP(regions::K_CLAMP_ZONE, regions::K_GROUP);
+            note_output_clamp(apply_output_safety_clamp(output, frames, output_gain));
+        }
     }
 
     std::uint32_t Jcm800::latency_samples() const

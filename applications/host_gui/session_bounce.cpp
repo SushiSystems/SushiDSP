@@ -36,7 +36,9 @@
 #include <vector>
 
 #include <SushiDSP/foundation/io/wav_writer.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
 #if defined(SUSHIDSP_HAVE_LAME)
+#include "host_gui_log_category.hpp"
 #include "mp3_encoder.hpp"
 #endif
 #include "session.hpp"
@@ -244,6 +246,8 @@ std::string SessionBounce::render(const BounceRequest& request, std::atomic<floa
     }
     catch (const std::exception& failure)
     {
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY, "the bounce failed: {}; the file is incomplete",
+                     failure.what());
         return failure.what();
     }
 }

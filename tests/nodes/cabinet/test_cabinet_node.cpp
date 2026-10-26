@@ -27,6 +27,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -34,6 +35,7 @@
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
 #include <SushiDSP/foundation/io/ir.hpp>
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -80,7 +82,8 @@ TEST(Small_CabinetNode, CabinetNodeInstallsAndAppliesAnImpulseResponse)
     node.prepare(info);
 
     EXPECT_FALSE(node.has_cabinet());
-    EXPECT_TRUE(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}));
+    EXPECT_EQ(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}),
+              SushiDSP::CabinetStatus::Installed);
     EXPECT_TRUE(node.has_cabinet());
     node.reclaim_cabinets();
 
@@ -107,7 +110,8 @@ TEST(Small_CabinetNode, CabinetNodeSurvivesVariableBlockSizes)
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{48000.0, 512, 1};
     node.prepare(info);
-    ASSERT_TRUE(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}));
+    ASSERT_EQ(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}),
+              SushiDSP::CabinetStatus::Installed);
     node.reclaim_cabinets();
 
     std::vector<float> input(512);
@@ -143,7 +147,8 @@ TEST(Small_CabinetNode, CabinetNodeRejectsAnImpulseResponseAtTheWrongSampleRate)
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
 
-    EXPECT_FALSE(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 44100.0}));
+    EXPECT_EQ(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 44100.0}),
+              SushiDSP::CabinetStatus::SampleRateMismatch);
     EXPECT_FALSE(node.has_cabinet());
 }
 
@@ -151,7 +156,8 @@ TEST(Small_CabinetNode, CabinetNodeRejectsAnImpulseResponseBeforePrepare)
 {
     SushiDSP::CabinetNode node;
 
-    EXPECT_FALSE(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}));
+    EXPECT_EQ(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}),
+              SushiDSP::CabinetStatus::NotPrepared);
     EXPECT_FALSE(node.has_cabinet());
 }
 
@@ -182,7 +188,8 @@ TEST(Small_CabinetNode, ProcessPerformsNoHeapAllocationWithCabinet)
     SushiDSP::CabinetNode node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     node.prepare(info);
-    ASSERT_TRUE(node.set_cabinet(SushiDSP::Ir{impulse_response, 48000.0}));
+    ASSERT_EQ(node.set_cabinet(SushiDSP::Ir{impulse_response, 48000.0}),
+              SushiDSP::CabinetStatus::Installed);
 
     std::vector<float> input(256);
     for (std::size_t i = 0; i < input.size(); ++i)
@@ -233,7 +240,7 @@ TEST(Small_CabinetNode, SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
     for (int block = 0; block < 4; ++block)
     {
         impulse_response.samples[0] = 1.0f - 0.1f * static_cast<float>(block);
-        ASSERT_TRUE(node.set_cabinet(impulse_response));
+        ASSERT_EQ(node.set_cabinet(impulse_response), SushiDSP::CabinetStatus::Installed);
         ASSERT_TRUE(node.has_cabinet());
 
         trap.arm();
@@ -245,4 +252,59 @@ TEST(Small_CabinetNode, SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
     EXPECT_EQ(trap.count(), 0);
 
     node.reclaim_cabinets();
+}
+
+TEST(Small_CabinetNodeStatus, AnEmptyImpulseResponseIsRefusedWithItsOwnStatusAndOneWarn)
+{
+    SushiDSP::CabinetNode node;
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
+
+    SushiDSP::LogCapture capture;
+    EXPECT_EQ(node.set_cabinet(SushiDSP::Ir{}), SushiDSP::CabinetStatus::EmptyImpulseResponse);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[0].category, "cabinet");
+    EXPECT_NE(lines[0].message.find("no samples"), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_CabinetNodeStatus, ARateMismatchWritesOneWarnNamingBothRates)
+{
+    SushiDSP::CabinetNode node;
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
+
+    SushiDSP::LogCapture capture;
+    EXPECT_EQ(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 44100.0}),
+              SushiDSP::CabinetStatus::SampleRateMismatch);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_NE(lines[0].message.find("44100"), std::string::npos) << lines[0].message;
+    EXPECT_NE(lines[0].message.find("48000"), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_CabinetNodeStatus, AnUnpreparedNodeWritesOneWarnNamingTheCause)
+{
+    SushiDSP::CabinetNode node;
+
+    SushiDSP::LogCapture capture;
+    EXPECT_EQ(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}),
+              SushiDSP::CabinetStatus::NotPrepared);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_NE(lines[0].message.find("not prepared"), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_CabinetNodeStatus, AnInstalledCabinetWritesNothing)
+{
+    SushiDSP::CabinetNode node;
+    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
+
+    SushiDSP::LogCapture capture;
+    EXPECT_EQ(node.set_cabinet(SushiDSP::Ir{make_identity_impulse_response(), 48000.0}),
+              SushiDSP::CabinetStatus::Installed);
+
+    EXPECT_TRUE(capture.lines().empty());
 }

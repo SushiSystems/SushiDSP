@@ -39,7 +39,7 @@
 namespace SushiDSP
 {
     Sdl2AudioDevice::Sdl2AudioDevice(const DeviceFormat& requested_format)
-        : format_(requested_format), device_id_(0)
+        : format_(requested_format), device_id_(0), monitor_(counters_)
     {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0)
         {
@@ -98,6 +98,16 @@ namespace SushiDSP
         return format_;
     }
 
+    void Sdl2AudioDevice::add_counters_to(RtCounterReporter& reporter) const
+    {
+        counters_.add_to(reporter);
+    }
+
+    const DeviceCounters& Sdl2AudioDevice::counters() const noexcept
+    {
+        return counters_;
+    }
+
     void Sdl2AudioDevice::start(DeviceCallback callback)
     {
         callback_ = std::move(callback);
@@ -132,9 +142,11 @@ namespace SushiDSP
         auto* samples = reinterpret_cast<float*>(stream);
         const std::uint32_t frames = static_cast<std::uint32_t>(length_bytes) /
                                      (self->format_.output_channels * sizeof(float));
+        const BlockScope block_scope(self->monitor_, frames, self->format_.sample_rate);
 
         if (!self->callback_)
         {
+            self->counters_.no_callback.increment();
             std::memset(stream, 0, static_cast<std::size_t>(length_bytes));
             return;
         }
@@ -149,6 +161,7 @@ namespace SushiDSP
         // The deinterleaved scratch holds exactly one block, so a longer request cannot be served.
         if (frames > self->format_.block_size)
         {
+            self->counters_.oversize_block.note(frames);
             std::memset(stream, 0, static_cast<std::size_t>(length_bytes));
             return;
         }

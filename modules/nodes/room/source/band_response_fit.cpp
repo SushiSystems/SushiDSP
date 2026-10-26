@@ -439,6 +439,8 @@ namespace SushiDSP::room
         Parameters parameters = prior;
         Evaluation best = evaluate(parameters, prior, wanted, grid, sample_rate);
         double damping = 1e-3;
+        std::uint32_t accepted_steps = 0;
+        Ending ending = Ending::StepCap;
         for (int step_index = 0; step_index < K_MAX_STEPS; ++step_index)
         {
             const Jacobian slope = jacobian(parameters, best, grid, sample_rate);
@@ -466,17 +468,25 @@ namespace SushiDSP::room
                     best = trial;
                     damping = std::max(damping * 0.1, 1e-6);
                     accepted = true;
+                    ++accepted_steps;
                 }
                 else
                 {
                     damping *= 10.0;
                 }
             }
-            if (!accepted || step_length < K_STEP_TOLERANCE)
+            if (!accepted)
             {
+                ending = Ending::NoAcceptedStep;
+                break;
+            }
+            if (step_length < K_STEP_TOLERANCE)
+            {
+                ending = Ending::Converged;
                 break;
             }
         }
-        return Result{realise(best.first, best.second, parameters[kFlatDb]), worst(best.residual)};
+        return Result{realise(best.first, best.second, parameters[kFlatDb]), worst(best.residual),
+                      accepted_steps, ending};
     }
 } // namespace SushiDSP::room

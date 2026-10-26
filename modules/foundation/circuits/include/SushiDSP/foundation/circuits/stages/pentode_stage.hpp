@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <SushiDSP/foundation/math/newton_raphson_solver.hpp>
 #include <SushiDSP/foundation/circuits/stages/antiderivative_antialiaser.hpp>
 #include <SushiDSP/foundation/circuits/stages/grid_conduction_law.hpp>
 #include <SushiDSP/foundation/circuits/stages/plate_swing.hpp>
@@ -64,6 +65,10 @@ namespace SushiDSP
             /// over the interval from the previous sample. Always finite.
             float process_sample(float input_voltage);
 
+            /// @brief Adds the Newton solves run since the last call to @p into and clears them.
+            /// Audio thread; an amplifier calls it once per block for each stage it owns.
+            void take_newton_tally(NewtonRaphsonSolver::Tally& into) noexcept;
+
             /// @brief Resets the Newton-Raphson warm start to the bias point and drops the
             /// antialiaser's previous sample.
             void reset();
@@ -98,5 +103,8 @@ namespace SushiDSP
 
             /// @brief The antialiaser of the composite grid-and-plate transfer.
             AntiderivativeAntialiaser antialiaser_;
+
+            /// @brief The Newton solves run since the last take_newton_tally().
+            NewtonRaphsonSolver::Tally newton_tally_;
     };
 } // namespace SushiDSP

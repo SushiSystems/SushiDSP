@@ -56,7 +56,7 @@ TEST(Medium_RoomNode, RoomNodeLogsOneErrorNamingTheCauseWhenTheDecoderCannotBePr
 
     SushiDSP::LogCapture capture;
     {
-        EXPECT_FALSE(node.set_hrtf(std::move(set)));
+        EXPECT_EQ(node.set_hrtf(std::move(set)), SushiDSP::room::HrtfStatus::DecoderRefused);
     }
     EXPECT_EQ(node.hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 
@@ -69,4 +69,30 @@ TEST(Medium_RoomNode, RoomNodeLogsOneErrorNamingTheCauseWhenTheDecoderCannotBePr
     EXPECT_NE(lines[0].message.find(directions + " directions at 48000 Hz"), std::string::npos)
         << lines[0].message;
     EXPECT_NE(lines[0].message.find("the set is refused"), std::string::npos) << lines[0].message;
+}
+
+TEST(Medium_RoomNode, RoomNodeLogsOneWarnNamingBothRatesWhenTheHrtfRateDiffers)
+{
+    constexpr double K_NODE_RATE = 44100.0;
+    constexpr double K_SET_RATE = 48000.0;
+
+    SushiDSP::room::RoomNode node;
+    node.prepare(SushiDSP::PrepareInfo{K_NODE_RATE, 256, 1});
+
+    SushiDSP::room::HrtfSet set;
+    std::string error;
+    ASSERT_TRUE(SushiDSP::room::HrtfSetLoader::load(
+        std::string(SUSHIDSP_FIXTURE_DIR) + "/hrtf_self_test.hrtf", K_SET_RATE, set, error))
+        << error;
+
+    SushiDSP::LogCapture capture;
+    EXPECT_EQ(node.set_hrtf(std::move(set)), SushiDSP::room::HrtfStatus::SampleRateMismatch);
+    EXPECT_EQ(node.hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[0].category, "room");
+    EXPECT_NE(lines[0].message.find("48000 Hz for a node at 44100 Hz"), std::string::npos)
+        << lines[0].message;
 }

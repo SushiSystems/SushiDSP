@@ -28,6 +28,13 @@ K_SAME_TIER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ("room_scenes", "room"),
     ("golden_compare", "log"),
     ("log_capture", "log"),
+    ("io", "log"),
+    ("circuits", "log"),
+    ("core", "log"),
+    ("core", "profile"),
+    ("device", "log"),
+    ("device", "profile"),
+    ("benchmark_harness", "profile"),
 })
 K_MODULE_FUNCTION = ""
 K_PUBLIC_DEPENDS = "DEPENDS"

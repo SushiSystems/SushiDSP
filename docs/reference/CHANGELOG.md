@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- 2026-10-26 — profile: Added the `foundation/profile` module: the `SD_ZONE` macros over SushiProfiler, compiled out by `SD_ENABLE_PROFILER`, and `ProfileSession` and `ProfileRecord` over its session.
+- 2026-10-26 — profile: Named the timelines, zones, groups and counters SushiDSP records, the contract between its code and its checks files (`sushidsp_profile_names.hpp`).
+- 2026-10-26 — core: Added `RtCounter` and `RtCounterReporter`: a real-time failure is counted on the audio thread and written as one `WARN` per interval from the control thread (`rt_counter.hpp`).
+- 2026-10-26 — core: Added `CoreCounterReport`, `CounterPollThread` and `node_counters()`, the process-wide counters the amplifiers and the tube screamer raise at the end of a block (`node_counters.hpp`).
+- 2026-10-26 — core: Changed `RigGraph::process` to run a block longer than `block_size` in pieces and count it, where a release build passed null buffers to the nodes; added a zone per node (`rig_graph.hpp`).
+- 2026-10-26 — core: Added `AudioDevice::add_counters_to`, a virtual with an empty default, so a host reads a device's counters through the interface (`audio_device.hpp`).
+- 2026-10-26 — core: Changed `CabinetHost::set_cabinet` to return a `CabinetStatus` naming why a cabinet was refused, in place of a bool (`cabinet_host.hpp`).
+- 2026-10-26 — room: Changed `RoomHost::set_hrtf` to return an `HrtfStatus` naming why a set was refused, in place of a bool (`room_host.hpp`).
+- 2026-10-26 — circuits: Changed `apply_output_safety_clamp` to return how many samples it clipped or found not a number, and marked it `[[nodiscard]]`; no output sample changes (`output_safety_clamp.hpp`).
+- 2026-10-26 — circuits: Changed `FmvToneStack` and `PowerAmpFeedback` to log an `ERROR` and throw when their DK derivation fails, where a release build ran an unprepared circuit (`fmv_tone_stack.cpp`).
+- 2026-10-26 — tubescreamer: Changed `TubeScreamer::prepare` to log an `ERROR` and throw when a DK derivation fails, where the node became a silent pass-through (`tube_screamer.cpp`).
+- 2026-10-26 — math: Added an optional `Report` to `NewtonRaphsonSolver::solve_joint` and a `Tally` that sums reports; the roots do not change (`newton_raphson_solver.hpp`).
+- 2026-10-26 — room: Added the accepted step count and the ending to `BandResponseFit::Result`; the fitted coefficients do not change (`band_response_fit.hpp`).
+- 2026-10-26 — device: Added `BlockMonitor`, which marks the `dsp.block` timeline at each arrival and counts arrival gaps and overruns, and `DeviceCounters`, `DeviceCounterReport` (`block_monitor.hpp`).
+- 2026-10-26 — device: Counted a block with no callback and the ASIO driver's messages, and logged an ASIO block size or sample rate the driver replaced (`asio_audio_device.cpp`).
+- 2026-10-26 — host_gui: Added a clock argument to `SlotGraph` and `RigController`, so the room publish interval is driven without waiting, and a `set_cabinet` overload that returns the reason (`slot_graph.hpp`).
+- 2026-10-26 — host_gui: Logged a take at another sample rate, a lane that will not build, a refused slot write, a failed HRTF load, a preset's gaps, a bounce and an import (`slot_graph.cpp`, `session_timeline.cpp`).
+- 2026-10-26 — host_gui: Wrote the bundled-asset fallbacks and a device that will not open as records in place of `fprintf`, and reported the audio path's counters each frame (`main.cpp`).
+- 2026-10-26 — plugin: Changed `guarded` to take the callback's name and write an `ERROR`, logged a startup rig, an activation and a state that fail, and reported the real-time counters (`clap_boundary.hpp`).
+- 2026-10-26 — io: Logged an impulse response resampled to another rate and one cut at `max_length_ms` (`ir_loader.cpp`).
+- 2026-10-26 — core: Logged a by-id parameter write that names no row of the table (`parameter_table.hpp`).
+- 2026-10-26 — room: Logged a failed publish, an HRTF set at another rate, taps and modes cut at their capacities and an HRTF file the loader refused (`room_node.cpp`, `hrtf_set_loader.cpp`).
+- 2026-10-26 — nodes: Added zones around the regions of the four amplifiers and the tube screamer, and per-block counters for their Newton and DK solves and their clamp (`jcm800.cpp`, `tube_screamer.cpp`).
+- 2026-10-26 — tests: Moved `bench::measure` onto a profiler timeline of 20 warm-up and 2000 active periods and added checks files that `sd bench` judges (`benchmark_harness.hpp`).
+- 2026-10-26 — tests: Replaced the three hand-timed room tests with counter tests and moved their bounds to benchmarks with checks files (`tests/nodes/room/`).
+- 2026-10-26 — tests: Removed the `timing_gate` module and its test; a time is judged by a SushiProfiler check in a `.checks.json` file beside the benchmark (`tests/nodes/room/`).
+- 2026-10-26 — tests: Replaced the wall-clock reading of the room rate-limit test with an injected clock (`test_rig_controller.cpp`).
 - 2026-10-26 — deps: Upgraded sushicore to 0.9.5 and moved the Sushi library pins to `[sushisystems.<name>]` tables (`cli/sushistack.deps.toml`).
 - 2026-10-21 — docs: Reshaped the five design documents into the five sections with a phase table, split the SushiDSP design into a topic folder and moved the phase records to work folders (`docs/design/`, `docs/agent/`).
 - 2026-10-20 — docs: Moved 26 known issues with a scheduled fix and no workaround into the backlog entries that fix them (`KNOWN_ISSUES.md`, `REMAINING_WORK.md`).

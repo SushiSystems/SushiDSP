@@ -986,3 +986,83 @@ TEST(Small_RigGraph, RigGraphEmptyGraphZeroesEveryOutputChannel)
         EXPECT_FLOAT_EQ(right[frame], 0.0f);
     }
 }
+
+TEST(Small_RigGraph, RigGraphCountsAParameterChangeForARemovedNode)
+{
+    SushiDSP::RigGraph graph(64, 4);
+    const auto a = graph.add_node(std::make_unique<RecordingNode>());
+    graph.remove_node(a);
+    graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
+    EXPECT_TRUE(graph.push_parameter_change(SushiDSP::ParameterChange{a, 0, 1.0f}));
+    const std::uint64_t before = SushiDSP::RigGraph::counters().missing_node_change.value();
+
+    std::vector<float> out(64);
+    float* outs[1] = {out.data()};
+    SushiDSP::ProcessContext context{outs, nullptr, 64, 0.0};
+    graph.process(context);
+
+    EXPECT_EQ(SushiDSP::RigGraph::counters().missing_node_change.value(), before + 1U);
+}
+
+TEST(Small_RigGraph, RigGraphProcessesABlockLongerThanItsBlockSizeInPiecesAndCountsIt)
+{
+    SushiDSP::RigGraph graph(64, 4);
+    auto source_handle = graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
+    auto gain_handle = graph.add_node(std::make_unique<GainNode>(3.0f));
+    graph.connect(source_handle, gain_handle);
+    graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
+
+    std::vector<float> output_buffer(200, 0.0f);
+    float* output_channels[1] = {output_buffer.data()};
+    SushiDSP::ProcessContext context{output_channels, nullptr, 200, 0.0};
+    const std::uint64_t before = SushiDSP::RigGraph::counters().oversize_block.value();
+    graph.process(context);
+
+    for (float sample : output_buffer)
+    {
+        EXPECT_FLOAT_EQ(sample, 6.0f);
+    }
+    EXPECT_EQ(SushiDSP::RigGraph::counters().oversize_block.value(), before + 1U);
+    EXPECT_GE(SushiDSP::RigGraph::counters().oversize_block.peak(), 200U);
+}
+
+TEST(Small_RigGraph, RigGraphOffsetsTheHostInputForEachPieceOfALongBlock)
+{
+    SushiDSP::RigGraph graph(64, 4);
+    graph.add_node(std::make_unique<GainNode>(3.0f));
+    graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
+
+    std::vector<float> input_buffer(150);
+    for (std::size_t index = 0; index < input_buffer.size(); ++index)
+    {
+        input_buffer[index] = static_cast<float>(index);
+    }
+    std::vector<float> output_buffer(150, 0.0f);
+    const float* input_channels[1] = {input_buffer.data()};
+    float* output_channels[1] = {output_buffer.data()};
+    SushiDSP::ProcessContext context{output_channels, input_channels, 150, 0.0};
+    graph.process(context);
+
+    for (std::size_t index = 0; index < output_buffer.size(); ++index)
+    {
+        EXPECT_FLOAT_EQ(output_buffer[index], 3.0f * static_cast<float>(index)) << index;
+    }
+}
+
+TEST(Small_RigGraph, RigGraphCountsNothingForABlockInsideItsBlockSize)
+{
+    SushiDSP::RigGraph graph(64, 4);
+    graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
+
+    std::vector<float> output_buffer(64, 0.0f);
+    float* output_channels[1] = {output_buffer.data()};
+    SushiDSP::ProcessContext context{output_channels, nullptr, 64, 0.0};
+    const std::uint64_t oversize_before = SushiDSP::RigGraph::counters().oversize_block.value();
+    const std::uint64_t missing_before =
+        SushiDSP::RigGraph::counters().missing_node_change.value();
+    graph.process(context);
+
+    EXPECT_EQ(SushiDSP::RigGraph::counters().oversize_block.value(), oversize_before);
+    EXPECT_EQ(SushiDSP::RigGraph::counters().missing_node_change.value(), missing_before);
+}

@@ -27,6 +27,10 @@
 
 #include "startup_rig.hpp"
 
+#include <SushiDSP/foundation/log/log.hpp>
+
+#include "plugin_log_category.hpp"
+
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -43,6 +47,10 @@ namespace SushiDSP::Plugin
         std::ifstream file(path, std::ios::binary);
         if (!file.is_open())
         {
+            SD_LOG_WARN(K_PLUGIN_LOG_CATEGORY,
+                        "{} names '{}', which could not be opened; the plugin starts on the empty "
+                        "rig",
+                        K_STARTUP_RIG_VARIABLE, path);
             return std::nullopt;
         }
         std::ostringstream text;

@@ -55,7 +55,7 @@ namespace SushiDSP
             /// @return "sushidsp.cabinet".
             const char* type_id() const override;
 
-            bool set_cabinet(Ir impulse_response) override;
+            CabinetStatus set_cabinet(Ir impulse_response) override;
             void reclaim_cabinets() override;
             bool has_cabinet() const override;
 

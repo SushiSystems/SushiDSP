@@ -36,7 +36,7 @@ namespace
         "Jcm800",
         []
         {
-            SushiDSP::bench::print(SushiDSP::bench::measure_node<SushiDSP::Jcm800>(
+            SushiDSP::bench::report(SushiDSP::bench::measure_node<SushiDSP::Jcm800>(
                                        "Jcm800 (no cabinet)",
                                        [](SushiDSP::Jcm800& node)
                                        {
@@ -47,6 +47,6 @@ namespace
                                         node.set_treble(0.7f);
                                         node.set_presence(0.5f);
                                        }),
-                                   1.5);
+                                   1.5, "nodes/jcm800/jcm800.checks.json");
         }};
 } // namespace

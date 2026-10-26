@@ -529,6 +529,12 @@ member of the closed form and is carried by `DiezelVh4ToneStack::K_INPUT_RESISTO
 Section 3.4 gives V3a an R26 470 kOhm grid stopper, the 500 kOhm R24'/R25' pair as the grid leak,
 Vgk -1.02 V, and Rk 680 Ohm with C19 2.2 uF.
 
+## Profiler regions and counters
+
+`DiezelVh4::process` records its regions under the group `diezel_vh4` and its solves and clamp as per-block
+counters; the names, the cost of a zone and why no stage inside the oversampled loop carries one are in
+[`modules/foundation/profile/README.md`](../../foundation/profile/README.md).
+
 ## Designs
 
 <!-- designs:begin -->

@@ -26,6 +26,8 @@
  */
 
 #include <cmath>
+#include <cstring>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -134,4 +136,88 @@ TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverJointOverloadEvaluatesOncePer
     };
     SushiDSP::NewtonRaphsonSolver::solve_joint(joint, 1.0f, 4);
     EXPECT_EQ(evaluations, 4);
+}
+
+TEST(Small_NewtonRaphsonSolverReport, AFixedPointEndsTheSolveAndIsReported)
+{
+    auto function = [](float x)
+    {
+        return SushiDSP::NewtonRaphsonSolver::Evaluation{x * x - 4.0f, 2.0f * x};
+    };
+    SushiDSP::NewtonRaphsonSolver::Report report;
+
+    const float root = SushiDSP::NewtonRaphsonSolver::solve_joint(
+        function, 3.0f, 50, -std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::infinity(), &report);
+
+    EXPECT_NEAR(root, 2.0f, 1e-5f);
+    EXPECT_EQ(report.ending, SushiDSP::NewtonRaphsonSolver::Ending::FixedPoint);
+    EXPECT_GE(report.iterations, 2u);
+    EXPECT_LT(report.iterations, 50u);
+}
+
+TEST(Small_NewtonRaphsonSolverReport, TheIterationCapIsReportedWithItsCount)
+{
+    auto function = [](float x)
+    {
+        return SushiDSP::NewtonRaphsonSolver::Evaluation{x * x - 4.0f, 2.0f * x};
+    };
+    SushiDSP::NewtonRaphsonSolver::Report report;
+
+    static_cast<void>(SushiDSP::NewtonRaphsonSolver::solve_joint(
+        function, 3.0f, 1, -std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::infinity(), &report));
+
+    EXPECT_EQ(report.ending, SushiDSP::NewtonRaphsonSolver::Ending::IterationCap);
+    EXPECT_EQ(report.iterations, 1u);
+}
+
+TEST(Small_NewtonRaphsonSolverReport, ANonFiniteStepIsReportedAndKeepsTheInitialGuess)
+{
+    auto function = [](float)
+    {
+        return SushiDSP::NewtonRaphsonSolver::Evaluation{std::numeric_limits<float>::quiet_NaN(),
+                                                         1.0f};
+    };
+    SushiDSP::NewtonRaphsonSolver::Report report;
+
+    const float root = SushiDSP::NewtonRaphsonSolver::solve_joint(
+        function, 1.5f, 8, -std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::infinity(), &report);
+
+    EXPECT_FLOAT_EQ(root, 1.5f);
+    EXPECT_EQ(report.ending, SushiDSP::NewtonRaphsonSolver::Ending::NonFiniteStep);
+    EXPECT_EQ(report.iterations, 1u);
+}
+
+TEST(Small_NewtonRaphsonSolverReport, ZeroAllowedIterationsReportZero)
+{
+    auto function = [](float x)
+    {
+        return SushiDSP::NewtonRaphsonSolver::Evaluation{x, 1.0f};
+    };
+    SushiDSP::NewtonRaphsonSolver::Report report;
+
+    static_cast<void>(SushiDSP::NewtonRaphsonSolver::solve_joint(
+        function, 1.0f, 0, -std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::infinity(), &report));
+
+    EXPECT_EQ(report.iterations, 0u);
+    EXPECT_EQ(report.ending, SushiDSP::NewtonRaphsonSolver::Ending::IterationCap);
+}
+
+TEST(Small_NewtonRaphsonSolverReport, AskingForAReportLeavesTheRootBitForBit)
+{
+    auto function = [](float x)
+    {
+        return SushiDSP::NewtonRaphsonSolver::Evaluation{std::exp(x) - 3.0f, std::exp(x)};
+    };
+    SushiDSP::NewtonRaphsonSolver::Report report;
+
+    const float without = SushiDSP::NewtonRaphsonSolver::solve_joint(function, 0.2f, 4);
+    const float with = SushiDSP::NewtonRaphsonSolver::solve_joint(
+        function, 0.2f, 4, -std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::infinity(), &report);
+
+    EXPECT_EQ(std::memcmp(&without, &with, sizeof(float)), 0);
 }

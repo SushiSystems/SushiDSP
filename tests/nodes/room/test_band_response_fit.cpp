@@ -27,10 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/timing_gate/timing_gate.hpp>
-
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -238,18 +235,51 @@ TEST(Small_BandResponseFit, BandResponseFitMovesCoefficientsContinuouslyWithTheT
         });
 }
 
-TEST(Small_BandResponseFit, BandResponseFitCostsUnderTenMillisecondsForOneHundredAndFiftyFits)
+TEST(Small_BandResponseFit, BandResponseFitGivesTheSameFitAndTheSameStepsOnEveryOneOfOneHundredAndFiftyCalls)
 {
-    SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
     const SushiDSP::room::BandResponse carpet =
         SushiDSP::room::reflection_factor(SushiDSP::room::MaterialId::HeavyCarpetOnConcrete);
-    double sink = 0.0;
-    const auto start = std::chrono::steady_clock::now();
-    for (int index = 0; index < 150; ++index)
+    const SushiDSP::room::BandResponseFit::Result first =
+        SushiDSP::room::BandResponseFit::fit(carpet, 48000.0);
+    for (int index = 1; index < 150; ++index)
     {
-        sink += SushiDSP::room::BandResponseFit::fit(carpet, 48000.0).worst_error_db;
+        const SushiDSP::room::BandResponseFit::Result again =
+            SushiDSP::room::BandResponseFit::fit(carpet, 48000.0);
+        ASSERT_EQ(again.steps, first.steps) << "call " << index;
+        ASSERT_EQ(again.ending, first.ending) << "call " << index;
+        ASSERT_EQ(again.coefficients.section_a, first.coefficients.section_a) << "call " << index;
+        ASSERT_EQ(again.coefficients.section_b, first.coefficients.section_b) << "call " << index;
     }
-    const auto stop = std::chrono::steady_clock::now();
-    const double milliseconds = std::chrono::duration<double, std::milli>(stop - start).count();
-    EXPECT_LT(milliseconds, 10.0) << "sink " << sink;
+}
+
+TEST(Small_BandResponseFit, BandResponseFitReportsItsAcceptedStepsAndWhyItStopped)
+{
+    // The step cap is K_MAX_STEPS in band_response_fit.cpp. The test states it again as 8.
+    constexpr std::uint32_t K_STEP_CAP = 8;
+    std::uint32_t cap_hits = 0;
+    std::uint32_t fits = 0;
+    for_every_target(
+        [&](const SushiDSP::room::BandResponse& target, double sample_rate, const char* label)
+        {
+            const SushiDSP::room::BandResponseFit::Result result =
+                SushiDSP::room::BandResponseFit::fit(target, sample_rate);
+            ++fits;
+            EXPECT_LE(result.steps, K_STEP_CAP) << label;
+            if (result.ending == SushiDSP::room::BandResponseFit::Ending::StepCap)
+            {
+                ++cap_hits;
+                EXPECT_EQ(result.steps, K_STEP_CAP) << label;
+            }
+        });
+    ::testing::Test::RecordProperty("fits", static_cast<int>(fits));
+    ::testing::Test::RecordProperty("step_cap_hits", static_cast<int>(cap_hits));
+    EXPECT_GT(fits, 0u);
+}
+
+TEST(Small_BandResponseFit, BandResponseFitOfAFlatTargetDoesNotRunToTheStepCap)
+{
+    const SushiDSP::room::BandResponseFit::Result result =
+        SushiDSP::room::BandResponseFit::fit(SushiDSP::room::BandResponse::unity(), 48000.0);
+
+    EXPECT_NE(result.ending, SushiDSP::room::BandResponseFit::Ending::StepCap);
 }

@@ -75,6 +75,7 @@ namespace SushiDSP
             /// @param sample_rate The rate the section runs at, in hertz.
             /// @param components The stack's component values.
             /// @param termination What drives the input and what loads the output.
+            /// @throws std::runtime_error if the DK derivation fails at @p sample_rate.
             FmvToneStack(double sample_rate, const FmvComponents& components,
                          const FmvSourceLoad& termination = {});
 

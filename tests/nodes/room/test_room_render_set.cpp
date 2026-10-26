@@ -28,7 +28,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -38,10 +37,10 @@
 #include <vector>
 
 #include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
-#include <SushiDSP/foundation/timing_gate/timing_gate.hpp>
 #include <SushiDSP/nodes/room/early_tap_set.hpp>
 #include <SushiDSP/nodes/room/eyring_decay.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
+#include <SushiDSP/nodes/room/modal_design.hpp>
 #include <SushiDSP/nodes/room/image_source_solver.hpp>
 #include <SushiDSP/nodes/room/room_host.hpp>
 #include <SushiDSP/nodes/room/modal_solver.hpp>
@@ -59,10 +58,6 @@ namespace
 
     /// @brief Holds the speed of sound the delays are derived with, in metres per second.
     constexpr double K_SPEED_OF_SOUND = 343.0;
-
-    /// @brief Holds the wall-clock budget of one publish: the 30 Hz republish of a slider drag,
-    /// 33 ms, the bound spec §4.2 names for the whole scene change.
-    constexpr double K_PUBLISH_BUDGET_MS = 33.0;
 
     /// @brief Returns the spherical-head fallback set, built once at K_SAMPLE_RATE.
     const SushiDSP::room::HrtfSet& fallback_hrtf()
@@ -213,19 +208,20 @@ TEST(Small_RoomRenderSet, BuildRenderSetCarriesTheDiffuseFieldPair)
     EXPECT_EQ(set->diffuse_right, right);
 }
 
-TEST(Small_RoomRenderSet, BuildRenderSetCostsUnderOnePublishBudget)
+TEST(Small_RoomRenderSet, BuildRenderSetHoldsTheSameTapsAndModesEveryTimeInsideTheirCapacities)
 {
-    SUSHIDSP_REQUIRE_OPTIMISED_BUILD();
     const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
     const SushiDSP::room::HrtfSet& hrtf = fallback_hrtf();
 
-    const auto start = std::chrono::steady_clock::now();
-    const std::unique_ptr<SushiDSP::room::RoomRenderSet> set = SushiDSP::room::build_render_set(
+    const std::unique_ptr<SushiDSP::room::RoomRenderSet> first = SushiDSP::room::build_render_set(
         garage, hrtf, K_SAMPLE_RATE, SushiDSP::room::ListenerKind::Ears);
-    const auto stop = std::chrono::steady_clock::now();
-    const double milliseconds = std::chrono::duration<double, std::milli>(stop - start).count();
-    EXPECT_LT(milliseconds, K_PUBLISH_BUDGET_MS)
-        << "taps " << set->early.count << " modes " << set->modal.count;
+    const std::unique_ptr<SushiDSP::room::RoomRenderSet> second = SushiDSP::room::build_render_set(
+        garage, hrtf, K_SAMPLE_RATE, SushiDSP::room::ListenerKind::Ears);
+
+    EXPECT_LE(first->early.count, SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS);
+    EXPECT_LE(first->modal.count, SushiDSP::room::ModalDesign::K_MAX_MODES);
+    EXPECT_EQ(second->early.count, first->early.count);
+    EXPECT_EQ(second->modal.count, first->modal.count);
 }
 
 TEST(Small_RoomRenderSet, BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver)

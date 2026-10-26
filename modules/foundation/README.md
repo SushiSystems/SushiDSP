@@ -13,6 +13,7 @@ on it, and it depends on nothing above itself.
 | [`io/`](io/README.md) | Impulse responses and WAV files |
 | [`log/`](log/README.md) | The logger, its sinks, the `{}` formatter and the `SD_LOG` macros |
 | [`math/`](math/README.md) | Filters, FFT, convolution, resampling, oversampling, the scalar and nodal solvers |
+| [`profile/`](profile/README.md) | The `SD_ZONE` macros over SushiProfiler, the profiling session and the names of the timelines, zones and counters |
 
 Dependencies between the modules of this tier are listed in
 [`cmake/SushiDSPLayers.cmake`](../../cmake/SushiDSPLayers.cmake). A module that depends on a

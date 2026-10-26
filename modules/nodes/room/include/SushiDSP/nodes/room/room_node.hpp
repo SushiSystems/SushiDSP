@@ -36,6 +36,8 @@
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/core/node_descriptor.hpp>
 #include <SushiDSP/foundation/core/parameter_table.hpp>
+#include <SushiDSP/foundation/core/rt_counter.hpp>
+#include <SushiDSP/foundation/core/rt_counter_report.hpp>
 #include <SushiDSP/foundation/core/rt_swap_slot.hpp>
 #include <SushiDSP/nodes/room/early_tap_set.hpp>
 #include <SushiDSP/nodes/room/environment_render_set.hpp>
@@ -161,10 +163,29 @@ namespace SushiDSP::room
             Room::Arrangement arrangement() const override;
             bool set_scene(const RoomScene& scene, std::string& reason_out) override;
             RoomScene scene() const override;
-            bool set_hrtf(HrtfSet set) override;
+            HrtfStatus set_hrtf(HrtfSet set) override;
             HrtfSource hrtf_source() const override;
             double schroeder_frequency_hz() const override;
             void reclaim_rooms() override;
+
+            /// @brief Holds what every room node's process() counts instead of logging. The
+            /// counters are shared by every RoomNode of the process, so a rig that replaces its
+            /// room leaves the count behind.
+            struct Counters
+            {
+                    /// @brief Blocks answered with silence because no render set was published.
+                    RtCounter no_render_set;
+
+                    /// @brief Adds the counter to @p reporter under its name.
+                    void add_to(RtCounterReporter& reporter) const
+                    {
+                        reporter.add("room_no_render_set", no_render_set);
+                    }
+            };
+
+            /// @brief Returns what every room node's process() counted; read it on the control
+            /// thread.
+            [[nodiscard]] static const Counters& counters() noexcept;
 
             /// @brief Copies a set's taps into a bank, as a pair stage does it. Audio thread.
             /// @pre The taps are sorted by arrival, so tap 0 is the direct image whenever count > 0.
@@ -183,6 +204,9 @@ namespace SushiDSP::room
                                         const ModalDesign& arriving) noexcept;
 
         private:
+            /// @brief Holds what every room node's process() counted.
+            static Counters counters_;
+
             /// @brief Holds every stage; allocated once, so the node itself stays small.
             struct Stages;
 

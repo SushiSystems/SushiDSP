@@ -5,6 +5,7 @@ Circuit blocks: tone stacks, the equaliser, feedback, the clamp, the tube stages
 ## Owns
 
 - `modules/foundation/circuits/include/SushiDSP/foundation/circuits/audio_taper_pot.hpp`
+- `modules/foundation/circuits/include/SushiDSP/foundation/circuits/circuits_log_category.hpp`
 - `modules/foundation/circuits/include/SushiDSP/foundation/circuits/fmv_tone_stack.hpp`
 - `modules/foundation/circuits/include/SushiDSP/foundation/circuits/graphic_equalizer.hpp`
 - `modules/foundation/circuits/include/SushiDSP/foundation/circuits/output_safety_clamp.hpp`
@@ -28,7 +29,13 @@ Circuit blocks: tone stacks, the equaliser, feedback, the clamp, the tube stages
 
 ## Depends on
 
-`math` (same tier).
+`math` and `log` (same tier).
+
+## Failures
+
+`FmvToneStack` and `PowerAmpFeedback` derive their DK matrices in the constructor. A derivation that
+fails writes one `ERROR` under `K_CIRCUITS_LOG_CATEGORY` naming the rate and throws
+`std::runtime_error`, in a release build as in a debug one.
 
 ## Notes cited from the source
 

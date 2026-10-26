@@ -31,6 +31,9 @@
 #include <SushiDSP/nodes/diezel_vh4/diezel_vh4.hpp>
 
 #include <SushiDSP/foundation/circuits/output_safety_clamp.hpp>
+#include <SushiDSP/foundation/core/node_counters.hpp>
+#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp>
 #include <SushiDSP/foundation/circuits/stages/power_tube_presets.hpp>
 
@@ -45,6 +48,8 @@
 
 namespace SushiDSP
 {
+    namespace regions = profile::names::diezel_vh4;
+
     namespace
     {
         /// @brief Diezel VH4, EL34 quad at 500 V: the Philips EL34 datasheet's 500 V push-pull point
@@ -366,45 +371,73 @@ namespace SushiDSP
         const float volume_pot = volume * K_VOLUME_SERIES_DIVIDER;
         const float master_gain = master * DiezelVh4::K_MASTER_UNITY_GAIN;
 
-        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            scratch_base_[i] = input[i] * input_gain;
+            SD_ZONE_GROUP(regions::K_INPUT_ZONE, regions::K_GROUP);
+            for (std::uint32_t i = 0; i < frames; ++i)
+            {
+                scratch_base_[i] = input[i] * input_gain;
+            }
         }
 
-        const float* upsampled = oversampler_->upsample(scratch_base_.data(), frames);
-        for (std::uint32_t i = 0; i < oversampled_frames; ++i)
+        const float* upsampled = nullptr;
         {
-            const float v1a_out = v1a_.process_sample(upsampled[i]);
-            const float v2a_in = v2a_grid_miller_.process_sample(v2a_cathode_shelf_.process_sample(
-                gain_high_pass_.process_sample(v1a_out) * gain_pot));
-            const float v2a_out =
-                v3a_coupling_high_pass_.process_sample(v2a_.process_sample(v2a_in)) *
-                K_V2A_TO_V3A_DIVIDER;
-            const float v3a_in =
-                v3a_grid_miller_.process_sample(v3a_cathode_shelf_.process_sample(v2a_out));
-            const float follower_out = follower_high_pass_.process_sample(
-                v3a_.process_sample(v3a_in) * K_CATHODE_FOLLOWER_GAIN);
-            const float mix_bus =
-                tone_stack_.process_sample(follower_out) * volume_pot * K_MIX_BUS_ATTENUATION;
-            const float send_buffer = v4a_.process_sample(mix_bus) * K_CATHODE_FOLLOWER_GAIN;
-            const float phase_inverted =
-                phase_inverter_.process_sample(send_buffer / K_PHASE_INVERTER.input_degeneration);
-            const float el34_a_out = el34_a_.process_sample(phase_inverted);
-            const float el34_b_out = el34_b_.process_sample(-phase_inverted);
-            const float power_tube_out =
-                (el34_a_out - el34_b_out) * K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION;
-
-            const float transformer_out = output_transformer_.process_sample(power_tube_out);
-            scratch_oversampled_[i] = sag_.process_sample(transformer_out);
+            SD_ZONE_GROUP(regions::K_UPSAMPLE_ZONE, regions::K_GROUP);
+            upsampled = oversampler_->upsample(scratch_base_.data(), frames);
         }
-        oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames,
-                                 scratch_base_.data());
-
-        // Deep and Presence are linear, so they run after the decimator with the master volume.
-        for (std::uint32_t i = 0; i < frames; ++i)
         {
-            const float presence_out = presence_shelf_.process_sample(scratch_base_[i]);
-            scratch_base_[i] = deep_shelf_.process_sample(presence_out) * master_gain;
+            SD_ZONE_GROUP(regions::K_LOOP_ZONE, regions::K_GROUP);
+            for (std::uint32_t i = 0; i < oversampled_frames; ++i)
+            {
+                const float v1a_out = v1a_.process_sample(upsampled[i]);
+                const float v2a_in = v2a_grid_miller_.process_sample(
+                    v2a_cathode_shelf_.process_sample(gain_high_pass_.process_sample(v1a_out) *
+                                                      gain_pot));
+                const float v2a_out =
+                    v3a_coupling_high_pass_.process_sample(v2a_.process_sample(v2a_in)) *
+                    K_V2A_TO_V3A_DIVIDER;
+                const float v3a_in =
+                    v3a_grid_miller_.process_sample(v3a_cathode_shelf_.process_sample(v2a_out));
+                const float follower_out = follower_high_pass_.process_sample(
+                    v3a_.process_sample(v3a_in) * K_CATHODE_FOLLOWER_GAIN);
+                const float mix_bus =
+                    tone_stack_.process_sample(follower_out) * volume_pot * K_MIX_BUS_ATTENUATION;
+                const float send_buffer = v4a_.process_sample(mix_bus) * K_CATHODE_FOLLOWER_GAIN;
+                const float phase_inverted = phase_inverter_.process_sample(
+                    send_buffer / K_PHASE_INVERTER.input_degeneration);
+                const float el34_a_out = el34_a_.process_sample(phase_inverted);
+                const float el34_b_out = el34_b_.process_sample(-phase_inverted);
+                const float power_tube_out =
+                    (el34_a_out - el34_b_out) * K_POWER_TUBE_TO_TRANSFORMER_ATTENUATION;
+
+                const float transformer_out = output_transformer_.process_sample(power_tube_out);
+                scratch_oversampled_[i] = sag_.process_sample(transformer_out);
+            }
+        }
+        NewtonRaphsonSolver::Tally newton_tally;
+        v1a_.take_newton_tally(newton_tally);
+        v2a_.take_newton_tally(newton_tally);
+        v3a_.take_newton_tally(newton_tally);
+        v4a_.take_newton_tally(newton_tally);
+        phase_inverter_.take_newton_tally(newton_tally);
+        el34_a_.take_newton_tally(newton_tally);
+        el34_b_.take_newton_tally(newton_tally);
+        note_newton_solves(newton_tally.solves, newton_tally.iteration_caps,
+                           newton_tally.non_finite_steps,
+                           newton_tally.worst_iterations);
+        {
+            SD_ZONE_GROUP(regions::K_DOWNSAMPLE_ZONE, regions::K_GROUP);
+            oversampler_->downsample(scratch_oversampled_.data(), oversampled_frames,
+                                     scratch_base_.data());
+        }
+
+        {
+            SD_ZONE_GROUP(regions::K_POST_ZONE, regions::K_GROUP);
+            // Deep and Presence are linear, so they run after the decimator with the master volume.
+            for (std::uint32_t i = 0; i < frames; ++i)
+            {
+                const float presence_out = presence_shelf_.process_sample(scratch_base_[i]);
+                scratch_base_[i] = deep_shelf_.process_sample(presence_out) * master_gain;
+            }
         }
 
         // Cabinet convolution is the sushidsp.cabinet node's; the dry signal goes straight out.
@@ -414,7 +447,10 @@ namespace SushiDSP
         }
 
         // The clamp is a safety rail for the DAC's range; see modules/nodes/diezel_vh4/README.md.
-        apply_output_safety_clamp(output, frames, output_gain);
+        {
+            SD_ZONE_GROUP(regions::K_CLAMP_ZONE, regions::K_GROUP);
+            note_output_clamp(apply_output_safety_clamp(output, frames, output_gain));
+        }
     }
 
     std::uint32_t DiezelVh4::latency_samples() const

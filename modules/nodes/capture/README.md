@@ -256,6 +256,14 @@ In a `VariRateReader`, every channel's converter carries the same rates and the 
 so they all emit the same number of outputs on every push. Channel 0's count speaks for all of
 them.
 
+## Counters on the audio thread
+
+`TrackPlayer::counters()` counts a call that arrived with no output buffer or no channel
+(`player_empty_call`) and a block that played at unity speed because it was longer than the
+prepared size or the transport's speed was 0 (`player_forced_unity_speed`). The host adds both to
+a reporter and writes them as one `WARN` per interval. `RecordingBus::dropped_blocks()` and
+`TrackRecorder::dropped_blocks()` are read the same way, through a function the reporter calls.
+
 ## Designs
 
 <!-- designs:begin -->

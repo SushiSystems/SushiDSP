@@ -66,5 +66,10 @@ namespace
     }
 
     const SushiDSP::bench::BenchmarkRegistration K_RESAMPLER_CASE{
-        "Resampler", [] { SushiDSP::bench::print(measure_resampler_round_trip(), 0.10); }};
+        "Resampler",
+        []
+        {
+            SushiDSP::bench::report(measure_resampler_round_trip(), 0.10,
+                                    "foundation/math/resampler.checks.json");
+        }};
 } // namespace

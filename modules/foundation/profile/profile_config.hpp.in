@@ -1,0 +1,35 @@
+/**************************************************************************/
+/* profile_config.hpp.in                                                  */
+/**************************************************************************/
+/*                          This file is part of:                         */
+/*                                SushiDSP                                */
+/*                https://github.com/SushiSystems/SushiDSP                */
+/*                         https://sushisystems.io                        */
+/**************************************************************************/
+/* Copyright (c) 2026-present Mustafa Garip & Sushi Systems               */
+/*                                                                        */
+/* Licensed under the PolyForm Noncommercial License 1.0.0 (the           */
+/* "License"); you may not use this file except in compliance with the    */
+/* License. You may obtain a copy of the License at                       */
+/*                                                                        */
+/*     https://polyformproject.org/licenses/noncommercial/1.0.0           */
+/*                                                                        */
+/* Noncommercial use is free. Commercial use requires a separate licence  */
+/* from Sushi Systems; see COMMERCIAL.md. The software is provided        */
+/* "as is", without warranty of any kind.                                 */
+/**************************************************************************/
+
+/**
+ * @file profile_config.hpp
+ * @brief Defines the profiler switch and level the build chose, for every profile header.
+ * @author Mustafa Garip
+ * @see modules/foundation/profile/README.md
+ */
+
+#pragma once
+
+/// @brief 1 when the build records through SushiProfiler, 0 when every zone compiles to nothing.
+#define SD_ENABLE_PROFILER @SD_ENABLE_PROFILER_VALUE@
+
+/// @brief The density level the build compiles in: 1 stages, 2 fine, 3 per element.
+#define SD_PROFILE_LEVEL @SD_PROFILE_LEVEL@

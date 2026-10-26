@@ -506,6 +506,12 @@ input shelf's gain at DC.
 `peavey5150_tone_stack.cpp` takes the deck from dossier section 4: C16 470 pF || C60 100 pF, C18 and
 C21 0.022 uF, R28 47 kOhm slope, VR3 1 MOhm LOW, VR4 50 kOhm MID, VR5 250 kOhm HIGH.
 
+## Profiler regions and counters
+
+`Peavey5150::process` records its regions under the group `peavey5150` and its solves and clamp as per-block
+counters; the names, the cost of a zone and why no stage inside the oversampled loop carries one are in
+[`modules/foundation/profile/README.md`](../../foundation/profile/README.md).
+
 ## Designs
 
 <!-- designs:begin -->

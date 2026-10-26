@@ -91,9 +91,11 @@ namespace SushiDSP
         float grid_voltage = previous_grid_voltage_;
         if (!root_stays_on_bound(grid_voltage, source_voltage))
         {
-            grid_voltage = NewtonRaphsonSolver::solve_joint(node_equation, previous_grid_voltage_,
-                                                            K_NEWTON_ITERATIONS, cutoff_grid_limit_,
-                                                            conduction_grid_limit_);
+            NewtonRaphsonSolver::Report report;
+            grid_voltage = NewtonRaphsonSolver::solve_joint(
+                node_equation, previous_grid_voltage_, K_NEWTON_ITERATIONS, cutoff_grid_limit_,
+                conduction_grid_limit_, &report);
+            newton_tally_.note(report);
         }
         previous_grid_voltage_ = grid_voltage;
 
@@ -124,6 +126,11 @@ namespace SushiDSP
                        0.0f;
         }
         return false;
+    }
+
+    void TriodeStage::take_newton_tally(NewtonRaphsonSolver::Tally& into) noexcept
+    {
+        into.take(newton_tally_);
     }
 
     void TriodeStage::reset()

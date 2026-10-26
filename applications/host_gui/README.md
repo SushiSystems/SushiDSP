@@ -123,8 +123,15 @@ holds the same for `ui/`.
 
 `main()` logs through SushiLog, which writes each record to stderr from its own thread and
 delivers what is queued when the process exits. The host logs under `K_HOST_GUI_LOG_CATEGORY`,
-declared in `host_gui_log_category.hpp`. The messages `main()` prints with `fprintf` are its
-command-line output and do not go through the logger.
+declared in `host_gui_log_category.hpp`. A missing bundled HRTF set, a bundled impulse response
+that fails to load and a device that fails to open each write one record there; they are
+fallbacks and failures, not answers to a command. The glfw start-up errors are still printed with
+`fprintf`.
+
+The audio callback counts a block longer than the rig's buffers in `oversize_callback`. Each
+frame the loop polls the device's counters and the renderer's, the track player's, the room's
+and the recorder's, and writes one `WARN` per five seconds for the group that moved. When
+`SD_PROFILE_CONFIG` names a profiler configuration the host runs a session for its whole life.
 
 The zoom, the scroll and the snap mode belong to the GUI loop and not to the rig: they are how
 the arrangement is being looked at, not what it plays.

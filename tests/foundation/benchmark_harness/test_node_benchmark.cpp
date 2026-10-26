@@ -76,7 +76,7 @@ namespace
     };
 } // namespace
 
-TEST(Small_NodeBenchmark, NodeBenchmarkPreparesConfiguresAndProcessesOneBlockPerRepetition)
+TEST(Medium_NodeBenchmark, NodeBenchmarkPreparesConfiguresAndProcessesOneBlockPerRepetition)
 {
     bool configured_after_prepare = false;
     const SushiDSP::bench::Result result = SushiDSP::bench::measure_node<RecordingNode>(
@@ -85,7 +85,7 @@ TEST(Small_NodeBenchmark, NodeBenchmarkPreparesConfiguresAndProcessesOneBlockPer
         { configured_after_prepare = RecordingNode::prepared_block == SushiDSP::bench::K_BLOCK_SIZE; });
 
     EXPECT_TRUE(configured_after_prepare);
-    EXPECT_EQ(RecordingNode::process_calls, 220);
+    EXPECT_EQ(RecordingNode::process_calls, 2020);
     EXPECT_EQ(RecordingNode::frames, SushiDSP::bench::K_BLOCK_SIZE);
     EXPECT_STREQ(result.name, "recording");
 }

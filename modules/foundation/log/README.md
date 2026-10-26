@@ -39,5 +39,8 @@ the plug-in logs.
 
 ## The audio thread
 
-The audio thread never logs. A failure there is counted in an atomic, the way
-`TrackRecorder::dropped_blocks()` counts a refused block, and the control thread logs the count.
+The audio thread never logs. A failure there is counted in an `RtCounter` (`modules/foundation/core/README.md`,
+"Counters and their reports"), or in an atomic the owner keeps, such as
+`TrackRecorder::dropped_blocks()`, and the control thread writes the count as one `WARN` per
+interval. A host reads the counters and writes the report from its frame loop or from a
+`CounterPollThread`.

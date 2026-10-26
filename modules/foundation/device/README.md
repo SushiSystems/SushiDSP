@@ -5,11 +5,41 @@ The ASIO and SDL2 audio devices. Their backend targets are built by this module'
 ## Owns
 
 - `modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_device.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/block_monitor.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/device_counter_report.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/device_counters.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/device_log_category.hpp`
 - `modules/foundation/device/include/SushiDSP/foundation/device/sdl2_audio_device.hpp`
 
 ## Depends on
 
-`core` and `audio_format` (same tier).
+`core`, `audio_format`, `log` and `profile` (same tier).
+
+## Counters, dropouts and logging
+
+A device never logs from its callback. It raises the `RtCounter` objects of `DeviceCounters`, and
+the host adds them to an `RtCounterReporter` with `add_to` and writes one `WARN` per interval
+under `K_DEVICE_LOG_CATEGORY` through `DeviceCounterReport`.
+
+| Counter | Raised when |
+| --- | --- |
+| `no_callback` | A block arrives while no callback is installed; the block is answered with silence |
+| `oversize_block` | The SDL2 request is longer than the scratch; the peak is the largest frame count |
+| `arrival_gap` | A block arrives more than 1.5 block periods after the last |
+| `overrun` | A block's processing takes longer than its own period |
+| `driver_message` | The ASIO driver sends an overload, resync, latency-change or reset message, or a clock change |
+| `driver_error` | `ASIOOutputReady` returns an error from the callback |
+
+`BlockMonitor` marks the `dsp.block` timeline at each arrival and keeps the two dropout counters.
+It also records both counters in every block, as 0 or 1, so a record's `counter:` check always has
+samples. A buffer switch that reaches the ASIO trampoline while no device is open is counted in
+`AsioAudioDevice::orphan_switches()`.
+
+The constructor of `AsioAudioDevice` writes one `WARN` naming both values when the driver cannot
+run the requested block size or sample rate and the device falls back to the driver's own, and
+`stop()` writes one `WARN` when `ASIOStop` fails. `SDL_PauseAudioDevice` returns nothing, so the
+SDL2 backend has no status to log. The ASIO branches need a driver and the Steinberg SDK, and no
+test runs them.
 
 ## Notes cited from the source
 
@@ -44,8 +74,9 @@ per direction and no per-channel table, so it rejects a mixed-format driver wher
 read would misinterpret the samples.
 
 `asio_message` answers the driver's selectors as follows. Resync, latency-change and overload
-notices are acknowledged so the driver does not keep re-asking; the device does not act on them,
-because reopening the driver is the host application's call. A reset request gets 0. Answering 1
+notices are acknowledged so the driver does not keep re-asking; the device counts them in
+`driver_message` and does not act on them, because reopening the driver is the host application's
+call. A reset request gets 0. Answering 1
 would claim the device tears down and re-creates its buffers in response, which it does not do. A
 real reset handler belongs at the host layer that owns rebuilding the format and the buffers, and
 that layer does not exist yet. So 0 is the truthful "not handled" answer, and the reset selector
@@ -54,7 +85,7 @@ keeps the driver on the plain `bufferSwitch` path; that path is all the device n
 `buffer_switch_time_info` is reachable only if a driver ignores that answer, and it forwards the
 block so that nothing is dropped.
 
-`sample_rate_did_change` is empty. `format()` reports the rate negotiated at construction, and a
+`sample_rate_did_change` only counts the message. `format()` reports the rate negotiated at construction, and a
 mid-stream clock change is a driver-level event this device does not chase.
 
 ### `modules/foundation/device/source/sdl2_audio_device.cpp`

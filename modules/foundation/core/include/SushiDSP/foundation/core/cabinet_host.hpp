@@ -29,8 +29,36 @@
 
 #include <SushiDSP/foundation/io/ir.hpp>
 
+#include <cstdint>
+
 namespace SushiDSP
 {
+    /// @brief Names how CabinetHost::set_cabinet ended.
+    enum class CabinetStatus : std::uint8_t
+    {
+        Installed,            /**< The cabinet is in the signal path. */
+        EmptyImpulseResponse, /**< The impulse response holds no samples; nothing changed. */
+        NotPrepared,          /**< The node has not been prepared yet; nothing changed. */
+        SampleRateMismatch    /**< The impulse response's rate differs from the node's. */
+    };
+
+    /// @brief Returns a sentence fragment naming why @p status refused a cabinet, or "installed".
+    [[nodiscard]] inline const char* cabinet_status_text(CabinetStatus status) noexcept
+    {
+        switch (status)
+        {
+        case CabinetStatus::Installed:
+            return "installed";
+        case CabinetStatus::EmptyImpulseResponse:
+            return "the impulse response is empty";
+        case CabinetStatus::NotPrepared:
+            return "the node is not prepared yet";
+        case CabinetStatus::SampleRateMismatch:
+            return "the impulse response's sample rate differs from the node's";
+        }
+        return "unknown";
+    }
+
     /// @brief A node that can carry a cabinet impulse response in its signal path. A host
     /// discovers it with dynamic_cast<CabinetHost*> on an AudioNode, so no host names a
     /// concrete amplifier type to load a cabinet.
@@ -42,9 +70,10 @@ namespace SushiDSP
             /// atomic pointer swap. Control thread only.
             /// @param impulse_response The IR and the rate it was captured at; its sample_rate must
             /// equal the rate this node was prepared at (modules/foundation/core/README.md).
-            /// @return True if the cabinet was installed; false if the IR is empty, the rates disagree,
-            /// or prepare() has not run yet, and then the active cabinet stays in place.
-            virtual bool set_cabinet(Ir impulse_response) = 0;
+            /// @return Installed when the cabinet went in; otherwise the reason it was refused (an
+            /// empty IR, rates that disagree, or no prepare() yet), and then the active cabinet
+            /// stays in place.
+            [[nodiscard]] virtual CabinetStatus set_cabinet(Ir impulse_response) = 0;
 
             /// @brief Frees every cabinet the audio thread has provably moved past.
             /// @pre Called on the control thread, never concurrently with process(); call it

@@ -37,6 +37,8 @@
 #include <vector>
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/rt_counter.hpp>
+#include <SushiDSP/foundation/core/rt_counter_report.hpp>
 #include <SushiDSP/foundation/core/rt_swap_slot.hpp>
 
 #include "parameter_routing.hpp"
@@ -126,6 +128,28 @@ namespace SushiDSP::Plugin
             /// @brief Counts the audio thread's parameter changes dropped at K_PENDING_CAPACITY.
             [[nodiscard]] std::size_t dropped_parameter_changes() const noexcept;
 
+            /// @brief Holds what process() counts instead of logging.
+            struct Counters
+            {
+                    /// @brief Blocks answered with cleared outputs because the channel count or
+                    /// the frame count did not fit the rig.
+                    RtCounter format_mismatch;
+
+                    /// @brief Parameter changes skipped because the routing belonged to another
+                    /// graph than the one the block ran.
+                    RtCounter stale_routing;
+
+                    /// @brief Parameter changes that named an id the routing does not hold.
+                    RtCounter unknown_parameter;
+            };
+
+            /// @brief Returns what the real-time path counted; read it on the control thread.
+            [[nodiscard]] const Counters& counters() const noexcept;
+
+            /// @brief Adds every counter, and the changes a full queue dropped, to @p reporter.
+            /// @pre The adapter outlives @p reporter.
+            void add_counters_to(RtCounterReporter& reporter) const;
+
             /// @brief Holds a parameter change for the next flush or block. Audio thread only;
             /// allocates nothing and locks nothing.
             /// @param id An id from parameters(); an id the rig does not hold is dropped later.
@@ -190,5 +214,8 @@ namespace SushiDSP::Plugin
 
             /// @brief Counts the changes dropped because pending_ was full.
             std::atomic<std::size_t> dropped_parameter_changes_{0};
+
+            /// @brief Holds what the real-time path counted.
+            Counters counters_;
     };
 } // namespace SushiDSP::Plugin

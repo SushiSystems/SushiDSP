@@ -36,7 +36,7 @@ namespace
         "DiezelVh4",
         []
         {
-            SushiDSP::bench::print(SushiDSP::bench::measure_node<SushiDSP::DiezelVh4>(
+            SushiDSP::bench::report(SushiDSP::bench::measure_node<SushiDSP::DiezelVh4>(
                                        "DiezelVh4 (no cabinet)",
                                        [](SushiDSP::DiezelVh4& node)
                                        {
@@ -46,6 +46,6 @@ namespace
                                         node.set_parameter_for_control_thread("treble", 0.7f);
                                         node.set_parameter_for_control_thread("presence", 0.5f);
                                        }),
-                                   1.5);
+                                   1.5, "nodes/diezel_vh4/diezel_vh4.checks.json");
         }};
 } // namespace

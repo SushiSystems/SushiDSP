@@ -34,6 +34,7 @@
 #include <string>
 #include <vector>
 
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 #include <SushiDSP/nodes/room/hrtf_set_loader.hpp>
 
@@ -136,4 +137,44 @@ TEST(Medium_HrtfSetLoader, HrtfSetLoaderRefusesATruncatedFile)
     EXPECT_TRUE(set.empty());
 
     std::remove(path.c_str());
+}
+
+TEST(Small_HrtfSetLoaderLogging, AMissingFileWritesOneErrorNamingThePath)
+{
+    SushiDSP::room::HrtfSet set;
+    std::string error;
+    const std::string path = std::string(SUSHIDSP_FIXTURE_DIR) + "/nothing_at_all.hrtf";
+
+    SushiDSP::LogCapture capture;
+    EXPECT_FALSE(SushiDSP::room::HrtfSetLoader::load(path, 48000.0, set, error));
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
+    EXPECT_EQ(lines[0].category, "room");
+    EXPECT_NE(lines[0].message.find(path), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_HrtfSetLoaderLogging, ARateMismatchWritesOneErrorNamingBothRates)
+{
+    SushiDSP::room::HrtfSet set;
+    std::string error;
+
+    SushiDSP::LogCapture capture;
+    EXPECT_FALSE(SushiDSP::room::HrtfSetLoader::load(fixture_path(), 96000.0, set, error));
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_NE(lines[0].message.find("96000"), std::string::npos) << lines[0].message;
+}
+
+TEST(Small_HrtfSetLoaderLogging, AFileThatLoadsWritesNothing)
+{
+    SushiDSP::room::HrtfSet set;
+    std::string error;
+
+    SushiDSP::LogCapture capture;
+    EXPECT_TRUE(SushiDSP::room::HrtfSetLoader::load(fixture_path(), 48000.0, set, error)) << error;
+
+    EXPECT_TRUE(capture.lines().empty());
 }

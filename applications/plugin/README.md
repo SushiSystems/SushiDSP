@@ -141,7 +141,28 @@ type appears outside `clap_plugin.hpp`, `clap_plugin.cpp`, `clap_extensions.cpp`
 - It does not apply a parameter event at its sample offset inside the block.
 - `clap_plugin.reset` clears nothing: `AudioNode::reset()` belongs to the control thread, and
   CLAP calls reset on the audio thread.
-- It logs nothing. A refused preset returns false to the host and the reason is discarded.
 - The timeline every `RigController` carries is built and never played: no lanes, no transport,
   no recording, no metronome.
 - No VST3 or AU shell exists.
+
+## Logging, counters and profiling
+
+The plugin logs under `K_PLUGIN_LOG_CATEGORY`, declared in `plugin_log_category.hpp`, and its
+records reach the host through `sushidsp_join_log` or stderr. `guarded` takes the callback's
+name and writes one `ERROR` naming it and what was thrown before it returns the callback's failure
+value. A startup rig the variable names but the plugin cannot open, or the adapter refuses, writes
+one `WARN` with the path or the reason. A failed `activate` and a state that will not load or save
+each write one `ERROR` with the adapter's reason.
+
+The real-time path never logs. `RigAdapter` counts a block with the wrong channel count or frame
+count (`format_mismatch`), the parameter changes it skipped because the routing belonged to another
+graph (`stale_routing`), those that named an unknown id (`unknown_parameter`) and those a full
+queue dropped. The instance counts the blocks it answered with `CLAP_PROCESS_ERROR` (`bad_block`).
+The audio thread asks the host for a main-thread callback once in 512 blocks, and
+`on_main_thread` writes the counters that moved as one `WARN` every five seconds.
+
+When `SD_PROFILE_CONFIG` names a profiler configuration, `activate` starts a session and
+`deactivate` ends it. The block is marked on the `dsp.block` timeline with the host's frame count
+and the rate of `activate`, and the process zone is `dsp.process`. One session runs per
+process: a second instance asks for a session, is refused, and writes one `WARN`. The plugin package is built in a tree of its own with `SD_PROFILER_STATIC` on, so it links
+SushiProfiler's static target and its zones never reach the host's collector.

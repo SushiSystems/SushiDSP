@@ -29,14 +29,15 @@
 #include <memory>
 #include <utility>
 
-RigController::RigController(const SushiDSP::PrepareInfo& info)
-    : RigController(info, std::make_shared<SessionTimeline>(info))
+RigController::RigController(const SushiDSP::PrepareInfo& info, ClockSource clock)
+    : RigController(info, std::make_shared<SessionTimeline>(info), std::move(clock))
 {
 }
 
 RigController::RigController(const SushiDSP::PrepareInfo& info,
-                             std::shared_ptr<SessionTimeline> session)
-    : info_(info), graph_(info), session_owner_(std::move(session)), session_(*session_owner_),
+                             std::shared_ptr<SessionTimeline> session, ClockSource clock)
+    : info_(info), graph_(info, std::move(clock)), session_owner_(std::move(session)),
+      session_(*session_owner_),
       persistence_(info, graph_, session_)
 {
 }
@@ -116,6 +117,11 @@ float RigController::get_parameter(SlotId slot, const char* param_id) const
 bool RigController::set_cabinet(SlotId slot, const std::string& path)
 {
     return graph_.set_cabinet(slot, path);
+}
+
+bool RigController::set_cabinet(SlotId slot, const std::string& path, std::string& reason_out)
+{
+    return graph_.set_cabinet(slot, path, reason_out);
 }
 
 void RigController::reclaim()

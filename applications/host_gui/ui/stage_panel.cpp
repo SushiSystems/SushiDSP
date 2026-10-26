@@ -96,9 +96,10 @@ namespace ui
             error_out.clear();
             try
             {
-                if (!rig.set_cabinet(slot, path))
+                std::string reason;
+                if (!rig.set_cabinet(slot, path, reason))
                 {
-                    error_out = "Cabinet not installed: sample rate mismatch or unprepared node";
+                    error_out = "Cabinet not installed: " + reason;
                 }
             }
             catch (const std::exception& error)

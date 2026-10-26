@@ -193,7 +193,8 @@ namespace
         "DkCircuit",
         []
         {
-            SushiDSP::bench::print(measure_dk_circuit(), 0.12);
+            SushiDSP::bench::report(measure_dk_circuit(), 0.12,
+                                    "foundation/math/dk/dk_circuit_8x.checks.json", "KI-46");
             SushiDSP::bench::print(measure_dk_potentiometer_update());
             SushiDSP::bench::print(measure_dk_potentiometer_rederivation());
         }};

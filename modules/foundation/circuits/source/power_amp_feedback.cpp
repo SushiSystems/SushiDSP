@@ -26,10 +26,12 @@
  */
 
 #include <SushiDSP/foundation/circuits/power_amp_feedback.hpp>
+#include <SushiDSP/foundation/circuits/circuits_log_category.hpp>
+#include <SushiDSP/foundation/log/log.hpp>
 
 #include <algorithm>
 #include <array>
-#include <cassert>
+#include <stdexcept>
 
 namespace SushiDSP
 {
@@ -115,9 +117,13 @@ namespace SushiDSP
         }
         netlist.output(Nodes::K_GRID, 0);
 
-        const bool prepared = circuit_.prepare(netlist, sample_rate_);
-        assert(prepared);
-        static_cast<void>(prepared);
+        if (!circuit_.prepare(netlist, sample_rate_))
+        {
+            SD_LOG_ERROR(K_CIRCUITS_LOG_CATEGORY,
+                         "PowerAmpFeedback could not derive its DK matrices at {} Hz; the constructor throws",
+                         sample_rate_);
+            throw std::runtime_error("PowerAmpFeedback: the DK derivation failed at the requested rate");
+        }
 
         circuit_.set_potentiometer(presence_pot_, static_cast<double>(presence_));
         circuit_.update_matrices_if_dirty();

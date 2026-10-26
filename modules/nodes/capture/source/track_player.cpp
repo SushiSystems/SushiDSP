@@ -148,6 +148,11 @@ namespace SushiDSP
         return index < K_MAX_TRACKS && tracks_[index].soloed.load(std::memory_order_acquire);
     }
 
+    const TrackPlayer::Counters& TrackPlayer::counters() const noexcept
+    {
+        return counters_;
+    }
+
     float TrackPlayer::clip_gain(const Clip& clip, std::uint64_t clip_frame) noexcept
     {
         const std::uint64_t take_frames =
@@ -340,7 +345,12 @@ namespace SushiDSP
     {
         DenormalGuard guard;
 
-        if (outputs == nullptr || channels == 0 || frames == 0)
+        if (outputs == nullptr || channels == 0)
+        {
+            counters_.empty_call.increment();
+            return;
+        }
+        if (frames == 0)
         {
             return;
         }
@@ -364,6 +374,7 @@ namespace SushiDSP
         // An unsized converter takes the copy path; see modules/nodes/capture/README.md.
         if (frames > prepared_block_frames_ || speed_q32 == 0u)
         {
+            counters_.forced_unity_speed.increment();
             speed_q32 = K_UNITY_SPEED_Q32;
         }
 

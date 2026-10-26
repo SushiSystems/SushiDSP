@@ -46,6 +46,7 @@
 #include "session_timeline.hpp"
 #include "slot_graph.hpp"
 #include "slot_selection.hpp"
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include <SushiDSP/nodes/capture/transport.hpp>
 #include <SushiDSP/catalog/node_registry/node_registry.hpp>
 #include <SushiDSP/nodes/room/room_host.hpp>
@@ -1547,37 +1548,31 @@ TEST(Medium_RigController, RigControllerLoadsAPresetWithNoRoomAsTheStarterScene)
 
 TEST(Medium_RigController, RigControllerCoalescesADragToThirtyPublishesPerSecond)
 {
-    RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
+    // The clock is injected and moves one millisecond per edit, so the count is exact.
+    std::chrono::steady_clock::time_point fake_now{};
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2},
+                             [&fake_now] { return fake_now; });
     const RigController::SlotId room = controller.append("sushidsp.room");
     ASSERT_NE(controller.room_host(room), nullptr);
     ASSERT_EQ(controller.room_publishes(room), 0u);
 
-    // Three hundred scene edits, each a 1 cm move of the cabinet, as fast as the loop runs.
+    // Three hundred scene edits, each a 1 cm move of the cabinet, one millisecond apart.
     constexpr int K_EDITS = 300;
     SushiDSP::room::RoomScene scene;
     std::string error;
-    const auto started = std::chrono::steady_clock::now();
     for (int edit = 0; edit < K_EDITS; ++edit)
     {
         scene.source_position.x = 0.5 + 0.01 * edit;
         ASSERT_TRUE(controller.set_room_scene(room, scene, error)) << error;
+        fake_now += std::chrono::milliseconds(1);
     }
-    const std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - started;
 
-    // At most 1 + floor(30 T) publishes land in T seconds. See tests/applications/host_gui/README.md.
+    // Edits 0, 34, 68, ... 272 publish: the interval is 1 / 30 s, 34 whole milliseconds.
     const std::size_t published = controller.room_publishes(room);
-    const std::size_t allowed =
-        1u +
-        static_cast<std::size_t>(std::floor(elapsed.count() * RigController::K_ROOM_PUBLISH_HZ));
-    EXPECT_GE(published, 1u);
-    EXPECT_LE(published, allowed) << "in " << elapsed.count() * 1000.0 << " ms";
-    if (elapsed.count() < 0.1)
-    {
-        EXPECT_LE(published, 3u);
-    }
+    EXPECT_EQ(published, 1u + static_cast<std::size_t>((K_EDITS - 1) / 34));
 
     // The newest scene waits for a frame past the interval, then reaches the node whole.
-    std::this_thread::sleep_for(std::chrono::milliseconds(40));
+    fake_now += std::chrono::milliseconds(40);
     controller.reclaim();
     EXPECT_EQ(controller.room_publishes(room), published + 1u);
     EXPECT_NEAR(controller.room_host(room)->scene().source_position.x, 0.5 + 0.01 * (K_EDITS - 1),
@@ -2126,4 +2121,155 @@ TEST(Medium_RigController, RigControllerRoundTripsTheRigsShapeThroughJson)
     EXPECT_EQ(loaded.hidden.di_strip, std::optional<RigController::SlotId>(order[1]));
     EXPECT_EQ(loaded.hidden.amp_bus_feeders,
               (std::vector<RigController::SlotId>{order[0], order[1]}));
+}
+
+TEST(Medium_RigControllerLogging, ACabinetOnAnUnknownSlotIsRefusedWithAReasonAndOneWarn)
+{
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 256, 1});
+    std::string reason;
+
+    SushiDSP::LogCapture capture;
+    EXPECT_FALSE(controller.set_cabinet(999u, "no_such_file.wav", reason));
+
+    EXPECT_NE(reason.find("no slot 999"), std::string::npos) << reason;
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[0].category, "host_gui");
+    EXPECT_NE(lines[0].message.find("slot 999"), std::string::npos) << lines[0].message;
+}
+
+TEST(Medium_RigControllerLogging, ACabinetOnANodeThatHostsNoneIsRefusedWithItsCauseAndOneWarn)
+{
+    const std::string ir_path = write_temp_impulse_wav();
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 256, 1});
+    const RigController::SlotId delay = controller.append("sushidsp.dd3");
+    std::string reason;
+
+    SushiDSP::LogCapture capture;
+    EXPECT_FALSE(controller.set_cabinet(delay, ir_path, reason));
+
+    EXPECT_NE(reason.find("hosts no cabinet"), std::string::npos) << reason;
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_NE(lines[0].message.find(ir_path), std::string::npos) << lines[0].message;
+    std::remove(ir_path.c_str());
+}
+
+TEST(Medium_RigControllerLogging, ACabinetTheNodeTakesLeavesNoReasonAndNoRecord)
+{
+    const std::string ir_path = write_temp_impulse_wav();
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 256, 1});
+    const RigController::SlotId cabinet = controller.append("sushidsp.cabinet");
+    std::string reason = "stale";
+
+    SushiDSP::LogCapture capture;
+    EXPECT_TRUE(controller.set_cabinet(cabinet, ir_path, reason));
+
+    EXPECT_TRUE(reason.empty());
+    EXPECT_TRUE(capture.lines().empty());
+    std::remove(ir_path.c_str());
+}
+
+TEST(Medium_RigControllerLogging, AnUnknownParameterIsLoggedOncePerStreakAndRearmsOnAGoodWrite)
+{
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 256, 1});
+    const RigController::SlotId screamer = controller.append("sushidsp.tubescreamer");
+
+    SushiDSP::LogCapture capture;
+    controller.set_parameter(screamer, "no_such_knob", 1.0f);
+    controller.set_parameter(screamer, "no_such_knob", 0.5f);
+    EXPECT_EQ(capture.lines().size(), 1u);
+
+    controller.set_parameter(screamer, "drive", 0.4f);
+    controller.set_parameter(screamer, "no_such_knob", 0.2f);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 2u);
+    EXPECT_EQ(lines[1].level, SushiLog::LogLevel::Warn);
+    EXPECT_NE(lines[1].message.find("no_such_knob"), std::string::npos) << lines[1].message;
+}
+
+TEST(Medium_RigControllerLogging, AWriteToAnUnknownSlotIsLoggedOnce)
+{
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 256, 1});
+
+    SushiDSP::LogCapture capture;
+    controller.set_parameter(777u, "drive", 1.0f);
+    controller.set_parameter(777u, "drive", 0.5f);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_NE(lines[0].message.find("slot 777"), std::string::npos) << lines[0].message;
+}
+
+TEST(Medium_RigControllerLogging, AFailedHrtfLoadNamesWhatChangedAndTheLiveRoomsItReset)
+{
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 2});
+    controller.append("sushidsp.room");
+    std::string error;
+
+    SushiDSP::LogCapture capture;
+    EXPECT_FALSE(controller.set_hrtf_path("no_such_hrtf_set.hrtf", error));
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 2u);
+    EXPECT_EQ(lines[0].category, "room");
+    EXPECT_EQ(lines[1].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[1].category, "host_gui");
+    EXPECT_NE(lines[1].message.find("1 live room(s)"), std::string::npos) << lines[1].message;
+}
+
+TEST(Medium_RigControllerLogging, ACompleteSessionPresetLoadsWithoutARecord)
+{
+    RigController writer(SushiDSP::PrepareInfo{48000.0, 64, 1});
+    writer.append("sushidsp.tubescreamer");
+    const std::string text = writer.save_to_json();
+    RigController reader(SushiDSP::PrepareInfo{48000.0, 64, 1});
+
+    SushiDSP::LogCapture capture;
+    reader.load_from_json(text);
+
+    EXPECT_TRUE(capture.lines().empty());
+}
+
+TEST(Medium_RigControllerLogging, GapsInTheTrackRowsWriteOneWarnWithTheCountsAndOneInfoForNoFormat)
+{
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
+    const std::string text = R"({
+        "nodes": [],
+        "track_count": 3,
+        "tracks": [
+            {"index": 9, "name": "far", "gain": 1.0, "pan": 0.0, "muted": false, "soloed": false},
+            {"index": 1, "name": "near", "pan": 0.0, "muted": false, "soloed": false,
+             "clips": [{"path": ""}]}
+        ]})";
+
+    SushiDSP::LogCapture capture;
+    controller.load_from_json(text);
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 2u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[0].category, "host_gui");
+    EXPECT_NE(lines[0].message.find("1 track row(s)"), std::string::npos) << lines[0].message;
+    EXPECT_NE(lines[0].message.find("1 track key(s)"), std::string::npos) << lines[0].message;
+    EXPECT_NE(lines[0].message.find("1 clip(s)"), std::string::npos) << lines[0].message;
+    EXPECT_EQ(lines[1].level, SushiLog::LogLevel::Info);
+    EXPECT_NE(lines[1].message.find("format 1"), std::string::npos) << lines[1].message;
+}
+
+TEST(Medium_RigControllerLogging, ATrackCountPastTheLimitIsHeldAndNamedInTheWarn)
+{
+    RigController controller(SushiDSP::PrepareInfo{48000.0, 64, 1});
+
+    SushiDSP::LogCapture capture;
+    controller.load_from_json(R"({"nodes": [], "track_count": 20})");
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_GE(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_NE(lines[0].message.find("track count of 20 was held to 8"), std::string::npos)
+        << lines[0].message;
 }

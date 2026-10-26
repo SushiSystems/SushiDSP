@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_timing_gate.cpp                                                   */
+/* parameter_report.hpp                                                   */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -20,35 +20,16 @@
 /**************************************************************************/
 
 /**
- * @file test_timing_gate.cpp
- * @brief Tests that the timing gate reports an optimised build exactly when NDEBUG is defined and a sanitiser build exactly when one is on.
+ * @file parameter_report.hpp
+ * @brief Declares the record a by-id parameter write writes when no row carries the id.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include <SushiDSP/foundation/timing_gate/timing_gate.hpp>
-
-TEST(Small_TimingGate, ReportsOptimisationFromNdebug)
+namespace SushiDSP
 {
-#ifdef NDEBUG
-    EXPECT_TRUE(SushiDSP::test::is_optimised_build());
-#else
-    EXPECT_FALSE(SushiDSP::test::is_optimised_build());
-#endif
-}
-
-TEST(Small_TimingGate, ReportsSanitisationFromTheCompilerMacros)
-{
-#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
-    EXPECT_TRUE(SushiDSP::test::is_sanitised_build());
-#elif defined(__has_feature)
-#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer)
-    EXPECT_TRUE(SushiDSP::test::is_sanitised_build());
-#else
-    EXPECT_FALSE(SushiDSP::test::is_sanitised_build());
-#endif
-#else
-    EXPECT_FALSE(SushiDSP::test::is_sanitised_build());
-#endif
-}
+    /// @brief Writes one WARN under the core category naming @p id and @p value, which a table
+    /// ignored. Control thread only; defined once so a parameter table includes no log header.
+    void report_unknown_parameter(const char* id, float value) noexcept;
+} // namespace SushiDSP

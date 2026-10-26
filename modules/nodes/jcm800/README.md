@@ -396,6 +396,12 @@ limiter: a waveshaper there would need its own oversampled region to avoid alias
 harmonics back down, and the amp's saturation character already comes from the tube and
 transformer stages that model it.
 
+## Profiler regions and counters
+
+`Jcm800::process` records its regions under the group `jcm800` and its solves and clamp as per-block
+counters; the names, the cost of a zone and why no stage inside the oversampled loop carries one are in
+[`modules/foundation/profile/README.md`](../../foundation/profile/README.md).
+
 ## Designs
 
 <!-- designs:begin -->

@@ -1,7 +1,7 @@
 # SushiProfiler adoption and the logging gaps: plan
 
-**Status:** Open — planned 2026-10-26; no task has started, and the tasks that name a question wait for its answer.
-**Designs:** SUSHIDSP
+**Status:** Open — planned 2026-10-26; every task is written and none is built; the first build, the ASIO sites and the owner's own runs close it.
+**Implements:** SUSHIDSP#DP
 
 **Goal:** Carry out what [`SPEC.md`](SPEC.md) finds. Section and question numbers below are that
 file's: `§3` is its section 3, `Q6` its question 6, `A9`, `B16`, `SLG-2`, `SPG-1` its rows.
@@ -436,3 +436,28 @@ sources and `tube_screamer.cpp`), `B3` and `B4` (`test_band_response_fit.cpp`).
 - Run the ASIO sites on a driver: L3, C2 and P6 leave them unverified.
 - Decide the SushiLog and SushiProfiler gaps (Q19) before wave 3, since C1 is the workaround for
   SLG-1 and SLG-2.
+
+## Decisions taken during the build
+
+Each is an engineering call the rulings of `SPEC.md` section 9 do not cover.
+
+- Products start a profiling session from the file `SD_PROFILE_CONFIG` names, through `ProfileSession` in `foundation/profile`: nothing else in the stack names a start, and an environment variable needs no new interface.
+- `ProfileSession`, `ProfileRecord` and `run_profiled` hide SushiProfiler behind a pimpl: no product or test header includes a SushiProfiler header, so the module stays the only includer.
+- `RigGraph`, `RoomNode` and the amplifier counters are process-wide: a rig replaces its graph and its nodes, and a reporter must hold one object whose count survives the swap.
+- `RigGraph::process` writes the zone `graph.process`, and `dsp.process` sits in `SessionRenderer::render` and the three program callbacks: two sites with one name make the subject `zone:dsp.process` ambiguous in a check.
+- `apply_output_safety_clamp` returns one count of clipped and non-finite samples, as Q6 says; a NaN is counted and passes unchanged, so no output sample moves.
+- `AudioDevice` gains `add_counters_to` with an empty default body: hosts reach a device through the interface, and no device or test double has to change.
+- `AudioDevice` and `RigGraph` forward-declare or avoid the headers they only name, and each module that owns counters writes its own report under its own category (`CoreCounterReport`, `DeviceCounterReport`), because the logging checker forbids one module logging under another's category.
+- `profile::NameID` is a `std::uint32_t` in the public headers of `RigGraph` and `SessionRenderer`, so they include no profile header; `.cpp` files include it.
+- The five units that gained a test leave `tools/testing/untested_units.txt`, and the same-tier edges the new includes need are added to `tools/settings.py`, so `check_all` reads true; the CMake table is the owner's.
+- Known issue entries: the cabinet row cites RW-9, which already holds it, so the entry that the backlog rule would refuse is not written.
+- `FmvToneStack` and `PowerAmpFeedback` derive in their constructor, so the constructor throws (Q13a) where the plan said `prepare()`.
+- `SessionRenderer::render` keeps cutting a long block and counts it: Q14 settled `RigGraph` only, and its acceptance asks for unchanged output.
+- `SDL_PauseAudioDevice` returns nothing, so B22 has no SDL2 status to log.
+- Region zone names live in `sushidsp_profile_names.hpp` under one namespace per node: a name two nodes share would make two subjects with one name.
+- `RigController::set_cabinet` gains an overload with a reason string, so the stage panel shows the node's own message; the two-argument form stays.
+- Counters are recorded every block, as 0 when nothing happened: a `counter:` check fails on a subject with no samples.
+- `parameter_table.hpp` includes no log header: the by-id miss calls `report_unknown_parameter`, one non-template function in `parameter_report.cpp`, so a change to the log front no longer rebuilds every node.
+- The profiler's static or shared target is chosen per build, not per target: the cache option `SD_PROFILER_STATIC` (default OFF) selects `SushiProfiler::SushiProfilerStatic` and defines `SUSHIPROFILER_STATIC` for every library of the build, because a library compiled static and linked to the shared profiler loses the collector's dllimport data on Windows. The plug-in package is built in a tree of its own with it ON, and keeps its own collector.
+- `timing_gate` is deleted: SushiProfiler checks in `.checks.json` files judge a time, and no test uses the gate any more.
+- `SD_ENABLE_PROFILER` and `SD_PROFILE_LEVEL` come from a generated `profile_config.hpp` (`configure_file` of `modules/foundation/profile/profile_config.hpp.in`), not from PUBLIC compile definitions, so a change of level rebuilds only the files that include it; `profile.hpp` includes it, defines neither macro and keeps no default, so a missing header fails to compile. SushiProfiler is found with `find_package(SushiProfiler CONFIG REQUIRED)` under `SD_ENABLE_PROFILER`.

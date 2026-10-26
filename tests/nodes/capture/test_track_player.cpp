@@ -815,3 +815,49 @@ TEST(Small_TrackPlayer, TimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
         EXPECT_TRUE(std::isfinite(right[frame]));
     }
 }
+
+TEST(Small_TrackPlayerCounters, ACallWithNoOutputBufferIsCountedAndWritesNothing)
+{
+    SushiDSP::Transport transport;
+    SushiDSP::TrackPlayer player;
+    player.set_take(0, ramp_take(256));
+
+    player.process(nullptr, 2u, 64u, transport);
+    float* outputs[1] = {nullptr};
+    player.process(outputs, 0u, 64u, transport);
+
+    EXPECT_EQ(player.counters().empty_call.value(), 2U);
+    EXPECT_EQ(player.counters().forced_unity_speed.value(), 0U);
+}
+
+TEST(Small_TrackPlayerCounters, ABlockLongerThanThePreparedSizeIsCountedAsForcedUnitySpeed)
+{
+    SushiDSP::Transport transport;
+    SushiDSP::TrackPlayer player;
+    player.set_take(0, ramp_take(1024));
+    player.prepare(64u);
+    transport.set_speed(0.5);
+
+    std::vector<float> left(128, 0.0f);
+    std::vector<float> right(128, 0.0f);
+    render(player, transport, left, right);
+
+    EXPECT_EQ(player.counters().forced_unity_speed.value(), 1U);
+    EXPECT_EQ(player.counters().empty_call.value(), 0U);
+}
+
+TEST(Small_TrackPlayerCounters, ABlockInsideThePreparedSizeCountsNothing)
+{
+    SushiDSP::Transport transport;
+    SushiDSP::TrackPlayer player;
+    player.set_take(0, ramp_take(1024));
+    player.prepare(256u);
+    transport.set_speed(0.5);
+
+    std::vector<float> left(128, 0.0f);
+    std::vector<float> right(128, 0.0f);
+    render(player, transport, left, right);
+
+    EXPECT_EQ(player.counters().forced_unity_speed.value(), 0U);
+    EXPECT_EQ(player.counters().empty_call.value(), 0U);
+}

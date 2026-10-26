@@ -1871,7 +1871,7 @@ TEST(Medium_RoomNode, RoomNodeReportsSphericalHeadWithNoAssetAndMeasuredWithOne)
         SushiDSP::room::HrtfSetLoader::load(fixture_set_path(), K_SAMPLE_RATE, fixture, error))
         << error;
     ASSERT_EQ(fixture.direction_count(), 6u);
-    ASSERT_TRUE(node->set_hrtf(std::move(fixture)));
+    ASSERT_EQ(node->set_hrtf(std::move(fixture)), SushiDSP::room::HrtfStatus::Installed);
     EXPECT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
     std::vector<float> impulse(2048, 0.0f);
     impulse[0] = 1.0f;
@@ -1880,7 +1880,7 @@ TEST(Medium_RoomNode, RoomNodeReportsSphericalHeadWithNoAssetAndMeasuredWithOne)
         ASSERT_TRUE(std::isfinite(sample));
     }
 
-    ASSERT_TRUE(node->set_hrtf(SushiDSP::room::HrtfSet{}));
+    ASSERT_EQ(node->set_hrtf(SushiDSP::room::HrtfSet{}), SushiDSP::room::HrtfStatus::Installed);
     EXPECT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 
     // A set without a third-order decoder is refused whole and the source does not move.
@@ -1888,7 +1888,7 @@ TEST(Medium_RoomNode, RoomNodeReportsSphericalHeadWithNoAssetAndMeasuredWithOne)
     ASSERT_TRUE(SushiDSP::room::HrtfSetLoader::load(fixture_set_path(), K_SAMPLE_RATE, bare, error))
         << error;
     bare.set_decoder(1, std::vector<float>(2 * 4 * SushiDSP::room::HrtfSet::K_DECODER_TAPS));
-    EXPECT_FALSE(node->set_hrtf(std::move(bare)));
+    EXPECT_EQ(node->set_hrtf(std::move(bare)), SushiDSP::room::HrtfStatus::DecoderRefused);
     EXPECT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 }
 
@@ -2006,7 +2006,7 @@ TEST(Medium_RoomNode, RoomNodeCarriesTheRearNotchWithAMeasuredSet)
         rear_notch_depth_db(windowed_power_db(rear_left, 0, rear_left.size()));
     std::unique_ptr<SushiDSP::room::RoomNode> node =
         prepared_node(centred_dead_room(), K_LISTENER_EARS);
-    ASSERT_TRUE(node->set_hrtf(std::move(set)));
+    ASSERT_EQ(node->set_hrtf(std::move(set)), SushiDSP::room::HrtfStatus::Installed);
     ASSERT_EQ(node->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
     std::vector<float> impulse(8 * K_BLOCK, 0.0f);
     impulse[0] = 1.0f;
