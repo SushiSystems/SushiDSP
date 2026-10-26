@@ -29,11 +29,9 @@ depends_on = ["sushilog", "sushiprofiler"]
 version = "v0.2.3"
 commit = "5f714a7bca6cad1a49e9a6133e75f0f791dba551"
 
-# The tag v0.3.0 is cut after SushiProfiler's package build; until then the commit is the head of
-# its main branch.
 [sushisystems.sushiprofiler]
 version = "v0.3.0"
-commit = "c099165b5106f3004972c98e7adbc8f2f66329f3"
+commit = "e6e9b8af059d26f4084bbef3de902907df2a04ae"
 
 [intel-llvm]
 description = "intel/llvm clang++ (the workspace's shared toolchain). Optional: when present `sd` builds with it, otherwise with the platform compiler. SushiDSP compiles no SYCL; this is a C++ compiler preference."
