@@ -164,5 +164,4 @@ The audio thread asks the host for a main-thread callback once in 512 blocks, an
 When `SD_PROFILE_CONFIG` names a profiler configuration, `activate` starts a session and
 `deactivate` ends it. The block is marked on the `dsp.block` timeline with the host's frame count
 and the rate of `activate`, and the process zone is `dsp.process`. One session runs per
-process: a second instance asks for a session, is refused, and writes one `WARN`. The plugin package is built in a tree of its own with `SD_PROFILER_STATIC` on, so it links
-SushiProfiler's static target and its zones never reach the host's collector.
+process: a second instance asks for a session, is refused, and writes one `WARN`. The plugin links the shared `SushiProfiler::SushiProfiler`, as every other target does.

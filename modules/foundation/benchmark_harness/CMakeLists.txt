@@ -13,4 +13,6 @@ target_include_directories(sushi_dsp_benchmark_harness INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 sushidsp_require_same_tier_edge(benchmark_harness core)
-target_link_libraries(sushi_dsp_benchmark_harness INTERFACE SushiDSP::sushi_dsp_core)
+sushidsp_require_same_tier_edge(benchmark_harness profile)
+target_link_libraries(sushi_dsp_benchmark_harness INTERFACE SushiDSP::sushi_dsp_core
+    SushiDSP::sushi_dsp_profile)

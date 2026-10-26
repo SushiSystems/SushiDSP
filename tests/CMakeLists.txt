@@ -32,6 +32,36 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(sushidsp_tests
     main.cpp
+    # --- Profiler and logging adoption ---
+    applications/host_gui/test_session_renderer.cpp
+    foundation/benchmark_harness/test_profiled_node.cpp
+    foundation/circuits/test_circuits_log_category.cpp
+    foundation/core/test_core_counter_report.cpp
+    foundation/core/test_core_log_category.cpp
+    foundation/core/test_counter_poll_thread.cpp
+    foundation/core/test_node_counters.cpp
+    foundation/core/test_parameter_report.cpp
+    foundation/core/test_rt_counter.cpp
+    foundation/core/test_rt_counter_report.cpp
+    foundation/device/test_block_monitor.cpp
+    foundation/device/test_device_counter_report.cpp
+    foundation/device/test_device_counters.cpp
+    foundation/device/test_device_log_category.cpp
+    foundation/io/test_io_log_category.cpp
+    foundation/profile/test_profile/test_compiled_out.cpp
+    foundation/profile/test_profile/test_zones.cpp
+    foundation/profile/test_profile_record.cpp
+    foundation/profile/test_profile_run.cpp
+    foundation/profile/test_profile_runtime.cpp
+    foundation/profile/test_profile_session.cpp
+    foundation/profile/test_sushidsp_profile_names.cpp
+    nodes/cabinet/test_cabinet_log_category.cpp
+    nodes/diezel_vh4/test_diezel_vh4/test_profile.cpp
+    nodes/jcm800/test_jcm800/test_profile.cpp
+    nodes/mesa_mark2c/test_mesa_mark2c/test_profile.cpp
+    nodes/peavey5150/test_peavey5150/test_profile.cpp
+    nodes/tubescreamer/test_tube_screamer/test_profile.cpp
+    nodes/tubescreamer/test_tubescreamer_log_category.cpp
     # --- Unit tests written for the units that had none ---
     nodes/room/test_room_log_category.cpp
     nodes/room/test_fade_window.cpp
@@ -86,7 +116,6 @@ add_executable(sushidsp_tests
     # --- Unit tests written for the units that had none ---
     foundation/io/test_ir.cpp
     foundation/regression_test/test_regression_test.cpp
-    foundation/timing_gate/test_timing_gate.cpp
     foundation/golden_compare/test_golden_compare_log_category.cpp
     foundation/golden_compare/test_golden_file.cpp
     # --- Unit tests written for the units that had none ---
@@ -358,10 +387,10 @@ target_link_libraries(sushidsp_tests PRIVATE
     SushiDSP::sushi_dsp_circuit_blocks
     SushiDSP::sushi_dsp_golden_compare
     SushiDSP::sushi_dsp_log_capture
-    SushiDSP::sushi_dsp_timing_gate
     SushiDSP::sushi_dsp_regression_test
     SushiDSP::sushi_dsp_allocation_trap
     SushiDSP::sushi_dsp_benchmark_harness
+    SushiDSP::sushi_dsp_profile
     SushiDSP::room_scenes
     GTest::gtest
     # Known limitation: nlohmann_json::nlohmann_json is only available here because
@@ -373,6 +402,26 @@ target_link_libraries(sushidsp_tests PRIVATE
     # compiled unconditionally into sushidsp_tests regardless of SUSHIDSP_BUILD_SDL2.
     nlohmann_json::nlohmann_json
 )
+# The SDL2 device test drives the dummy audio driver through the real backend.
+if(SUSHIDSP_BUILD_SDL2)
+    target_sources(sushidsp_tests PRIVATE foundation/device/test_sdl2_audio_device.cpp)
+    target_link_libraries(sushidsp_tests PRIVATE SushiDSP::sushi_dsp_sdl2)
+endif()
+
+# The plug-in tests compile the plug-in's sources the way the host tests compile the host's.
+if(SUSHIDSP_BUILD_PLUGIN)
+    target_sources(sushidsp_tests PRIVATE
+        applications/plugin/test_clap_boundary.cpp
+        applications/plugin/test_clap_plugin.cpp
+        applications/plugin/test_plugin_log_category.cpp
+        applications/plugin/test_startup_rig.cpp
+        ${CMAKE_SOURCE_DIR}/applications/plugin/clap_extensions.cpp
+        ${CMAKE_SOURCE_DIR}/applications/plugin/clap_plugin.cpp
+        ${CMAKE_SOURCE_DIR}/applications/plugin/startup_rig.cpp)
+    target_compile_definitions(sushidsp_tests PRIVATE SUSHIDSP_PLUGIN_VERSION="${PROJECT_VERSION}")
+    target_link_libraries(sushidsp_tests PRIVATE clap)
+endif()
+
 sushidsp_apply_optimization_flags(sushidsp_tests)
 sushidsp_apply_sanitizers(sushidsp_tests)
 
@@ -462,10 +511,13 @@ add_executable(sushidsp_bench
     nodes/jcm800/benchmark_jcm800.cpp
     nodes/mesa_mark2c/benchmark_mesa_mark2c.cpp
     nodes/peavey5150/benchmark_peavey5150.cpp
+    nodes/room/benchmark_band_response_fit.cpp
     nodes/room/benchmark_binaural_decoder.cpp
     nodes/room/benchmark_early_reflection_renderer.cpp
+    nodes/room/benchmark_image_source_solver.cpp
     nodes/room/benchmark_modal_bank.cpp
     nodes/room/benchmark_room_node.cpp
+    nodes/room/benchmark_room_render_set.cpp
     nodes/tubescreamer/benchmark_tube_screamer.cpp
     nodes/tubescreamer/benchmark_tube_screamer_circuits.cpp
 )
@@ -485,9 +537,3 @@ target_link_libraries(sushidsp_bench PRIVATE
 )
 sushidsp_apply_optimization_flags(sushidsp_bench)
 sushidsp_apply_sanitizers(sushidsp_bench)
-
-# On Windows sushilog.dll has to sit beside the program.
-sushilog_copy_runtime_files(sushidsp_tests)
-
-# On Windows sushilog.dll has to sit beside the program.
-sushilog_copy_runtime_files(sushidsp_bench)

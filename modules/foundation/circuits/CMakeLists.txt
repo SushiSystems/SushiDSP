@@ -4,6 +4,7 @@
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
 
+sushidsp_require_same_tier_edge(circuits log)
 sushidsp_require_same_tier_edge(circuits math)
 
 add_library(sushi_dsp_circuits STATIC
@@ -25,4 +26,4 @@ target_include_directories(sushi_dsp_circuits PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 target_include_directories(sushi_dsp_circuits PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/source)
-target_link_libraries(sushi_dsp_circuits PUBLIC SushiDSP::sushi_dsp_math)
+target_link_libraries(sushi_dsp_circuits PUBLIC SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math)

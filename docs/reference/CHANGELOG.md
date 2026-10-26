@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- 2026-10-26 — build: Took SushiLog with `find_package(SushiLog CONFIG REQUIRED)` and dropped the added subdirectory and `SUSHILOG_DIR` (`CMakeLists.txt`).
+- 2026-10-26 — build: Dropped `sushilog_copy_runtime_files`, since the CLI puts the package folders on the search path (`tests/CMakeLists.txt`).
+- 2026-10-26 — build: Added `SD_ENABLE_PROFILER`, `SD_PROFILE_LEVEL` and `find_package(SushiProfiler CONFIG REQUIRED)` (`CMakeLists.txt`).
+- 2026-10-26 — build: Added the `sushi_dsp_profile` library and its generated `profile_config.hpp` (`modules/foundation/profile/CMakeLists.txt`).
+- 2026-10-26 — build: Linked log and profile into core, io, circuits, device, the nodes and the harness, and listed their same-tier edges (`cmake/SushiDSPLayers.cmake`).
+- 2026-10-26 — build: Listed the new test files and the room benchmarks, and dropped the `timing_gate` lines (`tests/CMakeLists.txt`).
+- 2026-10-26 — build: Removed `SD_PROFILER_STATIC`; every target links the shared `SushiProfiler::SushiProfiler`.
+- 2026-10-26 — deps: Pinned sushilog v0.2.3 and sushiprofiler v0.2.0 (`cli/sushistack.deps.toml`).
+- 2026-10-26 — deps: Moved the sushicore pin to 0.9.6 (`cli/pyproject.toml`).
 - 2026-10-26 — cli: Made `sd build` and `sd configure` take SushiLog as a built package and pass its config folder to CMake (`library_packages.py`, `project.py`).
 - 2026-10-26 — cli: Put the run-time folders of the packages first on the search path of every command that runs the tree (`project.py`).
 - 2026-10-26 — profile: Added the `foundation/profile` module: the `SD_ZONE` macros over SushiProfiler, compiled out by `SD_ENABLE_PROFILER`, and `ProfileSession` and `ProfileRecord` over its session.

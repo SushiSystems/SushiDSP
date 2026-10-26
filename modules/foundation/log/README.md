@@ -11,8 +11,9 @@ guide says how to use them.
 
 ## Depends on
 
-SushiLog, the version `cli/sushistack.deps.toml` pins. `sd` resolves its checkout and hands it
-to CMake as `SUSHILOG_DIR`. A target whose `SUSHIDSP_LOG_STATIC` property is on links
+SushiLog, the version `cli/sushistack.deps.toml` pins. `sd` builds or reuses its package and
+hands CMake the package folder as `SushiLog_DIR`; the root build finds it with
+`find_package(SushiLog CONFIG REQUIRED)`. A target whose `SUSHIDSP_LOG_STATIC` property is on links
 `SushiLog::SushiLogStatic`; every other target links the shared `SushiLog::SushiLog`.
 
 ## Using it

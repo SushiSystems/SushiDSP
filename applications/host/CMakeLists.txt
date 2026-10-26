@@ -10,6 +10,3 @@ add_executable(sushidsp_host
 )
 target_link_libraries(sushidsp_host PRIVATE SushiDSP::sushi_dsp_sdl2 SushiDSP::tubescreamer SushiDSP::jcm800)
 sushidsp_apply_optimization_flags(sushidsp_host)
-
-# On Windows sushilog.dll has to sit beside the program.
-sushilog_copy_runtime_files(sushidsp_host)

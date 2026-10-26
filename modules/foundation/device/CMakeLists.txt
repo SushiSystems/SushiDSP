@@ -6,13 +6,16 @@
 
 sushidsp_require_same_tier_edge(device core)
 sushidsp_require_same_tier_edge(device audio_format)
+sushidsp_require_same_tier_edge(device log)
+sushidsp_require_same_tier_edge(device profile)
 
 add_library(sushi_dsp_device INTERFACE)
 add_library(SushiDSP::sushi_dsp_device ALIAS sushi_dsp_device)
 target_include_directories(sushi_dsp_device INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(sushi_dsp_device INTERFACE SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_audio_format)
+target_link_libraries(sushi_dsp_device INTERFACE SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_audio_format
+    SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_profile)
 
 # The SDL2 backend needs SDL2 and the ASIO backend needs the Steinberg SDK; each is built only when
 # its option is on and its dependency is present, and the root CMakeLists.txt reads the result.

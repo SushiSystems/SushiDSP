@@ -15,6 +15,13 @@ set(SUSHIDSP_SAME_TIER_EDGES
     circuits:math
     io:math
     core:io
+    core:log
+    core:profile
+    io:log
+    circuits:log
+    device:log
+    device:profile
+    benchmark_harness:profile
     device:core
     device:audio_format
     signal_measure:core

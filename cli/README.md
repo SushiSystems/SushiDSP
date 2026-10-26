@@ -109,10 +109,10 @@ plain checkout with MSVC or g++ already reachable needs no help.
 
 ### services/library_packages.py
 
-SushiDSP links SushiLog as a built package and never compiles it. Every `sd build` asks
+SushiDSP links SushiLog and SushiProfiler as built packages and never compiles them. Every `sd build` asks
 `cfg.sushi_packages` for the packages of its closure, with the compiler `resolved_compiler`
 finds and the build type of the command, builds a missing one through SushiLog's own CLI, and
-prints one `reused` or `built` line. The configure passes `-DSushiLog_DIR` and no
+prints one `reused` or `built` line. The configure passes `-DSushiLog_DIR` and `-DSushiProfiler_DIR`, and no
 `-DSUSHILOG_DIR`. The packages are chosen on every build, so a changed SushiLog reaches the
 link and the path without a reconfigure. A package that cannot be chosen ends the command with
 one error line. With no compiler found there is nothing to build a package with, so the

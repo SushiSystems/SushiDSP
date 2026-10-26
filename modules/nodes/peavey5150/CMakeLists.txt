@@ -9,7 +9,7 @@ add_library(peavey5150 STATIC
     source/peavey5150.cpp
 )
 add_library(SushiDSP::peavey5150 ALIAS peavey5150)
-target_link_libraries(peavey5150 PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math)
+target_link_libraries(peavey5150 PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math SushiDSP::sushi_dsp_profile)
 sushidsp_apply_optimization_flags(peavey5150)
 sushidsp_apply_sanitizers(peavey5150)
 target_include_directories(peavey5150 PUBLIC

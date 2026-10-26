@@ -17,13 +17,10 @@ implementation.
 
 ## Depends on
 
-SushiProfiler, the version `cli/sushistack.deps.toml` pins. `sd` resolves its checkout and hands
-it to CMake as `SUSHIPROFILER_DIR`. The choice of target is per build: with the cache option
-`SD_PROFILER_STATIC` off, every library links the shared `SushiProfiler::SushiProfiler` and a process
-has one collector; with it on, every library links SushiProfiler's static target and defines
-`SUSHIPROFILER_STATIC`. The plug-in package is built in a tree of its own with it on, so the plug-in
-keeps a collector of its own. A library compiled static and linked to the shared profiler would
-lose the collector's imported data on Windows.
+SushiProfiler, the version `cli/sushistack.deps.toml` pins. `sd` builds or reuses its package and
+hands CMake the package folder as `SushiProfiler_DIR`; the root build finds it with
+`find_package(SushiProfiler CONFIG REQUIRED)` while `SD_ENABLE_PROFILER` is on. Every library
+links the shared `SushiProfiler::SushiProfiler`, so a process has one collector.
 
 ## The switch
 

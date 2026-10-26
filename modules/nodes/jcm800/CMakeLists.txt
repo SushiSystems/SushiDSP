@@ -9,7 +9,7 @@ add_library(jcm800 STATIC
     source/jcm800.cpp
 )
 add_library(SushiDSP::jcm800 ALIAS jcm800)
-target_link_libraries(jcm800 PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math)
+target_link_libraries(jcm800 PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math SushiDSP::sushi_dsp_profile)
 sushidsp_apply_optimization_flags(jcm800)
 sushidsp_apply_sanitizers(jcm800)
 target_include_directories(jcm800 PUBLIC

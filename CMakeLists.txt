@@ -24,28 +24,40 @@ include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)
 include(cmake/SushiDSPLayers.cmake)
 
+# SushiLog, the one logger of the process. The CLI builds or reuses its package and passes
+# SushiLog_DIR; nothing is built in this tree and nothing is downloaded.
+find_package(SushiLog CONFIG REQUIRED)
+message(STATUS "Found SushiLog ${SushiLog_VERSION}: ${SushiLog_DIR}")
+
+# SushiProfiler, which the zones and counters of foundation/profile record into. The CLI builds or
+# reuses its package and passes SushiProfiler_DIR. With the option off no SushiProfiler header is
+# included and every zone compiles to nothing.
+option(SD_ENABLE_PROFILER "Record zones, counters and device spans through SushiProfiler" ON)
+set(SD_PROFILE_LEVEL 1 CACHE STRING
+    "Deepest zone level compiled in: 0 none, 1 stages, 2 fine zones, 3 per-element zones")
+set_property(CACHE SD_PROFILE_LEVEL PROPERTY STRINGS 0 1 2 3)
+if(NOT SD_PROFILE_LEVEL MATCHES "^[0-3]$")
+    message(FATAL_ERROR "SD_PROFILE_LEVEL is '${SD_PROFILE_LEVEL}'; it must be 0, 1, 2 or 3")
+endif()
+if(SD_ENABLE_PROFILER)
+    find_package(SushiProfiler CONFIG REQUIRED)
+    message(STATUS "Found SushiProfiler ${SushiProfiler_VERSION}: ${SushiProfiler_DIR}")
+endif()
+
 # The core areas are foundation modules. Each declares its own sources, and each same-tier
 # dependency it has is listed in cmake/SushiDSPLayers.cmake.
-# SushiLog, the logger every Sushi library links. sd resolves the version cli/sushistack.deps.toml
-# pins and hands its checkout as SUSHILOG_DIR; CMake never downloads it.
-if(NOT SUSHILOG_DIR)
-    message(FATAL_ERROR "SUSHILOG_DIR is not set. Configure through sd, which resolves the "
-                        "SushiLog cli/sushistack.deps.toml pins, or pass -DSUSHILOG_DIR=<checkout>.")
-endif()
-set(SL_INSTALL OFF CACHE BOOL "Add SushiLog's install rules" FORCE)
-add_subdirectory(${SUSHILOG_DIR} ${CMAKE_BINARY_DIR}/sushilog EXCLUDE_FROM_ALL)
 add_subdirectory(modules/foundation/audio_format)
 add_subdirectory(modules/foundation/circuits)
 add_subdirectory(modules/foundation/core)
 add_subdirectory(modules/foundation/io)
 add_subdirectory(modules/foundation/log)
 add_subdirectory(modules/foundation/log_capture)
+add_subdirectory(modules/foundation/profile)
 add_subdirectory(modules/foundation/math)
 add_subdirectory(modules/foundation/signal_measure)
 add_subdirectory(modules/foundation/spice_reference)
 add_subdirectory(modules/foundation/circuit_blocks)
 add_subdirectory(modules/foundation/golden_compare)
-add_subdirectory(modules/foundation/timing_gate)
 add_subdirectory(modules/foundation/regression_test)
 add_subdirectory(modules/foundation/allocation_trap)
 add_subdirectory(modules/foundation/benchmark_harness)
@@ -61,6 +73,7 @@ target_link_libraries(sushi_dsp INTERFACE
     SushiDSP::sushi_dsp_io
     SushiDSP::sushi_dsp_log
     SushiDSP::sushi_dsp_math
+    SushiDSP::sushi_dsp_profile
     SushiDSP::sushi_dsp_device
 )
 

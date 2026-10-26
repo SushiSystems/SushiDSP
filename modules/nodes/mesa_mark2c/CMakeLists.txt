@@ -9,7 +9,7 @@ add_library(mesa_mark2c STATIC
     source/mesa_mark2c.cpp
 )
 add_library(SushiDSP::mesa_mark2c ALIAS mesa_mark2c)
-target_link_libraries(mesa_mark2c PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math)
+target_link_libraries(mesa_mark2c PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math SushiDSP::sushi_dsp_profile)
 sushidsp_apply_optimization_flags(mesa_mark2c)
 sushidsp_apply_sanitizers(mesa_mark2c)
 target_include_directories(mesa_mark2c PUBLIC

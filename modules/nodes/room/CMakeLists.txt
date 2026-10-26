@@ -44,7 +44,7 @@ add_library(room STATIC
     source/room_node.cpp
 )
 add_library(SushiDSP::room ALIAS room)
-target_link_libraries(room PUBLIC SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math)
+target_link_libraries(room PUBLIC SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math SushiDSP::sushi_dsp_profile)
 sushidsp_apply_optimization_flags(room)
 sushidsp_apply_sanitizers(room)
 target_include_directories(room PUBLIC

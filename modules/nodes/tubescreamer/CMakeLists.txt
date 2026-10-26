@@ -8,7 +8,7 @@ add_library(tubescreamer STATIC
     source/tube_screamer.cpp
 )
 add_library(SushiDSP::tubescreamer ALIAS tubescreamer)
-target_link_libraries(tubescreamer PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_math)
+target_link_libraries(tubescreamer PUBLIC SushiDSP::sushi_dsp_circuits SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math SushiDSP::sushi_dsp_profile)
 sushidsp_apply_optimization_flags(tubescreamer)
 sushidsp_apply_sanitizers(tubescreamer)
 target_include_directories(tubescreamer PUBLIC
