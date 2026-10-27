@@ -88,11 +88,11 @@ TEST(Medium_Profile, ACounterFoldsByItsOperationInEachPeriod)
         K_TIMELINE, K_WARMUP, K_ACTIVE, 0U,
         []
         {
-            SD_COUNTER("test.sum", "count", Add, 2.0);
-            SD_COUNTER("test.sum", "count", Add, 2.0);
-            SD_COUNTER("test.peak", "count", Max, 1.0);
-            SD_COUNTER("test.peak", "count", Max, 5.0);
-            SD_COUNTER("test.peak", "count", Max, 3.0);
+            // A site is one call site, so each counter is written from one line.
+            for (const double value : {2.0, 2.0})
+                SD_COUNTER("test.sum", "count", Add, value);
+            for (const double value : {1.0, 5.0, 3.0})
+                SD_COUNTER("test.peak", "count", Max, value);
         });
     if (!run.start.started())
         GTEST_SKIP() << "this build records nothing";

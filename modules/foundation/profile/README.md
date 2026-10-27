@@ -60,12 +60,14 @@ checks file.
 Each of the four amplifiers writes six zones under a group of its own, `jcm800`, `peavey5150`,
 `mesa_mark2c` and `diezel_vh4`: `<module>.input`, `.upsample`, `.oversampled_loop`, `.downsample`,
 `.post` and `.clamp`. The Mesa has no linear stage after the decimator, so it writes no `.post` zone.
+The Mesa renders a block as 32-frame control periods, so it writes each zone once per control
+period, eight times in a 256-frame block.
 The tube screamer writes `tubescreamer.input`, `.upsample`, `.oversampled_loop`, `.downsample` and
 `.output`. A stage inside the oversampled loop carries no zone: 14 stages over 2048 oversampled
 samples would write 28,672 events a block and cost more than the stage, so per-stage cost stays
 with the isolated stage benchmarks.
 
-At the end of each block an amplifier adds the Newton solves its tube stages ran to the counters
+At the end of each block, and in `mesa_mark2c` at the end of each 32-frame control period, an amplifier adds the Newton solves its tube stages ran to the counters
 `newton.solves`, `newton.iteration_caps`, `newton.non_finite_steps` and `newton.worst_iterations`,
 and the samples its output clamp cut or found not a number to `output.clamped`. The tube
 screamer adds its clip circuit's statistics to `solver.solves`, `solver.non_converged`,

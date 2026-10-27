@@ -422,7 +422,7 @@ of the path; it does not centre them.
 
 ## Profiler regions and counters
 
-`MesaMark2c::process` records its regions under the group `mesa_mark2c` and its solves and clamp as per-block
+`MesaMark2c::process` records its regions under the group `mesa_mark2c` and its solves and clamp as per-control-period
 counters; the names, the cost of a zone and why no stage inside the oversampled loop carries one are in
 [`modules/foundation/profile/README.md`](../../foundation/profile/README.md).
 

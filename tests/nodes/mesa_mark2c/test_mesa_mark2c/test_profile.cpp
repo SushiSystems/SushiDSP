@@ -40,9 +40,17 @@ namespace
 
     /// @brief Holds the active periods of the run below.
     constexpr std::uint32_t K_ACTIVE = 4;
+
+    /// @brief Holds the frames of one control period, K_CONTROL_PERIOD_FRAMES in
+    /// mesa_mark2c.cpp; the node renders a block as these, each with its own region zones.
+    constexpr std::uint32_t K_CONTROL_PERIOD_FRAMES = 32;
+
+    /// @brief Holds the region zones one block writes, one per control period.
+    constexpr std::uint32_t K_ZONES_PER_BLOCK =
+        SushiDSP::bench::K_BLOCK_SIZE / K_CONTROL_PERIOD_FRAMES;
 } // namespace
 
-TEST(Medium_MesaMark2cProfile, ProcessWritesEachRegionZoneOncePerBlockAndItsCounters)
+TEST(Medium_MesaMark2cProfile, ProcessWritesEachRegionZoneOncePerControlPeriodAndItsCounters)
 {
     namespace regions = SushiDSP::profile::names::mesa_mark2c;
     const SushiDSP::profile::ProfiledRun run =
@@ -51,11 +59,11 @@ TEST(Medium_MesaMark2cProfile, ProcessWritesEachRegionZoneOncePerBlockAndItsCoun
         GTEST_SKIP() << "this build records nothing";
 
     EXPECT_EQ(run.record.active_periods(), K_ACTIVE);
-    EXPECT_EQ(run.record.zone_calls(regions::K_INPUT_ZONE), K_ACTIVE);
-    EXPECT_EQ(run.record.zone_calls(regions::K_UPSAMPLE_ZONE), K_ACTIVE);
-    EXPECT_EQ(run.record.zone_calls(regions::K_LOOP_ZONE), K_ACTIVE);
-    EXPECT_EQ(run.record.zone_calls(regions::K_DOWNSAMPLE_ZONE), K_ACTIVE);
-    EXPECT_EQ(run.record.zone_calls(regions::K_CLAMP_ZONE), K_ACTIVE);
+    EXPECT_EQ(run.record.zone_calls(regions::K_INPUT_ZONE), K_ACTIVE * K_ZONES_PER_BLOCK);
+    EXPECT_EQ(run.record.zone_calls(regions::K_UPSAMPLE_ZONE), K_ACTIVE * K_ZONES_PER_BLOCK);
+    EXPECT_EQ(run.record.zone_calls(regions::K_LOOP_ZONE), K_ACTIVE * K_ZONES_PER_BLOCK);
+    EXPECT_EQ(run.record.zone_calls(regions::K_DOWNSAMPLE_ZONE), K_ACTIVE * K_ZONES_PER_BLOCK);
+    EXPECT_EQ(run.record.zone_calls(regions::K_CLAMP_ZONE), K_ACTIVE * K_ZONES_PER_BLOCK);
     const SushiDSP::profile::ProfileSubject* const clamped =
         run.record.find("counter:output.clamped");
     ASSERT_NE(clamped, nullptr);

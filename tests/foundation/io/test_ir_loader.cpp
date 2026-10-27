@@ -33,8 +33,10 @@
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/foundation/io/io_log_category.hpp>
 #include <SushiDSP/foundation/io/ir_loader.hpp>
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
+#include <SushiDSP/foundation/log_capture/log_level_scope.hpp>
 
 namespace
 {
@@ -179,6 +181,7 @@ TEST(Small_IrLoaderLogging, IrLoaderLogsOneInfoNamingBothRatesWhenItResamples)
 {
     const std::vector<float> samples(441, 0.1f);
 
+    const SushiDSP::LogLevelScope level(K_IO_LOG_CATEGORY, SushiLog::LogLevel::Info);
     SushiDSP::LogCapture capture;
     const auto ir = SushiDSP::IrLoader::prepare(samples, 44100.0, 48000.0);
 

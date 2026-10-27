@@ -128,6 +128,7 @@ add_executable(sushidsp_tests
     # --- Unit tests written for the units that had none ---
     foundation/log/test_log.cpp
     foundation/log_capture/test_log_capture.cpp
+    foundation/log_capture/test_log_level_scope.cpp
     foundation/log/test_sushidsp_log_project.cpp
 
     # --- Core ---

@@ -41,12 +41,14 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
+#include "host_gui_log_category.hpp"
 #include "rig_controller.hpp"
 #include "rig_persistence.hpp"
 #include "session_timeline.hpp"
 #include "slot_graph.hpp"
 #include "slot_selection.hpp"
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
+#include <SushiDSP/foundation/log_capture/log_level_scope.hpp>
 #include <SushiDSP/nodes/capture/transport.hpp>
 #include <SushiDSP/catalog/node_registry/node_registry.hpp>
 #include <SushiDSP/nodes/room/room_host.hpp>
@@ -2246,6 +2248,7 @@ TEST(Medium_RigControllerLogging, GapsInTheTrackRowsWriteOneWarnWithTheCountsAnd
              "clips": [{"path": ""}]}
         ]})";
 
+    const SushiDSP::LogLevelScope level(K_HOST_GUI_LOG_CATEGORY, SushiLog::LogLevel::Info);
     SushiDSP::LogCapture capture;
     controller.load_from_json(text);
 
