@@ -21,7 +21,7 @@
 - [ ] `sd test` passes, and the output is pasted above.
 - [ ] `sd check` exits 0.
 - [ ] Every document this made untrue is updated in this same change: the module README, the
-      design status line, `docs/design/REMAINING_WORK.md`.
+      design status line, `docs/backlog/README.md`.
 - [ ] `docs/reference/CHANGELOG.md` carries one line per change, dated, past tense, with the
       path in backticks and no reason.
 - [ ] A golden file that moved was regenerated deliberately, and the diff says which node's

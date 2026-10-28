@@ -58,7 +58,7 @@ it. The session stores a clip as a path, so an in-memory decode would leave an e
 next launch. Float32 rather than 16-bit PCM because resampling a real song raised its peak to
 1.0763. A second drop of the same file costs 0 ms against the first's 3128 ms. Nothing prunes
 the cache and nothing reads a plain WAV's own sample rate; both are in
-[`docs/reference/KNOWN_ISSUES.md`](../../reference/KNOWN_ISSUES.md).
+[`docs/backlog/README.md`](../../backlog/README.md).
 
 `modules/nodes/capture/README.md` carries the rest, and
 [`docs/reference/GLOSSARY.md`](../../reference/GLOSSARY.md) defines bar, beat, clip, take and

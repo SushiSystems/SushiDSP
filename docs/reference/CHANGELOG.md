@@ -238,14 +238,14 @@
 - 2026-09-21 — tests: Added a guard that the Mark IIC+ falls silent at every presence position (`tests/functional/unit/test_mesa_mark2c.cpp`).
 - 2026-09-21 — mesa_mark2c: Set the feedback loop's depth to the deepest that does not ring, 14.0 (`modules/nodes/mesa_mark2c/source/mesa_mark2c.cpp`).
 - 2026-09-21 — tests: Regenerated the Mark IIC+ golden files after the feedback loop closed (`tests/golden/mesa_mark2c_48k.f32`, `tests/golden/mesa_mark2c_96k.f32`).
-- 2026-09-21 — docs: Recorded the measured forward gain and the oscillation that blocks the loop's calibration (`docs/design/REMAINING_WORK.md`).
+- 2026-09-21 — docs: Recorded the measured forward gain and the oscillation that blocks the loop's calibration (`docs/backlog/README.md`).
 - 2026-09-20 — circuits: Rebuilt the FMV tone stack on a DK netlist, retiring its hand-derived closed form (`fmv_tone_stack.cpp`, `fmv_tone_stack.hpp`).
 - 2026-09-20 — circuits: Added source and load termination to the FMV tone stack (`modules/foundation/circuits/include/SushiDSP/circuits/fmv_tone_stack.hpp`).
 - 2026-09-20 — math: Added the shared empty nonlinear port for linear DK blocks (`modules/foundation/math/include/SushiDSP/math/dk/linear_port.hpp`).
 - 2026-09-20 — mesa_mark2c: Terminated the tone stack with V1A's plate impedance and Volume 1 (`modules/nodes/mesa_mark2c/source/mesa_mark2c_tone_stack.cpp`).
 - 2026-09-20 — tests: Regenerated the Mark IIC+ golden files after the tone stack was terminated (`tests/golden/mesa_mark2c_48k.f32`, `tests/golden/README.md`).
 - 2026-09-20 — tools: Fixed module discovery to read modules as the folders carrying a build (`tools/documentation/check_docs_layout.py`, `tools/layering/check_layering.py`).
-- 2026-09-20 — docs: Listed every Mark IIC+ constant that is not read off the schematic (`modules/nodes/mesa_mark2c/README.md`, `docs/design/REMAINING_WORK.md`).
+- 2026-09-20 — docs: Listed every Mark IIC+ constant that is not read off the schematic (`modules/nodes/mesa_mark2c/README.md`, `docs/backlog/README.md`).
 - 2026-09-20 — mesa_mark2c: Corrected two graphic-equaliser band centres against the traced schematic (`modules/nodes/mesa_mark2c/source/mesa_mark2c.cpp`).
 - 2026-09-20 — docs: Recorded what jrb32's traced schematic settles about the Mark IIC+ (`docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md`).
 - 2026-09-20 — circuits: Added the long-tailed pair phase inverter, two grids in and two plates out (`modules/foundation/circuits/include/SushiDSP/circuits/stages/long_tailed_pair.hpp`).
@@ -260,12 +260,12 @@
 - 2026-09-14 — host_gui: Rebuilt host window as one resizable workspace with bottom transport bar (`applications/host_gui/main.cpp`, `applications/host_gui/ui/divider.cpp`, `applications/host_gui/ui/transport_bar.cpp`).
 - 2026-09-14 — host_gui: Added tabs and grid view to the gear browser (`applications/host_gui/ui/gear_browser.cpp`, `applications/host_gui/ui/gear_filter.cpp`).
 - 2026-09-10 — cabinet: Added sushidsp.cabinet and retired the amp-embedded cabinet path (`modules/cabinet`, `modules/jcm800`, `modules/peavey5150`, `modules/diezel_vh4`, `modules/mesa_mark2c`).
-- 2026-09-10 — docs: Added remaining work backlog tracking open items (`docs/design/REMAINING_WORK.md`, `docs/README.md`).
+- 2026-09-10 — docs: Added remaining work backlog tracking open items (`docs/backlog/README.md`, `docs/README.md`).
 - 2026-09-10 — docs: Added documentation skeleton for style guide and manual (`docs/DOCUMENTATION_STYLE_GUIDE.md`, `docs/getting_started/`, `docs/architecture/`, `docs/guides/`).
 - 2026-09-10 — build: Added compiler warnings, opt-in sanitizers and build presets (`cmake/CompilerWarnings.cmake`, `cmake/Sanitizers.cmake`, `CMakePresets.json`).
 - 2026-09-10 — room: Fixed tail handover to use crossover time on shortest delay line (`late_reverb_design.cpp`, `fdn_design.hpp`).
 - 2026-09-10 — tests: Added absolute-level test reading reciprocal distance on cabinet axis (`tests/functional/unit/test_room_node.cpp`).
-- 2026-09-10 — docs: Documented room path in design, module and reference documentation (`modules/nodes/room/README.md`, `docs/reference/KNOWN_ISSUES.md`).
+- 2026-09-10 — docs: Documented room path in design, module and reference documentation (`modules/nodes/room/README.md`, `docs/backlog/README.md`).
 - 2026-09-10 — room: Added decay gate refusing scenes whose mean absorption misses 12 s floor (`room_scene.hpp`, `room_scene.cpp`).
 - 2026-09-10 — room: Furnished default scene with gypsum board and carpeted floor (`room_scene.hpp`).
 - 2026-09-10 — host_gui: Rebuilt host window into AmpliTube-5 layout and centered device panel (`applications/host_gui/main.cpp`, `applications/host_gui/ui/split_layout.cpp`).
@@ -291,7 +291,7 @@
 - 2026-09-09 — room: Made tail coherence pair complementary rather than fitted (`fdn_design.hpp`, `late_reverb_design.hpp`).
 - 2026-09-09 — room: Added render set synthesis and host interface for audio thread (`room_render_set.hpp`, `room_render_set.cpp`, `room_host.hpp`).
 - 2026-09-09 — room: Made `SphericalHeadHrtf` populate diffuse-field pairs (`spherical_head_hrtf.cpp`).
-- 2026-09-09 — docs: Recorded unweighted diffuse-field averaging in known issues (`docs/reference/KNOWN_ISSUES.md`, `tools/dsp/convert_hrtf.py`).
+- 2026-09-09 — docs: Recorded unweighted diffuse-field averaging in known issues (`docs/backlog/README.md`, `tools/dsp/convert_hrtf.py`).
 - 2026-09-09 — room: Added `RoomNode` rendering early reflections and reverb tail with raised-cosine crossfade (`room_node.hpp`, `room_node.cpp`, `node_registry.cpp`).
 - 2026-09-09 — room: Carried tap filter states across crossfades to prevent filter transients (`early_reflection_renderer.hpp`, `room_node.cpp`).
 - 2026-09-09 — room: Added peaking section seeding to band response fit for dip support (`band_response_fit.hpp`, `modules/nodes/room/README.md`).
@@ -300,10 +300,10 @@
 - 2026-09-09 — room: Ran modal layer below Schroeder frequency under crossover across quality modes (`room_node.cpp`, `modal_bank.hpp`, `crossover_pair.hpp`).
 - 2026-09-09 — room: Rendered listener parameter updates and read standing waves at receiver (`room_node.cpp`, `modal_solver.hpp`).
 - 2026-09-09 — room: Rendered binaural ears through HRIR pair, decoder and diffuse filter (`room_node.cpp`, `spherical_head_hrtf.hpp`).
-- 2026-09-09 — docs: Corrected seam handover and tone-correction documentation (`docs/reference/KNOWN_ISSUES.md`).
+- 2026-09-09 — docs: Corrected seam handover and tone-correction documentation (`docs/backlog/README.md`).
 - 2026-09-09 — room: Moved modal receiver position into solver listener arguments (`modal_solver.cpp`, `room_node.cpp`).
 - 2026-09-09 — room: Scaled modal layer and tail to single diffuse-field reference (`diffuse_field.hpp`, `modal_solver.cpp`, `late_reverb_design.cpp`).
-- 2026-09-09 — room: Made seam split a power-complementary fourth-order Butterworth pair (`crossover_pair.hpp`, `docs/reference/KNOWN_ISSUES.md`).
+- 2026-09-09 — room: Made seam split a power-complementary fourth-order Butterworth pair (`crossover_pair.hpp`, `docs/backlog/README.md`).
 - 2026-09-09 — host_gui: Added room acoustics front panel and 30 Hz control pacing (`applications/host_gui/ui/room_panel.cpp`, `applications/host_gui/rig_controller.cpp`, `applications/host_gui/main.cpp`).
 - 2026-09-09 — bench: Benchmarked room steady state, swap blocks and constituent kernels (`tests/benchmark/main.cpp`).
 - 2026-09-09 — docs: Documented arrangement view in capture module readme and glossary (`modules/nodes/capture/README.md`, `docs/reference/GLOSSARY.md`).
@@ -342,7 +342,7 @@
 - 2026-09-08 — math: Converted `Biquad` coefficients and state to double precision (`biquad.hpp`, `biquad.cpp`).
 - 2026-09-08 — tests: Added divided-difference and EL34 antialiasing unit tests (`test_triode_stage.cpp`, `test_pentode_stage.cpp`).
 - 2026-09-08 — tests: Added alias floor unit test for Peavey 5150 default preset (`test_measure.cpp`).
-- 2026-09-08 — docs: Recorded ADAA mathematical derivations and CPU cost measurements (`docs/reference/KNOWN_ISSUES.md`, `modules/nodes/jcm800/README.md`).
+- 2026-09-08 — docs: Recorded ADAA mathematical derivations and CPU cost measurements (`docs/backlog/README.md`, `modules/nodes/jcm800/README.md`).
 - 2026-09-07 — docs: Renamed stack hub command from ss to hub in manual (`docs/`).
 - 2026-09-07 — core: Routed variable channel counts per edge in rig graph (`rig_graph.hpp`, `rig_graph.cpp`).
 - 2026-09-07 — core: Added channel adaptation helpers and sized buffer pool at compile (`rig_graph.hpp`, `rig_graph.cpp`).
@@ -381,7 +381,7 @@
 - 2026-09-07 — tests: Adjusted Diezel VH4 deep measurement input drive level (`test_diezel_vh4.cpp`).
 - 2026-09-07 — circuits: Repinned amplifier unity gain calibration constants at 82 Hz (`jcm800.hpp`, `peavey5150.hpp`, `mesa_mark2c.hpp`, `diezel_vh4.hpp`).
 - 2026-09-07 — docs: Documented amplifier calibration points and DC measurements (`modules/nodes/diezel_vh4/README.md`, `modules/nodes/jcm800/README.md`).
-- 2026-09-07 — docs: Recorded 16x oversampling CPU benchmark measurements in known issues (`docs/reference/KNOWN_ISSUES.md`).
+- 2026-09-07 — docs: Recorded 16x oversampling CPU benchmark measurements in known issues (`docs/backlog/README.md`).
 - 2026-09-07 — circuits: Extracted `PlateSwing` and `GridConductionLaw` into separate headers (`plate_swing.hpp`, `grid_conduction_law.hpp`).
 - 2026-09-07 — circuits: Rebuilt `PentodeStage` on Norman grid conduction equation (`pentode_stage.hpp`, `pentode_stage.cpp`).
 - 2026-09-07 — circuits: Defined power tube operating points from manufacturer datasheets (`power_tube_presets.hpp`).
@@ -398,7 +398,7 @@
 - 2026-09-07 — peavey5150: Replaced pre-gain potentiometer curve with exponential audio taper (`peavey5150.cpp`).
 - 2026-09-07 — circuits: Pinned amplifier reference gains at 82 Hz fundamental frequency (`jcm800.hpp`, `peavey5150.hpp`, `mesa_mark2c.hpp`, `diezel_vh4.hpp`).
 - 2026-09-07 — tests: Added triode stage alias floor sweeps and updated unit tests (`test_measure.cpp`, `test_triode_stage.cpp`).
-- 2026-09-07 — docs: Identified amplifier alias floor causes and drafted antialiasing design (`docs/reference/KNOWN_ISSUES.md`).
+- 2026-09-07 — docs: Identified amplifier alias floor causes and drafted antialiasing design (`docs/backlog/README.md`).
 - 2026-09-07 — circuits: Added plate voltage ceiling and excursion calculations to `TriodeStage` (`triode_stage.hpp`, `triode_stage.cpp`).
 - 2026-09-07 — circuits: Referenced triode grid conduction diode to cathode potential (`triode_stage.cpp`).
 - 2026-09-07 — math: Added first-order high-pass filter configuration helper to `Biquad` (`biquad.hpp`).
@@ -407,7 +407,7 @@
 - 2026-09-07 — mesa_mark2c: Updated Mesa Mark IIC+ lead mode to plate-swing triode model (`modules/nodes/mesa_mark2c/`).
 - 2026-09-07 — diezel_vh4: Updated Diezel VH4 channel 3 to plate-swing triode model (`modules/nodes/diezel_vh4/`).
 - 2026-09-07 — tests: Repinned amplifier golden test vectors for plate-swing topology (`tests/golden/`).
-- 2026-09-07 — docs: Created known issues register for alias floors and loop networks (`docs/reference/KNOWN_ISSUES.md`).
+- 2026-09-07 — docs: Created known issues register for alias floors and loop networks (`docs/backlog/README.md`).
 - 2026-09-07 — tests: Skipped incomplete Mark IIC+ loop return test cases with logged values (`test_mesa_mark2c.cpp`).
 - 2026-09-07 — tests: Skipped JCM800 alias floor assertion at measured value (`test_measure.cpp`).
 - 2026-09-07 — docs: Documented open questions regarding Mark IIC+ loop circuit design.
@@ -445,7 +445,7 @@
 - 2026-09-06 — circuits: Registered amplifiers in node registry and built GUI panels (`node_registry.cpp`, `panel_library.cpp`).
 - 2026-09-06 — tests: Added amplitude argument to alias floor measurement utility (`tests/measure/alias_floor.hpp`).
 - 2026-09-06 — tests: Measured Boss DD-3 alias floor across input amplitudes (`test_dd3_acceptance.cpp`).
-- 2026-09-06 — docs: Documented compander harmonic folding behaviour in delay model (`docs/reference/KNOWN_ISSUES.md`).
+- 2026-09-06 — docs: Documented compander harmonic folding behaviour in delay model (`docs/backlog/README.md`).
 - 2026-09-06 — dd3: Ran compander rectifier simulation at 8x sub-samples per frame (`ne570_compander.hpp`, `ne570_compander.cpp`).
 - 2026-09-06 — tests: Verified compander time constants and harmonic distortion (`test_ne570_compander.cpp`).
 - 2026-09-06 — spice: Corrected TS808 tone network schematic to match hardware (`docs/reference/spice/ts_tone/ts_tone.asc`).

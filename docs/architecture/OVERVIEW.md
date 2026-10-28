@@ -73,7 +73,7 @@ module allowed to depend on every product at once, `node_registry()` and `make_n
 the id-to-instance catalog every host in `applications/` builds a rig from today. Adding a product
 adds one entry there; the host GUI still names products by id in
 `applications/host_gui/ui/panel_library.cpp`, `ui/gear_filter.cpp` and `topology_applier.cpp`, which
-[`KNOWN_ISSUES.md`](../reference/KNOWN_ISSUES.md) records. The plugin in `applications/plugin`
+[`KNOWN_ISSUES.md`](../backlog/README.md) records. The plugin in `applications/plugin`
 draws from the same catalog through the host's `RigController`. `rig_preset` serializes
 a rig (descriptor id plus parameter values) to and from JSON. This is the dependency rule
 design spec §8 states for `modules/`; what is verified here is that `modules/catalog/node_registry/`

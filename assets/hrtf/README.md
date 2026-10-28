@@ -57,7 +57,7 @@ release carries 8802 low-frequency-extended directions, which lose −43 dB at t
 and −32 dB at the worst, so the bound was relaxed on 2026-09-23 rather than the tap count raised. The tool also keeps only
 directions at least 3 degrees apart, 1531 of the 8802: pairs 0.016 degrees apart made the
 loader's hull build degenerate and fail with a bad allocation. The decoder's measured error and
-the tests' bounds are in `docs/reference/KNOWN_ISSUES.md`. It then designs the third-order decoder by
+the tests' bounds are in `docs/backlog/README.md`. It then designs the third-order decoder by
 magnitude least squares (Schörkhuber, Zaunschirm and Höldrich, DAGA 2018): plain least squares
 below 2 kHz, magnitude with continued phase above it. It prints the worst third-octave
 magnitude error between the decoded and the measured set from 200 Hz to 8 kHz, which is the

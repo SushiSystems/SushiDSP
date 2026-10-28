@@ -56,8 +56,8 @@ Six circuits are modelled: the Marshall JCM800 2203, the Mesa/Boogie Mark IIC+ i
 Peavey 5150 and the Diezel VH4, the Ibanez Tube Screamer and the Boss DD-3, with cabinet
 convolution, room acoustics, a standalone host GUI and a CLAP plugin beside them. The Mark IIC+
 has no clean setting and the VH4's power section is a stand-in; those and every other open item
-are in [docs/design/REMAINING_WORK.md](docs/design/REMAINING_WORK.md) and
-[docs/reference/KNOWN_ISSUES.md](docs/reference/KNOWN_ISSUES.md).
+are in [docs/backlog/README.md](docs/backlog/README.md) and
+[docs/backlog/README.md](docs/backlog/README.md).
 
 ## Documentation
 

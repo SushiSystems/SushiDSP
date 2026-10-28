@@ -28,7 +28,7 @@ the state none of them can claim alone, such as the remembered impulse-response 
 that wants only the graph includes `slot_graph.hpp` and links nothing extra.
 
 A preset records the rig as a flat list, so a parallel chain saved today loads back as a series
-chain. `docs/design/REMAINING_WORK.md` carries that and the rest of the host's open work.
+chain. `docs/backlog/README.md` carries that and the rest of the host's open work.
 
 ## Tracks and their rigs
 

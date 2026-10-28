@@ -30,8 +30,8 @@ A change is finished when these land in the same commit as the code:
 | A module's behaviour, classes, constants or stand-ins | That module's `README.md` |
 | Anything a manual page states | That page |
 | The phase a design document is in | Its status line and its row in [`design/README.md`](design/README.md) |
-| Work opened or closed | [`design/REMAINING_WORK.md`](design/REMAINING_WORK.md) |
-| A defect measured and left open, or one closed | [`reference/KNOWN_ISSUES.md`](reference/KNOWN_ISSUES.md) |
+| Work opened or closed | [`backlog/README.md`](backlog/README.md) |
+| A defect measured and left open, or one closed | [`backlog/README.md`](backlog/README.md) |
 | Anything at all | One line under `## Unreleased` in [`reference/CHANGELOG.md`](reference/CHANGELOG.md) |
 | A golden file | A row in `modules/foundation/golden_compare/README.md` saying what changed |
 
@@ -61,7 +61,7 @@ too, with the checker unit tests. [`tools/README.md`](../tools/README.md) descri
 
 The `cpp-code-style`, `python-code-style` and `source-comments` skills are the rules. Where the
 tree differs from them today, the difference is listed here and in
-[`reference/KNOWN_ISSUES.md`](reference/KNOWN_ISSUES.md); new code follows what the tree does
+[`backlog/README.md`](backlog/README.md); new code follows what the tree does
 until the migration in
 [`design/SUSHI_STANDARDS_MIGRATION/README.md`](design/SUSHI_STANDARDS_MIGRATION/README.md) phase 3 changes
 both at once. The rules below are the tree today.

@@ -151,7 +151,7 @@ changed and rebuilt incrementally; nothing else was built.
   block, against 0.238 ms before this work. The room at its limits, three cabinets, the listener
   and eight microphones, costs 1.802 ms. **The gate fails:** three JCM800 chains into that room
   cost 3.896 ms against 2.67 ms. The amplifiers are 1.96 ms of it. The plan said work stops here
-  and the owner is told; `docs/reference/KNOWN_ISSUES.md` holds the figures.
+  and the owner is told; `docs/backlog/README.md` holds the figures.
 - Not done: G6, the check on screen with the owner. The host was built and linked; it has not
   been opened.
 

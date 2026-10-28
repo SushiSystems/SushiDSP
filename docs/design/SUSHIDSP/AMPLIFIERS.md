@@ -123,7 +123,7 @@ a `cutoff_hz / sample_rate` of `1e-4`. Because the dossiers' own dividers run th
 its bound" is not achievable at these gain structures; the acceptance criterion each module's
 README documents instead is a clean end at minimum gain, non-decreasing THD across the knob, and
 a −6 dBFS ± 1 dB default peak. The JCM800's alias floor regressed to −6.7 dB against the −33.8 dB
-bound as a result and is carried as a known issue (`docs/reference/KNOWN_ISSUES.md`). The
+bound as a result and is carried as a known issue (`docs/backlog/README.md`). The
 2026-09-07 diagnosis measured the source as the grid-conduction knee rather than the plate
 ceiling or the level; the DA5 spec below carries the repair.
 

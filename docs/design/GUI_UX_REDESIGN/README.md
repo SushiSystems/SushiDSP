@@ -84,7 +84,7 @@ Reference: `image1.png`.
     its prior position to sit right-of-center. Its internal presentation, a vertical list
     of full-width cards, one per row (`gear_browser.cpp:92`), is unchanged from before this
     plan; the grid layout described in an earlier draft of this section was never built and
-    is tracked separately in `docs/design/REMAINING_WORK.md`.
+    is tracked separately in `docs/backlog/README.md`.
 - **Bottom:**
   - The transport/metronome bar ("Transport bar").
   - The rig design (chain) view, with the splitter-style picker at its far left edge,
@@ -118,7 +118,7 @@ The rail offers three chain types, named after the manual's:
 | 3-ways splitter | 3 | Three paths between a splitter and a mixer |
 
 AmpliTube's fourth type, **Parallel**, is stereo in and stereo out and is left out until the rig
-renders in stereo; `docs/design/REMAINING_WORK.md` carries that work under the Host section.
+renders in stereo; `docs/backlog/README.md` carries that work under the Host section.
 
 **Path 0 is the main path.** It exists under every chain type and keeps its gear across every
 change, which is the yellow path in AmpliTube's own colour code. The paths beside it are the
@@ -267,7 +267,7 @@ the same column group have changed.
 
 ### Phase 2: Gear browser view
 
-Closes the open item in `docs/design/REMAINING_WORK.md`'s Host section ("gear-browser grid").
+Closes the open item in `docs/backlog/README.md`'s Host section ("gear-browser grid").
 The browser keeps "Main window layout"'s search field and type tabs (All/Amps/Pedals/Cabs) and adds a
 two-button toggle in its header: **list** ("Main window layout"'s original vertical, full-width card per row)
 and **grid** (a wrapping grid of compact icon tiles, name only, no subtitle). Both modes
@@ -377,7 +377,7 @@ is layout and interaction only.
 
 The plans that built each part are in
 the record. The manual acceptance and the
-other open items are in `docs/design/REMAINING_WORK.md`'s Host section.
+other open items are in `docs/backlog/README.md`'s Host section.
 
 ### Work
 

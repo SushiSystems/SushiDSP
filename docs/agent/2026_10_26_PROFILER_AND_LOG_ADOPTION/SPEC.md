@@ -58,7 +58,7 @@ Three levels of granularity exist in the code today.
 
 The 13.3 ns per recorded zone and 1.3 ns with the gate closed are SushiProfiler's own
 measurement (`SushiProfiler:docs/reference/CHANGELOG.md:35`). A JCM800 costs about 0.68 ms a block
-by the repository's figure (three JCM800s cost 2.03 ms, `docs/design/REMAINING_WORK.md:79`), so
+by the repository's figure (three JCM800s cost 2.03 ms, `docs/backlog/README.md:79`), so
 zones around every stage in the loop add 56 % and write 28,672 events against a default ring of
 65,536 events (`SushiProfiler:docs/design/PROFILER/CAPTURE_AND_SESSION.md`, configuration
 example), which fills in two and a third blocks. A per-stage zone inside the loop measures the
@@ -80,7 +80,7 @@ SushiDSP has four iterative solvers. Only the first is counted.
 | --- | --- | --- | --- |
 | `DkCircuit` with its `DampedNewtonSolver` | tube screamer clip stage, `modules/nodes/tubescreamer/include/SushiDSP/nodes/tubescreamer/tube_screamer_circuits.hpp:114`, called per oversampled sample at `modules/nodes/tubescreamer/source/tube_screamer.cpp:130` | `non_converged_samples_` `dk_circuit.hpp:285`, `nan_fallback_samples_` `:359`, `total_samples_` `:362`, worst iterations `damped_newton_solver.hpp:163-165,321-323`; plain integers (`dk_circuit.hpp:811-813`, `damped_newton_solver.hpp:347`) | only `solver_counters.hpp:40-49`, in the benchmark. `dk_block_node.hpp:66` resets them. |
 | `NewtonRaphsonSolver::solve_joint` | the triode and pentode stages of every amplifier (`modules/foundation/circuits/source/stages/triode_stage.cpp:66-95`, `pentode_stage.cpp:100`) | nothing: it returns a `float` (`modules/foundation/math/include/SushiDSP/foundation/math/newton_raphson_solver.hpp:60-64,114`). Three exits are invisible: iteration cap `:81`, non-finite step `:94-97`, fixed point `:108-111` | nobody |
-| `BandResponseFit::fit` | publish path of the room, control thread | `Result{coefficients, worst_error_db}` only; cap of 8 steps `modules/nodes/room/source/band_response_fit.cpp:50,442`, exit on no accepted step `:475-478` | nobody. `docs/design/REMAINING_WORK.md:152-158` says it stops at the cap on about 60 % of fits |
+| `BandResponseFit::fit` | publish path of the room, control thread | `Result{coefficients, worst_error_db}` only; cap of 8 steps `modules/nodes/room/source/band_response_fit.cpp:50,442`, exit on no accepted step `:475-478` | nobody. `docs/backlog/README.md:152-158` says it stops at the cap on about 60 % of fits |
 | Mode and tap enumeration | publish path | counts are cut at `K_MAX_MODES` (`modal_solver.cpp:363-373`) and `K_MAX_EARLY_TAPS` (`image_source_solver.cpp:393-396`) | nobody (section 3, class D) |
 
 The `DkCircuit` instances of `FmvToneStack` and `PowerAmpFeedback` have no nonlinear branch
@@ -163,10 +163,10 @@ against a baseline measured there. Turning a printed budget into a verdict makes
 Q8 asks which way it goes.
 
 Turning the budgets into verdicts fails today on rows the backlog already holds: the cabinet
-section reads 3.562 ms against 2.67 ms (`docs/design/REMAINING_WORK.md:78-80`, RW-9); the Mark IIC+
+section reads 3.562 ms against 2.67 ms (`docs/backlog/README.md:78-80`, RW-9); the Mark IIC+
 reads 1.852 ms against 1.5 ms (`docs/guides/FAQ.md:130`); the 8x DK block read 0.963 ms against
 0.12 ms (`docs/design/SUSHIDSP/DSP_MATH_LIBRARY.md:102`); the 16x amplifiers read 99 to 102 % of
-the block (`docs/design/REMAINING_WORK.md:40-62`, RW-4, RW-5); the DD-3's 0.15 ms was never judged
+the block (`docs/backlog/README.md:40-62`, RW-4, RW-5); the DD-3's 0.15 ms was never judged
 (`docs/design/SUSHIDSP/README.md:263`). Q9.
 
 How a benchmark becomes a record. Today one repetition is one call of `body()`. On the profiler
@@ -281,13 +281,13 @@ a call.
 | B25 | `applications/host_gui/main.cpp:442-444` | `connect_error = error.what()` for a device that failed to open | `ERROR host_gui` |
 | B26 | `modules/foundation/io/source/ir_loader.cpp:141-143` | an impulse response is resampled when its rate differs | `INFO io`, both rates |
 | B27 | `ir_loader.cpp:145-150` | an impulse response longer than `max_length_ms` is cut | `WARN io`, both lengths |
-| B28 | `applications/host_gui/session_timeline.cpp:114-119`, `modules/nodes/capture/source/take.cpp:48-51` | a take's own sample rate is read and kept, then ignored: KI-25, a 44.1 kHz WAV plays 8.8 % slow (`docs/reference/KNOWN_ISSUES.md:91-98`) | `WARN capture` at placement, naming the rates |
+| B28 | `applications/host_gui/session_timeline.cpp:114-119`, `modules/nodes/capture/source/take.cpp:48-51` | a take's own sample rate is read and kept, then ignored: KI-25, a 44.1 kHz WAV plays 8.8 % slow (`docs/backlog/README.md:91-98`) | `WARN capture` at placement, naming the rates |
 
 ### Class C: statuses created at a boundary and shown to a person, never recorded
 
 `logging` asks for a record where a failure status is made. These make one and hand it to the
 interface as a string. Which is the place that logs depends on the error model the owner has not
-chosen (`docs/design/REMAINING_WORK.md:26-38`, RW-3); the plan logs at the creation site and
+chosen (`docs/backlog/README.md:26-38`, RW-3); the plan logs at the creation site and
 changes no signature (Q20).
 
 | Id | Place | Note |

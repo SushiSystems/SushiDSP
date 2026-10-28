@@ -204,7 +204,7 @@ runs and still prints its figure. The amp measures −23.4 dB at preamp 1.0 and 
 −43.4 dB before DA4 removed the level staging. Every stage clips at the level its own circuit
 puts it at, every stage's composite transfer is antialiased (DA5 part 4, `AntiderivativeAntialiaser`),
 and what the 8× region still folds is the 19th harmonic the later stages make of the clipped
-waveform they receive. The −33.8 dB bound stands and is not relaxed; `docs/reference/KNOWN_ISSUES.md`
+waveform they receive. The −33.8 dB bound stands and is not relaxed; `docs/backlog/README.md`
 carries the item.
 
 Measured through `measure::alias_floor()` at −12 dBFS, in the order the chain changed:

@@ -20,7 +20,7 @@ code.
 | [API reference landing page](reference/API_REFERENCE.md) | The page Doxygen opens the generated reference with |
 | [Changelog](reference/CHANGELOG.md) | What changed, by release |
 | [Glossary](reference/GLOSSARY.md) | The words these documents use in a sense the code fixes |
-| [Known issues](reference/KNOWN_ISSUES.md) | Defects that are recorded and left open |
+| [Known issues](backlog/README.md) | Defects that are recorded and left open |
 | [SPICE reference corpus](reference/spice/README.md) | The LTspice schematics and CSVs the circuit solver is nulled against, one README per block |
 
 `sd docs` writes the generated API reference to `build/docs/api-site/html/`.
@@ -30,7 +30,7 @@ code.
 | Document | Holds |
 | --- | --- |
 | [Design map](design/README.md) | Which design document covers which topic, with each one's status |
-| [Remaining work](design/REMAINING_WORK.md) | The single backlog |
+| [Remaining work](backlog/README.md) | The single backlog |
 
 ## Beside the code
 

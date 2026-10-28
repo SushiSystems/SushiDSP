@@ -24,7 +24,7 @@ The owner approved each of these on 2026-10-12 with the recommended option.
 ## Out of scope for this work folder
 
 These change a public interface or a design, so they wait for an owner decision and are
-recorded in `docs/design/REMAINING_WORK.md`:
+recorded in `docs/backlog/README.md`:
 
 - The error model: exceptions, `bool` and status enums coexist. Moving every fallible function to
   one status shape changes public signatures.

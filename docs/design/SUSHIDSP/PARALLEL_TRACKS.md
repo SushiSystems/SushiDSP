@@ -45,7 +45,7 @@ graph's stereo routing and nothing from the circuit core. "The room path" descri
 | DE1 | `EarlyReflectionRenderer`, `RoomRenderSet`, `RoomHost`, and `RoomNode` swapping sets under a raised cosine, registered as `sushidsp.room` | built |
 | DE2 | `EyringDecay`, `LateReverbDesign`, `FdnDesign` and the 16-line Hadamard `LateReverb` | built |
 | DE3 | `ModalSolver`, `ModalBank`, `CrossoverPair`, the seam at f_s and the level match across it, in both quality modes | built |
-| DE4 | `CabinetDirectivity`, `MicrophoneModel` and the `listener` parameter; the SM57 preset is not in it, see `docs/reference/KNOWN_ISSUES.md` | built |
+| DE4 | `CabinetDirectivity`, `MicrophoneModel` and the `listener` parameter; the SM57 preset is not in it, see `docs/backlog/README.md` | built |
 | DE5 | `HrtfSet`, `HrtfSetLoader`, `SphericalHeadHrtf`, `AmbisonicEncoder`, `BinauralDecoder`, `direct_delay` at `compensated`, `tools/dsp/convert_hrtf.py` and `assets/hrtf/README.md`; no measured asset ships | built |
 | DE6 | The room panel, `RoomHost` from `RigController`, the scene in the preset, the 30 Hz publish pacing | built |
 | DE7 | AVX2 lanes in `EarlyReflectionRenderer` behind `SUSHIDSP_ENABLE_AVX2`. Its gate is the DE1 benchmark passing 2.0 ms with an amplifier in the graph; the JCM800 with a room measures 0.893 ms per 256-frame block | planned |

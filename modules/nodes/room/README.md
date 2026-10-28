@@ -18,7 +18,7 @@ the task order is
 the room acoustics plan in the version history.
 This file records what the code in this directory does. `docs/design/ROOM/PATH.md` places the
 module in the tree and §9 carries its roadmap rows;
-[`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) holds what the phase
+[`docs/backlog/README.md`](../../../docs/backlog/README.md) holds what the phase
 knowingly left open.
 
 ## Which class owns what
@@ -296,7 +296,7 @@ decay against the measured one:
 
 The tests bound 500 Hz to 2 kHz: within a fifth for Motus, within a quarter for CR2. Below
 500 Hz the two rooms disagree, Motus wanting less loss and CR2 more, so no single figure fits
-both there; [`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) carries that
+both there; [`docs/backlog/README.md`](../../../docs/backlog/README.md) carries that
 entry and `docs/design/ROOM/README.md` section 11 the evidence.
 
 ## Which thread runs what
@@ -392,7 +392,7 @@ time constant of 83 frames, so a zero-started tap settles inside the 512-frame f
 12 dB under its diffuse-field level; at that level, with the tail's output cascade following what
 the taps leave of the field, a move steps the cascade's coefficients on the network's running
 state, 3 % in the second section here, and the residual is -45.8 dBFS
-(`docs/reference/KNOWN_ISSUES.md`). The three cases are
+(`docs/backlog/README.md`). The three cases are
 `RoomNodeCrossfadesAPublishWithoutAStep`, `RoomNodeCrossfadesASmallMoveFromTheCarriedState` and
 `RoomNodeRepublishesTheSameSceneWithoutAResidual`, bounded at -44, -58 and -120 dBFS. The
 residual column is measured through the seam of the next section, whose high half feeds the
@@ -692,7 +692,7 @@ The room at its limits renders 27 pairs in 1.280 ms, with a 4x12's 28 element ta
 of every microphone pair. A microphone added to one cabinet costs 0.033 ms. The last row is the
 cabinet section's gate, set at 2.67 ms, half the block, and it does not pass: three JCM800
 amplifiers alone cost 2.03 ms, so the gate leaves the room 0.64 ms.
-[`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) carries it.
+[`docs/backlog/README.md`](../../../docs/backlog/README.md) carries it.
 
 ## Sizes fixed at `prepare()`
 
@@ -770,7 +770,7 @@ fallback at the next `prepare()`.
 
 ## What the phase left open
 
-Twelve entries in [`docs/reference/KNOWN_ISSUES.md`](../../../docs/reference/KNOWN_ISSUES.md) belong to
+Twelve entries in [`docs/backlog/README.md`](../../../docs/backlog/README.md) belong to
 this module, each with its figure and its exit: below 500 Hz the built room's loss fits neither
 measured room, reading 0.75 times Motus's decay and 2.1 times CR2's at 125 Hz; the bed, desk, bookcase and kilim
 rows rest on a derivation or an analogue, since no measurement of them was found; the measured

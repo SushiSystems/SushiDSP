@@ -178,7 +178,7 @@ converter history, and `reset()` is what discards it.
 - **Sample rate conversion.** A `Take` carries the rate it was captured at and neither
   `TrackTimeline` nor `TrackPlayer` reads it, so a 44.1 kHz file dropped on a 48 kHz rig plays
   8.8 % slow. `applications/host_gui` converts an imported mp3 on the way in, which covers songs and not
-  WAV files; `docs/reference/KNOWN_ISSUES.md` carries the entry.
+  WAV files; `docs/backlog/README.md` carries the entry.
 
 ## Implementation notes
 

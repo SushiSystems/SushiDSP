@@ -14,7 +14,7 @@ When starting work on this project:
    that does not exist yet; read it before changing the subsystem it covers, and never treat it
    as a description of the tree as it stands. `build/docs/api-site/`, once `sd docs` has
    generated it, is Doxygen output and is never edited by hand.
-5. `docs/design/REMAINING_WORK.md` is the single backlog and `docs/reference/KNOWN_ISSUES.md`
+5. `docs/backlog/README.md` is the single backlog and `docs/backlog/README.md`
    the list of recorded defects. A task that opens or closes either updates it in the same
    commit.
 

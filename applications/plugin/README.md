@@ -116,7 +116,7 @@ lists; copy the file into one of them, or add the build folder to `CLAP_PATH`.
 
 The plugin compiles `rig_controller.cpp`, `slot_graph.cpp`, `session_timeline.cpp`,
 `rig_persistence.cpp` and `rig_topology.cpp` from `applications/host_gui` by source list, the
-way `tests/CMakeLists.txt` does. `docs/design/REMAINING_WORK.md` is where turning that list into
+way `tests/CMakeLists.txt` does. `docs/backlog/README.md` is where turning that list into
 a library belongs.
 
 ## Dependencies

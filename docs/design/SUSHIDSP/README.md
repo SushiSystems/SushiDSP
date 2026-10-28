@@ -261,5 +261,5 @@ from the status text of each phase, not verified against the tree; the owner con
 
 ## Open questions
 
-- **The comment-shape check is outside the gate.** `tools/documentation/check_source_comments.py` exists and `sd check` does not run it; its `--report` finding count is listed by rule in `docs/reference/KNOWN_ISSUES.md`.
+- **The comment-shape check is outside the gate.** `tools/documentation/check_source_comments.py` exists and `sd check` does not run it; its `--report` finding count is listed by rule in `docs/backlog/README.md`.
 - **DR2 shipped without a single measured number.** The build was locked while the DD-3 was written, so the 0.15 ms benchmark budget is unjudged, every acceptance row is unrun, and the pinned `dd3_48k.f32` and `dd3_96k.f32` were not yet committed, which failed the two regression cases. The changelog's DR2 "Not yet measured" paragraph names the three commands that close this.

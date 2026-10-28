@@ -396,7 +396,7 @@ any other amplifier is touched.
   prints verdicts), `tests/README.md`, `tests/nodes/room/README.md` (the three timing entries),
   `docs/design/SUSHIDSP/README.md` (the phase row, Q18).
 - Backlog: an entry for each of Q9's expected failures and for each SLG and SPG a workaround stands
-  in for; `docs/reference/KNOWN_ISSUES.md` for B28 and the unverified ASIO sites.
+  in for; `docs/backlog/README.md` for B28 and the unverified ASIO sites.
 - Accepts when: `tools/documentation/check_docs_truth.py`, `check_changelog.py` and
   `check_docs_layout.py` pass, and `git grep -n <old name> -- '*.md'` finds no old name.
 - Build: `sd check`.

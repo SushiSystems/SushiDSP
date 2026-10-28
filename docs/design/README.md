@@ -15,4 +15,4 @@ A new idea about an existing topic is a page and a phase in that topic, not a ne
 | [SUSHI_STANDARDS_MIGRATION](SUSHI_STANDARDS_MIGRATION/README.md) | Open | Bringing the repository to the Sushi Systems programming standards: tooling, module tiers, code style and comments. |
 <!-- topics:end -->
 
-[REMAINING_WORK.md](REMAINING_WORK.md) is the single backlog.
+[REMAINING_WORK.md](../backlog/README.md) is the single backlog.

@@ -124,7 +124,7 @@ Beside it the tree holds three standalone hosts: `applications/host`, a minimal 
 
 ## What does SushiDSP not do yet?
 
-[Known issues](../reference/KNOWN_ISSUES.md) records each measured defect that is left open,
+[Known issues](../backlog/README.md) records each measured defect that is left open,
 with its figure and what closes it. Some that a first-time user meets:
 
 - The Mesa Mark IIC+ model has no clean setting; it limits at every input level.
@@ -136,7 +136,7 @@ with its figure and what closes it. Some that a first-time user meets:
   never read. Imported mp3 files are not affected.
 - The ASIO host renders the rig in mono.
 
-[Remaining work](../design/REMAINING_WORK.md) is the single backlog of what is open.
+[Remaining work](../backlog/README.md) is the single backlog of what is open.
 
 ## How is SushiDSP licensed, and can I use it commercially?
 
