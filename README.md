@@ -35,10 +35,8 @@ Source: `applications/host/main.cpp`
 
 ## Build
 
-Every build and test goes through `sd`, the Python package in `cli/`. It needs sushicore 0.7.0
-or newer, installed from its own checkout; [docs/getting_started/INTRODUCTION.md](docs/getting_started/INTRODUCTION.md)
-covers setup, and [docs/guides/COMMAND_LINE_INTERFACE.md](docs/guides/COMMAND_LINE_INTERFACE.md)
-every command. CMake 3.20 or newer, on Windows and Linux.
+Every build and test goes through `sd`, the Python package in `cli/`. CMake 3.20 or newer, on
+Windows and Linux. Standalone, with Git and Python:
 
 ```bash
 python -m pip install -e ./cli
@@ -46,6 +44,11 @@ sd setup
 sd build
 sd test
 ```
+
+With SushiHub: `hub add sushidsp` and `hub install-cli sushidsp`, or `hub link sushidsp <path>`
+for a checkout you already have. [docs/getting_started/INSTALL.md](docs/getting_started/INSTALL.md)
+has the prerequisites for both, and
+[docs/guides/COMMAND_LINE_INTERFACE.md](docs/guides/COMMAND_LINE_INTERFACE.md) every command.
 
 ## Status
 

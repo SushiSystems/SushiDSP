@@ -7,11 +7,10 @@ are described in [`docs/guides/COMMAND_LINE_INTERFACE.md`](../docs/guides/COMMAN
 
 ## Install
 
-`pyproject.toml` requires Python 3.10 and `sushicore>=0.7.0`. sushicore is not on PyPI, so
-install it from its own checkout first:
+`pyproject.toml` names the Python and `sushicore` versions it requires; pip resolves
+`sushicore` from PyPI:
 
 ```bash
-python -m pip install -e <sushicore checkout>
 python -m pip install -e ./cli
 ```
 

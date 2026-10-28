@@ -8,6 +8,7 @@ code.
 
 | Document | Holds |
 | --- | --- |
+| [Install](getting_started/INSTALL.md) | The two ways to install, standalone and with SushiHub, and what each needs |
 | [Getting started](getting_started/INTRODUCTION.md) | The first-run sequence, from installing `sd` to starting the host |
 | [Architecture](architecture/README.md) | Where the two architecture pages begin |
 | [Architecture overview](architecture/OVERVIEW.md) | The layers as the tree holds them today |

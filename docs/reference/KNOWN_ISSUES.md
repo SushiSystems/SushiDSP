@@ -143,14 +143,6 @@ Next id: KI-48
 - Workaround: read `git log`
 - Fix: RW-62
 
-### KI-36 The design and the manifest disagree on the hub catalogue
-- Origin: own
-- Where: `docs/design/SUSHIDSP/README.md`, `sushi-module.toml`
-- Cause: the design calls SushiDSP a registered member; the manifest says it is not catalogued
-- Recognise: the two files contradict
-- Workaround: trust the manifest
-- Fix: RW-2
-
 ### KI-37 Two READMEs cite an impulse response that does not ship
 - Origin: own
 - Where: `assets/ir/README.md`, `applications/host_gui/README.md`

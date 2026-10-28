@@ -10,11 +10,11 @@ held in place.
 
 ## First run
 
-`sd` is the repository's CLI, the Python package under `cli/`. It needs Python 3.10 and
-sushicore 0.7.0 or newer; sushicore is not on PyPI, so it is installed from its own checkout.
+`sd` is the repository's CLI, the Python package under `cli/`. [`INSTALL.md`](INSTALL.md) gives
+the standalone route and the SushiHub route; `cli/pyproject.toml` names the Python and
+`sushicore` versions it needs.
 
 ```bash
-python -m pip install -e <sushicore checkout>
 python -m pip install -e ./cli
 sd setup --dry-run   # report what is missing and what would be written
 sd setup             # provision it and write the tool paths to cli/config.local.toml

@@ -34,7 +34,8 @@ SushiDSP, and [`NOTICE.md`](../../NOTICE.md) holds the trademark position.
 - Windows or Linux.
 - A C++17 compiler and CMake 3.20 or newer.
 - Python 3.10, for `sd`, the repository's CLI.
-- sushicore 0.7.0 or newer. It is not on PyPI, so it is installed from its own checkout.
+- `sushicore`, which `python -m pip install -e ./cli` installs from PyPI at the version
+  `cli/pyproject.toml` pins.
 
 `cli/sushistack.deps.toml` lists what `sd setup` provisions beyond those. GoogleTest comes
 through CMake FetchContent, so nothing has to be installed for the test suite.
@@ -45,7 +46,6 @@ through CMake FetchContent, so nothing has to be installed for the test suite.
 Run these from the repository root:
 
 ```bash
-python -m pip install -e <sushicore checkout>
 python -m pip install -e ./cli
 sd setup --dry-run   # report what is missing and what would be written
 sd setup             # provision it and write the tool paths to cli/config.local.toml
@@ -100,10 +100,11 @@ interfaces. `sd docs` writes the generated API reference to `build/docs/api-site
 
 ## Do I need SushiStack or the other Sushi Systems repositories?
 
-You need sushicore. `sd` depends on it, and it supplies the `setup`, `doctor`, `link`, `unlink`,
-`config` and `env` commands.
+You need sushicore, which pip installs with `sd`. It supplies the `setup`, `doctor`, `link`,
+`unlink`, `config` and `env` commands.
 
-SushiStack is optional: SushiDSP builds and tests without it. `sd setup` provisions into the
+SushiHub is optional: SushiDSP builds and tests without it, and
+[`INSTALL.md`](../getting_started/INSTALL.md) gives both ways in. `sd setup` provisions into the
 shared root, `~/.sushisystems` (or `SUSHISYSTEMS_HOME`), whether or not the checkout sits in a
 SushiStack workspace. Inside a workspace, `sd link` records the checkout in the workspace's
 module registry, and `sushi-module.toml` makes it recognisable to `hub`. The core itself links

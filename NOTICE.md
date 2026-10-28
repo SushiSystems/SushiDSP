@@ -32,7 +32,7 @@ Installed for the command line and the tools, not tracked and not linked into a 
 
 | Component | Where | Source | Version | Licence |
 | --- | --- | --- | --- | --- |
-| sushicore | dependency in `cli/pyproject.toml` | https://github.com/SushiSystems/SushiCore | 0.7.0 or later | A Sushi Systems repository, under its own licence |
+| sushicore | dependency in `cli/pyproject.toml` | https://github.com/SushiSystems/SushiCore | `==0.9.7` | A Sushi Systems repository, under its own licence |
 | typer | dependency in `cli/pyproject.toml` | https://pypi.org/project/typer/ | 0.12 or later | MIT, from the package metadata |
 | rich | dependency in `cli/pyproject.toml` | https://pypi.org/project/rich/ | 13.0 or later | MIT, from the package metadata |
 | tomli | dependency in `cli/pyproject.toml`, Python below 3.11 | https://pypi.org/project/tomli/ | 2.0 or later | MIT, from the package metadata |

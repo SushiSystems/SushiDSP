@@ -1,5 +1,5 @@
-# What this module is. `hub` reads this when the checkout sits in a workspace; SushiDSP is
-# not in hub's catalog, so this file is the only thing that makes it recognisable there.
+# What this module is. `hub` reads this when the checkout sits in a workspace, whether or not
+# `hub add` cloned it.
 # The format: <sushistack>/docs/reference/MODULE_MANIFEST.md
 
 [module]

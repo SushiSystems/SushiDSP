@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-28 — docs: Wrote the standalone and SushiHub routes side by side in `INSTALL.md`, the README, the FAQ and `cli/README.md`, and corrected the `sushicore` source (`INSTALL.md`).
+- 2026-10-28 — build: Removed the compiler path of one machine from `CMakePresets.json`; a preset now builds with the compiler CMake finds.
+- 2026-10-28 — docs: Said that SushiDSP is in SushiHub's catalog in the manifest and the design, and closed KI-36 and RW-2 (`sushi-module.toml`).
 - 2026-10-28 — mesa_mark2c: Exposed the control period as `MesaMark2c::K_CONTROL_PERIOD_FRAMES` and made the profile test read it in place of a copy (`mesa_mark2c.hpp`, `test_profile.cpp`).
 - 2026-10-28 — profile: Added `ProfileRecord::lookup` to tell a missing subject from one several sites share, and made `find` return null for a shared name (`profile_record.cpp`).
 - 2026-10-28 — docs: Said that the Mesa writes its zones and counters once per 32-frame control period, not once per block (`modules/foundation/profile/README.md`).

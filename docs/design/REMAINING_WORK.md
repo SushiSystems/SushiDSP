@@ -15,14 +15,6 @@ The changelog and commit `de235ac` declare the release and no tag exists.
 The `## v0.1.0` heading has no tag behind it. `git tag -l` prints nothing. Cause: the release was
 declared and not tagged.
 
-### RW-2 Say whether SushiDSP is in hub's catalogue
-- State: decision
-- Done when: `docs/design/SUSHIDSP/README.md` and `sushi-module.toml` agree on it
-- Source: `docs/design/SUSHIDSP/README.md`
-
-The design calls the repository a registered SushiStack member; the manifest says it is not in
-hub's catalogue.
-
 ### RW-3 Choose one error model and the host's split
 - State: decision
 - Done when: the owner has chosen one error model, where `[[nodiscard]]` goes, and how
