@@ -45,7 +45,7 @@ jobs:
           key: ccache-linux-gcc-bench-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-${{ github.sha }}
           restore-keys: ccache-linux-gcc-bench-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-
       - name: Build
-        run: sd build --type release -D SUSHIDSP_BUILD_SDL2=OFF -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: sd build --type release -D SUSHIDSP_BUILD_SDL2=OFF
       - name: Run the benchmarks and report the table
         run: |
           sd bench --type release | tee bench.txt

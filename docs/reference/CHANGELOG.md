@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-28 — ci: Dropped `-D CMAKE_CXX_COMPILER_LAUNCHER=ccache` from the CLI builds; the memory gate finds ccache on `PATH` (`.github/workflows/`).
 - 2026-10-28 — cli: Changed `sd` to build Debug by default, in one tree per build type and sanitizer, `build/<name>-<type>`, where one `build/` followed its cached type (`project.py`, `cli.py`).
 - 2026-10-28 — cli: Put every compile and link behind sushicore's memory gate, added `sd build --jobs` and `--report`, and made `sd clean` take a type, a sanitizer or everything (`project.py`).
 - 2026-10-28 — cli: Changed `sd bench` to build Release by default and `sd run --type` to pick the tree it runs from (`project.py`, `cli.py`).

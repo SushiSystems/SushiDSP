@@ -81,7 +81,7 @@ jobs:
           key: ccache-linux-gcc-release-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-${{ github.sha }}
           restore-keys: ccache-linux-gcc-release-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-
       - name: Build every target, the host and the GUI included
-        run: sd build --type release -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: sd build --type release
       - name: Run the small and medium tests
         run: sd test --type release --label small --label medium
 
@@ -153,7 +153,6 @@ jobs:
         run: >-
           sd build --type relwithdebinfo --sanitize ${{ matrix.sanitizer }} $SD_DEFINES
           -D CMAKE_CXX_COMPILER=clang++ -D CMAKE_C_COMPILER=clang
-          -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Run the tests
         if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
         run: sd test --type relwithdebinfo --sanitize ${{ matrix.sanitizer }} ${{ matrix.labels }}
