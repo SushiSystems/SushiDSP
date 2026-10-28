@@ -27,7 +27,7 @@ name and `python -m sushidsp` as a third way in.
 | `config.py` | The module profile, the layered configuration and the compiler search. |
 | `env.py` | The environment `cmake`, `ctest` and the host GUI run under. |
 | `console.py` | The console, built from `config.toml` on first use. |
-| `services/project.py` | Configure, build, test, clean, docs, check, host and run. |
+| `services/project.py` | Configure, build, test, clean, docs, check, host and run, over one tree per build type and sanitizer. |
 | `services/library_packages.py` | SushiLog as a built package: the request, the configure arguments and the run-time folders. |
 | `services/discovery.py` | The executable search behind `sd run`, over sushicore's index. |
 | `services/diag.py` | The diagnostics object behind `sd config` and `sd env`. |
@@ -43,7 +43,7 @@ API reference and `sd docs bundle` packs the documentation bundle `docs/publish.
 `config.toml` in this folder holds the committed defaults. A gitignored `config.local.toml`
 beside it holds machine-specific paths, in the same `[tool]` layout. `SD_*` environment
 variables override both: `SD_CXX`, `SD_CMAKE_GENERATOR`, `SD_CMAKE`, `SD_CTEST`, `SD_NINJA`,
-`SD_VCVARS` and `SD_TARGET_BIN`. `sd config` prints every value and the layer it came from.
+`SD_VCVARS`, `SD_CCACHE` and `SD_TARGET_BIN`. `sd config` prints every value and the layer it came from.
 
 ## Tests
 

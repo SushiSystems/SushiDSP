@@ -156,7 +156,7 @@ jobs:
           -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Run the tests
         if: ${{ !matrix.post_merge_only || github.event_name != 'pull_request' }}
-        run: sd test --type relwithdebinfo ${{ matrix.labels }}
+        run: sd test --type relwithdebinfo --sanitize ${{ matrix.sanitizer }} ${{ matrix.labels }}
 
   gate:
     name: Gate

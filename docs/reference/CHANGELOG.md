@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- 2026-10-28 — cli: Changed `sd` to build Debug by default, in one tree per build type and sanitizer, `build/<name>-<type>`, where one `build/` followed its cached type (`project.py`, `cli.py`).
+- 2026-10-28 — cli: Put every compile and link behind sushicore's memory gate, added `sd build --jobs` and `--report`, and made `sd clean` take a type, a sanitizer or everything (`project.py`).
+- 2026-10-28 — cli: Changed `sd bench` to build Release by default and `sd run --type` to pick the tree it runs from (`project.py`, `cli.py`).
+- 2026-10-28 — build: Pinned the release C runtime and `_ITERATOR_DEBUG_LEVEL=0` in every configuration, mapped imported Release configs for Debug, and gave Debug line tables only (`CMakeLists.txt`).
+- 2026-10-28 — build: Moved the preset trees to `build/preset-<type>` (`CMakePresets.json`).
+- 2026-10-28 — ci: Added `--sanitize` to the sanitizer lane's `sd test`, which now reads the sanitizer's own tree (`.github/workflows/ci.yml`).
 - 2026-10-26 — ci: Removed `.github/actions/sushilog` and its uses, since the CLI clones the pinned SushiLog and SushiProfiler and builds their packages (`.github/workflows/`).
 - 2026-10-26 — build: Took SushiLog with `find_package(SushiLog CONFIG REQUIRED)` and dropped the added subdirectory and `SUSHILOG_DIR` (`CMakeLists.txt`).
 - 2026-10-26 — build: Dropped `sushilog_copy_runtime_files`, since the CLI puts the package folders on the search path (`tests/CMakeLists.txt`).

@@ -19,6 +19,23 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # programs. Those links fail on any object that is not position-independent.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Debug links what Release links: the release C runtime and no iterator debugging, so a Debug tree
+# shares one heap and one iterator layout with the Release packages it imports (SushiLog,
+# SushiProfiler). CMP0091 is NEW from cmake_minimum_required 3.15 on, so the runtime variable
+# is read. Memory errors are the sanitizer trees' job.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release RelWithDebInfo MinSizeRel "")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
+    add_compile_definitions("$<$<COMPILE_LANGUAGE:CXX>:_ITERATOR_DEBUG_LEVEL=0>")
+endif()
+
+# Debug is the development build: unoptimised, with line tables only, which give a stack trace its
+# files and lines at a fraction of full debug information's compile memory, object size and link
+# time. CMake states -g for Debug; the later -gline-tables-only overrides it.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    add_compile_options("$<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CXX>>:-gline-tables-only>")
+endif()
+
 include(cmake/SushiDSPCompilerFlags.cmake)
 include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)

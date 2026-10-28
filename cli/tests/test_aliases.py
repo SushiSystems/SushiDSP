@@ -70,7 +70,8 @@ def terminal(monkeypatch) -> _Terminal:
     monkeypatch.delenv(aliases.ALIASES.notice_switch, raising=False)
     monkeypatch.setattr(cli, "ALIASES", AliasTable("sd", aliases.K_ROWS))
     monkeypatch.setattr(project_svc, "host", lambda build_type=None, app_args=None: 0)
-    monkeypatch.setattr(project_svc, "run", lambda target=None, sort=False, app_args=None: 0)
+    monkeypatch.setattr(project_svc, "run", lambda target=None, sort=False, app_args=None,
+                        build_type=None: 0)
     return stream
 
 

@@ -5,9 +5,10 @@
 # Commercial use requires a licence from Sushi Systems.
 """Drives SushiDSP's configure, build, test, clean, docs, check, host and run steps.
 
-Holds the build policy: the cache variables, the test sizes and their CTest labels, the checkers
-and the host GUI's place in the tree. cmake and ctest run through
-``sushicore.cmake_driver.CMakeDriver`` under the environment ``sushidsp.env`` assembles.
+Holds the build policy: the cache variables, the tree each build type and sanitizer owns, the test
+sizes and their CTest labels, the checkers and the host GUI's place in the tree. cmake and ctest
+run through ``sushicore.cmake_driver.CMakeDriver`` under the environment ``sushidsp.env``
+assembles; every compile and link goes through sushicore's memory gate.
 """
 
 from __future__ import annotations
@@ -21,7 +22,8 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from sushicore import cmake_cache
+from sushicore import build_admission, build_report, cmake_cache
+from sushicore.build_tree import K_DEFAULT_BUILD_TYPE, refuse_another_build_type, tree_dir
 from sushicore.cmake_driver import CMakeDriver
 from sushicore.proc import Runner
 from sushicore.provision.sushi_packages import PackageError, PackageSet
@@ -76,7 +78,14 @@ _CMAKE_BUILD_TYPE = {
     BuildType.relwithdebinfo: "RelWithDebInfo",
 }
 
-_BUILD_TYPE_FROM_CMAKE = {value: key for key, value in _CMAKE_BUILD_TYPE.items()}
+#: The type a command builds when --type is absent.
+K_DEFAULT_TYPE = BuildType(K_DEFAULT_BUILD_TYPE.lower())
+
+#: The type the benchmark builds when --type is absent: a timing is taken on what ships.
+K_BENCHMARK_TYPE = BuildType.release
+
+#: The name of the tree each sanitizer owns; the plain tree is `default`.
+_TREE_NAME = {None: "default", Sanitizer.address: "asan", Sanitizer.thread: "tsan"}
 
 _CHECKERS = (
     Path("tools", "documentation", "check_docs_layout.py"),
@@ -103,9 +112,9 @@ _APP_RUNNER = Runner(console, PROFILE.program, catch_interrupt=True)
 _DRIVER = CMakeDriver(console, _RUNNER)
 
 
-def _build_dir(root: Path) -> Path:
-    """Returns the build tree of the checkout at *root*."""
-    return root / "build"
+def _build_dir(root: Path, build_type: BuildType, sanitizer: Sanitizer | None = None) -> Path:
+    """Returns `build/<name>-<type>` of the checkout at *root*, the one tree of that pair."""
+    return tree_dir(root, _TREE_NAME[sanitizer], _CMAKE_BUILD_TYPE[build_type])
 
 
 def _env(cfg: Config, build_dir: Path) -> dict[str, str]:
@@ -135,17 +144,10 @@ def _link_packages(cfg: Config, root: Path, build_dir: Path,
     return packages
 
 
-def resolve_build_type(requested: BuildType | None) -> BuildType:
-    """Settles which build type a command acts on when --type was not given.
-
-    Returns:
-        The requested type; else the type a configured tree carries; else debug, also for a
-        tree whose cache names a type this CLI does not offer.
-    """
-    if requested is not None:
-        return requested
-    cached = cmake_cache.cached_value(_build_dir(find_project_root()), "CMAKE_BUILD_TYPE")
-    return _BUILD_TYPE_FROM_CMAKE.get(cached or "", BuildType.debug)
+def resolve_build_type(requested: BuildType | None,
+                       default: BuildType = K_DEFAULT_TYPE) -> BuildType:
+    """Settles which build type a command acts on: the requested one, else *default*."""
+    return requested if requested is not None else default
 
 
 def _generator_changed(cfg: Config, build_dir: Path) -> bool:
@@ -181,33 +183,55 @@ def _remove_tree(build_dir: Path) -> bool:
     return True
 
 
-def _needs_configure(cfg: Config, build_dir: Path, expect: dict[str, str] | None) -> bool:
-    """Tells whether the tree must be configured before it can be compiled."""
-    if not (build_dir / "CMakeCache.txt").is_file():
-        return True
+def _needs_configure(cfg: Config, build_dir: Path) -> bool:
+    """Tells whether the tree must be configured before it can be compiled.
+
+    CMake's platform default, the generator left empty when no compiler is found, leaves no
+    generator sentinel, so the driver cannot judge it and the cache file stands in.
+    """
     generator = cfg.resolved_generator()
     if generator:
-        return _DRIVER.needs_configure(build_dir, generator, expect=expect)
-    # CMake's platform default leaves no generator sentinel, only the cache entries.
-    return any(cmake_cache.cached_value(build_dir, key) != value
-               for key, value in (expect or {}).items())
+        return _DRIVER.needs_configure(build_dir, generator)
+    return not (build_dir / "CMakeCache.txt").is_file()
+
+
+def _refuse_a_wrong_start(build_dir: Path, build_type: BuildType,
+                          defines: Sequence[str] | None) -> None:
+    """Raises when *build_dir* holds another build type or the memory gate is stopped."""
+    refuse_another_build_type(build_dir, _CMAKE_BUILD_TYPE[build_type], defines or ())
+    build_admission.refuse_a_stopped_gate(build_dir)
+
+
+def _print_report(build_dir: Path, offset: int) -> None:
+    """Prints the report of the edges the build wrote after *offset* and saves it in the tree."""
+    report = build_report.of_build(build_dir, offset, build_admission.state_dir(build_dir))
+    for line in report.lines():
+        console.info(line)
+    console.info(f"Report: {report.write(build_dir)}")
 
 
 def configure(build_type: BuildType | None, defines: Sequence[str] | None = None,
-              packages: PackageSet | None = None) -> int:
-    """Runs `cmake -S . -B build` with the detected compiler, generator and build type.
+              packages: PackageSet | None = None, sanitizer: Sanitizer | None = None) -> int:
+    """Runs `cmake -S . -B build/<name>-<type>` with the detected compiler and generator.
 
     SushiLog is linked as a built package: its config folder reaches CMake as
-    `-DSushiLog_DIR`, and no checkout directory does.
+    `-DSushiLog_DIR`, and no checkout directory does. Every compile and link of the tree
+    goes through the memory gate, which the launcher entries below name.
 
     Args:
         defines: `VAR=VALUE` cache variables, passed after every flag this function sets.
         packages: The packages `build` already resolved; resolved here when None.
+        sanitizer: Configures the tree that sanitizer owns.
+
+    Raises:
+        sushicore.errors.ConfigError: The tree holds another build type, or *defines* name one.
+        sushicore.build_admission.BuildStoppedError: The gate's stop file exists.
     """
     build_type = resolve_build_type(build_type)
     root = find_project_root()
     cfg = load_config()
-    build_dir = _build_dir(root)
+    build_dir = _build_dir(root, build_type, sanitizer)
+    _refuse_a_wrong_start(build_dir, build_type, defines)
     build_dir.mkdir(parents=True, exist_ok=True)
     if packages is None:
         packages = _link_packages(cfg, root, build_dir, build_type)
@@ -231,28 +255,35 @@ def configure(build_type: BuildType | None, defines: Sequence[str] | None = None
     else:
         console.info(f"Compiler: {cfg.compiler_source()}")
     cmd += library_packages.configure_arguments(cfg, root, packages)
-    for define in defines or ():
+    gate = build_admission.launcher_defines(
+        build_dir, build_admission.compiler_cache(cfg.ccache_exe))
+    for define in (*gate, *sanitizer_defines(sanitizer), *(defines or ())):
         cmd += ["-D", define]
 
     return _DRIVER.configure(cmd, cwd=root, env=_env(cfg, build_dir))
 
 
 def build(build_type: BuildType | None, clean: bool = False,
-          defines: Sequence[str] | None = None, sanitizer: Sanitizer | None = None) -> int:
+          defines: Sequence[str] | None = None, sanitizer: Sanitizer | None = None,
+          jobs: int | None = None, report: bool = False) -> int:
     """Configures when the tree needs it or *defines* are given, then compiles every target.
 
     Args:
         clean: Removes the build tree first.
         defines: `VAR=VALUE` cache variables; any of them reconfigures a configured tree.
-        sanitizer: Builds with this sanitizer; it stays in the tree until `SUSHIDSP_SANITIZE=`
-            or --clean clears it.
+        sanitizer: Builds the tree that sanitizer owns.
+        jobs: Compile jobs; none uses the hardware threads.
+        report: Prints the edges this build compiled and saves the report in the tree.
+
+    Raises:
+        sushicore.errors.ConfigError: The tree holds another build type, or *defines* name one.
+        sushicore.build_admission.BuildStoppedError: The gate's stop file exists.
     """
-    defines = [*sanitizer_defines(sanitizer), *(defines or ())] or None
-    # --clean removes the tree, so there is no cached type left to inherit from.
-    build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
+    build_type = resolve_build_type(build_type)
     root = find_project_root()
     cfg = load_config()
-    build_dir = _build_dir(root)
+    build_dir = _build_dir(root, build_type, sanitizer)
+    _refuse_a_wrong_start(build_dir, build_type, defines)
 
     if build_dir.exists() and (clean or _generator_changed(cfg, build_dir)):
         if not clean:
@@ -266,15 +297,18 @@ def build(build_type: BuildType | None, clean: bool = False,
     if packages is None:
         return 1
 
-    # A single-config generator bakes CMAKE_BUILD_TYPE into the tree; Visual Studio does not.
-    expect = None if cfg.is_multi_config() else {"CMAKE_BUILD_TYPE": _CMAKE_BUILD_TYPE[build_type]}
-    if defines or _needs_configure(cfg, build_dir, expect):
-        rc = configure(build_type, defines, packages)
+    if defines or _needs_configure(cfg, build_dir):
+        rc = configure(build_type, defines, packages, sanitizer)
         if rc != 0:
             return rc
 
-    return _DRIVER.compile(cfg, build_dir, cwd=root, env=_env(cfg, build_dir),
-                           config=_CMAKE_BUILD_TYPE[build_type])
+    offset = build_report.ninja_log_offset(build_dir)
+    rc = _DRIVER.compile(cfg, build_dir, cwd=root, env=_env(cfg, build_dir),
+                         config=_CMAKE_BUILD_TYPE[build_type],
+                         jobs=jobs or build_admission.hardware_threads())
+    if report:
+        _print_report(build_dir, offset)
+    return rc
 
 
 def test(build_type: BuildType | None, sizes: Sequence[Size] = (), clean: bool = False,
@@ -288,13 +322,13 @@ def test(build_type: BuildType | None, sizes: Sequence[Size] = (), clean: bool =
         sanitizer: Builds with this sanitizer first.
         jobs: Tests run at once; none leaves the count to ctest.
     """
-    build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
+    build_type = resolve_build_type(build_type)
     rc = build(build_type, clean=clean, sanitizer=sanitizer)
     if rc != 0:
         return rc
 
     root = find_project_root()
-    build_dir = _build_dir(root)
+    build_dir = _build_dir(root, build_type, sanitizer)
     cfg = load_config()
     return _DRIVER.ctest_run(cfg, build_dir, _env(cfg, build_dir),
                              label_regex=size_label_regex(sizes), filter=filter,
@@ -311,28 +345,36 @@ def bench(build_type: BuildType | None, groups: Sequence[str] = (), clean: bool 
         The build's code when it fails, 1 when the tree holds no benchmark program, else the
         program's own code.
     """
-    build_type = resolve_build_type(build_type) if not clean else (build_type or BuildType.debug)
+    build_type = resolve_build_type(build_type, K_BENCHMARK_TYPE)
     rc = build(build_type, clean=clean)
     if rc != 0:
         return rc
 
     root = find_project_root()
     cfg = load_config()
-    build_dir = _build_dir(root)
+    build_dir = _build_dir(root, build_type)
     exe = discovery.resolve(build_dir, console, target=_BENCHMARK, sort=False, default=None)
     if exe is None:
         return 1
     console.header(f"Benchmark ({_CMAKE_BUILD_TYPE[build_type]})")
     return _RUNNER.run([str(exe), *groups], root, _env(cfg, build_dir))
 
-def clean() -> int:
-    """Removes the build tree and reports what happened.
+def clean(build_type: BuildType | None = None, sanitizer: Sanitizer | None = None,
+          everything: bool = False) -> int:
+    """Removes one build tree, or build/ whole, and reports what happened.
+
+    Args:
+        build_type: The tree's type; none removes the default type's tree.
+        sanitizer: Removes the tree that sanitizer owns.
+        everything: Removes build/ with every tree, the gate's state and its cache.
 
     Returns:
         1 when a file in the tree could not be removed, else 0.
     """
     console.header("Project Clean")
-    build_dir = _build_dir(find_project_root())
+    root = find_project_root()
+    build_dir = (root / "build" if everything
+                 else _build_dir(root, resolve_build_type(build_type), sanitizer))
     if not build_dir.exists():
         console.info(f"{build_dir} does not exist, nothing to clean.")
         return 0
@@ -348,7 +390,7 @@ def docs() -> int:
     root = find_project_root()
     cfg = load_config()
     doxyfile = root / ".config" / "doxygen" / "Doxyfile"
-    return _DRIVER.doxygen(cfg, doxyfile, root, env=_env(cfg, _build_dir(root)),
+    return _DRIVER.doxygen(cfg, doxyfile, root, env=_env(cfg, _build_dir(root, K_DEFAULT_TYPE)),
                            install_hint=_DOXYGEN_HINT)
 
 
@@ -413,7 +455,7 @@ def host(build_type: BuildType | None = None, launch: bool = True,
 
     root = find_project_root()
     cfg = load_config()
-    build_dir = _build_dir(root)
+    build_dir = _build_dir(root, build_type)
     config = _CMAKE_BUILD_TYPE[build_type]
 
     exe = _locate_host_gui(cfg, build_dir, config)
@@ -428,23 +470,26 @@ def host(build_type: BuildType | None = None, launch: bool = True,
 
 
 def run(target: str | None = None, sort: bool = False,
-        app_args: Sequence[str] | None = None) -> int:
-    """Runs an executable the build tree already holds, without building first.
+        app_args: Sequence[str] | None = None, build_type: BuildType | None = None) -> int:
+    """Runs an executable the tree of *build_type* already holds, without building first.
 
     Args:
         target: The executable's name, matched exactly and then as a substring; None runs
             the configured `target_bin`.
         sort: Prompts for one executable from a list and ignores *target*.
         app_args: Arguments handed to the executable unchanged.
+        build_type: Whose tree to look in; none is the default type's.
 
     Returns:
         1 when there is no build tree or no match, 130 after Ctrl+C, else the executable's code.
     """
     root = find_project_root()
     cfg = load_config()
-    build_dir = _build_dir(root)
+    build_type = resolve_build_type(build_type)
+    build_dir = _build_dir(root, build_type)
     if not build_dir.is_dir():
-        console.error(f"{build_dir} does not exist. Run `sd build` first.")
+        console.error(
+            f"{build_dir} does not exist. Run `sd build --type {build_type.value}` first.")
         return 1
 
     exe = discovery.resolve(build_dir, console, target=target, sort=sort, default=cfg.target_bin)

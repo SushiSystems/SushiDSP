@@ -51,6 +51,8 @@ def _ensure_sushicore() -> None:
 
 _ensure_sushicore()
 
+from sushicore.build_tree import tree_dir  # noqa: E402
+
 
 K_SIZE_TIMEOUTS = {"small": 60, "medium": 300, "large": 900}
 
@@ -151,28 +153,36 @@ class Project:
     build_dir: Path = field(init=False)
 
     def __post_init__(self) -> None:
-        """Derives the build tree's path from the root."""
-        self.build_dir = self.root / "build"
+        """Derives the default tree's path, build/default-debug, from the root."""
+        self.build_dir = self.tree_of("Debug")
 
-    def configure_tree(self, build_type: str = "Debug") -> None:
+    def tree_of(self, build_type: str = "Debug", name: str = "default") -> Path:
+        """Returns the path of the tree *name* owns for *build_type*."""
+        return tree_dir(self.root, name, build_type)
+
+    def configure_tree(self, build_type: str = "Debug", name: str = "default") -> Path:
         """Plants the files a finished Ninja configure of *build_type* leaves behind."""
-        self.build_dir.mkdir(exist_ok=True)
-        (self.build_dir / "build.ninja").write_text("", encoding="utf-8")
-        (self.build_dir / "CMakeCache.txt").write_text(
+        tree = self.tree_of(build_type, name)
+        tree.mkdir(parents=True, exist_ok=True)
+        (tree / "build.ninja").write_text("", encoding="utf-8")
+        (tree / "CMakeCache.txt").write_text(
             f"CMAKE_BUILD_TYPE:STRING={build_type}\nCMAKE_GENERATOR:INTERNAL=Ninja\n",
             encoding="utf-8")
+        return tree
 
-    def plant_executable(self, stem: str, *folders: str) -> Path:
-        """Creates an empty runnable file named *stem* under build/*folders*; returns its path."""
-        exe = self.build_dir.joinpath(*folders, f"{stem}.exe" if os.name == "nt" else stem)
+    def plant_executable(self, stem: str, *folders: str, build_type: str = "Debug") -> Path:
+        """Creates an empty runnable file named *stem* under the tree of *build_type*."""
+        exe = self.tree_of(build_type).joinpath(
+            *folders, f"{stem}.exe" if os.name == "nt" else stem)
         exe.parent.mkdir(parents=True, exist_ok=True)
         exe.write_text("", encoding="utf-8")
         exe.chmod(0o755)
         return exe
 
-    def plant_host_gui(self, *folders: str) -> Path:
-        """Creates an empty host GUI binary under build/applications/host_gui and returns its path."""
-        return self.plant_executable("sushidsp_host_gui", "applications", "host_gui", *folders)
+    def plant_host_gui(self, *folders: str, build_type: str = "Debug") -> Path:
+        """Creates an empty host GUI binary under the tree's applications/host_gui."""
+        return self.plant_executable("sushidsp_host_gui", "applications", "host_gui", *folders,
+                                     build_type=build_type)
 
 
 @pytest.fixture
@@ -185,7 +195,8 @@ def project(tmp_path, monkeypatch) -> Project:
 
     (tmp_path / "CMakeLists.txt").write_text("project(x)\n", encoding="utf-8")
     runner, console = RecordingRunner(), RecordingConsole()
-    cfg = Config(cxx="clang++", generator="Ninja", ninja_exe="ninja")
+    cfg = Config(cxx="clang++", generator="Ninja", ninja_exe="ninja",
+                 ccache_exe=str(tmp_path / "no_ccache"))
     packages = FakePackages()
     monkeypatch.setattr(cfg, "sushi_packages", packages.sushi_packages)
     monkeypatch.setattr(project_svc, "find_project_root", lambda: tmp_path)

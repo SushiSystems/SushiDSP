@@ -17,6 +17,7 @@
 # [tool]
 # cxx = "C:/path/to/clang++.exe"     # pin a compiler; also SD_CXX
 # generator = "Ninja"                # pin a generator; also SD_CMAKE_GENERATOR
+# ccache_exe = "C:/path/ccache.exe"  # pin the compiler cache the memory gate uses; also SD_CCACHE
 
 [tool]
 # Default executable this CLI's future `sd run` targets (host app, D1+).

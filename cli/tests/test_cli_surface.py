@@ -23,7 +23,7 @@ from sushidsp import cli
 from sushidsp.cli import app
 from sushidsp.services import diag as diag_svc
 from sushidsp.services import project as project_svc
-from sushidsp.services.project import BuildType
+from sushidsp.services.project import BuildType, Sanitizer
 
 
 pytestmark = pytest.mark.medium
@@ -125,10 +125,42 @@ def test_config_and_env_come_from_the_diagnostics_object(monkeypatch):
     assert calls == [("config",), ("env", True)]
 
 
-def test_clean_delegates_to_the_project_service(monkeypatch):
-    """sd clean exits with the service's code."""
-    monkeypatch.setattr(project_svc, "clean", lambda: 4)
-    assert CliRunner().invoke(app, ["clean"]).exit_code == 4
+def test_clean_hands_the_tree_it_names_to_the_project_service(monkeypatch):
+    """sd clean exits with the service's code and passes the type, the sanitizer and --all."""
+    seen: list[tuple] = []
+
+    def fake_clean(build_type=None, sanitizer=None, everything=False):
+        """Records the tree the command named."""
+        seen.append((build_type, sanitizer, everything))
+        return 4
+
+    monkeypatch.setattr(project_svc, "clean", fake_clean)
+    runner = CliRunner()
+
+    assert runner.invoke(app, ["clean"]).exit_code == 4
+    assert runner.invoke(app, ["clean", "-t", "release", "--sanitize", "thread"]).exit_code == 4
+    assert runner.invoke(app, ["clean", "--all"]).exit_code == 4
+    assert seen == [(None, None, False),
+                    (BuildType.release, Sanitizer.thread, False),
+                    (None, None, True)]
+
+
+def test_build_hands_the_jobs_and_the_report_flag_to_the_project_service(monkeypatch):
+    """sd build -j and --report reach the service; without them it gets none and no report."""
+    seen: list[tuple] = []
+
+    def fake_build(build_type, clean=False, defines=None, sanitizer=None, jobs=None,
+                   report=False):
+        """Records the compile options the command passed."""
+        seen.append((build_type, jobs, report))
+        return 0
+
+    monkeypatch.setattr(project_svc, "build", fake_build)
+    runner = CliRunner()
+
+    assert runner.invoke(app, ["build"]).exit_code == 0
+    assert runner.invoke(app, ["build", "-j", "3", "--report"]).exit_code == 0
+    assert seen == [(None, None, False), (None, 3, True)]
 
 
 def test_test_hands_the_filter_to_the_project_service(monkeypatch):
@@ -159,9 +191,9 @@ def launches(monkeypatch) -> list[tuple]:
         calls.append(("host", build_type, launch, app_args))
         return 6
 
-    def fake_run(target=None, sort=False, app_args=None):
+    def fake_run(target=None, sort=False, app_args=None, build_type=None):
         """Records one run call."""
-        calls.append(("run", target, sort, app_args))
+        calls.append(("run", target, sort, app_args, build_type))
         return 7
 
     monkeypatch.setattr(project_svc, "host", fake_host)
@@ -188,13 +220,13 @@ def test_run_with_a_target_runs_that_executable_and_forwards_arguments(launches)
     result = CliRunner().invoke(app, ["run", "sushidsp_tests", "--", "--gtest_shuffle"])
 
     assert result.exit_code == 7
-    assert launches == [("run", "sushidsp_tests", False, ["--gtest_shuffle"])]
+    assert launches == [("run", "sushidsp_tests", False, ["--gtest_shuffle"], None)]
 
 
 def test_run_sort_asks_the_runner_for_a_pick(launches):
     """sd run --sort reaches the generic runner with no target."""
     assert CliRunner().invoke(app, ["run", "--sort"]).exit_code == 7
-    assert launches == [("run", None, True, [])]
+    assert launches == [("run", None, True, [], None)]
 
 
 def test_bare_run_does_what_host_does(launches):
@@ -214,10 +246,10 @@ def test_run_with_only_forwarded_arguments_is_the_old_host_spelling(launches):
     assert launches == [("host", BuildType.debug, True, ["--device", "0"])]
 
 
-def test_run_refuses_a_type_beside_a_target(launches):
-    """--type belongs to the old bare spelling; beside a target it is a usage error."""
-    assert CliRunner().invoke(app, ["run", "sushidsp_tests", "-t", "release"]).exit_code == 2
-    assert launches == []
+def test_run_with_a_target_looks_in_the_tree_of_the_type(launches):
+    """--type beside a target picks the tree the executable is run from."""
+    assert CliRunner().invoke(app, ["run", "sushidsp_tests", "-t", "release"]).exit_code == 7
+    assert launches == [("run", "sushidsp_tests", False, [], BuildType.release)]
 
 
 def _published_checkout(root: Path) -> None:

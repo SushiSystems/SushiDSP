@@ -15,24 +15,38 @@ line naming the file and the position, and exit code 1.
 
 ## `sd configure`
 
-Runs CMake's configure step against `build/`.
+Runs CMake's configure step against the tree of one build type. Each type has a tree of its
+own, `build/default-debug`, `build/default-release` and `build/default-relwithdebinfo`, so
+switching type never recompiles a tree. A sanitizer build has its own pair, `build/asan-<type>`
+and `build/tsan-<type>`. A configure refuses a tree that holds another type, and refuses
+`-D CMAKE_BUILD_TYPE=...`: the type picks the tree.
 
-- `--type` / `-t debug | release | relwithdebinfo`, the build type. Defaults to whatever type
-  the existing build tree already carries, else `debug`.
+Every compile and link of a tree runs through sushicore's memory gate, which admits an edge only
+when its expected peak fits in the free memory. An empty `build/build_gate/stop` file makes the
+gate refuse every edge. When `ccache` is on `PATH`, or `ccache_exe` in `config.local.toml` or
+`SD_CCACHE` names it, host compiles go through it.
+
+- `--type` / `-t debug | release | relwithdebinfo`, the build type. Default: `debug`.
 - `--define` / `-D VAR=VALUE`, passes a CMake cache variable through to configure. Repeatable.
+- `--sanitize address | thread`, configures the tree of that sanitizer.
 
 ## `sd build`
 
 Configures the tree if it isn't already, then builds every CMake target.
 
 - `--type` / `-t`, same values and default as `sd configure`.
-- `--clean`, deletes the build tree before configuring.
+- `--clean`, deletes the tree of the type before configuring.
 - `--define` / `-D VAR=VALUE`, passes a CMake cache variable to configure. On a tree that is
   already configured it runs configure again with the variable, then builds. Repeatable.
-- `--sanitize address | thread`, builds with AddressSanitizer and UndefinedBehaviorSanitizer,
-  or with ThreadSanitizer, through `SUSHIDSP_SANITIZE`. Clang and GCC only; MSVC ignores it.
+- `--sanitize address | thread`, builds the tree of that sanitizer with AddressSanitizer and
+  UndefinedBehaviorSanitizer, or with ThreadSanitizer, through `SUSHIDSP_SANITIZE`. Clang and
+  GCC only; MSVC ignores it.
+- `--jobs` / `-j <count>`, compile jobs. Without it the count is the hardware threads, or
+  `CMAKE_BUILD_PARALLEL_LEVEL` when that is set.
+- `--report`, prints the edges this build compiled by kind, with their time and peak memory,
+  and saves the report in the tree.
 
-A variable set with `-D` or `--sanitize` stays in the build tree's cache, so a later `sd build`
+A variable set with `-D` stays in that tree's cache, so a later `sd build` of the same tree
 without the flag keeps it. `-D VAR=` clears one; `--clean` starts over.
 
 ## `sd test`
@@ -46,8 +60,9 @@ Builds the tree if it isn't already, then runs `ctest`.
   inside the chosen sizes.
 - `--jobs` / `-j <count>`, how many tests run at once, passed to `ctest --parallel`. Without it
   ctest decides and honours `CTEST_PARALLEL_LEVEL`.
-- `--sanitize address | thread`, the same as `sd build --sanitize`, before the tests run.
-- `--clean`, deletes the build tree before configuring.
+- `--sanitize address | thread`, builds and tests the tree of that sanitizer, as
+  `sd build --sanitize` does.
+- `--clean`, deletes the tree of the type before configuring.
 
 ## `sd bench`
 
@@ -59,15 +74,20 @@ maximum and the jitter beside it. A verdict never changes the exit code.
 
 - `GROUP...`, substrings of the case groups to run, such as `Room` or `Jcm800`. Without one
   every group runs.
-- `--type` / `-t`, same values and default as `sd configure`. A timing is a Release figure.
-- `--clean`, deletes the build tree before configuring.
+- `--type` / `-t`, same values as `sd configure`. Default: `release`, because a timing is a
+  Release figure.
+- `--clean`, deletes the tree of the type before configuring.
 
 ## `sd clean`
 
-Removes `build/`, including the read-only files FetchContent's git checkouts leave under
-`build/_deps`. Takes no flags. When a file is held open, by a running `sushidsp_host_gui` for
-example, it prints one line naming the file and exits 1; `sd build --clean` and
-`sd test --clean` stop the same way.
+Removes one build tree, `build/default-debug` by default, including the read-only files
+FetchContent's git checkouts leave under `_deps`. When a file is held open, by a running
+`sushidsp_host_gui` for example, it prints one line naming the file and exits 1;
+`sd build --clean` and `sd test --clean` stop the same way.
+
+- `--type` / `-t`, the tree's build type. Default: `debug`.
+- `--sanitize address | thread`, removes the tree of that sanitizer instead.
+- `--all`, removes `build/` whole: every tree, the gate's state and its cache.
 
 ## `sd config`
 
@@ -126,18 +146,19 @@ launches the `sushidsp_host_gui` standalone application of that type. It exits 1
 tree holds no host GUI (`SUSHIDSP_BUILD_GUI=OFF`) and 130 after Ctrl+C.
 
 - `--type` / `-t debug | release | relwithdebinfo`, the configuration to build and launch.
-  Same default as `sd configure`.
+  Default: `debug`.
 - `--no-run`, builds and stops there.
 - `-- <args>...`, everything after `--` reaches the host GUI unchanged.
 
 ## `sd run`
 
-Runs an executable the build tree already holds, as `run` does on every Sushi CLI. It does not
-build first; without a `build/` it names `sd build` and exits 1.
+Runs an executable a build tree already holds, as `run` does on every Sushi CLI. It does not
+build first; without the tree it names `sd build` and exits 1.
 
 - `TARGET`, the executable's name. An exact match on the name or its stem wins; otherwise the
   first name containing `TARGET` runs. No match is one error line and exit code 1.
-- `--sort`, lists the executables under `build/` and prompts for one.
+- `--type` / `-t`, whose tree to look in. Default: `debug`.
+- `--sort`, lists the executables under the tree and prompts for one.
 - `-- <args>...`, everything after `--` reaches the executable unchanged:
   `sd run sushidsp_tests -- --gtest_filter='Jcm800.*'`.
 

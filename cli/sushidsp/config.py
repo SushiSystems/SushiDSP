@@ -28,7 +28,7 @@ PROFILE = ModuleProfile(
     default_target="sushidsp_host",
     # Every name here has a suffix in sushicore's table, so each one is a real SD_* variable.
     env_fields=("cxx", "generator", "cmake_exe", "ctest_exe", "ninja_exe",
-                "vs_vcvars", "target_bin"),
+                "vs_vcvars", "ccache_exe", "target_bin"),
 )
 
 # Layers the workspace-shared config.local.toml, which holds the intel/llvm root from the workspace.

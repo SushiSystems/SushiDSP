@@ -9,9 +9,9 @@
     {
       "name": "debug",
       "displayName": "Debug (sd's default toolchain)",
-      "description": "Matches the clang++ path sd build already resolves to, with CMAKE_BUILD_TYPE=Debug. Uses its own binary dir so it never touches sd's build/ tree.",
+      "description": "Matches the clang++ path sd build already resolves to, with CMAKE_BUILD_TYPE=Debug. Uses its own tree, build/preset-debug, so it never touches the trees sd builds.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-presets/${presetName}",
+      "binaryDir": "${sourceDir}/build/preset-${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_CXX_COMPILER": "D:/Projects/sushistack/dependencies/toolchains/llvm-sycl/bin/clang++.exe"
@@ -20,9 +20,9 @@
     {
       "name": "release",
       "displayName": "Release (sd's default toolchain)",
-      "description": "Matches the clang++ path sd build already resolves to, with CMAKE_BUILD_TYPE=Release. Uses its own binary dir so it never touches sd's build/ tree.",
+      "description": "Matches the clang++ path sd build already resolves to, with CMAKE_BUILD_TYPE=Release. Uses its own tree, build/preset-release, so it never touches the trees sd builds.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-presets/${presetName}",
+      "binaryDir": "${sourceDir}/build/preset-${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_CXX_COMPILER": "D:/Projects/sushistack/dependencies/toolchains/llvm-sycl/bin/clang++.exe"

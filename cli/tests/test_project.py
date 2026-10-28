@@ -63,14 +63,16 @@ def test_build_leaves_a_configured_tree_alone_without_a_define(project):
     assert [_is_compile(command) for command in project.runner.commands] == [True]
 
 
-def test_build_configures_a_tree_of_another_type(project):
-    """Asking for a type the tree does not carry reconfigures it."""
-    project.configure_tree("Debug")
+def test_build_configures_the_tree_of_another_type_and_leaves_the_first_alone(project):
+    """Each type owns a tree: asking for release configures build/default-release."""
+    debug = project.configure_tree("Debug")
 
     assert project_svc.build(BuildType.release) == 0
 
     configure = project.runner.commands[0]
     assert _is_configure(configure) and "-DCMAKE_BUILD_TYPE=Release" in configure
+    assert configure[configure.index("-B") + 1] == str(project.tree_of("Release"))
+    assert (debug / "CMakeCache.txt").read_text(encoding="utf-8").count("Debug") == 1
 
 
 def test_test_passes_the_filter_as_a_ctest_name_regex(project):
@@ -117,6 +119,7 @@ def test_a_sanitizer_reconfigures_with_its_cache_variable(project):
     configure = project.runner.commands[0]
     assert _is_configure(configure)
     assert configure[configure.index("SUSHIDSP_SANITIZE=address") - 1] == "-D"
+    assert configure[configure.index("-B") + 1] == str(project.tree_of("Debug", "asan"))
 
 def test_clean_removes_the_build_tree_with_its_read_only_files(project):
     """clean deletes build/, read-only files included, and starts no process."""
@@ -170,9 +173,8 @@ def test_build_clean_stops_on_a_locked_tree(project, monkeypatch):
 
 
 def test_host_builds_the_requested_type_then_launches_its_binary(project):
-    """host brings the tree to the requested type before it starts the host GUI."""
-    project.configure_tree("Debug")
-    exe = project.plant_host_gui()
+    """host builds the tree of the requested type before it starts that tree's host GUI."""
+    exe = project.plant_host_gui(build_type="Release")
 
     assert project_svc.host(BuildType.release, app_args=["--foo"]) == 0
 
@@ -242,7 +244,28 @@ def test_run_without_a_build_tree_points_at_sd_build(project):
 
     assert project.runner.commands == []
     (line,) = project.console.of("error")
-    assert "sd build" in line
+    assert "sd build --type debug" in line
+
+
+def test_run_looks_in_the_tree_of_the_type_it_is_given(project):
+    """run --type release starts the executable of build/default-release, not the debug one."""
+    project.plant_executable("sushidsp_tests", "tests")
+    exe = project.plant_executable("sushidsp_tests", "tests", build_type="Release")
+
+    assert project_svc.run("sushidsp_tests", build_type=BuildType.release) == 0
+
+    assert project.runner.commands == [[str(exe)]]
+
+
+def test_bench_builds_and_runs_the_release_tree_by_default(project):
+    """A timing is taken on what ships, so bench without --type is a release build."""
+    exe = project.plant_executable("sushidsp_bench", "tests", build_type="Release")
+
+    assert project_svc.bench(None) == 0
+
+    configure, compile_, launch = project.runner.commands
+    assert "-DCMAKE_BUILD_TYPE=Release" in configure and _is_compile(compile_)
+    assert launch == [str(exe)]
 
 
 def test_run_without_a_target_resolves_the_configured_target_bin(project):

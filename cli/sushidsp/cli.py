@@ -36,8 +36,10 @@ K_BUILD = "Build"
 K_APPLICATION = "Application"
 K_ENVIRONMENT = "Environment"
 
-K_TYPE_HELP = ("Build type: debug | release | relwithdebinfo. "
-               "Defaults to the type the build tree already carries, else debug.")
+K_TYPE_HELP = ("Build type: debug | release | relwithdebinfo. Each type has its own tree, "
+               "build/<name>-<type>. Default: debug.")
+K_BENCH_TYPE_HELP = ("Build type: debug | release | relwithdebinfo. Default: release, the type "
+                     "a timing is taken on.")
 K_DEFINE_HELP = ("Pass a CMake cache variable to configure; on a configured tree it "
                  "reconfigures. Repeatable.")
 K_CLEAN_HELP = "Delete the build tree before configuring."
@@ -59,9 +61,10 @@ app = typer.Typer(
 )
 
 
-def _type_option() -> Any:
+def _type_option(description: str = K_TYPE_HELP) -> Any:
     """Returns the default of a `--type/-t` parameter."""
-    return typer.Option(None, "--type", "-t", case_sensitive=False, help=K_TYPE_HELP)
+    return typer.Option(None, "--type", "-t", case_sensitive=False,
+                        help=description)
 
 
 def _define_option() -> Any:
@@ -72,7 +75,8 @@ def _define_option() -> Any:
 def _sanitize_option() -> Any:
     """Returns the default of a `--sanitize` parameter."""
     return typer.Option(None, "--sanitize", case_sensitive=False,
-                        help="Sanitizer build: address (ASan and UBSan) | thread (TSan).")
+                        help="Sanitizer tree: address (ASan and UBSan, build/asan-<type>) | "
+                             "thread (TSan, build/tsan-<type>).")
 
 
 def _clean_option() -> Any:
@@ -90,9 +94,10 @@ def _clean_option() -> Any:
 def configure(
     type: Optional[BuildType] = _type_option(),
     define: Optional[list[str]] = _define_option(),
+    sanitize: Optional[Sanitizer] = _sanitize_option(),
 ) -> None:
-    """Run cmake's configure step against build/."""
-    raise typer.Exit(project_svc.configure(type, define))
+    """Run cmake's configure step against the tree of the type, build/default-debug by default."""
+    raise typer.Exit(project_svc.configure(type, define, sanitizer=sanitize))
 
 
 @app.command(
@@ -102,20 +107,28 @@ def configure(
            "sd build --type release\n"
            "sd build --clean  # Delete the build tree before configuring\n"
            "sd build -D FOO=1  # Reconfigure with a CMake cache variable, then build\n"
-           "sd build --sanitize address  # ASan and UBSan; thread for TSan",
+           "sd build --sanitize address  # ASan and UBSan in build/asan-debug; thread for TSan\n"
+           "sd build --report  # Print the build's edges by kind and save the report",
 )
 def build(
     type: Optional[BuildType] = _type_option(),
     clean: bool = _clean_option(),
     define: Optional[list[str]] = _define_option(),
     sanitize: Optional[Sanitizer] = _sanitize_option(),
+    jobs: Optional[int] = typer.Option(
+        None, "--jobs", "-j", min=1,
+        help="Compile jobs. Default: the hardware threads, or CMAKE_BUILD_PARALLEL_LEVEL."),
+    report: bool = typer.Option(
+        False, "--report", help="Print the edges this build compiled by kind, with their time "
+                                "and peak memory, and save the report in the tree."),
 ) -> None:
-    """Configure if needed, then build every CMake target.
+    """Configure if needed, then build every CMake target behind the memory gate.
 
     A cache variable set with -D stays in the build tree, so a later run without the
     flag keeps it; pass VAR= to clear one, or --clean to start over.
     """
-    raise typer.Exit(project_svc.build(type, clean=clean, defines=define, sanitizer=sanitize))
+    raise typer.Exit(project_svc.build(type, clean=clean, defines=define, sanitizer=sanitize,
+                                       jobs=jobs, report=report))
 
 
 @app.command(
@@ -154,7 +167,7 @@ def test(
 def bench(
     group: Optional[list[str]] = typer.Argument(
         None, help="Substrings of the case groups to run. Default: every group."),
-    type: Optional[BuildType] = _type_option(),
+    type: Optional[BuildType] = _type_option(K_BENCH_TYPE_HELP),
     clean: bool = _clean_option(),
 ) -> None:
     """Build if needed, then run the benchmark program and print its table."""
@@ -175,9 +188,8 @@ def run(
         None, help="Executable name to run (exact, then substring match)."),
     sort: bool = typer.Option(
         False, "--sort", help="Interactively pick an executable."),
-    type: Optional[BuildType] = typer.Option(
-        None, "--type", "-t", case_sensitive=False, hidden=True,
-        help="The old spelling of `sd host --type`."),
+    type: Optional[BuildType] = _type_option(
+        "Whose tree to run from: debug | release | relwithdebinfo. Default: debug."),
 ) -> None:
     """Run a built executable. Args after `--` are forwarded to it."""
     forwarded_only = target is not None and target.startswith("-")
@@ -185,21 +197,27 @@ def run(
         ALIASES.announce(ALIASES.alias_for(K_BARE_RUN))
         app_args = [target, *ctx.args] if forwarded_only else None
         raise typer.Exit(project_svc.host(type, app_args=app_args))
-    if type is not None:
-        raise typer.BadParameter(
-            "it selects what `sd host` builds; `sd run TARGET` runs what the tree holds.",
-            param_hint="--type")
-    raise typer.Exit(project_svc.run(target=target, sort=sort, app_args=list(ctx.args)))
+    raise typer.Exit(project_svc.run(target=target, sort=sort, app_args=list(ctx.args),
+                                     build_type=type))
 
 
 @app.command(
     "clean",
     rich_help_panel=K_BUILD,
-    epilog="sd clean",
+    epilog="sd clean  # build/default-debug\n"
+           "sd clean --type release\n"
+           "sd clean --sanitize address  # build/asan-debug\n"
+           "sd clean --all  # The whole build/ directory",
 )
-def clean() -> None:
-    """Remove the build/ tree."""
-    raise typer.Exit(project_svc.clean())
+def clean(
+    type: Optional[BuildType] = _type_option(
+        "Which tree to remove: debug | release | relwithdebinfo. Default: debug."),
+    sanitize: Optional[Sanitizer] = _sanitize_option(),
+    everything: bool = typer.Option(
+        False, "--all", help="Remove build/ with every tree, the gate's state and its cache."),
+) -> None:
+    """Remove one build tree, build/default-debug by default."""
+    raise typer.Exit(project_svc.clean(type, sanitize, everything))
 
 
 def _api_source() -> ApiSource:

@@ -72,6 +72,16 @@ def test_a_command_help_carries_examples(command):
     assert "Examples" in out and f"sd {command}" in out
 
 
-def test_run_help_hides_the_type_option_it_keeps_for_the_old_spelling():
-    assert "--type" not in _run("run", "--help")
-    assert "--type" in _run("host", "--help") and "--no-run" in _run("host", "--help")
+def test_the_commands_that_find_a_tree_offer_its_type():
+    for command in ("run", "host", "clean", "bench", "build"):
+        assert "--type" in _run(command, "--help")
+    assert "--no-run" in _run("host", "--help")
+
+
+def test_the_build_help_offers_the_report_and_the_jobs():
+    out = _run("build", "--help")
+    assert "--report" in out and "--jobs" in out
+
+
+def test_the_bench_help_names_release_as_its_default():
+    assert "Default: release" in " ".join(_run("bench", "--help").split())
