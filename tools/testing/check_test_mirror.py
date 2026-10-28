@@ -34,6 +34,7 @@ K_PACKAGE_FOLDER = "package"
 K_APPLICATIONS_FOLDER = "applications"
 K_PRIVATE_FOLDER = "source"
 K_CPP_TEST_SUFFIXES = frozenset({".cpp", ".h", ".hpp"})
+K_UNTESTED_LIST = "tools/testing/untested_units.txt"
 K_INCLUDE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]')
 
 
@@ -212,12 +213,36 @@ def collect(paths: list[Path]) -> Iterable[TestMirror]:
     return mirrors
 
 
+def _untested_list(root: Path) -> frozenset[str]:
+    """Returns the units, as paths relative to root, that the untested list records as owed a test."""
+    listed = root / K_UNTESTED_LIST
+    if not listed.is_file():
+        return frozenset()
+    lines = listed.read_text(encoding="utf-8").splitlines()
+    return frozenset(line.strip() for line in lines if line.strip() and not line.startswith("#"))
+
+
+def _is_tested(test: Path) -> bool:
+    """Says whether a unit has its test file or a folder of aspect files."""
+    return test.is_file() or bool(_aspect_files(unit_folder(test)))
+
+
 def rule_untested_unit(mirror: TestMirror) -> Iterator[Issue]:
-    """Yields an issue for each header or source file whose test file does not exist."""
+    """Yields an issue for each header or source file whose test file does not exist and is not listed as owed."""
+    owed = _untested_list(mirror.root)
     for test, header in sorted(mirror.expected.items(), key=lambda item: str(item[1])):
-        if not test.is_file() and not _aspect_files(unit_folder(test)):
+        if not _is_tested(test) and header.relative_to(mirror.root).as_posix() not in owed:
             shown = test.relative_to(mirror.root).as_posix()
             yield Issue(header, 1, f"no test file; expected {shown}")
+
+
+def rule_stale_untested_entry(mirror: TestMirror) -> Iterator[Issue]:
+    """Yields an issue for each untested-list entry that now has a test or names no unit."""
+    units = {header.relative_to(mirror.root).as_posix(): test for test, header in mirror.expected.items()}
+    for entry in sorted(_untested_list(mirror.root)):
+        test = units.get(entry)
+        if test is None or _is_tested(test):
+            yield Issue(mirror.root / entry, 1, f"listed in {K_UNTESTED_LIST} but tested or gone; drop the entry")
 
 
 def rule_orphan_test(mirror: TestMirror) -> Iterator[Issue]:
@@ -284,6 +309,7 @@ K_CHECKER = Checker(
     collect=collect,
     rules={
         "rule_untested_unit": rule_untested_unit,
+        "rule_stale_untested_entry": rule_stale_untested_entry,
         "rule_orphan_test": rule_orphan_test,
         "rule_mirror_folders": rule_mirror_folders,
         "rule_unit_file_and_folder": rule_unit_file_and_folder,
