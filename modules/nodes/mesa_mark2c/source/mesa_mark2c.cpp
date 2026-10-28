@@ -314,13 +314,6 @@ namespace SushiDSP
         constexpr double K_FILTER_Q = 0.707;
         constexpr float K_SMOOTHING_MS = 20.0f;
 
-        /// @brief How many base-rate frames pass between two coefficient rebuilds.
-        ///
-        /// Rebuilding per sample would re-solve the tone stack's and the equaliser's matrices at
-        /// the oversampled rate, so a knob's travel is quantised to this instead: at 48 kHz it is
-        /// 0.67 ms, which cuts a 256-frame block's step by eight.
-        constexpr std::uint32_t K_CONTROL_PERIOD_FRAMES = 32;
-
         // Below this change in a knob the audio thread skips the coefficient rebuild.
         constexpr float K_COEFFICIENT_EPSILON = 1e-4f;
 

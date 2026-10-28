@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-28 — mesa_mark2c: Exposed the control period as `MesaMark2c::K_CONTROL_PERIOD_FRAMES` and made the profile test read it in place of a copy (`mesa_mark2c.hpp`, `test_profile.cpp`).
 - 2026-10-28 — profile: Added `ProfileRecord::lookup` to tell a missing subject from one several sites share, and made `find` return null for a shared name (`profile_record.cpp`).
 - 2026-10-28 — docs: Said that the Mesa writes its zones and counters once per 32-frame control period, not once per block (`modules/foundation/profile/README.md`).
 - 2026-10-28 — ci: Dropped `-D CMAKE_CXX_COMPILER_LAUNCHER=ccache` from the CLI builds; the memory gate finds ccache on `PATH` (`.github/workflows/`).

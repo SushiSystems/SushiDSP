@@ -41,13 +41,9 @@ namespace
     /// @brief Holds the active periods of the run below.
     constexpr std::uint32_t K_ACTIVE = 4;
 
-    /// @brief Holds the frames of one control period, K_CONTROL_PERIOD_FRAMES in
-    /// mesa_mark2c.cpp; the node renders a block as these, each with its own region zones.
-    constexpr std::uint32_t K_CONTROL_PERIOD_FRAMES = 32;
-
     /// @brief Holds the region zones one block writes, one per control period.
     constexpr std::uint32_t K_ZONES_PER_BLOCK =
-        SushiDSP::bench::K_BLOCK_SIZE / K_CONTROL_PERIOD_FRAMES;
+        SushiDSP::bench::K_BLOCK_SIZE / SushiDSP::MesaMark2c::K_CONTROL_PERIOD_FRAMES;
 } // namespace
 
 TEST(Medium_MesaMark2cProfile, ProcessWritesEachRegionZoneOncePerControlPeriodAndItsCounters)

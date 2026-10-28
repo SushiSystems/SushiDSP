@@ -62,6 +62,10 @@ namespace SushiDSP
             /// @brief The number of graphic-equaliser sliders on the front panel.
             static constexpr std::size_t K_EQUALIZER_BAND_COUNT = 5;
 
+            /// @brief The base-rate frames between two coefficient rebuilds: process() renders a
+            /// block as runs of this many frames and writes its zones and counters once per run.
+            static constexpr std::uint32_t K_CONTROL_PERIOD_FRAMES = 32;
+
             MesaMark2c();
 
             /// @brief Sizes every scratch buffer and rebuilds every sample-rate-dependent filter.
