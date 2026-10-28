@@ -16,7 +16,9 @@ from typing import Any, Optional
 
 import typer
 from sushicore.diag_commands import register_diagnostic_commands
+from sushicore.backlog import register_backlog_commands
 from sushicore.docs_bundle import ApiSource, register_docs_commands
+from sushicore.design import register_design_commands
 from sushicore.entry import run as run_app
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
 from sushicore.root_options import register_root_options
@@ -237,6 +239,20 @@ register_docs_commands(
     project_root=find_project_root,
     api=_api_source,
     report=lambda line: console.success(line),
+    group_cls=_help_group,
+)
+register_backlog_commands(
+    app,
+    program=K_PROGRAM,
+    panel=K_BUILD,
+    project_root=find_project_root,
+    group_cls=_help_group,
+)
+register_design_commands(
+    app,
+    program=K_PROGRAM,
+    panel=K_BUILD,
+    project_root=find_project_root,
     group_cls=_help_group,
 )
 

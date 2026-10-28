@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-29 — cli: Added the `backlog` and `design` groups and asked for sushicore 0.10.2 (`cli.py`).
 - 2026-10-28 — docs: Wrote the standalone and SushiHub routes side by side in `INSTALL.md`, the README, the FAQ and `cli/README.md`, and corrected the `sushicore` source (`INSTALL.md`).
 - 2026-10-28 — build: Removed the compiler path of one machine from `CMakePresets.json`; a preset now builds with the compiler CMake finds.
 - 2026-10-28 — docs: Said that SushiDSP is in SushiHub's catalog in the manifest and the design, and closed KI-36 and RW-2 (`sushi-module.toml`).
