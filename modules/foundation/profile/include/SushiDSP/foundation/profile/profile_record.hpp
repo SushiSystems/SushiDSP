@@ -45,6 +45,22 @@ namespace SushiDSP::profile
             std::vector<double> samples; /**< The samples, in period order. */
     };
 
+    /// @brief How a lookup of a subject by name ended.
+    enum class ProfileLookupStatus : std::uint8_t
+    {
+        Found,    /**< Exactly one subject has the name. */
+        Missing,  /**< No subject has the name. */
+        Ambiguous /**< Several subjects share the name, as two call sites share one counter name. */
+    };
+
+    /// @brief The answer to a lookup of a subject by name.
+    struct ProfileLookup
+    {
+            ProfileLookupStatus status = ProfileLookupStatus::Missing; /**< How the lookup ended. */
+            const ProfileSubject* subject = nullptr; /**< The first subject of that name, or null. */
+            std::size_t matches = 0U;                /**< How many subjects have the name. */
+    };
+
     /// @brief The statistics of one timeline's active periods, in nanoseconds.
     struct TimelineSummary
     {
@@ -103,8 +119,14 @@ namespace SushiDSP::profile
             /// @brief Returns every subject that has samples.
             [[nodiscard]] const std::vector<ProfileSubject>& subjects() const noexcept;
 
-            /// @brief Returns the subject named @p name, or null.
+            /// @brief Returns the one subject named @p name, or null when none has the name or
+            /// several share it. Use lookup() to tell the two apart.
             [[nodiscard]] const ProfileSubject* find(std::string_view name) const noexcept;
+
+            /// @brief Returns how the search for @p name ended: found, missing, or shared by
+            /// several subjects. Each call site of a profiling macro is its own subject, so two
+            /// sites with one name are ambiguous and are never read as one.
+            [[nodiscard]] ProfileLookup lookup(std::string_view name) const noexcept;
 
             /// @brief Returns the statistics of timeline @p timeline; zero periods when unknown.
             [[nodiscard]] TimelineSummary summarise(std::string_view timeline) const;

@@ -95,6 +95,8 @@ TEST(Small_ProfileRecord, AnEmptyRecordAnswersEveryQuestionWithNothing)
     EXPECT_EQ(record.warmup_periods(), 0u);
     EXPECT_TRUE(record.subjects().empty());
     EXPECT_EQ(record.find("timeline:bench.block"), nullptr);
+    EXPECT_EQ(record.lookup("timeline:bench.block").status,
+              SushiDSP::profile::ProfileLookupStatus::Missing);
     EXPECT_EQ(record.zone_calls("anything"), 0u);
     EXPECT_TRUE(record.lanes().empty());
     EXPECT_EQ(record.summarise("bench.block").periods, 0u);
@@ -105,4 +107,52 @@ TEST(Small_ProfileRecord, AReportWithNoVerdictsIsNotAPass)
     const SushiDSP::profile::ProfileCheckReport report;
 
     EXPECT_FALSE(report.all_passed());
+}
+
+TEST(Medium_ProfileRecord, TwoSitesSharingANameAreAmbiguousAndNeverReadAsOne)
+{
+    const SushiDSP::profile::ProfiledRun run = SushiDSP::profile::run_profiled(
+        K_TIMELINE, K_WARMUP, K_ACTIVE, 0U,
+        []
+        {
+            // Each macro call is its own site, so these are two subjects with one name.
+            SD_COUNTER("test.shared", "count", Add, 1.0);
+            SD_COUNTER("test.shared", "count", Add, 2.0);
+            SD_COUNTER("test.alone", "count", Add, 3.0);
+        });
+    if (!run.start.started())
+        GTEST_SKIP() << "this build records nothing";
+
+    const SushiDSP::profile::ProfileLookup shared = run.record.lookup("counter:test.shared");
+    EXPECT_EQ(shared.status, SushiDSP::profile::ProfileLookupStatus::Ambiguous);
+    EXPECT_EQ(shared.matches, 2u);
+    EXPECT_NE(shared.subject, nullptr);
+    EXPECT_EQ(run.record.find("counter:test.shared"), nullptr);
+}
+
+TEST(Medium_ProfileRecord, ASingleSiteIsFoundAndAnUnknownNameIsMissing)
+{
+    const SushiDSP::profile::ProfiledRun run = SushiDSP::profile::run_profiled(
+        K_TIMELINE, K_WARMUP, K_ACTIVE, 0U,
+        []
+        {
+            SD_COUNTER("test.shared", "count", Add, 1.0);
+            SD_COUNTER("test.shared", "count", Add, 2.0);
+            SD_COUNTER("test.alone", "count", Add, 3.0);
+        });
+    if (!run.start.started())
+        GTEST_SKIP() << "this build records nothing";
+
+    const SushiDSP::profile::ProfileLookup alone = run.record.lookup("counter:test.alone");
+    EXPECT_EQ(alone.status, SushiDSP::profile::ProfileLookupStatus::Found);
+    EXPECT_EQ(alone.matches, 1u);
+    EXPECT_EQ(run.record.find("counter:test.alone"), alone.subject);
+    ASSERT_NE(alone.subject, nullptr);
+    for (const double value : alone.subject->samples)
+        EXPECT_DOUBLE_EQ(value, 3.0);
+
+    const SushiDSP::profile::ProfileLookup none = run.record.lookup("counter:test.nothing");
+    EXPECT_EQ(none.status, SushiDSP::profile::ProfileLookupStatus::Missing);
+    EXPECT_EQ(none.matches, 0u);
+    EXPECT_EQ(none.subject, nullptr);
 }

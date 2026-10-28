@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-28 — profile: Added `ProfileRecord::lookup` to tell a missing subject from one several sites share, and made `find` return null for a shared name (`profile_record.cpp`).
+- 2026-10-28 — docs: Said that the Mesa writes its zones and counters once per 32-frame control period, not once per block (`modules/foundation/profile/README.md`).
 - 2026-10-28 — ci: Dropped `-D CMAKE_CXX_COMPILER_LAUNCHER=ccache` from the CLI builds; the memory gate finds ccache on `PATH` (`.github/workflows/`).
 - 2026-10-28 — cli: Changed `sd` to build Debug by default, in one tree per build type and sanitizer, `build/<name>-<type>`, where one `build/` followed its cached type (`project.py`, `cli.py`).
 - 2026-10-28 — cli: Put every compile and link behind sushicore's memory gate, added `sd build --jobs` and `--report`, and made `sd clean` take a type, a sanitizer or everything (`project.py`).

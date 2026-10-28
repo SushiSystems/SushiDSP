@@ -55,6 +55,11 @@ The record answers the questions a benchmark or a test asks: the samples of a su
 summary of a timeline, how many times a zone ran, the lanes zones ran in and the verdicts of a
 checks file.
 
+Each call site of `SD_ZONE` or `SD_COUNTER` is its own subject, so two sites that share a name give
+two subjects of that name. `find()` returns the subject only when exactly one has the name and
+null otherwise, and `lookup()` tells a missing name from an ambiguous one and counts the matches.
+A record never reads half of a shared name as the whole; give each call site a name of its own.
+
 ## The amplifiers and the tube screamer
 
 Each of the four amplifiers writes six zones under a group of its own, `jcm800`, `peavey5150`,
@@ -67,12 +72,13 @@ The tube screamer writes `tubescreamer.input`, `.upsample`, `.oversampled_loop`,
 samples would write 28,672 events a block and cost more than the stage, so per-stage cost stays
 with the isolated stage benchmarks.
 
-At the end of each block, and in `mesa_mark2c` at the end of each 32-frame control period, an amplifier adds the Newton solves its tube stages ran to the counters
+At the end of each block an amplifier adds the Newton solves its tube stages ran to the counters
 `newton.solves`, `newton.iteration_caps`, `newton.non_finite_steps` and `newton.worst_iterations`,
-and the samples its output clamp cut or found not a number to `output.clamped`. The tube
+and the samples its output clamp cut or found not a number to `output.clamped`; `mesa_mark2c` does
+so at the end of each 32-frame control period instead, eight times in a 256-frame block. The tube
 screamer adds its clip circuit's statistics to `solver.solves`, `solver.non_converged`,
-`solver.nan_fallback` and `solver.worst_iterations`. Each counter is recorded in every block,
-as 0 when nothing happened.
+`solver.nan_fallback` and `solver.worst_iterations`. Each counter is recorded in every block
+(every control period in the Mesa), as 0 when nothing happened.
 
 ## What is safe on the audio thread
 

@@ -108,16 +108,6 @@ namespace SushiDSP::profile
         return impl_ == nullptr ? K_NONE : impl_->subjects;
     }
 
-    const ProfileSubject* ProfileRecord::find(std::string_view name) const noexcept
-    {
-        for (const ProfileSubject& subject : subjects())
-        {
-            if (subject.name == name)
-                return &subject;
-        }
-        return nullptr;
-    }
-
     TimelineSummary ProfileRecord::summarise(std::string_view timeline) const
     {
         TimelineSummary summary;
@@ -250,12 +240,6 @@ namespace SushiDSP::profile
         return K_NO_SUBJECTS;
     }
 
-    const ProfileSubject* ProfileRecord::find(std::string_view name) const noexcept
-    {
-        static_cast<void>(name);
-        return nullptr;
-    }
-
     TimelineSummary ProfileRecord::summarise(std::string_view timeline) const
     {
         static_cast<void>(timeline);
@@ -281,4 +265,28 @@ namespace SushiDSP::profile
         return report;
     }
 #endif
+
+    ProfileLookup ProfileRecord::lookup(std::string_view name) const noexcept
+    {
+        ProfileLookup found;
+        for (const ProfileSubject& subject : subjects())
+        {
+            if (subject.name != name)
+                continue;
+            if (found.matches == 0U)
+                found.subject = &subject;
+            ++found.matches;
+        }
+        if (found.matches == 1U)
+            found.status = ProfileLookupStatus::Found;
+        else if (found.matches > 1U)
+            found.status = ProfileLookupStatus::Ambiguous;
+        return found;
+    }
+
+    const ProfileSubject* ProfileRecord::find(std::string_view name) const noexcept
+    {
+        const ProfileLookup found = lookup(name);
+        return found.status == ProfileLookupStatus::Found ? found.subject : nullptr;
+    }
 } // namespace SushiDSP::profile
