@@ -30,8 +30,8 @@ version = "v0.3.0"
 commit = "30e302383527d8db55403509d244acc6266809f6"
 
 [sushisystems.sushiprofiler]
-version = "v0.3.2"
-commit = "8a963f1d792ab2ee10f1c4a6e7b8e8607cfaf91a"
+version = "v0.4.1"
+commit = "fa97fde6d8b495a1856159c9929a000a817e5450"
 
 [intel-llvm]
 description = "intel/llvm clang++ (the workspace's shared toolchain). Optional: when present `sd` builds with it, otherwise with the platform compiler. SushiDSP compiles no SYCL; this is a C++ compiler preference."
