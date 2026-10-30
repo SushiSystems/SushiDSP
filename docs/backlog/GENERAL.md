@@ -12,6 +12,7 @@
 | RW-9 | P2 | decision | Move the cabinet section's gate, or make the amplifier cheaper | three JCM800 chains into one room with eight microphones meet the gate, or the owner has moved the gate from half the block |  |  | 2026-10-19 |
 | RW-10 | P2 | decision | Choose how a track removal stays atomic | a generation counter the callback reads once per block, or a refusal of the removal while the transport runs, is chosen and built |  |  | 2026-10-19 |
 | RW-76 | P2 | decision | Decide whether `Wdf` stays | `Wdf` has a production user, or it leaves the library |  |  | 2026-10-19 |
+| RW-80 | P2 | open | Declare nlohmann/json as a dependency and find it before fetching | cli/sushistack.deps.toml lists nlohmann-json and CMake finds the installed package first |  | `CMakeLists.txt` | 2026-10-30 |
 
 ## Known issues
 

@@ -12,7 +12,7 @@ licence was read from the licence file in the fetched source.
 | Component | Where | Source | Version | Licence |
 | --- | --- | --- | --- | --- |
 | SDL | fetched by `CMakeLists.txt`; linked by `applications/host` | https://github.com/libsdl-org/SDL | release-2.30.0 | zlib, Copyright (C) 1997-2024 Sam Lantinga |
-| nlohmann/json | fetched by `CMakeLists.txt` | https://github.com/nlohmann/json | v3.11.3 | MIT, Copyright (c) 2013-2022 Niels Lohmann |
+| nlohmann/json | found as an installed package by `CMakeLists.txt` (declared in `cli/sushistack.deps.toml`), fetched when absent | https://github.com/nlohmann/json | v3.11.3 | MIT, Copyright (c) 2013-2022 Niels Lohmann |
 | SushiLog | resolved by `sd` from `cli/sushistack.deps.toml`; linked by `modules/foundation/log` | https://github.com/SushiSystems/SushiLog | v0.2.1 | PolyForm Noncommercial 1.0.0, Copyright (c) 2026-present Mustafa Garip & Sushi Systems |
 | GLFW | fetched by `CMakeLists.txt`; linked by `applications/host_gui` | https://github.com/glfw/glfw | 3.4 | zlib, Copyright (c) 2002-2006 Marcus Geelnard, Copyright (c) 2006-2019 Camilla Löwy |
 | Dear ImGui | fetched by `CMakeLists.txt`; linked by `applications/host_gui` | https://github.com/ocornut/imgui | v1.90.9 | MIT, Copyright (c) 2014-2024 Omar Cornut |

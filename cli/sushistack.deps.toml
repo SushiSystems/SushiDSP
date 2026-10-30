@@ -44,3 +44,9 @@ description = "Audio device backend for applications/host (D1)."
 required = true
 linux_apt = ["libsdl2-dev"]
 windows_vcpkg = ["sdl2"]
+
+[nlohmann-json]
+description = "Header-only JSON parser. The tests and applications/host_gui read and write rig presets with it; no public header of SushiDSP names it. CMake falls back to fetching v3.11.3 when the package is absent."
+required = true
+linux_apt = ["nlohmann-json3-dev"]
+windows_vcpkg = ["nlohmann-json"]

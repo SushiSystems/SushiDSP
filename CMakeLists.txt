@@ -154,13 +154,18 @@ endif()
 # applications/host_gui/{RigController,Preset}.cpp unconditionally), so it is fetched regardless of
 # SUSHIDSP_BUILD_GUI - only glfw/imgui, which nothing outside the GUI needs, stay gated below.
 include(FetchContent)
-FetchContent_Declare(
-    json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG        v3.11.3
-)
-set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(json)
+# The installed package is the first choice (cli/sushistack.deps.toml declares it, so `hub install`
+# and `sd setup` provide it); the fetch is the fallback for a machine that has none.
+find_package(nlohmann_json 3.11 QUIET)
+if(NOT nlohmann_json_FOUND)
+    FetchContent_Declare(
+        json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG        v3.11.3
+    )
+    set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(json)
+endif()
 
 # ImGui/GLFW are fetched only when the GUI is built; CI can disable this exactly like
 # SUSHIDSP_BUILD_SDL2/SUSHIDSP_BUILD_ASIO to skip the extra network fetch and build time when
