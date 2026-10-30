@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-30 — ci: Dropped a repeated `if` key that made GitHub refuse the workflow, and ran `sd setup` and installed the library CLIs it fetches before each build (`ci.yml`).
+- 2026-10-30 — build: Upgraded SushiLog to v0.3.0 and SushiProfiler to v0.4.1, whose own CLIs build them as packages (`cli/sushistack.deps.toml`).
+- 2026-10-30 — cli: Listed the `backlog` and `design` groups in the command-set and help tests that failed without them (`test_cli_surface.py`).
 - 2026-10-29 — cli: Added the `backlog` and `design` groups and asked for sushicore 0.10.2 (`cli.py`).
 - 2026-10-28 — docs: Wrote the standalone and SushiHub routes side by side in `INSTALL.md`, the README, the FAQ and `cli/README.md`, and corrected the `sushicore` source (`INSTALL.md`).
 - 2026-10-28 — build: Removed the compiler path of one machine from `CMakePresets.json`; a preset now builds with the compiler CMake finds.
