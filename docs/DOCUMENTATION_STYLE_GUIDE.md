@@ -67,7 +67,7 @@ or tool that reproduces it: "−23.4 dB through `measure::alias_floor()` at prea
 ## Words
 
 English, British spelling in prose ("licence" the noun, "catalogue"). Identifiers keep the
-spelling the code uses, such as `serialize_rig_to_json` and `K_LICENSE_LINES`. Manufacturer and
+spelling the code uses, such as `serialize_rig_to_json` and `K_LICENSE_OPEN_LINES`. Manufacturer and
 product names say which circuit a model was written against; [`NOTICE.md`](../NOTICE.md) holds
 the trademark position.
 

@@ -42,9 +42,9 @@ reporting, 2 on a bad path. Python 3.11, standard library only.
 ## Per-repository settings
 
 `K_` constants at the top of each checker. `check_layering.py` does nothing until
-`K_TIER_ORDER` lists the repository's tiers, lowest first. `K_COPYRIGHT_LINE` and
-`K_LICENSE_LINES` in `check_source_comments.py` hold the repository's licence lines; a closed
-repository sets `K_LICENSE_LINES` to `("All rights reserved. No licence is granted.",)`.
+`K_TIER_ORDER` lists the repository's tiers, lowest first. `K_LICENSE_HOLDER` and the four
+`K_LICENSE_*_LINES` tuples in `settings.py` hold the repository's licence lines; a closed repository
+sets `K_CLOSED`.
 
 The constants that differ between repositories are read from `tools/settings.py`, which
 `copy_shared_tools.py` writes only when a repository has none and never overwrites.

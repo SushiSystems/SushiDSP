@@ -93,7 +93,7 @@ class NamedSymbolsTest(unittest.TestCase):
     def test_reports_each_shape_of_absent_name(self) -> None:
         """Reports a qualified name, a call, a type, a snake name, a constant and a macro."""
         page = (
-            "# Guide\n\n`Project::RuntimeContext`\n\n`try_run()`\n\n`SushiException`\n\n"
+            "# Guide\n\n`Project::RuntimeContext`\n\n`try_run()`\n\n`AcmeException`\n\n"
             "`get_queue`\n\n`K_GONE_CEILING`\n\n`K_BODY_CEILING` and `PR_ENABLE_TRACE`\n"
         )
         found = _found(rule_named_symbols, {"docs/guides/GUIDE.md": page})
@@ -281,6 +281,15 @@ class DuplicatedPassagesTest(unittest.TestCase):
         files = {
             "docs/guides/A.md": f"# A\n\n{short}\n\n```text\n{K_PASSAGE}\n```\n",
             "docs/guides/B.md": f"# B\n\n{short}\n\n```text\n{K_PASSAGE}\n```\n",
+        }
+        self.assertEqual(_found(rule_duplicated_passages, files), [])
+
+    def test_accepts_a_generated_block_in_two_module_readmes(self) -> None:
+        """Accepts the designs block the views write into every module a topic owns."""
+        block = f"<!-- designs:begin -->\n{K_PASSAGE}\n<!-- designs:end -->"
+        files = {
+            "docs/guides/A.md": f"# A\n\n{block}\n",
+            "docs/guides/B.md": f"# B\n\n{block}\n",
         }
         self.assertEqual(_found(rule_duplicated_passages, files), [])
 

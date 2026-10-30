@@ -66,3 +66,15 @@ action goes through this project's `sd` command line tool: `sd build`, `sd test`
 ### Task tracking
 
 For every implementation, create tasks up front and update the task list as work progresses.
+
+## Backlog and design
+
+1. Session start: `sd backlog next`. Take what it gives.
+2. A defect or limitation turns up: `sd backlog add issue ...` or `sd backlog add work ...`
+   at once.
+3. Before changing a module: `sd design owner <path>`.
+4. Finishing: `sd backlog close <ID>` in the same commit, and the changelog line it prints.
+   The commit message ends with `Backlog: <ID>`, or `Backlog: none (<reason>)`.
+5. Once per clone: `python tools/hooks/install_hooks.py`.
+
+State is read with these commands. It is never read from a markdown file or the git log.

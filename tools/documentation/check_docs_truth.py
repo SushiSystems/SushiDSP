@@ -80,6 +80,7 @@ K_UNCHECKED_DOCUMENTS = frozenset({"docs/reference/CHANGELOG.md", ".github/CODE_
 K_UNCHECKED_DOCS_FOLDERS = frozenset({"agent", "archive"})
 K_HISTORY_EXEMPT_FOLDER = Path("docs") / "backlog"
 K_PASSAGE_FLOOR = 300
+K_GENERATED_MARK = ":begin -->"
 K_RULE_FOLDERS = ("skills", "claude")
 K_RULE_SKIPPED_FOLDERS = frozenset({"research"})
 K_CITATION_REACH = 3
@@ -603,11 +604,14 @@ def rule_page_length(manual: Manual) -> Iterator[Issue]:
 
 
 def rule_duplicated_passages(manual: Manual) -> Iterator[Issue]:
-    """Yields an issue for each long paragraph that an earlier page or rule file already holds."""
+    """Yields an issue for each long paragraph that an earlier page or rule file already holds.
+
+    A block the design views generate repeats its topic's About line by design, so it is left out.
+    """
     homes: dict[str, Page] = {}
     for page in (*manual.pages, *manual.rule_files):
         for number, text in page.paragraphs():
-            if len(text) < K_PASSAGE_FLOOR:
+            if len(text) < K_PASSAGE_FLOOR or K_GENERATED_MARK in text:
                 continue
             home = homes.setdefault(text, page)
             if home is not page:
