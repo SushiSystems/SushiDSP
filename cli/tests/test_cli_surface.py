@@ -30,6 +30,7 @@ pytestmark = pytest.mark.medium
 
 K_DISTRIBUTION = "sushidsp-cli"
 K_SUBCOMMANDS = ["docs bundle"]
+K_SUSHICORE_GROUPS = ("backlog", "design")
 K_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 K_GIT = (
     "git", "-c", "user.name=tests", "-c", "user.email=tests@example.invalid",
@@ -85,8 +86,10 @@ def test_describe_lists_every_visible_command_and_no_hidden_one():
     assert result.exit_code == 0
     document = json.loads(result.output)
     assert document["program"] == "sd"
-    assert [command["name"] for command in document["commands"]] == sorted(
-        _visible_commands() + K_SUBCOMMANDS)
+    own = [command["name"] for command in document["commands"]
+           if command["name"].split()[0] not in K_SUSHICORE_GROUPS]
+    assert own == sorted(
+        [name for name in _visible_commands() if name not in K_SUSHICORE_GROUPS] + K_SUBCOMMANDS)
     assert "doxygen" not in _visible_commands()
     assert {"host", "run"} <= set(_visible_commands())
 
@@ -105,10 +108,10 @@ def test_docs_runs_the_api_build_and_bundle_is_its_subcommand(monkeypatch, tmp_p
 
 
 def test_the_command_set_is_the_documented_one():
-    """sd answers to the fourteen commands its guide describes."""
+    """sd answers to the fourteen commands its guide describes and sushicore's two groups."""
     assert _visible_commands() == sorted([
         "configure", "build", "test", "bench", "clean", "docs", "check", "run", "host",
-        "config", "env", "setup", "doctor", "link", "unlink"])
+        "config", "env", "setup", "doctor", "link", "unlink", *K_SUSHICORE_GROUPS])
 
 
 def test_config_and_env_come_from_the_diagnostics_object(monkeypatch):

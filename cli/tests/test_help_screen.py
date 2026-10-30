@@ -18,7 +18,10 @@ from sushidsp.cli import app
 pytestmark = pytest.mark.small
 
 K_GROUPS = {
-    "Build": ["configure", "build", "test", "bench", "run", "clean", "check", "docs"],
+    "Build": [
+        "configure", "build", "test", "bench", "run", "clean", "check", "docs", "backlog",
+        "design",
+    ],
     "Environment": ["config", "env", "setup", "doctor", "link", "unlink"],
     "Application": ["host"],
 }
