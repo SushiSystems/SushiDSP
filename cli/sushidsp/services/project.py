@@ -27,6 +27,7 @@ from sushicore.build_tree import K_DEFAULT_BUILD_TYPE, refuse_another_build_type
 from sushicore.cmake_driver import CMakeDriver
 from sushicore.proc import Runner
 from sushicore.provision.sushi_packages import PackageError, PackageSet
+from sushicore.testing import ModuleTests, TestLabel, run_tests, select_labels
 from sushicore.toolchain_args import c_compiler_for
 
 from .. import console
@@ -43,14 +44,6 @@ class BuildType(str, enum.Enum):
     relwithdebinfo = "relwithdebinfo"
 
 
-class Size(str, enum.Enum):
-    """Names the test sizes `--label` accepts; each is the CTest label tests/CMakeLists.txt sets."""
-
-    small = "small"
-    medium = "medium"
-    large = "large"
-
-
 class Sanitizer(str, enum.Enum):
     """Names the sanitizer builds `--sanitize` accepts; each is a SUSHIDSP_SANITIZE value."""
 
@@ -59,13 +52,6 @@ class Sanitizer(str, enum.Enum):
 
 
 _BENCHMARK = "sushidsp_bench"
-
-
-def size_label_regex(sizes: Sequence[Size]) -> str | None:
-    """Returns the ctest -L regex that selects *sizes*, or None for every size."""
-    if not sizes:
-        return None
-    return "^(" + "|".join(sorted({size.value for size in sizes})) + ")$"
 
 
 def sanitizer_defines(sanitizer: Sanitizer | None) -> list[str]:
@@ -311,16 +297,18 @@ def build(build_type: BuildType | None, clean: bool = False,
     return rc
 
 
-def test(build_type: BuildType | None, sizes: Sequence[Size] = (), clean: bool = False,
+def test(build_type: BuildType | None, sizes: Sequence[TestLabel] = (), clean: bool = False,
          filter: str | None = None, sanitizer: Sanitizer | None = None,
-         jobs: int | None = None) -> int:
-    """Builds when needed, then runs ctest over the tests *sizes* and *filter* select.
+         jobs: int | None = None, repeat: int = 0, every_size: bool = False) -> int:
+    """Builds when needed, then runs the tests *sizes* and *filter* select through the shared test command.
 
     Args:
-        sizes: The sizes to run; none runs every size.
+        sizes: The sizes to run; none runs small and medium.
         filter: A ctest -R regex over the `Suite.Case` names the test build registers.
         sanitizer: Builds with this sanitizer first.
         jobs: Tests run at once; none leaves the count to ctest.
+        repeat: Reruns each test up to this many times, stopping at its first failure.
+        every_size: Runs every size, the large tests included.
     """
     build_type = resolve_build_type(build_type)
     rc = build(build_type, clean=clean, sanitizer=sanitizer)
@@ -330,9 +318,14 @@ def test(build_type: BuildType | None, sizes: Sequence[Size] = (), clean: bool =
     root = find_project_root()
     build_dir = _build_dir(root, build_type, sanitizer)
     cfg = load_config()
-    return _DRIVER.ctest_run(cfg, build_dir, _env(cfg, build_dir),
-                             label_regex=size_label_regex(sizes), filter=filter,
-                             jobs=jobs, config=_CMAKE_BUILD_TYPE[build_type])
+    env = _env(cfg, build_dir)
+    config = _CMAKE_BUILD_TYPE[build_type]
+    module = ModuleTests(
+        profile=PROFILE, project_root=lambda: root, console=lambda: console,
+        build_tree=lambda: build_dir, run=_RUNNER.run,
+        run_ctest=lambda directory, **options: _DRIVER.ctest_run(cfg, directory, env, config=config, **options))
+    return run_tests(module, select_labels(sizes, every_size=every_size), name_filter=filter,
+                     repeat=repeat, jobs=jobs, every_size=every_size)
 
 
 def bench(build_type: BuildType | None, groups: Sequence[str] = (), clean: bool = False) -> int:

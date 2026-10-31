@@ -170,7 +170,7 @@ def test_test_hands_the_filter_to_the_project_service(monkeypatch):
     """sd test -f passes its regex through, and no filter when the flag is absent."""
     seen: list[str | None] = []
 
-    def fake_test(build_type, sizes, clean=False, filter=None, sanitizer=None, jobs=None):
+    def fake_test(build_type, sizes, clean=False, filter=None, sanitizer=None, jobs=None, **options):
         """Records the filter the command passed."""
         seen.append(filter)
         return 0

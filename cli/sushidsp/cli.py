@@ -22,6 +22,8 @@ from sushicore.design import register_design_commands
 from sushicore.entry import run as run_app
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
 from sushicore.root_options import register_root_options
+from sushicore.testing import (TestLabel, all_option, filter_option, jobs_option, label_option,
+                               repeat_option)
 from sushicore.typer_help import help_group
 
 from . import console
@@ -29,7 +31,7 @@ from .aliases import ALIASES
 from .config import PROFILE, find_project_root, load_config
 from .services import diag as diag_svc
 from .services import project as project_svc
-from .services.project import BuildType, Sanitizer, Size
+from .services.project import BuildType, Sanitizer
 
 K_PROGRAM = "sd"
 K_DISTRIBUTION = "sushidsp-cli"
@@ -136,28 +138,26 @@ def build(
 @app.command(
     "test",
     rich_help_panel=K_BUILD,
-    epilog="sd test  # Every size\n"
+    epilog="sd test  # Small and medium\n"
+           "sd test --all  # Every size, the large tests included\n"
            "sd test --label small --label medium  # What a pull request runs\n"
            "sd test --filter 'Jcm800.*'  # Match Suite.Case test names\n"
            "sd test --label small --sanitize address  # Small tests under ASan and UBSan",
 )
 def test(
     type: Optional[BuildType] = _type_option(),
-    label: Optional[list[Size]] = typer.Option(
-        None, "--label", "-l", case_sensitive=False,
-        help="Test size to run: small | medium | large; repeat for more. Default: every size."),
-    filter: Optional[str] = typer.Option(
-        None, "--filter", "-f", help="ctest -R regex over 'Suite.Case' test names."),
-    jobs: Optional[int] = typer.Option(
-        None, "--jobs", "-j", min=1,
-        help="Tests run at once. When omitted ctest decides, and CTEST_PARALLEL_LEVEL is "
-             "honoured."),
+    label: Optional[list[TestLabel]] = label_option(),
+    filter: Optional[str] = filter_option(),
+    repeat: int = repeat_option(),
+    jobs: Optional[int] = jobs_option(),
+    all_sizes: bool = all_option(),
     clean: bool = _clean_option(),
     sanitize: Optional[Sanitizer] = _sanitize_option(),
 ) -> None:
-    """Build if needed, then run ctest over the sizes and the filter."""
+    """Build if needed, then run the tests of the sizes and the filter, then print the budget line."""
     raise typer.Exit(project_svc.test(type, label or (), clean=clean, filter=filter,
-                                      sanitizer=sanitize, jobs=jobs))
+                                      sanitizer=sanitize, jobs=jobs, repeat=repeat,
+                                      every_size=all_sizes))
 
 
 @app.command(

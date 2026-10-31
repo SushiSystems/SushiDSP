@@ -18,7 +18,8 @@ from pathlib import Path
 import pytest
 
 from sushidsp.services import project as project_svc
-from sushidsp.services.project import BuildType, Sanitizer, Size
+from sushicore.testing import TestLabel
+from sushidsp.services.project import BuildType, Sanitizer
 
 
 pytestmark = pytest.mark.medium
@@ -79,23 +80,27 @@ def test_test_passes_the_filter_as_a_ctest_name_regex(project):
     """--filter reaches ctest as -R, beside the size label and the configuration."""
     project.configure_tree("Debug")
 
-    assert project_svc.test(None, (Size.small,), filter="Jcm800.*") == 0
+    assert project_svc.test(None, (TestLabel.SMALL,), filter="Jcm800.*") == 0
 
     ctest = project.runner.commands[-1]
     assert ctest[ctest.index("-R") + 1] == "Jcm800.*"
     assert ctest[ctest.index("-L") + 1] == "^(small)$"
+    assert "--output-junit" in ctest
     assert ctest[ctest.index("-C") + 1] == "Debug"
 
 
-def test_test_without_a_filter_or_a_size_runs_everything(project):
-    """ctest gets no -R when --filter is absent, and no -L when no size is named."""
+def test_test_without_a_filter_or_a_size_runs_small_and_medium_and_refuses_an_unfiltered_large_run(project):
+    """ctest gets no -R when --filter is absent and small and medium when no size is named."""
     project.configure_tree("Debug")
 
     assert project_svc.test(None) == 0
 
     ctest = project.runner.commands[-1]
-    assert "--test-dir" in ctest
-    assert "-R" not in ctest and "-L" not in ctest
+    assert "--test-dir" in ctest and "-R" not in ctest
+    assert ctest[ctest.index("-L") + 1] == "^(small|medium)$"
+
+    assert project_svc.test(None, (TestLabel.LARGE,)) == 2
+    assert "--build" in project.runner.commands[-1]
 
 
 def test_test_passes_jobs_to_ctest_as_parallel(project):
@@ -114,7 +119,7 @@ def test_a_sanitizer_reconfigures_with_its_cache_variable(project):
     """--sanitize reaches cmake as SUSHIDSP_SANITIZE before the tests run."""
     project.configure_tree("Debug")
 
-    assert project_svc.test(None, (Size.small,), sanitizer=Sanitizer.address) == 0
+    assert project_svc.test(None, (TestLabel.SMALL,), sanitizer=Sanitizer.address) == 0
 
     configure = project.runner.commands[0]
     assert _is_configure(configure)

@@ -12,18 +12,11 @@ from typer.testing import CliRunner
 
 from sushidsp.cli import app
 from sushidsp.services import project
-from sushidsp.services.project import Sanitizer, Size, sanitizer_defines, size_label_regex
+from sushicore.testing import TestLabel
+from sushidsp.services.project import Sanitizer, sanitizer_defines
 
 
 pytestmark = pytest.mark.medium
-
-
-def test_no_size_selects_every_test():
-    assert size_label_regex(()) is None
-
-
-def test_sizes_become_one_anchored_label_regex():
-    assert size_label_regex((Size.medium, Size.small)) == "^(medium|small)$"
 
 
 def test_a_sanitizer_becomes_its_cache_variable():
@@ -39,7 +32,8 @@ def test_the_suite_option_is_gone():
 def test_test_command_passes_each_label(monkeypatch):
     seen = {}
 
-    def fake_test(build_type, sizes, clean=False, filter=None, sanitizer=None, jobs=None):
+    def fake_test(build_type, sizes, clean=False, filter=None, sanitizer=None, jobs=None, repeat=0,
+                  every_size=False):
         seen["sizes"] = list(sizes)
         seen["sanitizer"] = sanitizer
         return 0
@@ -48,7 +42,7 @@ def test_test_command_passes_each_label(monkeypatch):
     result = CliRunner().invoke(
         app, ["test", "--label", "small", "-l", "medium", "--sanitize", "address"])
     assert result.exit_code == 0
-    assert seen == {"sizes": [Size.small, Size.medium], "sanitizer": Sanitizer.address}
+    assert seen == {"sizes": [TestLabel.SMALL, TestLabel.MEDIUM], "sanitizer": Sanitizer.address}
 
 
 def test_bench_command_passes_its_groups(monkeypatch):
