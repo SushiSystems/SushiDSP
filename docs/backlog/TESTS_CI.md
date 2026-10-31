@@ -4,7 +4,6 @@
 
 | ID | Pri | State | Title | Done when | Blocked by | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| RW-81 | P2 | open | Run sd test through the shared test options and run_tests of sushicore | sd test takes the shared options, runs small and medium by default and prints a budget line from a real JUnit file |  |  | 2026-11-01 |
 
 ## Known issues
 
