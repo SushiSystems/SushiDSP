@@ -1,0 +1,258 @@
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/host_gui_log_category.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/mp3_decoder.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/mp3_encoder.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/rig_persistence.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/rig_shape.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/session_bounce.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/session_file.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/session_timeline.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/slot_graph.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/slot_selection.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/arrangement_view.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/cabinet_section_pane.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/device_settings.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/divider.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/file_browser.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/gear_browser.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/geometry.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/meter_bar.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/mixer_model.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/mixer_panel.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/rig_chain_view.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/room_panel.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/room_scene_view.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/scene_interaction.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/stage_panel.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/text_field.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/theme.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/top_bar.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/transport_bar.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/host_gui/ui/widgets.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/plugin/clap_extensions.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/plugin/parameter_routing.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "applications/plugin/rig_parameter.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_device.hpp"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_sizes.py"
+rule = "rule_unsized_python_test"
+path = "tools/tests/test_check_test_additions.py"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_sizes.py"
+rule = "rule_unsized_python_test"
+path = "tools/tests/test_layering_table.py"
+count = 1
+backlog = "RW-82"
+
+[[finding]]
+checker = "testing/check_test_sizes.py"
+rule = "rule_unsized_python_test"
+path = "tools/tests/test_test_budget_settings.py"
+count = 1
+backlog = "RW-82"
