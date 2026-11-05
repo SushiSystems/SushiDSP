@@ -60,14 +60,15 @@ checkers' tests.
 - `tools/tests/test_test_budget_settings.py` skips here, since the repository has no `skills/` folder, so
   its promise is checked nowhere; it also defines `read_budget` and `differences` in the test file.
 
-## The owner's decisions waiting
+## Decisions
 
-1. `node_registry()`: an immutable catalogue once seeded (the 71 resizes become keeps), or a registry
-   passed in.
-2. The allocation trap: a named medium boundary in the testing skill, or a seam. The repository's
-   `CLAUDE.md` wants each `*PerformsNoHeapAllocation` test in the unit's own file.
-3. The WAV writer: rename the test or write EXTENSIBLE.
-4. The source of the -110, -40 and -20 dB thresholds, or a characterization with a backlog entry.
+The owner delegated these decisions on 2026-11-05. Each ruling below is final for the plan; its reason follows it.
+
+1. `node_registry()` is an immutable catalogue once seeded. Seeding finishes before any test or caller reads it, and no public call changes it afterwards. A reader of a constant catalogue is small, so the 71 resizes become keeps. If the job finds a call that changes the catalogue after seeding, that call is removed.
+2. The allocation trap is medium. It replaces the process-wide `operator new`, so it runs in `Medium_` suites, scoped by an RAII guard, in the unit's own test file as the repository's `CLAUDE.md` asks. The testing skill names it as a medium boundary.
+3. The WAV writer test is renamed to what the code writes, an 18-byte `WAVEFORMATEX` with tag 3 and a fact chunk, which is valid for one or two float channels. EXTENSIBLE is written only for more than two channels, and that case gets its own test if the writer accepts it.
+4. The -110, -40 and -20 dB thresholds are characterized, each with a backlog entry, until a derivation is written beside it.
+5. A named constant holding a hand-typed epsilon is not a typed tolerance. A tolerance names its kind (absolute, relative or ulps) and its derivation, so every such constant is redefined through `tolerance.hpp`, keeping its name. The rewrites stay rewrites, and they are mechanical.
 
 ## Dispatches
 
