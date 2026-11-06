@@ -1,8 +1,7 @@
 # CMakeLists.txt
 # SushiDSP - https://github.com/SushiSystems/SushiDSP
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 
 # The SD_ZONE front over SushiProfiler. The build writes profile_config.hpp, which the public
 # profile headers include; a level change rebuilds only the files that include it, because no

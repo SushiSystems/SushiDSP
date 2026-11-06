@@ -66,6 +66,5 @@ are in [docs/backlog/README.md](docs/backlog/README.md) and
 
 ## Licence
 
-PolyForm Noncommercial License 1.0.0, see [LICENSE](LICENSE). Commercial use needs a licence
-from Sushi Systems, see [COMMERCIAL.md](COMMERCIAL.md). [NOTICE.md](NOTICE.md) lists third-party
+Apache License 2.0, see [LICENSE](LICENSE). [NOTICE.md](NOTICE.md) lists third-party
 code and data, the ASIO SDK terms and the trademark position.

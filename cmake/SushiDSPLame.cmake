@@ -1,8 +1,7 @@
 # SushiDSPLame.cmake
 # SushiDSP - https://github.com/SushiSystems/SushiDSP
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 
 # LAME is LGPL, so it is built as a shared library and linked dynamically, never statically.
 # LAME ships no CMake build; this file fetches the release tarball and lists its sources. Only

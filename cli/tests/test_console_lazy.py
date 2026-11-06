@@ -1,8 +1,7 @@
 # test_console_lazy.py
 # SushiDSP - https://github.com/SushiSystems/SushiDSP
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Tests that the console module is wired to sushicore's LazyConsole and builds on first use.
 
 The failure these tests pin is in cli/README.md, "tests/test_console_lazy.py".

@@ -1,9 +1,8 @@
 # Contributing to SushiDSP
 
 Contributions from outside Sushi Systems are not accepted yet; a bug report or a design
-discussion as an issue is the way in. SushiDSP is source-available, free for non-commercial use
-under the PolyForm Noncommercial License 1.0.0 (see [`LICENSE`](../LICENSE)); commercial use
-needs a licence from Sushi Systems, see [`COMMERCIAL.md`](../COMMERCIAL.md).
+discussion as an issue is the way in. SushiDSP is open source
+under the Apache License 2.0 (see [`LICENSE`](../LICENSE)).
 
 The rules this repository follows are the SushiSkills skills named in
 [`CLAUDE.md`](../CLAUDE.md). This page holds what is particular to SushiDSP and does not

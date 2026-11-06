@@ -1,8 +1,7 @@
 # console.py
 # SushiDSP - https://github.com/SushiSystems/SushiDSP
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Builds the SushiDSP CLI's console on first use, through sushicore's LazyConsole.
 
 The reason the console is built lazily is in cli/README.md, "console.py".

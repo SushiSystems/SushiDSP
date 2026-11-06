@@ -140,14 +140,11 @@ with its figure and what closes it. Some that a first-time user meets:
 
 ## How is SushiDSP licensed, and can I use it commercially?
 
-SushiDSP is source-available, free for non-commercial use under the PolyForm Noncommercial
-License 1.0.0. [`LICENSE`](../../LICENSE) is the binding text and lists the permitted purposes:
-personal, non-commercial use, and use by the non-commercial organisations it names.
+SushiDSP is open source under the Apache License 2.0, and [`LICENSE`](../../LICENSE) is the
+binding text. Any use is allowed, commercial use included, as long as the licence and the notices
+travel with the code.
 
-Any commercial purpose needs a separate, paid licence from Sushi Systems. That includes use
-inside a company, use in paid client work, and use in a product or service that is sold. To ask
-for one, write to hello@sushisystems.io with what you want to build and who will use it;
-[`COMMERCIAL.md`](../../COMMERCIAL.md) says the same. [`NOTICE.md`](../../NOTICE.md) lists the
+[`NOTICE.md`](../../NOTICE.md) lists the
 third-party libraries a build links, the third-party data in the tree and the terms of a build
 with the Steinberg ASIO SDK.
 

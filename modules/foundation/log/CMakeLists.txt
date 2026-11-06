@@ -1,8 +1,7 @@
 # CMakeLists.txt
 # SushiDSP - https://github.com/SushiSystems/SushiDSP
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 
 # The SD_LOG front over SushiLog. A target whose SUSHIDSP_LOG_STATIC property is ON, such as a
 # plug-in a host may load twice, links SushiLog::SushiLogStatic; everything else links the shared

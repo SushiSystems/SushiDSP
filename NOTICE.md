@@ -1,8 +1,7 @@
 # Notices
 
-SushiDSP is Copyright (c) 2026-present Mustafa Garip & Sushi Systems and licensed under the PolyForm Noncommercial
-License 1.0.0; see `LICENSE`. Commercial use needs a licence from Sushi Systems; see
-`COMMERCIAL.md`. The material below keeps its own licence.
+SushiDSP is Copyright (c) 2026-present Mustafa Garip & Sushi Systems and licensed under the Apache
+License 2.0; see `LICENSE`. The material below keeps its own licence.
 
 ## Third-party components
 

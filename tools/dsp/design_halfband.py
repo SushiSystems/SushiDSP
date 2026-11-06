@@ -1,8 +1,7 @@
 # design_halfband.py
 # SushiDSP - https://github.com/SushiSystems/SushiDSP
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Design the three SushiDSP halfband stages with Parks-McClellan and emit the C++ header.
 
 Usage:  python tools/dsp/design_halfband.py > modules/foundation/math/include/SushiDSP/foundation/math/halfband_coefficients.hpp
