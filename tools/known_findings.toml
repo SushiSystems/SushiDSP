@@ -239,13 +239,6 @@ backlog = "RW-82"
 [[finding]]
 checker = "testing/check_test_sizes.py"
 rule = "rule_unsized_python_test"
-path = "tools/tests/test_check_test_additions.py"
-count = 1
-backlog = "RW-82"
-
-[[finding]]
-checker = "testing/check_test_sizes.py"
-rule = "rule_unsized_python_test"
 path = "tools/tests/test_layering_table.py"
 count = 1
 backlog = "RW-82"

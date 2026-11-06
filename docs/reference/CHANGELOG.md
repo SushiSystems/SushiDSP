@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-06 — tools: Deleted the leftover `check_test_additions.py` and its test, which the shared tools no longer carry, and recopied the shared tools (RW-82).
 - 2026-11-06 — licence: Relicensed SushiDSP under the Apache License 2.0 and removed `COMMERCIAL.md`; every source file's licence block follows (`LICENSE`, `tools/settings.py`).
 - 2026-11-05 — tools: Took the shared checkers of 2026-11-05 with a baseline of the findings they meet, which RW-82 clears.
 - 2026-11-01 — cli: Ran `sd test` through the shared test options and `run_tests` of sushicore, so it runs small and medium by default and prints the budget line (RW-81, `a9241ee3`).
