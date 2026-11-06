@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-06 — cli: Passed the alias table through the `Workspace`, so a test hands in its own table and replaces nothing (`cli/sushidsp/services/project.py`).
 - 2026-11-06 — cli: Gave the project service a `Workspace` and moved the CLI tests onto sushicore's in-memory runner and console; the CLI asks for sushicore 0.10.12.
 - 2026-11-06 — tools: Deleted the leftover `check_test_additions.py` and its test, which the shared tools no longer carry, and recopied the shared tools (RW-82).
 - 2026-11-06 — licence: Relicensed SushiDSP under the Apache License 2.0 and removed `COMMERCIAL.md`; every source file's licence block follows (`LICENSE`, `tools/settings.py`).

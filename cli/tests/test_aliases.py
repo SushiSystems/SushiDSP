@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import io
 import json
 from datetime import date
@@ -67,11 +68,9 @@ class _Terminal(io.StringIO):
 
 @pytest.fixture
 def terminal(monkeypatch) -> _Terminal:
-    """Returns a terminal for `sd run`, over a fresh table, so the notice is new to the process."""
-    stream = _Terminal()
+    """Returns a terminal for `sd run` with the notice switch unset."""
     monkeypatch.delenv(aliases.ALIASES.notice_switch, raising=False)
-    monkeypatch.setattr(cli, "ALIASES", AliasTable("sd", aliases.K_ROWS))
-    return stream
+    return _Terminal()
 
 
 def _run_command(stderr: _Terminal, workspace, target: str | None = None,
@@ -81,10 +80,16 @@ def _run_command(stderr: _Terminal, workspace, target: str | None = None,
         cli.run(SimpleNamespace(args=[], obj=workspace), target=target, sort=sort, type=None)
 
 
+def _own_table(project):
+    """Returns the project's workspace over a fresh table, so no notice is old to it."""
+    return dataclasses.replace(project.workspace, aliases=AliasTable("sd", aliases.K_ROWS))
+
+
 def test_bare_run_announces_host_once_to_a_terminal(terminal, project):
-    """`sd run` with no target names `sd host` and the last day, once per process."""
-    _run_command(terminal, project.workspace)
-    _run_command(terminal, project.workspace)
+    """`sd run` with no target names `sd host` and the last day, once per table."""
+    workspace = _own_table(project)
+    _run_command(terminal, workspace)
+    _run_command(terminal, workspace)
 
     (line,) = terminal.getvalue().splitlines()
     assert "`sd run` is now `sd host`" in line and "2027-03-25" in line
@@ -92,8 +97,9 @@ def test_bare_run_announces_host_once_to_a_terminal(terminal, project):
 
 def test_run_with_a_target_or_a_pick_announces_nothing(terminal, project):
     """The generic runner is not an old spelling, so it prints no notice."""
-    _run_command(terminal, project.workspace, target="sushidsp_tests")
-    _run_command(terminal, project.workspace, sort=True)
+    workspace = _own_table(project)
+    _run_command(terminal, workspace, target="sushidsp_tests")
+    _run_command(terminal, workspace, sort=True)
 
     assert terminal.getvalue() == ""
 

@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Protocol
 
 from sushicore import build_admission, build_report, cmake_cache
+from sushicore.aliases import AliasTable
 from sushicore.build_tree import K_DEFAULT_BUILD_TYPE, refuse_another_build_type, tree_dir
 from sushicore.cmake_driver import CMakeDriver
 from sushicore.proc import CommandRunner, ConsoleLike, Runner
@@ -33,6 +34,7 @@ from sushicore.testing import ModuleTests, TestLabel, run_tests, select_labels
 from sushicore.toolchain_args import c_compiler_for
 
 from .. import console
+from ..aliases import ALIASES
 from ..config import Config, PROFILE, find_project_root, load_config
 from ..env import load_build_env
 from . import discovery, library_packages
@@ -122,6 +124,8 @@ class Workspace:
             Ctrl+C into exit code 130.
         environment: The environment the started commands run under; ``None`` assembles it per
             tree through ``sushidsp.env.load_build_env``.
+        aliases: The old spellings and the record of which of them were announced; a test hands
+            in its own table.
     """
 
     root: Path
@@ -130,6 +134,7 @@ class Workspace:
     runner: CommandRunner
     app_runner: CommandRunner
     environment: Mapping[str, str] | None = None
+    aliases: AliasTable = ALIASES
 
     @cached_property
     def driver(self) -> CMakeDriver:

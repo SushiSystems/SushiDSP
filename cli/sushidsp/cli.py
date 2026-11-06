@@ -202,7 +202,8 @@ def run(
     """Run a built executable. Args after `--` are forwarded to it."""
     forwarded_only = target is not None and target.startswith("-")
     if forwarded_only or (target is None and not sort):
-        ALIASES.announce(ALIASES.alias_for(K_BARE_RUN))
+        table = ALIASES if ctx.obj is None else ctx.obj.aliases
+        table.announce(table.alias_for(K_BARE_RUN))
         app_args = [target, *ctx.args] if forwarded_only else None
         raise typer.Exit(project_svc.host(type, app_args=app_args, workspace=ctx.obj))
     raise typer.Exit(project_svc.run(target=target, sort=sort, app_args=list(ctx.args),
