@@ -65,7 +65,7 @@ def test_provision_root_clang_wins_over_the_workspace_one(tmp_path, monkeypatch)
     home = tmp_path / "home"
     workspace = tmp_path / "ws"
     monkeypatch.setenv("SUSHISYSTEMS_HOME", str(home))
-    monkeypatch.setattr("sushidsp.config.workspace_home", lambda: workspace)
+    monkeypatch.setenv("SUSHISTACK_HOME", str(workspace))
     cfg = Config()
     name = cfg._clang_name()
     _plant_clang(workspace / "dependencies" / "toolchains" / "llvm-sycl", name)
@@ -74,13 +74,14 @@ def test_provision_root_clang_wins_over_the_workspace_one(tmp_path, monkeypatch)
     assert cfg.compiler_source().startswith("provision root")
 
 
-def test_workspace_clang_is_labelled_as_the_workspace(tmp_path, monkeypatch):
+def test_workspace_clang_is_found_through_the_provision_roots(tmp_path, monkeypatch):
     workspace = tmp_path / "ws"
     monkeypatch.setenv("SUSHISYSTEMS_HOME", str(tmp_path / "home"))
-    monkeypatch.setattr("sushidsp.config.workspace_home", lambda: workspace)
+    monkeypatch.setenv("SUSHISTACK_HOME", str(workspace))
     cfg = Config()
-    _plant_clang(workspace / "dependencies" / "toolchains" / "llvm-sycl", cfg._clang_name())
-    assert cfg.compiler_source() == "SushiStack workspace (intel/llvm)"
+    exe = _plant_clang(workspace / "dependencies" / "toolchains" / "llvm-sycl", cfg._clang_name())
+    assert cfg.bundled_clang() == str(exe)
+    assert cfg.compiler_source().startswith("provision root")
 
 
 def test_setup_dry_run_in_a_workspace_never_calls_hub(tmp_path, monkeypatch):

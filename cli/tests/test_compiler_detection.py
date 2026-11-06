@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import pytest
 
@@ -30,8 +29,10 @@ def no_path_clang(monkeypatch):
 
 
 @pytest.fixture
-def no_workspace(monkeypatch):
-    monkeypatch.setattr(config_module, "workspace_home", lambda root=None: None)
+def no_workspace(monkeypatch, tmp_path):
+    """Run outside a checkout and a workspace, so no workspace home is found."""
+    monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
+    monkeypatch.chdir(tmp_path)
 
 
 def test_pinned_cxx_wins(no_path_clang, tmp_path):
@@ -53,7 +54,7 @@ def test_workspace_bundle_is_probed_without_llvm_root(no_path_clang, monkeypatch
     exe = tmp_path / "dependencies" / "toolchains" / "llvm-sycl" / "bin" / _clang_name()
     exe.parent.mkdir(parents=True)
     exe.write_text("")
-    monkeypatch.setattr(config_module, "workspace_home", lambda root=None: tmp_path)
+    monkeypatch.setenv("SUSHISTACK_HOME", str(tmp_path))
     assert Config().resolved_compiler() == str(exe)
 
 

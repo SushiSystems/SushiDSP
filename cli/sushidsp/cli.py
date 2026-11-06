@@ -4,8 +4,9 @@
 # Licensed under the Apache License 2.0. See LICENSE.
 """Declares the commands of `sd`, the SushiDSP developer CLI.
 
-A thin Typer layer: each command parses its arguments and delegates to
-``sushidsp.services``. The root options, `config`, `env`, the `docs` group, the provision
+A thin Typer layer: each command parses its arguments and delegates to ``sushidsp.services``,
+handing it the context object as its workspace; `sd` leaves it unset, so the services work on
+the checkout it runs in. The root options, `config`, `env`, the `docs` group, the provision
 commands and the entry point come from sushicore.
 """
 
@@ -95,12 +96,14 @@ def _clean_option() -> Any:
            "sd configure -D FOO=1  # Pass a CMake cache variable",
 )
 def configure(
+    ctx: typer.Context,
     type: Optional[BuildType] = _type_option(),
     define: Optional[list[str]] = _define_option(),
     sanitize: Optional[Sanitizer] = _sanitize_option(),
 ) -> None:
     """Run cmake's configure step against the tree of the type, build/default-debug by default."""
-    raise typer.Exit(project_svc.configure(type, define, sanitizer=sanitize))
+    raise typer.Exit(project_svc.configure(type, define, sanitizer=sanitize,
+                                          workspace=ctx.obj))
 
 
 @app.command(
@@ -114,6 +117,7 @@ def configure(
            "sd build --report  # Print the build's edges by kind and save the report",
 )
 def build(
+    ctx: typer.Context,
     type: Optional[BuildType] = _type_option(),
     clean: bool = _clean_option(),
     define: Optional[list[str]] = _define_option(),
@@ -131,7 +135,7 @@ def build(
     flag keeps it; pass VAR= to clear one, or --clean to start over.
     """
     raise typer.Exit(project_svc.build(type, clean=clean, defines=define, sanitizer=sanitize,
-                                       jobs=jobs, report=report))
+                                       jobs=jobs, report=report, workspace=ctx.obj))
 
 
 @app.command(
@@ -144,6 +148,7 @@ def build(
            "sd test --label small --sanitize address  # Small tests under ASan and UBSan",
 )
 def test(
+    ctx: typer.Context,
     type: Optional[BuildType] = _type_option(),
     label: Optional[list[TestLabel]] = label_option(),
     filter: Optional[str] = filter_option(),
@@ -156,7 +161,7 @@ def test(
     """Build if needed, then run the tests of the sizes and the filter, then print the budget line."""
     raise typer.Exit(project_svc.test(type, label or (), clean=clean, filter=filter,
                                       sanitizer=sanitize, jobs=jobs, repeat=repeat,
-                                      every_size=all_sizes))
+                                      every_size=all_sizes, workspace=ctx.obj))
 
 
 @app.command(
@@ -166,13 +171,15 @@ def test(
            "sd bench Room Jcm800  # Groups whose name holds an argument",
 )
 def bench(
+    ctx: typer.Context,
     group: Optional[list[str]] = typer.Argument(
         None, help="Substrings of the case groups to run. Default: every group."),
     type: Optional[BuildType] = _type_option(K_BENCH_TYPE_HELP),
     clean: bool = _clean_option(),
 ) -> None:
     """Build if needed, then run the benchmark program and print its table."""
-    raise typer.Exit(project_svc.bench(type, group or (), clean=clean))
+    raise typer.Exit(project_svc.bench(type, group or (), clean=clean,
+                                      workspace=ctx.obj))
 
 
 @app.command(
@@ -197,9 +204,9 @@ def run(
     if forwarded_only or (target is None and not sort):
         ALIASES.announce(ALIASES.alias_for(K_BARE_RUN))
         app_args = [target, *ctx.args] if forwarded_only else None
-        raise typer.Exit(project_svc.host(type, app_args=app_args))
+        raise typer.Exit(project_svc.host(type, app_args=app_args, workspace=ctx.obj))
     raise typer.Exit(project_svc.run(target=target, sort=sort, app_args=list(ctx.args),
-                                     build_type=type))
+                                     build_type=type, workspace=ctx.obj))
 
 
 @app.command(
@@ -211,6 +218,7 @@ def run(
            "sd clean --all  # The whole build/ directory",
 )
 def clean(
+    ctx: typer.Context,
     type: Optional[BuildType] = _type_option(
         "Which tree to remove: debug | release | relwithdebinfo. Default: debug."),
     sanitize: Optional[Sanitizer] = _sanitize_option(),
@@ -218,7 +226,7 @@ def clean(
         False, "--all", help="Remove build/ with every tree, the gate's state and its cache."),
 ) -> None:
     """Remove one build tree, build/default-debug by default."""
-    raise typer.Exit(project_svc.clean(type, sanitize, everything))
+    raise typer.Exit(project_svc.clean(type, sanitize, everything, workspace=ctx.obj))
 
 
 def _api_source() -> ApiSource:
@@ -226,9 +234,9 @@ def _api_source() -> ApiSource:
     return ApiSource(build=project_svc.docs, xml_dir=find_project_root() / K_API_XML)
 
 
-def _docs_alias() -> None:
+def _docs_alias(ctx: typer.Context) -> None:
     """Builds the API reference; the callback behind the old spelling `sd doxygen`."""
-    raise typer.Exit(project_svc.docs())
+    raise typer.Exit(project_svc.docs(workspace=ctx.obj))
 
 
 register_docs_commands(
@@ -264,12 +272,13 @@ register_design_commands(
            "sd check --rule <name>  # Run only the specified rule",
 )
 def check(
+    ctx: typer.Context,
     report: bool = typer.Option(
         False, "--report", "-r", help="Report issue counts without failing."),
     rule: Optional[str] = typer.Option(None, "--rule", help="Run only the specified rule."),
 ) -> None:
     """Run the repository's eight shared checkers under tools/."""
-    raise typer.Exit(project_svc.check(report=report, rule=rule))
+    raise typer.Exit(project_svc.check(report=report, rule=rule, workspace=ctx.obj))
 
 
 register_diagnostic_commands(
@@ -292,7 +301,8 @@ def host(
         False, "--no-run", help="Build the host GUI but do not launch it."),
 ) -> None:
     """Build if needed, then launch the standalone host GUI. Args after `--` reach it."""
-    raise typer.Exit(project_svc.host(type, launch=not no_run, app_args=list(ctx.args)))
+    raise typer.Exit(project_svc.host(type, launch=not no_run, app_args=list(ctx.args),
+                                      workspace=ctx.obj))
 
 
 ALIASES.command(app, "doxygen", _docs_alias, "sd doxygen")

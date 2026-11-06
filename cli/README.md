@@ -52,7 +52,11 @@ python -m pytest -q
 ```
 
 The suite starts no `cmake`, `ctest` or build. `tests/conftest.py` provides the `project`
-fixture, which records the command lines the project service would run.
+fixture, a `Workspace` over sushicore's `RecordingRunner` and `RecordingConsole`. Each of
+`configure`, `build`, `test`, `bench`, `clean`, `docs`, `check`, `host` and `run` takes a
+`workspace`: the root, the configuration, the console, the runners and, when given, the
+environment. `sd` passes the checkout it runs in; a command test hands the workspace in as the
+context object.
 
 ## Notes on the source
 

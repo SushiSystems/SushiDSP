@@ -19,20 +19,23 @@ from typer.testing import CliRunner
 
 from sushidsp import aliases, cli
 from sushidsp.cli import app
-from sushidsp.services import project as project_svc
 
 
 pytestmark = pytest.mark.medium
 
 
-def test_doxygen_still_runs_the_docs_command(monkeypatch, tmp_path):
-    """`sd doxygen` runs what `sd docs` runs and exits with its code."""
-    monkeypatch.setattr(project_svc, "docs", lambda: 5)
-    monkeypatch.setattr(cli, "find_project_root", lambda: tmp_path)
-    runner = CliRunner()
+def test_doxygen_runs_the_api_build_and_exits_with_its_code(project):
+    """`sd doxygen` builds the reference through the project service and exits with its code."""
+    doxyfile = project.root / ".config" / "doxygen" / "Doxyfile"
+    doxyfile.parent.mkdir(parents=True)
+    doxyfile.write_text("", encoding="utf-8")
+    doxygen = project.root / "doxygen"
+    doxygen.write_text("", encoding="utf-8")
+    project.workspace.config.doxygen_exe = str(doxygen)
+    project.runner.script(5)
 
-    assert runner.invoke(app, ["docs"]).exit_code == 5
-    assert runner.invoke(app, ["doxygen"]).exit_code == 5
+    assert CliRunner().invoke(app, ["doxygen"], obj=project.workspace).exit_code == 5
+    assert [command[0] for command in project.commands] == [str(doxygen)]
 
 
 def test_the_old_spelling_is_absent_from_help_and_describe():
@@ -64,35 +67,33 @@ class _Terminal(io.StringIO):
 
 @pytest.fixture
 def terminal(monkeypatch) -> _Terminal:
-    """Returns a terminal for `sd run`, over a fresh table and a service that starts nothing."""
+    """Returns a terminal for `sd run`, over a fresh table, so the notice is new to the process."""
     stream = _Terminal()
     monkeypatch.delenv(aliases.ALIASES.notice_switch, raising=False)
     monkeypatch.setattr(cli, "ALIASES", AliasTable("sd", aliases.K_ROWS))
-    monkeypatch.setattr(project_svc, "host", lambda build_type=None, app_args=None: 0)
-    monkeypatch.setattr(project_svc, "run", lambda target=None, sort=False, app_args=None,
-                        build_type=None: 0)
     return stream
 
 
-def _run_command(stderr: _Terminal, target: str | None = None, sort: bool = False) -> None:
+def _run_command(stderr: _Terminal, workspace, target: str | None = None,
+                 sort: bool = False) -> None:
     """Calls the `sd run` callback as Typer would, with *stderr* in place of CliRunner's."""
     with contextlib.redirect_stderr(stderr), pytest.raises(typer.Exit):
-        cli.run(SimpleNamespace(args=[]), target=target, sort=sort, type=None)
+        cli.run(SimpleNamespace(args=[], obj=workspace), target=target, sort=sort, type=None)
 
 
-def test_bare_run_announces_host_once_to_a_terminal(terminal):
+def test_bare_run_announces_host_once_to_a_terminal(terminal, project):
     """`sd run` with no target names `sd host` and the last day, once per process."""
-    _run_command(terminal)
-    _run_command(terminal)
+    _run_command(terminal, project.workspace)
+    _run_command(terminal, project.workspace)
 
     (line,) = terminal.getvalue().splitlines()
     assert "`sd run` is now `sd host`" in line and "2027-03-25" in line
 
 
-def test_run_with_a_target_or_a_pick_announces_nothing(terminal):
+def test_run_with_a_target_or_a_pick_announces_nothing(terminal, project):
     """The generic runner is not an old spelling, so it prints no notice."""
-    _run_command(terminal, target="sushidsp_tests")
-    _run_command(terminal, sort=True)
+    _run_command(terminal, project.workspace, target="sushidsp_tests")
+    _run_command(terminal, project.workspace, sort=True)
 
     assert terminal.getvalue() == ""
 

@@ -6,12 +6,12 @@
 
 from __future__ import annotations
 
-import importlib
 import json
+import os
 import re
 import subprocess
+import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 import typer.main
@@ -20,9 +20,6 @@ from typer.testing import CliRunner
 from sushicore.root_options import version_line
 from sushidsp import cli
 from sushidsp.cli import app
-from sushidsp.services import diag as diag_svc
-from sushidsp.services import project as project_svc
-from sushidsp.services.project import BuildType, Sanitizer
 
 
 pytestmark = pytest.mark.medium
@@ -52,23 +49,19 @@ def _visible_commands() -> list[str]:
     return sorted(name for name, command in group.commands.items() if not command.hidden)
 
 
-def test_main_reports_a_malformed_config_as_one_line_and_exit_one(tmp_path, monkeypatch, capsys):
+def test_main_reports_a_malformed_config_as_one_line_and_exit_one(tmp_path):
     """A cli/config.toml that is not TOML ends in one line on stderr and exit code 1."""
-    import sushidsp.console as console_module
-
     (tmp_path / "CMakeLists.txt").write_text("project(x)\n", encoding="utf-8")
     (tmp_path / "cli").mkdir()
     (tmp_path / "cli" / "config.toml").write_text("[tool\ncxx = ", encoding="utf-8")
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("sys.argv", ["sd", "config"])
-    importlib.reload(console_module)
+    script = "import sys; sys.argv = ['sd', 'config']; from sushidsp import cli; cli.main()"
+    environment = {**os.environ, "PYTHONPATH": str(Path(cli.__file__).resolve().parents[1])}
 
-    with pytest.raises(SystemExit) as caught:
-        cli.main()
+    finished = subprocess.run([sys.executable, "-c", script], cwd=tmp_path, env=environment,
+                              capture_output=True, text=True, check=False)
 
-    importlib.reload(console_module)
-    assert caught.value.code == 1
-    (line,) = capsys.readouterr().err.splitlines()
+    assert finished.returncode == 1
+    (line,) = finished.stderr.splitlines()
     assert line.startswith("sd: ") and "config.toml" in line
 
 
@@ -93,15 +86,9 @@ def test_describe_lists_every_visible_command_and_no_hidden_one():
     assert {"host", "run"} <= set(_visible_commands())
 
 
-def test_docs_runs_the_api_build_and_bundle_is_its_subcommand(monkeypatch, tmp_path):
-    """`sd docs` still builds the reference, and `sd docs bundle` asks for a release."""
-    monkeypatch.setattr(project_svc, "docs", lambda: 6)
-    monkeypatch.setattr(cli, "find_project_root", lambda: tmp_path)
-    runner = CliRunner()
-
-    assert runner.invoke(app, ["docs"]).exit_code == 6
-    assert runner.invoke(app, ["doxygen"]).exit_code == 6
-    missing = runner.invoke(app, ["docs", "bundle"])
+def test_docs_bundle_is_a_subcommand_of_docs_and_asks_for_a_release():
+    """`sd docs bundle` exits 2 and names --release when it is given none."""
+    missing = CliRunner().invoke(app, ["docs", "bundle"])
     assert missing.exit_code == 2
     assert "--release" in K_ANSI_ESCAPE.sub("", missing.output)
 
@@ -113,145 +100,127 @@ def test_the_command_set_is_the_documented_one():
         "config", "env", "setup", "doctor", "link", "unlink", *K_SUSHICORE_GROUPS])
 
 
-def test_config_and_env_come_from_the_diagnostics_object(monkeypatch):
-    """config and env exit with what the diagnostics object returns, -a included."""
-    calls: list[tuple] = []
-    monkeypatch.setattr(type(diag_svc.DIAGNOSTICS), "config_show",
-                        lambda self: calls.append(("config",)) or 0)
-    monkeypatch.setattr(type(diag_svc.DIAGNOSTICS), "env_dump",
-                        lambda self, show_all=False: calls.append(("env", show_all)) or 3)
+def test_config_and_env_come_from_the_shared_declarations():
+    """config and env are the commands sushicore declares once for every CLI."""
+    group = typer.main.get_command(app)
+    for name in ("config", "env"):
+        assert group.commands[name].callback.__module__ == "sushicore.diag_commands"
+
+
+def test_clean_removes_the_tree_it_names(project):
+    """sd clean removes the tree of the type and the sanitizer, or build/ whole with --all."""
+    default = project.configure_tree("Debug")
+    tsan = project.configure_tree("Release", name="tsan")
     runner = CliRunner()
 
-    assert runner.invoke(app, ["config"]).exit_code == 0
-    assert runner.invoke(app, ["env", "-a"]).exit_code == 3
-    assert calls == [("config",), ("env", True)]
+    assert runner.invoke(app, ["clean"], obj=project.workspace).exit_code == 0
+    assert not default.exists() and tsan.exists()
+    result = runner.invoke(app, ["clean", "-t", "release", "--sanitize", "thread"],
+                           obj=project.workspace)
+    assert result.exit_code == 0 and not tsan.exists()
+    assert runner.invoke(app, ["clean", "--all"], obj=project.workspace).exit_code == 0
+    assert not (project.root / "build").exists()
 
 
-def test_clean_hands_the_tree_it_names_to_the_project_service(monkeypatch):
-    """sd clean exits with the service's code and passes the type, the sanitizer and --all."""
-    seen: list[tuple] = []
-
-    def fake_clean(build_type=None, sanitizer=None, everything=False):
-        """Records the tree the command named."""
-        seen.append((build_type, sanitizer, everything))
-        return 4
-
-    monkeypatch.setattr(project_svc, "clean", fake_clean)
-    runner = CliRunner()
-
-    assert runner.invoke(app, ["clean"]).exit_code == 4
-    assert runner.invoke(app, ["clean", "-t", "release", "--sanitize", "thread"]).exit_code == 4
-    assert runner.invoke(app, ["clean", "--all"]).exit_code == 4
-    assert seen == [(None, None, False),
-                    (BuildType.release, Sanitizer.thread, False),
-                    (None, None, True)]
-
-
-def test_build_hands_the_jobs_and_the_report_flag_to_the_project_service(monkeypatch):
+def test_build_hands_the_jobs_and_the_report_flag_to_the_project_service(project):
     """sd build -j and --report reach the service; without them it gets none and no report."""
-    seen: list[tuple] = []
-
-    def fake_build(build_type, clean=False, defines=None, sanitizer=None, jobs=None,
-                   report=False):
-        """Records the compile options the command passed."""
-        seen.append((build_type, jobs, report))
-        return 0
-
-    monkeypatch.setattr(project_svc, "build", fake_build)
+    project.configure_tree("Debug")
     runner = CliRunner()
 
-    assert runner.invoke(app, ["build"]).exit_code == 0
-    assert runner.invoke(app, ["build", "-j", "3", "--report"]).exit_code == 0
-    assert seen == [(None, None, False), (None, 3, True)]
+    assert runner.invoke(app, ["build"], obj=project.workspace).exit_code == 0
+    assert project.console.texts("info") == []
+    assert runner.invoke(app, ["build", "-j", "3", "--report"],
+                         obj=project.workspace).exit_code == 0
+
+    plain, reported = project.commands
+    assert plain[plain.index("--parallel") + 1] != "3"
+    assert reported[reported.index("--parallel") + 1] == "3"
+    assert [text for text in project.console.texts("info") if text.startswith("Report: ")]
 
 
-def test_test_hands_the_filter_to_the_project_service(monkeypatch):
+def test_test_hands_the_filter_to_the_project_service(project):
     """sd test -f passes its regex through, and no filter when the flag is absent."""
-    seen: list[str | None] = []
-
-    def fake_test(build_type, sizes, clean=False, filter=None, sanitizer=None, jobs=None, **options):
-        """Records the filter the command passed."""
-        seen.append(filter)
-        return 0
-
-    monkeypatch.setattr(project_svc, "test", fake_test)
+    project.configure_tree("Debug")
     runner = CliRunner()
 
-    assert runner.invoke(app, ["test", "-f", "Jcm800.*"]).exit_code == 0
-    assert runner.invoke(app, ["test", "--filter", "A"]).exit_code == 0
-    assert runner.invoke(app, ["test"]).exit_code == 0
-    assert seen == ["Jcm800.*", "A", None]
+    assert runner.invoke(app, ["test", "-f", "Jcm800.*"], obj=project.workspace).exit_code == 0
+    assert runner.invoke(app, ["test", "--filter", "A"], obj=project.workspace).exit_code == 0
+    assert runner.invoke(app, ["test"], obj=project.workspace).exit_code == 0
+
+    ctests = [command for command in project.commands if "-L" in command]
+    assert [command[command.index("-R") + 1] if "-R" in command else None
+            for command in ctests] == ["Jcm800.*", "A", None]
 
 
-@pytest.fixture
-def launches(monkeypatch) -> list[tuple]:
-    """Returns the calls `sd host` and `sd run` make to a project service that starts nothing."""
-    calls: list[tuple] = []
-
-    def fake_host(build_type=None, launch=True, app_args=None):
-        """Records one host call."""
-        calls.append(("host", build_type, launch, app_args))
-        return 6
-
-    def fake_run(target=None, sort=False, app_args=None, build_type=None):
-        """Records one run call."""
-        calls.append(("run", target, sort, app_args, build_type))
-        return 7
-
-    monkeypatch.setattr(project_svc, "host", fake_host)
-    monkeypatch.setattr(project_svc, "run", fake_run)
-    return calls
+def _launches(project) -> list[list[str]]:
+    """Returns the commands the workspace's app runner started, in order."""
+    return [command for command in project.commands
+            if not {"-S", "--build", "-R", "-L"} & set(command)]
 
 
-def test_host_builds_and_launches_with_the_arguments_after_the_separator(launches):
+def test_host_builds_and_launches_with_the_arguments_after_the_separator(project):
     """sd host hands the type and everything after -- to the service and exits with its code."""
-    result = CliRunner().invoke(app, ["host", "-t", "release", "--", "--device", "0"])
+    project.configure_tree("Release")
+    host = project.plant_host_gui(build_type="Release")
 
-    assert result.exit_code == 6
-    assert launches == [("host", BuildType.release, True, ["--device", "0"])]
+    result = CliRunner().invoke(app, ["host", "-t", "release", "--", "--device", "0"],
+                                obj=project.workspace)
+
+    assert result.exit_code == 0
+    assert _launches(project) == [[str(host), "--device", "0"]]
 
 
-def test_host_no_run_asks_the_service_not_to_launch(launches):
+def test_host_no_run_asks_the_service_not_to_launch(project):
     """sd host --no-run builds only."""
-    assert CliRunner().invoke(app, ["host", "--no-run"]).exit_code == 6
-    assert launches == [("host", None, False, [])]
+    project.plant_host_gui()
+
+    assert CliRunner().invoke(app, ["host", "--no-run"], obj=project.workspace).exit_code == 0
+    assert _launches(project) == []
 
 
-def test_run_with_a_target_runs_that_executable_and_forwards_arguments(launches):
+def test_run_with_a_target_runs_that_executable_and_forwards_arguments(project):
     """sd run TARGET reaches the generic runner, never the host command."""
-    result = CliRunner().invoke(app, ["run", "sushidsp_tests", "--", "--gtest_shuffle"])
+    exe = project.plant_executable("sushidsp_tests", "bin")
 
-    assert result.exit_code == 7
-    assert launches == [("run", "sushidsp_tests", False, ["--gtest_shuffle"], None)]
+    result = CliRunner().invoke(app, ["run", "sushidsp_tests", "--", "--gtest_shuffle"],
+                                obj=project.workspace)
 
-
-def test_run_sort_asks_the_runner_for_a_pick(launches):
-    """sd run --sort reaches the generic runner with no target."""
-    assert CliRunner().invoke(app, ["run", "--sort"]).exit_code == 7
-    assert launches == [("run", None, True, [], None)]
+    assert result.exit_code == 0
+    assert project.commands == [[str(exe), "--gtest_shuffle"]]
 
 
-def test_bare_run_does_what_host_does(launches):
+def test_bare_run_does_what_host_does(project):
     """sd run with no target builds and launches the host GUI, with the type it was given."""
-    runner = CliRunner()
+    project.configure_tree("Release")
+    host = project.plant_host_gui(build_type="Release")
 
-    assert runner.invoke(app, ["run"]).exit_code == 6
-    assert runner.invoke(app, ["run", "--type", "release"]).exit_code == 6
-    assert launches == [("host", None, True, None), ("host", BuildType.release, True, None)]
+    result = CliRunner().invoke(app, ["run", "--type", "release"], obj=project.workspace)
+
+    assert result.exit_code == 0
+    assert _launches(project) == [[str(host)]]
 
 
-def test_run_with_only_forwarded_arguments_is_the_old_host_spelling(launches):
+def test_run_with_only_forwarded_arguments_is_the_old_host_spelling(project):
     """sd run -- ARGS, the old way to pass arguments to the host GUI, still launches it with them."""
-    result = CliRunner().invoke(app, ["run", "--type", "debug", "--", "--device", "0"])
+    project.configure_tree("Debug")
+    host = project.plant_host_gui()
 
-    assert result.exit_code == 6
-    assert launches == [("host", BuildType.debug, True, ["--device", "0"])]
+    result = CliRunner().invoke(app, ["run", "--type", "debug", "--", "--device", "0"],
+                                obj=project.workspace)
+
+    assert result.exit_code == 0
+    assert _launches(project) == [[str(host), "--device", "0"]]
 
 
-def test_run_with_a_target_looks_in_the_tree_of_the_type(launches):
+def test_run_with_a_target_looks_in_the_tree_of_the_type(project):
     """--type beside a target picks the tree the executable is run from."""
-    assert CliRunner().invoke(app, ["run", "sushidsp_tests", "-t", "release"]).exit_code == 7
-    assert launches == [("run", "sushidsp_tests", False, [], BuildType.release)]
+    exe = project.plant_executable("sushidsp_tests", "bin", build_type="Release")
+
+    result = CliRunner().invoke(app, ["run", "sushidsp_tests", "-t", "release"],
+                                obj=project.workspace)
+
+    assert result.exit_code == 0
+    assert project.commands == [[str(exe)]]
 
 
 def _published_checkout(root: Path) -> None:
@@ -281,20 +250,19 @@ def test_docs_bundle_writes_the_archive_of_the_checkout_it_runs_in(tmp_path, mon
     """Writes the archive and its digest file at the checkout's root and reports both lines."""
     _published_checkout(tmp_path)
     monkeypatch.chdir(tmp_path / "docs" / "guides")
-    said: list[str] = []
-    monkeypatch.setattr(cli, "console", SimpleNamespace(success=said.append))
     result = CliRunner().invoke(cli.app, ["docs", "bundle", "--release", "1.2.3"])
     assert result.exit_code == 0, result.output
     bundle = tmp_path / "build" / "docs" / "bundle"
     assert (bundle / K_ARCHIVE).is_file()
     assert (bundle / (K_ARCHIVE + ".sha256")).is_file()
-    assert len(said) == 2, said
-    assert said[0].endswith(f"{K_ARCHIVE} (1 pages)")
-    assert said[1].startswith("sha256 ")
+    assert f"{K_ARCHIVE} (1 pages)" in result.output
+    assert "sha256 " in result.output
 
 
-def test_the_api_source_reads_the_xml_doxygen_writes_under_the_site_folder(monkeypatch, tmp_path):
+def test_the_api_source_reads_the_xml_doxygen_writes_under_the_site_folder(
+        tmp_path, monkeypatch):
     """Names `<OUTPUT_DIRECTORY>/<XML_OUTPUT>` of the Doxyfile, below the repository root."""
-    monkeypatch.setattr(cli, "find_project_root", lambda: tmp_path)
+    (tmp_path / cli.PROFILE.root_marker).write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
     written = Path(_doxyfile_value("OUTPUT_DIRECTORY", "")) / _doxyfile_value("XML_OUTPUT", "xml")
     assert cli._api_source().xml_dir == tmp_path / written

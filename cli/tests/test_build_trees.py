@@ -59,16 +59,16 @@ def test_a_configure_of_another_type_into_a_tree_is_refused(project):
         "CMAKE_BUILD_TYPE:STRING=Release\n", encoding="utf-8")
 
     with pytest.raises(ConfigError, match="Release tree"):
-        project_svc.build(None)
+        project_svc.build(None, workspace=project.workspace)
 
-    assert project.runner.commands == []
+    assert project.commands == []
 
 
 def test_a_define_of_the_build_type_is_refused(project):
     with pytest.raises(ConfigError, match="CMAKE_BUILD_TYPE"):
-        project_svc.build(None, defines=["CMAKE_BUILD_TYPE=Release"])
+        project_svc.build(None, defines=["CMAKE_BUILD_TYPE=Release"], workspace=project.workspace)
 
-    assert project.runner.commands == []
+    assert project.commands == []
 
 
 def test_a_stopped_gate_refuses_the_build_before_any_command(project):
@@ -77,15 +77,15 @@ def test_a_stopped_gate_refuses_the_build_before_any_command(project):
     stop.write_text("", encoding="utf-8")
 
     with pytest.raises(BuildStoppedError):
-        project_svc.build(None)
+        project_svc.build(None, workspace=project.workspace)
 
-    assert project.runner.commands == []
+    assert project.commands == []
 
 
 def test_the_configure_carries_both_launcher_entries(project):
-    assert project_svc.build(None) == 0
+    assert project_svc.build(None, workspace=project.workspace) == 0
 
-    configure = project.runner.commands[0]
+    configure = project.commands[0]
     expected = build_admission.launcher_defines(project.build_dir, "")
     assert len(expected) == 2
     for entry in expected:
@@ -93,9 +93,9 @@ def test_the_configure_carries_both_launcher_entries(project):
 
 
 def test_a_define_of_the_user_comes_after_the_gate_entries(project):
-    assert project_svc.build(None, defines=["FOO=1"]) == 0
+    assert project_svc.build(None, defines=["FOO=1"], workspace=project.workspace) == 0
 
-    values = _define_values(project.runner.commands[0])
+    values = _define_values(project.commands[0])
     assert values.index("FOO=1") > max(
         values.index(entry) for entry in build_admission.launcher_defines(project.build_dir, ""))
 
@@ -104,9 +104,9 @@ def test_the_compile_gets_the_hardware_threads_without_jobs(project, monkeypatch
     monkeypatch.setattr(build_admission, "hardware_threads", lambda: 13)
     project.configure_tree()
 
-    assert project_svc.build(None) == 0
+    assert project_svc.build(None, workspace=project.workspace) == 0
 
-    compile_ = project.runner.commands[-1]
+    compile_ = project.commands[-1]
     assert compile_[compile_.index("--parallel") + 1] == "13"
 
 
@@ -114,27 +114,27 @@ def test_the_compile_takes_the_jobs_the_user_gave(project, monkeypatch):
     monkeypatch.setattr(build_admission, "hardware_threads", lambda: 13)
     project.configure_tree()
 
-    assert project_svc.build(None, jobs=2) == 0
+    assert project_svc.build(None, jobs=2, workspace=project.workspace) == 0
 
-    compile_ = project.runner.commands[-1]
+    compile_ = project.commands[-1]
     assert compile_[compile_.index("--parallel") + 1] == "2"
 
 
 def test_a_report_is_printed_and_saved_in_the_tree(project):
     project.configure_tree()
 
-    assert project_svc.build(None, report=True) == 0
+    assert project_svc.build(None, report=True, workspace=project.workspace) == 0
 
-    (line,) = [text for text in project.console.of("info") if text.startswith("Report: ")]
+    (line,) = [text for text in project.console.texts("info") if text.startswith("Report: ")]
     assert Path(line.removeprefix("Report: ")).is_file()
 
 
 def test_no_report_is_written_without_the_flag(project):
     project.configure_tree()
 
-    assert project_svc.build(None) == 0
+    assert project_svc.build(None, workspace=project.workspace) == 0
 
-    assert [text for text in project.console.of("info") if text.startswith("Report: ")] == []
+    assert [text for text in project.console.texts("info") if text.startswith("Report: ")] == []
 
 
 def test_clean_removes_only_the_tree_it_names(project):
@@ -142,13 +142,13 @@ def test_clean_removes_only_the_tree_it_names(project):
     release = project.configure_tree("Release")
     address = project.configure_tree("Debug", name="asan")
 
-    assert project_svc.clean(BuildType.release) == 0
+    assert project_svc.clean(BuildType.release, workspace=project.workspace) == 0
     assert not release.exists() and debug.exists() and address.exists()
 
-    assert project_svc.clean(None, Sanitizer.address) == 0
+    assert project_svc.clean(None, Sanitizer.address, workspace=project.workspace) == 0
     assert not address.exists() and debug.exists()
 
-    assert project_svc.clean() == 0
+    assert project_svc.clean(workspace=project.workspace) == 0
     assert not debug.exists()
 
 
@@ -156,6 +156,6 @@ def test_clean_all_removes_every_tree_and_the_gate_state(project):
     project.configure_tree("Debug")
     project.configure_tree("Release")
 
-    assert project_svc.clean(everything=True) == 0
+    assert project_svc.clean(everything=True, workspace=project.workspace) == 0
 
     assert not (project.root / "build").exists()

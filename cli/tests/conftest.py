@@ -51,6 +51,11 @@ def _ensure_sushicore() -> None:
 _ensure_sushicore()
 
 from sushicore.build_tree import tree_dir  # noqa: E402
+from sushicore.console_memory import RecordingConsole  # noqa: E402
+from sushicore.proc_memory import RecordingRunner  # noqa: E402
+
+from sushidsp.config import Config  # noqa: E402
+from sushidsp.services.project import Workspace  # noqa: E402
 
 
 K_SIZE_TIMEOUTS = {"small": 60, "medium": 300, "large": 900}
@@ -69,43 +74,6 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         raise pytest.UsageError(f"every test carries exactly one size: {', '.join(wrong)}")
     for item in items:
         item.add_marker(pytest.mark.timeout(K_SIZE_TIMEOUTS[_sizes_of(item)[0]]))
-
-
-class RecordingRunner:
-    """Records every command line it is handed and starts none of them."""
-
-    def __init__(self) -> None:
-        """Starts with no command recorded."""
-        self.commands: list[list[str]] = []
-
-    def resolve_exe(self, name: str, env: dict[str, str] | None = None) -> str:
-        """Returns the name unchanged, as for a tool that is not on PATH."""
-        return name
-
-    def run(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
-        """Records the command and reports success."""
-        self.commands.append(list(cmd))
-        return 0
-
-    def run_drained(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
-        """Records the command and reports success."""
-        return self.run(cmd, cwd, env)
-
-
-class RecordingConsole:
-    """Records every line a service prints, keyed by the helper that printed it."""
-
-    def __init__(self) -> None:
-        """Starts with no line recorded."""
-        self.lines: list[tuple[str, str]] = []
-
-    def __getattr__(self, kind: str):
-        """Returns a printer that records its text under the helper's name."""
-        return lambda text: self.lines.append((kind, text))
-
-    def of(self, kind: str) -> list[str]:
-        """Returns the texts printed through one helper, in order."""
-        return [text for printed, text in self.lines if printed == kind]
 
 
 class FakePackages:
@@ -149,7 +117,13 @@ class Project:
     runner: RecordingRunner
     console: RecordingConsole
     packages: FakePackages
+    workspace: Workspace
     build_dir: Path = field(init=False)
+
+    @property
+    def commands(self) -> list[list[str]]:
+        """Returns the argv of every command the runner was handed, in order."""
+        return [list(command.argv) for command in self.runner.commands]
 
     def __post_init__(self) -> None:
         """Derives the default tree's path, build/default-debug, from the root."""
@@ -185,24 +159,14 @@ class Project:
 
 
 @pytest.fixture
-def project(tmp_path, monkeypatch) -> Project:
-    """Returns a scratch checkout whose project service records argv and starts nothing."""
-    from sushicore.cmake_driver import CMakeDriver
-
-    from sushidsp.config import Config
-    from sushidsp.services import project as project_svc
-
+def project(tmp_path) -> Project:
+    """Returns a scratch checkout whose workspace records argv and starts nothing."""
     (tmp_path / "CMakeLists.txt").write_text("project(x)\n", encoding="utf-8")
-    runner, console = RecordingRunner(), RecordingConsole()
+    console = RecordingConsole()
+    runner = RecordingRunner(console)
     cfg = Config(cxx="clang++", generator="Ninja", ninja_exe="ninja",
                  ccache_exe=str(tmp_path / "no_ccache"))
     packages = FakePackages()
-    monkeypatch.setattr(cfg, "sushi_packages", packages.sushi_packages)
-    monkeypatch.setattr(project_svc, "find_project_root", lambda: tmp_path)
-    monkeypatch.setattr(project_svc, "load_config", lambda: cfg)
-    monkeypatch.setattr(project_svc, "load_build_env", lambda cfg, build_dir: {})
-    monkeypatch.setattr(project_svc, "console", console)
-    monkeypatch.setattr(project_svc, "_RUNNER", runner)
-    monkeypatch.setattr(project_svc, "_APP_RUNNER", runner, raising=False)
-    monkeypatch.setattr(project_svc, "_DRIVER", CMakeDriver(console, runner))
-    return Project(tmp_path, runner, console, packages)
+    cfg.sushi_packages = packages.sushi_packages
+    workspace = Workspace(tmp_path, cfg, console, runner, runner, environment={})
+    return Project(tmp_path, runner, console, packages, workspace)

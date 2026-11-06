@@ -10,8 +10,6 @@ import pytest
 from typer.testing import CliRunner
 
 from sushidsp.cli import app
-from sushidsp.services import project
-from sushicore.testing import TestLabel
 from sushidsp.services.project import Sanitizer, sanitizer_defines
 
 
@@ -28,30 +26,24 @@ def test_the_suite_option_is_gone():
     assert result.exit_code != 0
 
 
-def test_test_command_passes_each_label(monkeypatch):
-    seen = {}
+def test_test_command_passes_each_label(project):
+    project.configure_tree("Debug")
 
-    def fake_test(build_type, sizes, clean=False, filter=None, sanitizer=None, jobs=None, repeat=0,
-                  every_size=False):
-        seen["sizes"] = list(sizes)
-        seen["sanitizer"] = sanitizer
-        return 0
-
-    monkeypatch.setattr(project, "test", fake_test)
     result = CliRunner().invoke(
-        app, ["test", "--label", "small", "-l", "medium", "--sanitize", "address"])
+        app, ["test", "--label", "small", "-l", "medium", "--sanitize", "address"],
+        obj=project.workspace)
+
     assert result.exit_code == 0
-    assert seen == {"sizes": [TestLabel.SMALL, TestLabel.MEDIUM], "sanitizer": Sanitizer.address}
+    ctest = next(command for command in project.commands if "-L" in command)
+    assert ctest[ctest.index("-L") + 1] == "^(small|medium)$"
+    assert any("SUSHIDSP_SANITIZE=address" in part for command in project.commands
+               for part in command)
 
 
-def test_bench_command_passes_its_groups(monkeypatch):
-    seen = {}
+def test_bench_command_passes_its_groups(project):
+    benchmark = project.plant_executable("sushidsp_bench", "bench", build_type="Release")
 
-    def fake_bench(build_type, groups, clean=False):
-        seen["groups"] = list(groups)
-        return 0
+    result = CliRunner().invoke(app, ["bench", "Room", "Jcm800"], obj=project.workspace)
 
-    monkeypatch.setattr(project, "bench", fake_bench)
-    result = CliRunner().invoke(app, ["bench", "Room", "Jcm800"])
     assert result.exit_code == 0
-    assert seen["groups"] == ["Room", "Jcm800"]
+    assert project.commands[-1] == [str(benchmark), "Room", "Jcm800"]

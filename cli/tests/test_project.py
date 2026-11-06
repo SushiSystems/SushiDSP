@@ -38,18 +38,18 @@ def test_build_passes_a_define_to_an_already_configured_tree(project):
     """A -D on a configured tree reconfigures with the variable before compiling."""
     project.configure_tree("Debug")
 
-    assert project_svc.build(None, defines=["FOO=1"]) == 0
+    assert project_svc.build(None, defines=["FOO=1"], workspace=project.workspace) == 0
 
-    configure, compile_ = project.runner.commands
+    configure, compile_ = project.commands
     assert _is_configure(configure) and _is_compile(compile_)
     assert configure[configure.index("FOO=1") - 1] == "-D"
 
 
 def test_configure_hands_cmake_the_sushilog_package(project):
     """SushiLog reaches cmake as its package config folder, and no checkout directory does."""
-    assert project_svc.build(BuildType.release) == 0
+    assert project_svc.build(BuildType.release, workspace=project.workspace) == 0
 
-    configure = project.runner.commands[0]
+    configure = project.commands[0]
     assert f"-DSushiLog_DIR={project.packages.config_dir}" in configure
     assert not [item for item in configure if item.startswith("-DSUSHILOG_DIR")]
 
@@ -58,18 +58,18 @@ def test_build_leaves_a_configured_tree_alone_without_a_define(project):
     """A configured tree of the requested type is compiled without a configure."""
     project.configure_tree("Debug")
 
-    assert project_svc.build(None) == 0
+    assert project_svc.build(None, workspace=project.workspace) == 0
 
-    assert [_is_compile(command) for command in project.runner.commands] == [True]
+    assert [_is_compile(command) for command in project.commands] == [True]
 
 
 def test_build_configures_the_tree_of_another_type_and_leaves_the_first_alone(project):
     """Each type owns a tree: asking for release configures build/default-release."""
     debug = project.configure_tree("Debug")
 
-    assert project_svc.build(BuildType.release) == 0
+    assert project_svc.build(BuildType.release, workspace=project.workspace) == 0
 
-    configure = project.runner.commands[0]
+    configure = project.commands[0]
     assert _is_configure(configure) and "-DCMAKE_BUILD_TYPE=Release" in configure
     assert configure[configure.index("-B") + 1] == str(project.tree_of("Release"))
     assert (debug / "CMakeCache.txt").read_text(encoding="utf-8").count("Debug") == 1
@@ -79,9 +79,10 @@ def test_test_passes_the_filter_as_a_ctest_name_regex(project):
     """--filter reaches ctest as -R, beside the size label and the configuration."""
     project.configure_tree("Debug")
 
-    assert project_svc.test(None, (TestLabel.SMALL,), filter="Jcm800.*") == 0
+    assert project_svc.test(None, (TestLabel.SMALL,), filter="Jcm800.*",
+        workspace=project.workspace) == 0
 
-    ctest = project.runner.commands[-1]
+    ctest = project.commands[-1]
     assert ctest[ctest.index("-R") + 1] == "Jcm800.*"
     assert ctest[ctest.index("-L") + 1] == "^(small)$"
     assert "--output-junit" in ctest
@@ -92,35 +93,36 @@ def test_test_without_a_filter_or_a_size_runs_small_and_medium_and_refuses_an_un
     """ctest gets no -R when --filter is absent and small and medium when no size is named."""
     project.configure_tree("Debug")
 
-    assert project_svc.test(None) == 0
+    assert project_svc.test(None, workspace=project.workspace) == 0
 
-    ctest = project.runner.commands[-1]
+    ctest = project.commands[-1]
     assert "--test-dir" in ctest and "-R" not in ctest
     assert ctest[ctest.index("-L") + 1] == "^(small|medium)$"
 
-    assert project_svc.test(None, (TestLabel.LARGE,)) == 2
-    assert "--build" in project.runner.commands[-1]
+    assert project_svc.test(None, (TestLabel.LARGE,), workspace=project.workspace) == 2
+    assert "--build" in project.commands[-1]
 
 
 def test_test_passes_jobs_to_ctest_as_parallel(project):
     """--jobs reaches ctest as --parallel, and no --parallel is passed without it."""
     project.configure_tree("Debug")
 
-    assert project_svc.test(None, jobs=1) == 0
-    ctest = project.runner.commands[-1]
+    assert project_svc.test(None, jobs=1, workspace=project.workspace) == 0
+    ctest = project.commands[-1]
     assert ctest[ctest.index("--parallel") + 1] == "1"
 
-    assert project_svc.test(None) == 0
-    assert "--parallel" not in project.runner.commands[-1]
+    assert project_svc.test(None, workspace=project.workspace) == 0
+    assert "--parallel" not in project.commands[-1]
 
 
 def test_a_sanitizer_reconfigures_with_its_cache_variable(project):
     """--sanitize reaches cmake as SUSHIDSP_SANITIZE before the tests run."""
     project.configure_tree("Debug")
 
-    assert project_svc.test(None, (TestLabel.SMALL,), sanitizer=Sanitizer.address) == 0
+    assert project_svc.test(None, (TestLabel.SMALL,), sanitizer=Sanitizer.address,
+        workspace=project.workspace) == 0
 
-    configure = project.runner.commands[0]
+    configure = project.commands[0]
     assert _is_configure(configure)
     assert configure[configure.index("SUSHIDSP_SANITIZE=address") - 1] == "-D"
     assert configure[configure.index("-B") + 1] == str(project.tree_of("Debug", "asan"))
@@ -133,16 +135,16 @@ def test_clean_removes_the_build_tree_with_its_read_only_files(project):
     locked.write_text("", encoding="utf-8")
     os.chmod(locked, stat.S_IREAD)
 
-    assert project_svc.clean() == 0
+    assert project_svc.clean(workspace=project.workspace) == 0
 
     assert not project.build_dir.exists()
-    assert project.runner.commands == []
+    assert project.commands == []
 
 
 def test_clean_succeeds_when_there_is_no_build_tree(project):
     """clean on a checkout that was never built reports that and exits zero."""
-    assert project_svc.clean() == 0
-    assert project.console.of("error") == []
+    assert project_svc.clean(workspace=project.workspace) == 0
+    assert project.console.texts("error") == []
 
 
 def _refuse_removal(monkeypatch) -> None:
@@ -159,9 +161,9 @@ def test_clean_reports_a_locked_tree_as_one_error(project, monkeypatch):
     project.configure_tree()
     _refuse_removal(monkeypatch)
 
-    assert project_svc.clean() == 1
+    assert project_svc.clean(workspace=project.workspace) == 1
 
-    (line,) = project.console.of("error")
+    (line,) = project.console.texts("error")
     assert str(project.build_dir) in line
 
 
@@ -170,19 +172,19 @@ def test_build_clean_stops_on_a_locked_tree(project, monkeypatch):
     project.configure_tree()
     _refuse_removal(monkeypatch)
 
-    assert project_svc.build(None, clean=True) == 1
+    assert project_svc.build(None, clean=True, workspace=project.workspace) == 1
 
-    assert project.runner.commands == []
-    assert len(project.console.of("error")) == 1
+    assert project.commands == []
+    assert len(project.console.texts("error")) == 1
 
 
 def test_host_builds_the_requested_type_then_launches_its_binary(project):
     """host builds the tree of the requested type before it starts that tree's host GUI."""
     exe = project.plant_host_gui(build_type="Release")
 
-    assert project_svc.host(BuildType.release, app_args=["--foo"]) == 0
+    assert project_svc.host(BuildType.release, app_args=["--foo"], workspace=project.workspace) == 0
 
-    configure, compile_, launch = project.runner.commands
+    configure, compile_, launch = project.commands
     assert "-DCMAKE_BUILD_TYPE=Release" in configure and _is_compile(compile_)
     assert launch == [str(exe), "--foo"]
 
@@ -192,9 +194,9 @@ def test_host_without_launch_builds_and_starts_nothing(project):
     project.configure_tree("Debug")
     project.plant_host_gui()
 
-    assert project_svc.host(None, launch=False) == 0
+    assert project_svc.host(None, launch=False, workspace=project.workspace) == 0
 
-    assert [_is_compile(command) for command in project.runner.commands] == [True]
+    assert [_is_compile(command) for command in project.commands] == [True]
 
 
 def test_host_ignores_a_binary_from_another_configuration(project):
@@ -202,10 +204,10 @@ def test_host_ignores_a_binary_from_another_configuration(project):
     project.configure_tree("Debug")
     project.plant_host_gui("Release")
 
-    assert project_svc.host(None) == 1
+    assert project_svc.host(None, workspace=project.workspace) == 1
 
-    assert all(_is_compile(command) for command in project.runner.commands)
-    (line,) = project.console.of("error")
+    assert all(_is_compile(command) for command in project.commands)
+    (line,) = project.console.texts("error")
     assert "sushidsp_host_gui" in line
 
 
@@ -215,9 +217,10 @@ def test_run_starts_the_executable_of_that_exact_name_without_building(project):
     project.plant_executable("sushidsp_tests_extra", "tests")
     exe = project.plant_executable("sushidsp_tests", "tests")
 
-    assert project_svc.run("sushidsp_tests", app_args=["--gtest_shuffle"]) == 0
+    assert project_svc.run("sushidsp_tests", app_args=["--gtest_shuffle"],
+        workspace=project.workspace) == 0
 
-    assert project.runner.commands == [[str(exe), "--gtest_shuffle"]]
+    assert project.commands == [[str(exe), "--gtest_shuffle"]]
 
 
 def test_run_falls_back_to_a_substring_of_the_name(project):
@@ -225,9 +228,9 @@ def test_run_falls_back_to_a_substring_of_the_name(project):
     project.configure_tree("Debug")
     exe = project.plant_executable("sushidsp_tests", "tests")
 
-    assert project_svc.run("tests") == 0
+    assert project_svc.run("tests", workspace=project.workspace) == 0
 
-    assert project.runner.commands == [[str(exe)]]
+    assert project.commands == [[str(exe)]]
 
 
 def test_run_reports_a_target_the_tree_does_not_hold(project):
@@ -235,19 +238,19 @@ def test_run_reports_a_target_the_tree_does_not_hold(project):
     project.configure_tree("Debug")
     project.plant_executable("sushidsp_tests", "tests")
 
-    assert project_svc.run("absent") == 1
+    assert project_svc.run("absent", workspace=project.workspace) == 1
 
-    assert project.runner.commands == []
-    (line,) = project.console.of("error")
+    assert project.commands == []
+    (line,) = project.console.texts("error")
     assert "absent" in line
 
 
 def test_run_without_a_build_tree_points_at_sd_build(project):
     """run on a checkout that was never built names the command that builds it."""
-    assert project_svc.run("sushidsp_tests") == 1
+    assert project_svc.run("sushidsp_tests", workspace=project.workspace) == 1
 
-    assert project.runner.commands == []
-    (line,) = project.console.of("error")
+    assert project.commands == []
+    (line,) = project.console.texts("error")
     assert "sd build --type debug" in line
 
 
@@ -256,18 +259,19 @@ def test_run_looks_in_the_tree_of_the_type_it_is_given(project):
     project.plant_executable("sushidsp_tests", "tests")
     exe = project.plant_executable("sushidsp_tests", "tests", build_type="Release")
 
-    assert project_svc.run("sushidsp_tests", build_type=BuildType.release) == 0
+    assert project_svc.run("sushidsp_tests", build_type=BuildType.release,
+        workspace=project.workspace) == 0
 
-    assert project.runner.commands == [[str(exe)]]
+    assert project.commands == [[str(exe)]]
 
 
 def test_bench_builds_and_runs_the_release_tree_by_default(project):
     """A timing is taken on what ships, so bench without --type is a release build."""
     exe = project.plant_executable("sushidsp_bench", "tests", build_type="Release")
 
-    assert project_svc.bench(None) == 0
+    assert project_svc.bench(None, workspace=project.workspace) == 0
 
-    configure, compile_, launch = project.runner.commands
+    configure, compile_, launch = project.commands
     assert "-DCMAKE_BUILD_TYPE=Release" in configure and _is_compile(compile_)
     assert launch == [str(exe)]
 
@@ -277,35 +281,46 @@ def test_run_without_a_target_resolves_the_configured_target_bin(project):
     project.configure_tree("Debug")
     exe = project.plant_host_gui()
 
-    assert project_svc.run() == 0
+    assert project_svc.run(workspace=project.workspace) == 0
 
-    assert project.runner.commands == [[str(exe)]]
+    assert project.commands == [[str(exe)]]
 
 
 def test_check_runs_every_checker_through_the_runner(project):
     """check starts each checker with this interpreter and forwards --report."""
-    assert project_svc.check(report=True) == 0
+    assert project_svc.check(report=True, workspace=project.workspace) == 0
 
-    assert [Path(command[1]).name for command in project.runner.commands] == [
+    assert [Path(command[1]).name for command in project.commands] == [
         "check_docs_layout.py", "check_changelog.py", "check_docs_truth.py",
         "check_source_comments.py", "check_layering.py", "check_test_mirror.py",
         "check_test_sizes.py", "check_logging.py"]
-    for command in project.runner.commands:
+    for command in project.commands:
         assert command[0] == sys.executable and command[2:] == ["--report"]
 
 
-def test_check_sends_a_rule_only_to_the_checkers_whose_table_names_it(project, monkeypatch):
+def _plant_checkers(project, tables: dict[str, set[str]]) -> None:
+    """Writes every checker the service runs under the scratch checkout, each listing its rules."""
+    for checker in project_svc._CHECKERS:
+        path = project.root / checker
+        path.parent.mkdir(parents=True, exist_ok=True)
+        rules = " ".join(sorted(tables.get(checker.name, set())))
+        path.write_text(
+            "import sys\n"
+            "if sys.argv[1:] == ['--list-rules']:\n"
+            f"    print({rules!r})\n",
+            encoding="utf-8")
+
+
+def test_check_sends_a_rule_only_to_the_checkers_whose_table_names_it(project):
     """--rule reaches the checker that has it, and a rule no checker has fails with no run."""
-    tables = {"check_test_mirror.py": {"rule_untested_unit"}}
-    monkeypatch.setattr(project_svc, "_rules_of",
-                        lambda checker: frozenset(tables.get(checker.name, set())))
+    _plant_checkers(project, {"check_test_mirror.py": {"rule_untested_unit"}})
 
-    assert project_svc.check(rule="rule_untested_unit") == 0
-    assert [Path(command[1]).name for command in project.runner.commands] == ["check_test_mirror.py"]
-    assert project.runner.commands[0][2:] == ["--rule", "rule_untested_unit"]
+    assert project_svc.check(rule="rule_untested_unit", workspace=project.workspace) == 0
+    assert [Path(command[1]).name for command in project.commands] == ["check_test_mirror.py"]
+    assert project.commands[0][2:] == ["--rule", "rule_untested_unit"]
 
-    assert project_svc.check(rule="rule_nowhere") == 1
-    assert len(project.runner.commands) == 1
+    assert project_svc.check(rule="rule_nowhere", workspace=project.workspace) == 1
+    assert len(project.commands) == 1
 
 
 def test_rules_of_reads_the_rule_table_of_a_real_checker():
@@ -315,14 +330,24 @@ def test_rules_of_reads_the_rule_table_of_a_real_checker():
     assert "rule_untested_unit" in rules
 
 
-def test_check_outside_a_checkout_fails_like_every_other_command(monkeypatch):
+def test_check_outside_a_checkout_fails_like_every_other_command(tmp_path, monkeypatch):
     """check has no fallback root: outside a checkout it ends with the shared message."""
-    def outside():
-        """Raises what find_project_root raises outside a checkout."""
-        raise SystemExit("Not inside a SushiDSP project")
-
-    monkeypatch.setattr(project_svc, "find_project_root", outside)
+    monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit) as caught:
         project_svc.check()
-    assert caught.value.code == "Not inside a SushiDSP project"
+    assert "SushiDSP" in str(caught.value.code)
+
+
+def test_docs_runs_doxygen_on_the_doxyfile_and_exits_with_its_code(project):
+    """docs hands the Doxyfile of the checkout to the configured doxygen and returns its code."""
+    doxyfile = project.root / ".config" / "doxygen" / "Doxyfile"
+    doxyfile.parent.mkdir(parents=True)
+    doxyfile.write_text("", encoding="utf-8")
+    doxygen = project.root / "doxygen"
+    doxygen.write_text("", encoding="utf-8")
+    project.workspace.config.doxygen_exe = str(doxygen)
+    project.runner.script(6)
+
+    assert project_svc.docs(workspace=project.workspace) == 6
+    assert project.commands == [[str(doxygen), ".config/doxygen/Doxyfile"]]
