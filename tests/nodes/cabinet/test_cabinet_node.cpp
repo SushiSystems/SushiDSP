@@ -177,7 +177,7 @@ TEST(Small_CabinetNode, CabinetNodeDescriptorMatchesTypeId)
     EXPECT_STREQ(node->type_id(), "sushidsp.cabinet");
 }
 
-TEST(Small_CabinetNode, ProcessPerformsNoHeapAllocationWithCabinet)
+TEST(Medium_CabinetNode, ProcessPerformsNoHeapAllocationWithCabinet)
 {
     // 500 blocks wrap the spectrum history at least once. See tests/nodes/cabinet/README.md.
     std::vector<float> impulse_response(200, 0.0f);
@@ -216,7 +216,7 @@ TEST(Small_CabinetNode, ProcessPerformsNoHeapAllocationWithCabinet)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Small_CabinetNode, SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
+TEST(Medium_CabinetNode, SetCabinetSwapsWithoutAllocatingOnTheAudioThread)
 {
     // The trap is armed around the blocks, not set_cabinet(). See tests/nodes/cabinet/README.md.
     SushiDSP::CabinetNode node;

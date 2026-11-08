@@ -40,6 +40,8 @@
 #include "plugin_log_category.hpp"
 #include "startup_rig.hpp"
 
+#include <utility>
+
 namespace SushiDSP::Plugin
 {
     namespace
@@ -177,7 +179,7 @@ namespace SushiDSP::Plugin
         return guarded("plugin.create", static_cast<const clap_plugin_t*>(nullptr),
                        [host]() -> const clap_plugin_t*
                        {
-                           return &(new ClapRigPlugin(host))->plugin_;
+                           return &(new ClapRigPlugin(host, read_startup_rig()))->plugin_;
                        });
     }
 
@@ -186,7 +188,8 @@ namespace SushiDSP::Plugin
         return *static_cast<ClapRigPlugin*>(plugin->plugin_data);
     }
 
-    ClapRigPlugin::ClapRigPlugin(const clap_host_t* host) : host_(host), plugin_{}
+    ClapRigPlugin::ClapRigPlugin(const clap_host_t* host, std::optional<std::string> startup_rig)
+        : host_(host), startup_rig_(std::move(startup_rig)), plugin_{}
     {
         plugin_.desc = &K_DESCRIPTOR;
         plugin_.plugin_data = this;
@@ -213,12 +216,11 @@ namespace SushiDSP::Plugin
         host_latency_ = static_cast<const clap_host_latency_t*>(
             host_->get_extension(host_, CLAP_EXT_LATENCY));
 
-        const std::optional<std::string> startup = read_startup_rig();
-        if (startup.has_value())
+        if (startup_rig_.has_value())
         {
             // A refused startup rig leaves the empty rig in place, which passes audio through.
             std::string error;
-            if (adapter_.load_state(*startup, error) != RigStateStatus::Ok)
+            if (adapter_.load_state(*startup_rig_, error) != RigStateStatus::Ok)
             {
                 SD_LOG_WARN(K_PLUGIN_LOG_CATEGORY,
                             "the startup rig was refused: {}; the plugin starts on the empty rig",

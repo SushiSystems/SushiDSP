@@ -157,7 +157,7 @@ TEST(Small_PanNode, PanNodePortsAreOneInputTwoOutputs)
     EXPECT_EQ(ports.output_channels, 2u);
 }
 
-TEST(Small_PanNode, ProcessPerformsNoHeapAllocation)
+TEST(Medium_PanNode, ProcessPerformsNoHeapAllocation)
 {
     // apply_pan()'s cos/sin recompute runs on stack values only: no heap, lock, syscall, throw.
     SushiDSP::PanNode node;

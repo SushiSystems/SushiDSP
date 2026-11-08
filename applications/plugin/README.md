@@ -28,10 +28,12 @@ reaches the plugin without a change here.
 
 A new instance holds an empty rig, which copies each input channel to its output channel.
 
-`ClapRigPlugin::init()` reads the environment variable `SUSHIDSP_PLUGIN_RIG`. When it names a
-file that opens, the file's text is loaded as the rig. A file that is missing, or that the
-adapter refuses, leaves the empty rig in place. The variable is read once for each instance, in
-`init()`, so that the host's first parameter scan already lists the rig's parameters.
+`ClapRigPlugin::create()` reads the environment variable `SUSHIDSP_PLUGIN_RIG` through
+`read_startup_rig()` and hands the text to the instance it builds; the instance never reads the
+environment, so a test builds one with the rig it names. `init()` loads that text as the rig. A
+file that is missing, or that the adapter refuses, leaves the empty rig in place. The variable is
+read once for each instance, before `init()`, so that the host's first parameter scan already
+lists the rig's parameters.
 
 A host that has a saved session then calls the state extension's load, and the state replaces
 whatever `init()` loaded. The state is the preset text itself, byte for byte what

@@ -147,7 +147,7 @@ TEST(Small_PartitionedConvolution, PartitionedConvolutionResetClearsTail)
     }
 }
 
-TEST(Small_PartitionedConvolution, ProcessPerformsNoHeapAllocation)
+TEST(Medium_PartitionedConvolution, ProcessPerformsNoHeapAllocation)
 {
     const std::uint32_t partition_size = 64;
 

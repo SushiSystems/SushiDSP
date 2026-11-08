@@ -75,7 +75,7 @@ namespace
     }
 } // namespace
 
-TEST(Small_RoomNode, ProcessPerformsNoHeapAllocation)
+TEST(Medium_RoomNode, ProcessPerformsNoHeapAllocation)
 {
     // The first trapped block adopts the published set. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomNode node;
@@ -108,7 +108,7 @@ TEST(Small_RoomNode, ProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(Small_RoomNode, ProcessPerformsNoHeapAllocationAcrossAPublish)
+TEST(Medium_RoomNode, ProcessPerformsNoHeapAllocationAcrossAPublish)
 {
     // Only the audio thread's half of a publish is trapped. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomNode node;
@@ -153,7 +153,7 @@ TEST(Small_RoomNode, ProcessPerformsNoHeapAllocationAcrossAPublish)
     }
 }
 
-TEST(Small_RoomNode, ProcessPerformsNoHeapAllocationAtTheLimits)
+TEST(Medium_RoomNode, ProcessPerformsNoHeapAllocationAtTheLimits)
 {
     // Three cabinets and eight microphones, with placements coming and going between blocks.
     SushiDSP::room::RoomNode node;
@@ -201,7 +201,7 @@ TEST(Small_RoomNode, ProcessPerformsNoHeapAllocationAtTheLimits)
     }
 }
 
-TEST(Small_RoomNode, BinauralProcessPerformsNoHeapAllocation)
+TEST(Medium_RoomNode, BinauralProcessPerformsNoHeapAllocation)
 {
     // The ears render every binaural path inside the trap. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomNode node;
@@ -249,21 +249,22 @@ TEST(Small_RoomNode, BinauralProcessPerformsNoHeapAllocation)
 
 TEST(Small_RoomNodeCounters, AnUnpreparedNodeCountsABlockWithNoRenderSet)
 {
-    SushiDSP::room::RoomNode node;
+    SushiDSP::room::RoomNode::Counters counts;
+    SushiDSP::room::RoomNode node(counts);
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
     float* output_channels[2] = {left.data(), right.data()};
     SushiDSP::ProcessContext context{output_channels, nullptr, 256, 0.0};
-    const std::uint64_t before = SushiDSP::room::RoomNode::counters().no_render_set.value();
 
     node.process(context);
 
-    EXPECT_EQ(SushiDSP::room::RoomNode::counters().no_render_set.value(), before + 1U);
+    EXPECT_EQ(counts.no_render_set.value(), 1U);
 }
 
 TEST(Small_RoomNodeCounters, APreparedNodeWithASetCountsNothing)
 {
-    SushiDSP::room::RoomNode node;
+    SushiDSP::room::RoomNode::Counters counts;
+    SushiDSP::room::RoomNode node(counts);
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
     std::vector<float> input(256);
     fill_room_tone(input);
@@ -272,11 +273,10 @@ TEST(Small_RoomNodeCounters, APreparedNodeWithASetCountsNothing)
     const float* input_channels[1] = {input.data()};
     float* output_channels[2] = {left.data(), right.data()};
     SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
-    const std::uint64_t before = SushiDSP::room::RoomNode::counters().no_render_set.value();
 
     node.process(context);
 
-    EXPECT_EQ(SushiDSP::room::RoomNode::counters().no_render_set.value(), before);
+    EXPECT_EQ(counts.no_render_set.value(), 0U);
 }
 
 TEST(Medium_RoomNodeProfile, ProcessWritesTheRegionZonesUnderTheRoomGroup)

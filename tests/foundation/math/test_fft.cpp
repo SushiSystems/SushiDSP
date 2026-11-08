@@ -150,7 +150,7 @@ TEST(Small_Fft, ForwardThenInverseFftIsIdentity)
     }
 }
 
-TEST(Small_Fft, ForwardAndInverseRoundTripPerformsNoHeapAllocation)
+TEST(Medium_Fft, ForwardAndInverseRoundTripPerformsNoHeapAllocation)
 {
     const std::uint32_t size = 256;
     SushiDSP::Fft fft(size);

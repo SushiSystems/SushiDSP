@@ -38,20 +38,18 @@
 
 namespace
 {
-    /// @brief Declares a payload whose destructor is observable through a live count.
+    /// @brief Declares a payload whose destructor is observable through a live count the test owns.
     /// @see tests/foundation/core/README.md
     class Counted
     {
         public:
-            static std::atomic<int> live_count;
-
-            explicit Counted(int value) : value_(value)
+            Counted(int value, std::atomic<int>& live_count) : value_(value), live_count_(live_count)
             {
-                live_count.fetch_add(1, std::memory_order_relaxed);
+                live_count_.fetch_add(1, std::memory_order_relaxed);
             }
             ~Counted()
             {
-                live_count.fetch_sub(1, std::memory_order_relaxed);
+                live_count_.fetch_sub(1, std::memory_order_relaxed);
             }
 
             Counted(const Counted&) = delete;
@@ -64,9 +62,8 @@ namespace
 
         private:
             int value_;
+            std::atomic<int>& live_count_;
     };
-
-    std::atomic<int> Counted::live_count{0};
 } // namespace
 
 TEST(Medium_RtSwapSlot, RtSwapSlotStartsWithNoActiveObject)
@@ -107,41 +104,41 @@ TEST(Medium_RtSwapSlot, RtSwapSlotReclaimFreesOldObjectAfterAudioThreadMovesOn)
 
 TEST(Medium_RtSwapSlot, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMovedPast)
 {
-    Counted::live_count.store(0, std::memory_order_relaxed);
+    std::atomic<int> live_count{0};
 
     {
         SushiDSP::RtSwapSlot<Counted> slot;
-        slot.publish(std::make_unique<Counted>(1));
+        slot.publish(std::make_unique<Counted>(1, live_count));
         slot.acquire_for_audio_thread();
-        EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 1);
+        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
 
-        slot.publish(std::make_unique<Counted>(2));
+        slot.publish(std::make_unique<Counted>(2, live_count));
 
         // Generation 1 stays alive while the thread is on it. See tests/foundation/core/README.md.
         slot.reclaim();
-        EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 2);
+        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 2);
 
         slot.acquire_for_audio_thread();
         slot.reclaim();
-        EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 1);
+        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
 
         // The active object is never reclaimed, however far the audio thread advances.
         slot.acquire_for_audio_thread();
         slot.reclaim();
-        EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 1);
+        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
     }
 
     // Destroying the slot frees whatever it still owns; nothing may leak.
-    EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(live_count.load(std::memory_order_relaxed), 0);
 }
 
 TEST(Medium_RtSwapSlot, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
 {
-    Counted::live_count.store(0, std::memory_order_relaxed);
+    std::atomic<int> live_count{0};
 
     {
         SushiDSP::RtSwapSlot<Counted> slot;
-        slot.publish(std::make_unique<Counted>(7));
+        slot.publish(std::make_unique<Counted>(7, live_count));
 
         std::atomic<bool> stop{false};
 
@@ -158,7 +155,7 @@ TEST(Medium_RtSwapSlot, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
 
         for (int i = 0; i < 20000; ++i)
         {
-            slot.publish(std::make_unique<Counted>(7));
+            slot.publish(std::make_unique<Counted>(7, live_count));
             slot.reclaim();
         }
 
@@ -167,41 +164,41 @@ TEST(Medium_RtSwapSlot, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
         slot.reclaim();
     }
 
-    EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(live_count.load(std::memory_order_relaxed), 0);
 }
 
 TEST(Medium_RtSwapSlot, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
 {
     // Reading the active object must not move the watermark. See tests/foundation/core/README.md.
-    Counted::live_count.store(0, std::memory_order_relaxed);
+    std::atomic<int> live_count{0};
     {
         SushiDSP::RtSwapSlot<Counted> slot;
 
-        slot.publish(std::make_unique<Counted>(1));
+        slot.publish(std::make_unique<Counted>(1, live_count));
         Counted* const first = slot.acquire_for_audio_thread();
         ASSERT_NE(first, nullptr);
         EXPECT_EQ(first->value(), 1);
 
-        slot.publish(std::make_unique<Counted>(2));
+        slot.publish(std::make_unique<Counted>(2, live_count));
 
         EXPECT_EQ(slot.active_for_publisher(), slot.acquire_for_audio_thread());
 
         // The read alone moves nothing. See tests/foundation/core/README.md.
         EXPECT_EQ(slot.active_for_publisher()->value(), 2);
 
-        slot.publish(std::make_unique<Counted>(3));
+        slot.publish(std::make_unique<Counted>(3, live_count));
         EXPECT_EQ(slot.active_for_publisher()->value(), 3);
 
         // Only object 1 may be freed here. See tests/foundation/core/README.md.
         slot.reclaim();
-        EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 2);
+        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 2);
 
         // Only acquire_for_audio_thread() moves the watermark. See tests/foundation/core/README.md.
         ASSERT_EQ(slot.acquire_for_audio_thread()->value(), 3);
         slot.reclaim();
-        EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 1);
+        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
     }
-    EXPECT_EQ(Counted::live_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(live_count.load(std::memory_order_relaxed), 0);
 }
 
 TEST(Medium_RtSwapSlot, AcquireForAudioThreadPerformsNoHeapAllocation)

@@ -504,7 +504,7 @@ namespace
     }
 } // namespace
 
-TEST(Small_EarlyReflectionRenderer, RenderPerformsNoHeapAllocation)
+TEST(Medium_EarlyReflectionRenderer, RenderPerformsNoHeapAllocation)
 {
     SushiDSP::room::EarlyReflectionRenderer renderer;
     renderer.prepare(8397, 256);

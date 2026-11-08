@@ -42,7 +42,8 @@
 namespace SushiDSP
 {
     /**
-     * @brief Writes what RigGraph::counters() and node_counters() counted as one WARN per interval.
+     * @brief Writes what a graph's and the nodes' counters counted as one WARN per interval; by default
+     * RigGraph::counters() and node_counters().
      *
      * Control thread only. A poll that finds nothing moved writes nothing.
      */
@@ -51,10 +52,18 @@ namespace SushiDSP
         public:
             /// @brief Builds a report that speaks at most once per @p interval.
             explicit CoreCounterReport(std::chrono::seconds interval = std::chrono::seconds(5))
+                : CoreCounterReport(interval, RigGraph::counters(), node_counters())
+            {
+            }
+
+            /// @brief Builds a report of @p graph_counters and @p counters of the nodes, at most once per @p interval.
+            /// @pre Both outlive the report.
+            CoreCounterReport(std::chrono::seconds interval, const RigGraph::Counters& graph_counters,
+                              const NodeCounters& counters_of_nodes)
                 : reporter_(interval)
             {
-                RigGraph::counters().add_to(reporter_);
-                node_counters().add_to(reporter_);
+                graph_counters.add_to(reporter_);
+                counters_of_nodes.add_to(reporter_);
             }
 
             /// @brief Polls at @p now and writes a WARN under the core category if a counter moved.

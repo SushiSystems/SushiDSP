@@ -79,6 +79,11 @@ namespace SushiDSP::room
         schroeder_hz_ = EyringDecay::schroeder_frequency_hz(arrangement_.pair_scene(0, 0));
     }
 
+    RoomNode::RoomNode(Counters& counts) : RoomNode()
+    {
+        counts_ = &counts;
+    }
+
     RoomNode::~RoomNode() = default;
 
     bool RoomNode::same_resonators(const ModalDesign& retiring,
@@ -157,7 +162,7 @@ namespace SushiDSP::room
         BinauralDecoder* const decoder = head_.acquire_decoder();
         if (set == nullptr)
         {
-            counters_.no_render_set.increment();
+            counts_->no_render_set.increment();
             write_silence(context, frames);
             return;
         }

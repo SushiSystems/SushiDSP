@@ -65,7 +65,8 @@ namespace SushiDSP::Plugin
             /// @brief Returns the descriptor the factory lists.
             [[nodiscard]] static const clap_plugin_descriptor_t& descriptor() noexcept;
 
-            /// @brief Builds an instance the host owns until it calls destroy.
+            /// @brief Builds an instance the host owns until it calls destroy, starting on the rig
+            /// read_startup_rig() returns.
             /// @param host The host's interface; outlives the instance.
             /// @return The instance's CLAP handle, or nullptr when it could not be built.
             [[nodiscard]] static const clap_plugin_t* create(const clap_host_t* host) noexcept;
@@ -73,7 +74,10 @@ namespace SushiDSP::Plugin
             /// @brief Returns the instance behind a CLAP handle create() returned.
             [[nodiscard]] static ClapRigPlugin& of(const clap_plugin_t* plugin) noexcept;
 
-            explicit ClapRigPlugin(const clap_host_t* host);
+            /// @brief Builds an instance that loads @p startup_rig in init(), or starts on the empty rig.
+            /// @param host The host's interface; outlives the instance.
+            /// @param startup_rig The preset text to start on, or std::nullopt for the empty rig.
+            ClapRigPlugin(const clap_host_t* host, std::optional<std::string> startup_rig);
 
             ClapRigPlugin(const ClapRigPlugin&) = delete;
             ClapRigPlugin& operator=(const ClapRigPlugin&) = delete;
@@ -81,7 +85,7 @@ namespace SushiDSP::Plugin
             ClapRigPlugin& operator=(ClapRigPlugin&&) = delete;
             ~ClapRigPlugin();
 
-            /// @brief Reads the host's extensions and loads the startup rig when one is named.
+            /// @brief Reads the host's extensions and loads the startup rig the instance was given, if any.
             /// @return True; a startup rig that will not load leaves the empty rig in place.
             bool init();
 
@@ -149,6 +153,9 @@ namespace SushiDSP::Plugin
 
             /// @brief Names the host's latency extension, or nullptr when it has none.
             const clap_host_latency_t* host_latency_ = nullptr;
+
+            /// @brief Holds the preset text init() loads, or nothing for the empty rig.
+            std::optional<std::string> startup_rig_;
 
             /// @brief Holds the callback table the host calls this instance through.
             clap_plugin_t plugin_;

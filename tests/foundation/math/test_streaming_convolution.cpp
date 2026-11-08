@@ -93,7 +93,7 @@ TEST(Small_StreamingConvolution, StreamingConvolutionPartitionSizeFollowsSampleR
     EXPECT_EQ(SushiDSP::StreamingConvolution::partition_size_for(96000.0), 256u);
 }
 
-TEST(Small_StreamingConvolution, ProcessPerformsNoHeapAllocation)
+TEST(Medium_StreamingConvolution, ProcessPerformsNoHeapAllocation)
 {
     const std::uint32_t partition_size = 128;
 

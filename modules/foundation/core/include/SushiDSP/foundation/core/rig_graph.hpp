@@ -95,6 +95,12 @@ namespace SushiDSP
             /// @param max_live_buffers Maximum transient buffers live at once during a block.
             RigGraph(std::uint32_t block_size, std::uint32_t max_live_buffers);
 
+            /// @brief Constructs an empty rig graph that counts into @p counts in place of counters().
+            /// @param block_size Frames per process() call.
+            /// @param max_live_buffers Maximum transient buffers live at once during a block.
+            /// @param counts The counters process() raises; they outlive the graph.
+            RigGraph(std::uint32_t block_size, std::uint32_t max_live_buffers, Counters& counts);
+
             /// @brief Adds a node to the graph, unconnected. Not real-time safe; call only off the processing thread.
             /// @param node The node to take ownership of.
             /// @return A handle identifying the node for connect() calls.
@@ -271,6 +277,9 @@ namespace SushiDSP
 
             /// @brief Holds what every graph's process() counted.
             static Counters counters_;
+
+            /// @brief Holds the counters this graph raises: counters_, or the ones its constructor was given.
+            Counters* counts_ = &counters_;
 
             /// @brief Holds the sample rate compile() was given, for the time of a later piece.
             double sample_rate_ = 0.0;

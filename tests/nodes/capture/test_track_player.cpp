@@ -694,7 +694,7 @@ TEST(Small_TrackPlayer, TrackPlayerRendersOneLaneAloneBeforeItsFader)
     EXPECT_FLOAT_EQ(left[0], 0.0f);
 }
 
-TEST(Small_TrackPlayer, ProcessPerformsNoHeapAllocation)
+TEST(Medium_TrackPlayer, ProcessPerformsNoHeapAllocation)
 {
     // Timelines and converters exist before the trap opens. See tests/nodes/capture/README.md.
     SushiDSP::TrackPlayer player;
@@ -757,7 +757,7 @@ TEST(Small_TrackPlayer, ProcessPerformsNoHeapAllocation)
     }
 }
 
-TEST(Small_TrackPlayer, TimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
+TEST(Medium_TrackPlayer, TimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
 {
     // The trap covers the pick-up of a changed lane. See tests/nodes/capture/README.md.
     SushiDSP::TrackPlayer player;

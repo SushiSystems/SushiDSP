@@ -74,7 +74,7 @@ TEST(Small_LevelProbe, LevelProbeReportsZeroForAnEmptyBlock)
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.0f);
 }
 
-TEST(Small_LevelProbe, ReportPerformsNoHeapAllocation)
+TEST(Medium_LevelProbe, ReportPerformsNoHeapAllocation)
 {
     ui::LevelProbe probe;
     std::vector<float> block(256, 0.25f);

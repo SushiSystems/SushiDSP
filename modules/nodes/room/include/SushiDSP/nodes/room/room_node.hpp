@@ -189,6 +189,10 @@ namespace SushiDSP::room
             /// thread.
             [[nodiscard]] static const Counters& counters() noexcept;
 
+            /// @brief Constructs a room node that counts into @p counts in place of counters().
+            /// @param counts The counters process() raises; they outlive the node.
+            explicit RoomNode(Counters& counts);
+
             /// @brief Copies a set's taps into a bank, as a pair stage does it. Audio thread.
             /// @pre The taps are sorted by arrival, so tap 0 is the direct image whenever count > 0.
             /// @return True when direct was written.
@@ -208,6 +212,9 @@ namespace SushiDSP::room
         private:
             /// @brief Holds what every room node's process() counted.
             static Counters counters_;
+
+            /// @brief Holds the counters this node raises: counters_, or the ones its constructor was given.
+            Counters* counts_ = &counters_;
 
             /// @brief Holds every stage; allocated once, so the node itself stays small.
             struct Stages;

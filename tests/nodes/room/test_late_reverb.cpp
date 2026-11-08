@@ -364,7 +364,7 @@ namespace
     }
 } // namespace
 
-TEST(Small_LateReverb, ProcessPerformsNoHeapAllocation)
+TEST(Medium_LateReverb, ProcessPerformsNoHeapAllocation)
 {
     // The trapped blocks include the 512-frame crossfade. See tests/nodes/room/README.md.
     SushiDSP::room::LateReverb reverb;

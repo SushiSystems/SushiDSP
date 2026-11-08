@@ -109,7 +109,7 @@ TEST(Small_MixerNode, MixerNodeDescriptorDeclaresEightGainParameters)
     EXPECT_FLOAT_EQ(descriptor.parameters[0].default_value, 1.0f);
 }
 
-TEST(Small_MixerNode, ProcessPerformsNoHeapAllocation)
+TEST(Medium_MixerNode, ProcessPerformsNoHeapAllocation)
 {
     SushiDSP::MixerNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});

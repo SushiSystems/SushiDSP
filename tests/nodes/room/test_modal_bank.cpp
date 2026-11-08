@@ -340,7 +340,7 @@ namespace
     }
 } // namespace
 
-TEST(Small_ModalBank, ProcessPerformsNoHeapAllocation)
+TEST(Medium_ModalBank, ProcessPerformsNoHeapAllocation)
 {
     // All K_MAX_MODES resonators run at 68.6 Hz, 1 s decay. See tests/nodes/room/README.md.
     SushiDSP::room::ModalBank bank;

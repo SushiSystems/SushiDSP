@@ -208,7 +208,7 @@ namespace
     }
 } // namespace
 
-TEST(Small_CrossoverPair, ProcessPerformsNoHeapAllocation)
+TEST(Medium_CrossoverPair, ProcessPerformsNoHeapAllocation)
 {
     // set_crossover is arithmetic on the audio thread. See tests/nodes/room/README.md.
     SushiDSP::room::CrossoverPair pair;

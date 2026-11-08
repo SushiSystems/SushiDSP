@@ -220,7 +220,7 @@ namespace
     }
 } // namespace
 
-TEST(Small_BinauralDecoder, ProcessPerformsNoHeapAllocation)
+TEST(Medium_BinauralDecoder, ProcessPerformsNoHeapAllocation)
 {
     // Sixteen blocks cross the 128-frame partition 32 times. See tests/nodes/room/README.md.
     const SushiDSP::room::HrtfSet set = SushiDSP::room::SphericalHeadHrtf::build(48000.0);

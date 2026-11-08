@@ -69,6 +69,12 @@ node of the process, because a host replaces graphs and nodes and a reporter mus
 whose count survives the swap. Each is also recorded in every block as a profiler counter, as 0
 when nothing happened, so a `counter:` check always has samples.
 
+Each process-wide set has a seam that takes another set in its place: `RigGraph` has a constructor
+that takes a `RigGraph::Counters&`, `note_output_clamp`, `note_newton_solves` and
+`flush_dk_statistics` have overloads that take a `NodeCounters&`, and `CoreCounterReport` has a
+constructor that takes both. A host uses the process-wide sets; a test passes its own, so no two
+tests share a count.
+
 `ParameterTable::write` by id writes one `WARN` under `K_CORE_LOG_CATEGORY` for an id no row
 carries. The write by index is the audio thread's and stays silent.
 

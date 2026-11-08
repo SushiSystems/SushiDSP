@@ -43,7 +43,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Small_Dd3Delay, ProcessPerformsNoHeapAllocation)
+TEST(Medium_Dd3Delay, ProcessPerformsNoHeapAllocation)
 {
     // Both MODE changes below move N and pay the std::fill. See tests/nodes/dd3/test_dd3_delay/README.md.
     SushiDSP::Dd3Delay node;

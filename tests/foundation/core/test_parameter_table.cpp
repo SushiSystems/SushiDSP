@@ -125,7 +125,7 @@ TEST(Small_ParameterTableLogging, AKnownIdentifierWritesNothing)
     EXPECT_TRUE(capture.lines().empty());
 }
 
-TEST(Small_ParameterTableLogging, TheIndexWriteStaysSilentAndAllocationFreeOutOfRange)
+TEST(Medium_ParameterTableLogging, TheIndexWriteStaysSilentAndAllocationFreeOutOfRange)
 {
     const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
     Pedal pedal;

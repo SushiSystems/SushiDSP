@@ -57,7 +57,7 @@ TEST(Small_RtCounter, NoteCountsOneEventAndKeepsTheLargestMagnitude)
     EXPECT_EQ(counter.peak(), 2048U);
 }
 
-TEST(Small_RtCounter, IncrementAndNotePerformNoHeapAllocation)
+TEST(Medium_RtCounter, IncrementAndNotePerformNoHeapAllocation)
 {
     SushiDSP::RtCounter counter;
     SushiDSP::test::AllocationTrap trap;

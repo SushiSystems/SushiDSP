@@ -302,7 +302,7 @@ TEST(Small_Metronome, MetronomeCarriesABurstAcrossABlockBoundary)
               largest_step);
 }
 
-TEST(Small_Metronome, ProcessPerformsNoHeapAllocation)
+TEST(Medium_Metronome, ProcessPerformsNoHeapAllocation)
 {
     // The bursts are built before the trap opens. See tests/nodes/capture/README.md.
     SushiDSP::MusicalClock clock;

@@ -421,7 +421,7 @@ TEST(Small_Oversampler, ResetReturnsEveryStageToItsAsConstructedState)
     }
 }
 
-TEST(Small_Oversampler, Oversampler8xRoundTripPerformsNoHeapAllocation)
+TEST(Medium_Oversampler, Oversampler8xRoundTripPerformsNoHeapAllocation)
 {
     const std::uint32_t block_size = 64;
     SushiDSP::Oversampler8x oversampler(block_size);

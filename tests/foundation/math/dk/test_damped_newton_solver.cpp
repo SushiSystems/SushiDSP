@@ -358,7 +358,7 @@ namespace
     };
 } // namespace
 
-TEST(Small_DampedNewtonSolver, DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturns)
+TEST(Medium_DampedNewtonSolver, DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturns)
 {
     SushiDSP::dk::DampedNewtonSolver<1> solver;
     // The default budget of 8 iterations is too tight here. See tests/foundation/math/dk/README.md.
@@ -402,7 +402,7 @@ namespace
     };
 } // namespace
 
-TEST(Small_DampedNewtonSolver, SolvePerformsNoHeapAllocation)
+TEST(Medium_DampedNewtonSolver, SolvePerformsNoHeapAllocation)
 {
     SushiDSP::dk::DampedNewtonSolver<2> solver;
     ExponentialPairSystem system;

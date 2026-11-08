@@ -497,7 +497,7 @@ TEST(Small_Resampler, ResamplerResetReturnsItToSilence)
     }
 }
 
-TEST(Small_Resampler, ProcessPerformsNoHeapAllocation)
+TEST(Medium_Resampler, ProcessPerformsNoHeapAllocation)
 {
     // At the slowest clock interpolate() touches 164 taps. See tests/foundation/math/README.md.
     SushiDSP::Resampler resampler;
@@ -524,7 +524,7 @@ TEST(Small_Resampler, ProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Small_Resampler, RateChangePerformsNoHeapAllocation)
+TEST(Medium_Resampler, RateChangePerformsNoHeapAllocation)
 {
     // One 256-frame block calls set_rates 32 times. See tests/foundation/math/README.md.
     SushiDSP::Resampler resampler;

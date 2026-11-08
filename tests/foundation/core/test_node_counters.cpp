@@ -69,34 +69,32 @@ namespace
 
 TEST(Small_NodeCounters, AClampedBlockRaisesTheOutputCounterByItsSamples)
 {
-    const std::uint64_t before = SushiDSP::node_counters().output_clamped.value();
+    SushiDSP::NodeCounters counters;
 
-    SushiDSP::note_output_clamp(12U);
-    SushiDSP::note_output_clamp(0U);
+    SushiDSP::note_output_clamp(counters, 12U);
+    SushiDSP::note_output_clamp(counters, 0U);
 
-    EXPECT_EQ(SushiDSP::node_counters().output_clamped.value(), before + 12U);
+    EXPECT_EQ(counters.output_clamped.value(), 12U);
 }
 
 TEST(Small_NodeCounters, NewtonSolvesRaiseTheCapAndNonFiniteCounters)
 {
-    const std::uint64_t caps = SushiDSP::node_counters().newton_iteration_cap.value();
-    const std::uint64_t non_finite = SushiDSP::node_counters().newton_non_finite.value();
+    SushiDSP::NodeCounters counters;
 
-    SushiDSP::note_newton_solves(500U, 4U, 1U, 4U);
+    SushiDSP::note_newton_solves(counters, 500U, 4U, 1U, 4U);
 
-    EXPECT_EQ(SushiDSP::node_counters().newton_iteration_cap.value(), caps + 4U);
-    EXPECT_EQ(SushiDSP::node_counters().newton_non_finite.value(), non_finite + 1U);
+    EXPECT_EQ(counters.newton_iteration_cap.value(), 4U);
+    EXPECT_EQ(counters.newton_non_finite.value(), 1U);
 }
 
 TEST(Small_NodeCounters, ADkFlushMovesTheStatisticsIntoTheCountersAndClearsThem)
 {
-    const std::uint64_t converged = SushiDSP::node_counters().dk_non_converged.value();
-    const std::uint64_t fallbacks = SushiDSP::node_counters().dk_nan_fallback.value();
+    SushiDSP::NodeCounters counters;
     FixedStatistics circuit;
 
-    SushiDSP::flush_dk_statistics(circuit);
+    SushiDSP::flush_dk_statistics(counters, circuit);
 
-    EXPECT_EQ(SushiDSP::node_counters().dk_non_converged.value(), converged + 3U);
-    EXPECT_EQ(SushiDSP::node_counters().dk_nan_fallback.value(), fallbacks + 2U);
+    EXPECT_EQ(counters.dk_non_converged.value(), 3U);
+    EXPECT_EQ(counters.dk_nan_fallback.value(), 2U);
     EXPECT_EQ(circuit.resets, 1);
 }

@@ -102,7 +102,7 @@ TEST(Small_AsioSampleConverter, AsioSampleConverterFloatToSampleClampsOutOfRange
     EXPECT_EQ(decoded_value, 2147483647);
 }
 
-TEST(Small_AsioSampleConverter, ConversionPerformsNoHeapAllocation)
+TEST(Medium_AsioSampleConverter, ConversionPerformsNoHeapAllocation)
 {
     std::uint8_t bytes[4] = {0, 0, 0, 0};
 

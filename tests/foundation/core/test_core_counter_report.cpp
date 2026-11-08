@@ -38,10 +38,12 @@
 
 TEST(Small_CoreCounterReport, AClampedSampleIsWrittenAsOneWarnUnderTheCoreCategory)
 {
-    SushiDSP::CoreCounterReport report;
+    SushiDSP::RigGraph::Counters graph_counters;
+    SushiDSP::NodeCounters node_counters;
+    SushiDSP::CoreCounterReport report(std::chrono::seconds(5), graph_counters, node_counters);
     const SushiDSP::RtCounterReporter::Clock::time_point start{};
     report.poll(start);
-    SushiDSP::node_counters().output_clamped.increment(7U);
+    node_counters.output_clamped.increment(7U);
     SushiDSP::LogCapture capture;
 
     report.poll(start + std::chrono::seconds(5));
@@ -55,11 +57,13 @@ TEST(Small_CoreCounterReport, AClampedSampleIsWrittenAsOneWarnUnderTheCoreCatego
 
 TEST(Small_CoreCounterReport, ADroppedParameterChangeOfAGraphIsReported)
 {
-    SushiDSP::CoreCounterReport report;
+    SushiDSP::RigGraph::Counters graph_counters;
+    SushiDSP::NodeCounters node_counters;
+    SushiDSP::CoreCounterReport report(std::chrono::seconds(5), graph_counters, node_counters);
     const SushiDSP::RtCounterReporter::Clock::time_point start{};
     report.poll(start);
     SushiDSP::LogCapture capture;
-    SushiDSP::RigGraph graph(64, 4);
+    SushiDSP::RigGraph graph(64, 4, graph_counters);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
     static_cast<void>(graph.push_parameter_change(SushiDSP::ParameterChange{5, 0, 1.0f}));
     std::vector<float> output(64, 0.0f);
@@ -77,7 +81,9 @@ TEST(Small_CoreCounterReport, ADroppedParameterChangeOfAGraphIsReported)
 
 TEST(Small_CoreCounterReport, NothingMovedWritesNothing)
 {
-    SushiDSP::CoreCounterReport report;
+    SushiDSP::RigGraph::Counters graph_counters;
+    SushiDSP::NodeCounters node_counters;
+    SushiDSP::CoreCounterReport report(std::chrono::seconds(5), graph_counters, node_counters);
     const SushiDSP::RtCounterReporter::Clock::time_point start{};
     report.poll(start);
     SushiDSP::LogCapture capture;

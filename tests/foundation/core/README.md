@@ -37,9 +37,10 @@ checks below fail.
 
 ### `Counted`
 
-`/// @brief Declares a payload whose destructor is observable through a live count.`
+`/// @brief Declares a payload whose destructor is observable through a live count the test owns.`
 
-A payload whose destructor is observable, so the deferred-reclaim contract can be checked by
+A payload whose destructor is observable through a count each test declares, so no test reads
+another's count, and so the deferred-reclaim contract can be checked by
 counting frees rather than by inspecting RtSwapSlot's internals. The canary value is
 dereferenced (not just null-checked) by the concurrent case: a dangling-but-non-null pointer
 sails straight through a null-check, whereas reading a field of freed memory that has since been

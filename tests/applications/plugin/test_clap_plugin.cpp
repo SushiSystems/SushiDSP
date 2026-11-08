@@ -34,6 +34,7 @@
 #include "clap_plugin.hpp"
 
 #include <memory>
+#include <optional>
 
 namespace
 {
@@ -68,7 +69,7 @@ namespace
 TEST(Small_ClapPlugin, ABlockWithNoAudioPortsIsAnErrorAndIsCounted)
 {
     const clap_host_t host = make_host();
-    SushiDSP::Plugin::ClapRigPlugin plugin(&host);
+    SushiDSP::Plugin::ClapRigPlugin plugin(&host, std::nullopt);
     ASSERT_TRUE(plugin.init());
     ASSERT_TRUE(plugin.activate(48000.0, 256));
     clap_process_t block{};
@@ -85,7 +86,7 @@ TEST(Small_ClapPlugin, ABlockWithNoAudioPortsIsAnErrorAndIsCounted)
 TEST(Small_ClapPlugin, OnMainThreadRunsWithNothingToReport)
 {
     const clap_host_t host = make_host();
-    SushiDSP::Plugin::ClapRigPlugin plugin(&host);
+    SushiDSP::Plugin::ClapRigPlugin plugin(&host, std::nullopt);
     ASSERT_TRUE(plugin.init());
 
     plugin.on_main_thread();

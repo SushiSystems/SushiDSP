@@ -82,31 +82,37 @@ namespace SushiDSP
     }
 
     /**
-     * @brief Counts the samples one block's output clamp cut, and records them as a counter.
+     * @brief Counts the samples one block's output clamp cut into @p counters, and records them as a
+     * counter.
      *
      * The record is made every block, as 0 when nothing was cut, so a `counter:` check always has
      * samples.
      */
-    inline void note_output_clamp(std::uint32_t samples) noexcept
+    inline void note_output_clamp(NodeCounters& counters, std::uint32_t samples) noexcept
     {
         if (samples != 0U)
-            node_counters().output_clamped.increment(samples);
+            counters.output_clamped.increment(samples);
         SD_COUNTER(profile::names::K_CLAMPED_COUNTER, profile::names::K_COUNT_UNIT, Add,
                    static_cast<double>(samples));
     }
 
+    /// @brief Counts the samples one block's output clamp cut into node_counters(); see the overload.
+    inline void note_output_clamp(std::uint32_t samples) noexcept
+    {
+        note_output_clamp(node_counters(), samples);
+    }
+
     /**
-     * @brief Counts one block's Newton solves of the tube stages, and records them as counters.
+     * @brief Counts one block's tube-stage Newton solves into @p counters and the record.
+     * @param counters The counters raised.
      * @param solves The solves run.
      * @param iteration_caps The solves that stopped at their iteration cap.
      * @param non_finite_steps The solves that met a non-finite step.
      * @param worst_iterations The most iterations any one solve took.
      */
-    inline void note_newton_solves(std::uint64_t solves, std::uint64_t iteration_caps,
-                                   std::uint64_t non_finite_steps,
-                                   std::uint32_t worst_iterations) noexcept
+    inline void note_newton_solves(NodeCounters& counters, std::uint64_t solves, std::uint64_t iteration_caps,
+                                   std::uint64_t non_finite_steps, std::uint32_t worst_iterations) noexcept
     {
-        NodeCounters& counters = node_counters();
         if (iteration_caps != 0U)
             counters.newton_iteration_cap.increment(iteration_caps);
         if (non_finite_steps != 0U)
@@ -121,21 +127,28 @@ namespace SushiDSP
                    Max, static_cast<double>(worst_iterations));
     }
 
+    /// @brief Counts one block's Newton solves into node_counters(); see the overload.
+    inline void note_newton_solves(std::uint64_t solves, std::uint64_t iteration_caps,
+                                   std::uint64_t non_finite_steps,
+                                   std::uint32_t worst_iterations) noexcept
+    {
+        note_newton_solves(node_counters(), solves, iteration_caps, non_finite_steps, worst_iterations);
+    }
+
     /**
-     * @brief Moves a DK circuit's per-block statistics into the counters and the record, then
-     * clears them.
+     * @brief Moves a DK circuit's per-block statistics into @p counters and the record, then clears them.
+     * @param counters The counters raised.
+     * @param circuit The circuit whose statistics move.
      * @tparam Circuit A type with the statistics of SushiDSP::dk::DkCircuit.
      *
-     * The statistics are plain integers the audio thread writes, so the flush runs on that thread,
-     * at the end of a block.
+     * The statistics are plain integers the audio thread writes, so the flush runs on that thread.
      */
-    template <typename Circuit> void flush_dk_statistics(Circuit& circuit) noexcept
+    template <typename Circuit> void flush_dk_statistics(NodeCounters& counters, Circuit& circuit) noexcept
     {
         const std::uint64_t solves = circuit.total_samples();
         const std::uint64_t non_converged = circuit.non_converged_samples();
         const std::uint64_t nan_fallback = circuit.nan_fallback_samples();
         const std::uint32_t worst = circuit.maximum_iterations_seen();
-        NodeCounters& counters = node_counters();
         if (non_converged != 0U)
             counters.dk_non_converged.increment(non_converged);
         if (nan_fallback != 0U)
@@ -149,5 +162,11 @@ namespace SushiDSP
         SD_COUNTER(profile::names::K_WORST_ITERATIONS_COUNTER, profile::names::K_COUNT_UNIT, Max,
                    static_cast<double>(worst));
         circuit.reset_statistics();
+    }
+
+    /// @brief Moves a DK circuit's per-block statistics into node_counters(); see the overload.
+    template <typename Circuit> void flush_dk_statistics(Circuit& circuit) noexcept
+    {
+        flush_dk_statistics(node_counters(), circuit);
     }
 } // namespace SushiDSP

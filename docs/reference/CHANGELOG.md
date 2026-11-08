@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- 2026-11-09 — core: Gave `RigGraph` a constructor that counts into a `Counters&` it is given (`rig_graph.hpp`).
+- 2026-11-09 — core: Gave the node counter functions overloads that take a `NodeCounters&` (`node_counters.hpp`).
+- 2026-11-09 — core: Gave `CoreCounterReport` a constructor that reports the counter sets it is given (`core_counter_report.hpp`).
+- 2026-11-09 — room: Gave `RoomNode` a constructor that counts into a `Counters&` it is given (`room_node.hpp`).
+- 2026-11-09 — plugin: Made `ClapRigPlugin` take its startup rig in its constructor; `create()` reads `SUSHIDSP_PLUGIN_RIG` (`clap_plugin.hpp`).
+- 2026-11-09 — tests: Moved the 41 cases that arm the allocation trap from small suites to medium ones (`tests/`).
 - 2026-11-09 — core: Added `InMemoryNode` beside `AudioNode` and moved the graph and slot tests onto it (`in_memory_node.hpp`).
 - 2026-11-09 — core: Added `InMemoryAudioDevice` beside `AudioDevice`, with a contract suite (`in_memory_audio_device.hpp`).
 - 2026-11-09 — core: Added `InMemoryCabinetHost` beside `CabinetHost`, with a contract suite (`in_memory_cabinet_host.hpp`).

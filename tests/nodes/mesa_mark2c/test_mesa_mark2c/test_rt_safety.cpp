@@ -42,7 +42,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Small_MesaMark2c, ProcessPerformsNoHeapAllocationWithoutCabinet)
+TEST(Medium_MesaMark2c, ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
     SushiDSP::MesaMark2c node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};

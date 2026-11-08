@@ -274,7 +274,7 @@ TEST(Small_VariRateReader, VariRateReaderHoldsItsRatioAtEveryLegalSpeed)
     }
 }
 
-TEST(Small_VariRateReader, ReadPerformsNoHeapAllocation)
+TEST(Medium_VariRateReader, ReadPerformsNoHeapAllocation)
 {
     // The converters are sized before the trap opens. See tests/nodes/capture/README.md.
     SushiDSP::Take take(2u, 48000.0, 48000u);

@@ -42,7 +42,7 @@
 #include "support/in_memory_nodes.hpp"
 
 
-TEST(Small_RigGraph, ProcessPerformsNoHeapAllocationAcrossManyBlocks)
+TEST(Medium_RigGraph, ProcessPerformsNoHeapAllocationAcrossManyBlocks)
 {
     SushiDSP::RigGraph graph(256, 4);
     graph.add_node(TestSupport::source_node(1.0f));
@@ -73,7 +73,7 @@ TEST(Small_RigGraph, ProcessPerformsNoHeapAllocationAcrossManyBlocks)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Small_RigGraph, StereoProcessPerformsNoHeapAllocation)
+TEST(Medium_RigGraph, StereoProcessPerformsNoHeapAllocation)
 {
     // The graph covers every path of the edge adaptation. See tests/foundation/core/test_rig_graph/README.md.
     SushiDSP::RigGraph graph(256, 4);
@@ -105,16 +105,16 @@ TEST(Small_RigGraph, StereoProcessPerformsNoHeapAllocation)
     EXPECT_EQ(trap.count(), 0);
 }
 
-TEST(Small_RigGraph, ProcessInPiecesPerformsNoHeapAllocation)
+TEST(Medium_RigGraph, ProcessInPiecesPerformsNoHeapAllocation)
 {
-    SushiDSP::RigGraph graph(256, 4);
+    SushiDSP::RigGraph::Counters counts;
+    SushiDSP::RigGraph graph(256, 4, counts);
     graph.add_node(TestSupport::source_node(1.0f));
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> output_buffer(1000, 0.0f);
     float* output_channels[1] = {output_buffer.data()};
 
-    const std::uint64_t before = SushiDSP::RigGraph::counters().oversize_block.value();
     SushiDSP::test::AllocationTrap trap;
     for (int block = 0; block < 500; ++block)
     {
@@ -127,7 +127,7 @@ TEST(Small_RigGraph, ProcessInPiecesPerformsNoHeapAllocation)
     }
 
     EXPECT_EQ(trap.count(), 0);
-    EXPECT_EQ(SushiDSP::RigGraph::counters().oversize_block.value(), before + 500U);
+    EXPECT_EQ(counts.oversize_block.value(), 500U);
 }
 
 namespace

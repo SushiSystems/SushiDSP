@@ -47,6 +47,12 @@ namespace SushiDSP
     {
     }
 
+    RigGraph::RigGraph(std::uint32_t block_size, std::uint32_t max_live_buffers, Counters& counts)
+        : RigGraph(block_size, max_live_buffers)
+    {
+        counts_ = &counts;
+    }
+
     bool RigGraph::channels_adapt(std::uint32_t from_channels, std::uint32_t to_channels)
     {
         if (from_channels == 0 || to_channels == 0)
@@ -451,7 +457,7 @@ namespace SushiDSP
             process_block(context);
             return;
         }
-        counters_.oversize_block.note(context.frames);
+        counts_->oversize_block.note(context.frames);
         process_pieces(context);
     }
 
@@ -615,7 +621,7 @@ namespace SushiDSP
             }
             else
             {
-                counters_.missing_node_change.increment();
+                counts_->missing_node_change.increment();
             }
         }
 

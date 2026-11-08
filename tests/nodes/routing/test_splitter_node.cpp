@@ -62,7 +62,7 @@ TEST(Small_SplitterNode, SplitterNodeHasNoParameters)
     EXPECT_EQ(descriptor.parameter_count, 0u);
 }
 
-TEST(Small_SplitterNode, ProcessPerformsNoHeapAllocation)
+TEST(Medium_SplitterNode, ProcessPerformsNoHeapAllocation)
 {
     SushiDSP::SplitterNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});

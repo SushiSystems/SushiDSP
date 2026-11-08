@@ -87,7 +87,8 @@ area is subtracted from the face before either is weighted.
 ## Counters, zones and the HRTF status
 
 `RoomNode::counters()` counts the blocks answered with silence because no render set was published,
-shared by every room node of the process. `process()` writes the zones `room.tail`, `room.modal` and
+shared by every room node of the process; `RoomNode(Counters&)` counts into the set it is given
+instead, so a test reads its own. `process()` writes the zones `room.tail`, `room.modal` and
 `room.pair` once per source, and `room.ears` and `room.microphones` once per block, under the group
 `Room`; the names are in `sushidsp_profile_names.hpp`.
 
