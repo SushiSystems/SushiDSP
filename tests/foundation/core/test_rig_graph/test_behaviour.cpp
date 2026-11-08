@@ -37,74 +37,17 @@
 #include <SushiDSP/foundation/core/denormal_guard.hpp>
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/core/node_descriptor.hpp>
+#include <SushiDSP/foundation/core/in_memory_node.hpp>
 #include <SushiDSP/foundation/core/rig_graph.hpp>
+
+#include "support/in_memory_nodes.hpp"
 
 namespace
 {
-    class GainNode : public SushiDSP::AudioNode
-    {
-        public:
-            explicit GainNode(float gain) : gain_(gain) {}
-
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = context.inputs[0][frame] * gain_;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-
-        private:
-            float gain_;
-    };
-
-    class ConstantSourceNode : public SushiDSP::AudioNode
-    {
-        public:
-            explicit ConstantSourceNode(float value) : value_(value) {}
-
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = value_;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 1};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-
-        private:
-            float value_;
-    };
+    /// @brief A denormal float: a source at this level writes a denormal unless the graph flushes it.
+    constexpr float K_DENORMAL = 1e-40f;
 } // namespace
+
 
 TEST(Small_RigGraph, PortLayoutIsPlainOldData)
 {
@@ -116,8 +59,8 @@ TEST(Small_RigGraph, PortLayoutIsPlainOldData)
 TEST(Small_RigGraph, RigGraphProcessesTwoNodeChainInOrder)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto source_handle = graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
-    auto gain_handle = graph.add_node(std::make_unique<GainNode>(3.0f));
+    auto source_handle = graph.add_node(TestSupport::source_node(2.0f));
+    auto gain_handle = graph.add_node(TestSupport::gain_node(3.0f));
     graph.connect(source_handle, gain_handle);
 
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -158,14 +101,14 @@ TEST(Small_RigGraph, RigGraphProcessZeroesOutputWhenGraphIsEmpty)
 TEST(Small_RigGraph, RigGraphRecompileAfterAddingNodeProducesUpdatedOutput)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto source_handle = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
-    auto gain_handle_a = graph.add_node(std::make_unique<GainNode>(2.0f));
+    auto source_handle = graph.add_node(TestSupport::source_node(1.0f));
+    auto gain_handle_a = graph.add_node(TestSupport::gain_node(2.0f));
     graph.connect(source_handle, gain_handle_a);
 
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     graph.compile(info);
 
-    auto gain_handle_b = graph.add_node(std::make_unique<GainNode>(5.0f));
+    auto gain_handle_b = graph.add_node(TestSupport::gain_node(5.0f));
     graph.connect(gain_handle_a, gain_handle_b);
     graph.compile(info);
 
@@ -183,7 +126,7 @@ TEST(Small_RigGraph, RigGraphRecompileAfterAddingNodeProducesUpdatedOutput)
 TEST(Small_RigGraph, RigGraphFeedsItsOwnInputToARootNodeWithNoUpstreamEdge)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto gain_handle = graph.add_node(std::make_unique<GainNode>(4.0f));
+    auto gain_handle = graph.add_node(TestSupport::gain_node(4.0f));
     // No connect() call: gain_handle has no upstream edge, so it is a root node.
 
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -207,7 +150,7 @@ TEST(Small_RigGraph, RigGraphRootNodeStillReceivesNullptrWhenGraphHasNoInput)
 {
     // The graph passes nullptr through to a root node. See tests/foundation/core/test_rig_graph/README.md.
     SushiDSP::RigGraph graph(256, 4);
-    auto source_handle = graph.add_node(std::make_unique<ConstantSourceNode>(5.0f));
+    auto source_handle = graph.add_node(TestSupport::source_node(5.0f));
 
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     graph.compile(info);
@@ -227,8 +170,8 @@ TEST(Small_RigGraph, RigGraphRootNodeStillReceivesNullptrWhenGraphHasNoInput)
 TEST(Small_RigGraph, RigGraphNodesReturnsAllLiveHandles)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto a = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
-    auto b = graph.add_node(std::make_unique<GainNode>(2.0f));
+    auto a = graph.add_node(TestSupport::source_node(1.0f));
+    auto b = graph.add_node(TestSupport::gain_node(2.0f));
     graph.connect(a, b);
 
     const std::vector<SushiDSP::NodeHandle> handles = graph.nodes();
@@ -241,8 +184,8 @@ TEST(Small_RigGraph, RigGraphNodesReturnsAllLiveHandles)
 TEST(Small_RigGraph, RigGraphRemoveNodeDropsItFromNodesAndProcess)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(5.0f));
-    auto gain = graph.add_node(std::make_unique<GainNode>(2.0f));
+    auto source = graph.add_node(TestSupport::source_node(5.0f));
+    auto gain = graph.add_node(TestSupport::gain_node(2.0f));
     graph.connect(source, gain);
 
     graph.remove_node(gain);
@@ -266,9 +209,9 @@ TEST(Small_RigGraph, RigGraphRemoveNodeDropsItFromNodesAndProcess)
 TEST(Small_RigGraph, RigGraphDisconnectRemovesOnlyThatEdge)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(4.0f));
-    auto gain_a = graph.add_node(std::make_unique<GainNode>(2.0f));
-    auto gain_b = graph.add_node(std::make_unique<GainNode>(3.0f));
+    auto source = graph.add_node(TestSupport::source_node(4.0f));
+    auto gain_a = graph.add_node(TestSupport::gain_node(2.0f));
+    auto gain_b = graph.add_node(TestSupport::gain_node(3.0f));
     graph.connect(source, gain_a);
     graph.connect(source, gain_b);
     graph.disconnect(source, gain_b);
@@ -288,72 +231,12 @@ TEST(Small_RigGraph, RigGraphDisconnectRemovesOnlyThatEdge)
     EXPECT_FLOAT_EQ(output[0], 8.0f);
 }
 
-namespace
-{
-    class LatencyNode : public SushiDSP::AudioNode
-    {
-        public:
-            explicit LatencyNode(std::uint32_t latency) : latency_(latency) {}
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t i = 0; i < context.frames; ++i)
-                {
-                    context.outputs[0][i] = 0.0f;
-                }
-            }
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-            void reset() override {}
-            std::uint32_t latency_samples() const override
-            {
-                return latency_;
-            }
-
-        private:
-            std::uint32_t latency_;
-    };
-
-    class SumTwoInputsNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    const float a = context.inputs[0] != nullptr ? context.inputs[0][frame] : 0.0f;
-                    const float b = context.inputs[1] != nullptr ? context.inputs[1][frame] : 0.0f;
-                    context.outputs[0][frame] = a + b;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {2, 1};
-            }
-            void reset() override {}
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-} // namespace
 
 TEST(Small_RigGraph, RigGraphLatencyIsSumOfChainedNodeLatencies)
 {
     SushiDSP::RigGraph graph(256, 4);
-    const auto a = graph.add_node(std::make_unique<LatencyNode>(7));
-    const auto b = graph.add_node(std::make_unique<LatencyNode>(128));
+    const auto a = graph.add_node(TestSupport::latency_node(7));
+    const auto b = graph.add_node(TestSupport::latency_node(128));
     graph.connect(a, b);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
     EXPECT_EQ(graph.latency_samples(), 135u);
@@ -362,10 +245,10 @@ TEST(Small_RigGraph, RigGraphLatencyIsSumOfChainedNodeLatencies)
 TEST(Small_RigGraph, RigGraphLatencyIsMaxOverParallelBranchesNotSum)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
-    auto short_branch = graph.add_node(std::make_unique<LatencyNode>(10));
-    auto long_branch = graph.add_node(std::make_unique<LatencyNode>(200));
-    auto sum = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    auto source = graph.add_node(TestSupport::source_node(1.0f));
+    auto short_branch = graph.add_node(TestSupport::latency_node(10));
+    auto long_branch = graph.add_node(TestSupport::latency_node(200));
+    auto sum = graph.add_node(TestSupport::sum_node(2));
     graph.connect(source, short_branch);
     graph.connect(source, long_branch);
     graph.connect(short_branch, sum);
@@ -377,59 +260,27 @@ TEST(Small_RigGraph, RigGraphLatencyIsMaxOverParallelBranchesNotSum)
     EXPECT_EQ(graph.latency_samples(), 200u);
 }
 
-namespace
-{
-    class RecordingNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t i = 0; i < context.frames; ++i)
-                {
-                    context.outputs[0][i] = last_value_;
-                }
-            }
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 1};
-            }
-            float get_parameter(const char*) const override
-            {
-                return last_value_;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-            void set_parameter_for_audio_thread(std::uint16_t index, float value) override
-            {
-                last_index_ = index;
-                last_value_ = value;
-            }
-            void reset() override {}
-            std::uint16_t last_index_ = 0xFFFF;
-            float last_value_ = 0.0f;
-    };
-} // namespace
 
 TEST(Small_RigGraph, RigGraphAppliesQueuedParameterChangesBeforeProcessing)
 {
     SushiDSP::RigGraph graph(64, 4);
-    auto node = std::make_unique<RecordingNode>();
-    RecordingNode* raw = node.get();
-    const auto handle = graph.add_node(std::move(node));
+    SushiDSP::InMemoryNodeRecord record;
+    const auto handle = graph.add_node(TestSupport::recording_source_node(0.0f, record));
     graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
-    EXPECT_TRUE(graph.push_parameter_change(SushiDSP::ParameterChange{handle, 3, 0.25f}));
+    EXPECT_TRUE(graph.push_parameter_change(
+        SushiDSP::ParameterChange{handle, SushiDSP::K_IN_MEMORY_NODE_LEVEL_INDEX, 0.25f}));
     std::vector<float> out(64);
     float* outs[1] = {out.data()};
     SushiDSP::ProcessContext context{outs, nullptr, 64, 0.0};
     graph.process(context);
-    EXPECT_EQ(raw->last_index_, 3);
+    EXPECT_EQ(record.last_audio_parameter_index, SushiDSP::K_IN_MEMORY_NODE_LEVEL_INDEX);
     EXPECT_FLOAT_EQ(out[0], 0.25f);
 }
 
 TEST(Small_RigGraph, RigGraphIgnoresParameterChangeForRemovedNode)
 {
     SushiDSP::RigGraph graph(64, 4);
-    const auto a = graph.add_node(std::make_unique<RecordingNode>());
+    const auto a = graph.add_node(TestSupport::source_node(0.0f));
     graph.remove_node(a);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
     graph.push_parameter_change(SushiDSP::ParameterChange{a, 0, 1.0f});
@@ -440,33 +291,6 @@ TEST(Small_RigGraph, RigGraphIgnoresParameterChangeForRemovedNode)
     EXPECT_FLOAT_EQ(out[0], 0.0f);
 }
 
-namespace
-{
-    class DenormalNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                volatile float state = 1e-40f; // a denormal; volatile defeats constant folding
-                for (std::uint32_t i = 0; i < context.frames; ++i)
-                {
-                    state = state * 0.5f;
-                    context.outputs[0][i] = state;
-                }
-            }
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 1};
-            }
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-            void reset() override {}
-    };
-} // namespace
 
 TEST(Small_RigGraph, RigGraphProcessFlushesDenormalsForItsNodes)
 {
@@ -475,20 +299,20 @@ TEST(Small_RigGraph, RigGraphProcessFlushesDenormalsForItsNodes)
         GTEST_SKIP();
     }
     SushiDSP::RigGraph graph(64, 4);
-    graph.add_node(std::make_unique<DenormalNode>());
+    graph.add_node(TestSupport::source_node(K_DENORMAL));
     graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
     std::vector<float> out(64, 1.0f);
     float* outs[1] = {out.data()};
     SushiDSP::ProcessContext context{outs, nullptr, 64, 0.0};
     graph.process(context);
-    EXPECT_EQ(out[0], 0.0f); // 1e-40 * 0.5 is a non-zero denormal without FTZ/DAZ
+    EXPECT_EQ(out[0], 0.0f); // 0 + 1e-40 is a non-zero denormal without FTZ/DAZ
 }
 
 TEST(Small_RigGraph, RigGraphCompileThrowsOnCycle)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto a = graph.add_node(std::make_unique<GainNode>(1.0f));
-    auto b = graph.add_node(std::make_unique<GainNode>(1.0f));
+    auto a = graph.add_node(TestSupport::gain_node(1.0f));
+    auto b = graph.add_node(TestSupport::gain_node(1.0f));
     graph.connect(a, b);
     graph.connect(b, a);
 
@@ -499,9 +323,9 @@ TEST(Small_RigGraph, RigGraphCompileThrowsOnCycle)
 TEST(Small_RigGraph, RigGraphCompileThrowsOnMultipleSinkNodes)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
-    auto sink_a = graph.add_node(std::make_unique<GainNode>(2.0f));
-    auto sink_b = graph.add_node(std::make_unique<GainNode>(3.0f));
+    auto source = graph.add_node(TestSupport::source_node(1.0f));
+    auto sink_a = graph.add_node(TestSupport::gain_node(2.0f));
+    auto sink_b = graph.add_node(TestSupport::gain_node(3.0f));
     graph.connect(source, sink_a);
     graph.connect(source, sink_b);
 
@@ -513,8 +337,8 @@ TEST(Small_RigGraph, RigGraphCompileThrowsWhenNoSinkNodeExists)
 {
     // Two unconnected nodes form a graph with no sink. See tests/foundation/core/test_rig_graph/README.md.
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
-    graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
+    graph.add_node(TestSupport::source_node(1.0f));
+    graph.add_node(TestSupport::source_node(2.0f));
 
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     EXPECT_THROW(graph.compile(info), std::runtime_error);
@@ -523,8 +347,8 @@ TEST(Small_RigGraph, RigGraphCompileThrowsWhenNoSinkNodeExists)
 TEST(Small_RigGraph, RigGraphCompileAcceptsSingleSinkGraph)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
-    auto sink = graph.add_node(std::make_unique<GainNode>(2.0f));
+    auto source = graph.add_node(TestSupport::source_node(1.0f));
+    auto sink = graph.add_node(TestSupport::gain_node(2.0f));
     graph.connect(source, sink);
 
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
@@ -534,39 +358,39 @@ TEST(Small_RigGraph, RigGraphCompileAcceptsSingleSinkGraph)
 TEST(Small_RigGraph, RigGraphConnectThrowsWhenFanOutExceedsLimit)
 {
     SushiDSP::RigGraph graph(256, SushiDSP::RigGraph::K_MAX_FAN_IN_OUT + 2);
-    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto source = graph.add_node(TestSupport::source_node(1.0f));
     std::vector<SushiDSP::NodeHandle> sinks;
     for (std::size_t i = 0; i < SushiDSP::RigGraph::K_MAX_FAN_IN_OUT; ++i)
     {
-        sinks.push_back(graph.add_node(std::make_unique<GainNode>(1.0f)));
+        sinks.push_back(graph.add_node(TestSupport::gain_node(1.0f)));
         graph.connect(source, sinks.back());
     }
 
-    auto one_too_many = graph.add_node(std::make_unique<GainNode>(1.0f));
+    auto one_too_many = graph.add_node(TestSupport::gain_node(1.0f));
     EXPECT_THROW(graph.connect(source, one_too_many), std::runtime_error);
 }
 
 TEST(Small_RigGraph, RigGraphConnectThrowsWhenFanInExceedsLimit)
 {
     SushiDSP::RigGraph graph(256, SushiDSP::RigGraph::K_MAX_FAN_IN_OUT + 2);
-    auto sink = graph.add_node(std::make_unique<GainNode>(1.0f));
+    auto sink = graph.add_node(TestSupport::gain_node(1.0f));
     std::vector<SushiDSP::NodeHandle> sources;
     for (std::size_t i = 0; i < SushiDSP::RigGraph::K_MAX_FAN_IN_OUT; ++i)
     {
-        sources.push_back(graph.add_node(std::make_unique<ConstantSourceNode>(1.0f)));
+        sources.push_back(graph.add_node(TestSupport::source_node(1.0f)));
         graph.connect(sources.back(), sink);
     }
 
-    auto one_too_many = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    auto one_too_many = graph.add_node(TestSupport::source_node(1.0f));
     EXPECT_THROW(graph.connect(one_too_many, sink), std::runtime_error);
 }
 
 TEST(Small_RigGraph, RigGraphProcessGathersAllUpstreamInputsInConnectOrder)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto source_a = graph.add_node(std::make_unique<ConstantSourceNode>(3.0f));
-    auto source_b = graph.add_node(std::make_unique<ConstantSourceNode>(4.0f));
-    auto sum = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    auto source_a = graph.add_node(TestSupport::source_node(3.0f));
+    auto source_b = graph.add_node(TestSupport::source_node(4.0f));
+    auto sum = graph.add_node(TestSupport::sum_node(2));
     graph.connect(source_a, sum);
     graph.connect(source_b, sum);
 
@@ -587,10 +411,10 @@ TEST(Small_RigGraph, RigGraphProcessGathersAllUpstreamInputsInConnectOrder)
 TEST(Small_RigGraph, RigGraphProcessFansOutOneNodeToTwoDownstreamNodes)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto source = graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
-    auto branch_a = graph.add_node(std::make_unique<GainNode>(3.0f));
-    auto branch_b = graph.add_node(std::make_unique<GainNode>(5.0f));
-    auto sum = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    auto source = graph.add_node(TestSupport::source_node(2.0f));
+    auto branch_a = graph.add_node(TestSupport::gain_node(3.0f));
+    auto branch_b = graph.add_node(TestSupport::gain_node(5.0f));
+    auto sum = graph.add_node(TestSupport::sum_node(2));
     graph.connect(source, branch_a);
     graph.connect(source, branch_b);
     graph.connect(branch_a, sum);
@@ -613,16 +437,16 @@ TEST(Small_RigGraph, RigGraphProcessFansOutOneNodeToTwoDownstreamNodes)
 
 TEST(Small_RigGraph, GainNodeTypeIdDefaultsToEmptyString)
 {
-    GainNode node(1.0f);
-    EXPECT_STREQ(node.type_id(), "");
+    const auto node = TestSupport::gain_node(1.0f);
+    EXPECT_STREQ(node->type_id(), "");
 }
 
 TEST(Small_RigGraph, RigGraphUpstreamOfListsEdgesInConnectOrder)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto a = graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
-    auto b = graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
-    auto sink = graph.add_node(std::make_unique<SumTwoInputsNode>());
+    auto a = graph.add_node(TestSupport::source_node(1.0f));
+    auto b = graph.add_node(TestSupport::source_node(2.0f));
+    auto sink = graph.add_node(TestSupport::sum_node(2));
     graph.connect(a, sink);
     graph.connect(b, sink);
 
@@ -633,60 +457,13 @@ TEST(Small_RigGraph, RigGraphUpstreamOfListsEdgesInConnectOrder)
     EXPECT_TRUE(graph.upstream_of(a).empty());
 }
 
-namespace
-{
-    /// @brief Sums every non-null input of the full gather array, as a mixer reads it.
-    class FullWidthSumNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override
-            {
-
-            }
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    float sum = 0.0f;
-                    for (std::size_t input = 0; input < SushiDSP::RigGraph::K_MAX_FAN_IN_OUT;
-                         ++input)
-                    {
-                        if (context.inputs[input] != nullptr)
-                            sum += context.inputs[input][frame];
-                    }
-                    context.outputs[0][frame] = sum;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-
-            void reset() override
-            {
-
-            }
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-
-            void set_parameter_for_control_thread(const char*, float) override
-            {
-
-            }
-    };
-} // namespace
 
 TEST(Small_RigGraph, RigGraphFeedsRootNodeExternalInputThroughAFullWidthGatherArray)
 {
     // Every node receives a K_MAX_FAN_IN_OUT-sized array. See tests/foundation/core/test_rig_graph/README.md.
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(std::make_unique<FullWidthSumNode>());
+    graph.add_node(TestSupport::sum_node(static_cast<std::uint32_t>(SushiDSP::RigGraph::K_MAX_FAN_IN_OUT)));
     graph.compile(info);
 
     // A realistic host-shaped call: exactly one input channel, as applications/host* all pass.
@@ -722,131 +499,20 @@ TEST(Small_RigGraph, RigGraphStaysEmptyAfterCompilingAGraphWithNoNode)
 TEST(Small_RigGraph, RigGraphIsNotEmptyOnceItHoldsACompiledNode)
 {
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(std::make_unique<GainNode>(1.0f));
+    graph.add_node(TestSupport::gain_node(1.0f));
     const SushiDSP::PrepareInfo info{48000.0, 256, 1};
     graph.compile(info);
 
     EXPECT_FALSE(graph.is_empty());
 }
 
-namespace
-{
-    /// @brief Emits a fixed value on each of its two output channels.
-    class StereoConstantSourceNode : public SushiDSP::AudioNode
-    {
-        public:
-            StereoConstantSourceNode(float left, float right) : left_(left), right_(right) {}
-
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = left_;
-                    context.outputs[1][frame] = right_;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 2};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-
-        private:
-            float left_;
-            float right_;
-    };
-
-    /// @brief Scales both of its input channels and records the first frame of each.
-    class StereoGainNode : public SushiDSP::AudioNode
-    {
-        public:
-            explicit StereoGainNode(float gain) : gain_(gain) {}
-
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t channel = 0; channel < 2; ++channel)
-                {
-                    const float* source =
-                        context.inputs != nullptr ? context.inputs[channel] : nullptr;
-                    seen_[channel] = source != nullptr ? source[0] : 0.0f;
-                    for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                    {
-                        context.outputs[channel][frame] =
-                            (source != nullptr ? source[frame] : 0.0f) * gain_;
-                    }
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {2, 2};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-
-            float seen_[2] = {0.0f, 0.0f};
-
-        private:
-            float gain_;
-    };
-
-    /// @brief Declares three output channels, wider than the two the graph routes per port.
-    class ThreeChannelSourceNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t channel = 0; channel < 3; ++channel)
-                {
-                    for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                    {
-                        context.outputs[channel][frame] = 0.0f;
-                    }
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 3};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-} // namespace
 
 TEST(Small_RigGraph, RigGraphCopiesAMonoProducerIntoAStereoConsumer)
 {
     SushiDSP::RigGraph graph(256, 4);
-    const auto source = graph.add_node(std::make_unique<ConstantSourceNode>(0.5f));
-    auto stereo = std::make_unique<StereoGainNode>(1.0f);
-    StereoGainNode* stereo_raw = stereo.get();
-    const auto stereo_handle = graph.add_node(std::move(stereo));
+    const auto source = graph.add_node(TestSupport::source_node(0.5f));
+    SushiDSP::InMemoryNodeRecord stereo_record;
+    const auto stereo_handle = graph.add_node(TestSupport::stereo_gain_node(1.0f, stereo_record));
     graph.connect(source, stereo_handle);
 
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 2});
@@ -857,8 +523,8 @@ TEST(Small_RigGraph, RigGraphCopiesAMonoProducerIntoAStereoConsumer)
     SushiDSP::ProcessContext context{output_channels, nullptr, 256, 0.0};
     graph.process(context);
 
-    EXPECT_FLOAT_EQ(stereo_raw->seen_[0], 0.5f);
-    EXPECT_FLOAT_EQ(stereo_raw->seen_[1], 0.5f);
+    EXPECT_FLOAT_EQ(stereo_record.first_input_samples[0], 0.5f);
+    EXPECT_FLOAT_EQ(stereo_record.first_input_samples[1], 0.5f);
     EXPECT_FLOAT_EQ(left[0], 0.5f);
     EXPECT_FLOAT_EQ(right[0], 0.5f);
 }
@@ -866,8 +532,8 @@ TEST(Small_RigGraph, RigGraphCopiesAMonoProducerIntoAStereoConsumer)
 TEST(Small_RigGraph, RigGraphSumsAStereoProducerIntoAMonoConsumerAtHalfLevel)
 {
     SushiDSP::RigGraph graph(256, 4);
-    const auto source = graph.add_node(std::make_unique<StereoConstantSourceNode>(1.0f, 0.0f));
-    const auto mono = graph.add_node(std::make_unique<GainNode>(1.0f));
+    const auto source = graph.add_node(TestSupport::stereo_source_node(1.0f, 0.0f));
+    const auto mono = graph.add_node(TestSupport::gain_node(1.0f));
     graph.connect(source, mono);
 
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
@@ -886,8 +552,8 @@ TEST(Small_RigGraph, RigGraphSumsAStereoProducerIntoAMonoConsumerAtHalfLevel)
 TEST(Small_RigGraph, RigGraphCarriesTwoChannelsThroughAStereoChain)
 {
     SushiDSP::RigGraph graph(256, 8);
-    const auto source = graph.add_node(std::make_unique<StereoConstantSourceNode>(1.0f, -1.0f));
-    const auto gain = graph.add_node(std::make_unique<StereoGainNode>(2.0f));
+    const auto source = graph.add_node(TestSupport::stereo_source_node(1.0f, -1.0f));
+    const auto gain = graph.add_node(TestSupport::stereo_gain_node(2.0f));
     graph.connect(source, gain);
 
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 2});
@@ -908,7 +574,7 @@ TEST(Small_RigGraph, RigGraphCarriesTwoChannelsThroughAStereoChain)
 TEST(Small_RigGraph, RigGraphWritesEveryOutputChannelTheHostAsksFor)
 {
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(std::make_unique<ConstantSourceNode>(0.25f));
+    graph.add_node(TestSupport::source_node(0.25f));
 
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 2});
 
@@ -929,8 +595,8 @@ TEST(Small_RigGraph, RigGraphCompileRefusesAPortWiderThanTheRoute)
 {
     // A port's buffers hold K_MAX_CHANNELS channels, so a wider port would write past them.
     SushiDSP::RigGraph graph(256, 8);
-    const auto source = graph.add_node(std::make_unique<ThreeChannelSourceNode>());
-    const auto stereo = graph.add_node(std::make_unique<StereoGainNode>(1.0f));
+    const auto source = graph.add_node(TestSupport::silent_source_node(3));
+    const auto stereo = graph.add_node(TestSupport::stereo_gain_node(1.0f));
     graph.connect(source, stereo);
 
     try
@@ -952,10 +618,10 @@ TEST(Small_RigGraph, RigGraphSumsFanInPerChannel)
     // A surplus edge is summed into the slot per channel. See tests/foundation/core/test_rig_graph/README.md.
     SushiDSP::RigGraph graph(256, 8);
     const auto first_source =
-        graph.add_node(std::make_unique<StereoConstantSourceNode>(1.0f, 2.0f));
+        graph.add_node(TestSupport::stereo_source_node(1.0f, 2.0f));
     const auto second_source =
-        graph.add_node(std::make_unique<StereoConstantSourceNode>(0.25f, 0.5f));
-    const auto sink = graph.add_node(std::make_unique<StereoGainNode>(1.0f));
+        graph.add_node(TestSupport::stereo_source_node(0.25f, 0.5f));
+    const auto sink = graph.add_node(TestSupport::stereo_gain_node(1.0f));
     graph.connect(first_source, sink);
     graph.connect(second_source, sink);
 
@@ -992,7 +658,7 @@ TEST(Small_RigGraph, RigGraphEmptyGraphZeroesEveryOutputChannel)
 TEST(Small_RigGraph, RigGraphCountsAParameterChangeForARemovedNode)
 {
     SushiDSP::RigGraph graph(64, 4);
-    const auto a = graph.add_node(std::make_unique<RecordingNode>());
+    const auto a = graph.add_node(TestSupport::source_node(0.0f));
     graph.remove_node(a);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
     EXPECT_TRUE(graph.push_parameter_change(SushiDSP::ParameterChange{a, 0, 1.0f}));
@@ -1009,8 +675,8 @@ TEST(Small_RigGraph, RigGraphCountsAParameterChangeForARemovedNode)
 TEST(Small_RigGraph, RigGraphProcessesABlockLongerThanItsBlockSizeInPiecesAndCountsIt)
 {
     SushiDSP::RigGraph graph(64, 4);
-    auto source_handle = graph.add_node(std::make_unique<ConstantSourceNode>(2.0f));
-    auto gain_handle = graph.add_node(std::make_unique<GainNode>(3.0f));
+    auto source_handle = graph.add_node(TestSupport::source_node(2.0f));
+    auto gain_handle = graph.add_node(TestSupport::gain_node(3.0f));
     graph.connect(source_handle, gain_handle);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
 
@@ -1031,7 +697,7 @@ TEST(Small_RigGraph, RigGraphProcessesABlockLongerThanItsBlockSizeInPiecesAndCou
 TEST(Small_RigGraph, RigGraphOffsetsTheHostInputForEachPieceOfALongBlock)
 {
     SushiDSP::RigGraph graph(64, 4);
-    graph.add_node(std::make_unique<GainNode>(3.0f));
+    graph.add_node(TestSupport::gain_node(3.0f));
     graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
 
     std::vector<float> input_buffer(150);
@@ -1054,7 +720,7 @@ TEST(Small_RigGraph, RigGraphOffsetsTheHostInputForEachPieceOfALongBlock)
 TEST(Small_RigGraph, RigGraphCountsNothingForABlockInsideItsBlockSize)
 {
     SushiDSP::RigGraph graph(64, 4);
-    graph.add_node(std::make_unique<ConstantSourceNode>(1.0f));
+    graph.add_node(TestSupport::source_node(1.0f));
     graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
 
     std::vector<float> output_buffer(64, 0.0f);

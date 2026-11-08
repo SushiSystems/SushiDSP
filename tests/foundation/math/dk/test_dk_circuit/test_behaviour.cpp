@@ -38,35 +38,27 @@
 
 #include <SushiDSP/foundation/circuits/models/silicon_diode.hpp>
 
+#include <SushiDSP/foundation/math/dk/conductance_port.hpp>
 #include <SushiDSP/foundation/math/dk/dk_circuit.hpp>
 #include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
+#include <SushiDSP/foundation/math/dk/linear_port.hpp>
+#include <SushiDSP/foundation/math/dk/poisonable_port.hpp>
 
 namespace
 {
-    /// A deliberately trivial nonlinear port: a linear conductance. It exercises the glue
-    /// contract and the Newton path without depending on any circuit model, which keeps this
-    /// instantiation gate independent of Tasks 2 to 4.
-    template <std::size_t N> struct LinearPort
-    {
-            double conductance = 1e-6;
-
-            void currents_and_jacobian(const std::array<double, N>& v, std::array<double, N>& i,
-                                       std::array<std::array<double, N>, N>& j) const
-            {
-                for (std::size_t index = 0; index < N; ++index)
-                {
-                    i[index] = conductance * v[index];
-                    j[index][index] = conductance;
-                }
-            }
-    };
-
     /// How far the DK diode-clipper solution may sit from a true root of the scalar oracle's
     /// own equation, in volts: |residual| divided by the residual's slope is a first-order
     /// bound on the distance to the root, which is the quantity that actually matters and is
     /// comparable between the two solvers. Measured worst case over the test's sweep is
     /// 9.7e-13 V, so this leaves an order of magnitude of margin.
     constexpr double K_DIODE_SOLUTION_ERROR_VOLTS = 1e-11;
+
+    /// The conductance of each branch of the linear stand-in port, in siemens: small enough that the
+    /// branch barely loads the shapes it is wired into.
+    constexpr double K_LINEAR_BRANCH_SIEMENS = 1e-6;
+
+    /// The conductance of the poisonable branch while healthy, in siemens.
+    constexpr double K_POISONABLE_BRANCH_SIEMENS = 1e-4;
 
     /// Pi to double precision, spelled out so the tests do not depend on M_PI being visible.
     constexpr double K_PI = 3.14159265358979323846;
@@ -92,25 +84,6 @@ namespace
             {
                 diode.current_and_jacobian(v[0], i[0], j[0][0]);
                 diode.current_and_jacobian(v[1], i[1], j[1][1]);
-            }
-    };
-
-    /// A single-branch linear port that can be told to return a non-finite current for one
-    /// sample, so the NaN fallback path can be exercised without an unstable circuit.
-    struct PoisonablePort
-    {
-            double conductance = 1e-4; ///< Branch conductance while healthy.
-            bool poisoned = false;     ///< When set, the branch current is infinity.
-
-            /// @brief Evaluates the branch current, or infinity while poisoned, and the 1x1 Jacobian.
-            /// @param v Branch voltages.
-            /// @param i Branch currents, overwritten.
-            /// @param j Jacobian, overwritten.
-            void currents_and_jacobian(const std::array<double, 1>& v, std::array<double, 1>& i,
-                                       std::array<std::array<double, 1>, 1>& j) const
-            {
-                i[0] = poisoned ? std::numeric_limits<double>::infinity() : conductance * v[0];
-                j[0][0] = conductance;
             }
     };
 
@@ -182,7 +155,7 @@ TEST(Small_DkCircuit, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
         SushiDSP::dk::DkCircuit<0, 1, 1, 1> circuit;
         ASSERT_TRUE(circuit.prepare(netlist, K_SAMPLE_RATE));
 
-        LinearPort<1> port;
+        SushiDSP::dk::ConductancePort<1> port{K_LINEAR_BRANCH_SIEMENS};
         std::array<double, 1> inputs{0.5};
         std::array<double, 1> outputs{};
         circuit.process_sample(port, inputs, outputs);
@@ -216,7 +189,7 @@ TEST(Small_DkCircuit, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
         SushiDSP::dk::DkCircuit<2, 0, 1, 1> circuit;
         ASSERT_TRUE(circuit.prepare(netlist, K_SAMPLE_RATE));
 
-        LinearPort<0> port;
+        SushiDSP::dk::LinearPort port;
         std::array<double, 1> inputs{1.0};
         std::array<double, 1> outputs{};
         for (int sample = 0; sample < 8; ++sample)
@@ -264,7 +237,7 @@ TEST(Small_DkCircuit, DkCircuitInstantiatesEveryShapeD6cAndD6dNeed)
         circuit.set_potentiometer(volume, 1.0);
         EXPECT_TRUE(circuit.update_matrices_if_dirty());
 
-        LinearPort<2> port;
+        SushiDSP::dk::ConductancePort<2> port{K_LINEAR_BRANCH_SIEMENS};
         std::array<double, 2> inputs{0.1, 250.0};
         std::array<double, 1> outputs{};
         for (int sample = 0; sample < 8; ++sample)
@@ -313,7 +286,7 @@ TEST(Small_DkCircuit, DkCircuitRcLowpassMatchesTheBilinearTransformExactly)
     double reference_input = 0.0;
     double reference_output = 0.0;
 
-    LinearPort<0> nonlinear;
+    SushiDSP::dk::LinearPort nonlinear;
 
     for (int sample = 0; sample < 4096; ++sample)
     {
@@ -352,7 +325,7 @@ TEST(Small_DkCircuit, DkCircuitSeriesRlcResonatesWhereTheAnalogueCircuitDoes)
     ASSERT_TRUE(circuit.prepare(netlist, K_SAMPLE_RATE));
 
     // 4096 samples are 53 time constants of the envelope. See tests/foundation/math/dk/test_dk_circuit/README.md.
-    LinearPort<0> nonlinear;
+    SushiDSP::dk::LinearPort nonlinear;
     std::vector<double> impulse(4096, 0.0);
     for (std::size_t sample = 0; sample < impulse.size(); ++sample)
     {
@@ -449,7 +422,7 @@ TEST(Small_DkCircuit, DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhe
     SushiDSP::dk::DkCircuit<1, 0, 1, 1> circuit;
     ASSERT_TRUE(circuit.prepare(netlist, K_SAMPLE_RATE));
 
-    LinearPort<0> nonlinear;
+    SushiDSP::dk::LinearPort nonlinear;
     std::array<double, 1> inputs{1.0};
     std::array<double, 1> outputs{};
 
@@ -511,8 +484,8 @@ TEST(Small_DkCircuit, DkCircuitNeverEmitsANonFiniteSampleAndCountsItsFallbacks)
     ASSERT_TRUE(build(circuit));
     ASSERT_TRUE(build(reference));
 
-    PoisonablePort port;
-    PoisonablePort healthy;
+    SushiDSP::dk::PoisonablePort port{K_POISONABLE_BRANCH_SIEMENS};
+    SushiDSP::dk::PoisonablePort healthy{K_POISONABLE_BRANCH_SIEMENS};
 
     double deviation_after_the_fallback = 0.0;
     double deviation_at_the_end = 0.0;
@@ -572,7 +545,7 @@ TEST(Small_DkCircuit, DkCircuitClampsItsStateUnderAnAbsurdInputAndStaysFinite)
     ASSERT_TRUE(circuit.prepare(netlist, K_SAMPLE_RATE));
     circuit.set_state_limit(K_STATE_LIMIT);
 
-    LinearPort<0> nonlinear;
+    SushiDSP::dk::LinearPort nonlinear;
     std::array<double, 1> inputs{1e30};
     std::array<double, 1> outputs{};
     for (int sample = 0; sample < 64; ++sample)

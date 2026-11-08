@@ -39,139 +39,13 @@
 #include <SushiDSP/foundation/profile/profile_session.hpp>
 #include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 
-namespace
-{
-    class SumNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
+#include "support/in_memory_nodes.hpp"
 
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = 1.0f;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 1};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-
-    /// @brief A source that names itself, so its zone carries a type id.
-    class NamedSourceNode final : public SumNode
-    {
-        public:
-            const char* type_id() const override
-            {
-                return "test.source";
-            }
-    };
-
-    /// @brief A pass-through that names itself.
-    class NamedPassNode final : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = context.inputs[0][frame];
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-
-            const char* type_id() const override
-            {
-                return "test.pass";
-            }
-    };
-
-    class StereoSourceNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = 1.0f;
-                    context.outputs[1][frame] = -1.0f;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 2};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-
-    class MonoPassThroughNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] =
-                        context.inputs[0] != nullptr ? context.inputs[0][frame] : 0.0f;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-} // namespace
 
 TEST(Small_RigGraph, ProcessPerformsNoHeapAllocationAcrossManyBlocks)
 {
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(std::make_unique<SumNode>());
+    graph.add_node(TestSupport::source_node(1.0f));
 
     SushiDSP::PrepareInfo info{48000.0, 256, 1};
     graph.compile(info);
@@ -203,9 +77,9 @@ TEST(Small_RigGraph, StereoProcessPerformsNoHeapAllocation)
 {
     // The graph covers every path of the edge adaptation. See tests/foundation/core/test_rig_graph/README.md.
     SushiDSP::RigGraph graph(256, 4);
-    const auto first_source = graph.add_node(std::make_unique<StereoSourceNode>());
-    const auto second_source = graph.add_node(std::make_unique<StereoSourceNode>());
-    const auto sink = graph.add_node(std::make_unique<MonoPassThroughNode>());
+    const auto first_source = graph.add_node(TestSupport::stereo_source_node(1.0f, -1.0f));
+    const auto second_source = graph.add_node(TestSupport::stereo_source_node(1.0f, -1.0f));
+    const auto sink = graph.add_node(TestSupport::gain_node(1.0f));
     graph.connect(first_source, sink);
     graph.connect(second_source, sink);
 
@@ -234,7 +108,7 @@ TEST(Small_RigGraph, StereoProcessPerformsNoHeapAllocation)
 TEST(Small_RigGraph, ProcessInPiecesPerformsNoHeapAllocation)
 {
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(std::make_unique<SumNode>());
+    graph.add_node(TestSupport::source_node(1.0f));
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> output_buffer(1000, 0.0f);
@@ -267,9 +141,9 @@ namespace
     /// @brief Builds a source, two pass-through nodes and the graph that joins them.
     void build_three_node_chain(SushiDSP::RigGraph& graph)
     {
-        const auto source = graph.add_node(std::make_unique<NamedSourceNode>());
-        const auto first = graph.add_node(std::make_unique<NamedPassNode>());
-        const auto second = graph.add_node(std::make_unique<NamedPassNode>());
+        const auto source = graph.add_node(TestSupport::named_node({0, 1}, "test.source"));
+        const auto first = graph.add_node(TestSupport::named_node({1, 1}, "test.pass"));
+        const auto second = graph.add_node(TestSupport::named_node({1, 1}, "test.pass"));
         graph.connect(source, first);
         graph.connect(first, second);
         graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});

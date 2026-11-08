@@ -15,18 +15,16 @@ from a previous block).
 `// The graph passes nullptr through to a root node.`
 
 Unchanged behavior: a root node must not crash or misbehave when the graph itself has no live
-input (e.g. the existing SDL2 output-only path), GainNode would dereference a null
-context.inputs, so this uses ConstantSourceNode (0 input ports) to prove the \*graph\* passes
-nullptr through, without the test node needing to read it.
+input (e.g. the existing SDL2 output-only path). The test uses a source node (0 input ports) to
+prove the \*graph\* passes nullptr through, without the test node needing to read it.
 
 ### `RigGraphDisconnectRemovesOnlyThatEdge`
 
 `// A root node is fed context.inputs directly.`
 
 gain_b now has no upstream edge; RigGraph feeds root nodes context.inputs directly, so it must
-NOT receive source's output. Use a real live-input buffer here (rather than nullptr) since
-GainNode unconditionally reads context.inputs[0] and a null root input would crash the fixture,
-not RigGraph.
+NOT receive source's output. A real live-input buffer here (rather than nullptr) gives the root
+gain node a value to scale, so the output tells the two orders apart.
 
 `// 8.0 comes out only if exactly one edge was removed.`
 
@@ -56,7 +54,7 @@ A multi-input node placed as a root node, with no incoming edges, reads all K_MA
 slots of its input array; MixerNode is such a node. Hosts pass a one-element array, so a graph
 that handed a root node the host's raw context.inputs pointer would let it read seven pointers
 past the end. Every node receives a K_MAX_FAN_IN_OUT-sized array whose unused slots are nullptr.
-FullWidthSumNode reads every slot the way a mixer does.
+The sum node declares K_MAX_FAN_IN_OUT inputs and reads every slot the way a mixer does.
 
 `// Unused slots are nullptr, never garbage.`
 

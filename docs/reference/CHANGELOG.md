@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- 2026-11-09 — core: Added `InMemoryNode` beside `AudioNode` and moved the graph and slot tests onto it (`in_memory_node.hpp`).
+- 2026-11-09 — core: Added `InMemoryAudioDevice` beside `AudioDevice`, with a contract suite (`in_memory_audio_device.hpp`).
+- 2026-11-09 — core: Added `InMemoryCabinetHost` beside `CabinetHost`, with a contract suite (`in_memory_cabinet_host.hpp`).
+- 2026-11-09 — math: Added the DK glue port `ConductancePort<N>` and moved the DK tests onto it (`conductance_port.hpp`).
+- 2026-11-09 — math: Added the DK glue port `PoisonablePort` and moved the DK fault test onto it (`poisonable_port.hpp`).
+- 2026-11-09 — tubescreamer: Made `tube_screamer_circuits::LinearPort` an alias of `dk::LinearPort` (`tube_screamer_circuits.hpp`).
 - 2026-11-09 — golden_compare: Made a golden regeneration report a 0 dB residual, so a regenerating run fails its golden tests instead of passing, and added the `GoldenMode` overload of `compare_or_regenerate` (`golden_file.hpp`).
 - 2026-11-06 — cli: Passed the alias table through the `Workspace`, so a test hands in its own table and replaces nothing (`cli/sushidsp/services/project.py`).
 - 2026-11-06 — cli: Gave the project service a `Workspace` and moved the CLI tests onto sushicore's in-memory runner and console; the CLI asks for sushicore 0.10.12.

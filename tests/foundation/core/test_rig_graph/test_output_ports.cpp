@@ -25,6 +25,7 @@
  *  @author Mustafa Garip
  */
 
+#include <array>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -33,265 +34,51 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/foundation/core/in_memory_node.hpp>
 #include <SushiDSP/foundation/core/rig_graph.hpp>
+
+#include "support/in_memory_nodes.hpp"
 
 namespace
 {
-    /// @brief Declares two output ports: port 0 mono, port 1 stereo. Each carries its own level.
-    class TwoPortSourceNode : public SushiDSP::AudioNode
+    /// @brief Returns a source of two output ports: port 0 mono at @p mono, port 1 stereo at @p left and @p right.
+    std::unique_ptr<SushiDSP::InMemoryNode> two_port_source_node(float mono, float left, float right)
     {
-        public:
-            TwoPortSourceNode(float mono, float left, float right)
-                : mono_(mono), left_(left), right_(right)
-            {
-            }
+        SushiDSP::InMemoryNodeSignal signal;
+        signal.levels[0][0] = mono;
+        signal.levels[1] = {left, right};
+        return TestSupport::multi_port_source_node(2, {1, 2}, signal);
+    }
 
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.port_outputs[0][0][frame] = mono_;
-                    context.port_outputs[1][0][frame] = left_;
-                    context.port_outputs[1][1][frame] = right_;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 1};
-            }
-
-            std::uint32_t output_port_count() const override
-            {
-                return 2;
-            }
-
-            std::uint32_t output_port_channels(std::uint32_t port) const override
-            {
-                return port == 0 ? 1u : (port == 1 ? 2u : 0u);
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-
-            void set_parameter_for_control_thread(const char*, float) override {}
-
-        private:
-            float mono_;
-            float left_;
-            float right_;
-    };
-
-    /// @brief A mono sink that records the first sample of its input and writes silence.
-    class RecordingSinkNode : public SushiDSP::AudioNode
+    /// @brief Returns a source of as many mono output ports as RigGraph allows; port p carries the level p + 1.
+    std::unique_ptr<SushiDSP::InMemoryNode> every_port_source_node()
     {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                seen_ = context.inputs != nullptr ? context.inputs[0][0] : -1.0f;
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = 0.0f;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-
-            void set_parameter_for_control_thread(const char*, float) override {}
-
-            float seen_ = 0.0f;
-    };
-
-    /// @brief A single-node graph that records whether RigGraph set port_outputs[0] to outputs.
-    class PortTableProbeNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                table_present_ = context.port_outputs != nullptr;
-                port_zero_is_outputs_ =
-                    context.port_outputs != nullptr && context.port_outputs[0] == context.outputs;
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = 0.0f;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 1};
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-
-            void set_parameter_for_control_thread(const char*, float) override {}
-
-            bool table_present_ = false;
-            bool port_zero_is_outputs_ = false;
-    };
-
-    /// @brief Declares more output ports than RigGraph allows.
-    class TooManyPortsNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = 0.0f;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 1};
-            }
-
-            std::uint32_t output_port_count() const override
-            {
-                return SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS + 1;
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-
-    /// @brief Declares as many mono output ports as RigGraph allows; port p carries the level p + 1.
-    class EveryPortSourceNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t port = 0; port < SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS; ++port)
-                {
-                    for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                    {
-                        context.port_outputs[port][0][frame] = static_cast<float>(port + 1);
-                    }
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 1};
-            }
-
-            std::uint32_t output_port_count() const override
-            {
-                return SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS;
-            }
-
-            std::uint32_t output_port_channels(std::uint32_t port) const override
-            {
-                return port < SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS ? 1u : 0u;
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-
-    /// @brief Declares a second port but no width for it, which RigGraph refuses.
-    class WidthlessPortNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = 0.0f;
-                }
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {0, 1};
-            }
-
-            std::uint32_t output_port_count() const override
-            {
-                return 2;
-            }
-
-            void reset() override {}
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
+        SushiDSP::InMemoryNodeSignal signal;
+        std::array<std::uint32_t, SushiDSP::K_IN_MEMORY_NODE_MAX_PORTS> widths{};
+        for (std::uint32_t port = 0; port < SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS; ++port)
+        {
+            widths[port] = 1;
+            signal.levels[port][0] = static_cast<float>(port + 1);
+        }
+        return TestSupport::multi_port_source_node(SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS, widths, signal);
+    }
 } // namespace
+
 
 TEST(Small_RigGraph, AudioNodeDefaultsToOneOutputPortOfItsMainWidth)
 {
-    class MonoNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-            void process(SushiDSP::ProcessContext&) override {}
-            SushiDSP::PortLayout ports() const override { return {1, 2}; }
-            void reset() override {}
-            float get_parameter(const char*) const override { return 0.0f; }
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-
-    MonoNode node;
-    EXPECT_EQ(node.output_port_count(), 1u);
-    EXPECT_EQ(node.output_port_channels(0), 2u);
-    EXPECT_EQ(node.output_port_channels(1), 0u);
+    const auto node = TestSupport::affine_node({1, 2}, 1.0f, 0.0f);
+    EXPECT_EQ(node->output_port_count(), 1u);
+    EXPECT_EQ(node->output_port_channels(0), 2u);
+    EXPECT_EQ(node->output_port_channels(1), 0u);
 }
 
 TEST(Small_RigGraph, RigGraphRoutesAnEdgeFromItsMainOutputPort)
 {
     SushiDSP::RigGraph graph(256, 4);
-    const auto source = graph.add_node(std::make_unique<TwoPortSourceNode>(0.25f, 0.75f, 0.5f));
-    auto sink = std::make_unique<RecordingSinkNode>();
-    RecordingSinkNode* sink_raw = sink.get();
-    const auto sink_handle = graph.add_node(std::move(sink));
+    const auto source = graph.add_node(two_port_source_node(0.25f, 0.75f, 0.5f));
+    SushiDSP::InMemoryNodeRecord sink_record;
+    const auto sink_handle = graph.add_node(TestSupport::recording_sink_node(sink_record));
     graph.connect(source, sink_handle, 0);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
@@ -300,17 +87,16 @@ TEST(Small_RigGraph, RigGraphRoutesAnEdgeFromItsMainOutputPort)
     SushiDSP::ProcessContext context{outputs, nullptr, 256, 0.0};
     graph.process(context);
 
-    EXPECT_FLOAT_EQ(sink_raw->seen_, 0.25f);
+    EXPECT_FLOAT_EQ(sink_record.first_input_samples[0], 0.25f);
 }
 
 TEST(Small_RigGraph, RigGraphRoutesAnEdgeFromItsOwnPortAndAdaptsItsWidth)
 {
     // Port 1 is stereo (0.75, 0.5); a mono sink sums it to half, (0.75 + 0.5) / 2 = 0.625.
     SushiDSP::RigGraph graph(256, 4);
-    const auto source = graph.add_node(std::make_unique<TwoPortSourceNode>(0.25f, 0.75f, 0.5f));
-    auto sink = std::make_unique<RecordingSinkNode>();
-    RecordingSinkNode* sink_raw = sink.get();
-    const auto sink_handle = graph.add_node(std::move(sink));
+    const auto source = graph.add_node(two_port_source_node(0.25f, 0.75f, 0.5f));
+    SushiDSP::InMemoryNodeRecord sink_record;
+    const auto sink_handle = graph.add_node(TestSupport::recording_sink_node(sink_record));
     graph.connect(source, sink_handle, 1);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
@@ -319,15 +105,14 @@ TEST(Small_RigGraph, RigGraphRoutesAnEdgeFromItsOwnPortAndAdaptsItsWidth)
     SushiDSP::ProcessContext context{outputs, nullptr, 256, 0.0};
     graph.process(context);
 
-    EXPECT_FLOAT_EQ(sink_raw->seen_, 0.625f);
+    EXPECT_FLOAT_EQ(sink_record.first_input_samples[0], 0.625f);
 }
 
 TEST(Small_RigGraph, RigGraphSetsPortZeroOfTheTableToTheOutputsPointer)
 {
     SushiDSP::RigGraph graph(256, 4);
-    auto probe = std::make_unique<PortTableProbeNode>();
-    PortTableProbeNode* probe_raw = probe.get();
-    graph.add_node(std::move(probe));
+    SushiDSP::InMemoryNodeRecord probe_record;
+    graph.add_node(TestSupport::recording_source_node(0.0f, probe_record));
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> out(256, 0.0f);
@@ -335,15 +120,15 @@ TEST(Small_RigGraph, RigGraphSetsPortZeroOfTheTableToTheOutputsPointer)
     SushiDSP::ProcessContext context{outputs, nullptr, 256, 0.0};
     graph.process(context);
 
-    EXPECT_TRUE(probe_raw->table_present_);
-    EXPECT_TRUE(probe_raw->port_zero_is_outputs_);
+    EXPECT_TRUE(probe_record.port_table_present);
+    EXPECT_TRUE(probe_record.port_zero_is_outputs);
 }
 
 TEST(Small_RigGraph, RigGraphCompileRefusesAnEdgeFromAnUndeclaredPort)
 {
     SushiDSP::RigGraph graph(256, 4);
-    const auto source = graph.add_node(std::make_unique<TwoPortSourceNode>(0.0f, 0.0f, 0.0f));
-    const auto sink = graph.add_node(std::make_unique<RecordingSinkNode>());
+    const auto source = graph.add_node(two_port_source_node(0.0f, 0.0f, 0.0f));
+    const auto sink = graph.add_node(TestSupport::gain_node(0.0f));
     graph.connect(source, sink, 2);
 
     try
@@ -362,7 +147,7 @@ TEST(Small_RigGraph, RigGraphCompileRefusesAnEdgeFromAnUndeclaredPort)
 TEST(Small_RigGraph, RigGraphCompileRefusesMoreOutputPortsThanTheLimit)
 {
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(std::make_unique<TooManyPortsNode>());
+    graph.add_node(TestSupport::undeclared_width_source_node(SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS + 1));
 
     EXPECT_THROW(graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1}), std::runtime_error);
 }
@@ -370,7 +155,7 @@ TEST(Small_RigGraph, RigGraphCompileRefusesMoreOutputPortsThanTheLimit)
 TEST(Small_RigGraph, RigGraphCompileRefusesAPortWithNoChannelWidth)
 {
     SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(std::make_unique<WidthlessPortNode>());
+    graph.add_node(TestSupport::undeclared_width_source_node(2));
 
     EXPECT_THROW(graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1}), std::runtime_error);
 }
@@ -378,8 +163,8 @@ TEST(Small_RigGraph, RigGraphCompileRefusesAPortWithNoChannelWidth)
 TEST(Small_RigGraph, RigGraphDisconnectRemovesEveryPortOfThePair)
 {
     SushiDSP::RigGraph graph(256, 4);
-    const auto source = graph.add_node(std::make_unique<TwoPortSourceNode>(0.0f, 0.0f, 0.0f));
-    const auto sink = graph.add_node(std::make_unique<RecordingSinkNode>());
+    const auto source = graph.add_node(two_port_source_node(0.0f, 0.0f, 0.0f));
+    const auto sink = graph.add_node(TestSupport::gain_node(0.0f));
     graph.connect(source, sink, 0);
     graph.connect(source, sink, 1);
     ASSERT_EQ(graph.upstream_of(sink).size(), 2u);
@@ -392,28 +177,10 @@ TEST(Small_RigGraph, RigGraphDisconnectRemovesEveryPortOfThePair)
 TEST(Small_RigGraph, RigGraphRootReadsTheHostChannelItIsBoundTo)
 {
     // The root copies its live input to its output; the sink then records what the root passed on.
-    class PassThroughNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                for (std::uint32_t frame = 0; frame < context.frames; ++frame)
-                {
-                    context.outputs[0][frame] = context.inputs[0][frame];
-                }
-            }
-            SushiDSP::PortLayout ports() const override { return {1, 1}; }
-            void reset() override {}
-            float get_parameter(const char*) const override { return 0.0f; }
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-
     SushiDSP::RigGraph graph(256, 4);
-    const auto root = graph.add_node(std::make_unique<PassThroughNode>());
-    auto sink = std::make_unique<RecordingSinkNode>();
-    RecordingSinkNode* sink_raw = sink.get();
-    const auto sink_handle = graph.add_node(std::move(sink));
+    const auto root = graph.add_node(TestSupport::gain_node(1.0f));
+    SushiDSP::InMemoryNodeRecord sink_record;
+    const auto sink_handle = graph.add_node(TestSupport::recording_sink_node(sink_record));
     graph.connect(root, sink_handle);
     graph.bind_input(root, 1);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
@@ -425,13 +192,13 @@ TEST(Small_RigGraph, RigGraphRootReadsTheHostChannelItIsBoundTo)
     SushiDSP::ProcessContext context{outputs, host_inputs, 256, 0.0};
     graph.process(context);
 
-    EXPECT_FLOAT_EQ(sink_raw->seen_, 0.9f);
+    EXPECT_FLOAT_EQ(sink_record.first_input_samples[0], 0.9f);
 }
 
 TEST(Small_RigGraph, RigGraphCompileRefusesABindingBeyondTheHostChannels)
 {
     SushiDSP::RigGraph graph(256, 4);
-    const auto root = graph.add_node(std::make_unique<RecordingSinkNode>());
+    const auto root = graph.add_node(TestSupport::gain_node(0.0f));
     graph.bind_input(root, SushiDSP::RigGraph::K_MAX_CHANNELS);
 
     EXPECT_THROW(graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1}), std::runtime_error);
@@ -442,16 +209,14 @@ TEST(Small_RigGraph, RigGraphRoutesEveryPortOfANodeThatDeclaresTheLimit)
     // The recorders join in two steps, because one node takes at most K_MAX_FAN_IN_OUT inputs.
     const std::uint32_t ports = SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS;
     SushiDSP::RigGraph graph(256, 64);
-    const auto source = graph.add_node(std::make_unique<EveryPortSourceNode>());
-    const auto first_join = graph.add_node(std::make_unique<RecordingSinkNode>());
-    const auto last_join = graph.add_node(std::make_unique<RecordingSinkNode>());
+    const auto source = graph.add_node(every_port_source_node());
+    const auto first_join = graph.add_node(TestSupport::gain_node(0.0f));
+    const auto last_join = graph.add_node(TestSupport::gain_node(0.0f));
 
-    std::vector<RecordingSinkNode*> recorders;
+    std::vector<SushiDSP::InMemoryNodeRecord> recorders(ports);
     for (std::uint32_t port = 0; port < ports; ++port)
     {
-        auto recorder = std::make_unique<RecordingSinkNode>();
-        recorders.push_back(recorder.get());
-        const auto handle = graph.add_node(std::move(recorder));
+        const auto handle = graph.add_node(TestSupport::recording_sink_node(recorders[port]));
         graph.connect(source, handle, port);
         graph.connect(handle, port + 1 < ports ? first_join : last_join);
     }
@@ -465,20 +230,20 @@ TEST(Small_RigGraph, RigGraphRoutesEveryPortOfANodeThatDeclaresTheLimit)
 
     for (std::uint32_t port = 0; port < ports; ++port)
     {
-        EXPECT_FLOAT_EQ(recorders[port]->seen_, static_cast<float>(port + 1)) << "port " << port;
+        EXPECT_FLOAT_EQ(recorders[port].first_input_samples[0], static_cast<float>(port + 1)) << "port " << port;
     }
 }
 
 TEST(Small_RigGraph, RigGraphCountsFanOutPerOutputPort)
 {
     SushiDSP::RigGraph graph(256, 64);
-    const auto source = graph.add_node(std::make_unique<TwoPortSourceNode>(0.0f, 0.0f, 0.0f));
+    const auto source = graph.add_node(two_port_source_node(0.0f, 0.0f, 0.0f));
     for (std::size_t edge = 0; edge < SushiDSP::RigGraph::K_MAX_FAN_IN_OUT; ++edge)
     {
-        graph.connect(source, graph.add_node(std::make_unique<RecordingSinkNode>()), 0);
+        graph.connect(source, graph.add_node(TestSupport::gain_node(0.0f)), 0);
     }
 
-    const auto one_more = graph.add_node(std::make_unique<RecordingSinkNode>());
+    const auto one_more = graph.add_node(TestSupport::gain_node(0.0f));
     EXPECT_THROW(graph.connect(source, one_more, 0), std::runtime_error);
     EXPECT_NO_THROW(graph.connect(source, one_more, 1));
 }

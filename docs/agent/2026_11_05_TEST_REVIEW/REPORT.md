@@ -70,6 +70,7 @@ The owner delegated these decisions on 2026-11-05. Each ruling below is final fo
 4. The -110, -40 and -20 dB thresholds are characterized, each with a backlog entry, until a derivation is written beside it.
 5. A named constant holding a hand-typed epsilon is not a typed tolerance. A tolerance names its kind (absolute, relative or ulps) and its derivation, so every such constant is redefined through `tolerance.hpp`, keeping its name. The rewrites stay rewrites, and they are mechanical.
 6. A regeneration under `SUSHIDSP_REGENERATE_GOLDEN` returns the 0 dB residual a missing file returns, and logs a `WARN`, so every golden test of that run fails and a second run confirms the pins. `compare_or_regenerate` gains an overload that takes a `GoldenMode`, and `golden_mode_from_environment()` is the one reader of the variable, so a test can name the mode without the environment (T2, 2026-11-09).
+7. The in-memory adapters are public headers of the module that owns each port: `InMemoryNode`, `InMemoryAudioDevice` and `InMemoryCabinetHost` in `core`, `ConductancePort<N>` and `PoisonablePort` in `math/dk`. `InMemoryNode` is one configurable type rather than one per stand-in, since every stand-in differed only in shape and level; an unset shape field answers with `AudioNode`'s default, so the default tests can use it. The builders the graph tests share are in `tests/support/in_memory_nodes.hpp`. `tube_screamer_circuits::LinearPort` becomes an alias of `dk::LinearPort`, the one copy (T3, 2026-11-09).
 
 ## Dispatches
 

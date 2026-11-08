@@ -16,11 +16,13 @@ Filters, FFT, convolution, resampling, oversampling and the scalar and nodal sol
 - `modules/foundation/math/include/SushiDSP/foundation/math/smoothed_parameter.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/streaming_convolution.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/wdf.hpp`
+- `modules/foundation/math/include/SushiDSP/foundation/math/dk/conductance_port.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/damped_newton_solver.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/dense_lu.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/dk_circuit.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/dk_netlist.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/linear_port.hpp`
+- `modules/foundation/math/include/SushiDSP/foundation/math/dk/poisonable_port.hpp`
 
 ## Depends on
 
@@ -183,6 +185,14 @@ behind.
 After the inversion, Pleft is still `inverse_[0..nodes)[0..nodes)` and Pright still
 `inverse_[0..nodes)[nodes..nodes+I)`. The nullor rows and columns sit after the sources and their
 right-hand side is zero, so they shape the inverse without ever being read out of it.
+
+### The DK glue ports
+
+`DkCircuit::process_sample` steps a glue that answers `currents_and_jacobian`. Three ship here,
+so no test writes its own: `LinearPort` for a block with no nonlinear branch,
+`ConductancePort<N>` whose every branch is the linear law i = g v, and `PoisonablePort`, one
+linear branch that returns an infinite current while `poisoned` is set, which reaches a block's
+non-finite fallback without an unstable circuit.
 
 ### `modules/foundation/math/include/SushiDSP/foundation/math/dk/dk_netlist.hpp`
 

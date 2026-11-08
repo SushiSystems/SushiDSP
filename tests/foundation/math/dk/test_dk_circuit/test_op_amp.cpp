@@ -35,23 +35,10 @@
 
 #include <SushiDSP/foundation/math/dk/dk_circuit.hpp>
 #include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
+#include <SushiDSP/foundation/math/dk/linear_port.hpp>
 
 namespace
 {
-    /// The empty nonlinear port every purely linear DK block is stepped with. It spells out the
-    /// glue contract at N = 0 to match the ports in the other DK tests; DkCircuit never calls
-    /// either method at that width.
-    struct NoNonlinearity
-    {
-            /// @brief Evaluates no branch currents.
-            void currents(const std::array<double, 0>&, std::array<double, 0>&) const {}
-
-            /// @brief Evaluates no Jacobian entries.
-            void jacobian(const std::array<double, 0>&, std::array<std::array<double, 0>, 0>&) const
-            {
-            }
-    };
-
     /// Pi to double precision, spelled out so the tests do not depend on M_PI being visible.
     constexpr double K_PI = 3.14159265358979323846;
 } // namespace
@@ -70,7 +57,7 @@ TEST(Small_DkCircuit, DkCircuitIdealOpAmpInvertingAmplifierHasGainMinusRfOverRin
     SushiDSP::dk::DkCircuit<0, 0, 1, 1> circuit;
     ASSERT_TRUE(circuit.prepare(netlist, 48000.0));
 
-    NoNonlinearity nonlinear;
+    SushiDSP::dk::LinearPort nonlinear;
     std::array<double, 1> outputs{};
     for (const double input : {-3.0, -0.25, 0.0, 0.25, 3.0})
     {
@@ -94,7 +81,7 @@ TEST(Small_DkCircuit, DkCircuitIdealOpAmpNonInvertingAmplifierHasGainOnePlusRfOv
     SushiDSP::dk::DkCircuit<0, 0, 1, 1> circuit;
     ASSERT_TRUE(circuit.prepare(netlist, 48000.0));
 
-    NoNonlinearity nonlinear;
+    SushiDSP::dk::LinearPort nonlinear;
     std::array<double, 1> outputs{};
     circuit.process_sample(nonlinear, {1.0}, outputs);
     EXPECT_NEAR(outputs[0], 11.851063829787234, 1e-11);
@@ -113,7 +100,7 @@ TEST(Small_DkCircuit, DkCircuitIdealOpAmpVoltageFollowerPassesItsInputThrough)
     SushiDSP::dk::DkCircuit<0, 0, 1, 1> circuit;
     ASSERT_TRUE(circuit.prepare(netlist, 48000.0));
 
-    NoNonlinearity nonlinear;
+    SushiDSP::dk::LinearPort nonlinear;
     std::array<double, 1> outputs{};
     circuit.process_sample(nonlinear, {0.7}, outputs);
     EXPECT_NEAR(outputs[0], 0.7, 1e-12);
@@ -144,7 +131,7 @@ TEST(Small_DkCircuit, DkCircuitIdealOpAmpLowPassMatchesTheBilinearTransformExact
     double reference_input = 0.0;
     double reference_output = 0.0;
 
-    NoNonlinearity nonlinear;
+    SushiDSP::dk::LinearPort nonlinear;
     for (int sample = 0; sample < 4096; ++sample)
     {
         const double input = std::sin(2.0 * K_PI * 137.0 * sample / K_SAMPLE_RATE) +

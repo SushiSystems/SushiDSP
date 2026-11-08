@@ -113,6 +113,8 @@ add_executable(sushidsp_tests
     foundation/math/dk/test_dense_lu.cpp
     foundation/math/dk/test_dk_netlist.cpp
     foundation/math/dk/test_linear_port.cpp
+    foundation/math/dk/test_conductance_port.cpp
+    foundation/math/dk/test_poisonable_port.cpp
     foundation/math/test_halfband_coefficients.cpp
     # --- Unit tests written for the units that had none ---
     foundation/io/test_ir.cpp
@@ -121,6 +123,7 @@ add_executable(sushidsp_tests
     foundation/golden_compare/test_golden_file.cpp
     # --- Unit tests written for the units that had none ---
     foundation/core/test_cabinet_host.cpp
+    foundation/core/test_in_memory_cabinet_host.cpp
     foundation/core/test_calibration.cpp
     foundation/core/test_node_descriptor.cpp
     foundation/core/test_parameter_change.cpp
@@ -134,6 +137,8 @@ add_executable(sushidsp_tests
 
     # --- Core ---
     foundation/core/test_audio_device.cpp
+    foundation/core/test_in_memory_audio_device.cpp
+    foundation/core/test_in_memory_node.cpp
     foundation/core/test_buffer_pool.cpp
     foundation/core/test_denormal_guard.cpp
     foundation/core/test_rig_graph/test_behaviour.cpp

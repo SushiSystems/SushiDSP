@@ -23,67 +23,101 @@
 
 /**
  * @file test_cabinet_host.cpp
- * @brief Tests the contract of the cabinet host through a minimal implementation.
+ * @brief Tests the promises every CabinetHost keeps, once per implementation, and the status texts.
  * @author Mustafa Garip
  */
+
+#include <memory>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/core/cabinet_host.hpp>
+#include <SushiDSP/foundation/core/in_memory_cabinet_host.hpp>
 #include <SushiDSP/foundation/io/ir.hpp>
 
 namespace
 {
-    class SingleSlotCabinetHost final : public SushiDSP::CabinetHost
+    /// @brief Makes the in-memory host for the contract.
+    struct InMemoryCabinetHostSubject
     {
-        public:
-            SushiDSP::CabinetStatus set_cabinet(SushiDSP::Ir impulse_response) override
+            /// @brief Makes a host prepared at @p sample_rate.
+            static std::unique_ptr<SushiDSP::CabinetHost> make_prepared(double sample_rate)
             {
-                loaded_ = !impulse_response.samples.empty();
-                return loaded_ ? SushiDSP::CabinetStatus::Installed
-                               : SushiDSP::CabinetStatus::EmptyImpulseResponse;
+                auto host = std::make_unique<SushiDSP::InMemoryCabinetHost>();
+                host->prepare(sample_rate);
+                return host;
             }
 
-            void reclaim_cabinets() override
+            /// @brief Makes a host that was never prepared.
+            static std::unique_ptr<SushiDSP::CabinetHost> make_unprepared()
             {
-                loaded_ = false;
+                return std::make_unique<SushiDSP::InMemoryCabinetHost>();
             }
-
-            bool has_cabinet() const override
-            {
-                return loaded_;
-            }
-
-        private:
-            bool loaded_ = false;
     };
+
+    /// @brief Returns a two-tap impulse response at @p sample_rate.
+    SushiDSP::Ir two_taps_at(double sample_rate)
+    {
+        SushiDSP::Ir ir;
+        ir.samples = {1.0f, 0.5f};
+        ir.sample_rate = sample_rate;
+        return ir;
+    }
+
+    template <typename Subject> class Small_CabinetHostContract : public ::testing::Test
+    {
+    };
+
+    using CabinetHostSubjects = ::testing::Types<InMemoryCabinetHostSubject>;
 } // namespace
 
-TEST(Small_CabinetHost, RefusesAnEmptyImpulseResponse)
+TYPED_TEST_SUITE(Small_CabinetHostContract, CabinetHostSubjects);
+
+TYPED_TEST(Small_CabinetHostContract, InstallsAnImpulseResponseAtThePreparedRate)
 {
-    SingleSlotCabinetHost host;
-    EXPECT_EQ(host.set_cabinet(SushiDSP::Ir{}), SushiDSP::CabinetStatus::EmptyImpulseResponse);
-    EXPECT_FALSE(host.has_cabinet());
+    auto host = TypeParam::make_prepared(48000.0);
+    EXPECT_EQ(host->set_cabinet(two_taps_at(48000.0)), SushiDSP::CabinetStatus::Installed);
 }
 
-TEST(Small_CabinetHost, AcceptsANonEmptyImpulseResponse)
+TYPED_TEST(Small_CabinetHostContract, HasACabinetOnceOneIsInstalled)
 {
-    SingleSlotCabinetHost host;
-    SushiDSP::Ir ir;
-    ir.samples = {1.0f, 0.5f};
-    ir.sample_rate = 48000.0;
-    EXPECT_EQ(host.set_cabinet(ir), SushiDSP::CabinetStatus::Installed);
-    EXPECT_TRUE(host.has_cabinet());
+    auto host = TypeParam::make_prepared(48000.0);
+    static_cast<void>(host->set_cabinet(two_taps_at(48000.0)));
+    EXPECT_TRUE(host->has_cabinet());
 }
 
-TEST(Small_CabinetHost, ReclaimLeavesNoCabinetLoaded)
+TYPED_TEST(Small_CabinetHostContract, RefusesAnEmptyImpulseResponse)
 {
-    SingleSlotCabinetHost host;
-    SushiDSP::Ir ir;
-    ir.samples = {1.0f};
-    static_cast<void>(host.set_cabinet(ir));
-    host.reclaim_cabinets();
-    EXPECT_FALSE(host.has_cabinet());
+    auto host = TypeParam::make_prepared(48000.0);
+    EXPECT_EQ(host->set_cabinet(SushiDSP::Ir{{}, 48000.0}), SushiDSP::CabinetStatus::EmptyImpulseResponse);
+}
+
+TYPED_TEST(Small_CabinetHostContract, RefusesACabinetBeforePrepare)
+{
+    auto host = TypeParam::make_unprepared();
+    EXPECT_EQ(host->set_cabinet(two_taps_at(48000.0)), SushiDSP::CabinetStatus::NotPrepared);
+}
+
+TYPED_TEST(Small_CabinetHostContract, RefusesARateOtherThanThePreparedOne)
+{
+    auto host = TypeParam::make_prepared(48000.0);
+    EXPECT_EQ(host->set_cabinet(two_taps_at(44100.0)), SushiDSP::CabinetStatus::SampleRateMismatch);
+}
+
+TYPED_TEST(Small_CabinetHostContract, KeepsTheActiveCabinetWhenItRefusesOne)
+{
+    auto host = TypeParam::make_prepared(48000.0);
+    static_cast<void>(host->set_cabinet(two_taps_at(48000.0)));
+    static_cast<void>(host->set_cabinet(two_taps_at(44100.0)));
+    EXPECT_TRUE(host->has_cabinet());
+}
+
+TYPED_TEST(Small_CabinetHostContract, KeepsTheInstalledCabinetThroughAReclaim)
+{
+    auto host = TypeParam::make_prepared(48000.0);
+    static_cast<void>(host->set_cabinet(two_taps_at(48000.0)));
+    host->reclaim_cabinets();
+    EXPECT_TRUE(host->has_cabinet());
 }
 
 TEST(Small_CabinetHost, EachStatusHasItsOwnText)

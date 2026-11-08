@@ -23,96 +23,124 @@
 
 /**
  * @file test_audio_device.cpp
- * @brief Tests that NullAudioDevice reports its format and invokes its callback per block.
+ * @brief Tests the promises every AudioDevice keeps, once per implementation.
  * @author Mustafa Garip
  */
 
-#include <vector>
+#include <cstdint>
+#include <memory>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/core/audio_device.hpp>
+#include <SushiDSP/foundation/core/in_memory_audio_device.hpp>
 
 namespace
 {
-    class NullAudioDevice : public SushiDSP::AudioDevice
+    /// @brief Makes and drives the in-memory device for the contract.
+    struct InMemoryAudioDeviceSubject
     {
-        public:
-            NullAudioDevice(SushiDSP::DeviceFormat format, std::uint32_t blocks_to_run)
-                : format_(format), blocks_to_run_(blocks_to_run)
+            /// @brief Makes a stopped device of @p format.
+            static std::unique_ptr<SushiDSP::InMemoryAudioDevice> make(SushiDSP::DeviceFormat format)
             {
+                return std::make_unique<SushiDSP::InMemoryAudioDevice>(format);
             }
 
-            SushiDSP::DeviceFormat format() const override
+            /// @brief Runs @p blocks blocks of @p device.
+            static void drive(SushiDSP::InMemoryAudioDevice& device, std::uint32_t blocks)
             {
-                return format_;
+                device.render(blocks);
             }
-
-            void start(SushiDSP::DeviceCallback callback) override
-            {
-                std::vector<std::vector<float>> channel_storage(
-                    format_.output_channels, std::vector<float>(format_.block_size, 0.0f));
-                std::vector<float*> channel_pointers(format_.output_channels);
-                for (std::uint32_t channel = 0; channel < format_.output_channels; ++channel)
-                {
-                    channel_pointers[channel] = channel_storage[channel].data();
-                }
-
-                for (std::uint32_t block = 0; block < blocks_to_run_; ++block)
-                {
-                    callback(nullptr, channel_pointers.data(), format_.block_size);
-                }
-            }
-
-            void stop() override {}
-
-        private:
-            SushiDSP::DeviceFormat format_;
-            std::uint32_t blocks_to_run_;
     };
+
+    /// @brief What one callback saw.
+    struct CallbackRecord
+    {
+            /// @brief Counts the calls.
+            std::uint32_t calls = 0;
+            /// @brief Holds the frame count of the last call.
+            std::uint32_t frames = 0;
+            /// @brief Holds whether the last call's inputs were null.
+            bool inputs_null = false;
+            /// @brief Holds whether the last call's first two output buffers were both non-null.
+            bool two_outputs_present = false;
+    };
+
+    /// @brief Returns a callback that writes what it sees into @p record.
+    SushiDSP::DeviceCallback recording_callback(CallbackRecord& record)
+    {
+        return [&record](const float* const* inputs, float* const* outputs, std::uint32_t frames)
+        {
+            ++record.calls;
+            record.frames = frames;
+            record.inputs_null = inputs == nullptr;
+            record.two_outputs_present = outputs[0] != nullptr && outputs[1] != nullptr;
+        };
+    }
+
+    const SushiDSP::DeviceFormat K_STEREO_OUT_FORMAT{48000.0, 128, 0, 2};
+
+    template <typename Subject> class Small_AudioDeviceContract : public ::testing::Test
+    {
+    };
+
+    using AudioDeviceSubjects = ::testing::Types<InMemoryAudioDeviceSubject>;
 } // namespace
 
-TEST(Small_AudioDevice, NullAudioDeviceReportsConfiguredFormat)
+TYPED_TEST_SUITE(Small_AudioDeviceContract, AudioDeviceSubjects);
+
+TYPED_TEST(Small_AudioDeviceContract, ReportsTheFormatItWasMadeWith)
 {
-    SushiDSP::DeviceFormat expected{48000.0, 256, 0, 1};
-    NullAudioDevice device(expected, 0);
-
-    SushiDSP::DeviceFormat actual = device.format();
-
-    EXPECT_EQ(actual.sample_rate, expected.sample_rate);
-    EXPECT_EQ(actual.block_size, expected.block_size);
-    EXPECT_EQ(actual.input_channels, expected.input_channels);
-    EXPECT_EQ(actual.output_channels, expected.output_channels);
+    const auto device = TypeParam::make({44100.0, 256, 1, 2});
+    const SushiDSP::DeviceFormat format = device->format();
+    EXPECT_EQ(format.sample_rate, 44100.0);
+    EXPECT_EQ(format.block_size, 256u);
+    EXPECT_EQ(format.input_channels, 1u);
+    EXPECT_EQ(format.output_channels, 2u);
 }
 
-TEST(Small_AudioDevice, NullAudioDeviceInvokesCallbackOncePerBlock)
+TYPED_TEST(Small_AudioDeviceContract, CallsTheCallbackOncePerBlock)
 {
-    NullAudioDevice device({48000.0, 256, 0, 1}, 5);
-
-    int call_count = 0;
-    device.start(
-        [&call_count](const float* const*, float* const*, std::uint32_t)
-        {
-            ++call_count;
-        });
-
-    EXPECT_EQ(call_count, 5);
+    auto device = TypeParam::make(K_STEREO_OUT_FORMAT);
+    CallbackRecord record;
+    device->start(recording_callback(record));
+    TypeParam::drive(*device, 5);
+    EXPECT_EQ(record.calls, 5u);
 }
 
-TEST(Small_AudioDevice, NullAudioDeviceCallbackReceivesRequestedFrameCount)
+TYPED_TEST(Small_AudioDeviceContract, HandsTheCallbackBlockSizeFrames)
 {
-    NullAudioDevice device({48000.0, 128, 0, 2}, 1);
+    auto device = TypeParam::make(K_STEREO_OUT_FORMAT);
+    CallbackRecord record;
+    device->start(recording_callback(record));
+    TypeParam::drive(*device, 1);
+    EXPECT_EQ(record.frames, 128u);
+}
 
-    std::uint32_t received_frames = 0;
-    std::uint32_t received_channels_nonnull = 0;
-    device.start(
-        [&received_frames, &received_channels_nonnull](const float* const*, float* const* outputs,
-                                                       std::uint32_t frames)
-        {
-            received_frames = frames;
-            received_channels_nonnull = (outputs[0] != nullptr && outputs[1] != nullptr) ? 2 : 0;
-        });
+TYPED_TEST(Small_AudioDeviceContract, HandsTheCallbackOneBufferPerOutputChannel)
+{
+    auto device = TypeParam::make(K_STEREO_OUT_FORMAT);
+    CallbackRecord record;
+    device->start(recording_callback(record));
+    TypeParam::drive(*device, 1);
+    EXPECT_TRUE(record.two_outputs_present);
+}
 
-    EXPECT_EQ(received_frames, 128u);
-    EXPECT_EQ(received_channels_nonnull, 2u);
+TYPED_TEST(Small_AudioDeviceContract, PassesNullInputsWhenTheFormatHasNone)
+{
+    auto device = TypeParam::make(K_STEREO_OUT_FORMAT);
+    CallbackRecord record;
+    device->start(recording_callback(record));
+    TypeParam::drive(*device, 1);
+    EXPECT_TRUE(record.inputs_null);
+}
+
+TYPED_TEST(Small_AudioDeviceContract, CallsNoCallbackAfterStop)
+{
+    auto device = TypeParam::make(K_STEREO_OUT_FORMAT);
+    CallbackRecord record;
+    device->start(recording_callback(record));
+    device->stop();
+    TypeParam::drive(*device, 3);
+    EXPECT_EQ(record.calls, 0u);
 }

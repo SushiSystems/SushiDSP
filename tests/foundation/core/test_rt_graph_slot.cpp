@@ -37,31 +37,16 @@
 #include <SushiDSP/foundation/core/rig_graph.hpp>
 #include <SushiDSP/foundation/core/rt_graph_slot.hpp>
 
+#include "support/in_memory_nodes.hpp"
+
 namespace
 {
-    /// @brief Declares a node whose virtual ports() returns a fixed, checkable value.
+    /// @brief Returns a graph of one mono node whose virtual ports() returns a fixed, checkable value.
     /// @see tests/foundation/core/README.md
-    class CanaryNode : public SushiDSP::AudioNode
-    {
-        public:
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-            void process(SushiDSP::ProcessContext&) override {}
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-            void reset() override {}
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-    };
-
     std::unique_ptr<SushiDSP::RigGraph> make_canary_graph()
     {
         auto graph = std::make_unique<SushiDSP::RigGraph>(256, 4);
-        graph->add_node(std::make_unique<CanaryNode>());
+        graph->add_node(TestSupport::gain_node(1.0f));
         return graph;
     }
 } // namespace

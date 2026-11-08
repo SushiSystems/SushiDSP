@@ -13,6 +13,9 @@ The node and device interfaces, `RigGraph`, the real-time slots and the buffer p
 - `modules/foundation/core/include/SushiDSP/foundation/core/core_counter_report.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/core_log_category.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/counter_poll_thread.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/in_memory_audio_device.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/in_memory_cabinet_host.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/in_memory_node.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/node_counters.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/node_descriptor.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/parameter_change.hpp`
@@ -24,6 +27,23 @@ The node and device interfaces, `RigGraph`, the real-time slots and the buffer p
 - `modules/foundation/core/include/SushiDSP/foundation/core/rt_graph_slot.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/rt_swap_slot.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/spsc_ring.hpp`
+
+## In-memory adapters
+
+Each port of this module has an in-memory implementation beside it, which every other module's
+tests use in place of a stand-in of their own:
+
+- `InMemoryNode` is an `AudioNode` of any shape: its layout, ports, widths, latency and type id
+  are set by an `InMemoryNodeShape`, and an unset field answers with `AudioNode`'s default. Every
+  channel it writes is its gain times its folded input plus a level, and it records what each
+  call gave it into an `InMemoryNodeRecord` the caller may own, so the record outlives the node.
+- `InMemoryAudioDevice` starts no thread; `render(blocks)` runs the callback on the caller's
+  thread, with input channels at the levels `set_input_level` gave them.
+- `InMemoryCabinetHost` refuses what `CabinetHost` refuses, in the same order, and counts the
+  replaced cabinets that wait for `reclaim_cabinets()`.
+
+The contract suites `Small_AudioDeviceContract` and `Small_CabinetHostContract` run on each
+implementation.
 
 ## Depends on
 

@@ -11,14 +11,14 @@ would be evaluated under IEEE rules regardless of the runtime FPU mode.
 
 ## `test_rt_graph_slot.cpp`
 
-### `CanaryNode`
+### `make_canary_graph`
 
-`/// @brief Declares a node whose virtual ports() returns a fixed, checkable value.`
+`/// @brief Returns a graph of one mono node whose virtual ports() returns a fixed, checkable value.`
 
-A minimal node whose ports() is a virtual call returning a fixed, checkable value. Poking it
-after the owning RigGraph has (incorrectly) been freed exercises the object's vtable pointer --
-freed memory that's since been reused for something else will very likely make this crash
-outright (invalid/foreign vtable) rather than just quietly return stale data, which is a much
+The graph holds one in-memory mono node, whose ports() is a virtual call returning a fixed,
+checkable value. Poking it after the owning RigGraph has (incorrectly) been freed exercises the
+object's vtable pointer: freed memory that has since been reused will very likely make this crash
+outright (invalid or foreign vtable) rather than quietly return stale data, which is a much
 stronger use-after-free signal than a bare null-check on the RigGraph\*.
 
 ### `RtGraphSlotConcurrentPublishAndAcquireDoesNotRace`
@@ -27,7 +27,7 @@ stronger use-after-free signal than a bare null-check on the RigGraph\*.
 
 Actually dereference the returned graph, through a virtual call, rather than just null-checking
 the pointer -- a dangling-but-non-null RigGraph\* sails straight through a null-check. Every
-published graph here carries exactly one CanaryNode, so nodes() must come back with exactly one
+published graph here carries exactly one in-memory mono node, so nodes() must come back with exactly one
 handle, and that node's ports() (a virtual call) must always report { 1, 1 }. If
 acquire_for_audio_thread() ever hands back a pointer to a graph reclaim() already freed, this
 either crashes outright (the vtable slot now belongs to whatever reused the memory) or the

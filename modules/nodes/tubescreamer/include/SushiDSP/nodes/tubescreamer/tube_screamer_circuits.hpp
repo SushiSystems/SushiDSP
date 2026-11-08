@@ -35,6 +35,7 @@
 #include <SushiDSP/foundation/circuits/models/silicon_diode.hpp>
 #include <SushiDSP/foundation/math/dk/dk_circuit.hpp>
 #include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
+#include <SushiDSP/foundation/math/dk/linear_port.hpp>
 
 /// @file
 /// @brief The TS808's two DK blocks: component values, node numbering, the nonlinear port glue
@@ -264,15 +265,8 @@ namespace SushiDSP::tube_screamer_circuits
             bool has_history_ = false;
     };
 
-    /// @brief The empty nonlinear port a purely linear DK block is stepped with.
-    struct LinearPort
-    {
-            /// @brief Does nothing; a block with no nonlinear branches has no currents to evaluate.
-            void currents_and_jacobian(const std::array<double, 0>&, std::array<double, 0>&,
-                                       std::array<std::array<double, 0>, 0>&) const
-            {
-            }
-    };
+    /// @brief The empty nonlinear port a purely linear DK block is stepped with: the math module's own.
+    using LinearPort = dk::LinearPort;
 
     /// @brief Builds the ts_clip netlist, node for node against the block's component table.
     ///

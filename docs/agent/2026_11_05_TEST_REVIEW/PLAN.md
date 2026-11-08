@@ -13,7 +13,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | --- | --- | --- | --- |
 | T1 | `tests/support/tolerance.hpp` copied from SushiSkills |  | done |
 | T2 | `compare_or_regenerate`: a regenerate run reports no pass |  | done |
-| T3 | In-memory nodes beside `AudioNode`, an in-memory `AudioDevice` and `CabinetHost`, and the DK glue ports |  | todo |
+| T3 | In-memory nodes beside `AudioNode`, an in-memory `AudioDevice` and `CabinetHost`, and the DK glue ports |  | done |
 | T4 | The registry and counter seams of decisions 1 and 2, and `ClapRigPlugin` taking its rig in place of `SUSHIDSP_PLUGIN_RIG` |  | todo |
 | T5 | The CLI tests on sushicore's in-memory runner and console | sushicore T1 | done |
 | T6 | The defects of this report, each with a test that fails first |  | todo |
