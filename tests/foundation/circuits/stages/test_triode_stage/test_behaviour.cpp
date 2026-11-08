@@ -393,3 +393,39 @@ TEST(Small_TriodeStage, TriodeStageOutputIsTheAntialiaserOfItsOwnGridSolve)
         EXPECT_NEAR(stage_output, antialiaser.process(excursion), 0.05f) << i;
     }
 }
+
+namespace
+{
+    /// @brief Drives @p stage with a ramp from -50 V to +50 V, through cutoff and grid conduction.
+    template <typename Stage> void drive_ramp_through_conduction(Stage& stage)
+    {
+        for (int sample = 0; sample <= 1000; ++sample)
+        {
+            static_cast<void>(stage.process_sample(-50.0f + 0.1f * static_cast<float>(sample)));
+        }
+    }
+} // namespace
+
+TEST(Small_TriodeStage, TriodeStageHandsOverTheNewtonSolvesItRan)
+{
+    SushiDSP::TriodeStage stage = make_stage();
+    drive_ramp_through_conduction(stage);
+    SushiDSP::NewtonRaphsonSolver::Tally tally;
+
+    stage.take_newton_tally(tally);
+
+    EXPECT_GT(tally.solves, 0U);
+}
+
+TEST(Small_TriodeStage, TriodeStageClearsItsNewtonSolvesOnceItHandsThemOver)
+{
+    SushiDSP::TriodeStage stage = make_stage();
+    drive_ramp_through_conduction(stage);
+    SushiDSP::NewtonRaphsonSolver::Tally first;
+    stage.take_newton_tally(first);
+    SushiDSP::NewtonRaphsonSolver::Tally second;
+
+    stage.take_newton_tally(second);
+
+    EXPECT_EQ(second.solves, 0U);
+}

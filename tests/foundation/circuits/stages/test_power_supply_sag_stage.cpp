@@ -49,7 +49,7 @@ TEST(Small_PowerSupplySagStage, PowerSupplySagStageReducesGainUnderSustainedLoud
     EXPECT_LT(std::abs(last_output), std::abs(first_output));
 }
 
-TEST(Small_PowerSupplySagStage, PowerSupplySagStageRecoversTowardUnityAfterSilence)
+TEST(Small_PowerSupplySagStage, PowerSupplySagStageOutputRisesAgainAfterSilence)
 {
     SushiDSP::PowerSupplySagStage stage(48000.0, 0.5f, 0.05f);
 

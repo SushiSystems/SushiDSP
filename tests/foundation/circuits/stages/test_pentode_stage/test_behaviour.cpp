@@ -206,3 +206,39 @@ TEST(Small_PentodeStage, PentodeStageAntialiaserAntiderivativeDifferentiatesBack
             << "excursion " << excursion;
     }
 }
+
+namespace
+{
+    /// @brief Drives @p stage with a ramp from -50 V to +50 V, through cutoff and grid conduction.
+    template <typename Stage> void drive_ramp_through_conduction(Stage& stage)
+    {
+        for (int sample = 0; sample <= 1000; ++sample)
+        {
+            static_cast<void>(stage.process_sample(-50.0f + 0.1f * static_cast<float>(sample)));
+        }
+    }
+} // namespace
+
+TEST(Small_PentodeStage, PentodeStageHandsOverTheNewtonSolvesItRan)
+{
+    SushiDSP::PentodeStage stage(K_REFERENCE_PENTODE);
+    drive_ramp_through_conduction(stage);
+    SushiDSP::NewtonRaphsonSolver::Tally tally;
+
+    stage.take_newton_tally(tally);
+
+    EXPECT_GT(tally.solves, 0U);
+}
+
+TEST(Small_PentodeStage, PentodeStageClearsItsNewtonSolvesOnceItHandsThemOver)
+{
+    SushiDSP::PentodeStage stage(K_REFERENCE_PENTODE);
+    drive_ramp_through_conduction(stage);
+    SushiDSP::NewtonRaphsonSolver::Tally first;
+    stage.take_newton_tally(first);
+    SushiDSP::NewtonRaphsonSolver::Tally second;
+
+    stage.take_newton_tally(second);
+
+    EXPECT_EQ(second.solves, 0U);
+}

@@ -32,6 +32,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/circuits/stages/resonance_control.hpp>
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 
 namespace
 {
@@ -82,4 +83,30 @@ TEST(Small_ResonanceControl, ResonanceControlClampsDepthAndReportsBoost)
     EXPECT_FLOAT_EQ(control.boost_db(), 0.0f);
     control.set_depth(0.5f);
     EXPECT_FLOAT_EQ(control.boost_db(), 4.5f);
+}
+
+namespace
+{
+    /// @brief Runs 512 samples of a ramp through @p unit, the way an audio block drives it.
+    template <typename Unit> void process_ramp_block(Unit& unit)
+    {
+        for (int sample = 0; sample < 512; ++sample)
+        {
+            static_cast<void>(unit.process_sample(static_cast<float>(sample % 64) / 64.0f - 0.5f));
+        }
+    }
+} // namespace
+
+TEST(Medium_ResonanceControl, ProcessSamplePerformsNoHeapAllocation)
+{
+    SushiDSP::ResonanceControl control(48000.0, 120.0f, 9.0f);
+    control.set_depth(0.7f);
+    process_ramp_block(control);
+    SushiDSP::test::AllocationTrap trap;
+
+    trap.arm();
+    process_ramp_block(control);
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

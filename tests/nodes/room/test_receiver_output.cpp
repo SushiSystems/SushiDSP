@@ -23,7 +23,7 @@
 
 /**
  * @file test_receiver_output.cpp
- * @brief Tests that a head holder keeps the HRTF source it was given.
+ * @brief Tests that a head holder refreshes its HRTF set for the rate the node runs at.
  * @author Mustafa Garip
  */
 
@@ -32,10 +32,22 @@
 #include <SushiDSP/nodes/room/receiver_output.hpp>
 #include <SushiDSP/nodes/room/room_host.hpp>
 
-TEST(Small_ReceiverOutput, HeadHolderKeepsTheSourceItWasGiven)
+TEST(Small_ReceiverOutput, HeadHolderFallsBackToTheSphericalHeadWhenTheMeasuredSetIsAtAnotherRate)
 {
     SushiDSP::Room::HeadHolder holder;
-    const auto before = holder.source();
-    holder.set_source(before);
-    EXPECT_EQ(holder.source(), before);
+    holder.set_source(SushiDSP::room::HrtfSource::Measured);
+
+    holder.refresh_head(48000.0);
+
+    EXPECT_EQ(holder.source(), SushiDSP::room::HrtfSource::SphericalHead);
+}
+
+TEST(Small_ReceiverOutput, HeadHolderBuildsTheSphericalHeadAtTheRateItIsGiven)
+{
+    SushiDSP::Room::HeadHolder holder;
+    holder.set_source(SushiDSP::room::HrtfSource::SphericalHead);
+
+    holder.refresh_head(48000.0);
+
+    EXPECT_EQ(holder.hrtf().sample_rate(), 48000.0);
 }

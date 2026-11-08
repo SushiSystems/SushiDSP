@@ -80,11 +80,11 @@ TEST(Small_NodeRegistry, MakeNodeConstructsJcm800ById)
     EXPECT_FLOAT_EQ(node->get_parameter("preamp"), 0.4f);
 }
 
-TEST(Small_NodeRegistry, NodeRegistryListsAndBuildsTheThreeHighGainAmplifiers)
+TEST(Small_NodeRegistry, NodeRegistryListsAndBuildsEveryAmplifier)
 {
     const SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    static const char* K_AMPLIFIER_IDS[] = {"sushidsp.peavey5150", "sushidsp.mesa_mark2c",
-                                            "sushidsp.diezel_vh4"};
+    static const char* K_AMPLIFIER_IDS[] = {"sushidsp.jcm800", "sushidsp.peavey5150",
+                                            "sushidsp.mesa_mark2c", "sushidsp.diezel_vh4"};
 
     for (const char* id : K_AMPLIFIER_IDS)
     {

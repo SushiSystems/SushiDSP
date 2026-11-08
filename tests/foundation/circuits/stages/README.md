@@ -26,7 +26,7 @@ over the second second. With the saturation as the last element the stage read -
 
 ## `test_power_supply_sag_stage.cpp`
 
-### `PowerSupplySagStageRecoversTowardUnityAfterSilence`
+### `PowerSupplySagStageOutputRisesAgainAfterSilence`
 
 `// The sag envelope decays over silence.`
 

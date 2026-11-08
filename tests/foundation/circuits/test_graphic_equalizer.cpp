@@ -32,6 +32,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/circuits/graphic_equalizer.hpp>
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 
 namespace
 {
@@ -81,17 +82,23 @@ TEST(Small_GraphicEqualizer, GraphicEqualizerBoostsOneBandAtItsCentre)
     EXPECT_NEAR(steady_gain_db(equalizer, 48000.0, 80.0), 0.0f, 0.5f);
 }
 
-TEST(Small_GraphicEqualizer, GraphicEqualizerCutsOneBandAndClampsSliders)
+TEST(Small_GraphicEqualizer, GraphicEqualizerClampsASliderPastFullCutToFullCut)
 {
     SushiDSP::GraphicEqualizer equalizer(48000.0, {80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f}, 1.4f,
                                          12.0f);
     equalizer.set_band(0, -3.0f);
     EXPECT_NEAR(steady_gain_db(equalizer, 48000.0, 80.0), -12.0f, 0.3f);
+}
+
+TEST(Small_GraphicEqualizer, GraphicEqualizerIgnoresASliderOfABandItDoesNotHave)
+{
+    SushiDSP::GraphicEqualizer equalizer(48000.0, {80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f}, 1.4f,
+                                         12.0f);
     equalizer.set_band(7, 1.0f);
     EXPECT_EQ(equalizer.band_count(), 5u);
 }
 
-TEST(Small_GraphicEqualizer, GraphicEqualizerPerBandQNarrowsOneBandOnly)
+TEST(Small_GraphicEqualizer, GraphicEqualizerPerBandQDropsABoostedBandEightDecibelsAnOctaveAbove)
 {
     SushiDSP::GraphicEqualizer equalizer(48000.0, {87.61f, 371.74f, 723.43f, 1575.87f, 4822.88f},
                                          {1.171f, 1.938f, 2.128f, 0.673f, 1.0f}, 17.0f);
@@ -100,4 +107,31 @@ TEST(Small_GraphicEqualizer, GraphicEqualizerPerBandQNarrowsOneBandOnly)
     const float an_octave_up = steady_gain_db(equalizer, 48000.0, 743.48);
     EXPECT_NEAR(at_centre, 17.0f, 0.3f);
     EXPECT_LT(an_octave_up, at_centre - 8.0f);
+}
+
+namespace
+{
+    /// @brief Runs 512 samples of a ramp through @p unit, the way an audio block drives it.
+    template <typename Unit> void process_ramp_block(Unit& unit)
+    {
+        for (int sample = 0; sample < 512; ++sample)
+        {
+            static_cast<void>(unit.process_sample(static_cast<float>(sample % 64) / 64.0f - 0.5f));
+        }
+    }
+} // namespace
+
+TEST(Medium_GraphicEqualizer, ProcessSamplePerformsNoHeapAllocation)
+{
+    SushiDSP::GraphicEqualizer equalizer(48000.0, {80.0f, 240.0f, 750.0f, 2200.0f, 6600.0f}, 1.4f,
+                                         12.0f);
+    equalizer.set_band(2, 0.5f);
+    process_ramp_block(equalizer);
+    SushiDSP::test::AllocationTrap trap;
+
+    trap.arm();
+    process_ramp_block(equalizer);
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

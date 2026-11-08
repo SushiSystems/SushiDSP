@@ -202,14 +202,13 @@ lowers the crossover to the 513th mode and the node reports that lowered figure,
 seam sits at. The dead room reports Eyring's 22 Hz with the layer off, so a panel still shows
 the room's own figure.
 
-### `RoomNodeMicrophoneListenerFillsBothChannelsIdentically`
+### `RoomNodeMicrophoneIgnoresAListenerMovedMidRender`
 
-`// The microphone's two outputs are equal bit for bit.`
+`// A moved listener changes nothing the microphone hears.`
 
-The microphone is one point: its taps encode to channel 0 alone, its tail is one signal read
-twice, and its standing waves are read at the microphone in both ear gains, so the two outputs
-are equal bit for bit. The listener stands elsewhere, and a moved listener mid-render changes
-nothing the microphone hears.
+The microphone is one point, its own port of one channel, and the listener stands elsewhere. Two
+nodes render the same input; one moves the listener at block 6. The microphone port of both must
+hold the same samples bit for bit, since nothing the microphone hears depends on the listener.
 
 ### `RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd`
 

@@ -16,8 +16,9 @@ impulse response is short.
 
 `/// @brief Tests that every DkCircuit shape D6c and D6d need compiles, prepares and steps.`
 
-Compile-and-smoke gate for the three DkCircuit shapes D6c and D6d instantiate. Tasks 6 and 7 own
-the numerical validation; this case only proves every shape compiles, prepares and steps.
+Compile-and-smoke gate for the three DkCircuit shapes D6c and D6d instantiate. The other cases of
+this file and the circuit blocks' own tests hold the numerical validation; this case only proves
+every shape compiles, prepares and steps.
 
 `// This is the widest shape D6d instantiates.`
 

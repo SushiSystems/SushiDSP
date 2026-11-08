@@ -98,7 +98,7 @@ TEST(Small_LongTailedPair, LongTailedPairBoundsBothPlatesByTheirOwnSwings)
     }
 }
 
-TEST(Small_LongTailedPair, LongTailedPairResetClearsBothHalves)
+TEST(Small_LongTailedPair, LongTailedPairResetClearsThePeakGridExcursion)
 {
     SushiDSP::LongTailedPair pair = mark2c_inverter();
 

@@ -1592,28 +1592,23 @@ TEST(Medium_RoomNode, RoomNodeReportsTheCrossoverTheSetSplitsAt)
     EXPECT_DOUBLE_EQ(fresh.schroeder_frequency_hz(), eyring);
 }
 
-TEST(Medium_RoomNode, RoomNodeMicrophoneListenerFillsBothChannelsIdentically)
+TEST(Medium_RoomNode, RoomNodeMicrophoneIgnoresAListenerMovedMidRender)
 {
-    // The microphone's two outputs are equal bit for bit. See tests/nodes/room/test_room_node/README.md.
+    // A moved listener changes nothing the microphone hears. See tests/nodes/room/test_room_node/README.md.
     SushiDSP::room::RoomScene scene = wave_scene();
     scene.listener_position = {2.0, 1.0, 1.0};
     scene.microphone_pattern = SushiDSP::room::PolarPattern::Cardioid;
     SushiDSP::room::RoomScene listener_moved = scene;
     listener_moved.listener_position = {4.0, 3.0, 1.5};
-
-    std::unique_ptr<SushiDSP::room::RoomNode> node = prepared_node(scene, K_LISTENER_MICROPHONE);
     std::vector<float> input = tone(16 * K_BLOCK);
     input[0] = 1.0f;
-    const std::array<std::vector<float>, 2> output =
-        render_both(*node, input, {6}, scene_edit(listener_moved));
-    ASSERT_EQ(output[0].size(), 4096u);
-    double peak = 0.0;
-    for (std::size_t frame = 0; frame < output[0].size(); ++frame)
-    {
-        ASSERT_EQ(output[0][frame], output[1][frame]) << "frame " << frame;
-        peak = std::max(peak, static_cast<double>(std::fabs(output[0][frame])));
-    }
-    EXPECT_GT(peak, 0.0);
+
+    std::unique_ptr<SushiDSP::room::RoomNode> still = prepared_node(scene, K_LISTENER_MICROPHONE);
+    std::unique_ptr<SushiDSP::room::RoomNode> moved = prepared_node(scene, K_LISTENER_MICROPHONE);
+    const std::vector<float> heard_still = render(*still, input);
+    const std::vector<float> heard_moved = render(*moved, input, {6}, scene_edit(listener_moved));
+
+    EXPECT_EQ(heard_moved, heard_still);
 }
 
 TEST(Medium_RoomNode, RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd)

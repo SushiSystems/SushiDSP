@@ -220,7 +220,7 @@ TEST(Medium_WavWriter, WavWriterHeaderSizesAreCorrectAfterSeveralAppendCalls)
     EXPECT_EQ(bytes.size(), 44 + expected_data_bytes);
 }
 
-TEST(Medium_WavWriter, WavWriterFloat32HeaderCarriesAnExtensibleFmtChunkAndAFactChunk)
+TEST(Medium_WavWriter, WavWriterFloat32HeaderCarriesAnEighteenByteFloatFmtChunkAndAFactChunk)
 {
     const TempWavFile fixture("sushidsp_wav_writer_fact_chunk.wav");
     const std::string& path = fixture.path();

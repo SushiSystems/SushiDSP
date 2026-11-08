@@ -1,6 +1,6 @@
 # tests/foundation/math/dk
 
-## `test_damped_newton_solver.cpp`
+## `test_dense_lu.cpp`
 
 ### `DenseLuPivotsWhenTheLeadingEntryIsZero`
 
@@ -16,6 +16,18 @@ elimination step divides by zero.
 The same hand-checked 3x3 system, stored in the top-left corner of a 5x5 array whose remaining
 rows are the zeros a circuit leaves behind when it uses fewer ports than the compile-time
 maximum. Only the leading 3x3 block may be touched.
+
+### `DenseLuTwoByTwoSolvesTheSameSystemsAsTheGeneralTemplate`
+
+`// [[4, 3], [6, 3]] x = [10, 12] has the answer x = [1, 2].`
+
+[[4, 3], [6, 3]] x = [10, 12] has the exact answer x = [1, 2]:
+
+```text
+4*1 + 3*2 = 10,  6*1 + 3*2 = 12.   det = 4*3 - 3*6 = -6.
+```
+
+## `test_damped_newton_solver.cpp`
 
 ### `DampedNewtonWithHalvingDisabledFailsOnTheDivergentStart`
 
@@ -43,16 +55,6 @@ One iteration from the divergent start with halving disabled: the only step avai
 full Newton step, which lands at |atan| larger than where it started. The step is still taken -
 that is how the iteration escapes a flat region - but solve() returning false must hand back the
 lowest-residual iterate it saw, as its @param v contract says.
-
-### `DenseLuTwoByTwoSolvesTheSameSystemsAsTheGeneralTemplate`
-
-`// [[4, 3], [6, 3]] x = [10, 12] has the answer x = [1, 2].`
-
-[[4, 3], [6, 3]] x = [10, 12] has the exact answer x = [1, 2]:
-
-```text
-4*1 + 3*2 = 10,  6*1 + 3*2 = 12.   det = 4*3 - 3*6 = -6.
-```
 
 ### `DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturns`
 

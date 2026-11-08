@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- 2026-11-09 — tests: Added the allocation trap tests of `FmvToneStack`, `GraphicEqualizer` and `ResonanceControl` (`test_fmv_tone_stack.cpp`).
+- 2026-11-09 — tests: Added the `take_newton_tally()` tests of `TriodeStage` and `PentodeStage` (`test_triode_stage/test_behaviour.cpp`).
+- 2026-11-09 — tests: Replaced three tests that could not fail, in the room's receiver, FIR filter and microphone tests (`test_receiver_output.cpp`).
+- 2026-11-09 — tests: Renamed the tests whose names disagreed with their bodies and moved the DenseLu cases to their own file (`test_dense_lu.cpp`).
+- 2026-11-09 — tests: Listed every amplifier in the registry test and every region zone in the profile names test (`test_node_registry.cpp`).
+- 2026-11-09 — tests: Added the time reader's exemption file, empty (`tests/budget_exemptions.toml`).
 - 2026-11-09 — core: Gave `RigGraph` a constructor that counts into a `Counters&` it is given (`rig_graph.hpp`).
 - 2026-11-09 — core: Gave the node counter functions overloads that take a `NodeCounters&` (`node_counters.hpp`).
 - 2026-11-09 — core: Gave `CoreCounterReport` a constructor that reports the counter sets it is given (`core_counter_report.hpp`).

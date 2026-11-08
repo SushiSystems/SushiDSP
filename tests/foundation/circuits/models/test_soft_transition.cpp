@@ -38,7 +38,7 @@ TEST(Small_SoftTransition, SoftplusOfZeroIsLnTwo)
     EXPECT_NEAR(SushiDSP::models::softplus(0.0), std::log(2.0), 1e-12);
 }
 
-TEST(Small_SoftTransition, SoftplusIsTheIdentityAboveThirty)
+TEST(Small_SoftTransition, SoftplusOfFortyIsFortyInDouble)
 {
     EXPECT_EQ(SushiDSP::models::softplus(40.0), 40.0);
 }

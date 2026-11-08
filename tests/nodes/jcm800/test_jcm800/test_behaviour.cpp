@@ -428,7 +428,7 @@ TEST(Small_Jcm800, Jcm800DescriptorMakeProducesAWorkingNode)
     }
 }
 
-TEST(Small_Jcm800, Jcm800IsDcStableAcrossManyBlocksAtHighPreamp)
+TEST(Small_Jcm800, Jcm800StaysFiniteAcrossManyBlocksAtHighPreamp)
 {
     SushiDSP::Jcm800 node;
     SushiDSP::PrepareInfo info{48000.0, 256, 1};

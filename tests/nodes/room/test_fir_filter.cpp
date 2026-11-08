@@ -30,7 +30,6 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/room/fir_filter.hpp>
-#include <SushiDSP/nodes/room/hrtf_set.hpp>
 
 #include <array>
 #include <vector>
@@ -54,7 +53,3 @@ TEST(Small_FirFilter, UnitImpulseTapPassesTheInputUnchanged)
     }
 }
 
-TEST(Small_FirFilter, TapCountIsTheHrtfTapCount)
-{
-    EXPECT_EQ(SushiDSP::room::FirFilter::K_TAPS, SushiDSP::room::HrtfSet::K_TAP_COUNT);
-}

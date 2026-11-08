@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/circuits/fmv_tone_stack.hpp>
+#include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include <SushiDSP/foundation/spice_reference/spice_csv.hpp>
 
@@ -295,4 +296,32 @@ TEST(Small_FmvToneStack, FmvToneStackThrowsAndLogsOneErrorWhenTheDerivationFails
     EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
     EXPECT_EQ(lines[0].category, "circuits");
     EXPECT_NE(lines[0].message.find("FmvToneStack"), std::string::npos) << lines[0].message;
+}
+
+namespace
+{
+    /// @brief Runs 512 samples of a ramp through @p unit, the way an audio block drives it.
+    template <typename Unit> void process_ramp_block(Unit& unit)
+    {
+        for (int sample = 0; sample < 512; ++sample)
+        {
+            static_cast<void>(unit.process_sample(static_cast<float>(sample % 64) / 64.0f - 0.5f));
+        }
+    }
+} // namespace
+
+TEST(Medium_FmvToneStack, ProcessSamplePerformsNoHeapAllocation)
+{
+    SushiDSP::FmvToneStack stack(48000.0, SushiDSP::K_JCM2203_TONE_STACK);
+    stack.set_bass(0.3f);
+    stack.set_middle(0.6f);
+    stack.set_treble(0.9f);
+    process_ramp_block(stack);
+    SushiDSP::test::AllocationTrap trap;
+
+    trap.arm();
+    process_ramp_block(stack);
+    trap.disarm();
+
+    EXPECT_EQ(trap.count(), 0);
 }

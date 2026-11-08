@@ -65,9 +65,17 @@ TEST(Small_SushidspProfileNames, EveryTimelineZoneAndCounterNameIsDistinctAndNot
         names::K_NEWTON_SOLVES_COUNTER, names::K_NEWTON_CAPS_COUNTER,
         names::K_NEWTON_NON_FINITE_COUNTER, names::K_NEWTON_WORST_ITERATIONS_COUNTER,
         names::K_CLAMPED_COUNTER,
-        names::jcm800::K_LOOP_ZONE,    names::peavey5150::K_LOOP_ZONE,
-        names::mesa_mark2c::K_LOOP_ZONE, names::diezel_vh4::K_LOOP_ZONE,
-        names::tubescreamer::K_LOOP_ZONE};
+        names::jcm800::K_INPUT_ZONE, names::jcm800::K_UPSAMPLE_ZONE, names::jcm800::K_LOOP_ZONE,
+        names::jcm800::K_DOWNSAMPLE_ZONE, names::jcm800::K_POST_ZONE, names::jcm800::K_CLAMP_ZONE,
+        names::peavey5150::K_INPUT_ZONE, names::peavey5150::K_UPSAMPLE_ZONE, names::peavey5150::K_LOOP_ZONE,
+        names::peavey5150::K_DOWNSAMPLE_ZONE, names::peavey5150::K_POST_ZONE, names::peavey5150::K_CLAMP_ZONE,
+        names::mesa_mark2c::K_INPUT_ZONE, names::mesa_mark2c::K_UPSAMPLE_ZONE, names::mesa_mark2c::K_LOOP_ZONE,
+        names::mesa_mark2c::K_DOWNSAMPLE_ZONE, names::mesa_mark2c::K_POST_ZONE, names::mesa_mark2c::K_CLAMP_ZONE,
+        names::diezel_vh4::K_INPUT_ZONE, names::diezel_vh4::K_UPSAMPLE_ZONE, names::diezel_vh4::K_LOOP_ZONE,
+        names::diezel_vh4::K_DOWNSAMPLE_ZONE, names::diezel_vh4::K_POST_ZONE, names::diezel_vh4::K_CLAMP_ZONE,
+        names::tubescreamer::K_INPUT_ZONE, names::tubescreamer::K_UPSAMPLE_ZONE,
+        names::tubescreamer::K_LOOP_ZONE, names::tubescreamer::K_DOWNSAMPLE_ZONE,
+        names::tubescreamer::K_OUTPUT_ZONE};
 
     for (std::size_t first = 0; first < all.size(); ++first)
     {
