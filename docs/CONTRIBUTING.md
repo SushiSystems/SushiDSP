@@ -106,8 +106,9 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
   names a case that keeps a fixed defect fixed; it carries a size like any other.
 - A golden file is one second of mono float32 per node at 48 kHz and at 96 kHz, compared
   against a fresh render at −80 dB RMS residual. A deliberate behaviour change regenerates
-  them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test --label medium`; a golden file is never
-  regenerated to silence a failure whose cause is unknown.
+  them with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test --label medium`, which fails every golden
+  test it rewrites, and a second run without the variable confirms the pins; a golden file is
+  never regenerated to silence a failure whose cause is unknown.
 - A numerical test compares against a value derived independently of the implementation.
 - `sd test --label small` is the edit loop. Run `sd test --label small --label medium`, what a
   pull request runs, before every commit, and `sd test` with every size before a change to

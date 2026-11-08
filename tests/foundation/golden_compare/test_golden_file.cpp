@@ -33,6 +33,7 @@
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 #include <cmath>
+#include <filesystem>
 #include <vector>
 
 TEST(Small_GoldenFile, StimulusHasOneSecondOfSamples)
@@ -86,4 +87,18 @@ TEST(Small_GoldenFile, MissingGoldenFileIsLoggedAsAnErrorAndReadsAsZeroDecibels)
     EXPECT_EQ(lines[0].category, "golden_compare");
     EXPECT_EQ(lines[0].message,
               "cannot open golden file no_such_folder/absent.f32; reporting a 0 dB residual");
+}
+
+TEST(Medium_GoldenFile, RegenerationReportsTheNoComparisonResidualSoItNeverPasses)
+{
+    const std::filesystem::path folder =
+        std::filesystem::temp_directory_path() / "sushidsp_golden_regeneration_reports_no_pass";
+    std::filesystem::create_directories(folder);
+
+    const double residual = SushiDSP::golden::compare_or_regenerate(
+        folder.string(), "regenerated", SushiDSP::golden::stimulus(4800.0),
+        SushiDSP::golden::GoldenMode::Regenerate);
+    std::filesystem::remove_all(folder);
+
+    EXPECT_EQ(residual, 0.0);
 }

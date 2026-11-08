@@ -11,12 +11,15 @@ example `tests/nodes/jcm800/goldens/jcm800/`. Their record is the table below.
 `stimulus(sample_rate)` is the one-second input every golden file was rendered from.
 `compare_or_regenerate(directory, name, rendered)` compares `rendered` with `<directory>/<name>.f32`
 and returns the RMS residual in dB. The caller passes the folder that holds the file. Setting
-`SUSHIDSP_REGENERATE_GOLDEN` rewrites the file instead.
+`SUSHIDSP_REGENERATE_GOLDEN` rewrites the file instead; `golden_mode_from_environment()` reads it,
+and the overload that takes a `GoldenMode` lets a caller name the mode itself.
+
+A regeneration measures nothing, so it reads as a 0 dB residual like a missing file, and every
+golden test of a regenerating run fails. A second run without the variable confirms the new pins.
 
 The module depends on `log` and logs under `K_GOLDEN_COMPARE_LOG_CATEGORY`, declared in
 `golden_compare_log_category.hpp`. A file it cannot open or that holds too few samples is an
-`ERROR` and reads as a 0 dB residual; a regeneration is an `INFO`, shown with
-`SD_LOG_LEVEL=warn,golden_compare=info`.
+`ERROR` and reads as a 0 dB residual; a regeneration is a `WARN`.
 
 ## Pins
 
@@ -42,7 +45,8 @@ rule: `golden_file.hpp`. Tolerance: RMS residual <= -80 dB.
 | mesa_mark2c_48k/96k | v0.1.0 phase A3, 2026-09-20 | the IIC+'s tone stack is terminated by V1A's 44 k plate impedance and Volume 1's 1 M, which the model omitted; residual against the old pin -28.2 dB, default peak still inside the -7 to -5 dBFS window so K_MASTER_UNITY_GAIN is unchanged (plan `docs/agent/2026_09_20_V0_1_0_RELEASE/PLAN.md`) |
 
 Regenerate one node with `SUSHIDSP_REGENERATE_GOLDEN=1 sd test --filter '<Suite>\..*Golden'`, or
-every node with `--label medium`, and add a row here. Confirm with `git status` that only the
-intended files moved. On
+every node with `--label medium`, and add a row here. That run fails every golden test it
+regenerates; run the same command again without the variable to confirm the pins. Confirm with
+`git status` that only the intended files moved. On
 2026-09-20 the FmvToneStack netlist moved jcm800, peavey5150 and diezel_vh4 by -149 to -156 dB,
 float32 rounding against a -80 dB rule, and their pins were kept.

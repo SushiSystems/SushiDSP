@@ -69,6 +69,7 @@ The owner delegated these decisions on 2026-11-05. Each ruling below is final fo
 3. The WAV writer test is renamed to what the code writes, an 18-byte `WAVEFORMATEX` with tag 3 and a fact chunk, which is valid for one or two float channels. EXTENSIBLE is written only for more than two channels, and that case gets its own test if the writer accepts it.
 4. The -110, -40 and -20 dB thresholds are characterized, each with a backlog entry, until a derivation is written beside it.
 5. A named constant holding a hand-typed epsilon is not a typed tolerance. A tolerance names its kind (absolute, relative or ulps) and its derivation, so every such constant is redefined through `tolerance.hpp`, keeping its name. The rewrites stay rewrites, and they are mechanical.
+6. A regeneration under `SUSHIDSP_REGENERATE_GOLDEN` returns the 0 dB residual a missing file returns, and logs a `WARN`, so every golden test of that run fails and a second run confirms the pins. `compare_or_regenerate` gains an overload that takes a `GoldenMode`, and `golden_mode_from_environment()` is the one reader of the variable, so a test can name the mode without the environment (T2, 2026-11-09).
 
 ## Dispatches
 

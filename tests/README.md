@@ -46,6 +46,9 @@ Regenerate deliberately, never to make a red test green:
 SUSHIDSP_REGENERATE_GOLDEN=1 sd test --label medium
 ```
 
+That run rewrites the files and fails every golden test, since a regeneration compares nothing;
+the next run without the variable is the one that passes.
+
 Say why in the commit message and in `modules/foundation/golden_compare/README.md`.
 
 ## Regression output of four products

@@ -82,17 +82,35 @@ namespace SushiDSP::golden
         return 10.0 * std::log10(difference / reference);
     }
 
-    /// @brief Compares rendered output with <directory>/<name>.f32, or rewrites that file
-    /// when SUSHIDSP_REGENERATE_GOLDEN is set in the environment.
+    /// @brief What a golden comparison does with the reference file.
+    enum class GoldenMode
+    {
+        /// @brief Reads the file and measures the residual against it.
+        Compare,
+        /// @brief Rewrites the file from the rendered samples and measures nothing.
+        Regenerate,
+    };
+
+    /// @brief Reads the mode from the environment: Regenerate when SUSHIDSP_REGENERATE_GOLDEN is set.
+    /// @return The mode a test run asked for.
+    inline GoldenMode golden_mode_from_environment()
+    {
+        return std::getenv("SUSHIDSP_REGENERATE_GOLDEN") != nullptr ? GoldenMode::Regenerate
+                                                                    : GoldenMode::Compare;
+    }
+
+    /// @brief Compares rendered output with <directory>/<name>.f32, or rewrites that file.
     /// @param directory Folder that holds the reference files.
     /// @param name File stem, e.g. "jcm800_48k".
     /// @param rendered The node's output for stimulus().
-    /// @return Residual in dB; -200 after a regeneration; 0 when the file is missing or short.
+    /// @param mode Compare, or Regenerate to rewrite the file.
+    /// @return Residual in dB; 0 when no comparison was made: after a regeneration, or when the
+    /// file is missing or short. A regeneration therefore never reports a pass.
     inline double compare_or_regenerate(const std::string& directory, const char* name,
-                                        const std::vector<float>& rendered)
+                                        const std::vector<float>& rendered, GoldenMode mode)
     {
         const std::string path = directory + "/" + name + ".f32";
-        if (std::getenv("SUSHIDSP_REGENERATE_GOLDEN") != nullptr)
+        if (mode == GoldenMode::Regenerate)
         {
             std::FILE* file = std::fopen(path.c_str(), "wb");
             if (file == nullptr)
@@ -103,9 +121,10 @@ namespace SushiDSP::golden
             }
             std::fwrite(rendered.data(), sizeof(float), rendered.size(), file);
             std::fclose(file);
-            SD_LOG_INFO(K_GOLDEN_COMPARE_LOG_CATEGORY, "regenerated {} from {} samples", path,
+            SD_LOG_WARN(K_GOLDEN_COMPARE_LOG_CATEGORY,
+                        "regenerated {} from {} samples; reporting a 0 dB residual", path,
                         rendered.size());
-            return -200.0;
+            return 0.0;
         }
         std::FILE* file = std::fopen(path.c_str(), "rb");
         if (file == nullptr)
@@ -125,5 +144,17 @@ namespace SushiDSP::golden
             return 0.0;
         }
         return residual_db(stored, rendered);
+    }
+
+    /// @brief Compares rendered output with <directory>/<name>.f32 in the mode the environment
+    /// names; see golden_mode_from_environment().
+    /// @param directory Folder that holds the reference files.
+    /// @param name File stem, e.g. "jcm800_48k".
+    /// @param rendered The node's output for stimulus().
+    /// @return As the overload that takes a mode.
+    inline double compare_or_regenerate(const std::string& directory, const char* name,
+                                        const std::vector<float>& rendered)
+    {
+        return compare_or_regenerate(directory, name, rendered, golden_mode_from_environment());
     }
 } // namespace SushiDSP::golden
