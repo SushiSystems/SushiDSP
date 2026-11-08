@@ -31,6 +31,8 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(sushidsp_tests
     main.cpp
+    # --- Shared test support ---
+    support/test_tolerance.cpp
     # --- Profiler and logging adoption ---
     applications/host_gui/test_session_renderer.cpp
     foundation/benchmark_harness/test_profiled_node.cpp
@@ -363,6 +365,8 @@ add_executable(sushidsp_tests
 target_compile_definitions(sushidsp_tests PRIVATE
     SUSHIDSP_SPICE_DIR="${CMAKE_SOURCE_DIR}/docs/reference/spice"
 )
+# tests/ is an include root, so a test reaches the shared helpers as "support/<name>.hpp".
+target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/host)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/host_gui)
 target_include_directories(sushidsp_tests PRIVATE ${CMAKE_SOURCE_DIR}/applications/plugin)

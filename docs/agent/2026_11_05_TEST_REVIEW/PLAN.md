@@ -11,7 +11,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 
 | Job | Files | Waits on | Status |
 | --- | --- | --- | --- |
-| T1 | `tests/support/tolerance.hpp` copied from SushiSkills |  | todo |
+| T1 | `tests/support/tolerance.hpp` copied from SushiSkills |  | done |
 | T2 | `compare_or_regenerate`: a regenerate run reports no pass |  | todo |
 | T3 | In-memory nodes beside `AudioNode`, an in-memory `AudioDevice` and `CabinetHost`, and the DK glue ports |  | todo |
 | T4 | The registry and counter seams of decisions 1 and 2, and `ClapRigPlugin` taking its rig in place of `SUSHIDSP_PLUGIN_RIG` |  | todo |

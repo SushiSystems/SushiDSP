@@ -3,6 +3,11 @@
 The test programs of SushiDSP and the notes they share. A unit's tests sit at the path that
 mirrors the unit's header; the notes of one owner sit in that owner's README.
 
+`tests/support/` holds the headers every test may include as `"support/<name>.hpp"`.
+`tolerance.hpp` is copied from SushiSkills and derives a floating-point tolerance from a rounding
+bound, so no comparison types one; `test_tolerance.cpp` beside it checks that the copy keeps its
+promises under this repository's compiler flags.
+
 # Unit tests
 
 The reasoning behind the cases in this folder: why a tolerance has its value, where a golden
