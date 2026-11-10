@@ -90,6 +90,25 @@ namespace
     /// @brief Holds how many directions the coverage tests draw, seeded.
     constexpr int K_COVERAGE_TRIALS = 500;
 
+    /// @brief Holds the step of the grid in degrees, in azimuth and in elevation.
+    constexpr double K_GRID_STEP_DEGREES = 10.0;
+
+    /// @brief Holds the largest elevation ring, 80 degrees, on either side of the equator.
+    constexpr int K_LAST_RING_DEGREES = 80;
+
+    /// @brief Holds the angle between a point and the nearest of four grid corners at most, when
+    /// the point is the centre of the widest cell: the cell at the equator is 10 degrees wide and
+    /// 10 degrees tall, so the centre is 5 degrees from each side and the great circle to a
+    /// corner has cos d = cos(5 degrees)^2. A cell off the equator is narrower, and the cap
+    /// between the 80 degree ring and the pole is at most 5 degrees across.
+    const double K_WIDEST_CELL_HALF_DIAGONAL_RAD =
+        std::acos(std::cos(K_PI / 36.0) * std::cos(K_PI / 36.0));
+
+    /// @brief Holds the angle a direction stored as floats may sit from the angle it was written
+    /// from: sixteen roundings of an angle as large as pi.
+    const double K_STORED_ANGLE_SLACK_RAD =
+        16.0 * TestSupport::unit_roundoff<float>() * K_PI;
+
     /// @brief Holds one ear's 128-tap response.
     using Taps = std::array<float, SushiDSP::room::HrtfSet::K_TAP_COUNT>;
 
@@ -234,6 +253,76 @@ namespace
             least = std::min(least, std::min(energy(pair.left), energy(pair.right)));
         }
         return least;
+    }
+
+    /// @brief Returns the unit vector of an azimuth and an elevation, x ahead, y left, z up.
+    std::array<double, 3> unit_vector(double azimuth_rad, double elevation_rad)
+    {
+        return {std::cos(elevation_rad) * std::cos(azimuth_rad),
+                std::cos(elevation_rad) * std::sin(azimuth_rad), std::sin(elevation_rad)};
+    }
+
+    /// @brief Returns the angle in radians between two unit vectors, from the chord between them.
+    double angle_between(const std::array<double, 3>& a, const std::array<double, 3>& b)
+    {
+        const double dx = a[0] - b[0];
+        const double dy = a[1] - b[1];
+        const double dz = a[2] - b[2];
+        return 2.0 * std::asin(0.5 * std::sqrt(dx * dx + dy * dy + dz * dz));
+    }
+
+    /// @brief Returns the angle from a direction to the nearest direction the set holds.
+    double angle_to_the_nearest_grid_direction(const std::array<double, 3>& vector)
+    {
+        double nearest = K_PI;
+        for (std::uint32_t index = 0; index < set().direction_count(); ++index)
+        {
+            const SushiDSP::room::HrtfSet::Direction& grid = set().direction(index);
+            nearest = std::min(nearest,
+                               angle_between(vector, unit_vector(grid.azimuth_rad, grid.elevation_rad)));
+        }
+        return nearest;
+    }
+
+    /// @brief Returns the largest angle from a seeded direction to the nearest grid direction.
+    double largest_gap_over_seeded_directions()
+    {
+        double largest = 0.0;
+        for (const std::array<double, 2>& direction : seeded_directions())
+        {
+            largest = std::max(largest, angle_to_the_nearest_grid_direction(
+                                            unit_vector(direction[0], direction[1])));
+        }
+        return largest;
+    }
+
+    /// @brief Returns how many cells of the grid worked out here, a ring of 36 azimuths at every
+    /// 10 degrees of elevation from -80 to 80 and the two poles, have no direction of the set at
+    /// them.
+    std::size_t grid_cells_the_set_misses()
+    {
+        std::size_t missed = 0;
+        for (int ring = -K_LAST_RING_DEGREES; ring <= K_LAST_RING_DEGREES;
+             ring += static_cast<int>(K_GRID_STEP_DEGREES))
+        {
+            for (int step = 0; step < 36; ++step)
+            {
+                const double azimuth = static_cast<double>(step) * K_GRID_STEP_DEGREES * K_PI / 180.0;
+                const double elevation = static_cast<double>(ring) * K_PI / 180.0;
+                missed += angle_to_the_nearest_grid_direction(unit_vector(azimuth, elevation)) >
+                                  K_STORED_ANGLE_SLACK_RAD
+                              ? 1u
+                              : 0u;
+            }
+        }
+        for (const double pole : {-K_PI / 2.0, K_PI / 2.0})
+        {
+            missed += angle_to_the_nearest_grid_direction(unit_vector(0.0, pole)) >
+                              K_STORED_ANGLE_SLACK_RAD
+                          ? 1u
+                          : 0u;
+        }
+        return missed;
     }
 
     /// @brief Holds one azimuth and the interaural delay worked out by hand to seven decimals:
@@ -399,6 +488,17 @@ INSTANTIATE_TEST_SUITE_P(Octaves, Small_SphericalHeadHrtfShadow, ::testing::Valu
 TEST_F(Small_SphericalHeadHrtf, GridHoldsSixHundredAndFourteenDirections)
 {
     EXPECT_EQ(set().direction_count(), 614u);
+}
+
+TEST_F(Small_SphericalHeadHrtf, EveryCellOfTheTenDegreeGridHasADirectionInTheSet)
+{
+    EXPECT_EQ(grid_cells_the_set_misses(), 0u);
+}
+
+TEST_F(Small_SphericalHeadHrtf, EverySeededDirectionLiesWithinHalfAWideCellDiagonalOfAGridDirection)
+{
+    EXPECT_LE(largest_gap_over_seeded_directions(),
+              K_WIDEST_CELL_HALF_DIAGONAL_RAD + K_STORED_ANGLE_SLACK_RAD);
 }
 
 TEST_F(Small_SphericalHeadHrtf, EverySeededDirectionGivesFiniteResponses)

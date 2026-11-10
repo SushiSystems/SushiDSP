@@ -43,8 +43,8 @@
 #include <SushiDSP/nodes/room/modal_solver.hpp>
 #include <SushiDSP/nodes/room/room_node.hpp>
 #include <SushiDSP/nodes/room/room_render_set.hpp>
-#include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
+#include "nodes/room/test_room_node/axis_hrtf.hpp"
 #include "nodes/room/test_room_node/room_node_rig.hpp"
 #include "support/tolerance.hpp"
 
@@ -59,10 +59,10 @@ namespace
     /// the subtraction and the cast back to float.
     constexpr std::size_t K_COMPENSATION_OPERATIONS = 2;
 
-    /// @brief Builds the render set of one scene for one listener over the spherical head.
+    /// @brief Builds the render set of one scene for one listener over the six-axis head.
     std::unique_ptr<RoomRenderSet> build_set(const RoomScene& scene, ListenerKind kind)
     {
-        const SushiDSP::room::HrtfSet hrtf = SushiDSP::room::SphericalHeadHrtf::build(K_SAMPLE_RATE);
+        const SushiDSP::room::HrtfSet hrtf = axis_hrtf(K_SAMPLE_RATE);
         return SushiDSP::room::build_render_set(scene, hrtf, K_SAMPLE_RATE, kind);
     }
 
@@ -204,9 +204,46 @@ namespace
         }();
         return *set;
     }
+
+    /// @brief Builds the sets the direct image and the delay compensation read, once per suite, so no
+    /// case is charged for them.
+    class EarsAndMicrophoneSets : public ::testing::Test
+    {
+        public:
+            static void SetUpTestSuite()
+            {
+                ears_set();
+                microphone_set();
+            }
+    };
+
+    /// @brief Builds the wave scene's four sets, once per suite, so no case is charged for them.
+    class WaveSets : public ::testing::Test
+    {
+        public:
+            static void SetUpTestSuite()
+            {
+                wave_before();
+                wave_cabinet_moved();
+                wave_listener_moved();
+                wave_widened();
+            }
+    };
 } // namespace
 
-TEST(Medium_RoomNodeDirectImage, RoomNodeTakesTheFirstTapOfTheEarsBankAsTheDirectImage)
+class Small_RoomNodeDirectImage : public EarsAndMicrophoneSets
+{
+};
+
+class Small_RoomNodeDirectDelayCompensation : public EarsAndMicrophoneSets
+{
+};
+
+class Small_RoomNodeModalPublication : public WaveSets
+{
+};
+
+TEST_F(Small_RoomNodeDirectImage, RoomNodeTakesTheFirstTapOfTheEarsBankAsTheDirectImage)
 {
     const RoomRenderSet& ears = ears_set();
     SushiDSP::room::EarlyTapSet reflections{};
@@ -219,7 +256,7 @@ TEST(Medium_RoomNodeDirectImage, RoomNodeTakesTheFirstTapOfTheEarsBankAsTheDirec
     EXPECT_EQ(reflections.crossover_time_s, ears.early.crossover_time_s);
 }
 
-TEST(Medium_RoomNodeDirectImage, RoomNodeLeavesOnlyTapsAfterTheDirectImageInTheEarsBank)
+TEST_F(Small_RoomNodeDirectImage, RoomNodeLeavesOnlyTapsAfterTheDirectImageInTheEarsBank)
 {
     const RoomRenderSet& ears = ears_set();
     SushiDSP::room::EarlyTapSet reflections{};
@@ -231,7 +268,7 @@ TEST(Medium_RoomNodeDirectImage, RoomNodeLeavesOnlyTapsAfterTheDirectImageInTheE
                             { return tap.delay_frames > direct; }));
 }
 
-TEST(Medium_RoomNodeDirectImage, RoomNodeLeavesAMicrophoneBankWhole)
+TEST_F(Small_RoomNodeDirectImage, RoomNodeLeavesAMicrophoneBankWhole)
 {
     const RoomRenderSet& microphone = microphone_set();
     SushiDSP::room::EarlyTapSet reflections{};
@@ -243,7 +280,7 @@ TEST(Medium_RoomNodeDirectImage, RoomNodeLeavesAMicrophoneBankWhole)
     EXPECT_EQ(direct_tap.delay_frames, K_UNTOUCHED);
 }
 
-TEST(Medium_RoomNodeDirectImage, RoomNodeOpensAMicrophoneBankWithTheCabinetsElements)
+TEST_F(Small_RoomNodeDirectImage, RoomNodeOpensAMicrophoneBankWithTheCabinetsElements)
 {
     // The nearest element stands at most one cone's reach nearer than the baffle's centre.
     const RoomRenderSet& microphone = microphone_set();
@@ -258,13 +295,13 @@ TEST(Medium_RoomNodeDirectImage, RoomNodeOpensAMicrophoneBankWithTheCabinetsElem
               centre_frames - K_FRAMES_PER_METRE * cone_reach_m(SushiDSP::room::K_CABINET4X12));
 }
 
-TEST(Medium_RoomNodeDirectDelayCompensation, RoomNodeRoundsTheEarsDirectDelayToWholeFrames)
+TEST_F(Small_RoomNodeDirectDelayCompensation, RoomNodeRoundsTheEarsDirectDelayToWholeFrames)
 {
     const RoomRenderSet& ears = ears_set();
     EXPECT_EQ(ears.direct_delay_frames, std::round(ears.early.taps[0].delay_frames));
 }
 
-TEST(Medium_RoomNodeDirectDelayCompensation, RoomNodeMovesTheEarsDirectTapByTheRoundedDelay)
+TEST_F(Small_RoomNodeDirectDelayCompensation, RoomNodeMovesTheEarsDirectTapByTheRoundedDelay)
 {
     const std::unique_ptr<RoomRenderSet> ears = std::make_unique<RoomRenderSet>(ears_set());
     const float shift = ears->direct_delay_frames;
@@ -274,7 +311,7 @@ TEST(Medium_RoomNodeDirectDelayCompensation, RoomNodeMovesTheEarsDirectTapByTheR
         K_COMPENSATION_OPERATIONS)));
 }
 
-TEST(Medium_RoomNodeDirectDelayCompensation, RoomNodeKeepsEachReflectionsSpacingToTheDirectTap)
+TEST_F(Small_RoomNodeDirectDelayCompensation, RoomNodeKeepsEachReflectionsSpacingToTheDirectTap)
 {
     const std::unique_ptr<RoomRenderSet> ears = std::make_unique<RoomRenderSet>(ears_set());
     const float shift = ears->direct_delay_frames;
@@ -283,7 +320,7 @@ TEST(Medium_RoomNodeDirectDelayCompensation, RoomNodeKeepsEachReflectionsSpacing
         worst_reflection_ratio(ears_set().early, ears->early, shift)));
 }
 
-TEST(Medium_RoomNodeDirectDelayCompensation, RoomNodeMovesTheTailInputWithTheEarsDirectTap)
+TEST_F(Small_RoomNodeDirectDelayCompensation, RoomNodeMovesTheTailInputWithTheEarsDirectTap)
 {
     const std::unique_ptr<RoomRenderSet> ears = std::make_unique<RoomRenderSet>(ears_set());
     const float shift = ears->direct_delay_frames;
@@ -294,7 +331,7 @@ TEST(Medium_RoomNodeDirectDelayCompensation, RoomNodeMovesTheTailInputWithTheEar
         K_COMPENSATION_OPERATIONS)));
 }
 
-TEST(Medium_RoomNodeDirectDelayCompensation, RoomNodeLeavesAMicrophoneSetAsItWas)
+TEST_F(Small_RoomNodeDirectDelayCompensation, RoomNodeLeavesAMicrophoneSetAsItWas)
 {
     const std::unique_ptr<RoomRenderSet> microphone =
         std::make_unique<RoomRenderSet>(microphone_set());
@@ -304,26 +341,26 @@ TEST(Medium_RoomNodeDirectDelayCompensation, RoomNodeLeavesAMicrophoneSetAsItWas
               microphone_set().late.delay_to_crossover_frames);
 }
 
-TEST(Medium_RoomNodeModalPublication, RoomNodeKeepsTheResonatorsWhenTheCabinetMoves)
+TEST_F(Small_RoomNodeModalPublication, RoomNodeKeepsTheResonatorsWhenTheCabinetMoves)
 {
     EXPECT_TRUE(SushiDSP::room::RoomNode::same_resonators(wave_before().modal,
                                                           wave_cabinet_moved().modal));
     EXPECT_EQ(wave_before().modal.level_scale, wave_cabinet_moved().modal.level_scale);
 }
 
-TEST(Medium_RoomNodeModalPublication, RoomNodeKeepsTheResonatorsWhenTheListenerMoves)
+TEST_F(Small_RoomNodeModalPublication, RoomNodeKeepsTheResonatorsWhenTheListenerMoves)
 {
     EXPECT_TRUE(SushiDSP::room::RoomNode::same_resonators(wave_before().modal,
                                                           wave_listener_moved().modal));
 }
 
-TEST(Medium_RoomNodeModalPublication, RoomNodeRebuildsTheResonatorsWhenTheRoomChanges)
+TEST_F(Small_RoomNodeModalPublication, RoomNodeRebuildsTheResonatorsWhenTheRoomChanges)
 {
     EXPECT_FALSE(
         SushiDSP::room::RoomNode::same_resonators(wave_before().modal, wave_widened().modal));
 }
 
-TEST(Medium_RoomNodeModalPublication, RoomNodeChangesTheSourceGainsOfTheModesAlongTheCabinetsMove)
+TEST_F(Small_RoomNodeModalPublication, RoomNodeChangesTheSourceGainsOfTheModesAlongTheCabinetsMove)
 {
     // Every mode with a non-zero x index feels the cabinet's move along x.
     const RoomRenderSet& before = wave_before();
@@ -334,7 +371,7 @@ TEST(Medium_RoomNodeModalPublication, RoomNodeChangesTheSourceGainsOfTheModesAlo
     EXPECT_EQ(comparison.source_gains_moved, modes_along(wave_scene(), before.crossover_hz, 0u));
 }
 
-TEST(Medium_RoomNodeModalPublication, RoomNodeChangesTheEarGainsOfTheModesAlongTheListenersMove)
+TEST_F(Small_RoomNodeModalPublication, RoomNodeChangesTheEarGainsOfTheModesAlongTheListenersMove)
 {
     // Every mode with a non-zero y index feels the listener's move along y.
     const RoomRenderSet& before = wave_before();

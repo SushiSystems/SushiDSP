@@ -23,22 +23,30 @@
 
 /**
  * @file test_pair_stage.cpp
- * @brief Tests that a pair stage goes live on adopt, forgets its set on reset and splits an ears set's direct tap.
+ * @brief Tests that a pair stage goes live on adopt, forgets its set on reset splits an ears set's direct tap and renders for the receiver it was prepared for.
  * @author Mustafa Garip
  */
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/nodes/room/delay_ring.hpp>
+#include <SushiDSP/nodes/room/fade_window.hpp>
+#include <SushiDSP/nodes/room/fdn_design.hpp>
 #include <SushiDSP/nodes/room/pair_stage.hpp>
 
 #include <cstdint>
+#include <cstddef>
 #include <memory>
+#include <numeric>
+#include <vector>
 
 namespace
 {
     using SushiDSP::Room::PairStage;
+    using SushiDSP::room::DelayRing;
     using SushiDSP::room::EarlyTap;
     using SushiDSP::room::EarlyTapSet;
+    using SushiDSP::room::FadeWindow;
     using SushiDSP::room::ListenerKind;
     using SushiDSP::room::RoomRenderSet;
 
@@ -63,6 +71,53 @@ namespace
         set->early.taps[1].delay_frames = 10.0f;
         set->early.taps[2].delay_frames = 20.0f;
         return set;
+    }
+
+    /// @brief Holds the frames the tail is read behind the block written.
+    constexpr std::uint32_t K_TAIL_DELAY = 4;
+
+    /// @brief Holds the longest delay the rings are sized for.
+    constexpr std::uint32_t K_RING_FRAMES = 256;
+
+    /// @brief Returns a set whose tail passes only the B sum: unit gain, K_TAIL_DELAY frames, the tone
+    /// and the B coherence cascades the identity and the A coherence cascade silent.
+    std::unique_ptr<RoomRenderSet> tail_b_set(ListenerKind listener)
+    {
+        auto set = three_tap_set(listener);
+        set->late.input_gain = 1.0f;
+        set->late.delay_to_crossover_frames = static_cast<float>(K_TAIL_DELAY);
+        for (std::size_t section = 0; section < SushiDSP::room::FdnDesign::K_OUTPUT_SECTIONS; ++section)
+        {
+            set->late.tone_correction[section][0] = 1.0;
+            set->late.coherence_b[section][0] = 1.0;
+        }
+        return set;
+    }
+
+    /// @brief Renders one block of a stage adopting tail_b_set, with a unit impulse in the B ring
+    /// alone, and returns the sum of the right ear's tail over the block.
+    float right_tail_sum(ListenerKind kind)
+    {
+        PairStage stage;
+        stage.prepare(kind, K_RATE, K_ALIGNMENT_FRAMES, K_BLOCK);
+        stage.adopt(*tail_b_set(kind));
+        DelayRing ring;
+        DelayRing tail_a;
+        DelayRing tail_b;
+        ring.prepare(K_RING_FRAMES, K_BLOCK);
+        tail_a.prepare(K_RING_FRAMES, K_BLOCK);
+        tail_b.prepare(K_RING_FRAMES, K_BLOCK);
+        const std::vector<float> silence(K_BLOCK, 0.0f);
+        std::vector<float> impulse(K_BLOCK, 0.0f);
+        impulse[0] = 1.0f;
+        ring.write(silence.data(), K_BLOCK);
+        tail_a.write(silence.data(), K_BLOCK);
+        tail_b.write(impulse.data(), K_BLOCK);
+
+        stage.render(ring, tail_a, tail_b, K_BLOCK, FadeWindow{0, 0, 0});
+
+        const float* const right = stage.tail(1);
+        return std::accumulate(right, right + K_BLOCK, 0.0f);
     }
 
     /// @brief Returns an ears stage prepared at K_RATE.
@@ -165,4 +220,14 @@ TEST(Small_PairStage, TakeDirectImageKeepsEveryTapOfAMicrophoneSetAsAReflection)
     PairStage::take_direct_image(*three_tap_set(ListenerKind::Microphone), reflections, direct);
 
     EXPECT_EQ(reflections.count, 3u);
+}
+
+TEST(Small_PairStage, AnEarsStagePassesTheBSumToTheRightEar)
+{
+    EXPECT_EQ(right_tail_sum(ListenerKind::Ears), 1.0f);
+}
+
+TEST(Small_PairStage, AMicrophoneStageLeavesTheRightEarSilent)
+{
+    EXPECT_EQ(right_tail_sum(ListenerKind::Microphone), 0.0f);
 }
