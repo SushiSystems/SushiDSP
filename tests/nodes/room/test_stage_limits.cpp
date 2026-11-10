@@ -46,9 +46,9 @@ namespace
     };
 
     /// @brief Holds the ceilings by hand from the definition (order + 1) * 12 m / 343 m/s * rate,
-    /// rounded up: 5 * 12 / 343 is 0.174927 s, which is 8396.48 frames at 48 kHz and 16792.96 at
-    /// 96 kHz. The first is the 8397 the header names.
-    const std::array<Ceiling, 2> kCeilings = {{{"At48kHz", 48000.0, 8397u}, {"At96kHz", 96000.0, 16793u}}};
+    /// rounded up: 5 * 12 / 343 is 0.1749271 s, which is 2880000 / 343 = 8396.50 frames at 48 kHz and
+    /// 5760000 / 343 = 16793.003 at 96 kHz. The first is the 8397 the header names.
+    const std::array<Ceiling, 2> kCeilings = {{{"At48kHz", 48000.0, 8397u}, {"At96kHz", 96000.0, 16794u}}};
 
     /// @brief Names a ceiling case after its rate.
     std::string ceiling_name(const ::testing::TestParamInfo<Ceiling>& info)

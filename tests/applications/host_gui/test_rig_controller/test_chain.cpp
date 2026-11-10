@@ -304,14 +304,15 @@ TEST_F(Small_RigControllerChain, AddBranchWithAnUnregisteredDescriptorIdIsRefuse
     EXPECT_EQ(count_slots_of_type(controller, "sushidsp.mixer"), 0u);
 }
 
-TEST_F(Small_RigControllerChain, AppendWithUnknownDescriptorIdKeepsTheSlotAndBuildsNoNodeForIt)
+TEST_F(Small_RigControllerChain, AppendWithUnknownDescriptorIdDropsTheSlotAndBuildsNoNodeForIt)
 {
     RigController controller = rig({48000.0, 256, 1});
     const RigController::SlotId a = controller.append("sushidsp.tubescreamer");
     const RigController::SlotId unknown = controller.append("sushidsp.does_not_exist");
 
-    EXPECT_EQ(controller.slot_order(), (std::vector<RigController::SlotId>{a, unknown}));
-    EXPECT_EQ(controller.descriptor_id(unknown), "sushidsp.does_not_exist");
+    // publish() drops a slot whose node type the catalogue does not list.
+    EXPECT_EQ(controller.slot_order(), (std::vector<RigController::SlotId>{a}));
+    EXPECT_EQ(controller.descriptor_id(unknown), "");
     ASSERT_NE(controller.active_graph(), nullptr);
     EXPECT_EQ(controller.active_graph()->nodes().size(), 1u);
 }

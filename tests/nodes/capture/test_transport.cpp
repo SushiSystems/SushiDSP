@@ -116,12 +116,13 @@ TEST(Small_Transport, TransportSeekClearsTheSpeedFraction)
 {
     SushiDSP::Transport transport;
     transport.play();
-    transport.set_speed(0.3);
-    transport.advance(64u); // 19.2 frames: 19 move and 0.2 stays as the remainder
+    // Speeds below 0.5 clamp to 0.5; 64 frames at 0.6 move 38.4, so 0.4 stays as the remainder.
+    transport.set_speed(0.6);
+    transport.advance(64u);
     transport.seek(1000u);
 
-    // 3 frames at 0.3 are 0.9; a remainder of 0.2 left from before the seek would make it 1.1.
-    transport.advance(3u);
+    // One frame at 0.6 moves nothing; a remainder of 0.4 kept past the seek would move one.
+    transport.advance(1u);
 
     EXPECT_EQ(transport.position_frames(), 1000u);
 }

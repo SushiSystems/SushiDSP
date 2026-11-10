@@ -98,14 +98,25 @@ namespace
         return beat * 28800000ull / 1374ull;
     }
 
-    /// @brief Expects every beat start in the range to equal the exact frame, rounded down.
+    /// @brief Expects every beat start in the range to be the exact frame, rounded down.
+    ///
+    /// The step is the exact beat length rounded to the nearest 2^-32 frame, so it is off by at most
+    /// 2^-33 frames and a start at beat n by at most n * 2^-33, under 1e-7 frames for n below 687.
+    /// The exact start is a multiple of 1/687 frames, so any other beat is at least 1/687 frames from
+    /// a whole frame and rounds down to the same frame. Only a beat whose exact start is a whole
+    /// frame can land just under it and read one frame early.
     void expect_beats_on_the_exact_grid(const SushiDSP::MusicalClock& clock, std::uint64_t beats)
     {
         for (std::uint64_t beat = 0; beat < beats; ++beat)
         {
-            EXPECT_EQ(clock.frame_of(beat / 4u + 1u, static_cast<std::uint32_t>(beat % 4u) + 1u),
-                      exact_frame_of_beat(beat))
-                << "beat " << beat;
+            const std::uint64_t exact = exact_frame_of_beat(beat);
+            const bool whole_frame = (beat * 28800000ull) % 1374ull == 0u;
+            const std::uint64_t earliest = whole_frame && exact > 0u ? exact - 1u : exact;
+            const std::uint64_t start =
+                clock.frame_of(beat / 4u + 1u, static_cast<std::uint32_t>(beat % 4u) + 1u);
+
+            EXPECT_GE(start, earliest) << "beat " << beat;
+            EXPECT_LE(start, exact) << "beat " << beat;
         }
     }
 

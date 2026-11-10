@@ -571,7 +571,7 @@ test restates is held to a bound counted in roundings of the operations it takes
 
 The garage: Eyring's 1.342, 1.333, 1.161, 1.146, 1.108 and 0.893 s over 0.161 \* 60 m3 times 16
 pi, and the 4x12's directivity index of 1.12, 2.99, 7.59, 12.01, 15.74 and 18.82 dB taken back
-out, give 5.39, 3.48, 1.05, 0.376, 0.154 and 0.0610 per hertz.
+out, give 5.40, 3.48, 1.05, 0.376, 0.154 and 0.0610 per hertz.
 
 ### `FieldFollowsTheCabinetAndNotTheRoomAlone`
 

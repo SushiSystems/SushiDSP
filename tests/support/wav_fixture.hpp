@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -46,11 +47,14 @@ namespace TestSupport
     /// @brief Names a fixture file after the running case, so two cases ctest schedules in
     /// parallel never write the same path.
     /// @param name The file's name inside the test temporary directory.
-    /// @return The full path, with the running case's name prefixed.
+    /// @return The full path, with the running case's name prefixed. A parameterised case's name
+    /// holds a '/' before its row, which would name a folder that does not exist, so each '/'
+    /// reads as '_'.
     inline std::string temp_fixture_path(const std::string& name)
     {
         const ::testing::TestInfo* info = ::testing::UnitTest::GetInstance()->current_test_info();
-        const std::string prefix = info != nullptr ? std::string(info->name()) + "_" : "";
+        std::string prefix = info != nullptr ? std::string(info->name()) + "_" : "";
+        std::replace(prefix.begin(), prefix.end(), '/', '_');
         return std::string(::testing::TempDir()) + "sushidsp_" + prefix + name;
     }
 

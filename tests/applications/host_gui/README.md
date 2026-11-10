@@ -53,10 +53,10 @@ The whole point of the feature, in the order a user performs it: drag a source, 
 effect into a straight line, then drop a second effect on the splitter's open row. add_branch() is
 what turns that one drop into the four-edge shape RigGraph::compile() accepts, mixer and all.
 
-### `AppendWithUnknownDescriptorIdKeepsTheSlotAndBuildsNoNodeForIt`
+### `AppendWithUnknownDescriptorIdDropsTheSlotAndBuildsNoNodeForIt`
 
-A slot whose descriptor id the catalogue does not list stays in the rig, so a preset that names it
-survives, and the graph builds no node for it.
+A slot whose descriptor id the catalogue does not list is dropped when the graph publishes: it is
+absent from the slot order, its descriptor id reads back empty, and the graph holds one node.
 
 ## `test_rig_controller/test_bypass.cpp`
 

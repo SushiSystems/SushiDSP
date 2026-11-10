@@ -441,7 +441,7 @@ namespace
     /// @brief Holds the garage's field per band: Eyring's 1.342, 1.333, 1.161, 1.146, 1.108 and
     /// 0.893 s over 0.161 * 60 m3 times 16 pi, and the 4x12's directivity index of 1.12, 2.99,
     /// 7.59, 12.01, 15.74 and 18.82 dB taken back out.
-    const std::array<FieldBand, 6> kFieldBands = {{{"Hz125", 0, 5.39, 2},
+    const std::array<FieldBand, 6> kFieldBands = {{{"Hz125", 0, 5.40, 2},
                                                    {"Hz250", 1, 3.48, 2},
                                                    {"Hz500", 2, 1.05, 2},
                                                    {"Hz1000", 3, 0.376, 3},
