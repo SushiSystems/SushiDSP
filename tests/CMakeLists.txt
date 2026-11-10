@@ -143,6 +143,7 @@ add_executable(sushidsp_tests
     foundation/core/test_denormal_guard.cpp
     foundation/core/test_rig_graph/test_behaviour.cpp
     foundation/core/test_rig_graph/test_output_ports.cpp
+    foundation/core/test_rig_graph/test_channels_adapt.cpp
     nodes/routing/test_sample_delay_line.cpp
     nodes/routing/test_channel_strip_node.cpp
     nodes/routing/test_stereo_strip_node.cpp

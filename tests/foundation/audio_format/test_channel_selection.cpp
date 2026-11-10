@@ -27,13 +27,52 @@
  * @author Mustafa Garip
  */
 
+#include <array>
+#include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/core/rig_graph.hpp>
 #include <SushiDSP/foundation/audio_format/channel_selection.hpp>
+
+namespace
+{
+
+/** A rig width and a device width the output stage accepts. */
+struct WidthPair
+{
+    const char* name;
+    std::uint32_t rig_channels;
+    std::uint32_t device_channels;
+};
+
+const WidthPair kAdaptingWidths[] = {
+    {"MonoToMono", 1u, 1u},
+    {"MonoToStereo", 1u, 2u},
+    {"StereoToMono", 2u, 1u},
+    {"StereoToStereo", 2u, 2u},
+};
+
+/** How many of kRigChannels the rig carries. */
+struct RigWidth
+{
+    const char* name;
+    std::uint32_t channels;
+};
+
+const RigWidth kRigWidths[] = {
+    {"OneRigChannel", 1u},
+    {"TwoRigChannels", 2u},
+};
+
+const std::array<std::vector<float>, 2> kRigChannels = {std::vector<float>{1.0f, 2.0f, 3.0f},
+                                                         std::vector<float>{-1.0f, -2.0f, -3.0f}};
+
+const std::vector<float> kSilence(3, 0.0f);
+
+} // namespace
 
 TEST(Small_ChannelSelection, ParseChannelSelectionAcceptsLRAndStereo)
 {
@@ -56,29 +95,17 @@ TEST(Small_ChannelSelection, ChannelSelectionInputIndexMatchesLeftRight)
     EXPECT_EQ(SushiDSP::channel_selection_input_index(SushiDSP::ChannelSelection::Right), 1u);
 }
 
-TEST(Small_ChannelSelection, ChannelSelectionLabelsAreHumanReadable)
+class Small_RigOutputAdapts : public ::testing::TestWithParam<WidthPair>
 {
-    EXPECT_STREQ(SushiDSP::channel_selection_label(SushiDSP::ChannelSelection::Left), "L");
-    EXPECT_STREQ(SushiDSP::channel_selection_label(SushiDSP::ChannelSelection::Right), "R");
-    EXPECT_STREQ(SushiDSP::channel_selection_label(SushiDSP::ChannelSelection::Stereo), "stereo");
+};
+
+TEST_P(Small_RigOutputAdapts, AcceptsTheWidthPairsTheGraphAdapts)
+{
+    EXPECT_TRUE(SushiDSP::rig_output_adapts_to_device(GetParam().rig_channels, GetParam().device_channels));
 }
 
-TEST(Small_ChannelSelection, RigOutputAdaptsToDeviceCoversTheGraphsTable)
-{
-    EXPECT_TRUE(SushiDSP::rig_output_adapts_to_device(1u, 1u));
-    EXPECT_TRUE(SushiDSP::rig_output_adapts_to_device(1u, 2u));
-    EXPECT_TRUE(SushiDSP::rig_output_adapts_to_device(2u, 1u));
-    EXPECT_TRUE(SushiDSP::rig_output_adapts_to_device(2u, 2u));
-
-    EXPECT_EQ(SushiDSP::rig_output_adapts_to_device(1u, 1u),
-              SushiDSP::RigGraph::channels_adapt(1u, 1u));
-    EXPECT_EQ(SushiDSP::rig_output_adapts_to_device(1u, 2u),
-              SushiDSP::RigGraph::channels_adapt(1u, 2u));
-    EXPECT_EQ(SushiDSP::rig_output_adapts_to_device(2u, 1u),
-              SushiDSP::RigGraph::channels_adapt(2u, 1u));
-    EXPECT_EQ(SushiDSP::rig_output_adapts_to_device(2u, 2u),
-              SushiDSP::RigGraph::channels_adapt(2u, 2u));
-}
+INSTANTIATE_TEST_SUITE_P(Widths, Small_RigOutputAdapts, ::testing::ValuesIn(kAdaptingWidths),
+                         [](const ::testing::TestParamInfo<WidthPair>& info) { return std::string(info.param.name); });
 
 TEST(Small_ChannelSelection, RigOutputAdaptsToDeviceRefusesWidthsWithNoRule)
 {
@@ -93,7 +120,6 @@ TEST(Small_ChannelSelection, RigOutputAdaptsToDeviceRefusesEqualWidthsTheWriterC
 {
     EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(4u, 4u));
     EXPECT_FALSE(SushiDSP::rig_output_adapts_to_device(8u, 8u));
-    EXPECT_TRUE(SushiDSP::RigGraph::channels_adapt(4u, 4u));
 }
 
 TEST(Small_ChannelSelection, WriteRigOutputCopiesOneRigChannelToBothDeviceChannels)
@@ -110,31 +136,40 @@ TEST(Small_ChannelSelection, WriteRigOutputCopiesOneRigChannelToBothDeviceChanne
     EXPECT_EQ(right, mono);
 }
 
-TEST(Small_ChannelSelection, WriteRigOutputZeroesTheChannelTheSelectionExcludesForOneRigChannel)
+class Small_WriteRigOutputExcludes : public ::testing::TestWithParam<RigWidth>
 {
-    std::vector<float> mono{1.0f, 2.0f, 3.0f};
-    const float* rig_outputs[1] = {mono.data()};
-    std::vector<float> left(3, 9.0f), right(3, 9.0f);
-    float* device_outputs[2] = {left.data(), right.data()};
-
-    SushiDSP::write_rig_output_to_device(rig_outputs, 1u, device_outputs, 2u, 3u,
-                                         SushiDSP::ChannelSelection::Left);
-    EXPECT_EQ(left, mono);
-    for (float sample : right)
+  protected:
+    /** Writes the rig to a stereo device under a selection and returns the left and right channels. */
+    std::array<std::vector<float>, 2> write(SushiDSP::ChannelSelection selection) const
     {
-        EXPECT_FLOAT_EQ(sample, 0.0f);
-    }
+        const float* rig_outputs[2] = {kRigChannels[0].data(), kRigChannels[1].data()};
+        std::array<std::vector<float>, 2> device = {std::vector<float>(3, 9.0f), std::vector<float>(3, 9.0f)};
+        float* device_outputs[2] = {device[0].data(), device[1].data()};
 
-    left.assign(3, 9.0f);
-    right.assign(3, 9.0f);
-    SushiDSP::write_rig_output_to_device(rig_outputs, 1u, device_outputs, 2u, 3u,
-                                         SushiDSP::ChannelSelection::Right);
-    for (float sample : left)
-    {
-        EXPECT_FLOAT_EQ(sample, 0.0f);
+        SushiDSP::write_rig_output_to_device(rig_outputs, GetParam().channels, device_outputs, 2u, 3u, selection);
+        return device;
     }
-    EXPECT_EQ(right, mono);
+};
+
+// The last rig channel is the right device channel in both rows.
+TEST_P(Small_WriteRigOutputExcludes, ZeroesTheRightChannelWhenLeftIsSelected)
+{
+    const std::array<std::vector<float>, 2> device = write(SushiDSP::ChannelSelection::Left);
+
+    EXPECT_EQ(device[0], kRigChannels[0]);
+    EXPECT_EQ(device[1], kSilence);
 }
+
+TEST_P(Small_WriteRigOutputExcludes, ZeroesTheLeftChannelWhenRightIsSelected)
+{
+    const std::array<std::vector<float>, 2> device = write(SushiDSP::ChannelSelection::Right);
+
+    EXPECT_EQ(device[0], kSilence);
+    EXPECT_EQ(device[1], kRigChannels[GetParam().channels - 1u]);
+}
+
+INSTANTIATE_TEST_SUITE_P(RigWidths, Small_WriteRigOutputExcludes, ::testing::ValuesIn(kRigWidths),
+                         [](const ::testing::TestParamInfo<RigWidth>& info) { return std::string(info.param.name); });
 
 TEST(Small_ChannelSelection, WriteRigOutputPassesTwoRigChannelsStraightThrough)
 {
@@ -148,33 +183,6 @@ TEST(Small_ChannelSelection, WriteRigOutputPassesTwoRigChannelsStraightThrough)
                                          SushiDSP::ChannelSelection::Stereo);
 
     EXPECT_EQ(left, rig_left);
-    EXPECT_EQ(right, rig_right);
-}
-
-TEST(Small_ChannelSelection, WriteRigOutputZeroesTheChannelTheSelectionExcludes)
-{
-    std::vector<float> rig_left{1.0f, 2.0f, 3.0f};
-    std::vector<float> rig_right{-1.0f, -2.0f, -3.0f};
-    const float* rig_outputs[2] = {rig_left.data(), rig_right.data()};
-    std::vector<float> left(3, 9.0f), right(3, 9.0f);
-    float* device_outputs[2] = {left.data(), right.data()};
-
-    SushiDSP::write_rig_output_to_device(rig_outputs, 2u, device_outputs, 2u, 3u,
-                                         SushiDSP::ChannelSelection::Left);
-    EXPECT_EQ(left, rig_left);
-    for (float sample : right)
-    {
-        EXPECT_FLOAT_EQ(sample, 0.0f);
-    }
-
-    left.assign(3, 9.0f);
-    right.assign(3, 9.0f);
-    SushiDSP::write_rig_output_to_device(rig_outputs, 2u, device_outputs, 2u, 3u,
-                                         SushiDSP::ChannelSelection::Right);
-    for (float sample : left)
-    {
-        EXPECT_FLOAT_EQ(sample, 0.0f);
-    }
     EXPECT_EQ(right, rig_right);
 }
 

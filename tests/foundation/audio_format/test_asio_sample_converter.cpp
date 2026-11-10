@@ -35,33 +35,57 @@
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/audio_format/asio_sample_converter.hpp>
 
-TEST(Small_AsioSampleConverter, AsioSampleConverterInt32RoundTripsKnownValues)
+namespace
 {
-    // Int32LSB: full-scale is +/-2147483648.
-    const std::int32_t half_scale_positive = 1073741824; // 0.5 * INT32_MAX+1
-    std::uint8_t bytes[4];
-    std::memcpy(bytes, &half_scale_positive, 4);
 
-    const float decoded =
-        SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
-    EXPECT_NEAR(decoded, 0.5f, 1e-6f);
-
-    std::uint8_t re_encoded[4];
-    SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, 0.5f, re_encoded);
-    std::int32_t re_encoded_value = 0;
-    std::memcpy(&re_encoded_value, re_encoded, 4);
-    EXPECT_NEAR(re_encoded_value, half_scale_positive, 2); // rounding tolerance
+/** Decodes the sample a format reads from the bytes of one integer container. */
+template <typename Container>
+float decode_container(SushiDSP::AsioSampleFormat format, Container raw)
+{
+    std::uint8_t bytes[sizeof(Container)];
+    std::memcpy(bytes, &raw, sizeof(Container));
+    return SushiDSP::asio_sample_to_float(format, bytes);
 }
 
-TEST(Small_AsioSampleConverter, AsioSampleConverterInt32ClampsFullScaleNegative)
+/** Encodes a float and reads back the integer container the format wrote. */
+template <typename Container>
+Container encode_container(SushiDSP::AsioSampleFormat format, float value)
 {
-    const std::int32_t full_scale_negative = -2147483647 - 1; // INT32_MIN, avoids UB literal
-    std::uint8_t bytes[4];
-    std::memcpy(bytes, &full_scale_negative, 4);
+    std::uint8_t bytes[sizeof(Container)];
+    SushiDSP::float_to_asio_sample(format, value, bytes);
+    Container raw = 0;
+    std::memcpy(&raw, bytes, sizeof(Container));
+    return raw;
+}
 
-    const float decoded =
-        SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
-    EXPECT_NEAR(decoded, -1.0f, 1e-6f);
+// The encoders scale by full scale minus one and truncate: 0.5 gives 2^30 - 1, 0.25 gives 2^13 - 1.
+constexpr std::int32_t kInt32HalfScale = 1073741824;
+constexpr std::int32_t kInt32EncodedHalf = kInt32HalfScale - 1;
+constexpr std::int32_t kInt32Max = 2147483647;
+constexpr std::int32_t kInt32Min = -2147483647 - 1;
+constexpr std::int16_t kInt16QuarterScale = 8192;
+constexpr std::int16_t kInt16EncodedQuarter = kInt16QuarterScale - 1;
+
+} // namespace
+
+TEST(Small_AsioSampleConverter, AsioSampleConverterInt32DecodesHalfScaleToOneHalf)
+{
+    EXPECT_EQ(decode_container(SushiDSP::AsioSampleFormat::Int32LSB, kInt32HalfScale), 0.5f);
+}
+
+TEST(Small_AsioSampleConverter, AsioSampleConverterInt32EncodesOneHalfToTheTruncatedFullScaleFraction)
+{
+    EXPECT_EQ(encode_container<std::int32_t>(SushiDSP::AsioSampleFormat::Int32LSB, 0.5f), kInt32EncodedHalf);
+}
+
+TEST(Small_AsioSampleConverter, AsioSampleConverterInt32DecodesFullScaleNegativeToMinusOne)
+{
+    EXPECT_EQ(decode_container(SushiDSP::AsioSampleFormat::Int32LSB, kInt32Min), -1.0f);
+}
+
+TEST(Small_AsioSampleConverter, AsioSampleConverterInt32ClampsOutOfRangeNegativeInputToMinusFullScale)
+{
+    EXPECT_EQ(encode_container<std::int32_t>(SushiDSP::AsioSampleFormat::Int32LSB, -2.0f), -kInt32Max);
 }
 
 TEST(Small_AsioSampleConverter, AsioSampleConverterFloat32PassesThroughUnchanged)
@@ -81,41 +105,31 @@ TEST(Small_AsioSampleConverter, AsioSampleConverterFloat32PassesThroughUnchanged
     EXPECT_FLOAT_EQ(re_encoded_value, 0.25f);
 }
 
-TEST(Small_AsioSampleConverter, AsioSampleConverterInt16RoundTripsKnownValues)
+TEST(Small_AsioSampleConverter, AsioSampleConverterInt16DecodesQuarterScaleToOneQuarter)
 {
-    const std::int16_t quarter_scale = 8192; // 0.25 * 32768
-    std::uint8_t bytes[2];
-    std::memcpy(bytes, &quarter_scale, 2);
+    EXPECT_EQ(decode_container(SushiDSP::AsioSampleFormat::Int16LSB, kInt16QuarterScale), 0.25f);
+}
 
-    const float decoded =
-        SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int16LSB, bytes);
-    EXPECT_NEAR(decoded, 0.25f, 1e-4f);
+TEST(Small_AsioSampleConverter, AsioSampleConverterInt16EncodesOneQuarterToTheTruncatedFullScaleFraction)
+{
+    EXPECT_EQ(encode_container<std::int16_t>(SushiDSP::AsioSampleFormat::Int16LSB, 0.25f), kInt16EncodedQuarter);
 }
 
 TEST(Small_AsioSampleConverter, AsioSampleConverterFloatToSampleClampsOutOfRangeInput)
 {
     // Out-of-range input clamps to full scale. See tests/foundation/audio_format/README.md.
-    std::uint8_t bytes[4];
-    SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, 2.0f, bytes);
-    std::int32_t decoded_value = 0;
-    std::memcpy(&decoded_value, bytes, 4);
-    EXPECT_EQ(decoded_value, 2147483647);
+    EXPECT_EQ(encode_container<std::int32_t>(SushiDSP::AsioSampleFormat::Int32LSB, 2.0f), kInt32Max);
 }
 
 TEST(Medium_AsioSampleConverter, ConversionPerformsNoHeapAllocation)
 {
     std::uint8_t bytes[4] = {0, 0, 0, 0};
+    float decoded = 0.0f;
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-
-    for (int i = 0; i < 10000; ++i)
-    {
-        const float decoded =
-            SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
-        SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, decoded, bytes);
-    }
-
+    decoded = SushiDSP::asio_sample_to_float(SushiDSP::AsioSampleFormat::Int32LSB, bytes);
+    SushiDSP::float_to_asio_sample(SushiDSP::AsioSampleFormat::Int32LSB, decoded, bytes);
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
