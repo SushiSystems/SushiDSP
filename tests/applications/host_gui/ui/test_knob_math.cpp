@@ -29,9 +29,12 @@
 
 #include <gtest/gtest.h>
 
-#include "ui/knob_math.hpp"
-
 #include <cmath>
+#include <cstddef>
+#include <string>
+
+#include "support/tolerance.hpp"
+#include "ui/knob_math.hpp"
 
 namespace
 {
@@ -43,6 +46,64 @@ namespace
         "freq", "Freq", 20.0f, 20000.0f, 1000.0f, SushiDSP::ParamKind::Logarithmic, "Hz"};
     constexpr SushiDSP::ParameterDescriptor K_LOG_BAD_MIN{
         "freq", "Freq", 0.0f, 20000.0f, 1000.0f, SushiDSP::ParamKind::Logarithmic, "Hz"};
+
+    /// @brief The decibel range's span, 12 dB - (-60 dB).
+    constexpr double K_DECIBEL_SPAN = 72.0;
+
+    /// @brief Rounded operations on the longest path of a decibel round trip: the offset, the
+    /// division, the multiplication and the addition.
+    constexpr std::size_t K_DECIBEL_ROUND_TRIP_OPERATIONS = 4;
+
+    /// @brief Rounded operations on the longest path of the logarithmic midpoint: the ratio's
+    /// division, the power, the product, and the square root of the reference.
+    constexpr std::size_t K_LOG_MIDPOINT_OPERATIONS = 6;
+
+    /// @brief Rounded operations on the longest path of the fine and coarse drag: the division
+    /// and the subtraction, then the reference's multiplication.
+    constexpr std::size_t K_DRAG_OPERATIONS = 4;
+
+    /// @brief Roundings on the longest path of a knob angle: the representation of the start and
+    /// of the sweep constants, the product and the sum.
+    constexpr std::size_t K_ANGLE_OPERATIONS = 4;
+
+    /// @brief The largest angle the knob reaches, in radians: 135 degrees of start and 270 degrees
+    /// of sweep.
+    constexpr double K_LARGEST_ANGLE_RADIANS = 7.0685834705770345;
+
+    /// @brief The bound, in float, on a sine or cosine of a knob angle.
+    ///
+    /// The angle carries K_ANGLE_OPERATIONS roundings of at most u times its size, the sine and
+    /// the cosine are 1-Lipschitz in their argument, and the function adds one rounding of its own
+    /// below 1 in size.
+    constexpr double K_TRIG_BOUND =
+        (static_cast<double>(K_ANGLE_OPERATIONS) * K_LARGEST_ANGLE_RADIANS + 1.0) *
+        TestSupport::unit_roundoff<float>();
+
+    /// @brief Checks the direction the pointer takes at a knob position.
+    /// @param normalized The knob position.
+    /// @param cosine The cosine the pointer angle should have.
+    /// @param sine The sine the pointer angle should have.
+    /// @return Success, or the measured error of whichever component missed.
+    ::testing::AssertionResult points_along(float normalized, double cosine, double sine)
+    {
+        const float angle = ui::normalized_to_angle(normalized);
+        const TestSupport::ErrorRatio cosine_error =
+            TestSupport::measure_error(std::cos(angle), cosine, K_TRIG_BOUND);
+        const TestSupport::ErrorRatio sine_error =
+            TestSupport::measure_error(std::sin(angle), sine, K_TRIG_BOUND);
+        if (!cosine_error.is_within())
+        {
+            return ::testing::AssertionFailure() << "cosine: " << cosine_error.describe();
+        }
+        if (!sine_error.is_within())
+        {
+            return ::testing::AssertionFailure() << "sine: " << sine_error.describe();
+        }
+        return ::testing::AssertionSuccess();
+    }
+
+    /// @brief The cosine and sine of the diagonal directions, 45 degrees from an axis: both are the square root of one half.
+    const double K_DIAGONAL = std::sqrt(0.5);
 } // namespace
 
 TEST(Small_KnobMath, KnobMathMapsLinearParameterEndpointsAndMidpoint)
@@ -65,19 +126,55 @@ TEST(Small_KnobMath, KnobMathClampsValuesOutsideTheParameterRange)
     EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LINEAR, 4.0f), 1.0f);
 }
 
-TEST(Small_KnobMath, KnobMathRoundTripsValueThroughNormalized)
+namespace
 {
-    for (float value : {-60.0f, -33.0f, 0.0f, 11.5f})
+    /// @brief One decibel value that goes out to a knob position and back.
+    struct RoundTripRow
     {
-        const float normalized = ui::value_to_normalized(K_DECIBEL, value);
-        EXPECT_NEAR(ui::normalized_to_value(K_DECIBEL, normalized), value, 1e-4f);
+            const char* name;
+            float value;
+    };
+
+    /// @brief Returns the row's name, for the parameterised test names.
+    std::string round_trip_row_name(const ::testing::TestParamInfo<RoundTripRow>& info)
+    {
+        return std::string(info.param.name);
     }
+} // namespace
+
+class Small_KnobMathRoundTrip : public ::testing::TestWithParam<RoundTripRow>
+{
+};
+
+TEST_P(Small_KnobMathRoundTrip, KnobMathRoundTripsValueThroughNormalized)
+{
+    const float value = GetParam().value;
+    const float normalized = ui::value_to_normalized(K_DECIBEL, value);
+    const double bound = static_cast<double>(K_DECIBEL_ROUND_TRIP_OPERATIONS) *
+                         TestSupport::unit_roundoff<float>() * K_DECIBEL_SPAN;
+
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(
+        ui::normalized_to_value(K_DECIBEL, normalized), value, bound)));
 }
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_KnobMathRoundTrip,
+                         ::testing::Values(RoundTripRow{"MinusSixty", -60.0f},
+                                           RoundTripRow{"MinusThirtyThree", -33.0f},
+                                           RoundTripRow{"Zero", 0.0f},
+                                           RoundTripRow{"ElevenAndAHalf", 11.5f}),
+                         round_trip_row_name);
 
 TEST(Small_KnobMath, KnobMathGivesLogarithmicParameterAGeometricMidpoint)
 {
-    EXPECT_NEAR(ui::normalized_to_value(K_LOG, 0.5f), std::sqrt(20.0f * 20000.0f), 1e-2f);
-    EXPECT_NEAR(ui::value_to_normalized(K_LOG, 20000.0f), 1.0f, 1e-5f);
+    const double geometric_mean = std::sqrt(20.0 * 20000.0);
+
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_relative_error<float>(
+        ui::normalized_to_value(K_LOG, 0.5f), geometric_mean, K_LOG_MIDPOINT_OPERATIONS)));
+}
+
+TEST(Small_KnobMath, KnobMathMapsTheLogarithmicMaximumToOne)
+{
+    EXPECT_FLOAT_EQ(ui::value_to_normalized(K_LOG, 20000.0f), 1.0f);
 }
 
 TEST(Small_KnobMath, KnobMathFallsBackToLinearWhenALogarithmicRangeStartsAtZero)
@@ -103,23 +200,23 @@ TEST(Small_KnobMath, KnobMathFineDragTravelsExactlyOneQuarterAsFar)
 {
     const float coarse = ui::apply_drag(0.0f, -50.0f, false);
     const float fine = ui::apply_drag(0.0f, -50.0f, true);
-    EXPECT_NEAR(fine * 4.0f, coarse, 1e-6f);
+
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_relative_error<float>(fine * 4.0f, coarse, K_DRAG_OPERATIONS)));
 }
 
-TEST(Small_KnobMath, KnobMathPointsDownLeftAtZeroStraightUpAtHalfAndDownRightAtOne)
+TEST(Small_KnobMath, KnobMathPointsDownLeftAtZero)
 {
     // ImGui's y grows downward, so a positive sine points down the screen.
-    constexpr float K_DIAGONAL = 0.70710678f;
+    EXPECT_TRUE(points_along(0.0f, -K_DIAGONAL, K_DIAGONAL));
+}
 
-    const float low = ui::normalized_to_angle(0.0f);
-    EXPECT_NEAR(std::cos(low), -K_DIAGONAL, 1e-4f);
-    EXPECT_NEAR(std::sin(low), K_DIAGONAL, 1e-4f);
+TEST(Small_KnobMath, KnobMathPointsStraightUpAtHalf)
+{
+    EXPECT_TRUE(points_along(0.5f, 0.0, -1.0));
+}
 
-    const float middle = ui::normalized_to_angle(0.5f);
-    EXPECT_NEAR(std::cos(middle), 0.0f, 1e-4f);
-    EXPECT_NEAR(std::sin(middle), -1.0f, 1e-4f);
-
-    const float high = ui::normalized_to_angle(1.0f);
-    EXPECT_NEAR(std::cos(high), K_DIAGONAL, 1e-4f);
-    EXPECT_NEAR(std::sin(high), K_DIAGONAL, 1e-4f);
+TEST(Small_KnobMath, KnobMathPointsDownRightAtOne)
+{
+    EXPECT_TRUE(points_along(1.0f, K_DIAGONAL, K_DIAGONAL));
 }
