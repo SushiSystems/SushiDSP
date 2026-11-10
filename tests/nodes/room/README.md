@@ -2,7 +2,7 @@
 
 ## `test_ambisonic_encoder.cpp`
 
-### `AmbisonicEncoderIsOrthonormalOverTheSphere`
+### `AmbisonicEncoderSelfProductsAreOneOverTwoOrderPlusOneOverTheSphere`
 
 `// The quadrature is exact here; the residual is rounding.`
 

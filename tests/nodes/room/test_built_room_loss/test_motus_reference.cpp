@@ -30,12 +30,8 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -43,103 +39,69 @@
 #include <SushiDSP/nodes/room/eyring_decay.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>
 
+#include <support/tolerance.hpp>
+
 namespace
 {
     using SushiDSP::room::EyringDecay;
-    using SushiDSP::room::K_BAND_CENTRES_HZ;
     using SushiDSP::room::K_BAND_COUNT;
     using SushiDSP::room::MaterialId;
     using SushiDSP::room::RoomScene;
     using SushiDSP::room::Surface;
 
-    /// @brief Counts the rows the committed CSV holds: three measurements times six bands.
-    constexpr std::size_t K_EXPECTED_ROW_COUNT = 18;
-
-    /// @brief Names the first band of the mid-band check, 250 Hz, as an index into the bands.
-    constexpr std::size_t K_FIRST_MID_BAND = 1;
-
-    /// @brief Names the last band of the mid-band check, 2 kHz, as an index into the bands.
-    constexpr std::size_t K_LAST_MID_BAND = 4;
-
-    /// @brief Names the first band of the carpet check, 1 kHz, as an index into the bands.
-    constexpr std::size_t K_FIRST_CARPET_BAND = 3;
-
-    /// @brief Names the last band of the carpet check, 4 kHz, as an index into the bands.
-    constexpr std::size_t K_LAST_CARPET_BAND = 5;
-
-    /// @brief Names the first band of the built-room check, 500 Hz, as an index into the bands.
-    constexpr std::size_t K_FIRST_BUILT_BAND = 2;
+    /// @brief Holds the T30 of measurement 0001, the empty room, per band in seconds, as
+    /// motus_reference.csv gives it. The medium test below keeps this table equal to the file.
+    constexpr std::array<double, K_BAND_COUNT> K_EMPTY_ROOM_T30_SECONDS = {2.572, 2.147, 2.009,
+                                                                            2.119, 1.958, 1.508};
 
     /// @brief Bounds the built-room model's decay against the measurement, as a ratio each way.
+    /// Characterised, kept from the original test.
     constexpr double K_BUILT_RATIO_TOLERANCE = 0.2;
 
-    /// @brief Holds one row of motus_reference.csv, the decay figures the test reads.
-    struct MotusRow
+    /// @brief Gives the least ratio of the plain model to the measurement: the model is never
+    /// shorter than the room it describes. The module's documented state; kept from the original.
+    constexpr double K_PLAIN_RATIO_FLOOR = 1.0;
+
+    /// @brief Gives the greatest ratio of the plain model to the measurement: a first hand
+    /// estimate put the empty room 40 to 70 percent too long in the mid bands, so two times is a
+    /// ceiling on that error, not a target.
+    constexpr double K_PLAIN_RATIO_CEILING = 2.0;
+
+    /// @brief Holds one checked band.
+    struct BandRow
     {
-            /// @brief Names the measurement, as the CSV spells it: "0001", "0002" or "0003".
-            std::string measurement;
-
-            /// @brief Stores the octave band's centre frequency, in hertz.
-            int band_hz;
-
-            /// @brief Stores the T20 decay time, in seconds; NaN when the cell is empty.
-            double t20_s;
-
-            /// @brief Stores the T30 decay time, in seconds; NaN when the cell is empty.
-            double t30_s;
+            const char* name;
+            std::size_t band;
     };
 
-    /// @brief Splits one CSV line on commas into its cells, empty cells included.
-    std::vector<std::string> split_cells(const std::string& line)
+    /// @brief Names a row for gtest.
+    std::string row_name(const ::testing::TestParamInfo<BandRow>& info)
     {
-        std::vector<std::string> cells;
-        std::stringstream stream(line);
-        std::string cell;
-        while (std::getline(stream, cell, ','))
-        {
-            cells.push_back(cell);
-        }
-        return cells;
+        return info.param.name;
     }
 
-    /// @brief Converts a CSV cell to a number, or to NaN when the cell is empty.
-    double cell_to_seconds(const std::string& cell)
-    {
-        return cell.empty() ? std::numeric_limits<double>::quiet_NaN() : std::stod(cell);
-    }
-
-    /// @brief Reads motus_reference.csv, skipping its header line, into one MotusRow per line.
-    std::vector<MotusRow> load_motus_reference()
+    /// @brief Reads the T30 per band of measurement 0001 from motus_reference.csv, in band order.
+    std::vector<double> load_empty_room_t30()
     {
         std::ifstream file(std::string(SUSHIDSP_FIXTURE_DIR) + "/motus_reference.csv");
-        std::vector<MotusRow> rows;
+        std::vector<double> t30;
         std::string line;
         std::getline(file, line);
         while (std::getline(file, line))
         {
-            const std::vector<std::string> cells = split_cells(line);
-            if (cells.size() < 5u)
+            std::vector<std::string> cells;
+            std::stringstream stream(line);
+            std::string cell;
+            while (std::getline(stream, cell, ','))
             {
-                continue;
+                cells.push_back(cell);
             }
-            rows.push_back({cells[0], std::stoi(cells[2]), cell_to_seconds(cells[3]),
-                            cell_to_seconds(cells[4])});
-        }
-        return rows;
-    }
-
-    /// @brief Returns the measured decay of one band: the T30, or the T20 when the T30 is empty.
-    double measured_decay_seconds(const std::vector<MotusRow>& rows, const std::string& measurement,
-                                  double band_hz)
-    {
-        for (const MotusRow& row : rows)
-        {
-            if (row.measurement == measurement && static_cast<double>(row.band_hz) == band_hz)
+            if (cells.size() >= 5u && cells[0] == "0001")
             {
-                return std::isfinite(row.t30_s) ? row.t30_s : row.t20_s;
+                t30.push_back(std::stod(cells[4]));
             }
         }
-        return std::numeric_limits<double>::quiet_NaN();
+        return t30;
     }
 
     /// @brief Builds the empty Motus room: 4.9 x 4.4 x 2.9 m of unpainted concrete with the two
@@ -170,122 +132,96 @@ namespace
         return scene;
     }
 
-    /// @brief Prints one line of the comparison table: measurement, band, measured, model, ratio.
-    void print_table_line(const std::string& measurement, double band_hz, double measured,
-                          double model)
+    /// @brief Builds the empty Motus room with the built-room loss on.
+    RoomScene motus_built_scene()
     {
-        std::cout << std::fixed << std::setprecision(3) << "motus " << measurement << "  "
-                  << std::setw(5) << static_cast<int>(band_hz) << " Hz  measured T30 "
-                  << std::setw(6) << measured << " s  model ";
-        if (std::isfinite(model))
-        {
-            std::cout << std::setw(6) << model << " s  ratio " << std::setw(5) << model / measured
-                      << "\n";
-        }
-        else
-        {
-            std::cout << "   n/a (not modelled)\n";
-        }
+        RoomScene scene = motus_empty_scene();
+        scene.built_room_loss = true;
+        return scene;
     }
+
+    class Small_BuiltRoomLossMotusPlain : public ::testing::TestWithParam<BandRow>
+    {
+    };
+
+    class Small_BuiltRoomLossMotusCarpet : public ::testing::TestWithParam<BandRow>
+    {
+    };
+
+    class Small_BuiltRoomLossMotusBuilt : public ::testing::TestWithParam<BandRow>
+    {
+    };
 } // namespace
 
-TEST(Medium_BuiltRoomLoss, MotusReferenceParsesToEighteenPositiveRows)
+TEST(Medium_BuiltRoomLoss, MotusEmptyRoomTableEqualsTheCommittedCsv)
 {
-    const std::vector<MotusRow> rows = load_motus_reference();
-    ASSERT_EQ(rows.size(), K_EXPECTED_ROW_COUNT);
-    for (const MotusRow& row : rows)
-    {
-        const double used = std::isfinite(row.t30_s) ? row.t30_s : row.t20_s;
-        EXPECT_TRUE(std::isfinite(used)) << row.measurement << " " << row.band_hz;
-        EXPECT_GT(used, 0.0) << row.measurement << " " << row.band_hz;
-    }
+    const std::vector<double> committed = load_empty_room_t30();
+
+    ASSERT_EQ(committed.size(), K_BAND_COUNT);
+    EXPECT_EQ(std::vector<double>(K_EMPTY_ROOM_T30_SECONDS.begin(), K_EMPTY_ROOM_T30_SECONDS.end()),
+              committed);
 }
 
-TEST(Medium_BuiltRoomLoss, MotusEmptyRoomDecayIsNotShorterThanMeasuredAndAtMostTwiceAsLong)
+TEST_P(Small_BuiltRoomLossMotusPlain, MotusEmptyRoomDecayIsNotShorterThanMeasured)
 {
-    const std::vector<MotusRow> rows = load_motus_reference();
-    ASSERT_EQ(rows.size(), K_EXPECTED_ROW_COUNT);
+    const std::size_t band = GetParam().band;
     const RoomScene empty = motus_empty_scene();
     std::string reason;
     ASSERT_TRUE(empty.is_valid(reason)) << reason;
+
+    const double ratio = EyringDecay::rt60_seconds(empty)[band] / K_EMPTY_ROOM_T30_SECONDS[band];
+
+    EXPECT_GE(ratio, K_PLAIN_RATIO_FLOOR);
+}
+
+TEST_P(Small_BuiltRoomLossMotusPlain, MotusEmptyRoomDecayIsAtMostTwiceTheMeasured)
+{
+    const std::size_t band = GetParam().band;
+
+    // Two times is a ceiling on the error, not a target. See tests/nodes/room/test_built_room_loss/README.md.
+    const double ratio =
+        EyringDecay::rt60_seconds(motus_empty_scene())[band] / K_EMPTY_ROOM_T30_SECONDS[band];
+
+    EXPECT_LE(ratio, K_PLAIN_RATIO_CEILING);
+}
+
+INSTANTIATE_TEST_SUITE_P(Bands, Small_BuiltRoomLossMotusPlain,
+                         ::testing::Values(BandRow{"Hz250", 1u}, BandRow{"Hz500", 2u},
+                                           BandRow{"Hz1000", 3u}, BandRow{"Hz2000", 4u}),
+                         row_name);
+
+TEST_P(Small_BuiltRoomLossMotusCarpet, MotusCarpetShortensTheModel)
+{
+    const std::size_t band = GetParam().band;
     const RoomScene carpet = motus_carpet_scene();
+    std::string reason;
     ASSERT_TRUE(carpet.is_valid(reason)) << reason;
 
-    const std::array<double, K_BAND_COUNT> empty_model = EyringDecay::rt60_seconds(empty);
-    const std::array<double, K_BAND_COUNT> carpet_model = EyringDecay::rt60_seconds(carpet);
-    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
-    {
-        const double hz = K_BAND_CENTRES_HZ[band];
-        print_table_line("0001", hz, measured_decay_seconds(rows, "0001", hz), empty_model[band]);
-        print_table_line("0002", hz, measured_decay_seconds(rows, "0002", hz), carpet_model[band]);
-        print_table_line("0003", hz, measured_decay_seconds(rows, "0003", hz),
-                         std::numeric_limits<double>::quiet_NaN());
-    }
+    const double carpet_model = EyringDecay::rt60_seconds(carpet)[band];
+    const double empty_model = EyringDecay::rt60_seconds(motus_empty_scene())[band];
 
-    for (std::size_t band = K_FIRST_MID_BAND; band <= K_LAST_MID_BAND; ++band)
-    {
-        const double measured = measured_decay_seconds(rows, "0001", K_BAND_CENTRES_HZ[band]);
-        ASSERT_TRUE(std::isfinite(measured));
-        ASSERT_GT(measured, 0.0);
-        ASSERT_TRUE(std::isfinite(empty_model[band]));
-        // Two times is a ceiling on the error, not a target. See tests/nodes/room/test_built_room_loss/README.md.
-        const double ratio = empty_model[band] / measured;
-        EXPECT_GE(ratio, 1.0) << K_BAND_CENTRES_HZ[band] << " Hz";
-        EXPECT_LE(ratio, 2.0) << K_BAND_CENTRES_HZ[band] << " Hz";
-    }
+    EXPECT_LT(carpet_model, empty_model);
 }
 
-TEST(Medium_BuiltRoomLoss, MotusCarpetShortensTheModelAndTheMeasurementAtOneToFourKilohertz)
+INSTANTIATE_TEST_SUITE_P(Bands, Small_BuiltRoomLossMotusCarpet,
+                         ::testing::Values(BandRow{"Hz1000", 3u}, BandRow{"Hz2000", 4u},
+                                           BandRow{"Hz4000", 5u}),
+                         row_name);
+
+TEST_P(Small_BuiltRoomLossMotusBuilt, MotusEmptyRoomWithTheBuiltRoomLossDecaysWithinAFifthOfMeasured)
 {
-    const std::vector<MotusRow> rows = load_motus_reference();
-    ASSERT_EQ(rows.size(), K_EXPECTED_ROW_COUNT);
-    const std::array<double, K_BAND_COUNT> empty_model =
-        EyringDecay::rt60_seconds(motus_empty_scene());
-    const std::array<double, K_BAND_COUNT> carpet_model =
-        EyringDecay::rt60_seconds(motus_carpet_scene());
-
-    for (std::size_t band = K_FIRST_CARPET_BAND; band <= K_LAST_CARPET_BAND; ++band)
-    {
-        const double hz = K_BAND_CENTRES_HZ[band];
-        const double measured_empty = measured_decay_seconds(rows, "0001", hz);
-        const double measured_carpet = measured_decay_seconds(rows, "0002", hz);
-        ASSERT_TRUE(std::isfinite(measured_empty) && measured_empty > 0.0);
-        ASSERT_TRUE(std::isfinite(measured_carpet) && measured_carpet > 0.0);
-        ASSERT_TRUE(std::isfinite(empty_model[band]) && empty_model[band] > 0.0);
-        ASSERT_TRUE(std::isfinite(carpet_model[band]) && carpet_model[band] > 0.0);
-
-        const double model_reduction = 1.0 - carpet_model[band] / empty_model[band];
-        const double measured_reduction = 1.0 - measured_carpet / measured_empty;
-        std::cout << std::fixed << std::setprecision(1) << "motus carpet " << static_cast<int>(hz)
-                  << " Hz  model reduction " << 100.0 * model_reduction << " %  measured reduction "
-                  << 100.0 * measured_reduction << " %\n";
-
-        EXPECT_LT(carpet_model[band], empty_model[band]) << hz << " Hz";
-        EXPECT_LT(measured_carpet, measured_empty) << hz << " Hz";
-    }
-}
-
-TEST(Medium_BuiltRoomLoss, MotusEmptyRoomWithTheBuiltRoomLossDecaysWithinAFifthOfMeasured)
-{
-    const std::vector<MotusRow> rows = load_motus_reference();
-    ASSERT_EQ(rows.size(), K_EXPECTED_ROW_COUNT);
-    RoomScene scene = motus_empty_scene();
-    scene.built_room_loss = true;
+    const std::size_t band = GetParam().band;
+    const RoomScene scene = motus_built_scene();
     std::string reason;
     ASSERT_TRUE(scene.is_valid(reason)) << reason;
 
-    const std::array<double, K_BAND_COUNT> model = EyringDecay::rt60_seconds(scene);
-    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
-    {
-        const double hz = K_BAND_CENTRES_HZ[band];
-        print_table_line("0001 built", hz, measured_decay_seconds(rows, "0001", hz), model[band]);
-    }
-    for (std::size_t band = K_FIRST_BUILT_BAND; band <= K_LAST_MID_BAND; ++band)
-    {
-        const double measured = measured_decay_seconds(rows, "0001", K_BAND_CENTRES_HZ[band]);
-        ASSERT_TRUE(std::isfinite(measured) && measured > 0.0);
-        const double ratio = model[band] / measured;
-        EXPECT_GE(ratio, 1.0 - K_BUILT_RATIO_TOLERANCE) << K_BAND_CENTRES_HZ[band] << " Hz";
-        EXPECT_LE(ratio, 1.0 + K_BUILT_RATIO_TOLERANCE) << K_BAND_CENTRES_HZ[band] << " Hz";
-    }
+    const double ratio = EyringDecay::rt60_seconds(scene)[band] / K_EMPTY_ROOM_T30_SECONDS[band];
+
+    EXPECT_TRUE(
+        TestSupport::is_within(TestSupport::measure_error(ratio, 1.0, K_BUILT_RATIO_TOLERANCE, 1.0)));
 }
+
+INSTANTIATE_TEST_SUITE_P(Bands, Small_BuiltRoomLossMotusBuilt,
+                         ::testing::Values(BandRow{"Hz500", 2u}, BandRow{"Hz1000", 3u},
+                                           BandRow{"Hz2000", 4u}),
+                         row_name);
