@@ -111,6 +111,24 @@ a first-order bound on the distance from a candidate voltage to the equation's t
 is the oracle: it compares the DK solution against the equation itself rather than against
 another approximation of it.
 
+`// The bound follows the solver's exits, in volts.`
+
+The solver's residual is r = v - p - F i(v), a voltage, and the circuit's output is not the
+iterate v but w = v - r (output = H u + K i(v)). With g(x) = Rs i(x) + x - source the scalar
+equation, g(v) = r, so g(w) = (1 - g'(v)) r + g''/2 r^2 and |g(w)| / g'(w) is at most |r| plus
+r^2 / (2 Vt), because g' >= 1. The measured error is the solver's residual, not the residual over
+the slope: the output map multiplies the iterate's error by the slope the test then divides out.
+The solver ends in three ways.
+
+- Residual exit, |r| <= 1e-12 V: the error is at most 1e-12 V (the old test measured 9.7e-13 V and allowed 1e-11 V).
+- Step exit after a full step, step <= 1e-9 (1 + |v|): the error before the step equals the step, r = (g' - 1) step^2 / (2 Vt), and the error is at most g'(w) step^2 / (2 Vt), about 1e-14 V at the largest slope of 300.
+- Budget exhausted: the solver returns the best iterate with stale currents and counts it. The test asserts the circuit's `non_converged_samples()` is zero, so this exit is a finding, not something the bound absorbs.
+
+A step exit after a damped step is not covered by the quadratic form, since the remaining error
+is then (1 - d)/d times the step; the test cannot see the damping. If the bound fails with zero
+non-converged samples, that is the case to look at. The bound adds 16 u (|source| + |w|) for the
+rounding of the oracle. See REPORT.md decision 1009.
+
 ### `SettlesToTheDividerRatioOfItsPosition`
 
 `// The DC gain from source to wiper is the position.`
