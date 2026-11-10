@@ -79,10 +79,33 @@ namespace
 } // namespace
 
 SlotGraph::SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock,
-                     const SushiDSP::NodeCatalogue& catalogue)
-    : info_(info), catalogue_(catalogue), clock_(std::move(clock))
+                     const SushiDSP::NodeCatalogue& catalogue, SushiDSP::host::AudioFiles& files)
+    : info_(info), catalogue_(catalogue), files_(files), clock_(std::move(clock))
 {
     publish();
+}
+
+SushiDSP::Ir SlotGraph::read_impulse_response(const std::string& path) const
+{
+    const SushiDSP::Take take = files_.read(path);
+    if (take.channels() == 0u)
+    {
+        throw std::runtime_error("impulse response '" + path + "' holds no channel");
+    }
+    std::vector<float> mono(take.frames(), 0.0f);
+    for (std::uint32_t channel = 0; channel < take.channels(); ++channel)
+    {
+        const float* samples = take.channel(channel);
+        for (std::size_t frame = 0; frame < mono.size(); ++frame)
+        {
+            mono[frame] += samples[frame];
+        }
+    }
+    for (float& sample : mono)
+    {
+        sample /= static_cast<float>(take.channels());
+    }
+    return SushiDSP::IrLoader::prepare(std::move(mono), take.sample_rate(), info_.sample_rate);
 }
 
 SlotGraph::Clock::time_point SlotGraph::now() const
@@ -473,7 +496,7 @@ bool SlotGraph::set_cabinet(SlotId slot, const std::string& path, std::string& r
         return false;
     }
 
-    SushiDSP::Ir impulse_response = SushiDSP::IrLoader::load(path, info_.sample_rate);
+    SushiDSP::Ir impulse_response = read_impulse_response(path);
 
     const auto handle_it = slot_to_handle_.find(slot);
     if (handle_it != slot_to_handle_.end() && active_graph_ != nullptr)
@@ -524,8 +547,7 @@ void SlotGraph::apply_cabinet_to_live_node(SlotId slot)
     }
     try
     {
-        if (host->set_cabinet(SushiDSP::IrLoader::load(it->second.cabinet_path,
-                                                       info_.sample_rate)) !=
+        if (host->set_cabinet(read_impulse_response(it->second.cabinet_path)) !=
             SushiDSP::CabinetStatus::Installed)
         {
             SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,

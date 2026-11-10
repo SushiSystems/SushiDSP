@@ -45,9 +45,11 @@
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/core/rig_graph.hpp>
 #include <SushiDSP/foundation/core/rt_graph_slot.hpp>
+#include <SushiDSP/foundation/io/ir.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 #include <SushiDSP/nodes/room/room_host.hpp>
 #include <SushiDSP/nodes/room/room_arrangement.hpp>
+#include "audio_files.hpp"
 #include "rig_shape.hpp"
 #include <SushiDSP/nodes/room/room_scene.hpp>
 #include <SushiDSP/session/rig_preset/node_catalogue.hpp>
@@ -96,9 +98,12 @@ class SlotGraph
         /// @param catalogue Resolves each slot's descriptor id to the descriptor that declares its
         /// parameters and builds its node; it outlives the graph. The default is the node
         /// registry.
+        /// @param files Reads the impulse-response files a cabinet installs; it outlives the
+        /// graph. The default is the filesystem.
         explicit SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock = {},
                            const SushiDSP::NodeCatalogue& catalogue =
-                               SushiDSP::registry_node_catalogue());
+                               SushiDSP::registry_node_catalogue(),
+                           SushiDSP::host::AudioFiles& files = SushiDSP::host::disk_audio_files());
 
         /// @brief Adds a new, unconnected slot and republishes.
         /// @param descriptor_id The NodeDescriptor id to construct.
@@ -456,6 +461,13 @@ class SlotGraph
         /// @return The slot the walk stopped on, flagged as a join when two or more edges enter it.
         BranchEnd walk_branch(SlotId start) const;
 
+        /// @brief Reads an impulse-response file through the files port, downmixes it to mono and
+        /// conditions it at the graph's rate.
+        /// @param path The file's path.
+        /// @return The conditioned impulse response.
+        /// @throws std::runtime_error when the file cannot be read.
+        SushiDSP::Ir read_impulse_response(const std::string& path) const;
+
         void apply_cabinet_to_live_node(SlotId slot);
         void seed_defaults(Slot& slot) const;
 
@@ -482,6 +494,9 @@ class SlotGraph
 
         /// @brief Resolves descriptor ids; the registry unless a caller injected another.
         const SushiDSP::NodeCatalogue& catalogue_;
+
+        /// @brief Reads the impulse-response files; the disk unless a caller injected another.
+        SushiDSP::host::AudioFiles& files_;
 
         /// @brief Finds the upstream port the stored edge from `from` to `to` reads.
         /// @return The port, or 0 when no stored edge joins the pair.

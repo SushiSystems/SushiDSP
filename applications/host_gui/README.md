@@ -222,8 +222,9 @@ recorder or the export the opener of a 16-bit or a 32-bit float WAV, and `remove
 it through `BounceRequest::files`; each defaults to `DiskAudioFiles`, which wraps `Take::load`,
 `WavWriter` and the filesystem. `InMemoryAudioFiles` keeps the files in memory, writes the 16-bit
 value a WAV file of that encoding stores, and is what a test gives a session so that `load_track`,
-`place_clip`, the recorders and the export touch no file. `SlotGraph::set_cabinet` still reads its
-impulse response through `IrLoader::load` and does not go through the port.
+`place_clip`, the recorders and the export touch no file. `SlotGraph` takes the port as a last
+constructor argument too, and `RigController` passes it on; `set_cabinet` reads its impulse response
+through it, downmixes it to mono and conditions it with `IrLoader::prepare`.
 
 `TextFiles` is the port to the project file and a track's preset file. `read_text_file`,
 `write_text_file`, `load_track_rig` and `save_track_rig` take it as a last argument that defaults to

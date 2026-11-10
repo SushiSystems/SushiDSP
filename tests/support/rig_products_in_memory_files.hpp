@@ -74,7 +74,7 @@ namespace TestSupport
                               RigController::ClockSource clock = {})
             {
                 return RigController(info, std::make_shared<SessionTimeline>(info, files_),
-                                     std::move(clock), catalogue());
+                                     std::move(clock), catalogue(), files_);
             }
 
             /// @brief Returns the files the rigs of this fixture read and write.

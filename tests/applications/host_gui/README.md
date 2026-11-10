@@ -104,9 +104,9 @@ show.
 
 ## `test_rig_controller/test_cabinet.cpp`
 
-The cabinet cases write a 64-sample impulse-response WAV into the test temporary folder, so the file
-is `Medium_`. They stay `Medium_` until set_cabinet reads its file through the `AudioFiles` port:
-`SlotGraph::set_cabinet` calls `IrLoader::load` itself, and `slot_graph.*` is not part of this job.
+The cabinet cases add a 64-sample impulse response to the in-memory `AudioFiles` adapter, because
+`SlotGraph::set_cabinet` reads its file through the port, so the cases are `Small_RigControllerCabinet`
+and `Small_RigControllerCabinetRefusal`.
 
 ## `test_rig_controller/test_tracks.cpp` and `test_rig_controller/test_clips.cpp`
 

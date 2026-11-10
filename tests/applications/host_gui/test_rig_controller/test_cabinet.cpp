@@ -28,7 +28,6 @@
  * @author Mustafa Garip
  */
 
-#include <cstdio>
 #include <optional>
 #include <string>
 #include <vector>
@@ -36,34 +35,30 @@
 #include <gtest/gtest.h>
 
 #include "rig_controller.hpp"
-#include "support/rig_products.hpp"
-#include "support/wav_fixture.hpp"
+#include "support/rig_products_in_memory_files.hpp"
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 namespace
 {
-    /// @brief Holds the rigs the cabinet tests build, on the catalogue of the fixture, and removes the
-    /// impulse-response file the test wrote.
-    class Medium_RigControllerCabinet : public TestSupport::RigProducts
+    /// @brief Holds the rigs the cabinet tests build, on the catalogue of the fixture, over files
+    /// kept in memory.
+    class Small_RigControllerCabinet : public TestSupport::RigProductsInMemoryFiles
     {
         protected:
-            /// @brief Writes the impulse-response file the case installs.
+            /// @brief Adds the impulse-response file the case installs.
             /// @return The file's path.
             const std::string& write_impulse()
             {
-                ir_path_ = TestSupport::write_temp_impulse_wav();
+                std::vector<float> samples(64, 0.0f);
+                samples[0] = 0.5f;
+                ir_path_ = add_wav("impulse.wav", samples, 48000.0);
                 return ir_path_;
             }
 
-            /// @brief Returns the path write_impulse() last wrote.
+            /// @brief Returns the path write_impulse() last added.
             const std::string& impulse_path() const noexcept
             {
                 return ir_path_;
-            }
-
-            void TearDown() override
-            {
-                std::remove(ir_path_.c_str());
             }
 
         private:
@@ -78,13 +73,13 @@ namespace
     };
 
     /// @brief Holds the rigs the refusal rows build.
-    class Medium_RigControllerCabinetRefusal : public Medium_RigControllerCabinet,
+    class Small_RigControllerCabinetRefusal : public Small_RigControllerCabinet,
                                                public ::testing::WithParamInterface<RefusalRow>
     {
     };
 } // namespace
 
-TEST_F(Medium_RigControllerCabinet, SaveAndLoadJsonRoundTripsTheCabinetPath)
+TEST_F(Small_RigControllerCabinet, SaveAndLoadJsonRoundTripsTheCabinetPath)
 {
     RigController original = rig({48000.0, 256, 1});
     original.append("sushidsp.jcm800");
@@ -99,7 +94,7 @@ TEST_F(Medium_RigControllerCabinet, SaveAndLoadJsonRoundTripsTheCabinetPath)
     EXPECT_EQ(reloaded.cabinet_path(order[1]), impulse_path());
 }
 
-TEST_P(Medium_RigControllerCabinetRefusal, RefusesACabinetOnASlotThatHostsNone)
+TEST_P(Small_RigControllerCabinetRefusal, RefusesACabinetOnASlotThatHostsNone)
 {
     RigController controller = rig({48000.0, 256, 1});
     const RigController::SlotId slot = controller.append(GetParam().descriptor_id);
@@ -111,12 +106,12 @@ TEST_P(Medium_RigControllerCabinetRefusal, RefusesACabinetOnASlotThatHostsNone)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, Medium_RigControllerCabinetRefusal,
+    Rows, Small_RigControllerCabinetRefusal,
     ::testing::Values(RefusalRow{"Amplifier", "sushidsp.peavey5150"},
                       RefusalRow{"Delay", "sushidsp.dd3"}),
     [](const ::testing::TestParamInfo<RefusalRow>& info) { return std::string(info.param.name); });
 
-TEST_F(Medium_RigControllerCabinet, SnapshotRestoreKeepsTheParameters)
+TEST_F(Small_RigControllerCabinet, SnapshotRestoreKeepsTheParameters)
 {
     RigController controller = rig({48000.0, 64, 1});
     const RigController::SlotId amp = controller.append("sushidsp.jcm800");
@@ -132,7 +127,7 @@ TEST_F(Medium_RigControllerCabinet, SnapshotRestoreKeepsTheParameters)
     EXPECT_EQ(controller.get_parameter(restored, "preamp"), 0.9f);
 }
 
-TEST_F(Medium_RigControllerCabinet, SnapshotRestoreKeepsTheCabinetPath)
+TEST_F(Small_RigControllerCabinet, SnapshotRestoreKeepsTheCabinetPath)
 {
     RigController controller = rig({48000.0, 64, 1});
     const RigController::SlotId cabinet = controller.append("sushidsp.cabinet");
@@ -147,7 +142,7 @@ TEST_F(Medium_RigControllerCabinet, SnapshotRestoreKeepsTheCabinetPath)
     EXPECT_EQ(controller.cabinet_path(restored), impulse_path());
 }
 
-TEST_F(Medium_RigControllerCabinet, ACabinetOnANodeThatHostsNoneIsRefusedWithItsCause)
+TEST_F(Small_RigControllerCabinet, ACabinetOnANodeThatHostsNoneIsRefusedWithItsCause)
 {
     RigController controller = rig({48000.0, 256, 1});
     const RigController::SlotId delay = controller.append("sushidsp.dd3");
@@ -158,7 +153,7 @@ TEST_F(Medium_RigControllerCabinet, ACabinetOnANodeThatHostsNoneIsRefusedWithIts
     EXPECT_NE(reason.find("hosts no cabinet"), std::string::npos) << reason;
 }
 
-TEST_F(Medium_RigControllerCabinet, ACabinetOnANodeThatHostsNoneWritesOneWarnNamingTheFile)
+TEST_F(Small_RigControllerCabinet, ACabinetOnANodeThatHostsNoneWritesOneWarnNamingTheFile)
 {
     RigController controller = rig({48000.0, 256, 1});
     const RigController::SlotId delay = controller.append("sushidsp.dd3");
@@ -173,7 +168,7 @@ TEST_F(Medium_RigControllerCabinet, ACabinetOnANodeThatHostsNoneWritesOneWarnNam
     EXPECT_NE(lines[0].message.find(impulse_path()), std::string::npos) << lines[0].message;
 }
 
-TEST_F(Medium_RigControllerCabinet, ACabinetTheNodeTakesLeavesNoReasonAndNoRecord)
+TEST_F(Small_RigControllerCabinet, ACabinetTheNodeTakesLeavesNoReasonAndNoRecord)
 {
     RigController controller = rig({48000.0, 256, 1});
     const RigController::SlotId cabinet = controller.append("sushidsp.cabinet");
