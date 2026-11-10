@@ -169,6 +169,24 @@ The garage's mean absorption never exceeds 0.09, so its Sabine and Eyring decays
 Every surface OpenDoorway: mean alpha is 1, -ln(0) is infinite, and the decay is 0 s in every
 band rather than a NaN, so the Schroeder frequency is 0 Hz as well.
 
+## `test_environment_render_set.cpp`
+
+### The sizes of the cases
+
+A prepared room node cost about 2.2 s in the Debug run of 2026-11-10 (`prepare` sizes the stages of
+three cabinets and nine receivers and publishes a render set; a later `set_arrangement` solves every
+pair again), against 0.1 s for a `Small_` case. Three rules follow.
+
+1. `prepared()` sets the arrangement before `prepare`, so the pairs are solved once.
+2. A case that reads an arrangement back or refuses one (`RoomEnvironmentSetScene...`,
+   `RoomEnvironmentRefusesAnArrangementOutsideTheShellAndKeepsTheOldOne`) holds it on a node that is not
+   prepared (`unprepared_holding()`): `set_scene` and `set_arrangement` build and validate the new
+   arrangement before any publish, so the case keeps its whole promise and solves nothing. It is
+   `Small_`.
+3. A case that renders needs the built set and is `Medium_`. Cases that read different assertions of
+   one render share it from `SetUpTestSuite`: `Medium_EnvironmentRenderSetCabinets` (the sum, the two
+   places), `...Ports` (sounding and silent ports), `...MovedMicrophone` and `...RigGraph`.
+
 ## `test_hrtf_set.cpp`
 
 ### `HrtfSetInterpolationBetweenThreePointsIsABarycentricBlend`

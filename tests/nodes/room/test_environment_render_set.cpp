@@ -95,13 +95,22 @@ namespace
         return signal;
     }
 
-    /// @brief Returns a prepared node holding one arrangement.
-    std::unique_ptr<RoomNode> prepared(const Arrangement& arrangement)
+    /// @brief Returns a node that holds one arrangement and has not been prepared, so nothing is
+    /// solved: the arrangement is stored and read back.
+    std::unique_ptr<RoomNode> unprepared_holding(const Arrangement& arrangement)
     {
         auto node = std::make_unique<RoomNode>();
-        node->prepare(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 2});
         std::string reason;
         EXPECT_TRUE(node->set_arrangement(arrangement, reason)) << reason;
+        return node;
+    }
+
+    /// @brief Returns a prepared node holding one arrangement. The arrangement is set before the
+    /// prepare, so the pairs are solved once, by the prepare's first publish.
+    std::unique_ptr<RoomNode> prepared(const Arrangement& arrangement)
+    {
+        std::unique_ptr<RoomNode> node = unprepared_holding(arrangement);
+        node->prepare(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 2});
         node->reset();
         return node;
     }
@@ -257,7 +266,7 @@ namespace
     /// @brief Returns the room node after set_scene moved its first cabinet and its listener.
     Arrangement arrangement_after_set_scene(const Arrangement& before)
     {
-        std::unique_ptr<RoomNode> node = prepared(before);
+        std::unique_ptr<RoomNode> node = unprepared_holding(before);
         SushiDSP::room::RoomScene scene = node->scene();
         scene.source_position = {2.5, 1.0, 0.6};
         scene.listener_position = {5.0, 3.0, 1.3};
@@ -331,12 +340,17 @@ namespace
             std::array<PeakSinkNode*, RoomNode::K_MAX_MICROPHONES> sinks{};
     };
 
-    /// @brief Builds the rig graph, compiles it and hands the room an arrangement of three
-    /// cabinets and seven microphones.
+    /// @brief Builds the rig graph around a room that holds an arrangement of three cabinets and
+    /// seven microphones, and compiles it, which prepares the room once.
     std::unique_ptr<RigScene> make_rig_scene()
     {
         auto scene = std::make_unique<RigScene>();
-        scene->room = scene->graph.add_node(std::make_unique<RoomNode>());
+        auto room = std::make_unique<RoomNode>();
+        std::string reason;
+        EXPECT_TRUE(room->set_arrangement(
+            SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 3, K_RIG_MICROPHONES), reason))
+            << reason;
+        scene->room = scene->graph.add_node(std::move(room));
         for (int cabinet = 0; cabinet < 3; ++cabinet)
         {
             scene->graph.connect(scene->graph.add_node(std::make_unique<LevelSourceNode>(0.5f)), scene->room);
@@ -354,11 +368,6 @@ namespace
             scene->graph.connect(handle, join_handle);
         }
         scene->graph.compile(SushiDSP::PrepareInfo{K_RATE, K_BLOCK, 1});
-        std::string reason;
-        auto* const node = static_cast<RoomNode*>(scene->graph.node(scene->room));
-        EXPECT_TRUE(node->set_arrangement(
-            SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 3, K_RIG_MICROPHONES), reason))
-            << reason;
         return scene;
     }
 
@@ -393,7 +402,73 @@ namespace
     }
 } // namespace
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentListenerPortCarriesWhatTheBareNodeRenders)
+/// @brief Renders two cabinets and two microphones together and each cabinet alone, once for the
+/// cases that compare them.
+class Medium_EnvironmentRenderSetCabinets : public ::testing::Test
+{
+    protected:
+        static void SetUpTestSuite()
+        {
+            const Arrangement arrangement =
+                SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 2, 2);
+            std::unique_ptr<RoomNode> both = prepared(arrangement);
+            std::unique_ptr<RoomNode> first = prepared(arrangement);
+            std::unique_ptr<RoomNode> second = prepared(arrangement);
+            together_ = render(*both, {true, true, false});
+            alone_first_ = render(*first, {true, false, false});
+            alone_second_ = render(*second, {false, true, false});
+        }
+
+        static inline Render together_;
+        static inline Render alone_first_;
+        static inline Render alone_second_;
+};
+
+/// @brief Renders one cabinet and two microphones once for the cases that read which ports sound.
+class Medium_EnvironmentRenderSetPorts : public ::testing::Test
+{
+    protected:
+        static void SetUpTestSuite()
+        {
+            std::unique_ptr<RoomNode> node =
+                prepared(SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 1, 2));
+            result_ = render(*node, {true, false, false});
+        }
+
+        static inline Render result_;
+};
+
+/// @brief Renders a moving node and a steady one once for the cases that compare them.
+class Medium_EnvironmentRenderSetMovedMicrophone : public ::testing::Test
+{
+    protected:
+        static void SetUpTestSuite()
+        {
+            renders_ = render_moved_microphone();
+        }
+
+        static inline MovedRenders renders_;
+};
+
+/// @brief Runs the rig graph once for the cases that read what its consumers were handed.
+class Medium_EnvironmentRenderSetRigGraph : public ::testing::Test
+{
+    protected:
+        static void SetUpTestSuite()
+        {
+            scene_ = make_rig_scene();
+            run_rig(*scene_);
+        }
+
+        static void TearDownTestSuite()
+        {
+            scene_.reset();
+        }
+
+        static inline std::unique_ptr<RigScene> scene_;
+};
+
+TEST(Medium_EnvironmentRenderSet, RoomEnvironmentListenerPortCarriesWhatTheBareNodeRenders)
 {
     // The same arrangement and input run the same arithmetic, so the renders agree bit for bit.
     const Arrangement arrangement =
@@ -409,37 +484,19 @@ TEST(Small_EnvironmentRenderSet, RoomEnvironmentListenerPortCarriesWhatTheBareNo
     EXPECT_GT(peak(ported[0]), K_AUDIBLE);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentRendersTheSumOfItsCabinets)
+TEST_F(Medium_EnvironmentRenderSetCabinets, RoomEnvironmentRendersTheSumOfItsCabinets)
 {
     // Two cabinets and three receivers: every port equals the sum of each cabinet played alone.
-    const Arrangement arrangement =
-        SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 2, 2);
-    std::unique_ptr<RoomNode> both = prepared(arrangement);
-    std::unique_ptr<RoomNode> first = prepared(arrangement);
-    std::unique_ptr<RoomNode> second = prepared(arrangement);
-
-    const Render together = render(*both, {true, true, false});
-    const Render alone_first = render(*first, {true, false, false});
-    const Render alone_second = render(*second, {false, true, false});
-
-    expect_ports_are_the_sum(together, alone_first, alone_second);
+    expect_ports_are_the_sum(together_, alone_first_, alone_second_);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentHearsTheTwoCabinetsInDifferentPlaces)
+TEST_F(Medium_EnvironmentRenderSetCabinets, RoomEnvironmentHearsTheTwoCabinetsInDifferentPlaces)
 {
-    const Arrangement arrangement =
-        SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 2, 2);
-    std::unique_ptr<RoomNode> both = prepared(arrangement);
-    std::unique_ptr<RoomNode> first = prepared(arrangement);
-
-    const Render together = render(*both, {true, true, false});
-    const Render alone_first = render(*first, {true, false, false});
-
     // The two cabinets stand in different places, so neither alone is the whole.
-    EXPECT_GT(peak_difference(together[2], alone_first[2]), K_AUDIBLE);
+    EXPECT_GT(peak_difference(together_[2], alone_first_[2]), K_AUDIBLE);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentHearsEachMicrophoneTheSameWhateverElseIsPlaced)
+TEST(Medium_EnvironmentRenderSet, RoomEnvironmentHearsEachMicrophoneTheSameWhateverElseIsPlaced)
 {
     // A pair is solved from its own cabinet and receiver alone, so the same arithmetic gives the same block.
     const SushiDSP::room::RoomScene shell = SushiDSP::test::garage_scene();
@@ -459,7 +516,7 @@ TEST(Small_EnvironmentRenderSet, RoomEnvironmentHearsEachMicrophoneTheSameWhatev
     EXPECT_LT(peak_difference(in_crowd[0], by_itself[0]), K_ISOLATION_BOUND);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentIsSilentWithNoCabinet)
+TEST(Medium_EnvironmentRenderSet, RoomEnvironmentIsSilentWithNoCabinet)
 {
     const Arrangement arrangement =
         SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 0, 3);
@@ -470,51 +527,35 @@ TEST(Small_EnvironmentRenderSet, RoomEnvironmentIsSilentWithNoCabinet)
     expect_ports_silent_from(result, 0u);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentCarriesSoundOnAPortWithAMicrophone)
+TEST_F(Medium_EnvironmentRenderSetPorts, RoomEnvironmentCarriesSoundOnAPortWithAMicrophone)
 {
-    const Arrangement arrangement =
-        SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 1, 2);
-    std::unique_ptr<RoomNode> node = prepared(arrangement);
-
-    const Render result = render(*node, {true, false, false});
-
-    EXPECT_GT(peak(result[2]), K_AUDIBLE);
-    EXPECT_GT(peak(result[3]), K_AUDIBLE);
+    EXPECT_GT(peak(result_[2]), K_AUDIBLE);
+    EXPECT_GT(peak(result_[3]), K_AUDIBLE);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentLeavesAPortWithNoMicrophoneSilent)
+TEST_F(Medium_EnvironmentRenderSetPorts, RoomEnvironmentLeavesAPortWithNoMicrophoneSilent)
 {
-    const Arrangement arrangement =
-        SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 1, 2);
-    std::unique_ptr<RoomNode> node = prepared(arrangement);
-
-    const Render result = render(*node, {true, false, false});
-
-    expect_ports_silent_from(result, 4u);
+    expect_ports_silent_from(result_, 4u);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentHearsAMovedMicrophoneAtTheNextPublish)
+TEST_F(Medium_EnvironmentRenderSetMovedMicrophone, RoomEnvironmentHearsAMovedMicrophoneAtTheNextPublish)
 {
-    const MovedRenders renders = render_moved_microphone();
-
     // Before the publish both nodes render the same block, bit for bit, from the same arithmetic.
-    ASSERT_EQ(peak_difference(renders.before_moved[2], renders.before_steady[2]), 0.0f);
-    EXPECT_GT(peak_difference(renders.after_moved[2], renders.after_steady[2]), K_AUDIBLE);
+    ASSERT_EQ(peak_difference(renders_.before_moved[2], renders_.before_steady[2]), 0.0f);
+    EXPECT_GT(peak_difference(renders_.after_moved[2], renders_.after_steady[2]), K_AUDIBLE);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentLeavesTheListenerUnchangedWhenAMicrophoneMoves)
+TEST_F(Medium_EnvironmentRenderSetMovedMicrophone, RoomEnvironmentLeavesTheListenerUnchangedWhenAMicrophoneMoves)
 {
     // The listener did not move, and its pairs were not solved again.
-    const MovedRenders renders = render_moved_microphone();
-
-    EXPECT_LT(peak_difference(renders.after_moved[0], renders.after_steady[0]), K_ISOLATION_BOUND);
+    EXPECT_LT(peak_difference(renders_.after_moved[0], renders_.after_steady[0]), K_ISOLATION_BOUND);
 }
 
 TEST(Small_EnvironmentRenderSet, RoomEnvironmentRefusesAnArrangementOutsideTheShellAndKeepsTheOldOne)
 {
     Arrangement arrangement =
         SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 1, 1);
-    std::unique_ptr<RoomNode> node = prepared(arrangement);
+    std::unique_ptr<RoomNode> node = unprepared_holding(arrangement);
 
     SushiDSP::Room::MicrophonePlacement outside = arrangement.microphones()[0];
     outside.pose.position.z = 40.0;
@@ -568,7 +609,7 @@ TEST(Small_EnvironmentRenderSet, RoomEnvironmentSetSceneReadsBackTheFirstCabinet
 {
     const Arrangement arrangement =
         SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 2, 2);
-    std::unique_ptr<RoomNode> node = prepared(arrangement);
+    std::unique_ptr<RoomNode> node = unprepared_holding(arrangement);
     SushiDSP::room::RoomScene scene = node->scene();
     scene.source_position = {2.5, 1.0, 0.6};
     std::string reason;
@@ -577,22 +618,14 @@ TEST(Small_EnvironmentRenderSet, RoomEnvironmentSetSceneReadsBackTheFirstCabinet
     EXPECT_EQ(node->scene().source_position.x, 2.5);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentRendersTheListenerPortThroughARigGraph)
+TEST_F(Medium_EnvironmentRenderSetRigGraph, RoomEnvironmentRendersTheListenerPortThroughARigGraph)
 {
-    std::unique_ptr<RigScene> scene = make_rig_scene();
-
-    run_rig(*scene);
-
-    EXPECT_GT(scene->join->peak_, K_RIG_AUDIBLE);
+    EXPECT_GT(scene_->join->peak_, K_RIG_AUDIBLE);
 }
 
-TEST(Small_EnvironmentRenderSet, RoomEnvironmentRendersEveryMicrophonePortThroughARigGraph)
+TEST_F(Medium_EnvironmentRenderSetRigGraph, RoomEnvironmentRendersEveryMicrophonePortThroughARigGraph)
 {
-    std::unique_ptr<RigScene> scene = make_rig_scene();
-
-    run_rig(*scene);
-
-    expect_every_microphone_consumer_heard(*scene);
+    expect_every_microphone_consumer_heard(*scene_);
 }
 
 TEST(Small_EnvironmentRenderSet, RoomShellDesignDoesNotReadThePoses)
