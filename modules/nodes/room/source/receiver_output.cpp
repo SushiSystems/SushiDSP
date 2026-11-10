@@ -33,7 +33,7 @@
 #include <cstddef>
 #include <utility>
 
-#include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
+#include <SushiDSP/nodes/room/spherical_head_cache.hpp>
 
 namespace SushiDSP::Room
 {
@@ -71,7 +71,8 @@ namespace SushiDSP::Room
         }
         if (source_ == room::HrtfSource::SphericalHead)
         {
-            hrtf_ = room::SphericalHeadHrtf::build(sample_rate);
+            // Copied out of the shared set: the holder owns its set, the cache stays untouched.
+            hrtf_ = *room::SphericalHeadCache::shared(sample_rate);
         }
     }
 

@@ -48,6 +48,7 @@ knowingly left open.
 | The room's eigenmodes below the Schroeder frequency, read at the listener's receiver | `ModalSolver` |
 | Minimum-phase HRIR pairs on a grid, ITDs, the diffuse-field average | `HrtfSet` |
 | The rigid-sphere HRTF for a machine with no measured set | `SphericalHeadHrtf` |
+| Building that set once per sample rate and sharing it across prepares | `SphericalHeadCache` |
 | Reading a converted HRTF asset from disk | `HrtfSetLoader` |
 | Third-order Ambisonic encode gains for a direction | `AmbisonicEncoder` |
 | Sixteen Ambisonic channels to two ears | `BinauralDecoder` |
@@ -706,7 +707,8 @@ copies of `ModalDesign`, two per bank plus the ramp's ends, beside its two tap s
 direct banks with their four 128-tap histories, the two diffuse filters, the four alignment
 delays and one copy of `FdnDesign`. The decoder's 32 convolvers, 256 taps in two partitions of
 128, live in the decoder the slot holds. The spherical-head HRTF and its decoder are built at
-the prepare rate; a measured set installed through `set_hrtf` at another rate is dropped for the
+the prepare rate, the HRTF once per process and rate through `SphericalHeadCache` and copied into
+the holder; a measured set installed through `set_hrtf` at another rate is dropped for the
 fallback at the next `prepare()`.
 
 ## Approximations, named as such

@@ -362,6 +362,7 @@ add_executable(sushidsp_tests
     nodes/room/test_late_reverb.cpp
     nodes/room/test_modal_bank.cpp
     nodes/room/test_spherical_head_hrtf.cpp
+    nodes/room/test_spherical_head_cache.cpp
     nodes/room/test_hrtf_set_loader.cpp
     nodes/room/test_binaural_decoder.cpp
     nodes/room/test_eyring_decay.cpp
