@@ -28,13 +28,24 @@
  */
 
 #include <cmath>
+#include <string>
 
 #include <gtest/gtest.h>
+
+#include "support/tolerance.hpp"
 
 #include <SushiDSP/foundation/circuits/stages/long_tailed_pair.hpp>
 
 namespace
 {
+    constexpr double K_MU = 96.378299;
+    constexpr double K_PLATE_RESISTANCE_OHMS = 34061.086;
+    constexpr double K_TAIL_OHMS = 26800.0 + 470.0;
+    constexpr double K_PLATE_LOAD_A_OHMS = 82500.0;
+    constexpr double K_PLATE_LOAD_B_OHMS = 90900.0;
+
+    const double kFloatU = TestSupport::unit_roundoff<float>();
+
     /// @brief The Mark IIC+'s inverter, as mesa_mark2c.cpp builds it.
     /// @return A pair on S8's 82.5 k and 90.9 k plates over the feedback leg's 27.27 k tail.
     SushiDSP::LongTailedPair mark2c_inverter()
@@ -48,15 +59,67 @@ namespace
                                          SushiDSP::PlateSwing{117.503f, 159.365f}},
             26800.0f, 470.0f);
     }
+
+    /// @brief Returns gm Rt / (1 + 2 gm Rt) for the inverter's tube over its 27.27 k tail, in double.
+    double coupling_by_hand()
+    {
+        const double loop = K_MU / K_PLATE_RESISTANCE_OHMS * K_TAIL_OHMS;
+        return loop / (1.0 + 2.0 * loop);
+    }
+
+    /// @brief Returns a half's common-cathode gain on its own load line, mu Ra / (Ra + ra).
+    double half_gain(double plate_load_ohms)
+    {
+        return K_MU * plate_load_ohms / (plate_load_ohms + K_PLATE_RESISTANCE_OHMS);
+    }
+
+    /// @brief Holds one drive of the two grids and the name its row is reported under.
+    struct Drive
+    {
+            const char* name;
+            float grid_a;
+            float grid_b;
+    };
+
+    const Drive kSwingDrives[] = {
+        {"BothHardOpposed", 400.0f, -400.0f},
+        {"BothHardOpposedReversed", -400.0f, 400.0f},
+        {"BothHardUp", 400.0f, 400.0f},
+        {"BothHardDown", -400.0f, -400.0f},
+        {"AtRest", 0.0f, 0.0f},
+    };
+
+    const Drive kResetDrives[] = {
+        {"HalfAOnly", 200.0f, 0.0f},
+        {"HalfBOnly", 0.0f, 200.0f},
+    };
+
+    std::string drive_name(const ::testing::TestParamInfo<Drive>& info)
+    {
+        return std::string(info.param.name);
+    }
+
+    bool inside_their_swings(const SushiDSP::LongTailedPair::Plates& plates)
+    {
+        return plates.a <= 106.646f && plates.a >= -144.645f && plates.b <= 117.503f && plates.b >= -159.365f;
+    }
+
+    bool finite(const SushiDSP::LongTailedPair::Plates& plates)
+    {
+        return std::isfinite(plates.a) && std::isfinite(plates.b);
+    }
 } // namespace
 
-TEST(Small_LongTailedPair, LongTailedPairSplitsASingleEndedInputNearlyInHalf)
+// gm Rt / (1 + 2 gm Rt), gm 2.8296 mS into the 27.27 k the feedback leg returns through; the model forms it in float: a quotient, a product, a sum, a product and a quotient.
+TEST(Small_LongTailedPair, TheCathodeCouplingIsTheLoopGainOverOnePlusTwiceIt)
 {
-    SushiDSP::LongTailedPair pair = mark2c_inverter();
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(
+        mark2c_inverter().cathode_coupling(), coupling_by_hand(), 8.0 * kFloatU * coupling_by_hand())));
+}
 
-    // gm Rt / (1 + 2 gm Rt), gm 2.8296 mS into the 27.27 k the feedback leg returns through.
-    EXPECT_NEAR(pair.cathode_coupling(), 0.49678, 1e-4);
-    EXPECT_LT(pair.cathode_coupling(), 0.5);
+TEST(Small_LongTailedPair, TheCathodeFollowsLessThanHalfTheSummedGrids)
+{
+    EXPECT_LT(mark2c_inverter().cathode_coupling(), 0.5f);
 }
 
 TEST(Small_LongTailedPair, LongTailedPairDrivesItsTwoPlatesInOppositeDirections)
@@ -72,39 +135,57 @@ TEST(Small_LongTailedPair, LongTailedPairDrivesItsTwoPlatesInOppositeDirections)
     EXPECT_GT(std::fabs(plates.b), 0.0f);
 }
 
+// Both grids moving by v lift the cathode by 2 k v, so each gap sees (1 - 2 k) v at most (the grid dividers only lower it). Each plate then moves by at most its half's gain times that, and the two plates differ by at most the sum; float rounding of k is amplified by 1 / (1 - 2 k) in the gap.
 TEST(Small_LongTailedPair, LongTailedPairRejectsACommonModeMove)
 {
+    constexpr double drive = 0.05;
     SushiDSP::LongTailedPair pair = mark2c_inverter();
+    const double coupling = pair.cathode_coupling();
+    const double gap = (1.0 - 2.0 * coupling) * drive + 4.0 * kFloatU * drive;
+    const double bound = (half_gain(K_PLATE_LOAD_A_OHMS) + half_gain(K_PLATE_LOAD_B_OHMS)) * gap;
 
     const SushiDSP::LongTailedPair::Plates plates = pair.process_sample(0.05f, 0.05f);
 
-    // Both grids moving together lift the shared cathode with them, so neither gap sees much.
-    EXPECT_NEAR(static_cast<double>(plates.a - plates.b), 0.0, 0.05);
+    EXPECT_LE(std::fabs(static_cast<double>(plates.a) - static_cast<double>(plates.b)), bound);
 }
 
-TEST(Small_LongTailedPair, LongTailedPairBoundsBothPlatesByTheirOwnSwings)
+class Small_LongTailedPairSwing : public ::testing::TestWithParam<Drive>
+{
+};
+
+TEST_P(Small_LongTailedPairSwing, PlatesStayFinite)
 {
     SushiDSP::LongTailedPair pair = mark2c_inverter();
 
-    for (int i = 0; i < 64; ++i)
-    {
-        const SushiDSP::LongTailedPair::Plates plates = pair.process_sample(400.0f, -400.0f);
-        EXPECT_TRUE(std::isfinite(plates.a));
-        EXPECT_TRUE(std::isfinite(plates.b));
-        EXPECT_LE(plates.a, 106.646f);
-        EXPECT_GE(plates.a, -144.645f);
-        EXPECT_LE(plates.b, 117.503f);
-        EXPECT_GE(plates.b, -159.365f);
-    }
+    EXPECT_TRUE(finite(pair.process_sample(GetParam().grid_a, GetParam().grid_b)));
+    EXPECT_TRUE(finite(pair.process_sample(GetParam().grid_a, GetParam().grid_b)));
 }
 
-TEST(Small_LongTailedPair, LongTailedPairResetClearsThePeakGridExcursion)
+// The second sample repeats the first, so it takes the antialiaser's repeated-input path as well.
+TEST_P(Small_LongTailedPairSwing, PlatesStayInsideTheirOwnSwings)
 {
     SushiDSP::LongTailedPair pair = mark2c_inverter();
 
-    pair.process_sample(200.0f, 0.0f);
+    EXPECT_TRUE(inside_their_swings(pair.process_sample(GetParam().grid_a, GetParam().grid_b)));
+    EXPECT_TRUE(inside_their_swings(pair.process_sample(GetParam().grid_a, GetParam().grid_b)));
+}
+
+INSTANTIATE_TEST_SUITE_P(Drives, Small_LongTailedPairSwing, ::testing::ValuesIn(kSwingDrives), drive_name);
+
+class Small_LongTailedPairReset : public ::testing::TestWithParam<Drive>
+{
+};
+
+// Each row drives one half only, so a reset that skips either half leaves a peak.
+TEST_P(Small_LongTailedPairReset, ClearsThePeakGridExcursionOfBothHalves)
+{
+    SushiDSP::LongTailedPair pair = mark2c_inverter();
+
+    pair.process_sample(GetParam().grid_a, GetParam().grid_b);
     EXPECT_GT(pair.peak_grid_excursion_volts(), 0.0f);
 
     pair.reset();
-    EXPECT_FLOAT_EQ(pair.peak_grid_excursion_volts(), 0.0f);
+    EXPECT_EQ(pair.peak_grid_excursion_volts(), 0.0f);
 }
+
+INSTANTIATE_TEST_SUITE_P(Drives, Small_LongTailedPairReset, ::testing::ValuesIn(kResetDrives), drive_name);

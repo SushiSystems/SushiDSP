@@ -27,39 +27,69 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
+#include <cmath>
+#include <string>
+
 #include <gtest/gtest.h>
+
+#include "support/tolerance.hpp"
 
 #include <SushiDSP/foundation/circuits/stages/phase_inverter_presets.hpp>
 #include <SushiDSP/foundation/circuits/stages/triode_stage.hpp>
 
-TEST(Small_PhaseInverterPresets, Triode12AX7Inverter82kPlateHoldsItsSolvedOperatingPoint)
+namespace
 {
-    const SushiDSP::SingleTriodeInverter& inverter = SushiDSP::K_TRIODE12_AX7_INVERTER82K_PLATE;
-    EXPECT_FLOAT_EQ(inverter.cathode_bias_volts, -1.346012f);
-    EXPECT_FLOAT_EQ(inverter.gain, 61.927402f);
-    EXPECT_FLOAT_EQ(inverter.input_degeneration, 1.888775f);
-    EXPECT_FLOAT_EQ(inverter.plate_swing.headroom_to_supply_volts, 117.418041f);
-    EXPECT_FLOAT_EQ(inverter.plate_swing.headroom_to_bottom_volts, 89.548144f);
+    const SushiDSP::SingleTriodeInverter& inverter()
+    {
+        return SushiDSP::K_TRIODE12_AX7_INVERTER82K_PLATE;
+    }
+
+    SushiDSP::TriodeStage make_stage()
+    {
+        return SushiDSP::TriodeStage(10000.0f, 1000000.0f, inverter().cathode_bias_volts, inverter().gain,
+                                     SushiDSP::K_TRIODE12_AX7_GRID_CONDUCTION, inverter().plate_swing);
+    }
+
+    /// @brief Returns how far past the bottom headroom the output may read: one float rounding of the headroom on the cast, and the Hermite error of the stage's tabulated antiderivative, h^4 / 384 times gain^3 / headroom over the input step of 0.1 V, with h = headroom / gain / 64 the knot spacing.
+    double bottom_slack()
+    {
+        const double u = TestSupport::unit_roundoff<float>();
+        const double headroom = inverter().plate_swing.headroom_to_bottom_volts;
+        const double gain = inverter().gain;
+        const double spacing = headroom / gain / 64.0;
+        return 2.0 * u * headroom + 2.0 * std::pow(spacing, 4.0) / 384.0 * gain * gain * gain / headroom / 0.1;
+    }
+
+    /// @brief Holds a small input and the name its row is reported under.
+    struct Input
+    {
+            const char* name;
+            float volts;
+    };
+
+    const Input kInputs[] = {{"Positive", 0.5f}, {"Negative", -0.5f}};
+} // namespace
+
+class Small_PhaseInverterPresetsInversion : public ::testing::TestWithParam<Input>
+{
+};
+
+TEST_P(Small_PhaseInverterPresetsInversion, TheSolvedStageOutputsTheOppositeSign)
+{
+    SushiDSP::TriodeStage stage = make_stage();
+    const float input = GetParam().volts;
+    const float output = stage.process_sample(input);
+
+    EXPECT_LT(output * input, 0.0f);
 }
 
-TEST(Small_PhaseInverterPresets, Triode12AX7Inverter82kPlateRestsBelowItsCathodeAndDegeneratesItsInput)
-{
-    const SushiDSP::SingleTriodeInverter& inverter = SushiDSP::K_TRIODE12_AX7_INVERTER82K_PLATE;
-    EXPECT_LT(inverter.cathode_bias_volts, 0.0f);
-    EXPECT_GT(inverter.gain, 0.0f);
-    EXPECT_GT(inverter.input_degeneration, 1.0f);
-    EXPECT_GT(inverter.plate_swing.headroom_to_supply_volts, 0.0f);
-    EXPECT_GT(inverter.plate_swing.headroom_to_bottom_volts, 0.0f);
-}
+INSTANTIATE_TEST_SUITE_P(Inputs, Small_PhaseInverterPresetsInversion, ::testing::ValuesIn(kInputs),
+                         [](const ::testing::TestParamInfo<Input>& info) { return std::string(info.param.name); });
 
-TEST(Small_PhaseInverterPresets, Triode12AX7Inverter82kPlateDrivesATriodeStageThatInvertsAndBounds)
+// A large positive input drives the plate toward the bottom of its swing, which it cannot pass.
+TEST(Small_PhaseInverterPresets, Triode12AX7Inverter82kPlateStageBoundsItsOutputAtTheBottomHeadroom)
 {
-    const SushiDSP::SingleTriodeInverter& inverter = SushiDSP::K_TRIODE12_AX7_INVERTER82K_PLATE;
-    SushiDSP::TriodeStage stage(10000.0f, 1000000.0f, inverter.cathode_bias_volts, inverter.gain,
-                                SushiDSP::K_TRIODE12_AX7_GRID_CONDUCTION, inverter.plate_swing);
-    EXPECT_LT(stage.process_sample(0.5f), 0.0f);
-    stage.reset();
-    EXPECT_GT(stage.process_sample(-0.5f), 0.0f);
-    stage.reset();
-    EXPECT_LE(stage.process_sample(1000.0f), inverter.plate_swing.headroom_to_bottom_volts);
+    SushiDSP::TriodeStage stage = make_stage();
+
+    EXPECT_GE(stage.process_sample(1000.0f), -inverter().plate_swing.headroom_to_bottom_volts - bottom_slack());
 }

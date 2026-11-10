@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_grid_conduction_law.cpp                                           */
+/* compile_grid_conduction_law.cpp                                        */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,19 +22,14 @@
 /**************************************************************************/
 
 /**
- * @file test_grid_conduction_law.cpp
- * @brief Tests that a grid conduction law holds the three constants it is built from.
+ * @file compile_grid_conduction_law.cpp
+ * @brief Compiles grid_conduction_law.hpp and checks that the law is an aggregate of three floats.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
 #include <SushiDSP/foundation/circuits/stages/grid_conduction_law.hpp>
 
-TEST(Small_GridConductionLaw, KeepsScaleThresholdAndTransitionAsGiven)
-{
-    const SushiDSP::GridConductionLaw law{1.0e-6f, 0.5f, 0.15f};
-    EXPECT_FLOAT_EQ(law.scale_amps, 1.0e-6f);
-    EXPECT_FLOAT_EQ(law.threshold_volts, 0.5f);
-    EXPECT_FLOAT_EQ(law.transition_volts, 0.15f);
-}
+static_assert(std::is_aggregate_v<SushiDSP::GridConductionLaw>, "the grid-conduction law is a plain aggregate");
+static_assert(std::is_trivially_copyable_v<SushiDSP::GridConductionLaw>, "the law is copied by value into every stage");

@@ -29,9 +29,15 @@
 
 // _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <numeric>
+#include <vector>
 
 #include <gtest/gtest.h>
+
+#include "support/tolerance.hpp"
 
 #include <SushiDSP/foundation/circuits/stages/output_transformer_stage.hpp>
 
@@ -39,73 +45,117 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-TEST(Small_OutputTransformerStage, OutputTransformerStageBlocksDc)
+namespace
 {
-    SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);
+    constexpr double K_SAMPLE_RATE = 48000.0;
+    constexpr float K_ROLLOFF_HZ = 60.0f;
+    constexpr float K_LEAKAGE_HZ = 8000.0f;
+    constexpr float K_DRIVE = 0.3f;
 
-    float output = 0.0f;
-    for (int i = 0; i < 10000; ++i)
+    /// @brief Holds the bound on the mean of the secondary over the second second of a clipped square: a sixtieth of the -0.0635 the stage read with the mean left in (stages/README.md), which the stage with the mean removed beats by four orders of magnitude (+0.000005).
+    constexpr double K_MEAN_BOUND = 1e-3;
+
+    const double kFloatU = TestSupport::unit_roundoff<float>();
+
+    SushiDSP::OutputTransformerStage make_stage()
     {
-        output = stage.process_sample(1.0f);
+        return SushiDSP::OutputTransformerStage(K_SAMPLE_RATE, K_ROLLOFF_HZ, K_LEAKAGE_HZ, K_DRIVE);
     }
 
-    EXPECT_NEAR(output, 0.0f, 1e-2f);
+    /// @brief Returns the stage's output for every sample of the input.
+    std::vector<float> run(SushiDSP::OutputTransformerStage& stage, const std::vector<float>& input)
+    {
+        std::vector<float> output(input.size());
+        std::transform(input.begin(), input.end(), output.begin(), [&](float x) { return stage.process_sample(x); });
+        return output;
+    }
+
+    /// @brief Returns a 220 Hz square of amplitude 2.2 at 40 % duty, @p count samples at 48 kHz.
+    std::vector<float> clipped_square(std::size_t count)
+    {
+        std::vector<float> input(count);
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            input[i] = std::fmod(220.0 * static_cast<double>(i) / K_SAMPLE_RATE, 1.0) < 0.4 ? 2.2f : -2.2f;
+        }
+        return input;
+    }
+
+    /// @brief Returns a 200 Hz sine of amplitude 50, @p count samples at 48 kHz.
+    std::vector<float> loud_sine(std::size_t count)
+    {
+        std::vector<float> input(count);
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            input[i] = 50.0f * static_cast<float>(std::sin(2.0 * M_PI * 200.0 * static_cast<double>(i) / K_SAMPLE_RATE));
+        }
+        return input;
+    }
+
+    bool all_finite(const std::vector<float>& values)
+    {
+        return std::all_of(values.begin(), values.end(), [](float value) { return std::isfinite(value); });
+    }
+
+    double mean_of_tail(const std::vector<float>& values, std::size_t from)
+    {
+        return std::accumulate(values.begin() + static_cast<std::ptrdiff_t>(from), values.end(), 0.0) /
+               static_cast<double>(values.size() - from);
+    }
+
+    float peak_of_tail(const std::vector<float>& values, std::size_t from)
+    {
+        return std::accumulate(values.begin() + static_cast<std::ptrdiff_t>(from), values.end(), 0.0f,
+                               [](float peak, float value) { return std::max(peak, std::fabs(value)); });
+    }
+} // namespace
+
+// The rolloff is a second-order Butterworth high pass whose poles decay by exp(-w0 n / sqrt 2) per sample count n, w0 = 2 pi fc / fs; its step response peaks below 2, so after 10000 samples the output is under 2 exp(-w0 n / sqrt 2) plus a few roundings of the float state.
+TEST(Small_OutputTransformerStage, OutputTransformerStageBlocksDc)
+{
+    SushiDSP::OutputTransformerStage stage = make_stage();
+    const std::vector<float> output = run(stage, std::vector<float>(10000, 1.0f));
+    const double w0 = 2.0 * M_PI * K_ROLLOFF_HZ / K_SAMPLE_RATE;
+    const double bound = 2.0 * std::exp(-w0 * 10000.0 / std::sqrt(2.0)) + 8.0 * kFloatU;
+
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(output.back(), 0.0, bound)));
 }
 
 TEST(Small_OutputTransformerStage, OutputTransformerStageSecondaryCarriesNoMean)
 {
     // A transformer's secondary passes no mean. See tests/foundation/circuits/stages/README.md.
-    SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);
+    SushiDSP::OutputTransformerStage stage = make_stage();
+    const std::vector<float> output = run(stage, clipped_square(96000));
 
-    double sum = 0.0;
-    std::size_t counted = 0;
-    for (int i = 0; i < 96000; ++i)
-    {
-        const double phase = std::fmod(220.0 * i / 48000.0, 1.0);
-        const float output = stage.process_sample(phase < 0.4 ? 2.2f : -2.2f);
-        ASSERT_TRUE(std::isfinite(output));
-        if (i >= 48000)
-        {
-            sum += output;
-            ++counted;
-        }
-    }
-
-    EXPECT_LT(std::abs(sum / static_cast<double>(counted)), 1e-3);
+    EXPECT_TRUE(all_finite(output));
+    EXPECT_LT(std::fabs(mean_of_tail(output, 48000)), K_MEAN_BOUND);
 }
 
-TEST(Small_OutputTransformerStage, OutputTransformerStageSaturatesLargeSignalsToFiniteOutput)
+TEST(Small_OutputTransformerStage, OutputTransformerStageKeepsLargeSignalsFinite)
 {
-    SushiDSP::OutputTransformerStage stage(48000.0, 60.0f, 8000.0f, 0.3f);
+    SushiDSP::OutputTransformerStage stage = make_stage();
 
-    constexpr double sample_rate = 48000.0;
-    constexpr double test_freq = 200.0;
-    float max_output = 0.0f;
-    for (int i = 0; i < 4000; ++i)
-    {
-        const float input =
-            50.0f * static_cast<float>(std::sin(2.0 * M_PI * test_freq * i / sample_rate));
-        const float output = stage.process_sample(input);
-        ASSERT_TRUE(std::isfinite(output));
-        if (i > 3000)
-        {
-            max_output = std::max(max_output, std::abs(output));
-        }
-    }
-
-    EXPECT_LT(max_output, 1.0f / 0.3f + 1.0f);
+    EXPECT_TRUE(all_finite(run(stage, loud_sine(4000))));
 }
 
+// The saturated sample is tanh(x d) / d, under 1 / d in magnitude, and the tracked mean is a running average of such samples, so the output stays under 2 / d; the float cast adds one rounding.
+TEST(Small_OutputTransformerStage, OutputTransformerStageSaturatesLargeSignalsInsideTwiceItsDriveLimit)
+{
+    SushiDSP::OutputTransformerStage stage = make_stage();
+    const std::vector<float> output = run(stage, loud_sine(4000));
+    const double limit = 2.0 / K_DRIVE * (1.0 + 2.0 * kFloatU);
+
+    EXPECT_LE(peak_of_tail(output, 3001), limit);
+}
+
+// The reset state is the constructed state and the arithmetic is deterministic, so the first sample after a reset equals a fresh stage's first sample bit for bit.
 TEST(Small_OutputTransformerStage, OutputTransformerStageResetClearsFilterState)
 {
-    SushiDSP::OutputTransformerStage stage_a(48000.0, 60.0f, 8000.0f, 0.3f);
-    SushiDSP::OutputTransformerStage stage_b(48000.0, 60.0f, 8000.0f, 0.3f);
+    SushiDSP::OutputTransformerStage used = make_stage();
+    SushiDSP::OutputTransformerStage fresh = make_stage();
 
-    stage_a.process_sample(1.0f);
-    stage_a.reset();
+    used.process_sample(1.0f);
+    used.reset();
 
-    const float from_reset = stage_a.process_sample(0.2f);
-    const float from_fresh = stage_b.process_sample(0.2f);
-
-    EXPECT_NEAR(from_reset, from_fresh, 1e-5f);
+    EXPECT_EQ(used.process_sample(0.2f), fresh.process_sample(0.2f));
 }

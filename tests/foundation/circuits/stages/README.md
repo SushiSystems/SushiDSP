@@ -26,9 +26,9 @@ over the second second. With the saturation as the last element the stage read -
 
 ## `test_power_supply_sag_stage.cpp`
 
-### `PowerSupplySagStageOutputRisesAgainAfterSilence`
+### `Small_PowerSupplySagStageRecovery.GainRecoversAlongTheEnvelopeAfterSilence`
 
-`// The sag envelope decays over silence.`
+`// After the loud run the envelope is 1 - a^L with a = 1 - c; silence multiplies it by a^S, and the next unit sample steps it to a e + c.`
 
-With zero input the sag envelope should decay, so a subsequent unity-input sample should be
-closer to unity than the deeply-sagged sample was.
+With zero input the sag envelope decays by a = 1 - c per sample, so a subsequent unity-input
+sample reads the gain at the decayed envelope; the closed form is the oracle.
