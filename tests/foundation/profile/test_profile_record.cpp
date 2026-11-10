@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_profile_record.cpp                                                */
+/* test_profile_record.cpp                                                 */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -21,9 +21,10 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+
 /**
  * @file test_profile_record.cpp
- * @brief Tests the questions a finished run answers: checks, summaries and subjects.
+ * @brief Tests the questions a finished run answers: checks, counts and subjects.
  * @author Mustafa Garip
  */
 
@@ -33,11 +34,17 @@
 #include <SushiDSP/foundation/profile/profile_run.hpp>
 #include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 
+#include "foundation/profile/recording_build_test.hpp"
+
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace
 {
+    using SushiDSP::profile::ProfileRecord;
+    using SushiDSP::profile::ProfileSubject;
+
     /// @brief Holds the warm-up periods of every run below.
     constexpr std::uint32_t K_WARMUP = 2;
 
@@ -46,43 +53,94 @@ namespace
 
     /// @brief Holds the timeline every run below follows.
     constexpr const char* K_TIMELINE = SushiDSP::profile::names::K_BENCH_TIMELINE;
+
+    /// @brief Holds a check that no run can meet: the longest block under one nanosecond.
+    constexpr const char* K_TIGHT_CHECK =
+        R"([{"subject": "timeline:bench.block", "statistic": "max", "at_most_ns": 1}])";
+
+    /// @brief Holds a check that any run meets: the longest block under a minute.
+    constexpr const char* K_LOOSE_CHECK =
+        R"([{"subject": "timeline:bench.block", "statistic": "max", "at_most_ns": 60000000000}])";
+
+    /// @brief Builds a counter subject named @p name with one sample, @p value.
+    ProfileSubject counter_subject(const std::string& name, double value)
+    {
+        return ProfileSubject{name, "count", {value}};
+    }
+
+    /// @brief Builds a record whose counter `test.shared` has two sites and `test.alone` has one.
+    ProfileRecord record_with_shared_and_single_sites()
+    {
+        return ProfileRecord::from_subjects({counter_subject("counter:test.shared", 1.0),
+                                             counter_subject("counter:test.shared", 2.0),
+                                             counter_subject("counter:test.alone", 3.0)});
+    }
+
+    /// @brief Runs a window whose body writes one zone and returns the run.
+    SushiDSP::profile::ProfiledRun run_one_zone_window()
+    {
+        return SushiDSP::profile::run_profiled(K_TIMELINE, K_WARMUP, K_ACTIVE, 0U,
+                                               []
+                                               {
+                                                   SD_ZONE("test.checked");
+                                               });
+    }
+
+    /// @brief Runs a window whose body does nothing and returns the run.
+    SushiDSP::profile::ProfiledRun run_empty_window()
+    {
+        return SushiDSP::profile::run_profiled(K_TIMELINE, K_WARMUP, K_ACTIVE, 0U, [] {});
+    }
+
+    class Medium_ProfileRecord : public SushiDSP::profile::test::RecordingBuildTest
+    {
+    };
 } // namespace
 
-TEST(Medium_ProfileRecord, ATightBoundFailsWithItsReasonAndALooseOnePasses)
+TEST_F(Medium_ProfileRecord, ATightBoundFailsWithItsReason)
 {
-    const SushiDSP::profile::ProfiledRun run = SushiDSP::profile::run_profiled(
-        K_TIMELINE, K_WARMUP, K_ACTIVE, 0U,
-        []
-        {
-            SD_ZONE("test.checked");
-        });
-    if (!run.start.started())
-        GTEST_SKIP() << "this build records nothing";
+    const SushiDSP::profile::ProfiledRun run = run_one_zone_window();
+    ASSERT_TRUE(run.start.started()) << run.start.message;
 
-    const SushiDSP::profile::ProfileCheckReport tight = run.record.check(
-        R"([{"subject": "timeline:bench.block", "statistic": "max", "at_most_ns": 1}])");
-    ASSERT_EQ(tight.verdicts.size(), 1u) << tight.error;
-    EXPECT_FALSE(tight.all_passed());
-    EXPECT_NE(tight.verdicts[0].reason.find("above at most 1 ns"), std::string::npos)
-        << tight.verdicts[0].reason;
+    const SushiDSP::profile::ProfileCheckReport report = run.record.check(K_TIGHT_CHECK);
 
-    const SushiDSP::profile::ProfileCheckReport loose = run.record.check(
-        R"([{"subject": "timeline:bench.block", "statistic": "max", "at_most_ns": 60000000000}])");
-    EXPECT_TRUE(loose.all_passed()) << loose.error;
+    ASSERT_EQ(report.verdicts.size(), 1u) << report.error;
+    EXPECT_FALSE(report.all_passed());
+    EXPECT_NE(report.verdicts[0].reason.find("above at most 1 ns"), std::string::npos)
+        << report.verdicts[0].reason;
 }
 
-TEST(Medium_ProfileRecord, AChecksFileThatIsNotValidIsRefusedWithAReason)
+TEST_F(Medium_ProfileRecord, ALooseBoundPasses)
 {
-    const SushiDSP::profile::ProfiledRun run = SushiDSP::profile::run_profiled(
-        K_TIMELINE, K_WARMUP, K_ACTIVE, 0U,
-        []
-        {
-            SD_INSTANT("test.noop");
-        });
-    if (!run.start.started())
-        GTEST_SKIP() << "this build records nothing";
+    const SushiDSP::profile::ProfiledRun run = run_one_zone_window();
+    ASSERT_TRUE(run.start.started()) << run.start.message;
 
-    const SushiDSP::profile::ProfileCheckReport report = run.record.check("{}");
+    const SushiDSP::profile::ProfileCheckReport report = run.record.check(K_LOOSE_CHECK);
+
+    EXPECT_TRUE(report.all_passed()) << report.error;
+}
+
+TEST_F(Medium_ProfileRecord, TheActivePeriodsOfTheWindowAreCounted)
+{
+    const SushiDSP::profile::ProfiledRun run = run_empty_window();
+    ASSERT_TRUE(run.start.started()) << run.start.message;
+
+    EXPECT_EQ(run.record.active_periods(), K_ACTIVE);
+}
+
+TEST_F(Medium_ProfileRecord, TheWarmUpPeriodsOfTheWindowAreCountedApartFromTheActiveOnes)
+{
+    const SushiDSP::profile::ProfiledRun run = run_empty_window();
+    ASSERT_TRUE(run.start.started()) << run.start.message;
+
+    EXPECT_EQ(run.record.warmup_periods(), K_WARMUP);
+}
+
+TEST(Small_ProfileRecord, AChecksFileThatIsNotValidIsRefusedWithAReason)
+{
+    const ProfileRecord record;
+
+    const SushiDSP::profile::ProfileCheckReport report = record.check("{}");
 
     EXPECT_FALSE(report.error.empty());
     EXPECT_FALSE(report.all_passed());
@@ -90,7 +148,7 @@ TEST(Medium_ProfileRecord, AChecksFileThatIsNotValidIsRefusedWithAReason)
 
 TEST(Small_ProfileRecord, AnEmptyRecordAnswersEveryQuestionWithNothing)
 {
-    const SushiDSP::profile::ProfileRecord record;
+    const ProfileRecord record;
 
     EXPECT_TRUE(record.empty());
     EXPECT_EQ(record.active_periods(), 0u);
@@ -111,50 +169,38 @@ TEST(Small_ProfileRecord, AReportWithNoVerdictsIsNotAPass)
     EXPECT_FALSE(report.all_passed());
 }
 
-TEST(Medium_ProfileRecord, TwoSitesSharingANameAreAmbiguousAndNeverReadAsOne)
+TEST(Small_ProfileRecord, TwoSitesSharingANameAreAmbiguousAndNeverReadAsOne)
 {
-    const SushiDSP::profile::ProfiledRun run = SushiDSP::profile::run_profiled(
-        K_TIMELINE, K_WARMUP, K_ACTIVE, 0U,
-        []
-        {
-            // Each macro call is its own site, so these are two subjects with one name.
-            SD_COUNTER("test.shared", "count", Add, 1.0);
-            SD_COUNTER("test.shared", "count", Add, 2.0);
-            SD_COUNTER("test.alone", "count", Add, 3.0);
-        });
-    if (!run.start.started())
-        GTEST_SKIP() << "this build records nothing";
+    const ProfileRecord record = record_with_shared_and_single_sites();
 
-    const SushiDSP::profile::ProfileLookup shared = run.record.lookup("counter:test.shared");
+    const SushiDSP::profile::ProfileLookup shared = record.lookup("counter:test.shared");
+
     EXPECT_EQ(shared.status, SushiDSP::profile::ProfileLookupStatus::Ambiguous);
     EXPECT_EQ(shared.matches, 2u);
-    EXPECT_NE(shared.subject, nullptr);
-    EXPECT_EQ(run.record.find("counter:test.shared"), nullptr);
+    EXPECT_EQ(shared.subject, &record.subjects()[0]);
+    EXPECT_EQ(record.find("counter:test.shared"), nullptr);
 }
 
-TEST(Medium_ProfileRecord, ASingleSiteIsFoundAndAnUnknownNameIsMissing)
+TEST(Small_ProfileRecord, ASingleSiteIsFound)
 {
-    const SushiDSP::profile::ProfiledRun run = SushiDSP::profile::run_profiled(
-        K_TIMELINE, K_WARMUP, K_ACTIVE, 0U,
-        []
-        {
-            SD_COUNTER("test.shared", "count", Add, 1.0);
-            SD_COUNTER("test.shared", "count", Add, 2.0);
-            SD_COUNTER("test.alone", "count", Add, 3.0);
-        });
-    if (!run.start.started())
-        GTEST_SKIP() << "this build records nothing";
+    const ProfileRecord record = record_with_shared_and_single_sites();
 
-    const SushiDSP::profile::ProfileLookup alone = run.record.lookup("counter:test.alone");
+    const SushiDSP::profile::ProfileLookup alone = record.lookup("counter:test.alone");
+
     EXPECT_EQ(alone.status, SushiDSP::profile::ProfileLookupStatus::Found);
     EXPECT_EQ(alone.matches, 1u);
-    EXPECT_EQ(run.record.find("counter:test.alone"), alone.subject);
-    ASSERT_NE(alone.subject, nullptr);
-    for (const double value : alone.subject->samples)
-        EXPECT_DOUBLE_EQ(value, 3.0);
+    EXPECT_EQ(alone.subject, &record.subjects()[2]);
+    EXPECT_EQ(record.find("counter:test.alone"), alone.subject);
+}
 
-    const SushiDSP::profile::ProfileLookup none = run.record.lookup("counter:test.nothing");
+TEST(Small_ProfileRecord, AnUnknownNameIsMissing)
+{
+    const ProfileRecord record = record_with_shared_and_single_sites();
+
+    const SushiDSP::profile::ProfileLookup none = record.lookup("counter:test.nothing");
+
     EXPECT_EQ(none.status, SushiDSP::profile::ProfileLookupStatus::Missing);
     EXPECT_EQ(none.matches, 0u);
     EXPECT_EQ(none.subject, nullptr);
+    EXPECT_EQ(record.find("counter:test.nothing"), nullptr);
 }

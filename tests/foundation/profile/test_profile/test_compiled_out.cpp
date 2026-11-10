@@ -23,7 +23,7 @@
 
 /**
  * @file test_compiled_out.cpp
- * @brief Tests that the recording macros compile to nothing and pull in no SushiProfiler header.
+ * @brief Tests that the recording macros do not evaluate their arguments with the profiler off.
  * @author Mustafa Garip
  */
 
@@ -37,19 +37,6 @@
 
 #include <gtest/gtest.h>
 
-#ifdef SP_ZONE
-#error "profile.hpp included a SushiProfiler header with SD_ENABLE_PROFILER 0"
-#endif
-
-TEST(Small_ProfileCompiledOut, EveryMacroIsAStatementThatDoesNothing)
-{
-    SD_ZONE("test.zone");
-    SD_ZONE_GROUP("test.zone", "Test");
-    SD_ZONE_FINE("test.fine");
-    SD_INSTANT("test.instant");
-    SUCCEED();
-}
-
 TEST(Small_ProfileCompiledOut, ACounterDoesNotEvaluateItsValue)
 {
     int evaluations = 0;
@@ -57,10 +44,16 @@ TEST(Small_ProfileCompiledOut, ACounterDoesNotEvaluateItsValue)
     EXPECT_EQ(evaluations, 0);
 }
 
-TEST(Small_ProfileCompiledOut, ALaneAndANamedZoneDoNotEvaluateTheirIds)
+TEST(Small_ProfileCompiledOut, ALaneDoesNotEvaluateItsId)
 {
     int evaluations = 0;
     SD_LANE(++evaluations);
+    EXPECT_EQ(evaluations, 0);
+}
+
+TEST(Small_ProfileCompiledOut, ANamedZoneDoesNotEvaluateItsId)
+{
+    int evaluations = 0;
     SD_ZONE_NAMED("test.named", "Test", ++evaluations);
     EXPECT_EQ(evaluations, 0);
 }

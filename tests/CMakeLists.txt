@@ -53,8 +53,12 @@ add_executable(sushidsp_tests
     foundation/device/test_block_server.cpp
     foundation/device/test_in_memory_block_device.cpp
     foundation/io/test_io_log_category.cpp
+    foundation/profile/test_profile/compile_compiled_out.cpp
     foundation/profile/test_profile/test_compiled_out.cpp
     foundation/profile/test_profile/test_zones.cpp
+    foundation/profile/test_environment_reader.cpp
+    foundation/profile/test_name_table.cpp
+    foundation/profile/test_period_marker.cpp
     foundation/profile/test_profile_record.cpp
     foundation/profile/test_profile_run.cpp
     foundation/profile/test_profile_runtime.cpp

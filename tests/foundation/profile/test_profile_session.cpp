@@ -29,28 +29,78 @@
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/environment_reader.hpp>
 #include <SushiDSP/foundation/profile/profile_run.hpp>
+#include <SushiDSP/foundation/profile/profile_session.hpp>
 #include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
+
+#include "foundation/profile/recording_build_test.hpp"
 
 #include <cstdint>
 #include <string>
 
 namespace
 {
+    using SushiDSP::profile::ProfileSession;
+    using SushiDSP::profile::ProfileStart;
+
     /// @brief Holds the warm-up periods of every run below.
     constexpr std::uint32_t K_WARMUP = 2;
 
     /// @brief Holds the active periods of every run below.
     constexpr std::uint32_t K_ACTIVE = 5;
 
+    /// @brief Holds the budget the budget test gives every period, in nanoseconds.
+    constexpr std::uint64_t K_BUDGET_NS = 1000000;
+
     /// @brief Holds the timeline every run below follows.
     constexpr const char* K_TIMELINE = SushiDSP::profile::names::K_BENCH_TIMELINE;
+
+    /// @brief Starts a second window on the session that already runs.
+    ProfileStart start_on_the_running_object(ProfileSession& running)
+    {
+        return running.start_window(K_TIMELINE, 0U, 1U);
+    }
+
+    /// @brief Starts a window on a second session while @p running holds the process's one.
+    ProfileStart start_on_another_object(ProfileSession& running)
+    {
+        static_cast<void>(running);
+        ProfileSession another;
+        return another.start_window(K_TIMELINE, 0U, 1U);
+    }
+
+    /// @brief One way to start a second session while one runs.
+    struct SecondStartRow
+    {
+            const char* name;
+            ProfileStart (*start_second)(ProfileSession& running);
+    };
+
+    /// @brief Names a second-start row by its name.
+    std::string second_start_row_name(const ::testing::TestParamInfo<SecondStartRow>& info)
+    {
+        return info.param.name;
+    }
+
+    class Small_ProfileSessionConfig : public SushiDSP::profile::test::RecordingBuildTest
+    {
+    };
+
+    class Medium_ProfileSession : public SushiDSP::profile::test::RecordingBuildTest
+    {
+    };
+
+    class Medium_ProfileSessionSecondStart
+        : public SushiDSP::profile::test::RecordingBuildTest,
+          public ::testing::WithParamInterface<SecondStartRow>
+    {
+    };
 } // namespace
 
 TEST(Small_ProfileSession, ASessionThatIsNotStartedReturnsAnEmptyRecord)
 {
-    SushiDSP::profile::ProfileSession session;
+    ProfileSession session;
 
     const SushiDSP::profile::ProfileFinish finished = session.finish();
 
@@ -60,48 +110,60 @@ TEST(Small_ProfileSession, ASessionThatIsNotStartedReturnsAnEmptyRecord)
 
 TEST(Small_ProfileSession, NoConfigurationVariableMeansNothingIsRequested)
 {
-    SushiDSP::profile::ProfileSession session;
-    const SushiDSP::profile::ProfileStart started = session.start_from_environment();
+    const SushiDSP::profile::InMemoryEnvironment environment;
+    ProfileSession session;
 
-    // The test environment does not set SD_PROFILE_CONFIG.
+    const ProfileStart started = session.start_from_environment(environment);
+
     EXPECT_EQ(started.status, SushiDSP::profile::ProfileStartStatus::NotRequested);
 }
 
-TEST(Medium_ProfileSession, AConfigurationThatIsNotValidIsRefusedWithItsReason)
+TEST(Small_ProfileSession, AnEmptyConfigurationVariableMeansNothingIsRequested)
 {
-    if (!SushiDSP::profile::K_PROFILER_BUILT)
-        GTEST_SKIP() << "this build records nothing";
-    SushiDSP::profile::ProfileSession session;
+    SushiDSP::profile::InMemoryEnvironment environment;
+    environment.set(ProfileSession::K_CONFIG_VARIABLE, "");
+    ProfileSession session;
 
-    const SushiDSP::profile::ProfileStart started = session.start("{\"nonsense\": 1}");
+    const ProfileStart started = session.start_from_environment(environment);
+
+    EXPECT_EQ(started.status, SushiDSP::profile::ProfileStartStatus::NotRequested);
+}
+
+TEST_F(Small_ProfileSessionConfig, AConfigurationThatIsNotValidIsRefusedWithItsReason)
+{
+    ProfileSession session;
+
+    const ProfileStart started = session.start("{\"nonsense\": 1}");
 
     EXPECT_EQ(started.status, SushiDSP::profile::ProfileStartStatus::ConfigRefused);
     EXPECT_FALSE(started.message.empty());
     EXPECT_FALSE(session.running());
 }
 
-TEST(Medium_ProfileSession, ASecondSessionInTheProcessIsRefused)
+TEST_P(Medium_ProfileSessionSecondStart, ASecondStartWhileOneRunsIsRefused)
 {
-    if (!SushiDSP::profile::K_PROFILER_BUILT)
-        GTEST_SKIP() << "this build records nothing";
-    SushiDSP::profile::ProfileSession first;
+    ProfileSession first;
     ASSERT_TRUE(first.start_window(K_TIMELINE, K_WARMUP, K_ACTIVE).started());
-    SushiDSP::profile::ProfileSession second;
 
-    const SushiDSP::profile::ProfileStart started = second.start_window(K_TIMELINE, 0U, 1U);
+    const ProfileStart second = GetParam().start_second(first);
 
-    EXPECT_EQ(started.status, SushiDSP::profile::ProfileStartStatus::AlreadyRunning);
+    EXPECT_EQ(second.status, SushiDSP::profile::ProfileStartStatus::AlreadyRunning);
     EXPECT_TRUE(first.running());
 }
 
-TEST(Medium_ProfileSession, AnObjectThatRunsRefusesASecondStart)
+INSTANTIATE_TEST_SUITE_P(
+    Starts, Medium_ProfileSessionSecondStart,
+    ::testing::Values(SecondStartRow{"OnTheObjectThatRuns", start_on_the_running_object},
+                      SecondStartRow{"OnAnotherObject", start_on_another_object}),
+    second_start_row_name);
+
+TEST_F(Medium_ProfileSession, AMarkCarriesItsBudgetIntoTheRecord)
 {
-    if (!SushiDSP::profile::K_PROFILER_BUILT)
-        GTEST_SKIP() << "this build records nothing";
-    SushiDSP::profile::ProfileSession session;
+    ProfileSession session;
     ASSERT_TRUE(session.start_window(K_TIMELINE, K_WARMUP, K_ACTIVE).started());
 
-    const SushiDSP::profile::ProfileStart again = session.start_window(K_TIMELINE, 0U, 1U);
+    SushiDSP::profile::run_periods(session, K_TIMELINE, K_WARMUP, K_ACTIVE, K_BUDGET_NS, [] {});
+    const SushiDSP::profile::ProfileFinish finished = session.finish();
 
-    EXPECT_EQ(again.status, SushiDSP::profile::ProfileStartStatus::AlreadyRunning);
+    EXPECT_EQ(finished.record.summarise(K_TIMELINE).budget_ns, static_cast<double>(K_BUDGET_NS));
 }
