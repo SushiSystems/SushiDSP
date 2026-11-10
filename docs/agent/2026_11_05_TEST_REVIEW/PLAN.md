@@ -1,6 +1,6 @@
 # Test review: plan
 
-**Status:** Open — in progress, run in parallel; T1 to T7, M2, M4, M5, M6 and M7 are done, the other M jobs follow in table order
+**Status:** Open — every job is applied once and the whole tree builds; M1, M13, M20, M21, M28 and M31 are `failed`, because records listed under "Not done as written" were not applied as written
 
 Applies the verdicts of `REPORT.md`, in hierarchy order: the shared helpers, adapters and seams the
 rewrites need come first, then the defects the review found, then each module's tests. A module job
@@ -18,39 +18,60 @@ writes each add. Nothing in a module job changes production code except a seam a
 | T5 | The CLI tests on sushicore's in-memory runner and console | sushicore T1 | done |
 | T6 | The defects of this report, each with a test that fails first |  | done |
 | T7 | `tools/testing/check_test_additions.py`, `tools/tests/test_check_test_additions.py` deleted |  | done |
-| M1 | the tests of `applications` (34 files): 102 rewrite, 72 resize, 50 split, 13 merge, 10 delete | T1, T2, T3, T4, T5, T6, T7 | done (lanes apps, apps2, apps3, apps4, 2026-11-10, syntax-checked only; decisions 700 to 712, 900 to 903); open for later seams: text-file and WAV ports (decisions 708, 712) |
+| M1 | the tests of `applications` (34 files): 102 rewrite, 72 resize, 50 split, 13 merge, 10 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
 | M2 | the tests of `catalog` (1 file): 3 rewrite, 2 split, 1 merge | T1, T2, T3, T4, T5, T6, T7 | done |
-| M3 | the tests of `cli` (11 files): 82 rewrite, 15 resize, 2 split, 2 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | done (lanes D and misc, 2026-11-10, pytest run, 145 passed): decisions 400 to 402, 405 and 804; the help console provider is `make_app` |
-| M4 | the tests of `foundation/allocation_trap` (1 file): 1 rewrite, 1 merge | T1, T2, T3, T4, T5, T6, T7 | todo |
+| M3 | the tests of `cli` (11 files): 82 rewrite, 15 resize, 2 split, 2 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M4 | the tests of `foundation/allocation_trap` (1 file): 1 rewrite, 1 merge | T1, T2, T3, T4, T5, T6, T7 | done |
 | M5 | the tests of `foundation/audio_format` (2 files): 5 rewrite, 1 split, 2 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M6 | the tests of `foundation/benchmark_harness` (6 files): 11 rewrite, 1 resize, 3 split | T1, T2, T3, T4, T5, T6, T7 | done |
 | M7 | the tests of `foundation/circuit_blocks` (2 files): 6 rewrite, 2 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
-| M8 | the tests of `foundation/circuits` (26 files): 81 rewrite, 2 resize, 5 split, 3 merge, 11 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane A, 2026-11-10, syntax-checked only; decisions 100 to 104 and 109): the bias, convergence and LTspice tests of `test_dk_netlist.cpp` carry hand-derived bands that were not run |
-| M9 | the tests of `foundation/core` (23 files): 68 rewrite, 14 resize, 7 split, 5 merge, 25 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane A, 2026-11-10, syntax-checked only; decisions 105 to 107): the clock seam (`PollClock`), `InMemoryMinimalNode`, the pool, counter, denormal, node-counter, slot and graph tests; `test_core_counter_report` and `test_parameter_report` stay on `LogCapture` (decisions 102, 303) |
-| M10 | the tests of `foundation/device` (5 files): 10 rewrite, 3 resize, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane A, 2026-11-10, syntax-checked only; decision 108): `BlockClock`, `BlockServer`, `InMemoryBlockDevice` |
-| M11 | the tests of `foundation/golden_compare` (2 files): 2 rewrite, 1 resize, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane A, 2026-11-10, syntax-checked only): `GoldenStore` port with file and in-memory adapters; the stimulus and half-amplitude tests derive their bounds |
-| M12 | the tests of `foundation/io` (5 files): 13 rewrite, 5 resize, 1 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | done (lanes A and misc, 2026-11-10, syntax-checked only): `test_wav_writer.cpp` last, decision 803 |
-| M13 | the tests of `foundation/log` (2 files): 1 rewrite, 1 resize, 1 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | partial (lane A, 2026-11-10, syntax-checked only; decision 110): done except `IsSushidspSetBySdLogLevel`, which needs an environment reader in SushiLog |
-| M14 | the tests of `foundation/log_capture` (2 files): 3 resize | T1, T2, T3, T4, T5, T6, T7 | done (lane A, 2026-11-10): `test_log_capture.cpp` and `test_log_level_scope.cpp` were already `Small_` on `LogCapture` and `LogLevelScope` (decisions 102, 303); no edit |
-| M15 | the tests of `foundation/math` (23 files): 92 rewrite, 2 split, 14 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decisions 200 to 203, 206, 208); the benchmarks are keeps |
-| M16 | the tests of `foundation/profile` (7 files): 6 rewrite, 6 resize, 6 split, 2 merge | T1, T2, T3, T4, T5, T6, T7 | done (lane B, 2026-11-10, syntax-checked only; decisions 213 to 217; the four ports and `from_subjects` are built, and the three port headers have mirror test files) |
-| M17 | the tests of `foundation/regression_test` (1 file): 1 rewrite | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decisions 205, 207) |
-| M18 | the tests of `foundation/signal_measure` (7 files): 18 rewrite, 1 split, 4 merge | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decision 212) |
-| M19 | the tests of `foundation/spice_reference` (2 files): 3 rewrite, 2 resize | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decision 204) |
-| M20 | the tests of `nodes/cabinet` (2 files): 5 rewrite, 2 resize, 3 split, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done; the two log-port resizes wait on the owner's constructor shape (decision 300) |
-| M21 | the tests of `nodes/capture` (13 files): 46 rewrite, 2 resize, 9 split, 9 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | done; the three port resizes wait on the owner (decision 301) |
-| M22 || done (lane C, 2026-11-10, syntax-checked only; decisions 304, 305, 306) |
-| M23 | the tests of `nodes/diezel_vh4` (5 files): 19 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane C, 2026-11-10, syntax-checked only; decision 307) |
-| M24 | the tests of `nodes/jcm800` (5 files): 27 rewrite, 1 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane C, 2026-11-10, syntax-checked only; decisions 308, 310) |
-| M25 | the tests of `nodes/mesa_mark2c` (5 files): 22 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane C, 2026-11-10, syntax-checked only; decisions 308, 310) |
-| M26 | the tests of `nodes/microphone` (1 file): 3 rewrite, 1 split | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decision 209) |
-| M27 | the tests of `nodes/peavey5150` (5 files): 20 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane C, 2026-11-10, syntax-checked only; decisions 308, 310) |
-| M28 | the tests of `nodes/room` (52 files): 240 rewrite, 14 resize, 15 split, 8 merge, 19 delete | T1, T2, T3, T4, T5, T6, T7 | done; part 2 (lane room2, 2026-11-10, syntax-checked only; decisions 600 to 605): done `test_frame_delay.cpp` to `test_image_source_solver.cpp` (frame delay, furnishing field, furniture, HRTF set and loader, image source solver), `test_materials.cpp`, `test_medium_absorption.cpp`, `test_pair_stage.cpp`, `test_receiver_output.cpp`, `test_room_host.cpp`, the room log category and modal design compile files, `test_source_stage.cpp`, `test_stage_limits.cpp`; lane room2b (2026-11-10, syntax-checked only; decisions 606 to 611): done `test_late_reverb.cpp`, `test_late_reverb_design.cpp`, `test_microphone_model.cpp`, `test_modal_bank.cpp`, `test_modal_solver.cpp`, `test_room_arrangement.cpp`, `test_room_render_set.cpp`, `test_spherical_head_hrtf.cpp`, `test_starter_scene.cpp`; lane room3 (2026-11-10, syntax-checked only; decisions 612 to 614): done `test_room_scene/`, `test_room_node/test_logging.cpp`, `test_room_node/test_rt_safety.cpp`; lane roomb (2026-11-10, syntax-checked only; decisions 615 to 619): done `test_room_node/test_behaviour.cpp`, split into `room_node_rig.hpp` and nine subject files; part 1 (lane E, 2026-11-10, syntax-checked only; decisions 500 to 505): `test_air_absorption.cpp` to `test_fir_filter.cpp` done |
-| M29 | the tests of `nodes/room_scenes` (2 files): 3 rewrite, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decision 210) |
-| M30 | the tests of `nodes/routing` (7 files): 34 rewrite, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane B, 2026-11-10, syntax-checked only; decisions 218 to 220; no production change) |
-| M31 | the tests of `nodes/tubescreamer` (7 files): 34 rewrite, 2 resize, 4 split, 1 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | partial (lanes C and misc, 2026-11-10, syntax-checked only): the rest of `test_tube_screamer` and `test_tube_screamer_circuits` and the log-category compile check; open: the converged-model reference, decisions 800 to 802; the nonlinear-port adapters are built, decision 900 |
-| M32 | the tests of `session` (1 file): 7 rewrite, 1 merge | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decision 211) |
-| M33 | the tests of `tools` (3 files): 1 rewrite, 3 resize, 1 split, 5 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane D, 2026-11-10, pytest run; decision 404) |
+| M8 | the tests of `foundation/circuits` (26 files): 81 rewrite, 2 resize, 5 split, 3 merge, 11 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M9 | the tests of `foundation/core` (23 files): 68 rewrite, 14 resize, 7 split, 5 merge, 25 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M10 | the tests of `foundation/device` (5 files): 10 rewrite, 3 resize, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M11 | the tests of `foundation/golden_compare` (2 files): 2 rewrite, 1 resize, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M12 | the tests of `foundation/io` (5 files): 13 rewrite, 5 resize, 1 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M13 | the tests of `foundation/log` (2 files): 1 rewrite, 1 resize, 1 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M14 | the tests of `foundation/log_capture` (2 files): 3 resize | T1, T2, T3, T4, T5, T6, T7 | done |
+| M15 | the tests of `foundation/math` (23 files): 92 rewrite, 2 split, 14 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M16 | the tests of `foundation/profile` (7 files): 6 rewrite, 6 resize, 6 split, 2 merge | T1, T2, T3, T4, T5, T6, T7 | done |
+| M17 | the tests of `foundation/regression_test` (1 file): 1 rewrite | T1, T2, T3, T4, T5, T6, T7 | done |
+| M18 | the tests of `foundation/signal_measure` (7 files): 18 rewrite, 1 split, 4 merge | T1, T2, T3, T4, T5, T6, T7 | done |
+| M19 | the tests of `foundation/spice_reference` (2 files): 3 rewrite, 2 resize | T1, T2, T3, T4, T5, T6, T7 | done |
+| M20 | the tests of `nodes/cabinet` (2 files): 5 rewrite, 2 resize, 3 split, 3 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M21 | the tests of `nodes/capture` (13 files): 46 rewrite, 2 resize, 9 split, 9 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M22 | the tests of `nodes/dd3` (9 files): 51 rewrite, 2 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M23 | the tests of `nodes/diezel_vh4` (5 files): 19 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M24 | the tests of `nodes/jcm800` (5 files): 27 rewrite, 1 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M25 | the tests of `nodes/mesa_mark2c` (5 files): 22 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M26 | the tests of `nodes/microphone` (1 file): 3 rewrite, 1 split | T1, T2, T3, T4, T5, T6, T7 | done |
+| M27 | the tests of `nodes/peavey5150` (5 files): 20 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M28 | the tests of `nodes/room` (52 files): 240 rewrite, 14 resize, 15 split, 8 merge, 19 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M29 | the tests of `nodes/room_scenes` (2 files): 3 rewrite, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M30 | the tests of `nodes/routing` (7 files): 34 rewrite, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+| M31 | the tests of `nodes/tubescreamer` (7 files): 34 rewrite, 2 resize, 4 split, 1 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M32 | the tests of `session` (1 file): 7 rewrite, 1 merge | T1, T2, T3, T4, T5, T6, T7 | done |
+| M33 | the tests of `tools` (3 files): 1 rewrite, 3 resize, 1 split, 5 delete | T1, T2, T3, T4, T5, T6, T7 | done |
+
+## Not done as written
+
+Each item is a record or a ruling that was not applied as it is written. The job stays `failed`
+until it is. Owner marks an item whose shape the owner reserves.
+
+- **M1.** The WAV reader and writer port for `load_track`, `place_clip`, `set_cabinet` and the
+  recorder, and the text-file port for the preset and project files, so their cases run `Small_`
+  (decisions 708, 712). Cases moved to `Medium_` by suite name without their input shrunk
+  (decision 1208).
+- **M13 (owner).** `IsSushidspSetBySdLogLevel` needs an environment reader in SushiLog, a package
+  this repository does not own (decision 110).
+- **M20 (owner).** The log port in the cabinet node's constructor for the two `resize` records
+  (decision 300).
+- **M21 (owner).** The writer port beside `WavWriter` and the log sink port of `TrackRecorder` for
+  three `resize` records (decision 301).
+- **M28.** The allocation counter the binaural decoder reports through (decision 501); the
+  `pair_stage` add (decision 605); the spherical head grid coverage oracle (decision 611); the
+  `Small_` records of the render set and standing wave tests (decisions 610, 616); the profile sink
+  seam of `RoomNode` (decision 614).
+- **M31.** An independent reference for the converged-model null test (decision 801).
 
 ## Acceptance
 
