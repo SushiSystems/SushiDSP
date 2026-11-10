@@ -31,6 +31,7 @@
 #include <cmath>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -42,12 +43,58 @@
 #include <SushiDSP/nodes/routing/pan_node.hpp>
 #include <SushiDSP/nodes/capture/take.hpp>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include "support/tolerance.hpp"
 
 namespace
 {
+    constexpr double K_TWO_PI = 6.283185307179586;
+
+    /// @brief The band within which the converter holds a 440 Hz tone's amplitude at half speed.
+    /// It is characterized from the first version of the test and has no derivation yet.
+    constexpr double K_CONVERTER_AMPLITUDE_BAND = 0.01;
+
+    /// @brief Names a take to read and the frame to start reading at.
+    struct UnityRow
+    {
+        const char* name;
+        std::unique_ptr<SushiDSP::Take> (*make_take)();
+        std::uint64_t start_frame;
+    };
+
+    /// @brief Names a pan position.
+    struct PanRow
+    {
+        const char* name;
+        float pan;
+    };
+
+    /// @brief Names a clip start frame.
+    struct StartRow
+    {
+        const char* name;
+        std::uint64_t start;
+    };
+
+    /// @brief Names how many lanes hold one take.
+    struct LaneRow
+    {
+        const char* name;
+        std::size_t lanes;
+    };
+
+    /// @brief Names a prepared block size and the forced-unity-speed count it must give.
+    struct PreparedRow
+    {
+        const char* name;
+        std::uint32_t prepared_frames;
+        unsigned forced_unity_speed;
+    };
+
+    const PanRow K_PAN_ROWS[] = {
+        {"PanMinusOne", -1.0f},      {"PanMinusThreeQuarters", -0.75f}, {"PanMinusHalf", -0.5f},
+        {"PanMinusQuarter", -0.25f}, {"PanCentre", 0.0f},               {"PanQuarter", 0.25f},
+        {"PanHalf", 0.5f},           {"PanThreeQuarters", 0.75f},       {"PanOne", 1.0f}};
+
     /// @brief Builds a mono take whose sample at frame n is 1 + n, so a mix can be checked
     /// sample for sample and any read offset shows up immediately.
     /// @param frames How many frames the take holds.
@@ -64,11 +111,81 @@ namespace
         return take;
     }
 
+    /// @brief Builds a mono take of ones.
+    std::unique_ptr<SushiDSP::Take> ones_take(std::size_t frames)
+    {
+        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
+        std::fill(take->mutable_channel(0), take->mutable_channel(0) + frames, 1.0f);
+        return take;
+    }
+
+    /// @brief Builds a mono take that is silent apart from one sample of 1.
+    std::unique_ptr<SushiDSP::Take> impulse_take(std::size_t frames, std::size_t at)
+    {
+        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
+        take->mutable_channel(0)[at] = 1.0f;
+        return take;
+    }
+
+    /// @brief Fills channel 0 of a take with a sine.
+    void fill_sine(SushiDSP::Take& take, double frequency_hz, float amplitude)
+    {
+        float* samples = take.mutable_channel(0);
+        for (std::size_t frame = 0; frame < take.frames(); ++frame)
+        {
+            samples[frame] = amplitude * static_cast<float>(std::sin(K_TWO_PI * frequency_hz *
+                                                                     static_cast<double>(frame) / 48000.0));
+        }
+    }
+
+    /// @brief Builds a mono take carrying one sine of amplitude 1.
+    std::unique_ptr<SushiDSP::Take> sine_take(double frequency_hz, std::size_t frames)
+    {
+        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
+        fill_sine(*take, frequency_hz, 1.0f);
+        return take;
+    }
+
+    /// @brief Returns count ramp values starting at a take frame: scale * (1 + frame).
+    std::vector<float> ramp_values(std::size_t first_frame, std::size_t count, float scale = 1.0f)
+    {
+        std::vector<float> values(count);
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            values[i] = scale * (1.0f + static_cast<float>(first_frame + i));
+        }
+        return values;
+    }
+
+    /// @brief Joins runs of samples in order.
+    std::vector<float> joined(const std::vector<std::vector<float>>& runs)
+    {
+        std::vector<float> all;
+        for (const std::vector<float>& run : runs)
+        {
+            all.insert(all.end(), run.begin(), run.end());
+        }
+        return all;
+    }
+
+    /// @brief Returns count copies of one value.
+    std::vector<float> repeated(float value, std::size_t count)
+    {
+        return std::vector<float>(count, value);
+    }
+
+    /// @brief Returns count zeros with ones at the given frames.
+    std::vector<float> zeros_with_ones_at(std::size_t count, const std::vector<std::size_t>& frames)
+    {
+        std::vector<float> values(count, 0.0f);
+        for (std::size_t frame : frames)
+        {
+            values[frame] = 1.0f;
+        }
+        return values;
+    }
+
     /// @brief Mixes one block into a freshly zeroed stereo pair.
-    /// @param player The player under test.
-    /// @param transport The clock the player reads.
-    /// @param left Receives the left channel.
-    /// @param right Receives the right channel.
     void render(SushiDSP::TrackPlayer& player, SushiDSP::Transport& transport,
                 std::vector<float>& left, std::vector<float>& right)
     {
@@ -78,10 +195,35 @@ namespace
         player.process(outputs, 2u, static_cast<std::uint32_t>(left.size()), transport);
     }
 
+    /// @brief Mixes a block of frames and returns the left channel.
+    std::vector<float> render_left(SushiDSP::TrackPlayer& player, SushiDSP::Transport& transport,
+                                   std::size_t frames)
+    {
+        std::vector<float> left(frames, 0.0f);
+        std::vector<float> right(frames, 0.0f);
+        render(player, transport, left, right);
+        return left;
+    }
+
+    /// @brief Mixes blocks one after another, advancing the transport between them, and returns
+    /// the left channel of all of them in order.
+    std::vector<float> render_advancing(SushiDSP::TrackPlayer& player,
+                                        SushiDSP::Transport& transport, int blocks,
+                                        std::uint32_t block_frames)
+    {
+        std::vector<float> left(block_frames, 0.0f);
+        std::vector<float> right(block_frames, 0.0f);
+        std::vector<float> rendered;
+        for (int block = 0; block < blocks; ++block)
+        {
+            render(player, transport, left, right);
+            transport.advance(block_frames);
+            rendered.insert(rendered.end(), left.begin(), left.end());
+        }
+        return rendered;
+    }
+
     /// @brief Returns the settled gains PanNode produces at a pan position.
-    /// @param pan The pan position to measure.
-    /// @param left Receives the left gain.
-    /// @param right Receives the right gain.
     void pan_node_gains(float pan, float& left, float& right)
     {
         SushiDSP::PanNode node;
@@ -113,67 +255,7 @@ namespace
         }
     }
 
-    /// @brief Converts a linear gain to decibels, floored so a hard null stays finite.
-    /// @param gain The linear gain.
-    /// @return The gain in decibels.
-    float to_db(float gain)
-    {
-        return 20.0f * std::log10(std::fabs(gain) + 1e-20f);
-    }
-
-    /// @brief Builds a mono take that is silent apart from one sample of 1.
-    /// @param frames How many frames the take holds.
-    /// @param at The frame carrying the impulse.
-    /// @return The filled take.
-    std::unique_ptr<SushiDSP::Take> impulse_take(std::size_t frames, std::size_t at)
-    {
-        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
-        float* samples = take->mutable_channel(0);
-        samples[at] = 1.0f;
-        return take;
-    }
-
-    /// @brief Builds a mono take carrying one sine.
-    /// @param frequency_hz Tone frequency in Hz.
-    /// @param frames How many frames the take holds.
-    /// @return The filled take.
-    std::unique_ptr<SushiDSP::Take> sine_take(double frequency_hz, std::size_t frames)
-    {
-        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
-        float* samples = take->mutable_channel(0);
-        for (std::size_t frame = 0; frame < frames; ++frame)
-        {
-            samples[frame] =
-                static_cast<float>(std::sin(2.0 * 3.14159265358979323846 * frequency_hz *
-                                            static_cast<double>(frame) / 48000.0));
-        }
-        return take;
-    }
-
-    /// @brief Hands a take to a player's library and returns the pointer its clips borrow.
-    /// @param player The player owning the library.
-    /// @param take The take to hand over.
-    /// @return The borrowed pointer.
-    const SushiDSP::Take* lend(SushiDSP::TrackPlayer& player, std::unique_ptr<SushiDSP::Take> take)
-    {
-        return player.takes().insert(std::unique_ptr<const SushiDSP::Take>(std::move(take)));
-    }
-
-    /// @brief Publishes one lane's clips.
-    /// @param player The player to publish into.
-    /// @param lane Lane index.
-    /// @param clips The lane's clips.
-    void place(SushiDSP::TrackPlayer& player, std::size_t lane,
-               const std::vector<SushiDSP::Clip>& clips)
-    {
-        player.set_timeline(lane, std::unique_ptr<SushiDSP::TrackTimeline>(
-                                      new SushiDSP::TrackTimeline(player.takes(), clips)));
-    }
-
     /// @brief Counts sign changes in a run of samples, which is twice the cycles it holds.
-    /// @param samples The run to count over.
-    /// @param first The first sample to look at.
-    /// @return How many sign changes the run holds.
     int zero_crossings(const std::vector<float>& samples, std::size_t first)
     {
         int crossings = 0;
@@ -186,31 +268,208 @@ namespace
         }
         return crossings;
     }
+
+    /// @brief Returns the largest magnitude from a frame to the end.
+    double peak_from(const std::vector<float>& samples, std::size_t first)
+    {
+        double peak = 0.0;
+        for (std::size_t frame = first; frame < samples.size(); ++frame)
+        {
+            peak = std::max(peak, std::fabs(static_cast<double>(samples[frame])));
+        }
+        return peak;
+    }
+
+    /// @brief Hands a take to a player's library and returns the pointer its clips borrow.
+    const SushiDSP::Take* lend(SushiDSP::TrackPlayer& player, std::unique_ptr<SushiDSP::Take> take)
+    {
+        return player.takes().insert(std::unique_ptr<const SushiDSP::Take>(std::move(take)));
+    }
+
+    /// @brief Publishes one lane's clips.
+    void place(SushiDSP::TrackPlayer& player, std::size_t lane,
+               const std::vector<SushiDSP::Clip>& clips)
+    {
+        player.set_timeline(lane, std::unique_ptr<SushiDSP::TrackTimeline>(
+                                      new SushiDSP::TrackTimeline(player.takes(), clips)));
+    }
+
+    /// @brief Expects the samples to equal the expected values with no rounding at all.
+    void expect_samples_equal(const std::vector<float>& actual, const std::vector<float>& expected)
+    {
+        ASSERT_EQ(actual.size(), expected.size());
+        for (std::size_t frame = 0; frame < expected.size(); ++frame)
+        {
+            EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(actual[frame], expected[frame], 0.0)))
+                << "at frame " << frame;
+        }
+    }
+
+    /// @brief Expects the samples to equal the expected values bit for bit.
+    void expect_bits_equal(const std::vector<float>& actual, const std::vector<float>& expected)
+    {
+        ASSERT_EQ(actual.size(), expected.size());
+        for (std::size_t frame = 0; frame < expected.size(); ++frame)
+        {
+            EXPECT_EQ(std::memcmp(&actual[frame], &expected[frame], sizeof(float)), 0)
+                << "at frame " << frame;
+        }
+    }
+
+    /// @brief Expects the samples to follow the expected values to the rounding of two float
+    /// operations: the multiply by a gain and the add into the mix.
+    void expect_samples_near(const std::vector<float>& actual, const std::vector<float>& expected)
+    {
+        ASSERT_EQ(actual.size(), expected.size());
+        for (std::size_t frame = 0; frame < expected.size(); ++frame)
+        {
+            EXPECT_TRUE(TestSupport::is_within(
+                TestSupport::measure_relative_error<float>(actual[frame], expected[frame], 2)))
+                << "at frame " << frame;
+        }
+    }
+
+    void expect_finite(const std::vector<float>& samples)
+    {
+        for (std::size_t frame = 0; frame < samples.size(); ++frame)
+        {
+            EXPECT_TRUE(std::isfinite(samples[frame])) << "at frame " << frame;
+        }
+    }
+
+    /// @brief Clears each lane in turn, lets the audio thread pass the swap, reclaims, and expects
+    /// the take to be held by exactly the lanes not yet cleared.
+    void expect_take_held_by_the_lanes_left(SushiDSP::TrackPlayer& player,
+                                            SushiDSP::Transport& transport,
+                                            const SushiDSP::Take* take, std::size_t lanes)
+    {
+        std::vector<float> left(64, 0.0f);
+        std::vector<float> right(64, 0.0f);
+        for (std::size_t cleared = 0; cleared < lanes; ++cleared)
+        {
+            place(player, cleared, {});
+            render(player, transport, left, right);
+            render(player, transport, left, right);
+            player.reclaim();
+            const std::size_t holders = lanes - cleared - 1u;
+            EXPECT_EQ(player.takes().size(), holders == 0u ? 0u : 1u) << "after lane " << cleared;
+            if (holders != 0u)
+            {
+                EXPECT_EQ(player.takes().reference_count(take), holders) << "after lane " << cleared;
+            }
+        }
+    }
+
+    /// @brief Fills a player with eight lanes of sixteen clips each, over mono and stereo takes.
+    void fill_every_lane(SushiDSP::TrackPlayer& player)
+    {
+        for (std::size_t track = 0; track < SushiDSP::TrackPlayer::K_MAX_TRACKS; ++track)
+        {
+            auto take = std::make_unique<SushiDSP::Take>(track % 2 == 0 ? 1u : 2u, 48000.0, 4096u);
+            fill_sine(*take, 110.0, 0.25f);
+            const SushiDSP::Take* borrowed = lend(player, std::move(take));
+
+            std::vector<SushiDSP::Clip> clips;
+            for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::K_MAX_CLIPS; ++clip)
+            {
+                clips.push_back(SushiDSP::Clip{borrowed, clip * 200u, 64u, 150u});
+            }
+            place(player, track, clips);
+            player.set_pan(track, -1.0f + 0.25f * static_cast<float>(track));
+            player.set_gain(track, 0.5f);
+        }
+    }
+
+    /// @brief Builds timelines over one take, each a little later than the one before.
+    std::vector<std::unique_ptr<SushiDSP::TrackTimeline>>
+    shifted_timelines(SushiDSP::TrackPlayer& player, const SushiDSP::Take* take, int count)
+    {
+        std::vector<std::unique_ptr<SushiDSP::TrackTimeline>> prepared;
+        for (int swap = 0; swap < count; ++swap)
+        {
+            std::vector<SushiDSP::Clip> clips;
+            for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::K_MAX_CLIPS; ++clip)
+            {
+                clips.push_back(SushiDSP::Clip{take, static_cast<std::uint64_t>(swap) + clip * 300u,
+                                               32u, 250u});
+            }
+            prepared.push_back(std::unique_ptr<SushiDSP::TrackTimeline>(
+                new SushiDSP::TrackTimeline(player.takes(), clips)));
+        }
+        return prepared;
+    }
+
+    /// @brief Mixes blocks at each of two speeds with the trap armed around all of them.
+    void mix_trapped_at_two_speeds(SushiDSP::TrackPlayer& player, SushiDSP::Transport& transport,
+                                   std::vector<float>& left, std::vector<float>& right,
+                                   SushiDSP::test::AllocationTrap& trap)
+    {
+        float* outputs[2] = {left.data(), right.data()};
+        trap.arm();
+        for (double speed : {1.0, 0.5})
+        {
+            transport.set_speed(speed);
+            for (int block = 0; block < 200; ++block)
+            {
+                std::fill(left.begin(), left.end(), 0.0f);
+                std::fill(right.begin(), right.end(), 0.0f);
+                player.process(outputs, 2u, 256u, transport);
+                transport.advance(256);
+            }
+        }
+        trap.disarm();
+    }
+
+    /// @brief Swaps in each prepared timeline and mixes one trapped block after each swap.
+    void swap_and_mix_trapped(SushiDSP::TrackPlayer& player, SushiDSP::Transport& transport,
+                              std::vector<std::unique_ptr<SushiDSP::TrackTimeline>>& prepared,
+                              std::vector<float>& left, std::vector<float>& right,
+                              SushiDSP::test::AllocationTrap& trap)
+    {
+        float* outputs[2] = {left.data(), right.data()};
+        for (std::unique_ptr<SushiDSP::TrackTimeline>& timeline : prepared)
+        {
+            player.set_timeline(0, std::move(timeline));
+
+            trap.arm();
+            std::fill(left.begin(), left.end(), 0.0f);
+            std::fill(right.begin(), right.end(), 0.0f);
+            player.process(outputs, 2u, 256u, transport);
+            trap.disarm();
+
+            transport.advance(256);
+        }
+    }
 } // namespace
 
-TEST(Small_TrackPlayer, TrackPlayerUnityTrackReproducesItsTakeSampleForSample)
+class Small_TrackPlayerUnity : public ::testing::TestWithParam<UnityRow>
 {
-    SushiDSP::Transport transport;
+};
+
+TEST_P(Small_TrackPlayerUnity, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
+{
     SushiDSP::TrackPlayer player;
-    player.set_take(0, ramp_take(256));
+    SushiDSP::Transport transport;
+    auto source = GetParam().make_take();
+    const float* head = source->channel(0) + GetParam().start_frame;
+    const std::vector<float> reference(head, head + 64);
+    player.set_take(0, std::move(source));
     player.set_pan(0, -1.0f);
+    player.prepare(256u);
+    transport.seek(GetParam().start_frame);
 
-    std::vector<float> left(64, 0.0f);
-    std::vector<float> right(64, 0.0f);
-    render(player, transport, left, right);
+    // The converter must be bypassed rather than run at a ratio of one, so the bits match.
+    const std::vector<float> left = render_left(player, transport, 64);
 
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 1.0f + static_cast<float>(frame));
-    }
-
-    transport.advance(64);
-    render(player, transport, left, right);
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 65.0f + static_cast<float>(frame));
-    }
+    expect_bits_equal(left, reference);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    Rows, Small_TrackPlayerUnity,
+    ::testing::Values(UnityRow{"RampFromTheStart", [] { return ramp_take(256); }, 0u},
+                      UnityRow{"RampAfterOneBlock", [] { return ramp_take(256); }, 64u},
+                      UnityRow{"SineFromTheStart", [] { return sine_take(997.0, 1024u); }, 0u}),
+    [](const ::testing::TestParamInfo<UnityRow>& info) { return std::string(info.param.name); });
 
 TEST(Small_TrackPlayer, TrackPlayerMutedTrackContributesNothing)
 {
@@ -218,16 +477,13 @@ TEST(Small_TrackPlayer, TrackPlayerMutedTrackContributesNothing)
     SushiDSP::TrackPlayer player;
     player.set_take(0, ramp_take(256));
     player.set_mute(0, true);
-
     std::vector<float> left(64, 0.0f);
     std::vector<float> right(64, 0.0f);
+
     render(player, transport, left, right);
 
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 0.0f);
-        EXPECT_FLOAT_EQ(right[frame], 0.0f);
-    }
+    expect_samples_equal(left, repeated(0.0f, 64));
+    expect_samples_equal(right, repeated(0.0f, 64));
 }
 
 TEST(Small_TrackPlayer, TrackPlayerSoloSilencesTheOtherTracks)
@@ -240,14 +496,9 @@ TEST(Small_TrackPlayer, TrackPlayerSoloSilencesTheOtherTracks)
     player.set_pan(1, -1.0f);
     player.set_solo(1, true);
 
-    std::vector<float> left(64, 0.0f);
-    std::vector<float> right(64, 0.0f);
-    render(player, transport, left, right);
+    const std::vector<float> left = render_left(player, transport, 64);
 
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 10.0f * (1.0f + static_cast<float>(frame)));
-    }
+    expect_samples_equal(left, ramp_values(0, 64, 10.0f));
 }
 
 TEST(Small_TrackPlayer, TrackPlayerTwoTracksSum)
@@ -259,70 +510,61 @@ TEST(Small_TrackPlayer, TrackPlayerTwoTracksSum)
     player.set_pan(0, -1.0f);
     player.set_pan(1, -1.0f);
 
+    const std::vector<float> left = render_left(player, transport, 64);
+
+    expect_samples_equal(left, ramp_values(0, 64, 4.0f));
+}
+
+class Small_TrackPlayerPan : public ::testing::TestWithParam<PanRow>
+{
+};
+
+TEST_P(Small_TrackPlayerPan, TrackPlayerPanLawMatchesPanNode)
+{
+    SushiDSP::Transport transport;
+    SushiDSP::TrackPlayer player;
+    player.set_take(0, ones_take(64));
+    player.set_pan(0, GetParam().pan);
     std::vector<float> left(64, 0.0f);
     std::vector<float> right(64, 0.0f);
+    float expected_left = 0.0f;
+    float expected_right = 0.0f;
+    pan_node_gains(GetParam().pan, expected_left, expected_right);
+
     render(player, transport, left, right);
 
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 4.0f * (1.0f + static_cast<float>(frame)));
-    }
+    // Both gains are at most one, so the two evaluations of the law agree to a few float roundings.
+    const double bound = 8.0 * TestSupport::unit_roundoff<float>();
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(left.back(), expected_left, bound)));
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(right.back(), expected_right, bound)));
 }
 
-TEST(Small_TrackPlayer, TrackPlayerPanLawMatchesPanNodeWithinAHundredthOfADecibel)
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TrackPlayerPan, ::testing::ValuesIn(K_PAN_ROWS),
+                         [](const ::testing::TestParamInfo<PanRow>& info)
+                         { return std::string(info.param.name); });
+
+class Small_TrackPlayerMono : public ::testing::TestWithParam<PanRow>
 {
-    for (int step = 0; step < 9; ++step)
-    {
-        const float pan = -1.0f + 0.25f * static_cast<float>(step);
+};
 
-        SushiDSP::Transport transport;
-        SushiDSP::TrackPlayer player;
-
-        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, std::size_t{64});
-        float* samples = take->mutable_channel(0);
-        for (std::size_t frame = 0; frame < 64; ++frame)
-        {
-            samples[frame] = 1.0f;
-        }
-        player.set_take(0, std::move(take));
-        player.set_pan(0, pan);
-
-        std::vector<float> left(64, 0.0f);
-        std::vector<float> right(64, 0.0f);
-        render(player, transport, left, right);
-
-        float expected_left = 0.0f;
-        float expected_right = 0.0f;
-        pan_node_gains(pan, expected_left, expected_right);
-
-        EXPECT_NEAR(to_db(left.back()), to_db(expected_left), 0.01f);
-        EXPECT_NEAR(to_db(right.back()), to_db(expected_right), 0.01f);
-    }
-}
-
-TEST(Small_TrackPlayer, TrackPlayerMonoOutputIgnoresPan)
+TEST_P(Small_TrackPlayerMono, TrackPlayerMonoOutputIgnoresPan)
 {
-    for (int step = 0; step < 9; ++step)
-    {
-        const float pan = -1.0f + 0.25f * static_cast<float>(step);
+    SushiDSP::Transport transport;
+    SushiDSP::TrackPlayer player;
+    player.set_take(0, ramp_take(64));
+    player.set_pan(0, GetParam().pan);
+    player.set_gain(0, 0.5f);
+    std::vector<float> mono(64, 0.0f);
+    float* outputs[1] = {mono.data()};
 
-        SushiDSP::Transport transport;
-        SushiDSP::TrackPlayer player;
-        player.set_take(0, ramp_take(64));
-        player.set_pan(0, pan);
-        player.set_gain(0, 0.5f);
+    player.process(outputs, 1u, static_cast<std::uint32_t>(mono.size()), transport);
 
-        std::vector<float> mono(64, 0.0f);
-        float* outputs[1] = {mono.data()};
-        player.process(outputs, 1u, static_cast<std::uint32_t>(mono.size()), transport);
-
-        for (std::size_t frame = 0; frame < mono.size(); ++frame)
-        {
-            EXPECT_FLOAT_EQ(mono[frame], 0.5f * (1.0f + static_cast<float>(frame)))
-                << "at pan " << pan << ", frame " << frame;
-        }
-    }
+    expect_samples_equal(mono, ramp_values(0, 64, 0.5f));
 }
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TrackPlayerMono, ::testing::ValuesIn(K_PAN_ROWS),
+                         [](const ::testing::TestParamInfo<PanRow>& info)
+                         { return std::string(info.param.name); });
 
 TEST(Small_TrackPlayer, TrackPlayerPlayingPastTheEndYieldsSilence)
 {
@@ -332,25 +574,22 @@ TEST(Small_TrackPlayer, TrackPlayerPlayingPastTheEndYieldsSilence)
     player.set_pan(0, -1.0f);
     transport.seek(80);
 
-    std::vector<float> left(64, 0.0f);
-    std::vector<float> right(64, 0.0f);
-    render(player, transport, left, right);
+    const std::vector<float> left = render_left(player, transport, 64);
 
-    for (std::size_t frame = 0; frame < 20; ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 81.0f + static_cast<float>(frame));
-    }
-    for (std::size_t frame = 20; frame < left.size(); ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 0.0f);
-    }
+    expect_samples_equal(left, joined({ramp_values(80, 20), repeated(0.0f, 44)}));
+}
 
+TEST(Small_TrackPlayer, TrackPlayerSeekingPastTheEndYieldsSilence)
+{
+    SushiDSP::Transport transport;
+    SushiDSP::TrackPlayer player;
+    player.set_take(0, ramp_take(100));
+    player.set_pan(0, -1.0f);
     transport.seek(1000);
-    render(player, transport, left, right);
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 0.0f);
-    }
+
+    const std::vector<float> left = render_left(player, transport, 64);
+
+    expect_samples_equal(left, repeated(0.0f, 64));
 }
 
 TEST(Small_TrackPlayer, TrackPlayerLoopWrapsAtExactlyTheLoopEnd)
@@ -362,308 +601,160 @@ TEST(Small_TrackPlayer, TrackPlayerLoopWrapsAtExactlyTheLoopEnd)
     transport.set_loop(10, 50);
     transport.seek(30);
 
-    std::vector<float> left(64, 0.0f);
-    std::vector<float> right(64, 0.0f);
-    render(player, transport, left, right);
+    const std::vector<float> left = render_left(player, transport, 64);
 
-    for (std::size_t frame = 0; frame < 20; ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 31.0f + static_cast<float>(frame));
-    }
-    for (std::size_t frame = 20; frame < 60; ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 11.0f + static_cast<float>(frame - 20));
-    }
-    for (std::size_t frame = 60; frame < 64; ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 11.0f + static_cast<float>(frame - 60));
-    }
+    // Frames 30 to 49, then two full passes of the loop from frame 10 for 40 frames and 4 more.
+    expect_samples_equal(left, joined({ramp_values(30, 20), ramp_values(10, 40), ramp_values(10, 4)}));
 }
 
-TEST(Small_TrackPlayer, TransportAdvanceWrapsAtTheLoopEnd)
+class Small_TrackPlayerClipStart : public ::testing::TestWithParam<StartRow>
 {
+};
+
+TEST_P(Small_TrackPlayerClipStart, TrackPlayerPlaysAClipAtItsStartFrame)
+{
+    SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
-    transport.set_loop(10, 50);
-    transport.seek(30);
+    const SushiDSP::Take* take = lend(player, impulse_take(8u, 3u));
+    place(player, 0, {SushiDSP::Clip{take, GetParam().start, 0u, 8u}});
+    player.set_pan(0, -1.0f);
+    // The impulse sits at the clip's fourth frame. See tests/nodes/capture/README.md.
+    const std::uint64_t block = (GetParam().start / 64u) * 64u;
+    transport.seek(block);
 
-    transport.advance(20);
-    EXPECT_EQ(transport.position_frames(), 10u);
+    const std::vector<float> left = render_left(player, transport, 64);
 
-    transport.advance(45);
-    EXPECT_EQ(transport.position_frames(), 15u);
-
-    transport.clear_loop();
-    EXPECT_FALSE(transport.has_loop());
-    transport.advance(100);
-    EXPECT_EQ(transport.position_frames(), 115u);
+    const auto expected = static_cast<std::size_t>(GetParam().start + 3u - block);
+    expect_samples_equal(left, zeros_with_ones_at(64, {expected}));
 }
 
-TEST(Small_TrackPlayer, TransportStateAndPositionRoundTrip)
-{
-    SushiDSP::Transport transport;
-    EXPECT_EQ(transport.state(), SushiDSP::TransportState::Stopped);
-    EXPECT_EQ(transport.position_frames(), 0u);
-    EXPECT_FALSE(transport.has_loop());
-
-    transport.play();
-    EXPECT_EQ(transport.state(), SushiDSP::TransportState::Playing);
-    transport.record();
-    EXPECT_EQ(transport.state(), SushiDSP::TransportState::Recording);
-    transport.stop();
-    EXPECT_EQ(transport.state(), SushiDSP::TransportState::Stopped);
-
-    transport.seek(4096);
-    EXPECT_EQ(transport.position_frames(), 4096u);
-    transport.advance(128);
-    EXPECT_EQ(transport.position_frames(), 4224u);
-
-    transport.set_loop(100, 200);
-    EXPECT_TRUE(transport.has_loop());
-    EXPECT_EQ(transport.loop_begin_frames(), 100u);
-    EXPECT_EQ(transport.loop_end_frames(), 200u);
-
-    transport.set_loop(200, 200);
-    EXPECT_FALSE(transport.has_loop());
-
-    transport.set_loop(0, 0x1'0000'0000ull);
-    EXPECT_FALSE(transport.has_loop());
-    EXPECT_EQ(transport.loop_begin_frames(), 0u);
-    EXPECT_EQ(transport.loop_end_frames(), 0u);
-
-    transport.set_loop(1, 0x1'0000'0000ull);
-    EXPECT_TRUE(transport.has_loop());
-    EXPECT_EQ(transport.loop_begin_frames(), 1u);
-    EXPECT_EQ(transport.loop_end_frames(), 0x1'0000'0000ull);
-}
-
-TEST(Small_TrackPlayer, TrackPlayerPlaysAClipAtItsStartFrame)
-{
-    for (std::uint64_t start : {std::uint64_t{0}, std::uint64_t{12345}, std::uint64_t{1000000}})
-    {
-        SushiDSP::TrackPlayer player;
-        SushiDSP::Transport transport;
-
-        const SushiDSP::Take* take = lend(player, impulse_take(8u, 3u));
-        place(player, 0, {SushiDSP::Clip{take, start, 0u, 8u}});
-        player.set_pan(0, -1.0f);
-
-        // The impulse sits at the clip's fourth frame. See tests/nodes/capture/README.md.
-        const std::uint64_t block = (start / 64u) * 64u;
-        transport.seek(block);
-
-        std::vector<float> left(64, 0.0f);
-        std::vector<float> right(64, 0.0f);
-        render(player, transport, left, right);
-
-        const std::size_t expected = static_cast<std::size_t>(start + 3u - block);
-        for (std::size_t frame = 0; frame < left.size(); ++frame)
-        {
-            EXPECT_FLOAT_EQ(left[frame], frame == expected ? 1.0f : 0.0f)
-                << "at start " << start << ", frame " << frame;
-        }
-    }
-}
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TrackPlayerClipStart,
+                         ::testing::Values(StartRow{"StartZero", 0u}, StartRow{"Start12345", 12345u},
+                                           StartRow{"Start1000000", 1000000u}),
+                         [](const ::testing::TestParamInfo<StartRow>& info)
+                         { return std::string(info.param.name); });
 
 TEST(Small_TrackPlayer, TrackPlayerPlaysTwoClipsOnOneLane)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
-
     const SushiDSP::Take* take = lend(player, impulse_take(4u, 0u));
     place(player, 0, {SushiDSP::Clip{take, 0u, 0u, 4u}, SushiDSP::Clip{take, 20u, 0u, 4u}});
     player.set_pan(0, -1.0f);
 
-    std::vector<float> left(64, 0.0f);
-    std::vector<float> right(64, 0.0f);
-    render(player, transport, left, right);
+    const std::vector<float> left = render_left(player, transport, 64);
 
-    EXPECT_FLOAT_EQ(left[0], 1.0f);
-    EXPECT_FLOAT_EQ(left[20], 1.0f);
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        if (frame != 0 && frame != 20)
-        {
-            EXPECT_FLOAT_EQ(left[frame], 0.0f) << "at frame " << frame;
-        }
-    }
+    expect_samples_equal(left, zeros_with_ones_at(64, {0u, 20u}));
 }
 
 TEST(Small_TrackPlayer, TrackPlayerIsSilentBetweenClips)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
-
-    auto source = std::make_unique<SushiDSP::Take>(1u, 48000.0, std::size_t{8});
-    float* samples = source->mutable_channel(0);
-    for (std::size_t frame = 0; frame < 8; ++frame)
-    {
-        samples[frame] = 1.0f;
-    }
-
-    const SushiDSP::Take* take = lend(player, std::move(source));
+    const SushiDSP::Take* take = lend(player, ones_take(8));
     place(player, 0, {SushiDSP::Clip{take, 0u, 0u, 8u}, SushiDSP::Clip{take, 40u, 0u, 8u}});
     player.set_pan(0, -1.0f);
 
-    std::vector<float> left(64, 0.0f);
-    std::vector<float> right(64, 0.0f);
-    render(player, transport, left, right);
+    const std::vector<float> left = render_left(player, transport, 64);
 
-    for (std::size_t frame = 0; frame < 8; ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 1.0f) << "at frame " << frame;
-    }
-    for (std::size_t frame = 8; frame < 40; ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 0.0f) << "at frame " << frame;
-    }
-    for (std::size_t frame = 40; frame < 48; ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 1.0f) << "at frame " << frame;
-    }
-    for (std::size_t frame = 48; frame < left.size(); ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 0.0f) << "at frame " << frame;
-    }
+    expect_samples_equal(left, joined({repeated(1.0f, 8), repeated(0.0f, 32), repeated(1.0f, 8),
+                                       repeated(0.0f, 16)}));
 }
 
 TEST(Small_TrackPlayer, TrackPlayerFadesAClipEdge)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
-
-    auto source = std::make_unique<SushiDSP::Take>(1u, 48000.0, std::size_t{4096});
-    float* samples = source->mutable_channel(0);
-    for (std::size_t frame = 0; frame < 4096; ++frame)
-    {
-        samples[frame] = 1.0f;
-    }
-
     // A clip cut inside its take carries the ramp. See tests/nodes/capture/README.md.
-    const SushiDSP::Take* take = lend(player, std::move(source));
+    const SushiDSP::Take* take = lend(player, ones_take(4096));
     place(player, 0, {SushiDSP::Clip{take, 0u, 1000u, 2000u}});
     player.set_pan(0, -1.0f);
 
-    std::vector<float> left(512, 0.0f);
-    std::vector<float> right(512, 0.0f);
-    render(player, transport, left, right);
+    const std::vector<float> left = render_left(player, transport, 512);
 
-    const float ramp = static_cast<float>(SushiDSP::TrackTimeline::K_FADE_FRAMES);
-    for (std::size_t frame = 0; frame < SushiDSP::TrackTimeline::K_FADE_FRAMES; ++frame)
+    const std::size_t ramp_frames = SushiDSP::TrackTimeline::K_FADE_FRAMES;
+    std::vector<float> expected(512, 1.0f);
+    for (std::size_t frame = 0; frame < ramp_frames; ++frame)
     {
-        EXPECT_FLOAT_EQ(left[frame], static_cast<float>(frame) / ramp) << "at frame " << frame;
+        expected[frame] = static_cast<float>(frame) / static_cast<float>(ramp_frames);
     }
-    for (std::size_t frame = SushiDSP::TrackTimeline::K_FADE_FRAMES; frame < left.size(); ++frame)
-    {
-        EXPECT_FLOAT_EQ(left[frame], 1.0f) << "at frame " << frame;
-    }
-}
-
-TEST(Small_TrackPlayer, TrackPlayerAtUnitySpeedReproducesItsTakeBitForBit)
-{
-    SushiDSP::TrackPlayer player;
-    SushiDSP::Transport transport;
-
-    auto source = sine_take(997.0, 1024u);
-    const std::vector<float> reference(source->channel(0), source->channel(0) + 256);
-
-    player.set_take(0, std::move(source));
-    player.set_pan(0, -1.0f);
-    player.prepare(256u);
-
-    std::vector<float> left(256, 0.0f);
-    std::vector<float> right(256, 0.0f);
-    render(player, transport, left, right);
-
-    // The converter must be bypassed rather than run at a ratio of one, so the bits match.
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_EQ(std::memcmp(&left[frame], &reference[frame], sizeof(float)), 0)
-            << "at frame " << frame;
-    }
+    expect_samples_near(left, expected);
 }
 
 TEST(Small_TrackPlayer, TrackPlayerAtHalfSpeedDropsAnOctave)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
-
     player.set_take(0, sine_take(880.0, 96000u));
     player.set_pan(0, -1.0f);
     player.prepare(256u);
     transport.set_speed(0.5);
 
-    std::vector<float> left(256, 0.0f);
-    std::vector<float> right(256, 0.0f);
-    std::vector<float> rendered;
-    for (int block = 0; block < 200; ++block)
-    {
-        render(player, transport, left, right);
-        transport.advance(256);
-        rendered.insert(rendered.end(), left.begin(), left.end());
-    }
+    const std::vector<float> rendered = render_advancing(player, transport, 200, 256u);
 
     // 24000 frames hold 220 cycles of 440 Hz. See tests/nodes/capture/README.md.
     EXPECT_EQ(zero_crossings(rendered, rendered.size() - 24000u), 440);
-
-    double peak = 0.0;
-    for (std::size_t frame = rendered.size() - 24000u; frame < rendered.size(); ++frame)
-    {
-        peak = std::max(peak, std::fabs(static_cast<double>(rendered[frame])));
-    }
-    EXPECT_NEAR(peak, 1.0, 0.01);
 }
 
-TEST(Small_TrackPlayer, TrackPlayerReclaimsLanesBeforeCollectingTheLibrary)
+TEST(Small_TrackPlayer, TrackPlayerAtHalfSpeedKeepsTheToneAmplitude)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
+    player.set_take(0, sine_take(880.0, 96000u));
+    player.set_pan(0, -1.0f);
+    player.prepare(256u);
+    transport.set_speed(0.5);
 
+    const std::vector<float> rendered = render_advancing(player, transport, 200, 256u);
+
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(
+        peak_from(rendered, rendered.size() - 24000u), 1.0, K_CONVERTER_AMPLITUDE_BAND, 1.0)));
+}
+
+TEST(Small_TrackPlayer, TrackPlayerHoldsATakeOfAClearedLaneUntilTheAudioThreadHasPassedIt)
+{
+    SushiDSP::TrackPlayer player;
+    SushiDSP::Transport transport;
     const SushiDSP::Take* take = lend(player, impulse_take(64u, 0u));
     place(player, 0, {SushiDSP::Clip{take, 0u, 0u, 64u}});
-
     std::vector<float> left(64, 0.0f);
     std::vector<float> right(64, 0.0f);
     render(player, transport, left, right);
-
     place(player, 0, {});
+
     player.reclaim();
 
     // The first timeline is alive, so its take is held. See tests/nodes/capture/README.md.
     EXPECT_EQ(player.takes().size(), 1u);
     EXPECT_EQ(player.takes().reference_count(take), 1u);
-
-    render(player, transport, left, right);
-    player.reclaim();
-    EXPECT_EQ(player.takes().size(), 0u);
 }
 
-TEST(Small_TrackPlayer, TrackPlayerFreesATakeOnceBothLanesUsingItAreCleared)
+class Small_TrackPlayerReclaim : public ::testing::TestWithParam<LaneRow>
+{
+};
+
+TEST_P(Small_TrackPlayerReclaim, TrackPlayerFreesATakeOnceTheLanesUsingItAreCleared)
 {
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
-
     const SushiDSP::Take* take = lend(player, impulse_take(64u, 0u));
     const std::vector<SushiDSP::Clip> clips{SushiDSP::Clip{take, 0u, 0u, 64u}};
-    place(player, 0, clips);
-    place(player, 1, clips);
-    EXPECT_EQ(player.takes().reference_count(take), 2u);
-
+    for (std::size_t lane = 0; lane < GetParam().lanes; ++lane)
+    {
+        place(player, lane, clips);
+    }
+    ASSERT_EQ(player.takes().reference_count(take), GetParam().lanes);
     std::vector<float> left(64, 0.0f);
     std::vector<float> right(64, 0.0f);
     render(player, transport, left, right);
 
-    place(player, 0, {});
-    render(player, transport, left, right);
-    player.reclaim();
-    EXPECT_EQ(player.takes().size(), 1u);
-    EXPECT_EQ(player.takes().reference_count(take), 1u);
-
-    place(player, 1, {});
-    render(player, transport, left, right);
-    render(player, transport, left, right);
-    player.reclaim();
-    EXPECT_EQ(player.takes().size(), 0u);
+    expect_take_held_by_the_lanes_left(player, transport, take, GetParam().lanes);
 }
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TrackPlayerReclaim,
+                         ::testing::Values(LaneRow{"OneLane", 1u}, LaneRow{"TwoLanes", 2u}),
+                         [](const ::testing::TestParamInfo<LaneRow>& info)
+                         { return std::string(info.param.name); });
 
 TEST(Small_TrackPlayer, TrackPlayerRendersOneLaneAloneBeforeItsFader)
 {
@@ -676,22 +767,29 @@ TEST(Small_TrackPlayer, TrackPlayerRendersOneLaneAloneBeforeItsFader)
     player.set_pan(1, -1.0f);
     player.set_mute(1, true);
     player.set_solo(0, true);
-
     std::vector<float> left(64, 0.0f);
     std::vector<float> right(64, 0.0f);
     float* outputs[2] = {left.data(), right.data()};
+
     player.process_lane(1, outputs, 2u, 64u, transport);
 
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        // A mono take lands on both channels at unity, and lane 0 adds nothing.
-        EXPECT_FLOAT_EQ(left[frame], 100.0f * (1.0f + static_cast<float>(frame)));
-        EXPECT_FLOAT_EQ(right[frame], left[frame]);
-    }
+    // A mono take lands on both channels at unity, and lane 0 adds nothing.
+    expect_samples_equal(left, ramp_values(0, 64, 100.0f));
+    expect_samples_equal(right, ramp_values(0, 64, 100.0f));
+}
 
-    std::fill(left.begin(), left.end(), 0.0f);
+TEST(Small_TrackPlayer, TrackPlayerRendersNothingForALaneBeyondTheLastTrack)
+{
+    SushiDSP::Transport transport;
+    SushiDSP::TrackPlayer player;
+    player.set_take(0, ramp_take(256));
+    std::vector<float> left(64, 0.0f);
+    std::vector<float> right(64, 0.0f);
+    float* outputs[2] = {left.data(), right.data()};
+
     player.process_lane(SushiDSP::TrackPlayer::K_MAX_TRACKS, outputs, 2u, 64u, transport);
-    EXPECT_FLOAT_EQ(left[0], 0.0f);
+
+    expect_samples_equal(left, repeated(0.0f, 64));
 }
 
 TEST(Medium_TrackPlayer, ProcessPerformsNoHeapAllocation)
@@ -699,62 +797,19 @@ TEST(Medium_TrackPlayer, ProcessPerformsNoHeapAllocation)
     // Timelines and converters exist before the trap opens. See tests/nodes/capture/README.md.
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
-
-    for (std::size_t track = 0; track < SushiDSP::TrackPlayer::K_MAX_TRACKS; ++track)
-    {
-        auto take = std::make_unique<SushiDSP::Take>(track % 2 == 0 ? 1u : 2u, 48000.0, 4096u);
-        float* samples = take->mutable_channel(0);
-        for (std::size_t frame = 0; frame < 4096; ++frame)
-        {
-            samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f *
-                                              static_cast<float>(frame) / 48000.0f);
-        }
-
-        const SushiDSP::Take* borrowed =
-            player.takes().insert(std::unique_ptr<const SushiDSP::Take>(std::move(take)));
-
-        std::vector<SushiDSP::Clip> clips;
-        for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::K_MAX_CLIPS; ++clip)
-        {
-            clips.push_back(SushiDSP::Clip{borrowed, clip * 200u, 64u, 150u});
-        }
-
-        player.set_timeline(track, std::unique_ptr<SushiDSP::TrackTimeline>(
-                                       new SushiDSP::TrackTimeline(player.takes(), clips)));
-        player.set_pan(track, -1.0f + 0.25f * static_cast<float>(track));
-        player.set_gain(track, 0.5f);
-    }
+    fill_every_lane(player);
     player.set_mute(1, true);
     player.prepare(256u);
     transport.set_loop(0, 3000);
-
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    float* outputs[2] = {left.data(), right.data()};
-
     SushiDSP::test::AllocationTrap trap;
-    trap.arm();
 
-    for (double speed : {1.0, 0.5})
-    {
-        transport.set_speed(speed);
-        for (int block = 0; block < 200; ++block)
-        {
-            std::fill(left.begin(), left.end(), 0.0f);
-            std::fill(right.begin(), right.end(), 0.0f);
-            player.process(outputs, 2u, 256u, transport);
-            transport.advance(256);
-        }
-    }
-
-    trap.disarm();
+    mix_trapped_at_two_speeds(player, transport, left, right, trap);
 
     EXPECT_EQ(trap.count(), 0);
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_TRUE(std::isfinite(left[frame]));
-        EXPECT_TRUE(std::isfinite(right[frame]));
-    }
+    expect_finite(left);
+    expect_finite(right);
 }
 
 TEST(Medium_TrackPlayer, TimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
@@ -762,60 +817,23 @@ TEST(Medium_TrackPlayer, TimelineSwapPerformsNoHeapAllocationOnTheAudioThread)
     // The trap covers the pick-up of a changed lane. See tests/nodes/capture/README.md.
     SushiDSP::TrackPlayer player;
     SushiDSP::Transport transport;
-
     auto take = std::make_unique<SushiDSP::Take>(2u, 48000.0, 4096u);
-    float* samples = take->mutable_channel(0);
-    for (std::size_t frame = 0; frame < 4096; ++frame)
-    {
-        samples[frame] = 0.25f * std::sin(2.0f * static_cast<float>(M_PI) * 110.0f *
-                                          static_cast<float>(frame) / 48000.0f);
-    }
-    const SushiDSP::Take* borrowed =
-        player.takes().insert(std::unique_ptr<const SushiDSP::Take>(std::move(take)));
-
-    constexpr int K_SWAPS = 64;
-    std::vector<std::unique_ptr<SushiDSP::TrackTimeline>> prepared;
-    for (int swap = 0; swap < K_SWAPS; ++swap)
-    {
-        std::vector<SushiDSP::Clip> clips;
-        for (std::size_t clip = 0; clip < SushiDSP::TrackTimeline::K_MAX_CLIPS; ++clip)
-        {
-            clips.push_back(SushiDSP::Clip{borrowed, static_cast<std::uint64_t>(swap) + clip * 300u,
-                                           32u, 250u});
-        }
-        prepared.push_back(std::unique_ptr<SushiDSP::TrackTimeline>(
-            new SushiDSP::TrackTimeline(player.takes(), clips)));
-    }
-
+    fill_sine(*take, 110.0, 0.25f);
+    const SushiDSP::Take* borrowed = lend(player, std::move(take));
+    std::vector<std::unique_ptr<SushiDSP::TrackTimeline>> prepared =
+        shifted_timelines(player, borrowed, 64);
     player.prepare(256u);
     player.set_pan(0, -0.5f);
     transport.set_speed(0.75);
-
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
-    float* outputs[2] = {left.data(), right.data()};
-
     SushiDSP::test::AllocationTrap trap;
 
-    for (int swap = 0; swap < K_SWAPS; ++swap)
-    {
-        player.set_timeline(0, std::move(prepared[static_cast<std::size_t>(swap)]));
-
-        trap.arm();
-        std::fill(left.begin(), left.end(), 0.0f);
-        std::fill(right.begin(), right.end(), 0.0f);
-        player.process(outputs, 2u, 256u, transport);
-        trap.disarm();
-
-        transport.advance(256);
-    }
+    swap_and_mix_trapped(player, transport, prepared, left, right, trap);
 
     EXPECT_EQ(trap.count(), 0);
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_TRUE(std::isfinite(left[frame]));
-        EXPECT_TRUE(std::isfinite(right[frame]));
-    }
+    expect_finite(left);
+    expect_finite(right);
 }
 
 TEST(Small_TrackPlayerCounters, ACallWithNoOutputBufferIsCountedAndWritesNothing)
@@ -832,34 +850,28 @@ TEST(Small_TrackPlayerCounters, ACallWithNoOutputBufferIsCountedAndWritesNothing
     EXPECT_EQ(player.counters().forced_unity_speed.value(), 0U);
 }
 
-TEST(Small_TrackPlayerCounters, ABlockLongerThanThePreparedSizeIsCountedAsForcedUnitySpeed)
+class Small_TrackPlayerPrepared : public ::testing::TestWithParam<PreparedRow>
+{
+};
+
+TEST_P(Small_TrackPlayerPrepared, ABlockIsCountedAsForcedUnitySpeedOnlyWhenLongerThanThePreparedSize)
 {
     SushiDSP::Transport transport;
     SushiDSP::TrackPlayer player;
     player.set_take(0, ramp_take(1024));
-    player.prepare(64u);
+    player.prepare(GetParam().prepared_frames);
     transport.set_speed(0.5);
-
     std::vector<float> left(128, 0.0f);
     std::vector<float> right(128, 0.0f);
+
     render(player, transport, left, right);
 
-    EXPECT_EQ(player.counters().forced_unity_speed.value(), 1U);
+    EXPECT_EQ(player.counters().forced_unity_speed.value(), GetParam().forced_unity_speed);
     EXPECT_EQ(player.counters().empty_call.value(), 0U);
 }
 
-TEST(Small_TrackPlayerCounters, ABlockInsideThePreparedSizeCountsNothing)
-{
-    SushiDSP::Transport transport;
-    SushiDSP::TrackPlayer player;
-    player.set_take(0, ramp_take(1024));
-    player.prepare(256u);
-    transport.set_speed(0.5);
-
-    std::vector<float> left(128, 0.0f);
-    std::vector<float> right(128, 0.0f);
-    render(player, transport, left, right);
-
-    EXPECT_EQ(player.counters().forced_unity_speed.value(), 0U);
-    EXPECT_EQ(player.counters().empty_call.value(), 0U);
-}
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TrackPlayerPrepared,
+                         ::testing::Values(PreparedRow{"LongerThanPrepared", 64u, 1u},
+                                           PreparedRow{"InsidePrepared", 256u, 0u}),
+                         [](const ::testing::TestParamInfo<PreparedRow>& info)
+                         { return std::string(info.param.name); });

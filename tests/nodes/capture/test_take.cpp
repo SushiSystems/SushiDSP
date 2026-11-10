@@ -44,5 +44,23 @@ TEST(Small_Take, ReturnsTheSamplesWrittenToAChannel)
     SushiDSP::Take take(2u, 48000.0, 128u);
     take.mutable_channel(1)[5] = 0.25f;
     ASSERT_NE(take.channel(1), nullptr);
-    EXPECT_FLOAT_EQ(take.channel(1)[5], 0.25f);
+    EXPECT_EQ(take.channel(1)[5], 0.25f);
+}
+
+TEST(Small_Take, HasNoChannelPastItsLast)
+{
+    SushiDSP::Take take(2u, 96000.0, 512u);
+
+    EXPECT_EQ(take.channel(2), nullptr);
+    EXPECT_EQ(take.mutable_channel(2), nullptr);
+}
+
+TEST(Small_Take, KeepsAWrittenSampleInItsOwnChannel)
+{
+    SushiDSP::Take take(2u, 96000.0, 512u);
+
+    take.mutable_channel(1)[7] = 0.75f;
+
+    EXPECT_EQ(take.channel(1)[7], 0.75f);
+    EXPECT_EQ(take.channel(0)[7], 0.0f);
 }

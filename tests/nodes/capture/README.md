@@ -56,7 +56,7 @@ cases above sample for sample.
 Half speed halves 880 Hz to 440 Hz; 24000 frames at 48 kHz hold 220 cycles of it, and a cycle
 crosses zero twice.
 
-### `TrackPlayerReclaimsLanesBeforeCollectingTheLibrary`
+### `TrackPlayerHoldsATakeOfAClearedLaneUntilTheAudioThreadHasPassedIt`
 
 `// The first timeline is alive, so its take is held.`
 
@@ -83,7 +83,7 @@ block ago.
 
 ## `test_vari_rate_reader.cpp`
 
-### `VariRateReaderDoesNotDriftFarDownTheTake`
+### `VariRateReaderHoldsItsRatioAtEveryLegalSpeed`
 
 `// At half speed 256 outputs cost 128 take frames.`
 

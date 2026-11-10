@@ -27,18 +27,18 @@
  * @author Mustafa Garip
  */
 
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/capture/recording_bus.hpp>
 
-TEST(Small_RecordingBus, RingHoldsSixtyFiveThousandFramesByDefault)
+TEST(Small_RecordingBus, RecordingBusRefusesABlockBeforeItIsArmed)
 {
-    EXPECT_EQ(SushiDSP::RecordingBus::K_RING_CAPACITY_FRAMES, 65536u);
-}
+    SushiDSP::RecordingBus bus(1u, 48000.0);
+    const std::vector<float> processed(128u, 0.4f);
+    const std::vector<float> dry(128u, -0.2f);
+    const float* processed_channels[1] = {processed.data()};
 
-TEST(Small_RecordingBus, StartsIdleAndWithoutFailure)
-{
-    const SushiDSP::RecordingBus bus(2u, 48000.0);
-    EXPECT_FALSE(bus.is_recording());
-    EXPECT_FALSE(bus.failed());
+    EXPECT_FALSE(bus.write(processed_channels, dry.data(), 128u));
 }

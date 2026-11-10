@@ -23,13 +23,11 @@
 
 /**
  * @file test_rt_safety.cpp
- * @brief Tests that the audio-thread paths of TrackRecorder perform no heap allocation.
+ * @brief Tests that TrackRecorder::write allocates nothing on the audio thread.
  * @author Mustafa Garip
  */
 
-#include <chrono>
 #include <filesystem>
-#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -37,42 +35,63 @@
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/capture/track_recorder.hpp>
 
+namespace
+{
+    /// @brief Owns a fresh folder under the temporary directory and removes it on exit.
+    class TempFolder
+    {
+        public:
+            TempFolder()
+                : root_(std::filesystem::temp_directory_path() / "sushidsp_rt_safety_recorder")
+            {
+                std::filesystem::remove_all(root_);
+                std::filesystem::create_directories(root_);
+            }
+
+            ~TempFolder()
+            {
+                std::filesystem::remove_all(root_);
+            }
+
+            TempFolder(const TempFolder&) = delete;
+            TempFolder& operator=(const TempFolder&) = delete;
+
+            const std::filesystem::path& path() const
+            {
+                return root_;
+            }
+
+        private:
+            std::filesystem::path root_;
+    };
+
+    /// @brief Writes the same block to the recorder several times with the trap armed.
+    void write_blocks_trapped(SushiDSP::TrackRecorder& recorder, const float* const* channels,
+                              int blocks, SushiDSP::test::AllocationTrap& trap)
+    {
+        trap.arm();
+        for (int block = 0; block < blocks; ++block)
+        {
+            recorder.write(channels, 256u);
+        }
+        trap.disarm();
+    }
+} // namespace
+
 TEST(Medium_TrackRecorder, WritePerformsNoHeapAllocation)
 {
     // The trap sees the ring copy and the drop counter. See tests/nodes/capture/test_track_recorder/README.md.
-    const std::filesystem::path root =
-        std::filesystem::temp_directory_path() / "sushidsp_rt_safety_recorder";
-    std::filesystem::remove_all(root);
-    std::filesystem::create_directories(root);
-
+    const TempFolder folder;
     SushiDSP::TrackRecorder recorder(2u, 48000.0, 65536);
-    ASSERT_TRUE(recorder.arm((root / "rt_safety.wav").string()));
-
+    ASSERT_TRUE(recorder.arm((folder.path() / "rt_safety.wav").string()));
     std::vector<float> left(256, 0.25f);
     std::vector<float> right(256, -0.25f);
     const float* channels[2] = {left.data(), right.data()};
-
     ASSERT_TRUE(recorder.write(channels, 256u));
-    const std::chrono::steady_clock::time_point deadline =
-        std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    while (recorder.frames_written() < 256u && std::chrono::steady_clock::now() < deadline)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    ASSERT_GE(recorder.frames_written(), 256u);
-
     SushiDSP::test::AllocationTrap trap;
-    trap.arm();
 
-    for (int block = 0; block < 200; ++block)
-    {
-        recorder.write(channels, 256u);
-    }
-
-    trap.disarm();
+    write_blocks_trapped(recorder, channels, 200, trap);
 
     EXPECT_EQ(trap.count(), 0);
-
     recorder.stop();
-    std::filesystem::remove_all(root);
 }

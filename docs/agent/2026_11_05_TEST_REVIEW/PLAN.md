@@ -25,7 +25,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M5 | the tests of `foundation/audio_format` (2 files): 5 rewrite, 1 split, 2 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M6 | the tests of `foundation/benchmark_harness` (6 files): 11 rewrite, 1 resize, 3 split | T1, T2, T3, T4, T5, T6, T7 | done |
 | M7 | the tests of `foundation/circuit_blocks` (2 files): 6 rewrite, 2 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
-| M8 | the tests of `foundation/circuits` (26 files): 81 rewrite, 2 resize, 5 split, 3 merge, 11 delete | T1, T2, T3, T4, T5, T6, T7 | partial: `models/test_soft_transition.cpp` and `models/test_silicon_diode.cpp` done; the rest of the REPORT section for `tests/foundation/circuits` waits, starting at `models/test_pentode_el34.cpp` |
+| M8 | the tests of `foundation/circuits` (26 files): 81 rewrite, 2 resize, 5 split, 3 merge, 11 delete | T1, T2, T3, T4, T5, T6, T7 | partial (lane A, 2026-11-10): all four `models/` files, and in `stages/` `test_antiderivative_antialiaser`, `test_grid_conduction_law` (deleted, `compile_grid_conduction_law.cpp` added), `test_long_tailed_pair`, `test_miller_input_capacitance`, `test_output_transformer_stage`, `test_phase_inverter_presets`, `test_plate_swing`, `test_power_supply_sag_stage` and `test_resonance_control` are done and syntax-checked; `benchmark_triode_stage.cpp` kept (REPORT decision 100). Resume at `stages/test_pentode_stage/test_behaviour.cpp`, then `test_pentode_stage/test_output.cpp`, `test_power_tube_presets.cpp` (keep), `test_triode_stage/*`, then the loose files (`test_audio_taper_pot`, `test_circuits_log_category` (delete; add `compile_circuits_log_category.cpp`), `test_fmv_tone_stack`, `test_graphic_equalizer`, `test_output_safety_clamp`, `test_power_amp_feedback`) |
 | M9 | the tests of `foundation/core` (23 files): 68 rewrite, 14 resize, 7 split, 5 merge, 25 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M10 | the tests of `foundation/device` (5 files): 10 rewrite, 3 resize, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M11 | the tests of `foundation/golden_compare` (2 files): 2 rewrite, 1 resize, 1 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
@@ -38,7 +38,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M18 | the tests of `foundation/signal_measure` (7 files): 18 rewrite, 1 split, 4 merge | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M19 | the tests of `foundation/spice_reference` (2 files): 3 rewrite, 2 resize | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M20 | the tests of `nodes/cabinet` (2 files): 5 rewrite, 2 resize, 3 split, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done; the two log-port resizes wait on the owner's constructor shape (decision 300) |
-| M21 | the tests of `nodes/capture` (13 files): 46 rewrite, 2 resize, 9 split, 9 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
+| M21 | the tests of `nodes/capture` (13 files): 46 rewrite, 2 resize, 9 split, 9 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | done; the three port resizes wait on the owner (decision 301) |
 | M22 | the tests of `nodes/dd3` (9 files): 51 rewrite, 2 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M23 | the tests of `nodes/diezel_vh4` (5 files): 19 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M24 | the tests of `nodes/jcm800` (5 files): 27 rewrite, 1 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | todo |

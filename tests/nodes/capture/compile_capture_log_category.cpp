@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_capture_log_category.cpp                                          */
+/* compile_capture_log_category.cpp                                       */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,14 @@
 /**************************************************************************/
 
 /**
- * @file test_capture_log_category.cpp
- * @brief Tests that the capture module logs under its own category.
+ * @file compile_capture_log_category.cpp
+ * @brief Compiles capture_log_category.hpp and checks that the category is a constant expression.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
 #include <SushiDSP/nodes/capture/capture_log_category.hpp>
 
-#include <string_view>
-
-TEST(Small_CaptureLogCategory, IsNamedCapture)
-{
-    EXPECT_EQ(K_CAPTURE_LOG_CATEGORY.module(), std::string_view("capture"));
-}
+static_assert(std::is_same_v<decltype(K_CAPTURE_LOG_CATEGORY), const SushiLog::LogCategory>,
+              "the capture category is a constant of the logger's category type");

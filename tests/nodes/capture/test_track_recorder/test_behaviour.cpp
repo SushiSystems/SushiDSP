@@ -23,7 +23,7 @@
 
 /**
  * @file test_behaviour.cpp
- * @brief Tests the recording paths of TrackRecorder and RecordingBus.
+ * @brief Tests what TrackRecorder and RecordingBus write to their files.
  * @author Mustafa Garip
  */
 
@@ -41,210 +41,282 @@
 
 namespace
 {
-    std::filesystem::path make_fixture(const std::string& leaf)
+    constexpr std::uint32_t K_RAMP_BLOCK_FRAMES = 256;
+    constexpr std::size_t K_RAMP_BLOCKS = 16;
+    constexpr std::uint32_t K_BUS_BLOCK_FRAMES = 128;
+    constexpr std::size_t K_BUS_BLOCKS = 20;
+    constexpr std::uint32_t K_DROP_BLOCK_FRAMES = 256;
+    constexpr std::size_t K_DROP_BLOCKS = 32;
+
+    /// @brief Owns a fresh folder under the temporary directory and removes it on exit, so a
+    /// failed assertion leaves nothing behind.
+    class TempFolder
     {
-        const std::filesystem::path root =
-            std::filesystem::temp_directory_path() / ("sushidsp_recorder_" + leaf);
-        std::filesystem::remove_all(root);
-        std::filesystem::create_directories(root);
-        return root;
-    }
+        public:
+            explicit TempFolder(const std::string& leaf)
+                : root_(std::filesystem::temp_directory_path() / ("sushidsp_recorder_" + leaf))
+            {
+                std::filesystem::remove_all(root_);
+                std::filesystem::create_directories(root_);
+            }
+
+            ~TempFolder()
+            {
+                std::filesystem::remove_all(root_);
+            }
+
+            TempFolder(const TempFolder&) = delete;
+            TempFolder& operator=(const TempFolder&) = delete;
+
+            const std::filesystem::path& path() const
+            {
+                return root_;
+            }
+
+        private:
+            std::filesystem::path root_;
+    };
 
     float ramp_sample(std::size_t index)
     {
         return static_cast<float>(index % 1024u) / 1024.0f;
     }
+
+    /// @brief What a recorder reported after a ramp was written to it and it stopped.
+    struct RecordedRamp
+    {
+        bool armed;
+        std::uint64_t frames_written;
+        std::uint64_t dropped_blocks;
+        std::string path;
+    };
+
+    /// @brief Records K_RAMP_BLOCKS blocks of a ramp into a mono file and stops the recorder.
+    RecordedRamp record_ramp(const TempFolder& folder)
+    {
+        RecordedRamp result{false, 0u, 0u, (folder.path() / "ramp.wav").string()};
+        SushiDSP::TrackRecorder recorder(1u, 48000.0, 8192);
+        result.armed = recorder.arm(result.path);
+
+        std::vector<float> block(K_RAMP_BLOCK_FRAMES, 0.0f);
+        const float* channels[1] = {block.data()};
+        for (std::size_t index = 0; index < K_RAMP_BLOCKS; ++index)
+        {
+            for (std::uint32_t frame = 0; frame < K_RAMP_BLOCK_FRAMES; ++frame)
+            {
+                block[frame] = ramp_sample(index * K_RAMP_BLOCK_FRAMES + frame);
+            }
+            recorder.write(channels, K_RAMP_BLOCK_FRAMES);
+        }
+
+        recorder.stop();
+        result.frames_written = recorder.frames_written();
+        result.dropped_blocks = recorder.dropped_blocks();
+        return result;
+    }
+
+    /// @brief Writes the same block to a recorder several times and counts the writes it took.
+    std::size_t count_accepted_writes(SushiDSP::TrackRecorder& recorder, const float* const* channels,
+                                      std::uint32_t frames, std::size_t blocks)
+    {
+        std::size_t accepted = 0;
+        for (std::size_t index = 0; index < blocks; ++index)
+        {
+            accepted += recorder.write(channels, frames) ? 1u : 0u;
+        }
+        return accepted;
+    }
+
+    /// @brief Writes the same block to a bus several times and counts the writes it took.
+    std::size_t count_accepted_bus_writes(SushiDSP::RecordingBus& bus, const float* const* processed,
+                                          const float* dry, std::uint32_t frames, std::size_t blocks)
+    {
+        std::size_t accepted = 0;
+        for (std::size_t index = 0; index < blocks; ++index)
+        {
+            accepted += bus.write(processed, dry, frames) ? 1u : 0u;
+        }
+        return accepted;
+    }
+
+    /// @brief Records K_BUS_BLOCKS blocks into a bus armed in a folder and stops it.
+    void record_bus(SushiDSP::RecordingBus& bus, const TempFolder& folder, const char* name)
+    {
+        std::vector<float> processed(K_BUS_BLOCK_FRAMES, 0.4f);
+        std::vector<float> dry(K_BUS_BLOCK_FRAMES, -0.2f);
+        const float* processed_channels[1] = {processed.data()};
+
+        bus.arm(folder.path().string(), name);
+        count_accepted_bus_writes(bus, processed_channels, dry.data(), K_BUS_BLOCK_FRAMES, K_BUS_BLOCKS);
+        bus.stop();
+    }
 } // namespace
 
 TEST(Medium_TrackRecorder, TrackRecorderRecordsARampSampleForSample)
 {
-    const std::filesystem::path root = make_fixture("ramp");
-    const std::string path = (root / "ramp.wav").string();
+    const TempFolder folder("ramp");
+    const RecordedRamp recorded = record_ramp(folder);
+    ASSERT_TRUE(recorded.armed);
 
-    constexpr std::uint32_t K_BLOCK_FRAMES = 256;
-    constexpr std::size_t K_BLOCKS = 16;
+    const SushiDSP::Take take = SushiDSP::Take::load(recorded.path);
 
-    SushiDSP::TrackRecorder recorder(1u, 48000.0, 8192);
-    ASSERT_TRUE(recorder.arm(path));
-
-    std::vector<float> block(K_BLOCK_FRAMES, 0.0f);
-    const float* channels[1] = {block.data()};
-
-    for (std::size_t index = 0; index < K_BLOCKS; ++index)
+    const std::size_t frames = K_RAMP_BLOCKS * K_RAMP_BLOCK_FRAMES;
+    ASSERT_EQ(take.frames(), frames);
+    ASSERT_NE(take.channel(0), nullptr);
+    for (std::size_t index = 0; index < frames; ++index)
     {
-        for (std::uint32_t frame = 0; frame < K_BLOCK_FRAMES; ++frame)
-        {
-            block[frame] = ramp_sample(index * K_BLOCK_FRAMES + frame);
-        }
-        ASSERT_TRUE(recorder.write(channels, K_BLOCK_FRAMES));
+        ASSERT_EQ(take.channel(0)[index], ramp_sample(index)) << "at frame " << index;
     }
-
-    recorder.stop();
-
-    const std::size_t expected_frames = K_BLOCKS * K_BLOCK_FRAMES;
-    EXPECT_EQ(recorder.frames_written(), static_cast<std::uint64_t>(expected_frames));
-    EXPECT_EQ(recorder.dropped_blocks(), 0u);
-
-    const SushiDSP::Take take = SushiDSP::Take::load(path);
-    ASSERT_EQ(take.frames(), expected_frames);
-    EXPECT_EQ(take.channels(), 1u);
-    EXPECT_DOUBLE_EQ(take.sample_rate(), 48000.0);
-
-    const float* samples = take.channel(0);
-    ASSERT_NE(samples, nullptr);
-    for (std::size_t index = 0; index < expected_frames; ++index)
-    {
-        ASSERT_EQ(samples[index], ramp_sample(index)) << "at frame " << index;
-    }
-
-    std::filesystem::remove_all(root);
 }
 
-TEST(Medium_TrackRecorder, TrackRecorderDropsBlocksLargerThanTheRing)
+TEST(Medium_TrackRecorder, TrackRecorderCountsEveryFrameItWrote)
 {
-    const std::filesystem::path root = make_fixture("undersized");
-    const std::string path = (root / "undersized.wav").string();
+    const TempFolder folder("ramp_frames");
 
-    constexpr std::uint32_t K_BLOCK_FRAMES = 256;
-    constexpr std::size_t K_BLOCKS = 32;
+    const RecordedRamp recorded = record_ramp(folder);
 
+    EXPECT_EQ(recorded.frames_written, static_cast<std::uint64_t>(K_RAMP_BLOCKS * K_RAMP_BLOCK_FRAMES));
+}
+
+TEST(Medium_TrackRecorder, TrackRecorderDropsNoBlockWhenTheRingHoldsIt)
+{
+    const TempFolder folder("ramp_drops");
+
+    const RecordedRamp recorded = record_ramp(folder);
+
+    EXPECT_EQ(recorded.dropped_blocks, 0u);
+}
+
+TEST(Medium_TrackRecorder, TrackRecorderWritesAFileOfItsChannelsAndRate)
+{
+    const TempFolder folder("ramp_shape");
+    const RecordedRamp recorded = record_ramp(folder);
+
+    const SushiDSP::Take take = SushiDSP::Take::load(recorded.path);
+
+    EXPECT_EQ(take.channels(), 1u);
+    EXPECT_EQ(take.sample_rate(), 48000.0); // the file stores the rate as the integer 48000
+}
+
+TEST(Medium_TrackRecorder, TrackRecorderDropsAndCountsEveryBlockLargerThanTheRing)
+{
+    const TempFolder folder("undersized");
     SushiDSP::TrackRecorder recorder(1u, 48000.0, 64);
-    ASSERT_TRUE(recorder.arm(path));
-
-    std::vector<float> block(K_BLOCK_FRAMES, 0.25f);
+    ASSERT_TRUE(recorder.arm((folder.path() / "undersized.wav").string()));
+    std::vector<float> block(K_DROP_BLOCK_FRAMES, 0.25f);
     const float* channels[1] = {block.data()};
 
-    for (std::size_t index = 0; index < K_BLOCKS; ++index)
-    {
-        EXPECT_FALSE(recorder.write(channels, K_BLOCK_FRAMES));
-    }
+    const std::size_t accepted = count_accepted_writes(recorder, channels, K_DROP_BLOCK_FRAMES, K_DROP_BLOCKS);
 
-    EXPECT_EQ(recorder.dropped_blocks(), static_cast<std::uint64_t>(K_BLOCKS));
+    EXPECT_EQ(accepted, 0u);
+    EXPECT_EQ(recorder.dropped_blocks(), static_cast<std::uint64_t>(K_DROP_BLOCKS));
+}
+
+TEST(Medium_TrackRecorder, TrackRecorderWritesNothingOfADroppedBlock)
+{
+    const TempFolder folder("undersized_file");
+    SushiDSP::TrackRecorder recorder(1u, 48000.0, 64);
+    ASSERT_TRUE(recorder.arm((folder.path() / "undersized.wav").string()));
+    std::vector<float> block(K_DROP_BLOCK_FRAMES, 0.25f);
+    const float* channels[1] = {block.data()};
+    count_accepted_writes(recorder, channels, K_DROP_BLOCK_FRAMES, K_DROP_BLOCKS);
 
     recorder.stop();
-    EXPECT_EQ(recorder.frames_written(), 0u);
 
-    std::filesystem::remove_all(root);
+    EXPECT_EQ(recorder.frames_written(), 0u);
 }
 
 TEST(Medium_TrackRecorder, TrackRecorderWriteAfterStopIsANoOp)
 {
-    const std::filesystem::path root = make_fixture("after_stop");
-    const std::string path = (root / "after_stop.wav").string();
-
+    const TempFolder folder("after_stop");
     SushiDSP::TrackRecorder recorder(1u, 48000.0, 4096);
-    ASSERT_TRUE(recorder.arm(path));
-
+    ASSERT_TRUE(recorder.arm((folder.path() / "after_stop.wav").string()));
     std::vector<float> block(128, 0.5f);
     const float* channels[1] = {block.data()};
     ASSERT_TRUE(recorder.write(channels, 128u));
-
     recorder.stop();
-    EXPECT_FALSE(recorder.is_recording());
-
+    ASSERT_FALSE(recorder.is_recording());
     const std::uint64_t frames_at_stop = recorder.frames_written();
+
     EXPECT_FALSE(recorder.write(channels, 128u));
+
     EXPECT_EQ(recorder.frames_written(), frames_at_stop);
     EXPECT_EQ(recorder.dropped_blocks(), 0u);
-
-    std::filesystem::remove_all(root);
 }
 
-TEST(Medium_TrackRecorder, RecordingBusWritesTwoFilesOfEqualLength)
+TEST(Medium_TrackRecorder, RecordingBusWritesTheSameFrameCountToBothFiles)
 {
-    const std::filesystem::path root = make_fixture("bus");
-
-    constexpr std::uint32_t K_BLOCK_FRAMES = 128;
-    constexpr std::size_t K_BLOCKS = 20;
-
+    const TempFolder folder("bus");
     SushiDSP::RecordingBus bus(1u, 48000.0);
-    ASSERT_TRUE(bus.arm(root.string(), "take01"));
 
-    std::vector<float> processed(K_BLOCK_FRAMES, 0.4f);
-    std::vector<float> dry(K_BLOCK_FRAMES, -0.2f);
-    const float* processed_channels[1] = {processed.data()};
-
-    for (std::size_t index = 0; index < K_BLOCKS; ++index)
-    {
-        ASSERT_TRUE(bus.write(processed_channels, dry.data(), K_BLOCK_FRAMES));
-    }
-
-    bus.stop();
-
-    EXPECT_EQ(bus.dropped_blocks(), 0u);
-    EXPECT_EQ(bus.processed_frames_written(), bus.dry_frames_written());
-    EXPECT_EQ(bus.processed_frames_written(),
-              static_cast<std::uint64_t>(K_BLOCKS * K_BLOCK_FRAMES));
-    EXPECT_EQ(bus.block_index(), static_cast<std::uint64_t>(K_BLOCKS));
+    record_bus(bus, folder, "take01");
 
     const std::vector<float> processed_file =
-        SushiDSP::WavFile::load_mono((root / "take01-processed.wav").string());
+        SushiDSP::WavFile::load_mono((folder.path() / "take01-processed.wav").string());
     const std::vector<float> dry_file =
-        SushiDSP::WavFile::load_mono((root / "take01-dry.wav").string());
+        SushiDSP::WavFile::load_mono((folder.path() / "take01-dry.wav").string());
     EXPECT_EQ(processed_file.size(), dry_file.size());
-    EXPECT_EQ(processed_file.size(), K_BLOCKS * K_BLOCK_FRAMES);
-
-    std::filesystem::remove_all(root);
+    EXPECT_EQ(processed_file.size(), K_BUS_BLOCKS * K_BUS_BLOCK_FRAMES);
 }
 
-TEST(Medium_TrackRecorder, RecordingBusKeepsBothFilesEqualWhenOneRingFills)
+TEST(Medium_TrackRecorder, RecordingBusCountsTheFramesItWroteToEachFile)
 {
-    const std::filesystem::path root = make_fixture("bus_drop");
+    const TempFolder folder("bus_counts");
+    SushiDSP::RecordingBus bus(1u, 48000.0);
 
-    constexpr std::uint32_t K_BLOCK_FRAMES = 256;
-    constexpr std::size_t K_BLOCKS = 32;
+    record_bus(bus, folder, "take01");
 
+    const auto expected = static_cast<std::uint64_t>(K_BUS_BLOCKS * K_BUS_BLOCK_FRAMES);
+    EXPECT_EQ(bus.processed_frames_written(), expected);
+    EXPECT_EQ(bus.dry_frames_written(), expected);
+}
+
+TEST(Medium_TrackRecorder, RecordingBusCountsEveryBlockItTakes)
+{
+    const TempFolder folder("bus_blocks");
+    SushiDSP::RecordingBus bus(1u, 48000.0);
+
+    record_bus(bus, folder, "take01");
+
+    EXPECT_EQ(bus.block_index(), static_cast<std::uint64_t>(K_BUS_BLOCKS));
+}
+
+TEST(Medium_TrackRecorder, RecordingBusDropsNoBlockWhenBothRingsHaveRoom)
+{
+    const TempFolder folder("bus_room");
+    SushiDSP::RecordingBus bus(1u, 48000.0);
+
+    record_bus(bus, folder, "take01");
+
+    EXPECT_EQ(bus.dropped_blocks(), 0u);
+}
+
+TEST(Medium_TrackRecorder, RecordingBusKeepsBothFilesEqualWhenABlockIsLargerThanOneRing)
+{
+    const TempFolder folder("bus_drop");
     SushiDSP::RecordingBus bus(1u, 48000.0, 64, SushiDSP::RecordingBus::K_RING_CAPACITY_FRAMES);
-    ASSERT_TRUE(bus.arm(root.string(), "take02"));
-
-    std::vector<float> processed(K_BLOCK_FRAMES, 0.4f);
-    std::vector<float> dry(K_BLOCK_FRAMES, -0.2f);
+    ASSERT_TRUE(bus.arm(folder.path().string(), "take02"));
+    std::vector<float> processed(K_DROP_BLOCK_FRAMES, 0.4f);
+    std::vector<float> dry(K_DROP_BLOCK_FRAMES, -0.2f);
     const float* processed_channels[1] = {processed.data()};
 
-    for (std::size_t index = 0; index < K_BLOCKS; ++index)
-    {
-        EXPECT_FALSE(bus.write(processed_channels, dry.data(), K_BLOCK_FRAMES));
-    }
-
+    const std::size_t accepted =
+        count_accepted_bus_writes(bus, processed_channels, dry.data(), K_DROP_BLOCK_FRAMES, K_DROP_BLOCKS);
     bus.stop();
 
-    EXPECT_EQ(bus.dropped_blocks(), static_cast<std::uint64_t>(K_BLOCKS));
+    EXPECT_EQ(accepted, 0u);
+    EXPECT_EQ(bus.dropped_blocks(), static_cast<std::uint64_t>(K_DROP_BLOCKS));
     EXPECT_EQ(bus.processed_frames_written(), bus.dry_frames_written());
     EXPECT_EQ(bus.dry_frames_written(), 0u);
-    EXPECT_EQ(bus.block_index(), static_cast<std::uint64_t>(K_BLOCKS));
-
-    std::filesystem::remove_all(root);
 }
 
 TEST(Medium_TrackRecorder, RecordingBusArmOnAnUnwritableFolderReturnsFalse)
 {
-    const std::filesystem::path root = make_fixture("unwritable");
-    const std::filesystem::path missing = root / "no_such_directory";
-
+    const TempFolder folder("unwritable");
+    const std::filesystem::path missing = folder.path() / "no_such_directory";
     SushiDSP::RecordingBus bus(1u, 48000.0);
+
     EXPECT_FALSE(bus.arm(missing.string(), "take01"));
+
     EXPECT_FALSE(bus.is_recording());
-
-    SushiDSP::TrackRecorder recorder(1u, 48000.0, 1024);
-    EXPECT_FALSE(recorder.arm((missing / "take01.wav").string()));
-    EXPECT_FALSE(recorder.is_recording());
-
-    std::filesystem::remove_all(root);
-}
-
-TEST(Medium_TrackRecorder, TakeAllocatesItsChannelsAndReportsItsShape)
-{
-    SushiDSP::Take take(2u, 96000.0, 512);
-
-    EXPECT_EQ(take.channels(), 2u);
-    EXPECT_EQ(take.frames(), 512u);
-    EXPECT_DOUBLE_EQ(take.sample_rate(), 96000.0);
-    ASSERT_NE(take.channel(0), nullptr);
-    ASSERT_NE(take.channel(1), nullptr);
-    EXPECT_EQ(take.channel(2), nullptr);
-    EXPECT_EQ(take.mutable_channel(2), nullptr);
-
-    take.mutable_channel(1)[7] = 0.75f;
-    EXPECT_EQ(take.channel(1)[7], 0.75f);
-    EXPECT_EQ(take.channel(0)[7], 0.0f);
 }

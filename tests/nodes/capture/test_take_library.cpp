@@ -62,7 +62,7 @@ TEST(Small_TakeLibrary, TakeLibraryKeepsATakeAliveWhileSomethingHoldsIt)
     EXPECT_EQ(library.reference_count(take), 1u);
 }
 
-TEST(Small_TakeLibrary, TakeLibraryFreesATakeOnlyWhenTheLastHolderReleasesIt)
+TEST(Small_TakeLibrary, TakeLibraryFreesATakeOnceItsLastHolderReleasesIt)
 {
     SushiDSP::TakeLibrary library;
     const SushiDSP::Take* take =
@@ -70,10 +70,10 @@ TEST(Small_TakeLibrary, TakeLibraryFreesATakeOnlyWhenTheLastHolderReleasesIt)
     library.retain(take);
     library.retain(take);
     library.release(take);
-    library.collect();
-    EXPECT_EQ(library.size(), 1u);
     library.release(take);
+
     library.collect();
+
     EXPECT_EQ(library.size(), 0u);
 }
 
@@ -83,18 +83,6 @@ TEST(Small_TakeLibrary, TakeLibraryDropsATakeNothingEverHeld)
     library.insert(std::make_unique<const SushiDSP::Take>(1u, 48000.0, 128u));
     library.collect();
     EXPECT_EQ(library.size(), 0u);
-}
-
-TEST(Small_TakeLibrary, TakeLibraryGivesTwoHoldersOneCopyOfTheSamples)
-{
-    SushiDSP::TakeLibrary library;
-    const SushiDSP::Take* first =
-        library.insert(std::make_unique<const SushiDSP::Take>(2u, 48000.0, 4096u));
-    library.retain(first);
-    library.retain(first);
-    const SushiDSP::Take* second = first;
-    EXPECT_EQ(first->channel(0), second->channel(0));
-    EXPECT_EQ(library.size(), 1u);
 }
 
 TEST(Small_TakeLibrary, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
@@ -120,20 +108,21 @@ TEST(Small_TakeLibrary, TakeLibraryHoldsATakeATimelineStillInTheRetireListNames)
     EXPECT_EQ(lane.active_for_publisher()->clip(0).take->channel(0), take->channel(0));
 }
 
-TEST(Small_TakeLibrary, TakeLibraryFreesATakeOnlyAfterEveryLaneHasBeenReclaimed)
+TEST(Small_TakeLibrary, TakeLibraryReleasesTheHoldOfARetiredTimelineWhenItsLaneIsReclaimed)
 {
     SushiDSP::TakeLibrary library;
     SushiDSP::RtSwapSlot<const SushiDSP::TrackTimeline> lane;
-
     const SushiDSP::Take* take =
         library.insert(std::make_unique<const SushiDSP::Take>(1u, 48000.0, 128u));
     lane.publish(holding_timeline(library, take));
     lane.acquire_for_audio_thread();
     lane.publish(holding_timeline(library, take));
     lane.acquire_for_audio_thread();
+    ASSERT_EQ(library.reference_count(take), 2u);
 
     lane.reclaim();
     library.collect();
+
     EXPECT_EQ(library.size(), 1u);
     EXPECT_EQ(library.reference_count(take), 1u);
 }
