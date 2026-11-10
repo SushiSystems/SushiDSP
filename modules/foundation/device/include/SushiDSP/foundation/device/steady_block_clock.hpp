@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_device_log_category.cpp                                           */
+/* steady_block_clock.hpp                                                 */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,31 @@
 /**************************************************************************/
 
 /**
- * @file test_device_log_category.cpp
- * @brief Tests that the device module logs under its own category.
+ * @file steady_block_clock.hpp
+ * @brief Declares the wall-clock BlockClock that BlockMonitor uses by default.
  * @author Mustafa Garip
+ * @see modules/foundation/device/README.md
  */
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include <SushiDSP/foundation/device/device_log_category.hpp>
+#include <chrono>
+#include <cstdint>
 
-#include <string_view>
+#include <SushiDSP/foundation/device/block_clock.hpp>
 
-TEST(Small_DeviceLogCategory, IsNamedDevice)
+namespace SushiDSP
 {
-    EXPECT_EQ(K_DEVICE_LOG_CATEGORY.module(), std::string_view("device"));
-}
+    /// @brief A BlockClock that reads std::chrono::steady_clock.
+    class SteadyBlockClock final : public BlockClock
+    {
+        public:
+            /// @brief Returns the steady clock's time in nanoseconds.
+            [[nodiscard]] std::int64_t now_nanoseconds() const noexcept override
+            {
+                return std::chrono::duration_cast<std::chrono::nanoseconds>(
+                           std::chrono::steady_clock::now().time_since_epoch())
+                    .count();
+            }
+    };
+} // namespace SushiDSP

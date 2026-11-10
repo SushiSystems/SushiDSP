@@ -45,12 +45,21 @@ namespace
     }
 } // namespace
 
-TEST(Small_DenormalGuard, DenormalGuardFlushesResultsToZeroWhileAlive)
+/// @brief Skips every test of the suite on a target with no flush-to-zero control.
+class Small_DenormalGuard : public ::testing::Test
 {
-    if (!SushiDSP::DenormalGuard::is_supported())
-    {
-        GTEST_SKIP() << "no FTZ/DAZ control on this target";
-    }
+    protected:
+        void SetUp() override
+        {
+            if (!SushiDSP::DenormalGuard::is_supported())
+            {
+                GTEST_SKIP() << "no FTZ/DAZ control on this target";
+            }
+        }
+};
+
+TEST_F(Small_DenormalGuard, DenormalGuardFlushesResultsToZeroWhileAlive)
+{
     const float smallest_normal = std::numeric_limits<float>::min();
     {
         SushiDSP::DenormalGuard guard;
@@ -58,12 +67,8 @@ TEST(Small_DenormalGuard, DenormalGuardFlushesResultsToZeroWhileAlive)
     }
 }
 
-TEST(Small_DenormalGuard, DenormalGuardRestoresPreviousModeOnDestruction)
+TEST_F(Small_DenormalGuard, DenormalGuardRestoresPreviousModeOnDestruction)
 {
-    if (!SushiDSP::DenormalGuard::is_supported())
-    {
-        GTEST_SKIP() << "no FTZ/DAZ control on this target";
-    }
     const float smallest_normal = std::numeric_limits<float>::min();
     const float before = decay_toward_zero(smallest_normal);
     {

@@ -28,6 +28,7 @@
  */
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <thread>
 
@@ -64,16 +65,52 @@ namespace
             int value_;
             std::atomic<int>& live_count_;
     };
+
+    /// @brief Acquires from @p slot until @p stop is set and stores whether every object read as 7.
+    void acquire_until_stopped(SushiDSP::RtSwapSlot<Counted>& slot, const std::atomic<bool>& stop,
+                               std::atomic<bool>& intact)
+    {
+        while (!stop.load(std::memory_order_relaxed))
+        {
+            const Counted* object = slot.acquire_for_audio_thread();
+            if (object == nullptr || object->value() != 7)
+            {
+                intact.store(false, std::memory_order_relaxed);
+            }
+        }
+    }
+
+    /// @brief Publishes @p count objects of value 7 into @p slot, reclaiming after each one.
+    void publish_and_reclaim(SushiDSP::RtSwapSlot<Counted>& slot, std::atomic<int>& live_count, int count)
+    {
+        for (int index = 0; index < count; ++index)
+        {
+            slot.publish(std::make_unique<Counted>(7, live_count));
+            slot.reclaim();
+        }
+    }
+
+    /// @brief Acquires from @p slot @p count times and returns how many acquires saw an active object.
+    int acquire_many(SushiDSP::RtSwapSlot<int>& slot, int count)
+    {
+        int seen = 0;
+        for (int index = 0; index < count; ++index)
+        {
+            const int* object = slot.acquire_for_audio_thread();
+            seen += (object != nullptr && slot.has_active()) ? 1 : 0;
+        }
+        return seen;
+    }
 } // namespace
 
-TEST(Medium_RtSwapSlot, RtSwapSlotStartsWithNoActiveObject)
+TEST(Small_RtSwapSlot, RtSwapSlotStartsWithNoActiveObject)
 {
     SushiDSP::RtSwapSlot<int> slot;
     EXPECT_EQ(slot.acquire_for_audio_thread(), nullptr);
     EXPECT_FALSE(slot.has_active());
 }
 
-TEST(Medium_RtSwapSlot, RtSwapSlotPublishMakesObjectActive)
+TEST(Small_RtSwapSlot, RtSwapSlotPublishMakesObjectActive)
 {
     SushiDSP::RtSwapSlot<int> slot;
     auto object = std::make_unique<int>(42);
@@ -86,138 +123,132 @@ TEST(Medium_RtSwapSlot, RtSwapSlotPublishMakesObjectActive)
     EXPECT_EQ(*slot.acquire_for_audio_thread(), 42);
 }
 
-TEST(Medium_RtSwapSlot, RtSwapSlotReclaimFreesOldObjectAfterAudioThreadMovesOn)
-{
-    SushiDSP::RtSwapSlot<int> slot;
-    slot.publish(std::make_unique<int>(1));
-    slot.acquire_for_audio_thread(); // audio thread "sees" generation 1
-
-    auto second = std::make_unique<int>(2);
-    int* second_raw = second.get();
-    slot.publish(std::move(second));
-
-    slot.acquire_for_audio_thread(); // audio thread now "sees" generation 2
-    slot.reclaim();                  // safe to free generation 1's object now
-
-    EXPECT_EQ(slot.acquire_for_audio_thread(), second_raw);
-}
-
-TEST(Medium_RtSwapSlot, RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMovedPast)
+TEST(Small_RtSwapSlot, RtSwapSlotReclaimKeepsAnObjectTheAudioThreadIsStillOn)
 {
     std::atomic<int> live_count{0};
+    SushiDSP::RtSwapSlot<Counted> slot;
+    slot.publish(std::make_unique<Counted>(1, live_count));
+    slot.acquire_for_audio_thread();
+    slot.publish(std::make_unique<Counted>(2, live_count));
 
+    // Generation 1 stays alive while the thread is on it. See tests/foundation/core/README.md.
+    slot.reclaim();
+
+    EXPECT_EQ(live_count.load(std::memory_order_relaxed), 2);
+}
+
+TEST(Small_RtSwapSlot, RtSwapSlotReclaimDestroysARetiredObjectOnceAudioThreadHasMovedPast)
+{
+    std::atomic<int> live_count{0};
+    SushiDSP::RtSwapSlot<Counted> slot;
+    slot.publish(std::make_unique<Counted>(1, live_count));
+    slot.acquire_for_audio_thread();
+    slot.publish(std::make_unique<Counted>(2, live_count));
+    slot.acquire_for_audio_thread();
+
+    slot.reclaim();
+
+    EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
+}
+
+TEST(Small_RtSwapSlot, RtSwapSlotReclaimNeverDestroysTheActiveObject)
+{
+    std::atomic<int> live_count{0};
+    SushiDSP::RtSwapSlot<Counted> slot;
+    slot.publish(std::make_unique<Counted>(1, live_count));
+    slot.acquire_for_audio_thread();
+    slot.acquire_for_audio_thread();
+
+    slot.reclaim();
+
+    EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
+}
+
+TEST(Small_RtSwapSlot, RtSwapSlotDestructionFreesWhatItStillOwns)
+{
+    std::atomic<int> live_count{0};
     {
         SushiDSP::RtSwapSlot<Counted> slot;
         slot.publish(std::make_unique<Counted>(1, live_count));
-        slot.acquire_for_audio_thread();
-        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
-
         slot.publish(std::make_unique<Counted>(2, live_count));
-
-        // Generation 1 stays alive while the thread is on it. See tests/foundation/core/README.md.
-        slot.reclaim();
-        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 2);
-
-        slot.acquire_for_audio_thread();
-        slot.reclaim();
-        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
-
-        // The active object is never reclaimed, however far the audio thread advances.
-        slot.acquire_for_audio_thread();
-        slot.reclaim();
-        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
     }
 
-    // Destroying the slot frees whatever it still owns; nothing may leak.
     EXPECT_EQ(live_count.load(std::memory_order_relaxed), 0);
 }
 
 TEST(Medium_RtSwapSlot, RtSwapSlotConcurrentPublishAndAcquireDoesNotRace)
 {
+    constexpr int K_PUBLISHES = 20000;
     std::atomic<int> live_count{0};
-
+    std::atomic<bool> intact{true};
     {
         SushiDSP::RtSwapSlot<Counted> slot;
         slot.publish(std::make_unique<Counted>(7, live_count));
-
         std::atomic<bool> stop{false};
 
-        std::thread audio_thread(
-            [&]
-            {
-                while (!stop.load(std::memory_order_relaxed))
-                {
-                    Counted* object = slot.acquire_for_audio_thread();
-                    ASSERT_NE(object, nullptr);
-                    EXPECT_EQ(object->value(), 7);
-                }
-            });
-
-        for (int i = 0; i < 20000; ++i)
-        {
-            slot.publish(std::make_unique<Counted>(7, live_count));
-            slot.reclaim();
-        }
-
+        std::thread audio_thread(acquire_until_stopped, std::ref(slot), std::cref(stop), std::ref(intact));
+        publish_and_reclaim(slot, live_count, K_PUBLISHES);
         stop.store(true, std::memory_order_relaxed);
         audio_thread.join();
         slot.reclaim();
     }
 
+    EXPECT_TRUE(intact.load(std::memory_order_relaxed));
     EXPECT_EQ(live_count.load(std::memory_order_relaxed), 0);
 }
 
-TEST(Medium_RtSwapSlot, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
+TEST(Small_RtSwapSlot, RtSwapSlotActiveForPublisherReturnsTheActiveObject)
 {
-    // Reading the active object must not move the watermark. See tests/foundation/core/README.md.
     std::atomic<int> live_count{0};
-    {
-        SushiDSP::RtSwapSlot<Counted> slot;
+    SushiDSP::RtSwapSlot<Counted> slot;
+    slot.publish(std::make_unique<Counted>(1, live_count));
+    slot.publish(std::make_unique<Counted>(2, live_count));
 
-        slot.publish(std::make_unique<Counted>(1, live_count));
-        Counted* const first = slot.acquire_for_audio_thread();
-        ASSERT_NE(first, nullptr);
-        EXPECT_EQ(first->value(), 1);
+    EXPECT_EQ(slot.active_for_publisher()->value(), 2);
+}
 
-        slot.publish(std::make_unique<Counted>(2, live_count));
+TEST(Small_RtSwapSlot, RtSwapSlotActiveForPublisherDoesNotAdvanceTheAudioThreadWatermark)
+{
+    std::atomic<int> live_count{0};
+    SushiDSP::RtSwapSlot<Counted> slot;
+    slot.publish(std::make_unique<Counted>(1, live_count));
+    slot.acquire_for_audio_thread();
+    slot.publish(std::make_unique<Counted>(2, live_count));
 
-        EXPECT_EQ(slot.active_for_publisher(), slot.acquire_for_audio_thread());
+    // Reading the active object must not move the watermark. See tests/foundation/core/README.md.
+    static_cast<void>(slot.active_for_publisher());
+    slot.reclaim();
 
-        // The read alone moves nothing. See tests/foundation/core/README.md.
-        EXPECT_EQ(slot.active_for_publisher()->value(), 2);
+    EXPECT_EQ(live_count.load(std::memory_order_relaxed), 2);
+}
 
-        slot.publish(std::make_unique<Counted>(3, live_count));
-        EXPECT_EQ(slot.active_for_publisher()->value(), 3);
+TEST(Small_RtSwapSlot, RtSwapSlotOnlyAcquireForAudioThreadAdvancesTheWatermark)
+{
+    std::atomic<int> live_count{0};
+    SushiDSP::RtSwapSlot<Counted> slot;
+    slot.publish(std::make_unique<Counted>(1, live_count));
+    slot.acquire_for_audio_thread();
+    slot.publish(std::make_unique<Counted>(2, live_count));
+    static_cast<void>(slot.active_for_publisher());
 
-        // Only object 1 may be freed here. See tests/foundation/core/README.md.
-        slot.reclaim();
-        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 2);
+    // Only acquire_for_audio_thread() moves the watermark. See tests/foundation/core/README.md.
+    slot.acquire_for_audio_thread();
+    slot.reclaim();
 
-        // Only acquire_for_audio_thread() moves the watermark. See tests/foundation/core/README.md.
-        ASSERT_EQ(slot.acquire_for_audio_thread()->value(), 3);
-        slot.reclaim();
-        EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
-    }
-    EXPECT_EQ(live_count.load(std::memory_order_relaxed), 0);
+    EXPECT_EQ(live_count.load(std::memory_order_relaxed), 1);
 }
 
 TEST(Medium_RtSwapSlot, AcquireForAudioThreadPerformsNoHeapAllocation)
 {
+    constexpr int K_ACQUIRES = 10000;
     SushiDSP::RtSwapSlot<int> slot;
     slot.publish(std::make_unique<int>(3));
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-
-    int accumulator = 0;
-    for (int i = 0; i < 10000; ++i)
-    {
-        const int* object = slot.acquire_for_audio_thread();
-        accumulator += (object != nullptr && slot.has_active()) ? *object : 0;
-    }
-
+    const int seen = acquire_many(slot, K_ACQUIRES);
     trap.disarm();
 
-    EXPECT_EQ(accumulator, 30000);
+    EXPECT_EQ(seen, K_ACQUIRES);
     EXPECT_EQ(trap.count(), 0);
 }

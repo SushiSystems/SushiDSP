@@ -48,12 +48,16 @@ TEST(Small_BufferPool, BufferPoolCapacityReportsMaxLiveBuffers)
     SushiDSP::BufferPool pool(256, 3);
 
     EXPECT_EQ(pool.capacity(), 3u);
+}
+
+TEST(Small_BufferPool, BufferPoolAcquireReturnsNullOnceEveryBufferIsLive)
+{
+    SushiDSP::BufferPool pool(256, 3);
 
     ASSERT_NE(pool.acquire(256), nullptr);
     ASSERT_NE(pool.acquire(256), nullptr);
     ASSERT_NE(pool.acquire(256), nullptr);
     EXPECT_EQ(pool.acquire(256), nullptr);
-    EXPECT_EQ(pool.capacity(), 3u);
 }
 
 TEST(Small_BufferPool, BufferPoolReusesReleasedBuffer)

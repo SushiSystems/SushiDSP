@@ -2,7 +2,7 @@
 
 ## `test_behaviour.cpp`
 
-### `RigGraphProcessZeroesOutputWhenGraphIsEmpty`
+### `RigGraphEmptyGraphZeroesEveryOutputChannel`
 
 `// The sentinel proves process() writes zero itself.`
 

@@ -31,10 +31,12 @@
 #pragma once
 
 #include <atomic>
-#include <chrono>
 #include <functional>
 #include <thread>
 #include <utility>
+
+#include <SushiDSP/foundation/core/poll_clock.hpp>
+#include <SushiDSP/foundation/core/system_poll_clock.hpp>
 
 namespace SushiDSP
 {
@@ -47,9 +49,18 @@ namespace SushiDSP
     class CounterPollThread final
     {
         public:
-            /// @brief Starts calling @p poll; whatever it names must outlive this object.
+            /// @brief Starts calling @p poll twice a second; whatever it names must outlive this object.
             explicit CounterPollThread(std::function<void()> poll)
-                : poll_(std::move(poll)), thread_([this] { run(); })
+                : clock_(owned_clock_), poll_(std::move(poll)), thread_([this] { run(); })
+            {
+
+            }
+
+            /// @brief Starts calling @p poll, waiting on @p clock between two calls.
+            ///
+            /// Both @p poll and @p clock must outlive this object.
+            CounterPollThread(std::function<void()> poll, PollClock& clock)
+                : clock_(clock), poll_(std::move(poll)), thread_([this] { run(); })
             {
 
             }
@@ -63,22 +74,26 @@ namespace SushiDSP
             ~CounterPollThread()
             {
                 stop_.store(true, std::memory_order_release);
+                clock_.interrupt();
                 thread_.join();
             }
 
         private:
-            /// @brief Calls the function every K_POLL_PERIOD until asked to stop.
+            /// @brief Calls the function, then waits on the clock, until asked to stop.
             void run()
             {
                 while (!stop_.load(std::memory_order_acquire))
                 {
                     poll_();
-                    std::this_thread::sleep_for(K_POLL_PERIOD);
+                    clock_.wait_for_next_poll();
                 }
             }
 
-            /// @brief The time between two calls.
-            static constexpr std::chrono::milliseconds K_POLL_PERIOD{500};
+            /// @brief The wall-clock pacing the one-argument constructor uses.
+            SystemPollClock owned_clock_{};
+
+            /// @brief The clock that paces the calls.
+            PollClock& clock_;
 
             /// @brief The function called.
             std::function<void()> poll_;

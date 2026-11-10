@@ -32,7 +32,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdio>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -181,202 +181,324 @@ namespace
     inline constexpr std::array<double, 3> K_STEPPED_PREAMP{0.1, 0.5, 0.9};
 } // namespace
 
-/// @brief Tests that the jcm_v1a stage settles at the hand-computed bias point.
-/// @see tests/foundation/circuits/stages/test_triode_stage/README.md
-TEST(Small_TriodeStage, DkTriodeStageSettlesAtTheHandComputedBiasPoint)
+namespace
 {
-    constexpr double K_RUN_RATE = 384000.0;
+    /// @brief Run rate of the bias test; the settled bias is a DC solution, so it does not depend on the rate.
+    constexpr double K_BIAS_RATE = 48000.0;
 
-    StageNetlist netlist;
-    const std::size_t pot = build_jcm_v1a(netlist);
+    /// @brief Silence the bias test runs before it reads the operating point.
+    constexpr double K_BIAS_SETTLE_SECONDS = 0.2;
 
-    StageCircuit circuit;
-    TriodeStagePort port;
-    ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
-    circuit.set_potentiometer(pot, preamp_to_position(0.5));
-    circuit.update_matrices_if_dirty();
+    /// @brief The circle constant, since the tests build as C++17.
+    constexpr double K_PI = 3.14159265358979323846;
 
-    settle(circuit, port, K_RUN_RATE, 0.2);
+    /// @brief Rate of the convergence run, the highest rate the stage runs at.
+    constexpr double K_CONVERGENCE_RATE = 384000.0;
 
-    const double plate_current = circuit.nonlinear_currents()[1];
-    const double grid_current = circuit.nonlinear_currents()[0];
-    const double cathode_volts = (plate_current + grid_current) * K_CATHODE_OHMS;
-    const double plate_to_cathode = circuit.nonlinear_voltages()[1];
-    const double plate_volts = plate_to_cathode + cathode_volts;
+    /// @brief Rate of the AC sweep run.
+    constexpr double K_AC_RATE = 192000.0;
 
-    std::printf("[ measure ] jcm_v1a DK bias: Ip = %.6e A, Vk = %.4f V, Vp = %.4f V\n",
-                plate_current, cathode_volts, plate_volts);
+    /// @brief Hand-solved cathode voltage in volts, printed to four decimals in the README.
+    constexpr double K_HAND_CATHODE_VOLTS = 2.3101;
 
-    EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
-    EXPECT_NEAR(cathode_volts, 2.3101, 0.02);
-    EXPECT_NEAR(plate_volts, 274.442, 0.5);
-    EXPECT_NEAR(circuit.nonlinear_voltages()[0], -cathode_volts, 1.0e-4);
-}
+    /// @brief Hand-solved plate voltage in volts, printed to three decimals in the README.
+    constexpr double K_HAND_PLATE_VOLTS = 274.442;
 
-TEST(Small_TriodeStage, DkTriodeStageNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
-{
-    // The stimulus set is a sweep and three bursts at 384 kHz. See tests/foundation/circuits/stages/test_triode_stage/README.md.
-    constexpr double K_RUN_RATE = 384000.0;
+    /// @brief Half a unit in the last printed digit of the cathode voltage.
+    constexpr double K_CATHODE_PRINT_VOLTS = 5.0e-5;
 
-    StageNetlist netlist;
-    const std::size_t pot = build_jcm_v1a(netlist);
+    /// @brief Half a unit in the last printed digit of the plate voltage.
+    constexpr double K_PLATE_PRINT_VOLTS = 5.0e-4;
 
-    StageCircuit circuit;
-    TriodeStagePort port;
-    ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
-    circuit.set_potentiometer(pot, preamp_to_position(0.5));
-    circuit.update_matrices_if_dirty();
+    /// @brief The relative step tolerance DampedNewtonSolver stops at, a private constant of the solver.
+    constexpr double K_NEWTON_STEP_RELATIVE = 1.0e-9;
 
-    settle(circuit, port, K_RUN_RATE, 0.2);
-    circuit.reset_statistics();
+    /// @brief Largest solver variable at the bias point, the plate-to-cathode voltage, rounded up in volts.
+    constexpr double K_NEWTON_ITERATE_VOLTS = 273.0;
 
-    std::array<double, 1> outputs{};
+    /// @brief The spec ceiling for the share of samples whose Newton iteration fails, in percent (spec D6b.4).
+    constexpr double K_NON_CONVERGED_PERCENT = 0.01;
 
-    const double sweep_seconds = 2.0;
-    const double sweep_low = 20.0;
-    const double sweep_high = 20000.0;
-    const double sweep_amplitude = 0.25118864 * static_cast<double>(SushiDSP::K_FULL_SCALE_VOLTS);
-    const std::size_t sweep_samples = static_cast<std::size_t>(sweep_seconds * K_RUN_RATE);
-    const double rate = std::log(sweep_high / sweep_low);
-    for (std::size_t index = 0; index < sweep_samples; ++index)
+    /// @brief The spec ceiling for the transient null against LTspice, in decibels (spec D6b.4).
+    constexpr double K_TRANSIENT_NULL_DB = -60.0;
+
+    /// @brief The spec band for the AC match against LTspice, in decibels (spec D6b.4).
+    constexpr double K_AC_BAND_DB = 0.5;
+
+    /// @brief Passes of the 20 ms reference block that run before the compared pass.
+    constexpr std::size_t K_PRE_ROLL_PASSES = 8;
+
+    /// @brief Cutoff of the band limit applied to both transient outputs, in hertz.
+    constexpr double K_NULL_BAND_HZ = 10000.0;
+
+    /// @brief Names of the stepped PREAMP settings, in setting-index order, for the parameterised names.
+    constexpr std::array<const char*, 3> K_SETTING_NAMES{"Preamp0p1", "Preamp0p5", "Preamp0p9"};
+
+    /// @brief The operating point a settled stage reports.
+    struct BiasReading
     {
-        const double seconds = static_cast<double>(index) / K_RUN_RATE;
-        const double phase = 2.0 * 3.14159265358979323846 * sweep_low * sweep_seconds / rate *
-                             (std::exp(seconds * rate / sweep_seconds) - 1.0);
-        const std::array<double, 2> inputs{sweep_amplitude * std::sin(phase), K_SUPPLY_VOLTS};
-        circuit.process_sample(port, inputs, outputs);
+            double cathode_volts{0.0};
+            double plate_volts{0.0};
+            double grid_to_cathode_volts{0.0};
+            double grid_amps{0.0};
+            std::uint64_t nan_fallbacks{0};
+    };
+
+    /// @brief Current still flowing in the coupling capacitor after a settle, an upper bound.
+    ///
+    /// The capacitor charges to the plate voltage through the pot and the plate network, so its
+    /// current is at most the plate voltage over the two resistances, decayed by the longest time
+    /// constant of that loop. Any imbalance at the plate is carried by this current alone.
+    /// @param plate_volts The settled plate voltage in volts.
+    /// @param seconds Silence run before the reading.
+    /// @return The current in amperes.
+    double coupling_residual_amps(double plate_volts, double seconds)
+    {
+        const double ohms = K_PREAMP_POT_OHMS + K_PLATE_OHMS;
+        return plate_volts / ohms * std::exp(-seconds / (ohms * K_COUPLING_FARADS));
     }
 
-    const std::array<double, 3> burst_volts{0.05, 0.5, 5.0};
-    const std::size_t burst_samples = static_cast<std::size_t>(0.25 * K_RUN_RATE);
-    for (double amplitude : burst_volts)
+    /// @brief Settles the stage at its middle PREAMP position and reads the operating point.
+    /// @return The cathode, plate and grid readings.
+    BiasReading settle_and_read_bias()
     {
-        for (std::size_t index = 0; index < burst_samples; ++index)
-        {
-            const double seconds = static_cast<double>(index) / K_RUN_RATE;
-            const double drive =
-                amplitude * std::sin(2.0 * 3.14159265358979323846 * 1000.0 * seconds);
-            const std::array<double, 2> inputs{drive, K_SUPPLY_VOLTS};
-            circuit.process_sample(port, inputs, outputs);
-        }
-    }
-
-    const double ratio = 100.0 * static_cast<double>(circuit.non_converged_samples()) /
-                         static_cast<double>(circuit.total_samples());
-    std::printf("[ measure ] jcm_v1a DK: %.4f %% non-converged (%llu of %llu), max %u iterations, "
-                "%llu NaN fallbacks\n",
-                ratio, static_cast<unsigned long long>(circuit.non_converged_samples()),
-                static_cast<unsigned long long>(circuit.total_samples()),
-                circuit.maximum_iterations_seen(),
-                static_cast<unsigned long long>(circuit.nan_fallback_samples()));
-    EXPECT_LE(ratio, 0.01);
-    EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
-}
-
-TEST(Small_TriodeStage, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
-{
-    const std::string path = spice_path("jcm_v1a", "tran");
-    const auto reference = SushiDSP::measure::load_transient_csv(path);
-    if (reference.input.empty())
-    {
-        GTEST_SKIP() << "No LTspice reference at " << path
-                     << ". Generate it with: python tools/spice/export.py --block jcm_v1a "
-                     << "(needs LTspice installed; see docs/reference/spice/README.md), "
-                     << "then commit the CSV.";
-    }
-
-    ASSERT_GT(reference.sample_rate, 0.0);
-
-    for (std::size_t setting = 0; setting < K_STEPPED_PREAMP.size(); ++setting)
-    {
-        std::vector<float> reference_output;
-        std::vector<float> circuit_output;
-
         StageNetlist netlist;
         const std::size_t pot = build_jcm_v1a(netlist);
 
         StageCircuit circuit;
         TriodeStagePort port;
-        ASSERT_TRUE(circuit.prepare(netlist, reference.sample_rate));
-        circuit.set_potentiometer(pot, preamp_to_position(K_STEPPED_PREAMP[setting]));
+        EXPECT_TRUE(circuit.prepare(netlist, K_BIAS_RATE));
+        circuit.set_potentiometer(pot, preamp_to_position(0.5));
         circuit.update_matrices_if_dirty();
-        settle(circuit, port, reference.sample_rate, 0.2);
+        settle(circuit, port, K_BIAS_RATE, K_BIAS_SETTLE_SECONDS);
 
-        // Only the last of K_PRE_ROLL_PASSES passes is compared. See tests/foundation/circuits/stages/test_triode_stage/README.md.
-        constexpr std::size_t K_PRE_ROLL_PASSES = 8;
-
-        std::vector<double> stimulus;
-        for (std::size_t row = 0; row < reference.input.size(); ++row)
-        {
-            if (reference.setting[row] == static_cast<int>(setting))
-            {
-                stimulus.push_back(static_cast<double>(reference.input[row]));
-                reference_output.push_back(reference.output[row]);
-            }
-        }
-
-        std::array<double, 1> outputs{};
-        for (std::size_t pass = 0; pass <= K_PRE_ROLL_PASSES; ++pass)
-        {
-            const bool final_pass = pass == K_PRE_ROLL_PASSES;
-            for (std::size_t index = 0; index < stimulus.size(); ++index)
-            {
-                const std::array<double, 2> inputs{stimulus[index], K_SUPPLY_VOLTS};
-                circuit.process_sample(port, inputs, outputs);
-                if (final_pass)
-                {
-                    circuit_output.push_back(static_cast<float>(outputs[0]));
-                }
-            }
-        }
-
-        ASSERT_FALSE(reference_output.empty()) << "setting " << setting;
-
-        band_limit(reference_output, reference.sample_rate, 10000.0);
-        band_limit(circuit_output, reference.sample_rate, 10000.0);
-
-        const double residual = SushiDSP::measure::null_test(reference_output, circuit_output, 256);
-        std::printf("[ measure ] jcm_v1a tran setting %zu: %.2f dB residual\n", setting, residual);
-        EXPECT_LE(residual, -60.0) << "setting " << setting;
+        BiasReading reading;
+        const double plate_current = circuit.nonlinear_currents()[1];
+        reading.grid_amps = circuit.nonlinear_currents()[0];
+        reading.cathode_volts = (plate_current + reading.grid_amps) * K_CATHODE_OHMS;
+        reading.plate_volts = circuit.nonlinear_voltages()[1] + reading.cathode_volts;
+        reading.grid_to_cathode_volts = circuit.nonlinear_voltages()[0];
+        reading.nan_fallbacks = circuit.nan_fallback_samples();
+        return reading;
     }
+
+    /// @brief Runs the 20 Hz to 20 kHz logarithmic sweep through the circuit at 384 kHz.
+    void run_sweep(StageCircuit& circuit, TriodeStagePort& port)
+    {
+        constexpr double K_SWEEP_SECONDS = 2.0;
+        constexpr double K_SWEEP_LOW_HZ = 20.0;
+        constexpr double K_SWEEP_HIGH_HZ = 20000.0;
+        constexpr double K_MINUS_TWELVE_DBFS = 0.25118864;
+        const double amplitude = K_MINUS_TWELVE_DBFS * static_cast<double>(SushiDSP::K_FULL_SCALE_VOLTS);
+        const std::size_t samples = static_cast<std::size_t>(K_SWEEP_SECONDS * K_CONVERGENCE_RATE);
+        const double rate = std::log(K_SWEEP_HIGH_HZ / K_SWEEP_LOW_HZ);
+        std::array<double, 1> outputs{};
+        for (std::size_t index = 0; index < samples; ++index)
+        {
+            const double seconds = static_cast<double>(index) / K_CONVERGENCE_RATE;
+            const double phase = 2.0 * K_PI * K_SWEEP_LOW_HZ * K_SWEEP_SECONDS / rate *
+                                 (std::exp(seconds * rate / K_SWEEP_SECONDS) - 1.0);
+            const std::array<double, 2> inputs{amplitude * std::sin(phase), K_SUPPLY_VOLTS};
+            circuit.process_sample(port, inputs, outputs);
+        }
+    }
+
+    /// @brief Runs 250 ms of a 1 kHz tone at the given amplitude through the circuit at 384 kHz.
+    void run_burst(StageCircuit& circuit, TriodeStagePort& port, double amplitude_volts)
+    {
+        constexpr double K_BURST_SECONDS = 0.25;
+        constexpr double K_BURST_HZ = 1000.0;
+        const std::size_t samples = static_cast<std::size_t>(K_BURST_SECONDS * K_CONVERGENCE_RATE);
+        std::array<double, 1> outputs{};
+        for (std::size_t index = 0; index < samples; ++index)
+        {
+            const double seconds = static_cast<double>(index) / K_CONVERGENCE_RATE;
+            const std::array<double, 2> inputs{
+                amplitude_volts * std::sin(2.0 * K_PI * K_BURST_HZ * seconds), K_SUPPLY_VOLTS};
+            circuit.process_sample(port, inputs, outputs);
+        }
+    }
+
+    /// @brief Builds a name for a parameterised setting row from the setting index.
+    std::string setting_name(const ::testing::TestParamInfo<std::size_t>& info)
+    {
+        return K_SETTING_NAMES[info.param];
+    }
+} // namespace
+
+/// @brief Tests that the jcm_v1a stage settles at the hand-computed bias point.
+/// @see tests/foundation/circuits/stages/test_triode_stage/README.md
+TEST(Small_TriodeStage, DkTriodeStageSettlesAtTheHandComputedBiasPoint)
+{
+    const BiasReading reading = settle_and_read_bias();
+
+    const double residual_amps = coupling_residual_amps(K_HAND_PLATE_VOLTS, K_BIAS_SETTLE_SECONDS);
+    const double newton_volts = K_NEWTON_STEP_RELATIVE * (1.0 + K_NEWTON_ITERATE_VOLTS);
+    const double cathode_band = residual_amps * K_CATHODE_OHMS + K_CATHODE_PRINT_VOLTS + newton_volts;
+    const double plate_band =
+        residual_amps * (K_PLATE_OHMS + K_CATHODE_OHMS) + K_PLATE_PRINT_VOLTS + cathode_band;
+    const double expected_grid_to_cathode = -reading.cathode_volts - reading.grid_amps * K_GRID_STOPPER_OHMS;
+
+    EXPECT_EQ(reading.nan_fallbacks, 0u);
+    EXPECT_NEAR(reading.cathode_volts, K_HAND_CATHODE_VOLTS, cathode_band);
+    EXPECT_NEAR(reading.plate_volts, K_HAND_PLATE_VOLTS, plate_band);
+    EXPECT_NEAR(reading.grid_to_cathode_volts, expected_grid_to_cathode,
+                residual_amps * K_CATHODE_OHMS + newton_volts);
 }
 
-TEST(Small_TriodeStage, DkTriodeStageMatchesTheLtspiceAcSweepWithinHalfADecibel)
+/// @brief Tests that the Newton solve fails on at most the spec share of the full stimulus set.
+/// @see tests/foundation/circuits/stages/test_triode_stage/README.md
+TEST(Large_TriodeStage, DkTriodeStageNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
 {
-    const std::string path = spice_path("jcm_v1a", "ac");
-    const auto reference = SushiDSP::measure::load_ac_csv(path);
-    if (reference.frequency_hz.empty())
+    StageNetlist netlist;
+    const std::size_t pot = build_jcm_v1a(netlist);
+
+    StageCircuit circuit;
+    TriodeStagePort port;
+    ASSERT_TRUE(circuit.prepare(netlist, K_CONVERGENCE_RATE));
+    circuit.set_potentiometer(pot, preamp_to_position(0.5));
+    circuit.update_matrices_if_dirty();
+    settle(circuit, port, K_CONVERGENCE_RATE, K_BIAS_SETTLE_SECONDS);
+    circuit.reset_statistics();
+
+    run_sweep(circuit, port);
+    for (const double amplitude_volts : {0.05, 0.5, 5.0})
     {
-        GTEST_SKIP() << "No LTspice reference at " << path
-                     << ". Generate it with: python tools/spice/export.py --block jcm_v1a "
-                     << "(needs LTspice installed; see docs/reference/spice/README.md), "
-                     << "then commit the CSV.";
+        run_burst(circuit, port, amplitude_volts);
     }
 
-    constexpr double K_RUN_RATE = 192000.0;
+    const double percent = 100.0 * static_cast<double>(circuit.non_converged_samples()) /
+                           static_cast<double>(circuit.total_samples());
+    EXPECT_LE(percent, K_NON_CONVERGED_PERCENT);
+    EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
+}
 
+/// @brief Loads the LTspice transient reference once per test and skips the test when it is absent.
+class Medium_TriodeStageSpiceTransient : public ::testing::TestWithParam<std::size_t>
+{
+    protected:
+        void SetUp() override
+        {
+            const std::string path = spice_path("jcm_v1a", "tran");
+            reference_ = SushiDSP::measure::load_transient_csv(path);
+            if (reference_.input.empty())
+            {
+                GTEST_SKIP() << "No LTspice reference at " << path
+                             << ". Generate it with: python tools/spice/export.py --block jcm_v1a "
+                             << "(needs LTspice installed; see docs/reference/spice/README.md), "
+                             << "then commit the CSV.";
+            }
+        }
+
+        /// @brief Runs the stage over one setting's block and returns its band-limited output.
+        /// @param setting The setting index.
+        /// @param reference_output Receives the band-limited LTspice output for the setting.
+        /// @return The band-limited output of the DK stage for the setting.
+        std::vector<float> run_setting(std::size_t setting, std::vector<float>& reference_output) const
+        {
+            StageNetlist netlist;
+            const std::size_t pot = build_jcm_v1a(netlist);
+
+            StageCircuit circuit;
+            TriodeStagePort port;
+            EXPECT_TRUE(circuit.prepare(netlist, reference_.sample_rate));
+            circuit.set_potentiometer(pot, preamp_to_position(K_STEPPED_PREAMP[setting]));
+            circuit.update_matrices_if_dirty();
+            settle(circuit, port, reference_.sample_rate, K_BIAS_SETTLE_SECONDS);
+
+            std::vector<double> stimulus;
+            for (std::size_t row = 0; row < reference_.input.size(); ++row)
+            {
+                if (reference_.setting[row] == static_cast<int>(setting))
+                {
+                    stimulus.push_back(static_cast<double>(reference_.input[row]));
+                    reference_output.push_back(reference_.output[row]);
+                }
+            }
+
+            std::vector<float> circuit_output;
+            std::array<double, 1> outputs{};
+            for (std::size_t pass = 0; pass <= K_PRE_ROLL_PASSES; ++pass)
+            {
+                for (const double drive : stimulus)
+                {
+                    const std::array<double, 2> inputs{drive, K_SUPPLY_VOLTS};
+                    circuit.process_sample(port, inputs, outputs);
+                    if (pass == K_PRE_ROLL_PASSES)
+                    {
+                        circuit_output.push_back(static_cast<float>(outputs[0]));
+                    }
+                }
+            }
+            band_limit(reference_output, reference_.sample_rate, K_NULL_BAND_HZ);
+            band_limit(circuit_output, reference_.sample_rate, K_NULL_BAND_HZ);
+            return circuit_output;
+        }
+
+        SushiDSP::measure::Transient reference_{};
+};
+
+/// @brief Tests that the DK stage nulls against the LTspice transient at each stepped setting.
+/// @see tests/foundation/circuits/stages/test_triode_stage/README.md
+TEST_P(Medium_TriodeStageSpiceTransient, DkTriodeStageNullsAgainstTheLtspiceTransientReference)
+{
+    ASSERT_GT(reference_.sample_rate, 0.0);
+
+    std::vector<float> reference_output;
+    const std::vector<float> circuit_output = run_setting(GetParam(), reference_output);
+    ASSERT_FALSE(reference_output.empty());
+
+    const double residual = SushiDSP::measure::null_test(reference_output, circuit_output, 256);
+    EXPECT_LE(residual, K_TRANSIENT_NULL_DB);
+}
+
+INSTANTIATE_TEST_SUITE_P(Settings, Medium_TriodeStageSpiceTransient, ::testing::Values<std::size_t>(0, 1, 2),
+                         setting_name);
+
+/// @brief Loads the LTspice AC reference once per test and skips the test when it is absent.
+class Medium_TriodeStageSpiceAc : public ::testing::TestWithParam<std::size_t>
+{
+    protected:
+        void SetUp() override
+        {
+            const std::string path = spice_path("jcm_v1a", "ac");
+            reference_ = SushiDSP::measure::load_ac_csv(path);
+            if (reference_.frequency_hz.empty())
+            {
+                GTEST_SKIP() << "No LTspice reference at " << path
+                             << ". Generate it with: python tools/spice/export.py --block jcm_v1a "
+                             << "(needs LTspice installed; see docs/reference/spice/README.md), "
+                             << "then commit the CSV.";
+            }
+        }
+
+        SushiDSP::measure::AcSweep reference_{};
+};
+
+/// @brief Tests that the DK stage matches the LTspice AC sweep within the spec band at each setting.
+/// @see tests/foundation/circuits/stages/test_triode_stage/README.md
+TEST_P(Medium_TriodeStageSpiceAc, DkTriodeStageMatchesTheLtspiceAcSweepWithinHalfADecibel)
+{
     // -40 dBFS keeps the stage small-signal. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     const std::vector<double> frequencies{20.0,   50.0,   100.0,  200.0,  500.0,
                                           1000.0, 2000.0, 5000.0, 10000.0};
+    const std::size_t setting = GetParam();
 
-    for (std::size_t setting = 0; setting < K_STEPPED_PREAMP.size(); ++setting)
+    JcmV1aStageNode node;
+    node.set_preamp(K_STEPPED_PREAMP[setting]);
+
+    // measure::render calls node.prepare() itself. See tests/foundation/circuits/stages/test_triode_stage/README.md.
+    const auto measured = SushiDSP::measure::frequency_response(node, K_AC_RATE, frequencies);
+    ASSERT_TRUE(node.prepared());
+    ASSERT_EQ(measured.size(), frequencies.size());
+
+    for (const auto& point : measured)
     {
-        JcmV1aStageNode node;
-        node.set_preamp(K_STEPPED_PREAMP[setting]);
-
-        // measure::render calls node.prepare() itself. See tests/foundation/circuits/stages/test_triode_stage/README.md.
-        const auto measured = SushiDSP::measure::frequency_response(node, K_RUN_RATE, frequencies);
-        ASSERT_TRUE(node.prepared());
-        ASSERT_EQ(measured.size(), frequencies.size());
-
-        for (const auto& point : measured)
-        {
-            double expected_db = 0.0;
-            ASSERT_TRUE(interpolate_magnitude(reference, static_cast<int>(setting),
-                                              point.frequency_hz, expected_db))
-                << "setting " << setting << " at " << point.frequency_hz << " Hz";
-            EXPECT_NEAR(point.magnitude_db, expected_db, 0.5)
-                << "setting " << setting << " at " << point.frequency_hz << " Hz";
-        }
+        double expected_db = 0.0;
+        ASSERT_TRUE(interpolate_magnitude(reference_, static_cast<int>(setting), point.frequency_hz, expected_db))
+            << "at " << point.frequency_hz << " Hz";
+        EXPECT_NEAR(point.magnitude_db, expected_db, K_AC_BAND_DB) << "at " << point.frequency_hz << " Hz";
     }
 }
+
+INSTANTIATE_TEST_SUITE_P(Settings, Medium_TriodeStageSpiceAc, ::testing::Values<std::size_t>(0, 1, 2), setting_name);

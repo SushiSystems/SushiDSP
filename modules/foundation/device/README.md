@@ -5,11 +5,16 @@ The ASIO and SDL2 audio devices. Their backend targets are built by this module'
 ## Owns
 
 - `modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_device.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/block_clock.hpp`
 - `modules/foundation/device/include/SushiDSP/foundation/device/block_monitor.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/block_server.hpp`
 - `modules/foundation/device/include/SushiDSP/foundation/device/device_counter_report.hpp`
 - `modules/foundation/device/include/SushiDSP/foundation/device/device_counters.hpp`
 - `modules/foundation/device/include/SushiDSP/foundation/device/device_log_category.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/in_memory_block_clock.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/in_memory_block_device.hpp`
 - `modules/foundation/device/include/SushiDSP/foundation/device/sdl2_audio_device.hpp`
+- `modules/foundation/device/include/SushiDSP/foundation/device/steady_block_clock.hpp`
 
 ## Depends on
 
@@ -29,6 +34,13 @@ under `K_DEVICE_LOG_CATEGORY` through `DeviceCounterReport`.
 | `overrun` | A block's processing takes longer than its own period |
 | `driver_message` | The ASIO driver sends an overload, resync, latency-change or reset message, or a clock change |
 | `driver_error` | `ASIOOutputReady` returns an error from the callback |
+
+`BlockServer` answers each block a device asks for: it runs the callback, interleaves a
+multi-channel result, answers silence when no callback is installed or the block is longer than its
+scratch, and raises the counters. `Sdl2AudioDevice` calls it from SDL2's audio thread, and
+`InMemoryBlockDevice` calls it when a test asks, with no driver and no thread. `BlockMonitor` reads
+its time through a `BlockClock`: `SteadyBlockClock` by default and `InMemoryBlockClock` in a test,
+which moves it by hand.
 
 `BlockMonitor` marks the `dsp.block` timeline at each arrival and keeps the two dropout counters.
 It also records both counters in every block, as 0 or 1, so a record's `counter:` check always has

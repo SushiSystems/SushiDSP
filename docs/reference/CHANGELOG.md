@@ -23,6 +23,10 @@
 - 2026-11-10 — benchmark_harness: Gave `run_selected` and `BenchmarkRegistration` a case list of their own (`benchmark_registry.hpp`).
 - 2026-11-10 — benchmark_harness: Gave `measure_node` and `profile_node` overloads that take a node the caller built (`node_benchmark.hpp`).
 - 2026-11-10 — math: Added `InMemoryDkCounters` beside `DkCircuit`, the solver counters held as numbers (`in_memory_dk_counters.hpp`).
+- 2026-11-10 — core: Added the `PollClock` port with `SystemPollClock` and `InMemoryPollClock`, and gave `CounterPollThread` a constructor that takes a clock (`poll_clock.hpp`).
+- 2026-11-10 — core: Added `InMemoryMinimalNode`, an `AudioNode` that overrides only its pure virtual methods (`in_memory_minimal_node.hpp`).
+- 2026-11-10 — device: Added the `BlockClock` port with `SteadyBlockClock` and `InMemoryBlockClock`, and gave `BlockMonitor` a constructor that takes a clock (`block_clock.hpp`).
+- 2026-11-10 — device: Moved the block answer of `Sdl2AudioDevice` into `BlockServer` and added `InMemoryBlockDevice` beside it (`block_server.hpp`).
 - 2026-11-09 — math: Added the DK glue port `PoisonablePort` and moved the DK fault test onto it (`poisonable_port.hpp`).
 - 2026-11-09 — tubescreamer: Made `tube_screamer_circuits::LinearPort` an alias of `dk::LinearPort` (`tube_screamer_circuits.hpp`).
 - 2026-11-09 — golden_compare: Made a golden regeneration report a 0 dB residual, so a regenerating run fails its golden tests instead of passing, and added the `GoldenMode` overload of `compare_or_regenerate` (`golden_file.hpp`).

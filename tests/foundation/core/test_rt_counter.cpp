@@ -34,7 +34,45 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <thread>
+
+namespace
+{
+    /// @brief Calls increment() and note() @p rounds times each.
+    void raise_both(SushiDSP::RtCounter& counter, std::uint64_t rounds)
+    {
+        for (std::uint64_t index = 0U; index < rounds; ++index)
+        {
+            counter.increment();
+            counter.note(index);
+        }
+    }
+
+    /// @brief Calls increment() @p raises times, then sets @p done.
+    void raise_then_finish(SushiDSP::RtCounter& counter, std::uint64_t raises, std::atomic<bool>& done)
+    {
+        for (std::uint64_t index = 0U; index < raises; ++index)
+        {
+            counter.increment();
+        }
+        done.store(true, std::memory_order_release);
+    }
+
+    /// @brief Reads the counter until @p done is set and returns whether every read was at least the one before.
+    bool reads_never_go_backwards(const SushiDSP::RtCounter& counter, const std::atomic<bool>& done)
+    {
+        bool monotonic = true;
+        std::uint64_t last = 0U;
+        while (!done.load(std::memory_order_acquire))
+        {
+            const std::uint64_t value = counter.value();
+            monotonic = monotonic && value >= last;
+            last = value;
+        }
+        return monotonic;
+    }
+} // namespace
 
 TEST(Small_RtCounter, IncrementAddsTheAmountAndValueReadsIt)
 {
@@ -43,10 +81,17 @@ TEST(Small_RtCounter, IncrementAddsTheAmountAndValueReadsIt)
     counter.increment(4U);
 
     EXPECT_EQ(counter.value(), 5U);
+}
+
+TEST(Small_RtCounter, IncrementLeavesThePeakUnchanged)
+{
+    SushiDSP::RtCounter counter;
+    counter.increment(4U);
+
     EXPECT_EQ(counter.peak(), 0U);
 }
 
-TEST(Small_RtCounter, NoteCountsOneEventAndKeepsTheLargestMagnitude)
+TEST(Small_RtCounter, NoteCountsOneEventPerCall)
 {
     SushiDSP::RtCounter counter;
     counter.note(512U);
@@ -54,20 +99,26 @@ TEST(Small_RtCounter, NoteCountsOneEventAndKeepsTheLargestMagnitude)
     counter.note(1024U);
 
     EXPECT_EQ(counter.value(), 3U);
+}
+
+TEST(Small_RtCounter, NoteKeepsTheLargestMagnitude)
+{
+    SushiDSP::RtCounter counter;
+    counter.note(512U);
+    counter.note(2048U);
+    counter.note(1024U);
+
     EXPECT_EQ(counter.peak(), 2048U);
 }
 
 TEST(Medium_RtCounter, IncrementAndNotePerformNoHeapAllocation)
 {
+    constexpr std::uint64_t K_ROUNDS = 1000U;
     SushiDSP::RtCounter counter;
     SushiDSP::test::AllocationTrap trap;
 
     trap.arm();
-    for (std::uint64_t index = 0U; index < 1000U; ++index)
-    {
-        counter.increment();
-        counter.note(index);
-    }
+    raise_both(counter, K_ROUNDS);
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
@@ -79,23 +130,10 @@ TEST(Medium_RtCounter, IncrementFromOneThreadWhileAnotherReadsLosesNothing)
     SushiDSP::RtCounter counter;
     std::atomic<bool> done{false};
 
-    std::thread writer(
-        [&]
-        {
-            for (std::uint64_t index = 0U; index < K_RAISES; ++index)
-                counter.increment();
-            done.store(true, std::memory_order_release);
-        });
-
-    std::uint64_t last = 0U;
-    while (!done.load(std::memory_order_acquire))
-    {
-        const std::uint64_t value = counter.value();
-        EXPECT_GE(value, last);
-        last = value;
-    }
+    std::thread writer(raise_then_finish, std::ref(counter), K_RAISES, std::ref(done));
+    const bool monotonic = reads_never_go_backwards(counter, done);
     writer.join();
 
+    EXPECT_TRUE(monotonic);
     EXPECT_EQ(counter.value(), K_RAISES);
 }
-

@@ -29,9 +29,7 @@
 
 #include <SushiDSP/foundation/device/sdl2_audio_device.hpp>
 
-#include <SushiDSP/foundation/core/denormal_guard.hpp>
-
-#include <cstring>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -41,7 +39,7 @@
 namespace SushiDSP
 {
     Sdl2AudioDevice::Sdl2AudioDevice(const DeviceFormat& requested_format)
-        : format_(requested_format), device_id_(0), monitor_(counters_)
+        : format_(requested_format), device_id_(0)
     {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0)
         {
@@ -71,19 +69,7 @@ namespace SushiDSP
         format_.input_channels = 0;
         format_.output_channels = obtained.channels;
 
-        // A one-channel device renders into SDL2's own buffer; only a wider one deinterleaves.
-        if (format_.output_channels > 1)
-        {
-            deinterleaved_output_.assign(
-                static_cast<std::size_t>(format_.block_size) * format_.output_channels, 0.0f);
-            output_channel_pointers_.resize(format_.output_channels);
-            for (std::uint32_t channel = 0; channel < format_.output_channels; ++channel)
-            {
-                output_channel_pointers_[channel] =
-                    deinterleaved_output_.data() +
-                    static_cast<std::size_t>(channel) * format_.block_size;
-            }
-        }
+        server_ = std::make_unique<BlockServer>(format_);
     }
 
     Sdl2AudioDevice::~Sdl2AudioDevice()
@@ -102,17 +88,17 @@ namespace SushiDSP
 
     void Sdl2AudioDevice::add_counters_to(RtCounterReporter& reporter) const
     {
-        counters_.add_to(reporter);
+        server_->counters().add_to(reporter);
     }
 
     const DeviceCounters& Sdl2AudioDevice::counters() const noexcept
     {
-        return counters_;
+        return server_->counters();
     }
 
     void Sdl2AudioDevice::start(DeviceCallback callback)
     {
-        callback_ = std::move(callback);
+        server_->set_callback(std::move(callback));
         SDL_PauseAudioDevice(device_id_, 0);
     }
 
@@ -121,55 +107,14 @@ namespace SushiDSP
         SDL_PauseAudioDevice(device_id_, 1);
 
         // SDL_PauseAudioDevice waits out any in-flight callback, so clearing is safe (modules/foundation/device/README.md).
-        callback_ = {};
-    }
-
-    void Sdl2AudioDevice::interleave(const float* const* channels, std::uint32_t channel_count,
-                                     std::uint32_t frames, float* destination)
-    {
-        for (std::uint32_t frame = 0; frame < frames; ++frame)
-        {
-            for (std::uint32_t channel = 0; channel < channel_count; ++channel)
-            {
-                destination[static_cast<std::size_t>(frame) * channel_count + channel] =
-                    channels[channel][frame];
-            }
-        }
+        server_->clear_callback();
     }
 
     void Sdl2AudioDevice::sdl_callback(void* userdata, unsigned char* stream, int length_bytes)
     {
-        DenormalGuard denormal_guard;
         auto* self = static_cast<Sdl2AudioDevice*>(userdata);
-        auto* samples = reinterpret_cast<float*>(stream);
         const std::uint32_t frames = static_cast<std::uint32_t>(length_bytes) /
                                      (self->format_.output_channels * sizeof(float));
-        const BlockScope block_scope(self->monitor_, frames, self->format_.sample_rate);
-
-        if (!self->callback_)
-        {
-            self->counters_.no_callback.increment();
-            std::memset(stream, 0, static_cast<std::size_t>(length_bytes));
-            return;
-        }
-
-        if (self->format_.output_channels == 1)
-        {
-            float* channel_pointers[1] = {samples};
-            self->callback_(nullptr, channel_pointers, frames);
-            return;
-        }
-
-        // The deinterleaved scratch holds exactly one block, so a longer request cannot be served.
-        if (frames > self->format_.block_size)
-        {
-            self->counters_.oversize_block.note(frames);
-            std::memset(stream, 0, static_cast<std::size_t>(length_bytes));
-            return;
-        }
-
-        self->callback_(nullptr, self->output_channel_pointers_.data(), frames);
-        interleave(self->output_channel_pointers_.data(), self->format_.output_channels, frames,
-                   samples);
+        self->server_->serve(reinterpret_cast<float*>(stream), frames);
     }
 } // namespace SushiDSP

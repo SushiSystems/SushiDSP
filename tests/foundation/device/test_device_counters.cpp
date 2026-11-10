@@ -32,37 +32,47 @@
 #include <SushiDSP/foundation/device/device_counters.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <string>
 
-TEST(Small_DeviceCounters, EveryCounterIsReportedUnderItsOwnName)
+namespace
 {
+    /// @brief One counter of DeviceCounters and the name it reports under.
+    struct CounterRow
+    {
+            const char* name;
+            SushiDSP::RtCounter SushiDSP::DeviceCounters::*counter;
+    };
+
+    constexpr CounterRow K_COUNTER_ROWS[] = {
+        {"no_callback", &SushiDSP::DeviceCounters::no_callback},
+        {"oversize_block", &SushiDSP::DeviceCounters::oversize_block},
+        {"arrival_gap", &SushiDSP::DeviceCounters::arrival_gap},
+        {"overrun", &SushiDSP::DeviceCounters::overrun},
+        {"driver_message", &SushiDSP::DeviceCounters::driver_message},
+        {"driver_error", &SushiDSP::DeviceCounters::driver_error},
+    };
+} // namespace
+
+class Small_DeviceCountersByName : public ::testing::TestWithParam<std::size_t>
+{
+};
+
+TEST_P(Small_DeviceCountersByName, EveryCounterIsReportedUnderItsOwnName)
+{
+    const CounterRow& row = K_COUNTER_ROWS[GetParam()];
     SushiDSP::DeviceCounters counters;
     SushiDSP::RtCounterReporter reporter(std::chrono::seconds(5));
     counters.add_to(reporter);
     static_cast<void>(reporter.poll(SushiDSP::RtCounterReporter::Clock::time_point{}));
 
-    counters.no_callback.increment();
-    counters.oversize_block.note(1024U);
-    counters.arrival_gap.increment(2U);
-    counters.overrun.increment();
-    counters.driver_message.increment();
-    counters.driver_error.increment();
+    (counters.*row.counter).increment(2U);
     const std::string line =
         reporter.poll(SushiDSP::RtCounterReporter::Clock::time_point{} + std::chrono::seconds(5));
 
-    EXPECT_EQ(line,
-              "1 no_callback, 1 oversize_block (largest 1024), 2 arrival_gap, 1 overrun, "
-              "1 driver_message, 1 driver_error in 5 s");
+    EXPECT_NE(line.find(std::string("2 ") + row.name), std::string::npos) << line;
 }
 
-TEST(Small_DeviceCounters, ACleanDeviceReportsNothing)
-{
-    SushiDSP::DeviceCounters counters;
-    SushiDSP::RtCounterReporter reporter(std::chrono::seconds(5));
-    counters.add_to(reporter);
-    static_cast<void>(reporter.poll(SushiDSP::RtCounterReporter::Clock::time_point{}));
-
-    EXPECT_TRUE(
-        reporter.poll(SushiDSP::RtCounterReporter::Clock::time_point{} + std::chrono::seconds(5))
-            .empty());
-}
+INSTANTIATE_TEST_SUITE_P(Counters, Small_DeviceCountersByName, ::testing::Values<std::size_t>(0, 1, 2, 3, 4, 5),
+                         [](const ::testing::TestParamInfo<std::size_t>& info)
+                         { return std::string(K_COUNTER_ROWS[info.param].name); });

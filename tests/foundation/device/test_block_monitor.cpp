@@ -30,91 +30,109 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/device/block_monitor.hpp>
+#include <SushiDSP/foundation/device/in_memory_block_clock.hpp>
 
-#include <chrono>
-#include <thread>
+#include <cstdint>
 
 namespace
 {
-    /// @brief Holds a pause far longer than the 5.33 ms block period the cases below use.
-    constexpr std::chrono::milliseconds K_LONG_PAUSE{40};
-
-    /// @brief Holds frames that make one block last a whole second at 48 kHz.
-    constexpr std::uint32_t K_SECOND_OF_FRAMES = 48000;
-
     /// @brief Holds the frames of an ordinary block.
     constexpr std::uint32_t K_BLOCK = 256;
+
+    /// @brief Holds the sample rate the cases below run at.
+    constexpr double K_RATE = 48000.0;
+
+    /// @brief Holds the nanoseconds in one second.
+    constexpr std::int64_t K_NANOSECONDS = 1000000000;
+
+    /// @brief Holds the block period of K_BLOCK frames at K_RATE in nanoseconds, rounded up.
+    constexpr std::int64_t K_PERIOD_NS = (K_BLOCK * K_NANOSECONDS + 47999) / 48000;
+
+    /// @brief Holds an arrival delay of two periods, past the 1.5 period gap limit.
+    constexpr std::int64_t K_LATE_NS = 2 * K_PERIOD_NS;
+
+    /// @brief Holds a processing time of half a period.
+    constexpr std::int64_t K_HALF_PERIOD_NS = K_PERIOD_NS / 2;
 } // namespace
 
-TEST(Medium_BlockMonitor, ABlockThatArrivesMoreThanOneAndAHalfPeriodsLateIsCounted)
+TEST(Small_BlockMonitor, ABlockThatArrivesMoreThanOneAndAHalfPeriodsLateIsCounted)
 {
     SushiDSP::DeviceCounters counters;
-    SushiDSP::BlockMonitor monitor(counters);
+    SushiDSP::InMemoryBlockClock clock;
+    SushiDSP::BlockMonitor monitor(counters, clock);
 
-    monitor.begin(K_BLOCK, 48000.0);
+    monitor.begin(K_BLOCK, K_RATE);
     monitor.end();
-    std::this_thread::sleep_for(K_LONG_PAUSE);
-    monitor.begin(K_BLOCK, 48000.0);
+    clock.advance(K_LATE_NS);
+    monitor.begin(K_BLOCK, K_RATE);
     monitor.end();
 
     EXPECT_EQ(counters.arrival_gap.value(), 1U);
 }
 
-TEST(Medium_BlockMonitor, ABlockThatArrivesInsideItsPeriodCountsNoGap)
+TEST(Small_BlockMonitor, ABlockThatArrivesInsideItsPeriodCountsNoGap)
 {
     SushiDSP::DeviceCounters counters;
-    SushiDSP::BlockMonitor monitor(counters);
+    SushiDSP::InMemoryBlockClock clock;
+    SushiDSP::BlockMonitor monitor(counters, clock);
 
-    monitor.begin(K_SECOND_OF_FRAMES, 48000.0);
+    monitor.begin(K_BLOCK, K_RATE);
     monitor.end();
-    monitor.begin(K_SECOND_OF_FRAMES, 48000.0);
-    monitor.end();
-
-    EXPECT_EQ(counters.arrival_gap.value(), 0U);
-}
-
-TEST(Medium_BlockMonitor, AFirstBlockCountsNoGapWhateverItsSize)
-{
-    SushiDSP::DeviceCounters counters;
-    SushiDSP::BlockMonitor monitor(counters);
-
-    monitor.begin(K_BLOCK, 48000.0);
+    clock.advance(K_PERIOD_NS);
+    monitor.begin(K_BLOCK, K_RATE);
     monitor.end();
 
     EXPECT_EQ(counters.arrival_gap.value(), 0U);
 }
 
-TEST(Medium_BlockMonitor, AnOverrunIsCountedWhenProcessingPassesTheBlocksOwnPeriod)
+TEST(Small_BlockMonitor, AFirstBlockCountsNoGapWhateverItsSize)
 {
     SushiDSP::DeviceCounters counters;
-    SushiDSP::BlockMonitor monitor(counters);
+    SushiDSP::InMemoryBlockClock clock;
+    SushiDSP::BlockMonitor monitor(counters, clock);
+    clock.advance(K_LATE_NS);
 
-    monitor.begin(K_BLOCK, 48000.0);
-    std::this_thread::sleep_for(K_LONG_PAUSE);
+    monitor.begin(K_BLOCK, K_RATE);
+    monitor.end();
+
+    EXPECT_EQ(counters.arrival_gap.value(), 0U);
+}
+
+TEST(Small_BlockMonitor, AnOverrunIsCountedWhenProcessingPassesTheBlocksOwnPeriod)
+{
+    SushiDSP::DeviceCounters counters;
+    SushiDSP::InMemoryBlockClock clock;
+    SushiDSP::BlockMonitor monitor(counters, clock);
+
+    monitor.begin(K_BLOCK, K_RATE);
+    clock.advance(K_LATE_NS);
     monitor.end();
 
     EXPECT_EQ(counters.overrun.value(), 1U);
 }
 
-TEST(Medium_BlockMonitor, ABlockProcessedInsideItsPeriodCountsNoOverrun)
+TEST(Small_BlockMonitor, ABlockProcessedInsideItsPeriodCountsNoOverrun)
 {
     SushiDSP::DeviceCounters counters;
-    SushiDSP::BlockMonitor monitor(counters);
+    SushiDSP::InMemoryBlockClock clock;
+    SushiDSP::BlockMonitor monitor(counters, clock);
 
-    monitor.begin(K_SECOND_OF_FRAMES, 48000.0);
+    monitor.begin(K_BLOCK, K_RATE);
+    clock.advance(K_HALF_PERIOD_NS);
     monitor.end();
 
     EXPECT_EQ(counters.overrun.value(), 0U);
 }
 
-TEST(Medium_BlockMonitor, TheScopeBeginsOnConstructionAndEndsOnDestruction)
+TEST(Small_BlockMonitor, TheScopeBeginsOnConstructionAndEndsOnDestruction)
 {
     SushiDSP::DeviceCounters counters;
-    SushiDSP::BlockMonitor monitor(counters);
+    SushiDSP::InMemoryBlockClock clock;
+    SushiDSP::BlockMonitor monitor(counters, clock);
 
     {
-        const SushiDSP::BlockScope scope(monitor, K_BLOCK, 48000.0);
-        std::this_thread::sleep_for(K_LONG_PAUSE);
+        const SushiDSP::BlockScope scope(monitor, K_BLOCK, K_RATE);
+        clock.advance(K_LATE_NS);
     }
 
     EXPECT_EQ(counters.overrun.value(), 1U);

@@ -29,9 +29,8 @@
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/core/audio_device.hpp>
 #include <SushiDSP/foundation/device/device_counter_report.hpp>
-#include <SushiDSP/foundation/device/device_counters.hpp>
+#include <SushiDSP/foundation/device/in_memory_block_device.hpp>
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
 #include <chrono>
@@ -39,42 +38,27 @@
 
 namespace
 {
-    /// @brief A device that offers a counter set and does nothing else.
-    class CountingDevice final : public SushiDSP::AudioDevice
+    /// @brief Holds a stereo device of 256-frame blocks at 48 kHz.
+    constexpr SushiDSP::DeviceFormat K_FORMAT{48000.0, 256, 0, 2};
+
+    /// @brief Serves @p blocks blocks with no callback installed, so each raises no_callback.
+    void serve_unanswered_blocks(SushiDSP::InMemoryBlockDevice& device, int blocks)
     {
-        public:
-            SushiDSP::DeviceFormat format() const override
-            {
-                return SushiDSP::DeviceFormat{48000.0, 256, 0, 2};
-            }
-
-            void start(SushiDSP::DeviceCallback callback) override
-            {
-                static_cast<void>(callback);
-            }
-
-            void stop() override
-            {
-
-            }
-
-            void add_counters_to(SushiDSP::RtCounterReporter& reporter) const override
-            {
-                counters.add_to(reporter);
-            }
-
-            SushiDSP::DeviceCounters counters;
-    };
+        for (int block = 0; block < blocks; ++block)
+        {
+            static_cast<void>(device.serve(K_FORMAT.block_size));
+        }
+    }
 } // namespace
 
 TEST(Small_DeviceCounterReport, ADeviceCounterIsWrittenAsOneWarnUnderTheDeviceCategory)
 {
-    CountingDevice device;
+    SushiDSP::InMemoryBlockDevice device(K_FORMAT);
     SushiDSP::DeviceCounterReport report;
     report.add_device(device);
     const SushiDSP::RtCounterReporter::Clock::time_point start{};
     report.poll(start);
-    device.counters.overrun.increment(3U);
+    serve_unanswered_blocks(device, 3);
     SushiDSP::LogCapture capture;
 
     report.poll(start + std::chrono::seconds(5));
@@ -83,12 +67,12 @@ TEST(Small_DeviceCounterReport, ADeviceCounterIsWrittenAsOneWarnUnderTheDeviceCa
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
     EXPECT_EQ(lines[0].category, "device");
-    EXPECT_EQ(lines[0].message, "3 overrun in 5 s");
+    EXPECT_EQ(lines[0].message, "3 no_callback in 5 s");
 }
 
 TEST(Small_DeviceCounterReport, NothingMovedWritesNothing)
 {
-    CountingDevice device;
+    SushiDSP::InMemoryBlockDevice device(K_FORMAT);
     SushiDSP::DeviceCounterReport report;
     report.add_device(device);
     const SushiDSP::RtCounterReporter::Clock::time_point start{};

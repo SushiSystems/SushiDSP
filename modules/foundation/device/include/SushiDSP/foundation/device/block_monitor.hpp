@@ -30,12 +30,13 @@
 
 #pragma once
 
+#include <SushiDSP/foundation/device/block_clock.hpp>
 #include <SushiDSP/foundation/device/device_counters.hpp>
+#include <SushiDSP/foundation/device/steady_block_clock.hpp>
 #include <SushiDSP/foundation/profile/profile.hpp>
 #include <SushiDSP/foundation/profile/profile_runtime.hpp>
 #include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 
-#include <chrono>
 #include <cstdint>
 
 namespace SushiDSP
@@ -51,8 +52,15 @@ namespace SushiDSP
     class BlockMonitor final
     {
         public:
-            /// @brief Builds a monitor that raises @p counters.
-            explicit BlockMonitor(DeviceCounters& counters) noexcept : counters_(counters)
+            /// @brief Builds a monitor that raises @p counters and reads the steady clock.
+            explicit BlockMonitor(DeviceCounters& counters) noexcept : counters_(counters), clock_(owned_clock_)
+            {
+
+            }
+
+            /// @brief Builds a monitor that raises @p counters and reads @p clock, which must outlive it.
+            BlockMonitor(DeviceCounters& counters, const BlockClock& clock) noexcept
+                : counters_(counters), clock_(clock)
             {
 
             }
@@ -61,11 +69,10 @@ namespace SushiDSP
             void begin(std::uint32_t frames, double sample_rate) noexcept
             {
                 profile::register_this_thread();
-                const Clock::time_point now = Clock::now();
+                const std::int64_t now = clock_.now_nanoseconds();
                 std::uint64_t gap = 0U;
                 if (has_previous_ && period_ns_ > 0.0 &&
-                    std::chrono::duration<double, std::nano>(now - arrival_).count() >
-                        K_GAP_LIMIT * period_ns_)
+                    static_cast<double>(now - arrival_) > K_GAP_LIMIT * period_ns_)
                 {
                     gap = 1U;
                     counters_.arrival_gap.increment();
@@ -83,8 +90,7 @@ namespace SushiDSP
             {
                 std::uint64_t over = 0U;
                 if (has_previous_ && period_ns_ > 0.0 &&
-                    std::chrono::duration<double, std::nano>(Clock::now() - arrival_).count() >
-                        period_ns_)
+                    static_cast<double>(clock_.now_nanoseconds() - arrival_) > period_ns_)
                 {
                     over = 1U;
                     counters_.overrun.increment();
@@ -94,9 +100,6 @@ namespace SushiDSP
             }
 
         private:
-            /// @brief The clock the monitor reads.
-            using Clock = std::chrono::steady_clock;
-
             /// @brief The arrival gap, in block periods, past which a block counts as dropped.
             static constexpr double K_GAP_LIMIT = 1.5;
 
@@ -106,8 +109,14 @@ namespace SushiDSP
             /// @brief The counters raised.
             DeviceCounters& counters_;
 
-            /// @brief When the last block arrived.
-            Clock::time_point arrival_{};
+            /// @brief The wall clock the one-argument constructor reads.
+            SteadyBlockClock owned_clock_{};
+
+            /// @brief The clock the monitor reads.
+            const BlockClock& clock_;
+
+            /// @brief When the last block arrived, in nanoseconds of the clock.
+            std::int64_t arrival_ = 0;
 
             /// @brief The length of the last block's period, in nanoseconds.
             double period_ns_ = 0.0;

@@ -34,7 +34,19 @@ solve above says so without reference to any DkCircuit output. The assertions be
 pin the hand-computed fixed point directly, which is strictly stronger than the advisory band:
 any stamp sign error moves the operating point far further than these tolerances allow.
 
+The bands are derived, not typed. The run is 0.2 s of silence at 48 kHz (a settled bias is a DC
+solution, so the rate does not matter). Only the coupling capacitor is still moving at the end: it
+charges to the plate voltage through the pot and the plate resistor, so its current is at most
+Vp / (1 MOhm + 100 kOhm) \* exp(-0.2 s / tau) with tau = 1.1 MOhm \* 22 nF, about 64 nA. That
+current is the only imbalance at the plate, so it moves the cathode by at most 64 nA \* 2.7 kOhm
+(0.17 mV) and the plate by at most 64 nA \* 102.7 kOhm (6.6 mV). To these the band adds half a unit
+in the last printed digit of the hand solve and the solver's own stop, 1e-9 of (1 + 273 V). The
+grid check compares the solver's grid-to-cathode voltage with minus the cathode voltage minus the
+grid current across the 68 kOhm stopper, which is the same circuit read two ways.
+
 ### `DkTriodeStageNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples`
+
+This test is Large_: about one million DK solves at 384 kHz.
 
 `// The stimulus set is a sweep and three bursts at 384 kHz.`
 

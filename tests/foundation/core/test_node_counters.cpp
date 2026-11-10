@@ -30,71 +30,83 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/core/node_counters.hpp>
+#include <SushiDSP/foundation/math/dk/in_memory_dk_counters.hpp>
 
 #include <cstdint>
+#include <string>
 
 namespace
 {
-    /// @brief Declares a circuit whose statistics are fixed, and counts how often they are cleared.
-    struct FixedStatistics
+    /// @brief One clamped block: the samples it cut, and the count the counter must hold after it.
+    struct ClampRow
     {
-            std::uint64_t total_samples() const
-            {
-                return 1024;
-            }
-
-            std::uint64_t non_converged_samples() const
-            {
-                return 3;
-            }
-
-            std::uint64_t nan_fallback_samples() const
-            {
-                return 2;
-            }
-
-            std::uint32_t maximum_iterations_seen() const
-            {
-                return 6;
-            }
-
-            void reset_statistics()
-            {
-                ++resets;
-            }
-
-            int resets = 0;
+            const char* name;
+            std::uint32_t samples;
+            std::uint64_t expected;
     };
+
+    constexpr ClampRow K_CLAMP_ROWS[] = {{"TwelveSamples", 12U, 12U}, {"NoSamples", 0U, 0U}};
+
+    /// @brief Statistics of a DK circuit that ran 1024 samples, 3 not converged and 2 fallbacks.
+    SushiDSP::dk::InMemoryDkCounters make_statistics()
+    {
+        return SushiDSP::dk::InMemoryDkCounters(1024U, 3U, 6U, 2U);
+    }
 } // namespace
 
-TEST(Small_NodeCounters, AClampedBlockRaisesTheOutputCounterByItsSamples)
+class Small_NodeCountersClamp : public ::testing::TestWithParam<std::size_t>
+{
+};
+
+TEST_P(Small_NodeCountersClamp, AClampedBlockRaisesTheOutputCounterByItsSamples)
 {
     SushiDSP::NodeCounters counters;
 
-    SushiDSP::note_output_clamp(counters, 12U);
-    SushiDSP::note_output_clamp(counters, 0U);
+    SushiDSP::note_output_clamp(counters, K_CLAMP_ROWS[GetParam()].samples);
 
-    EXPECT_EQ(counters.output_clamped.value(), 12U);
+    EXPECT_EQ(counters.output_clamped.value(), K_CLAMP_ROWS[GetParam()].expected);
 }
 
-TEST(Small_NodeCounters, NewtonSolvesRaiseTheCapAndNonFiniteCounters)
+INSTANTIATE_TEST_SUITE_P(Rows, Small_NodeCountersClamp, ::testing::Values<std::size_t>(0, 1),
+                         [](const ::testing::TestParamInfo<std::size_t>& info) { return std::string(K_CLAMP_ROWS[info.param].name); });
+
+TEST(Small_NodeCounters, NewtonSolvesRaiseTheCapCounterByTheCappedSolves)
 {
     SushiDSP::NodeCounters counters;
 
     SushiDSP::note_newton_solves(counters, 500U, 4U, 1U, 4U);
 
     EXPECT_EQ(counters.newton_iteration_cap.value(), 4U);
+}
+
+TEST(Small_NodeCounters, NewtonSolvesRaiseTheNonFiniteCounterByTheNonFiniteSteps)
+{
+    SushiDSP::NodeCounters counters;
+
+    SushiDSP::note_newton_solves(counters, 500U, 4U, 1U, 4U);
+
     EXPECT_EQ(counters.newton_non_finite.value(), 1U);
 }
 
-TEST(Small_NodeCounters, ADkFlushMovesTheStatisticsIntoTheCountersAndClearsThem)
+TEST(Small_NodeCounters, ADkFlushMovesTheStatisticsIntoTheCounters)
 {
     SushiDSP::NodeCounters counters;
-    FixedStatistics circuit;
+    SushiDSP::dk::InMemoryDkCounters circuit = make_statistics();
 
     SushiDSP::flush_dk_statistics(counters, circuit);
 
     EXPECT_EQ(counters.dk_non_converged.value(), 3U);
     EXPECT_EQ(counters.dk_nan_fallback.value(), 2U);
-    EXPECT_EQ(circuit.resets, 1);
+}
+
+TEST(Small_NodeCounters, ADkFlushClearsTheStatisticsOfTheCircuit)
+{
+    SushiDSP::NodeCounters counters;
+    SushiDSP::dk::InMemoryDkCounters circuit = make_statistics();
+
+    SushiDSP::flush_dk_statistics(counters, circuit);
+
+    EXPECT_EQ(circuit.total_samples(), 0U);
+    EXPECT_EQ(circuit.non_converged_samples(), 0U);
+    EXPECT_EQ(circuit.nan_fallback_samples(), 0U);
 }

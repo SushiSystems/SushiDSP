@@ -15,11 +15,14 @@ The node and device interfaces, `RigGraph`, the real-time slots and the buffer p
 - `modules/foundation/core/include/SushiDSP/foundation/core/counter_poll_thread.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/in_memory_audio_device.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/in_memory_cabinet_host.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/in_memory_minimal_node.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/in_memory_node.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/in_memory_poll_clock.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/node_counters.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/node_descriptor.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/parameter_change.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/parameter_table.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/poll_clock.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/port_layout.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/rig_graph.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/rt_counter.hpp`
@@ -27,6 +30,7 @@ The node and device interfaces, `RigGraph`, the real-time slots and the buffer p
 - `modules/foundation/core/include/SushiDSP/foundation/core/rt_graph_slot.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/rt_swap_slot.hpp`
 - `modules/foundation/core/include/SushiDSP/foundation/core/spsc_ring.hpp`
+- `modules/foundation/core/include/SushiDSP/foundation/core/system_poll_clock.hpp`
 
 ## In-memory adapters
 
@@ -37,6 +41,8 @@ tests use in place of a stand-in of their own:
   are set by an `InMemoryNodeShape`, and an unset field answers with `AudioNode`'s default. Every
   channel it writes is its gain times its folded input plus a level, and it records what each
   call gave it into an `InMemoryNodeRecord` the caller may own, so the record outlives the node.
+- `InMemoryMinimalNode` overrides the pure virtual methods of `AudioNode` and nothing else, so a test
+  reaches the defaults `InMemoryNode` overrides, such as `set_parameter_for_audio_thread`.
 - `InMemoryAudioDevice` starts no thread; `render(blocks)` runs the callback on the caller's
   thread, with input channels at the levels `set_input_level` gave them.
 - `InMemoryCabinetHost` refuses what `CabinetHost` refuses, in the same order, and counts the
@@ -58,7 +64,8 @@ passed and a counter moved, and an empty string otherwise. The clock is an argum
 drives it without waiting. A module that owns counters writes the line as one `WARN` under its
 own category: `CoreCounterReport` does it for the graph's and the nodes' counters, and a host
 writes its own under its own. `CounterPollThread` polls a function twice a second for a host
-whose main thread blocks.
+whose main thread blocks; the wait between two polls is a `PollClock`, `SystemPollClock` by default
+and `InMemoryPollClock` in a test, which grants each period by hand.
 
 `RigGraph::counters()` counts the parameter changes dropped because their node was removed and
 the blocks longer than `block_size`, which `process()` now runs in pieces of `block_size`.

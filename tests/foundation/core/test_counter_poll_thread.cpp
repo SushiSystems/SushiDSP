@@ -23,42 +23,44 @@
 
 /**
  * @file test_counter_poll_thread.cpp
- * @brief Tests that the poll thread calls its function repeatedly and stops when destroyed.
+ * @brief Tests that the poll thread calls its function once per granted period and stops when destroyed.
  * @author Mustafa Garip
  */
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/core/counter_poll_thread.hpp>
+#include <SushiDSP/foundation/core/in_memory_poll_clock.hpp>
 
 #include <atomic>
-#include <chrono>
-#include <thread>
 
-TEST(Medium_CounterPollThread, TheFunctionIsCalledMoreThanOnceWhileTheObjectLives)
+TEST(Medium_CounterPollThread, TheFunctionIsCalledOncePerGrantedPeriod)
 {
     std::atomic<int> calls{0};
+    SushiDSP::InMemoryPollClock clock;
     {
-        SushiDSP::CounterPollThread poller([&] { calls.fetch_add(1); });
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-        while (calls.load() < 2 && std::chrono::steady_clock::now() < deadline)
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+        SushiDSP::CounterPollThread poller([&] { calls.fetch_add(1); }, clock);
 
-    EXPECT_GE(calls.load(), 2);
+        clock.wait_until_waiting(1);
+        EXPECT_EQ(calls.load(), 1);
+
+        clock.tick();
+        clock.wait_until_waiting(2);
+        EXPECT_EQ(calls.load(), 2);
+    }
 }
 
 TEST(Medium_CounterPollThread, NoCallHappensAfterTheObjectIsDestroyed)
 {
     std::atomic<int> calls{0};
+    SushiDSP::InMemoryPollClock clock;
     {
-        SushiDSP::CounterPollThread poller([&] { calls.fetch_add(1); });
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-        while (calls.load() < 1 && std::chrono::steady_clock::now() < deadline)
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        SushiDSP::CounterPollThread poller([&] { calls.fetch_add(1); }, clock);
+        clock.wait_until_waiting(1);
     }
     const int at_destruction = calls.load();
-    std::this_thread::sleep_for(std::chrono::milliseconds(700));
+    clock.tick();
 
+    EXPECT_EQ(at_destruction, 1);
     EXPECT_EQ(calls.load(), at_destruction);
 }

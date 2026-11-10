@@ -26,7 +26,9 @@
  */
 
 #include <array>
+#include <cstdint>
 #include <memory>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -62,16 +64,68 @@ namespace
         }
         return TestSupport::multi_port_source_node(SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS, widths, signal);
     }
+
+    /// @brief Compiles @p graph for one host channel and returns the message of the refusal, or an empty string.
+    std::string compile_refusal_message(SushiDSP::RigGraph& graph)
+    {
+        try
+        {
+            graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
+        }
+        catch (const std::runtime_error& refusal)
+        {
+            return refusal.what();
+        }
+        return std::string();
+    }
+
+    /// @brief Connects @p count fresh gain nodes to port 0 of @p source.
+    void connect_fan_out(SushiDSP::RigGraph& graph, SushiDSP::NodeHandle source, std::size_t count)
+    {
+        for (std::size_t edge = 0; edge < count; ++edge)
+        {
+            graph.connect(source, graph.add_node(TestSupport::gain_node(0.0f)), 0);
+        }
+    }
+
+    /// @brief Wires one recording sink to each of the first @p ports ports of @p source and joins them in two steps.
+    ///
+    /// The recorders join in two steps, because one node takes at most K_MAX_FAN_IN_OUT inputs.
+    void wire_recorders(SushiDSP::RigGraph& graph, SushiDSP::NodeHandle source,
+                        std::vector<SushiDSP::InMemoryNodeRecord>& recorders)
+    {
+        const std::uint32_t ports = static_cast<std::uint32_t>(recorders.size());
+        const auto first_join = graph.add_node(TestSupport::gain_node(0.0f));
+        const auto last_join = graph.add_node(TestSupport::gain_node(0.0f));
+        for (std::uint32_t port = 0; port < ports; ++port)
+        {
+            const auto handle = graph.add_node(TestSupport::recording_sink_node(recorders[port]));
+            graph.connect(source, handle, port);
+            graph.connect(handle, port + 1 < ports ? first_join : last_join);
+        }
+        graph.connect(first_join, last_join);
+    }
+
+    /// @brief Returns the first input sample each recorder saw.
+    std::vector<float> first_samples(const std::vector<SushiDSP::InMemoryNodeRecord>& recorders)
+    {
+        std::vector<float> samples;
+        for (const SushiDSP::InMemoryNodeRecord& record : recorders)
+        {
+            samples.push_back(record.first_input_samples[0]);
+        }
+        return samples;
+    }
+
+    /// @brief Returns 1, 2, ..., @p count.
+    std::vector<float> counting_levels(std::size_t count)
+    {
+        std::vector<float> levels(count);
+        std::iota(levels.begin(), levels.end(), 1.0f);
+        return levels;
+    }
 } // namespace
 
-
-TEST(Small_RigGraph, AudioNodeDefaultsToOneOutputPortOfItsMainWidth)
-{
-    const auto node = TestSupport::affine_node({1, 2}, 1.0f, 0.0f);
-    EXPECT_EQ(node->output_port_count(), 1u);
-    EXPECT_EQ(node->output_port_channels(0), 2u);
-    EXPECT_EQ(node->output_port_channels(1), 0u);
-}
 
 TEST(Small_RigGraph, RigGraphRoutesAnEdgeFromItsMainOutputPort)
 {
@@ -131,17 +185,10 @@ TEST(Small_RigGraph, RigGraphCompileRefusesAnEdgeFromAnUndeclaredPort)
     const auto sink = graph.add_node(TestSupport::gain_node(0.0f));
     graph.connect(source, sink, 2);
 
-    try
-    {
-        graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
-        FAIL() << "compile() accepted an edge from a port the node does not declare";
-    }
-    catch (const std::runtime_error& error)
-    {
-        const std::string message = error.what();
-        EXPECT_NE(message.find("output port 2"), std::string::npos) << message;
-        EXPECT_NE(message.find("node " + std::to_string(source)), std::string::npos) << message;
-    }
+    const std::string message = compile_refusal_message(graph);
+
+    EXPECT_NE(message.find("output port 2"), std::string::npos) << message;
+    EXPECT_NE(message.find("node " + std::to_string(source)), std::string::npos) << message;
 }
 
 TEST(Small_RigGraph, RigGraphCompileRefusesMoreOutputPortsThanTheLimit)
@@ -206,21 +253,11 @@ TEST(Small_RigGraph, RigGraphCompileRefusesABindingBeyondTheHostChannels)
 
 TEST(Small_RigGraph, RigGraphRoutesEveryPortOfANodeThatDeclaresTheLimit)
 {
-    // The recorders join in two steps, because one node takes at most K_MAX_FAN_IN_OUT inputs.
     const std::uint32_t ports = SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS;
     SushiDSP::RigGraph graph(256, 64);
     const auto source = graph.add_node(every_port_source_node());
-    const auto first_join = graph.add_node(TestSupport::gain_node(0.0f));
-    const auto last_join = graph.add_node(TestSupport::gain_node(0.0f));
-
     std::vector<SushiDSP::InMemoryNodeRecord> recorders(ports);
-    for (std::uint32_t port = 0; port < ports; ++port)
-    {
-        const auto handle = graph.add_node(TestSupport::recording_sink_node(recorders[port]));
-        graph.connect(source, handle, port);
-        graph.connect(handle, port + 1 < ports ? first_join : last_join);
-    }
-    graph.connect(first_join, last_join);
+    wire_recorders(graph, source, recorders);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
     std::vector<float> out(256, 0.0f);
@@ -228,20 +265,14 @@ TEST(Small_RigGraph, RigGraphRoutesEveryPortOfANodeThatDeclaresTheLimit)
     SushiDSP::ProcessContext context{outputs, nullptr, 256, 0.0};
     graph.process(context);
 
-    for (std::uint32_t port = 0; port < ports; ++port)
-    {
-        EXPECT_FLOAT_EQ(recorders[port].first_input_samples[0], static_cast<float>(port + 1)) << "port " << port;
-    }
+    EXPECT_EQ(first_samples(recorders), counting_levels(ports));
 }
 
 TEST(Small_RigGraph, RigGraphCountsFanOutPerOutputPort)
 {
     SushiDSP::RigGraph graph(256, 64);
     const auto source = graph.add_node(two_port_source_node(0.0f, 0.0f, 0.0f));
-    for (std::size_t edge = 0; edge < SushiDSP::RigGraph::K_MAX_FAN_IN_OUT; ++edge)
-    {
-        graph.connect(source, graph.add_node(TestSupport::gain_node(0.0f)), 0);
-    }
+    connect_fan_out(graph, source, SushiDSP::RigGraph::K_MAX_FAN_IN_OUT);
 
     const auto one_more = graph.add_node(TestSupport::gain_node(0.0f));
     EXPECT_THROW(graph.connect(source, one_more, 0), std::runtime_error);

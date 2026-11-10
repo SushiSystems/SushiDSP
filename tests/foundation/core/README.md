@@ -46,7 +46,7 @@ dereferenced (not just null-checked) by the concurrent case: a dangling-but-non-
 sails straight through a null-check, whereas reading a field of freed memory that has since been
 reused shows up as a wrong value or a crash.
 
-### `RtSwapSlotReclaimDestroysRetiredObjectsOnlyOnceAudioThreadHasMovedPast`
+### `RtSwapSlotReclaimKeepsAnObjectTheAudioThreadIsStillOn`
 
 `// Generation 1 stays alive while the thread is on it.`
 
@@ -62,19 +62,10 @@ claiming the audio thread reached it. Reading it must therefore leave reclaim()'
 moved past" bound exactly where it was - if it forged the watermark instead, reclaim() would
 free the object an audio thread is still using.
 
-`// The read alone moves nothing.`
-
-The audio thread's last recorded generation is still the second acquire above, so the first
-object is genuinely retired here. Re-read it through the publisher accessor and confirm that
-read alone did not move anything.
-
-`// Only object 1 may be freed here.`
-
-The audio thread has not acquired since generation 2 was published, so reclaim() may free
-nothing published at or after it: object 2 (still the generation the audio thread last recorded)
-and object 3 (active) must both survive. Only object 1 may go.
+### `RtSwapSlotOnlyAcquireForAudioThreadAdvancesTheWatermark`
 
 `// Only acquire_for_audio_thread() moves the watermark.`
 
 Once the audio thread does acquire, the earlier object becomes reclaimable - proving the
-watermark was still being driven by acquire_for_audio_thread() alone.
+watermark was still being driven by acquire_for_audio_thread() alone, after the publisher's read
+had moved nothing.
