@@ -61,15 +61,13 @@ namespace
     /// @brief Holds the frames a medium seam render runs for: 0.34 s. The slowest decay of the
     /// garage is 1.9 s, which leaves 10^(-6 * 0.34 / 1.9) = 8 % of the energy past the render,
     /// 0.36 dB under the figure a longer render reads. A band's mean power is the band's energy by
-    /// Parseval, so the coarser bins of 2.9 Hz do not move it.
+    /// Parseval, so the coarser bins of 2.9 Hz do not move it. The cross terms of the octave's
+    /// overlapping modes scatter per pose; see the README.
     constexpr std::uint32_t K_MEDIUM_FRAMES = 16384;
 
     /// @brief Holds the frames a large seam render runs for: 0.68 s, 10^(-6 * 0.68 / 1.9) = 0.7 %
     /// of the energy past it, 0.03 dB.
     constexpr std::uint32_t K_LARGE_FRAMES = 32768;
-
-    /// @brief Holds the poses the medium seam test averages.
-    constexpr std::size_t K_MEDIUM_POSES = 2;
 
     /// @brief Bounds how far a layer's rendered level is from the level it is designed to carry,
     /// in dB.
@@ -85,6 +83,10 @@ namespace
         {0.85, 0.15, 0.22, 0.25, 0.75, 0.60},
         {0.60, 0.88, 0.28, 0.20, 0.35, 0.70},
     }};
+
+    /// @brief Holds the poses the medium seam test averages: every pose of the table, as the large
+    /// cases do.
+    constexpr std::size_t K_MEDIUM_POSES = K_SEAM_POSES.size();
 
     /// @brief Holds one octave's rendered power and the power the design says it holds.
     struct OctavePower
