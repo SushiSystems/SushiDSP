@@ -529,19 +529,36 @@ carries a name, a transducer and a citation.
 
 ## `test_modal_bank.cpp`
 
-### `ModalBankRingsAtEachModesFrequency`
+### `RingsAtEachModesFrequency`
 
 `// A parabola through three bins places the peak.`
 
 The parabola through the three bins around the maximum places the peak between bins, which are
-0.73 Hz apart against a 0.34 Hz tolerance.
+0.73 Hz apart. The test allows 0.5 percent of the mode, 0.34 Hz, a characterised figure.
 
-### `ModalBankDecaysAtTheDampingItWasGiven`
+### `DecaysAtTheDampingItWasGiven`
 
 `// The slope between two windows is the 60 dB time.`
 
 The RMS of equal windows falls linearly in decibels along r^n; the slope between two windows
-inside the ring is the 60 dB time.
+inside the ring is the 60 dB time. Each window of 1024 frames holds about 1.5 cycles of the
+mode, so its RMS ripples by a few percent; the test allows 5 percent of the decay, a
+characterised figure.
+
+### `SourceGainScalesTheOutput`
+
+`// A source gain of 0.5 halves the render exactly.`
+
+0.5 is a power of two, so scaling the input by it commutes with every rounding of the linear
+resonator and the render halves bit for bit.
+
+### `ReadsTheLeftGainsAsTheLeftEar`
+
+`// Seven modes spill into a second lane group, so a row is summed across groups too.`
+
+Seven modes spill into a second lane group. A read-out row takes the same sum over both groups
+as the two-ear render, bit for bit; `ReadsTheRightGainsAsTheRightEar` holds the right gains and
+`ARepeatedRowEqualsTheFirst` a row given twice.
 
 ### `ProcessPerformsNoHeapAllocation`
 

@@ -129,7 +129,7 @@ signal and its mode shape at the cabinet. `ModalBank::process` takes a list of r
 row of one gain per mode and a block to add into, and advances the resonators once whatever the
 count. The source stage holds rows 0 and 1 for the listener's two ears and row `2 + m` for
 microphone `m`. A row is the same sum the bank made when it read two ears alone, in the same
-order (`ModalBankReadsEveryRowAsItReadsTheTwoEars`).
+order (`ReadsTheLeftGainsAsTheLeftEar`).
 
 **Every port carries the decoder's partition.** The listener's reflections come out of the
 decoder one partition late, 128 frames at 48 kHz, and its direct sound, tail and modal field wait
