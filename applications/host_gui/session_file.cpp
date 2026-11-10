@@ -31,8 +31,6 @@
 
 #include <cmath>
 #include <exception>
-#include <fstream>
-#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -163,10 +161,10 @@ void new_project(Session& session)
 }
 
 bool load_track_rig(Session& session, std::size_t index, const std::string& path,
-                    std::string& error_out)
+                    std::string& error_out, const SushiDSP::host::TextFiles& files)
 {
     std::string text;
-    if (index >= session.track_count() || !read_text_file(path, text, error_out))
+    if (index >= session.track_count() || !read_text_file(path, text, error_out, files))
     {
         return false;
     }
@@ -188,7 +186,7 @@ bool load_track_rig(Session& session, std::size_t index, const std::string& path
 }
 
 bool save_track_rig(Session& session, std::size_t index, const std::string& path,
-                    std::string& error_out)
+                    std::string& error_out, SushiDSP::host::TextFiles& files)
 {
     if (index >= session.track_count())
     {
@@ -208,7 +206,7 @@ bool save_track_rig(Session& session, std::size_t index, const std::string& path
                      index, path, error_out);
         return false;
     }
-    if (!write_text_file(path, text, error_out))
+    if (!write_text_file(path, text, error_out, files))
     {
         return false;
     }
@@ -216,30 +214,24 @@ bool save_track_rig(Session& session, std::size_t index, const std::string& path
     return true;
 }
 
-bool read_text_file(const std::string& path, std::string& text_out, std::string& error_out)
+bool read_text_file(const std::string& path, std::string& text_out, std::string& error_out,
+                    const SushiDSP::host::TextFiles& files)
 {
-    std::ifstream in(path, std::ios::binary);
-    if (!in)
+    if (!files.read(path, text_out, error_out))
     {
-        error_out = "Cannot open " + path + ".";
         SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY, "'{}' could not be opened for reading", path);
         return false;
     }
-    std::ostringstream buffer;
-    buffer << in.rdbuf();
-    text_out = buffer.str();
     return true;
 }
 
-bool write_text_file(const std::string& path, const std::string& text, std::string& error_out)
+bool write_text_file(const std::string& path, const std::string& text, std::string& error_out,
+                     SushiDSP::host::TextFiles& files)
 {
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    if (!out)
+    if (!files.write(path, text, error_out))
     {
-        error_out = "Cannot write " + path + ".";
         SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY, "'{}' could not be opened for writing", path);
         return false;
     }
-    out << text;
-    return static_cast<bool>(out);
+    return true;
 }

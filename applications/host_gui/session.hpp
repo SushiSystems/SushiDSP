@@ -92,9 +92,12 @@ class Session
         /// @param info The sample rate, block size and channel count every rig is prepared at.
         /// @param catalogue Resolves each rig's descriptor ids and builds its nodes; it outlives the
         /// session. The default is the node registry.
+        /// @param files Reads the takes and writes the recordings of the timeline; it outlives the
+        /// session. The default is the filesystem.
         explicit Session(const SushiDSP::PrepareInfo& info,
                          const SushiDSP::NodeCatalogue& catalogue =
-                             SushiDSP::registry_node_catalogue());
+                             SushiDSP::registry_node_catalogue(),
+                         SushiDSP::host::AudioFiles& files = SushiDSP::host::disk_audio_files());
 
         ~Session();
         Session(const Session&) = delete;

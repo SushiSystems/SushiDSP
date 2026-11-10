@@ -37,6 +37,8 @@
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/session/rig_preset/node_catalogue.hpp>
 
+#include "audio_files.hpp"
+
 /// @brief Names the file an export writes.
 enum class BounceFormat : std::uint8_t
 {
@@ -56,6 +58,9 @@ struct BounceRequest
         SushiDSP::PrepareInfo info{48000.0, 256, 2}; ///< The rate and block the session runs at.
         /// The catalogue the rigs are built on; null reads the node registry.
         const SushiDSP::NodeCatalogue* catalogue = nullptr;
+        /// The files the clips are read from and the export is written to; null reads and writes
+        /// the filesystem. It outlives the render.
+        SushiDSP::host::AudioFiles* files = nullptr;
 };
 
 /// @brief Renders a session from frame zero to the end of its last clip and its tail, into a

@@ -28,7 +28,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -37,7 +36,7 @@
 #include "session.hpp"
 #include "session_file.hpp"
 #include "support/rig_products.hpp"
-#include "support/wav_fixture.hpp"
+#include "support/rig_products_in_memory_files.hpp"
 
 namespace
 {
@@ -75,44 +74,27 @@ namespace
             }
     };
 
-    /// @brief Holds a session of the fixture's catalogue and the files a case writes, which are
-    /// removed after the case.
-    class Medium_SessionFile : public TestSupport::RigProducts
+    /// @brief Holds a session of the fixture's catalogue, whose takes and preset files live in the
+    /// fixture's in-memory files.
+    class Small_SessionFileOnFiles : public TestSupport::RigProductsInMemoryFiles
     {
         protected:
-            Medium_SessionFile() : session_(K_INFO, catalogue())
+            Small_SessionFileOnFiles() : session_(K_INFO, catalogue(), files())
             {
             }
 
-            void TearDown() override
-            {
-                for (const std::string& path : written_)
-                {
-                    std::filesystem::remove(path);
-                }
-            }
-
-            /// @brief Writes a preset file holding a rig of one delay and returns its path.
+            /// @brief Puts a preset file holding a rig of one delay in the text files and returns
+            /// its path.
             std::string write_delay_preset()
             {
                 RigController source = rig(K_INFO);
                 source.append("sushidsp.dd3");
-                const std::string text = source.save_rig_to_json();
-                const std::string path = TestSupport::write_fixture_bytes(
-                    "delay_preset.json", std::vector<std::uint8_t>(text.begin(), text.end()));
-                written_.push_back(path);
+                const std::string path = "memory/delay_preset.json";
+                text_files().add(path, source.save_rig_to_json());
                 return path;
             }
 
-            /// @brief Names a file a case will write, so that it is removed after the case.
-            std::string track_path(const std::string& name)
-            {
-                written_.push_back(TestSupport::temp_fixture_path(name));
-                return written_.back();
-            }
-
             Session session_;
-            std::vector<std::string> written_;
     };
 } // namespace
 
@@ -222,11 +204,9 @@ TEST_F(Small_SessionFile, NewProjectResetsTheStripOfTheFirstTrack)
     EXPECT_FALSE(session.strip(0).muted);
 }
 
-TEST_F(Medium_SessionFile, NewProjectClearsTheClipsOfTheFirstTrack)
+TEST_F(Small_SessionFileOnFiles, NewProjectClearsTheClipsOfTheFirstTrack)
 {
-    const std::string wav =
-        TestSupport::write_temp_float_wav("new_project.wav", std::vector<float>(4800, 0.5f), 48000);
-    written_.push_back(wav);
+    const std::string wav = add_wav("new_project.wav", std::vector<float>(4800, 0.5f), 48000);
     std::string error;
     ASSERT_TRUE(session_.timeline().place_clip(0, wav, 0, error)) << error;
     ASSERT_EQ(session_.timeline().clip_count(0), 1u);
@@ -236,80 +216,80 @@ TEST_F(Medium_SessionFile, NewProjectClearsTheClipsOfTheFirstTrack)
     EXPECT_EQ(session_.timeline().clip_count(0), 0u);
 }
 
-TEST_F(Medium_SessionFile, SavingATrackRigWritesTheRigDocumentOfThatTrack)
+TEST_F(Small_SessionFileOnFiles, SavingATrackRigWritesTheRigDocumentOfThatTrack)
 {
     std::string error;
     ASSERT_TRUE(session_.add_track(error)) << error;
     session_.rig(1).append("sushidsp.dd3");
-    const std::string path = track_path("saved_rig.json");
+    const std::string path = "memory/saved_rig.json";
 
-    ASSERT_TRUE(save_track_rig(session_, 1, path, error)) << error;
+    ASSERT_TRUE(save_track_rig(session_, 1, path, error, text_files())) << error;
 
     std::string written;
-    ASSERT_TRUE(read_text_file(path, written, error)) << error;
+    ASSERT_TRUE(read_text_file(path, written, error, text_files())) << error;
     EXPECT_EQ(written, session_.rig(1).save_rig_to_json());
 }
 
-TEST_F(Medium_SessionFile, SavingATrackRigRemembersTheFileAsItsPresetPath)
+TEST_F(Small_SessionFileOnFiles, SavingATrackRigRemembersTheFileAsItsPresetPath)
 {
     std::string error;
     ASSERT_TRUE(session_.add_track(error)) << error;
-    const std::string path = track_path("remembered_rig.json");
+    const std::string path = "memory/remembered_rig.json";
 
-    ASSERT_TRUE(save_track_rig(session_, 1, path, error)) << error;
+    ASSERT_TRUE(save_track_rig(session_, 1, path, error, text_files())) << error;
 
     EXPECT_EQ(session_.preset_path(1), path);
 }
 
-TEST_F(Medium_SessionFile, LoadingATrackRigReplacesTheRigOfThatTrack)
+TEST_F(Small_SessionFileOnFiles, LoadingATrackRigReplacesTheRigOfThatTrack)
 {
     const std::string path = write_delay_preset();
     session_.rig(0).append("sushidsp.tubescreamer");
     std::string error;
 
-    ASSERT_TRUE(load_track_rig(session_, 0, path, error)) << error;
+    ASSERT_TRUE(load_track_rig(session_, 0, path, error, text_files())) << error;
 
     ASSERT_EQ(session_.rig(0).slot_order().size(), 1u);
     EXPECT_EQ(session_.rig(0).descriptor_id(session_.rig(0).slot_order()[0]), "sushidsp.dd3");
 }
 
-TEST_F(Medium_SessionFile, LoadingATrackRigRemembersTheFileAsItsPresetPath)
+TEST_F(Small_SessionFileOnFiles, LoadingATrackRigRemembersTheFileAsItsPresetPath)
 {
     const std::string path = write_delay_preset();
     std::string error;
 
-    ASSERT_TRUE(load_track_rig(session_, 0, path, error)) << error;
+    ASSERT_TRUE(load_track_rig(session_, 0, path, error, text_files())) << error;
 
     EXPECT_EQ(session_.preset_path(0), path);
 }
 
-TEST_F(Medium_SessionFile, LoadingATrackRigMovesTheRigRevision)
+TEST_F(Small_SessionFileOnFiles, LoadingATrackRigMovesTheRigRevision)
 {
     const std::string path = write_delay_preset();
     const std::uint64_t before = session_.rig_revision();
     std::string error;
 
-    ASSERT_TRUE(load_track_rig(session_, 0, path, error)) << error;
+    ASSERT_TRUE(load_track_rig(session_, 0, path, error, text_files())) << error;
 
     EXPECT_NE(session_.rig_revision(), before);
 }
 
-TEST_F(Medium_SessionFile, LoadingATrackRigLeavesTheTrackCountAsItWas)
+TEST_F(Small_SessionFileOnFiles, LoadingATrackRigLeavesTheTrackCountAsItWas)
 {
     const std::string path = write_delay_preset();
     std::string error;
     ASSERT_TRUE(session_.add_track(error)) << error;
 
-    ASSERT_TRUE(load_track_rig(session_, 0, path, error)) << error;
+    ASSERT_TRUE(load_track_rig(session_, 0, path, error, text_files())) << error;
 
     EXPECT_EQ(session_.track_count(), 2u);
 }
 
-TEST_F(Medium_SessionFile, LoadingAMissingFileIsRefusedWithAReason)
+TEST_F(Small_SessionFileOnFiles, LoadingAMissingFileIsRefusedWithAReason)
 {
     std::string error;
 
-    EXPECT_FALSE(load_track_rig(session_, 0, track_path("missing.json"), error));
+    EXPECT_FALSE(load_track_rig(session_, 0, "memory/missing.json", error, text_files()));
 
     EXPECT_FALSE(error.empty());
 }

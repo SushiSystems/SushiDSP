@@ -33,6 +33,7 @@
 #include <string>
 
 #include "session.hpp"
+#include "text_files.hpp"
 
 /// @brief Holds the extension a project file is written with.
 inline constexpr const char* K_PROJECT_FILE_EXTENSION = ".sdproject";
@@ -53,19 +54,27 @@ void new_project(Session& session);
 
 /// @brief Loads a rig preset file into a track's rig and remembers the path. The track's lane is
 /// left as it is.
+/// @param files Reads the preset file; the filesystem by default.
 /// @return False, with the reason, when the file cannot be read or the rig refuses it.
 bool load_track_rig(Session& session, std::size_t index, const std::string& path,
-                    std::string& error_out);
+                    std::string& error_out,
+                    const SushiDSP::host::TextFiles& files = SushiDSP::host::disk_text_files());
 
 /// @brief Writes a track's rig to a preset file and remembers the path.
+/// @param files Writes the preset file; the filesystem by default.
 /// @return False, with the reason, when the rig does not serialize or the file cannot be written.
 bool save_track_rig(Session& session, std::size_t index, const std::string& path,
-                    std::string& error_out);
+                    std::string& error_out,
+                    SushiDSP::host::TextFiles& files = SushiDSP::host::disk_text_files());
 
-/// @brief Reads a whole text file.
+/// @brief Reads a whole text file through a port and logs the refusal.
+/// @param files The port; the filesystem by default.
 /// @return False, with the reason, when the file cannot be opened.
-bool read_text_file(const std::string& path, std::string& text_out, std::string& error_out);
+bool read_text_file(const std::string& path, std::string& text_out, std::string& error_out,
+                    const SushiDSP::host::TextFiles& files = SushiDSP::host::disk_text_files());
 
-/// @brief Writes a whole text file, replacing what is there.
+/// @brief Writes a whole text file through a port, replacing what is there, and logs the refusal.
+/// @param files The port; the filesystem by default.
 /// @return False, with the reason, when the file cannot be opened for writing.
-bool write_text_file(const std::string& path, const std::string& text, std::string& error_out);
+bool write_text_file(const std::string& path, const std::string& text, std::string& error_out,
+                     SushiDSP::host::TextFiles& files = SushiDSP::host::disk_text_files());

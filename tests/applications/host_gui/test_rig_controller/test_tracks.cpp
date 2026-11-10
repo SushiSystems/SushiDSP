@@ -37,14 +37,15 @@
 #include <gtest/gtest.h>
 
 #include "rig_controller.hpp"
-#include "support/rig_products.hpp"
+#include "support/rig_products_in_memory_files.hpp"
 #include "support/wav_fixture.hpp"
 #include <SushiDSP/nodes/capture/transport.hpp>
 
 namespace
 {
-    /// @brief Holds the rigs the track tests build, on the catalogue of the fixture.
-    class Medium_RigControllerTracks : public TestSupport::RigProducts
+    /// @brief Holds the rigs the track tests build, on the catalogue and the in-memory files of the
+    /// fixture.
+    class Small_RigControllerTracks : public TestSupport::RigProductsInMemoryFiles
     {
     };
 
@@ -123,10 +124,10 @@ namespace
     }
 } // namespace
 
-TEST_F(Medium_RigControllerTracks, NamesALoadedTrackAfterItsFile)
+TEST_F(Small_RigControllerTracks, NamesALoadedTrackAfterItsFile)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
 
     std::string error;
@@ -137,7 +138,7 @@ TEST_F(Medium_RigControllerTracks, NamesALoadedTrackAfterItsFile)
     EXPECT_EQ(controller.track_path(0), path);
 }
 
-TEST_F(Medium_RigControllerTracks, RefusesATrackFileItCannotRead)
+TEST_F(Small_RigControllerTracks, RefusesATrackFileItCannotRead)
 {
     RigController controller = rig({48000.0, 64, 2});
 
@@ -148,10 +149,10 @@ TEST_F(Medium_RigControllerTracks, RefusesATrackFileItCannotRead)
     EXPECT_FALSE(error.empty());
 }
 
-TEST_F(Medium_RigControllerTracks, ClearingATrackEmptiesItsNameAndPath)
+TEST_F(Small_RigControllerTracks, ClearingATrackEmptiesItsNameAndPath)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     std::string error;
     ASSERT_TRUE(controller.load_track(1, path, error)) << error;
@@ -163,10 +164,10 @@ TEST_F(Medium_RigControllerTracks, ClearingATrackEmptiesItsNameAndPath)
     EXPECT_EQ(controller.track_path(1), "");
 }
 
-TEST_F(Medium_RigControllerTracks, SendsALoadedTrackToTheReampLeg)
+TEST_F(Small_RigControllerTracks, SendsALoadedTrackToTheReampLeg)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     std::string error;
     ASSERT_TRUE(controller.load_track(2, path, error)) << error;
@@ -187,10 +188,10 @@ TEST_F(Small_RigControllerReamp, RefusesToReampAnEmptyTrack)
     EXPECT_FALSE(controller.reamp_track().has_value());
 }
 
-TEST_F(Medium_RigControllerTracks, DropsTheReampLegWhenItsTrackIsCleared)
+TEST_F(Small_RigControllerTracks, DropsTheReampLegWhenItsTrackIsCleared)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     std::string error;
     ASSERT_TRUE(controller.load_track(0, path, error)) << error;
@@ -201,11 +202,11 @@ TEST_F(Medium_RigControllerTracks, DropsTheReampLegWhenItsTrackIsCleared)
     EXPECT_FALSE(controller.reamp_track().has_value());
 }
 
-TEST_F(Medium_RigControllerTracks, ReampLegAddsTheTakeIntoAnEmptyInputBuffer)
+TEST_F(Small_RigControllerTracks, ReampLegAddsTheTakeIntoAnEmptyInputBuffer)
 {
     const std::uint32_t block = 64;
     const std::vector<float> signal = TestSupport::make_test_signal(block);
-    const std::string path = TestSupport::write_temp_float_wav("track.wav", signal, 48000);
+    const std::string path = add_wav("track.wav", signal, 48000);
     RigController controller = rig({48000.0, block, 2});
     std::string error;
     ASSERT_TRUE(controller.load_track(0, path, error)) << error;
@@ -220,10 +221,10 @@ TEST_F(Medium_RigControllerTracks, ReampLegAddsTheTakeIntoAnEmptyInputBuffer)
     TestSupport::expect_same_signal(assembled, signal);
 }
 
-TEST_F(Medium_RigControllerTracks, PresetCarriesTheTrackNameAndPath)
+TEST_F(Small_RigControllerTracks, PresetCarriesTheTrackNameAndPath)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController source = rig({48000.0, 64, 2});
     const std::string saved = save_rig_with_one_track(source, path);
     RigController target = rig({48000.0, 64, 2});
@@ -235,10 +236,10 @@ TEST_F(Medium_RigControllerTracks, PresetCarriesTheTrackNameAndPath)
     EXPECT_EQ(target.track_path(0), path);
 }
 
-TEST_F(Medium_RigControllerTracks, PresetCarriesTheTrackMixerState)
+TEST_F(Small_RigControllerTracks, PresetCarriesTheTrackMixerState)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController source = rig({48000.0, 64, 2});
     const std::string saved = save_rig_with_one_track(source, path);
     RigController target = rig({48000.0, 64, 2});
@@ -250,10 +251,10 @@ TEST_F(Medium_RigControllerTracks, PresetCarriesTheTrackMixerState)
     EXPECT_TRUE(target.player().muted(0));
 }
 
-TEST_F(Medium_RigControllerTracks, PresetCarriesTheLoopRange)
+TEST_F(Small_RigControllerTracks, PresetCarriesTheLoopRange)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController source = rig({48000.0, 64, 2});
     const std::string saved = save_rig_with_one_track(source, path);
     RigController target = rig({48000.0, 64, 2});
@@ -265,10 +266,10 @@ TEST_F(Medium_RigControllerTracks, PresetCarriesTheLoopRange)
     EXPECT_EQ(target.transport().loop_end_frames(), 9600u);
 }
 
-TEST_F(Medium_RigControllerTracks, PresetCarriesTheTakeFolder)
+TEST_F(Small_RigControllerTracks, PresetCarriesTheTakeFolder)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController source = rig({48000.0, 64, 2});
     const std::string saved = save_rig_with_one_track(source, path);
     RigController target = rig({48000.0, 64, 2});
@@ -278,10 +279,10 @@ TEST_F(Medium_RigControllerTracks, PresetCarriesTheTakeFolder)
     EXPECT_EQ(target.take_folder(), "D:/takes");
 }
 
-TEST_F(Medium_RigControllerTracks, PresetWithNoTrackKeyLoadsWithAnEmptyTrackList)
+TEST_F(Small_RigControllerTracks, PresetWithNoTrackKeyLoadsWithAnEmptyTrackList)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     std::string error;
     ASSERT_TRUE(controller.load_track(0, path, error)) << error;
@@ -301,10 +302,10 @@ TEST_F(Small_RigControllerReamp, PresetWithNoLoopKeyLoadsWithNoLoop)
     EXPECT_FALSE(controller.transport().has_loop());
 }
 
-TEST_F(Medium_RigControllerTracks, PresetBringsItsOwnMixerStateOverASession)
+TEST_F(Small_RigControllerTracks, PresetBringsItsOwnMixerStateOverASession)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("track.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("track.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     std::string error;
     ASSERT_TRUE(controller.load_track(0, path, error)) << error;
@@ -321,14 +322,14 @@ TEST_F(Medium_RigControllerTracks, PresetBringsItsOwnMixerStateOverASession)
     EXPECT_FALSE(controller.player().soloed(0));
 }
 
-TEST_F(Medium_RigControllerTracks, ReampingADryTakeReproducesTheRigsOwnOutput)
+TEST_F(Small_RigControllerTracks, ReampingADryTakeReproducesTheRigsOwnOutput)
 {
     const std::uint32_t block = 64;
     const std::vector<float> dry = TestSupport::make_test_signal(block * 8);
     RigController live = rig({48000.0, block, 1});
     live.append("sushidsp.tubescreamer");
     const std::vector<float> processed = render_through_rig(live, dry, block);
-    const std::string take_path = TestSupport::write_temp_float_wav("dry.wav", dry, 48000);
+    const std::string take_path = add_wav("dry.wav", dry, 48000);
     RigController reamp = rig({48000.0, block, 1});
     reamp.append("sushidsp.tubescreamer");
     std::string error;

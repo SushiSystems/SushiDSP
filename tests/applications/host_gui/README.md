@@ -31,9 +31,21 @@ The tests of the rig controller sit in the folder `test_rig_controller/`, one fi
 `test_clips.cpp`, `test_room.cpp` and `test_logging.cpp`. The timeline cases are in
 `test_session_timeline.cpp` and the selection cases in `test_slot_selection.cpp`. Every rig is built
 on `tests/support/rig_products.hpp`, a fixture whose catalogue lists the products the cases name, so
-no case reaches the process-wide node registry. The WAV writers are in
-`tests/support/wav_fixture.hpp`.
+no case reaches the process-wide node registry. The cases that load a take, place a clip or write a
+preset file build their rigs and sessions on `tests/support/rig_products_in_memory_files.hpp`, which
+adds the in-memory adapters of the audio file port and the text file port. The WAV writers of the
+cases that still read a real file are in `tests/support/wav_fixture.hpp`.
 
+## `test_audio_files.cpp` and `test_text_files.cpp`
+
+The contract of the `AudioFiles` port (`applications/host_gui/audio_files.hpp`) and of the `TextFiles`
+port (`applications/host_gui/text_files.hpp`). Each promise is one `expect_*` helper that takes the port,
+run once on the in-memory adapter as `Small_AudioFilesContract` or `Small_TextFilesContract` and once on
+the disk adapter as `Medium_AudioFilesContract` or `Medium_TextFilesContract`, in a file named after the
+case. The cases the contract cannot state, such as refusing a path or an unreadable file, are in
+`Small_InMemoryAudioFiles` and `Small_InMemoryTextFiles`. The expected samples are exact: 0.5, 0.25 and
+0.125 are dyadic, and the 16-bit file holds a sample as lround(x * 32767) / 32768, which is 16384, 8192
+and 32767 over 32768 for 0.5, 0.25 and a clamped 2.0.
 ## `test_rig_controller/test_chain.cpp`
 
 ### `BatchedEditsBuildASplitterTwoBranchMixerShapeThatDoublesABlock`
@@ -93,14 +105,17 @@ show.
 ## `test_rig_controller/test_cabinet.cpp`
 
 The cabinet cases write a 64-sample impulse-response WAV into the test temporary folder, so the file
-is `Medium_`. They stay `Medium_` until set_cabinet reads its file through a port.
+is `Medium_`. They stay `Medium_` until set_cabinet reads its file through the `AudioFiles` port:
+`SlotGraph::set_cabinet` calls `IrLoader::load` itself, and `slot_graph.*` is not part of this job.
 
 ## `test_rig_controller/test_tracks.cpp` and `test_rig_controller/test_clips.cpp`
 
-The cases write float32 WAV takes into the test temporary folder and stay `Medium_` until load_track,
-place_clip and the recorder read and write through a port. The re-amp leg runs at unity gain and
-speed, so it copies each float32 sample of a take into the zeroed input, and the cases compare
-bit for bit.
+The takes are float32 files of the in-memory `AudioFiles` adapter, so the track cases and the clip
+cases are `Small_RigControllerTracks` and `Small_RigControllerClips`. The two recording cases are
+`Medium_RigControllerClipsRecording`: a recorder drains its rings on a writer thread, which a
+`Small_` case may not start, so they check the boundary of the recorder, into the in-memory files.
+The re-amp leg runs at unity gain and speed, so it copies each float32 sample of a take into the
+zeroed input, and the cases compare bit for bit.
 
 ### `ReAmpsARecordedTakeFromTheBarItWasRecordedAt`
 
@@ -206,13 +221,14 @@ brings it to 0.25.
 ## `test_session_file.cpp`
 
 A float crosses the project document as its double, which parses back to the same float, so the
-strip level and balance compare exactly. The preset file cases write into the test temporary folder
-and stay `Medium_` until `read_text_file` and `write_text_file` go through a port.
+strip level and balance compare exactly. The preset file cases and the case that places a clip run on
+the in-memory adapters of the text file port and the audio file port, as `Small_SessionFileOnFiles`.
 
 ## `test_session_bounce.cpp`
 
 The clip is a constant of 0.5 and the track's fader is -6.0206 dB, so the exported sample is 0.5
-times 10^(-6.0206 / 20) to within three roundings, as in the strip cases. The clip is 4800 frames,
+times 10^(-6.0206 / 20) to within three roundings, as in the strip cases. The clip and the export are
+files of the in-memory audio file adapter, so the cases are `Small_SessionBounce`. The clip is 4800 frames,
 which is 75 blocks of 64, so block 75 is the first silent one. The tail ends after
 floor(0.5 * 48000 / 64) + 1 = 376 silent blocks, so the file holds 4800 + 376 * 64 frames, exactly.
 The test target compiles `session_bounce.cpp` without `SUSHIDSP_HAVE_LAME`, so an MP3 request is

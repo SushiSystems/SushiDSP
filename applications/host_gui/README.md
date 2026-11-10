@@ -17,6 +17,8 @@ code in this directory does.
 | The tracks: up to eight, each a lane of the timeline with a rig and a strip of its own | `Session` |
 | One block of the session, for the device and for the export alike | `SessionRenderer` |
 | The project file, a new project, and one track's rig preset | `session_file.hpp` |
+| Reading takes, recording into a file and deleting a lane's files | `AudioFiles`: `DiskAudioFiles`, `InMemoryAudioFiles` |
+| Reading and writing the project and preset text files | `TextFiles`: `DiskTextFiles`, `InMemoryTextFiles` |
 | The mix rendered offline into a WAV or an MP3 | `SessionBounce`, `Mp3Encoder` |
 | The chain shape, one linear run, or a split into two or three branches | `RigTopology` |
 | Compiling a chain type into slots and edges | `TopologyApplier` |
@@ -211,6 +213,22 @@ leaves nothing that could be mistaken for a finished entry.
 The entry name reads the source's size and write time through the `SourceStatReader` port of
 `source_stat.hpp`. The cache reads the filesystem unless it is given a reader, and a test gives it an
 `InMemorySourceStatReader`.
+
+### `audio_files.hpp` and `text_files.hpp`
+
+`AudioFiles` is the port to the session's audio files: `read` returns a take, `writer_opener` hands a
+recorder or the export the opener of a 16-bit or a 32-bit float WAV, and `remove` deletes a file.
+`SessionTimeline` and `Session` take it as a reference that outlives them, and `SessionBounce` takes
+it through `BounceRequest::files`; each defaults to `DiskAudioFiles`, which wraps `Take::load`,
+`WavWriter` and the filesystem. `InMemoryAudioFiles` keeps the files in memory, writes the 16-bit
+value a WAV file of that encoding stores, and is what a test gives a session so that `load_track`,
+`place_clip`, the recorders and the export touch no file. `SlotGraph::set_cabinet` still reads its
+impulse response through `IrLoader::load` and does not go through the port.
+
+`TextFiles` is the port to the project file and a track's preset file. `read_text_file`,
+`write_text_file`, `load_track_rig` and `save_track_rig` take it as a last argument that defaults to
+`DiskTextFiles`; `InMemoryTextFiles` is the adapter a test gives them. The refusal is logged by the
+free function, so both adapters report it the same way.
 
 ### `audio_import_queue.hpp`
 

@@ -35,11 +35,9 @@
 #include <algorithm>
 #include <cmath>
 #include <exception>
-#include <filesystem>
 #include <iterator>
 #include <memory>
 #include <set>
-#include <system_error>
 #include <utility>
 
 namespace
@@ -51,9 +49,13 @@ namespace
     };
 } // namespace
 
-SessionTimeline::SessionTimeline(const SushiDSP::PrepareInfo& info)
-    : recording_bus_(std::max(1u, info.channels), info.sample_rate), tracks_(K_MAX_TRACKS),
-      metronome_(info.sample_rate)
+SessionTimeline::SessionTimeline(const SushiDSP::PrepareInfo& info,
+                                 SushiDSP::host::AudioFiles& files)
+    : files_(files), recording_bus_(std::max(1u, info.channels), info.sample_rate,
+                                    SushiDSP::RecordingBus::K_RING_CAPACITY_FRAMES,
+                                    SushiDSP::RecordingBus::K_RING_CAPACITY_FRAMES,
+                                    files.writer_opener()),
+      tracks_(K_MAX_TRACKS), metronome_(info.sample_rate)
 {
     for (std::size_t index = 0; index < tracks_.size(); ++index)
     {
@@ -78,7 +80,7 @@ std::unique_ptr<SushiDSP::Take> SessionTimeline::load_take(const std::string& pa
     error_out.clear();
     try
     {
-        return std::make_unique<SushiDSP::Take>(SushiDSP::Take::load(path));
+        return std::make_unique<SushiDSP::Take>(files_.read(path));
     }
     catch (const std::exception& error)
     {
@@ -496,14 +498,13 @@ bool SessionTimeline::remove_track_and_files(std::size_t index, std::string& err
     bool deleted = true;
     for (const std::string& path : files)
     {
-        std::error_code code;
-        std::filesystem::remove(std::filesystem::u8path(path), code);
-        if (code)
+        const std::string refusal = files_.remove(path);
+        if (!refusal.empty())
         {
             deleted = false;
             if (error_out.empty())
             {
-                error_out = "could not delete '" + path + "': " + code.message();
+                error_out = "could not delete '" + path + "': " + refusal;
             }
         }
     }

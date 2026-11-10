@@ -44,6 +44,7 @@
 #include <SushiDSP/nodes/capture/track_timeline.hpp>
 #include <SushiDSP/nodes/capture/transport.hpp>
 #include <SushiDSP/foundation/core/audio_node.hpp>
+#include "audio_files.hpp"
 
 /// @brief Owns the host's arrangement - the playback lanes, their clips, the re-amp leg, the
 /// tempo and the take recorders - and keeps the audible players in step with it. App-local
@@ -69,7 +70,12 @@ class SessionTimeline
         /// @brief Caps how many lanes the arrangement carries, which is what the player mixes.
         static constexpr std::size_t K_MAX_TRACKS = SushiDSP::TrackPlayer::K_MAX_TRACKS;
 
-        explicit SessionTimeline(const SushiDSP::PrepareInfo& info);
+        /// @param info The sample rate, block size and channel count the timeline is prepared at.
+        /// @param files Reads the takes and writes the recordings; it outlives the timeline. The
+        /// default is the filesystem.
+        explicit SessionTimeline(
+            const SushiDSP::PrepareInfo& info,
+            SushiDSP::host::AudioFiles& files = SushiDSP::host::disk_audio_files());
 
         /// @brief Reports how many playback lanes the arrangement carries.
         std::size_t track_count() const noexcept
@@ -395,9 +401,10 @@ class SessionTimeline
         /// @param path Filesystem path to the WAV file.
         /// @param error_out Receives the failure message when the load fails.
         /// @return The take, or nullptr on failure.
-        static std::unique_ptr<SushiDSP::Take> load_take(const std::string& path,
-                                                         std::string& error_out);
+        std::unique_ptr<SushiDSP::Take> load_take(const std::string& path, std::string& error_out);
 
+        /// @brief Reads the takes, writes the recordings and deletes the files of a removed lane.
+        SushiDSP::host::AudioFiles& files_;
         SushiDSP::Transport transport_;
         SushiDSP::TrackPlayer player_;
         SushiDSP::TrackPlayer reamp_player_;

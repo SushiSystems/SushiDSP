@@ -37,6 +37,7 @@
 #include <utility>
 #include <vector>
 
+#include <SushiDSP/foundation/io/audio_file_writer.hpp>
 #include <SushiDSP/foundation/io/wav_writer.hpp>
 #include <SushiDSP/foundation/log/log.hpp>
 #include "host_gui_log_category.hpp"
@@ -132,9 +133,12 @@ std::string SessionBounce::render(const BounceRequest& request, std::atomic<floa
 {
     try
     {
-        Session session(request.info, request.catalogue != nullptr
-                                          ? *request.catalogue
-                                          : SushiDSP::registry_node_catalogue());
+        SushiDSP::host::AudioFiles& files =
+            request.files != nullptr ? *request.files : SushiDSP::host::disk_audio_files();
+        Session session(request.info,
+                        request.catalogue != nullptr ? *request.catalogue
+                                                     : SushiDSP::registry_node_catalogue(),
+                        files);
         if (!request.hrtf_path.empty())
         {
             std::string ignored;
@@ -160,7 +164,7 @@ std::string SessionBounce::render(const BounceRequest& request, std::atomic<floa
         const auto tail_limit = static_cast<std::uint64_t>(
             SessionBounce::K_MAX_TAIL_SECONDS * request.info.sample_rate);
 
-        std::unique_ptr<SushiDSP::WavWriter> wav;
+        std::unique_ptr<SushiDSP::AudioFileWriter> wav;
 #if defined(SUSHIDSP_HAVE_LAME)
         std::unique_ptr<SushiDSP::host::Mp3Encoder> mp3;
         if (request.format == BounceFormat::Mp3)
@@ -177,10 +181,10 @@ std::string SessionBounce::render(const BounceRequest& request, std::atomic<floa
         }
 #endif
         {
-            wav = std::make_unique<SushiDSP::WavWriter>(
-                request.path, request.info.sample_rate, SessionRenderer::K_CHANNELS,
-                request.format == BounceFormat::Wav16 ? SushiDSP::WavWriter::Format::Pcm16
-                                                      : SushiDSP::WavWriter::Format::Float32);
+            wav = files.writer_opener(request.format == BounceFormat::Wav16
+                                          ? SushiDSP::WavWriter::Format::Pcm16
+                                          : SushiDSP::WavWriter::Format::Float32)(
+                request.path, request.info.sample_rate, SessionRenderer::K_CHANNELS);
         }
 
         SessionRenderer renderer;

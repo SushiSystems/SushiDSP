@@ -38,14 +38,21 @@
 #include <nlohmann/json.hpp>
 
 #include "rig_controller.hpp"
-#include "support/rig_products.hpp"
+#include "support/rig_products_in_memory_files.hpp"
 #include "support/wav_fixture.hpp"
 #include <SushiDSP/nodes/capture/transport.hpp>
 
 namespace
 {
-    /// @brief Holds the rigs the clip tests build, on the catalogue of the fixture.
-    class Medium_RigControllerClips : public TestSupport::RigProducts
+    /// @brief Holds the rigs the clip tests build, on the catalogue and the in-memory files of the
+    /// fixture.
+    class Small_RigControllerClips : public TestSupport::RigProductsInMemoryFiles
+    {
+    };
+
+    /// @brief Holds the rigs of the recording tests: a recorder drains its rings on a writer
+    /// thread, so these cases are the boundary of the recorder, into the in-memory files.
+    class Medium_RigControllerClipsRecording : public TestSupport::RigProductsInMemoryFiles
     {
     };
 
@@ -103,10 +110,10 @@ namespace
     }
 } // namespace
 
-TEST_F(Medium_RigControllerClips, PlacesAClipAtTheFrameAsked)
+TEST_F(Small_RigControllerClips, PlacesAClipAtTheFrameAsked)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
 
     std::string error;
@@ -121,10 +128,10 @@ TEST_F(Medium_RigControllerClips, PlacesAClipAtTheFrameAsked)
     EXPECT_EQ(controller.track_name(1), TestSupport::path_stem_of(path));
 }
 
-TEST_F(Medium_RigControllerClips, RefusesAFileThatWillNotParseWithAReason)
+TEST_F(Small_RigControllerClips, RefusesAFileThatWillNotParseWithAReason)
 {
-    const std::string path = TestSupport::write_fixture_bytes(
-        "not_a_wav.wav", std::vector<std::uint8_t>{'t', 'h', 'i', 's'});
+    const std::string path = "memory/not_a_wav.wav";
+    files().add_unreadable(path);
     RigController controller = rig({48000.0, 64, 2});
 
     std::string error;
@@ -135,10 +142,10 @@ TEST_F(Medium_RigControllerClips, RefusesAFileThatWillNotParseWithAReason)
     EXPECT_FALSE(controller.track_is_loaded(0));
 }
 
-TEST_F(Medium_RigControllerClips, RefusesAClipPastTheLaneLimit)
+TEST_F(Small_RigControllerClips, RefusesAClipPastTheLaneLimit)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     const std::size_t limit = SushiDSP::TrackTimeline::K_MAX_CLIPS;
     ASSERT_EQ(place_clips_every_512_frames(controller, 0, path, limit), limit);
@@ -150,10 +157,10 @@ TEST_F(Medium_RigControllerClips, RefusesAClipPastTheLaneLimit)
     EXPECT_EQ(controller.clip_count(0), limit);
 }
 
-TEST_F(Medium_RigControllerClips, PlacesTwoClipsFromOneFileWithOneTakeInMemory)
+TEST_F(Small_RigControllerClips, PlacesTwoClipsFromOneFileWithOneTakeInMemory)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
 
     std::string error;
@@ -164,10 +171,10 @@ TEST_F(Medium_RigControllerClips, PlacesTwoClipsFromOneFileWithOneTakeInMemory)
     EXPECT_EQ(controller.player().takes().size(), 1u);
 }
 
-TEST_F(Medium_RigControllerClips, RefusesAClipThatOverlapsOneTheLaneHolds)
+TEST_F(Small_RigControllerClips, RefusesAClipThatOverlapsOneTheLaneHolds)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     std::string error;
     ASSERT_TRUE(controller.place_clip(0, path, 1000, error)) << error;
@@ -179,10 +186,10 @@ TEST_F(Medium_RigControllerClips, RefusesAClipThatOverlapsOneTheLaneHolds)
     EXPECT_EQ(controller.clip(0, 0).start_frame, 1000u);
 }
 
-TEST_F(Medium_RigControllerClips, MovingAClipKeepsTheLaneSortedByStartFrame)
+TEST_F(Small_RigControllerClips, MovingAClipKeepsTheLaneSortedByStartFrame)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     std::string error;
     ASSERT_TRUE(controller.place_clip(0, path, 0, error)) << error;
@@ -194,10 +201,10 @@ TEST_F(Medium_RigControllerClips, MovingAClipKeepsTheLaneSortedByStartFrame)
     EXPECT_EQ(controller.clip(0, 1).start_frame, 5000u);
 }
 
-TEST_F(Medium_RigControllerClips, RefusesToMoveAClipOntoAnother)
+TEST_F(Small_RigControllerClips, RefusesToMoveAClipOntoAnother)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     std::string error;
     ASSERT_TRUE(controller.place_clip(0, path, 1000, error)) << error;
@@ -209,10 +216,10 @@ TEST_F(Medium_RigControllerClips, RefusesToMoveAClipOntoAnother)
     EXPECT_EQ(controller.clip(0, 1).start_frame, 5000u);
 }
 
-TEST_F(Medium_RigControllerClips, RemovingAClipLeavesTheOthersInOrder)
+TEST_F(Small_RigControllerClips, RemovingAClipLeavesTheOthersInOrder)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("clip.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     std::string error;
     ASSERT_TRUE(controller.place_clip(0, path, 1000, error)) << error;
@@ -224,10 +231,10 @@ TEST_F(Medium_RigControllerClips, RemovingAClipLeavesTheOthersInOrder)
     EXPECT_EQ(controller.clip(0, 0).start_frame, 5000u);
 }
 
-TEST_F(Medium_RigControllerClips, StopsARecordingIntoAClipAtTheArmedFrame)
+TEST_F(Medium_RigControllerClipsRecording, StopsARecordingIntoAClipAtTheArmedFrame)
 {
     RigController controller = rig({48000.0, 64, 2});
-    controller.set_take_folder(::testing::TempDir());
+    controller.set_take_folder("takes");
     controller.set_record_track(2);
     controller.transport().seek(12345);
     std::string error;
@@ -244,11 +251,11 @@ TEST_F(Medium_RigControllerClips, StopsARecordingIntoAClipAtTheArmedFrame)
     EXPECT_NE(controller.clip(2, 0).path.find("-dry.wav"), std::string::npos);
 }
 
-TEST_F(Medium_RigControllerClips, ReAmpsARecordedTakeFromTheBarItWasRecordedAt)
+TEST_F(Medium_RigControllerClipsRecording, ReAmpsARecordedTakeFromTheBarItWasRecordedAt)
 {
     const std::uint32_t block = 64;
     RigController controller = rig({48000.0, block, 2});
-    controller.set_take_folder(::testing::TempDir());
+    controller.set_take_folder("takes");
     controller.set_record_track(0);
     // Bar 5 at 120 bpm in 4/4 and 48 kHz is 4 bars of 2 s: 8 s, 384000 frames.
     const std::uint64_t bar_five = controller.musical_clock().frame_of(5, 1);
@@ -277,12 +284,12 @@ TEST_F(Medium_RigControllerClips, ReAmpsARecordedTakeFromTheBarItWasRecordedAt)
     EXPECT_EQ(assembled[1], -0.25f);
 }
 
-TEST_F(Medium_RigControllerClips, RoundTripsTheClipsOfTwoLanesThroughJson)
+TEST_F(Small_RigControllerClips, RoundTripsTheClipsOfTwoLanesThroughJson)
 {
     const std::string first =
-        TestSupport::write_temp_float_wav("clip_a.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("clip_a.wav", TestSupport::make_test_signal(256), 48000);
     const std::string second =
-        TestSupport::write_temp_float_wav("clip_b.wav", TestSupport::make_test_signal(128), 48000);
+        add_wav("clip_b.wav", TestSupport::make_test_signal(128), 48000);
     RigController source = rig({48000.0, 64, 2});
     source.append("sushidsp.tubescreamer");
     std::string error;
@@ -305,10 +312,10 @@ TEST_F(Medium_RigControllerClips, RoundTripsTheClipsOfTwoLanesThroughJson)
     EXPECT_EQ(target.track_name(3), "lead");
 }
 
-TEST_F(Medium_RigControllerClips, SavingALoadedPresetWritesTheSameText)
+TEST_F(Small_RigControllerClips, SavingALoadedPresetWritesTheSameText)
 {
     const std::string first =
-        TestSupport::write_temp_float_wav("clip_a.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("clip_a.wav", TestSupport::make_test_signal(256), 48000);
     RigController source = rig({48000.0, 64, 2});
     source.append("sushidsp.tubescreamer");
     std::string error;
@@ -321,7 +328,7 @@ TEST_F(Medium_RigControllerClips, SavingALoadedPresetWritesTheSameText)
     EXPECT_EQ(target.save_to_json(), saved);
 }
 
-TEST_F(Medium_RigControllerClips, RoundTripsTheTempoAndTheMeterThroughJson)
+TEST_F(Small_RigControllerClips, RoundTripsTheTempoAndTheMeterThroughJson)
 {
     RigController source = rig({48000.0, 64, 2});
     source.append("sushidsp.tubescreamer");
@@ -336,7 +343,7 @@ TEST_F(Medium_RigControllerClips, RoundTripsTheTempoAndTheMeterThroughJson)
     EXPECT_EQ(target.musical_clock().beat_unit(), 8u);
 }
 
-TEST_F(Medium_RigControllerClips, RoundTripsTheMetronomeThroughJson)
+TEST_F(Small_RigControllerClips, RoundTripsTheMetronomeThroughJson)
 {
     RigController source = rig({48000.0, 64, 2});
     source.append("sushidsp.tubescreamer");
@@ -350,10 +357,10 @@ TEST_F(Medium_RigControllerClips, RoundTripsTheMetronomeThroughJson)
     EXPECT_EQ(target.metronome().level(), 0.25f);
 }
 
-TEST_F(Medium_RigControllerClips, LoadsAPreDtTrackRowAsOneClipAtFrameZero)
+TEST_F(Small_RigControllerClips, LoadsAPreDtTrackRowAsOneClipAtFrameZero)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("legacy.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("legacy.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
 
     controller.load_from_json(pre_dt_preset(path));
@@ -365,10 +372,10 @@ TEST_F(Medium_RigControllerClips, LoadsAPreDtTrackRowAsOneClipAtFrameZero)
     EXPECT_EQ(controller.clip(2, 0).length_frames, 256u);
 }
 
-TEST_F(Medium_RigControllerClips, LoadsAPreDtTrackRowWithItsNameAndGain)
+TEST_F(Small_RigControllerClips, LoadsAPreDtTrackRowWithItsNameAndGain)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("legacy.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("legacy.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
 
     controller.load_from_json(pre_dt_preset(path));
@@ -377,10 +384,10 @@ TEST_F(Medium_RigControllerClips, LoadsAPreDtTrackRowWithItsNameAndGain)
     EXPECT_EQ(controller.player().gain(2), 0.5f);
 }
 
-TEST_F(Medium_RigControllerClips, LoadingAPreDtPresetResetsTheTempoToOneTwentyBpmInFourFour)
+TEST_F(Small_RigControllerClips, LoadingAPreDtPresetResetsTheTempoToOneTwentyBpmInFourFour)
 {
     const std::string path =
-        TestSupport::write_temp_float_wav("legacy.wav", TestSupport::make_test_signal(256), 48000);
+        add_wav("legacy.wav", TestSupport::make_test_signal(256), 48000);
     RigController controller = rig({48000.0, 64, 2});
     controller.musical_clock().set_tempo(90.0);
     controller.musical_clock().set_meter(3, 8);

@@ -29,19 +29,18 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/io/wav_file.hpp>
+#include <SushiDSP/nodes/capture/take.hpp>
 #include "session.hpp"
 #include "session_bounce.hpp"
 #include "session_file.hpp"
 #include "support/rig_products.hpp"
+#include "support/rig_products_in_memory_files.hpp"
 #include "support/tolerance.hpp"
-#include "support/wav_fixture.hpp"
 
 namespace
 {
@@ -64,33 +63,35 @@ namespace
     /// is 375 blocks of 64, and the tail ends on the block after them.
     constexpr std::size_t K_TAIL_FRAMES = 376 * K_BLOCK;
 
-    /// @brief Builds sessions on the catalogue of the fixture and removes the files a case writes.
-    class SessionBounceCase : public TestSupport::RigProducts
+    /// @brief Reads a take back as one vector of samples per channel.
+    std::vector<std::vector<float>> channels_of(const SushiDSP::Take& take)
+    {
+        std::vector<std::vector<float>> channels;
+        for (std::uint32_t channel = 0; channel < take.channels(); ++channel)
+        {
+            channels.emplace_back(take.channel(channel), take.channel(channel) + take.frames());
+        }
+        return channels;
+    }
+
+    /// @brief Builds sessions on the catalogue of the fixture; the clip and the export live in its
+    /// in-memory files.
+    class SessionBounceCase : public TestSupport::RigProductsInMemoryFiles
     {
         protected:
-            void TearDown() override
-            {
-                for (const std::string& path : written_)
-                {
-                    std::filesystem::remove(path);
-                }
-            }
-
-            /// @brief Names a file a case writes, so that it is removed after the case.
+            /// @brief Names a file a case writes.
             std::string track_path(const std::string& name)
             {
-                written_.push_back(TestSupport::temp_fixture_path(name));
-                return written_.back();
+                return "memory/" + name;
             }
 
             /// @brief Builds the request that exports the one-clip session to @p path.
             /// @param format The file's kind.
             BounceRequest request_for_the_clip(const std::string& path, BounceFormat format)
             {
-                const std::string wav = TestSupport::write_temp_float_wav(
+                const std::string wav = add_wav(
                     "bounce_source.wav", std::vector<float>(K_CLIP_FRAMES, K_CLIP_LEVEL), 48000);
-                written_.push_back(wav);
-                Session session(K_INFO, catalogue());
+                Session session(K_INFO, catalogue(), files());
                 std::string error;
                 session.timeline().place_clip(0, wav, 0, error);
                 TrackStrip strip;
@@ -103,6 +104,7 @@ namespace
                 request.format = format;
                 request.info = K_INFO;
                 request.catalogue = &catalogue();
+                request.files = &files();
                 return request;
             }
 
@@ -112,14 +114,11 @@ namespace
             {
                 const std::string path = track_path("bounce_out.wav");
                 SessionBounce::render(request_for_the_clip(path, BounceFormat::Wav32Float), nullptr);
-                return SushiDSP::WavFile::load_channels(path);
+                return channels_of(files().read(path));
             }
-
-        private:
-            std::vector<std::string> written_;
     };
 
-    class Medium_SessionBounce : public SessionBounceCase
+    class Small_SessionBounce : public SessionBounceCase
     {
     };
 
@@ -130,7 +129,7 @@ namespace
 } // namespace
 
 // The strip alone scales the constant clip; the three roundings are derived in the README.
-TEST_F(Medium_SessionBounce, TheExportCarriesTheClipThroughTheStripGainOnBothChannels)
+TEST_F(Small_SessionBounce, TheExportCarriesTheClipThroughTheStripGainOnBothChannels)
 {
     const std::vector<std::vector<float>> channels = bounce_the_clip();
 
@@ -144,7 +143,7 @@ TEST_F(Medium_SessionBounce, TheExportCarriesTheClipThroughTheStripGainOnBothCha
 }
 
 // The length of the tail is derived in the README: 376 silent blocks of 64 frames.
-TEST_F(Medium_SessionBounce, TheExportEndsHalfASecondOfSilenceAfterTheClip)
+TEST_F(Small_SessionBounce, TheExportEndsHalfASecondOfSilenceAfterTheClip)
 {
     const std::vector<std::vector<float>> channels = bounce_the_clip();
 
@@ -153,7 +152,7 @@ TEST_F(Medium_SessionBounce, TheExportEndsHalfASecondOfSilenceAfterTheClip)
     EXPECT_EQ(channels[1].size(), K_CLIP_FRAMES + K_TAIL_FRAMES);
 }
 
-TEST_F(Medium_SessionBounce, TheExportIsSilentAfterTheClip)
+TEST_F(Small_SessionBounce, TheExportIsSilentAfterTheClip)
 {
     const std::vector<std::vector<float>> channels = bounce_the_clip();
 
@@ -164,7 +163,7 @@ TEST_F(Medium_SessionBounce, TheExportIsSilentAfterTheClip)
 }
 
 // The test target compiles session_bounce.cpp without SUSHIDSP_HAVE_LAME, so an MP3 is refused.
-TEST_F(Medium_SessionBounce, AnMp3RequestIsRefusedWhenTheBuildHasNoEncoder)
+TEST_F(Small_SessionBounce, AnMp3RequestIsRefusedWhenTheBuildHasNoEncoder)
 {
     const BounceRequest request =
         request_for_the_clip(track_path("bounce_out.mp3"), BounceFormat::Mp3);
