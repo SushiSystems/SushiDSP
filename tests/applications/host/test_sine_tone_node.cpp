@@ -27,78 +27,73 @@
  * @author Mustafa Garip
  */
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <numeric>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "sine_tone_node.hpp"
 
+namespace
+{
+    constexpr double K_SAMPLE_RATE = 48000.0;
+
+    /// Runs one block of the node through a one-channel context and returns the samples.
+    std::vector<float> render_block(SushiDSP::SineToneNode& node, std::uint32_t frames)
+    {
+        std::vector<float> output_buffer(frames, 0.0f);
+        float* output_channels[1] = {output_buffer.data()};
+        SushiDSP::ProcessContext context{output_channels, nullptr, frames, 0.0};
+        node.process(context);
+        return output_buffer;
+    }
+
+    /// Counts the places where the sign of consecutive samples changes, zero counting as not negative.
+    std::ptrdiff_t count_sign_changes(const std::vector<float>& samples)
+    {
+        return std::inner_product(samples.begin() + 1, samples.end(), samples.begin(), std::ptrdiff_t{0},
+                                  std::plus<std::ptrdiff_t>(),
+                                  [](float next, float previous) { return (previous < 0.0f) != (next < 0.0f) ? 1 : 0; });
+    }
+} // namespace
+
 TEST(Small_SineToneNode, SineToneNodeOutputStaysWithinUnitRange)
 {
     SushiDSP::SineToneNode node(440.0f);
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    node.prepare(info);
+    node.prepare(SushiDSP::PrepareInfo{K_SAMPLE_RATE, 256, 1});
 
-    std::vector<float> output_buffer(256, 0.0f);
-    float* output_channels[1] = {output_buffer.data()};
-    SushiDSP::ProcessContext context{output_channels, nullptr, 256, 0.0};
+    const std::vector<float> samples = render_block(node, 256);
 
-    node.process(context);
-
-    for (float sample : output_buffer)
-    {
-        EXPECT_LE(std::abs(sample), 1.0f);
-    }
+    // The double sine never exceeds one, and narrowing to float keeps one as the largest value.
+    EXPECT_TRUE(std::all_of(samples.begin(), samples.end(), [](float sample) { return std::abs(sample) <= 1.0f; }));
 }
 
 TEST(Small_SineToneNode, SineToneNodeProducesExpectedFrequency)
 {
-    constexpr double sample_rate = 48000.0;
     constexpr float frequency = 1000.0f;
+    constexpr std::uint32_t frames = 480;
     SushiDSP::SineToneNode node(frequency);
-    SushiDSP::PrepareInfo info{sample_rate, 480, 1};
-    node.prepare(info);
+    node.prepare(SushiDSP::PrepareInfo{K_SAMPLE_RATE, frames, 1});
 
-    std::vector<float> output_buffer(480, 0.0f);
-    float* output_channels[1] = {output_buffer.data()};
-    SushiDSP::ProcessContext context{output_channels, nullptr, 480, 0.0};
+    const std::vector<float> samples = render_block(node, frames);
 
-    node.process(context);
-
-    int zero_crossings = 0;
-    for (std::size_t i = 1; i < output_buffer.size(); ++i)
-    {
-        if ((output_buffer[i - 1] < 0.0f) != (output_buffer[i] < 0.0f))
-        {
-            ++zero_crossings;
-        }
-    }
-
-    const double expected_crossings = 2.0 * frequency * (480.0 / sample_rate);
-    EXPECT_NEAR(zero_crossings, expected_crossings, 2.0);
+    // Ten whole periods cross zero every 24 frames, at frames 24 to 456, which is 19 crossings.
+    constexpr std::ptrdiff_t expected_crossings = 19;
+    EXPECT_EQ(count_sign_changes(samples), expected_crossings);
 }
 
 TEST(Small_SineToneNode, SineToneNodeResetRestartsPhaseFromZero)
 {
     SushiDSP::SineToneNode node(440.0f);
-    SushiDSP::PrepareInfo info{48000.0, 8, 1};
-    node.prepare(info);
+    node.prepare(SushiDSP::PrepareInfo{K_SAMPLE_RATE, 8, 1});
 
-    std::vector<float> first_buffer(8, 0.0f);
-    float* first_channels[1] = {first_buffer.data()};
-    SushiDSP::ProcessContext first_context{first_channels, nullptr, 8, 0.0};
-    node.process(first_context);
-
+    const std::vector<float> first = render_block(node, 8);
     node.reset();
+    const std::vector<float> second = render_block(node, 8);
 
-    std::vector<float> second_buffer(8, 0.0f);
-    float* second_channels[1] = {second_buffer.data()};
-    SushiDSP::ProcessContext second_context{second_channels, nullptr, 8, 0.0};
-    node.process(second_context);
-
-    for (std::size_t i = 0; i < first_buffer.size(); ++i)
-    {
-        EXPECT_NEAR(first_buffer[i], second_buffer[i], 1e-5f);
-    }
+    // The phase restarts at the same double, so the same operations give the same bits.
+    EXPECT_EQ(first, second);
 }
