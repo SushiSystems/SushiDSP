@@ -16,37 +16,41 @@ sits ahead of the driver, the phase inverter and the output tubes, which is wher
 compression is. At this setting the two shelves read 9.90 dB and 9.90 dB against their 10 dB
 target.
 
-### `K_SPECTRUM_BLOCKS`
+### `K_SETTLE_SAMPLES`
 
-`// measure::thd() needs at least 65536 samples.`
+measure::thd() windows an FFT of `K_FFT_SIZE` points at the end of the signal, so each THD
+render is the 16384-sample settle (three times the 21-block startup transient, rounded to a power
+of two; characterized) followed by one window.
 
-measure::thd() windows a 65536-point FFT at the end of the signal, so anything handed to it must
-be at least that long or its offset underflows: 300 blocks of 256 frames is 76 800 samples.
-
-### `Peavey5150DescriptorExposesNineParametersInContractOrder`
+### `Peavey5150DescriptorListsTheParametersInContractOrder`
 
 `// The index order is the contract of hosts and presets.`
 
 The index order is the contract a host and a saved preset address these by, so it is pinned here
-rather than merely checked for membership.
+rather than merely checked for membership. The id, the display name and the port layout are not
+asserted here: the registry test builds the node by id and reads its ports. The indexed set and
+the by-name round trip share one table, and an index of 99 changes no parameter.
 
-### `Peavey5150ToneChangeDoesNotRebuildFiltersOffTheAudioThread`
+### `Peavey5150ToneChangeReachesTheSameSettledLevelAsAFreshNode`
 
-`// The control thread stores a target and nothing else.`
+`// The control thread stores a target and the audio thread walks to it.`
 
-The control-thread call stores a target and nothing else: the coefficients the audio thread last
-built are still the old ones, which is exactly what "dirty" reports.
+The control-thread call stores a target and nothing else; the audio thread rebuilds the
+coefficients itself. The test sets Low to 1.0 through the control-thread route after 40 blocks
+and compares the settled peak, 120 blocks later, with a node that had Low at 1.0 from the start.
+The two agree within `K_TONE_CHANGE_BAND_DB` (0.5 dB, characterized): the sag stage carries a
+different history in the two runs.
 
-### `Peavey5150IsDcStableAcrossManyBlocksAtHighGain`
+### `Medium_Peavey5150Settled`
 
 `// A stuck operating point shows as a drifting offset.`
 
-Every knob at both extremes, 200 blocks of a DC-offset drive each: the output must stay finite
-throughout and the settled DC term must stay below -40 dBFS. A cascade of eight grid-conduction
+Every knob at both extremes, one row each, 200 blocks of a DC-offset drive: the output must stay
+finite throughout and the settled DC term must stay below -40 dBFS (`K_RESIDUAL_DC_BOUND`, 0.01). A cascade of eight grid-conduction
 solvers around a feedback-derived resonance shelf is where a stuck operating point would show
 up, and it would show up as a drifting offset rather than as a NaN.
 
-### `Peavey5150ThdDoesNotFallAsPreGainRises`
+### `Medium_Peavey5150Thd`
 
 `// The sweep starts at 0.02, where the knob passes signal.`
 
@@ -60,6 +64,11 @@ amplifier and the reading there is the FFT's floor on denormals, not distortion.
 
 Measured 2026-09-07 on the volt-true power stage: 24.20, 25.97, 26.26, 26.51, 26.37, 26.28,
 26.32, 27.09, 27.25 percent; the largest fall is 0.22 pp from 0.30 to 0.40.
+
+One row per neighbouring pair of the sweep, each rendering the 16384-sample settle and one FFT
+window at a bin-exact 220 Hz. `Peavey5150ThdAtMaximumPreGainIsSaturated` holds the top of the
+knob above 3 % (`K_SATURATED_THD_FLOOR_PERCENT`), so the sweep cannot pass on near-zero
+readings.
 
 ### `Peavey5150EvenHarmonicsRiseFromLowToFullPreGain`
 
@@ -80,7 +89,7 @@ quiet point moved with the taper and the drive it stands for did not.
 `// The gate is a factor of 2 against a measured 3.18.`
 
 Measured 2026-09-07 on the volt-true power stage: 0.04113 at pre gain 0.4776 against 0.13064 at
-1.0, a factor of 3.18. The gate is a factor of 2. On the Shockley-knee chain the same two drive
+1.0, a factor of 3.18. The gate is a factor of 2 (`K_EVEN_HARMONIC_RISE_FACTOR`, characterized). On the Shockley-knee chain the same two drive
 levels read 0.00865 against 0.09843, a factor of 11.4, and the gate was 4; the Norman grid law
 and the real-volt power tubes leave far less of the output square, so the two points sit closer
 together.
@@ -93,14 +102,16 @@ output-side measure cannot do is attribute it, which is why this test is named f
 points it compares. modules/nodes/peavey5150/README.md, "The cold clipper's asymmetry", carries
 the sweep.
 
-### `Peavey5150GridProbesReportEveryStageInSignalOrder`
+### The grid probe tests
 
 `// The probe hooks are pinned, not their figures.`
 
-The two test hooks the plate-swing spec added, shaped the way
-Jcm800GridProbesReportEveryStageInSignalOrder is: spec section 4 asks for the readings to be
-recorded rather than asserted, so this pins the hooks and not the figures. Eight stages in
-signal order - V1A, V1B, V2A, V2B, V5B, V5A, V3A and the phase inverter.
+The two test hooks the plate-swing spec added, one promise per test, shaped the way the
+Jcm800 probe tests are: spec section 4 asks for the readings to be recorded rather than
+asserted, so these pin the hooks and not the figures. Eight stages - V1A, V1B, V2A, V2B, V5B,
+V5A, V3A and the phase inverter - read zero at rest, read above zero after audio, answer 0 for an
+index past the last, and read zero again after `reset()`. Nothing asserts a signal order, so the
+names do not promise one.
 
 ### `Peavey5150PresenceAtMaximumLiftsTwoKilohertzByTenDecibels`
 
@@ -109,7 +120,9 @@ signal order - V1A, V1B, V2A, V2B, V5B, V5A, V3A and the phase inverter.
 Dossier section 6, quoting Peavey's own specification table: "Active Presence: +10 dB 2 kHz".
 The shelf's corner sits at 600 Hz so its plateau has arrived by 2 kHz; the comment beside
 K_PRESENCE_HZ in peavey5150.cpp carries why. Read on the small-signal path for the reason above
-small_signal_node(); measured 2026-09-07: 3.32 dB flat, 13.22 dB full, a 9.90 dB lift.
+small_signal_node(); measured 2026-09-07: 3.32 dB flat, 13.22 dB full, a 9.90 dB lift. The
+test holds the lift to 10 dB within 1 dB (`K_SHELF_LIFT_DB`, `K_SHELF_LIFT_BAND_DB`; the band is
+characterized).
 
 ### `Peavey5150ResonanceAtMaximumLiftsTheLowEndByTenDecibels`
 
@@ -126,8 +139,8 @@ small_signal_node(); measured 2026-09-07: -7.83 dB flat, 2.07 dB full, a 9.90 dB
 `// The output stays in [-1, 1] and reaches the rail.`
 
 A plain clamp is what bounds the output, so driving pre gain, post gain and output to their
-ceilings must still leave every sample inside [-1, 1] - and must actually reach the rail, or the
-test would be proving only that the amp has headroom.
+ceilings must leave the peak at exactly 1.0f: the clamp bounds it and the drive reaches it. A
+peak below 1.0f would prove only that the amp has headroom.
 
 ### `Peavey5150DefaultSettingsPeakNearMinusSixDbfsForAMinusTwelveDbfsInput`
 
@@ -135,8 +148,9 @@ test would be proving only that the amp has headroom.
 
 The shipped calibration point, and the measurement that pins K_POST_GAIN_UNITY_GAIN: a -12 dBFS 82
 Hz sine into an untouched amp comes back out at about -6 dBFS, the frequency all four amplifiers
-pin at (DA5 spec section 6). At 1 kHz, where this constant was pinned before, the resonance
-shelf's lift below 330 Hz put the low E on the output clamp.
+pin at (DA5 spec section 6). The window is 1 dB either way (`K_CALIBRATION_BAND_DB`,
+characterized). At 1 kHz the resonance shelf's lift below 330 Hz would put the low E on the
+output clamp, which is why the calibration sits at 82 Hz.
 
 `// The first blocks hold the startup transient.`
 
@@ -152,7 +166,7 @@ reach a setting the amplifier does not square. The 5150 asserts that at Peavey's
 lead input and no louder: -80 dBV is 1e-4 V RMS, so 1.4142e-4 V peak, which against
 K_FULL_SCALE_VOLTS 2.0 is an amplitude of 7.071e-5 full scale, -83.01 dBFS. A 20 mV guitar sits 46
 dB above the nominal the manufacturer prints for this channel, so the -40 dBFS figure is
-measured and printed but not asserted.
+not asserted. The ceiling is 5 % (`K_CLEAN_END_THD_CEILING_PERCENT`, characterized).
 
 The knob is read at 0.02, the lowest position this test uses. pre_gain_attenuation() is an
 exponential audio taper, exactly zero only at the bottom of VR2's travel, so 0.0 mutes the
@@ -160,7 +174,7 @@ amplifier and the THD there is the FFT's own floor on denormals rather than dist
 Positions between pass signal - 0.02 gives 0.00115 - so 0.02 is a choice, not a threshold.
 
 Measured 2026-09-07 on the Norman grid law, the solved inverter bias and the audio taper: 0.499
-% at the nominal input, and 21.73 % at -40 dBFS. At -40 dBFS the amplifier squares from V5A on.
+% at the nominal input, and 21.73 % at -40 dBFS, the level the old version only printed. At -40 dBFS the amplifier squares from V5A on.
 modules/nodes/peavey5150/README.md, "The clean end", carries the table.
 
 ### `Peavey5150DryLatencyIsOneOversampledRegion`

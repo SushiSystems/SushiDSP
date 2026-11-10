@@ -317,7 +317,7 @@ controls they sit next to, because a saved preset addresses parameters by index.
   of −0.0506 (−25.9 dBFS) while `OutputTransformerStage` ran its tanh after its own low-frequency
   rolloff and the rectification the tanh introduced was never blocked. Since DA5 part 3 the
   stage's secondary carries no mean, as a real secondary winding does, and the same setting reads
-  −0.00009 (−80.7 dBFS, 2026-09-07); `MesaMark2cIsDcStableAcrossManyBlocksAtHighGain` bounds it at
+  −0.00009 (−80.7 dBFS, 2026-09-07); `Medium_MesaMark2cSettled` bounds it at
   the −40 dBFS an ideal transformer gives and checks that it has stopped moving.
 
 ## Every constant that is not read off the schematic

@@ -283,7 +283,7 @@ Measured 2026-09-07 at 220 Hz, 0.02 amplitude:
 
 Measured on the Norman grid law, the audio taper and the volt-true power stage; the largest fall is
 0.22 pp from 0.30 to 0.40, and
-`Peavey5150ThdDoesNotFallAsPreGainRises` passes at 1.0 pp. That easing is what the tolerance is
+`Medium_Peavey5150Thd` passes at 1.0 pp. That easing is what the tolerance is
 for: past the point where the phase inverter clips, the stages ahead of it square into a wave whose
 harmonics fall off faster.
 
