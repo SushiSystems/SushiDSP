@@ -67,17 +67,18 @@ first difference stays under the largest one the same render produces with the k
 
 ## `test_output.cpp`
 
-The source carried this line above both `TubeScreamerGoldenFile48k` and
-`TubeScreamerGoldenFile96k`: "Expected red until Task 8 re-pins against the DK chain at 4x - see
-the D6c plan." `modules/foundation/golden_compare/README.md` lists a tube_screamer pin by D6c Task 8 dated
-2026-09-07, so the note is out of date for both cases. Neither case was run for this page;
-`sd test --label medium` shows whether they are green.
+### `TubeScreamerGoldenFileMatchesAtEachRate`
+
+The 48 kHz and 96 kHz renders are one row each. Each must match its golden file to
+`K_GOLDEN_RESIDUAL_BOUND_DB` (-80 dB, characterized: the golden is the code's own output, so
+the bound covers only last-bit differences between builds). `modules/foundation/golden_compare/README.md`
+lists the tube_screamer pin. A missing or short file reads 0 dB and fails.
 
 ### `TubeScreamerAliasFloorDoesNotRegress`
 
 `// The floor is the measured -18.6 dB with 1 dB of slack.`
 
-A regression floor, not the spec's 30 dB improvement target. -18.6 dB on the D6c DK chain, 9.0
+A regression floor, not the spec's 30 dB improvement target (`K_ALIAS_FLOOR_BOUND_DB`, characterized). -18.6 dB on the D6c DK chain, 9.0
 dB better than D6a's -9.6 dB and 20 dB short of the -38.3 dB C1 asked for. C1 says to report the
 number and loosen nothing, so this stays a floor at the measured value with 1 dB of slack.
 

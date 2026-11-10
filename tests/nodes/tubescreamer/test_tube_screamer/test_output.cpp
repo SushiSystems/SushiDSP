@@ -21,83 +21,81 @@
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
 
+
 /**
  * @file test_output.cpp
- * @brief Tests the TubeScreamer node against its golden files.
+ * @brief Tests the TubeScreamer node against its golden files and its alias-floor regression floor.
  * @author Mustafa Garip
  */
 
-// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
-#define _USE_MATH_DEFINES
-
-#include <algorithm>
-#include <cmath>
+#include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <SushiDSP/foundation/regression_test/regression_test.hpp>
 
-#include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
+#include <SushiDSP/foundation/core/calibration.hpp>
 #include <SushiDSP/foundation/golden_compare/golden_file.hpp>
 #include <SushiDSP/foundation/signal_measure/alias_floor.hpp>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <SushiDSP/foundation/signal_measure/render.hpp>
+#include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 
 namespace
 {
+    constexpr std::uint32_t K_BLOCK = 256u;
+
+    /// @brief The residual, in dB against the golden file, a render may reach.
+    /// Characterized: the golden is the code's own output, so the bound only has to cover the
+    /// last-bit differences between builds that the clipping chain amplifies; -80 dB is the
+    /// bound the golden tests of every node use. A missing or short file reads 0 dB and fails.
+    constexpr double K_GOLDEN_RESIDUAL_BOUND_DB = -80.0;
+
+    /// @brief The alias floor the pedal may not exceed at drive 1, in dB. Characterized: the
+    /// measured floor is -18.6 dB (README) with 1 dB of slack.
+    constexpr double K_ALIAS_FLOOR_BOUND_DB = -17.6;
+
+    /// @brief Names a golden file and the rate it was rendered at.
+    struct GoldenRow
+    {
+            const char* file;
+            double sample_rate;
+    };
+
+    const GoldenRow K_GOLDEN_ROWS[] = {{"tube_screamer_48k", 48000.0}, {"tube_screamer_96k", 96000.0}};
+
+    /// @brief Renders one second of the pedal at the knob positions the snapshot pins.
+    ///
+    /// Every knob is set before the render prepares the node, so the smoothers snap and the file
+    /// holds the settled pedal.
+    /// @param sample_rate Rate to render at.
+    /// @return sample_rate samples of output.
     std::vector<float> render_tube_screamer(double sample_rate)
     {
         SushiDSP::TubeScreamer node;
-        // Knobs before prepare(): the smoothers snap, so the file holds the settled pedal.
         node.set_drive(0.6f);
         node.set_tone(0.4f);
-        node.set_level(
-            SushiDSP::gain_to_decibels(0.8f / SushiDSP::TubeScreamer::K_LEVEL_UNITY_GAIN));
-        node.prepare({sample_rate, 256, 1});
-        const auto input = SushiDSP::golden::stimulus(sample_rate);
-        std::vector<float> output(input.size(), 0.0f);
-        for (std::size_t position = 0; position < input.size(); position += 256)
-        {
-            const std::uint32_t frames =
-                static_cast<std::uint32_t>(std::min<std::size_t>(256, input.size() - position));
-            const float* inputs[1] = {input.data() + position};
-            float* outputs[1] = {output.data() + position};
-            SushiDSP::ProcessContext context{outputs, inputs, frames, 0.0};
-            node.process(context);
-        }
-        return output;
+        node.set_level(SushiDSP::gain_to_decibels(0.8f / SushiDSP::TubeScreamer::K_LEVEL_UNITY_GAIN));
+        return SushiDSP::measure::render(node, SushiDSP::golden::stimulus(sample_rate), sample_rate, K_BLOCK);
     }
 } // namespace
 
-/// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
+/// @brief Tests that the render at each rate matches its golden file within the bound.
 /// @see tests/nodes/tubescreamer/test_tube_screamer/README.md
-SUSHIDSP_REGRESSION_TEST(Medium_TubeScreamer, TubeScreamerGoldenFile48k)
+TEST(Medium_TubeScreamer, TubeScreamerGoldenFileMatchesAtEachRate)
 {
-    EXPECT_LE(
-        SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "tube_screamer_48k", render_tube_screamer(48000.0)),
-        -80.0);
+    for (const GoldenRow& row : K_GOLDEN_ROWS)
+    {
+        EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, row.file, render_tube_screamer(row.sample_rate)),
+                  K_GOLDEN_RESIDUAL_BOUND_DB)
+            << row.file;
+    }
 }
 
-/// @brief Tests that the 96 kHz render matches its golden file within -80 dB.
-/// @see tests/nodes/tubescreamer/test_tube_screamer/README.md
-SUSHIDSP_REGRESSION_TEST(Medium_TubeScreamer, TubeScreamerGoldenFile96k)
-{
-    EXPECT_LE(
-        SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "tube_screamer_96k", render_tube_screamer(96000.0)),
-        -80.0);
-}
-
-SUSHIDSP_REGRESSION_TEST(Medium_TubeScreamer, TubeScreamerAliasFloorDoesNotRegress)
+TEST(Medium_TubeScreamer, TubeScreamerAliasFloorDoesNotRegress)
 {
     // The floor is the measured -18.6 dB with 1 dB of slack. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     SushiDSP::TubeScreamer node;
     node.set_drive(1.0f);
     node.set_tone(0.5f);
-    const double floor = SushiDSP::measure::alias_floor(node, 48000.0);
-    std::printf("[ measure ] TubeScreamer alias floor %.1f dB\n", floor);
-    EXPECT_LE(floor, -17.6);
+    EXPECT_LE(SushiDSP::measure::alias_floor(node, 48000.0), K_ALIAS_FLOOR_BOUND_DB);
 }
