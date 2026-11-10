@@ -27,7 +27,10 @@
  * @author Mustafa Garip
  */
 
-#include <atomic>
+#include <cstddef>
+#include <functional>
+#include <numeric>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -35,18 +38,58 @@
 
 #include <SushiDSP/foundation/core/spsc_ring.hpp>
 
-TEST(Medium_SpscRing, SpscRingPushThenPopReturnsSameValue)
+namespace
 {
-    SushiDSP::SpscRing<int> ring(4);
+    /// @brief Holds how many values a first-in first-out row pushes and pops.
+    struct CountRow
+    {
+            const char* name;
+            int count;
+    };
 
-    ASSERT_TRUE(ring.push(42));
+    const CountRow kCounts[] = {{"OneValue", 1}, {"ThreeValues", 3}, {"UpToCapacity", 4}};
 
-    int value = 0;
-    ASSERT_TRUE(ring.pop(value));
-    EXPECT_EQ(value, 42);
-}
+    /// @brief Returns 0, 1, ... count - 1.
+    std::vector<int> sequence(int count)
+    {
+        std::vector<int> values(static_cast<std::size_t>(count));
+        std::iota(values.begin(), values.end(), 0);
+        return values;
+    }
 
-TEST(Medium_SpscRing, SpscRingPopOnEmptyReturnsFalse)
+    /// @brief Pushes every value of @p values into @p ring, yielding while it is full.
+    void push_all(SushiDSP::SpscRing<int>& ring, const std::vector<int>& values)
+    {
+        for (const int value : values)
+        {
+            while (!ring.push(value))
+            {
+                std::this_thread::yield();
+            }
+        }
+    }
+
+    /// @brief Pops @p count values from @p ring in order, yielding while it is empty.
+    std::vector<int> pop_all(SushiDSP::SpscRing<int>& ring, int count)
+    {
+        std::vector<int> popped;
+        int value = 0;
+        while (static_cast<int>(popped.size()) < count)
+        {
+            if (ring.pop(value))
+            {
+                popped.push_back(value);
+            }
+            else
+            {
+                std::this_thread::yield();
+            }
+        }
+        return popped;
+    }
+} // namespace
+
+TEST(Small_SpscRing, SpscRingPopOnEmptyReturnsFalse)
 {
     SushiDSP::SpscRing<int> ring(4);
 
@@ -54,7 +97,7 @@ TEST(Medium_SpscRing, SpscRingPopOnEmptyReturnsFalse)
     EXPECT_FALSE(ring.pop(value));
 }
 
-TEST(Medium_SpscRing, SpscRingPushBeyondCapacityReturnsFalse)
+TEST(Small_SpscRing, SpscRingPushBeyondCapacityReturnsFalse)
 {
     SushiDSP::SpscRing<int> ring(2);
 
@@ -63,67 +106,34 @@ TEST(Medium_SpscRing, SpscRingPushBeyondCapacityReturnsFalse)
     EXPECT_FALSE(ring.push(3));
 }
 
-TEST(Medium_SpscRing, SpscRingPreservesFifoOrder)
+class Small_SpscRingOrder : public ::testing::TestWithParam<CountRow>
+{
+};
+
+TEST_P(Small_SpscRingOrder, SpscRingPreservesFifoOrder)
 {
     SushiDSP::SpscRing<int> ring(4);
+    const std::vector<int> pushed = sequence(GetParam().count);
 
-    ring.push(1);
-    ring.push(2);
-    ring.push(3);
+    push_all(ring, pushed);
 
-    int a = 0, b = 0, c = 0;
-    ring.pop(a);
-    ring.pop(b);
-    ring.pop(c);
-
-    EXPECT_EQ(a, 1);
-    EXPECT_EQ(b, 2);
-    EXPECT_EQ(c, 3);
+    EXPECT_EQ(pop_all(ring, GetParam().count), pushed);
 }
+
+INSTANTIATE_TEST_SUITE_P(Fill, Small_SpscRingOrder, ::testing::ValuesIn(kCounts),
+                         [](const ::testing::TestParamInfo<CountRow>& info) { return std::string(info.param.name); });
 
 TEST(Medium_SpscRing, SpscRingConcurrentProducerConsumerDeliversAllValuesInOrder)
 {
-    constexpr int total = 100000;
+    constexpr int K_TOTAL = 100000;
     SushiDSP::SpscRing<int> ring(64);
-
+    const std::vector<int> expected = sequence(K_TOTAL);
     std::vector<int> consumed;
-    consumed.reserve(total);
 
-    std::thread producer(
-        [&ring, total]()
-        {
-            for (int i = 0; i < total; ++i)
-            {
-                while (!ring.push(i))
-                {
-                    std::this_thread::yield();
-                }
-            }
-        });
-
-    std::thread consumer(
-        [&ring, &consumed, total]()
-        {
-            int value = 0;
-            while (static_cast<int>(consumed.size()) < total)
-            {
-                if (ring.pop(value))
-                {
-                    consumed.push_back(value);
-                }
-                else
-                {
-                    std::this_thread::yield();
-                }
-            }
-        });
-
+    std::thread producer(push_all, std::ref(ring), std::cref(expected));
+    std::thread consumer([&ring, &consumed]() { consumed = pop_all(ring, K_TOTAL); });
     producer.join();
     consumer.join();
 
-    ASSERT_EQ(static_cast<int>(consumed.size()), total);
-    for (int i = 0; i < total; ++i)
-    {
-        ASSERT_EQ(consumed[static_cast<std::size_t>(i)], i) << "mismatch at index " << i;
-    }
+    EXPECT_EQ(consumed, expected);
 }

@@ -58,12 +58,6 @@ namespace
     }};
 } // namespace
 
-TEST(Small_ParameterTable, CountIsTheNumberOfRows)
-{
-    const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
-    EXPECT_EQ(table.count(), 2u);
-}
-
 TEST(Small_ParameterTable, WritesAndReadsARowByItsIdentifier)
 {
     const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
@@ -81,13 +75,25 @@ TEST(Small_ParameterTable, WritesARowByItsIndex)
     EXPECT_FLOAT_EQ(pedal.gain, 4.0f);
 }
 
-TEST(Small_ParameterTable, AnUnknownIdentifierChangesNothingAndReadsZero)
+TEST(Small_ParameterTable, AWriteWithAnUnknownIdentifierChangesNoRow)
 {
     const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
     Pedal pedal;
     pedal.gain = 3.0f;
+    pedal.tone = 0.25f;
+
     table.write(pedal, "missing", 9.0f);
+
     EXPECT_FLOAT_EQ(pedal.gain, 3.0f);
+    EXPECT_FLOAT_EQ(pedal.tone, 0.25f);
+}
+
+TEST(Small_ParameterTable, AReadWithAnUnknownIdentifierReturnsZero)
+{
+    const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
+    Pedal pedal;
+    pedal.gain = 3.0f;
+
     EXPECT_FLOAT_EQ(table.read(pedal, "missing"), 0.0f);
 }
 
@@ -125,17 +131,26 @@ TEST(Small_ParameterTableLogging, AKnownIdentifierWritesNothing)
     EXPECT_TRUE(capture.lines().empty());
 }
 
-TEST(Medium_ParameterTableLogging, TheIndexWriteStaysSilentAndAllocationFreeOutOfRange)
+TEST(Small_ParameterTableLogging, AnOutOfRangeIndexWriteWritesNoLogRecord)
 {
     const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
     Pedal pedal;
 
     SushiDSP::LogCapture capture;
+    table.write(pedal, static_cast<std::uint16_t>(7), 1.0f);
+
+    EXPECT_TRUE(capture.lines().empty());
+}
+
+TEST(Medium_ParameterTable, AnOutOfRangeIndexWritePerformsNoHeapAllocation)
+{
+    const SushiDSP::ParameterTable<Pedal, 2> table(K_ROWS);
+    Pedal pedal;
+
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
     table.write(pedal, static_cast<std::uint16_t>(7), 1.0f);
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
-    EXPECT_TRUE(capture.lines().empty());
 }

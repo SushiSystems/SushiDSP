@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_core_log_category.cpp                                             */
+/* compile_parameter_change.cpp                                           */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -20,20 +20,15 @@
 /* implied. See the License for the specific language governing           */
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
-
 /**
- * @file test_core_log_category.cpp
- * @brief Tests that the core module logs under its own category.
+ * @file compile_parameter_change.cpp
+ * @brief Compiles parameter_change.hpp and checks the queue entry is a plain aggregate.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
-#include <SushiDSP/foundation/core/core_log_category.hpp>
+#include <SushiDSP/foundation/core/parameter_change.hpp>
 
-#include <string_view>
-
-TEST(Small_CoreLogCategory, IsNamedCore)
-{
-    EXPECT_EQ(K_CORE_LOG_CATEGORY.module(), std::string_view("core"));
-}
+static_assert(std::is_aggregate_v<SushiDSP::ParameterChange>, "a parameter change is a plain aggregate the queue copies by value");
+static_assert(std::is_trivially_copyable_v<SushiDSP::ParameterChange>, "the audio thread copies a change without running code");

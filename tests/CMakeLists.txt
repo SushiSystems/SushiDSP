@@ -37,7 +37,7 @@ add_executable(sushidsp_tests
     applications/host_gui/test_session_renderer.cpp
     foundation/benchmark_harness/test_profiled_node.cpp
     foundation/core/test_core_counter_report.cpp
-    foundation/core/test_core_log_category.cpp
+    foundation/core/compile_core_log_category.cpp
     foundation/core/test_counter_poll_thread.cpp
     foundation/core/test_node_counters.cpp
     foundation/core/test_parameter_report.cpp
@@ -123,10 +123,10 @@ add_executable(sushidsp_tests
     foundation/core/test_cabinet_host.cpp
     foundation/core/test_in_memory_cabinet_host.cpp
     foundation/core/test_calibration.cpp
-    foundation/core/test_node_descriptor.cpp
-    foundation/core/test_parameter_change.cpp
+    foundation/core/compile_node_descriptor.cpp
+    foundation/core/compile_parameter_change.cpp
     foundation/core/test_parameter_table.cpp
-    foundation/core/test_port_layout.cpp
+    foundation/core/compile_port_layout.cpp
     # --- Unit tests written for the units that had none ---
     foundation/log/test_log.cpp
     foundation/log_capture/test_log_capture.cpp

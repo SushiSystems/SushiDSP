@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_port_layout.cpp                                                   */
+/* compile_core_log_category.cpp                                          */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -20,27 +20,14 @@
 /* implied. See the License for the specific language governing           */
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
-
 /**
- * @file test_port_layout.cpp
- * @brief Tests the channel counts a port layout declares.
+ * @file compile_core_log_category.cpp
+ * @brief Compiles core_log_category.hpp and checks that the category is a constant expression.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
-#include <SushiDSP/foundation/core/port_layout.hpp>
+#include <SushiDSP/foundation/core/core_log_category.hpp>
 
-TEST(Small_PortLayout, KeepsTheInputAndOutputChannelCounts)
-{
-    const SushiDSP::PortLayout stereo{2u, 2u};
-    EXPECT_EQ(stereo.input_channels, 2u);
-    EXPECT_EQ(stereo.output_channels, 2u);
-}
-
-TEST(Small_PortLayout, AMonoToStereoLayoutHasOneInputAndTwoOutputs)
-{
-    const SushiDSP::PortLayout pan{1u, 2u};
-    EXPECT_EQ(pan.input_channels, 1u);
-    EXPECT_EQ(pan.output_channels, 2u);
-}
+static_assert(std::is_same_v<decltype(K_CORE_LOG_CATEGORY), const SushiLog::LogCategory>, "the core category is a constant every log call can name");

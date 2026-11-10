@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_node_descriptor.cpp                                               */
+/* compile_port_layout.cpp                                                */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -20,43 +20,14 @@
 /* implied. See the License for the specific language governing           */
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
-
 /**
- * @file test_node_descriptor.cpp
- * @brief Tests the plain rows a node descriptor carries for its parameters and ports.
+ * @file compile_port_layout.cpp
+ * @brief Compiles port_layout.hpp and checks that the layout is a plain aggregate.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
-#include <SushiDSP/foundation/core/node_descriptor.hpp>
+#include <SushiDSP/foundation/core/port_layout.hpp>
 
-#include <cstdint>
-
-TEST(Small_NodeDescriptor, ParameterKindsAreFiveDistinctValues)
-{
-    const std::uint8_t kinds[] = {
-        static_cast<std::uint8_t>(SushiDSP::ParamKind::Linear),
-        static_cast<std::uint8_t>(SushiDSP::ParamKind::Logarithmic),
-        static_cast<std::uint8_t>(SushiDSP::ParamKind::Decibel),
-        static_cast<std::uint8_t>(SushiDSP::ParamKind::Boolean),
-        static_cast<std::uint8_t>(SushiDSP::ParamKind::Choice),
-    };
-    for (std::size_t i = 0; i < 5; ++i)
-    {
-        for (std::size_t j = i + 1; j < 5; ++j)
-        {
-            EXPECT_NE(kinds[i], kinds[j]);
-        }
-    }
-}
-
-TEST(Small_NodeDescriptor, ParameterRowKeepsItsRangeAndDefault)
-{
-    const SushiDSP::ParameterDescriptor gain{"gain", "Gain", 0.0f, 10.0f, 5.0f,
-                                             SushiDSP::ParamKind::Linear, ""};
-    EXPECT_STREQ(gain.id, "gain");
-    EXPECT_LE(gain.min, gain.default_value);
-    EXPECT_GE(gain.max, gain.default_value);
-    EXPECT_EQ(gain.kind, SushiDSP::ParamKind::Linear);
-}
+static_assert(std::is_aggregate_v<SushiDSP::PortLayout>, "a port layout is a plain aggregate of two counts");

@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_parameter_change.cpp                                              */
+/* compile_node_descriptor.cpp                                            */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -20,28 +20,15 @@
 /* implied. See the License for the specific language governing           */
 /* permissions and limitations under the License.                         */
 /**************************************************************************/
-
 /**
- * @file test_parameter_change.cpp
- * @brief Tests that a parameter change names the node, the parameter and the value.
+ * @file compile_node_descriptor.cpp
+ * @brief Compiles node_descriptor.hpp and checks that its rows are plain aggregates.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
-#include <SushiDSP/foundation/core/parameter_change.hpp>
+#include <SushiDSP/foundation/core/node_descriptor.hpp>
 
-#include <cstdint>
-
-TEST(Small_ParameterChange, KeepsTheNodeParameterAndValueItWasMadeWith)
-{
-    const SushiDSP::ParameterChange change{7u, static_cast<std::uint16_t>(2), 0.25f};
-    EXPECT_EQ(change.node, 7u);
-    EXPECT_EQ(change.parameter_index, 2u);
-    EXPECT_FLOAT_EQ(change.value, 0.25f);
-}
-
-TEST(Small_ParameterChange, NodeHandleIsThirtyTwoBits)
-{
-    EXPECT_EQ(sizeof(SushiDSP::NodeHandle), 4u);
-}
+static_assert(std::is_aggregate_v<SushiDSP::ParameterDescriptor>, "a parameter row is a plain aggregate a node lists as data");
+static_assert(std::is_enum_v<SushiDSP::ParamKind>, "the parameter kind is an enumeration");

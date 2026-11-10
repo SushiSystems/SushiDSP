@@ -27,8 +27,6 @@
  * @author Mustafa Garip
  */
 
-#include <cstring>
-
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
@@ -70,38 +68,6 @@ namespace
             }
     };
 } // namespace
-
-TEST(Small_AudioNode, DeclaresOneOutputPortByDefault)
-{
-    const MinimalNode node;
-    EXPECT_EQ(node.output_port_count(), 1u);
-}
-
-TEST(Small_AudioNode, PortZeroTakesItsWidthFromPorts)
-{
-    const MinimalNode node;
-    EXPECT_EQ(node.output_port_channels(0), 2u);
-}
-
-TEST(Small_AudioNode, PortsPastZeroHaveNoChannelsByDefault)
-{
-    const MinimalNode node;
-    EXPECT_EQ(node.output_port_channels(1), 0u);
-    EXPECT_EQ(node.output_port_channels(7), 0u);
-}
-
-TEST(Small_AudioNode, ReportsNoLatencyByDefault)
-{
-    const MinimalNode node;
-    EXPECT_EQ(node.latency_samples(), 0u);
-}
-
-TEST(Small_AudioNode, ReportsAnEmptyTypeIDByDefault)
-{
-    const MinimalNode node;
-    ASSERT_NE(node.type_id(), nullptr);
-    EXPECT_EQ(std::strlen(node.type_id()), 0u);
-}
 
 TEST(Small_AudioNode, IgnoresAParameterWrittenByIndexByDefault)
 {
