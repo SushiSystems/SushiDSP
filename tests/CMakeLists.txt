@@ -36,7 +36,6 @@ add_executable(sushidsp_tests
     # --- Profiler and logging adoption ---
     applications/host_gui/test_session_renderer.cpp
     foundation/benchmark_harness/test_profiled_node.cpp
-    foundation/circuits/test_circuits_log_category.cpp
     foundation/core/test_core_counter_report.cpp
     foundation/core/test_core_log_category.cpp
     foundation/core/test_counter_poll_thread.cpp
@@ -192,6 +191,7 @@ add_executable(sushidsp_tests
     foundation/circuits/test_graphic_equalizer.cpp
     foundation/circuits/test_fmv_tone_stack.cpp
     foundation/circuits/stages/compile_grid_conduction_law.cpp
+    foundation/circuits/compile_circuits_log_category.cpp
     foundation/circuits/stages/test_long_tailed_pair.cpp
     foundation/circuits/test_power_amp_feedback.cpp
     foundation/circuits/stages/test_miller_input_capacitance.cpp

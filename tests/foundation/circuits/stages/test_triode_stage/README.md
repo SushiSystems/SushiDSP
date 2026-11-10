@@ -82,7 +82,7 @@ cathode, gain 60, with a 194 / 115 V plate swing.
 Below the cathode the Norman law's current is nanoamperes, so the grid sits on the Rg / (Rs +
 Rg) divider of the input: 3 V in is 2.9703 V of excursion.
 
-### `TriodeStageGridConductsOnTheNormanLaw`
+### `GridRootIsTheRootOfTheNormanNodeEquation`
 
 `// The root is checked against an independent bisection.`
 
@@ -91,7 +91,7 @@ bisection at three inputs: below the 0.5 V knee, on it, and well past it, where 
 slope of 150 kOhm against the 10 kOhm source pulls the grid 0.45 V off the divider (8 V in:
 7.554 V of excursion against 7.921 V linear).
 
-### `TriodeStagePlateSwingBoundsBothSidesAsymmetrically`
+### `PlateSettlesToTheBoundedLinearAnswerInsideItsHeadroom`
 
 `// The two sides differ by the swing alone.`
 
@@ -137,7 +137,7 @@ Over an input interval the divided difference of G equals the mean of the compos
 checked against Simpson's rule on the bisected transfer for intervals that sit inside the knee,
 cross it, and cross both plate ceilings.
 
-### `AntiderivativeAntialiaserIsContinuousWhereConsecutiveSamplesNearlyCoincide`
+### `AntiderivativeAntialiaserRepeatedExcursionReturnsThePlateBound`, `AntiderivativeAntialiaserSamplesOneUlpApartReturnThePlateBound` and `AntiderivativeAntialiaserOutputIsContinuousAcrossTheFallbackThreshold`
 
 `// Near-equal samples fall back to the midpoint transfer.`
 
@@ -145,13 +145,6 @@ The divided difference loses its precision as g(u1) - g(u0) shrinks, so under
 K_MINIMUM_INPUT_DIFFERENCE_VOLTS it gives way to the transfer at the midpoint. Two identical samples
 and two a float ulp apart must return the plate bound, and sweeping the difference through the
 threshold must leave no step larger than the float output's own quantisation.
-
-### `AntiderivativeAntialiaserResetDropsItsPreviousSample`
-
-`// The first sample after reset() is the plain transfer.`
-
-Without a previous sample there is no interval to average over, so the first sample after
-reset() is the plain transfer at that excursion; the stages lean on that to restart click-free.
 
 ### `TriodeStageOutputIsTheAntialiaserOfItsOwnGridSolve`
 

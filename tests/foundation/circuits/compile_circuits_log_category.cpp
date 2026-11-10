@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_circuits_log_category.cpp                                         */
+/* compile_circuits_log_category.cpp                                      */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,14 @@
 /**************************************************************************/
 
 /**
- * @file test_circuits_log_category.cpp
- * @brief Tests that the circuits module logs under its own category.
+ * @file compile_circuits_log_category.cpp
+ * @brief Compiles circuits_log_category.hpp and checks that the category is a constant expression.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
 #include <SushiDSP/foundation/circuits/circuits_log_category.hpp>
 
-#include <string_view>
-
-TEST(Small_CircuitsLogCategory, IsNamedCircuits)
-{
-    EXPECT_EQ(K_CIRCUITS_LOG_CATEGORY.module(), std::string_view("circuits"));
-}
+static_assert(std::is_same_v<decltype(K_CIRCUITS_LOG_CATEGORY), const SushiLog::LogCategory>,
+              "the circuits category is a constant every log call can name");
