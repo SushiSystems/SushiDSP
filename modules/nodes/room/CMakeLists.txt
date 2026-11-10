@@ -23,6 +23,7 @@ add_library(room STATIC
     source/late_reverb.cpp
     source/modal_bank.cpp
     source/spherical_head_hrtf.cpp
+    source/spherical_head_cache.cpp
     source/hrtf_set_loader.cpp
     source/binaural_decoder.cpp
     source/eyring_decay.cpp
